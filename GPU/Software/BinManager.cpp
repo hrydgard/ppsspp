@@ -242,7 +242,7 @@ bool BinManager::HasTextureWrite(const RasterizerState &state) {
 	if (!state.enableTextures)
 		return false;
 
-	const int textureBits = textureBitsPerPixel[state.samplerID.texfmt];
+	const uint8_t textureBits = textureBitsPerPixel[state.samplerID.texfmt];
 	for (int i = 0; i <= state.maxTexLevel; ++i) {
 		int byteStride = (state.texbufw[i] * textureBits) / 8;
 		int byteWidth = (state.samplerID.cached.sizes[i].w * textureBits) / 8;

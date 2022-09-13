@@ -644,6 +644,9 @@ retry_depth:
 
 void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps) {
 	if (skipGLCalls) {
+		if (keepSteps) {
+			return;
+		}
 		// Dry run
 		for (size_t i = 0; i < steps.size(); i++) {
 			const GLRStep &step = *steps[i];

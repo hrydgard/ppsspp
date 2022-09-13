@@ -493,17 +493,16 @@ ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 		}
 
 		output = ovrMatrix4f_CreateFromQuaternion(&invView.orientation);
-		float scale = (float)VR_GetConfig(VR_CONFIG_6DOF_SCALE) * 0.001f;
+		float scale = (float)VR_GetConfig(VR_CONFIG_6DOF_SCALE) * 0.000001f;
 		if (vrConfig[VR_CONFIG_6DOF_ENABLED]) {
 			output.M[0][3] -= hmdposition.x * (vrConfig[VR_CONFIG_MIRROR_AXIS_X] ? -1.0f : 1.0f) * scale;
 			output.M[1][3] -= hmdposition.y * (vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1.0f : 1.0f) * scale;
 			output.M[2][3] -= hmdposition.z * (vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1.0f : 1.0f) * scale;
 		}
-		if (matrix == VR_VIEW_MATRIX_RIGHT_EYE) {
-			float ipdScale = (float)vrConfig[VR_CONFIG_STEREO_SEPARATION] * 0.1f * scale;
-			output.M[0][3] += (invViewTransform[1].position.x - invViewTransform[0].position.x) * ipdScale;
-			output.M[1][3] += (invViewTransform[1].position.y - invViewTransform[0].position.y) * ipdScale;
-			output.M[2][3] += (invViewTransform[1].position.z - invViewTransform[0].position.z) * ipdScale;
+		if (vrConfig[VR_CONFIG_6DOF_PRECISE] && (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
+			output.M[0][3] += (invViewTransform[1].position.x - invViewTransform[0].position.x) * scale;
+			output.M[1][3] += (invViewTransform[1].position.y - invViewTransform[0].position.y) * scale;
+			output.M[2][3] += (invViewTransform[1].position.z - invViewTransform[0].position.z) * scale;
 		}
 	} else {
 		assert(false);

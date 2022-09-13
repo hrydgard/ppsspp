@@ -246,7 +246,7 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 	auto loadPtrs = [&](bool level1) {
 		X64Reg bufwReg = regCache_.Alloc(RegCache::GEN_ARG_BUFW);
 		X64Reg bufwPtrReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
-		MOV(32, R(bufwReg), MDisp(bufwPtrReg, level1 ? 4 : 0));
+		MOVZX(32, 16, bufwReg, MDisp(bufwPtrReg, level1 ? 2 : 0));
 		regCache_.Unlock(bufwPtrReg, RegCache::GEN_ARG_BUFW_PTR);
 		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
 		regCache_.ForceRetain(RegCache::GEN_ARG_BUFW);
@@ -713,7 +713,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR_PTR);
 		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
 		ADD(64, R(srcArgReg), MDisp(srcReg, level1 ? 8 : 0));
-		MOV(32, R(bufwArgReg), MDisp(bufwReg, level1 ? 4 : 0));
+		MOVZX(32, 16, bufwArgReg, MDisp(bufwReg, level1 ? 2 : 0));
 		// Leave level/levelFrac, we just always load from RAM on Windows and lock on POSIX.
 		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR_PTR);
 		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
@@ -2995,12 +2995,13 @@ bool SamplerJitCache::Jit_PrepareDataDirectOffsets(const SamplerID &id, RegCache
 	if (!id.useStandardBufw || id.hasAnyMips) {
 		// Spread bufw into each lane.
 		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
-		if (cpu_info.bAVX2) {
-			VPBROADCASTD(128, bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
+		if (cpu_info.bSSE4_1) {
+			PMOVZXWD(bufwVecReg, MDisp(bufwReg, level1 ? 2 : 0));
 		} else {
-			MOVD_xmm(bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
-			PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
+			PXOR(bufwVecReg, R(bufwVecReg));
+			PINSRW(bufwVecReg, MDisp(bufwReg, level1 ? 2 : 0), 0);
 		}
+		PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
 		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
 
 		if (bitsPerTexel == 4)
@@ -3070,12 +3071,13 @@ bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, RegCac
 	if (!id.useStandardBufw || id.hasAnyMips) {
 		// Spread bufw into each lane.
 		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
-		if (cpu_info.bAVX2) {
-			VPBROADCASTD(128, bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
+		if (cpu_info.bSSE4_1) {
+			PMOVZXWD(bufwVecReg, MDisp(bufwReg, level1 ? 2 : 0));
 		} else {
-			MOVD_xmm(bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
-			PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
+			PXOR(bufwVecReg, R(bufwVecReg));
+			PINSRW(bufwVecReg, MDisp(bufwReg, level1 ? 2 : 0), 0);
 		}
+		PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
 		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
 	}
 
@@ -3162,12 +3164,13 @@ bool SamplerJitCache::Jit_PrepareDataDXTOffsets(const SamplerID &id, Rasterizer:
 	if (!id.useStandardBufw || id.hasAnyMips) {
 		// Spread bufw into each lane.
 		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
-		if (cpu_info.bAVX2) {
-			VPBROADCASTD(128, bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
+		if (cpu_info.bSSE4_1) {
+			PMOVZXWD(bufwVecReg, MDisp(bufwReg, level1 ? 2 : 0));
 		} else {
-			MOVD_xmm(bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
-			PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
+			PXOR(bufwVecReg, R(bufwVecReg));
+			PINSRW(bufwVecReg, MDisp(bufwReg, level1 ? 2 : 0), 0);
 		}
+		PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
 		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
 
 		// Divide by 4 before the multiply.

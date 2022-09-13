@@ -68,7 +68,7 @@ ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const
 	ClutTexture *tex = new ClutTexture();
 
 	Draw::TextureDesc desc{};
-	desc.width = maxClutEntries;
+	desc.width = 512;  // We always use 512-sized textures here for simplicity, though the most common is that only up to 256 entries are used.
 	desc.height = 1;
 	desc.depth = 1;
 	desc.mipLevels = 1;

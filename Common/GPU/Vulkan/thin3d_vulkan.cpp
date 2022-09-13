@@ -1086,7 +1086,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	_dbg_assert_((int)input->attributes.size() == (int)input->visc.vertexAttributeDescriptionCount);
 
 	gDesc.ibd = input->bindings[0];
-	for (int i = 0; i < input->attributes.size(); i++) {
+	for (size_t i = 0; i < input->attributes.size(); i++) {
 		gDesc.attrs[i] = input->attributes[i];
 	}
 	gDesc.vis.vertexAttributeDescriptionCount = input->visc.vertexAttributeDescriptionCount;

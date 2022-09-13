@@ -164,6 +164,15 @@ public:
 
 	TransformUnit transformUnit;
 
+#if PPSSPP_ARCH(32BIT)
+	void *operator new(size_t s) {
+		return AllocateAlignedMemory(s, 16);
+	}
+	void operator delete(void *p) {
+		FreeAlignedMemory(p);
+	}
+#endif
+
 protected:
 	bool UpdateUseHWTessellation(bool enable) override { return false; }
 };

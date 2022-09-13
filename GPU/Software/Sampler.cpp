@@ -38,8 +38,8 @@ using namespace Rasterizer;
 
 namespace Sampler {
 
-static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac, const SamplerID &samplerID);
-static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac, const SamplerID &samplerID);
+static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int level, int levelFrac, const SamplerID &samplerID);
+static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int level, int levelFrac, const SamplerID &samplerID);
 static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level, const SamplerID &samplerID);
 
 std::mutex jitCacheLock;
@@ -281,7 +281,7 @@ struct Nearest4 {
 };
 
 template <int N>
-inline static Nearest4 SOFTRAST_CALL SampleNearest(const int u[N], const int v[N], const u8 *srcptr, int texbufw, int level, const SamplerID &samplerID) {
+inline static Nearest4 SOFTRAST_CALL SampleNearest(const int u[N], const int v[N], const u8 *srcptr, uint16_t texbufw, int level, const SamplerID &samplerID) {
 	Nearest4 res;
 	if (!srcptr) {
 		memset(res.v, 0, sizeof(res.v));
@@ -535,7 +535,7 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 	return ToVec4IntResult(Vec4<int>(out_rgb, out_a));
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac, const SamplerID &samplerID) {
+static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int level, int levelFrac, const SamplerID &samplerID) {
 	int u, v;
 
 	// Nearest filtering only.  Round texcoords.
@@ -631,7 +631,7 @@ static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadT(int level, fl
 	return ApplyTexelClampQuadT(samplerID.clampT, base_v, height);
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, int x, int y, const u8 *const *tptr, const int *bufw, int texlevel, const SamplerID &samplerID) {
+static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, int x, int y, const u8 *const *tptr, const uint16_t *bufw, int texlevel, const SamplerID &samplerID) {
 	int frac_u, frac_v;
 	const Vec4<int> u = GetTexelCoordinatesQuadS(texlevel, s, frac_u, x, samplerID);
 	const Vec4<int> v = GetTexelCoordinatesQuadT(texlevel, t, frac_v, y, samplerID);
@@ -646,7 +646,7 @@ static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, int x, in
 	return ToVec4IntResult((top * (0x10 - frac_v) + bot * frac_v) / (16 * 16));
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int texlevel, int levelFrac, const SamplerID &samplerID) {
+static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int texlevel, int levelFrac, const SamplerID &samplerID) {
 	Vec4<int> c0 = SampleLinearLevel(s, t, x, y, tptr, bufw, texlevel, samplerID);
 	if (levelFrac) {
 		const Vec4<int> c1 = SampleLinearLevel(s, t, x, y, tptr + 1, bufw + 1, texlevel + 1, samplerID);
