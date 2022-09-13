@@ -251,7 +251,7 @@ private:
 			return nullptr;
 		}
 		const auto recentIsos = g_Config.RecentIsos();
-		if (index >= recentIsos.size())
+		if (index >= (int)recentIsos.size())
 			return nullptr;
 		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GAMEINFO_WANTBG);
 	}

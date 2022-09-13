@@ -47,12 +47,12 @@ struct TinySet {
 		size_t otherSize = other.size();
 		if (size() + otherSize <= MaxFastSize) {
 			// Fast case
-			for (int i = 0; i < otherSize; i++) {
+			for (size_t i = 0; i < otherSize; i++) {
 				fastLookup_[fastCount + i] = other.fastLookup_[i];
 			}
 			fastCount += other.fastCount;
 		} else {
-			for (int i = 0; i < otherSize; i++) {
+			for (size_t i = 0; i < otherSize; i++) {
 				push_back(other[i]);
 			}
 		}

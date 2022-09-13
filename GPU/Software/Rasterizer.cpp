@@ -78,14 +78,6 @@ static inline Vec3<int> Interpolate(const Vec3<int> &c0, const Vec3<int> &c1, co
 #endif
 }
 
-static inline Vec2<float> Interpolate(const Vec2<float> &c0, const Vec2<float> &c1, const Vec2<float> &c2, int w0, int w1, int w2, float wsum) {
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	return Vec2<float>(Interpolate(c0.vec, c1.vec, c2.vec, w0, w1, w2, wsum));
-#else
-	return (c0 * w0 + c1 * w1 + c2 * w2) * wsum;
-#endif
-}
-
 static inline Vec4<float> Interpolate(const float &c0, const float &c1, const float &c2, const Vec4<float> &w0, const Vec4<float> &w1, const Vec4<float> &w2, const Vec4<float> &wsum_recip) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	__m128 v = _mm_mul_ps(w0.vec, _mm_set1_ps(c0));
@@ -124,7 +116,7 @@ void ComputeRasterizerState(RasterizerState *state, bool throughMode) {
 		for (uint8_t i = 0; i <= state->maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
 			state->texaddr[i] = texaddr;
-			state->texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
+			state->texbufw[i] = (uint16_t)GetTextureBufw(i, texaddr, texfmt);
 			if (Memory::IsValidAddress(texaddr))
 				state->texptr[i] = Memory::GetPointerUnchecked(texaddr);
 			else
@@ -142,9 +134,6 @@ void ComputeRasterizerState(RasterizerState *state, bool throughMode) {
 	state->shadeGouraud = gstate.getShadeMode() == GE_SHADE_GOURAUD;
 	state->throughMode = throughMode;
 	state->antialiasLines = gstate.isAntiAliasEnabled();
-
-	state->screenOffsetX = gstate.getOffsetX16();
-	state->screenOffsetY = gstate.getOffsetY16();
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	DisplayList currentList{};
@@ -421,7 +410,7 @@ Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &sourc
 
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, int x, int y, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
 	const u8 **tptr0 = const_cast<const u8 **>(&state.texptr[texlevel]);
-	const int *bufw0 = &state.texbufw[texlevel];
+	const uint16_t *bufw0 = &state.texbufw[texlevel];
 
 	if (!bilinear) {
 		return state.nearest(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
@@ -1476,7 +1465,7 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 
 	GETextureFormat texfmt = gstate.getTextureFormat();
 	u32 texaddr = gstate.getTextureAddress(level);
-	int texbufw = GetTextureBufw(level, texaddr, texfmt);
+	u32 texbufw = GetTextureBufw(level, texaddr, texfmt);
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
