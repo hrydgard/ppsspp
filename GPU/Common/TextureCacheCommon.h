@@ -144,6 +144,8 @@ struct TexCacheEntry {
 		STATUS_FORCE_REBUILD = 0x2000,
 
 		STATUS_3D = 0x4000,
+
+		STATUS_CLUT_GPU = 0x8000,
 	};
 
 	// Status, but int so we can zero initialize.
@@ -352,6 +354,7 @@ protected:
 	void Decimate(bool forcePressure = false);
 
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel);
+	void ApplyTextureDepal(TexCacheEntry *entry);
 
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
@@ -479,6 +482,10 @@ protected:
 	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
 	bool clutAlphaLinear_ = false;
 	u16 clutAlphaLinearColor_;
+
+	// Facilities for GPU depal of static textures.
+	Draw::Framebuffer *dynamicClutFbo_ = nullptr;
+	Draw::Framebuffer *dynamicClutReinterpreted_ = nullptr;
 
 	int standardScaleFactor_;
 	int shaderScaleFactor_ = 0;

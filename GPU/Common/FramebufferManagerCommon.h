@@ -425,6 +425,14 @@ public:
 	Draw2DPipeline *Get2DPipeline(Draw2DShader shader);
 	Draw2DPipeline *GetReinterpretPipeline(GEBufferFormat from, GEBufferFormat to, float *scaleFactorX);
 
+	// Public to be used from the texture cache's depal shenanigans.
+	void BlitUsingRaster(
+		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
+		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
+		bool linearFilter,
+		int scaleFactor,  // usually unused, except for swizzle...
+		Draw2DPipeline *pipeline, const char *tag);
+
 protected:
 	virtual void PackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
 	void SetViewport2D(int x, int y, int w, int h);
@@ -441,13 +449,6 @@ protected:
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, RasterChannel channel, const char *tag);
-
-	void BlitUsingRaster(
-		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
-		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
-		bool linearFilter,
-		int scaleFactor,  // usually unused, except for swizzle...
-		Draw2DPipeline *pipeline, const char *tag);
 
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 

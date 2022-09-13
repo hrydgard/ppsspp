@@ -1923,7 +1923,6 @@ static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebuffe
 	return false;
 }
 
-
 void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel) {
 	Draw2DPipeline *textureShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
@@ -2073,6 +2072,126 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	}
 
 	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+	ApplySamplingParams(samplerKey);
+
+	// Since we started/ended render passes, might need these.
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+}
+
+void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
+	Draw2DPipeline *textureShader = nullptr;
+	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
+
+	switch (entry->format) {
+	case GE_TFMT_CLUT4:
+	case GE_TFMT_CLUT8:
+		break; // These are OK
+	default:
+		_dbg_assert_(false);
+		return;
+	}
+
+	// Create GPU resources.
+	if (!dynamicClutFbo_) {
+		Draw::FramebufferDesc desc{};
+		desc.width = 512;
+		desc.height = 1;
+		desc.depth = 1;
+		desc.z_stencil = false;
+		desc.numColorAttachments = 1;
+		dynamicClutFbo_ = draw_->CreateFramebuffer(desc);
+		dynamicClutReinterpreted_ = draw_->CreateFramebuffer(desc);
+	}
+
+	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+	u32 depthUpperBits = 0;
+
+	// The CLUT texture is dynamic, it's the framebuffer pointed to by clutRenderAddress.
+	// Instead of texturing directly from that, we copy to a temporary CLUT texture.
+	GEBufferFormat expectedCLUTBufferFormat = (GEBufferFormat)clutFormat;  // All entries from clutFormat correspond directly to buffer formats.
+
+	VirtualFramebuffer *src = framebufferManager_->GetVFBAt(clutRenderAddress_);
+	if (!src) {
+		// What do we do?
+		return;
+	}
+
+	Draw::Framebuffer *clutFbo = dynamicClutFbo_;
+
+	// First we use a blit (with nearest interpolation, so we don't mash pixels together)
+	// to shrink to the correct size, if we are running with scaling.
+	// We can always blit 512 pixels even if we only need less, the cost will be negligible.
+	framebufferManager_->BlitUsingRaster(
+		src->fbo, 0.0f, 0.0f, 512.0f * src->renderScaleFactor, 1.0f, dynamicClutFbo_, 0.0f, 0.0f, 512.0f, 1.0f, false, 1.0f, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR), "copy_clut");
+
+	// OK, figure out what format we want our framebuffer in, so it can be reinterpreted if needed.
+	if (expectedCLUTBufferFormat != src->fb_format) {
+		float scaleFactorX = 1.0f;
+		Draw2DPipeline *reinterpret = framebufferManager_->GetReinterpretPipeline(src->fb_format, expectedCLUTBufferFormat, &scaleFactorX);
+		framebufferManager_->BlitUsingRaster(
+			dynamicClutFbo_, 0.0f, 0.0f, 512.0f, 1.0f, dynamicClutReinterpreted_, 0.0f, 0.0f, 512.0f, 1.0f, false, 1.0f, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR), "copy_clut");
+		clutFbo = dynamicClutReinterpreted_;
+	}
+
+	textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, GE_TFMT_CLUT8, GE_FORMAT_CLUT8, false, 0);
+	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
+
+	int texWidth = gstate.getTextureWidth(0);
+	int texHeight = gstate.getTextureHeight(0);
+
+	// If min is not < max, then we don't have values (wasn't set during decode.)
+	const KnownVertexBounds &bounds = gstate_c.vertBounds;
+	float u1 = 0.0f;
+	float v1 = 0.0f;
+	float u2 = 1.0f;
+	float v2 = 1.0f;
+	if (bounds.minV < bounds.maxV) {
+		u1 = (bounds.minU + gstate_c.curTextureXOffset) * texWidth;
+		v1 = (bounds.minV + gstate_c.curTextureYOffset) * texHeight;
+		u2 = (bounds.maxU + gstate_c.curTextureXOffset) * texWidth;
+		v2 = (bounds.maxV + gstate_c.curTextureYOffset) * texHeight;
+		// We need to reapply the texture next time since we cropped UV.
+		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+	}
+
+	Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, texWidth, texHeight);
+	draw_->BindTexture(0, nullptr);
+	draw_->BindTexture(1, nullptr);
+	draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
+	draw_->InvalidateFramebuffer(Draw::FB_INVALIDATION_STORE, Draw::FB_DEPTH_BIT | Draw::FB_STENCIL_BIT);
+	draw_->SetScissorRect(u1, v1, u2 - u1, v2 - v1);
+	Draw::Viewport vp{ 0.0f, 0.0f, (float)texWidth, (float)texHeight, 0.0f, 1.0f };
+	draw_->SetViewports(1, &vp);
+
+	draw_->BindTexture(0, framebuffer->fbo);
+	draw_->BindFramebufferAsTexture(clutFbo, 1, Draw::FB_COLOR_BIT, 0);
+	Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
+	Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(false);
+	draw_->BindSamplerStates(0, 1, &nearest);
+	draw_->BindSamplerStates(1, 1, &clutSampler);
+
+	draw2D_->Blit(textureShader, u1, v1, u2, v2, u1, v1, u2, v2, texWidth, texHeight, texWidth, texHeight, false, 1);
+
+	gpuStats.numDepal++;
+
+	gstate_c.curTextureWidth = texWidth;
+
+	draw_->BindTexture(0, nullptr);
+	framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
+
+	draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
+	BoundFramebufferTexture();
+
+	const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
+	const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
+
+	CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
+	gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
+
+	draw_->InvalidateCachedState();
+	shaderManager_->DirtyLastShader();
+
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(texWidth, texHeight);
 	ApplySamplingParams(samplerKey);
 
 	// Since we started/ended render passes, might need these.
