@@ -278,20 +278,6 @@ enum GECommand {
 	GE_CMD_NOP_FF = 0xFF,
 };
 
-enum GEBufferFormat : uint8_t {
-	GE_FORMAT_565 = 0,
-	GE_FORMAT_5551 = 1,
-	GE_FORMAT_4444 = 2,
-	GE_FORMAT_8888 = 3,
-	GE_FORMAT_DEPTH16 = 4,  // Virtual format, just used to pass into Depal
-	GE_FORMAT_INVALID = 0xFF,
-};
-
-const char *GeBufferFormatToString(GEBufferFormat fmt);
-inline bool IsGeBufferFormat16BitColor(GEBufferFormat fmt) {
-	return (int)fmt < 3;
-}
-
 #define GE_VTYPE_TRANSFORM (0<<23)
 #define GE_VTYPE_THROUGH   (1<<23)
 #define GE_VTYPE_THROUGH_MASK (1<<23)
@@ -413,8 +399,10 @@ enum GELightComputation
 	GE_LIGHTCOMP_ONLYPOWDIFFUSE = 2,
 };
 
-enum GETextureFormat : uint8_t
-{
+// TODO: Consolidate the below three to one enum? The first four are the same in all,
+// and we sometimes need to interpret back and forth between them.
+
+enum GETextureFormat : uint8_t {
 	GE_TFMT_5650 = 0,
 	GE_TFMT_5551 = 1,
 	GE_TFMT_4444 = 2,
@@ -427,6 +415,32 @@ enum GETextureFormat : uint8_t
 	GE_TFMT_DXT3 = 9,
 	GE_TFMT_DXT5 = 10,
 };
+
+enum GEBufferFormat : uint8_t {
+	GE_FORMAT_565 = 0,
+	GE_FORMAT_5551 = 1,
+	GE_FORMAT_4444 = 2,
+	GE_FORMAT_8888 = 3,
+	GE_FORMAT_DEPTH16 = 4,  // Virtual format, just used to pass into Depal
+	GE_FORMAT_CLUT8 = 5,    // Virtual format, for pre-decoded static textures with dynamic CLUT
+	GE_FORMAT_INVALID = 0xFF,
+};
+
+enum GEPaletteFormat : uint8_t {
+	GE_CMODE_16BIT_BGR5650,
+	GE_CMODE_16BIT_ABGR5551,
+	GE_CMODE_16BIT_ABGR4444,
+	GE_CMODE_32BIT_ABGR8888,
+};
+
+const char *GEPaletteFormatToString(GEPaletteFormat pfmt);
+const char *GeTextureFormatToString(GETextureFormat tfmt);
+const char *GeTextureFormatToString(GETextureFormat tfmt, GEPaletteFormat pfmt);
+
+const char *GeBufferFormatToString(GEBufferFormat fmt);
+inline bool IsGeBufferFormat16BitColor(GEBufferFormat fmt) {
+	return (int)fmt < 3;
+}
 
 inline bool IsClutFormat(GETextureFormat tfmt) {
 	return tfmt == GE_TFMT_CLUT4 || tfmt == GE_TFMT_CLUT8 || tfmt == GE_TFMT_CLUT16 || tfmt == GE_TFMT_CLUT32;
@@ -445,7 +459,12 @@ inline bool IsTextureFormat16Bit(GETextureFormat tfmt) {
 }
 
 inline int BufferFormatBytesPerPixel(GEBufferFormat format) {
-	return format == GE_FORMAT_8888 ? 4 : 2;  // applies to depth as well.
+	switch (format) {
+	case GE_FORMAT_8888: return 4;  // applies to depth as well.
+	case GE_FORMAT_CLUT8: return 1;
+	default:
+		return 2;
+	}
 }
 
 inline bool TextureFormatMatchesBufferFormat(GETextureFormat fmt, GEBufferFormat bfmt) {
@@ -613,15 +632,3 @@ inline GEPrimitiveType PatchPrimToPrim(GEPatchPrimType type) {
 	case GE_PATCHPRIM_UNKNOWN: default: return GE_PRIM_POINTS; // Treated as points.
 	}
 }
-
-enum GEPaletteFormat
-{
-	GE_CMODE_16BIT_BGR5650,
-	GE_CMODE_16BIT_ABGR5551,
-	GE_CMODE_16BIT_ABGR4444,
-	GE_CMODE_32BIT_ABGR8888,
-};
-
-const char *GEPaletteFormatToString(GEPaletteFormat pfmt);
-const char *GeTextureFormatToString(GETextureFormat tfmt);
-const char *GeTextureFormatToString(GETextureFormat tfmt, GEPaletteFormat pfmt);
