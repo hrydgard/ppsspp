@@ -2163,7 +2163,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	Draw::Viewport vp{ 0.0f, 0.0f, (float)texWidth, (float)texHeight, 0.0f, 1.0f };
 	draw_->SetViewports(1, &vp);
 
-	draw_->BindTexture(0, framebuffer->fbo);
+	draw_->BindNativeTexture(0, framebuffer->fbo);
 	draw_->BindFramebufferAsTexture(clutFbo, 1, Draw::FB_COLOR_BIT, 0);
 	Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
 	Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(false);

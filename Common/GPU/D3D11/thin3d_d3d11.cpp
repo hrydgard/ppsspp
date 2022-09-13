@@ -105,6 +105,7 @@ public:
 	void InvalidateCachedState() override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindNativeTexture(int index, void *nativeTexture) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;
 	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override;
 	void BindIndexBuffer(Buffer *indexBuffer, int offset) override;
@@ -1387,6 +1388,12 @@ void D3D11DrawContext::BindTextures(int start, int count, Texture **textures) {
 		views[i] = tex ? tex->view : nullptr;
 	}
 	context_->PSSetShaderResources(start, count, views);
+}
+
+void D3D11DrawContext::BindNativeTexture(int index, void *nativeTexture) {
+	// Collect the resource views from the textures.
+	ID3D11ShaderResourceView *view = (ID3D11ShaderResourceView *)nativeTexture;
+	context_->PSSetShaderResources(index, 1, &view);
 }
 
 void D3D11DrawContext::BindSamplerStates(int start, int count, SamplerState **states) {

@@ -675,6 +675,13 @@ public:
 	virtual void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) = 0;
 	virtual void BindIndexBuffer(Buffer *indexBuffer, int offset) = 0;
 
+	// Sometimes it's necessary to bind a texture not created by thin3d, and use with a thin3d pipeline.
+	// Not pretty, and one way in the future could be to create all textures through thin3d.
+	// Data types:
+	// * Vulkan: VkImageView
+	// * D3D11: ID3D11ShaderResourceView*
+	virtual void BindNativeTexture(int sampler, void *nativeTexture) = 0;
+
 	// Only supports a single dynamic uniform buffer, for maximum compatibility with the old APIs and ease of emulation.
 	// More modern methods will be added later.
 	virtual void UpdateDynamicUniformBuffer(const void *ub, size_t size) = 0;

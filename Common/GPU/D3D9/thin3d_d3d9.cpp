@@ -521,6 +521,8 @@ public:
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindNativeTexture(int index, void *nativeTexture) override;
+
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
 		_assert_(start + count <= MAX_BOUND_TEXTURES);
 		for (int i = 0; i < count; ++i) {
@@ -812,6 +814,11 @@ void D3D9Context::BindTextures(int start, int count, Texture **textures) {
 			device_->SetTexture(i, nullptr);
 		}
 	}
+}
+
+void D3D9Context::BindNativeTexture(int index, void *nativeTexture) {
+	LPDIRECT3DTEXTURE9 texture = (LPDIRECT3DTEXTURE9)nativeTexture;
+	device_->SetTexture(index, texture);
 }
 
 void D3D9Context::EndFrame() {

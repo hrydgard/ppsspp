@@ -414,6 +414,7 @@ public:
 
 	void BindSamplerStates(int start, int count, SamplerState **state) override;
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindNativeTexture(int sampler, void *nativeTexture) override;
 
 	void BindPipeline(Pipeline *pipeline) override {
 		curPipeline_ = (VKPipeline *)pipeline;
@@ -1290,6 +1291,11 @@ void VKContext::BindTextures(int start, int count, Texture **textures) {
 		boundTextures_[i] = static_cast<VKTexture *>(textures[i - start]);
 		boundImageView_[i] = boundTextures_[i] ? boundTextures_[i]->GetImageView() : GetNullTexture()->GetImageView();
 	}
+}
+
+void VKContext::BindNativeTexture(int sampler, void *nativeTexture) {
+	boundTextures_[sampler] = nullptr;
+	boundImageView_[sampler] = (VkImageView)nativeTexture;
 }
 
 ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const char *tag) {
