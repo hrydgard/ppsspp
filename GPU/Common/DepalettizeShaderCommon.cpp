@@ -132,10 +132,7 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 		break;
 	}
 
-	float texturePixels = 256.0f;
-	if (config.clutFormat != GE_CMODE_32BIT_ABGR8888) {
-		texturePixels = 512.0f;
-	}
+	float texturePixels = 512.0f;
 
 	if (shift) {
 		writer.F("  index = (int(uint(index) >> uint(%d)) & 0x%02x)", shift, mask);
@@ -278,11 +275,9 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 		break;
 	}
 
-	float texturePixels = 256.f;
-	if (config.clutFormat != GE_CMODE_32BIT_ABGR8888) {
-		texturePixels = 512.f;
-		index_multiplier *= 0.5f;
-	}
+	// We always use 512-sized textures now.
+	float texturePixels = 512.f;
+	index_multiplier *= 0.5f;
 
 	// Adjust index_multiplier, similar to the use of 15.99 instead of 16 in the ES 3 path.
 	// index_multiplier -= 0.01f / texturePixels;
@@ -326,11 +321,7 @@ void GenerateDepalSmoothed(ShaderWriter &writer, const DepalConfig &config) {
 	}
 
 	writer.C("  float index = ").SampleTexture2D("tex", "v_texcoord").F(".%s * %0.1f;\n", sourceChannel, indexMultiplier);
-	float texturePixels = 256.f;
-	if (config.clutFormat != GE_CMODE_32BIT_ABGR8888) {
-		texturePixels = 512.f;
-	}
-
+	float texturePixels = 512.f;
 	writer.F("  float coord = (index + 0.5) * %f;\n", 1.0 / texturePixels);
 	writer.C("  vec4 outColor = ").SampleTexture2D("pal", "vec2(coord, 0.0)").C(";\n");
 }
