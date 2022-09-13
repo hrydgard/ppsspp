@@ -89,10 +89,10 @@ struct CompatFlags {
 	bool SplitFramebufferMargin;
 	bool ForceLowerResolutionForEffectsOn;
 	bool AllowDownloadCLUT;
-	bool VRSkyplane;
 };
 
 struct VRCompat {
+	bool Skyplane;
 	float UnitsPerMeter;
 };
 

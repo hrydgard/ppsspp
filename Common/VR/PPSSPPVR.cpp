@@ -301,7 +301,7 @@ bool PreVRRender() {
 		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) / 2);
 
 		// Set compatibility
-		vrCompat[VR_COMPAT_SKYPLANE] = PSP_CoreParameter().compat.flags().VRSkyplane;
+		vrCompat[VR_COMPAT_SKYPLANE] = PSP_CoreParameter().compat.vrCompat().Skyplane;
 
 		// Set customizations
 		VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
