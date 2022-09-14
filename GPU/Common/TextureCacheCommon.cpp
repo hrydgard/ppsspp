@@ -1190,29 +1190,40 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 	if (Memory::IsValidAddress(clutAddr)) {
 		if (Memory::IsVRAMAddress(clutAddr)) {
 			// Clear the uncached bit, etc. to match framebuffers.
-			const u32 clutFramebufAddr = clutAddr & 0x3FFFFFFF;
-			const u32 clutFramebufEnd = clutFramebufAddr + loadBytes;
+			const u32 clutLoadAddr = clutAddr & 0x3FFFFFFF;
+			const u32 clutLoadEnd = clutLoadAddr + loadBytes;
 			static const u32 MAX_CLUT_OFFSET = 4096;
 
 			clutRenderOffset_ = MAX_CLUT_OFFSET;
 			const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 			for (VirtualFramebuffer *framebuffer : framebuffers) {
 				const u32 fb_address = framebuffer->fb_address & 0x3FFFFFFF;
-				const u32 bpp = BufferFormatBytesPerPixel(framebuffer->fb_format);
-				u32 offset = clutFramebufAddr - fb_address;
+				const u32 fb_bpp = BufferFormatBytesPerPixel(framebuffer->fb_format);
+				int offset = clutLoadAddr - fb_address;
 
-				// Is this inside the framebuffer at all?
-				bool matchRange = fb_address + framebuffer->fb_stride * bpp > clutFramebufAddr && fb_address < clutFramebufEnd;
-				// And is it inside the rendered area?  Sometimes games pack data outside.
-				bool matchRegion = ((offset / bpp) % framebuffer->fb_stride) < framebuffer->width;
-				if (matchRange && matchRegion && offset < clutRenderOffset_) {
-					WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d", loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset);
-					framebuffer->last_frame_clut = gpuStats.numFlips;
-					framebuffer->usageFlags |= FB_USAGE_CLUT;
-					clutRenderAddress_ = framebuffer->fb_address;
-					clutRenderOffset_ = offset;
-					if (offset == 0) {
-						break;
+				// Is this inside the framebuffer at all? Note that we only check the first line here, this should
+				// be changed.
+				bool matchRange = offset >= 0 && offset < framebuffer->fb_stride * fb_bpp;
+				if (matchRange) {
+					// And is it inside the rendered area?  Sometimes games pack data in the margin between width and stride.
+					// If the framebuffer width was detected as 512, we're gonna assume it's really 480.
+					int fbMatchWidth = framebuffer->width;
+					if (fbMatchWidth == 512) {
+						fbMatchWidth = 480;
+					}
+					bool inMargin = ((offset / fb_bpp) % framebuffer->fb_stride) == fbMatchWidth;
+					if (matchRange && !inMargin && offset < clutRenderOffset_) {
+						WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d", loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset);
+						framebuffer->last_frame_clut = gpuStats.numFlips;
+						framebuffer->usageFlags |= FB_USAGE_CLUT;
+						clutRenderAddress_ = framebuffer->fb_address;
+						clutRenderOffset_ = offset;
+						if (offset == 0) {
+							break;
+						}
+
+						// TODO: Could automatically trigger the copy here and make it partial.
+						// That way, multiple partial copies would work. Though games don't really do that.
 					}
 				}
 			}
