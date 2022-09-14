@@ -381,6 +381,8 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	u32 cluthash;
 	if (hasClut) {
 		if (clutRenderAddress_ != 0xFFFFFFFF) {
+			gstate_c.curTextureXOffset = 0.0f;
+			gstate_c.curTextureYOffset = 0.0f;
 			hasClutGPU = true;
 			cluthash = 0;  // Or should we use some other marker value?
 		} else {
@@ -1491,12 +1493,28 @@ inline u32 TfmtRawToFullAlpha(GETextureFormat fmt) {
 	}
 }
 
+// Used for converting CLUT4 to CLUT8.
+// Could SIMD or whatever, though will hardly be a bottleneck.
+static void Expand4To8Bits(u8 *dest, const u8 *src, int srcWidth) {
+	for (int i = 0; i < (srcWidth + 1) / 2; i++) {
+		u8 lower = src[i] & 0xF;
+		u8 upper = src[i] >> 4;
+		dest[i * 2] = lower;
+		dest[i * 2 + 1] = upper;
+	}
+}
+
 CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, TexDecodeFlags flags) {
 	u32 alphaSum = 0xFFFFFFFF;
 	u32 fullAlphaMask = 0x0;
 
 	bool expandTo32bit = (flags & TexDecodeFlags::EXPAND32) != 0;
 	bool reverseColors = (flags & TexDecodeFlags::REVERSE_COLORS) != 0;
+	bool toClut8 = (flags & TexDecodeFlags::TO_CLUT8) != 0;
+
+	if (toClut8 && format != GE_TFMT_CLUT8 && format != GE_TFMT_CLUT4) {
+		_dbg_assert_(false);
+	}
 
 	bool swizzled = gstate.isTextureSwizzled();
 	if ((texaddr & 0x00600000) != 0 && Memory::IsVRAMAddress(texaddr)) {
@@ -1529,6 +1547,15 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 			tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
 			UnswizzleFromMem(tmpTexBuf32_.data(), bufw / 2, texptr, bufw, h, 0);
 			texptr = (u8 *)tmpTexBuf32_.data();
+		}
+
+		if (toClut8) {
+			// We just need to expand from 4 to 8 bits.
+			for (int y = 0; y < h; ++y) {
+				Expand4To8Bits((u8 *)out + outPitch * y, texptr + (bufw * y) / 2, w);
+			}
+			// We can't know anything about alpha.
+			return CHECKALPHA_ANY;
 		}
 
 		switch (clutformat) {
@@ -1593,6 +1620,19 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 	break;
 
 	case GE_TFMT_CLUT8:
+		if (toClut8) {
+			if (gstate.isTextureSwizzled()) {
+				tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
+				UnswizzleFromMem(tmpTexBuf32_.data(), bufw, texptr, bufw, h, 1);
+				texptr = (u8 *)tmpTexBuf32_.data();
+			}
+			// After deswizzling, we are in the correct format and can just copy.
+			for (int y = 0; y < h; ++y) {
+				memcpy((u8 *)out + outPitch * y, texptr + (bufw * y), w);
+			}
+			// We can't know anything about alpha.
+			return CHECKALPHA_ANY;
+		}
 		return ReadIndexedTex(out, outPitch, level, texptr, 1, bufw, reverseColors, expandTo32bit);
 
 	case GE_TFMT_CLUT16:
@@ -1878,10 +1918,18 @@ void TextureCacheCommon::ApplyTexture() {
 		InvalidateLastTexture();
 	}
 
-	entry->lastFrame = gpuStats.numFlips;
-	BindTexture(entry);
-	gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
-	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
+	if (entry->status & TexCacheEntry::STATUS_CLUT_GPU) {
+		// Special process.
+		ApplyTextureDepal(entry);
+		entry->lastFrame = gpuStats.numFlips;
+		gstate_c.SetTextureFullAlpha(false);
+		gstate_c.SetTextureIs3D(false);
+	} else {
+		entry->lastFrame = gpuStats.numFlips;
+		BindTexture(entry);
+		gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
+		gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
+	}
 }
 
 static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
@@ -2093,6 +2141,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 }
 
+// Applies depal to a normal (non-framebuffer) texture, pre-decoded to CLUT8 format.
 void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	Draw2DPipeline *textureShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
@@ -2114,6 +2163,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 		desc.depth = 1;
 		desc.z_stencil = false;
 		desc.numColorAttachments = 1;
+		desc.tag = "dynamic_clut";
 		dynamicClutFbo_ = draw_->CreateFramebuffer(desc);
 		dynamicClutReinterpreted_ = draw_->CreateFramebuffer(desc);
 	}
@@ -2144,7 +2194,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 		float scaleFactorX = 1.0f;
 		Draw2DPipeline *reinterpret = framebufferManager_->GetReinterpretPipeline(src->fb_format, expectedCLUTBufferFormat, &scaleFactorX);
 		framebufferManager_->BlitUsingRaster(
-			dynamicClutFbo_, 0.0f, 0.0f, 512.0f, 1.0f, dynamicClutReinterpreted_, 0.0f, 0.0f, 512.0f, 1.0f, false, 1.0f, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR), "copy_clut");
+			dynamicClutFbo_, 0.0f, 0.0f, 512.0f, 1.0f, dynamicClutReinterpreted_, 0.0f, 0.0f, scaleFactorX * 512.0f, 1.0f, false, 1.0f, reinterpret, "reinterpret_clut");
 		clutFbo = dynamicClutReinterpreted_;
 	}
 
@@ -2158,8 +2208,8 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	const KnownVertexBounds &bounds = gstate_c.vertBounds;
 	float u1 = 0.0f;
 	float v1 = 0.0f;
-	float u2 = 1.0f;
-	float v2 = 1.0f;
+	float u2 = texWidth;
+	float v2 = texHeight;
 	if (bounds.minV < bounds.maxV) {
 		u1 = (bounds.minU + gstate_c.curTextureXOffset) * texWidth;
 		v1 = (bounds.minV + gstate_c.curTextureYOffset) * texHeight;
@@ -2232,6 +2282,15 @@ void TextureCacheCommon::Clear(bool delete_them) {
 		secondCacheSizeEstimate_ = 0;
 	}
 	videos_.clear();
+
+	if (dynamicClutFbo_) {
+		dynamicClutFbo_->Release();
+		dynamicClutFbo_ = nullptr;
+	}
+	if (dynamicClutReinterpreted_) {
+		dynamicClutReinterpreted_->Release();
+		dynamicClutReinterpreted_ = nullptr;
+	}
 }
 
 void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
@@ -2598,6 +2657,21 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.maxPossibleLevels = log2i(std::min(plan.createW, plan.createH)) + 1;
 	}
 
+	if (entry->status & TexCacheEntry::TexStatus::STATUS_CLUT_GPU) {
+		_dbg_assert_(entry->format == GE_TFMT_CLUT4 || entry->format == GE_TFMT_CLUT8);
+		plan.decodeToClut8 = true;
+		// We only support 1 mip level when doing CLUT on GPU for now.
+		// Supporting more would be possible, just not very interesting until we need it.
+		plan.levelsToCreate = 1;
+		plan.levelsToLoad = 1;
+		plan.maxPossibleLevels = 1;
+		plan.scaleFactor = 1;
+		plan.saveTexture = false;  // Can't yet save these properly.
+		// TODO: Also forcibly disable replacement, or check that the replacement is a 8-bit paletted texture.
+	} else {
+		plan.decodeToClut8 = false;
+	}
+
 	if (plan.levelsToCreate == 1) {
 		entry->status |= TexCacheEntry::STATUS_NO_MIPS;
 	} else {
@@ -2638,6 +2712,9 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 
 		if (!gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || dstFmt == Draw::DataFormat::R8G8B8A8_UNORM) {
 			texDecFlags |= TexDecodeFlags::EXPAND32;
+		}
+		if (entry.status & TexCacheEntry::STATUS_CLUT_GPU) {
+			texDecFlags |= TexDecodeFlags::TO_CLUT8;
 		}
 
 		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, texDecFlags);

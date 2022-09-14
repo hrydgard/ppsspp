@@ -150,6 +150,8 @@ VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRe
 	width = _width;
 	height = _height;
 
+	_dbg_assert_(tag);
+
 	CreateImage(vulkan_, initCmd, color, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 	CreateImage(vulkan_, initCmd, depth, width, height, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 

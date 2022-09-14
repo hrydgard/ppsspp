@@ -53,6 +53,7 @@ class ShaderManagerCommon;
 enum class TexDecodeFlags {
 	EXPAND32 = 1,
 	REVERSE_COLORS = 2,
+	TO_CLUT8 = 4,
 };
 ENUM_CLASS_BITOPS(TexDecodeFlags);
 
@@ -284,6 +285,9 @@ struct BuildTexturePlan {
 	// Need to only check once since it can change during the load!
 	bool replaceValid;
 	bool saveTexture;
+
+	// TODO: Expand32 should probably also be decided in PrepareBuildTexture.
+	bool decodeToClut8;
 
 	void GetMipSize(int level, int *w, int *h) const {
 		if (replaceValid) {
