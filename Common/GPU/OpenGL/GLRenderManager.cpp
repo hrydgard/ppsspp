@@ -236,6 +236,9 @@ bool GLRenderManager::ThreadFrame() {
 			INFO_LOG(G3D, "Running first frame (%d)", threadFrame_);
 			firstFrame = false;
 		}
+
+		// Creation of OpenXR frame. This updates user's head pose and VR timestamps.
+		// For fluent rendering, the time between PreVRRender and PostVRRender must be really short.
 		if (IsVRBuild() && !vrlock) {
 			if (PreVRRender()) {
 				vrlock = true;
@@ -243,11 +246,14 @@ bool GLRenderManager::ThreadFrame() {
 				return false;
 			}
 		}
+
+		// Render the scene.
 		Run(threadFrame_);
 
 		VLOG("PULL: Finished frame %d", threadFrame_);
 	} while (!nextFrame);
 
+	// Post OpenXR frame on a screen.
 	if (IsVRBuild() && vrlock) {
 		PostVRRender();
 	}
