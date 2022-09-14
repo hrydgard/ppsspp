@@ -200,7 +200,6 @@ bool GLRenderManager::ThreadFrame() {
 	std::unique_lock<std::mutex> lock(mutex_);
 	if (!run_)
 		return false;
-	bool vrlock = false;
 
 	// In case of syncs or other partial completion, we keep going until we complete a frame.
 	do {
@@ -237,11 +236,11 @@ bool GLRenderManager::ThreadFrame() {
 			firstFrame = false;
 		}
 
-		// Creation of OpenXR frame. This updates user's head pose and VR timestamps.
-		// For fluent rendering, the time between PreVRRender and PostVRRender must be really short.
-		if (IsVRBuild() && !vrlock) {
-			if (PreVRRender()) {
-				vrlock = true;
+		// Start of an OpenXR frame. This updates user's head pose and VR timestamps.
+		// For fluent rendering, delay between StartVRRender and FinishVRRender must be very short.
+		if (IsVRBuild() && !vrRenderStarted) {
+			if (StartVRRender()) {
+				vrRenderStarted = true;
 			} else {
 				return false;
 			}
@@ -254,8 +253,9 @@ bool GLRenderManager::ThreadFrame() {
 	} while (!nextFrame);
 
 	// Post OpenXR frame on a screen.
-	if (IsVRBuild() && vrlock) {
-		PostVRRender();
+	if (IsVRBuild() && vrRenderStarted) {
+		FinishVRRender();
+		vrRenderStarted = false;
 	}
 
 	return true;
