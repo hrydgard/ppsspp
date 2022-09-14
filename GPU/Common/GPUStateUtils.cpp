@@ -856,7 +856,7 @@ static inline bool blendColorSimilar(uint32_t a, uint32_t b, int margin = 25) { 
 // Try to simulate some common logic ops by using blend, if needed.
 // The shader might also need modification, the below function SimulateLogicOpShaderTypeIfNeeded
 // takes care of that.
-static void SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &blendEq) {
+static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &blendEq) {
 	// Note: our shader solution applies logic ops BEFORE blending, not correctly after.
 	// This is however fine for the most common ones, like CLEAR/NOOP/SET, etc.
 	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
@@ -866,7 +866,7 @@ static void SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 				srcBlend = BlendFactor::ZERO;
 				dstBlend = BlendFactor::ZERO;
 				blendEq = BlendEq::ADD;
-				break;
+				return true;
 			case GE_LOGIC_AND:
 			case GE_LOGIC_AND_REVERSE:
 				WARN_LOG_REPORT_ONCE(d3dLogicOpAnd, G3D, "Unsupported AND logic op: %x", gstate.getLogicOp());
@@ -889,21 +889,23 @@ static void SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 				dstBlend = BlendFactor::ONE;
 				blendEq = BlendEq::SUBTRACT;
 				WARN_LOG_REPORT_ONCE(d3dLogicOpInverted, G3D, "Attempted inverse for logic op: %x", gstate.getLogicOp());
-				break;
+				return true;
 			case GE_LOGIC_NOOP:
 				srcBlend = BlendFactor::ZERO;
 				dstBlend = BlendFactor::ONE;
 				blendEq = BlendEq::ADD;
-				break;
+				return true;
 			case GE_LOGIC_XOR:
 				WARN_LOG_REPORT_ONCE(d3dLogicOpOrXor, G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
 				break;
 			case GE_LOGIC_OR:
 			case GE_LOGIC_OR_INVERTED:
 				// Inverted in shader.
+				srcBlend = BlendFactor::ONE;
 				dstBlend = BlendFactor::ONE;
+				blendEq = BlendEq::ADD;
 				WARN_LOG_REPORT_ONCE(d3dLogicOpOr, G3D, "Attempted or for logic op: %x", gstate.getLogicOp());
-				break;
+				return true;
 			case GE_LOGIC_OR_REVERSE:
 				WARN_LOG_REPORT_ONCE(d3dLogicOpOrReverse, G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
 				break;
@@ -912,10 +914,12 @@ static void SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 				dstBlend = BlendFactor::ONE;
 				blendEq = BlendEq::ADD;
 				WARN_LOG_REPORT_ONCE(d3dLogicOpSet, G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
-				break;
+				return true;
 			}
 		}
 	}
+
+	return false;
 }
 
 // Choose the shader part of the above logic op fallback simulation.
@@ -950,7 +954,6 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 	BlendFactor srcBlend = BlendFactor::ONE;
 	BlendFactor dstBlend = BlendFactor::ZERO;
 	BlendEq blendEq = BlendEq::ADD;
-	SimulateLogicOpIfNeeded(srcBlend, dstBlend, blendEq);
 
 	// We're not blending, but we may still want to "blend" for stencil.
 	// This is only useful for INCR/DECR/INVERT.  Others can write directly.
@@ -1250,11 +1253,6 @@ static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBl
 		colorEq = eqLookup[blendFuncEq];
 	} else {
 		colorEq = eqLookupNoMinMax[blendFuncEq];
-	}
-
-	// Attempt to apply simulated logic ops, if any and if needed.
-	if (!forceReplaceBlend) {
-		SimulateLogicOpIfNeeded(glBlendFuncA, glBlendFuncB, colorEq);
 	}
 
 	// The stencil-to-alpha in fragment shader doesn't apply here (blending is enabled), and we shouldn't
@@ -1581,5 +1579,20 @@ void ComputedPipelineState::Convert(bool shaderBitOpsSuppported) {
 	if (blendState.applyFramebufferRead || logicState.applyFramebufferRead) {
 		maskState.ConvertToShaderBlend();
 		logicState.ConvertToShaderBlend();
+	} else {
+		// If it isn't a read, we may need to change blending to apply the logic op.
+		logicState.ApplyToBlendState(blendState);
+	}
+}
+
+void GenericLogicState::ApplyToBlendState(GenericBlendState &blendState) {
+	if (SimulateLogicOpIfNeeded(blendState.srcColor, blendState.dstColor, blendState.eqColor)) {
+		if (!blendState.blendEnabled) {
+			// If it wasn't turned on, make sure it is now.
+			blendState.blendEnabled = true;
+			blendState.srcAlpha = BlendFactor::ONE;
+			blendState.dstAlpha = BlendFactor::ZERO;
+			blendState.eqAlpha = BlendEq::ADD;
+		}
 	}
 }
