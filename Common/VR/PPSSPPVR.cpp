@@ -220,7 +220,7 @@ void BindVRFramebuffer() {
 	VR_BindFramebuffer(VR_GetEngine());
 }
 
-bool PreVRRender() {
+bool StartVRRender() {
 	if (!VR_GetConfig(VR_CONFIG_VIEWPORT_VALID)) {
 		VR_InitRenderer(VR_GetEngine(), IsMultiviewSupported());
 		VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, true);
@@ -245,7 +245,7 @@ bool PreVRRender() {
 	return false;
 }
 
-void PostVRRender() {
+void FinishVRRender() {
 	VR_FinishFrame(VR_GetEngine());
 }
 
