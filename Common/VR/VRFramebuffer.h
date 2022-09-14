@@ -10,8 +10,8 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer);
 void ovrFramebuffer_Resolve(ovrFramebuffer* frameBuffer);
 void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer);
 void ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer);
-void ovrFramebuffer_SetNone();
+void ovrFramebuffer_SetNone(ovrFramebuffer* frameBuffer);
 
-void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int height, bool multiview);
+void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int height, bool multiview, void* vulkanContext);
 void ovrRenderer_Destroy(ovrRenderer* renderer);
 void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int size);

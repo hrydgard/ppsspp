@@ -9,6 +9,14 @@
 #define ALOGV(...) printf(__VA_ARGS__)
 #endif
 
+//Vulkan
+#ifdef VK_USE_NATIVE_LIB
+#include <vulkan/vulkan.h>
+#else
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+using namespace PPSSPP_VK;
+#endif
+
 //OpenXR
 #define XR_USE_PLATFORM_ANDROID 1
 #define XR_USE_GRAPHICS_API_OPENGL_ES 1
@@ -17,7 +25,6 @@
 #include <EGL/eglext.h>
 #include <jni.h>
 #include <math.h>
-#include <vulkan/vulkan.h>
 #include <openxr.h>
 #include <openxr_platform.h>
 #include <GLES3/gl3.h>
@@ -98,10 +105,14 @@ typedef struct {
 	uint32_t TextureSwapChainIndex;
 	ovrSwapChain ColorSwapChain;
 	ovrSwapChain DepthSwapChain;
-	XrSwapchainImageOpenGLESKHR* ColorSwapChainImage;
-	XrSwapchainImageOpenGLESKHR* DepthSwapChainImage;
-	unsigned int* FrameBuffers;
+	void* ColorSwapChainImage;
+	void* DepthSwapChainImage;
+	unsigned int* GLFrameBuffers;
+	VkFramebuffer* VKFrameBuffers;
+
 	bool Acquired;
+	bool UseVulkan;
+	XrGraphicsBindingVulkanKHR* VKContext;
 } ovrFramebuffer;
 
 typedef struct {
@@ -146,11 +157,13 @@ typedef struct {
 	ovrApp appState;
 	ovrJava java;
 	float predictedDisplayTime;
+	bool useVulkan;
+	XrGraphicsBindingVulkanKHR graphicsBindingVulkan;
 } engine_t;
 
 void VR_Init( ovrJava java, bool useVulkan );
 void VR_Destroy( engine_t* engine );
-void VR_EnterVR( engine_t* engine );
+void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVulkan );
 void VR_LeaveVR( engine_t* engine );
 
 engine_t* VR_GetEngine( void );

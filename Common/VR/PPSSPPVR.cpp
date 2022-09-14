@@ -1,3 +1,4 @@
+#include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/VR/VRBase.h"
 #include "Common/VR/VRInput.h"
@@ -109,10 +110,25 @@ void InitVROnAndroid(void* vm, void* activity, int version, const char* name) {
 	__DisplaySetFramerate(72);
 }
 
-void EnterVR(bool firstStart) {
+void EnterVR(bool firstStart, void* vulkanContext) {
 	if (firstStart) {
-		VR_EnterVR(VR_GetEngine());
-		IN_VRInit(VR_GetEngine());
+		engine_t* engine = VR_GetEngine();
+		bool useVulkan = (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN;
+		if (useVulkan) {
+			auto* context = (VulkanContext*)vulkanContext;
+			engine->graphicsBindingVulkan = {};
+			engine->graphicsBindingVulkan.type = XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR;
+			engine->graphicsBindingVulkan.next = NULL;
+			engine->graphicsBindingVulkan.device = context->GetDevice();
+			engine->graphicsBindingVulkan.instance = context->GetInstance();
+			engine->graphicsBindingVulkan.physicalDevice = context->GetCurrentPhysicalDevice();
+			engine->graphicsBindingVulkan.queueFamilyIndex = context->GetGraphicsQueueFamilyIndex();
+			engine->graphicsBindingVulkan.queueIndex = 0;
+			VR_EnterVR(engine, &engine->graphicsBindingVulkan);
+		} else {
+			VR_EnterVR(engine, nullptr);
+		}
+		IN_VRInit(engine);
 	}
 	VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, false);
 }

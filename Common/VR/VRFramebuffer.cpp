@@ -37,14 +37,15 @@ void ovrFramebuffer_Clear(ovrFramebuffer* frameBuffer) {
 	frameBuffer->DepthSwapChain.Height = 0;
 	frameBuffer->DepthSwapChainImage = NULL;
 
-	frameBuffer->FrameBuffers = NULL;
+	frameBuffer->GLFrameBuffers = NULL;
 	frameBuffer->Acquired = false;
 }
 
-bool ovrFramebuffer_Create(XrSession session, ovrFramebuffer* frameBuffer, int width, int height, bool multiview) {
+bool ovrFramebuffer_CreateGL(XrSession session, ovrFramebuffer* frameBuffer, int width, int height, bool multiview) {
 
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
+	frameBuffer->UseVulkan = false;
 
 	if (strstr((const char*)glGetString(GL_EXTENSIONS), "GL_OVR_multiview2") == nullptr)
 	{
@@ -78,20 +79,20 @@ bool ovrFramebuffer_Create(XrSession session, ovrFramebuffer* frameBuffer, int w
 	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
 	OXR(xrCreateSwapchain(session, &swapChainCreateInfo, &frameBuffer->ColorSwapChain.Handle));
 	OXR(xrEnumerateSwapchainImages(frameBuffer->ColorSwapChain.Handle, 0, &frameBuffer->TextureSwapChainLength, NULL));
-	frameBuffer->ColorSwapChainImage = (XrSwapchainImageOpenGLESKHR*)malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
+	frameBuffer->ColorSwapChainImage = malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
 
 	// Create the depth swapchain.
 	swapChainCreateInfo.format = GL_DEPTH24_STENCIL8;
 	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	OXR(xrCreateSwapchain(session, &swapChainCreateInfo, &frameBuffer->DepthSwapChain.Handle));
-	frameBuffer->DepthSwapChainImage = (XrSwapchainImageOpenGLESKHR*)malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
+	frameBuffer->DepthSwapChainImage = malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
 
 	// Populate the swapchain image array.
 	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
-		frameBuffer->ColorSwapChainImage[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
-		frameBuffer->ColorSwapChainImage[i].next = NULL;
-		frameBuffer->DepthSwapChainImage[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
-		frameBuffer->DepthSwapChainImage[i].next = NULL;
+		((XrSwapchainImageOpenGLESKHR*)frameBuffer->ColorSwapChainImage)[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
+		((XrSwapchainImageOpenGLESKHR*)frameBuffer->ColorSwapChainImage)[i].next = NULL;
+		((XrSwapchainImageOpenGLESKHR*)frameBuffer->DepthSwapChainImage)[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
+		((XrSwapchainImageOpenGLESKHR*)frameBuffer->DepthSwapChainImage)[i].next = NULL;
 	}
 	OXR(xrEnumerateSwapchainImages(
 			frameBuffer->ColorSwapChain.Handle,
@@ -104,14 +105,14 @@ bool ovrFramebuffer_Create(XrSession session, ovrFramebuffer* frameBuffer, int w
 			&frameBuffer->TextureSwapChainLength,
 			(XrSwapchainImageBaseHeader*)frameBuffer->DepthSwapChainImage));
 
-	frameBuffer->FrameBuffers = (GLuint*)malloc(frameBuffer->TextureSwapChainLength * sizeof(GLuint));
+	frameBuffer->GLFrameBuffers = (GLuint*)malloc(frameBuffer->TextureSwapChainLength * sizeof(GLuint));
 	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
-		const GLuint colorTexture = frameBuffer->ColorSwapChainImage[i].image;
-		const GLuint depthTexture = frameBuffer->DepthSwapChainImage[i].image;
+		const GLuint colorTexture = ((XrSwapchainImageOpenGLESKHR*)frameBuffer->ColorSwapChainImage)[i].image;
+		const GLuint depthTexture = ((XrSwapchainImageOpenGLESKHR*)frameBuffer->DepthSwapChainImage)[i].image;
 
 		// Create the frame buffer.
-		GL(glGenFramebuffers(1, &frameBuffer->FrameBuffers[i]));
-		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->FrameBuffers[i]));
+		GL(glGenFramebuffers(1, &frameBuffer->GLFrameBuffers[i]));
+		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->GLFrameBuffers[i]));
 		if (multiview) {
 			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, depthTexture, 0, 0, 2));
 			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthTexture, 0, 0, 2));
@@ -132,29 +133,114 @@ bool ovrFramebuffer_Create(XrSession session, ovrFramebuffer* frameBuffer, int w
 	return true;
 }
 
+bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int width, int height,
+							 bool multiview, void* context) {
+
+	frameBuffer->Width = width;
+	frameBuffer->Height = height;
+	frameBuffer->UseVulkan = true;
+	frameBuffer->VKContext = (XrGraphicsBindingVulkanKHR*)context;
+
+	XrSwapchainCreateInfo swapChainCreateInfo;
+	memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
+	swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+	swapChainCreateInfo.sampleCount = 1;
+	swapChainCreateInfo.width = width;
+	swapChainCreateInfo.height = height;
+	swapChainCreateInfo.faceCount = 1;
+	swapChainCreateInfo.mipCount = 1;
+	swapChainCreateInfo.arraySize = multiview ? 2 : 1;
+
+	frameBuffer->ColorSwapChain.Width = swapChainCreateInfo.width;
+	frameBuffer->ColorSwapChain.Height = swapChainCreateInfo.height;
+	frameBuffer->DepthSwapChain.Width = swapChainCreateInfo.width;
+	frameBuffer->DepthSwapChain.Height = swapChainCreateInfo.height;
+
+	// Create the color swapchain.
+	swapChainCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
+	OXR(xrCreateSwapchain(session, &swapChainCreateInfo, &frameBuffer->ColorSwapChain.Handle));
+	OXR(xrEnumerateSwapchainImages(frameBuffer->ColorSwapChain.Handle, 0, &frameBuffer->TextureSwapChainLength, NULL));
+	frameBuffer->ColorSwapChainImage = malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageVulkanKHR));
+
+	// Create the depth swapchain.
+	swapChainCreateInfo.format = VK_FORMAT_D24_UNORM_S8_UINT;
+	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	OXR(xrCreateSwapchain(session, &swapChainCreateInfo, &frameBuffer->DepthSwapChain.Handle));
+	frameBuffer->DepthSwapChainImage = malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageVulkanKHR));
+
+	// Populate the swapchain image array.
+	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
+		((XrSwapchainImageVulkanKHR*)frameBuffer->ColorSwapChainImage)[i].type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR;
+		((XrSwapchainImageVulkanKHR*)frameBuffer->ColorSwapChainImage)[i].next = NULL;
+		((XrSwapchainImageVulkanKHR*)frameBuffer->DepthSwapChainImage)[i].type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR;
+		((XrSwapchainImageVulkanKHR*)frameBuffer->DepthSwapChainImage)[i].next = NULL;
+	}
+	OXR(xrEnumerateSwapchainImages(
+			frameBuffer->ColorSwapChain.Handle,
+			frameBuffer->TextureSwapChainLength,
+			&frameBuffer->TextureSwapChainLength,
+			(XrSwapchainImageBaseHeader*)frameBuffer->ColorSwapChainImage));
+	OXR(xrEnumerateSwapchainImages(
+			frameBuffer->DepthSwapChain.Handle,
+			frameBuffer->TextureSwapChainLength,
+			&frameBuffer->TextureSwapChainLength,
+			(XrSwapchainImageBaseHeader*)frameBuffer->DepthSwapChainImage));
+
+	frameBuffer->VKFrameBuffers = (VkFramebuffer*)malloc(frameBuffer->TextureSwapChainLength * sizeof(VkFramebuffer));
+	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
+		VkImage colorTexture = ((XrSwapchainImageVulkanKHR*)frameBuffer->ColorSwapChainImage)[i].image;
+		VkImage depthTexture = ((XrSwapchainImageVulkanKHR*)frameBuffer->DepthSwapChainImage)[i].image;
+
+		// Create the frame buffer.
+		//TODO:implement framebuffer creation
+	}
+
+	return true;
+}
+
 void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
-	GL(glDeleteFramebuffers(frameBuffer->TextureSwapChainLength, frameBuffer->FrameBuffers));
+	if (frameBuffer->UseVulkan) {
+		for (int i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
+			vkDestroyFramebuffer(frameBuffer->VKContext->device, frameBuffer->VKFrameBuffers[i], nullptr);
+		}
+		free(frameBuffer->VKFrameBuffers);
+	} else {
+		GL(glDeleteFramebuffers(frameBuffer->TextureSwapChainLength, frameBuffer->GLFrameBuffers));
+		free(frameBuffer->GLFrameBuffers);
+	}
 	OXR(xrDestroySwapchain(frameBuffer->ColorSwapChain.Handle));
 	OXR(xrDestroySwapchain(frameBuffer->DepthSwapChain.Handle));
 	free(frameBuffer->ColorSwapChainImage);
 	free(frameBuffer->DepthSwapChainImage);
-	free(frameBuffer->FrameBuffers);
 
 	ovrFramebuffer_Clear(frameBuffer);
 }
 
 void ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
-	GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->FrameBuffers[frameBuffer->TextureSwapChainIndex]));
+	if (frameBuffer->UseVulkan) {
+		//TODO:bind framebuffer
+	} else {
+		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->GLFrameBuffers[frameBuffer->TextureSwapChainIndex]));
+	}
 }
 
-void ovrFramebuffer_SetNone() {
-	GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0));
+void ovrFramebuffer_SetNone(ovrFramebuffer* frameBuffer) {
+	if (frameBuffer->UseVulkan) {
+		//TODO:unbind framebuffer
+	} else {
+		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0));
+	}
 }
 
 void ovrFramebuffer_Resolve(ovrFramebuffer* frameBuffer) {
 	// Discard the depth buffer, so the tiler won't need to write it back out to memory.
-	const GLenum depthAttachment[1] = {GL_DEPTH_ATTACHMENT};
-	glInvalidateFramebuffer(GL_DRAW_FRAMEBUFFER, 1, depthAttachment);
+	if (frameBuffer->UseVulkan) {
+		//TODO:implement
+	} else {
+		const GLenum depthAttachment[1] = {GL_DEPTH_ATTACHMENT};
+		glInvalidateFramebuffer(GL_DRAW_FRAMEBUFFER, 1, depthAttachment);
+	}
 }
 
 void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
@@ -178,13 +264,18 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 	frameBuffer->Acquired = res == XR_SUCCESS;
 
 	ovrFramebuffer_SetCurrent(frameBuffer);
-	GL(glEnable( GL_SCISSOR_TEST ));
-	GL(glViewport( 0, 0, frameBuffer->Width, frameBuffer->Height ));
-	GL(glClearColor( 0.0f, 0.0f, 0.0f, 1.0f ));
-	GL(glScissor( 0, 0, frameBuffer->Width, frameBuffer->Height ));
-	GL(glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT ));
-	GL(glScissor( 0, 0, 0, 0 ));
-	GL(glDisable( GL_SCISSOR_TEST ));
+
+	if (frameBuffer->UseVulkan) {
+		//TODO:implement
+	} else {
+		GL(glEnable( GL_SCISSOR_TEST ));
+		GL(glViewport( 0, 0, frameBuffer->Width, frameBuffer->Height ));
+		GL(glClearColor( 0.0f, 0.0f, 0.0f, 1.0f ));
+		GL(glScissor( 0, 0, frameBuffer->Width, frameBuffer->Height ));
+		GL(glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT ));
+		GL(glScissor( 0, 0, 0, 0 ));
+		GL(glDisable( GL_SCISSOR_TEST ));
+	}
 }
 
 void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
@@ -194,10 +285,14 @@ void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
 		frameBuffer->Acquired = false;
 
 		// Clear the alpha channel, other way OpenXR would not transfer the framebuffer fully
-		GL(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE));
-		GL(glClearColor(0.0f, 0.0f, 0.0f, 1.0f));
-		GL(glClear(GL_COLOR_BUFFER_BIT));
-		GL(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
+		if (frameBuffer->UseVulkan) {
+			//TODO:implement
+		} else {
+			GL(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE));
+			GL(glClearColor(0.0f, 0.0f, 0.0f, 1.0f));
+			GL(glClear(GL_COLOR_BUFFER_BIT));
+			GL(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
+		}
 	}
 }
 
@@ -215,11 +310,15 @@ void ovrRenderer_Clear(ovrRenderer* renderer) {
 	}
 }
 
-void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int height, bool multiview) {
+void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int height, bool multiview, void* vulkanContext) {
 	renderer->Multiview = multiview;
 	int instances = renderer->Multiview ? 1 : ovrMaxNumEyes;
 	for (int i = 0; i < instances; i++) {
-		ovrFramebuffer_Create(session, &renderer->FrameBuffer[i], width, height, multiview);
+		if (vulkanContext) {
+			ovrFramebuffer_CreateVK(session, &renderer->FrameBuffer[i], width, height, multiview, vulkanContext);
+		} else {
+			ovrFramebuffer_CreateGL(session, &renderer->FrameBuffer[i], width, height, multiview);
+		}
 	}
 }
 
@@ -231,12 +330,16 @@ void ovrRenderer_Destroy(ovrRenderer* renderer) {
 }
 
 void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int size) {
-	GL(glEnable(GL_SCISSOR_TEST));
-	GL(glScissor(x, y, size, size));
-	GL(glViewport(x, y, size, size));
-	GL(glClearColor(1.0f, 1.0f, 1.0f, 1.0f));
-	GL(glClear(GL_COLOR_BUFFER_BIT));
-	GL(glDisable(GL_SCISSOR_TEST));
+	if (renderer->FrameBuffer[0].UseVulkan) {
+		//TODO:implement
+	} else {
+		GL(glEnable(GL_SCISSOR_TEST));
+		GL(glScissor(x, y, size, size));
+		GL(glViewport(x, y, size, size));
+		GL(glClearColor(1.0f, 1.0f, 1.0f, 1.0f));
+		GL(glClear(GL_COLOR_BUFFER_BIT));
+		GL(glDisable(GL_SCISSOR_TEST));
+	}
 }
 
 /*

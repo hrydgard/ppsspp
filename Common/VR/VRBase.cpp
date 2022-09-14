@@ -118,6 +118,7 @@ void VR_Init( ovrJava java, bool useVulkan ) {
 	vr_engine.appState.SystemId = systemId;
 
 	vr_engine.java = java;
+	vr_engine.useVulkan = useVulkan;
 	vr_initialized = 1;
 }
 
@@ -128,7 +129,7 @@ void VR_Destroy( engine_t* engine ) {
 	}
 }
 
-void VR_EnterVR( engine_t* engine ) {
+void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVulkan ) {
 
 	if (engine->appState.Session) {
 		ALOGE("VR_EnterVR called with existing session");
@@ -136,17 +137,20 @@ void VR_EnterVR( engine_t* engine ) {
 	}
 
 	// Create the OpenXR Session.
-	XrGraphicsBindingOpenGLESAndroidKHR graphicsBindingAndroidGLES = {};
-	graphicsBindingAndroidGLES.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
-	graphicsBindingAndroidGLES.next = NULL;
-	graphicsBindingAndroidGLES.display = eglGetCurrentDisplay();
-	graphicsBindingAndroidGLES.config = eglGetCurrentSurface(EGL_DRAW);
-	graphicsBindingAndroidGLES.context = eglGetCurrentContext();
-
 	XrSessionCreateInfo sessionCreateInfo = {};
+	XrGraphicsBindingOpenGLESAndroidKHR graphicsBindingAndroidGLES = {};
 	memset(&sessionCreateInfo, 0, sizeof(sessionCreateInfo));
+	if (engine->useVulkan) {
+		sessionCreateInfo.next = graphicsBindingVulkan;
+	} else {
+		graphicsBindingAndroidGLES.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
+		graphicsBindingAndroidGLES.next = NULL;
+		graphicsBindingAndroidGLES.display = eglGetCurrentDisplay();
+		graphicsBindingAndroidGLES.config = eglGetCurrentSurface(EGL_DRAW);
+		graphicsBindingAndroidGLES.context = eglGetCurrentContext();
+		sessionCreateInfo.next = &graphicsBindingAndroidGLES;
+	}
 	sessionCreateInfo.type = XR_TYPE_SESSION_CREATE_INFO;
-	sessionCreateInfo.next = &graphicsBindingAndroidGLES;
 	sessionCreateInfo.createFlags = 0;
 	sessionCreateInfo.systemId = engine->appState.SystemId;
 

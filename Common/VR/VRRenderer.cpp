@@ -204,12 +204,14 @@ void VR_InitRenderer( engine_t* engine, bool multiview ) {
 
 	projections = (XrView*)(malloc(ovrMaxNumEyes * sizeof(XrView)));
 
-	ovrRenderer_Create(
-			engine->appState.Session,
-			&engine->appState.Renderer,
+	void* vulkanContext = nullptr;
+	if (engine->useVulkan) {
+		vulkanContext = &engine->graphicsBindingVulkan;
+	}
+	ovrRenderer_Create(engine->appState.Session, &engine->appState.Renderer,
 			engine->appState.ViewConfigurationView[0].recommendedImageRectWidth,
 			engine->appState.ViewConfigurationView[0].recommendedImageRectHeight,
-			multiview);
+			multiview, vulkanContext);
 	initialized = true;
 }
 
@@ -311,7 +313,7 @@ void VR_EndFrame( engine_t* engine ) {
 	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[fboIndex];
 	//ovrFramebuffer_Resolve(frameBuffer);
 	ovrFramebuffer_Release(frameBuffer);
-	ovrFramebuffer_SetNone();
+	ovrFramebuffer_SetNone(frameBuffer);
 }
 
 void VR_FinishFrame( engine_t* engine ) {
