@@ -1081,7 +1081,7 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 	// Let's just not bother with the copy in that case.
-	bool skipCopy = !(flags & BINDFBCOLOR_MAY_COPY) || GPUStepping::IsStepping();
+	bool skipCopy = !(flags & BINDFBCOLOR_MAY_COPY);
 
 	// Currently rendering to this framebuffer. Need to make a copy.
 	if (!skipCopy && framebuffer == currentRenderVfb_) {
