@@ -525,3 +525,8 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 	stagingCopy->Release();
 	return true;
 }
+
+void *TextureCacheD3D11::GetNativeTextureView(const TexCacheEntry *entry) {
+	ID3D11ShaderResourceView *textureView = DxView(entry);
+	return (void *)textureView;
+}

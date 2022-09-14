@@ -857,3 +857,8 @@ std::vector<std::string> TextureCacheVulkan::DebugGetSamplerIDs() const {
 std::string TextureCacheVulkan::DebugGetSamplerString(std::string id, DebugShaderStringType stringType) {
 	return samplerCache_.DebugGetSamplerString(id, stringType);
 }
+
+void *TextureCacheVulkan::GetNativeTextureView(const TexCacheEntry *entry) {
+	VkImageView view = entry->vkTex->GetImageView();
+	return (void *)view;
+}

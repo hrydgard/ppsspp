@@ -2163,7 +2163,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	Draw::Viewport vp{ 0.0f, 0.0f, (float)texWidth, (float)texHeight, 0.0f, 1.0f };
 	draw_->SetViewports(1, &vp);
 
-	draw_->BindNativeTexture(0, framebuffer->fbo);
+	draw_->BindNativeTexture(0, GetNativeTextureView(entry));
 	draw_->BindFramebufferAsTexture(clutFbo, 1, Draw::FB_COLOR_BIT, 0);
 	Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
 	Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(false);
@@ -2185,8 +2185,8 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 	const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
-	CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
-	gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
+	// We don't know about alpha at all.
+	gstate_c.SetTextureFullAlpha(false);
 
 	draw_->InvalidateCachedState();
 	shaderManager_->DirtyLastShader();

@@ -108,6 +108,8 @@ struct TextureDefinition {
 
 // NOTE: These only handle textures loaded directly from PSP memory contents.
 // Framebuffer textures do not have entries, we bind the framebuffers directly.
+// At one point we might merge the concepts of framebuffers and textures, but that
+// moment is far away.
 struct TexCacheEntry {
 	~TexCacheEntry() {
 		if (texturePtr || textureName || vkTex)
@@ -345,6 +347,7 @@ public:
 	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) { return false; }
 
 protected:
+	virtual void *GetNativeTextureView(const TexCacheEntry *entry) = 0;
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
 
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
