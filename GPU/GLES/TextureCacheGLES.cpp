@@ -325,7 +325,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 				return;
 			}
 
-			LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, dstFmt, true);
+			LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, dstFmt, TexDecodeFlags::REVERSE_COLORS);
 
 			// NOTE: TextureImage takes ownership of data, so we don't free it afterwards.
 			render_->TextureImage(entry->textureName, i, mipWidth, mipHeight, 1, dstFmt, data, GLRAllocType::ALIGNED);
@@ -344,7 +344,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		u8 *p = data;
 
 		for (int i = 0; i < plan.depth; i++) {
-			LoadTextureLevel(*entry, p, stride, *plan.replaced, i, plan.scaleFactor, dstFmt, true);
+			LoadTextureLevel(*entry, p, stride, *plan.replaced, i, plan.scaleFactor, dstFmt, TexDecodeFlags::REVERSE_COLORS);
 			p += levelStride;
 		}
 
