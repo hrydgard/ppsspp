@@ -666,6 +666,10 @@ static const char *reinterpretStrings[4][4] = {
 
 // Call this after the target has been bound for rendering. For color, raster is probably always going to win over blits/copies.
 void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dst) {
+	if (!useBufferedRendering_) {
+		return;
+	}
+
 	std::vector<CopySource> sources;
 	for (auto src : vfbs_) {
 		// Discard old and equal potential inputs.
@@ -773,30 +777,17 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 					WARN_LOG_ONCE(bta, G3D, "WARNING: Reinterpret encountered with BlueToAlpha on");
 				}
 
-				if (IsBufferFormat16Bit(src->fb_format) && !IsBufferFormat16Bit(dst->fb_format)) {
-					// We halve the X coordinates in the destination framebuffer.
-					// The shader will collect two pixels worth of input data and merge into one.
-					dstX1 *= 0.5f;
-					dstX2 *= 0.5f;
-				} else if (!IsBufferFormat16Bit(src->fb_format) && IsBufferFormat16Bit(dst->fb_format)) {
-					// We double the X coordinates in the destination framebuffer.
-					// The shader will sample and depending on the X coordinate & 1, use the upper or lower bits.
-					dstX1 *= 2.0f;
-					dstX2 *= 2.0f;
-				}
-
 				// Reinterpret!
 				WARN_LOG_N_TIMES(reint, 5, G3D, "Reinterpret detected from %08x_%s to %08x_%s",
 					src->fb_address, GeBufferFormatToString(src->fb_format),
 					dst->fb_address, GeBufferFormatToString(dst->fb_format));
-				pipeline = reinterpretFromTo_[(int)src->fb_format][(int)dst->fb_format];
+
+				float scaleFactorX = 1.0f;
+				pipeline = GetReinterpretPipeline(src->fb_format, dst->fb_format, &scaleFactorX);
+				dstX1 *= scaleFactorX;
+				dstX2 *= scaleFactorX;
+
 				pass_name = reinterpretStrings[(int)src->fb_format][(int)dst->fb_format];
-				if (!pipeline) {
-					pipeline = draw2D_.Create2DPipeline([=](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
-						return GenerateReinterpretFragmentShader(shaderWriter, src->fb_format, dst->fb_format);
-					});
-					reinterpretFromTo_[(int)src->fb_format][(int)dst->fb_format] = pipeline;
-				}
 
 				gpuStats.numReinterpretCopies++;
 			}
@@ -817,6 +808,27 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 
 	shaderManager_->DirtyLastShader();
 	textureCache_->ForgetLastTexture();
+}
+
+Draw2DPipeline *FramebufferManagerCommon::GetReinterpretPipeline(GEBufferFormat from, GEBufferFormat to, float *scaleFactorX) {
+	if (IsBufferFormat16Bit(from) && !IsBufferFormat16Bit(to)) {
+		// We halve the X coordinates in the destination framebuffer.
+		// The shader will collect two pixels worth of input data and merge into one.
+		*scaleFactorX = 0.5f;
+	} else if (!IsBufferFormat16Bit(from) && IsBufferFormat16Bit(to)) {
+		// We double the X coordinates in the destination framebuffer.
+		// The shader will sample and depending on the X coordinate & 1, use the upper or lower bits.
+		*scaleFactorX = 2.0f;
+	}
+
+	Draw2DPipeline *pipeline = reinterpretFromTo_[(int)from][(int)to];
+	if (!pipeline) {
+		pipeline = draw2D_.Create2DPipeline([=](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
+			return GenerateReinterpretFragmentShader(shaderWriter, from, to);
+		});
+		reinterpretFromTo_[(int)from][(int)to] = pipeline;
+	}
+	return pipeline;
 }
 
 void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
@@ -1069,7 +1081,7 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 	// Let's just not bother with the copy in that case.
-	bool skipCopy = !(flags & BINDFBCOLOR_MAY_COPY) || GPUStepping::IsStepping();
+	bool skipCopy = !(flags & BINDFBCOLOR_MAY_COPY);
 
 	// Currently rendering to this framebuffer. Need to make a copy.
 	if (!skipCopy && framebuffer == currentRenderVfb_) {

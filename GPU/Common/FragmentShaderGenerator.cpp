@@ -640,7 +640,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				p.C("    if (depalShift == 5u) { index0 = t.g; }\n");
 				p.C("    else if (depalShift == 10u) { index0 = t.b; }\n");
 				p.C("  }\n");
-				p.F("  t = ").SampleTexture2D("pal", "vec2(index0 * factor, 0.0)").C(";\n");
+				p.F("  t = ").SampleTexture2D("pal", "vec2(index0 * factor * 0.5, 0.0)").C(";\n");  // 0.5 for 512-entry CLUT.
 				break;
 			case ShaderDepalMode::NORMAL:
 				if (doTextureProjection) {

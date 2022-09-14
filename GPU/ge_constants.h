@@ -374,8 +374,7 @@ enum GEMatrixType {
 	GE_MTX_TEXGEN,
 };
 
-enum GEComparison
-{
+enum GEComparison : uint8_t {
 	GE_COMP_NEVER = 0,
 	GE_COMP_ALWAYS = 1,
 	GE_COMP_EQUAL = 2,
@@ -578,8 +577,7 @@ enum GEPrimitiveType
 	GE_PRIM_INVALID = -1,
 };
 
-enum GELogicOp
-{
+enum GELogicOp : uint8_t {
 	GE_LOGIC_CLEAR = 0,
 	GE_LOGIC_AND = 1,
 	GE_LOGIC_AND_REVERSE = 2,

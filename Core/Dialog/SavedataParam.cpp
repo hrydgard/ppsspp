@@ -589,13 +589,20 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA : SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
 
+	if (fileName != "" && !pspFileSystem.GetFileInfo(filePath).exists) {
+		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND : SCE_UTILITY_SAVEDATA_ERROR_LOAD_FILE_NOT_FOUND;
+	}
+
+	// If it wasn't zero, force to zero before loading and especially in case of error.
+	// This isn't reset if the path doesn't even exist.
+	param->dataSize = 0;
+	int result = LoadSaveData(param, saveDirName, dirPath, secureMode);
+	if (result != 0)
+		return result;
+
 	// Load sfo
 	if (!LoadSFO(param, dirPath)) {
 		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN : SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN;
-	}
-
-	if (fileName != "" && !pspFileSystem.GetFileInfo(filePath).exists) {
-		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND : SCE_UTILITY_SAVEDATA_ERROR_LOAD_FILE_NOT_FOUND;
 	}
 
 	// Don't know what it is, but PSP always respond this and this unlock some game
@@ -611,15 +618,6 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 	LoadFile(dirPath, PIC1_FILENAME, &param->pic1FileData);
 	// Load SND0.AT3
 	LoadFile(dirPath, SND0_FILENAME, &param->snd0FileData);
-
-	if (fileName == "") {
-		// Don't load savedata but return success.
-		return 0;
-	}
-
-	int result = LoadSaveData(param, saveDirName, dirPath, secureMode);
-	if (result != 0)
-		return result;
 
 	return 0;
 }
@@ -638,6 +636,10 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 
 	std::string filename = GetFileName(param);
 	std::string filePath = dirPath + "/" + filename;
+	// Blank filename always means success, if secureVersion was correct.
+	if (filename == "")
+		return 0;
+
 	s64 readSize;
 	INFO_LOG(SCEUTILITY, "Loading file with size %u in %s", param->dataBufSize, filePath.c_str());
 	u8 *saveData = nullptr;
@@ -667,14 +669,18 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 	if (!saveDone) {
 		loadedSize = LoadNotCryptedSave(param, param->dataBuf, saveData, saveSize);
 	}
-	param->dataSize = (SceSize)saveSize;
 	delete[] saveData;
 
-	if (loadedSize != 0) {
+	// Ignore error codes.
+	if (loadedSize != 0 && (loadedSize & 0x80000000) == 0) {
 		std::string tag = "LoadSaveData/" + filePath;
 		NotifyMemInfo(MemBlockFlags::WRITE, param->dataBuf.ptr, loadedSize, tag.c_str(), tag.size());
 	}
 
+	if ((loadedSize & 0x80000000) != 0)
+		return loadedSize;
+
+	param->dataSize = (SceSize)saveSize;
 	return 0;
 }
 
@@ -760,8 +766,12 @@ u32 SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, con
 	u32 sz = 0;
 	if (err == 0) {
 		if (param->dataBuf.IsValid()) {
-			sz = std::min((u32)saveSize, (u32)param->dataBufSize);
-			memcpy(data, data_base, sz);
+			if ((u32)saveSize > param->dataBufSize || !Memory::IsValidRange(param->dataBuf.ptr, saveSize)) {
+				sz = SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN;
+			} else {
+				sz = (u32)saveSize;
+				memcpy(data, data_base, sz);
+			}
 		}
 		saveDone = true;
 	}
@@ -773,9 +783,11 @@ u32 SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, con
 
 u32 SavedataParam::LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize) {
 	if (param->dataBuf.IsValid()) {
-		u32 sz = std::min((u32)saveSize, (u32)param->dataBufSize);
-		memcpy(data, saveData, sz);
-		return sz;
+		if ((u32)saveSize > param->dataBufSize || !Memory::IsValidRange(param->dataBuf.ptr, saveSize)) {
+			return SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN;
+		}
+		memcpy(data, saveData, saveSize);
+		return saveSize;
 	}
 	return 0;
 }

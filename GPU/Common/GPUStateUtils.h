@@ -226,6 +226,7 @@ struct GenericLogicState {
 	// Hardware and shader generation
 	GELogicOp logicOp;
 
+	void ApplyToBlendState(GenericBlendState &blendState);
 	void ConvertToShaderBlend() {
 		if (logicOp != GE_LOGIC_COPY) {
 			logicOpEnabled = false;
@@ -245,7 +246,9 @@ struct ComputedPipelineState {
 	void Convert(bool shaderBitOpsSupported);
 
 	bool FramebufferRead() const {
-		return blendState.applyFramebufferRead;
+		// If blending is off, its applyFramebufferRead can be false even after state propagation.
+		// So it's not enough to check just that one.
+		return blendState.applyFramebufferRead || maskState.applyFramebufferRead || logicState.applyFramebufferRead;
 	}
 };
 
