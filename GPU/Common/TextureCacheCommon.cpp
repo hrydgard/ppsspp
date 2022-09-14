@@ -1203,7 +1203,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 
 				// Is this inside the framebuffer at all? Note that we only check the first line here, this should
 				// be changed.
-				bool matchRange = offset >= 0 && offset < framebuffer->fb_stride * fb_bpp;
+				bool matchRange = offset >= 0 && offset < (int)(framebuffer->fb_stride * fb_bpp);
 				if (matchRange) {
 					// And is it inside the rendered area?  Sometimes games pack data in the margin between width and stride.
 					// If the framebuffer width was detected as 512, we're gonna assume it's really 480.
@@ -1212,12 +1212,12 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 						fbMatchWidth = 480;
 					}
 					bool inMargin = ((offset / fb_bpp) % framebuffer->fb_stride) == fbMatchWidth;
-					if (matchRange && !inMargin && offset < clutRenderOffset_) {
+					if (matchRange && !inMargin && offset < (int)clutRenderOffset_) {
 						WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d", loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset);
 						framebuffer->last_frame_clut = gpuStats.numFlips;
 						framebuffer->usageFlags |= FB_USAGE_CLUT;
 						clutRenderAddress_ = framebuffer->fb_address;
-						clutRenderOffset_ = offset;
+						clutRenderOffset_ = (u32)offset;
 						if (offset == 0) {
 							break;
 						}
