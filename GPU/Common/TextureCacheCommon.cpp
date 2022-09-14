@@ -292,9 +292,13 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
 	SamplerCacheKey key = GetSamplingParams(0, nullptr);
 
-	// Kill any mipmapping settings, and reset min filtering.
-	int minFilt = gstate.texfilter & 0x7;
-	key.minFilt = minFilt & 1;
+	// In case auto max quality was on, restore min filt. Another fix for water in Outrun.
+	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
+		int minFilt = gstate.texfilter & 0x7;
+		key.minFilt = minFilt & 1;
+	}
+
+	// Kill any mipmapping settings.
 	key.mipEnable = false;
 	key.mipFilt = false;
 	key.aniso = 0.0;
