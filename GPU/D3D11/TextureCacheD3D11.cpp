@@ -65,6 +65,8 @@ Draw::DataFormat FromD3D11Format(u32 fmt) {
 		return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
 	case DXGI_FORMAT_B5G6R5_UNORM:
 		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case DXGI_FORMAT_R8_UNORM:
+		return Draw::DataFormat::R8_UNORM;
 	case DXGI_FORMAT_B8G8R8A8_UNORM:
 	default:
 		return Draw::DataFormat::R8G8B8A8_UNORM;
@@ -290,6 +292,8 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		dstFmt = ToDXGIFormat(plan.replaced->Format(plan.baseLevelSrc));
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
+	} else if (plan.decodeToClut8) {
+		dstFmt = DXGI_FORMAT_R8_UNORM;
 	}
 
 	int levels;

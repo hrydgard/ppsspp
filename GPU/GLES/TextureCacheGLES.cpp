@@ -266,6 +266,8 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		dstFmt = plan.replaced->Format(plan.baseLevelSrc);
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
+	} else if (plan.decodeToClut8) {
+		dstFmt = Draw::DataFormat::R8_UNORM;
 	}
 
 	if (plan.depth == 1) {
@@ -313,7 +315,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 				if (plan.scaleFactor > 1) {
 					bpp = 4;
 				} else {
-					bpp = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
+					bpp = (int)Draw::DataFormatSizeInBytes(dstFmt);
 				}
 			}
 
@@ -335,7 +337,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 		render_->FinalizeTexture(entry->textureName, plan.levelsToLoad, genMips);
 	} else {
-		int bpp = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
+		int bpp = (int)Draw::DataFormatSizeInBytes(dstFmt);
 		int stride = bpp * (plan.w * plan.scaleFactor);
 		int levelStride = stride * (plan.h * plan.scaleFactor);
 
