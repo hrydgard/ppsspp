@@ -784,8 +784,8 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 
 				float scaleFactorX = 1.0f;
 				pipeline = GetReinterpretPipeline(src->fb_format, dst->fb_format, &scaleFactorX);
-				dstX1 *= 0.5f;
-				dstX2 *= 0.5f;
+				dstX1 *= scaleFactorX;
+				dstX2 *= scaleFactorX;
 
 				pass_name = reinterpretStrings[(int)src->fb_format][(int)dst->fb_format];
 
