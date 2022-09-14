@@ -200,6 +200,7 @@ bool GLRenderManager::ThreadFrame() {
 	std::unique_lock<std::mutex> lock(mutex_);
 	if (!run_)
 		return false;
+	bool vrlock = false;
 
 	// In case of syncs or other partial completion, we keep going until we complete a frame.
 	do {
@@ -235,10 +236,21 @@ bool GLRenderManager::ThreadFrame() {
 			INFO_LOG(G3D, "Running first frame (%d)", threadFrame_);
 			firstFrame = false;
 		}
+		if (IsVRBuild() && !vrlock) {
+			if (PreVRRender()) {
+				vrlock = true;
+			} else {
+				return false;
+			}
+		}
 		Run(threadFrame_);
 
 		VLOG("PULL: Finished frame %d", threadFrame_);
 	} while (!nextFrame);
+
+	if (IsVRBuild() && vrlock) {
+		PostVRRender();
+	}
 
 	return true;
 }
@@ -579,17 +591,14 @@ void GLRenderManager::Run(int frame) {
 	}
 
 	if (IsVRBuild()) {
-		if (PreVRRender()) {
-			int passes = 1;
-			if (!IsMultiviewSupported() && g_Config.bEnableStereo) {
-				passes = 2;
-			}
-			for (int i = 0; i < passes; i++) {
-				PreVRFrameRender(i);
-				queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, i < passes - 1);
-				PostVRFrameRender();
-			}
-			PostVRRender();
+		int passes = 1;
+		if (!IsMultiviewSupported() && g_Config.bEnableStereo) {
+			passes = 2;
+		}
+		for (int i = 0; i < passes; i++) {
+			PreVRFrameRender(i);
+			queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, i < passes - 1);
+			PostVRFrameRender();
 		}
 	} else {
 		queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
