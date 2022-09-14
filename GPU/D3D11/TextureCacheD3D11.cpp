@@ -378,7 +378,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 			return;
 		}
 
-		LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, texFmt, false);
+		LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, texFmt, TexDecodeFlags{});
 		if (plan.depth == 1) {
 			context_->UpdateSubresource(texture, i, nullptr, data, stride, 0);
 		} else {
