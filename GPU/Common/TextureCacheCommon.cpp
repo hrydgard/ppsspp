@@ -377,13 +377,20 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	}
 
 	bool hasClut = gstate.isTextureFormatIndexed();
+	bool hasClutGPU = false;
 	u32 cluthash;
 	if (hasClut) {
-		if (clutLastFormat_ != gstate.clutformat) {
-			// We update here because the clut format can be specified after the load.
-			UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
+		if (clutRenderAddress_ != 0xFFFFFFFF) {
+			hasClutGPU = true;
+			cluthash = 0;  // Or should we use some other marker value?
+		} else {
+			if (clutLastFormat_ != gstate.clutformat) {
+				// We update here because the clut format can be specified after the load.
+				// TODO: Unify this as far as possible (I think only GLES backend really needs its own implementation due to different component order).
+				UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
+			}
+			cluthash = clutHash_ ^ gstate.clutformat;
 		}
-		cluthash = clutHash_ ^ gstate.clutformat;
 	} else {
 		cluthash = 0;
 	}
@@ -411,6 +418,13 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		// Validate the texture still matches the cache entry.
 		bool match = entry->Matches(dim, texFormat, maxLevel);
 		const char *reason = "different params";
+
+		// Check for dynamic CLUT status
+		if (((entry->status & TexCacheEntry::STATUS_CLUT_GPU) != 0) != hasClutGPU) {
+			// Need to recreate, suddenly a CLUT GPU texture was used without it, or vice versa.
+			// I think this can only happen on a clut hash collision with the marker value, so highly unlikely.
+			match = false;
+		}
 
 		// Check for FBO changes.
 		if (entry->status & TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP) {
@@ -553,10 +567,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		entry = new TexCacheEntry{};
 		cache_[cachekey].reset(entry);
 
-		if (hasClut && clutRenderAddress_ != 0xFFFFFFFF) {
-			WARN_LOG_REPORT_ONCE(clutUseRender, G3D, "Using texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
-		}
-
 		if (PPGeIsFontTextureAddress(texaddr)) {
 			// It's the builtin font texture.
 			entry->status = TexCacheEntry::STATUS_RELIABLE;
@@ -564,6 +574,11 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			entry->status = TexCacheEntry::STATUS_HASHING;
 		} else {
 			entry->status = TexCacheEntry::STATUS_UNRELIABLE;
+		}
+
+		if (hasClutGPU) {
+			WARN_LOG_REPORT_ONCE(clutUseRender, G3D, "Using texture with dynamic CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
+			entry->status |= TexCacheEntry::STATUS_CLUT_GPU;
 		}
 
 		if (hasClut && clutRenderAddress_ == 0xFFFFFFFF) {
