@@ -491,8 +491,8 @@ protected:
 	u16 clutAlphaLinearColor_;
 
 	// Facilities for GPU depal of static textures.
+	Draw::Framebuffer *dynamicClutTemp_ = nullptr;
 	Draw::Framebuffer *dynamicClutFbo_ = nullptr;
-	Draw::Framebuffer *dynamicClutReinterpreted_ = nullptr;
 
 	int standardScaleFactor_;
 	int shaderScaleFactor_ = 0;

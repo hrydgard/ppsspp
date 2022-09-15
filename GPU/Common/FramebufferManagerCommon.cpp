@@ -557,11 +557,14 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 			// Set the flag, then upload memory contents to depth channel.
 			// Sanity check the depth buffer pointer.
 			if (currentRenderVfb_->z_address != 0 && currentRenderVfb_->z_address != currentRenderVfb_->fb_address) {
-				const u16 *src = (const u16 *)Memory::GetPointerUnchecked(currentRenderVfb_->z_address);
-				DrawPixels(currentRenderVfb_, 0, 0, (const u8 *)src, GE_FORMAT_DEPTH16, currentRenderVfb_->z_stride, currentRenderVfb_->width, currentRenderVfb_->height, RASTER_DEPTH, "Depth Upload");
+				if (Memory::IsValidRange(currentRenderVfb_->z_address, currentRenderVfb_->width * 2)) {
+					const u16 *src = (const u16 *)Memory::GetPointerUnchecked(currentRenderVfb_->z_address);
+					DrawPixels(currentRenderVfb_, 0, 0, (const u8 *)src, GE_FORMAT_DEPTH16, currentRenderVfb_->z_stride, currentRenderVfb_->width, currentRenderVfb_->height, RASTER_DEPTH, "Depth Upload");
+				}
 			}
 		}
 	}
+
 	// First time use of this framebuffer's depth buffer.
 	currentRenderVfb_->usageFlags |= FB_USAGE_RENDER_DEPTH;
 

@@ -2176,7 +2176,8 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 		desc.numColorAttachments = 1;
 		desc.tag = "dynamic_clut";
 		dynamicClutFbo_ = draw_->CreateFramebuffer(desc);
-		dynamicClutReinterpreted_ = draw_->CreateFramebuffer(desc);
+		desc.tag = "dynamic_clut_temp";
+		dynamicClutTemp_ = draw_->CreateFramebuffer(desc);
 	}
 
 	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
@@ -2192,21 +2193,21 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 		return;
 	}
 
-	Draw::Framebuffer *clutFbo = dynamicClutFbo_;
-
 	// First we use a blit (with nearest interpolation, so we don't mash pixels together)
 	// to shrink to the correct size, if we are running with scaling.
 	// We can always blit 512 pixels even if we only need less, the cost will be negligible.
-	framebufferManager_->BlitUsingRaster(
-		src->fbo, 0.0f, 0.0f, 512.0f * src->renderScaleFactor, 1.0f, dynamicClutFbo_, 0.0f, 0.0f, 512.0f, 1.0f, false, 1.0f, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR), "copy_clut");
 
-	// OK, figure out what format we want our framebuffer in, so it can be reinterpreted if needed.
-	if (expectedCLUTBufferFormat != src->fb_format) {
+	if (expectedCLUTBufferFormat == src->fb_format) {
+		framebufferManager_->BlitUsingRaster(
+			src->fbo, 0.0f, 0.0f, 512.0f * src->renderScaleFactor, 1.0f, dynamicClutFbo_, 0.0f, 0.0f, 512.0f, 1.0f, false, 1.0f, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR), "copy_clut");
+	} else {
+		framebufferManager_->BlitUsingRaster(
+			src->fbo, 0.0f, 0.0f, 512.0f * src->renderScaleFactor, 1.0f, dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, false, 1.0f, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR), "copy_clut_to_temp");
+		// OK, figure out what format we want our framebuffer in, so it can be reinterpreted if needed.
 		float scaleFactorX = 1.0f;
 		Draw2DPipeline *reinterpret = framebufferManager_->GetReinterpretPipeline(src->fb_format, expectedCLUTBufferFormat, &scaleFactorX);
 		framebufferManager_->BlitUsingRaster(
-			dynamicClutFbo_, 0.0f, 0.0f, 512.0f, 1.0f, dynamicClutReinterpreted_, 0.0f, 0.0f, scaleFactorX * 512.0f, 1.0f, false, 1.0f, reinterpret, "reinterpret_clut");
-		clutFbo = dynamicClutReinterpreted_;
+			dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, dynamicClutFbo_, 0.0f, 0.0f, scaleFactorX * 512.0f, 1.0f, false, 1.0f, reinterpret, "reinterpret_clut");
 	}
 
 	textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, GE_TFMT_CLUT8, GE_FORMAT_CLUT8, false, 0);
@@ -2240,7 +2241,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	draw_->SetViewports(1, &vp);
 
 	draw_->BindNativeTexture(0, GetNativeTextureView(entry));
-	draw_->BindFramebufferAsTexture(clutFbo, 1, Draw::FB_COLOR_BIT, 0);
+	draw_->BindFramebufferAsTexture(dynamicClutFbo_, 1, Draw::FB_COLOR_BIT, 0);
 	Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
 	Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(false);
 	draw_->BindSamplerStates(0, 1, &nearest);
@@ -2298,9 +2299,9 @@ void TextureCacheCommon::Clear(bool delete_them) {
 		dynamicClutFbo_->Release();
 		dynamicClutFbo_ = nullptr;
 	}
-	if (dynamicClutReinterpreted_) {
-		dynamicClutReinterpreted_->Release();
-		dynamicClutReinterpreted_ = nullptr;
+	if (dynamicClutTemp_) {
+		dynamicClutTemp_->Release();
+		dynamicClutTemp_ = nullptr;
 	}
 }
 
