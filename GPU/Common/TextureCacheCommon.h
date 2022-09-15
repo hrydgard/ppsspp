@@ -486,6 +486,8 @@ protected:
 	u32 clutMaxBytes_ = 0;
 	u32 clutRenderAddress_ = 0xFFFFFFFF;
 	u32 clutRenderOffset_;
+	GEBufferFormat clutRenderFormat_;
+
 	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
 	bool clutAlphaLinear_ = false;
 	u16 clutAlphaLinearColor_;

@@ -1196,6 +1196,8 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 
 			clutRenderOffset_ = MAX_CLUT_OFFSET;
 			const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
+
+			VirtualFramebuffer *chosenFramebuffer = nullptr;
 			for (VirtualFramebuffer *framebuffer : framebuffers) {
 				const u32 fb_address = framebuffer->fb_address & 0x3FFFFFFF;
 				const u32 fb_bpp = BufferFormatBytesPerPixel(framebuffer->fb_format);
@@ -1212,22 +1214,47 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 						fbMatchWidth = 480;
 					}
 					bool inMargin = ((offset / fb_bpp) % framebuffer->fb_stride) == fbMatchWidth;
+
+					// The offset check here means, in the context of the loop, that we'll pick
+					// the framebuffer with the smallest offset. This is yet another framebuffer matching
+					// loop with its own rules, eventually we'll probably want to do something
+					// more systematic.
 					if (matchRange && !inMargin && offset < (int)clutRenderOffset_) {
 						WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d", loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset);
 						framebuffer->last_frame_clut = gpuStats.numFlips;
 						framebuffer->usageFlags |= FB_USAGE_CLUT;
 						clutRenderAddress_ = framebuffer->fb_address;
 						clutRenderOffset_ = (u32)offset;
+						chosenFramebuffer = framebuffer;
 						if (offset == 0) {
+							// Not gonna find a better match according to the smallest-offset rule, so we'll go with this one.
 							break;
 						}
-
-						// TODO: Could automatically trigger the copy here and make it partial.
-						// That way, multiple partial copies would work. Though games don't really do that.
 					}
 				}
 			}
 
+			if (chosenFramebuffer) {
+				if (!dynamicClutTemp_) {
+					Draw::FramebufferDesc desc{};
+					desc.width = 512;
+					desc.height = 1;
+					desc.depth = 1;
+					desc.z_stencil = false;
+					desc.numColorAttachments = 1;
+					desc.tag = "dynamic_clut";
+					dynamicClutFbo_ = draw_->CreateFramebuffer(desc);
+					desc.tag = "dynamic_clut_temp";
+					dynamicClutTemp_ = draw_->CreateFramebuffer(desc);
+				}
+
+				// Download the pixels to our temp clut, scaling down if needed.
+				framebufferManager_->BlitUsingRaster(
+					chosenFramebuffer->fbo, 0.0f, 0.0f, 512.0f * chosenFramebuffer->renderScaleFactor, 1.0f, 
+					dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, 
+					false, 1.0f, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR), "copy_clut_to_temp");
+				clutRenderFormat_ = chosenFramebuffer->fb_format;
+			}
 			NotifyMemInfo(MemBlockFlags::ALLOC, clutAddr, loadBytes, "CLUT");
 		}
 
@@ -2165,20 +2192,6 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 		return;
 	}
 
-	// Create GPU resources.
-	if (!dynamicClutFbo_) {
-		Draw::FramebufferDesc desc{};
-		desc.width = 512;
-		desc.height = 1;
-		desc.depth = 1;
-		desc.z_stencil = false;
-		desc.numColorAttachments = 1;
-		desc.tag = "dynamic_clut";
-		dynamicClutFbo_ = draw_->CreateFramebuffer(desc);
-		desc.tag = "dynamic_clut_temp";
-		dynamicClutTemp_ = draw_->CreateFramebuffer(desc);
-	}
-
 	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	u32 depthUpperBits = 0;
 
@@ -2186,21 +2199,10 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	// Instead of texturing directly from that, we copy to a temporary CLUT texture.
 	GEBufferFormat expectedCLUTBufferFormat = (GEBufferFormat)clutFormat;  // All entries from clutFormat correspond directly to buffer formats.
 
-	VirtualFramebuffer *src = framebufferManager_->GetVFBAt(clutRenderAddress_);
-	if (!src) {
-		// What do we do?
-		return;
-	}
-
-	// First we use a blit (with nearest interpolation, so we don't mash pixels together)
-	// to shrink to the correct size, if we are running with scaling.
-	// We can always blit 512 pixels even if we only need less, the cost will be negligible.
-	framebufferManager_->BlitUsingRaster(
-		src->fbo, 0.0f, 0.0f, 512.0f * src->renderScaleFactor, 1.0f, dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, false, 1.0f, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR), "copy_clut_to_temp");
 	// OK, figure out what format we want our framebuffer in, so it can be reinterpreted if needed.
 	// If no reinterpretation is needed, we'll automatically just get a copy shader.
 	float scaleFactorX = 1.0f;
-	Draw2DPipeline *reinterpret = framebufferManager_->GetReinterpretPipeline(src->fb_format, expectedCLUTBufferFormat, &scaleFactorX);
+	Draw2DPipeline *reinterpret = framebufferManager_->GetReinterpretPipeline(clutRenderFormat_, expectedCLUTBufferFormat, &scaleFactorX);
 	framebufferManager_->BlitUsingRaster(
 		dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, dynamicClutFbo_, 0.0f, 0.0f, scaleFactorX * 512.0f, 1.0f, false, 1.0f, reinterpret, "reinterpret_clut");
 
