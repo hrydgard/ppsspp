@@ -172,7 +172,14 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 	bool formatOK = true;
 	switch (config.bufferFormat) {
 	case GE_FORMAT_CLUT8:
-		_dbg_assert_(false);  // to be implemented
+		if (shift == 0 && mask == 0xFF) {
+			// Easy peasy.
+			sprintf(lookupMethod, "index.r");
+			formatOK = true;
+		} else {
+			// Deal with this if we find it.
+			formatOK = false;
+		}
 		break;
 	case GE_FORMAT_8888:
 		if ((mask & (mask + 1)) == 0) {

@@ -443,6 +443,17 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 					if (data != rect.pBits)
 						memcpy(dest, source, sizeof(uint32_t) * width);
 					break;
+
+				case DataFormat::R8_UNORM:
+					if (data != rect.pBits)
+						memcpy(dest, source, width);
+					break;
+
+				case DataFormat::R16_UNORM:
+					if (data != rect.pBits)
+						memcpy(dest, source, sizeof(uint16_t) * width);
+					break;
+
 				default:
 					// Unhandled data format copy.
 					DebugBreak();
