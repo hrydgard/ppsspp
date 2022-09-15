@@ -423,6 +423,8 @@ public:
 	VirtualFramebuffer *ResolveFramebufferColorToFormat(VirtualFramebuffer *vfb, GEBufferFormat newFormat);
 
 	Draw2DPipeline *Get2DPipeline(Draw2DShader shader);
+
+	// If from==to, returns a copy pipeline.
 	Draw2DPipeline *GetReinterpretPipeline(GEBufferFormat from, GEBufferFormat to, float *scaleFactorX);
 
 	// Public to be used from the texture cache's depal shenanigans.

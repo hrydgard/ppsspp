@@ -825,6 +825,11 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 }
 
 Draw2DPipeline *FramebufferManagerCommon::GetReinterpretPipeline(GEBufferFormat from, GEBufferFormat to, float *scaleFactorX) {
+	if (from == to) {
+		*scaleFactorX = 1.0f;
+		return Get2DPipeline(DRAW2D_COPY_COLOR);
+	}
+
 	if (IsBufferFormat16Bit(from) && !IsBufferFormat16Bit(to)) {
 		// We halve the X coordinates in the destination framebuffer.
 		// The shader will collect two pixels worth of input data and merge into one.
@@ -833,6 +838,8 @@ Draw2DPipeline *FramebufferManagerCommon::GetReinterpretPipeline(GEBufferFormat 
 		// We double the X coordinates in the destination framebuffer.
 		// The shader will sample and depending on the X coordinate & 1, use the upper or lower bits.
 		*scaleFactorX = 2.0f;
+	} else {
+		*scaleFactorX = 1.0f;
 	}
 
 	Draw2DPipeline *pipeline = reinterpretFromTo_[(int)from][(int)to];

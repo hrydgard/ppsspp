@@ -2154,7 +2154,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 // Applies depal to a normal (non-framebuffer) texture, pre-decoded to CLUT8 format.
 void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
-	Draw2DPipeline *textureShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
 	switch (entry->format) {
@@ -2196,21 +2195,16 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	// First we use a blit (with nearest interpolation, so we don't mash pixels together)
 	// to shrink to the correct size, if we are running with scaling.
 	// We can always blit 512 pixels even if we only need less, the cost will be negligible.
+	framebufferManager_->BlitUsingRaster(
+		src->fbo, 0.0f, 0.0f, 512.0f * src->renderScaleFactor, 1.0f, dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, false, 1.0f, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR), "copy_clut_to_temp");
+	// OK, figure out what format we want our framebuffer in, so it can be reinterpreted if needed.
+	// If no reinterpretation is needed, we'll automatically just get a copy shader.
+	float scaleFactorX = 1.0f;
+	Draw2DPipeline *reinterpret = framebufferManager_->GetReinterpretPipeline(src->fb_format, expectedCLUTBufferFormat, &scaleFactorX);
+	framebufferManager_->BlitUsingRaster(
+		dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, dynamicClutFbo_, 0.0f, 0.0f, scaleFactorX * 512.0f, 1.0f, false, 1.0f, reinterpret, "reinterpret_clut");
 
-	if (expectedCLUTBufferFormat == src->fb_format) {
-		framebufferManager_->BlitUsingRaster(
-			src->fbo, 0.0f, 0.0f, 512.0f * src->renderScaleFactor, 1.0f, dynamicClutFbo_, 0.0f, 0.0f, 512.0f, 1.0f, false, 1.0f, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR), "copy_clut");
-	} else {
-		framebufferManager_->BlitUsingRaster(
-			src->fbo, 0.0f, 0.0f, 512.0f * src->renderScaleFactor, 1.0f, dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, false, 1.0f, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR), "copy_clut_to_temp");
-		// OK, figure out what format we want our framebuffer in, so it can be reinterpreted if needed.
-		float scaleFactorX = 1.0f;
-		Draw2DPipeline *reinterpret = framebufferManager_->GetReinterpretPipeline(src->fb_format, expectedCLUTBufferFormat, &scaleFactorX);
-		framebufferManager_->BlitUsingRaster(
-			dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, dynamicClutFbo_, 0.0f, 0.0f, scaleFactorX * 512.0f, 1.0f, false, 1.0f, reinterpret, "reinterpret_clut");
-	}
-
-	textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, GE_TFMT_CLUT8, GE_FORMAT_CLUT8, false, 0);
+	Draw2DPipeline *textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, GE_TFMT_CLUT8, GE_FORMAT_CLUT8, false, 0);
 	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 
 	int texWidth = gstate.getTextureWidth(0);
