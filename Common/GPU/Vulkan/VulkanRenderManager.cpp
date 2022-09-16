@@ -1412,6 +1412,9 @@ void VulkanRenderManager::Wipe() {
 // the backbuffer image acquisition.
 void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
+
+	SubmitInitCommands(frame);
+
 	if (!frameData.hasBegun) {
 		// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
 		VkResult res = vkAcquireNextImageKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &frameData.curSwapchainImage);
@@ -1438,38 +1441,53 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	}
 }
 
+void VulkanRenderManager::SubmitInitCommands(int frame) {
+	FrameData &frameData = frameData_[frame];
+	if (!frameData.hasInitCommands) {
+		return;
+	}
+
+	if (frameData.profilingEnabled_) {
+		// Pre-allocated query ID 1.
+		vkCmdWriteTimestamp(frameData.initCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frameData.profile.queryPool, 1);
+	}
+
+	VkResult res = vkEndCommandBuffer(frameData.initCmd);
+	_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
+
+	VkCommandBuffer cmdBufs[1];
+	int numCmdBufs = 0;
+
+	cmdBufs[numCmdBufs++] = frameData.initCmd;
+	// Send the init commands off separately, so they can be processed while we're building the rest of the list.
+	// (Likely the CPU will be more than a frame ahead anyway, but this will help when we try to work on latency).
+	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
+	submit_info.pCommandBuffers = cmdBufs;
+	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
+	if (res == VK_ERROR_DEVICE_LOST) {
+		_assert_msg_(false, "Lost the Vulkan device in split submit! If this happens again, switch Graphics Backend away from Vulkan");
+	} else {
+		_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (init)! result=%s", VulkanResultToString(res));
+	}
+	numCmdBufs = 0;
+
+	frameData.hasInitCommands = false;
+}
+
 void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
 	FrameData &frameData = frameData_[frame];
-	if (frameData.hasInitCommands) {
-		if (frameData.profilingEnabled_ && triggerFrameFence) {
-			// Pre-allocated query ID 1.
-			vkCmdWriteTimestamp(frameData.initCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frameData.profile.queryPool, 1);
-		}
-		VkResult res = vkEndCommandBuffer(frameData.initCmd);
-		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
-	}
 
 	VkResult res = vkEndCommandBuffer(frameData.mainCmd);
 	_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (main)! result=%s", VulkanResultToString(res));
 
-	VkCommandBuffer cmdBufs[2];
+	SubmitInitCommands(frame);
+
+	// Submit the main and final cmdbuf, ending by signalling the fence.
+
+	VkCommandBuffer cmdBufs[1];
 	int numCmdBufs = 0;
-	if (frameData.hasInitCommands) {
-		cmdBufs[numCmdBufs++] = frameData.initCmd;
-		if (splitSubmit_) {
-			// Send the init commands off separately. Used this once to confirm that the cause of a device loss was in the init cmdbuf.
-			VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
-			submit_info.commandBufferCount = (uint32_t)numCmdBufs;
-			submit_info.pCommandBuffers = cmdBufs;
-			res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
-			if (res == VK_ERROR_DEVICE_LOST) {
-				_assert_msg_(false, "Lost the Vulkan device in split submit! If this happens again, switch Graphics Backend away from Vulkan");
-			} else {
-				_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (init)! result=%s", VulkanResultToString(res));
-			}
-			numCmdBufs = 0;
-		}
-	}
+
 	cmdBufs[numCmdBufs++] = frameData.mainCmd;
 
 	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
@@ -1489,7 +1507,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
 	if (res == VK_ERROR_DEVICE_LOST) {
 		_assert_msg_(false, "Lost the Vulkan device in vkQueueSubmit! If this happens again, switch Graphics Backend away from Vulkan");
 	} else {
-		_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (main, split=%d)! result=%s", (int)splitSubmit_, VulkanResultToString(res));
+		_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (main)! result=%s", VulkanResultToString(res));
 	}
 
 	// When !triggerFence, we notify after syncing with Vulkan.

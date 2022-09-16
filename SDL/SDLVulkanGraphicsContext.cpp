@@ -116,7 +116,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		return false;
 	}
 
-	draw_ = Draw::T3DCreateVulkanContext(vulkan_, false);
+	draw_ = Draw::T3DCreateVulkanContext(vulkan_);
 	SetGPUBackend(GPUBackend::VULKAN);
 	bool success = draw_->CreatePresets();
 	_assert_(success);

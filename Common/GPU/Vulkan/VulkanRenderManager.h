@@ -445,10 +445,6 @@ public:
 		return !framebuffers_.empty();
 	}
 
-	void SetSplitSubmit(bool split) {
-		splitSubmit_ = split;
-	}
-
 	void SetInflightFrames(int f) {
 		newInflightFrames_ = f < 1 || f > VulkanContext::MAX_INFLIGHT_FRAMES ? VulkanContext::MAX_INFLIGHT_FRAMES : f;
 	}
@@ -479,6 +475,7 @@ private:
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
 	void Submit(int frame, bool triggerFence);
+	void SubmitInitCommands(int frame);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
@@ -508,10 +505,11 @@ private:
 		bool readbackFenceUsed = false;
 
 		// These are on different threads so need separate pools.
-		VkCommandPool cmdPoolInit;
-		VkCommandPool cmdPoolMain;
+		VkCommandPool cmdPoolInit;  // Written to from main thread
+		VkCommandPool cmdPoolMain;  // Written to from render thread, which also submits
 		VkCommandBuffer initCmd;
 		VkCommandBuffer mainCmd;
+
 		bool hasInitCommands = false;
 		std::vector<VKRStep *> steps;
 
@@ -550,7 +548,6 @@ private:
 	BoundingRect curRenderArea_;
 
 	std::vector<VKRStep *> steps_;
-	bool splitSubmit_ = false;
 
 	// Execution time state
 	bool run_ = true;

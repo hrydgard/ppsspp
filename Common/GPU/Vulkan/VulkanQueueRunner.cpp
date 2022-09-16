@@ -1129,7 +1129,6 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		}
 	}
 
-	
 	// Don't execute empty renderpasses that keep the contents.
 	if (step.commands.empty() && step.render.colorLoad == VKRRenderPassLoadAction::KEEP && step.render.depthLoad == VKRRenderPassLoadAction::KEEP && step.render.stencilLoad == VKRRenderPassLoadAction::KEEP) {
 		// Flush the pending barrier
@@ -1179,6 +1178,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	// This reads the layout of the color and depth images, and chooses a render pass using them that
 	// will transition to the desired final layout.
+	//
 	// NOTE: Flushes recordBarrier_.
 	VKRRenderPass *renderPass = PerformBindFramebufferAsRenderTarget(step, cmd);
 
