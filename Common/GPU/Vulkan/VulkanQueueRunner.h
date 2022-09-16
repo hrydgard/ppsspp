@@ -257,7 +257,7 @@ public:
 	}
 
 	void PreprocessSteps(std::vector<VKRStep *> &steps);
-	void RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, QueueProfileContext *profile);
+	void RunSteps(VkCommandBuffer cmd, VkCommandBuffer presentCmd, bool *hasPresentCommands, std::vector<VKRStep *> &steps, QueueProfileContext *profile);
 	void LogSteps(const std::vector<VKRStep *> &steps, bool verbose);
 
 	std::string StepToString(const VKRStep &step) const;

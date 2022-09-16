@@ -309,11 +309,11 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 		cmd_alloc.commandPool = frameData_[i].cmdPoolInit;
 		cmd_alloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		cmd_alloc.commandBufferCount = 1;
-
 		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].initCmd);
 		_dbg_assert_(res == VK_SUCCESS);
 		cmd_alloc.commandPool = frameData_[i].cmdPoolMain;
 		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].mainCmd);
+		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].presentCmd);
 		_dbg_assert_(res == VK_SUCCESS);
 
 		// Creating the frame fence with true so they can be instantly waited on the first frame
@@ -1481,14 +1481,22 @@ void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
 	VkResult res = vkEndCommandBuffer(frameData.mainCmd);
 	_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (main)! result=%s", VulkanResultToString(res));
 
+	if (frameData.hasPresentCommands) {
+		VkResult res = vkEndCommandBuffer(frameData.presentCmd);
+		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (present)! result=%s", VulkanResultToString(res));
+	}
+
 	SubmitInitCommands(frame);
 
 	// Submit the main and final cmdbuf, ending by signalling the fence.
 
-	VkCommandBuffer cmdBufs[1];
+	VkCommandBuffer cmdBufs[2];
 	int numCmdBufs = 0;
 
 	cmdBufs[numCmdBufs++] = frameData.mainCmd;
+	if (frameData.hasPresentCommands) {
+		cmdBufs[numCmdBufs++] = frameData.presentCmd;
+	}
 
 	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -1519,6 +1527,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
 	}
 
 	frameData.hasInitCommands = false;
+	frameData.hasPresentCommands = false;
 }
 
 void VulkanRenderManager::EndSubmitFrame(int frame) {
@@ -1564,7 +1573,7 @@ void VulkanRenderManager::Run(int frame) {
 	VkCommandBuffer cmd = frameData.mainCmd;
 	queueRunner_.PreprocessSteps(stepsOnThread);
 	//queueRunner_.LogSteps(stepsOnThread, false);
-	queueRunner_.RunSteps(cmd, stepsOnThread, frameData.profilingEnabled_ ? &frameData.profile : nullptr);
+	queueRunner_.RunSteps(cmd, frameData.presentCmd, &frameData.hasPresentCommands, stepsOnThread, frameData.profilingEnabled_ ? &frameData.profile : nullptr);
 	stepsOnThread.clear();
 
 	switch (frameData.type) {
@@ -1586,6 +1595,7 @@ void VulkanRenderManager::Run(int frame) {
 void VulkanRenderManager::EndSyncFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 
+	_dbg_assert_(!frameData.hasPresentCommands);
 	frameData.readbackFenceUsed = true;
 
 	// The submit will trigger the readbackFence.

@@ -376,7 +376,7 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 	}
 }
 
-void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, QueueProfileContext *profile) {
+void VulkanQueueRunner::RunSteps(VkCommandBuffer mainCmd, VkCommandBuffer presentCmd, bool *hasPresentCommands, std::vector<VKRStep *> &steps, QueueProfileContext *profile) {
 	if (profile)
 		profile->cpuStartTime = time_now_d();
 
@@ -388,36 +388,47 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 		if (emitLabels) {
 			VkDebugUtilsLabelEXT labelInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
 			labelInfo.pLabelName = step.tag;
-			vkCmdBeginDebugUtilsLabelEXT(cmd, &labelInfo);
+			vkCmdBeginDebugUtilsLabelEXT(mainCmd, &labelInfo);
 		}
 
 		switch (step.stepType) {
 		case VKRStepType::RENDER:
-			PerformRenderPass(step, cmd);
+			if (!step.render.framebuffer) {
+				_dbg_assert_(!*hasPresentCommands);
+				if (!*hasPresentCommands) {
+					*hasPresentCommands = true;
+					VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+					begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+					vkBeginCommandBuffer(presentCmd, &begin);
+				}
+				PerformRenderPass(step, presentCmd);
+			} else {
+				PerformRenderPass(step, mainCmd);
+			}
 			break;
 		case VKRStepType::COPY:
-			PerformCopy(step, cmd);
+			PerformCopy(step, mainCmd);
 			break;
 		case VKRStepType::BLIT:
-			PerformBlit(step, cmd);
+			PerformBlit(step, mainCmd);
 			break;
 		case VKRStepType::READBACK:
-			PerformReadback(step, cmd);
+			PerformReadback(step, mainCmd);
 			break;
 		case VKRStepType::READBACK_IMAGE:
-			PerformReadbackImage(step, cmd);
+			PerformReadbackImage(step, mainCmd);
 			break;
 		case VKRStepType::RENDER_SKIP:
 			break;
 		}
 
 		if (profile && profile->timestampDescriptions.size() + 1 < MAX_TIMESTAMP_QUERIES) {
-			vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile->queryPool, (uint32_t)profile->timestampDescriptions.size());
+			vkCmdWriteTimestamp(mainCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile->queryPool, (uint32_t)profile->timestampDescriptions.size());
 			profile->timestampDescriptions.push_back(StepToString(step));
 		}
 
 		if (emitLabels) {
-			vkCmdEndDebugUtilsLabelEXT(cmd);
+			vkCmdEndDebugUtilsLabelEXT(mainCmd);
 		}
 	}
 

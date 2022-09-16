@@ -507,10 +507,14 @@ private:
 		// These are on different threads so need separate pools.
 		VkCommandPool cmdPoolInit;  // Written to from main thread
 		VkCommandPool cmdPoolMain;  // Written to from render thread, which also submits
+
 		VkCommandBuffer initCmd;
 		VkCommandBuffer mainCmd;
+		VkCommandBuffer presentCmd;
 
 		bool hasInitCommands = false;
+		bool hasPresentCommands = false;
+
 		std::vector<VKRStep *> steps;
 
 		// Swapchain.
