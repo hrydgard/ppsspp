@@ -414,6 +414,7 @@ public:
 
 	void BindSamplerStates(int start, int count, SamplerState **state) override;
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindNativeTexture(int sampler, void *nativeTexture) override;
 
 	void BindPipeline(Pipeline *pipeline) override {
 		curPipeline_ = (VKPipeline *)pipeline;
@@ -563,6 +564,11 @@ static int GetBpp(VkFormat format) {
 	case VK_FORMAT_R8G8B8A8_UNORM:
 	case VK_FORMAT_B8G8R8A8_UNORM:
 		return 32;
+	case VK_FORMAT_R8_UNORM:
+		return 8;
+	case VK_FORMAT_R8G8_UNORM:
+	case VK_FORMAT_R16_UNORM:
+		return 16;
 	case VK_FORMAT_R4G4B4A4_UNORM_PACK16:
 	case VK_FORMAT_B4G4R4A4_UNORM_PACK16:
 	case VK_FORMAT_R5G5B5A1_UNORM_PACK16:
@@ -586,6 +592,9 @@ static VkFormat DataFormatToVulkan(DataFormat format) {
 	case DataFormat::D32F: return VK_FORMAT_D32_SFLOAT;
 	case DataFormat::D32F_S8: return VK_FORMAT_D32_SFLOAT_S8_UINT;
 	case DataFormat::S8: return VK_FORMAT_S8_UINT;
+
+	case DataFormat::R16_UNORM: return VK_FORMAT_R16_UNORM;
+
 	case DataFormat::R16_FLOAT: return VK_FORMAT_R16_SFLOAT;
 	case DataFormat::R16G16_FLOAT: return VK_FORMAT_R16G16_SFLOAT;
 	case DataFormat::R16G16B16A16_FLOAT: return VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -1282,6 +1291,11 @@ void VKContext::BindTextures(int start, int count, Texture **textures) {
 		boundTextures_[i] = static_cast<VKTexture *>(textures[i - start]);
 		boundImageView_[i] = boundTextures_[i] ? boundTextures_[i]->GetImageView() : GetNullTexture()->GetImageView();
 	}
+}
+
+void VKContext::BindNativeTexture(int sampler, void *nativeTexture) {
+	boundTextures_[sampler] = nullptr;
+	boundImageView_[sampler] = (VkImageView)nativeTexture;
 }
 
 ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const char *tag) {

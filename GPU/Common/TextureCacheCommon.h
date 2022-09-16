@@ -53,6 +53,7 @@ class ShaderManagerCommon;
 enum class TexDecodeFlags {
 	EXPAND32 = 1,
 	REVERSE_COLORS = 2,
+	TO_CLUT8 = 4,
 };
 ENUM_CLASS_BITOPS(TexDecodeFlags);
 
@@ -108,6 +109,8 @@ struct TextureDefinition {
 
 // NOTE: These only handle textures loaded directly from PSP memory contents.
 // Framebuffer textures do not have entries, we bind the framebuffers directly.
+// At one point we might merge the concepts of framebuffers and textures, but that
+// moment is far away.
 struct TexCacheEntry {
 	~TexCacheEntry() {
 		if (texturePtr || textureName || vkTex)
@@ -144,6 +147,8 @@ struct TexCacheEntry {
 		STATUS_FORCE_REBUILD = 0x2000,
 
 		STATUS_3D = 0x4000,
+
+		STATUS_CLUT_GPU = 0x8000,
 	};
 
 	// Status, but int so we can zero initialize.
@@ -281,6 +286,9 @@ struct BuildTexturePlan {
 	bool replaceValid;
 	bool saveTexture;
 
+	// TODO: Expand32 should probably also be decided in PrepareBuildTexture.
+	bool decodeToClut8;
+
 	void GetMipSize(int level, int *w, int *h) const {
 		if (replaceValid) {
 			replaced->GetSize(level, *w, *h);
@@ -343,6 +351,7 @@ public:
 	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) { return false; }
 
 protected:
+	virtual void *GetNativeTextureView(const TexCacheEntry *entry) = 0;
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
 
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
@@ -352,6 +361,7 @@ protected:
 	void Decimate(bool forcePressure = false);
 
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel);
+	void ApplyTextureDepal(TexCacheEntry *entry);
 
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
@@ -476,9 +486,15 @@ protected:
 	u32 clutMaxBytes_ = 0;
 	u32 clutRenderAddress_ = 0xFFFFFFFF;
 	u32 clutRenderOffset_;
+	GEBufferFormat clutRenderFormat_;
+
 	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
 	bool clutAlphaLinear_ = false;
 	u16 clutAlphaLinearColor_;
+
+	// Facilities for GPU depal of static textures.
+	Draw::Framebuffer *dynamicClutTemp_ = nullptr;
+	Draw::Framebuffer *dynamicClutFbo_ = nullptr;
 
 	int standardScaleFactor_;
 	int shaderScaleFactor_ = 0;

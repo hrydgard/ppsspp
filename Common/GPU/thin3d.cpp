@@ -33,6 +33,9 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 	case DataFormat::R8G8B8A8_SNORM: return 4;
 	case DataFormat::R8G8B8A8_UINT: return 4;
 	case DataFormat::R8G8B8A8_SINT: return 4;
+
+	case DataFormat::R16_UNORM: return 2;
+
 	case DataFormat::R16_FLOAT: return 2;
 	case DataFormat::R16G16_FLOAT: return 4;
 	case DataFormat::R16G16B16A16_FLOAT: return 8;

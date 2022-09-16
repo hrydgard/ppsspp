@@ -84,6 +84,9 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 
 	int shiftedMask = mask << shift;
 	switch (config.bufferFormat) {
+	case GE_FORMAT_CLUT8:
+		writer.C("  int index = int(color.r * 255.99);\n");
+		break;
 	case GE_FORMAT_8888:
 		if (shiftedMask & 0xFF) writer.C("  int r = int(color.r * 255.99);\n"); else writer.C("  int r = 0;\n");
 		if (shiftedMask & 0xFF00) writer.C("  int g = int(color.g * 255.99);\n"); else writer.C("  int g = 0;\n");
@@ -168,6 +171,16 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 	// pixelformat is the format of the texture we are sampling.
 	bool formatOK = true;
 	switch (config.bufferFormat) {
+	case GE_FORMAT_CLUT8:
+		if (shift == 0 && mask == 0xFF) {
+			// Easy peasy.
+			sprintf(lookupMethod, "index.r");
+			formatOK = true;
+		} else {
+			// Deal with this if we find it.
+			formatOK = false;
+		}
+		break;
 	case GE_FORMAT_8888:
 		if ((mask & (mask + 1)) == 0) {
 			// If the value has all bits contiguous (bitmask check above), we can mod by it + 1.

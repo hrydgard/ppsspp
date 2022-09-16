@@ -50,6 +50,7 @@ protected:
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 	void BindAsClutTexture(Draw::Texture *tex, bool smooth) override;
+	void *GetNativeTextureView(const TexCacheEntry *entry) override;
 
 private:
 	void ApplySamplingParams(const SamplerCacheKey &key) override;
@@ -60,7 +61,7 @@ private:
 
 	void BuildTexture(TexCacheEntry *const entry) override;
 
-	LPDIRECT3DBASETEXTURE9 &DxTex(TexCacheEntry *entry) {
+	LPDIRECT3DBASETEXTURE9 &DxTex(const TexCacheEntry *entry) const {
 		return *(LPDIRECT3DBASETEXTURE9 *)&entry->texturePtr;
 	}
 

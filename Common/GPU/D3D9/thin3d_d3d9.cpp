@@ -114,6 +114,7 @@ static const D3DSTENCILOP stencilOpToD3D9[] = {
 
 D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
 	switch (fmt) {
+	case DataFormat::R16_UNORM: return D3DFMT_L16;  // closest match, should be a fine substitution if we ignore channels except R.
 	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
 	case DataFormat::B8G8R8A8_UNORM: return D3DFMT_A8R8G8B8;
 	case DataFormat::R4G4B4A4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
@@ -442,6 +443,17 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 					if (data != rect.pBits)
 						memcpy(dest, source, sizeof(uint32_t) * width);
 					break;
+
+				case DataFormat::R8_UNORM:
+					if (data != rect.pBits)
+						memcpy(dest, source, width);
+					break;
+
+				case DataFormat::R16_UNORM:
+					if (data != rect.pBits)
+						memcpy(dest, source, sizeof(uint16_t) * width);
+					break;
+
 				default:
 					// Unhandled data format copy.
 					DebugBreak();
@@ -520,6 +532,8 @@ public:
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindNativeTexture(int index, void *nativeTexture) override;
+
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
 		_assert_(start + count <= MAX_BOUND_TEXTURES);
 		for (int i = 0; i < count; ++i) {
@@ -811,6 +825,11 @@ void D3D9Context::BindTextures(int start, int count, Texture **textures) {
 			device_->SetTexture(i, nullptr);
 		}
 	}
+}
+
+void D3D9Context::BindNativeTexture(int index, void *nativeTexture) {
+	LPDIRECT3DTEXTURE9 texture = (LPDIRECT3DTEXTURE9)nativeTexture;
+	device_->SetTexture(index, texture);
 }
 
 void D3D9Context::EndFrame() {

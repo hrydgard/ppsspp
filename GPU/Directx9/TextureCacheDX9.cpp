@@ -454,3 +454,8 @@ bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) 
 
 	return success;
 }
+
+void *TextureCacheDX9::GetNativeTextureView(const TexCacheEntry *entry) {
+	LPDIRECT3DBASETEXTURE9 tex = DxTex(entry);
+	return (void *)tex;
+}

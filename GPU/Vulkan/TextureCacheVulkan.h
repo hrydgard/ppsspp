@@ -97,6 +97,7 @@ protected:
 	void BindAsClutTexture(Draw::Texture *tex, bool smooth) override;
 	void ApplySamplingParams(const SamplerCacheKey &key) override;
 	void BoundFramebufferTexture() override;
+	void *GetNativeTextureView(const TexCacheEntry *entry) override;
 
 private:
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch,  int level, int scaleFactor, VkFormat dstFmt);
