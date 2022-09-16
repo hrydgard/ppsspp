@@ -840,15 +840,19 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 		// Workaround for Intel driver bug. TODO: Re-enable after some driver version
 		bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
 	} else if (caps_.vendor == GPUVendor::VENDOR_ARM) {
+		int majorVersion = VK_API_VERSION_MAJOR(deviceProps.driverVersion);
+
 		// These GPUs (up to some certain hardware version?) have a bug where draws where gl_Position.w == .z
 		// corrupt the depth buffer. This is easily worked around by simply scaling Z down a tiny bit when this case
 		// is detected. See: https://github.com/hrydgard/ppsspp/issues/11937
 		bugs_.Infest(Bugs::EQUAL_WZ_CORRUPTS_DEPTH);
-		// At least one driver at the upper end of the range is known to be likely to suffer from the bug causing issue #13833 (Midnight Club map broken).
+
+		// Similar to the Adreno bug, see #13833 (Midnight Club map broken) and other issues.
+		// Reported fixed in major version 40 - let's add a check once confirmed.
 		bugs_.Infest(Bugs::MALI_STENCIL_DISCARD_BUG);
 
-		// This started in driver 31 or 32.
-		if (VK_API_VERSION_MAJOR(deviceProps.driverVersion) >= 32) {
+		// This started in driver 31 or 32, fixed in 40 - let's add a check once confirmed.
+		if (majorVersion >= 32) {
 			bugs_.Infest(Bugs::MALI_CONSTANT_LOAD_BUG);  // See issue #15661
 		}
 	}
