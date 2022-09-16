@@ -78,8 +78,9 @@ static std::string TrimString(const std::string &str) {
 
 class SavedataPopupScreen : public PopupScreen {
 public:
-	SavedataPopupScreen(std::string savePath, std::string title) : PopupScreen(TrimString(title)), savePath_(savePath) {
-	}
+	SavedataPopupScreen(std::string savePath, std::string title) : PopupScreen(TrimString(title)), savePath_(savePath) { }
+
+	const char *tag() const override { return "SavedataPopup"; }
 
 	void CreatePopupContents(UI::ViewGroup *parent) override {
 		using namespace UI;

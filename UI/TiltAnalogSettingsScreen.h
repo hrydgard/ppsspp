@@ -27,6 +27,8 @@ public:
 	void CreateViews() override;
 	bool axis(const AxisInput &axis) override;
 
+	const char *tag() const override { return "TiltAnalogSettings"; }
+
 private:
 	UI::EventReturn OnCalibrate(UI::EventParams &e);
 	float currentTiltX_ = 0.0f;

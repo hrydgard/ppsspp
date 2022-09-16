@@ -56,6 +56,8 @@ public:
 		parent->Add(scroll);
 	}
 
+	const char *tag() const override { return "ButtonShape"; }
+
 private:
 	int *setting_;
 };
@@ -83,6 +85,8 @@ public:
 		scroll->Add(items);
 		parent->Add(scroll);
 	}
+
+	const char *tag() const override { return "ButtonIcon"; }
 
 private:
 	int *setting_;

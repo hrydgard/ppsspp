@@ -74,7 +74,6 @@ public:
 	const UI::Theme *theme;
 
 	// Utility methods
-
 	TextDrawer *Text() const { return textDrawer_; }
 
 	void SetFontStyle(const UI::FontStyle &style);
@@ -103,6 +102,10 @@ public:
 
 	void setUIAtlas(const std::string &name);
 
+	void SetScreenTag(const char *tag) {
+		screenTag_ = tag;
+	}
+
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	Bounds bounds_;
@@ -126,4 +129,6 @@ private:
 
 	std::string lastUIAtlas_;
 	std::string UIAtlas_ = "ui_atlas.zim";
+
+	const char *screenTag_ = nullptr;
 };

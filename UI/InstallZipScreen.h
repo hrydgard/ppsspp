@@ -30,6 +30,8 @@ public:
 	virtual void update() override;
 	virtual bool key(const KeyInput &key) override;
 
+	const char *tag() const { return "install_zip"; }
+
 protected:
 	virtual void CreateViews() override;
 

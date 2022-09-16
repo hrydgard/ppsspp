@@ -28,6 +28,8 @@ class ComboKeyScreen : public UIDialogScreenWithBackground {
 public:
 	ComboKeyScreen(int id): id_(id) {}
 
+	const char *tag() const override { return "ComboKey"; }
+
 	void CreateViews() override;
 	void onFinish(DialogResult result) override;
 

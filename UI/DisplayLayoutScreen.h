@@ -31,7 +31,7 @@ public:
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
 	virtual void onFinish(DialogResult reason) override;
 	virtual void resized() override;
-	std::string tag() const override { return "display layout screen"; }
+	const char *tag() const override { return "DisplayLayout"; }
 	
 protected:
 	virtual UI::EventReturn OnCenter(UI::EventParams &e);
