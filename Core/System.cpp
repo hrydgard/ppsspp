@@ -413,11 +413,11 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	}
 
 #if defined(_WIN32) && PPSSPP_ARCH(AMD64)
-	INFO_LOG(BOOT, "PPSSPP %s Windows 64 bit", PPSSPP_GIT_VERSION);
+	NOTICE_LOG(BOOT, "PPSSPP %s Windows 64 bit", PPSSPP_GIT_VERSION);
 #elif defined(_WIN32) && !PPSSPP_ARCH(AMD64)
-	INFO_LOG(BOOT, "PPSSPP %s Windows 32 bit", PPSSPP_GIT_VERSION);
+	NOTICE_LOG(BOOT, "PPSSPP %s Windows 32 bit", PPSSPP_GIT_VERSION);
 #else
-	INFO_LOG(BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);
+	NOTICE_LOG(BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);
 #endif
 
 	Core_NotifyLifecycle(CoreLifecycle::STARTING);
