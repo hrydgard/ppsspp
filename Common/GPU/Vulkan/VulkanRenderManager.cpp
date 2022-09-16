@@ -326,6 +326,8 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 		query_ci.queryCount = MAX_TIMESTAMP_QUERIES;
 		query_ci.queryType = VK_QUERY_TYPE_TIMESTAMP;
 		res = vkCreateQueryPool(vulkan_->GetDevice(), &query_ci, nullptr, &frameData_[i].profile.queryPool);
+
+		frameData_[i].acquireSemaphore = acquireSemaphore_;
 	}
 
 	queueRunner_.CreateDeviceObjects();
@@ -1416,23 +1418,14 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	SubmitInitCommands(frame);
 
 	if (!frameData.hasBegun) {
-		// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
-		VkResult res = vkAcquireNextImageKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &frameData.curSwapchainImage);
-		if (res == VK_SUBOPTIMAL_KHR) {
-			// Hopefully the resize will happen shortly. Ignore - one frame might look bad or something.
-			WARN_LOG(G3D, "VK_SUBOPTIMAL_KHR returned - ignoring");
-		} else if (res == VK_ERROR_OUT_OF_DATE_KHR) {
-			WARN_LOG(G3D, "VK_ERROR_OUT_OF_DATE_KHR returned - processing the frame, but not presenting");
-			frameData.skipSwap = true;
-		} else {
-			_assert_msg_(res == VK_SUCCESS, "vkAcquireNextImageKHR failed! result=%s", VulkanResultToString(res));
-		}
+		frameData.AcquireNextImage(vulkan_);
 
+		// Effectively resets both main and present command buffers, since they both live in this pool.
 		vkResetCommandPool(vulkan_->GetDevice(), frameData.cmdPoolMain, 0);
+
 		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 		begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-		res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
-
+		VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
 		_assert_msg_(res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%s", VulkanResultToString(res));
 
 		queueRunner_.SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);

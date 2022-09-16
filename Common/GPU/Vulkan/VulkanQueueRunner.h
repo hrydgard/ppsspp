@@ -8,6 +8,7 @@
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanBarrier.h"
+#include "Common/GPU/Vulkan/VulkanFrameData.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/GPU/DataFormat.h"
@@ -147,14 +148,6 @@ struct TransitionRequest {
 	VKRFramebuffer *fb;
 	VkImageAspectFlags aspect;  // COLOR or DEPTH
 	VkImageLayout targetLayout;
-};
-
-struct QueueProfileContext {
-	VkQueryPool queryPool;
-	std::vector<std::string> timestampDescriptions;
-	std::string profileSummary;
-	double cpuStartTime;
-	double cpuEndTime;
 };
 
 class VKRRenderPass;
