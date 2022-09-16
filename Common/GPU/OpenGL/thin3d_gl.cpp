@@ -401,6 +401,8 @@ public:
 	}
 
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindNativeTexture(int sampler, void *nativeTexture) override;
+
 	void BindPipeline(Pipeline *pipeline) override;
 	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override {
 		_assert_(start + count <= ARRAY_SIZE(curVBuffers_));
@@ -1138,6 +1140,12 @@ void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
 	}
 }
 
+void OpenGLContext::BindNativeTexture(int index, void *nativeTexture) {
+	GLRTexture *tex = (GLRTexture *)nativeTexture;
+	boundTextures_[index] = tex;
+	renderManager_.BindTexture(index, tex);
+}
+
 void OpenGLContext::ApplySamplers() {
 	for (int i = 0; i < MAX_TEXTURE_SLOTS; i++) {
 		const OpenGLSamplerState *samp = boundSamplers_[i];
@@ -1483,7 +1491,8 @@ uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 		return FMT_INPUTLAYOUT;
 
 	case DataFormat::R8_UNORM:
-		return 0;
+		return FMT_TEXTURE;
+
 	case DataFormat::BC1_RGBA_UNORM_BLOCK:
 	case DataFormat::BC2_UNORM_BLOCK:
 	case DataFormat::BC3_UNORM_BLOCK:

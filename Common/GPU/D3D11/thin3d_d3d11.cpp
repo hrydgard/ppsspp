@@ -105,6 +105,7 @@ public:
 	void InvalidateCachedState() override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindNativeTexture(int index, void *nativeTexture) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;
 	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override;
 	void BindIndexBuffer(Buffer *indexBuffer, int offset) override;
@@ -471,6 +472,7 @@ static DXGI_FORMAT dataFormatToD3D11(DataFormat format) {
 	case DataFormat::R8G8B8A8_UNORM_SRGB: return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 	case DataFormat::B8G8R8A8_UNORM: return DXGI_FORMAT_B8G8R8A8_UNORM;
 	case DataFormat::B8G8R8A8_UNORM_SRGB: return DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+	case DataFormat::R16_UNORM: return DXGI_FORMAT_R16_UNORM;
 	case DataFormat::R16_FLOAT: return DXGI_FORMAT_R16_FLOAT;
 	case DataFormat::R16G16_FLOAT: return DXGI_FORMAT_R16G16_FLOAT;
 	case DataFormat::R16G16B16A16_FLOAT: return DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -1386,6 +1388,12 @@ void D3D11DrawContext::BindTextures(int start, int count, Texture **textures) {
 		views[i] = tex ? tex->view : nullptr;
 	}
 	context_->PSSetShaderResources(start, count, views);
+}
+
+void D3D11DrawContext::BindNativeTexture(int index, void *nativeTexture) {
+	// Collect the resource views from the textures.
+	ID3D11ShaderResourceView *view = (ID3D11ShaderResourceView *)nativeTexture;
+	context_->PSSetShaderResources(index, 1, &view);
 }
 
 void D3D11DrawContext::BindSamplerStates(int start, int count, SamplerState **states) {

@@ -226,6 +226,7 @@ struct GenericLogicState {
 	// Hardware and shader generation
 	GELogicOp logicOp;
 
+	void ApplyToBlendState(GenericBlendState &blendState);
 	void ConvertToShaderBlend() {
 		if (logicOp != GE_LOGIC_COPY) {
 			logicOpEnabled = false;

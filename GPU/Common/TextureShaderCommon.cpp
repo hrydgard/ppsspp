@@ -102,7 +102,7 @@ ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const
 	int lastA = 0;
 
 	int rampLength = 0;
-	// Quick check for how many continouosly growing entries we have at the start.
+	// Quick check for how many continuously growing entries we have at the start.
 	// Bilinearly filtering CLUTs only really makes sense for this kind of ramp.
 	for (int i = 0; i < maxClutEntries; i++) {
 		rampLength = i;

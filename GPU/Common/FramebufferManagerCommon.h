@@ -192,6 +192,7 @@ enum DrawTextureFlags {
 	DRAWTEX_NEAREST = 0,
 	DRAWTEX_LINEAR = 1,
 	DRAWTEX_TO_BACKBUFFER = 8,
+	DRAWTEX_DEPTH = 16,
 };
 
 inline DrawTextureFlags operator | (const DrawTextureFlags &lhs, const DrawTextureFlags &rhs) {
@@ -327,7 +328,7 @@ public:
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
 	void DrawFramebufferToOutput(const u8 *srcPixels, int srcStride, GEBufferFormat srcPixelFormat);
 
-	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, RasterChannel channel, const char *tag);
 
 	size_t NumVFBs() const { return vfbs_.size(); }
 
@@ -422,7 +423,17 @@ public:
 	VirtualFramebuffer *ResolveFramebufferColorToFormat(VirtualFramebuffer *vfb, GEBufferFormat newFormat);
 
 	Draw2DPipeline *Get2DPipeline(Draw2DShader shader);
+
+	// If from==to, returns a copy pipeline.
 	Draw2DPipeline *GetReinterpretPipeline(GEBufferFormat from, GEBufferFormat to, float *scaleFactorX);
+
+	// Public to be used from the texture cache's depal shenanigans.
+	void BlitUsingRaster(
+		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
+		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
+		bool linearFilter,
+		int scaleFactor,  // usually unused, except for swizzle...
+		Draw2DPipeline *pipeline, const char *tag);
 
 protected:
 	virtual void PackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
@@ -440,13 +451,6 @@ protected:
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, RasterChannel channel, const char *tag);
-
-	void BlitUsingRaster(
-		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
-		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
-		bool linearFilter,
-		int scaleFactor,  // usually unused, except for swizzle...
-		Draw2DPipeline *pipeline, const char *tag);
 
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 

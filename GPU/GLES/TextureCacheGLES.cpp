@@ -266,6 +266,8 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		dstFmt = plan.replaced->Format(plan.baseLevelSrc);
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
+	} else if (plan.decodeToClut8) {
+		dstFmt = Draw::DataFormat::R8_UNORM;
 	}
 
 	if (plan.depth == 1) {
@@ -313,7 +315,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 				if (plan.scaleFactor > 1) {
 					bpp = 4;
 				} else {
-					bpp = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
+					bpp = (int)Draw::DataFormatSizeInBytes(dstFmt);
 				}
 			}
 
@@ -325,7 +327,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 				return;
 			}
 
-			LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, dstFmt, true);
+			LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, dstFmt, TexDecodeFlags::REVERSE_COLORS);
 
 			// NOTE: TextureImage takes ownership of data, so we don't free it afterwards.
 			render_->TextureImage(entry->textureName, i, mipWidth, mipHeight, 1, dstFmt, data, GLRAllocType::ALIGNED);
@@ -335,7 +337,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 		render_->FinalizeTexture(entry->textureName, plan.levelsToLoad, genMips);
 	} else {
-		int bpp = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
+		int bpp = (int)Draw::DataFormatSizeInBytes(dstFmt);
 		int stride = bpp * (plan.w * plan.scaleFactor);
 		int levelStride = stride * (plan.h * plan.scaleFactor);
 
@@ -344,7 +346,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		u8 *p = data;
 
 		for (int i = 0; i < plan.depth; i++) {
-			LoadTextureLevel(*entry, p, stride, *plan.replaced, i, plan.scaleFactor, dstFmt, true);
+			LoadTextureLevel(*entry, p, stride, *plan.replaced, i, plan.scaleFactor, dstFmt, TexDecodeFlags::REVERSE_COLORS);
 			p += levelStride;
 		}
 
@@ -442,4 +444,9 @@ void TextureCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	textureShaderCache_->DeviceRestore(draw);
+}
+
+void *TextureCacheGLES::GetNativeTextureView(const TexCacheEntry *entry) {
+	GLRTexture *tex = entry->textureName;
+	return (void *)tex;
 }

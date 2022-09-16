@@ -35,8 +35,8 @@ void SetVRCompat(VRCompatFlag flag, long value);
 
 // VR rendering integration
 void BindVRFramebuffer();
-bool PreVRRender();
-void PostVRRender();
+bool StartVRRender();
+void FinishVRRender();
 void PreVRFrameRender(int fboIndex);
 void PostVRFrameRender();
 int GetVRFBOIndex();
@@ -64,8 +64,8 @@ inline void SetVRCompat(VRCompatFlag flag, long value) {}
 
 // VR rendering integration
 inline void BindVRFramebuffer() {}
-inline bool PreVRRender() { return false; }
-inline void PostVRRender() {}
+inline bool StartVRRender() { return false; }
+inline void FinishVRRender() {}
 inline void PreVRFrameRender(int fboIndex) {}
 inline void PostVRFrameRender() {}
 inline int GetVRFBOIndex() { return 0; }
