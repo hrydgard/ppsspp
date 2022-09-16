@@ -153,15 +153,16 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			// We ignore the logicState on D3D since there's no support, the emulation of it is blend-and-shader only.
 
 			if (pipelineState_.FramebufferRead()) {
-				bool fboTexNeedsBind = false;
-				ApplyFramebufferRead(&fboTexNeedsBind);
+				FBOTexState fboTexBindState = FBO_TEX_NONE;
+				ApplyFramebufferRead(&fboTexBindState);
 				// The shader takes over the responsibility for blending, so recompute.
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
-				if (fboTexNeedsBind) {
+				if (fboTexBindState == FBO_TEX_COPY_BIND_TEX) {
 					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 					// No sampler required, we do a plain Load in the pixel shader.
 					fboTexBound_ = true;
+					fboTexBindState = FBO_TEX_NONE;
 
 					framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
 					// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.

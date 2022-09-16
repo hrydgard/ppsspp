@@ -170,7 +170,7 @@ static std::string CutFromMain(std::string str) {
 }
 
 static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, VkPipelineCache pipelineCache,
-		VkPipelineLayout layout, const VulkanPipelineRasterStateKey &key,
+		VkPipelineLayout layout, PipelineFlags pipelineFlags, const VulkanPipelineRasterStateKey &key,
 		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, u32 variantBitmask) {
 	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
 	VKRGraphicsPipelineDesc *desc = &vulkanPipeline->desc;
@@ -299,14 +299,14 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	VKRGraphicsPipeline *pipeline = renderManager->CreateGraphicsPipeline(desc, variantBitmask, "game");
 
 	vulkanPipeline->pipeline = pipeline;
-	vulkanPipeline->flags = 0;
 	if (useBlendConstant)
-		vulkanPipeline->flags |= PIPELINE_FLAG_USES_BLEND_CONSTANT;
+		pipelineFlags |= PipelineFlags::USES_BLEND_CONSTANT;
 	if (key.topology == VK_PRIMITIVE_TOPOLOGY_LINE_LIST || key.topology == VK_PRIMITIVE_TOPOLOGY_LINE_STRIP)
-		vulkanPipeline->flags |= PIPELINE_FLAG_USES_LINES;
+		pipelineFlags |= PipelineFlags::USES_LINES;
 	if (dss.depthTestEnable || dss.stencilTestEnable) {
-		vulkanPipeline->flags |= PIPELINE_FLAG_USES_DEPTH_STENCIL;
+		pipelineFlags |= PipelineFlags::USES_DEPTH_STENCIL;
 	}
+	vulkanPipeline->pipelineFlags = pipelineFlags;
 	return vulkanPipeline;
 }
 
@@ -329,8 +329,13 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 	if (iter)
 		return iter;
 
+	PipelineFlags pipelineFlags = (PipelineFlags)0;
+	if (fs->Flags() & FragmentShaderFlags::INPUT_ATTACHMENT) {
+		pipelineFlags |= PipelineFlags::USES_INPUT_ATTACHMENT;
+	}
+
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
-		renderManager, pipelineCache_, layout,
+		renderManager, pipelineCache_, layout, pipelineFlags,
 		rasterKey, decFmt, vs, fs, useHwTransform, variantBitmask);
 	pipelines_.Insert(key, pipeline);
 

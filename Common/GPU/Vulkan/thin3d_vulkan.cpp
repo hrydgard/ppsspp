@@ -401,9 +401,10 @@ public:
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
 	Framebuffer *GetCurrentRenderTarget() override {
-		return curFramebuffer_;
+		return (Framebuffer *)curFramebuffer_.ptr;
 	}
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
+	void BindCurrentFramebufferForColorInput() override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
@@ -473,27 +474,7 @@ public:
 	std::vector<std::string> GetFeatureList() const override;
 	std::vector<std::string> GetExtensionList() const override;
 
-	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override {
-		switch (obj) {
-		case NativeObject::CONTEXT:
-			return (uint64_t)vulkan_;
-		case NativeObject::INIT_COMMANDBUFFER:
-			return (uint64_t)renderManager_.GetInitCmd();
-		case NativeObject::BOUND_TEXTURE0_IMAGEVIEW:
-			return (uint64_t)boundImageView_[0];
-		case NativeObject::BOUND_TEXTURE1_IMAGEVIEW:
-			return (uint64_t)boundImageView_[1];
-		case NativeObject::RENDER_MANAGER:
-			return (uint64_t)(uintptr_t)&renderManager_;
-		case NativeObject::NULL_IMAGEVIEW:
-			return (uint64_t)GetNullTexture()->GetImageView();
-		case NativeObject::TEXTURE_VIEW:
-			return (uint64_t)(((VKTexture *)srcObject)->GetImageView());
-		default:
-			Crash();
-			return 0;
-		}
-	}
+	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override;
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
@@ -522,7 +503,7 @@ private:
 	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
-	AutoRef<Framebuffer> curFramebuffer_;
+	AutoRef<VKFramebuffer> curFramebuffer_;
 
 	VkDevice device_;
 	VkQueue queue_;
@@ -831,6 +812,11 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 		// Color write mask not masking write in certain scenarios with a depth test, see #10421.
 		// Known still present on driver 0x80180000 and Adreno 5xx (possibly more.)
 		bugs_.Infest(Bugs::COLORWRITEMASK_BROKEN_WITH_DEPTHTEST);
+
+		// Trying to follow all the rules in https://registry.khronos.org/vulkan/specs/1.3/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
+		// and https://registry.khronos.org/vulkan/specs/1.3/html/vkspec.html#renderpass-feedbackloop, but still it doesn't
+		// quite work - artifacts on triangle boundaries on Adreno.
+		bugs_.Infest(Bugs::SUBPASS_FEEDBACK_BROKEN);
 	} else if (caps_.vendor == GPUVendor::VENDOR_AMD) {
 		// See issue #10074, and also #10065 (AMD) and #10109 for the choice of the driver version to check for.
 		if (deviceProps.driverVersion < 0x00407000) {
@@ -856,6 +842,10 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 			bugs_.Infest(Bugs::MALI_CONSTANT_LOAD_BUG);  // See issue #15661
 		}
 	}
+
+	// Limited, through input attachments and self-dependencies.
+	// We turn it off here already if buggy.
+	caps_.framebufferFetchSupported = !bugs_.Has(Bugs::SUBPASS_FEEDBACK_BROKEN);
 
 	caps_.deviceID = deviceProps.deviceID;
 	device_ = vulkan->GetDevice();
@@ -1062,12 +1052,12 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	VKDepthStencilState *depth = (VKDepthStencilState *)desc.depthStencil;
 	VKRasterState *raster = (VKRasterState *)desc.raster;
 
-	u32 pipelineFlags = 0;
+	PipelineFlags pipelineFlags = (PipelineFlags)0;
 	if (depth->info.depthTestEnable || depth->info.stencilTestEnable) {
-		pipelineFlags |= PIPELINE_FLAG_USES_DEPTH_STENCIL;
+		pipelineFlags |= PipelineFlags::USES_DEPTH_STENCIL;
 	}
 
-	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), (PipelineFlags)pipelineFlags, tag);
+	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), pipelineFlags, tag);
 
 	VKRGraphicsPipelineDesc &gDesc = pipeline->vkrDesc;
 
@@ -1588,6 +1578,10 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, attachment);
 }
 
+void VKContext::BindCurrentFramebufferForColorInput() {
+	renderManager_.BindCurrentFramebufferAsInputAttachment0(VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
 void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	if (fb) {
@@ -1625,6 +1619,30 @@ void VKContext::InvalidateFramebuffer(FBInvalidationStage stage, uint32_t channe
 		renderManager_.SetLoadDontCare(flags);
 	} else if (stage == FB_INVALIDATION_STORE) {
 		renderManager_.SetStoreDontCare(flags);
+	}
+}
+
+uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
+	switch (obj) {
+	case NativeObject::CONTEXT:
+		return (uint64_t)vulkan_;
+	case NativeObject::INIT_COMMANDBUFFER:
+		return (uint64_t)renderManager_.GetInitCmd();
+	case NativeObject::BOUND_TEXTURE0_IMAGEVIEW:
+		return (uint64_t)boundImageView_[0];
+	case NativeObject::BOUND_TEXTURE1_IMAGEVIEW:
+		return (uint64_t)boundImageView_[1];
+	case NativeObject::RENDER_MANAGER:
+		return (uint64_t)(uintptr_t)&renderManager_;
+	case NativeObject::NULL_IMAGEVIEW:
+		return (uint64_t)GetNullTexture()->GetImageView();
+	case NativeObject::TEXTURE_VIEW:
+		return (uint64_t)(((VKTexture *)srcObject)->GetImageView());
+	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW:
+		return (uint64_t)curFramebuffer_->GetFB()->color.imageView;
+	default:
+		Crash();
+		return 0;
 	}
 }
 

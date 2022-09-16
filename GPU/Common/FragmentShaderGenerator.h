@@ -42,7 +42,7 @@ struct FShaderID;
 
 // Can technically be deduced from the fragment shader ID, but this is safer.
 enum class FragmentShaderFlags : u32 {
-	FS_FLAG_INPUT_ATTACHMENT = 1,
+	INPUT_ATTACHMENT = 1,
 };
 ENUM_CLASS_BITOPS(FragmentShaderFlags);
 

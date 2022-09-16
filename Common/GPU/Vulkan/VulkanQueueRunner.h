@@ -20,7 +20,6 @@ struct VKRImage;
 enum {
 	QUEUE_HACK_MGS2_ACID = 1,
 	QUEUE_HACK_SONIC = 2,
-	// Killzone PR = 4.
 	QUEUE_HACK_RENDERPASS_MERGE = 8,
 };
 
@@ -36,20 +35,24 @@ enum class VKRRenderCommand : uint8_t {
 	DRAW,
 	DRAW_INDEXED,
 	PUSH_CONSTANTS,
+	SELF_DEPENDENCY_BARRIER,
 	NUM_RENDER_COMMANDS,
 };
 
-enum PipelineFlags {
-	PIPELINE_FLAG_NONE = 0,
-	PIPELINE_FLAG_USES_LINES = (1 << 2),
-	PIPELINE_FLAG_USES_BLEND_CONSTANT = (1 << 3),
-	PIPELINE_FLAG_USES_DEPTH_STENCIL = (1 << 4),  // Reads or writes the depth buffer.
+enum class PipelineFlags {
+	NONE = 0,
+	USES_LINES = (1 << 2),
+	USES_BLEND_CONSTANT = (1 << 3),
+	USES_DEPTH_STENCIL = (1 << 4),  // Reads or writes the depth buffer.
+	USES_INPUT_ATTACHMENT = (1 << 5),
 };
+ENUM_CLASS_BITOPS(PipelineFlags);
 
 // Pipelines need to be created for the right type of render pass.
 enum RenderPassType {
 	RP_TYPE_BACKBUFFER,
 	RP_TYPE_COLOR_DEPTH,
+	RP_TYPE_COLOR_DEPTH_INPUT,
 	// Later will add pure-color render passes.
 	RP_TYPE_COUNT,
 };
@@ -168,7 +171,6 @@ struct VKRStep {
 	union {
 		struct {
 			VKRFramebuffer *framebuffer;
-			// TODO: Look these up through renderPass?
 			VKRRenderPassLoadAction colorLoad;
 			VKRRenderPassLoadAction depthLoad;
 			VKRRenderPassLoadAction stencilLoad;
@@ -183,7 +185,7 @@ struct VKRStep {
 			int numReads;
 			VkImageLayout finalColorLayout;
 			VkImageLayout finalDepthStencilLayout;
-			u32 pipelineFlags;
+			PipelineFlags pipelineFlags;  // contains the self dependency flag, in the form of USES_INPUT_ATTACHMENT
 			VkRect2D renderArea;
 			// Render pass type. Deduced after finishing recording the pass, from the used pipelines.
 			// NOTE: Storing the render pass here doesn't do much good, we change the compatible parameters (load/store ops) during step optimization.
@@ -323,6 +325,8 @@ private:
 
 	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
 	static void SetupTransitionToTransferDst(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
+
+	static void SelfDependencyBarrier(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
 
 	VulkanContext *vulkan_;
 

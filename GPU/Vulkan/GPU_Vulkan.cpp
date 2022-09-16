@@ -229,6 +229,11 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
 
+	// through input attachments, when not broken.
+	if (draw_->GetDeviceCaps().framebufferFetchSupported) {
+		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
+	}
+
 	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled;
 	if (enabledFeatures.depthClamp) {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;

@@ -236,6 +236,8 @@ public:
 	// as the other backends, even though there's no actual binding happening here.
 	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBits, int attachment);
 
+	void BindCurrentFramebufferAsInputAttachment0(VkImageAspectFlags aspectBits);
+
 	bool CopyFramebufferToMemorySync(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 	void CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 
@@ -544,7 +546,7 @@ private:
 	VKRStep *curRenderStep_ = nullptr;
 	bool curStepHasViewport_ = false;
 	bool curStepHasScissor_ = false;
-	u32 curPipelineFlags_ = 0;
+	PipelineFlags curPipelineFlags_{};
 	BoundingRect curRenderArea_;
 
 	std::vector<VKRStep *> steps_;

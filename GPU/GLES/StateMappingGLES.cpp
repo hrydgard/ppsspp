@@ -149,13 +149,14 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			GenericLogicState &logicState = pipelineState_.logicState;
 
 			if (pipelineState_.FramebufferRead()) {
-				bool fboTexNeedsBind = false;
-				ApplyFramebufferRead(&fboTexNeedsBind);
+				FBOTexState fboTexBindState = FBO_TEX_NONE;
+				ApplyFramebufferRead(&fboTexBindState);
 				// The shader takes over the responsibility for blending, so recompute.
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
 				// We copy the framebuffer here, as doing so will wipe any blend state if we do it later.
-				if (fboTexNeedsBind) {
+				// fboTexNeedsBind_ won't be set if we can read directly from the target.
+				if (fboTexBindState == FBO_TEX_COPY_BIND_TEX) {
 					// Note that this is positions, not UVs, that we need the copy from.
 					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 					// If we are rendering at a higher resolution, linear is probably best for the dest color.
@@ -166,6 +167,9 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 					// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
 					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
+				} else if (fboTexBindState == FBO_TEX_READ_FRAMEBUFFER) {
+					// No action needed here.
+					fboTexBindState = FBO_TEX_NONE;
 				}
 				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
