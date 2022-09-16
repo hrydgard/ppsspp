@@ -292,11 +292,14 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
 	SamplerCacheKey key = GetSamplingParams(0, nullptr);
 
-	// Kill any mipmapping settings.
+	// Kill any mipmapping settings, and reset min filtering.
+	int minFilt = gstate.texfilter & 0x7;
+	key.minFilt = minFilt & 1;
 	key.mipEnable = false;
 	key.mipFilt = false;
 	key.aniso = 0.0;
 	key.maxLevel = 0.0f;
+	key.lodBias = 0.0f;
 
 	// Often the framebuffer will not match the texture size. We'll wrap/clamp in the shader in that case.
 	int w = gstate.getTextureWidth(0);
