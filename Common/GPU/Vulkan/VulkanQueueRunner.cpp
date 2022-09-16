@@ -376,67 +376,71 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 	}
 }
 
-void VulkanQueueRunner::RunSteps(VkCommandBuffer mainCmd, VkCommandBuffer presentCmd, bool *hasPresentCommands, std::vector<VKRStep *> &steps, QueueProfileContext *profile) {
+void VulkanQueueRunner::RunSteps(FrameData &frameData) {
+	QueueProfileContext *profile = frameData.profilingEnabled_ ? &frameData.profile : nullptr;
+
 	if (profile)
 		profile->cpuStartTime = time_now_d();
 
 	bool emitLabels = vulkan_->Extensions().EXT_debug_utils;
 
-	for (size_t i = 0; i < steps.size(); i++) {
-		const VKRStep &step = *steps[i];
+	for (size_t i = 0; i < frameData.steps.size(); i++) {
+		const VKRStep &step = *frameData.steps[i];
 
 		if (emitLabels) {
 			VkDebugUtilsLabelEXT labelInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
 			labelInfo.pLabelName = step.tag;
-			vkCmdBeginDebugUtilsLabelEXT(mainCmd, &labelInfo);
+			vkCmdBeginDebugUtilsLabelEXT(frameData.mainCmd, &labelInfo);
 		}
 
 		switch (step.stepType) {
 		case VKRStepType::RENDER:
 			if (!step.render.framebuffer) {
-				_dbg_assert_(!*hasPresentCommands);
-				if (!*hasPresentCommands) {
-					*hasPresentCommands = true;
+				_dbg_assert_(!frameData.hasPresentCommands);
+				if (!frameData.hasPresentCommands) {
+					frameData.hasPresentCommands = true;
 					VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 					begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-					vkBeginCommandBuffer(presentCmd, &begin);
+					vkBeginCommandBuffer(frameData.presentCmd, &begin);
 				}
-				PerformRenderPass(step, presentCmd);
+				PerformRenderPass(step, frameData.presentCmd);
 			} else {
-				PerformRenderPass(step, mainCmd);
+				PerformRenderPass(step, frameData.mainCmd);
 			}
 			break;
 		case VKRStepType::COPY:
-			PerformCopy(step, mainCmd);
+			PerformCopy(step, frameData.mainCmd);
 			break;
 		case VKRStepType::BLIT:
-			PerformBlit(step, mainCmd);
+			PerformBlit(step, frameData.mainCmd);
 			break;
 		case VKRStepType::READBACK:
-			PerformReadback(step, mainCmd);
+			PerformReadback(step, frameData.mainCmd);
 			break;
 		case VKRStepType::READBACK_IMAGE:
-			PerformReadbackImage(step, mainCmd);
+			PerformReadbackImage(step, frameData.mainCmd);
 			break;
 		case VKRStepType::RENDER_SKIP:
 			break;
 		}
 
 		if (profile && profile->timestampDescriptions.size() + 1 < MAX_TIMESTAMP_QUERIES) {
-			vkCmdWriteTimestamp(mainCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile->queryPool, (uint32_t)profile->timestampDescriptions.size());
+			vkCmdWriteTimestamp(frameData.mainCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile->queryPool, (uint32_t)profile->timestampDescriptions.size());
 			profile->timestampDescriptions.push_back(StepToString(step));
 		}
 
 		if (emitLabels) {
-			vkCmdEndDebugUtilsLabelEXT(mainCmd);
+			vkCmdEndDebugUtilsLabelEXT(frameData.mainCmd);
 		}
 	}
 
 	// Deleting all in one go should be easier on the instruction cache than deleting
 	// them as we go - and easier to debug because we can look backwards in the frame.
-	for (size_t i = 0; i < steps.size(); i++) {
-		delete steps[i];
+	for (auto step : frameData.steps) {
+		delete step;
 	}
+
+	frameData.steps.clear();
 
 	if (profile)
 		profile->cpuEndTime = time_now_d();

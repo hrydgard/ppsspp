@@ -17,6 +17,7 @@ class VKRFramebuffer;
 struct VKRGraphicsPipeline;
 struct VKRComputePipeline;
 struct VKRImage;
+struct FrameData;
 
 enum {
 	QUEUE_HACK_MGS2_ACID = 1,
@@ -250,7 +251,7 @@ public:
 	}
 
 	void PreprocessSteps(std::vector<VKRStep *> &steps);
-	void RunSteps(VkCommandBuffer cmd, VkCommandBuffer presentCmd, bool *hasPresentCommands, std::vector<VKRStep *> &steps, QueueProfileContext *profile);
+	void RunSteps(FrameData &frameData);
 	void LogSteps(const std::vector<VKRStep *> &steps, bool verbose);
 
 	std::string StepToString(const VKRStep &step) const;
