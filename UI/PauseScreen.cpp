@@ -172,9 +172,7 @@ public:
 		return slot_;
 	}
 
-	std::string tag() const override {
-		return "screenshot";
-	}
+	const char *tag() const override { return "screenshot_view"; }
 
 protected:
 	bool FillVertical() const override { return false; }

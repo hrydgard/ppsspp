@@ -102,6 +102,8 @@ public:
 
 	bool isTopLevel() const override { return true; }
 
+	const char *tag() const override { return "Main"; }
+
 	// Horrible hack to show the demos & homebrew tab after having installed a game from a zip file.
 	static bool showHomebrewTab;
 
@@ -153,7 +155,7 @@ protected:
 
 class UmdReplaceScreen : public UIDialogScreenWithBackground {
 public:
-	UmdReplaceScreen() {}
+	const char *tag() const override { return "UmdReplace"; }
 
 protected:
 	void CreateViews() override;
@@ -173,6 +175,8 @@ public:
 	GridSettingsScreen(std::string label) : PopupScreen(label) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	UI::Event OnRecentChanged;
+
+	const char *tag() const override { return "GridSettings"; }
 
 private:
 	UI::EventReturn GridPlusClick(UI::EventParams &e);

@@ -443,6 +443,7 @@ UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
 class SetBackgroundPopupScreen : public PopupScreen {
 public:
 	SetBackgroundPopupScreen(const std::string &title, const Path &gamePath);
+	const char *tag() const override { return "SetBackgroundPopup"; }
 
 protected:
 	bool FillVertical() const override { return false; }

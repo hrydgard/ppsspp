@@ -32,7 +32,7 @@ public:
 
 	void update() override;
 	void onFinish(DialogResult result) override;
-	std::string tag() const override { return "settings"; }
+	const char *tag() const override { return "GameSettings"; }
 
 protected:
 	void sendMessage(const char *message, const char *value) override;
@@ -157,9 +157,10 @@ private:
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
 public:
-	DeveloperToolsScreen() {}
 	void update() override;
 	void onFinish(DialogResult result) override;
+
+	const char *tag() const override { return "DeveloperTools"; }
 
 protected:
 	void CreateViews() override;
@@ -205,6 +206,8 @@ public:
 
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
+	const char *tag() const override { return "HostnameSelect"; }
+
 protected:
 	void OnCompleted(DialogResult result) override;
 	bool CanComplete(DialogResult result) override;
@@ -247,4 +250,6 @@ private:
 class GestureMappingScreen : public UIDialogScreenWithBackground {
 public:
 	void CreateViews() override;
+
+	const char *tag() const override { return "GestureMapping"; }
 };

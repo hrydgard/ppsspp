@@ -38,7 +38,7 @@ public:
 
 	void render() override;
 
-	std::string tag() const override { return "game"; }
+	const char *tag() const override { return "Game"; }
 
 protected:
 	void CreateViews() override;

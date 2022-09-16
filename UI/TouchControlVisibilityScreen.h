@@ -36,6 +36,8 @@ public:
 	void CreateViews() override;
 	void onFinish(DialogResult result) override;
 
+	const char *tag() const override { return "TouchControlVisibility"; }
+
 protected:
 	UI::EventReturn OnToggleAll(UI::EventParams &e);
 
@@ -47,4 +49,6 @@ private:
 class RightAnalogMappingScreen : public UIDialogScreenWithBackground {
 public:
 	void CreateViews() override;
+
+	const char *tag() const override { return "RightAnalogMapping"; }
 };

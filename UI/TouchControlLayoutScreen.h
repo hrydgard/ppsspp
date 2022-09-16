@@ -33,6 +33,8 @@ public:
 	virtual void update() override;
 	virtual void resized() override;
 
+	const char *tag() const override { return "TouchControlLayout"; }
+
 protected:
 	virtual UI::EventReturn OnReset(UI::EventParams &e);
 	virtual UI::EventReturn OnVisibility(UI::EventParams &e);

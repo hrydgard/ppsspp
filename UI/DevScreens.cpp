@@ -85,7 +85,7 @@ static const char *logLevelList[] = {
 	"Verb."
 };
 
-void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
+void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	auto dev = GetI18NCategory("Developer");
 	auto sy = GetI18NCategory("System");
@@ -94,25 +94,25 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
 
 #if !defined(MOBILE_DEVICE)
-	items->Add(new Choice(dev->T("Log View")))->OnClick.Handle(this, &DevMenu::OnLogView);
+	items->Add(new Choice(dev->T("Log View")))->OnClick.Handle(this, &DevMenuScreen::OnLogView);
 #endif
-	items->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DevMenu::OnLogConfig);
-	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenu::OnDeveloperTools);
-	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Handle(this, &DevMenu::OnJitCompare);
-	items->Add(new Choice(dev->T("Shader Viewer")))->OnClick.Handle(this, &DevMenu::OnShaderView);
+	items->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DevMenuScreen::OnLogConfig);
+	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenuScreen::OnDeveloperTools);
+	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Handle(this, &DevMenuScreen::OnJitCompare);
+	items->Add(new Choice(dev->T("Shader Viewer")))->OnClick.Handle(this, &DevMenuScreen::OnShaderView);
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 		// TODO: Make a new allocator visualizer for VMA.
 		// items->Add(new CheckBox(&g_Config.bShowAllocatorDebug, dev->T("Allocator Viewer")));
 		items->Add(new CheckBox(&g_Config.bShowGpuProfile, dev->T("GPU Profile")));
 	}
-	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenu::OnFreezeFrame);
-	items->Add(new Choice(dev->T("Dump Frame GPU Commands")))->OnClick.Handle(this, &DevMenu::OnDumpFrame);
-	items->Add(new Choice(dev->T("Toggle Audio Debug")))->OnClick.Handle(this, &DevMenu::OnToggleAudioDebug);
+	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenuScreen::OnFreezeFrame);
+	items->Add(new Choice(dev->T("Dump Frame GPU Commands")))->OnClick.Handle(this, &DevMenuScreen::OnDumpFrame);
+	items->Add(new Choice(dev->T("Toggle Audio Debug")))->OnClick.Handle(this, &DevMenuScreen::OnToggleAudioDebug);
 #ifdef USE_PROFILER
 	items->Add(new CheckBox(&g_Config.bShowFrameProfiler, dev->T("Frame Profiler"), ""));
 #endif
 	items->Add(new CheckBox(&g_Config.bDrawFrameGraph, dev->T("Draw Frametimes Graph")));
-	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenu::OnResetLimitedLogging);
+	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenuScreen::OnResetLimitedLogging);
 
 	scroll->Add(items);
 	parent->Add(scroll);
@@ -123,48 +123,48 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	}
 }
 
-UI::EventReturn DevMenu::OnToggleAudioDebug(UI::EventParams &e) {
+UI::EventReturn DevMenuScreen::OnToggleAudioDebug(UI::EventParams &e) {
 	g_Config.bShowAudioDebug = !g_Config.bShowAudioDebug;
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DevMenu::OnResetLimitedLogging(UI::EventParams &e) {
+UI::EventReturn DevMenuScreen::OnResetLimitedLogging(UI::EventParams &e) {
 	Reporting::ResetCounts();
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DevMenu::OnLogView(UI::EventParams &e) {
+UI::EventReturn DevMenuScreen::OnLogView(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new LogScreen());
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
+UI::EventReturn DevMenuScreen::OnLogConfig(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new LogConfigScreen());
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DevMenu::OnDeveloperTools(UI::EventParams &e) {
+UI::EventReturn DevMenuScreen::OnDeveloperTools(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new DeveloperToolsScreen());
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DevMenu::OnJitCompare(UI::EventParams &e) {
+UI::EventReturn DevMenuScreen::OnJitCompare(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new JitCompareScreen());
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DevMenu::OnShaderView(UI::EventParams &e) {
+UI::EventReturn DevMenuScreen::OnShaderView(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	if (gpu)  // Avoid crashing if chosen while the game is being loaded.
 		screenManager()->push(new ShaderListScreen());
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DevMenu::OnFreezeFrame(UI::EventParams &e) {
+UI::EventReturn DevMenuScreen::OnFreezeFrame(UI::EventParams &e) {
 	if (PSP_CoreParameter().frozen) {
 		PSP_CoreParameter().frozen = false;
 	} else {
@@ -173,12 +173,12 @@ UI::EventReturn DevMenu::OnFreezeFrame(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DevMenu::OnDumpFrame(UI::EventParams &e) {
+UI::EventReturn DevMenuScreen::OnDumpFrame(UI::EventParams &e) {
 	gpu->DumpNextFrame();
 	return UI::EVENT_DONE;
 }
 
-void DevMenu::dialogFinished(const Screen *dialog, DialogResult result) {
+void DevMenuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	UpdateUIState(UISTATE_INGAME);
 	// Close when a subscreen got closed.
 	// TODO: a bug in screenmanager causes this not to work here.
