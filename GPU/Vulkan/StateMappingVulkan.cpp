@@ -368,6 +368,7 @@ void DrawEngineVulkan::BindShaderBlendTex() {
 			bool bindResult = framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 			_dbg_assert_(bindResult);
 			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE1_IMAGEVIEW);
+			boundSecondaryIsInputAttachment_ = false;
 			fboTexBound_ = true;
 			fboTexBindState_ = FBO_TEX_NONE;
 
@@ -376,7 +377,10 @@ void DrawEngineVulkan::BindShaderBlendTex() {
 		} else if (fboTexBindState_ == FBO_TEX_READ_FRAMEBUFFER) {
 			draw_->BindCurrentFramebufferForColorInput();
 			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW);
+			boundSecondaryIsInputAttachment_ = true;
 			fboTexBindState_ = FBO_TEX_NONE;
+		} else {
+			boundSecondary_ = VK_NULL_HANDLE;
 		}
 	}
 }

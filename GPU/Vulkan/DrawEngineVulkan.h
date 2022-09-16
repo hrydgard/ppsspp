@@ -217,6 +217,8 @@ private:
 
 	// Secondary texture for shader blending
 	VkImageView boundSecondary_ = VK_NULL_HANDLE;
+	bool boundSecondaryIsInputAttachment_ = false;
+
 	// CLUT texture for shader depal
 	VkImageView boundDepal_ = VK_NULL_HANDLE;
 	bool boundDepalSmoothed_ = false;

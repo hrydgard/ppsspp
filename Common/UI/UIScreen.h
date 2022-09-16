@@ -187,7 +187,7 @@ public:
 		disabled_ = *value_ < 0;
 	}
 
-	const char *tag() const { return "SliderPopup"; }
+	const char *tag() const override { return "SliderPopup"; }
 
 	Event OnChange;
 
@@ -216,7 +216,7 @@ public:
 	: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), originalValue_(*value), minValue_(minValue), maxValue_(maxValue), step_(step), changing_(false), liveUpdate_(liveUpdate) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
-	const char *tag() const { return "SliderFloatPopup"; }
+	const char *tag() const override { return "SliderFloatPopup"; }
 
 	Event OnChange;
 
@@ -245,7 +245,7 @@ public:
 		: PopupScreen(title, "OK", "Cancel"), value_(value), placeholder_(placeholder), maxLen_(maxLen) {}
 	virtual void CreatePopupContents(ViewGroup *parent) override;
 
-	const char *tag() const { return "TextEditPopup"; }
+	const char *tag() const override { return "TextEditPopup"; }
 
 	Event OnChange;
 

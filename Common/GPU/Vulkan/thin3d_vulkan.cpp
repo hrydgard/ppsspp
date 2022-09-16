@@ -789,7 +789,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.textureNPOTFullySupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
 	caps_.logicOpSupported = vulkan->GetDeviceFeatures().enabled.logicOp != 0;
-	caps_.framebufferFetchSupported = true;  // Limited, through input attachments and self-dependencies.
 
 	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDeviceIndex()).properties;
 	switch (deviceProps.vendorID) {
@@ -813,6 +812,11 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 		// Color write mask not masking write in certain scenarios with a depth test, see #10421.
 		// Known still present on driver 0x80180000 and Adreno 5xx (possibly more.)
 		bugs_.Infest(Bugs::COLORWRITEMASK_BROKEN_WITH_DEPTHTEST);
+
+		// Trying to follow all the rules in https://registry.khronos.org/vulkan/specs/1.3/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
+		// and https://registry.khronos.org/vulkan/specs/1.3/html/vkspec.html#renderpass-feedbackloop, but still it doesn't
+		// quite work - artifacts on triangle boundaries on Adreno.
+		bugs_.Infest(Bugs::SUBPASS_FEEDBACK_BROKEN);
 	} else if (caps_.vendor == GPUVendor::VENDOR_AMD) {
 		// See issue #10074, and also #10065 (AMD) and #10109 for the choice of the driver version to check for.
 		if (deviceProps.driverVersion < 0x00407000) {
@@ -838,6 +842,10 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 			bugs_.Infest(Bugs::MALI_CONSTANT_LOAD_BUG);  // See issue #15661
 		}
 	}
+
+	// Limited, through input attachments and self-dependencies.
+	// We turn it off here already if buggy.
+	caps_.framebufferFetchSupported = !bugs_.Has(Bugs::SUBPASS_FEEDBACK_BROKEN);
 
 	caps_.deviceID = deviceProps.deviceID;
 	device_ = vulkan->GetDevice();

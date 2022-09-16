@@ -389,6 +389,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	key.base_ = base;
 	key.light_ = light;
 	key.bone_ = bone;
+	key.secondaryIsInputAttachment = boundSecondaryIsInputAttachment_;
 
 	FrameData &frame = GetCurFrame();
 	// See if we already have this descriptor set cached.
