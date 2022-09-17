@@ -364,6 +364,11 @@ public:
 		tabStrip_->EnableChoice(tab, enabled);
 	}
 
+	// Add a custom choice next to tab switching strip (current only used for main screen setting).
+	Choice *AddChoice(Choice *c) {
+		return choiceStrip_->Add(c);
+	}
+
 	void SetCurrentTab(int tab, bool skipTween = false);
 
 	int GetCurrentTab() const { return currentTab_; }
@@ -378,6 +383,7 @@ private:
 	ChoiceStrip *tabStrip_ = nullptr;
 	ScrollView *tabScroll_ = nullptr;
 	AnchorLayout *contents_ = nullptr;
+	LinearLayout *choiceStrip_ = nullptr;
 
 	float stripSize_;
 	int currentTab_ = 0;

@@ -76,8 +76,6 @@ private:
 	UI::EventReturn StorageClick(UI::EventParams &e);
 	UI::EventReturn OnHomeClick(UI::EventParams &e);
 	UI::EventReturn PinToggleClick(UI::EventParams &e);
-	UI::EventReturn GridSettingsClick(UI::EventParams &e);
-	UI::EventReturn OnRecentClear(UI::EventParams &e);
 	UI::EventReturn OnHomebrewStore(UI::EventParams &e);
 
 	UI::ViewGroup *gameList_ = nullptr;
@@ -132,6 +130,8 @@ protected:
 	UI::EventReturn OnDismissUpgrade(UI::EventParams &e);
 	UI::EventReturn OnAllowStorage(UI::EventParams &e);
 	UI::EventReturn OnFullScreenToggle(UI::EventParams &e);
+	UI::EventReturn OnGridSettings(UI::EventParams &e);
+	UI::EventReturn OnRecentClear(UI::EventParams &e);
 
 	UI::LinearLayout *upgradeBar_ = nullptr;
 	UI::TabHolder *tabHolder_ = nullptr;
@@ -145,6 +145,7 @@ protected:
 	float highlightProgress_ = 0.0f;
 	float prevHighlightProgress_ = 0.0f;
 	bool backFromStore_ = false;
+	bool recreateViewOnDialogFinish_ = false;
 	bool lockBackgroundAudio_ = false;
 	bool lastVertical_;
 	bool confirmedTemporary_ = false;
@@ -179,9 +180,5 @@ public:
 	const char *tag() const override { return "GridSettings"; }
 
 private:
-	UI::EventReturn GridPlusClick(UI::EventParams &e);
-	UI::EventReturn GridMinusClick(UI::EventParams &e);
 	UI::EventReturn OnRecentClearClick(UI::EventParams &e);
-	const float MAX_GAME_GRID_SCALE = 3.0f;
-	const float MIN_GAME_GRID_SCALE = 0.8f;
 };
