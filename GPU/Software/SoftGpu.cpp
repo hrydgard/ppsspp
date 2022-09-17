@@ -650,7 +650,7 @@ void SoftGPU::MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBuffe
 }
 
 void SoftGPU::MarkDirty(uint32_t addr, uint32_t bytes, SoftGPUVRAMDirty value) {
-	// Don't bother tracking if frameskipping.
+	// Only bother tracking if frameskipping.
 	if (g_Config.iFrameSkip == 0)
 		return;
 	if (!Memory::IsVRAMAddress(addr) || !Memory::IsVRAMAddress(addr + bytes - 1))
