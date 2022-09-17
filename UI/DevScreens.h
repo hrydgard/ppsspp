@@ -216,4 +216,5 @@ private:
 };
 
 void DrawProfile(UIContext &ui);
+void DrawEventStreams(UIContext &ui);
 const char *GetCompilerABI();

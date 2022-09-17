@@ -659,6 +659,8 @@ add_library(Common STATIC
 	Common/Net/WebsocketServer.h
 	Common/Profiler/Profiler.cpp
 	Common/Profiler/Profiler.h
+	Common/Profiler/EventStream.cpp
+	Common/Profiler/EventStream.h
 	Common/Render/TextureAtlas.cpp
 	Common/Render/TextureAtlas.h
 	Common/Render/DrawBuffer.cpp

@@ -96,7 +96,7 @@ void ThreadFunc() {
 bool TestMultithreadedScheduling() {
 	g_atomicCounter = 0;
 
-	auto start = Instant::Now();
+	double start = time_now_d();
 
 	std::vector<std::thread> threads;
 	for (int i = 0; i < THREAD_COUNT; i++) {
@@ -115,7 +115,7 @@ bool TestMultithreadedScheduling() {
 
 	threads.clear();
 
-	printf("Stress test elapsed: %0.2f", start.Elapsed());
+	printf("Stress test elapsed: %0.2f", time_now_d() - start);
 
 	return true;
 }

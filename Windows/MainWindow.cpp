@@ -695,6 +695,13 @@ namespace MainWindow
 					touch.x = x;
 					touch.y = y;
 					NativeTouch(touch);
+				} else {
+					TouchInput touch;
+					touch.id = 0;
+					touch.flags = TOUCH_HOVER_MOVE;
+					touch.x = x;
+					touch.y = y;
+					NativeTouch(touch);
 				}
 			}
 			break;

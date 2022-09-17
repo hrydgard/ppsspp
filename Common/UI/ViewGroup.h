@@ -14,16 +14,16 @@ namespace UI {
 class AnchorTranslateTween;
 
 struct NeighborResult {
-	NeighborResult() : view(0), score(0) {}
+	NeighborResult() {}
 	NeighborResult(View *v, float s) : view(v), score(s) {}
 
-	View *view;
-	float score;
+	View *view = nullptr;
+	float score = 0.0f;
 };
 
 class ViewGroup : public View {
 public:
-	ViewGroup(LayoutParams *layoutParams = 0) : View(layoutParams) {}
+	ViewGroup(LayoutParams *layoutParams = nullptr) : View(layoutParams) {}
 	virtual ~ViewGroup();
 
 	// Pass through external events to children.
@@ -182,7 +182,7 @@ private:
 class LinearLayout : public ViewGroup {
 public:
 	LinearLayout(Orientation orientation, LayoutParams *layoutParams = 0)
-		: ViewGroup(layoutParams), orientation_(orientation), defaultMargins_(0), spacing_(10) {}
+		: ViewGroup(layoutParams), orientation_(orientation), defaultMargins_(0) {}
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
@@ -195,7 +195,7 @@ protected:
 	Orientation orientation_;
 private:
 	Margins defaultMargins_;
-	float spacing_;
+	float spacing_ = 10.0f;
 };
 
 class LinearLayoutList : public LinearLayout {

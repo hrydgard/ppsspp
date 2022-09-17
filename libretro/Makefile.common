@@ -276,6 +276,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Net/Sinks.cpp \
 	$(COMMONDIR)/Net/URL.cpp \
 	$(COMMONDIR)/Net/WebsocketServer.cpp \
+	$(COMMONDIR)/Profiler/EventStream.cpp \
 	$(COMMONDIR)/Render/DrawBuffer.cpp \
 	$(COMMONDIR)/Render/TextureAtlas.cpp \
 	$(COMMONDIR)/Serialize/Serializer.cpp \

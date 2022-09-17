@@ -13,6 +13,8 @@
 
 #include "Common/Thread/ThreadUtil.h"
 
+#include "Common/Profiler/EventStream.h"
+
 #if 0 // def _DEBUG
 #define VLOG(...) NOTICE_LOG(G3D, __VA_ARGS__)
 #else
@@ -292,12 +294,18 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 }
 
 VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan), queueRunner_(vulkan) {
+	mainThreadEvents_ = g_eventStreamManager.Get("render_main");
+	renderThreadEvents_ = g_eventStreamManager.Get("render_submit");
+
 	inflightFramesAtStart_ = vulkan_->GetInflightFrames();
 
 	frameDataShared_.Init(vulkan);
 
 	for (int i = 0; i < inflightFramesAtStart_; i++) {
 		frameData_[i].Init(vulkan, i);
+
+		frameData_[i].mainThreadEvents = mainThreadEvents_;
+		frameData_[i].renderThreadEvents = renderThreadEvents_;
 	}
 
 	queueRunner_.CreateDeviceObjects();
@@ -472,6 +480,7 @@ void VulkanRenderManager::ThreadFunc() {
 		// Pop a task of the queue and execute it.
 		VKRRenderThreadTask task;
 		{
+			EventScope scope(renderThreadEvents_, "idle", EventStream::EventType::BLOCK);
 			std::unique_lock<std::mutex> lock(pushMutex_);
 			while (renderThreadQueue_.empty()) {
 				pushCondVar_.wait(lock);
@@ -480,6 +489,7 @@ void VulkanRenderManager::ThreadFunc() {
 			renderThreadQueue_.pop();
 		}
 
+		renderThreadEvents_->SetFrameId(task.frame);
 		// Oh, we got a task! We can now have pushMutex_ unlocked, allowing the host to
 		// push more work when it feels like it, and just start working.
 		if (task.runType == VKRRunType::EXIT) {
@@ -504,24 +514,29 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 
+	mainThreadEvents_->SetFrameId(curFrame);
+
 	VLOG("PUSH: Fencing %d", curFrame);
 
 	// Makes sure the submission from the previous time around has happened. Otherwise
 	// we are not allowed to wait from another thread here..
 	{
-		std::unique_lock<std::mutex> lock(frameData.fenceMutex);
-		while (!frameData.readyForFence) {
-			frameData.fenceCondVar.wait(lock);
+		EventScope scope(mainThreadEvents_, "fence", EventStream::EventType::BLOCK);
+		{
+			std::unique_lock<std::mutex> lock(frameData.fenceMutex);
+			while (!frameData.readyForFence) {
+				frameData.fenceCondVar.wait(lock);
+			}
+			frameData.readyForFence = false;
 		}
-		frameData.readyForFence = false;
-	}
 
-	// This must be the very first Vulkan call we do in a new frame.
-	// Makes sure the very last command buffer from the frame before the previous has been fully executed.
-	if (vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX) == VK_ERROR_DEVICE_LOST) {
-		_assert_msg_(false, "Device lost in vkWaitForFences");
+		// This must be the very first Vulkan call we do in a new frame.
+		// Makes sure the very last command buffer from the frame before the previous has been fully executed.
+		if (vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX) == VK_ERROR_DEVICE_LOST) {
+			_assert_msg_(false, "Device lost in vkWaitForFences");
+		}
+		vkResetFences(device, 1, &frameData.fence);
 	}
-	vkResetFences(device, 1, &frameData.fence);
 
 	// Can't set this until after the fence.
 	frameData.profilingEnabled_ = enableProfiling;
@@ -1172,6 +1187,7 @@ void VulkanRenderManager::Finish() {
 	FrameData &frameData = frameData_[curFrame];
 
 	{
+		EventScope scope(mainThreadEvents_, "push", EventStream::EventType::COMPUTE);
 		VLOG("PUSH: Frame[%d]", curFrame);
 		VKRRenderThreadTask task;
 		task.frame = curFrame;

@@ -487,6 +487,7 @@ public:
 
 	// Volatile development settings
 	bool bShowFrameProfiler;
+	bool bShowEventProfiler;
 	bool bGpuLogProfiler; // Controls the Vulkan logging profiler (profiles textures uploads etc).
 
 	// Various directories. Autoconfigured, not read from ini.

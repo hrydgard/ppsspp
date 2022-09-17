@@ -98,6 +98,7 @@ public:
 	}
 };
 
+// Used for both touch and mouse.
 enum {
 	TOUCH_MOVE = 1 << 0,
 	TOUCH_DOWN = 1 << 1,
@@ -106,6 +107,7 @@ enum {
 	TOUCH_WHEEL = 1 << 4,  // Scrollwheel event. Usually only affects Y but can potentially affect X.
 	TOUCH_MOUSE = 1 << 5,  // Identifies that this touch event came from a mouse
 	TOUCH_RELEASE_ALL = 1 << 6,  // Useful for app focus switches when events may be lost.
+	TOUCH_HOVER_MOVE = 1 << 7,  // Same as move but also happens when no button is pressed. Only works for mice, of course.
 
 	// These are the Android getToolType() codes, shifted by 10.
 	TOUCH_TOOL_MASK = 7 << 10,

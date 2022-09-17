@@ -299,7 +299,12 @@ void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
 		break;
 	case UI::DRAW_NOTHING:
 		break;
-	} 
+	}
+}
+
+void UIContext::VLine(float x, float y0, float y1, uint32_t color) {
+	UI::Drawable drawable(color);
+	FillRect(drawable, Bounds(x, y0, g_dpi_scale_x, y1 - y0));
 }
 
 void UIContext::DrawImageVGradient(ImageID image, uint32_t color1, uint32_t color2, const Bounds &bounds) {

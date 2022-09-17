@@ -6,6 +6,7 @@
 #include <condition_variable>
 
 #include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/Profiler/EventStream.h"
 
 enum {
 	MAX_TIMESTAMP_QUERIES = 128,
@@ -74,6 +75,8 @@ struct FrameData {
 	// Profiling.
 	QueueProfileContext profile;
 	bool profilingEnabled_;
+	EventStream *mainThreadEvents;
+	EventStream *renderThreadEvents;
 
 	void Init(VulkanContext *vulkan, int index);
 	void Destroy(VulkanContext *vulkan);

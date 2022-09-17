@@ -86,7 +86,11 @@ public:
 	void DrawTextShadow(const char *str, float x, float y, uint32_t color, int align = 0);
 	void DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
 	void DrawTextShadowRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
+
+	// Works even without unbinding the texture, unlike the raw primitives in DrawBuffer.
 	void FillRect(const UI::Drawable &drawable, const Bounds &bounds);
+	void VLine(float x, float y0, float y1, uint32_t color);
+
 	void DrawImageVGradient(ImageID image, uint32_t color1, uint32_t color2, const Bounds &bounds);
 
 	// in dps, like dp_xres and dp_yres

@@ -6,6 +6,8 @@
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 
+#include "Common/Profiler/EventStream.h"
+
 using namespace PPSSPP_VK;
 
 // Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP NativeGLView NativeRenderer NativeSurfaceView PowerSaveModeReceiver InputDeviceState
@@ -555,6 +557,8 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 }
 
 void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frameData, FrameDataShared &frameDataShared) {
+	EventScope scope(frameData.renderThreadEvents, "run_steps", EventStream::EventType::COMPUTE);
+
 	QueueProfileContext *profile = frameData.profilingEnabled_ ? &frameData.profile : nullptr;
 
 	if (profile)

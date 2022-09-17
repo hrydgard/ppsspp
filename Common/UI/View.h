@@ -262,7 +262,7 @@ public:
 	// Call this from UI thread
 	EventReturn Dispatch(EventParams &e);
 
-	// This is suggested for use in most cases. Autobinds, allowing for neat syntax.
+	// Autobinds, allowing for reasonably neat syntax without lambdas.
 	template<class T>
 	T *Handle(T *thiz, EventReturn (T::* theCallback)(EventParams &e)) {
 		Add(std::bind(theCallback, thiz, std::placeholders::_1));
@@ -270,6 +270,7 @@ public:
 	}
 
 	// Sometimes you have an already-bound function<>, just use this then.
+	// Also works fine for lambdas.
 	void Add(std::function<EventReturn(EventParams&)> func);
 
 private:

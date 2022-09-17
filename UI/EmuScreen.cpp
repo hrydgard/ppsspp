@@ -773,6 +773,13 @@ bool EmuScreen::key(const KeyInput &key) {
 		}
 	}
 
+	// Unconditionally pass through some keys to the UI.
+	if (g_Config.bShowEventProfiler) {
+		if (key.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN || key.keyCode == NKCODE_EXT_MOUSEWHEEL_UP) {
+			UIScreen::key(key);
+		}
+	}
+
 	return controlMapper_.Key(key, &pauseTrigger_);
 }
 
@@ -833,9 +840,13 @@ void EmuScreen::CreateViews() {
 	// Devices without a back button like iOS need an on-screen touch back button.
 	bool showPauseButton = !System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON) || g_Config.bShowTouchPause;
 
+	// Root is an anchor layout.
 	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_, showPauseButton, &controlMapper_);
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
+	}
+	if (g_Config.bShowEventProfiler) {
+		root_->Add(new EventProfilerView(new AnchorLayoutParams(10, 60.0, 10.0, 60.0, false)));
 	}
 
 	LinearLayout *buttons = new LinearLayout(Orientation::ORIENT_HORIZONTAL, new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 60, true));

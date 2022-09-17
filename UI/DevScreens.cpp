@@ -97,6 +97,11 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new Choice(dev->T("Log View")))->OnClick.Handle(this, &DevMenuScreen::OnLogView);
 #endif
 	items->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DevMenuScreen::OnLogConfig);
+	items->Add(new CheckBox(&g_Config.bShowEventProfiler, dev->T("Event Profiler"), ""))->OnClick.Add([=](UI::EventParams &e) -> UI::EventReturn {
+		// TODO: Find a better way to cause parent screens to recreate its views.
+		NativeMessageReceived("recreateviews", "");
+		return UI::EVENT_DONE;
+	});
 	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenuScreen::OnDeveloperTools);
 	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Handle(this, &DevMenuScreen::OnJitCompare);
 	items->Add(new Choice(dev->T("Shader Viewer")))->OnClick.Handle(this, &DevMenuScreen::OnShaderView);

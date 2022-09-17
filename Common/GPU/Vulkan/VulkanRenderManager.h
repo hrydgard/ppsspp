@@ -529,4 +529,7 @@ private:
 
 	// pipelines to check and possibly create at the end of the current render pass.
 	std::vector<VKRGraphicsPipeline *> pipelinesToCheck_;
+
+	EventStream *mainThreadEvents_;
+	EventStream *renderThreadEvents_;
 };
