@@ -131,6 +131,7 @@ int printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "  --graphics=BACKEND    use a different gpu backend\n");
 	fprintf(stderr, "                        options: gles, software, directx9, etc.\n");
 	fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
+	fprintf(stderr, "  --max-mse=NUMBER      maximum allowed MSE error for screenshot\n");
 	fprintf(stderr, "  --timeout=SECONDS     abort test it if takes longer than SECONDS\n");
 
 	fprintf(stderr, "  -v, --verbose         show the full passed/failed result\n");
@@ -159,6 +160,7 @@ static HeadlessHost *getHost(GPUCore gpuCore) {
 
 struct AutoTestOptions {
 	double timeout;
+	double maxScreenshotError;
 	bool compare : 1;
 	bool verbose : 1;
 };
@@ -185,7 +187,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	host->BootDone();
 
 	if (opt.compare)
-		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart));
+		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart), opt.maxScreenshotError);
 
 	while (!PSP_InitUpdate(&error_string))
 		sleep_ms(1);
@@ -330,6 +332,8 @@ int main(int argc, const char* argv[])
 			screenshotFilename = argv[i] + strlen("--screenshot=");
 		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
 			testOptions.timeout = strtod(argv[i] + strlen("--timeout="), nullptr);
+		else if (!strncmp(argv[i], "--max-mse=", strlen("--max-mse=")) && strlen(argv[i]) > strlen("--max-mse="))
+			testOptions.maxScreenshotError = strtod(argv[i] + strlen("--max-mse="), nullptr);
 		else if (!strncmp(argv[i], "--debugger=", strlen("--debugger=")) && strlen(argv[i]) > strlen("--debugger="))
 			debuggerPort = (int)strtoul(argv[i] + strlen("--debugger="), NULL, 10);
 		else if (!strcmp(argv[i], "--teamcity"))
@@ -455,8 +459,8 @@ int main(int argc, const char* argv[])
 	if (!File::Exists(g_Config.flash0Directory))
 		g_Config.flash0Directory = File::GetExeDirectory() / "assets/flash0";
 
-	if (screenshotFilename != 0)
-		headlessHost->SetComparisonScreenshot(Path(std::string(screenshotFilename)));
+	if (screenshotFilename)
+		headlessHost->SetComparisonScreenshot(Path(std::string(screenshotFilename)), testOptions.maxScreenshotError);
 
 #if PPSSPP_PLATFORM(ANDROID)
 	// For some reason the debugger installs it with this name?
