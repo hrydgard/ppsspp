@@ -259,6 +259,14 @@ public:
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
 
+	// Swapchain
+	void DestroyBackBuffers();
+	bool CreateSwapchain(VkCommandBuffer cmdInit);
+
+	bool HasBackbuffers() const {
+		return !framebuffers_.empty();
+	}
+
 	// Get a render pass that's compatible with all our framebuffers.
 	// Note that it's precached, cannot look up in the map as this might be on another thread.
 	VKRRenderPass *GetCompatibleRenderPass() const {
@@ -298,6 +306,9 @@ public:
 	}
 
 private:
+	bool InitBackbufferFramebuffers(int width, int height);
+	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
+
 	VKRRenderPass *PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformCopy(const VKRStep &pass, VkCommandBuffer cmd);
@@ -352,4 +363,20 @@ private:
 	// Stored here to help reuse the allocation.
 
 	VulkanBarrier recordBarrier_;
+
+	// Swap chain management
+	struct SwapchainImageData {
+		VkImage image;
+		VkImageView view;
+	};
+	std::vector<VkFramebuffer> framebuffers_;
+	std::vector<SwapchainImageData> swapchainImages_;
+	uint32_t swapchainImageCount_ = 0;
+	struct DepthBufferInfo {
+		VkFormat format = VK_FORMAT_UNDEFINED;
+		VkImage image = VK_NULL_HANDLE;
+		VmaAllocation alloc = VK_NULL_HANDLE;
+		VkImageView view = VK_NULL_HANDLE;
+	};
+	DepthBufferInfo depth_;
 };

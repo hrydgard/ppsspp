@@ -344,52 +344,14 @@ bool VulkanRenderManager::CreateBackbuffers() {
 		ERROR_LOG(G3D, "No swapchain - can't create backbuffers");
 		return false;
 	}
-	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, nullptr);
-	_dbg_assert_(res == VK_SUCCESS);
 
-	VkImage *swapchainImages = new VkImage[swapchainImageCount_];
-	res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, swapchainImages);
-	if (res != VK_SUCCESS) {
-		ERROR_LOG(G3D, "vkGetSwapchainImagesKHR failed");
-		delete[] swapchainImages;
-		return false;
-	}
 
 	VkCommandBuffer cmdInit = GetInitCmd();
 
-	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
-		SwapchainImageData sc_buffer{};
-		sc_buffer.image = swapchainImages[i];
-
-		VkImageViewCreateInfo color_image_view = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-		color_image_view.format = vulkan_->GetSwapchainFormat();
-		color_image_view.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		color_image_view.subresourceRange.baseMipLevel = 0;
-		color_image_view.subresourceRange.levelCount = 1;
-		color_image_view.subresourceRange.baseArrayLayer = 0;
-		color_image_view.subresourceRange.layerCount = 1;
-		color_image_view.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		color_image_view.flags = 0;
-		color_image_view.image = sc_buffer.image;
-
-		// We leave the images as UNDEFINED, there's no need to pre-transition them as
-		// the backbuffer renderpass starts out with them being auto-transitioned from UNDEFINED anyway.
-		// Also, turns out it's illegal to transition un-acquired images, thanks Hans-Kristian. See #11417.
-
-		res = vkCreateImageView(vulkan_->GetDevice(), &color_image_view, nullptr, &sc_buffer.view);
-		swapchainImages_.push_back(sc_buffer);
-		_dbg_assert_(res == VK_SUCCESS);
+	if (!queueRunner_.CreateSwapchain(cmdInit)) {
+		return false;
 	}
-	delete[] swapchainImages;
 
-	// Must be before InitBackbufferRenderPass.
-	if (InitDepthStencilBuffer(cmdInit)) {
-		InitBackbufferFramebuffers(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-	}
 	curWidthRaw_ = -1;
 	curHeightRaw_ = -1;
 
@@ -477,26 +439,7 @@ void VulkanRenderManager::DestroyBackbuffers() {
 	StopThread();
 	vulkan_->WaitUntilQueueIdle();
 
-	for (auto &image : swapchainImages_) {
-		vulkan_->Delete().QueueDeleteImageView(image.view);
-	}
-	swapchainImages_.clear();
-
-	if (depth_.view) {
-		vulkan_->Delete().QueueDeleteImageView(depth_.view);
-	}
-	if (depth_.image) {
-		_dbg_assert_(depth_.alloc);
-		vulkan_->Delete().QueueDeleteImageAllocation(depth_.image, depth_.alloc);
-	}
-	depth_ = {};
-	for (uint32_t i = 0; i < framebuffers_.size(); i++) {
-		_dbg_assert_(framebuffers_[i] != VK_NULL_HANDLE);
-		vulkan_->Delete().QueueDeleteFramebuffer(framebuffers_[i]);
-	}
-	framebuffers_.clear();
-
-	INFO_LOG(G3D, "Backbuffers destroyed");
+	queueRunner_.DestroyBackBuffers();
 }
 
 VulkanRenderManager::~VulkanRenderManager() {
@@ -1040,98 +983,6 @@ void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int
 	queueRunner_.CopyReadbackBuffer(w, h, destFormat, destFormat, pixelStride, pixels);
 }
 
-bool VulkanRenderManager::InitBackbufferFramebuffers(int width, int height) {
-	VkResult res;
-	// We share the same depth buffer but have multiple color buffers, see the loop below.
-	VkImageView attachments[2] = { VK_NULL_HANDLE, depth_.view };
-
-	VkFramebufferCreateInfo fb_info = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-	fb_info.renderPass = queueRunner_.GetCompatibleRenderPass()->Get(vulkan_, RP_TYPE_BACKBUFFER);
-	fb_info.attachmentCount = 2;
-	fb_info.pAttachments = attachments;
-	fb_info.width = width;
-	fb_info.height = height;
-	fb_info.layers = 1;
-
-	framebuffers_.resize(swapchainImageCount_);
-
-	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
-		attachments[0] = swapchainImages_[i].view;
-		res = vkCreateFramebuffer(vulkan_->GetDevice(), &fb_info, nullptr, &framebuffers_[i]);
-		_dbg_assert_(res == VK_SUCCESS);
-		if (res != VK_SUCCESS) {
-			framebuffers_.clear();
-			return false;
-		}
-	}
-
-	return true;
-}
-
-bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
-	const VkFormat depth_format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
-	int aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-	VkImageCreateInfo image_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-	image_info.imageType = VK_IMAGE_TYPE_2D;
-	image_info.format = depth_format;
-	image_info.extent.width = vulkan_->GetBackbufferWidth();
-	image_info.extent.height = vulkan_->GetBackbufferHeight();
-	image_info.extent.depth = 1;
-	image_info.mipLevels = 1;
-	image_info.arrayLayers = 1;
-	image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-	image_info.queueFamilyIndexCount = 0;
-	image_info.pQueueFamilyIndices = nullptr;
-	image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	image_info.flags = 0;
-
-	depth_.format = depth_format;
-
-	VmaAllocationCreateInfo allocCreateInfo{};
-	VmaAllocationInfo allocInfo{};
-
-	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-
-	VkResult res = vmaCreateImage(vulkan_->Allocator(), &image_info, &allocCreateInfo, &depth_.image, &depth_.alloc, &allocInfo);
-	_dbg_assert_(res == VK_SUCCESS);
-	if (res != VK_SUCCESS)
-		return false;
-
-	vulkan_->SetDebugName(depth_.image, VK_OBJECT_TYPE_IMAGE, "BackbufferDepth");
-
-	TransitionImageLayout2(cmd, depth_.image, 0, 1,
-		aspectMask,
-		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-		0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-
-	VkImageViewCreateInfo depth_view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-	depth_view_info.image = depth_.image;
-	depth_view_info.format = depth_format;
-	depth_view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-	depth_view_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-	depth_view_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-	depth_view_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-	depth_view_info.subresourceRange.aspectMask = aspectMask;
-	depth_view_info.subresourceRange.baseMipLevel = 0;
-	depth_view_info.subresourceRange.levelCount = 1;
-	depth_view_info.subresourceRange.baseArrayLayer = 0;
-	depth_view_info.subresourceRange.layerCount = 1;
-	depth_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	depth_view_info.flags = 0;
-
-	VkDevice device = vulkan_->GetDevice();
-
-	res = vkCreateImageView(device, &depth_view_info, NULL, &depth_.view);
-	_dbg_assert_(res == VK_SUCCESS);
-	if (res != VK_SUCCESS)
-		return false;
-
-	return true;
-}
-
 static void RemoveDrawCommands(std::vector<VkRenderData> *cmds) {
 	// Here we remove any DRAW type commands when we hit a CLEAR.
 	for (auto &c : *cmds) {
@@ -1418,8 +1269,6 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	SubmitInitCommands(frame);
 
 	if (!frameData.hasBegun) {
-		frameData.AcquireNextImage(vulkan_);
-
 		// Effectively resets both main and present command buffers, since they both live in this pool.
 		vkResetCommandPool(vulkan_->GetDevice(), frameData.cmdPoolMain, 0);
 
@@ -1427,8 +1276,6 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
 		_assert_msg_(res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%s", VulkanResultToString(res));
-
-		queueRunner_.SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
 
 		frameData.hasBegun = true;
 	}

@@ -437,7 +437,7 @@ public:
 	void DestroyBackbuffers();
 
 	bool HasBackbuffers() {
-		return !framebuffers_.empty();
+		return queueRunner_.HasBackbuffers();
 	}
 
 	void SetInflightFrames(int f) {
@@ -463,8 +463,6 @@ public:
 	}
 
 private:
-	bool InitBackbufferFramebuffers(int width, int height);
-	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
 	void EndCurRenderStep();
 
 	void BeginSubmitFrame(int frame);
@@ -528,22 +526,5 @@ private:
 	// pipelines to check and possibly create at the end of the current render pass.
 	std::vector<VKRGraphicsPipeline *> pipelinesToCheck_;
 
-	// Swap chain management
-	struct SwapchainImageData {
-		VkImage image;
-		VkImageView view;
-	};
-	std::vector<VkFramebuffer> framebuffers_;
-	std::vector<SwapchainImageData> swapchainImages_;
-	uint32_t swapchainImageCount_ = 0;
-	struct DepthBufferInfo {
-		VkFormat format = VK_FORMAT_UNDEFINED;
-		VkImage image = VK_NULL_HANDLE;
-		VmaAllocation alloc = VK_NULL_HANDLE;
-		VkImageView view = VK_NULL_HANDLE;
-	};
-	DepthBufferInfo depth_;
-
-	// This works great - except see issue #10097. WTF?
 	bool useThread_ = true;
 };
