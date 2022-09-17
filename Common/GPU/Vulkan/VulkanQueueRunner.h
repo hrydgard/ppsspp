@@ -8,6 +8,7 @@
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanBarrier.h"
+#include "Common/GPU/Vulkan/VulkanFrameData.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/GPU/DataFormat.h"
@@ -16,6 +17,7 @@ class VKRFramebuffer;
 struct VKRGraphicsPipeline;
 struct VKRComputePipeline;
 struct VKRImage;
+struct FrameData;
 
 enum {
 	QUEUE_HACK_MGS2_ACID = 1,
@@ -149,14 +151,6 @@ struct TransitionRequest {
 	VkImageLayout targetLayout;
 };
 
-struct QueueProfileContext {
-	VkQueryPool queryPool;
-	std::vector<std::string> timestampDescriptions;
-	std::string profileSummary;
-	double cpuStartTime;
-	double cpuEndTime;
-};
-
 class VKRRenderPass;
 
 struct VKRStep {
@@ -257,13 +251,21 @@ public:
 	}
 
 	void PreprocessSteps(std::vector<VKRStep *> &steps);
-	void RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, QueueProfileContext *profile);
+	void RunSteps(FrameData &frameData);
 	void LogSteps(const std::vector<VKRStep *> &steps, bool verbose);
 
 	std::string StepToString(const VKRStep &step) const;
 
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
+
+	// Swapchain
+	void DestroyBackBuffers();
+	bool CreateSwapchain(VkCommandBuffer cmdInit);
+
+	bool HasBackbuffers() const {
+		return !framebuffers_.empty();
+	}
 
 	// Get a render pass that's compatible with all our framebuffers.
 	// Note that it's precached, cannot look up in the map as this might be on another thread.
@@ -304,6 +306,9 @@ public:
 	}
 
 private:
+	bool InitBackbufferFramebuffers(int width, int height);
+	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
+
 	VKRRenderPass *PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformCopy(const VKRStep &pass, VkCommandBuffer cmd);
@@ -358,4 +363,20 @@ private:
 	// Stored here to help reuse the allocation.
 
 	VulkanBarrier recordBarrier_;
+
+	// Swap chain management
+	struct SwapchainImageData {
+		VkImage image;
+		VkImageView view;
+	};
+	std::vector<VkFramebuffer> framebuffers_;
+	std::vector<SwapchainImageData> swapchainImages_;
+	uint32_t swapchainImageCount_ = 0;
+	struct DepthBufferInfo {
+		VkFormat format = VK_FORMAT_UNDEFINED;
+		VkImage image = VK_NULL_HANDLE;
+		VmaAllocation alloc = VK_NULL_HANDLE;
+		VkImageView view = VK_NULL_HANDLE;
+	};
+	DepthBufferInfo depth_;
 };

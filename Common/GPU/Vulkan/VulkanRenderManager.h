@@ -65,11 +65,6 @@ private:
 	std::string tag_;
 };
 
-enum class VKRRunType {
-	END,
-	SYNC,
-};
-
 enum {
 	MAX_TIMESTAMP_QUERIES = 128,
 };
@@ -442,11 +437,7 @@ public:
 	void DestroyBackbuffers();
 
 	bool HasBackbuffers() {
-		return !framebuffers_.empty();
-	}
-
-	void SetSplitSubmit(bool split) {
-		splitSubmit_ = split;
+		return queueRunner_.HasBackbuffers();
 	}
 
 	void SetInflightFrames(int f) {
@@ -472,13 +463,12 @@ public:
 	}
 
 private:
-	bool InitBackbufferFramebuffers(int width, int height);
-	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
 	void EndCurRenderStep();
 
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
 	void Submit(int frame, bool triggerFence);
+	void SubmitInitCommands(int frame);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
@@ -489,40 +479,6 @@ private:
 	// Permanent objects
 	VkSemaphore acquireSemaphore_;
 	VkSemaphore renderingCompleteSemaphore_;
-
-	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
-	struct FrameData {
-		std::mutex push_mutex;
-		std::condition_variable push_condVar;
-
-		std::mutex pull_mutex;
-		std::condition_variable pull_condVar;
-
-		bool readyForFence = true;
-		bool readyForRun = false;
-		bool skipSwap = false;
-		VKRRunType type = VKRRunType::END;
-
-		VkFence fence;
-		VkFence readbackFence;  // Strictly speaking we might only need one of these.
-		bool readbackFenceUsed = false;
-
-		// These are on different threads so need separate pools.
-		VkCommandPool cmdPoolInit;
-		VkCommandPool cmdPoolMain;
-		VkCommandBuffer initCmd;
-		VkCommandBuffer mainCmd;
-		bool hasInitCommands = false;
-		std::vector<VKRStep *> steps;
-
-		// Swapchain.
-		bool hasBegun = false;
-		uint32_t curSwapchainImage = -1;
-
-		// Profiling.
-		QueueProfileContext profile;
-		bool profilingEnabled_;
-	};
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 	int newInflightFrames_ = -1;
@@ -550,7 +506,6 @@ private:
 	BoundingRect curRenderArea_;
 
 	std::vector<VKRStep *> steps_;
-	bool splitSubmit_ = false;
 
 	// Execution time state
 	bool run_ = true;
@@ -571,22 +526,5 @@ private:
 	// pipelines to check and possibly create at the end of the current render pass.
 	std::vector<VKRGraphicsPipeline *> pipelinesToCheck_;
 
-	// Swap chain management
-	struct SwapchainImageData {
-		VkImage image;
-		VkImageView view;
-	};
-	std::vector<VkFramebuffer> framebuffers_;
-	std::vector<SwapchainImageData> swapchainImages_;
-	uint32_t swapchainImageCount_ = 0;
-	struct DepthBufferInfo {
-		VkFormat format = VK_FORMAT_UNDEFINED;
-		VkImage image = VK_NULL_HANDLE;
-		VmaAllocation alloc = VK_NULL_HANDLE;
-		VkImageView view = VK_NULL_HANDLE;
-	};
-	DepthBufferInfo depth_;
-
-	// This works great - except see issue #10097. WTF?
 	bool useThread_ = true;
 };

@@ -361,7 +361,7 @@ class VKFramebuffer;
 
 class VKContext : public DrawContext {
 public:
-	VKContext(VulkanContext *vulkan, bool splitSubmit);
+	VKContext(VulkanContext *vulkan);
 	virtual ~VKContext();
 
 	const DeviceCaps &GetDeviceCaps() const override {
@@ -762,7 +762,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 	return true;
 }
 
-VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
+VKContext::VKContext(VulkanContext *vulkan)
 	: vulkan_(vulkan), renderManager_(vulkan) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
 
@@ -914,8 +914,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
 	_assert_(VK_SUCCESS == res);
-
-	renderManager_.SetSplitSubmit(splitSubmit);
 }
 
 VKContext::~VKContext() {
@@ -1395,8 +1393,8 @@ void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int sten
 	renderManager_.Clear(colorval, depthVal, stencilVal, mask);
 }
 
-DrawContext *T3DCreateVulkanContext(VulkanContext *vulkan, bool split) {
-	return new VKContext(vulkan, split);
+DrawContext *T3DCreateVulkanContext(VulkanContext *vulkan) {
+	return new VKContext(vulkan);
 }
 
 void AddFeature(std::vector<std::string> &features, const char *name, VkBool32 available, VkBool32 enabled) {

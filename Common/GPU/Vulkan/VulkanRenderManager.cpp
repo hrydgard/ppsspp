@@ -309,11 +309,11 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 		cmd_alloc.commandPool = frameData_[i].cmdPoolInit;
 		cmd_alloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		cmd_alloc.commandBufferCount = 1;
-
 		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].initCmd);
 		_dbg_assert_(res == VK_SUCCESS);
 		cmd_alloc.commandPool = frameData_[i].cmdPoolMain;
 		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].mainCmd);
+		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].presentCmd);
 		_dbg_assert_(res == VK_SUCCESS);
 
 		// Creating the frame fence with true so they can be instantly waited on the first frame
@@ -326,6 +326,8 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 		query_ci.queryCount = MAX_TIMESTAMP_QUERIES;
 		query_ci.queryType = VK_QUERY_TYPE_TIMESTAMP;
 		res = vkCreateQueryPool(vulkan_->GetDevice(), &query_ci, nullptr, &frameData_[i].profile.queryPool);
+
+		frameData_[i].acquireSemaphore = acquireSemaphore_;
 	}
 
 	queueRunner_.CreateDeviceObjects();
@@ -342,52 +344,14 @@ bool VulkanRenderManager::CreateBackbuffers() {
 		ERROR_LOG(G3D, "No swapchain - can't create backbuffers");
 		return false;
 	}
-	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, nullptr);
-	_dbg_assert_(res == VK_SUCCESS);
 
-	VkImage *swapchainImages = new VkImage[swapchainImageCount_];
-	res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, swapchainImages);
-	if (res != VK_SUCCESS) {
-		ERROR_LOG(G3D, "vkGetSwapchainImagesKHR failed");
-		delete[] swapchainImages;
-		return false;
-	}
 
 	VkCommandBuffer cmdInit = GetInitCmd();
 
-	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
-		SwapchainImageData sc_buffer{};
-		sc_buffer.image = swapchainImages[i];
-
-		VkImageViewCreateInfo color_image_view = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-		color_image_view.format = vulkan_->GetSwapchainFormat();
-		color_image_view.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		color_image_view.subresourceRange.baseMipLevel = 0;
-		color_image_view.subresourceRange.levelCount = 1;
-		color_image_view.subresourceRange.baseArrayLayer = 0;
-		color_image_view.subresourceRange.layerCount = 1;
-		color_image_view.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		color_image_view.flags = 0;
-		color_image_view.image = sc_buffer.image;
-
-		// We leave the images as UNDEFINED, there's no need to pre-transition them as
-		// the backbuffer renderpass starts out with them being auto-transitioned from UNDEFINED anyway.
-		// Also, turns out it's illegal to transition un-acquired images, thanks Hans-Kristian. See #11417.
-
-		res = vkCreateImageView(vulkan_->GetDevice(), &color_image_view, nullptr, &sc_buffer.view);
-		swapchainImages_.push_back(sc_buffer);
-		_dbg_assert_(res == VK_SUCCESS);
+	if (!queueRunner_.CreateSwapchain(cmdInit)) {
+		return false;
 	}
-	delete[] swapchainImages;
 
-	// Must be before InitBackbufferRenderPass.
-	if (InitDepthStencilBuffer(cmdInit)) {
-		InitBackbufferFramebuffers(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-	}
 	curWidthRaw_ = -1;
 	curHeightRaw_ = -1;
 
@@ -475,26 +439,7 @@ void VulkanRenderManager::DestroyBackbuffers() {
 	StopThread();
 	vulkan_->WaitUntilQueueIdle();
 
-	for (auto &image : swapchainImages_) {
-		vulkan_->Delete().QueueDeleteImageView(image.view);
-	}
-	swapchainImages_.clear();
-
-	if (depth_.view) {
-		vulkan_->Delete().QueueDeleteImageView(depth_.view);
-	}
-	if (depth_.image) {
-		_dbg_assert_(depth_.alloc);
-		vulkan_->Delete().QueueDeleteImageAllocation(depth_.image, depth_.alloc);
-	}
-	depth_ = {};
-	for (uint32_t i = 0; i < framebuffers_.size(); i++) {
-		_dbg_assert_(framebuffers_[i] != VK_NULL_HANDLE);
-		vulkan_->Delete().QueueDeleteFramebuffer(framebuffers_[i]);
-	}
-	framebuffers_.clear();
-
-	INFO_LOG(G3D, "Backbuffers destroyed");
+	queueRunner_.DestroyBackBuffers();
 }
 
 VulkanRenderManager::~VulkanRenderManager() {
@@ -1038,98 +983,6 @@ void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int
 	queueRunner_.CopyReadbackBuffer(w, h, destFormat, destFormat, pixelStride, pixels);
 }
 
-bool VulkanRenderManager::InitBackbufferFramebuffers(int width, int height) {
-	VkResult res;
-	// We share the same depth buffer but have multiple color buffers, see the loop below.
-	VkImageView attachments[2] = { VK_NULL_HANDLE, depth_.view };
-
-	VkFramebufferCreateInfo fb_info = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-	fb_info.renderPass = queueRunner_.GetCompatibleRenderPass()->Get(vulkan_, RP_TYPE_BACKBUFFER);
-	fb_info.attachmentCount = 2;
-	fb_info.pAttachments = attachments;
-	fb_info.width = width;
-	fb_info.height = height;
-	fb_info.layers = 1;
-
-	framebuffers_.resize(swapchainImageCount_);
-
-	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
-		attachments[0] = swapchainImages_[i].view;
-		res = vkCreateFramebuffer(vulkan_->GetDevice(), &fb_info, nullptr, &framebuffers_[i]);
-		_dbg_assert_(res == VK_SUCCESS);
-		if (res != VK_SUCCESS) {
-			framebuffers_.clear();
-			return false;
-		}
-	}
-
-	return true;
-}
-
-bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
-	const VkFormat depth_format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
-	int aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-	VkImageCreateInfo image_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-	image_info.imageType = VK_IMAGE_TYPE_2D;
-	image_info.format = depth_format;
-	image_info.extent.width = vulkan_->GetBackbufferWidth();
-	image_info.extent.height = vulkan_->GetBackbufferHeight();
-	image_info.extent.depth = 1;
-	image_info.mipLevels = 1;
-	image_info.arrayLayers = 1;
-	image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-	image_info.queueFamilyIndexCount = 0;
-	image_info.pQueueFamilyIndices = nullptr;
-	image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	image_info.flags = 0;
-
-	depth_.format = depth_format;
-
-	VmaAllocationCreateInfo allocCreateInfo{};
-	VmaAllocationInfo allocInfo{};
-
-	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-
-	VkResult res = vmaCreateImage(vulkan_->Allocator(), &image_info, &allocCreateInfo, &depth_.image, &depth_.alloc, &allocInfo);
-	_dbg_assert_(res == VK_SUCCESS);
-	if (res != VK_SUCCESS)
-		return false;
-
-	vulkan_->SetDebugName(depth_.image, VK_OBJECT_TYPE_IMAGE, "BackbufferDepth");
-
-	TransitionImageLayout2(cmd, depth_.image, 0, 1,
-		aspectMask,
-		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-		0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-
-	VkImageViewCreateInfo depth_view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-	depth_view_info.image = depth_.image;
-	depth_view_info.format = depth_format;
-	depth_view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-	depth_view_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-	depth_view_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-	depth_view_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-	depth_view_info.subresourceRange.aspectMask = aspectMask;
-	depth_view_info.subresourceRange.baseMipLevel = 0;
-	depth_view_info.subresourceRange.levelCount = 1;
-	depth_view_info.subresourceRange.baseArrayLayer = 0;
-	depth_view_info.subresourceRange.layerCount = 1;
-	depth_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	depth_view_info.flags = 0;
-
-	VkDevice device = vulkan_->GetDevice();
-
-	res = vkCreateImageView(device, &depth_view_info, NULL, &depth_.view);
-	_dbg_assert_(res == VK_SUCCESS);
-	if (res != VK_SUCCESS)
-		return false;
-
-	return true;
-}
-
 static void RemoveDrawCommands(std::vector<VkRenderData> *cmds) {
 	// Here we remove any DRAW type commands when we hit a CLEAR.
 	for (auto &c : *cmds) {
@@ -1412,65 +1265,78 @@ void VulkanRenderManager::Wipe() {
 // the backbuffer image acquisition.
 void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
-	if (!frameData.hasBegun) {
-		// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
-		VkResult res = vkAcquireNextImageKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &frameData.curSwapchainImage);
-		if (res == VK_SUBOPTIMAL_KHR) {
-			// Hopefully the resize will happen shortly. Ignore - one frame might look bad or something.
-			WARN_LOG(G3D, "VK_SUBOPTIMAL_KHR returned - ignoring");
-		} else if (res == VK_ERROR_OUT_OF_DATE_KHR) {
-			WARN_LOG(G3D, "VK_ERROR_OUT_OF_DATE_KHR returned - processing the frame, but not presenting");
-			frameData.skipSwap = true;
-		} else {
-			_assert_msg_(res == VK_SUCCESS, "vkAcquireNextImageKHR failed! result=%s", VulkanResultToString(res));
-		}
 
+	SubmitInitCommands(frame);
+
+	if (!frameData.hasBegun) {
+		// Effectively resets both main and present command buffers, since they both live in this pool.
 		vkResetCommandPool(vulkan_->GetDevice(), frameData.cmdPoolMain, 0);
+
 		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 		begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-		res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
-
+		VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
 		_assert_msg_(res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%s", VulkanResultToString(res));
-
-		queueRunner_.SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
 
 		frameData.hasBegun = true;
 	}
 }
 
+void VulkanRenderManager::SubmitInitCommands(int frame) {
+	FrameData &frameData = frameData_[frame];
+	if (!frameData.hasInitCommands) {
+		return;
+	}
+
+	if (frameData.profilingEnabled_) {
+		// Pre-allocated query ID 1.
+		vkCmdWriteTimestamp(frameData.initCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frameData.profile.queryPool, 1);
+	}
+
+	VkResult res = vkEndCommandBuffer(frameData.initCmd);
+	_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
+
+	VkCommandBuffer cmdBufs[1];
+	int numCmdBufs = 0;
+
+	cmdBufs[numCmdBufs++] = frameData.initCmd;
+	// Send the init commands off separately, so they can be processed while we're building the rest of the list.
+	// (Likely the CPU will be more than a frame ahead anyway, but this will help when we try to work on latency).
+	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
+	submit_info.pCommandBuffers = cmdBufs;
+	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
+	if (res == VK_ERROR_DEVICE_LOST) {
+		_assert_msg_(false, "Lost the Vulkan device in split submit! If this happens again, switch Graphics Backend away from Vulkan");
+	} else {
+		_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (init)! result=%s", VulkanResultToString(res));
+	}
+	numCmdBufs = 0;
+
+	frameData.hasInitCommands = false;
+}
+
 void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
 	FrameData &frameData = frameData_[frame];
-	if (frameData.hasInitCommands) {
-		if (frameData.profilingEnabled_ && triggerFrameFence) {
-			// Pre-allocated query ID 1.
-			vkCmdWriteTimestamp(frameData.initCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frameData.profile.queryPool, 1);
-		}
-		VkResult res = vkEndCommandBuffer(frameData.initCmd);
-		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
-	}
 
 	VkResult res = vkEndCommandBuffer(frameData.mainCmd);
 	_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (main)! result=%s", VulkanResultToString(res));
 
+	if (frameData.hasPresentCommands) {
+		VkResult res = vkEndCommandBuffer(frameData.presentCmd);
+		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (present)! result=%s", VulkanResultToString(res));
+	}
+
+	SubmitInitCommands(frame);
+
+	// Submit the main and final cmdbuf, ending by signalling the fence.
+
 	VkCommandBuffer cmdBufs[2];
 	int numCmdBufs = 0;
-	if (frameData.hasInitCommands) {
-		cmdBufs[numCmdBufs++] = frameData.initCmd;
-		if (splitSubmit_) {
-			// Send the init commands off separately. Used this once to confirm that the cause of a device loss was in the init cmdbuf.
-			VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
-			submit_info.commandBufferCount = (uint32_t)numCmdBufs;
-			submit_info.pCommandBuffers = cmdBufs;
-			res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
-			if (res == VK_ERROR_DEVICE_LOST) {
-				_assert_msg_(false, "Lost the Vulkan device in split submit! If this happens again, switch Graphics Backend away from Vulkan");
-			} else {
-				_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (init)! result=%s", VulkanResultToString(res));
-			}
-			numCmdBufs = 0;
-		}
-	}
+
 	cmdBufs[numCmdBufs++] = frameData.mainCmd;
+	if (frameData.hasPresentCommands) {
+		cmdBufs[numCmdBufs++] = frameData.presentCmd;
+	}
 
 	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -1489,7 +1355,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
 	if (res == VK_ERROR_DEVICE_LOST) {
 		_assert_msg_(false, "Lost the Vulkan device in vkQueueSubmit! If this happens again, switch Graphics Backend away from Vulkan");
 	} else {
-		_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (main, split=%d)! result=%s", (int)splitSubmit_, VulkanResultToString(res));
+		_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (main)! result=%s", VulkanResultToString(res));
 	}
 
 	// When !triggerFence, we notify after syncing with Vulkan.
@@ -1501,6 +1367,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
 	}
 
 	frameData.hasInitCommands = false;
+	frameData.hasPresentCommands = false;
 }
 
 void VulkanRenderManager::EndSubmitFrame(int frame) {
@@ -1542,12 +1409,10 @@ void VulkanRenderManager::Run(int frame) {
 	BeginSubmitFrame(frame);
 
 	FrameData &frameData = frameData_[frame];
-	auto &stepsOnThread = frameData_[frame].steps;
 	VkCommandBuffer cmd = frameData.mainCmd;
-	queueRunner_.PreprocessSteps(stepsOnThread);
+	queueRunner_.PreprocessSteps(frameData_[frame].steps);
 	//queueRunner_.LogSteps(stepsOnThread, false);
-	queueRunner_.RunSteps(cmd, stepsOnThread, frameData.profilingEnabled_ ? &frameData.profile : nullptr);
-	stepsOnThread.clear();
+	queueRunner_.RunSteps(frameData);
 
 	switch (frameData.type) {
 	case VKRRunType::END:

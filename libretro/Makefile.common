@@ -253,6 +253,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/Vulkan/thin3d_vulkan.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanQueueRunner.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanRenderManager.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanFrameData.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanLoader.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanContext.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanDebug.cpp \

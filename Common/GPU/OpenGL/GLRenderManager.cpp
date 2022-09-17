@@ -579,7 +579,6 @@ void GLRenderManager::EndSubmitFrame(int frame) {
 void GLRenderManager::Run(int frame) {
 	BeginSubmitFrame(frame);
 
-
 	FrameData &frameData = frameData_[frame];
 
 	auto &stepsOnThread = frameData_[frame].steps;

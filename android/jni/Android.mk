@@ -51,6 +51,7 @@ VULKAN_FILES := \
   $(SRC)/Common/GPU/Vulkan/thin3d_vulkan.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanQueueRunner.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanRenderManager.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanFrameData.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanLoader.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanContext.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanDebug.cpp \

@@ -176,6 +176,7 @@ public:
 	bool bSustainedPerformanceMode;  // Android: Slows clocks down to avoid overheating/speed fluctuations.
 	bool bIgnoreScreenInsets;  // Android: Center screen disregarding insets if this is enabled.
 	bool bVSync;
+
 	int iFrameSkip;
 	int iFrameSkipType;
 	int iFastForwardMode; // See FastForwardMode in ConfigValues.h.
@@ -242,7 +243,6 @@ public:
 	bool bShaderChainRequires60FPS;
 	std::string sTextureShaderName;
 	bool bGfxDebugOutput;
-	bool bGfxDebugSplitSubmit;
 	int iInflightFrames;
 	bool bRenderDuplicateFrames;
 
