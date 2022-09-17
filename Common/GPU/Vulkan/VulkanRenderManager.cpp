@@ -1433,7 +1433,6 @@ void VulkanRenderManager::Run(int frame) {
 void VulkanRenderManager::EndSyncFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 
-	_dbg_assert_(!frameData.hasPresentCommands);
 	frameData.readbackFenceUsed = true;
 
 	// The submit will trigger the readbackFence.
