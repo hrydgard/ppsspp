@@ -57,7 +57,7 @@ void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
 	if (errors > maxScreenshotError_)
 		SendOrCollectDebugOutput(StringFromFormat("Screenshot MSE: %f\n", errors));
 
-	if (errors > maxScreenshotError_ && !teamCityMode && !getenv("GITHUB_ACTIONS")) {
+	if (errors > maxScreenshotError_ && writeFailureScreenshot_) {
 		if (comparer.SaveActualBitmap(Path("__testfailure.bmp")))
 			SendOrCollectDebugOutput("Actual output written to: __testfailure.bmp\n");
 		comparer.SaveVisualComparisonPNG(Path("__testcompare.png"));

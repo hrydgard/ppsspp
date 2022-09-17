@@ -139,6 +139,7 @@ int printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "  --ir                  use ir interpreter\n");
 	fprintf(stderr, "  -j                    use jit (default)\n");
 	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
+	fprintf(stderr, "  --bench               run multiple times and output speed\n");
 	fprintf(stderr, "\nSee headless.txt for details.\n");
 
 	return 1;
@@ -163,6 +164,7 @@ struct AutoTestOptions {
 	double maxScreenshotError;
 	bool compare : 1;
 	bool verbose : 1;
+	bool bench : 1;
 };
 
 bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const AutoTestOptions &opt) {
@@ -170,7 +172,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	currentTestName = GetTestName(coreParameter.fileToStart);
 
 	std::string output;
-	if (opt.compare)
+	if (opt.compare || opt.bench)
 		coreParameter.collectEmuLog = &output;
 
 	std::string error_string;
@@ -184,8 +186,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 
 	TeamCityPrint("testStarted name='%s' captureStandardOutput='true'", currentTestName.c_str());
 
-	host->BootDone();
-
 	if (opt.compare)
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart), opt.maxScreenshotError);
 
@@ -194,12 +194,11 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	if (!PSP_IsInited()) {
 		TeamCityPrint("testFailed name='%s' message='Startup failed'", currentTestName.c_str());
 		TeamCityPrint("testFinished name='%s'", currentTestName.c_str());
-		GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
+		GitHubActionsPrint("error", "Test init failed for %s", currentTestName.c_str());
 		return false;
 	}
 
-	bool passed = true;
-	double deadline = time_now_d() + opt.timeout;
+	host->BootDone();
 
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
@@ -207,6 +206,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	if (coreParameter.graphicsContext && coreParameter.graphicsContext->GetDrawContext())
 		coreParameter.graphicsContext->GetDrawContext()->BeginFrame();
 
+	bool passed = true;
+	double deadline = time_now_d() + opt.timeout;
 	coreState = coreParameter.startBreak ? CORE_STEPPING : CORE_RUNNING;
 	while (coreState == CORE_RUNNING || coreState == CORE_STEPPING)
 	{
@@ -223,12 +224,15 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		}
 		if (time_now_d() > deadline) {
 			// Don't compare, print the output at least up to this point, and bail.
-			printf("%s", output.c_str());
-			passed = false;
+			if (!opt.bench) {
+				printf("%s", output.c_str());
 
-			host->SendDebugOutput("TIMEOUT\n");
-			TeamCityPrint("testFailed name='%s' message='Test timeout'", currentTestName.c_str());
-			GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
+				host->SendDebugOutput("TIMEOUT\n");
+				TeamCityPrint("testFailed name='%s' message='Test timeout'", currentTestName.c_str());
+				GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
+			}
+
+			passed = false;
 			Core_Stop();
 		}
 	}
@@ -239,7 +243,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 
 	PSP_Shutdown();
 
-	headlessHost->FlushDebugOutput();
+	if (!opt.bench)
+		headlessHost->FlushDebugOutput();
 
 	if (opt.compare && passed)
 		passed = CompareOutput(coreParameter.fileToStart, output, opt.verbose);
@@ -302,6 +307,8 @@ int main(int argc, const char* argv[])
 			cpuCore = CPUCore::IR_JIT;
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			testOptions.compare = true;
+		else if (!strcmp(argv[i], "--bench"))
+			testOptions.bench = true;
 		else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
 			testOptions.verbose = true;
 		else if (!strncmp(argv[i], "--graphics=", strlen("--graphics=")) && strlen(argv[i]) > strlen("--graphics="))
@@ -461,6 +468,7 @@ int main(int argc, const char* argv[])
 
 	if (screenshotFilename)
 		headlessHost->SetComparisonScreenshot(Path(std::string(screenshotFilename)), testOptions.maxScreenshotError);
+	headlessHost->SetWriteFailureScreenshot(!teamCityMode && !getenv("GITHUB_ACTIONS") && !testOptions.bench);
 
 #if PPSSPP_PLATFORM(ANDROID)
 	// For some reason the debugger installs it with this name?
@@ -493,10 +501,25 @@ int main(int argc, const char* argv[])
 		if (testOptions.compare)
 			printf("%s:\n", coreParameter.fileToStart.c_str());
 		bool passed = RunAutoTest(headlessHost, coreParameter, testOptions);
+		if (testOptions.bench) {
+			double st = time_now_d();
+			double deadline = st + testOptions.timeout;
+			double runs = 0.0;
+			for (int i = 0; i < 100; ++i) {
+				RunAutoTest(headlessHost, coreParameter, testOptions);
+				runs++;
+
+				if (time_now_d() > deadline)
+					break;
+			}
+			double et = time_now_d();
+
+			std::string testName = GetTestName(coreParameter.fileToStart);
+			printf("  %s - %f seconds average\n", testName.c_str(), (et - st) / runs);
+		}
 		if (testOptions.compare) {
 			std::string testName = GetTestName(coreParameter.fileToStart);
-			if (passed)
-			{
+			if (passed) {
 				passedTests.push_back(testName);
 				printf("  %s - passed!\n", testName.c_str());
 			}

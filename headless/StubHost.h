@@ -72,6 +72,9 @@ public:
 		comparisonScreenshot_ = filename;
 		maxScreenshotError_ = maxError;
 	}
+	void SetWriteFailureScreenshot(bool flag) {
+		writeFailureScreenshot_ = flag;
+	}
 
 	void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) override;
 
@@ -88,4 +91,5 @@ protected:
 	std::string debugOutputBuffer_;
 	GPUCore gpuCore_;
 	GraphicsContext *gfx_ = nullptr;
+	bool writeFailureScreenshot_ = true;
 };
