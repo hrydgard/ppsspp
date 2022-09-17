@@ -55,7 +55,7 @@ void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
 		SendOrCollectDebugOutput(comparer.GetError() + "\n");
 
 	if (errors > 0)
-		SendOrCollectDebugOutput(StringFromFormat("Screenshot error: %f%%\n", errors * 100.0f));
+		SendOrCollectDebugOutput(StringFromFormat("Screenshot MSE: %f\n", errors));
 
 	if (errors > 0 && !teamCityMode && !getenv("GITHUB_ACTIONS")) {
 		if (comparer.SaveActualBitmap(Path("__testfailure.bmp")))
