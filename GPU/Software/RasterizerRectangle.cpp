@@ -116,8 +116,12 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	DrawingCoords scissorTL = TransformUnit::ScreenToDrawing(range.x1, range.y1);
 	DrawingCoords scissorBR = TransformUnit::ScreenToDrawing(range.x2, range.y2);
 
-	int z = v1.screenpos.z;
-	int fog = 255;
+	const int z = v1.screenpos.z;
+	constexpr int fog = 255;
+
+	// Since it's flat, we can check depth range early.  Matters for earlyZChecks.
+	if (pixelID.applyDepthRange && (z < pixelID.cached.minz || z > pixelID.cached.maxz))
+		return;
 
 	bool isWhite = v1.color0 == 0xFFFFFFFF;
 
@@ -204,15 +208,31 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 
 			float t = tf_start;
 			const Vec4<int> c0 = Vec4<int>::FromRGBA(v1.color0);
-			for (int y = pos0.y; y < pos1.y; y++) {
-				float s = sf_start;
-				// Not really that fast but faster than triangle.
-				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(c0), &texptr, &texbufw, 0, 0, state.samplerID);
-					state.drawPixel(x, y, z, 255, ToVec4IntArg(prim_color), pixelID);
-					s += dsf;
+			if (pixelID.earlyZChecks) {
+				for (int y = pos0.y; y < pos1.y; y++) {
+					float s = sf_start;
+					// Not really that fast but faster than triangle.
+					for (int x = pos0.x; x < pos1.x; x++) {
+						if (CheckDepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
+							Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(c0), &texptr, &texbufw, 0, 0, state.samplerID);
+							state.drawPixel(x, y, z, fog, ToVec4IntArg(prim_color), pixelID);
+						}
+
+						s += dsf;
+					}
+					t += dtf;
 				}
-				t += dtf;
+			} else {
+				for (int y = pos0.y; y < pos1.y; y++) {
+					float s = sf_start;
+					// Not really that fast but faster than triangle.
+					for (int x = pos0.x; x < pos1.x; x++) {
+						Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(c0), &texptr, &texbufw, 0, 0, state.samplerID);
+						state.drawPixel(x, y, z, fog, ToVec4IntArg(prim_color), pixelID);
+						s += dsf;
+					}
+					t += dtf;
+				}
 			}
 		}
 	} else {
@@ -237,6 +257,16 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 				for (int x = pos0.x; x < pos1.x; x++) {
 					DrawSinglePixel5551(pixel, v1.color0, pixelID);
 					pixel++;
+				}
+			}
+		} else if (pixelID.earlyZChecks) {
+			const Vec4<int> prim_color = Vec4<int>::FromRGBA(v1.color0);
+			for (int y = pos0.y; y < pos1.y; y++) {
+				for (int x = pos0.x; x < pos1.x; x++) {
+					if (!CheckDepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z))
+						continue;
+
+					state.drawPixel(x, y, z, fog, ToVec4IntArg(prim_color), pixelID);
 				}
 			}
 		} else {
