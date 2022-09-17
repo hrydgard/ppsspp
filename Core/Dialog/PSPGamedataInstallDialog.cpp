@@ -25,6 +25,8 @@
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Dialog/PSPGamedataInstallDialog.h"
+#include "Common/Data/Text/I18n.h"
+#include "UI/OnScreenDisplay.h"
 
 std::string saveBasePath = "ms0:/PSP/SAVEDATA/";
 
@@ -270,7 +272,9 @@ void PSPGamedataInstallDialog::UpdateProgress() {
 		progressValue = (int)((allReadSize * 100) / allFilesSize);
 	else 
 		progressValue = 100;
-
+	auto di = GetI18NCategory("Dialog");
+	std::string temp = di->T("Save");
+	osm.Show(temp + " "  + std::to_string(progressValue) + " / 100", 0.5f);
 	param->progress = progressValue;
 	param.NotifyWrite("DialogResult");
 }
