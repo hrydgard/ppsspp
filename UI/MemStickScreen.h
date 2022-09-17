@@ -36,7 +36,7 @@ public:
 	MemStickScreen(bool initialSetup);
 	~MemStickScreen() {}
 
-	const char *tag() const override { return "memstick"; }
+	const char *tag() const override { return "MemStick"; }
 
 	enum Choice {
 		CHOICE_BROWSE_FOLDER,
