@@ -1409,7 +1409,6 @@ void VulkanRenderManager::Run(int frame) {
 	BeginSubmitFrame(frame);
 
 	FrameData &frameData = frameData_[frame];
-	VkCommandBuffer cmd = frameData.mainCmd;
 	queueRunner_.PreprocessSteps(frameData_[frame].steps);
 	//queueRunner_.LogSteps(stepsOnThread, false);
 	queueRunner_.RunSteps(frameData);
