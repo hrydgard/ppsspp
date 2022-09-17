@@ -484,6 +484,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	// then resolve the indices. This lets us avoid transforming shared vertices twice.
 
 	binner_->UpdateState(vreader.isThrough());
+	hasDraws_ = true;
 
 	static TransformState transformState;
 	if (binner_->HasDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL)) {
@@ -826,8 +827,12 @@ void TransformUnit::SendTriangle(CullType cullType, const VertexData *verts, int
 }
 
 void TransformUnit::Flush(const char *reason) {
+	if (!hasDraws_)
+		return;
+
 	binner_->Flush(reason);
 	GPUDebug::NotifyDraw();
+	hasDraws_ = false;
 }
 
 void TransformUnit::GetStats(char *buffer, size_t bufsize) {
@@ -836,6 +841,9 @@ void TransformUnit::GetStats(char *buffer, size_t bufsize) {
 }
 
 void TransformUnit::FlushIfOverlap(const char *reason, bool modifying, uint32_t addr, uint32_t stride, uint32_t w, uint32_t h) {
+	if (!hasDraws_)
+		return;
+
 	if (binner_->HasPendingWrite(addr, stride, w, h))
 		Flush(reason);
 	if (modifying && binner_->HasPendingRead(addr, stride, w, h))

@@ -149,6 +149,7 @@ private:
 	// This is the index of the next vert in data (or higher, may need modulus.)
 	int data_index_ = 0;
 	GEPrimitiveType prev_prim_ = GE_PRIM_POINTS;
+	bool hasDraws_ = false;
 };
 
 class SoftwareDrawEngine : public DrawEngineCommon {

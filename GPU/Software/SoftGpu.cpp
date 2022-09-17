@@ -639,6 +639,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 }
 
 void SoftGPU::CopyDisplayToOutput(bool reallyDirty) {
+	drawEngine_->transformUnit.Flush("output");
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT);
 	MarkDirty(displayFramebuf_, displayStride_, 272, displayFormat_, SoftGPUVRAMDirty::CLEAR);
@@ -1136,6 +1137,18 @@ void SoftGPU::Execute_Call(u32 op, u32 diff) {
 void SoftGPU::FinishDeferred() {
 	// Need to flush before going back to CPU, so drawing is appropriately visible.
 	drawEngine_->transformUnit.Flush("finish");
+}
+
+int SoftGPU::ListSync(int listid, int mode) {
+	// Take this as a cue that we need to finish drawing.
+	drawEngine_->transformUnit.Flush("listsync");
+	return GPUCommon::ListSync(listid, mode);
+}
+
+u32 SoftGPU::DrawSync(int mode) {
+	// Take this as a cue that we need to finish drawing.
+	drawEngine_->transformUnit.Flush("drawsync");
+	return GPUCommon::DrawSync(mode);
 }
 
 void SoftGPU::GetStats(char *buffer, size_t bufsize) {
