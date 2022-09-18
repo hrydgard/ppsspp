@@ -71,7 +71,7 @@ void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds,
 }
 
 void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) {
-	uint32_t vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode());
+	uint32_t vertTypeID = GetVertTypeID(gstate.vertType | GE_VTYPE_POS_FLOAT, gstate.getUVGenMode());
 
 	int flipCull = cullMode != gstate.getCullMode() ? 1 : 0;
 	// TODO: For now, just setting all dirty.
@@ -112,7 +112,7 @@ void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVert
 			vert.clippos.z *= 1.0f / 65535.0f;
 		}
 		vert.color0 = buffer[i].color0_32;
-		vert.color1 = gstate.isUsingSecondaryColor() ? buffer[i].color1_32 : 0;
+		vert.color1 = gstate.isUsingSecondaryColor() && !gstate.isModeThrough() ? buffer[i].color1_32 : 0;
 		vert.fogdepth = buffer[i].fog;
 		vert.screenpos.x = (int)(buffer[i].x * 16.0f);
 		vert.screenpos.y = (int)(buffer[i].y * 16.0f);
@@ -840,7 +840,7 @@ void TransformUnit::SubmitImmVertex(const VertexData &vert, SoftwareDrawEngine *
 		break;
 	}
 
-	uint32_t vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode());
+	uint32_t vertTypeID = GetVertTypeID(gstate.vertType | GE_VTYPE_POS_FLOAT, gstate.getUVGenMode());
 	// This now processes the step with shared logic, given the existing data_.
 	isImmDraw_ = true;
 	SubmitPrimitive(nullptr, nullptr, GE_PRIM_KEEP_PREVIOUS, 0, vertTypeID, nullptr, drawEngine);
