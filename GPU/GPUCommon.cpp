@@ -89,7 +89,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	// These affect the fragment shader so need flushing.
 	{ GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
-	{ GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE},
+	{ GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 	// Raster state for Direct3D 9, uncommon.
@@ -2414,10 +2414,10 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 		immPrim_ = (GEPrimitiveType)prim;
 		// Flags seem to only be respected from the first prim.
 		immFlags_ = op & 0x00FFF800;
+		immFirstSent_ = false;
 	} else if (prim == GE_PRIM_KEEP_PREVIOUS && immPrim_ != GE_PRIM_INVALID) {
 		static constexpr int flushPrimCount[] = { 1, 2, 0, 3, 0, 0, 2, 0 };
-		// Instead of finding a proper point to flush, we just emit a full rectangle every time one
-		// is finished.
+		// Instead of finding a proper point to flush, we just emit prims when we can.
 		if (immCount_ == flushPrimCount[immPrim_ & 7])
 			FlushImm();
 	} else {
@@ -2439,31 +2439,6 @@ void GPUCommon::FlushImm() {
 	}
 	UpdateUVScaleOffset();
 
-	// Instead of plumbing through properly (we'd need to inject these pretransformed vertices in the middle
-	// of SoftwareTransform(), which would take a lot of refactoring), we'll cheat and just turn these into
-	// through vertices.
-	// Since the only known use is Thrillville and it only uses it to clear, we just use color and pos.
-	struct ImmVertex {
-		float uv[2];
-		uint32_t color;
-		float xyz[3];
-	};
-	ImmVertex temp[MAX_IMMBUFFER_SIZE];
-	uint32_t color1Used = 0;
-	for (int i = 0; i < immCount_; i++) {
-		// Since we're sending through, scale back up to w/h.
-		temp[i].uv[0] = immBuffer_[i].u * gstate.getTextureWidth(0);
-		temp[i].uv[1] = immBuffer_[i].v * gstate.getTextureHeight(0);
-		temp[i].color = immBuffer_[i].color0_32;
-		temp[i].xyz[0] = immBuffer_[i].pos[0];
-		temp[i].xyz[1] = immBuffer_[i].pos[1];
-		temp[i].xyz[2] = immBuffer_[i].pos[2];
-		color1Used |= immBuffer_[i].color1_32;
-	}
-	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
-
-	// TODO: Handle fog and secondary color somehow?
-
 	bool antialias = (immFlags_ & GE_IMM_ANTIALIAS) != 0;
 	bool prevAntialias = gstate.isAntiAliasEnabled();
 	bool shading = (immFlags_ & GE_IMM_SHADING) != 0;
@@ -2473,40 +2448,42 @@ void GPUCommon::FlushImm() {
 	int cullMode = (immFlags_ & GE_IMM_CULLFACE) != 0 ? 1 : 0;
 	bool texturing = (immFlags_ & GE_IMM_TEXTURE) != 0;
 	bool prevTexturing = gstate.isTextureMapEnabled();
+	bool fog = (immFlags_ & GE_IMM_FOG) != 0;
+	bool prevFog = gstate.isFogEnabled();
 	bool dither = (immFlags_ & GE_IMM_DITHER) != 0;
 	bool prevDither = gstate.isDitherEnabled();
 
 	if ((immFlags_ & GE_IMM_CLIPMASK) != 0) {
 		WARN_LOG_REPORT_ONCE(geimmclipvalue, G3D, "Imm vertex used clip value, flags=%06x", immFlags_);
-	} else if ((immFlags_ & GE_IMM_FOG) != 0) {
-		WARN_LOG_REPORT_ONCE(geimmfog, G3D, "Imm vertex used fog, flags=%06x", immFlags_);
-	} else if (color1Used != 0 && gstate.isUsingSecondaryColor()) {
-		WARN_LOG_REPORT_ONCE(geimmcolor1, G3D, "Imm vertex used secondary color, flags=%06x", immFlags_);
 	}
 
-	if (texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither || prevShading != shading) {
+	bool changed = texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither;
+	changed = changed || prevShading != shading || prevFog != fog;
+	if (changed) {
 		DispatchFlush();
 		gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)antialias;
 		gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)shading;
 		gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)cullEnable;
 		gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)texturing;
+		gstate.fogEnable = (GE_CMD_FOGENABLE << 24) | (int)fog;
 		gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)dither;
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
 	}
 
-	int bytesRead;
-	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
-	drawEngineCommon_->DispatchSubmitImm(temp, nullptr, immPrim_, immCount_, vertTypeID, cullMode, &bytesRead);
-	// TODO: In the future, make a special path for these.
-	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);
+	drawEngineCommon_->DispatchSubmitImm(immPrim_, immBuffer_, immCount_, cullMode, immFirstSent_);
 	immCount_ = 0;
+	immFirstSent_ = true;
 
-	gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)prevAntialias;
-	gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)prevShading;
-	gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)prevCullEnable;
-	gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)prevTexturing;
-	gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)prevDither;
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
+	if (changed) {
+		DispatchFlush();
+		gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)prevAntialias;
+		gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)prevShading;
+		gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)prevCullEnable;
+		gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)prevTexturing;
+		gstate.fogEnable = (GE_CMD_FOGENABLE << 24) | (int)prevFog;
+		gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)prevDither;
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
+	}
 }
 
 void GPUCommon::ExecuteOp(u32 op, u32 diff) {

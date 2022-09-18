@@ -19,6 +19,7 @@
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/LogReporting.h"
 #include "Core/Config.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/SplineCommon.h"
@@ -186,6 +187,57 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 	if (vertexSize)
 		*vertexSize = dec->VertexSize();
 	return DrawEngineCommon::NormalizeVertices(outPtr, bufPtr, inPtr, dec, lowerBound, upperBound, vertType);
+}
+
+void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) {
+	// Instead of plumbing through properly (we'd need to inject these pretransformed vertices in the middle
+	// of SoftwareTransform(), which would take a lot of refactoring), we'll cheat and just turn these into
+	// through vertices.
+	// Since the only known use is Thrillville and it only uses it to clear, we just use color and pos.
+	struct ImmVertex {
+		float uv[2];
+		uint32_t color;
+		float xyz[3];
+	};
+	std::vector<ImmVertex> temp;
+	temp.resize(vertexCount);
+	uint32_t color1Used = 0;
+	for (int i = 0; i < vertexCount; i++) {
+		// Since we're sending through, scale back up to w/h.
+		temp[i].uv[0] = buffer[i].u * gstate.getTextureWidth(0);
+		temp[i].uv[1] = buffer[i].v * gstate.getTextureHeight(0);
+		temp[i].color = buffer[i].color0_32;
+		temp[i].xyz[0] = buffer[i].pos[0];
+		temp[i].xyz[1] = buffer[i].pos[1];
+		temp[i].xyz[2] = buffer[i].pos[2];
+		color1Used |= buffer[i].color1_32;
+	}
+	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
+	// TODO: Handle fog and secondary color somehow?
+
+	if (gstate.isFogEnabled() && !gstate.isModeThrough()) {
+		WARN_LOG_REPORT_ONCE(geimmfog, G3D, "Imm vertex used fog");
+	}
+	if (color1Used != 0 && gstate.isUsingSecondaryColor() && !gstate.isModeThrough()) {
+		WARN_LOG_REPORT_ONCE(geimmcolor1, G3D, "Imm vertex used secondary color");
+	}
+
+	bool prevThrough = gstate.isModeThrough();
+	// Code checks this reg directly, not just the vtype ID.
+	if (!prevThrough) {
+		gstate.vertType |= GE_VTYPE_THROUGH;
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
+	}
+
+	int bytesRead;
+	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
+	SubmitPrim(&temp[0], nullptr, prim, vertexCount, vertTypeID, cullMode, &bytesRead);
+	DispatchFlush();
+
+	if (!prevThrough) {
+		gstate.vertType &= ~GE_VTYPE_THROUGH;
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
+	}
 }
 
 // This code has plenty of potential for optimization.

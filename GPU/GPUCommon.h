@@ -103,7 +103,7 @@ public:
 	void ExecuteOp(u32 op, u32 diff) override;
 	void PreExecuteOp(u32 op, u32 diff) override;
 
-	bool InterpretList(DisplayList &list) override;
+	bool InterpretList(DisplayList &list);
 	void ProcessDLQueue();
 	u32  UpdateStall(int listid, u32 newstall) override;
 	u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) override;
@@ -355,6 +355,7 @@ protected:
 	int immCount_ = 0;
 	GEPrimitiveType immPrim_ = GE_PRIM_INVALID;
 	uint32_t immFlags_ = 0;
+	bool immFirstSent_ = false;
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;

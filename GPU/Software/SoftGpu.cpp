@@ -361,7 +361,7 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_VTCT },
 	{ GE_CMD_VTCQ },
 	{ GE_CMD_VCV },
-	{ GE_CMD_VAP, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_ImmVertexAlphaPrim },
+	{ GE_CMD_VAP, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_ImmVertexAlphaPrim },
 	{ GE_CMD_VFC },
 	{ GE_CMD_VSCV },
 
@@ -639,6 +639,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 }
 
 void SoftGPU::CopyDisplayToOutput(bool reallyDirty) {
+	drawEngine_->transformUnit.Flush("output");
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT);
 	MarkDirty(displayFramebuf_, displayStride_, 272, displayFormat_, SoftGPUVRAMDirty::CLEAR);
@@ -650,7 +651,7 @@ void SoftGPU::MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBuffe
 }
 
 void SoftGPU::MarkDirty(uint32_t addr, uint32_t bytes, SoftGPUVRAMDirty value) {
-	// Don't bother tracking if frameskipping.
+	// Only bother tracking if frameskipping.
 	if (g_Config.iFrameSkip == 0)
 		return;
 	if (!Memory::IsVRAMAddress(addr) || !Memory::IsVRAMAddress(addr + bytes - 1))
@@ -1109,6 +1110,12 @@ void SoftGPU::Execute_BoneMtxData(u32 op, u32 diff) {
 	gstate.boneMatrixData  = GE_CMD_BONEMATRIXDATA << 24;
 }
 
+void SoftGPU::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
+	GPUCommon::Execute_ImmVertexAlphaPrim(op, diff);
+	// We won't flush as often as hardware renderers, so we want to flush right away.
+	FlushImm();
+}
+
 void SoftGPU::Execute_Call(u32 op, u32 diff) {
 	PROFILE_THIS_SCOPE("gpu_call");
 
@@ -1136,6 +1143,18 @@ void SoftGPU::Execute_Call(u32 op, u32 diff) {
 void SoftGPU::FinishDeferred() {
 	// Need to flush before going back to CPU, so drawing is appropriately visible.
 	drawEngine_->transformUnit.Flush("finish");
+}
+
+int SoftGPU::ListSync(int listid, int mode) {
+	// Take this as a cue that we need to finish drawing.
+	drawEngine_->transformUnit.Flush("listsync");
+	return GPUCommon::ListSync(listid, mode);
+}
+
+u32 SoftGPU::DrawSync(int mode) {
+	// Take this as a cue that we need to finish drawing.
+	drawEngine_->transformUnit.Flush("drawsync");
+	return GPUCommon::DrawSync(mode);
 }
 
 void SoftGPU::GetStats(char *buffer, size_t bufsize) {

@@ -355,15 +355,18 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 }
 
 static bool AreCoordsRectangleCompatible(const RasterizerState &state, const VertexData &data0, const VertexData &data1) {
-	if (!(data1.color0 == data0.color0))
+	if (data1.color0 != data0.color0)
 		return false;
-	if (!(data1.screenpos.z == data0.screenpos.z)) {
+	if (data1.screenpos.z != data0.screenpos.z) {
 		// Sometimes, we don't actually care about z.
 		if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
 			return false;
 	}
 	if (!state.throughMode) {
-		if (!state.throughMode && !(data1.color1 == data0.color1))
+		if (data1.color1 != data0.color1)
+			return false;
+		// This means it should be culled, outside range.
+		if (data1.OutsideRange() || data0.OutsideRange())
 			return false;
 		// Do we have to think about perspective correction or slope mip level?
 		if (state.enableTextures && data1.clippos.w != data0.clippos.w) {

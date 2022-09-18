@@ -65,7 +65,7 @@ struct RasterizerState {
 	}
 };
 
-void ComputeRasterizerState(RasterizerState *state, bool throughMode);
+void ComputeRasterizerState(RasterizerState *state);
 
 // Draws a triangle if its vertices are specified in counter-clockwise order
 void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const BinCoords &range, const RasterizerState &state);
