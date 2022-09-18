@@ -167,7 +167,7 @@ void BinManager::UpdateState(bool throughMode) {
 		if (states_.Full())
 			Flush("states");
 		stateIndex_ = (uint16_t)states_.Push(RasterizerState());
-		ComputeRasterizerState(&states_[stateIndex_], throughMode);
+		ComputeRasterizerState(&states_[stateIndex_]);
 		states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
 
 		ClearDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL);

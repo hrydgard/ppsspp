@@ -48,11 +48,11 @@ static inline PixelBlendFactor OptimizeAlphaFactor(uint32_t color) {
 	return PixelBlendFactor::FIX;
 }
 
-void ComputePixelFuncID(PixelFuncID *id, bool throughMode) {
+void ComputePixelFuncID(PixelFuncID *id) {
 	id->fullKey = 0;
 
 	// TODO: Could this be minz > 0x0000 || maxz < 0xFFFF?  Maybe unsafe, depending on verts...
-	id->applyDepthRange = !throughMode;
+	id->applyDepthRange = !gstate.isModeThrough();
 	// Dither happens even in clear mode.
 	id->dithering = gstate.isDitherEnabled();
 	id->fbFormat = gstate.FrameBufFormat();
@@ -169,7 +169,7 @@ void ComputePixelFuncID(PixelFuncID *id, bool throughMode) {
 		}
 
 		id->applyLogicOp = gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY;
-		id->applyFog = gstate.isFogEnabled() && !throughMode;
+		id->applyFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 
 		id->earlyZChecks = id->DepthTestFunc() != GE_COMP_ALWAYS;
 		if (id->stencilTest && id->earlyZChecks) {

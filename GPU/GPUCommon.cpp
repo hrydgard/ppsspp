@@ -2447,21 +2447,22 @@ void GPUCommon::FlushImm() {
 	int cullMode = (immFlags_ & GE_IMM_CULLFACE) != 0 ? 1 : 0;
 	bool texturing = (immFlags_ & GE_IMM_TEXTURE) != 0;
 	bool prevTexturing = gstate.isTextureMapEnabled();
+	bool fog = (immFlags_ & GE_IMM_FOG) != 0;
+	bool prevFog = gstate.isFogEnabled();
 	bool dither = (immFlags_ & GE_IMM_DITHER) != 0;
 	bool prevDither = gstate.isDitherEnabled();
 
 	if ((immFlags_ & GE_IMM_CLIPMASK) != 0) {
 		WARN_LOG_REPORT_ONCE(geimmclipvalue, G3D, "Imm vertex used clip value, flags=%06x", immFlags_);
-	} else if ((immFlags_ & GE_IMM_FOG) != 0) {
-		WARN_LOG_REPORT_ONCE(geimmfog, G3D, "Imm vertex used fog, flags=%06x", immFlags_);
 	}
 
-	if (texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither || prevShading != shading) {
+	if (texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither || prevShading != shading || prevFog != fog) {
 		DispatchFlush();
 		gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)antialias;
 		gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)shading;
 		gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)cullEnable;
 		gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)texturing;
+		gstate.fogEnable = (GE_CMD_FOGENABLE << 24) | (int)fog;
 		gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)dither;
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
 	}
@@ -2473,6 +2474,7 @@ void GPUCommon::FlushImm() {
 	gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)prevShading;
 	gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)prevCullEnable;
 	gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)prevTexturing;
+	gstate.fogEnable = (GE_CMD_FOGENABLE << 24) | (int)prevFog;
 	gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)prevDither;
 	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
 }

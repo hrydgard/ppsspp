@@ -71,46 +71,64 @@ void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds,
 }
 
 void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode) {
-	// TODO: Handle fog and secondary color somehow?
-	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
-	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
+	uint32_t vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode());
 
 	int flipCull = cullMode != gstate.getCullMode() ? 1 : 0;
 	// TODO: For now, just setting all dirty.
 	transformUnit.SetDirty(SoftDirty(-1));
 	gstate.cullmode ^= flipCull;
 
-	// Instead of plumbing through properly (we'd need to inject these pretransformed vertices in the middle
-	// of SoftwareTransform(), which would take a lot of refactoring), we'll cheat and just turn these into
-	// through vertices.
-	// Since the only known use is Thrillville and it only uses it to clear, we just use color and pos.
-	struct ImmVertex {
-		float uv[2];
-		uint32_t color;
-		float xyz[3];
-	};
-	std::vector<ImmVertex> temp;
-	temp.resize(vertexCount);
-	uint32_t color1Used = 0;
+	// TODO: This is a bit ugly.  Should bypass when clipping...
+	uint32_t xScale = gstate.viewportxscale;
+	uint32_t xCenter = gstate.viewportxcenter;
+	uint32_t yScale = gstate.viewportyscale;
+	uint32_t yCenter = gstate.viewportycenter;
+	uint32_t zScale = gstate.viewportzscale;
+	uint32_t zCenter = gstate.viewportzcenter;
+
+	// Force scale to 1 and center to zero.
+	gstate.viewportxscale = (GE_CMD_VIEWPORTXSCALE << 24) | 0x3F8000;
+	gstate.viewportxcenter = (GE_CMD_VIEWPORTXCENTER << 24) | 0x000000;
+	gstate.viewportyscale = (GE_CMD_VIEWPORTYSCALE << 24) | 0x3F8000;
+	gstate.viewportycenter = (GE_CMD_VIEWPORTYCENTER << 24) | 0x000000;
+	// Z we scale to 65535 for neg z clipping.
+	gstate.viewportzscale = (GE_CMD_VIEWPORTZSCALE << 24) | 0x477FFF;
+	gstate.viewportzcenter = (GE_CMD_VIEWPORTZCENTER << 24) | 0x000000;
+
+	// Before we start, submit 0 prims to reset the prev prim type.
+	// Following submits will always be KEEP_PREVIOUS.
+	transformUnit.SubmitPrimitive(nullptr, nullptr, prim, 0, vertTypeID, nullptr, this);
+
 	for (int i = 0; i < vertexCount; i++) {
-		// Since we're sending through, scale back up to w/h.
-		temp[i].uv[0] = buffer[i].u * gstate.getTextureWidth(0);
-		temp[i].uv[1] = buffer[i].v * gstate.getTextureHeight(0);
-		temp[i].color = buffer[i].color0_32;
-		temp[i].xyz[0] = buffer[i].pos[0];
-		temp[i].xyz[1] = buffer[i].pos[1];
-		temp[i].xyz[2] = buffer[i].pos[2];
-		color1Used |= buffer[i].color1_32;
+		VertexData vert;
+		vert.clippos = ClipCoords(buffer[i].pos);
+		vert.texturecoords.x = buffer[i].u;
+		vert.texturecoords.y = buffer[i].v;
+		if (gstate.isModeThrough()) {
+			vert.texturecoords.x *= gstate.getTextureWidth(0);
+			vert.texturecoords.y *= gstate.getTextureHeight(0);
+		} else {
+			vert.clippos.z *= 1.0f / 65535.0f;
+		}
+		vert.color0 = buffer[i].color0_32;
+		vert.color1 = gstate.isUsingSecondaryColor() ? buffer[i].color1_32 : 0;
+		vert.fogdepth = buffer[i].fog;
+		vert.screenpos.x = (int)(buffer[i].x * 16.0f);
+		vert.screenpos.y = (int)(buffer[i].y * 16.0f);
+		vert.screenpos.z = (u16)(u32)buffer[i].z;
+
+		transformUnit.SubmitImmVertex(vert, this);
 	}
 
-	if (color1Used != 0 && gstate.isUsingSecondaryColor()) {
-		WARN_LOG_REPORT_ONCE(geimmcolor1, G3D, "Imm vertex used secondary color");
-	}
-
-	transformUnit.SubmitPrimitive(&temp[0], nullptr, prim, vertexCount, vertTypeID, nullptr, this);
+	gstate.viewportxscale = xScale;
+	gstate.viewportxcenter = xCenter;
+	gstate.viewportyscale = yScale;
+	gstate.viewportycenter = yCenter;
+	gstate.viewportzscale = zScale;
+	gstate.viewportzcenter = zCenter;
 
 	gstate.cullmode ^= flipCull;
-	// TODO: Should really clear, but the vertex type is faked so things might need resetting...
+	// TODO: Should really clear, but a bunch of values are forced so we this is safest.
 	transformUnit.SetDirty(SoftDirty(-1));
 }
 
@@ -492,12 +510,13 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		return;
 
 	u16 index_lower_bound = 0;
-	u16 index_upper_bound = vertex_count - 1;
+	u16 index_upper_bound = vertex_count == 0 ? 0 : vertex_count - 1;
 	IndexConverter ConvertIndex(vertex_type, indices);
 
 	if (indices)
 		GetIndexBounds(indices, vertex_count, vertex_type, &index_lower_bound, &index_upper_bound);
-	vdecoder.DecodeVerts(decoded_, vertices, index_lower_bound, index_upper_bound);
+	if (vertex_count != 0)
+		vdecoder.DecodeVerts(decoded_, vertices, index_lower_bound, index_upper_bound);
 
 	VertexReader vreader(decoded_, vtxfmt, vertex_type);
 
@@ -784,6 +803,47 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		ERROR_LOG(G3D, "Unexpected prim type: %d", prim_type);
 		break;
 	}
+}
+
+void TransformUnit::SubmitImmVertex(const VertexData &vert, SoftwareDrawEngine *drawEngine) {
+	// Where we put it is different for STRIP/FAN types.
+	switch (prev_prim_) {
+	case GE_PRIM_POINTS:
+	case GE_PRIM_LINES:
+	case GE_PRIM_TRIANGLES:
+	case GE_PRIM_RECTANGLES:
+		// This is the easy one.  SubmitPrimitive resets data_index_.
+		data_[data_index_++] = vert;
+		break;
+
+	case GE_PRIM_LINE_STRIP:
+		// This one alternates, and data_index_ > 0 means it draws a segment.
+		data_[(data_index_++) & 1] = vert;
+		break;
+
+	case GE_PRIM_TRIANGLE_STRIP:
+		data_[(data_index_++) % 3] = vert;
+		break;
+
+	case GE_PRIM_TRIANGLE_FAN:
+		if (data_index_ == 0) {
+			data_[data_index_++] = vert;
+		} else {
+			int provoking_index = 2 - ((data_index_++) % 2);
+			data_[provoking_index] = vert;
+		}
+		break;
+
+	default:
+		_assert_msg_(false, "Invalid prim type: %d", (int)prev_prim_);
+		break;
+	}
+
+	uint32_t vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode());
+	// This now processes the step with shared logic, given the existing data_.
+	isImmDraw_ = true;
+	SubmitPrimitive(nullptr, nullptr, GE_PRIM_KEEP_PREVIOUS, 0, vertTypeID, nullptr, drawEngine);
+	isImmDraw_ = false;
 }
 
 void TransformUnit::SendTriangle(CullType cullType, const VertexData *verts, int provoking) {

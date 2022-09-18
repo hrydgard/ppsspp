@@ -215,6 +215,9 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
 	// TODO: Handle fog and secondary color somehow?
 
+	if (gstate.isFogEnabled()) {
+		WARN_LOG_REPORT_ONCE(geimmfog, G3D, "Imm vertex used fog");
+	}
 	if (color1Used != 0 && gstate.isUsingSecondaryColor()) {
 		WARN_LOG_REPORT_ONCE(geimmcolor1, G3D, "Imm vertex used secondary color");
 	}
