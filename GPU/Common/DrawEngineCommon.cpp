@@ -189,7 +189,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 	return DrawEngineCommon::NormalizeVertices(outPtr, bufPtr, inPtr, dec, lowerBound, upperBound, vertType);
 }
 
-void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode) {
+void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) {
 	// Instead of plumbing through properly (we'd need to inject these pretransformed vertices in the middle
 	// of SoftwareTransform(), which would take a lot of refactoring), we'll cheat and just turn these into
 	// through vertices.

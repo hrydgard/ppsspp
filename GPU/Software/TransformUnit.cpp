@@ -70,7 +70,7 @@ void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds,
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
 }
 
-void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode) {
+void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) {
 	uint32_t vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode());
 
 	int flipCull = cullMode != gstate.getCullMode() ? 1 : 0;
@@ -97,7 +97,8 @@ void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVert
 
 	// Before we start, submit 0 prims to reset the prev prim type.
 	// Following submits will always be KEEP_PREVIOUS.
-	transformUnit.SubmitPrimitive(nullptr, nullptr, prim, 0, vertTypeID, nullptr, this);
+	if (!continuation)
+		transformUnit.SubmitPrimitive(nullptr, nullptr, prim, 0, vertTypeID, nullptr, this);
 
 	for (int i = 0; i < vertexCount; i++) {
 		VertexData vert;

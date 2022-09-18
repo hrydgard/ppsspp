@@ -2414,6 +2414,7 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 		immPrim_ = (GEPrimitiveType)prim;
 		// Flags seem to only be respected from the first prim.
 		immFlags_ = op & 0x00FFF800;
+		immFirstSent_ = false;
 	} else if (prim == GE_PRIM_KEEP_PREVIOUS && immPrim_ != GE_PRIM_INVALID) {
 		static constexpr int flushPrimCount[] = { 1, 2, 0, 3, 0, 0, 2, 0 };
 		// Instead of finding a proper point to flush, we just emit prims when we can.
@@ -2467,8 +2468,9 @@ void GPUCommon::FlushImm() {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
 	}
 
-	drawEngineCommon_->DispatchSubmitImm(immPrim_, immBuffer_, immCount_, cullMode);
+	drawEngineCommon_->DispatchSubmitImm(immPrim_, immBuffer_, immCount_, cullMode, immFirstSent_);
 	immCount_ = 0;
+	immFirstSent_ = true;
 
 	gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)prevAntialias;
 	gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)prevShading;

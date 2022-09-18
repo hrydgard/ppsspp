@@ -361,7 +361,7 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_VTCT },
 	{ GE_CMD_VTCQ },
 	{ GE_CMD_VCV },
-	{ GE_CMD_VAP, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_ImmVertexAlphaPrim },
+	{ GE_CMD_VAP, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_ImmVertexAlphaPrim },
 	{ GE_CMD_VFC },
 	{ GE_CMD_VSCV },
 
@@ -1108,6 +1108,12 @@ void SoftGPU::Execute_BoneMtxData(u32 op, u32 diff) {
 	num++;
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
 	gstate.boneMatrixData  = GE_CMD_BONEMATRIXDATA << 24;
+}
+
+void SoftGPU::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
+	GPUCommon::Execute_ImmVertexAlphaPrim(op, diff);
+	// We won't flush as often as hardware renderers, so we want to flush right away.
+	FlushImm();
 }
 
 void SoftGPU::Execute_Call(u32 op, u32 diff) {

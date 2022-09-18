@@ -165,7 +165,7 @@ public:
 
 	void DispatchFlush() override;
 	void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int cullMode, int *bytesRead) override;
-	void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode) override;
+	void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) override;
 
 	VertexDecoder *FindVertexDecoder(u32 vtype);
 
