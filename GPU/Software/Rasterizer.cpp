@@ -1365,7 +1365,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 						maskOK = false;
 				}
 
-				if (!CheckDepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
+				if (!CheckDepthTestPassed(pixelID.DepthTestFunc(), p.x, p.y, pixelID.cached.depthbufStride, z)) {
 					maskOK = false;
 				}
 			}
