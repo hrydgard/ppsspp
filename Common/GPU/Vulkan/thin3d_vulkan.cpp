@@ -833,9 +833,9 @@ VKContext::VKContext(VulkanContext *vulkan)
 		// is detected. See: https://github.com/hrydgard/ppsspp/issues/11937
 		bugs_.Infest(Bugs::EQUAL_WZ_CORRUPTS_DEPTH);
 
-		// Similar to the Adreno bug, see #13833 (Midnight Club map broken) and other issues.
+		// Nearly identical to the the Adreno bug, see #13833 (Midnight Club map broken) and other issues.
 		// Reported fixed in major version 40 - let's add a check once confirmed.
-		bugs_.Infest(Bugs::MALI_STENCIL_DISCARD_BUG);
+		bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL);
 
 		// This started in driver 31 or 32, fixed in 40 - let's add a check once confirmed.
 		if (majorVersion >= 32) {
