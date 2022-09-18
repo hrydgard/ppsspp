@@ -192,9 +192,13 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	initialize.push_back({ &u_tess_weights_u, 0, TEX_SLOT_SPLINE_WEIGHTS_U });
 	initialize.push_back({ &u_tess_weights_v, 0, TEX_SLOT_SPLINE_WEIGHTS_V });
 
-	bool useDualSource = (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) != 0;
-	bool useClip0 = VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE);
-	program = render->CreateProgram(shaders, semantics, queries, initialize, useDualSource, useClip0);
+	GLRProgramFlags flags{};
+	flags.supportDualSource = (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) != 0;
+	if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+		flags.useClipDistance0 = true;
+	}
+
+	program = render->CreateProgram(shaders, semantics, queries, initialize, flags);
 
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL_UNIFORMS;

@@ -811,7 +811,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	int logicOp = -1;
 	bool logicEnabled = false;
 #endif
-	bool clipDistance0Enabled = false;
+	bool clipDistanceEnabled[8]{};
 	GLuint blendEqColor = (GLuint)-1;
 	GLuint blendEqAlpha = (GLuint)-1;
 
@@ -1119,14 +1119,18 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		{
 			if (curProgram != c.program.program) {
 				glUseProgram(c.program.program->program);
-				if (c.program.program->use_clip_distance0 != clipDistance0Enabled) {
-					if (c.program.program->use_clip_distance0)
-						glEnable(GL_CLIP_DISTANCE0);
-					else
-						glDisable(GL_CLIP_DISTANCE0);
-					clipDistance0Enabled = c.program.program->use_clip_distance0;
-				}
 				curProgram = c.program.program;
+
+				for (size_t i = 0; i < ARRAY_SIZE(clipDistanceEnabled); ++i) {
+					if (c.program.program->use_clip_distance[i] == clipDistanceEnabled[i])
+						continue;
+
+					if (c.program.program->use_clip_distance[i])
+						glEnable(GL_CLIP_DISTANCE0 + (GLenum)i);
+					else
+						glDisable(GL_CLIP_DISTANCE0 + (GLenum)i);
+					clipDistanceEnabled[i] = c.program.program->use_clip_distance[i];
+				}
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
@@ -1366,8 +1370,10 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		glDisable(GL_COLOR_LOGIC_OP);
 	}
 #endif
-	if (clipDistance0Enabled)
-		glDisable(GL_CLIP_DISTANCE0);
+	for (size_t i = 0; i < ARRAY_SIZE(clipDistanceEnabled); ++i) {
+		if (clipDistanceEnabled[i])
+			glDisable(GL_CLIP_DISTANCE0 + (GLenum)i);
+	}
 	if ((colorMask & 15) != 15)
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	CHECK_GL_ERROR_IF_DEBUG();
