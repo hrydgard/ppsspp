@@ -514,7 +514,15 @@ void SystemInfoScreen::CreateViews() {
 	const std::string apiNameKey = draw->GetInfoString(InfoField::APINAME);
 	const char *apiName = gr->T(apiNameKey);
 	deviceSpecs->Add(new InfoItem(si->T("3D API"), apiName));
-	deviceSpecs->Add(new InfoItem(si->T("Vendor"), draw->GetInfoString(InfoField::VENDORSTRING)));
+
+	// TODO: Not really vendor, on most APIs it's a device name (GL calls it vendor though).
+	std::string vendorString;
+	if (draw->GetDeviceCaps().deviceID != 0) {
+		vendorString = StringFromFormat("%s (%08x)", draw->GetInfoString(InfoField::VENDORSTRING).c_str(), draw->GetDeviceCaps().deviceID);
+	} else {
+		vendorString = draw->GetInfoString(InfoField::VENDORSTRING);
+	}
+	deviceSpecs->Add(new InfoItem(si->T("Vendor"), vendorString));
 	std::string vendor = draw->GetInfoString(InfoField::VENDOR);
 	if (vendor.size())
 		deviceSpecs->Add(new InfoItem(si->T("Vendor (detected)"), vendor));
