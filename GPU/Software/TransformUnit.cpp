@@ -273,7 +273,7 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		state->roundToScreen = &ClipToScreenInternal<false, true>;
 }
 
-VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState &state, bool &outside_range_flag) {
+VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState &state) {
 	PROFILE_THIS_SCOPE("read_vert");
 	VertexData vertex;
 
@@ -362,9 +362,13 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 #else
 		screenScaled = vertex.clippos.xyz() * state.screenScale / vertex.clippos.w + state.screenAdd;
 #endif
+		bool outside_range_flag = false;
 		vertex.screenpos = state.roundToScreen(screenScaled, vertex.clippos, &outside_range_flag);
-		if (outside_range_flag)
+		if (outside_range_flag) {
+			// We use this, essentially, as the flag.
+			vertex.screenpos.x = 0x7FFFFFFF;
 			return vertex;
+		}
 
 		if (state.enableFog) {
 			vertex.fogdepth = (viewpos.z + state.fogEnd) * state.fogSlope;
@@ -495,9 +499,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	bool skipCull = !gstate.isCullEnabled() || gstate.isModeClear();
 	const CullType cullType = skipCull ? CullType::OFF : (gstate.getCullMode() ? CullType::CCW : CullType::CW);
 
-	bool outside_range_flag = false;
-
-	if (vreader.isThrough() && cullType == CullType::OFF && prim_type == GE_PRIM_TRIANGLES && data_index_ + vertex_count >= 6 && ((data_index_ + vertex_count) % 6) == 0) {
+	if (vreader.isThrough() && cullType == CullType::OFF && prim_type == GE_PRIM_TRIANGLES && data_index_ == 0 && vertex_count >= 6 && ((vertex_count) % 6) == 0) {
 		// Some games send rectangles as a series of regular triangles.
 		// We look for this, but only in throughmode.
 		VertexData buf[6];
@@ -513,14 +515,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				vreader.Goto(vtx);
 			}
 
-			buf[buf_index++] = ReadVertex(vreader, transformState, outside_range_flag);
-			if (buf_index >= 3 && outside_range_flag) {
-				// Cull, just pretend it didn't happen.
-				buf_index -= 3;
-				outside_range_flag = false;
-				continue;
-			}
-
+			buf[buf_index++] = ReadVertex(vreader, transformState);
 			if (buf_index < 6)
 				continue;
 
@@ -565,19 +560,13 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					vreader.Goto(vtx);
 				}
 
-				data_[data_index_++] = ReadVertex(vreader, transformState, outside_range_flag);
+				data_[data_index_++] = ReadVertex(vreader, transformState);
 				if (data_index_ < vtcs_per_prim) {
 					// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
 					continue;
 				}
-
 				// Okay, we've got enough verts.  Reset the index for next time.
 				data_index_ = 0;
-				if (outside_range_flag) {
-					// Cull the prim if it was outside, and move to the next prim.
-					outside_range_flag = false;
-					continue;
-				}
 
 				switch (prim_type) {
 				case GE_PRIM_TRIANGLES:
@@ -607,19 +596,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				vreader.Goto(vtx);
 			}
 
-			data_[data_index_++] = ReadVertex(vreader, transformState, outside_range_flag);
-			if (outside_range_flag) {
-				outside_range_flag = false;
-				// Note: this is the post increment index.  If odd, we set the first vert.
-				if (data_index_ & 1) {
-					// Skip the next one and forget this one.
-					vtx++;
-					data_index_--;
-				} else {
-					// Forget both of the last 2.
-					data_index_ -= 2;
-				}
-			}
+			data_[data_index_++] = ReadVertex(vreader, transformState);
 
 			if (data_index_ == 4 && vreader.isThrough() && cullType == CullType::OFF) {
 				if (Rasterizer::DetectRectangleThroughModeSlices(binner_->State(), data_)) {
@@ -653,13 +630,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					vreader.Goto(vtx);
 				}
 
-				data_[(data_index_++) & 1] = ReadVertex(vreader, transformState, outside_range_flag);
-				if (outside_range_flag) {
-					// Drop all primitives containing the current vertex
-					skip_count = 2;
-					outside_range_flag = false;
-					continue;
-				}
+				data_[(data_index_++) & 1] = ReadVertex(vreader, transformState);
 
 				if (skip_count) {
 					--skip_count;
@@ -687,12 +658,12 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 						} else {
 							vreader.Goto(base + vtx);
 						}
-						data_[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
+						data_[vtx] = ReadVertex(vreader, transformState);
 					}
 
 					// If a strip is effectively a rectangle, draw it as such!
 					int tl = -1, br = -1;
-					if (!outside_range_flag && Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br)) {
+					if (Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br)) {
 						Clipper::ProcessRect(data_[tl], data_[br], *binner_);
 						start_vtx += 2;
 						if (base + 4 >= vertex_count) {
@@ -711,7 +682,6 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				}
 			}
 
-			outside_range_flag = false;
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				if (indices) {
 					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
@@ -720,13 +690,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				}
 
 				int provoking_index = (data_index_++) % 3;
-				data_[provoking_index] = ReadVertex(vreader, transformState, outside_range_flag);
-				if (outside_range_flag) {
-					// Drop all primitives containing the current vertex
-					skip_count = 2;
-					outside_range_flag = false;
-					continue;
-				}
+				data_[provoking_index] = ReadVertex(vreader, transformState);
 
 				if (skip_count) {
 					--skip_count;
@@ -754,13 +718,9 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				} else {
 					vreader.Goto(0);
 				}
-				data_[0] = ReadVertex(vreader, transformState, outside_range_flag);
+				data_[0] = ReadVertex(vreader, transformState);
 				data_index_++;
 				start_vtx = 1;
-
-				// If the central vertex is outside range, all the points are toast.
-				if (outside_range_flag)
-					break;
 			}
 
 			if (data_index_ == 1 && vertex_count == 4 && cullType == CullType::OFF) {
@@ -770,17 +730,16 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					} else {
 						vreader.Goto(vtx);
 					}
-					data_[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
+					data_[vtx] = ReadVertex(vreader, transformState);
 				}
 
 				int tl = -1, br = -1;
-				if (!outside_range_flag && Rasterizer::DetectRectangleFromFan(binner_->State(), data_, vertex_count, &tl, &br)) {
+				if (Rasterizer::DetectRectangleFromFan(binner_->State(), data_, vertex_count, &tl, &br)) {
 					Clipper::ProcessRect(data_[tl], data_[br], *binner_);
 					break;
 				}
 			}
 
-			outside_range_flag = false;
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				if (indices) {
 					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
@@ -789,13 +748,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				}
 
 				int provoking_index = 2 - ((data_index_++) % 2);
-				data_[provoking_index] = ReadVertex(vreader, transformState, outside_range_flag);
-				if (outside_range_flag) {
-					// Drop all primitives containing the current vertex
-					skip_count = 2;
-					outside_range_flag = false;
-					continue;
-				}
+				data_[provoking_index] = ReadVertex(vreader, transformState);
 
 				if (skip_count) {
 					--skip_count;

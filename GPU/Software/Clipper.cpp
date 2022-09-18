@@ -133,6 +133,10 @@ static inline bool CheckOutsideZ(ClipCoords p, int &pos, int &neg) {
 
 void ProcessRect(const VertexData &v0, const VertexData &v1, BinManager &binner) {
 	if (!binner.State().throughMode) {
+		// If any verts were outside range, throw the entire prim away.
+		if (v0.OutsideRange() || v1.OutsideRange())
+			return;
+
 		// We may discard the entire rect based on depth values.
 		int outsidePos = 0, outsideNeg = 0;
 		CheckOutsideZ(v0.clippos, outsidePos, outsideNeg);
@@ -176,6 +180,12 @@ void ProcessRect(const VertexData &v0, const VertexData &v1, BinManager &binner)
 }
 
 void ProcessPoint(const VertexData &v0, BinManager &binner) {
+	// If any verts were outside range, throw the entire prim away.
+	if (!binner.State().throughMode) {
+		if (v0.OutsideRange())
+			return;
+	}
+
 	// Points need no clipping. Will be bounds checked in the rasterizer (which seems backwards?)
 	binner.AddPoint(v0);
 }
@@ -186,6 +196,10 @@ void ProcessLine(const VertexData &v0, const VertexData &v1, BinManager &binner)
 		binner.AddLine(v0, v1);
 		return;
 	}
+
+	// If any verts were outside range, throw the entire prim away.
+	if (v0.OutsideRange() || v1.OutsideRange())
+		return;
 
 	int outsidePos = 0, outsideNeg = 0;
 	CheckOutsideZ(v0.clippos, outsidePos, outsideNeg);
@@ -222,6 +236,10 @@ void ProcessLine(const VertexData &v0, const VertexData &v1, BinManager &binner)
 void ProcessTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const VertexData &provoking, BinManager &binner) {
 	int mask = 0;
 	if (!binner.State().throughMode) {
+		// If any verts were outside range, throw the entire prim away.
+		if (v0.OutsideRange() || v1.OutsideRange() || v2.OutsideRange())
+			return;
+
 		mask |= CalcClipMask(v0.clippos);
 		mask |= CalcClipMask(v1.clippos);
 		mask |= CalcClipMask(v2.clippos);

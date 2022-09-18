@@ -90,6 +90,10 @@ struct VertexData {
 		color1 = LerpInt<Vec3<int>, 256>(Vec3<int>::FromRGB(a.color1), Vec3<int>::FromRGB(b.color1), t_int).ToRGB();
 	}
 
+	bool OutsideRange() const {
+		return screenpos.x == 0x7FFFFFFF;
+	}
+
 	ClipCoords clippos;
 	Vec2<float> texturecoords;
 	uint32_t color0;
@@ -138,7 +142,7 @@ public:
 	SoftDirty GetDirty();
 
 private:
-	VertexData ReadVertex(VertexReader &vreader, const TransformState &lstate, bool &outside_range_flag);
+	VertexData ReadVertex(VertexReader &vreader, const TransformState &state);
 	void SendTriangle(CullType cullType, const VertexData *verts, int provoking = 2);
 
 	u8 *decoded_ = nullptr;
