@@ -89,7 +89,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	// These affect the fragment shader so need flushing.
 	{ GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
-	{ GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE},
+	{ GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 	// Raster state for Direct3D 9, uncommon.
@@ -2457,7 +2457,9 @@ void GPUCommon::FlushImm() {
 		WARN_LOG_REPORT_ONCE(geimmclipvalue, G3D, "Imm vertex used clip value, flags=%06x", immFlags_);
 	}
 
-	if (texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither || prevShading != shading || prevFog != fog) {
+	bool changed = texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither;
+	changed = changed || prevShading != shading || prevFog != fog;
+	if (changed) {
 		DispatchFlush();
 		gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)antialias;
 		gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)shading;
@@ -2465,20 +2467,23 @@ void GPUCommon::FlushImm() {
 		gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)texturing;
 		gstate.fogEnable = (GE_CMD_FOGENABLE << 24) | (int)fog;
 		gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)dither;
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
 	}
 
 	drawEngineCommon_->DispatchSubmitImm(immPrim_, immBuffer_, immCount_, cullMode, immFirstSent_);
 	immCount_ = 0;
 	immFirstSent_ = true;
 
-	gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)prevAntialias;
-	gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)prevShading;
-	gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)prevCullEnable;
-	gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)prevTexturing;
-	gstate.fogEnable = (GE_CMD_FOGENABLE << 24) | (int)prevFog;
-	gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)prevDither;
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
+	if (changed) {
+		DispatchFlush();
+		gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)prevAntialias;
+		gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)prevShading;
+		gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)prevCullEnable;
+		gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)prevTexturing;
+		gstate.fogEnable = (GE_CMD_FOGENABLE << 24) | (int)prevFog;
+		gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)prevDither;
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
+	}
 }
 
 void GPUCommon::ExecuteOp(u32 op, u32 diff) {

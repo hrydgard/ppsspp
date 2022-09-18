@@ -215,17 +215,29 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
 	// TODO: Handle fog and secondary color somehow?
 
-	if (gstate.isFogEnabled()) {
+	if (gstate.isFogEnabled() && !gstate.isModeThrough()) {
 		WARN_LOG_REPORT_ONCE(geimmfog, G3D, "Imm vertex used fog");
 	}
-	if (color1Used != 0 && gstate.isUsingSecondaryColor()) {
+	if (color1Used != 0 && gstate.isUsingSecondaryColor() && !gstate.isModeThrough()) {
 		WARN_LOG_REPORT_ONCE(geimmcolor1, G3D, "Imm vertex used secondary color");
+	}
+
+	bool prevThrough = gstate.isModeThrough();
+	// Code checks this reg directly, not just the vtype ID.
+	if (!prevThrough) {
+		gstate.vertType |= GE_VTYPE_THROUGH;
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
 	}
 
 	int bytesRead;
 	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
 	SubmitPrim(&temp[0], nullptr, prim, vertexCount, vertTypeID, cullMode, &bytesRead);
 	DispatchFlush();
+
+	if (!prevThrough) {
+		gstate.vertType &= ~GE_VTYPE_THROUGH;
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
+	}
 }
 
 // This code has plenty of potential for optimization.
