@@ -1385,6 +1385,8 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 		present.pWaitSemaphores = &renderingCompleteSemaphore_;
 		present.waitSemaphoreCount = 1;
 
+		_dbg_assert_(frameData.hasAcquired);
+
 		VkResult res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
 		if (res == VK_ERROR_OUT_OF_DATE_KHR) {
 			// We clearly didn't get this in vkAcquireNextImageKHR because of the skipSwap check above.
@@ -1398,6 +1400,7 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 			// Success
 			outOfDateFrames_ = 0;
 		}
+		frameData.hasAcquired = false;
 	} else {
 		// We only get here if vkAcquireNextImage returned VK_ERROR_OUT_OF_DATE.
 		outOfDateFrames_++;

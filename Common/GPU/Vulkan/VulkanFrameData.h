@@ -49,6 +49,7 @@ struct FrameData {
 
 	bool hasInitCommands = false;
 	bool hasPresentCommands = false;
+	bool hasAcquired = false;
 
 	std::vector<VKRStep *> steps;
 

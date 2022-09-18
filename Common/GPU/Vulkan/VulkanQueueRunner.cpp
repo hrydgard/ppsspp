@@ -561,15 +561,16 @@ void VulkanQueueRunner::RunSteps(FrameData &frameData) {
 		switch (step.stepType) {
 		case VKRStepType::RENDER:
 			if (!step.render.framebuffer) {
-				_dbg_assert_(!frameData.hasPresentCommands);
-				if (!frameData.hasPresentCommands) {
-					frameData.hasPresentCommands = true;
+				// When stepping in the GE debugger, we can end up here multiple times in a "frame".
+				if (!frameData.hasAcquired) {
+					frameData.hasAcquired = true;
 					frameData.AcquireNextImage(vulkan_);
 					SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
-					VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-					begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-					vkBeginCommandBuffer(frameData.presentCmd, &begin);
 				}
+				VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+				begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+				vkBeginCommandBuffer(frameData.presentCmd, &begin);
+				frameData.hasPresentCommands = true;
 				PerformRenderPass(step, frameData.presentCmd);
 			} else {
 				PerformRenderPass(step, frameData.mainCmd);
