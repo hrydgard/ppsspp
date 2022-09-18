@@ -499,6 +499,16 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	bool skipCull = !gstate.isCullEnabled() || gstate.isModeClear();
 	const CullType cullType = skipCull ? CullType::OFF : (gstate.getCullMode() ? CullType::CCW : CullType::CW);
 
+	auto readVertexAt = [&](VertexReader &vreader, const TransformState &transformState, int vtx) {
+		if (indices) {
+			vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
+		} else {
+			vreader.Goto(vtx);
+		}
+
+		return ReadVertex(vreader, transformState);
+	};
+
 	if (vreader.isThrough() && cullType == CullType::OFF && prim_type == GE_PRIM_TRIANGLES && data_index_ == 0 && vertex_count >= 6 && ((vertex_count) % 6) == 0) {
 		// Some games send rectangles as a series of regular triangles.
 		// We look for this, but only in throughmode.
@@ -509,13 +519,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		}
 
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			if (indices) {
-				vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-			} else {
-				vreader.Goto(vtx);
-			}
-
-			buf[buf_index++] = ReadVertex(vreader, transformState);
+			buf[buf_index++] = readVertexAt(vreader, transformState, vtx);
 			if (buf_index < 6)
 				continue;
 
@@ -554,13 +558,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	case GE_PRIM_TRIANGLES:
 		{
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
-				if (indices) {
-					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-				} else {
-					vreader.Goto(vtx);
-				}
-
-				data_[data_index_++] = ReadVertex(vreader, transformState);
+				data_[data_index_++] = readVertexAt(vreader, transformState, vtx);
 				if (data_index_ < vtcs_per_prim) {
 					// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
 					continue;
@@ -590,13 +588,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 	case GE_PRIM_RECTANGLES:
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			if (indices) {
-				vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-			} else {
-				vreader.Goto(vtx);
-			}
-
-			data_[data_index_++] = ReadVertex(vreader, transformState);
+			data_[data_index_++] = readVertexAt(vreader, transformState, vtx);
 
 			if (data_index_ == 4 && vreader.isThrough() && cullType == CullType::OFF) {
 				if (Rasterizer::DetectRectangleThroughModeSlices(binner_->State(), data_)) {
@@ -624,13 +616,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			// If data_index_ is 1 or 2, etc., it means we're continuing a line strip.
 			int skip_count = data_index_ == 0 ? 1 : 0;
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
-				if (indices) {
-					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-				} else {
-					vreader.Goto(vtx);
-				}
-
-				data_[(data_index_++) & 1] = ReadVertex(vreader, transformState);
+				data_[(data_index_++) & 1] = readVertexAt(vreader, transformState, vtx);
 
 				if (skip_count) {
 					--skip_count;
@@ -653,12 +639,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			if (data_index_ == 0 && vertex_count >= 4 && (vertex_count & 1) == 0 && cullType == CullType::OFF) {
 				for (int base = 0; base < vertex_count - 2; base += 2) {
 					for (int vtx = base == 0 ? 0 : 2; vtx < 4; ++vtx) {
-						if (indices) {
-							vreader.Goto(ConvertIndex(base + vtx) - index_lower_bound);
-						} else {
-							vreader.Goto(base + vtx);
-						}
-						data_[vtx] = ReadVertex(vreader, transformState);
+						data_[vtx] = readVertexAt(vreader, transformState, base + vtx);
 					}
 
 					// If a strip is effectively a rectangle, draw it as such!
@@ -683,14 +664,8 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			}
 
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
-				if (indices) {
-					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-				} else {
-					vreader.Goto(vtx);
-				}
-
 				int provoking_index = (data_index_++) % 3;
-				data_[provoking_index] = ReadVertex(vreader, transformState);
+				data_[provoking_index] = readVertexAt(vreader, transformState, vtx);
 
 				if (skip_count) {
 					--skip_count;
@@ -713,24 +688,14 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 			// Only read the central vertex if we're not continuing.
 			if (data_index_ == 0) {
-				if (indices) {
-					vreader.Goto(ConvertIndex(0) - index_lower_bound);
-				} else {
-					vreader.Goto(0);
-				}
-				data_[0] = ReadVertex(vreader, transformState);
+				data_[0] = readVertexAt(vreader, transformState, 0);
 				data_index_++;
 				start_vtx = 1;
 			}
 
 			if (data_index_ == 1 && vertex_count == 4 && cullType == CullType::OFF) {
 				for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
-					if (indices) {
-						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-					} else {
-						vreader.Goto(vtx);
-					}
-					data_[vtx] = ReadVertex(vreader, transformState);
+					data_[vtx] = readVertexAt(vreader, transformState, vtx);
 				}
 
 				int tl = -1, br = -1;
@@ -741,14 +706,8 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			}
 
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
-				if (indices) {
-					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-				} else {
-					vreader.Goto(vtx);
-				}
-
 				int provoking_index = 2 - ((data_index_++) % 2);
-				data_[provoking_index] = ReadVertex(vreader, transformState);
+				data_[provoking_index] = readVertexAt(vreader, transformState, vtx);
 
 				if (skip_count) {
 					--skip_count;
