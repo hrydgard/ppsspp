@@ -433,6 +433,7 @@ public:
 	void Step_PosS16MorphSkin() const;
 	void Step_PosFloatMorphSkin() const;
 
+	void Step_PosInvalid() const;
 	void Step_PosS8Through() const;
 	void Step_PosS16Through() const;
 	void Step_PosFloatThrough() const;

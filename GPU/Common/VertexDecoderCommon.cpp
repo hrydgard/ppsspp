@@ -773,14 +773,20 @@ void VertexDecoder::Step_PosFloatSkin() const
 	Vec3ByMatrix43(pos, fn, skinMatrix);
 }
 
-void VertexDecoder::Step_PosS8Through() const
-{
+void VertexDecoder::Step_PosInvalid() const {
+	// Invalid positions are just culled.  Simulate by forcing invalid values.
 	float *v = (float *)(decoded_ + decFmt.posoff);
-	const s8 *sv = (const s8 *)(ptr_ + posoff);
-	const u8 *uv = (const u8 *)(ptr_ + posoff);
-	v[0] = sv[0];
-	v[1] = sv[1];
-	v[2] = uv[2];
+	v[0] = std::numeric_limits<float>::infinity();
+	v[1] = std::numeric_limits<float>::infinity();
+	v[2] = std::numeric_limits<float>::infinity();
+}
+
+void VertexDecoder::Step_PosS8Through() const {
+	// 8-bit positions in throughmode always decode to 0, depth included.
+	float *v = (float *)(decoded_ + decFmt.posoff);
+	v[0] = 0;
+	v[1] = 0;
+	v[2] = 0;
 }
 
 void VertexDecoder::Step_PosS16Through() const
@@ -1023,35 +1029,35 @@ static const StepFunction nrmstep_morphskin[4] = {
 };
 
 static const StepFunction posstep[4] = {
-	&VertexDecoder::Step_PosS8,
+	&VertexDecoder::Step_PosInvalid,
 	&VertexDecoder::Step_PosS8,
 	&VertexDecoder::Step_PosS16,
 	&VertexDecoder::Step_PosFloat,
 };
 
 static const StepFunction posstep_skin[4] = {
-	&VertexDecoder::Step_PosS8Skin,
+	&VertexDecoder::Step_PosInvalid,
 	&VertexDecoder::Step_PosS8Skin,
 	&VertexDecoder::Step_PosS16Skin,
 	&VertexDecoder::Step_PosFloatSkin,
 };
 
 static const StepFunction posstep_morph[4] = {
-	&VertexDecoder::Step_PosS8Morph,
+	&VertexDecoder::Step_PosInvalid,
 	&VertexDecoder::Step_PosS8Morph,
 	&VertexDecoder::Step_PosS16Morph,
 	&VertexDecoder::Step_PosFloatMorph,
 };
 
 static const StepFunction posstep_morph_skin[4] = {
-	&VertexDecoder::Step_PosS8MorphSkin,
+	&VertexDecoder::Step_PosInvalid,
 	&VertexDecoder::Step_PosS8MorphSkin,
 	&VertexDecoder::Step_PosS16MorphSkin,
 	&VertexDecoder::Step_PosFloatMorphSkin,
 };
 
 static const StepFunction posstep_through[4] = {
-	&VertexDecoder::Step_PosS8Through,
+	&VertexDecoder::Step_PosInvalid,
 	&VertexDecoder::Step_PosS8Through,
 	&VertexDecoder::Step_PosS16Through,
 	&VertexDecoder::Step_PosFloatThrough,
@@ -1224,9 +1230,8 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	bool reportNoPos = false;
 	if (!pos) {
 		reportNoPos = true;
-		pos = 1;
 	}
-	if (pos) { // there's always a position
+	if (pos >= 0) { // there's always a position
 		size = align(size, posalign[pos]);
 		posoff = size;
 		size += possize[pos];
