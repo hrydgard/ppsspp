@@ -503,10 +503,8 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	if (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) {
 		return;
 	}
-	// Throughmode never draws 8-bit primitives, maybe because they can't fully specify the screen?
-	if ((vertex_type & GE_VTYPE_THROUGH_MASK) != 0 && (vertex_type & GE_VTYPE_POS_MASK) == GE_VTYPE_POS_8BIT)
-		return;
 	// Vertices without position are just entirely culled.
+	// Note: Throughmode does draw 8-bit primitives, but positions are always zero - handled in decode.
 	if ((vertex_type & GE_VTYPE_POS_MASK) == 0)
 		return;
 

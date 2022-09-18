@@ -126,7 +126,7 @@ int printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd1:\n");
 	fprintf(stderr, "  -r, --root some/path  mount path on host0: (elfs must be in here)\n");
 	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
-	fprintf(stderr, " --debugger=PORT        enable websocket debugger and break at start\n");
+	fprintf(stderr, "  --debugger=PORT       enable websocket debugger and break at start\n");
 
 	fprintf(stderr, "  --graphics=BACKEND    use a different gpu backend\n");
 	fprintf(stderr, "                        options: gles, software, directx9, etc.\n");
