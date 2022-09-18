@@ -154,6 +154,7 @@ private:
 	int data_index_ = 0;
 	GEPrimitiveType prev_prim_ = GE_PRIM_POINTS;
 	bool hasDraws_ = false;
+	bool isImmDraw_ = false;
 };
 
 class SoftwareDrawEngine : public DrawEngineCommon {
@@ -163,7 +164,7 @@ public:
 
 	void DispatchFlush() override;
 	void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int cullMode, int *bytesRead) override;
-	void DispatchSubmitImm(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) override;
+	void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode) override;
 
 	VertexDecoder *FindVertexDecoder(u32 vtype);
 

@@ -70,12 +70,45 @@ void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds,
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
 }
 
-void SoftwareDrawEngine::DispatchSubmitImm(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode) {
+	// TODO: Handle fog and secondary color somehow?
+	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
+	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
+
 	int flipCull = cullMode != gstate.getCullMode() ? 1 : 0;
 	// TODO: For now, just setting all dirty.
 	transformUnit.SetDirty(SoftDirty(-1));
 	gstate.cullmode ^= flipCull;
-	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
+
+	// Instead of plumbing through properly (we'd need to inject these pretransformed vertices in the middle
+	// of SoftwareTransform(), which would take a lot of refactoring), we'll cheat and just turn these into
+	// through vertices.
+	// Since the only known use is Thrillville and it only uses it to clear, we just use color and pos.
+	struct ImmVertex {
+		float uv[2];
+		uint32_t color;
+		float xyz[3];
+	};
+	std::vector<ImmVertex> temp;
+	temp.resize(vertexCount);
+	uint32_t color1Used = 0;
+	for (int i = 0; i < vertexCount; i++) {
+		// Since we're sending through, scale back up to w/h.
+		temp[i].uv[0] = buffer[i].u * gstate.getTextureWidth(0);
+		temp[i].uv[1] = buffer[i].v * gstate.getTextureHeight(0);
+		temp[i].color = buffer[i].color0_32;
+		temp[i].xyz[0] = buffer[i].pos[0];
+		temp[i].xyz[1] = buffer[i].pos[1];
+		temp[i].xyz[2] = buffer[i].pos[2];
+		color1Used |= buffer[i].color1_32;
+	}
+
+	if (color1Used != 0 && gstate.isUsingSecondaryColor()) {
+		WARN_LOG_REPORT_ONCE(geimmcolor1, G3D, "Imm vertex used secondary color");
+	}
+
+	transformUnit.SubmitPrimitive(&temp[0], nullptr, prim, vertexCount, vertTypeID, nullptr, this);
+
 	gstate.cullmode ^= flipCull;
 	// TODO: Should really clear, but the vertex type is faked so things might need resetting...
 	transformUnit.SetDirty(SoftDirty(-1));
@@ -475,15 +508,6 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		prim_type = prev_prim_;
 	}
 
-	int vtcs_per_prim;
-	switch (prim_type) {
-	case GE_PRIM_POINTS: vtcs_per_prim = 1; break;
-	case GE_PRIM_LINES: vtcs_per_prim = 2; break;
-	case GE_PRIM_TRIANGLES: vtcs_per_prim = 3; break;
-	case GE_PRIM_RECTANGLES: vtcs_per_prim = 2; break;
-	default: vtcs_per_prim = 0; break;
-	}
-
 	// TODO: Do this in two passes - first process the vertices (before indexing/stripping),
 	// then resolve the indices. This lets us avoid transforming shared vertices twice.
 
@@ -552,39 +576,50 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		return;
 	}
 
+	// Note: intentionally, these allow for the case of vertex_count == 0, but data_index_ > 0.
+	// This is used for immediate-mode primitives.
 	switch (prim_type) {
 	case GE_PRIM_POINTS:
-	case GE_PRIM_LINES:
-	case GE_PRIM_TRIANGLES:
-		{
-			for (int vtx = 0; vtx < vertex_count; ++vtx) {
-				data_[data_index_++] = readVertexAt(vreader, transformState, vtx);
-				if (data_index_ < vtcs_per_prim) {
-					// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
-					continue;
-				}
-				// Okay, we've got enough verts.  Reset the index for next time.
-				data_index_ = 0;
-
-				switch (prim_type) {
-				case GE_PRIM_TRIANGLES:
-					SendTriangle(cullType, &data_[0]);
-					break;
-
-				case GE_PRIM_LINES:
-					Clipper::ProcessLine(data_[0], data_[1], *binner_);
-					break;
-
-				case GE_PRIM_POINTS:
-					Clipper::ProcessPoint(data_[0], *binner_);
-					break;
-
-				default:
-					_dbg_assert_msg_(false, "Unexpected prim type: %d", prim_type);
-				}
-			}
-			break;
+		for (int i = 0; i < data_index_; ++i)
+			Clipper::ProcessPoint(data_[i], *binner_);
+		data_index_ = 0;
+		for (int vtx = 0; vtx < vertex_count; ++vtx) {
+			data_[0] = readVertexAt(vreader, transformState, vtx);
+			Clipper::ProcessPoint(data_[0], *binner_);
 		}
+		break;
+
+	case GE_PRIM_LINES:
+		for (int i = 0; i < data_index_ - 1; i += 2)
+			Clipper::ProcessLine(data_[i + 0], data_[i + 1], *binner_);
+		data_index_ &= 1;
+		for (int vtx = 0; vtx < vertex_count; ++vtx) {
+			data_[data_index_++] = readVertexAt(vreader, transformState, vtx);
+			if (data_index_ == 2) {
+				Clipper::ProcessLine(data_[0], data_[1], *binner_);
+				data_index_ = 0;
+			}
+		}
+		break;
+
+	case GE_PRIM_TRIANGLES:
+		for (int vtx = 0; vtx < vertex_count; ++vtx) {
+			data_[data_index_++] = readVertexAt(vreader, transformState, vtx);
+			if (data_index_ < 3) {
+				// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
+				continue;
+			}
+			// Okay, we've got enough verts.  Reset the index for next time.
+			data_index_ = 0;
+
+			SendTriangle(cullType, &data_[0]);
+		}
+		// In case vertex_count was 0.
+		if (data_index_ >= 3) {
+			SendTriangle(cullType, &data_[0]);
+			data_index_ = 0;
+		}
+		break;
 
 	case GE_PRIM_RECTANGLES:
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
@@ -625,6 +660,9 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					Clipper::ProcessLine(data_[data_index_ & 1], data_[(data_index_ & 1) ^ 1], *binner_);
 				}
 			}
+			// If this is from immediate-mode drawing, we always had one new vert (already in data_.)
+			if (isImmDraw_ && data_index_ >= 2)
+				Clipper::ProcessLine(data_[data_index_ & 1], data_[(data_index_ & 1) ^ 1], *binner_);
 			break;
 		}
 
@@ -647,6 +685,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					if (Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br)) {
 						Clipper::ProcessRect(data_[tl], data_[br], *binner_);
 						start_vtx += 2;
+						skip_count = 0;
 						if (base + 4 >= vertex_count) {
 							start_vtx = vertex_count;
 							break;
@@ -663,15 +702,25 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				}
 			}
 
+			for (int vtx = start_vtx; vtx < vertex_count && skip_count > 0; ++vtx) {
+				int provoking_index = (data_index_++) % 3;
+				data_[provoking_index] = readVertexAt(vreader, transformState, vtx);
+				--skip_count;
+				++start_vtx;
+			}
+
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				int provoking_index = (data_index_++) % 3;
 				data_[provoking_index] = readVertexAt(vreader, transformState, vtx);
 
-				if (skip_count) {
-					--skip_count;
-					continue;
-				}
+				int wind = (data_index_ - 1) % 2;
+				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
+				SendTriangle(altCullType, &data_[0], provoking_index);
+			}
 
+			// If this is from immediate-mode drawing, we always had one new vert (already in data_.)
+			if (isImmDraw_ && data_index_ >= 3) {
+				int provoking_index = (data_index_ - 1) % 3;
 				int wind = (data_index_ - 1) % 2;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
 				SendTriangle(altCullType, &data_[0], provoking_index);
@@ -687,7 +736,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			int start_vtx = 0;
 
 			// Only read the central vertex if we're not continuing.
-			if (data_index_ == 0) {
+			if (data_index_ == 0 && vertex_count > 0) {
 				data_[0] = readVertexAt(vreader, transformState, 0);
 				data_index_++;
 				start_vtx = 1;
@@ -705,16 +754,26 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				}
 			}
 
+			for (int vtx = start_vtx; vtx < vertex_count && skip_count > 0; ++vtx) {
+				int provoking_index = 2 - ((data_index_++) % 2);
+				data_[provoking_index] = readVertexAt(vreader, transformState, vtx);
+				--skip_count;
+				++start_vtx;
+			}
+
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				int provoking_index = 2 - ((data_index_++) % 2);
 				data_[provoking_index] = readVertexAt(vreader, transformState, vtx);
 
-				if (skip_count) {
-					--skip_count;
-					continue;
-				}
-
 				int wind = (data_index_ - 1) % 2;
+				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
+				SendTriangle(altCullType, &data_[0], provoking_index);
+			}
+
+			// If this is from immediate-mode drawing, we always had one new vert (already in data_.)
+			if (isImmDraw_ && data_index_ >= 3) {
+				int wind = (data_index_ - 1) % 2;
+				int provoking_index = 2 - wind;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
 				SendTriangle(altCullType, &data_[0], provoking_index);
 			}
