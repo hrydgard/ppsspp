@@ -288,46 +288,12 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 }
 
 VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan), queueRunner_(vulkan) {
-	VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-	semaphoreCreateInfo.flags = 0;
-	VkResult res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &acquireSemaphore_);
-	_dbg_assert_(res == VK_SUCCESS);
-	res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &renderingCompleteSemaphore_);
-	_dbg_assert_(res == VK_SUCCESS);
-
 	inflightFramesAtStart_ = vulkan_->GetInflightFrames();
+
+	frameDataShared_.Init(vulkan);
+
 	for (int i = 0; i < inflightFramesAtStart_; i++) {
-		VkCommandPoolCreateInfo cmd_pool_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-		cmd_pool_info.queueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
-		cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-		VkResult res = vkCreateCommandPool(vulkan_->GetDevice(), &cmd_pool_info, nullptr, &frameData_[i].cmdPoolInit);
-		_dbg_assert_(res == VK_SUCCESS);
-		res = vkCreateCommandPool(vulkan_->GetDevice(), &cmd_pool_info, nullptr, &frameData_[i].cmdPoolMain);
-		_dbg_assert_(res == VK_SUCCESS);
-
-		VkCommandBufferAllocateInfo cmd_alloc = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-		cmd_alloc.commandPool = frameData_[i].cmdPoolInit;
-		cmd_alloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		cmd_alloc.commandBufferCount = 1;
-		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].initCmd);
-		_dbg_assert_(res == VK_SUCCESS);
-		cmd_alloc.commandPool = frameData_[i].cmdPoolMain;
-		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].mainCmd);
-		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].presentCmd);
-		_dbg_assert_(res == VK_SUCCESS);
-
-		// Creating the frame fence with true so they can be instantly waited on the first frame
-		frameData_[i].fence = vulkan_->CreateFence(true);
-
-		// This fence one is used for synchronizing readbacks. Does not need preinitialization.
-		frameData_[i].readbackFence = vulkan_->CreateFence(false);
-
-		VkQueryPoolCreateInfo query_ci{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
-		query_ci.queryCount = MAX_TIMESTAMP_QUERIES;
-		query_ci.queryType = VK_QUERY_TYPE_TIMESTAMP;
-		res = vkCreateQueryPool(vulkan_->GetDevice(), &query_ci, nullptr, &frameData_[i].profile.queryPool);
-
-		frameData_[i].acquireSemaphore = acquireSemaphore_;
+		frameData_[i].Init(vulkan);
 	}
 
 	queueRunner_.CreateDeviceObjects();
@@ -335,7 +301,7 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 	// AMD hack for issue #10097 (older drivers only.)
 	const auto &props = vulkan_->GetPhysicalDeviceProperties().properties;
 	if (props.vendorID == VULKAN_VENDOR_AMD && props.apiVersion < VK_API_VERSION_1_1) {
-		useThread_ = false;
+		frameDataShared_.useThread = false;
 	}
 }
 
@@ -368,7 +334,7 @@ bool VulkanRenderManager::CreateBackbuffers() {
 	outOfDateFrames_ = 0;
 
 	// Start the thread.
-	if (useThread_ && HasBackbuffers()) {
+	if (frameDataShared_.useThread && HasBackbuffers()) {
 		run_ = true;
 		// Won't necessarily be 0.
 		threadInitFrame_ = vulkan_->GetCurFrame();
@@ -381,7 +347,7 @@ bool VulkanRenderManager::CreateBackbuffers() {
 }
 
 void VulkanRenderManager::StopThread() {
-	if (useThread_ && run_) {
+	if (frameDataShared_.useThread && run_) {
 		run_ = false;
 		// Stop the thread.
 		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
@@ -449,16 +415,9 @@ VulkanRenderManager::~VulkanRenderManager() {
 
 	DrainCompileQueue();
 	VkDevice device = vulkan_->GetDevice();
-	vkDestroySemaphore(device, acquireSemaphore_, nullptr);
-	vkDestroySemaphore(device, renderingCompleteSemaphore_, nullptr);
+	frameDataShared_.Destroy(vulkan_);
 	for (int i = 0; i < inflightFramesAtStart_; i++) {
-		vkFreeCommandBuffers(device, frameData_[i].cmdPoolInit, 1, &frameData_[i].initCmd);
-		vkFreeCommandBuffers(device, frameData_[i].cmdPoolMain, 1, &frameData_[i].mainCmd);
-		vkDestroyCommandPool(device, frameData_[i].cmdPoolInit, nullptr);
-		vkDestroyCommandPool(device, frameData_[i].cmdPoolMain, nullptr);
-		vkDestroyFence(device, frameData_[i].fence, nullptr);
-		vkDestroyFence(device, frameData_[i].readbackFence, nullptr);
-		vkDestroyQueryPool(device, frameData_[i].profile.queryPool, nullptr);
+		frameData_[i].Destroy(vulkan_);
 	}
 	queueRunner_.DestroyDeviceObjects();
 }
@@ -521,6 +480,7 @@ void VulkanRenderManager::ThreadFunc() {
 					threadFrame = 0;
 			}
 			FrameData &frameData = frameData_[threadFrame];
+
 			std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 			while (!frameData.readyForRun && run_) {
 				VLOG("PULL: Waiting for frame[%d].readyForRun", threadFrame);
@@ -562,7 +522,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	FrameData &frameData = frameData_[curFrame];
 
 	// Make sure the very last command buffer from the frame before the previous has been fully executed.
-	if (useThread_) {
+	if (frameDataShared_.useThread) {
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
 		while (!frameData.readyForFence) {
 			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1", curFrame);
@@ -1234,7 +1194,7 @@ void VulkanRenderManager::Finish() {
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
-	if (!useThread_) {
+	if (!frameDataShared_.useThread) {
 		frameData.steps = std::move(steps_);
 		steps_.clear();
 		frameData.type = VKRRunType::END;
@@ -1266,7 +1226,7 @@ void VulkanRenderManager::Wipe() {
 void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 
-	SubmitInitCommands(frame);
+	frameData.SubmitInitCommands(vulkan_);
 
 	if (!frameData.hasBegun) {
 		// Effectively resets both main and present command buffers, since they both live in this pool.
@@ -1281,40 +1241,6 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	}
 }
 
-void VulkanRenderManager::SubmitInitCommands(int frame) {
-	FrameData &frameData = frameData_[frame];
-	if (!frameData.hasInitCommands) {
-		return;
-	}
-
-	if (frameData.profilingEnabled_) {
-		// Pre-allocated query ID 1.
-		vkCmdWriteTimestamp(frameData.initCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frameData.profile.queryPool, 1);
-	}
-
-	VkResult res = vkEndCommandBuffer(frameData.initCmd);
-	_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
-
-	VkCommandBuffer cmdBufs[1];
-	int numCmdBufs = 0;
-
-	cmdBufs[numCmdBufs++] = frameData.initCmd;
-	// Send the init commands off separately, so they can be processed while we're building the rest of the list.
-	// (Likely the CPU will be more than a frame ahead anyway, but this will help when we try to work on latency).
-	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
-	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
-	submit_info.pCommandBuffers = cmdBufs;
-	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
-	if (res == VK_ERROR_DEVICE_LOST) {
-		_assert_msg_(false, "Lost the Vulkan device in split submit! If this happens again, switch Graphics Backend away from Vulkan");
-	} else {
-		_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (init)! result=%s", VulkanResultToString(res));
-	}
-	numCmdBufs = 0;
-
-	frameData.hasInitCommands = false;
-}
-
 void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
 	FrameData &frameData = frameData_[frame];
 
@@ -1326,48 +1252,11 @@ void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
 		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (present)! result=%s", VulkanResultToString(res));
 	}
 
-	SubmitInitCommands(frame);
+	// If any init commands left unsubmitted (like by a frame sync etc), submit it first.
+	frameData.SubmitInitCommands(vulkan_);
 
 	// Submit the main and final cmdbuf, ending by signalling the fence.
-
-	VkCommandBuffer cmdBufs[2];
-	int numCmdBufs = 0;
-
-	cmdBufs[numCmdBufs++] = frameData.mainCmd;
-	if (frameData.hasPresentCommands) {
-		cmdBufs[numCmdBufs++] = frameData.presentCmd;
-	}
-
-	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
-	VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	if (triggerFrameFence && !frameData.skipSwap) {
-		submit_info.waitSemaphoreCount = 1;
-		submit_info.pWaitSemaphores = &acquireSemaphore_;
-		submit_info.pWaitDstStageMask = waitStage;
-	}
-	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
-	submit_info.pCommandBuffers = cmdBufs;
-	if (triggerFrameFence && !frameData.skipSwap) {
-		submit_info.signalSemaphoreCount = 1;
-		submit_info.pSignalSemaphores = &renderingCompleteSemaphore_;
-	}
-	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, triggerFrameFence ? frameData.fence : frameData.readbackFence);
-	if (res == VK_ERROR_DEVICE_LOST) {
-		_assert_msg_(false, "Lost the Vulkan device in vkQueueSubmit! If this happens again, switch Graphics Backend away from Vulkan");
-	} else {
-		_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (main)! result=%s", VulkanResultToString(res));
-	}
-
-	// When !triggerFence, we notify after syncing with Vulkan.
-	if (useThread_ && triggerFrameFence) {
-		VLOG("PULL: Frame %d.readyForFence = true", frame);
-		std::unique_lock<std::mutex> lock(frameData.push_mutex);
-		frameData.readyForFence = true;
-		frameData.push_condVar.notify_all();
-	}
-
-	frameData.hasInitCommands = false;
-	frameData.hasPresentCommands = false;
+	frameData.SubmitMainFinal(vulkan_, triggerFrameFence, frameDataShared_);
 }
 
 void VulkanRenderManager::EndSubmitFrame(int frame) {
@@ -1382,7 +1271,7 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 		present.swapchainCount = 1;
 		present.pSwapchains = &swapchain;
 		present.pImageIndices = &frameData.curSwapchainImage;
-		present.pWaitSemaphores = &renderingCompleteSemaphore_;
+		present.pWaitSemaphores = &frameDataShared_.renderingCompleteSemaphore;
 		present.waitSemaphoreCount = 1;
 
 		_dbg_assert_(frameData.hasAcquired);
@@ -1414,7 +1303,7 @@ void VulkanRenderManager::Run(int frame) {
 	FrameData &frameData = frameData_[frame];
 	queueRunner_.PreprocessSteps(frameData_[frame].steps);
 	//queueRunner_.LogSteps(stepsOnThread, false);
-	queueRunner_.RunSteps(frameData);
+	queueRunner_.RunSteps(frameData, frameDataShared_);
 
 	switch (frameData.type) {
 	case VKRRunType::END:
@@ -1456,7 +1345,7 @@ void VulkanRenderManager::EndSyncFrame(int frame) {
 	VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
 	_assert_(res == VK_SUCCESS);
 
-	if (useThread_) {
+	if (frameDataShared_.useThread) {
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
 		frameData.readyForFence = true;
 		frameData.push_condVar.notify_all();
@@ -1468,7 +1357,7 @@ void VulkanRenderManager::FlushSync() {
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
-	if (!useThread_) {
+	if (!frameDataShared_.useThread) {
 		frameData.steps = std::move(steps_);
 		steps_.clear();
 		frameData.type = VKRRunType::SYNC;
@@ -1484,7 +1373,7 @@ void VulkanRenderManager::FlushSync() {
 		frameData.pull_condVar.notify_all();
 	}
 
-	if (useThread_) {
+	if (frameDataShared_.useThread) {
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
 		// Wait for the flush to be hit, since we're syncing.
 		while (!frameData.readyForFence) {

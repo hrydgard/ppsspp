@@ -9,6 +9,10 @@
 
 struct VKRStep;
 
+enum {
+	MAX_TIMESTAMP_QUERIES = 128,
+};
+
 enum class VKRRunType {
 	END,
 	SYNC,
@@ -20,6 +24,16 @@ struct QueueProfileContext {
 	std::string profileSummary;
 	double cpuStartTime;
 	double cpuEndTime;
+};
+
+struct FrameDataShared {
+	// Permanent objects
+	VkSemaphore acquireSemaphore = VK_NULL_HANDLE;
+	VkSemaphore renderingCompleteSemaphore = VK_NULL_HANDLE;
+	bool useThread = true;
+
+	void Init(VulkanContext *vulkan);
+	void Destroy(VulkanContext *vulkan);
 };
 
 // Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
@@ -56,11 +70,20 @@ struct FrameData {
 	// Swapchain.
 	bool hasBegun = false;
 	uint32_t curSwapchainImage = -1;
-	VkSemaphore acquireSemaphore;  // Not owned, shared between all FrameData.
 
 	// Profiling.
 	QueueProfileContext profile;
 	bool profilingEnabled_;
 
-	void AcquireNextImage(VulkanContext *vulkan);
+	// Metadaata
+	int index;
+
+	void Init(VulkanContext *vulkan);
+	void Destroy(VulkanContext *vulkan);
+
+	void AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared);
+
+	// This will only submit if we are actually recording init commands.
+	void SubmitInitCommands(VulkanContext *vulkan);
+	void SubmitMainFinal(VulkanContext *vulkan, bool triggerFrameFence, FrameDataShared &shared);
 };

@@ -65,10 +65,6 @@ private:
 	std::string tag_;
 };
 
-enum {
-	MAX_TIMESTAMP_QUERIES = 128,
-};
-
 struct BoundingRect {
 	int x1;
 	int y1;
@@ -476,9 +472,7 @@ private:
 
 	void StopThread();
 
-	// Permanent objects
-	VkSemaphore acquireSemaphore_;
-	VkSemaphore renderingCompleteSemaphore_;
+	FrameDataShared frameDataShared_;
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 	int newInflightFrames_ = -1;
@@ -525,6 +519,4 @@ private:
 
 	// pipelines to check and possibly create at the end of the current render pass.
 	std::vector<VKRGraphicsPipeline *> pipelinesToCheck_;
-
-	bool useThread_ = true;
 };
