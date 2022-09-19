@@ -541,7 +541,7 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 	}
 }
 
-void VulkanQueueRunner::RunSteps(FrameData &frameData) {
+void VulkanQueueRunner::RunSteps(FrameData &frameData, FrameDataShared &frameDataShared) {
 	QueueProfileContext *profile = frameData.profilingEnabled_ ? &frameData.profile : nullptr;
 
 	if (profile)
@@ -564,7 +564,7 @@ void VulkanQueueRunner::RunSteps(FrameData &frameData) {
 				// When stepping in the GE debugger, we can end up here multiple times in a "frame".
 				if (!frameData.hasAcquired) {
 					frameData.hasAcquired = true;
-					frameData.AcquireNextImage(vulkan_);
+					frameData.AcquireNextImage(vulkan_, frameDataShared);
 					SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
 				}
 				VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
