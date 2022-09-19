@@ -297,12 +297,6 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 	}
 
 	queueRunner_.CreateDeviceObjects();
-
-	// AMD hack for issue #10097 (older drivers only.)
-	const auto &props = vulkan_->GetPhysicalDeviceProperties().properties;
-	if (props.vendorID == VULKAN_VENDOR_AMD && props.apiVersion < VK_API_VERSION_1_1) {
-		frameDataShared_.useThread = false;
-	}
 }
 
 bool VulkanRenderManager::CreateBackbuffers() {
@@ -334,7 +328,7 @@ bool VulkanRenderManager::CreateBackbuffers() {
 	outOfDateFrames_ = 0;
 
 	// Start the thread.
-	if (frameDataShared_.useThread && HasBackbuffers()) {
+	if (HasBackbuffers()) {
 		run_ = true;
 		// Won't necessarily be 0.
 		threadInitFrame_ = vulkan_->GetCurFrame();
@@ -347,57 +341,58 @@ bool VulkanRenderManager::CreateBackbuffers() {
 }
 
 void VulkanRenderManager::StopThread() {
-	if (frameDataShared_.useThread && run_) {
-		run_ = false;
-		// Stop the thread.
-		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
-			auto &frameData = frameData_[i];
-			{
-				std::unique_lock<std::mutex> lock(frameData.push_mutex);
-				frameData.push_condVar.notify_all();
-			}
-			{
-				std::unique_lock<std::mutex> lock(frameData.pull_mutex);
-				frameData.pull_condVar.notify_all();
-			}
-			// Zero the queries so we don't try to pull them later.
-			frameData.profile.timestampDescriptions.clear();
-		}
-		thread_.join();
-		INFO_LOG(G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
-		compileCond_.notify_all();
-		compileThread_.join();
-		INFO_LOG(G3D, "Vulkan compiler thread joined.");
-
-		// Eat whatever has been queued up for this frame if anything.
-		Wipe();
-
-		// Wait for any fences to finish and be resignaled, so we don't have sync issues.
-		// Also clean out any queued data, which might refer to things that might not be valid
-		// when we restart...
-		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
-			auto &frameData = frameData_[i];
-			_assert_(!frameData.readyForRun);
-			_assert_(frameData.steps.empty());
-			if (frameData.hasInitCommands) {
-				// Clear 'em out.  This can happen on restart sometimes.
-				vkEndCommandBuffer(frameData.initCmd);
-				frameData.hasInitCommands = false;
-			}
-			frameData.readyForRun = false;
-			for (size_t i = 0; i < frameData.steps.size(); i++) {
-				delete frameData.steps[i];
-			}
-			frameData.steps.clear();
-
-			std::unique_lock<std::mutex> lock(frameData.push_mutex);
-			while (!frameData.readyForFence) {
-				VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (stop)", i);
-				frameData.push_condVar.wait(lock);
-			}
-		}
-	} else {
+	if (!run_) {
 		INFO_LOG(G3D, "Vulkan submission thread was already stopped.");
+		return;
+	}
+
+	run_ = false;
+	// Stop the thread.
+	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
+		auto &frameData = frameData_[i];
+		{
+			std::unique_lock<std::mutex> lock(frameData.push_mutex);
+			frameData.push_condVar.notify_all();
+		}
+		{
+			std::unique_lock<std::mutex> lock(frameData.pull_mutex);
+			frameData.pull_condVar.notify_all();
+		}
+		// Zero the queries so we don't try to pull them later.
+		frameData.profile.timestampDescriptions.clear();
+	}
+	thread_.join();
+	INFO_LOG(G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
+	compileCond_.notify_all();
+	compileThread_.join();
+	INFO_LOG(G3D, "Vulkan compiler thread joined.");
+
+	// Eat whatever has been queued up for this frame if anything.
+	Wipe();
+
+	// Wait for any fences to finish and be resignaled, so we don't have sync issues.
+	// Also clean out any queued data, which might refer to things that might not be valid
+	// when we restart...
+	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
+		auto &frameData = frameData_[i];
+		_assert_(!frameData.readyForRun);
+		_assert_(frameData.steps.empty());
+		if (frameData.hasInitCommands) {
+			// Clear 'em out.  This can happen on restart sometimes.
+			vkEndCommandBuffer(frameData.initCmd);
+			frameData.hasInitCommands = false;
+		}
+		frameData.readyForRun = false;
+		for (size_t i = 0; i < frameData.steps.size(); i++) {
+			delete frameData.steps[i];
+		}
+		frameData.steps.clear();
+
+		std::unique_lock<std::mutex> lock(frameData.push_mutex);
+		while (!frameData.readyForFence) {
+			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (stop)", i);
+			frameData.push_condVar.wait(lock);
+		}
 	}
 }
 
@@ -522,14 +517,12 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	FrameData &frameData = frameData_[curFrame];
 
 	// Make sure the very last command buffer from the frame before the previous has been fully executed.
-	if (frameDataShared_.useThread) {
-		std::unique_lock<std::mutex> lock(frameData.push_mutex);
-		while (!frameData.readyForFence) {
-			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1", curFrame);
-			frameData.push_condVar.wait(lock);
-		}
-		frameData.readyForFence = false;
+	std::unique_lock<std::mutex> lock(frameData.push_mutex);
+	while (!frameData.readyForFence) {
+		VLOG("PUSH: Waiting for frame[%d].readyForFence = 1", curFrame);
+		frameData.push_condVar.wait(lock);
 	}
+	frameData.readyForFence = false;
 
 	VLOG("PUSH: Fencing %d", curFrame);
 
@@ -1194,12 +1187,7 @@ void VulkanRenderManager::Finish() {
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
-	if (!frameDataShared_.useThread) {
-		frameData.steps = std::move(steps_);
-		steps_.clear();
-		frameData.type = VKRRunType::END;
-		Run(curFrame);
-	} else {
+	{
 		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 		VLOG("PUSH: Frame[%d].readyForRun = true", curFrame);
 		frameData.steps = std::move(steps_);
@@ -1345,11 +1333,9 @@ void VulkanRenderManager::EndSyncFrame(int frame) {
 	VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
 	_assert_(res == VK_SUCCESS);
 
-	if (frameDataShared_.useThread) {
-		std::unique_lock<std::mutex> lock(frameData.push_mutex);
-		frameData.readyForFence = true;
-		frameData.push_condVar.notify_all();
-	}
+	std::unique_lock<std::mutex> lock(frameData.push_mutex);
+	frameData.readyForFence = true;
+	frameData.push_condVar.notify_all();
 }
 
 void VulkanRenderManager::FlushSync() {
@@ -1357,12 +1343,8 @@ void VulkanRenderManager::FlushSync() {
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
-	if (!frameDataShared_.useThread) {
-		frameData.steps = std::move(steps_);
-		steps_.clear();
-		frameData.type = VKRRunType::SYNC;
-		Run(curFrame);
-	} else {
+	
+	{
 		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 		VLOG("PUSH: Frame[%d].readyForRun = true (sync)", curFrame);
 		frameData.steps = std::move(steps_);
@@ -1373,7 +1355,7 @@ void VulkanRenderManager::FlushSync() {
 		frameData.pull_condVar.notify_all();
 	}
 
-	if (frameDataShared_.useThread) {
+	{
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
 		// Wait for the flush to be hit, since we're syncing.
 		while (!frameData.readyForFence) {

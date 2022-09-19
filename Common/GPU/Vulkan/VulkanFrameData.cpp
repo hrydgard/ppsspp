@@ -124,7 +124,7 @@ void FrameData::SubmitMainFinal(VulkanContext *vulkan, bool triggerFrameFence, F
 	}
 
 	// When !triggerFence, we notify after syncing with Vulkan.
-	if (sharedData.useThread && triggerFrameFence) {
+	if (triggerFrameFence) {
 		VERBOSE_LOG(G3D, "PULL: Frame %d.readyForFence = true", index);
 		std::unique_lock<std::mutex> lock(push_mutex);
 		readyForFence = true;

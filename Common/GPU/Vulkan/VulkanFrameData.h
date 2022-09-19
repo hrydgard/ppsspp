@@ -30,7 +30,6 @@ struct FrameDataShared {
 	// Permanent objects
 	VkSemaphore acquireSemaphore = VK_NULL_HANDLE;
 	VkSemaphore renderingCompleteSemaphore = VK_NULL_HANDLE;
-	bool useThread = true;
 
 	void Init(VulkanContext *vulkan);
 	void Destroy(VulkanContext *vulkan);
