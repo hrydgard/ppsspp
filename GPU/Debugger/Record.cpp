@@ -37,6 +37,7 @@
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/ThreadPools.h"
+#include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -152,8 +153,19 @@ static void BeginRecording() {
 	u32 sz = 512 * 4;
 	pushbuf.resize(pushbuf.size() + sz);
 	gstate.Save((u32_le *)(pushbuf.data() + ptr));
-
 	commands.push_back({CommandType::INIT, sz, ptr});
+
+	// Also save the initial CLUT.
+	GPUDebugBuffer clut;
+	if (gpuDebug->GetCurrentClut(clut)) {
+		sz = clut.GetStride() * clut.PixelSize();
+		_assert_msg_(sz == 1024, "CLUT should be 1024 bytes");
+		ptr = (u32)pushbuf.size();
+		pushbuf.resize(pushbuf.size() + sz);
+		memcpy(pushbuf.data() + ptr, clut.GetData(), sz);
+		commands.push_back({ CommandType::CLUT, sz, ptr });
+	}
+
 	DirtyAllVRAM(DirtyVRAMFlag::DIRTY);
 }
 
