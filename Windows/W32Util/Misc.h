@@ -68,6 +68,8 @@ protected:
 	virtual bool OnRowPrePaint(int row, LPNMLVCUSTOMDRAW msg) { return false; }
 	virtual bool OnColPrePaint(int row, int col, LPNMLVCUSTOMDRAW msg) { return false; }
 
+	virtual int OnIncrementalSearch(int startRow, const wchar_t *str, bool wrap, bool partial);
+
 private:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	void ProcessUpdate();
