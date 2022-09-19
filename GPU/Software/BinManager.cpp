@@ -474,6 +474,9 @@ void BinManager::Drain() {
 }
 
 void BinManager::Flush(const char *reason) {
+	if (queueRange_.x1 == 0x7FFFFFFF)
+		return;
+
 	double st;
 	if (coreCollectDebugStats)
 		st = time_now_d();
