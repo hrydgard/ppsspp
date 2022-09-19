@@ -91,6 +91,13 @@ public:
 	std::string error;
 };
 
+struct GLRProgramFlags {
+	bool supportDualSource : 1;
+	bool useClipDistance0 : 1;
+	bool useClipDistance1 : 1;
+	bool useClipDistance2 : 1;
+};
+
 class GLRProgram {
 public:
 	~GLRProgram() {
@@ -119,7 +126,7 @@ public:
 	std::vector<Semantic> semantics_;
 	std::vector<UniformLocQuery> queries_;
 	std::vector<Initializer> initialize_;
-	bool use_clip_distance0 = false;
+	bool use_clip_distance[8]{};
 
 	struct UniformInfo {
 		int loc_;
@@ -427,15 +434,17 @@ public:
 	// not be an active render pass.
 	GLRProgram *CreateProgram(
 		std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics, std::vector<GLRProgram::UniformLocQuery> queries,
-		std::vector<GLRProgram::Initializer> initializers, bool supportDualSource, bool useClipDistance0) {
+		std::vector<GLRProgram::Initializer> initializers, const GLRProgramFlags &flags) {
 		GLRInitStep step{ GLRInitStepType::CREATE_PROGRAM };
 		_assert_(shaders.size() <= ARRAY_SIZE(step.create_program.shaders));
 		step.create_program.program = new GLRProgram();
 		step.create_program.program->semantics_ = semantics;
 		step.create_program.program->queries_ = queries;
 		step.create_program.program->initialize_ = initializers;
-		step.create_program.program->use_clip_distance0 = useClipDistance0;
-		step.create_program.support_dual_source = supportDualSource;
+		step.create_program.program->use_clip_distance[0] = flags.useClipDistance0;
+		step.create_program.program->use_clip_distance[1] = flags.useClipDistance1;
+		step.create_program.program->use_clip_distance[2] = flags.useClipDistance2;
+		step.create_program.support_dual_source = flags.supportDualSource;
 		_assert_msg_(shaders.size() > 0, "Can't create a program with zero shaders");
 		for (size_t i = 0; i < shaders.size(); i++) {
 			step.create_program.shaders[i] = shaders[i];

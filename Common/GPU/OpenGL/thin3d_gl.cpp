@@ -1234,7 +1234,8 @@ bool OpenGLPipeline::LinkShaders() {
 		}
 	}
 
-	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false, false);
+	GLRProgramFlags flags{};
+	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, flags);
 	return true;
 }
 
