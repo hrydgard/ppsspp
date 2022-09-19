@@ -1,7 +1,8 @@
 #include "VulkanFrameData.h"
 #include "Common/Log.h"
 
-void FrameData::Init(VulkanContext *vulkan) {
+void FrameData::Init(VulkanContext *vulkan, int index) {
+	this->index = index;
 	VkDevice device = vulkan->GetDevice();
 
 	VkCommandPoolCreateInfo cmd_pool_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };

@@ -293,7 +293,7 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 	frameDataShared_.Init(vulkan);
 
 	for (int i = 0; i < inflightFramesAtStart_; i++) {
-		frameData_[i].Init(vulkan);
+		frameData_[i].Init(vulkan, i);
 	}
 
 	queueRunner_.CreateDeviceObjects();
@@ -517,12 +517,14 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	FrameData &frameData = frameData_[curFrame];
 
 	// Make sure the very last command buffer from the frame before the previous has been fully executed.
-	std::unique_lock<std::mutex> lock(frameData.push_mutex);
-	while (!frameData.readyForFence) {
-		VLOG("PUSH: Waiting for frame[%d].readyForFence = 1", curFrame);
-		frameData.push_condVar.wait(lock);
+	{
+		std::unique_lock<std::mutex> lock(frameData.push_mutex);
+		while (!frameData.readyForFence) {
+			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1", curFrame);
+			frameData.push_condVar.wait(lock);
+		}
+		frameData.readyForFence = false;
 	}
-	frameData.readyForFence = false;
 
 	VLOG("PUSH: Fencing %d", curFrame);
 

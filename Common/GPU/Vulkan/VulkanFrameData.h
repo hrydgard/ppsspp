@@ -74,10 +74,10 @@ struct FrameData {
 	QueueProfileContext profile;
 	bool profilingEnabled_;
 
-	// Metadaata
+	// Metadata for logging etc
 	int index;
 
-	void Init(VulkanContext *vulkan);
+	void Init(VulkanContext *vulkan, int index);
 	void Destroy(VulkanContext *vulkan);
 
 	void AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared);
