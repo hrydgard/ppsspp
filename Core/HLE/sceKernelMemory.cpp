@@ -46,6 +46,7 @@ const int TLSPL_NUM_INDEXES = 16;
 // STATE BEGIN
 BlockAllocator userMemory(256);
 BlockAllocator kernelMemory(256);
+BlockAllocator volatileMemory(256);
 
 static int vplWaitTimer = -1;
 static int fplWaitTimer = -1;
@@ -432,6 +433,7 @@ void __KernelMemoryInit()
 	MemBlockInfoInit();
 	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase(), false);
 	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase(), false);
+	volatileMemory.Init(PSP_GetVolatileMemoryStart(), PSP_GetVolatileMemoryEnd() - PSP_GetVolatileMemoryStart(), false);
 	ParallelMemset(&g_threadManager, Memory::GetPointerWrite(PSP_GetKernelMemoryBase()), 0, PSP_GetUserMemoryEnd() - PSP_GetKernelMemoryBase());
 	NotifyMemInfo(MemBlockFlags::WRITE, PSP_GetKernelMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetKernelMemoryBase(), "MemInit");
 	INFO_LOG(SCEKERNEL, "Kernel and user memory pools initialized");
@@ -463,6 +465,7 @@ void __KernelMemoryDoState(PointerWrap &p)
 
 	kernelMemory.DoState(p);
 	userMemory.DoState(p);
+	volatileMemory.DoState(p);
 
 	Do(p, vplWaitTimer);
 	CoreTiming::RestoreRegisterEvent(vplWaitTimer, "VplTimeout", __KernelVplTimeout);
@@ -481,6 +484,11 @@ void __KernelMemoryDoState(PointerWrap &p)
 
 void __KernelMemoryShutdown()
 {
+#ifdef _DEBUG
+	INFO_LOG(SCEKERNEL, "Shutting down volatile memory pool: ");
+	volatileMemory.ListBlocks();
+#endif
+	volatileMemory.Shutdown();
 #ifdef _DEBUG
 	INFO_LOG(SCEKERNEL,"Shutting down user memory pool: ");
 	userMemory.ListBlocks();
@@ -1021,7 +1029,7 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 		return SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE;
 	}
 
-	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, name, size, (MemblockType)type, addr);
+	PartitionMemoryBlock *block = new PartitionMemoryBlock((partition == 5) ? &volatileMemory : &userMemory, name, size, (MemblockType)type, addr);
 	if (!block->IsValid())
 	{
 		delete block;
