@@ -1006,19 +1006,24 @@ void SoftGPU::Execute_LoadClut(u32 op, u32 diff) {
 
 void SoftGPU::Execute_FramebufPtr(u32 op, u32 diff) {
 	// We assume fb.data won't change while we're drawing.
-	drawEngine_->transformUnit.Flush("framebuf");
-	fb.data = Memory::GetPointerWrite(gstate.getFrameBufAddress());
+	if (diff) {
+		drawEngine_->transformUnit.Flush("framebuf");
+		fb.data = Memory::GetPointerWrite(gstate.getFrameBufAddress());
+	}
 }
 
 void SoftGPU::Execute_FramebufFormat(u32 op, u32 diff) {
 	// We should flush, because ranges within bins may change.
-	drawEngine_->transformUnit.Flush("framebuf");
+	if (diff)
+		drawEngine_->transformUnit.Flush("framebuf");
 }
 
 void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {
 	// We assume depthbuf.data won't change while we're drawing.
-	drawEngine_->transformUnit.Flush("depthbuf");
-	depthbuf.data = Memory::GetPointerWrite(gstate.getDepthBufAddress());
+	if (diff) {
+		drawEngine_->transformUnit.Flush("depthbuf");
+		depthbuf.data = Memory::GetPointerWrite(gstate.getDepthBufAddress());
+	}
 }
 
 void SoftGPU::Execute_VertexType(u32 op, u32 diff) {

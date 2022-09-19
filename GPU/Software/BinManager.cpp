@@ -326,7 +326,7 @@ void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const V
 	if (d01.x * d02.y - d01.y * d02.x < 0)
 		return;
 	// If all points have identical coords, we'll have 0 weights and not skip properly, so skip here.
-	if (d01.x == 0 && d01.y == 0 && d02.x == 0 && d02.y == 0)
+	if ((d01.x == 0 && d02.x == 0) || (d01.y == 0 && d02.y == 0))
 		return;
 
 	// Was it fully outside the scissor?
@@ -474,6 +474,9 @@ void BinManager::Drain() {
 }
 
 void BinManager::Flush(const char *reason) {
+	if (queueRange_.x1 == 0x7FFFFFFF)
+		return;
+
 	double st;
 	if (coreCollectDebugStats)
 		st = time_now_d();
