@@ -49,22 +49,35 @@ void FrameData::Destroy(VulkanContext *vulkan) {
 }
 
 void FrameData::AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared) {
+	_dbg_assert_(!hasAcquired);
+
 	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
 	VkResult res = vkAcquireNextImageKHR(vulkan->GetDevice(), vulkan->GetSwapchain(), UINT64_MAX, shared.acquireSemaphore, (VkFence)VK_NULL_HANDLE, &curSwapchainImage);
-	if (res == VK_SUBOPTIMAL_KHR) {
+	switch (res) {
+	case VK_SUCCESS:
+		hasAcquired = true;
+		break;
+	case VK_SUBOPTIMAL_KHR:
+		hasAcquired = true;
 		// Hopefully the resize will happen shortly. Ignore - one frame might look bad or something.
 		WARN_LOG(G3D, "VK_SUBOPTIMAL_KHR returned - ignoring");
-	} else if (res == VK_ERROR_OUT_OF_DATE_KHR) {
-		WARN_LOG(G3D, "VK_ERROR_OUT_OF_DATE_KHR returned - processing the frame, but not presenting");
+		break;
+	case VK_ERROR_OUT_OF_DATE_KHR:
+		// We do not set hasAcquired here!
+		WARN_LOG(G3D, "VK_ERROR_OUT_OF_DATE_KHR returned from AcquireNextImage - processing the frame, but not presenting");
 		skipSwap = true;
-	} else {
-		_assert_msg_(res == VK_SUCCESS, "vkAcquireNextImageKHR failed! result=%s", VulkanResultToString(res));
+		break;
+	default:
+		// Weird, shouldn't get any other values. Maybe lost device?
+		_assert_msg_(false, "vkAcquireNextImageKHR failed! result=%s", VulkanResultToString(res));
+		break;
 	}
 }
 
 VkResult FrameData::QueuePresent(VulkanContext *vulkan, FrameDataShared &shared) {
 	_dbg_assert_(hasAcquired);
 	hasAcquired = false;
+	_dbg_assert_(!skipSwap);
 
 	VkSwapchainKHR swapchain = vulkan->GetSwapchain();
 	VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
@@ -145,6 +158,7 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	if (type == FrameSubmitType::Present && !skipSwap) {
+		_dbg_assert_(hasAcquired);
 		submit_info.waitSemaphoreCount = 1;
 		submit_info.pWaitSemaphores = &sharedData.acquireSemaphore;
 		submit_info.pWaitDstStageMask = waitStage;
@@ -162,11 +176,17 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 		_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (main)! result=%s", VulkanResultToString(res));
 	}
 
+	if (type == FrameSubmitType::Sync) {
+		// Hard stall of the GPU, not ideal, but necessary so the CPU has the contents of the readback.
+		vkWaitForFences(vulkan->GetDevice(), 1, &readbackFence, true, UINT64_MAX);
+		vkResetFences(vulkan->GetDevice(), 1, &readbackFence);
+	}
+
 	// When !triggerFence, we notify after syncing with Vulkan.
 	if (type == FrameSubmitType::Present || type == FrameSubmitType::Sync) {
 		VERBOSE_LOG(G3D, "PULL: Frame %d.readyForFence = true", index);
 		std::unique_lock<std::mutex> lock(push_mutex);
-		readyForFence = true;
+		readyForFence = true;  // misnomer in sync mode!
 		push_condVar.notify_all();
 	}
 }

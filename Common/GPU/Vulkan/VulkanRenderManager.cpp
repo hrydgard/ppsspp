@@ -491,8 +491,7 @@ void VulkanRenderManager::ThreadFunc() {
 			// but that created a race condition where frames could end up not finished properly on resize etc.
 
 			// Only increment next time if we're done.
-			nextFrame = frameData.type == VKRRunType::END;
-			_dbg_assert_(frameData.type == VKRRunType::END || frameData.type == VKRRunType::SYNC);
+			nextFrame = frameData.RunType() == VKRRunType::END;
 		}
 		VLOG("PULL: Running frame %d", threadFrame);
 		if (firstFrame) {
@@ -658,6 +657,8 @@ void VulkanRenderManager::EndCurRenderStep() {
 		curRenderStep_->render.colorStore, curRenderStep_->render.depthStore, curRenderStep_->render.stencilStore,
 	};
 	RenderPassType rpType = RP_TYPE_COLOR_DEPTH;
+	// Save the accumulated pipeline flags so we can use that to configure the render pass.
+	// We'll often be able to avoid loading/saving the depth/stencil buffer.
 	curRenderStep_->render.pipelineFlags = curPipelineFlags_;
 	if (!curRenderStep_->render.framebuffer) {
 		rpType = RP_TYPE_BACKBUFFER;
@@ -665,12 +666,11 @@ void VulkanRenderManager::EndCurRenderStep() {
 		// Not allowed on backbuffers.
 		rpType = RP_TYPE_COLOR_DEPTH_INPUT;
 	}
+	// TODO: Also add render pass types for depth/stencil-less.
 
 	VKRRenderPass *renderPass = queueRunner_.GetRenderPass(key);
 	curRenderStep_->render.renderPassType = rpType;
 
-	// Save the accumulated pipeline flags so we can use that to configure the render pass.
-	// We'll often be able to avoid loading/saving the depth/stencil buffer.
 	compileMutex_.lock();
 	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
@@ -1162,6 +1162,9 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 	}
 }
 
+// Called on main thread.
+// Sends the collected commands to the render thread. Submit-latency should be
+// measured from here, probably.
 void VulkanRenderManager::Finish() {
 	EndCurRenderStep();
 
@@ -1174,13 +1177,14 @@ void VulkanRenderManager::Finish() {
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
+
 	{
 		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 		VLOG("PUSH: Frame[%d].readyForRun = true", curFrame);
 		frameData.steps = std::move(steps_);
 		steps_.clear();
 		frameData.readyForRun = true;
-		frameData.type = VKRRunType::END;
+		frameData.runType_ = VKRRunType::END;
 		frameData.pull_condVar.notify_all();
 	}
 	vulkan_->EndFrame();
@@ -1204,7 +1208,6 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 
 	// Should only have at most the init command buffer pending here (that one came from the other thread).
-	_dbg_assert_(!frameData.hasMainCommands);
 	_dbg_assert_(!frameData.hasPresentCommands);
 	frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared_);
 
@@ -1259,6 +1262,28 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 	}
 }
 
+void VulkanRenderManager::EndSyncFrame(int frame) {
+	FrameData &frameData = frameData_[frame];
+
+	// The submit will trigger the readbackFence, and wait.
+	Submit(frame, FrameSubmitType::Sync);
+
+	// At this point we can resume filling the command buffers for the current frame since
+	// we know the device is idle - and thus all previously enqueued command buffers have been processed.
+	// No need to switch to the next frame number.
+	VkCommandBufferBeginInfo begin{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		nullptr,
+		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+	};
+	_dbg_assert_(!frameData.hasPresentCommands);  // Readbacks should happen before we try to submit any present commands.
+	frameData.hasBegun = false;  // We're gonna record a new main command buffer.
+
+	std::unique_lock<std::mutex> lock(frameData.push_mutex);
+	frameData.readyForFence = true;
+	frameData.push_condVar.notify_all();
+}
+
 void VulkanRenderManager::Run(int frame) {
 	BeginSubmitFrame(frame);
 
@@ -1267,7 +1292,7 @@ void VulkanRenderManager::Run(int frame) {
 	//queueRunner_.LogSteps(stepsOnThread, false);
 	queueRunner_.RunSteps(frameData, frameDataShared_);
 
-	switch (frameData.type) {
+	switch (frameData.runType_) {
 	case VKRRunType::END:
 		EndSubmitFrame(frame);
 		break;
@@ -1283,35 +1308,6 @@ void VulkanRenderManager::Run(int frame) {
 	VLOG("PULL: Finished running frame %d", frame);
 }
 
-void VulkanRenderManager::EndSyncFrame(int frame) {
-	FrameData &frameData = frameData_[frame];
-
-	// The submit will trigger the readbackFence.
-	Submit(frame, FrameSubmitType::Sync);
-
-	// Hard stall of the GPU, not ideal, but necessary so the CPU has the contents of the readback.
-	vkWaitForFences(vulkan_->GetDevice(), 1, &frameData.readbackFence, true, UINT64_MAX);
-	vkResetFences(vulkan_->GetDevice(), 1, &frameData.readbackFence);
-
-	// At this point we can resume filling the command buffers for the current frame since
-	// we know the device is idle - and thus all previously enqueued command buffers have been processed.
-	// No need to switch to the next frame number.
-	VkCommandBufferBeginInfo begin{
-		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		nullptr,
-		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-	};
-	_dbg_assert_(!frameData.hasPresentCommands);  // Readbacks should happen before we try to submit any present commands.
-	vkResetCommandPool(vulkan_->GetDevice(), frameData.cmdPoolMain, 0);
-	VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
-	frameData.hasMainCommands = true;
-	_assert_(res == VK_SUCCESS);
-
-	std::unique_lock<std::mutex> lock(frameData.push_mutex);
-	frameData.readyForFence = true;
-	frameData.push_condVar.notify_all();
-}
-
 void VulkanRenderManager::FlushSync() {
 	renderStepOffset_ += (int)steps_.size();
 
@@ -1325,7 +1321,7 @@ void VulkanRenderManager::FlushSync() {
 		steps_.clear();
 		frameData.readyForRun = true;
 		_dbg_assert_(!frameData.readyForFence);
-		frameData.type = VKRRunType::SYNC;
+		frameData.runType_ = VKRRunType::SYNC;
 		frameData.pull_condVar.notify_all();
 	}
 

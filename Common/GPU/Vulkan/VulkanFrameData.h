@@ -50,9 +50,8 @@ struct FrameData {
 	std::condition_variable pull_condVar;
 
 	bool readyForFence = true;
-	bool readyForRun = false;
+	bool readyForRun = false;  // protected by pull_mutex
 	bool skipSwap = false;
-	VKRRunType type = VKRRunType::END;
 
 	VkFence fence;
 	VkFence readbackFence;  // Strictly speaking we might only need one global of these.
@@ -81,9 +80,6 @@ struct FrameData {
 	QueueProfileContext profile;
 	bool profilingEnabled_;
 
-	// Metadata for logging etc
-	int index;
-
 	void Init(VulkanContext *vulkan, int index);
 	void Destroy(VulkanContext *vulkan);
 
@@ -93,4 +89,14 @@ struct FrameData {
 
 	// This will only submit if we are actually recording init commands.
 	void SubmitPending(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &shared);
+
+	VKRRunType RunType() const {
+		return runType_;
+	}
+
+	VKRRunType runType_ = VKRRunType::END;
+
+private:
+	// Metadata for logging etc
+	int index;
 };

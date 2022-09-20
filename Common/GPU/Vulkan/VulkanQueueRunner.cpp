@@ -563,7 +563,6 @@ void VulkanQueueRunner::RunSteps(FrameData &frameData, FrameDataShared &frameDat
 			if (!step.render.framebuffer) {
 				// When stepping in the GE debugger, we can end up here multiple times in a "frame".
 				if (!frameData.hasAcquired) {
-					frameData.hasAcquired = true;
 					frameData.AcquireNextImage(vulkan_, frameDataShared);
 					SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
 				}
