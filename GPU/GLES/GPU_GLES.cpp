@@ -166,9 +166,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
-	if (draw_->GetDeviceCaps().anisoSupported)
-		features |= GPU_SUPPORTS_ANISOTROPY;
-
 	bool canUseInstanceID = gl_extensions.EXT_draw_instanced || gl_extensions.ARB_draw_instanced;
 	bool canDefInstanceID = gl_extensions.IsGLES || gl_extensions.EXT_gpu_shader4 || gl_extensions.VersionGEThan(3, 1);
 	bool instanceRendering = gl_extensions.GLES3 || (canUseInstanceID && canDefInstanceID);
@@ -189,19 +186,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	}
 	if (draw_->GetDeviceCaps().textureDepthSupported)
 		features |= GPU_SUPPORTS_DEPTH_TEXTURE;
-	if (draw_->GetDeviceCaps().clipDistanceSupported)
-		features |= GPU_SUPPORTS_CLIP_DISTANCE;
-	if (draw_->GetDeviceCaps().cullDistanceSupported)
-		features |= GPU_SUPPORTS_CULL_DISTANCE;
-	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
-		// Ignore the compat setting if clip and cull are both enabled.
-		// When supported, we can do the depth side of range culling more correctly.
-		const bool supported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
-		const bool disabled = PSP_CoreParameter().compat.flags().DisableRangeCulling;
-		if (supported || !disabled) {
-			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
-		}
-	}
 
 	// If we already have a 16-bit depth buffer, we don't need to round.
 	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
