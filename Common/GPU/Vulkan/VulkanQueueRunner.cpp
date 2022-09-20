@@ -549,6 +549,8 @@ void VulkanQueueRunner::RunSteps(FrameData &frameData, FrameDataShared &frameDat
 
 	bool emitLabels = vulkan_->Extensions().EXT_debug_utils;
 
+	VkCommandBuffer cmd = frameData.hasPresentCommands ? frameData.presentCmd : frameData.mainCmd;
+
 	for (size_t i = 0; i < frameData.steps.size(); i++) {
 		const VKRStep &step = *frameData.steps[i];
 
@@ -562,42 +564,46 @@ void VulkanQueueRunner::RunSteps(FrameData &frameData, FrameDataShared &frameDat
 		case VKRStepType::RENDER:
 			if (!step.render.framebuffer) {
 				// When stepping in the GE debugger, we can end up here multiple times in a "frame".
+				// So only acquire once.
 				if (!frameData.hasAcquired) {
 					frameData.AcquireNextImage(vulkan_, frameDataShared);
 					SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
 				}
+
+				// A RENDER step rendering to the backbuffer is normally the last step that happens in a frame,
+				// unless taking a screenshot, in which case there might be a READBACK_IMAGE after it.
+				// This is why we have to switch cmd to presentCmd, in this case.
 				VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 				begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 				vkBeginCommandBuffer(frameData.presentCmd, &begin);
 				frameData.hasPresentCommands = true;
-				PerformRenderPass(step, frameData.presentCmd);
-			} else {
-				PerformRenderPass(step, frameData.mainCmd);
+				cmd = frameData.presentCmd;
 			}
+			PerformRenderPass(step, cmd);
 			break;
 		case VKRStepType::COPY:
-			PerformCopy(step, frameData.mainCmd);
+			PerformCopy(step, cmd);
 			break;
 		case VKRStepType::BLIT:
-			PerformBlit(step, frameData.mainCmd);
+			PerformBlit(step, cmd);
 			break;
 		case VKRStepType::READBACK:
-			PerformReadback(step, frameData.mainCmd);
+			PerformReadback(step, cmd);
 			break;
 		case VKRStepType::READBACK_IMAGE:
-			PerformReadbackImage(step, frameData.mainCmd);
+			PerformReadbackImage(step, cmd);
 			break;
 		case VKRStepType::RENDER_SKIP:
 			break;
 		}
 
 		if (profile && profile->timestampDescriptions.size() + 1 < MAX_TIMESTAMP_QUERIES) {
-			vkCmdWriteTimestamp(frameData.mainCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile->queryPool, (uint32_t)profile->timestampDescriptions.size());
+			vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile->queryPool, (uint32_t)profile->timestampDescriptions.size());
 			profile->timestampDescriptions.push_back(StepToString(step));
 		}
 
 		if (emitLabels) {
-			vkCmdEndDebugUtilsLabelEXT(frameData.mainCmd);
+			vkCmdEndDebugUtilsLabelEXT(cmd);
 		}
 	}
 
