@@ -1021,7 +1021,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {
 	// TODO: Could go through all FBOs, but probably not important?
 	// TODO: Could also check for inner changes, but video is most important.
 	// TODO: This shouldn't care if it's a display framebuf or not, should work exactly the same.
-	bool isDisplayBuf = addr == DisplayFramebufAddr() || addr == PrevDisplayFramebufAddr();
+	bool isDisplayBuf = addr == CurrentDisplayFramebufAddr() || addr == PrevDisplayFramebufAddr();
 	// TODO: Deleting the FBO is a heavy hammer solution, so let's only do it if it'd help.
 	if (!Memory::IsValidAddress(displayFramebufPtr_))
 		return;
@@ -2182,7 +2182,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 	// We may still do a partial block draw below if this doesn't pass.
 	if (!useBufferedRendering_ && dstStride >= 480 && width >= 480 && height == 272) {
 		bool isPrevDisplayBuffer = PrevDisplayFramebufAddr() == dstBasePtr;
-		bool isDisplayBuffer = DisplayFramebufAddr() == dstBasePtr;
+		bool isDisplayBuffer = CurrentDisplayFramebufAddr() == dstBasePtr;
 		if (isPrevDisplayBuffer || isDisplayBuffer) {
 			FlushBeforeCopy();
 			DrawFramebufferToOutput(Memory::GetPointerUnchecked(dstBasePtr), dstStride, displayFormat_);
@@ -2357,8 +2357,8 @@ void FramebufferManagerCommon::ShowScreenResolution() {
 // * Save state screenshots(could probably be async but need to manage the stall.)
 bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxScaleFactor) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
+	if (!vfb || vfb->fb_address != fb_address) {
+		vfb = ResolveVFB(fb_address, fb_stride, format);
 	}
 
 	if (!vfb) {

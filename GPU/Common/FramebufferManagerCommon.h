@@ -335,15 +335,18 @@ public:
 	u32 PrevDisplayFramebufAddr() const {
 		return prevDisplayFramebuf_ ? prevDisplayFramebuf_->fb_address : 0;
 	}
-	u32 DisplayFramebufAddr() const {
+	u32 CurrentDisplayFramebufAddr() const {
 		return displayFramebuf_ ? displayFramebuf_->fb_address : 0;
 	}
 
+	u32 DisplayFramebufAddr() const {
+		return displayFramebufPtr_;
+	}
 	u32 DisplayFramebufStride() const {
-		return displayFramebuf_ ? displayStride_ : 0;
+		return displayStride_;
 	}
 	GEBufferFormat DisplayFramebufFormat() const {
-		return displayFramebuf_ ? displayFormat_ : GE_FORMAT_INVALID;
+		return displayFormat_;
 	}
 
 	bool UseBufferedRendering() const {
