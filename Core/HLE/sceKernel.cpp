@@ -831,7 +831,7 @@ const HLEFunction ThreadManForUser[] =
 	{0X349B864D, &WrapI_IUU<sceKernelCancelMsgPipe>,                 "sceKernelCancelMsgPipe",                    'i', "ixx"     },
 	{0X33BE4024, &WrapI_IU<sceKernelReferMsgPipeStatus>,             "sceKernelReferMsgPipeStatus",               'i', "ip"      },
 
-	{0X56C039B5, &WrapI_CIUUU<sceKernelCreateVpl>,                   "sceKernelCreateVpl",                        'i', "sixxx"   },
+	{0X56C039B5, &WrapI_CIUUU<sceKernelCreateVpl>,                   "sceKernelCreateVpl",                        'i', "sixxp"   },
 	{0X89B3D48C, &WrapI_I<sceKernelDeleteVpl>,                       "sceKernelDeleteVpl",                        'i', "i"       },
 	{0XBED27435, &WrapI_IUUU<sceKernelAllocateVpl>,                  "sceKernelAllocateVpl",                      'i', "ixxx",   HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0XEC0A693F, &WrapI_IUUU<sceKernelAllocateVplCB>,                "sceKernelAllocateVplCB",                    'i', "ixxx",   HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
@@ -932,7 +932,7 @@ const HLEFunction ThreadManForKernel[] =
 	{0x0D81716A, &WrapI_IU<sceKernelPollMbx>,                        "sceKernelPollMbx",                          'i', "ix",     HLE_KERNEL_SYSCALL },
 	{0x87D4DD36, &WrapI_IU<sceKernelCancelReceiveMbx>,               "sceKernelCancelReceiveMbx",                 'i', "ix",     HLE_KERNEL_SYSCALL },
 	{0xA8E8C846, &WrapI_IU<sceKernelReferMbxStatus>,                 "sceKernelReferMbxStatus",                   'i', "ip",     HLE_KERNEL_SYSCALL },
-	{0x56C039B5, &WrapI_CIUUU<sceKernelCreateVpl>,                   "sceKernelCreateVpl",                        'i', "sixxx",  HLE_KERNEL_SYSCALL },
+	{0x56C039B5, &WrapI_CIUUU<sceKernelCreateVpl>,                   "sceKernelCreateVpl",                        'i', "sixxp",  HLE_KERNEL_SYSCALL },
 	{0x89B3D48C, &WrapI_I<sceKernelDeleteVpl>,                       "sceKernelDeleteVpl",                        'i', "i",      HLE_KERNEL_SYSCALL },
 	{0xBED27435, &WrapI_IUUU<sceKernelAllocateVpl>,                  "sceKernelAllocateVpl",                      'i', "ixxx",   HLE_KERNEL_SYSCALL | HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0xEC0A693F, &WrapI_IUUU<sceKernelAllocateVplCB>,                "sceKernelAllocateVplCB",                    'i', "ixxx",   HLE_KERNEL_SYSCALL | HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },

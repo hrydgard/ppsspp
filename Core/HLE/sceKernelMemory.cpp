@@ -1477,40 +1477,23 @@ static void __KernelSortVplThreads(VPL *vpl)
 		std::stable_sort(vpl->waitingThreads.begin(), vpl->waitingThreads.end(), __VplThreadSortPriority);
 }
 
-SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr)
-{
+SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr) {
 	if (!name)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateVpl(): invalid name", SCE_KERNEL_ERROR_ERROR);
-		return SCE_KERNEL_ERROR_ERROR;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ERROR, "invalid name");
 	if (partition < 1 || partition > 9 || partition == 7)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateVpl(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, partition);
-		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
-	}
-	// We only support user right now.
-	if (partition != 2 && partition != 6)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateVpl(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_PERM, partition);
-		return SCE_KERNEL_ERROR_ILLEGAL_PERM;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
+
+	BlockAllocator *allocator = BlockAllocatorFromID(partition);
+	if (allocator == nullptr)
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_PERM, "invalid partition %d", partition);
+
 	if (((attr & ~PSP_VPL_ATTR_KNOWN) & ~0xFF) != 0)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateVpl(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
-		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
 	if (vplSize == 0)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateVpl(): invalid size", SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE);
-		return SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid size");
 	// Block Allocator seems to A-OK this, let's stop it here.
 	if (vplSize >= 0x80000000)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateVpl(): way too big size", SCE_KERNEL_ERROR_NO_MEMORY);
-		return SCE_KERNEL_ERROR_NO_MEMORY;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "way too big size");
 
 	// Can't have that little space in a Vpl, sorry.
 	if (vplSize <= 0x30)
@@ -1519,12 +1502,9 @@ SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize
 
 	// We ignore the upalign to 256 and do it ourselves by 8.
 	u32 allocSize = vplSize;
-	u32 memBlockPtr = userMemory.Alloc(allocSize, (attr & PSP_VPL_ATTR_HIGHMEM) != 0, "VPL");
+	u32 memBlockPtr = allocator->Alloc(allocSize, (attr & PSP_VPL_ATTR_HIGHMEM) != 0, "VPL");
 	if (memBlockPtr == (u32)-1)
-	{
-		ERROR_LOG(SCEKERNEL, "sceKernelCreateVpl(): Failed to allocate %i bytes of pool data", vplSize);
-		return SCE_KERNEL_ERROR_NO_MEMORY;
-	}
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "failed to allocate %i bytes of pool data", vplSize);
 
 	VPL *vpl = new VPL;
 	SceUID id = kernelObjects.Create(vpl);
@@ -1568,7 +1548,10 @@ int sceKernelDeleteVpl(SceUID uid)
 		if (wokeThreads)
 			hleReSchedule("vpl deleted");
 
-		userMemory.Free(vpl->address);
+		BlockAllocator *alloc = BlockAllocatorFromAddr(vpl->address);
+		_assert_msg_(alloc != nullptr, "Should always have a valid allocator/address");
+		if (alloc)
+			alloc->Free(vpl->address);
 		kernelObjects.Destroy<VPL>(uid);
 		return 0;
 	}
