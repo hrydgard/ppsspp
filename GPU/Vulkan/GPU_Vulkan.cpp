@@ -52,7 +52,7 @@
 
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw), drawEngine_(draw) {
-	CheckGPUFeatures();
+	gstate_c.featureFlags = CheckGPUFeatures();
 
 	VulkanContext *vulkan = (VulkanContext *)gfxCtx->GetAPIContext();
 
@@ -182,8 +182,8 @@ GPU_Vulkan::~GPU_Vulkan() {
 	delete framebufferManagerVulkan_;
 }
 
-void GPU_Vulkan::CheckGPUFeatures() {
-	uint32_t features = 0;
+u32 GPU_Vulkan::CheckGPUFeatures() const {
+	uint32_t features = GPUCommon::CheckGPUFeatures();
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	switch (vulkan->GetPhysicalDeviceProperties().properties.vendorID) {
@@ -222,48 +222,13 @@ void GPU_Vulkan::CheckGPUFeatures() {
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	features |= GPU_SUPPORTS_BLEND_MINMAX;
-	features |= GPU_SUPPORTS_TEXTURE_NPOT;
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
-	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
-
-	// through input attachments, when not broken.
-	if (draw_->GetDeviceCaps().framebufferFetchSupported) {
-		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
-	}
 
 	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled;
 	if (enabledFeatures.depthClamp) {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
-	}
-	if (enabledFeatures.shaderClipDistance) {
-		features |= GPU_SUPPORTS_CLIP_DISTANCE;
-	}
-	if (enabledFeatures.shaderCullDistance) {
-		// Must support at least 8 if feature supported, so we're fine.
-		features |= GPU_SUPPORTS_CULL_DISTANCE;
-	}
-	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
-		// Ignore the compat setting if clip and cull are both enabled.
-		// When supported, we can do the depth side of range culling more correctly.
-		const bool supported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
-		const bool disabled = PSP_CoreParameter().compat.flags().DisableRangeCulling;
-		if (supported || !disabled) {
-			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
-		}
-	}
-	if (enabledFeatures.dualSrcBlend) {
-		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
-			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
-		}
-	}
-	if (draw_->GetDeviceCaps().logicOpSupported) {
-		features |= GPU_SUPPORTS_LOGIC_OP;
-	}
-	if (draw_->GetDeviceCaps().anisoSupported) {
-		features |= GPU_SUPPORTS_ANISOTROPY;
 	}
 
 	// These are VULKAN_4444_FORMAT and friends.
@@ -280,10 +245,6 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		INFO_LOG(G3D, "Deficient texture format support: 4444: %d  1555: %d  565: %d", fmt4444, fmt1555, fmt565);
 	}
 
-	if (PSP_CoreParameter().compat.flags().ClearToRAM) {
-		features |= GPU_USE_CLEAR_RAM_HACK;
-	}
-
 	if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 	}
@@ -295,7 +256,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
 	}
 
-	gstate_c.featureFlags = features;
+	return features;
 }
 
 void GPU_Vulkan::BeginHostFrame() {
@@ -303,7 +264,7 @@ void GPU_Vulkan::BeginHostFrame() {
 	UpdateCmdInfo();
 
 	if (resized_) {
-		CheckGPUFeatures();
+		gstate_c.featureFlags = CheckGPUFeatures();
 		// In case the GPU changed.
 		BuildReportingInfo();
 		framebufferManager_->Resized();
@@ -542,7 +503,7 @@ void GPU_Vulkan::DeviceRestore() {
 	GPUCommon::DeviceRestore();
 	InitDeviceObjects();
 
-	CheckGPUFeatures();
+	gstate_c.featureFlags = CheckGPUFeatures();
 	BuildReportingInfo();
 	UpdateCmdInfo();
 

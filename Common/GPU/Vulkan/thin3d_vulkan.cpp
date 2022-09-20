@@ -788,9 +788,11 @@ VKContext::VKContext(VulkanContext *vulkan)
 	caps_.fragmentShaderInt32Supported = true;
 	caps_.textureNPOTFullySupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
+	caps_.blendMinMaxSupported = true;
 	caps_.logicOpSupported = vulkan->GetDeviceFeatures().enabled.logicOp != 0;
 
 	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDeviceIndex()).properties;
+
 	switch (deviceProps.vendorID) {
 	case VULKAN_VENDOR_AMD: caps_.vendor = GPUVendor::VENDOR_AMD; break;
 	case VULKAN_VENDOR_ARM: caps_.vendor = GPUVendor::VENDOR_ARM; break;
