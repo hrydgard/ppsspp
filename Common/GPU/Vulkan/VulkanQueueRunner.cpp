@@ -563,6 +563,8 @@ void VulkanQueueRunner::RunSteps(FrameData &frameData, FrameDataShared &frameDat
 		switch (step.stepType) {
 		case VKRStepType::RENDER:
 			if (!step.render.framebuffer) {
+				frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared);
+
 				// When stepping in the GE debugger, we can end up here multiple times in a "frame".
 				// So only acquire once.
 				if (!frameData.hasAcquired) {
@@ -570,6 +572,7 @@ void VulkanQueueRunner::RunSteps(FrameData &frameData, FrameDataShared &frameDat
 					SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
 				}
 
+				_dbg_assert_(!frameData.hasPresentCommands);
 				// A RENDER step rendering to the backbuffer is normally the last step that happens in a frame,
 				// unless taking a screenshot, in which case there might be a READBACK_IMAGE after it.
 				// This is why we have to switch cmd to presentCmd, in this case.
