@@ -126,16 +126,16 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 		hasInitCommands = false;
 	}
 
+	if ((hasMainCommands || hasPresentCommands) && type == FrameSubmitType::Sync) {
+		fenceToTrigger = readbackFence;
+	}
+
 	if (hasMainCommands) {
 		VkResult res = vkEndCommandBuffer(mainCmd);
 		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (main)! result=%s", VulkanResultToString(res));
 
 		cmdBufs[numCmdBufs++] = mainCmd;
 		hasMainCommands = false;
-
-		if (type == FrameSubmitType::Sync) {
-			fenceToTrigger = readbackFence;
-		}
 	}
 
 	if (hasPresentCommands) {

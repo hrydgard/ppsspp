@@ -1997,6 +1997,9 @@ static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferForma
 				return true;
 			}
 			break;
+		case GE_FORMAT_CLUT8:
+			// Shouldn't happen here.
+			return false;
 		}
 		WARN_LOG(G3D, "Invalid CLUT/framebuffer combination: %s vs %s", GeTextureFormatToString(texFormat), GeBufferFormatToString(bufferFormat));
 		return false;

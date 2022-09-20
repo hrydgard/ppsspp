@@ -100,8 +100,7 @@ public:
 	const char *tag() const override { return "LogLevel"; }
 
 private:
-	virtual void OnCompleted(DialogResult result);
-
+	void OnCompleted(DialogResult result) override;
 };
 
 class SystemInfoScreen : public UIDialogScreenWithBackground {

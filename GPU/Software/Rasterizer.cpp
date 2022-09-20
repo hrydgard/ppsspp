@@ -1235,6 +1235,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 
 	case GE_FORMAT_INVALID:
 	case GE_FORMAT_DEPTH16:
+	case GE_FORMAT_CLUT8:
 		_dbg_assert_msg_(false, "Software: invalid framebuf format.");
 		break;
 	}
