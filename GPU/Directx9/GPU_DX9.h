@@ -35,7 +35,7 @@ public:
 	GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_DX9();
 
-	void CheckGPUFeatures() override;
+	u32 CheckGPUFeatures() const override;
 	void PreExecuteOp(u32 op, u32 diff) override;
 	void ExecuteOp(u32 op, u32 diff) override;
 

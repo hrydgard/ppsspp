@@ -665,14 +665,24 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 	}
 
-	if (!FAILED(device->GetDeviceCaps(&d3dCaps_))) {
+	D3DCAPS9 caps;
+	ZeroMemory(&caps, sizeof(caps));
+	HRESULT result = 0;
+	if (deviceEx_) {
+		result = deviceEx_->GetDeviceCaps(&caps);
+	} else {
+		result = device_->GetDeviceCaps(&caps);
+	}
+
+	if (SUCCEEDED(result)) {
 		sprintf(shadeLangVersion_, "PS: %04x VS: %04x", d3dCaps_.PixelShaderVersion & 0xFFFF, d3dCaps_.VertexShaderVersion & 0xFFFF);
 	} else {
+		WARN_LOG(G3D, "Direct3D9: Failed to get the device caps!");
 		strcpy(shadeLangVersion_, "N/A");
 	}
+
 	caps_.deviceID = identifier_.DeviceId;
 	caps_.multiViewport = false;
-	caps_.anisoSupported = true;
 	caps_.depthRangeMinusOneToOne = false;
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 	caps_.dualSourceBlend = false;
@@ -684,8 +694,15 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.framebufferDepthCopySupported = false;
 	caps_.framebufferSeparateDepthCopySupported = false;
 	caps_.texture3DSupported = true;
-	caps_.textureNPOTFullySupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
+	caps_.blendMinMaxSupported = true;
+
+	if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1) {
+		caps_.anisoSupported = true;
+	}
+	if ((caps.TextureCaps & (D3DPTEXTURECAPS_NONPOW2CONDITIONAL | D3DPTEXTURECAPS_POW2)) == 0) {
+		caps_.textureNPOTFullySupported = true;
+	}
 
 	if (d3d) {
 		D3DDISPLAYMODE displayMode;

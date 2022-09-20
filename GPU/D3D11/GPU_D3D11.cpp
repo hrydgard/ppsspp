@@ -82,7 +82,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
 	UpdateCmdInfo();
-	CheckGPUFeatures();
+	gstate_c.featureFlags = CheckGPUFeatures();
 
 	BuildReportingInfo();
 
@@ -100,25 +100,15 @@ GPU_D3D11::~GPU_D3D11() {
 	stockD3D11.Destroy();
 }
 
-void GPU_D3D11::CheckGPUFeatures() {
-	u32 features = 0;
-
-	features |= GPU_SUPPORTS_BLEND_MINMAX;
+u32 GPU_D3D11::CheckGPUFeatures() const {
+	u32 features = GPUCommon::CheckGPUFeatures();
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
 	// TODO: Breaks text in PaRappa for some reason?
 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 
-#ifndef _M_ARM
-	// TODO: Do proper feature detection
-	features |= GPU_SUPPORTS_ANISOTROPY;
-#endif
-
 	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
-	features |= GPU_SUPPORTS_TEXTURE_NPOT;
-	if (draw_->GetDeviceCaps().dualSourceBlend)
-		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	if (draw_->GetDeviceCaps().depthClampSupported)
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 	if (draw_->GetDeviceCaps().clipDistanceSupported)
@@ -146,10 +136,6 @@ void GPU_D3D11::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_16BIT_FORMATS;
 	}
 
-	if (draw_->GetDeviceCaps().logicOpSupported) {
-		features |= GPU_SUPPORTS_LOGIC_OP;
-	}
-
 	if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 	} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
@@ -164,11 +150,7 @@ void GPU_D3D11::CheckGPUFeatures() {
 		features |= GPU_USE_DEPTH_RANGE_HACK;
 	}
 
-	if (PSP_CoreParameter().compat.flags().ClearToRAM) {
-		features |= GPU_USE_CLEAR_RAM_HACK;
-	}
-
-	gstate_c.featureFlags = features;
+	return features;
 }
 
 // Needs to be called on GPU thread, not reporting thread.
@@ -206,7 +188,7 @@ void GPU_D3D11::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
 	if (resized_) {
-		CheckGPUFeatures();
+		gstate_c.featureFlags = CheckGPUFeatures();
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		textureCache_->NotifyConfigChanged();

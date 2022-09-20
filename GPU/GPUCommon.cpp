@@ -3153,3 +3153,30 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		vertexAverageCycles
 	);
 }
+
+u32 GPUCommon::CheckGPUFeatures() const {
+	u32 features = 0;
+	if (draw_->GetDeviceCaps().logicOpSupported) {
+		features |= GPU_SUPPORTS_LOGIC_OP;
+	}
+	if (draw_->GetDeviceCaps().anisoSupported) {
+		features |= GPU_SUPPORTS_ANISOTROPY;
+	}
+	if (draw_->GetDeviceCaps().textureNPOTFullySupported) {
+		features |= GPU_SUPPORTS_TEXTURE_NPOT;
+	}
+	if (draw_->GetDeviceCaps().dualSourceBlend) {
+		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
+			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+		}
+	}
+	if (draw_->GetDeviceCaps().blendMinMaxSupported) {
+		features |= GPU_SUPPORTS_BLEND_MINMAX;
+	}
+
+	if (PSP_CoreParameter().compat.flags().ClearToRAM) {
+		features |= GPU_USE_CLEAR_RAM_HACK;
+	}
+
+	return features;
+}

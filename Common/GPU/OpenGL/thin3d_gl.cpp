@@ -552,6 +552,8 @@ OpenGLContext::OpenGLContext() {
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
 	caps_.framebufferStencilBlitSupported = caps_.framebufferBlitSupported;
 	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp;
+	caps_.blendMinMaxSupported = gl_extensions.EXT_blend_minmax;
+
 	if (gl_extensions.IsGLES) {
 		caps_.clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
 		caps_.cullDistanceSupported = gl_extensions.EXT_clip_cull_distance;

@@ -127,7 +127,7 @@ public:
 	SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~SoftGPU();
 
-	void CheckGPUFeatures() override {}
+	u32 CheckGPUFeatures() const override { return 0; }
 	void InitClear() override {}
 	void ExecuteOp(u32 op, u32 diff) override;
 	void FinishDeferred() override;

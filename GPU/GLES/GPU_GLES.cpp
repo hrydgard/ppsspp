@@ -54,7 +54,7 @@
 GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw), drawEngine_(draw), fragmentTestCache_(draw) {
 	UpdateVsyncInterval(true);
-	CheckGPUFeatures();
+	gstate_c.featureFlags = CheckGPUFeatures();
 
 	shaderManagerGL_ = new ShaderManagerGLES(draw);
 	framebufferManagerGL_ = new FramebufferManagerGLES(draw);
@@ -148,16 +148,10 @@ GPU_GLES::~GPU_GLES() {
 // Take the raw GL extension and versioning data and turn into feature flags.
 // TODO: This should use DrawContext::GetDeviceCaps() more and more, and eventually
 // this can be shared between all the backends.
-void GPU_GLES::CheckGPUFeatures() {
-	u32 features = 0;
+u32 GPU_GLES::CheckGPUFeatures() const {
+	u32 features = GPUCommon::CheckGPUFeatures();
 
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
-
-	if (draw_->GetDeviceCaps().dualSourceBlend) {
-		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
-			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
-		}
-	}
 
 	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
 		// This has caused problems in the past.  Let's only enable on GLES3.
@@ -168,15 +162,6 @@ void GPU_GLES::CheckGPUFeatures() {
 
 	if ((gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD))
 		features |= GPU_PREFER_REVERSE_COLOR_ORDER;
-
-	if (draw_->GetDeviceCaps().textureNPOTFullySupported)
-		features |= GPU_SUPPORTS_TEXTURE_NPOT;
-
-	if (gl_extensions.EXT_blend_minmax)
-		features |= GPU_SUPPORTS_BLEND_MINMAX;
-
-	if (draw_->GetDeviceCaps().logicOpSupported)
-		features |= GPU_SUPPORTS_LOGIC_OP;
 
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
@@ -245,11 +230,7 @@ void GPU_GLES::CheckGPUFeatures() {
 		features |= GPU_USE_DEPTH_RANGE_HACK;
 	}
 
-	if (PSP_CoreParameter().compat.flags().ClearToRAM) {
-		features |= GPU_USE_CLEAR_RAM_HACK;
-	}
-
-	gstate_c.featureFlags = features;
+	return features;
 }
 
 bool GPU_GLES::IsReady() {
@@ -321,7 +302,7 @@ void GPU_GLES::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
 	if (resized_) {
-		CheckGPUFeatures();
+		gstate_c.featureFlags = CheckGPUFeatures();
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		shaderManagerGL_->DirtyShader();

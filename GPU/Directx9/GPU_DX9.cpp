@@ -81,7 +81,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
 	UpdateCmdInfo();
-	CheckGPUFeatures();
+	gstate_c.featureFlags = CheckGPUFeatures();
 
 	BuildReportingInfo();
 
@@ -155,10 +155,9 @@ static NVIDIAGeneration NVIDIAGetDeviceGeneration(int deviceID) {
 	return NV_PRE_KEPLER;
 }
 
-void GPU_DX9::CheckGPUFeatures() {
-	u32 features = 0;
+u32 GPU_DX9::CheckGPUFeatures() const {
+	u32 features = GPUCommon::CheckGPUFeatures();
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
-	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
@@ -187,23 +186,6 @@ void GPU_DX9::CheckGPUFeatures() {
 		}
 	}
 
-	D3DCAPS9 caps;
-	ZeroMemory(&caps, sizeof(caps));
-	HRESULT result = 0;
-	if (deviceEx_) {
-		result = deviceEx_->GetDeviceCaps(&caps);
-	} else {
-		result = device_->GetDeviceCaps(&caps);
-	}
-	if (FAILED(result)) {
-		WARN_LOG_REPORT(G3D, "Direct3D9: Failed to get the device caps!");
-	} else {
-		if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1)
-			features |= GPU_SUPPORTS_ANISOTROPY;
-		if ((caps.TextureCaps & (D3DPTEXTURECAPS_NONPOW2CONDITIONAL | D3DPTEXTURECAPS_POW2)) == 0)
-			features |= GPU_SUPPORTS_TEXTURE_NPOT;
-	}
-
 	if (!g_Config.bHighQualityDepth) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 	} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
@@ -213,11 +195,7 @@ void GPU_DX9::CheckGPUFeatures() {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
 	}
 
-	if (PSP_CoreParameter().compat.flags().ClearToRAM) {
-		features |= GPU_USE_CLEAR_RAM_HACK;
-	}
-
-	gstate_c.featureFlags = features;
+	return features;
 }
 
 GPU_DX9::~GPU_DX9() {
@@ -261,7 +239,7 @@ void GPU_DX9::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
 	if (resized_) {
-		CheckGPUFeatures();
+		gstate_c.featureFlags = CheckGPUFeatures();
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		shaderManagerDX9_->DirtyShader();
