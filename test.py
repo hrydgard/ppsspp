@@ -209,6 +209,7 @@ tests_good = [
   "sysmem/freesize",
   "sysmem/memblock",
   "sysmem/sysmem",
+  "sysmem/volatile",
   "threads/alarm/alarm",
   "threads/alarm/cancel/cancel",
   "threads/alarm/refer/refer",
