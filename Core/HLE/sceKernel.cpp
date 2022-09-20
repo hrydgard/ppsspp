@@ -864,7 +864,7 @@ const HLEFunction ThreadManForUser[] =
 	{0XD8B299AE, &WrapU_IUUU<sceKernelSetVTimerHandler>,             "sceKernelSetVTimerHandler",                 'x', "ixxx"    },
 	{0X53B00E9A, &WrapU_IU64UU<sceKernelSetVTimerHandlerWide>,       "sceKernelSetVTimerHandlerWide",             'x', "iXxx"    },
 
-	{0X8DAFF657, &WrapI_CUUUUU<sceKernelCreateTlspl>,                "sceKernelCreateTlspl",                      'i', "sxxxxx"  },
+	{0X8DAFF657, &WrapI_CUUUUU<sceKernelCreateTlspl>,                "sceKernelCreateTlspl",                      'i', "sixxxp"  },
 	{0X32BF938E, &WrapI_I<sceKernelDeleteTlspl>,                     "sceKernelDeleteTlspl",                      'i', "i"       },
 	{0X721067F3, &WrapI_IU<sceKernelReferTlsplStatus>,               "sceKernelReferTlsplStatus",                 'i', "xp"      },
 	// Not completely certain about args.

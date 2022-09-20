@@ -2053,29 +2053,17 @@ void __KernelTlsplThreadEnd(SceUID threadID)
 	tlsplThreadEndChecks.erase(locked.first, locked.second);
 }
 
-SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 blockSize, u32 count, u32 optionsPtr)
-{
+SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 blockSize, u32 count, u32 optionsPtr) {
 	if (!name)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateTlspl(): invalid name", SCE_KERNEL_ERROR_NO_MEMORY);
-		return SCE_KERNEL_ERROR_NO_MEMORY;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
 	if ((attr & ~PSP_TLSPL_ATTR_KNOWN) >= 0x100)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateTlspl(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
-		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
 	if (partition < 1 || partition > 9 || partition == 7)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateTlspl(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, partition);
-		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
-	}
-	// We only support user right now.
-	if (partition != 2 && partition != 6)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateTlspl(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_PERM, partition);
-		return SCE_KERNEL_ERROR_ILLEGAL_PERM;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
+
+	BlockAllocator *allocator = BlockAllocatorFromID(partition);
+	if (allocator == nullptr)
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_PERM, "invalid partition %x", partition);
 
 	// There's probably a simpler way to get this same basic formula...
 	// This is based on results from a PSP.
@@ -2085,41 +2073,29 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 	if (!illegalMemSize && (u64) count >= 0x100000000ULL / (((u64) blockSize + 3ULL) & ~3ULL))
 		illegalMemSize = true;
 	if (illegalMemSize)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateTlspl(): invalid blockSize/count", SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE);
-		return SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid blockSize/count");
 
 	int index = -1;
-	for (int i = 0; i < TLSPL_NUM_INDEXES; ++i)
-		if (tlsplUsedIndexes[i] == false)
-		{
+	for (int i = 0; i < TLSPL_NUM_INDEXES; ++i) {
+		if (tlsplUsedIndexes[i] == false) {
 			index = i;
 			break;
 		}
+	}
 
 	if (index == -1)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateTlspl(): ran out of indexes for TLS pools", PSP_ERROR_TOO_MANY_TLSPL);
-		return PSP_ERROR_TOO_MANY_TLSPL;
-	}
+		return hleLogWarning(SCEKERNEL, PSP_ERROR_TOO_MANY_TLSPL, "ran out of indexes for TLS pools");
 
 	// Unless otherwise specified, we align to 4 bytes (a mips word.)
 	u32 alignment = 4;
-	if (optionsPtr != 0)
-	{
-		u32 size = Memory::Read_U32(optionsPtr);
-		if (size > 8)
-			WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateTlspl(%s) unsupported options parameter, size = %d", name, size);
+	if (Memory::IsValidRange(optionsPtr, 4)) {
+		u32 size = Memory::ReadUnchecked_U32(optionsPtr);
 		if (size >= 8)
 			alignment = Memory::Read_U32(optionsPtr + 4);
 
 		// Note that 0 intentionally is allowed.
 		if ((alignment & (alignment - 1)) != 0)
-		{
-			ERROR_LOG_REPORT(SCEKERNEL, "sceKernelCreateTlspl(%s): alignment is not a power of 2: %d", name, alignment);
-			return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
-		}
+			return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "alignment is not a power of 2: %d", alignment);
 		// This goes for 0, 1, and 2.  Can't have less than 4 byte alignment.
 		if (alignment < 4)
 			alignment = 4;
@@ -2129,16 +2105,13 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 	u32 alignedSize = (blockSize + alignment - 1) & ~(alignment - 1);
 
 	u32 totalSize = alignedSize * count;
-	u32 blockPtr = userMemory.Alloc(totalSize, (attr & PSP_TLSPL_ATTR_HIGHMEM) != 0, name);
+	u32 blockPtr = allocator->Alloc(totalSize, (attr & PSP_TLSPL_ATTR_HIGHMEM) != 0, name);
 #ifdef _DEBUG
-	userMemory.ListBlocks();
+	allocator->ListBlocks();
 #endif
 
-	if (blockPtr == (u32) -1)
-	{
-		ERROR_LOG(SCEKERNEL, "%08x=sceKernelCreateTlspl(%s, %d, %08x, %d, %d, %08x): failed to allocate memory", SCE_KERNEL_ERROR_NO_MEMORY, name, partition, attr, blockSize, count, optionsPtr);
-		return SCE_KERNEL_ERROR_NO_MEMORY;
-	}
+	if (blockPtr == (u32)-1)
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "failed to allocate memory");
 
 	TLSPL *tls = new TLSPL();
 	SceUID id = kernelObjects.Create(tls);
@@ -2157,9 +2130,7 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 	tls->alignment = alignment;
 	tls->usage.resize(count, 0);
 
-	WARN_LOG(SCEKERNEL, "%08x=sceKernelCreateTlspl(%s, %d, %08x, %d, %d, %08x)", id, name, partition, attr, blockSize, count, optionsPtr);
-
-	return id;
+	return hleLogSuccessInfoI(SCEKERNEL, id);
 }
 
 int sceKernelDeleteTlspl(SceUID uid)
@@ -2187,7 +2158,10 @@ int sceKernelDeleteTlspl(SceUID uid)
 			HLEKernel::ResumeFromWait(threadID, WAITTYPE_TLSPL, uid, 0);
 		hleReSchedule("deleted tlspl");
 
-		userMemory.Free(tls->address);
+		BlockAllocator *allocator = BlockAllocatorFromAddr(tls->address);
+		_assert_msg_(allocator != nullptr, "Should always have a valid allocator/address");
+		if (allocator)
+			allocator->Free(tls->address);
 		tlsplUsedIndexes[tls->ntls.index] = false;
 		kernelObjects.Destroy<TLSPL>(uid);
 	}
