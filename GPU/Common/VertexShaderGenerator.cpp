@@ -1206,14 +1206,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// Everywhere else, it's 0 -> 1, simpler.
 			WRITE(p, "  if (u_depthRange.y >= 1.0) {\n");
 		}
-		WRITE(p, "    %sgl_ClipDistance%s = integerZ;\n", compat.vsOutPrefix, clip0);
+		WRITE(p, "    %sgl_ClipDistance%s = integerZ * outPos.w;\n", compat.vsOutPrefix, clip0);
 		WRITE(p, "  } else {\n");
 		WRITE(p, "    %sgl_ClipDistance%s = 0.0;\n", compat.vsOutPrefix, clip0);
 		WRITE(p, "  }\n");
 
 		// This is similar, but for maxz when it's below 65535.0.  -1/0 don't matter here.
 		WRITE(p, "  if (u_depthRange.x + u_depthRange.y <= 65534.0) {\n");
-		WRITE(p, "    %sgl_ClipDistance%s = 65535.0 - integerZ;\n", compat.vsOutPrefix, clip1);
+		WRITE(p, "    %sgl_ClipDistance%s = (65535.0 - integerZ) * outPos.w;\n", compat.vsOutPrefix, clip1);
 		WRITE(p, "  } else {\n");
 		WRITE(p, "    %sgl_ClipDistance%s = 0.0;\n", compat.vsOutPrefix, clip1);
 		WRITE(p, "  }\n");
