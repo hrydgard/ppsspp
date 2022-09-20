@@ -539,6 +539,17 @@ static int BlockAllocatorToID(const BlockAllocator *alloc) {
 	return 0;
 }
 
+static BlockAllocator *BlockAllocatorFromAddr(u32 addr) {
+	addr &= 0x3FFFFFFF;
+	if (Memory::IsKernelAndNotVolatileAddress(addr))
+		return &kernelMemory;
+	if (Memory::IsKernelAddress(addr))
+		return &volatileMemory;
+	if (Memory::IsRAMAddress(addr))
+		return &userMemory;
+	return nullptr;
+}
+
 enum SceKernelFplAttr
 {
 	PSP_FPL_ATTR_FIFO     = 0x0000,
@@ -624,29 +635,18 @@ static void __KernelSortFplThreads(FPL *fpl)
 		std::stable_sort(fpl->waitingThreads.begin(), fpl->waitingThreads.end(), __FplThreadSortPriority);
 }
 
-int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 numBlocks, u32 optPtr)
-{
+int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 numBlocks, u32 optPtr) {
 	if (!name)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateFpl(): invalid name", SCE_KERNEL_ERROR_NO_MEMORY);
-		return SCE_KERNEL_ERROR_NO_MEMORY;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
 	if (mpid < 1 || mpid > 9 || mpid == 7)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateFpl(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, mpid);
-		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
-	}
-	// We only support user right now.
-	if (mpid != 2 && mpid != 6)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateFpl(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_PERM, mpid);
-		return SCE_KERNEL_ERROR_ILLEGAL_PERM;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", mpid);
+
+	BlockAllocator *allocator = BlockAllocatorFromID(mpid);
+	if (allocator == nullptr)
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_PERM, "invalid partition %d", mpid);
 	if (((attr & ~PSP_FPL_ATTR_KNOWN) & ~0xFF) != 0)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateFpl(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
-		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
+
 	// There's probably a simpler way to get this same basic formula...
 	// This is based on results from a PSP.
 	bool illegalMemSize = blockSize == 0 || numBlocks == 0;
@@ -655,25 +655,16 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 	if (!illegalMemSize && (u64) numBlocks >= 0x100000000ULL / (((u64) blockSize + 3ULL) & ~3ULL))
 		illegalMemSize = true;
 	if (illegalMemSize)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateFpl(): invalid blockSize/count", SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE);
-		return SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE;
-	}
+		return hleReportWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid blockSize/count");
 
 	int alignment = 4;
-	if (optPtr != 0)
-	{
-		u32 size = Memory::Read_U32(optPtr);
-		if (size > 8)
-			WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateFpl(): unsupported extra options, size = %d", size);
+	if (Memory::IsValidRange(optPtr, 4)) {
+		u32 size = Memory::ReadUnchecked_U32(optPtr);
 		if (size >= 4)
 			alignment = Memory::Read_U32(optPtr + 4);
 		// Must be a power of 2 to be valid.
 		if ((alignment & (alignment - 1)) != 0)
-		{
-			WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateFpl(): invalid alignment %d", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, alignment);
-			return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
-		}
+			return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid alignment %d", alignment);
 	}
 
 	if (alignment < 4)
@@ -682,9 +673,8 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 	int alignedSize = ((int)blockSize + alignment - 1) & ~(alignment - 1);
 	u32 totalSize = alignedSize * numBlocks;
 	bool atEnd = (attr & PSP_FPL_ATTR_HIGHMEM) != 0;
-	u32 address = userMemory.Alloc(totalSize, atEnd, "FPL");
-	if (address == (u32)-1)
-	{
+	u32 address = allocator->Alloc(totalSize, atEnd, "FPL");
+	if (address == (u32)-1) {
 		DEBUG_LOG(SCEKERNEL, "sceKernelCreateFpl(\"%s\", partition=%i, attr=%08x, bsize=%i, nb=%i) FAILED - out of ram", 
 			name, mpid, attr, blockSize, numBlocks);
 		return SCE_KERNEL_ERROR_NO_MEMORY;
@@ -726,7 +716,10 @@ int sceKernelDeleteFpl(SceUID uid)
 		if (wokeThreads)
 			hleReSchedule("fpl deleted");
 
-		userMemory.Free(fpl->address);
+		BlockAllocator *alloc = BlockAllocatorFromAddr(fpl->address);
+		_assert_msg_(alloc != nullptr, "Should always have a valid allocator/address");
+		if (alloc)
+			alloc->Free(fpl->address);
 		return kernelObjects.Destroy<FPL>(uid);
 	}
 	else

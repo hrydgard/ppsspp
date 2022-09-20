@@ -840,7 +840,7 @@ const HLEFunction ThreadManForUser[] =
 	{0X1D371B8A, &WrapI_IU<sceKernelCancelVpl>,                      "sceKernelCancelVpl",                        'i', "ix"      },
 	{0X39810265, &WrapI_IU<sceKernelReferVplStatus>,                 "sceKernelReferVplStatus",                   'i', "ip"      },
 
-	{0XC07BB470, &WrapI_CUUUUU<sceKernelCreateFpl>,                  "sceKernelCreateFpl",                        'i', "sxxxxx"  },
+	{0XC07BB470, &WrapI_CUUUUU<sceKernelCreateFpl>,                  "sceKernelCreateFpl",                        'i', "sixxxp"  },
 	{0XED1410E0, &WrapI_I<sceKernelDeleteFpl>,                       "sceKernelDeleteFpl",                        'i', "i"       },
 	{0XD979E9BF, &WrapI_IUU<sceKernelAllocateFpl>,                   "sceKernelAllocateFpl",                      'i', "ixx",    HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0XE7282CB6, &WrapI_IUU<sceKernelAllocateFplCB>,                 "sceKernelAllocateFplCB",                    'i', "ixx",    HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
@@ -908,7 +908,7 @@ const HLEFunction ThreadManForKernel[] =
 	{0x1fb15a32, &WrapU_IU<sceKernelSetEventFlag>,                   "sceKernelSetEventFlag",                     'x', "ix",     HLE_KERNEL_SYSCALL },
 	{0x812346e4, &WrapU_IU<sceKernelClearEventFlag>,                 "sceKernelClearEventFlag",                   'x', "ix",     HLE_KERNEL_SYSCALL },
 	{0x402fcf22, &WrapI_IUUUU<sceKernelWaitEventFlag>,               "sceKernelWaitEventFlag",                    'i', "ixxpp",  HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL},
-	{0xc07bb470, &WrapI_CUUUUU<sceKernelCreateFpl>,                  "sceKernelCreateFpl",                        'i', "sxxxxx" ,HLE_KERNEL_SYSCALL },
+	{0xc07bb470, &WrapI_CUUUUU<sceKernelCreateFpl>,                  "sceKernelCreateFpl",                        'i', "sixxxp" ,HLE_KERNEL_SYSCALL },
 	{0xed1410e0, &WrapI_I<sceKernelDeleteFpl>,                       "sceKernelDeleteFpl",                        'i', "i"      ,HLE_KERNEL_SYSCALL },
 	{0x623ae665, &WrapI_IU<sceKernelTryAllocateFpl>,                 "sceKernelTryAllocateFpl",                   'i', "ix"     ,HLE_KERNEL_SYSCALL },
 	{0x616403ba, &WrapI_I<sceKernelTerminateThread>,                 "sceKernelTerminateThread",                  'i', "i"      ,HLE_KERNEL_SYSCALL },
