@@ -46,6 +46,7 @@ const int TLSPL_NUM_INDEXES = 16;
 // STATE BEGIN
 BlockAllocator userMemory(256);
 BlockAllocator kernelMemory(256);
+BlockAllocator volatileMemory(256);
 
 static int vplWaitTimer = -1;
 static int fplWaitTimer = -1;
@@ -432,6 +433,7 @@ void __KernelMemoryInit()
 	MemBlockInfoInit();
 	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase(), false);
 	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase(), false);
+	volatileMemory.Init(PSP_GetVolatileMemoryStart(), PSP_GetVolatileMemoryEnd() - PSP_GetVolatileMemoryStart(), false);
 	ParallelMemset(&g_threadManager, Memory::GetPointerWrite(PSP_GetKernelMemoryBase()), 0, PSP_GetUserMemoryEnd() - PSP_GetKernelMemoryBase());
 	NotifyMemInfo(MemBlockFlags::WRITE, PSP_GetKernelMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetKernelMemoryBase(), "MemInit");
 	INFO_LOG(SCEKERNEL, "Kernel and user memory pools initialized");
@@ -457,12 +459,14 @@ void __KernelMemoryInit()
 
 void __KernelMemoryDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelMemory", 1, 2);
+	auto s = p.Section("sceKernelMemory", 1, 3);
 	if (!s)
 		return;
 
 	kernelMemory.DoState(p);
 	userMemory.DoState(p);
+	if (s >= 3)
+		volatileMemory.DoState(p);
 
 	Do(p, vplWaitTimer);
 	CoreTiming::RestoreRegisterEvent(vplWaitTimer, "VplTimeout", __KernelVplTimeout);
@@ -482,6 +486,11 @@ void __KernelMemoryDoState(PointerWrap &p)
 void __KernelMemoryShutdown()
 {
 #ifdef _DEBUG
+	INFO_LOG(SCEKERNEL, "Shutting down volatile memory pool: ");
+	volatileMemory.ListBlocks();
+#endif
+	volatileMemory.Shutdown();
+#ifdef _DEBUG
 	INFO_LOG(SCEKERNEL,"Shutting down user memory pool: ");
 	userMemory.ListBlocks();
 #endif
@@ -493,6 +502,41 @@ void __KernelMemoryShutdown()
 	kernelMemory.Shutdown();
 	tlsplThreadEndChecks.clear();
 	MemBlockInfoShutdown();
+}
+
+static BlockAllocator *BlockAllocatorFromID(int id) {
+	switch (id) {
+	case 1:
+	case 3:
+	case 4:
+		if (hleIsKernelMode())
+			return &kernelMemory;
+		return nullptr;
+
+	case 2:
+	case 6:
+	case 8:
+	case 10:
+		return &userMemory;
+
+	case 5:
+		return &volatileMemory;
+
+	default:
+		break;
+	}
+
+	return nullptr;
+}
+
+static int BlockAllocatorToID(const BlockAllocator *alloc) {
+	if (alloc == &kernelMemory)
+		return 1;
+	if (alloc == &userMemory)
+		return 2;
+	if (alloc == &volatileMemory)
+		return 5;
+	return 0;
 }
 
 enum SceKernelFplAttr
@@ -955,18 +999,23 @@ public:
 			alloc->Free(address);
 	}
 	bool IsValid() {return address != (u32)-1;}
-	BlockAllocator *alloc;
 
 	void DoState(PointerWrap &p) override
 	{
-		auto s = p.Section("PMB", 1);
+		auto s = p.Section("PMB", 1, 2);
 		if (!s)
 			return;
 
 		Do(p, address);
 		DoArray(p, name, sizeof(name));
+		if (s >= 2) {
+			int allocType = BlockAllocatorToID(alloc);
+			Do(p, allocType);
+			alloc = BlockAllocatorFromID(allocType);
+		}
 	}
 
+	BlockAllocator *alloc;
 	u32 address;
 	char name[32];
 };
@@ -986,44 +1035,28 @@ static u32 sceKernelTotalFreeMemSize()
 	return retVal;
 }
 
-int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr)
-{
-	if (name == NULL)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelAllocPartitionMemory(): invalid name", SCE_KERNEL_ERROR_ERROR);
-		return SCE_KERNEL_ERROR_ERROR;
-	}
-	if (size == 0)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelAllocPartitionMemory(): invalid size %x", SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED, size);
-		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr) {
+	if (type < PSP_SMEM_Low || type > PSP_SMEM_HighAligned)
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE, "invalid type %x", type);
+	// Alignment is only allowed for powers of 2.
+	if (type == PSP_SMEM_LowAligned || type == PSP_SMEM_HighAligned) {
+		if ((addr & (addr - 1)) != 0 || addr == 0)
+			return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE, "invalid alignment %x", addr);
 	}
 	if (partition < 1 || partition > 9 || partition == 7)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelAllocPartitionMemory(): invalid partition %x", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, partition);
-		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
-	}
-	// We only support user right now.
-	if (partition != 2 && partition != 5 && partition != 6)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelAllocPartitionMemory(): invalid partition %x", SCE_KERNEL_ERROR_ILLEGAL_PARTITION, partition);
-		return SCE_KERNEL_ERROR_ILLEGAL_PARTITION;
-	}
-	if (type < PSP_SMEM_Low || type > PSP_SMEM_HighAligned)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelAllocPartitionMemory(): invalid type %x", SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE, type);
-		return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
-	}
-	// Alignment is only allowed for powers of 2.
-	if ((type == PSP_SMEM_LowAligned || type == PSP_SMEM_HighAligned) && ((addr & (addr - 1)) != 0 || addr == 0))
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelAllocPartitionMemory(): invalid alignment %x", SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE, addr);
-		return SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %x", partition);
 
-	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, name, size, (MemblockType)type, addr);
-	if (!block->IsValid())
-	{
+	BlockAllocator *allocator = BlockAllocatorFromID(partition);
+	if (allocator == nullptr)
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_PARTITION, "invalid partition %x", partition);
+
+	if (name == nullptr)
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ERROR, "invalid name");
+	if (size == 0)
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED, "invalid size %x", size);
+
+	PartitionMemoryBlock *block = new PartitionMemoryBlock(allocator, name, size, (MemblockType)type, addr);
+	if (!block->IsValid()) {
 		delete block;
 		ERROR_LOG(SCEKERNEL, "sceKernelAllocPartitionMemory(partition = %i, %s, type= %i, size= %i, addr= %08x): allocation failed", partition, name, type, size, addr);
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
