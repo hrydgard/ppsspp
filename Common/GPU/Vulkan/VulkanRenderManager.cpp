@@ -1211,8 +1211,9 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	_dbg_assert_(!frameData.hasPresentCommands);
 	frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared_);
 
-	if (!frameData.hasBegun) {
+	if (!frameData.hasMainCommands) {
 		// Effectively resets both main and present command buffers, since they both live in this pool.
+		// We always record main commands first, so we don't need to reset the present command buffer separately.
 		vkResetCommandPool(vulkan_->GetDevice(), frameData.cmdPoolMain, 0);
 
 		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
@@ -1220,26 +1221,14 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
 		frameData.hasMainCommands = true;
 		_assert_msg_(res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%s", VulkanResultToString(res));
-
-		frameData.hasBegun = true;
 	}
-}
-
-// Called on the render thread.
-void VulkanRenderManager::Submit(int frame, FrameSubmitType submitType) {
-	FrameData &frameData = frameData_[frame];
-
-	// Submit the main and final cmdbuf, ending by signalling the fence.
-	// If any init commands left unsubmitted (like by a frame sync etc), they'll also tag along.
-	frameData.SubmitPending(vulkan_, submitType, frameDataShared_);
 }
 
 // Called on the render thread.
 void VulkanRenderManager::EndSubmitFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
-	frameData.hasBegun = false;
 
-	Submit(frame, FrameSubmitType::Present);
+	frameData.SubmitPending(vulkan_, FrameSubmitType::Present, frameDataShared_);
 
 	if (!frameData.skipSwap) {
 		VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
@@ -1265,20 +1254,12 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 void VulkanRenderManager::EndSyncFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 
-	// The submit will trigger the readbackFence, and wait.
-	Submit(frame, FrameSubmitType::Sync);
+	// The submit will trigger the readbackFence, and also do the wait for it.
+	frameData.SubmitPending(vulkan_, FrameSubmitType::Sync, frameDataShared_);
 
 	// At this point we can resume filling the command buffers for the current frame since
 	// we know the device is idle - and thus all previously enqueued command buffers have been processed.
-	// No need to switch to the next frame number.
-	VkCommandBufferBeginInfo begin{
-		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		nullptr,
-		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-	};
-	_dbg_assert_(!frameData.hasPresentCommands);  // Readbacks should happen before we try to submit any present commands.
-	frameData.hasBegun = false;  // We're gonna record a new main command buffer.
-
+	// No need to switch to the next frame number, would just be confusing.
 	std::unique_lock<std::mutex> lock(frameData.push_mutex);
 	frameData.readyForFence = true;
 	frameData.push_condVar.notify_all();

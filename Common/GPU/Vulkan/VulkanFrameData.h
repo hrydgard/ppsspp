@@ -73,7 +73,6 @@ struct FrameData {
 	std::vector<VKRStep *> steps;
 
 	// Swapchain.
-	bool hasBegun = false;
 	uint32_t curSwapchainImage = -1;
 
 	// Profiling.
