@@ -1012,6 +1012,7 @@ private:
 		bool readyForFence = true;
 		bool readyForRun = false;
 		bool readyForSubmit = false;
+
 		bool skipSwap = false;
 		GLRRunType type = GLRRunType::END;
 

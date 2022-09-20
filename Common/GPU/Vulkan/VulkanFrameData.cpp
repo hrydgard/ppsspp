@@ -49,91 +49,146 @@ void FrameData::Destroy(VulkanContext *vulkan) {
 }
 
 void FrameData::AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared) {
+	_dbg_assert_(!hasAcquired);
+
 	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
 	VkResult res = vkAcquireNextImageKHR(vulkan->GetDevice(), vulkan->GetSwapchain(), UINT64_MAX, shared.acquireSemaphore, (VkFence)VK_NULL_HANDLE, &curSwapchainImage);
-	if (res == VK_SUBOPTIMAL_KHR) {
+	switch (res) {
+	case VK_SUCCESS:
+		hasAcquired = true;
+		break;
+	case VK_SUBOPTIMAL_KHR:
+		hasAcquired = true;
 		// Hopefully the resize will happen shortly. Ignore - one frame might look bad or something.
 		WARN_LOG(G3D, "VK_SUBOPTIMAL_KHR returned - ignoring");
-	} else if (res == VK_ERROR_OUT_OF_DATE_KHR) {
-		WARN_LOG(G3D, "VK_ERROR_OUT_OF_DATE_KHR returned - processing the frame, but not presenting");
+		break;
+	case VK_ERROR_OUT_OF_DATE_KHR:
+		// We do not set hasAcquired here!
+		WARN_LOG(G3D, "VK_ERROR_OUT_OF_DATE_KHR returned from AcquireNextImage - processing the frame, but not presenting");
 		skipSwap = true;
-	} else {
-		_assert_msg_(res == VK_SUCCESS, "vkAcquireNextImageKHR failed! result=%s", VulkanResultToString(res));
+		break;
+	default:
+		// Weird, shouldn't get any other values. Maybe lost device?
+		_assert_msg_(false, "vkAcquireNextImageKHR failed! result=%s", VulkanResultToString(res));
+		break;
 	}
 }
 
-void FrameData::SubmitInitCommands(VulkanContext *vulkan) {
+VkResult FrameData::QueuePresent(VulkanContext *vulkan, FrameDataShared &shared) {
+	_dbg_assert_(hasAcquired);
+	hasAcquired = false;
+	_dbg_assert_(!skipSwap);
+
+	VkSwapchainKHR swapchain = vulkan->GetSwapchain();
+	VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+	present.swapchainCount = 1;
+	present.pSwapchains = &swapchain;
+	present.pImageIndices = &curSwapchainImage;
+	present.pWaitSemaphores = &shared.renderingCompleteSemaphore;
+	present.waitSemaphoreCount = 1;
+
+	return vkQueuePresentKHR(vulkan->GetGraphicsQueue(), &present);
+}
+
+VkCommandBuffer FrameData::GetInitCmd(VulkanContext *vulkan) {
 	if (!hasInitCommands) {
-		return;
+		VkCommandBufferBeginInfo begin = {
+			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			nullptr,
+			VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+		};
+		vkResetCommandPool(vulkan->GetDevice(), cmdPoolInit, 0);
+		VkResult res = vkBeginCommandBuffer(initCmd, &begin);
+		if (res != VK_SUCCESS) {
+			return VK_NULL_HANDLE;
+		}
+		hasInitCommands = true;
 	}
-
-	if (profilingEnabled_) {
-		// Pre-allocated query ID 1.
-		vkCmdWriteTimestamp(initCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile.queryPool, 1);
-	}
-
-	VkResult res = vkEndCommandBuffer(initCmd);
-	_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
-
-	VkCommandBuffer cmdBufs[1];
-	int numCmdBufs = 0;
-
-	cmdBufs[numCmdBufs++] = initCmd;
-	// Send the init commands off separately, so they can be processed while we're building the rest of the list.
-	// (Likely the CPU will be more than a frame ahead anyway, but this will help when we try to work on latency).
-	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
-	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
-	submit_info.pCommandBuffers = cmdBufs;
-	res = vkQueueSubmit(vulkan->GetGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
-	if (res == VK_ERROR_DEVICE_LOST) {
-		_assert_msg_(false, "Lost the Vulkan device in split submit! If this happens again, switch Graphics Backend away from Vulkan");
-	} else {
-		_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (init)! result=%s", VulkanResultToString(res));
-	}
-	numCmdBufs = 0;
-
-	hasInitCommands = false;
+	return initCmd;
 }
 
-void FrameData::SubmitMainFinal(VulkanContext *vulkan, bool triggerFrameFence, FrameDataShared &sharedData) {
+void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &sharedData) {
 	VkCommandBuffer cmdBufs[2];
 	int numCmdBufs = 0;
 
-	cmdBufs[numCmdBufs++] = mainCmd;
+	VkFence fenceToTrigger = VK_NULL_HANDLE;
+
+	if (hasInitCommands) {
+		if (profilingEnabled_) {
+			// Pre-allocated query ID 1 - end of init cmdbuf.
+			vkCmdWriteTimestamp(initCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile.queryPool, 1);
+		}
+
+		VkResult res = vkEndCommandBuffer(initCmd);
+		cmdBufs[numCmdBufs++] = initCmd;
+
+		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
+		hasInitCommands = false;
+	}
+
+	if (hasMainCommands) {
+		VkResult res = vkEndCommandBuffer(mainCmd);
+		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (main)! result=%s", VulkanResultToString(res));
+
+		cmdBufs[numCmdBufs++] = mainCmd;
+		hasMainCommands = false;
+
+		if (type == FrameSubmitType::Sync) {
+			fenceToTrigger = readbackFence;
+		}
+	}
+
 	if (hasPresentCommands) {
+		VkResult res = vkEndCommandBuffer(presentCmd);
+		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (present)! result=%s", VulkanResultToString(res));
+
 		cmdBufs[numCmdBufs++] = presentCmd;
+		hasPresentCommands = false;
+
+		if (type == FrameSubmitType::Present) {
+			fenceToTrigger = fence;
+		}
+	}
+
+	if (!numCmdBufs && fenceToTrigger == VK_NULL_HANDLE) {
+		// Nothing to do.
+		return;
 	}
 
 	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	if (triggerFrameFence && !skipSwap) {
+	if (type == FrameSubmitType::Present && !skipSwap) {
+		_dbg_assert_(hasAcquired);
 		submit_info.waitSemaphoreCount = 1;
 		submit_info.pWaitSemaphores = &sharedData.acquireSemaphore;
 		submit_info.pWaitDstStageMask = waitStage;
 	}
 	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
 	submit_info.pCommandBuffers = cmdBufs;
-	if (triggerFrameFence && !skipSwap) {
+	if (type == FrameSubmitType::Present && !skipSwap) {
 		submit_info.signalSemaphoreCount = 1;
 		submit_info.pSignalSemaphores = &sharedData.renderingCompleteSemaphore;
 	}
-	VkResult res = vkQueueSubmit(vulkan->GetGraphicsQueue(), 1, &submit_info, triggerFrameFence ? fence : readbackFence);
+	VkResult res = vkQueueSubmit(vulkan->GetGraphicsQueue(), 1, &submit_info, fenceToTrigger);
 	if (res == VK_ERROR_DEVICE_LOST) {
 		_assert_msg_(false, "Lost the Vulkan device in vkQueueSubmit! If this happens again, switch Graphics Backend away from Vulkan");
 	} else {
 		_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (main)! result=%s", VulkanResultToString(res));
 	}
 
-	// When !triggerFence, we notify after syncing with Vulkan.
-	if (triggerFrameFence) {
-		VERBOSE_LOG(G3D, "PULL: Frame %d.readyForFence = true", index);
-		std::unique_lock<std::mutex> lock(push_mutex);
-		readyForFence = true;
-		push_condVar.notify_all();
+	if (type == FrameSubmitType::Sync) {
+		// Hard stall of the GPU, not ideal, but necessary so the CPU has the contents of the readback.
+		vkWaitForFences(vulkan->GetDevice(), 1, &readbackFence, true, UINT64_MAX);
+		vkResetFences(vulkan->GetDevice(), 1, &readbackFence);
 	}
 
-	hasInitCommands = false;
-	hasPresentCommands = false;
+	// When !triggerFence, we notify after syncing with Vulkan.
+	if (type == FrameSubmitType::Present || type == FrameSubmitType::Sync) {
+		VERBOSE_LOG(G3D, "PULL: Frame %d.readyForFence = true", index);
+		std::unique_lock<std::mutex> lock(push_mutex);
+		readyForFence = true;  // misnomer in sync mode!
+		push_condVar.notify_all();
+	}
 }
 
 void FrameDataShared::Init(VulkanContext *vulkan) {

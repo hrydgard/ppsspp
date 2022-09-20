@@ -491,8 +491,7 @@ void VulkanRenderManager::ThreadFunc() {
 			// but that created a race condition where frames could end up not finished properly on resize etc.
 
 			// Only increment next time if we're done.
-			nextFrame = frameData.type == VKRRunType::END;
-			_dbg_assert_(frameData.type == VKRRunType::END || frameData.type == VKRRunType::SYNC);
+			nextFrame = frameData.RunType() == VKRRunType::END;
 		}
 		VLOG("PULL: Running frame %d", threadFrame);
 		if (firstFrame) {
@@ -535,7 +534,6 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 
 	// Can't set this until after the fence.
 	frameData.profilingEnabled_ = enableProfiling;
-	frameData.readbackFenceUsed = false;
 
 	uint64_t queryResults[MAX_TIMESTAMP_QUERIES];
 
@@ -600,21 +598,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 
 VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	int curFrame = vulkan_->GetCurFrame();
-	FrameData &frameData = frameData_[curFrame];
-	if (!frameData.hasInitCommands) {
-		VkCommandBufferBeginInfo begin = {
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			nullptr,
-			VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-		};
-		vkResetCommandPool(vulkan_->GetDevice(), frameData.cmdPoolInit, 0);
-		VkResult res = vkBeginCommandBuffer(frameData.initCmd, &begin);
-		if (res != VK_SUCCESS) {
-			return VK_NULL_HANDLE;
-		}
-		frameData.hasInitCommands = true;
-	}
-	return frameData_[curFrame].initCmd;
+	return frameData_[curFrame].GetInitCmd(vulkan_);
 }
 
 VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, uint32_t variantBitmask, const char *tag) {
@@ -673,6 +657,8 @@ void VulkanRenderManager::EndCurRenderStep() {
 		curRenderStep_->render.colorStore, curRenderStep_->render.depthStore, curRenderStep_->render.stencilStore,
 	};
 	RenderPassType rpType = RP_TYPE_COLOR_DEPTH;
+	// Save the accumulated pipeline flags so we can use that to configure the render pass.
+	// We'll often be able to avoid loading/saving the depth/stencil buffer.
 	curRenderStep_->render.pipelineFlags = curPipelineFlags_;
 	if (!curRenderStep_->render.framebuffer) {
 		rpType = RP_TYPE_BACKBUFFER;
@@ -680,12 +666,11 @@ void VulkanRenderManager::EndCurRenderStep() {
 		// Not allowed on backbuffers.
 		rpType = RP_TYPE_COLOR_DEPTH_INPUT;
 	}
+	// TODO: Also add render pass types for depth/stencil-less.
 
 	VKRRenderPass *renderPass = queueRunner_.GetRenderPass(key);
 	curRenderStep_->render.renderPassType = rpType;
 
-	// Save the accumulated pipeline flags so we can use that to configure the render pass.
-	// We'll often be able to avoid loading/saving the depth/stencil buffer.
 	compileMutex_.lock();
 	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
@@ -1177,6 +1162,9 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 	}
 }
 
+// Called on main thread.
+// Sends the collected commands to the render thread. Submit-latency should be
+// measured from here, probably.
 void VulkanRenderManager::Finish() {
 	EndCurRenderStep();
 
@@ -1189,13 +1177,14 @@ void VulkanRenderManager::Finish() {
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
+
 	{
 		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 		VLOG("PUSH: Frame[%d].readyForRun = true", curFrame);
 		frameData.steps = std::move(steps_);
 		steps_.clear();
 		frameData.readyForRun = true;
-		frameData.type = VKRRunType::END;
+		frameData.runType_ = VKRRunType::END;
 		frameData.pull_condVar.notify_all();
 	}
 	vulkan_->EndFrame();
@@ -1210,63 +1199,39 @@ void VulkanRenderManager::Wipe() {
 	steps_.clear();
 }
 
+// Called on the render thread.
+//
 // Can be called multiple times with no bad side effects. This is so that we can either begin a frame the normal way,
 // or stop it in the middle for a synchronous readback, then start over again mostly normally but without repeating
 // the backbuffer image acquisition.
 void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 
-	frameData.SubmitInitCommands(vulkan_);
+	// Should only have at most the init command buffer pending here (that one came from the other thread).
+	_dbg_assert_(!frameData.hasPresentCommands);
+	frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared_);
 
-	if (!frameData.hasBegun) {
+	if (!frameData.hasMainCommands) {
 		// Effectively resets both main and present command buffers, since they both live in this pool.
+		// We always record main commands first, so we don't need to reset the present command buffer separately.
 		vkResetCommandPool(vulkan_->GetDevice(), frameData.cmdPoolMain, 0);
 
 		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 		begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
+		frameData.hasMainCommands = true;
 		_assert_msg_(res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%s", VulkanResultToString(res));
-
-		frameData.hasBegun = true;
 	}
 }
 
-void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
-	FrameData &frameData = frameData_[frame];
-
-	VkResult res = vkEndCommandBuffer(frameData.mainCmd);
-	_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (main)! result=%s", VulkanResultToString(res));
-
-	if (frameData.hasPresentCommands) {
-		VkResult res = vkEndCommandBuffer(frameData.presentCmd);
-		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (present)! result=%s", VulkanResultToString(res));
-	}
-
-	// If any init commands left unsubmitted (like by a frame sync etc), submit it first.
-	frameData.SubmitInitCommands(vulkan_);
-
-	// Submit the main and final cmdbuf, ending by signalling the fence.
-	frameData.SubmitMainFinal(vulkan_, triggerFrameFence, frameDataShared_);
-}
-
+// Called on the render thread.
 void VulkanRenderManager::EndSubmitFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
-	frameData.hasBegun = false;
 
-	Submit(frame, true);
+	frameData.SubmitPending(vulkan_, FrameSubmitType::Present, frameDataShared_);
 
 	if (!frameData.skipSwap) {
-		VkSwapchainKHR swapchain = vulkan_->GetSwapchain();
-		VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
-		present.swapchainCount = 1;
-		present.pSwapchains = &swapchain;
-		present.pImageIndices = &frameData.curSwapchainImage;
-		present.pWaitSemaphores = &frameDataShared_.renderingCompleteSemaphore;
-		present.waitSemaphoreCount = 1;
-
-		_dbg_assert_(frameData.hasAcquired);
-
-		VkResult res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
+		VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
 		if (res == VK_ERROR_OUT_OF_DATE_KHR) {
 			// We clearly didn't get this in vkAcquireNextImageKHR because of the skipSwap check above.
 			// Do the increment.
@@ -1279,12 +1244,25 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 			// Success
 			outOfDateFrames_ = 0;
 		}
-		frameData.hasAcquired = false;
 	} else {
 		// We only get here if vkAcquireNextImage returned VK_ERROR_OUT_OF_DATE.
 		outOfDateFrames_++;
 		frameData.skipSwap = false;
 	}
+}
+
+void VulkanRenderManager::EndSyncFrame(int frame) {
+	FrameData &frameData = frameData_[frame];
+
+	// The submit will trigger the readbackFence, and also do the wait for it.
+	frameData.SubmitPending(vulkan_, FrameSubmitType::Sync, frameDataShared_);
+
+	// At this point we can resume filling the command buffers for the current frame since
+	// we know the device is idle - and thus all previously enqueued command buffers have been processed.
+	// No need to switch to the next frame number, would just be confusing.
+	std::unique_lock<std::mutex> lock(frameData.push_mutex);
+	frameData.readyForFence = true;
+	frameData.push_condVar.notify_all();
 }
 
 void VulkanRenderManager::Run(int frame) {
@@ -1295,7 +1273,7 @@ void VulkanRenderManager::Run(int frame) {
 	//queueRunner_.LogSteps(stepsOnThread, false);
 	queueRunner_.RunSteps(frameData, frameDataShared_);
 
-	switch (frameData.type) {
+	switch (frameData.runType_) {
 	case VKRRunType::END:
 		EndSubmitFrame(frame);
 		break;
@@ -1311,35 +1289,6 @@ void VulkanRenderManager::Run(int frame) {
 	VLOG("PULL: Finished running frame %d", frame);
 }
 
-void VulkanRenderManager::EndSyncFrame(int frame) {
-	FrameData &frameData = frameData_[frame];
-
-	frameData.readbackFenceUsed = true;
-
-	// The submit will trigger the readbackFence.
-	Submit(frame, false);
-
-	// Hard stall of the GPU, not ideal, but necessary so the CPU has the contents of the readback.
-	vkWaitForFences(vulkan_->GetDevice(), 1, &frameData.readbackFence, true, UINT64_MAX);
-	vkResetFences(vulkan_->GetDevice(), 1, &frameData.readbackFence);
-
-	// At this point we can resume filling the command buffers for the current frame since
-	// we know the device is idle - and thus all previously enqueued command buffers have been processed.
-	// No need to switch to the next frame number.
-	VkCommandBufferBeginInfo begin{
-		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		nullptr,
-		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-	};
-	vkResetCommandPool(vulkan_->GetDevice(), frameData.cmdPoolMain, 0);
-	VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
-	_assert_(res == VK_SUCCESS);
-
-	std::unique_lock<std::mutex> lock(frameData.push_mutex);
-	frameData.readyForFence = true;
-	frameData.push_condVar.notify_all();
-}
-
 void VulkanRenderManager::FlushSync() {
 	renderStepOffset_ += (int)steps_.size();
 
@@ -1353,7 +1302,7 @@ void VulkanRenderManager::FlushSync() {
 		steps_.clear();
 		frameData.readyForRun = true;
 		_dbg_assert_(!frameData.readyForFence);
-		frameData.type = VKRRunType::SYNC;
+		frameData.runType_ = VKRRunType::SYNC;
 		frameData.pull_condVar.notify_all();
 	}
 

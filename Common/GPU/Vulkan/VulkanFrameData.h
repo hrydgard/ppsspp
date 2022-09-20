@@ -35,6 +35,12 @@ struct FrameDataShared {
 	void Destroy(VulkanContext *vulkan);
 };
 
+enum class FrameSubmitType {
+	Pending,
+	Sync,
+	Present,
+};
+
 // Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 struct FrameData {
 	std::mutex push_mutex;
@@ -44,13 +50,11 @@ struct FrameData {
 	std::condition_variable pull_condVar;
 
 	bool readyForFence = true;
-	bool readyForRun = false;
+	bool readyForRun = false;  // protected by pull_mutex
 	bool skipSwap = false;
-	VKRRunType type = VKRRunType::END;
 
 	VkFence fence;
-	VkFence readbackFence;  // Strictly speaking we might only need one of these.
-	bool readbackFenceUsed = false;
+	VkFence readbackFence;  // Strictly speaking we might only need one global of these.
 
 	// These are on different threads so need separate pools.
 	VkCommandPool cmdPoolInit;  // Written to from main thread
@@ -61,28 +65,37 @@ struct FrameData {
 	VkCommandBuffer presentCmd;
 
 	bool hasInitCommands = false;
+	bool hasMainCommands = false;
 	bool hasPresentCommands = false;
+
 	bool hasAcquired = false;
 
 	std::vector<VKRStep *> steps;
 
 	// Swapchain.
-	bool hasBegun = false;
 	uint32_t curSwapchainImage = -1;
 
 	// Profiling.
 	QueueProfileContext profile;
 	bool profilingEnabled_;
 
-	// Metadata for logging etc
-	int index;
-
 	void Init(VulkanContext *vulkan, int index);
 	void Destroy(VulkanContext *vulkan);
 
 	void AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared);
+	VkResult QueuePresent(VulkanContext *vulkan, FrameDataShared &shared);
+	VkCommandBuffer GetInitCmd(VulkanContext *vulkan);
 
 	// This will only submit if we are actually recording init commands.
-	void SubmitInitCommands(VulkanContext *vulkan);
-	void SubmitMainFinal(VulkanContext *vulkan, bool triggerFrameFence, FrameDataShared &shared);
+	void SubmitPending(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &shared);
+
+	VKRRunType RunType() const {
+		return runType_;
+	}
+
+	VKRRunType runType_ = VKRRunType::END;
+
+private:
+	// Metadata for logging etc
+	int index;
 };
