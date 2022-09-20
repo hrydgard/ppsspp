@@ -101,7 +101,6 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 u32 GPU_DX9::CheckGPUFeatures() const {
 	u32 features = GPUCommon::CheckGPUFeatures();
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
-	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.

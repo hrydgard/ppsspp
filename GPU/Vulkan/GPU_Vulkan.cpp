@@ -225,12 +225,6 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
-	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
-
-	// through input attachments, when not broken.
-	if (draw_->GetDeviceCaps().framebufferFetchSupported) {
-		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
-	}
 
 	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled;
 	if (enabledFeatures.depthClamp) {

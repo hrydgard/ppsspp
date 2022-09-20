@@ -3182,6 +3182,10 @@ u32 GPUCommon::CheckGPUFeatures() const {
 		features |= GPU_SUPPORTS_CULL_DISTANCE;
 	}
 
+	if (draw_->GetDeviceCaps().textureDepthSupported) {
+		features |= GPU_SUPPORTS_DEPTH_TEXTURE;
+	}
+
 	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
 		// Ignore the compat setting if clip and cull are both enabled.
 		// When supported, we can do the depth side of range culling more correctly.
@@ -3190,6 +3194,10 @@ u32 GPUCommon::CheckGPUFeatures() const {
 		if (supported || !disabled) {
 			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
 		}
+	}
+
+	if (draw_->GetDeviceCaps().framebufferFetchSupported) {
+		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
 	}
 
 	if (PSP_CoreParameter().compat.flags().ClearToRAM) {

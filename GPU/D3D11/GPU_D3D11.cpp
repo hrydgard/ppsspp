@@ -108,7 +108,6 @@ u32 GPU_D3D11::CheckGPUFeatures() const {
 	// TODO: Breaks text in PaRappa for some reason?
 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 
-	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
 	if (draw_->GetDeviceCaps().depthClampSupported)
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 

@@ -153,13 +153,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
 
-	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
-		// This has caused problems in the past.  Let's only enable on GLES3.
-		if (gl_extensions.GLES3) {
-			features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
-		}
-	}
-
 	if ((gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD))
 		features |= GPU_PREFER_REVERSE_COLOR_ORDER;
 
@@ -184,8 +177,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 		// Our implementation of depth texturing needs simple Z range, so can't
 		// use the extension hacks (yet).
 	}
-	if (draw_->GetDeviceCaps().textureDepthSupported)
-		features |= GPU_SUPPORTS_DEPTH_TEXTURE;
 
 	// If we already have a 16-bit depth buffer, we don't need to round.
 	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
