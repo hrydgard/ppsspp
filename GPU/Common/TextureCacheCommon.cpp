@@ -418,10 +418,13 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	// Should probably revisit how this works..
 	gstate_c.SetNeedShaderTexclamp(false);
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
-	if (gstate_c.bgraTexture != isBgraBackend_) {
+
+	bool isBgraTexture = isBgraBackend_ && !hasClutGPU;
+
+	if (gstate_c.bgraTexture != isBgraTexture) {
 		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 	}
-	gstate_c.bgraTexture = isBgraBackend_;
+	gstate_c.bgraTexture = isBgraTexture;
 
 	if (entryIter != cache_.end()) {
 		entry = entryIter->second.get();
