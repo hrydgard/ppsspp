@@ -515,9 +515,13 @@ BlockAllocator *BlockAllocatorFromID(int id) {
 
 	case 2:
 	case 6:
+		return &userMemory;
+
 	case 8:
 	case 10:
-		return &userMemory;
+		if (hleIsKernelMode())
+			return &userMemory;
+		return nullptr;
 
 	case 5:
 		return &volatileMemory;
