@@ -9,6 +9,7 @@
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
 
+XrFovf fov;
 XrView* projections;
 XrPosef invViewTransform[2];
 XrFrameState frameState = {};
@@ -293,7 +294,12 @@ bool VR_InitFrame( engine_t* engine ) {
 			projections));
 	//
 
+	fov = {};
 	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
+		fov.angleLeft += projections[eye].fov.angleLeft / 2.0f;
+		fov.angleRight += projections[eye].fov.angleRight / 2.0f;
+		fov.angleUp += projections[eye].fov.angleUp / 2.0f;
+		fov.angleDown += projections[eye].fov.angleDown / 2.0f;
 		invViewTransform[eye] = projections[eye].pose;
 	}
 
@@ -353,10 +359,7 @@ void VR_FinishFrame( engine_t* engine ) {
 		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
 			int imageLayer = engine->appState.Renderer.Multiview ? eye : 0;
 			ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[0];
-			XrFovf fov = projections[eye].fov;
-			if (vrMode == VR_MODE_MONO_6DOF) {
-				fov = projections[0].fov;
-			} else if (!engine->appState.Renderer.Multiview) {
+			if ((vrMode != VR_MODE_MONO_6DOF) && !engine->appState.Renderer.Multiview) {
 				frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
 			}
 
@@ -463,7 +466,6 @@ void VR_BindFramebuffer(engine_t *engine) {
 ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 	ovrMatrix4f output;
 	if ((matrix == VR_PROJECTION_MATRIX_LEFT_EYE) || (matrix == VR_PROJECTION_MATRIX_RIGHT_EYE)) {
-		XrFovf fov = matrix == VR_PROJECTION_MATRIX_LEFT_EYE ? projections[0].fov : projections[1].fov;
 		float near = (float)vrConfig[VR_CONFIG_FOV_SCALE] / 200.0f;
 		output = ovrMatrix4f_CreateProjectionFov(fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown, near, 0.0f );
 	} else if ((matrix == VR_VIEW_MATRIX_LEFT_EYE) || (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
