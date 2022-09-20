@@ -459,13 +459,14 @@ void __KernelMemoryInit()
 
 void __KernelMemoryDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelMemory", 1, 2);
+	auto s = p.Section("sceKernelMemory", 1, 3);
 	if (!s)
 		return;
 
 	kernelMemory.DoState(p);
 	userMemory.DoState(p);
-	volatileMemory.DoState(p);
+	if (s >= 3)
+		volatileMemory.DoState(p);
 
 	Do(p, vplWaitTimer);
 	CoreTiming::RestoreRegisterEvent(vplWaitTimer, "VplTimeout", __KernelVplTimeout);
