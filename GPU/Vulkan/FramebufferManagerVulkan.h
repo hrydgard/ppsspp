@@ -33,7 +33,7 @@ class VulkanPushBuffer;
 
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
-	FramebufferManagerVulkan(Draw::DrawContext *draw);
+	explicit FramebufferManagerVulkan(Draw::DrawContext *draw);
 	~FramebufferManagerVulkan();
 
 	// If within a render pass, this will just issue a regular clear. If beginning a new render pass,

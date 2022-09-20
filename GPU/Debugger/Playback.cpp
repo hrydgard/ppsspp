@@ -298,6 +298,7 @@ private:
 	void Registers(u32 ptr, u32 sz);
 	void Vertices(u32 ptr, u32 sz);
 	void Indices(u32 ptr, u32 sz);
+	void ClutAddr(u32 ptr, u32 sz);
 	void Clut(u32 ptr, u32 sz);
 	void TransferSrc(u32 ptr, u32 sz);
 	void Memset(u32 ptr, u32 sz);
@@ -308,6 +309,8 @@ private:
 	void Display(u32 ptr, u32 sz);
 
 	u32 execMemcpyDest = 0;
+	u32 execClutAddr = 0;
+	u32 execClutFlags = 0;
 	u32 execListBuf = 0;
 	u32 execListPos = 0;
 	u32 execListID = 0;
@@ -472,15 +475,40 @@ void DumpExecute::Indices(u32 ptr, u32 sz) {
 	execListQueue.push_back((GE_CMD_IADDR << 24) | (psp & 0x00FFFFFF));
 }
 
-void DumpExecute::Clut(u32 ptr, u32 sz) {
-	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
-	if (psp == 0) {
-		ERROR_LOG(SYSTEM, "Unable to allocate for clut");
-		return;
-	}
+void DumpExecute::ClutAddr(u32 ptr, u32 sz) {
+	struct ClutAddrData {
+		u32 addr;
+		u32 flags;
+	};
+	const ClutAddrData *data = (const ClutAddrData *)(pushbuf_.data() + ptr);
+	execClutAddr = data->addr;
+	execClutFlags = data->flags;
+}
 
-	execListQueue.push_back((GE_CMD_CLUTADDRUPPER << 24) | ((psp >> 8) & 0x00FF0000));
-	execListQueue.push_back((GE_CMD_CLUTADDR << 24) | (psp & 0x00FFFFFF));
+void DumpExecute::Clut(u32 ptr, u32 sz) {
+	// This is always run when we have the actual address set.
+	if (execClutAddr != 0) {
+		const bool isTarget = (execClutFlags & 1) != 0;
+		const bool unchangedVRAM = (execClutFlags & 2) != 0;
+
+		// TODO: Could use drawnVRAM flag, but it can be wrong.
+		// Could potentially always skip if !isTarget, but playing it safe for offset texture behavior.
+		if (Memory::IsValidRange(execClutAddr, sz) && !unchangedVRAM && (!isTarget || !g_Config.bSoftwareRendering)) {
+			// Intentionally don't trigger an upload here.
+			Memory::MemcpyUnchecked(execClutAddr, pushbuf_.data() + ptr, sz);
+		}
+
+		execClutAddr = 0;
+	} else {
+		u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
+		if (psp == 0) {
+			ERROR_LOG(SYSTEM, "Unable to allocate for clut");
+			return;
+		}
+
+		execListQueue.push_back((GE_CMD_CLUTADDRUPPER << 24) | ((psp >> 8) & 0x00FF0000));
+		execListQueue.push_back((GE_CMD_CLUTADDR << 24) | (psp & 0x00FFFFFF));
+	}
 }
 
 void DumpExecute::TransferSrc(u32 ptr, u32 sz) {
@@ -617,6 +645,10 @@ bool DumpExecute::Run() {
 
 		case CommandType::INDICES:
 			Indices(cmd.ptr, cmd.sz);
+			break;
+
+		case CommandType::CLUTADDR:
+			ClutAddr(cmd.ptr, cmd.sz);
 			break;
 
 		case CommandType::CLUT:

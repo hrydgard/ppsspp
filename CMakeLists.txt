@@ -623,6 +623,8 @@ add_library(Common STATIC
 	Common/GPU/Vulkan/VulkanRenderManager.h
 	Common/GPU/Vulkan/VulkanQueueRunner.cpp
 	Common/GPU/Vulkan/VulkanQueueRunner.h
+	Common/GPU/Vulkan/VulkanFrameData.cpp
+	Common/GPU/Vulkan/VulkanFrameData.h
 	Common/Input/GestureDetector.cpp
 	Common/Input/GestureDetector.h
 	Common/Input/KeyCodes.h

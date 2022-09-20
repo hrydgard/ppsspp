@@ -55,11 +55,12 @@ struct VulkanPipelineKey {
 struct VulkanPipeline {
 	VKRGraphicsPipeline *pipeline;
 	VKRGraphicsPipelineDesc desc;
-	int flags;  // PipelineFlags enum above.
+	PipelineFlags pipelineFlags;  // PipelineFlags enum above.
 
-	bool UsesBlendConstant() const { return (flags & PIPELINE_FLAG_USES_BLEND_CONSTANT) != 0; }
-	bool UsesLines() const { return (flags & PIPELINE_FLAG_USES_LINES) != 0; }
-	bool UsesDepthStencil() const { return (flags & PIPELINE_FLAG_USES_DEPTH_STENCIL) != 0; }
+	bool UsesBlendConstant() const { return (pipelineFlags & PipelineFlags::USES_BLEND_CONSTANT) != 0; }
+	bool UsesLines() const { return (pipelineFlags & PipelineFlags::USES_LINES) != 0; }
+	bool UsesDepthStencil() const { return (pipelineFlags & PipelineFlags::USES_DEPTH_STENCIL) != 0; }
+	bool UsesInputAttachment() const { return (pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT) != 0; }
 
 	u32 GetVariantsBitmask() const;
 };

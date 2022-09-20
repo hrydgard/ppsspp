@@ -744,11 +744,14 @@ static int sceUtilityGamedataInstallInitStart(u32 paramsAddr) {
 	}
 
 	ActivateDialog(UtilityDialogType::GAMEDATAINSTALL);
-	return hleLogSuccessInfoX(SCEUTILITY, gamedataInstallDialog->Init(paramsAddr));
+	int result = gamedataInstallDialog->Init(paramsAddr);
+	if (result < 0)
+		DeactivateDialog();
+	return hleLogSuccessInfoX(SCEUTILITY, result);
 }
 
 static int sceUtilityGamedataInstallShutdownStart() {
-	if (currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
+	if (!currentDialogActive || currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
@@ -757,7 +760,7 @@ static int sceUtilityGamedataInstallShutdownStart() {
 }
 
 static int sceUtilityGamedataInstallUpdate(int animSpeed) {
-	if (currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
+	if (!currentDialogActive || currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
@@ -765,8 +768,9 @@ static int sceUtilityGamedataInstallUpdate(int animSpeed) {
 }
 
 static int sceUtilityGamedataInstallGetStatus() {
-	if (currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
+	if (!currentDialogActive || currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
 		// This is called incorrectly all the time by some games. So let's not bother warning.
+		hleEatCycles(200);
 		return hleLogDebug(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
@@ -776,7 +780,7 @@ static int sceUtilityGamedataInstallGetStatus() {
 }
 
 static int sceUtilityGamedataInstallAbort() {
-	if (currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
+	if (!currentDialogActive || currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	

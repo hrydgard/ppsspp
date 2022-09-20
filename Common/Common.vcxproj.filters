@@ -419,6 +419,9 @@
       <Filter>GPU\Vulkan</Filter>
     </ClInclude>
     <ClInclude Include="RiscVEmitter.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanFrameData.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -791,6 +794,9 @@
       <Filter>GPU\Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="RiscVEmitter.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanFrameData.cpp">
+      <Filter>GPU\Vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">

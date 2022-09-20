@@ -217,6 +217,8 @@ private:
 
 	// Secondary texture for shader blending
 	VkImageView boundSecondary_ = VK_NULL_HANDLE;
+	bool boundSecondaryIsInputAttachment_ = false;
+
 	// CLUT texture for shader depal
 	VkImageView boundDepal_ = VK_NULL_HANDLE;
 	bool boundDepalSmoothed_ = false;
@@ -234,6 +236,7 @@ private:
 		VkSampler sampler_;
 		VkBuffer base_, light_, bone_;  // All three UBO slots will be set to this. This will usually be identical
 		// for all draws in a frame, except when the buffer has to grow.
+		bool secondaryIsInputAttachment;
 	};
 
 	// We alternate between these.
@@ -281,7 +284,7 @@ private:
 	VulkanDynamicState dynState_{};
 
 	int tessOffset_ = 0;
-	bool fboTexNeedsBind_ = false;
+	FBOTexState fboTexBindState_ = FBO_TEX_NONE;
 
 	// Hardware tessellation
 	TessellationDataTransferVulkan *tessDataTransferVulkan;

@@ -90,6 +90,10 @@ struct VertexData {
 		color1 = LerpInt<Vec3<int>, 256>(Vec3<int>::FromRGB(a.color1), Vec3<int>::FromRGB(b.color1), t_int).ToRGB();
 	}
 
+	bool OutsideRange() const {
+		return screenpos.x == 0x7FFFFFFF;
+	}
+
 	ClipCoords clippos;
 	Vec2<float> texturecoords;
 	uint32_t color0;
@@ -125,6 +129,7 @@ public:
 	static ScreenCoords DrawingToScreen(const DrawingCoords &coords, u16 z);
 
 	void SubmitPrimitive(const void* vertices, const void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine);
+	void SubmitImmVertex(const VertexData &vert, SoftwareDrawEngine *drawEngine);
 
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
@@ -138,7 +143,7 @@ public:
 	SoftDirty GetDirty();
 
 private:
-	VertexData ReadVertex(VertexReader &vreader, const TransformState &lstate, bool &outside_range_flag);
+	VertexData ReadVertex(VertexReader &vreader, const TransformState &state);
 	void SendTriangle(CullType cullType, const VertexData *verts, int provoking = 2);
 
 	u8 *decoded_ = nullptr;
@@ -149,6 +154,8 @@ private:
 	// This is the index of the next vert in data (or higher, may need modulus.)
 	int data_index_ = 0;
 	GEPrimitiveType prev_prim_ = GE_PRIM_POINTS;
+	bool hasDraws_ = false;
+	bool isImmDraw_ = false;
 };
 
 class SoftwareDrawEngine : public DrawEngineCommon {
@@ -158,7 +165,7 @@ public:
 
 	void DispatchFlush() override;
 	void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int cullMode, int *bytesRead) override;
-	void DispatchSubmitImm(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) override;
+	void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) override;
 
 	VertexDecoder *FindVertexDecoder(u32 vtype);
 

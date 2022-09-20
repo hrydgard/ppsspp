@@ -46,6 +46,12 @@ enum {
 	TEX_SLOT_SPLINE_WEIGHTS_V = 6,
 };
 
+enum FBOTexState {
+	FBO_TEX_NONE,
+	FBO_TEX_COPY_BIND_TEX,
+	FBO_TEX_READ_FRAMEBUFFER,
+};
+
 inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.
@@ -84,10 +90,7 @@ public:
 		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, cullMode, bytesRead);
 	}
 
-	virtual void DispatchSubmitImm(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
-		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, cullMode, bytesRead);
-		DispatchFlush();
-	}
+	virtual void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation);
 
 	bool TestBoundingBox(const void* control_points, int vertexCount, u32 vertType, int *bytesRead);
 
@@ -130,7 +133,7 @@ protected:
 	// Vertex decoding
 	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
 
-	void ApplyFramebufferRead(bool *fboTexNeedsBind);
+	void ApplyFramebufferRead(FBOTexState *fboTexState);
 
 	inline int IndexSize(u32 vtype) const {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);

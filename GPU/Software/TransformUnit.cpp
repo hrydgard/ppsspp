@@ -70,14 +70,66 @@ void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds,
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
 }
 
-void SoftwareDrawEngine::DispatchSubmitImm(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) {
+	uint32_t vertTypeID = GetVertTypeID(gstate.vertType | GE_VTYPE_POS_FLOAT, gstate.getUVGenMode());
+
 	int flipCull = cullMode != gstate.getCullMode() ? 1 : 0;
 	// TODO: For now, just setting all dirty.
 	transformUnit.SetDirty(SoftDirty(-1));
 	gstate.cullmode ^= flipCull;
-	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
+
+	// TODO: This is a bit ugly.  Should bypass when clipping...
+	uint32_t xScale = gstate.viewportxscale;
+	uint32_t xCenter = gstate.viewportxcenter;
+	uint32_t yScale = gstate.viewportyscale;
+	uint32_t yCenter = gstate.viewportycenter;
+	uint32_t zScale = gstate.viewportzscale;
+	uint32_t zCenter = gstate.viewportzcenter;
+
+	// Force scale to 1 and center to zero.
+	gstate.viewportxscale = (GE_CMD_VIEWPORTXSCALE << 24) | 0x3F8000;
+	gstate.viewportxcenter = (GE_CMD_VIEWPORTXCENTER << 24) | 0x000000;
+	gstate.viewportyscale = (GE_CMD_VIEWPORTYSCALE << 24) | 0x3F8000;
+	gstate.viewportycenter = (GE_CMD_VIEWPORTYCENTER << 24) | 0x000000;
+	// Z we scale to 65535 for neg z clipping.
+	gstate.viewportzscale = (GE_CMD_VIEWPORTZSCALE << 24) | 0x477FFF;
+	gstate.viewportzcenter = (GE_CMD_VIEWPORTZCENTER << 24) | 0x000000;
+
+	// Before we start, submit 0 prims to reset the prev prim type.
+	// Following submits will always be KEEP_PREVIOUS.
+	if (!continuation)
+		transformUnit.SubmitPrimitive(nullptr, nullptr, prim, 0, vertTypeID, nullptr, this);
+
+	for (int i = 0; i < vertexCount; i++) {
+		VertexData vert;
+		vert.clippos = ClipCoords(buffer[i].pos);
+		vert.texturecoords.x = buffer[i].u;
+		vert.texturecoords.y = buffer[i].v;
+		if (gstate.isModeThrough()) {
+			vert.texturecoords.x *= gstate.getTextureWidth(0);
+			vert.texturecoords.y *= gstate.getTextureHeight(0);
+		} else {
+			vert.clippos.z *= 1.0f / 65535.0f;
+		}
+		vert.color0 = buffer[i].color0_32;
+		vert.color1 = gstate.isUsingSecondaryColor() && !gstate.isModeThrough() ? buffer[i].color1_32 : 0;
+		vert.fogdepth = buffer[i].fog;
+		vert.screenpos.x = (int)(buffer[i].x * 16.0f);
+		vert.screenpos.y = (int)(buffer[i].y * 16.0f);
+		vert.screenpos.z = (u16)(u32)buffer[i].z;
+
+		transformUnit.SubmitImmVertex(vert, this);
+	}
+
+	gstate.viewportxscale = xScale;
+	gstate.viewportxcenter = xCenter;
+	gstate.viewportyscale = yScale;
+	gstate.viewportycenter = yCenter;
+	gstate.viewportzscale = zScale;
+	gstate.viewportzcenter = zCenter;
+
 	gstate.cullmode ^= flipCull;
-	// TODO: Should really clear, but the vertex type is faked so things might need resetting...
+	// TODO: Should really clear, but a bunch of values are forced so we this is safest.
 	transformUnit.SetDirty(SoftDirty(-1));
 }
 
@@ -273,7 +325,7 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		state->roundToScreen = &ClipToScreenInternal<false, true>;
 }
 
-VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState &state, bool &outside_range_flag) {
+VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState &state) {
 	PROFILE_THIS_SCOPE("read_vert");
 	VertexData vertex;
 
@@ -362,9 +414,13 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 #else
 		screenScaled = vertex.clippos.xyz() * state.screenScale / vertex.clippos.w + state.screenAdd;
 #endif
+		bool outside_range_flag = false;
 		vertex.screenpos = state.roundToScreen(screenScaled, vertex.clippos, &outside_range_flag);
-		if (outside_range_flag)
+		if (outside_range_flag) {
+			// We use this, essentially, as the flag.
+			vertex.screenpos.x = 0x7FFFFFFF;
 			return vertex;
+		}
 
 		if (state.enableFog) {
 			vertex.fogdepth = (viewpos.z + state.fogEnd) * state.fogSlope;
@@ -447,20 +503,19 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	if (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) {
 		return;
 	}
-	// Throughmode never draws 8-bit primitives, maybe because they can't fully specify the screen?
-	if ((vertex_type & GE_VTYPE_THROUGH_MASK) != 0 && (vertex_type & GE_VTYPE_POS_MASK) == GE_VTYPE_POS_8BIT)
-		return;
 	// Vertices without position are just entirely culled.
+	// Note: Throughmode does draw 8-bit primitives, but positions are always zero - handled in decode.
 	if ((vertex_type & GE_VTYPE_POS_MASK) == 0)
 		return;
 
 	u16 index_lower_bound = 0;
-	u16 index_upper_bound = vertex_count - 1;
+	u16 index_upper_bound = vertex_count == 0 ? 0 : vertex_count - 1;
 	IndexConverter ConvertIndex(vertex_type, indices);
 
 	if (indices)
 		GetIndexBounds(indices, vertex_count, vertex_type, &index_lower_bound, &index_upper_bound);
-	vdecoder.DecodeVerts(decoded_, vertices, index_lower_bound, index_upper_bound);
+	if (vertex_count != 0)
+		vdecoder.DecodeVerts(decoded_, vertices, index_lower_bound, index_upper_bound);
 
 	VertexReader vreader(decoded_, vtxfmt, vertex_type);
 
@@ -471,19 +526,11 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		prim_type = prev_prim_;
 	}
 
-	int vtcs_per_prim;
-	switch (prim_type) {
-	case GE_PRIM_POINTS: vtcs_per_prim = 1; break;
-	case GE_PRIM_LINES: vtcs_per_prim = 2; break;
-	case GE_PRIM_TRIANGLES: vtcs_per_prim = 3; break;
-	case GE_PRIM_RECTANGLES: vtcs_per_prim = 2; break;
-	default: vtcs_per_prim = 0; break;
-	}
-
 	// TODO: Do this in two passes - first process the vertices (before indexing/stripping),
 	// then resolve the indices. This lets us avoid transforming shared vertices twice.
 
 	binner_->UpdateState(vreader.isThrough());
+	hasDraws_ = true;
 
 	static TransformState transformState;
 	if (binner_->HasDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL)) {
@@ -494,9 +541,17 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	bool skipCull = !gstate.isCullEnabled() || gstate.isModeClear();
 	const CullType cullType = skipCull ? CullType::OFF : (gstate.getCullMode() ? CullType::CCW : CullType::CW);
 
-	bool outside_range_flag = false;
+	auto readVertexAt = [&](VertexReader &vreader, const TransformState &transformState, int vtx) {
+		if (indices) {
+			vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
+		} else {
+			vreader.Goto(vtx);
+		}
 
-	if (vreader.isThrough() && cullType == CullType::OFF && prim_type == GE_PRIM_TRIANGLES && data_index_ + vertex_count >= 6 && ((data_index_ + vertex_count) % 6) == 0) {
+		return ReadVertex(vreader, transformState);
+	};
+
+	if (vreader.isThrough() && cullType == CullType::OFF && prim_type == GE_PRIM_TRIANGLES && data_index_ == 0 && vertex_count >= 6 && ((vertex_count) % 6) == 0) {
 		// Some games send rectangles as a series of regular triangles.
 		// We look for this, but only in throughmode.
 		VertexData buf[6];
@@ -506,20 +561,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		}
 
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			if (indices) {
-				vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-			} else {
-				vreader.Goto(vtx);
-			}
-
-			buf[buf_index++] = ReadVertex(vreader, transformState, outside_range_flag);
-			if (buf_index >= 3 && outside_range_flag) {
-				// Cull, just pretend it didn't happen.
-				buf_index -= 3;
-				outside_range_flag = false;
-				continue;
-			}
-
+			buf[buf_index++] = readVertexAt(vreader, transformState, vtx);
 			if (buf_index < 6)
 				continue;
 
@@ -552,73 +594,54 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		return;
 	}
 
+	// Note: intentionally, these allow for the case of vertex_count == 0, but data_index_ > 0.
+	// This is used for immediate-mode primitives.
 	switch (prim_type) {
 	case GE_PRIM_POINTS:
-	case GE_PRIM_LINES:
-	case GE_PRIM_TRIANGLES:
-		{
-			for (int vtx = 0; vtx < vertex_count; ++vtx) {
-				if (indices) {
-					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-				} else {
-					vreader.Goto(vtx);
-				}
-
-				data_[data_index_++] = ReadVertex(vreader, transformState, outside_range_flag);
-				if (data_index_ < vtcs_per_prim) {
-					// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
-					continue;
-				}
-
-				// Okay, we've got enough verts.  Reset the index for next time.
-				data_index_ = 0;
-				if (outside_range_flag) {
-					// Cull the prim if it was outside, and move to the next prim.
-					outside_range_flag = false;
-					continue;
-				}
-
-				switch (prim_type) {
-				case GE_PRIM_TRIANGLES:
-					SendTriangle(cullType, &data_[0]);
-					break;
-
-				case GE_PRIM_LINES:
-					Clipper::ProcessLine(data_[0], data_[1], *binner_);
-					break;
-
-				case GE_PRIM_POINTS:
-					Clipper::ProcessPoint(data_[0], *binner_);
-					break;
-
-				default:
-					_dbg_assert_msg_(false, "Unexpected prim type: %d", prim_type);
-				}
-			}
-			break;
+		for (int i = 0; i < data_index_; ++i)
+			Clipper::ProcessPoint(data_[i], *binner_);
+		data_index_ = 0;
+		for (int vtx = 0; vtx < vertex_count; ++vtx) {
+			data_[0] = readVertexAt(vreader, transformState, vtx);
+			Clipper::ProcessPoint(data_[0], *binner_);
 		}
+		break;
+
+	case GE_PRIM_LINES:
+		for (int i = 0; i < data_index_ - 1; i += 2)
+			Clipper::ProcessLine(data_[i + 0], data_[i + 1], *binner_);
+		data_index_ &= 1;
+		for (int vtx = 0; vtx < vertex_count; ++vtx) {
+			data_[data_index_++] = readVertexAt(vreader, transformState, vtx);
+			if (data_index_ == 2) {
+				Clipper::ProcessLine(data_[0], data_[1], *binner_);
+				data_index_ = 0;
+			}
+		}
+		break;
+
+	case GE_PRIM_TRIANGLES:
+		for (int vtx = 0; vtx < vertex_count; ++vtx) {
+			data_[data_index_++] = readVertexAt(vreader, transformState, vtx);
+			if (data_index_ < 3) {
+				// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
+				continue;
+			}
+			// Okay, we've got enough verts.  Reset the index for next time.
+			data_index_ = 0;
+
+			SendTriangle(cullType, &data_[0]);
+		}
+		// In case vertex_count was 0.
+		if (data_index_ >= 3) {
+			SendTriangle(cullType, &data_[0]);
+			data_index_ = 0;
+		}
+		break;
 
 	case GE_PRIM_RECTANGLES:
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			if (indices) {
-				vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-			} else {
-				vreader.Goto(vtx);
-			}
-
-			data_[data_index_++] = ReadVertex(vreader, transformState, outside_range_flag);
-			if (outside_range_flag) {
-				outside_range_flag = false;
-				// Note: this is the post increment index.  If odd, we set the first vert.
-				if (data_index_ & 1) {
-					// Skip the next one and forget this one.
-					vtx++;
-					data_index_--;
-				} else {
-					// Forget both of the last 2.
-					data_index_ -= 2;
-				}
-			}
+			data_[data_index_++] = readVertexAt(vreader, transformState, vtx);
 
 			if (data_index_ == 4 && vreader.isThrough() && cullType == CullType::OFF) {
 				if (Rasterizer::DetectRectangleThroughModeSlices(binner_->State(), data_)) {
@@ -646,19 +669,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			// If data_index_ is 1 or 2, etc., it means we're continuing a line strip.
 			int skip_count = data_index_ == 0 ? 1 : 0;
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
-				if (indices) {
-					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-				} else {
-					vreader.Goto(vtx);
-				}
-
-				data_[(data_index_++) & 1] = ReadVertex(vreader, transformState, outside_range_flag);
-				if (outside_range_flag) {
-					// Drop all primitives containing the current vertex
-					skip_count = 2;
-					outside_range_flag = false;
-					continue;
-				}
+				data_[(data_index_++) & 1] = readVertexAt(vreader, transformState, vtx);
 
 				if (skip_count) {
 					--skip_count;
@@ -667,6 +678,9 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					Clipper::ProcessLine(data_[data_index_ & 1], data_[(data_index_ & 1) ^ 1], *binner_);
 				}
 			}
+			// If this is from immediate-mode drawing, we always had one new vert (already in data_.)
+			if (isImmDraw_ && data_index_ >= 2)
+				Clipper::ProcessLine(data_[data_index_ & 1], data_[(data_index_ & 1) ^ 1], *binner_);
 			break;
 		}
 
@@ -681,19 +695,15 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			if (data_index_ == 0 && vertex_count >= 4 && (vertex_count & 1) == 0 && cullType == CullType::OFF) {
 				for (int base = 0; base < vertex_count - 2; base += 2) {
 					for (int vtx = base == 0 ? 0 : 2; vtx < 4; ++vtx) {
-						if (indices) {
-							vreader.Goto(ConvertIndex(base + vtx) - index_lower_bound);
-						} else {
-							vreader.Goto(base + vtx);
-						}
-						data_[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
+						data_[vtx] = readVertexAt(vreader, transformState, base + vtx);
 					}
 
 					// If a strip is effectively a rectangle, draw it as such!
 					int tl = -1, br = -1;
-					if (!outside_range_flag && Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br)) {
+					if (Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br)) {
 						Clipper::ProcessRect(data_[tl], data_[br], *binner_);
 						start_vtx += 2;
+						skip_count = 0;
 						if (base + 4 >= vertex_count) {
 							start_vtx = vertex_count;
 							break;
@@ -710,28 +720,25 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				}
 			}
 
-			outside_range_flag = false;
-			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
-				if (indices) {
-					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-				} else {
-					vreader.Goto(vtx);
-				}
-
+			for (int vtx = start_vtx; vtx < vertex_count && skip_count > 0; ++vtx) {
 				int provoking_index = (data_index_++) % 3;
-				data_[provoking_index] = ReadVertex(vreader, transformState, outside_range_flag);
-				if (outside_range_flag) {
-					// Drop all primitives containing the current vertex
-					skip_count = 2;
-					outside_range_flag = false;
-					continue;
-				}
+				data_[provoking_index] = readVertexAt(vreader, transformState, vtx);
+				--skip_count;
+				++start_vtx;
+			}
 
-				if (skip_count) {
-					--skip_count;
-					continue;
-				}
+			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
+				int provoking_index = (data_index_++) % 3;
+				data_[provoking_index] = readVertexAt(vreader, transformState, vtx);
 
+				int wind = (data_index_ - 1) % 2;
+				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
+				SendTriangle(altCullType, &data_[0], provoking_index);
+			}
+
+			// If this is from immediate-mode drawing, we always had one new vert (already in data_.)
+			if (isImmDraw_ && data_index_ >= 3) {
+				int provoking_index = (data_index_ - 1) % 3;
 				int wind = (data_index_ - 1) % 2;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
 				SendTriangle(altCullType, &data_[0], provoking_index);
@@ -747,61 +754,44 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			int start_vtx = 0;
 
 			// Only read the central vertex if we're not continuing.
-			if (data_index_ == 0) {
-				if (indices) {
-					vreader.Goto(ConvertIndex(0) - index_lower_bound);
-				} else {
-					vreader.Goto(0);
-				}
-				data_[0] = ReadVertex(vreader, transformState, outside_range_flag);
+			if (data_index_ == 0 && vertex_count > 0) {
+				data_[0] = readVertexAt(vreader, transformState, 0);
 				data_index_++;
 				start_vtx = 1;
-
-				// If the central vertex is outside range, all the points are toast.
-				if (outside_range_flag)
-					break;
 			}
 
 			if (data_index_ == 1 && vertex_count == 4 && cullType == CullType::OFF) {
 				for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
-					if (indices) {
-						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-					} else {
-						vreader.Goto(vtx);
-					}
-					data_[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
+					data_[vtx] = readVertexAt(vreader, transformState, vtx);
 				}
 
 				int tl = -1, br = -1;
-				if (!outside_range_flag && Rasterizer::DetectRectangleFromFan(binner_->State(), data_, vertex_count, &tl, &br)) {
+				if (Rasterizer::DetectRectangleFromFan(binner_->State(), data_, vertex_count, &tl, &br)) {
 					Clipper::ProcessRect(data_[tl], data_[br], *binner_);
 					break;
 				}
 			}
 
-			outside_range_flag = false;
-			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
-				if (indices) {
-					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-				} else {
-					vreader.Goto(vtx);
-				}
-
+			for (int vtx = start_vtx; vtx < vertex_count && skip_count > 0; ++vtx) {
 				int provoking_index = 2 - ((data_index_++) % 2);
-				data_[provoking_index] = ReadVertex(vreader, transformState, outside_range_flag);
-				if (outside_range_flag) {
-					// Drop all primitives containing the current vertex
-					skip_count = 2;
-					outside_range_flag = false;
-					continue;
-				}
+				data_[provoking_index] = readVertexAt(vreader, transformState, vtx);
+				--skip_count;
+				++start_vtx;
+			}
 
-				if (skip_count) {
-					--skip_count;
-					continue;
-				}
+			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
+				int provoking_index = 2 - ((data_index_++) % 2);
+				data_[provoking_index] = readVertexAt(vreader, transformState, vtx);
 
 				int wind = (data_index_ - 1) % 2;
+				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
+				SendTriangle(altCullType, &data_[0], provoking_index);
+			}
+
+			// If this is from immediate-mode drawing, we always had one new vert (already in data_.)
+			if (isImmDraw_ && data_index_ >= 3) {
+				int wind = (data_index_ - 1) % 2;
+				int provoking_index = 2 - wind;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
 				SendTriangle(altCullType, &data_[0], provoking_index);
 			}
@@ -812,6 +802,47 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		ERROR_LOG(G3D, "Unexpected prim type: %d", prim_type);
 		break;
 	}
+}
+
+void TransformUnit::SubmitImmVertex(const VertexData &vert, SoftwareDrawEngine *drawEngine) {
+	// Where we put it is different for STRIP/FAN types.
+	switch (prev_prim_) {
+	case GE_PRIM_POINTS:
+	case GE_PRIM_LINES:
+	case GE_PRIM_TRIANGLES:
+	case GE_PRIM_RECTANGLES:
+		// This is the easy one.  SubmitPrimitive resets data_index_.
+		data_[data_index_++] = vert;
+		break;
+
+	case GE_PRIM_LINE_STRIP:
+		// This one alternates, and data_index_ > 0 means it draws a segment.
+		data_[(data_index_++) & 1] = vert;
+		break;
+
+	case GE_PRIM_TRIANGLE_STRIP:
+		data_[(data_index_++) % 3] = vert;
+		break;
+
+	case GE_PRIM_TRIANGLE_FAN:
+		if (data_index_ == 0) {
+			data_[data_index_++] = vert;
+		} else {
+			int provoking_index = 2 - ((data_index_++) % 2);
+			data_[provoking_index] = vert;
+		}
+		break;
+
+	default:
+		_assert_msg_(false, "Invalid prim type: %d", (int)prev_prim_);
+		break;
+	}
+
+	uint32_t vertTypeID = GetVertTypeID(gstate.vertType | GE_VTYPE_POS_FLOAT, gstate.getUVGenMode());
+	// This now processes the step with shared logic, given the existing data_.
+	isImmDraw_ = true;
+	SubmitPrimitive(nullptr, nullptr, GE_PRIM_KEEP_PREVIOUS, 0, vertTypeID, nullptr, drawEngine);
+	isImmDraw_ = false;
 }
 
 void TransformUnit::SendTriangle(CullType cullType, const VertexData *verts, int provoking) {
@@ -826,8 +857,12 @@ void TransformUnit::SendTriangle(CullType cullType, const VertexData *verts, int
 }
 
 void TransformUnit::Flush(const char *reason) {
+	if (!hasDraws_)
+		return;
+
 	binner_->Flush(reason);
 	GPUDebug::NotifyDraw();
+	hasDraws_ = false;
 }
 
 void TransformUnit::GetStats(char *buffer, size_t bufsize) {
@@ -836,6 +871,9 @@ void TransformUnit::GetStats(char *buffer, size_t bufsize) {
 }
 
 void TransformUnit::FlushIfOverlap(const char *reason, bool modifying, uint32_t addr, uint32_t stride, uint32_t w, uint32_t h) {
+	if (!hasDraws_)
+		return;
+
 	if (binner_->HasPendingWrite(addr, stride, w, h))
 		Flush(reason);
 	if (modifying && binner_->HasPendingRead(addr, stride, w, h))

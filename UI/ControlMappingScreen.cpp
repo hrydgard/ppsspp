@@ -313,7 +313,7 @@ UI::EventReturn ControlMappingScreen::OnVisualizeMapping(UI::EventParams &params
 }
 
 void ControlMappingScreen::dialogFinished(const Screen *dialog, DialogResult result) {
-	if (result == DR_OK && dialog->tag() == "listpopup") {
+	if (result == DR_OK && std::string(dialog->tag()) == "listpopup") {
 		ListPopupScreen *popup = (ListPopupScreen *)dialog;
 		KeyMap::AutoConfForPad(popup->GetChoiceString());
 	}

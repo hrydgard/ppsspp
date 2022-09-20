@@ -288,7 +288,47 @@ int GenericListControl::HandleNotify(LPARAM lParam) {
 		return 0;
 	}
 
+	if (mhdr->code == LVN_INCREMENTALSEARCH) {
+		NMLVFINDITEM *request = (NMLVFINDITEM *)lParam;
+		uint32_t supported = LVFI_WRAP | LVFI_STRING | LVFI_PARTIAL | LVFI_SUBSTRING;
+		if ((request->lvfi.flags & ~supported) == 0 && (request->lvfi.flags & LVFI_STRING) != 0) {
+			bool wrap = (request->lvfi.flags & LVFI_WRAP) != 0;
+			bool partial = (request->lvfi.flags & (LVFI_PARTIAL | LVFI_SUBSTRING)) != 0;
+
+			// It seems like 0 is always sent for start, let's override.
+			int startRow = request->iStart;
+			if (startRow == 0)
+				startRow = GetSelectedIndex();
+			int result = OnIncrementalSearch(startRow, request->lvfi.psz, wrap, partial);
+			if (result != -1) {
+				request->lvfi.flags = LVFI_PARAM;
+				request->lvfi.lParam = (LPARAM)result;
+			}
+		}
+	}
+
 	return 0;
+}
+
+int GenericListControl::OnIncrementalSearch(int startRow, const wchar_t *str, bool wrap, bool partial) {
+	int size = GetRowCount();
+	size_t searchlen = wcslen(str);
+	if (!wrap)
+		size -= startRow;
+
+	// We start with the earliest column, preferring matches on the leftmost columns by default.
+	for (int c = 0; c < columnCount; ++c) {
+		for (int i = 0; i < size; ++i) {
+			int r = (startRow + i) % size;
+			stringBuffer[0] = 0;
+			GetColumnText(stringBuffer, r, c);
+			int difference = partial ? _wcsnicmp(str, stringBuffer, searchlen) : _wcsicmp(str, stringBuffer);
+			if (difference == 0)
+				return r;
+		}
+	}
+
+	return -1;
 }
 
 void GenericListControl::Update() {

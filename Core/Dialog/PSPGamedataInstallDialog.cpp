@@ -36,8 +36,9 @@ const static u32 GAMEDATA_BYTES_PER_READ = 32768;
 // If this is too high, some games (e.g. Senjou no Valkyria 3) will lag.
 const static u32 GAMEDATA_READS_PER_UPDATE = 20;
 
-const u32 ERROR_UTILITY_GAMEDATA_MEMSTRICK_WRITE_PROTECTED = 0x80111903;
 const u32 ERROR_UTILITY_GAMEDATA_MEMSTRICK_REMOVED = 0x80111901;
+const u32 ERROR_UTILITY_GAMEDATA_MEMSTRICK_WRITE_PROTECTED = 0x80111903;
+const u32 ERROR_UTILITY_GAMEDATA_INVALID_MODE = 0x80111908;
 
 static const std::string SFO_FILENAME = "PARAM.SFO";
 
@@ -88,9 +89,14 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	}
 
 	int size = Memory::Read_U32(paramAddr);
+	if (size != 1424 && size != 1432) {
+		ERROR_LOG_REPORT(SCEUTILITY, "sceGamedataInstallInitStart: invalid param size %d", size);
+		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
+	}
+
 	memset(&request, 0, sizeof(request));
 	// Only copy the right size to support different request format
-	Memory::Memcpy(&request, paramAddr, size);
+	Memory::Memcpy(&request, paramAddr, size, "sceGamedataInstallInitStart");
 
 	ChangeStatusInit(GAMEDATA_INIT_DELAY_US);
 	return 0;
@@ -99,6 +105,17 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 int PSPGamedataInstallDialog::Update(int animSpeed) {
 	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
+
+	if (param->mode >= 2) {
+		param->common.result = ERROR_UTILITY_GAMEDATA_INVALID_MODE;
+		param.NotifyWrite("DialogResult");
+		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
+		WARN_LOG_REPORT(SCEUTILITY, "sceUtilityGamedataInstallUpdate: invalid mode %d", param->mode);
+		return 0;
+	}
+
+	// TODO: param->mode == 1 should show a prompt to confirm, then a progress bar.
+	// Any other mode (i.e. 0 or negative) should proceed and show no UI.
 
 	// TODO: This should return error codes in some cases, like write failure.
 	// request.common.result must be updated for errors as well.
@@ -222,6 +239,9 @@ void PSPGamedataInstallDialog::WriteSfoFile() {
 }
 
 int PSPGamedataInstallDialog::Abort() {
+	param->common.result = 1;
+	param.NotifyWrite("DialogResult");
+
 	// TODO: Delete the files or anything?
 	return PSPDialog::Shutdown();
 }

@@ -37,6 +37,7 @@
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Debugger/Debugger.h"
+#include "GPU/Debugger/Record.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
@@ -292,11 +293,18 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
 	SamplerCacheKey key = GetSamplingParams(0, nullptr);
 
+	// In case auto max quality was on, restore min filt. Another fix for water in Outrun.
+	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
+		int minFilt = gstate.texfilter & 0x7;
+		key.minFilt = minFilt & 1;
+	}
+
 	// Kill any mipmapping settings.
 	key.mipEnable = false;
 	key.mipFilt = false;
 	key.aniso = 0.0;
 	key.maxLevel = 0.0f;
+	key.lodBias = 0.0f;
 
 	// Often the framebuffer will not match the texture size. We'll wrap/clamp in the shader in that case.
 	int w = gstate.getTextureWidth(0);
@@ -1260,14 +1268,17 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 
 		// It's possible for a game to load CLUT outside valid memory without crashing, should result in zeroes.
 		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
-		if (clutRenderAddress_ != 0xFFFFFFFF && PSP_CoreParameter().compat.flags().AllowDownloadCLUT) {
+		bool performDownload = PSP_CoreParameter().compat.flags().AllowDownloadCLUT;
+		if (GPURecord::IsActive())
+			performDownload = true;
+		if (clutRenderAddress_ != 0xFFFFFFFF && performDownload) {
 			framebufferManager_->DownloadFramebufferForClut(clutRenderAddress_, clutRenderOffset_ + bytes);
 			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
 			if (bytes < loadBytes) {
 				memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
 			}
 		} else {
-			// Here we could check for clutRenderAddres_ != 0xFFFFFFFF and zero the CLUT or something,
+			// Here we could check for clutRenderAddress_ != 0xFFFFFFFF and zero the CLUT or something,
 			// but choosing not to for now. Though the results of loading the CLUT from RAM here is
 			// almost certainly going to be bogus.
 #ifdef _M_SSE
@@ -1986,6 +1997,9 @@ static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferForma
 				return true;
 			}
 			break;
+		case GE_FORMAT_CLUT8:
+			// Shouldn't happen here.
+			return false;
 		}
 		WARN_LOG(G3D, "Invalid CLUT/framebuffer combination: %s vs %s", GeTextureFormatToString(texFormat), GeBufferFormatToString(bufferFormat));
 		return false;

@@ -38,7 +38,7 @@ public:
 	~GPU_Vulkan();
 
 	// This gets called on startup and when we get back from settings.
-	void CheckGPUFeatures() override;
+	u32 CheckGPUFeatures() const override;
 
 	bool IsReady() override;
 	void CancelReady() override;

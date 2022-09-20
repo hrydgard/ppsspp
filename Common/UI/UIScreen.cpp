@@ -117,6 +117,9 @@ void UIScreen::render() {
 
 	if (root_) {
 		UIContext *uiContext = screenManager()->getUIContext();
+
+		uiContext->SetScreenTag(tag());
+
 		UI::LayoutViewHierarchy(*uiContext, root_, ignoreInsets_);
 
 		uiContext->PushTransform({translation_, scale_, alpha_});

@@ -65,15 +65,6 @@ private:
 	std::string tag_;
 };
 
-enum class VKRRunType {
-	END,
-	SYNC,
-};
-
-enum {
-	MAX_TIMESTAMP_QUERIES = 128,
-};
-
 struct BoundingRect {
 	int x1;
 	int y1;
@@ -235,6 +226,8 @@ public:
 	// Returns an ImageView corresponding to a framebuffer. Is called BindFramebufferAsTexture to maintain a similar interface
 	// as the other backends, even though there's no actual binding happening here.
 	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBits, int attachment);
+
+	void BindCurrentFramebufferAsInputAttachment0(VkImageAspectFlags aspectBits);
 
 	bool CopyFramebufferToMemorySync(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 	void CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
@@ -440,11 +433,7 @@ public:
 	void DestroyBackbuffers();
 
 	bool HasBackbuffers() {
-		return !framebuffers_.empty();
-	}
-
-	void SetSplitSubmit(bool split) {
-		splitSubmit_ = split;
+		return queueRunner_.HasBackbuffers();
 	}
 
 	void SetInflightFrames(int f) {
@@ -470,13 +459,10 @@ public:
 	}
 
 private:
-	bool InitBackbufferFramebuffers(int width, int height);
-	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
 	void EndCurRenderStep();
 
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
-	void Submit(int frame, bool triggerFence);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
@@ -484,43 +470,7 @@ private:
 
 	void StopThread();
 
-	// Permanent objects
-	VkSemaphore acquireSemaphore_;
-	VkSemaphore renderingCompleteSemaphore_;
-
-	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
-	struct FrameData {
-		std::mutex push_mutex;
-		std::condition_variable push_condVar;
-
-		std::mutex pull_mutex;
-		std::condition_variable pull_condVar;
-
-		bool readyForFence = true;
-		bool readyForRun = false;
-		bool skipSwap = false;
-		VKRRunType type = VKRRunType::END;
-
-		VkFence fence;
-		VkFence readbackFence;  // Strictly speaking we might only need one of these.
-		bool readbackFenceUsed = false;
-
-		// These are on different threads so need separate pools.
-		VkCommandPool cmdPoolInit;
-		VkCommandPool cmdPoolMain;
-		VkCommandBuffer initCmd;
-		VkCommandBuffer mainCmd;
-		bool hasInitCommands = false;
-		std::vector<VKRStep *> steps;
-
-		// Swapchain.
-		bool hasBegun = false;
-		uint32_t curSwapchainImage = -1;
-
-		// Profiling.
-		QueueProfileContext profile;
-		bool profilingEnabled_;
-	};
+	FrameDataShared frameDataShared_;
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 	int newInflightFrames_ = -1;
@@ -544,11 +494,10 @@ private:
 	VKRStep *curRenderStep_ = nullptr;
 	bool curStepHasViewport_ = false;
 	bool curStepHasScissor_ = false;
-	u32 curPipelineFlags_ = 0;
+	PipelineFlags curPipelineFlags_{};
 	BoundingRect curRenderArea_;
 
 	std::vector<VKRStep *> steps_;
-	bool splitSubmit_ = false;
 
 	// Execution time state
 	bool run_ = true;
@@ -568,23 +517,4 @@ private:
 
 	// pipelines to check and possibly create at the end of the current render pass.
 	std::vector<VKRGraphicsPipeline *> pipelinesToCheck_;
-
-	// Swap chain management
-	struct SwapchainImageData {
-		VkImage image;
-		VkImageView view;
-	};
-	std::vector<VkFramebuffer> framebuffers_;
-	std::vector<SwapchainImageData> swapchainImages_;
-	uint32_t swapchainImageCount_ = 0;
-	struct DepthBufferInfo {
-		VkFormat format = VK_FORMAT_UNDEFINED;
-		VkImage image = VK_NULL_HANDLE;
-		VmaAllocation alloc = VK_NULL_HANDLE;
-		VkImageView view = VK_NULL_HANDLE;
-	};
-	DepthBufferInfo depth_;
-
-	// This works great - except see issue #10097. WTF?
-	bool useThread_ = true;
 };

@@ -40,6 +40,8 @@ public:
 	EmuScreen(const Path &filename);
 	~EmuScreen();
 
+	const char *tag() const override { return "Emu"; }
+
 	void update() override;
 	void render() override;
 	void preRender() override;

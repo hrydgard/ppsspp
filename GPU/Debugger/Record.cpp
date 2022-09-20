@@ -37,6 +37,7 @@
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/ThreadPools.h"
+#include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -152,8 +153,19 @@ static void BeginRecording() {
 	u32 sz = 512 * 4;
 	pushbuf.resize(pushbuf.size() + sz);
 	gstate.Save((u32_le *)(pushbuf.data() + ptr));
-
 	commands.push_back({CommandType::INIT, sz, ptr});
+
+	// Also save the initial CLUT.
+	GPUDebugBuffer clut;
+	if (gpuDebug->GetCurrentClut(clut)) {
+		sz = clut.GetStride() * clut.PixelSize();
+		_assert_msg_(sz == 1024, "CLUT should be 1024 bytes");
+		ptr = (u32)pushbuf.size();
+		pushbuf.resize(pushbuf.size() + sz);
+		memcpy(pushbuf.data() + ptr, clut.GetData(), sz);
+		commands.push_back({ CommandType::CLUT, sz, ptr });
+	}
+
 	DirtyAllVRAM(DirtyVRAMFlag::DIRTY);
 }
 
@@ -308,6 +320,34 @@ static Command EmitCommandWithRAM(CommandType t, const void *p, u32 sz, u32 alig
 	return cmd;
 }
 
+static u32 GetTargetFlags(u32 addr, u32 sizeInRAM) {
+	const bool isTarget = lastRenderTargets.find(addr) != lastRenderTargets.end();
+
+	bool isDirtyVRAM = false;
+	bool isDrawnVRAM = false;
+	uint32_t start = (addr >> DIRTY_VRAM_SHIFT) & DIRTY_VRAM_MASK;
+	for (uint32_t i = 0; i < (sizeInRAM + DIRTY_VRAM_ROUND) >> DIRTY_VRAM_SHIFT; ++i) {
+		DirtyVRAMFlag flag = dirtyVRAM[start + i];
+		isDirtyVRAM = isDirtyVRAM || flag != DirtyVRAMFlag::CLEAN;
+		isDrawnVRAM = isDrawnVRAM || flag == DirtyVRAMFlag::DRAWN;
+
+		// Mark the VRAM clean now that it's been copied to VRAM.
+		if (flag == DirtyVRAMFlag::DIRTY)
+			dirtyVRAM[start + i] = DirtyVRAMFlag::CLEAN;
+	}
+
+	// The isTarget flag is mostly used for replay of dumps on a PSP.
+	u32 flags = isTarget ? 1 : 0;
+	// The unchangedVRAM flag tells us we can skip recopying.
+	if (!isDirtyVRAM)
+		flags |= 2;
+	// And the drawn flag tells us this data was potentially drawn to.
+	if (isDrawnVRAM)
+		flags |= 4;
+
+	return flags;
+}
+
 static void EmitTextureData(int level, u32 texaddr) {
 	GETextureFormat format = gstate.getTextureFormat();
 	int w = gstate.getTextureWidth(level);
@@ -315,7 +355,6 @@ static void EmitTextureData(int level, u32 texaddr) {
 	int bufw = GetTextureBufw(level, texaddr, format);
 	int extraw = w > bufw ? w - bufw : 0;
 	u32 sizeInRAM = (textureBitsPerPixel[format] * (bufw * h + extraw)) / 8;
-	const bool isTarget = lastRenderTargets.find(texaddr) != lastRenderTargets.end();
 
 	CommandType type = CommandType((int)CommandType::TEXTURE0 + level);
 	const u8 *p = Memory::GetPointerUnchecked(texaddr);
@@ -330,27 +369,7 @@ static void EmitTextureData(int level, u32 texaddr) {
 			u32 pad;
 		};
 
-		bool isDirtyVRAM = false;
-		bool isDrawnVRAM = false;
-		uint32_t start = (texaddr >> DIRTY_VRAM_SHIFT) & DIRTY_VRAM_MASK;
-		for (uint32_t i = 0; i < (sizeInRAM + DIRTY_VRAM_ROUND) >> DIRTY_VRAM_SHIFT; ++i) {
-			DirtyVRAMFlag flag = dirtyVRAM[start + i];
-			isDirtyVRAM = isDirtyVRAM || flag != DirtyVRAMFlag::CLEAN;
-			isDrawnVRAM = isDrawnVRAM || flag == DirtyVRAMFlag::DRAWN;
-
-			// Mark the VRAM clean now that it's been copied to VRAM.
-			if (flag == DirtyVRAMFlag::DIRTY)
-				dirtyVRAM[start + i] = DirtyVRAMFlag::CLEAN;
-		}
-
-		// The isTarget flag is mostly used for replay of dumps on a PSP.
-		u32 flags = isTarget ? 1 : 0;
-		// The unchangedVRAM flag tells us we can skip recopying.
-		if (!isDirtyVRAM)
-			flags |= 2;
-		// And the drawn flag tells us this data was potentially drawn to.
-		if (isDrawnVRAM)
-			flags |= 4;
+		u32 flags = GetTargetFlags(texaddr, sizeInRAM);
 		FramebufData framebuf{ texaddr, bufw, flags };
 		framebufData.resize(sizeof(framebuf) + bytes);
 		memcpy(&framebufData[0], &framebuf, sizeof(framebuf));
@@ -456,12 +475,33 @@ static void EmitTransfer(u32 op) {
 
 static void EmitClut(u32 op) {
 	u32 addr = gstate.getClutAddress();
+
+	// Hardware rendering may be using a framebuffer as CLUT.
+	// To get at this, we first run the command (normally we're called right before it has run.)
+	if (Memory::IsVRAMAddress(addr))
+		gpuDebug->SetCmdValue(op);
+
 	// Actually should only be 0x3F, but we allow enhanced CLUTs.  See #15727.
 	u32 blocks = (op & 0x7F) == 0x40 ? 0x40 : (op & 0x3F);
 	u32 bytes = blocks * 32;
 	bytes = Memory::ValidSize(addr, bytes);
 
 	if (bytes != 0) {
+		// Send the original address so VRAM can be reasoned about.
+		if (Memory::IsVRAMAddress(addr)) {
+			struct ClutAddrData {
+				u32 addr;
+				u32 flags;
+			};
+			u32 flags = GetTargetFlags(addr, bytes);
+			ClutAddrData data{ addr, flags };
+
+			FlushRegisters();
+			Command cmd{CommandType::CLUTADDR, sizeof(data), (u32)pushbuf.size()};
+			pushbuf.resize(pushbuf.size() + sizeof(data));
+			memcpy(pushbuf.data() + cmd.ptr, &data, sizeof(data));
+			commands.push_back(cmd);
+		}
 		EmitCommandWithRAM(CommandType::CLUT, Memory::GetPointerUnchecked(addr), bytes, 16);
 	}
 

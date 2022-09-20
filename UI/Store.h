@@ -67,7 +67,7 @@ public:
 	~StoreScreen();
 
 	void update() override;
-	std::string tag() const override { return "store"; }
+	const char *tag() const override { return "Store"; }
 
 protected:
 	void CreateViews() override;

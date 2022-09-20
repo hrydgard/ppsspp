@@ -305,11 +305,18 @@ bool CompareOutput(const Path &bootFilename, const std::string &output, bool ver
 	}
 }
 
-inline int ComparePixel(u32 pix1, u32 pix2) {
-	// For now, if they're different at all except alpha, it's an error.
-	if ((pix1 & 0xFFFFFF) != (pix2 & 0xFFFFFF))
-		return 1;
-	return 0;
+static inline double CompareChannel(int pix1, int pix2) {
+	double diff = pix1 - pix2;
+	return diff * diff;
+}
+
+static inline double ComparePixel(u32 pix1, u32 pix2) {
+	// Ignore alpha.
+	double r = CompareChannel(pix1 & 0xFF, pix2 & 0xFF);
+	double g = CompareChannel((pix1 >> 8) & 0xFF, (pix2 >> 8) & 0xFF);
+	double b = CompareChannel((pix1 >> 16) & 0xFF, (pix2 >> 16) & 0xFF);
+
+	return r + g + b;
 }
 
 std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32 stride, u32 h) {
@@ -338,7 +345,6 @@ std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32
 		dst += (h - safeH) * stride;
 	}
 
-	u32 errors = 0;
 	for (u32 y = 0; y < safeH; ++y) {
 		switch (buffer->GetFormat()) {
 		case GPU_DBG_FORMAT_8888:
@@ -429,7 +435,7 @@ double ScreenshotComparer::Compare(const Path &screenshotFilename) {
 		return -1.0f;
 	}
 
-	u32 errors = 0;
+	double errors = 0;
 	if (asBitmap_) {
 		// The reference is flipped and BGRA by default for the common BMP compare case.
 		for (u32 y = 0; y < h_; ++y) {
@@ -447,7 +453,8 @@ double ScreenshotComparer::Compare(const Path &screenshotFilename) {
 		}
 	}
 
-	return (double) errors / (double) (w_ * h_);
+	// Convert to MSE, accounting for all three channels (RGB.)
+	return errors / (double)(w_ * h_ * 3);
 }
 
 bool ScreenshotComparer::SaveActualBitmap(const Path &resultFilename) {
