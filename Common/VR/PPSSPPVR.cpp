@@ -250,7 +250,7 @@ void PreGLCommand(const void* data) {
 	} else if (vrCompat[VR_COMPAT_SKYPLANE] && vrCompat[VR_COMPAT_GEOMETRY]) {
 		const auto* glrData = (const GLRRenderData*)data;
 		if (glrData->cmd == GLRRenderCommand::BINDPROGRAM) {
-			vrCompat[VR_USE_CLIP] = glrData->program.program->use_clip_distance0;
+			vrCompat[VR_USE_CLIP] = glrData->program.program->use_clip_distance[0];
 		} else if ((glrData->cmd == GLRRenderCommand::DRAW_INDEXED) && IsSkyPlane(glrData)) {
 			glColorMask(false, false, false, false);
 		}
