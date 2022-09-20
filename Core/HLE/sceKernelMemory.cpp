@@ -504,7 +504,7 @@ void __KernelMemoryShutdown()
 	MemBlockInfoShutdown();
 }
 
-static BlockAllocator *BlockAllocatorFromID(int id) {
+BlockAllocator *BlockAllocatorFromID(int id) {
 	switch (id) {
 	case 1:
 	case 3:
@@ -529,7 +529,7 @@ static BlockAllocator *BlockAllocatorFromID(int id) {
 	return nullptr;
 }
 
-static int BlockAllocatorToID(const BlockAllocator *alloc) {
+int BlockAllocatorToID(const BlockAllocator *alloc) {
 	if (alloc == &kernelMemory)
 		return 1;
 	if (alloc == &userMemory)
@@ -539,7 +539,7 @@ static int BlockAllocatorToID(const BlockAllocator *alloc) {
 	return 0;
 }
 
-static BlockAllocator *BlockAllocatorFromAddr(u32 addr) {
+BlockAllocator *BlockAllocatorFromAddr(u32 addr) {
 	addr &= 0x3FFFFFFF;
 	if (Memory::IsKernelAndNotVolatileAddress(addr))
 		return &kernelMemory;

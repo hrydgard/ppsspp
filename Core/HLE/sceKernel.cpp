@@ -820,7 +820,7 @@ const HLEFunction ThreadManForUser[] =
 	{0X87D4DD36, &WrapI_IU<sceKernelCancelReceiveMbx>,               "sceKernelCancelReceiveMbx",                 'i', "ix"      },
 	{0XA8E8C846, &WrapI_IU<sceKernelReferMbxStatus>,                 "sceKernelReferMbxStatus",                   'i', "ip"      },
 
-	{0X7C0DC2A0, &WrapI_CIUUU<sceKernelCreateMsgPipe>,               "sceKernelCreateMsgPipe",                    'i', "sixxx"   },
+	{0X7C0DC2A0, &WrapI_CIUUU<sceKernelCreateMsgPipe>,               "sceKernelCreateMsgPipe",                    'i', "sixxp"   },
 	{0XF0B7DA1C, &WrapI_I<sceKernelDeleteMsgPipe>,                   "sceKernelDeleteMsgPipe",                    'i', "i"       },
 	{0X876DBFAD, &WrapI_IUUUUU<sceKernelSendMsgPipe>,                "sceKernelSendMsgPipe",                      'i', "ixxxxx"  },
 	{0X7C41F2C2, &WrapI_IUUUUU<sceKernelSendMsgPipeCB>,              "sceKernelSendMsgPipeCB",                    'i', "ixxxxx"  },
