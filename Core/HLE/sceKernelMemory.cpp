@@ -529,6 +529,16 @@ static BlockAllocator *BlockAllocatorFromID(int id) {
 	return nullptr;
 }
 
+static int BlockAllocatorToID(const BlockAllocator *alloc) {
+	if (alloc == &kernelMemory)
+		return 1;
+	if (alloc == &userMemory)
+		return 2;
+	if (alloc == &volatileMemory)
+		return 5;
+	return 0;
+}
+
 enum SceKernelFplAttr
 {
 	PSP_FPL_ATTR_FIFO     = 0x0000,
@@ -989,18 +999,23 @@ public:
 			alloc->Free(address);
 	}
 	bool IsValid() {return address != (u32)-1;}
-	BlockAllocator *alloc;
 
 	void DoState(PointerWrap &p) override
 	{
-		auto s = p.Section("PMB", 1);
+		auto s = p.Section("PMB", 1, 2);
 		if (!s)
 			return;
 
 		Do(p, address);
 		DoArray(p, name, sizeof(name));
+		if (s >= 2) {
+			int allocType = BlockAllocatorToID(alloc);
+			Do(p, allocType);
+			alloc = BlockAllocatorFromID(allocType);
+		}
 	}
 
+	BlockAllocator *alloc;
 	u32 address;
 	char name[32];
 };
