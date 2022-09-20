@@ -62,62 +62,100 @@ void FrameData::AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared)
 	}
 }
 
-void FrameData::SubmitInitCommands(VulkanContext *vulkan) {
-	if (!hasInitCommands) {
-		return;
-	}
+VkResult FrameData::QueuePresent(VulkanContext *vulkan, FrameDataShared &shared) {
+	_dbg_assert_(hasAcquired);
+	hasAcquired = false;
 
-	if (profilingEnabled_) {
-		// Pre-allocated query ID 1.
-		vkCmdWriteTimestamp(initCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile.queryPool, 1);
-	}
+	VkSwapchainKHR swapchain = vulkan->GetSwapchain();
+	VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+	present.swapchainCount = 1;
+	present.pSwapchains = &swapchain;
+	present.pImageIndices = &curSwapchainImage;
+	present.pWaitSemaphores = &shared.renderingCompleteSemaphore;
+	present.waitSemaphoreCount = 1;
 
-	VkResult res = vkEndCommandBuffer(initCmd);
-	_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
-
-	VkCommandBuffer cmdBufs[1];
-	int numCmdBufs = 0;
-
-	cmdBufs[numCmdBufs++] = initCmd;
-	// Send the init commands off separately, so they can be processed while we're building the rest of the list.
-	// (Likely the CPU will be more than a frame ahead anyway, but this will help when we try to work on latency).
-	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
-	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
-	submit_info.pCommandBuffers = cmdBufs;
-	res = vkQueueSubmit(vulkan->GetGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
-	if (res == VK_ERROR_DEVICE_LOST) {
-		_assert_msg_(false, "Lost the Vulkan device in split submit! If this happens again, switch Graphics Backend away from Vulkan");
-	} else {
-		_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (init)! result=%s", VulkanResultToString(res));
-	}
-	numCmdBufs = 0;
-
-	hasInitCommands = false;
+	return vkQueuePresentKHR(vulkan->GetGraphicsQueue(), &present);
 }
 
-void FrameData::SubmitMainFinal(VulkanContext *vulkan, bool triggerFrameFence, FrameDataShared &sharedData) {
+VkCommandBuffer FrameData::GetInitCmd(VulkanContext *vulkan) {
+	if (!hasInitCommands) {
+		VkCommandBufferBeginInfo begin = {
+			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			nullptr,
+			VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+		};
+		vkResetCommandPool(vulkan->GetDevice(), cmdPoolInit, 0);
+		VkResult res = vkBeginCommandBuffer(initCmd, &begin);
+		if (res != VK_SUCCESS) {
+			return VK_NULL_HANDLE;
+		}
+		hasInitCommands = true;
+	}
+	return initCmd;
+}
+
+void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &sharedData) {
 	VkCommandBuffer cmdBufs[2];
 	int numCmdBufs = 0;
 
-	cmdBufs[numCmdBufs++] = mainCmd;
+	VkFence fenceToTrigger = VK_NULL_HANDLE;
+
+	if (hasInitCommands) {
+		if (profilingEnabled_) {
+			// Pre-allocated query ID 1 - end of init cmdbuf.
+			vkCmdWriteTimestamp(initCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile.queryPool, 1);
+		}
+
+		VkResult res = vkEndCommandBuffer(initCmd);
+		cmdBufs[numCmdBufs++] = initCmd;
+
+		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
+		hasInitCommands = false;
+	}
+
+	if (hasMainCommands) {
+		VkResult res = vkEndCommandBuffer(mainCmd);
+		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (main)! result=%s", VulkanResultToString(res));
+
+		cmdBufs[numCmdBufs++] = mainCmd;
+		hasMainCommands = false;
+
+		if (type == FrameSubmitType::Sync) {
+			fenceToTrigger = readbackFence;
+		}
+	}
+
 	if (hasPresentCommands) {
+		VkResult res = vkEndCommandBuffer(presentCmd);
+		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (present)! result=%s", VulkanResultToString(res));
+
 		cmdBufs[numCmdBufs++] = presentCmd;
+		hasPresentCommands = false;
+
+		if (type == FrameSubmitType::Present) {
+			fenceToTrigger = fence;
+		}
+	}
+
+	if (!numCmdBufs && fenceToTrigger == VK_NULL_HANDLE) {
+		// Nothing to do.
+		return;
 	}
 
 	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	if (triggerFrameFence && !skipSwap) {
+	if (type == FrameSubmitType::Present && !skipSwap) {
 		submit_info.waitSemaphoreCount = 1;
 		submit_info.pWaitSemaphores = &sharedData.acquireSemaphore;
 		submit_info.pWaitDstStageMask = waitStage;
 	}
 	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
 	submit_info.pCommandBuffers = cmdBufs;
-	if (triggerFrameFence && !skipSwap) {
+	if (type == FrameSubmitType::Present && !skipSwap) {
 		submit_info.signalSemaphoreCount = 1;
 		submit_info.pSignalSemaphores = &sharedData.renderingCompleteSemaphore;
 	}
-	VkResult res = vkQueueSubmit(vulkan->GetGraphicsQueue(), 1, &submit_info, triggerFrameFence ? fence : readbackFence);
+	VkResult res = vkQueueSubmit(vulkan->GetGraphicsQueue(), 1, &submit_info, fenceToTrigger);
 	if (res == VK_ERROR_DEVICE_LOST) {
 		_assert_msg_(false, "Lost the Vulkan device in vkQueueSubmit! If this happens again, switch Graphics Backend away from Vulkan");
 	} else {
@@ -125,15 +163,12 @@ void FrameData::SubmitMainFinal(VulkanContext *vulkan, bool triggerFrameFence, F
 	}
 
 	// When !triggerFence, we notify after syncing with Vulkan.
-	if (triggerFrameFence) {
+	if (type == FrameSubmitType::Present || type == FrameSubmitType::Sync) {
 		VERBOSE_LOG(G3D, "PULL: Frame %d.readyForFence = true", index);
 		std::unique_lock<std::mutex> lock(push_mutex);
 		readyForFence = true;
 		push_condVar.notify_all();
 	}
-
-	hasInitCommands = false;
-	hasPresentCommands = false;
 }
 
 void FrameDataShared::Init(VulkanContext *vulkan) {

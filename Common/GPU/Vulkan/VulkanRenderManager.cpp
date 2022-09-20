@@ -535,7 +535,6 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 
 	// Can't set this until after the fence.
 	frameData.profilingEnabled_ = enableProfiling;
-	frameData.readbackFenceUsed = false;
 
 	uint64_t queryResults[MAX_TIMESTAMP_QUERIES];
 
@@ -600,21 +599,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 
 VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	int curFrame = vulkan_->GetCurFrame();
-	FrameData &frameData = frameData_[curFrame];
-	if (!frameData.hasInitCommands) {
-		VkCommandBufferBeginInfo begin = {
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			nullptr,
-			VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-		};
-		vkResetCommandPool(vulkan_->GetDevice(), frameData.cmdPoolInit, 0);
-		VkResult res = vkBeginCommandBuffer(frameData.initCmd, &begin);
-		if (res != VK_SUCCESS) {
-			return VK_NULL_HANDLE;
-		}
-		frameData.hasInitCommands = true;
-	}
-	return frameData_[curFrame].initCmd;
+	return frameData_[curFrame].GetInitCmd(vulkan_);
 }
 
 VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, uint32_t variantBitmask, const char *tag) {
@@ -1210,13 +1195,18 @@ void VulkanRenderManager::Wipe() {
 	steps_.clear();
 }
 
+// Called on the render thread.
+//
 // Can be called multiple times with no bad side effects. This is so that we can either begin a frame the normal way,
 // or stop it in the middle for a synchronous readback, then start over again mostly normally but without repeating
 // the backbuffer image acquisition.
 void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 
-	frameData.SubmitInitCommands(vulkan_);
+	// Should only have at most the init command buffer pending here (that one came from the other thread).
+	_dbg_assert_(!frameData.hasMainCommands);
+	_dbg_assert_(!frameData.hasPresentCommands);
+	frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared_);
 
 	if (!frameData.hasBegun) {
 		// Effectively resets both main and present command buffers, since they both live in this pool.
@@ -1225,48 +1215,31 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 		begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
+		frameData.hasMainCommands = true;
 		_assert_msg_(res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%s", VulkanResultToString(res));
 
 		frameData.hasBegun = true;
 	}
 }
 
-void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
+// Called on the render thread.
+void VulkanRenderManager::Submit(int frame, FrameSubmitType submitType) {
 	FrameData &frameData = frameData_[frame];
 
-	VkResult res = vkEndCommandBuffer(frameData.mainCmd);
-	_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (main)! result=%s", VulkanResultToString(res));
-
-	if (frameData.hasPresentCommands) {
-		VkResult res = vkEndCommandBuffer(frameData.presentCmd);
-		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (present)! result=%s", VulkanResultToString(res));
-	}
-
-	// If any init commands left unsubmitted (like by a frame sync etc), submit it first.
-	frameData.SubmitInitCommands(vulkan_);
-
 	// Submit the main and final cmdbuf, ending by signalling the fence.
-	frameData.SubmitMainFinal(vulkan_, triggerFrameFence, frameDataShared_);
+	// If any init commands left unsubmitted (like by a frame sync etc), they'll also tag along.
+	frameData.SubmitPending(vulkan_, submitType, frameDataShared_);
 }
 
+// Called on the render thread.
 void VulkanRenderManager::EndSubmitFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 	frameData.hasBegun = false;
 
-	Submit(frame, true);
+	Submit(frame, FrameSubmitType::Present);
 
 	if (!frameData.skipSwap) {
-		VkSwapchainKHR swapchain = vulkan_->GetSwapchain();
-		VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
-		present.swapchainCount = 1;
-		present.pSwapchains = &swapchain;
-		present.pImageIndices = &frameData.curSwapchainImage;
-		present.pWaitSemaphores = &frameDataShared_.renderingCompleteSemaphore;
-		present.waitSemaphoreCount = 1;
-
-		_dbg_assert_(frameData.hasAcquired);
-
-		VkResult res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
+		VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
 		if (res == VK_ERROR_OUT_OF_DATE_KHR) {
 			// We clearly didn't get this in vkAcquireNextImageKHR because of the skipSwap check above.
 			// Do the increment.
@@ -1279,7 +1252,6 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 			// Success
 			outOfDateFrames_ = 0;
 		}
-		frameData.hasAcquired = false;
 	} else {
 		// We only get here if vkAcquireNextImage returned VK_ERROR_OUT_OF_DATE.
 		outOfDateFrames_++;
@@ -1314,10 +1286,8 @@ void VulkanRenderManager::Run(int frame) {
 void VulkanRenderManager::EndSyncFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 
-	frameData.readbackFenceUsed = true;
-
 	// The submit will trigger the readbackFence.
-	Submit(frame, false);
+	Submit(frame, FrameSubmitType::Sync);
 
 	// Hard stall of the GPU, not ideal, but necessary so the CPU has the contents of the readback.
 	vkWaitForFences(vulkan_->GetDevice(), 1, &frameData.readbackFence, true, UINT64_MAX);
@@ -1331,8 +1301,10 @@ void VulkanRenderManager::EndSyncFrame(int frame) {
 		nullptr,
 		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
 	};
+	_dbg_assert_(!frameData.hasPresentCommands);  // Readbacks should happen before we try to submit any present commands.
 	vkResetCommandPool(vulkan_->GetDevice(), frameData.cmdPoolMain, 0);
 	VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
+	frameData.hasMainCommands = true;
 	_assert_(res == VK_SUCCESS);
 
 	std::unique_lock<std::mutex> lock(frameData.push_mutex);

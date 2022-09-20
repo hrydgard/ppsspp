@@ -35,6 +35,12 @@ struct FrameDataShared {
 	void Destroy(VulkanContext *vulkan);
 };
 
+enum class FrameSubmitType {
+	Pending,
+	Sync,
+	Present,
+};
+
 // Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 struct FrameData {
 	std::mutex push_mutex;
@@ -49,8 +55,7 @@ struct FrameData {
 	VKRRunType type = VKRRunType::END;
 
 	VkFence fence;
-	VkFence readbackFence;  // Strictly speaking we might only need one of these.
-	bool readbackFenceUsed = false;
+	VkFence readbackFence;  // Strictly speaking we might only need one global of these.
 
 	// These are on different threads so need separate pools.
 	VkCommandPool cmdPoolInit;  // Written to from main thread
@@ -61,7 +66,9 @@ struct FrameData {
 	VkCommandBuffer presentCmd;
 
 	bool hasInitCommands = false;
+	bool hasMainCommands = false;
 	bool hasPresentCommands = false;
+
 	bool hasAcquired = false;
 
 	std::vector<VKRStep *> steps;
@@ -81,8 +88,9 @@ struct FrameData {
 	void Destroy(VulkanContext *vulkan);
 
 	void AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared);
+	VkResult QueuePresent(VulkanContext *vulkan, FrameDataShared &shared);
+	VkCommandBuffer GetInitCmd(VulkanContext *vulkan);
 
 	// This will only submit if we are actually recording init commands.
-	void SubmitInitCommands(VulkanContext *vulkan);
-	void SubmitMainFinal(VulkanContext *vulkan, bool triggerFrameFence, FrameDataShared &shared);
+	void SubmitPending(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &shared);
 };

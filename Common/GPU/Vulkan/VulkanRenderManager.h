@@ -463,7 +463,7 @@ private:
 
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
-	void Submit(int frame, bool triggerFence);
+	void Submit(int frame, FrameSubmitType submitType);
 	void SubmitInitCommands(int frame);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
