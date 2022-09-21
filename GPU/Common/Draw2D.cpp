@@ -70,6 +70,23 @@ Draw2DPipelineInfo GenerateDraw2DCopyColorFs(ShaderWriter &writer) {
 	};
 }
 
+Draw2DPipelineInfo GenerateDraw2DCopyColorRect2LinFs(ShaderWriter &writer) {
+	writer.DeclareSamplers(samplers);
+	writer.BeginFSMain(g_draw2Duniforms, varyings, FSFLAG_NONE);
+	writer.C("  vec2 tSize = texSize / scaleFactor;\n");
+	writer.C("  vec2 pixels = v_texcoord * tSize;\n");
+	writer.C("  float u = mod(floor(pixels.x), tSize.x);\n");
+	writer.C("  float v = floor(pixels.x / tSize.x);\n");
+	writer.C("  vec4 outColor = ").SampleTexture2D("tex", "vec2(u, v) / tSize").C(";\n");
+	writer.EndFSMain("outColor", FSFLAG_NONE);
+
+	return Draw2DPipelineInfo{
+		"draw2d_copy_color_rect2lin",
+		RASTER_COLOR,
+		RASTER_COLOR,
+	};
+}
+
 Draw2DPipelineInfo GenerateDraw2DCopyDepthFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_WRITEDEPTH);
@@ -316,6 +333,13 @@ Draw2DPipeline *FramebufferManagerCommon::Get2DPipeline(Draw2DShader shader) {
 			draw2DPipelineColor_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyColorFs);
 		}
 		pipeline = draw2DPipelineColor_;
+		break;
+
+	case DRAW2D_COPY_COLOR_RECT2LIN:
+		if (!draw2DPipelineColorRect2Lin_) {
+			draw2DPipelineColorRect2Lin_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyColorRect2LinFs);
+		}
+		pipeline = draw2DPipelineColorRect2Lin_;
 		break;
 
 	case DRAW2D_COPY_DEPTH:

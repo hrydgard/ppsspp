@@ -1259,11 +1259,12 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 					dynamicClutTemp_ = draw_->CreateFramebuffer(desc);
 				}
 
-				// Download the pixels to our temp clut, scaling down if needed.
+				// Copy the pixels to our temp clut, scaling down if needed and wrapping.
+				// TODO: Take the clutRenderOffset_ into account here.
 				framebufferManager_->BlitUsingRaster(
 					chosenFramebuffer->fbo, 0.0f, 0.0f, 512.0f * chosenFramebuffer->renderScaleFactor, 1.0f, 
 					dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, 
-					false, 1.0f, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR), "copy_clut_to_temp");
+					false, chosenFramebuffer->renderScaleFactor, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR_RECT2LIN), "copy_clut_to_temp");
 				clutRenderFormat_ = chosenFramebuffer->fb_format;
 			}
 			NotifyMemInfo(MemBlockFlags::ALLOC, clutAddr, loadBytes, "CLUT");

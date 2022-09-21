@@ -2701,6 +2701,7 @@ void FramebufferManagerCommon::DeviceLost() {
 	DoRelease(stencilUploadSampler_);
 	DoRelease(stencilUploadPipeline_);
 	DoRelease(draw2DPipelineColor_);
+	DoRelease(draw2DPipelineColorRect2Lin_);
 	DoRelease(draw2DPipelineDepth_);
 	DoRelease(draw2DPipeline565ToDepth_);
 	DoRelease(draw2DPipeline565ToDepthDeswizzle_);
