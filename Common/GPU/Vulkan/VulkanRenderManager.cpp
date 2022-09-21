@@ -1269,7 +1269,10 @@ void VulkanRenderManager::Run(int frame) {
 	BeginSubmitFrame(frame);
 
 	FrameData &frameData = frameData_[frame];
-	queueRunner_.PreprocessSteps(frameData_[frame].steps);
+	queueRunner_.PreprocessSteps(frameData.steps);
+	// Likely during shutdown, happens in headless.
+	if (frameData.steps.empty() && !frameData.hasAcquired)
+		frameData.skipSwap = true;
 	//queueRunner_.LogSteps(stepsOnThread, false);
 	queueRunner_.RunSteps(frameData, frameDataShared_);
 
