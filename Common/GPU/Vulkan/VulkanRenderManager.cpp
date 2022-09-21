@@ -719,9 +719,11 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		}
 		if (depth == VKRRenderPassLoadAction::CLEAR) {
 			clearMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+			curPipelineFlags_ |= PipelineFlags::USES_DEPTH_STENCIL;
 		}
 		if (stencil == VKRRenderPassLoadAction::CLEAR) {
 			clearMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+			curPipelineFlags_ |= PipelineFlags::USES_DEPTH_STENCIL;
 		}
 
 		// If we need a clear and the previous step has commands already, it's best to just add a clear and keep going.
@@ -1001,6 +1003,10 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 		curRenderStep_->render.colorLoad = (clearMask & VK_IMAGE_ASPECT_COLOR_BIT) ? VKRRenderPassLoadAction::CLEAR : VKRRenderPassLoadAction::KEEP;
 		curRenderStep_->render.depthLoad = (clearMask & VK_IMAGE_ASPECT_DEPTH_BIT) ? VKRRenderPassLoadAction::CLEAR : VKRRenderPassLoadAction::KEEP;
 		curRenderStep_->render.stencilLoad = (clearMask & VK_IMAGE_ASPECT_STENCIL_BIT) ? VKRRenderPassLoadAction::CLEAR : VKRRenderPassLoadAction::KEEP;
+
+		if (clearMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+			curPipelineFlags_ |= PipelineFlags::USES_DEPTH_STENCIL;
+		}
 
 		// In case there were commands already.
 		curRenderStep_->render.numDraws = 0;
