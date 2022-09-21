@@ -75,7 +75,7 @@ Draw2DPipelineInfo GenerateDraw2DCopyColorRect2LinFs(ShaderWriter &writer) {
 	writer.BeginFSMain(g_draw2Duniforms, varyings, FSFLAG_NONE);
 	writer.C("  vec2 tSize = texSize / scaleFactor;\n");
 	writer.C("  vec2 pixels = v_texcoord * tSize;\n");
-	writer.C("  float u = mod(floor(pixels.x), tSize.x);\n");
+	writer.C("  float u = mod(pixels.x, tSize.x);\n");
 	writer.C("  float v = floor(pixels.x / tSize.x);\n");
 	writer.C("  vec4 outColor = ").SampleTexture2D("tex", "vec2(u, v) / tSize").C(";\n");
 	writer.EndFSMain("outColor", FSFLAG_NONE);
