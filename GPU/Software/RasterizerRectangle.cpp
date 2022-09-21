@@ -93,7 +93,10 @@ static inline bool AlphaTestIsNeedless(const PixelFuncID &pixelID) {
 	case GE_COMP_NOTEQUAL:
 	case GE_COMP_GREATER:
 	case GE_COMP_GEQUAL:
-		return pixelID.alphaBlend && pixelID.alphaTestRef == 0 && !pixelID.hasAlphaTestMask;
+		if (pixelID.alphaTestRef != 0 || pixelID.hasAlphaTestMask)
+			return false;
+		// DrawSinglePixel5551 assumes it can take the src color directly if full alpha.
+		return pixelID.alphaBlend && pixelID.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA && pixelID.AlphaBlendDst() == PixelBlendFactor::INVSRCALPHA;
 	}
 
 	return false;
