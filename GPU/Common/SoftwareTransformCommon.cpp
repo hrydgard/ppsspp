@@ -790,13 +790,13 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 			float yoff = addWidth.y * dy;
 
 			// bottom right
-			trans[0].CopyFromWithOffset(transVtx2, xoff, yoff);
+			trans[0].CopyFromWithOffset(transVtx2, xoff * transVtx2.pos_w, yoff * transVtx2.pos_w);
 			// top right
-			trans[1].CopyFromWithOffset(transVtx1, xoff, yoff);
+			trans[1].CopyFromWithOffset(transVtx1, xoff * transVtx1.pos_w, yoff * transVtx1.pos_w);
 			// top left
-			trans[2].CopyFromWithOffset(transVtx1, -xoff, -yoff);
+			trans[2].CopyFromWithOffset(transVtx1, -xoff * transVtx1.pos_w, -yoff * transVtx1.pos_w);
 			// bottom left
-			trans[3].CopyFromWithOffset(transVtx2, -xoff, -yoff);
+			trans[3].CopyFromWithOffset(transVtx2, -xoff * transVtx2.pos_w, -yoff * transVtx2.pos_w);
 
 			// Triangle: BR-TR-TL
 			indsOut[0] = i * 2 + 0;
@@ -835,17 +835,17 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 
 			// bottom right
 			trans[0] = transVtxBL;
-			trans[0].x += addWidth.x * dx;
-			trans[0].y += addWidth.y * dy;
-			trans[0].u += addWidth.x * du;
-			trans[0].v += addWidth.y * dv;
+			trans[0].x += addWidth.x * dx * trans[0].pos_w;
+			trans[0].y += addWidth.y * dy * trans[0].pos_w;
+			trans[0].u += addWidth.x * du * trans[0].uv_w;
+			trans[0].v += addWidth.y * dv * trans[0].uv_w;
 
 			// top right
 			trans[1] = transVtxTL;
-			trans[1].x += addWidth.x * dx;
-			trans[1].y += addWidth.y * dy;
-			trans[1].u += addWidth.x * du;
-			trans[1].v += addWidth.y * dv;
+			trans[1].x += addWidth.x * dx * trans[1].pos_w;
+			trans[1].y += addWidth.y * dy * trans[1].pos_w;
+			trans[1].u += addWidth.x * du * trans[1].uv_w;
+			trans[1].v += addWidth.y * dv * trans[1].uv_w;
 
 			// top left
 			trans[2] = transVtxTL;
