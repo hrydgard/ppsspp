@@ -569,6 +569,7 @@ protected:
 
 	// Draw2D pipelines
 	Draw2DPipeline *draw2DPipelineColor_ = nullptr;
+	Draw2DPipeline *draw2DPipelineColorRect2Lin_ = nullptr;
 	Draw2DPipeline *draw2DPipelineDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepthDeswizzle_ = nullptr;
