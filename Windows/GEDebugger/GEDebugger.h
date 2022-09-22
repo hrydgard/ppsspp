@@ -134,7 +134,7 @@ private:
 	int textureLevel_ = 0;
 	bool showClut_ = false;
 	bool forceOpaque_ = false;
-	bool autoFlush_ = false;
+	bool autoFlush_ = true;
 	// The most recent primary/framebuffer and texture buffers.
 	const GPUDebugBuffer *primaryBuffer_ = nullptr;
 	const GPUDebugBuffer *secondBuffer_ = nullptr;
