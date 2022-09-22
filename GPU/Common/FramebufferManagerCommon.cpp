@@ -555,15 +555,12 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 	if (!isClearingDepth && useBufferedRendering_) {
 		CopyToDepthFromOverlappingFramebuffers(currentRenderVfb_);
 
-		// Special compatibility trick for Burnout Dominator lens flares. Not sure how to best generalize this. See issue #11100
+		// Special compatibility trick for Burnout Dominator lens flares. See issue #11100
 		if (PSP_CoreParameter().compat.flags().UploadDepthForCLUTTextures && currentRenderVfb_->z_address > 0x04110000) {
-			// Set the flag, then upload memory contents to depth channel.
 			// Sanity check the depth buffer pointer.
-			if (currentRenderVfb_->z_address > 0x04110000) {
-				if (Memory::IsValidRange(currentRenderVfb_->z_address, currentRenderVfb_->width * 2)) {
-					const u16 *src = (const u16 *)Memory::GetPointerUnchecked(currentRenderVfb_->z_address);
-					DrawPixels(currentRenderVfb_, 0, 0, (const u8 *)src, GE_FORMAT_DEPTH16, currentRenderVfb_->z_stride, currentRenderVfb_->width, currentRenderVfb_->height, RASTER_DEPTH, "Depth Upload");
-				}
+			if (Memory::IsValidRange(currentRenderVfb_->z_address, currentRenderVfb_->width * 2)) {
+				const u16 *src = (const u16 *)Memory::GetPointerUnchecked(currentRenderVfb_->z_address);
+				DrawPixels(currentRenderVfb_, 0, 0, (const u8 *)src, GE_FORMAT_DEPTH16, currentRenderVfb_->z_stride, currentRenderVfb_->width, currentRenderVfb_->height, RASTER_DEPTH, "Depth Upload");
 			}
 		}
 	}
