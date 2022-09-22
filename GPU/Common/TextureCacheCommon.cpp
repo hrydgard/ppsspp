@@ -1018,7 +1018,8 @@ bool TextureCacheCommon::MatchFramebuffer(
 			return false;
 		}
 
-		if (fb_stride_in_bytes != tex_stride_in_bytes) {
+		// Note the check for texHeight - we really don't care about a stride mismatch if texHeight == 1.
+		if (fb_stride_in_bytes != tex_stride_in_bytes && texHeight > 1) {
 			// Probably irrelevant. Although, as we shall see soon, there are exceptions.
 			// Burnout Dominator lens flare trick special case.
 			if (fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT8 && texWidth == 4 && texHeight == 1) {
