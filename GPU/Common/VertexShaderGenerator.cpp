@@ -1162,16 +1162,16 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 						}
 						break;
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
-						if (hasNormalTess)
-							temp_tc = StringFromFormat("length(tess.nrm) == 0.0 ? vec4(0.0, 0.0, 1.0, 1.0) : vec4(normalize(%stess.nrm), 1.0)", flipNormal ? "-" : "");
+						if ((doBezier || doSpline) && hasNormalTess)
+							temp_tc = StringFromFormat("length(tess.nrm) == 0.0 ? vec4(0.0, 0.0, 1.0, 1.0) : vec4(normalize(%stess.nrm), 1.0)", flipNormalTess ? "-" : "");
 						else if (hasNormal)
 							temp_tc = StringFromFormat("length(normal) == 0.0 ? vec4(0.0, 0.0, 1.0, 1.0) : vec4(normalize(%snormal), 1.0)", flipNormal ? "-" : "");
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					case GE_PROJMAP_NORMAL:  // Use non-normalized transformed normal as source
-						if (hasNormalTess)
-							temp_tc = flipNormal ? "vec4(-tess.nrm, 1.0)" : "vec4(tess.nrm, 1.0)";
+						if ((doBezier || doSpline) && hasNormalTess)
+							temp_tc = flipNormalTess ? "vec4(-tess.nrm, 1.0)" : "vec4(tess.nrm, 1.0)";
 						else if (hasNormal)
 							temp_tc = flipNormal ? "vec4(-normal, 1.0)" : "vec4(normal, 1.0)";
 						else
