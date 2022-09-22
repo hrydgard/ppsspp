@@ -1056,6 +1056,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	if (depth->info.depthTestEnable || depth->info.stencilTestEnable) {
 		pipelineFlags |= PipelineFlags::USES_DEPTH_STENCIL;
 	}
+	// TODO: We need code to set USES_BLEND_CONSTANT here too, if we're ever gonna use those in thin3d code.
 
 	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), pipelineFlags, tag);
 

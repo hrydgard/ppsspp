@@ -669,7 +669,7 @@ void VulkanRenderManager::EndCurRenderStep() {
 		rpType = RP_TYPE_BACKBUFFER;
 	} else if (curPipelineFlags_ & PipelineFlags::USES_INPUT_ATTACHMENT) {
 		// Not allowed on backbuffers.
-		rpType = depthStencil ? RP_TYPE_COLOR_INPUT : RP_TYPE_COLOR_DEPTH_INPUT;
+		rpType = depthStencil ? RP_TYPE_COLOR_DEPTH_INPUT : RP_TYPE_COLOR_INPUT;
 	}
 	// TODO: Also add render pass types for depth/stencil-less.
 
