@@ -1942,7 +1942,8 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	}
 
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
-	drawEngineCommon_->DispatchFlush();
+	if (flushOnParams_)
+		drawEngineCommon_->DispatchFlush();
 
 	Spline::BezierSurface surface;
 	surface.tess_u = gstate.getPatchDivisionU();
@@ -2014,7 +2015,8 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	}
 
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
-	drawEngineCommon_->DispatchFlush();
+	if (flushOnParams_)
+		drawEngineCommon_->DispatchFlush();
 
 	Spline::SplineSurface surface;
 	surface.tess_u = gstate.getPatchDivisionU();
