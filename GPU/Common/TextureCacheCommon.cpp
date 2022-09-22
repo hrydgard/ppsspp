@@ -2095,7 +2095,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 				mode = ShaderDepalMode::SMOOTHED;
 			}
 
-			// Since we started/ended render passes, might need these.
 			gstate_c.Dirty(DIRTY_DEPAL);
 			gstate_c.SetUseShaderDepal(mode);
 			gstate_c.depalFramebufferFormat = framebuffer->fb_format;
@@ -2193,8 +2192,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 	ApplySamplingParams(samplerKey);
 
-	// Since we started/ended render passes, might need these.
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE | DIRTY_VERTEXSHADER_STATE);
+	// Since we've drawn using thin3d, might need these.
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 // Applies depal to a normal (non-framebuffer) texture, pre-decoded to CLUT8 format.
@@ -2285,8 +2284,8 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(texWidth, texHeight);
 	ApplySamplingParams(samplerKey);
 
-	// Since we started/ended render passes, might need these.
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE | DIRTY_VERTEXSHADER_STATE);
+	// Since we've drawn using thin3d, might need these.
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 void TextureCacheCommon::Clear(bool delete_them) {

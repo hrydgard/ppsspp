@@ -186,13 +186,9 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 
 		// Otherwise, we can skip alpha in many cases, in which case we don't even use a shader.
 		if (flags & StencilUpload::IGNORE_ALPHA) {
-			shaderManager_->DirtyLastShader();
-
 			if (dstBuffer->fbo) {
 				draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "PerformStencilUpload_Clear");
 			}
-
-			gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE);
 			return true;
 		}
 	}
@@ -333,6 +329,6 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	tex->Release();
 
 	draw_->InvalidateCachedState();
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 	return true;
 }

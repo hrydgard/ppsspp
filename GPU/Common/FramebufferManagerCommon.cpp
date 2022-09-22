@@ -647,7 +647,7 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 		}
 	}
 
-	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE);
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 // Can't easily dynamically create these strings, we just pass along the pointer.
@@ -915,7 +915,7 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 
 	// Some GPUs can copy depth but only if stencil gets to come along for the ride. We only want to use this if there is no blit functionality.
 	if (useCopy) {
-		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, w, h, 1, Draw::FB_DEPTH_BIT, "BlitFramebufferDepth");
+		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, w, h, 1, Draw::FB_DEPTH_BIT, "CopyFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
 	} else if (useBlit) {
 		// We'll accept whether we get a separate depth blit or not...
@@ -1097,7 +1097,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		pixelsTex->Release();
 		draw_->InvalidateCachedState();
 
-		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 	}
 }
 
@@ -2767,7 +2767,7 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 
 	draw2D_.DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, Get2DPipeline((flags & DRAWTEX_DEPTH) ? DRAW2D_COPY_DEPTH : DRAW2D_COPY_COLOR));
 
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, RasterChannel channel, const char *tag) {
@@ -2871,7 +2871,7 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 
 	draw_->InvalidateCachedState();
 
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 // The input is raw pixel coordinates, scale not taken into account.
@@ -2907,7 +2907,7 @@ void FramebufferManagerCommon::BlitUsingRaster(
 
 	draw2D_.Blit(pipeline, srcX1, srcY1, srcX2, srcY2, destX1, destY1, destX2, destY2, (float)srcW, (float)srcH, (float)destW, (float)destH, linearFilter, scaleFactor);
 
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(VirtualFramebuffer *src, GEBufferFormat newFormat) {
