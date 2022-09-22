@@ -555,8 +555,9 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 	if (!isClearingDepth && useBufferedRendering_) {
 		CopyToDepthFromOverlappingFramebuffers(currentRenderVfb_);
 
-		// Special compatibility trick for Burnout Dominator lens flares. See issue #11100
-		if (PSP_CoreParameter().compat.flags().UploadDepthForCLUTTextures && currentRenderVfb_->z_address > 0x04110000) {
+		// Need to upload the first line of depth buffers, for Burnout Dominator lens flares. See issue #11100 and comments to #16081.
+		// Might make this more generic and upload the whole depth buffer if we find it's needed for something.
+		if (currentRenderVfb_->lastFrameNewSize == gpuStats.numFlips) {
 			// Sanity check the depth buffer pointer.
 			if (Memory::IsValidRange(currentRenderVfb_->z_address, currentRenderVfb_->width * 2)) {
 				const u16 *src = (const u16 *)Memory::GetPointerUnchecked(currentRenderVfb_->z_address);
