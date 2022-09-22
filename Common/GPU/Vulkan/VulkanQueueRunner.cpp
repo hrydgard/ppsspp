@@ -30,16 +30,14 @@ static void MergeRenderAreaRectInto(VkRect2D *dest, VkRect2D &src) {
 // We need to take the "max" of the features used in the two render passes.
 RenderPassType MergeRPTypes(RenderPassType a, RenderPassType b) {
 	// Either both are backbuffer type, or neither are.
-	_dbg_assert_((a == RP_TYPE_BACKBUFFER) == (b == RP_TYPE_BACKBUFFER));
-	if (a == b) {
-		// Trivial merging case.
+	// These can't merge with other renderpasses
+	if (a == RP_TYPE_BACKBUFFER || b == RP_TYPE_BACKBUFFER) {
+		_dbg_assert_(a == b);
 		return a;
-	} else if (a == RP_TYPE_COLOR_DEPTH && b == RP_TYPE_COLOR_DEPTH_INPUT) {
-		return RP_TYPE_COLOR_DEPTH_INPUT;
-	} else if (a == RP_TYPE_COLOR_DEPTH_INPUT && b == RP_TYPE_COLOR_DEPTH) {
-		return RP_TYPE_COLOR_DEPTH_INPUT;
 	}
-	return a;
+
+	// The rest we can just OR together to get the maximum feature set.
+	return (RenderPassType)((u32)a | (u32)b);
 }
 
 void VulkanQueueRunner::CreateDeviceObjects() {
@@ -326,29 +324,33 @@ static VkAttachmentStoreOp ConvertStoreAction(VKRRenderPassStoreAction action) {
 // Self-dependency: https://github.com/gpuweb/gpuweb/issues/442#issuecomment-547604827
 // Also see https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
 
-VkRenderPass CreateRP(VulkanContext *vulkan, const RPKey &key, RenderPassType rpType) {
-	bool selfDependency = rpType == RP_TYPE_COLOR_DEPTH_INPUT;
+VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPassType rpType) {
+	bool selfDependency = rpType == RP_TYPE_COLOR_INPUT || rpType == RP_TYPE_COLOR_DEPTH_INPUT;
+	bool isBackbuffer = rpType == RP_TYPE_BACKBUFFER;
+	bool hasDepth = rpType == RP_TYPE_BACKBUFFER || rpType == RP_TYPE_COLOR_DEPTH || rpType == RP_TYPE_COLOR_DEPTH_INPUT;
 
 	VkAttachmentDescription attachments[2] = {};
-	attachments[0].format = rpType == RP_TYPE_BACKBUFFER ? vulkan->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
+	attachments[0].format = isBackbuffer ? vulkan->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
 	attachments[0].loadOp = ConvertLoadAction(key.colorLoadAction);
 	attachments[0].storeOp = ConvertStoreAction(key.colorStoreAction);
 	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attachments[0].initialLayout = rpType == RP_TYPE_BACKBUFFER ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	attachments[0].finalLayout = rpType == RP_TYPE_BACKBUFFER ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].initialLayout = isBackbuffer ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].finalLayout = isBackbuffer ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	attachments[0].flags = 0;
 
-	attachments[1].format = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
-	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachments[1].loadOp = ConvertLoadAction(key.depthLoadAction);
-	attachments[1].storeOp = ConvertStoreAction(key.depthStoreAction);
-	attachments[1].stencilLoadOp = ConvertLoadAction(key.stencilLoadAction);
-	attachments[1].stencilStoreOp = ConvertStoreAction(key.stencilStoreAction);
-	attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	attachments[1].flags = 0;
+	if (hasDepth) {
+		attachments[1].format = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
+		attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+		attachments[1].loadOp = ConvertLoadAction(key.depthLoadAction);
+		attachments[1].storeOp = ConvertStoreAction(key.depthStoreAction);
+		attachments[1].stencilLoadOp = ConvertLoadAction(key.stencilLoadAction);
+		attachments[1].stencilStoreOp = ConvertStoreAction(key.stencilStoreAction);
+		attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		attachments[1].flags = 0;
+	}
 
 	VkAttachmentReference color_reference{};
 	color_reference.attachment = 0;
@@ -371,7 +373,9 @@ VkRenderPass CreateRP(VulkanContext *vulkan, const RPKey &key, RenderPassType rp
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &color_reference;
 	subpass.pResolveAttachments = nullptr;
-	subpass.pDepthStencilAttachment = &depth_reference;
+	if (hasDepth) {
+		subpass.pDepthStencilAttachment = &depth_reference;
+	}
 	subpass.preserveAttachmentCount = 0;
 	subpass.pPreserveAttachments = nullptr;
 
@@ -380,12 +384,12 @@ VkRenderPass CreateRP(VulkanContext *vulkan, const RPKey &key, RenderPassType rp
 	size_t numDeps = 0;
 
 	VkRenderPassCreateInfo rp{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
-	rp.attachmentCount = 2;
+	rp.attachmentCount = hasDepth ? 2 : 1;
 	rp.pAttachments = attachments;
 	rp.subpassCount = 1;
 	rp.pSubpasses = &subpass;
 
-	if (rpType == RP_TYPE_BACKBUFFER) {
+	if (isBackbuffer) {
 		deps[numDeps].srcSubpass = VK_SUBPASS_EXTERNAL;
 		deps[numDeps].dstSubpass = 0;
 		deps[numDeps].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -393,7 +397,6 @@ VkRenderPass CreateRP(VulkanContext *vulkan, const RPKey &key, RenderPassType rp
 		deps[numDeps].srcAccessMask = 0;
 		deps[numDeps].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		numDeps++;
-		rp.dependencyCount = 1;
 	}
 
 	if (selfDependency) {
@@ -424,7 +427,7 @@ VkRenderPass VKRRenderPass::Get(VulkanContext *vulkan, RenderPassType rpType) {
 	// practical later when referring to it. Could change to on-demand if it feels motivated
 	// but I think the render pass objects are cheap.
 	if (!pass[(int)rpType]) {
-		pass[(int)rpType] = CreateRP(vulkan, key_, (RenderPassType)rpType);
+		pass[(int)rpType] = CreateRenderPass(vulkan, key_, (RenderPassType)rpType);
 	}
 	return pass[(int)rpType];
 }
@@ -873,8 +876,10 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 		const char *renderCmd;
 		switch (step.render.renderPassType) {
 		case RP_TYPE_BACKBUFFER: renderCmd = "BACKBUF"; break;
-		case RP_TYPE_COLOR_DEPTH: renderCmd = "RENDER"; break;
-		case RP_TYPE_COLOR_DEPTH_INPUT: renderCmd = "RENDER_INPUT"; break;
+		case RP_TYPE_COLOR: renderCmd = "RENDER"; break;
+		case RP_TYPE_COLOR_DEPTH: renderCmd = "RENDER_DEPTH"; break;
+		case RP_TYPE_COLOR_INPUT: renderCmd = "RENDER_INPUT"; break;
+		case RP_TYPE_COLOR_DEPTH_INPUT: renderCmd = "RENDER_DEPTH_INPUT"; break;
 		default: renderCmd = "N/A";
 		}
 		snprintf(buffer, sizeof(buffer), "%s %s (draws: %d, %dx%d/%dx%d, fb: %p, )", renderCmd, step.tag, step.render.numDraws, actual_w, actual_h, w, h, step.render.framebuffer);
@@ -1153,7 +1158,7 @@ void TransitionToOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout 
 			srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			break;
 		default:
-			_dbg_assert_msg_(false, "GetRenderPass: Unexpected color layout %d", (int)colorLayout);
+			_dbg_assert_msg_(false, "TransitionToOptimal: Unexpected color layout %d", (int)colorLayout);
 			break;
 		}
 		recordBarrier->TransitionImage(
@@ -1189,7 +1194,7 @@ void TransitionToOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout 
 			srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			break;
 		default:
-			_dbg_assert_msg_(false, "GetRenderPass: Unexpected depth layout %d", (int)depthStencilLayout);
+			_dbg_assert_msg_(false, "TransitionToOptimal: Unexpected depth layout %d", (int)depthStencilLayout);
 			break;
 		}
 		recordBarrier->TransitionImage(
@@ -1236,7 +1241,7 @@ void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayou
 			// Nothing to do.
 			break;
 		default:
-			_dbg_assert_msg_(false, "GetRenderPass: Unexpected final color layout %d", (int)colorLayout);
+			_dbg_assert_msg_(false, "TransitionFromOptimal: Unexpected final color layout %d", (int)colorLayout);
 			break;
 		}
 		barrier[0].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -1275,7 +1280,7 @@ void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayou
 			// Nothing to do.
 			break;
 		default:
-			_dbg_assert_msg_(false, "GetRenderPass: Unexpected final depth layout %d", (int)depthStencilLayout);
+			_dbg_assert_msg_(false, "TransitionFromOptimal: Unexpected final depth layout %d", (int)depthStencilLayout);
 			break;
 		}
 		barrier[barrierCount].oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
