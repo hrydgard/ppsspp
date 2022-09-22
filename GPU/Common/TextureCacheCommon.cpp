@@ -1208,6 +1208,8 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 			clutRenderOffset_ = MAX_CLUT_OFFSET;
 			const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 
+			u32 bestClutAddress = 0xFFFFFFFF;
+
 			VirtualFramebuffer *chosenFramebuffer = nullptr;
 			for (VirtualFramebuffer *framebuffer : framebuffers) {
 				const u32 fb_address = framebuffer->fb_address & 0x3FFFFFFF;
@@ -1234,7 +1236,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 						WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d", loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset);
 						framebuffer->last_frame_clut = gpuStats.numFlips;
 						framebuffer->usageFlags |= FB_USAGE_CLUT;
-						clutRenderAddress_ = framebuffer->fb_address;
+						bestClutAddress = framebuffer->fb_address;
 						clutRenderOffset_ = (u32)offset;
 						chosenFramebuffer = framebuffer;
 						if (offset == 0) {
@@ -1245,7 +1247,9 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 				}
 			}
 
-			if (chosenFramebuffer) {
+			if (chosenFramebuffer && chosenFramebuffer->fbo) {
+				clutRenderAddress_ = bestClutAddress;
+
 				if (!dynamicClutTemp_) {
 					Draw::FramebufferDesc desc{};
 					desc.width = 512;

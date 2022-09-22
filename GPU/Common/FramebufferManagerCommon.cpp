@@ -547,26 +547,23 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 		return;
 	}
 
+	// First time use of this framebuffer's depth buffer.
+	currentRenderVfb_->usageFlags |= FB_USAGE_RENDER_DEPTH;
+
 	// If this first draw call is anything other than a clear, "resolve" the depth buffer,
 	// by copying from any overlapping buffers with fresher content.
-	if (!isClearingDepth) {
+	if (!isClearingDepth && useBufferedRendering_) {
 		CopyToDepthFromOverlappingFramebuffers(currentRenderVfb_);
 
-		// Special compatibility trick for Burnout Dominator lens flares. Not sure how to best generalize this. See issue #11100
-		if (PSP_CoreParameter().compat.flags().UploadDepthForCLUTTextures && (currentRenderVfb_->usageFlags & FB_USAGE_CLUT) != 0) {
-			// Set the flag, then upload memory contents to depth channel.
+		// Special compatibility trick for Burnout Dominator lens flares. See issue #11100
+		if (PSP_CoreParameter().compat.flags().UploadDepthForCLUTTextures && currentRenderVfb_->z_address > 0x04110000) {
 			// Sanity check the depth buffer pointer.
-			if (currentRenderVfb_->z_address != 0 && currentRenderVfb_->z_address != currentRenderVfb_->fb_address) {
-				if (Memory::IsValidRange(currentRenderVfb_->z_address, currentRenderVfb_->width * 2)) {
-					const u16 *src = (const u16 *)Memory::GetPointerUnchecked(currentRenderVfb_->z_address);
-					DrawPixels(currentRenderVfb_, 0, 0, (const u8 *)src, GE_FORMAT_DEPTH16, currentRenderVfb_->z_stride, currentRenderVfb_->width, currentRenderVfb_->height, RASTER_DEPTH, "Depth Upload");
-				}
+			if (Memory::IsValidRange(currentRenderVfb_->z_address, currentRenderVfb_->width * 2)) {
+				const u16 *src = (const u16 *)Memory::GetPointerUnchecked(currentRenderVfb_->z_address);
+				DrawPixels(currentRenderVfb_, 0, 0, (const u8 *)src, GE_FORMAT_DEPTH16, currentRenderVfb_->z_stride, currentRenderVfb_->width, currentRenderVfb_->height, RASTER_DEPTH, "Depth Upload");
 			}
 		}
 	}
-
-	// First time use of this framebuffer's depth buffer.
-	currentRenderVfb_->usageFlags |= FB_USAGE_RENDER_DEPTH;
 
 	currentRenderVfb_->depthBindSeq = GetBindSeqCount();
 }
@@ -1540,7 +1537,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	if (creating) {
 		WARN_LOG(FRAMEBUF, "Creating %s FBO at %08x/%d %dx%d (force=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->fb_stride, vfb->bufferWidth, vfb->bufferHeight, (int)force);
 	} else {
-		WARN_LOG(FRAMEBUF, "Resizing %s FBO at %08x/%d from %dx%d to %dx%d (force=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->fb_stride, old.bufferWidth, old.bufferHeight, vfb->bufferWidth, vfb->bufferHeight, (int)force);
+		WARN_LOG(FRAMEBUF, "Resizing %s FBO at %08x/%d from %dx%d to %dx%d (force=%d, skipCopy=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->fb_stride, old.bufferWidth, old.bufferHeight, vfb->bufferWidth, vfb->bufferHeight, (int)force, (int)skipCopy);
 	}
 
 	// During hardware rendering, we always render at full color depth even if the game wouldn't on real hardware.
@@ -1578,8 +1575,10 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		if (vfb->fbo) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 			if (!skipCopy) {
-				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0, RASTER_COLOR, "Blit_ResizeFramebufFBO");
-				// Depth copying is handled by deferred copies later.
+				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0, RASTER_COLOR, "BlitColor_ResizeFramebufFBO");
+			}
+			if (vfb->usageFlags & FB_USAGE_RENDER_DEPTH) {
+				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0, RASTER_DEPTH, "BlitDepth_ResizeFramebufFBO");
 			}
 		}
 		fbosToDelete_.push_back(old.fbo);
@@ -2214,8 +2213,9 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 			int dstBpp = BufferFormatBytesPerPixel(dstRect.vfb->fb_format);
 			float dstXFactor = (float)bpp / dstBpp;
 			if (dstRect.w_bytes / bpp > dstRect.vfb->width || dstRect.h > dstRect.vfb->height) {
-				// The buffer isn't big enough, and we have a clear hint of size.  Resize.
+				// The buffer isn't big enough, and we have a clear hint of size. Resize.
 				// This happens in Valkyrie Profile when uploading video at the ending.
+				// Also happens to the CLUT framebuffer in the Burnout Dominator lens flare effect. See #16075
 				ResizeFramebufFBO(dstRect.vfb, dstRect.w_bytes / bpp, dstRect.h, false, true);
 				// Make sure we don't flop back and forth.
 				dstRect.vfb->newWidth = std::max(dstRect.w_bytes / bpp, (int)dstRect.vfb->width);
@@ -2777,6 +2777,11 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 			// Just bind the back buffer for rendering, forget about doing anything else as we're in a weird state.
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitFramebuffer");
 		}
+		return;
+	}
+
+	if (channel == RASTER_DEPTH && !draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
+		// Can't do anything :(
 		return;
 	}
 
