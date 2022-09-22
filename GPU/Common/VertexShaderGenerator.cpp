@@ -1128,7 +1128,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					}
 				} else {
 					if (hasTexcoord) {
-						WRITE(p, "  %sv_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
+						if (doBezier || doSpline)
+							WRITE(p, "  %sv_texcoord = vec3(tess.tex.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
+						else
+							WRITE(p, "  %sv_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
 					} else {
 						WRITE(p, "  %sv_texcoord = vec3(u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
 					}
@@ -1140,26 +1143,36 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					std::string temp_tc;
 					switch (uvProjMode) {
 					case GE_PROJMAP_POSITION:  // Use model space XYZ as source
-						temp_tc = "vec4(position, 1.0)";
+						if (doBezier || doSpline)
+							temp_tc = "vec4(tess.pos, 1.0)";
+						else
+							temp_tc = "vec4(position, 1.0)";
 						break;
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{
 							// prescale is false here.
 							if (hasTexcoord) {
-								temp_tc = "vec4(texcoord.xy, 0.0, 1.0)";
+								if (doBezier || doSpline)
+									temp_tc = "vec4(tess.tex.xy, 0.0, 1.0)";
+								else
+									temp_tc = "vec4(texcoord.xy, 0.0, 1.0)";
 							} else {
 								temp_tc = "vec4(0.0, 0.0, 0.0, 1.0)";
 							}
 						}
 						break;
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
-						if (hasNormal)
+						if (hasNormalTess)
+							temp_tc = StringFromFormat("length(tess.nrm) == 0.0 ? vec4(0.0, 0.0, 1.0, 1.0) : vec4(normalize(%stess.nrm), 1.0)", flipNormal ? "-" : "");
+						else if (hasNormal)
 							temp_tc = StringFromFormat("length(normal) == 0.0 ? vec4(0.0, 0.0, 1.0, 1.0) : vec4(normalize(%snormal), 1.0)", flipNormal ? "-" : "");
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					case GE_PROJMAP_NORMAL:  // Use non-normalized transformed normal as source
-						if (hasNormal)
+						if (hasNormalTess)
+							temp_tc = flipNormal ? "vec4(-tess.nrm, 1.0)" : "vec4(tess.nrm, 1.0)";
+						else if (hasNormal)
 							temp_tc = flipNormal ? "vec4(-normal, 1.0)" : "vec4(normal, 1.0)";
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
