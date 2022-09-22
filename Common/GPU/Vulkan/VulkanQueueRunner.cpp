@@ -30,16 +30,14 @@ static void MergeRenderAreaRectInto(VkRect2D *dest, VkRect2D &src) {
 // We need to take the "max" of the features used in the two render passes.
 RenderPassType MergeRPTypes(RenderPassType a, RenderPassType b) {
 	// Either both are backbuffer type, or neither are.
-	_dbg_assert_((a == RP_TYPE_BACKBUFFER) == (b == RP_TYPE_BACKBUFFER));
-	if (a == b) {
-		// Trivial merging case.
+	// These can't merge with other renderpasses
+	if (a == RP_TYPE_BACKBUFFER || b == RP_TYPE_BACKBUFFER) {
+		_dbg_assert_(a == b);
 		return a;
-	} else if (a == RP_TYPE_COLOR_DEPTH && b == RP_TYPE_COLOR_DEPTH_INPUT) {
-		return RP_TYPE_COLOR_DEPTH_INPUT;
-	} else if (a == RP_TYPE_COLOR_DEPTH_INPUT && b == RP_TYPE_COLOR_DEPTH) {
-		return RP_TYPE_COLOR_DEPTH_INPUT;
 	}
-	return a;
+
+	// The rest we can just OR together to get the maximum feature set.
+	return (RenderPassType)((u32)a | (u32)b);
 }
 
 void VulkanQueueRunner::CreateDeviceObjects() {
@@ -399,7 +397,6 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		deps[numDeps].srcAccessMask = 0;
 		deps[numDeps].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		numDeps++;
-		rp.dependencyCount = 1;
 	}
 
 	if (selfDependency) {
