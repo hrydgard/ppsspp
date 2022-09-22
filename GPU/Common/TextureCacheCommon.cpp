@@ -2194,7 +2194,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	ApplySamplingParams(samplerKey);
 
 	// Since we started/ended render passes, might need these.
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE | DIRTY_VERTEXSHADER_STATE);
 }
 
 // Applies depal to a normal (non-framebuffer) texture, pre-decoded to CLUT8 format.
@@ -2286,7 +2286,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	ApplySamplingParams(samplerKey);
 
 	// Since we started/ended render passes, might need these.
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE | DIRTY_VERTEXSHADER_STATE);
 }
 
 void TextureCacheCommon::Clear(bool delete_them) {
@@ -2634,13 +2634,31 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		}
 	}
 
-	if (isPPGETexture) {
-		plan.replaced = &replacer_.FindNone();
-		plan.replaceValid = false;
+	bool canReplace = !isPPGETexture;
+	if (entry->status & TexCacheEntry::TexStatus::STATUS_CLUT_GPU) {
+		_dbg_assert_(entry->format == GE_TFMT_CLUT4 || entry->format == GE_TFMT_CLUT8);
+		plan.decodeToClut8 = true;
+		// We only support 1 mip level when doing CLUT on GPU for now.
+		// Supporting more would be possible, just not very interesting until we need it.
+		plan.levelsToCreate = 1;
+		plan.levelsToLoad = 1;
+		plan.maxPossibleLevels = 1;
+		plan.scaleFactor = 1;
+		plan.saveTexture = false;  // Can't yet save these properly.
+		canReplace = false;
 	} else {
+		plan.decodeToClut8 = false;
+	}
+
+	if (canReplace) {
 		plan.replaced = &FindReplacement(entry, plan.w, plan.h, plan.depth);
 		plan.replaceValid = plan.replaced->Valid();
+	} else {
+		plan.replaced = &replacer_.FindNone();
+		plan.replaceValid = false;
 	}
+
+	// NOTE! Last chance to change scale factor here!
 
 	plan.saveTexture = false;
 	if (plan.replaceValid) {
@@ -2652,7 +2670,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		// But, we still need to create the texture at a larger size.
 		plan.replaced->GetSize(0, plan.createW, plan.createH);
 	} else {
-		if (replacer_.Enabled() && !plan.replaceValid && plan.depth == 1) {
+		if (replacer_.Enabled() && !plan.replaceValid && plan.depth == 1 && canReplace) {
 			ReplacedTextureDecodeInfo replacedInfo;
 			// TODO: Do we handle the race where a replacement becomes valid AFTER this but before we save?
 			replacedInfo.cachekey = entry->CacheKey();
@@ -2681,21 +2699,6 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.maxPossibleLevels = 1;
 	} else {
 		plan.maxPossibleLevels = log2i(std::min(plan.createW, plan.createH)) + 1;
-	}
-
-	if (entry->status & TexCacheEntry::TexStatus::STATUS_CLUT_GPU) {
-		_dbg_assert_(entry->format == GE_TFMT_CLUT4 || entry->format == GE_TFMT_CLUT8);
-		plan.decodeToClut8 = true;
-		// We only support 1 mip level when doing CLUT on GPU for now.
-		// Supporting more would be possible, just not very interesting until we need it.
-		plan.levelsToCreate = 1;
-		plan.levelsToLoad = 1;
-		plan.maxPossibleLevels = 1;
-		plan.scaleFactor = 1;
-		plan.saveTexture = false;  // Can't yet save these properly.
-		// TODO: Also forcibly disable replacement, or check that the replacement is a 8-bit paletted texture.
-	} else {
-		plan.decodeToClut8 = false;
 	}
 
 	if (plan.levelsToCreate == 1) {
