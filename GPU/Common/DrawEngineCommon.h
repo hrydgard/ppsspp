@@ -147,6 +147,8 @@ protected:
 
 	bool useHWTransform_ = false;
 	bool useHWTessellation_ = false;
+	// Used to prevent unnecessary flushing in softgpu.
+	bool flushOnParams_ = true;
 
 	// Vertex collector buffers
 	u8 *decoded = nullptr;
