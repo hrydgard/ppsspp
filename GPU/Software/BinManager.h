@@ -267,6 +267,7 @@ private:
 	int mostThreads_ = 0;
 
 	void MarkPendingReads(const Rasterizer::RasterizerState &state);
+	void MarkPendingWrites(const Rasterizer::RasterizerState &state);
 	bool HasTextureWrite(const Rasterizer::RasterizerState &state);
 	BinCoords Scissor(BinCoords range);
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);
