@@ -468,8 +468,6 @@ private:
 
 	void Run(int frame);
 	void BeginSubmitFrame(int frame);
-	void EndSubmitFrame(int frame);
-	void EndSyncFrame(int frame);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();

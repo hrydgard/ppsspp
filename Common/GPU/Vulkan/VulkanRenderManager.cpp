@@ -531,6 +531,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 
 	VLOG("PUSH: Fencing %d", curFrame);
 
+	// This must be the very first Vulkan call we do in a new frame.
 	if (vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX) == VK_ERROR_DEVICE_LOST) {
 		_assert_msg_(false, "Device lost in vkWaitForFences");
 	}
@@ -1212,13 +1213,10 @@ void VulkanRenderManager::Wipe() {
 
 // Called on the render thread.
 //
-// Can be called multiple times with no bad side effects. This is so that we can either begin a frame the normal way,
-// or stop it in the middle for a synchronous readback, then start over again mostly normally but without repeating
-// the backbuffer image acquisition.
-void VulkanRenderManager::BeginSubmitFrame(int frame) {
+// Can be called again after a VKRRunType::SYNC on the same frame.
+void VulkanRenderManager::Run(int frame) {
 	FrameData &frameData = frameData_[frame];
 
-	// Should only have at most the init command buffer pending here (that one came from the other thread).
 	_dbg_assert_(!frameData.hasPresentCommands);
 	frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared_);
 
@@ -1233,53 +1231,7 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		frameData.hasMainCommands = true;
 		_assert_msg_(res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%s", VulkanResultToString(res));
 	}
-}
 
-// Called on the render thread.
-void VulkanRenderManager::EndSubmitFrame(int frame) {
-	FrameData &frameData = frameData_[frame];
-
-	frameData.SubmitPending(vulkan_, FrameSubmitType::Present, frameDataShared_);
-
-	if (!frameData.skipSwap) {
-		VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
-		if (res == VK_ERROR_OUT_OF_DATE_KHR) {
-			// We clearly didn't get this in vkAcquireNextImageKHR because of the skipSwap check above.
-			// Do the increment.
-			outOfDateFrames_++;
-		} else if (res == VK_SUBOPTIMAL_KHR) {
-			outOfDateFrames_++;
-		} else if (res != VK_SUCCESS) {
-			_assert_msg_(false, "vkQueuePresentKHR failed! result=%s", VulkanResultToString(res));
-		} else {
-			// Success
-			outOfDateFrames_ = 0;
-		}
-	} else {
-		// We only get here if vkAcquireNextImage returned VK_ERROR_OUT_OF_DATE.
-		outOfDateFrames_++;
-		frameData.skipSwap = false;
-	}
-}
-
-void VulkanRenderManager::EndSyncFrame(int frame) {
-	FrameData &frameData = frameData_[frame];
-
-	// The submit will trigger the readbackFence, and also do the wait for it.
-	frameData.SubmitPending(vulkan_, FrameSubmitType::Sync, frameDataShared_);
-
-	// At this point we can resume filling the command buffers for the current frame since
-	// we know the device is idle - and thus all previously enqueued command buffers have been processed.
-	// No need to switch to the next frame number, would just be confusing.
-	std::unique_lock<std::mutex> lock(frameData.push_mutex);
-	frameData.readyForFence = true;
-	frameData.push_condVar.notify_all();
-}
-
-void VulkanRenderManager::Run(int frame) {
-	BeginSubmitFrame(frame);
-
-	FrameData &frameData = frameData_[frame];
 	queueRunner_.PreprocessSteps(frameData.steps);
 	// Likely during shutdown, happens in headless.
 	if (frameData.steps.empty() && !frameData.hasAcquired)
@@ -1289,11 +1241,36 @@ void VulkanRenderManager::Run(int frame) {
 
 	switch (frameData.runType_) {
 	case VKRRunType::END:
-		EndSubmitFrame(frame);
+
+		frameData.SubmitPending(vulkan_, FrameSubmitType::Present, frameDataShared_);
+
+		if (!frameData.skipSwap) {
+			VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
+			if (res == VK_ERROR_OUT_OF_DATE_KHR) {
+				// We clearly didn't get this in vkAcquireNextImageKHR because of the skipSwap check above.
+				// Do the increment.
+				outOfDateFrames_++;
+			} else if (res == VK_SUBOPTIMAL_KHR) {
+				outOfDateFrames_++;
+			} else if (res != VK_SUCCESS) {
+				_assert_msg_(false, "vkQueuePresentKHR failed! result=%s", VulkanResultToString(res));
+			} else {
+				// Success
+				outOfDateFrames_ = 0;
+			}
+		} else {
+			// We only get here if vkAcquireNextImage returned VK_ERROR_OUT_OF_DATE.
+			outOfDateFrames_++;
+			frameData.skipSwap = false;
+		}
 		break;
 
 	case VKRRunType::SYNC:
-		EndSyncFrame(frame);
+		// The submit will trigger the readbackFence, and also do the wait for it.
+		frameData.SubmitPending(vulkan_, FrameSubmitType::Sync, frameDataShared_);
+		// At this point the GPU is idle, and we can resume filling the command buffers for the
+		// current frame since and thus all previously enqueued command buffers have been
+		// processed. No need to switch to the next frame number, would just be confusing.
 		break;
 
 	default:
@@ -1303,6 +1280,7 @@ void VulkanRenderManager::Run(int frame) {
 	VLOG("PULL: Finished running frame %d", frame);
 }
 
+// Called from main thread.
 void VulkanRenderManager::FlushSync() {
 	renderStepOffset_ += (int)steps_.size();
 
