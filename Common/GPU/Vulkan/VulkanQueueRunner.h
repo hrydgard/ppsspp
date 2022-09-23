@@ -336,6 +336,7 @@ private:
 
 	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
 	static void SetupTransitionToTransferDst(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
+	static void SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
 
 	static void SelfDependencyBarrier(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
 

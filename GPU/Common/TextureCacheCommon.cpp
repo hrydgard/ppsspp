@@ -152,7 +152,7 @@ static int TexLog2(float delta) {
 }
 
 SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCacheEntry *entry) {
-	SamplerCacheKey key;
+	SamplerCacheKey key{};
 
 	int minFilt = gstate.texfilter & 0x7;
 	key.minFilt = minFilt & 1;

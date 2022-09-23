@@ -1266,10 +1266,10 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, 
 
 	glslang::TProgram program;
 	const char *shaderStrings[1];
-	TBuiltInResource Resources;
+	TBuiltInResource Resources{};
 	init_resources(Resources);
 
-	int defaultVersion;
+	int defaultVersion = 0;
 	EShMessages messages;
 	EProfile profile;
 

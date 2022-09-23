@@ -81,8 +81,8 @@ public:
 		VAI_UNRELIABLE,  // never cache
 	};
 
-	uint64_t hash;
-	u32 minihash;
+	uint64_t hash = 0;
+	u32 minihash = 0;
 
 	// These will probably always be the same, but whatever.
 	VkBuffer vb = VK_NULL_HANDLE;

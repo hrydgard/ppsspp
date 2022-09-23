@@ -583,7 +583,8 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 				{
 					if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
 					{
-						ERROR_LOG_REPORT(LOADER, "Trying to relocate non-loaded section %s, ignoring", GetSectionName(sectionToModify));
+						// Generally stuff like debug info. We don't need it.
+						INFO_LOG(LOADER, "Skipping relocation of non-loaded section %s", GetSectionName(sectionToModify));
 						continue;
 					}
 				}
