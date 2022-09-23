@@ -347,10 +347,10 @@ bool VulkanRenderManager::CreateBackbuffers() {
 void VulkanRenderManager::StopThread() {
 	{
 		// Tell the render thread to quit when it's done.
-		std::unique_lock<std::mutex> lock(pushMutex_);
 		VKRRenderThreadTask task;
 		task.frame = vulkan_->GetCurFrame();
 		task.runType = VKRRunType::EXIT;
+		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
 		pushCondVar_.notify_one();
 	}
@@ -407,7 +407,9 @@ void VulkanRenderManager::DestroyBackbuffers() {
 
 VulkanRenderManager::~VulkanRenderManager() {
 	INFO_LOG(G3D, "VulkanRenderManager destructor");
-	StopThread();
+
+	_dbg_assert_(!run_);  // StopThread should already have been called from DestroyBackbuffers.
+
 	vulkan_->WaitUntilQueueIdle();
 
 	DrainCompileQueue();
@@ -1171,10 +1173,10 @@ void VulkanRenderManager::Finish() {
 
 	{
 		VLOG("PUSH: Frame[%d]", curFrame);
-		std::unique_lock<std::mutex> lock(pushMutex_);
 		VKRRenderThreadTask task;
 		task.frame = curFrame;
 		task.runType = VKRRunType::PRESENT;
+		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
 		renderThreadQueue_.back().steps = std::move(steps_);
 		pushCondVar_.notify_one();
@@ -1275,10 +1277,10 @@ void VulkanRenderManager::FlushSync() {
 	
 	{
 		VLOG("PUSH: Frame[%d]", curFrame);
-		std::unique_lock<std::mutex> lock(pushMutex_);
 		VKRRenderThreadTask task;
 		task.frame = curFrame;
 		task.runType = VKRRunType::SYNC;
+		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
 		renderThreadQueue_.back().steps = std::move(steps_);
 		pushCondVar_.notify_one();
