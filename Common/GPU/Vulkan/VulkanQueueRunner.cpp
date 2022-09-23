@@ -1721,6 +1721,10 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 		if (dst->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
 			SetupTransitionToTransferDst(dst->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
 			_dbg_assert_(dst->depth.layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		} else {
+			// Kingdom Hearts: Subsequent copies to the same depth buffer without any other use.
+			// Not super sure how that happens, but we need a barrier to pass sync validation.
+			SetupTransferDstWriteAfterWrite(dst->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
 		}
 	}
 
@@ -1914,6 +1918,33 @@ void VulkanQueueRunner::SetupTransitionToTransferDst(VKRImage &img, VkImageAspec
 	);
 
 	img.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+}
+
+void VulkanQueueRunner::SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier) {
+	VkImageAspectFlags imageAspect = aspect;
+	VkAccessFlags srcAccessMask = 0;
+	VkPipelineStageFlags srcStageMask = 0;
+	if (img.format == VK_FORMAT_D16_UNORM_S8_UINT || img.format == VK_FORMAT_D24_UNORM_S8_UINT || img.format == VK_FORMAT_D32_SFLOAT_S8_UINT) {
+		// Barrier must specify both for combined depth/stencil buffers.
+		imageAspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	} else {
+		imageAspect = aspect;
+	}
+	_dbg_assert_(img.layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	recordBarrier->TransitionImage(
+		img.image,
+		0,
+		1,
+		aspect,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT
+	);
 }
 
 void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd) {
