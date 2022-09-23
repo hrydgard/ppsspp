@@ -224,19 +224,15 @@ ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords &coords, u16 z) 
 }
 
 enum class MatrixMode {
-	NONE = 0,
 	POS_TO_CLIP = 1,
-	POS_TO_VIEW = 2,
-	WORLD_TO_CLIP = 3,
+	WORLD_TO_CLIP = 2,
 };
 
 struct TransformState {
 	Lighting::State lightingState;
 
-	float fogEnd;
-	float fogSlope;
-
 	float matrix[16];
+	Vec4f posToFog;
 	Vec3f screenScale;
 	Vec3f screenAdd;
 
@@ -265,20 +261,7 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	state->uvGenMode = gstate.getUVGenMode();
 
 	if (state->enableTransform) {
-		if (state->enableFog) {
-			state->fogEnd = getFloat24(gstate.fog1);
-			state->fogSlope = getFloat24(gstate.fog2);
-			// Same fixup as in ShaderManagerGLES.cpp
-			if (my_isnanorinf(state->fogEnd)) {
-				state->fogEnd = std::signbit(state->fogEnd) ? -INFINITY : INFINITY;
-			}
-			if (my_isnanorinf(state->fogSlope)) {
-				state->fogSlope = std::signbit(state->fogSlope) ? -INFINITY : INFINITY;
-			}
-		}
-
 		bool canSkipWorldPos = true;
-		bool canSkipViewPos = !state->enableFog;
 		if (state->enableLighting) {
 			Lighting::ComputeState(&state->lightingState, vreader.hasColor0());
 			for (int i = 0; i < 4; ++i) {
@@ -291,29 +274,35 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 
 		float world[16];
 		float view[16];
-		if (canSkipWorldPos && canSkipViewPos) {
-			state->matrixMode = (uint8_t)MatrixMode::POS_TO_CLIP;
-
+		float worldview[16];
+		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+		if (state->enableFog || canSkipWorldPos) {
 			ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-			ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-
-			float worldview[16];
 			Matrix4ByMatrix4(worldview, world, view);
+		}
+
+		if (canSkipWorldPos) {
+			state->matrixMode = (uint8_t)MatrixMode::POS_TO_CLIP;
 			Matrix4ByMatrix4(state->matrix, worldview, gstate.projMatrix);
-		} else if (canSkipWorldPos) {
-			state->matrixMode = (uint8_t)MatrixMode::POS_TO_VIEW;
-
-			ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-			ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-
-			Matrix4ByMatrix4(state->matrix, world, view);
-		} else if (canSkipViewPos) {
-			state->matrixMode = (uint8_t)MatrixMode::WORLD_TO_CLIP;
-
-			ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-			Matrix4ByMatrix4(state->matrix, view, gstate.projMatrix);
 		} else {
-			state->matrixMode = (uint8_t)MatrixMode::NONE;
+			state->matrixMode = (uint8_t)MatrixMode::WORLD_TO_CLIP;
+			Matrix4ByMatrix4(state->matrix, view, gstate.projMatrix);
+		}
+
+		if (state->enableFog) {
+			float fogEnd = getFloat24(gstate.fog1);
+			float fogSlope = getFloat24(gstate.fog2);
+			// Same fixup as in ShaderManagerGLES.cpp
+			if (my_isnanorinf(fogEnd)) {
+				fogEnd = std::signbit(fogEnd) ? -INFINITY : INFINITY;
+			}
+			if (my_isnanorinf(fogSlope)) {
+				fogSlope = std::signbit(fogSlope) ? -INFINITY : INFINITY;
+			}
+
+			// We bake fog end and slope into the dot product.
+			state->posToFog = Vec4f(worldview[2], worldview[6], worldview[10], worldview[14] + fogEnd);
+			state->posToFog *= fogSlope;
 		}
 
 		state->screenScale = Vec3f(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
@@ -379,26 +368,10 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 
 	if (state.enableTransform) {
 		WorldCoords worldpos;
-		ModelCoords viewpos;
 
 		switch (MatrixMode(state.matrixMode)) {
-		case MatrixMode::NONE:
-			worldpos = TransformUnit::ModelToWorld(pos);
-			viewpos = TransformUnit::WorldToView(worldpos);
-			vertex.clippos = TransformUnit::ViewToClip(viewpos);
-			break;
-
 		case MatrixMode::POS_TO_CLIP:
 			vertex.clippos = Vec3ByMatrix44(pos, state.matrix);
-			break;
-
-		case MatrixMode::POS_TO_VIEW:
-#ifdef _M_SSE
-			viewpos = Vec3ByMatrix44(pos, state.matrix).vec;
-#else
-			viewpos = Vec3ByMatrix44(pos, state.matrix).rgb();
-#endif
-			vertex.clippos = TransformUnit::ViewToClip(viewpos);
 			break;
 
 		case MatrixMode::WORLD_TO_CLIP:
@@ -424,7 +397,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 		}
 
 		if (state.enableFog) {
-			vertex.fogdepth = (viewpos.z + state.fogEnd) * state.fogSlope;
+			vertex.fogdepth = Dot(state.posToFog, Vec4f(pos, 1.0f));
 		} else {
 			vertex.fogdepth = 1.0f;
 		}
