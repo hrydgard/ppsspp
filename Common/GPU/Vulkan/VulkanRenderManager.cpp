@@ -158,33 +158,37 @@ VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRe
 	// We create the actual framebuffer objects on demand, because some combinations might not make sense.
 }
 
-VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPassType renderPassType) {
-	if (framebuf[(int)renderPassType]) {
-		return framebuf[(int)renderPassType];
+VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType) {
+	if (framebuf[(int)rpType]) {
+		return framebuf[(int)rpType];
 	}
 
 	VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
 	VkImageView views[2]{};
 
-	fbci.renderPass = compatibleRenderPass->Get(vulkan_, renderPassType);
-	fbci.attachmentCount = 2;
-	fbci.pAttachments = views;
+	bool hasDepth = rpType == RP_TYPE_BACKBUFFER || rpType == RP_TYPE_COLOR_DEPTH || rpType == RP_TYPE_COLOR_DEPTH_INPUT;
+
 	views[0] = color.imageView;
-	views[1] = depth.imageView;
+	if (hasDepth) {
+		views[1] = depth.imageView;
+	}
+	fbci.renderPass = compatibleRenderPass->Get(vulkan_, rpType);
+	fbci.attachmentCount = hasDepth ? 2 : 1;
+	fbci.pAttachments = views;
 	fbci.width = width;
 	fbci.height = height;
 	fbci.layers = 1;
 
-	VkResult res = vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf[(int)renderPassType]);
+	VkResult res = vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf[(int)rpType]);
 	_assert_(res == VK_SUCCESS);
 
 	if (!tag_.empty() && vulkan_->Extensions().EXT_debug_utils) {
 		vulkan_->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_color_%s", tag_.c_str()).c_str());
 		vulkan_->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_depth_%s", tag_.c_str()).c_str());
-		vulkan_->SetDebugName(framebuf[(int)renderPassType], VK_OBJECT_TYPE_FRAMEBUFFER, StringFromFormat("fb_%s", tag_.c_str()).c_str());
+		vulkan_->SetDebugName(framebuf[(int)rpType], VK_OBJECT_TYPE_FRAMEBUFFER, StringFromFormat("fb_%s", tag_.c_str()).c_str());
 	}
 
-	return framebuf[(int)renderPassType];
+	return framebuf[(int)rpType];
 }
 
 VKRFramebuffer::~VKRFramebuffer() {
@@ -656,15 +660,16 @@ void VulkanRenderManager::EndCurRenderStep() {
 		curRenderStep_->render.colorLoad, curRenderStep_->render.depthLoad, curRenderStep_->render.stencilLoad,
 		curRenderStep_->render.colorStore, curRenderStep_->render.depthStore, curRenderStep_->render.stencilStore,
 	};
-	RenderPassType rpType = RP_TYPE_COLOR_DEPTH;
 	// Save the accumulated pipeline flags so we can use that to configure the render pass.
 	// We'll often be able to avoid loading/saving the depth/stencil buffer.
 	curRenderStep_->render.pipelineFlags = curPipelineFlags_;
+	bool depthStencil = (curPipelineFlags_ & PipelineFlags::USES_DEPTH_STENCIL) != 0;
+	RenderPassType rpType = depthStencil ? RP_TYPE_COLOR_DEPTH : RP_TYPE_COLOR;
 	if (!curRenderStep_->render.framebuffer) {
 		rpType = RP_TYPE_BACKBUFFER;
 	} else if (curPipelineFlags_ & PipelineFlags::USES_INPUT_ATTACHMENT) {
 		// Not allowed on backbuffers.
-		rpType = RP_TYPE_COLOR_DEPTH_INPUT;
+		rpType = depthStencil ? RP_TYPE_COLOR_DEPTH_INPUT : RP_TYPE_COLOR_INPUT;
 	}
 	// TODO: Also add render pass types for depth/stencil-less.
 
@@ -714,9 +719,11 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		}
 		if (depth == VKRRenderPassLoadAction::CLEAR) {
 			clearMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+			curPipelineFlags_ |= PipelineFlags::USES_DEPTH_STENCIL;
 		}
 		if (stencil == VKRRenderPassLoadAction::CLEAR) {
 			clearMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+			curPipelineFlags_ |= PipelineFlags::USES_DEPTH_STENCIL;
 		}
 
 		// If we need a clear and the previous step has commands already, it's best to just add a clear and keep going.
@@ -997,6 +1004,10 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 		curRenderStep_->render.depthLoad = (clearMask & VK_IMAGE_ASPECT_DEPTH_BIT) ? VKRRenderPassLoadAction::CLEAR : VKRRenderPassLoadAction::KEEP;
 		curRenderStep_->render.stencilLoad = (clearMask & VK_IMAGE_ASPECT_STENCIL_BIT) ? VKRRenderPassLoadAction::CLEAR : VKRRenderPassLoadAction::KEEP;
 
+		if (clearMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+			curPipelineFlags_ |= PipelineFlags::USES_DEPTH_STENCIL;
+		}
+
 		// In case there were commands already.
 		curRenderStep_->render.numDraws = 0;
 		RemoveDrawCommands(&curRenderStep_->commands);
@@ -1269,7 +1280,10 @@ void VulkanRenderManager::Run(int frame) {
 	BeginSubmitFrame(frame);
 
 	FrameData &frameData = frameData_[frame];
-	queueRunner_.PreprocessSteps(frameData_[frame].steps);
+	queueRunner_.PreprocessSteps(frameData.steps);
+	// Likely during shutdown, happens in headless.
+	if (frameData.steps.empty() && !frameData.hasAcquired)
+		frameData.skipSwap = true;
 	//queueRunner_.LogSteps(stepsOnThread, false);
 	queueRunner_.RunSteps(frameData, frameDataShared_);
 

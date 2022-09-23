@@ -418,10 +418,13 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	// Should probably revisit how this works..
 	gstate_c.SetNeedShaderTexclamp(false);
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
-	if (gstate_c.bgraTexture != isBgraBackend_) {
+
+	bool isBgraTexture = isBgraBackend_ && !hasClutGPU;
+
+	if (gstate_c.bgraTexture != isBgraTexture) {
 		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 	}
-	gstate_c.bgraTexture = isBgraBackend_;
+	gstate_c.bgraTexture = isBgraTexture;
 
 	if (entryIter != cache_.end()) {
 		entry = entryIter->second.get();
@@ -1015,7 +1018,8 @@ bool TextureCacheCommon::MatchFramebuffer(
 			return false;
 		}
 
-		if (fb_stride_in_bytes != tex_stride_in_bytes) {
+		// Note the check for texHeight - we really don't care about a stride mismatch if texHeight == 1.
+		if (fb_stride_in_bytes != tex_stride_in_bytes && texHeight > 1) {
 			// Probably irrelevant. Although, as we shall see soon, there are exceptions.
 			// Burnout Dominator lens flare trick special case.
 			if (fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT8 && texWidth == 4 && texHeight == 1) {
@@ -1205,6 +1209,8 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 			clutRenderOffset_ = MAX_CLUT_OFFSET;
 			const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 
+			u32 bestClutAddress = 0xFFFFFFFF;
+
 			VirtualFramebuffer *chosenFramebuffer = nullptr;
 			for (VirtualFramebuffer *framebuffer : framebuffers) {
 				const u32 fb_address = framebuffer->fb_address & 0x3FFFFFFF;
@@ -1231,7 +1237,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 						WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d", loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset);
 						framebuffer->last_frame_clut = gpuStats.numFlips;
 						framebuffer->usageFlags |= FB_USAGE_CLUT;
-						clutRenderAddress_ = framebuffer->fb_address;
+						bestClutAddress = framebuffer->fb_address;
 						clutRenderOffset_ = (u32)offset;
 						chosenFramebuffer = framebuffer;
 						if (offset == 0) {
@@ -1242,7 +1248,9 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 				}
 			}
 
-			if (chosenFramebuffer) {
+			if (chosenFramebuffer && chosenFramebuffer->fbo) {
+				clutRenderAddress_ = bestClutAddress;
+
 				if (!dynamicClutTemp_) {
 					Draw::FramebufferDesc desc{};
 					desc.width = 512;
@@ -1256,11 +1264,12 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 					dynamicClutTemp_ = draw_->CreateFramebuffer(desc);
 				}
 
-				// Download the pixels to our temp clut, scaling down if needed.
+				// Copy the pixels to our temp clut, scaling down if needed and wrapping.
+				// TODO: Take the clutRenderOffset_ into account here.
 				framebufferManager_->BlitUsingRaster(
 					chosenFramebuffer->fbo, 0.0f, 0.0f, 512.0f * chosenFramebuffer->renderScaleFactor, 1.0f, 
 					dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, 
-					false, 1.0f, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR), "copy_clut_to_temp");
+					false, chosenFramebuffer->renderScaleFactor, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR_RECT2LIN), "copy_clut_to_temp");
 				clutRenderFormat_ = chosenFramebuffer->fb_format;
 			}
 			NotifyMemInfo(MemBlockFlags::ALLOC, clutAddr, loadBytes, "CLUT");
@@ -2091,7 +2100,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 				mode = ShaderDepalMode::SMOOTHED;
 			}
 
-			// Since we started/ended render passes, might need these.
 			gstate_c.Dirty(DIRTY_DEPAL);
 			gstate_c.SetUseShaderDepal(mode);
 			gstate_c.depalFramebufferFormat = framebuffer->fb_format;
@@ -2189,8 +2197,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 	ApplySamplingParams(samplerKey);
 
-	// Since we started/ended render passes, might need these.
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+	// Since we've drawn using thin3d, might need these.
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 // Applies depal to a normal (non-framebuffer) texture, pre-decoded to CLUT8 format.
@@ -2281,8 +2289,8 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(texWidth, texHeight);
 	ApplySamplingParams(samplerKey);
 
-	// Since we started/ended render passes, might need these.
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+	// Since we've drawn using thin3d, might need these.
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 void TextureCacheCommon::Clear(bool delete_them) {
@@ -2630,13 +2638,31 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		}
 	}
 
-	if (isPPGETexture) {
-		plan.replaced = &replacer_.FindNone();
-		plan.replaceValid = false;
+	bool canReplace = !isPPGETexture;
+	if (entry->status & TexCacheEntry::TexStatus::STATUS_CLUT_GPU) {
+		_dbg_assert_(entry->format == GE_TFMT_CLUT4 || entry->format == GE_TFMT_CLUT8);
+		plan.decodeToClut8 = true;
+		// We only support 1 mip level when doing CLUT on GPU for now.
+		// Supporting more would be possible, just not very interesting until we need it.
+		plan.levelsToCreate = 1;
+		plan.levelsToLoad = 1;
+		plan.maxPossibleLevels = 1;
+		plan.scaleFactor = 1;
+		plan.saveTexture = false;  // Can't yet save these properly.
+		canReplace = false;
 	} else {
+		plan.decodeToClut8 = false;
+	}
+
+	if (canReplace) {
 		plan.replaced = &FindReplacement(entry, plan.w, plan.h, plan.depth);
 		plan.replaceValid = plan.replaced->Valid();
+	} else {
+		plan.replaced = &replacer_.FindNone();
+		plan.replaceValid = false;
 	}
+
+	// NOTE! Last chance to change scale factor here!
 
 	plan.saveTexture = false;
 	if (plan.replaceValid) {
@@ -2648,7 +2674,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		// But, we still need to create the texture at a larger size.
 		plan.replaced->GetSize(0, plan.createW, plan.createH);
 	} else {
-		if (replacer_.Enabled() && !plan.replaceValid && plan.depth == 1) {
+		if (replacer_.Enabled() && !plan.replaceValid && plan.depth == 1 && canReplace) {
 			ReplacedTextureDecodeInfo replacedInfo;
 			// TODO: Do we handle the race where a replacement becomes valid AFTER this but before we save?
 			replacedInfo.cachekey = entry->CacheKey();
@@ -2673,25 +2699,10 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.levelsToLoad = 1;
 	}
 
-	if (plan.isVideo || plan.depth != 1) {
+	if (plan.isVideo || plan.depth != 1 || plan.decodeToClut8) {
 		plan.maxPossibleLevels = 1;
 	} else {
 		plan.maxPossibleLevels = log2i(std::min(plan.createW, plan.createH)) + 1;
-	}
-
-	if (entry->status & TexCacheEntry::TexStatus::STATUS_CLUT_GPU) {
-		_dbg_assert_(entry->format == GE_TFMT_CLUT4 || entry->format == GE_TFMT_CLUT8);
-		plan.decodeToClut8 = true;
-		// We only support 1 mip level when doing CLUT on GPU for now.
-		// Supporting more would be possible, just not very interesting until we need it.
-		plan.levelsToCreate = 1;
-		plan.levelsToLoad = 1;
-		plan.maxPossibleLevels = 1;
-		plan.scaleFactor = 1;
-		plan.saveTexture = false;  // Can't yet save these properly.
-		// TODO: Also forcibly disable replacement, or check that the replacement is a 8-bit paletted texture.
-	} else {
-		plan.decodeToClut8 = false;
 	}
 
 	if (plan.levelsToCreate == 1) {

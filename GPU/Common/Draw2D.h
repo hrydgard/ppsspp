@@ -16,6 +16,7 @@ enum Draw2DShader {
 	DRAW2D_COPY_DEPTH,
 	DRAW2D_565_TO_DEPTH,
 	DRAW2D_565_TO_DEPTH_DESWIZZLE,
+	DRAW2D_COPY_COLOR_RECT2LIN,
 };
 
 inline RasterChannel Draw2DSourceChannel(Draw2DShader shader) {

@@ -547,26 +547,25 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 		return;
 	}
 
+	// First time use of this framebuffer's depth buffer.
+	bool newlyUsingDepth = (currentRenderVfb_->usageFlags & FB_USAGE_RENDER_DEPTH) == 0;
+	currentRenderVfb_->usageFlags |= FB_USAGE_RENDER_DEPTH;
+
 	// If this first draw call is anything other than a clear, "resolve" the depth buffer,
 	// by copying from any overlapping buffers with fresher content.
-	if (!isClearingDepth) {
+	if (!isClearingDepth && useBufferedRendering_) {
 		CopyToDepthFromOverlappingFramebuffers(currentRenderVfb_);
 
-		// Special compatibility trick for Burnout Dominator lens flares. Not sure how to best generalize this. See issue #11100
-		if (PSP_CoreParameter().compat.flags().UploadDepthForCLUTTextures && (currentRenderVfb_->usageFlags & FB_USAGE_CLUT) != 0) {
-			// Set the flag, then upload memory contents to depth channel.
+		// Need to upload the first line of depth buffers, for Burnout Dominator lens flares. See issue #11100 and comments to #16081.
+		// Might make this more generic and upload the whole depth buffer if we find it's needed for something.
+		if (newlyUsingDepth) {
 			// Sanity check the depth buffer pointer.
-			if (currentRenderVfb_->z_address != 0 && currentRenderVfb_->z_address != currentRenderVfb_->fb_address) {
-				if (Memory::IsValidRange(currentRenderVfb_->z_address, currentRenderVfb_->width * 2)) {
-					const u16 *src = (const u16 *)Memory::GetPointerUnchecked(currentRenderVfb_->z_address);
-					DrawPixels(currentRenderVfb_, 0, 0, (const u8 *)src, GE_FORMAT_DEPTH16, currentRenderVfb_->z_stride, currentRenderVfb_->width, currentRenderVfb_->height, RASTER_DEPTH, "Depth Upload");
-				}
+			if (Memory::IsValidRange(currentRenderVfb_->z_address, currentRenderVfb_->width * 2)) {
+				const u16 *src = (const u16 *)Memory::GetPointerUnchecked(currentRenderVfb_->z_address);
+				DrawPixels(currentRenderVfb_, 0, 0, (const u8 *)src, GE_FORMAT_DEPTH16, currentRenderVfb_->z_stride, currentRenderVfb_->width, currentRenderVfb_->height, RASTER_DEPTH, "Depth Upload");
 			}
 		}
 	}
-
-	// First time use of this framebuffer's depth buffer.
-	currentRenderVfb_->usageFlags |= FB_USAGE_RENDER_DEPTH;
 
 	currentRenderVfb_->depthBindSeq = GetBindSeqCount();
 }
@@ -647,7 +646,7 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 		}
 	}
 
-	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE);
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 // Can't easily dynamically create these strings, we just pass along the pointer.
@@ -915,7 +914,7 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 
 	// Some GPUs can copy depth but only if stencil gets to come along for the ride. We only want to use this if there is no blit functionality.
 	if (useCopy) {
-		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, w, h, 1, Draw::FB_DEPTH_BIT, "BlitFramebufferDepth");
+		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, w, h, 1, Draw::FB_DEPTH_BIT, "CopyFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
 	} else if (useBlit) {
 		// We'll accept whether we get a separate depth blit or not...
@@ -1021,7 +1020,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {
 	// TODO: Could go through all FBOs, but probably not important?
 	// TODO: Could also check for inner changes, but video is most important.
 	// TODO: This shouldn't care if it's a display framebuf or not, should work exactly the same.
-	bool isDisplayBuf = addr == DisplayFramebufAddr() || addr == PrevDisplayFramebufAddr();
+	bool isDisplayBuf = addr == CurrentDisplayFramebufAddr() || addr == PrevDisplayFramebufAddr();
 	// TODO: Deleting the FBO is a heavy hammer solution, so let's only do it if it'd help.
 	if (!Memory::IsValidAddress(displayFramebufPtr_))
 		return;
@@ -1097,7 +1096,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		pixelsTex->Release();
 		draw_->InvalidateCachedState();
 
-		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 	}
 }
 
@@ -1540,7 +1539,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	if (creating) {
 		WARN_LOG(FRAMEBUF, "Creating %s FBO at %08x/%d %dx%d (force=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->fb_stride, vfb->bufferWidth, vfb->bufferHeight, (int)force);
 	} else {
-		WARN_LOG(FRAMEBUF, "Resizing %s FBO at %08x/%d from %dx%d to %dx%d (force=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->fb_stride, old.bufferWidth, old.bufferHeight, vfb->bufferWidth, vfb->bufferHeight, (int)force);
+		WARN_LOG(FRAMEBUF, "Resizing %s FBO at %08x/%d from %dx%d to %dx%d (force=%d, skipCopy=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->fb_stride, old.bufferWidth, old.bufferHeight, vfb->bufferWidth, vfb->bufferHeight, (int)force, (int)skipCopy);
 	}
 
 	// During hardware rendering, we always render at full color depth even if the game wouldn't on real hardware.
@@ -1578,8 +1577,10 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		if (vfb->fbo) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 			if (!skipCopy) {
-				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0, RASTER_COLOR, "Blit_ResizeFramebufFBO");
-				// Depth copying is handled by deferred copies later.
+				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0, RASTER_COLOR, "BlitColor_ResizeFramebufFBO");
+			}
+			if (vfb->usageFlags & FB_USAGE_RENDER_DEPTH) {
+				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0, RASTER_DEPTH, "BlitDepth_ResizeFramebufFBO");
 			}
 		}
 		fbosToDelete_.push_back(old.fbo);
@@ -2182,7 +2183,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 	// We may still do a partial block draw below if this doesn't pass.
 	if (!useBufferedRendering_ && dstStride >= 480 && width >= 480 && height == 272) {
 		bool isPrevDisplayBuffer = PrevDisplayFramebufAddr() == dstBasePtr;
-		bool isDisplayBuffer = DisplayFramebufAddr() == dstBasePtr;
+		bool isDisplayBuffer = CurrentDisplayFramebufAddr() == dstBasePtr;
 		if (isPrevDisplayBuffer || isDisplayBuffer) {
 			FlushBeforeCopy();
 			DrawFramebufferToOutput(Memory::GetPointerUnchecked(dstBasePtr), dstStride, displayFormat_);
@@ -2214,8 +2215,9 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 			int dstBpp = BufferFormatBytesPerPixel(dstRect.vfb->fb_format);
 			float dstXFactor = (float)bpp / dstBpp;
 			if (dstRect.w_bytes / bpp > dstRect.vfb->width || dstRect.h > dstRect.vfb->height) {
-				// The buffer isn't big enough, and we have a clear hint of size.  Resize.
+				// The buffer isn't big enough, and we have a clear hint of size. Resize.
 				// This happens in Valkyrie Profile when uploading video at the ending.
+				// Also happens to the CLUT framebuffer in the Burnout Dominator lens flare effect. See #16075
 				ResizeFramebufFBO(dstRect.vfb, dstRect.w_bytes / bpp, dstRect.h, false, true);
 				// Make sure we don't flop back and forth.
 				dstRect.vfb->newWidth = std::max(dstRect.w_bytes / bpp, (int)dstRect.vfb->width);
@@ -2357,8 +2359,8 @@ void FramebufferManagerCommon::ShowScreenResolution() {
 // * Save state screenshots(could probably be async but need to manage the stall.)
 bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxScaleFactor) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
+	if (!vfb || vfb->fb_address != fb_address) {
+		vfb = ResolveVFB(fb_address, fb_stride, format);
 	}
 
 	if (!vfb) {
@@ -2701,6 +2703,7 @@ void FramebufferManagerCommon::DeviceLost() {
 	DoRelease(stencilUploadSampler_);
 	DoRelease(stencilUploadPipeline_);
 	DoRelease(draw2DPipelineColor_);
+	DoRelease(draw2DPipelineColorRect2Lin_);
 	DoRelease(draw2DPipelineDepth_);
 	DoRelease(draw2DPipeline565ToDepth_);
 	DoRelease(draw2DPipeline565ToDepthDeswizzle_);
@@ -2766,7 +2769,7 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 
 	draw2D_.DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, Get2DPipeline((flags & DRAWTEX_DEPTH) ? DRAW2D_COPY_DEPTH : DRAW2D_COPY_COLOR));
 
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, RasterChannel channel, const char *tag) {
@@ -2776,6 +2779,11 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 			// Just bind the back buffer for rendering, forget about doing anything else as we're in a weird state.
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitFramebuffer");
 		}
+		return;
+	}
+
+	if (channel == RASTER_DEPTH && !draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
+		// Can't do anything :(
 		return;
 	}
 
@@ -2870,7 +2878,7 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 
 	draw_->InvalidateCachedState();
 
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 // The input is raw pixel coordinates, scale not taken into account.
@@ -2906,7 +2914,7 @@ void FramebufferManagerCommon::BlitUsingRaster(
 
 	draw2D_.Blit(pipeline, srcX1, srcY1, srcX2, srcY2, destX1, destY1, destX2, destY2, (float)srcW, (float)srcH, (float)destW, (float)destH, linearFilter, scaleFactor);
 
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(VirtualFramebuffer *src, GEBufferFormat newFormat) {

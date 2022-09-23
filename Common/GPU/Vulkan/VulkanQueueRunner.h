@@ -43,18 +43,24 @@ enum class VKRRenderCommand : uint8_t {
 
 enum class PipelineFlags {
 	NONE = 0,
-	USES_LINES = (1 << 2),
 	USES_BLEND_CONSTANT = (1 << 3),
-	USES_DEPTH_STENCIL = (1 << 4),  // Reads or writes the depth buffer.
+	USES_DEPTH_STENCIL = (1 << 4),  // Reads or writes the depth or stencil buffers.
 	USES_INPUT_ATTACHMENT = (1 << 5),
 };
 ENUM_CLASS_BITOPS(PipelineFlags);
 
 // Pipelines need to be created for the right type of render pass.
 enum RenderPassType {
-	RP_TYPE_BACKBUFFER,
+	// These four are organized so that bit 0 is DEPTH and bit 1 is INPUT, so
+	// they can be OR-ed together in MergeRPTypes.
+	RP_TYPE_COLOR,
 	RP_TYPE_COLOR_DEPTH,
+	RP_TYPE_COLOR_INPUT,
 	RP_TYPE_COLOR_DEPTH_INPUT,
+
+	// This is the odd one out, and gets special handling in MergeRPTypes.
+	RP_TYPE_BACKBUFFER,  // For the backbuffer we can always use CLEAR/DONT_CARE, so bandwidth cost for a depth channel is negligible.
+
 	// Later will add pure-color render passes.
 	RP_TYPE_COUNT,
 };

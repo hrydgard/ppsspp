@@ -1128,7 +1128,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					}
 				} else {
 					if (hasTexcoord) {
-						WRITE(p, "  %sv_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
+						if (doBezier || doSpline)
+							WRITE(p, "  %sv_texcoord = vec3(tess.tex.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
+						else
+							WRITE(p, "  %sv_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
 					} else {
 						WRITE(p, "  %sv_texcoord = vec3(u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
 					}
@@ -1140,26 +1143,36 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					std::string temp_tc;
 					switch (uvProjMode) {
 					case GE_PROJMAP_POSITION:  // Use model space XYZ as source
-						temp_tc = "vec4(position, 1.0)";
+						if (doBezier || doSpline)
+							temp_tc = "vec4(tess.pos, 1.0)";
+						else
+							temp_tc = "vec4(position, 1.0)";
 						break;
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{
 							// prescale is false here.
 							if (hasTexcoord) {
-								temp_tc = "vec4(texcoord.xy, 0.0, 1.0)";
+								if (doBezier || doSpline)
+									temp_tc = "vec4(tess.tex.xy, 0.0, 1.0)";
+								else
+									temp_tc = "vec4(texcoord.xy, 0.0, 1.0)";
 							} else {
 								temp_tc = "vec4(0.0, 0.0, 0.0, 1.0)";
 							}
 						}
 						break;
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
-						if (hasNormal)
+						if ((doBezier || doSpline) && hasNormalTess)
+							temp_tc = StringFromFormat("length(tess.nrm) == 0.0 ? vec4(0.0, 0.0, 1.0, 1.0) : vec4(normalize(%stess.nrm), 1.0)", flipNormalTess ? "-" : "");
+						else if (hasNormal)
 							temp_tc = StringFromFormat("length(normal) == 0.0 ? vec4(0.0, 0.0, 1.0, 1.0) : vec4(normalize(%snormal), 1.0)", flipNormal ? "-" : "");
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					case GE_PROJMAP_NORMAL:  // Use non-normalized transformed normal as source
-						if (hasNormal)
+						if ((doBezier || doSpline) && hasNormalTess)
+							temp_tc = flipNormalTess ? "vec4(-tess.nrm, 1.0)" : "vec4(tess.nrm, 1.0)";
+						else if (hasNormal)
 							temp_tc = flipNormal ? "vec4(-normal, 1.0)" : "vec4(normal, 1.0)";
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
@@ -1189,37 +1202,34 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
 	}
 
-	if (clipClampedDepth || (vertexRangeCulling && !IsVRBuild())) {
-		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
-	}
-
 	if (clipClampedDepth) {
 		const char *clip0 = compat.shaderLanguage == HLSL_D3D11 ? ".x" : "[0]";
 		const char *clip1 = compat.shaderLanguage == HLSL_D3D11 ? ".y" : "[1]";
-		WRITE(p, "  mediump float integerZ = projPos.z * u_depthRange.x + u_depthRange.y;\n");
 
 		// This should clip against minz, but only when it's above zero.
 		if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 			// On OpenGL/GLES, these values account for the -1 -> 1 range.
 			WRITE(p, "  if (u_depthRange.y - u_depthRange.x >= 1.0) {\n");
+			WRITE(p, "    %sgl_ClipDistance%s = outPos.w + outPos.z;\n", compat.vsOutPrefix, clip0);
 		} else {
 			// Everywhere else, it's 0 -> 1, simpler.
 			WRITE(p, "  if (u_depthRange.y >= 1.0) {\n");
+			WRITE(p, "    %sgl_ClipDistance%s = outPos.z;\n", compat.vsOutPrefix, clip0);
 		}
-		WRITE(p, "    %sgl_ClipDistance%s = integerZ;\n", compat.vsOutPrefix, clip0);
 		WRITE(p, "  } else {\n");
 		WRITE(p, "    %sgl_ClipDistance%s = 0.0;\n", compat.vsOutPrefix, clip0);
 		WRITE(p, "  }\n");
 
 		// This is similar, but for maxz when it's below 65535.0.  -1/0 don't matter here.
 		WRITE(p, "  if (u_depthRange.x + u_depthRange.y <= 65534.0) {\n");
-		WRITE(p, "    %sgl_ClipDistance%s = 65535.0 - integerZ;\n", compat.vsOutPrefix, clip1);
+		WRITE(p, "    %sgl_ClipDistance%s = outPos.w - outPos.z;\n", compat.vsOutPrefix, clip1);
 		WRITE(p, "  } else {\n");
 		WRITE(p, "    %sgl_ClipDistance%s = 0.0;\n", compat.vsOutPrefix, clip1);
 		WRITE(p, "  }\n");
 	}
 
 	if (vertexRangeCulling && !IsVRBuild()) {
+		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
 		WRITE(p, "  float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
 		// Vertex range culling doesn't happen when Z clips, note sign of w is important.
 		WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || projZ * outPos.w > -outPos.w) {\n");

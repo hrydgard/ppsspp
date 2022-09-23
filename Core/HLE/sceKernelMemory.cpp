@@ -2174,68 +2174,89 @@ int sceKernelDeleteTlspl(SceUID uid)
 	return error;
 }
 
-int sceKernelGetTlsAddr(SceUID uid)
-{
-	// TODO: Allocate downward if PSP_TLSPL_ATTR_HIGHMEM?
-	DEBUG_LOG(SCEKERNEL, "sceKernelGetTlsAddr(%08x)", uid);
+struct FindTLSByIndexArg {
+	int index;
+	TLSPL *result = nullptr;
+};
 
+static bool FindTLSByIndex(TLSPL *possible, FindTLSByIndexArg *state) {
+	if (possible->ntls.index == state->index) {
+		state->result = possible;
+		return false;
+	}
+	return true;
+}
+
+int sceKernelGetTlsAddr(SceUID uid) {
 	if (!__KernelIsDispatchEnabled() || __IsInInterrupt())
-		return 0;
+		return hleLogWarning(SCEKERNEL, 0, "dispatch disabled");
 
 	u32 error;
 	TLSPL *tls = kernelObjects.Get<TLSPL>(uid, error);
-	if (tls)
-	{
-		SceUID threadID = __KernelGetCurThread();
-		int allocBlock = -1;
-		bool needsClear = false;
+	if (!tls) {
+		if (uid < 0)
+			return hleLogError(SCEKERNEL, 0, "tlspl not found");
 
-		// If the thread already has one, return it.
+		// There's this weird behavior where it looks up by index.  Maybe we shouldn't use uids...
+		if (!tlsplUsedIndexes[(uid >> 3) & 15])
+			return hleLogError(SCEKERNEL, 0, "tlspl not found");
+
+		FindTLSByIndexArg state;
+		state.index = (uid >> 3) & 15;
+		kernelObjects.Iterate<TLSPL>(&FindTLSByIndex, &state);
+		if (!state.result)
+			return hleLogError(SCEKERNEL, 0, "tlspl not found");
+
+		tls = state.result;
+	}
+
+	SceUID threadID = __KernelGetCurThread();
+	int allocBlock = -1;
+	bool needsClear = false;
+
+	// If the thread already has one, return it.
+	for (size_t i = 0; i < tls->ntls.totalBlocks && allocBlock == -1; ++i)
+	{
+		if (tls->usage[i] == threadID)
+			allocBlock = (int) i;
+	}
+
+	if (allocBlock == -1)
+	{
 		for (size_t i = 0; i < tls->ntls.totalBlocks && allocBlock == -1; ++i)
 		{
-			if (tls->usage[i] == threadID)
-				allocBlock = (int) i;
+			// The PSP doesn't give the same block out twice in a row, even if freed.
+			if (tls->usage[tls->next] == 0)
+				allocBlock = tls->next;
+			tls->next = (tls->next + 1) % tls->ntls.totalBlocks;
 		}
 
-		if (allocBlock == -1)
+		if (allocBlock != -1)
 		{
-			for (size_t i = 0; i < tls->ntls.totalBlocks && allocBlock == -1; ++i)
-			{
-				// The PSP doesn't give the same block out twice in a row, even if freed.
-				if (tls->usage[tls->next] == 0)
-					allocBlock = tls->next;
-				tls->next = (tls->next + 1) % tls->ntls.totalBlocks;
-			}
-
-			if (allocBlock != -1)
-			{
-				tls->usage[allocBlock] = threadID;
-				tlsplThreadEndChecks.insert(std::make_pair(threadID, uid));
-				--tls->ntls.freeBlocks;
-				needsClear = true;
-			}
+			tls->usage[allocBlock] = threadID;
+			tlsplThreadEndChecks.insert(std::make_pair(threadID, uid));
+			--tls->ntls.freeBlocks;
+			needsClear = true;
 		}
-
-		if (allocBlock == -1)
-		{
-			tls->waitingThreads.push_back(threadID);
-			__KernelWaitCurThread(WAITTYPE_TLSPL, uid, 1, 0, false, "allocate tls");
-			return 0;
-		}
-
-		u32 alignedSize = (tls->ntls.blockSize + tls->alignment - 1) & ~(tls->alignment - 1);
-		u32 allocAddress = tls->address + allocBlock * alignedSize;
-		NotifyMemInfo(MemBlockFlags::SUB_ALLOC, allocAddress, tls->ntls.blockSize, "TlsAddr");
-
-		// We clear the blocks upon first allocation (and also when they are freed, both are necessary.)
-		if (needsClear) {
-			Memory::Memset(allocAddress, 0, tls->ntls.blockSize, "TlsAddr");
-		}
-
-		return allocAddress;
 	}
-	else
-		return 0;
+
+	if (allocBlock == -1)
+	{
+		tls->waitingThreads.push_back(threadID);
+		__KernelWaitCurThread(WAITTYPE_TLSPL, uid, 1, 0, false, "allocate tls");
+		return hleLogDebug(SCEKERNEL, 0, "waiting for tls alloc");
+	}
+
+	u32 alignedSize = (tls->ntls.blockSize + tls->alignment - 1) & ~(tls->alignment - 1);
+	u32 allocAddress = tls->address + allocBlock * alignedSize;
+	NotifyMemInfo(MemBlockFlags::SUB_ALLOC, allocAddress, tls->ntls.blockSize, "TlsAddr");
+
+	// We clear the blocks upon first allocation (and also when they are freed, both are necessary.)
+	if (needsClear) {
+		Memory::Memset(allocAddress, 0, tls->ntls.blockSize, "TlsAddr");
+	}
+
+	return hleLogDebug(SCEKERNEL, allocAddress);
 }
 
 // Parameters are an educated guess.

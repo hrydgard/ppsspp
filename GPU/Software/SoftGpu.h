@@ -64,17 +64,17 @@ enum class SoftDirty : uint64_t {
 	PIXEL_DITHER = 1ULL << 3,
 	PIXEL_WRITEMASK = 1ULL << 4,
 	PIXEL_CACHED = 1ULL << 5,
-	PIXEL_ALL = 63ULL << 0,
+	PIXEL_ALL = 0b111111ULL << 0,
 
 	SAMPLER_BASIC = 1ULL << 6,
 	SAMPLER_TEXLIST = 1ULL << 7,
 	SAMPLER_CLUT = 1ULL << 8,
-	SAMPLER_ALL = 7ULL << 6,
+	SAMPLER_ALL = 0b111ULL << 6,
 
 	RAST_BASIC = 1ULL << 9,
 	RAST_TEX = 1ULL << 10,
 	RAST_OFFSET = 1ULL << 11,
-	RAST_ALL = 7ULL << 9,
+	RAST_ALL = 0b111ULL << 9,
 
 	LIGHT_BASIC = 1ULL << 12,
 	LIGHT_MATERIAL = 1ULL << 13,
@@ -82,13 +82,13 @@ enum class SoftDirty : uint64_t {
 	LIGHT_1 = 1ULL << 15,
 	LIGHT_2 = 1ULL << 16,
 	LIGHT_3 = 1ULL << 17,
-	LIGHT_ALL = 63ULL << 12,
+	LIGHT_ALL = 0b111111ULL << 12,
 
 	TRANSFORM_BASIC = 1ULL << 18,
 	TRANSFORM_MATRIX = 1ULL << 19,
 	TRANSFORM_VIEWPORT = 1ULL << 20,
 	TRANSFORM_FOG = 1ULL << 21,
-	TRANSFORM_ALL = 31ULL << 18,
+	TRANSFORM_ALL = 0b1111ULL << 18,
 
 	BINNER_RANGE = 1ULL << 22,
 	BINNER_OVERLAP = 1ULL << 23,
@@ -194,7 +194,7 @@ public:
 protected:
 	void FastRunLoop(DisplayList &list) override;
 	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight);
-	void ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, u8 *overrideData = nullptr);
+	void ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, const uint16_t *overrideData = nullptr);
 
 private:
 	void MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value);

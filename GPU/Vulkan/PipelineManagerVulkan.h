@@ -58,7 +58,6 @@ struct VulkanPipeline {
 	PipelineFlags pipelineFlags;  // PipelineFlags enum above.
 
 	bool UsesBlendConstant() const { return (pipelineFlags & PipelineFlags::USES_BLEND_CONSTANT) != 0; }
-	bool UsesLines() const { return (pipelineFlags & PipelineFlags::USES_LINES) != 0; }
 	bool UsesDepthStencil() const { return (pipelineFlags & PipelineFlags::USES_DEPTH_STENCIL) != 0; }
 	bool UsesInputAttachment() const { return (pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT) != 0; }
 

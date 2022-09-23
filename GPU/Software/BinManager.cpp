@@ -197,16 +197,16 @@ void BinManager::UpdateState(bool throughMode) {
 			Flush("tex");
 
 		// Okay, now update what's pending.
-		constexpr uint32_t mirrorMask = 0x0FFFFFFF & ~0x00600000;
-		const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
-		pendingWrites_[0].Expand(gstate.getFrameBufAddress() & mirrorMask, bpp, gstate.FrameBufStride(), scissorTL, scissorBR);
-		if (state.pixelID.depthWrite)
-			pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
+		MarkPendingWrites(state);
 
 		ClearDirty(SoftDirty::BINNER_RANGE);
 	} else if (pendingOverlap_) {
-		if (HasTextureWrite(state))
+		if (HasTextureWrite(state)) {
 			Flush("tex");
+
+			// We need the pending writes set, which flushing cleared.  Set them again.
+			MarkPendingWrites(state);
+		}
 	}
 
 	if (HasDirty(SoftDirty::BINNER_OVERLAP)) {
@@ -280,6 +280,17 @@ void BinManager::MarkPendingReads(const Rasterizer::RasterizerState &state) {
 			range.height = h;
 		}
 	}
+}
+
+void BinManager::MarkPendingWrites(const Rasterizer::RasterizerState &state) {
+	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1());
+	DrawingCoords scissorBR(std::min(gstate.getScissorX2(), gstate.getRegionX2()), std::min(gstate.getScissorY2(), gstate.getRegionY2()));
+
+	constexpr uint32_t mirrorMask = 0x0FFFFFFF & ~0x00600000;
+	const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
+	pendingWrites_[0].Expand(gstate.getFrameBufAddress() & mirrorMask, bpp, gstate.FrameBufStride(), scissorTL, scissorBR);
+	if (state.pixelID.depthWrite)
+		pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
 }
 
 inline void BinDirtyRange::Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, DrawingCoords &tl, DrawingCoords &br) {
