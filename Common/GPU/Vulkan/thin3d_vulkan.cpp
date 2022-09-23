@@ -194,17 +194,19 @@ public:
 	~VKShaderModule() {
 		if (module_) {
 			DEBUG_LOG(G3D, "Queueing %s (shmodule %p) for release", tag_.c_str(), module_);
-			vulkan_->Delete().QueueDeleteShaderModule(module_);
+			VkShaderModule shaderModule = module_->BlockUntilReady();
+			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+			delete module_;
 		}
 	}
-	VkShaderModule Get() const { return module_; }
+	Promise<VkShaderModule> *Get() const { return module_; }
 	ShaderStage GetStage() const override {
 		return stage_;
 	}
 
 private:
 	VulkanContext *vulkan_;
-	VkShaderModule module_ = VK_NULL_HANDLE;
+	Promise<VkShaderModule> *module_ = nullptr;
 	VkShaderStageFlagBits vkstage_;
 	bool ok_ = false;
 	ShaderStage stage_;
@@ -232,7 +234,9 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 	}
 #endif
 
-	if (vulkan->CreateShaderModule(spirv, &module_, vkstage_ == VK_SHADER_STAGE_VERTEX_BIT ? "thin3d_vs" : "thin3d_fs")) {
+	VkShaderModule shaderModule = VK_NULL_HANDLE;
+	if (vulkan->CreateShaderModule(spirv, &shaderModule, vkstage_ == VK_SHADER_STAGE_VERTEX_BIT ? "thin3d_vs" : "thin3d_fs")) {
+		module_ = Promise<VkShaderModule>::AlreadyDone(shaderModule);
 		ok_ = true;
 	} else {
 		WARN_LOG(G3D, "vkCreateShaderModule failed (%s)", tag_.c_str());
@@ -1070,9 +1074,9 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 		vkshader->AddRef();
 		pipeline->deps.push_back(vkshader);
 		if (vkshader->GetStage() == ShaderStage::Vertex) {
-			gDesc.vertexShader = Promise<VkShaderModule>::AlreadyDone(vkshader->Get());
+			gDesc.vertexShader = vkshader->Get();
 		} else if (vkshader->GetStage() == ShaderStage::Fragment) {
-			gDesc.fragmentShader = Promise<VkShaderModule>::AlreadyDone(vkshader->Get());
+			gDesc.fragmentShader = vkshader->Get();
 		} else {
 			ERROR_LOG(G3D, "Bad stage");
 			return nullptr;
