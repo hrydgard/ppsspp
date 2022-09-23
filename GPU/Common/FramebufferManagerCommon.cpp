@@ -548,6 +548,7 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 	}
 
 	// First time use of this framebuffer's depth buffer.
+	bool newlyUsingDepth = (currentRenderVfb_->usageFlags & FB_USAGE_RENDER_DEPTH) == 0;
 	currentRenderVfb_->usageFlags |= FB_USAGE_RENDER_DEPTH;
 
 	// If this first draw call is anything other than a clear, "resolve" the depth buffer,
@@ -557,7 +558,7 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 
 		// Need to upload the first line of depth buffers, for Burnout Dominator lens flares. See issue #11100 and comments to #16081.
 		// Might make this more generic and upload the whole depth buffer if we find it's needed for something.
-		if (currentRenderVfb_->lastFrameNewSize == gpuStats.numFlips) {
+		if (newlyUsingDepth) {
 			// Sanity check the depth buffer pointer.
 			if (Memory::IsValidRange(currentRenderVfb_->z_address, currentRenderVfb_->width * 2)) {
 				const u16 *src = (const u16 *)Memory::GetPointerUnchecked(currentRenderVfb_->z_address);
