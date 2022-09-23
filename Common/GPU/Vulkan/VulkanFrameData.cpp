@@ -176,8 +176,8 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 	VkResult res;
 	if (fenceToTrigger == fence) {
 		// The fence is waited on by the main thread, they are not allowed to access it simultaneously.
-		std::lock_guard<std::mutex> lock(fenceMutex);
 		res = vkQueueSubmit(vulkan->GetGraphicsQueue(), 1, &submit_info, fenceToTrigger);
+		std::lock_guard<std::mutex> lock(fenceMutex);
 		readyForFence = true;
 		fenceCondVar.notify_one();
 	} else {
