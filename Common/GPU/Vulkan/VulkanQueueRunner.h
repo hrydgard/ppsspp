@@ -247,6 +247,14 @@ private:
 	RPKey key_;
 };
 
+// These are enqueued from the main thread,
+// and the render thread pops them off
+struct VKRRenderThreadTask {
+	std::vector<VKRStep *> steps;
+	int frame;
+	VKRRunType runType;
+};
+
 class VulkanQueueRunner {
 public:
 	VulkanQueueRunner(VulkanContext *vulkan) : vulkan_(vulkan), renderPasses_(16) {}
@@ -257,7 +265,7 @@ public:
 	}
 
 	void PreprocessSteps(std::vector<VKRStep *> &steps);
-	void RunSteps(FrameData &frameData, FrameDataShared &frameDataShared);
+	void RunSteps(std::vector<VKRStep *> &steps, FrameData &frameData, FrameDataShared &frameDataShared);
 	void LogSteps(const std::vector<VKRStep *> &steps, bool verbose);
 
 	std::string StepToString(const VKRStep &step) const;

@@ -146,8 +146,11 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 		hasPresentCommands = false;
 
 		if (type == FrameSubmitType::Present) {
+			NOTICE_LOG(G3D, "Has present commands, Triggering fence");
 			fenceToTrigger = fence;
 		}
+	} else {
+		NOTICE_LOG(G3D, "No present commands, not triggering fence");
 	}
 
 	if (!numCmdBufs && fenceToTrigger == VK_NULL_HANDLE) {
@@ -180,14 +183,6 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 		// Hard stall of the GPU, not ideal, but necessary so the CPU has the contents of the readback.
 		vkWaitForFences(vulkan->GetDevice(), 1, &readbackFence, true, UINT64_MAX);
 		vkResetFences(vulkan->GetDevice(), 1, &readbackFence);
-	}
-
-	// When !triggerFence, we notify after syncing with Vulkan.
-	if (type == FrameSubmitType::Present || type == FrameSubmitType::Sync) {
-		VERBOSE_LOG(G3D, "PULL: Frame %d.readyForFence = true", index);
-		std::unique_lock<std::mutex> lock(push_mutex);
-		readyForFence = true;  // misnomer in sync mode!
-		push_condVar.notify_all();
 	}
 }
 

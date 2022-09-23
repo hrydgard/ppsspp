@@ -7,15 +7,14 @@
 
 #include "Common/GPU/Vulkan/VulkanContext.h"
 
-struct VKRStep;
-
 enum {
 	MAX_TIMESTAMP_QUERIES = 128,
 };
 
 enum class VKRRunType {
-	END,
+	PRESENT,
 	SYNC,
+	EXIT,
 };
 
 struct QueueProfileContext {
@@ -43,14 +42,6 @@ enum class FrameSubmitType {
 
 // Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 struct FrameData {
-	std::mutex push_mutex;
-	std::condition_variable push_condVar;
-
-	std::mutex pull_mutex;
-	std::condition_variable pull_condVar;
-
-	bool readyForFence = true;
-	bool readyForRun = false;  // protected by pull_mutex
 	bool skipSwap = false;
 
 	VkFence fence;
@@ -68,9 +59,10 @@ struct FrameData {
 	bool hasMainCommands = false;
 	bool hasPresentCommands = false;
 
+	bool hasFencePending = false;
 	bool hasAcquired = false;
 
-	std::vector<VKRStep *> steps;
+	bool syncDone = false;
 
 	// Swapchain.
 	uint32_t curSwapchainImage = -1;
@@ -88,12 +80,6 @@ struct FrameData {
 
 	// This will only submit if we are actually recording init commands.
 	void SubmitPending(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &shared);
-
-	VKRRunType RunType() const {
-		return runType_;
-	}
-
-	VKRRunType runType_ = VKRRunType::END;
 
 private:
 	// Metadata for logging etc
