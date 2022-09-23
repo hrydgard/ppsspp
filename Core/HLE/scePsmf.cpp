@@ -175,35 +175,35 @@ public:
 
 	int FindEPWithTimestamp(int pts) const;
 
-	u32 magic;
-	u32 version;
-	u32 streamOffset;
-	u32 streamSize;
-	u32 headerSize;
-	u32 headerOffset;
-	u32 streamType;
-	u32 streamChannel;
+	u32 magic = 0;
+	u32 version = 0;
+	u32 streamOffset = 0;
+	u32 streamSize = 0;
+	u32 headerSize = 0;
+	u32 headerOffset = 0;
+	u32 streamType = 0;
+	u32 streamChannel = 0;
 	// 0x50
-	u32 streamDataTotalSize;
-	u32 presentationStartTime;
-	u32 presentationEndTime;
-	u32 streamDataNextBlockSize;
-	u32 streamDataNextInnerBlockSize;
+	u32 streamDataTotalSize = 0;
+	u32 presentationStartTime = 0;
+	u32 presentationEndTime = 0;
+	u32 streamDataNextBlockSize = 0;
+	u32 streamDataNextInnerBlockSize = 0;
 
-	int numStreams;
-	int currentStreamNum;
-	int currentStreamType;
-	int currentStreamChannel;
+	int numStreams = 0;
+	int currentStreamNum = 0;
+	int currentStreamType = 0;
+	int currentStreamChannel = 0;
 
 	// parameters gotten from streams
 	// I guess this is the seek information?
-	u32 EPMapOffset;
-	u32 EPMapEntriesNum;
+	u32 EPMapOffset = 0;
+	u32 EPMapEntriesNum = 0;
 	// These shouldn't be here, just here for convenience with old states.
-	int videoWidth;
-	int videoHeight;
-	int audioChannels;
-	int audioFrequency;
+	int videoWidth = 0;
+	int videoHeight = 0;
+	int audioChannels = 0;
+	int audioFrequency = 0;
 	std::vector<PsmfEntry> EPMap;
 
 	PsmfStreamMap streamMap;

@@ -976,7 +976,7 @@ void VKContext::WipeQueue() {
 }
 
 VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
-	DescriptorSetKey key;
+	DescriptorSetKey key{};
 
 	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
 

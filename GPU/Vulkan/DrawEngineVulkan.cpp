@@ -381,7 +381,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	_dbg_assert_(light != VK_NULL_HANDLE);
 	_dbg_assert_(bone != VK_NULL_HANDLE);
 
-	DescriptorSetKey key;
+	DescriptorSetKey key{};
 	key.imageView_ = imageView;
 	key.sampler_ = sampler;
 	key.secondaryImageView_ = boundSecondary_;
