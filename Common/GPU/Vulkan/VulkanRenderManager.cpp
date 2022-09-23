@@ -504,6 +504,16 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 
 	VLOG("PUSH: Fencing %d", curFrame);
 
+	// Makes sure the submission from the previous time around has happened. Otherwise
+	// we are not allowed to wait from another thread here..
+	{
+		std::unique_lock<std::mutex> lock(frameData.fenceMutex);
+		while (!frameData.readyForFence) {
+			frameData.fenceCondVar.wait(lock);
+		}
+		frameData.readyForFence = false;
+	}
+
 	// This must be the very first Vulkan call we do in a new frame.
 	// Makes sure the very last command buffer from the frame before the previous has been fully executed.
 	if (vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX) == VK_ERROR_DEVICE_LOST) {

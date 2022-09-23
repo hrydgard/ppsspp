@@ -1,3 +1,5 @@
+#include <mutex>
+
 #include "VulkanFrameData.h"
 #include "Common/Log.h"
 
@@ -26,6 +28,7 @@ void FrameData::Init(VulkanContext *vulkan, int index) {
 
 	// Creating the frame fence with true so they can be instantly waited on the first frame
 	fence = vulkan->CreateFence(true);
+	readyForFence = true;
 
 	// This fence one is used for synchronizing readbacks. Does not need preinitialization.
 	readbackFence = vulkan->CreateFence(false);
@@ -169,7 +172,18 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 		submit_info.signalSemaphoreCount = 1;
 		submit_info.pSignalSemaphores = &sharedData.renderingCompleteSemaphore;
 	}
-	VkResult res = vkQueueSubmit(vulkan->GetGraphicsQueue(), 1, &submit_info, fenceToTrigger);
+
+	VkResult res;
+	if (fenceToTrigger == fence) {
+		// The fence is waited on by the main thread, they are not allowed to access it simultaneously.
+		std::lock_guard<std::mutex> lock(fenceMutex);
+		res = vkQueueSubmit(vulkan->GetGraphicsQueue(), 1, &submit_info, fenceToTrigger);
+		readyForFence = true;
+		fenceCondVar.notify_one();
+	} else {
+		res = vkQueueSubmit(vulkan->GetGraphicsQueue(), 1, &submit_info, fenceToTrigger);
+	}
+
 	if (res == VK_ERROR_DEVICE_LOST) {
 		_assert_msg_(false, "Lost the Vulkan device in vkQueueSubmit! If this happens again, switch Graphics Backend away from Vulkan");
 	} else {

@@ -44,6 +44,10 @@ enum class FrameSubmitType {
 struct FrameData {
 	bool skipSwap = false;
 
+	std::mutex fenceMutex;
+	std::condition_variable fenceCondVar;
+	bool readyForFence = true;
+
 	VkFence fence;
 	VkFence readbackFence;  // Strictly speaking we might only need one global of these.
 
