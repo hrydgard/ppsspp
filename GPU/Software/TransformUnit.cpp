@@ -530,7 +530,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	// TODO: Do this in two passes - first process the vertices (before indexing/stripping),
 	// then resolve the indices. This lets us avoid transforming shared vertices twice.
 
-	binner_->UpdateState(vreader.isThrough());
+	binner_->UpdateState();
 	hasDraws_ = true;
 
 	static TransformState transformState;
