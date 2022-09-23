@@ -200,16 +200,10 @@ public:
 	VulkanRenderManager(VulkanContext *vulkan);
 	~VulkanRenderManager();
 
-	void ThreadFunc();
-	void CompileThreadFunc();
-	void DrainCompileQueue();
-
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
 	void BeginFrame(bool enableProfiling, bool enableLogProfiler);
 	// Can run on a different thread!
 	void Finish();
-	void Run(int frame);
-
 	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.
 	void Wipe();
 
@@ -468,13 +462,17 @@ public:
 private:
 	void EndCurRenderStep();
 
+	void ThreadFunc();
+	void CompileThreadFunc();
+	void DrainCompileQueue();
+
+	void Run(int frame);
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
+	void EndSyncFrame(int frame);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
-	void EndSyncFrame(int frame);
-
 	void StopThread();
 
 	FrameDataShared frameDataShared_;
