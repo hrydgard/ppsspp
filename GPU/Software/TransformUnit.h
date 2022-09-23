@@ -105,6 +105,7 @@ struct VertexData {
 class VertexReader;
 
 class SoftwareDrawEngine;
+class SoftwareVertexReader;
 
 class TransformUnit {
 public:
@@ -156,6 +157,8 @@ private:
 	GEPrimitiveType prev_prim_ = GE_PRIM_POINTS;
 	bool hasDraws_ = false;
 	bool isImmDraw_ = false;
+
+	friend SoftwareVertexReader;
 };
 
 class SoftwareDrawEngine : public DrawEngineCommon {

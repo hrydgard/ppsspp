@@ -161,7 +161,7 @@ BinManager::~BinManager() {
 	}
 }
 
-void BinManager::UpdateState(bool throughMode) {
+void BinManager::UpdateState() {
 	PROFILE_THIS_SCOPE("bin_state");
 	if (HasDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL)) {
 		if (states_.Full())

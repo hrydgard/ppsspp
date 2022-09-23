@@ -224,19 +224,15 @@ ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords &coords, u16 z) 
 }
 
 enum class MatrixMode {
-	NONE = 0,
 	POS_TO_CLIP = 1,
-	POS_TO_VIEW = 2,
-	WORLD_TO_CLIP = 3,
+	WORLD_TO_CLIP = 2,
 };
 
 struct TransformState {
 	Lighting::State lightingState;
 
-	float fogEnd;
-	float fogSlope;
-
 	float matrix[16];
+	Vec4f posToFog;
 	Vec3f screenScale;
 	Vec3f screenAdd;
 
@@ -265,20 +261,7 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	state->uvGenMode = gstate.getUVGenMode();
 
 	if (state->enableTransform) {
-		if (state->enableFog) {
-			state->fogEnd = getFloat24(gstate.fog1);
-			state->fogSlope = getFloat24(gstate.fog2);
-			// Same fixup as in ShaderManagerGLES.cpp
-			if (my_isnanorinf(state->fogEnd)) {
-				state->fogEnd = std::signbit(state->fogEnd) ? -INFINITY : INFINITY;
-			}
-			if (my_isnanorinf(state->fogSlope)) {
-				state->fogSlope = std::signbit(state->fogSlope) ? -INFINITY : INFINITY;
-			}
-		}
-
 		bool canSkipWorldPos = true;
-		bool canSkipViewPos = !state->enableFog;
 		if (state->enableLighting) {
 			Lighting::ComputeState(&state->lightingState, vreader.hasColor0());
 			for (int i = 0; i < 4; ++i) {
@@ -291,29 +274,35 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 
 		float world[16];
 		float view[16];
-		if (canSkipWorldPos && canSkipViewPos) {
-			state->matrixMode = (uint8_t)MatrixMode::POS_TO_CLIP;
-
+		float worldview[16];
+		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+		if (state->enableFog || canSkipWorldPos) {
 			ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-			ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-
-			float worldview[16];
 			Matrix4ByMatrix4(worldview, world, view);
+		}
+
+		if (canSkipWorldPos) {
+			state->matrixMode = (uint8_t)MatrixMode::POS_TO_CLIP;
 			Matrix4ByMatrix4(state->matrix, worldview, gstate.projMatrix);
-		} else if (canSkipWorldPos) {
-			state->matrixMode = (uint8_t)MatrixMode::POS_TO_VIEW;
-
-			ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-			ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-
-			Matrix4ByMatrix4(state->matrix, world, view);
-		} else if (canSkipViewPos) {
-			state->matrixMode = (uint8_t)MatrixMode::WORLD_TO_CLIP;
-
-			ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-			Matrix4ByMatrix4(state->matrix, view, gstate.projMatrix);
 		} else {
-			state->matrixMode = (uint8_t)MatrixMode::NONE;
+			state->matrixMode = (uint8_t)MatrixMode::WORLD_TO_CLIP;
+			Matrix4ByMatrix4(state->matrix, view, gstate.projMatrix);
+		}
+
+		if (state->enableFog) {
+			float fogEnd = getFloat24(gstate.fog1);
+			float fogSlope = getFloat24(gstate.fog2);
+			// Same fixup as in ShaderManagerGLES.cpp
+			if (my_isnanorinf(fogEnd)) {
+				fogEnd = std::signbit(fogEnd) ? -INFINITY : INFINITY;
+			}
+			if (my_isnanorinf(fogSlope)) {
+				fogSlope = std::signbit(fogSlope) ? -INFINITY : INFINITY;
+			}
+
+			// We bake fog end and slope into the dot product.
+			state->posToFog = Vec4f(worldview[2], worldview[6], worldview[10], worldview[14] + fogEnd);
+			state->posToFog *= fogSlope;
 		}
 
 		state->screenScale = Vec3f(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
@@ -379,26 +368,10 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 
 	if (state.enableTransform) {
 		WorldCoords worldpos;
-		ModelCoords viewpos;
 
 		switch (MatrixMode(state.matrixMode)) {
-		case MatrixMode::NONE:
-			worldpos = TransformUnit::ModelToWorld(pos);
-			viewpos = TransformUnit::WorldToView(worldpos);
-			vertex.clippos = TransformUnit::ViewToClip(viewpos);
-			break;
-
 		case MatrixMode::POS_TO_CLIP:
 			vertex.clippos = Vec3ByMatrix44(pos, state.matrix);
-			break;
-
-		case MatrixMode::POS_TO_VIEW:
-#ifdef _M_SSE
-			viewpos = Vec3ByMatrix44(pos, state.matrix).vec;
-#else
-			viewpos = Vec3ByMatrix44(pos, state.matrix).rgb();
-#endif
-			vertex.clippos = TransformUnit::ViewToClip(viewpos);
 			break;
 
 		case MatrixMode::WORLD_TO_CLIP:
@@ -424,7 +397,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 		}
 
 		if (state.enableFog) {
-			vertex.fogdepth = (viewpos.z + state.fogEnd) * state.fogSlope;
+			vertex.fogdepth = Dot(state.posToFog, Vec4f(pos, 1.0f));
 		} else {
 			vertex.fogdepth = 1.0f;
 		}
@@ -492,10 +465,75 @@ SoftDirty TransformUnit::GetDirty() {
 	return binner_->GetDirty();
 }
 
+class SoftwareVertexReader {
+public:
+	SoftwareVertexReader(u8 *base, VertexDecoder &vdecoder, u32 vertex_type, int vertex_count, const void *vertices, const void *indices, const TransformState &transformState, TransformUnit &transform)
+	: vreader_(base, vdecoder.GetDecVtxFmt(), vertex_type), conv_(vertex_type, indices), transformState_(transformState), transform_(transform) {
+		useIndices_ = indices != nullptr;
+		lowerBound_ = 0;
+		upperBound_ = vertex_count == 0 ? 0 : vertex_count - 1;
+
+		if (useIndices_)
+			GetIndexBounds(indices, vertex_count, vertex_type, &lowerBound_, &upperBound_);
+		if (vertex_count != 0)
+			vdecoder.DecodeVerts(base, vertices, lowerBound_, upperBound_);
+
+		// If we're only using a subset of verts, it's better to decode with random access (usually.)
+		// However, if we're reusing a lot of verts, we should read and cache them.
+		useCache_ = useIndices_ && vertex_count > (upperBound_ - lowerBound_ + 1);
+		if (useCache_ && cached_.size() < upperBound_ - lowerBound_ + 1)
+			cached_.resize(std::max(128, upperBound_ - lowerBound_ + 1));
+	}
+
+	const VertexReader &GetVertexReader() const {
+		return vreader_;
+	}
+
+	bool IsThrough() const {
+		return vreader_.isThrough();
+	}
+
+	void UpdateCache() {
+		if (!useCache_)
+			return;
+
+		for (int i = 0; i < upperBound_ - lowerBound_ + 1; ++i) {
+			vreader_.Goto(i);
+			cached_[i] = transform_.ReadVertex(vreader_, transformState_);
+		}
+	}
+
+	inline VertexData Read(int vtx) {
+		if (useIndices_) {
+			if (useCache_) {
+				return cached_[conv_(vtx) - lowerBound_];
+			}
+			vreader_.Goto(conv_(vtx) - lowerBound_);
+		} else {
+			vreader_.Goto(vtx);
+		}
+
+		return transform_.ReadVertex(vreader_, transformState_);
+	};
+
+protected:
+	VertexReader vreader_;
+	const IndexConverter conv_;
+	const TransformState &transformState_;
+	TransformUnit &transform_;
+	uint16_t lowerBound_;
+	uint16_t upperBound_;
+	static std::vector<VertexData> cached_;
+	bool useIndices_ = false;
+	bool useCache_ = false;
+};
+
+// Static to reduce allocations mid-frame.
+std::vector<VertexData> SoftwareVertexReader::cached_;
+
 void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine)
 {
 	VertexDecoder &vdecoder = *drawEngine->FindVertexDecoder(vertex_type);
-	const DecVtxFormat &vtxfmt = vdecoder.GetDecVtxFmt();
 
 	if (bytesRead)
 		*bytesRead = vertex_count * vdecoder.VertexSize();
@@ -509,16 +547,8 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	if ((vertex_type & GE_VTYPE_POS_MASK) == 0)
 		return;
 
-	u16 index_lower_bound = 0;
-	u16 index_upper_bound = vertex_count == 0 ? 0 : vertex_count - 1;
-	IndexConverter ConvertIndex(vertex_type, indices);
-
-	if (indices)
-		GetIndexBounds(indices, vertex_count, vertex_type, &index_lower_bound, &index_upper_bound);
-	if (vertex_count != 0)
-		vdecoder.DecodeVerts(decoded_, vertices, index_lower_bound, index_upper_bound);
-
-	VertexReader vreader(decoded_, vtxfmt, vertex_type);
+	static TransformState transformState;
+	SoftwareVertexReader vreader(decoded_, vdecoder, vertex_type, vertex_count, vertices, indices, transformState, *this);
 
 	if (prim_type != GE_PRIM_KEEP_PREVIOUS) {
 		data_index_ = 0;
@@ -527,32 +557,19 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		prim_type = prev_prim_;
 	}
 
-	// TODO: Do this in two passes - first process the vertices (before indexing/stripping),
-	// then resolve the indices. This lets us avoid transforming shared vertices twice.
-
-	binner_->UpdateState(vreader.isThrough());
+	binner_->UpdateState();
 	hasDraws_ = true;
 
-	static TransformState transformState;
 	if (binner_->HasDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL)) {
-		ComputeTransformState(&transformState, vreader);
+		ComputeTransformState(&transformState, vreader.GetVertexReader());
 		binner_->ClearDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL);
 	}
+	vreader.UpdateCache();
 
 	bool skipCull = !gstate.isCullEnabled() || gstate.isModeClear();
 	const CullType cullType = skipCull ? CullType::OFF : (gstate.getCullMode() ? CullType::CCW : CullType::CW);
 
-	auto readVertexAt = [&](VertexReader &vreader, const TransformState &transformState, int vtx) {
-		if (indices) {
-			vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
-		} else {
-			vreader.Goto(vtx);
-		}
-
-		return ReadVertex(vreader, transformState);
-	};
-
-	if (vreader.isThrough() && cullType == CullType::OFF && prim_type == GE_PRIM_TRIANGLES && data_index_ == 0 && vertex_count >= 6 && ((vertex_count) % 6) == 0) {
+	if (vreader.IsThrough() && cullType == CullType::OFF && prim_type == GE_PRIM_TRIANGLES && data_index_ == 0 && vertex_count >= 6 && ((vertex_count) % 6) == 0) {
 		// Some games send rectangles as a series of regular triangles.
 		// We look for this, but only in throughmode.
 		VertexData buf[6];
@@ -562,7 +579,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		}
 
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			buf[buf_index++] = readVertexAt(vreader, transformState, vtx);
+			buf[buf_index++] = vreader.Read(vtx);
 			if (buf_index < 6)
 				continue;
 
@@ -603,7 +620,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			Clipper::ProcessPoint(data_[i], *binner_);
 		data_index_ = 0;
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			data_[0] = readVertexAt(vreader, transformState, vtx);
+			data_[0] = vreader.Read(vtx);
 			Clipper::ProcessPoint(data_[0], *binner_);
 		}
 		break;
@@ -613,7 +630,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			Clipper::ProcessLine(data_[i + 0], data_[i + 1], *binner_);
 		data_index_ &= 1;
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			data_[data_index_++] = readVertexAt(vreader, transformState, vtx);
+			data_[data_index_++] = vreader.Read(vtx);
 			if (data_index_ == 2) {
 				Clipper::ProcessLine(data_[0], data_[1], *binner_);
 				data_index_ = 0;
@@ -623,7 +640,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 	case GE_PRIM_TRIANGLES:
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			data_[data_index_++] = readVertexAt(vreader, transformState, vtx);
+			data_[data_index_++] = vreader.Read(vtx);
 			if (data_index_ < 3) {
 				// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
 				continue;
@@ -642,9 +659,9 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 	case GE_PRIM_RECTANGLES:
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			data_[data_index_++] = readVertexAt(vreader, transformState, vtx);
+			data_[data_index_++] = vreader.Read(vtx);
 
-			if (data_index_ == 4 && vreader.isThrough() && cullType == CullType::OFF) {
+			if (data_index_ == 4 && vreader.IsThrough() && cullType == CullType::OFF) {
 				if (Rasterizer::DetectRectangleThroughModeSlices(binner_->State(), data_)) {
 					data_[1] = data_[3];
 					data_index_ = 2;
@@ -670,7 +687,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			// If data_index_ is 1 or 2, etc., it means we're continuing a line strip.
 			int skip_count = data_index_ == 0 ? 1 : 0;
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
-				data_[(data_index_++) & 1] = readVertexAt(vreader, transformState, vtx);
+				data_[(data_index_++) & 1] = vreader.Read(vtx);
 
 				if (skip_count) {
 					--skip_count;
@@ -696,7 +713,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			if (data_index_ == 0 && vertex_count >= 4 && (vertex_count & 1) == 0 && cullType == CullType::OFF) {
 				for (int base = 0; base < vertex_count - 2; base += 2) {
 					for (int vtx = base == 0 ? 0 : 2; vtx < 4; ++vtx) {
-						data_[vtx] = readVertexAt(vreader, transformState, base + vtx);
+						data_[vtx] = vreader.Read(base + vtx);
 					}
 
 					// If a strip is effectively a rectangle, draw it as such!
@@ -723,14 +740,14 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 			for (int vtx = start_vtx; vtx < vertex_count && skip_count > 0; ++vtx) {
 				int provoking_index = (data_index_++) % 3;
-				data_[provoking_index] = readVertexAt(vreader, transformState, vtx);
+				data_[provoking_index] = vreader.Read(vtx);
 				--skip_count;
 				++start_vtx;
 			}
 
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				int provoking_index = (data_index_++) % 3;
-				data_[provoking_index] = readVertexAt(vreader, transformState, vtx);
+				data_[provoking_index] = vreader.Read(vtx);
 
 				int wind = (data_index_ - 1) % 2;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
@@ -756,14 +773,14 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 			// Only read the central vertex if we're not continuing.
 			if (data_index_ == 0 && vertex_count > 0) {
-				data_[0] = readVertexAt(vreader, transformState, 0);
+				data_[0] = vreader.Read(0);
 				data_index_++;
 				start_vtx = 1;
 			}
 
 			if (data_index_ == 1 && vertex_count == 4 && cullType == CullType::OFF) {
 				for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
-					data_[vtx] = readVertexAt(vreader, transformState, vtx);
+					data_[vtx] = vreader.Read(vtx);
 				}
 
 				int tl = -1, br = -1;
@@ -775,14 +792,14 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 			for (int vtx = start_vtx; vtx < vertex_count && skip_count > 0; ++vtx) {
 				int provoking_index = 2 - ((data_index_++) % 2);
-				data_[provoking_index] = readVertexAt(vreader, transformState, vtx);
+				data_[provoking_index] = vreader.Read(vtx);
 				--skip_count;
 				++start_vtx;
 			}
 
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				int provoking_index = 2 - ((data_index_++) % 2);
-				data_[provoking_index] = readVertexAt(vreader, transformState, vtx);
+				data_[provoking_index] = vreader.Read(vtx);
 
 				int wind = (data_index_ - 1) % 2;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
