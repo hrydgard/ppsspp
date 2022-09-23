@@ -10,6 +10,16 @@ using namespace PPSSPP_VK;
 
 // Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP NativeGLView NativeRenderer NativeSurfaceView PowerSaveModeReceiver InputDeviceState
 
+static bool RenderPassTypeHasDepth(RenderPassType rpType) {
+	switch (rpType) {
+	case RP_TYPE_BACKBUFFER:
+	case RP_TYPE_COLOR_DEPTH:
+	case RP_TYPE_COLOR_DEPTH_INPUT:
+		return true;
+	}
+	return false;
+}
+
 static void MergeRenderAreaRectInto(VkRect2D *dest, VkRect2D &src) {
 	if (dest->offset.x > src.offset.x) {
 		dest->extent.width += (dest->offset.x - src.offset.x);
@@ -1591,6 +1601,9 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 	VkFramebuffer framebuf;
 	int w;
 	int h;
+
+	bool hasDepth = RenderPassTypeHasDepth(step.render.renderPassType);
+
 	if (step.render.framebuffer) {
 		_dbg_assert_(step.render.finalColorLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 		_dbg_assert_(step.render.finalDepthStencilLayout != VK_IMAGE_LAYOUT_UNDEFINED);
@@ -1631,7 +1644,7 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 			Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
 			numClearVals = 1;
 		}
-		if (step.render.depthLoad == VKRRenderPassLoadAction::CLEAR || step.render.stencilLoad == VKRRenderPassLoadAction::CLEAR) {
+		if (hasDepth && (step.render.depthLoad == VKRRenderPassLoadAction::CLEAR || step.render.stencilLoad == VKRRenderPassLoadAction::CLEAR)) {
 			clearVal[1].depthStencil.depth = step.render.clearDepth;
 			clearVal[1].depthStencil.stencil = step.render.clearStencil;
 			numClearVals = 2;
@@ -1650,7 +1663,7 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 		h = vulkan_->GetBackbufferHeight();
 
 		Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
-		numClearVals = 2;  // We don't bother with a depth buffer here.
+		numClearVals = hasDepth ? 2 : 1;  // We might do depth-less backbuffer in the future, though doubtful of the value.
 		clearVal[1].depthStencil.depth = 0.0f;
 		clearVal[1].depthStencil.stencil = 0;
 	}
