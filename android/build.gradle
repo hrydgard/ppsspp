@@ -160,6 +160,7 @@ android {
 							'-DANDROID_CPP_FEATURES=',
 							'-DANDROID_STL=c++_static',
 							'-DANDROID_ARM_NEON=TRUE',
+							'-DOPENXR_PLATFORM_PICO=TRUE',
 							'-DOPENXR=TRUE'
 				}
 			}
@@ -179,6 +180,7 @@ android {
 							'-DANDROID_CPP_FEATURES=',
 							'-DANDROID_STL=c++_static',
 							'-DANDROID_ARM_NEON=TRUE',
+							'-DOPENXR_PLATFORM_QUEST=TRUE',
 							'-DOPENXR=TRUE'
 				}
 			}
