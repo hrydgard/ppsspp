@@ -554,7 +554,7 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 	}
 }
 
-void VulkanQueueRunner::RunSteps(FrameData &frameData, FrameDataShared &frameDataShared) {
+void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frameData, FrameDataShared &frameDataShared) {
 	QueueProfileContext *profile = frameData.profilingEnabled_ ? &frameData.profile : nullptr;
 
 	if (profile)
@@ -564,8 +564,8 @@ void VulkanQueueRunner::RunSteps(FrameData &frameData, FrameDataShared &frameDat
 
 	VkCommandBuffer cmd = frameData.hasPresentCommands ? frameData.presentCmd : frameData.mainCmd;
 
-	for (size_t i = 0; i < frameData.steps.size(); i++) {
-		const VKRStep &step = *frameData.steps[i];
+	for (size_t i = 0; i < steps.size(); i++) {
+		const VKRStep &step = *steps[i];
 
 		if (emitLabels) {
 			VkDebugUtilsLabelEXT labelInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
@@ -625,11 +625,11 @@ void VulkanQueueRunner::RunSteps(FrameData &frameData, FrameDataShared &frameDat
 
 	// Deleting all in one go should be easier on the instruction cache than deleting
 	// them as we go - and easier to debug because we can look backwards in the frame.
-	for (auto step : frameData.steps) {
+	for (auto step : steps) {
 		delete step;
 	}
 
-	frameData.steps.clear();
+	steps.clear();
 
 	if (profile)
 		profile->cpuEndTime = time_now_d();

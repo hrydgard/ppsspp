@@ -200,16 +200,10 @@ public:
 	VulkanRenderManager(VulkanContext *vulkan);
 	~VulkanRenderManager();
 
-	void ThreadFunc();
-	void CompileThreadFunc();
-	void DrainCompileQueue();
-
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
 	void BeginFrame(bool enableProfiling, bool enableLogProfiler);
 	// Can run on a different thread!
 	void Finish();
-	void Run(int frame);
-
 	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.
 	void Wipe();
 
@@ -468,13 +462,15 @@ public:
 private:
 	void EndCurRenderStep();
 
+	void ThreadFunc();
+	void CompileThreadFunc();
+	void DrainCompileQueue();
+
+	void Run(VKRRenderThreadTask &task);
 	void BeginSubmitFrame(int frame);
-	void EndSubmitFrame(int frame);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
-	void EndSyncFrame(int frame);
-
 	void StopThread();
 
 	FrameDataShared frameDataShared_;
@@ -496,6 +492,8 @@ private:
 	int curHeight_ = -1;
 
 	bool insideFrame_ = false;
+	bool run_ = false;
+
 	// This is the offset within this frame, in case of a mid-frame sync.
 	int renderStepOffset_ = 0;
 	VKRStep *curRenderStep_ = nullptr;
@@ -507,12 +505,19 @@ private:
 	std::vector<VKRStep *> steps_;
 
 	// Execution time state
-	bool run_ = true;
 	VulkanContext *vulkan_;
 	std::thread thread_;
-	std::mutex mutex_;
-	int threadInitFrame_ = 0;
 	VulkanQueueRunner queueRunner_;
+
+	// For pushing data on the queue.
+	std::mutex pushMutex_;
+	std::condition_variable pushCondVar_;
+
+	std::queue<VKRRenderThreadTask> renderThreadQueue_;
+
+	// For readbacks and other reasons we need to sync with the render thread.
+	std::mutex syncMutex_;
+	std::condition_variable syncCondVar_;
 
 	// Shader compilation thread to compile while emulating the rest of the frame.
 	// Only one right now but we could use more.
