@@ -46,6 +46,7 @@ void Compatibility::Load(const std::string &gameID) {
 		IniFile compat;
 		// This loads from assets.
 		if (compat.LoadFromVFS("compatvr.ini")) {
+			CheckSetting(compat, gameID, "Skyplane", &vrCompat_.Skyplane);
 			CheckSetting(compat, gameID, "UnitsPerMeter", &vrCompat_.UnitsPerMeter);
 		}
 	}

@@ -363,6 +363,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 
 	if (IsVRBuild()) {
 		dirty |= DIRTY_VIEWMATRIX;
+		SetVRCompat(VR_COMPAT_FOG_COLOR, gstate.fogcolor);
 	}
 	if (!dirty)
 		return;

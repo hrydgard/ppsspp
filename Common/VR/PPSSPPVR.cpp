@@ -1,3 +1,5 @@
+#include "Common/GPU/OpenGL/GLRenderManager.h"
+
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/VR/VRBase.h"
 #include "Common/VR/VRInput.h"
@@ -10,6 +12,7 @@
 #include "Core/KeyMap.h"
 #include "Core/System.h"
 
+static long vrCompat[VR_COMPAT_MAX];
 
 /*
 ================================================================================
@@ -211,6 +214,59 @@ void UpdateVRScreenKey(const KeyInput &key) {
 /*
 ================================================================================
 
+// VR games compatibility
+
+================================================================================
+*/
+
+void PreprocessSkyplane(GLRStep* step) {
+
+	// Do not do anything if the scene is not in VR.
+	if (IsFlatVRScene()) {
+		return;
+	}
+
+	// Check if it is the step we need to modify.
+	for (auto& cmd : step->commands) {
+		if (cmd.cmd == GLRRenderCommand::BIND_FB_TEXTURE) {
+			return;
+		}
+	}
+
+	// Clear sky with the fog color.
+	if (!vrCompat[VR_COMPAT_FBO_CLEAR]) {
+		GLRRenderData skyClear {};
+		skyClear.cmd = GLRRenderCommand::CLEAR;
+		skyClear.clear.colorMask = 0xF;
+		skyClear.clear.clearMask = GL_COLOR_BUFFER_BIT;
+		skyClear.clear.clearColor = vrCompat[VR_COMPAT_FOG_COLOR];
+		step->commands.insert(step->commands.begin(), skyClear);
+		vrCompat[VR_COMPAT_FBO_CLEAR] = true;
+	}
+
+	// Remove original sky plane.
+	bool depthEnabled = false;
+	for (auto& command : step->commands) {
+		if (command.cmd == GLRRenderCommand::DEPTH) {
+			depthEnabled = command.depth.enabled;
+		} else if ((command.cmd == GLRRenderCommand::DRAW_INDEXED) && !depthEnabled) {
+			command.drawIndexed.count = 0;
+		}
+	}
+}
+
+void PreprocessStepVR(void* step) {
+	auto* glrStep = (GLRStep*)step;
+	if (vrCompat[VR_COMPAT_SKYPLANE]) PreprocessSkyplane(glrStep);
+}
+
+void SetVRCompat(VRCompatFlag flag, long value) {
+	vrCompat[flag] = value;
+}
+
+/*
+================================================================================
+
 VR rendering integration
 
 ================================================================================
@@ -237,6 +293,9 @@ bool StartVRRender() {
 		}
 		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) / 2);
 
+		// Set compatibility
+		vrCompat[VR_COMPAT_SKYPLANE] = PSP_CoreParameter().compat.vrCompat().Skyplane;
+
 		// Set customizations
 		VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
 		VR_SetConfig(VR_CONFIG_CANVAS_DISTANCE, g_Config.iCanvasDistance);
@@ -252,6 +311,7 @@ void FinishVRRender() {
 
 void PreVRFrameRender(int fboIndex) {
 	VR_BeginFrame(VR_GetEngine(), fboIndex);
+	vrCompat[VR_COMPAT_FBO_CLEAR] = false;
 }
 
 void PostVRFrameRender() {

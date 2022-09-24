@@ -701,7 +701,13 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 		switch (step.stepType) {
 		case GLRStepType::RENDER:
 			renderCount++;
-			PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount);
+			if (IsVRBuild()) {
+				GLRStep vrStep = step;
+				PreprocessStepVR(&vrStep);
+				PerformRenderPass(vrStep, renderCount == 1, renderCount == totalRenderCount);
+			} else {
+				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount);
+			}
 			break;
 		case GLRStepType::COPY:
 			PerformCopy(step);
