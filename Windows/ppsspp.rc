@@ -785,6 +785,7 @@ BEGIN
     BEGIN
         MENUITEM "Export Image...",            ID_GEDBG_EXPORT_IMAGE
         MENUITEM "Copy Opaque Image",          ID_GEDBG_COPY_IMAGE
+        MENUITEM "Copy Image With Alpha",      ID_GEDBG_COPY_IMAGE_ALPHA
         MENUITEM "Show Prim Preview",          ID_GEDBG_ENABLE_PREVIEW
     END
     POPUP "matrixoptions"

@@ -14,6 +14,22 @@ namespace W32Util
 	void ExitAndRestart(bool overrideArgs = false, const std::string &args = "");
 	void SpawnNewInstance(bool overrideArgs = false, const std::string &args = "");
 	void GetSelfExecuteParams(std::wstring &workingDirectory, std::wstring &moduleFilename);
+
+	struct ClipboardData {
+		ClipboardData(const char *format, size_t sz);
+		ClipboardData(UINT format, size_t sz);
+		~ClipboardData();
+
+		void Set();
+
+		operator bool() {
+			return data != nullptr;
+		}
+
+		UINT format_;
+		HANDLE handle_;
+		void *data;
+	};
 }
 
 struct GenericListViewColumn

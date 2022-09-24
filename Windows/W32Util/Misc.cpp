@@ -157,6 +157,31 @@ namespace W32Util
 		}
 		ShellExecute(nullptr, nullptr, moduleFilename.c_str(), cmdline, workingDirectory.c_str(), SW_SHOW);
 	}
+
+	ClipboardData::ClipboardData(const char *format, size_t sz) {
+		format_ = RegisterClipboardFormatA(format);
+		handle_ = format_ != 0 ? GlobalAlloc(GHND, sz) : 0;
+		data = handle_ != 0 ? GlobalLock(handle_) : nullptr;
+	}
+
+	ClipboardData::ClipboardData(UINT format, size_t sz) {
+		format_ = format;
+		handle_ = GlobalAlloc(GHND, sz);
+		data = handle_ != 0 ? GlobalLock(handle_) : nullptr;
+	}
+
+	ClipboardData::~ClipboardData() {
+		if (handle_ != 0) {
+			GlobalUnlock(handle_);
+			GlobalFree(handle_);
+		}
+	}
+
+	void ClipboardData::Set() {
+		if (format_ == 0 || handle_ == 0 || data == 0)
+			return;
+		SetClipboardData(format_, handle_);
+	}
 }
 
 static constexpr UINT_PTR IDT_UPDATE = 0xC0DE0042;

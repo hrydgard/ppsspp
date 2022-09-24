@@ -334,6 +334,7 @@
 #define IDC_GEDBG_STEPVSYNC              40222
 #define ID_GEDBG_SETCOND                 40223
 #define ID_GEDBG_COPY_IMAGE              40224
+#define ID_GEDBG_COPY_IMAGE_ALPHA        40225
 
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
@@ -347,7 +348,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40225
+#define _APS_NEXT_COMMAND_VALUE         40226
 #define _APS_NEXT_CONTROL_VALUE         1202
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

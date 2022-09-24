@@ -292,7 +292,10 @@ void CGEDebugger::SetupPreviews() {
 				PreviewExport(primaryBuffer_);
 				break;
 			case ID_GEDBG_COPY_IMAGE:
-				PreviewToClipboard(primaryBuffer_);
+				PreviewToClipboard(primaryBuffer_, false);
+				break;
+			case ID_GEDBG_COPY_IMAGE_ALPHA:
+				PreviewToClipboard(primaryBuffer_, true);
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 1;
@@ -325,7 +328,10 @@ void CGEDebugger::SetupPreviews() {
 				PreviewExport(secondBuffer_);
 				break;
 			case ID_GEDBG_COPY_IMAGE:
-				PreviewToClipboard(secondBuffer_);
+				PreviewToClipboard(secondBuffer_, false);
+				break;
+			case ID_GEDBG_COPY_IMAGE_ALPHA:
+				PreviewToClipboard(secondBuffer_, true);
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 2;
@@ -399,59 +405,94 @@ void CGEDebugger::PreviewExport(const GPUDebugBuffer *dbgBuffer) {
 	}
 }
 
-void CGEDebugger::PreviewToClipboard(const GPUDebugBuffer *dbgBuffer) {
+void CGEDebugger::PreviewToClipboard(const GPUDebugBuffer *dbgBuffer, bool saveAlpha) {
 	if (!OpenClipboard(GetDlgHandle())) {
 		return;
 	}
 	EmptyClipboard();
 
-	uint32_t byteStride = 3 * dbgBuffer->GetStride();
-	while ((byteStride & 3) != 0)
-		++byteStride;
-
-	HANDLE memHandle = GlobalAlloc(GHND, sizeof(BITMAPV5HEADER) + byteStride * dbgBuffer->GetHeight());
-	if (memHandle == NULL) {
+	uint8_t *flipbuffer = nullptr;
+	uint32_t w = (uint32_t)-1;
+	uint32_t h = (uint32_t)-1;
+	const uint8_t *buffer = ConvertBufferToScreenshot(*dbgBuffer, saveAlpha, flipbuffer, w, h);
+	if (buffer == nullptr) {
+		delete [] flipbuffer;
 		CloseClipboard();
 		return;
 	}
 
-	BITMAPV5HEADER *header = (BITMAPV5HEADER *)GlobalLock(memHandle);
-	header->bV5Size = sizeof(BITMAPV5HEADER);
-	header->bV5Width = dbgBuffer->GetStride();
-	// Bitmaps are flipped, but we can specify negative height to not be flipped.
-	header->bV5Height = -dbgBuffer->GetHeight();
-	header->bV5Planes = 1;
-	header->bV5BitCount = 24;
-	header->bV5Compression = BI_RGB;
-	header->bV5SizeImage = byteStride * dbgBuffer->GetHeight();
-	header->bV5CSType = LCS_sRGB;
-	header->bV5Intent = LCS_GM_GRAPHICS;
+	uint32_t pixelSize = saveAlpha ? 4 : 3;
+	uint32_t byteStride = pixelSize * w;
+	while ((byteStride & 3) != 0)
+		++byteStride;
 
-	uint8_t *flipbuffer = nullptr;
-	uint32_t w = (uint32_t)-1;
-	uint32_t h = (uint32_t)-1;
-	const uint8_t *buffer = ConvertBufferToScreenshot(*dbgBuffer, false, flipbuffer, w, h);
-	if (buffer != nullptr) {
-		uint8_t *pixels = (uint8_t *)(header + 1);
-		for (uint32_t y = 0; y < dbgBuffer->GetHeight(); ++y) {
-			const uint8_t *src = buffer + y * 3 * w;
-			uint8_t *dst = pixels + y * byteStride;
-			for (uint32_t x = 0; x < w; ++x) {
-				// Have to swap B/R again for the bitmap, unfortunate.
-				dst[0] = src[2];
-				dst[1] = src[1];
-				dst[2] = src[0];
-				src += 3;
-				dst += 3;
-			}
+	// Various apps don't support alpha well, so also copy as PNG.
+	std::vector<uint8_t> png;
+	if (saveAlpha) {
+		// Overallocate if we can.
+		png.resize(byteStride * h);
+		Save8888RGBAScreenshot(png, buffer, w, h);
+
+		W32Util::ClipboardData png1("PNG", png.size());
+		W32Util::ClipboardData png2("image/png", png.size());
+		if (!png.empty() && png1 && png2) {
+			memcpy(png1.data, png.data(), png.size());
+			memcpy(png2.data, png.data(), png.size());
+			png1.Set();
+			png2.Set();
 		}
 	}
+
+	W32Util::ClipboardData bitmap(CF_DIBV5, sizeof(BITMAPV5HEADER) + byteStride * h);
+	if (!bitmap) {
+		delete [] flipbuffer;
+		CloseClipboard();
+		return;
+	}
+
+	BITMAPV5HEADER *header = (BITMAPV5HEADER *)bitmap.data;
+	header->bV5Size = sizeof(BITMAPV5HEADER);
+	header->bV5Width = w;
+	header->bV5Height = h;
+	header->bV5Planes = 1;
+	header->bV5BitCount = saveAlpha ? 32 : 24;
+	header->bV5Compression = saveAlpha ? BI_BITFIELDS : BI_RGB;
+	header->bV5SizeImage = byteStride * h;
+	header->bV5CSType = LCS_WINDOWS_COLOR_SPACE;
+	header->bV5Intent = LCS_GM_GRAPHICS;
+
+	if (saveAlpha) {
+		header->bV5RedMask = 0x000000FF;
+		header->bV5GreenMask = 0x0000FF00;
+		header->bV5BlueMask = 0x00FF0000;
+		// Only some applications respect the alpha mask...
+		header->bV5AlphaMask = 0xFF000000;
+	}
+
+	uint8_t *pixels = (uint8_t *)(header + 1);
+	for (uint32_t y = 0; y < h; ++y) {
+		const uint8_t *src = buffer + y * pixelSize * w;
+		uint8_t *dst = pixels + (h - y - 1) * byteStride;
+
+		if (saveAlpha) {
+			// No RB swap needed.
+			memcpy(dst, src, pixelSize * w);
+			continue;
+		}
+
+		for (uint32_t x = 0; x < w; ++x) {
+			// Have to swap B/R again for the bitmap, unfortunate.
+			dst[0] = src[2];
+			dst[1] = src[1];
+			dst[2] = src[0];
+			src += pixelSize;
+			dst += pixelSize;
+		}
+	}
+
 	delete [] flipbuffer;
 
-	GlobalUnlock(memHandle);
-
-	// Takes ownership.
-	SetClipboardData(CF_DIBV5, memHandle);
+	bitmap.Set();
 	CloseClipboard();
 }
 
