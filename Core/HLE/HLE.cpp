@@ -864,6 +864,8 @@ void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res,
 
 		funcName = latestSyscall->name;
 		funcFlags = latestSyscall->flags;
+	} else {
+		strcpy(formatted_args, "?");
 	}
 
 	const char *fmt;
