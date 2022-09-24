@@ -73,7 +73,9 @@ static void OXR_CheckErrors(XrInstance instance, XrResult result, const char* fu
 #define OXR(func) func;
 #endif
 
+#ifdef OPENXR_PLATFORM_QUEST
 #define OPENXR_HAS_PERFORMANCE_EXTENSION
+#endif
 
 enum { ovrMaxLayerCount = 1 };
 enum { ovrMaxNumEyes = 2 };
