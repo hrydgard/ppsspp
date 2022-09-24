@@ -826,6 +826,63 @@ static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 	return hleLogSuccessX(SCEKERNEL, dest);
 }
 
+static u32 sysclib_strtol(u32 t, u32 endStringtemp, int base) {
+	ERROR_LOG(SCEKERNEL, "Unimp sysclib_strtol(%08x, %08x, %i)", t ,endStringtemp, base);
+	// base == 0 seems to be handled as base == 10.
+	if (base == 0){
+		base = 10;
+	}
+	std::string str = Memory::GetCharPointer(t);
+	std::string endString = Memory::GetCharPointer(endStringtemp);
+
+	// Skip any leading "0x" in case of base 16
+	if (base == 16 && (str.rfind("0x", 0) == 0 || str.rfind("0X", 0) == 0)) {
+		str = str.substr(2);
+	}	
+	return 0;
+}
+
+static u32 sysclib_strchr(u32 src, int c) {
+	const std::string str = Memory::GetCharPointer(src);
+	ERROR_LOG(SCEKERNEL, "Untest sysclib_strchr(%c, %i)", str,c);
+	int index = str.find(str,c);
+	if (index < 0) {
+		return 0;
+	}
+	return 0;
+}
+
+static u32 sysclib_strrchr(u32 src, int c) {
+	const std::string str = Memory::GetCharPointer(src);
+	ERROR_LOG(SCEKERNEL, "Untest sysclib_strchr(%c, %i)", str, c);
+	int index = str.rfind(str, c);
+	if (index < 0) {
+		return 0;
+	}
+	return 0;
+}
+
+const u8 look_ctype_table[128] = { 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x08, 0x08, 0x08, 0x08, 0x08, 0x20, 0x20,
+		0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+		0x18, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
+		0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
+		0x10, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+		0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10, 0x10, 0x10, 0x10, 0x10,
+		0x10, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
+		0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x10, 0x10, 0x10, 0x10, 0x20
+};
+
+static u32 sysclib_toupper(u32 c) {
+	ERROR_LOG(SCEKERNEL, "Untest sysclib_toupper(%i)",c);
+	int ctype = look_ctype_table[c & 0xFF];
+	if ((ctype & 0x02) != 0) {
+		c -= 0x20;
+	}
+
+	return c;
+}
+
+
 const HLEFunction SysclibForKernel[] =
 {
 	{0xAB7592FF, &WrapU_UUU<sysclib_memcpy>,                   "memcpy",                              'x', "xxx",    HLE_KERNEL_SYSCALL },
@@ -840,6 +897,10 @@ const HLEFunction SysclibForKernel[] =
 	{0x7AB35214, &WrapI_UUU<sysclib_strncmp>,                  "strncmp",                             'i', "xxx",    HLE_KERNEL_SYSCALL },
 	{0xA48D2592, &WrapU_UUU<sysclib_memmove>,                  "memmove",                             'x', "xxx",    HLE_KERNEL_SYSCALL },
 	{0xB49A7697, &WrapU_UUU<sysclib_strncpy>,                  "strncpy",                             'x', "xxi",    HLE_KERNEL_SYSCALL },
+	{0x47DD934D, &WrapU_UUI<sysclib_strtol>,                   "strtol",                              'x', "xxi",    HLE_KERNEL_SYSCALL },
+	{0xB1DC2AE8, &WrapU_UI<sysclib_strchr>,                    "strchr",                              'x', "xx",    HLE_KERNEL_SYSCALL },
+	{0x4C0E0274, &WrapU_UI<sysclib_strrchr>,                   "strrchr",                             'x', "xx",    HLE_KERNEL_SYSCALL },
+	{0xCE2F7487, &WrapU_U<sysclib_toupper>,                    "toupper",                             'x', "x",     HLE_KERNEL_SYSCALL },
 };
 
 void Register_Kernel_Library()
