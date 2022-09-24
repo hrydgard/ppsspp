@@ -56,7 +56,6 @@ private:
 	void ApplySamplingParams(const SamplerCacheKey &key) override;
 
 	D3DFORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
-	static CheckAlphaResult CheckAlpha(const u32 *pixelData, u32 dstFmt, int w);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
 	void BuildTexture(TexCacheEntry *const entry) override;

@@ -453,20 +453,6 @@ DXGI_FORMAT TextureCacheD3D11::GetDestFormat(GETextureFormat format, GEPaletteFo
 	}
 }
 
-CheckAlphaResult TextureCacheD3D11::CheckAlpha(const u32 *pixelData, u32 dstFmt, int w) {
-	switch (dstFmt) {
-	case DXGI_FORMAT_B4G4R4A4_UNORM:
-		return CheckAlpha16((const u16 *)pixelData, w, 0xF000);
-	case DXGI_FORMAT_B5G5R5A1_UNORM:
-		return CheckAlpha16((const u16 *)pixelData, w, 0x8000);
-	case DXGI_FORMAT_B5G6R5_UNORM:
-		// Never has any alpha.
-		return CHECKALPHA_FULL;
-	default:
-		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);
-	}
-}
-
 bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
 	SetTexture();
 	if (!nextTexture_) {
