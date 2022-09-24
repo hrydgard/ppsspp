@@ -291,6 +291,9 @@ void CGEDebugger::SetupPreviews() {
 			case ID_GEDBG_EXPORT_IMAGE:
 				PreviewExport(primaryBuffer_);
 				break;
+			case ID_GEDBG_COPY_IMAGE:
+				PreviewToClipboard(primaryBuffer_);
+				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 1;
 				primaryWindow->Redraw();
@@ -320,6 +323,9 @@ void CGEDebugger::SetupPreviews() {
 				break;
 			case ID_GEDBG_EXPORT_IMAGE:
 				PreviewExport(secondBuffer_);
+				break;
+			case ID_GEDBG_COPY_IMAGE:
+				PreviewToClipboard(secondBuffer_);
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 2;
@@ -391,6 +397,62 @@ void CGEDebugger::PreviewExport(const GPUDebugBuffer *dbgBuffer) {
 		}
 		delete [] flipbuffer;
 	}
+}
+
+void CGEDebugger::PreviewToClipboard(const GPUDebugBuffer *dbgBuffer) {
+	if (!OpenClipboard(GetDlgHandle())) {
+		return;
+	}
+	EmptyClipboard();
+
+	uint32_t byteStride = 3 * dbgBuffer->GetStride();
+	while ((byteStride & 3) != 0)
+		++byteStride;
+
+	HANDLE memHandle = GlobalAlloc(GHND, sizeof(BITMAPV5HEADER) + byteStride * dbgBuffer->GetHeight());
+	if (memHandle == NULL) {
+		CloseClipboard();
+		return;
+	}
+
+	BITMAPV5HEADER *header = (BITMAPV5HEADER *)GlobalLock(memHandle);
+	header->bV5Size = sizeof(BITMAPV5HEADER);
+	header->bV5Width = dbgBuffer->GetStride();
+	// Bitmaps are flipped, but we can specify negative height to not be flipped.
+	header->bV5Height = -dbgBuffer->GetHeight();
+	header->bV5Planes = 1;
+	header->bV5BitCount = 24;
+	header->bV5Compression = BI_RGB;
+	header->bV5SizeImage = byteStride * dbgBuffer->GetHeight();
+	header->bV5CSType = LCS_sRGB;
+	header->bV5Intent = LCS_GM_GRAPHICS;
+
+	uint8_t *flipbuffer = nullptr;
+	uint32_t w = (uint32_t)-1;
+	uint32_t h = (uint32_t)-1;
+	const uint8_t *buffer = ConvertBufferToScreenshot(*dbgBuffer, false, flipbuffer, w, h);
+	if (buffer != nullptr) {
+		uint8_t *pixels = (uint8_t *)(header + 1);
+		for (uint32_t y = 0; y < dbgBuffer->GetHeight(); ++y) {
+			const uint8_t *src = buffer + y * 3 * w;
+			uint8_t *dst = pixels + y * byteStride;
+			for (uint32_t x = 0; x < w; ++x) {
+				// Have to swap B/R again for the bitmap, unfortunate.
+				dst[0] = src[2];
+				dst[1] = src[1];
+				dst[2] = src[0];
+				src += 3;
+				dst += 3;
+			}
+		}
+	}
+	delete [] flipbuffer;
+
+	GlobalUnlock(memHandle);
+
+	// Takes ownership.
+	SetClipboardData(CF_DIBV5, memHandle);
+	CloseClipboard();
 }
 
 void CGEDebugger::UpdatePreviews() {

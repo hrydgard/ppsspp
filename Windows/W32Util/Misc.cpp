@@ -59,7 +59,8 @@ namespace W32Util
 	}
 
 	BOOL CopyTextToClipboard(HWND hwnd, const std::wstring &wtext) {
-		OpenClipboard(hwnd);
+		if (!OpenClipboard(hwnd))
+			return FALSE;
 		EmptyClipboard();
 		HANDLE hglbCopy = GlobalAlloc(GMEM_MOVEABLE, (wtext.size() + 1) * sizeof(wchar_t));
 		if (hglbCopy == NULL) {

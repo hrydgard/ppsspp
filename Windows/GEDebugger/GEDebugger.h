@@ -113,6 +113,7 @@ private:
 	void PrimaryPreviewHover(int x, int y);
 	void SecondPreviewHover(int x, int y);
 	void PreviewExport(const GPUDebugBuffer *buffer);
+	void PreviewToClipboard(const GPUDebugBuffer *buffer);
 	static void DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
 	static void DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
 	void UpdateMenus();
