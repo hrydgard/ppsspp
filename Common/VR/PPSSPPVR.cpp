@@ -232,15 +232,24 @@ void PreGLRenderPass(const void* step) {
 		return;
 	}
 	const auto* glrStep = (const GLRStep*)step;
-	vrCompat[VR_COMPAT_GEOMETRY] = strcmp(glrStep->tag, "FramebufferSwitch") == 0;
 
-	// Clear the screen with fog color, only for passes containing geometry (and no lens flares)
-	if (vrCompat[VR_COMPAT_SKYPLANE] && vrCompat[VR_COMPAT_GEOMETRY] && (glrStep->commands.size() > 50)) {
-		float color[4];
-		Uint8x3ToFloat4(color, vrCompat[VR_COMPAT_FOG_COLOR]);
-		glClearColor(color[0], color[1], color[2], 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-		glClearColor(0, 0, 0, 1);
+	// Clear the screen with fog color, only for passes containing geometry
+	if (vrCompat[VR_COMPAT_SKYPLANE]) {
+		vrCompat[VR_COMPAT_GEOMETRY] = true;
+		for (auto& cmd : glrStep->commands) {
+			if (cmd.cmd == GLRRenderCommand::BIND_FB_TEXTURE) {
+				vrCompat[VR_COMPAT_GEOMETRY] = false;
+				break;
+			}
+		}
+
+		if (vrCompat[VR_COMPAT_GEOMETRY]) {
+			float color[4];
+			Uint8x3ToFloat4(color, vrCompat[VR_COMPAT_FOG_COLOR]);
+			glClearColor(color[0], color[1], color[2], 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT);
+			glClearColor(0, 0, 0, 1);
+		}
 	}
 }
 
