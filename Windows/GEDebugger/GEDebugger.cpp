@@ -281,12 +281,13 @@ void CGEDebugger::SetupPreviews() {
 		primaryWindow->SetHoverCallback([&] (int x, int y) {
 			PrimaryPreviewHover(x, y);
 		});
-		primaryWindow->SetRightClickMenu(ContextMenuID::GEDBG_PREVIEW, [&] (int cmd) {
+		primaryWindow->SetRightClickMenu(ContextMenuID::GEDBG_PREVIEW, [&] (int cmd, int x, int y) {
 			HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_PREVIEW);
 			switch (cmd) {
 			case 0:
 				// Setup.
 				CheckMenuItem(subMenu, ID_GEDBG_ENABLE_PREVIEW, MF_BYCOMMAND | ((previewsEnabled_ & 1) ? MF_CHECKED : MF_UNCHECKED));
+				EnableMenuItem(subMenu, ID_GEDBG_TRACK_PIXEL_STOP, primaryTrackX_ == 0xFFFFFFFF ? MF_GRAYED : MF_ENABLED);
 				break;
 			case ID_GEDBG_EXPORT_IMAGE:
 				PreviewExport(primaryBuffer_);
@@ -296,6 +297,14 @@ void CGEDebugger::SetupPreviews() {
 				break;
 			case ID_GEDBG_COPY_IMAGE_ALPHA:
 				PreviewToClipboard(primaryBuffer_, true);
+				break;
+			case ID_GEDBG_TRACK_PIXEL:
+				primaryTrackX_ = x;
+				primaryTrackY_ = y;
+				break;
+			case ID_GEDBG_TRACK_PIXEL_STOP:
+				primaryTrackX_ = 0xFFFFFFFF;
+				primaryTrackX_ = 0xFFFFFFFF;
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 1;
@@ -317,12 +326,13 @@ void CGEDebugger::SetupPreviews() {
 		secondWindow->SetHoverCallback([&] (int x, int y) {
 			SecondPreviewHover(x, y);
 		});
-		secondWindow->SetRightClickMenu(ContextMenuID::GEDBG_PREVIEW, [&] (int cmd) {
+		secondWindow->SetRightClickMenu(ContextMenuID::GEDBG_PREVIEW, [&] (int cmd, int x, int y) {
 			HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_PREVIEW);
 			switch (cmd) {
 			case 0:
 				// Setup.
 				CheckMenuItem(subMenu, ID_GEDBG_ENABLE_PREVIEW, MF_BYCOMMAND | ((previewsEnabled_ & 2) ? MF_CHECKED : MF_UNCHECKED));
+				EnableMenuItem(subMenu, ID_GEDBG_TRACK_PIXEL_STOP, secondTrackX_ == 0xFFFFFFFF ? MF_GRAYED : MF_ENABLED);
 				break;
 			case ID_GEDBG_EXPORT_IMAGE:
 				PreviewExport(secondBuffer_);
@@ -332,6 +342,14 @@ void CGEDebugger::SetupPreviews() {
 				break;
 			case ID_GEDBG_COPY_IMAGE_ALPHA:
 				PreviewToClipboard(secondBuffer_, true);
+				break;
+			case ID_GEDBG_TRACK_PIXEL:
+				secondTrackX_ = x;
+				secondTrackY_ = y;
+				break;
+			case ID_GEDBG_TRACK_PIXEL_STOP:
+				secondTrackX_ = 0xFFFFFFFF;
+				secondTrackX_ = 0xFFFFFFFF;
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 2;
@@ -350,6 +368,12 @@ void CGEDebugger::SetupPreviews() {
 }
 
 void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, char desc[256]) {
+	if (primaryTrackX_ < primaryBuffer_->GetStride() && primaryTrackY_ < primaryBuffer_->GetHeight()) {
+		u32 pix = primaryBuffer_->GetRawPixel(primaryTrackX_, primaryTrackY_);
+		DescribePixel(pix, primaryBuffer_->GetFormat(), primaryTrackX_, primaryTrackY_, desc);
+		return;
+	}
+
 	if (showClut_) {
 		// In this case, we're showing the texture here.
 		snprintf(desc, 256, "Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
@@ -374,6 +398,22 @@ void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, char desc[256])
 }
 
 void CGEDebugger::DescribeSecondPreview(const GPUgstate &state, char desc[256]) {
+	if (secondTrackX_ != 0xFFFFFFFF) {
+		uint32_t x = secondTrackX_;
+		uint32_t y = secondTrackY_;
+		if (showClut_) {
+			uint32_t clutWidth = secondBuffer_->GetStride() / 16;
+			x = y * clutWidth + x;
+			y = 0;
+		}
+
+		if (x < secondBuffer_->GetStride() && y < secondBuffer_->GetHeight()) {
+			u32 pix = secondBuffer_->GetRawPixel(x, y);
+			DescribePixel(pix, secondBuffer_->GetFormat(), x, y, desc);
+			return;
+		}
+	}
+
 	if (showClut_) {
 		snprintf(desc, 256, "CLUT: 0x%08x (%d)", state.getClutAddress(), state.getClutPaletteFormat());
 	} else {

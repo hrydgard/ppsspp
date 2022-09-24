@@ -140,6 +140,11 @@ private:
 	const GPUDebugBuffer *primaryBuffer_ = nullptr;
 	const GPUDebugBuffer *secondBuffer_ = nullptr;
 
+	uint32_t primaryTrackX_ = 0xFFFFFFFF;
+	uint32_t primaryTrackY_ = 0xFFFFFFFF;
+	uint32_t secondTrackX_ = 0xFFFFFFFF;
+	uint32_t secondTrackY_ = 0xFFFFFFFF;
+
 	bool updating_ = false;
 	int previewsEnabled_ = 3;
 	int minWidth_;
