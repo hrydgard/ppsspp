@@ -589,7 +589,7 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	return frameData_[curFrame].GetInitCmd(vulkan_);
 }
 
-VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, uint32_t variantBitmask, const char *tag) {
+VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, const char *tag) {
 	VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline();
 	_dbg_assert_(desc->vertexShader);
 	_dbg_assert_(desc->fragmentShader);
@@ -615,6 +615,21 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			if (!(variantBitmask & (1 << i)))
 				continue;
 			RenderPassType rpType = (RenderPassType)i;
+
+			// Sanity check - don't compile incompatible types (could be caused by corrupt caches, changes in data structures, etc).
+			if (pipelineFlags & PipelineFlags::USES_DEPTH_STENCIL) {
+				if (!RenderPassTypeHasDepth(rpType)) {
+					WARN_LOG(G3D, "Not compiling pipeline that requires depth, for non depth renderpass type");
+					continue;
+				}
+			}
+			if (pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT) {
+				if (!RenderPassTypeHasInput(rpType)) {
+					WARN_LOG(G3D, "Not compiling pipeline that requires input attachment, for non input renderpass type");
+					continue;
+				}
+			}
+
 			pipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
 			compileQueue_.push_back(CompileQueueEntry(pipeline, compatibleRenderPass->Get(vulkan_, rpType), rpType));
 			needsCompile = true;
