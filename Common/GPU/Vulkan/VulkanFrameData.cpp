@@ -141,7 +141,7 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 		hasMainCommands = false;
 	}
 
-	if (hasPresentCommands) {
+	if (hasPresentCommands && type != FrameSubmitType::Pending) {
 		VkResult res = vkEndCommandBuffer(presentCmd);
 		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (present)! result=%s", VulkanResultToString(res));
 

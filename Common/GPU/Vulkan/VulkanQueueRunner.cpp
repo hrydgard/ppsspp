@@ -585,14 +585,15 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frame
 					SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
 				}
 
-				_dbg_assert_(!frameData.hasPresentCommands);
-				// A RENDER step rendering to the backbuffer is normally the last step that happens in a frame,
-				// unless taking a screenshot, in which case there might be a READBACK_IMAGE after it.
-				// This is why we have to switch cmd to presentCmd, in this case.
-				VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-				begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-				vkBeginCommandBuffer(frameData.presentCmd, &begin);
-				frameData.hasPresentCommands = true;
+				if (!frameData.hasPresentCommands) {
+					// A RENDER step rendering to the backbuffer is normally the last step that happens in a frame,
+					// unless taking a screenshot, in which case there might be a READBACK_IMAGE after it.
+					// This is why we have to switch cmd to presentCmd, in this case.
+					VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+					begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+					vkBeginCommandBuffer(frameData.presentCmd, &begin);
+					frameData.hasPresentCommands = true;
+				}
 				cmd = frameData.presentCmd;
 			}
 			PerformRenderPass(step, cmd);
