@@ -489,11 +489,9 @@ void DumpExecute::Clut(u32 ptr, u32 sz) {
 	// This is always run when we have the actual address set.
 	if (execClutAddr != 0) {
 		const bool isTarget = (execClutFlags & 1) != 0;
-		const bool unchangedVRAM = (execClutFlags & 2) != 0;
 
-		// TODO: Could use drawnVRAM flag, but it can be wrong.
 		// Could potentially always skip if !isTarget, but playing it safe for offset texture behavior.
-		if (Memory::IsValidRange(execClutAddr, sz) && !unchangedVRAM && (!isTarget || !g_Config.bSoftwareRendering)) {
+		if (Memory::IsValidRange(execClutAddr, sz) && (!isTarget || !g_Config.bSoftwareRendering)) {
 			// Intentionally don't trigger an upload here.
 			Memory::MemcpyUnchecked(execClutAddr, pushbuf_.data() + ptr, sz);
 		}
