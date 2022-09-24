@@ -143,6 +143,68 @@ void ComputeRasterizerState(RasterizerState *state) {
 #endif
 }
 
+RasterizerState OptimizeFlatRasterizerState(RasterizerState state, const VertexData &v1) {
+	uint8_t alpha = v1.color0 >> 24;
+
+	bool changedPixelID = false;
+	bool changedSamplerID = false;
+	if (!state.pixelID.clearMode) {
+		auto &pixelID = state.pixelID;
+		auto &cached = pixelID.cached;
+
+		bool useTextureAlpha = state.enableTextures && state.samplerID.useTextureAlpha;
+		if (pixelID.alphaBlend && pixelID.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA && !useTextureAlpha) {
+			// Okay, we may be able to convert this to a fixed value.
+			if (alpha == 0) {
+				pixelID.alphaBlendSrc = (uint8_t)PixelBlendFactor::ZERO;
+				changedPixelID = true;
+			} else if (alpha == 0xFF) {
+				pixelID.alphaBlendSrc = (uint8_t)PixelBlendFactor::ONE;
+				changedPixelID = true;
+			}
+		}
+		if (pixelID.alphaBlend && pixelID.AlphaBlendDst() == PixelBlendFactor::INVSRCALPHA && !useTextureAlpha) {
+			if (alpha == 0) {
+				pixelID.alphaBlendDst = (uint8_t)PixelBlendFactor::ONE;
+				changedPixelID = true;
+			} else if (alpha == 0xFF) {
+				pixelID.alphaBlendDst = (uint8_t)PixelBlendFactor::ZERO;
+				changedPixelID = true;
+			}
+		}
+		if (pixelID.alphaBlend && pixelID.AlphaBlendSrc() == PixelBlendFactor::ONE && pixelID.AlphaBlendDst() == PixelBlendFactor::ZERO) {
+			if (pixelID.AlphaBlendEq() == GE_BLENDMODE_MUL_AND_ADD) {
+				pixelID.alphaBlend = false;
+				changedPixelID = true;
+			}
+		}
+	}
+	if (state.enableTextures) {
+		if (v1.color0 == 0xFFFFFFFF) {
+			// Modulate is common, sometimes even with a fixed color.  Replace is cheaper.
+			if (state.samplerID.TexFunc() == GE_TEXFUNC_MODULATE) {
+				state.samplerID.texFunc = (uint8_t)GE_TEXFUNC_REPLACE;
+				changedSamplerID = true;
+			}
+		}
+	}
+
+	if (changedPixelID)
+		state.drawPixel = Rasterizer::GetSingleFunc(state.pixelID);
+	if (changedSamplerID) {
+		state.linear = Sampler::GetLinearFunc(state.samplerID);
+		state.nearest = Sampler::GetNearestFunc(state.samplerID);
+
+		// Since the definitions are the same, just force this setting using the func pointer.
+		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR)
+			state.nearest = state.linear;
+		else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST)
+			state.linear = state.nearest;
+	}
+
+	return state;
+}
+
 static inline u8 ClampFogDepth(float fogdepth) {
 	union FloatBits {
 		float f;
@@ -893,7 +955,7 @@ void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &
 	drawSlice(v0, v1, v2, range.x1, range.y1, range.x2, range.y2, state);
 }
 
-void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
+void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &rastState) {
 	int entireX1 = std::min(v0.screenpos.x, v1.screenpos.x);
 	int entireY1 = std::min(v0.screenpos.y, v1.screenpos.y);
 	int entireX2 = std::max(v0.screenpos.x, v1.screenpos.x) - 1;
@@ -902,6 +964,8 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	int minY = std::max(entireY1, range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
 	int maxX = std::min(entireX2, range.x2);
 	int maxY = std::min(entireY2, range.y2);
+
+	RasterizerState state = OptimizeFlatRasterizerState(rastState, v1);
 
 	Vec2f rowST(0.0f, 0.0f);
 	// Note: this is double the x or y movement.
