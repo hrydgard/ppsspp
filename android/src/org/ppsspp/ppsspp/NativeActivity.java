@@ -1547,6 +1547,6 @@ public abstract class NativeActivity extends Activity {
 	}
 
 	private boolean isVRDevice() {
-		return BuildConfig.FLAVOR.compareTo("quest") == 0;
+		return BuildConfig.FLAVOR.startsWith("vr_") == 0;
 	}
 }

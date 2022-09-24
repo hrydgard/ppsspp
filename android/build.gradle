@@ -103,7 +103,7 @@ android {
 		gold {
 			res.srcDirs = ['gold/res']
 		}
-		quest {
+		vr_quest {
 			manifest.srcFile 'QuestManifest.xml'
 		}
 	}
@@ -145,7 +145,7 @@ android {
 				abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
 			}
 		}
-		quest {
+		vr_quest {
 			applicationId 'org.ppsspp.ppsspp'
 			dimension "variant"
 			externalNativeBuild {
@@ -171,9 +171,9 @@ android {
 			'normalOptimized',	// for testing
 			'normalRelease',	// for Google Play releases
 			'goldRelease',		// for Google Play releases
-			'questDebug',		// for VR debugging
-			'questOptimized',	// for VR testing
-			'questRelease',		// for VR releases
+			'vr_questDebug',    // for VR debugging on Quest
+			'vr_questOptimized',// for VR testing on Quest
+			'vr_questRelease',  // for VR releases on Quest
 		]
 		variant.setIgnore(!needed)
 	}
