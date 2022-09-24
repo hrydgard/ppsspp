@@ -784,6 +784,10 @@ BEGIN
     POPUP "gepreviewoptions"
     BEGIN
         MENUITEM "Export Image...",            ID_GEDBG_EXPORT_IMAGE
+        MENUITEM "Copy Opaque Image",          ID_GEDBG_COPY_IMAGE
+        MENUITEM "Copy Image With Alpha",      ID_GEDBG_COPY_IMAGE_ALPHA
+        MENUITEM "Track Pixel",                ID_GEDBG_TRACK_PIXEL
+        MENUITEM "Stop Tracking Pixel",        ID_GEDBG_TRACK_PIXEL_STOP
         MENUITEM "Show Prim Preview",          ID_GEDBG_ENABLE_PREVIEW
     END
     POPUP "matrixoptions"
