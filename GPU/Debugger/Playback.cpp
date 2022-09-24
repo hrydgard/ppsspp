@@ -28,6 +28,7 @@
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceDisplay.h"
@@ -489,13 +490,12 @@ void DumpExecute::Clut(u32 ptr, u32 sz) {
 	// This is always run when we have the actual address set.
 	if (execClutAddr != 0) {
 		const bool isTarget = (execClutFlags & 1) != 0;
-		const bool unchangedVRAM = (execClutFlags & 2) != 0;
 
-		// TODO: Could use drawnVRAM flag, but it can be wrong.
 		// Could potentially always skip if !isTarget, but playing it safe for offset texture behavior.
-		if (Memory::IsValidRange(execClutAddr, sz) && !unchangedVRAM && (!isTarget || !g_Config.bSoftwareRendering)) {
+		if (Memory::IsValidRange(execClutAddr, sz) && (!isTarget || !g_Config.bSoftwareRendering)) {
 			// Intentionally don't trigger an upload here.
 			Memory::MemcpyUnchecked(execClutAddr, pushbuf_.data() + ptr, sz);
+			NotifyMemInfo(MemBlockFlags::WRITE, execClutAddr, sz, "ReplayClut");
 		}
 
 		execClutAddr = 0;
@@ -550,6 +550,7 @@ void DumpExecute::Memcpy(u32 ptr, u32 sz) {
 	if (Memory::IsVRAMAddress(execMemcpyDest)) {
 		SyncStall();
 		Memory::MemcpyUnchecked(execMemcpyDest, pushbuf_.data() + ptr, sz);
+		NotifyMemInfo(MemBlockFlags::WRITE, execMemcpyDest, sz, "ReplayMemcpy");
 		gpu->PerformMemoryUpload(execMemcpyDest, sz);
 	}
 }
@@ -600,6 +601,7 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
 	if (Memory::IsValidRange(framebuf->addr, pspSize) && !unchangedVRAM && (!isTarget || !g_Config.bSoftwareRendering)) {
 		// Intentionally don't trigger an upload here.
 		Memory::MemcpyUnchecked(framebuf->addr, pushbuf_.data() + ptr + headerSize, pspSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, framebuf->addr, pspSize, "ReplayTex");
 	}
 }
 
