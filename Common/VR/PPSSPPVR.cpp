@@ -219,14 +219,6 @@ void UpdateVRScreenKey(const KeyInput &key) {
 ================================================================================
 */
 
-bool IsSkyPlane(const GLRRenderData* data) {
-	if ((data->drawIndexed.count <= 60) && !vrCompat[VR_USE_CLIP]) {
-		//TODO:fix HUD items
-		return true;
-	}
-	return false;
-}
-
 void PreGLRenderPass(const void* step) {
 	if (IsFlatVRScene()) {
 		return;
@@ -258,9 +250,9 @@ void PreGLCommand(const void* data) {
 		return;
 	} else if (vrCompat[VR_COMPAT_SKYPLANE] && vrCompat[VR_COMPAT_GEOMETRY]) {
 		const auto* glrData = (const GLRRenderData*)data;
-		if (glrData->cmd == GLRRenderCommand::BINDPROGRAM) {
-			vrCompat[VR_USE_CLIP] = glrData->program.program->use_clip_distance[0];
-		} else if ((glrData->cmd == GLRRenderCommand::DRAW_INDEXED) && IsSkyPlane(glrData)) {
+		if (glrData->cmd == GLRRenderCommand::DEPTH) {
+			vrCompat[VR_COMPAT_DEPTH_ENABLED] = glrData->depth.enabled;
+		} else if ((glrData->cmd == GLRRenderCommand::DRAW_INDEXED) && !vrCompat[VR_COMPAT_DEPTH_ENABLED]) {
 			glColorMask(false, false, false, false);
 		}
 	}
@@ -271,7 +263,7 @@ void PostGLCommand(const void* data) {
 		return;
 	} else if (vrCompat[VR_COMPAT_SKYPLANE] && vrCompat[VR_COMPAT_GEOMETRY]) {
 		const auto* glrData = (const GLRRenderData*)data;
-		if ((glrData->cmd == GLRRenderCommand::DRAW_INDEXED) && IsSkyPlane(glrData)) {
+		if ((glrData->cmd == GLRRenderCommand::DRAW_INDEXED) && !vrCompat[VR_COMPAT_DEPTH_ENABLED]) {
 			glColorMask(true, true, true, true);
 		}
 	}
