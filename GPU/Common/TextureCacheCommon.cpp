@@ -2797,7 +2797,7 @@ CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GE
 		// Never has any alpha.
 		return CHECKALPHA_FULL;
 	default:
-		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);  // note, the normal order here, unlike the 16-bit formats
+		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);
 	}
 }
 

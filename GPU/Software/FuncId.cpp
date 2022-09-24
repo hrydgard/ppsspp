@@ -168,6 +168,14 @@ void ComputePixelFuncID(PixelFuncID *id) {
 				id->alphaBlendDst = (uint8_t)OptimizeAlphaFactor(gstate.getFixB());
 		}
 
+		if (id->colorTest && gstate.getColorTestFunction() == GE_COMP_NOTEQUAL && gstate.getColorTestRef() == 0 && gstate.getColorTestMask() == 0xFFFFFF) {
+			if (!id->depthWrite && !id->stencilTest && id->alphaBlend && id->AlphaBlendEq() == GE_BLENDMODE_MUL_AND_ADD) {
+				// Might be a pointless color test (seen in Ridge Racer, for example.)
+				if (id->AlphaBlendDst() == PixelBlendFactor::ONE)
+					id->colorTest = false;
+			}
+		}
+
 		id->applyLogicOp = gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY;
 		id->applyFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 

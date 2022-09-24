@@ -51,6 +51,7 @@ struct PixelBlendState {
 	bool dstFactorIsInverse = false;
 	bool srcColorAsFactor = false;
 	bool dstColorAsFactor = false;
+	bool readsDstPixel = true;
 };
 void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id);
 

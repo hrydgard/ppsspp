@@ -709,20 +709,6 @@ VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteForm
 	}
 }
 
-CheckAlphaResult TextureCacheVulkan::CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int w) {
-	switch (dstFmt) {
-	case VULKAN_4444_FORMAT:
-		return CheckAlpha16((const u16 *)pixelData, w, 0xF000);
-	case VULKAN_1555_FORMAT:
-		return CheckAlpha16((const u16 *)pixelData, w, 0x8000);
-	case VULKAN_565_FORMAT:
-		// Never has any alpha.
-		return CHECKALPHA_FULL;
-	default:
-		return CheckAlpha32(pixelData, w, 0xFF000000);
-	}
-}
-
 void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch, int level, int scaleFactor, VkFormat dstFmt) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
