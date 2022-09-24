@@ -849,7 +849,7 @@ static u32 sysclib_strchr(u32 src, int c) {
 	if (index < 0) {
 		return 0;
 	}
-	return 0;
+	return src + index;
 }
 
 static u32 sysclib_strrchr(u32 src, int c) {
@@ -859,7 +859,7 @@ static u32 sysclib_strrchr(u32 src, int c) {
 	if (index < 0) {
 		return 0;
 	}
-	return 0;
+	return src + index;
 }
 
 const u8 look_ctype_table[128] = { 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x08, 0x08, 0x08, 0x08, 0x08, 0x20, 0x20,
