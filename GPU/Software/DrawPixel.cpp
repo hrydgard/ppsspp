@@ -673,11 +673,13 @@ void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id) {
 			state.srcColorAsFactor = true;
 			break;
 
+		case PixelBlendFactor::ZERO:
+			state.readsDstPixel = state.dstColorAsFactor || state.usesDstAlpha;
+			break;
+
 		default:
 			break;
 		}
-
-		state.dstColorAsFactor = state.dstColorAsFactor || state.usesDstAlpha;
 	}
 }
 
