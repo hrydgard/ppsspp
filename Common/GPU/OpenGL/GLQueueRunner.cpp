@@ -701,7 +701,13 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 		switch (step.stepType) {
 		case GLRStepType::RENDER:
 			renderCount++;
-			PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount);
+			if (IsVRBuild()) {
+				GLRStep vrStep = step;
+				PreprocessStepVR(&vrStep);
+				PerformRenderPass(vrStep, renderCount == 1, renderCount == totalRenderCount);
+			} else {
+				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount);
+			}
 			break;
 		case GLRStepType::COPY:
 			PerformCopy(step);
@@ -773,9 +779,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 
 	PerformBindFramebufferAsRenderTarget(step);
 
-	const bool isVR = IsVRBuild();
-	if (isVR) PreGLRenderPass(&step);
-
 	if (first) {
 		glDisable(GL_DEPTH_TEST);
 		glDisable(GL_STENCIL_TEST);
@@ -823,7 +826,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	CHECK_GL_ERROR_IF_DEBUG();
 	auto &commands = step.commands;
 	for (const auto &c : commands) {
-		if (isVR) PreGLCommand(&c);
 		switch (c.cmd) {
 		case GLRRenderCommand::DEPTH:
 			if (c.depth.enabled) {
@@ -1335,7 +1337,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			Crash();
 			break;
 		}
-		if (isVR) PostGLCommand(&c);
 	}
 
 	for (int i = 0; i < 7; i++) {

@@ -219,54 +219,45 @@ void UpdateVRScreenKey(const KeyInput &key) {
 ================================================================================
 */
 
-void PreGLRenderPass(const void* step) {
+void PreprocessSkyplane(GLRStep* step) {
+
+	// Do not do anything if the scene is not in VR.
 	if (IsFlatVRScene()) {
 		return;
 	}
-	const auto* glrStep = (const GLRStep*)step;
 
-	// Clear the screen with fog color, only for passes containing geometry
-	if (vrCompat[VR_COMPAT_SKYPLANE]) {
-		vrCompat[VR_COMPAT_GEOMETRY] = true;
-		for (auto& cmd : glrStep->commands) {
-			if (cmd.cmd == GLRRenderCommand::BIND_FB_TEXTURE) {
-				vrCompat[VR_COMPAT_GEOMETRY] = false;
-				break;
-			}
+	// Check if it is the step we need to modify.
+	for (auto& cmd : step->commands) {
+		if (cmd.cmd == GLRRenderCommand::BIND_FB_TEXTURE) {
+			return;
 		}
+	}
 
-		if (vrCompat[VR_COMPAT_GEOMETRY]) {
-			float color[4];
-			Uint8x3ToFloat4(color, vrCompat[VR_COMPAT_FOG_COLOR]);
-			glClearColor(color[0], color[1], color[2], 1.0f);
-			glClear(GL_COLOR_BUFFER_BIT);
-			glClearColor(0, 0, 0, 1);
+	// Clear sky with the fog color.
+	if (!vrCompat[VR_COMPAT_FBO_CLEAR]) {
+		GLRRenderData skyClear {};
+		skyClear.cmd = GLRRenderCommand::CLEAR;
+		skyClear.clear.colorMask = 0xF;
+		skyClear.clear.clearMask = GL_COLOR_BUFFER_BIT;
+		skyClear.clear.clearColor = vrCompat[VR_COMPAT_FOG_COLOR];
+		step->commands.insert(step->commands.begin(), skyClear);
+		vrCompat[VR_COMPAT_FBO_CLEAR] = true;
+	}
+
+	// Remove original sky plane.
+	bool depthEnabled = false;
+	for (auto& command : step->commands) {
+		if (command.cmd == GLRRenderCommand::DEPTH) {
+			depthEnabled = command.depth.enabled;
+		} else if ((command.cmd == GLRRenderCommand::DRAW_INDEXED) && !depthEnabled) {
+			command.drawIndexed.count = 0;
 		}
 	}
 }
 
-void PreGLCommand(const void* data) {
-	if (IsFlatVRScene()) {
-		return;
-	} else if (vrCompat[VR_COMPAT_SKYPLANE] && vrCompat[VR_COMPAT_GEOMETRY]) {
-		const auto* glrData = (const GLRRenderData*)data;
-		if (glrData->cmd == GLRRenderCommand::DEPTH) {
-			vrCompat[VR_COMPAT_DEPTH_ENABLED] = glrData->depth.enabled;
-		} else if ((glrData->cmd == GLRRenderCommand::DRAW_INDEXED) && !vrCompat[VR_COMPAT_DEPTH_ENABLED]) {
-			glColorMask(false, false, false, false);
-		}
-	}
-}
-
-void PostGLCommand(const void* data) {
-	if (IsFlatVRScene()) {
-		return;
-	} else if (vrCompat[VR_COMPAT_SKYPLANE] && vrCompat[VR_COMPAT_GEOMETRY]) {
-		const auto* glrData = (const GLRRenderData*)data;
-		if ((glrData->cmd == GLRRenderCommand::DRAW_INDEXED) && !vrCompat[VR_COMPAT_DEPTH_ENABLED]) {
-			glColorMask(true, true, true, true);
-		}
-	}
+void PreprocessStepVR(void* step) {
+	auto* glrStep = (GLRStep*)step;
+	if (vrCompat[VR_COMPAT_SKYPLANE]) PreprocessSkyplane(glrStep);
 }
 
 void SetVRCompat(VRCompatFlag flag, long value) {
@@ -320,6 +311,7 @@ void FinishVRRender() {
 
 void PreVRFrameRender(int fboIndex) {
 	VR_BeginFrame(VR_GetEngine(), fboIndex);
+	vrCompat[VR_COMPAT_FBO_CLEAR] = false;
 }
 
 void PostVRFrameRender() {

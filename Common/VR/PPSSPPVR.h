@@ -8,7 +8,7 @@ enum VRCompatFlag {
 	VR_COMPAT_SKYPLANE,
 
 	//render state
-	VR_COMPAT_GEOMETRY, VR_COMPAT_DEPTH_ENABLED,
+	VR_COMPAT_FBO_CLEAR,
 
 	//uniforms
 	VR_COMPAT_FOG_COLOR,
@@ -28,9 +28,7 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 void UpdateVRScreenKey(const KeyInput &key);
 
 // VR games compatibility
-void PreGLRenderPass(const void* step);
-void PreGLCommand(const void* data);
-void PostGLCommand(const void* data);
+void PreprocessStepVR(void* step);
 void SetVRCompat(VRCompatFlag flag, long value);
 
 // VR rendering integration
@@ -57,9 +55,7 @@ inline void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTou
 inline void UpdateVRScreenKey(const KeyInput &key) {}
 
 // VR games compatibility
-inline void PreGLRenderPass(const void* step) {}
-inline void PreGLCommand(const void* data) {}
-inline void PostGLCommand(const void* data) {}
+inline void PreprocessStepVR(void* step) {}
 inline void SetVRCompat(VRCompatFlag flag, long value) {}
 
 // VR rendering integration
