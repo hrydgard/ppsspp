@@ -28,6 +28,7 @@
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceDisplay.h"
@@ -494,6 +495,7 @@ void DumpExecute::Clut(u32 ptr, u32 sz) {
 		if (Memory::IsValidRange(execClutAddr, sz) && (!isTarget || !g_Config.bSoftwareRendering)) {
 			// Intentionally don't trigger an upload here.
 			Memory::MemcpyUnchecked(execClutAddr, pushbuf_.data() + ptr, sz);
+			NotifyMemInfo(MemBlockFlags::WRITE, execClutAddr, sz, "ReplayClut");
 		}
 
 		execClutAddr = 0;
@@ -548,6 +550,7 @@ void DumpExecute::Memcpy(u32 ptr, u32 sz) {
 	if (Memory::IsVRAMAddress(execMemcpyDest)) {
 		SyncStall();
 		Memory::MemcpyUnchecked(execMemcpyDest, pushbuf_.data() + ptr, sz);
+		NotifyMemInfo(MemBlockFlags::WRITE, execMemcpyDest, sz, "ReplayMemcpy");
 		gpu->PerformMemoryUpload(execMemcpyDest, sz);
 	}
 }
@@ -598,6 +601,7 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
 	if (Memory::IsValidRange(framebuf->addr, pspSize) && !unchangedVRAM && (!isTarget || !g_Config.bSoftwareRendering)) {
 		// Intentionally don't trigger an upload here.
 		Memory::MemcpyUnchecked(framebuf->addr, pushbuf_.data() + ptr + headerSize, pspSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, framebuf->addr, pspSize, "ReplayTex");
 	}
 }
 
