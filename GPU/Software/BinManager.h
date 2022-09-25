@@ -132,6 +132,10 @@ struct BinQueue {
 		return size_ == N - 1;
 	}
 
+	bool NearFull() const {
+		return size_ >= N - 2;
+	}
+
 	bool Empty() const {
 		return size_ == 0;
 	}
@@ -195,7 +199,7 @@ public:
 	void AddLine(const VertexData &v0, const VertexData &v1);
 	void AddPoint(const VertexData &v0);
 
-	void Drain();
+	void Drain(bool flushing = false);
 	void Flush(const char *reason);
 	bool HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, uint32_t h);
 	// Assumes you've also checked for a write (writes are partial so are automatically reads.)

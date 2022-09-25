@@ -406,7 +406,7 @@ void BinManager::AddPoint(const VertexData &v0) {
 	Expand(range);
 }
 
-void BinManager::Drain() {
+void BinManager::Drain(bool flushing) {
 	PROFILE_THIS_SCOPE("bin_drain");
 
 	// If the waitable has fully drained, we can update our binning decisions.
@@ -446,6 +446,7 @@ void BinManager::Drain() {
 			queue_.SkipNext();
 		}
 	} else {
+		int max = flushing ? QUEUED_PRIMS : QUEUED_PRIMS / 2;
 		while (!queue_.Empty()) {
 			const BinItem &item = queue_.PeekNext();
 			for (int i = 0; i < (int)taskRanges_.size(); ++i) {
@@ -453,17 +454,24 @@ void BinManager::Drain() {
 				if (range.Invalid())
 					continue;
 
-				// This shouldn't often happen, but if it does, wait for space.
-				if (taskQueues_[i].Full())
-					waitable_->Wait();
+				if (taskQueues_[i].NearFull()) {
+					// This shouldn't often happen, but if it does, wait for space.
+					if (taskQueues_[i].Full())
+						waitable_->Wait();
+					// If we're not flushing and not near full, let's just continue later.
+					// Near full means we'd drain on next prim, so better to finish it now.
+					else if (!flushing && !queue_.NearFull())
+						max = 0;
+				}
 
 				BinItem &taskItem = taskQueues_[i].PeekPush();
 				taskItem = item;
 				taskItem.range = range;
 				taskQueues_[i].PushPeeked();
-
 			}
 			queue_.SkipNext();
+			if (--max <= 0)
+				break;
 		}
 
 		int threads = 0;
@@ -491,7 +499,7 @@ void BinManager::Flush(const char *reason) {
 	double st;
 	if (coreCollectDebugStats)
 		st = time_now_d();
-	Drain();
+	Drain(true);
 	waitable_->Wait();
 	taskRanges_.clear();
 	tasksSplit_ = false;
