@@ -6,12 +6,6 @@
 #include <unistd.h>
 
 #ifdef OPENXR_PLATFORM_PICO
-#define XR_PICO_ANDROID_CONTROLLER_FUNCTION_EXT_ENABLE_EXTENSION_NAME "XR_PICO_android_controller_function_ext_enable"
-#define XR_PICO_VIEW_STATE_EXT_ENABLE_EXTENSION_NAME "XR_PICO_view_state_ext_enable"
-#define XR_PICO_FRAME_END_INFO_EXT_EXTENSION_NAME "XR_PICO_frame_end_info_ext"
-#define XR_PICO_CONFIGS_EXT_EXTENSION_NAME "XR_PICO_configs_ext"
-#define XR_PICO_RESET_SENSOR_EXTENSION_NAME "XR_PICO_reset_sensor"
-
 enum ConfigsSetEXT
 {
     UNREAL_VERSION = 0,
@@ -28,62 +22,20 @@ enum ConfigsSetEXT
 
 typedef enum
 {
-    PXR_HMD_3DOF = 0,
-    PXR_HMD_6DOF
-} PxrHmdDof;
+    PXR_TRACKING_3DOF = 0,
+    PXR_TRACKING_6DOF = 1
+} PxrTrackingDof;
 
-typedef enum
-{
-    PXR_CONTROLLER_3DOF = 0,
-    PXR_CONTROLLER_6DOF
-} PxrControllerDof;
-
-typedef XrResult (XRAPI_PTR *PFN_xrSetConfigPICO) (
-XrSession                             session,
-enum ConfigsSetEXT                    configIndex,
-char *                                configData);
-PFN_xrSetConfigPICO    pfnXrSetConfigPICO;
-
-//cmc ext function ,not use from 2021/07
 typedef XrResult (XRAPI_PTR *PFN_xrSetEngineVersionPico)(XrInstance instance,const char* version);
 typedef XrResult (XRAPI_PTR *PFN_xrStartCVControllerThreadPico)(XrInstance instance,int headSensorState, int handSensorState);
 typedef XrResult (XRAPI_PTR *PFN_xrStopCVControllerThreadPico)(XrInstance instance,int headSensorState, int handSensorState);
+typedef XrResult (XRAPI_PTR *PFN_xrSetConfigPICO) (XrSession instance, enum ConfigsSetEXT configIndex, char* configData);
 
-XrInstance mControllerInstance;
-PFN_xrSetEngineVersionPico pfnXrSetEngineVersionPico = NULL;
-PFN_xrStartCVControllerThreadPico pfnXrStartCVControllerThreadPico = NULL;
-PFN_xrStopCVControllerThreadPico pfnXrStopCVControllerThreadPico = NULL;
+PFN_xrSetConfigPICO pfnXrSetConfigPICO = nullptr;
+PFN_xrSetEngineVersionPico pfnXrSetEngineVersionPico = nullptr;
+PFN_xrStartCVControllerThreadPico pfnXrStartCVControllerThreadPico = nullptr;
+PFN_xrStopCVControllerThreadPico pfnXrStopCVControllerThreadPico = nullptr;
 
-inline void InitializeGraphicDeivce(XrInstance mInstance) {
-    mControllerInstance = mInstance;
-    xrGetInstanceProcAddr(mInstance, "xrSetEngineVersionPico", (PFN_xrVoidFunction*)(&pfnXrSetEngineVersionPico));
-    xrGetInstanceProcAddr(mInstance, "xrStartCVControllerThreadPico", (PFN_xrVoidFunction*)(&pfnXrStartCVControllerThreadPico));
-    xrGetInstanceProcAddr(mInstance, "xrStopCVControllerThreadPico", (PFN_xrVoidFunction*)(&pfnXrStopCVControllerThreadPico));
-}
-
-inline int Pxr_SetEngineVersion(const char *version) {
-    if (pfnXrSetEngineVersionPico != NULL) {
-        return pfnXrSetEngineVersionPico(mControllerInstance,version);
-    } else {
-        return -1;
-    }
-}
-
-inline int Pxr_StartCVControllerThread(int headSensorState, int handSensorState) {
-    if (pfnXrStartCVControllerThreadPico != NULL) {
-        return pfnXrStartCVControllerThreadPico(mControllerInstance,headSensorState, handSensorState);
-    } else {
-        return -1;
-    }
-}
-
-inline int Pxr_StopCVControllerThread(int headSensorState, int handSensorState) {
-    if (pfnXrStopCVControllerThreadPico != NULL) {
-        return pfnXrStopCVControllerThreadPico(mControllerInstance,headSensorState, handSensorState);
-    } else {
-        return -1;
-    }
-}
 #endif
 
 static engine_t vr_engine;
@@ -97,11 +49,11 @@ const char* const requiredExtensionNames[] = {
 		XR_KHR_ANDROID_THREAD_SETTINGS_EXTENSION_NAME,
 #endif
 #ifdef OPENXR_PLATFORM_PICO
-		XR_PICO_ANDROID_CONTROLLER_FUNCTION_EXT_ENABLE_EXTENSION_NAME,
-		XR_PICO_VIEW_STATE_EXT_ENABLE_EXTENSION_NAME,
-		XR_PICO_FRAME_END_INFO_EXT_EXTENSION_NAME,
-		XR_PICO_CONFIGS_EXT_EXTENSION_NAME,
-		XR_PICO_RESET_SENSOR_EXTENSION_NAME,
+		"XR_PICO_android_controller_function_ext_enable",
+		"XR_PICO_view_state_ext_enable",
+		"XR_PICO_frame_end_info_ext",
+		"XR_PICO_configs_ext",
+		"XR_PICO_reset_sensor",
 #endif
 		XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME};
 const uint32_t numRequiredExtensions =
@@ -154,10 +106,12 @@ void VR_Init( ovrJava java ) {
 	}
 
 #ifdef OPENXR_PLATFORM_PICO
-	InitializeGraphicDeivce(vr_engine.appState.Instance);
+	xrGetInstanceProcAddr(vr_engine.appState.Instance, "xrSetEngineVersionPico", (PFN_xrVoidFunction*)(&pfnXrSetEngineVersionPico));
+	xrGetInstanceProcAddr(vr_engine.appState.Instance, "xrStartCVControllerThreadPico", (PFN_xrVoidFunction*)(&pfnXrStartCVControllerThreadPico));
+	xrGetInstanceProcAddr(vr_engine.appState.Instance, "xrStopCVControllerThreadPico", (PFN_xrVoidFunction*)(&pfnXrStopCVControllerThreadPico));
 	xrGetInstanceProcAddr(vr_engine.appState.Instance,"xrSetConfigPICO", (PFN_xrVoidFunction*)(&pfnXrSetConfigPICO));
-	Pxr_SetEngineVersion("2.8.0.1");
-	Pxr_StartCVControllerThread(PXR_HMD_6DOF, PXR_CONTROLLER_6DOF);
+	if (pfnXrSetEngineVersionPico != nullptr) pfnXrSetEngineVersionPico(vr_engine.appState.Instance, "2.8.0.1");
+	if (pfnXrStartCVControllerThreadPico != nullptr) pfnXrStartCVControllerThreadPico(vr_engine.appState.Instance, PXR_TRACKING_6DOF, PXR_TRACKING_6DOF);
 #endif
 
 	XrInstanceProperties instanceInfo;
@@ -205,7 +159,9 @@ void VR_Init( ovrJava java ) {
 void VR_Destroy( engine_t* engine ) {
 	if (engine == &vr_engine) {
 #ifdef OPENXR_PLATFORM_PICO
-		Pxr_StopCVControllerThread(PXR_HMD_6DOF, PXR_CONTROLLER_6DOF);
+		if (pfnXrStopCVControllerThreadPico != nullptr) {
+			pfnXrStopCVControllerThreadPico(engine->appState.Instance, PXR_TRACKING_6DOF, PXR_TRACKING_6DOF);
+		}
 #endif
 		xrDestroyInstance(engine->appState.Instance);
 		ovrApp_Destroy(&engine->appState);
