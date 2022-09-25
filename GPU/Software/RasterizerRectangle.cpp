@@ -35,6 +35,7 @@ namespace Rasterizer {
 // Through mode, with the specific Darkstalker settings.
 inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in, const PixelFuncID &pixelID) {
 	u32 new_color;
+	// Because of this check, we only support src.a / 1-src.a blending.
 	if ((color_in >> 24) == 255) {
 		new_color = color_in & 0xFFFFFF;
 	} else {
@@ -78,7 +79,7 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 	return ToVec4IntResult(out);
 }
 
-// Check if we can safely ignore the alpha test.
+// Check if we can safely ignore the alpha test, assuming standard alpha blending.
 static inline bool AlphaTestIsNeedless(const PixelFuncID &pixelID) {
 	switch (pixelID.AlphaTestFunc()) {
 	case GE_COMP_NEVER:
@@ -95,8 +96,7 @@ static inline bool AlphaTestIsNeedless(const PixelFuncID &pixelID) {
 	case GE_COMP_GEQUAL:
 		if (pixelID.alphaTestRef != 0 || pixelID.hasAlphaTestMask)
 			return false;
-		// DrawSinglePixel5551 assumes it can take the src color directly if full alpha.
-		return pixelID.alphaBlend && pixelID.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA && pixelID.AlphaBlendDst() == PixelBlendFactor::INVSRCALPHA;
+		return true;
 	}
 
 	return false;
@@ -161,6 +161,9 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			!pixelID.colorTest &&
 			!pixelID.dithering &&
 			pixelID.alphaBlend &&
+			pixelID.AlphaBlendEq() == GE_BLENDMODE_MUL_AND_ADD &&
+			pixelID.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA &&
+			pixelID.AlphaBlendDst() == PixelBlendFactor::INVSRCALPHA &&
 			AlphaTestIsNeedless(pixelID) &&
 			samplerID.useTextureAlpha &&
 			samplerID.TexFunc() == GE_TEXFUNC_MODULATE &&
@@ -249,6 +252,9 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			!pixelID.colorTest &&
 			!pixelID.dithering &&
 			pixelID.alphaBlend &&
+			pixelID.AlphaBlendEq() == GE_BLENDMODE_MUL_AND_ADD &&
+			pixelID.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA &&
+			pixelID.AlphaBlendDst() == PixelBlendFactor::INVSRCALPHA &&
 			AlphaTestIsNeedless(pixelID) &&
 			!pixelID.applyColorWriteMask &&
 			pixelID.FBFormat() == GE_FORMAT_5551) {
