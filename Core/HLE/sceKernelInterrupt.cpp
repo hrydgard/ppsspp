@@ -840,7 +840,7 @@ static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {
 static u32 sysclib_strchr(u32 src, int c) {
 	const std::string str = Memory::GetCharPointer(src);
 	ERROR_LOG(SCEKERNEL, "Untest sysclib_strchr(%c, %i)", str.c_str(),c);
-	int index = str.find(str,c);
+	size_t index = str.find(str,c);
 	if (index < 0) {
 		return 0;
 	}
@@ -850,7 +850,7 @@ static u32 sysclib_strchr(u32 src, int c) {
 static u32 sysclib_strrchr(u32 src, int c) {
 	const std::string str = Memory::GetCharPointer(src);
 	ERROR_LOG(SCEKERNEL, "Untest sysclib_strchr(%c, %i)", str.c_str(), c);
-	int index = str.rfind(str, c);
+	size_t index = str.rfind(str, c);
 	if (index < 0) {
 		return 0;
 	}
