@@ -2,6 +2,7 @@
 
 #include "VulkanFrameData.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 void FrameData::Init(VulkanContext *vulkan, int index) {
 	this->index = index;
@@ -26,12 +27,19 @@ void FrameData::Init(VulkanContext *vulkan, int index) {
 	res = vkAllocateCommandBuffers(device, &cmd_alloc, &presentCmd);
 	_dbg_assert_(res == VK_SUCCESS);
 
+	vulkan->SetDebugName(initCmd, VK_OBJECT_TYPE_COMMAND_BUFFER, StringFromFormat("initCmd%d", index).c_str());
+	vulkan->SetDebugName(mainCmd, VK_OBJECT_TYPE_COMMAND_BUFFER, StringFromFormat("mainCmd%d", index).c_str());
+	vulkan->SetDebugName(presentCmd, VK_OBJECT_TYPE_COMMAND_BUFFER, StringFromFormat("presentCmd%d", index).c_str());
+
 	// Creating the frame fence with true so they can be instantly waited on the first frame
 	fence = vulkan->CreateFence(true);
+	vulkan->SetDebugName(fence, VK_OBJECT_TYPE_FENCE, StringFromFormat("fence%d", index).c_str());
 	readyForFence = true;
 
-	// This fence one is used for synchronizing readbacks. Does not need preinitialization.
+	// This fence is used for synchronizing readbacks. Does not need preinitialization.
+	// TODO: Put this in frameDataShared, only one is needed.
 	readbackFence = vulkan->CreateFence(false);
+	vulkan->SetDebugName(fence, VK_OBJECT_TYPE_FENCE, "readbackFence");
 
 	VkQueryPoolCreateInfo query_ci{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
 	query_ci.queryCount = MAX_TIMESTAMP_QUERIES;
@@ -41,9 +49,6 @@ void FrameData::Init(VulkanContext *vulkan, int index) {
 
 void FrameData::Destroy(VulkanContext *vulkan) {
 	VkDevice device = vulkan->GetDevice();
-	// TODO: I don't think free-ing command buffers is necessary before destroying a pool.
-	vkFreeCommandBuffers(device, cmdPoolInit, 1, &initCmd);
-	vkFreeCommandBuffers(device, cmdPoolMain, 1, &mainCmd);
 	vkDestroyCommandPool(device, cmdPoolInit, nullptr);
 	vkDestroyCommandPool(device, cmdPoolMain, nullptr);
 	vkDestroyFence(device, fence, nullptr);

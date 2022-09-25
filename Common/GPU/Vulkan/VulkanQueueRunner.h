@@ -163,6 +163,10 @@ struct TransitionRequest {
 	VKRFramebuffer *fb;
 	VkImageAspectFlags aspect;  // COLOR or DEPTH
 	VkImageLayout targetLayout;
+
+	bool operator == (const TransitionRequest &other) const {
+		return fb == other.fb && aspect == other.aspect && targetLayout == other.targetLayout;
+	}
 };
 
 class VKRRenderPass;
