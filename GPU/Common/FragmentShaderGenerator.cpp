@@ -354,7 +354,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "uniform vec4 u_alphacolorref;\n");
 				if (compat.bitwiseOps && ((enableColorTest && !colorTestAgainstZero) || (enableAlphaTest && !alphaTestAgainstZero))) {
 					*uniformMask |= DIRTY_ALPHACOLORMASK;
-					WRITE(p, "uniform ivec4 u_alphacolormask;\n");
+					WRITE(p, "uniform uint u_alphacolormask;\n");
 				}
 			}
 		}
@@ -456,6 +456,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "  highp vec4 f = vec4(u);\n");
 		WRITE(p, "  return f * (1.0 / 255.0);\n");
 		WRITE(p, "}\n");
+	}
+
+	if (compat.bitwiseOps && enableColorTest) {
+		p.C("ivec3 unpackIVec3(highp uint x) {\n");
+		p.C("  return ivec3(x & 0xFF, (x >> 8) & 0xFF, (x >> 16) & 0xFF);\n");
+		p.C("}\n");
 	}
 
 	// PowerVR needs a custom modulo function. For some reason, this has far higher precision than the builtin one.
@@ -873,7 +879,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 					if (compat.bitwiseOps) {
-						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s int(u_alphacolorref.a)) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
+						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & int(u_alphacolormask >> 24)) %s int(u_alphacolorref.a)) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
 					} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 						// Work around bad PVR driver problem where equality check + discard just doesn't work.
 						if (alphaTestFunc != GE_COMP_NOTEQUAL) {
@@ -932,8 +938,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					if (compat.shaderLanguage == HLSL_D3D11) {
 						const char *test = colorTestFuncs[colorTestFunc];
 						WRITE(p, "  uvec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
-						WRITE(p, "  uvec3 v_masked = v_scaled & u_alphacolormask.rgb;\n");
-						WRITE(p, "  uvec3 colorTestRef = u_alphacolorref.rgb & u_alphacolormask.rgb;\n");
+						WRITE(p, "  uvec3 colormask = unpackIVec3(u_alphacolormask);\n");
+						WRITE(p, "  uvec3 v_masked = v_scaled & colormask;\n");
+						WRITE(p, "  uvec3 colorTestRef = u_alphacolorref.rgb & colormask;\n");
 						// We have to test the components separately, or we get incorrect results.  See #10629.
 						WRITE(p, "  if (v_masked.r %s colorTestRef.r && v_masked.g %s colorTestRef.g && v_masked.b %s colorTestRef.b) %s\n", test, test, test, discardStatement);
 					} else if (compat.shaderLanguage == HLSL_D3D9) {
@@ -943,12 +950,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b)) %s\n", test, test, test, discardStatement);
 					} else if (compat.bitwiseOps) {
 						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
+						WRITE(p, "  uvec3 colormask = unpackIVec3(u_alphacolormask);\n");
 						if (compat.shaderLanguage == GLSL_VULKAN) {
 							// Apparently GLES3 does not support vector bitwise ops, but Vulkan does?
-							WRITE(p, "  if ((v_scaled & u_alphacolormask.rgb) %s (u_alphacolorref.rgb & u_alphacolormask.rgb)) %s\n", colorTestFuncs[colorTestFunc], discardStatement);
+							WRITE(p, "  if ((v_scaled & colormask) %s (u_alphacolorref.rgb & colormask)) %s\n", colorTestFuncs[colorTestFunc], discardStatement);
 						} else {
-							const char *maskedFragColor = "ivec3(v_scaled.r & u_alphacolormask.r, v_scaled.g & u_alphacolormask.g, v_scaled.b & u_alphacolormask.b)";
-							const char *maskedColorRef = "ivec3(int(u_alphacolorref.r) & u_alphacolormask.r, int(u_alphacolorref.g) & u_alphacolormask.g, int(u_alphacolorref.b) & u_alphacolormask.b)";
+							const char *maskedFragColor = "ivec3(v_scaled.r & colormask.r, v_scaled.g & colormask.g, v_scaled.b & colormask.b)";
+							const char *maskedColorRef = "ivec3(int(u_alphacolorref.r) & colormask.r, int(u_alphacolorref.g) & colormask.g, int(u_alphacolorref.b) & colormask.b)";
 							WRITE(p, "  if (%s %s %s) %s\n", maskedFragColor, colorTestFuncs[colorTestFunc], maskedColorRef, discardStatement);
 						}
 					} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {

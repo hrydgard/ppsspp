@@ -36,10 +36,10 @@ struct UB_VS_FS_Base {
 	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
 	uint32_t colorWriteMask; float mipBias;
 	// Fragment data
-	float fogColor[4];
-	float texEnvColor[4];  // .w is unused
+	float fogColor[4];     // .w is unused
+	float texEnvColor[3];
+	uint32_t colorTestMask;
 	int alphaColorRef[4];
-	int colorTestMask[4];
 	float blendFixA[4];  // .w is unused
 	float blendFixB[4];  // .w is unused
 	float texClamp[4];
@@ -66,8 +66,8 @@ R"(  mat4 u_proj;
   float u_mipBias;
   vec3 u_fogcolor;
   vec3 u_texenv;
+  uint u_alphacolormask;
   ivec4 u_alphacolorref;
-  ivec4 u_alphacolormask;
   vec3 u_blendFixA;
   vec3 u_blendFixB;
   vec4 u_texclamp;

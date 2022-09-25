@@ -80,7 +80,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		Uint8x3ToInt4_Alpha(ub->alphaColorRef, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORMASK) {
-		Uint8x3ToInt4_Alpha(ub->colorTestMask, gstate.getColorTestMask(), gstate.getAlphaTestMask());
+		ub->colorTestMask = gstate.getColorTestMask() | (gstate.getAlphaTestMask() << 24);
 	}
 	if (dirtyUniforms & DIRTY_FOGCOLOR) {
 		Uint8x3ToFloat4(ub->fogColor, gstate.fogcolor);
