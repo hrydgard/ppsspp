@@ -76,7 +76,4 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 
 bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
 
-// Shared functions with RasterizerRectangle.cpp
-Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &source, const Vec4<int> &dst);
-
 }  // namespace Rasterizer

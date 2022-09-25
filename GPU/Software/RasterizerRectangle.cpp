@@ -32,18 +32,54 @@ extern bool currentDialogActive;
 
 namespace Rasterizer {
 
+// This essentially AlphaBlendingResult() with fixed src.a / 1 - src.a factors and ADD equation.
+// It allows us to skip round trips between 32-bit and 16-bit color values.
+static uint32_t StandardAlphaBlend(uint32_t source, uint32_t dst) {
+#if defined(_M_SSE)
+	const __m128i alpha = _mm_cvtsi32_si128(source >> 24);
+	// Keep the alpha lane of the srcfactor zero, so we keep dest alpha.
+	const __m128i srcfactor = _mm_shufflelo_epi16(alpha, _MM_SHUFFLE(1, 0, 0, 0));
+	const __m128i dstfactor = _mm_sub_epi16(_mm_set1_epi16(255), srcfactor);
+
+	const __m128i z = _mm_setzero_si128();
+	const __m128i sourcevec = _mm_unpacklo_epi8(_mm_cvtsi32_si128(source), z);
+	const __m128i dstvec = _mm_unpacklo_epi8(_mm_cvtsi32_si128(dst), z);
+
+	// We switch to 16 bit to use mulhi, and we use 4 bits of decimal to make the 16 bit shift free.
+	const __m128i half = _mm_set1_epi16(1 << 3);
+
+	const __m128i srgb = _mm_add_epi16(_mm_slli_epi16(sourcevec, 4), half);
+	const __m128i sf = _mm_add_epi16(_mm_slli_epi16(srcfactor, 4), half);
+	const __m128i s = _mm_mulhi_epi16(srgb, sf);
+
+	const __m128i drgb = _mm_add_epi16(_mm_slli_epi16(dstvec, 4), half);
+	const __m128i df = _mm_add_epi16(_mm_slli_epi16(dstfactor, 4), half);
+	const __m128i d = _mm_mulhi_epi16(drgb, df);
+
+	const __m128i blended16 = _mm_adds_epi16(s, d);
+	return _mm_cvtsi128_si32(_mm_packus_epi16(blended16, blended16));
+#else
+	Vec3<int> srcfactor = Vec3<int>::AssignToAll(source >> 24);
+	Vec3<int> dstfactor = Vec3<int>::AssignToAll(255 - (source >> 24));
+
+	static constexpr Vec3<int> half = Vec3<int>::AssignToAll(1);
+	Vec3<int> lhs = ((Vec3<int>::FromRGB(source) * 2 + half) * (srcfactor * 2 + half)) / 1024;
+	Vec3<int> rhs = ((Vec3<int>::FromRGB(dst) * 2 + half) * (dstfactor * 2 + half)) / 1024;
+	Vec3<int> blended = lhs + rhs;
+
+	return clamp_u8(blended.r()) | (clamp_u8(blended.g()) << 8) | (clamp_u8(blended.b()) << 16);
+#endif
+}
+
 // Through mode, with the specific Darkstalker settings.
-inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in, const PixelFuncID &pixelID) {
+inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in) {
 	u32 new_color;
 	// Because of this check, we only support src.a / 1-src.a blending.
 	if ((color_in >> 24) == 255) {
 		new_color = color_in & 0xFFFFFF;
 	} else {
 		const u32 old_color = RGBA5551ToRGBA8888(*pixel);
-		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
-		Vec3<int> blended = AlphaBlendingResult(pixelID, Vec4<int>::FromRGBA(color_in), dst);
-		// ToRGB() always automatically clamps.
-		new_color = blended.ToRGB();
+		new_color = StandardAlphaBlend(color_in, old_color);
 	}
 	new_color |= (*pixel & 0x8000) ? 0xff000000 : 0x00000000;
 	*pixel = RGBA8888ToRGBA5551(new_color);
@@ -182,7 +218,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 					for (int x = pos0.x; x < pos1.x; x++) {
 						u32 tex_color = Vec4<int>(fetchFunc(s, t, texptr, texbufw, 0, state.samplerID)).ToRGBA();
 						if (tex_color & 0xFF000000) {
-							DrawSinglePixel5551(pixel, tex_color, pixelID);
+							DrawSinglePixel5551(pixel, tex_color);
 						}
 						s += ds;
 						pixel++;
@@ -200,7 +236,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 						Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0, state.samplerID);
 						prim_color = Vec4<int>(ModulateRGBA(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color), state.samplerID));
 						if (prim_color.a() > 0) {
-							DrawSinglePixel5551(pixel, prim_color.ToRGBA(), pixelID);
+							DrawSinglePixel5551(pixel, prim_color.ToRGBA());
 						}
 						s += ds;
 						pixel++;
@@ -258,7 +294,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			for (int y = pos0.y; y < pos1.y; y++) {
 				u16 *pixel = fb.Get16Ptr(pos0.x, y, pixelID.cached.framebufStride);
 				for (int x = pos0.x; x < pos1.x; x++) {
-					DrawSinglePixel5551(pixel, v1.color0, pixelID);
+					DrawSinglePixel5551(pixel, v1.color0);
 					pixel++;
 				}
 			}
