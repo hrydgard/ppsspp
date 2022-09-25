@@ -185,9 +185,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
-	bool lightUberShader = id.Bit(VS_BIT_LIGHT_UBERSHADER);
-	if (lightUberShader) {
-		_dbg_assert_(compat.bitwiseOps);
+	bool lightUberShader = id.Bit(VS_BIT_LIGHT_UBERSHADER) && enableLighting;  // checking lighting here for the shader test's benefit, in reality if ubershader is set, lighting is set.
+	if (lightUberShader && !compat.bitwiseOps) {
+		*errorString = "Light ubershader requires bitwise ops in shader language";
+		return false;
 	}
 
 	// Apparently we don't support bezier/spline together with bones.
@@ -1022,10 +1023,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		if (lightUberShader) {
 			// TODO: Actually loop in the shader. For now, we write it all out.
+			// u_lightControl is computed in PackLightControlBits().
 			for (int i = 0; i < 4; i++) {
 				p.F("  if ((u_lightControl & %du) != 0u) { \n", 1 << i);
-				p.F("    uint type = (u_lightControl >> %d) & 3u;\n", 4 + 4 * i);
-				p.F("    uint comp = (u_lightControl >> %d) & 3u;\n", 4 + 4 * i + 2);
+				p.F("    uint comp = (u_lightControl >> %d) & 3u;\n", 4 + 4 * i);
+				p.F("    uint type = (u_lightControl >> %d) & 3u;\n", 4 + 4 * i + 2);
 				p.C("    if (type == 0u) {\n");  // GE_LIGHTTYPE_DIRECTIONAL
 				p.F("      toLight = u_lightpos%d;\n", i);
 				p.C("    } else {\n");
