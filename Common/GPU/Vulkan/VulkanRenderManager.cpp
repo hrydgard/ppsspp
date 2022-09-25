@@ -157,8 +157,6 @@ VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRe
 	if (createDepthStencilBuffer) {
 		CreateImage(vulkan_, initCmd, depth, width, height, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 		vulkan_->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_depth_%s", tag).c_str());
-	} else {
-		NOTICE_LOG(G3D, "creating target without depth: %dx%d", _width, _height);
 	}
 
 	// We create the actual framebuffer objects on demand, because some combinations might not make sense.
