@@ -43,15 +43,15 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 
 class VKRFramebuffer {
 public:
-	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, const char *tag);
+	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, bool createDepthStencilBuffer, const char *tag);
 	~VKRFramebuffer();
 
 	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
 
 	int width = 0;
 	int height = 0;
-	VKRImage color{};
-	VKRImage depth{};
+	VKRImage color{};  // color.image is always there.
+	VKRImage depth{};  // depth.image is allowed to be VK_NULL_HANDLE.
 
 	const char *Tag() const {
 		return tag_.c_str();
