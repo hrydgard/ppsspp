@@ -267,6 +267,24 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 }
 
+uint32_t PackLightControlBits() {
+	// Bit organization
+	// Bottom 4 bits are enable bits for each light.
+	// Then, for each light, comes 2 bits for "comp" and 2 bits for "type".
+	uint32_t lightControl = 0;
+	for (int i = 0; i < 4; i++) {
+		if (gstate.isLightChanEnabled(i)) {
+			lightControl |= 1 << i;
+		}
+
+		u32 computation = (u32)gstate.getLightComputation(i);  // 2 bits
+		u32 type = (u32)gstate.getLightType(i);  // 2 bits
+		lightControl |= computation << (4 + i * 4);
+		lightControl |= type << (4 + i * 4 + 2);
+	}
+	return lightControl;
+}
+
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 	// Lighting
 	if (dirtyUniforms & DIRTY_AMBIENT) {
@@ -284,25 +302,9 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 		Uint8x3ToFloat4(temp, gstate.materialemissive);
 		memcpy(ub->materialEmissive, temp, 12);
 	}
-
 	if (dirtyUniforms & DIRTY_LIGHT_CONTROL) {
-		// Bit organization
-		// Bottom 4 bits are enable bits for each light.
-		// Then, for each light, comes 2 bits for "comp" and 2 bits for "type".
-		uint32_t lightControl = 0;
-		for (int i = 0; i < 4; i++) {
-			if (gstate.isLightChanEnabled(i)) {
-				lightControl |= 1 << i;
-			}
-
-			u32 computation = (u32)gstate.getLightComputation(i);  // 2 bits
-			u32 type = (u32)gstate.getLightType(i);  // 2 bits
-			lightControl |= computation << (4 + i * 4);
-			lightControl |= type << (4 + i * 4 + 2);
-		}
-		ub->lightControl = lightControl;
+		ub->lightControl = PackLightControlBits();
 	}
-
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
 			if (gstate.isDirectionalLight(i)) {
