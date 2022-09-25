@@ -1137,6 +1137,10 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 
 VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBit, int attachment) {
 	_dbg_assert_(curRenderStep_ != nullptr);
+
+	// We don't support texturing from stencil, neither do we support texturing from depth|stencil together (nonsensical).
+	_dbg_assert_(aspectBit == VK_IMAGE_ASPECT_COLOR_BIT || aspectBit == VK_IMAGE_ASPECT_DEPTH_BIT);
+
 	// Mark the dependency, check for required transitions, and return the image.
 
 	// Optimization: If possible, use final*Layout to put the texture into the correct layout "early".
@@ -1163,15 +1167,10 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 	// Track dependencies fully.
 	curRenderStep_->dependencies.insert(fb);
 
-	if (!curRenderStep_->preTransitions.empty() &&
-		curRenderStep_->preTransitions.back().fb == fb &&
-		curRenderStep_->preTransitions.back().targetLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-		// We're done.
-		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.imageView : fb->depth.depthSampleView;
-	} else {
-		curRenderStep_->preTransitions.push_back({ fb, aspectBit, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
-		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.imageView : fb->depth.depthSampleView;
-	}
+	// Add this pretransition unless we already have it.
+	TransitionRequest rq{ fb, aspectBit, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+	curRenderStep_->preTransitions.insert(rq);  // Note that insert avoids inserting duplicates.
+	return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.imageView : fb->depth.depthSampleView;
 }
 
 // Called on main thread.
