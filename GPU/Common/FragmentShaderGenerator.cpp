@@ -459,8 +459,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	if (compat.bitwiseOps && enableColorTest) {
-		p.C("ivec3 unpackIVec3(highp uint x) {\n");
-		p.C("  return ivec3(x & 0xFF, (x >> 8) & 0xFF, (x >> 16) & 0xFF);\n");
+		p.C("uvec3 unpackUVec3(highp uint x) {\n");
+		p.C("  return uvec3(x & 0xFF, (x >> 8) & 0xFF, (x >> 16) & 0xFF);\n");
 		p.C("}\n");
 	}
 
@@ -938,7 +938,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					if (compat.shaderLanguage == HLSL_D3D11) {
 						const char *test = colorTestFuncs[colorTestFunc];
 						WRITE(p, "  uvec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
-						WRITE(p, "  uvec3 colormask = unpackIVec3(u_alphacolormask);\n");
+						WRITE(p, "  uvec3 colormask = unpackUVec3(u_alphacolormask);\n");
 						WRITE(p, "  uvec3 v_masked = v_scaled & colormask;\n");
 						WRITE(p, "  uvec3 colorTestRef = u_alphacolorref.rgb & colormask;\n");
 						// We have to test the components separately, or we get incorrect results.  See #10629.
