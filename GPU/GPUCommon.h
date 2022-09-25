@@ -314,6 +314,14 @@ protected:
 	struct CommandInfo {
 		uint64_t flags;
 		GPUCommon::CmdFunc func;
+
+		// Dirty flags are mashed into the regular flags by a left shift of 8.
+		void AddDirty(u64 dirty) {
+			flags |= dirty << 8;
+		}
+		void RemoveDirty(u64 dirty) {
+			flags &= ~(dirty << 8);
+		}
 	};
 
 	static CommandInfo cmdInfo_[256];

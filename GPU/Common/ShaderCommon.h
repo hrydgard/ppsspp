@@ -88,12 +88,13 @@ enum : uint64_t {
 	DIRTY_COLORWRITEMASK = 1ULL << 36,
 
 	DIRTY_MIPBIAS = 1ULL << 37,
+	DIRTY_LIGHT_CONTROL = 1ULL << 38,
 
-	// space for 4 more uniform dirty flags. Remember to update DIRTY_ALL_UNIFORMS.
+	// space for 1 more uniform dirty flags. Remember to update DIRTY_ALL_UNIFORMS.
 
 	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
 
-	DIRTY_ALL_UNIFORMS = 0x3FFFFFFFFFULL,
+	DIRTY_ALL_UNIFORMS = 0x7FFFFFFFFFULL,
 	DIRTY_ALL_LIGHTS = DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3,
 
 	// Other dirty elements that aren't uniforms!
@@ -112,6 +113,8 @@ enum : uint64_t {
 	// Everything that's not uniforms. Use this after using thin3d.
 	// TODO: Should we also add DIRTY_FRAMEBUF here? It kinda generally takes care of itself.
 	DIRTY_ALL_RENDER_STATE = DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS,
+
+	// Note that the top 8 bits (54-63) cannot be dirtied through the commonCommandTable due to packing of other flags.
 
 	DIRTY_ALL = 0xFFFFFFFFFFFFFFFF
 };
