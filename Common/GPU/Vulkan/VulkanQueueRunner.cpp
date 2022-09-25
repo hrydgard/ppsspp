@@ -10,16 +10,6 @@ using namespace PPSSPP_VK;
 
 // Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP NativeGLView NativeRenderer NativeSurfaceView PowerSaveModeReceiver InputDeviceState
 
-static bool RenderPassTypeHasDepth(RenderPassType rpType) {
-	switch (rpType) {
-	case RP_TYPE_BACKBUFFER:
-	case RP_TYPE_COLOR_DEPTH:
-	case RP_TYPE_COLOR_DEPTH_INPUT:
-		return true;
-	}
-	return false;
-}
-
 static void MergeRenderAreaRectInto(VkRect2D *dest, VkRect2D &src) {
 	if (dest->offset.x > src.offset.x) {
 		dest->extent.width += (dest->offset.x - src.offset.x);
