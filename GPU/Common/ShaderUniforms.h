@@ -80,7 +80,8 @@ struct UB_VS_Lights {
 	float ambientColor[4];
 	float materialDiffuse[4];
 	float materialSpecular[4];
-	float materialEmissive[4];
+	float materialEmissive[3];
+	uint32_t lightControl;
 	float lpos[4][4];
 	float ldir[4][4];
 	float latt[4][4];
@@ -95,6 +96,7 @@ R"(	vec4 u_ambient;
 	vec3 u_matdiffuse;
 	vec4 u_matspecular;
 	vec3 u_matemissive;
+    uint u_lightControl;  // light ubershader
 	vec3 u_lightpos0;
 	vec3 u_lightpos1;
 	vec3 u_lightpos2;

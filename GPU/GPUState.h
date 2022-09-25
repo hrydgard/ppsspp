@@ -469,7 +469,8 @@ struct UVScale {
 // Might want to move this mechanism into the backend later.
 enum {
 	GPU_SUPPORTS_DUALSOURCE_BLEND = FLAG_BIT(0),
-	// Free bits: 1-2
+	GPU_USE_LIGHT_UBERSHADER = FLAG_BIT(1),
+	// Free bit: 2
 	GPU_SUPPORTS_VS_RANGE_CULLING = FLAG_BIT(3),
 	GPU_SUPPORTS_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_SUPPORTS_LOGIC_OP = FLAG_BIT(5),
