@@ -23,6 +23,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/D3D9/D3D9StateCache.h"
+#include "Common/OSVersion.h"
 #include "Common/StringUtils.h"
 
 #include "Common/Log.h"
@@ -782,8 +783,9 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 
 		// To be safe, make sure both the display format and the FBO format support INTZ.
 		HRESULT displayINTZ = d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, displayMode.Format, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, FOURCC_INTZ);
-		HRESULT fboINTZ = d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, D3DFMT_A8R8G8B8, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, FOURCC_INTZ);
-		supportsINTZ = SUCCEEDED(displayINTZ) && SUCCEEDED(fboINTZ);
+		HRESULT displayINTY = d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, displayMode.Format, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, ((D3DFORMAT)(MAKEFOURCC('I', 'N', 'T', 'Y'))));
+		// Try to prevent INTZ on older Intel drivers that claim support.
+		supportsINTZ = SUCCEEDED(displayINTZ) && !SUCCEEDED(displayINTY) && IsWin7OrHigher();
 	}
 	caps_.textureDepthSupported = supportsINTZ;
 
