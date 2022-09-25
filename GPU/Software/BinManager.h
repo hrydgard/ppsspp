@@ -132,6 +132,10 @@ struct BinQueue {
 		return size_ == N - 1;
 	}
 
+	bool NearFull() const {
+		return size_ >= N - 2;
+	}
+
 	bool Empty() const {
 		return size_ == 0;
 	}
@@ -195,7 +199,7 @@ public:
 	void AddLine(const VertexData &v0, const VertexData &v1);
 	void AddPoint(const VertexData &v0);
 
-	void Drain();
+	void Drain(bool flushing = false);
 	void Flush(const char *reason);
 	bool HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, uint32_t h);
 	// Assumes you've also checked for a write (writes are partial so are automatically reads.)
@@ -228,8 +232,8 @@ protected:
 	static constexpr int QUEUED_STATES = 4096;
 	// These are 1KB each, so half an MB.
 	static constexpr int QUEUED_CLUTS = 512;
-	// About 320 KB, but we have usually 16 or less of them, so 5 MB - 20 MB.
-	static constexpr int QUEUED_PRIMS = 1024;
+	// About 360 KB, but we have usually 16 or less of them, so 5 MB - 22 MB.
+	static constexpr int QUEUED_PRIMS = 2048;
 
 	typedef BinQueue<Rasterizer::RasterizerState, QUEUED_STATES> BinStateQueue;
 	typedef BinQueue<BinClut, QUEUED_CLUTS> BinClutQueue;
