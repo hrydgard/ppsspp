@@ -49,6 +49,47 @@ inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in, const PixelFuncI
 	*pixel = RGBA8888ToRGBA5551(new_color);
 }
 
+// Check if we can safely ignore the alpha test, assuming standard alpha blending.
+static inline bool AlphaTestIsNeedless(const PixelFuncID &pixelID) {
+	switch (pixelID.AlphaTestFunc()) {
+	case GE_COMP_NEVER:
+	case GE_COMP_EQUAL:
+	case GE_COMP_LESS:
+	case GE_COMP_LEQUAL:
+		return false;
+
+	case GE_COMP_ALWAYS:
+		return true;
+
+	case GE_COMP_NOTEQUAL:
+	case GE_COMP_GREATER:
+	case GE_COMP_GEQUAL:
+		if (pixelID.alphaTestRef != 0 || pixelID.hasAlphaTestMask)
+			return false;
+		return true;
+	}
+
+	return false;
+}
+
+bool UseDrawSinglePixel5551(const PixelFuncID &pixelID) {
+	if (pixelID.clearMode || pixelID.colorTest || pixelID.stencilTest)
+		return false;
+	if (!AlphaTestIsNeedless(pixelID) || pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
+		return false;
+	if (pixelID.FBFormat() != GE_FORMAT_5551 || !pixelID.alphaBlend)
+		return false;
+	// We skip blending when alpha = FF, so we can't allow other blend modes.
+	if (pixelID.AlphaBlendEq() != GE_BLENDMODE_MUL_AND_ADD || pixelID.AlphaBlendSrc() != PixelBlendFactor::SRCALPHA)
+		return false;
+	if (pixelID.AlphaBlendDst() != PixelBlendFactor::INVSRCALPHA)
+		return false;
+	if (pixelID.dithering || pixelID.applyLogicOp || pixelID.applyColorWriteMask)
+		return false;
+
+	return true;
+}
+
 static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4IntArg texcolor_in, const SamplerID &samplerID) {
 	Vec4<int> out;
 	Vec4<int> prim_color = prim_in;
@@ -77,29 +118,6 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 #endif
 
 	return ToVec4IntResult(out);
-}
-
-// Check if we can safely ignore the alpha test, assuming standard alpha blending.
-static inline bool AlphaTestIsNeedless(const PixelFuncID &pixelID) {
-	switch (pixelID.AlphaTestFunc()) {
-	case GE_COMP_NEVER:
-	case GE_COMP_EQUAL:
-	case GE_COMP_LESS:
-	case GE_COMP_LEQUAL:
-		return false;
-
-	case GE_COMP_ALWAYS:
-		return true;
-
-	case GE_COMP_NOTEQUAL:
-	case GE_COMP_GREATER:
-	case GE_COMP_GEQUAL:
-		if (pixelID.alphaTestRef != 0 || pixelID.hasAlphaTestMask)
-			return false;
-		return true;
-	}
-
-	return false;
 }
 
 void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
@@ -155,20 +173,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			pos0.y = scissorTL.y;
 		}
 
-		if (!pixelID.stencilTest &&
-			pixelID.DepthTestFunc() == GE_COMP_ALWAYS &&
-			!pixelID.applyLogicOp &&
-			!pixelID.colorTest &&
-			!pixelID.dithering &&
-			pixelID.alphaBlend &&
-			pixelID.AlphaBlendEq() == GE_BLENDMODE_MUL_AND_ADD &&
-			pixelID.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA &&
-			pixelID.AlphaBlendDst() == PixelBlendFactor::INVSRCALPHA &&
-			AlphaTestIsNeedless(pixelID) &&
-			samplerID.useTextureAlpha &&
-			samplerID.TexFunc() == GE_TEXFUNC_MODULATE &&
-			!pixelID.applyColorWriteMask &&
-			pixelID.FBFormat() == GE_FORMAT_5551) {
+		if (UseDrawSinglePixel5551(pixelID) && samplerID.TexFunc() == GE_TEXFUNC_MODULATE && samplerID.useTextureAlpha) {
 			if (isWhite) {
 				int t = t_start;
 				for (int y = pos0.y; y < pos1.y; y++) {
@@ -246,18 +251,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 		if (pos1.y > scissorBR.y) pos1.y = scissorBR.y + 1;
 		if (pos0.x < scissorTL.x) pos0.x = scissorTL.x;
 		if (pos0.y < scissorTL.y) pos0.y = scissorTL.y;
-		if (!pixelID.stencilTest &&
-			pixelID.DepthTestFunc() == GE_COMP_ALWAYS &&
-			!pixelID.applyLogicOp &&
-			!pixelID.colorTest &&
-			!pixelID.dithering &&
-			pixelID.alphaBlend &&
-			pixelID.AlphaBlendEq() == GE_BLENDMODE_MUL_AND_ADD &&
-			pixelID.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA &&
-			pixelID.AlphaBlendDst() == PixelBlendFactor::INVSRCALPHA &&
-			AlphaTestIsNeedless(pixelID) &&
-			!pixelID.applyColorWriteMask &&
-			pixelID.FBFormat() == GE_FORMAT_5551) {
+		if (UseDrawSinglePixel5551(pixelID)) {
 			if (Vec4<int>::FromRGBA(v1.color0).a() == 0)
 				return;
 
