@@ -826,25 +826,20 @@ static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 	return hleLogSuccessX(SCEKERNEL, dest);
 }
 
-static u32 sysclib_strtol(u32 t, u32 endStringtemp, int base) {
-	ERROR_LOG(SCEKERNEL, "Unimp sysclib_strtol(%08x, %08x, %i)", t ,endStringtemp, base);
-	// base == 0 seems to be handled as base == 10.
-	if (base == 0){
-		base = 10;
-	}
-	std::string str = Memory::GetCharPointer(t);
-	std::string endString = Memory::GetCharPointer(endStringtemp);
-
-	// Skip any leading "0x" in case of base 16
-	if (base == 16 && (str.rfind("0x", 0) == 0 || str.rfind("0X", 0) == 0)) {
-		str = str.substr(2);
-	}	
-	return 0;
+static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {	
+	const char* str;
+	str = Memory::GetCharPointer(strPtr);	
+	char* end = nullptr;
+	int result = strtol(str, &end, base);
+	ERROR_LOG(SCEKERNEL, "Untest %d = sysclib_strtol(%c, %08x, %i)",result, str, endPtrPtr, base);
+	if (Memory::IsValidRange(endPtrPtr, 4))
+		Memory::WriteUnchecked_U32(strPtr + (end - str), endPtrPtr);
+	return result;
 }
 
 static u32 sysclib_strchr(u32 src, int c) {
 	const std::string str = Memory::GetCharPointer(src);
-	ERROR_LOG(SCEKERNEL, "Untest sysclib_strchr(%c, %i)", str,c);
+	ERROR_LOG(SCEKERNEL, "Untest sysclib_strchr(%c, %i)", str.c_str(),c);
 	int index = str.find(str,c);
 	if (index < 0) {
 		return 0;
@@ -854,7 +849,7 @@ static u32 sysclib_strchr(u32 src, int c) {
 
 static u32 sysclib_strrchr(u32 src, int c) {
 	const std::string str = Memory::GetCharPointer(src);
-	ERROR_LOG(SCEKERNEL, "Untest sysclib_strchr(%c, %i)", str, c);
+	ERROR_LOG(SCEKERNEL, "Untest sysclib_strchr(%c, %i)", str.c_str(), c);
 	int index = str.rfind(str, c);
 	if (index < 0) {
 		return 0;
@@ -862,23 +857,9 @@ static u32 sysclib_strrchr(u32 src, int c) {
 	return src + index;
 }
 
-const u8 look_ctype_table[128] = { 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x08, 0x08, 0x08, 0x08, 0x08, 0x20, 0x20,
-		0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-		0x18, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
-		0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
-		0x10, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-		0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10, 0x10, 0x10, 0x10, 0x10,
-		0x10, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
-		0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x10, 0x10, 0x10, 0x10, 0x20
-};
-
 static u32 sysclib_toupper(u32 c) {
 	ERROR_LOG(SCEKERNEL, "Untest sysclib_toupper(%i)",c);
-	int ctype = look_ctype_table[c & 0xFF];
-	if ((ctype & 0x02) != 0) {
-		c -= 0x20;
-	}
-
+	int ctype = toupper(c);
 	return c;
 }
 
