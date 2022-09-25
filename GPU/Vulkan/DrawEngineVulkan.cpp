@@ -91,6 +91,8 @@ DrawEngineVulkan::DrawEngineVulkan(Draw::DrawContext *draw)
 	indexGen.Setup(decIndex);
 
 	InitDeviceObjects();
+
+	INFO_LOG(G3D, "sizeof(UB_VS_FS_Base) = %d", (int)sizeof(UB_VS_FS_Base));
 }
 
 void DrawEngineVulkan::InitDeviceObjects() {

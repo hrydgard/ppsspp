@@ -20,7 +20,8 @@ enum : uint64_t {
 // TODO: Split into two structs, one for software transform and one for hardware transform, to save space.
 // Currently 512 bytes. Probably can't get to 256 (nVidia's UBO alignment).
 // Every line here is a 4-float.
-struct UB_VS_FS_Base {
+
+struct alignas(16) UB_VS_FS_Base {
 	float proj[16];
 	float proj_through[16];
 	float view[12];
@@ -29,7 +30,6 @@ struct UB_VS_FS_Base {
 	float uvScaleOffset[4];
 	float depthRange[4];
 	// Rotation is used only for software transform.
-	float fogCoef[2]; float stencil; float rotation;
 	float matAmbient[4];
 	float cullRangeMin[4];
 	float cullRangeMax[4];
@@ -40,10 +40,11 @@ struct UB_VS_FS_Base {
 	float texEnvColor[3];
 	uint32_t colorTestMask;
 	int alphaColorRef[4];
-	float blendFixA[4];  // .w is unused
-	float blendFixB[4];  // .w is unused
+	float blendFixA[3]; float stencil;
+	float blendFixB[3]; float rotation;
 	float texClamp[4];
-	float texClampOffset[4];  // .zw are unused
+	float texClampOffset[2];  // .zw are unused
+	float fogCoef[2];
 };
 
 static const char * const ub_baseStr =
@@ -54,9 +55,6 @@ R"(  mat4 u_proj;
   mat3x4 u_texmtx;
   vec4 u_uvscaleoffset;
   vec4 u_depthRange;
-  vec2 u_fogcoef;
-  float u_stencilReplaceValue;
-  float u_rotation;
   vec4 u_matambientalpha;
   vec4 u_cullRangeMin;
   vec4 u_cullRangeMax;
@@ -68,15 +66,16 @@ R"(  mat4 u_proj;
   vec3 u_texenv;
   uint u_alphacolormask;
   ivec4 u_alphacolorref;
-  vec3 u_blendFixA;
-  vec3 u_blendFixB;
+  vec3 u_blendFixA; float u_stencilReplaceValue;
+  vec3 u_blendFixB; float u_rotation;
   vec4 u_texclamp;
   vec2 u_texclampoff;
+  vec2 u_fogcoef;
 )";
 
 // 512 bytes. Would like to shrink more. Some colors only have 8-bit precision and we expand
 // them to float unnecessarily, could just as well expand in the shader.
-struct UB_VS_Lights {
+struct alignas(16) UB_VS_Lights {
 	float ambientColor[4];
 	float materialDiffuse[4];
 	float materialSpecular[4];
@@ -129,7 +128,7 @@ R"(	vec4 u_ambient;
 
 // With some cleverness, we could get away with uploading just half this when only the four or five first
 // bones are being used. This is 384b.
-struct UB_VS_Bones {
+struct alignas(16) UB_VS_Bones {
 	float bones[8][12];
 };
 
