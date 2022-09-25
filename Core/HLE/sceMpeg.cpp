@@ -36,6 +36,8 @@
 #include "GPU/GPUState.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/Core.h"
+#include "Core/System.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 
 // MPEG AVC elementary stream.
 static const int MPEG_AVC_ES_SIZE = 2048;          // MPEG packet size.
@@ -1361,8 +1363,15 @@ static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initA
 	// Flush structs back to memory
 	avcAu.write(auAddr);
 
-	// Save the current frame's status to initAddr 
-	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
+	// Save the current frame's status to initAddr
+	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo("disc0:\\PSP_GAME\\USRDIR\\module\\mpeg.prx");
+	if (fileInfo.exists) {
+		Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
+	}
+	else {
+	// Sunday Vs Magazine Shuuketsu! Choujou Daikessen expcect, issue #11060
+		Memory::Write_U32(1, initAddr);
+	}
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
 	DEBUG_LOG(ME, "sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x)", mpeg, auAddr, bufferAddr, initAddr);
