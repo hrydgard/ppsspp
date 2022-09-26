@@ -465,6 +465,14 @@ void GPUCommon::UpdateCmdInfo() {
 			cmdInfo_[GE_CMD_LIGHTTYPE0 + i].AddDirty(DIRTY_VERTEXSHADER_STATE);
 		}
 	}
+
+	if (gstate_c.Supports(GPU_USE_LIGHT_UBERSHADER)) {
+		cmdInfo_[GE_CMD_MATERIALUPDATE].RemoveDirty(DIRTY_VERTEXSHADER_STATE);
+		cmdInfo_[GE_CMD_MATERIALUPDATE].AddDirty(DIRTY_LIGHT_CONTROL);
+	} else {
+		cmdInfo_[GE_CMD_MATERIALUPDATE].RemoveDirty(DIRTY_LIGHT_CONTROL);
+		cmdInfo_[GE_CMD_MATERIALUPDATE].AddDirty(DIRTY_VERTEXSHADER_STATE);
+	}
 }
 
 void GPUCommon::BeginHostFrame() {

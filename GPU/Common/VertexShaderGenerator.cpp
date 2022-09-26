@@ -552,7 +552,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (enableLighting) {
 				WRITE(p, "uniform lowp vec4 u_ambient;\n");
 				*uniformMask |= DIRTY_AMBIENT;
-				if ((matUpdate & 2) == 0 || !hasColor) {
+				if (lightUberShader || (matUpdate & 2) == 0 || !hasColor) {
 					WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
 					*uniformMask |= DIRTY_MATDIFFUSE;
 				}
@@ -952,13 +952,22 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		const char *srcCol = "color0";
 		if (doBezier || doSpline) {
 			// TODO: Probably, should use hasColorTess but FF4 has a problem with drawing the background.
-			srcCol = "tess";
+			srcCol = "tess.col";
 		}
 
-		p.F("  vec4 ambientColor = %s;\n", (matUpdate & 1) && hasColor ? srcCol : "u_matambientalpha");
-		if (enableLighting) {
-			p.F("  vec3 diffuseColor = %s.rgb;\n", (matUpdate & 2) && hasColor ? srcCol : "u_matdiffuse");
-			p.F("  vec3 specularColor = %s.rgb;\n", (matUpdate & 4) && hasColor ? srcCol : "u_matspecular");
+		if (lightUberShader && hasColor) {
+			p.F("  vec4 ambientColor = ((u_lightControl & (1u << 20u)) != 0u) ? %s : u_matambientalpha;\n", srcCol);
+			if (enableLighting) {
+				p.F("  vec3 diffuseColor = ((u_lightControl & (1u << 21u)) != 0u) ? %s.rgb : u_matdiffuse;\n", srcCol);
+				p.F("  vec3 specularColor = ((u_lightControl & (1u << 22u)) != 0u) ? %s.rgb : u_matspecular.rgb;\n", srcCol);
+			}
+		} else {
+			// This path also takes care of the lightUberShader && !hasColor path, because all comparisons fail.
+			p.F("  vec4 ambientColor = %s;\n", (matUpdate & 1) && hasColor ? srcCol : "u_matambientalpha");
+			if (enableLighting) {
+				p.F("  vec3 diffuseColor = %s.rgb;\n", (matUpdate & 2) && hasColor ? srcCol : "u_matdiffuse");
+				p.F("  vec3 specularColor = %s.rgb;\n", (matUpdate & 4) && hasColor ? srcCol : "u_matspecular");
+			}
 		}
 
 		bool diffuseIsZero = true;

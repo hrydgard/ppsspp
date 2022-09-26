@@ -123,11 +123,11 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 
 		if (gstate.isLightingEnabled()) {
 			// doShadeMapping is stored as UVGenMode, and light type doesn't matter for shade mapping.
-			id.SetBits(VS_BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate());
 			id.SetBit(VS_BIT_LIGHTING_ENABLE);
 			if (gstate_c.Supports(GPU_USE_LIGHT_UBERSHADER)) {
 				id.SetBit(VS_BIT_LIGHT_UBERSHADER);
 			} else {
+				id.SetBits(VS_BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate());
 				// Light bits
 				for (int i = 0; i < 4; i++) {
 					bool chanEnabled = gstate.isLightChanEnabled(i) != 0;
