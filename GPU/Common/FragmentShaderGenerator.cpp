@@ -184,6 +184,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		if (enableColorTest && !colorTestAgainstZero) {
 			WRITE(p, "uint roundAndScaleTo8x4(in highp vec3 x) { uvec3 u = uvec3(floor(x * 255.0 + 0.5)); return u.r | (u.g << 8) | (u.b << 16); }\n");
+			WRITE(p, "uint packFloatsTo8x4(in vec3 x) { uvec3 u = uvec3(x); return u.r | (u.g << 8) | (u.b << 16); }\n");
 		}
 
 		WRITE(p, "layout (location = 0, index = 0) out vec4 fragColor0;\n");
@@ -263,6 +264,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (enableColorTest) {
 			if (compat.shaderLanguage == HLSL_D3D11) {
 				WRITE(p, "uint roundAndScaleTo8x4(float3 x) { uvec3 u = (floor(x * 255.0f + 0.5f)); return u.r | (u.g << 8) | (u.b << 16); }\n");
+				WRITE(p, "uint packFloatsTo8x4(in vec3 x) { uvec3 u = uvec3(x); return u.r | (u.g << 8) | (u.b << 16); }\n");
 			} else {
 				WRITE(p, "vec3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
 			}
@@ -408,7 +410,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			if (enableColorTest && !colorTestAgainstZero) {
 				if (compat.bitwiseOps) {
-					WRITE(p, "uint roundAndScaleTo8x4(in vec3 x) { uvec3 u = uvec3(floor(x * 255.0 + 0.5)); return u.r | (u.g << 8) | (u.b << 16); }\n");
+					WRITE(p, "uint roundAndScaleTo8x4(in vec3 x) { uvec3 u = uvec3(floor(x * 255.99)); return u.r | (u.g << 8) | (u.b << 16); }\n");
+					WRITE(p, "uint packFloatsTo8x4(in vec3 x) { uvec3 u = uvec3(x); return u.r | (u.g << 8) | (u.b << 16); }\n");
 				} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 					WRITE(p, "vec3 roundTo255thv(in vec3 x) { vec3 y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 				} else {
@@ -943,7 +946,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					} else if (compat.bitwiseOps) {
 						WRITE(p, "  uint v_uint = roundAndScaleTo8x4(v.rgb);\n");
 						WRITE(p, "  uint v_masked = v_uint & u_alphacolormask;\n");
-						WRITE(p, "  uint colorTestRef = roundAndScaleTo8x4(u_alphacolorref.rgb) & u_alphacolormask;\n");
+						WRITE(p, "  uint colorTestRef = packFloatsTo8x4(u_alphacolorref.rgb) & u_alphacolormask;\n");
 						WRITE(p, "  if (v_masked %s colorTestRef) %s\n", test, discardStatement);
 					} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 						WRITE(p, "  if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) %s\n", test, discardStatement);
