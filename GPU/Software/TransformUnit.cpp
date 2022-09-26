@@ -317,24 +317,31 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 
 VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState &state) {
 	PROFILE_THIS_SCOPE("read_vert");
+	// If we ever thread this, we'll have to change this.
 	VertexData vertex;
 
 	ModelCoords pos;
 	// VertexDecoder normally scales z, but we want it unscaled.
 	vreader.ReadPosThroughZ16(pos.AsArray());
 
+	static Vec2f lastTC;
 	if (state.readUV) {
 		vreader.ReadUV(vertex.texturecoords.AsArray());
+		lastTC = vertex.texturecoords;
 	} else {
-		vertex.texturecoords.SetZero();
+		vertex.texturecoords = lastTC;
 	}
 
-	Vec3<float> normal;
+	Vec3f normal;
+	static Vec3f lastnormal;
 	if (vreader.hasNormal()) {
 		vreader.ReadNrm(normal.AsArray());
+		lastnormal = normal;
 
 		if (state.negateNormals)
 			normal = -normal;
+	} else {
+		normal = lastnormal;
 	}
 
 	if (state.readWeights) {
