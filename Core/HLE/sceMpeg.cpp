@@ -125,7 +125,7 @@ struct SceMpegLLI
 };
 
 void SceMpegAu::read(u32 addr) {
-	Memory::Memcpy(this, addr, sizeof(this), "SceMpegAu");
+	Memory::Memcpy(this, addr, sizeof(*this), "SceMpegAu");
 	pts = (pts & 0xFFFFFFFFULL) << 32 | (((u64)pts) >> 32);
 	dts = (dts & 0xFFFFFFFFULL) << 32 | (((u64)dts) >> 32);
 }
@@ -133,7 +133,7 @@ void SceMpegAu::read(u32 addr) {
 void SceMpegAu::write(u32 addr) {
 	pts = (pts & 0xFFFFFFFFULL) << 32 | (((u64)pts) >> 32);
 	dts = (dts & 0xFFFFFFFFULL) << 32 | (((u64)dts) >> 32);
-	Memory::Memcpy(addr, this, sizeof(this), "SceMpegAu");
+	Memory::Memcpy(addr, this, sizeof(*this), "SceMpegAu");
 }
 
 /*
