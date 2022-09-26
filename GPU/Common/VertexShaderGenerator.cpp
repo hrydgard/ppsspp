@@ -177,7 +177,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool hasColor = id.Bit(VS_BIT_HAS_COLOR) || !useHWTransform;
 	bool hasNormal = id.Bit(VS_BIT_HAS_NORMAL) && useHWTransform;
 	bool hasTexcoord = id.Bit(VS_BIT_HAS_TEXCOORD) || !useHWTransform;
-	bool enableFog = id.Bit(VS_BIT_ENABLE_FOG);
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
@@ -258,7 +257,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		if (useHWTransform && hasNormal)
 			WRITE(p, "layout (location = %d) in vec3 normal;\n", (int)PspAttributeLocation::NORMAL);
-		if (!useHWTransform && enableFog)
+		if (!useHWTransform)
 			WRITE(p, "layout (location = %d) in float fog;\n", (int)PspAttributeLocation::NORMAL);
 
 		if (doTexture && hasTexcoord) {
@@ -283,11 +282,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "layout (location = 0) out highp vec3 v_texcoord;\n");
 		}
 
-		if (enableFog) {
-			// See the fragment shader generator
-			WRITE(p, "layout (location = 3) out highp float v_fogdepth;\n");
-		}
-
+		WRITE(p, "layout (location = 3) out highp float v_fogdepth;\n");
 		WRITE(p, "invariant gl_Position;\n");
 
 	} else if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
@@ -306,9 +301,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "float u_rotation : register(c%i);\n", CONST_VS_ROTATION);
 			}
 
-			if (enableFog) {
-				WRITE(p, "vec2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
-			}
+			WRITE(p, "vec2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
 			if (useHWTransform || !hasColor)
 				WRITE(p, "vec4 u_matambientalpha : register(c%i);\n", CONST_VS_MATAMBIENTALPHA);  // matambient + matalpha
 
@@ -409,9 +402,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (lmode) {
 				WRITE(p, "  vec3 color1 : COLOR1;\n");
 			}
-			if (enableFog) {
-				WRITE(p, "  float fog : NORMAL;\n");
-			}
+			WRITE(p, "  float fog : NORMAL;\n");
 			WRITE(p, "};\n");
 		}
 
@@ -424,9 +415,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (lmode)
 			WRITE(p, "  vec3 v_color1    : COLOR1;\n");
 
-		if (enableFog) {
-			WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
-		}
+		WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
 		if (compat.shaderLanguage == HLSL_D3D9) {
 			WRITE(p, "  vec4 gl_Position   : POSITION;\n");
 		} else {
@@ -468,7 +457,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "%s mediump vec3 normal;\n", compat.attribute);
 			*attrMask |= 1 << ATTR_NORMAL;
 		}
-		if (!useHWTransform && enableFog) {
+		if (!useHWTransform) {
 			WRITE(p, "%s highp float fog;\n", compat.attribute);
 			*attrMask |= 1 << ATTR_NORMAL;
 		}
@@ -584,10 +573,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
 			*uniformMask |= DIRTY_MATAMBIENTALPHA;
 		}
-		if (enableFog) {
-			WRITE(p, "uniform highp vec2 u_fogcoef;\n");
-			*uniformMask |= DIRTY_FOGCOEF;
-		}
+		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
+		*uniformMask |= DIRTY_FOGCOEF;
 
 		if (!isModeThrough) {
 			WRITE(p, "uniform highp vec4 u_depthRange;\n");
@@ -605,13 +592,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_vs, highpTexcoord ? "highp" : "mediump");
 		}
 
-		if (enableFog) {
-			// See the fragment shader generator
-			if (highpFog) {
-				WRITE(p, "%s highp float v_fogdepth;\n", compat.varying_vs);
-			} else {
-				WRITE(p, "%s mediump float v_fogdepth;\n", compat.varying_vs);
-			}
+		// See the fragment shader generator
+		if (highpFog) {
+			WRITE(p, "%s highp float v_fogdepth;\n", compat.varying_vs);
+		} else {
+			WRITE(p, "%s mediump float v_fogdepth;\n", compat.varying_vs);
 		}
 	}
 
@@ -821,7 +806,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		} else {
 			WRITE(p, "  vec4 position = In.position;\n");
 		}
-		if (!useHWTransform && enableFog) {
+		if (!useHWTransform) {
 			WRITE(p, "  float fog = In.fog;\n");
 		}
 		if (enableBones) {
@@ -847,9 +832,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (lmode)
 				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 		}
-		if (enableFog) {
-			WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
-		}
+		WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
 		if (isModeThrough)	{
 			// The proj_through matrix already has the rotation, if needed.
 			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
@@ -1023,6 +1006,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		if (lightUberShader) {
 			// TODO: Actually loop in the shader. For now, we write it all out.
+			// Will need to change how the data is stored to loop efficiently.
 			// u_lightControl is computed in PackLightControlBits().
 			for (int i = 0; i < 4; i++) {
 				p.F("  if ((u_lightControl & %du) != 0u) { \n", 1 << i);
@@ -1271,8 +1255,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		// Compute fogdepth
-		if (enableFog)
-			WRITE(p, "  %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
+		WRITE(p, "  %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
 	}
 
 	if (clipClampedDepth) {
