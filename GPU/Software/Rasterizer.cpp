@@ -227,8 +227,8 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 	// All UV gen modes, by the time they get here, behave the same.
 
 	// Note that for environment mapping, texture coordinates have been calculated during lighting
-	float q0 = 1.f / v0.clippos.w;
-	float q1 = 1.f / v1.clippos.w;
+	float q0 = 1.f / v0.clipw;
+	float q1 = 1.f / v1.clipw;
 	float wq0 = p * q0;
 	float wq1 = (1.0f - p) * q1;
 
@@ -241,9 +241,9 @@ static inline void GetTextureCoordinates(const VertexData &v0, const VertexData 
 	// All UV gen modes, by the time they get here, behave the same.
 
 	// Note that for environment mapping, texture coordinates have been calculated during lighting.
-	float q0 = 1.f / v0.clippos.w;
-	float q1 = 1.f / v1.clippos.w;
-	float q2 = 1.f / v2.clippos.w;
+	float q0 = 1.f / v0.clipw;
+	float q1 = 1.f / v1.clipw;
+	float q2 = 1.f / v2.clipw;
 	Vec4<float> wq0 = w0.Cast<float>() * q0;
 	Vec4<float> wq1 = w1.Cast<float>() * q1;
 	Vec4<float> wq2 = w2.Cast<float>() * q2;

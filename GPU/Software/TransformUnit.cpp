@@ -102,22 +102,22 @@ void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVert
 		transformUnit.SubmitPrimitive(nullptr, nullptr, prim, 0, vertTypeID, nullptr, this);
 
 	for (int i = 0; i < vertexCount; i++) {
-		VertexData vert;
+		ClipVertexData vert;
 		vert.clippos = ClipCoords(buffer[i].pos);
-		vert.texturecoords.x = buffer[i].u;
-		vert.texturecoords.y = buffer[i].v;
+		vert.v.texturecoords.x = buffer[i].u;
+		vert.v.texturecoords.y = buffer[i].v;
 		if (gstate.isModeThrough()) {
-			vert.texturecoords.x *= gstate.getTextureWidth(0);
-			vert.texturecoords.y *= gstate.getTextureHeight(0);
+			vert.v.texturecoords.x *= gstate.getTextureWidth(0);
+			vert.v.texturecoords.y *= gstate.getTextureHeight(0);
 		} else {
 			vert.clippos.z *= 1.0f / 65535.0f;
 		}
-		vert.color0 = buffer[i].color0_32;
-		vert.color1 = gstate.isUsingSecondaryColor() && !gstate.isModeThrough() ? buffer[i].color1_32 : 0;
-		vert.fogdepth = buffer[i].fog;
-		vert.screenpos.x = (int)(buffer[i].x * 16.0f);
-		vert.screenpos.y = (int)(buffer[i].y * 16.0f);
-		vert.screenpos.z = (u16)(u32)buffer[i].z;
+		vert.v.color0 = buffer[i].color0_32;
+		vert.v.color1 = gstate.isUsingSecondaryColor() && !gstate.isModeThrough() ? buffer[i].color1_32 : 0;
+		vert.v.fogdepth = buffer[i].fog;
+		vert.v.screenpos.x = (int)(buffer[i].x * 16.0f);
+		vert.v.screenpos.y = (int)(buffer[i].y * 16.0f);
+		vert.v.screenpos.z = (u16)(u32)buffer[i].z;
 
 		transformUnit.SubmitImmVertex(vert, this);
 	}
@@ -315,10 +315,10 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		state->roundToScreen = &ClipToScreenInternal<false, true>;
 }
 
-VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState &state) {
+ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState &state) {
 	PROFILE_THIS_SCOPE("read_vert");
 	// If we ever thread this, we'll have to change this.
-	VertexData vertex;
+	ClipVertexData vertex;
 
 	ModelCoords pos;
 	// VertexDecoder normally scales z, but we want it unscaled.
@@ -326,10 +326,10 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 
 	static Vec2f lastTC;
 	if (state.readUV) {
-		vreader.ReadUV(vertex.texturecoords.AsArray());
-		lastTC = vertex.texturecoords;
+		vreader.ReadUV(vertex.v.texturecoords.AsArray());
+		lastTC = vertex.v.texturecoords;
 	} else {
-		vertex.texturecoords = lastTC;
+		vertex.v.texturecoords = lastTC;
 	}
 
 	Vec3f normal;
@@ -366,12 +366,12 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 	}
 
 	if (vreader.hasColor0()) {
-		vreader.ReadColor0_8888((u8 *)&vertex.color0);
+		vreader.ReadColor0_8888((u8 *)&vertex.v.color0);
 	} else {
-		vertex.color0 = gstate.getMaterialAmbientRGBA();
+		vertex.v.color0 = gstate.getMaterialAmbientRGBA();
 	}
 
-	vertex.color1 = 0;
+	vertex.v.color1 = 0;
 
 	if (state.enableTransform) {
 		WorldCoords worldpos;
@@ -396,18 +396,19 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 		screenScaled = vertex.clippos.xyz() * state.screenScale / vertex.clippos.w + state.screenAdd;
 #endif
 		bool outside_range_flag = false;
-		vertex.screenpos = state.roundToScreen(screenScaled, vertex.clippos, &outside_range_flag);
+		vertex.v.screenpos = state.roundToScreen(screenScaled, vertex.clippos, &outside_range_flag);
 		if (outside_range_flag) {
 			// We use this, essentially, as the flag.
-			vertex.screenpos.x = 0x7FFFFFFF;
+			vertex.v.screenpos.x = 0x7FFFFFFF;
 			return vertex;
 		}
 
 		if (state.enableFog) {
-			vertex.fogdepth = Dot(state.posToFog, Vec4f(pos, 1.0f));
+			vertex.v.fogdepth = Dot(state.posToFog, Vec4f(pos, 1.0f));
 		} else {
-			vertex.fogdepth = 1.0f;
+			vertex.v.fogdepth = 1.0f;
 		}
+		vertex.v.clipw = vertex.clippos.w;
 
 		Vec3<float> worldnormal;
 		if (vreader.hasNormal()) {
@@ -426,7 +427,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 				break;
 
 			case GE_PROJMAP_UV:
-				source = Vec3f(vertex.texturecoords, 0.0f);
+				source = Vec3f(vertex.v.texturecoords, 0.0f);
 				break;
 
 			case GE_PROJMAP_NORMALIZED_NORMAL:
@@ -444,23 +445,23 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 				break;
 			}
 
-			// TODO: What about uv scale and offset?
+			// Note that UV scale/offset are not used in this mode.
 			Vec3<float> stq = Vec3ByMatrix43(source, gstate.tgenMatrix);
 			float z_recip = 1.0f / stq.z;
-			vertex.texturecoords = Vec2f(stq.x * z_recip, stq.y * z_recip);
+			vertex.v.texturecoords = Vec2f(stq.x * z_recip, stq.y * z_recip);
 		} else if (state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
-			Lighting::GenerateLightST(vertex, worldnormal);
+			Lighting::GenerateLightST(vertex.v, worldnormal);
 		}
 
 		PROFILE_THIS_SCOPE("light");
 		if (state.enableLighting)
-			Lighting::Process(vertex, worldpos, worldnormal, state.lightingState);
+			Lighting::Process(vertex.v, worldpos, worldnormal, state.lightingState);
 	} else {
-		vertex.screenpos.x = (int)(pos[0] * SCREEN_SCALE_FACTOR);
-		vertex.screenpos.y = (int)(pos[1] * SCREEN_SCALE_FACTOR);
-		vertex.screenpos.z = pos[2];
-		vertex.clippos.w = 1.f;
-		vertex.fogdepth = 1.f;
+		vertex.v.screenpos.x = (int)(pos[0] * SCREEN_SCALE_FACTOR);
+		vertex.v.screenpos.y = (int)(pos[1] * SCREEN_SCALE_FACTOR);
+		vertex.v.screenpos.z = pos[2];
+		vertex.v.clipw = 1.0f;
+		vertex.v.fogdepth = 1.0f;
 	}
 
 	return vertex;
@@ -511,7 +512,7 @@ public:
 		}
 	}
 
-	inline VertexData Read(int vtx) {
+	inline ClipVertexData Read(int vtx) {
 		if (useIndices_) {
 			if (useCache_) {
 				return cached_[conv_(vtx) - lowerBound_];
@@ -531,13 +532,13 @@ protected:
 	TransformUnit &transform_;
 	uint16_t lowerBound_;
 	uint16_t upperBound_;
-	static std::vector<VertexData> cached_;
+	static std::vector<ClipVertexData> cached_;
 	bool useIndices_ = false;
 	bool useCache_ = false;
 };
 
 // Static to reduce allocations mid-frame.
-std::vector<VertexData> SoftwareVertexReader::cached_;
+std::vector<ClipVertexData> SoftwareVertexReader::cached_;
 
 void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine)
 {
@@ -580,7 +581,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	if (vreader.IsThrough() && cullType == CullType::OFF && prim_type == GE_PRIM_TRIANGLES && data_index_ == 0 && vertex_count >= 6 && ((vertex_count) % 6) == 0) {
 		// Some games send rectangles as a series of regular triangles.
 		// We look for this, but only in throughmode.
-		VertexData buf[6];
+		ClipVertexData buf[6];
 		int buf_index = data_index_;
 		for (int i = 0; i < data_index_; ++i) {
 			buf[i] = data_[i];
@@ -831,7 +832,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	}
 }
 
-void TransformUnit::SubmitImmVertex(const VertexData &vert, SoftwareDrawEngine *drawEngine) {
+void TransformUnit::SubmitImmVertex(const ClipVertexData &vert, SoftwareDrawEngine *drawEngine) {
 	// Where we put it is different for STRIP/FAN types.
 	switch (prev_prim_) {
 	case GE_PRIM_POINTS:
@@ -872,7 +873,7 @@ void TransformUnit::SubmitImmVertex(const VertexData &vert, SoftwareDrawEngine *
 	isImmDraw_ = false;
 }
 
-void TransformUnit::SendTriangle(CullType cullType, const VertexData *verts, int provoking) {
+void TransformUnit::SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking) {
 	if (cullType == CullType::OFF) {
 		Clipper::ProcessTriangle(verts[0], verts[1], verts[2], verts[provoking], *binner_);
 		Clipper::ProcessTriangle(verts[2], verts[1], verts[0], verts[provoking], *binner_);
