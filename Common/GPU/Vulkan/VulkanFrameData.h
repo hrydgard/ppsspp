@@ -48,16 +48,16 @@ struct FrameData {
 	std::condition_variable fenceCondVar;
 	bool readyForFence = true;
 
-	VkFence fence;
-	VkFence readbackFence;  // Strictly speaking we might only need one global of these.
+	VkFence fence = VK_NULL_HANDLE;
+	VkFence readbackFence = VK_NULL_HANDLE;  // Strictly speaking we might only need one global of these.
 
 	// These are on different threads so need separate pools.
-	VkCommandPool cmdPoolInit;  // Written to from main thread
-	VkCommandPool cmdPoolMain;  // Written to from render thread, which also submits
+	VkCommandPool cmdPoolInit = VK_NULL_HANDLE;  // Written to from main thread
+	VkCommandPool cmdPoolMain = VK_NULL_HANDLE;  // Written to from render thread, which also submits
 
-	VkCommandBuffer initCmd;
-	VkCommandBuffer mainCmd;
-	VkCommandBuffer presentCmd;
+	VkCommandBuffer initCmd = VK_NULL_HANDLE;
+	VkCommandBuffer mainCmd = VK_NULL_HANDLE;
+	VkCommandBuffer presentCmd = VK_NULL_HANDLE;
 
 	bool hasInitCommands = false;
 	bool hasMainCommands = false;
@@ -73,7 +73,7 @@ struct FrameData {
 
 	// Profiling.
 	QueueProfileContext profile;
-	bool profilingEnabled_;
+	bool profilingEnabled_ = false;
 
 	void Init(VulkanContext *vulkan, int index);
 	void Destroy(VulkanContext *vulkan);
