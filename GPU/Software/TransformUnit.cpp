@@ -430,7 +430,8 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 				break;
 
 			case GE_PROJMAP_NORMALIZED_NORMAL:
-				source = normal.NormalizedOr001(cpu_info.bSSE4_1);
+				// This does not use 0, 0, 1 if length is zero.
+				source = normal.Normalized(cpu_info.bSSE4_1);
 				break;
 
 			case GE_PROJMAP_NORMAL:

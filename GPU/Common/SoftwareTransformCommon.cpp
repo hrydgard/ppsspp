@@ -372,7 +372,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 						break;
 
 					case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
-						source = normal.NormalizedOr001(cpu_info.bSSE4_1);
+						source = normal.Normalized(cpu_info.bSSE4_1);
 						if (!reader.hasNormal()) {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
 						}
