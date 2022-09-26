@@ -183,7 +183,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "int roundAndScaleTo255i(in highp float x) { return int(floor(x * 255.0 + 0.5)); }\n");
 		}
 		if (enableColorTest && !colorTestAgainstZero) {
-			WRITE(p, "ivec3 roundAndScaleTo255iv(in highp vec3 x) { return ivec3(floor(x * 255.0 + 0.5)); }\n");
+			WRITE(p, "uvec3 roundAndScaleTo255iv(in highp vec3 x) { return uvec3(floor(x * 255.0 + 0.5)); }\n");
 		}
 
 		WRITE(p, "layout (location = 0, index = 0) out vec4 fragColor0;\n");
@@ -408,7 +408,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			if (enableColorTest && !colorTestAgainstZero) {
 				if (compat.bitwiseOps) {
-					WRITE(p, "ivec3 roundAndScaleTo255iv(in vec3 x) { return ivec3(floor(x * 255.0 + 0.5)); }\n");
+					WRITE(p, "uvec3 roundAndScaleTo255iv(in vec3 x) { return uvec3(floor(x * 255.0 + 0.5)); }\n");
 				} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 					WRITE(p, "vec3 roundTo255thv(in vec3 x) { vec3 y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 				} else {
@@ -949,8 +949,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 						WRITE(p, "  vec3 colortest = roundAndScaleTo255v(v.rgb);\n");
 						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b)) %s\n", test, test, test, discardStatement);
 					} else if (compat.bitwiseOps) {
-						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
-						WRITE(p, "  uvec3 colormask = unpackIVec3(u_alphacolormask);\n");
+						WRITE(p, "  uvec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
+						WRITE(p, "  uvec3 colormask = unpackUVec3(u_alphacolormask);\n");
 						if (compat.shaderLanguage == GLSL_VULKAN) {
 							// Apparently GLES3 does not support vector bitwise ops, but Vulkan does?
 							WRITE(p, "  if ((v_scaled & colormask) %s (u_alphacolorref.rgb & colormask)) %s\n", colorTestFuncs[colorTestFunc], discardStatement);
