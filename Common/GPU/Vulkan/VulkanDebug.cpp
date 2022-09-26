@@ -93,4 +93,3 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 	// keep that behavior here.
 	return false;
 }
-
