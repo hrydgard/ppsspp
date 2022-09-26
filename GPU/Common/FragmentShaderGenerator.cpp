@@ -183,7 +183,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "int roundAndScaleTo255i(in highp float x) { return int(floor(x * 255.0 + 0.5)); }\n");
 		}
 		if (enableColorTest && !colorTestAgainstZero) {
-			WRITE(p, "ivec3 roundAndScaleTo255iv(in highp vec3 x) { return ivec3(floor(x * 255.0 + 0.5)); }\n");
+			WRITE(p, "uint roundAndScaleTo8x4(in highp vec3 x) { uvec3 u = uvec3(floor(x * 255.0 + 0.5)); return u.r | (u.g << 8) | (u.b << 16); }\n");
 		}
 
 		WRITE(p, "layout (location = 0, index = 0) out vec4 fragColor0;\n");
@@ -262,7 +262,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		if (enableColorTest) {
 			if (compat.shaderLanguage == HLSL_D3D11) {
-				WRITE(p, "uvec3 roundAndScaleTo255iv(float3 x) { return (floor(x * 255.0f + 0.5f)); }\n");
+				WRITE(p, "uint roundAndScaleTo8x4(float3 x) { uvec3 u = (floor(x * 255.0f + 0.5f)); return u.r | (u.g << 8) | (u.b << 16); }\n");
 			} else {
 				WRITE(p, "vec3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
 			}
@@ -354,7 +354,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "uniform vec4 u_alphacolorref;\n");
 				if (compat.bitwiseOps && ((enableColorTest && !colorTestAgainstZero) || (enableAlphaTest && !alphaTestAgainstZero))) {
 					*uniformMask |= DIRTY_ALPHACOLORMASK;
-					WRITE(p, "uniform ivec4 u_alphacolormask;\n");
+					WRITE(p, "uniform uint u_alphacolormask;\n");
 				}
 			}
 		}
@@ -408,7 +408,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			if (enableColorTest && !colorTestAgainstZero) {
 				if (compat.bitwiseOps) {
-					WRITE(p, "ivec3 roundAndScaleTo255iv(in vec3 x) { return ivec3(floor(x * 255.0 + 0.5)); }\n");
+					WRITE(p, "uint roundAndScaleTo8x4(in vec3 x) { uvec3 u = uvec3(floor(x * 255.0 + 0.5)); return u.r | (u.g << 8) | (u.b << 16); }\n");
 				} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 					WRITE(p, "vec3 roundTo255thv(in vec3 x) { vec3 y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 				} else {
@@ -456,6 +456,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "  highp vec4 f = vec4(u);\n");
 		WRITE(p, "  return f * (1.0 / 255.0);\n");
 		WRITE(p, "}\n");
+	}
+
+	if (compat.bitwiseOps && enableColorTest) {
+		p.C("uvec3 unpackUVec3(highp uint x) {\n");
+		p.C("  return uvec3(x & 0xFF, (x >> 8) & 0xFF, (x >> 16) & 0xFF);\n");
+		p.C("}\n");
 	}
 
 	// PowerVR needs a custom modulo function. For some reason, this has far higher precision than the builtin one.
@@ -873,7 +879,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 					if (compat.bitwiseOps) {
-						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s int(u_alphacolorref.a)) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
+						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & int(u_alphacolormask >> 24)) %s int(u_alphacolorref.a)) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
 					} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 						// Work around bad PVR driver problem where equality check + discard just doesn't work.
 						if (alphaTestFunc != GE_COMP_NOTEQUAL) {
@@ -927,34 +933,22 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				}
 			} else {
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
-				if (colorTestFuncs[colorTestFunc][0] != '#') {
+				const char *test = colorTestFuncs[colorTestFunc];
+				if (test[0] != '#') {
 					// TODO: Unify these paths better.
-					if (compat.shaderLanguage == HLSL_D3D11) {
-						const char *test = colorTestFuncs[colorTestFunc];
-						WRITE(p, "  uvec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
-						WRITE(p, "  uvec3 v_masked = v_scaled & u_alphacolormask.rgb;\n");
-						WRITE(p, "  uvec3 colorTestRef = u_alphacolorref.rgb & u_alphacolormask.rgb;\n");
-						// We have to test the components separately, or we get incorrect results.  See #10629.
-						WRITE(p, "  if (v_masked.r %s colorTestRef.r && v_masked.g %s colorTestRef.g && v_masked.b %s colorTestRef.b) %s\n", test, test, test, discardStatement);
-					} else if (compat.shaderLanguage == HLSL_D3D9) {
-						const char *test = colorTestFuncs[colorTestFunc];
+					if (compat.shaderLanguage == HLSL_D3D9) {
 						// TODO: Use a texture to lookup bitwise ops instead?
 						WRITE(p, "  vec3 colortest = roundAndScaleTo255v(v.rgb);\n");
 						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b)) %s\n", test, test, test, discardStatement);
 					} else if (compat.bitwiseOps) {
-						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
-						if (compat.shaderLanguage == GLSL_VULKAN) {
-							// Apparently GLES3 does not support vector bitwise ops, but Vulkan does?
-							WRITE(p, "  if ((v_scaled & u_alphacolormask.rgb) %s (u_alphacolorref.rgb & u_alphacolormask.rgb)) %s\n", colorTestFuncs[colorTestFunc], discardStatement);
-						} else {
-							const char *maskedFragColor = "ivec3(v_scaled.r & u_alphacolormask.r, v_scaled.g & u_alphacolormask.g, v_scaled.b & u_alphacolormask.b)";
-							const char *maskedColorRef = "ivec3(int(u_alphacolorref.r) & u_alphacolormask.r, int(u_alphacolorref.g) & u_alphacolormask.g, int(u_alphacolorref.b) & u_alphacolormask.b)";
-							WRITE(p, "  if (%s %s %s) %s\n", maskedFragColor, colorTestFuncs[colorTestFunc], maskedColorRef, discardStatement);
-						}
+						WRITE(p, "  uint v_uint = roundAndScaleTo8x4(v.rgb);\n");
+						WRITE(p, "  uint v_masked = v_uint & u_alphacolormask;\n");
+						WRITE(p, "  uint colorTestRef = roundAndScaleTo8x4(u_alphacolorref.rgb) & u_alphacolormask;\n");
+						WRITE(p, "  if (v_masked %s colorTestRef) %s\n", test, discardStatement);
 					} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
-						WRITE(p, "  if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) %s\n", colorTestFuncs[colorTestFunc], discardStatement);
+						WRITE(p, "  if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) %s\n", test, discardStatement);
 					} else {
-						WRITE(p, "  if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) %s\n", colorTestFuncs[colorTestFunc], discardStatement);
+						WRITE(p, "  if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) %s\n", test, discardStatement);
 					}
 				} else {
 					WRITE(p, "  %s\n", discardStatement);

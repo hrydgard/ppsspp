@@ -448,7 +448,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		SetColorUniform3Alpha255(render_, &u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
 	}
 	if (dirty & DIRTY_ALPHACOLORMASK) {
-		SetColorUniform3iAlpha(render_, &u_alphacolormask, gstate.colortestmask, gstate.getAlphaTestMask());
+		render_->SetUniformUI1(&u_alphacolormask, gstate.getColorTestMask() | (gstate.getAlphaTestMask() << 24));
 	}
 	if (dirty & DIRTY_COLORWRITEMASK) {
 		render_->SetUniformUI1(&u_colorWriteMask, ~((gstate.pmska << 24) | (gstate.pmskc & 0xFFFFFF)));
