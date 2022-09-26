@@ -271,6 +271,8 @@ uint32_t PackLightControlBits() {
 	// Bit organization
 	// Bottom 4 bits are enable bits for each light.
 	// Then, for each light, comes 2 bits for "comp" and 2 bits for "type".
+	// At the end, at bit 20, we put the three material update bits.
+
 	uint32_t lightControl = 0;
 	for (int i = 0; i < 4; i++) {
 		if (gstate.isLightChanEnabled(i)) {
@@ -282,6 +284,9 @@ uint32_t PackLightControlBits() {
 		lightControl |= computation << (4 + i * 4);
 		lightControl |= type << (4 + i * 4 + 2);
 	}
+
+	lightControl |= gstate.getMaterialUpdate() << 20;
+
 	return lightControl;
 }
 

@@ -552,7 +552,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (enableLighting) {
 				WRITE(p, "uniform lowp vec4 u_ambient;\n");
 				*uniformMask |= DIRTY_AMBIENT;
-				if ((matUpdate & 2) == 0 || !hasColor) {
+				if (lightUberShader || (matUpdate & 2) == 0 || !hasColor) {
 					WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
 					*uniformMask |= DIRTY_MATDIFFUSE;
 				}
@@ -949,14 +949,25 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
-		const char *ambientStr = (matUpdate & 1) && hasColor ? "color0" : "u_matambientalpha";
-		const char *diffuseStr = (matUpdate & 2) && hasColor ? "color0.rgb" : "u_matdiffuse";
-		const char *specularStr = (matUpdate & 4) && hasColor ? "color0.rgb" : "u_matspecular.rgb";
+		const char *srcCol = "color0";
 		if (doBezier || doSpline) {
 			// TODO: Probably, should use hasColorTess but FF4 has a problem with drawing the background.
-			ambientStr = (matUpdate & 1) && hasColor ? "tess.col" : "u_matambientalpha";
-			diffuseStr = (matUpdate & 2) && hasColor ? "tess.col.rgb" : "u_matdiffuse";
-			specularStr = (matUpdate & 4) && hasColor ? "tess.col.rgb" : "u_matspecular.rgb";
+			srcCol = "tess.col";
+		}
+
+		if (lightUberShader && hasColor) {
+			p.F("  vec4 ambientColor = ((u_lightControl & (1u << 20u)) != 0u) ? %s : u_matambientalpha;\n", srcCol);
+			if (enableLighting) {
+				p.F("  vec3 diffuseColor = ((u_lightControl & (1u << 21u)) != 0u) ? %s.rgb : u_matdiffuse;\n", srcCol);
+				p.F("  vec3 specularColor = ((u_lightControl & (1u << 22u)) != 0u) ? %s.rgb : u_matspecular.rgb;\n", srcCol);
+			}
+		} else {
+			// This path also takes care of the lightUberShader && !hasColor path, because all comparisons fail.
+			p.F("  vec4 ambientColor = %s;\n", (matUpdate & 1) && hasColor ? srcCol : "u_matambientalpha");
+			if (enableLighting) {
+				p.F("  vec3 diffuseColor = %s.rgb;\n", (matUpdate & 2) && hasColor ? srcCol : "u_matdiffuse");
+				p.F("  vec3 specularColor = %s.rgb;\n", (matUpdate & 4) && hasColor ? srcCol : "u_matspecular");
+			}
 		}
 
 		bool diffuseIsZero = true;
@@ -964,7 +975,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		bool distanceNeeded = false;
 		bool anySpots = false;
 		if (enableLighting) {
-			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambientStr);
+			p.C("  lowp vec4 lightSum0 = u_ambient * ambientColor + vec4(u_matemissive, 0.0);\n");
 
 			for (int i = 0; i < 4; i++) {
 				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4*i, 2));
@@ -1043,7 +1054,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("      lightScale = 1.0;\n");
 				p.C("      break;\n");
 				p.C("    }\n");
-				p.F("    diffuse = (u_lightdiffuse%i * %s) * max(ldot, 0.0);\n", i, diffuseStr);
+				p.F("    diffuse = (u_lightdiffuse%i * diffuseColor) * max(ldot, 0.0);\n", i);
 				p.C("    if (comp == 1u) {\n");  // do specular
 				p.C("      if (ldot >= 0.0) {\n");
 				p.C("        ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
@@ -1053,10 +1064,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("          ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
 				p.C("        }\n");
 				p.C("        if (ldot > 0.0)\n");
-				p.F("          lightSum1 += u_lightspecular%i * %s * ldot * lightScale;\n", i, specularStr);
+				p.F("          lightSum1 += u_lightspecular%i * specularColor * ldot * lightScale;\n", i);
 				p.C("      }\n");
 				p.C("    }\n");
-				p.F("    lightSum0.rgb += (u_lightambient%i * %s.rgb + diffuse) * lightScale;\n", i, ambientStr);
+				p.F("    lightSum0.rgb += (u_lightambient%i * ambientColor.rgb + diffuse) * lightScale;\n", i);
 				p.C("  }\n");
 			}
 		} else {
@@ -1116,7 +1127,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					break;
 				}
 
-				p.F("  diffuse = (u_lightdiffuse%i * %s) * max(ldot, 0.0);\n", i, diffuseStr);
+				p.F("  diffuse = (u_lightdiffuse%i * diffuseColor) * max(ldot, 0.0);\n", i);
 				if (doSpecular) {
 					p.C("  if (ldot >= 0.0) {\n");
 					p.C("    ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
@@ -1126,10 +1137,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					p.C("      ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
 					p.C("    }\n");
 					p.C("    if (ldot > 0.0)\n");
-					p.F("      lightSum1 += u_lightspecular%i * %s * ldot %s;\n", i, specularStr, timesLightScale);
+					p.F("      lightSum1 += u_lightspecular%i * specularColor * ldot %s;\n", i, timesLightScale);
 					p.C("  }\n");
 				}
-				p.F("  lightSum0.rgb += (u_lightambient%i * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
+				p.F("  lightSum0.rgb += (u_lightambient%i * ambientColor.rgb + diffuse)%s;\n", i, timesLightScale);
 			}
 		}
 
