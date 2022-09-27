@@ -356,7 +356,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	// Currently only works for TL/BR, which is the most common but not required.
 	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	// We already have a fast path for clear in ClearRectangle.
-	bool state_check = state.throughMode && !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(state, v0.texturecoords) && NoClampOrWrap(state, v1.texturecoords);
+	bool state_check = state.throughMode && !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(state, v0.texturecoords.uv()) && NoClampOrWrap(state, v1.texturecoords.uv());
 	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
 	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) == 0;
 	if ((coord_check || !state.enableTextures) && orient_check && state_check && subpixel_check) {
@@ -393,16 +393,16 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	return false;
 }
 
-static bool AreCoordsRectangleCompatible(const RasterizerState &state, const VertexData &data0, const VertexData &data1) {
-	if (data1.color0 != data0.color0)
+static bool AreCoordsRectangleCompatible(const RasterizerState &state, const ClipVertexData &data0, const ClipVertexData &data1) {
+	if (data1.v.color0 != data0.v.color0)
 		return false;
-	if (data1.screenpos.z != data0.screenpos.z) {
+	if (data1.v.screenpos.z != data0.v.screenpos.z) {
 		// Sometimes, we don't actually care about z.
 		if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
 			return false;
 	}
 	if (!state.throughMode) {
-		if (data1.color1 != data0.color1)
+		if (data1.v.color1 != data0.v.color1)
 			return false;
 		// This means it should be culled, outside range.
 		if (data1.OutsideRange() || data0.OutsideRange())
@@ -414,26 +414,29 @@ static bool AreCoordsRectangleCompatible(const RasterizerState &state, const Ver
 			if (data1.clippos.w - halftexel > data0.clippos.w || data1.clippos.w + halftexel < data0.clippos.w)
 				return false;
 		}
-		if (state.pixelID.applyFog && data1.fogdepth != data0.fogdepth) {
+		// If we're projecting textures, only allow an exact match for simplicity.
+		if (state.enableTextures && data1.v.texturecoords.q() != data0.v.texturecoords.q())
+			return false;
+		if (state.pixelID.applyFog && data1.v.fogdepth != data0.v.fogdepth) {
 			// Similar to w, this only matters if they're farther apart than 1/255.
 			static constexpr float foghalfstep = 0.5f / 255.0f;
-			if (data1.fogdepth - foghalfstep > data0.fogdepth || data1.fogdepth + foghalfstep < data0.fogdepth)
+			if (data1.v.fogdepth - foghalfstep > data0.v.fogdepth || data1.v.fogdepth + foghalfstep < data0.v.fogdepth)
 				return false;
 		}
 	}
 	return true;
 }
 
-bool DetectRectangleFromStrip(const RasterizerState &state, const VertexData data[4], int *tlIndex, int *brIndex) {
+bool DetectRectangleFromStrip(const RasterizerState &state, const ClipVertexData data[4], int *tlIndex, int *brIndex) {
 	// Color and Z must be flat.  Also find the TL and BR meanwhile.
 	int tl = 0, br = 0;
 	for (int i = 1; i < 4; ++i) {
 		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
 			return false;
 
-		if (data[i].screenpos.x <= data[tl].screenpos.x && data[i].screenpos.y <= data[tl].screenpos.y)
+		if (data[i].v.screenpos.x <= data[tl].v.screenpos.x && data[i].v.screenpos.y <= data[tl].v.screenpos.y)
 			tl = i;
-		if (data[i].screenpos.x >= data[br].screenpos.x && data[i].screenpos.y >= data[br].screenpos.y)
+		if (data[i].v.screenpos.x >= data[br].v.screenpos.x && data[i].v.screenpos.y >= data[br].v.screenpos.y)
 			br = i;
 	}
 
@@ -442,36 +445,36 @@ bool DetectRectangleFromStrip(const RasterizerState &state, const VertexData dat
 
 	// OK, now let's look at data to detect rectangles. There are a few possibilities
 	// but we focus on Darkstalkers for now.
-	if (data[0].screenpos.x == data[1].screenpos.x &&
-		data[0].screenpos.y == data[2].screenpos.y &&
-		data[2].screenpos.x == data[3].screenpos.x &&
-		data[1].screenpos.y == data[3].screenpos.y) {
+	if (data[0].v.screenpos.x == data[1].v.screenpos.x &&
+		data[0].v.screenpos.y == data[2].v.screenpos.y &&
+		data[2].v.screenpos.x == data[3].v.screenpos.x &&
+		data[1].v.screenpos.y == data[3].v.screenpos.y) {
 		// Okay, this is in the shape of a rectangle, but what about texture?
 		if (!state.enableTextures)
 			return true;
 
-		if (data[0].texturecoords.x == data[1].texturecoords.x &&
-			data[0].texturecoords.y == data[2].texturecoords.y &&
-			data[2].texturecoords.x == data[3].texturecoords.x &&
-			data[1].texturecoords.y == data[3].texturecoords.y) {
+		if (data[0].v.texturecoords.x == data[1].v.texturecoords.x &&
+			data[0].v.texturecoords.y == data[2].v.texturecoords.y &&
+			data[2].v.texturecoords.x == data[3].v.texturecoords.x &&
+			data[1].v.texturecoords.y == data[3].v.texturecoords.y) {
 			// It's a rectangle!
 			return true;
 		}
 		return false;
 	}
 	// There's the other vertex order too...
-	if (data[0].screenpos.x == data[2].screenpos.x &&
-		data[0].screenpos.y == data[1].screenpos.y &&
-		data[1].screenpos.x == data[3].screenpos.x &&
-		data[2].screenpos.y == data[3].screenpos.y) {
+	if (data[0].v.screenpos.x == data[2].v.screenpos.x &&
+		data[0].v.screenpos.y == data[1].v.screenpos.y &&
+		data[1].v.screenpos.x == data[3].v.screenpos.x &&
+		data[2].v.screenpos.y == data[3].v.screenpos.y) {
 		// Okay, this is in the shape of a rectangle, but what about texture?
 		if (!state.enableTextures)
 			return true;
 
-		if (data[0].texturecoords.x == data[2].texturecoords.x &&
-			data[0].texturecoords.y == data[1].texturecoords.y &&
-			data[1].texturecoords.x == data[3].texturecoords.x &&
-			data[2].texturecoords.y == data[3].texturecoords.y) {
+		if (data[0].v.texturecoords.x == data[2].v.texturecoords.x &&
+			data[0].v.texturecoords.y == data[1].v.texturecoords.y &&
+			data[1].v.texturecoords.x == data[3].v.texturecoords.x &&
+			data[2].v.texturecoords.y == data[3].v.texturecoords.y) {
 			// It's a rectangle!
 			return true;
 		}
@@ -480,7 +483,7 @@ bool DetectRectangleFromStrip(const RasterizerState &state, const VertexData dat
 	return false;
 }
 
-bool DetectRectangleFromFan(const RasterizerState &state, const VertexData *data, int c, int *tlIndex, int *brIndex) {
+bool DetectRectangleFromFan(const RasterizerState &state, const ClipVertexData *data, int c, int *tlIndex, int *brIndex) {
 	// Color and Z must be flat.
 	for (int i = 1; i < c; ++i) {
 		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
@@ -489,8 +492,8 @@ bool DetectRectangleFromFan(const RasterizerState &state, const VertexData *data
 
 	// Check for the common case: a single TL-TR-BR-BL.
 	if (c == 4) {
-		const auto &pos0 = data[0].screenpos, &pos1 = data[1].screenpos;
-		const auto &pos2 = data[2].screenpos, &pos3 = data[3].screenpos;
+		const auto &pos0 = data[0].v.screenpos, &pos1 = data[1].v.screenpos;
+		const auto &pos2 = data[2].v.screenpos, &pos3 = data[3].v.screenpos;
 		if (pos0.x == pos3.x && pos1.x == pos2.x && pos0.y == pos1.y && pos3.y == pos2.y) {
 			// Looking like yes.  Set TL/BR based on y order first...
 			*tlIndex = pos0.y > pos3.y ? 2 : 0;
@@ -505,13 +508,13 @@ bool DetectRectangleFromFan(const RasterizerState &state, const VertexData *data
 			if (!state.enableTextures)
 				return true;
 
-			const auto &textl = data[*tlIndex].texturecoords, &textr = data[*tlIndex ^ 1].texturecoords;
-			const auto &texbl = data[*brIndex ^ 1].texturecoords, &texbr = data[*brIndex].texturecoords;
+			const auto &textl = data[*tlIndex].v.texturecoords, &textr = data[*tlIndex ^ 1].v.texturecoords;
+			const auto &texbl = data[*brIndex ^ 1].v.texturecoords, &texbr = data[*brIndex].v.texturecoords;
 
 			if (textl.x == texbl.x && textr.x == texbr.x && textl.y == textr.y && texbl.y == texbr.y) {
 				// Okay, the texture is also good, but let's avoid rotation issues.
-				const auto &postl = data[*tlIndex].screenpos;
-				const auto &posbr = data[*brIndex].screenpos;
+				const auto &postl = data[*tlIndex].v.screenpos;
+				const auto &posbr = data[*brIndex].v.screenpos;
 				return textl.y < texbr.y && postl.y < posbr.y && textl.x < texbr.x && postl.x < posbr.x;
 			}
 		}
@@ -520,26 +523,26 @@ bool DetectRectangleFromFan(const RasterizerState &state, const VertexData *data
 	return false;
 }
 
-bool DetectRectangleFromPair(const RasterizerState &state, const VertexData data[6], int *tlIndex, int *brIndex) {
+bool DetectRectangleFromPair(const RasterizerState &state, const ClipVertexData data[6], int *tlIndex, int *brIndex) {
 	// Color and Z must be flat.  Also find the TL and BR meanwhile.
 	int tl = 0, br = 0;
 	for (int i = 1; i < 6; ++i) {
 		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
 			return false;
 
-		if (data[i].screenpos.x <= data[tl].screenpos.x && data[i].screenpos.y <= data[tl].screenpos.y)
+		if (data[i].v.screenpos.x <= data[tl].v.screenpos.x && data[i].v.screenpos.y <= data[tl].v.screenpos.y)
 			tl = i;
-		if (data[i].screenpos.x >= data[br].screenpos.x && data[i].screenpos.y >= data[br].screenpos.y)
+		if (data[i].v.screenpos.x >= data[br].v.screenpos.x && data[i].v.screenpos.y >= data[br].v.screenpos.y)
 			br = i;
 	}
 
 	*tlIndex = tl;
 	*brIndex = br;
 
-	auto xat = [&](int i) { return data[i].screenpos.x; };
-	auto yat = [&](int i) { return data[i].screenpos.y; };
-	auto uat = [&](int i) { return data[i].texturecoords.x; };
-	auto vat = [&](int i) { return data[i].texturecoords.y; };
+	auto xat = [&](int i) { return data[i].v.screenpos.x; };
+	auto yat = [&](int i) { return data[i].v.screenpos.y; };
+	auto uat = [&](int i) { return data[i].v.texturecoords.x; };
+	auto vat = [&](int i) { return data[i].v.texturecoords.y; };
 
 	// A likely order would be: TL, TR, BR, TL, BR, BL.  We'd have the last index of each.
 	// TODO: Make more generic.
@@ -567,12 +570,12 @@ bool DetectRectangleFromPair(const RasterizerState &state, const VertexData data
 	return false;
 }
 
-bool DetectRectangleThroughModeSlices(const RasterizerState &state, const VertexData data[4]) {
+bool DetectRectangleThroughModeSlices(const RasterizerState &state, const ClipVertexData data[4]) {
 	// Color and Z must be flat.
 	for (int i = 1; i < 4; ++i) {
-		if (!(data[i].color0 == data[0].color0))
+		if (!(data[i].v.color0 == data[0].v.color0))
 			return false;
-		if (!(data[i].screenpos.z == data[0].screenpos.z)) {
+		if (!(data[i].v.screenpos.z == data[0].v.screenpos.z)) {
 			// Sometimes, we don't actually care about z.
 			if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
 				return false;
@@ -580,15 +583,15 @@ bool DetectRectangleThroughModeSlices(const RasterizerState &state, const Vertex
 	}
 
 	// Games very commonly use vertical strips of rectangles.  Detect and combine.
-	const auto &tl1 = data[0].screenpos, &br1 = data[1].screenpos;
-	const auto &tl2 = data[2].screenpos, &br2 = data[3].screenpos;
+	const auto &tl1 = data[0].v.screenpos, &br1 = data[1].v.screenpos;
+	const auto &tl2 = data[2].v.screenpos, &br2 = data[3].v.screenpos;
 	if (tl1.y == tl2.y && br1.y == br2.y && br1.y > tl1.y) {
 		if (br1.x == tl2.x && tl1.x < br1.x && tl2.x < br2.x) {
 			if (!state.enableTextures)
 				return true;
 
-			const auto &textl1 = data[0].texturecoords, &texbr1 = data[1].texturecoords;
-			const auto &textl2 = data[2].texturecoords, &texbr2 = data[3].texturecoords;
+			const auto &textl1 = data[0].v.texturecoords, &texbr1 = data[1].v.texturecoords;
+			const auto &textl2 = data[2].v.texturecoords, &texbr2 = data[3].v.texturecoords;
 			if (textl1.y != textl2.y || texbr1.y != texbr2.y || textl1.y > texbr1.y)
 				return false;
 			if (texbr1.x != textl2.x || textl1.x > texbr1.x || textl2.x > texbr2.x)

@@ -1061,7 +1061,11 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 
 	DrawTextureFlags flags;
 	if (useBufferedRendering_ && vfb && vfb->fbo) {
-		flags = channel == RASTER_COLOR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
+		if (channel == RASTER_DEPTH || PSP_CoreParameter().compat.flags().NearestFilteringOnFramebufferCreate) {
+			flags = DRAWTEX_NEAREST;
+		} else {
+			flags = DRAWTEX_LINEAR;
+		}
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, tag);
 		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
 		draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);

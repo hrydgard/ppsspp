@@ -26,9 +26,9 @@ class BinManager;
 
 namespace Clipper {
 
-void ProcessPoint(const VertexData &v0, BinManager &binner);
-void ProcessLine(const VertexData &v0, const VertexData &v1, BinManager &binner);
-void ProcessTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const VertexData &provoking, BinManager &binner);
-void ProcessRect(const VertexData &v0, const VertexData &v1, BinManager &binner);
+void ProcessPoint(const ClipVertexData &v0, BinManager &binner);
+void ProcessLine(const ClipVertexData &v0, const ClipVertexData &v1, BinManager &binner);
+void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const ClipVertexData &v2, const ClipVertexData &provoking, BinManager &binner);
+void ProcessRect(const ClipVertexData &v0, const ClipVertexData &v1, BinManager &binner);
 
 }

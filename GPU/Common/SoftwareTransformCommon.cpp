@@ -168,6 +168,29 @@ void SoftwareTransform::SetProjMatrix(float mtx[14], bool invertedX, bool invert
 	projMatrix_.translateAndScale(trans, scale);
 }
 
+static void ReadWeightedNormal(Vec3f &source, VertexReader &reader, u32 vertType, bool skinningEnabled) {
+	if (reader.hasNormal())
+		reader.ReadNrm(source.AsArray());
+	if (skinningEnabled) {
+		float weights[8];
+		reader.ReadWeights(weights);
+
+		// Have to recalculate this, unfortunately.  Please use software skinning...
+		Vec3f nsum(0, 0, 0);
+		for (int i = 0; i < vertTypeGetNumBoneWeights(vertType); i++) {
+			if (weights[i] != 0.0f) {
+				Vec3f norm;
+				Norm3ByMatrix43(norm.AsArray(), source.AsArray(), gstate.boneMatrix + i * 12);
+				nsum += norm * weights[i];
+			}
+		}
+
+		source = nsum;
+	}
+	if (gstate.areNormalsReversed())
+		source = -source;
+}
+
 void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
@@ -284,7 +307,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 				}
 			} else {
 				float weights[8];
-				// TODO: For flat, are weights from the provoking used for color/normal?
+				// For flat, we need the vertex weights.
 				reader.Goto(index);
 				reader.ReadWeights(weights);
 
@@ -358,10 +381,8 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 
 			case GE_TEXMAP_TEXTURE_MATRIX:
 				{
-					// TODO: What's the correct behavior with flat shading?  Provoked normal or real normal?
-
 					// Projection mapping
-					Vec3f source;
+					Vec3f source(0.0f, 0.0f, 1.0f);
 					switch (gstate.getUVProjMode())	{
 					case GE_PROJMAP_POSITION: // Use model space XYZ as source
 						source = pos;
@@ -372,14 +393,28 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 						break;
 
 					case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
-						source = normal.NormalizedOr001(cpu_info.bSSE4_1);
+						// Flat uses the vertex normal, not provoking.
+						if (provokeIndOffset == 0) {
+							source = normal.Normalized(cpu_info.bSSE4_1);
+						} else {
+							reader.Goto(index);
+							ReadWeightedNormal(source, reader, vertType, skinningEnabled);
+							source.Normalize();
+						}
 						if (!reader.hasNormal()) {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
 						}
 						break;
 
 					case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
-						source = normal;
+						// Flat uses the vertex normal, not provoking.
+						if (provokeIndOffset == 0) {
+							source = normal;
+						} else {
+							// Need to read the normal for this vertex and weight it again..
+							reader.Goto(index);
+							ReadWeightedNormal(source, reader, vertType, skinningEnabled);
+						}
 						if (!reader.hasNormal()) {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
 						}
