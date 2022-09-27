@@ -131,6 +131,60 @@ static inline bool CheckOutsideZ(ClipCoords p, int &pos, int &neg) {
 	return false;
 }
 
+static void RotateUV(const VertexData &tl, const VertexData &br, VertexData &tr, VertexData &bl) {
+	const int x1 = tl.screenpos.x;
+	const int x2 = br.screenpos.x;
+	const int y1 = tl.screenpos.y;
+	const int y2 = br.screenpos.y;
+
+	if ((x1 < x2 && y1 > y2) || (x1 > x2 && y1 < y2)) {
+		std::swap(bl.texturecoords, tr.texturecoords);
+	}
+}
+
+// This is used for rectangle texture projection, which is very uncommon.
+// To avoid complicating the common rectangle path, this just uses triangles.
+static void AddTriangleRect(const VertexData &v0, const VertexData &v1, BinManager &binner) {
+	VertexData buf[4];
+	buf[0] = v1;
+	buf[0].screenpos = ScreenCoords(v0.screenpos.x, v0.screenpos.y, v1.screenpos.z);
+	buf[0].texturecoords = v0.texturecoords;
+
+	buf[1] = v1;
+	buf[1].screenpos = ScreenCoords(v0.screenpos.x, v1.screenpos.y, v1.screenpos.z);
+	buf[1].texturecoords = Vec3Packed<float>(v0.texturecoords.x, v1.texturecoords.y, v0.texturecoords.z);
+
+	buf[2] = v1;
+	buf[2].screenpos = ScreenCoords(v1.screenpos.x, v0.screenpos.y, v1.screenpos.z);
+	buf[2].texturecoords = Vec3Packed<float>(v1.texturecoords.x, v0.texturecoords.y, v1.texturecoords.z);
+
+	buf[3] = v1;
+
+	VertexData *topleft = &buf[0];
+	VertexData *topright = &buf[1];
+	VertexData *bottomleft = &buf[2];
+	VertexData *bottomright = &buf[3];
+
+	// DrawTriangle always culls, so sort out the drawing order.
+	for (int i = 0; i < 4; ++i) {
+		if (buf[i].screenpos.x < topleft->screenpos.x && buf[i].screenpos.y < topleft->screenpos.y)
+			topleft = &buf[i];
+		if (buf[i].screenpos.x > topright->screenpos.x && buf[i].screenpos.y < topright->screenpos.y)
+			topright = &buf[i];
+		if (buf[i].screenpos.x < bottomleft->screenpos.x && buf[i].screenpos.y > bottomleft->screenpos.y)
+			bottomleft = &buf[i];
+		if (buf[i].screenpos.x > bottomright->screenpos.x && buf[i].screenpos.y > bottomright->screenpos.y)
+			bottomright = &buf[i];
+	}
+
+	RotateUV(v0, v1, *topright, *bottomleft);
+
+	binner.AddTriangle(*topleft, *topright, *bottomleft);
+	binner.AddTriangle(*bottomleft, *topright, *topleft);
+	binner.AddTriangle(*topright, *bottomright, *bottomleft);
+	binner.AddTriangle(*bottomleft, *bottomright, *topright);
+}
+
 void ProcessRect(const ClipVertexData &v0, const ClipVertexData &v1, BinManager &binner) {
 	if (!binner.State().throughMode) {
 		// If any verts were outside range, throw the entire prim away.
@@ -162,8 +216,15 @@ void ProcessRect(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 			VertexData vrev1 = v1.v;
 			vrev1.fogdepth = v0.v.fogdepth;
 
-			binner.AddRect(v0.v, vhalf0);
-			binner.AddRect(vhalf1, vrev1);
+			if (binner.State().textureProj) {
+				AddTriangleRect(v0.v, vhalf0, binner);
+				AddTriangleRect(vhalf1, vrev1, binner);
+			} else {
+				binner.AddRect(v0.v, vhalf0);
+				binner.AddRect(vhalf1, vrev1);
+			}
+		} else if (binner.State().textureProj) {
+			AddTriangleRect(v0.v, v1.v, binner);
 		} else {
 			binner.AddRect(v0.v, v1.v);
 		}

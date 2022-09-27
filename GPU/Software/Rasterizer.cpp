@@ -802,7 +802,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	Vec2f stx(0.0f, 0.0f);
 	Vec2f sty(0.0f, 0.0f);
 	if (state.enableTextures) {
-		// TODO: Handle projection.
+		// Note: texture projection is not handled here, those always turn into triangles.
 		Vec2f tc0 = v0.texturecoords.uv();
 		Vec2f tc1 = v1.texturecoords.uv();
 		if (state.throughMode) {
