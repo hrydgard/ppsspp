@@ -261,6 +261,8 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	state->negateNormals = gstate.areNormalsReversed();
 
 	state->uvGenMode = gstate.getUVGenMode();
+	if (state->uvGenMode == GE_TEXMAP_UNKNOWN)
+		state->uvGenMode = GE_TEXMAP_TEXTURE_COORDS;
 
 	if (state->enableTransform) {
 		bool canSkipWorldPos = true;
@@ -441,17 +443,11 @@ ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformS
 			case GE_PROJMAP_NORMAL:
 				source = normal;
 				break;
-
-			default:
-				source = Vec3f::AssignToAll(0.0f);
-				ERROR_LOG_REPORT(G3D, "Software: Unsupported UV projection mode %x", gstate.getUVProjMode());
-				break;
 			}
 
 			// Note that UV scale/offset are not used in this mode.
 			Vec3<float> stq = Vec3ByMatrix43(source, gstate.tgenMatrix);
-			float z_recip = 1.0f / stq.z;
-			vertex.v.texturecoords = Vec3Packedf(stq.x * z_recip, stq.y * z_recip, 1.0f);
+			vertex.v.texturecoords = Vec3Packedf(stq.x, stq.y, stq.z);
 		} else if (state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
 			Lighting::GenerateLightST(vertex.v, worldnormal);
 		}

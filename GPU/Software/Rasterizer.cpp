@@ -129,6 +129,7 @@ void ComputeRasterizerState(RasterizerState *state) {
 		state->mipFilt = gstate.isMipmapFilteringEnabled();
 		state->minFilt = gstate.isMinifyFilteringEnabled();
 		state->magFilt = gstate.isMagnifyFilteringEnabled();
+		state->textureProj = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	}
 
 	state->shadeGouraud = gstate.getShadeMode() == GE_SHADE_GOURAUD;
@@ -224,8 +225,6 @@ static inline u8 ClampFogDepth(float fogdepth) {
 }
 
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const float p, float &s, float &t) {
-	// All UV gen modes, by the time they get here, behave the same.
-
 	// Note that for environment mapping, texture coordinates have been calculated during lighting
 	float q0 = 1.f / v0.clipw;
 	float q1 = 1.f / v1.clipw;
@@ -233,14 +232,26 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 	float wq1 = (1.0f - p) * q1;
 
 	float q_recip = 1.0f / (wq0 + wq1);
-	// TODO: Handle projection.
+	s = (v0.texturecoords.s() * wq0 + v1.texturecoords.s() * wq1) * q_recip;
+	t = (v0.texturecoords.t() * wq0 + v1.texturecoords.t() * wq1) * q_recip;
+}
+
+static inline void GetTextureCoordinatesProj(const VertexData& v0, const VertexData& v1, const float p, float &s, float &t) {
+	// This is for texture matrix projection.
+	float q0 = 1.f / v0.clipw;
+	float q1 = 1.f / v1.clipw;
+	float wq0 = p * q0;
+	float wq1 = (1.0f - p) * q1;
+
+	float q_recip = 1.0f / (wq0 + wq1);
+	float q = (v0.texturecoords.q() * wq0 + v1.texturecoords.q() * wq1) * q_recip;
+	q_recip *= 1.0f / q;
+
 	s = (v0.texturecoords.s() * wq0 + v1.texturecoords.s() * wq1) * q_recip;
 	t = (v0.texturecoords.t() * wq0 + v1.texturecoords.t() * wq1) * q_recip;
 }
 
 static inline void GetTextureCoordinates(const VertexData &v0, const VertexData &v1, const VertexData &v2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip, Vec4<float> &s, Vec4<float> &t) {
-	// All UV gen modes, by the time they get here, behave the same.
-
 	// Note that for environment mapping, texture coordinates have been calculated during lighting.
 	float q0 = 1.f / v0.clipw;
 	float q1 = 1.f / v1.clipw;
@@ -250,7 +261,23 @@ static inline void GetTextureCoordinates(const VertexData &v0, const VertexData 
 	Vec4<float> wq2 = w2.Cast<float>() * q2;
 
 	Vec4<float> q_recip = (wq0 + wq1 + wq2).Reciprocal();
-	// TODO: Handle projection.
+	s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), wq0, wq1, wq2, q_recip);
+	t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
+}
+
+static inline void GetTextureCoordinatesProj(const VertexData &v0, const VertexData &v1, const VertexData &v2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip, Vec4<float> &s, Vec4<float> &t) {
+	// This is for texture matrix projection.
+	float q0 = 1.f / v0.clipw;
+	float q1 = 1.f / v1.clipw;
+	float q2 = 1.f / v2.clipw;
+	Vec4<float> wq0 = w0.Cast<float>() * q0;
+	Vec4<float> wq1 = w1.Cast<float>() * q1;
+	Vec4<float> wq2 = w2.Cast<float>() * q2;
+
+	Vec4<float> q_recip = (wq0 + wq1 + wq2).Reciprocal();
+	Vec4<float> q = Interpolate(v0.texturecoords.q(), v1.texturecoords.q(), v2.texturecoords.q(), wq0, wq1, wq2, q_recip);
+	q_recip = q_recip * q.Reciprocal();
+
 	s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), wq0, wq1, wq2, q_recip);
 	t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
 }
@@ -676,6 +703,9 @@ void DrawTriangleSlice(
 						// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
 						s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
 						t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
+					} else if (state.textureProj) {
+						// Texture coordinate interpolation must definitely be perspective-correct.
+						GetTextureCoordinatesProj(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 					} else {
 						// Texture coordinate interpolation must definitely be perspective-correct.
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
@@ -961,6 +991,8 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 		if (state.throughMode) {
 			s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
 			t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
+		} else if (state.textureProj) {
+			GetTextureCoordinatesProj(v0, v0, 0.0f, s, t);
 		} else {
 			// Texture coordinate interpolation must definitely be perspective-correct.
 			GetTextureCoordinates(v0, v0, 0.0f, s, t);
@@ -1278,6 +1310,9 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 					s1 = tc1.s() * (1.0f / (float)(1 << state.samplerID.width0Shift));
 					t = tc.t() * (1.0f / (float)(1 << state.samplerID.height0Shift));
 					t1 = tc1.t() * (1.0f / (float)(1 << state.samplerID.height0Shift));
+				} else if (state.textureProj) {
+					GetTextureCoordinatesProj(v0, v1, (float)(steps - i) / steps1, s, t);
+					GetTextureCoordinatesProj(v0, v1, (float)(steps - i - 1) / steps1, s1, t1);
 				} else {
 					// Texture coordinate interpolation must definitely be perspective-correct.
 					GetTextureCoordinates(v0, v1, (float)(steps - i) / steps1, s, t);

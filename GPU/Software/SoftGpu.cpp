@@ -160,7 +160,7 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_LOGICOP, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED },
 	{ GE_CMD_LOGICOPENABLE, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED },
 
-	{ GE_CMD_TEXMAPMODE, 0, SoftDirty::TRANSFORM_BASIC },
+	{ GE_CMD_TEXMAPMODE, 0, SoftDirty::TRANSFORM_BASIC | SoftDirty::RAST_TEX },
 
 	// These are read on every SubmitPrim, no need for dirtying or flushing.
 	{ GE_CMD_TEXSCALEU },
