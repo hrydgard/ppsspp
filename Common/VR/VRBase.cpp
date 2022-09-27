@@ -39,13 +39,13 @@ static engine_t vr_engine;
 int vr_initialized = 0;
 
 const char* const requiredExtensionNames[] = {
-		XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME,
 		XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME,
 #ifdef OPENXR_HAS_PERFORMANCE_EXTENSION
 		XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME,
 		XR_KHR_ANDROID_THREAD_SETTINGS_EXTENSION_NAME,
 #endif
 #ifdef OPENXR_PLATFORM_PICO
+		XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME,
 		"XR_PICO_android_controller_function_ext_enable",
 		"XR_PICO_view_state_ext_enable",
 		"XR_PICO_frame_end_info_ext",
