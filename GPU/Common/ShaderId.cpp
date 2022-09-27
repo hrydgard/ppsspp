@@ -22,7 +22,6 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	if (id.Bit(VS_BIT_HAS_TEXCOORD)) desc << "T ";
 	if (id.Bit(VS_BIT_HAS_NORMAL)) desc << "N ";
 	if (id.Bit(VS_BIT_LMODE)) desc << "LM ";
-	if (id.Bit(VS_BIT_ENABLE_FOG)) desc << "Fog ";
 	if (id.Bit(VS_BIT_NORM_REVERSE)) desc << "RevN ";
 	if (id.Bit(VS_BIT_DO_TEXTURE)) desc << "Tex ";
 	int uvgMode = id.Bits(VS_BIT_UVGEN_MODE, 2);
@@ -40,6 +39,9 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	// Lights
 	if (id.Bit(VS_BIT_LIGHTING_ENABLE)) {
 		desc << "Light: ";
+	}
+	if (id.Bit(VS_BIT_LIGHT_UBERSHADER)) {
+		desc << "LightUberShader ";
 	}
 	for (int i = 0; i < 4; i++) {
 		bool enabled = id.Bit(VS_BIT_LIGHT0_ENABLE + i) && id.Bit(VS_BIT_LIGHTING_ENABLE);
@@ -80,14 +82,12 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 		_assert_(hasNormal);
 	}
 
-	bool enableFog = gstate.isFogEnabled() && !isModeThrough && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough && !gstate.isModeClear();
 	bool vertexRangeCulling = gstate_c.Supports(GPU_SUPPORTS_VS_RANGE_CULLING) &&
 		!isModeThrough && gstate_c.submitType == SubmitType::DRAW;  // neither hw nor sw spline/bezier. See #11692
 
 	VShaderID id;
 	id.SetBit(VS_BIT_LMODE, lmode);
-	id.SetBit(VS_BIT_ENABLE_FOG, enableFog);
 	id.SetBit(VS_BIT_IS_THROUGH, isModeThrough);
 	id.SetBit(VS_BIT_HAS_COLOR, hasColor);
 	id.SetBit(VS_BIT_VERTEX_RANGE_CULLING, vertexRangeCulling);
@@ -123,15 +123,19 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 
 		if (gstate.isLightingEnabled()) {
 			// doShadeMapping is stored as UVGenMode, and light type doesn't matter for shade mapping.
-			id.SetBits(VS_BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate());
 			id.SetBit(VS_BIT_LIGHTING_ENABLE);
-			// Light bits
-			for (int i = 0; i < 4; i++) {
-				bool chanEnabled = gstate.isLightChanEnabled(i) != 0;
-				id.SetBit(VS_BIT_LIGHT0_ENABLE + i, chanEnabled);
-				if (chanEnabled) {
-					id.SetBits(VS_BIT_LIGHT0_COMP + 4 * i, 2, gstate.getLightComputation(i));
-					id.SetBits(VS_BIT_LIGHT0_TYPE + 4 * i, 2, gstate.getLightType(i));
+			if (gstate_c.Supports(GPU_USE_LIGHT_UBERSHADER)) {
+				id.SetBit(VS_BIT_LIGHT_UBERSHADER);
+			} else {
+				id.SetBits(VS_BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate());
+				// Light bits
+				for (int i = 0; i < 4; i++) {
+					bool chanEnabled = gstate.isLightChanEnabled(i) != 0;
+					id.SetBit(VS_BIT_LIGHT0_ENABLE + i, chanEnabled);
+					if (chanEnabled) {
+						id.SetBits(VS_BIT_LIGHT0_COMP + 4 * i, 2, gstate.getLightComputation(i));
+						id.SetBits(VS_BIT_LIGHT0_TYPE + 4 * i, 2, gstate.getLightType(i));
+					}
 				}
 			}
 		}
@@ -244,6 +248,9 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	else if (id.Bit(FS_BIT_ALPHA_TEST)) desc << "AlphaTest " << alphaTestFuncs[id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3)] << " ";
 	if (id.Bit(FS_BIT_COLOR_AGAINST_ZERO)) desc << "ColorTest0 " << alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match;
 	else if (id.Bit(FS_BIT_COLOR_TEST)) desc << "ColorTest " << alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match
+	if (id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO)) desc << "TestDiscardToZero ";
+	if (id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL)) desc << "StencilDiscardWorkaround ";
+	if (id.Bits(FS_BIT_REPLACE_LOGIC_OP, 4) != GE_LOGIC_COPY) desc << "ReplaceLogic ";
 
 	return desc.str();
 }

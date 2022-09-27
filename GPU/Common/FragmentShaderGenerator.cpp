@@ -174,9 +174,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "layout (location = 1) %s in lowp vec4 v_color0;\n", shading);
 		if (lmode)
 			WRITE(p, "layout (location = 2) %s in lowp vec3 v_color1;\n", shading);
-		if (enableFog) {
-			WRITE(p, "layout (location = 3) in highp float v_fogdepth;\n");
-		}
+		WRITE(p, "layout (location = 3) in highp float v_fogdepth;\n");
 		if (doTexture) {
 			WRITE(p, "layout (location = 0) in highp vec3 v_texcoord;\n");
 		}
@@ -279,9 +277,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (lmode) {
 			WRITE(p, "  vec3 v_color1: COLOR1;\n");
 		}
-		if (enableFog) {
-			WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
-		}
+		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 		if (needFragCoord) {
 			if (compat.shaderLanguage == HLSL_D3D11) {
 				WRITE(p, "  vec4 pixelPos : SV_POSITION;\n");
@@ -394,8 +390,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (enableFog) {
 			*uniformMask |= DIRTY_FOGCOLOR;
 			WRITE(p, "uniform vec3 u_fogcolor;\n");
-			WRITE(p, "%s %s float v_fogdepth;\n", compat.varying_fs, highpFog ? "highp" : "mediump");
 		}
+		WRITE(p, "%s %s float v_fogdepth;\n", compat.varying_fs, highpFog ? "highp" : "mediump");
 		if (doTexture) {
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_fs, highpTexcoord ? "highp" : "mediump");
 		}

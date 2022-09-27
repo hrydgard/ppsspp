@@ -97,6 +97,7 @@ public:
 	int u_texclampoff;
 
 	// Lighting
+	int u_lightControl;
 	int u_ambient;
 	int u_matambientalpha;
 	int u_matdiffuse;

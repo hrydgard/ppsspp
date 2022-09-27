@@ -12,7 +12,6 @@
 enum VShaderBit : uint8_t {
 	VS_BIT_LMODE = 0,
 	VS_BIT_IS_THROUGH = 1,
-	VS_BIT_ENABLE_FOG = 2,
 	VS_BIT_HAS_COLOR = 3,
 	VS_BIT_DO_TEXTURE = 4,
 	VS_BIT_VERTEX_RANGE_CULLING = 5,
@@ -33,7 +32,11 @@ enum VShaderBit : uint8_t {
 	VS_BIT_BONES = 22,  // 3 should be enough, not 8
 	// 25 - 29 are free.
 	VS_BIT_ENABLE_BONES = 30,
-	// 31 is free.
+
+	// If this is set along with LIGHTING_ENABLE, all other lighting bits below
+	// are passed to the shader directly instead.
+	VS_BIT_LIGHT_UBERSHADER = 31,
+
 	VS_BIT_LIGHT0_COMP = 32,  // 2 bits
 	VS_BIT_LIGHT0_TYPE = 34,  // 2 bits
 	VS_BIT_LIGHT1_COMP = 36,  // 2 bits

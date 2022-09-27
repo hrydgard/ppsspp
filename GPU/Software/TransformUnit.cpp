@@ -721,7 +721,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					if (Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br)) {
 						Clipper::ProcessRect(data_[tl], data_[br], *binner_);
 						start_vtx += 2;
-						skip_count = 0;
+						skip_count = 2;
 						if (base + 4 >= vertex_count) {
 							start_vtx = vertex_count;
 							break;
@@ -731,6 +731,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 						// TODO: Maybe should give detection two halves?
 						data_[0] = data_[2];
 						data_[1] = data_[3];
+						data_index_ = 2;
 					} else {
 						// Go into triangle mode.  Unfortunately, we re-read the verts.
 						break;

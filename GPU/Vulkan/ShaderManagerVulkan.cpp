@@ -250,7 +250,6 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 
 	_dbg_assert_(FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
 	_dbg_assert_(FSID.Bit(FS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
-	_dbg_assert_(FSID.Bit(FS_BIT_ENABLE_FOG) == VSID.Bit(VS_BIT_ENABLE_FOG));
 	_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
 
 	// Just update uniforms if this is the same shader as last time.
@@ -377,7 +376,7 @@ VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromModule(VkShaderM
 // instantaneous.
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 26
+#define CACHE_VERSION 28
 struct VulkanCacheHeader {
 	uint32_t magic;
 	uint32_t version;

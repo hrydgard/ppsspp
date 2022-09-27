@@ -43,9 +43,9 @@ enum class VKRRenderCommand : uint8_t {
 
 enum class PipelineFlags {
 	NONE = 0,
-	USES_BLEND_CONSTANT = (1 << 3),
-	USES_DEPTH_STENCIL = (1 << 4),  // Reads or writes the depth or stencil buffers.
-	USES_INPUT_ATTACHMENT = (1 << 5),
+	USES_BLEND_CONSTANT = (1 << 1),
+	USES_DEPTH_STENCIL = (1 << 2),  // Reads or writes the depth or stencil buffers.
+	USES_INPUT_ATTACHMENT = (1 << 3),
 };
 ENUM_CLASS_BITOPS(PipelineFlags);
 
@@ -64,6 +64,14 @@ enum RenderPassType {
 	// Later will add pure-color render passes.
 	RP_TYPE_COUNT,
 };
+
+inline bool RenderPassTypeHasDepth(RenderPassType type) {
+	return type == RP_TYPE_BACKBUFFER || type == RP_TYPE_COLOR_DEPTH || type == RP_TYPE_COLOR_DEPTH_INPUT;
+}
+
+inline bool RenderPassTypeHasInput(RenderPassType type) {
+	return type == RP_TYPE_COLOR_INPUT || type == RP_TYPE_COLOR_DEPTH_INPUT;
+}
 
 struct VkRenderData {
 	VKRRenderCommand cmd;
@@ -155,6 +163,10 @@ struct TransitionRequest {
 	VKRFramebuffer *fb;
 	VkImageAspectFlags aspect;  // COLOR or DEPTH
 	VkImageLayout targetLayout;
+
+	bool operator == (const TransitionRequest &other) const {
+		return fb == other.fb && aspect == other.aspect && targetLayout == other.targetLayout;
+	}
 };
 
 class VKRRenderPass;

@@ -270,8 +270,7 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	} else {
 		bool needsUV = vs->GetID().Bit(VS_BIT_DO_TEXTURE);
 		bool needsColor1 = vs->GetID().Bit(VS_BIT_LMODE);
-		bool needsFog = vs->GetID().Bit(VS_BIT_ENABLE_FOG);
-		attributeCount = SetupVertexAttribsPretransformed(attrs, needsUV, needsColor1, needsFog);
+		attributeCount = SetupVertexAttribsPretransformed(attrs, needsUV, needsColor1, true);
 		vertexStride = (int)sizeof(TransformedVertex);
 	}
 
@@ -296,7 +295,7 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 
 	desc->pipelineLayout = layout;
 
-	VKRGraphicsPipeline *pipeline = renderManager->CreateGraphicsPipeline(desc, variantBitmask, "game");
+	VKRGraphicsPipeline *pipeline = renderManager->CreateGraphicsPipeline(desc, pipelineFlags, variantBitmask, "game");
 
 	vulkanPipeline->pipeline = pipeline;
 	if (useBlendConstant) {

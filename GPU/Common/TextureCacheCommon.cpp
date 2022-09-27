@@ -569,6 +569,10 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 		nextTexture_ = nullptr;
 		nextNeedsRebuild_ = false;
+
+		if (hasClutGPU) {
+			WARN_LOG_ONCE(clut_fb, G3D, "Render-to-CLUT combined with framebuffer texture at %08x - Not yet supported", texaddr);
+		}
 		SetTextureFramebuffer(bestCandidate);  // sets curTexture3D
 		return nullptr;
 	}

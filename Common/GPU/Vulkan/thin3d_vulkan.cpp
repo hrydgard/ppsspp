@@ -1134,7 +1134,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	raster->ToVulkan(&gDesc.rs);
 
-	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, 1 << RP_TYPE_BACKBUFFER, tag ? tag : "thin3d");
+	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << RP_TYPE_BACKBUFFER, tag ? tag : "thin3d");
 
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;
@@ -1496,9 +1496,7 @@ private:
 
 Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	VkCommandBuffer cmd = renderManager_.GetInitCmd();
-	// TODO: We always create with depth here, even when it's not needed (such as color temp FBOs).
-	// Should optimize those away.
-	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.tag);
+	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.z_stencil, desc.tag);
 	return new VKFramebuffer(vkrfb);
 }
 
