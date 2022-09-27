@@ -87,7 +87,14 @@ void VR_Init( ovrJava java ) {
 	XrInstanceCreateInfo instanceCreateInfo;
 	memset(&instanceCreateInfo, 0, sizeof(instanceCreateInfo));
 	instanceCreateInfo.type = XR_TYPE_INSTANCE_CREATE_INFO;
+#ifdef OPENXR_PLATFORM_PICO
+	XrInstanceCreateInfoAndroidKHR instanceCreateInfoAndroid = {XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
+	instanceCreateInfoAndroid.applicationVM = java.Vm;
+	instanceCreateInfoAndroid.applicationActivity = java.ActivityObject;
+	instanceCreateInfo.next = (XrBaseInStructure*)&instanceCreateInfoAndroid;
+#else
 	instanceCreateInfo.next = NULL;
+#endif
 	instanceCreateInfo.createFlags = 0;
 	instanceCreateInfo.applicationInfo = appInfo;
 	instanceCreateInfo.enabledApiLayerCount = 0;
