@@ -6,8 +6,7 @@
 #include <unistd.h>
 
 #ifdef OPENXR_PLATFORM_PICO
-enum ConfigsSetEXT
-{
+enum ConfigsSetEXT {
     UNREAL_VERSION = 0,
     TRACKING_ORIGIN,
     OPENGL_NOERROR,
@@ -20,11 +19,10 @@ enum ConfigsSetEXT
     MRC_TEXTURE_ID = 9,
 };
 
-typedef enum
-{
+enum PxrTrackingDof {
     PXR_TRACKING_3DOF = 0,
     PXR_TRACKING_6DOF = 1
-} PxrTrackingDof;
+};
 
 typedef XrResult (XRAPI_PTR *PFN_xrSetEngineVersionPico)(XrInstance instance,const char* version);
 typedef XrResult (XRAPI_PTR *PFN_xrStartCVControllerThreadPico)(XrInstance instance,int headSensorState, int handSensorState);
@@ -35,7 +33,6 @@ PFN_xrSetConfigPICO pfnXrSetConfigPICO = nullptr;
 PFN_xrSetEngineVersionPico pfnXrSetEngineVersionPico = nullptr;
 PFN_xrStartCVControllerThreadPico pfnXrStartCVControllerThreadPico = nullptr;
 PFN_xrStopCVControllerThreadPico pfnXrStopCVControllerThreadPico = nullptr;
-
 #endif
 
 static engine_t vr_engine;
