@@ -36,8 +36,6 @@
 #include "GPU/GPUState.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/Core.h"
-#include "Core/System.h"
-#include "Core/FileSystems/MetaFileSystem.h"
 
 // MPEG AVC elementary stream.
 static const int MPEG_AVC_ES_SIZE = 2048;          // MPEG packet size.
