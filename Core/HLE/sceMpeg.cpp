@@ -1363,14 +1363,13 @@ static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initA
 	// Flush structs back to memory
 	avcAu.write(auAddr);
 
-	// Save the current frame's status to initAddr
-	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo("disc0:\\PSP_GAME\\USRDIR\\module\\mpeg.prx");
-	if (fileInfo.exists) {
-		Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
-	}
-	else {
-	// Sunday Vs Magazine Shuuketsu! Choujou Daikessen expcect, issue #11060
+	if (mpegLibVersion >= 0x010A) {
+		// Sunday Vs Magazine Shuuketsu! Choujou Daikessen expect, issue #11060
 		Memory::Write_U32(1, initAddr);
+	}
+	else {	
+	// Save the current frame's status to initAddr
+		Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
 	}
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
