@@ -26,7 +26,6 @@ XrActionSet runningActionSet;
 XrSpace leftControllerAimSpace = XR_NULL_HANDLE;
 XrSpace rightControllerAimSpace = XR_NULL_HANDLE;
 int inputInitialized = 0;
-int useSimpleProfile = 0;
 
 int in_vrEventTime = 0;
 double lastframetime = 0;
@@ -248,182 +247,109 @@ void IN_VRInit( engine_t *engine ) {
 	handPoseRightAction = CreateAction(runningActionSet, XR_ACTION_TYPE_POSE_INPUT, "hand_pose_right", NULL, 1, &rightHandPath);
 
 	XrPath interactionProfilePath = XR_NULL_PATH;
-	XrPath interactionProfilePathTouch = XR_NULL_PATH;
-	XrPath interactionProfilePathKHRSimple = XR_NULL_PATH;
+#ifdef OPENXR_PLATFORM_QUEST
+	OXR(xrStringToPath(engine->appState.Instance, "/interaction_profiles/oculus/touch_controller", &interactionProfilePath));
+#elif OPENXR_PLATFORM_PICO
+	OXR(xrStringToPath(engine->appState.Instance, "/interaction_profiles/pico/neo3_controller", &interactionProfilePath));
+#endif
+	// Map bindings
+	XrActionSuggestedBinding bindings[32]; // large enough for all profiles
+	int currBinding = 0;
 
-	OXR(xrStringToPath(engine->appState.Instance, "/interaction_profiles/oculus/touch_controller", &interactionProfilePathTouch));
-	OXR(xrStringToPath(engine->appState.Instance, "/interaction_profiles/khr/simple_controller", &interactionProfilePathKHRSimple));
+#ifdef OPENXR_PLATFORM_QUEST
+	bindings[currBinding++] = ActionSuggestedBinding(indexLeftAction, "/user/hand/left/input/trigger");
+	bindings[currBinding++] = ActionSuggestedBinding(indexRightAction, "/user/hand/right/input/trigger");
+	bindings[currBinding++] = ActionSuggestedBinding(menuAction, "/user/hand/left/input/menu/click");
+#elif OPENXR_PLATFORM_PICO
+	bindings[currBinding++] = ActionSuggestedBinding(indexLeftAction,  "/user/hand/left/input/trigger/click");
+	bindings[currBinding++] = ActionSuggestedBinding(indexRightAction,  "/user/hand/right/input/trigger/click");
+	bindings[currBinding++] = ActionSuggestedBinding(menuAction, "/user/hand/left/input/back/click");
+	bindings[currBinding++] = ActionSuggestedBinding(menuAction, "/user/hand/right/input/back/click");
+#endif
+	bindings[currBinding++] = ActionSuggestedBinding(buttonXAction, "/user/hand/left/input/x/click");
+	bindings[currBinding++] = ActionSuggestedBinding(buttonYAction, "/user/hand/left/input/y/click");
+	bindings[currBinding++] = ActionSuggestedBinding(buttonAAction, "/user/hand/right/input/a/click");
+	bindings[currBinding++] = ActionSuggestedBinding(buttonBAction, "/user/hand/right/input/b/click");
+	bindings[currBinding++] = ActionSuggestedBinding(gripLeftAction, "/user/hand/left/input/squeeze/value");
+	bindings[currBinding++] = ActionSuggestedBinding(gripRightAction, "/user/hand/right/input/squeeze/value");
+	bindings[currBinding++] = ActionSuggestedBinding(moveOnLeftJoystickAction, "/user/hand/left/input/thumbstick");
+	bindings[currBinding++] = ActionSuggestedBinding(moveOnRightJoystickAction, "/user/hand/right/input/thumbstick");
+	bindings[currBinding++] = ActionSuggestedBinding(thumbstickLeftClickAction, "/user/hand/left/input/thumbstick/click");
+	bindings[currBinding++] = ActionSuggestedBinding(thumbstickRightClickAction, "/user/hand/right/input/thumbstick/click");
+	bindings[currBinding++] = ActionSuggestedBinding(vibrateLeftFeedback, "/user/hand/left/output/haptic");
+	bindings[currBinding++] = ActionSuggestedBinding(vibrateRightFeedback, "/user/hand/right/output/haptic");
+	bindings[currBinding++] = ActionSuggestedBinding(handPoseLeftAction, "/user/hand/left/input/aim/pose");
+	bindings[currBinding++] = ActionSuggestedBinding(handPoseRightAction, "/user/hand/right/input/aim/pose");
 
-	// Toggle this to force simple as a first choice, otherwise use it as a last resort
-	if (useSimpleProfile) {
-		ALOGV("xrSuggestInteractionProfileBindings found bindings for Khronos SIMPLE controller");
-		interactionProfilePath = interactionProfilePathKHRSimple;
-	} else {
-		// Query Set
-		XrActionSet queryActionSet = CreateActionSet(1, "query_action_set", "Action Set used to query device caps");
-		XrAction dummyAction = CreateAction(queryActionSet, XR_ACTION_TYPE_BOOLEAN_INPUT, "dummy_action", "Dummy Action", 0, NULL);
+	XrInteractionProfileSuggestedBinding suggestedBindings = {};
+	suggestedBindings.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING;
+	suggestedBindings.next = NULL;
+	suggestedBindings.interactionProfile = interactionProfilePath;
+	suggestedBindings.suggestedBindings = bindings;
+	suggestedBindings.countSuggestedBindings = currBinding;
+	OXR(xrSuggestInteractionProfileBindings(engine->appState.Instance, &suggestedBindings));
 
-		// Map bindings
-		XrActionSuggestedBinding bindings[1];
-		int currBinding = 0;
-		bindings[currBinding++] = ActionSuggestedBinding(dummyAction, "/user/hand/right/input/system/click");
+	// Attach actions
+	XrSessionActionSetsAttachInfo attachInfo = {};
+	attachInfo.type = XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO;
+	attachInfo.next = NULL;
+	attachInfo.countActionSets = 1;
+	attachInfo.actionSets = &runningActionSet;
+	OXR(xrAttachSessionActionSets(engine->appState.Session, &attachInfo));
 
-		XrInteractionProfileSuggestedBinding suggestedBindings = {};
-		suggestedBindings.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING;
-		suggestedBindings.next = NULL;
-		suggestedBindings.suggestedBindings = bindings;
-		suggestedBindings.countSuggestedBindings = currBinding;
+	// Enumerate actions
+	XrPath actionPathsBuffer[32];
+	char stringBuffer[256];
+	XrAction actionsToEnumerate[] = {
+			indexLeftAction,
+			indexRightAction,
+			menuAction,
+			buttonAAction,
+			buttonBAction,
+			buttonXAction,
+			buttonYAction,
+			gripLeftAction,
+			gripRightAction,
+			moveOnLeftJoystickAction,
+			moveOnRightJoystickAction,
+			thumbstickLeftClickAction,
+			thumbstickRightClickAction,
+			vibrateLeftFeedback,
+			vibrateRightFeedback,
+			handPoseLeftAction,
+			handPoseRightAction
+	};
+	for (XrAction & i : actionsToEnumerate) {
+		XrBoundSourcesForActionEnumerateInfo enumerateInfo = {};
+		enumerateInfo.type = XR_TYPE_BOUND_SOURCES_FOR_ACTION_ENUMERATE_INFO;
+		enumerateInfo.next = NULL;
+		enumerateInfo.action = i;
 
-		// Try all
-		suggestedBindings.interactionProfile = interactionProfilePathTouch;
-		XrResult suggestTouchResult = xrSuggestInteractionProfileBindings(engine->appState.Instance, &suggestedBindings);
-		OXR(suggestTouchResult);
+		// Get Count
+		uint32_t countOutput = 0;
+		OXR(xrEnumerateBoundSourcesForAction(engine->appState.Session, &enumerateInfo, 0 /* request size */, &countOutput, NULL));
+		ALOGV("xrEnumerateBoundSourcesForAction action=%lld count=%u", (long long)enumerateInfo.action, countOutput);
 
-		if (XR_SUCCESS == suggestTouchResult) {
-			ALOGV("xrSuggestInteractionProfileBindings found bindings for QUEST controller");
-			interactionProfilePath = interactionProfilePathTouch;
-		}
-
-		if (interactionProfilePath == XR_NULL_PATH) {
-			// Simple as a fallback
-			bindings[0] = ActionSuggestedBinding(dummyAction, "/user/hand/right/input/select/click");
-			suggestedBindings.interactionProfile = interactionProfilePathKHRSimple;
-			XrResult suggestKHRSimpleResult = xrSuggestInteractionProfileBindings(engine->appState.Instance, &suggestedBindings);
-			OXR(suggestKHRSimpleResult);
-			if (XR_SUCCESS == suggestKHRSimpleResult) {
-				ALOGV("xrSuggestInteractionProfileBindings found bindings for Khronos SIMPLE controller");
-				interactionProfilePath = interactionProfilePathKHRSimple;
-			} else {
-				ALOGE("xrSuggestInteractionProfileBindings did NOT find any bindings.");
-				exit(1);
-			}
-		}
-	}
-
-	// Action creation
-	{
-		// Map bindings
-		XrActionSuggestedBinding bindings[32]; // large enough for all profiles
-		int currBinding = 0;
-
-		{
-			if (interactionProfilePath == interactionProfilePathTouch) {
-				bindings[currBinding++] = ActionSuggestedBinding(indexLeftAction, "/user/hand/left/input/trigger");
-				bindings[currBinding++] = ActionSuggestedBinding(indexRightAction, "/user/hand/right/input/trigger");
-				bindings[currBinding++] = ActionSuggestedBinding(menuAction, "/user/hand/left/input/menu/click");
-				bindings[currBinding++] = ActionSuggestedBinding(buttonXAction, "/user/hand/left/input/x/click");
-				bindings[currBinding++] = ActionSuggestedBinding(buttonYAction, "/user/hand/left/input/y/click");
-				bindings[currBinding++] = ActionSuggestedBinding(buttonAAction, "/user/hand/right/input/a/click");
-				bindings[currBinding++] = ActionSuggestedBinding(buttonBAction, "/user/hand/right/input/b/click");
-				bindings[currBinding++] = ActionSuggestedBinding(gripLeftAction, "/user/hand/left/input/squeeze/value");
-				bindings[currBinding++] = ActionSuggestedBinding(gripRightAction, "/user/hand/right/input/squeeze/value");
-				bindings[currBinding++] = ActionSuggestedBinding(moveOnLeftJoystickAction, "/user/hand/left/input/thumbstick");
-				bindings[currBinding++] = ActionSuggestedBinding(moveOnRightJoystickAction, "/user/hand/right/input/thumbstick");
-				bindings[currBinding++] = ActionSuggestedBinding(thumbstickLeftClickAction, "/user/hand/left/input/thumbstick/click");
-				bindings[currBinding++] = ActionSuggestedBinding(thumbstickRightClickAction, "/user/hand/right/input/thumbstick/click");
-				bindings[currBinding++] = ActionSuggestedBinding(vibrateLeftFeedback, "/user/hand/left/output/haptic");
-				bindings[currBinding++] = ActionSuggestedBinding(vibrateRightFeedback, "/user/hand/right/output/haptic");
-				bindings[currBinding++] = ActionSuggestedBinding(handPoseLeftAction, "/user/hand/left/input/aim/pose");
-				bindings[currBinding++] = ActionSuggestedBinding(handPoseRightAction, "/user/hand/right/input/aim/pose");
-			}
-
-			if (interactionProfilePath == interactionProfilePathKHRSimple) {
-				bindings[currBinding++] = ActionSuggestedBinding(indexLeftAction, "/user/hand/left/input/select/click");
-				bindings[currBinding++] = ActionSuggestedBinding(indexRightAction, "/user/hand/right/input/select/click");
-				bindings[currBinding++] = ActionSuggestedBinding(buttonAAction, "/user/hand/left/input/menu/click");
-				bindings[currBinding++] = ActionSuggestedBinding(buttonXAction, "/user/hand/right/input/menu/click");
-				bindings[currBinding++] = ActionSuggestedBinding(vibrateLeftFeedback, "/user/hand/left/output/haptic");
-				bindings[currBinding++] = ActionSuggestedBinding(vibrateRightFeedback, "/user/hand/right/output/haptic");
-				bindings[currBinding++] = ActionSuggestedBinding(handPoseLeftAction, "/user/hand/left/input/aim/pose");
-				bindings[currBinding++] = ActionSuggestedBinding(handPoseRightAction, "/user/hand/right/input/aim/pose");
-			}
-		}
-
-		XrInteractionProfileSuggestedBinding suggestedBindings = {};
-		suggestedBindings.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING;
-		suggestedBindings.next = NULL;
-		suggestedBindings.interactionProfile = interactionProfilePath;
-		suggestedBindings.suggestedBindings = bindings;
-		suggestedBindings.countSuggestedBindings = currBinding;
-		OXR(xrSuggestInteractionProfileBindings(engine->appState.Instance, &suggestedBindings));
-
-		// Attach actions
-		XrSessionActionSetsAttachInfo attachInfo = {};
-		attachInfo.type = XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO;
-		attachInfo.next = NULL;
-		attachInfo.countActionSets = 1;
-		attachInfo.actionSets = &runningActionSet;
-		OXR(xrAttachSessionActionSets(engine->appState.Session, &attachInfo));
-
-		// Enumerate actions
-		XrPath actionPathsBuffer[32];
-		char stringBuffer[256];
-		XrAction actionsToEnumerate[] = {
-				indexLeftAction,
-				indexRightAction,
-				menuAction,
-				buttonAAction,
-				buttonBAction,
-				buttonXAction,
-				buttonYAction,
-				gripLeftAction,
-				gripRightAction,
-				moveOnLeftJoystickAction,
-				moveOnRightJoystickAction,
-				thumbstickLeftClickAction,
-				thumbstickRightClickAction,
-				vibrateLeftFeedback,
-				vibrateRightFeedback,
-				handPoseLeftAction,
-				handPoseRightAction
-		};
-		for (XrAction & i : actionsToEnumerate) {
-			XrBoundSourcesForActionEnumerateInfo enumerateInfo = {};
-			enumerateInfo.type = XR_TYPE_BOUND_SOURCES_FOR_ACTION_ENUMERATE_INFO;
-			enumerateInfo.next = NULL;
-			enumerateInfo.action = i;
-
-			// Get Count
-			uint32_t countOutput = 0;
+		if (countOutput < 32) {
 			OXR(xrEnumerateBoundSourcesForAction(
-					engine->appState.Session, &enumerateInfo, 0 /* request size */, &countOutput, NULL));
-			ALOGV(
-					"xrEnumerateBoundSourcesForAction action=%lld count=%u",
-					(long long)enumerateInfo.action,
-					countOutput);
+					engine->appState.Session, &enumerateInfo, 32, &countOutput, actionPathsBuffer));
+			for (uint32_t a = 0; a < countOutput; ++a) {
+				XrInputSourceLocalizedNameGetInfo nameGetInfo = {};
+				nameGetInfo.type = XR_TYPE_INPUT_SOURCE_LOCALIZED_NAME_GET_INFO;
+				nameGetInfo.next = NULL;
+				nameGetInfo.sourcePath = actionPathsBuffer[a];
+				nameGetInfo.whichComponents = XR_INPUT_SOURCE_LOCALIZED_NAME_USER_PATH_BIT |
+				                              XR_INPUT_SOURCE_LOCALIZED_NAME_INTERACTION_PROFILE_BIT |
+				                              XR_INPUT_SOURCE_LOCALIZED_NAME_COMPONENT_BIT;
 
-			if (countOutput < 32) {
-				OXR(xrEnumerateBoundSourcesForAction(
-						engine->appState.Session, &enumerateInfo, 32, &countOutput, actionPathsBuffer));
-				for (uint32_t a = 0; a < countOutput; ++a) {
-					XrInputSourceLocalizedNameGetInfo nameGetInfo = {};
-					nameGetInfo.type = XR_TYPE_INPUT_SOURCE_LOCALIZED_NAME_GET_INFO;
-					nameGetInfo.next = NULL;
-					nameGetInfo.sourcePath = actionPathsBuffer[a];
-					nameGetInfo.whichComponents = XR_INPUT_SOURCE_LOCALIZED_NAME_USER_PATH_BIT |
-					                              XR_INPUT_SOURCE_LOCALIZED_NAME_INTERACTION_PROFILE_BIT |
-					                              XR_INPUT_SOURCE_LOCALIZED_NAME_COMPONENT_BIT;
-
-					uint32_t stringCount = 0u;
-					OXR(xrGetInputSourceLocalizedName(
-							engine->appState.Session, &nameGetInfo, 0, &stringCount, NULL));
-					if (stringCount < 256) {
-						OXR(xrGetInputSourceLocalizedName(
-								engine->appState.Session, &nameGetInfo, 256, &stringCount, stringBuffer));
-						char pathStr[256];
-						uint32_t strLen = 0;
-						OXR(xrPathToString(
-								engine->appState.Instance,
-								actionPathsBuffer[a],
-								(uint32_t)sizeof(pathStr),
-								&strLen,
-								pathStr));
-						ALOGV(
-								"  -> path = %lld `%s` -> `%s`",
-								(long long)actionPathsBuffer[a],
-								pathStr,
-								stringBuffer);
-					}
+				uint32_t stringCount = 0u;
+				OXR(xrGetInputSourceLocalizedName(engine->appState.Session, &nameGetInfo, 0, &stringCount, NULL));
+				if (stringCount < 256) {
+					OXR(xrGetInputSourceLocalizedName(engine->appState.Session, &nameGetInfo, 256, &stringCount, stringBuffer));
+					char pathStr[256];
+					uint32_t strLen = 0;
+					OXR(xrPathToString(engine->appState.Instance, actionPathsBuffer[a], (uint32_t)sizeof(pathStr), &strLen, pathStr));
+					ALOGV("  -> path = %lld `%s` -> `%s`", (long long)actionPathsBuffer[a], pathStr, stringBuffer);
 				}
 			}
 		}
