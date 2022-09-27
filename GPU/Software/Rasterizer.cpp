@@ -233,6 +233,7 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 	float wq1 = (1.0f - p) * q1;
 
 	float q_recip = 1.0f / (wq0 + wq1);
+	// TODO: Handle projection.
 	s = (v0.texturecoords.s() * wq0 + v1.texturecoords.s() * wq1) * q_recip;
 	t = (v0.texturecoords.t() * wq0 + v1.texturecoords.t() * wq1) * q_recip;
 }
@@ -249,6 +250,7 @@ static inline void GetTextureCoordinates(const VertexData &v0, const VertexData 
 	Vec4<float> wq2 = w2.Cast<float>() * q2;
 
 	Vec4<float> q_recip = (wq0 + wq1 + wq2).Reciprocal();
+	// TODO: Handle projection.
 	s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), wq0, wq1, wq2, q_recip);
 	t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
 }
@@ -770,8 +772,9 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	Vec2f stx(0.0f, 0.0f);
 	Vec2f sty(0.0f, 0.0f);
 	if (state.enableTextures) {
-		Vec2f tc0 = v0.texturecoords;
-		Vec2f tc1 = v1.texturecoords;
+		// TODO: Handle projection.
+		Vec2f tc0 = v0.texturecoords.uv();
+		Vec2f tc1 = v1.texturecoords.uv();
 		if (state.throughMode) {
 			// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
 			tc0.s() *= 1.0f / (float)(1 << state.samplerID.width0Shift);
@@ -1268,8 +1271,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				float s, s1;
 				float t, t1;
 				if (state.throughMode) {
-					Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
-					Vec2<float> tc1 = (v0.texturecoords * (float)(steps - i - 1) + v1.texturecoords * (float)(i + 1)) / steps1;
+					Vec2<float> tc = (v0.texturecoords.uv() * (float)(steps - i) + v1.texturecoords.uv() * (float)i) / steps1;
+					Vec2<float> tc1 = (v0.texturecoords.uv() * (float)(steps - i - 1) + v1.texturecoords.uv() * (float)(i + 1)) / steps1;
 
 					s = tc.s() * (1.0f / (float)(1 << state.samplerID.width0Shift));
 					s1 = tc1.s() * (1.0f / (float)(1 << state.samplerID.width0Shift));

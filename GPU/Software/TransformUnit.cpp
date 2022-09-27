@@ -106,12 +106,14 @@ void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVert
 		vert.clippos = ClipCoords(buffer[i].pos);
 		vert.v.texturecoords.x = buffer[i].u;
 		vert.v.texturecoords.y = buffer[i].v;
+		vert.v.texturecoords.z = buffer[i].uv_w;
 		if (gstate.isModeThrough()) {
 			vert.v.texturecoords.x *= gstate.getTextureWidth(0);
 			vert.v.texturecoords.y *= gstate.getTextureHeight(0);
 		} else {
 			vert.clippos.z *= 1.0f / 65535.0f;
 		}
+		vert.v.clipw = buffer[i].pos_w;
 		vert.v.color0 = buffer[i].color0_32;
 		vert.v.color1 = gstate.isUsingSecondaryColor() && !gstate.isModeThrough() ? buffer[i].color1_32 : 0;
 		vert.v.fogdepth = buffer[i].fog;
@@ -324,9 +326,10 @@ ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformS
 	// VertexDecoder normally scales z, but we want it unscaled.
 	vreader.ReadPosThroughZ16(pos.AsArray());
 
-	static Vec2f lastTC;
+	static Vec3Packedf lastTC;
 	if (state.readUV) {
 		vreader.ReadUV(vertex.v.texturecoords.AsArray());
+		vertex.v.texturecoords.q() = 0.0f;
 		lastTC = vertex.v.texturecoords;
 	} else {
 		vertex.v.texturecoords = lastTC;
@@ -427,7 +430,7 @@ ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformS
 				break;
 
 			case GE_PROJMAP_UV:
-				source = Vec3f(vertex.v.texturecoords, 0.0f);
+				source = Vec3f(vertex.v.texturecoords.uv(), 0.0f);
 				break;
 
 			case GE_PROJMAP_NORMALIZED_NORMAL:
@@ -448,7 +451,7 @@ ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformS
 			// Note that UV scale/offset are not used in this mode.
 			Vec3<float> stq = Vec3ByMatrix43(source, gstate.tgenMatrix);
 			float z_recip = 1.0f / stq.z;
-			vertex.v.texturecoords = Vec2f(stq.x * z_recip, stq.y * z_recip);
+			vertex.v.texturecoords = Vec3Packedf(stq.x * z_recip, stq.y * z_recip, 1.0f);
 		} else if (state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
 			Lighting::GenerateLightST(vertex.v, worldnormal);
 		}

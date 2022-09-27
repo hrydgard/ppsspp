@@ -356,7 +356,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	// Currently only works for TL/BR, which is the most common but not required.
 	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	// We already have a fast path for clear in ClearRectangle.
-	bool state_check = state.throughMode && !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(state, v0.texturecoords) && NoClampOrWrap(state, v1.texturecoords);
+	bool state_check = state.throughMode && !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(state, v0.texturecoords.uv()) && NoClampOrWrap(state, v1.texturecoords.uv());
 	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
 	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) == 0;
 	if ((coord_check || !state.enableTextures) && orient_check && state_check && subpixel_check) {
@@ -414,6 +414,9 @@ static bool AreCoordsRectangleCompatible(const RasterizerState &state, const Cli
 			if (data1.clippos.w - halftexel > data0.clippos.w || data1.clippos.w + halftexel < data0.clippos.w)
 				return false;
 		}
+		// If we're projecting textures, only allow an exact match for simplicity.
+		if (state.enableTextures && data1.v.texturecoords.q() != data0.v.texturecoords.q())
+			return false;
 		if (state.pixelID.applyFog && data1.v.fogdepth != data0.v.fogdepth) {
 			// Similar to w, this only matters if they're farther apart than 1/255.
 			static constexpr float foghalfstep = 0.5f / 255.0f;

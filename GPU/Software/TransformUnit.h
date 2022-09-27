@@ -79,12 +79,12 @@ struct DrawingCoords {
 };
 
 struct alignas(16) VertexData {
-	Vec2<float> texturecoords;
+	Vec3Packedf texturecoords;
+	float clipw;
 	uint32_t color0;
 	uint32_t color1;
 	ScreenCoords screenpos;
 	float fogdepth;
-	float clipw;
 };
 
 struct ClipVertexData {
