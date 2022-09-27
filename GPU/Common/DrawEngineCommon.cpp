@@ -717,6 +717,16 @@ uint64_t DrawEngineCommon::ComputeHash() {
 	return fullhash;
 }
 
+// Cheap bit scrambler from https://nullprogram.com/blog/2018/07/31/
+inline uint32_t lowbias32_r(uint32_t x) {
+	x ^= x >> 16;
+	x *= 0x43021123U;
+	x ^= x >> 15 ^ x >> 30;
+	x *= 0x1d69e2a5U;
+	x ^= x >> 16;
+	return x;
+}
+
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
 void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
@@ -745,10 +755,10 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	if (g_Config.bVertexCache) {
 		u32 dhash = dcid_;
 		dhash = __rotl(dhash ^ (u32)(uintptr_t)verts, 13);
-		dhash = __rotl(dhash ^ (u32)(uintptr_t)inds, 13);
-		dhash = __rotl(dhash ^ (u32)vertTypeID, 13);
-		dhash = __rotl(dhash ^ (u32)vertexCount, 13);
-		dcid_ = dhash ^ (u32)prim;
+		dhash = __rotl(dhash ^ (u32)(uintptr_t)inds, 19);
+		dhash = __rotl(dhash ^ (u32)vertTypeID, 7);
+		dhash = __rotl(dhash ^ (u32)vertexCount, 11);
+		dcid_ = lowbias32_r(dhash ^ (u32)prim);
 	}
 
 	DeferredDrawCall &dc = drawCalls[numDrawCalls];
