@@ -76,7 +76,7 @@ bool ovrFramebuffer_Create(XrSession session, ovrFramebuffer* frameBuffer, int w
 	frameBuffer->DepthSwapChain.Height = swapChainCreateInfo.height;
 
 	// Create the color swapchain.
-	swapChainCreateInfo.format = GL_RGBA8;
+	swapChainCreateInfo.format = GL_SRGB8_ALPHA8;
 	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
 	OXR(xrCreateSwapchain(session, &swapChainCreateInfo, &frameBuffer->ColorSwapChain.Handle));
 	OXR(xrEnumerateSwapchainImages(frameBuffer->ColorSwapChain.Handle, 0, &frameBuffer->TextureSwapChainLength, NULL));
