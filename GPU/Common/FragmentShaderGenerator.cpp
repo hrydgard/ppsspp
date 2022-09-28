@@ -463,7 +463,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (compat.bitwiseOps && enableColorTest) {
 		p.C("uvec3 unpackUVec3(highp uint x) {\n");
-		p.C("  return uvec3(x & 0xFF, (x >> 8) & 0xFF, (x >> 16) & 0xFF);\n");
+		p.C("  return uvec3(x & 0xFFU, (x >> 8) & 0xFFU, (x >> 16) & 0xFFU);\n");
 		p.C("}\n");
 	}
 
@@ -1151,7 +1151,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		case GE_LOGIC_COPY_INVERTED: p.C("  v32 = (~v32 & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
 		case GE_LOGIC_OR_INVERTED:   p.C("  v32 = ((~v32 | d32) & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
 		case GE_LOGIC_NAND:          p.C("  v32 = (~(v32 & d32) & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
-		case GE_LOGIC_SET:           p.C("  v32 |= 0x00FFFFFF;\n"); break;
+		case GE_LOGIC_SET:           p.C("  v32 |= 0x00FFFFFFu;\n"); break;
 		}
 
 		// Note that the mask has already been flipped to the PC way - 1 means write.
