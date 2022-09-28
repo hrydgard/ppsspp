@@ -22,6 +22,7 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSStackWalk.h"
@@ -36,6 +37,7 @@ DebuggerSubscriber *WebSocketHLEInit(DebuggerEventHandlerMap &map) {
 	map["hle.func.add"] = &WebSocketHLEFuncAdd;
 	map["hle.func.remove"] = &WebSocketHLEFuncRemove;
 	map["hle.func.rename"] = &WebSocketHLEFuncRename;
+	map["hle.func.scan"] = &WebSocketHLEFuncScan;
 	map["hle.module.list"] = &WebSocketHLEModuleList;
 	map["hle.backtrace"] = &WebSocketHLEBacktrace;
 
@@ -401,6 +403,35 @@ void WebSocketHLEFuncRename(DebuggerRequest &req) {
 	json.writeUint("address", funcBegin);
 	json.writeUint("size", funcSize);
 	json.writeString("name", name);
+}
+
+// Auto-detect functions in a memory range (hle.func.scan)
+//
+// Parameters:
+//  - address: unsigned integer address within function to rename.
+//  - size: unsigned integer size in bytes for scan.
+//
+// Response (same event name) with no extra data.
+void WebSocketHLEFuncScan(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+	if (!Core_IsStepping())
+		return req.Fail("CPU currently running (cpu.stepping first)");
+
+	u32 addr;
+	if (!req.ParamU32("address", &addr))
+		return;
+	u32 size;
+	if (!req.ParamU32("size", &size))
+		return;
+
+	if (!Memory::IsValidRange(addr, size))
+		return req.Fail("Address or size outside valid memory");
+
+	bool insertSymbols = MIPSAnalyst::ScanForFunctions(addr, addr + size, true);
+	MIPSAnalyst::FinalizeScan(insertSymbols);
+
+	req.Respond();
 }
 
 // List all known user modules (hle.module.list)
