@@ -34,13 +34,13 @@ void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstComm
 		static const char * const indent[4] = { "", "  ", "    ", "      " };
 
 		if (!scopes_.empty()) {
-			NOTICE_LOG(G3D, "Profiling events this frame:");
+			INFO_LOG(G3D, "Profiling events this frame:");
 		}
 
 		// Log it all out.
 		for (auto &scope : scopes_) {
 			if (scope.endQueryId == -1) {
-				NOTICE_LOG(G3D, "Unclosed scope: %s", scope.name.c_str());
+				WARN_LOG(G3D, "Unclosed scope: %s", scope.name.c_str());
 				continue;
 			}
 			uint64_t startTime = results[scope.startQueryId];
@@ -50,7 +50,7 @@ void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstComm
 
 			double milliseconds = (double)delta * timestampConversionFactor;
 
-			NOTICE_LOG(G3D, "%s%s (%0.3f ms)", indent[scope.level & 3], scope.name.c_str(), milliseconds);
+			INFO_LOG(G3D, "%s%s (%0.3f ms)", indent[scope.level & 3], scope.name.c_str(), milliseconds);
 		}
 
 		scopes_.clear();
