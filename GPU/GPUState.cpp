@@ -24,6 +24,7 @@
 #include "Core/System.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
+#include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
 #ifdef _M_SSE
@@ -85,11 +86,20 @@ static const CmdRange contextCmdRanges[] = {
 	// Skip: {0xFA, 0xFF},
 };
 
-static u32_le *SaveMatrix(u32_le *cmds, const float *mtx, int sz, int numcmd, int datacmd) {
+static u32_le *SaveMatrix(u32_le *cmds, GEMatrixType type, int sz, int numcmd, int datacmd) {
+	if (!gpu)
+		return cmds;
+
 	*cmds++ = numcmd << 24;
-	for (int i = 0; i < sz; ++i) {
-		*cmds++ = (datacmd << 24) | toFloat24(mtx[i]);
+	// This saves the CPU-visible values, not the actual used ones, which may differ.
+	// Note that Restore overwrites both values.
+	if (type == GE_MTX_BONE0) {
+		for (int i = 0; i < 8; ++i)
+			gpu->GetMatrix24(GEMatrixType(GE_MTX_BONE0 + i), cmds + i * 12, datacmd << 24);
+	} else {
+		gpu->GetMatrix24(type, cmds, datacmd << 24);
 	}
+	cmds += sz;
 
 	return cmds;
 }
@@ -116,6 +126,9 @@ void GPUgstate::Reset() {
 	memset(gstate.projMatrix, 0, sizeof(gstate.projMatrix));
 	memset(gstate.tgenMatrix, 0, sizeof(gstate.tgenMatrix));
 	memset(gstate.boneMatrix, 0, sizeof(gstate.boneMatrix));
+
+	if (gpu)
+		gpu->ResetMatrices();
 
 	savedContextVersion = 1;
 }
@@ -152,11 +165,11 @@ void GPUgstate::Save(u32_le *ptr) {
 		memcpy(matrices, projMatrix, sizeof(projMatrix)); matrices += sizeof(projMatrix);
 		memcpy(matrices, tgenMatrix, sizeof(tgenMatrix)); matrices += sizeof(tgenMatrix);
 	} else {
-		cmds = SaveMatrix(cmds, boneMatrix, ARRAY_SIZE(boneMatrix), GE_CMD_BONEMATRIXNUMBER, GE_CMD_BONEMATRIXDATA);
-		cmds = SaveMatrix(cmds, worldMatrix, ARRAY_SIZE(worldMatrix), GE_CMD_WORLDMATRIXNUMBER, GE_CMD_WORLDMATRIXDATA);
-		cmds = SaveMatrix(cmds, viewMatrix, ARRAY_SIZE(viewMatrix), GE_CMD_VIEWMATRIXNUMBER, GE_CMD_VIEWMATRIXDATA);
-		cmds = SaveMatrix(cmds, projMatrix, ARRAY_SIZE(projMatrix), GE_CMD_PROJMATRIXNUMBER, GE_CMD_PROJMATRIXDATA);
-		cmds = SaveMatrix(cmds, tgenMatrix, ARRAY_SIZE(tgenMatrix), GE_CMD_TGENMATRIXNUMBER, GE_CMD_TGENMATRIXDATA);
+		cmds = SaveMatrix(cmds, GE_MTX_BONE0, ARRAY_SIZE(boneMatrix), GE_CMD_BONEMATRIXNUMBER, GE_CMD_BONEMATRIXDATA);
+		cmds = SaveMatrix(cmds, GE_MTX_WORLD, ARRAY_SIZE(worldMatrix), GE_CMD_WORLDMATRIXNUMBER, GE_CMD_WORLDMATRIXDATA);
+		cmds = SaveMatrix(cmds, GE_MTX_VIEW, ARRAY_SIZE(viewMatrix), GE_CMD_VIEWMATRIXNUMBER, GE_CMD_VIEWMATRIXDATA);
+		cmds = SaveMatrix(cmds, GE_MTX_PROJECTION, ARRAY_SIZE(projMatrix), GE_CMD_PROJMATRIXNUMBER, GE_CMD_PROJMATRIXDATA);
+		cmds = SaveMatrix(cmds, GE_MTX_TEXGEN, ARRAY_SIZE(tgenMatrix), GE_CMD_TGENMATRIXNUMBER, GE_CMD_TGENMATRIXDATA);
 
 		*cmds++ = boneMatrixNumber;
 		*cmds++ = worldmtxnum;
@@ -199,7 +212,7 @@ void GPUgstate::FastLoadBoneMatrix(u32 addr) {
 #endif
 
 	num += 12;
-	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 }
 
 void GPUgstate::Restore(u32_le *ptr) {
@@ -244,6 +257,9 @@ void GPUgstate::Restore(u32_le *ptr) {
 		projmtxnum = *cmds++;
 		texmtxnum = *cmds++;
 	}
+
+	if (gpu)
+		gpu->ResetMatrices();
 }
 
 bool vertTypeIsSkinningEnabled(u32 vertType) {

@@ -524,8 +524,10 @@ static int sceGeGetMtx(int type, u32 matrixPtr) {
 		return hleLogError(SCEGE, -1, "bad matrix ptr");
 	}
 
-	u32 *dest = (u32 *)Memory::GetPointerWriteUnchecked(matrixPtr);
-	if (!gpu || !gpu->GetMatrix24(GEMatrixType(type), dest))
+	u32_le *dest = (u32_le *)Memory::GetPointerWriteUnchecked(matrixPtr);
+	// Note: this reads the CPU-visible matrix values, which may differ from the actual used values.
+	// They only differ when more DATA commands are sent than are valid for a matrix.
+	if (!gpu || !gpu->GetMatrix24(GEMatrixType(type), dest, 0))
 		return hleLogError(SCEGE, SCE_KERNEL_ERROR_INVALID_INDEX, "invalid matrix");
 
 	return hleLogSuccessInfoI(SCEGE, 0);

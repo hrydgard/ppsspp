@@ -111,7 +111,8 @@ public:
 	int  ListSync(int listid, int mode) override;
 	u32  DrawSync(int mode) override;
 	int  GetStack(int index, u32 stackPtr) override;
-	bool GetMatrix24(GEMatrixType type, u32 *result) override;
+	bool GetMatrix24(GEMatrixType type, u32_le *result, u32 cmdbits) override;
+	void ResetMatrices() override;
 	void DoState(PointerWrap &p) override;
 	bool BusyDrawing() override;
 	u32  Continue() override;
@@ -365,6 +366,21 @@ protected:
 	GEPrimitiveType immPrim_ = GE_PRIM_INVALID;
 	uint32_t immFlags_ = 0;
 	bool immFirstSent_ = false;
+
+	// Whe matrix data overflows, the CPU visible values wrap and bleed between matrices.
+	// But this doesn't actually change the values used by rendering.
+	// The CPU visible values affect the GPU when list contexts are restored.
+	// Note: not maintained by all backends, here for save stating.
+	union {
+		struct {
+			u32 bone[12 * 8];
+			u32 world[12];
+			u32 view[12];
+			u32 proj[16];
+			u32 tgen[12];
+		};
+		u32 all[12 * 8 + 12 + 12 + 16 + 12];
+	} matrixVisible;
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;

@@ -341,16 +341,16 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_DITH2, 0, SoftDirty::PIXEL_DITHER },
 	{ GE_CMD_DITH3, 0, SoftDirty::PIXEL_DITHER },
 
-	{ GE_CMD_WORLDMATRIXNUMBER },
+	{ GE_CMD_WORLDMATRIXNUMBER, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_WorldMtxNum },
 	{ GE_CMD_WORLDMATRIXDATA, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_WorldMtxData },
-	{ GE_CMD_VIEWMATRIXNUMBER },
+	{ GE_CMD_VIEWMATRIXNUMBER, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_ViewMtxNum },
 	{ GE_CMD_VIEWMATRIXDATA, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_ViewMtxData },
-	{ GE_CMD_PROJMATRIXNUMBER },
+	{ GE_CMD_PROJMATRIXNUMBER, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_ProjMtxNum },
 	{ GE_CMD_PROJMATRIXDATA, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_ProjMtxData },
 	// Currently not state.
-	{ GE_CMD_TGENMATRIXNUMBER },
+	{ GE_CMD_TGENMATRIXNUMBER, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_TgenMtxNum },
 	{ GE_CMD_TGENMATRIXDATA, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_TgenMtxData },
-	{ GE_CMD_BONEMATRIXNUMBER },
+	{ GE_CMD_BONEMATRIXNUMBER, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_BoneMtxNum },
 	{ GE_CMD_BONEMATRIXDATA, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_BoneMtxData },
 
 	// Vertex Screen/Texture/Color
@@ -1040,81 +1040,160 @@ void SoftGPU::Execute_VertexType(u32 op, u32 diff) {
 	}
 }
 
+void SoftGPU::Execute_WorldMtxNum(u32 op, u32 diff) {
+	// Setting 0xFFFFF0 will reset to 0.
+	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (op & 0xF);
+}
+
+void SoftGPU::Execute_ViewMtxNum(u32 op, u32 diff) {
+	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (op & 0xF);
+}
+
+void SoftGPU::Execute_ProjMtxNum(u32 op, u32 diff) {
+	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (op & 0xF);
+}
+
+void SoftGPU::Execute_TgenMtxNum(u32 op, u32 diff) {
+	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (op & 0xF);
+}
+
+void SoftGPU::Execute_BoneMtxNum(u32 op, u32 diff) {
+	// Setting any bits outside 0x7F are ignored and resets the internal counter.
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (op & 0x7F);
+}
+
 void SoftGPU::Execute_WorldMtxData(u32 op, u32 diff) {
-	int num = gstate.worldmtxnum & 0xF;
-	u32 *target = num < 12 ? (u32 *)&gstate.worldMatrix[num] : (u32 *)&gstate.viewMatrix[num - 12];
-	u32 newVal = op << 8;
-	if (newVal != *target) {
-		*target = newVal;
-		dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
+	int num = gstate.worldmtxnum & 0x00FFFFFF;
+	if (num < 12) {
+		u32 *target = (u32 *)&gstate.worldMatrix[num];
+		u32 newVal = op << 8;
+		if (newVal != *target) {
+			*target = newVal;
+			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
+		}
 	}
+
+	// Also update the CPU visible values, which update differently.
+	u32 *target = &matrixVisible.all[12 * 8 + (num & 0xF)];
+	*target = op & 0x00FFFFFF;
+
 	num++;
-	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 	gstate.worldmtxdata = GE_CMD_WORLDMATRIXDATA << 24;
 }
 
 void SoftGPU::Execute_ViewMtxData(u32 op, u32 diff) {
-	int num = gstate.viewmtxnum & 0xF;
-	u32 *target = num < 12 ? (u32 *)&gstate.viewMatrix[num] : (u32 *)&gstate.projMatrix[num - 12];
-	u32 newVal = op << 8;
-	if (newVal != *target) {
-		*target = newVal;
-		dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
+	int num = gstate.viewmtxnum & 0x00FFFFFF;
+	if (num < 12) {
+		u32 *target = (u32 *)&gstate.viewMatrix[num];
+		u32 newVal = op << 8;
+		if (newVal != *target) {
+			*target = newVal;
+			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
+		}
 	}
+
+	// Also update the CPU visible values, which update differently.
+	u32 *target = &matrixVisible.all[12 * 8 + 12 + (num & 0xF)];
+	*target = op & 0x00FFFFFF;
+
 	num++;
-	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 	gstate.viewmtxdata = GE_CMD_VIEWMATRIXDATA << 24;
 }
 
 void SoftGPU::Execute_ProjMtxData(u32 op, u32 diff) {
-	int num = gstate.projmtxnum & 0xF;
-	u32 *target = (u32 *)&gstate.projMatrix[num];
-	u32 newVal = op << 8;
-	if (newVal != *target) {
-		*target = newVal;
-		dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
+	int num = gstate.projmtxnum & 0x00FFFFFF;
+	if (num < 16) {
+		u32 *target = (u32 *)&gstate.projMatrix[num];
+		u32 newVal = op << 8;
+		if (newVal != *target) {
+			*target = newVal;
+			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
+		}
 	}
+
+	// Also update the CPU visible values, which update differently.
+	u32 *target = &matrixVisible.all[12 * 8 + 12 + 12 + (num & 0xF)];
+	*target = op & 0x00FFFFFF;
+
 	num++;
-	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 	gstate.projmtxdata = GE_CMD_PROJMATRIXDATA << 24;
 }
 
 void SoftGPU::Execute_TgenMtxData(u32 op, u32 diff) {
-	int num = gstate.texmtxnum & 0xF;
-	u32 newVal = op << 8;
-	// Doesn't wrap to any other matrix.
-	if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
-		((u32 *)gstate.tgenMatrix)[num] = newVal;
+	int num = gstate.texmtxnum & 0x00FFFFFF;
+	if (num < 12) {
+		u32 *target = (u32 *)&gstate.tgenMatrix[num];
+		u32 newVal = op << 8;
 		// No dirtying, read during vertex read.
+		*target = newVal;
 	}
+
+	// Doesn't wrap to any other matrix.
+	if ((num & 0xF) < 12) {
+		matrixVisible.tgen[num & 0xF] = op & 0x00FFFFFF;
+	}
+
 	num++;
-	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 	gstate.texmtxdata = GE_CMD_TGENMATRIXDATA << 24;
 }
 
 void SoftGPU::Execute_BoneMtxData(u32 op, u32 diff) {
-	int num = gstate.boneMatrixNumber & 0x7F;
-	u32 *target;
+	int num = gstate.boneMatrixNumber & 0x00FFFFFF;
+
 	if (num < 96) {
-		target = (u32 *)&gstate.boneMatrix[num];
-	} else if (num < 96 + 12) {
-		target = (u32 *)&gstate.worldMatrix[num - 96];
-	} else if (num < 96 + 12 + 12) {
-		target = (u32 *)&gstate.viewMatrix[num - 96 - 12];
-	} else {
-		target = (u32 *)&gstate.projMatrix[num - 96 - 12 - 12];
+		u32 *target = (u32 *)&gstate.boneMatrix[num];
+		u32 newVal = op << 8;
+		// No dirtying, we read bone data during vertex read.
+		*target = newVal;
 	}
 
-	u32 newVal = op << 8;
-	if (newVal != *target) {
-		*target = newVal;
-		// Dirty if it overflowed.  We read bone data during vertex read.
-		if (num >= 96)
-			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
-	}
+	// Also update the CPU visible values, which update differently.
+	u32 *target = &matrixVisible.all[(num & 0x7F)];
+	*target = op & 0x00FFFFFF;
+
 	num++;
-	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 	gstate.boneMatrixData  = GE_CMD_BONEMATRIXDATA << 24;
+}
+
+static void CopyMatrix24(u32_le *result, const u32 *mtx, u32 count, u32 cmdbits) {
+	for (u32 i = 0; i < count; ++i) {
+		result[i] = mtx[i] | cmdbits;
+	}
+}
+
+bool SoftGPU::GetMatrix24(GEMatrixType type, u32_le *result, u32 cmdbits) {
+	switch (type) {
+	case GE_MTX_BONE0:
+	case GE_MTX_BONE1:
+	case GE_MTX_BONE2:
+	case GE_MTX_BONE3:
+	case GE_MTX_BONE4:
+	case GE_MTX_BONE5:
+	case GE_MTX_BONE6:
+	case GE_MTX_BONE7:
+		CopyMatrix24(result, matrixVisible.bone + (type - GE_MTX_BONE0) * 12, 12, cmdbits);
+		break;
+	case GE_MTX_TEXGEN:
+		CopyMatrix24(result, matrixVisible.tgen, 12, cmdbits);
+		break;
+	case GE_MTX_WORLD:
+		CopyMatrix24(result, matrixVisible.world, 12, cmdbits);
+		break;
+	case GE_MTX_VIEW:
+		CopyMatrix24(result, matrixVisible.view, 12, cmdbits);
+		break;
+	case GE_MTX_PROJECTION:
+		CopyMatrix24(result, matrixVisible.proj, 16, cmdbits);
+		break;
+	default:
+		return false;
+	}
+	return true;
 }
 
 void SoftGPU::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
