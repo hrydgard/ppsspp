@@ -411,6 +411,7 @@ class Framebuffer : public RefCountedObject {
 public:
 	int Width() { return width_; }
 	int Height() { return height_; }
+	virtual void UpdateTag(const char *tag) {}
 protected:
 	int width_ = -1, height_ = -1;
 };

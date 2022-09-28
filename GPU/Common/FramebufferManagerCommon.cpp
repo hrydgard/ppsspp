@@ -49,6 +49,10 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
+static size_t FormatFramebufferName(VirtualFramebuffer *vfb, char *tag, size_t len) {
+	return snprintf(tag, len, "FB_%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, vfb->bufferWidth, vfb->bufferHeight, GeBufferFormatToString(vfb->fb_format));
+}
+
 FramebufferManagerCommon::FramebufferManagerCommon(Draw::DrawContext *draw)
 	: draw_(draw), draw2D_(draw_) {
 	presentation_ = new PresentationCommon(draw);
@@ -553,11 +557,15 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 
 	uint32_t boundDepthBuffer = gstate.getDepthBufAddress() & 0x3FFFFFFF;
 	if (currentRenderVfb_->z_address != boundDepthBuffer) {
-		WARN_LOG(G3D, "Framebuffer at %08x/%d has switched associated depth buffer from %08x to %08x, updating.",
+		WARN_LOG_N_TIMES(z_reassign, 5, G3D, "Framebuffer at %08x/%d has switched associated depth buffer from %08x to %08x, updating.",
 			currentRenderVfb_->fb_address, currentRenderVfb_->fb_stride, currentRenderVfb_->z_address, boundDepthBuffer);
+
 		// Technically, here we should copy away the depth buffer to another framebuffer that uses that z_address, or maybe
 		// even write it back to RAM. However, this is rare. Silent Hill is one example, see #16126.
 		currentRenderVfb_->z_address = boundDepthBuffer;
+		char tag[128];
+		FormatFramebufferName(currentRenderVfb_, tag, sizeof(tag));
+		currentRenderVfb_->fbo->UpdateTag(tag);
 	}
 
 	// If this first draw call is anything other than a clear, "resolve" the depth buffer,
@@ -1493,10 +1501,6 @@ void FramebufferManagerCommon::DecimateFBOs() {
 			bvfbs_.erase(bvfbs_.begin() + i--);
 		}
 	}
-}
-
-static size_t FormatFramebufferName(VirtualFramebuffer *vfb, char *tag, size_t len) {
-	return snprintf(tag, len, "FB_%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, vfb->bufferWidth, vfb->bufferHeight, GeBufferFormatToString(vfb->fb_format));
 }
 
 // Requires width/height to be set already.

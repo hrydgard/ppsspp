@@ -1490,6 +1490,9 @@ public:
 		buf_ = nullptr;
 	}
 	VKRFramebuffer *GetFB() const { return buf_; }
+	void UpdateTag(const char *newTag) override {
+		buf_->UpdateTag(newTag);
+	}
 private:
 	VKRFramebuffer *buf_;
 };
