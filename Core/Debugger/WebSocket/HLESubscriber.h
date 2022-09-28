@@ -28,5 +28,6 @@ void WebSocketHLEFuncList(DebuggerRequest &req);
 void WebSocketHLEFuncAdd(DebuggerRequest &req);
 void WebSocketHLEFuncRemove(DebuggerRequest &req);
 void WebSocketHLEFuncRename(DebuggerRequest &req);
+void WebSocketHLEFuncScan(DebuggerRequest &req);
 void WebSocketHLEModuleList(DebuggerRequest &req);
 void WebSocketHLEBacktrace(DebuggerRequest &req);
