@@ -9,6 +9,6 @@ The Implementations are taken from the vendor specific SDKs.
 
 ### Links
 
-Khronos OpenXR SDK: https://github.com/KhronosGroup/OpenXR-SDK/
-Oculus OpenXR SDK: https://developer.oculus.com/downloads/package/oculus-openxr-mobile-sdk/
-Pico OpenXR SDK https://developer-global.pico-interactive.com/sdk?deviceId=1&platformId=3&itemId=11
+- Khronos OpenXR SDK: https://github.com/KhronosGroup/OpenXR-SDK/
+- Oculus OpenXR SDK: https://developer.oculus.com/downloads/package/oculus-openxr-mobile-sdk/
+- Pico OpenXR SDK https://developer-global.pico-interactive.com/sdk?deviceId=1&platformId=3&itemId=11
