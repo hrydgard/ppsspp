@@ -198,6 +198,8 @@ public:
 	virtual u32  Continue() = 0;
 	virtual u32  Break(int mode) = 0;
 	virtual int  GetStack(int index, u32 stackPtr) = 0;
+	virtual bool GetMatrix24(GEMatrixType type, u32_le *result, u32 cmdbits) = 0;
+	virtual void ResetMatrices() = 0;
 
 	virtual void InterruptStart(int listid) = 0;
 	virtual void InterruptEnd(int listid) = 0;
