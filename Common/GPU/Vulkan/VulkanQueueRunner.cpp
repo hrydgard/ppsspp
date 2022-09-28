@@ -559,7 +559,13 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frame
 
 		if (emitLabels) {
 			VkDebugUtilsLabelEXT labelInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
-			labelInfo.pLabelName = step.tag;
+			char temp[128];
+			if (step.stepType == VKRStepType::RENDER && step.render.framebuffer) {
+				snprintf(temp, sizeof(temp), "%s: %s", step.tag, step.render.framebuffer->Tag());
+				labelInfo.pLabelName = temp;
+			} else {
+				labelInfo.pLabelName = step.tag;
+			}
 			vkCmdBeginDebugUtilsLabelEXT(frameData.mainCmd, &labelInfo);
 		}
 

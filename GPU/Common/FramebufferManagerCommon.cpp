@@ -964,7 +964,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	if (useBufferedRendering_) {
 		if (vfb->fbo) {
 			shaderManager_->DirtyLastShader();
-			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "FramebufferSwitch");
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "FBSwitch");
 		} else {
 			// This should only happen very briefly when toggling useBufferedRendering_.
 			ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
