@@ -731,6 +731,42 @@ int GPUCommon::GetStack(int index, u32 stackPtr) {
 	return currentList->stackptr;
 }
 
+static void CopyMatrix24(u32 *result, float *mtx, u32 count) {
+	for (u32 i = 0; i < count; ++i) {
+		result[i] = toFloat24(mtx[i]);
+	}
+}
+
+bool GPUCommon::GetMatrix24(GEMatrixType type, u32 *result) {
+	switch (type) {
+	case GE_MTX_BONE0:
+	case GE_MTX_BONE1:
+	case GE_MTX_BONE2:
+	case GE_MTX_BONE3:
+	case GE_MTX_BONE4:
+	case GE_MTX_BONE5:
+	case GE_MTX_BONE6:
+	case GE_MTX_BONE7:
+		CopyMatrix24(result, gstate.boneMatrix + (type - GE_MTX_BONE0) * 12, 12);
+		break;
+	case GE_MTX_TEXGEN:
+		CopyMatrix24(result, gstate.tgenMatrix, 12);
+		break;
+	case GE_MTX_WORLD:
+		CopyMatrix24(result, gstate.worldMatrix, 12);
+		break;
+	case GE_MTX_VIEW:
+		CopyMatrix24(result, gstate.viewMatrix, 12);
+		break;
+	case GE_MTX_PROJECTION:
+		CopyMatrix24(result, gstate.projMatrix, 16);
+		break;
+	default:
+		return false;
+	}
+	return true;
+}
+
 u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) {
 	// TODO Check the stack values in missing arg and ajust the stack depth
 

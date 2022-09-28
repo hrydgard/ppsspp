@@ -111,6 +111,7 @@ public:
 	int  ListSync(int listid, int mode) override;
 	u32  DrawSync(int mode) override;
 	int  GetStack(int index, u32 stackPtr) override;
+	bool GetMatrix24(GEMatrixType type, u32 *result) override;
 	void DoState(PointerWrap &p) override;
 	bool BusyDrawing() override;
 	u32  Continue() override;

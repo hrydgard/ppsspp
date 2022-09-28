@@ -518,49 +518,17 @@ u32 sceGeRestoreContext(u32 ctxAddr) {
 	return 0;
 }
 
-static void __GeCopyMatrix(u32 matrixPtr, float *mtx, u32 size) {
-	for (u32 i = 0; i < size / sizeof(float); ++i) {
-		Memory::Write_U32(toFloat24(mtx[i]), matrixPtr + i * sizeof(float));
-	}
-}
-
 static int sceGeGetMtx(int type, u32 matrixPtr) {
-	if (!Memory::IsValidAddress(matrixPtr)) {
-		ERROR_LOG(SCEGE, "sceGeGetMtx(%d, %08x) - bad matrix ptr", type, matrixPtr);
-		return -1;
+	int size = type == GE_MTX_PROJECTION ? 16 : 12;
+	if (!Memory::IsValidRange(matrixPtr, size * sizeof(float))) {
+		return hleLogError(SCEGE, -1, "bad matrix ptr");
 	}
 
-	INFO_LOG(SCEGE, "sceGeGetMtx(%d, %08x)", type, matrixPtr);
-	switch (type) {
-	case GE_MTX_BONE0:
-	case GE_MTX_BONE1:
-	case GE_MTX_BONE2:
-	case GE_MTX_BONE3:
-	case GE_MTX_BONE4:
-	case GE_MTX_BONE5:
-	case GE_MTX_BONE6:
-	case GE_MTX_BONE7:
-		{
-			int n = type - GE_MTX_BONE0;
-			__GeCopyMatrix(matrixPtr, gstate.boneMatrix + n * 12, 12 * sizeof(float));
-		}
-		break;
-	case GE_MTX_TEXGEN:
-		__GeCopyMatrix(matrixPtr, gstate.tgenMatrix, 12 * sizeof(float));
-		break;
-	case GE_MTX_WORLD:
-		__GeCopyMatrix(matrixPtr, gstate.worldMatrix, 12 * sizeof(float));
-		break;
-	case GE_MTX_VIEW:
-		__GeCopyMatrix(matrixPtr, gstate.viewMatrix, 12 * sizeof(float));
-		break;
-	case GE_MTX_PROJECTION:
-		__GeCopyMatrix(matrixPtr, gstate.projMatrix, 16 * sizeof(float));
-		break;
-	default:
-		return SCE_KERNEL_ERROR_INVALID_INDEX;
-	}
-	return 0;
+	u32 *dest = (u32 *)Memory::GetPointerWriteUnchecked(matrixPtr);
+	if (!gpu || !gpu->GetMatrix24(GEMatrixType(type), dest))
+		return hleLogError(SCEGE, SCE_KERNEL_ERROR_INVALID_INDEX, "invalid matrix");
+
+	return hleLogSuccessInfoI(SCEGE, 0);
 }
 
 static u32 sceGeGetCmd(int cmd) {
@@ -631,7 +599,7 @@ const HLEFunction sceGe_user[] = {
 	{0X1F6752AD, &WrapU_V<sceGeEdramGetSize>,            "sceGeEdramGetSize",            'x', ""    },
 	{0XB77905EA, &WrapU_I<sceGeEdramSetAddrTranslation>, "sceGeEdramSetAddrTranslation", 'x', "i"   },
 	{0XDC93CFEF, &WrapU_I<sceGeGetCmd>,                  "sceGeGetCmd",                  'x', "i"   },
-	{0X57C8945B, &WrapI_IU<sceGeGetMtx>,                 "sceGeGetMtx",                  'i', "ix"  },
+	{0X57C8945B, &WrapI_IU<sceGeGetMtx>,                 "sceGeGetMtx",                  'i', "ip"  },
 	{0X438A385A, &WrapU_U<sceGeSaveContext>,             "sceGeSaveContext",             'x', "x"   },
 	{0X0BF608FB, &WrapU_U<sceGeRestoreContext>,          "sceGeRestoreContext",          'x', "x"   },
 	{0X5FB86AB0, &WrapI_U<sceGeListDeQueue>,             "sceGeListDeQueue",             'i', "x"   },
