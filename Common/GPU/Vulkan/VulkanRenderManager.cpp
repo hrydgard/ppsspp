@@ -167,11 +167,11 @@ void VKRFramebuffer::UpdateTag(const char *newTag) {
 	char name[128];
 	snprintf(name, sizeof(name), "fb_color_%s", tag_.c_str());
 	vulkan_->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, name);
-	vulkan_->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE_VIEW, name);
+	vulkan_->SetDebugName(color.imageView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
 	if (depth.image) {
 		snprintf(name, sizeof(name), "fb_depth_%s", tag_.c_str());
 		vulkan_->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, name);
-		vulkan_->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE_VIEW, name);
+		vulkan_->SetDebugName(depth.imageView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
 	}
 	for (int rpType = 0; rpType < RP_TYPE_COUNT; rpType++) {
 		if (framebuf[rpType]) {
