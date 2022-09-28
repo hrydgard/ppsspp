@@ -379,7 +379,7 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 	json.pop();
 }
 
-// Search disassembly for some text (cpu.searchDisasm)
+// Search disassembly for some text (memory.searchDisasm)
 //
 // Parameters:
 //  - thread: optional number indicating the thread id (may not affect search much.)
@@ -461,7 +461,7 @@ void WebSocketDisasmState::SearchDisasm(DebuggerRequest &req) {
 		json.writeNull("address");
 }
 
-// Assemble an instruction (cpu.assemble)
+// Assemble an instruction (memory.assemble)
 //
 // Parameters:
 //  - address: number indicating the address to write to.
