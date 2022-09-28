@@ -153,14 +153,32 @@ VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRe
 	_dbg_assert_(tag);
 
 	CreateImage(vulkan_, initCmd, color, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
-	vulkan_->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_color_%s", tag).c_str());
 	if (createDepthStencilBuffer) {
 		CreateImage(vulkan_, initCmd, depth, width, height, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
-		vulkan_->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_depth_%s", tag).c_str());
 	}
+
+	UpdateTag(tag);
 
 	// We create the actual framebuffer objects on demand, because some combinations might not make sense.
 	// Framebuffer objects are just pointers to a set of images, so no biggie.
+}
+
+void VKRFramebuffer::UpdateTag(const char *newTag) {
+	char name[128];
+	snprintf(name, sizeof(name), "fb_color_%s", tag_.c_str());
+	vulkan_->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, name);
+	vulkan_->SetDebugName(color.imageView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
+	if (depth.image) {
+		snprintf(name, sizeof(name), "fb_depth_%s", tag_.c_str());
+		vulkan_->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, name);
+		vulkan_->SetDebugName(depth.imageView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
+	}
+	for (int rpType = 0; rpType < RP_TYPE_COUNT; rpType++) {
+		if (framebuf[rpType]) {
+			snprintf(name, sizeof(name), "fb_%s", tag_.c_str());
+			vulkan_->SetDebugName(framebuf[(int)rpType], VK_OBJECT_TYPE_FRAMEBUFFER, name);
+		}
+	}
 }
 
 VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType) {

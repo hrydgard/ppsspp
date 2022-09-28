@@ -49,6 +49,10 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
+static size_t FormatFramebufferName(VirtualFramebuffer *vfb, char *tag, size_t len) {
+	return snprintf(tag, len, "FB_%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, vfb->bufferWidth, vfb->bufferHeight, GeBufferFormatToString(vfb->fb_format));
+}
+
 FramebufferManagerCommon::FramebufferManagerCommon(Draw::DrawContext *draw)
 	: draw_(draw), draw2D_(draw_) {
 	presentation_ = new PresentationCommon(draw);
@@ -550,6 +554,19 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 	// First time use of this framebuffer's depth buffer.
 	bool newlyUsingDepth = (currentRenderVfb_->usageFlags & FB_USAGE_RENDER_DEPTH) == 0;
 	currentRenderVfb_->usageFlags |= FB_USAGE_RENDER_DEPTH;
+
+	uint32_t boundDepthBuffer = gstate.getDepthBufAddress() & 0x3FFFFFFF;
+	if (currentRenderVfb_->z_address != boundDepthBuffer) {
+		WARN_LOG_N_TIMES(z_reassign, 5, G3D, "Framebuffer at %08x/%d has switched associated depth buffer from %08x to %08x, updating.",
+			currentRenderVfb_->fb_address, currentRenderVfb_->fb_stride, currentRenderVfb_->z_address, boundDepthBuffer);
+
+		// Technically, here we should copy away the depth buffer to another framebuffer that uses that z_address, or maybe
+		// even write it back to RAM. However, this is rare. Silent Hill is one example, see #16126.
+		currentRenderVfb_->z_address = boundDepthBuffer;
+		char tag[128];
+		FormatFramebufferName(currentRenderVfb_, tag, sizeof(tag));
+		currentRenderVfb_->fbo->UpdateTag(tag);
+	}
 
 	// If this first draw call is anything other than a clear, "resolve" the depth buffer,
 	// by copying from any overlapping buffers with fresher content.
@@ -1486,10 +1503,6 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	}
 }
 
-static size_t FormatFramebufferName(VirtualFramebuffer *vfb, char *tag, size_t len) {
-	return snprintf(tag, len, "FB_%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, vfb->bufferWidth, vfb->bufferHeight, GeBufferFormatToString(vfb->fb_format));
-}
-
 // Requires width/height to be set already.
 void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force, bool skipCopy) {
 	_dbg_assert_(w > 0);
@@ -1541,9 +1554,9 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 
 	bool creating = old.bufferWidth == 0;
 	if (creating) {
-		WARN_LOG(FRAMEBUF, "Creating %s FBO at %08x/%d %dx%d (force=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->fb_stride, vfb->bufferWidth, vfb->bufferHeight, (int)force);
+		WARN_LOG(FRAMEBUF, "Creating %s FBO at %08x/%08x stride=%d %dx%d (force=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->z_address, vfb->fb_stride, vfb->bufferWidth, vfb->bufferHeight, (int)force);
 	} else {
-		WARN_LOG(FRAMEBUF, "Resizing %s FBO at %08x/%d from %dx%d to %dx%d (force=%d, skipCopy=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->fb_stride, old.bufferWidth, old.bufferHeight, vfb->bufferWidth, vfb->bufferHeight, (int)force, (int)skipCopy);
+		WARN_LOG(FRAMEBUF, "Resizing %s FBO at %08x/%08x stride=%d from %dx%d to %dx%d (force=%d, skipCopy=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->z_address, vfb->fb_stride, old.bufferWidth, old.bufferHeight, vfb->bufferWidth, vfb->bufferHeight, (int)force, (int)skipCopy);
 	}
 
 	// During hardware rendering, we always render at full color depth even if the game wouldn't on real hardware.

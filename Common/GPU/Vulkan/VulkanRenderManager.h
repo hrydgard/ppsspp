@@ -57,6 +57,8 @@ public:
 		return tag_.c_str();
 	}
 
+	void UpdateTag(const char *newTag);
+
 	// TODO: Hide.
 	VulkanContext *vulkan_;
 private:
