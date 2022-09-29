@@ -334,9 +334,6 @@ namespace MainWindow
 			dwStyle &= ~WS_POPUP;
 			// Re-add caption and border styles.
 			dwStyle |= WS_OVERLAPPEDWINDOW;
-
-			// Put back the menu bar.
-			::SetMenu(hWnd, menu);
 		} else {
 			// If the window was maximized before going fullscreen, make sure to restore first
 			// in order not to have the taskbar show up on top of PPSSPP.
