@@ -191,6 +191,7 @@ public:
 	int iWindowY;
 	int iWindowWidth;  // Windows and other windowed environments
 	int iWindowHeight;
+	bool bShowMenuBar;  // Windows-only
 
 	float fUITint;
 	float fUISaturation;

@@ -353,8 +353,8 @@ namespace MainWindow
 
 		::SetWindowLong(hWnd, GWL_STYLE, dwStyle);
 
-		// Remove the menu bar. This can trigger WM_SIZE
-		::SetMenu(hWnd, goingFullscreen ? NULL : menu);
+		// Remove the menu bar. This can trigger WM_SIZE because the contents change size.
+		::SetMenu(hWnd, goingFullscreen || !g_Config.bShowMenuBar ? NULL : menu);
 
 		if (g_Config.UseFullScreen() != goingFullscreen) {
 			g_Config.bFullScreen = goingFullscreen;
