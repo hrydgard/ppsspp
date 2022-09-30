@@ -130,6 +130,12 @@ void ComputeRasterizerState(RasterizerState *state) {
 		state->minFilt = gstate.isMinifyFilteringEnabled();
 		state->magFilt = gstate.isMagnifyFilteringEnabled();
 		state->textureProj = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
+		if (state->textureProj) {
+			// We may be able to optimize this off.  This is actually kinda common.
+			if (gstate.tgenMatrix[2] == 0.0f && gstate.tgenMatrix[5] == 0.0f && gstate.tgenMatrix[8] == 0.0f && gstate.tgenMatrix[11] == 1.0f) {
+				state->textureProj = false;
+			}
+		}
 	}
 
 	state->shadeGouraud = gstate.getShadeMode() == GE_SHADE_GOURAUD;

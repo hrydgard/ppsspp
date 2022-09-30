@@ -127,9 +127,6 @@ void GPUgstate::Reset() {
 	memset(gstate.tgenMatrix, 0, sizeof(gstate.tgenMatrix));
 	memset(gstate.boneMatrix, 0, sizeof(gstate.boneMatrix));
 
-	if (gpu)
-		gpu->ResetMatrices();
-
 	savedContextVersion = 1;
 }
 
@@ -143,6 +140,7 @@ void GPUgstate::Save(u32_le *ptr) {
 	u32_le *cmds = ptr + 17;
 	for (size_t i = 0; i < ARRAY_SIZE(contextCmdRanges); ++i) {
 		for (int n = contextCmdRanges[i].start; n <= contextCmdRanges[i].end; ++n) {
+			// We'll run ReapplyGfxState after this to process dirtying.
 			*cmds++ = cmdmem[n];
 		}
 	}
@@ -171,11 +169,11 @@ void GPUgstate::Save(u32_le *ptr) {
 		cmds = SaveMatrix(cmds, GE_MTX_PROJECTION, ARRAY_SIZE(projMatrix), GE_CMD_PROJMATRIXNUMBER, GE_CMD_PROJMATRIXDATA);
 		cmds = SaveMatrix(cmds, GE_MTX_TEXGEN, ARRAY_SIZE(tgenMatrix), GE_CMD_TGENMATRIXNUMBER, GE_CMD_TGENMATRIXDATA);
 
-		*cmds++ = boneMatrixNumber;
-		*cmds++ = worldmtxnum;
-		*cmds++ = viewmtxnum;
-		*cmds++ = projmtxnum;
-		*cmds++ = texmtxnum;
+		*cmds++ = boneMatrixNumber & 0xFF00007F;
+		*cmds++ = worldmtxnum & 0xFF00000F;
+		*cmds++ = viewmtxnum & 0xFF00000F;
+		*cmds++ = projmtxnum & 0xFF00000F;
+		*cmds++ = texmtxnum & 0xFF00000F;
 		*cmds++ = GE_CMD_END << 24;
 	}
 }
@@ -251,11 +249,11 @@ void GPUgstate::Restore(u32_le *ptr) {
 		cmds = LoadMatrix(cmds, projMatrix, ARRAY_SIZE(projMatrix));
 		cmds = LoadMatrix(cmds, tgenMatrix, ARRAY_SIZE(tgenMatrix));
 
-		boneMatrixNumber = *cmds++;
-		worldmtxnum = *cmds++;
-		viewmtxnum = *cmds++;
-		projmtxnum = *cmds++;
-		texmtxnum = *cmds++;
+		boneMatrixNumber = (*cmds++) & 0xFF00007F;
+		worldmtxnum = (*cmds++) & 0xFF00000F;
+		viewmtxnum = (*cmds++) & 0xFF00000F;
+		projmtxnum = (*cmds++) & 0xFF00000F;
+		texmtxnum = (*cmds++) & 0xFF00000F;
 	}
 
 	if (gpu)

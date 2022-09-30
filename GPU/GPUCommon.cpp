@@ -780,6 +780,9 @@ void GPUCommon::ResetMatrices() {
 		matrixVisible.proj[i] = toFloat24(gstate.projMatrix[i]);
 	for (size_t i = 0; i < ARRAY_SIZE(gstate.tgenMatrix); ++i)
 		matrixVisible.tgen[i] = toFloat24(gstate.tgenMatrix[i]);
+
+	// Assume all the matrices changed, so dirty things related to them.
+	gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_PROJMATRIX | DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE | DIRTY_BONE_UNIFORMS);
 }
 
 u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) {
@@ -1341,7 +1344,8 @@ void GPUCommon::Execute_Iaddr(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Origin(u32 op, u32 diff) {
-	gstate_c.offsetAddr = currentList->pc;
+	if (currentList)
+		gstate_c.offsetAddr = currentList->pc;
 }
 
 void GPUCommon::Execute_Jump(u32 op, u32 diff) {
@@ -2175,6 +2179,11 @@ void GPUCommon::Execute_BlockTransferStart(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (op & 0xF);
+		return;
+	}
+
 	// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
 	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.worldMatrix + (op & 0xF));
@@ -2225,6 +2234,11 @@ void GPUCommon::Execute_WorldMtxData(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_ViewMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (op & 0xF);
+		return;
+	}
+
 	// This is almost always followed by GE_CMD_VIEWMATRIXDATA.
 	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.viewMatrix + (op & 0xF));
@@ -2273,6 +2287,11 @@ void GPUCommon::Execute_ViewMtxData(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (op & 0xF);
+		return;
+	}
+
 	// This is almost always followed by GE_CMD_PROJMATRIXDATA.
 	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.projMatrix + (op & 0xF));
@@ -2322,6 +2341,11 @@ void GPUCommon::Execute_ProjMtxData(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (op & 0xF);
+		return;
+	}
+
 	// This is almost always followed by GE_CMD_TGENMATRIXDATA.
 	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.tgenMatrix + (op & 0xF));
@@ -2339,7 +2363,8 @@ void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
 			if (dst[i] != newVal) {
 				Flush();
 				dst[i] = newVal;
-				gstate_c.Dirty(DIRTY_TEXMATRIX);
+				// We check the matrix to see if we need projection.
+				gstate_c.Dirty(DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE);
 			}
 			if (++i >= end) {
 				break;
@@ -2370,6 +2395,11 @@ void GPUCommon::Execute_TgenMtxData(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (op & 0x7F);
+		return;
+	}
+
 	// This is almost always followed by GE_CMD_BONEMATRIXDATA.
 	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.boneMatrix + (op & 0x7F));
