@@ -2363,7 +2363,8 @@ void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
 			if (dst[i] != newVal) {
 				Flush();
 				dst[i] = newVal;
-				gstate_c.Dirty(DIRTY_TEXMATRIX);
+				// We check the matrix to see if we need projection.
+				gstate_c.Dirty(DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE);
 			}
 			if (++i >= end) {
 				break;
