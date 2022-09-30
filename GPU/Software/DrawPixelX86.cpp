@@ -1159,7 +1159,7 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 			if (id.AlphaBlendEq() == GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE)
 				PXOR(dstReg, R(dstReg));
 		} else if (id.AlphaBlendDst() == PixelBlendFactor::ONE) {
-			if (blendState.dstColorAsFactor)
+			if (blendState.dstColorAsFactor || blendState.usesDstAlpha)
 				PSRLW(dstReg, 4);
 		}
 
