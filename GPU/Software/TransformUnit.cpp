@@ -981,6 +981,9 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 	Matrix4ByMatrix4(worldview, world, view);
 	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
 
+	const float zScale = gstate.getViewportZScale();
+	const float zCenter = gstate.getViewportZCenter();
+
 	vertices.resize(indexUpperBound + 1);
 	for (int i = indexLowerBound; i <= indexUpperBound; ++i) {
 		const SimpleVertex &vert = simpleVertices[i];
@@ -997,10 +1000,9 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 			vertices[i].y = vert.pos.y;
 			vertices[i].z = vert.pos.z;
 		} else {
-			float clipPos[4];
-			Vec3ByMatrix44(clipPos, vert.pos.AsArray(), worldviewproj);
+			Vec4f clipPos = Vec3ByMatrix44(vert.pos, worldviewproj);
 			ScreenCoords screenPos = ClipToScreen(clipPos);
-			DrawingCoords drawPos = ScreenToDrawing(screenPos);
+			float z = clipPos.z * zScale / clipPos.w + zCenter;
 
 			if (gstate.vertType & GE_VTYPE_TC_MASK) {
 				vertices[i].u = vert.uv[0] * (float)gstate.getTextureWidth(0);
@@ -1009,9 +1011,9 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 				vertices[i].u = 0.0f;
 				vertices[i].v = 0.0f;
 			}
-			vertices[i].x = drawPos.x;
-			vertices[i].y = drawPos.y;
-			vertices[i].z = screenPos.z;
+			vertices[i].x = (float)screenPos.x / SCREEN_SCALE_FACTOR;
+			vertices[i].y = (float)screenPos.y / SCREEN_SCALE_FACTOR;
+			vertices[i].z = screenPos.z <= 0 || screenPos.z >= 0xFFFF ? z : (float)screenPos.z;
 		}
 
 		if (gstate.vertType & GE_VTYPE_COL_MASK) {
