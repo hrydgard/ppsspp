@@ -1079,6 +1079,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 			gDesc.fragmentShader = vkshader->Get();
 		} else {
 			ERROR_LOG(G3D, "Bad stage");
+			delete pipeline;
 			return nullptr;
 		}
 	}

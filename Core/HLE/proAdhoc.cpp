@@ -1929,7 +1929,7 @@ void getLocalMac(SceNetEtherAddr * addr){
 		mac[0] &= 0xfc;
 	}
 	else
-	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), mac)) {
+	if (!ParseMacAddress(g_Config.sMACAddress, mac)) {
 		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
 		memset(&mac, 0, sizeof(mac));
 	}
