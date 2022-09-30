@@ -199,7 +199,7 @@ namespace W32Util
 		switch (type_) {
 		case DIR:
 			filename_ = BrowseForFolder(parent_, title_.c_str());
-			result_ = filename_ != "";
+			result_ = !filename_.empty();
 			complete_ = true;
 			break;
 

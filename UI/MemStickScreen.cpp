@@ -259,7 +259,7 @@ void MemStickScreen::CreateViews() {
 		privateString = StringFromFormat("%s (%s)", iz->T("Skip for now"), privateString.c_str());
 	}
 
-	leftColumn->Add(new RadioButton(&choice_, CHOICE_PRIVATE_DIRECTORY, privateString.c_str()))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
+	leftColumn->Add(new RadioButton(&choice_, CHOICE_PRIVATE_DIRECTORY, privateString))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
 	if (choice_ == CHOICE_PRIVATE_DIRECTORY) {
 		AddExplanation(leftColumn, (MemStickScreen::Choice)choice_);
 	}

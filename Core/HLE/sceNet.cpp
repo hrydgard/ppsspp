@@ -691,7 +691,7 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 		addr[0] &= 0xfc;
 	} else {
 		// Read MAC Address from config
-		if (!ParseMacAddress(g_Config.sMACAddress.c_str(), addr)) {
+		if (!ParseMacAddress(g_Config.sMACAddress, addr)) {
 			ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
 			Memory::Memset(addrAddr, 0, 6);
 		}

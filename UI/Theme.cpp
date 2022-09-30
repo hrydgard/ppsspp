@@ -139,7 +139,7 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 
 				std::string tmpPath;
 				section.Get("UIAtlas", &tmpPath, "");
-				if (tmpPath != "") {
+				if (!tmpPath.empty()) {
 					tmpPath = (path / tmpPath).ToString();
 
 					File::FileInfo tmpInfo;

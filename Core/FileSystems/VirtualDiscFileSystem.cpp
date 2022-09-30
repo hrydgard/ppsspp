@@ -329,7 +329,7 @@ int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 	entry.size = 0;
 	entry.startOffset = 0;
 
-	if (filename == "")
+	if (filename.empty())
 	{
 		entry.type = VFILETYPE_ISO;
 		entry.fileIndex = -1;

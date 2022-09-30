@@ -1420,6 +1420,7 @@ skip:
 
 	std::vector<MIPSGPReg> GetOutputRegs(MIPSOpcode op) {
 		std::vector<MIPSGPReg> vec;
+		vec.reserve(3);
 		MIPSInfo info = MIPSGetInfo(op);
 		if (info & OUT_RD) vec.push_back(MIPS_GET_RD(op));
 		if (info & OUT_RT) vec.push_back(MIPS_GET_RT(op));

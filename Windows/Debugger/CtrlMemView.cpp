@@ -768,6 +768,7 @@ std::vector<u32> CtrlMemView::searchString(const std::string &searchQuery) {
 
 	std::vector<std::pair<u32, u32>> memoryAreas;
 	memoryAreas.push_back(std::pair<u32, u32>(PSP_GetScratchpadMemoryBase(), PSP_GetScratchpadMemoryEnd()));
+	memoryAreas.reserve(3);
 	// Ignore the video memory mirrors.
 	memoryAreas.push_back(std::pair<u32, u32>(PSP_GetVidMemBase(), 0x04200000));
 	memoryAreas.push_back(std::pair<u32, u32>(PSP_GetKernelMemoryBase(), PSP_GetUserMemoryEnd()));
@@ -821,6 +822,7 @@ void CtrlMemView::search(bool continueSearch)
 	}
 
 	std::vector<std::pair<u32, u32>> memoryAreas;
+	memoryAreas.reserve(3);
 	// Ignore the video memory mirrors.
 	memoryAreas.push_back(std::pair<u32,u32>(PSP_GetVidMemBase(), 0x04200000));
 	memoryAreas.push_back(std::pair<u32,u32>(PSP_GetKernelMemoryBase(), PSP_GetUserMemoryEnd()));

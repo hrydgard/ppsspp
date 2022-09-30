@@ -256,7 +256,7 @@ void GameSettingsScreen::CreateViews() {
 	root_->Add(settingInfo_);
 
 	// Show it again if we recreated the view
-	if (oldSettingInfo_ != "") {
+	if (!oldSettingInfo_.empty()) {
 		settingInfo_->Show(oldSettingInfo_, nullptr);
 	}
 
@@ -1222,7 +1222,7 @@ UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnOpenMemStick(UI::EventParams &e) {
-	OpenDirectory(File::ResolvePath(g_Config.memStickDirectory.ToString().c_str()).c_str());
+	OpenDirectory(File::ResolvePath(g_Config.memStickDirectory.ToString()).c_str());
 	return UI::EVENT_DONE;
 }
 

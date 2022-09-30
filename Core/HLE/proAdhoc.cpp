@@ -1325,7 +1325,7 @@ void sendChat(std::string chatString) {
 			if (IsSocketReady((int)metasocket, false, true) > 0) {
 				int chatResult = send((int)metasocket, (const char*)&chat, sizeof(chat), MSG_NOSIGNAL);
 				NOTICE_LOG(SCENET, "Send Chat %s to Adhoc Server", chat.message);
-				std::string name = g_Config.sNickName.c_str();
+				std::string name = g_Config.sNickName;
 
 				std::lock_guard<std::mutex> guard(chatLogLock);
 				chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
@@ -1891,6 +1891,7 @@ uint32_t getLocalIp(int sock) {
 static std::vector<std::pair<uint32_t, uint32_t>> InitPrivateIPRanges() {
 	struct sockaddr_in saNet {}, saMask{};
 	std::vector<std::pair<uint32_t, uint32_t>> ip_ranges;
+	ip_ranges.reserve(5);
 
 	if (1 == inet_pton(AF_INET, "192.168.0.0", &(saNet.sin_addr)) && 1 == inet_pton(AF_INET, "255.255.0.0", &(saMask.sin_addr)))
 		ip_ranges.push_back({saNet.sin_addr.s_addr, saMask.sin_addr.s_addr});
