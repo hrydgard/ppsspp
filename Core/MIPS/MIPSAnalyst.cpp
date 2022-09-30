@@ -771,7 +771,7 @@ namespace MIPSAnalyst {
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			AnalyzedFunction &f = *iter;
 			if (f.hasHash && f.size > 16) {
-				hashToFunction.insert(std::make_pair(f.hash, &f));
+				hashToFunction.emplace(f.hash, &f);
 			}
 		}
 	}

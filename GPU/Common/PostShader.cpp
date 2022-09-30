@@ -187,7 +187,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 						// Populate the default setting value.
 						std::string section = StringFromFormat("%sSettingValue%d", info.section.c_str(), i + 1);
 						if (!setting.name.empty() && g_Config.mPostShaderSetting.find(section) == g_Config.mPostShaderSetting.end()) {
-							g_Config.mPostShaderSetting.insert(std::pair<std::string, float>(section, setting.value));
+							g_Config.mPostShaderSetting.emplace(section, setting.value);
 						}
 					}
 

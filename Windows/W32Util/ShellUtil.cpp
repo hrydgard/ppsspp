@@ -144,7 +144,7 @@ namespace W32Util
 				files.push_back(directory);
 			} else {
 				while (*temp) {
-					files.push_back(directory + "\\" + ConvertWStringToUTF8(temp));
+					files.emplace_back(directory + "\\" + ConvertWStringToUTF8(temp));
 					temp += wcslen(temp) + 1;
 				}
 			}

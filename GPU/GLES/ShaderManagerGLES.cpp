@@ -995,7 +995,7 @@ void ShaderManagerGLES::Load(const Path &filename) {
 		if (!f.ReadArray(&fsid, 1)) {
 			return;
 		}
-		diskCachePending_.link.push_back(std::make_pair(vsid, fsid));
+		diskCachePending_.link.emplace_back(vsid, fsid);
 	}
 
 	// Actual compilation happens in ContinuePrecompile(), called by GPU_GLES's IsReady.

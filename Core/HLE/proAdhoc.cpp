@@ -1328,7 +1328,7 @@ void sendChat(std::string chatString) {
 				std::string name = g_Config.sNickName;
 
 				std::lock_guard<std::mutex> guard(chatLogLock);
-				chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
+				chatLog.emplace_back(name.substr(0, 8) + ": " + chat.message);
 				chatMessageGeneration++;
 			}
 		}
