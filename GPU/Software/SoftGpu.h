@@ -194,6 +194,7 @@ public:
 	void Execute_BoneMtxData(u32 op, u32 diff);
 
 	bool GetMatrix24(GEMatrixType type, u32_le *result, u32 cmdbits) override;
+	void ResetMatrices() override;
 
 	void Execute_ImmVertexAlphaPrim(u32 op, u32 diff);
 

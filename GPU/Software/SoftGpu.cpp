@@ -1196,6 +1196,11 @@ bool SoftGPU::GetMatrix24(GEMatrixType type, u32_le *result, u32 cmdbits) {
 	return true;
 }
 
+void SoftGPU::ResetMatrices() {
+	GPUCommon::ResetMatrices();
+	dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
+}
+
 void SoftGPU::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 	GPUCommon::Execute_ImmVertexAlphaPrim(op, diff);
 	// We won't flush as often as hardware renderers, so we want to flush right away.
