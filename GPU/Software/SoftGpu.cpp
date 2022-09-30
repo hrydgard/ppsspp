@@ -1127,8 +1127,11 @@ void SoftGPU::Execute_TgenMtxData(u32 op, u32 diff) {
 	if (num < 12) {
 		u32 *target = (u32 *)&gstate.tgenMatrix[num];
 		u32 newVal = op << 8;
-		// No dirtying, read during vertex read.
-		*target = newVal;
+		if (newVal != *target) {
+			*target = newVal;
+			// This is mainly used in vertex read, but also affects if we enable texture projection.
+			dirtyFlags_ |= SoftDirty::RAST_TEX;
+		}
 	}
 
 	// Doesn't wrap to any other matrix.
@@ -1198,7 +1201,7 @@ bool SoftGPU::GetMatrix24(GEMatrixType type, u32_le *result, u32 cmdbits) {
 
 void SoftGPU::ResetMatrices() {
 	GPUCommon::ResetMatrices();
-	dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
+	dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX | SoftDirty::RAST_TEX;
 }
 
 void SoftGPU::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
