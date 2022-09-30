@@ -1049,7 +1049,7 @@ void EmuScreen::update() {
 		errLoadingFile.append(err->T(errorMessage_.c_str()));
 
 		screenManager()->push(new PromptScreen(errLoadingFile, "OK", ""));
-		errorMessage_ = "";
+		errorMessage_.clear();
 		quit_ = true;
 		return;
 	}

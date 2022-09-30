@@ -426,7 +426,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	if (g_CoreParameter.graphicsContext == nullptr) {
 		g_CoreParameter.graphicsContext = temp;
 	}
-	g_CoreParameter.errorString = "";
+	g_CoreParameter.errorString.clear();
 	pspIsIniting = true;
 	PSP_SetLoading("Loading game...");
 

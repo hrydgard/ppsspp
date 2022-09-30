@@ -49,7 +49,7 @@ CtrlMemView::CtrlMemView(HWND _wnd)
 	curAddress = 0;
 	debugger = 0;
  
-	searchQuery = "";
+	searchQuery.clear();
 	matchAddress = -1;
 	searching = false;
 

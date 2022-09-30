@@ -867,8 +867,6 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 		// Try to match the new framebuffer to existing textures.
 		// Backwards from the "usual" texturing case so can't share a utility function.
 
-		std::vector<AttachCandidate> candidates;
-
 		u64 cacheKey = (u64)fb_addr << 32;
 		// If it has a clut, those are the low 32 bits, so it'll be inside this range.
 		// Also, if it's a subsample of the buffer, it'll also be within the FBO.

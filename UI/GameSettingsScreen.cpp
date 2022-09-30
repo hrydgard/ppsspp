@@ -1488,7 +1488,7 @@ void GameSettingsScreen::TriggerRestart(const char *why) {
 	std::string param = "--gamesettings";
 	if (editThenRestore_) {
 		// We won't pass the gameID, so don't resume back into settings.
-		param = "";
+		param.clear();
 	} else if (!gamePath_.empty()) {
 		param += " \"" + ReplaceAll(ReplaceAll(gamePath_.ToString(), "\\", "\\\\"), "\"", "\\\"") + "\"";
 	}

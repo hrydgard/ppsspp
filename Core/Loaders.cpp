@@ -60,7 +60,7 @@ FileLoader *ConstructFileLoader(const Path &filename) {
 
 // TODO : improve, look in the file more
 IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorString) {
-	*errorString = "";
+	(*errorString).clear();
 	if (fileLoader == nullptr) {
 		*errorString = "Invalid fileLoader";
 		return IdentifiedFileType::ERROR_IDENTIFYING;

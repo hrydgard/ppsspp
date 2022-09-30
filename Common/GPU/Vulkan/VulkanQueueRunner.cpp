@@ -1348,7 +1348,6 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		int n = 0;
 		int stage = 0;
 
-		VkImageMemoryBarrier barriers[2]{};
 		if (step.render.framebuffer->color.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
 			recordBarrier_.TransitionImage(
 				step.render.framebuffer->color.image,
@@ -1757,9 +1756,6 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
 	// The barrier code doesn't handle this case. We'd need to transition to GENERAL to do an intra-image copy.
 	_dbg_assert_(step.blit.src != step.blit.dst);
-
-	VkImageMemoryBarrier srcBarriers[2]{};
-	VkImageMemoryBarrier dstBarriers[2]{};
 
 	VKRFramebuffer *src = step.blit.src;
 	VKRFramebuffer *dst = step.blit.dst;

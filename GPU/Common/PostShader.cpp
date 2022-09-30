@@ -55,7 +55,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 	off.name = "Off";
 	off.section = "Off";
 	for (size_t i = 0; i < ARRAY_SIZE(off.settings); ++i) {
-		off.settings[i].name = "";
+		off.settings[i].name.clear();
 		off.settings[i].value = 0.0f;
 		off.settings[i].minValue = -1.0f;
 		off.settings[i].maxValue = 1.0f;
@@ -174,7 +174,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					section.Get("UsePreviousFrame", &info.usePreviousFrame, false);
 
 					if (info.parent == "Off")
-						info.parent = "";
+						info.parent.clear();
 
 					for (size_t i = 0; i < ARRAY_SIZE(info.settings); ++i) {
 						auto &setting = info.settings[i];

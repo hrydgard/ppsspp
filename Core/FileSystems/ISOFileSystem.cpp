@@ -148,7 +148,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	if (!blockDevice->ReadBlock(16, (u8*)&desc))
 		blockDevice->NotifyReadError();
 
-	entireISO.name = "";
+	entireISO.name.clear();
 	entireISO.isDirectory = false;
 	entireISO.startingPosition = 0;
 	entireISO.size = _blockDevice->GetNumBlocks();

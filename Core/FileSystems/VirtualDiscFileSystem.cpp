@@ -81,7 +81,6 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 		return;
 	}
 
-	std::string buf;
 	static const int MAX_LINE_SIZE = 2048;
 	char linebuf[MAX_LINE_SIZE]{};
 	while (fgets(linebuf, MAX_LINE_SIZE, f)) {

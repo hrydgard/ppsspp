@@ -258,7 +258,7 @@ std::string SavedataParam::GetSaveFilePath(const SceUtilitySavedataParam *param,
 inline static std::string FixedToString(const char *str, size_t n)
 {
 	if (!str) {
-		return std::string("");
+		return std::string();
 	} else {
 		return std::string(str, strnlen(str, n));
 	}

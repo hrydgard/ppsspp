@@ -191,7 +191,7 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 
 	matchAddress = -1;
 	searching = false;
-	searchQuery = "";
+	searchQuery.clear();
 	windowStart = curAddress;
 	whiteBackground = false;
 	displaySymbols = true;
