@@ -68,15 +68,17 @@ static const char * const hlsl_preamble_vs =
 "#define highp\n"
 "\n";
 
-static const char * const semanticNames[8] = {
+static const char * const semanticNames[] = {
 	"POSITION",
 	"COLOR0",
+	"COLOR1",
 	"TEXCOORD0",
 	"TEXCOORD1",
 	"NORMAL",
 	"TANGENT",
 	"BINORMAL",
 };
+static_assert(ARRAY_SIZE(semanticNames) == Draw::SEM_MAX, "Missing semantic in semanticNames");
 
 // Unsafe. But doesn't matter, we'll use big buffers for shader gen.
 ShaderWriter & ShaderWriter::F(const char *format, ...) {

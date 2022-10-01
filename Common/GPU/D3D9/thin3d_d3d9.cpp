@@ -945,6 +945,10 @@ static void SemanticToD3D9UsageAndIndex(int semantic, BYTE *usage, BYTE *index) 
 	case SEM_COLOR0:
 		*usage = D3DDECLUSAGE_COLOR;
 		break;
+	case SEM_COLOR1:
+		*usage = D3DDECLUSAGE_COLOR;
+		*index = 1;
+		break;
 	case SEM_TEXCOORD0:
 		*usage = D3DDECLUSAGE_TEXCOORD;
 		break;

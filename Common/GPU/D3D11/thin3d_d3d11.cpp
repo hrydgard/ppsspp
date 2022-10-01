@@ -686,6 +686,7 @@ const char *semanticToD3D11(int semantic, UINT *index) {
 	switch (semantic) {
 	case SEM_POSITION: return "POSITION";
 	case SEM_COLOR0: *index = 0; return "COLOR";
+	case SEM_COLOR1: *index = 1; return "COLOR";
 	case SEM_TEXCOORD0: *index = 0; return "TEXCOORD";
 	case SEM_TEXCOORD1: *index = 1; return "TEXCOORD";
 	case SEM_NORMAL: return "NORMAL";
