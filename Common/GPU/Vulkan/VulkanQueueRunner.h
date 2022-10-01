@@ -46,6 +46,7 @@ enum class PipelineFlags {
 	USES_BLEND_CONSTANT = (1 << 1),
 	USES_DEPTH_STENCIL = (1 << 2),  // Reads or writes the depth or stencil buffers.
 	USES_INPUT_ATTACHMENT = (1 << 3),
+	USES_GEOMETRY_SHADER = (1 << 4),
 };
 ENUM_CLASS_BITOPS(PipelineFlags);
 
