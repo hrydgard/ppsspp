@@ -25,6 +25,8 @@ INCFLAGS += \
 	$(FFMPEGINCFLAGS) \
 	-I$(EXTDIR)/cityhash \
 	-I$(EXTDIR)/armips \
+	-I$(EXTDIR)/armips/ext/filesystem/include \
+	-I$(EXTDIR)/armips/ext/tinyformat \
 	-I$(EXTDIR)/zstd/lib \
 	-I$(EXTDIR) \
 	-I$(NATIVEDIR) \

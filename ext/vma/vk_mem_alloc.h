@@ -27,6 +27,18 @@
 #ifdef USE_CRT_DBG
 #undef new
 #endif
+
+#if defined(__APPLE__)
+#include <AvailabilityMacros.h>
+
+#if defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && (!defined(__IPHONE_10_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_10_0)
+#define VMA_USE_STL_SHARED_MUTEX 0
+#endif
+#if defined(MAC_OS_X_VERSION_MIN_REQUIRED) && (!defined(MAC_OS_X_VERSION_10_12) || MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_12)
+#define VMA_USE_STL_SHARED_MUTEX 0
+#endif
+
+#endif
 // END PPSSPP HACKS
 
 /** \mainpage Vulkan Memory Allocator

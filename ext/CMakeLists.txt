@@ -1,4 +1,5 @@
 set(ARMIPS_REGEXP OFF CACHE BOOL "" FORCE)
+set(ARMIPS_LIBRARY_ONLY ON CACHE BOOL "" FORCE)
 
 add_subdirectory(armips)
 if(NOT USING_GLES2)

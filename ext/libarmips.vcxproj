@@ -187,74 +187,74 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>.;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)d</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetName>$(ProjectName)d64</TargetName>
-    <IncludePath>.;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)64\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <TargetName>$(ProjectName)dARM64</TargetName>
-    <IncludePath>.;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)ARM64\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <TargetName>$(ProjectName)dARM</TargetName>
-    <IncludePath>.;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)ARM\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Tests|Win32'">
-    <IncludePath>.;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)tests</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Tests|x64'">
-    <IncludePath>.;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <TargetName>$(ProjectName)tests64</TargetName>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)64\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Tests|ARM64'">
-    <IncludePath>.;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <TargetName>$(ProjectName)testsARM64</TargetName>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)ARM64\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Tests|ARM'">
-    <IncludePath>.;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <TargetName>$(ProjectName)testsARM</TargetName>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)ARM\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>.;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetName>$(ProjectName)64</TargetName>
-    <IncludePath>.;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)64\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <TargetName>$(ProjectName)ARM64</TargetName>
-    <IncludePath>.;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)ARM64\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <TargetName>$(ProjectName)ARM</TargetName>
-    <IncludePath>.;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)ARM\</IntDir>
   </PropertyGroup>
@@ -301,7 +301,6 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -323,7 +322,6 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -345,7 +343,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>armips</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -358,7 +356,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>armips</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -369,10 +367,9 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Tests|ARM64'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>armips</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -383,10 +380,9 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Tests|ARM'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>armips</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -443,7 +439,6 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -467,7 +462,6 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
