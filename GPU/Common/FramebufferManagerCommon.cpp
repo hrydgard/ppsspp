@@ -1358,6 +1358,12 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		for (auto v : vfbs_) {
 			const u32 v_addr = v->fb_address & 0x3FFFFFFF;
 			const u32 v_size = ColorBufferByteSize(v);
+
+			if (v->fb_format != displayFormat_ || v->fb_stride != displayStride_) {
+				// Displaying a buffer of the wrong format or stride is nonsense, ignore it.
+				continue;
+			}
+
 			if (addr >= v_addr && addr < v_addr + v_size) {
 				const u32 dstBpp = BufferFormatBytesPerPixel(v->fb_format);
 				const u32 v_offsetX = ((addr - v_addr) / dstBpp) % v->fb_stride;
@@ -1623,7 +1629,9 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	dst &= 0x3FFFFFFF;
 	src &= 0x3FFFFFFF;
 
-	// TODO: Merge the below into FindTransferFramebuffer
+	// TODO: Merge the below into FindTransferFramebuffer.
+	// Or at least this should be like the other ones, gathering possible candidates
+	// with the ability to list them out for debugging.
 
 	VirtualFramebuffer *dstBuffer = 0;
 	VirtualFramebuffer *srcBuffer = 0;
@@ -1642,6 +1650,14 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		const u32 vfb_bpp = BufferFormatBytesPerPixel(vfb->fb_format);
 		const u32 vfb_byteStride = vfb->fb_stride * vfb_bpp;
 		const int vfb_byteWidth = vfb->width * vfb_bpp;
+
+		// Heuristic to try to prevent potential glitches with video playback.
+		if (vfb_address == dst && (size == 0x44000 && vfb_size == 0x88000 || size == 0x88000 && vfb_size == 0x44000)) {
+			// Not likely to be a correct color format copy for this buffer. Ignore it, there will either be RAM
+			// that can be displayed from, or another matching buffer with the right format if rendering is going on.
+			WARN_LOG_N_TIMES(notify_copy_2x, 5, G3D, "Framebuffer size %08x conspicuously not matching copy size %08x in NotifyFramebufferCopy. Ignoring.", size, vfb_size);
+			continue;
+		}
 
 		if (dst >= vfb_address && (dst + size <= vfb_address + vfb_size || dst == vfb_address)) {
 			const u32 offset = dst - vfb_address;
