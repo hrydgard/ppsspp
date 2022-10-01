@@ -39,7 +39,7 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 	}
 	case ShaderLanguage::GLSL_3xx:
 	{
-		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_3xx);
 		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, nullptr, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
@@ -73,7 +73,7 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 	}
 	case ShaderLanguage::GLSL_3xx:
 	{
-		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_3xx);
 		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
@@ -91,18 +91,41 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 	}
 }
 
+static VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
+	switch (stage) {
+	case ShaderStage::Vertex: return VK_SHADER_STAGE_VERTEX_BIT;
+	case ShaderStage::Geometry: return VK_SHADER_STAGE_GEOMETRY_BIT;
+	case ShaderStage::Compute: return VK_SHADER_STAGE_COMPUTE_BIT;
+	case ShaderStage::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
+	}
+	return VK_SHADER_STAGE_FRAGMENT_BIT;
+}
+
 bool TestCompileShader(const char *buffer, ShaderLanguage lang, ShaderStage stage, std::string *errorMessage) {
 	std::vector<uint32_t> spirv;
 	switch (lang) {
 #if PPSSPP_PLATFORM(WINDOWS)
 	case ShaderLanguage::HLSL_D3D11:
 	{
-		auto output = CompileShaderToBytecodeD3D11(buffer, strlen(buffer), stage == ShaderStage::Vertex ? "vs_4_0" : "ps_4_0", 0);
+		const char *programType = nullptr;
+		switch (stage) {
+		case ShaderStage::Vertex: programType = "vs_4_0"; break;
+		case ShaderStage::Fragment: programType = "ps_4_0"; break;
+		case ShaderStage::Geometry: programType = "gs_4_0"; break;
+		default: return false;
+		}
+		auto output = CompileShaderToBytecodeD3D11(buffer, strlen(buffer), programType, 0);
 		return !output.empty();
 	}
 	case ShaderLanguage::HLSL_D3D9:
 	{
-		LPD3DBLOB blob = CompileShaderToByteCodeD3D9(buffer, stage == ShaderStage::Vertex ? "vs_3_0" : "ps_3_0", errorMessage);
+		const char *programType = nullptr;
+		switch (stage) {
+		case ShaderStage::Vertex: programType = "vs_3_0"; break;
+		case ShaderStage::Fragment: programType = "ps_3_0"; break;
+		default: return false;
+		}
+		LPD3DBLOB blob = CompileShaderToByteCodeD3D9(buffer, programType, errorMessage);
 		if (blob) {
 			blob->Release();
 			return true;
@@ -113,11 +136,11 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, ShaderStage stag
 #endif
 
 	case ShaderLanguage::GLSL_VULKAN:
-		return GLSLtoSPV(stage == ShaderStage::Vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::VULKAN, spirv, errorMessage);
+		return GLSLtoSPV(StageToVulkan(stage), buffer, GLSLVariant::VULKAN, spirv, errorMessage);
 	case ShaderLanguage::GLSL_1xx:
-		return GLSLtoSPV(stage == ShaderStage::Vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::GL140, spirv, errorMessage);
+		return GLSLtoSPV(StageToVulkan(stage), buffer, GLSLVariant::GL140, spirv, errorMessage);
 	case ShaderLanguage::GLSL_3xx:
-		return GLSLtoSPV(stage == ShaderStage::Vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::GLES300, spirv, errorMessage);
+		return GLSLtoSPV(StageToVulkan(stage), buffer, GLSLVariant::GLES300, spirv, errorMessage);
 	default:
 		return false;
 	}
