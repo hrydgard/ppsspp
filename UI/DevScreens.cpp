@@ -1144,7 +1144,7 @@ int ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout *
 	using namespace UI;
 	std::vector<std::string> shaderIds_ = gpu->DebugGetShaderIDs(shaderType);
 	int count = 0;
-	for (auto id : shaderIds_) {
+	for (const auto &id : shaderIds_) {
 		Choice *choice = view->Add(new Choice(gpu->DebugGetShaderString(id, shaderType, SHADER_STRING_SHORT_DESC)));
 		choice->SetTag(id);
 		choice->OnClick.Handle(this, &ShaderListScreen::OnShaderClick);

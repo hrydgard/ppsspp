@@ -114,6 +114,7 @@ enum BufferUsageFlag : int {
 enum Semantic : int {
 	SEM_POSITION,
 	SEM_COLOR0,
+	SEM_COLOR1,
 	SEM_TEXCOORD0,
 	SEM_TEXCOORD1,
 	SEM_NORMAL,

@@ -1206,6 +1206,7 @@ bool OpenGLPipeline::LinkShaders() {
 	// Bind all the common vertex data points. Mismatching ones will be ignored.
 	semantics.push_back({ SEM_POSITION, "Position" });
 	semantics.push_back({ SEM_COLOR0, "Color0" });
+	semantics.push_back({ SEM_COLOR1, "Color1" });
 	semantics.push_back({ SEM_TEXCOORD0, "TexCoord0" });
 	semantics.push_back({ SEM_NORMAL, "Normal" });
 	semantics.push_back({ SEM_TANGENT, "Tangent" });

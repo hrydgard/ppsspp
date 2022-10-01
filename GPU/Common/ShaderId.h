@@ -118,6 +118,13 @@ struct ShaderID {
 			d[i] = 0xFFFFFFFF;
 		}
 	}
+	bool is_invalid() const {
+		for (size_t i = 0; i < ARRAY_SIZE(d); i++) {
+			if (d[i] != 0xFFFFFFFF)
+				return false;
+		}
+		return true;
+	}
 
 	uint32_t d[2];
 	bool operator < (const ShaderID &other) const {

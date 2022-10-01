@@ -37,23 +37,22 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		return false;
 	}
 
-	VkPipelineShaderStageCreateInfo ss[2]{};
+	uint32_t stageCount = 2;
+	VkPipelineShaderStageCreateInfo ss[3]{};
 	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 	ss[0].pSpecializationInfo = nullptr;
 	ss[0].module = vs;
 	ss[0].pName = "main";
-	ss[0].flags = 0;
 	ss[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	ss[1].pSpecializationInfo = nullptr;
 	ss[1].module = fs;
 	ss[1].pName = "main";
-	ss[1].flags = 0;
 
 	VkGraphicsPipelineCreateInfo pipe{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 	pipe.pStages = ss;
-	pipe.stageCount = 2;
+	pipe.stageCount = stageCount;
 	pipe.renderPass = compatibleRenderPass;
 	pipe.basePipelineIndex = 0;
 	pipe.pColorBlendState = &desc->cbs;

@@ -215,8 +215,8 @@ private:
 };
 
 bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size) {
-	vulkan_ = vulkan;
 	// We'll need this to free it later.
+	vulkan_ = vulkan;
 	source_ = (const char *)data;
 	std::vector<uint32_t> spirv;
 	std::string errorMessage;
@@ -278,7 +278,6 @@ public:
 		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment, vkbuf);
 	}
 
-	int GetUniformLoc(const char *name);
 	int GetUBOSize() const {
 		return uboSize_;
 	}
@@ -1306,17 +1305,6 @@ ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage la
 		shader->Release();
 		return nullptr;
 	}
-}
-
-int VKPipeline::GetUniformLoc(const char *name) {
-	int loc = -1;
-
-	// HACK! As we only use one uniform we hardcode it.
-	if (!strcmp(name, "WorldViewProj")) {
-		return 0;
-	}
-
-	return loc;
 }
 
 void VKContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
