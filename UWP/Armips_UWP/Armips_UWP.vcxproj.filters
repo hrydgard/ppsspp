@@ -140,7 +140,10 @@
     <ClCompile Include="..\..\ext\armips\Util\Util.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\armips\stdafx.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\Allocations.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\ExpressionFunctionHandler.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\Types.cpp" />
+    <ClCompile Include="..\..\ext\armips\Util\FileSystem.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -286,7 +289,6 @@
     <ClInclude Include="..\..\ext\armips\Util\Util.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\armips\stdafx.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Archs">
