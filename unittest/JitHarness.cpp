@@ -150,7 +150,7 @@ bool TestJit() {
 		for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
 			p++;
 			if (!MIPSAsm::MipsAssembleOpcode(lines[j], currentDebugMIPS, addr)) {
-				printf("ERROR: %ls\n", MIPSAsm::GetAssembleError().c_str());
+				printf("ERROR: %s\n", MIPSAsm::GetAssembleError().c_str());
 				compileSuccess = false;
 			}
 			addr += 4;

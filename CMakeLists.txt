@@ -1,11 +1,11 @@
 # vim:noexpandtab:
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.8)
 project(PPSSPP)
 enable_testing()
 
 #This is supposed to work but doesn't!
 if(NOT ANDROID)
-	set(CMAKE_CXX_STANDARD 11)
+	set(CMAKE_CXX_STANDARD 17)
 	set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
 
@@ -323,7 +323,7 @@ if(NOT MSVC)
 	add_definitions(-DPNG_ARM_NEON_OPT=0)
 
 	if(ANDROID)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++17")
 	endif()
 	if(CLANG)
 		add_definitions(-Wno-nullability-completeness)
@@ -378,8 +378,9 @@ if(NOT MSVC)
 	endif()
 
 	if(IOS)
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.8")
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	elseif(NOT ANDROID)
@@ -2066,6 +2067,8 @@ endif()
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
+target_compile_features(${CoreLibName} PUBLIC cxx_std_17)
+
 if(FFmpeg_FOUND)
 	target_compile_definitions(${CoreLibName} PRIVATE USE_FFMPEG=1)
 	set_target_properties(${CoreLibName} PROPERTIES NO_SYSTEM_FROM_IMPORTED true)
@@ -2454,7 +2457,7 @@ if(NOT ANDROID)
 endif()
 # packaging and code signing
 if(IOS)
-	set(DEPLOYMENT_TARGET 8.0)
+	set(DEPLOYMENT_TARGET 11.0)
 	file(GLOB IOSAssets ios/assets/*.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)

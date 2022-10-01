@@ -577,7 +577,7 @@ else
 endif
 
 ifeq (,$(findstring msvc,$(platform)))
-   CXXFLAGS += -std=c++11
+   CXXFLAGS += -std=c++17
 endif
 
 ### Finalize ###

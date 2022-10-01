@@ -482,7 +482,7 @@ void WebSocketDisasmState::Assemble(DebuggerRequest &req) {
 		return;
 
 	if (!MIPSAsm::MipsAssembleOpcode(code.c_str(), currentDebugMIPS, address))
-		return req.Fail(StringFromFormat("Could not assemble: %s", ConvertWStringToUTF8(MIPSAsm::GetAssembleError()).c_str()));
+		return req.Fail(StringFromFormat("Could not assemble: %s", MIPSAsm::GetAssembleError().c_str()));
 
 	JsonWriter &json = req.Respond();
 	Reporting::NotifyDebugger();
