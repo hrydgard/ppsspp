@@ -73,14 +73,22 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 
 		VkShaderModule shaderModule = VK_NULL_HANDLE;
 		if (success) {
-			success = vulkan->CreateShaderModule(spirv, &shaderModule, stage == VK_SHADER_STAGE_VERTEX_BIT ? "game_vertex" : "game_fragment");
+			const char *createTag = tag ? tag->c_str() : nullptr;
+			if (!createTag) {
+				switch (stage) {
+				case VK_SHADER_STAGE_VERTEX_BIT: createTag = "game_vertex"; break;
+				case VK_SHADER_STAGE_FRAGMENT_BIT: createTag = "game_fragment"; break;
+				case VK_SHADER_STAGE_GEOMETRY_BIT: createTag = "game_geometry"; break;
+				case VK_SHADER_STAGE_COMPUTE_BIT: createTag = "game_compute"; break;
+				}
+			}
+
+			success = vulkan->CreateShaderModule(spirv, &shaderModule, createTag);
 #ifdef SHADERLOG
 			OutputDebugStringA("OK");
 #endif
-			if (tag) {
-				vulkan->SetDebugName(shaderModule, VK_OBJECT_TYPE_SHADER_MODULE, tag->c_str());
+			if (tag)
 				delete tag;
-			}
 		}
 
 		return shaderModule;
