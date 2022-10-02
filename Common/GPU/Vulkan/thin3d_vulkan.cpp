@@ -846,6 +846,11 @@ VKContext::VKContext(VulkanContext *vulkan)
 		if (majorVersion >= 32) {
 			bugs_.Infest(Bugs::MALI_CONSTANT_LOAD_BUG);  // See issue #15661
 		}
+
+		// Older ARM devices have very slow geometry shaders, not worth using.  At least before 15.
+		if (majorVersion <= 15) {
+			bugs_.Infest(Bugs::GEOMETRY_SHADERS_SLOW);
+		}
 	}
 
 	// Limited, through input attachments and self-dependencies.
