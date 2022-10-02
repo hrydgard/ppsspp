@@ -128,7 +128,7 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, const char *code, bool useHWTransform)
 	: vulkan_(vulkan), useHWTransform_(useHWTransform), id_(id) {
 	source_ = code;
-	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_VERTEX_BIT, source_.c_str(), new std::string(VertexShaderDesc(id).c_str()));
+	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_VERTEX_BIT, source_.c_str(), new std::string(VertexShaderDesc(id)));
 	if (!module_) {
 		failed_ = true;
 	} else {
@@ -195,13 +195,13 @@ void ShaderManagerVulkan::Clear() {
 	vsCache_.Clear();
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 }
 
 void ShaderManagerVulkan::ClearShaders() {
 	Clear();
 	DirtyShader();
-	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 }
 
 void ShaderManagerVulkan::DirtyShader() {
@@ -214,7 +214,7 @@ void ShaderManagerVulkan::DirtyShader() {
 void ShaderManagerVulkan::DirtyLastShader() {
 	lastVShader_ = nullptr;
 	lastFShader_ = nullptr;
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 }
 
 uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering) {
