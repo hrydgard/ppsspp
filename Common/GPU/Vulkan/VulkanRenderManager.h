@@ -46,7 +46,10 @@ public:
 	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, bool createDepthStencilBuffer, const char *tag);
 	~VKRFramebuffer();
 
-	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
+	void EnsureDepthImage(VkCommandBuffer initCmd);
+
+	// Needs a command buffer in case it need to initialize the depth buffer on-demand.
+	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType, VkCommandBuffer initCmd);
 
 	int width = 0;
 	int height = 0;
