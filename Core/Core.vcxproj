@@ -158,6 +158,9 @@
       <Outputs>../git-version.cpp;%(Outputs)</Outputs>
       <Message>Updating git-version.cpp</Message>
     </CustomBuildStep>
+    <Lib>
+      <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -183,6 +186,9 @@
       <Outputs>../git-version.cpp;%(Outputs)</Outputs>
       <Message>Updating git-version.cpp</Message>
     </CustomBuildStep>
+    <Lib>
+      <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ClCompile>
@@ -208,6 +214,9 @@
       <Outputs>../git-version.cpp;%(Outputs)</Outputs>
       <Message>Updating git-version.cpp</Message>
     </CustomBuildStep>
+    <Lib>
+      <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <ClCompile>
@@ -234,6 +243,9 @@
       <Outputs>../git-version.cpp;%(Outputs)</Outputs>
       <Message>Updating git-version.cpp</Message>
     </CustomBuildStep>
+    <Lib>
+      <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -260,6 +272,7 @@
     </Link>
     <Lib>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <CustomBuildStep>
       <Command>../Windows/git-version-gen.cmd</Command>
@@ -298,6 +311,9 @@
       <Outputs>../git-version.cpp;%(Outputs)</Outputs>
       <Message>Updating git-version.cpp</Message>
     </CustomBuildStep>
+    <Lib>
+      <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <ClCompile>
@@ -330,6 +346,9 @@
       <Outputs>../git-version.cpp;%(Outputs)</Outputs>
       <Message>Updating git-version.cpp</Message>
     </CustomBuildStep>
+    <Lib>
+      <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <ClCompile>
@@ -362,6 +381,9 @@
       <Outputs>../git-version.cpp;%(Outputs)</Outputs>
       <Message>Updating git-version.cpp</Message>
     </CustomBuildStep>
+    <Lib>
+      <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\cityhash\city.cpp" />
