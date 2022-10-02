@@ -86,7 +86,7 @@ void GameBroadcaster::Broadcast(net::WebSocketServer *ws) {
 		} else if (state == UISTATE_INGAME && PSP_IsInited()) {
 			ws->Send(GameStatusEvent{"game.start"});
 			prevState_ = state;
-		} else if (state == UISTATE_MENU && !PSP_IsInited() && !PSP_IsQuitting()) {
+		} else if (state == UISTATE_MENU && !PSP_IsInited() && !PSP_IsQuitting() && !PSP_IsRebooting()) {
 			ws->Send(GameStatusEvent{"game.quit"});
 			prevState_ = state;
 		}
