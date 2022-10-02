@@ -233,9 +233,10 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	}
 
 	// Fall back to geometry shader culling if we can't do vertex range culling.
-	if (enabledFeatures.geometryShader && !draw_->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW)) {
+	if (enabledFeatures.geometryShader) {
+		const bool useGeometry = g_Config.bUseGeometryShader && !draw_->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW);
 		const bool vertexSupported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
-		if (!vertexSupported || (features & GPU_SUPPORTS_VS_RANGE_CULLING) == 0) {
+		if (useGeometry && (!vertexSupported || (features & GPU_SUPPORTS_VS_RANGE_CULLING) == 0)) {
 			// Switch to culling via the geometry shader if not fully supported in vertex.
 			features |= GPU_SUPPORTS_GS_CULLING;
 			features &= ~GPU_SUPPORTS_VS_RANGE_CULLING;
