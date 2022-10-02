@@ -544,6 +544,7 @@ struct StoredVulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;
 	VShaderID vShaderID;
 	FShaderID fShaderID;
+	GShaderID gShaderID;
 	uint32_t vtxFmtId;
 	uint32_t variants;
 	bool useHWTransform;  // TODO: Still needed?
@@ -609,6 +610,7 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 		key.useHWTransform = pkey.useHWTransform;
 		key.fShaderID = fshader->GetID();
 		key.vShaderID = vshader->GetID();
+		key.gShaderID = gshader ? gshader->GetID() : GShaderID();
 		key.variants = value->GetVariantsBitmask();
 		if (key.useHWTransform) {
 			// NOTE: This is not a vtype, but a decoded vertex format.
@@ -713,6 +715,7 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 		}
 		VulkanVertexShader *vs = shaderManager->GetVertexShaderFromID(key.vShaderID);
 		VulkanFragmentShader *fs = shaderManager->GetFragmentShaderFromID(key.fShaderID);
+		VulkanGeometryShader *gs = shaderManager->GetGeometryShaderFromID(key.gShaderID);
 		if (!vs || !fs) {
 			failed = true;
 			ERROR_LOG(G3D, "Failed to find vs or fs in of pipeline %d in cache", (int)i);
@@ -721,7 +724,7 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 
 		DecVtxFormat fmt;
 		fmt.InitializeFromID(key.vtxFmtId);
-		VulkanPipeline *pipeline = GetOrCreatePipeline(rm, layout, key.raster, key.useHWTransform ? &fmt : 0, vs, fs, nullptr, key.useHWTransform, key.variants);
+		VulkanPipeline *pipeline = GetOrCreatePipeline(rm, layout, key.raster, key.useHWTransform ? &fmt : 0, vs, fs, gs, key.useHWTransform, key.variants);
 		if (!pipeline) {
 			pipelineCreateFailCount += 1;
 		}

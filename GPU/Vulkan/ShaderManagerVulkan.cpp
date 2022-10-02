@@ -467,7 +467,7 @@ VulkanGeometryShader *ShaderManagerVulkan::GetGeometryShaderFromModule(VkShaderM
 // instantaneous.
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 28
+#define CACHE_VERSION 29
 struct VulkanCacheHeader {
 	uint32_t magic;
 	uint32_t version;
@@ -475,6 +475,7 @@ struct VulkanCacheHeader {
 	uint32_t reserved;
 	int numVertexShaders;
 	int numFragmentShaders;
+	int numGeometryShaders;
 };
 
 bool ShaderManagerVulkan::LoadCache(FILE *f) {
@@ -522,6 +523,15 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		fsCache_.Insert(id, fs);
 	}
 
+	for (int i = 0; i < header.numGeometryShaders; i++) {
+		GShaderID id;
+		if (fread(&id, sizeof(id), 1, f) != 1) {
+			ERROR_LOG(G3D, "Vulkan shader cache truncated");
+			break;
+		}
+		// TODO: Actually generate geometry shaders.
+	}
+
 	NOTICE_LOG(G3D, "Loaded %d vertex and %d fragment shaders", header.numVertexShaders, header.numFragmentShaders);
 	return true;
 }
@@ -534,11 +544,15 @@ void ShaderManagerVulkan::SaveCache(FILE *f) {
 	header.reserved = 0;
 	header.numVertexShaders = (int)vsCache_.size();
 	header.numFragmentShaders = (int)fsCache_.size();
+	header.numGeometryShaders = (int)gsCache_.size();
 	bool writeFailed = fwrite(&header, sizeof(header), 1, f) != 1;
 	vsCache_.Iterate([&](const VShaderID &id, VulkanVertexShader *vs) {
 		writeFailed = writeFailed || fwrite(&id, sizeof(id), 1, f) != 1;
 	});
 	fsCache_.Iterate([&](const FShaderID &id, VulkanFragmentShader *fs) {
+		writeFailed = writeFailed || fwrite(&id, sizeof(id), 1, f) != 1;
+	});
+	gsCache_.Iterate([&](const GShaderID &id, VulkanGeometryShader *gs) {
 		writeFailed = writeFailed || fwrite(&id, sizeof(id), 1, f) != 1;
 	});
 	if (writeFailed) {
