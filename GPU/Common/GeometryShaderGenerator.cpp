@@ -111,10 +111,10 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	p.C("  for (int i = 0; i < 3; i++) {\n");   // TODO: 3 or gl_in.length()? which will be faster?
 	p.C("    vec4 outPos = gl_in[i].gl_Position;\n");
 	p.C("    gl_Position = outPos;\n");
-	p.C("    vec3 projPos = outPos.xyz / outPos.w;\n");
-	p.C("    float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
 	// TODO: Not rectangles...
 	if (gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+		p.C("    vec3 projPos = outPos.xyz / outPos.w;\n");
+		p.C("    float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
 		p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clip0);
 	}
 
