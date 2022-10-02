@@ -1097,7 +1097,7 @@ void EmuScreen::update() {
 }
 
 void EmuScreen::checkPowerDown() {
-	if (coreState == CORE_POWERDOWN && !PSP_IsIniting()) {
+	if (coreState == CORE_POWERDOWN && !PSP_IsIniting() && !PSP_IsRebooting()) {
 		if (PSP_IsInited()) {
 			PSP_Shutdown();
 		}

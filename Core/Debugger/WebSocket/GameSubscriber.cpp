@@ -49,9 +49,8 @@ void WebSocketGameReset(DebuggerRequest &req) {
 	if (needBreak)
 		PSP_CoreParameter().startBreak = true;
 
-	PSP_Shutdown();
 	std::string resetError;
-	if (!PSP_Init(PSP_CoreParameter(), &resetError)) {
+	if (!PSP_Reboot(&resetError)) {
 		ERROR_LOG(BOOT, "Error resetting: %s", resetError.c_str());
 		return req.Fail("Could not reset");
 	}
