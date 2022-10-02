@@ -114,8 +114,9 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	p.C("    vec3 projPos = outPos.xyz / outPos.w;\n");
 	p.C("    float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
 	// TODO: Not rectangles...
-	// TODO: Check feature flag.
-	//p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clip0);
+	if (gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+		p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clip0);
+	}
 
 	for (size_t i = 0; i < varyings.size(); i++) {
 		VaryingDef &in = varyings[i];
