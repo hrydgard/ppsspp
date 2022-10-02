@@ -104,6 +104,17 @@ static inline FShaderBit operator +(FShaderBit bit, int i) {
 	return FShaderBit((int)bit + i);
 }
 
+// Some of these bits are straight from FShaderBit, since they essentially enable attributes directly.
+enum GShaderBit : uint8_t {
+	GS_BIT_ENABLED = 0,     // If not set, we don't use a geo shader.
+	GS_BIT_DO_TEXTURE = 1,  // presence of texcoords
+	GS_BIT_LMODE = 2,       // presence of specular color (regular color always present)
+};
+
+static inline GShaderBit operator +(GShaderBit bit, int i) {
+	return GShaderBit((int)bit + i);
+}
+
 struct ShaderID {
 	ShaderID() {
 		clear();
@@ -232,6 +243,31 @@ struct FShaderID : ShaderID {
 	}
 };
 
+struct GShaderID : ShaderID {
+	GShaderID() : ShaderID() {
+	}
+
+	explicit GShaderID(ShaderID &src) {
+		memcpy(d, src.d, sizeof(d));
+	}
+
+	bool Bit(GShaderBit bit) const {
+		return ShaderID::Bit((int)bit);
+	}
+
+	int Bits(GShaderBit bit, int count) const {
+		return ShaderID::Bits((int)bit, count);
+	}
+
+	void SetBit(GShaderBit bit, bool value = true) {
+		ShaderID::SetBit((int)bit, value);
+	}
+
+	void SetBits(GShaderBit bit, int count, int value) {
+		ShaderID::SetBits((int)bit, count, value);
+	}
+};
+
 namespace Draw {
 class Bugs;
 }
@@ -244,3 +280,6 @@ std::string VertexShaderDesc(const VShaderID &id);
 struct ComputedPipelineState;
 void ComputeFragmentShaderID(FShaderID *id, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs);
 std::string FragmentShaderDesc(const FShaderID &id);
+
+void ComputeGeometryShaderID(GShaderID *id, const Draw::Bugs &bugs, int prim);
+std::string GeometryShaderDesc(const GShaderID &id);

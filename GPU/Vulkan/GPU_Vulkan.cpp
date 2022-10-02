@@ -53,6 +53,7 @@
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw), drawEngine_(draw) {
 	gstate_c.featureFlags = CheckGPUFeatures();
+	drawEngine_.InitDeviceObjects();
 
 	VulkanContext *vulkan = (VulkanContext *)gfxCtx->GetAPIContext();
 

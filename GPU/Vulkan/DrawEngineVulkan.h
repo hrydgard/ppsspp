@@ -127,6 +127,9 @@ public:
 	DrawEngineVulkan(Draw::DrawContext *draw);
 	virtual ~DrawEngineVulkan();
 
+	// We reference feature flags, so this is called after construction.
+	void InitDeviceObjects();
+
 	void SetShaderManager(ShaderManagerVulkan *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
@@ -196,7 +199,6 @@ private:
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
 	void BindShaderBlendTex();
 
-	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
 	void DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);

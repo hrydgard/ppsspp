@@ -366,3 +366,42 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 
 	*id_out = id;
 }
+
+std::string GeometryShaderDesc(const GShaderID &id) {
+	std::stringstream desc;
+	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
+	if (id.Bit(GS_BIT_ENABLED)) desc << "ENABLED ";
+	if (id.Bit(GS_BIT_DO_TEXTURE)) desc << "TEX ";
+	if (id.Bit(GS_BIT_LMODE)) desc << "LMODE ";
+	return desc.str();
+}
+
+void ComputeGeometryShaderID(GShaderID *id_out, const Draw::Bugs &bugs, int prim) {
+	GShaderID id;
+
+	bool vertexRangeCulling =
+		!gstate.isModeThrough() && gstate_c.submitType == SubmitType::DRAW;  // neither hw nor sw spline/bezier. See #11692
+
+	// If we're not using GS culling, return a zero ID.
+	// Also, only use this for triangle primitives.
+	if (!vertexRangeCulling || !gstate_c.Supports(GPU_SUPPORTS_GS_CULLING) || (prim != GE_PRIM_TRIANGLES && prim != GE_PRIM_TRIANGLE_FAN && prim != GE_PRIM_TRIANGLE_STRIP)) {
+		*id_out = id;
+		return;
+	}
+
+	id.SetBit(GS_BIT_ENABLED, true);
+
+	if (gstate.isModeClear()) {
+		// No attribute bits.
+	} else {
+		bool isModeThrough = gstate.isModeThrough();
+		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough;
+
+		id.SetBit(GS_BIT_LMODE, lmode);
+		if (gstate.isTextureMapEnabled()) {
+			id.SetBit(GS_BIT_DO_TEXTURE);
+		}
+	}
+
+	*id_out = id;
+}
