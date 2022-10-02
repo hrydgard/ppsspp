@@ -650,6 +650,7 @@ void NotifyMemcpy(u32 dest, u32 src, u32 sz) {
 		Command cmd{CommandType::MEMCPYDEST, sizeof(dest), (u32)pushbuf.size()};
 		pushbuf.resize(pushbuf.size() + sizeof(dest));
 		memcpy(pushbuf.data() + cmd.ptr, &dest, sizeof(dest));
+		commands.push_back(cmd);
 
 		sz = Memory::ValidSize(dest, sz);
 		if (sz != 0) {
@@ -679,6 +680,7 @@ void NotifyMemset(u32 dest, int v, u32 sz) {
 		Command cmd{CommandType::MEMSET, sizeof(data), (u32)pushbuf.size()};
 		pushbuf.resize(pushbuf.size() + sizeof(data));
 		memcpy(pushbuf.data() + cmd.ptr, &data, sizeof(data));
+		commands.push_back(cmd);
 		DirtyVRAM(dest, sz, DirtyVRAMFlag::DIRTY);
 	}
 }
