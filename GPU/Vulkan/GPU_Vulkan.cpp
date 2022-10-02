@@ -232,19 +232,15 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 	}
 
-	// Force geo shader culling for debugging.
-#if 1
-	features |= GPU_SUPPORTS_GS_CULLING;
-	features &= ~GPU_SUPPORTS_VS_RANGE_CULLING;
-#else
-	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
-		const bool disabled = PSP_CoreParameter().compat.flags().DisableRangeCulling;
-		// Fall back to geometry shader culling.
-		if (enabledFeatures.geometryShader && !disabled && (features & GPU_SUPPORTS_VS_RANGE_CULLING) == 0) {
+	// Fall back to geometry shader culling if we can't do vertex range culling.
+	if (enabledFeatures.geometryShader) {
+		const bool vertexSupported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
+		if (!vertexSupported || (features & GPU_SUPPORTS_VS_RANGE_CULLING) == 0) {
+			// Switch to culling via the geometry shader if not fully supported in vertex.
 			features |= GPU_SUPPORTS_GS_CULLING;
+			features &= ~GPU_SUPPORTS_VS_RANGE_CULLING;
 		}
 	}
-#endif
 
 	// These are VULKAN_4444_FORMAT and friends.
 	uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16);
