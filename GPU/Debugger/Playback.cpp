@@ -308,6 +308,7 @@ private:
 	void Texture(int level, u32 ptr, u32 sz);
 	void Framebuf(int level, u32 ptr, u32 sz);
 	void Display(u32 ptr, u32 sz);
+	void EdramTrans(u32 ptr, u32 sz);
 
 	u32 execMemcpyDest = 0;
 	u32 execClutAddr = 0;
@@ -328,6 +329,10 @@ private:
 };
 
 void DumpExecute::SyncStall() {
+	if (execListBuf == 0) {
+		return;
+	}
+
 	gpu->UpdateStall(execListID, execListPos);
 	s64 listTicks = gpu->GetListTicks(execListID);
 	if (listTicks != -1) {
@@ -620,6 +625,17 @@ void DumpExecute::Display(u32 ptr, u32 sz) {
 	__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 0);
 }
 
+void DumpExecute::EdramTrans(u32 ptr, u32 sz) {
+	uint32_t value;
+	memcpy(&value, pushbuf_.data() + ptr, 4);
+
+	// Sync up drawing.
+	SyncStall();
+
+	if (gpu)
+		gpu->SetAddrTranslation(value);
+}
+
 DumpExecute::~DumpExecute() {
 	execMemcpyDest = 0;
 	if (execListBuf) {
@@ -631,6 +647,10 @@ DumpExecute::~DumpExecute() {
 }
 
 bool DumpExecute::Run() {
+	// Start with the default value.
+	if (gpu)
+		gpu->SetAddrTranslation(0x400);
+
 	for (const Command &cmd : commands_) {
 		switch (cmd.type) {
 		case CommandType::INIT:
@@ -671,6 +691,10 @@ bool DumpExecute::Run() {
 
 		case CommandType::MEMCPYDATA:
 			Memcpy(cmd.ptr, cmd.sz);
+			break;
+
+		case CommandType::EDRAMTRANS:
+			EdramTrans(cmd.ptr, cmd.sz);
 			break;
 
 		case CommandType::TEXTURE0:
