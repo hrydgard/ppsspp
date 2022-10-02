@@ -53,6 +53,7 @@
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw), drawEngine_(draw) {
 	gstate_c.featureFlags = CheckGPUFeatures();
+	drawEngine_.InitDeviceObjects();
 
 	VulkanContext *vulkan = (VulkanContext *)gfxCtx->GetAPIContext();
 
@@ -229,6 +230,17 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled;
 	if (enabledFeatures.depthClamp) {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
+	}
+
+	// Fall back to geometry shader culling if we can't do vertex range culling.
+	if (enabledFeatures.geometryShader) {
+		const bool useGeometry = g_Config.bUseGeometryShader && !draw_->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW);
+		const bool vertexSupported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
+		if (useGeometry && (!vertexSupported || (features & GPU_SUPPORTS_VS_RANGE_CULLING) == 0)) {
+			// Switch to culling via the geometry shader if not fully supported in vertex.
+			features |= GPU_SUPPORTS_GS_CULLING;
+			features &= ~GPU_SUPPORTS_VS_RANGE_CULLING;
+		}
 	}
 
 	// These are VULKAN_4444_FORMAT and friends.

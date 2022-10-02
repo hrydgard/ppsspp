@@ -177,9 +177,9 @@ VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
 	case ShaderStage::Vertex: return VK_SHADER_STAGE_VERTEX_BIT;
 	case ShaderStage::Geometry: return VK_SHADER_STAGE_GEOMETRY_BIT;
 	case ShaderStage::Compute: return VK_SHADER_STAGE_COMPUTE_BIT;
-	default:
 	case ShaderStage::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
 	}
+	return VK_SHADER_STAGE_FRAGMENT_BIT;
 }
 
 // Not registering this as a resource holder, instead the pipeline is registered. It will
@@ -845,6 +845,11 @@ VKContext::VKContext(VulkanContext *vulkan)
 		// This started in driver 31 or 32, fixed in 40 - let's add a check once confirmed.
 		if (majorVersion >= 32) {
 			bugs_.Infest(Bugs::MALI_CONSTANT_LOAD_BUG);  // See issue #15661
+		}
+
+		// Older ARM devices have very slow geometry shaders, not worth using.  At least before 15.
+		if (majorVersion <= 15) {
+			bugs_.Infest(Bugs::GEOMETRY_SHADERS_SLOW);
 		}
 	}
 
