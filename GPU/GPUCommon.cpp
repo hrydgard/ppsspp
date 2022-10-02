@@ -1280,6 +1280,15 @@ void GPUCommon::ReapplyGfxState() {
 	// Let's just skip the transfer size stuff, it's just values.
 }
 
+uint32_t GPUCommon::SetAddrTranslation(uint32_t value) {
+	std::swap(edramTranslation_, value);
+	return value;
+}
+
+uint32_t GPUCommon::GetAddrTranslation() {
+	return edramTranslation_;
+}
+
 inline void GPUCommon::UpdateState(GPURunState state) {
 	gpuState = state;
 	if (state != GPUSTATE_RUNNING)
@@ -2706,7 +2715,7 @@ struct DisplayList_v2 {
 };
 
 void GPUCommon::DoState(PointerWrap &p) {
-	auto s = p.Section("GPUCommon", 1, 5);
+	auto s = p.Section("GPUCommon", 1, 6);
 	if (!s)
 		return;
 
@@ -2781,6 +2790,9 @@ void GPUCommon::DoState(PointerWrap &p) {
 
 	if (s >= 5) {
 		Do(p, matrixVisible.all);
+	}
+	if (s >= 6) {
+		Do(p, edramTranslation_);
 	}
 }
 
