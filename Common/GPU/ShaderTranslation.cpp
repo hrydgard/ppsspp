@@ -233,7 +233,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLan
 	return false;
 #endif
 
-	(*errorMessage).clear();
+	errorMessage->clear();
 
 	glslang::TProgram program;
 	const char *shaderStrings[1]{};

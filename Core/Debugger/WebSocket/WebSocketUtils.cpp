@@ -262,7 +262,7 @@ bool DebuggerRequest::ParamString(const char *name, std::string *out, DebuggerPa
 		return true;
 	} else if (tag == JSON_NULL) {
 		if (required) {
-			(*out).clear();
+			out->clear();
 		}
 		return true;
 	} else if (tag == JSON_NUMBER) {
