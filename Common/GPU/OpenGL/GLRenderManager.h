@@ -395,9 +395,15 @@ public:
 	GLRenderManager() {}
 	~GLRenderManager();
 
+
 	void SetInvalidationCallback(InvalidationCallback callback) {
 		invalidationCallback_ = callback;
 	}
+
+	void ThreadStart(Draw::DrawContext *draw);
+	void ThreadEnd();
+	bool ThreadFrame();  // Returns false to request exiting the loop.
+
 	void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {
 		queueRunner_.SetErrorCallback(callback, userdata);
 	}
@@ -405,10 +411,6 @@ public:
 		queueRunner_.SetDeviceCaps(caps);
 		caps_ = caps;
 	}
-
-	void ThreadStart(Draw::DrawContext *draw);
-	void ThreadEnd();
-	bool ThreadFrame();  // Returns false to request exiting the loop.
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
 	void BeginFrame();
@@ -1014,13 +1016,8 @@ public:
 	}
 
 private:
-	void BeginSubmitFrame(int frame);
-	void EndSubmitFrame(int frame);
-	void Submit(int frame, bool triggerFence);
-
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
-	void EndSyncFrame(int frame);
 
 	// When using legacy functionality for push buffers (glBufferData), we need to flush them
 	// before actually making the glDraw* calls. It's best if the render manager handles that.
