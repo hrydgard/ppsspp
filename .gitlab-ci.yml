@@ -6,7 +6,7 @@
 
 # Core definitions
 variables:
-  GIT_SUBMODULE_STRATEGY: normal
+  GIT_SUBMODULE_STRATEGY: recursive
 
 .core-defs:
   variables:
