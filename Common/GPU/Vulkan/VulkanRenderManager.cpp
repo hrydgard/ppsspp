@@ -609,8 +609,6 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 		frameData.profile.timestampDescriptions.push_back("initCmd Begin");
 		frameData.profile.timestampDescriptions.push_back("initCmd");
 		VkCommandBuffer initCmd = GetInitCmd();
-		vkCmdResetQueryPool(initCmd, frameData.profile.queryPool, 0, MAX_TIMESTAMP_QUERIES);
-		vkCmdWriteTimestamp(initCmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frameData.profile.queryPool, 0);
 	}
 }
 
