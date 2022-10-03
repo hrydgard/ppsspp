@@ -206,13 +206,14 @@ struct GPUgstate {
 	float boneMatrix[12 * 8];  // Eight 4x3 bone matrices.
 
 	// We ignore the high bits of the framebuffer in fbwidth - even 0x08000000 renders to vRAM.
-	u32 getFrameBufRawAddress() const { return (fbptr & 0xFFFFFF); }
+	// The top bits of mirroring are also not respected, so we mask them away.
+	u32 getFrameBufRawAddress() const { return fbptr & 0x1FFFF0; }
 	// 0x44000000 is uncached VRAM.
 	u32 getFrameBufAddress() const { return 0x44000000 | getFrameBufRawAddress(); }
 	GEBufferFormat FrameBufFormat() const { return static_cast<GEBufferFormat>(framebufpixformat & 3); }
 	int FrameBufStride() const { return fbwidth&0x7FC; }
-	u32 getDepthBufRawAddress() const { return (zbptr & 0xFFFFFF); }
-	u32 getDepthBufAddress() const { return 0x44000000 | getDepthBufRawAddress(); }
+	u32 getDepthBufRawAddress() const { return zbptr & 0x1FFFF0; }
+	u32 getDepthBufAddress() const { return 0x44600000 | getDepthBufRawAddress(); }
 	int DepthBufStride() const { return zbwidth&0x7FC; }
 
 	// Pixel Pipeline

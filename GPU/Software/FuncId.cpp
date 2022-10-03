@@ -56,7 +56,7 @@ void ComputePixelFuncID(PixelFuncID *id) {
 	// Dither happens even in clear mode.
 	id->dithering = gstate.isDitherEnabled();
 	id->fbFormat = gstate.FrameBufFormat();
-	id->useStandardStride = gstate.FrameBufStride() == 512 && gstate.DepthBufStride() == 512;
+	id->useStandardStride = gstate.FrameBufStride() == 512;
 	id->applyColorWriteMask = gstate.getColorMask() != 0;
 
 	id->clearMode = gstate.isModeClear();
@@ -186,6 +186,9 @@ void ComputePixelFuncID(PixelFuncID *id) {
 				id->earlyZChecks = false;
 		}
 	}
+
+	if (id->useStandardStride && (id->depthTestFunc != GE_COMP_ALWAYS || id->depthWrite))
+		id->useStandardStride = gstate.DepthBufStride() == 512;
 
 	// Cache some values for later convenience.
 	if (id->dithering) {
