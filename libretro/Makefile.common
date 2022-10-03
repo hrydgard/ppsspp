@@ -211,6 +211,9 @@ SOURCES_CXX += \
 SOURCES_CXX += $(EXTDIR)/cityhash/city.cpp
 
 SOURCES_CXX += \
+	$(EXTDIR)/armips/Core/Types.cpp
+
+SOURCES_CXX += \
 	$(COMMONDIR)/Crypto/md5.cpp \
 	$(COMMONDIR)/Crypto/sha1.cpp \
 	$(COMMONDIR)/Crypto/sha256.cpp
