@@ -81,7 +81,6 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 		return;
 	}
 
-	std::string buf;
 	static const int MAX_LINE_SIZE = 2048;
 	char linebuf[MAX_LINE_SIZE]{};
 	while (fgets(linebuf, MAX_LINE_SIZE, f)) {
@@ -330,7 +329,7 @@ int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 	entry.size = 0;
 	entry.startOffset = 0;
 
-	if (filename == "")
+	if (filename.empty())
 	{
 		entry.type = VFILETYPE_ISO;
 		entry.fileIndex = -1;

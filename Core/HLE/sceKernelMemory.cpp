@@ -2007,7 +2007,7 @@ int __KernelFreeTls(TLSPL *tls, SceUID threadID)
 			__KernelResumeThreadFromWait(waitingThreadID, freedAddress);
 
 			// Gotta watch the thread to quit as well, since they've allocated now.
-			tlsplThreadEndChecks.insert(std::make_pair(waitingThreadID, uid));
+			tlsplThreadEndChecks.emplace(waitingThreadID, uid);
 
 			// No need to continue or free it, we're done.
 			return 0;
@@ -2234,7 +2234,7 @@ int sceKernelGetTlsAddr(SceUID uid) {
 		if (allocBlock != -1)
 		{
 			tls->usage[allocBlock] = threadID;
-			tlsplThreadEndChecks.insert(std::make_pair(threadID, uid));
+			tlsplThreadEndChecks.emplace(threadID, uid);
 			--tls->ntls.freeBlocks;
 			needsClear = true;
 		}

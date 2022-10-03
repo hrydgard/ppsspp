@@ -258,7 +258,7 @@ std::string SavedataParam::GetSaveFilePath(const SceUtilitySavedataParam *param,
 inline static std::string FixedToString(const char *str, size_t n)
 {
 	if (!str) {
-		return std::string("");
+		return std::string();
 	} else {
 		return std::string(str, strnlen(str, n));
 	}
@@ -353,11 +353,11 @@ int SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 	if (!pspFileSystem.GetFileInfo(sfoPath).exists)
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN;
 
-	if (fileName != "" && !pspFileSystem.GetFileInfo(filePath).exists) {
+	if (!fileName.empty() && !pspFileSystem.GetFileInfo(filePath).exists) {
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND;
 	}
 
-	if (fileName == "") {
+	if (fileName.empty()) {
 		return 0;
 	}
 
@@ -533,7 +533,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		// copy back save name in request
 		strncpy(param->saveName, saveDirName.c_str(), 20);
 
-		if (fileName == "") {
+		if (fileName.empty()) {
 			delete[] cryptedData;
 		} else {
 			if (!WritePSPFile(filePath, data_, saveSize)) {
@@ -583,13 +583,12 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
 	std::string fileName = GetFileName(param);
 	std::string filePath = dirPath + "/" + fileName;
-	std::string sfoPath = dirPath + "/" + SFO_FILENAME;
 
 	if (!pspFileSystem.GetFileInfo(dirPath).exists) {
 		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA : SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
 
-	if (fileName != "" && !pspFileSystem.GetFileInfo(filePath).exists) {
+	if (!fileName.empty() && !pspFileSystem.GetFileInfo(filePath).exists) {
 		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND : SCE_UTILITY_SAVEDATA_ERROR_LOAD_FILE_NOT_FOUND;
 	}
 
@@ -637,7 +636,7 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 	std::string filename = GetFileName(param);
 	std::string filePath = dirPath + "/" + filename;
 	// Blank filename always means success, if secureVersion was correct.
-	if (filename == "")
+	if (filename.empty())
 		return 0;
 
 	s64 readSize;
@@ -1576,7 +1575,7 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 	saveInfo.idx = 0;
 	saveInfo.modif_time = info.mtime;
 
-	std::string saveDir = savrDir == "" ? GetGameName(pspParam) + saveName : savrDir;
+	std::string saveDir = savrDir.empty() ? GetGameName(pspParam) + saveName : savrDir;
 	saveInfo.saveDir = saveDir;
 
 	// Start with a blank slate.

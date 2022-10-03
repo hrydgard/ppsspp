@@ -447,7 +447,7 @@ void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type) {
 		ExceptionInfo &e = g_exceptionInfo;
 		e = {};
 		e.type = ExceptionType::MEMORY;
-		e.info = "";
+		e.info.clear();
 		e.memory_type = type;
 		e.address = address;
 		e.pc = pc;
@@ -483,7 +483,7 @@ void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	ExceptionInfo &e = g_exceptionInfo;
 	e = {};
 	e.type = ExceptionType::BAD_EXEC_ADDR;
-	e.info = "";
+	e.info.clear();
 	e.exec_type = type;
 	e.address = address;
 	e.pc = pc;
@@ -498,7 +498,7 @@ void Core_Break(u32 pc) {
 	ExceptionInfo &e = g_exceptionInfo;
 	e = {};
 	e.type = ExceptionType::BREAK;
-	e.info = "";
+	e.info.clear();
 	e.pc = pc;
 
 	if (!g_Config.bIgnoreBadMemAccess) {

@@ -138,7 +138,7 @@ void ChatMenu::UpdateChat() {
 			uint32_t textcolor = 0xFFFFFF;
 			uint32_t infocolor = 0xFDD835;
 
-			std::string name = g_Config.sNickName.c_str();
+			std::string name = g_Config.sNickName;
 			std::string displayname = i.substr(0, i.find(':'));
 			std::string chattext = i.substr(displayname.length());
 			

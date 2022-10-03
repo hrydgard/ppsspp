@@ -219,9 +219,9 @@ bool SetRestrictPrims(const char *rule) {
 			// If there's nothing yet, add everything else.
 			if (updated.empty()) {
 				if (range.first > 0)
-					updated.push_back(std::make_pair(0, range.first - 1));
+					updated.emplace_back(0, range.first - 1);
 				if (range.second < MAX_PRIMS)
-					updated.push_back(std::make_pair(range.second + 1, MAX_PRIMS));
+					updated.emplace_back(range.second + 1, MAX_PRIMS);
 				continue;
 			}
 
@@ -240,7 +240,7 @@ bool SetRestrictPrims(const char *rule) {
 					// We're slicing a hole in this subrange.
 					int next = sub.second;
 					sub.second = range.first - 1;
-					updated.push_back(std::make_pair(range.second + 1, next));
+					updated.emplace_back(range.second + 1, next);
 					continue;
 				}
 

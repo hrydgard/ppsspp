@@ -195,7 +195,7 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			switch (HIWORD(wParam)) {
 			case BN_CLICKED:
 				GetWindowText(searchBoxHdl, temp, 255);
-				std::vector<u32> results = memView->searchString(ConvertWStringToUTF8(temp).c_str());
+				std::vector<u32> results = memView->searchString(ConvertWStringToUTF8(temp));
 				if (results.size() > 0){
 					searchBoxRedraw(results);
 				}

@@ -1203,6 +1203,7 @@ bool OpenGLPipeline::LinkShaders() {
 	}
 
 	std::vector<GLRProgram::Semantic> semantics;
+	semantics.reserve(8);
 	// Bind all the common vertex data points. Mismatching ones will be ignored.
 	semantics.push_back({ SEM_POSITION, "Position" });
 	semantics.push_back({ SEM_COLOR0, "Color0" });

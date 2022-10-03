@@ -49,12 +49,12 @@ bool InputBox_GetString(HINSTANCE hInst, HWND hParent, const wchar_t *title, con
 	if (defaultValue.size() < 255)
 		textBoxContents = ConvertUTF8ToWString(defaultValue);
 	else
-		textBoxContents = L"";
+		textBoxContents.clear();
 
 	if (title != NULL)
 		windowTitle = title;
 	else
-		windowTitle = L"";
+		windowTitle.clear();
 
 	if (IDOK == DialogBox(hInst, (LPCWSTR)IDD_INPUTBOX, hParent, InputBoxFunc)) {
 		outvalue = ConvertWStringToUTF8(out);

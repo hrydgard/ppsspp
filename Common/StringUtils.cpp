@@ -273,7 +273,7 @@ void SplitString(const std::string& str, const char delim, std::vector<std::stri
 	size_t next = 0;
 	for (size_t pos = 0, len = str.length(); pos < len; ++pos) {
 		if (str[pos] == delim) {
-			output.push_back(str.substr(next, pos - next));
+			output.emplace_back(str.substr(next, pos - next));
 			// Skip the delimiter itself.
 			next = pos + 1;
 		}
@@ -282,7 +282,7 @@ void SplitString(const std::string& str, const char delim, std::vector<std::stri
 	if (next == 0) {
 		output.push_back(str);
 	} else if (next < str.length()) {
-		output.push_back(str.substr(next));
+		output.emplace_back(str.substr(next));
 	}
 }
 
@@ -294,7 +294,7 @@ void GetQuotedStrings(const std::string& str, std::vector<std::string>& output)
 		if (str[pos] == '\"' || str[pos] == '\'') {
 			if (even) {
 				//quoted text
-				output.push_back(str.substr(next, pos - next));
+				output.emplace_back(str.substr(next, pos - next));
 				even = 0;
 			} else {
 				//non quoted text

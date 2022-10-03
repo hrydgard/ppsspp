@@ -211,7 +211,7 @@ std::string System_GetProperty(SystemProperty prop) {
 				if (wstr)
 					retval = ConvertWStringToUTF8(wstr);
 				else
-					retval = "";
+					retval.clear();
 				GlobalUnlock(handle);
 				CloseClipboard();
 			}

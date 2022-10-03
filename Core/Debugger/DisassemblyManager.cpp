@@ -316,7 +316,7 @@ void DisassemblyManager::getLine(u32 address, bool insertSymbols, DisassemblyLin
 		dest.params = "Disassembly failure";
 	} else {
 		dest.name = "-";
-		dest.params = "";
+		dest.params.clear();
 	}
 }
 
@@ -1003,7 +1003,7 @@ void DisassemblyData::createLines()
 					lines[currentLineStart] = entry;
 					lineAddresses.push_back(currentLineStart);
 					
-					currentLine = "";
+					currentLine.clear();
 					currentLineStart = pos-1;
 					inString = false;
 				}
@@ -1028,7 +1028,7 @@ void DisassemblyData::createLines()
 					lines[currentLineStart] = entry;
 					lineAddresses.push_back(currentLineStart);
 					
-					currentLine = "";
+					currentLine.clear();
 					currentLineStart = pos-1;
 					inString = false;
 				}
@@ -1099,7 +1099,7 @@ void DisassemblyData::createLines()
 				lines[currentLineStart] = entry;
 				lineAddresses.push_back(currentLineStart);
 
-				currentLine = "";
+				currentLine.clear();
 				currentLineStart = currentPos;
 			}
 

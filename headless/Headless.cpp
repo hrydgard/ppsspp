@@ -411,7 +411,7 @@ int main(int argc, const char* argv[])
 	g_Config.bFirstRun = false;
 	g_Config.bIgnoreBadMemAccess = true;
 	// Never report from tests.
-	g_Config.sReportHost = "";
+	g_Config.sReportHost.clear();
 	g_Config.bAutoSaveSymbolMap = false;
 	g_Config.iRenderingMode = FB_BUFFERED_MODE;
 	g_Config.bHardwareTransform = true;

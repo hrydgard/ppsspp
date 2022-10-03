@@ -84,6 +84,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 
 
 	std::vector<GLRProgram::Semantic> semantics;
+	semantics.reserve(7);
 	semantics.push_back({ ATTR_POSITION, "position" });
 	semantics.push_back({ ATTR_TEXCOORD, "texcoord" });
 	if (useHWTransform_)
@@ -185,6 +186,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
 
 	std::vector<GLRProgram::Initializer> initialize;
+	initialize.reserve(7);
 	initialize.push_back({ &u_tex,          0, TEX_SLOT_PSP_TEXTURE });
 	initialize.push_back({ &u_fbotex,       0, TEX_SLOT_SHADERBLEND_SRC });
 	initialize.push_back({ &u_testtex,      0, TEX_SLOT_ALPHATEST });
@@ -993,7 +995,7 @@ void ShaderManagerGLES::Load(const Path &filename) {
 		if (!f.ReadArray(&fsid, 1)) {
 			return;
 		}
-		diskCachePending_.link.push_back(std::make_pair(vsid, fsid));
+		diskCachePending_.link.emplace_back(vsid, fsid);
 	}
 
 	// Actual compilation happens in ContinuePrecompile(), called by GPU_GLES's IsReady.

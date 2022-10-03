@@ -1737,6 +1737,7 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 	}
 
 	std::vector<FixupBranch> finishes;
+	finishes.reserve(11);
 	FixupBranch skipTable = J(true);
 	const u8 *tableValues[16]{};
 

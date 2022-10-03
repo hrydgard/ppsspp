@@ -144,7 +144,7 @@ namespace W32Util
 				files.push_back(directory);
 			} else {
 				while (*temp) {
-					files.push_back(directory + "\\" + ConvertWStringToUTF8(temp));
+					files.emplace_back(directory + "\\" + ConvertWStringToUTF8(temp));
 					temp += wcslen(temp) + 1;
 				}
 			}
@@ -199,7 +199,7 @@ namespace W32Util
 		switch (type_) {
 		case DIR:
 			filename_ = BrowseForFolder(parent_, title_.c_str());
-			result_ = filename_ != "";
+			result_ = !filename_.empty();
 			complete_ = true;
 			break;
 

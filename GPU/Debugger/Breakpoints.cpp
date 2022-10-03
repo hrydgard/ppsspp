@@ -339,7 +339,7 @@ void AddAddressBreakpoint(u32 addr, bool temp) {
 	} else {
 		// Remove the temporary marking.
 		breakPCsTemp.erase(addr);
-		breakPCs.insert(std::make_pair(addr, BreakpointInfo{}));
+		breakPCs.emplace(addr, BreakpointInfo{});
 	}
 
 	breakPCsCount = breakPCs.size();

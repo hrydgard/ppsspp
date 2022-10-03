@@ -107,7 +107,7 @@ bool RunTests() {
 
 	// Never report from tests.
 	std::string savedReportHost = g_Config.sReportHost;
-	g_Config.sReportHost = "";
+	g_Config.sReportHost.clear();
 
 	for (size_t i = 0; i < ARRAY_SIZE(testsToRun); i++) {
 		std::string testName = testsToRun[i];
@@ -116,7 +116,7 @@ bool RunTests() {
 
 		INFO_LOG(SYSTEM, "Preparing to execute '%s'", testName.c_str());
 		std::string error_string;
-		output = "";
+		output.clear();
 		if (!PSP_Init(coreParam, &error_string)) {
 			ERROR_LOG(SYSTEM, "Failed to init unittest %s : %s", testsToRun[i], error_string.c_str());
 			PSP_CoreParameter().pixelWidth = pixel_xres;
