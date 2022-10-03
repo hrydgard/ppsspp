@@ -213,7 +213,7 @@ struct GPUgstate {
 	GEBufferFormat FrameBufFormat() const { return static_cast<GEBufferFormat>(framebufpixformat & 3); }
 	int FrameBufStride() const { return fbwidth&0x7FC; }
 	u32 getDepthBufRawAddress() const { return zbptr & 0x1FFFF0; }
-	u32 getDepthBufAddress() const { return 0x44000000 | getDepthBufRawAddress(); }
+	u32 getDepthBufAddress() const { return 0x44600000 | getDepthBufRawAddress(); }
 	int DepthBufStride() const { return zbwidth&0x7FC; }
 
 	// Pixel Pipeline

@@ -688,7 +688,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 		// Should avoid problems when pingponging two nearby buffers, like in Wipeout Pure in #15927.
 		if (candidate.channel == RASTER_COLOR &&
 			(candidate.match.yOffset != 0 || candidate.match.xOffset != 0) &&
-			(candidate.fb->fb_address & 0x1FFFFF) == (gstate.getFrameBufAddress() & 0x1FFFFF)) {
+			candidate.fb->fb_address == (gstate.getFrameBufRawAddress() | 0x04000000)) {
 			relevancy -= 2;
 		}
 
@@ -845,10 +845,8 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 }
 
 void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
-	const u32 mirrorMask = 0x00600000;
 	const u32 fb_addr = framebuffer->fb_address;
-
-	const u32 z_addr = framebuffer->z_address & ~mirrorMask;  // Probably unnecessary.
+	const u32 z_addr = framebuffer->z_address;
 
 	const u32 fb_bpp = BufferFormatBytesPerPixel(framebuffer->fb_format);
 	const u32 z_bpp = 2;  // No other format exists.
@@ -931,7 +929,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 	uint32_t fb_stride_in_bytes = fb_stride * BufferFormatBytesPerPixel(fb_format);
 	uint32_t tex_stride_in_bytes = entry.bufw * textureBitsPerPixel[entry.format] / 8;  // Note, we're looking up bits here so need to divide by 8.
 
-	u32 addr = fb_address & 0x3FFFFFFF;
+	u32 addr = fb_address;
 	u32 texaddr = entry.addr + texaddrOffset;
 
 	bool texInVRAM = Memory::IsVRAMAddress(texaddr);
@@ -943,10 +941,10 @@ bool TextureCacheCommon::MatchFramebuffer(
 	}
 
 	if (texInVRAM) {
-		const u32 mirrorMask = 0x00600000;
+		const u32 mirrorMask = 0x041FFFFF;
 
-		addr &= ~mirrorMask;
-		texaddr &= ~mirrorMask;
+		addr &= mirrorMask;
+		texaddr &= mirrorMask;
 	}
 
 	const bool noOffset = texaddr == addr;
@@ -1205,8 +1203,8 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 
 	if (Memory::IsValidAddress(clutAddr)) {
 		if (Memory::IsVRAMAddress(clutAddr)) {
-			// Clear the uncached bit, etc. to match framebuffers.
-			const u32 clutLoadAddr = clutAddr & 0x3FFFFFFF;
+			// Clear the uncached and mirror bits, etc. to match framebuffers.
+			const u32 clutLoadAddr = clutAddr & 0x041FFFFF;
 			const u32 clutLoadEnd = clutLoadAddr + loadBytes;
 			static const u32 MAX_CLUT_OFFSET = 4096;
 
@@ -1217,7 +1215,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 
 			VirtualFramebuffer *chosenFramebuffer = nullptr;
 			for (VirtualFramebuffer *framebuffer : framebuffers) {
-				const u32 fb_address = framebuffer->fb_address & 0x3FFFFFFF;
+				const u32 fb_address = framebuffer->fb_address;
 				const u32 fb_bpp = BufferFormatBytesPerPixel(framebuffer->fb_format);
 				int offset = clutLoadAddr - fb_address;
 

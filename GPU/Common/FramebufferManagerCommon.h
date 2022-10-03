@@ -355,7 +355,9 @@ public:
 
 	bool MayIntersectFramebuffer(u32 start) const {
 		// Clear the cache/kernel bits.
-		start = start & 0x3FFFFFFF;
+		start &= 0x3FFFFFFF;
+		if (Memory::IsVRAMAddress(start))
+			start &= 0x041FFFFF;
 		// Most games only have two framebuffers at the start.
 		if (start >= framebufRangeEnd_ || start < PSP_GetVidMemBase()) {
 			return false;

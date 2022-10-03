@@ -140,7 +140,7 @@
 			return;
 		}
 
-		const u32 fb_address = vfb->fb_address & 0x3FFFFFFF;
+		const u32 fb_address = vfb->fb_address;
 		const int dstBpp = vfb->fb_format == GE_FORMAT_8888 ? 4 : 2;
 
 		// We always need to convert from the framebuffer native format.

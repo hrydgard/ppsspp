@@ -286,7 +286,7 @@ void BinManager::MarkPendingWrites(const Rasterizer::RasterizerState &state) {
 	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1());
 	DrawingCoords scissorBR(std::min(gstate.getScissorX2(), gstate.getRegionX2()), std::min(gstate.getScissorY2(), gstate.getRegionY2()));
 
-	constexpr uint32_t mirrorMask = 0x0FFFFFFF & ~0x00600000;
+	constexpr uint32_t mirrorMask = 0x041FFFFF;
 	const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 	pendingWrites_[0].Expand(gstate.getFrameBufAddress() & mirrorMask, bpp, gstate.FrameBufStride(), scissorTL, scissorBR);
 	if (state.pixelID.depthWrite)
@@ -538,7 +538,7 @@ bool BinManager::HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, ui
 	if (!Memory::IsVRAMAddress(start))
 		return false;
 	// Ignore mirrors for overlap detection.
-	start &= 0x0FFFFFFF & ~0x00600000;
+	start &= 0x041FFFFF;
 
 	uint32_t size = stride * (h - 1) + w;
 	for (const auto &range : pendingWrites_) {
@@ -569,7 +569,7 @@ bool BinManager::HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, ui
 bool BinManager::HasPendingRead(uint32_t start, uint32_t stride, uint32_t w, uint32_t h) {
 	if (Memory::IsVRAMAddress(start)) {
 		// Ignore VRAM mirrors.
-		start &= 0x0FFFFFFF & ~0x00600000;
+		start &= 0x041FFFFF;
 	} else {
 		// Ignore only regular RAM mirrors.
 		start &= 0x3FFFFFFF;
