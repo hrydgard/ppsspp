@@ -322,6 +322,7 @@ static Command EmitCommandWithRAM(CommandType t, const void *p, u32 sz, u32 alig
 }
 
 static u32 GetTargetFlags(u32 addr, u32 sizeInRAM) {
+	addr &= 0x041FFFFF;
 	const bool isTarget = lastRenderTargets.find(addr) != lastRenderTargets.end();
 
 	bool isDirtyVRAM = false;
