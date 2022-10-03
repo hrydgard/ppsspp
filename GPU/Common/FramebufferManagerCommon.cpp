@@ -574,9 +574,12 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 		// Technically, here we should copy away the depth buffer to another framebuffer that uses that z_address, or maybe
 		// even write it back to RAM. However, this is rare. Silent Hill is one example, see #16126.
 		currentRenderVfb_->z_address = boundDepthBuffer;
-		char tag[128];
-		FormatFramebufferName(currentRenderVfb_, tag, sizeof(tag));
-		currentRenderVfb_->fbo->UpdateTag(tag);
+
+		if (currentRenderVfb_->fbo) {
+			char tag[128];
+			FormatFramebufferName(currentRenderVfb_, tag, sizeof(tag));
+			currentRenderVfb_->fbo->UpdateTag(tag);
+		}
 	}
 
 	// If this first draw call is anything other than a clear, "resolve" the depth buffer,
