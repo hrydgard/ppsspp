@@ -1361,8 +1361,14 @@ static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initA
 	// Flush structs back to memory
 	avcAu.write(auAddr);
 
-	// Save the current frame's status to initAddr 
-	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
+	if (mpegLibVersion >= 0x010A) {
+		// Sunday Vs Magazine Shuuketsu! Choujou Daikessen expect, issue #11060
+		Memory::Write_U32(1, initAddr);
+	}
+	else {	
+	// Save the current frame's status to initAddr
+		Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
+	}
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
 	DEBUG_LOG(ME, "sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x)", mpeg, auAddr, bufferAddr, initAddr);
