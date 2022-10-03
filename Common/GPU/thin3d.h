@@ -114,6 +114,7 @@ enum BufferUsageFlag : int {
 enum Semantic : int {
 	SEM_POSITION,
 	SEM_COLOR0,
+	SEM_COLOR1,
 	SEM_TEXCOORD0,
 	SEM_TEXCOORD1,
 	SEM_NORMAL,
@@ -332,11 +333,14 @@ public:
 		RASPBERRY_SHADER_COMP_HANG = 8,
 		MALI_CONSTANT_LOAD_BUG = 9,
 		SUBPASS_FEEDBACK_BROKEN = 10,
+		GEOMETRY_SHADERS_SLOW = 11,
 		MAX_BUG,
 	};
 
 protected:
 	uint32_t flags_ = 0;
+
+	static_assert(sizeof(flags_) * 8 > MAX_BUG, "Ran out of space for bugs.");
 };
 
 class RefCountedObject {

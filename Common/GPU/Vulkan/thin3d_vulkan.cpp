@@ -177,9 +177,9 @@ VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
 	case ShaderStage::Vertex: return VK_SHADER_STAGE_VERTEX_BIT;
 	case ShaderStage::Geometry: return VK_SHADER_STAGE_GEOMETRY_BIT;
 	case ShaderStage::Compute: return VK_SHADER_STAGE_COMPUTE_BIT;
-	default:
 	case ShaderStage::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
 	}
+	return VK_SHADER_STAGE_FRAGMENT_BIT;
 }
 
 // Not registering this as a resource holder, instead the pipeline is registered. It will
@@ -215,8 +215,8 @@ private:
 };
 
 bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size) {
-	vulkan_ = vulkan;
 	// We'll need this to free it later.
+	vulkan_ = vulkan;
 	source_ = (const char *)data;
 	std::vector<uint32_t> spirv;
 	std::string errorMessage;
@@ -278,7 +278,6 @@ public:
 		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment, vkbuf);
 	}
 
-	int GetUniformLoc(const char *name);
 	int GetUBOSize() const {
 		return uboSize_;
 	}
@@ -847,6 +846,11 @@ VKContext::VKContext(VulkanContext *vulkan)
 		if (majorVersion >= 32) {
 			bugs_.Infest(Bugs::MALI_CONSTANT_LOAD_BUG);  // See issue #15661
 		}
+
+		// Older ARM devices have very slow geometry shaders, not worth using.  At least before 15.
+		if (majorVersion <= 15) {
+			bugs_.Infest(Bugs::GEOMETRY_SHADERS_SLOW);
+		}
 	}
 
 	// Limited, through input attachments and self-dependencies.
@@ -1307,17 +1311,6 @@ ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage la
 		shader->Release();
 		return nullptr;
 	}
-}
-
-int VKPipeline::GetUniformLoc(const char *name) {
-	int loc = -1;
-
-	// HACK! As we only use one uniform we hardcode it.
-	if (!strcmp(name, "WorldViewProj")) {
-		return 0;
-	}
-
-	return loc;
 }
 
 void VKContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {

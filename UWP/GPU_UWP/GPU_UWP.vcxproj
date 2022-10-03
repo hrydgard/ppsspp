@@ -385,6 +385,7 @@
     <ClInclude Include="..\..\GPU\Common\DrawEngineCommon.h" />
     <ClInclude Include="..\..\GPU\Common\FragmentShaderGenerator.h" />
     <ClInclude Include="..\..\GPU\Common\FramebufferManagerCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\GeometryShaderGenerator.h" />
     <ClInclude Include="..\..\GPU\Common\PresentationCommon.h" />
     <ClInclude Include="..\..\GPU\Common\GPUDebugInterface.h" />
     <ClInclude Include="..\..\GPU\Common\GPUStateUtils.h" />
@@ -446,6 +447,7 @@
     <ClCompile Include="..\..\GPU\Common\DrawEngineCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\FragmentShaderGenerator.cpp" />
     <ClCompile Include="..\..\GPU\Common\FramebufferManagerCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\GeometryShaderGenerator.cpp" />
     <ClCompile Include="..\..\GPU\Common\PresentationCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\GPUDebugInterface.cpp" />
     <ClCompile Include="..\..\GPU\Common\GPUStateUtils.cpp" />

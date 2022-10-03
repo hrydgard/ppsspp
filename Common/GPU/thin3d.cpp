@@ -435,7 +435,7 @@ vec3 hsv2rgb(vec3 c) {
 }
 layout (location = 0) in vec4 pos;
 layout (location = 1) in vec4 inColor;
-layout (location = 2) in vec2 inTexCoord;
+layout (location = 3) in vec2 inTexCoord;
 layout (location = 0) out vec4 outColor;
 layout (location = 1) out vec2 outTexCoord;
 out gl_PerVertex { vec4 gl_Position; };
@@ -449,6 +449,8 @@ void main() {
 }
 )"
 } };
+
+static_assert(SEM_TEXCOORD0 == 3, "Semantic shader hardcoded in glsl above.");
 
 const UniformBufferDesc vsTexColBufDesc{ sizeof(VsTexColUB),{
 	{ "WorldViewProj", 0, -1, UniformType::MATRIX4X4, 0 },

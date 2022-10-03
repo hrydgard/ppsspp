@@ -570,21 +570,17 @@ static int sceGeGetStack(int index, u32 stackPtr) {
 	return gpu->GetStack(index, stackPtr);
 }
 
-static u32 sceGeEdramSetAddrTranslation(int new_size) {
+static u32 sceGeEdramSetAddrTranslation(u32 new_size) {
 	bool outsideRange = new_size != 0 && (new_size < 0x200 || new_size > 0x1000);
 	bool notPowerOfTwo = (new_size & (new_size - 1)) != 0;
 	if (outsideRange || notPowerOfTwo) {
-		WARN_LOG(SCEGE, "sceGeEdramSetAddrTranslation(%i): invalid value", new_size);
-		return SCE_KERNEL_ERROR_INVALID_VALUE;
+		return hleLogWarning(SCEGE, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid value");
+	}
+	if (!gpu) {
+		return hleLogError(SCEGE, -1, "GPUInterface not available");
 	}
 
-	DEBUG_LOG(SCEGE, "sceGeEdramSetAddrTranslation(%i)", new_size);
-
-	// TODO: This isn't safe. EDRamWidth should be global and saved.
-	static int EDRamWidth = 0x400;
-	int last = EDRamWidth;
-	EDRamWidth = new_size;
-	return last;
+	return hleReportDebug(SCEGE, gpu->SetAddrTranslation(new_size));
 }
 
 const HLEFunction sceGe_user[] = {
@@ -599,7 +595,7 @@ const HLEFunction sceGe_user[] = {
 	{0XA4FC06A4, &WrapU_U<sceGeSetCallback>,             "sceGeSetCallback",             'i', "p"   },
 	{0X05DB22CE, &WrapI_U<sceGeUnsetCallback>,           "sceGeUnsetCallback",           'i', "x"   },
 	{0X1F6752AD, &WrapU_V<sceGeEdramGetSize>,            "sceGeEdramGetSize",            'x', ""    },
-	{0XB77905EA, &WrapU_I<sceGeEdramSetAddrTranslation>, "sceGeEdramSetAddrTranslation", 'x', "i"   },
+	{0XB77905EA, &WrapU_U<sceGeEdramSetAddrTranslation>, "sceGeEdramSetAddrTranslation", 'x', "x"   },
 	{0XDC93CFEF, &WrapU_I<sceGeGetCmd>,                  "sceGeGetCmd",                  'x', "i"   },
 	{0X57C8945B, &WrapI_IU<sceGeGetMtx>,                 "sceGeGetMtx",                  'i', "ip"  },
 	{0X438A385A, &WrapU_U<sceGeSaveContext>,             "sceGeSaveContext",             'x', "x"   },

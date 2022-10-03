@@ -30,30 +30,38 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	// Fill in the last part of the desc since now it's time to block.
 	VkShaderModule vs = desc->vertexShader->BlockUntilReady();
 	VkShaderModule fs = desc->fragmentShader->BlockUntilReady();
+	VkShaderModule gs = desc->geometryShader ? desc->geometryShader->BlockUntilReady() : VK_NULL_HANDLE;
 
-	if (!vs || !fs) {
+	if (!vs || !fs || (!gs && desc->geometryShader)) {
 		ERROR_LOG(G3D, "Failed creating graphics pipeline - missing shader modules");
 		// We're kinda screwed here?
 		return false;
 	}
 
-	VkPipelineShaderStageCreateInfo ss[2]{};
+	uint32_t stageCount = 2;
+	VkPipelineShaderStageCreateInfo ss[3]{};
 	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 	ss[0].pSpecializationInfo = nullptr;
 	ss[0].module = vs;
 	ss[0].pName = "main";
-	ss[0].flags = 0;
 	ss[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	ss[1].pSpecializationInfo = nullptr;
 	ss[1].module = fs;
 	ss[1].pName = "main";
-	ss[1].flags = 0;
+	if (gs) {
+		stageCount++;
+		ss[2].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		ss[2].stage = VK_SHADER_STAGE_GEOMETRY_BIT;
+		ss[2].pSpecializationInfo = nullptr;
+		ss[2].module = gs;
+		ss[2].pName = "main";
+	}
 
 	VkGraphicsPipelineCreateInfo pipe{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 	pipe.pStages = ss;
-	pipe.stageCount = 2;
+	pipe.stageCount = stageCount;
 	pipe.renderPass = compatibleRenderPass;
 	pipe.basePipelineIndex = 0;
 	pipe.pColorBlendState = &desc->cbs;

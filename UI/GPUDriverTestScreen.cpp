@@ -122,7 +122,7 @@ static const std::vector<Draw::ShaderSource> vsAdrenoLogicTest = {
 	"} myBufferVals;\n"
 	"layout (location = 0) in vec4 pos;\n"
 	"layout (location = 1) in vec4 inColor;\n"
-	"layout (location = 2) in vec2 inTexCoord;\n"
+	"layout (location = 3) in vec2 inTexCoord;\n"
 	"layout (location = 0) out vec4 outColor;\n"
 	"layout (location = 1) out highp vec2 outTexCoord;\n"
 	"out gl_PerVertex { vec4 gl_Position; };\n"
@@ -219,7 +219,7 @@ static const std::vector<Draw::ShaderSource> vsFlat = {
 	"} myBufferVals;\n"
 	"layout (location = 0) in vec4 pos;\n"
 	"layout (location = 1) in vec4 inColor;\n"
-	"layout (location = 2) in vec2 inTexCoord;\n"
+	"layout (location = 3) in vec2 inTexCoord;\n"
 	"layout (location = 0) flat out lowp vec4 outColor;\n"
 	"layout (location = 1) out highp vec2 outTexCoord;\n"
 	"out gl_PerVertex { vec4 gl_Position; };\n"
@@ -230,6 +230,8 @@ static const std::vector<Draw::ShaderSource> vsFlat = {
 	"}\n"
 	}
 };
+
+static_assert(Draw::SEM_TEXCOORD0 == 3, "Semantic shader hardcoded in glsl above.");
 
 GPUDriverTestScreen::GPUDriverTestScreen() {
 	using namespace Draw;

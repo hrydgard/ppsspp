@@ -1250,6 +1250,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 				}
 			}
 
+			// To turn off dynamic CLUT (for demonstration or testing purposes), add "false &&" to this check.
 			if (chosenFramebuffer && chosenFramebuffer->fbo) {
 				clutRenderAddress_ = bestClutAddress;
 

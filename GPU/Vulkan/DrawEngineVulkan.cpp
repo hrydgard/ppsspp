@@ -89,8 +89,6 @@ DrawEngineVulkan::DrawEngineVulkan(Draw::DrawContext *draw)
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 
 	indexGen.Setup(decIndex);
-
-	InitDeviceObjects();
 }
 
 void DrawEngineVulkan::InitDeviceObjects() {
@@ -114,6 +112,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[3].descriptorCount = 1;
 	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[3].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	if (gstate_c.Supports(GPU_SUPPORTS_GS_CULLING))
+		bindings[3].stageFlags |= VK_SHADER_STAGE_GEOMETRY_BIT;
 	bindings[3].binding = DRAW_BINDING_DYNUBO_BASE;
 	bindings[4].descriptorCount = 1;
 	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
@@ -581,6 +581,7 @@ void DrawEngineVulkan::DoFlush() {
 
 	VulkanVertexShader *vshader = nullptr;
 	VulkanFragmentShader *fshader = nullptr;
+	VulkanGeometryShader *gshader = nullptr;
 
 	uint32_t ibOffset;
 	uint32_t vbOffset;
@@ -770,19 +771,19 @@ void DrawEngineVulkan::DoFlush() {
 				sampler = nullSampler_;
 		}
 
-		if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
+		if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE) || prim != lastPrim_) {
 			if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 				ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 			}
 
-			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat);  // usehwtransform
+			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat);  // usehwtransform
 			if (!vshader) {
 				// We're screwed.
 				return;
 			}
 			_dbg_assert_msg_(vshader->UseHWTransform(), "Bad vshader");
 
-			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, true, 0);
+			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, true, 0);
 			if (!pipeline || !pipeline->pipeline) {
 				// Already logged, let's bail out.
 				return;
@@ -901,13 +902,13 @@ void DrawEngineVulkan::DoFlush() {
 				if (sampler == VK_NULL_HANDLE)
 					sampler = nullSampler_;
 			}
-			if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
+			if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE) || prim != lastPrim_) {
 				if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 					ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 				}
-				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat);  // usehwtransform
+				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat);  // usehwtransform
 				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
-				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, false, 0);
+				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, false, 0);
 				if (!pipeline || !pipeline->pipeline) {
 					// Already logged, let's bail out.
 					decodedVerts_ = 0;

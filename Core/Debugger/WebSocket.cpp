@@ -97,6 +97,10 @@ static void UpdateConnected(int delta) {
 }
 
 static void WebSocketNotifyLifecycle(CoreLifecycle stage) {
+	// We'll likely already be locked during the reboot.
+	if (PSP_IsRebooting())
+		return;
+
 	switch (stage) {
 	case CoreLifecycle::STARTING:
 	case CoreLifecycle::STOPPING:

@@ -213,6 +213,9 @@ public:
 	virtual void SetCmdValue(u32 op) = 0;
 	virtual void DispatchFlush() = 0;
 
+	virtual uint32_t SetAddrTranslation(uint32_t value) = 0;
+	virtual uint32_t GetAddrTranslation() = 0;
+
 	virtual bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 		return false;
 	}

@@ -118,6 +118,8 @@ public:
 	u32  Continue() override;
 	u32  Break(int mode) override;
 	void ReapplyGfxState() override;
+	uint32_t SetAddrTranslation(uint32_t value) override;
+	uint32_t GetAddrTranslation() override;
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void CopyDisplayToOutput(bool reallyDirty) override = 0;
@@ -267,14 +269,14 @@ protected:
 	void SetDrawType(DrawType type, GEPrimitiveType prim) {
 		if (type != lastDraw_) {
 			// We always flush when drawing splines/beziers so no need to do so here
-			gstate_c.Dirty(DIRTY_UVSCALEOFFSET | DIRTY_VERTEXSHADER_STATE);
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 			lastDraw_ = type;
 		}
 		// Prim == RECTANGLES can cause CanUseHardwareTransform to flip, so we need to dirty.
 		// Also, culling may be affected so dirty the raster state.
 		if (IsTrianglePrim(prim) != IsTrianglePrim(lastPrim_)) {
 			Flush();
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE);
+			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 			lastPrim_ = prim;
 		}
 	}
@@ -366,6 +368,8 @@ protected:
 	GEPrimitiveType immPrim_ = GE_PRIM_INVALID;
 	uint32_t immFlags_ = 0;
 	bool immFirstSent_ = false;
+
+	uint32_t edramTranslation_ = 0x400;
 
 	// Whe matrix data overflows, the CPU visible values wrap and bleed between matrices.
 	// But this doesn't actually change the values used by rendering.

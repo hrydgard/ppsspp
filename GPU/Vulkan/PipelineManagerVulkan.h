@@ -38,6 +38,7 @@ struct VulkanPipelineKey {
 	VKRRenderPass *renderPass;
 	Promise<VkShaderModule> *vShader;
 	Promise<VkShaderModule> *fShader;
+	Promise<VkShaderModule> *gShader;
 	uint32_t vtxFmtId;
 	bool useHWTransform;
 
@@ -60,6 +61,7 @@ struct VulkanPipeline {
 	bool UsesBlendConstant() const { return (pipelineFlags & PipelineFlags::USES_BLEND_CONSTANT) != 0; }
 	bool UsesDepthStencil() const { return (pipelineFlags & PipelineFlags::USES_DEPTH_STENCIL) != 0; }
 	bool UsesInputAttachment() const { return (pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT) != 0; }
+	bool UsesGeometryShader() const { return (pipelineFlags & PipelineFlags::USES_GEOMETRY_SHADER) != 0; }
 
 	u32 GetVariantsBitmask() const;
 };
@@ -67,6 +69,7 @@ struct VulkanPipeline {
 class VulkanContext;
 class VulkanVertexShader;
 class VulkanFragmentShader;
+class VulkanGeometryShader;
 class ShaderManagerVulkan;
 class DrawEngineCommon;
 
@@ -76,7 +79,7 @@ public:
 	~PipelineManagerVulkan();
 
 	// variantMask is only used when loading pipelines from cache.
-	VulkanPipeline *GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, u32 variantMask);
+	VulkanPipeline *GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, VulkanGeometryShader *gs, bool useHwTransform, u32 variantMask);
 	int GetNumPipelines() const { return (int)pipelines_.size(); }
 
 	void Clear();

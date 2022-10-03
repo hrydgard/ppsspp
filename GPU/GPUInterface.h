@@ -200,6 +200,7 @@ public:
 	virtual int  GetStack(int index, u32 stackPtr) = 0;
 	virtual bool GetMatrix24(GEMatrixType type, u32_le *result, u32 cmdbits) = 0;
 	virtual void ResetMatrices() = 0;
+	virtual uint32_t SetAddrTranslation(uint32_t value) = 0;
 
 	virtual void InterruptStart(int listid) = 0;
 	virtual void InterruptEnd(int listid) = 0;

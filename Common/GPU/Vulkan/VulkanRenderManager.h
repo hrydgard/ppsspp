@@ -128,6 +128,7 @@ struct VKRGraphicsPipelineDesc {
 	// Replaced the ShaderStageInfo with promises here so we can wait for compiles to finish.
 	Promise<VkShaderModule> *vertexShader = nullptr;
 	Promise<VkShaderModule> *fragmentShader = nullptr;
+	Promise<VkShaderModule> *geometryShader = nullptr;
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	VkVertexInputAttributeDescription attrs[8]{};

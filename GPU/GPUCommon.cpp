@@ -87,8 +87,8 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEF },
 
 	// These affect the fragment shader so need flushing.
-	{ GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
-	{ GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
+	{ GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
+	{ GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
 	{ GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
@@ -102,7 +102,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 
 	// These change the vertex shader so need flushing.
 	{ GE_CMD_REVERSENORMAL, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
-	{ GE_CMD_LIGHTINGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
+	{ GE_CMD_LIGHTINGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
 	{ GE_CMD_LIGHTENABLE0, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 	{ GE_CMD_LIGHTENABLE1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 	{ GE_CMD_LIGHTENABLE2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
@@ -114,7 +114,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_MATERIALUPDATE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 
 	// These change both shaders so need flushing.
-	{ GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
+	{ GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
 
 	{ GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE },
@@ -1280,6 +1280,15 @@ void GPUCommon::ReapplyGfxState() {
 	// Let's just skip the transfer size stuff, it's just values.
 }
 
+uint32_t GPUCommon::SetAddrTranslation(uint32_t value) {
+	std::swap(edramTranslation_, value);
+	return value;
+}
+
+uint32_t GPUCommon::GetAddrTranslation() {
+	return edramTranslation_;
+}
+
 inline void GPUCommon::UpdateState(GPURunState state) {
 	gpuState = state;
 	if (state != GPUSTATE_RUNNING)
@@ -1674,7 +1683,7 @@ void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
 	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
 		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		if (diff & GE_VTYPE_THROUGH_MASK)
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_CULLRANGE);
+			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
 	}
 }
 
@@ -1701,7 +1710,7 @@ void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	}
 	if (diff & GE_VTYPE_THROUGH_MASK)
-		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_CULLRANGE);
+		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
 }
 
 void GPUCommon::CheckDepthUsage(VirtualFramebuffer *vfb) {
@@ -2035,8 +2044,8 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 
 	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(surface.primType));
 
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.submitType = SubmitType::HW_BEZIER;
 		if (gstate_c.spline_num_points_u != surface.num_points_u) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
@@ -2050,7 +2059,7 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
 
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 	gstate_c.submitType = SubmitType::DRAW;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
@@ -2110,8 +2119,8 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 
 	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(surface.primType));
 
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.submitType = SubmitType::HW_SPLINE;
 		if (gstate_c.spline_num_points_u != surface.num_points_u) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
@@ -2125,7 +2134,7 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
 
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 	gstate_c.submitType = SubmitType::DRAW;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
@@ -2706,7 +2715,7 @@ struct DisplayList_v2 {
 };
 
 void GPUCommon::DoState(PointerWrap &p) {
-	auto s = p.Section("GPUCommon", 1, 5);
+	auto s = p.Section("GPUCommon", 1, 6);
 	if (!s)
 		return;
 
@@ -2781,6 +2790,9 @@ void GPUCommon::DoState(PointerWrap &p) {
 
 	if (s >= 5) {
 		Do(p, matrixVisible.all);
+	}
+	if (s >= 6) {
+		Do(p, edramTranslation_);
 	}
 }
 

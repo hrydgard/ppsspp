@@ -1,10 +1,12 @@
 #include <cstdarg>
 #include <cstring>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include "Common/CommonTypes.h"
 #include "ext/armips/Core/Assembler.h"
+#include "ext/armips/Core/FileManager.h"
 
 #include "Common/Data/Encoding/Utf8.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -14,9 +16,9 @@
 
 namespace MIPSAsm
 {	
-	static std::wstring errorText;
+	static std::string errorText;
 
-std::wstring GetAssembleError()
+std::string GetAssembleError()
 {
 	return errorText;
 }
@@ -55,22 +57,21 @@ public:
 		return true;
 	}
 	bool seekPhysical(int64_t physicalAddress) override { return seekVirtual(physicalAddress); }
-	const std::wstring &getFileName() override { return dummyWFilename_; }
+	const fs::path &getFileName() override { return dummyFilename_; }
 private:
 	u64 address;
-	std::wstring dummyWFilename_;
+	fs::path dummyFilename_;
 };
 
-bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
-{
-	StringList errors;
+bool MipsAssembleOpcode(const char *line, DebugInterface *cpu, u32 address) {
+	std::vector<std::string> errors;
 
-	wchar_t str[64];
-	swprintf(str,64,L".psp\n.org 0x%08X\n",address);
+	char str[64];
+	snprintf(str, 64, ".psp\n.org 0x%08X\n", address);
 
 	ArmipsArguments args;
 	args.mode = ArmipsMode::MEMORY;
-	args.content = str + ConvertUTF8ToWString(line);
+	args.content = str + std::string(line);
 	args.silent = true;
 	args.memoryFile.reset(new PspAssemblerFile());
 	args.errorsResult = &errors;
@@ -85,8 +86,8 @@ bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
 		for (size_t i = 0; i < errors.size(); i++)
 		{
 			errorText += errors[i];
-			if (i != errors.size()-1)
-				errorText += L"\n";
+			if (i != errors.size() - 1)
+				errorText += "\n";
 		}
 
 		return false;

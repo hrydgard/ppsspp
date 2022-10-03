@@ -180,6 +180,7 @@ public:
 	TransformUnit transformUnit;
 
 #if PPSSPP_ARCH(32BIT)
+#undef new
 	void *operator new(size_t s) {
 		return AllocateAlignedMemory(s, 16);
 	}
