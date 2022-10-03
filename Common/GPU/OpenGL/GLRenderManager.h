@@ -417,7 +417,7 @@ public:
 
 	void ThreadStart(Draw::DrawContext *draw);
 	void ThreadEnd();
-	bool ThreadFrame();  // Returns false to request exiting the loop.
+	bool ThreadFrame();  // Returns true if it did anything. False means the queue was empty.
 
 	void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {
 		queueRunner_.SetErrorCallback(callback, userdata);
@@ -432,6 +432,11 @@ public:
 	// Can run on a different thread!
 	void Finish();
 	void Run(GLRRenderThreadTask &task);
+
+	void WaitUntilQueueIdle() {
+		// Don't think this needs to do anything anymore, at least not if called
+		// from render thread.
+	}
 
 	// Creation commands. These were not needed in Vulkan since there we can do that on the main thread.
 	// We pass in width/height here even though it's not strictly needed until we support glTextureStorage

@@ -189,13 +189,17 @@ void GLRenderManager::ThreadEnd() {
 }
 
 // Unlike in Vulkan, this isn't a full independent function, instead it gets called every frame.
-// This also mean that we can poll the renderThreadQueue using a regular mutex, instead of
+// This also mean that we have to poll the renderThreadQueue using a regular mutex, instead of
 // blocking on it using a condition variable.
+// Returns true if it did anything. False means the queue was empty.
 bool GLRenderManager::ThreadFrame() {
-	if (!run_)
+	if (!run_) {
 		return false;
+	}
 
 	GLRRenderThreadTask task;
+
+	bool didAnything = false;
 
 	// In case of syncs or other partial completion, we keep going until we complete a frame.
 	while (true) {
@@ -208,6 +212,8 @@ bool GLRenderManager::ThreadFrame() {
 			task = renderThreadQueue_.front();
 			renderThreadQueue_.pop();
 		}
+
+		didAnything = true;
 
 		// We got a task! We can now have pushMutex_ unlocked, allowing the host to
 		// push more work when it feels like it, and just start working.
@@ -224,7 +230,7 @@ bool GLRenderManager::ThreadFrame() {
 		Run(task);
 	};
 
-	return true;
+	return didAnything;
 }
 
 void GLRenderManager::StopThread() {
@@ -233,7 +239,7 @@ void GLRenderManager::StopThread() {
 	if (run_) {
 		run_ = false;
 	} else {
-		INFO_LOG(G3D, "GL submission thread was already paused.");
+		WARN_LOG(G3D, "GL submission thread was already paused.");
 	}
 }
 

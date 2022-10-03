@@ -335,7 +335,7 @@ static void EmuThreadFunc() {
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
 		UpdateRunLoopAndroid(env);
 	}
-	INFO_LOG(SYSTEM, "QUIT_REQUESTED found, left loop. Setting state to STOPPED.");
+	INFO_LOG(SYSTEM, "QUIT_REQUESTED found, left EmuThreadFunc loop. Setting state to STOPPED.");
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
 	NativeShutdownGraphics();
@@ -868,14 +868,13 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		EmuThreadStop("shutdown");
 		INFO_LOG(SYSTEM, "BeginAndroidShutdown");
 		graphicsContext->BeginAndroidShutdown();
-		// Skipping GL calls, the old context is gone.
+		INFO_LOG(SYSTEM, "Joining emuthread");
+		EmuThreadJoin();
+		// Now, it could be that we had some frames queued up. Get through them.
+		// We're on the render thread, so this is synchronous.
 		while (graphicsContext->ThreadFrame()) {
 			INFO_LOG(SYSTEM, "graphicsContext->ThreadFrame executed to clear buffers");
 		}
-		INFO_LOG(SYSTEM, "Joining emuthread");
-		EmuThreadJoin();
-		INFO_LOG(SYSTEM, "Joined emuthread");
-
 		graphicsContext->ThreadEnd();
 		graphicsContext->ShutdownFromRenderThread();
 		INFO_LOG(SYSTEM, "Graphics context now shut down from NativeApp_shutdown");
