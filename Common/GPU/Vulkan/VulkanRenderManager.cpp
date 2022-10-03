@@ -1327,7 +1327,7 @@ void VulkanRenderManager::FlushSync() {
 		std::unique_lock<std::mutex> lock(syncMutex_);
 		// Wait for the flush to be hit, since we're syncing.
 		while (!frameData.syncDone) {
-			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (sync)", curFrame);
+			VLOG("PUSH: Waiting for frame[%d].syncDone = 1 (sync)", curFrame);
 			syncCondVar_.wait(lock);
 		}
 		frameData.syncDone = false;

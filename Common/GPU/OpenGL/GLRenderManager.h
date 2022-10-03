@@ -7,6 +7,7 @@
 #include <set>
 #include <string>
 #include <mutex>
+#include <queue>
 #include <condition_variable>
 
 #include "Common/GPU/OpenGL/GLCommon.h"
@@ -349,10 +350,28 @@ private:
 	GLBufferStrategy strategy_ = GLBufferStrategy::SUBDATA;
 };
 
+class GLRInputLayout {
+public:
+	struct Entry {
+		int location;
+		int count;
+		GLenum type;
+		GLboolean normalized;
+		int stride;
+		intptr_t offset;
+	};
+	std::vector<Entry> entries;
+	int semanticsMask_ = 0;
+};
+
 enum class GLRRunType {
 	END,
 	SYNC,
+	EXIT,
 };
+
+class GLRenderManager;
+class GLPushBuffer;
 
 class GLDeleter {
 public:
@@ -373,18 +392,14 @@ public:
 	std::vector<GLPushBuffer *> pushBuffers;
 };
 
-class GLRInputLayout {
-public:
-	struct Entry {
-		int location;
-		int count;
-		GLenum type;
-		GLboolean normalized;
-		int stride;
-		intptr_t offset;
-	};
-	std::vector<Entry> entries;
-	int semanticsMask_ = 0;
+// These are enqueued from the main thread,
+// and the render thread pops them off
+struct GLRRenderThreadTask {
+	std::vector<GLRStep *> steps;
+	std::vector<GLRInitStep> initSteps;
+
+	int frame;
+	GLRRunType runType;
 };
 
 // Note: The GLRenderManager is created and destroyed on the render thread, and the latter
@@ -416,13 +431,7 @@ public:
 	void BeginFrame();
 	// Can run on a different thread!
 	void Finish();
-	void Run(int frame);
-
-	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.
-	void Wipe();
-
-	// Wait until no frames are pending.  Use during shutdown before freeing pointers.
-	void WaitUntilQueueIdle();
+	void Run(GLRRenderThreadTask &task);
 
 	// Creation commands. These were not needed in Vulkan since there we can do that on the main thread.
 	// We pass in width/height here even though it's not strictly needed until we support glTextureStorage
@@ -1027,26 +1036,14 @@ private:
 
 	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 	struct FrameData {
-		std::mutex push_mutex;
-		std::condition_variable push_condVar;
-
-		std::mutex pull_mutex;
-		std::condition_variable pull_condVar;
-
-		bool readyForFence = true;
-		bool readyForRun = false;
-		bool readyForSubmit = false;
-
 		bool skipSwap = false;
-		GLRRunType type = GLRRunType::END;
 
-		// GLuint fence; For future AZDO stuff?
-		std::vector<GLRStep *> steps;
-		std::vector<GLRInitStep> initSteps;
+		std::mutex fenceMutex;
+		std::condition_variable fenceCondVar;
+		bool readyForFence = true;
 
 		// Swapchain.
 		bool hasBegun = false;
-		uint32_t curSwapchainImage = -1;
 
 		GLDeleter deleter;
 		GLDeleter deleter_prev;
@@ -1064,16 +1061,23 @@ private:
 
 	// Execution time state
 	bool run_ = true;
+
 	// Thread is managed elsewhere, and should call ThreadFrame.
-	std::mutex mutex_;
-	int threadInitFrame_ = 0;
 	GLQueueRunner queueRunner_;
 
-	// Thread state
-	int threadFrame_ = -1;
+	// For pushing data on the queue.
+	std::mutex pushMutex_;
+	std::condition_variable pushCondVar_;
 
-	bool nextFrame = false;
-	bool firstFrame = true;
+	std::queue<GLRRenderThreadTask> renderThreadQueue_;
+
+	// For readbacks and other reasons we need to sync with the render thread.
+	std::mutex syncMutex_;
+	std::condition_variable syncCondVar_;
+
+	bool firstFrame_ = true;
+	bool vrRenderStarted_ = false;
+	bool syncDone_ = false;
 
 	GLDeleter deleter_;
 	bool skipGLCalls_ = false;

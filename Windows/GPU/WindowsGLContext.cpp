@@ -500,6 +500,5 @@ void WindowsGLContext::ThreadEnd() {
 }
 
 void WindowsGLContext::StopThread() {
-	renderManager_->WaitUntilQueueIdle();
 	renderManager_->StopThread();
 }
