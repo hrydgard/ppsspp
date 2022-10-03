@@ -332,7 +332,7 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 	endif
 
 	CFLAGS += $(MSVC2017CompileFlags) -nologo
-	CXXFLAGS += $(MSVC2017CompileFlags) -nologo -EHsc
+	CXXFLAGS += $(MSVC2017CompileFlags) -nologo -EHsc -DARMIPS_USE_STD_FILESYSTEM
 
 	TargetArchMoniker = $(subst $(WinPartition)_,,$(PlatformSuffix))
 
@@ -443,7 +443,7 @@ else ifneq (,$(findstring windows_msvc2019,$(platform)))
 	endif
 
 	CFLAGS += $(MSVC2019CompileFlags) -nologo
-	CXXFLAGS += $(MSVC2019CompileFlags) -nologo -EHsc
+	CXXFLAGS += $(MSVC2019CompileFlags) -nologo -EHsc -DARMIPS_USE_STD_FILESYSTEM
 
 	TargetArchMoniker = $(subst $(WinPartition)_,,$(PlatformSuffix))
 
@@ -537,7 +537,7 @@ else ifneq (,$(findstring windows_msvc2019,$(platform)))
 else ifneq (,$(findstring win,$(platform)))
 	TARGET := $(TARGET_NAME)_libretro.dll
 	CFLAGS += -D_UNICODE -DUNICODE
-	CXXFLAGS += -fpermissive -Wno-multichar -D_UNICODE -DUNICODE
+	CXXFLAGS += -fpermissive -Wno-multichar -D_UNICODE -DUNICODE -DARMIPS_USE_STD_FILESYSTEM
 	LDFLAGS += -shared -Wl,--no-undefined -static-libgcc -static-libstdc++ -Wl,--version-script=link.T -lwinmm -lgdi32 -lwsock32 -lws2_32 -ld3d9 -ld3dx9
 	GL_LIB := -lopengl32
 	PLATFORM_EXT = win32
@@ -578,6 +578,8 @@ endif
 
 ifeq (,$(findstring msvc,$(platform)))
    CXXFLAGS += -std=c++17
+else
+   CXXFLAGS += -std:c++17
 endif
 
 ### Finalize ###
