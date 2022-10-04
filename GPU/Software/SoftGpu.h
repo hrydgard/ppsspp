@@ -139,7 +139,7 @@ public:
 	void GetStats(char *buffer, size_t bufsize) override;
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
 	void NotifyVideoUpload(u32 addr, int size, int width, int format) override;
-	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
+	bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
 	bool PerformMemoryDownload(u32 dest, int size) override;
 	bool PerformMemoryUpload(u32 dest, int size) override;

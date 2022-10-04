@@ -1265,11 +1265,11 @@ void SoftGPU::NotifyVideoUpload(u32 addr, int size, int width, int format)
 	// Ignore.
 }
 
-bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size)
-{
+bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	GPURecord::NotifyMemcpy(dest, src, size);
+	if (!(flags & GPUCopyFlag::DEBUG_NOTIFIED))
+		GPURecord::NotifyMemcpy(dest, src, size);
 	// Let's just be safe.
 	MarkDirty(dest, size, SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY);
 	return false;

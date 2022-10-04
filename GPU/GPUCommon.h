@@ -124,7 +124,7 @@ public:
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void CopyDisplayToOutput(bool reallyDirty) override = 0;
 	void InitClear() override = 0;
-	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
+	bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
 	bool PerformMemoryDownload(u32 dest, int size) override;
 	bool PerformMemoryUpload(u32 dest, int size) override;

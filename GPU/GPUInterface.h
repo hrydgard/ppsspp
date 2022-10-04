@@ -114,6 +114,16 @@ enum class StencilUpload {
 };
 ENUM_CLASS_BITOPS(StencilUpload);
 
+enum class GPUCopyFlag {
+	NONE = 0,
+	FORCE_SRC_MEM = 1,
+	FORCE_DST_MEM = 2,
+	// Note: implies src == dst and FORCE_SRC_MEM.
+	MEMSET = 4,
+	DEBUG_NOTIFIED = 8,
+};
+ENUM_CLASS_BITOPS(GPUCopyFlag);
+
 // Used for debug
 struct FramebufferInfo {
 	u32 fb_address;
@@ -222,7 +232,7 @@ public:
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type) = 0;
 	virtual void NotifyVideoUpload(u32 addr, int size, int width, int format) = 0;
 	// Update either RAM from VRAM, or VRAM from RAM... or even VRAM from VRAM.
-	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size) = 0;
+	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) = 0;
 	virtual bool PerformMemorySet(u32 dest, u8 v, int size) = 0;
 	virtual bool PerformMemoryDownload(u32 dest, int size) = 0;
 	virtual bool PerformMemoryUpload(u32 dest, int size) = 0;
