@@ -1178,7 +1178,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			reportedModule = true;
 
 			if (!strcmp(head->modname, "sceMpeg_library")) {
-				__MpegLoadModule(ver);
+				__MpegLoadModule(ver, crcstring);
 			}
 			if (!strcmp(head->modname, "scePsmfP_library") || !strcmp(head->modname, "scePsmfPlayer")) {
 				__PsmfPlayerLoadModule(head->devkitversion);
@@ -1614,7 +1614,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		INFO_LOG(SCEMODULE, "Loading module %s with version %04x, devkit %08x", modinfo->name, modinfo->moduleVersion, devkitVersion);
 
 		if (!strcmp(modinfo->name, "sceMpeg_library")) {
-			__MpegLoadModule(modinfo->moduleVersion);
+			__MpegLoadModule(modinfo->moduleVersion, crcstring);
 		}
 		if (!strcmp(modinfo->name, "scePsmfP_library") || !strcmp(modinfo->name, "scePsmfPlayer")) {
 			__PsmfPlayerLoadModule(devkitVersion);
