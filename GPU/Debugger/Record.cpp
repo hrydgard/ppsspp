@@ -691,10 +691,11 @@ void NotifyUpload(u32 dest, u32 sz) {
 		return;
 	}
 
-	CheckEdramTrans();
-	NotifyMemcpy(dest, dest, sz);
-	if (Memory::IsVRAMAddress(dest))
+	if (Memory::IsVRAMAddress(dest)) {
+		// This also checks the edram translation value.
+		NotifyMemcpy(dest, dest, sz);
 		DirtyVRAM(dest, sz, DirtyVRAMFlag::DIRTY);
+	}
 }
 
 static bool HasDrawCommands() {

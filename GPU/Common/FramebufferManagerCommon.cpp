@@ -1634,7 +1634,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 
 // This is called from detected memcopies and framebuffer initialization from VRAM. Not block transfers.
 // MotoGP goes this path so we need to catch those copies here.
-bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool isMemset, u32 skipDrawReason) {
+bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size, GPUCopyFlag flags, u32 skipDrawReason) {
 	if (size == 0) {
 		return false;
 	}
@@ -1728,7 +1728,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		dstBuffer->last_frame_used = gpuStats.numFlips;
 	}
 
-	if (dstBuffer && srcBuffer && !isMemset) {
+	if (dstBuffer && srcBuffer && !(flags & GPUCopyFlag::MEMSET) && !(flags & GPUCopyFlag::FORCE_SRC_MEM) && !(flags & GPUCopyFlag::FORCE_DST_MEM)) {
 		if (srcBuffer == dstBuffer) {
 			WARN_LOG_ONCE(dstsrccpy, G3D, "Intra-buffer memcpy (not supported) %08x -> %08x (size: %x)", src, dst, size);
 		} else {
@@ -1739,8 +1739,8 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 			RebindFramebuffer("RebindFramebuffer - Inter-buffer memcpy");
 		}
 		return false;
-	} else if (dstBuffer) {
-		if (isMemset) {
+	} else if (dstBuffer && !(flags & GPUCopyFlag::FORCE_DST_MEM)) {
+		if (flags & GPUCopyFlag::MEMSET) {
 			gpuStats.numClears++;
 		}
 		WARN_LOG_ONCE(btucpy, G3D, "Memcpy fbo upload %08x -> %08x (size: %x)", src, dst, size);

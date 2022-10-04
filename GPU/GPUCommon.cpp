@@ -3046,10 +3046,10 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;
 }
 
-bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
+bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
-		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
+		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, flags, gstate_c.skipDrawReason)) {
 			// We use a little hack for PerformMemoryDownload/PerformMemoryUpload using a VRAM mirror.
 			// Since they're identical we don't need to copy.
 			if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
@@ -3071,7 +3071,8 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 		NotifyMemInfo(MemBlockFlags::WRITE, dest, size, tag.c_str(), tag.size());
 	}
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	GPURecord::NotifyMemcpy(dest, src, size);
+	if (!(flags & GPUCopyFlag::DEBUG_NOTIFIED))
+		GPURecord::NotifyMemcpy(dest, src, size);
 	return false;
 }
 
@@ -3079,7 +3080,7 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 	// This may indicate a memset, usually to 0, of a framebuffer.
 	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
 		Memory::Memset(dest, v, size, "GPUMemset");
-		if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
+		if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, GPUCopyFlag::MEMSET, gstate_c.skipDrawReason)) {
 			InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 		}
 		return true;
@@ -3093,20 +3094,16 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 }
 
 bool GPUCommon::PerformMemoryDownload(u32 dest, int size) {
-	// Cheat a bit to force a download of the framebuffer.
-	// VRAM + 0x00400000 is simply a VRAM mirror.
 	if (Memory::IsVRAMAddress(dest)) {
-		return PerformMemoryCopy(dest ^ 0x00400000, dest, size);
+		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_DST_MEM);
 	}
 	return false;
 }
 
 bool GPUCommon::PerformMemoryUpload(u32 dest, int size) {
-	// Cheat a bit to force an upload of the framebuffer.
-	// VRAM + 0x00400000 is simply a VRAM mirror.
 	if (Memory::IsVRAMAddress(dest)) {
 		GPURecord::NotifyUpload(dest, size);
-		return PerformMemoryCopy(dest, dest ^ 0x00400000, size);
+		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_SRC_MEM | GPUCopyFlag::DEBUG_NOTIFIED);
 	}
 	return false;
 }
