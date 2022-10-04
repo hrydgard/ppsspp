@@ -1181,7 +1181,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				__MpegLoadModule(ver, crcstring);
 			}
 			if (!strcmp(head->modname, "scePsmfP_library") || !strcmp(head->modname, "scePsmfPlayer")) {
-				__PsmfPlayerLoadModule(head->devkitversion);
+				__PsmfPlayerLoadModule(head->devkitversion, crcstring);
 			}
 		}
 
@@ -1617,7 +1617,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			__MpegLoadModule(modinfo->moduleVersion, crcstring);
 		}
 		if (!strcmp(modinfo->name, "scePsmfP_library") || !strcmp(modinfo->name, "scePsmfPlayer")) {
-			__PsmfPlayerLoadModule(devkitVersion);
+			__PsmfPlayerLoadModule(devkitVersion, crcstring);
 		}
 	}
 

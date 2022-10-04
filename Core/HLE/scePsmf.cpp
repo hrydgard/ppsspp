@@ -59,6 +59,7 @@ static const int audioSamplesBytes = audioSamples * 4;
 static int videoPixelMode = GE_CMODE_32BIT_ABGR8888;
 static int videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 static int psmfPlayerLibVersion = 0;
+static std::string psmfPlayerLibcrcstring = "null";
 
 int eventPsmfPlayerStatusChange = -1;
 
@@ -696,8 +697,9 @@ void __PsmfInit() {
 	eventPsmfPlayerStatusChange = CoreTiming::RegisterEvent("PsmfPlayerStatusChange", &__PsmfPlayerStatusChange);
 }
 
-void __PsmfPlayerLoadModule(int devkitVersion) {
+void __PsmfPlayerLoadModule(int devkitVersion, std::string crcstr) {
 	psmfPlayerLibVersion = devkitVersion;
+	psmfPlayerLibcrcstring = crcstr;
 }
 
 void __PsmfDoState(PointerWrap &p) {
@@ -722,6 +724,11 @@ void __PsmfPlayerDoState(PointerWrap &p) {
 		Do(p, eventPsmfPlayerStatusChange);
 	}
 	CoreTiming::RestoreRegisterEvent(eventPsmfPlayerStatusChange, "PsmfPlayerStatusChangeEvent", &__PsmfPlayerStatusChange);
+	if (s < 3) {
+		psmfPlayerLibcrcstring = "null";
+	} else {
+		Do(p, psmfPlayerLibcrcstring);
+	}
 	if (s < 2) {
 		// Assume the latest, which is what we were emulating before.
 		psmfPlayerLibVersion = 0x06060010;
@@ -1157,7 +1164,8 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr) {
 
 	int delayUs = 20000;
 	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_INIT, delayUs);
-	return hleLogSuccessInfoI(ME, hleDelayResult(0, "player create", delayUs));
+	INFO_LOG(ME, "psmfplayer create, psmfPlayerLibVersion 0x%0x, psmfPlayerLibcrcstring %s", psmfPlayerLibVersion, psmfPlayerLibcrcstring.c_str());
+	return hleDelayResult(0, "player create", delayUs);	
 }
 
 static int scePsmfPlayerStop(u32 psmfPlayer) {
@@ -1427,7 +1435,7 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	psmfplayer->playMode = playerData->playMode;
 	psmfplayer->playSpeed = playerData->playSpeed;
 
-	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d,(mode %d, speed %d)", psmfPlayer, psmfPlayerData, initPts, playerData->playMode, playerData->playSpeed);
+	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d (mode %d, speed %d)", psmfPlayer, psmfPlayerData, initPts, playerData->playMode, playerData->playSpeed);
 
 	// Does not alter current pts, it just catches up when Update()/etc. get there.
 
