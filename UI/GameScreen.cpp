@@ -56,10 +56,11 @@ GameScreen::~GameScreen() {
 	}
 }
 
-std::string int2hexstr(const int a) {
+const char* int2hexstr(const int a) {
 	std::stringstream stream;
 	stream << std::hex << a;
-	return stream.str();
+	auto s = stream.str();
+	return s.c_str();
 }
 
 void GameScreen::update() {
