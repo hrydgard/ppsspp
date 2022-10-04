@@ -1650,8 +1650,11 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	// Or at least this should be like the other ones, gathering possible candidates
 	// with the ability to list them out for debugging.
 
-	VirtualFramebuffer *dstBuffer = 0;
-	VirtualFramebuffer *srcBuffer = 0;
+	VirtualFramebuffer *dstBuffer = nullptr;
+	VirtualFramebuffer *srcBuffer = nullptr;
+	bool ignoreDstBuffer = flags & GPUCopyFlag::FORCE_DST_MEM;
+	bool ignoreSrcBuffer = flags & (GPUCopyFlag::FORCE_SRC_MEM | GPUCopyFlag::MEMSET);
+
 	u32 dstY = (u32)-1;
 	u32 dstH = 0;
 	u32 srcY = (u32)-1;
@@ -1669,14 +1672,14 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		const int vfb_byteWidth = vfb->width * vfb_bpp;
 
 		// Heuristic to try to prevent potential glitches with video playback.
-		if (vfb_address == dst && (size == 0x44000 && vfb_size == 0x88000 || size == 0x88000 && vfb_size == 0x44000)) {
+		if (!ignoreDstBuffer && vfb_address == dst && (size == 0x44000 && vfb_size == 0x88000 || size == 0x88000 && vfb_size == 0x44000)) {
 			// Not likely to be a correct color format copy for this buffer. Ignore it, there will either be RAM
 			// that can be displayed from, or another matching buffer with the right format if rendering is going on.
 			WARN_LOG_N_TIMES(notify_copy_2x, 5, G3D, "Framebuffer size %08x conspicuously not matching copy size %08x in NotifyFramebufferCopy. Ignoring.", size, vfb_size);
 			continue;
 		}
 
-		if (dst >= vfb_address && (dst + size <= vfb_address + vfb_size || dst == vfb_address)) {
+		if (!ignoreDstBuffer && dst >= vfb_address && (dst + size <= vfb_address + vfb_size || dst == vfb_address)) {
 			const u32 offset = dst - vfb_address;
 			const u32 yOffset = offset / vfb_byteStride;
 			if ((offset % vfb_byteStride) == 0 && (size == vfb_byteWidth || (size % vfb_byteStride) == 0) && yOffset < dstY) {
@@ -1686,7 +1689,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 			}
 		}
 
-		if (src >= vfb_address && (src + size <= vfb_address + vfb_size || src == vfb_address)) {
+		if (!ignoreSrcBuffer && src >= vfb_address && (src + size <= vfb_address + vfb_size || src == vfb_address)) {
 			const u32 offset = src - vfb_address;
 			const u32 yOffset = offset / vfb_byteStride;
 			if ((offset % vfb_byteStride) == 0 && (size == vfb_byteWidth || (size % vfb_byteStride) == 0) && yOffset < srcY) {
@@ -1728,7 +1731,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		dstBuffer->last_frame_used = gpuStats.numFlips;
 	}
 
-	if (dstBuffer && srcBuffer && !(flags & GPUCopyFlag::MEMSET) && !(flags & GPUCopyFlag::FORCE_SRC_MEM) && !(flags & GPUCopyFlag::FORCE_DST_MEM)) {
+	if (dstBuffer && srcBuffer) {
 		if (srcBuffer == dstBuffer) {
 			WARN_LOG_ONCE(dstsrccpy, G3D, "Intra-buffer memcpy (not supported) %08x -> %08x (size: %x)", src, dst, size);
 		} else {
@@ -1739,7 +1742,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 			RebindFramebuffer("RebindFramebuffer - Inter-buffer memcpy");
 		}
 		return false;
-	} else if (dstBuffer && !(flags & GPUCopyFlag::FORCE_DST_MEM)) {
+	} else if (dstBuffer) {
 		if (flags & GPUCopyFlag::MEMSET) {
 			gpuStats.numClears++;
 		}
