@@ -29,6 +29,8 @@
 // Uses GameInfoCache heavily to implement the functionality.
 // Should possibly merge this with the PauseScreen.
 
+std::string int2hexstr(const int a);
+
 class GameScreen : public UIDialogScreenWithGameBackground {
 public:
 	GameScreen(const Path &gamePath);

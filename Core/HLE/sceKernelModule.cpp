@@ -67,6 +67,7 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "UI/GameScreen.h"
 
 enum {
 	PSP_THREAD_ATTR_KERNEL = 0x00001000,
@@ -1144,6 +1145,9 @@ static int gzipDecompress(u8 *OutBuffer, int OutBufferLength, u8 *InBuffer) {
 }
 
 static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, u32 &error) {
+	u32 crc = crc32(0, Z_NULL, 0);
+	crc = crc32(crc, ptr, elfSize);
+	const std::string crcstring = int2hexstr(crc);
 	PSPModule *module = new PSPModule();
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());
@@ -1170,7 +1174,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 		if (IsHLEVersionedModule(head->modname)) {
 			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
-			INFO_LOG(SCEMODULE, "Loading module %s with version %04x, devkit %08x", head->modname, ver, head->devkitversion);
+			INFO_LOG(SCEMODULE, "Loading module %s with version %04x, devkit %08x, crc %s", head->modname, ver, head->devkitversion, crcstring.c_str());
 			reportedModule = true;
 
 			if (!strcmp(head->modname, "sceMpeg_library")) {
