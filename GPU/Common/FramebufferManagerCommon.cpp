@@ -566,7 +566,7 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 	bool newlyUsingDepth = (currentRenderVfb_->usageFlags & FB_USAGE_RENDER_DEPTH) == 0;
 	currentRenderVfb_->usageFlags |= FB_USAGE_RENDER_DEPTH;
 
-	uint32_t boundDepthBuffer = gstate.getDepthBufRawAddress();
+	uint32_t boundDepthBuffer = gstate.getDepthBufRawAddress() | 0x04000000;
 	if (currentRenderVfb_->z_address != boundDepthBuffer) {
 		WARN_LOG_N_TIMES(z_reassign, 5, G3D, "Framebuffer at %08x/%d has switched associated depth buffer from %08x to %08x, updating.",
 			currentRenderVfb_->fb_address, currentRenderVfb_->fb_stride, currentRenderVfb_->z_address, boundDepthBuffer);
