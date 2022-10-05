@@ -59,7 +59,7 @@ static const int audioSamplesBytes = audioSamples * 4;
 static int videoPixelMode = GE_CMODE_32BIT_ABGR8888;
 static int videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 static int psmfPlayerLibVersion = 0;
-static std::string psmfPlayerLibcrcstring = "null";
+static u32 psmfPlayerLibcrc = 0;
 
 int eventPsmfPlayerStatusChange = -1;
 
@@ -697,9 +697,9 @@ void __PsmfInit() {
 	eventPsmfPlayerStatusChange = CoreTiming::RegisterEvent("PsmfPlayerStatusChange", &__PsmfPlayerStatusChange);
 }
 
-void __PsmfPlayerLoadModule(int devkitVersion, std::string crcstr) {
+void __PsmfPlayerLoadModule(int devkitVersion, u32 crc) {
 	psmfPlayerLibVersion = devkitVersion;
-	psmfPlayerLibcrcstring = crcstr;
+	psmfPlayerLibcrc = crc;
 }
 
 void __PsmfDoState(PointerWrap &p) {
@@ -725,9 +725,9 @@ void __PsmfPlayerDoState(PointerWrap &p) {
 	}
 	CoreTiming::RestoreRegisterEvent(eventPsmfPlayerStatusChange, "PsmfPlayerStatusChangeEvent", &__PsmfPlayerStatusChange);
 	if (s < 3) {
-		psmfPlayerLibcrcstring = "null";
+		psmfPlayerLibcrc = 0;
 	} else {
-		Do(p, psmfPlayerLibcrcstring);
+		Do(p, psmfPlayerLibcrc);
 	}
 	if (s < 2) {
 		// Assume the latest, which is what we were emulating before.
@@ -1164,7 +1164,7 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr) {
 
 	int delayUs = 20000;
 	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_INIT, delayUs);
-	INFO_LOG(ME, "psmfplayer create, psmfPlayerLibVersion 0x%0x, psmfPlayerLibcrcstring %s", psmfPlayerLibVersion, psmfPlayerLibcrcstring.c_str());
+	INFO_LOG(ME, "psmfplayer create, psmfPlayerLibVersion 0x%0x, psmfPlayerLibcrc %x", psmfPlayerLibVersion, psmfPlayerLibcrc);
 	return hleDelayResult(0, "player create", delayUs);	
 }
 

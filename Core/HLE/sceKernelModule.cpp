@@ -1147,7 +1147,6 @@ static int gzipDecompress(u8 *OutBuffer, int OutBufferLength, u8 *InBuffer) {
 static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, u32 &error) {
 	u32 crc = crc32(0, Z_NULL, 0);
 	crc = crc32(crc, ptr, elfSize);
-	const std::string crcstring = int2hexstr(crc);
 	PSPModule *module = new PSPModule();
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());
@@ -1174,14 +1173,14 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 		if (IsHLEVersionedModule(head->modname)) {
 			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
-			INFO_LOG(SCEMODULE, "Loading module %s with version %04x, devkit %08x, crc %s", head->modname, ver, head->devkitversion, crcstring.c_str());
+			INFO_LOG(SCEMODULE, "Loading module %s with version %04x, devkit %08x, crc %x", head->modname, ver, head->devkitversion, crc);
 			reportedModule = true;
 
 			if (!strcmp(head->modname, "sceMpeg_library")) {
-				__MpegLoadModule(ver, crcstring);
+				__MpegLoadModule(ver, crc);
 			}
 			if (!strcmp(head->modname, "scePsmfP_library") || !strcmp(head->modname, "scePsmfPlayer")) {
-				__PsmfPlayerLoadModule(head->devkitversion, crcstring);
+				__PsmfPlayerLoadModule(head->devkitversion, crc);
 			}
 		}
 
@@ -1614,10 +1613,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		INFO_LOG(SCEMODULE, "Loading module %s with version %04x, devkit %08x", modinfo->name, modinfo->moduleVersion, devkitVersion);
 
 		if (!strcmp(modinfo->name, "sceMpeg_library")) {
-			__MpegLoadModule(modinfo->moduleVersion, crcstring);
+			__MpegLoadModule(modinfo->moduleVersion, crc);
 		}
 		if (!strcmp(modinfo->name, "scePsmfP_library") || !strcmp(modinfo->name, "scePsmfPlayer")) {
-			__PsmfPlayerLoadModule(devkitVersion, crcstring);
+			__PsmfPlayerLoadModule(devkitVersion, crc);
 		}
 	}
 

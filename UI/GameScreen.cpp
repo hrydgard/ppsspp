@@ -44,7 +44,6 @@
 #include "UI/MainScreen.h"
 #include "UI/BackgroundAudio.h"
 #include "Core/Reporting.h"
-#include <sstream>
 
 GameScreen::GameScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	g_BackgroundAudio.SetGame(gamePath);
@@ -56,11 +55,12 @@ GameScreen::~GameScreen() {
 	}
 }
 
-const char* int2hexstr(const int a) {
-	std::stringstream stream;
-	stream << std::hex << a;
-	auto s = stream.str();
-	return s.c_str();
+template <typename I> std::string int2hexstr(I w, size_t hex_len = sizeof(I) << 1) {
+	static const char* digits = "0123456789ABCDEF";
+	std::string rc(hex_len, '0');
+	for (size_t i = 0, j = (hex_len - 1) * 4; i < hex_len; ++i, j -= 4)
+		rc[i] = digits[(w >> j) & 0x0f];
+	return rc;
 }
 
 void GameScreen::update() {

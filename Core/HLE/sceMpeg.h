@@ -79,7 +79,7 @@ void __MpegInit();
 void __MpegDoState(PointerWrap &p);
 void __MpegShutdown();
 
-void __MpegLoadModule(int version,std::string crcstr);
+void __MpegLoadModule(int version,u32 crc);
 
 void Register_sceMpeg();
 
