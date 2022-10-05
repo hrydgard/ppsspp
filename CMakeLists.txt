@@ -2513,6 +2513,8 @@ if(UNIX AND NOT ANDROID AND NOT APPLE)
 		DIRECTORY "${CMAKE_BINARY_DIR}/assets"
 		DESTINATION "${CMAKE_INSTALL_DATADIR}/ppsspp"
 		PATTERN ".git*" EXCLUDE
+		PATTERN "mime" EXCLUDE
+		PATTERN "lang/README.md" EXCLUDE
 	)
 	install(
 		FILES "${CMAKE_BINARY_DIR}/ppsspp.desktop"
@@ -2525,7 +2527,11 @@ if(UNIX AND NOT ANDROID AND NOT APPLE)
 	)
 	install(
 		FILES "${CMAKE_SOURCE_DIR}/icons/icon-512.svg"
-		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/pixmaps"
-		RENAME ppsspp.svg
+		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps"
+		RENAME "ppsspp.svg"
+	)
+	install(
+		FILES "${CMAKE_SOURCE_DIR}/assets/mime/ppsspp.xml"
+		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/mime/packages"
 	)
 endif()
