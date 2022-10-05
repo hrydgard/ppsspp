@@ -67,7 +67,6 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "UI/GameScreen.h"
 
 enum {
 	PSP_THREAD_ATTR_KERNEL = 0x00001000,
