@@ -48,7 +48,7 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 
 	ShaderWriter p(buffer, compat, ShaderStage::Geometry, gl_exts.data(), gl_exts.size());
 	p.C("layout(triangles) in;\n");
-	p.C("layout(triangle_strip, max_vertices = 3) out;\n");
+	p.C("layout(triangle_strip, max_vertices = 6) out;\n");
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
@@ -76,6 +76,10 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 
 	// Apply culling
 	p.C("  bool anyInside = false;\n");
+	// And apply manual clipping if necessary.
+	if (!gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+		p.C("  float clip0[3];\n");
+	}
 
 	p.C("  for (int i = 0; i < 3; i++) {\n");  // TODO: 3 or gl_in.length()? which will be faster?
 	p.C("    vec4 outPos = gl_in[i].gl_Position;\n");
@@ -98,6 +102,13 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	p.C("      if (projPos.z >= u_cullRangeMin.z) { anyInside = true; }\n");
 	p.C("      if (projPos.z <= u_cullRangeMax.z) { anyInside = true; }\n");
 	p.C("    }\n");
+
+	if (!gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+		// This is basically the same value as gl_ClipDistance would take, z + w.
+		// TODO: Ignore triangles from GE_PRIM_RECTANGLES in transform mode, which should not clip to neg z.
+		p.F("    clip0[i] = projZ * outPos.w + outPos.w;\n");
+	}
+
 	p.C("  }  // for\n");
 
 	// Cull any triangle fully outside in the same direction when depth clamp enabled.
@@ -106,27 +117,114 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	p.C("    return;\n");
 	p.C("  }\n");
 
-	const char *clip0 = compat.shaderLanguage == HLSL_D3D11 ? "" : "[0]";
+	if (!gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+		// Clipping against one half-space cuts a triangle (17/27), culls (7/27), or creates two triangles (3/27).
+		p.C("  int indices[4];\n");
+		p.C("  float factors[4];\n");
+		p.C("  int ind = 0;\n");
 
-	p.C("  for (int i = 0; i < 3; i++) {\n");   // TODO: 3 or gl_in.length()? which will be faster?
-	p.C("    vec4 outPos = gl_in[i].gl_Position;\n");
-	p.C("    gl_Position = outPos;\n");
-	// TODO: Not rectangles...
-	if (gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+		// Pass 1 - clip against first half-space.
+		p.C("  for (int i = 0; i < 3; i++) {\n");
+		// First, use this vertex if it doesn't need clipping.
+		p.C("    if (clip0[i] >= 0.0) {\n");
+		p.C("      indices[ind] = i;\n");
+		p.C("      factors[ind] = 0.0;\n");
+		p.C("      ind++;\n");
+		p.C("    }\n");
+
+		// Next, we generate an interpolated vertex if signs differ.
+		p.C("    int inext = i == 2 ? 0 : i + 1;\n");
+		p.C("    if (clip0[i] * clip0[inext] < 0.0) {\n");
+		p.C("      float t = clip0[i] < 0.0 ? clip0[i] / (clip0[i] - clip0[inext]) : 1.0 - (clip0[inext] / (clip0[inext] - clip0[i]));\n");
+		p.C("      indices[ind] = i;\n");
+		p.C("      factors[ind] = t;\n");
+		p.C("      ind++;\n");
+		p.C("    }\n");
+
+		p.C("  }\n");
+
+		p.C("  if (ind < 3) {\n");
+		p.C("    return;\n");
+		p.C("  }\n");
+
+		// Alright, time to actually emit the first triangle.
+		p.C("  for (int i = 0; i < 3; i++) {\n");
+		p.C("    int idx = indices[i];\n");
+		p.C("    float factor = factors[i];\n");
+		p.C("    int next = idx == 2 ? 0 : idx + 1;\n");
+		p.C("    gl_Position = mix(gl_in[idx].gl_Position, gl_in[next].gl_Position, factor);\n");
+		for (size_t i = 0; i < varyings.size(); i++) {
+			VaryingDef &in = varyings[i];
+			VaryingDef &out = outVaryings[i];
+			p.F("    %s = mix(%s[idx], %s[next], factor);\n", outVaryings[i].name, varyings[i].name, varyings[i].name);
+		}
+		p.C("    EmitVertex();\n");
+		p.C("  }\n");
+
+		// Did we end up with additional triangles?  We'll do three points each for the rest.
+		p.C("  for (int i = 3; i < ind; i++) {\n");
+		p.C("    EndPrimitive();\n");
+
+		// Point one, always index zero.
+		p.C("    int idx = indices[0];\n");
+		p.C("    float factor = factors[0];\n");
+		p.C("    int next = idx == 2 ? 0 : idx + 1;\n");
+		p.C("    gl_Position = mix(gl_in[idx].gl_Position, gl_in[next].gl_Position, factor);\n");
+		for (size_t i = 0; i < varyings.size(); i++) {
+			VaryingDef &in = varyings[i];
+			VaryingDef &out = outVaryings[i];
+			p.F("    %s = mix(%s[idx], %s[next], factor);\n", outVaryings[i].name, varyings[i].name, varyings[i].name);
+		}
+		p.C("    EmitVertex();\n");
+
+		// After that, one less than i (basically a triangle fan.)
+		p.C("    idx = indices[i - 1];\n");
+		p.C("    factor = factors[i - 1];\n");
+		p.C("    next = idx == 2 ? 0 : idx + 1;\n");
+		p.C("    gl_Position = mix(gl_in[idx].gl_Position, gl_in[next].gl_Position, factor);\n");
+		for (size_t i = 0; i < varyings.size(); i++) {
+			VaryingDef &in = varyings[i];
+			VaryingDef &out = outVaryings[i];
+			p.F("    %s = mix(%s[idx], %s[next], factor);\n", outVaryings[i].name, varyings[i].name, varyings[i].name);
+		}
+		p.C("    EmitVertex();\n");
+
+		// And the new vertex itself.
+		p.C("    idx = indices[i];\n");
+		p.C("    factor = factors[i];\n");
+		p.C("    next = idx == 2 ? 0 : idx + 1;\n");
+		p.C("    gl_Position = mix(gl_in[idx].gl_Position, gl_in[next].gl_Position, factor);\n");
+		for (size_t i = 0; i < varyings.size(); i++) {
+			VaryingDef &in = varyings[i];
+			VaryingDef &out = outVaryings[i];
+			p.F("    %s = mix(%s[idx], %s[next], factor);\n", outVaryings[i].name, varyings[i].name, varyings[i].name);
+		}
+		p.C("    EmitVertex();\n");
+
+		p.C("  }\n");
+	} else {
+		const char *clipSuffix0 = compat.shaderLanguage == HLSL_D3D11 ? "" : "[0]";
+
+		p.C("  for (int i = 0; i < 3; i++) {\n");   // TODO: 3 or gl_in.length()? which will be faster?
+		p.C("    vec4 outPos = gl_in[i].gl_Position;\n");
 		p.C("    vec3 projPos = outPos.xyz / outPos.w;\n");
 		p.C("    float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
-		p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clip0);
-	}
+		// TODO: Ignore triangles from GE_PRIM_RECTANGLES in transform mode, which should not clip to neg z.
+		p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clipSuffix0);
+		p.C("    gl_Position = outPos;\n");
+		if (gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+		}
 
-	for (size_t i = 0; i < varyings.size(); i++) {
-		VaryingDef &in = varyings[i];
-		VaryingDef &out = outVaryings[i];
-		p.F("    %s = %s[i];\n", outVaryings[i].name, varyings[i].name);
+		for (size_t i = 0; i < varyings.size(); i++) {
+			VaryingDef &in = varyings[i];
+			VaryingDef &out = outVaryings[i];
+			p.F("    %s = %s[i];\n", outVaryings[i].name, varyings[i].name);
+		}
+		// Debug - null the red channel
+		//p.C("    if (i == 0) v_color0Out.x = 0.0;\n");
+		p.C("    EmitVertex();\n");
+		p.C("  }\n");
 	}
-	// Debug - null the red channel
-	//p.C("    if (i == 0) v_color0Out.x = 0.0;\n");
-	p.C("    EmitVertex();\n");
-	p.C("  }\n");
 
 	p.EndGSMain();
 

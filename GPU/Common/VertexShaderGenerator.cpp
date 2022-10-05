@@ -1312,7 +1312,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		const char *cull0 = compat.shaderLanguage == HLSL_D3D11 ? ".x" : "[0]";
 		const char *cull1 = compat.shaderLanguage == HLSL_D3D11 ? ".y" : "[1]";
 		if (gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
-			// TODO: Not rectangles...
+			// TODO: Ignore triangles from GE_PRIM_RECTANGLES in transform mode, which should not clip to neg z.
 			WRITE(p, "  %sgl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", compat.vsOutPrefix, vertexRangeClipSuffix);
 		}
 		if (gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE)) {
