@@ -119,106 +119,88 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 
 	if (!gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
 		// Clipping against one half-space cuts a triangle (17/27), culls (7/27), or creates two triangles (3/27).
-		p.C("  int emitted = 0;\n");
+		p.C("  int indices[4];\n");
+		p.C("  float factors[4];\n");
+		p.C("  int ind = 0;\n");
+
+		// Pass 1 - clip against first half-space.
 		p.C("  for (int i = 0; i < 3; i++) {\n");
-		// First, emit this vertex if it doesn't need clipping
+		// First, use this vertex if it doesn't need clipping.
 		p.C("    if (clip0[i] >= 0.0) {\n");
-
-		// But before we emit that, is this the second triangle?  We'll need extra verts.
-		p.C("      if (emitted == 3) {\n");
-		p.C("        EndPrimitive();\n");
-		// In this case, it can only be +/-/+, we must emit vert 0 and then mix(1, 2) again first.
-		p.C("        gl_Position = gl_in[0].gl_Position;\n");
-		for (size_t i = 0; i < varyings.size(); i++) {
-			VaryingDef &in = varyings[i];
-			VaryingDef &out = outVaryings[i];
-			p.F("        %s = %s[0];\n", outVaryings[i].name, varyings[i].name);
-		}
-		p.C("        EmitVertex();\n");
-		p.C("        emitted++;\n");
-		// Next, it can only be the interpolated between 1 and 2 (before this one, direct 2.)
-		p.C("        float t = clip0[1] / (clip0[1] - clip0[2]);\n");
-		p.C("        gl_Position = mix(gl_in[1].gl_Position, gl_in[2].gl_Position, t);\n");
-		for (size_t i = 0; i < varyings.size(); i++) {
-			VaryingDef &in = varyings[i];
-			VaryingDef &out = outVaryings[i];
-			p.F("      %s = mix(%s[1], %s[2], t);\n", outVaryings[i].name, varyings[i].name, varyings[i].name);
-		}
-		p.C("        EmitVertex();\n");
-		p.C("        emitted++;\n");
-		p.C("      }\n");
-
-		// Now emit the regular vertex itself.
-		p.C("      gl_Position = gl_in[i].gl_Position;\n");
-		for (size_t i = 0; i < varyings.size(); i++) {
-			VaryingDef &in = varyings[i];
-			VaryingDef &out = outVaryings[i];
-			p.F("      %s = %s[i];\n", outVaryings[i].name, varyings[i].name);
-		}
-		p.C("      EmitVertex();\n");
-		p.C("      emitted++;\n");
+		p.C("      indices[ind] = i;\n");
+		p.C("      factors[ind] = 0.0;\n");
+		p.C("      ind++;\n");
 		p.C("    }\n");
 
 		// Next, we generate an interpolated vertex if signs differ.
 		p.C("    int inext = i == 2 ? 0 : i + 1;\n");
 		p.C("    if (clip0[i] * clip0[inext] < 0.0) {\n");
-
-		// There are two cases here: +/+/- and -/+/+.
-		p.C("      if (emitted == 3 && clip0[i] < 0.0) {\n");
-		p.C("        EndPrimitive();\n");
-		// In this case, it can only be +/-/+, we must emit vert 0 and then mix(1, 2) again first.
-		p.C("        gl_Position = gl_in[0].gl_Position;\n");
-		for (size_t i = 0; i < varyings.size(); i++) {
-			VaryingDef &in = varyings[i];
-			VaryingDef &out = outVaryings[i];
-			p.F("        %s = %s[0];\n", outVaryings[i].name, varyings[i].name);
-		}
-		p.C("        EmitVertex();\n");
-		p.C("        emitted++;\n");
-		// Next, it can only be the interpolated between 1 and 2 (before this one, direct 2.)
-		p.C("        float t = 1.0 - (clip0[2] / (clip0[2] - clip0[1]));\n");
-		p.C("        gl_Position = mix(gl_in[1].gl_Position, gl_in[2].gl_Position, t);\n");
-		for (size_t i = 0; i < varyings.size(); i++) {
-			VaryingDef &in = varyings[i];
-			VaryingDef &out = outVaryings[i];
-			p.F("      %s = mix(%s[1], %s[2], t);\n", outVaryings[i].name, varyings[i].name, varyings[i].name);
-		}
-		p.C("        EmitVertex();\n");
-		p.C("        emitted++;\n");
-		p.C("      } else if (emitted == 3) {\n");
-		p.C("        EndPrimitive();\n");
-		// Now we emit mix(0, 1) first, then vert 2 again.
-		p.C("        float t = clip0[0] / (clip0[0] - clip0[1]);\n");
-		p.C("        gl_Position = mix(gl_in[0].gl_Position, gl_in[1].gl_Position, t);\n");
-		for (size_t i = 0; i < varyings.size(); i++) {
-			VaryingDef &in = varyings[i];
-			VaryingDef &out = outVaryings[i];
-			p.F("      %s = mix(%s[0], %s[1], t);\n", outVaryings[i].name, varyings[i].name, varyings[i].name);
-		}
-		p.C("        EmitVertex();\n");
-		p.C("        emitted++;\n");
-		// Then here's vert 2.
-		p.C("        gl_Position = gl_in[2].gl_Position;\n");
-		for (size_t i = 0; i < varyings.size(); i++) {
-			VaryingDef &in = varyings[i];
-			VaryingDef &out = outVaryings[i];
-			p.F("        %s = %s[2];\n", outVaryings[i].name, varyings[i].name);
-		}
-		p.C("        EmitVertex();\n");
-		p.C("        emitted++;\n");
-		p.C("      }\n");
-
-		// Finally, the actual interpolated vertex.
 		p.C("      float t = clip0[i] < 0.0 ? clip0[i] / (clip0[i] - clip0[inext]) : 1.0 - (clip0[inext] / (clip0[inext] - clip0[i]));\n");
-		p.C("      gl_Position = mix(gl_in[i].gl_Position, gl_in[inext].gl_Position, t);\n");
+		p.C("      indices[ind] = i;\n");
+		p.C("      factors[ind] = t;\n");
+		p.C("      ind++;\n");
+		p.C("    }\n");
+
+		p.C("  }\n");
+
+		p.C("  if (ind < 3) {\n");
+		p.C("    return;\n");
+		p.C("  }\n");
+
+		// Alright, time to actually emit the first triangle.
+		p.C("  for (int i = 0; i < 3; i++) {\n");
+		p.C("    int idx = indices[i];\n");
+		p.C("    float factor = factors[i];\n");
+		p.C("    int next = idx == 2 ? 0 : idx + 1;\n");
+		p.C("    gl_Position = mix(gl_in[idx].gl_Position, gl_in[next].gl_Position, factor);\n");
 		for (size_t i = 0; i < varyings.size(); i++) {
 			VaryingDef &in = varyings[i];
 			VaryingDef &out = outVaryings[i];
-			p.F("      %s = mix(%s[i], %s[inext], t);\n", outVaryings[i].name, varyings[i].name, varyings[i].name);
+			p.F("    %s = mix(%s[idx], %s[next], factor);\n", outVaryings[i].name, varyings[i].name, varyings[i].name);
 		}
-		p.C("      EmitVertex();\n");
-		p.C("      emitted++;\n");
-		p.C("    }\n");
+		p.C("    EmitVertex();\n");
+		p.C("  }\n");
+
+		// Did we end up with additional triangles?  We'll do three points each for the rest.
+		p.C("  for (int i = 3; i < ind; i++) {\n");
+		p.C("    EndPrimitive();\n");
+
+		// Point one, always index zero.
+		p.C("    int idx = indices[0];\n");
+		p.C("    float factor = factors[0];\n");
+		p.C("    int next = idx == 2 ? 0 : idx + 1;\n");
+		p.C("    gl_Position = mix(gl_in[idx].gl_Position, gl_in[next].gl_Position, factor);\n");
+		for (size_t i = 0; i < varyings.size(); i++) {
+			VaryingDef &in = varyings[i];
+			VaryingDef &out = outVaryings[i];
+			p.F("    %s = mix(%s[idx], %s[next], factor);\n", outVaryings[i].name, varyings[i].name, varyings[i].name);
+		}
+		p.C("    EmitVertex();\n");
+
+		// After that, one less than i (basically a triangle fan.)
+		p.C("    idx = indices[i - 1];\n");
+		p.C("    factor = factors[i - 1];\n");
+		p.C("    next = idx == 2 ? 0 : idx + 1;\n");
+		p.C("    gl_Position = mix(gl_in[idx].gl_Position, gl_in[next].gl_Position, factor);\n");
+		for (size_t i = 0; i < varyings.size(); i++) {
+			VaryingDef &in = varyings[i];
+			VaryingDef &out = outVaryings[i];
+			p.F("    %s = mix(%s[idx], %s[next], factor);\n", outVaryings[i].name, varyings[i].name, varyings[i].name);
+		}
+		p.C("    EmitVertex();\n");
+
+		// And the new vertex itself.
+		p.C("    idx = indices[i];\n");
+		p.C("    factor = factors[i];\n");
+		p.C("    next = idx == 2 ? 0 : idx + 1;\n");
+		p.C("    gl_Position = mix(gl_in[idx].gl_Position, gl_in[next].gl_Position, factor);\n");
+		for (size_t i = 0; i < varyings.size(); i++) {
+			VaryingDef &in = varyings[i];
+			VaryingDef &out = outVaryings[i];
+			p.F("    %s = mix(%s[idx], %s[next], factor);\n", outVaryings[i].name, varyings[i].name, varyings[i].name);
+		}
+		p.C("    EmitVertex();\n");
+
 		p.C("  }\n");
 	} else {
 		const char *clipSuffix0 = compat.shaderLanguage == HLSL_D3D11 ? "" : "[0]";
