@@ -77,7 +77,6 @@ struct CompatFlags {
 	bool DateLimited;
 	bool ShaderColorBitmask;
 	bool DisableFirstFrameReadback;
-	bool DisableRangeCulling;
 	bool MpegAvcWarmUp;
 	bool BlueToAlpha;
 	bool CenteredLines;
