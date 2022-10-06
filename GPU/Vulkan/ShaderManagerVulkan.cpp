@@ -194,9 +194,11 @@ std::string VulkanGeometryShader::GetShaderString(DebugShaderStringType type) co
 	}
 }
 
+static constexpr size_t CODE_BUFFER_SIZE = 32768;
+
 ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw)
 	: ShaderManagerCommon(draw), compat_(GLSL_VULKAN), fsCache_(16), vsCache_(16), gsCache_(16) {
-	codeBuffer_ = new char[16384];
+	codeBuffer_ = new char[CODE_BUFFER_SIZE];
 	VulkanContext *vulkan = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	uboAlignment_ = vulkan->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment;
 	memset(&ub_base, 0, sizeof(ub_base));
@@ -330,6 +332,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		uint32_t attributeMask = 0;  // Not used
 		bool success = GenerateVertexShader(VSID, codeBuffer_, compat_, draw_->GetBugs(), &attributeMask, &uniformMask, &genErrorString);
 		_assert_msg_(success, "VS gen error: %s", genErrorString.c_str());
+		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
 		vs = new VulkanVertexShader(vulkan, VSID, codeBuffer_, useHWTransform);
 		vsCache_.Insert(VSID, vs);
 	}
@@ -342,6 +345,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		FragmentShaderFlags flags;
 		bool success = GenerateFragmentShader(FSID, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &flags, &genErrorString);
 		_assert_msg_(success, "FS gen error: %s", genErrorString.c_str());
+		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
 		fs = new VulkanFragmentShader(vulkan, FSID, flags, codeBuffer_);
 		fsCache_.Insert(FSID, fs);
 	}
@@ -354,6 +358,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 			std::string genErrorString;
 			bool success = GenerateGeometryShader(GSID, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString);
 			_assert_msg_(success, "GS gen error: %s", genErrorString.c_str());
+			_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
 			gs = new VulkanGeometryShader(vulkan, GSID, codeBuffer_);
 			gsCache_.Insert(GSID, gs);
 		}
@@ -512,6 +517,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		if (!GenerateVertexShader(id, codeBuffer_, compat_, draw_->GetBugs(), &attributeMask, &uniformMask, &genErrorString)) {
 			return false;
 		}
+		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
 		VulkanVertexShader *vs = new VulkanVertexShader(vulkan, id, codeBuffer_, useHWTransform);
 		vsCache_.Insert(id, vs);
 	}
@@ -529,6 +535,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		if (!GenerateFragmentShader(id, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &flags, &genErrorString)) {
 			return false;
 		}
+		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
 		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan, id, flags, codeBuffer_);
 		fsCache_.Insert(id, fs);
 	}
@@ -543,6 +550,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		if (!GenerateGeometryShader(id, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString)) {
 			return false;
 		}
+		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
 		VulkanGeometryShader *gs = new VulkanGeometryShader(vulkan, id, codeBuffer_);
 		gsCache_.Insert(id, gs);
 	}
