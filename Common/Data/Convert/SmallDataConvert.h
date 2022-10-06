@@ -84,7 +84,7 @@ inline void Uint8x3ToFloat4(float f[4], uint32_t u) {
 
 inline void Uint8x3ToFloat3(float f[4], uint32_t u) {
 #if defined(_M_SSE) || PPSSPP_ARCH(ARM_NEON)
-	float temp[3];
+	float temp[4];
 	Uint8x4ToFloat4(temp, u & 0xFFFFFF);
 	f[0] = temp[0];
 	f[1] = temp[1];
