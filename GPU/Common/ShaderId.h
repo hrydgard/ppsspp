@@ -109,6 +109,7 @@ enum GShaderBit : uint8_t {
 	GS_BIT_ENABLED = 0,     // If not set, we don't use a geo shader.
 	GS_BIT_DO_TEXTURE = 1,  // presence of texcoords
 	GS_BIT_LMODE = 2,       // presence of specular color (regular color always present)
+	GS_BIT_CURVE = 3,       // curve, which means don't do range culling.
 };
 
 static inline GShaderBit operator +(GShaderBit bit, int i) {
