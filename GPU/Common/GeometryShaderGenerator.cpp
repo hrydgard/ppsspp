@@ -46,11 +46,11 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 		}
 	}
 	bool vertexRangeCulling = !id.Bit(GS_BIT_CURVE);
-	bool clipClampedDepth = gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP) && !gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE);
+	bool clipClampedDepth = gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP);
 
 	ShaderWriter p(buffer, compat, ShaderStage::Geometry, gl_exts.data(), gl_exts.size());
 	p.C("layout(triangles) in;\n");
-	if (clipClampedDepth && vertexRangeCulling) {
+	if (clipClampedDepth && vertexRangeCulling && !gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
 		p.C("layout(triangle_strip, max_vertices = 12) out;\n");
 	} else {
 		p.C("layout(triangle_strip, max_vertices = 6) out;\n");
@@ -274,14 +274,23 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 
 		p.C("  }\n");
 	} else {
-		const char *clipSuffix0 = compat.shaderLanguage == HLSL_D3D11 ? "" : "[0]";
+		const char *clipSuffix0 = compat.shaderLanguage == HLSL_D3D11 ? ".x" : "[0]";
+		const char *clipSuffix1 = compat.shaderLanguage == HLSL_D3D11 ? ".y" : "[1]";
+		const char *clipSuffix2 = compat.shaderLanguage == HLSL_D3D11 ? ".z" : "[2]";
 
 		p.C("  for (int i = 0; i < 3; i++) {\n");   // TODO: 3 or gl_in.length()? which will be faster?
 		p.C("    vec4 outPos = gl_in[i].gl_Position;\n");
 		p.C("    vec3 projPos = outPos.xyz / outPos.w;\n");
 		p.C("    float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
-		// We shouldn't need to worry about rectangles-as-triangles here, since we don't use geometry shaders for that.
-		p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clipSuffix0);
+		if (clipClampedDepth) {
+			// Copy the clip distance from the vertex shader.
+			p.F("    gl_ClipDistance%s = gl_in[i].gl_ClipDistance%s;\n", clipSuffix0, clipSuffix0);
+			p.F("    gl_ClipDistance%s = gl_in[i].gl_ClipDistance%s;\n", clipSuffix1, clipSuffix1);
+			p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clipSuffix2);
+		} else {
+			// We shouldn't need to worry about rectangles-as-triangles here, since we don't use geometry shaders for that.
+			p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clipSuffix0);
+		}
 		p.C("    gl_Position = outPos;\n");
 		if (gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
 		}
