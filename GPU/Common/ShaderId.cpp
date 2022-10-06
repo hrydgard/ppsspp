@@ -379,22 +379,27 @@ std::string GeometryShaderDesc(const GShaderID &id) {
 void ComputeGeometryShaderID(GShaderID *id_out, const Draw::Bugs &bugs, int prim) {
 	GShaderID id;
 
-	bool vertexRangeCulling =
-		!gstate.isModeThrough() && gstate_c.submitType == SubmitType::DRAW;  // neither hw nor sw spline/bezier. See #11692
+	bool isModeThrough = gstate.isModeThrough();
+	bool isCurve = gstate_c.submitType != SubmitType::DRAW;
+	bool isTriangle = prim == GE_PRIM_TRIANGLES || prim == GE_PRIM_TRIANGLE_FAN || prim == GE_PRIM_TRIANGLE_STRIP;
+
+	bool vertexRangeCulling = !isCurve;
+	bool clipClampedDepth = gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP) && !gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE);
 
 	// If we're not using GS culling, return a zero ID.
 	// Also, only use this for triangle primitives.
-	if (!vertexRangeCulling || !gstate_c.Supports(GPU_SUPPORTS_GS_CULLING) || (prim != GE_PRIM_TRIANGLES && prim != GE_PRIM_TRIANGLE_FAN && prim != GE_PRIM_TRIANGLE_STRIP)) {
+	if ((!vertexRangeCulling && !clipClampedDepth) || isModeThrough || !isTriangle || !gstate_c.Supports(GPU_SUPPORTS_GS_CULLING)) {
 		*id_out = id;
 		return;
 	}
 
 	id.SetBit(GS_BIT_ENABLED, true);
+	// Vertex range culling doesn't seem tno happen for spline/bezier, see #11692.
+	id.SetBit(GS_BIT_CURVE, isCurve);
 
 	if (gstate.isModeClear()) {
 		// No attribute bits.
 	} else {
-		bool isModeThrough = gstate.isModeThrough();
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough;
 
 		id.SetBit(GS_BIT_LMODE, lmode);
