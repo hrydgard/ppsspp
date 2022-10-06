@@ -74,7 +74,7 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport, bool useBufferedRendering) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
-		Uint8x3ToFloat4(ub->texEnvColor, gstate.texenvcolor);
+		Uint8x3ToFloat3(ub->texEnvColor, gstate.texenvcolor);
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORREF) {
 		Uint8x3ToInt4_Alpha(ub->alphaColorRef, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
@@ -86,8 +86,8 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		Uint8x3ToFloat4(ub->fogColor, gstate.fogcolor);
 	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
-		Uint8x3ToFloat4(ub->blendFixA, gstate.getFixA());
-		Uint8x3ToFloat4(ub->blendFixB, gstate.getFixB());
+		Uint8x3ToFloat3(ub->blendFixA, gstate.getFixA());
+		Uint8x3ToFloat3(ub->blendFixB, gstate.getFixB());
 	}
 	if (dirtyUniforms & DIRTY_TEXCLAMP) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
@@ -303,9 +303,7 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 	}
 	if (dirtyUniforms & DIRTY_MATEMISSIVE) {
 		// We're not touching the fourth f32 here, because we store an u32 of control bits in it.
-		float temp[4];
-		Uint8x3ToFloat4(temp, gstate.materialemissive);
-		memcpy(ub->materialEmissive, temp, 12);
+		Uint8x3ToFloat3(ub->materialEmissive, gstate.materialemissive);
 	}
 	if (dirtyUniforms & DIRTY_LIGHT_CONTROL) {
 		ub->lightControl = PackLightControlBits();
