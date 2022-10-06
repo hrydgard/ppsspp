@@ -276,7 +276,6 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	} else {
 		const char *clipSuffix0 = compat.shaderLanguage == HLSL_D3D11 ? ".x" : "[0]";
 		const char *clipSuffix1 = compat.shaderLanguage == HLSL_D3D11 ? ".y" : "[1]";
-		const char *clipSuffix2 = compat.shaderLanguage == HLSL_D3D11 ? ".z" : "[2]";
 
 		p.C("  for (int i = 0; i < 3; i++) {\n");   // TODO: 3 or gl_in.length()? which will be faster?
 		p.C("    vec4 outPos = gl_in[i].gl_Position;\n");
@@ -285,8 +284,7 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 		if (clipClampedDepth) {
 			// Copy the clip distance from the vertex shader.
 			p.F("    gl_ClipDistance%s = gl_in[i].gl_ClipDistance%s;\n", clipSuffix0, clipSuffix0);
-			p.F("    gl_ClipDistance%s = gl_in[i].gl_ClipDistance%s;\n", clipSuffix1, clipSuffix1);
-			p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clipSuffix2);
+			p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clipSuffix1);
 		} else {
 			// We shouldn't need to worry about rectangles-as-triangles here, since we don't use geometry shaders for that.
 			p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clipSuffix0);
