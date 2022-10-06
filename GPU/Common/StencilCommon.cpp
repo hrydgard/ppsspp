@@ -199,10 +199,13 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	if (!stencilUploadPipeline_) {
 		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 
-		char *fsCode = new char[4000];
-		char *vsCode = new char[4000];
+		char *fsCode = new char[8192];
+		char *vsCode = new char[8192];
 		GenerateStencilFs(fsCode, shaderLanguageDesc, draw_->GetBugs());
 		GenerateStencilVs(vsCode, shaderLanguageDesc);
+
+		_assert_msg_(strlen(fsCode) < 8192, "StenFS length error: %d", (int)strlen(fsCode));
+		_assert_msg_(strlen(vsCode) < 8192, "StenVS length error: %d", (int)strlen(vsCode));
 
 		ShaderModule *stencilUploadFs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "stencil_fs");
 		ShaderModule *stencilUploadVs = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "stencil_vs");

@@ -25,6 +25,8 @@
 #include "GPU/D3D9/D3D9ShaderCompiler.h"
 #endif
 
+static constexpr size_t CODE_BUFFER_SIZE = 32768;
+
 bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs bugs, std::string *errorString) {
 	uint64_t uniformMask;
 	switch (lang) {
@@ -243,10 +245,13 @@ bool TestReinterpretShaders() {
 					continue;  // useless shader!
 				ShaderWriter writer(buffer, desc, ShaderStage::Fragment, nullptr, 0);
 				GenerateReinterpretFragmentShader(writer, fmts[i], fmts[j]);
-				if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
-					printf("Error compiling fragment shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer).c_str(), errorMessage.c_str());
+				if (strlen(buffer) >= 8192) {
+					printf("Reinterpret fragment shader %d exceeded buffer:\n\n%s\n", (int)j, LineNumberString(buffer).c_str());
 					failed = true;
-					return false;
+				}
+				if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
+					printf("Error compiling reinterpret fragment shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer).c_str(), errorMessage.c_str());
+					failed = true;
 				} else {
 					printf("===\n%s\n===\n", buffer);
 				}
@@ -282,19 +287,25 @@ bool TestStencilShaders() {
 
 		// Generate all despite failures - it's only 6.
 		GenerateStencilFs(buffer, desc, bugs);
+		if (strlen(buffer) >= 8192) {
+			printf("Stencil fragment shader exceeded buffer:\n\n%s\n", LineNumberString(buffer).c_str());
+			failed = true;
+		}
 		if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
 			printf("Error compiling stencil shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
 			failed = true;
-			return false;
 		} else {
 			printf("===\n%s\n===\n", buffer);
 		}
 
 		GenerateStencilVs(buffer, desc);
+		if (strlen(buffer) >= 8192) {
+			printf("Stencil vertex shader exceeded buffer:\n\n%s\n", LineNumberString(buffer).c_str());
+			failed = true;
+		}
 		if (!TestCompileShader(buffer, languages[k], ShaderStage::Vertex, &errorMessage)) {
 			printf("Error compiling stencil shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
 			failed = true;
-			return false;
 		} else {
 			printf("===\n%s\n===\n", buffer);
 		}
@@ -319,8 +330,6 @@ bool TestDepalShaders() {
 
 	char *buffer = new char[65536];
 
-	bool failed = false;
-
 	for (int k = 0; k < ARRAY_SIZE(languages); k++) {
 		printf("=== %s ===\n\n", ShaderLanguageToString(languages[k]));
 
@@ -340,9 +349,14 @@ bool TestDepalShaders() {
 
 		ShaderWriter writer(buffer, desc, ShaderStage::Fragment);
 		GenerateDepalFs(writer, config);
+		if (strlen(buffer) >= 8192) {
+			printf("Depal shader exceeded buffer:\n\n%s\n", LineNumberString(buffer).c_str());
+			delete[] buffer;
+			return false;
+		}
 		if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
 			printf("Error compiling depal shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
-			failed = true;
+			delete[] buffer;
 			return false;
 		} else {
 			printf("===\n%s\n===\n", buffer);
@@ -350,7 +364,7 @@ bool TestDepalShaders() {
 	}
 
 	delete[] buffer;
-	return !failed;
+	return true;
 }
 
 const ShaderLanguage languages[] = {
@@ -410,6 +424,16 @@ bool TestVertexShaders() {
 			}
 		}
 
+		for (int j = 0; j < numLanguages; j++) {
+			if (strlen(buffer[j]) >= CODE_BUFFER_SIZE) {
+				printf("Vertex shader exceeded buffer:\n\n%s\n", LineNumberString(buffer[j]).c_str());
+				for (int i = 0; i < numLanguages; i++) {
+					delete[] buffer[i];
+				}
+				return false;
+			}
+		}
+
 		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
 		// let's try to compile them.
 		for (int j = 0; j < numLanguages; j++) {
@@ -417,6 +441,9 @@ bool TestVertexShaders() {
 				std::string errorMessage;
 				if (!TestCompileShader(buffer[j], languages[j], ShaderStage::Vertex, &errorMessage)) {
 					printf("Error compiling vertex shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
+					for (int i = 0; i < numLanguages; i++) {
+						delete[] buffer[i];
+					}
 					return false;
 				}
 				successes++;
@@ -471,6 +498,16 @@ bool TestFragmentShaders() {
 			// We ignore the contents of the error string here, not even gonna try to compile if it errors.
 		}
 
+		for (int j = 0; j < numLanguages; j++) {
+			if (strlen(buffer[j]) >= CODE_BUFFER_SIZE) {
+				printf("Fragment shader exceeded buffer:\n\n%s\n", LineNumberString(buffer[j]).c_str());
+				for (int i = 0; i < numLanguages; i++) {
+					delete[] buffer[i];
+				}
+				return false;
+			}
+		}
+
 		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
 		// let's try to compile them.
 		for (int j = 0; j < numLanguages; j++) {
@@ -478,6 +515,9 @@ bool TestFragmentShaders() {
 				std::string errorMessage;
 				if (!TestCompileShader(buffer[j], languages[j], ShaderStage::Fragment, &errorMessage)) {
 					printf("Error compiling fragment shader:\n\n%s\n\n%s\n", LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
+					for (int i = 0; i < numLanguages; i++) {
+						delete[] buffer[i];
+					}
 					return false;
 				}
 				successes++;
@@ -527,6 +567,16 @@ bool TestGeometryShaders() {
 			// We ignore the contents of the error string here, not even gonna try to compile if it errors.
 		}
 
+		for (int j = 0; j < numLanguages; j++) {
+			if (strlen(buffer[j]) >= CODE_BUFFER_SIZE) {
+				printf("Geoemtry shader exceeded buffer:\n\n%s\n", LineNumberString(buffer[j]).c_str());
+				for (int i = 0; i < numLanguages; i++) {
+					delete[] buffer[i];
+				}
+				return false;
+			}
+		}
+
 		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
 		// let's try to compile them.
 		for (int j = 0; j < numLanguages; j++) {
@@ -534,6 +584,9 @@ bool TestGeometryShaders() {
 				std::string errorMessage;
 				if (!TestCompileShader(buffer[j], languages[j], ShaderStage::Geometry, &errorMessage)) {
 					printf("Error compiling geometry shader:\n\n%s\n\n%s\n", LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
+					for (int i = 0; i < numLanguages; i++) {
+						delete[] buffer[i];
+					}
 					return false;
 				}
 				successes++;

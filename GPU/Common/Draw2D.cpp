@@ -178,9 +178,10 @@ void Draw2D::Ensure2DResources() {
 	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 
 	if (!draw2DVs_) {
-		char *vsCode = new char[4000];
+		char *vsCode = new char[8192];
 		ShaderWriter writer(vsCode, shaderLanguageDesc, ShaderStage::Vertex);
 		GenerateDraw2DVS(writer);
+		_assert_msg_(strlen(vsCode) < 8192, "Draw2D VS length error: %d", (int)strlen(vsCode));
 		draw2DVs_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "draw2d_vs");
 		_assert_(draw2DVs_);
 		delete[] vsCode;
@@ -215,9 +216,10 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 	using namespace Draw;
 	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 
-	char *fsCode = new char[4000];
+	char *fsCode = new char[8192];
 	ShaderWriter writer(fsCode, shaderLanguageDesc, ShaderStage::Fragment);
 	Draw2DPipelineInfo info = generate(writer);
+	_assert_msg_(strlen(fsCode) < 8192, "Draw2D FS length error: %d", (int)strlen(fsCode));
 
 	ShaderModule *fs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), info.tag);
 
