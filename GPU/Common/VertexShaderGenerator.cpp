@@ -1287,19 +1287,22 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	if (vertexRangeCulling && !IsVRBuild()) {
 		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
 		WRITE(p, "  float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
-		// Vertex range culling doesn't happen when Z clips, note sign of w is important.
-		WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || projZ * outPos.w > -outPos.w) {\n");
-		const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y";
-		const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y";
-		WRITE(p, "    if ((%s) || (%s)) {\n", outMin, outMax);
-		WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
-		WRITE(p, "    }\n");
-		WRITE(p, "  }\n");
-		WRITE(p, "  if (u_cullRangeMin.w <= 0.0) {\n");
-		WRITE(p, "    if (projPos.z < u_cullRangeMin.z || projPos.z > u_cullRangeMax.z) {\n");
-		WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
-		WRITE(p, "    }\n");
-		WRITE(p, "  }\n");
+
+		if (!bugs.Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
+			// Vertex range culling doesn't happen when Z clips, note sign of w is important.
+			WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || projZ * outPos.w > -outPos.w) {\n");
+			const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y";
+			const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y";
+			WRITE(p, "    if ((%s) || (%s)) {\n", outMin, outMax);
+			WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
+			WRITE(p, "    }\n");
+			WRITE(p, "  }\n");
+			WRITE(p, "  if (u_cullRangeMin.w <= 0.0) {\n");
+			WRITE(p, "    if (projPos.z < u_cullRangeMin.z || projPos.z > u_cullRangeMax.z) {\n");
+			WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
+			WRITE(p, "    }\n");
+			WRITE(p, "  }\n");
+		}
 
 		const char *cull0 = compat.shaderLanguage == HLSL_D3D11 ? ".x" : "[0]";
 		const char *cull1 = compat.shaderLanguage == HLSL_D3D11 ? ".y" : "[1]";
