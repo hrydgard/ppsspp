@@ -3305,10 +3305,11 @@ u32 GPUCommon::CheckGPUFeatures() const {
 		features |= GPU_SUPPORTS_DEPTH_TEXTURE;
 	}
 
-	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
-		if (draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported) {
-			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
-		}
+	bool canClipOrCull = draw_->GetDeviceCaps().clipDistanceSupported || draw_->GetDeviceCaps().cullDistanceSupported;
+	bool canDiscardVertex = draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
+	if (canClipOrCull || canDiscardVertex) {
+		// We'll dynamically use the parts that are supported, to reduce artifacts as much as possible.
+		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
 	}
 
 	if (draw_->GetDeviceCaps().framebufferFetchSupported) {
