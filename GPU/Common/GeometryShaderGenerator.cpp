@@ -45,10 +45,16 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 			gl_exts.push_back("#extension GL_EXT_gpu_shader4 : enable");
 		}
 	}
+	bool vertexRangeCulling = !id.Bit(GS_BIT_CURVE);
+	bool clipClampedDepth = gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP) && !gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE);
 
 	ShaderWriter p(buffer, compat, ShaderStage::Geometry, gl_exts.data(), gl_exts.size());
 	p.C("layout(triangles) in;\n");
-	p.C("layout(triangle_strip, max_vertices = 12) out;\n");
+	if (clipClampedDepth && vertexRangeCulling) {
+		p.C("layout(triangle_strip, max_vertices = 12) out;\n");
+	} else {
+		p.C("layout(triangle_strip, max_vertices = 6) out;\n");
+	}
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
@@ -58,8 +64,6 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	std::vector<VaryingDef> varyings, outVaryings;
-	bool vertexRangeCulling = !id.Bit(GS_BIT_CURVE);
-	bool clipClampedDepth = gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP) && !gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE);
 
 	if (id.Bit(GS_BIT_DO_TEXTURE)) {
 		varyings.push_back(VaryingDef{ "vec3", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" });
