@@ -258,7 +258,8 @@ struct MpegContext {
 };
 
 static bool isMpegInit;
-static int mpegLibVersion;
+static int mpegLibVersion = 0;
+static u32 mpegLibCrc = 0;
 static u32 streamIdGen;
 static int actionPostPut;
 static std::map<u32, MpegContext *> mpegMap;
@@ -403,7 +404,7 @@ void __MpegInit() {
 }
 
 void __MpegDoState(PointerWrap &p) {
-	auto s = p.Section("sceMpeg", 1, 3);
+	auto s = p.Section("sceMpeg", 1, 4);
 	if (!s)
 		return;
 
@@ -421,7 +422,14 @@ void __MpegDoState(PointerWrap &p) {
 			ringbufferPutPacketsAdded = 0;
 		} else {
 			Do(p, ringbufferPutPacketsAdded);
+		} 
+		if (s < 4) {
+			mpegLibCrc = 0;
 		}
+		else {
+			Do(p, mpegLibCrc);
+		}
+
 		Do(p, streamIdGen);
 		Do(p, mpegLibVersion);
 	}
@@ -440,8 +448,9 @@ void __MpegShutdown() {
 	mpegMap.clear();
 }
 
-void __MpegLoadModule(int version) {
+void __MpegLoadModule(int version,u32 crc) {
 	mpegLibVersion = version;
+	mpegLibCrc = crc;
 }
 
 static u32 sceMpegInit() {
@@ -450,7 +459,7 @@ static u32 sceMpegInit() {
 		// TODO: Need to properly hook module load/unload for this to work right.
 		//return ERROR_MPEG_ALREADY_INIT;
 	} else {
-		INFO_LOG(ME, "sceMpegInit()");
+		INFO_LOG(ME, "sceMpegInit(), mpegLibVersion 0x%0x, mpegLibcrc %x", mpegLibVersion, mpegLibCrc);
 	}
 	isMpegInit = true;
 	return hleDelayResult(0, "mpeg init", 750);
