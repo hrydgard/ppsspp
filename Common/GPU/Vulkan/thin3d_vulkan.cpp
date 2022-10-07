@@ -761,6 +761,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 			layout = VK_IMAGE_LAYOUT_GENERAL;
 		}
 	}
+
 	vkTex_->EndCreate(cmd, false, VK_PIPELINE_STAGE_TRANSFER_BIT, layout);
 	return true;
 }

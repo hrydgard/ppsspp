@@ -1548,7 +1548,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			}
 
 			int vertexOffset = 0;
-			if (c.drawIndexed.vbuffer == lastVertexBuffer) {  // This is invalidated on pipeline binds, so vertex stride will match
+			if (c.drawIndexed.vbuffer == lastVertexBuffer && (c.drawIndexed.voffset - lastVertexOffset) % lastGraphicsPipeline->vertexStride == 0) {  // This is invalidated on pipeline binds, so vertex stride will match
 				vertexOffset = (c.drawIndexed.voffset - lastVertexOffset) / lastGraphicsPipeline->vertexStride;
 			} else {
 				VkDeviceSize voffset = c.drawIndexed.voffset;
@@ -1566,12 +1566,19 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
 
 			// TODO: Use offsets here too. In the meantime, just invalidate offset caching.
-			lastVertexBuffer = VK_NULL_HANDLE;
+			int vertexOffset = 0;
 			if (c.draw.vbuffer) {
-				VkDeviceSize voffset = c.draw.voffset;
-				vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &voffset);
+				if (c.draw.vbuffer == lastVertexBuffer && (c.draw.voffset - lastVertexOffset) % lastGraphicsPipeline->vertexStride == 0) {
+					// NOTE: This assumes that we always pack vertices tightly!
+					vertexOffset = (c.draw.voffset - lastVertexOffset) / lastGraphicsPipeline->vertexStride;
+				} else {
+					VkDeviceSize voffset = c.draw.voffset;
+					vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &voffset);
+					lastVertexBuffer = c.draw.vbuffer;
+					lastVertexOffset = voffset;
+				}
 			}
-			vkCmdDraw(cmd, c.draw.count, 1, 0, 0);
+			vkCmdDraw(cmd, c.draw.count, 1, vertexOffset, 0);
 			break;
 		}
 
