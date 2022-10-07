@@ -1536,8 +1536,15 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		case VKRRenderCommand::DRAW_INDEXED:
 		{
 			static const char indexShift[2] = { 1, 2 };
+
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
 			int indexOffset = 0;
+
+			// Conservative limits for bind eliminination for Adreno. Still a good effect.
+			if (lastIndexOffset + c.drawIndexed.count > 32768) {
+				lastIndexBuffer = 0;
+			}
+
 			if (c.drawIndexed.ibuffer == lastIndexBuffer && c.drawIndexed.indexType == lastIndexType) {
 				indexOffset = (c.drawIndexed.ioffset - lastIndexOffset) >> (c.drawIndexed.indexType + 1);  // NOTE: This only works for UINT16 = 0 and UINT32 = 1.
 			} else {
@@ -1547,7 +1554,12 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				lastIndexOffset = c.drawIndexed.ioffset;
 			}
 
+			// Conservative limits for bind elimination for Adreno. Still a good effect.
 			int vertexOffset = 0;
+			if (lastVertexOffset > 16834) {
+				lastVertexBuffer = 0;
+			}
+
 			if (c.drawIndexed.vbuffer == lastVertexBuffer && (c.drawIndexed.voffset - lastVertexOffset) % lastGraphicsPipeline->vertexStride == 0) {  // This is invalidated on pipeline binds, so vertex stride will match
 				vertexOffset = (c.drawIndexed.voffset - lastVertexOffset) / lastGraphicsPipeline->vertexStride;
 			} else {
@@ -1565,8 +1577,12 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		{
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
 
-			// TODO: Use offsets here too. In the meantime, just invalidate offset caching.
+			// Conservative limits for bind elimination for Adreno. Still a good effect.
 			int vertexOffset = 0;
+			if (lastVertexOffset > 16834) {
+				lastVertexBuffer = 0;
+			}
+
 			if (c.draw.vbuffer) {
 				if (c.draw.vbuffer == lastVertexBuffer && (c.draw.voffset - lastVertexOffset) % lastGraphicsPipeline->vertexStride == 0) {
 					// NOTE: This assumes that we always pack vertices tightly!
