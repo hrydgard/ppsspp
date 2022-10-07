@@ -166,6 +166,7 @@ struct VKRGraphicsPipeline {
 
 	VKRGraphicsPipelineDesc *desc = nullptr;  // not owned!
 	Promise<VkPipeline> *pipeline[RP_TYPE_COUNT]{};
+	uint32_t vertexStride = 0;
 	std::string tag;
 };
 

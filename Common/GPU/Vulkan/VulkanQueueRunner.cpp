@@ -1391,18 +1391,20 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	VKRGraphicsPipeline *lastGraphicsPipeline = nullptr;
 	VKRComputePipeline *lastComputePipeline = nullptr;
+	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 
 	VkBuffer lastIndexBuffer = VK_NULL_HANDLE;
 	VkIndexType lastIndexType = VK_INDEX_TYPE_MAX_ENUM;
 	u32 lastIndexOffset = 0;
+
+	VkBuffer lastVertexBuffer = VK_NULL_HANDLE;
+	u32 lastVertexOffset = 0;
 
 	auto &commands = step.commands;
 
 	// We can do a little bit of state tracking here to eliminate some calls into the driver.
 	// The stencil ones are very commonly mostly redundant so let's eliminate them where possible.
 	// Might also want to consider scissor and viewport.
-	VkPipeline lastPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 
 	int lastStencilWriteMask = -1;
 	int lastStencilCompareMask = -1;
@@ -1433,6 +1435,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				if (pipeline != VK_NULL_HANDLE) {
 					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 					pipelineLayout = c.pipeline.pipelineLayout;
+					if (!lastGraphicsPipeline || graphicsPipeline->vertexStride == 0 || graphicsPipeline->vertexStride != lastGraphicsPipeline->vertexStride) {
+						lastVertexBuffer = VK_NULL_HANDLE;
+					}
 					lastGraphicsPipeline = graphicsPipeline;
 					// Reset dynamic state so it gets refreshed with the new pipeline.
 					lastStencilWriteMask = -1;
@@ -1541,19 +1546,34 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				lastIndexType = (VkIndexType)c.drawIndexed.indexType;
 				lastIndexOffset = c.drawIndexed.ioffset;
 			}
-			VkDeviceSize voffset = c.drawIndexed.voffset;
-			vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &voffset);
-			vkCmdDrawIndexed(cmd, c.drawIndexed.count, c.drawIndexed.instances, indexOffset, 0, 0);
+
+			int vertexOffset = 0;
+			if (c.drawIndexed.vbuffer == lastVertexBuffer) {  // This is invalidated on pipeline binds, so vertex stride will match
+				vertexOffset = (c.drawIndexed.voffset - lastVertexOffset) / lastGraphicsPipeline->vertexStride;
+			} else {
+				VkDeviceSize voffset = c.drawIndexed.voffset;
+				vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &voffset);
+				lastVertexBuffer = c.drawIndexed.vbuffer;
+				lastVertexOffset = voffset;
+			}
+
+			vkCmdDrawIndexed(cmd, c.drawIndexed.count, c.drawIndexed.instances, indexOffset, vertexOffset, 0);
 			break;
 		}
 
 		case VKRRenderCommand::DRAW:
+		{
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
+
+			// TODO: Use offsets here too. In the meantime, just invalidate offset caching.
+			lastVertexBuffer = VK_NULL_HANDLE;
 			if (c.draw.vbuffer) {
-				vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
+				VkDeviceSize voffset = c.draw.voffset;
+				vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &voffset);
 			}
 			vkCmdDraw(cmd, c.draw.count, 1, c.draw.offset, 0);
 			break;
+		}
 
 		case VKRRenderCommand::CLEAR:
 		{

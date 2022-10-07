@@ -80,6 +80,10 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	pipe.basePipelineIndex = 0;
 	pipe.subpass = 0;
 
+	if (desc->vis.vertexBindingDescriptionCount == 1) {
+		vertexStride = desc->vis.pVertexBindingDescriptions[0].stride;
+	}
+
 	double start = time_now_d();
 	VkPipeline vkpipeline;
 	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &pipe, nullptr, &vkpipeline);
