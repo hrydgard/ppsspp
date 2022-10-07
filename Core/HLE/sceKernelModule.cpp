@@ -1144,7 +1144,7 @@ static int gzipDecompress(u8 *OutBuffer, int OutBufferLength, u8 *InBuffer) {
 }
 
 static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, u32 &error) {
-	u32 crc = crc32(0, ptr, elfSize);
+	u32 crc = crc32(0, ptr, (uInt)elfSize);
 	PSPModule *module = new PSPModule();
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());

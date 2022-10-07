@@ -711,7 +711,7 @@ void __PsmfDoState(PointerWrap &p) {
 }
 
 void __PsmfPlayerDoState(PointerWrap &p) {
-	auto s = p.Section("scePsmfPlayer", 1, 3);
+	auto s = p.Section("scePsmfPlayer", 1, 4);
 	if (!s)
 		return;
 
@@ -724,7 +724,7 @@ void __PsmfPlayerDoState(PointerWrap &p) {
 		Do(p, eventPsmfPlayerStatusChange);
 	}
 	CoreTiming::RestoreRegisterEvent(eventPsmfPlayerStatusChange, "PsmfPlayerStatusChangeEvent", &__PsmfPlayerStatusChange);
-	if (s < 3) {
+	if (s < 4) {
 		psmfPlayerLibcrc = 0;
 	} else {
 		Do(p, psmfPlayerLibcrc);
