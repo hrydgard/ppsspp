@@ -24,7 +24,6 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceJpeg.h"
-#include "Core/HLE/sceMpeg.h"
 #include "GPU/GPUCommon.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -43,20 +42,33 @@ struct u24_be {
 	}
 };
 
+static int mjpegInited = 0;
 static int mjpegWidth, mjpegHeight;
 
 void __JpegInit() {
+	mjpegInited = 0;
 	mjpegWidth = 0;
 	mjpegHeight = 0;
 }
 
+enum : uint32_t {
+	ERROR_JPEG_CANNOT_FINISH = 0x80650039,
+	ERROR_JPEG_ALREADY_INIT = 0x80650042,
+	ERROR_JPEG_INVALID_VALUE = 0x80650051,
+};
+
 void __JpegDoState(PointerWrap &p) {
-	auto s = p.Section("sceJpeg", 1);
+	auto s = p.Section("sceJpeg", 1, 2);
 	if (!s)
 		return;
 
 	Do(p, mjpegWidth);
 	Do(p, mjpegHeight);
+	if (s >= 2) {
+		Do(p, mjpegInited);
+	} else {
+		mjpegInited = -1;
+	}
 }
 
 static int getWidthHeight(int width, int height) {
@@ -181,11 +193,6 @@ static int sceJpegDecodeMJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int dht
 	return __DecodeJpeg(jpegAddr, jpegSize, imageAddr);
 }
 
-static int sceJpegDeleteMJpeg() {
-	WARN_LOG(ME, "sceJpegDeleteMJpeg()");
-	return 0;
-}
-
 static int sceJpegDecodeMJpegSuccessively(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode) {
 	if (!Memory::IsValidAddress(jpegAddr)) {
 		ERROR_LOG(ME, "sceJpegDecodeMJpegSuccessively: Bad JPEG address 0x%08x", jpegAddr);
@@ -205,11 +212,6 @@ static int sceJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferW
 	__JpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth);
 	
 	DEBUG_LOG(ME, "sceJpegCsc(%08x, %08x, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
-	return 0;
-}
-
-static int sceJpegFinishMJpeg() {
-	WARN_LOG(ME, "sceJpegFinishMJpeg()");
 	return 0;
 }
 
@@ -378,6 +380,9 @@ static int sceJpeg_9B36444C() {
 }
 
 static int sceJpegCreateMJpeg(int width, int height) {
+	// Assume valid usage in an old save state.
+	if (mjpegInited == -1)
+		mjpegInited = 1;
 	mjpegWidth = width;
 	mjpegHeight = height;
 
@@ -385,9 +390,34 @@ static int sceJpegCreateMJpeg(int width, int height) {
 	return 0;
 }
 
-static int sceJpegInitMJpeg() {
-	WARN_LOG(ME, "sceJpegInitMJpeg()");
+static int sceJpegDeleteMJpeg() {
+	WARN_LOG(ME, "sceJpegDeleteMJpeg()");
+	if (mjpegInited == -1)
+		mjpegInited = 1;
+	mjpegWidth = 0;
+	mjpegHeight = 0;
 	return 0;
+}
+
+static int sceJpegInitMJpeg() {
+	if (mjpegInited == 1)
+		return hleLogError(ME, ERROR_JPEG_ALREADY_INIT, "already inited");
+
+	// If it was -1, it's from an old save state, avoid double init error but assume inited.
+	if (mjpegInited == 0)
+		mjpegInited = 1;
+	return hleLogDebug(ME, hleDelayResult(0, "mjpeg init", 130));
+}
+
+static int sceJpegFinishMJpeg() {
+	if (mjpegInited == 0)
+		return hleLogError(ME, ERROR_JPEG_CANNOT_FINISH, "already inited");
+	if (mjpegInited != -1 && (mjpegWidth != 0 || mjpegHeight != 0))
+		return hleLogError(ME, ERROR_JPEG_CANNOT_FINISH, "mjpeg not deleted");
+
+	// Even from an old save state, if we see this we leave compat mode.
+	mjpegInited = 0;
+	return hleLogDebug(ME, hleDelayResult(0, "mjpeg finish", 120));
 }
 
 static int sceJpegMJpegCscWithColorOption() {
