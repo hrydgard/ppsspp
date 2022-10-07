@@ -1392,6 +1392,10 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	VKRGraphicsPipeline *lastGraphicsPipeline = nullptr;
 	VKRComputePipeline *lastComputePipeline = nullptr;
 
+	VkBuffer lastIndexBuffer = VK_NULL_HANDLE;
+	VkIndexType lastIndexType = VK_INDEX_TYPE_MAX_ENUM;
+	u32 lastIndexOffset = 0;
+
 	auto &commands = step.commands;
 
 	// We can do a little bit of state tracking here to eliminate some calls into the driver.
@@ -1526,11 +1530,20 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::DRAW_INDEXED:
 		{
+			static const char indexShift[2] = { 1, 2 };
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
-			vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, (VkIndexType)c.drawIndexed.indexType);
+			int indexOffset = 0;
+			if (c.drawIndexed.ibuffer == lastIndexBuffer && c.drawIndexed.indexType == lastIndexType) {
+				indexOffset = (c.drawIndexed.ioffset - lastIndexOffset) >> (c.drawIndexed.indexType + 1);  // NOTE: This only works for UINT16 = 0 and UINT32 = 1.
+			} else {
+				vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, (VkIndexType)c.drawIndexed.indexType);
+				lastIndexBuffer = c.drawIndexed.ibuffer;
+				lastIndexType = (VkIndexType)c.drawIndexed.indexType;
+				lastIndexOffset = c.drawIndexed.ioffset;
+			}
 			VkDeviceSize voffset = c.drawIndexed.voffset;
 			vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &voffset);
-			vkCmdDrawIndexed(cmd, c.drawIndexed.count, c.drawIndexed.instances, 0, 0, 0);
+			vkCmdDrawIndexed(cmd, c.drawIndexed.count, c.drawIndexed.instances, indexOffset, 0, 0);
 			break;
 		}
 
