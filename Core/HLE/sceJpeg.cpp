@@ -21,9 +21,11 @@
 #include "Common/CommonTypes.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceJpeg.h"
+#include "Core/HLE/sceKernel.h"
 #include "GPU/GPUCommon.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -53,7 +55,9 @@ void __JpegInit() {
 }
 
 enum : uint32_t {
+	ERROR_JPEG_INVALID_DATA = 0x80650004,
 	ERROR_JPEG_INVALID_SIZE = 0x80650020,
+	ERROR_JPEG_NO_SOI = 0x80650023,
 	ERROR_JPEG_INVALID_STATE = 0x80650039,
 	ERROR_JPEG_ALREADY_INIT = 0x80650042,
 	ERROR_JPEG_INVALID_VALUE = 0x80650051,
@@ -222,21 +226,30 @@ static int getYCbCrBufferSize(int w, int h) {
 	return ((w * h) >> 1) * 3;
 }
 
-static int __JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
-	const u8 *buf = Memory::GetPointer(jpegAddr);
+static int JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
+	if (!Memory::IsValidRange(jpegAddr, jpegSize))
+		return hleLogError(ME, ERROR_JPEG_NO_SOI, "invalid jpeg address");
+	if (jpegSize == 0)
+		return hleLogError(ME, ERROR_JPEG_INVALID_DATA, "invalid jpeg data");
+
+	NotifyMemInfo(MemBlockFlags::READ, jpegAddr, jpegSize, "JpegGetOutputInfo");
+
+	const u8 *buf = Memory::GetPointerUnchecked(jpegAddr);
+	if (jpegSize < 2 || buf[0] != 0xFF || buf[1] != 0xD8)
+		return hleLogError(ME, ERROR_JPEG_NO_SOI, "no SOI found, invalid data");
+
 	int width, height, actual_components;
 	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
 
-	if (actual_components != 3) {
-	// The assumption that the image was RGB was wrong...
-	// Try again.
+	if (actual_components != 3 && actual_components != 1) {
+		// The assumption that the image was RGB was wrong...
+		// Try again.
 		int components = actual_components;
 		jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, components);
 	}
 
-	if (jpegBuf == NULL) {
-		ERROR_LOG(ME, "sceJpegGetOutputInfo: Bad JPEG data");
-		return getYCbCrBufferSize(0, 0);
+	if (jpegBuf == nullptr) {
+		return hleLogError(ME, ERROR_JPEG_INVALID_DATA, "unable to decompress jpeg");
 	}
 
 	free(jpegBuf);
@@ -247,12 +260,14 @@ static int __JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 	// - Bits 8 to 16 (Vertical chroma subsampling value): 0x00, 0x01 or 0x02
 	// - Bits 0 to 8 (Horizontal chroma subsampling value): 0x00, 0x01 or 0x02
 	if (Memory::IsValidAddress(colourInfoAddr)) {
+		// Note: can't actually seem to get any other subsampling values or color modes to work on a PSP.
 		Memory::Write_U32(0x00020202, colourInfoAddr);
+		NotifyMemInfo(MemBlockFlags::WRITE, colourInfoAddr, 4, "JpegGetOutputInfo");
 	}
 
 #ifdef JPEG_DEBUG
 		char jpeg_fname[256];
-		u8 *jpegDumpBuf = Memory::GetPointer(jpegAddr);
+		const u8 *jpegDumpBuf = Memory::GetPointer(jpegAddr);
 		u32 jpeg_xxhash = XXH32((const char *)jpegDumpBuf, jpegSize, 0xC0108888);
 		sprintf(jpeg_fname, "Jpeg\\%X.jpg", jpeg_xxhash);
 		FILE *wfp = fopen(jpeg_fname, "wb");
@@ -264,17 +279,17 @@ static int __JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 		fclose(wfp);
 #endif //JPEG_DEBUG
 
-	return getYCbCrBufferSize(width, height);
+	return hleLogSuccessI(ME, getYCbCrBufferSize(width, height));
 }
 
 static int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dhtMode) {
-	if (!Memory::IsValidAddress(jpegAddr)) {
-		ERROR_LOG(ME, "sceJpegGetOutputInfo: Bad JPEG address 0x%08x", jpegAddr);
-		return getYCbCrBufferSize(0, 0);
-	}
+	if ((jpegAddr | jpegSize | (jpegAddr + jpegSize)) & 0x80000000)
+		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
 
-	DEBUG_LOG(ME, "sceJpegGetOutputInfo(%08x, %i, %08x, %i)", jpegAddr, jpegSize, colourInfoAddr, dhtMode);
-	return __JpegGetOutputInfo(jpegAddr, jpegSize, colourInfoAddr);
+	int result = JpegGetOutputInfo(jpegAddr, jpegSize, colourInfoAddr);
+	// Time taken varies a bit, this is the low end.  Depends on data.
+	// Note that errors delay as well.
+	return hleDelayResult(result, "jpeg get output info", 250);
 }
 
 static u32 convertRGBToYCbCr(u32 rgb) {
@@ -459,7 +474,7 @@ const HLEFunction sceJpeg[] =
 	{0X64B6F978, &WrapI_UIUI<sceJpegDecodeMJpegSuccessively>,       "sceJpegDecodeMJpegSuccessively",      'i', "xixi" },
 	{0X67F0ED84, &WrapI_UUIII<sceJpegCsc>,                          "sceJpegCsc",                          'i', "xxiii"},
 	{0X7D2F3D7F, &WrapI_V<sceJpegFinishMJpeg>,                      "sceJpegFinishMJpeg",                  'i', ""     },
-	{0X8F2BB012, &WrapI_UIUI<sceJpegGetOutputInfo>,                 "sceJpegGetOutputInfo",                'i', "xixi" },
+	{0X8F2BB012, &WrapI_UIUI<sceJpegGetOutputInfo>,                 "sceJpegGetOutputInfo",                'x', "xipi" },
 	{0X91EED83C, &WrapI_UIUII<sceJpegDecodeMJpegYCbCr>,             "sceJpegDecodeMJpegYCbCr",             'i', "xixii"},
 	{0X9B36444C, &WrapI_V<sceJpeg_9B36444C>,                        "sceJpeg_9B36444C",                    'i', ""     },
 	{0X9D47469C, &WrapI_II<sceJpegCreateMJpeg>,                     "sceJpegCreateMJpeg",                  'i', "ii"   },
