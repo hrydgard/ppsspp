@@ -43,16 +43,18 @@ struct u24_be {
 };
 
 static int mjpegInited = 0;
-static int mjpegWidth, mjpegHeight;
+static int mjpegWidth = 0x7FFFFFFF;
+static int mjpegHeight = 0x7FFFFFFF;
 
 void __JpegInit() {
 	mjpegInited = 0;
-	mjpegWidth = 0;
-	mjpegHeight = 0;
+	mjpegWidth = 0x7FFFFFFF;
+	mjpegHeight = 0x7FFFFFFF;
 }
 
 enum : uint32_t {
-	ERROR_JPEG_CANNOT_FINISH = 0x80650039,
+	ERROR_JPEG_INVALID_SIZE = 0x80650020,
+	ERROR_JPEG_INVALID_STATE = 0x80650039,
 	ERROR_JPEG_ALREADY_INIT = 0x80650042,
 	ERROR_JPEG_INVALID_VALUE = 0x80650051,
 };
@@ -380,23 +382,33 @@ static int sceJpeg_9B36444C() {
 }
 
 static int sceJpegCreateMJpeg(int width, int height) {
+	if (mjpegInited == 0)
+		return hleLogError(ME, ERROR_JPEG_INVALID_STATE, "not yet inited");
+	if (mjpegInited == 1 && mjpegWidth != 0x7FFFFFFF)
+		return hleLogError(ME, ERROR_JPEG_INVALID_STATE, "already created");
+	if (width > 1024)
+		return hleLogError(ME, ERROR_JPEG_INVALID_SIZE, "width outside bounds");
+
 	// Assume valid usage in an old save state.
 	if (mjpegInited == -1)
 		mjpegInited = 1;
 	mjpegWidth = width;
 	mjpegHeight = height;
 
-	INFO_LOG(ME, "sceJpegCreateMJpeg(%i, %i)", width, height);
-	return 0;
+	return hleLogSuccessInfoI(ME, 0);
 }
 
 static int sceJpegDeleteMJpeg() {
-	WARN_LOG(ME, "sceJpegDeleteMJpeg()");
+	if (mjpegInited == 0)
+		return hleLogError(ME, ERROR_JPEG_INVALID_STATE, "not yet inited");
+	if (mjpegInited == 1 && mjpegWidth == 0x7FFFFFFF)
+		return hleLogError(ME, ERROR_JPEG_INVALID_STATE, "nto yet created");
+
 	if (mjpegInited == -1)
 		mjpegInited = 1;
-	mjpegWidth = 0;
-	mjpegHeight = 0;
-	return 0;
+	mjpegWidth = 0x7FFFFFFF;
+	mjpegHeight = 0x7FFFFFFF;
+	return hleLogSuccessInfoI(ME, 0);
 }
 
 static int sceJpegInitMJpeg() {
@@ -411,9 +423,9 @@ static int sceJpegInitMJpeg() {
 
 static int sceJpegFinishMJpeg() {
 	if (mjpegInited == 0)
-		return hleLogError(ME, ERROR_JPEG_CANNOT_FINISH, "already inited");
-	if (mjpegInited != -1 && (mjpegWidth != 0 || mjpegHeight != 0))
-		return hleLogError(ME, ERROR_JPEG_CANNOT_FINISH, "mjpeg not deleted");
+		return hleLogError(ME, ERROR_JPEG_INVALID_STATE, "already inited");
+	if (mjpegInited != -1 && (mjpegWidth != 0x7FFFFFFF || mjpegHeight != 0x7FFFFFFF))
+		return hleLogError(ME, ERROR_JPEG_INVALID_STATE, "mjpeg not deleted");
 
 	// Even from an old save state, if we see this we leave compat mode.
 	mjpegInited = 0;
