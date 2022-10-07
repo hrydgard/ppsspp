@@ -1571,7 +1571,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				VkDeviceSize voffset = c.draw.voffset;
 				vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &voffset);
 			}
-			vkCmdDraw(cmd, c.draw.count, 1, c.draw.offset, 0);
+			vkCmdDraw(cmd, c.draw.count, 1, 0, 0);
 			break;
 		}
 

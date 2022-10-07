@@ -131,7 +131,7 @@ public:
 
 	void EndFrame() override;
 
-	void Draw(int vertexCount, int offset) override;
+	void Draw(int vertexCount) override;
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
@@ -1227,9 +1227,9 @@ void D3D11DrawContext::BindIndexBuffer(Buffer *indexBuffer, int offset) {
 	nextIndexBufferOffset_ = buf ? offset : 0;
 }
 
-void D3D11DrawContext::Draw(int vertexCount, int offset) {
+void D3D11DrawContext::Draw(int vertexCount) {
 	ApplyCurrentState();
-	context_->Draw(vertexCount, offset);
+	context_->Draw(vertexCount, 0);
 }
 
 void D3D11DrawContext::DrawIndexed(int indexCount, int offset) {
@@ -1244,8 +1244,7 @@ void D3D11DrawContext::DrawUP(const void *vdata, int vertexCount) {
 
 	UpdateBuffer(upBuffer_, (const uint8_t *)vdata, 0, byteSize, Draw::UPDATE_DISCARD);
 	BindVertexBuffers(0, 1, &upBuffer_, nullptr);
-	int offset = 0;
-	Draw(vertexCount, offset);
+	Draw(vertexCount);
 }
 
 uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {

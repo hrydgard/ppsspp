@@ -418,8 +418,7 @@ public:
 
 	void UpdateDynamicUniformBuffer(const void *ub, size_t size) override;
 
-	// TODO: Add more sophisticated draws.
-	void Draw(int vertexCount, int offset) override;
+	void Draw(int vertexCount) override;
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 
@@ -1279,13 +1278,13 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 	}
 }
 
-void OpenGLContext::Draw(int vertexCount, int offset) {
+void OpenGLContext::Draw(int vertexCount) {
 	_dbg_assert_msg_(curVBuffers_[0] != nullptr, "Can't call Draw without a vertex buffer");
 	ApplySamplers();
 	if (curPipeline_->inputLayout) {
 		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
 	}
-	renderManager_.Draw(curPipeline_->prim, offset, vertexCount);
+	renderManager_.Draw(curPipeline_->prim, 0, vertexCount);
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {

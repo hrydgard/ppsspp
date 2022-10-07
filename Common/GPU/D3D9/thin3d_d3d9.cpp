@@ -570,7 +570,7 @@ public:
 	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override;
 
 	void ApplyDynamicState();
-	void Draw(int vertexCount, int offset) override;
+	void Draw(int vertexCount) override;
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
@@ -1108,12 +1108,12 @@ inline int D3DPrimCount(D3DPRIMITIVETYPE prim, int size) {
 	return (size / D3DPRIMITIVEVERTEXCOUNT[prim][0]) - D3DPRIMITIVEVERTEXCOUNT[prim][1];
 }
 
-void D3D9Context::Draw(int vertexCount, int offset) {
+void D3D9Context::Draw(int vertexCount) {
 	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
 	curPipeline_->inputLayout->Apply(device_);
 	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
 	ApplyDynamicState();
-	device_->DrawPrimitive(curPipeline_->prim, offset, D3DPrimCount(curPipeline_->prim, vertexCount));
+	device_->DrawPrimitive(curPipeline_->prim, 0, D3DPrimCount(curPipeline_->prim, vertexCount));
 }
 
 void D3D9Context::DrawIndexed(int vertexCount, int offset) {

@@ -708,7 +708,7 @@ public:
 
 	virtual void BindPipeline(Pipeline *pipeline) = 0;
 
-	virtual void Draw(int vertexCount, int offset) = 0;
+	virtual void Draw(int vertexCount) = 0;
 	virtual void DrawIndexed(int vertexCount, int offset) = 0;  // Always 16-bit indices.
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	

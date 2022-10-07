@@ -440,7 +440,7 @@ public:
 	void UpdateDynamicUniformBuffer(const void *ub, size_t size) override;
 
 	// TODO: Add more sophisticated draws.
-	void Draw(int vertexCount, int offset) override;
+	void Draw(int vertexCount) override;
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 
@@ -1324,7 +1324,7 @@ void VKContext::ApplyDynamicState() {
 	}
 }
 
-void VKContext::Draw(int vertexCount, int offset) {
+void VKContext::Draw(int vertexCount) {
 	VKBuffer *vbuf = curVBuffers_[0];
 
 	VkBuffer vulkanVbuf;
@@ -1340,7 +1340,7 @@ void VKContext::Draw(int vertexCount, int offset) {
 
 	BindCurrentPipeline();
 	ApplyDynamicState();
-	renderManager_.Draw(descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount, offset);
+	renderManager_.Draw(descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount);
 }
 
 void VKContext::DrawIndexed(int vertexCount, int offset) {
