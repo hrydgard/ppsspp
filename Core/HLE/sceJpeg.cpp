@@ -442,6 +442,13 @@ static int sceJpegDecompressAllImage() {
 	return 0;
 }
 
+void JpegNotifyLoadStatus(int state) {
+	if (state == -1) {
+		// Reset our state on unload.
+		__JpegInit();
+	}
+}
+
 const HLEFunction sceJpeg[] =
 {
 	{0X0425B986, &WrapI_V<sceJpegDecompressAllImage>,               "sceJpegDecompressAllImage",           'i', ""     },
