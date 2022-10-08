@@ -59,6 +59,7 @@ enum : uint32_t {
 	ERROR_JPEG_INVALID_SIZE = 0x80650020,
 	ERROR_JPEG_NO_SOI = 0x80650023,
 	ERROR_JPEG_INVALID_STATE = 0x80650039,
+	ERROR_JPEG_OUT_OF_MEMORY = 0x80650041,
 	ERROR_JPEG_ALREADY_INIT = 0x80650042,
 	ERROR_JPEG_INVALID_VALUE = 0x80650051,
 };
@@ -309,11 +310,11 @@ static u32 convertRGBToYCbCr(u32 rgb) {
 	return (y << 16) | (cb << 8) | cr;
 }
 
-static int __JpegConvertRGBToYCbCr (const void *data, u32 bufferOutputAddr, int width, int height) {
-	u24_be *imageBuffer = (u24_be*)data;
+static int JpegConvertRGBToYCbCr(const void *data, u8 *output, int width, int height) {
+	u24_be *imageBuffer = (u24_be *)data;
 	int sizeY = width * height;
 	int sizeCb = sizeY >> 2;
-	u8 *Y = (u8*)Memory::GetPointer(bufferOutputAddr);
+	u8 *Y = output;
 	u8 *Cb = Y + sizeY;
 	u8 *Cr = Cb + sizeCb;
 
@@ -338,57 +339,83 @@ static int __JpegConvertRGBToYCbCr (const void *data, u32 bufferOutputAddr, int 
 			*Cr++ = yCbCr0 & 0xFF;
 		}
 		imageBuffer += width;
-		Y += width ;
+		Y += width;
 	}
 	return getWidthHeight(width, height);
 }
 
-static int __JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr) {
-	const u8 *buf = Memory::GetPointer(jpegAddr);
+static int JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int &usec) {
+	if (!Memory::IsValidRange(jpegAddr, jpegSize))
+		return hleLogError(ME, ERROR_JPEG_NO_SOI, "invalid jpeg address");
+	if (jpegSize == 0)
+		return hleLogError(ME, ERROR_JPEG_INVALID_DATA, "invalid jpeg data");
+
+	NotifyMemInfo(MemBlockFlags::READ, jpegAddr, jpegSize, "JpegDecodeMJpegYCbCr");
+
+	const u8 *buf = Memory::GetPointerUnchecked(jpegAddr);
+	if (jpegSize < 2 || buf[0] != 0xFF || buf[1] != 0xD8)
+		return hleLogError(ME, ERROR_JPEG_NO_SOI, "no SOI found, invalid data");
+
 	int width, height, actual_components;
 	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
 
-	if (actual_components != 3) {
+	if (actual_components != 3 && actual_components != 1) {
 		// The assumption that the image was RGB was wrong...
 		// Try again.
 		int components = actual_components;
 		jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, components);
 	}
 
-	if (jpegBuf == NULL) {
-		return getWidthHeight(0, 0);
+	if (jpegBuf == nullptr) {
+		return hleLogError(ME, ERROR_JPEG_INVALID_DATA, "unable to decompress jpeg");
 	}
 
-	if (actual_components == 3) {
-		__JpegConvertRGBToYCbCr(jpegBuf, yCbCrAddr, width, height);
+	if (yCbCrSize < getYCbCrBufferSize(width, height)) {
+		free(jpegBuf);
+		return hleLogError(ME, ERROR_JPEG_OUT_OF_MEMORY, "buffer not large enough");
+	}
+
+	// Technically, it seems like the PSP doesn't support grayscale, but we might as well.
+	if (actual_components == 3 || actual_components == 1) {
+		if (Memory::IsValidRange(yCbCrAddr, getYCbCrBufferSize(width, height))) {
+			JpegConvertRGBToYCbCr(jpegBuf, Memory::GetPointerWriteUnchecked(yCbCrAddr), width, height);
+			NotifyMemInfo(MemBlockFlags::WRITE, yCbCrAddr, getYCbCrBufferSize(width, height), "JpegDecodeMJpegYCbCr");
+		} else {
+			// There's some weird behavior on the PSP where it writes data around the last passed address.
+			WARN_LOG_REPORT(ME, "JpegDecodeMJpegYCbCr: Invalid output address (%08x / %08x) for %dx%d", yCbCrAddr, yCbCrSize, width, height);
+		}
 	}
 
 	free(jpegBuf);
 
-	// TODO: There's more...
-
-	return getWidthHeight(width, height);
+	// Rough estimate based on observed timing.
+	usec += getYCbCrBufferSize(width, height) / 21;
+	return hleLogSuccessI(ME, getWidthHeight(width, height));
 }
 
 static int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode) {
-	if (!Memory::IsValidAddress(jpegAddr)) {
-		ERROR_LOG(ME, "sceJpegDecodeMJpegYCbCr: Bad JPEG address 0x%08x", jpegAddr);
-		return getWidthHeight(0, 0);
-	}
+	if ((jpegAddr | jpegSize | (jpegAddr + jpegSize)) & 0x80000000)
+		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
+	if ((yCbCrAddr | yCbCrSize | (yCbCrAddr + yCbCrSize)) & 0x80000000)
+		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid output address");
+	if (!Memory::IsValidRange(jpegAddr, jpegSize))
+		return hleLogError(ME, ERROR_JPEG_INVALID_VALUE, "invalid jpeg address");
 	
-	DEBUG_LOG(ME, "sceJpegDecodeMJpegYCbCr(%08x, %i, %08x, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
-	return __JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr);
+	int usec = 300;
+	int result = JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, usec);
+	return hleDelayResult(result, "jpeg decode", usec);
 }
 
 static int sceJpegDecodeMJpegYCbCrSuccessively(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode) {
-	if (!Memory::IsValidAddress(jpegAddr)) {
-		ERROR_LOG(ME, "sceJpegDecodeMJpegYCbCrSuccessively: Bad JPEG address 0x%08x", jpegAddr);
-		return getWidthHeight(0, 0);
-	}
+	if ((jpegAddr | jpegSize | (jpegAddr + jpegSize)) & 0x80000000)
+		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
+	if ((yCbCrAddr | yCbCrSize | (yCbCrAddr + yCbCrSize)) & 0x80000000)
+		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid output address");
 	
-	DEBUG_LOG(ME, "sceJpegDecodeMJpegYCbCrSuccessively(%08x, %i, %08x, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
 	// Do as same way as sceJpegDecodeMJpegYCbCr() but with smaller block size
-	return __JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr);
+	int usec = 300;
+	int result = JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, usec);
+	return hleDelayResult(result, "jpeg decode", usec);
 }
 
 static int sceJpeg_9B36444C() {
