@@ -56,6 +56,7 @@ void __JpegInit() {
 
 enum : uint32_t {
 	ERROR_JPEG_INVALID_DATA = 0x80650004,
+	ERROR_JPEG_INVALID_COLORSPACE = 0x80650013,
 	ERROR_JPEG_INVALID_SIZE = 0x80650020,
 	ERROR_JPEG_NO_SOI = 0x80650023,
 	ERROR_JPEG_INVALID_STATE = 0x80650039,
@@ -82,7 +83,8 @@ static int getWidthHeight(int width, int height) {
 	return (width << 16) | height;
 }
 
-static u32 convertYCbCrToABGR (int y, int cb, int cr) {
+// TODO: sceJpegCsc and sceJpegMJpegCsc use different factors.
+static u32 convertYCbCrToABGR(int y, int cb, int cr) {
 	//see http://en.wikipedia.org/wiki/Yuv#Y.27UV444_to_RGB888_conversion for more information.
 	cb = cb - 128;
 	cr = cr - 128;
@@ -95,56 +97,166 @@ static u32 convertYCbCrToABGR (int y, int cb, int cr) {
 	if (g > 0xFF) g = 0xFF; if(g < 0) g = 0;
 	if (b > 0xFF) b = 0xFF; if(b < 0) b = 0;
 
-	return 0xFF000000 | (b << 16) | (g << 8) | (r << 0);
+	return (b << 16) | (g << 8) | (r << 0);
 }
 
-static void __JpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth) {
-	int height = widthHeight & 0xFFF;
-	int width = (widthHeight >> 16) & 0xFFF;
-	int lineWidth = std::min(width, bufferWidth);
-	int skipEndOfLine = std::max(0, bufferWidth - lineWidth);
-	u32_le *imageBuffer = (u32_le *)Memory::GetPointer(imageAddr);
+static int JpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, uint32_t chroma, int &usec) {
+	if ((chroma & 0x000FFFFF) != 0x00020202 && (chroma & 0x000FFFFF) != 0x00020201 && (chroma & 0x000FFFFF) != 0x00020101)
+		return hleLogError(ME, ERROR_JPEG_INVALID_COLORSPACE, "invalid colorspace");
+	if (bufferWidth < 0)
+		bufferWidth = 0;
+
+	int height = widthHeight & 0xFFFF;
+	int width = (widthHeight >> 16) & 0xFFFF;
+	if (height == 0)
+		height = 1;
+
+	uint8_t widthShift = ((chroma >> 8) & 0x03) - 1;
+	uint8_t heightShift = (chroma & 0x03) - 1;
+	int sizeY = width * height;
+	int sizeCb = sizeY >> (widthShift + heightShift);
+
+	uint64_t destSize = ((uint64_t)bufferWidth * (height - 1) + width) * 4;
+	if (destSize > 0x3FFFFFFF || !Memory::IsValidRange(imageAddr, (uint32_t)destSize))
+		return hleLogError(ME, ERROR_JPEG_INVALID_VALUE, "invalid dest address or size");
+	if (sizeY > 0x3FFFFFFF || !Memory::IsValidRange(yCbCrAddr, sizeY + sizeCb + sizeCb))
+		return hleLogError(ME, ERROR_JPEG_INVALID_VALUE, "invalid src address or size");
+
+	u32_le *imageBuffer = (u32_le *)Memory::GetPointerWriteUnchecked(imageAddr);
+	const u8 *Y = (const u8 *)Memory::GetPointerUnchecked(yCbCrAddr);
+	const u8 *Cb = Y + sizeY;
+	const u8 *Cr = Cb + sizeCb;
+
+	// Very approximate estimate based on tests on a PSP.  Usually under.
+	usec += 60 + 6 * height + width / 2 + width / 4;
+
+	if ((widthHeight & 0x00010001) == 0 && height > 1) {
+		for (int y = 0; y < height; y += 2) {
+			for (int x = 0; x < width; x += 2) {
+				u8 y0 = Y[width * y + x];
+				u8 y1 = Y[width * y + x + 1];
+				u8 y2 = Y[width * (y + 1) + x];
+				u8 y3 = Y[width * (y + 1) + x + 1];
+				u8 cb = Cb[(width >> widthShift) * (y >> heightShift) + (x >> widthShift)];
+				u8 cr = Cr[(width >> widthShift) * (y >> heightShift) + (x >> widthShift)];
+
+				imageBuffer[bufferWidth * y + x + 0] = convertYCbCrToABGR(y0, cb, cr);
+				imageBuffer[bufferWidth * y + x + 1] = convertYCbCrToABGR(y1, cb, cr);
+				imageBuffer[bufferWidth * (y + 1) + x] = convertYCbCrToABGR(y2, cb, cr);
+				imageBuffer[bufferWidth * (y + 1) + x + 1] = convertYCbCrToABGR(y3, cb, cr);
+			}
+		}
+	} else {
+		for (int y = 0; y < height; ++y) {
+			for (int x = 0; x < width; ++x) {
+				u8 yy = Y[width * y + x];
+				u8 cb = Cb[(width >> widthShift) * (y >> heightShift) + (x >> widthShift)];
+				u8 cr = Cr[(width >> widthShift) * (y >> heightShift) + (x >> widthShift)];
+
+				imageBuffer[bufferWidth * y + x] = convertYCbCrToABGR(yy, cb, cr);
+			}
+		}
+	}
+
+	NotifyMemInfo(MemBlockFlags::READ, yCbCrAddr, sizeY + sizeCb + sizeCb, "JpegCsc");
+	NotifyMemInfo(MemBlockFlags::WRITE, imageAddr, (uint32_t)destSize, "JpegCsc");
+
+	if ((widthHeight & 0xFFFF) == 0)
+		return hleLogSuccessI(ME, -1);
+	return hleLogSuccessI(ME, 0);
+}
+
+static int JpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, int &usec) {
+	int height = widthHeight & 0xFFFF;
+	int width = (widthHeight >> 16) & 0xFFFF;
+	if (bufferWidth < 0)
+		bufferWidth = bufferWidth > -901 ? 901 + bufferWidth : 0;
+	if (height == 0)
+		height = 1;
+
+	uint8_t widthShift = 1;
+	uint8_t heightShift = 1;
 	int sizeY = width * height;
 	int sizeCb = sizeY >> 2;
-	u8 *Y = (u8*)Memory::GetPointer(yCbCrAddr);
-	u8 *Cb = Y + sizeY;
-	u8 *Cr = Cb + sizeCb;
 
-	for (int y = 0; y < height; ++y) {
-		for (int x = 0; x < width; x += 4) {
-			u8 y0 =  Y[x + 0];
-			u8 y1 =  Y[x + 1];
-			u8 y2 =  Y[x + 2];
-			u8 y3 =  Y[x + 3];
-			u8 cb = *Cb++;
-			u8 cr = *Cr++;
+	if (width > 720 || height > 480)
+		return hleLogError(ME, ERROR_JPEG_INVALID_SIZE, "invalid size, max 720x480");
+	if (bufferWidth > 1024)
+		return hleLogError(ME, ERROR_JPEG_INVALID_SIZE, "invalid stride, max 1024");
+	uint32_t destSize = (bufferWidth * (height - 1) + width) * 4;
+	if (!Memory::IsValidRange(imageAddr, destSize))
+		return hleLogError(ME, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid dest address or size");
 
-			// Convert to ABGR. This is not a fast way to do it.
-			u32 abgr0 = convertYCbCrToABGR(y0, cb, cr);
-			u32 abgr1 = convertYCbCrToABGR(y1, cb, cr);
-			u32 abgr2 = convertYCbCrToABGR(y2, cb, cr);
-			u32 abgr3 = convertYCbCrToABGR(y3, cb, cr);
+	u32_le *imageBuffer = (u32_le *)Memory::GetPointerWriteUnchecked(imageAddr);
+	const u8 *Y = (const u8 *)Memory::GetPointerUnchecked(yCbCrAddr);
+	const u8 *Cb = Y + sizeY;
+	const u8 *Cr = Cb + sizeCb;
 
-			// Write ABGR
-			imageBuffer[x + 0] = abgr0;
-			imageBuffer[x + 1] = abgr1;
-			imageBuffer[x + 2] = abgr2;
-			imageBuffer[x + 3] = abgr3;
-		}
-		Y += width;
-		imageBuffer += width;
-		imageBuffer += skipEndOfLine;
+	// Very approximate estimate based on tests on a PSP.  Usually under.
+	// The PSP behaves strangely for heights below 16, not rescheduling and writing fewer bytes.
+	if (height >= 16) {
+		usec += 9 * height;
 	}
+
+	if (!Memory::IsValidRange(yCbCrAddr, sizeY + sizeCb + sizeCb)) {
+		// Seems to write based on zeros?  Maybe reuses some other value?
+		for (int y = 0; y < height; ++y) {
+			for (int x = 0; x < width; ++x) {
+				imageBuffer[bufferWidth * y + x] = convertYCbCrToABGR(0, 0, 0);
+			}
+		}
+	} else if ((widthHeight & 0x00030000) == 0) {
+		for (int y = 0; y < height; ++y) {
+			for (int x = 0; x < width; x += 4) {
+				int offset = width * y + x;
+				u8 y0 = Y[offset + 0];
+				u8 y1 = Y[offset + 1];
+				u8 y2 = Y[offset + 2];
+				u8 y3 = Y[offset + 3];
+				u8 cb = Cb[offset >> 2];
+				u8 cr = Cr[offset >> 2];
+
+				imageBuffer[bufferWidth * y + x + 0] = convertYCbCrToABGR(y0, cb, cr);
+				imageBuffer[bufferWidth * y + x + 1] = convertYCbCrToABGR(y1, cb, cr);
+				imageBuffer[bufferWidth * y + x + 2] = convertYCbCrToABGR(y2, cb, cr);
+				imageBuffer[bufferWidth * y + x + 3] = convertYCbCrToABGR(y3, cb, cr);
+			}
+		}
+		NotifyMemInfo(MemBlockFlags::READ, yCbCrAddr, sizeY + sizeCb + sizeCb, "JpegMJpegCsc");
+	} else {
+		for (int y = 0; y < height; ++y) {
+			for (int x = 0; x < width; ++x) {
+				int offset = width * y + x;
+				u8 yy = Y[offset];
+				u8 cb = Cb[offset >> 2];
+				u8 cr = Cr[offset >> 2];
+
+				imageBuffer[bufferWidth * y + x] = convertYCbCrToABGR(yy, cb, cr);
+			}
+		}
+		NotifyMemInfo(MemBlockFlags::READ, yCbCrAddr, sizeY + sizeCb + sizeCb, "JpegMJpegCsc");
+	}
+
+	NotifyMemInfo(MemBlockFlags::WRITE, imageAddr, destSize, "JpegMJpegCsc");
+
+	return hleLogSuccessI(ME, 0);
 }
 
 static int sceJpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth) {
-	__JpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth);
+	if (mjpegInited == 0)
+		return hleLogError(ME, 0x80000001, "not yet inited");
+
+	int usec = 0;
+	int result = JpegMJpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth, usec);
 	
 	int width = (widthHeight >> 16) & 0xFFF;
 	int height = widthHeight & 0xFFF;
-	DEBUG_LOG(ME, "sceJpegMJpegCsc(%08x, %08x, (%dx%d), %i)", imageAddr, yCbCrAddr, width, height, bufferWidth);
-	gpu->NotifyVideoUpload(imageAddr, width * height * 4, width, GE_FORMAT_8888);
-	return 0;
+	if (result >= 0)
+		gpu->NotifyVideoUpload(imageAddr, width * height * 4, width, GE_FORMAT_8888);
+
+	if (usec != 0)
+		return hleDelayResult(result, "jpeg csc", usec);
+	return result;
 }
 
 static u32 convertARGBtoABGR(u32 argb) {
@@ -236,15 +348,11 @@ static int sceJpegDecodeMJpegSuccessively(u32 jpegAddr, int jpegSize, u32 imageA
 }
 
 static int sceJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, int colourInfo) {
-	if (bufferWidth < 0 || widthHeight < 0){
-		WARN_LOG(ME, "sceJpegCsc(%08x, %08x, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
-		return ERROR_JPEG_INVALID_VALUE;
-	}
-
-	__JpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth);
-	
-	DEBUG_LOG(ME, "sceJpegCsc(%08x, %08x, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
-	return 0;
+	int usec = 0;
+	int result = JpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo, usec);
+	if (usec != 0)
+		return hleDelayResult(result, "jpeg csc", usec);
+	return result;
 }
 
 static int getYCbCrBufferSize(int w, int h) {
@@ -514,12 +622,12 @@ void JpegNotifyLoadStatus(int state) {
 const HLEFunction sceJpeg[] =
 {
 	{0X0425B986, &WrapI_V<sceJpegDecompressAllImage>,               "sceJpegDecompressAllImage",           'i', ""     },
-	{0X04B5AE02, &WrapI_UUII<sceJpegMJpegCsc>,                      "sceJpegMJpegCsc",                     'i', "xxii" },
+	{0X04B5AE02, &WrapI_UUII<sceJpegMJpegCsc>,                      "sceJpegMJpegCsc",                     'i', "xxxi" },
 	{0X04B93CEF, &WrapI_UIUI<sceJpegDecodeMJpeg>,                   "sceJpegDecodeMJpeg",                  'i', "xixi" },
 	{0X227662D7, &WrapI_UIUII<sceJpegDecodeMJpegYCbCrSuccessively>, "sceJpegDecodeMJpegYCbCrSuccessively", 'i', "xixii"},
 	{0X48B602B7, &WrapI_V<sceJpegDeleteMJpeg>,                      "sceJpegDeleteMJpeg",                  'i', ""     },
 	{0X64B6F978, &WrapI_UIUI<sceJpegDecodeMJpegSuccessively>,       "sceJpegDecodeMJpegSuccessively",      'i', "xixi" },
-	{0X67F0ED84, &WrapI_UUIII<sceJpegCsc>,                          "sceJpegCsc",                          'i', "xxiii"},
+	{0X67F0ED84, &WrapI_UUIII<sceJpegCsc>,                          "sceJpegCsc",                          'i', "xxxix"},
 	{0X7D2F3D7F, &WrapI_V<sceJpegFinishMJpeg>,                      "sceJpegFinishMJpeg",                  'i', ""     },
 	{0X8F2BB012, &WrapI_UIUI<sceJpegGetOutputInfo>,                 "sceJpegGetOutputInfo",                'x', "xipi" },
 	{0X91EED83C, &WrapI_UIUII<sceJpegDecodeMJpegYCbCr>,             "sceJpegDecodeMJpegYCbCr",             'i', "xixii"},
