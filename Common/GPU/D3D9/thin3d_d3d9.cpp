@@ -201,11 +201,19 @@ public:
 	D3DTEXTUREFILTERTYPE magFilt, minFilt, mipFilt;
 
 	void Apply(LPDIRECT3DDEVICE9 device, int index) {
-		dxstate.texAddressU.set(wrapS);
-		dxstate.texAddressV.set(wrapT);
-		dxstate.texMagFilter.set(magFilt);
-		dxstate.texMinFilter.set(minFilt);
-		dxstate.texMipFilter.set(mipFilt);
+		if (index == 0) {
+			dxstate.texAddressU.set(wrapS);
+			dxstate.texAddressV.set(wrapT);
+			dxstate.texMagFilter.set(magFilt);
+			dxstate.texMinFilter.set(minFilt);
+			dxstate.texMipFilter.set(mipFilt);
+		} else {
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_ADDRESSU, wrapS);
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_ADDRESSV, wrapT);
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_MAGFILTER, magFilt);
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_MINFILTER, minFilt);
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_MIPFILTER, mipFilt);
+		}
 	}
 };
 
