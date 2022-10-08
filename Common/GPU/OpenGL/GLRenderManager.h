@@ -1051,7 +1051,6 @@ private:
 
 	bool nextFrame = false;
 	bool firstFrame = true;
-	bool vrRenderStarted = false;
 
 	GLDeleter deleter_;
 	bool skipGLCalls_ = false;

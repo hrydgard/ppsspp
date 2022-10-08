@@ -16,6 +16,7 @@ XrFrameState frameState = {};
 GLboolean initialized = GL_FALSE;
 GLboolean stageSupported = GL_FALSE;
 int vrConfig[VR_CONFIG_MAX] = {};
+ovrMatrix4f vrMatrix[VR_MATRIX_COUNT];
 
 XrVector3f hmdorientation;
 XrVector3f hmdposition;
@@ -310,6 +311,61 @@ bool VR_InitFrame( engine_t* engine ) {
 
 	engine->appState.LayerCount = 0;
 	memset(engine->appState.Layers, 0, sizeof(ovrCompositorLayer_Union) * ovrMaxLayerCount);
+
+	// Update matrices
+	for (int matrix = 0; matrix < VR_MATRIX_COUNT; matrix++) {
+		if ((matrix == VR_PROJECTION_MATRIX_LEFT_EYE) || (matrix == VR_PROJECTION_MATRIX_RIGHT_EYE)) {
+			float near = (float)vrConfig[VR_CONFIG_FOV_SCALE] / 200.0f;
+			vrMatrix[matrix] = ovrMatrix4f_CreateProjectionFov(fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown, near, 0.0f );
+		} else if ((matrix == VR_VIEW_MATRIX_LEFT_EYE) || (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
+			XrPosef invView = invViewTransform[0];
+
+			// get axis mirroring configuration
+			float mx = vrConfig[VR_CONFIG_MIRROR_PITCH] ? -1 : 1;
+			float my = vrConfig[VR_CONFIG_MIRROR_YAW] ? -1 : 1;
+			float mz = vrConfig[VR_CONFIG_MIRROR_ROLL] ? -1 : 1;
+
+			// ensure there is maximally one axis to mirror rotation
+			if (mx + my + mz < 0) {
+				mx *= -1.0f;
+				my *= -1.0f;
+				mz *= -1.0f;
+			} else {
+				invView = XrPosef_Inverse(invView);
+			}
+
+			// create updated quaternion
+			if (mx + my + mz < 3 - EPSILON) {
+				XrVector3f rotation = XrQuaternionf_ToEulerAngles(invView.orientation);
+				XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mx * ToRadians(rotation.x));
+				XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, my * ToRadians(rotation.y));
+				XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, mz * ToRadians(rotation.z));
+				invView.orientation = XrQuaternionf_Multiply(roll, XrQuaternionf_Multiply(pitch, yaw));
+			}
+
+			vrMatrix[matrix] = ovrMatrix4f_CreateFromQuaternion(&invView.orientation);
+			float scale = (float)VR_GetConfig(VR_CONFIG_6DOF_SCALE) * 0.000001f;
+			if (vrConfig[VR_CONFIG_6DOF_ENABLED]) {
+				vrMatrix[matrix].M[0][3] -= hmdposition.x * (vrConfig[VR_CONFIG_MIRROR_AXIS_X] ? -1.0f : 1.0f) * scale;
+				vrMatrix[matrix].M[1][3] -= hmdposition.y * (vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1.0f : 1.0f) * scale;
+				vrMatrix[matrix].M[2][3] -= hmdposition.z * (vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1.0f : 1.0f) * scale;
+			}
+			if (vrConfig[VR_CONFIG_6DOF_PRECISE] && (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
+				float dx = fabs(invViewTransform[1].position.x - invViewTransform[0].position.x);
+				float dy = fabs(invViewTransform[1].position.y - invViewTransform[0].position.y);
+				float dz = fabs(invViewTransform[1].position.z - invViewTransform[0].position.z);
+				float ipd = sqrt(dx * dx + dy * dy + dz * dz);
+				XrVector3f separation = {ipd * scale, 0.0f, 0.0f};
+				separation = XrQuaternionf_Rotate(invView.orientation, separation);
+				separation = XrVector3f_ScalarMultiply(separation, vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1.0f : 1.0f);
+				vrMatrix[matrix].M[0][3] -= separation.x;
+				vrMatrix[matrix].M[1][3] -= separation.y;
+				vrMatrix[matrix].M[2][3] -= separation.z;
+			}
+		} else {
+			assert(false);
+		}
+	}
 	return true;
 }
 
@@ -468,57 +524,5 @@ void VR_BindFramebuffer(engine_t *engine) {
 }
 
 ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
-	ovrMatrix4f output;
-	if ((matrix == VR_PROJECTION_MATRIX_LEFT_EYE) || (matrix == VR_PROJECTION_MATRIX_RIGHT_EYE)) {
-		float near = (float)vrConfig[VR_CONFIG_FOV_SCALE] / 200.0f;
-		output = ovrMatrix4f_CreateProjectionFov(fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown, near, 0.0f );
-	} else if ((matrix == VR_VIEW_MATRIX_LEFT_EYE) || (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
-		XrPosef invView = invViewTransform[0];
-
-		// get axis mirroring configuration
-		float mx = vrConfig[VR_CONFIG_MIRROR_PITCH] ? -1 : 1;
-		float my = vrConfig[VR_CONFIG_MIRROR_YAW] ? -1 : 1;
-		float mz = vrConfig[VR_CONFIG_MIRROR_ROLL] ? -1 : 1;
-
-		// ensure there is maximally one axis to mirror rotation
-		if (mx + my + mz < 0) {
-			mx *= -1.0f;
-			my *= -1.0f;
-			mz *= -1.0f;
-		} else {
-			invView = XrPosef_Inverse(invView);
-		}
-
-		// create updated quaternion
-		if (mx + my + mz < 3 - EPSILON) {
-			XrVector3f rotation = XrQuaternionf_ToEulerAngles(invView.orientation);
-			XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mx * ToRadians(rotation.x));
-			XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, my * ToRadians(rotation.y));
-			XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, mz * ToRadians(rotation.z));
-			invView.orientation = XrQuaternionf_Multiply(roll, XrQuaternionf_Multiply(pitch, yaw));
-		}
-
-		output = ovrMatrix4f_CreateFromQuaternion(&invView.orientation);
-		float scale = (float)VR_GetConfig(VR_CONFIG_6DOF_SCALE) * 0.000001f;
-		if (vrConfig[VR_CONFIG_6DOF_ENABLED]) {
-			output.M[0][3] -= hmdposition.x * (vrConfig[VR_CONFIG_MIRROR_AXIS_X] ? -1.0f : 1.0f) * scale;
-			output.M[1][3] -= hmdposition.y * (vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1.0f : 1.0f) * scale;
-			output.M[2][3] -= hmdposition.z * (vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1.0f : 1.0f) * scale;
-		}
-		if (vrConfig[VR_CONFIG_6DOF_PRECISE] && (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
-			float dx = fabs(invViewTransform[1].position.x - invViewTransform[0].position.x);
-			float dy = fabs(invViewTransform[1].position.y - invViewTransform[0].position.y);
-			float dz = fabs(invViewTransform[1].position.z - invViewTransform[0].position.z);
-			float ipd = sqrt(dx * dx + dy * dy + dz * dz);
-			XrVector3f separation = {ipd * scale, 0.0f, 0.0f};
-			separation = XrQuaternionf_Rotate(invView.orientation, separation);
-			separation = XrVector3f_ScalarMultiply(separation, vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1.0f : 1.0f);
-			output.M[0][3] -= separation.x;
-			output.M[1][3] -= separation.y;
-			output.M[2][3] -= separation.z;
-		}
-	} else {
-		assert(false);
-	}
-	return output;
+	return vrMatrix[matrix];
 }
