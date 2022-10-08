@@ -151,63 +151,88 @@ static u32 convertARGBtoABGR(u32 argb) {
 	return ((argb & 0xFF00FF00)) | ((argb & 0x000000FF) << 16) | ((argb & 0x00FF0000) >> 16);
 }
 
-static int __DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr) {
-	const u8 *buf = Memory::GetPointer(jpegAddr);
+static int DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int &usec) {
+	if (!Memory::IsValidRange(jpegAddr, jpegSize))
+		return hleLogError(ME, ERROR_JPEG_NO_SOI, "invalid jpeg address");
+	if (jpegSize == 0)
+		return hleLogError(ME, ERROR_JPEG_INVALID_DATA, "invalid jpeg data");
+
+	NotifyMemInfo(MemBlockFlags::READ, jpegAddr, jpegSize, "JpegDecodeMJpeg");
+
+	const u8 *buf = Memory::GetPointerUnchecked(jpegAddr);
+	if (jpegSize < 2 || buf[0] != 0xFF || buf[1] != 0xD8)
+		return hleLogError(ME, ERROR_JPEG_NO_SOI, "no SOI found, invalid data");
+
 	int width, height, actual_components;
 	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
 
-	if (actual_components != 3) {
+	if (actual_components != 3 && actual_components != 1) {
 		// The assumption that the image was RGB was wrong...
 		// Try again.
 		int components = actual_components;
 		jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, components);
 	}
 
-	if (jpegBuf == NULL) {
-		return getWidthHeight(0, 0);
+	if (jpegBuf == nullptr) {
+		return hleLogError(ME, ERROR_JPEG_INVALID_DATA, "unable to decompress jpeg");
 	}
 
-	if (actual_components == 3) {
-			u24_be *imageBuffer = (u24_be*)jpegBuf;
-			u32_le *abgr = (u32_le *)Memory::GetPointer(imageAddr);
-			int pspWidth = 0;
-			for (int w = 2; w <= 4096; w *= 2) {
-				if (w >= width && w >= height) {
-					pspWidth = w;
-					break;
-				}
+	usec += (width * height) / 14;
+
+	if (!Memory::IsValidRange(imageAddr, mjpegWidth * mjpegHeight * 4)) {
+		free(jpegBuf);
+		return hleLogError(ME, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid output address");
+	}
+	// Note: even if you Delete, the size is still allowed.
+	if (width > mjpegWidth || height > mjpegHeight) {
+		free(jpegBuf);
+		return hleLogError(ME, ERROR_JPEG_INVALID_SIZE, "invalid output address");
+	}
+	if (mjpegInited == 0) {
+		// If you finish after setting the size, then call this - you get an interesting error.
+		free(jpegBuf);
+		return hleLogError(ME, 0x80000001, "mjpeg not inited");
+	}
+
+	usec += (width * height) / 110;
+
+	if (actual_components == 3 || actual_components == 1) {
+		u24_be *imageBuffer = (u24_be*)jpegBuf;
+		u32_le *abgr = (u32_le *)Memory::GetPointerUnchecked(imageAddr);
+		for (int y = 0; y < height; ++y) {
+			for (int x = 0; x < width; x++)	{
+				abgr[x] = convertARGBtoABGR(imageBuffer[x]);
 			}
-			for (int y = 0; y < height; ++y) {
-				for (int x = 0; x < width; x++)	{
-					abgr[x] = convertARGBtoABGR(imageBuffer[x]);
-				}
-				imageBuffer += width;
-				abgr += pspWidth; // Smallest value power of 2 fitting width and height(needs to be square!)
-			}
+			imageBuffer += width;
+			abgr += mjpegWidth;
+		}
+		NotifyMemInfo(MemBlockFlags::WRITE, imageAddr, mjpegWidth * height, "JpegDecodeMJpeg");
 	}
 
 	free(jpegBuf);
-	return getWidthHeight(width, height);
+	return hleLogSuccessI(ME, getWidthHeight(width, height));
 }
 
 static int sceJpegDecodeMJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode) {
-	if (!Memory::IsValidAddress(jpegAddr)) {
-		ERROR_LOG(ME, "sceJpegDecodeMJpeg: Bad JPEG address 0x%08x", jpegAddr);
-		return 0;
-	}
+	if ((jpegAddr | jpegSize | (jpegAddr + jpegSize)) & 0x80000000)
+		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
+	if (imageAddr & 0x80000000)
+		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid output address");
 
-	DEBUG_LOG(ME, "sceJpegDecodeMJpeg(%08x, %i, %08x, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
-	return __DecodeJpeg(jpegAddr, jpegSize, imageAddr);
+	int usec = 300;
+	int result = DecodeJpeg(jpegAddr, jpegSize, imageAddr, usec);
+	return hleDelayResult(result, "jpeg decode", usec);
 }
 
 static int sceJpegDecodeMJpegSuccessively(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode) {
-	if (!Memory::IsValidAddress(jpegAddr)) {
-		ERROR_LOG(ME, "sceJpegDecodeMJpegSuccessively: Bad JPEG address 0x%08x", jpegAddr);
-		return 0;
-	}
+	if ((jpegAddr | jpegSize | (jpegAddr + jpegSize)) & 0x80000000)
+		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
+	if (imageAddr & 0x80000000)
+		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid output address");
 
-	DEBUG_LOG(ME, "sceJpegDecodeMJpegSuccessively(%08x, %i, %08x, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
-	return __DecodeJpeg(jpegAddr, jpegSize, imageAddr);
+	int usec = 300;
+	int result = DecodeJpeg(jpegAddr, jpegSize, imageAddr, usec);
+	return hleDelayResult(result, "jpeg decode", usec);
 }
 
 static int sceJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, int colourInfo) {
@@ -389,7 +414,7 @@ static int JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int y
 	free(jpegBuf);
 
 	// Rough estimate based on observed timing.
-	usec += getYCbCrBufferSize(width, height) / 21;
+	usec += (width * height) / 14;
 	return hleLogSuccessI(ME, getWidthHeight(width, height));
 }
 
