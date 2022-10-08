@@ -322,7 +322,7 @@ static int DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int &usec) {
 	}
 
 	free(jpegBuf);
-	return hleLogSuccessI(ME, getWidthHeight(width, height));
+	return hleLogSuccessX(ME, getWidthHeight(width, height));
 }
 
 static int sceJpegDecodeMJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode) {
@@ -413,7 +413,7 @@ static int JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 		fclose(wfp);
 #endif //JPEG_DEBUG
 
-	return hleLogSuccessI(ME, getYCbCrBufferSize(width, height));
+	return hleLogSuccessX(ME, getYCbCrBufferSize(width, height));
 }
 
 static int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dhtMode) {
@@ -523,7 +523,7 @@ static int JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int y
 
 	// Rough estimate based on observed timing.
 	usec += (width * height) / 14;
-	return hleLogSuccessI(ME, getWidthHeight(width, height));
+	return hleLogSuccessX(ME, getWidthHeight(width, height));
 }
 
 static int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode) {
@@ -623,14 +623,14 @@ const HLEFunction sceJpeg[] =
 {
 	{0X0425B986, &WrapI_V<sceJpegDecompressAllImage>,               "sceJpegDecompressAllImage",           'i', ""     },
 	{0X04B5AE02, &WrapI_UUII<sceJpegMJpegCsc>,                      "sceJpegMJpegCsc",                     'i', "xxxi" },
-	{0X04B93CEF, &WrapI_UIUI<sceJpegDecodeMJpeg>,                   "sceJpegDecodeMJpeg",                  'i', "xixi" },
-	{0X227662D7, &WrapI_UIUII<sceJpegDecodeMJpegYCbCrSuccessively>, "sceJpegDecodeMJpegYCbCrSuccessively", 'i', "xixii"},
+	{0X04B93CEF, &WrapI_UIUI<sceJpegDecodeMJpeg>,                   "sceJpegDecodeMJpeg",                  'x', "xixi" },
+	{0X227662D7, &WrapI_UIUII<sceJpegDecodeMJpegYCbCrSuccessively>, "sceJpegDecodeMJpegYCbCrSuccessively", 'x', "xixii"},
 	{0X48B602B7, &WrapI_V<sceJpegDeleteMJpeg>,                      "sceJpegDeleteMJpeg",                  'i', ""     },
-	{0X64B6F978, &WrapI_UIUI<sceJpegDecodeMJpegSuccessively>,       "sceJpegDecodeMJpegSuccessively",      'i', "xixi" },
+	{0X64B6F978, &WrapI_UIUI<sceJpegDecodeMJpegSuccessively>,       "sceJpegDecodeMJpegSuccessively",      'x', "xixi" },
 	{0X67F0ED84, &WrapI_UUIII<sceJpegCsc>,                          "sceJpegCsc",                          'i', "xxxix"},
 	{0X7D2F3D7F, &WrapI_V<sceJpegFinishMJpeg>,                      "sceJpegFinishMJpeg",                  'i', ""     },
 	{0X8F2BB012, &WrapI_UIUI<sceJpegGetOutputInfo>,                 "sceJpegGetOutputInfo",                'x', "xipi" },
-	{0X91EED83C, &WrapI_UIUII<sceJpegDecodeMJpegYCbCr>,             "sceJpegDecodeMJpegYCbCr",             'i', "xixii"},
+	{0X91EED83C, &WrapI_UIUII<sceJpegDecodeMJpegYCbCr>,             "sceJpegDecodeMJpegYCbCr",             'x', "xixii"},
 	{0X9B36444C, &WrapI_V<sceJpeg_9B36444C>,                        "sceJpeg_9B36444C",                    'i', ""     },
 	{0X9D47469C, &WrapI_II<sceJpegCreateMJpeg>,                     "sceJpegCreateMJpeg",                  'i', "ii"   },
 	{0XAC9E70E6, &WrapI_V<sceJpegInitMJpeg>,                        "sceJpegInitMJpeg",                    'i', ""     },
