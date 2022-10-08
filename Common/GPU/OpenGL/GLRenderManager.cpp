@@ -236,27 +236,11 @@ bool GLRenderManager::ThreadFrame() {
 			firstFrame = false;
 		}
 
-		// Start of an OpenXR frame. This updates user's head pose and VR timestamps.
-		// For fluent rendering, delay between StartVRRender and FinishVRRender must be very short.
-		if (IsVRBuild() && !vrRenderStarted) {
-			if (StartVRRender()) {
-				vrRenderStarted = true;
-			} else {
-				return false;
-			}
-		}
-
 		// Render the scene.
 		Run(threadFrame_);
 
 		VLOG("PULL: Finished frame %d", threadFrame_);
 	} while (!nextFrame);
-
-	// Post OpenXR frame on a screen.
-	if (IsVRBuild() && vrRenderStarted) {
-		FinishVRRender();
-		vrRenderStarted = false;
-	}
 
 	return true;
 }
