@@ -428,7 +428,7 @@ void WebSocketHLEFuncScan(DebuggerRequest &req) {
 	if (!Memory::IsValidRange(addr, size))
 		return req.Fail("Address or size outside valid memory");
 
-	bool insertSymbols = MIPSAnalyst::ScanForFunctions(addr, addr + size, true);
+	bool insertSymbols = MIPSAnalyst::ScanForFunctions(addr, addr + size - 1, true);
 	MIPSAnalyst::FinalizeScan(insertSymbols);
 
 	req.Respond();

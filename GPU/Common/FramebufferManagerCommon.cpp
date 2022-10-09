@@ -567,13 +567,22 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 	currentRenderVfb_->usageFlags |= FB_USAGE_RENDER_DEPTH;
 
 	uint32_t boundDepthBuffer = gstate.getDepthBufRawAddress() | 0x04000000;
-	if (currentRenderVfb_->z_address != boundDepthBuffer) {
+	uint32_t boundDepthStride = gstate.DepthBufStride();
+	if (currentRenderVfb_->z_address != boundDepthBuffer || currentRenderVfb_->z_stride != boundDepthStride) {
+		if (currentRenderVfb_->fb_address == boundDepthBuffer) {
+			// Disallow setting depth buffer to the same address as the color buffer, usually means it's not used.
+			WARN_LOG_N_TIMES(z_reassign, 5, G3D, "Ignoring color matching depth buffer at %08x", boundDepthBuffer);
+			boundDepthBuffer = 0;
+			boundDepthStride = 0;
+		}
 		WARN_LOG_N_TIMES(z_reassign, 5, G3D, "Framebuffer at %08x/%d has switched associated depth buffer from %08x to %08x, updating.",
 			currentRenderVfb_->fb_address, currentRenderVfb_->fb_stride, currentRenderVfb_->z_address, boundDepthBuffer);
 
 		// Technically, here we should copy away the depth buffer to another framebuffer that uses that z_address, or maybe
 		// even write it back to RAM. However, this is rare. Silent Hill is one example, see #16126.
 		currentRenderVfb_->z_address = boundDepthBuffer;
+		// Update the stride in case it changed.
+		currentRenderVfb_->z_stride = boundDepthStride;
 
 		if (currentRenderVfb_->fbo) {
 			char tag[128];
