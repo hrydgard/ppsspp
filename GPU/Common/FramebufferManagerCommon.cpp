@@ -2662,8 +2662,7 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 	if (vfb && vfb->fbo) {
 		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
 		if (gameUsesSequentialCopies_) {
-			// Ignore the x/y/etc., read the entire thing.
-			// TODO: What game did we need this for?
+			// Ignore the x/y/etc., read the entire thing.  See below.
 			x = 0;
 			y = 0;
 			w = vfb->width;
@@ -2677,7 +2676,7 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 			vfb->usageFlags |= FB_USAGE_DOWNLOAD;
 		} else {
 			// Let's try to set the flag eventually, if the game copies a lot.
-			// Some games copy subranges very frequently.
+			// Some games (like Grand Knights History) copy subranges very frequently.
 			const static int FREQUENT_SEQUENTIAL_COPIES = 3;
 			static int frameLastCopy = 0;
 			static u32 bufferLastCopy = 0;

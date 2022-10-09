@@ -134,7 +134,10 @@
 	}
 
 	void FramebufferManagerDX9::PackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel) {
-		if (channel != RASTER_COLOR) {
+		if (channel == RASTER_DEPTH) {
+			PackDepthbuffer(vfb, x, y, w, h);
+			return;
+		} else if (channel != RASTER_COLOR) {
 			// Unsupported
 			WARN_LOG_ONCE(d3ddepthreadback, G3D, "Not yet supporting depth readbacks on DX9");
 			return;
