@@ -171,10 +171,11 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 
 bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter, int flags) {
 	if (directory.Type() == PathType::CONTENT_URI) {
-		std::vector<File::FileInfo> fileList = Android_ListContentUri(directory.ToString());
+		bool exists = false;
+		std::vector<File::FileInfo> fileList = Android_ListContentUri(directory.ToString(), &exists);
 		*files = ApplyFilter(fileList, filter);
 		std::sort(files->begin(), files->end());
-		return true;
+		return exists;
 	}
 
 	std::set<std::string> filters;
