@@ -34,6 +34,8 @@
 // #define JPEG_DEBUG
 #ifdef JPEG_DEBUG
 #include "ext/xxhash.h"
+#include "Common/File/FileUtil.h"
+#include "Common/StringUtils.h"
 #endif
 
 struct u24_be {
@@ -396,14 +398,14 @@ static int JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 	}
 
 #ifdef JPEG_DEBUG
-		char jpeg_fname[256];
 		const u8 *jpegDumpBuf = Memory::GetPointer(jpegAddr);
 		u32 jpeg_xxhash = XXH32((const char *)jpegDumpBuf, jpegSize, 0xC0108888);
-		sprintf(jpeg_fname, "Jpeg\\%X.jpg", jpeg_xxhash);
-		FILE *wfp = fopen(jpeg_fname, "wb");
+		Path jpegDir("Jpeg");
+		Path jpegFile = jpegDir / StringFromFormat("%X.jpg", jpeg_xxhash);
+		FILE *wfp = File::OpenCFile(jpegFile, "wb");
 		if (!wfp) {
-			_wmkdir(L"Jpeg\\");
-			wfp = fopen(jpeg_fname, "wb");
+			File::CreateDir(jpegDir);
+			wfp = File::OpenCFile(jpegFile, "wb");
 		}
 		fwrite(jpegDumpBuf, 1, jpegSize, wfp);
 		fclose(wfp);
