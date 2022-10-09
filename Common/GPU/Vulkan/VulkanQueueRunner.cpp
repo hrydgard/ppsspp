@@ -326,9 +326,10 @@ static VkAttachmentStoreOp ConvertStoreAction(VKRRenderPassStoreAction action) {
 // Also see https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
 
 VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPassType rpType) {
-	bool selfDependency = rpType == RP_TYPE_COLOR_INPUT || rpType == RP_TYPE_COLOR_DEPTH_INPUT;
+	bool selfDependency = RenderPassTypeHasInput(rpType);
 	bool isBackbuffer = rpType == RP_TYPE_BACKBUFFER;
-	bool hasDepth = rpType == RP_TYPE_BACKBUFFER || rpType == RP_TYPE_COLOR_DEPTH || rpType == RP_TYPE_COLOR_DEPTH_INPUT;
+	bool hasDepth = RenderPassTypeHasDepth(rpType);
+	bool multiview = RenderPassTypeHasMultiView(rpType);
 
 	VkAttachmentDescription attachments[2] = {};
 	attachments[0].format = isBackbuffer ? vulkan->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
@@ -389,6 +390,19 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	rp.pAttachments = attachments;
 	rp.subpassCount = 1;
 	rp.pSubpasses = &subpass;
+
+	VkRenderPassMultiviewCreateInfoKHR mv{ VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO_KHR };
+	uint32_t viewMask = 0x3;  // Must be outside the 'if (multiview)' scope!
+	int viewOffset = 0;
+	if (multiview) {
+		rp.pNext = &mv;
+		mv.subpassCount = 1;
+		mv.pViewMasks = &viewMask;
+		mv.dependencyCount = 0;
+		mv.pCorrelationMasks = &viewMask; // same masks
+		mv.correlationMaskCount = 1;
+		mv.pViewOffsets = &viewOffset;
+	}
 
 	if (isBackbuffer) {
 		deps[numDeps].srcSubpass = VK_SUBPASS_EXTERNAL;

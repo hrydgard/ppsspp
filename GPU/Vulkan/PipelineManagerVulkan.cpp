@@ -336,6 +336,9 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 	if (fs->Flags() & FragmentShaderFlags::INPUT_ATTACHMENT) {
 		pipelineFlags |= PipelineFlags::USES_INPUT_ATTACHMENT;
 	}
+	if (vs->Flags() & VertexShaderFlags::MULTI_VIEW) {
+		pipelineFlags |= PipelineFlags::USES_MULTIVIEW;
+	}
 
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		renderManager, pipelineCache_, layout, pipelineFlags,

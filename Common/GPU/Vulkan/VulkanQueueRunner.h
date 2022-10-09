@@ -48,17 +48,23 @@ enum class PipelineFlags {
 	USES_DEPTH_STENCIL = (1 << 2),  // Reads or writes the depth or stencil buffers.
 	USES_INPUT_ATTACHMENT = (1 << 3),
 	USES_GEOMETRY_SHADER = (1 << 4),
+	USES_MULTIVIEW = (1 << 5),  // Inherited from the render pass it was created with.
 };
 ENUM_CLASS_BITOPS(PipelineFlags);
 
 // Pipelines need to be created for the right type of render pass.
 enum RenderPassType {
-	// These four are organized so that bit 0 is DEPTH and bit 1 is INPUT, so
+	// These eight are organized so that bit 0 is DEPTH and bit 1 is INPUT and bit 2 is MULTIVIEW, so
 	// they can be OR-ed together in MergeRPTypes.
 	RP_TYPE_COLOR,
 	RP_TYPE_COLOR_DEPTH,
 	RP_TYPE_COLOR_INPUT,
 	RP_TYPE_COLOR_DEPTH_INPUT,
+
+	RP_TYPE_MULTIVIEW_COLOR,
+	RP_TYPE_MULTIVIEW_COLOR_DEPTH,
+	RP_TYPE_MULTIVIEW_COLOR_INPUT,
+	RP_TYPE_MULTIVIEW_COLOR_DEPTH_INPUT,
 
 	// This is the odd one out, and gets special handling in MergeRPTypes.
 	RP_TYPE_BACKBUFFER,  // For the backbuffer we can always use CLEAR/DONT_CARE, so bandwidth cost for a depth channel is negligible.
@@ -67,12 +73,18 @@ enum RenderPassType {
 	RP_TYPE_COUNT,
 };
 
+// Hm, soon time to exploit the bit properties in these..
+
 inline bool RenderPassTypeHasDepth(RenderPassType type) {
-	return type == RP_TYPE_BACKBUFFER || type == RP_TYPE_COLOR_DEPTH || type == RP_TYPE_COLOR_DEPTH_INPUT;
+	return type == RP_TYPE_BACKBUFFER || type == RP_TYPE_COLOR_DEPTH || type == RP_TYPE_COLOR_DEPTH_INPUT || type == RP_TYPE_MULTIVIEW_COLOR_DEPTH || type == RP_TYPE_MULTIVIEW_COLOR_DEPTH_INPUT;
 }
 
 inline bool RenderPassTypeHasInput(RenderPassType type) {
-	return type == RP_TYPE_COLOR_INPUT || type == RP_TYPE_COLOR_DEPTH_INPUT;
+	return type == RP_TYPE_COLOR_INPUT || type == RP_TYPE_COLOR_DEPTH_INPUT || type == RP_TYPE_MULTIVIEW_COLOR_INPUT || type == RP_TYPE_MULTIVIEW_COLOR_DEPTH_INPUT;
+}
+
+inline bool RenderPassTypeHasMultiView(RenderPassType type) {
+	return type == RP_TYPE_MULTIVIEW_COLOR || type == RP_TYPE_MULTIVIEW_COLOR_DEPTH || type == RP_TYPE_MULTIVIEW_COLOR_INPUT || type == RP_TYPE_MULTIVIEW_COLOR_DEPTH_INPUT;
 }
 
 struct VkRenderData {
