@@ -1715,13 +1715,22 @@ void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 
 void GPUCommon::CheckDepthUsage(VirtualFramebuffer *vfb) {
 	if (!gstate_c.usingDepth) {
-		bool isClearingDepth = gstate.isModeClear() && gstate.isClearModeDepthMask();
+		bool isReadingDepth = false;
+		bool isClearingDepth = false;
+		bool isWritingDepth = false;
+		if (gstate.isModeClear()) {
+			isClearingDepth = gstate.isClearModeDepthMask();
+			isWritingDepth = isClearingDepth;
+		} else if (gstate.isDepthTestEnabled()) {
+			isWritingDepth = gstate.isDepthWriteEnabled();
+			isReadingDepth = gstate.getDepthTestFunction() > GE_COMP_ALWAYS;
+		}
 
-		if ((gstate.isDepthTestEnabled() || isClearingDepth)) {
+		if (isWritingDepth || isReadingDepth) {
 			gstate_c.usingDepth = true;
 			gstate_c.clearingDepth = isClearingDepth;
 			vfb->last_frame_depth_render = gpuStats.numFlips;
-			if (isClearingDepth || gstate.isDepthWriteEnabled()) {
+			if (isWritingDepth) {
 				vfb->last_frame_depth_updated = gpuStats.numFlips;
 			}
 			framebufferManager_->SetDepthFrameBuffer(isClearingDepth);
