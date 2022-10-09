@@ -671,40 +671,34 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	PSPFileInfo x;
 	x.name = filename;
 
+	File::FileInfo info;
 	Path fullName = GetLocalPath(filename);
-	if (!File::Exists(fullName)) {
+	if (!File::GetFileInfo(fullName, &info)) {
 #if HOST_IS_CASE_SENSITIVE
 		if (! FixPathCase(basePath, filename, FPC_FILE_MUST_EXIST))
 			return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
 		fullName = GetLocalPath(filename);
 
-		if (! File::Exists(fullName))
+		if (!File::GetFileInfo(fullName, &info))
 			return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
 #else
 		return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
 #endif
 	}
 
-	// TODO: Consolidate to just a File::GetFileInfo call.
-
-	x.type = File::IsDirectory(fullName) ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
+	x.type = info.isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 	x.exists = true;
 
 	if (x.type != FILETYPE_DIRECTORY) {
-		File::FileInfo info;
-		if (!File::GetFileInfo(fullName, &info)) {
-			ERROR_LOG(FILESYS, "DirectoryFileSystem::GetFileInfo: GetFileInfo failed: %s", fullName.c_str());
-		} else {
-			x.size = info.size;
-			x.access = info.access;
-			time_t atime = info.atime;
-			time_t ctime = info.ctime;
-			time_t mtime = info.mtime;
+		x.size = info.size;
+		x.access = info.access;
+		time_t atime = info.atime;
+		time_t ctime = info.ctime;
+		time_t mtime = info.mtime;
 
-			localtime_r((time_t*)&atime, &x.atime);
-			localtime_r((time_t*)&ctime, &x.ctime);
-			localtime_r((time_t*)&mtime, &x.mtime);
-		}
+		localtime_r((time_t*)&atime, &x.atime);
+		localtime_r((time_t*)&ctime, &x.ctime);
+		localtime_r((time_t*)&mtime, &x.mtime);
 	}
 
 	return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
