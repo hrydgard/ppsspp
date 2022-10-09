@@ -1505,7 +1505,7 @@ private:
 
 Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	VkCommandBuffer cmd = renderManager_.GetInitCmd();
-	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.z_stencil, desc.tag);
+	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.z_stencil, desc.numLayers, desc.tag);
 	return new VKFramebuffer(vkrfb);
 }
 

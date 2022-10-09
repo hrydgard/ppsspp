@@ -1306,35 +1306,38 @@ public:
 Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	HRESULT hr;
 	D3D11Framebuffer *fb = new D3D11Framebuffer(desc.width, desc.height);
-	if (desc.numColorAttachments) {
-		fb->colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-		D3D11_TEXTURE2D_DESC descColor{};
-		descColor.Width = desc.width;
-		descColor.Height = desc.height;
-		descColor.MipLevels = 1;
-		descColor.ArraySize = 1;
-		descColor.Format = fb->colorFormat;
-		descColor.SampleDesc.Count = 1;
-		descColor.SampleDesc.Quality = 0;
-		descColor.Usage = D3D11_USAGE_DEFAULT;
-		descColor.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-		descColor.CPUAccessFlags = 0;
-		descColor.MiscFlags = 0;
-		hr = device_->CreateTexture2D(&descColor, nullptr, &fb->colorTex);
-		if (FAILED(hr)) {
-			delete fb;
-			return nullptr;
-		}
-		hr = device_->CreateRenderTargetView(fb->colorTex, nullptr, &fb->colorRTView);
-		if (FAILED(hr)) {
-			delete fb;
-			return nullptr;
-		}
-		hr = device_->CreateShaderResourceView(fb->colorTex, nullptr, &fb->colorSRView);
-		if (FAILED(hr)) {
-			delete fb;
-			return nullptr;
-		}
+
+	// We don't (yet?) support multiview for D3D11. Not sure if there's a way to do it.
+	// Texture arrays are supported but we don't have any other use cases yet.
+	_dbg_assert_(desc.numLayers == 1);
+
+	fb->colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+	D3D11_TEXTURE2D_DESC descColor{};
+	descColor.Width = desc.width;
+	descColor.Height = desc.height;
+	descColor.MipLevels = 1;
+	descColor.ArraySize = 1;
+	descColor.Format = fb->colorFormat;
+	descColor.SampleDesc.Count = 1;
+	descColor.SampleDesc.Quality = 0;
+	descColor.Usage = D3D11_USAGE_DEFAULT;
+	descColor.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	descColor.CPUAccessFlags = 0;
+	descColor.MiscFlags = 0;
+	hr = device_->CreateTexture2D(&descColor, nullptr, &fb->colorTex);
+	if (FAILED(hr)) {
+		delete fb;
+		return nullptr;
+	}
+	hr = device_->CreateRenderTargetView(fb->colorTex, nullptr, &fb->colorRTView);
+	if (FAILED(hr)) {
+		delete fb;
+		return nullptr;
+	}
+	hr = device_->CreateShaderResourceView(fb->colorTex, nullptr, &fb->colorSRView);
+	if (FAILED(hr)) {
+		delete fb;
+		return nullptr;
 	}
 
 	if (desc.z_stencil) {

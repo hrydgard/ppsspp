@@ -155,15 +155,14 @@ bool VKRComputePipeline::Create(VulkanContext *vulkan) {
 	return success;
 }
 
-VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, bool createDepthStencilBuffer, const char *tag) : vulkan_(vk), tag_(tag) {
-	width = _width;
-	height = _height;
+VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, bool createDepthStencilBuffer, const char *tag)
+	: vulkan_(vk), tag_(tag), width(_width), height(_height), numLayers(_numLayers) {
 
 	_dbg_assert_(tag);
 
-	CreateImage(vulkan_, initCmd, color, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
+	CreateImage(vulkan_, initCmd, color, width, height, numLayers, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 	if (createDepthStencilBuffer) {
-		CreateImage(vulkan_, initCmd, depth, width, height, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
+		CreateImage(vulkan_, initCmd, depth, width, height, numLayers, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 	}
 
 	UpdateTag(tag);
@@ -243,9 +242,9 @@ VKRFramebuffer::~VKRFramebuffer() {
 	}
 }
 
-void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag) {
+void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag) {
 	VkImageCreateInfo ici{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-	ici.arrayLayers = 1;
+	ici.arrayLayers = numLayers;
 	ici.mipLevels = 1;
 	ici.extent.width = width;
 	ici.extent.height = height;

@@ -1244,6 +1244,9 @@ public:
 };
 
 Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
+	// Don't think D3D9 does array layers.
+	_dbg_assert_(desc.numLayers == 1);
+
 	static uint32_t id = 0;
 
 	D3D9Framebuffer *fbo = new D3D9Framebuffer(desc.width, desc.height);
