@@ -38,10 +38,9 @@ public:
 
 protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
+	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) override;
 
 private:
-	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
-
 	u8 *convBuf_ = nullptr;
 	u32 convBufSize_ = 0;
 

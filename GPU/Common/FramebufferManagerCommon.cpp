@@ -2619,7 +2619,11 @@ void FramebufferManagerCommon::PackFramebufferSync(VirtualFramebuffer *vfb, int 
 	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x, ptr=%p", fb_address, destPtr);
 
 	if (destPtr) {
-		draw_->CopyFramebufferToMemorySync(vfb->fbo, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "PackFramebufferSync");
+		if (channel == RASTER_DEPTH)
+			PackDepthbuffer(vfb, x, y, w, h);
+		else
+			draw_->CopyFramebufferToMemorySync(vfb->fbo, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "PackFramebufferSync");
+
 		char tag[128];
 		size_t len = snprintf(tag, sizeof(tag), "FramebufferPack/%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, w, h, GeBufferFormatToString(vfb->fb_format));
 		NotifyMemInfo(MemBlockFlags::WRITE, fb_address + dstByteOffset, dstSize, tag, len);
@@ -2628,6 +2632,17 @@ void FramebufferManagerCommon::PackFramebufferSync(VirtualFramebuffer *vfb, int 
 	}
 
 	gpuStats.numReadbacks++;
+}
+
+void FramebufferManagerCommon::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
+	_assert_msg_(vfb && vfb->z_address != 0 && vfb->z_stride != 0, "Depth buffer invalid");
+
+	Draw::DataFormat destFormat = GEFormatToThin3D(GE_FORMAT_DEPTH16);
+	const int dstByteOffset = (y * vfb->z_stride + x) * 2;
+	u8 *destPtr = Memory::GetPointerWriteUnchecked(vfb->z_address + dstByteOffset);
+	if (!draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "PackDepthbuffer")) {
+		WARN_LOG(G3D, "PackDepthbuffer failed");
+	}
 }
 
 void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel) {
