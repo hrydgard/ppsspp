@@ -2243,10 +2243,19 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	float v2 = texHeight;
 	if (bounds.minV < bounds.maxV) {
 		// These are already in pixel coords! Doesn't seem like we should multiply by texwidth/height.
-		u1 = bounds.minU + gstate_c.curTextureXOffset;
-		v1 = bounds.minV + gstate_c.curTextureYOffset;
-		u2 = bounds.maxU + gstate_c.curTextureXOffset;
-		v2 = bounds.maxV + gstate_c.curTextureYOffset;
+		float newU1 = bounds.minU + gstate_c.curTextureXOffset;
+		float newV1 = bounds.minV + gstate_c.curTextureYOffset;
+		float newU2 = bounds.maxU + gstate_c.curTextureXOffset + 1.0f;
+		float newV2 = bounds.maxV + gstate_c.curTextureYOffset + 1.0f;
+
+		// Only use a subregion if we're not close to at least one border. Otherwise just do the whole thing.
+		if (newU1 > 2 || newV1 > 2 || u2 < texWidth - 2 || v2 < texHeight - 2) {
+			u1 = newU1;
+			v1 = newV1;
+			u2 = newU2;
+			v2 = newV2;
+		}
+
 		// We need to reapply the texture next time since we cropped UV.
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
