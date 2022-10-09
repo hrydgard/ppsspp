@@ -324,6 +324,9 @@ public:
 
 	static std::string GetSpaceText(u64 size, bool roundUp);
 
+	void SetIgnoreTextures(bool state) {
+		ignoreTextures_ = state;
+	}
 	int SetPspParam(SceUtilitySavedataParam* param);
 	SceUtilitySavedataParam *GetPspParam();
 	const SceUtilitySavedataParam *GetPspParam() const;
@@ -379,4 +382,5 @@ private:
 	SaveFileInfo *noSaveIcon = nullptr;
 	int saveDataListCount = 0;
 	int saveNameListDataCount = 0;
+	bool ignoreTextures_ = false;
 };

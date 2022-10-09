@@ -1600,15 +1600,14 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 
 	// Search save image icon0
 	// TODO : If icon0 don't exist, need to use icon1 which is a moving icon. Also play sound
-	std::string fileDataPath2 = savePath + saveDir + "/" + ICON0_FILENAME;
-	PSPFileInfo info2 = pspFileSystem.GetFileInfo(fileDataPath2);
-	if (info2.exists)
-		saveInfo.texture = new PPGeImage(fileDataPath2);
+	if (!ignoreTextures_) {
+		saveInfo.texture = new PPGeImage(savePath + saveDir + "/" + ICON0_FILENAME);
+	}
 
 	// Load info in PARAM.SFO
 	std::vector<u8> sfoData;
-	fileDataPath2 = savePath + saveDir + "/" + SFO_FILENAME;
-	if (pspFileSystem.ReadEntireFile(fileDataPath2, sfoData) >= 0) {
+	std::string sfoFilename = savePath + saveDir + "/" + SFO_FILENAME;
+	if (pspFileSystem.ReadEntireFile(sfoFilename, sfoData) >= 0) {
 		ParamSFOData sfoFile;
 		if (sfoFile.ReadSFO(sfoData)) {
 			SetStringFromSFO(sfoFile, "TITLE", saveInfo.title, sizeof(saveInfo.title));
@@ -1859,9 +1858,8 @@ bool SavedataParam::wouldHasMultiSaveName(SceUtilitySavedataParam* param) {
 	}
 }
 
-void SavedataParam::DoState(PointerWrap &p)
-{
-	auto s = p.Section("SavedataParam", 1);
+void SavedataParam::DoState(PointerWrap &p) {
+	auto s = p.Section("SavedataParam", 1, 2);
 	if (!s)
 		return;
 
@@ -1869,20 +1867,24 @@ void SavedataParam::DoState(PointerWrap &p)
 	Do(p, selectedSave);
 	Do(p, saveDataListCount);
 	Do(p, saveNameListDataCount);
-	if (p.mode == p.MODE_READ)
-	{
+	if (p.mode == p.MODE_READ) {
 		if (saveDataList != NULL)
 			delete [] saveDataList;
-		if (saveDataListCount != 0)
-		{
+		if (saveDataListCount != 0) {
 			saveDataList = new SaveFileInfo[saveDataListCount];
 			DoArray(p, saveDataList, saveDataListCount);
-		}
-		else
+		} else {
 			saveDataList = NULL;
+		}
 	}
 	else
 		DoArray(p, saveDataList, saveDataListCount);
+
+	if (s >= 2) {
+		Do(p, ignoreTextures_);
+	} else {
+		ignoreTextures_ = false;
+	}
 }
 
 int SavedataParam::GetSaveCryptMode(SceUtilitySavedataParam *param, const std::string &saveDirName) {
