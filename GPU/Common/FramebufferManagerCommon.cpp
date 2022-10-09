@@ -1657,13 +1657,14 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	VirtualFramebuffer *srcBuffer = nullptr;
 	bool ignoreDstBuffer = flags & GPUCopyFlag::FORCE_DST_MEM;
 	bool ignoreSrcBuffer = flags & (GPUCopyFlag::FORCE_SRC_MEM | GPUCopyFlag::MEMSET);
+	RasterChannel channel = flags & GPUCopyFlag::DEPTH_REQUESTED ? RASTER_DEPTH : RASTER_COLOR;
 
 	u32 dstY = (u32)-1;
 	u32 dstH = 0;
 	u32 srcY = (u32)-1;
 	u32 srcH = 0;
 	for (auto vfb : vfbs_) {
-		if (vfb->fb_stride == 0) {
+		if (vfb->fb_stride == 0 || channel != RASTER_COLOR) {
 			continue;
 		}
 
@@ -1715,14 +1716,36 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		}
 	}
 
+	if (channel == RASTER_DEPTH) {
+		srcBuffer = nullptr;
+		dstBuffer = nullptr;
+		// Let's assume exact matches only for simplicity.
+		for (auto vfb : vfbs_) {
+			if (!ignoreDstBuffer && dst == vfb->z_address && size == vfb->z_stride * 2 * vfb->height) {
+				if (!dstBuffer || dstBuffer->depthBindSeq < vfb->depthBindSeq) {
+					dstBuffer = vfb;
+					dstY = 0;
+					dstH = vfb->height;
+				}
+			}
+			if (!ignoreSrcBuffer && src == vfb->z_address && size == vfb->z_stride * 2 * vfb->height) {
+				if (!srcBuffer || srcBuffer->depthBindSeq < vfb->depthBindSeq) {
+					srcBuffer = vfb;
+					srcY = 0;
+					srcH = vfb->height;
+				}
+			}
+		}
+	}
+
 	if (!useBufferedRendering_) {
 		// If we're copying into a recently used display buf, it's probably destined for the screen.
-		if (srcBuffer || (dstBuffer != displayFramebuf_ && dstBuffer != prevDisplayFramebuf_)) {
+		if (channel == RASTER_DEPTH || srcBuffer || (dstBuffer != displayFramebuf_ && dstBuffer != prevDisplayFramebuf_)) {
 			return false;
 		}
 	}
 
-	if (!dstBuffer && srcBuffer) {
+	if (!dstBuffer && srcBuffer && channel != RASTER_DEPTH) {
 		// Note - if we're here, we're in a memcpy, not a block transfer. Not allowing IntraVRAMBlockTransferAllowCreateFB.
 		// Technically, that makes BlockTransferAllowCreateFB a bit of a misnomer.
 		if (PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB) {
@@ -1740,7 +1763,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		} else {
 			WARN_LOG_ONCE(dstnotsrccpy, G3D, "Inter-buffer memcpy %08x -> %08x (size: %x)", src, dst, size);
 			// Just do the blit!
-			BlitFramebuffer(dstBuffer, 0, dstY, srcBuffer, 0, srcY, srcBuffer->width, srcH, 0, RASTER_COLOR, "Blit_InterBufferMemcpy");
+			BlitFramebuffer(dstBuffer, 0, dstY, srcBuffer, 0, srcY, srcBuffer->width, srcH, 0, channel, "Blit_InterBufferMemcpy");
 			SetColorUpdated(dstBuffer, skipDrawReason);
 			RebindFramebuffer("RebindFramebuffer - Inter-buffer memcpy");
 		}
@@ -1752,7 +1775,9 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		WARN_LOG_ONCE(btucpy, G3D, "Memcpy fbo upload %08x -> %08x (size: %x)", src, dst, size);
 		FlushBeforeCopy();
 		const u8 *srcBase = Memory::GetPointerUnchecked(src);
-		DrawPixels(dstBuffer, 0, dstY, srcBase, dstBuffer->fb_format, dstBuffer->fb_stride, dstBuffer->width, dstH, RASTER_COLOR, "MemcpyFboUpload_DrawPixels");
+		GEBufferFormat srcFormat = channel == RASTER_DEPTH ? GE_FORMAT_DEPTH16 : dstBuffer->fb_format;
+		int srcStride = channel == RASTER_DEPTH ? dstBuffer->z_stride : dstBuffer->fb_stride;
+		DrawPixels(dstBuffer, 0, dstY, srcBase, srcFormat, srcStride, dstBuffer->width, dstH, channel, "MemcpyFboUpload_DrawPixels");
 		SetColorUpdated(dstBuffer, skipDrawReason);
 		RebindFramebuffer("RebindFramebuffer - Memcpy fbo upload");
 		// This is a memcpy, let's still copy just in case.
@@ -1762,8 +1787,8 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		FlushBeforeCopy();
 		if (srcH == 0 || srcY + srcH > srcBuffer->bufferHeight) {
 			WARN_LOG_ONCE(btdcpyheight, G3D, "Memcpy fbo download %08x -> %08x skipped, %d+%d is taller than %d", src, dst, srcY, srcH, srcBuffer->bufferHeight);
-		} else if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated) {
-			ReadFramebufferToMemory(srcBuffer, 0, srcY, srcBuffer->width, srcH, RASTER_COLOR);
+		} else if (g_Config.bBlockTransferGPU && (!srcBuffer->memoryUpdated || channel == RASTER_DEPTH)) {
+			ReadFramebufferToMemory(srcBuffer, 0, srcY, srcBuffer->width, srcH, channel);
 			srcBuffer->usageFlags = (srcBuffer->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		}
 		return false;
@@ -2623,7 +2648,8 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 			vfb->usageFlags |= FB_USAGE_DOWNLOAD;
 		} else if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
 			// Mark it as fully downloaded until next render to it.
-			vfb->memoryUpdated = true;
+			if (channel == RASTER_COLOR)
+				vfb->memoryUpdated = true;
 			vfb->usageFlags |= FB_USAGE_DOWNLOAD;
 		} else {
 			// Let's try to set the flag eventually, if the game copies a lot.
