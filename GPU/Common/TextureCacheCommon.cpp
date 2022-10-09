@@ -2245,8 +2245,8 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 		// These are already in pixel coords! Doesn't seem like we should multiply by texwidth/height.
 		u1 = bounds.minU + gstate_c.curTextureXOffset;
 		v1 = bounds.minV + gstate_c.curTextureYOffset;
-		u2 = bounds.maxU + gstate_c.curTextureXOffset;
-		v2 = bounds.maxV + gstate_c.curTextureYOffset;
+		u2 = bounds.maxU + gstate_c.curTextureXOffset + 1.0f;
+		v2 = bounds.maxV + gstate_c.curTextureYOffset + 1.0f;
 		// We need to reapply the texture next time since we cropped UV.
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
