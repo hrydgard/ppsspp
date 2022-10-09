@@ -65,7 +65,7 @@ public:
 	void CloseAll();
 
 	void DoState(PointerWrap &p) override;
-	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
+	std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) override;
 	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
 	void     CloseFile(u32 handle) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
@@ -111,7 +111,7 @@ public:
 	~VFSFileSystem();
 
 	void DoState(PointerWrap &p) override;
-	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
+	std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) override;
 	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
 	void     CloseFile(u32 handle) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;

@@ -789,7 +789,7 @@ bool DirectoryFileSystem::ComputeRecursiveDirSizeIfFast(const std::string &path,
 	}
 }
 
-std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
+std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(const std::string &path, bool *exists) {
 	std::vector<PSPFileInfo> myVector;
 
 	std::vector<File::FileInfo> files;
@@ -798,14 +798,19 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	if (!File::GetFilesInDir(localPath, &files, nullptr, flags)) {
 		// TODO: Case sensitivity should be checked on a file system basis, right?
 #if HOST_IS_CASE_SENSITIVE
-		if (FixPathCase(basePath, path, FPC_FILE_MUST_EXIST)) {
+		std::string fixedPath = path;
+		if (FixPathCase(basePath, fixedPath, FPC_FILE_MUST_EXIST)) {
 			// May have failed due to case sensitivity, try again
-			localPath = GetLocalPath(path);
+			localPath = GetLocalPath(fixedPath);
 			if (!File::GetFilesInDir(localPath, &files, nullptr, 0)) {
+				if (exists)
+					*exists = false;
 				return ReplayApplyDiskListing(myVector, CoreTiming::GetGlobalTimeUs());
 			}
 		}
 #else
+		if (exists)
+			*exists = false;
 		return ReplayApplyDiskListing(myVector, CoreTiming::GetGlobalTimeUs());
 #endif
 	}
@@ -835,6 +840,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 			entry.type = FILETYPE_NORMAL;
 		}
 		entry.access = file.access;
+		entry.exists = file.exists;
 
 		localtime_r((time_t*)&file.atime, &entry.atime);
 		localtime_r((time_t*)&file.ctime, &entry.ctime);
@@ -843,6 +849,8 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		myVector.push_back(entry);
 	}
 
+	if (exists)
+		*exists = true;
 	return ReplayApplyDiskListing(myVector, CoreTiming::GetGlobalTimeUs());
 }
 
@@ -1073,9 +1081,11 @@ size_t VFSFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 	}
 }
 
-std::vector<PSPFileInfo> VFSFileSystem::GetDirListing(std::string path) {
+std::vector<PSPFileInfo> VFSFileSystem::GetDirListing(const std::string &path, bool *exists) {
 	std::vector<PSPFileInfo> myVector;
 	// TODO
+	if (exists)
+		*exists = false;
 	return myVector;
 }
 

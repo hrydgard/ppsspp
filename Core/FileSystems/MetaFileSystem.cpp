@@ -369,19 +369,17 @@ PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 	}
 }
 
-std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(std::string path)
-{
+std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(const std::string &path, bool *exists) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
 	int error = MapFilePath(path, of, &system);
-	if (error == 0)
-	{
-		return system->GetDirListing(of);
-	}
-	else
-	{
+	if (error == 0) {
+		return system->GetDirListing(of, exists);
+	} else {
 		std::vector<PSPFileInfo> empty;
+		if (exists)
+			*exists = false;
 		return empty;
 	}
 }
