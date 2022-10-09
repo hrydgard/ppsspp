@@ -1509,7 +1509,7 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 	return false;
 }
 
-bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) {
+bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, const char *tag) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)src;
 
 	if (fb) {
@@ -1569,15 +1569,18 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 	}
 
 	D3D11_BOX srcBox{ (UINT)bx, (UINT)by, 0, (UINT)(bx + bw), (UINT)(by + bh), 1 };
+	DataFormat srcFormat = DataFormat::UNDEFINED;
 	switch (channelBits) {
 	case FB_COLOR_BIT:
 		context_->CopySubresourceRegion(packTex, 0, bx, by, 0, fb ? fb->colorTex : bbRenderTargetTex_, 0, &srcBox);
+		srcFormat = DataFormat::R8G8B8A8_UNORM;
 		break;
 	case FB_DEPTH_BIT:
 	case FB_STENCIL_BIT:
 		// For depth/stencil buffers, we can't reliably copy subrectangles, so just copy the whole resource.
 		_assert_(fb);  // Can't copy depth/stencil from backbuffer. Shouldn't happen thanks to checks above.
 		context_->CopyResource(packTex, fb->depthStencilTex);
+		srcFormat = Draw::DataFormat::D24_S8;
 		break;
 	default:
 		_assert_(false);
@@ -1594,26 +1597,37 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 		return false;
 	}
 
-	const int srcByteOffset = by * map.RowPitch + bx * 4;
+	const size_t srcByteOffset = by * map.RowPitch + bx * DataFormatSizeInBytes(srcFormat);
+	const uint8_t *srcWithOffset = (const uint8_t *)map.pData + srcByteOffset;
 	switch (channelBits) {
 	case FB_COLOR_BIT:
 		// Pixel size always 4 here because we always request BGRA8888.
-		ConvertFromRGBA8888((uint8_t *)pixels, (uint8_t *)map.pData + srcByteOffset, pixelStride, map.RowPitch / sizeof(uint32_t), bw, bh, format);
+		ConvertFromRGBA8888((uint8_t *)pixels, srcWithOffset, pixelStride, map.RowPitch / sizeof(uint32_t), bw, bh, destFormat);
 		break;
 	case FB_DEPTH_BIT:
-		for (int y = by; y < by + bh; y++) {
-			float *dest = (float *)((uint8_t *)pixels + y * pixelStride * sizeof(float));
-			const uint32_t *src = (const uint32_t *)((const uint8_t *)map.pData + map.RowPitch * y);
-			for (int x = bx; x < bx + bw; x++) {
-				dest[x] = (src[x] & 0xFFFFFF) / (256.f * 256.f * 256.f);
+		if (srcFormat == destFormat) {
+			// Can just memcpy when it matches no matter the format!
+			uint8_t *dst = (uint8_t *)pixels;
+			const uint8_t *src = (const uint8_t *)srcWithOffset;
+			for (int y = 0; y < bh; ++y) {
+				memcpy(dst, src, bw * DataFormatSizeInBytes(srcFormat));
+				dst += pixelStride * DataFormatSizeInBytes(srcFormat);
+				src += map.RowPitch;
 			}
+		} else if (destFormat == DataFormat::D32F) {
+			ConvertToD32F((uint8_t *)pixels, srcWithOffset, pixelStride, map.RowPitch / sizeof(uint32_t), bw, bh, srcFormat);
+		} else if (destFormat == DataFormat::D16) {
+			ConvertToD16((uint8_t *)pixels, srcWithOffset, pixelStride, map.RowPitch / sizeof(uint32_t), bw, bh, srcFormat);
+		} else {
+			_assert_(false);
 		}
 		break;
 	case FB_STENCIL_BIT:
-		for (int y = by; y < by + bh; y++) {
+		_assert_(destFormat == DataFormat::S8);
+		for (int y = 0; y < bh; y++) {
 			uint8_t *destStencil = (uint8_t *)pixels + y * pixelStride;
-			const uint32_t *src = (const uint32_t *)((const uint8_t *)map.pData + map.RowPitch * y);
-			for (int x = bx; x < bx + bw; x++) {
+			const uint32_t *src = (const uint32_t *)(srcWithOffset + map.RowPitch * y);
+			for (int x = 0; x < bw; x++) {
 				destStencil[x] = src[x] >> 24;
 			}
 		}
