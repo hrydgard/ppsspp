@@ -36,6 +36,7 @@ DebuggerSubscriber *WebSocketHLEInit(DebuggerEventHandlerMap &map) {
 	map["hle.func.list"] = &WebSocketHLEFuncList;
 	map["hle.func.add"] = &WebSocketHLEFuncAdd;
 	map["hle.func.remove"] = &WebSocketHLEFuncRemove;
+	map["hle.func.removeRange"] = &WebSocketHLEFuncRemoveRange;
 	map["hle.func.rename"] = &WebSocketHLEFuncRename;
 	map["hle.func.scan"] = &WebSocketHLEFuncScan;
 	map["hle.module.list"] = &WebSocketHLEModuleList;
@@ -361,6 +362,60 @@ void WebSocketHLEFuncRemove(DebuggerRequest &req) {
 	json.writeUint("size", funcSize);
 }
 
+// Remove function symbols in range (hle.func.removeRange)
+//
+// Parameters:
+//  - address: unsigned integer address for the start of the range.
+//  - size: unsigned integer size in bytes for removal
+//
+// Response (same event name):
+//  - count: number of removed functions
+void WebSocketHLEFuncRemoveRange(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+	if (!Core_IsStepping())
+		return req.Fail("CPU currently running (cpu.stepping first)");
+
+	u32 addr;
+	if (!req.ParamU32("address", &addr))
+		return;
+	u32 size;
+	if (!req.ParamU32("size", &size))
+		return;
+
+	if (!Memory::IsValidRange(addr, size))
+		return req.Fail("Address or size outside valid memory");
+
+	u32 first_address = g_symbolMap->GetFunctionStart(addr);
+	if (first_address == SymbolMap::INVALID_ADDRESS) {
+		first_address = g_symbolMap->GetNextSymbolAddress(addr, SymbolType::ST_FUNCTION);
+	}
+
+	u32 counter = 0;
+	for (u32 current_addr = first_address; (current_addr < addr + size) && current_addr != SymbolMap::INVALID_ADDRESS; current_addr = g_symbolMap->GetNextSymbolAddress(addr, SymbolType::ST_FUNCTION)) {
+		g_symbolMap->RemoveFunction(current_addr, true);
+		++counter;
+	}
+	MIPSAnalyst::ForgetFunctions(addr, addr + size - 1);
+
+	// The following was copied from hle.func.remove:
+	g_symbolMap->SortSymbols();
+
+	MIPSAnalyst::UpdateHashMap();
+	MIPSAnalyst::ApplyHashMap();
+
+	if (g_Config.bFuncReplacements) {
+		MIPSAnalyst::ReplaceFunctions();
+	}
+
+	// Clear cache for branch lines and such.
+	DisassemblyManager manager;
+	manager.clear();
+
+	JsonWriter &json = req.Respond();
+	json.writeUint("count", counter);
+}
+
 // Rename a function symbol (hle.func.rename)
 //
 // Parameters:
@@ -368,8 +423,8 @@ void WebSocketHLEFuncRemove(DebuggerRequest &req) {
 //  - name: string, new name for the function.
 //
 // Response (same event name):
-//  - address: the start address of the removed function.
-//  - size: the size in bytes of the removed function.
+//  - address: the start address of the renamed function.
+//  - size: the size in bytes of the renamed function.
 //  - name: string, new name repeated back.
 void WebSocketHLEFuncRename(DebuggerRequest &req) {
 	if (!g_symbolMap)
@@ -408,7 +463,7 @@ void WebSocketHLEFuncRename(DebuggerRequest &req) {
 // Auto-detect functions in a memory range (hle.func.scan)
 //
 // Parameters:
-//  - address: unsigned integer address within function to rename.
+//  - address: unsigned integer address for the start of the range.
 //  - size: unsigned integer size in bytes for scan.
 //
 // Response (same event name) with no extra data.
