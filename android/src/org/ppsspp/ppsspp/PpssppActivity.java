@@ -273,15 +273,13 @@ public class PpssppActivity extends NativeActivity {
 			// Is ArrayList weird or what?
 			String[] strings = new String[listing.size()];
 			return listing.toArray(strings);
-		}
-		catch (IllegalArgumentException e) {
+		} catch (IllegalArgumentException e) {
 			// Due to sloppy exception handling in resolver.query, we get this wrapping
 			// a FileNotFoundException if the directory doesn't exist.
-			return new String[]{};
-		}
-		catch (Exception e) {
+			return new String[]{ "X" };
+		} catch (Exception e) {
 			Log.e(TAG, "listContentUriDir exception: " + e.toString());
-			return new String[]{};
+			return new String[]{ "X" };
 		} finally {
 			if (c != null) {
 				c.close();

@@ -17,8 +17,12 @@
 
 #pragma once
 
+#include <memory>
+#include <mutex>
 #include <set>
+#include <unordered_map>
 #include "Common/CommonTypes.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceRtc.h"
 #include "Core/Dialog/PSPDialog.h"
@@ -324,6 +328,9 @@ public:
 
 	static std::string GetSpaceText(u64 size, bool roundUp);
 
+	void SetIgnoreTextures(bool state) {
+		ignoreTextures_ = state;
+	}
 	int SetPspParam(SceUtilitySavedataParam* param);
 	SceUtilitySavedataParam *GetPspParam();
 	const SceUtilitySavedataParam *GetPspParam() const;
@@ -347,6 +354,8 @@ public:
 	int GetSaveNameIndex(SceUtilitySavedataParam* param);
 
 	bool wouldHasMultiSaveName(SceUtilitySavedataParam* param);
+
+	void ClearCaches();
 
 	void DoState(PointerWrap &p);
 
@@ -373,10 +382,17 @@ private:
 	std::set<std::string> GetSecureFileNames(const std::string &dirPath);
 	bool GetExpectedHash(const std::string &dirPath, const std::string &filename, u8 hash[16]);
 
+	std::shared_ptr<ParamSFOData> LoadCachedSFO(const std::string &path, bool orCreate = false);
+
 	SceUtilitySavedataParam* pspParam = nullptr;
 	int selectedSave = 0;
 	SaveFileInfo *saveDataList = nullptr;
 	SaveFileInfo *noSaveIcon = nullptr;
 	int saveDataListCount = 0;
 	int saveNameListDataCount = 0;
+	bool ignoreTextures_ = false;
+
+	// Cleared before returning to PSP, no need to save state.
+	std::mutex cacheLock_;
+	std::unordered_map<std::string, std::shared_ptr<ParamSFOData>> sfoCache_;
 };

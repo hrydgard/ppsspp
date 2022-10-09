@@ -206,12 +206,9 @@ void PSPGamedataInstallDialog::CloseCurrentFile() {
 void PSPGamedataInstallDialog::WriteSfoFile() {
 	ParamSFOData sfoFile;
 	std::string sfopath = GetGameDataInstallFileName(&request, SFO_FILENAME);
-	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
-	if (sfoInfo.exists) {
-		std::vector<u8> sfoData;
-		if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0) {
-			sfoFile.ReadSFO(sfoData);
-		}
+	std::vector<u8> sfoFileData;
+	if (pspFileSystem.ReadEntireFile(sfopath, sfoFileData) >= 0) {
+		sfoFile.ReadSFO(sfoFileData);
 	}
 
 	// Update based on the just-saved data.
