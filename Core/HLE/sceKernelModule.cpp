@@ -1634,16 +1634,9 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 }
 
 SceUID KernelLoadModule(const std::string &filename, std::string *error_string) {
-	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
-	if (!info.exists)
-		return SCE_KERNEL_ERROR_NOFILE;
-
 	std::vector<uint8_t> buffer;
-	buffer.resize((size_t)info.size);
-
-	u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
-	pspFileSystem.ReadFile(handle, &buffer[0], info.size);
-	pspFileSystem.CloseFile(handle);
+	if (pspFileSystem.ReadEntireFile(filename, buffer) < 0)
+		return SCE_KERNEL_ERROR_NOFILE;
 
 	u32 error = SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
 	u32 magic;
@@ -1796,8 +1789,8 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	__KernelLoadReset();
 
-	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
-	if (!info.exists) {
+	std::vector<uint8_t> fileData;
+	if (pspFileSystem.ReadEntireFile(filename, fileData) < 0) {
 		ERROR_LOG(LOADER, "Failed to load executable %s - file doesn't exist", filename);
 		*error_string = StringFromFormat("Could not find executable %s", filename);
 		delete[] param_argp;
@@ -1806,14 +1799,11 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		return false;
 	}
 
-	u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
-
-	u8 *temp = new u8[(int)info.size + 0x01000000];
-
-	pspFileSystem.ReadFile(handle, temp, (size_t)info.size);
-
 	PSP_SetLoading("Loading modules...");
-	PSPModule *module = __KernelLoadModule(temp, (size_t)info.size, 0, error_string);
+	size_t size = fileData.size();
+	// TODO: Why do we add this padding?  Crash avoidance?
+	fileData.resize(fileData.size() + 0x01000000);
+	PSPModule *module = __KernelLoadModule(fileData.data(), size, 0, error_string);
 
 	if (!module || module->isFake) {
 		if (module) {
@@ -1822,7 +1812,6 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		}
 		ERROR_LOG(LOADER, "Failed to load module %s", filename);
 		*error_string = "Failed to load executable: " + *error_string;
-		delete [] temp;
 		delete[] param_argp;
 		delete[] param_key;
 		return false;
@@ -1833,10 +1822,6 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	mipsr4k.pc = module->nm.entry_addr;
 
 	INFO_LOG(LOADER, "Module entry: %08x", mipsr4k.pc);
-
-	delete [] temp;
-
-	pspFileSystem.CloseFile(handle);
 
 	SceKernelSMOption option;
 	option.size = sizeof(SceKernelSMOption);
@@ -2007,15 +1992,12 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 		}
 	}
 
-	PSPFileInfo info = pspFileSystem.GetFileInfo(name);
-	s64 size = (s64)info.size;
-
-	if (!info.exists) {
+	std::vector<uint8_t> fileData;
+	if (pspFileSystem.ReadEntireFile(name, fileData) < 0) {
 		const u32 error = hleLogError(LOADER, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file does not exist");
 		return hleDelayResult(error, "module loaded", 500);
 	}
-
-	if (!size) {
+	if (fileData.empty()) {
 		const u32 error = hleLogError(LOADER, SCE_KERNEL_ERROR_FILEERR, "module file size is 0");
 		return hleDelayResult(error, "module loaded", 500);
 	}
@@ -2045,15 +2027,10 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 	}
 
 	PSPModule *module = nullptr;
-	u8 *temp = new u8[(int)size];
-	u32 handle = pspFileSystem.OpenFile(name, FILEACCESS_READ);
-	pspFileSystem.ReadFile(handle, temp, (size_t)size);
 	u32 magic;
 	u32 error;
 	std::string error_string;
-	module = __KernelLoadELFFromPtr(temp, (size_t)size, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, error);
-	delete [] temp;
-	pspFileSystem.CloseFile(handle);
+	module = __KernelLoadELFFromPtr(fileData.data(), fileData.size(), 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, error);
 
 	if (!module) {
 		if (magic == 0x46535000) {
@@ -2063,6 +2040,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 			return hleDelayResult(error, "module loaded", 500);
 		}
 
+		PSPFileInfo info = pspFileSystem.GetFileInfo(name);
 		if (info.name == "BOOT.BIN") {
 			NOTICE_LOG_REPORT(LOADER, "Module %s is blacklisted or undecryptable - we try __KernelLoadExec", name);
 			// Name might get deleted.

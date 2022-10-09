@@ -593,7 +593,7 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 	SeekFile(handle, 0, FILEMOVE_BEGIN);
 	data.resize(dataSize);
 
-	size_t result = ReadFile(handle, (u8 *)&data[0], dataSize);
+	size_t result = ReadFile(handle, data.data(), dataSize);
 	CloseFile(handle);
 
 	if (result != dataSize)
