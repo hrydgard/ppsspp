@@ -126,12 +126,12 @@ public:
 	void InitClear() override = 0;
 	bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
-	bool PerformMemoryDownload(u32 dest, int size) override;
-	bool PerformMemoryUpload(u32 dest, int size) override;
+	bool PerformReadbackToMemory(u32 dest, int size) override;
+	bool PerformWriteColorFromMemory(u32 dest, int size) override;
 
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
-	void NotifyVideoUpload(u32 addr, int size, int width, int format) override;
-	bool PerformStencilUpload(u32 dest, int size, StencilUpload flags) override;
+	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format) override;
+	bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) override;
 
 	void Execute_OffsetAddr(u32 op, u32 diff);
 	void Execute_Vaddr(u32 op, u32 diff);

@@ -1183,7 +1183,7 @@ void TextureCacheCommon::NotifyConfigChanged() {
 	replacer_.NotifyConfigChanged();
 }
 
-void TextureCacheCommon::NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt) {
+void TextureCacheCommon::NotifyWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt) {
 	addr &= 0x3FFFFFFF;
 	videos_.push_back({ addr, (u32)size, gpuStats.numFlips });
 }

@@ -514,9 +514,9 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 
 		// Assume that if we're clearing right when switching to a new framebuffer, we don't need to upload.
 		if (useBufferedRendering_ && params.isDrawing) {
-			gpu->PerformMemoryUpload(params.fb_address, colorByteSize);
-			// Alpha was already done by PerformMemoryUpload.
-			PerformStencilUpload(params.fb_address, colorByteSize, StencilUpload::STENCIL_IS_ZERO | StencilUpload::IGNORE_ALPHA);
+			gpu->PerformWriteColorFromMemory(params.fb_address, colorByteSize);
+			// Alpha was already done by PerformWriteColorFromMemory.
+			PerformWriteStencilFromMemory(params.fb_address, colorByteSize, WriteStencil::STENCIL_IS_ZERO | WriteStencil::IGNORE_ALPHA);
 			// TODO: Is it worth trying to upload the depth buffer (only if it wasn't copied above..?)
 		}
 
@@ -1029,7 +1029,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	NotifyRenderFramebufferUpdated(vfb);
 }
 
-void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int stride, GEBufferFormat fmt) {
+void FramebufferManagerCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int stride, GEBufferFormat fmt) {
 	// Note: UpdateFromMemory() is still called later.
 	// This is a special case where we have extra information prior to the invalidation.
 
@@ -2598,9 +2598,9 @@ bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 // (Except using the GPU might cause problems because of various implementations'
 // dithering behavior and games that expect exact colors like Danganronpa, so we
 // can't entirely be rid of the CPU path.) -- unknown
-void FramebufferManagerCommon::PackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel) {
+void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel) {
 	if (w <= 0 || h <= 0) {
-		ERROR_LOG(G3D, "Bad inputs to PackFramebufferSync: %d %d %d %d", x, y, w, h);
+		ERROR_LOG(G3D, "Bad inputs to ReadbackFramebufferSync: %d %d %d %d", x, y, w, h);
 		return;
 	}
 
@@ -2617,7 +2617,7 @@ void FramebufferManagerCommon::PackFramebufferSync(VirtualFramebuffer *vfb, int 
 	const int dstSize = ((h - 1) * stride + w) * dstBpp;
 
 	if (!Memory::IsValidRange(fb_address + dstByteOffset, dstSize)) {
-		ERROR_LOG_REPORT(G3D, "PackFramebufferSync would write outside of memory, ignoring");
+		ERROR_LOG_REPORT(G3D, "ReadbackFramebufferSync would write outside of memory, ignoring");
 		return;
 	}
 
@@ -2629,28 +2629,28 @@ void FramebufferManagerCommon::PackFramebufferSync(VirtualFramebuffer *vfb, int 
 
 	if (destPtr) {
 		if (channel == RASTER_DEPTH)
-			PackDepthbuffer(vfb, x, y, w, h);
+			ReadbackDepthbufferSync(vfb, x, y, w, h);
 		else
-			draw_->CopyFramebufferToMemorySync(vfb->fbo, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "PackFramebufferSync");
+			draw_->CopyFramebufferToMemorySync(vfb->fbo, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "ReadbackFramebufferSync");
 
 		char tag[128];
 		size_t len = snprintf(tag, sizeof(tag), "FramebufferPack/%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, w, h, GeBufferFormatToString(vfb->fb_format));
 		NotifyMemInfo(MemBlockFlags::WRITE, fb_address + dstByteOffset, dstSize, tag, len);
 	} else {
-		ERROR_LOG(G3D, "PackFramebufferSync: Tried to readback to bad address %08x (stride = %d)", fb_address + dstByteOffset, vfb->fb_stride);
+		ERROR_LOG(G3D, "ReadbackFramebufferSync: Tried to readback to bad address %08x (stride = %d)", fb_address + dstByteOffset, vfb->fb_stride);
 	}
 
 	gpuStats.numReadbacks++;
 }
 
-void FramebufferManagerCommon::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
+void FramebufferManagerCommon::ReadbackDepthbufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	_assert_msg_(vfb && vfb->z_address != 0 && vfb->z_stride != 0, "Depth buffer invalid");
 
 	Draw::DataFormat destFormat = GEFormatToThin3D(GE_FORMAT_DEPTH16);
 	const int dstByteOffset = (y * vfb->z_stride + x) * 2;
 	u8 *destPtr = Memory::GetPointerWriteUnchecked(vfb->z_address + dstByteOffset);
-	if (!draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "PackDepthbuffer")) {
-		WARN_LOG(G3D, "PackDepthbuffer failed");
+	if (!draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "ReadbackDepthbufferSync")) {
+		WARN_LOG(G3D, "ReadbackDepthbufferSync failed");
 	}
 }
 
@@ -2662,8 +2662,7 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 	if (vfb && vfb->fbo) {
 		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
 		if (gameUsesSequentialCopies_) {
-			// Ignore the x/y/etc., read the entire thing.
-			// TODO: What game did we need this for?
+			// Ignore the x/y/etc., read the entire thing.  See below.
 			x = 0;
 			y = 0;
 			w = vfb->width;
@@ -2677,7 +2676,7 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 			vfb->usageFlags |= FB_USAGE_DOWNLOAD;
 		} else {
 			// Let's try to set the flag eventually, if the game copies a lot.
-			// Some games copy subranges very frequently.
+			// Some games (like Grand Knights History) copy subranges very frequently.
 			const static int FREQUENT_SEQUENTIAL_COPIES = 3;
 			static int frameLastCopy = 0;
 			static u32 bufferLastCopy = 0;
@@ -2694,12 +2693,12 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 
 		if (vfb->renderWidth == vfb->width && vfb->renderHeight == vfb->height) {
 			// No need to stretch-blit
-			PackFramebufferSync(vfb, x, y, w, h, channel);
+			ReadbackFramebufferSync(vfb, x, y, w, h, channel);
 		} else {
 			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb, channel);
 			if (nvfb) {
 				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, channel, "Blit_ReadFramebufferToMemory");
-				PackFramebufferSync(nvfb, x, y, w, h, channel);
+				ReadbackFramebufferSync(nvfb, x, y, w, h, channel);
 			}
 		}
 
@@ -2756,7 +2755,7 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb, RASTER_COLOR);
 			if (nvfb) {
 				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, RASTER_COLOR, "Blit_DownloadFramebufferForClut");
-				PackFramebufferSync(nvfb, x, y, w, h, RASTER_COLOR);
+				ReadbackFramebufferSync(nvfb, x, y, w, h, RASTER_COLOR);
 			}
 
 			textureCache_->ForgetLastTexture();

@@ -133,8 +133,11 @@
 		}
 	}
 
-	void FramebufferManagerDX9::PackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel) {
-		if (channel != RASTER_COLOR) {
+	void FramebufferManagerDX9::ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel) {
+		if (channel == RASTER_DEPTH) {
+			ReadbackDepthbufferSync(vfb, x, y, w, h);
+			return;
+		} else if (channel != RASTER_COLOR) {
 			// Unsupported
 			WARN_LOG_ONCE(d3ddepthreadback, G3D, "Not yet supporting depth readbacks on DX9");
 			return;
@@ -175,7 +178,7 @@
 		}
 	}
 
-	void FramebufferManagerDX9::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
+	void FramebufferManagerDX9::ReadbackDepthbufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 		// We always read the depth buffer in 24_8 format.
 		const u32 z_address = vfb->z_address;
 
