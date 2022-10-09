@@ -2605,7 +2605,7 @@ void FramebufferManagerCommon::PackFramebufferSync(VirtualFramebuffer *vfb, int 
 	const int dstByteOffset = (y * stride + x) * dstBpp;
 	// Leave the gap between the end of the last line and the full stride.
 	// This is only used for the NotifyMemInfo range.
-	const int dstSize = (h * stride + w - 1) * dstBpp;
+	const int dstSize = ((h - 1) * stride + w) * dstBpp;
 
 	if (!Memory::IsValidRange(fb_address + dstByteOffset, dstSize)) {
 		ERROR_LOG_REPORT(G3D, "PackFramebufferSync would write outside of memory, ignoring");
