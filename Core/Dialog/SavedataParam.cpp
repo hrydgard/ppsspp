@@ -1488,23 +1488,20 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			for (int i = 0; i < saveDataListCount; i++) {
 				// "<>" means saveName can be anything...
 				if (strncmp(saveNameListData[i], "<>", ARRAY_SIZE(saveNameListData[i])) == 0) {
-					std::string fileDataPath = "";				
 					// TODO:Maybe we need a way to reorder the files?
 					auto allSaves = pspFileSystem.GetDirListing(savePath);
 					std::string gameName = GetGameName(param);
-					std::string saveName = "";
-					for(auto it = allSaves.begin(); it != allSaves.end(); ++it) {
-						if(it->name.compare(0, gameName.length(), gameName) == 0) {
-							saveName = it->name.substr(gameName.length());
+					for (auto it = allSaves.begin(); it != allSaves.end(); ++it) {
+						if (it->name.compare(0, gameName.length(), gameName) == 0) {
+							std::string saveName = it->name.substr(gameName.length());
 							
-							if(IsInSaveDataList(saveName, realCount)) // Already in SaveDataList, skip...
+							if (IsInSaveDataList(saveName, realCount)) // Already in SaveDataList, skip...
 								continue;
 
-							fileDataPath = savePath + it->name;
-							PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
-							if (info.exists) {
-								SetFileInfo(realCount, info, saveName);
-								DEBUG_LOG(SCEUTILITY,"%s Exist",fileDataPath.c_str());
+							std::string fileDataPath = savePath + it->name;
+							if (it->exists) {
+								SetFileInfo(realCount, *it, saveName);
+								DEBUG_LOG(SCEUTILITY, "%s Exist", fileDataPath.c_str());
 								++realCount;
 							} else {
 								if (listEmptyFile) {
@@ -1597,11 +1594,9 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 		saveInfo.texture = new PPGeImage(fileDataPath2);
 
 	// Load info in PARAM.SFO
+	std::vector<u8> sfoData;
 	fileDataPath2 = savePath + saveDir + "/" + SFO_FILENAME;
-	info2 = pspFileSystem.GetFileInfo(fileDataPath2);
-	if (info2.exists) {
-		std::vector<u8> sfoData;
-		pspFileSystem.ReadEntireFile(fileDataPath2, sfoData);
+	if (pspFileSystem.ReadEntireFile(fileDataPath2, sfoData) >= 0) {
 		ParamSFOData sfoFile;
 		if (sfoFile.ReadSFO(sfoData)) {
 			SetStringFromSFO(sfoFile, "TITLE", saveInfo.title, sizeof(saveInfo.title));
@@ -1878,39 +1873,33 @@ void SavedataParam::DoState(PointerWrap &p)
 		DoArray(p, saveDataList, saveDataListCount);
 }
 
-int SavedataParam::GetSaveCryptMode(SceUtilitySavedataParam* param, const std::string &saveDirName)
-{
+int SavedataParam::GetSaveCryptMode(SceUtilitySavedataParam *param, const std::string &saveDirName) {
 	ParamSFOData sfoFile;
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
 	std::string sfopath = dirPath + "/" + SFO_FILENAME;
-	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
-	if(sfoInfo.exists) // Read sfo
-	{
-		std::vector<u8> sfoData;
-		if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0)
-		{
-			sfoFile.ReadSFO(sfoData);
+	std::vector<u8> sfoData;
+	if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0) {
+		sfoFile.ReadSFO(sfoData);
 
-			// save created in PPSSPP and not encrypted has '0' in SAVEDATA_PARAMS
-			u32 tmpDataSize = 0;
-			const u8 *tmpDataOrig = sfoFile.GetValueData("SAVEDATA_PARAMS", &tmpDataSize);
-			if (tmpDataSize == 0 || !tmpDataOrig) {
-				return 0;
-			}
-			switch (tmpDataOrig[0]) {
-			case 0:
-				return 0;
-			case 0x01:
-				return 1;
-			case 0x21:
-				return 3;
-			case 0x41:
-				return 5;
-			default:
-				// Well, it's not zero, so yes.
-				ERROR_LOG_REPORT(SCEUTILITY, "Unexpected SAVEDATA_PARAMS hash flag: %02x", tmpDataOrig[0]);
-				return 1;
-			}
+		// save created in PPSSPP and not encrypted has '0' in SAVEDATA_PARAMS
+		u32 tmpDataSize = 0;
+		const u8 *tmpDataOrig = sfoFile.GetValueData("SAVEDATA_PARAMS", &tmpDataSize);
+		if (tmpDataSize == 0 || !tmpDataOrig) {
+			return 0;
+		}
+		switch (tmpDataOrig[0]) {
+		case 0:
+			return 0;
+		case 0x01:
+			return 1;
+		case 0x21:
+			return 3;
+		case 0x41:
+			return 5;
+		default:
+			// Well, it's not zero, so yes.
+			ERROR_LOG_REPORT(SCEUTILITY, "Unexpected SAVEDATA_PARAMS hash flag: %02x", tmpDataOrig[0]);
+			return 1;
 		}
 	}
 	return 0;
