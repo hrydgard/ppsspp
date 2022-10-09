@@ -3059,7 +3059,7 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
 		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, flags, gstate_c.skipDrawReason)) {
-			// We use a little hack for PerformMemoryDownload/PerformMemoryUpload using a VRAM mirror.
+			// We use a little hack for PerformReadbackToMemory/PerformWriteColorFromMemory using a VRAM mirror.
 			// Since they're identical we don't need to copy.
 			if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
 				if (MemBlockInfoDetailed(size)) {
@@ -3102,14 +3102,14 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 	return false;
 }
 
-bool GPUCommon::PerformMemoryDownload(u32 dest, int size) {
+bool GPUCommon::PerformReadbackToMemory(u32 dest, int size) {
 	if (Memory::IsVRAMAddress(dest)) {
 		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_DST_MEM);
 	}
 	return false;
 }
 
-bool GPUCommon::PerformMemoryUpload(u32 dest, int size) {
+bool GPUCommon::PerformWriteColorFromMemory(u32 dest, int size) {
 	if (Memory::IsVRAMAddress(dest)) {
 		GPURecord::NotifyUpload(dest, size);
 		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_SRC_MEM | GPUCopyFlag::DEBUG_NOTIFIED);
@@ -3132,17 +3132,17 @@ void GPUCommon::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 	}
 }
 
-void GPUCommon::NotifyVideoUpload(u32 addr, int size, int frameWidth, int format) {
+void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWidth, GEBufferFormat format) {
 	if (Memory::IsVRAMAddress(addr)) {
-		framebufferManager_->NotifyVideoUpload(addr, size, frameWidth, (GEBufferFormat)format);
+		framebufferManager_->PerformWriteFormattedFromMemory(addr, size, frameWidth, format);
 	}
-	textureCache_->NotifyVideoUpload(addr, size, frameWidth, (GEBufferFormat)format);
+	textureCache_->NotifyWriteFormattedFromMemory(addr, size, frameWidth, format);
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
 }
 
-bool GPUCommon::PerformStencilUpload(u32 dest, int size, StencilUpload flags) {
+bool GPUCommon::PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) {
 	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
-		framebufferManager_->PerformStencilUpload(dest, size, flags);
+		framebufferManager_->PerformWriteStencilFromMemory(dest, size, flags);
 		return true;
 	}
 	return false;

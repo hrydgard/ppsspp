@@ -250,7 +250,7 @@ static int sceJpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bu
 	int width = (widthHeight >> 16) & 0xFFF;
 	int height = widthHeight & 0xFFF;
 	if (result >= 0)
-		gpu->NotifyVideoUpload(imageAddr, width * height * 4, width, GE_FORMAT_8888);
+		gpu->PerformWriteFormattedFromMemory(imageAddr, width * height * 4, width, GE_FORMAT_8888);
 
 	if (usec != 0)
 		return hleDelayResult(result, "jpeg csc", usec);

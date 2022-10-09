@@ -307,10 +307,10 @@ public:
 	void CopyDisplayToOutput(bool reallyDirty);
 
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, GPUCopyFlag flags, u32 skipDrawReason);
-	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
+	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt);
 	void UpdateFromMemory(u32 addr, int size);
 	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
-	bool PerformStencilUpload(u32 addr, int size, StencilUpload flags);
+	bool PerformWriteStencilFromMemory(u32 addr, int size, WriteStencil flags);
 
 	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
 	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
@@ -441,9 +441,9 @@ public:
 		Draw2DPipeline *pipeline, const char *tag);
 
 protected:
-	virtual void PackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
+	virtual void ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
 	// Used for when a shader is required, such as GLES.
-	virtual void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	virtual void ReadbackDepthbufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SetViewport2D(int x, int y, int w, int h);
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);

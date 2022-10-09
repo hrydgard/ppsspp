@@ -556,7 +556,7 @@ void DumpExecute::Memcpy(u32 ptr, u32 sz) {
 		SyncStall();
 		Memory::MemcpyUnchecked(execMemcpyDest, pushbuf_.data() + ptr, sz);
 		NotifyMemInfo(MemBlockFlags::WRITE, execMemcpyDest, sz, "ReplayMemcpy");
-		gpu->PerformMemoryUpload(execMemcpyDest, sz);
+		gpu->PerformWriteColorFromMemory(execMemcpyDest, sz);
 	}
 }
 
