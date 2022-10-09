@@ -447,7 +447,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 				swprintf(dest, 255, L"%S", texformats[value]);
 			}
 			else if ((value & 0xF) < (u32)ARRAY_SIZE(texformats)) {
-				swprintf(dest, 255, L"%S (extra bits %06x)", texformats[value & 0xF], value);
+				swprintf(dest, 255, L"%S (extra bits %06x)", texformats[value & 0xF], value & ~0xF);
 			}
 			else {
 				swprintf(dest, 255, L"%06x", value);

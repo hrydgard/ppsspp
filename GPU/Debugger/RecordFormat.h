@@ -49,6 +49,8 @@ enum class CommandType : u8 {
 	MEMCPYDEST = 7,
 	MEMCPYDATA = 8,
 	DISPLAY = 9,
+	CLUTADDR = 10,
+	EDRAMTRANS = 11,
 
 	TEXTURE0 = 0x10,
 	TEXTURE1 = 0x11,

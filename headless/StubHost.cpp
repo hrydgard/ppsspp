@@ -46,7 +46,7 @@ void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
 	const static u32 FRAME_HEIGHT = 272;
 
 	GPUDebugBuffer buffer;
-	gpuDebug->GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_RENDER);
+	gpuDebug->GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_DISPLAY);
 	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, 512, 272);
 
 	ScreenshotComparer comparer(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);
@@ -54,10 +54,10 @@ void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
 	if (errors < 0)
 		SendOrCollectDebugOutput(comparer.GetError() + "\n");
 
-	if (errors > 0)
-		SendOrCollectDebugOutput(StringFromFormat("Screenshot error: %f%%\n", errors * 100.0f));
+	if (errors > maxScreenshotError_)
+		SendOrCollectDebugOutput(StringFromFormat("Screenshot MSE: %f\n", errors));
 
-	if (errors > 0 && !teamCityMode && !getenv("GITHUB_ACTIONS")) {
+	if (errors > maxScreenshotError_ && writeFailureScreenshot_) {
 		if (comparer.SaveActualBitmap(Path("__testfailure.bmp")))
 			SendOrCollectDebugOutput("Actual output written to: __testfailure.bmp\n");
 		comparer.SaveVisualComparisonPNG(Path("__testcompare.png"));

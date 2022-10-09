@@ -47,7 +47,7 @@ LPD3DBLOB CompileShaderToByteCodeD3D9(const char *code, const char *target, std:
 			pShaderCode = nullptr;
 		}
 	} else {
-		*errorMessage = "";
+		errorMessage->clear();
 	}
 
 	return pShaderCode;

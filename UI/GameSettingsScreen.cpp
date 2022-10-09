@@ -256,7 +256,7 @@ void GameSettingsScreen::CreateViews() {
 	root_->Add(settingInfo_);
 
 	// Show it again if we recreated the view
-	if (oldSettingInfo_ != "") {
+	if (!oldSettingInfo_.empty()) {
 		settingInfo_->Show(oldSettingInfo_, nullptr);
 	}
 
@@ -469,8 +469,17 @@ void GameSettingsScreen::CreateViews() {
 
 	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
 		static const char *bufferOptions[] = { "No buffer", "Up to 1", "Up to 2" };
-		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands (faster, input lag)"), bufferOptions, 0, ARRAY_SIZE(bufferOptions), gr->GetName(), screenManager()));
+		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands (faster, input lag)"), bufferOptions, 1, ARRAY_SIZE(bufferOptions), gr->GetName(), screenManager()));
 		inflightChoice->OnChoice.Handle(this, &GameSettingsScreen::OnInflightFramesChoice);
+	}
+
+	if (GetGPUBackend() == GPUBackend::VULKAN) {
+		const bool usable = !draw->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW);
+		const bool vertexSupported = draw->GetDeviceCaps().clipDistanceSupported && draw->GetDeviceCaps().cullDistanceSupported;
+		if (usable && !vertexSupported) {
+			CheckBox *geometryCulling = graphicsSettings->Add(new CheckBox(&g_Config.bUseGeometryShader, gr->T("Geometry shader culling")));
+			geometryCulling->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		}
 	}
 
 	if (deviceType != DEVICE_TYPE_VR) {
@@ -1222,7 +1231,7 @@ UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnOpenMemStick(UI::EventParams &e) {
-	OpenDirectory(File::ResolvePath(g_Config.memStickDirectory.ToString().c_str()).c_str());
+	OpenDirectory(File::ResolvePath(g_Config.memStickDirectory.ToString()).c_str());
 	return UI::EVENT_DONE;
 }
 
@@ -1488,7 +1497,7 @@ void GameSettingsScreen::TriggerRestart(const char *why) {
 	std::string param = "--gamesettings";
 	if (editThenRestore_) {
 		// We won't pass the gameID, so don't resume back into settings.
-		param = "";
+		param.clear();
 	} else if (!gamePath_.empty()) {
 		param += " \"" + ReplaceAll(ReplaceAll(gamePath_.ToString(), "\\", "\\\\"), "\"", "\\\"") + "\"";
 	}

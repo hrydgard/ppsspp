@@ -82,6 +82,8 @@ public:
 
 	void TriggerFinish(DialogResult result) override;
 
+	const char *tag() const override { return "Prompt"; }
+
 private:
 	UI::EventReturn OnYes(UI::EventParams &e);
 	UI::EventReturn OnNo(UI::EventParams &e);
@@ -95,6 +97,8 @@ private:
 class NewLanguageScreen : public ListPopupScreen {
 public:
 	NewLanguageScreen(const std::string &title);
+
+	const char *tag() const override { return "NewLanguage"; }
 
 private:
 	void OnCompleted(DialogResult result) override;
@@ -110,6 +114,8 @@ public:
 
 	void CreateViews() override;
 
+	const char *tag() const override { return "PostProc"; }
+
 private:
 	void OnCompleted(DialogResult result) override;
 	bool ShowButtons() const override { return true; }
@@ -122,6 +128,8 @@ public:
 	TextureShaderScreen(const std::string &title);
 
 	void CreateViews() override;
+
+	const char *tag() const override { return "TextureShader"; }
 
 private:
 	void OnCompleted(DialogResult result) override;
@@ -146,6 +154,8 @@ public:
 	void sendMessage(const char *message, const char *value) override;
 	void CreateViews() override {}
 
+	const char *tag() const override { return "Logo"; }
+
 private:
 	void Next();
 	int frames_ = 0;
@@ -161,6 +171,8 @@ public:
 	void render() override;
 
 	void CreateViews() override;
+
+	const char *tag() const override { return "Credits"; }
 
 private:
 	UI::EventReturn OnOK(UI::EventParams &e);

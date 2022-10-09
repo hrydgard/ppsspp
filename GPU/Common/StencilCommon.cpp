@@ -171,6 +171,7 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 		break;
 	case GE_FORMAT_INVALID:
 	case GE_FORMAT_DEPTH16:
+	case GE_FORMAT_CLUT8:
 		// Inconceivable.
 		_assert_(false);
 		break;
@@ -185,13 +186,9 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 
 		// Otherwise, we can skip alpha in many cases, in which case we don't even use a shader.
 		if (flags & StencilUpload::IGNORE_ALPHA) {
-			shaderManager_->DirtyLastShader();
-
 			if (dstBuffer->fbo) {
 				draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "PerformStencilUpload_Clear");
 			}
-
-			gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE);
 			return true;
 		}
 	}
@@ -202,10 +199,13 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	if (!stencilUploadPipeline_) {
 		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 
-		char *fsCode = new char[4000];
-		char *vsCode = new char[4000];
+		char *fsCode = new char[8192];
+		char *vsCode = new char[8192];
 		GenerateStencilFs(fsCode, shaderLanguageDesc, draw_->GetBugs());
 		GenerateStencilVs(vsCode, shaderLanguageDesc);
+
+		_assert_msg_(strlen(fsCode) < 8192, "StenFS length error: %d", (int)strlen(fsCode));
+		_assert_msg_(strlen(vsCode) < 8192, "StenVS length error: %d", (int)strlen(vsCode));
 
 		ShaderModule *stencilUploadFs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "stencil_fs");
 		ShaderModule *stencilUploadVs = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "stencil_vs");
@@ -332,6 +332,6 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	tex->Release();
 
 	draw_->InvalidateCachedState();
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 	return true;
 }

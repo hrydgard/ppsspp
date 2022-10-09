@@ -64,17 +64,17 @@ enum class SoftDirty : uint64_t {
 	PIXEL_DITHER = 1ULL << 3,
 	PIXEL_WRITEMASK = 1ULL << 4,
 	PIXEL_CACHED = 1ULL << 5,
-	PIXEL_ALL = 63ULL << 0,
+	PIXEL_ALL = 0b111111ULL << 0,
 
 	SAMPLER_BASIC = 1ULL << 6,
 	SAMPLER_TEXLIST = 1ULL << 7,
 	SAMPLER_CLUT = 1ULL << 8,
-	SAMPLER_ALL = 7ULL << 6,
+	SAMPLER_ALL = 0b111ULL << 6,
 
 	RAST_BASIC = 1ULL << 9,
 	RAST_TEX = 1ULL << 10,
 	RAST_OFFSET = 1ULL << 11,
-	RAST_ALL = 7ULL << 9,
+	RAST_ALL = 0b111ULL << 9,
 
 	LIGHT_BASIC = 1ULL << 12,
 	LIGHT_MATERIAL = 1ULL << 13,
@@ -82,13 +82,13 @@ enum class SoftDirty : uint64_t {
 	LIGHT_1 = 1ULL << 15,
 	LIGHT_2 = 1ULL << 16,
 	LIGHT_3 = 1ULL << 17,
-	LIGHT_ALL = 63ULL << 12,
+	LIGHT_ALL = 0b111111ULL << 12,
 
 	TRANSFORM_BASIC = 1ULL << 18,
 	TRANSFORM_MATRIX = 1ULL << 19,
 	TRANSFORM_VIEWPORT = 1ULL << 20,
 	TRANSFORM_FOG = 1ULL << 21,
-	TRANSFORM_ALL = 31ULL << 18,
+	TRANSFORM_ALL = 0b1111ULL << 18,
 
 	BINNER_RANGE = 1ULL << 22,
 	BINNER_OVERLAP = 1ULL << 23,
@@ -127,17 +127,19 @@ public:
 	SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~SoftGPU();
 
-	void CheckGPUFeatures() override {}
+	u32 CheckGPUFeatures() const override { return 0; }
 	void InitClear() override {}
 	void ExecuteOp(u32 op, u32 diff) override;
 	void FinishDeferred() override;
+	int ListSync(int listid, int mode) override;
+	u32 DrawSync(int mode) override;
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void CopyDisplayToOutput(bool reallyDirty) override;
 	void GetStats(char *buffer, size_t bufsize) override;
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
 	void NotifyVideoUpload(u32 addr, int size, int width, int format) override;
-	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
+	bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
 	bool PerformMemoryDownload(u32 dest, int size) override;
 	bool PerformMemoryUpload(u32 dest, int size) override;
@@ -179,18 +181,29 @@ public:
 	// Overridden to change flushing behavior.
 	void Execute_Call(u32 op, u32 diff);
 
+	void Execute_WorldMtxNum(u32 op, u32 diff);
+	void Execute_ViewMtxNum(u32 op, u32 diff);
+	void Execute_ProjMtxNum(u32 op, u32 diff);
+	void Execute_TgenMtxNum(u32 op, u32 diff);
+	void Execute_BoneMtxNum(u32 op, u32 diff);
+
 	void Execute_WorldMtxData(u32 op, u32 diff);
 	void Execute_ViewMtxData(u32 op, u32 diff);
 	void Execute_ProjMtxData(u32 op, u32 diff);
 	void Execute_TgenMtxData(u32 op, u32 diff);
 	void Execute_BoneMtxData(u32 op, u32 diff);
 
+	bool GetMatrix24(GEMatrixType type, u32_le *result, u32 cmdbits) override;
+	void ResetMatrices() override;
+
+	void Execute_ImmVertexAlphaPrim(u32 op, u32 diff);
+
 	typedef void (SoftGPU::*CmdFunc)(u32 op, u32 diff);
 
 protected:
 	void FastRunLoop(DisplayList &list) override;
 	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight);
-	void ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, u8 *overrideData = nullptr);
+	void ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, const uint16_t *overrideData = nullptr);
 
 private:
 	void MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value);

@@ -1345,14 +1345,9 @@ void VertexDecoderJitCache::Jit_NormalFloatSkin() {
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS8Through() {
-	DEBUG_LOG_REPORT_ONCE(vertexS8Through, G3D, "Using S8 positions in throughmode");
 	// SIMD doesn't really matter since this isn't useful on hardware.
+	XORPS(fpScratchReg, R(fpScratchReg));
 	for (int i = 0; i < 3; i++) {
-		if (i == 2)
-			MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->posoff + i));
-		else
-			MOVSX(32, 8, tempReg1, MDisp(srcReg, dec_->posoff + i));
-		CVTSI2SS(fpScratchReg, R(tempReg1));
 		MOVSS(MDisp(dstReg, dec_->decFmt.posoff + i * 4), fpScratchReg);
 	}
 }
@@ -1396,7 +1391,13 @@ void VertexDecoderJitCache::Jit_PosFloatThrough() {
 
 	CVTTPS2DQ(fpScratchReg, R(fpScratchReg));
 	// Use pack to saturate to 0,65535.
-	PACKUSDW(fpScratchReg, R(fpScratchReg));
+	if (cpu_info.bSSE4_1) {
+		PACKUSDW(fpScratchReg, R(fpScratchReg));
+	} else {
+		PSLLD(fpScratchReg, 16);
+		PSRAD(fpScratchReg, 16);
+		PACKSSDW(fpScratchReg, R(fpScratchReg));
+	}
 	PUNPCKLWD(fpScratchReg, R(fpScratchReg2));
 	CVTDQ2PS(fpScratchReg, R(fpScratchReg));
 

@@ -36,7 +36,7 @@ public:
 	MemStickScreen(bool initialSetup);
 	~MemStickScreen() {}
 
-	std::string tag() const override { return "game"; }
+	const char *tag() const override { return "MemStick"; }
 
 	enum Choice {
 		CHOICE_BROWSE_FOLDER,
@@ -112,6 +112,9 @@ class ConfirmMemstickMoveScreen : public UIDialogScreenWithBackground {
 public:
 	ConfirmMemstickMoveScreen(Path newMemstickFolder, bool initialSetup);
 	~ConfirmMemstickMoveScreen();
+
+	const char *tag() const override { return "ConfirmMemstickMove"; }
+
 protected:
 	void update() override;
 	void CreateViews() override;

@@ -51,7 +51,7 @@ static void ParseExtensionsString(const std::string& str, std::set<std::string> 
 	size_t next = 0;
 	for (size_t pos = 0, len = str.length(); pos < len; ++pos) {
 		if (str[pos] == ' ') {
-			output.insert(str.substr(next, pos - next));
+			output.emplace(str.substr(next, pos - next));
 			// Skip the delimiter itself.
 			next = pos + 1;
 		}
@@ -60,7 +60,7 @@ static void ParseExtensionsString(const std::string& str, std::set<std::string> 
 	if (next == 0 && str.length() != 0) {
 		output.insert(str);
 	} else if (next < str.length()) {
-		output.insert(str.substr(next));
+		output.emplace(str.substr(next));
 	}
 }
 

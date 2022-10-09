@@ -261,6 +261,9 @@
     <ClInclude Include="Debugger\GECommandTable.h">
       <Filter>Debugger</Filter>
     </ClInclude>
+    <ClInclude Include="Common\GeometryShaderGenerator.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -511,6 +514,9 @@
     </ClCompile>
     <ClCompile Include="Debugger\GECommandTable.cpp">
       <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\GeometryShaderGenerator.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

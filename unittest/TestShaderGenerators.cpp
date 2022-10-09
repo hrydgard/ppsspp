@@ -12,6 +12,7 @@
 
 #include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Common/VertexShaderGenerator.h"
+#include "GPU/Common/GeometryShaderGenerator.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
@@ -23,6 +24,8 @@
 #include "GPU/D3D9/D3DCompilerLoader.h"
 #include "GPU/D3D9/D3D9ShaderCompiler.h"
 #endif
+
+static constexpr size_t CODE_BUFFER_SIZE = 32768;
 
 bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs bugs, std::string *errorString) {
 	uint64_t uniformMask;
@@ -39,7 +42,7 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 	}
 	case ShaderLanguage::GLSL_3xx:
 	{
-		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_3xx);
 		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, nullptr, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
@@ -73,7 +76,7 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 	}
 	case ShaderLanguage::GLSL_3xx:
 	{
-		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_3xx);
 		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
@@ -91,18 +94,67 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 	}
 }
 
+bool GenerateGShader(GShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs bugs, std::string *errorString) {
+	errorString->clear();
+
+	switch (lang) {
+	case ShaderLanguage::GLSL_VULKAN:
+	{
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_VULKAN);
+		return GenerateGeometryShader(id, buffer, compat, bugs, errorString);
+	}
+	/*
+	case ShaderLanguage::GLSL_3xx:
+	{
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_3xx);
+		return GenerateGeometryShader(id, buffer, compat, bugs, errorString);
+	}
+	case ShaderLanguage::HLSL_D3D11:
+	{
+		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D11);
+		return GenerateGeometryShader(id, buffer, compat, bugs, errorString);
+	}
+	*/
+	default:
+		return false;
+	}
+}
+
+static VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
+	switch (stage) {
+	case ShaderStage::Vertex: return VK_SHADER_STAGE_VERTEX_BIT;
+	case ShaderStage::Geometry: return VK_SHADER_STAGE_GEOMETRY_BIT;
+	case ShaderStage::Compute: return VK_SHADER_STAGE_COMPUTE_BIT;
+	case ShaderStage::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
+	}
+	return VK_SHADER_STAGE_FRAGMENT_BIT;
+}
+
 bool TestCompileShader(const char *buffer, ShaderLanguage lang, ShaderStage stage, std::string *errorMessage) {
 	std::vector<uint32_t> spirv;
 	switch (lang) {
 #if PPSSPP_PLATFORM(WINDOWS)
 	case ShaderLanguage::HLSL_D3D11:
 	{
-		auto output = CompileShaderToBytecodeD3D11(buffer, strlen(buffer), stage == ShaderStage::Vertex ? "vs_4_0" : "ps_4_0", 0);
+		const char *programType = nullptr;
+		switch (stage) {
+		case ShaderStage::Vertex: programType = "vs_4_0"; break;
+		case ShaderStage::Fragment: programType = "ps_4_0"; break;
+		case ShaderStage::Geometry: programType = "gs_4_0"; break;
+		default: return false;
+		}
+		auto output = CompileShaderToBytecodeD3D11(buffer, strlen(buffer), programType, 0);
 		return !output.empty();
 	}
 	case ShaderLanguage::HLSL_D3D9:
 	{
-		LPD3DBLOB blob = CompileShaderToByteCodeD3D9(buffer, stage == ShaderStage::Vertex ? "vs_3_0" : "ps_3_0", errorMessage);
+		const char *programType = nullptr;
+		switch (stage) {
+		case ShaderStage::Vertex: programType = "vs_3_0"; break;
+		case ShaderStage::Fragment: programType = "ps_3_0"; break;
+		default: return false;
+		}
+		LPD3DBLOB blob = CompileShaderToByteCodeD3D9(buffer, programType, errorMessage);
 		if (blob) {
 			blob->Release();
 			return true;
@@ -113,11 +165,11 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, ShaderStage stag
 #endif
 
 	case ShaderLanguage::GLSL_VULKAN:
-		return GLSLtoSPV(stage == ShaderStage::Vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::VULKAN, spirv, errorMessage);
+		return GLSLtoSPV(StageToVulkan(stage), buffer, GLSLVariant::VULKAN, spirv, errorMessage);
 	case ShaderLanguage::GLSL_1xx:
-		return GLSLtoSPV(stage == ShaderStage::Vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::GL140, spirv, errorMessage);
+		return GLSLtoSPV(StageToVulkan(stage), buffer, GLSLVariant::GL140, spirv, errorMessage);
 	case ShaderLanguage::GLSL_3xx:
-		return GLSLtoSPV(stage == ShaderStage::Vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::GLES300, spirv, errorMessage);
+		return GLSLtoSPV(StageToVulkan(stage), buffer, GLSLVariant::GLES300, spirv, errorMessage);
 	default:
 		return false;
 	}
@@ -193,10 +245,13 @@ bool TestReinterpretShaders() {
 					continue;  // useless shader!
 				ShaderWriter writer(buffer, desc, ShaderStage::Fragment, nullptr, 0);
 				GenerateReinterpretFragmentShader(writer, fmts[i], fmts[j]);
-				if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
-					printf("Error compiling fragment shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer).c_str(), errorMessage.c_str());
+				if (strlen(buffer) >= 8192) {
+					printf("Reinterpret fragment shader %d exceeded buffer:\n\n%s\n", (int)j, LineNumberString(buffer).c_str());
 					failed = true;
-					return false;
+				}
+				if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
+					printf("Error compiling reinterpret fragment shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer).c_str(), errorMessage.c_str());
+					failed = true;
 				} else {
 					printf("===\n%s\n===\n", buffer);
 				}
@@ -232,19 +287,25 @@ bool TestStencilShaders() {
 
 		// Generate all despite failures - it's only 6.
 		GenerateStencilFs(buffer, desc, bugs);
+		if (strlen(buffer) >= 8192) {
+			printf("Stencil fragment shader exceeded buffer:\n\n%s\n", LineNumberString(buffer).c_str());
+			failed = true;
+		}
 		if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
 			printf("Error compiling stencil shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
 			failed = true;
-			return false;
 		} else {
 			printf("===\n%s\n===\n", buffer);
 		}
 
 		GenerateStencilVs(buffer, desc);
+		if (strlen(buffer) >= 8192) {
+			printf("Stencil vertex shader exceeded buffer:\n\n%s\n", LineNumberString(buffer).c_str());
+			failed = true;
+		}
 		if (!TestCompileShader(buffer, languages[k], ShaderStage::Vertex, &errorMessage)) {
 			printf("Error compiling stencil shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
 			failed = true;
-			return false;
 		} else {
 			printf("===\n%s\n===\n", buffer);
 		}
@@ -269,8 +330,6 @@ bool TestDepalShaders() {
 
 	char *buffer = new char[65536];
 
-	bool failed = false;
-
 	for (int k = 0; k < ARRAY_SIZE(languages); k++) {
 		printf("=== %s ===\n\n", ShaderLanguageToString(languages[k]));
 
@@ -290,9 +349,14 @@ bool TestDepalShaders() {
 
 		ShaderWriter writer(buffer, desc, ShaderStage::Fragment);
 		GenerateDepalFs(writer, config);
+		if (strlen(buffer) >= 8192) {
+			printf("Depal shader exceeded buffer:\n\n%s\n", LineNumberString(buffer).c_str());
+			delete[] buffer;
+			return false;
+		}
 		if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
 			printf("Error compiling depal shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
-			failed = true;
+			delete[] buffer;
 			return false;
 		} else {
 			printf("===\n%s\n===\n", buffer);
@@ -300,7 +364,7 @@ bool TestDepalShaders() {
 	}
 
 	delete[] buffer;
-	return !failed;
+	return true;
 }
 
 const ShaderLanguage languages[] = {
@@ -346,6 +410,9 @@ bool TestVertexShaders() {
 		if (!id.Bit(VS_BIT_USE_HW_TRANSFORM)) {
 			id.SetBit(VS_BIT_ENABLE_BONES, 0);
 		}
+		if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
+			continue;
+		}
 
 		bool generateSuccess[numLanguages]{};
 		std::string genErrorString[numLanguages];
@@ -357,6 +424,16 @@ bool TestVertexShaders() {
 			}
 		}
 
+		for (int j = 0; j < numLanguages; j++) {
+			if (strlen(buffer[j]) >= CODE_BUFFER_SIZE) {
+				printf("Vertex shader exceeded buffer:\n\n%s\n", LineNumberString(buffer[j]).c_str());
+				for (int i = 0; i < numLanguages; i++) {
+					delete[] buffer[i];
+				}
+				return false;
+			}
+		}
+
 		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
 		// let's try to compile them.
 		for (int j = 0; j < numLanguages; j++) {
@@ -364,6 +441,9 @@ bool TestVertexShaders() {
 				std::string errorMessage;
 				if (!TestCompileShader(buffer[j], languages[j], ShaderStage::Vertex, &errorMessage)) {
 					printf("Error compiling vertex shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
+					for (int i = 0; i < numLanguages; i++) {
+						delete[] buffer[i];
+					}
 					return false;
 				}
 				successes++;
@@ -418,6 +498,16 @@ bool TestFragmentShaders() {
 			// We ignore the contents of the error string here, not even gonna try to compile if it errors.
 		}
 
+		for (int j = 0; j < numLanguages; j++) {
+			if (strlen(buffer[j]) >= CODE_BUFFER_SIZE) {
+				printf("Fragment shader exceeded buffer:\n\n%s\n", LineNumberString(buffer[j]).c_str());
+				for (int i = 0; i < numLanguages; i++) {
+					delete[] buffer[i];
+				}
+				return false;
+			}
+		}
+
 		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
 		// let's try to compile them.
 		for (int j = 0; j < numLanguages; j++) {
@@ -425,6 +515,9 @@ bool TestFragmentShaders() {
 				std::string errorMessage;
 				if (!TestCompileShader(buffer[j], languages[j], ShaderStage::Fragment, &errorMessage)) {
 					printf("Error compiling fragment shader:\n\n%s\n\n%s\n", LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
+					for (int i = 0; i < numLanguages; i++) {
+						delete[] buffer[i];
+					}
 					return false;
 				}
 				successes++;
@@ -440,6 +533,76 @@ bool TestFragmentShaders() {
 	return true;
 }
 
+
+bool TestGeometryShaders() {
+	char *buffer[numLanguages];
+
+	for (int i = 0; i < numLanguages; i++) {
+		buffer[i] = new char[65536];
+	}
+	GMRng rng;
+	int successes = 0;
+	int count = 30;
+
+	Draw::Bugs bugs;
+
+	// Generate a bunch of random fragment shader IDs, try to generate shader source.
+	// Then compile it and check that it's ok.
+	for (int i = 0; i < count; i++) {
+		uint32_t bottom = i << 1;
+		GShaderID id;
+		id.d[0] = bottom;
+		id.d[1] = 0;
+
+		id.SetBit(GS_BIT_ENABLED, true);
+
+		bool generateSuccess[numLanguages]{};
+		std::string genErrorString[numLanguages];
+
+		for (int j = 0; j < numLanguages; j++) {
+			generateSuccess[j] = GenerateGShader(id, buffer[j], languages[j], bugs, &genErrorString[j]);
+			if (!genErrorString[j].empty()) {
+				printf("%s\n", genErrorString[j].c_str());
+			}
+			// We ignore the contents of the error string here, not even gonna try to compile if it errors.
+		}
+
+		for (int j = 0; j < numLanguages; j++) {
+			if (strlen(buffer[j]) >= CODE_BUFFER_SIZE) {
+				printf("Geoemtry shader exceeded buffer:\n\n%s\n", LineNumberString(buffer[j]).c_str());
+				for (int i = 0; i < numLanguages; i++) {
+					delete[] buffer[i];
+				}
+				return false;
+			}
+		}
+
+		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
+		// let's try to compile them.
+		for (int j = 0; j < numLanguages; j++) {
+			if (generateSuccess[j]) {
+				std::string errorMessage;
+				if (!TestCompileShader(buffer[j], languages[j], ShaderStage::Geometry, &errorMessage)) {
+					printf("Error compiling geometry shader:\n\n%s\n\n%s\n", LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
+					for (int i = 0; i < numLanguages; i++) {
+						delete[] buffer[i];
+					}
+					return false;
+				}
+				successes++;
+			}
+		}
+	}
+
+	printf("%d/%d geometry shaders generated (it's normal that it's not all, there are invalid bit combos)\n", successes, count * numLanguages);
+
+	for (int i = 0; i < numLanguages; i++) {
+		delete[] buffer[i];
+	}
+	return true;
+}
+
+
 bool TestShaderGenerators() {
 #if PPSSPP_PLATFORM(WINDOWS)
 	LoadD3D11();
@@ -450,6 +613,10 @@ bool TestShaderGenerators() {
 #endif
 
 	if (!TestStencilShaders()) {
+		return false;
+	}
+
+	if (!TestGeometryShaders()) {
 		return false;
 	}
 

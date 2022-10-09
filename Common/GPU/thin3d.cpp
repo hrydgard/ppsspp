@@ -33,6 +33,9 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 	case DataFormat::R8G8B8A8_SNORM: return 4;
 	case DataFormat::R8G8B8A8_UINT: return 4;
 	case DataFormat::R8G8B8A8_SINT: return 4;
+
+	case DataFormat::R16_UNORM: return 2;
+
 	case DataFormat::R16_FLOAT: return 2;
 	case DataFormat::R16G16_FLOAT: return 4;
 	case DataFormat::R16G16B16A16_FLOAT: return 8;
@@ -432,7 +435,7 @@ vec3 hsv2rgb(vec3 c) {
 }
 layout (location = 0) in vec4 pos;
 layout (location = 1) in vec4 inColor;
-layout (location = 2) in vec2 inTexCoord;
+layout (location = 3) in vec2 inTexCoord;
 layout (location = 0) out vec4 outColor;
 layout (location = 1) out vec2 outTexCoord;
 out gl_PerVertex { vec4 gl_Position; };
@@ -446,6 +449,8 @@ void main() {
 }
 )"
 } };
+
+static_assert(SEM_TEXCOORD0 == 3, "Semantic shader hardcoded in glsl above.");
 
 const UniformBufferDesc vsTexColBufDesc{ sizeof(VsTexColUB),{
 	{ "WorldViewProj", 0, -1, UniformType::MATRIX4X4, 0 },
@@ -675,9 +680,9 @@ const char *Bugs::GetBugName(uint32_t bug) {
 	case COLORWRITEMASK_BROKEN_WITH_DEPTHTEST: return "COLORWRITEMASK_BROKEN_WITH_DEPTHTEST";
 	case BROKEN_FLAT_IN_SHADER: return "BROKEN_FLAT_IN_SHADER";
 	case EQUAL_WZ_CORRUPTS_DEPTH: return "EQUAL_WZ_CORRUPTS_DEPTH";
-	case MALI_STENCIL_DISCARD_BUG: return "MALI_STENCIL_DISCARD_BUG";
 	case RASPBERRY_SHADER_COMP_HANG: return "RASPBERRY_SHADER_COMP_HANG";
 	case MALI_CONSTANT_LOAD_BUG: return "MALI_CONSTANT_LOAD_BUG";
+	case SUBPASS_FEEDBACK_BROKEN: return "SUBPASS_FEEDBACK_BROKEN";
 	default: return "(N/A)";
 	}
 }

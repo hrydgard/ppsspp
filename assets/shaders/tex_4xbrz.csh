@@ -100,11 +100,6 @@ void applyScaling(uvec2 origxy) {
 
 	ivec4 blendResult = ivec4(BLEND_NONE);
 
-	// Preserve old alpha-ignoring behavior? Keep or delete?
-	for (int i = 0; i < 9; i++) {
-		v[i] &= 0xFFFFFF;
-	}
-
 	// Preprocess corners
 	// Pixel Tap Mapping: --|--|--|--|--
 	//                    --|--|07|08|--

@@ -34,6 +34,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
 #include "Common/Data/Text/I18n.h"
@@ -109,9 +110,12 @@ static std::thread inputBoxThread;
 static bool inputBoxRunning = false;
 
 void OpenDirectory(const char *path) {
+	// SHParseDisplayName can't handle relative paths, so normalize first.
+	std::string resolved = ReplaceAll(File::ResolvePath(path), "/", "\\");
+
 	SFGAOF flags;
 	PIDLIST_ABSOLUTE pidl = nullptr;
-	HRESULT hr = SHParseDisplayName(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str(), nullptr, &pidl, 0, &flags);
+	HRESULT hr = SHParseDisplayName(ConvertUTF8ToWString(resolved).c_str(), nullptr, &pidl, 0, &flags);
 
 	if (pidl) {
 		if (SUCCEEDED(hr))
@@ -207,7 +211,7 @@ std::string System_GetProperty(SystemProperty prop) {
 				if (wstr)
 					retval = ConvertWStringToUTF8(wstr);
 				else
-					retval = "";
+					retval.clear();
 				GlobalUnlock(handle);
 				CloseClipboard();
 			}

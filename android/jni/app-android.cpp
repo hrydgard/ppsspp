@@ -1057,16 +1057,20 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 		SetCurrentThreadName("AndroidRender");
 	}
 
+	if (IsVRBuild() && !StartVRRender())
+		return;
+
 	if (useCPUThread) {
 		// This is the "GPU thread".
-		if (graphicsContext)
-			graphicsContext->ThreadFrame();
+		if (!graphicsContext || !graphicsContext->ThreadFrame())
+			return;
 	} else {
 		UpdateRunLoopAndroid(env);
 	}
 
 	if (IsVRBuild()) {
 		UpdateVRInput(NativeKey, NativeTouch, g_Config.bHapticFeedback, dp_xscale, dp_yscale);
+		FinishVRRender();
 	}
 }
 

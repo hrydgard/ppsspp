@@ -244,7 +244,7 @@ struct hash<SamplerID> {
 
 };
 
-void ComputePixelFuncID(PixelFuncID *id, bool throughMode);
+void ComputePixelFuncID(PixelFuncID *id);
 std::string DescribePixelFuncID(const PixelFuncID &id);
 
 void ComputeSamplerID(SamplerID *id);

@@ -48,15 +48,15 @@ static inline PixelBlendFactor OptimizeAlphaFactor(uint32_t color) {
 	return PixelBlendFactor::FIX;
 }
 
-void ComputePixelFuncID(PixelFuncID *id, bool throughMode) {
+void ComputePixelFuncID(PixelFuncID *id) {
 	id->fullKey = 0;
 
 	// TODO: Could this be minz > 0x0000 || maxz < 0xFFFF?  Maybe unsafe, depending on verts...
-	id->applyDepthRange = !throughMode;
+	id->applyDepthRange = !gstate.isModeThrough();
 	// Dither happens even in clear mode.
 	id->dithering = gstate.isDitherEnabled();
 	id->fbFormat = gstate.FrameBufFormat();
-	id->useStandardStride = gstate.FrameBufStride() == 512 && gstate.DepthBufStride() == 512;
+	id->useStandardStride = gstate.FrameBufStride() == 512;
 	id->applyColorWriteMask = gstate.getColorMask() != 0;
 
 	id->clearMode = gstate.isModeClear();
@@ -168,8 +168,16 @@ void ComputePixelFuncID(PixelFuncID *id, bool throughMode) {
 				id->alphaBlendDst = (uint8_t)OptimizeAlphaFactor(gstate.getFixB());
 		}
 
+		if (id->colorTest && gstate.getColorTestFunction() == GE_COMP_NOTEQUAL && gstate.getColorTestRef() == 0 && gstate.getColorTestMask() == 0xFFFFFF) {
+			if (!id->depthWrite && !id->stencilTest && id->alphaBlend && id->AlphaBlendEq() == GE_BLENDMODE_MUL_AND_ADD) {
+				// Might be a pointless color test (seen in Ridge Racer, for example.)
+				if (id->AlphaBlendDst() == PixelBlendFactor::ONE)
+					id->colorTest = false;
+			}
+		}
+
 		id->applyLogicOp = gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY;
-		id->applyFog = gstate.isFogEnabled() && !throughMode;
+		id->applyFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 
 		id->earlyZChecks = id->DepthTestFunc() != GE_COMP_ALWAYS;
 		if (id->stencilTest && id->earlyZChecks) {
@@ -178,6 +186,9 @@ void ComputePixelFuncID(PixelFuncID *id, bool throughMode) {
 				id->earlyZChecks = false;
 		}
 	}
+
+	if (id->useStandardStride && (id->depthTestFunc != GE_COMP_ALWAYS || id->depthWrite))
+		id->useStandardStride = gstate.DepthBufStride() == 512;
 
 	// Cache some values for later convenience.
 	if (id->dithering) {

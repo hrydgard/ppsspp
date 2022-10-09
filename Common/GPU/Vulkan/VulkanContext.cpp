@@ -600,8 +600,7 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	deviceFeatures_.enabled.samplerAnisotropy = deviceFeatures_.available.samplerAnisotropy;
 	deviceFeatures_.enabled.shaderClipDistance = deviceFeatures_.available.shaderClipDistance;
 	deviceFeatures_.enabled.shaderCullDistance = deviceFeatures_.available.shaderCullDistance;
-	// For easy wireframe mode, someday.
-	deviceFeatures_.enabled.fillModeNonSolid = deviceFeatures_.available.fillModeNonSolid;
+	deviceFeatures_.enabled.geometryShader = deviceFeatures_.available.geometryShader;
 
 	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
 
@@ -667,7 +666,10 @@ VkResult VulkanContext::CreateDevice() {
 		extensionsLookup_.KHR_create_renderpass2 = true;
 		extensionsLookup_.KHR_depth_stencil_resolve = EnableDeviceExtension(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME);
 	}
+
 	extensionsLookup_.EXT_shader_stencil_export = EnableDeviceExtension(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
+	extensionsLookup_.EXT_fragment_shader_interlock = EnableDeviceExtension(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
+	extensionsLookup_.ARM_rasterization_order_attachment_access = EnableDeviceExtension(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME);
 
 	VkDeviceCreateInfo device_info{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	device_info.queueCreateInfoCount = 1;
@@ -1263,10 +1265,10 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, 
 
 	glslang::TProgram program;
 	const char *shaderStrings[1];
-	TBuiltInResource Resources;
+	TBuiltInResource Resources{};
 	init_resources(Resources);
 
-	int defaultVersion;
+	int defaultVersion = 0;
 	EShMessages messages;
 	EProfile profile;
 

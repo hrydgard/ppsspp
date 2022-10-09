@@ -33,6 +33,8 @@ public:
 
 	virtual void dialogFinished(const Screen *dialog, DialogResult dr) override;
 
+	const char *tag() const override { return "GamePause"; }
+
 protected:
 	virtual void CreateViews() override;
 	virtual void update() override;

@@ -152,8 +152,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			GenericBlendState &blendState = pipelineState_.blendState;
 			GenericLogicState &logicState = pipelineState_.logicState;
 
-			if (pipelineState_.FramebufferRead()) {
-				ApplyFramebufferRead(&fboTexNeedsBind_);
+			if (pipelineState_.FramebufferRead() && useBufferedRendering) {
+				ApplyFramebufferRead(&fboTexBindState_);
 				// The shader takes over the responsibility for blending, so recompute.
 				// We might still end up using blend to write something to alpha.
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
@@ -364,15 +364,23 @@ void DrawEngineVulkan::BindShaderBlendTex() {
 	// TODO: At this point, we know if the vertices are full alpha or not.
 	// Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
-		if (fboTexNeedsBind_) {
+		if (fboTexBindState_ == FBO_TEX_COPY_BIND_TEX) {
 			bool bindResult = framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 			_dbg_assert_(bindResult);
 			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE1_IMAGEVIEW);
+			boundSecondaryIsInputAttachment_ = false;
 			fboTexBound_ = true;
-			fboTexNeedsBind_ = false;
+			fboTexBindState_ = FBO_TEX_NONE;
 
 			// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
 			dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
+		} else if (fboTexBindState_ == FBO_TEX_READ_FRAMEBUFFER) {
+			draw_->BindCurrentFramebufferForColorInput();
+			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW);
+			boundSecondaryIsInputAttachment_ = true;
+			fboTexBindState_ = FBO_TEX_NONE;
+		} else {
+			boundSecondary_ = VK_NULL_HANDLE;
 		}
 	}
 }

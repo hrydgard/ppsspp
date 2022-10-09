@@ -148,7 +148,7 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 		std::string tmp;
 		while (*filter) {
 			if (*filter == ':') {
-				filters.insert("." + tmp);
+				filters.emplace("." + tmp);
 				tmp.clear();
 			} else {
 				tmp.push_back(*filter);
@@ -156,7 +156,7 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 			filter++;
 		}
 		if (!tmp.empty())
-			filters.insert("." + tmp);
+			filters.emplace("." + tmp);
 	}
 
 	auto pred = [&](const File::FileInfo &info) {

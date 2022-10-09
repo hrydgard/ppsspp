@@ -224,6 +224,15 @@ bool EmuScreen::bootAllowStorage(const Path &filename) {
 }
 
 void EmuScreen::bootGame(const Path &filename) {
+	if (PSP_IsRebooting())
+		return;
+	if (PSP_IsInited()) {
+		bootPending_ = false;
+		invalid_ = false;
+		bootComplete();
+		return;
+	}
+
 	if (PSP_IsIniting()) {
 		std::string error_string;
 		bootPending_ = !PSP_InitUpdate(&error_string);
@@ -955,7 +964,7 @@ void EmuScreen::CreateViews() {
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
 	auto dev = GetI18NCategory("Developer");
-	DevMenu *devMenu = new DevMenu(dev);
+	DevMenuScreen *devMenu = new DevMenuScreen(dev);
 	if (params.v)
 		devMenu->SetPopupOrigin(params.v);
 	screenManager()->push(devMenu);
@@ -1049,7 +1058,7 @@ void EmuScreen::update() {
 		errLoadingFile.append(err->T(errorMessage_.c_str()));
 
 		screenManager()->push(new PromptScreen(errLoadingFile, "OK", ""));
-		errorMessage_ = "";
+		errorMessage_.clear();
 		quit_ = true;
 		return;
 	}
@@ -1097,7 +1106,12 @@ void EmuScreen::update() {
 }
 
 void EmuScreen::checkPowerDown() {
-	if (coreState == CORE_POWERDOWN && !PSP_IsIniting()) {
+	if (PSP_IsRebooting()) {
+		bootPending_ = true;
+		invalid_ = true;
+	}
+
+	if (coreState == CORE_POWERDOWN && !PSP_IsIniting() && !PSP_IsRebooting()) {
 		if (PSP_IsInited()) {
 			PSP_Shutdown();
 		}

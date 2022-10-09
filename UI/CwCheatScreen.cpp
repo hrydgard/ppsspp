@@ -199,7 +199,6 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 		WARN_LOG(COMMON, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameID_.c_str());
 		return UI::EVENT_DONE;
 	}
-	std::string line;
 	std::vector<std::string> title;
 	std::vector<std::string> newList;
 

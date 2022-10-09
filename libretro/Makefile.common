@@ -25,6 +25,8 @@ INCFLAGS += \
 	$(FFMPEGINCFLAGS) \
 	-I$(EXTDIR)/cityhash \
 	-I$(EXTDIR)/armips \
+	-I$(EXTDIR)/armips/ext/filesystem/include \
+	-I$(EXTDIR)/armips/ext/tinyformat \
 	-I$(EXTDIR)/zstd/lib \
 	-I$(EXTDIR) \
 	-I$(NATIVEDIR) \
@@ -209,6 +211,9 @@ SOURCES_CXX += \
 SOURCES_CXX += $(EXTDIR)/cityhash/city.cpp
 
 SOURCES_CXX += \
+	$(EXTDIR)/armips/Core/Types.cpp
+
+SOURCES_CXX += \
 	$(COMMONDIR)/Crypto/md5.cpp \
 	$(COMMONDIR)/Crypto/sha1.cpp \
 	$(COMMONDIR)/Crypto/sha256.cpp
@@ -253,6 +258,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/Vulkan/thin3d_vulkan.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanQueueRunner.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanRenderManager.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanFrameData.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanLoader.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanContext.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanDebug.cpp \
@@ -339,6 +345,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Debugger/Stepping.cpp \
 	$(GPUDIR)/Common/FragmentShaderGenerator.cpp \
 	$(GPUDIR)/Common/VertexShaderGenerator.cpp \
+	$(GPUDIR)/Common/GeometryShaderGenerator.cpp \
 	$(GPUDIR)/Common/TextureCacheCommon.cpp \
 	$(GPUDIR)/Common/TextureScalerCommon.cpp \
 	$(GPUDIR)/Common/SoftwareTransformCommon.cpp \

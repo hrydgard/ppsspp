@@ -177,9 +177,9 @@ VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
 	case ShaderStage::Vertex: return VK_SHADER_STAGE_VERTEX_BIT;
 	case ShaderStage::Geometry: return VK_SHADER_STAGE_GEOMETRY_BIT;
 	case ShaderStage::Compute: return VK_SHADER_STAGE_COMPUTE_BIT;
-	default:
 	case ShaderStage::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
 	}
+	return VK_SHADER_STAGE_FRAGMENT_BIT;
 }
 
 // Not registering this as a resource holder, instead the pipeline is registered. It will
@@ -194,17 +194,19 @@ public:
 	~VKShaderModule() {
 		if (module_) {
 			DEBUG_LOG(G3D, "Queueing %s (shmodule %p) for release", tag_.c_str(), module_);
-			vulkan_->Delete().QueueDeleteShaderModule(module_);
+			VkShaderModule shaderModule = module_->BlockUntilReady();
+			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+			delete module_;
 		}
 	}
-	VkShaderModule Get() const { return module_; }
+	Promise<VkShaderModule> *Get() const { return module_; }
 	ShaderStage GetStage() const override {
 		return stage_;
 	}
 
 private:
 	VulkanContext *vulkan_;
-	VkShaderModule module_ = VK_NULL_HANDLE;
+	Promise<VkShaderModule> *module_ = nullptr;
 	VkShaderStageFlagBits vkstage_;
 	bool ok_ = false;
 	ShaderStage stage_;
@@ -213,8 +215,8 @@ private:
 };
 
 bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size) {
-	vulkan_ = vulkan;
 	// We'll need this to free it later.
+	vulkan_ = vulkan;
 	source_ = (const char *)data;
 	std::vector<uint32_t> spirv;
 	std::string errorMessage;
@@ -232,7 +234,9 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 	}
 #endif
 
-	if (vulkan->CreateShaderModule(spirv, &module_, vkstage_ == VK_SHADER_STAGE_VERTEX_BIT ? "thin3d_vs" : "thin3d_fs")) {
+	VkShaderModule shaderModule = VK_NULL_HANDLE;
+	if (vulkan->CreateShaderModule(spirv, &shaderModule, vkstage_ == VK_SHADER_STAGE_VERTEX_BIT ? "thin3d_vs" : "thin3d_fs")) {
+		module_ = Promise<VkShaderModule>::AlreadyDone(shaderModule);
 		ok_ = true;
 	} else {
 		WARN_LOG(G3D, "vkCreateShaderModule failed (%s)", tag_.c_str());
@@ -274,7 +278,6 @@ public:
 		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment, vkbuf);
 	}
 
-	int GetUniformLoc(const char *name);
 	int GetUBOSize() const {
 		return uboSize_;
 	}
@@ -361,7 +364,7 @@ class VKFramebuffer;
 
 class VKContext : public DrawContext {
 public:
-	VKContext(VulkanContext *vulkan, bool splitSubmit);
+	VKContext(VulkanContext *vulkan);
 	virtual ~VKContext();
 
 	const DeviceCaps &GetDeviceCaps() const override {
@@ -401,9 +404,10 @@ public:
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
 	Framebuffer *GetCurrentRenderTarget() override {
-		return curFramebuffer_;
+		return (Framebuffer *)curFramebuffer_.ptr;
 	}
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
+	void BindCurrentFramebufferForColorInput() override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
@@ -414,6 +418,7 @@ public:
 
 	void BindSamplerStates(int start, int count, SamplerState **state) override;
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindNativeTexture(int sampler, void *nativeTexture) override;
 
 	void BindPipeline(Pipeline *pipeline) override {
 		curPipeline_ = (VKPipeline *)pipeline;
@@ -472,27 +477,7 @@ public:
 	std::vector<std::string> GetFeatureList() const override;
 	std::vector<std::string> GetExtensionList() const override;
 
-	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override {
-		switch (obj) {
-		case NativeObject::CONTEXT:
-			return (uint64_t)vulkan_;
-		case NativeObject::INIT_COMMANDBUFFER:
-			return (uint64_t)renderManager_.GetInitCmd();
-		case NativeObject::BOUND_TEXTURE0_IMAGEVIEW:
-			return (uint64_t)boundImageView_[0];
-		case NativeObject::BOUND_TEXTURE1_IMAGEVIEW:
-			return (uint64_t)boundImageView_[1];
-		case NativeObject::RENDER_MANAGER:
-			return (uint64_t)(uintptr_t)&renderManager_;
-		case NativeObject::NULL_IMAGEVIEW:
-			return (uint64_t)GetNullTexture()->GetImageView();
-		case NativeObject::TEXTURE_VIEW:
-			return (uint64_t)(((VKTexture *)srcObject)->GetImageView());
-		default:
-			Crash();
-			return 0;
-		}
-	}
+	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override;
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
@@ -521,7 +506,7 @@ private:
 	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
-	AutoRef<Framebuffer> curFramebuffer_;
+	AutoRef<VKFramebuffer> curFramebuffer_;
 
 	VkDevice device_;
 	VkQueue queue_;
@@ -563,6 +548,11 @@ static int GetBpp(VkFormat format) {
 	case VK_FORMAT_R8G8B8A8_UNORM:
 	case VK_FORMAT_B8G8R8A8_UNORM:
 		return 32;
+	case VK_FORMAT_R8_UNORM:
+		return 8;
+	case VK_FORMAT_R8G8_UNORM:
+	case VK_FORMAT_R16_UNORM:
+		return 16;
 	case VK_FORMAT_R4G4B4A4_UNORM_PACK16:
 	case VK_FORMAT_B4G4R4A4_UNORM_PACK16:
 	case VK_FORMAT_R5G5B5A1_UNORM_PACK16:
@@ -586,6 +576,9 @@ static VkFormat DataFormatToVulkan(DataFormat format) {
 	case DataFormat::D32F: return VK_FORMAT_D32_SFLOAT;
 	case DataFormat::D32F_S8: return VK_FORMAT_D32_SFLOAT_S8_UINT;
 	case DataFormat::S8: return VK_FORMAT_S8_UINT;
+
+	case DataFormat::R16_UNORM: return VK_FORMAT_R16_UNORM;
+
 	case DataFormat::R16_FLOAT: return VK_FORMAT_R16_SFLOAT;
 	case DataFormat::R16G16_FLOAT: return VK_FORMAT_R16G16_SFLOAT;
 	case DataFormat::R16G16B16A16_FLOAT: return VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -772,7 +765,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 	return true;
 }
 
-VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
+VKContext::VKContext(VulkanContext *vulkan)
 	: vulkan_(vulkan), renderManager_(vulkan) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
 
@@ -798,9 +791,11 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.fragmentShaderInt32Supported = true;
 	caps_.textureNPOTFullySupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
+	caps_.blendMinMaxSupported = true;
 	caps_.logicOpSupported = vulkan->GetDeviceFeatures().enabled.logicOp != 0;
 
 	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDeviceIndex()).properties;
+
 	switch (deviceProps.vendorID) {
 	case VULKAN_VENDOR_AMD: caps_.vendor = GPUVendor::VENDOR_AMD; break;
 	case VULKAN_VENDOR_ARM: caps_.vendor = GPUVendor::VENDOR_ARM; break;
@@ -822,6 +817,11 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 		// Color write mask not masking write in certain scenarios with a depth test, see #10421.
 		// Known still present on driver 0x80180000 and Adreno 5xx (possibly more.)
 		bugs_.Infest(Bugs::COLORWRITEMASK_BROKEN_WITH_DEPTHTEST);
+
+		// Trying to follow all the rules in https://registry.khronos.org/vulkan/specs/1.3/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
+		// and https://registry.khronos.org/vulkan/specs/1.3/html/vkspec.html#renderpass-feedbackloop, but still it doesn't
+		// quite work - artifacts on triangle boundaries on Adreno.
+		bugs_.Infest(Bugs::SUBPASS_FEEDBACK_BROKEN);
 	} else if (caps_.vendor == GPUVendor::VENDOR_AMD) {
 		// See issue #10074, and also #10065 (AMD) and #10109 for the choice of the driver version to check for.
 		if (deviceProps.driverVersion < 0x00407000) {
@@ -831,18 +831,31 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 		// Workaround for Intel driver bug. TODO: Re-enable after some driver version
 		bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
 	} else if (caps_.vendor == GPUVendor::VENDOR_ARM) {
+		int majorVersion = VK_API_VERSION_MAJOR(deviceProps.driverVersion);
+
 		// These GPUs (up to some certain hardware version?) have a bug where draws where gl_Position.w == .z
 		// corrupt the depth buffer. This is easily worked around by simply scaling Z down a tiny bit when this case
 		// is detected. See: https://github.com/hrydgard/ppsspp/issues/11937
 		bugs_.Infest(Bugs::EQUAL_WZ_CORRUPTS_DEPTH);
-		// At least one driver at the upper end of the range is known to be likely to suffer from the bug causing issue #13833 (Midnight Club map broken).
-		bugs_.Infest(Bugs::MALI_STENCIL_DISCARD_BUG);
 
-		// This started in driver 31 or 32.
-		if (VK_API_VERSION_MAJOR(deviceProps.driverVersion) >= 32) {
+		// Nearly identical to the the Adreno bug, see #13833 (Midnight Club map broken) and other issues.
+		// Reported fixed in major version 40 - let's add a check once confirmed.
+		bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL);
+
+		// This started in driver 31 or 32, fixed in 40 - let's add a check once confirmed.
+		if (majorVersion >= 32) {
 			bugs_.Infest(Bugs::MALI_CONSTANT_LOAD_BUG);  // See issue #15661
 		}
+
+		// Older ARM devices have very slow geometry shaders, not worth using.  At least before 15.
+		if (majorVersion <= 15) {
+			bugs_.Infest(Bugs::GEOMETRY_SHADERS_SLOW);
+		}
 	}
+
+	// Limited, through input attachments and self-dependencies.
+	// We turn it off here already if buggy.
+	caps_.framebufferFetchSupported = !bugs_.Has(Bugs::SUBPASS_FEEDBACK_BROKEN);
 
 	caps_.deviceID = deviceProps.deviceID;
 	device_ = vulkan->GetDevice();
@@ -911,8 +924,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
 	_assert_(VK_SUCCESS == res);
-
-	renderManager_.SetSplitSubmit(splitSubmit);
 }
 
 VKContext::~VKContext() {
@@ -973,7 +984,7 @@ void VKContext::WipeQueue() {
 }
 
 VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
-	DescriptorSetKey key;
+	DescriptorSetKey key{};
 
 	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
 
@@ -1049,12 +1060,13 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	VKDepthStencilState *depth = (VKDepthStencilState *)desc.depthStencil;
 	VKRasterState *raster = (VKRasterState *)desc.raster;
 
-	u32 pipelineFlags = 0;
+	PipelineFlags pipelineFlags = (PipelineFlags)0;
 	if (depth->info.depthTestEnable || depth->info.stencilTestEnable) {
-		pipelineFlags |= PIPELINE_FLAG_USES_DEPTH_STENCIL;
+		pipelineFlags |= PipelineFlags::USES_DEPTH_STENCIL;
 	}
+	// TODO: We need code to set USES_BLEND_CONSTANT here too, if we're ever gonna use those in thin3d code.
 
-	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), (PipelineFlags)pipelineFlags, tag);
+	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), pipelineFlags, tag);
 
 	VKRGraphicsPipelineDesc &gDesc = pipeline->vkrDesc;
 
@@ -1066,11 +1078,12 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 		vkshader->AddRef();
 		pipeline->deps.push_back(vkshader);
 		if (vkshader->GetStage() == ShaderStage::Vertex) {
-			gDesc.vertexShader = Promise<VkShaderModule>::AlreadyDone(vkshader->Get());
+			gDesc.vertexShader = vkshader->Get();
 		} else if (vkshader->GetStage() == ShaderStage::Fragment) {
-			gDesc.fragmentShader = Promise<VkShaderModule>::AlreadyDone(vkshader->Get());
+			gDesc.fragmentShader = vkshader->Get();
 		} else {
 			ERROR_LOG(G3D, "Bad stage");
+			delete pipeline;
 			return nullptr;
 		}
 	}
@@ -1126,7 +1139,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	raster->ToVulkan(&gDesc.rs);
 
-	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, 1 << RP_TYPE_BACKBUFFER, tag ? tag : "thin3d");
+	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << RP_TYPE_BACKBUFFER, tag ? tag : "thin3d");
 
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;
@@ -1284,6 +1297,11 @@ void VKContext::BindTextures(int start, int count, Texture **textures) {
 	}
 }
 
+void VKContext::BindNativeTexture(int sampler, void *nativeTexture) {
+	boundTextures_[sampler] = nullptr;
+	boundImageView_[sampler] = (VkImageView)nativeTexture;
+}
+
 ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const char *tag) {
 	VKShaderModule *shader = new VKShaderModule(stage, tag);
 	if (shader->Compile(vulkan_, language, data, size)) {
@@ -1293,17 +1311,6 @@ ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage la
 		shader->Release();
 		return nullptr;
 	}
-}
-
-int VKPipeline::GetUniformLoc(const char *name) {
-	int loc = -1;
-
-	// HACK! As we only use one uniform we hardcode it.
-	if (!strcmp(name, "WorldViewProj")) {
-		return 0;
-	}
-
-	return loc;
 }
 
 void VKContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
@@ -1387,8 +1394,8 @@ void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int sten
 	renderManager_.Clear(colorval, depthVal, stencilVal, mask);
 }
 
-DrawContext *T3DCreateVulkanContext(VulkanContext *vulkan, bool split) {
-	return new VKContext(vulkan, split);
+DrawContext *T3DCreateVulkanContext(VulkanContext *vulkan) {
+	return new VKContext(vulkan);
 }
 
 void AddFeature(std::vector<std::string> &features, const char *name, VkBool32 available, VkBool32 enabled) {
@@ -1418,7 +1425,7 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 	AddFeature(features, "occlusionQueryPrecise", available.occlusionQueryPrecise, enabled.occlusionQueryPrecise);
 	AddFeature(features, "multiDrawIndirect", available.multiDrawIndirect, enabled.multiDrawIndirect);
 
-	features.push_back(std::string("Preferred depth buffer format: ") + VulkanFormatToString(vulkan_->GetDeviceInfo().preferredDepthStencilFormat));
+	features.emplace_back(std::string("Preferred depth buffer format: ") + VulkanFormatToString(vulkan_->GetDeviceInfo().preferredDepthStencilFormat));
 
 	return features;
 }
@@ -1477,15 +1484,16 @@ public:
 		buf_ = nullptr;
 	}
 	VKRFramebuffer *GetFB() const { return buf_; }
+	void UpdateTag(const char *newTag) override {
+		buf_->UpdateTag(newTag);
+	}
 private:
 	VKRFramebuffer *buf_;
 };
 
 Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	VkCommandBuffer cmd = renderManager_.GetInitCmd();
-	// TODO: We always create with depth here, even when it's not needed (such as color temp FBOs).
-	// Should optimize those away.
-	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.tag);
+	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.z_stencil, desc.tag);
 	return new VKFramebuffer(vkrfb);
 }
 
@@ -1570,6 +1578,10 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, attachment);
 }
 
+void VKContext::BindCurrentFramebufferForColorInput() {
+	renderManager_.BindCurrentFramebufferAsInputAttachment0(VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
 void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	if (fb) {
@@ -1607,6 +1619,30 @@ void VKContext::InvalidateFramebuffer(FBInvalidationStage stage, uint32_t channe
 		renderManager_.SetLoadDontCare(flags);
 	} else if (stage == FB_INVALIDATION_STORE) {
 		renderManager_.SetStoreDontCare(flags);
+	}
+}
+
+uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
+	switch (obj) {
+	case NativeObject::CONTEXT:
+		return (uint64_t)vulkan_;
+	case NativeObject::INIT_COMMANDBUFFER:
+		return (uint64_t)renderManager_.GetInitCmd();
+	case NativeObject::BOUND_TEXTURE0_IMAGEVIEW:
+		return (uint64_t)boundImageView_[0];
+	case NativeObject::BOUND_TEXTURE1_IMAGEVIEW:
+		return (uint64_t)boundImageView_[1];
+	case NativeObject::RENDER_MANAGER:
+		return (uint64_t)(uintptr_t)&renderManager_;
+	case NativeObject::NULL_IMAGEVIEW:
+		return (uint64_t)GetNullTexture()->GetImageView();
+	case NativeObject::TEXTURE_VIEW:
+		return (uint64_t)(((VKTexture *)srcObject)->GetImageView());
+	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW:
+		return (uint64_t)curFramebuffer_->GetFB()->color.imageView;
+	default:
+		Crash();
+		return 0;
 	}
 }
 

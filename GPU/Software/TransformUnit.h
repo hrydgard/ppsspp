@@ -78,29 +78,39 @@ struct DrawingCoords {
 	s16 y;
 };
 
-struct VertexData {
-	void Lerp(float t, const VertexData &a, const VertexData &b) {
+struct alignas(16) VertexData {
+	Vec3Packedf texturecoords;
+	float clipw;
+	uint32_t color0;
+	uint32_t color1;
+	ScreenCoords screenpos;
+	float fogdepth;
+};
+
+struct ClipVertexData {
+	void Lerp(float t, const ClipVertexData &a, const ClipVertexData &b) {
 		clippos = ::Lerp(a.clippos, b.clippos, t);
 		// Ignore screenpos because Lerp() is only used pre-calculation of screenpos.
-		texturecoords = ::Lerp(a.texturecoords, b.texturecoords, t);
-		fogdepth = ::Lerp(a.fogdepth, b.fogdepth, t);
+		v.texturecoords = ::Lerp(a.v.texturecoords, b.v.texturecoords, t);
+		v.fogdepth = ::Lerp(a.v.fogdepth, b.v.fogdepth, t);
 
 		u16 t_int = (u16)(t * 256);
-		color0 = LerpInt<Vec4<int>, 256>(Vec4<int>::FromRGBA(a.color0), Vec4<int>::FromRGBA(b.color0), t_int).ToRGBA();
-		color1 = LerpInt<Vec3<int>, 256>(Vec3<int>::FromRGB(a.color1), Vec3<int>::FromRGB(b.color1), t_int).ToRGB();
+		v.color0 = LerpInt<Vec4<int>, 256>(Vec4<int>::FromRGBA(a.v.color0), Vec4<int>::FromRGBA(b.v.color0), t_int).ToRGBA();
+		v.color1 = LerpInt<Vec3<int>, 256>(Vec3<int>::FromRGB(a.v.color1), Vec3<int>::FromRGB(b.v.color1), t_int).ToRGB();
+	}
+
+	bool OutsideRange() const {
+		return v.screenpos.x == 0x7FFFFFFF;
 	}
 
 	ClipCoords clippos;
-	Vec2<float> texturecoords;
-	uint32_t color0;
-	uint32_t color1;
-	ScreenCoords screenpos; // TODO: Shouldn't store this ?
-	float fogdepth;
+	VertexData v;
 };
 
 class VertexReader;
 
 class SoftwareDrawEngine;
+class SoftwareVertexReader;
 
 class TransformUnit {
 public:
@@ -125,6 +135,7 @@ public:
 	static ScreenCoords DrawingToScreen(const DrawingCoords &coords, u16 z);
 
 	void SubmitPrimitive(const void* vertices, const void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine);
+	void SubmitImmVertex(const ClipVertexData &vert, SoftwareDrawEngine *drawEngine);
 
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
@@ -138,17 +149,21 @@ public:
 	SoftDirty GetDirty();
 
 private:
-	VertexData ReadVertex(VertexReader &vreader, const TransformState &lstate, bool &outside_range_flag);
-	void SendTriangle(CullType cullType, const VertexData *verts, int provoking = 2);
+	ClipVertexData ReadVertex(VertexReader &vreader, const TransformState &state);
+	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2);
 
 	u8 *decoded_ = nullptr;
 	BinManager *binner_ = nullptr;
 
 	// Normally max verts per prim is 3, but we temporarily need 4 to detect rectangles from strips.
-	VertexData data_[4];
+	ClipVertexData data_[4];
 	// This is the index of the next vert in data (or higher, may need modulus.)
 	int data_index_ = 0;
 	GEPrimitiveType prev_prim_ = GE_PRIM_POINTS;
+	bool hasDraws_ = false;
+	bool isImmDraw_ = false;
+
+	friend SoftwareVertexReader;
 };
 
 class SoftwareDrawEngine : public DrawEngineCommon {
@@ -158,13 +173,14 @@ public:
 
 	void DispatchFlush() override;
 	void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int cullMode, int *bytesRead) override;
-	void DispatchSubmitImm(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) override;
+	void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) override;
 
 	VertexDecoder *FindVertexDecoder(u32 vtype);
 
 	TransformUnit transformUnit;
 
 #if PPSSPP_ARCH(32BIT)
+#undef new
 	void *operator new(size_t s) {
 		return AllocateAlignedMemory(s, 16);
 	}

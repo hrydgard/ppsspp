@@ -1432,11 +1432,12 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 }
 
 void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
-	if (dialog->tag() == "store") {
+	std::string tag = dialog->tag();
+	if (tag == "Store") {
 		backFromStore_ = true;
 		RecreateViews();
 	}
-	if (dialog->tag() == "game") {
+	if (tag == "Game") {
 		if (!restoreFocusGamePath_.empty() && UI::IsFocusMovementEnabled()) {
 			// Prevent the background from fading, since we just were displaying it.
 			highlightedGamePath_ = restoreFocusGamePath_;

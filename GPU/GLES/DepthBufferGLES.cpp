@@ -118,7 +118,8 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 			queries.push_back({ &u_depthDownloadTo8, "u_depthTo8" });
 			std::vector<GLRProgram::Initializer> inits;
 			inits.push_back({ &u_depthDownloadTex, 0, TEX_SLOT_PSP_TEXTURE });
-			depthDownloadProgram_ = render->CreateProgram(shaders, semantics, queries, inits, false, false);
+			GLRProgramFlags flags{};
+			depthDownloadProgram_ = render->CreateProgram(shaders, semantics, queries, inits, flags);
 			for (auto iter : shaders) {
 				render->DeleteShader(iter);
 			}

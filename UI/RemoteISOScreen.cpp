@@ -176,7 +176,7 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 	};
 
 	// Try last server first, if it is set
-	if (g_Config.iLastRemoteISOPort && g_Config.sLastRemoteISOServer != "") {
+	if (g_Config.iLastRemoteISOPort && !g_Config.sLastRemoteISOServer.empty()) {
 		if (TryServer(g_Config.sLastRemoteISOServer.c_str(), g_Config.iLastRemoteISOPort)) {
 			return true;
 		}

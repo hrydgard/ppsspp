@@ -107,6 +107,15 @@ void main() {
 
 )";
 
+static int VkFormatBytesPerPixel(VkFormat format) {
+	switch (format) {
+	case VULKAN_8888_FORMAT: return 4;
+	case VULKAN_CLUT8_FORMAT: return 1;
+	default: break;
+	}
+	return 2;
+}
+
 SamplerCache::~SamplerCache() {
 	DeviceLost();
 }
@@ -448,6 +457,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	if (plan.scaleFactor > 1) {
 		// Whether hardware or software scaling, this is the dest format.
 		dstFmt = VULKAN_8888_FORMAT;
+	} else if (plan.decodeToClut8) {
+		dstFmt = VULKAN_CLUT8_FORMAT;
 	}
 
 	// We don't generate mipmaps for 512x512 textures because they're almost exclusively used for menu backgrounds
@@ -479,7 +490,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	case VULKAN_4444_FORMAT: mapping = &VULKAN_4444_SWIZZLE; break;
 	case VULKAN_1555_FORMAT: mapping = &VULKAN_1555_SWIZZLE; break;
 	case VULKAN_565_FORMAT:  mapping = &VULKAN_565_SWIZZLE;  break;
-	default:                 mapping = &VULKAN_8888_SWIZZLE; break;
+	default:                 mapping = &VULKAN_8888_SWIZZLE; break;  // no swizzle
 	}
 
 	VkImageLayout imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -562,7 +573,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		int mipHeight;
 		plan.GetMipSize(i, &mipWidth, &mipHeight);
 
-		int bpp = actualFmt == VULKAN_8888_FORMAT ? 4 : 2;  // output bpp
+		int bpp = VkFormatBytesPerPixel(actualFmt);
 		int stride = (mipWidth * bpp + 15) & ~15;  // output stride
 		int uploadSize = stride * mipHeight;
 
@@ -602,7 +613,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				loadLevel(uploadSize, i, stride, plan.scaleFactor);
 				entry->vkTex->UploadMip(cmdInit, 0, mipWidth, mipHeight, i, texBuf, bufferOffset, stride / bpp);
 			} else if (computeUpload) {
-				int srcBpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
+				int srcBpp = VkFormatBytesPerPixel(dstFmt);
 				int srcStride = mipUnscaledWidth * srcBpp;
 				int srcSize = srcStride * mipUnscaledHeight;
 				loadLevel(srcSize, i == 0 ? plan.baseLevelSrc : i, srcStride, 1);
@@ -698,20 +709,6 @@ VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteForm
 	}
 }
 
-CheckAlphaResult TextureCacheVulkan::CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int w) {
-	switch (dstFmt) {
-	case VULKAN_4444_FORMAT:
-		return CheckAlpha16((const u16 *)pixelData, w, 0xF000);
-	case VULKAN_1555_FORMAT:
-		return CheckAlpha16((const u16 *)pixelData, w, 0x8000);
-	case VULKAN_565_FORMAT:
-		// Never has any alpha.
-		return CHECKALPHA_FULL;
-	default:
-		return CheckAlpha32(pixelData, w, 0xFF000000);
-	}
-}
-
 void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch, int level, int scaleFactor, VkFormat dstFmt) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
@@ -723,7 +720,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	_assert_msg_(texaddr != 0, "Can't load a texture from address null")
 
 	int bufw = GetTextureBufw(level, texaddr, tfmt);
-	int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
+	int bpp = VkFormatBytesPerPixel(dstFmt);
 
 	u32 *pixelData;
 	int decPitch;
@@ -731,6 +728,9 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	TexDecodeFlags texDecFlags{};
 	if (!gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1 || dstFmt == VULKAN_8888_FORMAT) {
 		texDecFlags |= TexDecodeFlags::EXPAND32;
+	}
+	if (entry.status & TexCacheEntry::STATUS_CLUT_GPU) {
+		texDecFlags |= TexDecodeFlags::TO_CLUT8;
 	}
 
 	if (scaleFactor > 1) {
@@ -856,4 +856,9 @@ std::vector<std::string> TextureCacheVulkan::DebugGetSamplerIDs() const {
 
 std::string TextureCacheVulkan::DebugGetSamplerString(std::string id, DebugShaderStringType stringType) {
 	return samplerCache_.DebugGetSamplerString(id, stringType);
+}
+
+void *TextureCacheVulkan::GetNativeTextureView(const TexCacheEntry *entry) {
+	VkImageView view = entry->vkTex->GetImageView();
+	return (void *)view;
 }

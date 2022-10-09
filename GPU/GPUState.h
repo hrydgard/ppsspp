@@ -206,13 +206,14 @@ struct GPUgstate {
 	float boneMatrix[12 * 8];  // Eight 4x3 bone matrices.
 
 	// We ignore the high bits of the framebuffer in fbwidth - even 0x08000000 renders to vRAM.
-	u32 getFrameBufRawAddress() const { return (fbptr & 0xFFFFFF); }
+	// The top bits of mirroring are also not respected, so we mask them away.
+	u32 getFrameBufRawAddress() const { return fbptr & 0x1FFFF0; }
 	// 0x44000000 is uncached VRAM.
 	u32 getFrameBufAddress() const { return 0x44000000 | getFrameBufRawAddress(); }
 	GEBufferFormat FrameBufFormat() const { return static_cast<GEBufferFormat>(framebufpixformat & 3); }
 	int FrameBufStride() const { return fbwidth&0x7FC; }
-	u32 getDepthBufRawAddress() const { return (zbptr & 0xFFFFFF); }
-	u32 getDepthBufAddress() const { return 0x44000000 | getDepthBufRawAddress(); }
+	u32 getDepthBufRawAddress() const { return zbptr & 0x1FFFF0; }
+	u32 getDepthBufAddress() const { return 0x44600000 | getDepthBufRawAddress(); }
 	int DepthBufStride() const { return zbwidth&0x7FC; }
 
 	// Pixel Pipeline
@@ -469,12 +470,13 @@ struct UVScale {
 // Might want to move this mechanism into the backend later.
 enum {
 	GPU_SUPPORTS_DUALSOURCE_BLEND = FLAG_BIT(0),
-	// Free bit: 1
-	GPU_SUPPORTS_GLSL_330 = FLAG_BIT(2),
+	GPU_USE_LIGHT_UBERSHADER = FLAG_BIT(1),
+	// Free bit: 2
 	GPU_SUPPORTS_VS_RANGE_CULLING = FLAG_BIT(3),
 	GPU_SUPPORTS_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_SUPPORTS_LOGIC_OP = FLAG_BIT(5),
 	GPU_USE_DEPTH_RANGE_HACK = FLAG_BIT(6),
+	// Free bit: 7
 	GPU_SUPPORTS_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
 	GPU_SUPPORTS_INSTANCE_RENDERING = FLAG_BIT(10),
@@ -485,7 +487,8 @@ enum {
 	// Free bit: 15
 	GPU_SUPPORTS_DEPTH_TEXTURE = FLAG_BIT(16),
 	GPU_SUPPORTS_ACCURATE_DEPTH = FLAG_BIT(17),
-	// Free bits: 18-19
+	GPU_SUPPORTS_GS_CULLING = FLAG_BIT(18),  // Geometry shader
+	// Free bit: 19
 	GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH = FLAG_BIT(20),
 	GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT = FLAG_BIT(21),
 	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(22),

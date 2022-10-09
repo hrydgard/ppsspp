@@ -401,6 +401,8 @@ public:
 	}
 
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindNativeTexture(int sampler, void *nativeTexture) override;
+
 	void BindPipeline(Pipeline *pipeline) override;
 	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override {
 		_assert_(start + count <= ARRAY_SIZE(curVBuffers_));
@@ -550,6 +552,8 @@ OpenGLContext::OpenGLContext() {
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
 	caps_.framebufferStencilBlitSupported = caps_.framebufferBlitSupported;
 	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp;
+	caps_.blendMinMaxSupported = gl_extensions.EXT_blend_minmax;
+
 	if (gl_extensions.IsGLES) {
 		caps_.clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
 		caps_.cullDistanceSupported = gl_extensions.EXT_clip_cull_distance;
@@ -709,8 +713,10 @@ OpenGLContext::OpenGLContext() {
 		}
 	}
 
-	if (gl_extensions.IsGLES) {
+	// NOTE: We only support framebuffer fetch on ES3 due to past issues..
+	if (gl_extensions.IsGLES && gl_extensions.GLES3) {
 		caps_.framebufferFetchSupported = (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch);
+
 		if (gl_extensions.EXT_shader_framebuffer_fetch) {
 			shaderLanguageDesc_.framebufferFetchExtension = "#extension GL_EXT_shader_framebuffer_fetch : require";
 			shaderLanguageDesc_.lastFragData = gl_extensions.GLES3 ? "fragColor0" : "gl_LastFragData[0]";
@@ -1138,6 +1144,12 @@ void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
 	}
 }
 
+void OpenGLContext::BindNativeTexture(int index, void *nativeTexture) {
+	GLRTexture *tex = (GLRTexture *)nativeTexture;
+	boundTextures_[index] = tex;
+	renderManager_.BindTexture(index, tex);
+}
+
 void OpenGLContext::ApplySamplers() {
 	for (int i = 0; i < MAX_TEXTURE_SLOTS; i++) {
 		const OpenGLSamplerState *samp = boundSamplers_[i];
@@ -1191,9 +1203,11 @@ bool OpenGLPipeline::LinkShaders() {
 	}
 
 	std::vector<GLRProgram::Semantic> semantics;
+	semantics.reserve(8);
 	// Bind all the common vertex data points. Mismatching ones will be ignored.
 	semantics.push_back({ SEM_POSITION, "Position" });
 	semantics.push_back({ SEM_COLOR0, "Color0" });
+	semantics.push_back({ SEM_COLOR1, "Color1" });
 	semantics.push_back({ SEM_TEXCOORD0, "TexCoord0" });
 	semantics.push_back({ SEM_NORMAL, "Normal" });
 	semantics.push_back({ SEM_TANGENT, "Tangent" });
@@ -1226,7 +1240,8 @@ bool OpenGLPipeline::LinkShaders() {
 		}
 	}
 
-	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false, false);
+	GLRProgramFlags flags{};
+	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, flags);
 	return true;
 }
 
@@ -1483,7 +1498,8 @@ uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 		return FMT_INPUTLAYOUT;
 
 	case DataFormat::R8_UNORM:
-		return 0;
+		return FMT_TEXTURE;
+
 	case DataFormat::BC1_RGBA_UNORM_BLOCK:
 	case DataFormat::BC2_UNORM_BLOCK:
 	case DataFormat::BC3_UNORM_BLOCK:

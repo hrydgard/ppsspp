@@ -87,9 +87,9 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEF },
 
 	// These affect the fragment shader so need flushing.
-	{ GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
-	{ GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
-	{ GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE},
+	{ GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
+	{ GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
+	{ GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 	// Raster state for Direct3D 9, uncommon.
@@ -102,19 +102,19 @@ const CommonCommandTableEntry commonCommandTable[] = {
 
 	// These change the vertex shader so need flushing.
 	{ GE_CMD_REVERSENORMAL, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
-	{ GE_CMD_LIGHTINGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
-	{ GE_CMD_LIGHTENABLE0, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE  },
-	{ GE_CMD_LIGHTENABLE1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE  },
-	{ GE_CMD_LIGHTENABLE2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE  },
-	{ GE_CMD_LIGHTENABLE3, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE  },
+	{ GE_CMD_LIGHTINGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
+	{ GE_CMD_LIGHTENABLE0, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
+	{ GE_CMD_LIGHTENABLE1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
+	{ GE_CMD_LIGHTENABLE2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
+	{ GE_CMD_LIGHTENABLE3, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 	{ GE_CMD_LIGHTTYPE0, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_LIGHT0 },
 	{ GE_CMD_LIGHTTYPE1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_LIGHT1 },
 	{ GE_CMD_LIGHTTYPE2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_LIGHT2 },
 	{ GE_CMD_LIGHTTYPE3, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_LIGHT3 },
-	{ GE_CMD_MATERIALUPDATE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },  // TODO: This should not need to dirty the fragment shader?
+	{ GE_CMD_MATERIALUPDATE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 
 	// These change both shaders so need flushing.
-	{ GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
+	{ GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
 
 	{ GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE },
@@ -425,6 +425,7 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
+	ResetMatrices();
 
 	PPGeSetDrawContext(draw);
 }
@@ -449,6 +450,29 @@ void GPUCommon::UpdateCmdInfo() {
 	} else {
 		cmdInfo_[GE_CMD_JUMP].func = &GPUCommon::Execute_Jump;
 		cmdInfo_[GE_CMD_CALL].func = &GPUCommon::Execute_Call;
+	}
+
+	// Reconfigure for light ubershader or not.
+	for (int i = 0; i < 4; i++) {
+		if (gstate_c.Supports(GPU_USE_LIGHT_UBERSHADER)) {
+			cmdInfo_[GE_CMD_LIGHTENABLE0 + i].RemoveDirty(DIRTY_VERTEXSHADER_STATE);
+			cmdInfo_[GE_CMD_LIGHTENABLE0 + i].AddDirty(DIRTY_LIGHT_CONTROL);
+			cmdInfo_[GE_CMD_LIGHTTYPE0 + i].RemoveDirty(DIRTY_VERTEXSHADER_STATE);
+			cmdInfo_[GE_CMD_LIGHTTYPE0 + i].AddDirty(DIRTY_LIGHT_CONTROL);
+		} else {
+			cmdInfo_[GE_CMD_LIGHTENABLE0 + i].RemoveDirty(DIRTY_LIGHT_CONTROL);
+			cmdInfo_[GE_CMD_LIGHTENABLE0 + i].AddDirty(DIRTY_VERTEXSHADER_STATE);
+			cmdInfo_[GE_CMD_LIGHTTYPE0 + i].RemoveDirty(DIRTY_LIGHT_CONTROL);
+			cmdInfo_[GE_CMD_LIGHTTYPE0 + i].AddDirty(DIRTY_VERTEXSHADER_STATE);
+		}
+	}
+
+	if (gstate_c.Supports(GPU_USE_LIGHT_UBERSHADER)) {
+		cmdInfo_[GE_CMD_MATERIALUPDATE].RemoveDirty(DIRTY_VERTEXSHADER_STATE);
+		cmdInfo_[GE_CMD_MATERIALUPDATE].AddDirty(DIRTY_LIGHT_CONTROL);
+	} else {
+		cmdInfo_[GE_CMD_MATERIALUPDATE].RemoveDirty(DIRTY_LIGHT_CONTROL);
+		cmdInfo_[GE_CMD_MATERIALUPDATE].AddDirty(DIRTY_VERTEXSHADER_STATE);
 	}
 }
 
@@ -706,6 +730,59 @@ int GPUCommon::GetStack(int index, u32 stackPtr) {
 	}
 
 	return currentList->stackptr;
+}
+
+static void CopyMatrix24(u32_le *result, const float *mtx, u32 count, u32 cmdbits) {
+	for (u32 i = 0; i < count; ++i) {
+		result[i] = toFloat24(mtx[i]) | cmdbits;
+	}
+}
+
+bool GPUCommon::GetMatrix24(GEMatrixType type, u32_le *result, u32 cmdbits) {
+	switch (type) {
+	case GE_MTX_BONE0:
+	case GE_MTX_BONE1:
+	case GE_MTX_BONE2:
+	case GE_MTX_BONE3:
+	case GE_MTX_BONE4:
+	case GE_MTX_BONE5:
+	case GE_MTX_BONE6:
+	case GE_MTX_BONE7:
+		CopyMatrix24(result, gstate.boneMatrix + (type - GE_MTX_BONE0) * 12, 12, cmdbits);
+		break;
+	case GE_MTX_TEXGEN:
+		CopyMatrix24(result, gstate.tgenMatrix, 12, cmdbits);
+		break;
+	case GE_MTX_WORLD:
+		CopyMatrix24(result, gstate.worldMatrix, 12, cmdbits);
+		break;
+	case GE_MTX_VIEW:
+		CopyMatrix24(result, gstate.viewMatrix, 12, cmdbits);
+		break;
+	case GE_MTX_PROJECTION:
+		CopyMatrix24(result, gstate.projMatrix, 16, cmdbits);
+		break;
+	default:
+		return false;
+	}
+	return true;
+}
+
+void GPUCommon::ResetMatrices() {
+	// This means we restored a context, so update the visible matrix data.
+	for (size_t i = 0; i < ARRAY_SIZE(gstate.boneMatrix); ++i)
+		matrixVisible.bone[i] = toFloat24(gstate.boneMatrix[i]);
+	for (size_t i = 0; i < ARRAY_SIZE(gstate.worldMatrix); ++i)
+		matrixVisible.world[i] = toFloat24(gstate.worldMatrix[i]);
+	for (size_t i = 0; i < ARRAY_SIZE(gstate.viewMatrix); ++i)
+		matrixVisible.view[i] = toFloat24(gstate.viewMatrix[i]);
+	for (size_t i = 0; i < ARRAY_SIZE(gstate.projMatrix); ++i)
+		matrixVisible.proj[i] = toFloat24(gstate.projMatrix[i]);
+	for (size_t i = 0; i < ARRAY_SIZE(gstate.tgenMatrix); ++i)
+		matrixVisible.tgen[i] = toFloat24(gstate.tgenMatrix[i]);
+
+	// Assume all the matrices changed, so dirty things related to them.
+	gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_PROJMATRIX | DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE | DIRTY_BONE_UNIFORMS);
 }
 
 u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) {
@@ -1203,6 +1280,15 @@ void GPUCommon::ReapplyGfxState() {
 	// Let's just skip the transfer size stuff, it's just values.
 }
 
+uint32_t GPUCommon::SetAddrTranslation(uint32_t value) {
+	std::swap(edramTranslation_, value);
+	return value;
+}
+
+uint32_t GPUCommon::GetAddrTranslation() {
+	return edramTranslation_;
+}
+
 inline void GPUCommon::UpdateState(GPURunState state) {
 	gpuState = state;
 	if (state != GPUSTATE_RUNNING)
@@ -1267,7 +1353,8 @@ void GPUCommon::Execute_Iaddr(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Origin(u32 op, u32 diff) {
-	gstate_c.offsetAddr = currentList->pc;
+	if (currentList)
+		gstate_c.offsetAddr = currentList->pc;
 }
 
 void GPUCommon::Execute_Jump(u32 op, u32 diff) {
@@ -1330,7 +1417,7 @@ void GPUCommon::DoExecuteCall(u32 target) {
 		// Check for the end
 		if ((Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
 				(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET &&
-				(gstate.boneMatrixNumber & 0x7F) <= 96 - 12) {
+				(gstate.boneMatrixNumber & 0x00FFFFFF) <= 96 - 12) {
 			// Yep, pretty sure this is a bone matrix call.  Double check stall first.
 			if (target > currentList->stall || target + 12 * 4 < currentList->stall) {
 				FastLoadBoneMatrix(target);
@@ -1596,7 +1683,7 @@ void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
 	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
 		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		if (diff & GE_VTYPE_THROUGH_MASK)
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_CULLRANGE);
+			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
 	}
 }
 
@@ -1623,7 +1710,7 @@ void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	}
 	if (diff & GE_VTYPE_THROUGH_MASK)
-		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_CULLRANGE);
+		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
 }
 
 void GPUCommon::CheckDepthUsage(VirtualFramebuffer *vfb) {
@@ -1864,7 +1951,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 				(Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
 				(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET &&
 				(target > currentList->stall || target + 12 * 4 < currentList->stall) &&
-				(gstate.boneMatrixNumber & 0x7F) <= 96 - 12) {
+				(gstate.boneMatrixNumber & 0x00FFFFFF) <= 96 - 12) {
 				FastLoadBoneMatrix(target);
 			} else {
 				goto bail;
@@ -1942,7 +2029,8 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	}
 
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
-	drawEngineCommon_->DispatchFlush();
+	if (flushOnParams_)
+		drawEngineCommon_->DispatchFlush();
 
 	Spline::BezierSurface surface;
 	surface.tess_u = gstate.getPatchDivisionU();
@@ -1956,8 +2044,8 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 
 	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(surface.primType));
 
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.submitType = SubmitType::HW_BEZIER;
 		if (gstate_c.spline_num_points_u != surface.num_points_u) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
@@ -1971,7 +2059,7 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
 
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 	gstate_c.submitType = SubmitType::DRAW;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
@@ -2014,7 +2102,8 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	}
 
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
-	drawEngineCommon_->DispatchFlush();
+	if (flushOnParams_)
+		drawEngineCommon_->DispatchFlush();
 
 	Spline::SplineSurface surface;
 	surface.tess_u = gstate.getPatchDivisionU();
@@ -2030,8 +2119,8 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 
 	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(surface.primType));
 
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.submitType = SubmitType::HW_SPLINE;
 		if (gstate_c.spline_num_points_u != surface.num_points_u) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
@@ -2045,7 +2134,7 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
 
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 	gstate_c.submitType = SubmitType::DRAW;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
@@ -2099,6 +2188,11 @@ void GPUCommon::Execute_BlockTransferStart(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (op & 0xF);
+		return;
+	}
+
 	// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
 	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.worldMatrix + (op & 0xF));
@@ -2106,7 +2200,7 @@ void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
 	int i = 0;
 
 	// We must record the individual data commands while debugRecording_.
-	bool fastLoad = !debugRecording_;
+	bool fastLoad = !debugRecording_ && end > 0;
 	// Stalling in the middle of a matrix would be stupid, I doubt this check is necessary.
 	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
 		fastLoad = false;
@@ -2127,7 +2221,7 @@ void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
 	}
 
 	const int count = i;
-	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((op + count) & 0xF);
+	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((op & 0xF) + count);
 
 	// Skip over the loaded data, it's done now.
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
@@ -2136,7 +2230,7 @@ void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
 
 void GPUCommon::Execute_WorldMtxData(u32 op, u32 diff) {
 	// Note: it's uncommon to get here now, see above.
-	int num = gstate.worldmtxnum & 0xF;
+	int num = gstate.worldmtxnum & 0x00FFFFFF;
 	u32 newVal = op << 8;
 	if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
 		Flush();
@@ -2144,18 +2238,23 @@ void GPUCommon::Execute_WorldMtxData(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_WORLDMATRIX);
 	}
 	num++;
-	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 	gstate.worldmtxdata = GE_CMD_WORLDMATRIXDATA << 24;
 }
 
 void GPUCommon::Execute_ViewMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (op & 0xF);
+		return;
+	}
+
 	// This is almost always followed by GE_CMD_VIEWMATRIXDATA.
 	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.viewMatrix + (op & 0xF));
 	const int end = 12 - (op & 0xF);
 	int i = 0;
 
-	bool fastLoad = !debugRecording_;
+	bool fastLoad = !debugRecording_ && end > 0;
 	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
 		fastLoad = false;
 	}
@@ -2175,7 +2274,7 @@ void GPUCommon::Execute_ViewMtxNum(u32 op, u32 diff) {
 	}
 
 	const int count = i;
-	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((op + count) & 0xF);
+	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((op & 0xF) + count);
 
 	// Skip over the loaded data, it's done now.
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
@@ -2184,7 +2283,7 @@ void GPUCommon::Execute_ViewMtxNum(u32 op, u32 diff) {
 
 void GPUCommon::Execute_ViewMtxData(u32 op, u32 diff) {
 	// Note: it's uncommon to get here now, see above.
-	int num = gstate.viewmtxnum & 0xF;
+	int num = gstate.viewmtxnum & 0x00FFFFFF;
 	u32 newVal = op << 8;
 	if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
 		Flush();
@@ -2192,11 +2291,16 @@ void GPUCommon::Execute_ViewMtxData(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_VIEWMATRIX);
 	}
 	num++;
-	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 	gstate.viewmtxdata = GE_CMD_VIEWMATRIXDATA << 24;
 }
 
 void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (op & 0xF);
+		return;
+	}
+
 	// This is almost always followed by GE_CMD_PROJMATRIXDATA.
 	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.projMatrix + (op & 0xF));
@@ -2223,7 +2327,7 @@ void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
 	}
 
 	const int count = i;
-	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op + count) & 0x1F);
+	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op & 0xF) + count);
 
 	// Skip over the loaded data, it's done now.
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
@@ -2232,27 +2336,32 @@ void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
 
 void GPUCommon::Execute_ProjMtxData(u32 op, u32 diff) {
 	// Note: it's uncommon to get here now, see above.
-	int num = gstate.projmtxnum & 0x1F;    // NOTE: Changed from 0xF to catch overflows
+	int num = gstate.projmtxnum & 0x00FFFFFF;
 	u32 newVal = op << 8;
-	if (num < 0x10 && newVal != ((const u32 *)gstate.projMatrix)[num]) {
+	if (num < 16 && newVal != ((const u32 *)gstate.projMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.projMatrix)[num] = newVal;
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
 	}
 	num++;
 	if (num <= 16)
-		gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
+		gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 	gstate.projmtxdata = GE_CMD_PROJMATRIXDATA << 24;
 }
 
 void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (op & 0xF);
+		return;
+	}
+
 	// This is almost always followed by GE_CMD_TGENMATRIXDATA.
 	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.tgenMatrix + (op & 0xF));
 	const int end = 12 - (op & 0xF);
 	int i = 0;
 
-	bool fastLoad = !debugRecording_;
+	bool fastLoad = !debugRecording_ && end > 0;
 	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
 		fastLoad = false;
 	}
@@ -2263,7 +2372,8 @@ void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
 			if (dst[i] != newVal) {
 				Flush();
 				dst[i] = newVal;
-				gstate_c.Dirty(DIRTY_TEXMATRIX);
+				// We check the matrix to see if we need projection.
+				gstate_c.Dirty(DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE);
 			}
 			if (++i >= end) {
 				break;
@@ -2272,7 +2382,7 @@ void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
 	}
 
 	const int count = i;
-	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((op + count) & 0xF);
+	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((op & 0xF) + count);
 
 	// Skip over the loaded data, it's done now.
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
@@ -2281,7 +2391,7 @@ void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
 
 void GPUCommon::Execute_TgenMtxData(u32 op, u32 diff) {
 	// Note: it's uncommon to get here now, see above.
-	int num = gstate.texmtxnum & 0xF;
+	int num = gstate.texmtxnum & 0x00FFFFFF;
 	u32 newVal = op << 8;
 	if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
 		Flush();
@@ -2289,11 +2399,16 @@ void GPUCommon::Execute_TgenMtxData(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE);  // We check the matrix to see if we need projection
 	}
 	num++;
-	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 	gstate.texmtxdata = GE_CMD_TGENMATRIXDATA << 24;
 }
 
 void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (op & 0x7F);
+		return;
+	}
+
 	// This is almost always followed by GE_CMD_BONEMATRIXDATA.
 	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.boneMatrix + (op & 0x7F));
@@ -2339,7 +2454,7 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 	}
 
 	const int count = i;
-	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op + count) & 0x7F);
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op & 0x7F) + count);
 
 	// Skip over the loaded data, it's done now.
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
@@ -2348,7 +2463,7 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 
 void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 	// Note: it's uncommon to get here now, see above.
-	int num = gstate.boneMatrixNumber & 0x7F;
+	int num = gstate.boneMatrixNumber & 0x00FFFFFF;
 	u32 newVal = op << 8;
 	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
 		// Bone matrices should NOT flush when software skinning is enabled!
@@ -2361,7 +2476,7 @@ void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 		((u32 *)gstate.boneMatrix)[num] = newVal;
 	}
 	num++;
-	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 	gstate.boneMatrixData = GE_CMD_BONEMATRIXDATA << 24;
 }
 
@@ -2414,10 +2529,10 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 		immPrim_ = (GEPrimitiveType)prim;
 		// Flags seem to only be respected from the first prim.
 		immFlags_ = op & 0x00FFF800;
+		immFirstSent_ = false;
 	} else if (prim == GE_PRIM_KEEP_PREVIOUS && immPrim_ != GE_PRIM_INVALID) {
 		static constexpr int flushPrimCount[] = { 1, 2, 0, 3, 0, 0, 2, 0 };
-		// Instead of finding a proper point to flush, we just emit a full rectangle every time one
-		// is finished.
+		// Instead of finding a proper point to flush, we just emit prims when we can.
 		if (immCount_ == flushPrimCount[immPrim_ & 7])
 			FlushImm();
 	} else {
@@ -2439,31 +2554,6 @@ void GPUCommon::FlushImm() {
 	}
 	UpdateUVScaleOffset();
 
-	// Instead of plumbing through properly (we'd need to inject these pretransformed vertices in the middle
-	// of SoftwareTransform(), which would take a lot of refactoring), we'll cheat and just turn these into
-	// through vertices.
-	// Since the only known use is Thrillville and it only uses it to clear, we just use color and pos.
-	struct ImmVertex {
-		float uv[2];
-		uint32_t color;
-		float xyz[3];
-	};
-	ImmVertex temp[MAX_IMMBUFFER_SIZE];
-	uint32_t color1Used = 0;
-	for (int i = 0; i < immCount_; i++) {
-		// Since we're sending through, scale back up to w/h.
-		temp[i].uv[0] = immBuffer_[i].u * gstate.getTextureWidth(0);
-		temp[i].uv[1] = immBuffer_[i].v * gstate.getTextureHeight(0);
-		temp[i].color = immBuffer_[i].color0_32;
-		temp[i].xyz[0] = immBuffer_[i].pos[0];
-		temp[i].xyz[1] = immBuffer_[i].pos[1];
-		temp[i].xyz[2] = immBuffer_[i].pos[2];
-		color1Used |= immBuffer_[i].color1_32;
-	}
-	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
-
-	// TODO: Handle fog and secondary color somehow?
-
 	bool antialias = (immFlags_ & GE_IMM_ANTIALIAS) != 0;
 	bool prevAntialias = gstate.isAntiAliasEnabled();
 	bool shading = (immFlags_ & GE_IMM_SHADING) != 0;
@@ -2473,40 +2563,42 @@ void GPUCommon::FlushImm() {
 	int cullMode = (immFlags_ & GE_IMM_CULLFACE) != 0 ? 1 : 0;
 	bool texturing = (immFlags_ & GE_IMM_TEXTURE) != 0;
 	bool prevTexturing = gstate.isTextureMapEnabled();
+	bool fog = (immFlags_ & GE_IMM_FOG) != 0;
+	bool prevFog = gstate.isFogEnabled();
 	bool dither = (immFlags_ & GE_IMM_DITHER) != 0;
 	bool prevDither = gstate.isDitherEnabled();
 
 	if ((immFlags_ & GE_IMM_CLIPMASK) != 0) {
 		WARN_LOG_REPORT_ONCE(geimmclipvalue, G3D, "Imm vertex used clip value, flags=%06x", immFlags_);
-	} else if ((immFlags_ & GE_IMM_FOG) != 0) {
-		WARN_LOG_REPORT_ONCE(geimmfog, G3D, "Imm vertex used fog, flags=%06x", immFlags_);
-	} else if (color1Used != 0 && gstate.isUsingSecondaryColor()) {
-		WARN_LOG_REPORT_ONCE(geimmcolor1, G3D, "Imm vertex used secondary color, flags=%06x", immFlags_);
 	}
 
-	if (texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither || prevShading != shading) {
+	bool changed = texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither;
+	changed = changed || prevShading != shading || prevFog != fog;
+	if (changed) {
 		DispatchFlush();
 		gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)antialias;
 		gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)shading;
 		gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)cullEnable;
 		gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)texturing;
+		gstate.fogEnable = (GE_CMD_FOGENABLE << 24) | (int)fog;
 		gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)dither;
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
 	}
 
-	int bytesRead;
-	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
-	drawEngineCommon_->DispatchSubmitImm(temp, nullptr, immPrim_, immCount_, vertTypeID, cullMode, &bytesRead);
-	// TODO: In the future, make a special path for these.
-	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);
+	drawEngineCommon_->DispatchSubmitImm(immPrim_, immBuffer_, immCount_, cullMode, immFirstSent_);
 	immCount_ = 0;
+	immFirstSent_ = true;
 
-	gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)prevAntialias;
-	gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)prevShading;
-	gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)prevCullEnable;
-	gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)prevTexturing;
-	gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)prevDither;
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
+	if (changed) {
+		DispatchFlush();
+		gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)prevAntialias;
+		gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)prevShading;
+		gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)prevCullEnable;
+		gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)prevTexturing;
+		gstate.fogEnable = (GE_CMD_FOGENABLE << 24) | (int)prevFog;
+		gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)prevDither;
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
+	}
 }
 
 void GPUCommon::ExecuteOp(u32 op, u32 diff) {
@@ -2623,7 +2715,7 @@ struct DisplayList_v2 {
 };
 
 void GPUCommon::DoState(PointerWrap &p) {
-	auto s = p.Section("GPUCommon", 1, 4);
+	auto s = p.Section("GPUCommon", 1, 6);
 	if (!s)
 		return;
 
@@ -2695,6 +2787,13 @@ void GPUCommon::DoState(PointerWrap &p) {
 	Do(p, isbreak);
 	Do(p, drawCompleteTicks);
 	Do(p, busyTicks);
+
+	if (s >= 5) {
+		Do(p, matrixVisible.all);
+	}
+	if (s >= 6) {
+		Do(p, edramTranslation_);
+	}
 }
 
 void GPUCommon::InterruptStart(int listid) {
@@ -2947,10 +3046,10 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;
 }
 
-bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
+bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
-		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
+		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, flags, gstate_c.skipDrawReason)) {
 			// We use a little hack for PerformMemoryDownload/PerformMemoryUpload using a VRAM mirror.
 			// Since they're identical we don't need to copy.
 			if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
@@ -2972,7 +3071,8 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 		NotifyMemInfo(MemBlockFlags::WRITE, dest, size, tag.c_str(), tag.size());
 	}
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	GPURecord::NotifyMemcpy(dest, src, size);
+	if (!(flags & GPUCopyFlag::DEBUG_NOTIFIED))
+		GPURecord::NotifyMemcpy(dest, src, size);
 	return false;
 }
 
@@ -2980,7 +3080,7 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 	// This may indicate a memset, usually to 0, of a framebuffer.
 	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
 		Memory::Memset(dest, v, size, "GPUMemset");
-		if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
+		if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, GPUCopyFlag::MEMSET, gstate_c.skipDrawReason)) {
 			InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 		}
 		return true;
@@ -2994,20 +3094,16 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 }
 
 bool GPUCommon::PerformMemoryDownload(u32 dest, int size) {
-	// Cheat a bit to force a download of the framebuffer.
-	// VRAM + 0x00400000 is simply a VRAM mirror.
 	if (Memory::IsVRAMAddress(dest)) {
-		return PerformMemoryCopy(dest ^ 0x00400000, dest, size);
+		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_DST_MEM);
 	}
 	return false;
 }
 
 bool GPUCommon::PerformMemoryUpload(u32 dest, int size) {
-	// Cheat a bit to force an upload of the framebuffer.
-	// VRAM + 0x00400000 is simply a VRAM mirror.
 	if (Memory::IsVRAMAddress(dest)) {
 		GPURecord::NotifyUpload(dest, size);
-		return PerformMemoryCopy(dest, dest ^ 0x00400000, size);
+		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_SRC_MEM | GPUCopyFlag::DEBUG_NOTIFIED);
 	}
 	return false;
 }
@@ -3175,4 +3271,58 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
 		vertexAverageCycles
 	);
+}
+
+u32 GPUCommon::CheckGPUFeatures() const {
+	u32 features = 0;
+	if (draw_->GetDeviceCaps().logicOpSupported) {
+		features |= GPU_SUPPORTS_LOGIC_OP;
+	}
+	if (draw_->GetDeviceCaps().anisoSupported) {
+		features |= GPU_SUPPORTS_ANISOTROPY;
+	}
+	if (draw_->GetDeviceCaps().textureNPOTFullySupported) {
+		features |= GPU_SUPPORTS_TEXTURE_NPOT;
+	}
+	if (draw_->GetDeviceCaps().dualSourceBlend) {
+		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
+			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+		}
+	}
+	if (draw_->GetDeviceCaps().blendMinMaxSupported) {
+		features |= GPU_SUPPORTS_BLEND_MINMAX;
+	}
+
+	if (draw_->GetDeviceCaps().clipDistanceSupported) {
+		features |= GPU_SUPPORTS_CLIP_DISTANCE;
+	}
+
+	if (draw_->GetDeviceCaps().cullDistanceSupported) {
+		features |= GPU_SUPPORTS_CULL_DISTANCE;
+	}
+
+	if (draw_->GetDeviceCaps().textureDepthSupported) {
+		features |= GPU_SUPPORTS_DEPTH_TEXTURE;
+	}
+
+	bool canClipOrCull = draw_->GetDeviceCaps().clipDistanceSupported || draw_->GetDeviceCaps().cullDistanceSupported;
+	bool canDiscardVertex = draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
+	if (canClipOrCull || canDiscardVertex) {
+		// We'll dynamically use the parts that are supported, to reduce artifacts as much as possible.
+		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+	}
+
+	if (draw_->GetDeviceCaps().framebufferFetchSupported) {
+		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
+	}
+
+	if (draw_->GetDeviceCaps().fragmentShaderInt32Supported) {
+		features |= GPU_USE_LIGHT_UBERSHADER;
+	}
+
+	if (PSP_CoreParameter().compat.flags().ClearToRAM) {
+		features |= GPU_USE_CLEAR_RAM_HACK;
+	}
+
+	return features;
 }

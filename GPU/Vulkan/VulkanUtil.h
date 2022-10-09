@@ -36,6 +36,7 @@ extern const VkComponentMapping VULKAN_8888_SWIZZLE;
 #define VULKAN_1555_FORMAT VK_FORMAT_A1R5G5B5_UNORM_PACK16
 #define VULKAN_565_FORMAT  VK_FORMAT_B5G6R5_UNORM_PACK16   // TODO: Does not actually have mandatory support, though R5G6B5 does! See #14602
 #define VULKAN_8888_FORMAT VK_FORMAT_R8G8B8A8_UNORM
+#define VULKAN_CLUT8_FORMAT VK_FORMAT_R8_UNORM
 
 // Manager for compute shaders that upload things (and those have two bindings: a storage buffer to read from and an image to write to).
 class VulkanComputeShaderManager {

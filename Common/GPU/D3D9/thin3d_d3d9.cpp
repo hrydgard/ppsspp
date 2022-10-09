@@ -23,6 +23,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/D3D9/D3D9StateCache.h"
+#include "Common/OSVersion.h"
 #include "Common/StringUtils.h"
 
 #include "Common/Log.h"
@@ -114,6 +115,7 @@ static const D3DSTENCILOP stencilOpToD3D9[] = {
 
 D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
 	switch (fmt) {
+	case DataFormat::R16_UNORM: return D3DFMT_L16;  // closest match, should be a fine substitution if we ignore channels except R.
 	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
 	case DataFormat::B8G8R8A8_UNORM: return D3DFMT_A8R8G8B8;
 	case DataFormat::R4G4B4A4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
@@ -442,6 +444,17 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 					if (data != rect.pBits)
 						memcpy(dest, source, sizeof(uint32_t) * width);
 					break;
+
+				case DataFormat::R8_UNORM:
+					if (data != rect.pBits)
+						memcpy(dest, source, width);
+					break;
+
+				case DataFormat::R16_UNORM:
+					if (data != rect.pBits)
+						memcpy(dest, source, sizeof(uint16_t) * width);
+					break;
+
 				default:
 					// Unhandled data format copy.
 					DebugBreak();
@@ -520,6 +533,8 @@ public:
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindNativeTexture(int index, void *nativeTexture) override;
+
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
 		_assert_(start + count <= MAX_BOUND_TEXTURES);
 		for (int i = 0; i < count; ++i) {
@@ -632,6 +647,63 @@ void D3D9Context::InvalidateCachedState() {
 	curPipeline_ = nullptr;
 }
 
+// TODO: Move this detection elsewhere when it's needed elsewhere, not before. It's ugly.
+// Source: https://envytools.readthedocs.io/en/latest/hw/pciid.html#gf100
+enum NVIDIAGeneration {
+	NV_PRE_KEPLER,
+	NV_KEPLER,
+	NV_MAXWELL,
+	NV_PASCAL,
+	NV_VOLTA,
+	NV_TURING,  // or later
+};
+
+static NVIDIAGeneration NVIDIAGetDeviceGeneration(int deviceID) {
+	if (deviceID >= 0x1180 && deviceID <= 0x11bf)
+		return NV_KEPLER;  // GK104
+	if (deviceID >= 0x11c0 && deviceID <= 0x11fa)
+		return NV_KEPLER;  // GK106
+	if (deviceID >= 0x0fc0 && deviceID <= 0x0fff)
+		return NV_KEPLER;  // GK107
+	if (deviceID >= 0x1003 && deviceID <= 0x1028)
+		return NV_KEPLER;  // GK110(B)
+	if (deviceID >= 0x1280 && deviceID <= 0x12ba)
+		return NV_KEPLER;  // GK208
+	if (deviceID >= 0x1381 && deviceID <= 0x13b0)
+		return NV_MAXWELL;  // GM107
+	if (deviceID >= 0x1340 && deviceID <= 0x134d)
+		return NV_MAXWELL;  // GM108
+	if (deviceID >= 0x13c0 && deviceID <= 0x13d9)
+		return NV_MAXWELL;  // GM204
+	if (deviceID >= 0x1401 && deviceID <= 0x1427)
+		return NV_MAXWELL;  // GM206
+	if (deviceID >= 0x15f7 && deviceID <= 0x15f9)
+		return NV_PASCAL;  // GP100
+	if (deviceID >= 0x15f7 && deviceID <= 0x15f9)
+		return NV_PASCAL;  // GP100
+	if (deviceID >= 0x1b00 && deviceID <= 0x1b38)
+		return NV_PASCAL;  // GP102
+	if (deviceID >= 0x1b80 && deviceID <= 0x1be1)
+		return NV_PASCAL;  // GP104
+	if (deviceID >= 0x1c02 && deviceID <= 0x1c62)
+		return NV_PASCAL;  // GP106
+	if (deviceID >= 0x1c81 && deviceID <= 0x1c92)
+		return NV_PASCAL;  // GP107
+	if (deviceID >= 0x1d01 && deviceID <= 0x1d12)
+		return NV_PASCAL;  // GP108
+	if (deviceID >= 0x1d81 && deviceID <= 0x1dba)
+		return NV_VOLTA;   // GV100
+	if (deviceID >= 0x1e02 && deviceID <= 0x1e3c)
+		return NV_TURING;  // TU102
+	if (deviceID >= 0x1e82 && deviceID <= 0x1ed0)
+		return NV_TURING;  // TU104
+	if (deviceID >= 0x1f02 && deviceID <= 0x1f51)
+		return NV_TURING;  // TU104
+	if (deviceID >= 0x1e02)
+		return NV_TURING;  // More TU models or later, probably.
+	return NV_PRE_KEPLER;
+}
+
 #define FB_DIV 1
 #define FOURCC_INTZ ((D3DFORMAT)(MAKEFOURCC('I', 'N', 'T', 'Z')))
 
@@ -651,14 +723,24 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 	}
 
-	if (!FAILED(device->GetDeviceCaps(&d3dCaps_))) {
+	D3DCAPS9 caps;
+	ZeroMemory(&caps, sizeof(caps));
+	HRESULT result = 0;
+	if (deviceEx_) {
+		result = deviceEx_->GetDeviceCaps(&caps);
+	} else {
+		result = device_->GetDeviceCaps(&caps);
+	}
+
+	if (SUCCEEDED(result)) {
 		sprintf(shadeLangVersion_, "PS: %04x VS: %04x", d3dCaps_.PixelShaderVersion & 0xFFFF, d3dCaps_.VertexShaderVersion & 0xFFFF);
 	} else {
+		WARN_LOG(G3D, "Direct3D9: Failed to get the device caps!");
 		strcpy(shadeLangVersion_, "N/A");
 	}
+
 	caps_.deviceID = identifier_.DeviceId;
 	caps_.multiViewport = false;
-	caps_.anisoSupported = true;
 	caps_.depthRangeMinusOneToOne = false;
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 	caps_.dualSourceBlend = false;
@@ -670,8 +752,30 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.framebufferDepthCopySupported = false;
 	caps_.framebufferSeparateDepthCopySupported = false;
 	caps_.texture3DSupported = true;
-	caps_.textureNPOTFullySupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
+	caps_.blendMinMaxSupported = true;
+
+	if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1) {
+		caps_.anisoSupported = true;
+	}
+	if ((caps.TextureCaps & (D3DPTEXTURECAPS_NONPOW2CONDITIONAL | D3DPTEXTURECAPS_POW2)) == 0) {
+		caps_.textureNPOTFullySupported = true;
+	}
+
+	// VS range culling (killing triangles in the vertex shader using NaN) causes problems on Intel.
+	// Also causes problems on old NVIDIA.
+	switch (caps_.vendor) {
+	case Draw::GPUVendor::VENDOR_INTEL:
+		bugs_.Infest(Bugs::BROKEN_NAN_IN_CONDITIONAL);
+		break;
+	case Draw::GPUVendor::VENDOR_NVIDIA:
+		// Older NVIDIAs don't seem to like NaNs in their DX9 vertex shaders.
+		// No idea if KEPLER is the right cutoff, but let's go with it.
+		if (NVIDIAGetDeviceGeneration(caps_.deviceID) < NV_KEPLER) {
+			bugs_.Infest(Bugs::BROKEN_NAN_IN_CONDITIONAL);
+		}
+		break;
+	}
 
 	if (d3d) {
 		D3DDISPLAYMODE displayMode;
@@ -679,8 +783,9 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 
 		// To be safe, make sure both the display format and the FBO format support INTZ.
 		HRESULT displayINTZ = d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, displayMode.Format, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, FOURCC_INTZ);
-		HRESULT fboINTZ = d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, D3DFMT_A8R8G8B8, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, FOURCC_INTZ);
-		supportsINTZ = SUCCEEDED(displayINTZ) && SUCCEEDED(fboINTZ);
+		HRESULT displayINTY = d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, displayMode.Format, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, ((D3DFORMAT)(MAKEFOURCC('I', 'N', 'T', 'Y'))));
+		// Try to prevent INTZ on older Intel drivers that claim support.
+		supportsINTZ = SUCCEEDED(displayINTZ) && !SUCCEEDED(displayINTY) && IsWin7OrHigher();
 	}
 	caps_.textureDepthSupported = supportsINTZ;
 
@@ -813,6 +918,11 @@ void D3D9Context::BindTextures(int start, int count, Texture **textures) {
 	}
 }
 
+void D3D9Context::BindNativeTexture(int index, void *nativeTexture) {
+	LPDIRECT3DTEXTURE9 texture = (LPDIRECT3DTEXTURE9)nativeTexture;
+	device_->SetTexture(index, texture);
+}
+
 void D3D9Context::EndFrame() {
 	curPipeline_ = nullptr;
 }
@@ -834,6 +944,10 @@ static void SemanticToD3D9UsageAndIndex(int semantic, BYTE *usage, BYTE *index) 
 		break;
 	case SEM_COLOR0:
 		*usage = D3DDECLUSAGE_COLOR;
+		break;
+	case SEM_COLOR1:
+		*usage = D3DDECLUSAGE_COLOR;
+		*index = 1;
 		break;
 	case SEM_TEXCOORD0:
 		*usage = D3DDECLUSAGE_TEXCOORD;

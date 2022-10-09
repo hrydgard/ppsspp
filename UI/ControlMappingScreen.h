@@ -35,7 +35,7 @@ class SingleControlMapper;
 class ControlMappingScreen : public UIDialogScreenWithBackground {
 public:
 	ControlMappingScreen() {}
-	std::string tag() const override { return "control mapping"; }
+	const char *tag() const override { return "ControlMapping"; }
 
 protected:
 	void CreateViews() override;
@@ -47,7 +47,7 @@ private:
 	UI::EventReturn OnAutoConfigure(UI::EventParams &params);
 	UI::EventReturn OnVisualizeMapping(UI::EventParams &params);
 
-	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 	UI::ScrollView *rightScroll_;
 	std::vector<SingleControlMapper *> mappers_;
@@ -61,17 +61,19 @@ public:
 		pspBtn_ = btn;
 	}
 
-	virtual bool key(const KeyInput &key) override;
-	virtual bool axis(const AxisInput &axis) override;
+	const char *tag() const override { return "KeyMappingNewKey"; }
+
+	bool key(const KeyInput &key) override;
+	bool axis(const AxisInput &axis) override;
 
 	void SetDelay(float t);
 
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
-	virtual bool FillVertical() const override { return false; }
-	virtual bool ShowButtons() const override { return true; }
-	virtual void OnCompleted(DialogResult result) override {}
+	bool FillVertical() const override { return false; }
+	bool ShowButtons() const override { return true; }
+	void OnCompleted(DialogResult result) override {}
 
 private:
 	int pspBtn_;
@@ -86,6 +88,8 @@ public:
 		: PopupScreen(i18n->T("Map Mouse"), "", ""), callback_(callback), mapped_(false) {
 		pspBtn_ = btn;
 	}
+
+	const char *tag() const override { return "KeyMappingNewMouseKey"; }
 
 	bool key(const KeyInput &key) override;
 	bool axis(const AxisInput &axis) override;
@@ -113,6 +117,8 @@ public:
 	bool axis(const AxisInput &axis) override;
 
 	void update() override;
+
+	const char *tag() const override { return "AnalogSetup"; }
 
 protected:
 	void CreateViews() override;
@@ -144,6 +150,8 @@ public:
 	bool key(const KeyInput &key) override;
 	bool axis(const AxisInput &axis) override;
 
+	const char *tag() const override { return "TouchTest"; }
+
 protected:
 	struct TrackedTouch {
 		int id;
@@ -170,6 +178,8 @@ class MockPSP;
 class VisualMappingScreen : public UIDialogScreenWithBackground {
 public:
 	VisualMappingScreen() {}
+
+	const char *tag() const override { return "VisualMapping"; }
 
 protected:
 	void CreateViews() override;

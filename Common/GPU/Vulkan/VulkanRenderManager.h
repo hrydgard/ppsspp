@@ -43,19 +43,21 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 
 class VKRFramebuffer {
 public:
-	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, const char *tag);
+	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, bool createDepthStencilBuffer, const char *tag);
 	~VKRFramebuffer();
 
 	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
 
 	int width = 0;
 	int height = 0;
-	VKRImage color{};
-	VKRImage depth{};
+	VKRImage color{};  // color.image is always there.
+	VKRImage depth{};  // depth.image is allowed to be VK_NULL_HANDLE.
 
 	const char *Tag() const {
 		return tag_.c_str();
 	}
+
+	void UpdateTag(const char *newTag);
 
 	// TODO: Hide.
 	VulkanContext *vulkan_;
@@ -63,15 +65,6 @@ private:
 	VkFramebuffer framebuf[RP_TYPE_COUNT]{};
 
 	std::string tag_;
-};
-
-enum class VKRRunType {
-	END,
-	SYNC,
-};
-
-enum {
-	MAX_TIMESTAMP_QUERIES = 128,
 };
 
 struct BoundingRect {
@@ -135,6 +128,7 @@ struct VKRGraphicsPipelineDesc {
 	// Replaced the ShaderStageInfo with promises here so we can wait for compiles to finish.
 	Promise<VkShaderModule> *vertexShader = nullptr;
 	Promise<VkShaderModule> *fragmentShader = nullptr;
+	Promise<VkShaderModule> *geometryShader = nullptr;
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	VkVertexInputAttributeDescription attrs[8]{};
@@ -157,6 +151,12 @@ struct VKRComputePipelineDesc {
 
 // Wrapped pipeline. Doesn't own desc.
 struct VKRGraphicsPipeline {
+	~VKRGraphicsPipeline() {
+		for (int i = 0; i < RP_TYPE_COUNT; i++) {
+			delete pipeline[i];
+		}
+	}
+
 	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType);
 
 	// This deletes the whole VKRGraphicsPipeline, you must remove your last pointer to it when doing this.
@@ -170,11 +170,12 @@ struct VKRGraphicsPipeline {
 };
 
 struct VKRComputePipeline {
-	VKRComputePipeline() {
-		pipeline = VK_NULL_HANDLE;
+	~VKRComputePipeline() {
+		delete pipeline;
 	}
+
 	VKRComputePipelineDesc *desc = nullptr;
-	Promise<VkPipeline> *pipeline;
+	Promise<VkPipeline> *pipeline = nullptr;
 
 	bool Create(VulkanContext *vulkan);
 	bool Pending() const {
@@ -202,16 +203,10 @@ public:
 	VulkanRenderManager(VulkanContext *vulkan);
 	~VulkanRenderManager();
 
-	void ThreadFunc();
-	void CompileThreadFunc();
-	void DrainCompileQueue();
-
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
 	void BeginFrame(bool enableProfiling, bool enableLogProfiler);
 	// Can run on a different thread!
 	void Finish();
-	void Run(int frame);
-
 	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.
 	void Wipe();
 
@@ -236,6 +231,8 @@ public:
 	// as the other backends, even though there's no actual binding happening here.
 	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBits, int attachment);
 
+	void BindCurrentFramebufferAsInputAttachment0(VkImageAspectFlags aspectBits);
+
 	bool CopyFramebufferToMemorySync(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 	void CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 
@@ -247,7 +244,7 @@ public:
 	// We delay creating pipelines until the end of the current render pass, so we can create the right type immediately.
 	// Unless a variantBitmask is passed in, in which case we can just go ahead.
 	// WARNING: desc must stick around during the lifetime of the pipeline! It's not enough to build it on the stack and drop it.
-	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, uint32_t variantBitmask, const char *tag);
+	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, const char *tag);
 	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc);
 
 	void NudgeCompilerThread() {
@@ -440,11 +437,7 @@ public:
 	void DestroyBackbuffers();
 
 	bool HasBackbuffers() {
-		return !framebuffers_.empty();
-	}
-
-	void SetSplitSubmit(bool split) {
-		splitSubmit_ = split;
+		return queueRunner_.HasBackbuffers();
 	}
 
 	void SetInflightFrames(int f) {
@@ -470,57 +463,20 @@ public:
 	}
 
 private:
-	bool InitBackbufferFramebuffers(int width, int height);
-	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
 	void EndCurRenderStep();
 
+	void ThreadFunc();
+	void CompileThreadFunc();
+	void DrainCompileQueue();
+
+	void Run(VKRRenderThreadTask &task);
 	void BeginSubmitFrame(int frame);
-	void EndSubmitFrame(int frame);
-	void Submit(int frame, bool triggerFence);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
-	void EndSyncFrame(int frame);
-
 	void StopThread();
 
-	// Permanent objects
-	VkSemaphore acquireSemaphore_;
-	VkSemaphore renderingCompleteSemaphore_;
-
-	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
-	struct FrameData {
-		std::mutex push_mutex;
-		std::condition_variable push_condVar;
-
-		std::mutex pull_mutex;
-		std::condition_variable pull_condVar;
-
-		bool readyForFence = true;
-		bool readyForRun = false;
-		bool skipSwap = false;
-		VKRRunType type = VKRRunType::END;
-
-		VkFence fence;
-		VkFence readbackFence;  // Strictly speaking we might only need one of these.
-		bool readbackFenceUsed = false;
-
-		// These are on different threads so need separate pools.
-		VkCommandPool cmdPoolInit;
-		VkCommandPool cmdPoolMain;
-		VkCommandBuffer initCmd;
-		VkCommandBuffer mainCmd;
-		bool hasInitCommands = false;
-		std::vector<VKRStep *> steps;
-
-		// Swapchain.
-		bool hasBegun = false;
-		uint32_t curSwapchainImage = -1;
-
-		// Profiling.
-		QueueProfileContext profile;
-		bool profilingEnabled_;
-	};
+	FrameDataShared frameDataShared_;
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 	int newInflightFrames_ = -1;
@@ -539,24 +495,32 @@ private:
 	int curHeight_ = -1;
 
 	bool insideFrame_ = false;
+	bool run_ = false;
+
 	// This is the offset within this frame, in case of a mid-frame sync.
 	int renderStepOffset_ = 0;
 	VKRStep *curRenderStep_ = nullptr;
 	bool curStepHasViewport_ = false;
 	bool curStepHasScissor_ = false;
-	u32 curPipelineFlags_ = 0;
+	PipelineFlags curPipelineFlags_{};
 	BoundingRect curRenderArea_;
 
 	std::vector<VKRStep *> steps_;
-	bool splitSubmit_ = false;
 
 	// Execution time state
-	bool run_ = true;
 	VulkanContext *vulkan_;
 	std::thread thread_;
-	std::mutex mutex_;
-	int threadInitFrame_ = 0;
 	VulkanQueueRunner queueRunner_;
+
+	// For pushing data on the queue.
+	std::mutex pushMutex_;
+	std::condition_variable pushCondVar_;
+
+	std::queue<VKRRenderThreadTask> renderThreadQueue_;
+
+	// For readbacks and other reasons we need to sync with the render thread.
+	std::mutex syncMutex_;
+	std::condition_variable syncCondVar_;
 
 	// Shader compilation thread to compile while emulating the rest of the frame.
 	// Only one right now but we could use more.
@@ -568,23 +532,4 @@ private:
 
 	// pipelines to check and possibly create at the end of the current render pass.
 	std::vector<VKRGraphicsPipeline *> pipelinesToCheck_;
-
-	// Swap chain management
-	struct SwapchainImageData {
-		VkImage image;
-		VkImageView view;
-	};
-	std::vector<VkFramebuffer> framebuffers_;
-	std::vector<SwapchainImageData> swapchainImages_;
-	uint32_t swapchainImageCount_ = 0;
-	struct DepthBufferInfo {
-		VkFormat format = VK_FORMAT_UNDEFINED;
-		VkImage image = VK_NULL_HANDLE;
-		VmaAllocation alloc = VK_NULL_HANDLE;
-		VkImageView view = VK_NULL_HANDLE;
-	};
-	DepthBufferInfo depth_;
-
-	// This works great - except see issue #10097. WTF?
-	bool useThread_ = true;
 };

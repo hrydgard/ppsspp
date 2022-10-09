@@ -12,7 +12,6 @@
 enum VShaderBit : uint8_t {
 	VS_BIT_LMODE = 0,
 	VS_BIT_IS_THROUGH = 1,
-	VS_BIT_ENABLE_FOG = 2,
 	VS_BIT_HAS_COLOR = 3,
 	VS_BIT_DO_TEXTURE = 4,
 	VS_BIT_VERTEX_RANGE_CULLING = 5,
@@ -33,7 +32,11 @@ enum VShaderBit : uint8_t {
 	VS_BIT_BONES = 22,  // 3 should be enough, not 8
 	// 25 - 29 are free.
 	VS_BIT_ENABLE_BONES = 30,
-	// 31 is free.
+
+	// If this is set along with LIGHTING_ENABLE, all other lighting bits below
+	// are passed to the shader directly instead.
+	VS_BIT_LIGHT_UBERSHADER = 31,
+
 	VS_BIT_LIGHT0_COMP = 32,  // 2 bits
 	VS_BIT_LIGHT0_TYPE = 34,  // 2 bits
 	VS_BIT_LIGHT1_COMP = 36,  // 2 bits
@@ -101,6 +104,18 @@ static inline FShaderBit operator +(FShaderBit bit, int i) {
 	return FShaderBit((int)bit + i);
 }
 
+// Some of these bits are straight from FShaderBit, since they essentially enable attributes directly.
+enum GShaderBit : uint8_t {
+	GS_BIT_ENABLED = 0,     // If not set, we don't use a geo shader.
+	GS_BIT_DO_TEXTURE = 1,  // presence of texcoords
+	GS_BIT_LMODE = 2,       // presence of specular color (regular color always present)
+	GS_BIT_CURVE = 3,       // curve, which means don't do range culling.
+};
+
+static inline GShaderBit operator +(GShaderBit bit, int i) {
+	return GShaderBit((int)bit + i);
+}
+
 struct ShaderID {
 	ShaderID() {
 		clear();
@@ -114,6 +129,13 @@ struct ShaderID {
 		for (size_t i = 0; i < ARRAY_SIZE(d); i++) {
 			d[i] = 0xFFFFFFFF;
 		}
+	}
+	bool is_invalid() const {
+		for (size_t i = 0; i < ARRAY_SIZE(d); i++) {
+			if (d[i] != 0xFFFFFFFF)
+				return false;
+		}
+		return true;
 	}
 
 	uint32_t d[2];
@@ -222,6 +244,31 @@ struct FShaderID : ShaderID {
 	}
 };
 
+struct GShaderID : ShaderID {
+	GShaderID() : ShaderID() {
+	}
+
+	explicit GShaderID(ShaderID &src) {
+		memcpy(d, src.d, sizeof(d));
+	}
+
+	bool Bit(GShaderBit bit) const {
+		return ShaderID::Bit((int)bit);
+	}
+
+	int Bits(GShaderBit bit, int count) const {
+		return ShaderID::Bits((int)bit, count);
+	}
+
+	void SetBit(GShaderBit bit, bool value = true) {
+		ShaderID::SetBit((int)bit, value);
+	}
+
+	void SetBits(GShaderBit bit, int count, int value) {
+		ShaderID::SetBits((int)bit, count, value);
+	}
+};
+
 namespace Draw {
 class Bugs;
 }
@@ -234,3 +281,6 @@ std::string VertexShaderDesc(const VShaderID &id);
 struct ComputedPipelineState;
 void ComputeFragmentShaderID(FShaderID *id, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs);
 std::string FragmentShaderDesc(const FShaderID &id);
+
+void ComputeGeometryShaderID(GShaderID *id, const Draw::Bugs &bugs, int prim);
+std::string GeometryShaderDesc(const GShaderID &id);

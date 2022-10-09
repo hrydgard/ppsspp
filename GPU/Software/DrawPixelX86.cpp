@@ -1047,7 +1047,13 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 
 	// Step 1: Load and expand dest color.
 	X64Reg dstReg = regCache_.Alloc(RegCache::VEC_TEMP0);
-	if (id.FBFormat() == GE_FORMAT_8888) {
+	if (!blendState.readsDstPixel) {
+		// Let's load colorOff just for registers to be consistent.
+		X64Reg colorOff = GetColorOff(id);
+		regCache_.Unlock(colorOff, RegCache::GEN_COLOR_OFF);
+
+		PXOR(dstReg, R(dstReg));
+	} else if (id.FBFormat() == GE_FORMAT_8888) {
 		X64Reg colorOff = GetColorOff(id);
 		Describe("AlphaBlend");
 		MOVD_xmm(dstReg, MatR(colorOff));
@@ -1073,7 +1079,6 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 
 		case GE_FORMAT_4444:
 			success = success && Jit_ConvertFrom4444(id, dstGenReg, temp1Reg, temp2Reg, blendState.usesDstAlpha);
-
 			break;
 
 		case GE_FORMAT_8888:
@@ -1115,7 +1120,7 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 		// We also need to add a half bit later, so this gives us space.
 		if (multiplySrc || blendState.srcColorAsFactor)
 			PSLLW(argColorReg, 4);
-		if (multiplyDst || blendState.dstColorAsFactor)
+		if (multiplyDst || blendState.dstColorAsFactor || blendState.usesDstAlpha)
 			PSLLW(dstReg, 4);
 
 		// Okay, now grab our factors.  Don't bother if they're known values.
@@ -1154,7 +1159,7 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 			if (id.AlphaBlendEq() == GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE)
 				PXOR(dstReg, R(dstReg));
 		} else if (id.AlphaBlendDst() == PixelBlendFactor::ONE) {
-			if (blendState.dstColorAsFactor)
+			if (blendState.dstColorAsFactor || blendState.usesDstAlpha)
 				PSRLW(dstReg, 4);
 		}
 
@@ -1218,7 +1223,6 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 
 	return success;
 }
-
 
 bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, RegCache::Reg factorReg, RegCache::Reg dstReg, PixelBlendFactor factor) {
 	X64Reg idReg = INVALID_REG;
@@ -1733,6 +1737,7 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 	}
 
 	std::vector<FixupBranch> finishes;
+	finishes.reserve(11);
 	FixupBranch skipTable = J(true);
 	const u8 *tableValues[16]{};
 

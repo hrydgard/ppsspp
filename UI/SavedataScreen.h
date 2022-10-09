@@ -74,6 +74,8 @@ public:
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void sendMessage(const char *message, const char *value) override;
 
+	const char *tag() const override { return "Savedata"; }
+
 protected:
 	UI::EventReturn OnSavedataButtonClick(UI::EventParams &e);
 	UI::EventReturn OnSortClick(UI::EventParams &e);

@@ -76,7 +76,7 @@ public:
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
-	virtual void CheckGPUFeatures() = 0;
+	virtual u32 CheckGPUFeatures() const;
 
 	void UpdateCmdInfo();
 
@@ -103,7 +103,7 @@ public:
 	void ExecuteOp(u32 op, u32 diff) override;
 	void PreExecuteOp(u32 op, u32 diff) override;
 
-	bool InterpretList(DisplayList &list) override;
+	bool InterpretList(DisplayList &list);
 	void ProcessDLQueue();
 	u32  UpdateStall(int listid, u32 newstall) override;
 	u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) override;
@@ -111,16 +111,20 @@ public:
 	int  ListSync(int listid, int mode) override;
 	u32  DrawSync(int mode) override;
 	int  GetStack(int index, u32 stackPtr) override;
+	bool GetMatrix24(GEMatrixType type, u32_le *result, u32 cmdbits) override;
+	void ResetMatrices() override;
 	void DoState(PointerWrap &p) override;
 	bool BusyDrawing() override;
 	u32  Continue() override;
 	u32  Break(int mode) override;
 	void ReapplyGfxState() override;
+	uint32_t SetAddrTranslation(uint32_t value) override;
+	uint32_t GetAddrTranslation() override;
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void CopyDisplayToOutput(bool reallyDirty) override = 0;
 	void InitClear() override = 0;
-	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
+	bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
 	bool PerformMemoryDownload(u32 dest, int size) override;
 	bool PerformMemoryUpload(u32 dest, int size) override;
@@ -265,14 +269,14 @@ protected:
 	void SetDrawType(DrawType type, GEPrimitiveType prim) {
 		if (type != lastDraw_) {
 			// We always flush when drawing splines/beziers so no need to do so here
-			gstate_c.Dirty(DIRTY_UVSCALEOFFSET | DIRTY_VERTEXSHADER_STATE);
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 			lastDraw_ = type;
 		}
 		// Prim == RECTANGLES can cause CanUseHardwareTransform to flip, so we need to dirty.
 		// Also, culling may be affected so dirty the raster state.
 		if (IsTrianglePrim(prim) != IsTrianglePrim(lastPrim_)) {
 			Flush();
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE);
+			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 			lastPrim_ = prim;
 		}
 	}
@@ -314,6 +318,14 @@ protected:
 	struct CommandInfo {
 		uint64_t flags;
 		GPUCommon::CmdFunc func;
+
+		// Dirty flags are mashed into the regular flags by a left shift of 8.
+		void AddDirty(u64 dirty) {
+			flags |= dirty << 8;
+		}
+		void RemoveDirty(u64 dirty) {
+			flags &= ~(dirty << 8);
+		}
 	};
 
 	static CommandInfo cmdInfo_[256];
@@ -355,6 +367,24 @@ protected:
 	int immCount_ = 0;
 	GEPrimitiveType immPrim_ = GE_PRIM_INVALID;
 	uint32_t immFlags_ = 0;
+	bool immFirstSent_ = false;
+
+	uint32_t edramTranslation_ = 0x400;
+
+	// Whe matrix data overflows, the CPU visible values wrap and bleed between matrices.
+	// But this doesn't actually change the values used by rendering.
+	// The CPU visible values affect the GPU when list contexts are restored.
+	// Note: not maintained by all backends, here for save stating.
+	union {
+		struct {
+			u32 bone[12 * 8];
+			u32 world[12];
+			u32 view[12];
+			u32 proj[16];
+			u32 tgen[12];
+		};
+		u32 all[12 * 8 + 12 + 12 + 16 + 12];
+	} matrixVisible;
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;

@@ -22,7 +22,7 @@
 
 struct SceUtilityGamedataInstallParam {
 	pspUtilityDialogCommon common;
-	u32_le unknown1;
+	s32_le mode;
 	char gameName[13];
 	char ignore1[3];
 	char dataName[20];

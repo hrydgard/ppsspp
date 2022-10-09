@@ -39,7 +39,7 @@ const char *I18NCategory::T(const char *key, const char *def) {
 		if (def)
 			missedKeyLog_[key] = def;
 		else
-			missedKeyLog_[key] = modifiedKey.c_str();
+			missedKeyLog_[key] = modifiedKey;
 //		INFO_LOG(SYSTEM, "Missed translation key in %s: %s", name_.c_str(), key);
 		return def ? def : key;
 	}

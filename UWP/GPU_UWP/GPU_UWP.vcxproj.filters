@@ -55,6 +55,7 @@
     <ClCompile Include="..\..\GPU\Software\RasterizerRectangle.cpp" />
     <ClCompile Include="..\..\GPU\Software\RasterizerRegCache.cpp" />
     <ClCompile Include="..\..\GPU\Common\FragmentShaderGenerator.cpp" />
+    <ClCompile Include="..\..\GPU\Common\GeometryShaderGenerator.cpp" />
     <ClCompile Include="..\..\GPU\Common\VertexShaderGenerator.cpp" />
     <ClCompile Include="..\..\GPU\Common\ReinterpretFramebuffer.cpp" />
     <ClCompile Include="..\..\GPU\Common\Draw2D.cpp" />
@@ -116,6 +117,7 @@
     <ClInclude Include="..\..\GPU\Software\RasterizerRectangle.h" />
     <ClInclude Include="..\..\GPU\Software\RasterizerRegCache.h" />
     <ClInclude Include="..\..\GPU\Common\FragmentShaderGenerator.h" />
+    <ClInclude Include="..\..\GPU\Common\GeometryShaderGenerator.h" />
     <ClInclude Include="..\..\GPU\Common\VertexShaderGenerator.h" />
     <ClInclude Include="..\..\GPU\Common\ReinterpretFramebuffer.h" />
     <ClInclude Include="..\..\GPU\Common\Draw2D.h" />

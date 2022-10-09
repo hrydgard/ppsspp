@@ -70,6 +70,23 @@ Draw2DPipelineInfo GenerateDraw2DCopyColorFs(ShaderWriter &writer) {
 	};
 }
 
+Draw2DPipelineInfo GenerateDraw2DCopyColorRect2LinFs(ShaderWriter &writer) {
+	writer.DeclareSamplers(samplers);
+	writer.BeginFSMain(g_draw2Duniforms, varyings, FSFLAG_NONE);
+	writer.C("  vec2 tSize = texSize / scaleFactor;\n");
+	writer.C("  vec2 pixels = v_texcoord * tSize;\n");
+	writer.C("  float u = mod(pixels.x, tSize.x);\n");
+	writer.C("  float v = floor(pixels.x / tSize.x);\n");
+	writer.C("  vec4 outColor = ").SampleTexture2D("tex", "vec2(u, v) / tSize").C(";\n");
+	writer.EndFSMain("outColor", FSFLAG_NONE);
+
+	return Draw2DPipelineInfo{
+		"draw2d_copy_color_rect2lin",
+		RASTER_COLOR,
+		RASTER_COLOR,
+	};
+}
+
 Draw2DPipelineInfo GenerateDraw2DCopyDepthFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_WRITEDEPTH);
@@ -161,9 +178,10 @@ void Draw2D::Ensure2DResources() {
 	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 
 	if (!draw2DVs_) {
-		char *vsCode = new char[4000];
+		char *vsCode = new char[8192];
 		ShaderWriter writer(vsCode, shaderLanguageDesc, ShaderStage::Vertex);
 		GenerateDraw2DVS(writer);
+		_assert_msg_(strlen(vsCode) < 8192, "Draw2D VS length error: %d", (int)strlen(vsCode));
 		draw2DVs_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "draw2d_vs");
 		_assert_(draw2DVs_);
 		delete[] vsCode;
@@ -198,9 +216,10 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 	using namespace Draw;
 	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 
-	char *fsCode = new char[4000];
+	char *fsCode = new char[8192];
 	ShaderWriter writer(fsCode, shaderLanguageDesc, ShaderStage::Fragment);
 	Draw2DPipelineInfo info = generate(writer);
+	_assert_msg_(strlen(fsCode) < 8192, "Draw2D FS length error: %d", (int)strlen(fsCode));
 
 	ShaderModule *fs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), info.tag);
 
@@ -316,6 +335,13 @@ Draw2DPipeline *FramebufferManagerCommon::Get2DPipeline(Draw2DShader shader) {
 			draw2DPipelineColor_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyColorFs);
 		}
 		pipeline = draw2DPipelineColor_;
+		break;
+
+	case DRAW2D_COPY_COLOR_RECT2LIN:
+		if (!draw2DPipelineColorRect2Lin_) {
+			draw2DPipelineColorRect2Lin_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyColorRect2LinFs);
+		}
+		pipeline = draw2DPipelineColorRect2Lin_;
 		break;
 
 	case DRAW2D_COPY_DEPTH:

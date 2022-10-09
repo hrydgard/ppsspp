@@ -77,7 +77,6 @@ struct CompatFlags {
 	bool DateLimited;
 	bool ShaderColorBitmask;
 	bool DisableFirstFrameReadback;
-	bool DisableRangeCulling;
 	bool MpegAvcWarmUp;
 	bool BlueToAlpha;
 	bool CenteredLines;
@@ -89,9 +88,11 @@ struct CompatFlags {
 	bool SplitFramebufferMargin;
 	bool ForceLowerResolutionForEffectsOn;
 	bool AllowDownloadCLUT;
+	bool NearestFilteringOnFramebufferCreate;
 };
 
 struct VRCompat {
+	bool Skyplane;
 	float UnitsPerMeter;
 };
 

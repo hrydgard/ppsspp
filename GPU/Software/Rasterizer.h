@@ -54,6 +54,7 @@ struct RasterizerState {
 		bool minFilt : 1;
 		bool magFilt : 1;
 		bool antialiasLines : 1;
+		bool textureProj : 1;
 	};
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
@@ -65,7 +66,7 @@ struct RasterizerState {
 	}
 };
 
-void ComputeRasterizerState(RasterizerState *state, bool throughMode);
+void ComputeRasterizerState(RasterizerState *state);
 
 // Draws a triangle if its vertices are specified in counter-clockwise order
 void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const BinCoords &range, const RasterizerState &state);
@@ -75,8 +76,5 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state);
 
 bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
-
-// Shared functions with RasterizerRectangle.cpp
-Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &source, const Vec4<int> &dst);
 
 }  // namespace Rasterizer

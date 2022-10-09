@@ -151,7 +151,7 @@ bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType typ
 	size_t fileSize;
 	uint8_t *buffer = VFSReadFile(filename.c_str(), &fileSize);
 	if (!buffer) {
-		filename_ = "";
+		filename_.clear();
 		ERROR_LOG(IO, "Failed to read file '%s'", filename.c_str());
 		return false;
 	}
@@ -159,7 +159,7 @@ bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType typ
 	if (retval) {
 		filename_ = filename;
 	} else {
-		filename_ = "";
+		filename_.clear();
 		ERROR_LOG(IO, "Failed to load texture '%s'", filename.c_str());
 	}
 	delete[] buffer;

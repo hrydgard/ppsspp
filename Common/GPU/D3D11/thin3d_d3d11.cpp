@@ -105,6 +105,7 @@ public:
 	void InvalidateCachedState() override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindNativeTexture(int index, void *nativeTexture) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;
 	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override;
 	void BindIndexBuffer(Buffer *indexBuffer, int offset) override;
@@ -269,6 +270,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	caps_.anisoSupported = true;
 	caps_.textureNPOTFullySupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
+	caps_.blendMinMaxSupported = true;
 
 	D3D11_FEATURE_DATA_D3D11_OPTIONS options{};
 	HRESULT result = device_->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS, &options, sizeof(options));
@@ -471,6 +473,7 @@ static DXGI_FORMAT dataFormatToD3D11(DataFormat format) {
 	case DataFormat::R8G8B8A8_UNORM_SRGB: return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 	case DataFormat::B8G8R8A8_UNORM: return DXGI_FORMAT_B8G8R8A8_UNORM;
 	case DataFormat::B8G8R8A8_UNORM_SRGB: return DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+	case DataFormat::R16_UNORM: return DXGI_FORMAT_R16_UNORM;
 	case DataFormat::R16_FLOAT: return DXGI_FORMAT_R16_FLOAT;
 	case DataFormat::R16G16_FLOAT: return DXGI_FORMAT_R16G16_FLOAT;
 	case DataFormat::R16G16B16A16_FLOAT: return DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -683,6 +686,7 @@ const char *semanticToD3D11(int semantic, UINT *index) {
 	switch (semantic) {
 	case SEM_POSITION: return "POSITION";
 	case SEM_COLOR0: *index = 0; return "COLOR";
+	case SEM_COLOR1: *index = 1; return "COLOR";
 	case SEM_TEXCOORD0: *index = 0; return "TEXCOORD";
 	case SEM_TEXCOORD1: *index = 1; return "TEXCOORD";
 	case SEM_NORMAL: return "NORMAL";
@@ -1386,6 +1390,12 @@ void D3D11DrawContext::BindTextures(int start, int count, Texture **textures) {
 		views[i] = tex ? tex->view : nullptr;
 	}
 	context_->PSSetShaderResources(start, count, views);
+}
+
+void D3D11DrawContext::BindNativeTexture(int index, void *nativeTexture) {
+	// Collect the resource views from the textures.
+	ID3D11ShaderResourceView *view = (ID3D11ShaderResourceView *)nativeTexture;
+	context_->PSSetShaderResources(index, 1, &view);
 }
 
 void D3D11DrawContext::BindSamplerStates(int start, int count, SamplerState **states) {

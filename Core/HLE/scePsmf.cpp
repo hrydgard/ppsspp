@@ -59,6 +59,7 @@ static const int audioSamplesBytes = audioSamples * 4;
 static int videoPixelMode = GE_CMODE_32BIT_ABGR8888;
 static int videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 static int psmfPlayerLibVersion = 0;
+static u32 psmfPlayerLibcrc = 0;
 
 int eventPsmfPlayerStatusChange = -1;
 
@@ -175,35 +176,35 @@ public:
 
 	int FindEPWithTimestamp(int pts) const;
 
-	u32 magic;
-	u32 version;
-	u32 streamOffset;
-	u32 streamSize;
-	u32 headerSize;
-	u32 headerOffset;
-	u32 streamType;
-	u32 streamChannel;
+	u32 magic = 0;
+	u32 version = 0;
+	u32 streamOffset = 0;
+	u32 streamSize = 0;
+	u32 headerSize = 0;
+	u32 headerOffset = 0;
+	u32 streamType = 0;
+	u32 streamChannel = 0;
 	// 0x50
-	u32 streamDataTotalSize;
-	u32 presentationStartTime;
-	u32 presentationEndTime;
-	u32 streamDataNextBlockSize;
-	u32 streamDataNextInnerBlockSize;
+	u32 streamDataTotalSize = 0;
+	u32 presentationStartTime = 0;
+	u32 presentationEndTime = 0;
+	u32 streamDataNextBlockSize = 0;
+	u32 streamDataNextInnerBlockSize = 0;
 
-	int numStreams;
-	int currentStreamNum;
-	int currentStreamType;
-	int currentStreamChannel;
+	int numStreams = 0;
+	int currentStreamNum = 0;
+	int currentStreamType = 0;
+	int currentStreamChannel = 0;
 
 	// parameters gotten from streams
 	// I guess this is the seek information?
-	u32 EPMapOffset;
-	u32 EPMapEntriesNum;
+	u32 EPMapOffset = 0;
+	u32 EPMapEntriesNum = 0;
 	// These shouldn't be here, just here for convenience with old states.
-	int videoWidth;
-	int videoHeight;
-	int audioChannels;
-	int audioFrequency;
+	int videoWidth = 0;
+	int videoHeight = 0;
+	int audioChannels = 0;
+	int audioFrequency = 0;
 	std::vector<PsmfEntry> EPMap;
 
 	PsmfStreamMap streamMap;
@@ -696,8 +697,9 @@ void __PsmfInit() {
 	eventPsmfPlayerStatusChange = CoreTiming::RegisterEvent("PsmfPlayerStatusChange", &__PsmfPlayerStatusChange);
 }
 
-void __PsmfPlayerLoadModule(int devkitVersion) {
+void __PsmfPlayerLoadModule(int devkitVersion, u32 crc) {
 	psmfPlayerLibVersion = devkitVersion;
+	psmfPlayerLibcrc = crc;
 }
 
 void __PsmfDoState(PointerWrap &p) {
@@ -709,7 +711,7 @@ void __PsmfDoState(PointerWrap &p) {
 }
 
 void __PsmfPlayerDoState(PointerWrap &p) {
-	auto s = p.Section("scePsmfPlayer", 1, 3);
+	auto s = p.Section("scePsmfPlayer", 1, 4);
 	if (!s)
 		return;
 
@@ -722,6 +724,11 @@ void __PsmfPlayerDoState(PointerWrap &p) {
 		Do(p, eventPsmfPlayerStatusChange);
 	}
 	CoreTiming::RestoreRegisterEvent(eventPsmfPlayerStatusChange, "PsmfPlayerStatusChangeEvent", &__PsmfPlayerStatusChange);
+	if (s < 4) {
+		psmfPlayerLibcrc = 0;
+	} else {
+		Do(p, psmfPlayerLibcrc);
+	}
 	if (s < 2) {
 		// Assume the latest, which is what we were emulating before.
 		psmfPlayerLibVersion = 0x06060010;
@@ -1157,7 +1164,8 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr) {
 
 	int delayUs = 20000;
 	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_INIT, delayUs);
-	return hleLogSuccessInfoI(ME, hleDelayResult(0, "player create", delayUs));
+	INFO_LOG(ME, "psmfplayer create, psmfPlayerLibVersion 0x%0x, psmfPlayerLibcrc %x", psmfPlayerLibVersion, psmfPlayerLibcrc);
+	return hleDelayResult(0, "player create", delayUs);	
 }
 
 static int scePsmfPlayerStop(u32 psmfPlayer) {
@@ -1427,7 +1435,7 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	psmfplayer->playMode = playerData->playMode;
 	psmfplayer->playSpeed = playerData->playSpeed;
 
-	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d,(mode %d, speed %d)", psmfPlayer, psmfPlayerData, initPts, playerData->playMode, playerData->playSpeed);
+	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d (mode %d, speed %d)", psmfPlayer, psmfPlayerData, initPts, playerData->playMode, playerData->playSpeed);
 
 	// Does not alter current pts, it just catches up when Update()/etc. get there.
 

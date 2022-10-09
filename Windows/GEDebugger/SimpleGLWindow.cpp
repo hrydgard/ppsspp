@@ -519,25 +519,34 @@ bool SimpleGLWindow::ToggleZoom() {
 	return true;
 }
 
-bool SimpleGLWindow::Hover(int mouseX, int mouseY) {
-	if (hoverCallback_ == nullptr) {
-		return false;
-	}
-
+POINT SimpleGLWindow::PosFromMouse(int mouseX, int mouseY) {
 	float fw, fh;
 	float x, y;
 	GetContentSize(x, y, fw, fh);
 
 	if (mouseX < x || mouseX >= x + fw || mouseY < y || mouseY >= y + fh) {
 		// Outside of bounds.
-		hoverCallback_(-1, -1);
-		return true;
+		return POINT{ -1, -1 };
 	}
 
 	float tx = (mouseX - x) * (tw_ / fw);
 	float ty = (mouseY - y) * (th_ / fh);
 
-	hoverCallback_((int)tx, (int)ty);
+	return POINT{ (int)tx, (int)ty };
+}
+
+bool SimpleGLWindow::Hover(int mouseX, int mouseY) {
+	if (hoverCallback_ == nullptr) {
+		return false;
+	}
+
+	POINT pos = PosFromMouse(mouseX, mouseY);
+	hoverCallback_(pos.x, pos.y);
+
+	if (pos.x == -1 || pos.y == -1) {
+		// Outside of bounds, don't track.
+		return true;
+	}
 
 	// Find out when they are done.
 	TRACKMOUSEEVENT tracking = {0};
@@ -564,11 +573,12 @@ bool SimpleGLWindow::RightClick(int mouseX, int mouseY) {
 	}
 
 	POINT pt{mouseX, mouseY};
+	POINT pos = PosFromMouse(mouseX, mouseY);
 
-	rightClickCallback_(0);
+	rightClickCallback_(0, pos.x, pos.y);
 	int result = TriggerContextMenu(rightClickMenu_, hWnd_, ContextPoint::FromClient(pt));
 	if (result > 0) {
-		rightClickCallback_(result);
+		rightClickCallback_(result, pos.x, pos.y);
 	}
 
 	return true;

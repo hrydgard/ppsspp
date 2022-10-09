@@ -18,6 +18,7 @@
 #include <vector>
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 #include "GPU/GPU.h"
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/Debugger/Debugger.h"
@@ -34,6 +35,8 @@ static bool hasBreakpoints = false;
 static int primsLastFrame = 0;
 static int primsThisFrame = 0;
 static int thisFlipNum = 0;
+
+static double lastStepTime = -1.0;
 
 static std::vector<std::pair<int, int>> restrictPrimRanges;
 static std::string restrictPrimRule;
@@ -56,6 +59,7 @@ void SetActive(bool flag) {
 		breakNext = BreakNext::NONE;
 		breakAtCount = -1;
 		GPUStepping::ResumeFromStepping();
+		lastStepTime = -1.0;
 	}
 }
 
@@ -79,6 +83,7 @@ void SetBreakNext(BreakNext next) {
 		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_SPLINE, true);
 	}
 	GPUStepping::ResumeFromStepping();
+	lastStepTime = next == BreakNext::NONE ? -1.0 : time_now_d();
 }
 
 void SetBreakCount(int c, bool relative) {
@@ -130,7 +135,12 @@ bool NotifyCommand(u32 pc) {
 		GPUBreakpoints::ClearTempBreakpoints();
 
 		auto info = gpuDebug->DissassembleOp(pc);
-		NOTICE_LOG(G3D, "Waiting at %08x, %s", pc, info.desc.c_str());
+		if (lastStepTime >= 0.0) {
+			NOTICE_LOG(G3D, "Waiting at %08x, %s (%fms)", pc, info.desc.c_str(), (time_now_d() - lastStepTime) * 1000.0);
+			lastStepTime = -1.0;
+		} else {
+			NOTICE_LOG(G3D, "Waiting at %08x, %s", pc, info.desc.c_str());
+		}
 		GPUStepping::EnterStepping();
 	}
 
@@ -141,7 +151,12 @@ void NotifyDraw() {
 	if (!active)
 		return;
 	if (breakNext == BreakNext::DRAW && !GPUStepping::IsStepping()) {
-		NOTICE_LOG(G3D, "Waiting at a draw");
+		if (lastStepTime >= 0.0) {
+			NOTICE_LOG(G3D, "Waiting at a draw (%fms)", (time_now_d() - lastStepTime) * 1000.0);
+			lastStepTime = -1.0;
+		} else {
+			NOTICE_LOG(G3D, "Waiting at a draw");
+		}
 		GPUStepping::EnterStepping();
 	}
 }
@@ -204,9 +219,9 @@ bool SetRestrictPrims(const char *rule) {
 			// If there's nothing yet, add everything else.
 			if (updated.empty()) {
 				if (range.first > 0)
-					updated.push_back(std::make_pair(0, range.first - 1));
+					updated.emplace_back(0, range.first - 1);
 				if (range.second < MAX_PRIMS)
-					updated.push_back(std::make_pair(range.second + 1, MAX_PRIMS));
+					updated.emplace_back(range.second + 1, MAX_PRIMS);
 				continue;
 			}
 
@@ -225,7 +240,7 @@ bool SetRestrictPrims(const char *rule) {
 					// We're slicing a hole in this subrange.
 					int next = sub.second;
 					sub.second = range.first - 1;
-					updated.push_back(std::make_pair(range.second + 1, next));
+					updated.emplace_back(range.second + 1, next);
 					continue;
 				}
 

@@ -121,7 +121,8 @@ __m128 SSENormalizeMultiplierSSE2(__m128 v)
 #endif
 __m128 SSENormalizeMultiplierSSE4(__m128 v)
 {
-	return _mm_rsqrt_ps(_mm_dp_ps(v, v, 0xFF));
+	// This is only used for Vec3f, so ignore the 4th component, might be garbage.
+	return _mm_rsqrt_ps(_mm_dp_ps(v, v, 0x77));
 }
 
 __m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)

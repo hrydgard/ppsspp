@@ -102,7 +102,7 @@ ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const
 	int lastA = 0;
 
 	int rampLength = 0;
-	// Quick check for how many continouosly growing entries we have at the start.
+	// Quick check for how many continuously growing entries we have at the start.
 	// Bilinearly filtering CLUTs only really makes sense for this kind of ramp.
 	for (int i = 0; i < maxClutEntries; i++) {
 		rampLength = i;
@@ -209,7 +209,6 @@ Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETe
 	config.smoothedDepal = smoothedDepal;
 	config.depthUpperBits = depthUpperBits;
 
-	char *buffer = new char[4096];
 	Draw2DPipeline *ts = draw2D_->Create2DPipeline([=](ShaderWriter &writer) -> Draw2DPipelineInfo {
 		GenerateDepalFs(writer, config);
 		return Draw2DPipelineInfo{
@@ -219,7 +218,6 @@ Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETe
 			samplers
 		};
 	});
-	delete[] buffer;
 
 	depalCache_[id] = ts;
 

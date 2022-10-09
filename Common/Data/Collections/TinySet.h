@@ -10,21 +10,21 @@ struct TinySet {
 	~TinySet() { delete slowLookup_; }
 	inline void insert(const T &t) {
 		// Fast linear scan.
-		for (int i = 0; i < fastCount; i++) {
+		for (int i = 0; i < fastCount_; i++) {
 			if (fastLookup_[i] == t)
 				return;  // We already have it.
 		}
 		// Fast insertion
-		if (fastCount < MaxFastSize) {
-			fastLookup_[fastCount++] = t;
+		if (fastCount_ < MaxFastSize) {
+			fastLookup_[fastCount_++] = t;
 			return;
 		}
 		// Fall back to slow path.
 		insertSlow(t);
 	}
 	inline void push_back(const T &t) {
-		if (fastCount < MaxFastSize) {
-			fastLookup_[fastCount++] = t;
+		if (fastCount_ < MaxFastSize) {
+			fastLookup_[fastCount_++] = t;
 			return;
 		}
 		if (!slowLookup_) {
@@ -33,8 +33,8 @@ struct TinySet {
 		slowLookup_->push_back(t);
 	}
 	inline T *add_back() {
-		if (fastCount < MaxFastSize) {
-			return &fastLookup_[fastCount++];
+		if (fastCount_ < MaxFastSize) {
+			return &fastLookup_[fastCount_++];
 		}
 		if (!slowLookup_) {
 			slowLookup_ = new std::vector<T>();
@@ -48,9 +48,9 @@ struct TinySet {
 		if (size() + otherSize <= MaxFastSize) {
 			// Fast case
 			for (size_t i = 0; i < otherSize; i++) {
-				fastLookup_[fastCount + i] = other.fastLookup_[i];
+				fastLookup_[fastCount_ + i] = other.fastLookup_[i];
 			}
-			fastCount += other.fastCount;
+			fastCount_ += other.fastCount_;
 		} else {
 			for (size_t i = 0; i < otherSize; i++) {
 				push_back(other[i]);
@@ -58,7 +58,7 @@ struct TinySet {
 		}
 	}
 	bool contains(T t) const {
-		for (int i = 0; i < fastCount; i++) {
+		for (int i = 0; i < fastCount_; i++) {
 			if (fastLookup_[i] == t)
 				return true;
 		}
@@ -72,7 +72,7 @@ struct TinySet {
 	}
 	bool contains(const TinySet<T, MaxFastSize> &otherSet) {
 		// Awkward, kind of ruins the fun.
-		for (int i = 0; i < fastCount; i++) {
+		for (int i = 0; i < fastCount_; i++) {
 			if (otherSet.contains(fastLookup_[i]))
 				return true;
 		}
@@ -85,16 +85,17 @@ struct TinySet {
 		return false;
 	}
 	void clear() {
+		// TODO: Keep slowLookup_ around? That would be more similar to real vector behavior.
 		delete slowLookup_;
 		slowLookup_ = nullptr;
-		fastCount = 0;
+		fastCount_ = 0;
 	}
 	bool empty() const {
-		return fastCount == 0;
+		return fastCount_ == 0;
 	}
 	size_t size() const {
 		if (!slowLookup_) {
-			return fastCount;
+			return fastCount_;
 		} else {
 			return slowLookup_->size() + MaxFastSize;
 		}
@@ -129,7 +130,7 @@ private:
 		}
 		slowLookup_->push_back(t);
 	}
+	int fastCount_ = 0;  // first in the struct just so it's more visible in the VS debugger.
 	T fastLookup_[MaxFastSize];
-	int fastCount = 0;
 	std::vector<T> *slowLookup_ = nullptr;
 };

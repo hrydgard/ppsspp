@@ -114,6 +114,16 @@ enum class StencilUpload {
 };
 ENUM_CLASS_BITOPS(StencilUpload);
 
+enum class GPUCopyFlag {
+	NONE = 0,
+	FORCE_SRC_MEM = 1,
+	FORCE_DST_MEM = 2,
+	// Note: implies src == dst and FORCE_SRC_MEM.
+	MEMSET = 4,
+	DEBUG_NOTIFIED = 8,
+};
+ENUM_CLASS_BITOPS(GPUCopyFlag);
+
 // Used for debug
 struct FramebufferInfo {
 	u32 fb_address;
@@ -198,6 +208,9 @@ public:
 	virtual u32  Continue() = 0;
 	virtual u32  Break(int mode) = 0;
 	virtual int  GetStack(int index, u32 stackPtr) = 0;
+	virtual bool GetMatrix24(GEMatrixType type, u32_le *result, u32 cmdbits) = 0;
+	virtual void ResetMatrices() = 0;
+	virtual uint32_t SetAddrTranslation(uint32_t value) = 0;
 
 	virtual void InterruptStart(int listid) = 0;
 	virtual void InterruptEnd(int listid) = 0;
@@ -205,7 +218,6 @@ public:
 
 	virtual void PreExecuteOp(u32 op, u32 diff) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
-	virtual bool InterpretList(DisplayList& list) = 0;
 
 	// Framebuffer management
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) = 0;
@@ -220,7 +232,7 @@ public:
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type) = 0;
 	virtual void NotifyVideoUpload(u32 addr, int size, int width, int format) = 0;
 	// Update either RAM from VRAM, or VRAM from RAM... or even VRAM from VRAM.
-	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size) = 0;
+	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) = 0;
 	virtual bool PerformMemorySet(u32 dest, u8 v, int size) = 0;
 	virtual bool PerformMemoryDownload(u32 dest, int size) = 0;
 	virtual bool PerformMemoryUpload(u32 dest, int size) = 0;

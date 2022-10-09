@@ -35,7 +35,7 @@ bool ShouldLogNTimes(const char *identifier, int count) {
 	std::lock_guard<std::mutex> lock(logNTimesLock);
 	auto iter = logNTimes.find(identifier);
 	if (iter == logNTimes.end()) {
-		logNTimes.insert(std::pair<const char*, int>(identifier, 1));
+		logNTimes.emplace(identifier, 1);
 		return true;
 	} else {
 		if (iter->second >= count) {

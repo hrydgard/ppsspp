@@ -3,6 +3,20 @@
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 
+enum VRCompatFlag {
+	//compatibility tweaks
+	VR_COMPAT_SKYPLANE,
+
+	//render state
+	VR_COMPAT_FBO_CLEAR,
+
+	//uniforms
+	VR_COMPAT_FOG_COLOR,
+
+	//end
+	VR_COMPAT_MAX
+};
+
 #ifdef OPENXR
 
 // VR app flow integration
@@ -12,6 +26,10 @@ void EnterVR(bool firstStart, void* vulkanContext);
 void GetVRResolutionPerEye(int* width, int* height);
 void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale);
 void UpdateVRScreenKey(const KeyInput &key);
+
+// VR games compatibility
+void PreprocessStepVR(void* step);
+void SetVRCompat(VRCompatFlag flag, long value);
 
 // VR rendering integration
 void BindVRFramebuffer();
@@ -35,6 +53,10 @@ inline void EnterVR(bool firstTime, void* vulkanContext) {}
 inline void GetVRResolutionPerEye(int* width, int* height) {}
 inline void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {}
 inline void UpdateVRScreenKey(const KeyInput &key) {}
+
+// VR games compatibility
+inline void PreprocessStepVR(void* step) {}
+inline void SetVRCompat(VRCompatFlag flag, long value) {}
 
 // VR rendering integration
 inline void BindVRFramebuffer() {}

@@ -674,7 +674,7 @@ bool GameManager::InstallRawISO(const Path &file, const std::string &originalNam
 
 void GameManager::ResetInstallError() {
 	if (!installInProgress_) {
-		installError_ = "";
+		installError_.clear();
 	}
 }
 

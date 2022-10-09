@@ -51,6 +51,7 @@ VULKAN_FILES := \
   $(SRC)/Common/GPU/Vulkan/thin3d_vulkan.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanQueueRunner.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanRenderManager.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanFrameData.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanLoader.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanContext.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanDebug.cpp \
@@ -349,6 +350,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/PostShader.cpp \
   $(SRC)/GPU/Common/ShaderUniforms.cpp \
   $(SRC)/GPU/Common/VertexShaderGenerator.cpp \
+  $(SRC)/GPU/Common/GeometryShaderGenerator.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
   $(SRC)/GPU/Debugger/Debugger.cpp \
   $(SRC)/GPU/Debugger/GECommandTable.cpp \
@@ -583,14 +585,17 @@ LIBARMIPS_FILES := \
   $(SRC)/ext/armips/Commands/CommandSequence.cpp \
   $(SRC)/ext/armips/Core/ELF/ElfFile.cpp \
   $(SRC)/ext/armips/Core/ELF/ElfRelocator.cpp \
+  $(SRC)/ext/armips/Core/Allocations.cpp \
   $(SRC)/ext/armips/Core/Assembler.cpp \
   $(SRC)/ext/armips/Core/Common.cpp \
   $(SRC)/ext/armips/Core/Expression.cpp \
+  $(SRC)/ext/armips/Core/ExpressionFunctionHandler.cpp \
   $(SRC)/ext/armips/Core/ExpressionFunctions.cpp \
   $(SRC)/ext/armips/Core/FileManager.cpp \
   $(SRC)/ext/armips/Core/Misc.cpp \
   $(SRC)/ext/armips/Core/SymbolData.cpp \
   $(SRC)/ext/armips/Core/SymbolTable.cpp \
+  $(SRC)/ext/armips/Core/Types.cpp \
   $(SRC)/ext/armips/Parser/DirectivesParser.cpp \
   $(SRC)/ext/armips/Parser/ExpressionParser.cpp \
   $(SRC)/ext/armips/Parser/Parser.cpp \
@@ -599,6 +604,7 @@ LIBARMIPS_FILES := \
   $(SRC)/ext/armips/Util/CRC.cpp \
   $(SRC)/ext/armips/Util/EncodingTable.cpp \
   $(SRC)/ext/armips/Util/FileClasses.cpp \
+  $(SRC)/ext/armips/Util/FileSystem.cpp \
   $(SRC)/ext/armips/Util/Util.cpp
 
 LOCAL_MODULE := libarmips

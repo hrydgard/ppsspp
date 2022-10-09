@@ -161,13 +161,13 @@ BinManager::~BinManager() {
 	}
 }
 
-void BinManager::UpdateState(bool throughMode) {
+void BinManager::UpdateState() {
 	PROFILE_THIS_SCOPE("bin_state");
 	if (HasDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL)) {
 		if (states_.Full())
 			Flush("states");
 		stateIndex_ = (uint16_t)states_.Push(RasterizerState());
-		ComputeRasterizerState(&states_[stateIndex_], throughMode);
+		ComputeRasterizerState(&states_[stateIndex_]);
 		states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
 
 		ClearDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL);
@@ -197,16 +197,16 @@ void BinManager::UpdateState(bool throughMode) {
 			Flush("tex");
 
 		// Okay, now update what's pending.
-		constexpr uint32_t mirrorMask = 0x0FFFFFFF & ~0x00600000;
-		const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
-		pendingWrites_[0].Expand(gstate.getFrameBufAddress() & mirrorMask, bpp, gstate.FrameBufStride(), scissorTL, scissorBR);
-		if (state.pixelID.depthWrite)
-			pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
+		MarkPendingWrites(state);
 
 		ClearDirty(SoftDirty::BINNER_RANGE);
 	} else if (pendingOverlap_) {
-		if (HasTextureWrite(state))
+		if (HasTextureWrite(state)) {
 			Flush("tex");
+
+			// We need the pending writes set, which flushing cleared.  Set them again.
+			MarkPendingWrites(state);
+		}
 	}
 
 	if (HasDirty(SoftDirty::BINNER_OVERLAP)) {
@@ -282,6 +282,17 @@ void BinManager::MarkPendingReads(const Rasterizer::RasterizerState &state) {
 	}
 }
 
+void BinManager::MarkPendingWrites(const Rasterizer::RasterizerState &state) {
+	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1());
+	DrawingCoords scissorBR(std::min(gstate.getScissorX2(), gstate.getRegionX2()), std::min(gstate.getScissorY2(), gstate.getRegionY2()));
+
+	constexpr uint32_t mirrorMask = 0x041FFFFF;
+	const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
+	pendingWrites_[0].Expand(gstate.getFrameBufAddress() & mirrorMask, bpp, gstate.FrameBufStride(), scissorTL, scissorBR);
+	if (state.pixelID.depthWrite)
+		pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
+}
+
 inline void BinDirtyRange::Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, DrawingCoords &tl, DrawingCoords &br) {
 	const uint32_t w = br.x - tl.x + 1;
 	const uint32_t h = br.y - tl.y + 1;
@@ -326,7 +337,7 @@ void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const V
 	if (d01.x * d02.y - d01.y * d02.x < 0)
 		return;
 	// If all points have identical coords, we'll have 0 weights and not skip properly, so skip here.
-	if (d01.x == 0 && d01.y == 0 && d02.x == 0 && d02.y == 0)
+	if ((d01.x == 0 && d02.x == 0) || (d01.y == 0 && d02.y == 0))
 		return;
 
 	// Was it fully outside the scissor?
@@ -395,7 +406,7 @@ void BinManager::AddPoint(const VertexData &v0) {
 	Expand(range);
 }
 
-void BinManager::Drain() {
+void BinManager::Drain(bool flushing) {
 	PROFILE_THIS_SCOPE("bin_drain");
 
 	// If the waitable has fully drained, we can update our binning decisions.
@@ -435,6 +446,7 @@ void BinManager::Drain() {
 			queue_.SkipNext();
 		}
 	} else {
+		int max = flushing ? QUEUED_PRIMS : QUEUED_PRIMS / 2;
 		while (!queue_.Empty()) {
 			const BinItem &item = queue_.PeekNext();
 			for (int i = 0; i < (int)taskRanges_.size(); ++i) {
@@ -442,17 +454,24 @@ void BinManager::Drain() {
 				if (range.Invalid())
 					continue;
 
-				// This shouldn't often happen, but if it does, wait for space.
-				if (taskQueues_[i].Full())
-					waitable_->Wait();
+				if (taskQueues_[i].NearFull()) {
+					// This shouldn't often happen, but if it does, wait for space.
+					if (taskQueues_[i].Full())
+						waitable_->Wait();
+					// If we're not flushing and not near full, let's just continue later.
+					// Near full means we'd drain on next prim, so better to finish it now.
+					else if (!flushing && !queue_.NearFull())
+						max = 0;
+				}
 
 				BinItem &taskItem = taskQueues_[i].PeekPush();
 				taskItem = item;
 				taskItem.range = range;
 				taskQueues_[i].PushPeeked();
-
 			}
 			queue_.SkipNext();
+			if (--max <= 0)
+				break;
 		}
 
 		int threads = 0;
@@ -474,10 +493,13 @@ void BinManager::Drain() {
 }
 
 void BinManager::Flush(const char *reason) {
+	if (queueRange_.x1 == 0x7FFFFFFF)
+		return;
+
 	double st;
 	if (coreCollectDebugStats)
 		st = time_now_d();
-	Drain();
+	Drain(true);
 	waitable_->Wait();
 	taskRanges_.clear();
 	tasksSplit_ = false;
@@ -516,7 +538,7 @@ bool BinManager::HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, ui
 	if (!Memory::IsVRAMAddress(start))
 		return false;
 	// Ignore mirrors for overlap detection.
-	start &= 0x0FFFFFFF & ~0x00600000;
+	start &= 0x041FFFFF;
 
 	uint32_t size = stride * (h - 1) + w;
 	for (const auto &range : pendingWrites_) {
@@ -547,7 +569,7 @@ bool BinManager::HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, ui
 bool BinManager::HasPendingRead(uint32_t start, uint32_t stride, uint32_t w, uint32_t h) {
 	if (Memory::IsVRAMAddress(start)) {
 		// Ignore VRAM mirrors.
-		start &= 0x0FFFFFFF & ~0x00600000;
+		start &= 0x041FFFFF;
 	} else {
 		// Ignore only regular RAM mirrors.
 		start &= 0x3FFFFFFF;

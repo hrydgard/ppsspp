@@ -297,7 +297,7 @@ static void ForwardDebuggerRequest(const http::Request &request) {
 		// Check if this is a websocket request...
 		std::string upgrade;
 		if (!request.GetHeader("upgrade", &upgrade)) {
-			upgrade = "";
+			upgrade.clear();
 		}
 
 		// Yes - proceed with the socket.

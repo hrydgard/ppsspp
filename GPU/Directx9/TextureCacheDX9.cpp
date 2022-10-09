@@ -358,20 +358,6 @@ D3DFORMAT TextureCacheDX9::GetDestFormat(GETextureFormat format, GEPaletteFormat
 	}
 }
 
-CheckAlphaResult TextureCacheDX9::CheckAlpha(const u32 *pixelData, u32 dstFmt, int w) {
-	switch (dstFmt) {
-	case D3DFMT_A4R4G4B4:
-		return CheckAlpha16((const u16 *)pixelData, w, 0xF000);
-	case D3DFMT_A1R5G5B5:
-		return CheckAlpha16((const u16 *)pixelData, w, 0x8000);
-	case D3DFMT_R5G6B5:
-		// Never has any alpha.
-		return CHECKALPHA_FULL;
-	default:
-		return CheckAlpha32(pixelData, w, 0xFF000000);
-	}
-}
-
 bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
 	SetTexture();
 	ApplyTexture();
@@ -453,4 +439,9 @@ bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) 
 	}
 
 	return success;
+}
+
+void *TextureCacheDX9::GetNativeTextureView(const TexCacheEntry *entry) {
+	LPDIRECT3DBASETEXTURE9 tex = DxTex(entry);
+	return (void *)tex;
 }

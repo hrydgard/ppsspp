@@ -281,15 +281,30 @@ void CGEDebugger::SetupPreviews() {
 		primaryWindow->SetHoverCallback([&] (int x, int y) {
 			PrimaryPreviewHover(x, y);
 		});
-		primaryWindow->SetRightClickMenu(ContextMenuID::GEDBG_PREVIEW, [&] (int cmd) {
+		primaryWindow->SetRightClickMenu(ContextMenuID::GEDBG_PREVIEW, [&] (int cmd, int x, int y) {
 			HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_PREVIEW);
 			switch (cmd) {
 			case 0:
 				// Setup.
 				CheckMenuItem(subMenu, ID_GEDBG_ENABLE_PREVIEW, MF_BYCOMMAND | ((previewsEnabled_ & 1) ? MF_CHECKED : MF_UNCHECKED));
+				EnableMenuItem(subMenu, ID_GEDBG_TRACK_PIXEL_STOP, primaryTrackX_ == 0xFFFFFFFF ? MF_GRAYED : MF_ENABLED);
 				break;
 			case ID_GEDBG_EXPORT_IMAGE:
 				PreviewExport(primaryBuffer_);
+				break;
+			case ID_GEDBG_COPY_IMAGE:
+				PreviewToClipboard(primaryBuffer_, false);
+				break;
+			case ID_GEDBG_COPY_IMAGE_ALPHA:
+				PreviewToClipboard(primaryBuffer_, true);
+				break;
+			case ID_GEDBG_TRACK_PIXEL:
+				primaryTrackX_ = x;
+				primaryTrackY_ = y;
+				break;
+			case ID_GEDBG_TRACK_PIXEL_STOP:
+				primaryTrackX_ = 0xFFFFFFFF;
+				primaryTrackX_ = 0xFFFFFFFF;
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 1;
@@ -311,15 +326,30 @@ void CGEDebugger::SetupPreviews() {
 		secondWindow->SetHoverCallback([&] (int x, int y) {
 			SecondPreviewHover(x, y);
 		});
-		secondWindow->SetRightClickMenu(ContextMenuID::GEDBG_PREVIEW, [&] (int cmd) {
+		secondWindow->SetRightClickMenu(ContextMenuID::GEDBG_PREVIEW, [&] (int cmd, int x, int y) {
 			HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_PREVIEW);
 			switch (cmd) {
 			case 0:
 				// Setup.
 				CheckMenuItem(subMenu, ID_GEDBG_ENABLE_PREVIEW, MF_BYCOMMAND | ((previewsEnabled_ & 2) ? MF_CHECKED : MF_UNCHECKED));
+				EnableMenuItem(subMenu, ID_GEDBG_TRACK_PIXEL_STOP, secondTrackX_ == 0xFFFFFFFF ? MF_GRAYED : MF_ENABLED);
 				break;
 			case ID_GEDBG_EXPORT_IMAGE:
 				PreviewExport(secondBuffer_);
+				break;
+			case ID_GEDBG_COPY_IMAGE:
+				PreviewToClipboard(secondBuffer_, false);
+				break;
+			case ID_GEDBG_COPY_IMAGE_ALPHA:
+				PreviewToClipboard(secondBuffer_, true);
+				break;
+			case ID_GEDBG_TRACK_PIXEL:
+				secondTrackX_ = x;
+				secondTrackY_ = y;
+				break;
+			case ID_GEDBG_TRACK_PIXEL_STOP:
+				secondTrackX_ = 0xFFFFFFFF;
+				secondTrackX_ = 0xFFFFFFFF;
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 2;
@@ -338,6 +368,12 @@ void CGEDebugger::SetupPreviews() {
 }
 
 void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, char desc[256]) {
+	if (primaryTrackX_ < primaryBuffer_->GetStride() && primaryTrackY_ < primaryBuffer_->GetHeight()) {
+		u32 pix = primaryBuffer_->GetRawPixel(primaryTrackX_, primaryTrackY_);
+		DescribePixel(pix, primaryBuffer_->GetFormat(), primaryTrackX_, primaryTrackY_, desc);
+		return;
+	}
+
 	if (showClut_) {
 		// In this case, we're showing the texture here.
 		snprintf(desc, 256, "Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
@@ -362,6 +398,22 @@ void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, char desc[256])
 }
 
 void CGEDebugger::DescribeSecondPreview(const GPUgstate &state, char desc[256]) {
+	if (secondTrackX_ != 0xFFFFFFFF) {
+		uint32_t x = secondTrackX_;
+		uint32_t y = secondTrackY_;
+		if (showClut_) {
+			uint32_t clutWidth = secondBuffer_->GetStride() / 16;
+			x = y * clutWidth + x;
+			y = 0;
+		}
+
+		if (x < secondBuffer_->GetStride() && y < secondBuffer_->GetHeight()) {
+			u32 pix = secondBuffer_->GetRawPixel(x, y);
+			DescribePixel(pix, secondBuffer_->GetFormat(), x, y, desc);
+			return;
+		}
+	}
+
 	if (showClut_) {
 		snprintf(desc, 256, "CLUT: 0x%08x (%d)", state.getClutAddress(), state.getClutPaletteFormat());
 	} else {
@@ -391,6 +443,97 @@ void CGEDebugger::PreviewExport(const GPUDebugBuffer *dbgBuffer) {
 		}
 		delete [] flipbuffer;
 	}
+}
+
+void CGEDebugger::PreviewToClipboard(const GPUDebugBuffer *dbgBuffer, bool saveAlpha) {
+	if (!OpenClipboard(GetDlgHandle())) {
+		return;
+	}
+	EmptyClipboard();
+
+	uint8_t *flipbuffer = nullptr;
+	uint32_t w = (uint32_t)-1;
+	uint32_t h = (uint32_t)-1;
+	const uint8_t *buffer = ConvertBufferToScreenshot(*dbgBuffer, saveAlpha, flipbuffer, w, h);
+	if (buffer == nullptr) {
+		delete [] flipbuffer;
+		CloseClipboard();
+		return;
+	}
+
+	uint32_t pixelSize = saveAlpha ? 4 : 3;
+	uint32_t byteStride = pixelSize * w;
+	while ((byteStride & 3) != 0)
+		++byteStride;
+
+	// Various apps don't support alpha well, so also copy as PNG.
+	std::vector<uint8_t> png;
+	if (saveAlpha) {
+		// Overallocate if we can.
+		png.resize(byteStride * h);
+		Save8888RGBAScreenshot(png, buffer, w, h);
+
+		W32Util::ClipboardData png1("PNG", png.size());
+		W32Util::ClipboardData png2("image/png", png.size());
+		if (!png.empty() && png1 && png2) {
+			memcpy(png1.data, png.data(), png.size());
+			memcpy(png2.data, png.data(), png.size());
+			png1.Set();
+			png2.Set();
+		}
+	}
+
+	W32Util::ClipboardData bitmap(CF_DIBV5, sizeof(BITMAPV5HEADER) + byteStride * h);
+	if (!bitmap) {
+		delete [] flipbuffer;
+		CloseClipboard();
+		return;
+	}
+
+	BITMAPV5HEADER *header = (BITMAPV5HEADER *)bitmap.data;
+	header->bV5Size = sizeof(BITMAPV5HEADER);
+	header->bV5Width = w;
+	header->bV5Height = h;
+	header->bV5Planes = 1;
+	header->bV5BitCount = saveAlpha ? 32 : 24;
+	header->bV5Compression = saveAlpha ? BI_BITFIELDS : BI_RGB;
+	header->bV5SizeImage = byteStride * h;
+	header->bV5CSType = LCS_WINDOWS_COLOR_SPACE;
+	header->bV5Intent = LCS_GM_GRAPHICS;
+
+	if (saveAlpha) {
+		header->bV5RedMask = 0x000000FF;
+		header->bV5GreenMask = 0x0000FF00;
+		header->bV5BlueMask = 0x00FF0000;
+		// Only some applications respect the alpha mask...
+		header->bV5AlphaMask = 0xFF000000;
+	}
+
+	uint8_t *pixels = (uint8_t *)(header + 1);
+	for (uint32_t y = 0; y < h; ++y) {
+		const uint8_t *src = buffer + y * pixelSize * w;
+		uint8_t *dst = pixels + (h - y - 1) * byteStride;
+
+		if (saveAlpha) {
+			// No RB swap needed.
+			memcpy(dst, src, pixelSize * w);
+			continue;
+		}
+
+		for (uint32_t x = 0; x < w; ++x) {
+			// Have to swap B/R again for the bitmap, unfortunate.
+			dst[0] = src[2];
+			dst[1] = src[1];
+			dst[2] = src[0];
+			src += pixelSize;
+			dst += pixelSize;
+		}
+	}
+
+	delete [] flipbuffer;
+
+	bitmap.Set();
+	CloseClipboard();
 }
 
 void CGEDebugger::UpdatePreviews() {

@@ -192,6 +192,7 @@ enum DrawTextureFlags {
 	DRAWTEX_NEAREST = 0,
 	DRAWTEX_LINEAR = 1,
 	DRAWTEX_TO_BACKBUFFER = 8,
+	DRAWTEX_DEPTH = 16,
 };
 
 inline DrawTextureFlags operator | (const DrawTextureFlags &lhs, const DrawTextureFlags &rhs) {
@@ -305,7 +306,7 @@ public:
 
 	void CopyDisplayToOutput(bool reallyDirty);
 
-	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset, u32 skipDrawReason);
+	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, GPUCopyFlag flags, u32 skipDrawReason);
 	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 	void UpdateFromMemory(u32 addr, int size);
 	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
@@ -327,22 +328,25 @@ public:
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
 	void DrawFramebufferToOutput(const u8 *srcPixels, int srcStride, GEBufferFormat srcPixelFormat);
 
-	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, RasterChannel channel, const char *tag);
 
 	size_t NumVFBs() const { return vfbs_.size(); }
 
 	u32 PrevDisplayFramebufAddr() const {
 		return prevDisplayFramebuf_ ? prevDisplayFramebuf_->fb_address : 0;
 	}
-	u32 DisplayFramebufAddr() const {
+	u32 CurrentDisplayFramebufAddr() const {
 		return displayFramebuf_ ? displayFramebuf_->fb_address : 0;
 	}
 
+	u32 DisplayFramebufAddr() const {
+		return displayFramebufPtr_;
+	}
 	u32 DisplayFramebufStride() const {
-		return displayFramebuf_ ? displayStride_ : 0;
+		return displayStride_;
 	}
 	GEBufferFormat DisplayFramebufFormat() const {
-		return displayFramebuf_ ? displayFormat_ : GE_FORMAT_INVALID;
+		return displayFormat_;
 	}
 
 	bool UseBufferedRendering() const {
@@ -351,7 +355,9 @@ public:
 
 	bool MayIntersectFramebuffer(u32 start) const {
 		// Clear the cache/kernel bits.
-		start = start & 0x3FFFFFFF;
+		start &= 0x3FFFFFFF;
+		if (Memory::IsVRAMAddress(start))
+			start &= 0x041FFFFF;
 		// Most games only have two framebuffers at the start.
 		if (start >= framebufRangeEnd_ || start < PSP_GetVidMemBase()) {
 			return false;
@@ -422,7 +428,17 @@ public:
 	VirtualFramebuffer *ResolveFramebufferColorToFormat(VirtualFramebuffer *vfb, GEBufferFormat newFormat);
 
 	Draw2DPipeline *Get2DPipeline(Draw2DShader shader);
+
+	// If from==to, returns a copy pipeline.
 	Draw2DPipeline *GetReinterpretPipeline(GEBufferFormat from, GEBufferFormat to, float *scaleFactorX);
+
+	// Public to be used from the texture cache's depal shenanigans.
+	void BlitUsingRaster(
+		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
+		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
+		bool linearFilter,
+		int scaleFactor,  // usually unused, except for swizzle...
+		Draw2DPipeline *pipeline, const char *tag);
 
 protected:
 	virtual void PackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
@@ -440,13 +456,6 @@ protected:
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, RasterChannel channel, const char *tag);
-
-	void BlitUsingRaster(
-		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
-		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
-		bool linearFilter,
-		int scaleFactor,  // usually unused, except for swizzle...
-		Draw2DPipeline *pipeline, const char *tag);
 
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 
@@ -562,6 +571,7 @@ protected:
 
 	// Draw2D pipelines
 	Draw2DPipeline *draw2DPipelineColor_ = nullptr;
+	Draw2DPipeline *draw2DPipelineColorRect2Lin_ = nullptr;
 	Draw2DPipeline *draw2DPipelineDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepthDeswizzle_ = nullptr;

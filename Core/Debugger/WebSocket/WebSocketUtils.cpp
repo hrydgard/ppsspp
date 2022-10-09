@@ -216,7 +216,7 @@ bool DebuggerRequest::ParamBool(const char *name, bool *out, DebuggerParamType t
 		*out = true;
 		return true;
 	}
-	if (s == "0" || s == "false" || (s == "" && allowLoose)) {
+	if (s == "0" || s == "false" || (s.empty() && allowLoose)) {
 		*out = false;
 		return true;
 	}
@@ -262,7 +262,7 @@ bool DebuggerRequest::ParamString(const char *name, std::string *out, DebuggerPa
 		return true;
 	} else if (tag == JSON_NULL) {
 		if (required) {
-			*out = "";
+			out->clear();
 		}
 		return true;
 	} else if (tag == JSON_NUMBER) {

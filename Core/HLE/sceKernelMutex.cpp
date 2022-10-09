@@ -213,7 +213,7 @@ static void __KernelMutexAcquireLock(PSPMutex *mutex, int count, SceUID thread) 
 		_dbg_assert_msg_((*iter).second != mutex->GetUID(), "Thread %d / mutex %d wasn't removed from mutexHeldLocks properly.", thread, mutex->GetUID());
 #endif
 
-	mutexHeldLocks.insert(std::make_pair(thread, mutex->GetUID()));
+	mutexHeldLocks.emplace(thread, mutex->GetUID());
 
 	mutex->nm.lockLevel = count;
 	mutex->nm.lockThread = thread;
