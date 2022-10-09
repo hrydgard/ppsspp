@@ -2242,10 +2242,11 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	float u2 = texWidth;
 	float v2 = texHeight;
 	if (bounds.minV < bounds.maxV) {
-		u1 = (bounds.minU + gstate_c.curTextureXOffset) * texWidth;
-		v1 = (bounds.minV + gstate_c.curTextureYOffset) * texHeight;
-		u2 = (bounds.maxU + gstate_c.curTextureXOffset) * texWidth;
-		v2 = (bounds.maxV + gstate_c.curTextureYOffset) * texHeight;
+		// These are already in pixel coords! Doesn't seem like we should multiply by texwidth/height.
+		u1 = bounds.minU + gstate_c.curTextureXOffset;
+		v1 = bounds.minV + gstate_c.curTextureYOffset;
+		u2 = bounds.maxU + gstate_c.curTextureXOffset;
+		v2 = bounds.maxV + gstate_c.curTextureYOffset;
 		// We need to reapply the texture next time since we cropped UV.
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
