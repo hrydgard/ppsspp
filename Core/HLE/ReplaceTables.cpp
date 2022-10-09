@@ -691,6 +691,35 @@ static int Hook_godseaterburst_blit_texture() {
 	return 0;
 }
 
+static int Hook_godseaterburst_depthmask_5551() {
+	// This function copies the 5551 framebuffer to a temporary, generating alpha based on depth.
+	// Depth is optional, in which case all pixels get full alpha.
+	// Called when your avatar changes to screenshot for save data.
+	uint32_t colorBuffer = currentMIPS->r[MIPS_REG_A1];
+	uint32_t depthBuffer = currentMIPS->r[MIPS_REG_T2];
+	uint32_t byteStride = currentMIPS->r[MIPS_REG_A2];
+	uint32_t height = currentMIPS->r[MIPS_REG_T1];
+	uint32_t size = byteStride * height;
+
+	if (!Memory::IsVRAMAddress(colorBuffer) || !Memory::IsValidRange(colorBuffer, size))
+		return 0;
+	if (depthBuffer != 0) {
+		if (!Memory::IsVRAMAddress(colorBuffer) || !Memory::IsValidRange(depthBuffer, size))
+			return 0;
+
+		// This is added to read from the linearized mirror.
+		uint32_t depthMirror = depthBuffer + 0x00200000;
+		// Depth download required, or it won't work and will be transparent.
+		gpu->PerformMemoryCopy(depthMirror, depthMirror, size, GPUCopyFlag::FORCE_DST_MEM | GPUCopyFlag::DEPTH_REQUESTED);
+		NotifyMemInfo(MemBlockFlags::WRITE, depthMirror, size, "godseaterburst_depthmask_5551");
+	}
+
+	gpu->PerformMemoryDownload(colorBuffer, size);
+	NotifyMemInfo(MemBlockFlags::WRITE, colorBuffer, size, "godseaterburst_depthmask_5551");
+
+	return 0;
+}
+
 static int Hook_hexyzforce_monoclome_thread() {
 	u32 fb_info;
 	if (!GetMIPSStaticAddress(fb_info, -4, 0)) {
@@ -1414,6 +1443,7 @@ static const ReplacementTableEntry entries[] = {
 	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, REPFLAG_DISABLED },
 
 	{ "godseaterburst_blit_texture", &Hook_godseaterburst_blit_texture, 0, REPFLAG_HOOKENTER },
+	{ "godseaterburst_depthmask_5551", &Hook_godseaterburst_depthmask_5551, 0, REPFLAG_HOOKENTER },
 	{ "hexyzforce_monoclome_thread", &Hook_hexyzforce_monoclome_thread, 0, REPFLAG_HOOKENTER, 0x58 },
 	{ "starocean_write_stencil", &Hook_starocean_write_stencil, 0, REPFLAG_HOOKENTER, 0x260 },
 	{ "topx_create_saveicon", &Hook_topx_create_saveicon, 0, REPFLAG_HOOKENTER, 0x34 },

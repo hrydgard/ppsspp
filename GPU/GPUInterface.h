@@ -120,7 +120,8 @@ enum class GPUCopyFlag {
 	FORCE_DST_MEM = 2,
 	// Note: implies src == dst and FORCE_SRC_MEM.
 	MEMSET = 4,
-	DEBUG_NOTIFIED = 8,
+	DEPTH_REQUESTED = 8,
+	DEBUG_NOTIFIED = 16,
 };
 ENUM_CLASS_BITOPS(GPUCopyFlag);
 
