@@ -795,24 +795,22 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(const std::string &p
 	std::vector<File::FileInfo> files;
 	Path localPath = GetLocalPath(path);
 	const int flags = File::GETFILES_GETHIDDEN | File::GETFILES_GET_NAVIGATION_ENTRIES;
-	if (!File::GetFilesInDir(localPath, &files, nullptr, flags)) {
-		// TODO: Case sensitivity should be checked on a file system basis, right?
+	bool success = File::GetFilesInDir(localPath, &files, nullptr, flags);
 #if HOST_IS_CASE_SENSITIVE
+	if (!success) {
+		// TODO: Case sensitivity should be checked on a file system basis, right?
 		std::string fixedPath = path;
 		if (FixPathCase(basePath, fixedPath, FPC_FILE_MUST_EXIST)) {
 			// May have failed due to case sensitivity, try again
 			localPath = GetLocalPath(fixedPath);
-			if (!File::GetFilesInDir(localPath, &files, nullptr, 0)) {
-				if (exists)
-					*exists = false;
-				return ReplayApplyDiskListing(myVector, CoreTiming::GetGlobalTimeUs());
-			}
+			success = File::GetFilesInDir(localPath, &files, nullptr, flags);
 		}
-#else
+	}
+#endif
+	if (!success) {
 		if (exists)
 			*exists = false;
 		return ReplayApplyDiskListing(myVector, CoreTiming::GetGlobalTimeUs());
-#endif
 	}
 
 	bool hideISOFiles = PSP_CoreParameter().compat.flags().HideISOFiles;

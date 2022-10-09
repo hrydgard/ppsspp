@@ -2336,16 +2336,19 @@ public:
 static u32 sceIoDopen(const char *path) {
 	DEBUG_LOG(SCEIO, "sceIoDopen(\"%s\")", path);
 
-	if (!pspFileSystem.GetFileInfo(path).exists) {
+	double startTime = time_now_d();
+
+	bool listingExists = false;
+	auto listing = pspFileSystem.GetDirListing(path, &listingExists);
+
+	if (!listingExists) {
 		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 
 	DirListing *dir = new DirListing();
 	SceUID id = kernelObjects.Create(dir);
 
-	double startTime = time_now_d();
-
-	dir->listing = pspFileSystem.GetDirListing(path);
+	dir->listing = listing;
 	dir->index = 0;
 	dir->name = std::string(path);
 

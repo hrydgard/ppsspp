@@ -220,7 +220,7 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 	HANDLE hFind = FindFirstFileEx((directory.ToWString() + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
 #endif
 	if (hFind == INVALID_HANDLE_VALUE) {
-		return 0;
+		return false;
 	}
 	do {
 		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
@@ -267,7 +267,7 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 	struct dirent *result = NULL;
 	DIR *dirp = opendir(directory.c_str());
 	if (!dirp)
-		return 0;
+		return false;
 	while ((result = readdir(dirp))) {
 		const std::string virtualName(result->d_name);
 		// check for "." and ".."

@@ -95,6 +95,18 @@ namespace
 		return result == dataSize;
 	}
 
+	PSPFileInfo FileFromListing(const std::vector<PSPFileInfo> &listing, const std::string &filename) {
+		for (const PSPFileInfo &sub : listing) {
+			if (sub.name == filename)
+				return sub;
+		}
+
+		PSPFileInfo info;
+		info.name = filename;
+		info.exists = false;
+		return info;
+	}
+
 	bool PSPMatch(std::string text, std::string regexp)
 	{
 		if(text.empty() && regexp.empty())
@@ -1094,13 +1106,12 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		const std::string saveName(msData->saveName, strnlen(msData->saveName, sizeof(msData->saveName)));
 		// TODO: How should <> be handled?
 		std::string path = GetSaveFilePath(param, gameName + (saveName == "<>" ? "" : saveName));
-		PSPFileInfo finfo = pspFileSystem.GetFileInfo(path);
-		if (finfo.exists)
-		{
+		bool listingExists = false;
+		auto listing = pspFileSystem.GetDirListing(path, &listingExists);
+		if (listingExists) {
 			param->msData->info.usedClusters = 0;
-			auto listing = pspFileSystem.GetDirListing(path);
-			for (auto it = listing.begin(), end = listing.end(); it != end; ++it) {
-				param->msData->info.usedClusters += (it->size + (u32)MemoryStick_SectorSize() - 1) / (u32)MemoryStick_SectorSize();
+			for (auto &item : listing) {
+				param->msData->info.usedClusters += (item.size + (u32)MemoryStick_SectorSize() - 1) / (u32)MemoryStick_SectorSize();
 			}
 
 			// The usedSpaceKB value is definitely based on clusters, not bytes or even KB.
@@ -1251,7 +1262,9 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 	}
 
 	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);
-	if (!pspFileSystem.GetFileInfo(dirPath).exists) {
+	bool dirPathExists = false;
+	auto files = pspFileSystem.GetDirListing(dirPath, &dirPathExists);
+	if (!dirPathExists) {
 		DEBUG_LOG(SCEUTILITY, "SavedataParam::GetFilesList(): directory %s does not exist", dirPath.c_str());
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
 	}
@@ -1262,7 +1275,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 	fileList->resultNumSystemEntries = 0;
 
 	// We need PARAM.SFO's SAVEDATA_FILE_LIST to determine which entries are secure.
-	PSPFileInfo sfoFileInfo = pspFileSystem.GetFileInfo(dirPath + "/" + SFO_FILENAME);
+	PSPFileInfo sfoFileInfo = FileFromListing(files, SFO_FILENAME);
 	std::set<std::string> secureFilenames;
 
 	if (sfoFileInfo.exists) {
@@ -1279,7 +1292,6 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 	requestPtr->bind = 1021;
 
 	// Does not list directories, nor recurse into them, and ignores files not ALL UPPERCASE.
-	auto files = pspFileSystem.GetDirListing(dirPath);
 	for (auto file = files.begin(), end = files.end(); file != end; ++file) {
 		if (file->type == FILETYPE_DIRECTORY) {
 			continue;
@@ -1348,8 +1360,8 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param)
 	}
 
 	const std::string saveDir = savePath + GetGameName(param) + GetSaveName(param);
-	PSPFileInfo info = pspFileSystem.GetFileInfo(saveDir);
-	bool exists = info.exists;
+	bool exists = false;
+	auto listing = pspFileSystem.GetDirListing(saveDir, &exists);
 
 	if (param->sizeInfo.IsValid())
 	{
@@ -1359,12 +1371,12 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param)
 		s64 writeBytes = 0;
 		for (int i = 0; i < param->sizeInfo->numNormalEntries; ++i) {
 			const auto &entry = param->sizeInfo->normalEntries[i];
-			overwriteBytes += pspFileSystem.GetFileInfo(saveDir + "/" + entry.name).size;
+			overwriteBytes += FileFromListing(listing, entry.name).size;
 			writeBytes += entry.size;
 		}
 		for (int i = 0; i < param->sizeInfo->numSecureEntries; ++i) {
 			const auto &entry = param->sizeInfo->secureEntries[i];
-			overwriteBytes += pspFileSystem.GetFileInfo(saveDir + "/" + entry.name).size;
+			overwriteBytes += FileFromListing(listing, entry.name).size;
 			writeBytes += entry.size + 0x10;
 		}
 
