@@ -665,6 +665,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					gotoTouchScreenTest = true;
 				if (!strcmp(argv[i], "--gamesettings"))
 					gotoGameSettings = true;
+				if (!strncmp(argv[i], "--appendconfig=", strlen("--appendconfig=")) && strlen(argv[i]) > strlen("--appendconfig=")) {
+					g_Config.SetAppendedConfigIni(Path(std::string(argv[i] + strlen("--appendconfig="))));
+					g_Config.LoadAppendedConfig();
+				}
 				break;
 			}
 		} else {
