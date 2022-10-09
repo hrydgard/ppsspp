@@ -161,9 +161,6 @@ VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRe
 	_dbg_assert_(tag);
 
 	CreateImage(vulkan_, initCmd, color, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
-	if (createDepthStencilBuffer) {
-		CreateImage(vulkan_, initCmd, depth, width, height, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
-	}
 
 	UpdateTag(tag);
 
@@ -172,6 +169,7 @@ VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRe
 }
 
 void VKRFramebuffer::UpdateTag(const char *newTag) {
+	tag_ = newTag;
 	char name[128];
 	snprintf(name, sizeof(name), "fb_color_%s", tag_.c_str());
 	vulkan_->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, name);
@@ -189,7 +187,14 @@ void VKRFramebuffer::UpdateTag(const char *newTag) {
 	}
 }
 
-VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType) {
+void VKRFramebuffer::EnsureDepthImage(VkCommandBuffer initCmd) {
+	if (!depth.image) {
+		CreateImage(vulkan_, initCmd, depth, width, height, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag_.c_str());
+		UpdateTag(tag_.c_str());
+	}
+}
+
+VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType, VkCommandBuffer initCmd) {
 	if (framebuf[(int)rpType]) {
 		return framebuf[(int)rpType];
 	}
@@ -201,7 +206,8 @@ VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPas
 
 	views[0] = color.imageView;
 	if (hasDepth) {
-		_dbg_assert_(depth.imageView != VK_NULL_HANDLE);
+		// Make sure there's a depth buffer!
+		EnsureDepthImage(initCmd);
 		views[1] = depth.imageView;
 	}
 	fbci.renderPass = compatibleRenderPass->Get(vulkan_, rpType);
