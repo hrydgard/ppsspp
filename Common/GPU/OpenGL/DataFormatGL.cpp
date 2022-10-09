@@ -1,4 +1,5 @@
 #include "Common/GPU/OpenGL/DataFormatGL.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Log.h"
 
 namespace Draw {
@@ -15,8 +16,16 @@ bool Thin3DFormatToGLFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuin
 		break;
 
 	case DataFormat::R8_UNORM:
-		internalFormat = GL_RGBA;
-		format = GL_RED;
+		if (gl_extensions.IsGLES) {
+			internalFormat = GL_LUMINANCE;
+			format = GL_LUMINANCE;
+		} else if (gl_extensions.VersionGEThan(3, 0)) {
+			internalFormat = GL_RED;
+			format = GL_RED;
+		} else {
+			internalFormat = GL_RGBA;
+			format = GL_RED;
+		}
 		type = GL_UNSIGNED_BYTE;
 		alignment = 1;
 		break;

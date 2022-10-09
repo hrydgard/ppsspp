@@ -848,8 +848,9 @@ VKContext::VKContext(VulkanContext *vulkan)
 		}
 
 		// Older ARM devices have very slow geometry shaders, not worth using.  At least before 15.
-		if (majorVersion <= 15) {
-			bugs_.Infest(Bugs::GEOMETRY_SHADERS_SLOW);
+		// Also seen to cause weird issues on 18, so let's lump it in.
+		if (majorVersion <= 18) {
+			bugs_.Infest(Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
 		}
 	}
 
