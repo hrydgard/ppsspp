@@ -140,7 +140,7 @@ static int JpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidt
 				u8 cb = Cb[(width >> widthShift) * (y >> heightShift) + (x >> widthShift)];
 				u8 cr = Cr[(width >> widthShift) * (y >> heightShift) + (x >> widthShift)];
 
-				imageBuffer[bufferWidth * y + x + 0] = convertYCbCrToABGR(y0, cb, cr);
+				imageBuffer[bufferWidth * y + x] = convertYCbCrToABGR(y0, cb, cr);
 				imageBuffer[bufferWidth * y + x + 1] = convertYCbCrToABGR(y1, cb, cr);
 				imageBuffer[bufferWidth * (y + 1) + x] = convertYCbCrToABGR(y2, cb, cr);
 				imageBuffer[bufferWidth * (y + 1) + x + 1] = convertYCbCrToABGR(y3, cb, cr);
@@ -174,8 +174,6 @@ static int JpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int buffe
 	if (height == 0)
 		height = 1;
 
-	uint8_t widthShift = 1;
-	uint8_t heightShift = 1;
 	int sizeY = width * height;
 	int sizeCb = sizeY >> 2;
 
@@ -205,31 +203,29 @@ static int JpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int buffe
 				imageBuffer[bufferWidth * y + x] = convertYCbCrToABGR(0, 0, 0);
 			}
 		}
-	} else if ((widthHeight & 0x00030000) == 0) {
-		for (int y = 0; y < height; ++y) {
-			for (int x = 0; x < width; x += 4) {
-				int offset = width * y + x;
-				u8 y0 = Y[offset + 0];
-				u8 y1 = Y[offset + 1];
-				u8 y2 = Y[offset + 2];
-				u8 y3 = Y[offset + 3];
-				u8 cb = Cb[offset >> 2];
-				u8 cr = Cr[offset >> 2];
+	} else if ((widthHeight & 0x00010001) == 0 && height > 1) {
+		for (int y = 0; y < height; y += 2) {
+			for (int x = 0; x < width; x += 2) {
+				u8 y0 = Y[width * y + x];
+				u8 y1 = Y[width * y + x + 1];
+				u8 y2 = Y[width * (y + 1) + x];
+				u8 y3 = Y[width * (y + 1) + x + 1];
+				u8 cb = Cb[(width >> 1) * (y >> 1) + (x >> 1)];
+				u8 cr = Cr[(width >> 1) * (y >> 1) + (x >> 1)];
 
-				imageBuffer[bufferWidth * y + x + 0] = convertYCbCrToABGR(y0, cb, cr);
+				imageBuffer[bufferWidth * y + x] = convertYCbCrToABGR(y0, cb, cr);
 				imageBuffer[bufferWidth * y + x + 1] = convertYCbCrToABGR(y1, cb, cr);
-				imageBuffer[bufferWidth * y + x + 2] = convertYCbCrToABGR(y2, cb, cr);
-				imageBuffer[bufferWidth * y + x + 3] = convertYCbCrToABGR(y3, cb, cr);
+				imageBuffer[bufferWidth * (y + 1) + x] = convertYCbCrToABGR(y2, cb, cr);
+				imageBuffer[bufferWidth * (y + 1) + x + 1] = convertYCbCrToABGR(y3, cb, cr);
 			}
 		}
 		NotifyMemInfo(MemBlockFlags::READ, yCbCrAddr, sizeY + sizeCb + sizeCb, "JpegMJpegCsc");
 	} else {
 		for (int y = 0; y < height; ++y) {
 			for (int x = 0; x < width; ++x) {
-				int offset = width * y + x;
-				u8 yy = Y[offset];
-				u8 cb = Cb[offset >> 2];
-				u8 cr = Cr[offset >> 2];
+				u8 yy = Y[width * y + x];
+				u8 cb = Cb[(width >> 1) * (y >> 1) + (x >> 1)];
+				u8 cr = Cr[(width >> 1) * (y >> 1) + (x >> 1)];
 
 				imageBuffer[bufferWidth * y + x] = convertYCbCrToABGR(yy, cb, cr);
 			}
@@ -451,28 +447,40 @@ static int JpegConvertRGBToYCbCr(const void *data, u8 *output, int width, int he
 	u8 *Cb = Y + sizeY;
 	u8 *Cr = Cb + sizeCb;
 
-	for (int y = 0; y < height; ++y) {
-		for (int x = 0; x < width; x += 4) {
-			u32 abgr0 = imageBuffer[x + 0];
-			u32 abgr1 = imageBuffer[x + 1];
-			u32 abgr2 = imageBuffer[x + 2];
-			u32 abgr3 = imageBuffer[x + 3];
+	if ((width & 1) == 0 && (height & 1) == 0) {
+		for (int y = 0; y < height; y += 2) {
+			for (int x = 0; x < width; x += 2) {
+				u32 rgb0 = imageBuffer[width * y + x];
+				u32 rgb1 = imageBuffer[width * y + x + 1];
+				u32 rgb2 = imageBuffer[width * (y + 1) + x];
+				u32 rgb3 = imageBuffer[width * (y + 1) + x + 1];
 
-			u32 yCbCr0 = convertRGBToYCbCr(abgr0);
-			u32 yCbCr1 = convertRGBToYCbCr(abgr1);
-			u32 yCbCr2 = convertRGBToYCbCr(abgr2);
-			u32 yCbCr3 = convertRGBToYCbCr(abgr3);
-			
-			Y[x + 0] = (yCbCr0 >> 16) & 0xFF;
-			Y[x + 1] = (yCbCr1 >> 16) & 0xFF;
-			Y[x + 2] = (yCbCr2 >> 16) & 0xFF;
-			Y[x + 3] = (yCbCr3 >> 16) & 0xFF;
+				u32 yCbCr0 = convertRGBToYCbCr(rgb0);
+				u32 yCbCr1 = convertRGBToYCbCr(rgb1);
+				u32 yCbCr2 = convertRGBToYCbCr(rgb2);
+				u32 yCbCr3 = convertRGBToYCbCr(rgb3);
 
-			*Cb++ = (yCbCr0 >> 8) & 0xFF;
-			*Cr++ = yCbCr0 & 0xFF;
+				Y[width * y + x] = (yCbCr0 >> 16) & 0xFF;
+				Y[width * y + x + 1] = (yCbCr1 >> 16) & 0xFF;
+				Y[width * (y + 1) + x] = (yCbCr2 >> 16) & 0xFF;
+				Y[width * (y + 1) + x + 1] = (yCbCr3 >> 16) & 0xFF;
+				Cb[(width >> 1) * (y >> 1) + (x >> 1)] = (yCbCr0 >> 8) & 0xFF;
+				Cr[(width >> 1) * (y >> 1) + (x >> 1)] = yCbCr0 & 0xFF;
+			}
 		}
-		imageBuffer += width;
-		Y += width;
+	} else {
+		for (int y = 0; y < height; ++y) {
+			for (int x = 0; x < width; ++x) {
+				u32 rgb = imageBuffer[width * y + x];
+				u32 yCbCr = convertRGBToYCbCr(rgb);
+				Y[width * y + x] = (yCbCr >> 16) & 0xFF;
+				if ((y & 1) == 0 && (x & 1) == 0) {
+					// Ideally, would average, but I suppose these just came from a JPEG, so they ought to match.
+					Cb[(width >> 1) * (y >> 1) + (x >> 1)] = (yCbCr >> 8) & 0xFF;
+					Cr[(width >> 1) * (y >> 1) + (x >> 1)] = yCbCr & 0xFF;
+				}
+			}
+		}
 	}
 	return getWidthHeight(width, height);
 }
