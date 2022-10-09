@@ -111,6 +111,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	Memory::Memcpy(&originalRequest, requestAddr, size);
 
 	param.SetIgnoreTextures(IsNotVisibleAction((SceUtilitySavedataType)(u32)request.mode));
+	param.ClearCaches();
 	int retval = param.SetPspParam(&request);
 
 	const u32 mode = (u32)param.GetPspParam()->mode;
@@ -263,6 +264,7 @@ int PSPSaveDialog::Init(int paramAddr)
 		ChangeStatusInit(SAVEDATA_INIT_DELAY_US);
 	}
 
+	param.ClearCaches();
 	UpdateButtons();
 	StartFade(true);
 
@@ -642,6 +644,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		param.SetPspParam(&request);
 	}
 
+	param.ClearCaches();
 	UpdateButtons();
 	UpdateFade(animSpeed);
 
@@ -1059,11 +1062,13 @@ int PSPSaveDialog::Update(int animSpeed)
 
 	if (ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED)
 		Memory::Memcpy(requestAddr, &request, request.common.size, "SaveDialogParam");
+	param.ClearCaches();
 	
 	return 0;
 }
 
 void PSPSaveDialog::ExecuteIOAction() {
+	param.ClearCaches();
 	auto &result = param.GetPspParam()->common.result;
 	std::lock_guard<std::mutex> guard(paramLock);
 	switch (display) {
@@ -1102,9 +1107,11 @@ void PSPSaveDialog::ExecuteIOAction() {
 	}
 
 	ioThreadStatus = SAVEIO_DONE;
+	param.ClearCaches();
 }
 
 void PSPSaveDialog::ExecuteNotVisibleIOAction() {
+	param.ClearCaches();
 	auto &result = param.GetPspParam()->common.result;
 
 	switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode) {
@@ -1185,6 +1192,8 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 	default:
 		break;
 	}
+
+	param.ClearCaches();
 }
 
 void PSPSaveDialog::JoinIOThread() {
@@ -1222,6 +1231,7 @@ int PSPSaveDialog::Shutdown(bool force) {
 		ChangeStatusShutdown(SAVEDATA_SHUTDOWN_DELAY_US);
 	}
 	param.SetPspParam(0);
+	param.ClearCaches();
 
 	return 0;
 }

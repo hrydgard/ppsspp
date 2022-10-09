@@ -343,6 +343,7 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId) {
 		return false;
 	}
 
+	ClearCaches();
 	pspFileSystem.RmDir(dirPath);
 	return true;
 }
@@ -378,6 +379,7 @@ int SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 		return 0;
 	}
 
+	ClearCaches();
 	pspFileSystem.RemoveFile(filePath);
 
 	return 0;
@@ -455,28 +457,23 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	}
 
 	// SAVE PARAM.SFO
-	ParamSFOData sfoFile;
 	std::string sfopath = dirPath + "/" + SFO_FILENAME;
-	{
-		std::vector<u8> sfoData;
-		if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0)
-			sfoFile.ReadSFO(sfoData);
-	}
+	std::shared_ptr<ParamSFOData> sfoFile = LoadCachedSFO(sfopath, true);
 
 	// Update values
-	sfoFile.SetValue("TITLE",param->sfoParam.title,128);
-	sfoFile.SetValue("SAVEDATA_TITLE",param->sfoParam.savedataTitle,128);
-	sfoFile.SetValue("SAVEDATA_DETAIL",param->sfoParam.detail,1024);
-	sfoFile.SetValue("PARENTAL_LEVEL",param->sfoParam.parentalLevel,4);
-	sfoFile.SetValue("CATEGORY","MS",4);
-	sfoFile.SetValue("SAVEDATA_DIRECTORY", GetSaveDir(param, saveDirName), 64);
+	sfoFile->SetValue("TITLE", param->sfoParam.title, 128);
+	sfoFile->SetValue("SAVEDATA_TITLE", param->sfoParam.savedataTitle, 128);
+	sfoFile->SetValue("SAVEDATA_DETAIL", param->sfoParam.detail, 1024);
+	sfoFile->SetValue("PARENTAL_LEVEL", param->sfoParam.parentalLevel, 4);
+	sfoFile->SetValue("CATEGORY", "MS", 4);
+	sfoFile->SetValue("SAVEDATA_DIRECTORY", GetSaveDir(param, saveDirName), 64);
 
 	// Always write and update the file list.
 	// For each file, 13 bytes for filename, 16 bytes for file hash (0 in PPSSPP), 3 byte for padding
 	const int FILE_LIST_COUNT_MAX = 99;
 	const u32 FILE_LIST_TOTAL_SIZE = sizeof(SaveSFOFileListEntry) * FILE_LIST_COUNT_MAX;
 	u32 tmpDataSize = 0;
-	SaveSFOFileListEntry *tmpDataOrig = (SaveSFOFileListEntry *)sfoFile.GetValueData("SAVEDATA_FILE_LIST", &tmpDataSize);
+	SaveSFOFileListEntry *tmpDataOrig = (SaveSFOFileListEntry *)sfoFile->GetValueData("SAVEDATA_FILE_LIST", &tmpDataSize);
 	SaveSFOFileListEntry *updatedList = new SaveSFOFileListEntry[FILE_LIST_COUNT_MAX];
 	if (tmpDataSize != 0)
 		memcpy(updatedList, tmpDataOrig, std::min(tmpDataSize, FILE_LIST_TOTAL_SIZE));
@@ -497,28 +494,30 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		}
 	}
 
-	sfoFile.SetValue("SAVEDATA_FILE_LIST", (u8 *)updatedList, FILE_LIST_TOTAL_SIZE, (int)FILE_LIST_TOTAL_SIZE);
+	sfoFile->SetValue("SAVEDATA_FILE_LIST", (u8 *)updatedList, FILE_LIST_TOTAL_SIZE, (int)FILE_LIST_TOTAL_SIZE);
 	delete[] updatedList;
 
 	// Init param with 0. This will be used to detect crypted save or not on loading
 	u8 *tmpData = new u8[128];
 	memset(tmpData, 0, 128);
-	sfoFile.SetValue("SAVEDATA_PARAMS", tmpData, 128, 128);
+	sfoFile->SetValue("SAVEDATA_PARAMS", tmpData, 128, 128);
 	delete[] tmpData;
 
 	u8 *sfoData;
 	size_t sfoSize;
-	sfoFile.WriteSFO(&sfoData,&sfoSize);
+	sfoFile->WriteSFO(&sfoData, &sfoSize);
 
 	// Calc SFO hash for PSP.
-	if(cryptedData != 0)
-	{
-		int offset = sfoFile.GetDataOffset(sfoData,"SAVEDATA_PARAMS");
+	if (cryptedData != 0) {
+		int offset = sfoFile->GetDataOffset(sfoData, "SAVEDATA_PARAMS");
 		if(offset >= 0)
 			UpdateHash(sfoData, (int)sfoSize, offset, DetermineCryptMode(param));
 	}
+
+	ClearCaches();
 	WritePSPFile(sfopath, sfoData, (SceSize)sfoSize);
 	delete[] sfoData;
+	sfoData = nullptr;
 
 	if(param->dataBuf.IsValid())	// Can launch save without save data in mode 13
 	{
@@ -804,38 +803,31 @@ u32 SavedataParam::LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, 
 }
 
 bool SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string& dirPath) {
-	ParamSFOData sfoFile;
 	std::string sfopath = dirPath + "/" + SFO_FILENAME;
-	std::vector<u8> sfoData;
-	if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0) {
-		sfoFile.ReadSFO(sfoData);
-
+	std::shared_ptr<ParamSFOData> sfoFile = LoadCachedSFO(sfopath);
+	if (sfoFile) {
 		// copy back info in request
-		strncpy(param->sfoParam.title,sfoFile.GetValueString("TITLE").c_str(),128);
-		strncpy(param->sfoParam.savedataTitle,sfoFile.GetValueString("SAVEDATA_TITLE").c_str(),128);
-		strncpy(param->sfoParam.detail,sfoFile.GetValueString("SAVEDATA_DETAIL").c_str(),1024);
-		param->sfoParam.parentalLevel = sfoFile.GetValueInt("PARENTAL_LEVEL");
+		strncpy(param->sfoParam.title, sfoFile->GetValueString("TITLE").c_str(), 128);
+		strncpy(param->sfoParam.savedataTitle, sfoFile->GetValueString("SAVEDATA_TITLE").c_str(), 128);
+		strncpy(param->sfoParam.detail, sfoFile->GetValueString("SAVEDATA_DETAIL").c_str(), 1024);
+		param->sfoParam.parentalLevel = sfoFile->GetValueInt("PARENTAL_LEVEL");
 		return true;
-	} else {
-		return false;
 	}
+	return false;
 }
 
 std::vector<SaveSFOFileListEntry> SavedataParam::GetSFOEntries(const std::string &dirPath) {
 	std::vector<SaveSFOFileListEntry> result;
 	const std::string sfoPath = dirPath + "/" + SFO_FILENAME;
 
-	ParamSFOData sfoFile;
-	std::vector<u8> sfoData;
-	if (pspFileSystem.ReadEntireFile(sfoPath, sfoData) >= 0) {
-		sfoFile.ReadSFO(sfoData);
-	} else {
+	std::shared_ptr<ParamSFOData> sfoFile = LoadCachedSFO(sfoPath);
+	if (!sfoFile) {
 		return result;
 	}
 
 	const int FILE_LIST_COUNT_MAX = 99;
 	u32 sfoFileListSize = 0;
-	SaveSFOFileListEntry *sfoFileList = (SaveSFOFileListEntry *)sfoFile.GetValueData("SAVEDATA_FILE_LIST", &sfoFileListSize);
+	SaveSFOFileListEntry *sfoFileList = (SaveSFOFileListEntry *)sfoFile->GetValueData("SAVEDATA_FILE_LIST", &sfoFileListSize);
 	const u32 count = std::min((u32)FILE_LIST_COUNT_MAX, sfoFileListSize / (u32)sizeof(SaveSFOFileListEntry));
 
 	for (u32 i = 0; i < count; ++i) {
@@ -1292,6 +1284,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 	requestPtr->bind = 1021;
 
 	// Does not list directories, nor recurse into them, and ignores files not ALL UPPERCASE.
+	bool isCrypted = GetSaveCryptMode(param, GetSaveDirName(param, 0)) != 0;
 	for (auto file = files.begin(), end = files.end(); file != end; ++file) {
 		if (file->type == FILETYPE_DIRECTORY) {
 			continue;
@@ -1316,7 +1309,6 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 				entry = &fileList->secureEntries[fileList->resultNumSecureEntries++];
 			}
 			// Secure files are slightly bigger.
-			bool isCrypted = GetSaveCryptMode(param, GetSaveDirName(param, 0)) != 0;
 			if (isCrypted) {
 				sizeOffset = -0x10;
 			}
@@ -1605,15 +1597,12 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 	}
 
 	// Load info in PARAM.SFO
-	std::vector<u8> sfoData;
 	std::string sfoFilename = savePath + saveDir + "/" + SFO_FILENAME;
-	if (pspFileSystem.ReadEntireFile(sfoFilename, sfoData) >= 0) {
-		ParamSFOData sfoFile;
-		if (sfoFile.ReadSFO(sfoData)) {
-			SetStringFromSFO(sfoFile, "TITLE", saveInfo.title, sizeof(saveInfo.title));
-			SetStringFromSFO(sfoFile, "SAVEDATA_TITLE", saveInfo.saveTitle, sizeof(saveInfo.saveTitle));
-			SetStringFromSFO(sfoFile, "SAVEDATA_DETAIL", saveInfo.saveDetail, sizeof(saveInfo.saveDetail));
-		}
+	std::shared_ptr<ParamSFOData> sfoFile = LoadCachedSFO(sfoFilename);
+	if (sfoFile) {
+		SetStringFromSFO(*sfoFile, "TITLE", saveInfo.title, sizeof(saveInfo.title));
+		SetStringFromSFO(*sfoFile, "SAVEDATA_TITLE", saveInfo.saveTitle, sizeof(saveInfo.saveTitle));
+		SetStringFromSFO(*sfoFile, "SAVEDATA_DETAIL", saveInfo.saveDetail, sizeof(saveInfo.saveDetail));
 	} else {
 		saveInfo.broken = true;
 		truncate_cpy(saveInfo.title, saveDir.c_str());
@@ -1887,17 +1876,42 @@ void SavedataParam::DoState(PointerWrap &p) {
 	}
 }
 
+void SavedataParam::ClearCaches() {
+	std::lock_guard<std::mutex> guard(cacheLock_);
+	sfoCache_.clear();
+}
+
+std::shared_ptr<ParamSFOData> SavedataParam::LoadCachedSFO(const std::string &path, bool orCreate) {
+	std::lock_guard<std::mutex> guard(cacheLock_);
+	if (sfoCache_.find(path) == sfoCache_.end()) {
+		std::vector<u8> data;
+		if (pspFileSystem.ReadEntireFile(path, data) < 0) {
+			// Mark as not existing for later.
+			sfoCache_[path].reset();
+		} else {
+			sfoCache_.emplace(path, new ParamSFOData());
+			// If it fails to load, also keep it to indicate failed.
+			if (!sfoCache_.at(path)->ReadSFO(data))
+				sfoCache_.at(path).reset();
+		}
+	}
+
+	if (!sfoCache_.at(path)) {
+		if (!orCreate)
+			return nullptr;
+		sfoCache_.at(path).reset(new ParamSFOData());
+	}
+	return sfoCache_.at(path);
+}
+
 int SavedataParam::GetSaveCryptMode(SceUtilitySavedataParam *param, const std::string &saveDirName) {
-	ParamSFOData sfoFile;
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
 	std::string sfopath = dirPath + "/" + SFO_FILENAME;
-	std::vector<u8> sfoData;
-	if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0) {
-		sfoFile.ReadSFO(sfoData);
-
+	std::shared_ptr<ParamSFOData> sfoFile = LoadCachedSFO(sfopath);
+	if (sfoFile) {
 		// save created in PPSSPP and not encrypted has '0' in SAVEDATA_PARAMS
 		u32 tmpDataSize = 0;
-		const u8 *tmpDataOrig = sfoFile.GetValueData("SAVEDATA_PARAMS", &tmpDataSize);
+		const u8 *tmpDataOrig = sfoFile->GetValueData("SAVEDATA_PARAMS", &tmpDataSize);
 		if (tmpDataSize == 0 || !tmpDataOrig) {
 			return 0;
 		}
