@@ -28,6 +28,7 @@
 #include "GPU/Common/FragmentShaderGenerator.h"
 
 class Shader;
+struct ShaderLanguageDesc;
 
 class LinkedShader {
 public:
@@ -35,7 +36,7 @@ public:
 	~LinkedShader();
 
 	void use(const ShaderID &VSID);
-	void UpdateUniforms(u32 vertType, const ShaderID &VSID, bool useBufferedRendering, const Draw::DeviceCaps &caps);
+	void UpdateUniforms(u32 vertType, const ShaderID &VSID, bool useBufferedRendering, const ShaderLanguageDesc &shaderLanguage);
 
 	GLRenderManager *render_;
 	Shader *vs_;

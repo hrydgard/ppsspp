@@ -359,7 +359,7 @@ void LinkedShader::use(const ShaderID &VSID) {
 	// Note that we no longer track attr masks here - we do it for the input layouts instead.
 }
 
-void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBufferedRendering, const Draw::DeviceCaps &caps) {
+void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBufferedRendering, const ShaderLanguageDesc &shaderLanguage) {
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 
@@ -445,8 +445,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		SetColorUniform3(render_, &u_texenv, gstate.texenvcolor);
 	}
 	if (dirty & DIRTY_ALPHACOLORREF) {
-		if (caps.fragmentShaderInt32Supported) {
-			// Same as bitwiseOps really
+		if (shaderLanguage.bitwiseOps) {
 			render_->SetUniformUI1(&u_alphacolorref, gstate.getColorTestRef() | ((gstate.getAlphaTestRef() & gstate.getAlphaTestMask()) << 24));
 		} else {
 			SetColorUniform3Alpha255(render_, &u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
@@ -817,7 +816,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	}
 
 	if (lastVShaderSame_ && FSID == lastFSID_) {
-		lastShader_->UpdateUniforms(vertType, VSID, useBufferedRendering, draw_->GetDeviceCaps());
+		lastShader_->UpdateUniforms(vertType, VSID, useBufferedRendering, draw_->GetShaderLanguageDesc());
 		return lastShader_;
 	}
 
@@ -860,7 +859,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	} else {
 		ls->use(VSID);
 	}
-	ls->UpdateUniforms(vertType, VSID, useBufferedRendering, draw_->GetDeviceCaps());
+	ls->UpdateUniforms(vertType, VSID, useBufferedRendering, draw_->GetShaderLanguageDesc());
 
 	lastShader_ = ls;
 	return ls;
