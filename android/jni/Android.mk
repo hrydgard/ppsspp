@@ -164,6 +164,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Input/InputState.cpp \
   $(SRC)/Common/Math/fast/fast_matrix.c \
   $(SRC)/Common/Math/math_util.cpp \
+  $(SRC)/Common/Math/Statistics.cpp \
   $(SRC)/Common/Math/curves.cpp \
   $(SRC)/Common/Math/expression_parser.cpp \
   $(SRC)/Common/Math/lin/vec3.cpp.arm \

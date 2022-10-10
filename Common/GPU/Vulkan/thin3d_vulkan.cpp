@@ -455,6 +455,10 @@ public:
 
 	void FlushState() override {}
 
+	void ResetStats() override {
+		renderManager_.ResetStats();
+	}
+
 	std::string GetInfoString(InfoField info) const override {
 		// TODO: Make these actually query the right information
 		switch (info) {

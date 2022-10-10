@@ -735,6 +735,9 @@ public:
 	// Flush state like scissors etc so the caller can do its own custom drawing.
 	virtual void FlushState() {}
 
+	// This is called when we launch a new game, so any collected internal stats in the backends don't carry over.
+	virtual void ResetStats() {}
+
 	virtual int GetCurrentStepId() const = 0;
 
 protected:

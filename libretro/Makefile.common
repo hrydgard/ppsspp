@@ -271,6 +271,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Math/curves.cpp \
 	$(COMMONDIR)/Math/expression_parser.cpp \
 	$(COMMONDIR)/Math/math_util.cpp \
+	$(COMMONDIR)/Math/Statistics.cpp \
 	$(COMMONDIR)/Math/lin/vec3.cpp \
 	$(COMMONDIR)/Math/lin/matrix4x4.cpp \
 	$(COMMONDIR)/Net/HTTPClient.cpp \

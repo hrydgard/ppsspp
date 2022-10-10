@@ -650,6 +650,8 @@ add_library(Common STATIC
 	Common/Math/lin/vec3.h
 	Common/Math/math_util.cpp
 	Common/Math/math_util.h
+	Common/Math/Statistics.h
+	Common/Math/Statistics.cpp
 	Common/Net/HTTPClient.cpp
 	Common/Net/HTTPClient.h
 	Common/Net/HTTPHeaders.cpp
