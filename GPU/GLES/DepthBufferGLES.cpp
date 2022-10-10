@@ -40,13 +40,13 @@ precision mediump float;
 #define gl_FragColor fragColor0
 out vec4 fragColor0;
 #endif
-varying vec2 v_texcoord0;
-uniform vec2 u_depthFactor;
+varying vec2 v_texcoord;
+uniform vec4 u_depthFactor;
 uniform vec4 u_depthShift;
 uniform vec4 u_depthTo8;
 uniform sampler2D tex;
 void main() {
-  float depth = texture2D(tex, v_texcoord0).r;
+  float depth = texture2D(tex, v_texcoord).r;
   // At this point, clamped maps [0, 1] to [0, 65535].
   float clamped = clamp((depth + u_depthFactor.x) * u_depthFactor.y, 0.0, 1.0);
 
@@ -65,14 +65,25 @@ precision highp float;
 #define attribute in
 #define varying out
 #endif
-attribute vec4 a_position;
-attribute vec2 a_texcoord0;
-varying vec2 v_texcoord0;
+attribute vec2 a_position;
+varying vec2 v_texcoord;
 void main() {
-  v_texcoord0 = a_texcoord0;
-  gl_Position = a_position;
+  v_texcoord = a_position * 2.0;
+  gl_Position = vec4(v_texcoord * 2.0 - vec2(1.0, 1.0), 0.0, 1.0);
 }
 )";
+
+struct DepthUB {
+	float u_depthFactor[4];
+	float u_depthShift[4];
+	float u_depthTo8[4];
+};
+
+const UniformBufferDesc depthUBDesc{ sizeof(DepthUB), {
+	{ "u_depthFactor", -1, -1, UniformType::FLOAT4, 0 },
+	{ "u_depthShift", -1, -1, UniformType::FLOAT4, 16 },
+	{ "u_depthTo8", -1, -1, UniformType::FLOAT4, 32 },
+} };
 
 static bool SupportsDepthTexturing() {
 	if (gl_extensions.IsGLES) {
@@ -94,17 +105,19 @@ void FramebufferManagerGLES::ReadbackDepthbufferSync(VirtualFramebuffer *vfb, in
 	u16 *depth = (u16 *)Memory::GetPointer(z_address + dstByteOffset);
 	ReadbackDepthbufferSync(vfb->fbo, x, y, w, h, depth, vfb->z_stride);
 
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
-void FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) {
+bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) {
+	using namespace Draw;
+
 	if (!fbo) {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "ReadbackDepthbufferSync: bad fbo");
-		return;
+		return false;
 	}
 	// Old desktop GL can download depth, but not upload.
 	if (gl_extensions.IsGLES && !SupportsDepthTexturing()) {
-		return;
+		return false;
 	}
 
 	// Pixel size always 4 here because we always request float or RGBA.
@@ -118,73 +131,93 @@ void FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int
 	const bool useColorPath = gl_extensions.IsGLES;
 	bool format16Bit = false;
 
-	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-
 	if (useColorPath) {
-		if (!depthDownloadProgram_) {
-			std::string errorString;
-			static std::string vs_code, fs_code;
-			vs_code = ApplyGLSLPrelude(depth_vs, GL_VERTEX_SHADER);
-			fs_code = ApplyGLSLPrelude(depth_dl_fs, GL_FRAGMENT_SHADER);
-			std::vector<GLRShader *> shaders;
-			shaders.push_back(render->CreateShader(GL_VERTEX_SHADER, vs_code, "depth_dl"));
-			shaders.push_back(render->CreateShader(GL_FRAGMENT_SHADER, fs_code, "depth_dl"));
-			std::vector<GLRProgram::Semantic> semantics;
-			semantics.push_back({ 0, "a_position" });
-			semantics.push_back({ 1, "a_texcoord0" });
-			std::vector<GLRProgram::UniformLocQuery> queries;
-			queries.push_back({ &u_depthDownloadTex, "tex" });
-			queries.push_back({ &u_depthDownloadFactor, "u_depthFactor" });
-			queries.push_back({ &u_depthDownloadShift, "u_depthShift" });
-			queries.push_back({ &u_depthDownloadTo8, "u_depthTo8" });
-			std::vector<GLRProgram::Initializer> inits;
-			inits.push_back({ &u_depthDownloadTex, 0, TEX_SLOT_PSP_TEXTURE });
-			GLRProgramFlags flags{};
-			depthDownloadProgram_ = render->CreateProgram(shaders, semantics, queries, inits, flags);
-			for (auto iter : shaders) {
-				render->DeleteShader(iter);
-			}
-			if (!depthDownloadProgram_) {
-				ERROR_LOG_REPORT(G3D, "Failed to compile depthDownloadProgram! This shouldn't happen.\n%s", errorString.c_str());
-			}
+		if (!depthReadbackPipeline_) {
+			const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
+
+			ShaderModule *depthReadbackFs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)depth_dl_fs, strlen(depth_dl_fs), "depth_dl_fs");
+			ShaderModule *depthReadbackVs = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)depth_vs, strlen(depth_vs), "depth_vs");
+			_assert_(depthReadbackFs && depthReadbackVs);
+
+			InputLayoutDesc desc = {
+				{
+					{ 8, false },
+				},
+				{
+					{ 0, SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
+				},
+			};
+			InputLayout *inputLayout = draw_->CreateInputLayout(desc);
+
+			BlendState *blendOff = draw_->CreateBlendState({ false, 0xF });
+			DepthStencilState *stencilIgnore = draw_->CreateDepthStencilState({});
+			RasterState *rasterNoCull = draw_->CreateRasterState({});
+
+			PipelineDesc depthReadbackDesc{
+				Primitive::TRIANGLE_LIST,
+				{ depthReadbackVs, depthReadbackFs },
+				inputLayout, stencilIgnore, blendOff, rasterNoCull, &depthUBDesc,
+			};
+			depthReadbackPipeline_ = draw_->CreateGraphicsPipeline(depthReadbackDesc, "depth_dl");
+			_assert_(depthReadbackPipeline_);
+
+			rasterNoCull->Release();
+			blendOff->Release();
+			stencilIgnore->Release();
+			inputLayout->Release();
+
+			depthReadbackFs->Release();
+			depthReadbackVs->Release();
+
+			SamplerStateDesc descNearest{};
+			depthReadbackSampler_ = draw_->CreateSamplerState(descNearest);
 		}
 
 		shaderManager_->DirtyLastShader();
 		auto *blitFBO = GetTempFBO(TempFBO::COPY, fbo->Width(), fbo->Height());
-		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "ReadbackDepthbufferSync");
-		render->SetViewport({ 0, 0, (float)fbo->Width(), (float)fbo->Height(), 0.0f, 1.0f });
+		draw_->BindFramebufferAsRenderTarget(blitFBO, { RPAction::DONT_CARE, RPAction::DONT_CARE, RPAction::DONT_CARE }, "ReadbackDepthbufferSync");
+		Draw::Viewport viewport = { 0.0f, 0.0f, (float)fbo->Width(), (float)fbo->Height(), 0.0f, 1.0f };
+		draw_->SetViewports(1, &viewport);
 
-		// We must bind the program after starting the render pass, and set the color mask after clearing.
-		render->SetScissor({ 0, 0, fbo->Width(), fbo->Height() });
-		render->SetDepth(false, false, GL_ALWAYS);
-		render->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE, GL_FALSE);
-		render->BindProgram(depthDownloadProgram_);
+		draw_->BindFramebufferAsTexture(fbo, TEX_SLOT_PSP_TEXTURE, FB_DEPTH_BIT, 0);
+		draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &depthReadbackSampler_);
 
-		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
-			float factors[] = { 0.0f, 1.0f };
-			render->SetUniformF(&u_depthDownloadFactor, 2, factors);
+		// We must bind the program after starting the render pass.
+		draw_->SetScissorRect(0, 0, w, h);
+		draw_->BindPipeline(depthReadbackPipeline_);
+
+		DepthUB ub{};
+
+		if (gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+			ub.u_depthFactor[0] = 0.0f;
+			ub.u_depthFactor[1] = 1.0f;
 		} else {
 			const float factor = DepthSliceFactor();
-			float factors[] = { -0.5f * (factor - 1.0f) * (1.0f / factor), factor };
-			render->SetUniformF(&u_depthDownloadFactor, 2, factors);
+			ub.u_depthFactor[0] = -0.5f * (factor - 1.0f) * (1.0f / factor);
+			ub.u_depthFactor[1] = factor;
 		}
-		float shifts[] = { 16777215.0f, 16777215.0f / 256.0f, 16777215.0f / 65536.0f, 16777215.0f / 16777216.0f };
-		render->SetUniformF(&u_depthDownloadShift, 4, shifts);
-		float to8[] = { 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f };
-		render->SetUniformF(&u_depthDownloadTo8, 4, to8);
+		static constexpr float shifts[] = { 16777215.0f, 16777215.0f / 256.0f, 16777215.0f / 65536.0f, 16777215.0f / 16777216.0f };
+		memcpy(ub.u_depthShift, shifts, sizeof(shifts));
+		static constexpr float to8[] = { 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f };
+		memcpy(ub.u_depthTo8, to8, sizeof(to8));
 
-		draw_->BindFramebufferAsTexture(fbo, TEX_SLOT_PSP_TEXTURE, Draw::FB_DEPTH_BIT, 0);
-		float u1 = 1.0f;
-		float v1 = 1.0f;
-		DrawActiveTexture(x, y, w, h, fbo->Width(), fbo->Height(), 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST);
+		draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 
-		draw_->CopyFramebufferToMemorySync(blitFBO, Draw::FB_COLOR_BIT, x, y, w, h, Draw::DataFormat::R8G8B8A8_UNORM, convBuf_, w, "ReadbackDepthbufferSync");
+		// Fullscreen triangle coordinates.
+		static const float positions[6] = {
+			0.0, 0.0,
+			1.0, 0.0,
+			0.0, 1.0,
+		};
+		draw_->DrawUP(positions, 3);
+
+		draw_->CopyFramebufferToMemorySync(blitFBO, FB_COLOR_BIT, x, y, w, h, DataFormat::R8G8B8A8_UNORM, convBuf_, w, "ReadbackDepthbufferSync");
 
 		textureCache_->ForgetLastTexture();
 		// TODO: Use 4444 so we can copy lines directly (instead of 32 -> 16 on CPU)?
 		format16Bit = true;
 	} else {
-		draw_->CopyFramebufferToMemorySync(fbo, Draw::FB_DEPTH_BIT, x, y, w, h, Draw::DataFormat::D32F, convBuf_, w, "ReadbackDepthbufferSync");
+		draw_->CopyFramebufferToMemorySync(fbo, FB_DEPTH_BIT, x, y, w, h, DataFormat::D32F, convBuf_, w, "ReadbackDepthbufferSync");
 		format16Bit = false;
 	}
 
@@ -220,4 +253,6 @@ void FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int
 			packedf += w;
 		}
 	}
+
+	return true;
 }

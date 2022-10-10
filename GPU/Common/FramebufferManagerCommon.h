@@ -571,6 +571,9 @@ protected:
 	Draw::Pipeline *stencilUploadPipeline_ = nullptr;
 	Draw::SamplerState *stencilUploadSampler_ = nullptr;
 
+	Draw::Pipeline *depthReadbackPipeline_ = nullptr;
+	Draw::SamplerState *depthReadbackSampler_ = nullptr;
+
 	// Draw2D pipelines
 	Draw2DPipeline *draw2DPipelineColor_ = nullptr;
 	Draw2DPipeline *draw2DPipelineColorRect2Lin_ = nullptr;
