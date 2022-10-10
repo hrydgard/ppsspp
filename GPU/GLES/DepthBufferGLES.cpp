@@ -92,22 +92,6 @@ static bool SupportsDepthTexturing() {
 	return gl_extensions.VersionGEThan(3, 0);
 }
 
-void FramebufferManagerGLES::ReadbackDepthbufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-	if (!vfb->fbo) {
-		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "ReadbackDepthbufferSync: vfb->fbo == 0");
-		return;
-	}
-
-	const u32 z_address = vfb->z_address;
-	DEBUG_LOG(FRAMEBUF, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
-
-	int dstByteOffset = y * vfb->z_stride * sizeof(u16);
-	u16 *depth = (u16 *)Memory::GetPointer(z_address + dstByteOffset);
-	ReadbackDepthbufferSync(vfb->fbo, x, y, w, h, depth, vfb->z_stride);
-
-	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
-}
-
 bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) {
 	using namespace Draw;
 
@@ -188,7 +172,8 @@ bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int
 
 		DepthUB ub{};
 
-		if (gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+			// Don't scale anything, since we're not using factors outside accurate mode.
 			ub.u_depthFactor[0] = 0.0f;
 			ub.u_depthFactor[1] = 1.0f;
 		} else {
@@ -254,5 +239,6 @@ bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int
 		}
 	}
 
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 	return true;
 }
