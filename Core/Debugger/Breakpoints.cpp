@@ -648,16 +648,11 @@ void CBreakPoints::Update(u32 addr) {
 			resume = true;
 		}
 
-		{
-			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-			if (MIPSComp::jit) {
-				// In case this is a delay slot, clear the previous instruction too.
-				if (addr != 0)
-					MIPSComp::jit->InvalidateCacheAt(addr - 4, 8);
-				else
-					MIPSComp::jit->ClearCache();
-			}
-		}
+		// In case this is a delay slot, clear the previous instruction too.
+		if (addr != 0)
+			mipsr4k.InvalidateICache(addr - 4, 8);
+		else
+			mipsr4k.ClearJitCache();
 
 		if (resume)
 			Core_EnableStepping(false);

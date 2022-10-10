@@ -266,6 +266,13 @@ public:
 	void InvalidateICache(u32 address, int length = 4);
 
 	void ClearJitCache();
+
+protected:
+	void ProcessPendingClears();
+
+	// Doesn't need save stating.
+	volatile bool insideJit = false;
+	volatile bool hasPendingClears = false;
 };
 
 

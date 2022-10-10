@@ -132,6 +132,11 @@ void Vibrate(int length_ms) {
 	// Ignore on PC
 }
 
+static void AddDebugRestartArgs() {
+	if (LogManager::GetInstance()->GetConsoleListener()->IsOpen())
+		restartArgs += " -l";
+}
+
 // Adapted mostly as-is from http://www.gamedev.net/topic/495075-how-to-retrieve-info-about-videocard/?view=findpost&p=4229170
 // so credit goes to that post's author, and in turn, the author of the site mentioned in that post (which seems to be down?).
 std::string GetVideoCardDriverVersion() {
@@ -352,6 +357,8 @@ void System_SendMessage(const char *command, const char *parameter) {
 		}
 	} else if (!strcmp(command, "graphics_restart")) {
 		restartArgs = parameter == nullptr ? "" : parameter;
+		if (!restartArgs.empty())
+			AddDebugRestartArgs();
 		if (IsDebuggerPresent()) {
 			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_RESTART_EMUTHREAD, 0, 0);
 		} else {

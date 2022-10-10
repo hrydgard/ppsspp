@@ -1067,6 +1067,8 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 				UpdatePreviews();
 				lastCounter = GPUStepping::GetSteppingCounter();
 			}
+		} else if (!PSP_IsInited() && primaryBuffer_) {
+			SendMessage(m_hDlg, WM_COMMAND, IDC_GEDBG_RESUME, 0);
 		}
 		break;
 
