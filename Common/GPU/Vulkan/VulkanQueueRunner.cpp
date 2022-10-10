@@ -515,6 +515,8 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 					}
 					MergeRenderAreaRectInto(&steps[i]->render.renderArea, steps[j]->render.renderArea);
 					steps[i]->render.renderPassType = MergeRPTypes(steps[i]->render.renderPassType, steps[j]->render.renderPassType);
+					steps[i]->render.numDraws += steps[j]->render.numDraws;
+					steps[i]->render.numReads += steps[j]->render.numReads;
 					// Cheaply skip the first step.
 					steps[j]->stepType = VKRStepType::RENDER_SKIP;
 					break;
@@ -936,6 +938,8 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 		// So we don't consider it for other things, maybe doesn't matter.
 		src->dependencies.clear();
 		src->stepType = VKRStepType::RENDER_SKIP;
+		dst->render.numDraws += src->render.numDraws;
+		dst->render.numReads += src->render.numReads;
 		dst->render.pipelineFlags |= src->render.pipelineFlags;
 		dst->render.renderPassType = MergeRPTypes(dst->render.renderPassType, src->render.renderPassType);
 	};

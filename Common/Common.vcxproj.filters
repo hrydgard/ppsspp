@@ -422,6 +422,9 @@
     <ClInclude Include="GPU\Vulkan\VulkanFrameData.h">
       <Filter>GPU\Vulkan</Filter>
     </ClInclude>
+    <ClInclude Include="Math\Statistics.h">
+      <Filter>Math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -796,6 +799,9 @@
     <ClCompile Include="RiscVEmitter.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanFrameData.cpp">
       <Filter>GPU\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\Statistics.cpp">
+      <Filter>Math</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

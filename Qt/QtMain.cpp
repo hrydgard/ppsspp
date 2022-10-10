@@ -316,7 +316,6 @@ static int mainInternal(QApplication &a) {
 	emugl->resize(pixel_xres, pixel_yres);
 	emugl->showFullScreen();
 #endif
-	EnableFZ();
 	// Disable screensaver
 #if defined(QT_HAS_SYSTEMINFO)
 	QScreenSaver ssObject(emugl);

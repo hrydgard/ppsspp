@@ -12,6 +12,7 @@
 #include <thread>
 #include <queue>
 
+#include "Common/Math/Statistics.h"
 #include "Common/Thread/Promise.h"
 #include "Common/System/Display.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -465,6 +466,8 @@ public:
 		return outOfDateFrames_ > VulkanContext::MAX_INFLIGHT_FRAMES;
 	}
 
+	void ResetStats();
+
 private:
 	void EndCurRenderStep();
 
@@ -535,4 +538,9 @@ private:
 
 	// pipelines to check and possibly create at the end of the current render pass.
 	std::vector<VKRGraphicsPipeline *> pipelinesToCheck_;
+
+	// For nicer output in the little internal GPU profiler.
+	SimpleStat initTimeMs_;
+	SimpleStat totalGPUTimeMs_;
+	SimpleStat renderCPUTimeMs_;
 };

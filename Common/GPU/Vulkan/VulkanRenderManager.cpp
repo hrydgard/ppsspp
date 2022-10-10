@@ -327,7 +327,12 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	img.tag = tag ? tag : "N/A";
 }
 
-VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan), queueRunner_(vulkan) {
+VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan)
+	: vulkan_(vulkan), queueRunner_(vulkan),
+	initTimeMs_("initTimeMs"),
+	totalGPUTimeMs_("totalGPUTimeMs"),
+	renderCPUTimeMs_("renderCPUTimeMs")
+{
 	inflightFramesAtStart_ = vulkan_->GetInflightFrames();
 
 	frameDataShared_.Init(vulkan);
@@ -579,14 +584,25 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 				std::stringstream str;
 
 				char line[256];
-				snprintf(line, sizeof(line), "Total GPU time: %0.3f ms\n", ((double)((queryResults[numQueries - 1] - queryResults[0]) & timestampDiffMask) * timestampConversionFactor));
+				totalGPUTimeMs_.Update(((double)((queryResults[numQueries - 1] - queryResults[0]) & timestampDiffMask) * timestampConversionFactor));
+				totalGPUTimeMs_.Format(line, sizeof(line));
 				str << line;
-				snprintf(line, sizeof(line), "Render CPU time: %0.3f ms\n", (frameData.profile.cpuEndTime - frameData.profile.cpuStartTime) * 1000.0);
+				renderCPUTimeMs_.Update((frameData.profile.cpuEndTime - frameData.profile.cpuStartTime) * 1000.0);
+				renderCPUTimeMs_.Format(line, sizeof(line));
 				str << line;
 				for (int i = 0; i < numQueries - 1; i++) {
 					uint64_t diff = (queryResults[i + 1] - queryResults[i]) & timestampDiffMask;
 					double milliseconds = (double)diff * timestampConversionFactor;
-					snprintf(line, sizeof(line), "%s: %0.3f ms\n", frameData.profile.timestampDescriptions[i + 1].c_str(), milliseconds);
+
+					// Can't use SimpleStat for these very easily since these are dynamic per frame.
+					// Only the first one is static, the initCmd.
+					// Could try some hashtable tracking for the rest, later.
+					if (i == 0) {
+						initTimeMs_.Update(milliseconds);
+						initTimeMs_.Format(line, sizeof(line));
+					} else {
+						snprintf(line, sizeof(line), "%s: %0.3f ms\n", frameData.profile.timestampDescriptions[i + 1].c_str(), milliseconds);
+					}
 					str << line;
 				}
 				frameData.profile.profileSummary = str.str();
@@ -1343,4 +1359,10 @@ void VulkanRenderManager::FlushSync() {
 		}
 		frameData.syncDone = false;
 	}
+}
+
+void VulkanRenderManager::ResetStats() {
+	initTimeMs_.Reset();
+	totalGPUTimeMs_.Reset();
+	renderCPUTimeMs_.Reset();
 }

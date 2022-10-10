@@ -344,6 +344,8 @@ void EmuScreen::bootGame(const Path &filename) {
 
 	loadingViewColor_->Divert(0xFFFFFFFF, 0.75f);
 	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
+
+	screenManager()->getDrawContext()->ResetStats();
 }
 
 void EmuScreen::bootComplete() {

@@ -372,6 +372,9 @@
     <ClCompile Include="..\..\Common\File\AndroidStorage.cpp">
       <Filter>File</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\Math\Statistics.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -688,11 +691,9 @@
     <ClInclude Include="..\..\Common\File\AndroidStorage.h">
       <Filter>File</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="..\..\ext\libpng17\CMakeLists.txt">
-      <Filter>ext\libpng17</Filter>
-    </Text>
+    <ClInclude Include="..\..\Common\Math\Statistics.h">
+      <Filter>Math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\Common\Math\fast\fast_matrix_neon.S">
@@ -701,5 +702,6 @@
     <None Include="..\..\Common\Math\lin\matrix_neon.s">
       <Filter>Math\lin</Filter>
     </None>
+    <None Include="..\..\ext\libpng17\CMakeLists.txt" />
   </ItemGroup>
 </Project>
