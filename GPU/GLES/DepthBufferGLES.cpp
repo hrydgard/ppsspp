@@ -92,6 +92,48 @@ static bool SupportsDepthTexturing() {
 	return gl_extensions.VersionGEThan(3, 0);
 }
 
+static Draw::Pipeline *CreateReadbackPipeline(Draw::DrawContext *draw, const char *tag, const UniformBufferDesc *ubDesc, const char *fs, const char *fsTag, const char *vs, const char *vsTag) {
+	using namespace Draw;
+
+	const ShaderLanguageDesc &shaderLanguageDesc = draw->GetShaderLanguageDesc();
+
+	ShaderModule *readbackFs = draw->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fs, strlen(fs), fsTag);
+	ShaderModule *readbackVs = draw->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vs, strlen(vs), vsTag);
+	_assert_(readbackFs && readbackVs);
+
+	InputLayoutDesc desc = {
+		{
+			{ 8, false },
+		},
+		{
+			{ 0, SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
+		},
+	};
+	InputLayout *inputLayout = draw->CreateInputLayout(desc);
+
+	BlendState *blendOff = draw->CreateBlendState({ false, 0xF });
+	DepthStencilState *stencilIgnore = draw->CreateDepthStencilState({});
+	RasterState *rasterNoCull = draw->CreateRasterState({});
+
+	PipelineDesc readbackDesc{
+		Primitive::TRIANGLE_LIST,
+		{ readbackVs, readbackFs },
+		inputLayout, stencilIgnore, blendOff, rasterNoCull, ubDesc,
+	};
+	Draw::Pipeline *pipeline = draw->CreateGraphicsPipeline(readbackDesc, tag);
+	_assert_(pipeline);
+
+	rasterNoCull->Release();
+	blendOff->Release();
+	stencilIgnore->Release();
+	inputLayout->Release();
+
+	readbackFs->Release();
+	readbackVs->Release();
+
+	return pipeline;
+}
+
 bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) {
 	using namespace Draw;
 
@@ -117,44 +159,8 @@ bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int
 
 	if (useColorPath) {
 		if (!depthReadbackPipeline_) {
-			const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
-
-			ShaderModule *depthReadbackFs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)depth_dl_fs, strlen(depth_dl_fs), "depth_dl_fs");
-			ShaderModule *depthReadbackVs = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)depth_vs, strlen(depth_vs), "depth_vs");
-			_assert_(depthReadbackFs && depthReadbackVs);
-
-			InputLayoutDesc desc = {
-				{
-					{ 8, false },
-				},
-				{
-					{ 0, SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
-				},
-			};
-			InputLayout *inputLayout = draw_->CreateInputLayout(desc);
-
-			BlendState *blendOff = draw_->CreateBlendState({ false, 0xF });
-			DepthStencilState *stencilIgnore = draw_->CreateDepthStencilState({});
-			RasterState *rasterNoCull = draw_->CreateRasterState({});
-
-			PipelineDesc depthReadbackDesc{
-				Primitive::TRIANGLE_LIST,
-				{ depthReadbackVs, depthReadbackFs },
-				inputLayout, stencilIgnore, blendOff, rasterNoCull, &depthUBDesc,
-			};
-			depthReadbackPipeline_ = draw_->CreateGraphicsPipeline(depthReadbackDesc, "depth_dl");
-			_assert_(depthReadbackPipeline_);
-
-			rasterNoCull->Release();
-			blendOff->Release();
-			stencilIgnore->Release();
-			inputLayout->Release();
-
-			depthReadbackFs->Release();
-			depthReadbackVs->Release();
-
-			SamplerStateDesc descNearest{};
-			depthReadbackSampler_ = draw_->CreateSamplerState(descNearest);
+			depthReadbackPipeline_ = CreateReadbackPipeline(draw_, "depth_dl", &depthUBDesc, depth_dl_fs, "depth_dl_fs", depth_vs, "depth_vs");
+			depthReadbackSampler_ = draw_->CreateSamplerState({});
 		}
 
 		shaderManager_->DirtyLastShader();
