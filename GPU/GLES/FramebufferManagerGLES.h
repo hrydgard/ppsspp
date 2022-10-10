@@ -39,6 +39,7 @@ public:
 protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 	void ReadbackDepthbufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h) override;
+	void ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride);
 
 private:
 	u8 *convBuf_ = nullptr;

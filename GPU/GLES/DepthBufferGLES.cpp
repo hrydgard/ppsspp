@@ -86,23 +86,34 @@ void FramebufferManagerGLES::ReadbackDepthbufferSync(VirtualFramebuffer *vfb, in
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "ReadbackDepthbufferSync: vfb->fbo == 0");
 		return;
 	}
+
+	const u32 z_address = vfb->z_address;
+	DEBUG_LOG(FRAMEBUF, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
+
+	int dstByteOffset = y * vfb->z_stride * sizeof(u16);
+	u16 *depth = (u16 *)Memory::GetPointer(z_address + dstByteOffset);
+	ReadbackDepthbufferSync(vfb->fbo, x, y, w, h, depth, vfb->z_stride);
+
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+}
+
+void FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) {
+	if (!fbo) {
+		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "ReadbackDepthbufferSync: bad fbo");
+		return;
+	}
 	// Old desktop GL can download depth, but not upload.
 	if (gl_extensions.IsGLES && !SupportsDepthTexturing()) {
 		return;
 	}
 
-	// Pixel size always 4 here because we always request float
-	const u32 bufSize = vfb->z_stride * (h - y) * 4;
-	const u32 z_address = vfb->z_address;
-	const int packWidth = std::min((int)vfb->z_stride, std::min(x + w, (int)vfb->width));
-
+	// Pixel size always 4 here because we always request float or RGBA.
+	const u32 bufSize = w * h * 4;
 	if (!convBuf_ || convBufSize_ < bufSize) {
 		delete[] convBuf_;
 		convBuf_ = new u8[bufSize];
 		convBufSize_ = bufSize;
 	}
-
-	DEBUG_LOG(FRAMEBUF, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
 
 	const bool useColorPath = gl_extensions.IsGLES;
 	bool format16Bit = false;
@@ -139,12 +150,12 @@ void FramebufferManagerGLES::ReadbackDepthbufferSync(VirtualFramebuffer *vfb, in
 		}
 
 		shaderManager_->DirtyLastShader();
-		auto *blitFBO = GetTempFBO(TempFBO::COPY, vfb->renderWidth, vfb->renderHeight);
+		auto *blitFBO = GetTempFBO(TempFBO::COPY, fbo->Width(), fbo->Height());
 		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "ReadbackDepthbufferSync");
-		render->SetViewport({ 0, 0, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f });
+		render->SetViewport({ 0, 0, (float)fbo->Width(), (float)fbo->Height(), 0.0f, 1.0f });
 
 		// We must bind the program after starting the render pass, and set the color mask after clearing.
-		render->SetScissor({ 0, 0, vfb->renderWidth, vfb->renderHeight });
+		render->SetScissor({ 0, 0, fbo->Width(), fbo->Height() });
 		render->SetDepth(false, false, GL_ALWAYS);
 		render->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE, GL_FALSE);
 		render->BindProgram(depthDownloadProgram_);
@@ -162,54 +173,51 @@ void FramebufferManagerGLES::ReadbackDepthbufferSync(VirtualFramebuffer *vfb, in
 		float to8[] = { 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f };
 		render->SetUniformF(&u_depthDownloadTo8, 4, to8);
 
-		draw_->BindFramebufferAsTexture(vfb->fbo, TEX_SLOT_PSP_TEXTURE, Draw::FB_DEPTH_BIT, 0);
+		draw_->BindFramebufferAsTexture(fbo, TEX_SLOT_PSP_TEXTURE, Draw::FB_DEPTH_BIT, 0);
 		float u1 = 1.0f;
 		float v1 = 1.0f;
-		DrawActiveTexture(x, y, w, h, vfb->renderWidth, vfb->renderHeight, 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST);
+		DrawActiveTexture(x, y, w, h, fbo->Width(), fbo->Height(), 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST);
 
-		draw_->CopyFramebufferToMemorySync(blitFBO, Draw::FB_COLOR_BIT, 0, y, packWidth, h, Draw::DataFormat::R8G8B8A8_UNORM, convBuf_, vfb->z_stride, "ReadbackDepthbufferSync");
+		draw_->CopyFramebufferToMemorySync(blitFBO, Draw::FB_COLOR_BIT, x, y, w, h, Draw::DataFormat::R8G8B8A8_UNORM, convBuf_, w, "ReadbackDepthbufferSync");
 
 		textureCache_->ForgetLastTexture();
-		// TODO: Use 4444 so we can copy lines directly?
+		// TODO: Use 4444 so we can copy lines directly (instead of 32 -> 16 on CPU)?
 		format16Bit = true;
 	} else {
-		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, y, packWidth, h, Draw::DataFormat::D32F, convBuf_, vfb->z_stride, "ReadbackDepthbufferSync");
+		draw_->CopyFramebufferToMemorySync(fbo, Draw::FB_DEPTH_BIT, x, y, w, h, Draw::DataFormat::D32F, convBuf_, w, "ReadbackDepthbufferSync");
 		format16Bit = false;
 	}
 
-	int dstByteOffset = y * vfb->z_stride * sizeof(u16);
-	u16 *depth = (u16 *)Memory::GetPointer(z_address + dstByteOffset);
-	u32_le *packed32 = (u32_le *)convBuf_;
-	GLfloat *packedf = (GLfloat *)convBuf_;
-
-	int totalPixels = h == 1 ? packWidth : vfb->z_stride * h;
 	if (format16Bit) {
-		// TODO: We have to apply GetDepthScaleFactors here too, right?
+		// In this case, we used the shader to apply depth scale factors.
+		uint16_t *dest = pixels;
+		const u32_le *packed32 = (u32_le *)convBuf_;
 		for (int yp = 0; yp < h; ++yp) {
-			int row_offset = vfb->z_stride * yp;
-			for (int xp = 0; xp < packWidth; ++xp) {
-				const int i = row_offset + xp;
-				depth[i] = packed32[i] & 0xFFFF;
+			for (int xp = 0; xp < w; ++xp) {
+				dest[xp] = packed32[xp] & 0xFFFF;
 			}
+			dest += pixelsStride;
+			packed32 += w;
 		}
 	} else {
-		// TODO: Apply this in the shader.
+		// TODO: Apply this in the shader?  May have precision issues if it becomes important to match.
+		// We downloaded float values directly in this case.
+		uint16_t *dest = pixels;
+		const GLfloat *packedf = (GLfloat *)convBuf_;
 		DepthScaleFactors depthScale = GetDepthScaleFactors();
 		for (int yp = 0; yp < h; ++yp) {
-			int row_offset = vfb->z_stride * yp;
-			for (int xp = 0; xp < packWidth; ++xp) {
-				const int i = row_offset + xp;
-				float scaled = depthScale.Apply(packedf[i]);
+			for (int xp = 0; xp < w; ++xp) {
+				float scaled = depthScale.Apply(packedf[xp]);
 				if (scaled <= 0.0f) {
-					depth[i] = 0;
+					dest[xp] = 0;
 				} else if (scaled >= 65535.0f) {
-					depth[i] = 65535;
+					dest[xp] = 65535;
 				} else {
-					depth[i] = (int)scaled;
+					dest[xp] = (int)scaled;
 				}
 			}
+			dest += pixelsStride;
+			packedf += w;
 		}
 	}
-
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 }
