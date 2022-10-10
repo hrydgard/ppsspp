@@ -24,6 +24,12 @@
 #elif !defined(GL_CLIP_DISTANCE0)
 #define GL_CLIP_DISTANCE0 0x3000
 #endif
+#ifndef GL_DEPTH_STENCIL_TEXTURE_MODE
+#define GL_DEPTH_STENCIL_TEXTURE_MODE 0x90EA
+#endif
+#ifndef GL_STENCIL_INDEX
+#define GL_STENCIL_INDEX 0x1901
+#endif
 
 static constexpr int TEXCACHE_NAME_CACHE_SIZE = 16;
 
@@ -1114,8 +1120,16 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->z_stencil_texture.texture);
 					curTex[slot] = &c.bind_fb_texture.framebuffer->z_stencil_texture;
 				}
+				// This should be uncommon, so always set the mode.
+				glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
+			} else if (c.bind_fb_texture.aspect == GL_STENCIL_BUFFER_BIT) {
+				if (curTex[slot] != &c.bind_fb_texture.framebuffer->z_stencil_texture) {
+					glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->z_stencil_texture.texture);
+					curTex[slot] = &c.bind_fb_texture.framebuffer->z_stencil_texture;
+				}
+				// This should be uncommon, so always set the mode.
+				glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
 			} else {
-				// Can't texture from stencil buffers.
 				curTex[slot] = nullptr;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
