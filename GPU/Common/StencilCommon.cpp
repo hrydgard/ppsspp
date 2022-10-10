@@ -196,7 +196,7 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 	shaderManager_->DirtyLastShader();
 	textureCache_->ForgetLastTexture();
 
-	if (!stencilUploadPipeline_) {
+	if (!stencilWritePipeline_) {
 		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 
 		char *fsCode = new char[8192];
@@ -237,8 +237,8 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 			{ stencilUploadVs, stencilUploadFs },
 			inputLayout, stencilWrite, blendOff, rasterNoCull, &stencilUBDesc,
 		};
-		stencilUploadPipeline_ = draw_->CreateGraphicsPipeline(stencilWriteDesc, "stencil_upload");
-		_assert_(stencilUploadPipeline_);
+		stencilWritePipeline_ = draw_->CreateGraphicsPipeline(stencilWriteDesc, "stencil_upload");
+		_assert_(stencilWritePipeline_);
 
 		delete[] fsCode;
 		delete[] vsCode;
@@ -252,7 +252,7 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 		stencilUploadVs->Release();
 
 		SamplerStateDesc descNearest{};
-		stencilUploadSampler_ = draw_->CreateSamplerState(descNearest);
+		stencilWriteSampler_ = draw_->CreateSamplerState(descNearest);
 	}
 
 	// Fullscreen triangle coordinates.
@@ -297,11 +297,11 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 	}
 
 	draw_->BindTextures(TEX_SLOT_PSP_TEXTURE, 1, &tex);
-	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &stencilUploadSampler_);
+	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &stencilWriteSampler_);
 
 	// We must bind the program after starting the render pass, and set the color mask after clearing.
 	draw_->SetScissorRect(0, 0, w, h);
-	draw_->BindPipeline(stencilUploadPipeline_);
+	draw_->BindPipeline(stencilWritePipeline_);
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {

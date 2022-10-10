@@ -568,8 +568,8 @@ protected:
 
 	// Common implementation of stencil buffer upload. Also not 100% optimal, but not performance
 	// critical either.
-	Draw::Pipeline *stencilUploadPipeline_ = nullptr;
-	Draw::SamplerState *stencilUploadSampler_ = nullptr;
+	Draw::Pipeline *stencilWritePipeline_ = nullptr;
+	Draw::SamplerState *stencilWriteSampler_ = nullptr;
 
 	Draw::Pipeline *depthReadbackPipeline_ = nullptr;
 	Draw::SamplerState *depthReadbackSampler_ = nullptr;

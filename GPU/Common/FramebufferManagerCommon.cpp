@@ -2807,8 +2807,8 @@ void FramebufferManagerCommon::DeviceLost() {
 			DoRelease(reinterpretFromTo_[i][j]);
 		}
 	}
-	DoRelease(stencilUploadSampler_);
-	DoRelease(stencilUploadPipeline_);
+	DoRelease(stencilWriteSampler_);
+	DoRelease(stencilWritePipeline_);
 	DoRelease(depthReadbackSampler_);
 	DoRelease(depthReadbackPipeline_);
 	DoRelease(draw2DPipelineColor_);
