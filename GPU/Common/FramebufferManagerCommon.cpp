@@ -2538,6 +2538,12 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 	}
 	// No need to free on failure, that's the caller's job (it likely will reuse a buffer.)
 	bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, w, h, Draw::DataFormat::D32F, buffer.GetData(), w, "GetDepthBuffer");
+	if (!retval) {
+		// Try ReadbackDepthbufferSync, in case GLES.
+		buffer.Allocate(w, h, GPU_DBG_FORMAT_16BIT, flipY);
+		retval = ReadbackDepthbufferSync(vfb->fbo, 0, 0, w, h, (uint16_t *)buffer.GetData(), w);
+	}
+
 	// After a readback we'll have flushed and started over, need to dirty a bunch of things to be safe.
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	// That may have unbound the framebuffer, rebind to avoid crashes when debugging.
@@ -2604,7 +2610,7 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 		return;
 	}
 
-	const u32 fb_address = vfb->fb_address;
+	const u32 fb_address = channel == RASTER_COLOR ? vfb->fb_address : vfb->z_address;
 
 	Draw::DataFormat destFormat = channel == RASTER_COLOR ? GEFormatToThin3D(vfb->fb_format) : GEFormatToThin3D(GE_FORMAT_DEPTH16);
 	const int dstBpp = (int)DataFormatSizeInBytes(destFormat);
@@ -2627,31 +2633,23 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 	// Right now that's always 8888.
 	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x, ptr=%p", fb_address, destPtr);
 
-	if (destPtr) {
-		if (channel == RASTER_DEPTH)
-			ReadbackDepthbufferSync(vfb, x, y, w, h);
-		else
-			draw_->CopyFramebufferToMemorySync(vfb->fbo, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "ReadbackFramebufferSync");
-
-		char tag[128];
-		size_t len = snprintf(tag, sizeof(tag), "FramebufferPack/%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, w, h, GeBufferFormatToString(vfb->fb_format));
-		NotifyMemInfo(MemBlockFlags::WRITE, fb_address + dstByteOffset, dstSize, tag, len);
+	if (channel == RASTER_DEPTH) {
+		_assert_msg_(vfb && vfb->z_address != 0 && vfb->z_stride != 0, "Depth buffer invalid");
+		ReadbackDepthbufferSync(vfb->fbo, x, y, w, h, (uint16_t *)destPtr, stride);
 	} else {
-		ERROR_LOG(G3D, "ReadbackFramebufferSync: Tried to readback to bad address %08x (stride = %d)", fb_address + dstByteOffset, vfb->fb_stride);
+		draw_->CopyFramebufferToMemorySync(vfb->fbo, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, stride, "ReadbackFramebufferSync");
 	}
+
+	char tag[128];
+	size_t len = snprintf(tag, sizeof(tag), "FramebufferPack/%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, w, h, GeBufferFormatToString(vfb->fb_format));
+	NotifyMemInfo(MemBlockFlags::WRITE, fb_address + dstByteOffset, dstSize, tag, len);
 
 	gpuStats.numReadbacks++;
 }
 
-void FramebufferManagerCommon::ReadbackDepthbufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-	_assert_msg_(vfb && vfb->z_address != 0 && vfb->z_stride != 0, "Depth buffer invalid");
-
+bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) {
 	Draw::DataFormat destFormat = GEFormatToThin3D(GE_FORMAT_DEPTH16);
-	const int dstByteOffset = (y * vfb->z_stride + x) * 2;
-	u8 *destPtr = Memory::GetPointerWriteUnchecked(vfb->z_address + dstByteOffset);
-	if (!draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, vfb->z_stride, "ReadbackDepthbufferSync")) {
-		WARN_LOG(G3D, "ReadbackDepthbufferSync failed");
-	}
+	return draw_->CopyFramebufferToMemorySync(fbo, Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, pixels, pixelsStride, "ReadbackDepthbufferSync");
 }
 
 void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel) {
@@ -2811,6 +2809,8 @@ void FramebufferManagerCommon::DeviceLost() {
 	}
 	DoRelease(stencilUploadSampler_);
 	DoRelease(stencilUploadPipeline_);
+	DoRelease(depthReadbackSampler_);
+	DoRelease(depthReadbackPipeline_);
 	DoRelease(draw2DPipelineColor_);
 	DoRelease(draw2DPipelineColorRect2Lin_);
 	DoRelease(draw2DPipelineDepth_);

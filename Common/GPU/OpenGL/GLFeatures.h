@@ -87,6 +87,7 @@ struct GLExtensions {
 	bool EXT_draw_instanced;
 	bool EXT_buffer_storage;
 	bool EXT_clip_cull_distance;
+	bool EXT_depth_clamp;
 
 	// NV
 	bool NV_copy_image;
