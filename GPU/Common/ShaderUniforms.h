@@ -40,6 +40,8 @@ struct alignas(16) UB_VS_FS_Base {
 	float blendFixB[3]; float rotation;
 	float texClamp[4];
 	float texClampOffset[2]; float fogCoef[2];
+	// VR stuff is to go here, later. For normal drawing, we can then get away
+	// with just uploading the first 448 bytes of the struct (up to and including fogCoef).
 };
 
 static const char * const ub_baseStr =
