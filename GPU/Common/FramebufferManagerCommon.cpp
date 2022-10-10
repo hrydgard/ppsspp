@@ -2649,7 +2649,7 @@ void FramebufferManagerCommon::ReadbackDepthbufferSync(VirtualFramebuffer *vfb, 
 	Draw::DataFormat destFormat = GEFormatToThin3D(GE_FORMAT_DEPTH16);
 	const int dstByteOffset = (y * vfb->z_stride + x) * 2;
 	u8 *destPtr = Memory::GetPointerWriteUnchecked(vfb->z_address + dstByteOffset);
-	if (!draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "ReadbackDepthbufferSync")) {
+	if (!draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, vfb->z_stride, "ReadbackDepthbufferSync")) {
 		WARN_LOG(G3D, "ReadbackDepthbufferSync failed");
 	}
 }
