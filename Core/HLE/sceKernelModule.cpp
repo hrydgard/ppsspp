@@ -1159,12 +1159,14 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	if (*magicPtr == 0x4543537e) { // "~SCE"
 		INFO_LOG(SCEMODULE, "~SCE module, skipping header");
 		u32 headerSize = *(u32_le*)(ptr + 4);
-		ptr += headerSize;
-		elfSize -= headerSize;
-		magicPtr = (u32_le *)ptr;
+		if (headerSize < elfSize) {
+			ptr += headerSize;
+			elfSize -= headerSize;
+			magicPtr = (u32_le *)ptr;
+		}
 	}
 	*magic = *magicPtr;
-	if (*magic == 0x5053507e) { // "~PSP"
+	if (*magic == 0x5053507e && elfSize > sizeof(PSP_Header)) { // "~PSP"
 		DEBUG_LOG(SCEMODULE, "Decrypting ~PSP file");
 		PSP_Header *head = (PSP_Header*)ptr;
 		devkitVersion = head->devkitversion;
@@ -1650,19 +1652,23 @@ SceUID KernelLoadModule(const std::string &filename, std::string *error_string) 
 static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOption *options, std::string *error_string) {
 	PSPModule *module = nullptr;
 	// Check for PBP
-	if (memcmp(fileptr, "\0PBP", 4) == 0) {
+	if (fileSize >= sizeof(PSP_Header) && memcmp(fileptr, "\0PBP", 4) == 0) {
 		// PBP!
 		u32_le version;
 		memcpy(&version, fileptr + 4, 4);
 		u32_le offset0, offsets[16];
 
 		memcpy(&offset0, fileptr + 8, 4);
-		int numfiles = (offset0 - 8)/4;
+		int numfiles = (offset0 - 8) / 4;
 		offsets[0] = offset0;
+		if (12 + 4 * numfiles > fileSize) {
+			*error_string = "ELF file truncated - can't load";
+			return nullptr;
+		}
 		for (int i = 1; i < numfiles; i++)
 			memcpy(&offsets[i], fileptr + 12 + 4*i, 4);
 
-		if (offsets[6] > fileSize) {
+		if (offsets[6] > fileSize || offsets[5] > offsets[6]) {
 			// File is too small to fully contain the ELF! Must have been truncated.
 			*error_string = "ELF file truncated - can't load";
 			return nullptr;
@@ -1685,10 +1691,13 @@ static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOp
 		if (temp) {
 			delete [] temp;
 		}
-	} else {
+	} else if (fileSize > sizeof(PSP_Header)) {
 		u32 error;
 		u32 magic = 0;
 		module = __KernelLoadELFFromPtr(fileptr, fileSize, PSP_GetDefaultLoadAddress(), false, error_string, &magic, error);
+	} else {
+		*error_string = "ELF file truncated - can't load";
+		return nullptr;
 	}
 
 	return module;
@@ -1801,8 +1810,6 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	PSP_SetLoading("Loading modules...");
 	size_t size = fileData.size();
-	// TODO: Why do we add this padding?  Crash avoidance?
-	fileData.resize(fileData.size() + 0x01000000);
 	PSPModule *module = __KernelLoadModule(fileData.data(), size, 0, error_string);
 
 	if (!module || module->isFake) {
