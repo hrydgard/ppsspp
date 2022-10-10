@@ -189,12 +189,3 @@ inline uint16_t ShrinkToHalf(float full) {
 	FP16 fp = float_to_half_fast3(fp32);
 	return fp.u;
 }
-
-// FPU control.
-void EnableFZ();
-
-// Enable both FZ and Default-NaN. Is documented to flip some ARM implementation into a "run-fast" mode
-// where they can schedule VFP instructions on the NEON unit (these implementations have
-// very slow VFP units).
-// http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0274h/Babffifj.html
-void FPU_SetFastMode();
