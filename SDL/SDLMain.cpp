@@ -807,6 +807,7 @@ int main(int argc, char *argv[]) {
 	} else {
 		joystick = nullptr;
 	}
+	EnableFZ();
 
 	int framecount = 0;
 	bool mouseDown = false;
