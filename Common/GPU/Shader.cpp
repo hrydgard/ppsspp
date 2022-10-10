@@ -202,6 +202,7 @@ void init_resources(TBuiltInResource &Resources) {
 	Resources.maxCullDistances = 8;
 	Resources.maxCombinedClipAndCullDistances = 8;
 	Resources.maxSamples = 4;
+	Resources.maxDualSourceDrawBuffersEXT = 1;
 	Resources.limits.nonInductiveForLoops = 1;
 	Resources.limits.whileLoops = 1;
 	Resources.limits.doWhileLoops = 1;
