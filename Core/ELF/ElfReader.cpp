@@ -401,9 +401,6 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 
 	// e_ident[EI_VERSION] is ignored
 
-	sectionOffsets = new u32[GetNumSections()];
-	sectionAddrs = new u32[GetNumSections()];
-
 	// Should we relocate?
 	bRelocate = (header->e_type != ET_EXEC);
 
@@ -513,6 +510,9 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 
 	DEBUG_LOG(LOADER,"%i sections:", header->e_shnum);
 
+	sectionOffsets = new u32[GetNumSections()];
+	sectionAddrs = new u32[GetNumSections()];
+
 	for (int i = 0; i < GetNumSections(); i++)
 	{
 		const Elf32_Shdr *s = &sections[i];
@@ -534,7 +534,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 		}
 	}
 
-	DEBUG_LOG(LOADER,"Relocations:");
+	DEBUG_LOG(LOADER, "Relocations:");
 
 	// Second pass: Do necessary relocations
 	for (int i = 0; i < GetNumSections(); i++)

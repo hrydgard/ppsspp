@@ -154,7 +154,7 @@ private:
 	u32 entryPoint = 0;
 	u32 totalSize = 0;
 	u32 vaddr = 0;
-	u32 segmentVAddr[32];
+	u32 segmentVAddr[32]{};
 	size_t size_ = 0;
 	u32 firstSegAlign = 0;
 };

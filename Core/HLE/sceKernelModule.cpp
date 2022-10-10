@@ -1198,6 +1198,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		}
 		const auto maxElfSize = std::max(head->elf_size, head->psp_size);
 		newptr = new u8[maxElfSize];
+		elfSize = maxElfSize;
 		ptr = newptr;
 		magicPtr = (u32_le *)ptr;
 		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
