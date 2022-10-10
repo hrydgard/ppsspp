@@ -35,7 +35,7 @@ public:
 	~LinkedShader();
 
 	void use(const ShaderID &VSID);
-	void UpdateUniforms(u32 vertType, const ShaderID &VSID, bool useBufferedRendering);
+	void UpdateUniforms(u32 vertType, const ShaderID &VSID, bool useBufferedRendering, const Draw::DeviceCaps &caps);
 
 	GLRenderManager *render_;
 	Shader *vs_;
