@@ -77,23 +77,15 @@ public:
 	const u8 *GetPtr(u32 offset) const {
 		return (const u8*)base + offset;
 	}
-	// Note: zero is not a valid output, means unavailable.
-	u32 GetSectionDataOffset(int section) const {
-		if (section < 0 || section >= header->e_shnum)
-			return 0;
-		if (sections[section].sh_type == SHT_NOBITS)
-			return 0;
-		return sections[section].sh_offset;
-	}
 	const u8 *GetSectionDataPtr(int section) const {
-		u32 offset = GetSectionDataOffset(section);
-		if (offset == 0 || offset > size_)
+		if (section < 0 || section >= header->e_shnum)
 			return nullptr;
-		return GetPtr(offset);
+		if (sections[section].sh_type != SHT_NOBITS)
+			return GetPtr(sections[section].sh_offset);
+		else
+			return nullptr;
 	}
 	const u8 *GetSegmentPtr(int segment) const {
-		if (segments[segment].p_offset > size_)
-			return nullptr;
 		return GetPtr(segments[segment].p_offset);
 	}
 	u32 GetSectionAddr(SectionID section) const {
