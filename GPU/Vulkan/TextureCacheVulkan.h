@@ -81,7 +81,7 @@ public:
 		sampler = curSampler_;
 	}
 
-	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
+	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 
 	void GetStats(char *ptr, size_t size);
 

@@ -41,7 +41,7 @@ DebuggerSubscriber *WebSocketGPUBufferInit(DebuggerEventHandlerMap &map) {
 }
 
 // Note: Calls req.Respond().  Other data can be added afterward.
-static bool StreamBufferToDataURI(DebuggerRequest &req, const GPUDebugBuffer &buf, bool includeAlpha, int stackWidth) {
+static bool StreamBufferToDataURI(DebuggerRequest &req, const GPUDebugBuffer &buf, bool isFramebuffer, bool includeAlpha, int stackWidth) {
 #ifdef USING_QT_UI
 	req.Fail("Not supported on Qt yet, pull requests accepted");
 	return false;
@@ -83,6 +83,9 @@ static bool StreamBufferToDataURI(DebuggerRequest &req, const GPUDebugBuffer &bu
 	auto &json = req.Respond();
 	json.writeInt("width", w);
 	json.writeInt("height", h);
+	if (isFramebuffer) {
+		json.writeBool("isFramebuffer", isFramebuffer);
+	}
 
 	// Start a value...
 	json.writeRaw("uri", "");
@@ -191,7 +194,7 @@ static std::string DescribeFormat(GPUDebugBufferFormat fmt) {
 }
 
 // Note: Calls req.Respond().  Other data can be added afterward.
-static bool StreamBufferToBase64(DebuggerRequest &req, const GPUDebugBuffer &buf) {
+static bool StreamBufferToBase64(DebuggerRequest &req, const GPUDebugBuffer &buf, bool isFramebuffer) {
 	size_t length = buf.GetStride() * buf.GetHeight();
 
 	auto &json = req.Respond();
@@ -199,6 +202,9 @@ static bool StreamBufferToBase64(DebuggerRequest &req, const GPUDebugBuffer &buf
 	json.writeInt("height", buf.GetHeight());
 	json.writeBool("flipped", buf.GetFlipped());
 	json.writeString("format", DescribeFormat(buf.GetFormat()));
+	if (isFramebuffer) {
+		json.writeBool("isFramebuffer", isFramebuffer);
+	}
 
 	// Start a value without any actual data yet...
 	json.writeRaw("base64", "");
@@ -217,7 +223,7 @@ static bool StreamBufferToBase64(DebuggerRequest &req, const GPUDebugBuffer &buf
 	return true;
 }
 
-static void GenericStreamBuffer(DebuggerRequest &req, std::function<bool(const GPUDebugBuffer *&)> func) {
+static void GenericStreamBuffer(DebuggerRequest &req, std::function<bool(const GPUDebugBuffer *&, bool *isFramebuffer)> func) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
 	}
@@ -238,15 +244,16 @@ static void GenericStreamBuffer(DebuggerRequest &req, std::function<bool(const G
 		return req.Fail("Parameter 'type' must be either 'uri' or 'base64'");
 
 	const GPUDebugBuffer *buf = nullptr;
-	if (!func(buf)) {
+	bool isFramebuffer = false;
+	if (!func(buf, &isFramebuffer)) {
 		return req.Fail("Could not download output");
 	}
 	_assert_(buf != nullptr);
 
 	if (type == "base64") {
-		StreamBufferToBase64(req, *buf);
+		StreamBufferToBase64(req, *buf, isFramebuffer);
 	} else if (type == "uri") {
-		StreamBufferToDataURI(req, *buf, includeAlpha, stackWidth);
+		StreamBufferToDataURI(req, *buf, isFramebuffer, includeAlpha, stackWidth);
 	} else {
 		_assert_(false);
 	}
@@ -270,7 +277,8 @@ static void GenericStreamBuffer(DebuggerRequest &req, std::function<bool(const G
 //  - format: string indicating format, such as 'R8G8B8A8_UNORM' or 'B8G8R8A8_UNORM'.
 //  - base64: base64 encode of binary data.
 void WebSocketGPUBufferScreenshot(DebuggerRequest &req) {
-	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf) {
+	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf, bool *isFramebuffer) {
+		*isFramebuffer = false;
 		return GPUStepping::GPU_GetOutputFramebuffer(buf);
 	});
 }
@@ -293,7 +301,8 @@ void WebSocketGPUBufferScreenshot(DebuggerRequest &req) {
 //  - format: string indicating format, such as 'R8G8B8A8_UNORM' or 'B8G8R8A8_UNORM'.
 //  - base64: base64 encode of binary data.
 void WebSocketGPUBufferRenderColor(DebuggerRequest &req) {
-	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf) {
+	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf, bool *isFramebuffer) {
+		*isFramebuffer = false;
 		return GPUStepping::GPU_GetCurrentFramebuffer(buf, GPU_DBG_FRAMEBUF_RENDER);
 	});
 }
@@ -316,7 +325,8 @@ void WebSocketGPUBufferRenderColor(DebuggerRequest &req) {
 //  - format: string indicating format, such as 'D16', 'D24_X8' or 'D32F'.
 //  - base64: base64 encode of binary data.
 void WebSocketGPUBufferRenderDepth(DebuggerRequest &req) {
-	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf) {
+	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf, bool *isFramebuffer) {
+		*isFramebuffer = false;
 		return GPUStepping::GPU_GetCurrentDepthbuffer(buf);
 	});
 }
@@ -339,7 +349,8 @@ void WebSocketGPUBufferRenderDepth(DebuggerRequest &req) {
 //  - format: string indicating format, such as 'X24_S8' or 'S8'.
 //  - base64: base64 encode of binary data.
 void WebSocketGPUBufferRenderStencil(DebuggerRequest &req) {
-	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf) {
+	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf, bool *isFramebuffer) {
+		*isFramebuffer = false;
 		return GPUStepping::GPU_GetCurrentStencilbuffer(buf);
 	});
 }
@@ -354,6 +365,7 @@ void WebSocketGPUBufferRenderStencil(DebuggerRequest &req) {
 // Response (same event name) for 'uri' type:
 //  - width: numeric width of the texture (often wider than visual.)
 //  - height: numeric height of the texture (often wider than visual.)
+//  - isFramebuffer: optional, present and true if this came from a hardware framebuffer.
 //  - uri: data: URI of PNG image for display.
 //
 // Response (same event name) for 'base64' type:
@@ -361,14 +373,15 @@ void WebSocketGPUBufferRenderStencil(DebuggerRequest &req) {
 //  - height: numeric height of the texture (often wider than visual.)
 //  - flipped: boolean to indicate whether buffer is vertically flipped.
 //  - format: string indicating format, such as 'R8G8B8A8_UNORM' or 'B8G8R8A8_UNORM'.
+//  - isFramebuffer: optional, present and true if this came from a hardware framebuffer.
 //  - base64: base64 encode of binary data.
 void WebSocketGPUBufferTexture(DebuggerRequest &req) {
 	u32 level = 0;
 	if (!req.ParamU32("level", &level, false, DebuggerParamType::OPTIONAL))
 		return;
 
-	GenericStreamBuffer(req, [level](const GPUDebugBuffer *&buf) {
-		return GPUStepping::GPU_GetCurrentTexture(buf, level);
+	GenericStreamBuffer(req, [level](const GPUDebugBuffer *&buf, bool *isFramebuffer) {
+		return GPUStepping::GPU_GetCurrentTexture(buf, level, isFramebuffer);
 	});
 }
 
@@ -391,7 +404,9 @@ void WebSocketGPUBufferTexture(DebuggerRequest &req) {
 //  - format: string indicating format, such as 'R8G8B8A8_UNORM' or 'B8G8R8A8_UNORM'.
 //  - base64: base64 encode of binary data.
 void WebSocketGPUBufferClut(DebuggerRequest &req) {
-	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf) {
+	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf, bool *isFramebuffer) {
+		// TODO: Or maybe it could be?
+		*isFramebuffer = false;
 		return GPUStepping::GPU_GetCurrentClut(buf);
 	});
 }

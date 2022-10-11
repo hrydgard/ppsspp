@@ -362,10 +362,10 @@ D3DFORMAT TextureCacheDX9::GetDestFormat(GETextureFormat format, GEPaletteFormat
 	}
 }
 
-bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
+bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
 	SetTexture();
 	if (!nextTexture_) {
-		return GetCurrentFramebufferTextureDebug(buffer);
+		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
 	}
 
 	ApplyTexture();
@@ -400,6 +400,9 @@ bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) 
 					}
 					renderTarget->Release();
 				}
+				*isFramebuffer = true;
+			} else {
+				*isFramebuffer = false;
 			}
 
 			if (SUCCEEDED(hr)) {

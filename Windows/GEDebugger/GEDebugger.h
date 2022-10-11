@@ -139,6 +139,8 @@ private:
 	// The most recent primary/framebuffer and texture buffers.
 	const GPUDebugBuffer *primaryBuffer_ = nullptr;
 	const GPUDebugBuffer *secondBuffer_ = nullptr;
+	bool primaryIsFramebuffer_ = false;
+	bool secondIsFramebuffer_ = false;
 
 	uint32_t primaryTrackX_ = 0xFFFFFFFF;
 	uint32_t primaryTrackY_ = 0xFFFFFFFF;

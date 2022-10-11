@@ -1162,9 +1162,10 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 	}
 }
 
-bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer) {
+bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer, bool *isFramebuffer) {
 	if (!nextFramebufferTexture_)
 		return false;
+	*isFramebuffer = true;
 
 	VirtualFramebuffer *vfb = nextFramebufferTexture_;
 	u8 sf = vfb->renderScaleFactor;

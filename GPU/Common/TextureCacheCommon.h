@@ -348,7 +348,7 @@ public:
 	bool VideoIsPlaying() {
 		return !videos_.empty();
 	}
-	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) { return false; }
+	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) { return false; }
 
 protected:
 	virtual void *GetNativeTextureView(const TexCacheEntry *entry) = 0;
@@ -399,7 +399,7 @@ protected:
 	bool GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate) const;
 
 	void SetTextureFramebuffer(const AttachCandidate &candidate);
-	bool GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer);
+	bool GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer, bool *isFramebuffer);
 
 	virtual void BoundFramebufferTexture() {}
 
