@@ -1270,6 +1270,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 				break;
 
 			case GE_FORMAT_INVALID:
+			case GE_FORMAT_CLUT8:
 				// Bad
 				break;
 			}
@@ -1685,7 +1686,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		const int vfb_byteWidth = vfb->width * vfb_bpp;
 
 		// Heuristic to try to prevent potential glitches with video playback.
-		if (!ignoreDstBuffer && vfb_address == dst && (size == 0x44000 && vfb_size == 0x88000 || size == 0x88000 && vfb_size == 0x44000)) {
+		if (!ignoreDstBuffer && vfb_address == dst && ((size == 0x44000 && vfb_size == 0x88000) || (size == 0x88000 && vfb_size == 0x44000))) {
 			// Not likely to be a correct color format copy for this buffer. Ignore it, there will either be RAM
 			// that can be displayed from, or another matching buffer with the right format if rendering is going on.
 			WARN_LOG_N_TIMES(notify_copy_2x, 5, G3D, "Framebuffer size %08x conspicuously not matching copy size %08x in NotifyFramebufferCopy. Ignoring.", size, vfb_size);
