@@ -364,6 +364,10 @@ D3DFORMAT TextureCacheDX9::GetDestFormat(GETextureFormat format, GEPaletteFormat
 
 bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
 	SetTexture();
+	if (!nextTexture_) {
+		return GetCurrentFramebufferTextureDebug(buffer);
+	}
+
 	ApplyTexture();
 
 	LPDIRECT3DBASETEXTURE9 baseTex;

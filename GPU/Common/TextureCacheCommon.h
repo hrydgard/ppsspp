@@ -399,6 +399,7 @@ protected:
 	bool GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate) const;
 
 	void SetTextureFramebuffer(const AttachCandidate &candidate);
+	bool GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer);
 
 	virtual void BoundFramebufferTexture() {}
 

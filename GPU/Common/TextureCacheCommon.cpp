@@ -1162,6 +1162,24 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 	}
 }
 
+bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer) {
+	if (!nextFramebufferTexture_)
+		return false;
+
+	VirtualFramebuffer *vfb = nextFramebufferTexture_;
+	buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
+	bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth, "GetCurrentTextureDebug");
+
+	// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
+	// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
+	// We may have blitted to a temp FBO.
+	framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
+	if (!retval)
+		ERROR_LOG(G3D, "Failed to get debug texture: copy to memory failed");
+	return retval;
+}
+
 void TextureCacheCommon::NotifyConfigChanged() {
 	int scaleFactor = g_Config.iTexScalingLevel;
 
