@@ -2578,6 +2578,10 @@ bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	// No need to free on failure, the caller/destructor will do that.  Usually this is a reused buffer, anyway.
 	buffer.Allocate(w, h, GPU_DBG_FORMAT_8BIT, flipY);
 	bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_STENCIL_BIT, 0, 0, w,h, Draw::DataFormat::S8, buffer.GetData(), w, "GetStencilbuffer");
+	if (!retval) {
+		// Try ReadbackStencilbufferSync, in case GLES.
+		retval = ReadbackStencilbufferSync(vfb->fbo, 0, 0, w, h, buffer.GetData(), w);
+	}
 	// That may have unbound the framebuffer, rebind to avoid crashes when debugging.
 	RebindFramebuffer("RebindFramebuffer - GetStencilbuffer");
 	return retval;
@@ -2650,6 +2654,10 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) {
 	Draw::DataFormat destFormat = GEFormatToThin3D(GE_FORMAT_DEPTH16);
 	return draw_->CopyFramebufferToMemorySync(fbo, Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, pixels, pixelsStride, "ReadbackDepthbufferSync");
+}
+
+bool FramebufferManagerCommon::ReadbackStencilbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride) {
+	return draw_->CopyFramebufferToMemorySync(fbo, Draw::FB_DEPTH_BIT, x, y, w, h, Draw::DataFormat::S8, pixels, pixelsStride, "ReadbackStencilbufferSync");
 }
 
 void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel) {
@@ -2809,6 +2817,8 @@ void FramebufferManagerCommon::DeviceLost() {
 	}
 	DoRelease(stencilWriteSampler_);
 	DoRelease(stencilWritePipeline_);
+	DoRelease(stencilReadbackSampler_);
+	DoRelease(stencilReadbackPipeline_);
 	DoRelease(depthReadbackSampler_);
 	DoRelease(depthReadbackPipeline_);
 	DoRelease(draw2DPipelineColor_);
