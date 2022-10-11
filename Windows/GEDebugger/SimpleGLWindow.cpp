@@ -15,13 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/CommonWindows.h"
-#include <WindowsX.h>
-#include "Common/Math/lin/matrix4x4.h"
-#include "Common/GPU/OpenGL/GLSLProgram.h"
-#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/CommonTypes.h"
+#include "Common/CommonWindows.h"
 #include "Common/Log.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/OpenGL/GLSLProgram.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "GL/gl.h"
+#include "GL/wglew.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/W32Util/ContextMenu.h"
 
@@ -120,8 +122,31 @@ void SimpleGLWindow::SetupGL() {
 	ENFORCE(hGLRC_ = wglCreateContext(hDC_), "Unable to create GL context.");
 	ENFORCE(wglMakeCurrent(hDC_, hGLRC_), "Unable to activate GL context.");
 
-	glewInit();
-	valid_ = true;
+	valid_ = glewInit() == GLEW_OK;
+
+	// Switch to a modern context so RenderDoc doesn't get mad.
+	HGLRC oldGL = hGLRC_;
+	if (wglewIsSupported("WGL_ARB_create_context") == 1) {
+		static const int attribs33[] = {
+			WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+			WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+			WGL_CONTEXT_FLAGS_ARB, 0,
+			WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+			0,
+		};
+		hGLRC_ = wglCreateContextAttribsARB(hDC_, 0, attribs33);
+
+		if (!hGLRC_) {
+			hGLRC_ = oldGL;
+		} else {
+			// Switch to the new ARB context.
+			wglMakeCurrent(nullptr, nullptr);
+			wglDeleteContext(oldGL);
+			wglMakeCurrent(hDC_, hGLRC_);
+
+			valid_ = glewInit() == GLEW_OK;
+		}
+	}
 }
 
 void SimpleGLWindow::ResizeGL(int w, int h) {
@@ -622,8 +647,8 @@ LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 	case WM_LBUTTONUP:
 	case WM_RBUTTONUP:
 	case WM_MOUSEMOVE:
-		mouseX = GET_X_LPARAM(lParam);
-		mouseY = GET_Y_LPARAM(lParam);
+		mouseX = (int)(short)LOWORD(lParam);
+		mouseY = (int)(short)HIWORD(lParam);
 		break;
 	default:
 		break;
