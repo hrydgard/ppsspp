@@ -2096,7 +2096,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer &&
 		!depth &&
 		!gstate_c.curTextureIs3D &&
-		draw_->GetDeviceCaps().fragmentShaderInt32Supported;
+		draw_->GetShaderLanguageDesc().bitwiseOps;
 
 	// TODO: Implement shader depal in the fragment shader generator for D3D11 at least.
 	switch (draw_->GetShaderLanguageDesc().shaderLanguage) {

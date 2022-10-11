@@ -353,7 +353,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "uniform sampler2D testtex;\n");
 			} else {
 				*uniformMask |= DIRTY_ALPHACOLORREF;
-				WRITE(p, "uniform vec4 u_alphacolorref;\n");
+				if (compat.bitwiseOps) {
+					WRITE(p, "uniform uint u_alphacolorref;\n");
+				} else {
+					WRITE(p, "uniform vec4 u_alphacolorref;\n");
+				}
 				if (compat.bitwiseOps && ((enableColorTest && !colorTestAgainstZero) || (enableAlphaTest && !alphaTestAgainstZero))) {
 					*uniformMask |= DIRTY_ALPHACOLORMASK;
 					WRITE(p, "uniform uint u_alphacolormask;\n");
@@ -882,7 +886,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 					if (compat.bitwiseOps) {
-						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & int(u_alphacolormask >> 24)) %s int(u_alphacolorref.a)) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
+						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & int(u_alphacolormask >> 24)) %s int(u_alphacolorref >> 24)) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
 					} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 						// Work around bad PVR driver problem where equality check + discard just doesn't work.
 						if (alphaTestFunc != GE_COMP_NOTEQUAL) {
@@ -946,7 +950,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					} else if (compat.bitwiseOps) {
 						WRITE(p, "  uint v_uint = roundAndScaleTo8x4(v.rgb);\n");
 						WRITE(p, "  uint v_masked = v_uint & u_alphacolormask;\n");
-						WRITE(p, "  uint colorTestRef = packFloatsTo8x4(u_alphacolorref.rgb) & u_alphacolormask;\n");
+						WRITE(p, "  uint colorTestRef = (u_alphacolorref & u_alphacolormask) & 0xFFFFFFu;\n");
 						WRITE(p, "  if (v_masked %s colorTestRef) %s\n", test, discardStatement);
 					} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 						WRITE(p, "  if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) %s\n", test, discardStatement);

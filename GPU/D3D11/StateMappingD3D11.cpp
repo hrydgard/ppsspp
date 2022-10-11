@@ -147,7 +147,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		} else {
 			keys_.blend.value = 0;
 
-			pipelineState_.Convert(draw_->GetDeviceCaps().fragmentShaderInt32Supported);
+			pipelineState_.Convert(draw_->GetShaderLanguageDesc().bitwiseOps);
 			GenericMaskState &maskState = pipelineState_.maskState;
 			GenericBlendState &blendState = pipelineState_.blendState;
 			// We ignore the logicState on D3D since there's no support, the emulation of it is blend-and-shader only.

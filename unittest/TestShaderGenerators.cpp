@@ -560,6 +560,7 @@ bool TestGeometryShaders() {
 		std::string genErrorString[numLanguages];
 
 		for (int j = 0; j < numLanguages; j++) {
+			buffer[j][0] = 0;
 			generateSuccess[j] = GenerateGShader(id, buffer[j], languages[j], bugs, &genErrorString[j]);
 			if (!genErrorString[j].empty()) {
 				printf("%s\n", genErrorString[j].c_str());
@@ -569,7 +570,7 @@ bool TestGeometryShaders() {
 
 		for (int j = 0; j < numLanguages; j++) {
 			if (strlen(buffer[j]) >= CODE_BUFFER_SIZE) {
-				printf("Geoemtry shader exceeded buffer:\n\n%s\n", LineNumberString(buffer[j]).c_str());
+				printf("Geometry shader exceeded buffer:\n\n%s\n", LineNumberString(buffer[j]).c_str());
 				for (int i = 0; i < numLanguages; i++) {
 					delete[] buffer[i];
 				}

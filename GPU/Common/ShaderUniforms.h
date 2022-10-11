@@ -17,7 +17,7 @@ enum : uint64_t {
 	DIRTY_MATDIFFUSE | DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE | DIRTY_AMBIENT,
 };
 
-// Currently 480 bytes. Probably can't get to 256 (nVidia's UBO alignment, also common in other vendors).
+// Currently 448 bytes.
 // Every line here is a 4-float.
 struct alignas(16) UB_VS_FS_Base {
 	float proj[16];
@@ -34,13 +34,14 @@ struct alignas(16) UB_VS_FS_Base {
 	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
 	uint32_t colorWriteMask; float mipBias;
 	// Fragment data
-	float fogColor[4];     // .w is unused
+	float fogColor[3]; uint32_t alphaColorRef;
 	float texEnvColor[3]; uint32_t colorTestMask;
-	int alphaColorRef[4];
 	float blendFixA[3]; float stencil;
 	float blendFixB[3]; float rotation;
 	float texClamp[4];
 	float texClampOffset[2]; float fogCoef[2];
+	// VR stuff is to go here, later. For normal drawing, we can then get away
+	// with just uploading the first 448 bytes of the struct (up to and including fogCoef).
 };
 
 static const char * const ub_baseStr =
@@ -58,10 +59,8 @@ R"(  mat4 u_proj;
   uint u_depal_mask_shift_off_fmt;
   uint u_colorWriteMask;
   float u_mipBias;
-  vec3 u_fogcolor;
-  vec3 u_texenv;
-  uint u_alphacolormask;
-  ivec4 u_alphacolorref;
+  vec3 u_fogcolor;  uint u_alphacolorref;
+  vec3 u_texenv;    uint u_alphacolormask;
   vec3 u_blendFixA; float u_stencilReplaceValue;
   vec3 u_blendFixB; float u_rotation;
   vec4 u_texclamp;

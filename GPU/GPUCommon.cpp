@@ -3325,7 +3325,7 @@ u32 GPUCommon::CheckGPUFeatures() const {
 		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
 	}
 
-	if (draw_->GetDeviceCaps().fragmentShaderInt32Supported) {
+	if (draw_->GetShaderLanguageDesc().bitwiseOps) {
 		features |= GPU_USE_LIGHT_UBERSHADER;
 	}
 
