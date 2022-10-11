@@ -136,6 +136,8 @@ struct GPUDebugBuffer {
 	void Allocate(u32 stride, u32 height, GPUDebugBufferFormat fmt, bool flipped = false);
 	void Free();
 
+	void ZeroBytes();
+
 	u8 *GetData() {
 		return data_;
 	}

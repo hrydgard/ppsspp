@@ -1167,8 +1167,26 @@ bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffe
 		return false;
 
 	VirtualFramebuffer *vfb = nextFramebufferTexture_;
-	buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
-	bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth, "GetCurrentTextureDebug");
+	u8 sf = vfb->renderScaleFactor;
+	int x = gstate_c.curTextureXOffset * sf;
+	int y = gstate_c.curTextureYOffset * sf;
+	int desiredW = gstate.getTextureWidth(0) * sf;
+	int desiredH = gstate.getTextureHeight(0) * sf;
+	int w = std::min(desiredW, vfb->bufferWidth * sf - x);
+	int h = std::min(desiredH, vfb->bufferHeight * sf - y);
+
+	bool retval;
+	if (nextFramebufferTextureChannel_ == RASTER_DEPTH) {
+		buffer.Allocate(desiredW, desiredH, GPU_DBG_FORMAT_FLOAT, false);
+		if (w < desiredW || h < desiredH)
+			buffer.ZeroBytes();
+		retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, x, y, w, h, Draw::DataFormat::D32F, buffer.GetData(), desiredW, "GetCurrentTextureDebug");
+	} else {
+		buffer.Allocate(desiredW, desiredH, GPU_DBG_FORMAT_8888, false);
+		if (w < desiredW || h < desiredH)
+			buffer.ZeroBytes();
+		retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), desiredW, "GetCurrentTextureDebug");
+	}
 
 	// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
 	// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
