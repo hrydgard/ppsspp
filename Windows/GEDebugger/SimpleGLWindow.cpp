@@ -129,16 +129,6 @@ void SimpleGLWindow::ResizeGL(int w, int h) {
 		return;
 	}
 
-	wglMakeCurrent(hDC_, hGLRC_);
-
-	glViewport(0, 0, w, h);
-	glScissor(0, 0, w, h);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(0.0f, w, h, 0.0f, -1.0f, 1.0f);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-
 	w_ = w;
 	h_ = h;
 }
