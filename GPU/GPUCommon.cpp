@@ -3190,11 +3190,11 @@ bool GPUCommon::GetCurrentClut(GPUDebugBuffer &buffer) {
 	return textureCache_->GetCurrentClutBuffer(buffer);
 }
 
-bool GPUCommon::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
+bool GPUCommon::GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
 	if (!gstate.isTextureMapEnabled()) {
 		return false;
 	}
-	return textureCache_->GetCurrentTextureDebug(buffer, level);
+	return textureCache_->GetCurrentTextureDebug(buffer, level, isFramebuffer);
 }
 
 bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {

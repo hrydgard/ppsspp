@@ -586,7 +586,36 @@ void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 			dst += dstStride * 3;
 		}
 	} else {
-		WARN_LOG(G3D, "Unable to convert from format to BGRA: %d", (int)format);
+		// But here it shouldn't matter if they do intersect
+		uint16_t *dst16 = (uint16_t *)dst;
+		switch (format) {
+		case Draw::DataFormat::R5G6B5_UNORM_PACK16: // BGR 565
+			for (uint32_t y = 0; y < height; ++y) {
+				ConvertBGRA8888ToRGB565(dst16, src32, width);
+				src32 += srcStride;
+				dst16 += dstStride;
+			}
+			break;
+		case Draw::DataFormat::A1R5G5B5_UNORM_PACK16: // ABGR 1555
+			for (uint32_t y = 0; y < height; ++y) {
+				ConvertBGRA8888ToRGBA5551(dst16, src32, width);
+				src32 += srcStride;
+				dst16 += dstStride;
+			}
+			break;
+		case Draw::DataFormat::A4R4G4B4_UNORM_PACK16: // ABGR 4444
+			for (uint32_t y = 0; y < height; ++y) {
+				ConvertBGRA8888ToRGBA4444(dst16, src32, width);
+				src32 += srcStride;
+				dst16 += dstStride;
+			}
+			break;
+		case Draw::DataFormat::R8G8B8A8_UNORM:
+		case Draw::DataFormat::UNDEFINED:
+		default:
+			WARN_LOG(G3D, "Unable to convert from format to BGRA: %d", (int)format);
+			break;
+		}
 	}
 }
 

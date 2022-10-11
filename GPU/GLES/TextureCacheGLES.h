@@ -55,7 +55,7 @@ public:
 		lastBoundTexture = nullptr;
 	}
 
-	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
+	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);

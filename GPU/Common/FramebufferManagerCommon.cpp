@@ -2654,6 +2654,7 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 
 bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) {
 	Draw::DataFormat destFormat = GEFormatToThin3D(GE_FORMAT_DEPTH16);
+	// TODO: Apply depth scale factors if we don't have depth clamp.
 	return draw_->CopyFramebufferToMemorySync(fbo, Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, pixels, pixelsStride, "ReadbackDepthbufferSync");
 }
 

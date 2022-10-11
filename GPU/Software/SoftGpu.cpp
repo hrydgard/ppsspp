@@ -1405,8 +1405,8 @@ bool SoftGPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
 	return true;
 }
 
-bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level)
-{
+bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
+	*isFramebuffer = false;
 	return Rasterizer::GetCurrentTexture(buffer, level);
 }
 

@@ -985,6 +985,11 @@ void GPUDebugBuffer::Free() {
 	data_ = NULL;
 }
 
+void GPUDebugBuffer::ZeroBytes() {
+	_dbg_assert_(data_);
+	memset(data_, 0, PixelSize() * stride_ * height_);
+}
+
 u32 GPUDebugBuffer::PixelSize() const {
 	switch (fmt_) {
 	case GPU_DBG_FORMAT_8888:

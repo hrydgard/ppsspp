@@ -1623,13 +1623,25 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 		}
 		break;
 	case FB_STENCIL_BIT:
-		_assert_(destFormat == DataFormat::S8);
-		for (int y = 0; y < bh; y++) {
-			uint8_t *destStencil = (uint8_t *)pixels + y * pixelStride;
-			const uint32_t *src = (const uint32_t *)(srcWithOffset + map.RowPitch * y);
-			for (int x = 0; x < bw; x++) {
-				destStencil[x] = src[x] >> 24;
+		if (srcFormat == destFormat) {
+			// Can just memcpy when it matches no matter the format!
+			uint8_t *dst = (uint8_t *)pixels;
+			const uint8_t *src = (const uint8_t *)srcWithOffset;
+			for (int y = 0; y < bh; ++y) {
+				memcpy(dst, src, bw * DataFormatSizeInBytes(srcFormat));
+				dst += pixelStride * DataFormatSizeInBytes(srcFormat);
+				src += map.RowPitch;
 			}
+		} else if (destFormat == DataFormat::S8) {
+			for (int y = 0; y < bh; y++) {
+				uint8_t *destStencil = (uint8_t *)pixels + y * pixelStride;
+				const uint32_t *src = (const uint32_t *)(srcWithOffset + map.RowPitch * y);
+				for (int x = 0; x < bw; x++) {
+					destStencil[x] = src[x] >> 24;
+				}
+			}
+		} else {
+			_assert_(false);
 		}
 		break;
 	}

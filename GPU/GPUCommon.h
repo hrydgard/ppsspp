@@ -200,7 +200,7 @@ public:
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) override;
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
-	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
+	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
