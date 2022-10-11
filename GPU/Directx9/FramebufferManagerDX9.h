@@ -37,25 +37,6 @@ public:
 	FramebufferManagerDX9(Draw::DrawContext *draw);
 	~FramebufferManagerDX9();
 
-	void DestroyAllFBOs() override;
-
-	LPDIRECT3DSURFACE9 GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface, VirtualFramebuffer *vfb);
-	LPDIRECT3DSURFACE9 GetOffscreenSurface(D3DFORMAT fmt, u32 w, u32 h);
-
 protected:
-	void DecimateFBOs() override;
-	void ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel) override;
-
-private:
-	void ReadbackDepthbufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h);
-
-	LPDIRECT3DDEVICE9 device_;
-	LPDIRECT3DDEVICE9 deviceEx_;
-
-	struct OffscreenSurface {
-		LPDIRECT3DSURFACE9 surface;
-		int last_frame_used;
-	};
-
-	std::unordered_map<u64, OffscreenSurface> offscreenSurfaces_;
+	bool ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) override;
 };
