@@ -566,6 +566,7 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 		}
 	} else if (entry->replaceFunc) {
 		FlushAll();
+		SaveDowncount();
 		RestoreRoundingMode();
 		gpr.SetRegImm(SCRATCHREG1, GetCompilerPC());
 		MovToPC(SCRATCHREG1);
@@ -582,9 +583,11 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
 			ApplyRoundingMode();
+			RestoreDowncount();
 			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
 		} else {
 			ApplyRoundingMode();
+			RestoreDowncount();
 			LDR(R1, CTXREG, MIPS_REG_RA * 4);
 			WriteDownCountR(R0);
 			WriteExitDestInR(R1);
