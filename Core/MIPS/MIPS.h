@@ -267,7 +267,6 @@ public:
 
 	void ClearJitCache();
 
-protected:
 	void ProcessPendingClears();
 
 	// Doesn't need save stating.
