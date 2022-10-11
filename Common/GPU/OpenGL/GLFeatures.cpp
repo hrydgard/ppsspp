@@ -544,8 +544,8 @@ void CheckGLExtensions() {
 		}
 		if (gl_extensions.VersionGEThan(4, 3)) {
 			gl_extensions.ARB_copy_image = true;
+			gl_extensions.ARB_stencil_texturing = true;
 			// ARB_explicit_uniform_location = true;
-			// ARB_stencil_texturing = true;
 			// ARB_texture_view = true;
 			// ARB_vertex_attrib_binding = true;
 		}
