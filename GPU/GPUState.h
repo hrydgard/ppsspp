@@ -466,12 +466,14 @@ struct UVScale {
 
 #define FLAG_BIT(x) (1 << x)
 
-// Some of these are OpenGL-specific even though this file is neutral, unfortunately.
-// Might want to move this mechanism into the backend later.
+// These flags are mainly to make sure that we make decisions on code path in a single
+// location. Sometimes we need to take things into account in multiple places, it helps
+// to centralize into flags like this. They're also fast to check since the cache line
+// will be hot.
 enum {
 	GPU_SUPPORTS_DUALSOURCE_BLEND = FLAG_BIT(0),
 	GPU_USE_LIGHT_UBERSHADER = FLAG_BIT(1),
-	// Free bit: 2
+	GPU_USE_FRAGMENT_TEST_CACHE = FLAG_BIT(2),
 	GPU_SUPPORTS_VS_RANGE_CULLING = FLAG_BIT(3),
 	GPU_SUPPORTS_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_SUPPORTS_LOGIC_OP = FLAG_BIT(5),
