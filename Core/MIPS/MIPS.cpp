@@ -370,9 +370,7 @@ void MIPSState::InvalidateICache(u32 address, int length) {
 		if (coreState == CORE_RUNNING || insideJit) {
 			pendingClears.emplace_back(address, length);
 			hasPendingClears = true;
-#if !PPSSPP_ARCH(ARM) // See comment in ForceCheck
 			CoreTiming::ForceCheck();
-#endif
 		} else {
 			MIPSComp::jit->InvalidateCacheAt(address, length);
 		}
@@ -385,9 +383,7 @@ void MIPSState::ClearJitCache() {
 		if (coreState == CORE_RUNNING || insideJit) {
 			pendingClears.emplace_back(0, 0);
 			hasPendingClears = true;
-#if !PPSSPP_ARCH(ARM) // See comment in ForceCheck
 			CoreTiming::ForceCheck();
-#endif
 		} else {
 			MIPSComp::jit->ClearCache();
 		}

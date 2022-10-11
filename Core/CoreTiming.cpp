@@ -585,8 +585,6 @@ void ForceCheck()
 	int cyclesExecuted = slicelength - currentMIPS->downcount;
 	globalTimer += cyclesExecuted;
 	// This will cause us to check for new events immediately.
-	// NOTE: This causes problems on ARM32 in certain contexts due to jo.downcountInRegister.
-	// Not 100% sure what's going on there yet.
 	currentMIPS->downcount = -1;
 	// But let's not eat a bunch more time in Advance() because of this.
 	slicelength = -1;

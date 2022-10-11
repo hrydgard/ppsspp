@@ -37,7 +37,7 @@ namespace MIPSComp {
 
 		// ARM only
 		downcountInRegister = true;
-		useNEONVFPU = false;
+		useNEONVFPU = false;  // true
 		if (Disabled(JitDisable::SIMD))
 			useNEONVFPU = false;
 
