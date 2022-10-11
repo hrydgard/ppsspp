@@ -304,7 +304,7 @@ void DrawEngineGLES::ApplyDrawStateLate(bool setStencilValue, int stencilValue) 
 
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
-	if (!gstate.isModeClear()) {
+	if (!gstate.isModeClear() && gstate_c.Supports(GPU_USE_FRAGMENT_TEST_CACHE)) {
 		// Apply last, once we know the alpha params of the texture.
 		if (gstate.isAlphaTestEnabled() || gstate.isColorTestEnabled()) {
 			fragmentTestCache_->BindTestTexture(TEX_SLOT_ALPHATEST);

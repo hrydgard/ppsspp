@@ -205,6 +205,10 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 		features |= GPU_USE_DEPTH_RANGE_HACK;
 	}
 
+	if (!draw_->GetShaderLanguageDesc().bitwiseOps) {
+		features |= GPU_USE_FRAGMENT_TEST_CACHE;
+	}
+
 	return features;
 }
 

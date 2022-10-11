@@ -45,7 +45,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	bool highpFog = false;
 	bool highpTexcoord = false;
-	bool enableFragmentTestCache = g_Config.bFragmentTestCache && ShaderLanguageIsOpenGL(compat.shaderLanguage);
+	bool enableFragmentTestCache = gstate_c.Supports(GPU_USE_FRAGMENT_TEST_CACHE);
 
 	if (compat.gles) {
 		// PowerVR needs highp to do the fog in MHU correctly.
