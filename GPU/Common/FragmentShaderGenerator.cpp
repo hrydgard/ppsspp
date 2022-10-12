@@ -1160,7 +1160,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		// Note that the mask has already been flipped to the PC way - 1 means write.
 		if (colorWriteMask) {
-			WRITE(p, "  v32 = (v32 & u_colorWriteMask) | (d32 & ~u_colorWriteMask);\n");
+			if (stencilToAlpha != REPLACE_ALPHA_NO)
+				WRITE(p, "  v32 = (v32 & u_colorWriteMask) | (d32 & ~u_colorWriteMask);\n");
+			else
+				WRITE(p, "  v32 = (v32 & u_colorWriteMask & 0x00FFFFFFu) | (d32 & (~u_colorWriteMask | 0xFF000000u));\n");
 		}
 		WRITE(p, "  %s = unpackUnorm4x8(v32);\n", compat.fragColor0);
 	}
