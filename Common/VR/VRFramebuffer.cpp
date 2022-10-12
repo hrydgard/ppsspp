@@ -217,29 +217,12 @@ void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
 	ovrFramebuffer_Clear(frameBuffer);
 }
 
-void ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
+void* ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
 	if (frameBuffer->UseVulkan) {
-		//TODO:bind framebuffer
+		return frameBuffer->VKFrameBuffers[frameBuffer->TextureSwapChainIndex];
 	} else {
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->GLFrameBuffers[frameBuffer->TextureSwapChainIndex]));
-	}
-}
-
-void ovrFramebuffer_SetNone(ovrFramebuffer* frameBuffer) {
-	if (frameBuffer->UseVulkan) {
-		//TODO:unbind framebuffer
-	} else {
-		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0));
-	}
-}
-
-void ovrFramebuffer_Resolve(ovrFramebuffer* frameBuffer) {
-	// Discard the depth buffer, so the tiler won't need to write it back out to memory.
-	if (frameBuffer->UseVulkan) {
-		//TODO:implement
-	} else {
-		const GLenum depthAttachment[1] = {GL_DEPTH_ATTACHMENT};
-		glInvalidateFramebuffer(GL_DRAW_FRAMEBUFFER, 1, depthAttachment);
+		return nullptr;
 	}
 }
 

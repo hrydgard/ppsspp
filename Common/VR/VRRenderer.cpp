@@ -372,10 +372,7 @@ void VR_EndFrame( engine_t* engine ) {
 		ovrRenderer_MouseCursor(&engine->appState.Renderer, x, y, size);
 	}
 
-	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[fboIndex];
-	//ovrFramebuffer_Resolve(frameBuffer);
-	ovrFramebuffer_Release(frameBuffer);
-	ovrFramebuffer_SetNone(frameBuffer);
+	ovrFramebuffer_Release(&engine->appState.Renderer.FrameBuffer[fboIndex]);
 }
 
 void VR_FinishFrame( engine_t* engine ) {
@@ -487,10 +484,10 @@ void VR_SetConfig( VRConfig config, int value) {
 	vrConfig[config] = value;
 }
 
-void VR_BindFramebuffer(engine_t *engine) {
-	if (!initialized) return;
+void* VR_BindFramebuffer(engine_t *engine) {
+	if (!initialized) return nullptr;
 	int fboIndex = vrConfig[VR_CONFIG_CURRENT_FBO];
-	ovrFramebuffer_SetCurrent(&engine->appState.Renderer.FrameBuffer[fboIndex]);
+	return ovrFramebuffer_SetCurrent(&engine->appState.Renderer.FrameBuffer[fboIndex]);
 }
 
 ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {

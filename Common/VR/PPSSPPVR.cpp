@@ -290,8 +290,8 @@ VR rendering integration
 ================================================================================
 */
 
-void BindVRFramebuffer() {
-	VR_BindFramebuffer(VR_GetEngine());
+void* BindVRFramebuffer() {
+	return VR_BindFramebuffer(VR_GetEngine());
 }
 
 bool StartVRRender() {

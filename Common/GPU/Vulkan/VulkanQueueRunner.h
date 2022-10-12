@@ -278,7 +278,7 @@ public:
 	}
 
 	void PreprocessSteps(std::vector<VKRStep *> &steps);
-	void RunSteps(std::vector<VKRStep *> &steps, FrameData &frameData, FrameDataShared &frameDataShared);
+	void RunSteps(std::vector<VKRStep *> &steps, FrameData &frameData, FrameDataShared &frameDataShared, bool keepSteps = false);
 	void LogSteps(const std::vector<VKRStep *> &steps, bool verbose);
 
 	std::string StepToString(const VKRStep &step) const;

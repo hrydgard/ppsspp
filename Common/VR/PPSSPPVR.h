@@ -32,7 +32,7 @@ void PreprocessStepVR(void* step);
 void SetVRCompat(VRCompatFlag flag, long value);
 
 // VR rendering integration
-void BindVRFramebuffer();
+void* BindVRFramebuffer();
 bool StartVRRender();
 void FinishVRRender();
 void PreVRFrameRender(int fboIndex);
@@ -59,7 +59,7 @@ inline void PreprocessStepVR(void* step) {}
 inline void SetVRCompat(VRCompatFlag flag, long value) {}
 
 // VR rendering integration
-inline void BindVRFramebuffer() {}
+inline void* BindVRFramebuffer() { return nullptr; }
 inline bool StartVRRender() { return false; }
 inline void FinishVRRender() {}
 inline void PreVRFrameRender(int fboIndex) {}

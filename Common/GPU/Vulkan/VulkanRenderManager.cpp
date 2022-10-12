@@ -12,6 +12,9 @@
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/VR/PPSSPPVR.h"
+
+#include "Core/Config.h"
 
 #if 0 // def _DEBUG
 #define VLOG(...) NOTICE_LOG(G3D, __VA_ARGS__)
@@ -1262,7 +1265,19 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	if (task.steps.empty() && !frameData.hasAcquired)
 		frameData.skipSwap = true;
 	//queueRunner_.LogSteps(stepsOnThread, false);
-	queueRunner_.RunSteps(task.steps, frameData, frameDataShared_);
+	if (IsVRBuild()) {
+		int passes = 1;
+		if (!IsMultiviewSupported() && g_Config.bEnableStereo) {
+			passes = 2;
+		}
+		for (int i = 0; i < passes; i++) {
+			PreVRFrameRender(i);
+			queueRunner_.RunSteps(task.steps, frameData, frameDataShared_, i < passes - 1);
+			PostVRFrameRender();
+		}
+	} else {
+		queueRunner_.RunSteps(task.steps, frameData, frameDataShared_);
+	}
 
 	switch (task.runType) {
 	case VKRRunType::PRESENT:
