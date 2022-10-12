@@ -187,13 +187,51 @@ bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int
 			&frameBuffer->TextureSwapChainLength,
 			(XrSwapchainImageBaseHeader*)frameBuffer->DepthSwapChainImage));
 
-	frameBuffer->VKFrameBuffers = (VkFramebuffer*)malloc(frameBuffer->TextureSwapChainLength * sizeof(VkFramebuffer));
+	frameBuffer->VKColorImages = new VkImageView[frameBuffer->TextureSwapChainLength];
+	frameBuffer->VKDepthImages = new VkImageView[frameBuffer->TextureSwapChainLength];
+	frameBuffer->VKFrameBuffers = new VkFramebuffer[frameBuffer->TextureSwapChainLength];
 	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
-		VkImage colorTexture = ((XrSwapchainImageVulkanKHR*)frameBuffer->ColorSwapChainImage)[i].image;
-		VkImage depthTexture = ((XrSwapchainImageVulkanKHR*)frameBuffer->DepthSwapChainImage)[i].image;
+		VkImageViewCreateInfo createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		createInfo.image = ((XrSwapchainImageVulkanKHR*)frameBuffer->ColorSwapChainImage)[i].image;
+		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		createInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+		createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		createInfo.subresourceRange.baseMipLevel = 0;
+		createInfo.subresourceRange.levelCount = 1;
+		createInfo.subresourceRange.baseArrayLayer = 0;
+		createInfo.subresourceRange.layerCount = swapChainCreateInfo.arraySize;
+		if (vkCreateImageView(frameBuffer->VKContext->device, &createInfo, nullptr, &frameBuffer->VKColorImages[i]) != VK_SUCCESS) {
+			ALOGE("failed to create color image view!");
+			return false;
+		}
+
+		createInfo.image = ((XrSwapchainImageVulkanKHR*)frameBuffer->DepthSwapChainImage)[i].image;
+		createInfo.format = VK_FORMAT_D24_UNORM_S8_UINT;
+		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		if (vkCreateImageView(frameBuffer->VKContext->device, &createInfo, nullptr, &frameBuffer->VKDepthImages[i]) != VK_SUCCESS) {
+			ALOGE("failed to create depth image view!");
+			return false;
+		}
 
 		// Create the frame buffer.
-		//TODO:implement framebuffer creation
+		VkImageView attachments[] = { frameBuffer->VKColorImages[i], frameBuffer->VKDepthImages[i] };
+		VkFramebufferCreateInfo framebufferInfo{};
+		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferInfo.renderPass = VK_NULL_HANDLE;
+		framebufferInfo.attachmentCount = 2;
+		framebufferInfo.pAttachments = attachments;
+		framebufferInfo.width = width;
+		framebufferInfo.height = height;
+		framebufferInfo.layers = swapChainCreateInfo.arraySize;
+		if (vkCreateFramebuffer(frameBuffer->VKContext->device, &framebufferInfo, nullptr, &frameBuffer->VKFrameBuffers[i]) != VK_SUCCESS) {
+			ALOGE("failed to create framebuffer!");
+			return false;
+		}
 	}
 
 	return true;
@@ -202,9 +240,13 @@ bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int
 void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
 	if (frameBuffer->UseVulkan) {
 		for (int i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
+			vkDestroyImageView(frameBuffer->VKContext->device, frameBuffer->VKColorImages[i], nullptr);
+			vkDestroyImageView(frameBuffer->VKContext->device, frameBuffer->VKDepthImages[i], nullptr);
 			vkDestroyFramebuffer(frameBuffer->VKContext->device, frameBuffer->VKFrameBuffers[i], nullptr);
 		}
-		free(frameBuffer->VKFrameBuffers);
+		delete[] frameBuffer->VKColorImages;
+		delete[] frameBuffer->VKDepthImages;
+		delete[] frameBuffer->VKFrameBuffers;
 	} else {
 		GL(glDeleteFramebuffers(frameBuffer->TextureSwapChainLength, frameBuffer->GLFrameBuffers));
 		free(frameBuffer->GLFrameBuffers);

@@ -111,6 +111,8 @@ typedef struct {
 	void* DepthSwapChainImage;
 	unsigned int* GLFrameBuffers;
 	VkFramebuffer* VKFrameBuffers;
+	VkImageView* VKColorImages;
+	VkImageView* VKDepthImages;
 
 	bool Acquired;
 	bool UseVulkan;
