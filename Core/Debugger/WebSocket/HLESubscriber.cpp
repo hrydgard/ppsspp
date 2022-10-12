@@ -476,6 +476,7 @@ void WebSocketHLEFuncRename(DebuggerRequest &req) {
 // Parameters:
 //  - address: unsigned integer address for the start of the range.
 //  - size: unsigned integer size in bytes for scan.
+//  - recreate: optional bool indicating whether functions that lie inside the range must be removed before scanning
 //
 // Response (same event name) with no extra data.
 void WebSocketHLEFuncScan(DebuggerRequest &req) {
@@ -492,7 +493,7 @@ void WebSocketHLEFuncScan(DebuggerRequest &req) {
 		return;
 
 	bool has_recreate = req.HasParam("recreate");
-	bool recreate;
+	bool recreate = false;
 	if (has_recreate) {
 		if (!req.ParamBool("recreate", &recreate)) {
 			return;
@@ -510,7 +511,7 @@ void WebSocketHLEFuncScan(DebuggerRequest &req) {
 			// there is a function
 			// u32 end = last_func_start + g_symbolMap->GetFunctionSize(last_func_start);
 			if (last_func_start + g_symbolMap->GetFunctionSize(last_func_start) != addr + size) {
-				size = last_func_start - addr;
+				size = last_func_start - addr; // decrease the size parameter
 			}
 		}
 		// let's see if the first function is partially inside our range
