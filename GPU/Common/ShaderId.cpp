@@ -255,6 +255,12 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	return desc.str();
 }
 
+bool FragmentIdNeedsFramebufferRead(const FShaderID &id) {
+	return id.Bit(FS_BIT_COLOR_WRITEMASK) ||
+		id.Bits(FS_BIT_REPLACE_LOGIC_OP, 4) != GE_LOGIC_COPY ||
+		(ReplaceBlendType)id.Bits(FS_BIT_REPLACE_BLEND, 3) == REPLACE_BLEND_READ_FRAMEBUFFER;
+}
+
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
 void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs) {
@@ -276,11 +282,11 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		ShaderDepalMode shaderDepalMode = gstate_c.shaderDepalMode;
 
 		bool colorWriteMask = pipelineState.maskState.applyFramebufferRead;
-
 		ReplaceBlendType replaceBlend = pipelineState.blendState.replaceBlend;
-		ReplaceAlphaType stencilToAlpha = pipelineState.blendState.replaceAlphaWithStencil;
-		SimulateLogicOpType simulateLogicOpType = pipelineState.blendState.simulateLogicOpType;
 		GELogicOp replaceLogicOpType = pipelineState.logicState.applyFramebufferRead ? pipelineState.logicState.logicOp : GE_LOGIC_COPY;
+
+		SimulateLogicOpType simulateLogicOpType = pipelineState.blendState.simulateLogicOpType;
+		ReplaceAlphaType stencilToAlpha = pipelineState.blendState.replaceAlphaWithStencil;
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		// Note that checking this means that we must dirty the fragment shader ID whenever textureFullAlpha changes.

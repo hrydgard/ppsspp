@@ -284,3 +284,6 @@ std::string FragmentShaderDesc(const FShaderID &id);
 
 void ComputeGeometryShaderID(GShaderID *id, const Draw::Bugs &bugs, int prim);
 std::string GeometryShaderDesc(const GShaderID &id);
+
+// For sanity checking.
+bool FragmentIdNeedsFramebufferRead(const FShaderID &id);
