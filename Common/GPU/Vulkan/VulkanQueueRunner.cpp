@@ -1624,7 +1624,7 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 		renderPass = GetRenderPass(key);
 
 		VKRFramebuffer *fb = step.render.framebuffer;
-		framebuf = fb->Get(renderPass, step.render.renderPassType, cmd);
+		framebuf = fb->Get(renderPass, step.render.renderPassType);
 		w = fb->width;
 		h = fb->height;
 
@@ -1739,8 +1739,6 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 	if (step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 		_dbg_assert_(src->depth.image != VK_NULL_HANDLE);
 
-		dst->EnsureDepthImage(cmd);
-
 		if (src->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
 			SetupTransitionToTransferSrc(src->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
 		}
@@ -1816,8 +1814,7 @@ void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
 	// We can't copy only depth or only stencil unfortunately.
 	if (step.blit.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 		_dbg_assert_(src->depth.image != VK_NULL_HANDLE);
-
-		dst->EnsureDepthImage(cmd);
+		_dbg_assert_(dst->depth.image != VK_NULL_HANDLE);
 
 		if (src->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
 			SetupTransitionToTransferSrc(src->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
