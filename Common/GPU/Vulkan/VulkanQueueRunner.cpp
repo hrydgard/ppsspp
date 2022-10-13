@@ -1579,6 +1579,15 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			}
 			break;
 		}
+
+		case VKRRenderCommand::DEBUG_ANNOTATION:
+			if (vulkan_->Extensions().EXT_debug_utils) {
+				VkDebugUtilsLabelEXT labelInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+				labelInfo.pLabelName = c.debugAnnotation.annotation;
+				vkCmdInsertDebugUtilsLabelEXT(cmd, &labelInfo);
+			}
+			break;
+
 		default:
 			ERROR_LOG(G3D, "Unimpl queue command");
 		}

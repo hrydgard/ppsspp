@@ -38,6 +38,7 @@ enum class VKRRenderCommand : uint8_t {
 	DRAW_INDEXED,
 	PUSH_CONSTANTS,
 	SELF_DEPENDENCY_BARRIER,
+	DEBUG_ANNOTATION,
 	NUM_RENDER_COMMANDS,
 };
 
@@ -136,6 +137,9 @@ struct VkRenderData {
 			uint8_t size;
 			uint8_t data[40];  // Should be enough for now.
 		} push;
+		struct {
+			const char *annotation;
+		} debugAnnotation;
 	};
 };
 

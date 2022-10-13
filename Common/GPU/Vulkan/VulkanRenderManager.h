@@ -429,6 +429,13 @@ public:
 		curRenderStep_->render.numDraws++;
 	}
 
+	// These can be useful both when inspecting in RenderDoc, and when manually inspecting recorded commands
+	// in the debugger.
+	void DebugAnnotate(const char *annotation) {
+		VkRenderData data{ VKRRenderCommand::DEBUG_ANNOTATION };
+		data.debugAnnotation.annotation = annotation;
+	}
+
 	VkCommandBuffer GetInitCmd();
 
 	// Gets a frame-unique ID of the current step being recorded. Can be used to figure out
