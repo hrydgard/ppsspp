@@ -47,10 +47,7 @@ public:
 	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, bool createDepthStencilBuffer, const char *tag);
 	~VKRFramebuffer();
 
-	void EnsureDepthImage(VkCommandBuffer initCmd);
-
-	// Needs a command buffer in case it need to initialize the depth buffer on-demand.
-	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType, VkCommandBuffer initCmd);
+	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
 
 	int width = 0;
 	int height = 0;
@@ -427,6 +424,13 @@ public:
 		data.drawIndexed.indexType = indexType;
 		curRenderStep_->commands.push_back(data);
 		curRenderStep_->render.numDraws++;
+	}
+
+	// These can be useful both when inspecting in RenderDoc, and when manually inspecting recorded commands
+	// in the debugger.
+	void DebugAnnotate(const char *annotation) {
+		VkRenderData data{ VKRRenderCommand::DEBUG_ANNOTATION };
+		data.debugAnnotation.annotation = annotation;
 	}
 
 	VkCommandBuffer GetInitCmd();

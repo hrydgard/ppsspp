@@ -120,8 +120,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool isModeClear = id.Bit(FS_BIT_CLEARMODE);
 
 	const char *shading = "";
-	if (compat.glslES30 || compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN)
+	if (compat.glslES30 || compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN) {
 		shading = doFlatShading ? "flat" : "";
+	}
 
 	bool useDiscardStencilBugWorkaround = id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
 

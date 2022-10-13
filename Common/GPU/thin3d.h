@@ -616,6 +616,8 @@ public:
 
 	virtual void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {}
 
+	virtual void DebugAnnotate(const char *annotation) {}
+
 	// Partial pipeline state, used to create pipelines. (in practice, in d3d11 they'll use the native state objects directly).
 	// TODO: Possibly ditch these and just put the descs directly in PipelineDesc since only D3D11 benefits.
 	virtual DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) = 0;

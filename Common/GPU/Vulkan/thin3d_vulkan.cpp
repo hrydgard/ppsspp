@@ -367,6 +367,8 @@ public:
 	VKContext(VulkanContext *vulkan);
 	virtual ~VKContext();
 
+	void DebugAnnotate(const char *annotation) override;
+
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
 	}
@@ -1010,6 +1012,8 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 		return VK_NULL_HANDLE;
 	}
 
+	vulkan_->SetDebugName(descSet, VK_OBJECT_TYPE_DESCRIPTOR_SET, "(thin3d desc set)");
+
 	VkDescriptorBufferInfo bufferDesc;
 	bufferDesc.buffer = buf;
 	bufferDesc.offset = 0;
@@ -1649,6 +1653,10 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 		Crash();
 		return 0;
 	}
+}
+
+void VKContext::DebugAnnotate(const char *annotation) {
+	renderManager_.DebugAnnotate(annotation);
 }
 
 }  // namespace Draw
