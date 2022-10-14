@@ -222,7 +222,7 @@ bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int
 		VkImageView attachments[] = { frameBuffer->VKColorImages[i], frameBuffer->VKDepthImages[i] };
 		VkFramebufferCreateInfo framebufferInfo{};
 		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferInfo.renderPass = VK_NULL_HANDLE;
+		framebufferInfo.renderPass = VK_NULL_HANDLE; //TODO:This is probably wrong
 		framebufferInfo.attachmentCount = 2;
 		framebufferInfo.pAttachments = attachments;
 		framebufferInfo.width = width;
