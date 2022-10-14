@@ -790,7 +790,7 @@ public abstract class NativeActivity extends Activity {
 		}
 		navigationCallbackView = null;
 
-		// Workaround for VR issues PPSSPP restart
+		// Workaround for VR issues when PPSSPP restarts
 		if (isVRDevice()) {
 			System.exit(0);
 		}
