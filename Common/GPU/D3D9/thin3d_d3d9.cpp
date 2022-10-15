@@ -1318,6 +1318,7 @@ void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPa
 	}
 
 	dxstate.scissorRect.restore();
+	dxstate.scissorTest.restore();
 	dxstate.viewport.restore();
 	stepId_++;
 }
