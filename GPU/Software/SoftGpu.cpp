@@ -1338,6 +1338,9 @@ bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferT
 	GEBufferFormat fmt = gstate.FrameBufFormat();
 	const u8 *src = fb.data;
 
+	if (!Memory::IsValidAddress(displayFramebuf_))
+		return false;
+
 	if (type == GPU_DBG_FRAMEBUF_DISPLAY) {
 		size.x = 480;
 		size.y = 272;
