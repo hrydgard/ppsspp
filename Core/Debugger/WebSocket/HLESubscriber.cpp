@@ -362,9 +362,10 @@ void WebSocketHLEFuncRemove(DebuggerRequest &req) {
 	json.writeUint("size", funcSize);
 }
 
+// This function removes function symbols that intersect or lie inside the range
+// (Note: this makes no checks whether the range is valid)
+// Returns the number of removed functions
 static u32 RemoveFuncSymbolsInRange(u32 addr, u32 size) {
-	// Note: this makes no checks whether the range is valid
-
 	u32 func_address = g_symbolMap->GetFunctionStart(addr);
 	if (func_address == SymbolMap::INVALID_ADDRESS) {
 		func_address = g_symbolMap->GetNextSymbolAddress(addr, SymbolType::ST_FUNCTION);
@@ -476,7 +477,7 @@ void WebSocketHLEFuncRename(DebuggerRequest &req) {
 // Parameters:
 //  - address: unsigned integer address for the start of the range.
 //  - size: unsigned integer size in bytes for scan.
-//  - recreate: optional bool indicating whether functions that lie inside the range must be removed before scanning
+//  - recreate: optional bool indicating whether functions that intersect or inside lie inside the range must be removed before scanning
 //
 // Response (same event name) with no extra data.
 void WebSocketHLEFuncScan(DebuggerRequest &req) {
@@ -504,23 +505,27 @@ void WebSocketHLEFuncScan(DebuggerRequest &req) {
 		return req.Fail("Address or size outside valid memory");
 
 	if (recreate) {
-		// let's see if the last function is partially inside our range
+		// The following code doesn't do what I wanted it to do AND it's debatable whether it's needed at all
+		// In short, I wanted to shift the start and the end of the range before removal
 
-		u32 last_func_start = g_symbolMap->GetFunctionStart(addr + size - 1);
-		if (last_func_start != SymbolMap::INVALID_ADDRESS) {
-			// there is a function
-			// u32 end = last_func_start + g_symbolMap->GetFunctionSize(last_func_start);
-			if (last_func_start + g_symbolMap->GetFunctionSize(last_func_start) != addr + size) {
-				size = last_func_start - addr; // decrease the size parameter
-			}
-		}
-		// let's see if the first function is partially inside our range
-		u32 start = g_symbolMap->GetFunctionStart(addr);
+		//// let's see if the last function is partially inside our range
 
-		if (start != SymbolMap::INVALID_ADDRESS && start != addr) {
-			// skip to a byte after end
-			addr = start + g_symbolMap->GetFunctionSize(start);
-		}
+		//u32 last_func_start = g_symbolMap->GetFunctionStart(addr + size - 1);
+		//if (last_func_start != SymbolMap::INVALID_ADDRESS) {
+		//	// there is a function
+		//	// u32 end = last_func_start + g_symbolMap->GetFunctionSize(last_func_start);
+		//	if (last_func_start + g_symbolMap->GetFunctionSize(last_func_start) != addr + size) {
+		//		size = last_func_start - addr; // decrease the size parameter
+		//	}
+		//}
+		//// let's see if the first function is partially inside our range
+		//u32 start = g_symbolMap->GetFunctionStart(addr);
+
+		//if (start != SymbolMap::INVALID_ADDRESS && start != addr) {
+		//	// skip to a byte after end
+		//	addr = start + g_symbolMap->GetFunctionSize(start);
+		//}
+
 		RemoveFuncSymbolsInRange(addr, size);
 	}
 
