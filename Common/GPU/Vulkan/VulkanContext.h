@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <functional>
 
 #include "Common/Log.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
@@ -190,6 +191,7 @@ public:
 	VkResult ReinitSurface();
 
 	bool InitSwapchain();
+	void SetCbGetDrawSize(std::function<VkExtent2D()>);
 
 	void DestroySwapchain();
 	void DestroySurface();
@@ -363,6 +365,7 @@ private:
 	// that we really don't want in everything that uses VulkanContext.
 	void *winsysData1_;
 	void *winsysData2_;
+	std::function<VkExtent2D()> cbGetDrawSize_;
 
 	VkInstance instance_ = VK_NULL_HANDLE;
 	VkDevice device_ = VK_NULL_HANDLE;
