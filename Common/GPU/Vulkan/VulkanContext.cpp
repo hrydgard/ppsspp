@@ -1011,12 +1011,21 @@ bool VulkanContext::InitSwapchain() {
 	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, presentModes);
 	_dbg_assert_(res == VK_SUCCESS);
 
+	VkExtent2D currentExtent { surfCapabilities_.currentExtent };
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSurfaceCapabilitiesKHR.html
+	// currentExtent is the current width and height of the surface, or the special value (0xFFFFFFFF, 0xFFFFFFFF) indicating that the surface size will be determined by the extent of a swapchain targeting the surface.
+	if (currentExtent.width == 0xFFFFFFFFu || currentExtent.height == 0xFFFFFFFFu) {
+		_dbg_assert_((bool)cbGetDrawSize_)
+		if (cbGetDrawSize_) {
+			currentExtent = cbGetDrawSize_();
+		}
+	}
 
-	swapChainExtent_.width = clamp(surfCapabilities_.currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
-	swapChainExtent_.height = clamp(surfCapabilities_.currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
+	swapChainExtent_.width = clamp(currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
+	swapChainExtent_.height = clamp(currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
 
 	INFO_LOG(G3D, "surfCapabilities_.current: %dx%d min: %dx%d max: %dx%d computed: %dx%d",
-		surfCapabilities_.currentExtent.width, surfCapabilities_.currentExtent.height,
+		currentExtent.width, currentExtent.height,
 		surfCapabilities_.minImageExtent.width, surfCapabilities_.minImageExtent.height,
 		surfCapabilities_.maxImageExtent.width, surfCapabilities_.maxImageExtent.height,
 		swapChainExtent_.width, swapChainExtent_.height);
@@ -1159,6 +1168,10 @@ bool VulkanContext::InitSwapchain() {
 	}
 	INFO_LOG(G3D, "Created swapchain: %dx%d", swap_chain_info.imageExtent.width, swap_chain_info.imageExtent.height);
 	return true;
+}
+
+void VulkanContext::SetCbGetDrawSize(std::function<VkExtent2D()> cb) {
+	cbGetDrawSize_ = cb;
 }
 
 VkFence VulkanContext::CreateFence(bool presignalled) {
