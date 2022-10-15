@@ -179,7 +179,7 @@ ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
 		return REPLACE_ALPHA_NO;
 	}
 
-	if (replaceBlend != REPLACE_BLEND_NO && replaceBlend != REPLACE_BLEND_COPY_FBO) {
+	if (replaceBlend != REPLACE_BLEND_NO && replaceBlend != REPLACE_BLEND_READ_FRAMEBUFFER) {
 		if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
 			return REPLACE_ALPHA_YES;
 		} else {
@@ -231,6 +231,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 	case GE_FORMAT_8888:
 	case GE_FORMAT_INVALID:
 	case GE_FORMAT_DEPTH16:
+	case GE_FORMAT_CLUT8:
 		switch (gstate.getStencilOpZPass()) {
 		case GE_STENCILOP_REPLACE:
 			// TODO: Could detect zero here and force ZERO - less uniform updates?
@@ -257,7 +258,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 	return STENCIL_VALUE_KEEP;
 }
 
-ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferFormat bufferFormat) {
+ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 	if (gstate_c.blueToAlpha) {
 		return REPLACE_BLEND_BLUE_TO_ALPHA;
 	}
@@ -270,14 +271,14 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferForma
 	// Let's get the non-factor modes out of the way first.
 	switch (eq) {
 	case GE_BLENDMODE_ABSDIFF:
-		return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+		return REPLACE_BLEND_READ_FRAMEBUFFER;
 
 	case GE_BLENDMODE_MIN:
 	case GE_BLENDMODE_MAX:
 		if (gstate_c.Supports(GPU_SUPPORTS_BLEND_MINMAX)) {
 			return REPLACE_BLEND_STANDARD;
 		} else {
-			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return REPLACE_BLEND_READ_FRAMEBUFFER;
 		}
 
 	default:
@@ -300,19 +301,19 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferForma
 				return REPLACE_BLEND_2X_ALPHA;
 			// Can't double, we need the source color to be correct.
 			// Doubling only alpha would clamp the src alpha incorrectly.
-			return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return REPLACE_BLEND_READ_FRAMEBUFFER;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
 			if (bufferFormat == GE_FORMAT_565)
 				return REPLACE_BLEND_2X_ALPHA;
-			return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return REPLACE_BLEND_READ_FRAMEBUFFER;
 
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 			// We can't technically do this correctly (due to clamping) without reading the dst color.
 			// Using a copy isn't accurate either, though, when there's overlap.
 			if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
-				return !allowFramebufferRead ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+				return REPLACE_BLEND_READ_FRAMEBUFFER;
 			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
@@ -339,7 +340,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferForma
 				return REPLACE_BLEND_STANDARD;
 			}
 			// Can't double, we need the source color to be correct.
-			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return REPLACE_BLEND_READ_FRAMEBUFFER;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
@@ -348,7 +349,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferForma
 				// Doubling will have no effect here.
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowFramebufferRead ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+			return REPLACE_BLEND_READ_FRAMEBUFFER;
 
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
@@ -357,7 +358,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferForma
 			}
 			// Double both src (for dst alpha) and alpha (for dst factor.)
 			// But to be accurate (clamping), we need to read the dst color.
-			return !allowFramebufferRead ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return REPLACE_BLEND_READ_FRAMEBUFFER;
 
 		case GE_DSTBLEND_SRCALPHA:
 		case GE_DSTBLEND_INVSRCALPHA:
@@ -369,7 +370,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferForma
 				return REPLACE_BLEND_STANDARD;
 			}
 			// We can't technically do this correctly (due to clamping) without reading the dst alpha.
-			return !allowFramebufferRead ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+			return REPLACE_BLEND_READ_FRAMEBUFFER;
 		}
 
 	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
@@ -383,14 +384,14 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferForma
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return REPLACE_BLEND_READ_FRAMEBUFFER;
 
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_2X_ALPHA;
 			}
-			return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return REPLACE_BLEND_READ_FRAMEBUFFER;
 
 		case GE_DSTBLEND_SRCALPHA:
 		case GE_DSTBLEND_INVSRCALPHA:
@@ -401,7 +402,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferForma
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return REPLACE_BLEND_READ_FRAMEBUFFER;
 		}
 
 	case GE_SRCBLEND_FIXA:
@@ -409,7 +410,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferForma
 		switch (funcB) {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 			// Can't safely double alpha, will clamp.
-			return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return REPLACE_BLEND_READ_FRAMEBUFFER;
 
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			// Doubling alpha is safe for the inverse, will clamp to zero either way.
@@ -420,7 +421,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferForma
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return REPLACE_BLEND_READ_FRAMEBUFFER;
 
 		case GE_DSTBLEND_FIXB:
 		default:
@@ -454,14 +455,14 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferForma
 			if (funcA == GE_SRCBLEND_SRCALPHA || funcA == GE_SRCBLEND_INVSRCALPHA) {
 				// Can't safely double alpha, will clamp.  However, a copy may easily be worse due to overlap.
 				if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
-					return !allowFramebufferRead ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+					return REPLACE_BLEND_READ_FRAMEBUFFER;
 				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 			} else {
 				// This means dst alpha/color is used in the src factor.
 				// Unfortunately, copying here causes overlap problems in Silent Hill games (it seems?)
 				// We will just hope that doubling alpha for the dst factor will not clamp too badly.
 				if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
-					return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+					return REPLACE_BLEND_READ_FRAMEBUFFER;
 				return REPLACE_BLEND_2X_ALPHA;
 			}
 
@@ -478,7 +479,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferForma
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return REPLACE_BLEND_READ_FRAMEBUFFER;
 
 		default:
 			return REPLACE_BLEND_STANDARD;
@@ -487,27 +488,6 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferForma
 
 	// Should never get here.
 	return REPLACE_BLEND_STANDARD;
-}
-
-LogicOpReplaceType ReplaceLogicOpType() {
-	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
-		switch (gstate.getLogicOp()) {
-		case GE_LOGIC_COPY_INVERTED:
-		case GE_LOGIC_AND_INVERTED:
-		case GE_LOGIC_OR_INVERTED:
-		case GE_LOGIC_NOR:
-		case GE_LOGIC_NAND:
-		case GE_LOGIC_EQUIV:
-			return LOGICOPTYPE_INVERT;
-		case GE_LOGIC_INVERTED:
-			return LOGICOPTYPE_ONE;
-		case GE_LOGIC_SET:
-			return LOGICOPTYPE_ONE;
-		default:
-			return LOGICOPTYPE_NORMAL;
-		}
-	}
-	return LOGICOPTYPE_NORMAL;
 }
 
 static const float DEPTH_SLICE_FACTOR_HIGH = 4.0f;
@@ -557,9 +537,7 @@ DepthScaleFactors GetDepthScaleFactors() {
 }
 
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
-	bool throughmode = gstate.isModeThrough();
-	out.dirtyProj = false;
-	out.dirtyDepth = false;
+	out.throughMode = gstate.isModeThrough();
 
 	float renderWidthFactor, renderHeightFactor;
 	float renderX = 0.0f, renderY = 0.0f;
@@ -583,8 +561,11 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		renderHeightFactor = renderHeight / 272.0f;
 	}
 
-	renderX = gstate_c.curRTOffsetX;
-	renderY = gstate_c.curRTOffsetY;
+	// We take care negative offsets of in the projection matrix.
+	// These come from split framebuffers (Killzone).
+	// TODO: Might be safe to do get rid of this here and do the same for positive offsets?
+	renderX = std::max(gstate_c.curRTOffsetX, 0);
+	renderY = std::max(gstate_c.curRTOffsetY, 0);
 
 	// Scissor
 	int scissorX1 = gstate.getScissorX1();
@@ -610,7 +591,10 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	float offsetX = gstate.getOffsetX();
 	float offsetY = gstate.getOffsetY();
 
-	if (throughmode) {
+	if (out.throughMode) {
+		// If renderX/renderY are offset to compensate for a split framebuffer,
+		// applying the offset to the viewport isn't enough, since the viewport clips.
+		// We need to apply either directly to the vertices, or to the "through" projection matrix.
 		out.viewportX = renderX * renderWidthFactor + displayOffsetX;
 		out.viewportY = renderY * renderHeightFactor + displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
@@ -647,10 +631,10 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float right = left + vpWidth;
 		float bottom = top + vpHeight;
 
-		float wScale = 1.0f;
-		float xOffset = 0.0f;
-		float hScale = 1.0f;
-		float yOffset = 0.0f;
+		out.widthScale = 1.0f;
+		out.xOffset = 0.0f;
+		out.heightScale = 1.0f;
+		out.yOffset = 0.0f;
 
 		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
 		{
@@ -678,8 +662,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 					right = left + 1.0f;
 				}
 
-				wScale = vpWidth / (right - left);
-				xOffset = drift / (right - left);
+				out.widthScale = vpWidth / (right - left);
+				out.xOffset = drift / (right - left);
 			}
 		}
 
@@ -707,8 +691,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 					bottom = top + 1.0f;
 				}
 
-				hScale = vpHeight / (bottom - top);
-				yOffset = drift / (bottom - top);
+				out.heightScale = vpHeight / (bottom - top);
+				out.yOffset = drift / (bottom - top);
 			}
 		}
 
@@ -740,13 +724,13 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		}
 		// Okay.  So, in our shader, -1 will map to minz, and +1 will map to maxz.
 		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
-		float zScale = halfActualZRange < std::numeric_limits<float>::epsilon() ? 1.0f : vpZScale / halfActualZRange;
+		out.depthScale = halfActualZRange < std::numeric_limits<float>::epsilon() ? 1.0f : vpZScale / halfActualZRange;
 		// This adjusts the center from halfActualZRange to vpZCenter.
-		float zOffset = halfActualZRange < std::numeric_limits<float>::epsilon() ? 0.0f : (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
+		out.zOffset = halfActualZRange < std::numeric_limits<float>::epsilon() ? 0.0f : (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
 
 		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
-			zScale = 1.0f;
-			zOffset = 0.0f;
+			out.depthScale = 1.0f;
+			out.zOffset = 0.0f;
 			out.depthRangeMin = ToScaledDepthFromIntegerScale(vpZCenter - vpZScale);
 			out.depthRangeMax = ToScaledDepthFromIntegerScale(vpZCenter + vpZScale);
 		} else {
@@ -757,19 +741,27 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		// OpenGL will clamp these for us anyway, and Direct3D will error if not clamped.
 		out.depthRangeMin = std::max(out.depthRangeMin, 0.0f);
 		out.depthRangeMax = std::min(out.depthRangeMax, 1.0f);
+	}
+}
 
-		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
-		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
-		bool depthChanged = gstate_c.vpDepthScale != zScale || gstate_c.vpZOffset != zOffset;
-		if (scaleChanged || offsetChanged || depthChanged) {
-			gstate_c.vpWidthScale = wScale;
-			gstate_c.vpHeightScale = hScale;
-			gstate_c.vpDepthScale = zScale;
-			gstate_c.vpXOffset = xOffset;
-			gstate_c.vpYOffset = yOffset;
-			gstate_c.vpZOffset = zOffset;
-			out.dirtyProj = true;
-			out.dirtyDepth = depthChanged;
+void UpdateCachedViewportState(const ViewportAndScissor &vpAndScissor) {
+	if (vpAndScissor.throughMode)
+		return;
+
+	bool scaleChanged = gstate_c.vpWidthScale != vpAndScissor.widthScale || gstate_c.vpHeightScale != vpAndScissor.heightScale;
+	bool offsetChanged = gstate_c.vpXOffset != vpAndScissor.xOffset || gstate_c.vpYOffset != vpAndScissor.yOffset;
+	bool depthChanged = gstate_c.vpDepthScale != vpAndScissor.depthScale || gstate_c.vpZOffset != vpAndScissor.zOffset;
+	if (scaleChanged || offsetChanged || depthChanged) {
+		gstate_c.vpWidthScale = vpAndScissor.widthScale;
+		gstate_c.vpHeightScale = vpAndScissor.heightScale;
+		gstate_c.vpDepthScale = vpAndScissor.depthScale;
+		gstate_c.vpXOffset = vpAndScissor.xOffset;
+		gstate_c.vpYOffset = vpAndScissor.yOffset;
+		gstate_c.vpZOffset = vpAndScissor.zOffset;
+
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
+		if (depthChanged) {
+			gstate_c.Dirty(DIRTY_DEPTHRANGE);
 		}
 	}
 }
@@ -862,70 +854,94 @@ static inline bool blendColorSimilar(uint32_t a, uint32_t b, int margin = 25) { 
 	return false;
 }
 
-// Try to simulate some common logic ops.
-static void ApplyLogicOp(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &blendEq) {
+// Try to simulate some common logic ops by using blend, if needed.
+// The shader might also need modification, the below function SimulateLogicOpShaderTypeIfNeeded
+// takes care of that.
+static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &blendEq) {
 	// Note: our shader solution applies logic ops BEFORE blending, not correctly after.
 	// This is however fine for the most common ones, like CLEAR/NOOP/SET, etc.
-	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
-		if (gstate.isLogicOpEnabled()) {
-			switch (gstate.getLogicOp()) {
-			case GE_LOGIC_CLEAR:
-				srcBlend = BlendFactor::ZERO;
-				dstBlend = BlendFactor::ZERO;
-				blendEq = BlendEq::ADD;
-				break;
-			case GE_LOGIC_AND:
-			case GE_LOGIC_AND_REVERSE:
-				WARN_LOG_REPORT_ONCE(d3dLogicOpAnd, G3D, "Unsupported AND logic op: %x", gstate.getLogicOp());
-				break;
-			case GE_LOGIC_COPY:
-				// This is the same as off.
-				break;
-			case GE_LOGIC_COPY_INVERTED:
-				// Handled in the shader.
-				break;
-			case GE_LOGIC_AND_INVERTED:
-			case GE_LOGIC_NOR:
-			case GE_LOGIC_NAND:
-			case GE_LOGIC_EQUIV:
-				// Handled in the shader.
-				WARN_LOG_REPORT_ONCE(d3dLogicOpAndInverted, G3D, "Attempted invert for logic op: %x", gstate.getLogicOp());
-				break;
-			case GE_LOGIC_INVERTED:
-				srcBlend = BlendFactor::ONE;
-				dstBlend = BlendFactor::ONE;
-				blendEq = BlendEq::SUBTRACT;
-				WARN_LOG_REPORT_ONCE(d3dLogicOpInverted, G3D, "Attempted inverse for logic op: %x", gstate.getLogicOp());
-				break;
-			case GE_LOGIC_NOOP:
-				srcBlend = BlendFactor::ZERO;
-				dstBlend = BlendFactor::ONE;
-				blendEq = BlendEq::ADD;
-				break;
-			case GE_LOGIC_XOR:
-				WARN_LOG_REPORT_ONCE(d3dLogicOpOrXor, G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
-				break;
-			case GE_LOGIC_OR:
-			case GE_LOGIC_OR_INVERTED:
-				// Inverted in shader.
-				dstBlend = BlendFactor::ONE;
-				WARN_LOG_REPORT_ONCE(d3dLogicOpOr, G3D, "Attempted or for logic op: %x", gstate.getLogicOp());
-				break;
-			case GE_LOGIC_OR_REVERSE:
-				WARN_LOG_REPORT_ONCE(d3dLogicOpOrReverse, G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
-				break;
-			case GE_LOGIC_SET:
-				srcBlend = BlendFactor::ONE;
-				dstBlend = BlendFactor::ONE;
-				blendEq = BlendEq::ADD;
-				WARN_LOG_REPORT_ONCE(d3dLogicOpSet, G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
-				break;
-			}
+	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
+		switch (gstate.getLogicOp()) {
+		case GE_LOGIC_CLEAR:
+			srcBlend = BlendFactor::ZERO;
+			dstBlend = BlendFactor::ZERO;
+			blendEq = BlendEq::ADD;
+			return true;
+		case GE_LOGIC_AND:
+		case GE_LOGIC_AND_REVERSE:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpAnd, G3D, "Unsupported AND logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_COPY:
+			// This is the same as off.
+			break;
+		case GE_LOGIC_COPY_INVERTED:
+			// Handled in the shader.
+			break;
+		case GE_LOGIC_AND_INVERTED:
+		case GE_LOGIC_NOR:
+		case GE_LOGIC_NAND:
+		case GE_LOGIC_EQUIV:
+			// Handled in the shader.
+			WARN_LOG_REPORT_ONCE(d3dLogicOpAndInverted, G3D, "Attempted invert for logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_INVERTED:
+			srcBlend = BlendFactor::ONE;
+			dstBlend = BlendFactor::ONE;
+			blendEq = BlendEq::SUBTRACT;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpInverted, G3D, "Attempted inverse for logic op: %x", gstate.getLogicOp());
+			return true;
+		case GE_LOGIC_NOOP:
+			srcBlend = BlendFactor::ZERO;
+			dstBlend = BlendFactor::ONE;
+			blendEq = BlendEq::ADD;
+			return true;
+		case GE_LOGIC_XOR:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOrXor, G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_OR:
+		case GE_LOGIC_OR_INVERTED:
+			// Inverted in shader.
+			srcBlend = BlendFactor::ONE;
+			dstBlend = BlendFactor::ONE;
+			blendEq = BlendEq::ADD;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOr, G3D, "Attempted or for logic op: %x", gstate.getLogicOp());
+			return true;
+		case GE_LOGIC_OR_REVERSE:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOrReverse, G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_SET:
+			srcBlend = BlendFactor::ONE;
+			dstBlend = BlendFactor::ONE;
+			blendEq = BlendEq::ADD;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpSet, G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
+			return true;
 		}
 	}
+	return false;
 }
 
-// Try to simulate some common logic ops.
+// Choose the shader part of the above logic op fallback simulation.
+SimulateLogicOpType SimulateLogicOpShaderTypeIfNeeded() {
+	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
+		switch (gstate.getLogicOp()) {
+		case GE_LOGIC_COPY_INVERTED:
+		case GE_LOGIC_AND_INVERTED:
+		case GE_LOGIC_OR_INVERTED:
+		case GE_LOGIC_NOR:
+		case GE_LOGIC_NAND:
+		case GE_LOGIC_EQUIV:
+			return LOGICOPTYPE_INVERT;
+		case GE_LOGIC_INVERTED:
+			return LOGICOPTYPE_ONE;
+		case GE_LOGIC_SET:
+			return LOGICOPTYPE_ONE;
+		default:
+			return LOGICOPTYPE_NORMAL;
+		}
+	}
+	return LOGICOPTYPE_NORMAL;
+}
+
 void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
 	StencilValueType stencilType = STENCIL_VALUE_KEEP;
 	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
@@ -936,7 +952,6 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 	BlendFactor srcBlend = BlendFactor::ONE;
 	BlendFactor dstBlend = BlendFactor::ZERO;
 	BlendEq blendEq = BlendEq::ADD;
-	ApplyLogicOp(srcBlend, dstBlend, blendEq);
 
 	// We're not blending, but we may still want to "blend" for stencil.
 	// This is only useful for INCR/DECR/INVERT.  Others can write directly.
@@ -944,7 +959,7 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 	case STENCIL_VALUE_INCR_4:
 	case STENCIL_VALUE_INCR_8:
 		// We'll add the incremented value output by the shader.
-		blendState.enabled = true;
+		blendState.blendEnabled = true;
 		blendState.setFactors(srcBlend, dstBlend, BlendFactor::ONE, BlendFactor::ONE);
 		blendState.setEquation(blendEq, BlendEq::ADD);
 		break;
@@ -952,23 +967,23 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 	case STENCIL_VALUE_DECR_4:
 	case STENCIL_VALUE_DECR_8:
 		// We'll subtract the incremented value output by the shader.
-		blendState.enabled = true;
+		blendState.blendEnabled = true;
 		blendState.setFactors(srcBlend, dstBlend, BlendFactor::ONE, BlendFactor::ONE);
 		blendState.setEquation(blendEq, BlendEq::SUBTRACT);
 		break;
 
 	case STENCIL_VALUE_INVERT:
 		// The shader will output one, and reverse subtracting will essentially invert.
-		blendState.enabled = true;
+		blendState.blendEnabled = true;
 		blendState.setFactors(srcBlend, dstBlend, BlendFactor::ONE, BlendFactor::ONE);
 		blendState.setEquation(blendEq, BlendEq::REVERSE_SUBTRACT);
 		break;
 
 	default:
 		if (srcBlend == BlendFactor::ONE && dstBlend == BlendFactor::ZERO && blendEq == BlendEq::ADD) {
-			blendState.enabled = false;
+			blendState.blendEnabled = false;
 		} else {
-			blendState.enabled = true;
+			blendState.blendEnabled = true;
 			blendState.setFactors(srcBlend, dstBlend, BlendFactor::ONE, BlendFactor::ZERO);
 			blendState.setEquation(blendEq, BlendEq::ADD);
 		}
@@ -976,96 +991,58 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 	}
 }
 
-bool IsColorWriteMaskComplex(bool allowFramebufferRead) {
-	// Restrict to Outrun temporarily (by uglily reusing the ReinterpretFramebuffers flag)
-	// This check must match the one in ConvertMaskState.
-	if (!allowFramebufferRead || !PSP_CoreParameter().compat.flags().ShaderColorBitmask) {
-		// Don't have a choice - we'll make do but it won't always be right.
-		return false;
-	}
-
-	if (gstate_c.blueToAlpha) {
-		// We'll generate a simple ___A mask.
-		return false;
-	}
-
-	uint32_t colorMask = (gstate.pmskc & 0xFFFFFF) | (gstate.pmska << 24);
-
-	for (int i = 0; i < 4; i++) {
-		switch (colorMask & 0xFF) {
-		case 0x0:
-		case 0xFF:
-			break;
-		default:
-			return true;
-		}
-		colorMask >>= 8;
-	}
-	return false;
-}
-
 // If we can we emulate the colorMask by simply toggling the full R G B A masks offered
 // by modern hardware, we do that. This is 99.9% of the time.
 // When that's not enough, we fall back on a technique similar to shader blending,
 // we read from the framebuffer (or a copy of it).
-void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
+// We also prepare uniformMask so that if doing this in the shader gets forced-on,
+// we have the right mask already.
+static void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSupported) {
 	if (gstate_c.blueToAlpha) {
 		maskState.applyFramebufferRead = false;
-		maskState.rgba[0] = false;
-		maskState.rgba[1] = false;
-		maskState.rgba[2] = false;
-		maskState.rgba[3] = true;
-		return;
-	}
-
-	if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
-		// Suppress color writes entirely in this mode.
-		maskState.applyFramebufferRead = false;
-		maskState.rgba[0] = false;
-		maskState.rgba[1] = false;
-		maskState.rgba[2] = false;
-		maskState.rgba[3] = false;
+		maskState.uniformMask = 0xFF000000;
+		maskState.channelMask = 0x8;
 		return;
 	}
 
 	// Invert to convert masks from the PSP's format where 1 is don't draw to PC where 1 is draw.
 	uint32_t colorMask = ~((gstate.pmskc & 0xFFFFFF) | (gstate.pmska << 24));
 
+	maskState.uniformMask = colorMask;
 	maskState.applyFramebufferRead = false;
+	maskState.channelMask = 0;
 	for (int i = 0; i < 4; i++) {
-		int channelMask = colorMask & 0xFF;
+		uint32_t channelMask = (colorMask >> (i * 8)) & 0xFF;
 		switch (channelMask) {
 		case 0x0:
-			maskState.rgba[i] = false;
 			break;
 		case 0xFF:
-			maskState.rgba[i] = true;
+			maskState.channelMask |= 1 << i;
 			break;
 		default:
-			if (allowFramebufferRead) {
-				// Instead of just 'true', restrict shader bitmasks to Outrun temporarily.
-				// TODO: This check must match the one in IsColorWriteMaskComplex.
-				maskState.applyFramebufferRead = PSP_CoreParameter().compat.flags().ShaderColorBitmask;
-				maskState.rgba[i] = true;
+			if (shaderBitOpsSupported && PSP_CoreParameter().compat.flags().ShaderColorBitmask) {
+				// Shaders can emulate masking accurately. Let's make use of that.
+				maskState.applyFramebufferRead = true;
+				maskState.channelMask |= 1 << i;
 			} else {
-				// Use the old heuristic.
-				maskState.rgba[i] = channelMask >= 128;
+				// Use the old inaccurate heuristic.
+				if (channelMask >= 128) {
+					maskState.channelMask |= 1 << i;
+				}
 			}
 		}
-		colorMask >>= 8;
 	}
 
 	// Let's not write to alpha if stencil isn't enabled.
-	if (IsStencilTestOutputDisabled()) {
-		maskState.rgba[3] = false;
-	} else if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-		// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-		maskState.rgba[3] = false;
+	// Also if the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
+	if (IsStencilTestOutputDisabled() || ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+		maskState.channelMask &= ~8;
+		maskState.uniformMask &= ~0xFF000000;
 	}
 }
 
 // Called even if AlphaBlendEnable == false - it also deals with stencil-related blend state.
-void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead, bool forceReplaceBlend) {
+static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBlend) {
 	// Blending is a bit complex to emulate.  This is due to several reasons:
 	//
 	//  * Doubled blend modes (src, dst, inversed) aren't supported in OpenGL.
@@ -1079,51 +1056,60 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 	blendState.applyFramebufferRead = false;
 	blendState.dirtyShaderBlendFixValues = false;
 	blendState.useBlendColor = false;
-	blendState.replaceAlphaWithStencil = REPLACE_ALPHA_NO;
 
-	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(allowFramebufferRead, gstate_c.framebufFormat);
+	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.framebufFormat);
 	if (forceReplaceBlend) {
-		replaceBlend = REPLACE_BLEND_COPY_FBO;
+		// Enforce blend replacement if enabled. If not, shouldn't do anything of course.
+		replaceBlend = gstate.isAlphaBlendEnabled() ? REPLACE_BLEND_READ_FRAMEBUFFER : REPLACE_BLEND_NO;
 	}
+
+	blendState.replaceBlend = replaceBlend;
+
+	blendState.simulateLogicOpType = SimulateLogicOpShaderTypeIfNeeded();
+
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
+	blendState.replaceAlphaWithStencil = replaceAlphaWithStencil;
+
 	bool usePreSrc = false;
 
 	bool blueToAlpha = false;
 
 	switch (replaceBlend) {
 	case REPLACE_BLEND_NO:
-		blendState.resetFramebufferRead = true;
 		// We may still want to do something about stencil -> alpha.
 		ApplyStencilReplaceAndLogicOpIgnoreBlend(replaceAlphaWithStencil, blendState);
+
+		if (forceReplaceBlend) {
+			// If this is true, the logic and mask replacements will be applied, at least. In that case,
+			// we should not apply any logic op simulation.
+			blendState.simulateLogicOpType = LOGICOPTYPE_NORMAL;
+		}
 		return;
 
 	case REPLACE_BLEND_BLUE_TO_ALPHA:
 		blueToAlpha = true;
-		blendState.enabled = gstate.isAlphaBlendEnabled();
+		blendState.blendEnabled = gstate.isAlphaBlendEnabled();
 		// We'll later convert the color blend to blend in the alpha channel.
 		break;
 
-	case REPLACE_BLEND_COPY_FBO:
-		blendState.enabled = true;
+	case REPLACE_BLEND_READ_FRAMEBUFFER:
+		blendState.blendEnabled = true;
 		blendState.applyFramebufferRead = true;
-		blendState.resetFramebufferRead = false;
-		blendState.replaceAlphaWithStencil = replaceAlphaWithStencil;
+		blendState.simulateLogicOpType = LOGICOPTYPE_NORMAL;
 		break;
 
 	case REPLACE_BLEND_PRE_SRC:
 	case REPLACE_BLEND_PRE_SRC_2X_ALPHA:
-		blendState.enabled = true;
+		blendState.blendEnabled = true;
 		usePreSrc = true;
 		break;
 
 	case REPLACE_BLEND_STANDARD:
 	case REPLACE_BLEND_2X_ALPHA:
 	case REPLACE_BLEND_2X_SRC:
-		blendState.enabled = true;
+		blendState.blendEnabled = true;
 		break;
 	}
-
-	blendState.resetFramebufferRead = true;
 
 	const GEBlendMode blendFuncEq = gstate.getBlendEq();
 	GEBlendSrcFactor blendFuncA = gstate.getBlendFuncA();
@@ -1273,9 +1259,6 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 		colorEq = eqLookupNoMinMax[blendFuncEq];
 	}
 
-	// Attempt to apply the logic op, if any.
-	ApplyLogicOp(glBlendFuncA, glBlendFuncB, colorEq);
-
 	// The stencil-to-alpha in fragment shader doesn't apply here (blending is enabled), and we shouldn't
 	// do any blending in the alpha channel as that doesn't seem to happen on PSP.  So, we attempt to
 	// apply the stencil to the alpha, since that's what should be stored.
@@ -1355,6 +1338,48 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 	}
 
 	blendState.setEquation(colorEq, alphaEq);
+}
+
+static void ConvertLogicOpState(GenericLogicState &logicOpState, bool logicSupported, bool shaderBitOpsSupported, bool forceApplyFramebuffer) {
+	// TODO: We can get more detailed with checks here. Some logic ops don't involve the destination at all.
+	// Several can be trivially supported even without any bitwise logic.
+	if (!gstate.isLogicOpEnabled() || gstate.getLogicOp() == GE_LOGIC_COPY) {
+		// No matter what, don't need to do anything.
+		logicOpState.logicOpEnabled = false;
+		logicOpState.logicOp = GE_LOGIC_COPY;
+		logicOpState.applyFramebufferRead = forceApplyFramebuffer;
+		return;
+	}
+
+	if (forceApplyFramebuffer && shaderBitOpsSupported) {
+		// We have to emulate logic ops in the shader.
+		logicOpState.logicOpEnabled = false;  // Don't use any hardware logic op, supported or not.
+		logicOpState.applyFramebufferRead = true;
+		logicOpState.logicOp = gstate.getLogicOp();
+	} else if (logicSupported) {
+		// We can use hardware logic ops, if needed.
+		logicOpState.applyFramebufferRead = false;
+		if (gstate.isLogicOpEnabled()) {
+			logicOpState.logicOpEnabled = true;
+			logicOpState.logicOp = gstate.getLogicOp();
+		} else {
+			logicOpState.logicOpEnabled = false;
+			logicOpState.logicOp = GE_LOGIC_COPY;
+		}
+	} else if (shaderBitOpsSupported) {
+		// D3D11 and some OpenGL versions will end up here.
+		// Logic ops not support, bitops supported. Let's punt to the shader.
+		// We should possibly always do this and never use the hardware ops, since they'll mishandle the alpha channel..
+		logicOpState.logicOpEnabled = false;  // Don't use any hardware logic op, supported or not.
+		logicOpState.applyFramebufferRead = true;
+		logicOpState.logicOp = gstate.getLogicOp();
+	} else {
+		// In this case, the SIMULATE fallback should kick in.
+		// Need to make sure this is checking for the same things though...
+		logicOpState.logicOpEnabled = false;
+		logicOpState.logicOp = GE_LOGIC_COPY;
+		logicOpState.applyFramebufferRead = false;
+	}
 }
 
 static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
@@ -1534,5 +1559,44 @@ void ConvertStencilFuncState(GenericStencilFuncState &state) {
 	default:
 		// Hard to do anything useful for 4444, and 8888 is fine.
 		break;
+	}
+}
+
+void GenericMaskState::Log() {
+	WARN_LOG(G3D, "Mask: %08x %01X readfb=%d", uniformMask, channelMask, applyFramebufferRead);
+}
+
+void GenericBlendState::Log() {
+	WARN_LOG(G3D, "Blend: hwenable=%d readfb=%d replblend=%d replalpha=%d",
+		blendEnabled, applyFramebufferRead, replaceBlend, (int)replaceAlphaWithStencil);
+}
+
+void ComputedPipelineState::Convert(bool shaderBitOpsSuppported) {
+	// Passing on the previous applyFramebufferRead as forceFrameBuffer read in the next one,
+	// thus propagating forward.
+	ConvertMaskState(maskState, shaderBitOpsSuppported);
+	ConvertLogicOpState(logicState, gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP), shaderBitOpsSuppported, maskState.applyFramebufferRead);
+	ConvertBlendState(blendState, logicState.applyFramebufferRead);
+
+	// Note: If the blend state decided it had to use framebuffer reads,
+	// we need to make sure that both mask and logic also use it, otherwise things will go wrong.
+	if (blendState.applyFramebufferRead || logicState.applyFramebufferRead) {
+		maskState.ConvertToShaderBlend();
+		logicState.ConvertToShaderBlend();
+	} else {
+		// If it isn't a read, we may need to change blending to apply the logic op.
+		logicState.ApplyToBlendState(blendState);
+	}
+}
+
+void GenericLogicState::ApplyToBlendState(GenericBlendState &blendState) {
+	if (SimulateLogicOpIfNeeded(blendState.srcColor, blendState.dstColor, blendState.eqColor)) {
+		if (!blendState.blendEnabled) {
+			// If it wasn't turned on, make sure it is now.
+			blendState.blendEnabled = true;
+			blendState.srcAlpha = BlendFactor::ONE;
+			blendState.dstAlpha = BlendFactor::ZERO;
+			blendState.eqAlpha = BlendEq::ADD;
+		}
 	}
 }

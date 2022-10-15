@@ -93,6 +93,27 @@ void TabControl::AddTab(HWND handle, const wchar_t* title)
 	ShowTab(index);
 }
 
+HWND TabControl::RemoveTab(int index) {
+	int prevIndex = CurrentTabIndex();
+	if (currentTab >= index)
+		--currentTab;
+
+	HWND prevHandle = tabs[index].pageHandle;
+	if (tabs.size() == 1) {
+		TabCtrl_DeleteAllItems(hwnd);
+		tabs.clear();
+		currentTab = 0;
+	} else {
+		TabCtrl_DeleteItem(hwnd, index);
+		tabs.erase(tabs.begin() + index);
+
+		if (prevIndex == index)
+			ShowTab(currentTab, true);
+	}
+
+	return prevHandle;
+}
+
 int TabControl::AppendPageToControl(const wchar_t *title)
 {
 	TCITEM tcItem;
@@ -255,6 +276,14 @@ void TabControl::HandleNotify(LPARAM lParam)
 		int iPage = TabCtrl_GetCurSel(hwnd);
 		ShowTab(iPage,false);
 	}
+}
+
+int TabControl::HitTest(const POINT &screenPos) {
+	TCHITTESTINFO hitTest{};
+	hitTest.pt = screenPos;
+	ScreenToClient(hwnd, &hitTest.pt);
+
+	return TabCtrl_HitTest(hwnd, &hitTest);
 }
 
 void TabControl::OnResize()

@@ -57,22 +57,10 @@ inline static T VecClamp(const T &v, const T &low, const T &high)
 }
 
 template<typename T>
-class Vec2
-{
+class Vec2 {
 public:
-	union
-	{
-		struct
-		{
-			T x,y;
-		};
-#if defined(_M_SSE)
-		__m128i ivec;
-		__m128 vec;
-#elif PPSSPP_ARCH(ARM64_NEON)
-		int32x4_t ivec;
-		float32x4_t vec;
-#endif
+	struct {
+		T x,y;
 	};
 
 	T* AsArray() { return &x; }
@@ -81,15 +69,6 @@ public:
 	Vec2() {}
 	Vec2(const T a[2]) : x(a[0]), y(a[1]) {}
 	Vec2(const T& _x, const T& _y) : x(_x), y(_y) {}
-#if defined(_M_SSE)
-	Vec2(const __m128 &_vec) : vec(_vec) {}
-	Vec2(const __m128i &_ivec) : ivec(_ivec) {}
-#elif PPSSPP_ARCH(ARM64_NEON)
-	Vec2(const float32x4_t &_vec) : vec(_vec) {}
-#if !defined(_MSC_VER)
-	Vec2(const int32x4_t &_ivec) : ivec(_ivec) {}
-#endif
-#endif
 
 	template<typename T2>
 	Vec2<T2> Cast() const
@@ -228,11 +207,11 @@ public:
 
 	Vec3() {}
 	Vec3(const T a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
-	Vec3(const T& _x, const T& _y, const T& _z) : x(_x), y(_y), z(_z) {}
+	constexpr Vec3(const T& _x, const T& _y, const T& _z) : x(_x), y(_y), z(_z) {}
 	Vec3(const Vec2<T>& _xy, const T& _z) : x(_xy.x), y(_xy.y), z(_z) {}
 #if defined(_M_SSE)
-	Vec3(const __m128 &_vec) : vec(_vec) {}
-	Vec3(const __m128i &_ivec) : ivec(_ivec) {}
+	constexpr Vec3(const __m128 &_vec) : vec(_vec) {}
+	constexpr Vec3(const __m128i &_ivec) : ivec(_ivec) {}
 	Vec3(const Vec3Packed<T> &_xyz) {
 		vec = _mm_loadu_ps(_xyz.AsArray());
 	}
@@ -249,7 +228,7 @@ public:
 #endif
 
 	template<typename T2>
-	Vec3<T2> Cast() const
+	constexpr Vec3<T2> Cast() const
 	{
 		return Vec3<T2>((T2)x, (T2)y, (T2)z);
 	}
@@ -258,7 +237,7 @@ public:
 	static Vec3 FromRGB(unsigned int rgb);
 	unsigned int ToRGB() const; // alpha bits set to zero
 
-	static Vec3 AssignToAll(const T& f)
+	static constexpr Vec3 AssignToAll(const T& f)
 	{
 		return Vec3<T>(f, f, f);
 	}

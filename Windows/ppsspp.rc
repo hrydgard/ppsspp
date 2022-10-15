@@ -196,13 +196,13 @@ BEGIN
     CONTROL         "",IDC_DEBUG_BOTTOMTABS,"SysTabControl32",TCS_TABS | TCS_FOCUSNEVER,1,338,513,93
 END
 
-IDD_GEDEBUGGER DIALOGEX 0, 0, 500, 400
+IDD_GEDEBUGGER DIALOGEX 0, 0, 490, 400
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
 EXSTYLE WS_EX_ACCEPTFILES | WS_EX_TOOLWINDOW
 CAPTION "GE"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
-    PUSHBUTTON      "Step &Frame",IDC_GEDBG_STEPFRAME,10,2,44,14
+    PUSHBUTTON      "Step &Frame",IDC_GEDBG_STEPVSYNC,10,2,44,14
     PUSHBUTTON      "Step &Tex",IDC_GEDBG_STEPTEX,60,2,44,14
     PUSHBUTTON      "Step &Draw",IDC_GEDBG_STEPDRAW,105,2,44,14
     PUSHBUTTON      "Step &Prim",IDC_GEDBG_STEPPRIM,150,2,44,14
@@ -212,7 +212,9 @@ BEGIN
     PUSHBUTTON      "&Resume",IDC_GEDBG_RESUME,444,2,44,14
     CONTROL         "",IDC_GEDBG_TEX,"SimpleGLWindow",WS_CHILD | WS_VISIBLE,10,20,128,128
     CONTROL         "",IDC_GEDBG_FRAME,"SimpleGLWindow",WS_CHILD | WS_VISIBLE,148,20,256,136
-    CONTROL         "",IDC_GEDBG_MAINTAB,"SysTabControl32",TCS_TABS | TCS_FOCUSNEVER,10,216,480,180
+    CONTROL         "",IDC_GEDBG_TOPRIGHTTAB,"SysTabControl32",TCS_TABS | TCS_FOCUSNEVER,500,20,280,136
+    CONTROL         "",IDC_GEDBG_MAINTAB,"SysTabControl32",TCS_TABS | TCS_FOCUSNEVER,10,216,280,180
+    CONTROL         "",IDC_GEDBG_RIGHTTAB,"SysTabControl32",TCS_TABS | TCS_FOCUSNEVER,210,216,280,180
     EDITTEXT        IDC_GEDBG_FRAMEBUFADDR,148,192,200,12,ES_READONLY | NOT WS_BORDER
     EDITTEXT        IDC_GEDBG_TEXADDR,10,152,128,12,ES_READONLY | NOT WS_BORDER
     CONTROL         "Force opaque",IDC_GEDBG_FORCEOPAQUE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,164,60,12
@@ -677,7 +679,8 @@ BEGIN
         MENUITEM "Next &Curve",                            IDC_GEDBG_STEPCURVE
         MENUITEM "Next &Texture",                          IDC_GEDBG_STEPTEX
         MENUITEM "Next &Draw Flush",                       IDC_GEDBG_STEPDRAW
-        MENUITEM "Next &Frame",                            IDC_GEDBG_STEPFRAME
+        MENUITEM "Next Display &Framebuf",                 IDC_GEDBG_STEPFRAME
+        MENUITEM "Next &Vsync Frame",                      IDC_GEDBG_STEPVSYNC
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "&Auto Flush Pending",                    IDC_GEDBG_FLUSHAUTO
     END
@@ -760,6 +763,7 @@ BEGIN
         MENUITEM "Jump to Cursor",             ID_DISASM_SETPCTOHERE
         MENUITEM "Set Stall",                  ID_GEDBG_SETSTALLADDR
         MENUITEM "Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
+        MENUITEM "Set Breakpoint Condition",   ID_GEDBG_SETCOND
         MENUITEM SEPARATOR
         MENUITEM "Go to Displaylist PC",       ID_GEDBG_GOTOPC
         MENUITEM "Go to Address...",           ID_GEDBG_GOTOADDR
@@ -774,11 +778,16 @@ BEGIN
         MENUITEM "Copy Entire Tab (Formatted)",ID_GEDBG_COPYALL
         MENUITEM SEPARATOR
         MENUITEM "Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
+        MENUITEM "Set Breakpoint Condition",   ID_GEDBG_SETCOND
         MENUITEM "Add Watch",                  ID_GEDBG_WATCH
     END
     POPUP "gepreviewoptions"
     BEGIN
         MENUITEM "Export Image...",            ID_GEDBG_EXPORT_IMAGE
+        MENUITEM "Copy Opaque Image",          ID_GEDBG_COPY_IMAGE
+        MENUITEM "Copy Image With Alpha",      ID_GEDBG_COPY_IMAGE_ALPHA
+        MENUITEM "Track Pixel",                ID_GEDBG_TRACK_PIXEL
+        MENUITEM "Stop Tracking Pixel",        ID_GEDBG_TRACK_PIXEL_STOP
         MENUITEM "Show Prim Preview",          ID_GEDBG_ENABLE_PREVIEW
     END
     POPUP "matrixoptions"
@@ -789,6 +798,13 @@ BEGIN
         MENUITEM "Copy Entire Tab (Formatted)",ID_GEDBG_COPYALL
         MENUITEM SEPARATOR
         MENUITEM "Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
+        MENUITEM "Set Breakpoint Condition",   ID_GEDBG_SETCOND
+    END
+    POPUP "getaboptions"
+    BEGIN
+        MENUITEM "Show in &Left Pane"          ID_GEDBG_SHOWONLEFT
+        MENUITEM "Show in &Right Pane"         ID_GEDBG_SHOWONRIGHT
+        MENUITEM "Show in &Top Right Pane"     ID_GEDBG_SHOWONTOPRIGHT
     END
 END
 

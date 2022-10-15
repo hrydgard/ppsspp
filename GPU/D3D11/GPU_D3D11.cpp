@@ -35,7 +35,6 @@
 #include "GPU/GeDisasm.h"
 
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/GPU_D3D11.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
@@ -60,7 +59,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	shaderManagerD3D11_ = new ShaderManagerD3D11(draw, device_, context_, featureLevel);
 	framebufferManagerD3D11_ = new FramebufferManagerD3D11(draw);
 	framebufferManager_ = framebufferManagerD3D11_;
-	textureCacheD3D11_ = new TextureCacheD3D11(draw);
+	textureCacheD3D11_ = new TextureCacheD3D11(draw, framebufferManager_->GetDraw2D());
 	textureCache_ = textureCacheD3D11_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerD3D11_;
@@ -83,7 +82,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
 	UpdateCmdInfo();
-	CheckGPUFeatures();
+	gstate_c.featureFlags = CheckGPUFeatures();
 
 	BuildReportingInfo();
 
@@ -101,40 +100,16 @@ GPU_D3D11::~GPU_D3D11() {
 	stockD3D11.Destroy();
 }
 
-void GPU_D3D11::CheckGPUFeatures() {
-	u32 features = 0;
-
-	features |= GPU_SUPPORTS_BLEND_MINMAX;
+u32 GPU_D3D11::CheckGPUFeatures() const {
+	u32 features = GPUCommon::CheckGPUFeatures();
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
 	// TODO: Breaks text in PaRappa for some reason?
 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 
-#ifndef _M_ARM
-	// TODO: Do proper feature detection
-	features |= GPU_SUPPORTS_ANISOTROPY;
-#endif
-
-	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
-	features |= GPU_SUPPORTS_TEXTURE_NPOT;
-	if (draw_->GetDeviceCaps().dualSourceBlend)
-		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	if (draw_->GetDeviceCaps().depthClampSupported)
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
-	if (draw_->GetDeviceCaps().clipDistanceSupported)
-		features |= GPU_SUPPORTS_CLIP_DISTANCE;
-	if (draw_->GetDeviceCaps().cullDistanceSupported)
-		features |= GPU_SUPPORTS_CULL_DISTANCE;
-	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
-		// Ignore the compat setting if clip and cull are both enabled.
-		// When supported, we can do the depth side of range culling more correctly.
-		const bool supported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
-		const bool disabled = PSP_CoreParameter().compat.flags().DisableRangeCulling;
-		if (supported || !disabled) {
-			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
-		}
-	}
 
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
@@ -145,10 +120,6 @@ void GPU_D3D11::CheckGPUFeatures() {
 	uint32_t fmt565 = draw_->GetDataFormatSupport(Draw::DataFormat::R5G6B5_UNORM_PACK16);
 	if ((fmt4444 & Draw::FMT_TEXTURE) && (fmt565 & Draw::FMT_TEXTURE) && (fmt1555 & Draw::FMT_TEXTURE)) {
 		features |= GPU_SUPPORTS_16BIT_FORMATS;
-	}
-
-	if (draw_->GetDeviceCaps().logicOpSupported) {
-		features |= GPU_SUPPORTS_LOGIC_OP;
 	}
 
 	if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
@@ -165,11 +136,7 @@ void GPU_D3D11::CheckGPUFeatures() {
 		features |= GPU_USE_DEPTH_RANGE_HACK;
 	}
 
-	if (PSP_CoreParameter().compat.flags().ClearToRAM) {
-		features |= GPU_USE_CLEAR_RAM_HACK;
-	}
-
-	gstate_c.featureFlags = features;
+	return features;
 }
 
 // Needs to be called on GPU thread, not reporting thread.
@@ -207,10 +174,10 @@ void GPU_D3D11::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
 	if (resized_) {
-		CheckGPUFeatures();
+		gstate_c.featureFlags = CheckGPUFeatures();
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
-		textureCacheD3D11_->NotifyConfigChanged();
+		textureCache_->NotifyConfigChanged();
 		shaderManagerD3D11_->DirtyLastShader();
 		resized_ = false;
 	}
@@ -232,19 +199,11 @@ void GPU_D3D11::BeginFrame() {
 
 	textureCacheD3D11_->StartFrame();
 	drawEngine_.BeginFrame();
-	// fragmentTestCache_.Decimate();
 
 	shaderManagerD3D11_->DirtyLastShader();
 
 	framebufferManagerD3D11_->BeginFrame();
 	gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
-}
-
-void GPU_D3D11::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	// TODO: Some games like Spongebob - Yellow Avenger, never change framebuffer, they blit to it.
-	// So breaking on frames doesn't work. Might want to move this to sceDisplay vsync.
-	GPUDebug::NotifyDisplay(framebuf, stride, format);
-	framebufferManagerD3D11_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
 void GPU_D3D11::CopyDisplayToOutput(bool reallyDirty) {
@@ -255,9 +214,7 @@ void GPU_D3D11::CopyDisplayToOutput(bool reallyDirty) {
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], blendColor, 0xFFFFFFFF);
 
 	framebufferManagerD3D11_->CopyDisplayToOutput(reallyDirty);
-	framebufferManagerD3D11_->EndFrame();
 
-	// shaderManager_->EndFrame();
 	shaderManagerD3D11_->DirtyLastShader();
 
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
@@ -335,8 +292,8 @@ std::vector<std::string> GPU_D3D11::DebugGetShaderIDs(DebugShaderType type) {
 	switch (type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderIDs();
-	case SHADER_TYPE_DEPAL:
-		return textureCache_->GetDepalShaderCache()->DebugGetShaderIDs(type);
+	case SHADER_TYPE_TEXTURE:
+		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
 	default:
 		return shaderManagerD3D11_->DebugGetShaderIDs(type);
 	}
@@ -346,8 +303,8 @@ std::string GPU_D3D11::DebugGetShaderString(std::string id, DebugShaderType type
 	switch (type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	case SHADER_TYPE_DEPAL:
-		return textureCache_->GetDepalShaderCache()->DebugGetShaderString(id, type, stringType);
+	case SHADER_TYPE_TEXTURE:
+		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
 	default:
 		return shaderManagerD3D11_->DebugGetShaderString(id, type, stringType);
 	}

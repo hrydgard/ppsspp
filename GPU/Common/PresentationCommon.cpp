@@ -24,6 +24,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/VR/PPSSPPVR.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
@@ -72,6 +73,14 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 	float outH;
 
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
+
+	if (IsVRBuild()) {
+		if (IsFlatVRScene()) {
+			g_Config.iSmallDisplayZoomType = (int)SmallDisplayZoom::AUTO;
+		} else {
+			g_Config.iSmallDisplayZoomType = (int)SmallDisplayZoom::STRETCH;
+		}
+	}
 
 	if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::STRETCH) {
 		outW = frame.w;
@@ -393,6 +402,7 @@ void PresentationCommon::ShowPostShaderError(const std::string &errorString) {
 
 void PresentationCommon::DeviceLost() {
 	DestroyDeviceObjects();
+	draw_ = nullptr;
 }
 
 void PresentationCommon::DeviceRestore(Draw::DrawContext *draw) {
@@ -429,7 +439,7 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 	RasterState *rasterNoCull = draw_->CreateRasterState({});
 
 	PipelineDesc pipelineDesc{ Primitive::TRIANGLE_LIST, shaders, inputLayout, depth, blendstateOff, rasterNoCull, uniformDesc };
-	Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc);
+	Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc, "presentation");
 
 	inputLayout->Release();
 	depth->Release();

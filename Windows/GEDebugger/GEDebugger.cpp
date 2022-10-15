@@ -21,12 +21,18 @@
 #include <string>
 #include <vector>
 
+#include "Common/CommonWindows.h"
+#include <commctrl.h>
+
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/StringUtils.h"
+#include "Common/System/System.h"
+
 #include "Core/Config.h"
 #include "Core/Screenshot.h"
+
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
@@ -38,6 +44,7 @@
 #include "Windows/InputBox.h"
 #include "Windows/MainWindow.h"
 #include "Windows/main.h"
+
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/GPUStateUtils.h"
@@ -46,8 +53,6 @@
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
-#include <windowsx.h>
-#include <commctrl.h>
 
 using namespace GPUBreakpoints;
 using namespace GPUDebug;
@@ -57,6 +62,60 @@ enum PrimaryDisplayType {
 	PRIMARY_FRAMEBUF,
 	PRIMARY_DEPTHBUF,
 	PRIMARY_STENCILBUF,
+};
+
+enum class GEPanelIndex {
+	LEFT,
+	RIGHT,
+	TOPRIGHT,
+	COUNT,
+};
+
+static void *AddDisplayListTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, HINSTANCE inst, HWND parent) {
+	HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView", tab->name);
+	return CtrlDisplayListView::getFrom(wnd);
+}
+
+static void RemoveDisplayListTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, void *ptr) {
+	CtrlDisplayListView *view = (CtrlDisplayListView *)ptr;
+	DestroyWindow(view->GetHWND());
+}
+
+static void UpdateDisplayListTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, void *ptr) {
+	CtrlDisplayListView *view = (CtrlDisplayListView *)ptr;
+	DisplayList list;
+	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
+		view->setDisplayList(list);
+	}
+}
+
+template <typename T>
+static void *AddStateTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, HINSTANCE inst, HWND parent) {
+	T *w = new T(inst, parent);
+	tabs->AddTabDialog(w, tab->name);
+	return w;
+}
+
+static void RemoveStateTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, void *ptr) {
+	Dialog *view = (Dialog *)ptr;
+	delete view;
+}
+
+static void UpdateStateTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, void *ptr) {
+	Dialog *view = (Dialog *)ptr;
+	view->Update();
+}
+
+static const std::vector<GEDebuggerTab> defaultTabs = {
+	{ L"Display List", GETabPosition::LEFT, GETabType::LIST_DISASM, {}, &AddDisplayListTab, &RemoveDisplayListTab, &UpdateDisplayListTab },
+	{ L"Flags", GETabPosition::LEFT, GETabType::STATE, {}, &AddStateTab<TabStateFlags>, &RemoveStateTab, &UpdateStateTab },
+	{ L"Light", GETabPosition::LEFT, GETabType::STATE, {}, &AddStateTab<TabStateLighting>, &RemoveStateTab, &UpdateStateTab },
+	{ L"Texture", GETabPosition::LEFT, GETabType::STATE, {}, &AddStateTab<TabStateTexture>, &RemoveStateTab, &UpdateStateTab },
+	{ L"Settings", GETabPosition::LEFT, GETabType::STATE, {}, &AddStateTab<TabStateSettings>, &RemoveStateTab, &UpdateStateTab },
+	{ L"Verts", GETabPosition::LEFT, GETabType::STATE, {}, &AddStateTab<TabVertices>, &RemoveStateTab, &UpdateStateTab },
+	{ L"Matrices", GETabPosition::LEFT, GETabType::STATE, {}, &AddStateTab<TabMatrices>, &RemoveStateTab, &UpdateStateTab },
+	{ L"Lists", GETabPosition::LEFT, GETabType::LISTS, {}, &AddStateTab<TabDisplayLists>, &RemoveStateTab, &UpdateStateTab },
+	{ L"Watch", GETabPosition::LEFT, GETabType::WATCH, {}, &AddStateTab<TabStateWatch>, &RemoveStateTab, &UpdateStateTab },
 };
 
 StepCountDlg::StepCountDlg(HINSTANCE _hInstance, HWND _hParent) : Dialog((LPCSTR)IDD_GEDBG_STEPCOUNT, _hInstance, _hParent) {
@@ -141,14 +200,13 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	// up both the size and the aspect ratio
 	RECT frameRect;
 	HWND frameWnd = GetDlgItem(m_hDlg,IDC_GEDBG_FRAME);
-
 	GetWindowRect(frameWnd,&frameRect);
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&frameRect,2);
 	MoveWindow(frameWnd,frameRect.left,frameRect.top,512,272,TRUE);
 
-	tabs = new TabControl(GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB));
-	HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView",L"Display List");
-	displayList = CtrlDisplayListView::getFrom(wnd);
+	tabs = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_MAINTAB));
+	tabsRight_ = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_RIGHTTAB));
+	tabsTR_ = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_TOPRIGHTTAB));
 
 	fbTabs = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_FBTABS));
 	fbTabs->SetMinTabWidth(50);
@@ -158,31 +216,38 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	fbTabs->AddTab(NULL, L"Stencil");
 	fbTabs->ShowTab(0, true);
 
-	flags = new TabStateFlags(_hInstance, m_hDlg);
-	tabs->AddTabDialog(flags, L"Flags");
+	tabStates_ = defaultTabs;
+	// Restore settings, if any set.
+	_assert_msg_(defaultTabs.size() <= 32, "Cannot have more than 32 tabs");
+	if ((g_Config.uGETabsLeft | g_Config.uGETabsRight | g_Config.uGETabsTopRight) != 0) {
+		for (int i = 0; i < (int)tabStates_.size(); ++i) {
+			int mask = 1 << i;
+			tabStates_[i].pos = (GETabPosition)0;
+			if (g_Config.uGETabsLeft & mask)
+				tabStates_[i].pos |= GETabPosition::LEFT;
+			if (g_Config.uGETabsRight & mask)
+				tabStates_[i].pos |= GETabPosition::RIGHT;
+			if (g_Config.uGETabsTopRight & mask)
+				tabStates_[i].pos |= GETabPosition::TOPRIGHT;
+			// If this is a new tab, add it to left.
+			if (tabStates_[i].pos == (GETabPosition)0) {
+				tabStates_[i].pos |= GETabPosition::LEFT;
+				g_Config.uGETabsLeft |= 1 << i;
+			}
+		}
+	} else {
+		g_Config.uGETabsLeft = (1 << tabStates_.size()) - 1;
+	}
+	for (GEDebuggerTab &tabState : tabStates_) {
+		AddTab(&tabState, tabState.pos);
+	}
 
-	lighting = new TabStateLighting(_hInstance, m_hDlg);
-	tabs->AddTabDialog(lighting, L"Lighting");
-
-	textureState = new TabStateTexture(_hInstance, m_hDlg);
-	tabs->AddTabDialog(textureState, L"Texture");
-
-	settings = new TabStateSettings(_hInstance, m_hDlg);
-	tabs->AddTabDialog(settings, L"Settings");
-
-	vertices = new TabVertices(_hInstance, m_hDlg);
-	tabs->AddTabDialog(vertices, L"Vertices");
-
-	matrices = new TabMatrices(_hInstance, m_hDlg);
-	tabs->AddTabDialog(matrices, L"Matrices");
-
-	lists = new TabDisplayLists(_hInstance, m_hDlg);
-	tabs->AddTabDialog(lists, L"Lists");
-
-	watch = new TabStateWatch(_hInstance, m_hDlg);
-	tabs->AddTabDialog(watch, L"Watch");
-
-	tabs->ShowTab(0, true);
+	if (tabs->Count() > 0)
+		tabs->ShowTab(0, true);
+	if (tabsRight_->Count() > 0)
+		tabsRight_->ShowTab(0, true);
+	if (tabsTR_->Count() > 0)
+		tabsTR_->ShowTab(0, true);
 
 	// set window position
 	int x = g_Config.iGEWindowX == -1 ? windowRect.left : g_Config.iGEWindowX;
@@ -198,15 +263,14 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 
 CGEDebugger::~CGEDebugger() {
 	CleanupPrimPreview();
-	delete flags;
-	delete lighting;
-	delete textureState;
-	delete settings;
-	delete vertices;
-	delete matrices;
-	delete lists;
-	delete watch;
+
+	for (GEDebuggerTab &tabState : tabStates_) {
+		RemoveTab(&tabState, GETabPosition::ALL);
+	}
+
 	delete tabs;
+	delete tabsRight_;
+	delete tabsTR_;
 	delete fbTabs;
 }
 
@@ -217,15 +281,30 @@ void CGEDebugger::SetupPreviews() {
 		primaryWindow->SetHoverCallback([&] (int x, int y) {
 			PrimaryPreviewHover(x, y);
 		});
-		primaryWindow->SetRightClickMenu(ContextMenuID::GEDBG_PREVIEW, [&] (int cmd) {
+		primaryWindow->SetRightClickMenu(ContextMenuID::GEDBG_PREVIEW, [&] (int cmd, int x, int y) {
 			HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_PREVIEW);
 			switch (cmd) {
 			case 0:
 				// Setup.
 				CheckMenuItem(subMenu, ID_GEDBG_ENABLE_PREVIEW, MF_BYCOMMAND | ((previewsEnabled_ & 1) ? MF_CHECKED : MF_UNCHECKED));
+				EnableMenuItem(subMenu, ID_GEDBG_TRACK_PIXEL_STOP, primaryTrackX_ == 0xFFFFFFFF ? MF_GRAYED : MF_ENABLED);
 				break;
 			case ID_GEDBG_EXPORT_IMAGE:
 				PreviewExport(primaryBuffer_);
+				break;
+			case ID_GEDBG_COPY_IMAGE:
+				PreviewToClipboard(primaryBuffer_, false);
+				break;
+			case ID_GEDBG_COPY_IMAGE_ALPHA:
+				PreviewToClipboard(primaryBuffer_, true);
+				break;
+			case ID_GEDBG_TRACK_PIXEL:
+				primaryTrackX_ = x;
+				primaryTrackY_ = y;
+				break;
+			case ID_GEDBG_TRACK_PIXEL_STOP:
+				primaryTrackX_ = 0xFFFFFFFF;
+				primaryTrackX_ = 0xFFFFFFFF;
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 1;
@@ -247,15 +326,30 @@ void CGEDebugger::SetupPreviews() {
 		secondWindow->SetHoverCallback([&] (int x, int y) {
 			SecondPreviewHover(x, y);
 		});
-		secondWindow->SetRightClickMenu(ContextMenuID::GEDBG_PREVIEW, [&] (int cmd) {
+		secondWindow->SetRightClickMenu(ContextMenuID::GEDBG_PREVIEW, [&] (int cmd, int x, int y) {
 			HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_PREVIEW);
 			switch (cmd) {
 			case 0:
 				// Setup.
 				CheckMenuItem(subMenu, ID_GEDBG_ENABLE_PREVIEW, MF_BYCOMMAND | ((previewsEnabled_ & 2) ? MF_CHECKED : MF_UNCHECKED));
+				EnableMenuItem(subMenu, ID_GEDBG_TRACK_PIXEL_STOP, secondTrackX_ == 0xFFFFFFFF ? MF_GRAYED : MF_ENABLED);
 				break;
 			case ID_GEDBG_EXPORT_IMAGE:
 				PreviewExport(secondBuffer_);
+				break;
+			case ID_GEDBG_COPY_IMAGE:
+				PreviewToClipboard(secondBuffer_, false);
+				break;
+			case ID_GEDBG_COPY_IMAGE_ALPHA:
+				PreviewToClipboard(secondBuffer_, true);
+				break;
+			case ID_GEDBG_TRACK_PIXEL:
+				secondTrackX_ = x;
+				secondTrackY_ = y;
+				break;
+			case ID_GEDBG_TRACK_PIXEL_STOP:
+				secondTrackX_ = 0xFFFFFFFF;
+				secondTrackX_ = 0xFFFFFFFF;
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 2;
@@ -274,9 +368,18 @@ void CGEDebugger::SetupPreviews() {
 }
 
 void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, char desc[256]) {
+	if (primaryTrackX_ < primaryBuffer_->GetStride() && primaryTrackY_ < primaryBuffer_->GetHeight()) {
+		u32 pix = primaryBuffer_->GetRawPixel(primaryTrackX_, primaryTrackY_);
+		DescribePixel(pix, primaryBuffer_->GetFormat(), primaryTrackX_, primaryTrackY_, desc);
+		return;
+	}
+
 	if (showClut_) {
 		// In this case, we're showing the texture here.
-		snprintf(desc, 256, "Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
+		if (primaryIsFramebuffer_)
+			snprintf(desc, 256, "FB Tex L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
+		else
+			snprintf(desc, 256, "Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
 		return;
 	}
 
@@ -298,8 +401,26 @@ void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, char desc[256])
 }
 
 void CGEDebugger::DescribeSecondPreview(const GPUgstate &state, char desc[256]) {
+	if (secondTrackX_ != 0xFFFFFFFF) {
+		uint32_t x = secondTrackX_;
+		uint32_t y = secondTrackY_;
+		if (showClut_) {
+			uint32_t clutWidth = secondBuffer_->GetStride() / 16;
+			x = y * clutWidth + x;
+			y = 0;
+		}
+
+		if (x < secondBuffer_->GetStride() && y < secondBuffer_->GetHeight()) {
+			u32 pix = secondBuffer_->GetRawPixel(x, y);
+			DescribePixel(pix, secondBuffer_->GetFormat(), x, y, desc);
+			return;
+		}
+	}
+
 	if (showClut_) {
 		snprintf(desc, 256, "CLUT: 0x%08x (%d)", state.getClutAddress(), state.getClutPaletteFormat());
+	} else if (secondIsFramebuffer_) {
+		snprintf(desc, 256, "FB Tex L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
 	} else {
 		snprintf(desc, 256, "Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
 	}
@@ -329,6 +450,97 @@ void CGEDebugger::PreviewExport(const GPUDebugBuffer *dbgBuffer) {
 	}
 }
 
+void CGEDebugger::PreviewToClipboard(const GPUDebugBuffer *dbgBuffer, bool saveAlpha) {
+	if (!OpenClipboard(GetDlgHandle())) {
+		return;
+	}
+	EmptyClipboard();
+
+	uint8_t *flipbuffer = nullptr;
+	uint32_t w = (uint32_t)-1;
+	uint32_t h = (uint32_t)-1;
+	const uint8_t *buffer = ConvertBufferToScreenshot(*dbgBuffer, saveAlpha, flipbuffer, w, h);
+	if (buffer == nullptr) {
+		delete [] flipbuffer;
+		CloseClipboard();
+		return;
+	}
+
+	uint32_t pixelSize = saveAlpha ? 4 : 3;
+	uint32_t byteStride = pixelSize * w;
+	while ((byteStride & 3) != 0)
+		++byteStride;
+
+	// Various apps don't support alpha well, so also copy as PNG.
+	std::vector<uint8_t> png;
+	if (saveAlpha) {
+		// Overallocate if we can.
+		png.resize(byteStride * h);
+		Save8888RGBAScreenshot(png, buffer, w, h);
+
+		W32Util::ClipboardData png1("PNG", png.size());
+		W32Util::ClipboardData png2("image/png", png.size());
+		if (!png.empty() && png1 && png2) {
+			memcpy(png1.data, png.data(), png.size());
+			memcpy(png2.data, png.data(), png.size());
+			png1.Set();
+			png2.Set();
+		}
+	}
+
+	W32Util::ClipboardData bitmap(CF_DIBV5, sizeof(BITMAPV5HEADER) + byteStride * h);
+	if (!bitmap) {
+		delete [] flipbuffer;
+		CloseClipboard();
+		return;
+	}
+
+	BITMAPV5HEADER *header = (BITMAPV5HEADER *)bitmap.data;
+	header->bV5Size = sizeof(BITMAPV5HEADER);
+	header->bV5Width = w;
+	header->bV5Height = h;
+	header->bV5Planes = 1;
+	header->bV5BitCount = saveAlpha ? 32 : 24;
+	header->bV5Compression = saveAlpha ? BI_BITFIELDS : BI_RGB;
+	header->bV5SizeImage = byteStride * h;
+	header->bV5CSType = LCS_WINDOWS_COLOR_SPACE;
+	header->bV5Intent = LCS_GM_GRAPHICS;
+
+	if (saveAlpha) {
+		header->bV5RedMask = 0x000000FF;
+		header->bV5GreenMask = 0x0000FF00;
+		header->bV5BlueMask = 0x00FF0000;
+		// Only some applications respect the alpha mask...
+		header->bV5AlphaMask = 0xFF000000;
+	}
+
+	uint8_t *pixels = (uint8_t *)(header + 1);
+	for (uint32_t y = 0; y < h; ++y) {
+		const uint8_t *src = buffer + y * pixelSize * w;
+		uint8_t *dst = pixels + (h - y - 1) * byteStride;
+
+		if (saveAlpha) {
+			// No RB swap needed.
+			memcpy(dst, src, pixelSize * w);
+			continue;
+		}
+
+		for (uint32_t x = 0; x < w; ++x) {
+			// Have to swap B/R again for the bitmap, unfortunate.
+			dst[0] = src[2];
+			dst[1] = src[1];
+			dst[2] = src[0];
+			src += pixelSize;
+			dst += pixelSize;
+		}
+	}
+
+	delete [] flipbuffer;
+
+	bitmap.Set();
+	CloseClipboard();
+}
+
 void CGEDebugger::UpdatePreviews() {
 	auto memLock = Memory::Lock();
 	if (!PSP_IsInited()) {
@@ -353,24 +565,87 @@ void CGEDebugger::UpdatePreviews() {
 		UpdatePrimPreview(primOp, 3);
 	}
 
-	DisplayList list;
-	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
-		displayList->setDisplayList(list);
-	}
-
 	wchar_t primCounter[1024]{};
 	swprintf(primCounter, ARRAY_SIZE(primCounter), L"%d/%d", PrimsThisFrame(), PrimsLastFrame());
 	SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, primCounter);
 
-	flags->Update();
-	lighting->Update();
-	textureState->Update();
-	settings->Update();
-	vertices->Update();
-	matrices->Update();
-	lists->Update();
-	watch->Update();
+	for (GEDebuggerTab &tabState : tabStates_) {
+		UpdateTab(&tabState);
+	}
+
 	updating_ = false;
+}
+
+void CGEDebugger::UpdateTab(GEDebuggerTab *tab) {
+	auto doUpdate = [&](GETabPosition pos, TabControl *t, GEPanelIndex index) {
+		if (tab->pos & pos)
+			tab->update(tab, t, pos, tab->state[(int)index].ptr);
+	};
+
+	doUpdate(GETabPosition::LEFT, tabs, GEPanelIndex::LEFT);
+	doUpdate(GETabPosition::RIGHT, tabsRight_, GEPanelIndex::RIGHT);
+	doUpdate(GETabPosition::TOPRIGHT, tabsTR_, GEPanelIndex::TOPRIGHT);
+}
+
+void CGEDebugger::AddTab(GEDebuggerTab *tab, GETabPosition mask) {
+	auto doAdd = [&](GETabPosition pos, TabControl *t, GEPanelIndex pindex) {
+		int index = (int)pindex;
+		// On init, we still have nullptr, but already have pos, so we use that.
+		if ((mask & pos) && tab->state[index].ptr == nullptr) {
+			tab->state[index].index = t->Count();
+			tab->state[index].ptr = tab->add(tab, t, pos, m_hInstance, m_hDlg);
+			tab->pos |= pos;
+			t->ShowTab(tab->state[index].index, true);
+			if (gpuDebug)
+				tab->update(tab, t, pos, tab->state[index].ptr);
+		}
+	};
+
+	doAdd(GETabPosition::LEFT, tabs, GEPanelIndex::LEFT);
+	doAdd(GETabPosition::RIGHT, tabsRight_, GEPanelIndex::RIGHT);
+	doAdd(GETabPosition::TOPRIGHT, tabsTR_, GEPanelIndex::TOPRIGHT);
+}
+
+void CGEDebugger::RemoveTab(GEDebuggerTab *tab, GETabPosition mask) {
+	auto doRemove = [&](GETabPosition pos, TabControl *t, GEPanelIndex pindex) {
+		int index = (int)pindex;
+		if ((tab->pos & pos) && (mask & pos)) {
+			auto &state = tab->state[index];
+			_assert_(state.ptr != nullptr);
+			t->RemoveTab(state.index);
+			for (auto &tabState : tabStates_) {
+				if (tabState.state[index].index > state.index)
+					--tabState.state[index].index;
+			}
+
+			tab->remove(tab, t, pos, state.ptr);
+			tab->pos = GETabPosition((int)tab->pos & ~(int)pos);
+			state.ptr = nullptr;
+			state.index = -1;
+		}
+	};
+
+	doRemove(GETabPosition::LEFT, tabs, GEPanelIndex::LEFT);
+	doRemove(GETabPosition::RIGHT, tabsRight_, GEPanelIndex::RIGHT);
+	doRemove(GETabPosition::TOPRIGHT, tabsTR_, GEPanelIndex::TOPRIGHT);
+}
+
+int CGEDebugger::HasTabIndex(GEDebuggerTab *tab, GETabPosition pos) {
+	int stateIndex = 0;
+	switch (pos) {
+	case GETabPosition::LEFT: stateIndex = (int)GEPanelIndex::LEFT; break;
+	case GETabPosition::RIGHT: stateIndex = (int)GEPanelIndex::RIGHT; break;
+	case GETabPosition::TOPRIGHT: stateIndex = (int)GEPanelIndex::TOPRIGHT; break;
+	default: _assert_msg_(false, "Invalid GE tab position"); break;
+	}
+
+	if (tab->pos & pos) {
+		auto &state = tab->state[stateIndex];
+		if (state.ptr == nullptr)
+			return -1;
+		return state.index;
+	}
+	return -1;
 }
 
 u32 CGEDebugger::TexturePreviewFlags(const GPUgstate &state) {
@@ -388,8 +663,9 @@ void CGEDebugger::UpdatePrimaryPreview(const GPUgstate &state) {
 	SetupPreviews();
 
 	primaryBuffer_ = nullptr;
+	primaryIsFramebuffer_ = false;
 	if (showClut_) {
-		bufferResult = GPU_GetCurrentTexture(primaryBuffer_, textureLevel_);
+		bufferResult = GPU_GetCurrentTexture(primaryBuffer_, textureLevel_, &primaryIsFramebuffer_);
 		flags = TexturePreviewFlags(state);
 		if (bufferResult) {
 			UpdateLastTexture(state.getTextureAddress(textureLevel_));
@@ -437,10 +713,11 @@ void CGEDebugger::UpdateSecondPreview(const GPUgstate &state) {
 	SetupPreviews();
 
 	secondBuffer_ = nullptr;
+	secondIsFramebuffer_ = false;
 	if (showClut_) {
 		bufferResult = GPU_GetCurrentClut(secondBuffer_);
 	} else {
-		bufferResult = GPU_GetCurrentTexture(secondBuffer_, textureLevel_);
+		bufferResult = GPU_GetCurrentTexture(secondBuffer_, textureLevel_, &secondIsFramebuffer_);
 		if (bufferResult) {
 			UpdateLastTexture(state.getTextureAddress(textureLevel_));
 		} else {
@@ -522,11 +799,13 @@ void CGEDebugger::SecondPreviewHover(int x, int y) {
 		}
 		DescribeSecondPreview(state, desc);
 	} else {
-		u32 pix = secondBuffer_->GetRawPixel(x, y);
 		if (showClut_) {
-			// Show the clut index, rather than coords.
-			DescribePixel(pix, secondBuffer_->GetFormat(), y * 16 + x, 0, desc);
+			// Use the clut index, rather than coords.
+			uint32_t clutWidth = secondBuffer_->GetStride() / 16;
+			u32 pix = secondBuffer_->GetRawPixel(y * clutWidth + x, 0);
+			DescribePixel(pix, secondBuffer_->GetFormat(), y * clutWidth + x, 0, desc);
 		} else {
+			u32 pix = secondBuffer_->GetRawPixel(x, y);
 			DescribePixel(pix, secondBuffer_->GetFormat(), x, y, desc);
 		}
 	}
@@ -696,16 +975,46 @@ void CGEDebugger::UpdateTextureLevel(int level) {
 }
 
 void CGEDebugger::UpdateSize(WORD width, WORD height) {
-	// only resize the tab for now
+	// only resize the tabs for now
 	HWND tabControl = GetDlgItem(m_hDlg, IDC_GEDBG_MAINTAB);
+	HWND tabControlRight = GetDlgItem(m_hDlg, IDC_GEDBG_RIGHTTAB);
+	HWND tabControlTR = GetDlgItem(m_hDlg, IDC_GEDBG_TOPRIGHTTAB);
 
 	RECT tabRect;
 	GetWindowRect(tabControl,&tabRect);
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&tabRect,2);
 
-	tabRect.right = tabRect.left + (width-tabRect.left*2);				// assume same gap on both sides
-	tabRect.bottom = tabRect.top + (height-tabRect.top-tabRect.left);	// assume same gap on bottom too
-	MoveWindow(tabControl,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
+	// Assume the same gap (tabRect.left) on all sides.
+	if (tabsRight_ && tabsRight_->Count() == 0) {
+		tabRect.right = tabRect.left + (width - tabRect.left * 2);
+	} else {
+		tabRect.right = tabRect.left + (width / 2 - tabRect.left * 2);
+	}
+	tabRect.bottom = tabRect.top + (height - tabRect.top - tabRect.left);
+	
+	RECT tabRectRight = tabRect;
+	if (tabs && tabsRight_ && tabs->Count() == 0 && tabsRight_->Count() != 0) {
+		tabRect.right = tabRect.left;
+		tabRect.bottom = tabRect.top;
+	} else {
+		tabRectRight.left += tabRect.right;
+		tabRectRight.right += tabRect.right + tabRect.left;
+	}
+
+	RECT frameRect;
+	HWND frameWnd = GetDlgItem(m_hDlg, IDC_GEDBG_FRAME);
+	GetWindowRect(frameWnd, &frameRect);
+	MapWindowPoints(HWND_DESKTOP, m_hDlg, (LPPOINT)&frameRect, 2);
+	
+	RECT trRect = { frameRect.right + 10, frameRect.top, tabRectRight.right, tabRectRight.top };
+	if (tabsTR_ && tabsTR_->Count() == 0) {
+		trRect.right = trRect.left;
+		trRect.bottom = trRect.top;
+	}
+
+	MoveWindow(tabControl, tabRect.left, tabRect.top, tabRect.right - tabRect.left, tabRect.bottom - tabRect.top, TRUE);
+	MoveWindow(tabControlRight, tabRectRight.left, tabRectRight.top, tabRectRight.right - tabRectRight.left, tabRectRight.bottom - tabRectRight.top, TRUE);
+	MoveWindow(tabControlTR, trRect.left, trRect.top, trRect.right - trRect.left, trRect.bottom - trRect.top, TRUE);
 }
 
 void CGEDebugger::SavePosition() {
@@ -765,6 +1074,8 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 				UpdatePreviews();
 				lastCounter = GPUStepping::GetSteppingCounter();
 			}
+		} else if (!PSP_IsInited() && primaryBuffer_) {
+			SendMessage(m_hDlg, WM_COMMAND, IDC_GEDBG_RESUME, 0);
 		}
 		break;
 
@@ -774,8 +1085,20 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		case IDC_GEDBG_MAINTAB:
 			tabs->HandleNotify(lParam);
 			if (gpuDebug != nullptr) {
-				lists->Update();
+				for (GEDebuggerTab &tabState : tabStates_) {
+					if (tabState.type == GETabType::LISTS)
+						UpdateTab(&tabState);
+				}
 			}
+			CheckTabMessage(tabs, GETabPosition::LEFT, lParam);
+			break;
+		case IDC_GEDBG_RIGHTTAB:
+			tabsRight_->HandleNotify(lParam);
+			CheckTabMessage(tabsRight_, GETabPosition::RIGHT, lParam);
+			break;
+		case IDC_GEDBG_TOPRIGHTTAB:
+			tabsTR_->HandleNotify(lParam);
+			CheckTabMessage(tabsTR_, GETabPosition::TOPRIGHT, lParam);
 			break;
 		case IDC_GEDBG_FBTABS:
 			fbTabs->HandleNotify(lParam);
@@ -806,6 +1129,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_STEPFRAME:
 			SetBreakNext(BreakNext::FRAME);
+			break;
+
+		case IDC_GEDBG_STEPVSYNC:
+			SetBreakNext(BreakNext::VSYNC);
 			break;
 
 		case IDC_GEDBG_STEPPRIM:
@@ -884,6 +1211,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_RECORD:
+			GPURecord::SetCallback([](const Path &path) {
+				// Opens a Windows Explorer window with the file.
+				OpenDirectory(path.c_str());
+			});
 			GPURecord::Activate();
 			break;
 
@@ -935,7 +1266,13 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			bool temp;
 			bool isBreak = IsAddressBreakpoint(pc, temp);
 			if (isBreak && !temp) {
-				RemoveAddressBreakpoint(pc);
+				if (GetAddressBreakpointCond(pc, nullptr)) {
+					int ret = MessageBox(m_hDlg, L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
+					if (ret == IDYES)
+						RemoveAddressBreakpoint(pc);
+				} else {
+					RemoveAddressBreakpoint(pc);
+				}
 			} else {
 				AddAddressBreakpoint(pc);
 			}
@@ -957,12 +1294,91 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 	case WM_GEDBG_UPDATE_WATCH:
 		// Just a notification to update.
-		if (watch)
-			watch->Update();
+		for (GEDebuggerTab &tabState : tabStates_) {
+			if (tabState.type == GETabType::WATCH)
+				UpdateTab(&tabState);
+		}
 		break;
 	}
 
 	return FALSE;
+}
+
+void CGEDebugger::CheckTabMessage(TabControl *t, GETabPosition pos, LPARAM lParam) {
+	NMHDR *msg = (LPNMHDR)lParam;
+	if (msg->code != NM_RCLICK)
+		return;
+
+	POINT cursorPos;
+	GetCursorPos(&cursorPos);
+	int tabIndex = t->HitTest(cursorPos);
+	if (tabIndex == -1)
+		return;
+
+	// Find the tabState that was clicked on.
+	GEDebuggerTab *tab = nullptr;
+	int tabStateIndex = 0;
+	for (int i = 0; i < (int)tabStates_.size(); ++i) {
+		GEDebuggerTab &tabState = tabStates_[i];
+		int foundIndex = HasTabIndex(&tabState, pos);
+		if (foundIndex == tabIndex) {
+			tab = &tabState;
+			tabStateIndex = i;
+			break;
+		}
+	}
+	// Shouldn't normally happen... maybe we added some other type of tab.
+	if (!tab)
+		return;
+
+	int currentPanels = 0;
+	for (int i = 0; i < (int)GEPanelIndex::COUNT; ++i) {
+		if (tab->state[i].index != -1 && tab->state[i].ptr)
+			currentPanels++;
+	}
+
+	HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_TABS);
+	static const int itemIDs[] = { ID_GEDBG_SHOWONLEFT, ID_GEDBG_SHOWONRIGHT, ID_GEDBG_SHOWONTOPRIGHT };
+	for (int i = 0; i < (int)GEPanelIndex::COUNT; ++i) {
+		bool active = tab->state[i].index != -1 && tab->state[i].ptr;
+		bool disabled = active && currentPanels == 1;
+		CheckMenuItem(subMenu, itemIDs[i], active ? MF_CHECKED : MF_UNCHECKED);
+		EnableMenuItem(subMenu, itemIDs[i], disabled ? MF_GRAYED : MF_ENABLED);
+	}
+
+	auto toggleState = [&](GEPanelIndex i, GETabPosition pos, uint32_t &configured) {
+		auto &state = tab->state[(int)i];
+		bool removing = state.index != -1 && state.ptr;
+		if (removing) {
+			RemoveTab(tab, pos);
+			configured &= ~(1 << tabStateIndex);
+		} else {
+			AddTab(tab, pos);
+			configured |= 1 << tabStateIndex;
+		}
+
+		RECT rc;
+		GetClientRect(m_hDlg, &rc);
+		UpdateSize(rc.right - rc.left, rc.bottom - rc.top);
+	};
+
+	switch (TriggerContextMenu(ContextMenuID::GEDBG_TABS, m_hDlg, ContextPoint::FromCursor())) {
+	case ID_GEDBG_SHOWONLEFT:
+		toggleState(GEPanelIndex::LEFT, GETabPosition::LEFT, g_Config.uGETabsLeft);
+		break;
+
+	case ID_GEDBG_SHOWONRIGHT:
+		toggleState(GEPanelIndex::RIGHT, GETabPosition::RIGHT, g_Config.uGETabsRight);
+		break;
+
+	case ID_GEDBG_SHOWONTOPRIGHT:
+		toggleState(GEPanelIndex::TOPRIGHT, GETabPosition::TOPRIGHT, g_Config.uGETabsTopRight);
+		break;
+
+	default:
+		// Cancel, that's fine.
+		break;
+	}
 }
 
 void CGEDebugger::UpdateMenus() {

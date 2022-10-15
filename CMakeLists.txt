@@ -1,11 +1,11 @@
 # vim:noexpandtab:
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.8)
 project(PPSSPP)
 enable_testing()
 
 #This is supposed to work but doesn't!
 if(NOT ANDROID)
-	set(CMAKE_CXX_STANDARD 11)
+	set(CMAKE_CXX_STANDARD 17)
 	set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
 
@@ -120,8 +120,16 @@ if(OPENXR)
 	add_definitions(-DOPENXR)
 	add_library(openxr SHARED IMPORTED)
 	include_directories(ext/openxr)
-	set_property(TARGET openxr PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/ext/openxr/libs/arm64-v8a/libopenxr_loader.so")
-	message("OpenXR enabled")
+	if(OPENXR_PLATFORM_PICO)
+	  add_definitions(-DOPENXR_PLATFORM_PICO)
+	  set_property(TARGET openxr PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/ext/openxr/libs/pico/arm64-v8a/libopenxr_loader.so")
+	  message("OpenXR for Pico enabled")
+	endif()
+	if(OPENXR_PLATFORM_QUEST)
+	  add_definitions(-DOPENXR_PLATFORM_QUEST)
+	  set_property(TARGET openxr PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/ext/openxr/libs/quest/arm64-v8a/libopenxr_loader.so")
+	  message("OpenXR for Quest enabled")
+	endif()
 endif()
 
 if(GOLD)
@@ -221,7 +229,9 @@ include_directories(ext/glslang)
 # Anyway, glew will be going away anyway.
 include_directories(ext/glew)
 
-if(NOT OPENGL_LIBRARIES AND USING_GLES2)
+if(OPENXR)
+	set(OPENGL_LIBRARIES GLESv3 EGL)
+elseif(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
 endif()
 
@@ -313,7 +323,7 @@ if(NOT MSVC)
 	add_definitions(-DPNG_ARM_NEON_OPT=0)
 
 	if(ANDROID)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++17")
 	endif()
 	if(CLANG)
 		add_definitions(-Wno-nullability-completeness)
@@ -368,8 +378,9 @@ if(NOT MSVC)
 	endif()
 
 	if(IOS)
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.8")
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	elseif(NOT ANDROID)
@@ -426,6 +437,15 @@ if(WIN32)
 endif()
 
 
+set(CommonJIT
+	Core/MIPS/JitCommon/JitCommon.cpp
+	Core/MIPS/JitCommon/JitCommon.h
+	Core/MIPS/JitCommon/JitBlockCache.cpp
+	Core/MIPS/JitCommon/JitBlockCache.h
+	Core/MIPS/JitCommon/JitState.cpp
+	Core/MIPS/JitCommon/JitState.h
+)
+
 set(CommonX86
 	Common/ABI.cpp
 	Common/ABI.h
@@ -464,7 +484,10 @@ set(CommonMIPS
 source_group(MIPS FILES ${CommonMIPS})
 
 set(CommonRISCV64
+	${CommonJIT}
 	Common/RiscVCPUDetect.cpp
+	Common/RiscVEmitter.cpp
+	Common/RiscVEmitter.h
 	Core/MIPS/fake/FakeJit.cpp
 	Core/MIPS/fake/FakeJit.h
 )
@@ -609,15 +632,14 @@ add_library(Common STATIC
 	Common/GPU/Vulkan/VulkanRenderManager.h
 	Common/GPU/Vulkan/VulkanQueueRunner.cpp
 	Common/GPU/Vulkan/VulkanQueueRunner.h
+	Common/GPU/Vulkan/VulkanFrameData.cpp
+	Common/GPU/Vulkan/VulkanFrameData.h
 	Common/Input/GestureDetector.cpp
 	Common/Input/GestureDetector.h
 	Common/Input/KeyCodes.h
 	Common/Input/InputState.cpp
 	Common/Input/InputState.h
-	Common/Math/fast/fast_math.c
 	Common/Math/fast/fast_matrix.c
-	Common/Math/fast/fast_matrix_neon.S
-	Common/Math/fast/fast_matrix_sse.c
 	Common/Math/curves.cpp
 	Common/Math/curves.h
 	Common/Math/expression_parser.cpp
@@ -628,6 +650,8 @@ add_library(Common STATIC
 	Common/Math/lin/vec3.h
 	Common/Math/math_util.cpp
 	Common/Math/math_util.h
+	Common/Math/Statistics.h
+	Common/Math/Statistics.cpp
 	Common/Net/HTTPClient.cpp
 	Common/Net/HTTPClient.h
 	Common/Net/HTTPHeaders.cpp
@@ -1070,14 +1094,20 @@ if(ANDROID)
 
 	if (OPENXR)
 		set(nativeExtra ${nativeExtra}
+			Common/VR/PPSSPPVR.cpp
+			Common/VR/PPSSPPVR.h
 			Common/VR/VRBase.cpp
 			Common/VR/VRBase.h
 			Common/VR/VRFramebuffer.cpp
 			Common/VR/VRFramebuffer.h
 			Common/VR/VRInput.cpp
 			Common/VR/VRInput.h
+			Common/VR/VRMath.cpp
+			Common/VR/VRMath.h
 			Common/VR/VRRenderer.cpp
 			Common/VR/VRRenderer.h
+			Common/VR/VRTweaks.cpp
+			Common/VR/VRTweaks.h
 		)
 		set(nativeExtraLibs ${nativeExtraLibs} openxr)
 	endif()
@@ -1526,14 +1556,16 @@ set(GPU_SOURCES
 	${GPU_NEON}
 	GPU/Common/Draw2D.cpp
 	GPU/Common/Draw2D.h
-	GPU/Common/DepalettizeCommon.cpp
-	GPU/Common/DepalettizeCommon.h
+	GPU/Common/TextureShaderCommon.cpp
+	GPU/Common/TextureShaderCommon.h
 	GPU/Common/DepalettizeShaderCommon.cpp
 	GPU/Common/DepalettizeShaderCommon.h
 	GPU/Common/FragmentShaderGenerator.cpp
 	GPU/Common/FragmentShaderGenerator.h
 	GPU/Common/VertexShaderGenerator.cpp
 	GPU/Common/VertexShaderGenerator.h
+	GPU/Common/GeometryShaderGenerator.cpp
+	GPU/Common/GeometryShaderGenerator.h
 	GPU/Common/FramebufferManagerCommon.cpp
 	GPU/Common/FramebufferManagerCommon.h
 	GPU/Common/GPUDebugInterface.cpp
@@ -1577,6 +1609,8 @@ set(GPU_SOURCES
 	GPU/Debugger/Breakpoints.h
 	GPU/Debugger/Debugger.cpp
 	GPU/Debugger/Debugger.h
+	GPU/Debugger/GECommandTable.cpp
+	GPU/Debugger/GECommandTable.h
 	GPU/Debugger/Playback.cpp
 	GPU/Debugger/Playback.h
 	GPU/Debugger/Record.cpp
@@ -1626,6 +1660,7 @@ set(GPU_SOURCES
 # SHARED on ANDROID, STATIC everywhere else
 add_library(${CoreLibName} ${CoreLinkType}
 	${CoreExtra}
+	${CommonJIT}
 	Core/Config.cpp
 	Core/Config.h
 	Core/ConfigValues.h
@@ -1933,12 +1968,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/FileLoaders/RamCachingFileLoader.h
 	Core/FileLoaders/RetryingFileLoader.cpp
 	Core/FileLoaders/RetryingFileLoader.h
-	Core/MIPS/JitCommon/JitCommon.cpp
-	Core/MIPS/JitCommon/JitCommon.h
-	Core/MIPS/JitCommon/JitBlockCache.cpp
-	Core/MIPS/JitCommon/JitBlockCache.h
-	Core/MIPS/JitCommon/JitState.cpp
-	Core/MIPS/JitCommon/JitState.h
 	Core/MIPS/MIPS.cpp
 	Core/MIPS/MIPS.h
 	Core/MIPS/MIPSAnalyst.cpp
@@ -2041,6 +2070,8 @@ endif()
 
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
+
+target_compile_features(${CoreLibName} PUBLIC cxx_std_17)
 
 if(FFmpeg_FOUND)
 	target_compile_definitions(${CoreLibName} PRIVATE USE_FFMPEG=1)
@@ -2337,6 +2368,7 @@ if(UNITTEST)
 		unittest/TestIRPassSimplify.cpp
 		unittest/TestX64Emitter.cpp
 		unittest/TestVertexJit.cpp
+		unittest/TestRiscVEmitter.cpp
 		unittest/TestSoftwareGPUJit.cpp
 		unittest/TestThreadManager.cpp
 		unittest/JitHarness.cpp
@@ -2429,7 +2461,7 @@ if(NOT ANDROID)
 endif()
 # packaging and code signing
 if(IOS)
-	set(DEPLOYMENT_TARGET 8.0)
+	set(DEPLOYMENT_TARGET 11.0)
 	file(GLOB IOSAssets ios/assets/*.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)
@@ -2483,6 +2515,8 @@ if(UNIX AND NOT ANDROID AND NOT APPLE)
 		DIRECTORY "${CMAKE_BINARY_DIR}/assets"
 		DESTINATION "${CMAKE_INSTALL_DATADIR}/ppsspp"
 		PATTERN ".git*" EXCLUDE
+		PATTERN "mime" EXCLUDE
+		PATTERN "lang/README.md" EXCLUDE
 	)
 	install(
 		FILES "${CMAKE_BINARY_DIR}/ppsspp.desktop"
@@ -2495,7 +2529,11 @@ if(UNIX AND NOT ANDROID AND NOT APPLE)
 	)
 	install(
 		FILES "${CMAKE_SOURCE_DIR}/icons/icon-512.svg"
-		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/pixmaps"
-		RENAME ppsspp.svg
+		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps"
+		RENAME "ppsspp.svg"
+	)
+	install(
+		FILES "${CMAKE_SOURCE_DIR}/assets/mime/ppsspp.xml"
+		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/mime/packages"
 	)
 endif()

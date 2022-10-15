@@ -251,7 +251,7 @@ private:
 			return nullptr;
 		}
 		const auto recentIsos = g_Config.RecentIsos();
-		if (index >= recentIsos.size())
+		if (index >= (int)recentIsos.size())
 			return nullptr;
 		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GAMEINFO_WANTBG);
 	}
@@ -387,13 +387,13 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 				MIPSComp::jit->ClearCache();
 		}
 		currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
-	} else if (!strcmp(message, "control mapping") && isActiveScreen && activeScreen->tag() != "control mapping") {
+	} else if (!strcmp(message, "control mapping") && isActiveScreen && std::string(activeScreen->tag()) != "ControlMapping") {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new ControlMappingScreen());
-	} else if (!strcmp(message, "display layout editor") && isActiveScreen && activeScreen->tag() != "display layout screen") {
+	} else if (!strcmp(message, "display layout editor") && isActiveScreen && std::string(activeScreen->tag()) != "DisplayLayout") {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new DisplayLayoutScreen());
-	} else if (!strcmp(message, "settings") && isActiveScreen && activeScreen->tag() != "settings") {
+	} else if (!strcmp(message, "settings") && isActiveScreen && std::string(activeScreen->tag()) != "GameSettings") {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new GameSettingsScreen(Path()));
 	} else if (!strcmp(message, "language screen") && isActiveScreen) {
@@ -968,6 +968,7 @@ void CreditsScreen::render() {
 		"ANR2ME",
 		"adenovan",
 		"iota97",
+		"Lubos",
 		"",
 		cr->T("specialthanks", "Special thanks to:"),
 		specialthanksMaxim.c_str(),

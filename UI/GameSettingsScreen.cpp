@@ -27,6 +27,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
 #include "Common/System/System.h"
@@ -224,6 +225,9 @@ void GameSettingsScreen::CreateViews() {
 	auto ri = GetI18NCategory("RemoteISO");
 	auto ps = GetI18NCategory("PostShaders");
 	auto th = GetI18NCategory("Themes");
+	auto vr = GetI18NCategory("VR");
+
+	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -252,7 +256,7 @@ void GameSettingsScreen::CreateViews() {
 	root_->Add(settingInfo_);
 
 	// Show it again if we recreated the view
-	if (oldSettingInfo_ != "") {
+	if (!oldSettingInfo_.empty()) {
 		settingInfo_->Show(oldSettingInfo_, nullptr);
 	}
 
@@ -316,8 +320,10 @@ void GameSettingsScreen::CreateViews() {
 	});
 	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
-	softwareGPU->SetEnabled(!PSP_IsInited());
+	if (deviceType != DEVICE_TYPE_VR) {
+		CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
+		softwareGPU->SetEnabled(!PSP_IsInited());
+	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
@@ -390,39 +396,39 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 
-#ifndef OPENXR
-	graphicsSettings->Add(new ItemHeader(gr->T("Screen layout")));
+	if (deviceType != DEVICE_TYPE_VR) {
+		graphicsSettings->Add(new ItemHeader(gr->T("Screen layout")));
 #if !defined(MOBILE_DEVICE)
-	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
-	if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
-		CheckBox *fullscreenMulti = new CheckBox(&g_Config.bFullScreenMulti, gr->T("Use all displays"));
-		fullscreenMulti->SetEnabledFunc([] {
-			return g_Config.UseFullScreen();
-		});
-		graphicsSettings->Add(fullscreenMulti)->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenMultiChange);
-	}
+		graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
+		if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
+			CheckBox *fullscreenMulti = new CheckBox(&g_Config.bFullScreenMulti, gr->T("Use all displays"));
+			fullscreenMulti->SetEnabledFunc([] {
+				return g_Config.UseFullScreen();
+			});
+			graphicsSettings->Add(fullscreenMulti)->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenMultiChange);
+		}
 #endif
-	// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
-	displayEditor_ = graphicsSettings->Add(new Choice(gr->T("Display layout editor")));
-	displayEditor_->OnClick.Handle(this, &GameSettingsScreen::OnDisplayLayoutEditor);
+		// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
+		displayEditor_ = graphicsSettings->Add(new Choice(gr->T("Display layout editor")));
+		displayEditor_->OnClick.Handle(this, &GameSettingsScreen::OnDisplayLayoutEditor);
 
 #if PPSSPP_PLATFORM(ANDROID)
-	// Hide insets option if no insets, or OS too old.
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 28 &&
-		(System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) != 0.0f ||
-		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) != 0.0f ||
-		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) != 0.0f ||
-		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) != 0.0f)) {
-		graphicsSettings->Add(new CheckBox(&g_Config.bIgnoreScreenInsets, gr->T("Ignore camera notch when centering")));
-	}
+		// Hide insets option if no insets, or OS too old.
+		if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 28 &&
+		    (System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) != 0.0f ||
+		     System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) != 0.0f ||
+		     System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) != 0.0f ||
+		     System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) != 0.0f)) {
+			graphicsSettings->Add(new CheckBox(&g_Config.bIgnoreScreenInsets, gr->T("Ignore camera notch when centering")));
+		}
 
-	// Hide Immersive Mode on pre-kitkat Android
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
-		// Let's reuse the Fullscreen translation string from desktop.
-		graphicsSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
+		// Hide Immersive Mode on pre-kitkat Android
+		if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
+			// Let's reuse the Fullscreen translation string from desktop.
+			graphicsSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
+		}
+#endif
 	}
-#endif
-#endif
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Performance")));
 	static const char *internalResolutions[] = { "Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
@@ -433,7 +439,6 @@ void GameSettingsScreen::CreateViews() {
 	});
 
 #if PPSSPP_PLATFORM(ANDROID)
-	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
 		static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
 		int max_res_temp = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 2;
@@ -464,12 +469,23 @@ void GameSettingsScreen::CreateViews() {
 
 	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
 		static const char *bufferOptions[] = { "No buffer", "Up to 1", "Up to 2" };
-		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands (faster, input lag)"), bufferOptions, 0, ARRAY_SIZE(bufferOptions), gr->GetName(), screenManager()));
+		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands (faster, input lag)"), bufferOptions, 1, ARRAY_SIZE(bufferOptions), gr->GetName(), screenManager()));
 		inflightChoice->OnChoice.Handle(this, &GameSettingsScreen::OnInflightFramesChoice);
 	}
 
-	CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
-	hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	if (GetGPUBackend() == GPUBackend::VULKAN) {
+		const bool usable = !draw->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
+		const bool vertexSupported = draw->GetDeviceCaps().clipDistanceSupported && draw->GetDeviceCaps().cullDistanceSupported;
+		if (usable && !vertexSupported) {
+			CheckBox *geometryCulling = graphicsSettings->Add(new CheckBox(&g_Config.bUseGeometryShader, gr->T("Geometry shader culling")));
+			geometryCulling->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		}
+	}
+
+	if (deviceType != DEVICE_TYPE_VR) {
+		CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
+		hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	}
 
 	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
 	swSkin->OnClick.Add([=](EventParams &e) {
@@ -500,9 +516,6 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 	texSecondary_->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
-	CheckBox *framebufferSlowEffects = graphicsSettings->Add(new CheckBox(&g_Config.bDisableSlowFramebufEffects, gr->T("Disable slower effects (speedup)")));
-	framebufferSlowEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	// Seems solid, so we hide the setting.
 	/*CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gr->T("Vertex Decoder JIT")));
@@ -588,10 +601,8 @@ void GameSettingsScreen::CreateViews() {
 	static const char *bufFilters[] = { "Linear", "Nearest", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
 
-#ifdef OPENXR
-	bool showCardboardSettings = false;
-#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-	bool showCardboardSettings = true;
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	bool showCardboardSettings = deviceType != DEVICE_TYPE_VR;
 #else
 	// If you enabled it through the ini, you can see this. Useful for testing.
 	bool showCardboardSettings = g_Config.bEnableCardboardVR;
@@ -717,11 +728,12 @@ void GameSettingsScreen::CreateViews() {
 		customizeTilt->SetEnabledFunc([] {
 			return g_Config.iTiltInputType != 0;
 		});
+	} else if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR) {
+		controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
 	}
 
-#ifndef OPENXR
 	// TVs don't have touch control, at least not yet.
-	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
+	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
 		controlsSettings->Add(new ItemHeader(co->T("OnScreen", "On-Screen Touch Controls")));
 		controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, co->T("OnScreen", "On-Screen Touch Controls")));
 		layoutEditorChoice_ = controlsSettings->Add(new Choice(co->T("Customize Touch Controls")));
@@ -769,29 +781,30 @@ void GameSettingsScreen::CreateViews() {
 		gesture->SetEnabledPtr(&g_Config.bShowTouchControls);
 	}
 
-	controlsSettings->Add(new ItemHeader(co->T("Keyboard", "Keyboard Control Settings")));
+	if (deviceType != DEVICE_TYPE_VR) {
+		controlsSettings->Add(new ItemHeader(co->T("Keyboard", "Keyboard Control Settings")));
 #if defined(USING_WIN_UI)
-	controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, co->T("Ignore Windows Key")));
+		controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, co->T("Ignore Windows Key")));
 #endif // #if defined(USING_WIN_UI)
-	auto analogLimiter = new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, co->T("Analog Limiter"), 0.10f, screenManager(), "/ 1.0");
-	controlsSettings->Add(analogLimiter);
-	analogLimiter->OnChange.Add([=](EventParams &e) {
-		settingInfo_->Show(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
+		auto analogLimiter = new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, co->T("Analog Limiter"), 0.10f, screenManager(), "/ 1.0");
+		controlsSettings->Add(analogLimiter);
+		analogLimiter->OnChange.Add([=](EventParams &e) {
+			settingInfo_->Show(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), e.v);
+			return UI::EVENT_CONTINUE;
+		});
 #if defined(USING_WIN_UI) || defined(SDL)
-	controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse settings")));
-	CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
-	mouseControl->OnClick.Add([=](EventParams &e) {
-		if(g_Config.bMouseControl)
-			settingInfo_->Show(co->T("MouseControl Tip", "You can now map mouse in control mapping screen by pressing the 'M' icon."), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	controlsSettings->Add(new CheckBox(&g_Config.bMouseConfine, co->T("Confine Mouse", "Trap mouse within window/display area")))->SetEnabledPtr(&g_Config.bMouseControl);
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSensitivity, 0.01f, 1.0f, co->T("Mouse sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
+		controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse settings")));
+		CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
+		mouseControl->OnClick.Add([=](EventParams &e) {
+			if(g_Config.bMouseControl)
+				settingInfo_->Show(co->T("MouseControl Tip", "You can now map mouse in control mapping screen by pressing the 'M' icon."), e.v);
+			return UI::EVENT_CONTINUE;
+		});
+		controlsSettings->Add(new CheckBox(&g_Config.bMouseConfine, co->T("Confine Mouse", "Trap mouse within window/display area")))->SetEnabledPtr(&g_Config.bMouseControl);
+		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSensitivity, 0.01f, 1.0f, co->T("Mouse sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
+		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
 #endif
-#endif
+	}
 
 	LinearLayout *networkingSettings = AddTab("GameSettingsNetworking", ms->T("Networking"));
 
@@ -1106,6 +1119,19 @@ void GameSettingsScreen::CreateViews() {
 		ApplySearchFilter();
 	}
 #endif
+
+	if (deviceType == DEVICE_TYPE_VR) {
+		LinearLayout *vrSettings = AddTab("GameSettingsVR", ms->T("VR"));
+		vrSettings->Add(new ItemHeader(vr->T("Virtual reality")));
+		vrSettings->Add(new CheckBox(&g_Config.bEnableVR, vr->T("Enable virtual reality")));
+		vrSettings->Add(new PopupSliderChoice(&g_Config.iCanvasDistance, 1, 10, vr->T("Distance to 2D menus and scenes", "Distance to 2D menus and scenes"), 1, screenManager(), ""));
+		CheckBox *vr6DoF = vrSettings->Add(new CheckBox(&g_Config.bEnable6DoF, vr->T("Enable 6 degrees of freedom movement")));
+		vr6DoF->SetEnabledPtr(&g_Config.bEnableVR);
+		PopupSliderChoice *vrFieldOfView = vrSettings->Add(new PopupSliderChoice(&g_Config.iFieldOfViewPercentage, 100, 200, vr->T("Field of view scale", "Headset's field of view scale"), 10, screenManager(), vr->T("% of native FoV")));
+		vrFieldOfView->SetEnabledPtr(&g_Config.bEnableVR);
+		CheckBox *vrStereo = vrSettings->Add(new CheckBox(&g_Config.bEnableStereo, vr->T("Enable stereoscopic vision (Experimental)")));
+		vrStereo->SetEnabledPtr(&g_Config.bEnableVR);
+	}
 }
 
 UI::LinearLayout *GameSettingsScreen::AddTab(const char *tag, const std::string &title, bool isSearch) {
@@ -1205,7 +1231,7 @@ UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnOpenMemStick(UI::EventParams &e) {
-	OpenDirectory(File::ResolvePath(g_Config.memStickDirectory.ToString().c_str()).c_str());
+	OpenDirectory(File::ResolvePath(g_Config.memStickDirectory.ToString()).c_str());
 	return UI::EVENT_DONE;
 }
 
@@ -1471,7 +1497,7 @@ void GameSettingsScreen::TriggerRestart(const char *why) {
 	std::string param = "--gamesettings";
 	if (editThenRestore_) {
 		// We won't pass the gameID, so don't resume back into settings.
-		param = "";
+		param.clear();
 	} else if (!gamePath_.empty()) {
 		param += " \"" + ReplaceAll(ReplaceAll(gamePath_.ToString(), "\\", "\\\\"), "\"", "\\\"") + "\"";
 	}
@@ -1871,6 +1897,7 @@ void DeveloperToolsScreen::CreateViews() {
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
 	g_Config.Save("DeveloperToolsScreen::onFinish");
+	NativeMessageReceived("gpu_resized", "");
 }
 
 void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {

@@ -137,7 +137,7 @@ void LibretroVulkanContext::CreateDrawContext() {
       return;
    }
 
-   draw_ = Draw::T3DCreateVulkanContext(vk, false);
+   draw_ = Draw::T3DCreateVulkanContext(vk);
    ((VulkanRenderManager*)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER))->SetInflightFrames(g_Config.iInflightFrames);
    SetGPUBackend(GPUBackend::VULKAN);
 }

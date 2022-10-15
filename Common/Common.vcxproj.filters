@@ -161,9 +161,6 @@
     <ClInclude Include="Math\lin\vec3.h">
       <Filter>Math\lin</Filter>
     </ClInclude>
-    <ClInclude Include="Math\fast\fast_math.h">
-      <Filter>Math\fast</Filter>
-    </ClInclude>
     <ClInclude Include="Math\fast\fast_matrix.h">
       <Filter>Math\fast</Filter>
     </ClInclude>
@@ -421,6 +418,13 @@
     <ClInclude Include="GPU\Vulkan\VulkanBarrier.h">
       <Filter>GPU\Vulkan</Filter>
     </ClInclude>
+    <ClInclude Include="RiscVEmitter.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanFrameData.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\Statistics.h">
+      <Filter>Math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -567,13 +571,7 @@
     <ClCompile Include="Math\lin\vec3.cpp">
       <Filter>Math\lin</Filter>
     </ClCompile>
-    <ClCompile Include="Math\fast\fast_math.c">
-      <Filter>Math\fast</Filter>
-    </ClCompile>
     <ClCompile Include="Math\fast\fast_matrix.c">
-      <Filter>Math\fast</Filter>
-    </ClCompile>
-    <ClCompile Include="Math\fast\fast_matrix_sse.c">
       <Filter>Math\fast</Filter>
     </ClCompile>
     <ClCompile Include="Data\Format\RIFF.cpp">
@@ -798,6 +796,13 @@
     <ClCompile Include="GPU\Vulkan\VulkanBarrier.cpp">
       <Filter>GPU\Vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="RiscVEmitter.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanFrameData.cpp">
+      <Filter>GPU\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\Statistics.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -907,13 +912,5 @@
     <Text Include="..\ext\libpng17\CMakeLists.txt">
       <Filter>ext\libpng17</Filter>
     </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Math\lin\matrix_neon.s">
-      <Filter>Math\lin</Filter>
-    </None>
-    <None Include="Math\fast\fast_matrix_neon.S">
-      <Filter>Math\fast</Filter>
-    </None>
   </ItemGroup>
 </Project>

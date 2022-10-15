@@ -14,6 +14,22 @@ namespace W32Util
 	void ExitAndRestart(bool overrideArgs = false, const std::string &args = "");
 	void SpawnNewInstance(bool overrideArgs = false, const std::string &args = "");
 	void GetSelfExecuteParams(std::wstring &workingDirectory, std::wstring &moduleFilename);
+
+	struct ClipboardData {
+		ClipboardData(const char *format, size_t sz);
+		ClipboardData(UINT format, size_t sz);
+		~ClipboardData();
+
+		void Set();
+
+		operator bool() {
+			return data != nullptr;
+		}
+
+		UINT format_;
+		HANDLE handle_;
+		void *data;
+	};
 }
 
 struct GenericListViewColumn
@@ -67,6 +83,8 @@ protected:
 	virtual bool ListenColPrePaint() { return false; }
 	virtual bool OnRowPrePaint(int row, LPNMLVCUSTOMDRAW msg) { return false; }
 	virtual bool OnColPrePaint(int row, int col, LPNMLVCUSTOMDRAW msg) { return false; }
+
+	virtual int OnIncrementalSearch(int startRow, const wchar_t *str, bool wrap, bool partial);
 
 private:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);

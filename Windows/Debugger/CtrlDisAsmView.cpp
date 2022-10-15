@@ -191,7 +191,7 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 
 	matchAddress = -1;
 	searching = false;
-	searchQuery = "";
+	searchQuery.clear();
 	windowStart = curAddress;
 	whiteBackground = false;
 	displaySymbols = true;
@@ -326,7 +326,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 
 		redraw();
 	} else {
-		std::wstring error = MIPSAsm::GetAssembleError();
+		std::wstring error = ConvertUTF8ToWString(MIPSAsm::GetAssembleError());
 		MessageBox(wnd,error.c_str(),L"Error",MB_OK);
 	}
 }

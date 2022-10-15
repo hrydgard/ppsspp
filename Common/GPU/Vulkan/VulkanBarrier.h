@@ -19,8 +19,11 @@ public:
 		VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
 		VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask
 	) {
+		_dbg_assert_(image != VK_NULL_HANDLE);
+
 		srcStageMask_ |= srcStageMask;
 		dstStageMask_ |= dstStageMask;
+		dependencyFlags_ |= VK_DEPENDENCY_BY_REGION_BIT;
 
 		VkImageMemoryBarrier imageBarrier;
 		imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -45,6 +48,8 @@ public:
 	void TransitionImageAuto(
 		VkImage image, int baseMip, int numMipLevels, VkImageAspectFlags aspectMask, VkImageLayout oldImageLayout, VkImageLayout newImageLayout
 	) {
+		_dbg_assert_(image != VK_NULL_HANDLE);
+
 		VkAccessFlags srcAccessMask = 0;
 		VkAccessFlags dstAccessMask = 0;
 		switch (oldImageLayout) {
@@ -112,4 +117,5 @@ private:
 	VkPipelineStageFlags srcStageMask_ = 0;
 	VkPipelineStageFlags dstStageMask_ = 0;
 	std::vector<VkImageMemoryBarrier> imageBarriers_;
+	VkDependencyFlags dependencyFlags_ = 0;
 };

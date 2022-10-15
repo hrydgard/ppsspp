@@ -75,22 +75,4 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 	if (clearColor || clearAlpha) {
 		SetColorUpdated(gstate_c.skipDrawReason);
 	}
-	if (clearDepth) {
-		SetDepthUpdated();
-	}
-}
-
-void FramebufferManagerVulkan::BeginFrameVulkan() {
-	BeginFrame();
-}
-
-void FramebufferManagerVulkan::EndFrame() {
-}
-
-void FramebufferManagerVulkan::DeviceLost() {
-	FramebufferManagerCommon::DeviceLost();
-}
-
-void FramebufferManagerVulkan::DeviceRestore(Draw::DrawContext *draw) {
-	FramebufferManagerCommon::DeviceRestore(draw);
 }

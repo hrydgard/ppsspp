@@ -82,9 +82,9 @@ public:
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
+	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) override;
 	Texture *CreateTexture(const TextureDesc &desc) override;
-	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
@@ -100,13 +100,12 @@ public:
 	}
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 
-	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
-
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void InvalidateCachedState() override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindNativeTexture(int index, void *nativeTexture) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;
 	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override;
 	void BindIndexBuffer(Buffer *indexBuffer, int offset) override;
@@ -265,21 +264,24 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	caps_.framebufferStencilBlitSupported = false;
 	caps_.framebufferDepthCopySupported = true;
 	caps_.framebufferSeparateDepthCopySupported = false;  // Though could be emulated with a draw.
+	caps_.textureDepthSupported = true;
 	caps_.texture3DSupported = true;
 	caps_.fragmentShaderInt32Supported = true;
 	caps_.anisoSupported = true;
 	caps_.textureNPOTFullySupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
+	caps_.blendMinMaxSupported = true;
 
 	D3D11_FEATURE_DATA_D3D11_OPTIONS options{};
 	HRESULT result = device_->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS, &options, sizeof(options));
 	if (SUCCEEDED(result)) {
 		if (options.OutputMergerLogicOp) {
 			// Actually, need to check that the format supports logic ops as well.
-			// Which normal UNORM formats don't seem to do. So meh.
+			// Which normal UNORM formats don't seem to do in D3D11. So meh. We can't enable logicOp support.
 			// caps_.logicOpSupported = true;
 		}
 	}
+
 	IDXGIDevice* dxgiDevice = nullptr;
 	IDXGIAdapter* adapter = nullptr;
 	HRESULT hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));
@@ -471,6 +473,7 @@ static DXGI_FORMAT dataFormatToD3D11(DataFormat format) {
 	case DataFormat::R8G8B8A8_UNORM_SRGB: return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 	case DataFormat::B8G8R8A8_UNORM: return DXGI_FORMAT_B8G8R8A8_UNORM;
 	case DataFormat::B8G8R8A8_UNORM_SRGB: return DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+	case DataFormat::R16_UNORM: return DXGI_FORMAT_R16_UNORM;
 	case DataFormat::R16_FLOAT: return DXGI_FORMAT_R16_FLOAT;
 	case DataFormat::R16G16_FLOAT: return DXGI_FORMAT_R16G16_FLOAT;
 	case DataFormat::R16G16B16A16_FLOAT: return DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -683,6 +686,7 @@ const char *semanticToD3D11(int semantic, UINT *index) {
 	switch (semantic) {
 	case SEM_POSITION: return "POSITION";
 	case SEM_COLOR0: *index = 0; return "COLOR";
+	case SEM_COLOR1: *index = 1; return "COLOR";
 	case SEM_TEXCOORD0: *index = 0; return "TEXCOORD";
 	case SEM_TEXCOORD1: *index = 1; return "TEXCOORD";
 	case SEM_NORMAL: return "NORMAL";
@@ -920,7 +924,7 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 	return tex;
 }
 
-ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) {
+ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) {
 	if (language != ShaderLanguage::HLSL_D3D11) {
 		ERROR_LOG(G3D, "Unsupported shader language");
 		return nullptr;
@@ -965,7 +969,7 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	}
 	if (errorMsgs) {
 		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
-		ERROR_LOG(G3D, "Failed compiling:\n%s\n%s", data, errors.c_str());
+		ERROR_LOG(G3D, "Failed compiling %s:\n%s\n%s", tag, data, errors.c_str());
 		errorMsgs->Release();
 	}
 
@@ -1003,7 +1007,7 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	return nullptr;
 }
 
-Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
+Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) {
 	D3D11Pipeline *dPipeline = new D3D11Pipeline();
 	dPipeline->blend = (D3D11BlendState *)desc.blend;
 	dPipeline->depthStencil = (D3D11DepthStencilState *)desc.depthStencil;
@@ -1388,6 +1392,12 @@ void D3D11DrawContext::BindTextures(int start, int count, Texture **textures) {
 	context_->PSSetShaderResources(start, count, views);
 }
 
+void D3D11DrawContext::BindNativeTexture(int index, void *nativeTexture) {
+	// Collect the resource views from the textures.
+	ID3D11ShaderResourceView *view = (ID3D11ShaderResourceView *)nativeTexture;
+	context_->PSSetShaderResources(index, 1, &view);
+}
+
 void D3D11DrawContext::BindSamplerStates(int start, int count, SamplerState **states) {
 	ID3D11SamplerState *samplers[MAX_BOUND_TEXTURES];
 	_assert_(start + count <= ARRAY_SIZE(samplers));
@@ -1499,7 +1509,7 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 	return false;
 }
 
-bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) {
+bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, const char *tag) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)src;
 
 	if (fb) {
@@ -1559,15 +1569,18 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 	}
 
 	D3D11_BOX srcBox{ (UINT)bx, (UINT)by, 0, (UINT)(bx + bw), (UINT)(by + bh), 1 };
+	DataFormat srcFormat = DataFormat::UNDEFINED;
 	switch (channelBits) {
 	case FB_COLOR_BIT:
 		context_->CopySubresourceRegion(packTex, 0, bx, by, 0, fb ? fb->colorTex : bbRenderTargetTex_, 0, &srcBox);
+		srcFormat = DataFormat::R8G8B8A8_UNORM;
 		break;
 	case FB_DEPTH_BIT:
 	case FB_STENCIL_BIT:
 		// For depth/stencil buffers, we can't reliably copy subrectangles, so just copy the whole resource.
 		_assert_(fb);  // Can't copy depth/stencil from backbuffer. Shouldn't happen thanks to checks above.
 		context_->CopyResource(packTex, fb->depthStencilTex);
+		srcFormat = Draw::DataFormat::D24_S8;
 		break;
 	default:
 		_assert_(false);
@@ -1584,28 +1597,51 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 		return false;
 	}
 
-	const int srcByteOffset = by * map.RowPitch + bx * 4;
+	const size_t srcByteOffset = by * map.RowPitch + bx * DataFormatSizeInBytes(srcFormat);
+	const uint8_t *srcWithOffset = (const uint8_t *)map.pData + srcByteOffset;
 	switch (channelBits) {
 	case FB_COLOR_BIT:
 		// Pixel size always 4 here because we always request BGRA8888.
-		ConvertFromRGBA8888((uint8_t *)pixels, (uint8_t *)map.pData + srcByteOffset, pixelStride, map.RowPitch / sizeof(uint32_t), bw, bh, format);
+		ConvertFromRGBA8888((uint8_t *)pixels, srcWithOffset, pixelStride, map.RowPitch / sizeof(uint32_t), bw, bh, destFormat);
 		break;
 	case FB_DEPTH_BIT:
-		for (int y = by; y < by + bh; y++) {
-			float *dest = (float *)((uint8_t *)pixels + y * pixelStride * sizeof(float));
-			const uint32_t *src = (const uint32_t *)((const uint8_t *)map.pData + map.RowPitch * y);
-			for (int x = bx; x < bx + bw; x++) {
-				dest[x] = (src[x] & 0xFFFFFF) / (256.f * 256.f * 256.f);
+		if (srcFormat == destFormat) {
+			// Can just memcpy when it matches no matter the format!
+			uint8_t *dst = (uint8_t *)pixels;
+			const uint8_t *src = (const uint8_t *)srcWithOffset;
+			for (int y = 0; y < bh; ++y) {
+				memcpy(dst, src, bw * DataFormatSizeInBytes(srcFormat));
+				dst += pixelStride * DataFormatSizeInBytes(srcFormat);
+				src += map.RowPitch;
 			}
+		} else if (destFormat == DataFormat::D32F) {
+			ConvertToD32F((uint8_t *)pixels, srcWithOffset, pixelStride, map.RowPitch / sizeof(uint32_t), bw, bh, srcFormat);
+		} else if (destFormat == DataFormat::D16) {
+			ConvertToD16((uint8_t *)pixels, srcWithOffset, pixelStride, map.RowPitch / sizeof(uint32_t), bw, bh, srcFormat);
+		} else {
+			_assert_(false);
 		}
 		break;
 	case FB_STENCIL_BIT:
-		for (int y = by; y < by + bh; y++) {
-			uint8_t *destStencil = (uint8_t *)pixels + y * pixelStride;
-			const uint32_t *src = (const uint32_t *)((const uint8_t *)map.pData + map.RowPitch * y);
-			for (int x = bx; x < bx + bw; x++) {
-				destStencil[x] = src[x] >> 24;
+		if (srcFormat == destFormat) {
+			// Can just memcpy when it matches no matter the format!
+			uint8_t *dst = (uint8_t *)pixels;
+			const uint8_t *src = (const uint8_t *)srcWithOffset;
+			for (int y = 0; y < bh; ++y) {
+				memcpy(dst, src, bw * DataFormatSizeInBytes(srcFormat));
+				dst += pixelStride * DataFormatSizeInBytes(srcFormat);
+				src += map.RowPitch;
 			}
+		} else if (destFormat == DataFormat::S8) {
+			for (int y = 0; y < bh; y++) {
+				uint8_t *destStencil = (uint8_t *)pixels + y * pixelStride;
+				const uint32_t *src = (const uint32_t *)(srcWithOffset + map.RowPitch * y);
+				for (int x = 0; x < bw; x++) {
+					destStencil[x] = src[x] >> 24;
+				}
+			}
+		} else {
+			_assert_(false);
 		}
 		break;
 	}
@@ -1704,21 +1740,6 @@ uint64_t D3D11DrawContext::GetNativeObject(NativeObject obj, void *srcObject) {
 		return (uint64_t)(uintptr_t)featureLevel_;
 	case NativeObject::TEXTURE_VIEW:
 		return (uint64_t)(((D3D11Texture *)srcObject)->view);
-	default:
-		return 0;
-	}
-}
-
-uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
-	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
-	switch (channelBit) {
-	case FB_COLOR_BIT: return (uintptr_t)fb->colorTex;
-	case FB_DEPTH_BIT: return (uintptr_t)fb->depthStencilTex;
-	case FB_COLOR_BIT | FB_VIEW_BIT: return (uintptr_t)fb->colorRTView;
-	case FB_DEPTH_BIT | FB_VIEW_BIT: return (uintptr_t)fb->depthStencilRTView;
-	case FB_COLOR_BIT | FB_FORMAT_BIT: return (uintptr_t)fb->colorFormat;
-	case FB_DEPTH_BIT | FB_FORMAT_BIT: return (uintptr_t)fb->depthStencilFormat;
-	case FB_STENCIL_BIT | FB_FORMAT_BIT: return (uintptr_t)fb->depthStencilFormat;
 	default:
 		return 0;
 	}

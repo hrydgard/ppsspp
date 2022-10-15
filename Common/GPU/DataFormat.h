@@ -32,6 +32,8 @@ enum class DataFormat : uint8_t {
 	A1R5G5B5_UNORM_PACK16, // A1 in the UPPER bit.
 	A1B5G5R5_UNORM_PACK16, // A1 in the UPPER bit. OpenGL-only.
 
+	R16_UNORM,
+
 	R16_FLOAT,
 	R16G16_FLOAT,
 	R16G16B16A16_FLOAT,
@@ -77,5 +79,6 @@ inline bool DataFormatIsColor(DataFormat fmt) {
 void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format);
 void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format);
 void ConvertToD32F(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format);
+void ConvertToD16(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format);
 
 }  // namespace

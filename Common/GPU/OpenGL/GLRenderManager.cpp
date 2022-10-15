@@ -3,15 +3,13 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/VR/PPSSPPVR.h"
+
+#include "Core/Config.h"
 
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/Math/math_util.h"
-
-#ifdef OPENXR
-#include "VR/VRBase.h"
-#include "VR/VRRenderer.h"
-#endif
 
 #if 0 // def _DEBUG
 #define VLOG(...) INFO_LOG(G3D, __VA_ARGS__)
@@ -202,9 +200,6 @@ bool GLRenderManager::ThreadFrame() {
 	std::unique_lock<std::mutex> lock(mutex_);
 	if (!run_)
 		return false;
-#ifdef OPENXR
-	VR_BeginFrame(VR_GetEngine());
-#endif
 
 	// In case of syncs or other partial completion, we keep going until we complete a frame.
 	do {
@@ -240,12 +235,13 @@ bool GLRenderManager::ThreadFrame() {
 			INFO_LOG(G3D, "Running first frame (%d)", threadFrame_);
 			firstFrame = false;
 		}
+
+		// Render the scene.
 		Run(threadFrame_);
+
 		VLOG("PULL: Finished frame %d", threadFrame_);
 	} while (!nextFrame);
-#ifdef OPENXR
-	VR_EndFrame(VR_GetEngine());
-#endif
+
 	return true;
 }
 
@@ -583,7 +579,19 @@ void GLRenderManager::Run(int frame) {
 		}
 	}
 
-	queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
+	if (IsVRBuild()) {
+		int passes = 1;
+		if (!IsMultiviewSupported() && g_Config.bEnableStereo) {
+			passes = 2;
+		}
+		for (int i = 0; i < passes; i++) {
+			PreVRFrameRender(i);
+			queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, i < passes - 1);
+			PostVRFrameRender();
+		}
+	} else {
+		queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
+	}
 	stepsOnThread.clear();
 
 	if (!skipGLCalls_) {

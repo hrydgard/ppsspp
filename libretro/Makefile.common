@@ -25,6 +25,8 @@ INCFLAGS += \
 	$(FFMPEGINCFLAGS) \
 	-I$(EXTDIR)/cityhash \
 	-I$(EXTDIR)/armips \
+	-I$(EXTDIR)/armips/ext/filesystem/include \
+	-I$(EXTDIR)/armips/ext/tinyformat \
 	-I$(EXTDIR)/zstd/lib \
 	-I$(EXTDIR) \
 	-I$(NATIVEDIR) \
@@ -161,10 +163,6 @@ ifeq ($(PLATFORM_EXT), android)
 			$(EXTDIR)/libzip/zip_source_file_stdio_named.c \
 			$(EXTDIR)/libzip/zip_random_unix.c
 	endif
-
-	SOURCES_C +=\
-		$(COMMONDIR)/Math/fast/fast_math.c \
-		$(COMMONDIR)/Math/fast/fast_matrix.c
 endif
 
 SOURCES_C += $(LIBRETRODIR)/ext/glew/glew.c
@@ -213,6 +211,9 @@ SOURCES_CXX += \
 SOURCES_CXX += $(EXTDIR)/cityhash/city.cpp
 
 SOURCES_CXX += \
+	$(EXTDIR)/armips/Core/Types.cpp
+
+SOURCES_CXX += \
 	$(COMMONDIR)/Crypto/md5.cpp \
 	$(COMMONDIR)/Crypto/sha1.cpp \
 	$(COMMONDIR)/Crypto/sha256.cpp
@@ -257,6 +258,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/Vulkan/thin3d_vulkan.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanQueueRunner.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanRenderManager.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanFrameData.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanLoader.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanContext.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanDebug.cpp \
@@ -269,6 +271,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Math/curves.cpp \
 	$(COMMONDIR)/Math/expression_parser.cpp \
 	$(COMMONDIR)/Math/math_util.cpp \
+	$(COMMONDIR)/Math/Statistics.cpp \
 	$(COMMONDIR)/Math/lin/vec3.cpp \
 	$(COMMONDIR)/Math/lin/matrix4x4.cpp \
 	$(COMMONDIR)/Net/HTTPClient.cpp \
@@ -312,7 +315,8 @@ SOURCES_CXX += \
 	$(COMMONDIR)/TimeUtil.cpp
 
 SOURCES_C +=\
-	$(COMMONDIR)/GPU/OpenGL/gl3stub.c
+	$(COMMONDIR)/GPU/OpenGL/gl3stub.c \
+	$(COMMONDIR)/Math/fast/fast_matrix.c
 
 SOURCES_CXX += \
 	$(GPUCOMMONDIR)/Draw2D.cpp \
@@ -327,7 +331,7 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/ShaderCommon.cpp \
 	$(GPUCOMMONDIR)/ShaderUniforms.cpp \
 	$(GPUCOMMONDIR)/GPUDebugInterface.cpp \
-	$(GPUCOMMONDIR)/DepalettizeCommon.cpp \
+	$(GPUCOMMONDIR)/TextureShaderCommon.cpp \
 	$(GPUCOMMONDIR)/DepalettizeShaderCommon.cpp \
 	$(GPUCOMMONDIR)/TransformCommon.cpp \
 	$(GPUCOMMONDIR)/IndexGenerator.cpp \
@@ -336,11 +340,13 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Data/Convert/ColorConv.cpp \
 	$(GPUDIR)/Debugger/Breakpoints.cpp \
 	$(GPUDIR)/Debugger/Debugger.cpp \
+	$(GPUDIR)/Debugger/GECommandTable.cpp \
 	$(GPUDIR)/Debugger/Playback.cpp \
 	$(GPUDIR)/Debugger/Record.cpp \
 	$(GPUDIR)/Debugger/Stepping.cpp \
 	$(GPUDIR)/Common/FragmentShaderGenerator.cpp \
 	$(GPUDIR)/Common/VertexShaderGenerator.cpp \
+	$(GPUDIR)/Common/GeometryShaderGenerator.cpp \
 	$(GPUDIR)/Common/TextureCacheCommon.cpp \
 	$(GPUDIR)/Common/TextureScalerCommon.cpp \
 	$(GPUDIR)/Common/SoftwareTransformCommon.cpp \
@@ -633,8 +639,7 @@ ifeq ($(WITH_DYNAREC),1)
 
 			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
 				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
-			ASMFILES   += $(COMMONDIR)/Math/fast/fast_matrix_neon.S \
-				      $(EXTDIR)/libpng17/arm/filter_neon.S
+			ASMFILES   += $(EXTDIR)/libpng17/arm/filter_neon.S
 		endif
 	else ifeq ($(TARGET_ARCH),arm64)
       DYNAFLAGS += -D_ARCH_64
@@ -659,8 +664,7 @@ ifeq ($(WITH_DYNAREC),1)
 
 			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
 				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
-			ASMFILES   += $(COMMONDIR)/math/fast/fast_matrix_neon.S \
-				      $(EXTDIR)/libpng17/arm/filter_neon.S
+			ASMFILES   += $(EXTDIR)/libpng17/arm/filter_neon.S
 		endif
    else
 	ifneq (,$(findstring msvc,$(platform)))
@@ -696,7 +700,6 @@ ifeq ($(WITH_DYNAREC),1)
 						$(COREDIR)/MIPS/x86/RegCache.cpp \
 						$(COREDIR)/MIPS/x86/RegCacheFPU.cpp \
 						$(GPUDIR)/Common/VertexDecoderX86.cpp
-		SOURCES_C   += $(COMMONDIR)/Math/fast/fast_matrix_sse.c
    endif
 endif
 #UDIS86
@@ -781,11 +784,8 @@ SOURCES_C +=   $(ZSTDDIR)/common/debug.c \
                $(ZSTDDIR)/common/error_private.c \
                $(ZSTDDIR)/common/fse_decompress.c \
                $(ZSTDDIR)/common/pool.c \
-               $(ZSTDDIR)/common/threading.c
-
-#SOURCES_C +=   $(ZSTDDIR)/common/xxhash.c
-
-SOURCES_C +=   \
+               $(ZSTDDIR)/common/threading.c \
+               $(ZSTDDIR)/common/xxhash.c \
                $(ZSTDDIR)/common/zstd_common.c \
                $(ZSTDDIR)/compress/fse_compress.c \
                $(ZSTDDIR)/compress/hist.c \
@@ -808,6 +808,13 @@ SOURCES_C +=   \
                $(ZSTDDIR)/dictBuilder/divsufsort.c \
                $(ZSTDDIR)/dictBuilder/fastcover.c \
                $(ZSTDDIR)/dictBuilder/zdict.c
+
+# zstd only uses asm for Linux/macOS and GNUC.
+ifneq ($(PLATFORM_EXT), win32)
+ifeq ($(TARGET_ARCH),x86_64)
+SOURCES_C +=   $(ZSTDDIR)/decompress/huf_decompress_amd64.S
+endif
+endif
 
 ifneq ($(STATIC_LINKING), 1)
 SOURCES_C += \

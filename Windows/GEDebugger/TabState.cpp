@@ -18,8 +18,9 @@
 #include <commctrl.h>
 #include "Common/CommonFuncs.h"
 #include "Common/CommonTypes.h"
-#include "Common/Log.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Windows/resource.h"
 #include "Windows/InputBox.h"
@@ -62,6 +63,7 @@ enum CmdFormatType {
 	CMD_FMT_XY,
 	CMD_FMT_XYXY,
 	CMD_FMT_XYZ,
+	CMD_FMT_XYPLUS1,
 	CMD_FMT_TEXSIZE,
 	CMD_FMT_F16_XY,
 	CMD_FMT_VERTEXTYPE,
@@ -177,23 +179,25 @@ static const TabStateRow stateLightingRows[] = {
 };
 
 static const TabStateRow stateTextureRows[] = {
+	{ L"Texture L0 addr",      GE_CMD_TEXADDR0,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH0 },
+	{ L"Texture L0 size",      GE_CMD_TEXSIZE0,                CMD_FMT_TEXSIZE, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex format",           GE_CMD_TEXFORMAT,               CMD_FMT_TEXFMT, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex CLUT",             GE_CMD_CLUTADDR,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_CLUTADDRUPPER },
+	{ L"Tex CLUT format",      GE_CMD_CLUTFORMAT,              CMD_FMT_CLUTFMT, GE_CMD_TEXTUREMAPENABLE },
+
 	{ L"Tex U scale",          GE_CMD_TEXSCALEU,               CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex V scale",          GE_CMD_TEXSCALEV,               CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex U offset",         GE_CMD_TEXOFFSETU,              CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex V offset",         GE_CMD_TEXOFFSETV,              CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex mapping mode",     GE_CMD_TEXMAPMODE,              CMD_FMT_TEXMAPMODE, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex shade srcs",       GE_CMD_TEXSHADELS,              CMD_FMT_TEXSHADELS, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex func",             GE_CMD_TEXFUNC,                 CMD_FMT_TEXFUNC, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex env color",        GE_CMD_TEXENVCOLOR,             CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex mode",             GE_CMD_TEXMODE,                 CMD_FMT_TEXMODE, GE_CMD_TEXTUREMAPENABLE },
-	{ L"Tex format",           GE_CMD_TEXFORMAT,               CMD_FMT_TEXFMT, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex filtering",        GE_CMD_TEXFILTER,               CMD_FMT_TEXFILTER, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex wrapping",         GE_CMD_TEXWRAP,                 CMD_FMT_TEXWRAP, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex level/bias",       GE_CMD_TEXLEVEL,                CMD_FMT_TEXLEVEL, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex lod slope",        GE_CMD_TEXLODSLOPE,             CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
-	{ L"Tex func",             GE_CMD_TEXFUNC,                 CMD_FMT_TEXFUNC, GE_CMD_TEXTUREMAPENABLE },
-	{ L"Tex env color",        GE_CMD_TEXENVCOLOR,             CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
-	{ L"CLUT",                 GE_CMD_CLUTADDR,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_CLUTADDRUPPER },
-	{ L"CLUT format",          GE_CMD_CLUTFORMAT,              CMD_FMT_CLUTFMT, GE_CMD_TEXTUREMAPENABLE },
-	{ L"Texture L0 addr",      GE_CMD_TEXADDR0,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH0 },
 	{ L"Texture L1 addr",      GE_CMD_TEXADDR1,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH1 },
 	{ L"Texture L2 addr",      GE_CMD_TEXADDR2,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH2 },
 	{ L"Texture L3 addr",      GE_CMD_TEXADDR3,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH3 },
@@ -201,7 +205,6 @@ static const TabStateRow stateTextureRows[] = {
 	{ L"Texture L5 addr",      GE_CMD_TEXADDR5,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH5 },
 	{ L"Texture L6 addr",      GE_CMD_TEXADDR6,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH6 },
 	{ L"Texture L7 addr",      GE_CMD_TEXADDR7,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH7 },
-	{ L"Texture L0 size",      GE_CMD_TEXSIZE0,                CMD_FMT_TEXSIZE, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Texture L1 size",      GE_CMD_TEXSIZE1,                CMD_FMT_TEXSIZE, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Texture L2 size",      GE_CMD_TEXSIZE2,                CMD_FMT_TEXSIZE, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Texture L3 size",      GE_CMD_TEXSIZE3,                CMD_FMT_TEXSIZE, GE_CMD_TEXTUREMAPENABLE },
@@ -212,27 +215,34 @@ static const TabStateRow stateTextureRows[] = {
 };
 
 static const TabStateRow stateSettingsRows[] = {
-	{ L"Clear mode",           GE_CMD_CLEARMODE,               CMD_FMT_CLEARMODE },
 	{ L"Framebuffer",          GE_CMD_FRAMEBUFPTR,             CMD_FMT_PTRWIDTH, 0, GE_CMD_FRAMEBUFWIDTH },
 	{ L"Framebuffer format",   GE_CMD_FRAMEBUFPIXFORMAT,       CMD_FMT_TEXFMT },
 	{ L"Depthbuffer",          GE_CMD_ZBUFPTR,                 CMD_FMT_PTRWIDTH, 0, GE_CMD_ZBUFWIDTH },
+	{ L"Viewport Scale",       GE_CMD_VIEWPORTXSCALE,          CMD_FMT_XYZ, 0, GE_CMD_VIEWPORTYSCALE, GE_CMD_VIEWPORTZSCALE },
+	{ L"Viewport Offset",      GE_CMD_VIEWPORTXCENTER,         CMD_FMT_XYZ, 0, GE_CMD_VIEWPORTYCENTER, GE_CMD_VIEWPORTZCENTER },
+	{ L"Scissor",              GE_CMD_SCISSOR1,                CMD_FMT_XYXY, 0, GE_CMD_SCISSOR2 },
+	{ L"Region",               GE_CMD_REGION1,                 CMD_FMT_XYXY, 0, GE_CMD_REGION2 },
+	{ L"Color test",           GE_CMD_COLORTEST,               CMD_FMT_COLORTEST, GE_CMD_COLORTESTENABLE, GE_CMD_COLORREF, GE_CMD_COLORTESTMASK },
+	{ L"Alpha test",           GE_CMD_ALPHATEST,               CMD_FMT_ALPHATEST, GE_CMD_ALPHATESTENABLE },
+	{ L"Clear mode",           GE_CMD_CLEARMODE,               CMD_FMT_CLEARMODE },
+	{ L"Stencil test",         GE_CMD_STENCILTEST,             CMD_FMT_STENCILTEST, GE_CMD_STENCILTESTENABLE },
+	{ L"Stencil test op",      GE_CMD_STENCILOP,               CMD_FMT_STENCILOP, GE_CMD_STENCILTESTENABLE },
+	{ L"Depth test",           GE_CMD_ZTEST,                   CMD_FMT_ZTEST, GE_CMD_ZTESTENABLE },
+	{ L"RGB mask",             GE_CMD_MASKRGB,                 CMD_FMT_HEX },
+	{ L"Stencil/alpha mask",   GE_CMD_MASKALPHA,               CMD_FMT_HEX },
+	{ L"Transfer src",         GE_CMD_TRANSFERSRC,             CMD_FMT_PTRWIDTH, 0, GE_CMD_TRANSFERSRCW },
+	{ L"Transfer src pos",     GE_CMD_TRANSFERSRCPOS,          CMD_FMT_XY },
+	{ L"Transfer dst",         GE_CMD_TRANSFERDST,             CMD_FMT_PTRWIDTH, 0, GE_CMD_TRANSFERDSTW },
+	{ L"Transfer dst pos",     GE_CMD_TRANSFERDSTPOS,          CMD_FMT_XY },
+	{ L"Transfer size",        GE_CMD_TRANSFERSIZE,            CMD_FMT_XYPLUS1 },
 	{ L"Vertex type",          GE_CMD_VERTEXTYPE,              CMD_FMT_VERTEXTYPE },
 	{ L"Offset addr",          GE_CMD_OFFSETADDR,              CMD_FMT_OFFSETADDR },
 	{ L"Vertex addr",          GE_CMD_VADDR,                   CMD_FMT_VADDR },
 	{ L"Index addr",           GE_CMD_IADDR,                   CMD_FMT_IADDR },
-	{ L"Region",               GE_CMD_REGION1,                 CMD_FMT_XYXY, 0, GE_CMD_REGION2 },
-	{ L"Scissor",              GE_CMD_SCISSOR1,                CMD_FMT_XYXY, 0, GE_CMD_SCISSOR2 },
 	{ L"Min Z",                GE_CMD_MINZ,                    CMD_FMT_HEX },
 	{ L"Max Z",                GE_CMD_MAXZ,                    CMD_FMT_HEX },
-	{ L"Viewport Scale",       GE_CMD_VIEWPORTXSCALE,          CMD_FMT_XYZ, 0, GE_CMD_VIEWPORTYSCALE, GE_CMD_VIEWPORTZSCALE },
-	{ L"Viewport Offset",      GE_CMD_VIEWPORTXCENTER,         CMD_FMT_XYZ, 0, GE_CMD_VIEWPORTYCENTER, GE_CMD_VIEWPORTZCENTER },
 	{ L"Offset",               GE_CMD_OFFSETX,                 CMD_FMT_F16_XY, 0, GE_CMD_OFFSETY },
 	{ L"Cull mode",            GE_CMD_CULL,                    CMD_FMT_CULL, GE_CMD_CULLFACEENABLE },
-	{ L"Color test",           GE_CMD_COLORTEST,               CMD_FMT_COLORTEST, GE_CMD_COLORTESTENABLE, GE_CMD_COLORREF, GE_CMD_COLORTESTMASK },
-	{ L"Alpha test",           GE_CMD_ALPHATEST,               CMD_FMT_ALPHATEST, GE_CMD_ALPHATESTENABLE },
-	{ L"Stencil test",         GE_CMD_STENCILTEST,             CMD_FMT_STENCILTEST, GE_CMD_STENCILTESTENABLE },
-	{ L"Stencil test op",      GE_CMD_STENCILOP,               CMD_FMT_STENCILOP, GE_CMD_STENCILTESTENABLE },
-	{ L"Depth test",           GE_CMD_ZTEST,                   CMD_FMT_ZTEST, GE_CMD_ZTESTENABLE },
 	{ L"Alpha blend mode",     GE_CMD_BLENDMODE,               CMD_FMT_BLENDMODE, GE_CMD_ALPHABLENDENABLE },
 	{ L"Blend color A",        GE_CMD_BLENDFIXEDA,             CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
 	{ L"Blend color B",        GE_CMD_BLENDFIXEDB,             CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
@@ -240,8 +250,6 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Fog 1",                GE_CMD_FOG1,                    CMD_FMT_FLOAT24, GE_CMD_FOGENABLE },
 	{ L"Fog 2",                GE_CMD_FOG2,                    CMD_FMT_FLOAT24, GE_CMD_FOGENABLE },
 	{ L"Fog color",            GE_CMD_FOGCOLOR,                CMD_FMT_HEX, GE_CMD_FOGENABLE },
-	{ L"RGB mask",             GE_CMD_MASKRGB,                 CMD_FMT_HEX },
-	{ L"Stencil/alpha mask",   GE_CMD_MASKALPHA,               CMD_FMT_HEX },
 	{ L"Morph Weight 0",       GE_CMD_MORPHWEIGHT0,            CMD_FMT_FLOAT24 },
 	{ L"Morph Weight 1",       GE_CMD_MORPHWEIGHT1,            CMD_FMT_FLOAT24 },
 	{ L"Morph Weight 2",       GE_CMD_MORPHWEIGHT2,            CMD_FMT_FLOAT24 },
@@ -259,11 +267,14 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Dither 1",             GE_CMD_DITH1,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
 	{ L"Dither 2",             GE_CMD_DITH2,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
 	{ L"Dither 3",             GE_CMD_DITH3,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
-	{ L"Transfer src",         GE_CMD_TRANSFERSRC,             CMD_FMT_PTRWIDTH, 0, GE_CMD_TRANSFERSRCW },
-	{ L"Transfer src pos",     GE_CMD_TRANSFERSRCPOS,          CMD_FMT_XY },
-	{ L"Transfer dst",         GE_CMD_TRANSFERDST,             CMD_FMT_PTRWIDTH, 0, GE_CMD_TRANSFERDSTW },
-	{ L"Transfer dst pos",     GE_CMD_TRANSFERDSTPOS,          CMD_FMT_XY },
-	{ L"Transfer size",        GE_CMD_TRANSFERSIZE,            CMD_FMT_XY },
+	{ L"Imm vertex XY",        GE_CMD_VSCX,                    CMD_FMT_F16_XY, 0, GE_CMD_VSCY },
+	{ L"Imm vertex Z",         GE_CMD_VSCZ,                    CMD_FMT_HEX },
+	{ L"Imm vertex tex STQ",   GE_CMD_VTCS,                    CMD_FMT_XYZ, 0, GE_CMD_VTCT, GE_CMD_VTCQ },
+	{ L"Imm vertex color0",    GE_CMD_VCV,                     CMD_FMT_HEX },
+	{ L"Imm vertex color1",    GE_CMD_VSCV,                    CMD_FMT_HEX },
+	{ L"Imm vertex fog",       GE_CMD_VFC,                     CMD_FMT_HEX },
+	// TODO: Format?
+	{ L"Imm vertex prim",      GE_CMD_VAP,                     CMD_FMT_HEX },
 };
 
 // TODO: Commands not present in the above lists (some because they don't have meaningful values...):
@@ -366,6 +377,14 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		}
 		break;
 
+	case CMD_FMT_XYPLUS1:
+		{
+			int x = value & 0x3FF;
+			int y = value >> 10;
+			swprintf(dest, 255, L"%d,%d", x + 1, y + 1);
+		}
+		break;
+
 	case CMD_FMT_XYXY:
 		{
 			int x1 = value & 0x3FF;
@@ -428,7 +447,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 				swprintf(dest, 255, L"%S", texformats[value]);
 			}
 			else if ((value & 0xF) < (u32)ARRAY_SIZE(texformats)) {
-				swprintf(dest, 255, L"%S (extra bits %06x)", texformats[value & 0xF], value);
+				swprintf(dest, 255, L"%S (extra bits %06x)", texformats[value & 0xF], value & ~0xF);
 			}
 			else {
 				swprintf(dest, 255, L"%06x", value);
@@ -899,7 +918,13 @@ void CtrlStateValues::OnDoubleClick(int row, int column) {
 	const auto info = rows_[row];
 
 	if (column == STATEVALUES_COL_BREAKPOINT) {
-		SetItemState(row, ToggleBreakpoint(info) ? 1 : 0);
+		bool proceed = true;
+		if (GetCmdBreakpointCond(info.cmd, nullptr)) {
+			int ret = MessageBox(GetHandle(), L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
+			proceed = ret == IDYES;
+		}
+		if (proceed)
+			SetItemState(row, ToggleBreakpoint(info) ? 1 : 0);
 		return;
 	}
 
@@ -959,6 +984,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 
 	HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_STATE);
 	SetMenuDefaultItem(subMenu, ID_REGLIST_CHANGE, FALSE);
+	EnableMenuItem(subMenu, ID_GEDBG_SETCOND, GPUBreakpoints::IsCmdBreakpoint(info.cmd) ? MF_ENABLED : MF_GRAYED);
 
 	// Ehh, kinda ugly.
 	if (!watchList.empty() && rows_ == &watchList[0]) {
@@ -974,8 +1000,19 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 
 	switch (TriggerContextMenu(ContextMenuID::GEDBG_STATE, GetHandle(), ContextPoint::FromClient(point)))
 	{
-	case ID_DISASM_TOGGLEBREAKPOINT:
-		SetItemState(row, ToggleBreakpoint(info) ? 1 : 0);
+	case ID_DISASM_TOGGLEBREAKPOINT: {
+		bool proceed = true;
+		if (GetCmdBreakpointCond(info.cmd, nullptr)) {
+			int ret = MessageBox(GetHandle(), L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
+			proceed = ret == IDYES;
+		}
+		if (proceed)
+			SetItemState(row, ToggleBreakpoint(info) ? 1 : 0);
+		break;
+	}
+
+	case ID_GEDBG_SETCOND:
+		PromptBreakpointCond(info);
 		break;
 
 	case ID_DISASM_COPYINSTRUCTIONHEX: {
@@ -1013,7 +1050,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 }
 
 bool CtrlStateValues::OnRowPrePaint(int row, LPNMLVCUSTOMDRAW msg) {
-	if (RowValuesChanged(row)) {
+	if (gpuDebug && RowValuesChanged(row)) {
 		msg->clrText = RGB(255, 0, 0);
 		return true;
 	}
@@ -1040,6 +1077,24 @@ bool CtrlStateValues::RowValuesChanged(int row) {
 		return true;
 
 	return false;
+}
+
+void CtrlStateValues::PromptBreakpointCond(const TabStateRow &info) {
+	std::string expression;
+	GPUBreakpoints::GetCmdBreakpointCond(info.cmd, &expression);
+	if (!InputBox_GetString(GetModuleHandle(NULL), GetHandle(), L"Expression", expression, expression))
+		return;
+
+	std::string error;
+	if (!GPUBreakpoints::SetCmdBreakpointCond(info.cmd, expression, &error)) {
+		MessageBox(GetHandle(), ConvertUTF8ToWString(error).c_str(), L"Invalid expression", MB_OK | MB_ICONEXCLAMATION);
+	} else {
+		if (info.otherCmd)
+			GPUBreakpoints::SetCmdBreakpointCond(info.otherCmd, expression, &error);
+		if (info.otherCmd2)
+			GPUBreakpoints::SetCmdBreakpointCond(info.otherCmd2, expression, &error);
+	}
+
 }
 
 TabStateValues::TabStateValues(const TabStateRow *rows, int rowCount, LPCSTR dialogID, HINSTANCE _hInstance, HWND _hParent)

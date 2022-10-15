@@ -37,7 +37,6 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
@@ -53,7 +52,8 @@
 
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw), drawEngine_(draw) {
-	CheckGPUFeatures();
+	gstate_c.featureFlags = CheckGPUFeatures();
+	drawEngine_.InitDeviceObjects();
 
 	VulkanContext *vulkan = (VulkanContext *)gfxCtx->GetAPIContext();
 
@@ -63,7 +63,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	pipelineManager_ = new PipelineManagerVulkan(vulkan);
 	framebufferManagerVulkan_ = new FramebufferManagerVulkan(draw);
 	framebufferManager_ = framebufferManagerVulkan_;
-	textureCacheVulkan_ = new TextureCacheVulkan(draw, vulkan);
+	textureCacheVulkan_ = new TextureCacheVulkan(draw, framebufferManager_->GetDraw2D(), vulkan);
 	textureCache_ = textureCacheVulkan_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerVulkan_;
@@ -92,7 +92,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// Update again after init to be sure of any silly driver problems.
 	UpdateVsyncInterval(true);
 
-	textureCacheVulkan_->NotifyConfigChanged();
+	textureCache_->NotifyConfigChanged();
 
 	// Load shader cache.
 	std::string discID = g_paramSFO.GetDiscID();
@@ -183,8 +183,8 @@ GPU_Vulkan::~GPU_Vulkan() {
 	delete framebufferManagerVulkan_;
 }
 
-void GPU_Vulkan::CheckGPUFeatures() {
-	uint32_t features = 0;
+u32 GPU_Vulkan::CheckGPUFeatures() const {
+	uint32_t features = GPUCommon::CheckGPUFeatures();
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	switch (vulkan->GetPhysicalDeviceProperties().properties.vendorID) {
@@ -223,43 +223,24 @@ void GPU_Vulkan::CheckGPUFeatures() {
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	features |= GPU_SUPPORTS_BLEND_MINMAX;
-	features |= GPU_SUPPORTS_TEXTURE_NPOT;
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
-	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
 
 	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled;
 	if (enabledFeatures.depthClamp) {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 	}
-	if (enabledFeatures.shaderClipDistance) {
-		features |= GPU_SUPPORTS_CLIP_DISTANCE;
-	}
-	if (enabledFeatures.shaderCullDistance) {
-		// Must support at least 8 if feature supported, so we're fine.
-		features |= GPU_SUPPORTS_CULL_DISTANCE;
-	}
-	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
-		// Ignore the compat setting if clip and cull are both enabled.
-		// When supported, we can do the depth side of range culling more correctly.
-		const bool supported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
-		const bool disabled = PSP_CoreParameter().compat.flags().DisableRangeCulling;
-		if (supported || !disabled) {
-			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+
+	// Fall back to geometry shader culling if we can't do vertex range culling.
+	if (enabledFeatures.geometryShader) {
+		const bool useGeometry = g_Config.bUseGeometryShader && !draw_->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
+		const bool vertexSupported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
+		if (useGeometry && (!vertexSupported || (features & GPU_SUPPORTS_VS_RANGE_CULLING) == 0)) {
+			// Switch to culling via the geometry shader if not fully supported in vertex.
+			features |= GPU_SUPPORTS_GS_CULLING;
+			features &= ~GPU_SUPPORTS_VS_RANGE_CULLING;
 		}
-	}
-	if (enabledFeatures.dualSrcBlend) {
-		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
-			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
-		}
-	}
-	if (enabledFeatures.logicOp) {
-		features |= GPU_SUPPORTS_LOGIC_OP;
-	}
-	if (draw_->GetDeviceCaps().anisoSupported) {
-		features |= GPU_SUPPORTS_ANISOTROPY;
 	}
 
 	// These are VULKAN_4444_FORMAT and friends.
@@ -276,10 +257,6 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		INFO_LOG(G3D, "Deficient texture format support: 4444: %d  1555: %d  565: %d", fmt4444, fmt1555, fmt565);
 	}
 
-	if (PSP_CoreParameter().compat.flags().ClearToRAM) {
-		features |= GPU_USE_CLEAR_RAM_HACK;
-	}
-
 	if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 	}
@@ -291,7 +268,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
 	}
 
-	gstate_c.featureFlags = features;
+	return features;
 }
 
 void GPU_Vulkan::BeginHostFrame() {
@@ -299,12 +276,12 @@ void GPU_Vulkan::BeginHostFrame() {
 	UpdateCmdInfo();
 
 	if (resized_) {
-		CheckGPUFeatures();
+		gstate_c.featureFlags = CheckGPUFeatures();
 		// In case the GPU changed.
 		BuildReportingInfo();
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
-		textureCacheVulkan_->NotifyConfigChanged();
+		textureCache_->NotifyConfigChanged();
 		resized_ = false;
 	}
 
@@ -317,7 +294,7 @@ void GPU_Vulkan::BeginHostFrame() {
 	frame.push_->Reset();
 	frame.push_->Begin(vulkan);
 
-	framebufferManagerVulkan_->BeginFrameVulkan();
+	framebufferManagerVulkan_->BeginFrame();
 	textureCacheVulkan_->SetPushBuffer(frameData_[curFrame].push_);
 
 	shaderManagerVulkan_->DirtyShader();
@@ -339,7 +316,6 @@ void GPU_Vulkan::EndHostFrame() {
 	frame.push_->End();
 
 	drawEngine_.EndFrame();
-	framebufferManagerVulkan_->EndFrame();
 	textureCacheVulkan_->EndFrame();
 
 	draw_->InvalidateCachedState();
@@ -430,11 +406,6 @@ void GPU_Vulkan::InitClear() {
 	if (!framebufferManager_->UseBufferedRendering()) {
 		// TODO?
 	}
-}
-
-void GPU_Vulkan::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	GPUDebug::NotifyDisplay(framebuf, stride, format);
-	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
 void GPU_Vulkan::CopyDisplayToOutput(bool reallyDirty) {
@@ -535,7 +506,7 @@ void GPU_Vulkan::DeviceLost() {
 	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();
 	textureCacheVulkan_->DeviceLost();
-	shaderManagerVulkan_->ClearShaders();
+	shaderManagerVulkan_->DeviceLost();
 
 	GPUCommon::DeviceLost();
 }
@@ -544,7 +515,7 @@ void GPU_Vulkan::DeviceRestore() {
 	GPUCommon::DeviceRestore();
 	InitDeviceObjects();
 
-	CheckGPUFeatures();
+	gstate_c.featureFlags = CheckGPUFeatures();
 	BuildReportingInfo();
 	UpdateCmdInfo();
 
@@ -605,10 +576,9 @@ std::vector<std::string> GPU_Vulkan::DebugGetShaderIDs(DebugShaderType type) {
 		return drawEngine_.DebugGetVertexLoaderIDs();
 	} else if (type == SHADER_TYPE_PIPELINE) {
 		return pipelineManager_->DebugGetObjectIDs(type);
-	} else if (type == SHADER_TYPE_DEPAL) {
-		///...
-		return std::vector<std::string>();
-	} else if (type == SHADER_TYPE_VERTEX || type == SHADER_TYPE_FRAGMENT) {
+	} else if (type == SHADER_TYPE_TEXTURE) {
+		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
+	} else if (type == SHADER_TYPE_VERTEX || type == SHADER_TYPE_FRAGMENT || type == SHADER_TYPE_GEOMETRY) {
 		return shaderManagerVulkan_->DebugGetShaderIDs(type);
 	} else if (type == SHADER_TYPE_SAMPLER) {
 		return textureCacheVulkan_->DebugGetSamplerIDs();
@@ -622,11 +592,11 @@ std::string GPU_Vulkan::DebugGetShaderString(std::string id, DebugShaderType typ
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
 	} else if (type == SHADER_TYPE_PIPELINE) {
 		return pipelineManager_->DebugGetObjectString(id, type, stringType);
-	} else if (type == SHADER_TYPE_DEPAL) {
-		return "";
+	} else if (type == SHADER_TYPE_TEXTURE) {
+		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
 	} else if (type == SHADER_TYPE_SAMPLER) {
 		return textureCacheVulkan_->DebugGetSamplerString(id, stringType);
-	} else if (type == SHADER_TYPE_VERTEX || type == SHADER_TYPE_FRAGMENT) {
+	} else if (type == SHADER_TYPE_VERTEX || type == SHADER_TYPE_FRAGMENT || type == SHADER_TYPE_GEOMETRY) {
 		return shaderManagerVulkan_->DebugGetShaderString(id, type, stringType);
 	} else {
 		return std::string();

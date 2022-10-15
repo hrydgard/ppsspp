@@ -502,7 +502,7 @@ void StoreScreen::CreateViews() {
 
 			selectedItem->Press();
 		} else {
-			lastSelectedName_ = "";
+			lastSelectedName_.clear();
 		}
 	}
 	root_->Add(content);

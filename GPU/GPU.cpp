@@ -83,7 +83,7 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 		break;
 	case GPUCORE_DIRECTX9:
 #if PPSSPP_API(D3D9)
-		SetGPU(new DIRECTX9_GPU(ctx, draw));
+		SetGPU(new GPU_DX9(ctx, draw));
 		break;
 #else
 		return false;

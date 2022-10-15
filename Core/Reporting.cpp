@@ -434,7 +434,8 @@ namespace Reporting
 	void AddGameplayInfo(UrlEncoder &postdata)
 	{
 		// Just to get an idea of how long they played.
-		postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks());
+		if (PSP_IsInited())
+			postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks());
 
 		float vps, fps;
 		__DisplayGetAveragedFPS(&vps, &fps);

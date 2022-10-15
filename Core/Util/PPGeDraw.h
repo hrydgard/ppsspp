@@ -122,6 +122,7 @@ public:
 	// Does not normally need to be called (except to force preloading.)
 	bool Load();
 	void Free();
+	bool IsValid();
 
 	void DoState(PointerWrap &p);
 
@@ -147,11 +148,12 @@ private:
 	u32 png_;
 	size_t size_;
 
-	u32 texture_;
+	u32 texture_ = 0;
 	int width_;
 	int height_;
 
 	int lastFrame_;
+	bool loadFailed_ = false;
 };
 
 void PPGeDrawRect(float x1, float y1, float x2, float y2, u32 color);

@@ -1,8 +1,11 @@
 #include <algorithm>
 #include <tchar.h>
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/GEDebugger/GEDebugger.h"
+#include "Windows/MainWindow.h"
 #include "Windows/InputBox.h"
 #include "Windows/W32Util/ContextMenu.h"
 #include "Windows/main.h"
@@ -149,8 +152,7 @@ void CtrlDisplayListView::redraw()
 	GetClientRect(wnd, &rect);
 	visibleRows = rect.bottom/rowHeight;
 
-	InvalidateRect(wnd, NULL, FALSE);
-	UpdateWindow(wnd); 
+	RedrawWindow(wnd, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_INTERNALPAINT | RDW_ALLCHILDREN);
 }
 
 
@@ -265,6 +267,17 @@ void CtrlDisplayListView::toggleBreakpoint()
 	SendMessage(GetParent(wnd),WM_GEDBG_TOGGLEPCBREAKPOINT,curAddress,0);
 }
 
+void CtrlDisplayListView::PromptBreakpointCond() {
+	std::string expression;
+	GPUBreakpoints::GetAddressBreakpointCond(curAddress, &expression);
+	if (!InputBox_GetString(GetModuleHandle(NULL), wnd, L"Expression", expression, expression))
+		return;
+
+	std::string error;
+	if (!GPUBreakpoints::SetAddressBreakpointCond(curAddress, expression, &error))
+		MessageBox(wnd, ConvertUTF8ToWString(error).c_str(), L"Invalid expression", MB_OK | MB_ICONEXCLAMATION);
+}
+
 void CtrlDisplayListView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {
 	int y = HIWORD(lParam);
@@ -296,6 +309,9 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 {
 	if (button == 2)
 	{
+		HMENU menu = GetContextMenu(ContextMenuID::DISPLAYLISTVIEW);
+		EnableMenuItem(menu, ID_GEDBG_SETCOND, GPUBreakpoints::IsAddressBreakpoint(curAddress) ? MF_ENABLED : MF_GRAYED);
+
 		switch (TriggerContextMenu(ContextMenuID::DISPLAYLISTVIEW, wnd, ContextPoint::FromEvent(lParam)))
 		{
 		case ID_DISASM_GOTOINMEMORYVIEW:
@@ -305,6 +321,9 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_DISASM_TOGGLEBREAKPOINT:
 			toggleBreakpoint();
 			redraw();
+			break;
+		case ID_GEDBG_SETCOND:
+			PromptBreakpointCond();
 			break;
 		case ID_DISASM_COPYINSTRUCTIONDISASM:
 			{
@@ -369,15 +388,23 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_GEDBG_GOTOADDR:
 			{
-				u32 newAddress = curAddress;
-				if (!InputBox_GetHex(GetModuleHandle(NULL), wnd, L"Address", curAddress, newAddress)) {
+				std::string expression = StringFromFormat("%08x", curAddress);
+				if (!InputBox_GetString(GetModuleHandle(NULL), wnd, L"Address", expression, expression, true)) {
 					break;
 				}
-				if (Memory::IsValidAddress(newAddress)) {
-					setCurAddress(newAddress);
-					scrollAddressIntoView();
-					redraw();
+				uint32_t newAddress = curAddress;
+				if (!GPUDebugExecExpression(gpuDebug, expression.c_str(), newAddress)) {
+					MessageBox(wnd, ConvertUTF8ToWString(getExpressionError()).c_str(), L"Invalid expression", MB_OK | MB_ICONEXCLAMATION);
+					break;
 				}
+				if (!Memory::IsValidAddress(newAddress)) {
+					MessageBox(wnd, L"Address not in valid memory", L"Invalid address", MB_OK | MB_ICONEXCLAMATION);
+					break;
+				}
+
+				setCurAddress(newAddress);
+				scrollAddressIntoView();
+				redraw();
 			}
 			break;
 		}

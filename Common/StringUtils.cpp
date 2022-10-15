@@ -44,15 +44,16 @@
 #include "Common/Buffer.h"
 #include "Common/StringUtils.h"
 
-void truncate_cpy(char *dest, size_t destSize, const char *src) {
+size_t truncate_cpy(char *dest, size_t destSize, const char *src) {
 	size_t len = strlen(src);
 	if (len >= destSize - 1) {
 		memcpy(dest, src, destSize - 1);
-		dest[destSize - 1] = '\0';
+		len = destSize - 1;
 	} else {
 		memcpy(dest, src, len);
-		dest[len] = '\0';
 	}
+	dest[len] = '\0';
+	return len;
 }
 
 const char* safe_string(const char* s) {
@@ -272,7 +273,7 @@ void SplitString(const std::string& str, const char delim, std::vector<std::stri
 	size_t next = 0;
 	for (size_t pos = 0, len = str.length(); pos < len; ++pos) {
 		if (str[pos] == delim) {
-			output.push_back(str.substr(next, pos - next));
+			output.emplace_back(str.substr(next, pos - next));
 			// Skip the delimiter itself.
 			next = pos + 1;
 		}
@@ -281,7 +282,7 @@ void SplitString(const std::string& str, const char delim, std::vector<std::stri
 	if (next == 0) {
 		output.push_back(str);
 	} else if (next < str.length()) {
-		output.push_back(str.substr(next));
+		output.emplace_back(str.substr(next));
 	}
 }
 
@@ -293,7 +294,7 @@ void GetQuotedStrings(const std::string& str, std::vector<std::string>& output)
 		if (str[pos] == '\"' || str[pos] == '\'') {
 			if (even) {
 				//quoted text
-				output.push_back(str.substr(next, pos - next));
+				output.emplace_back(str.substr(next, pos - next));
 				even = 0;
 			} else {
 				//non quoted text

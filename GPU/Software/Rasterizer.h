@@ -39,11 +39,9 @@ struct RasterizerState {
 	Sampler::LinearFunc linear;
 	Sampler::NearestFunc nearest;
 	uint32_t texaddr[8]{};
-	int texbufw[8]{};
+	uint16_t texbufw[8]{};
 	const u8 *texptr[8]{};
 	float textureLodSlope;
-	int screenOffsetX;
-	int screenOffsetY;
 
 	struct {
 		uint8_t maxTexLevel : 3;
@@ -56,6 +54,7 @@ struct RasterizerState {
 		bool minFilt : 1;
 		bool magFilt : 1;
 		bool antialiasLines : 1;
+		bool textureProj : 1;
 	};
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
@@ -77,8 +76,5 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state);
 
 bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
-
-// Shared functions with RasterizerRectangle.cpp
-Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &source, const Vec4<int> &dst);
 
 }  // namespace Rasterizer

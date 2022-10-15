@@ -40,10 +40,6 @@ void FragmentTestCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 void FragmentTestCacheGLES::BindTestTexture(int slot) {
-	if (!g_Config.bFragmentTestCache) {
-		return;
-	}
-
 	bool alphaNeedsTexture = gstate.isAlphaTestEnabled() && !IsAlphaTestAgainstZero() && !IsAlphaTestTriviallyTrue();
 	bool colorNeedsTexture = gstate.isColorTestEnabled() && !IsColorTestAgainstZero() && !IsColorTestTriviallyTrue();
 	if (!alphaNeedsTexture && !colorNeedsTexture) {
@@ -156,7 +152,7 @@ void FragmentTestCacheGLES::Clear(bool deleteThem) {
 		}
 	}
 	cache_.clear();
-	lastTexture_ = 0;
+	lastTexture_ = nullptr;
 }
 
 void FragmentTestCacheGLES::Decimate() {
@@ -173,5 +169,5 @@ void FragmentTestCacheGLES::Decimate() {
 		decimationCounter_ = FRAGTEST_DECIMATION_INTERVAL;
 	}
 
-	lastTexture_ = 0;
+	lastTexture_ = nullptr;
 }

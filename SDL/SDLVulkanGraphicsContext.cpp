@@ -10,6 +10,7 @@
 #include "Common/Data/Text/Parsers.h"
 
 #include "Core/System.h"
+#include "SDL_vulkan.h"
 #include "SDLVulkanGraphicsContext.h"
 
 #if defined(VK_USE_PLATFORM_METAL_EXT)
@@ -72,6 +73,12 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		return false;
 	}
 
+	vulkan_->SetCbGetDrawSize([window]() {
+		int w=1,h=1;
+		SDL_Vulkan_GetDrawableSize(window, &w, &h);
+		return VkExtent2D {(uint32_t)w, (uint32_t)h};
+	});
+
 	SDL_SysWMinfo sys_info{};
 	SDL_VERSION(&sys_info.version); //Set SDL version
 	if (!SDL_GetWindowWMInfo(window, &sys_info)) {
@@ -116,7 +123,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		return false;
 	}
 
-	draw_ = Draw::T3DCreateVulkanContext(vulkan_, false);
+	draw_ = Draw::T3DCreateVulkanContext(vulkan_);
 	SetGPUBackend(GPUBackend::VULKAN);
 	bool success = draw_->CreatePresets();
 	_assert_(success);

@@ -23,6 +23,7 @@
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/Log.h"
 #include "Common/System/System.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(SWITCH)
 #include <dlfcn.h>
@@ -65,8 +66,10 @@ PFN_vkBindImageMemory vkBindImageMemory;
 PFN_vkBindImageMemory2 vkBindImageMemory2;
 PFN_vkGetBufferMemoryRequirements vkGetBufferMemoryRequirements;
 PFN_vkGetBufferMemoryRequirements2 vkGetBufferMemoryRequirements2;
+PFN_vkGetDeviceBufferMemoryRequirements vkGetDeviceBufferMemoryRequirements;
 PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements;
 PFN_vkGetImageMemoryRequirements2 vkGetImageMemoryRequirements2;
+PFN_vkGetDeviceImageMemoryRequirements vkGetDeviceImageMemoryRequirements;
 PFN_vkCreateFence vkCreateFence;
 PFN_vkDestroyFence vkDestroyFence;
 PFN_vkGetFenceStatus vkGetFenceStatus;
@@ -306,10 +309,10 @@ void VulkanSetAvailable(bool available) {
 
 bool VulkanMayBeAvailable() {
 
-#ifdef OPENXR
-	//unsupported at the moment
-	return false;
-#endif
+	//unsupported in VR at the moment
+	if (IsVRBuild()) {
+		return false;
+	}
 
 	if (g_vulkanAvailabilityChecked) {
 		return g_vulkanMayBeAvailable;
@@ -603,8 +606,10 @@ void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledE
 	LOAD_DEVICE_FUNC(device, vkBindImageMemory2);
 	LOAD_DEVICE_FUNC(device, vkGetBufferMemoryRequirements);
 	LOAD_DEVICE_FUNC(device, vkGetBufferMemoryRequirements2);
+	LOAD_DEVICE_FUNC(device, vkGetDeviceBufferMemoryRequirements);
 	LOAD_DEVICE_FUNC(device, vkGetImageMemoryRequirements);
 	LOAD_DEVICE_FUNC(device, vkGetImageMemoryRequirements2);
+	LOAD_DEVICE_FUNC(device, vkGetDeviceImageMemoryRequirements);
 	LOAD_DEVICE_FUNC(device, vkCreateFence);
 	LOAD_DEVICE_FUNC(device, vkDestroyFence);
 	LOAD_DEVICE_FUNC(device, vkResetFences);

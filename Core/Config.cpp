@@ -44,6 +44,7 @@
 #include "Common/System/System.h"
 #include "Common/StringUtils.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/VR/PPSSPPVR.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Loaders.h"
@@ -331,7 +332,7 @@ struct ConfigSetting {
 			section->Get(ini5_, &ptr_.customButton->repeat, default_.customButton.repeat);
 			return true;
 		default:
-			_dbg_assert_msg_(false, "Unexpected ini setting type");
+			_dbg_assert_msg_(false, "Get(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
 			return false;
 		}
 	}
@@ -375,7 +376,7 @@ struct ConfigSetting {
 			section->Set(ini5_, ptr_.customButton->repeat);
 			return;
 		default:
-			_dbg_assert_msg_(false, "Unexpected ini setting type");
+			_dbg_assert_msg_(false, "Set(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
 			return;
 		}
 	}
@@ -406,22 +407,22 @@ struct ConfigSetting {
 			// Doesn't report.
 			return;
 		default:
-			_dbg_assert_msg_(false, "Unexpected ini setting type");
+			_dbg_assert_msg_(false, "Report(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
 			return;
 		}
 	}
 
-	const char *iniKey_;
-	const char *ini2_;
-	const char *ini3_;
-	const char *ini4_;
-	const char *ini5_;
+	const char *iniKey_ = nullptr;
+	const char *ini2_ = nullptr;
+	const char *ini3_ = nullptr;
+	const char *ini4_ = nullptr;
+	const char *ini5_ = nullptr;
 	Type type_;
 	bool report_;
 	bool save_;
 	bool perGame_;
 	SettingPtr ptr_;
-	DefaultValue default_;
+	DefaultValue default_{};
 	Callback cb_;
 
 	// We only support transform for ints.
@@ -609,6 +610,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("PauseWhenMinimized", &g_Config.bPauseWhenMinimized, false, true, true),
 	ConfigSetting("DumpDecryptedEboots", &g_Config.bDumpDecryptedEboot, false, true, true),
 	ConfigSetting("FullscreenOnDoubleclick", &g_Config.bFullscreenOnDoubleclick, true, false, false),
+	ConfigSetting("ShowMenuBar", &g_Config.bShowMenuBar, true, true, false),
 
 	ReportedConfigSetting("MemStickInserted", &g_Config.bMemStickInserted, true, true, true),
 	ConfigSetting("EnablePlugins", &g_Config.bLoadPlugins, true, true, true),
@@ -695,9 +697,9 @@ const char * const vulkanDefaultBlacklist[] = {
 };
 
 static int DefaultGPUBackend() {
-#ifdef OPENXR
-	return (int)GPUBackend::OPENGL;
-#endif
+	if (IsVRBuild()) {
+		return (int)GPUBackend::OPENGL;
+	}
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	// If no Vulkan, use Direct3D 11 on Windows 8+ (most importantly 10.)
@@ -748,7 +750,7 @@ int Config::NextValidBackend() {
 	if (failed.count((GPUBackend)iGPUBackend)) {
 		ERROR_LOG(LOADER, "Graphics backend failed for %d, trying another", iGPUBackend);
 
-#if (PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)) && !PPSSPP_PLATFORM(UWP)
+#if !PPSSPP_PLATFORM(UWP)
 		if (!failed.count(GPUBackend::VULKAN) && VulkanMayBeAvailable()) {
 			return (int)GPUBackend::VULKAN;
 		}
@@ -796,6 +798,9 @@ bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
 
 #if PPSSPP_PLATFORM(UWP)
 	if (backend != GPUBackend::DIRECT3D11)
+		return false;
+#elif PPSSPP_PLATFORM(SWITCH)
+	if (backend != GPUBackend::OPENGL)
 		return false;
 #elif PPSSPP_PLATFORM(WINDOWS)
 	if (validate) {
@@ -869,6 +874,7 @@ static ConfigSetting graphicsSettings[] = {
 #endif
 	ConfigSetting("CameraDevice", &g_Config.sCameraDevice, "", true, false),
 	ConfigSetting("VendorBugChecksEnabled", &g_Config.bVendorBugChecksEnabled, true, false, false),
+	ConfigSetting("UseGeometryShader", &g_Config.bUseGeometryShader, true, true, true),
 	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, 1, true, true),
 	ConfigSetting("SoftwareRenderer", &g_Config.bSoftwareRendering, false, true, true),
 	ConfigSetting("SoftwareRendererJit", &g_Config.bSoftwareRenderingJit, true, true, true),
@@ -931,11 +937,8 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("ShaderChainRequires60FPS", &g_Config.bShaderChainRequires60FPS, false, true, true),
 
 	ReportedConfigSetting("MemBlockTransferGPU", &g_Config.bBlockTransferGPU, true, true, true),
-	ReportedConfigSetting("DisableSlowFramebufEffects", &g_Config.bDisableSlowFramebufEffects, false, true, true),
-	ReportedConfigSetting("FragmentTestCache", &g_Config.bFragmentTestCache, true, true, true),
 
 	ConfigSetting("GfxDebugOutput", &g_Config.bGfxDebugOutput, false, false, false),
-	ConfigSetting("GfxDebugSplitSubmit", &g_Config.bGfxDebugSplitSubmit, false, false, false),
 	ConfigSetting("LogFrameDrops", &g_Config.bLogFrameDrops, false, true, false),
 
 	ConfigSetting("InflightFrames", &g_Config.iInflightFrames, 3, true, false),
@@ -1113,15 +1116,6 @@ static ConfigSetting networkSettings[] = {
 	ConfigSetting(false),
 };
 
-static int DefaultPSPModel() {
-	// TODO: Can probably default this on, but not sure about its memory differences.
-#if !PPSSPP_ARCH(AMD64) && !defined(_WIN32)
-	return PSP_MODEL_FAT;
-#else
-	return PSP_MODEL_SLIM;
-#endif
-}
-
 static int DefaultSystemParamLanguage() {
 	int defaultLang = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 	if (g_Config.bFirstRun) {
@@ -1135,7 +1129,7 @@ static int DefaultSystemParamLanguage() {
 }
 
 static ConfigSetting systemParamSettings[] = {
-	ReportedConfigSetting("PSPModel", &g_Config.iPSPModel, &DefaultPSPModel, true, true),
+	ReportedConfigSetting("PSPModel", &g_Config.iPSPModel, PSP_MODEL_SLIM, true, true),
 	ReportedConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE, true, true),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP", true, true),
 	ConfigSetting("MacAddress", &g_Config.sMACAddress, "", true, true),
@@ -1167,6 +1161,9 @@ static ConfigSetting debuggerSettings[] = {
 	ConfigSetting("GEWindowY", &g_Config.iGEWindowY, -1),
 	ConfigSetting("GEWindowW", &g_Config.iGEWindowW, -1),
 	ConfigSetting("GEWindowH", &g_Config.iGEWindowH, -1),
+	ConfigSetting("GEWindowTabsBL", &g_Config.uGETabsLeft, (uint32_t)0),
+	ConfigSetting("GEWindowTabsBR", &g_Config.uGETabsRight, (uint32_t)0),
+	ConfigSetting("GEWindowTabsTR", &g_Config.uGETabsTopRight, (uint32_t)0),
 	ConfigSetting("ConsoleWindowX", &g_Config.iConsoleWindowX, -1),
 	ConfigSetting("ConsoleWindowY", &g_Config.iConsoleWindowY, -1),
 	ConfigSetting("FontWidth", &g_Config.iFontWidth, 8),
@@ -1204,6 +1201,17 @@ static ConfigSetting themeSettings[] = {
 	ConfigSetting(false),
 };
 
+
+static ConfigSetting vrSettings[] = {
+	ConfigSetting("VREnable", &g_Config.bEnableVR, true),
+	ConfigSetting("VREnable6DoF", &g_Config.bEnable6DoF, true),
+	ConfigSetting("VREnableStereo", &g_Config.bEnableStereo, false),
+	ConfigSetting("VRCanvasDistance", &g_Config.iCanvasDistance, 6),
+	ConfigSetting("VRFieldOfView", &g_Config.iFieldOfViewPercentage, 100),
+
+	ConfigSetting(false),
+};
+
 static ConfigSectionSettings sections[] = {
 	{"General", generalSettings},
 	{"CPU", cpuSettings},
@@ -1216,6 +1224,7 @@ static ConfigSectionSettings sections[] = {
 	{"JIT", jitSettings},
 	{"Upgrade", upgradeSettings},
 	{"Theme", themeSettings},
+	{"VR", vrSettings},
 };
 
 static void IterateSettings(IniFile &iniFile, std::function<void(Section *section, ConfigSetting *setting)> func) {
@@ -1415,7 +1424,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// build of PPSSPP, receive an upgrade notice, then start a newer version, and still receive the upgrade notice,
 	// even if said newer version is >= the upgrade found online.
 	if ((dismissedVersion == upgradeVersion) || (versionsValid && (installed >= upgrade))) {
-		upgradeMessage = "";
+		upgradeMessage.clear();
 	}
 
 	// Check for new version on every 10 runs.
@@ -1627,16 +1636,16 @@ void Config::DownloadCompletedCallback(http::Download &download) {
 
 	if (installed >= upgrade) {
 		INFO_LOG(LOADER, "Version check: Already up to date, erasing any upgrade message");
-		g_Config.upgradeMessage = "";
+		g_Config.upgradeMessage.clear();
 		g_Config.upgradeVersion = upgrade.ToString();
-		g_Config.dismissedVersion = "";
+		g_Config.dismissedVersion.clear();
 		return;
 	}
 
 	if (installed < upgrade && dismissed != upgrade) {
 		g_Config.upgradeMessage = "New version of PPSSPP available!";
 		g_Config.upgradeVersion = upgrade.ToString();
-		g_Config.dismissedVersion = "";
+		g_Config.dismissedVersion.clear();
 	}
 }
 

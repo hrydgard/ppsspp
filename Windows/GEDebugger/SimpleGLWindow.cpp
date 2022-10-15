@@ -15,13 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/CommonWindows.h"
-#include <WindowsX.h>
-#include "Common/Math/lin/matrix4x4.h"
-#include "Common/GPU/OpenGL/GLSLProgram.h"
-#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/CommonTypes.h"
+#include "Common/CommonWindows.h"
 #include "Common/Log.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/OpenGL/GLSLProgram.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "GL/gl.h"
+#include "GL/wglew.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/W32Util/ContextMenu.h"
 
@@ -120,24 +122,37 @@ void SimpleGLWindow::SetupGL() {
 	ENFORCE(hGLRC_ = wglCreateContext(hDC_), "Unable to create GL context.");
 	ENFORCE(wglMakeCurrent(hDC_, hGLRC_), "Unable to activate GL context.");
 
-	glewInit();
-	valid_ = true;
+	valid_ = glewInit() == GLEW_OK;
+
+	// Switch to a modern context so RenderDoc doesn't get mad.
+	HGLRC oldGL = hGLRC_;
+	if (wglewIsSupported("WGL_ARB_create_context") == 1) {
+		static const int attribs33[] = {
+			WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+			WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+			WGL_CONTEXT_FLAGS_ARB, 0,
+			WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+			0,
+		};
+		hGLRC_ = wglCreateContextAttribsARB(hDC_, 0, attribs33);
+
+		if (!hGLRC_) {
+			hGLRC_ = oldGL;
+		} else {
+			// Switch to the new ARB context.
+			wglMakeCurrent(nullptr, nullptr);
+			wglDeleteContext(oldGL);
+			wglMakeCurrent(hDC_, hGLRC_);
+
+			valid_ = glewInit() == GLEW_OK;
+		}
+	}
 }
 
 void SimpleGLWindow::ResizeGL(int w, int h) {
 	if (!valid_) {
 		return;
 	}
-
-	wglMakeCurrent(hDC_, hGLRC_);
-
-	glViewport(0, 0, w, h);
-	glScissor(0, 0, w, h);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(0.0f, w, h, 0.0f, -1.0f, 1.0f);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
 
 	w_ = w;
 	h_ = h;
@@ -519,25 +534,34 @@ bool SimpleGLWindow::ToggleZoom() {
 	return true;
 }
 
-bool SimpleGLWindow::Hover(int mouseX, int mouseY) {
-	if (hoverCallback_ == nullptr) {
-		return false;
-	}
-
+POINT SimpleGLWindow::PosFromMouse(int mouseX, int mouseY) {
 	float fw, fh;
 	float x, y;
 	GetContentSize(x, y, fw, fh);
 
 	if (mouseX < x || mouseX >= x + fw || mouseY < y || mouseY >= y + fh) {
 		// Outside of bounds.
-		hoverCallback_(-1, -1);
-		return true;
+		return POINT{ -1, -1 };
 	}
 
 	float tx = (mouseX - x) * (tw_ / fw);
 	float ty = (mouseY - y) * (th_ / fh);
 
-	hoverCallback_((int)tx, (int)ty);
+	return POINT{ (int)tx, (int)ty };
+}
+
+bool SimpleGLWindow::Hover(int mouseX, int mouseY) {
+	if (hoverCallback_ == nullptr) {
+		return false;
+	}
+
+	POINT pos = PosFromMouse(mouseX, mouseY);
+	hoverCallback_(pos.x, pos.y);
+
+	if (pos.x == -1 || pos.y == -1) {
+		// Outside of bounds, don't track.
+		return true;
+	}
 
 	// Find out when they are done.
 	TRACKMOUSEEVENT tracking = {0};
@@ -564,11 +588,12 @@ bool SimpleGLWindow::RightClick(int mouseX, int mouseY) {
 	}
 
 	POINT pt{mouseX, mouseY};
+	POINT pos = PosFromMouse(mouseX, mouseY);
 
-	rightClickCallback_(0);
+	rightClickCallback_(0, pos.x, pos.y);
 	int result = TriggerContextMenu(rightClickMenu_, hWnd_, ContextPoint::FromClient(pt));
 	if (result > 0) {
-		rightClickCallback_(result);
+		rightClickCallback_(result, pos.x, pos.y);
 	}
 
 	return true;
@@ -622,8 +647,8 @@ LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 	case WM_LBUTTONUP:
 	case WM_RBUTTONUP:
 	case WM_MOUSEMOVE:
-		mouseX = GET_X_LPARAM(lParam);
-		mouseY = GET_Y_LPARAM(lParam);
+		mouseX = (int)(short)LOWORD(lParam);
+		mouseY = (int)(short)HIWORD(lParam);
 		break;
 	default:
 		break;

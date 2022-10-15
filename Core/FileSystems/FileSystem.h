@@ -118,7 +118,7 @@ public:
 	virtual ~IFileSystem() {}
 
 	virtual void DoState(PointerWrap &p) = 0;
-	virtual std::vector<PSPFileInfo> GetDirListing(std::string path) = 0;
+	virtual std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) = 0;
 	virtual int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) = 0;
 	virtual void     CloseFile(u32 handle) = 0;
 	virtual size_t   ReadFile(u32 handle, u8 *pointer, s64 size) = 0;
@@ -143,7 +143,12 @@ public:
 class EmptyFileSystem : public IFileSystem {
 public:
 	virtual void DoState(PointerWrap &p) override {}
-	std::vector<PSPFileInfo> GetDirListing(std::string path) override {std::vector<PSPFileInfo> vec; return vec;}
+	std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) override {
+		if (exists)
+			*exists = false;
+		std::vector<PSPFileInfo> vec;
+		return vec;
+	}
 	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override {return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;}
 	void     CloseFile(u32 handle) override {}
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override {return 0;}

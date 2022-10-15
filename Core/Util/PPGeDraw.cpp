@@ -178,27 +178,28 @@ static void BeginVertexData() {
 
 static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color = 0xFFFFFFFF) {
 	if (g_RemasterMode) {
-		PPGeRemasterVertex vtx;
-		vtx.x = x; vtx.y = y; vtx.z = 0;
-		vtx.u = u * tw; vtx.v = v * th;
-		vtx.color = color;
-		Memory::WriteStruct(dataWritePtr, &vtx);
-		dataWritePtr += sizeof(vtx);
+		auto vtx = PSPPointer<PPGeRemasterVertex>::Create(dataWritePtr);
+		vtx->x = x; vtx->y = y; vtx->z = 0;
+		vtx->u = u * tw; vtx->v = v * th;
+		vtx->color = color;
+		dataWritePtr += (u32)vtx.ElementSize();
 	} else {
-		PPGeVertex vtx;
-		vtx.x = x; vtx.y = y; vtx.z = 0;
-		vtx.u = u * tw; vtx.v = v * th;
-		vtx.color = color;
-		Memory::WriteStruct(dataWritePtr, &vtx);
-		dataWritePtr += sizeof(vtx);
+		auto vtx = PSPPointer<PPGeVertex>::Create(dataWritePtr);
+		vtx->x = x; vtx->y = y; vtx->z = 0;
+		vtx->u = u * tw; vtx->v = v * th;
+		vtx->color = color;
+		dataWritePtr += (u32)vtx.ElementSize();
 	}
 	_dbg_assert_(dataWritePtr <= dataPtr + dataSize);
 	vertexCount++;
 }
 
 static void EndVertexDataAndDraw(int prim) {
+	_assert_msg_(vertexStart != 0, "Missing matching call to BeginVertexData()");
+	NotifyMemInfo(MemBlockFlags::WRITE, vertexStart, dataWritePtr - vertexStart, "PPGe Vertex");
 	WriteCmdAddrWithBase(GE_CMD_VADDR, vertexStart);
 	WriteCmd(GE_CMD_PRIM, (prim << 16) | vertexCount);
+	vertexStart = 0;
 }
 
 bool PPGeIsFontTextureAddress(u32 addr) {
@@ -272,6 +273,7 @@ void __PPGeInit() {
 		int val = i;
 		palette[i] = (val << 12) | 0xFFF;
 	}
+	NotifyMemInfo(MemBlockFlags::WRITE, palette.ptr, 16 * sizeof(u16_le), "PPGe Palette");
 
 	const u32_le *imagePtr = (u32_le *)imageData[0];
 	u8 *ramPtr = atlasPtr == 0 ? nullptr : (u8 *)Memory::GetPointer(atlasPtr);
@@ -286,7 +288,10 @@ void __PPGeInit() {
 		u8 cval = (a2 << 4) | a1;
 		ramPtr[i] = cval;
 	}
-	atlasHash = XXH3_64bits(ramPtr, atlasWidth * atlasHeight / 2);
+	if (atlasPtr != 0) {
+		atlasHash = XXH3_64bits(ramPtr, atlasSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, atlasPtr, atlasSize, "PPGe Atlas");
+	}
 
 	free(imageData[0]);
 
@@ -457,6 +462,7 @@ void PPGeEnd()
 	if (dataWritePtr > dataPtr) {
 		// We actually drew something
 		gpu->EnableInterrupts(false);
+		NotifyMemInfo(MemBlockFlags::WRITE, dlPtr, dlWritePtr - dlPtr, "PPGe ListCmds");
 		u32 list = sceGeListEnQueue(dlPtr, dlWritePtr, -1, listArgs.ptr);
 		DEBUG_LOG(SCEGE, "PPGe enqueued display list %i", list);
 		gpu->EnableInterrupts(true);
@@ -1250,11 +1256,11 @@ void PPGeDisableTexture()
 std::vector<PPGeImage *> PPGeImage::loadedTextures_;
 
 PPGeImage::PPGeImage(const std::string &pspFilename)
-	: filename_(pspFilename), texture_(0) {
+	: filename_(pspFilename) {
 }
 
 PPGeImage::PPGeImage(u32 pngPointer, size_t pngSize)
-	: filename_(""), png_(pngPointer), size_(pngSize), texture_(0) {
+	: filename_(""), png_(pngPointer), size_(pngSize) {
 }
 
 PPGeImage::~PPGeImage() {
@@ -1262,6 +1268,7 @@ PPGeImage::~PPGeImage() {
 }
 
 bool PPGeImage::Load() {
+	loadFailed_ = false;
 	Free();
 
 	// In case it fails to load.
@@ -1275,7 +1282,8 @@ bool PPGeImage::Load() {
 	} else {
 		std::vector<u8> pngData;
 		if (pspFileSystem.ReadEntireFile(filename_, pngData) < 0) {
-			WARN_LOG(SCEGE, "Bad PPGeImage - cannot load file");
+			WARN_LOG(SCEGE, "PPGeImage cannot load file %s", filename_.c_str());
+			loadFailed_ = true;
 			return false;
 		}
 
@@ -1283,6 +1291,7 @@ bool PPGeImage::Load() {
 	}
 	if (!success) {
 		WARN_LOG(SCEGE, "Bad PPGeImage - not a valid png");
+		loadFailed_ = true;
 		return false;
 	}
 
@@ -1292,6 +1301,7 @@ bool PPGeImage::Load() {
 	if (texture_ == 0) {
 		free(textureData);
 		WARN_LOG(SCEGE, "Bad PPGeImage - unable to allocate space for texture");
+		// Don't set loadFailed_ here, we'll try again if there's more memory later.
 		return false;
 	}
 
@@ -1304,16 +1314,28 @@ bool PPGeImage::Load() {
 	return true;
 }
 
+bool PPGeImage::IsValid() {
+	if (loadFailed_)
+		return false;
+
+	if (texture_ == 0) {
+		Decimate();
+		return Load();
+	}
+	return true;
+}
+
 void PPGeImage::Free() {
 	if (texture_ != 0) {
 		kernelMemory.Free(texture_);
 		texture_ = 0;
 		loadedTextures_.erase(std::remove(loadedTextures_.begin(), loadedTextures_.end(), this), loadedTextures_.end());
+		loadFailed_ = false;
 	}
 }
 
 void PPGeImage::DoState(PointerWrap &p) {
-	auto s = p.Section("PPGeImage", 1);
+	auto s = p.Section("PPGeImage", 1, 2);
 	if (!s)
 		return;
 
@@ -1324,6 +1346,11 @@ void PPGeImage::DoState(PointerWrap &p) {
 	Do(p, width_);
 	Do(p, height_);
 	Do(p, lastFrame_);
+	if (s >= 2) {
+		Do(p, loadFailed_);
+	} else {
+		loadFailed_ = false;
+	}
 }
 
 void PPGeImage::CompatLoad(u32 texture, int width, int height) {
@@ -1331,6 +1358,7 @@ void PPGeImage::CompatLoad(u32 texture, int width, int height) {
 	texture_ = texture;
 	width_ = width;
 	height_ = height;
+	loadFailed_ = false;
 }
 
 void PPGeImage::Decimate(int age) {
@@ -1345,7 +1373,7 @@ void PPGeImage::Decimate(int age) {
 }
 
 void PPGeImage::SetTexture() {
-	if (texture_ == 0) {
+	if (texture_ == 0 && !loadFailed_) {
 		Decimate();
 		Load();
 	}

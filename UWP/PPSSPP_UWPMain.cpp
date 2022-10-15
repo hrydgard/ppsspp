@@ -32,7 +32,6 @@
 #include "XAudioSoundStream.h"
 #include "UWPHost.h"
 #include "UWPUtil.h"
-#include "StorageFileLoader.h"
 #include "App.h"
 
 using namespace UWP;
@@ -304,11 +303,6 @@ void PPSSPP_UWPMain::OnSuspend() {
 	// TODO
 }
 
-void PPSSPP_UWPMain::LoadStorageFile(StorageFile ^file) {
-	std::unique_ptr<FileLoaderFactory> factory(new StorageFileLoaderFactory(file, IdentifiedFileType::PSP_ISO));
-	RegisterFileLoaderFactory("override://", std::move(factory));
-	NativeMessageReceived("boot", "override://file");
-}
 
 UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources) {
 	std::vector<std::string> adapterNames;
@@ -457,13 +451,14 @@ void System_SendMessage(const char *command, const char *parameter) {
 		picker->FileTypeFilter->Append(".iso");
 
 		// Can't load these this way currently, they require mounting the underlying folder.
-		// picker->FileTypeFilter->Append(".bin");
-		// picker->FileTypeFilter->Append(".elf");
+		picker->FileTypeFilter->Append(".bin");
+		picker->FileTypeFilter->Append(".elf");
 		picker->SuggestedStartLocation = Pickers::PickerLocationId::DocumentsLibrary;
 
 		create_task(picker->PickSingleFileAsync()).then([](StorageFile ^file){
 			if (file) {
-				g_main->LoadStorageFile(file);
+				std::string path = FromPlatformString(file->Path);
+				NativeMessageReceived("boot", path.c_str());
 			}
 		});
 	} else if (!strcmp(command, "toggle_fullscreen")) {

@@ -419,6 +419,7 @@ const char *MemoryExceptionTypeAsString(MemoryExceptionType type) {
 	case MemoryExceptionType::WRITE_WORD: return "Write Word";
 	case MemoryExceptionType::READ_BLOCK: return "Read Block";
 	case MemoryExceptionType::WRITE_BLOCK: return "Read/Write Block";
+	case MemoryExceptionType::ALIGNMENT: return "Alignment";
 	default:
 		return "N/A";
 	}
@@ -446,7 +447,7 @@ void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type) {
 		ExceptionInfo &e = g_exceptionInfo;
 		e = {};
 		e.type = ExceptionType::MEMORY;
-		e.info = "";
+		e.info.clear();
 		e.memory_type = type;
 		e.address = address;
 		e.pc = pc;
@@ -482,20 +483,23 @@ void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	ExceptionInfo &e = g_exceptionInfo;
 	e = {};
 	e.type = ExceptionType::BAD_EXEC_ADDR;
-	e.info = "";
+	e.info.clear();
 	e.exec_type = type;
 	e.address = address;
 	e.pc = pc;
-	Core_EnableStepping(true, "cpu.exception", pc);
+	// This just records the closest value that could be useful as reference.
+	e.ra = currentMIPS->r[MIPS_REG_RA];
+	Core_EnableStepping(true, "cpu.exception", address);
 }
 
-void Core_Break() {
+void Core_Break(u32 pc) {
 	ERROR_LOG(CPU, "BREAK!");
 
 	ExceptionInfo &e = g_exceptionInfo;
 	e = {};
 	e.type = ExceptionType::BREAK;
-	e.info = "";
+	e.info.clear();
+	e.pc = pc;
 
 	if (!g_Config.bIgnoreBadMemAccess) {
 		Core_EnableStepping(true, "cpu.breakInstruction", currentMIPS->pc);

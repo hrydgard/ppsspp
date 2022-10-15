@@ -28,6 +28,7 @@ enum class BreakNext {
 	TEX,
 	NONTEX,
 	FRAME,
+	VSYNC,
 	PRIM,
 	CURVE,
 	COUNT,
@@ -43,6 +44,7 @@ void SetBreakCount(int c, bool relative = false);
 bool NotifyCommand(u32 pc);
 void NotifyDraw();
 void NotifyDisplay(u32 framebuf, u32 stride, int format);
+void NotifyBeginFrame();
 
 int PrimsThisFrame();
 int PrimsLastFrame();

@@ -78,14 +78,6 @@ static inline Vec3<int> Interpolate(const Vec3<int> &c0, const Vec3<int> &c1, co
 #endif
 }
 
-static inline Vec2<float> Interpolate(const Vec2<float> &c0, const Vec2<float> &c1, const Vec2<float> &c2, int w0, int w1, int w2, float wsum) {
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	return Vec2<float>(Interpolate(c0.vec, c1.vec, c2.vec, w0, w1, w2, wsum));
-#else
-	return (c0 * w0 + c1 * w1 + c2 * w2) * wsum;
-#endif
-}
-
 static inline Vec4<float> Interpolate(const float &c0, const float &c1, const float &c2, const Vec4<float> &w0, const Vec4<float> &w1, const Vec4<float> &w2, const Vec4<float> &wsum_recip) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	__m128 v = _mm_mul_ps(w0.vec, _mm_set1_ps(c0));
@@ -124,7 +116,7 @@ void ComputeRasterizerState(RasterizerState *state) {
 		for (uint8_t i = 0; i <= state->maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
 			state->texaddr[i] = texaddr;
-			state->texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
+			state->texbufw[i] = (uint16_t)GetTextureBufw(i, texaddr, texfmt);
 			if (Memory::IsValidAddress(texaddr))
 				state->texptr[i] = Memory::GetPointerUnchecked(texaddr);
 			else
@@ -137,14 +129,18 @@ void ComputeRasterizerState(RasterizerState *state) {
 		state->mipFilt = gstate.isMipmapFilteringEnabled();
 		state->minFilt = gstate.isMinifyFilteringEnabled();
 		state->magFilt = gstate.isMagnifyFilteringEnabled();
+		state->textureProj = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
+		if (state->textureProj) {
+			// We may be able to optimize this off.  This is actually kinda common.
+			if (gstate.tgenMatrix[2] == 0.0f && gstate.tgenMatrix[5] == 0.0f && gstate.tgenMatrix[8] == 0.0f && gstate.tgenMatrix[11] == 1.0f) {
+				state->textureProj = false;
+			}
+		}
 	}
 
 	state->shadeGouraud = gstate.getShadeMode() == GE_SHADE_GOURAUD;
 	state->throughMode = gstate.isModeThrough();
 	state->antialiasLines = gstate.isAntiAliasEnabled();
-
-	state->screenOffsetX = gstate.getOffsetX16();
-	state->screenOffsetY = gstate.getOffsetY16();
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	DisplayList currentList{};
@@ -152,6 +148,68 @@ void ComputeRasterizerState(RasterizerState *state) {
 		gpuDebug->GetCurrentDisplayList(currentList);
 	state->listPC = currentList.pc;
 #endif
+}
+
+RasterizerState OptimizeFlatRasterizerState(RasterizerState state, const VertexData &v1) {
+	uint8_t alpha = v1.color0 >> 24;
+
+	bool changedPixelID = false;
+	bool changedSamplerID = false;
+	if (!state.pixelID.clearMode) {
+		auto &pixelID = state.pixelID;
+		auto &cached = pixelID.cached;
+
+		bool useTextureAlpha = state.enableTextures && state.samplerID.useTextureAlpha;
+		if (pixelID.alphaBlend && pixelID.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA && !useTextureAlpha) {
+			// Okay, we may be able to convert this to a fixed value.
+			if (alpha == 0) {
+				pixelID.alphaBlendSrc = (uint8_t)PixelBlendFactor::ZERO;
+				changedPixelID = true;
+			} else if (alpha == 0xFF) {
+				pixelID.alphaBlendSrc = (uint8_t)PixelBlendFactor::ONE;
+				changedPixelID = true;
+			}
+		}
+		if (pixelID.alphaBlend && pixelID.AlphaBlendDst() == PixelBlendFactor::INVSRCALPHA && !useTextureAlpha) {
+			if (alpha == 0) {
+				pixelID.alphaBlendDst = (uint8_t)PixelBlendFactor::ONE;
+				changedPixelID = true;
+			} else if (alpha == 0xFF) {
+				pixelID.alphaBlendDst = (uint8_t)PixelBlendFactor::ZERO;
+				changedPixelID = true;
+			}
+		}
+		if (pixelID.alphaBlend && pixelID.AlphaBlendSrc() == PixelBlendFactor::ONE && pixelID.AlphaBlendDst() == PixelBlendFactor::ZERO) {
+			if (pixelID.AlphaBlendEq() == GE_BLENDMODE_MUL_AND_ADD) {
+				pixelID.alphaBlend = false;
+				changedPixelID = true;
+			}
+		}
+	}
+	if (state.enableTextures) {
+		if (v1.color0 == 0xFFFFFFFF) {
+			// Modulate is common, sometimes even with a fixed color.  Replace is cheaper.
+			if (state.samplerID.TexFunc() == GE_TEXFUNC_MODULATE) {
+				state.samplerID.texFunc = (uint8_t)GE_TEXFUNC_REPLACE;
+				changedSamplerID = true;
+			}
+		}
+	}
+
+	if (changedPixelID)
+		state.drawPixel = Rasterizer::GetSingleFunc(state.pixelID);
+	if (changedSamplerID) {
+		state.linear = Sampler::GetLinearFunc(state.samplerID);
+		state.nearest = Sampler::GetNearestFunc(state.samplerID);
+
+		// Since the definitions are the same, just force this setting using the func pointer.
+		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR)
+			state.nearest = state.linear;
+		else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST)
+			state.linear = state.nearest;
+	}
+
+	return state;
 }
 
 static inline u8 ClampFogDepth(float fogdepth) {
@@ -173,12 +231,9 @@ static inline u8 ClampFogDepth(float fogdepth) {
 }
 
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const float p, float &s, float &t) {
-	// All UV gen modes, by the time they get here, behave the same.
-
-	// TODO: What happens if vertex has no texture coordinates?
 	// Note that for environment mapping, texture coordinates have been calculated during lighting
-	float q0 = 1.f / v0.clippos.w;
-	float q1 = 1.f / v1.clippos.w;
+	float q0 = 1.f / v0.clipw;
+	float q1 = 1.f / v1.clipw;
 	float wq0 = p * q0;
 	float wq1 = (1.0f - p) * q1;
 
@@ -187,19 +242,48 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 	t = (v0.texturecoords.t() * wq0 + v1.texturecoords.t() * wq1) * q_recip;
 }
 
-static inline void GetTextureCoordinates(const VertexData &v0, const VertexData &v1, const VertexData &v2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip, Vec4<float> &s, Vec4<float> &t) {
-	// All UV gen modes, by the time they get here, behave the same.
+static inline void GetTextureCoordinatesProj(const VertexData& v0, const VertexData& v1, const float p, float &s, float &t) {
+	// This is for texture matrix projection.
+	float q0 = 1.f / v0.clipw;
+	float q1 = 1.f / v1.clipw;
+	float wq0 = p * q0;
+	float wq1 = (1.0f - p) * q1;
 
-	// TODO: What happens if vertex has no texture coordinates?
+	float q_recip = 1.0f / (wq0 + wq1);
+	float q = (v0.texturecoords.q() * wq0 + v1.texturecoords.q() * wq1) * q_recip;
+	q_recip *= 1.0f / q;
+
+	s = (v0.texturecoords.s() * wq0 + v1.texturecoords.s() * wq1) * q_recip;
+	t = (v0.texturecoords.t() * wq0 + v1.texturecoords.t() * wq1) * q_recip;
+}
+
+static inline void GetTextureCoordinates(const VertexData &v0, const VertexData &v1, const VertexData &v2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip, Vec4<float> &s, Vec4<float> &t) {
 	// Note that for environment mapping, texture coordinates have been calculated during lighting.
-	float q0 = 1.f / v0.clippos.w;
-	float q1 = 1.f / v1.clippos.w;
-	float q2 = 1.f / v2.clippos.w;
+	float q0 = 1.f / v0.clipw;
+	float q1 = 1.f / v1.clipw;
+	float q2 = 1.f / v2.clipw;
 	Vec4<float> wq0 = w0.Cast<float>() * q0;
 	Vec4<float> wq1 = w1.Cast<float>() * q1;
 	Vec4<float> wq2 = w2.Cast<float>() * q2;
 
 	Vec4<float> q_recip = (wq0 + wq1 + wq2).Reciprocal();
+	s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), wq0, wq1, wq2, q_recip);
+	t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
+}
+
+static inline void GetTextureCoordinatesProj(const VertexData &v0, const VertexData &v1, const VertexData &v2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip, Vec4<float> &s, Vec4<float> &t) {
+	// This is for texture matrix projection.
+	float q0 = 1.f / v0.clipw;
+	float q1 = 1.f / v1.clipw;
+	float q2 = 1.f / v2.clipw;
+	Vec4<float> wq0 = w0.Cast<float>() * q0;
+	Vec4<float> wq1 = w1.Cast<float>() * q1;
+	Vec4<float> wq2 = w2.Cast<float>() * q2;
+
+	Vec4<float> q_recip = (wq0 + wq1 + wq2).Reciprocal();
+	Vec4<float> q = Interpolate(v0.texturecoords.q(), v1.texturecoords.q(), v2.texturecoords.q(), wq0, wq1, wq2, q_recip);
+	q_recip = q_recip * q.Reciprocal();
+
 	s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), wq0, wq1, wq2, q_recip);
 	t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
 }
@@ -219,209 +303,9 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Ve
 	}
 }
 
-static inline Vec3<int> GetSourceFactor(PixelBlendFactor factor, const Vec4<int> &source, const Vec4<int> &dst, uint32_t fix) {
-	switch (factor) {
-	case PixelBlendFactor::OTHERCOLOR:
-		return dst.rgb();
-
-	case PixelBlendFactor::INVOTHERCOLOR:
-		return Vec3<int>::AssignToAll(255) - dst.rgb();
-
-	case PixelBlendFactor::SRCALPHA:
-#if defined(_M_SSE)
-		return Vec3<int>(_mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3)));
-#else
-		return Vec3<int>::AssignToAll(source.a());
-#endif
-
-	case PixelBlendFactor::INVSRCALPHA:
-#if defined(_M_SSE)
-		return Vec3<int>(_mm_sub_epi32(_mm_set1_epi32(255), _mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3))));
-#else
-		return Vec3<int>::AssignToAll(255 - source.a());
-#endif
-
-	case PixelBlendFactor::DSTALPHA:
-		return Vec3<int>::AssignToAll(dst.a());
-
-	case PixelBlendFactor::INVDSTALPHA:
-		return Vec3<int>::AssignToAll(255 - dst.a());
-
-	case PixelBlendFactor::DOUBLESRCALPHA:
-		return Vec3<int>::AssignToAll(2 * source.a());
-
-	case PixelBlendFactor::DOUBLEINVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - std::min(2 * source.a(), 255));
-
-	case PixelBlendFactor::DOUBLEDSTALPHA:
-		return Vec3<int>::AssignToAll(2 * dst.a());
-
-	case PixelBlendFactor::DOUBLEINVDSTALPHA:
-		return Vec3<int>::AssignToAll(255 - std::min(2 * dst.a(), 255));
-
-	case PixelBlendFactor::FIX:
-	default:
-		// All other dest factors (> 10) are treated as FIXA.
-		return Vec3<int>::FromRGB(fix);
-
-	case PixelBlendFactor::ZERO:
-		return Vec3<int>::AssignToAll(0);
-
-	case PixelBlendFactor::ONE:
-		return Vec3<int>::AssignToAll(255);
-	}
-}
-
-static inline Vec3<int> GetDestFactor(PixelBlendFactor factor, const Vec4<int> &source, const Vec4<int> &dst, uint32_t fix) {
-	switch (factor) {
-	case PixelBlendFactor::OTHERCOLOR:
-		return source.rgb();
-
-	case PixelBlendFactor::INVOTHERCOLOR:
-		return Vec3<int>::AssignToAll(255) - source.rgb();
-
-	case PixelBlendFactor::SRCALPHA:
-#if defined(_M_SSE)
-		return Vec3<int>(_mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3)));
-#else
-		return Vec3<int>::AssignToAll(source.a());
-#endif
-
-	case PixelBlendFactor::INVSRCALPHA:
-#if defined(_M_SSE)
-		return Vec3<int>(_mm_sub_epi32(_mm_set1_epi32(255), _mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3))));
-#else
-		return Vec3<int>::AssignToAll(255 - source.a());
-#endif
-
-	case PixelBlendFactor::DSTALPHA:
-		return Vec3<int>::AssignToAll(dst.a());
-
-	case PixelBlendFactor::INVDSTALPHA:
-		return Vec3<int>::AssignToAll(255 - dst.a());
-
-	case PixelBlendFactor::DOUBLESRCALPHA:
-		return Vec3<int>::AssignToAll(2 * source.a());
-
-	case PixelBlendFactor::DOUBLEINVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - std::min(2 * source.a(), 255));
-
-	case PixelBlendFactor::DOUBLEDSTALPHA:
-		return Vec3<int>::AssignToAll(2 * dst.a());
-
-	case PixelBlendFactor::DOUBLEINVDSTALPHA:
-		return Vec3<int>::AssignToAll(255 - std::min(2 * dst.a(), 255));
-
-	case PixelBlendFactor::FIX:
-	default:
-		// All other dest factors (> 10) are treated as FIXB.
-		return Vec3<int>::FromRGB(fix);
-
-	case PixelBlendFactor::ZERO:
-		return Vec3<int>::AssignToAll(0);
-
-	case PixelBlendFactor::ONE:
-		return Vec3<int>::AssignToAll(255);
-	}
-}
-
-// Removed inline here - it was never chosen to be inlined by the compiler anyway, too complex.
-Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &source, const Vec4<int> &dst) {
-	// Note: These factors cannot go below 0, but they can go above 255 when doubling.
-	Vec3<int> srcfactor = GetSourceFactor(pixelID.AlphaBlendSrc(), source, dst, pixelID.cached.alphaBlendSrc);
-	Vec3<int> dstfactor = GetDestFactor(pixelID.AlphaBlendDst(), source, dst, pixelID.cached.alphaBlendDst);
-
-	switch (pixelID.AlphaBlendEq()) {
-	case GE_BLENDMODE_MUL_AND_ADD:
-	{
-#if defined(_M_SSE)
-		// We switch to 16 bit to use mulhi, and we use 4 bits of decimal to make the 16 bit shift free.
-		const __m128i half = _mm_set1_epi16(1 << 3);
-
-		const __m128i srgb = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(source.ivec, source.ivec), 4), half);
-		const __m128i sf = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(srcfactor.ivec, srcfactor.ivec), 4), half);
-		const __m128i s = _mm_mulhi_epi16(srgb, sf);
-
-		const __m128i drgb = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(dst.ivec, dst.ivec), 4), half);
-		const __m128i df = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(dstfactor.ivec, dstfactor.ivec), 4), half);
-		const __m128i d = _mm_mulhi_epi16(drgb, df);
-
-		return Vec3<int>(_mm_unpacklo_epi16(_mm_adds_epi16(s, d), _mm_setzero_si128()));
-#else
-		Vec3<int> half = Vec3<int>::AssignToAll(1);
-		Vec3<int> lhs = ((source.rgb() * 2 + half) * (srcfactor * 2 + half)) / 1024;
-		Vec3<int> rhs = ((dst.rgb() * 2 + half) * (dstfactor * 2 + half)) / 1024;
-		return lhs + rhs;
-#endif
-	}
-
-	case GE_BLENDMODE_MUL_AND_SUBTRACT:
-	{
-#if defined(_M_SSE)
-		const __m128i half = _mm_set1_epi16(1 << 3);
-
-		const __m128i srgb = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(source.ivec, source.ivec), 4), half);
-		const __m128i sf = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(srcfactor.ivec, srcfactor.ivec), 4), half);
-		const __m128i s = _mm_mulhi_epi16(srgb, sf);
-
-		const __m128i drgb = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(dst.ivec, dst.ivec), 4), half);
-		const __m128i df = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(dstfactor.ivec, dstfactor.ivec), 4), half);
-		const __m128i d = _mm_mulhi_epi16(drgb, df);
-
-		return Vec3<int>(_mm_unpacklo_epi16(_mm_max_epi16(_mm_subs_epi16(s, d), _mm_setzero_si128()), _mm_setzero_si128()));
-#else
-		Vec3<int> half = Vec3<int>::AssignToAll(1);
-		Vec3<int> lhs = ((source.rgb() * 2 + half) * (srcfactor * 2 + half)) / 1024;
-		Vec3<int> rhs = ((dst.rgb() * 2 + half) * (dstfactor * 2 + half)) / 1024;
-		return lhs - rhs;
-#endif
-	}
-
-	case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
-	{
-#if defined(_M_SSE)
-		const __m128i half = _mm_set1_epi16(1 << 3);
-
-		const __m128i srgb = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(source.ivec, source.ivec), 4), half);
-		const __m128i sf = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(srcfactor.ivec, srcfactor.ivec), 4), half);
-		const __m128i s = _mm_mulhi_epi16(srgb, sf);
-
-		const __m128i drgb = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(dst.ivec, dst.ivec), 4), half);
-		const __m128i df = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(dstfactor.ivec, dstfactor.ivec), 4), half);
-		const __m128i d = _mm_mulhi_epi16(drgb, df);
-
-		return Vec3<int>(_mm_unpacklo_epi16(_mm_max_epi16(_mm_subs_epi16(d, s), _mm_setzero_si128()), _mm_setzero_si128()));
-#else
-		Vec3<int> half = Vec3<int>::AssignToAll(1);
-		Vec3<int> lhs = ((source.rgb() * 2 + half) * (srcfactor * 2 + half)) / 1024;
-		Vec3<int> rhs = ((dst.rgb() * 2 + half) * (dstfactor * 2 + half)) / 1024;
-		return rhs - lhs;
-#endif
-	}
-
-	case GE_BLENDMODE_MIN:
-		return Vec3<int>(std::min(source.r(), dst.r()),
-						std::min(source.g(), dst.g()),
-						std::min(source.b(), dst.b()));
-
-	case GE_BLENDMODE_MAX:
-		return Vec3<int>(std::max(source.r(), dst.r()),
-						std::max(source.g(), dst.g()),
-						std::max(source.b(), dst.b()));
-
-	case GE_BLENDMODE_ABSDIFF:
-		return Vec3<int>(::abs(source.r() - dst.r()),
-						::abs(source.g() - dst.g()),
-						::abs(source.b() - dst.b()));
-
-	default:
-		return source.rgb();
-	}
-}
-
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, int x, int y, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
 	const u8 **tptr0 = const_cast<const u8 **>(&state.texptr[texlevel]);
-	const int *bufw0 = &state.texbufw[texlevel];
+	const uint16_t *bufw0 = &state.texbufw[texlevel];
 
 	if (!bilinear) {
 		return state.nearest(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
@@ -710,11 +594,23 @@ void DrawTriangleSlice(
 	const bool flatColor1 = flatColorAll || (v0.color1 == v1.color1 && v0.color1 == v2.color1);
 	const bool noFog = clearMode || !pixelID.applyFog || (v0.fogdepth >= 1.0f && v1.fogdepth >= 1.0f && v2.fogdepth >= 1.0f);
 
+	if (pixelID.applyDepthRange && flatZ) {
+		if (v0.screenpos.z < pixelID.cached.minz || v0.screenpos.z > pixelID.cached.maxz)
+			return;
+	}
+
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 	std::string tag = StringFromFormat("DisplayListT_%08x", state.listPC);
 	std::string ztag = StringFromFormat("DisplayListTZ_%08x", state.listPC);
 #endif
+
+	const Vec4<int> v0_c0 = Vec4<int>::FromRGBA(v0.color0);
+	const Vec4<int> v1_c0 = Vec4<int>::FromRGBA(v1.color0);
+	const Vec4<int> v2_c0 = Vec4<int>::FromRGBA(v2.color0);
+	const Vec3<int> v0_c1 = Vec3<int>::FromRGB(v0.color1);
+	const Vec3<int> v1_c1 = Vec3<int>::FromRGB(v1.color1);
+	const Vec3<int> v2_c1 = Vec3<int>::FromRGB(v2.color1);
 
 	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR * 2,
 										w0_base = e0.StepY(w0_base),
@@ -754,27 +650,53 @@ void DrawTriangleSlice(
 			if (AnyMask<useSSE4>(mask)) {
 				Vec4<float> wsum_recip = EdgeRecip(w0, w1, w2);
 
+				Vec4<int> z;
+				if (flatZ) {
+					z = Vec4<int>::AssignToAll(v2.screenpos.z);
+				} else {
+					// Z is interpolated pretty much directly.
+					Vec4<float> zfloats = w0.Cast<float>() * v0.screenpos.z + w1.Cast<float>() * v1.screenpos.z + w2.Cast<float>() * v2.screenpos.z;
+					z = (zfloats * wsum_recip).Cast<int>();
+				}
+
+				if (pixelID.earlyZChecks) {
+					for (int i = 0; i < 4; ++i) {
+						if (pixelID.applyDepthRange) {
+							if (z[i] < pixelID.cached.minz || z[i] > pixelID.cached.maxz)
+								mask[i] = -1;
+						}
+						if (mask[i] < 0)
+							continue;
+
+						int x = p.x + (i & 1);
+						int y = p.y + (i / 2);
+						if (!CheckDepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z[i])) {
+							mask[i] = -1;
+						}
+					}
+				}
+
 				// Color interpolation is not perspective corrected on the PSP.
 				Vec4<int> prim_color[4];
 				if (!flatColor0) {
 					for (int i = 0; i < 4; ++i) {
 						if (mask[i] >= 0)
-							prim_color[i] = Interpolate(v0.color0, v1.color0, v2.color0, w0[i], w1[i], w2[i], wsum_recip[i]);
+							prim_color[i] = Interpolate(v0_c0, v1_c0, v2_c0, w0[i], w1[i], w2[i], wsum_recip[i]);
 					}
 				} else {
 					for (int i = 0; i < 4; ++i) {
-						prim_color[i] = v2.color0;
+						prim_color[i] = v2_c0;
 					}
 				}
 				Vec3<int> sec_color[4];
 				if (!flatColor1) {
 					for (int i = 0; i < 4; ++i) {
 						if (mask[i] >= 0)
-							sec_color[i] = Interpolate(v0.color1, v1.color1, v2.color1, w0[i], w1[i], w2[i], wsum_recip[i]);
+							sec_color[i] = Interpolate(v0_c1, v1_c1, v2_c1, w0[i], w1[i], w2[i], wsum_recip[i]);
 					}
 				} else {
 					for (int i = 0; i < 4; ++i) {
-						sec_color[i] = v2.color1;
+						sec_color[i] = v2_c1;
 					}
 				}
 
@@ -787,6 +709,9 @@ void DrawTriangleSlice(
 						// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
 						s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
 						t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
+					} else if (state.textureProj) {
+						// Texture coordinate interpolation must definitely be perspective-correct.
+						GetTextureCoordinatesProj(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 					} else {
 						// Texture coordinate interpolation must definitely be perspective-correct.
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
@@ -814,15 +739,6 @@ void DrawTriangleSlice(
 					for (int i = 0; i < 4; ++i) {
 						fog[i] = ClampFogDepth(fogdepths[i]);
 					}
-				}
-
-				Vec4<int> z;
-				if (flatZ) {
-					z = Vec4<int>::AssignToAll(v2.screenpos.z);
-				} else {
-					// Z is interpolated pretty much directly.
-					Vec4<float> zfloats = w0.Cast<float>() * v0.screenpos.z + w1.Cast<float>() * v1.screenpos.z + w2.Cast<float>() * v2.screenpos.z;
-					z = (zfloats * wsum_recip).Cast<int>();
 				}
 
 				PROFILE_THIS_SCOPE("draw_tri_px");
@@ -875,7 +791,7 @@ void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &
 	drawSlice(v0, v1, v2, range.x1, range.y1, range.x2, range.y2, state);
 }
 
-void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
+void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &rastState) {
 	int entireX1 = std::min(v0.screenpos.x, v1.screenpos.x);
 	int entireY1 = std::min(v0.screenpos.y, v1.screenpos.y);
 	int entireX2 = std::max(v0.screenpos.x, v1.screenpos.x) - 1;
@@ -885,13 +801,16 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	int maxX = std::min(entireX2, range.x2);
 	int maxY = std::min(entireY2, range.y2);
 
+	RasterizerState state = OptimizeFlatRasterizerState(rastState, v1);
+
 	Vec2f rowST(0.0f, 0.0f);
 	// Note: this is double the x or y movement.
 	Vec2f stx(0.0f, 0.0f);
 	Vec2f sty(0.0f, 0.0f);
 	if (state.enableTextures) {
-		Vec2f tc0 = v0.texturecoords;
-		Vec2f tc1 = v1.texturecoords;
+		// Note: texture projection is not handled here, those always turn into triangles.
+		Vec2f tc0 = v0.texturecoords.uv();
+		Vec2f tc1 = v1.texturecoords.uv();
 		if (state.throughMode) {
 			// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
 			tc0.s() *= 1.0f / (float)(1 << state.samplerID.width0Shift);
@@ -943,9 +862,16 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	const Vec4f tto4(0.0f, 0.5f * stx.t(), 0.5f * sty.t(), 0.5f * stx.t() + 0.5f * sty.t());
 
 	ScreenCoords pprime(minX, minY, 0);
-	Vec4<int> fog = Vec4<int>::AssignToAll(ClampFogDepth(v1.fogdepth));
-	Vec4<int> z = Vec4<int>::AssignToAll(v1.screenpos.z);
-	Vec3<int> sec_color = v1.color1;
+	const Vec4<int> fog = Vec4<int>::AssignToAll(ClampFogDepth(v1.fogdepth));
+	const Vec4<int> z = Vec4<int>::AssignToAll(v1.screenpos.z);
+	const Vec4<int> c0 = Vec4<int>::FromRGBA(v1.color0);
+	const Vec3<int> sec_color = Vec3<int>::FromRGB(v1.color1);
+
+	if (state.pixelID.applyDepthRange) {
+		// We can bail early since the Z is flat.
+		if (v1.screenpos.z < state.pixelID.cached.minz || v1.screenpos.z > state.pixelID.cached.maxz)
+			return;
+	}
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
@@ -969,7 +895,20 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 
 			Vec4<int> prim_color[4];
 			for (int i = 0; i < 4; ++i) {
-				prim_color[i] = v1.color0;
+				prim_color[i] = c0;
+			}
+
+			if (state.pixelID.earlyZChecks) {
+				for (int i = 0; i < 4; ++i) {
+					if (mask[i] < 0)
+						continue;
+
+					int x = p.x + (i & 1);
+					int y = p.y + (i / 2);
+					if (!CheckDepthTestPassed(state.pixelID.DepthTestFunc(), x, y, state.pixelID.cached.depthbufStride, z[i])) {
+						mask[i] = -1;
+					}
+				}
 			}
 
 			if (state.enableTextures) {
@@ -1032,11 +971,25 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 
 void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerState &state) {
 	ScreenCoords pos = v0.screenpos;
-	Vec4<int> prim_color = v0.color0;
-	Vec3<int> sec_color = v0.color1;
+	Vec4<int> prim_color = Vec4<int>::FromRGBA(v0.color0);
+	Vec3<int> sec_color = Vec3<int>::FromRGB(v0.color1);
 
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
+
+	DrawingCoords p = TransformUnit::ScreenToDrawing(pos);
+	u16 z = pos.z;
+
+	if (pixelID.earlyZChecks) {
+		if (pixelID.applyDepthRange) {
+			if (z < pixelID.cached.minz || z > pixelID.cached.maxz)
+				return;
+		}
+
+		if (!CheckDepthTestPassed(pixelID.DepthTestFunc(), p.x, p.y, pixelID.cached.depthbufStride, z)) {
+			return;
+		}
+	}
 
 	if (state.enableTextures) {
 		float s = v0.texturecoords.s();
@@ -1044,6 +997,8 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 		if (state.throughMode) {
 			s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
 			t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
+		} else if (state.textureProj) {
+			GetTextureCoordinatesProj(v0, v0, 0.0f, s, t);
 		} else {
 			// Texture coordinate interpolation must definitely be perspective-correct.
 			GetTextureCoordinates(v0, v0, 0.0f, s, t);
@@ -1059,9 +1014,6 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 
 	if (!pixelID.clearMode)
 		prim_color += Vec4<int>(sec_color, 0);
-
-	DrawingCoords p = TransformUnit::ScreenToDrawing(pos);
-	u16 z = pos.z;
 
 	u8 fog = 255;
 	if (pixelID.applyFog) {
@@ -1087,13 +1039,20 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 }
 
 void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
-	DrawingCoords pprime = TransformUnit::ScreenToDrawing(range.x1, range.y1);
-	DrawingCoords pend = TransformUnit::ScreenToDrawing(range.x2, range.y2);
+	int entireX1 = std::min(v0.screenpos.x, v1.screenpos.x);
+	int entireY1 = std::min(v0.screenpos.y, v1.screenpos.y);
+	int entireX2 = std::max(v0.screenpos.x, v1.screenpos.x) - 1;
+	int entireY2 = std::max(v0.screenpos.y, v1.screenpos.y) - 1;
+	int minX = std::max(entireX1, range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int minY = std::max(entireY1, range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int maxX = std::min(entireX2, range.x2);
+	int maxY = std::min(entireY2, range.y2);
+	const DrawingCoords pprime = TransformUnit::ScreenToDrawing(minX, minY);
+	const DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX, maxY);
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
-	// Min and max are in PSP fixed point screen coordinates, 16 here is for the 4 subpixel bits.
-	const int w = (range.x2 - range.x1 + 1) / SCREEN_SCALE_FACTOR;
+	const int w = pend.x - pprime.x + 1;
 	if (w <= 0)
 		return;
 
@@ -1166,7 +1125,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 		keepOldMask |= pixelID.cached.colorWriteMask;
 	}
 
-	const u32 new_color = v1.color0.ToRGBA();
+	const u32 new_color = v1.color0;
 	u16 new_color16;
 	switch (pixelID.FBFormat()) {
 	case GE_FORMAT_565:
@@ -1186,6 +1145,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 
 	case GE_FORMAT_INVALID:
 	case GE_FORMAT_DEPTH16:
+	case GE_FORMAT_CLUT8:
 		_dbg_assert_msg_(false, "Software: invalid framebuf format.");
 		break;
 	}
@@ -1291,6 +1251,10 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 	auto &samplerID = state.samplerID;
 
 	const bool interpolateColor = !state.shadeGouraud || (v0.color0 == v1.color0 && v0.color1 == v1.color1);
+	const Vec4<int> v0_c0 = Vec4<int>::FromRGBA(v0.color0);
+	const Vec4<int> v1_c0 = Vec4<int>::FromRGBA(v1.color0);
+	const Vec3<int> v0_c1 = Vec3<int>::FromRGB(v0.color1);
+	const Vec3<int> v1_c1 = Vec3<int>::FromRGB(v1.color1);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	std::string tag = StringFromFormat("DisplayListL_%08x", state.listPC);
@@ -1302,16 +1266,32 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 	double z = a.z;
 	const int steps1 = steps == 0 ? 1 : steps;
 	for (int i = 0; i < steps; i++) {
-		if (x >= range.x1 && y >= range.y1 && x <= range.x2 && y <= range.y2) {
+		DrawingCoords p = TransformUnit::ScreenToDrawing(x, y);
+
+		bool maskOK = x >= range.x1 && y >= range.y1 && x <= range.x2 && y <= range.y2;
+		if (maskOK) {
+			if (pixelID.earlyZChecks) {
+				if (pixelID.applyDepthRange) {
+					if (z < pixelID.cached.minz || z > pixelID.cached.maxz)
+						maskOK = false;
+				}
+
+				if (!CheckDepthTestPassed(pixelID.DepthTestFunc(), p.x, p.y, pixelID.cached.depthbufStride, z)) {
+					maskOK = false;
+				}
+			}
+		}
+
+		if (maskOK) {
 			// Interpolate between the two points.
 			Vec4<int> prim_color;
 			Vec3<int> sec_color;
 			if (interpolateColor) {
-				prim_color = (v0.color0 * (steps - i) + v1.color0 * i) / steps1;
-				sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
+				prim_color = (v0_c0 * (steps - i) + v1_c0 * i) / steps1;
+				sec_color = (v0_c1 * (steps - i) + v1_c1 * i) / steps1;
 			} else {
-				prim_color = v1.color0;
-				sec_color = v1.color1;
+				prim_color = v1_c0;
+				sec_color = v1_c1;
 			}
 
 			u8 fog = 255;
@@ -1329,13 +1309,16 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				float s, s1;
 				float t, t1;
 				if (state.throughMode) {
-					Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
-					Vec2<float> tc1 = (v0.texturecoords * (float)(steps - i - 1) + v1.texturecoords * (float)(i + 1)) / steps1;
+					Vec2<float> tc = (v0.texturecoords.uv() * (float)(steps - i) + v1.texturecoords.uv() * (float)i) / steps1;
+					Vec2<float> tc1 = (v0.texturecoords.uv() * (float)(steps - i - 1) + v1.texturecoords.uv() * (float)(i + 1)) / steps1;
 
 					s = tc.s() * (1.0f / (float)(1 << state.samplerID.width0Shift));
 					s1 = tc1.s() * (1.0f / (float)(1 << state.samplerID.width0Shift));
 					t = tc.t() * (1.0f / (float)(1 << state.samplerID.height0Shift));
 					t1 = tc1.t() * (1.0f / (float)(1 << state.samplerID.height0Shift));
+				} else if (state.textureProj) {
+					GetTextureCoordinatesProj(v0, v1, (float)(steps - i) / steps1, s, t);
+					GetTextureCoordinatesProj(v0, v1, (float)(steps - i - 1) / steps1, s1, t1);
 				} else {
 					// Texture coordinate interpolation must definitely be perspective-correct.
 					GetTextureCoordinates(v0, v1, (float)(steps - i) / steps1, s, t);
@@ -1368,7 +1351,6 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				prim_color += Vec4<int>(sec_color, 0);
 
 			PROFILE_THIS_SCOPE("draw_px");
-			DrawingCoords p = TransformUnit::ScreenToDrawing(x, y);
 			state.drawPixel(p.x, p.y, z, fog, ToVec4IntArg(prim_color), pixelID);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
@@ -1397,18 +1379,22 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 
 	GETextureFormat texfmt = gstate.getTextureFormat();
 	u32 texaddr = gstate.getTextureAddress(level);
-	int texbufw = GetTextureBufw(level, texaddr, texfmt);
+	u32 texbufw = GetTextureBufw(level, texaddr, texfmt);
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
-	if (!texaddr || !Memory::IsValidRange(texaddr, (textureBitsPerPixel[texfmt] * texbufw * h) / 8))
+	u32 sizeInBits = textureBitsPerPixel[texfmt] * (texbufw * (h - 1) + w);
+	if (!texaddr || !Memory::IsValidRange(texaddr, sizeInBits / 8))
+		return false;
+	// We'll break trying to allocate this much.
+	if (w >= 0x8000 && h >= 0x8000)
 		return false;
 
 	buffer.Allocate(w, h, GE_FORMAT_8888, false);
 
 	SamplerID id;
 	ComputeSamplerID(&id);
-	id.cached.clut = (const u8 *)clut;
+	id.cached.clut = clut;
 
 	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id);
 

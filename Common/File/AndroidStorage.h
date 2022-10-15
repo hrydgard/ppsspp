@@ -55,7 +55,7 @@ int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath);
 bool Android_IsExternalStoragePreservedLegacy();
 const char *Android_ErrorToString(StorageError error);
 
-std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri);
+std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, bool *exists);
 
 void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj);
 
@@ -78,7 +78,8 @@ inline int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) { return
 inline int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) { return -1; }
 inline bool Android_IsExternalStoragePreservedLegacy() { return false; }
 inline const char *Android_ErrorToString(StorageError error) { return ""; }
-inline std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri) {
+inline std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, bool *exists) {
+	*exists = false;
 	return std::vector<File::FileInfo>();
 }
 

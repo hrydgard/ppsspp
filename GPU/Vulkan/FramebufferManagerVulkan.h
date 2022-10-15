@@ -33,14 +33,8 @@ class VulkanPushBuffer;
 
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
-	FramebufferManagerVulkan(Draw::DrawContext *draw);
+	explicit FramebufferManagerVulkan(Draw::DrawContext *draw);
 	~FramebufferManagerVulkan();
-
-	void BeginFrameVulkan();  // there's a BeginFrame in the base class, which this calls
-	void EndFrame();
-
-	void DeviceLost() override;
-	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	// If within a render pass, this will just issue a regular clear. If beginning a new render pass,
 	// do that.

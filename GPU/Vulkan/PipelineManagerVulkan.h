@@ -18,7 +18,9 @@
 #pragma once
 
 #include <cstring>
+
 #include "Common/Data/Collections/Hashmaps.h"
+#include "Common/Thread/Promise.h"
 
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/ShaderId.h"
@@ -26,15 +28,17 @@
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/StateMappingVulkan.h"
 #include "GPU/Vulkan/VulkanQueueRunner.h"
+#include "GPU/Vulkan/VulkanRenderManager.h"
 
 struct VKRGraphicsPipeline;
 class VulkanRenderManager;
 
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here
-	VkRenderPass renderPass;
-	VkShaderModule vShader;
-	VkShaderModule fShader;
+	VKRRenderPass *renderPass;
+	Promise<VkShaderModule> *vShader;
+	Promise<VkShaderModule> *fShader;
+	Promise<VkShaderModule> *gShader;
 	uint32_t vtxFmtId;
 	bool useHWTransform;
 
@@ -51,16 +55,21 @@ struct VulkanPipelineKey {
 // Simply wraps a Vulkan pipeline, providing some metadata.
 struct VulkanPipeline {
 	VKRGraphicsPipeline *pipeline;
-	int flags;  // PipelineFlags enum above.
+	VKRGraphicsPipelineDesc desc;
+	PipelineFlags pipelineFlags;  // PipelineFlags enum above.
 
-	bool UsesBlendConstant() const { return (flags & PIPELINE_FLAG_USES_BLEND_CONSTANT) != 0; }
-	bool UsesLines() const { return (flags & PIPELINE_FLAG_USES_LINES) != 0; }
-	bool UsesDepthStencil() const { return (flags & PIPELINE_FLAG_USES_DEPTH_STENCIL) != 0; }
+	bool UsesBlendConstant() const { return (pipelineFlags & PipelineFlags::USES_BLEND_CONSTANT) != 0; }
+	bool UsesDepthStencil() const { return (pipelineFlags & PipelineFlags::USES_DEPTH_STENCIL) != 0; }
+	bool UsesInputAttachment() const { return (pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT) != 0; }
+	bool UsesGeometryShader() const { return (pipelineFlags & PipelineFlags::USES_GEOMETRY_SHADER) != 0; }
+
+	u32 GetVariantsBitmask() const;
 };
 
 class VulkanContext;
 class VulkanVertexShader;
 class VulkanFragmentShader;
+class VulkanGeometryShader;
 class ShaderManagerVulkan;
 class DrawEngineCommon;
 
@@ -69,7 +78,8 @@ public:
 	PipelineManagerVulkan(VulkanContext *ctx);
 	~PipelineManagerVulkan();
 
-	VulkanPipeline *GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform);
+	// variantMask is only used when loading pipelines from cache.
+	VulkanPipeline *GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, VulkanGeometryShader *gs, bool useHwTransform, u32 variantMask);
 	int GetNumPipelines() const { return (int)pipelines_.size(); }
 
 	void Clear();

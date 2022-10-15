@@ -4,4 +4,6 @@ Exec=@TargetBin@
 Icon=ppsspp
 Type=Application
 Comment=ppsspp (fast and portable PSP emulator)
-Categories=Game
+Keywords=Sony;PlayStation;Portable;PSP;handheld;console;
+Categories=Game;Emulator;
+MimeType=application/x-cd-image;application/x-iso9660-image;application/x-compressed-iso;application/zip;

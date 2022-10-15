@@ -34,6 +34,7 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 
+#include "Core/HLE/sceJpeg.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -79,15 +80,20 @@ static const int mpegBaseModuleDeps[] = {0x0300, 0};
 static const int mp4ModuleDeps[] = {0x0300, 0};
 
 struct ModuleLoadInfo {
-	ModuleLoadInfo(int m, u32 s) : mod(m), size(s), dependencies(noDeps) {
+	ModuleLoadInfo(int m, u32 s, void(*n)(int) = nullptr) : mod(m), size(s), dependencies(noDeps), notify(n) {
 	}
-	ModuleLoadInfo(int m, u32 s, const int *d) : mod(m), size(s), dependencies(d) {
+	ModuleLoadInfo(int m, u32 s, const int *d, void(*n)(int) = nullptr) : mod(m), size(s), dependencies(d), notify(n) {
 	}
 
 	const int mod;
 	const u32 size;
 	const int *const dependencies;
+	void (*notify)(int state);
 };
+
+static void NotifyLoadStatusAvcodec(int state) {
+	JpegNotifyLoadStatus(state);
+}
 
 static const ModuleLoadInfo moduleLoadInfo[] = {
 	ModuleLoadInfo(0x0100, 0x00014000),
@@ -104,7 +110,7 @@ static const ModuleLoadInfo moduleLoadInfo[] = {
 	ModuleLoadInfo(0x0202, 0x00000000),
 	ModuleLoadInfo(0x0203, 0x00000000),
 	ModuleLoadInfo(0x02ff, 0x00000000),
-	ModuleLoadInfo(0x0300, 0x00000000),
+	ModuleLoadInfo(0x0300, 0x00000000, &NotifyLoadStatusAvcodec),
 	ModuleLoadInfo(0x0301, 0x00000000),
 	ModuleLoadInfo(0x0302, 0x00008000, atrac3PlusModuleDeps),
 	ModuleLoadInfo(0x0303, 0x0000c000, mpegBaseModuleDeps),
@@ -470,12 +476,16 @@ static u32 sceUtilityLoadAvModule(u32 module)
 	}
 	
 	INFO_LOG(SCEUTILITY, "0=sceUtilityLoadAvModule(%i)", module);
+	if (module == 0)
+		JpegNotifyLoadStatus(1);
 	return hleDelayResult(0, "utility av module loaded", 25000);
 }
 
 static u32 sceUtilityUnloadAvModule(u32 module)
 {
 	INFO_LOG(SCEUTILITY,"0=sceUtilityUnloadAvModule(%i)", module);
+	if (module == 0)
+		JpegNotifyLoadStatus(-1);
 	return hleDelayResult(0, "utility av module unloaded", 800);
 }
 
@@ -516,6 +526,9 @@ static u32 sceUtilityLoadModule(u32 module) {
 		currentlyLoadedModules[module] = 0;
 	}
 
+	if (info->notify)
+		info->notify(1);
+
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	if (module == 0x3FF)
 		return hleDelayResult(hleLogSuccessInfoI(SCEUTILITY, 0), "utility module loaded", 130);
@@ -536,6 +549,9 @@ static u32 sceUtilityUnloadModule(u32 module) {
 		userMemory.Free(currentlyLoadedModules[module]);
 	}
 	currentlyLoadedModules.erase(module);
+
+	if (info->notify)
+		info->notify(-1);
 
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	if (module == 0x3FF)
@@ -744,11 +760,14 @@ static int sceUtilityGamedataInstallInitStart(u32 paramsAddr) {
 	}
 
 	ActivateDialog(UtilityDialogType::GAMEDATAINSTALL);
-	return hleLogSuccessInfoX(SCEUTILITY, gamedataInstallDialog->Init(paramsAddr));
+	int result = gamedataInstallDialog->Init(paramsAddr);
+	if (result < 0)
+		DeactivateDialog();
+	return hleLogSuccessInfoX(SCEUTILITY, result);
 }
 
 static int sceUtilityGamedataInstallShutdownStart() {
-	if (currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
+	if (!currentDialogActive || currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
@@ -757,7 +776,7 @@ static int sceUtilityGamedataInstallShutdownStart() {
 }
 
 static int sceUtilityGamedataInstallUpdate(int animSpeed) {
-	if (currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
+	if (!currentDialogActive || currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
@@ -765,8 +784,9 @@ static int sceUtilityGamedataInstallUpdate(int animSpeed) {
 }
 
 static int sceUtilityGamedataInstallGetStatus() {
-	if (currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
+	if (!currentDialogActive || currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
 		// This is called incorrectly all the time by some games. So let's not bother warning.
+		hleEatCycles(200);
 		return hleLogDebug(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
@@ -776,7 +796,7 @@ static int sceUtilityGamedataInstallGetStatus() {
 }
 
 static int sceUtilityGamedataInstallAbort() {
-	if (currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
+	if (!currentDialogActive || currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	

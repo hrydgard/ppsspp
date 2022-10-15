@@ -379,12 +379,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\GPU\Common\DepalettizeCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\TextureShaderCommon.h" />
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
     <ClInclude Include="..\..\GPU\Common\Draw2D.h" />
     <ClInclude Include="..\..\GPU\Common\DrawEngineCommon.h" />
     <ClInclude Include="..\..\GPU\Common\FragmentShaderGenerator.h" />
     <ClInclude Include="..\..\GPU\Common\FramebufferManagerCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\GeometryShaderGenerator.h" />
     <ClInclude Include="..\..\GPU\Common\PresentationCommon.h" />
     <ClInclude Include="..\..\GPU\Common\GPUDebugInterface.h" />
     <ClInclude Include="..\..\GPU\Common\GPUStateUtils.h" />
@@ -413,6 +414,7 @@
     <ClInclude Include="..\..\GPU\D3D11\TextureCacheD3D11.h" />
     <ClInclude Include="..\..\GPU\Debugger\Breakpoints.h" />
     <ClInclude Include="..\..\GPU\Debugger\Debugger.h" />
+    <ClInclude Include="..\..\GPU\Debugger\GECommandTable.h" />
     <ClInclude Include="..\..\GPU\Debugger\Playback.h" />
     <ClInclude Include="..\..\GPU\Debugger\Record.h" />
     <ClInclude Include="..\..\GPU\Debugger\RecordFormat.h" />
@@ -439,12 +441,13 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\GPU\Common\DepalettizeCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\TextureShaderCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\DepalettizeShaderCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\Draw2D.cpp" />
     <ClCompile Include="..\..\GPU\Common\DrawEngineCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\FragmentShaderGenerator.cpp" />
     <ClCompile Include="..\..\GPU\Common\FramebufferManagerCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\GeometryShaderGenerator.cpp" />
     <ClCompile Include="..\..\GPU\Common\PresentationCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\GPUDebugInterface.cpp" />
     <ClCompile Include="..\..\GPU\Common\GPUStateUtils.cpp" />
@@ -475,6 +478,7 @@
     <ClCompile Include="..\..\GPU\D3D11\TextureCacheD3D11.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Breakpoints.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Debugger.cpp" />
+    <ClCompile Include="..\..\GPU\Debugger\GECommandTable.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Playback.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Record.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Stepping.cpp" />

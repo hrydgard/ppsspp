@@ -86,7 +86,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 	} else {
 		WARN_LOG(G3D, "VKDEBUG: %s", msg.c_str());
 	}
-
 	// false indicates that layer should not bail-out of an
 	// API call that had validation failures. This may mean that the
 	// app dies inside the driver due to invalid parameter(s).

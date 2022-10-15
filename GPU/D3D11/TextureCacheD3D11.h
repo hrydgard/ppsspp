@@ -28,7 +28,7 @@
 struct VirtualFramebuffer;
 
 class FramebufferManagerD3D11;
-class DepalShaderCache;
+class TextureShaderCache;
 class ShaderManagerD3D11;
 
 class SamplerCacheD3D11 {
@@ -43,7 +43,7 @@ private:
 
 class TextureCacheD3D11 : public TextureCacheCommon {
 public:
-	TextureCacheD3D11(Draw::DrawContext *draw);
+	TextureCacheD3D11(Draw::DrawContext *draw, Draw2D *draw2D);
 	~TextureCacheD3D11();
 
 	void StartFrame() override;
@@ -53,18 +53,18 @@ public:
 	void ForgetLastTexture() override;
 	void InvalidateLastTexture() override;
 
-	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
+	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
-	void BindAsClutTexture(Draw::Texture *tex) override;
+	void BindAsClutTexture(Draw::Texture *tex, bool smooth) override;
 	void ApplySamplingParams(const SamplerCacheKey &key) override;
+	void *GetNativeTextureView(const TexCacheEntry *entry) override;
 
 private:
 	DXGI_FORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
-	static CheckAlphaResult CheckAlpha(const u32 *pixelData, u32 dstFmt, int w);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
 	void BuildTexture(TexCacheEntry *const entry) override;
@@ -72,10 +72,10 @@ private:
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
 
-	ID3D11Resource *&DxTex(TexCacheEntry *entry) {
+	ID3D11Resource *&DxTex(const TexCacheEntry *entry) {
 		return (ID3D11Resource *&)entry->texturePtr;
 	}
-	ID3D11ShaderResourceView *DxView(TexCacheEntry *entry) {
+	ID3D11ShaderResourceView *DxView(const TexCacheEntry *entry) {
 		return (ID3D11ShaderResourceView *)entry->textureView;
 	}
 

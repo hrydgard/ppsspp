@@ -91,6 +91,13 @@ public:
 	std::string error;
 };
 
+struct GLRProgramFlags {
+	bool supportDualSource : 1;
+	bool useClipDistance0 : 1;
+	bool useClipDistance1 : 1;
+	bool useClipDistance2 : 1;
+};
+
 class GLRProgram {
 public:
 	~GLRProgram() {
@@ -119,7 +126,7 @@ public:
 	std::vector<Semantic> semantics_;
 	std::vector<UniformLocQuery> queries_;
 	std::vector<Initializer> initialize_;
-	bool use_clip_distance0 = false;
+	bool use_clip_distance[8]{};
 
 	struct UniformInfo {
 		int loc_;
@@ -427,15 +434,17 @@ public:
 	// not be an active render pass.
 	GLRProgram *CreateProgram(
 		std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics, std::vector<GLRProgram::UniformLocQuery> queries,
-		std::vector<GLRProgram::Initializer> initializers, bool supportDualSource, bool useClipDistance0) {
+		std::vector<GLRProgram::Initializer> initializers, const GLRProgramFlags &flags) {
 		GLRInitStep step{ GLRInitStepType::CREATE_PROGRAM };
 		_assert_(shaders.size() <= ARRAY_SIZE(step.create_program.shaders));
 		step.create_program.program = new GLRProgram();
 		step.create_program.program->semantics_ = semantics;
 		step.create_program.program->queries_ = queries;
 		step.create_program.program->initialize_ = initializers;
-		step.create_program.program->use_clip_distance0 = useClipDistance0;
-		step.create_program.support_dual_source = supportDualSource;
+		step.create_program.program->use_clip_distance[0] = flags.useClipDistance0;
+		step.create_program.program->use_clip_distance[1] = flags.useClipDistance1;
+		step.create_program.program->use_clip_distance[2] = flags.useClipDistance2;
+		step.create_program.support_dual_source = flags.supportDualSource;
 		_assert_msg_(shaders.size() > 0, "Can't create a program with zero shaders");
 		for (size_t i = 0; i < shaders.size(); i++) {
 			step.create_program.shaders[i] = shaders[i];
@@ -555,7 +564,7 @@ public:
 		initSteps_.push_back(step);
 	}
 
-	void TextureSubImage(GLRTexture *texture, int level, int x, int y, int width, int height, Draw::DataFormat format, uint8_t *data, GLRAllocType allocType = GLRAllocType::NEW) {
+	void TextureSubImage(int slot, GLRTexture *texture, int level, int x, int y, int width, int height, Draw::DataFormat format, uint8_t *data, GLRAllocType allocType = GLRAllocType::NEW) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData _data{ GLRRenderCommand::TEXTURE_SUBIMAGE };
 		_data.texture_subimage.texture = texture;
@@ -567,6 +576,7 @@ public:
 		_data.texture_subimage.width = width;
 		_data.texture_subimage.height = height;
 		_data.texture_subimage.allocType = allocType;
+		_data.texture_subimage.slot = slot;
 		curRenderStep_->commands.push_back(_data);
 	}
 
@@ -739,6 +749,19 @@ public:
 		GLRRenderData data{ GLRRenderCommand::UNIFORMMATRIX };
 		data.uniformMatrix4.loc = loc;
 		memcpy(data.uniformMatrix4.m, udata, sizeof(float) * 16);
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetUniformM4x4Stereo(const char *name, const GLint *loc, const float *left, const float *right) {
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+#ifdef _DEBUG
+		_dbg_assert_(curProgram_);
+#endif
+		GLRRenderData data{ GLRRenderCommand::UNIFORMSTEREOMATRIX };
+		data.uniformMatrix4.name = name;
+		data.uniformMatrix4.loc = loc;
+		memcpy(&data.uniformMatrix4.m[0], left, sizeof(float) * 16);
+		memcpy(&data.uniformMatrix4.m[16], right, sizeof(float) * 16);
 		curRenderStep_->commands.push_back(data);
 	}
 
@@ -989,6 +1012,7 @@ private:
 		bool readyForFence = true;
 		bool readyForRun = false;
 		bool readyForSubmit = false;
+
 		bool skipSwap = false;
 		GLRRunType type = GLRRunType::END;
 

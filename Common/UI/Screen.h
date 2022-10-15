@@ -71,7 +71,7 @@ public:
 	// what screen it is.
 	virtual void *dialogData() { return 0; }
 
-	virtual std::string tag() const { return std::string(""); }
+	virtual const char *tag() const = 0;
 
 	virtual bool isTransparent() const { return false; }
 	virtual bool isTopLevel() const { return false; }

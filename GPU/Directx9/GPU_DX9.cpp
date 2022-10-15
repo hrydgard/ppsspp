@@ -38,7 +38,6 @@
 #include "GPU/GeDisasm.h"
 
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
@@ -49,8 +48,6 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 
-namespace DX9 {
-
 GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw),
 	  drawEngine_(draw) {
@@ -60,7 +57,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	shaderManagerDX9_ = new ShaderManagerDX9(draw, device_);
 	framebufferManagerDX9_ = new FramebufferManagerDX9(draw);
 	framebufferManager_ = framebufferManagerDX9_;
-	textureCacheDX9_ = new TextureCacheDX9(draw);
+	textureCacheDX9_ = new TextureCacheDX9(draw, framebufferManager_->GetDraw2D());
 	textureCache_ = textureCacheDX9_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerDX9_;
@@ -84,7 +81,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
 	UpdateCmdInfo();
-	CheckGPUFeatures();
+	gstate_c.featureFlags = CheckGPUFeatures();
 
 	BuildReportingInfo();
 
@@ -101,67 +98,9 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	}
 }
 
-// TODO: Move this detection elsewhere when it's needed elsewhere, not before. It's ugly.
-// Source: https://envytools.readthedocs.io/en/latest/hw/pciid.html#gf100
-enum NVIDIAGeneration {
-	NV_PRE_KEPLER,
-	NV_KEPLER,
-	NV_MAXWELL,
-	NV_PASCAL,
-	NV_VOLTA,
-	NV_TURING,  // or later
-};
-
-static NVIDIAGeneration NVIDIAGetDeviceGeneration(int deviceID) {
-	if (deviceID >= 0x1180 && deviceID <= 0x11bf)
-		return NV_KEPLER;  // GK104
-	if (deviceID >= 0x11c0 && deviceID <= 0x11fa)
-		return NV_KEPLER;  // GK106
-	if (deviceID >= 0x0fc0 && deviceID <= 0x0fff)
-		return NV_KEPLER;  // GK107
-	if (deviceID >= 0x1003 && deviceID <= 0x1028)
-		return NV_KEPLER;  // GK110(B)
-	if (deviceID >= 0x1280 && deviceID <= 0x12ba)
-		return NV_KEPLER;  // GK208
-	if (deviceID >= 0x1381 && deviceID <= 0x13b0)
-		return NV_MAXWELL;  // GM107
-	if (deviceID >= 0x1340 && deviceID <= 0x134d)
-		return NV_MAXWELL;  // GM108
-	if (deviceID >= 0x13c0 && deviceID <= 0x13d9)
-		return NV_MAXWELL;  // GM204
-	if (deviceID >= 0x1401 && deviceID <= 0x1427)
-		return NV_MAXWELL;  // GM206
-	if (deviceID >= 0x15f7 && deviceID <= 0x15f9)
-		return NV_PASCAL;  // GP100
-	if (deviceID >= 0x15f7 && deviceID <= 0x15f9)
-		return NV_PASCAL;  // GP100
-	if (deviceID >= 0x1b00 && deviceID <= 0x1b38)
-		return NV_PASCAL;  // GP102
-	if (deviceID >= 0x1b80 && deviceID <= 0x1be1)
-		return NV_PASCAL;  // GP104
-	if (deviceID >= 0x1c02 && deviceID <= 0x1c62)
-		return NV_PASCAL;  // GP106
-	if (deviceID >= 0x1c81 && deviceID <= 0x1c92)
-		return NV_PASCAL;  // GP107
-	if (deviceID >= 0x1d01 && deviceID <= 0x1d12)
-		return NV_PASCAL;  // GP108
-	if (deviceID >= 0x1d81 && deviceID <= 0x1dba)
-		return NV_VOLTA;   // GV100
-	if (deviceID >= 0x1e02 && deviceID <= 0x1e3c)
-		return NV_TURING;  // TU102
-	if (deviceID >= 0x1e82 && deviceID <= 0x1ed0)
-		return NV_TURING;  // TU104
-	if (deviceID >= 0x1f02 && deviceID <= 0x1f51)
-		return NV_TURING;  // TU104
-	if (deviceID >= 0x1e02)
-		return NV_TURING;  // More TU models or later, probably.
-	return NV_PRE_KEPLER;
-}
-
-void GPU_DX9::CheckGPUFeatures() {
-	u32 features = 0;
+u32 GPU_DX9::CheckGPUFeatures() const {
+	u32 features = GPUCommon::CheckGPUFeatures();
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
-	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
@@ -170,41 +109,6 @@ void GPU_DX9::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 
 	auto vendor = draw_->GetDeviceCaps().vendor;
-	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling) {
-		// VS range culling (killing triangles in the vertex shader using NaN) causes problems on Intel.
-		// Also causes problems on old NVIDIA.
-		switch (vendor) {
-		case Draw::GPUVendor::VENDOR_INTEL:
-			break;
-		case Draw::GPUVendor::VENDOR_NVIDIA:
-			// Older NVIDIAs don't seem to like NaNs in their DX9 vertex shaders.
-			// No idea if KEPLER is the right cutoff, but let's go with it.
-			if (NVIDIAGetDeviceGeneration(draw_->GetDeviceCaps().deviceID) >= NV_KEPLER) {
-				features |= GPU_SUPPORTS_VS_RANGE_CULLING;
-			}
-			break;
-		default:
-			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
-			break;
-		}
-	}
-
-	D3DCAPS9 caps;
-	ZeroMemory(&caps, sizeof(caps));
-	HRESULT result = 0;
-	if (deviceEx_) {
-		result = deviceEx_->GetDeviceCaps(&caps);
-	} else {
-		result = device_->GetDeviceCaps(&caps);
-	}
-	if (FAILED(result)) {
-		WARN_LOG_REPORT(G3D, "Direct3D9: Failed to get the device caps!");
-	} else {
-		if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1)
-			features |= GPU_SUPPORTS_ANISOTROPY;
-		if ((caps.TextureCaps & (D3DPTEXTURECAPS_NONPOW2CONDITIONAL | D3DPTEXTURECAPS_POW2)) == 0)
-			features |= GPU_SUPPORTS_TEXTURE_NPOT;
-	}
 
 	if (!g_Config.bHighQualityDepth) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
@@ -215,11 +119,7 @@ void GPU_DX9::CheckGPUFeatures() {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
 	}
 
-	if (PSP_CoreParameter().compat.flags().ClearToRAM) {
-		features |= GPU_USE_CLEAR_RAM_HACK;
-	}
-
-	gstate_c.featureFlags = features;
+	return features;
 }
 
 GPU_DX9::~GPU_DX9() {
@@ -263,11 +163,11 @@ void GPU_DX9::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
 	if (resized_) {
-		CheckGPUFeatures();
+		gstate_c.featureFlags = CheckGPUFeatures();
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		shaderManagerDX9_->DirtyShader();
-		textureCacheDX9_->NotifyConfigChanged();
+		textureCache_->NotifyConfigChanged();
 		resized_ = false;
 	}
 }
@@ -280,17 +180,11 @@ void GPU_DX9::ReapplyGfxState() {
 void GPU_DX9::BeginFrame() {
 	textureCacheDX9_->StartFrame();
 	drawEngine_.BeginFrame();
-	// fragmentTestCache_.Decimate();
 
 	GPUCommon::BeginFrame();
 	shaderManagerDX9_->DirtyShader();
 
 	framebufferManager_->BeginFrame();
-}
-
-void GPU_DX9::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	GPUDebug::NotifyDisplay(framebuf, stride, format);
-	framebufferManagerDX9_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
 void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
@@ -300,9 +194,7 @@ void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
 	drawEngine_.Flush();
 
 	framebufferManagerDX9_->CopyDisplayToOutput(reallyDirty);
-	framebufferManagerDX9_->EndFrame();
 
-	// shaderManager_->EndFrame();
 	shaderManagerDX9_->DirtyLastShader();
 
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
@@ -379,8 +271,8 @@ std::vector<std::string> GPU_DX9::DebugGetShaderIDs(DebugShaderType type) {
 	switch (type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderIDs();
-	case SHADER_TYPE_DEPAL:
-		return textureCache_->GetDepalShaderCache()->DebugGetShaderIDs(type);
+	case SHADER_TYPE_TEXTURE:
+		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
 	default:
 		return shaderManagerDX9_->DebugGetShaderIDs(type);
 	}
@@ -390,11 +282,9 @@ std::string GPU_DX9::DebugGetShaderString(std::string id, DebugShaderType type, 
 	switch (type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	case SHADER_TYPE_DEPAL:
-		return textureCache_->GetDepalShaderCache()->DebugGetShaderString(id, type, stringType);
+	case SHADER_TYPE_TEXTURE:
+		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
 	default:
 		return shaderManagerDX9_->DebugGetShaderString(id, type, stringType);
 	}
 }
-
-}  // namespace DX9

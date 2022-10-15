@@ -138,7 +138,7 @@ static const JitLookup jitLookup[] = {
 
 	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
 	{&VertexDecoder::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
-	{&VertexDecoder::Step_PosFloatThrough, &VertexDecoderJitCache::Jit_PosFloat},
+	{&VertexDecoder::Step_PosFloatThrough, &VertexDecoderJitCache::Jit_PosFloatThrough},
 
 	{&VertexDecoder::Step_PosS8, &VertexDecoderJitCache::Jit_PosS8},
 	{&VertexDecoder::Step_PosS16, &VertexDecoderJitCache::Jit_PosS16},
@@ -219,7 +219,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	// Add code to convert matrices to 4x4.
 	// Later we might want to do this when the matrices are loaded instead.
-	if (dec.weighttype && g_Config.bSoftwareSkinning) {
+	if (dec.skinInDecode) {
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&threeMasks));
 		MOVAPS(XMM4, MatR(tempReg1));
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&aOne));
@@ -1345,11 +1345,9 @@ void VertexDecoderJitCache::Jit_NormalFloatSkin() {
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS8Through() {
-	DEBUG_LOG_REPORT_ONCE(vertexS8Through, G3D, "Using S8 positions in throughmode");
 	// SIMD doesn't really matter since this isn't useful on hardware.
+	XORPS(fpScratchReg, R(fpScratchReg));
 	for (int i = 0; i < 3; i++) {
-		MOVSX(32, 8, tempReg1, MDisp(srcReg, dec_->posoff + i));
-		CVTSI2SS(fpScratchReg, R(tempReg1));
 		MOVSS(MDisp(dstReg, dec_->decFmt.posoff + i * 4), fpScratchReg);
 	}
 }
@@ -1375,6 +1373,35 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 		CVTSI2SS(fpScratchReg, R(tempReg3));
 		MOVSS(MDisp(dstReg, dec_->decFmt.posoff + 8), fpScratchReg);
 	}
+}
+
+void VertexDecoderJitCache::Jit_PosFloatThrough() {
+	PXOR(fpScratchReg2, R(fpScratchReg2));
+	if (cpu_info.Mode64bit) {
+		MOV(64, R(tempReg1), MDisp(srcReg, dec_->posoff));
+		MOVSS(fpScratchReg, MDisp(srcReg, dec_->posoff + 8));
+		MOV(64, MDisp(dstReg, dec_->decFmt.posoff), R(tempReg1));
+	} else {
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->posoff));
+		MOV(32, R(tempReg2), MDisp(srcReg, dec_->posoff + 4));
+		MOVSS(fpScratchReg, MDisp(srcReg, dec_->posoff + 8));
+		MOV(32, MDisp(dstReg, dec_->decFmt.posoff), R(tempReg1));
+		MOV(32, MDisp(dstReg, dec_->decFmt.posoff + 4), R(tempReg2));
+	}
+
+	CVTTPS2DQ(fpScratchReg, R(fpScratchReg));
+	// Use pack to saturate to 0,65535.
+	if (cpu_info.bSSE4_1) {
+		PACKUSDW(fpScratchReg, R(fpScratchReg));
+	} else {
+		PSLLD(fpScratchReg, 16);
+		PSRAD(fpScratchReg, 16);
+		PACKSSDW(fpScratchReg, R(fpScratchReg));
+	}
+	PUNPCKLWD(fpScratchReg, R(fpScratchReg2));
+	CVTDQ2PS(fpScratchReg, R(fpScratchReg));
+
+	MOVSS(MDisp(dstReg, dec_->decFmt.posoff + 8), fpScratchReg);
 }
 
 void VertexDecoderJitCache::Jit_PosS8() {

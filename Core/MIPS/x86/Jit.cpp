@@ -275,7 +275,7 @@ void Jit::Compile(u32 em_address) {
 		ClearCache();
 	}
 
-	if (!Memory::IsValidAddress(em_address)) {
+	if (!Memory::IsValidAddress(em_address) || (em_address & 3) != 0) {
 		Core_ExecException(em_address, em_address, ExecExceptionType::JUMP);
 		return;
 	}
@@ -672,7 +672,7 @@ static void HitInvalidBranch(uint32_t dest) {
 void Jit::WriteExit(u32 destination, int exit_num) {
 	_dbg_assert_msg_(exit_num < MAX_JIT_BLOCK_EXITS, "Expected a valid exit_num");
 
-	if (!Memory::IsValidAddress(destination)) {
+	if (!Memory::IsValidAddress(destination) || (destination & 3) != 0) {
 		ERROR_LOG_REPORT(JIT, "Trying to write block exit to illegal destination %08x: pc = %08x", destination, currentMIPS->pc);
 		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		ABI_CallFunctionC(&HitInvalidBranch, destination);
@@ -721,6 +721,12 @@ void Jit::WriteExit(u32 destination, int exit_num) {
 	}
 }
 
+static u32 IsValidJumpTarget(uint32_t addr) {
+	if (Memory::IsValidAddress(addr) && (addr & 3) == 0)
+		return 1;
+	return 0;
+}
+
 static void HitInvalidJumpReg(uint32_t source) {
 	Core_ExecException(currentMIPS->pc, source, ExecExceptionType::JUMP);
 	currentMIPS->pc = source + 8;
@@ -762,7 +768,7 @@ void Jit::WriteExitDestInReg(X64Reg reg) {
 		SetJumpTarget(tooLow);
 		SetJumpTarget(tooHigh);
 
-		ABI_CallFunctionA((const void *)&Memory::IsValidAddress, R(reg));
+		ABI_CallFunctionA((const void *)&IsValidJumpTarget, R(reg));
 
 		// If we're ignoring, coreState didn't trip - so trip it now.
 		CMP(32, R(EAX), Imm32(0));

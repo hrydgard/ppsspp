@@ -15,6 +15,7 @@
     <ClCompile Include="TestThreadManager.cpp" />
     <ClCompile Include="TestSoftwareGPUJit.cpp" />
     <ClCompile Include="TestIRPassSimplify.cpp" />
+    <ClCompile Include="TestRiscVEmitter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="JitHarness.h" />

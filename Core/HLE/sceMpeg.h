@@ -32,7 +32,6 @@ enum {
 	ERROR_MPEG_NOT_YET_INIT                             = 0x80618009,
 	ERROR_MPEG_AVC_INVALID_VALUE                        = 0x806201fe,
 	ERROR_MPEG_AVC_DECODE_FATAL                         = 0x80628002,
-	ERROR_JPEG_INVALID_VALUE                            = 0x80650051,
 };
 
 // MPEG statics.
@@ -79,7 +78,7 @@ void __MpegInit();
 void __MpegDoState(PointerWrap &p);
 void __MpegShutdown();
 
-void __MpegLoadModule(int version);
+void __MpegLoadModule(int version, u32 crc);
 
 void Register_sceMpeg();
 

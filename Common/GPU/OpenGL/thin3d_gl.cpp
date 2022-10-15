@@ -336,9 +336,9 @@ public:
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
-	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
+	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
-	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) override;
 
 	Texture *CreateTexture(const TextureDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
@@ -401,6 +401,8 @@ public:
 	}
 
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindNativeTexture(int sampler, void *nativeTexture) override;
+
 	void BindPipeline(Pipeline *pipeline) override;
 	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override {
 		_assert_(start + count <= ARRAY_SIZE(curVBuffers_));
@@ -533,12 +535,14 @@ OpenGLContext::OpenGLContext() {
 			}
 		}
 		caps_.texture3DSupported = gl_extensions.OES_texture_3D;
+		caps_.textureDepthSupported = gl_extensions.GLES3 || gl_extensions.OES_depth_texture;
 	} else {
 		if (gl_extensions.VersionGEThan(3, 3, 0)) {
 			caps_.fragmentShaderInt32Supported = true;
 		}
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 		caps_.texture3DSupported = true;
+		caps_.textureDepthSupported = true;
 	}
 
 	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;
@@ -547,7 +551,9 @@ OpenGLContext::OpenGLContext() {
 	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object || gl_extensions.GLES3;
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
 	caps_.framebufferStencilBlitSupported = caps_.framebufferBlitSupported;
-	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp;
+	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp || gl_extensions.EXT_depth_clamp;
+	caps_.blendMinMaxSupported = gl_extensions.EXT_blend_minmax;
+
 	if (gl_extensions.IsGLES) {
 		caps_.clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
 		caps_.cullDistanceSupported = gl_extensions.EXT_clip_cull_distance;
@@ -566,6 +572,9 @@ OpenGLContext::OpenGLContext() {
 	} else {
 		caps_.fragmentShaderDepthWriteSupported = true;
 	}
+
+	// GLES has no support for logic framebuffer operations. There doesn't even seem to exist any such extensions.
+	caps_.logicOpSupported = !gl_extensions.IsGLES;
 
 	// Interesting potential hack for emulating GL_DEPTH_CLAMP (use a separate varying, force depth in fragment shader):
 	// This will induce a performance penalty on many architectures though so a blanket enable of this
@@ -704,8 +713,10 @@ OpenGLContext::OpenGLContext() {
 		}
 	}
 
-	if (gl_extensions.IsGLES) {
+	// NOTE: We only support framebuffer fetch on ES3 due to past issues..
+	if (gl_extensions.IsGLES && gl_extensions.GLES3) {
 		caps_.framebufferFetchSupported = (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch);
+
 		if (gl_extensions.EXT_shader_framebuffer_fetch) {
 			shaderLanguageDesc_.framebufferFetchExtension = "#extension GL_EXT_shader_framebuffer_fetch : require";
 			shaderLanguageDesc_.lastFragData = gl_extensions.GLES3 ? "fragColor0" : "gl_LastFragData[0]";
@@ -821,11 +832,14 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 		return;
 
 	int level = 0;
+	int width = width_;
+	int height = height_;
+	int depth = depth_;
 	for (auto data : desc.initData) {
-		SetImageData(0, 0, 0, width_, height_, depth_, level, 0, data, desc.initDataCallback);
-		width_ = (width_ + 1) / 2;
-		height_ = (height_ + 1) / 2;
-		depth_ = (depth_ + 1) / 2;
+		SetImageData(0, 0, 0, width, height, depth, level, 0, data, desc.initDataCallback);
+		width = (width + 1) / 2;
+		height = (height + 1) / 2;
+		depth = (depth + 1) / 2;
 		level++;
 	}
 	mipLevels_ = desc.generateMips ? desc.mipLevels : level;
@@ -1071,7 +1085,7 @@ void OpenGLContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t off
 	renderManager_.BufferSubdata(buf->buffer_, offset, size, dataCopy);
 }
 
-Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
+Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) {
 	if (!desc.shaders.size()) {
 		ERROR_LOG(G3D,  "Pipeline requires at least one shader");
 		return nullptr;
@@ -1091,7 +1105,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 			iter->AddRef();
 			pipeline->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
 		} else {
-			ERROR_LOG(G3D,  "ERROR: Tried to create graphics pipeline with a null shader module");
+			ERROR_LOG(G3D,  "ERROR: Tried to create graphics pipeline %s with a null shader module", tag);
 			delete pipeline;
 			return nullptr;
 		}
@@ -1110,7 +1124,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		pipeline->inputLayout = (OpenGLInputLayout *)desc.inputLayout;
 		return pipeline;
 	} else {
-		ERROR_LOG(G3D,  "Failed to create pipeline - shaders failed to link");
+		ERROR_LOG(G3D,  "Failed to create pipeline %s - shaders failed to link", tag);
 		delete pipeline;
 		return nullptr;
 	}
@@ -1128,6 +1142,12 @@ void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
 		glTex->Bind(i);
 		boundTextures_[i] = glTex->GetTex();
 	}
+}
+
+void OpenGLContext::BindNativeTexture(int index, void *nativeTexture) {
+	GLRTexture *tex = (GLRTexture *)nativeTexture;
+	boundTextures_[index] = tex;
+	renderManager_.BindTexture(index, tex);
 }
 
 void OpenGLContext::ApplySamplers() {
@@ -1155,7 +1175,7 @@ void OpenGLContext::ApplySamplers() {
 	}
 }
 
-ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) {
+ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) {
 	OpenGLShaderModule *shader = new OpenGLShaderModule(&renderManager_, stage, tag);
 	if (shader->Compile(&renderManager_, language, data, dataSize)) {
 		return shader;
@@ -1183,9 +1203,11 @@ bool OpenGLPipeline::LinkShaders() {
 	}
 
 	std::vector<GLRProgram::Semantic> semantics;
+	semantics.reserve(8);
 	// Bind all the common vertex data points. Mismatching ones will be ignored.
 	semantics.push_back({ SEM_POSITION, "Position" });
 	semantics.push_back({ SEM_COLOR0, "Color0" });
+	semantics.push_back({ SEM_COLOR1, "Color1" });
 	semantics.push_back({ SEM_TEXCOORD0, "TexCoord0" });
 	semantics.push_back({ SEM_NORMAL, "Normal" });
 	semantics.push_back({ SEM_TANGENT, "Tangent" });
@@ -1211,14 +1233,15 @@ bool OpenGLPipeline::LinkShaders() {
 	}
 	std::vector<GLRProgram::Initializer> initialize;
 	for (int i = 0; i < MAX_TEXTURE_SLOTS; ++i) {
-		if (i < queries.size()) {
+		if (i < (int)samplers_.size()) {
 			initialize.push_back({ &samplerLocs_[i], 0, i });
 		} else {
 			samplerLocs_[i] = -1;
 		}
 	}
 
-	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false, false);
+	GLRProgramFlags flags{};
+	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, flags);
 	return true;
 }
 
@@ -1475,7 +1498,8 @@ uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 		return FMT_INPUTLAYOUT;
 
 	case DataFormat::R8_UNORM:
-		return 0;
+		return FMT_TEXTURE;
+
 	case DataFormat::BC1_RGBA_UNORM_BLOCK:
 	case DataFormat::BC2_UNORM_BLOCK:
 	case DataFormat::BC3_UNORM_BLOCK:

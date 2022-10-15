@@ -23,7 +23,7 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
-#include "GPU/Common/DepalettizeCommon.h"
+#include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 class FramebufferManagerD3D11;
@@ -36,12 +36,11 @@ public:
 	GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_D3D11();
 
-	void CheckGPUFeatures() override;
+	u32 CheckGPUFeatures() const override;
 	void PreExecuteOp(u32 op, u32 diff) override;
 	void ExecuteOp(u32 op, u32 diff) override;
 
 	void ReapplyGfxState() override;
-	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void GetStats(char *buffer, size_t bufsize) override;
 	void ClearCacheNextFrame() override;
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.

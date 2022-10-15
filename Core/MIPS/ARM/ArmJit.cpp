@@ -497,7 +497,9 @@ bool ArmJit::ReplaceJalTo(u32 dest) {
 		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
+		SaveDowncount();
 		RestoreRoundingMode();
+
 		if (BLInRange((const void *)(entry->replaceFunc))) {
 			BL((const void *)(entry->replaceFunc));
 		} else {
@@ -505,6 +507,8 @@ bool ArmJit::ReplaceJalTo(u32 dest) {
 			BL(R0);
 		}
 		ApplyRoundingMode();
+		RestoreDowncount();
+
 		WriteDownCountR(R0);
 	}
 
@@ -562,6 +566,7 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 		}
 	} else if (entry->replaceFunc) {
 		FlushAll();
+		SaveDowncount();
 		RestoreRoundingMode();
 		gpr.SetRegImm(SCRATCHREG1, GetCompilerPC());
 		MovToPC(SCRATCHREG1);
@@ -578,9 +583,11 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
 			ApplyRoundingMode();
+			RestoreDowncount();
 			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
 		} else {
 			ApplyRoundingMode();
+			RestoreDowncount();
 			LDR(R1, CTXREG, MIPS_REG_RA * 4);
 			WriteDownCountR(R0);
 			WriteExitDestInR(R1);
@@ -745,6 +752,7 @@ bool ArmJit::CheckJitBreakpoint(u32 addr, int downcountOffset) {
 		FlushAll();
 		MOVI2R(SCRATCHREG1, GetCompilerPC());
 		MovToPC(SCRATCHREG1);
+		SaveDowncount();
 		RestoreRoundingMode();
 		MOVI2R(R0, addr);
 		QuickCallFunction(SCRATCHREG2, &JitBreakpoint);
@@ -754,6 +762,7 @@ bool ArmJit::CheckJitBreakpoint(u32 addr, int downcountOffset) {
 		FixupBranch skip = B_CC(CC_EQ);
 		WriteDownCount(downcountOffset);
 		ApplyRoundingMode();
+		RestoreDowncount();
 		B((const void *)dispatcherCheckCoreState);
 		SetJumpTarget(skip);
 
@@ -771,6 +780,7 @@ bool ArmJit::CheckMemoryBreakpoint(int instructionOffset) {
 
 		MRS(R8);
 		FlushAll();
+		SaveDowncount();
 		RestoreRoundingMode();
 		MOVI2R(R0, GetCompilerPC());
 		MovToPC(R0);
@@ -783,6 +793,7 @@ bool ArmJit::CheckMemoryBreakpoint(int instructionOffset) {
 		FixupBranch skip = B_CC(CC_EQ);
 		WriteDownCount(-1 - off);
 		ApplyRoundingMode();
+		RestoreDowncount();
 		B((const void *)dispatcherCheckCoreState);
 		SetJumpTarget(skip);
 

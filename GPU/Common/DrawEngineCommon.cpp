@@ -19,6 +19,7 @@
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/LogReporting.h"
 #include "Core/Config.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/SplineCommon.h"
@@ -188,6 +189,57 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 	return DrawEngineCommon::NormalizeVertices(outPtr, bufPtr, inPtr, dec, lowerBound, upperBound, vertType);
 }
 
+void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) {
+	// Instead of plumbing through properly (we'd need to inject these pretransformed vertices in the middle
+	// of SoftwareTransform(), which would take a lot of refactoring), we'll cheat and just turn these into
+	// through vertices.
+	// Since the only known use is Thrillville and it only uses it to clear, we just use color and pos.
+	struct ImmVertex {
+		float uv[2];
+		uint32_t color;
+		float xyz[3];
+	};
+	std::vector<ImmVertex> temp;
+	temp.resize(vertexCount);
+	uint32_t color1Used = 0;
+	for (int i = 0; i < vertexCount; i++) {
+		// Since we're sending through, scale back up to w/h.
+		temp[i].uv[0] = buffer[i].u * gstate.getTextureWidth(0);
+		temp[i].uv[1] = buffer[i].v * gstate.getTextureHeight(0);
+		temp[i].color = buffer[i].color0_32;
+		temp[i].xyz[0] = buffer[i].pos[0];
+		temp[i].xyz[1] = buffer[i].pos[1];
+		temp[i].xyz[2] = buffer[i].pos[2];
+		color1Used |= buffer[i].color1_32;
+	}
+	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
+	// TODO: Handle fog and secondary color somehow?
+
+	if (gstate.isFogEnabled() && !gstate.isModeThrough()) {
+		WARN_LOG_REPORT_ONCE(geimmfog, G3D, "Imm vertex used fog");
+	}
+	if (color1Used != 0 && gstate.isUsingSecondaryColor() && !gstate.isModeThrough()) {
+		WARN_LOG_REPORT_ONCE(geimmcolor1, G3D, "Imm vertex used secondary color");
+	}
+
+	bool prevThrough = gstate.isModeThrough();
+	// Code checks this reg directly, not just the vtype ID.
+	if (!prevThrough) {
+		gstate.vertType |= GE_VTYPE_THROUGH;
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
+	}
+
+	int bytesRead;
+	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
+	SubmitPrim(&temp[0], nullptr, prim, vertexCount, vertTypeID, cullMode, &bytesRead);
+	DispatchFlush();
+
+	if (!prevThrough) {
+		gstate.vertType &= ~GE_VTYPE_THROUGH;
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
+	}
+}
+
 // This code has plenty of potential for optimization.
 //
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
@@ -234,6 +286,7 @@ bool DrawEngineCommon::TestBoundingBox(const void* control_points, int vertexCou
 	float worldviewproj[16];
 	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
 	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+	// TODO: Create a Matrix4x3ByMatrix4x3, and Matrix4x4ByMatrix4x3?
 	Matrix4ByMatrix4(worldview, world, view);
 	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
 	PlanesFromMatrix(worldviewproj, planes);
@@ -266,7 +319,7 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 	u16 indexLowerBound = 0;
 	u16 indexUpperBound = count - 1;
 
-	if (!Memory::IsValidAddress(gstate_c.vertexAddr))
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr) || count == 0)
 		return false;
 
 	bool savedVertexFullAlpha = gstate_c.vertexFullAlpha;
@@ -483,11 +536,13 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 	return GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_NRM_FLOAT | GE_VTYPE_POS_FLOAT | (vertType & (GE_VTYPE_IDX_MASK | GE_VTYPE_THROUGH));
 }
 
-void DrawEngineCommon::ApplyFramebufferRead(bool *fboTexNeedsBind) {
+void DrawEngineCommon::ApplyFramebufferRead(FBOTexState *fboTexState) {
 	if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
-		*fboTexNeedsBind = false;
+		*fboTexState = FBO_TEX_READ_FRAMEBUFFER;
+	} else {
+		gpuStats.numCopiesForShaderBlend++;
+		*fboTexState = FBO_TEX_COPY_BIND_TEX;
 	}
-	*fboTexNeedsBind = true;
 
 	gstate_c.Dirty(DIRTY_SHADERBLEND);
 }
@@ -662,6 +717,16 @@ uint64_t DrawEngineCommon::ComputeHash() {
 	return fullhash;
 }
 
+// Cheap bit scrambler from https://nullprogram.com/blog/2018/07/31/
+inline uint32_t lowbias32_r(uint32_t x) {
+	x ^= x >> 16;
+	x *= 0x43021123U;
+	x ^= x >> 15 ^ x >> 30;
+	x *= 0x1d69e2a5U;
+	x ^= x >> 16;
+	return x;
+}
+
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
 void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
@@ -690,21 +755,20 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	if (g_Config.bVertexCache) {
 		u32 dhash = dcid_;
 		dhash = __rotl(dhash ^ (u32)(uintptr_t)verts, 13);
-		dhash = __rotl(dhash ^ (u32)(uintptr_t)inds, 13);
-		dhash = __rotl(dhash ^ (u32)vertTypeID, 13);
-		dhash = __rotl(dhash ^ (u32)vertexCount, 13);
-		dcid_ = dhash ^ (u32)prim;
+		dhash = __rotl(dhash ^ (u32)(uintptr_t)inds, 19);
+		dhash = __rotl(dhash ^ (u32)vertTypeID, 7);
+		dhash = __rotl(dhash ^ (u32)vertexCount, 11);
+		dcid_ = lowbias32_r(dhash ^ (u32)prim);
 	}
 
 	DeferredDrawCall &dc = drawCalls[numDrawCalls];
 	dc.verts = verts;
 	dc.inds = inds;
+	dc.vertexCount = vertexCount;
 	dc.indexType = (vertTypeID & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	dc.prim = prim;
-	dc.vertexCount = vertexCount;
-	dc.uvScale = gstate_c.uv;
 	dc.cullMode = cullMode;
-
+	dc.uvScale = gstate_c.uv;
 	if (inds) {
 		GetIndexBounds(inds, vertexCount, vertTypeID, &dc.indexLowerBound, &dc.indexUpperBound);
 	} else {

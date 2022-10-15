@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <cstring>
 
-#define ATLAS_MAGIC ('A' + ('T' << 8) + ('L' << 16) | ('A' << 24))
+#define ATLAS_MAGIC ('A' | ('T' << 8) | ('L' << 16) | ('A' << 24))
 
 // Metadata file structure v0:
 //

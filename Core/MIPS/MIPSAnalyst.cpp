@@ -289,6 +289,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x70a6152b265228e8, 296, "unendingbloodycall_download_frame", }, // unENDing Bloody Call
 	{ 0x7245b74db370ae72, 64, "vmmul_q_transp3", },
 	{ 0x7259d52b21814a5a, 40, "vtfm_t_transp", },
+	{ 0x730f59cc6c0f5732, 452, "godseaterburst_depthmask_5551", }, // Gods Eater Burst (US)
 	{ 0x7354fd206796d817, 864, "flowers_download_frame", }, // Flowers
 	{ 0x736b34ebc702d873, 104, "vmmul_q_transp", },
 	{ 0x73a614c08f777d52, 792, "danganronpa2_2_download_frame", }, // Danganronpa 2
@@ -771,7 +772,7 @@ namespace MIPSAnalyst {
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			AnalyzedFunction &f = *iter;
 			if (f.hasHash && f.size > 16) {
-				hashToFunction.insert(std::make_pair(f.hash, &f));
+				hashToFunction.emplace(f.hash, &f);
 			}
 		}
 	}
@@ -1420,6 +1421,7 @@ skip:
 
 	std::vector<MIPSGPReg> GetOutputRegs(MIPSOpcode op) {
 		std::vector<MIPSGPReg> vec;
+		vec.reserve(3);
 		MIPSInfo info = MIPSGetInfo(op);
 		if (info & OUT_RD) vec.push_back(MIPS_GET_RD(op));
 		if (info & OUT_RT) vec.push_back(MIPS_GET_RT(op));

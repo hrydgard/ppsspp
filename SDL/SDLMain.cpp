@@ -388,6 +388,10 @@ int System_GetPropertyInt(SystemProperty prop) {
 			return KEYBOARD_LAYOUT_QWERTZ;
 		return KEYBOARD_LAYOUT_QWERTY;
 	}
+	case SYSPROP_DISPLAY_XRES:
+		return g_DesktopWidth;
+	case SYSPROP_DISPLAY_YRES:
+		return g_DesktopHeight;
 	default:
 		return -1;
 	}
@@ -1038,17 +1042,18 @@ int main(int argc, char *argv[]) {
 				{
 					KeyInput key;
 					key.deviceId = DEVICE_ID_MOUSE;
+					key.flags = KEY_DOWN;
 					if (event.wheel.y > 0) {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 						mouseWheelMovedUpFrames = 5;
-					} else {
+						NativeKey(key);
+					} else if (event.wheel.y < 0) {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
 						mouseWheelMovedDownFrames = 5;
+						NativeKey(key);
 					}
-					key.flags = KEY_DOWN;
-					NativeKey(key);
+					break;
 				}
-				break;
 			case SDL_MOUSEMOTION:
 				if (mouseDown) {
 					TouchInput input;
@@ -1240,7 +1245,7 @@ int main(int argc, char *argv[]) {
 #endif
 
 	glslang::FinalizeProcess();
-	printf("Leaving main");
+	printf("Leaving main\n");
 #ifdef HAVE_LIBNX
 	socketExit();
 #endif

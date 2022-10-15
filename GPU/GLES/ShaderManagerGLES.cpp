@@ -34,6 +34,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/System/Display.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
@@ -83,6 +84,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 
 
 	std::vector<GLRProgram::Semantic> semantics;
+	semantics.reserve(7);
 	semantics.push_back({ ATTR_POSITION, "position" });
 	semantics.push_back({ ATTR_TEXCOORD, "texcoord" });
 	if (useHWTransform_)
@@ -96,10 +98,12 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 
 	std::vector<GLRProgram::UniformLocQuery> queries;
 	queries.push_back({ &u_tex, "tex" });
-	queries.push_back({ &u_proj, "u_proj" });
-	queries.push_back({ &u_proj_through, "u_proj_through" });
+	queries.push_back({ &u_pal, "pal" });
+	queries.push_back({ &u_testtex, "testtex" });
+	queries.push_back({ &u_fbotex, "fbotex" });
 
 	queries.push_back({ &u_proj, "u_proj" });
+	queries.push_back({ &u_proj_lens, "u_proj_lens" });
 	queries.push_back({ &u_proj_through, "u_proj_through" });
 	queries.push_back({ &u_texenv, "u_texenv" });
 	queries.push_back({ &u_fogcolor, "u_fogcolor" });
@@ -108,13 +112,9 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_alphacolormask, "u_alphacolormask" });
 	queries.push_back({ &u_colorWriteMask, "u_colorWriteMask" });
 	queries.push_back({ &u_stencilReplaceValue, "u_stencilReplaceValue" });
-	queries.push_back({ &u_testtex, "testtex" });
-
-	queries.push_back({ &u_fbotex, "fbotex" });
 	queries.push_back({ &u_blendFixA, "u_blendFixA" });
 	queries.push_back({ &u_blendFixB, "u_blendFixB" });
 	queries.push_back({ &u_fbotexSize, "u_fbotexSize" });
-	queries.push_back({ &u_pal, "pal" });
 
 	// Transform
 	queries.push_back({ &u_view, "u_view" });
@@ -129,6 +129,11 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_cullRangeMin, "u_cullRangeMin" });
 	queries.push_back({ &u_cullRangeMax, "u_cullRangeMax" });
 	queries.push_back({ &u_rotation, "u_rotation" });
+
+	if (IsVRBuild()) {
+		queries.push_back({ &u_scaleX, "u_scaleX" });
+		queries.push_back({ &u_scaleY, "u_scaleY" });
+	}
 
 #ifdef USE_BONE_ARRAY
 	queries.push_back({ &u_bone, "u_bone" });
@@ -148,6 +153,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_uvscaleoffset, "u_uvscaleoffset" });
 	queries.push_back({ &u_texclamp, "u_texclamp" });
 	queries.push_back({ &u_texclampoff, "u_texclampoff" });
+	queries.push_back({ &u_lightControl, "u_lightControl" });
 
 	for (int i = 0; i < 4; i++) {
 		static const char * const lightPosNames[4] = { "u_lightpos0", "u_lightpos1", "u_lightpos2", "u_lightpos3", };
@@ -180,17 +186,26 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
 
 	std::vector<GLRProgram::Initializer> initialize;
-	initialize.push_back({ &u_tex,          0, 0 });
-	initialize.push_back({ &u_fbotex,       0, 1 });
-	initialize.push_back({ &u_testtex,      0, 2 });
-	initialize.push_back({ &u_pal,          0, 3 }); // CLUT
-	initialize.push_back({ &u_tess_points,  0, 4 }); // Control Points
-	initialize.push_back({ &u_tess_weights_u, 0, 5 });
-	initialize.push_back({ &u_tess_weights_v, 0, 6 });
+	initialize.reserve(7);
+	initialize.push_back({ &u_tex,          0, TEX_SLOT_PSP_TEXTURE });
+	initialize.push_back({ &u_fbotex,       0, TEX_SLOT_SHADERBLEND_SRC });
+	initialize.push_back({ &u_testtex,      0, TEX_SLOT_ALPHATEST });
+	initialize.push_back({ &u_pal,          0, TEX_SLOT_CLUT }); // CLUT
+	initialize.push_back({ &u_tess_points,  0, TEX_SLOT_SPLINE_POINTS }); // Control Points
+	initialize.push_back({ &u_tess_weights_u, 0, TEX_SLOT_SPLINE_WEIGHTS_U });
+	initialize.push_back({ &u_tess_weights_v, 0, TEX_SLOT_SPLINE_WEIGHTS_V });
 
-	bool useDualSource = (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) != 0;
-	bool useClip0 = VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE);
-	program = render->CreateProgram(shaders, semantics, queries, initialize, useDualSource, useClip0);
+	GLRProgramFlags flags{};
+	flags.supportDualSource = (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) != 0;
+	if (!VSID.Bit(VS_BIT_IS_THROUGH) && gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP)) {
+		flags.useClipDistance0 = true;
+		if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE))
+			flags.useClipDistance1 = true;
+	} else if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+		flags.useClipDistance0 = true;
+	}
+
+	program = render->CreateProgram(shaders, semantics, queries, initialize, flags);
 
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL_UNIFORMS;
@@ -289,14 +304,69 @@ static inline void ScaleProjMatrix(Matrix4x4 &in, bool useBufferedRendering) {
 	in.translateAndScale(trans, scale);
 }
 
+static inline void FlipProjMatrix(Matrix4x4 &in, bool useBufferedRendering) {
+
+	const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
+	if (invertedY) {
+		in[1] = -in[1];
+		in[5] = -in[5];
+		in[9] = -in[9];
+		in[13] = -in[13];
+	}
+	const bool invertedX = gstate_c.vpWidth < 0;
+	if (invertedX) {
+		in[0] = -in[0];
+		in[4] = -in[4];
+		in[8] = -in[8];
+		in[12] = -in[12];
+	}
+
+	// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
+	// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
+	if (gstate_c.Supports(GPU_USE_DEPTH_RANGE_HACK)) {
+		float zScale = gstate.getViewportZScale() / 65535.0f;
+		float zCenter = gstate.getViewportZCenter() / 65535.0f;
+
+		// if far depth range < 0
+		if (zCenter + zScale < 0.0f) {
+			// if perspective projection
+			if (in[11] < 0.0f) {
+				float depthMax = gstate.getDepthRangeMax() / 65535.0f;
+				float depthMin = gstate.getDepthRangeMin() / 65535.0f;
+
+				float a = in[10];
+				float b = in[14];
+
+				float n = b / (a - 1.0f);
+				float f = b / (a + 1.0f);
+
+				f = (n * f) / (n + ((zCenter + zScale) * (n - f) / (depthMax - depthMin)));
+
+				a = (n + f) / (n - f);
+				b = (2.0f * n * f) / (n - f);
+
+				if (!my_isnan(a) && !my_isnan(b)) {
+					in[10] = a;
+					in[14] = b;
+				}
+			}
+		}
+	}
+}
+
 void LinkedShader::use(const ShaderID &VSID) {
 	render_->BindProgram(program);
 	// Note that we no longer track attr masks here - we do it for the input layouts instead.
 }
 
-void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBufferedRendering) {
+void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBufferedRendering, const ShaderLanguageDesc &shaderLanguage) {
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
+
+	if (IsVRBuild()) {
+		dirty |= DIRTY_VIEWMATRIX;
+		SetVRCompat(VR_COMPAT_FOG_COLOR, gstate.fogcolor);
+	}
 	if (!dirty)
 		return;
 
@@ -311,65 +381,58 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		render_->SetUniformUI1(&u_depal_mask_shift_off_fmt, val);
 	}
 
+	bool is2D, flatScreen;
+	if (IsVRBuild()) {
+		// Analyze scene
+		is2D = Is2DVRObject(gstate.projMatrix, gstate.isModeThrough());
+		flatScreen = IsFlatVRScene();
+
+		// Set HUD mode
+		bool is3D = gstate.isDepthWriteEnabled();
+		bool hud = is2D && !is3D && !flatScreen &&
+		           gstate.isModeThrough() &&       //2D content requires orthographic projection
+		           gstate.isAlphaBlendEnabled() && //2D content has to be blended
+		           !gstate.isLightingEnabled() &&  //2D content cannot be rendered with lights on
+		           !gstate.isFogEnabled();         //2D content cannot be rendered with fog on
+		if (hud) {
+			float scale = 0.5f;
+			render_->SetUniformF1(&u_scaleX, scale);
+			render_->SetUniformF1(&u_scaleY, scale / 480.0f * 272.0f);
+		} else {
+			render_->SetUniformF1(&u_scaleX, 1.0f);
+			render_->SetUniformF1(&u_scaleY, 1.0f);
+		}
+	}
+
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
+		if (IsVRBuild()) {
+			Matrix4x4 leftEyeMatrix, rightEyeMatrix;
+			if (flatScreen || is2D) {
+				memcpy(&leftEyeMatrix, gstate.projMatrix, 16 * sizeof(float));
+				memcpy(&rightEyeMatrix, gstate.projMatrix, 16 * sizeof(float));
+			} else {
+				UpdateVRProjection(gstate.projMatrix, leftEyeMatrix.m, rightEyeMatrix.m);
+			}
+
+			FlipProjMatrix(leftEyeMatrix, useBufferedRendering);
+			FlipProjMatrix(rightEyeMatrix, useBufferedRendering);
+			ScaleProjMatrix(leftEyeMatrix, useBufferedRendering);
+			ScaleProjMatrix(rightEyeMatrix, useBufferedRendering);
+
+			render_->SetUniformM4x4Stereo("u_proj_lens", &u_proj_lens, leftEyeMatrix.m, rightEyeMatrix.m);
+		}
+
 		Matrix4x4 flippedMatrix;
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
-		const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
-		if (invertedY) {
-			flippedMatrix[1] = -flippedMatrix[1];
-			flippedMatrix[5] = -flippedMatrix[5];
-			flippedMatrix[9] = -flippedMatrix[9];
-			flippedMatrix[13] = -flippedMatrix[13];
-		}
-		const bool invertedX = gstate_c.vpWidth < 0;
-		if (invertedX) {
-			flippedMatrix[0] = -flippedMatrix[0];
-			flippedMatrix[4] = -flippedMatrix[4];
-			flippedMatrix[8] = -flippedMatrix[8];
-			flippedMatrix[12] = -flippedMatrix[12];
-		}
-
-		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
-		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
-		if (gstate_c.Supports(GPU_USE_DEPTH_RANGE_HACK)) {
-			float zScale = gstate.getViewportZScale() / 65535.0f;
-			float zCenter = gstate.getViewportZCenter() / 65535.0f;
-
-			// if far depth range < 0
-			if (zCenter + zScale < 0.0f) {
-				// if perspective projection
-				if (flippedMatrix[11] < 0.0f) {
-					float depthMax = gstate.getDepthRangeMax() / 65535.0f;
-					float depthMin = gstate.getDepthRangeMin() / 65535.0f;
-
-					float a = flippedMatrix[10];
-					float b = flippedMatrix[14];
-
-					float n = b / (a - 1.0f);
-					float f = b / (a + 1.0f);
-
-					f = (n * f) / (n + ((zCenter + zScale) * (n - f) / (depthMax - depthMin)));
-
-					a = (n + f) / (n - f);
-					b = (2.0f * n * f) / (n - f);
-
-					if (!my_isnan(a) && !my_isnan(b)) {
-						flippedMatrix[10] = a;
-						flippedMatrix[14] = b;
-					}
-				}
-			}
-		}
-
+		FlipProjMatrix(flippedMatrix, useBufferedRendering);
 		ScaleProjMatrix(flippedMatrix, useBufferedRendering);
 
 		render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
 		render_->SetUniformF1(&u_rotation, useBufferedRendering ? 0 : (float)g_display_rotation);
 	}
-	if (dirty & DIRTY_PROJTHROUGHMATRIX)
-	{
+	if (dirty & DIRTY_PROJTHROUGHMATRIX) {
 		Matrix4x4 proj_through;
 		if (useBufferedRendering) {
 			proj_through.setOrtho(0.0f, gstate_c.curRTWidth, 0.0f, gstate_c.curRTHeight, 0.0f, 1.0f);
@@ -382,10 +445,14 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		SetColorUniform3(render_, &u_texenv, gstate.texenvcolor);
 	}
 	if (dirty & DIRTY_ALPHACOLORREF) {
-		SetColorUniform3Alpha255(render_, &u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
+		if (shaderLanguage.bitwiseOps) {
+			render_->SetUniformUI1(&u_alphacolorref, gstate.getColorTestRef() | ((gstate.getAlphaTestRef() & gstate.getAlphaTestMask()) << 24));
+		} else {
+			SetColorUniform3Alpha255(render_, &u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
+		}
 	}
 	if (dirty & DIRTY_ALPHACOLORMASK) {
-		SetColorUniform3iAlpha(render_, &u_alphacolormask, gstate.colortestmask, gstate.getAlphaTestMask());
+		render_->SetUniformUI1(&u_alphacolormask, gstate.getColorTestMask() | (gstate.getAlphaTestMask() << 24));
 	}
 	if (dirty & DIRTY_COLORWRITEMASK) {
 		render_->SetUniformUI1(&u_colorWriteMask, ~((gstate.pmska << 24) | (gstate.pmskc & 0xFFFFFF)));
@@ -409,7 +476,6 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		}
 		render_->SetUniformF(&u_fogcoef, 2, fogcoef);
 	}
-
 	if (dirty & DIRTY_UVSCALEOFFSET) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
 		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
@@ -471,7 +537,18 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		SetMatrix4x3(render_, &u_world, gstate.worldMatrix);
 	}
 	if (dirty & DIRTY_VIEWMATRIX) {
-		SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
+		if (IsVRBuild()) {
+			float leftEyeView[16];
+			float rightEyeView[16];
+			ConvertMatrix4x3To4x4Transposed(leftEyeView, gstate.viewMatrix);
+			ConvertMatrix4x3To4x4Transposed(rightEyeView, gstate.viewMatrix);
+			if (!flatScreen && !is2D) {
+				UpdateVRView(leftEyeView, rightEyeView);
+			}
+			render_->SetUniformM4x4Stereo("u_view", &u_view, leftEyeView, rightEyeView);
+		} else {
+			SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
+		}
 	}
 	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(render_, &u_texmtx, gstate.tgenMatrix);
@@ -532,6 +609,9 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	}
 
 	// Lighting
+	if (dirty & DIRTY_LIGHT_CONTROL) {
+		render_->SetUniformUI1(&u_lightControl, PackLightControlBits());
+	}
 	if (dirty & DIRTY_AMBIENT) {
 		SetColorUniform3Alpha(render_, &u_ambient, gstate.ambientcolor, gstate.getAmbientA());
 	}
@@ -584,10 +664,12 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	}
 }
 
+static constexpr size_t CODE_BUFFER_SIZE = 32768;
+
 ShaderManagerGLES::ShaderManagerGLES(Draw::DrawContext *draw)
 	  : ShaderManagerCommon(draw), fsCache_(16), vsCache_(16) {
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	codeBuffer_ = new char[16384];
+	codeBuffer_ = new char[CODE_BUFFER_SIZE];
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 }
@@ -620,6 +702,8 @@ void ShaderManagerGLES::ClearCache(bool deleteThem) {
 
 void ShaderManagerGLES::DeviceLost() {
 	Clear();
+	render_ = nullptr;
+	draw_ = nullptr;
 }
 
 void ShaderManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
@@ -644,10 +728,11 @@ void ShaderManagerGLES::DirtyLastShader() {
 Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 	uint64_t uniformMask;
 	std::string errorString;
-	if (!GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, &errorString)) {
+	if (!GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, nullptr, &errorString)) {
 		ERROR_LOG(G3D, "Shader gen error: %s", errorString.c_str());
 		return nullptr;
 	}
+	_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
 	std::string desc = FragmentShaderDesc(FSID);
 	ShaderDescGLES params{ GL_FRAGMENT_SHADER, 0, uniformMask };
 	return new Shader(render_, codeBuffer_, desc, params);
@@ -662,6 +747,7 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 		ERROR_LOG(G3D, "Shader gen error: %s", errorString.c_str());
 		return nullptr;
 	}
+	_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
 	std::string desc = VertexShaderDesc(VSID);
 	ShaderDescGLES params{ GL_VERTEX_SHADER, attrMask, uniformMask };
 	params.useHWTransform = useHWTransform;
@@ -712,7 +798,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 	return vs;
 }
 
-LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, u32 vertType, bool useBufferedRendering) {
+LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, u32 vertType, bool useBufferedRendering) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty) {
 		if (lastShader_)
@@ -724,13 +810,13 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	FShaderID FSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
-		ComputeFragmentShaderID(&FSID, draw_->GetBugs());
+		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs());
 	} else {
 		FSID = lastFSID_;
 	}
 
 	if (lastVShaderSame_ && FSID == lastFSID_) {
-		lastShader_->UpdateUniforms(vertType, VSID, useBufferedRendering);
+		lastShader_->UpdateUniforms(vertType, VSID, useBufferedRendering, draw_->GetShaderLanguageDesc());
 		return lastShader_;
 	}
 
@@ -763,7 +849,6 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	if (ls == nullptr) {
 		_dbg_assert_(FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
 		_dbg_assert_(FSID.Bit(FS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
-		_dbg_assert_(FSID.Bit(FS_BIT_ENABLE_FOG) == VSID.Bit(VS_BIT_ENABLE_FOG));
 		_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
 
 		// Check if we can link these.
@@ -774,7 +859,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	} else {
 		ls->use(VSID);
 	}
-	ls->UpdateUniforms(vertType, VSID, useBufferedRendering);
+	ls->UpdateUniforms(vertType, VSID, useBufferedRendering, draw_->GetShaderLanguageDesc());
 
 	lastShader_ = ls;
 	return ls;
@@ -916,7 +1001,7 @@ void ShaderManagerGLES::Load(const Path &filename) {
 		if (!f.ReadArray(&fsid, 1)) {
 			return;
 		}
-		diskCachePending_.link.push_back(std::make_pair(vsid, fsid));
+		diskCachePending_.link.emplace_back(vsid, fsid);
 	}
 
 	// Actual compilation happens in ContinuePrecompile(), called by GPU_GLES's IsReady.

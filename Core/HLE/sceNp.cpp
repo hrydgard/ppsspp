@@ -154,15 +154,15 @@ static int sceNpGetOnlineId(u32 idPtr)
 {
 	WARN_LOG(SCENET, "UNTESTED %s(%08x)", __FUNCTION__, idPtr);
 
-	if (!Memory::IsValidAddress(idPtr))
+	auto id = PSPPointer<SceNpOnlineId>::Create(idPtr);
+	if (!id.IsValid())
 		return hleLogError(SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
-	SceNpOnlineId dummyOnlineId{};
-	truncate_cpy(dummyOnlineId.data, sizeof(dummyOnlineId.data), npOnlineId.c_str());
+	memset((SceNpOnlineId *)id, 0, sizeof(SceNpOnlineId));
+	truncate_cpy(id->data, sizeof(id->data), npOnlineId.c_str());
+	id.NotifyWrite("NpGetOnlineId");
 
-	INFO_LOG(SCENET, "%s - Online ID: %s", __FUNCTION__, dummyOnlineId.data);
-
-	Memory::WriteStruct(idPtr, &dummyOnlineId);
+	INFO_LOG(SCENET, "%s - Online ID: %s", __FUNCTION__, id->data);
 
 	return 0;
 }
@@ -177,20 +177,21 @@ static int sceNpGetNpId(u32 idPtr)
 {
 	WARN_LOG(SCENET, "UNTESTED %s(%08x)", __FUNCTION__, idPtr);
 
-	if (!Memory::IsValidAddress(idPtr))
+	auto id = PSPPointer<SceNpId>::Create(idPtr);
+	if (!id.IsValid())
 		return hleLogError(SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	SceNpId dummyNpId{};
-	int retval = NpGetNpId(&dummyNpId);
+	memset((SceNpId *)id, 0, sizeof(SceNpId));
+	int retval = NpGetNpId(id);
 	if (retval < 0)
 		return hleLogError(SCENET, retval);
 
-	INFO_LOG(SCENET, "%s - Online ID: %s", __FUNCTION__, dummyNpId.handle.data);
+	INFO_LOG(SCENET, "%s - Online ID: %s", __FUNCTION__, id->handle.data);
 	std::string datahex;
-	DataToHexString(dummyNpId.opt, sizeof(dummyNpId.opt), &datahex);
+	DataToHexString(id->opt, sizeof(id->opt), &datahex);
 	INFO_LOG(SCENET, "%s - Options?: %s", __FUNCTION__, datahex.c_str());
-
-	Memory::WriteStruct(idPtr, &dummyNpId);
+	id.NotifyWrite("NpGetNpId");
 
 	return 0;
 }
@@ -199,19 +200,21 @@ static int sceNpGetAccountRegion(u32 countryCodePtr, u32 regionCodePtr)
 {
 	WARN_LOG(SCENET, "UNTESTED %s(%08x, %08x)", __FUNCTION__, countryCodePtr, regionCodePtr);
 
-	if (!Memory::IsValidAddress(countryCodePtr) || !Memory::IsValidAddress(regionCodePtr))
+	auto countryCode = PSPPointer<SceNpCountryCode>::Create(countryCodePtr);
+	auto regionCode = PSPPointer<SceNpCountryCode>::Create(regionCodePtr);
+	if (!countryCode.IsValid() || !regionCode.IsValid())
 		return hleLogError(SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
-	SceNpCountryCode dummyCountryCode{};
-	memcpy(dummyCountryCode.data, npCountryCode, sizeof(dummyCountryCode.data));
-	SceNpCountryCode dummyRegionCode{};
-	memcpy(dummyRegionCode.data, npRegionCode, sizeof(dummyRegionCode.data));
+	memset((SceNpCountryCode *)countryCode, 0, sizeof(SceNpCountryCode));
+	memcpy(countryCode->data, npCountryCode, sizeof(countryCode->data));
+	memset((SceNpCountryCode *)regionCode, 0, sizeof(SceNpCountryCode));
+	memcpy(regionCode->data, npRegionCode, sizeof(regionCode->data));
 
-	INFO_LOG(SCENET, "%s - Country Code: %s", __FUNCTION__, dummyCountryCode.data);
-	INFO_LOG(SCENET, "%s - Region? Code: %s", __FUNCTION__, dummyRegionCode.data);
+	INFO_LOG(SCENET, "%s - Country Code: %s", __FUNCTION__, countryCode->data);
+	INFO_LOG(SCENET, "%s - Region? Code: %s", __FUNCTION__, regionCode->data);
 
-	Memory::WriteStruct(countryCodePtr, &dummyCountryCode);
-	Memory::WriteStruct(regionCodePtr, &dummyRegionCode);
+	countryCode.NotifyWrite("NpGetAccountRegion");
+	regionCode.NotifyWrite("NpGetAccountRegion");
 
 	return 0;
 }
@@ -220,14 +223,16 @@ static int sceNpGetMyLanguages(u32 langListPtr)
 {
 	WARN_LOG(SCENET, "UNTESTED %s(%08x)", __FUNCTION__, langListPtr);
 
-	if (!Memory::IsValidAddress(langListPtr))
+	auto langList = PSPPointer<SceNpMyLanguages>::Create(langListPtr);
+	if (!langList.IsValid())
 		return hleLogError(SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	INFO_LOG(SCENET, "%s - Language1 Code: %d", __FUNCTION__, npMyLangList.language1);
 	INFO_LOG(SCENET, "%s - Language2 Code: %d", __FUNCTION__, npMyLangList.language2);
 	INFO_LOG(SCENET, "%s - Language3 Code: %d", __FUNCTION__, npMyLangList.language3);
 
-	Memory::WriteStruct(langListPtr, &npMyLangList);
+	*langList = npMyLangList;
+	langList.NotifyWrite("NpGetMyLanguages");
 
 	return 0;
 }
@@ -236,20 +241,21 @@ static int sceNpGetUserProfile(u32 profilePtr)
 {
 	WARN_LOG(SCENET, "UNTESTED %s(%08x)", __FUNCTION__, profilePtr);
 
+	auto profile = PSPPointer<SceNpUserInformation>::Create(profilePtr);
 	if (!Memory::IsValidAddress(profilePtr))
 		return hleLogError(SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
-	SceNpUserInformation dummyProfile{};
-	truncate_cpy(dummyProfile.userId.handle.data, sizeof(dummyProfile.userId.handle.data), npOnlineId.c_str());
-	truncate_cpy(dummyProfile.icon.data, sizeof(dummyProfile.icon.data), npAvatarUrl.c_str());
+	memset((SceNpUserInformation *)profile, 0, sizeof(SceNpUserInformation));
+	truncate_cpy(profile->userId.handle.data, sizeof(profile->userId.handle.data), npOnlineId.c_str());
+	truncate_cpy(profile->icon.data, sizeof(profile->icon.data), npAvatarUrl.c_str());
 
-	INFO_LOG(SCENET, "%s - Online ID: %s", __FUNCTION__, dummyProfile.userId.handle.data);
+	INFO_LOG(SCENET, "%s - Online ID: %s", __FUNCTION__, profile->userId.handle.data);
 	std::string datahex;
-	DataToHexString(dummyProfile.userId.opt, sizeof(dummyProfile.userId.opt), &datahex);
+	DataToHexString(profile->userId.opt, sizeof(profile->userId.opt), &datahex);
 	INFO_LOG(SCENET, "%s - Options?: %s", __FUNCTION__, datahex.c_str());
-	INFO_LOG(SCENET, "%s - Avatar URL: %s", __FUNCTION__, dummyProfile.icon.data);
+	INFO_LOG(SCENET, "%s - Avatar URL: %s", __FUNCTION__, profile->icon.data);
 
-	Memory::WriteStruct(profilePtr, &dummyProfile);
+	profile.NotifyWrite("NpGetUserProfile");
 
 	return 0;
 }
@@ -295,10 +301,12 @@ int sceNpAuthGetMemoryStat(u32 memStatAddr)
 {
 	ERROR_LOG(SCENET, "UNIMPL %s(%08x)", __FUNCTION__, memStatAddr);
 
-	if (!Memory::IsValidAddress(memStatAddr))
+	auto memStat = PSPPointer<SceNpAuthMemoryStat>::Create(memStatAddr);
+	if (!memStat.IsValid())
 		return hleLogError(SCENET, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
 
-	Memory::WriteStruct(memStatAddr, &npAuthMemStat);
+	*memStat = npAuthMemStat;
+	memStat.NotifyWrite("NpAuthGetMemoryStat");
 
 	return 0;
 }
@@ -386,7 +394,7 @@ int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length)
 		return hleLogError(SCENET, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	int result = length;
-	Memory::Memset(bufferAddr, 0, length);
+	Memory::Memset(bufferAddr, 0, length, "NpAuthGetTicket");
 	SceNpTicket ticket = {};
 	// Dummy Login ticket returned as Login response. Dummy ticket contents were taken from https://www.psdevwiki.com/ps3/X-I-5-Ticket
 	ticket.header.version = TICKET_VER_2_1;
@@ -415,14 +423,14 @@ int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length)
 	ofs += writeTicketParam(buf + ofs, PARAM_TYPE_NULL);
 	ticket.section.type = SECTION_TYPE_BODY;
 	ticket.section.size = ofs;
-	Memory::WriteStruct(bufferAddr, &ticket);
+	Memory::Memcpy(bufferAddr, &ticket, sizeof(SceNpTicket), "NpAuthGetTicket");
 	SceNpTicketSection footer = { SECTION_TYPE_FOOTER, 32 }; // footer section? ie. 32-bytes on version 2.1 containing 4-chars ASCII + 20-chars ASCII
-	Memory::WriteStruct(bufferAddr + sizeof(ticket) + ofs, &footer);
+	Memory::Memcpy(bufferAddr + sizeof(ticket) + ofs, &footer, sizeof(SceNpTicketSection), "NpAuthGetTicket");
 	ofs += sizeof(footer);
 	ofs += writeTicketParam(buf + ofs, PARAM_TYPE_STRING_ASCII, "\x34\xcd\x3c\xa9", 4);
 	ofs += writeTicketParam(buf + ofs, PARAM_TYPE_STRING_ASCII, "\x3a\x4b\x42\x66\x92\xda\x6b\x7c\xb7\x4c\xe8\xd9\x4f\x2b\x77\x15\x91\xb8\xa4\xa9", 20); // 20 random letters, token key or SceNpSignature?
-	u8 unknownBytes[36] = {}; // includes Language list?
-	Memory::WriteStruct(bufferAddr + sizeof(ticket) + ofs, unknownBytes);
+	// includes Language list?
+	Memory::Memset(bufferAddr + sizeof(ticket) + ofs, 0, 36);
 
 	result = ticket.header.size + sizeof(ticket.header); // dummy ticket is 248 bytes
 

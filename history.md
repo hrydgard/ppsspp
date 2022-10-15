@@ -1,5 +1,109 @@
 This is history moved out from README.md, which was getting a bit long.
 
+What's new in 1.11.3
+====================
+* Fix for graphics glitches in the on-screen keyboard
+
+What's new in 1.11.2
+====================
+* An additional few crash fixes ([#14129], [#14134], [#14132])
+
+What's new in 1.11.1
+====================
+* A few crash fixes ([#14085], [#14089], [#14091], [#14092]), a few adhoc fixes
+* Glitchy menu audio on some devices ([#14101]), in-game UI font memory leak ([#14078])
+* Couple of adhoc fixes ([#14106], [#14117])
+
+What's new in 1.11.0
+====================
+* Lots of minor bug fixes, crash fixes, and performance fixes and improvements.
+* New Browse... button to allow opening SD cards on Android 11
+* Countless AdHoc networking fixes by ANR2ME, for example Dragon Ball Shin Budokai, PowerStone,
+  Bleach Heat The Soul 7, Kingdom Hearts, GTA: VCS and many more.
+* Graphics issue with car reflections fixed in Outrun, Dirt 2 ([#13636], [#13640], [#13760])
+* Cut-off cards in Yu Gi Oh fixed ([#7124]).
+* Numerous fixes to the builtin fonts by nassau-tk
+* Added exception handler so PPSSPP stays alive if a game crashes ([#11795]/[#13092])
+* Desktop: Support for multiple instance multiplayer ([#13172], ...)
+* Workaround for rendering bugs with flat shading in iOS 14
+* Multiple fixes to the IR interpreter ([#13897], ...)
+* UI: New fullscreen button on desktop platforms, optional navigation sounds ([#13239])
+* Audio and multiple hangs fixes in UWP version ([#13792], ...)
+* Partial microphone support ([#12336], ...)
+* Workaround for wacky action mirroring bug in Hitman Reborn Battle Arena 2 ([#13706], [#13526])
+* Hardware texture upscaling for Vulkan, mipmap generation ([#13235], [#13514])
+* Added MMPX Vulkan texture upscaling shader ([#13986])
+* Depth texturing support in Vulkan and D3D11 ([#13262], [#13556], ...)
+* Performance fix for Test Drive Unlimited ([#13355], ...)
+* Allow rewind on mobile ([#13866])
+* Added option to disable on-screen messages ([#13695])
+* Added "Lower resolution for effects" on libretro ([#13654])
+* Allow chaining multiple post-processing shaders ([#12924])
+* Support for loading game-specific plugins ([#13335])
+* Fixed Assassin's Creed: Bloodlines Save issue on Android ([#12761])
+* Hanayaka Nari Wa ga Ichizoku: mono voices fixed ([#5213])
+* Additional fixed games:
+    * Namco Museum - Battle Collection, Vol 2 ([#9523], [#13297], [#13298])
+    * Dream Club Portable (graphics bugs, GL and Vulkan) ([#6025])
+    * Capcom Classic Collection Reloaded (stuck in return game) ([#4671])
+    * Xyanide Resurrection (freezing) ([#8526])
+    * Dissidia Final Fantasy Chinese (patched game, invalid address) ([#13204])
+    * Crazy Taxi ([#13368])
+    * Spiderman: Friend or Foe ([#13969])
+    * Downstream Panic (US) (New Game crash) ([#13633])
+
+What's new in 1.10.3
+--------------------
+* Fix for control layout editor ([#13125])
+
+What's new in 1.10.2
+--------------------
+* More crashfixes ([#13094], [#13093])
+* Improve download performance and cancel behavior ([#13095])
+* Restore the removed I/O on Thread option ([#13096])
+
+What's new in 1.10.1
+--------------------
+* Fixes for common crashes ([#13077], [#13076], see [#13057])
+* Fix for offset rendering in D3D9 ([#13071])
+
+What's new in 1.10.0
+--------------------
+* Graphics and compatibility fixes ([#12800], [#12670], [#12635], [#12857], [#12941], [#11898], [#12695], more)
+* Assorted minor performance improvements, game load speedup ([#12462], [#12652])
+* Screen inset (notch) support on Android ([#12779])
+* Analog stick support for menu navigation ([#12685])
+* Fixed audio glitches in SDL builds ([#12916], [#12920])
+* Support more languages in in-game dialogs ([#12702]). Croatian language added to PPSSPP.
+* Simple multiplayer chat ([#12667])
+* More advanced postprocessing (multipass, parameters) ([#12905], [#12901])
+* Add PPSSPP-specific CWCheat ([#12816], [#12912])
+* Reintroduce Cardboard VR, allow more resolutions ([#12449], [#8714])
+* Fix some crashes ([#12908], [#12876])
+* Ghost in the Shell graphics fixed (JIT inaccuracy with inf * 0) ([#12519])
+* Mac build now supports Vulkan on top of MoltenVK ([#12583])
+* Raspberry Pi 4 EGL crash fixed ([#12474])
+* VSync now supported on all backends, frame duplication option added for 30 Hz games ([#12659], [#12602])
+* Camera supported on Windows, Linux and Mac (still no microphone though) ([#12572], [#12580], [#12607])
+* Darkstalkers fixed and working through software rendering. SW rendering fixed on GLES 2.0 ([#12443], [#12898])
+* Hot Shots Golf slowdown and flicker on Vulkan fixed ([#12873], [#12746])
+* Pangya Golf crashes and hangs fixed ([#12718])
+* Allow rebinding of right touch screen analog ([#12486])
+* Add option to prevent mipmaps from being dumped ([#12818])
+* Tilt control now have a base radius to help with deadzone ([#12756])
+* Mappable auto rotating analog stick to pass some game checks ([#12749])
+* Touch control position can now be snapped to a grid ([#12517])
+* HiDPI retina display support ([#12552])
+* Rapid-fire on touch control ([#12601])
+* Toggle mute button ([#12643])
+* Add option to resize game icons and more ([#12646], [#12637])
+* Frames in-flight now configurable to reduce input lag at the cost of speed ([#12660])
+* Add toggle mode to combo button ([#12623])
+* SDL mouse support, Qt menu upgrades ([#12612], [#12817])
+* Real support for Chinese patched version of Hatsune Miku Project Diva Extend ([#13007])
+* Some minor kernel module support ([#13028], [#12225], [#13026], [#13004], [#13038], [#13023])
+* Fixed fullscreen toggling with Vulkan in SDL builds ([#11974])
+
 What's new in 1.9.0/1.9.3
 -------------------------
 * Sizing/touch fixes on Android
@@ -566,3 +670,116 @@ go to see there http://forums.ppsspp.org/showthread.php?tid=3595&pid=59241#pid59
 [#10909]: https://github.com/hrydgard/ppsspp/issues/10909 "WebSocket based debugger interface"
 [#11447]: https://github.com/hrydgard/ppsspp/issues/11447 "Avoid calling any GL calls during shutdown on Android. Should help #11063"
 [#11350]: https://github.com/hrydgard/ppsspp/issues/11350 "TexCache: Optimize DXT3/DXT5 decode to single pass"
+[#13023]: https://github.com/hrydgard/ppsspp/issues/13023 "Add sysclib_strstr"
+[#13038]: https://github.com/hrydgard/ppsspp/issues/13038 "Add sysclib_strncmp,sysclib_memmove"
+[#13004]: https://github.com/hrydgard/ppsspp/issues/13004 "Warp some ThreadManForKernel and sceKernelExitVSHKernel"
+[#13026]: https://github.com/hrydgard/ppsspp/issues/13026 "Add some ThreadManForKernel nids"
+[#12225]: https://github.com/hrydgard/ppsspp/issues/12225 "Rebased: Wrap some SysMemForKernel's nids, fixing #7960"
+[#13028]: https://github.com/hrydgard/ppsspp/issues/13028 "Real support Code Geass: Lost Colors chinese patched version"
+[#13007]: https://github.com/hrydgard/ppsspp/issues/13007 "Real support \"Hatsune Miku Project Diva Extend\" chinese patched version"
+[#12817]: https://github.com/hrydgard/ppsspp/issues/12817 "Unification of the menu of Linux and Windows versions"
+[#12612]: https://github.com/hrydgard/ppsspp/issues/12612 "SDL analog mouse input"
+[#12623]: https://github.com/hrydgard/ppsspp/issues/12623 "Add toggle flag to combo button"
+[#12660]: https://github.com/hrydgard/ppsspp/issues/12660 "GPU: Add setting to control inflight frame usage"
+[#12637]: https://github.com/hrydgard/ppsspp/issues/12637 "Region flag and game ID on game selection screen"
+[#12646]: https://github.com/hrydgard/ppsspp/issues/12646 "Resizable game icons"
+[#12643]: https://github.com/hrydgard/ppsspp/issues/12643 "Toggle mute button"
+[#12601]: https://github.com/hrydgard/ppsspp/issues/12601 "Add rapid fire to touch control"
+[#12552]: https://github.com/hrydgard/ppsspp/issues/12552 "Qt/macOS: enable HiDPI ( retina display ) support"
+[#12517]: https://github.com/hrydgard/ppsspp/issues/12517 "Touch control grid snap"
+[#12749]: https://github.com/hrydgard/ppsspp/issues/12749 "Auto rotating analog"
+[#12756]: https://github.com/hrydgard/ppsspp/issues/12756 "Skip deadzone option on tilt"
+[#12818]: https://github.com/hrydgard/ppsspp/issues/12818 "Add option to prevent Mipmaps from being dumped"
+[#12486]: https://github.com/hrydgard/ppsspp/issues/12486 "Rebindable touch right analog"
+[#12718]: https://github.com/hrydgard/ppsspp/issues/12718 "Vpl: Correct allocation order when splitting block"
+[#12746]: https://github.com/hrydgard/ppsspp/issues/12746 "GPU: Assume a scissor of 481x273 is a mistake"
+[#12873]: https://github.com/hrydgard/ppsspp/issues/12873 "Vulkan: Framebuffer manager: Use an allocator for \"MakePixelTexture\" images."
+[#12898]: https://github.com/hrydgard/ppsspp/issues/12898 "[Android] [Mali GPU] [OpenGL] Lastest build blackscreen on buffered rendering mode"
+[#12443]: https://github.com/hrydgard/ppsspp/issues/12443 "Darkstalkers Chronicle: Add specializations and speedhacks to get it kinda playable"
+[#12607]: https://github.com/hrydgard/ppsspp/issues/12607 "QT API for camera (Linux/macOS)"
+[#12580]: https://github.com/hrydgard/ppsspp/issues/12580 "Add camera support for linux (V4L2)"
+[#12572]: https://github.com/hrydgard/ppsspp/issues/12572 "Add camera support for windows."
+[#12602]: https://github.com/hrydgard/ppsspp/issues/12602 "Add option to improve frame pacing through duplicate frames if below 60hz."
+[#12659]: https://github.com/hrydgard/ppsspp/issues/12659 "Support vsync in all hardware backends, support runtime update"
+[#12474]: https://github.com/hrydgard/ppsspp/issues/12474 "Egl bug on rpi4 with master mesa?"
+[#12583]: https://github.com/hrydgard/ppsspp/issues/12583 "macOS: Initial support for vulkan on macOS ( MoltenVK )"
+[#12519]: https://github.com/hrydgard/ppsspp/issues/12519 "Ghost In The Shell - Stand Alone Complex (ULUS10020) - Black Textures and missing screens."
+[#12876]: https://github.com/hrydgard/ppsspp/issues/12876 "Windows: Add safety checks to WASAPI code"
+[#12908]: https://github.com/hrydgard/ppsspp/issues/12908 "Fix \"Improved compatibility of sceGeListEnQueue: verify that stackDepth < 256\""
+[#8714]: https://github.com/hrydgard/ppsspp/issues/8714 "Allow > 5x PSP resolution for devices like iPad Pro 12.9"
+[#12449]: https://github.com/hrydgard/ppsspp/issues/12449 "Reintroduce Cardboard VR"
+[#12912]: https://github.com/hrydgard/ppsspp/issues/12912 "Add CWCHEAT for postprocessing"
+[#12816]: https://github.com/hrydgard/ppsspp/issues/12816 "Implement Xinput vibration CWCheat (PPSSPP specific 0xA code type)"
+[#12901]: https://github.com/hrydgard/ppsspp/issues/12901 "Post shader setting uniform"
+[#12905]: https://github.com/hrydgard/ppsspp/issues/12905 "Allow chained post-processing shaders"
+[#12667]: https://github.com/hrydgard/ppsspp/issues/12667 "Chat feature based on Adenovan's Rechat branch"
+[#12702]: https://github.com/hrydgard/ppsspp/issues/12702 "PPGe: Use TextDrawer for save UI if available"
+[#12920]: https://github.com/hrydgard/ppsspp/issues/12920 "Remove the Audio Resampling setting (now always on)."
+[#12916]: https://github.com/hrydgard/ppsspp/issues/12916 "More audio buffering fixes (primarily affects SDL)"
+[#12685]: https://github.com/hrydgard/ppsspp/issues/12685 "UI: Simple joystick navigation. Fixes #10996."
+[#12779]: https://github.com/hrydgard/ppsspp/issues/12779 "Support drawing around notches on Android displays. Fixes #12261"
+[#12652]: https://github.com/hrydgard/ppsspp/issues/12652 "ScanForFunctions: Speed up game loading"
+[#12462]: https://github.com/hrydgard/ppsspp/issues/12462 "Vulkan: Enable renderpass merging for all games"
+[#12695]: https://github.com/hrydgard/ppsspp/issues/12695 "New heuristic for getting rid of unnecessary \"antialias-lines\"."
+[#11898]: https://github.com/hrydgard/ppsspp/issues/11898 "Strike Witches - Hakugin no Tsubasa  missing intro video"
+[#12941]: https://github.com/hrydgard/ppsspp/issues/12941 "Vulkan: Deal with the reformat clear better"
+[#12857]: https://github.com/hrydgard/ppsspp/issues/12857 "Mumbo Jumbo games freeze on loading screen since v1.6"
+[#12635]: https://github.com/hrydgard/ppsspp/issues/12635 "Kernel: Delay better in sceKernelReferThreadStatus"
+[#12670]: https://github.com/hrydgard/ppsspp/issues/12670 "Attempts to replace 0 frame width with valid frame width.(sceMpegAvcCsc)"
+[#12800]: https://github.com/hrydgard/ppsspp/issues/12800 "x86jit: Force INF * 0 to +NAN"
+[#13071]: https://github.com/hrydgard/ppsspp/issues/13071 "D3D9: Fix a sign mistake generating the projection matrix."
+[#13076]: https://github.com/hrydgard/ppsspp/issues/13076 "Add some excessive null checks to GameScreen::render()"
+[#13057]: https://github.com/hrydgard/ppsspp/issues/13057 "The 1.10 Android mystery crash thread!"
+[#13077]: https://github.com/hrydgard/ppsspp/issues/13077 "SaveState: Make sure to default init net data"
+[#13096]: https://github.com/hrydgard/ppsspp/issues/13096 "Revert \"Remove the I/O on Thread option - treat it as always on.\""
+[#13095]: https://github.com/hrydgard/ppsspp/issues/13095 "http: Check cancel flag more often"
+[#13093]: https://github.com/hrydgard/ppsspp/issues/13093 "Add a try/catch to Android camera device listing."
+[#13094]: https://github.com/hrydgard/ppsspp/issues/13094 "Camera initialization crash fix"
+[#13125]: https://github.com/hrydgard/ppsspp/issues/13125 "Refactor and fix touch control layout screen for notch"
+[#13633]: https://github.com/hrydgard/ppsspp/issues/13633 "Downstream Panic (US) New Game crashes"
+[#13969]: https://github.com/hrydgard/ppsspp/issues/13969 "Io: Don't allow async close while async busy"
+[#13368]: https://github.com/hrydgard/ppsspp/issues/13368 "Reschedule after resuming thread from suspend."
+[#13204]: https://github.com/hrydgard/ppsspp/issues/13204 "Dissidia Final Fantasy Chinese patch invalid address"
+[#8526]: https://github.com/hrydgard/ppsspp/issues/8526 "Xyanide Resurrection freezing"
+[#4671]: https://github.com/hrydgard/ppsspp/issues/4671 "Capcom Classic Collection Reloaded stuck in return game"
+[#6025]: https://github.com/hrydgard/ppsspp/issues/6025 "Dream Club Portable crash after select girl"
+[#13298]: https://github.com/hrydgard/ppsspp/issues/13298 "Fix sceKernelExitThread"
+[#13297]: https://github.com/hrydgard/ppsspp/issues/13297 "Namco Museum Vol. 2 - ULJS00047 infinite loading in some game"
+[#9523]: https://github.com/hrydgard/ppsspp/issues/9523 "Namco Museum - Battle Collection - ULUS100035 loading problem"
+[#5213]: https://github.com/hrydgard/ppsspp/issues/5213 "Hanayaka Nari Wa ga Ichizoku strange MP3 mono voice"
+[#12761]: https://github.com/hrydgard/ppsspp/issues/12761 "[Android][OpenGL&Vulkan][Save issue] Assassin's Creed : Bloodlines (ULJM05571)"
+[#13335]: https://github.com/hrydgard/ppsspp/issues/13335 "Support for loading game-specific plugins"
+[#12924]: https://github.com/hrydgard/ppsspp/issues/12924 "Postprocessing: User chain support"
+[#13654]: https://github.com/hrydgard/ppsspp/issues/13654 "Expose the \"Lower resolution for effects\" setting in libretro."
+[#13695]: https://github.com/hrydgard/ppsspp/issues/13695 "Add developer setting \"Show on-screen messages\". Uncheck to hide them."
+[#13866]: https://github.com/hrydgard/ppsspp/issues/13866 "SaveState: Allow rewind on mobile"
+[#13355]: https://github.com/hrydgard/ppsspp/issues/13355 "Refactor framebuffer attachment. Fixes Test Drive Unlimited performance"
+[#13556]: https://github.com/hrydgard/ppsspp/issues/13556 "D3D11 depth texture support"
+[#13262]: https://github.com/hrydgard/ppsspp/issues/13262 "Implement texturing from depth buffers (Vulkan only so far)"
+[#13986]: https://github.com/hrydgard/ppsspp/issues/13986 "Vulkan: Add MMPX upscaling texture shader"
+[#13514]: https://github.com/hrydgard/ppsspp/issues/13514 "Vulkan: Automatically generate mipmaps for replaced/scaled textures"
+[#13235]: https://github.com/hrydgard/ppsspp/issues/13235 "Vulkan: Allow custom texture upscaling shaders"
+[#13526]: https://github.com/hrydgard/ppsspp/issues/13526 "VFPU: Compute sines and cosines in double precision."
+[#13706]: https://github.com/hrydgard/ppsspp/issues/13706 "Add back the old implementation of vfpu_sin/cos/sincos."
+[#12336]: https://github.com/hrydgard/ppsspp/issues/12336 "Microphone support"
+[#13792]: https://github.com/hrydgard/ppsspp/issues/13792 "Fix UWP audio and a hang bug"
+[#13239]: https://github.com/hrydgard/ppsspp/issues/13239 "Add sound effects for PPSSPP interface navigation"
+[#13897]: https://github.com/hrydgard/ppsspp/issues/13897 "LittleBigPlanet - Game Not Loading, Blue Screen (iOS, Unplayable)"
+[#13172]: https://github.com/hrydgard/ppsspp/issues/13172 "Generalized multi-instance"
+[#13092]: https://github.com/hrydgard/ppsspp/issues/13092 "Bad memory access handling improvements"
+[#11795]: https://github.com/hrydgard/ppsspp/issues/11795 "Exception handler - catch bad memory accesses"
+[#7124]: https://github.com/hrydgard/ppsspp/issues/7124 "Yu-Gi-Oh! GX Tag Force Card summoning (card cut-off / cropped)"
+[#13760]: https://github.com/hrydgard/ppsspp/issues/13760 "Fix car lighting issues in DiRT 2."
+[#13640]: https://github.com/hrydgard/ppsspp/issues/13640 "Fix car reflections in Outrun"
+[#13636]: https://github.com/hrydgard/ppsspp/issues/13636 "Reinterpret framebuffer formats as needed. Outrun reflections partial fix"
+[#14117]: https://github.com/hrydgard/ppsspp/issues/14117 "[Adhoc] Fix lob"
+[#14106]: https://github.com/hrydgard/ppsspp/issues/14106 "[Adhoc] Fix frozen (0 FPS) issue on Kao Challengers and Asterix & Obelix XX"
+[#14078]: https://github.com/hrydgard/ppsspp/issues/14078 "PPGe: Decimate text images properly"
+[#14101]: https://github.com/hrydgard/ppsspp/issues/14101 "Menu audio glitchfix"
+[#14092]: https://github.com/hrydgard/ppsspp/issues/14092 "SaveState: Prevent crash on bad cookie marker"
+[#14091]: https://github.com/hrydgard/ppsspp/issues/14091 "Only allow sceMpegGetAvcAu warmup for God Eater Series"
+[#14089]: https://github.com/hrydgard/ppsspp/issues/14089 "GL: Call CreateDeviceObjects *after* updating render_."
+[#14085]: https://github.com/hrydgard/ppsspp/issues/14085 "Handle exec addr errors better - don't let IgnoreBadMemoryAccesses skip dispatcher exceptions"
+[#14132]: https://github.com/hrydgard/ppsspp/issues/14132 "Io: Truncate reads/writes to valid memory"
+[#14134]: https://github.com/hrydgard/ppsspp/issues/14134 "Android: Ensure shutdown waits for render"
+[#14129]: https://github.com/hrydgard/ppsspp/issues/14129 "GPU: Force reinterpret off without copy image"

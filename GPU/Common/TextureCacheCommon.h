@@ -29,7 +29,9 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/TextureScalerCommon.h"
-#include "GPU/Common/DepalettizeCommon.h"
+#include "GPU/Common/TextureShaderCommon.h"
+
+class Draw2D;
 
 enum FramebufferNotification {
 	NOTIFY_FB_CREATED,
@@ -47,6 +49,13 @@ enum FramebufferNotification {
 struct VirtualFramebuffer;
 class TextureReplacer;
 class ShaderManagerCommon;
+
+enum class TexDecodeFlags {
+	EXPAND32 = 1,
+	REVERSE_COLORS = 2,
+	TO_CLUT8 = 4,
+};
+ENUM_CLASS_BITOPS(TexDecodeFlags);
 
 namespace Draw {
 class DrawContext;
@@ -91,16 +100,17 @@ class VulkanTexture;
 // Enough information about a texture to match it to framebuffers.
 struct TextureDefinition {
 	u32 addr;
+	u16 bufw;
+	u16 dim;
 	GETextureFormat format;
-	u32 dim;
-	u32 bufw;
 };
-
 
 // TODO: Shrink this struct. There is some fluff.
 
 // NOTE: These only handle textures loaded directly from PSP memory contents.
 // Framebuffer textures do not have entries, we bind the framebuffers directly.
+// At one point we might merge the concepts of framebuffers and textures, but that
+// moment is far away.
 struct TexCacheEntry {
 	~TexCacheEntry() {
 		if (texturePtr || textureName || vkTex)
@@ -137,6 +147,8 @@ struct TexCacheEntry {
 		STATUS_FORCE_REBUILD = 0x2000,
 
 		STATUS_3D = 0x4000,
+
+		STATUS_CLUT_GPU = 0x8000,
 	};
 
 	// Status, but int so we can zero initialize.
@@ -206,28 +218,20 @@ typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 #undef IGNORE
 #endif
 
-enum class FramebufferMatch {
-	// Valid, exact match.
-	VALID = 0,
-	// Not a match, remove if currently attached.
-	NO_MATCH,
-};
-
 struct FramebufferMatchInfo {
-	FramebufferMatch match;
-	u32 xOffset;
-	u32 yOffset;
+	int16_t xOffset;
+	int16_t yOffset;
 	bool reinterpret;
 	GEBufferFormat reinterpretTo;
 };
 
 struct AttachCandidate {
-	FramebufferMatchInfo match;
-	TextureDefinition entry;
 	VirtualFramebuffer *fb;
+	FramebufferMatchInfo match;
 	RasterChannel channel;
+	int relevancy;
 
-	std::string ToString();
+	std::string ToString() const;
 };
 
 class FramebufferManagerCommon;
@@ -269,16 +273,39 @@ struct BuildTexturePlan {
 	int w;
 	int h;
 
+	// Scaled (or replaced) size of the 0-mip of the final texture.
+	int createW;
+	int createH;
+
 	// Used for 3D textures only. If not a 3D texture, will be 1.
 	int depth;
 
 	// The replacement for the texture.
 	ReplacedTexture *replaced;
+	// Need to only check once since it can change during the load!
+	bool replaceValid;
+	bool saveTexture;
+
+	// TODO: Expand32 should probably also be decided in PrepareBuildTexture.
+	bool decodeToClut8;
+
+	void GetMipSize(int level, int *w, int *h) const {
+		if (replaceValid) {
+			replaced->GetSize(level, *w, *h);
+		} else if (depth == 1) {
+			*w = createW >> level;
+			*h = createH >> level;
+		} else {
+			// 3D texture, we look for layers instead of levels.
+			*w = createW;
+			*h = createH;
+		}
+	}
 };
 
 class TextureCacheCommon {
 public:
-	TextureCacheCommon(Draw::DrawContext *draw);
+	TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D);
 	virtual ~TextureCacheCommon();
 
 	void LoadClut(u32 clutAddr, u32 loadBytes);
@@ -298,7 +325,7 @@ public:
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
 
-	DepalShaderCache *GetDepalShaderCache() { return depalShaderCache_; }
+	TextureShaderCache *GetTextureShaderCache() { return textureShaderCache_; }
 
 	virtual void ForgetLastTexture() = 0;
 	virtual void InvalidateLastTexture() = 0;
@@ -309,7 +336,7 @@ public:
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to,
 	// so that it can invalidate TexCacheEntries pointed at those addresses.
 	void NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg);
-	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
+	void NotifyWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt);
 
 	size_t NumLoadedTextures() const {
 		return cache_.size();
@@ -321,9 +348,10 @@ public:
 	bool VideoIsPlaying() {
 		return !videos_.empty();
 	}
-	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) { return false; }
+	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) { return false; }
 
 protected:
+	virtual void *GetNativeTextureView(const TexCacheEntry *entry) = 0;
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
 
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
@@ -333,21 +361,22 @@ protected:
 	void Decimate(bool forcePressure = false);
 
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel);
+	void ApplyTextureDepal(TexCacheEntry *entry);
 
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
 	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) = 0;
 	bool CheckFullHash(TexCacheEntry *entry, bool &doDelete);
 
-	virtual void BindAsClutTexture(Draw::Texture *tex) {}
+	virtual void BindAsClutTexture(Draw::Texture *tex, bool smooth) {}
 
-	CheckAlphaResult DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool expandTo32Bit);
+	CheckAlphaResult DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, TexDecodeFlags flags);
 	void UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
 	CheckAlphaResult ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit);
 	ReplacedTexture &FindReplacement(TexCacheEntry *entry, int &w, int &h, int &d);
 
 	// Return value is mapData normally, but could be another buffer allocated with AllocateAlignedMemory.
-	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, int mapRowPitch, ReplacedTexture &replaced, int srcLevel, int scaleFactor, Draw::DataFormat dstFmt, bool reverseColors);
+	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, int mapRowPitch, ReplacedTexture &replaced, int srcLevel, int scaleFactor, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags);
 
 	template <typename T>
 	inline const T *GetCurrentClut() {
@@ -365,12 +394,12 @@ protected:
 	SamplerCacheKey GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
-	FramebufferMatchInfo MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel) const;
+	bool MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, FramebufferMatchInfo *matchInfo) const;
 
-	std::vector<AttachCandidate> GetFramebufferCandidates(const TextureDefinition &entry, u32 texAddrOffset);
-	int GetBestCandidateIndex(const std::vector<AttachCandidate> &candidates);
+	bool GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate) const;
 
 	void SetTextureFramebuffer(const AttachCandidate &candidate);
+	bool GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer, bool *isFramebuffer);
 
 	virtual void BoundFramebufferTexture() {}
 
@@ -407,10 +436,12 @@ protected:
 	}
 
 	Draw::DrawContext *draw_;
+	Draw2D *draw2D_;
+
 	TextureReplacer replacer_;
 	TextureScalerCommon scaler_;
 	FramebufferManagerCommon *framebufferManager_;
-	DepalShaderCache *depalShaderCache_;
+	TextureShaderCache *textureShaderCache_;
 	ShaderManagerCommon *shaderManager_;
 
 	bool clearCacheNextFrame_ = false;
@@ -440,7 +471,9 @@ protected:
 	SimpleBuf<u32> tmpTexBufRearrange_;
 
 	TexCacheEntry *nextTexture_ = nullptr;
+	bool failedTexture_ = false;
 	VirtualFramebuffer *nextFramebufferTexture_ = nullptr;
+	RasterChannel nextFramebufferTextureChannel_ = RASTER_COLOR;
 
 	u32 clutHash_ = 0;
 
@@ -449,14 +482,20 @@ protected:
 	u32 *clutBufConverted_;
 	// This is the active one.
 	u32 *clutBuf_;
-	u32 clutLastFormat_;
-	u32 clutTotalBytes_;
-	u32 clutMaxBytes_;
-	u32 clutRenderAddress_;
+	u32 clutLastFormat_ = 0xFFFFFFFF;
+	u32 clutTotalBytes_ = 0;
+	u32 clutMaxBytes_ = 0;
+	u32 clutRenderAddress_ = 0xFFFFFFFF;
 	u32 clutRenderOffset_;
+	GEBufferFormat clutRenderFormat_;
+
 	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
-	bool clutAlphaLinear_;
+	bool clutAlphaLinear_ = false;
 	u16 clutAlphaLinearColor_;
+
+	// Facilities for GPU depal of static textures.
+	Draw::Framebuffer *dynamicClutTemp_ = nullptr;
+	Draw::Framebuffer *dynamicClutFbo_ = nullptr;
 
 	int standardScaleFactor_;
 	int shaderScaleFactor_ = 0;
@@ -466,7 +505,7 @@ protected:
 	bool nextNeedsChange_;
 	bool nextNeedsRebuild_;
 
-	bool isBgraBackend_;
+	bool isBgraBackend_ = false;
 
 	u32 expandClut_[256];
 };

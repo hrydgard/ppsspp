@@ -22,12 +22,6 @@ struct InputDef {
 	int semantic;
 };
 
-struct UniformDef {
-	const char *type;
-	const char *name;
-	int index;
-};
-
 struct VaryingDef {
 	const char *type;
 	const char *name;
@@ -43,7 +37,7 @@ enum FSFlags {
 
 class ShaderWriter {
 public:
-	ShaderWriter(char *buffer, const ShaderLanguageDesc &lang, ShaderStage stage, const char **gl_extensions, size_t num_gl_extensions) : p_(buffer), lang_(lang), stage_(stage) {
+	ShaderWriter(char *buffer, const ShaderLanguageDesc &lang, ShaderStage stage, const char **gl_extensions = nullptr, size_t num_gl_extensions = 0) : p_(buffer), lang_(lang), stage_(stage) {
 		Preamble(gl_extensions, num_gl_extensions);
 	}
 	ShaderWriter(const ShaderWriter &) = delete;
@@ -83,16 +77,24 @@ public:
 
 	void ConstFloat(const char *name, float value);
 
-	ShaderWriter &SampleTexture2D(const char *sampName, const char *uv);
+	ShaderWriter &SampleTexture2D(const char *texName, const char *uv);
+	ShaderWriter &SampleTexture2DOffset(const char *texName, const char *uv, int offX, int offY);
+	ShaderWriter &LoadTexture2D(const char *texName, const char *integer_uv, int level);
+	ShaderWriter &GetTextureSize(const char *szVariable, const char *texName);
 
 	// Simple shaders with no special tricks.
 	void BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniforms, Slice<VaryingDef> varyings);
 	void BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> varyings, FSFlags flags);
+	void BeginGSMain(Slice<VaryingDef> varyings, Slice<VaryingDef> outVaryings);
 
 	// For simple shaders that output a single color, we can deal with this generically.
 	void EndVSMain(Slice<VaryingDef> varyings);
 	void EndFSMain(const char *vec4_color_variable, FSFlags flags);
+	void EndGSMain();
 
+	const ShaderLanguageDesc &Lang() const {
+		return lang_;
+	}
 
 	void Rewind(size_t offset) {
 		p_ -= offset;

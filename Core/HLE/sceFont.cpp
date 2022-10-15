@@ -486,8 +486,8 @@ public:
 		// For save states only.
 	}
 
-	FontLib(u32 paramPtr, u32 errorCodePtr) {
-		Memory::ReadStruct(paramPtr, &params_);
+	FontLib(FontNewLibParams *params, u32 errorCodePtr) {
+		params_ = *params;
 		if (params_.numFonts > 9) {
 			params_.numFonts = 9;
 		}
@@ -858,22 +858,21 @@ static void __LoadInternalFonts() {
 	}
 	const std::string fontPath = "flash0:/font/";
 	const std::string fontOverridePath = "ms0:/PSP/flash0/font/";
-	const std::string userfontPath = "disc0:/PSP_GAME/USRDIR/";
-	
+	const std::string gameFontPath = "disc0:/PSP_GAME/USRDIR/";
+
 	if (!pspFileSystem.GetFileInfo(fontPath).exists) {
 		pspFileSystem.MkDir(fontPath);
 	}
 	if ((pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/zh_gb.pgf").exists) && (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/oldfont.prx").exists)) {
 		for (size_t i = 0; i < ARRAY_SIZE(fontRegistry); i++) {
 			const FontRegistryEntry &entry = fontRegistry[i];
-			std::string fontFilename = userfontPath + entry.fileName;
-			PSPFileInfo info = pspFileSystem.GetFileInfo(fontFilename);
-			DEBUG_LOG(SCEFONT, "Loading internal font %s (%i bytes)", fontFilename.c_str(), (int)info.size);
+			std::string fontFilename = gameFontPath + entry.fileName;
 			std::vector<u8> buffer;
 			if (pspFileSystem.ReadEntireFile(fontFilename, buffer) < 0) {
-				ERROR_LOG(SCEFONT, "Failed opening font");
+				ERROR_LOG(SCEFONT, "Failed opening font %s", fontFilename.c_str());
 				continue;
 			}
+			DEBUG_LOG(SCEFONT, "Loading internal font %s (%i bytes)", fontFilename.c_str(), (int)buffer.size());
 			internalFonts.push_back(new Font(buffer, entry));
 			DEBUG_LOG(SCEFONT, "Loaded font %s", fontFilename.c_str());
 			return;
@@ -882,29 +881,26 @@ static void __LoadInternalFonts() {
 
 	for (size_t i = 0; i < ARRAY_SIZE(fontRegistry); i++) {
 		const FontRegistryEntry &entry = fontRegistry[i];
-		std::string fontFilename = userfontPath + entry.fileName;
-		PSPFileInfo info = pspFileSystem.GetFileInfo(fontFilename);
+		std::vector<u8> buffer;
+		bool bufferRead = false;
 
-		if (!info.exists) {
-			// No user font, let's try override path.
+		std::string fontFilename = gameFontPath + entry.fileName;
+		bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer) >= 0;
+
+		if (!bufferRead) {
+			// No game font, let's try override path.
 			fontFilename = fontOverridePath + entry.fileName;
-			info = pspFileSystem.GetFileInfo(fontFilename);
+			bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer) >= 0;
 		}
 
-		if (!info.exists) {
+		if (!bufferRead) {
 			// No override, let's use the default path.
 			fontFilename = fontPath + entry.fileName;
-			info = pspFileSystem.GetFileInfo(fontFilename);
+			bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer) >= 0;
 		}
 
-		if (info.exists) {
-			DEBUG_LOG(SCEFONT, "Loading internal font %s (%i bytes)", fontFilename.c_str(), (int)info.size);
-			std::vector<u8> buffer;
-			if (pspFileSystem.ReadEntireFile(fontFilename, buffer) < 0) {
-				ERROR_LOG(SCEFONT, "Failed opening font");
-				continue;
-			}
-			
+		if (bufferRead) {
+			DEBUG_LOG(SCEFONT, "Loading internal font %s (%i bytes)", fontFilename.c_str(), (int)buffer.size());
 			internalFonts.push_back(new Font(buffer, entry));
 
 			DEBUG_LOG(SCEFONT, "Loaded font %s", fontFilename.c_str());
@@ -998,7 +994,7 @@ static u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
 	INFO_LOG(SCEFONT, "sceFontNewLib(%08x, %08x)", paramPtr, errorCodePtr);
 	*errorCode = 0;
 
-	FontLib *newLib = new FontLib(paramPtr, errorCodePtr);
+	FontLib *newLib = new FontLib(params, errorCodePtr);
 	fontLibList.push_back(newLib);
 	// The game should never see this value, the return value is replaced
 	// by the action. Except if we disable the alloc, in this case we return

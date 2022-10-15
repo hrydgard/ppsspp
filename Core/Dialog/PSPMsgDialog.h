@@ -94,11 +94,11 @@ private:
 
 	u32 flag = 0;
 
-	pspMessageDialog messageDialog;
-	int messageDialogAddr;
+	pspMessageDialog messageDialog{};
+	int messageDialogAddr = 0;
 
 	char msgText[512];
-	int yesnoChoice;
+	int yesnoChoice = 0;
 	float scrollPos_ = 0.0f;
 	int framesUpHeld_ = 0;
 	int framesDownHeld_ = 0;

@@ -23,6 +23,7 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/GPU/thin3d.h"
+#include "Common/VR/PPSSPPVR.h"
 #include "Core/Config.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -126,9 +127,6 @@ static const char * const boneWeightDecl[9] = {
 	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec4 w2;\n",
 };
 
-extern const char *vulkan_glsl_preamble_vs;
-extern const char *hlsl_preamble_vs;
-
 bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
 	*attrMask = 0;
 	*uniformMask = 0;
@@ -141,15 +139,19 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (gl_extensions.EXT_gpu_shader4) {
 			gl_exts.push_back("#extension GL_EXT_gpu_shader4 : enable");
 		}
-		if (gl_extensions.EXT_clip_cull_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
+		bool useClamp = gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP) && !id.Bit(VS_BIT_IS_THROUGH);
+		if (gl_extensions.EXT_clip_cull_distance && (id.Bit(VS_BIT_VERTEX_RANGE_CULLING) || useClamp)) {
 			gl_exts.push_back("#extension GL_EXT_clip_cull_distance : enable");
 		}
-		if (gl_extensions.APPLE_clip_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
+		if (gl_extensions.APPLE_clip_distance && (id.Bit(VS_BIT_VERTEX_RANGE_CULLING) || useClamp)) {
 			gl_exts.push_back("#extension GL_APPLE_clip_distance : enable");
 		}
 		if (gl_extensions.ARB_cull_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
 			gl_exts.push_back("#extension GL_ARB_cull_distance : enable");
 		}
+	}
+	if (IsVRBuild() && IsMultiviewSupported()) {
+		gl_exts.push_back("#extension GL_OVR_multiview2 : enable\nlayout(num_views=2) in;");
 	}
 	ShaderWriter p(buffer, compat, ShaderStage::Vertex, gl_exts.data(), gl_exts.size());
 
@@ -172,13 +174,18 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool hasColor = id.Bit(VS_BIT_HAS_COLOR) || !useHWTransform;
 	bool hasNormal = id.Bit(VS_BIT_HAS_NORMAL) && useHWTransform;
 	bool hasTexcoord = id.Bit(VS_BIT_HAS_TEXCOORD) || !useHWTransform;
-	bool enableFog = id.Bit(VS_BIT_ENABLE_FOG);
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
 	bool enableBones = id.Bit(VS_BIT_ENABLE_BONES) && useHWTransform;
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
+
+	bool lightUberShader = id.Bit(VS_BIT_LIGHT_UBERSHADER) && enableLighting;  // checking lighting here for the shader test's benefit, in reality if ubershader is set, lighting is set.
+	if (lightUberShader && !compat.bitwiseOps) {
+		*errorString = "Light ubershader requires bitwise ops in shader language";
+		return false;
+	}
 
 	// Apparently we don't support bezier/spline together with bones.
 	bool doBezier = id.Bit(VS_BIT_BEZIER) && !enableBones && useHWTransform;
@@ -223,6 +230,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool texCoordInVec3 = false;
 
 	bool vertexRangeCulling = id.Bit(VS_BIT_VERTEX_RANGE_CULLING) && !isModeThrough;
+	bool clipClampedDepth = !isModeThrough && gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP) && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE);
+	const char *clipClampedDepthSuffix = "[0]";
+	const char *vertexRangeClipSuffix = clipClampedDepth ? "[1]" : "[0]";
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
@@ -243,7 +253,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		if (useHWTransform && hasNormal)
 			WRITE(p, "layout (location = %d) in vec3 normal;\n", (int)PspAttributeLocation::NORMAL);
-		if (!useHWTransform && enableFog)
+		if (!useHWTransform)
 			WRITE(p, "layout (location = %d) in float fog;\n", (int)PspAttributeLocation::NORMAL);
 
 		if (doTexture && hasTexcoord) {
@@ -268,10 +278,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "layout (location = 0) out highp vec3 v_texcoord;\n");
 		}
 
-		if (enableFog) {
-			// See the fragment shader generator
-			WRITE(p, "layout (location = 3) out highp float v_fogdepth;\n");
-		}
+		WRITE(p, "layout (location = 3) out highp float v_fogdepth;\n");
+		WRITE(p, "invariant gl_Position;\n");
+
 	} else if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		// Note: These two share some code after this hellishly large if/else.
 		if (compat.shaderLanguage == HLSL_D3D11) {
@@ -288,9 +297,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "float u_rotation : register(c%i);\n", CONST_VS_ROTATION);
 			}
 
-			if (enableFog) {
-				WRITE(p, "vec2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
-			}
+			WRITE(p, "vec2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
 			if (useHWTransform || !hasColor)
 				WRITE(p, "vec4 u_matambientalpha : register(c%i);\n", CONST_VS_MATAMBIENTALPHA);  // matambient + matalpha
 
@@ -312,6 +319,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				if (doTexture) {
 					WRITE(p, "vec4 u_uvscaleoffset : register(c%i);\n", CONST_VS_UVSCALEOFFSET);
 				}
+				// No need for light ubershader support here, D3D9 doesn't do it.
 				for (int i = 0; i < 4; i++) {
 					if (doLight[i] != LIGHT_OFF) {
 						// This is needed for shade mapping
@@ -390,9 +398,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (lmode) {
 				WRITE(p, "  vec3 color1 : COLOR1;\n");
 			}
-			if (enableFog) {
-				WRITE(p, "  float fog : NORMAL;\n");
-			}
+			WRITE(p, "  float fog : NORMAL;\n");
 			WRITE(p, "};\n");
 		}
 
@@ -405,15 +411,20 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (lmode)
 			WRITE(p, "  vec3 v_color1    : COLOR1;\n");
 
-		if (enableFog) {
-			WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
-		}
+		WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
 		if (compat.shaderLanguage == HLSL_D3D9) {
 			WRITE(p, "  vec4 gl_Position   : POSITION;\n");
 		} else {
 			WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
-			if (vertexRangeCulling && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
-				WRITE(p, "  float gl_ClipDistance : SV_ClipDistance0;\n");
+			bool clipRange = vertexRangeCulling && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE);
+			if (clipClampedDepth && clipRange) {
+				WRITE(p, "  float2 gl_ClipDistance : SV_ClipDistance;\n");
+				clipClampedDepthSuffix = ".x";
+				vertexRangeClipSuffix = ".y";
+			} else if (clipClampedDepth || clipRange) {
+				WRITE(p, "  float gl_ClipDistance : SV_ClipDistance;\n");
+				clipClampedDepthSuffix = "";
+				vertexRangeClipSuffix = "";
 			}
 			if (vertexRangeCulling && gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE)) {
 				WRITE(p, "  float2 gl_CullDistance : SV_CullDistance0;\n");
@@ -442,7 +453,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "%s mediump vec3 normal;\n", compat.attribute);
 			*attrMask |= 1 << ATTR_NORMAL;
 		}
-		if (!useHWTransform && enableFog) {
+		if (!useHWTransform) {
 			WRITE(p, "%s highp float fog;\n", compat.attribute);
 			*attrMask |= 1 << ATTR_NORMAL;
 		}
@@ -469,6 +480,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform mat4 u_proj_through;\n");
 			*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
 		} else if (useHWTransform) {
+			if (IsVRBuild()) {
+				if (IsMultiviewSupported()) {
+					WRITE(p, "layout(shared) uniform ProjectionMatrix { uniform mat4 u_proj_lens[2]; };\n");
+				} else {
+					WRITE(p, "uniform mat4 u_proj_lens;\n");
+				}
+			}
 			WRITE(p, "uniform mat4 u_proj;\n");
 			*uniformMask |= DIRTY_PROJMATRIX;
 		}
@@ -477,7 +495,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// When transforming by hardware, we need a great deal more uniforms...
 			// TODO: Use 4x3 matrices where possible. Though probably doesn't matter much.
 			WRITE(p, "uniform mat4 u_world;\n");
-			WRITE(p, "uniform mat4 u_view;\n");
+			if (IsVRBuild() && IsMultiviewSupported()) {
+				WRITE(p, "layout(shared) uniform ViewMatrices { uniform mat4 u_view[2]; };\n");
+			} else {
+				WRITE(p, "uniform mat4 u_view;\n");
+			}
 			*uniformMask |= DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX;
 			if (doTextureTransform) {
 				WRITE(p, "uniform mediump mat4 u_texmtx;\n");
@@ -493,28 +515,32 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
 				*uniformMask |= DIRTY_UVSCALEOFFSET;
 			}
+			if (lightUberShader) {
+				p.C("uniform uint u_lightControl;\n");
+				*uniformMask |= DIRTY_LIGHT_CONTROL;
+			}
 			for (int i = 0; i < 4; i++) {
-				if (doLight[i] != LIGHT_OFF) {
+				if (lightUberShader || doLight[i] != LIGHT_OFF) {
 					// This is needed for shade mapping
 					WRITE(p, "uniform vec3 u_lightpos%i;\n", i);
 					*uniformMask |= DIRTY_LIGHT0 << i;
 				}
-				if (doLight[i] == LIGHT_FULL) {
+				if (lightUberShader || doLight[i] == LIGHT_FULL) {
 					*uniformMask |= DIRTY_LIGHT0 << i;
 					GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
 					GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2));
 
-					if (type != GE_LIGHTTYPE_DIRECTIONAL)
+					if (lightUberShader || type != GE_LIGHTTYPE_DIRECTIONAL)
 						WRITE(p, "uniform mediump vec3 u_lightatt%i;\n", i);
 
-					if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN) {
+					if (lightUberShader || type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN) {
 						WRITE(p, "uniform mediump vec3 u_lightdir%i;\n", i);
 						WRITE(p, "uniform mediump vec2 u_lightangle_spotCoef%i;\n", i);
 					}
 					WRITE(p, "uniform lowp vec3 u_lightambient%i;\n", i);
 					WRITE(p, "uniform lowp vec3 u_lightdiffuse%i;\n", i);
 
-					if (comp == GE_LIGHTCOMP_BOTH) {
+					if (lightUberShader || comp == GE_LIGHTCOMP_BOTH) {
 						WRITE(p, "uniform lowp vec3 u_lightspecular%i;\n", i);
 					}
 				}
@@ -522,7 +548,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (enableLighting) {
 				WRITE(p, "uniform lowp vec4 u_ambient;\n");
 				*uniformMask |= DIRTY_AMBIENT;
-				if ((matUpdate & 2) == 0 || !hasColor) {
+				if (lightUberShader || (matUpdate & 2) == 0 || !hasColor) {
 					WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
 					*uniformMask |= DIRTY_MATDIFFUSE;
 				}
@@ -534,14 +560,17 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform lowp float u_rotation;\n");
 		}
 
+		if (IsVRBuild()) {
+			WRITE(p, "uniform lowp float u_scaleX;\n");
+			WRITE(p, "uniform lowp float u_scaleY;\n");
+		}
+
 		if (useHWTransform || !hasColor) {
 			WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
 			*uniformMask |= DIRTY_MATAMBIENTALPHA;
 		}
-		if (enableFog) {
-			WRITE(p, "uniform highp vec2 u_fogcoef;\n");
-			*uniformMask |= DIRTY_FOGCOEF;
-		}
+		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
+		*uniformMask |= DIRTY_FOGCOEF;
 
 		if (!isModeThrough) {
 			WRITE(p, "uniform highp vec4 u_depthRange;\n");
@@ -559,13 +588,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_vs, highpTexcoord ? "highp" : "mediump");
 		}
 
-		if (enableFog) {
-			// See the fragment shader generator
-			if (highpFog) {
-				WRITE(p, "%s highp float v_fogdepth;\n", compat.varying_vs);
-			} else {
-				WRITE(p, "%s mediump float v_fogdepth;\n", compat.varying_vs);
-			}
+		// See the fragment shader generator
+		if (highpFog) {
+			WRITE(p, "%s highp float v_fogdepth;\n", compat.varying_vs);
+		} else {
+			WRITE(p, "%s mediump float v_fogdepth;\n", compat.varying_vs);
 		}
 	}
 
@@ -693,7 +720,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec4 basis_u = tess_weights_u[weight_idx.x].basis;\n");
 			WRITE(p, "  vec4 basis_v = tess_weights_v[weight_idx.y].basis;\n");
 			WRITE(p, "  mat4 basis = outerProduct(basis_u, basis_v);\n");
-
 		} else {
 			WRITE(p, "  int index_u, index_v;\n");
 			for (int i = 0; i < 4; i++) {
@@ -776,7 +802,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		} else {
 			WRITE(p, "  vec4 position = In.position;\n");
 		}
-		if (!useHWTransform && enableFog) {
+		if (!useHWTransform) {
 			WRITE(p, "  float fog = In.fog;\n");
 		}
 		if (enableBones) {
@@ -802,9 +828,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (lmode)
 				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 		}
-		if (enableFog) {
-			WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
-		}
+		WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
 		if (isModeThrough)	{
 			// The proj_through matrix already has the rotation, if needed.
 			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
@@ -895,25 +919,51 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(skinnednormal, 0.0), u_world).xyz);\n");
 		}
 
-		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
+		std::string matrixPostfix;
+		if (IsVRBuild() && IsMultiviewSupported()) {
+			matrixPostfix = "[gl_ViewID_OVR]";
+		}
+
+		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view%s).xyz, 1.0);\n", matrixPostfix.c_str());
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
+			if (IsVRBuild()) {
+				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj_lens%s, viewPos));\n", matrixPostfix.c_str());
+				WRITE(p, "  vec4 orgPos = depthRoundZVP(mul(u_proj, viewPos));\n");
+			} else {
+				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
+			}
 		} else {
-			WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
+			if (IsVRBuild()) {
+				WRITE(p, "  vec4 outPos = mul(u_proj_lens%s, viewPos);\n", matrixPostfix.c_str());
+				WRITE(p, "  vec4 orgPos = mul(u_proj, viewPos);\n");
+			} else {
+				WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
+			}
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
-		const char *ambientStr = (matUpdate & 1) && hasColor ? "color0" : "u_matambientalpha";
-		const char *diffuseStr = (matUpdate & 2) && hasColor ? "color0.rgb" : "u_matdiffuse";
-		const char *specularStr = (matUpdate & 4) && hasColor ? "color0.rgb" : "u_matspecular.rgb";
+		const char *srcCol = "color0";
 		if (doBezier || doSpline) {
 			// TODO: Probably, should use hasColorTess but FF4 has a problem with drawing the background.
-			ambientStr = (matUpdate & 1) && hasColor ? "tess.col" : "u_matambientalpha";
-			diffuseStr = (matUpdate & 2) && hasColor ? "tess.col.rgb" : "u_matdiffuse";
-			specularStr = (matUpdate & 4) && hasColor ? "tess.col.rgb" : "u_matspecular.rgb";
+			srcCol = "tess.col";
+		}
+
+		if (lightUberShader && hasColor) {
+			p.F("  vec4 ambientColor = ((u_lightControl & (1u << 20u)) != 0u) ? %s : u_matambientalpha;\n", srcCol);
+			if (enableLighting) {
+				p.F("  vec3 diffuseColor = ((u_lightControl & (1u << 21u)) != 0u) ? %s.rgb : u_matdiffuse;\n", srcCol);
+				p.F("  vec3 specularColor = ((u_lightControl & (1u << 22u)) != 0u) ? %s.rgb : u_matspecular.rgb;\n", srcCol);
+			}
+		} else {
+			// This path also takes care of the lightUberShader && !hasColor path, because all comparisons fail.
+			p.F("  vec4 ambientColor = %s;\n", (matUpdate & 1) && hasColor ? srcCol : "u_matambientalpha");
+			if (enableLighting) {
+				p.F("  vec3 diffuseColor = %s.rgb;\n", (matUpdate & 2) && hasColor ? srcCol : "u_matdiffuse");
+				p.F("  vec3 specularColor = %s.rgb;\n", (matUpdate & 4) && hasColor ? srcCol : "u_matspecular");
+			}
 		}
 
 		bool diffuseIsZero = true;
@@ -921,7 +971,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		bool distanceNeeded = false;
 		bool anySpots = false;
 		if (enableLighting) {
-			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambientStr);
+			p.C("  lowp vec4 lightSum0 = u_ambient * ambientColor + vec4(u_matemissive, 0.0);\n");
 
 			for (int i = 0; i < 4; i++) {
 				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4*i, 2));
@@ -935,6 +985,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					distanceNeeded = true;
 				if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN)
 					anySpots = true;
+			}
+
+			if (lightUberShader) {
+				anySpots = true;
+				diffuseIsZero = false;
+				specularIsZero = false;
+				distanceNeeded = true;
 			}
 
 			if (!specularIsZero) {
@@ -954,76 +1011,133 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 		}
 
-		// Calculate lights if needed. If shade mapping is enabled, lights may need to be
-		// at least partially calculated.
-		for (int i = 0; i < 4; i++) {
-			if (doLight[i] != LIGHT_FULL)
-				continue;
-
-			GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4*i, 2));
-			GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4*i, 2));
-
-			if (type == GE_LIGHTTYPE_DIRECTIONAL) {
-				// We prenormalize light positions for directional lights.
-				WRITE(p, "  toLight = u_lightpos%i;\n", i);
-			} else {
-				WRITE(p, "  toLight = u_lightpos%i - worldpos;\n", i);
-				WRITE(p, "  distance = length(toLight);\n");
-				WRITE(p, "  toLight /= distance;\n");
+		if (lightUberShader) {
+			// TODO: Actually loop in the shader. For now, we write it all out.
+			// Will need to change how the data is stored to loop efficiently.
+			// u_lightControl is computed in PackLightControlBits().
+			for (int i = 0; i < 4; i++) {
+				p.F("  if ((u_lightControl & %du) != 0u) { \n", 1 << i);
+				p.F("    uint comp = (u_lightControl >> %d) & 3u;\n", 4 + 4 * i);
+				p.F("    uint type = (u_lightControl >> %d) & 3u;\n", 4 + 4 * i + 2);
+				p.C("    if (type == 0u) {\n");  // GE_LIGHTTYPE_DIRECTIONAL
+				p.F("      toLight = u_lightpos%d;\n", i);
+				p.C("    } else {\n");
+				p.F("      toLight = u_lightpos%d - worldpos;\n", i);
+				p.F("      distance = length(toLight);\n", i);
+				p.F("      toLight /= distance;\n", i);
+				p.C("    }\n");
+				p.C("    ldot = dot(toLight, worldnormal);\n");
+				p.C("    if (comp == 2u) {\n");  // GE_LIGHTCOMP_ONLYPOWDIFFUSE
+				p.C("      if (u_matspecular.a <= 0.0) {\n");
+				p.C("        ldot = 1.0;\n");
+				p.C("      } else {\n");
+				p.C("        ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
+				p.C("      }\n");
+				p.C("    }\n");
+				p.C("    switch (type) {\n");  // Attenuation
+				p.C("    case 1u:\n");  // GE_LIGHTTYPE_POINT
+				p.F("      lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
+				p.C("      break;\n");
+				p.C("    case 2u:\n");  // GE_LIGHTTYPE_SPOT
+				p.F("      angle = length(u_lightdir%i) == 0.0 ? 0.0 : dot(normalize(u_lightdir%i), toLight);\n", i, i);
+				p.F("      if (angle >= u_lightangle_spotCoef%i.x) {\n", i);
+				p.F("        lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%i.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%i.y));\n", i, i, i);
+				p.C("      } else {\n");
+				p.C("        lightScale = 0.0;\n");
+				p.C("      }\n");
+				p.C("      break;\n");
+				p.C("    default:\n");  // GE_LIGHTTYPE_DIRECTIONAL
+				p.C("      lightScale = 1.0;\n");
+				p.C("      break;\n");
+				p.C("    }\n");
+				p.F("    diffuse = (u_lightdiffuse%i * diffuseColor) * max(ldot, 0.0);\n", i);
+				p.C("    if (comp == 1u) {\n");  // do specular
+				p.C("      if (ldot >= 0.0) {\n");
+				p.C("        ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
+				p.C("        if (u_matspecular.a <= 0.0) {\n");
+				p.C("          ldot = 1.0;\n");
+				p.C("        } else {\n");
+				p.C("          ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
+				p.C("        }\n");
+				p.C("        if (ldot > 0.0)\n");
+				p.F("          lightSum1 += u_lightspecular%i * specularColor * ldot * lightScale;\n", i);
+				p.C("      }\n");
+				p.C("    }\n");
+				p.F("    lightSum0.rgb += (u_lightambient%i * ambientColor.rgb + diffuse) * lightScale;\n", i);
+				p.C("  }\n");
 			}
+		} else {
+			// Calculate lights if needed. If shade mapping is enabled, lights may need to be
+			// at least partially calculated.
+			for (int i = 0; i < 4; i++) {
+				if (doLight[i] != LIGHT_FULL)
+					continue;
 
-			bool doSpecular = comp == GE_LIGHTCOMP_BOTH;
-			bool poweredDiffuse = comp == GE_LIGHTCOMP_ONLYPOWDIFFUSE;
+				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
+				GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2));
 
-			WRITE(p, "  ldot = dot(toLight, worldnormal);\n");
-			if (poweredDiffuse) {
-				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
-				// Seen in Tales of the World: Radiant Mythology (#2424.)
-				WRITE(p, "  if (u_matspecular.a <= 0.0) {\n");
-				WRITE(p, "    ldot = 1.0;\n");
-				WRITE(p, "  } else {\n");
-				WRITE(p, "    ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
-				WRITE(p, "  }\n");
+				if (type == GE_LIGHTTYPE_DIRECTIONAL) {
+					// We prenormalize light positions for directional lights.
+					p.F("  toLight = u_lightpos%i;\n", i);
+				} else {
+					p.F("  toLight = u_lightpos%i - worldpos;\n", i);
+					p.C("  distance = length(toLight);\n");
+					p.C("  toLight /= distance;\n");
+				}
+
+				bool doSpecular = comp == GE_LIGHTCOMP_BOTH;
+				bool poweredDiffuse = comp == GE_LIGHTCOMP_ONLYPOWDIFFUSE;
+
+				p.C("  ldot = dot(toLight, worldnormal);\n");
+				if (poweredDiffuse) {
+					// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
+					// Seen in Tales of the World: Radiant Mythology (#2424.)
+					p.C("  if (u_matspecular.a <= 0.0) {\n");
+					p.C("    ldot = 1.0;\n");
+					p.C("  } else {\n");
+					p.C("    ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
+					p.C("  }\n");
+				}
+
+				const char *timesLightScale = " * lightScale";
+
+				// Attenuation
+				switch (type) {
+				case GE_LIGHTTYPE_DIRECTIONAL:
+					timesLightScale = "";
+					break;
+				case GE_LIGHTTYPE_POINT:
+					p.F("  lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
+					break;
+				case GE_LIGHTTYPE_SPOT:
+				case GE_LIGHTTYPE_UNKNOWN:
+					p.F("  angle = length(u_lightdir%i) == 0.0 ? 0.0 : dot(normalize(u_lightdir%i), toLight);\n", i, i);
+					p.F("  if (angle >= u_lightangle_spotCoef%i.x) {\n", i);
+					p.F("    lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%i.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%i.y));\n", i, i, i);
+					p.C("  } else {\n");
+					p.C("    lightScale = 0.0;\n");
+					p.C("  }\n");
+					break;
+				default:
+					// ILLEGAL
+					break;
+				}
+
+				p.F("  diffuse = (u_lightdiffuse%i * diffuseColor) * max(ldot, 0.0);\n", i);
+				if (doSpecular) {
+					p.C("  if (ldot >= 0.0) {\n");
+					p.C("    ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
+					p.C("    if (u_matspecular.a <= 0.0) {\n");
+					p.C("      ldot = 1.0;\n");
+					p.C("    } else {\n");
+					p.C("      ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
+					p.C("    }\n");
+					p.C("    if (ldot > 0.0)\n");
+					p.F("      lightSum1 += u_lightspecular%i * specularColor * ldot %s;\n", i, timesLightScale);
+					p.C("  }\n");
+				}
+				p.F("  lightSum0.rgb += (u_lightambient%i * ambientColor.rgb + diffuse)%s;\n", i, timesLightScale);
 			}
-
-			const char *timesLightScale = " * lightScale";
-
-			// Attenuation
-			switch (type) {
-			case GE_LIGHTTYPE_DIRECTIONAL:
-				timesLightScale = "";
-				break;
-			case GE_LIGHTTYPE_POINT:
-				WRITE(p, "  lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
-				break;
-			case GE_LIGHTTYPE_SPOT:
-			case GE_LIGHTTYPE_UNKNOWN:
-				WRITE(p, "  angle = length(u_lightdir%i) == 0.0 ? 0.0 : dot(normalize(u_lightdir%i), toLight);\n", i, i);
-				WRITE(p, "  if (angle >= u_lightangle_spotCoef%i.x) {\n", i);
-				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%i.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%i.y));\n", i, i, i);
-				WRITE(p, "  } else {\n");
-				WRITE(p, "    lightScale = 0.0;\n");
-				WRITE(p, "  }\n");
-				break;
-			default:
-				// ILLEGAL
-				break;
-			}
-
-			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * max(ldot, 0.0);\n", i, diffuseStr);
-			if (doSpecular) {
-				WRITE(p, "  if (ldot >= 0.0) {\n");
-				WRITE(p, "    ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
-				WRITE(p, "    if (u_matspecular.a <= 0.0) {\n");
-				WRITE(p, "      ldot = 1.0;\n");
-				WRITE(p, "    } else {\n");
-				WRITE(p, "      ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
-				WRITE(p, "    }\n");
-				WRITE(p, "    if (ldot > 0.0)\n");
-				WRITE(p, "      lightSum1 += u_lightspecular%i * %s * ldot %s;\n", i, specularStr, timesLightScale);
-				WRITE(p, "  }\n");
-			}
-			WRITE(p, "  lightSum0.rgb += (u_lightambient%i * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
 		}
 
 		if (enableLighting) {
@@ -1078,7 +1192,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					}
 				} else {
 					if (hasTexcoord) {
-						WRITE(p, "  %sv_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
+						if (doBezier || doSpline)
+							WRITE(p, "  %sv_texcoord = vec3(tess.tex.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
+						else
+							WRITE(p, "  %sv_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
 					} else {
 						WRITE(p, "  %sv_texcoord = vec3(u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
 					}
@@ -1090,26 +1207,36 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					std::string temp_tc;
 					switch (uvProjMode) {
 					case GE_PROJMAP_POSITION:  // Use model space XYZ as source
-						temp_tc = "vec4(position, 1.0)";
+						if (doBezier || doSpline)
+							temp_tc = "vec4(tess.pos, 1.0)";
+						else
+							temp_tc = "vec4(position, 1.0)";
 						break;
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{
 							// prescale is false here.
 							if (hasTexcoord) {
-								temp_tc = "vec4(texcoord.xy, 0.0, 1.0)";
+								if (doBezier || doSpline)
+									temp_tc = "vec4(tess.tex.xy, 0.0, 1.0)";
+								else
+									temp_tc = "vec4(texcoord.xy, 0.0, 1.0)";
 							} else {
 								temp_tc = "vec4(0.0, 0.0, 0.0, 1.0)";
 							}
 						}
 						break;
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
-						if (hasNormal)
-							temp_tc = StringFromFormat("length(normal) == 0.0 ? vec4(0.0, 0.0, 1.0, 1.0) : vec4(normalize(%snormal), 1.0)", flipNormal ? "-" : "");
+						if ((doBezier || doSpline) && hasNormalTess)
+							temp_tc = StringFromFormat("length(tess.nrm) == 0.0 ? vec4(0.0, 0.0, 0.0, 1.0) : vec4(normalize(%stess.nrm), 1.0)", flipNormalTess ? "-" : "");
+						else if (hasNormal)
+							temp_tc = StringFromFormat("length(normal) == 0.0 ? vec4(0.0, 0.0, 0.0, 1.0) : vec4(normalize(%snormal), 1.0)", flipNormal ? "-" : "");
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					case GE_PROJMAP_NORMAL:  // Use non-normalized transformed normal as source
-						if (hasNormal)
+						if ((doBezier || doSpline) && hasNormalTess)
+							temp_tc = flipNormalTess ? "vec4(-tess.nrm, 1.0)" : "vec4(tess.nrm, 1.0)";
+						else if (hasNormal)
 							temp_tc = flipNormal ? "vec4(-normal, 1.0)" : "vec4(normal, 1.0)";
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
@@ -1135,33 +1262,53 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		// Compute fogdepth
-		if (enableFog)
-			WRITE(p, "  %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
+		WRITE(p, "  %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
 	}
 
-	if (vertexRangeCulling) {
+	if (clipClampedDepth) {
+		// This should clip against minz, but only when it's above zero.
+		if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
+			// On OpenGL/GLES, these values account for the -1 -> 1 range.
+			WRITE(p, "  if (u_depthRange.y - u_depthRange.x >= 1.0) {\n");
+			WRITE(p, "    %sgl_ClipDistance%s = outPos.w + outPos.z;\n", compat.vsOutPrefix, clipClampedDepthSuffix);
+		} else {
+			// Everywhere else, it's 0 -> 1, simpler.
+			WRITE(p, "  if (u_depthRange.y >= 1.0) {\n");
+			WRITE(p, "    %sgl_ClipDistance%s = outPos.z;\n", compat.vsOutPrefix, clipClampedDepthSuffix);
+		}
+		// This is similar, but for maxz when it's below 65535.0.  -1/0 don't matter here.
+		WRITE(p, "  } else if (u_depthRange.x + u_depthRange.y <= 65534.0) {\n");
+		WRITE(p, "    %sgl_ClipDistance%s = outPos.w - outPos.z;\n", compat.vsOutPrefix, clipClampedDepthSuffix);
+		WRITE(p, "  } else {\n");
+		WRITE(p, "    %sgl_ClipDistance%s = 0.0;\n", compat.vsOutPrefix, clipClampedDepthSuffix);
+		WRITE(p, "  }\n");
+	}
+
+	if (vertexRangeCulling && !IsVRBuild()) {
 		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
 		WRITE(p, "  float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
-		// Vertex range culling doesn't happen when Z clips, note sign of w is important.
-		WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || projZ * outPos.w > -outPos.w) {\n");
-		const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y";
-		const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y";
-		WRITE(p, "    if (%s || %s) {\n", outMin, outMax);
-		WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
-		WRITE(p, "    }\n");
-		WRITE(p, "  }\n");
-		WRITE(p, "  if (u_cullRangeMin.w <= 0.0) {\n");
-		WRITE(p, "    if (projPos.z < u_cullRangeMin.z || projPos.z > u_cullRangeMax.z) {\n");
-		WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
-		WRITE(p, "    }\n");
-		WRITE(p, "  }\n");
 
-		const char *clip0 = compat.shaderLanguage == HLSL_D3D11 ? "" : "[0]";
+		if (!bugs.Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
+			// Vertex range culling doesn't happen when Z clips, note sign of w is important.
+			WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || projZ * outPos.w > -outPos.w) {\n");
+			const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y";
+			const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y";
+			WRITE(p, "    if ((%s) || (%s)) {\n", outMin, outMax);
+			WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
+			WRITE(p, "    }\n");
+			WRITE(p, "  }\n");
+			WRITE(p, "  if (u_cullRangeMin.w <= 0.0) {\n");
+			WRITE(p, "    if (projPos.z < u_cullRangeMin.z || projPos.z > u_cullRangeMax.z) {\n");
+			WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
+			WRITE(p, "    }\n");
+			WRITE(p, "  }\n");
+		}
+
 		const char *cull0 = compat.shaderLanguage == HLSL_D3D11 ? ".x" : "[0]";
 		const char *cull1 = compat.shaderLanguage == HLSL_D3D11 ? ".y" : "[1]";
 		if (gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
-			// TODO: Not rectangles...
-			WRITE(p, "  %sgl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", compat.vsOutPrefix, clip0);
+			// TODO: Ignore triangles from GE_PRIM_RECTANGLES in transform mode, which should not clip to neg z.
+			WRITE(p, "  %sgl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", compat.vsOutPrefix, vertexRangeClipSuffix);
 		}
 		if (gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE)) {
 			// Cull any triangle fully outside in the same direction when depth clamp enabled.
@@ -1177,6 +1324,19 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	// We've named the output gl_Position in HLSL as well.
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
+
+	if (IsVRBuild()) {
+		// Z correction for the depth buffer
+		if (useHWTransform) {
+			WRITE(p, "  %sgl_Position.z = orgPos.z / abs(orgPos.w) * abs(outPos.w);\n", compat.vsOutPrefix);
+		}
+
+		// HUD scaling
+		WRITE(p, "  if ((u_scaleX < 0.99) || (u_scaleY < 0.99)) {\n");
+		WRITE(p, "    %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
+		WRITE(p, "    %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
+		WRITE(p, "  }\n");
+	}
 
 	if (needsZWHack) {
 		// See comment in thin3d_vulkan.cpp.

@@ -230,6 +230,17 @@ public:
 		return pendingAsyncResult || hasAsyncResult;
 	}
 
+	const PSPFileInfo &FileInfo() {
+		if (!infoReady) {
+			info = pspFileSystem.GetFileInfo(fullpath);
+			if (!info.exists) {
+				ERROR_LOG(IO, "File %s no longer exists when reading info", fullpath.c_str());
+			}
+			infoReady = true;
+		}
+		return info;
+	}
+
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("FileNode", 1, 3);
 		if (!s)
@@ -246,6 +257,9 @@ public:
 		Do(p, closePending);
 		Do(p, info);
 		Do(p, openMode);
+		if (p.mode == p.MODE_READ) {
+			infoReady = info.exists;
+		}
 
 		Do(p, npdrm);
 		Do(p, pgd_offset);
@@ -285,6 +299,7 @@ public:
 	// TODO: Use an enum instead?
 	bool closePending = false;
 
+	bool infoReady = false;
 	PSPFileInfo info;
 	u32 openMode = 0;
 
@@ -931,12 +946,12 @@ static u32 sceIoGetstat(const char *filename, u32 addr) {
 	// TODO: Improve timing (although this seems normally slow..)
 	int usec = 1000;
 
-	SceIoStat stat;
+	auto stat = PSPPointer<SceIoStat>::Create(addr);
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	if (info.exists) {
-		__IoGetStat(&stat, info);
-		if (Memory::IsValidAddress(addr)) {
-			Memory::WriteStruct(addr, &stat);
+		if (stat.IsValid()) {
+			__IoGetStat(stat, info);
+			stat.NotifyWrite("IoGetstat");
 			DEBUG_LOG(SCEIO, "sceIoGetstat(%s, %08x) : sector = %08x", filename, addr, info.startSector);
 			return hleDelayResult(0, "io getstat", usec);
 		} else {
@@ -1356,7 +1371,7 @@ static s64 __IoLseekDest(FileNode *f, s64 offset, int whence, FileMove &seek) {
 		seek = FILEMOVE_CURRENT;
 		break;
 	case 2:
-		newPos = f->info.size + offset;
+		newPos = f->FileInfo().size + offset;
 		seek = FILEMOVE_END;
 		break;
 	default:
@@ -1489,8 +1504,6 @@ static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode)
 
 		isTTY = true;
 	} else {
-		info = pspFileSystem.GetFileInfo(filename);
-
 		h = pspFileSystem.OpenFile(filename, (FileAccess)access);
 		if (h < 0) {
 			error = h;
@@ -1504,7 +1517,10 @@ static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode)
 	f->handle = h;
 	f->fullpath = filename;
 	f->asyncResult = h;
-	f->info = info;
+	if (isTTY) {
+		f->info = info;
+		f->infoReady = true;
+	}
 	f->openMode = access;
 	f->isTTY = isTTY;
 
@@ -1798,19 +1814,23 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				return SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND;
 			}
 			// TODO: Pretend we have a 2GB memory stick?  Should we check MemoryStick_FreeSpace?
-			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {  // NOTE: not outPtr
-				u32 pointer = Memory::Read_U32(argAddr);
+			if (Memory::IsValidRange(argAddr, 4) && argLen >= 4) {  // NOTE: not outPtr
+				u32 pointer = Memory::ReadUnchecked_U32(argAddr);
 				u32 sectorSize = 0x200;
 				u32 memStickSectorSize = 32 * 1024;
 				u32 sectorCount = memStickSectorSize / sectorSize;
 				u64 freeSize = 1 * 1024 * 1024 * 1024;
-				DeviceSize deviceSize;
-				deviceSize.maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
-				deviceSize.freeClusters = deviceSize.maxClusters;
-				deviceSize.maxSectors = deviceSize.maxClusters;
-				deviceSize.sectorSize = sectorSize;
-				deviceSize.sectorCount = sectorCount;
-				Memory::WriteStruct(pointer, &deviceSize);
+
+				auto deviceSize = PSPPointer<DeviceSize>::Create(pointer);
+				if (deviceSize.IsValid()) {
+					deviceSize->maxClusters = (u32)((freeSize * 95 / 100) / (sectorSize * sectorCount));
+					deviceSize->freeClusters = deviceSize->maxClusters;
+					deviceSize->maxSectors = deviceSize->maxClusters;
+					deviceSize->sectorSize = sectorSize;
+					deviceSize->sectorCount = sectorCount;
+					deviceSize.NotifyWrite("ms0:02425818");
+				}
+
 				return 0;
 			} else {
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
@@ -1821,8 +1841,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_INSERTED) {
 				return SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND;
 			}
-			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
-				Memory::Write_U32(0, outPtr);
+			if (Memory::IsValidRange(outPtr, 4) && outLen == 4) {
+				Memory::WriteUnchecked_U32(0, outPtr);
 				return 0;
 			} else {
 				ERROR_LOG(SCEIO, "Failed 0x02425824 fat");
@@ -1939,13 +1959,16 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				u32 memStickSectorSize = 32 * 1024;
 				u32 sectorCount = memStickSectorSize / sectorSize;
 				u64 freeSize = 1 * 1024 * 1024 * 1024;
-				DeviceSize deviceSize;
-				deviceSize.maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
-				deviceSize.freeClusters = deviceSize.maxClusters;
-				deviceSize.maxSectors = deviceSize.maxClusters;
-				deviceSize.sectorSize = sectorSize;
-				deviceSize.sectorCount = sectorCount;
-				Memory::WriteStruct(pointer, &deviceSize);
+
+				auto deviceSize = PSPPointer<DeviceSize>::Create(pointer);
+				if (deviceSize.IsValid()) {
+					deviceSize->maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
+					deviceSize->freeClusters = deviceSize->maxClusters;
+					deviceSize->maxSectors = deviceSize->maxClusters;
+					deviceSize->sectorSize = sectorSize;
+					deviceSize->sectorCount = sectorCount;
+					deviceSize.NotifyWrite("fatms0:02425818");
+				}
 				return 0;
 			} else {
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
@@ -2313,16 +2336,19 @@ public:
 static u32 sceIoDopen(const char *path) {
 	DEBUG_LOG(SCEIO, "sceIoDopen(\"%s\")", path);
 
-	if (!pspFileSystem.GetFileInfo(path).exists) {
+	double startTime = time_now_d();
+
+	bool listingExists = false;
+	auto listing = pspFileSystem.GetDirListing(path, &listingExists);
+
+	if (!listingExists) {
 		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 
 	DirListing *dir = new DirListing();
 	SceUID id = kernelObjects.Create(dir);
 
-	double startTime = time_now_d();
-
-	dir->listing = pspFileSystem.GetDirListing(path);
+	dir->listing = listing;
 	dir->index = 0;
 	dir->name = std::string(path);
 
@@ -2521,7 +2547,7 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 		if(f->pgdInfo)
 			return f->pgdInfo->data_size;
 		else
-			return (int)f->info.size;
+			return (int)f->FileInfo().size;
 		break;
 
 	// Get UMD sector size
@@ -2564,7 +2590,7 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 			const auto seekInfo = PSPPointer<SeekInfo>::Create(indataPtr);
 			FileMove seek;
 			s64 newPos = __IoLseekDest(f, seekInfo->offset, seekInfo->whence, seek);
-			if (newPos < 0 || newPos > f->info.size) {
+			if (newPos < 0 || newPos > f->FileInfo().size) {
 				// Not allowed to seek past the end of the file with this API.
 				return ERROR_ERRNO_IO_ERROR;
 			}
@@ -2580,7 +2606,7 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
 		INFO_LOG(SCEIO, "sceIoIoctl: Asked for start sector of file %i", id);
 		if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
-			Memory::Write_U32(f->info.startSector, outdataPtr);
+			Memory::Write_U32(f->FileInfo().startSector, outdataPtr);
 		} else {
 			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
@@ -2592,7 +2618,7 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
 		INFO_LOG(SCEIO, "sceIoIoctl: Asked for size of file %i", id);
 		if (Memory::IsValidAddress(outdataPtr) && outlen >= 8) {
-			Memory::Write_U64(f->info.size, outdataPtr);
+			Memory::Write_U64(f->FileInfo().size, outdataPtr);
 		} else {
 			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
@@ -2669,7 +2695,7 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 			FileMove seek;
 			s64 newPos = __IoLseekDest(f, seekInfo->offset, seekInfo->whence, seek);
 			// Position is in sectors, don't forget.
-			if (newPos < 0 || newPos > f->info.size) {
+			if (newPos < 0 || newPos > f->FileInfo().size) {
 				// Not allowed to seek past the end of the file with this API.
 				return SCE_KERNEL_ERROR_ERRNO_INVALID_FILE_SIZE;
 			}

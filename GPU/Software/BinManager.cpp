@@ -166,7 +166,7 @@ void BinManager::UpdateState() {
 	if (HasDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL)) {
 		if (states_.Full())
 			Flush("states");
-		stateIndex_ = (int)states_.Push(RasterizerState());
+		stateIndex_ = (uint16_t)states_.Push(RasterizerState());
 		ComputeRasterizerState(&states_[stateIndex_]);
 		states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
 
@@ -197,19 +197,22 @@ void BinManager::UpdateState() {
 			Flush("tex");
 
 		// Okay, now update what's pending.
-		constexpr uint32_t mirrorMask = 0x0FFFFFFF & ~0x00600000;
-		const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
-		pendingWrites_[0].Expand(gstate.getFrameBufAddress() & mirrorMask, bpp, gstate.FrameBufStride(), scissorTL, scissorBR);
-		if (state.pixelID.depthWrite)
-			pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
+		MarkPendingWrites(state);
 
 		ClearDirty(SoftDirty::BINNER_RANGE);
 	} else if (pendingOverlap_) {
-		if (HasTextureWrite(state))
+		if (HasTextureWrite(state)) {
 			Flush("tex");
+
+			// We need the pending writes set, which flushing cleared.  Set them again.
+			MarkPendingWrites(state);
+		}
 	}
 
 	if (HasDirty(SoftDirty::BINNER_OVERLAP)) {
+		// This is a good place to record any dependencies for block transfer overlap.
+		MarkPendingReads(state);
+
 		// Disallow threads when rendering to the target, even offset.
 		bool selfRender = HasTextureWrite(state);
 		int newMaxTasks = selfRender ? 1 : g_threadManager.GetNumLooperThreads();
@@ -239,7 +242,7 @@ bool BinManager::HasTextureWrite(const RasterizerState &state) {
 	if (!state.enableTextures)
 		return false;
 
-	const int textureBits = textureBitsPerPixel[state.samplerID.texfmt];
+	const uint8_t textureBits = textureBitsPerPixel[state.samplerID.texfmt];
 	for (int i = 0; i <= state.maxTexLevel; ++i) {
 		int byteStride = (state.texbufw[i] * textureBits) / 8;
 		int byteWidth = (state.samplerID.cached.sizes[i].w * textureBits) / 8;
@@ -249,6 +252,45 @@ bool BinManager::HasTextureWrite(const RasterizerState &state) {
 	}
 
 	return false;
+}
+
+void BinManager::MarkPendingReads(const Rasterizer::RasterizerState &state) {
+	if (!state.enableTextures)
+		return;
+
+	const uint8_t textureBits = textureBitsPerPixel[state.samplerID.texfmt];
+	for (int i = 0; i <= state.maxTexLevel; ++i) {
+		uint32_t byteStride = (state.texbufw[i] * textureBits) / 8;
+		uint32_t byteWidth = (state.samplerID.cached.sizes[i].w * textureBits) / 8;
+		uint32_t h = state.samplerID.cached.sizes[i].h;
+		auto it = pendingReads_.find(state.texaddr[i]);
+		if (it != pendingReads_.end()) {
+			uint32_t total = byteStride * (h - 1) + byteWidth;
+			uint32_t existing = it->second.strideBytes * (it->second.height - 1) + it->second.widthBytes;
+			if (existing < total) {
+				it->second.strideBytes = std::max(it->second.strideBytes, byteStride);
+				it->second.widthBytes = std::max(it->second.widthBytes, byteWidth);
+				it->second.height = std::max(it->second.height, h);
+			}
+		} else {
+			auto &range = pendingReads_[state.texaddr[i]];
+			range.base = state.texaddr[i];
+			range.strideBytes = byteStride;
+			range.widthBytes = byteWidth;
+			range.height = h;
+		}
+	}
+}
+
+void BinManager::MarkPendingWrites(const Rasterizer::RasterizerState &state) {
+	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1());
+	DrawingCoords scissorBR(std::min(gstate.getScissorX2(), gstate.getRegionX2()), std::min(gstate.getScissorY2(), gstate.getRegionY2()));
+
+	constexpr uint32_t mirrorMask = 0x041FFFFF;
+	const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
+	pendingWrites_[0].Expand(gstate.getFrameBufAddress() & mirrorMask, bpp, gstate.FrameBufStride(), scissorTL, scissorBR);
+	if (state.pixelID.depthWrite)
+		pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
 }
 
 inline void BinDirtyRange::Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, DrawingCoords &tl, DrawingCoords &br) {
@@ -281,7 +323,7 @@ void BinManager::UpdateClut(const void *src) {
 	PROFILE_THIS_SCOPE("bin_clut");
 	if (cluts_.Full())
 		Flush("cluts");
-	clutIndex_ = (int)cluts_.Push(BinClut());
+	clutIndex_ = (uint16_t)cluts_.Push(BinClut());
 	memcpy(cluts_[clutIndex_].readable, src, sizeof(BinClut));
 }
 
@@ -295,7 +337,7 @@ void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const V
 	if (d01.x * d02.y - d01.y * d02.x < 0)
 		return;
 	// If all points have identical coords, we'll have 0 weights and not skip properly, so skip here.
-	if (d01.x == 0 && d01.y == 0 && d02.x == 0 && d02.y == 0)
+	if ((d01.x == 0 && d02.x == 0) || (d01.y == 0 && d02.y == 0))
 		return;
 
 	// Was it fully outside the scissor?
@@ -364,7 +406,7 @@ void BinManager::AddPoint(const VertexData &v0) {
 	Expand(range);
 }
 
-void BinManager::Drain() {
+void BinManager::Drain(bool flushing) {
 	PROFILE_THIS_SCOPE("bin_drain");
 
 	// If the waitable has fully drained, we can update our binning decisions.
@@ -404,6 +446,7 @@ void BinManager::Drain() {
 			queue_.SkipNext();
 		}
 	} else {
+		int max = flushing ? QUEUED_PRIMS : QUEUED_PRIMS / 2;
 		while (!queue_.Empty()) {
 			const BinItem &item = queue_.PeekNext();
 			for (int i = 0; i < (int)taskRanges_.size(); ++i) {
@@ -411,17 +454,24 @@ void BinManager::Drain() {
 				if (range.Invalid())
 					continue;
 
-				// This shouldn't often happen, but if it does, wait for space.
-				if (taskQueues_[i].Full())
-					waitable_->Wait();
+				if (taskQueues_[i].NearFull()) {
+					// This shouldn't often happen, but if it does, wait for space.
+					if (taskQueues_[i].Full())
+						waitable_->Wait();
+					// If we're not flushing and not near full, let's just continue later.
+					// Near full means we'd drain on next prim, so better to finish it now.
+					else if (!flushing && !queue_.NearFull())
+						max = 0;
+				}
 
 				BinItem &taskItem = taskQueues_[i].PeekPush();
 				taskItem = item;
 				taskItem.range = range;
 				taskQueues_[i].PushPeeked();
-
 			}
 			queue_.SkipNext();
+			if (--max <= 0)
+				break;
 		}
 
 		int threads = 0;
@@ -443,10 +493,13 @@ void BinManager::Drain() {
 }
 
 void BinManager::Flush(const char *reason) {
+	if (queueRange_.x1 == 0x7FFFFFFF)
+		return;
+
 	double st;
 	if (coreCollectDebugStats)
 		st = time_now_d();
-	Drain();
+	Drain(true);
 	waitable_->Wait();
 	taskRanges_.clear();
 	tasksSplit_ = false;
@@ -465,9 +518,10 @@ void BinManager::Flush(const char *reason) {
 	for (auto &pending : pendingWrites_)
 		pending.base = 0;
 	pendingOverlap_ = false;
+	pendingReads_.clear();
 
-	// We'll need to set the pending writes again, since we just flushed it.
-	dirty_ |= SoftDirty::BINNER_RANGE;
+	// We'll need to set the pending writes and reads again, since we just flushed it.
+	dirty_ |= SoftDirty::BINNER_RANGE | SoftDirty::BINNER_OVERLAP;
 
 	if (coreCollectDebugStats) {
 		double et = time_now_d();
@@ -484,9 +538,9 @@ bool BinManager::HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, ui
 	if (!Memory::IsVRAMAddress(start))
 		return false;
 	// Ignore mirrors for overlap detection.
-	start &= 0x0FFFFFFF & ~0x00600000;
+	start &= 0x041FFFFF;
 
-	uint32_t size = stride * h;
+	uint32_t size = stride * (h - 1) + w;
 	for (const auto &range : pendingWrites_) {
 		if (range.base == 0 || range.strideBytes == 0)
 			continue;
@@ -507,6 +561,28 @@ bool BinManager::HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, ui
 
 			row += stride;
 		}
+	}
+
+	return false;
+}
+
+bool BinManager::HasPendingRead(uint32_t start, uint32_t stride, uint32_t w, uint32_t h) {
+	if (Memory::IsVRAMAddress(start)) {
+		// Ignore VRAM mirrors.
+		start &= 0x041FFFFF;
+	} else {
+		// Ignore only regular RAM mirrors.
+		start &= 0x3FFFFFFF;
+	}
+
+	uint32_t size = stride * (h - 1) + w;
+	for (const auto &pair : pendingReads_) {
+		const auto &range = pair.second;
+		if (start >= range.base + range.height * range.strideBytes || start + size <= range.base)
+			continue;
+
+		// Stride gaps are uncommon with reads, so don't bother.
+		return true;
 	}
 
 	return false;

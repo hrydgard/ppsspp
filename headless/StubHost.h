@@ -68,8 +68,12 @@ public:
 		}
 	}
 
-	virtual void SetComparisonScreenshot(const Path &filename) {
+	void SetComparisonScreenshot(const Path &filename, double maxError) {
 		comparisonScreenshot_ = filename;
+		maxScreenshotError_ = maxError;
+	}
+	void SetWriteFailureScreenshot(bool flag) {
+		writeFailureScreenshot_ = flag;
 	}
 
 	void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) override;
@@ -83,7 +87,9 @@ protected:
 	void SendOrCollectDebugOutput(const std::string &output);
 
 	Path comparisonScreenshot_;
+	double maxScreenshotError_ = 0.0;
 	std::string debugOutputBuffer_;
 	GPUCore gpuCore_;
 	GraphicsContext *gfx_ = nullptr;
+	bool writeFailureScreenshot_ = true;
 };

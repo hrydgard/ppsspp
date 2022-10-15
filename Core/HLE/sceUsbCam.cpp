@@ -113,11 +113,12 @@ static int getCameraResolution(Camera::ConfigType type, int *width, int *height)
 
 
 static int sceUsbCamSetupMic(u32 paramAddr, u32 workareaAddr, int wasize) {
-	INFO_LOG(HLE, "sceUsbCamSetupMic");
-	if (Memory::IsValidRange(paramAddr, sizeof(PspUsbCamSetupMicParam))) {
-		Memory::ReadStruct(paramAddr, &config->micParam);
+	auto param = PSPPointer<PspUsbCamSetupMicParam>::Create(paramAddr);
+	if (param.IsValid()) {
+		config->micParam = *param;
+		param.NotifyRead("UsbCamSetupMic");
 	}
-	return 0;
+	return hleLogSuccessInfoI(SCEMISC, 0);
 }
 
 static int sceUsbCamStartMic() {
@@ -155,16 +156,20 @@ static int sceUsbCamGetMicDataLength() {
 }
 
 static int sceUsbCamSetupVideo(u32 paramAddr, u32 workareaAddr, int wasize) {
-	if (Memory::IsValidRange(paramAddr, sizeof(PspUsbCamSetupVideoParam))) {
-		Memory::ReadStruct(paramAddr, &config->videoParam);
+	auto param = PSPPointer<PspUsbCamSetupVideoParam>::Create(paramAddr);
+	if (param.IsValid()) {
+		config->videoParam = *param;
+		param.NotifyRead("UsbCamSetupVideo");
 	}
 	config->type = Camera::ConfigType::CfVideo;
 	return 0;
 }
 
 static int sceUsbCamSetupVideoEx(u32 paramAddr, u32 workareaAddr, int wasize) {
-	if (Memory::IsValidRange(paramAddr, sizeof(PspUsbCamSetupVideoExParam))) {
-		Memory::ReadStruct(paramAddr, &config->videoExParam);
+	auto param = PSPPointer<PspUsbCamSetupVideoExParam>::Create(paramAddr);
+	if (param.IsValid()) {
+		config->videoExParam = *param;
+		param.NotifyRead("UsbCamSetupVideoEx");
 	}
 	config->type = Camera::ConfigType::CfVideoEx;
 	return 0;
@@ -222,8 +227,10 @@ static int sceUsbCamPollReadVideoFrameEnd() {
 
 static int sceUsbCamSetupStill(u32 paramAddr) {
 	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupStill");
-	if (Memory::IsValidRange(paramAddr, sizeof(PspUsbCamSetupStillParam))) {
-		Memory::ReadStruct(paramAddr, &config->stillParam);
+	auto param = PSPPointer<PspUsbCamSetupStillParam>::Create(paramAddr);
+	if (param.IsValid()) {
+		config->stillParam = *param;
+		param.NotifyRead("UsbCamSetupStill");
 	}
 	config->type = Camera::ConfigType::CfStill;
 	return 0;
@@ -231,8 +238,10 @@ static int sceUsbCamSetupStill(u32 paramAddr) {
 
 static int sceUsbCamSetupStillEx(u32 paramAddr) {
 	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupStillEx");
-	if (Memory::IsValidRange(paramAddr, sizeof(PspUsbCamSetupStillExParam))) {
-		Memory::ReadStruct(paramAddr, &config->stillExParam);
+	auto param = PSPPointer<PspUsbCamSetupStillExParam>::Create(paramAddr);
+	if (param.IsValid()) {
+		config->stillExParam = *param;
+		param.NotifyRead("UsbCamSetupStillEx");
 	}
 	config->type = Camera::ConfigType::CfStillEx;
 	return 0;

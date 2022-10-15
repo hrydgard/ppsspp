@@ -41,6 +41,8 @@ public:
 	void update() override;
 	void onFinish(DialogResult result) override;
 
+	const char *tag() const override { return "CwCheat"; }
+
 protected:
 	void CreateViews() override;
 

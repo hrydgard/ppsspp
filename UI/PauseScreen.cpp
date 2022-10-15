@@ -172,9 +172,7 @@ public:
 		return slot_;
 	}
 
-	std::string tag() const override {
-		return "screenshot";
-	}
+	const char *tag() const override { return "ScreenshotView"; }
 
 protected:
 	bool FillVertical() const override { return false; }
@@ -460,7 +458,7 @@ UI::EventReturn GamePauseScreen::OnState(UI::EventParams &e) {
 
 void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 	std::string tag = dialog->tag();
-	if (tag == "screenshot" && dr == DR_OK) {
+	if (tag == "ScreenshotView" && dr == DR_OK) {
 		finishNextFrame_ = true;
 	} else {
 		// There may have been changes to our savestates, so let's recreate.

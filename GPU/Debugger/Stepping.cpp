@@ -63,6 +63,7 @@ static GPUDebugBuffer bufferStencil;
 static GPUDebugBuffer bufferTex;
 static GPUDebugBuffer bufferClut;
 static int bufferLevel;
+static bool lastWasFramebuffer;
 static u32 pauseSetCmdValue;
 
 static GPUgstate lastGState;
@@ -111,7 +112,7 @@ static void RunPauseAction() {
 		break;
 
 	case PAUSE_GETTEX:
-		bufferResult = gpuDebug->GetCurrentTexture(bufferTex, bufferLevel);
+		bufferResult = gpuDebug->GetCurrentTexture(bufferTex, bufferLevel, &lastWasFramebuffer);
 		break;
 
 	case PAUSE_GETCLUT:
@@ -237,9 +238,11 @@ bool GPU_GetCurrentStencilbuffer(const GPUDebugBuffer *&buffer) {
 	return GetBuffer(buffer, PAUSE_GETSTENCILBUF, bufferStencil);
 }
 
-bool GPU_GetCurrentTexture(const GPUDebugBuffer *&buffer, int level) {
+bool GPU_GetCurrentTexture(const GPUDebugBuffer *&buffer, int level, bool *isFramebuffer) {
 	bufferLevel = level;
-	return GetBuffer(buffer, PAUSE_GETTEX, bufferTex);
+	bool result = GetBuffer(buffer, PAUSE_GETTEX, bufferTex);
+	*isFramebuffer = lastWasFramebuffer;
+	return result;
 }
 
 bool GPU_GetCurrentClut(const GPUDebugBuffer *&buffer) {

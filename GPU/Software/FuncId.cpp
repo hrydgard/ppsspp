@@ -56,7 +56,7 @@ void ComputePixelFuncID(PixelFuncID *id) {
 	// Dither happens even in clear mode.
 	id->dithering = gstate.isDitherEnabled();
 	id->fbFormat = gstate.FrameBufFormat();
-	id->useStandardStride = gstate.FrameBufStride() == 512 && gstate.DepthBufStride() == 512;
+	id->useStandardStride = gstate.FrameBufStride() == 512;
 	id->applyColorWriteMask = gstate.getColorMask() != 0;
 
 	id->clearMode = gstate.isModeClear();
@@ -79,6 +79,7 @@ void ComputePixelFuncID(PixelFuncID *id) {
 			id->stencilTest = gstate.isStencilTestEnabled();
 		}
 		id->depthWrite = gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled();
+		id->depthTestFunc = gstate.isDepthTestEnabled() ? gstate.getDepthTestFunction() : GE_COMP_ALWAYS;
 
 		if (id->stencilTest) {
 			id->stencilTestRef = gstate.getStencilTestRef() & gstate.getStencilTestMask();
@@ -92,13 +93,6 @@ void ComputePixelFuncID(PixelFuncID *id) {
 				id->zFail = gstate.isDepthTestEnabled() ? gstate.getStencilOpZFail() : GE_STENCILOP_KEEP;
 			if (gstate.FrameBufFormat() != GE_FORMAT_565 && gstate.getStencilOpZPass() <= GE_STENCILOP_DECR)
 				id->zPass = gstate.getStencilOpZPass();
-
-			// Always treat zPass/zFail the same if there's no depth test.
-			if (!gstate.isDepthTestEnabled() || gstate.getDepthTestFunction() == GE_COMP_ALWAYS)
-				id->zFail = id->zPass;
-			// And same for sFail if there's no stencil test.
-			if (id->StencilTestFunc() == GE_COMP_ALWAYS)
-				id->sFail = id->zPass;
 
 			// Normalize REPLACE 00 to ZERO, especially if using a mask.
 			if (gstate.getStencilTestRef() == 0) {
@@ -120,14 +114,27 @@ void ComputePixelFuncID(PixelFuncID *id) {
 					id->zPass = GE_STENCILOP_ZERO;
 			}
 
-			// Turn off stencil testing if it's doing nothing.
-			if (id->SFail() == GE_STENCILOP_KEEP && id->ZFail() == GE_STENCILOP_KEEP && id->ZPass() == GE_STENCILOP_KEEP) {
-				if (id->StencilTestFunc() == GE_COMP_ALWAYS)
+			// And same for sFail if there's no stencil test.  Prefer KEEP, though.
+			if (id->StencilTestFunc() == GE_COMP_ALWAYS) {
+				if (id->DepthTestFunc() == GE_COMP_ALWAYS)
+					id->zFail = GE_STENCILOP_KEEP;
+				id->sFail = GE_STENCILOP_KEEP;
+				// Always doesn't need a mask.
+				id->stencilTestRef = gstate.getStencilTestRef();
+				id->hasStencilTestMask = false;
+
+				// Turn off stencil testing if it's doing nothing.
+				if (id->SFail() == GE_STENCILOP_KEEP && id->ZFail() == GE_STENCILOP_KEEP && id->ZPass() == GE_STENCILOP_KEEP) {
 					id->stencilTest = false;
+					id->stencilTestFunc = 0;
+					id->stencilTestRef = 0;
+				}
+			} else if (id->DepthTestFunc() == GE_COMP_ALWAYS) {
+				// Always treat zPass/zFail the same if there's no depth test.
+				id->zFail = id->zPass;
 			}
 		}
 
-		id->depthTestFunc = gstate.isDepthTestEnabled() ? gstate.getDepthTestFunction() : GE_COMP_ALWAYS;
 		id->alphaTestFunc = gstate.isAlphaTestEnabled() ? gstate.getAlphaTestFunction() : GE_COMP_ALWAYS;
 		if (id->AlphaTestFunc() != GE_COMP_ALWAYS) {
 			id->alphaTestRef = gstate.getAlphaTestRef() & gstate.getAlphaTestMask();
@@ -161,9 +168,27 @@ void ComputePixelFuncID(PixelFuncID *id) {
 				id->alphaBlendDst = (uint8_t)OptimizeAlphaFactor(gstate.getFixB());
 		}
 
+		if (id->colorTest && gstate.getColorTestFunction() == GE_COMP_NOTEQUAL && gstate.getColorTestRef() == 0 && gstate.getColorTestMask() == 0xFFFFFF) {
+			if (!id->depthWrite && !id->stencilTest && id->alphaBlend && id->AlphaBlendEq() == GE_BLENDMODE_MUL_AND_ADD) {
+				// Might be a pointless color test (seen in Ridge Racer, for example.)
+				if (id->AlphaBlendDst() == PixelBlendFactor::ONE)
+					id->colorTest = false;
+			}
+		}
+
 		id->applyLogicOp = gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY;
 		id->applyFog = gstate.isFogEnabled() && !gstate.isModeThrough();
+
+		id->earlyZChecks = id->DepthTestFunc() != GE_COMP_ALWAYS;
+		if (id->stencilTest && id->earlyZChecks) {
+			// Can't do them early if stencil might need to write.
+			if (id->SFail() != GE_STENCILOP_KEEP || id->ZFail() != GE_STENCILOP_KEEP)
+				id->earlyZChecks = false;
+		}
 	}
+
+	if (id->useStandardStride && (id->depthTestFunc != GE_COMP_ALWAYS || id->depthWrite))
+		id->useStandardStride = gstate.DepthBufStride() == 512;
 
 	// Cache some values for later convenience.
 	if (id->dithering) {
@@ -272,6 +297,8 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 		desc = "INVALID:" + desc;
 	}
 
+	if (id.earlyZChecks)
+		desc += "ZEarly:";
 	if (id.DepthTestFunc() != GE_COMP_ALWAYS) {
 		if (id.clearMode)
 			desc = "INVALID:" + desc;
@@ -305,7 +332,8 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 		}
 		if (id.hasStencilTestMask)
 			desc += "Msk";
-		desc += StringFromFormat("%02X:", id.stencilTestRef);
+		if (id.StencilTestFunc() != GE_COMP_ALWAYS || id.DepthTestFunc() != GE_COMP_ALWAYS)
+			desc += StringFromFormat("%02X:", id.stencilTestRef);
 	} else if (id.hasStencilTestMask || id.stencilTestRef != 0 || id.stencilTestFunc != 0) {
 		desc = "INVALID:" + desc;
 	}
@@ -326,13 +354,24 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 	case GE_STENCILOP_INCR: desc += "ZTstFInc:"; break;
 	case GE_STENCILOP_DECR: desc += "ZTstFDec:"; break;
 	}
-	switch (id.ZPass()) {
-	case GE_STENCILOP_KEEP: break;
-	case GE_STENCILOP_ZERO: desc += "ZTstT0:"; break;
-	case GE_STENCILOP_REPLACE: desc += "ZTstTRpl:"; break;
-	case GE_STENCILOP_INVERT: desc += "ZTstTXor:"; break;
-	case GE_STENCILOP_INCR: desc += "ZTstTInc:"; break;
-	case GE_STENCILOP_DECR: desc += "ZTstTDec:"; break;
+	if (id.StencilTestFunc() == GE_COMP_ALWAYS && id.DepthTestFunc() == GE_COMP_ALWAYS) {
+		switch (id.ZPass()) {
+		case GE_STENCILOP_KEEP: break;
+		case GE_STENCILOP_ZERO: desc += "Zero:"; break;
+		case GE_STENCILOP_REPLACE: desc += StringFromFormat("Rpl%02X:", id.stencilTestRef); break;
+		case GE_STENCILOP_INVERT: desc += "Xor:"; break;
+		case GE_STENCILOP_INCR: desc += "Inc:"; break;
+		case GE_STENCILOP_DECR: desc += "Dec:"; break;
+		}
+	} else {
+		switch (id.ZPass()) {
+		case GE_STENCILOP_KEEP: break;
+		case GE_STENCILOP_ZERO: desc += "ZTstT0:"; break;
+		case GE_STENCILOP_REPLACE: desc += "ZTstTRpl:"; break;
+		case GE_STENCILOP_INVERT: desc += "ZTstTXor:"; break;
+		case GE_STENCILOP_INCR: desc += "ZTstTInc:"; break;
+		case GE_STENCILOP_DECR: desc += "ZTstTDec:"; break;
+		}
 	}
 	if (!id.stencilTest || id.clearMode) {
 		if (id.sFail != 0 || id.zFail != 0 || id.zPass != 0)

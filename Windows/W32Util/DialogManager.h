@@ -18,6 +18,7 @@ protected:
 	virtual void Create();
 	void Destroy();
 
+	HINSTANCE m_hInstance;
 	HWND m_hParent;
 	HWND m_hDlg;
 	LPCSTR m_hResource;
@@ -26,9 +27,6 @@ protected:
 
 	virtual BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) = 0;
 	static INT_PTR CALLBACK DlgProcStatic(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
-
-private:
-	HINSTANCE m_hInstance;
 };
 
 

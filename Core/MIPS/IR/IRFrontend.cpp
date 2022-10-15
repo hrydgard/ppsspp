@@ -260,6 +260,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 	IRWriter *code = &ir;
 	if (!js.hadBreakpoints) {
 		static const IRPassFunc passes[] = {
+			&ApplyMemoryValidation,
 			&RemoveLoadStoreLeftRight,
 			&OptimizeFPMoves,
 			&PropagateConstants,

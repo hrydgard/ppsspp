@@ -213,8 +213,15 @@ enum class IROp : u8 {
 	SetPCConst,  // hack to make replacement know PC
 	CallReplacement,
 	Break,
+
+	// Debugging breakpoints.
 	Breakpoint,
 	MemoryCheck,
+
+	ValidateAddress8,
+	ValidateAddress16,
+	ValidateAddress32,
+	ValidateAddress128,
 };
 
 enum IRComparison {

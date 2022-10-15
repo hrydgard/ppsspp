@@ -116,41 +116,43 @@
   <PropertyGroup />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <GenerateManifest>false</GenerateManifest>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;$(ProjectDir)..\..\ext\armips\ext\filesystem\include;$(ProjectDir)..\..\ext\armips\ext\tinyformat;</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <GenerateManifest>false</GenerateManifest>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;$(ProjectDir)..\..\ext\armips\ext\filesystem\include;$(ProjectDir)..\..\ext\armips\ext\tinyformat;</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <GenerateManifest>false</GenerateManifest>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;$(ProjectDir)..\..\ext\armips\ext\filesystem\include;$(ProjectDir)..\..\ext\armips\ext\tinyformat;</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <GenerateManifest>false</GenerateManifest>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;$(ProjectDir)..\..\ext\armips\ext\filesystem\include;$(ProjectDir)..\..\ext\armips\ext\tinyformat;</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <GenerateManifest>false</GenerateManifest>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;$(ProjectDir)..\..\ext\armips\ext\filesystem\include;$(ProjectDir)..\..\ext\armips\ext\tinyformat;</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <GenerateManifest>false</GenerateManifest>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;$(ProjectDir)..\..\ext\armips\ext\filesystem\include;$(ProjectDir)..\..\ext\armips\ext\tinyformat;</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <GenerateManifest>false</GenerateManifest>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;$(ProjectDir)..\..\ext\armips\ext\filesystem\include;$(ProjectDir)..\..\ext\armips\ext\tinyformat;</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <GenerateManifest>false</GenerateManifest>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;$(ProjectDir)..\..\ext\armips\ext\filesystem\include;$(ProjectDir)..\..\ext\armips\ext\tinyformat;</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;_CRT_SECURE_NO_WARNINGS;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -163,6 +165,8 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;_CRT_SECURE_NO_WARNINGS;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -175,6 +179,8 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;_CRT_SECURE_NO_WARNINGS;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -187,6 +193,8 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;_CRT_SECURE_NO_WARNINGS;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -199,6 +207,8 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;_CRT_SECURE_NO_WARNINGS;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -211,6 +221,8 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;_CRT_SECURE_NO_WARNINGS;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -223,6 +235,8 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;_CRT_SECURE_NO_WARNINGS;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -235,6 +249,8 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;_CRT_SECURE_NO_WARNINGS;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -285,7 +301,6 @@
     <ClInclude Include="..\..\ext\armips\Parser\ExpressionParser.h" />
     <ClInclude Include="..\..\ext\armips\Parser\Parser.h" />
     <ClInclude Include="..\..\ext\armips\Parser\Tokenizer.h" />
-    <ClInclude Include="..\..\ext\armips\stdafx.h" />
     <ClInclude Include="..\..\ext\armips\Util\ByteArray.h" />
     <ClInclude Include="..\..\ext\armips\Util\CRC.h" />
     <ClInclude Include="..\..\ext\armips\Util\EncodingTable.h" />
@@ -322,25 +337,28 @@
     <ClCompile Include="..\..\ext\armips\Commands\CDirectiveFile.cpp" />
     <ClCompile Include="..\..\ext\armips\Commands\CDirectiveMessage.cpp" />
     <ClCompile Include="..\..\ext\armips\Commands\CommandSequence.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\Allocations.cpp" />
     <ClCompile Include="..\..\ext\armips\Core\Assembler.cpp" />
     <ClCompile Include="..\..\ext\armips\Core\Common.cpp" />
     <ClCompile Include="..\..\ext\armips\Core\ELF\ElfFile.cpp" />
     <ClCompile Include="..\..\ext\armips\Core\ELF\ElfRelocator.cpp" />
     <ClCompile Include="..\..\ext\armips\Core\Expression.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\ExpressionFunctionHandler.cpp" />
     <ClCompile Include="..\..\ext\armips\Core\ExpressionFunctions.cpp" />
     <ClCompile Include="..\..\ext\armips\Core\FileManager.cpp" />
     <ClCompile Include="..\..\ext\armips\Core\Misc.cpp" />
     <ClCompile Include="..\..\ext\armips\Core\SymbolData.cpp" />
     <ClCompile Include="..\..\ext\armips\Core\SymbolTable.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\Types.cpp" />
     <ClCompile Include="..\..\ext\armips\Parser\DirectivesParser.cpp" />
     <ClCompile Include="..\..\ext\armips\Parser\ExpressionParser.cpp" />
     <ClCompile Include="..\..\ext\armips\Parser\Parser.cpp" />
     <ClCompile Include="..\..\ext\armips\Parser\Tokenizer.cpp" />
-    <ClCompile Include="..\..\ext\armips\stdafx.cpp" />
     <ClCompile Include="..\..\ext\armips\Util\ByteArray.cpp" />
     <ClCompile Include="..\..\ext\armips\Util\CRC.cpp" />
     <ClCompile Include="..\..\ext\armips\Util\EncodingTable.cpp" />
     <ClCompile Include="..\..\ext\armips\Util\FileClasses.cpp" />
+    <ClCompile Include="..\..\ext\armips\Util\FileSystem.cpp" />
     <ClCompile Include="..\..\ext\armips\Util\Util.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

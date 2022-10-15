@@ -187,6 +187,9 @@ void __sceAudiocodecDoState(PointerWrap &p){
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunknown-warning-option"
 #pragma clang diagnostic ignored "-Wsizeof-pointer-div"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsizeof-pointer-div"
 #endif
 			DoArray(p, codec_, s >= 2 ? count : (int)ARRAY_SIZE(codec_));
 			DoArray(p, ctxPtr_, s >= 2 ? count : (int)ARRAY_SIZE(ctxPtr_));
@@ -197,6 +200,8 @@ void __sceAudiocodecDoState(PointerWrap &p){
 			}
 #ifdef __clang__
 #pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
 #endif
 			delete[] codec_;
 			delete[] ctxPtr_;

@@ -189,7 +189,7 @@ T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *
 
 template <typename T>
 T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *file, int line, const char *reportTag, char retmask) {
-	if (level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) {
+	if ((level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) && !reportTag) {
 		return res;
 	}
 

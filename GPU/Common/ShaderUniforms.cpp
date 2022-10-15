@@ -74,20 +74,20 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport, bool useBufferedRendering) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
-		Uint8x3ToFloat4(ub->texEnvColor, gstate.texenvcolor);
+		Uint8x3ToFloat3(ub->texEnvColor, gstate.texenvcolor);
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORREF) {
-		Uint8x3ToInt4_Alpha(ub->alphaColorRef, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
+		ub->alphaColorRef = gstate.getColorTestRef() | ((gstate.getAlphaTestRef() & gstate.getAlphaTestMask()) << 24);
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORMASK) {
-		Uint8x3ToInt4_Alpha(ub->colorTestMask, gstate.getColorTestMask(), gstate.getAlphaTestMask());
+		ub->colorTestMask = gstate.getColorTestMask() | (gstate.getAlphaTestMask() << 24);
 	}
 	if (dirtyUniforms & DIRTY_FOGCOLOR) {
-		Uint8x3ToFloat4(ub->fogColor, gstate.fogcolor);
+		Uint8x3ToFloat3(ub->fogColor, gstate.fogcolor);
 	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
-		Uint8x3ToFloat4(ub->blendFixA, gstate.getFixA());
-		Uint8x3ToFloat4(ub->blendFixB, gstate.getFixB());
+		Uint8x3ToFloat3(ub->blendFixA, gstate.getFixA());
+		Uint8x3ToFloat3(ub->blendFixB, gstate.getFixB());
 	}
 	if (dirtyUniforms & DIRTY_TEXCLAMP) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
@@ -152,6 +152,13 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		if (!useBufferedRendering && g_display_rotation != DisplayRotation::ROTATE_0) {
 			proj_through = proj_through * g_display_rot_matrix;
 		}
+
+		// Negative RT offsets come from split framebuffers (Killzone)
+		if (gstate_c.curRTOffsetX < 0 || gstate_c.curRTOffsetY < 0) {
+			proj_through.wx += 2.0f * (float)gstate_c.curRTOffsetX / (float)gstate_c.curRTWidth;
+			proj_through.wy += 2.0f * (float)gstate_c.curRTOffsetY / (float)gstate_c.curRTHeight;
+		}
+
 		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
 		ub->rotation = useBufferedRendering ? 0 : (float)g_display_rotation;
 	}
@@ -260,6 +267,29 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 }
 
+uint32_t PackLightControlBits() {
+	// Bit organization
+	// Bottom 4 bits are enable bits for each light.
+	// Then, for each light, comes 2 bits for "comp" and 2 bits for "type".
+	// At the end, at bit 20, we put the three material update bits.
+
+	uint32_t lightControl = 0;
+	for (int i = 0; i < 4; i++) {
+		if (gstate.isLightChanEnabled(i)) {
+			lightControl |= 1 << i;
+		}
+
+		u32 computation = (u32)gstate.getLightComputation(i);  // 2 bits
+		u32 type = (u32)gstate.getLightType(i);  // 2 bits
+		lightControl |= computation << (4 + i * 4);
+		lightControl |= type << (4 + i * 4 + 2);
+	}
+
+	lightControl |= gstate.getMaterialUpdate() << 20;
+
+	return lightControl;
+}
+
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 	// Lighting
 	if (dirtyUniforms & DIRTY_AMBIENT) {
@@ -272,7 +302,11 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 		Uint8x3ToFloat4_Alpha(ub->materialSpecular, gstate.materialspecular, std::max(0.0f, getFloat24(gstate.materialspecularcoef)));
 	}
 	if (dirtyUniforms & DIRTY_MATEMISSIVE) {
-		Uint8x3ToFloat4(ub->materialEmissive, gstate.materialemissive);
+		// We're not touching the fourth f32 here, because we store an u32 of control bits in it.
+		Uint8x3ToFloat3(ub->materialEmissive, gstate.materialemissive);
+	}
+	if (dirtyUniforms & DIRTY_LIGHT_CONTROL) {
+		ub->lightControl = PackLightControlBits();
 	}
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {

@@ -911,7 +911,7 @@ namespace MainWindow {
 			if (lastSlash) {
 				fn = lastSlash + 1;
 			} else {
-				fn = "";
+				fn.clear();
 			}
 
 			PSPFileInfo info = pspFileSystem.GetFileInfo(filename);

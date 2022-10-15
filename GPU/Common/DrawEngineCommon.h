@@ -23,6 +23,7 @@
 #include "Common/Data/Collections/Hashmaps.h"
 
 #include "GPU/GPUState.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -43,6 +44,12 @@ enum {
 	TEX_SLOT_SPLINE_POINTS = 4,
 	TEX_SLOT_SPLINE_WEIGHTS_U = 5,
 	TEX_SLOT_SPLINE_WEIGHTS_V = 6,
+};
+
+enum FBOTexState {
+	FBO_TEX_NONE,
+	FBO_TEX_COPY_BIND_TEX,
+	FBO_TEX_READ_FRAMEBUFFER,
 };
 
 inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
@@ -83,10 +90,7 @@ public:
 		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, cullMode, bytesRead);
 	}
 
-	virtual void DispatchSubmitImm(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
-		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, cullMode, bytesRead);
-		DispatchFlush();
-	}
+	virtual void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation);
 
 	bool TestBoundingBox(const void* control_points, int vertexCount, u32 vertType, int *bytesRead);
 
@@ -129,7 +133,7 @@ protected:
 	// Vertex decoding
 	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
 
-	void ApplyFramebufferRead(bool *fboTexNeedsBind);
+	void ApplyFramebufferRead(FBOTexState *fboTexState);
 
 	inline int IndexSize(u32 vtype) const {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
@@ -143,6 +147,8 @@ protected:
 
 	bool useHWTransform_ = false;
 	bool useHWTessellation_ = false;
+	// Used to prevent unnecessary flushing in softgpu.
+	bool flushOnParams_ = true;
 
 	// Vertex collector buffers
 	u8 *decoded = nullptr;
@@ -165,10 +171,10 @@ protected:
 		u32 vertexCount;
 		u8 indexType;
 		s8 prim;
+		u8 cullMode;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
 		UVScale uvScale;
-		int cullMode;
 	};
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
@@ -186,8 +192,12 @@ protected:
 	GEPrimitiveType prevPrim_ = GE_PRIM_INVALID;
 
 	// Shader blending state
-	bool fboTexNeedsBind_ = false;
 	bool fboTexBound_ = false;
+
+	// Sometimes, unusual situations mean we need to reset dirty flags after state calc finishes.
+	uint64_t dirtyRequiresRecheck_ = 0;
+
+	ComputedPipelineState pipelineState_;
 
 	// Hardware tessellation
 	TessellationDataTransfer *tessDataTransfer;

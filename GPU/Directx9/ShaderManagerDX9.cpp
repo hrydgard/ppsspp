@@ -49,8 +49,6 @@
 
 using namespace Lin;
 
-namespace DX9 {
-
 PSShader::PSShader(LPDIRECT3DDEVICE9 device, FShaderID id, const char *code) : id_(id) {
 	source_ = code;
 #ifdef SHADERLOG
@@ -546,7 +544,7 @@ void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
 	lastPShader_ = nullptr;
 }
 
-VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat) {
+VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat, const ComputedPipelineState &pipelineState) {
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
@@ -558,7 +556,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 	FShaderID FSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
-		ComputeFragmentShaderID(&FSID, draw_->GetBugs());
+		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs());
 	} else {
 		FSID = lastFSID_;
 	}
@@ -625,7 +623,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 		// Fragment shader not in cache. Let's compile it.
 		std::string errorString;
 		uint64_t uniformMask;
-		bool success = GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, &errorString);
+		bool success = GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, nullptr, &errorString);
 		// We're supposed to handle all possible cases.
 		_assert_(success);
 		fs = new PSShader(device_, FSID, codeBuffer_);
@@ -702,5 +700,3 @@ std::string ShaderManagerDX9::DebugGetShaderString(std::string id, DebugShaderTy
 		return "N/A";
 	}
 }
-
-}  // namespace

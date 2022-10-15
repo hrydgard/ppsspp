@@ -114,6 +114,7 @@ enum BufferUsageFlag : int {
 enum Semantic : int {
 	SEM_POSITION,
 	SEM_COLOR0,
+	SEM_COLOR1,
 	SEM_TEXCOORD0,
 	SEM_TEXCOORD1,
 	SEM_NORMAL,
@@ -239,12 +240,10 @@ enum class NativeObject {
 	BACKBUFFER_COLOR_TEX,
 	BACKBUFFER_DEPTH_TEX,
 	FEATURE_LEVEL,
-	COMPATIBLE_RENDERPASS,
-	BACKBUFFER_RENDERPASS,
-	FRAMEBUFFER_RENDERPASS,
 	INIT_COMMANDBUFFER,
 	BOUND_TEXTURE0_IMAGEVIEW,
 	BOUND_TEXTURE1_IMAGEVIEW,
+	BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW,
 	RENDER_MANAGER,
 	TEXTURE_VIEW,
 	NULL_IMAGEVIEW,
@@ -259,6 +258,11 @@ enum FBChannel {
 	FB_SURFACE_BIT = 32,  // Used in conjunction with the others in D3D9 to get surfaces through get_api_texture
 	FB_VIEW_BIT = 64,     // Used in conjunction with the others in D3D11 to get shader resource views through get_api_texture
 	FB_FORMAT_BIT = 128,  // Actually retrieves the native format instead. D3D11 only.
+};
+
+enum FBInvalidationStage {
+	FB_INVALIDATION_LOAD = 1,
+	FB_INVALIDATION_STORE = 2,
 };
 
 enum FBBlitFilter {
@@ -326,14 +330,17 @@ public:
 		COLORWRITEMASK_BROKEN_WITH_DEPTHTEST = 5,
 		BROKEN_FLAT_IN_SHADER = 6,
 		EQUAL_WZ_CORRUPTS_DEPTH = 7,
-		MALI_STENCIL_DISCARD_BUG = 8,
-		RASPBERRY_SHADER_COMP_HANG = 9,
-		MALI_CONSTANT_LOAD_BUG = 10,
+		RASPBERRY_SHADER_COMP_HANG = 8,
+		MALI_CONSTANT_LOAD_BUG = 9,
+		SUBPASS_FEEDBACK_BROKEN = 10,
+		GEOMETRY_SHADERS_SLOW_OR_BROKEN = 11,
 		MAX_BUG,
 	};
 
 protected:
 	uint32_t flags_ = 0;
+
+	static_assert(sizeof(flags_) * 8 > MAX_BUG, "Ran out of space for bugs.");
 };
 
 class RefCountedObject {
@@ -341,7 +348,9 @@ public:
 	RefCountedObject() {
 		refcount_ = 1;
 	}
-	virtual ~RefCountedObject() {}
+	RefCountedObject(const RefCountedObject &other) = delete;
+	RefCountedObject& operator=(RefCountedObject const&) = delete;
+	virtual ~RefCountedObject();
 
 	void AddRef() { refcount_++; }
 	bool Release();
@@ -406,6 +415,7 @@ class Framebuffer : public RefCountedObject {
 public:
 	int Width() { return width_; }
 	int Height() { return height_; }
+	virtual void UpdateTag(const char *tag) {}
 protected:
 	int width_ = -1, height_ = -1;
 };
@@ -492,7 +502,6 @@ struct SamplerStateDesc {
 	TextureAddressMode wrapU;
 	TextureAddressMode wrapV;
 	TextureAddressMode wrapW;
-	float maxLod;
 	bool shadowCompareEnabled;
 	Comparison shadowCompareFunc;
 	BorderColor borderColor;
@@ -542,6 +551,8 @@ struct DeviceCaps {
 	bool fragmentShaderInt32Supported;
 	bool textureNPOTFullySupported;
 	bool fragmentShaderDepthWriteSupported;
+	bool textureDepthSupported;
+	bool blendMinMaxSupported;
 
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
@@ -553,6 +564,7 @@ typedef std::function<bool(uint8_t *data, const uint8_t *initData, uint32_t w, u
 struct TextureDesc {
 	TextureType type;
 	DataFormat format;
+
 	int width;
 	int height;
 	int depth;
@@ -566,9 +578,9 @@ struct TextureDesc {
 };
 
 enum class RPAction {
-	DONT_CARE,
-	CLEAR,
-	KEEP,
+	KEEP = 0,
+	CLEAR = 1,
+	DONT_CARE = 2,
 };
 
 struct RenderPassInfo {
@@ -604,13 +616,18 @@ public:
 
 	virtual void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {}
 
+	virtual void DebugAnnotate(const char *annotation) {}
+
 	// Partial pipeline state, used to create pipelines. (in practice, in d3d11 they'll use the native state objects directly).
+	// TODO: Possibly ditch these and just put the descs directly in PipelineDesc since only D3D11 benefits.
 	virtual DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) = 0;
 	virtual BlendState *CreateBlendState(const BlendStateDesc &desc) = 0;
 	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
 	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
 	// virtual ComputePipeline CreateComputePipeline(const ComputePipelineDesc &desc) = 0
 	virtual InputLayout *CreateInputLayout(const InputLayoutDesc &desc) = 0;
+	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag = "thin3d") = 0;
+	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) = 0;
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
 	ShaderModule *GetVshaderPreset(VertexShaderPreset preset) { return vsPresets_[preset]; }
@@ -622,9 +639,6 @@ public:
 	virtual Texture *CreateTexture(const TextureDesc &desc) = 0;
 	// On some hardware, you might get a 24-bit depth buffer even though you only wanted a 16-bit one.
 	virtual Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) = 0;
-
-	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag = "thin3d") = 0;
-	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
 
 	// Copies data from the CPU over into the buffer, at a specific offset. This does not change the size of the buffer and cannot write outside it.
 	virtual void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) = 0;
@@ -646,15 +660,21 @@ public:
 	// binding must be < MAX_TEXTURE_SLOTS (0, 1 are okay if it's 2).
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
 
-	// deprecated
+	// Framebuffer fetch / input attachment support, needs to be explicit in Vulkan.
+	virtual void BindCurrentFramebufferForColorInput() {}
+
+	// deprecated, only used by D3D9
 	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {
 		return 0;
 	}
 
 	virtual void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) = 0;
 
-	// Useful in OpenGL ES to give hints about framebuffers on tiler GPUs.
-	virtual void InvalidateFramebuffer(Framebuffer *fbo) {}
+	// Could be useful in OpenGL ES to give hints about framebuffers on tiler GPUs
+	// using glInvalidateFramebuffer, although drivers are known to botch that so we currently don't use it.
+	// In Vulkan, this sets the LOAD_OP or the STORE_OP (depending on stage) of the current render pass instance to DONT_CARE.
+	// channels is a bitwise combination of FBChannel::COLOR, DEPTH and STENCIL.
+	virtual void InvalidateFramebuffer(FBInvalidationStage stage, uint32_t channels) {}
 
 	// Dynamic state
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
@@ -666,6 +686,13 @@ public:
 	virtual void BindTextures(int start, int count, Texture **textures) = 0;
 	virtual void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) = 0;
 	virtual void BindIndexBuffer(Buffer *indexBuffer, int offset) = 0;
+
+	// Sometimes it's necessary to bind a texture not created by thin3d, and use with a thin3d pipeline.
+	// Not pretty, and one way in the future could be to create all textures through thin3d.
+	// Data types:
+	// * Vulkan: VkImageView
+	// * D3D11: ID3D11ShaderResourceView*
+	virtual void BindNativeTexture(int sampler, void *nativeTexture) = 0;
 
 	// Only supports a single dynamic uniform buffer, for maximum compatibility with the old APIs and ease of emulation.
 	// More modern methods will be added later.
@@ -709,6 +736,9 @@ public:
 
 	// Flush state like scissors etc so the caller can do its own custom drawing.
 	virtual void FlushState() {}
+
+	// This is called when we launch a new game, so any collected internal stats in the backends don't carry over.
+	virtual void ResetStats() {}
 
 	virtual int GetCurrentStepId() const = 0;
 

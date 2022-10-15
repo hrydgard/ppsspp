@@ -1325,10 +1325,10 @@ void sendChat(std::string chatString) {
 			if (IsSocketReady((int)metasocket, false, true) > 0) {
 				int chatResult = send((int)metasocket, (const char*)&chat, sizeof(chat), MSG_NOSIGNAL);
 				NOTICE_LOG(SCENET, "Send Chat %s to Adhoc Server", chat.message);
-				std::string name = g_Config.sNickName.c_str();
+				std::string name = g_Config.sNickName;
 
 				std::lock_guard<std::mutex> guard(chatLogLock);
-				chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
+				chatLog.emplace_back(name.substr(0, 8) + ": " + chat.message);
 				chatMessageGeneration++;
 			}
 		}
@@ -1891,6 +1891,7 @@ uint32_t getLocalIp(int sock) {
 static std::vector<std::pair<uint32_t, uint32_t>> InitPrivateIPRanges() {
 	struct sockaddr_in saNet {}, saMask{};
 	std::vector<std::pair<uint32_t, uint32_t>> ip_ranges;
+	ip_ranges.reserve(5);
 
 	if (1 == inet_pton(AF_INET, "192.168.0.0", &(saNet.sin_addr)) && 1 == inet_pton(AF_INET, "255.255.0.0", &(saMask.sin_addr)))
 		ip_ranges.push_back({saNet.sin_addr.s_addr, saMask.sin_addr.s_addr});
@@ -1928,7 +1929,7 @@ void getLocalMac(SceNetEtherAddr * addr){
 		mac[0] &= 0xfc;
 	}
 	else
-	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), mac)) {
+	if (!ParseMacAddress(g_Config.sMACAddress, mac)) {
 		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
 		memset(&mac, 0, sizeof(mac));
 	}

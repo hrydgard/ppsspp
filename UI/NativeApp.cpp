@@ -62,7 +62,6 @@
 #include "Common/System/NativeApp.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
-#include "Common/Math/fast/fast_math.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Profiler/Profiler.h"
@@ -78,6 +77,7 @@
 #include "Common/GraphicsContext.h"
 #include "Common/OSVersion.h"
 #include "Common/GPU/ShaderTranslation.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
@@ -459,7 +459,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	ShaderTranslationInit();
 
-	InitFastMath();
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
 	g_Discord.SetPresenceMenu();
@@ -951,13 +950,13 @@ bool CreateGlobalPipelines() {
 		inputLayout, depth, blendNormal, rasterNoCull, &vsTexColBufDesc,
 	};
 
-	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc);
+	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc, "global_color");
 	if (!colorPipeline) {
 		// Something really critical is wrong, don't care much about correct releasing of the states.
 		return false;
 	}
 
-	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc);
+	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc, "global_texcolor");
 	if (!texColorPipeline) {
 		// Something really critical is wrong, don't care much about correct releasing of the states.
 		return false;
@@ -1297,6 +1296,12 @@ bool NativeTouch(const TouchInput &touch) {
 }
 
 bool NativeKey(const KeyInput &key) {
+
+	// Hack to quickly enable 2D mode in VR game mode.
+	if (IsVRBuild()) {
+		UpdateVRScreenKey(key);
+	}
+
 	// INFO_LOG(SYSTEM, "Key code: %i flags: %i", key.keyCode, key.flags);
 #if !defined(MOBILE_DEVICE)
 	if (g_Config.bPauseExitsEmulator) {

@@ -81,8 +81,8 @@ public:
 		VAI_UNRELIABLE,  // never cache
 	};
 
-	uint64_t hash;
-	u32 minihash;
+	uint64_t hash = 0;
+	u32 minihash = 0;
 
 	// These will probably always be the same, but whatever.
 	VkBuffer vb = VK_NULL_HANDLE;
@@ -126,6 +126,9 @@ class DrawEngineVulkan : public DrawEngineCommon {
 public:
 	DrawEngineVulkan(Draw::DrawContext *draw);
 	virtual ~DrawEngineVulkan();
+
+	// We reference feature flags, so this is called after construction.
+	void InitDeviceObjects();
 
 	void SetShaderManager(ShaderManagerVulkan *shaderManager) {
 		shaderManager_ = shaderManager;
@@ -182,9 +185,10 @@ public:
 		return stats_;
 	}
 
-	void SetDepalTexture(VkImageView depal) {
+	void SetDepalTexture(VkImageView depal, bool smooth) {
 		if (boundDepal_ != depal) {
 			boundDepal_ = depal;
+			boundDepalSmoothed_ = smooth;
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
@@ -194,9 +198,7 @@ private:
 	void ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
 	void BindShaderBlendTex();
-	void ResetFramebufferRead();
 
-	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
 	void DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
@@ -217,8 +219,13 @@ private:
 
 	// Secondary texture for shader blending
 	VkImageView boundSecondary_ = VK_NULL_HANDLE;
+	bool boundSecondaryIsInputAttachment_ = false;
+
+	// CLUT texture for shader depal
 	VkImageView boundDepal_ = VK_NULL_HANDLE;
-	VkSampler samplerSecondary_ = VK_NULL_HANDLE;  // This one is actually never used since we use fetch.
+	bool boundDepalSmoothed_ = false;
+	VkSampler samplerSecondaryLinear_ = VK_NULL_HANDLE;
+	VkSampler samplerSecondaryNearest_ = VK_NULL_HANDLE;
 
 	PrehashMap<VertexArrayInfoVulkan *, nullptr> vai_;
 	VulkanPushBuffer *vertexCache_;
@@ -231,6 +238,7 @@ private:
 		VkSampler sampler_;
 		VkBuffer base_, light_, bone_;  // All three UBO slots will be set to this. This will usually be identical
 		// for all draws in a frame, except when the buffer has to grow.
+		bool secondaryIsInputAttachment;
 	};
 
 	// We alternate between these.
@@ -278,6 +286,7 @@ private:
 	VulkanDynamicState dynState_{};
 
 	int tessOffset_ = 0;
+	FBOTexState fboTexBindState_ = FBO_TEX_NONE;
 
 	// Hardware tessellation
 	TessellationDataTransferVulkan *tessDataTransferVulkan;

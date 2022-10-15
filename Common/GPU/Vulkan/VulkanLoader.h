@@ -71,8 +71,10 @@ extern PFN_vkBindImageMemory vkBindImageMemory;
 extern PFN_vkBindImageMemory2 vkBindImageMemory2;
 extern PFN_vkGetBufferMemoryRequirements vkGetBufferMemoryRequirements;
 extern PFN_vkGetBufferMemoryRequirements2 vkGetBufferMemoryRequirements2;
+extern PFN_vkGetDeviceBufferMemoryRequirements vkGetDeviceBufferMemoryRequirements;
 extern PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements;
 extern PFN_vkGetImageMemoryRequirements2 vkGetImageMemoryRequirements2;
+extern PFN_vkGetDeviceImageMemoryRequirements vkGetDeviceImageMemoryRequirements;
 extern PFN_vkQueueBindSparse vkQueueBindSparse;
 extern PFN_vkCreateFence vkCreateFence;
 extern PFN_vkDestroyFence vkDestroyFence;
@@ -239,6 +241,8 @@ struct VulkanExtensions {
 	bool KHR_depth_stencil_resolve;
 	bool EXT_shader_stencil_export;
 	bool EXT_swapchain_colorspace;
+	bool ARM_rasterization_order_attachment_access;
+	bool EXT_fragment_shader_interlock;
 	// bool EXT_depth_range_unrestricted;  // Allows depth outside [0.0, 1.0] in 32-bit float depth buffers.
 };
 

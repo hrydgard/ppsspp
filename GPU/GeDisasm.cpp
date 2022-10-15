@@ -16,11 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstdio>
-
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPU.h"
+#include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "GPU/GeDisasm.h"
 
 void GeDescribeVertexType(u32 op, char *buffer, int len) {
 	bool through = (op & GE_VTYPE_THROUGH_MASK) == GE_VTYPE_THROUGH;
@@ -93,6 +94,17 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
 
+	static const char * const primTypes[8] = {
+		"POINTS",
+		"LINES",
+		"LINE_STRIP",
+		"TRIANGLES",
+		"TRIANGLE_STRIP",
+		"TRIANGLE_FAN",
+		"RECTANGLES",
+		"CONTINUE_PREVIOUS",
+	};
+
 	// Handle control and drawing commands here directly. The others we delegate.
 	switch (cmd)
 	{
@@ -113,7 +125,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		break;
 
 	case GE_CMD_BASE:
-		snprintf(buffer, bufsize, "BASE: %06x", data);
+		if ((data & 0x000F0000) == data)
+			snprintf(buffer, bufsize, "BASE: high=%02x", data >> 16);
+		else
+			snprintf(buffer, bufsize, "BASE: high=%02x (extra %06x)", data >> 16, data & ~0x000F0000);
 		break;
 
 	case GE_CMD_VADDR:
@@ -128,20 +143,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		{
 			u32 count = data & 0xFFFF;
 			u32 type = (data >> 16) & 7;
-			static const char* types[8] = {
-				"POINTS",
-				"LINES",
-				"LINE_STRIP",
-				"TRIANGLES",
-				"TRIANGLE_STRIP",
-				"TRIANGLE_FAN",
-				"RECTANGLES",
-				"CONTINUE_PREVIOUS",
-			};
 			if (gstate.vertType & GE_VTYPE_IDX_MASK)
-				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x, iaddr= %08x", type < 7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
+				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x, iaddr= %08x", type < 7 ? primTypes[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
 			else
-				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x", type < 7 ? types[type] : "INVALID", count, gstate_c.vertexAddr);
+				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x", type < 7 ? primTypes[type] : "INVALID", count, gstate_c.vertexAddr);
 		}
 		break;
 
@@ -171,16 +176,16 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_JUMP:
 		{
-			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
-			snprintf(buffer, bufsize, "JUMP: %08x to %08x", pc, target);
+			u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
+			snprintf(buffer, bufsize, "JUMP: %08x to %08x (%06x)", pc, target, data);
 		}
 		break;
 
 	case GE_CMD_CALL:
 		{
 			u32 retval = pc + 4;
-			u32 target = gstate_c.getRelativeAddress(op & 0xFFFFFF);
-			snprintf(buffer, bufsize, "CALL: %08x to %08x, ret=%08x", pc, target, retval);
+			u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
+			snprintf(buffer, bufsize, "CALL: %08x to %08x (%06x), ret=%08x", pc, target, data, retval);
 		}
 		break;
 
@@ -210,27 +215,44 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 				int signal = prev & 0xFFFF;
 				int enddata = data & 0xFFFFFF;
 				// We should probably defer to sceGe here, no sense in implementing this stuff in every GPU
+				u32 target = (((signal << 16) | (enddata & 0xFFFF)) & 0xFFFFFFFC);
 				switch (behaviour) {
-				case 1:
+				case PSP_GE_SIGNAL_HANDLER_SUSPEND:
 					snprintf(buffer, bufsize, "Signal with wait. signal/end: %04x %04x", signal, enddata);
 					break;
-				case 2:
+				case PSP_GE_SIGNAL_HANDLER_CONTINUE:
 					snprintf(buffer, bufsize, "Signal without wait. signal/end: %04x %04x", signal, enddata);
 					break;
-				case 3:
+				case PSP_GE_SIGNAL_HANDLER_PAUSE:
 					snprintf(buffer, bufsize, "Signal with pause. signal/end: %04x %04x", signal, enddata);
 					break;
-				case 8:
+				case PSP_GE_SIGNAL_SYNC:
 					snprintf(buffer, bufsize, "Signal with sync. signal/end: %04x %04x", signal, enddata);
 					break;
-				case 0x10:
-					snprintf(buffer, bufsize, "Signal with jump. signal/end: %04x %04x", signal, enddata);
+				case PSP_GE_SIGNAL_JUMP:
+					snprintf(buffer, bufsize, "Signal with jump. signal/end: %04x %04x, target: %08x", signal, enddata, target);
 					break;
-				case 0x11:
-					snprintf(buffer, bufsize, "Signal with call. signal/end: %04x %04x", signal, enddata);
+				case PSP_GE_SIGNAL_CALL:
+					snprintf(buffer, bufsize, "Signal with call. signal/end: %04x %04x, target: %08x", signal, enddata, target);
 					break;
-				case 0x12:
+				case PSP_GE_SIGNAL_RET:
 					snprintf(buffer, bufsize, "Signal with return. signal/end: %04x %04x", signal, enddata);
+					break;
+				case PSP_GE_SIGNAL_RJUMP:
+					target += pc;
+					snprintf(buffer, bufsize, "Signal with jump (relative.) signal/end: %04x %04x, target: %08x", signal, enddata, target);
+					break;
+				case PSP_GE_SIGNAL_RCALL:
+					target += pc;
+					snprintf(buffer, bufsize, "Signal with call (relative.) signal/end: %04x %04x, target: %08x", signal, enddata, target);
+					break;
+				case PSP_GE_SIGNAL_OJUMP:
+					target = gstate_c.getRelativeAddress(target);
+					snprintf(buffer, bufsize, "Signal with jump (offset.) signal/end: %04x %04x, target: %08x", signal, enddata, target);
+					break;
+				case PSP_GE_SIGNAL_OCALL:
+					target = gstate_c.getRelativeAddress(target);
+					snprintf(buffer, bufsize, "Signal with call (offset.) signal/end: %04x %04x, target: %08x", signal, enddata, target);
 					break;
 				default:
 					snprintf(buffer, bufsize, "UNKNOWN Signal UNIMPLEMENTED %i! signal/end: %04x %04x", behaviour, signal, enddata);
@@ -262,7 +284,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		break;
 
 	case GE_CMD_ORIGIN:
-		snprintf(buffer, bufsize, "ORIGIN: %06x", data);
+		if (data)
+			snprintf(buffer, bufsize, "ORIGIN offset=%08x (extra %06x)", pc, data);
+		else
+			snprintf(buffer, bufsize, "ORIGIN offset=%08x", pc);
 		break;
 
 	case GE_CMD_VERTEXTYPE:
@@ -273,24 +298,24 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		break;
 
 	case GE_CMD_OFFSETADDR:
-		snprintf(buffer, bufsize, "OffsetAddr: %06x", data);
+		snprintf(buffer, bufsize, "OffsetAddr: %06x (offset=%08x)", data, data << 8);
 		break;
 
 	case GE_CMD_REGION1:
 		{
 			int x1 = data & 0x3ff;
-			int y1 = data >> 10;
+			int y1 = (data >> 10) & 0x3ff;
 			if (data & 0xF00000)
-				snprintf(buffer, bufsize, "Region TL: %d %d (extra %x)", x1, y1, data >> 20);
+				snprintf(buffer, bufsize, "Region Rate: %d %d (extra %x)", x1, y1, data >> 20);
 			else
-				snprintf(buffer, bufsize, "Region TL: %d %d", x1, y1);
+				snprintf(buffer, bufsize, "Region Rate: %d %d", x1, y1);
 		}
 		break;
 
 	case GE_CMD_REGION2:
 		{
 			int x2 = data & 0x3ff;
-			int y2 = data >> 10;
+			int y2 = (data >> 10) & 0x3ff;
 			if (data & 0xF00000)
 				snprintf(buffer, bufsize, "Region BR: %d %d (extra %x)", x2, y2, data >> 20);
 			else
@@ -323,11 +348,17 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		break;
 
 	case GE_CMD_OFFSETX:
-		snprintf(buffer, bufsize, "Offset X: %i", data);
+		if (data & ~0xFFFF)
+			snprintf(buffer, bufsize, "Offset X: %04x / %d with sub %d (extra %02x)", data & 0xFFFF, data >> 4, data & 0xF, data >> 16);
+		else
+			snprintf(buffer, bufsize, "Offset X: %04x / %d with sub %d", data & 0xFFFF, data >> 4, data & 0xF);
 		break;
 
 	case GE_CMD_OFFSETY:
-		snprintf(buffer, bufsize, "Offset Y: %i", data);
+		if (data & ~0xFFFF)
+			snprintf(buffer, bufsize, "Offset Y: %04x / %d with sub %d (extra %02x)", data & 0xFFFF, data >> 4, data & 0xF, data >> 16);
+		else
+			snprintf(buffer, bufsize, "Offset Y: %04x / %d with sub %d", data & 0xFFFF, data >> 4, data & 0xF);
 		break;
 
 	case GE_CMD_TEXSCALEU:
@@ -349,7 +380,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	case GE_CMD_SCISSOR1:
 		{
 			int x1 = data & 0x3ff;
-			int y1 = data >> 10;
+			int y1 = (data >> 10) & 0x3ff;
 			if (data & 0xF00000)
 				snprintf(buffer, bufsize, "Scissor TL: %i, %i (extra %x)", x1, y1, data >> 20);
 			else
@@ -359,7 +390,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	case GE_CMD_SCISSOR2:
 		{
 			int x2 = data & 0x3ff;
-			int y2 = data >> 10;
+			int y2 = (data >> 10) & 0x3ff;
 			if (data & 0xF00000)
 				snprintf(buffer, bufsize, "Scissor BR: %i, %i (extra %x)", x2, y2, data >> 20);
 			else
@@ -368,33 +399,37 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		break;
 
 	case GE_CMD_MINZ:
-		{
-			float zMin = getFloat24(data) / 65535.f;
-			snprintf(buffer, bufsize, "MinZ: %f", zMin);
-		}
+		if (data & 0xFF0000)
+			snprintf(buffer, bufsize, "MinZ: 0x%04x / %f (extra %02x)", data & 0xFFFF, (float)(data & 0xFFFF) / 65535.0f, data >> 16);
+		else
+			snprintf(buffer, bufsize, "MinZ: 0x%04x / %f", data, (float)data / 65535.0f);
 		break;
 
 	case GE_CMD_MAXZ:
-		{
-			float zMax = getFloat24(data) / 65535.f;
-			snprintf(buffer, bufsize, "MaxZ: %f", zMax);
-		}
+		if (data & 0xFF0000)
+			snprintf(buffer, bufsize, "MaxZ: 0x%04x / %f (extra %02x)", data & 0xFFFF, (float)(data & 0xFFFF) / 65535.0f, data >> 16);
+		else
+			snprintf(buffer, bufsize, "MaxZ: 0x%04x / %f", data, (float)data / 65535.0f);
 		break;
 
 	case GE_CMD_FRAMEBUFPTR:
 		{
-			snprintf(buffer, bufsize, "FramebufPtr: %08x", data);
+			snprintf(buffer, bufsize, "Framebuf ptr: 0x04%06x", data);
 		}
 		break;
 
 	case GE_CMD_FRAMEBUFWIDTH:
-		{
-			snprintf(buffer, bufsize, "FramebufWidth: %x, address high %02x", data & 0xFFFF, data >> 16);
-		}
+		if (data & ~0x07FC)
+			snprintf(buffer, bufsize, "Framebuf stride: 0x%x (extra %06x)", data & 0x07FC, data & ~0x07FC);
+		else
+			snprintf(buffer, bufsize, "Framebuf stride: %04x", data);
 		break;
 
 	case GE_CMD_FRAMEBUFPIXFORMAT:
-		snprintf(buffer, bufsize, "FramebufPixelFormat: %i", data);
+		if (data <= 3)
+			snprintf(buffer, bufsize, "Framebuf PixelFormat: %s", GeBufferFormatToString((GEBufferFormat)data));
+		else
+			snprintf(buffer, bufsize, "Framebuf PixelFormat: invalid %x", data);
 		break;
 
 	case GE_CMD_TEXADDR0:
@@ -405,7 +440,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
-		snprintf(buffer, bufsize, "Texture address %i: %06x", cmd-GE_CMD_TEXADDR0, data);
+		snprintf(buffer, bufsize, "Texture address %d: low=%06x", cmd - GE_CMD_TEXADDR0, data);
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
@@ -416,31 +451,53 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		snprintf(buffer, bufsize, "Texture BUFWIDTH %i: %06x", cmd-GE_CMD_TEXBUFWIDTH0, data);
+		snprintf(buffer, bufsize, "Texture stride %d: 0x%04x, address high=%02x", cmd - GE_CMD_TEXBUFWIDTH0, data & 0xFFFF, data >> 16);
 		break;
 
 	case GE_CMD_CLUTADDR:
-		snprintf(buffer, bufsize, "CLUT base addr: %06x", data);
+		snprintf(buffer, bufsize, "CLUT addr: low=%06x", data);
 		break;
 
 	case GE_CMD_CLUTADDRUPPER:
-		snprintf(buffer, bufsize, "CLUT addr upper %08x", data);
+		if ((data & 0x000F0000) == data)
+			snprintf(buffer, bufsize, "CLUT addr: high=%02x", data >> 16);
+		else
+			snprintf(buffer, bufsize, "CLUT addr: high=%02x (extra %06x)", data >> 16, data & ~0x000F0000);
 		break;
 
 	case GE_CMD_LOADCLUT:
-		// This could be used to "dirty" textures with clut.
-		if (data)
-			snprintf(buffer, bufsize, "Clut load: %08x, %d bytes, %06x", gstate.getClutAddress(), (data & 0x3F) << 5, data & 0xFFFFC0);
+		if ((data & 0xFFFFC0) != 0)
+			snprintf(buffer, bufsize, "Clut load: %08x, %d bytes (extra %06x)", gstate.getClutAddress(), (data & 0x3F) << 5, data & 0xFFFFC0);
 		else
-			snprintf(buffer, bufsize, "Clut load");
+			snprintf(buffer, bufsize, "Clut load: %08x, %d bytes", gstate.getClutAddress(), (data & 0x3F) << 5);
 		break;
 
 	case GE_CMD_TEXMAPMODE:
-		snprintf(buffer, bufsize, "Tex map mode: %06x", data);
+		{
+			static const char *uvgen[] = {
+				"texcoords",
+				"texgen matrix",
+				"env map",
+				"invalid"
+			};
+			static const char *uvproj[] = {
+				"pos",
+				"uv",
+				"normalized normal",
+				"normal",
+			};
+			if ((data & 0x000303) == data)
+				snprintf(buffer, bufsize, "Tex map mode: uvgen=%s, uvproj=%s", uvgen[data & 3], uvproj[(data >> 8) & 3]);
+			else
+				snprintf(buffer, bufsize, "Tex map mode: uvgen=%s, uvproj=%s (extra %06x)", uvgen[data & 3], uvproj[(data >> 8) & 3], data & ~0x000303);
+		}
 		break;
 
 	case GE_CMD_TEXSHADELS:
-		snprintf(buffer, bufsize, "Tex shade light sources: %06x", data);
+		if ((data & 0x000303) == data)
+			snprintf(buffer, bufsize, "Tex shade light sources: %d, %d", data & 3, (data >> 8) & 3);
+		else
+			snprintf(buffer, bufsize, "Tex shade light sources: %d, %d (extra %06x)", data & 3, (data >> 8) & 3, data & ~0x000303);
 		break;
 
 	case GE_CMD_CLUTFORMAT:
@@ -458,9 +515,9 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	case GE_CMD_TRANSFERSRC:
 		{
 			if (data & 0xF)
-				snprintf(buffer, bufsize, "Block transfer src: %06x (extra: %x)", data & ~0xF, data & 0xF);
+				snprintf(buffer, bufsize, "Block transfer src: low=%06x (extra: %x)", data & ~0xF, data & 0xF);
 			else
-				snprintf(buffer, bufsize, "Block transfer src: %06x", data);
+				snprintf(buffer, bufsize, "Block transfer src: low=%06x", data);
 			// Nothing to do, the next one prints
 		}
 		break;
@@ -470,9 +527,9 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			u32 xferSrc = (gstate.transfersrc & 0x00FFFFFF) | ((data & 0xFF0000) << 8);
 			u32 xferSrcW = data & 0x3FF;
 			if (data & ~0xFF03FF)
-				snprintf(buffer, bufsize, "Block transfer src: %08x	W: %i (extra %x)", xferSrc, xferSrcW, data);
+				snprintf(buffer, bufsize, "Block transfer src: high=%02x, w=%d (addr %08x, extra %x)", data >> 16, xferSrcW, xferSrc, data & ~0xFF03FF);
 			else
-				snprintf(buffer, bufsize, "Block transfer src: %08x	W: %i", xferSrc, xferSrcW);
+				snprintf(buffer, bufsize, "Block transfer src: high=%02x, w=%d (addr %08x)", data >> 16, xferSrcW, xferSrc);
 			break;
 		}
 
@@ -480,9 +537,9 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		{
 			// Nothing to do, the next one prints
 			if (data & 0xF)
-				snprintf(buffer, bufsize, "Block transfer dst: %06x (extra: %x)", data & ~0xF, data & 0xF);
+				snprintf(buffer, bufsize, "Block transfer dst: low=%06x (extra: %x)", data & ~0xF, data & 0xF);
 			else
-				snprintf(buffer, bufsize, "Block transfer dst: %06x", data);
+				snprintf(buffer, bufsize, "Block transfer dst: low=%06x", data);
 		}
 		break;
 
@@ -491,9 +548,9 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			u32 xferDst = (gstate.transferdst & 0x00FFFFFF) | ((data & 0xFF0000) << 8);
 			u32 xferDstW = data & 0x3FF;
 			if (data & ~0xFF03FF)
-				snprintf(buffer, bufsize, "Block transfer dest: %08x	W: %i (extra %x)", xferDst, xferDstW, data);
+				snprintf(buffer, bufsize, "Block transfer dst: high=%02x, w=%d (addr %08x, extra %x)", data >> 16, xferDstW, xferDst, data & ~0xFF03FF);
 			else
-				snprintf(buffer, bufsize, "Block transfer dest: %08x	W: %i", xferDst, xferDstW);
+				snprintf(buffer, bufsize, "Block transfer dst: high=%02x, w=%d (addr %08x)", data >> 16, xferDstW, xferDst);
 			break;
 		}
 
@@ -513,9 +570,9 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			u32 x = (data & 1023);
 			u32 y = ((data>>10) & 1023);
 			if (data & 0xF00000)
-				snprintf(buffer, bufsize, "Block transfer dest rect TL: %i, %i (extra %x)", x, y, data >> 20);
+				snprintf(buffer, bufsize, "Block transfer dst rect TL: %d, %d (extra %x)", x, y, data >> 20);
 			else
-				snprintf(buffer, bufsize, "Block transfer dest rect TL: %i, %i", x, y);
+				snprintf(buffer, bufsize, "Block transfer dst rect TL: %d, %d", x, y);
 			break;
 		}
 
@@ -532,9 +589,9 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_TRANSFERSTART:
 		if (data & ~1)
-			snprintf(buffer, bufsize, "Block transfer start: %d (extra %x)", data & 1, data & ~1);
+			snprintf(buffer, bufsize, "Block transfer start: bpp=%d (extra %x)", (data & 1) ? 4 : 2, data & ~1);
 		else
-			snprintf(buffer, bufsize, "Block transfer start: %d", data);
+			snprintf(buffer, bufsize, "Block transfer start: bpp=%d", (data & 1) ? 4 : 2);
 		break;
 
 	case GE_CMD_TEXSIZE0:
@@ -548,7 +605,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		{
 			int w = 1 << (data & 0xf);
 			int h = 1 << ((data>>8) & 0xf);
-			snprintf(buffer, bufsize, "Texture size %i: %06x, width : %d, height : %d", cmd - GE_CMD_TEXSIZE0, data, w, h);
+			if ((data & ~0x0F0F) == 0 && w <= 512 && h <= 512)
+				snprintf(buffer, bufsize, "Texture size %d: %dx%d", cmd - GE_CMD_TEXSIZE0, w, h);
+			else
+				snprintf(buffer, bufsize, "Texture size %d: %dx%d (extra %06x)", cmd - GE_CMD_TEXSIZE0, w, h, data);
 		}
 		break;
 
@@ -559,7 +619,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		break;
 
 	case GE_CMD_ZBUFWIDTH:
-		snprintf(buffer, bufsize, "Zbuf width: %06x", data);
+		if (data & ~0x07FC)
+			snprintf(buffer, bufsize, "Zbuf stride: 0x%x (extra %06x)", data & 0x07FC, data & ~0x07FC);
+		else
+			snprintf(buffer, bufsize, "Zbuf stride: %04x", data);
 		break;
 
 	case GE_CMD_AMBIENTCOLOR:
@@ -567,7 +630,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		break;
 
 	case GE_CMD_AMBIENTALPHA:
-		snprintf(buffer, bufsize, "Ambient alpha: %06x", data);
+		if (data & ~0xFF)
+			snprintf(buffer, bufsize, "Ambient alpha: %02x (extra %04x)", data & 0xFF, data >> 8);
+		else
+			snprintf(buffer, bufsize, "Ambient alpha: %02x", data);
 		break;
 
 	case GE_CMD_MATERIALAMBIENT:
@@ -587,7 +653,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		break;
 
 	case GE_CMD_MATERIALALPHA:
-		snprintf(buffer, bufsize, "Material alpha color: %06x", data);
+		if (data & ~0xFF)
+			snprintf(buffer, bufsize, "Material alpha: %02x (extra %04x)", data & 0xFF, data >> 8);
+		else
+			snprintf(buffer, bufsize, "Material alpha: %02x", data);
 		break;
 
 	case GE_CMD_MATERIALSPECULARCOEF:
@@ -596,23 +665,43 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_SHADEMODE:
 		if (data & ~1)
-			snprintf(buffer, bufsize, "Shade: %06x (%s, extra %x)", data, data ? "gouraud" : "flat", data);
+			snprintf(buffer, bufsize, "Shade: %d (%s, extra %x)", data & 1, (data & 1) ? "gouraud" : "flat", data & ~1);
 		else
-			snprintf(buffer, bufsize, "Shade: %06x (%s)", data, data ? "gouraud" : "flat");
+			snprintf(buffer, bufsize, "Shade: %d (%s)", data & 1, (data & 1) ? "gouraud" : "flat");
 		break;
 
 	case GE_CMD_LIGHTMODE:
 		if (data & ~1)
-			snprintf(buffer, bufsize, "Lightmode: %06x (%s, extra %x)", data, data ? "separate spec" : "single color", data);
+			snprintf(buffer, bufsize, "Lightmode: %d (%s, extra %x)", data & 1, (data & 1) ? "separate spec" : "single color", data & ~1);
 		else
-			snprintf(buffer, bufsize, "Lightmode: %06x (%s)", data, data ? "separate spec" : "single color");
+			snprintf(buffer, bufsize, "Lightmode: %d (%s)", data & 1, (data & 1) ? "separate spec" : "single color");
 		break;
 
 	case GE_CMD_LIGHTTYPE0:
 	case GE_CMD_LIGHTTYPE1:
 	case GE_CMD_LIGHTTYPE2:
 	case GE_CMD_LIGHTTYPE3:
-		snprintf(buffer, bufsize, "Light %i type: %06x", cmd-GE_CMD_LIGHTTYPE0, data);
+		{
+			static const char *lightComputations[] = {
+				"diffuse",
+				"diffuse + spec",
+				"pow(diffuse)",
+				"unknown (diffuse?)",
+			};
+			static const char *lightTypes[] = {
+				"directional",
+				"point",
+				"spot",
+				"unknown (directional?)",
+			};
+			const int comp = (data & 0x0003) >> 0;
+			const int type = (data & 0x0300) >> 8;
+
+			if (data & ~0x0303)
+				snprintf(buffer, bufsize, "Light %d type: %s, comp: %s (extra %06x)", cmd - GE_CMD_LIGHTTYPE0, lightTypes[type], lightComputations[comp], data & ~0x0303);
+			else
+				snprintf(buffer, bufsize, "Light %d type: %s, comp: %s", cmd - GE_CMD_LIGHTTYPE0, lightTypes[type], lightComputations[comp]);
+		}
 		break;
 
 	case GE_CMD_LX0:case GE_CMD_LY0:case GE_CMD_LZ0:
@@ -654,6 +743,20 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		}
 		break;
 
+	case GE_CMD_LKS0:
+	case GE_CMD_LKS1:
+	case GE_CMD_LKS2:
+	case GE_CMD_LKS3:
+		snprintf(buffer, bufsize, "Light %d spot exponent: %f", cmd - GE_CMD_LKS0, getFloat24(data));
+		break;
+
+	case GE_CMD_LKO0:
+	case GE_CMD_LKO1:
+	case GE_CMD_LKO2:
+	case GE_CMD_LKO3:
+		snprintf(buffer, bufsize, "Light %d spot cutoff: %f", cmd - GE_CMD_LKO0, getFloat24(data));
+		break;
+
 	case GE_CMD_LAC0:case GE_CMD_LAC1:case GE_CMD_LAC2:case GE_CMD_LAC3:
 	case GE_CMD_LDC0:case GE_CMD_LDC1:case GE_CMD_LDC2:case GE_CMD_LDC3:
 	case GE_CMD_LSC0:case GE_CMD_LSC1:case GE_CMD_LSC2:case GE_CMD_LSC3:
@@ -662,29 +765,35 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			float g = (float)((data>>8) & 0xff)/255.0f;
 			float b = (float)(data>>16)/255.0f;
 
+			static const char * const lightColorTypes[] = {
+				"ambient",
+				"diffuse",
+				"specular",
+			};
+
 			int l = (cmd - GE_CMD_LAC0) / 3;
 			int t = (cmd - GE_CMD_LAC0) % 3;
-			snprintf(buffer, bufsize, "Light %i color %i: %f %f %f", l, t, r, g, b);
+			snprintf(buffer, bufsize, "Light %d %s color: %f %f %f", l, lightColorTypes[t], r, g, b);
 		}
 		break;
 
 	case GE_CMD_VIEWPORTXSCALE:
+		snprintf(buffer, bufsize, "Viewport X scale: %f", getFloat24(data));
+		break;
 	case GE_CMD_VIEWPORTYSCALE:
-	case GE_CMD_VIEWPORTXCENTER:
-	case GE_CMD_VIEWPORTYCENTER:
-		snprintf(buffer, bufsize, "Viewport param %i: %f", cmd-GE_CMD_VIEWPORTXSCALE, getFloat24(data));
+		snprintf(buffer, bufsize, "Viewport Y scale: %f", getFloat24(data));
 		break;
 	case GE_CMD_VIEWPORTZSCALE:
-		{
-			float zScale = getFloat24(data) / 65535.f;
-			snprintf(buffer, bufsize, "Viewport Z scale: %f", zScale);
-		}
+		snprintf(buffer, bufsize, "Viewport Z scale: %f", getFloat24(data));
+		break;
+	case GE_CMD_VIEWPORTXCENTER:
+		snprintf(buffer, bufsize, "Viewport X center: %f", getFloat24(data));
+		break;
+	case GE_CMD_VIEWPORTYCENTER:
+		snprintf(buffer, bufsize, "Viewport Y center: %f", getFloat24(data));
 		break;
 	case GE_CMD_VIEWPORTZCENTER:
-		{
-			float zOff = getFloat24(data) / 65535.f;
-			snprintf(buffer, bufsize, "Viewport Z pos: %f", zOff);
-		}
+		snprintf(buffer, bufsize, "Viewport Z center: %f", getFloat24(data));
 		break;
 
 	case GE_CMD_LIGHTENABLE0:
@@ -695,34 +804,69 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		break;
 
 	case GE_CMD_CULL:
-		snprintf(buffer, bufsize, "Cull: %06x", data);
+		if (data & ~1)
+			snprintf(buffer, bufsize, "Cull: %s (extra %06x)", (data & 1) ? "back (CCW)" : "front (CW)", data & ~1);
+		else
+			snprintf(buffer, bufsize, "Cull: %s", (data & 1) ? "back (CCW)" : "front (CW)");
 		break;
 
 	case GE_CMD_PATCHDIVISION:
 		{
-			int patch_div_s = data & 0xFF;
-			int patch_div_t = (data >> 8) & 0xFF;
-			if (data & 0xFF0000)
-				snprintf(buffer, bufsize, "Patch subdivision: %i x %i (extra %x)", patch_div_s, patch_div_t, data & 0xFF0000);
+			int patch_div_s = data & 0x7F;
+			int patch_div_t = (data >> 8) & 0x7F;
+			if (data & 0xFF8080)
+				snprintf(buffer, bufsize, "Patch subdivision: %d x %d (extra %x)", patch_div_s, patch_div_t, data & 0xFF8080);
 			else
-				snprintf(buffer, bufsize, "Patch subdivision: %i x %i", patch_div_s, patch_div_t);
+				snprintf(buffer, bufsize, "Patch subdivision: %d x %d", patch_div_s, patch_div_t);
 		}
 		break;
 
 	case GE_CMD_PATCHPRIMITIVE:
-		snprintf(buffer, bufsize, "Patch Primitive: %d", data);
+		{
+			static const char *patchPrims[] = {
+				"triangles",
+				"lines",
+				"points",
+				"unknown/points",
+			};
+			if (data & ~3)
+				snprintf(buffer, bufsize, "Patch Primitive: %s (extra %06x)", patchPrims[data & 3], data & ~3);
+			else
+				snprintf(buffer, bufsize, "Patch Primitive: %s", patchPrims[data & 3]);
+		}
 		break;
 
 	case GE_CMD_PATCHFACING:
-		snprintf(buffer, bufsize, "Patch Facing: %d", data);
+		if (data & ~1)
+			snprintf(buffer, bufsize, "Patch Facing: %s (extra %06x)", (data & 1) ? "reversed normals" : "standard normals", data & ~1);
+		else
+			snprintf(buffer, bufsize, "Patch Facing: %s", (data & 1) ? "reversed normals" : "standard normals");
 		break;
 
 	case GE_CMD_REVERSENORMAL:
-		snprintf(buffer, bufsize, "Reverse normal: %d", data);
+		if (data & ~1)
+			snprintf(buffer, bufsize, "Reverse normal: %s (extra %06x)", (data & 1) ? "reversed" : "standard", data & ~1);
+		else
+			snprintf(buffer, bufsize, "Reverse normal: %s", (data & 1) ? "reversed" : "standard");
 		break;
 
 	case GE_CMD_MATERIALUPDATE:
-		snprintf(buffer, bufsize, "Material update: %d", data);
+		{
+			static const char *materialTypes[] = {
+				"none",
+				"ambient",
+				"diffuse",
+				"ambient, diffuse",
+				"specular",
+				"ambient, specular",
+				"diffuse, specular",
+				"ambient, diffuse, specular",
+			};
+			if (data & ~7)
+				snprintf(buffer, bufsize, "Material update: %s (extra %06x)", materialTypes[data & 7], data & ~7);
+			else
+				snprintf(buffer, bufsize, "Material update: %s", materialTypes[data & 7]);
+		}
 		break;
 
 
@@ -747,7 +891,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 				mode = clearModes[(data >> 8) & 7];
 			else
 				mode = "off";
-			snprintf(buffer, bufsize, "Clear mode: %06x (%s)", data, mode);
+			if (data & ~0x0701)
+				snprintf(buffer, bufsize, "Clear mode: %s (extra %06x)", mode, data & ~0x0701);
+			else
+				snprintf(buffer, bufsize, "Clear mode: %s", mode);
 		}
 		break;
 
@@ -832,7 +979,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	case GE_CMD_ALPHATEST:
 		{
 			const char *alphaTestFuncs[] = { " NEVER ", " ALWAYS ", " == ", " != ", " < ", " <= ", " > ", " >= " };
-			snprintf(buffer, bufsize, "Alpha test settings: %06x ((c & %02x)%s%02x)", data, (data >> 16) & 0xFF, alphaTestFuncs[data & 7], (data >> 8) & 0xFF);
+			if (data & ~0xFFFF07)
+				snprintf(buffer, bufsize, "Alpha test: (src.a & %02x)%s%02x (extra %06x)", (data >> 16) & 0xFF, alphaTestFuncs[data & 7], (data >> 8) & 0xFF, data & ~0xFFFF07);
+			else
+				snprintf(buffer, bufsize, "Alpha test: (src.a & %02x)%s%02x", (data >> 16) & 0xFF, alphaTestFuncs[data & 7], (data >> 8) & 0xFF);
 		}
 		break;
 
@@ -860,25 +1010,35 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 				"blend",
 				"replace",
 				"add",
-				"unsupported1",
-				"unsupported2",
-				"unsupported3",
+				"add2",
+				"add3",
+				"add4",
 			};
 			if (data & ~0x10107)
-				snprintf(buffer, bufsize, "TexFunc %i %s %s%s (extra %x)", data & 7, data & 0x100 ? "RGBA" : "RGB", texfuncs[data & 7], data & 0x10000 ? " color double" : "", data);
+				snprintf(buffer, bufsize, "TexFunc %d %s %s%s (extra %x)", data & 7, data & 0x100 ? "RGBA" : "RGB", texfuncs[data & 7], data & 0x10000 ? ", color double" : "", data & ~0x10107);
 			else
-				snprintf(buffer, bufsize, "TexFunc %i %s %s%s", data & 7, data & 0x100 ? "RGBA" : "RGB", texfuncs[data & 7], data & 0x10000 ? " color double" : "");
+				snprintf(buffer, bufsize, "TexFunc %d %s %s%s", data & 7, data & 0x100 ? "RGBA" : "RGB", texfuncs[data & 7], data & 0x10000 ? ", color double" : "");
 		}
 		break;
 
 	case GE_CMD_TEXFILTER:
 		{
+			static const char *textureFilters[] = {
+				"nearest",
+				"linear",
+				"nearest, invalid",
+				"linear, invalid",
+				"nearest, mipmap nearest",
+				"linear, mipmap nearest",
+				"nearest, mipmap linear",
+				"linear, mipmap linear",
+			};
 			int min = data & 7;
 			int mag = (data >> 8) & 1;
 			if (data & ~0x107)
-				snprintf(buffer, bufsize, "TexFilter min: %i mag: %i (extra %x)", min, mag, data);
+				snprintf(buffer, bufsize, "TexFilter min: %s, mag: %s (extra %x)", textureFilters[min], textureFilters[mag], data & ~0x107);
 			else
-				snprintf(buffer, bufsize, "TexFilter min: %i mag: %i", min, mag);
+				snprintf(buffer, bufsize, "TexFilter min: %s, mag: %s", textureFilters[min], textureFilters[mag]);
 		}
 		break;
 
@@ -887,12 +1047,15 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		break;
 
 	case GE_CMD_TEXMODE:
-		snprintf(buffer, bufsize, "TexMode %06x (%s, %d levels, %s)", data, data & 1 ? "swizzle" : "no swizzle", (data >> 16) & 7, (data >> 8) & 1 ? "separate cluts" : "shared clut");
+		if (data & ~0x070101)
+			snprintf(buffer, bufsize, "TexMode %s, %d levels, %s (extra %06x)", (data & 1) ? "swizzle" : "no swizzle", (data >> 16) & 7, (data >> 8) & 1 ? "separate cluts" : "shared clut", data & ~0x070101);
+		else
+			snprintf(buffer, bufsize, "TexMode %s, %d levels, %s", (data & 1) ? "swizzle" : "no swizzle", (data >> 16) & 7, (data >> 8) & 1 ? "separate cluts" : "shared clut");
 		break;
 
 	case GE_CMD_TEXFORMAT:
 		{
-			const char *texformats[] = {
+			static const char *texformats[] = {
 				"5650",
 				"5551",
 				"4444",
@@ -910,7 +1073,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 				"unsupported4",
 				"unsupported5",
 			};
-			snprintf(buffer, bufsize, "TexFormat %06x (%s)", data, texformats[data & 0xF]);
+			if (data & ~0xF)
+				snprintf(buffer, bufsize, "TexFormat %s (extra %06x)", texformats[data & 0xF], data & ~0xF);
+			else
+				snprintf(buffer, bufsize, "TexFormat %s", texformats[data & 0xF]);
 		}
 		break;
 
@@ -930,24 +1096,34 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_TEXWRAP:
 		if (data & ~0x0101)
-			snprintf(buffer, bufsize, "TexWrap %s s, %s t (extra %x)", data & 1 ? "clamp" : "wrap", data & 0x100 ? "clamp" : "wrap", data);
+			snprintf(buffer, bufsize, "TexWrap %s s, %s t (extra %x)", data & 1 ? "clamp" : "wrap", data & 0x100 ? "clamp" : "wrap", data & ~0x0101);
 		else
 			snprintf(buffer, bufsize, "TexWrap %s s, %s t", data & 1 ? "clamp" : "wrap", data & 0x100 ? "clamp" : "wrap");
 		break;
 
 	case GE_CMD_TEXLEVEL:
-		if (data & ~0xFF0003)
-			snprintf(buffer, bufsize, "TexLevel mode: %i Offset: %i (extra %x)", data&3, data >> 16, data);
-		else
-			snprintf(buffer, bufsize, "TexLevel mode: %i Offset: %i", data&3, data >> 16);
+		{
+			static const char *mipLevelModes[] = {
+				"auto + bias",
+				"bias",
+				"slope + bias",
+				"invalid + bias",
+			};
+			const int biasFixed = (s8)(data >> 16);
+			const float bias = (float)biasFixed / 16.0f;
+			if (data & ~0xFF0003)
+				snprintf(buffer, bufsize, "TexLevel mode: %s Offset: %f / %d (extra %x)", mipLevelModes[data & 3], bias, biasFixed, data & ~0xFF0003);
+			else
+				snprintf(buffer, bufsize, "TexLevel mode: %s Offset: %f / %d", mipLevelModes[data & 3], bias, biasFixed);
+		}
 		break;
 
 	case GE_CMD_FOG1:
-		snprintf(buffer, bufsize, "Fog1 %f", getFloat24(data));
+		snprintf(buffer, bufsize, "Fog end %f", getFloat24(data));
 		break;
 
 	case GE_CMD_FOG2:
-		snprintf(buffer, bufsize, "Fog2 %f", getFloat24(data));
+		snprintf(buffer, bufsize, "Fog slope %f", getFloat24(data));
 		break;
 
 	case GE_CMD_FOGCOLOR:
@@ -955,7 +1131,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		break;
 
 	case GE_CMD_TEXLODSLOPE:
-		snprintf(buffer, bufsize, "TexLodSlope %06x", data);
+		snprintf(buffer, bufsize, "TexLodSlope %f", getFloat24(data));
 		break;
 
 	//////////////////////////////////////////////////////////////////
@@ -971,15 +1147,18 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_STENCILOP:
 		{
-			const char *stencilOps[] = { "KEEP", "ZERO", "REPLACE", "INVERT", "INCREMENT", "DECREMENT", "unsupported1", "unsupported2" };
+			static const char *stencilOps[] = { "KEEP", "ZERO", "REPLACE", "INVERT", "INCREMENT", "DECREMENT", "unsupported1", "unsupported2" };
 			snprintf(buffer, bufsize, "Stencil op: fail=%s, pass/depthfail=%s, pass=%s", stencilOps[data & 7], stencilOps[(data >> 8) & 7], stencilOps[(data >> 16) & 7]);
 		}
 		break;
 
 	case GE_CMD_STENCILTEST:
 		{
-			const char *zTestFuncs[] = { "NEVER", "ALWAYS", " == ", " != ", " < ", " <= ", " > ", " >= " };
-			snprintf(buffer, bufsize, "Stencil test: %06x (%02x %s (c & %02x))", data, (data >> 8) & 0xFF, zTestFuncs[data & 7], (data >> 16) & 0xFF);
+			static const char *zTestFuncs[] = { " NEVER ", " ALWAYS ", " == ", " != ", " < ", " <= ", " > ", " >= " };
+			if (data & ~0xFFFF07)
+				snprintf(buffer, bufsize, "Stencil test: %02x%s(dst.a & %02x) (extra %06x)", (data >> 8) & 0xFF, zTestFuncs[data & 7], (data >> 16) & 0xFF, data & ~0xFFFF07);
+			else
+				snprintf(buffer, bufsize, "Stencil test: %02x%s(dst.a & %02x)", (data >> 8) & 0xFF, zTestFuncs[data & 7], (data >> 16) & 0xFF);
 		}
 		break;
 
@@ -989,8 +1168,11 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_ZTEST:
 		{
-			const char *zTestFuncs[] = { "NEVER", "ALWAYS", " == ", " != ", " < ", " <= ", " > ", " >= " };
-			snprintf(buffer, bufsize, "Z test mode: %i (%s)", data, zTestFuncs[data & 7]);
+			static const char *zTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
+			if (data & ~7)
+				snprintf(buffer, bufsize, "Z test mode: %s (extra %06x)", zTestFuncs[data & 7], data & ~7);
+			else
+				snprintf(buffer, bufsize, "Z test mode: %s", zTestFuncs[data & 7]);
 		}
 		break;
 
@@ -1036,18 +1218,27 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 				"negated and",
 				"set",
 			};
-			snprintf(buffer, bufsize, "LogicOp: %06x (%s)", data, logicOps[data & 0xF]);
+			if (data & ~0xF)
+				snprintf(buffer, bufsize, "LogicOp: %s (%06x)", logicOps[data & 0xF], data & ~0xF);
+			else
+				snprintf(buffer, bufsize, "LogicOp: %s", logicOps[data & 0xF]);
 		}
 		break;
 
 	case GE_CMD_ZWRITEDISABLE:
-		snprintf(buffer, bufsize, "ZMask: %06x", data);
+		if (data & ~1)
+			snprintf(buffer, bufsize, "ZMask: %s (extra %06x)", data & 1 ? "disable write" : "allow write", data & ~1);
+		else
+			snprintf(buffer, bufsize, "ZMask: %s", data & 1 ? "disable write" : "allow write");
 		break;
 
 	case GE_CMD_COLORTEST:
 		{
-			const char *colorTests[] = {"NEVER", "ALWAYS", " == ", " != "};
-			snprintf(buffer, bufsize, "ColorTest: %06x (ref%s(c & cmask))", data, colorTests[data & 3]);
+			const char *colorTests[] = {" NEVER ", " ALWAYS ", " == ", " != "};
+			if (data & ~3)
+				snprintf(buffer, bufsize, "ColorTest: (src.rgb & cmask)%s(dst.rgb & cmask) (extra %06x)", colorTests[data & 3], data & ~3);
+			else
+				snprintf(buffer, bufsize, "ColorTest: (src.rgb & cmask)%s(dst.rgb & cmask)", colorTests[data & 3]);
 		}
 		break;
 
@@ -1060,18 +1251,21 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		break;
 
 	case GE_CMD_MASKRGB:
-		snprintf(buffer, bufsize, "MaskRGB: %06x", data);
+		snprintf(buffer, bufsize, "MaskRGB: %06x (bits not to write)", data);
 		break;
 
 	case GE_CMD_MASKALPHA:
-		snprintf(buffer, bufsize, "MaskAlpha: %06x", data);
+		if (data & ~0xFF)
+			snprintf(buffer, bufsize, "MaskAlpha: %02x (bits not to write) (extra %04x)", data & 0xFF, data >> 8);
+		else
+			snprintf(buffer, bufsize, "MaskAlpha: %02x (bits not to write)", data & 0xFF);
 		break;
 
 	case GE_CMD_WORLDMATRIXNUMBER:
 		if (data & ~0xF)
-			snprintf(buffer, bufsize, "World # %i (extra %x)", data & 0xF, data);
+			snprintf(buffer, bufsize, "World # %d (extra %x)", data & 0xF, data & ~0xF);
 		else
-			snprintf(buffer, bufsize, "World # %i", data & 0xF);
+			snprintf(buffer, bufsize, "World # %d", data & 0xF);
 		break;
 
 	case GE_CMD_WORLDMATRIXDATA:
@@ -1080,9 +1274,9 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_VIEWMATRIXNUMBER:
 		if (data & ~0xF)
-			snprintf(buffer, bufsize, "VIEW # %i (extra %x)", data & 0xF, data);
+			snprintf(buffer, bufsize, "VIEW # %d (extra %x)", data & 0xF, data & ~0xF);
 		else
-			snprintf(buffer, bufsize, "VIEW # %i", data & 0xF);
+			snprintf(buffer, bufsize, "VIEW # %d", data & 0xF);
 		break;
 
 	case GE_CMD_VIEWMATRIXDATA:
@@ -1091,9 +1285,9 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_PROJMATRIXNUMBER:
 		if (data & ~0xF)
-			snprintf(buffer, bufsize, "PROJECTION # %i (extra %x)", data & 0xF, data);
+			snprintf(buffer, bufsize, "PROJECTION # %d (extra %x)", data & 0xF, data & ~0xF);
 		else
-			snprintf(buffer, bufsize, "PROJECTION # %i", data & 0xF);
+			snprintf(buffer, bufsize, "PROJECTION # %d", data & 0xF);
 		break;
 
 	case GE_CMD_PROJMATRIXDATA:
@@ -1102,9 +1296,9 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_TGENMATRIXNUMBER:
 		if (data & ~0xF)
-			snprintf(buffer, bufsize, "TGEN # %i (extra %x)", data & 0xF, data);
+			snprintf(buffer, bufsize, "TGEN # %d (extra %x)", data & 0xF, data & ~0xF);
 		else
-			snprintf(buffer, bufsize, "TGEN # %i", data & 0xF);
+			snprintf(buffer, bufsize, "TGEN # %d", data & 0xF);
 		break;
 
 	case GE_CMD_TGENMATRIXDATA:
@@ -1113,13 +1307,87 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_BONEMATRIXNUMBER:
 		if (data & ~0x7F)
-			snprintf(buffer, bufsize, "BONE #%i (extra %x)", data & 0x7F, data);
+			snprintf(buffer, bufsize, "BONE #%d (extra %x)", data & 0x7F, data & ~0x7F);
 		else
-			snprintf(buffer, bufsize, "BONE #%i", data & 0x7F);
+			snprintf(buffer, bufsize, "BONE #%d", data & 0x7F);
 		break;
 
 	case GE_CMD_BONEMATRIXDATA:
-		snprintf(buffer, bufsize, "BONE data #%i %f", gstate.boneMatrixNumber & 0x7f, getFloat24(data));
+		snprintf(buffer, bufsize, "BONE data # %f", getFloat24(data));
+		break;
+
+	case GE_CMD_VSCX:
+		if (data & ~0xFFFF)
+			snprintf(buffer, bufsize, "Vertex screen X: %04x / %d with sub %d (extra %02x)", data & 0xFFFF, data >> 4, data & 0xF, data >> 16);
+		else
+			snprintf(buffer, bufsize, "Vertex screen X: %04x / %d with sub %d", data & 0xFFFF, data >> 4, data & 0xF);
+		break;
+
+	case GE_CMD_VSCY:
+		if (data & ~0xFFFF)
+			snprintf(buffer, bufsize, "Vertex screen Y: %04x / %d with sub %d (extra %02x)", data & 0xFFFF, data >> 4, data & 0xF, data >> 16);
+		else
+			snprintf(buffer, bufsize, "Vertex screen Y: %04x / %d with sub %d", data & 0xFFFF, data >> 4, data & 0xF);
+		break;
+
+	case GE_CMD_VSCZ:
+		if (data & ~0xFFFF)
+			snprintf(buffer, bufsize, "Vertex Z: %04x (extra %02x)", data & 0xFFFF, data >> 16);
+		else
+			snprintf(buffer, bufsize, "Vertex Z: %04x", data & 0xFFFF);
+		break;
+
+	case GE_CMD_VTCS:
+		snprintf(buffer, bufsize, "Vertex tex S: %f", getFloat24(data));
+		break;
+
+	case GE_CMD_VTCT:
+		snprintf(buffer, bufsize, "Vertex tex T: %f", getFloat24(data));
+		break;
+
+	case GE_CMD_VTCQ:
+		snprintf(buffer, bufsize, "Vertex tex Q: %f", getFloat24(data));
+		break;
+
+	case GE_CMD_VCV:
+		snprintf(buffer, bufsize, "Vertex color: %06x", data);
+		break;
+
+	case GE_CMD_VAP:
+		{
+			bool antialias = (data & GE_IMM_ANTIALIAS) != 0;
+			int clip = (data & GE_IMM_CLIPMASK) >> 12;
+			bool shading = (data & GE_IMM_SHADING) != 0;
+			bool cullEnable = (data & GE_IMM_CULLENABLE) != 0;
+			int cullMode = (data & GE_IMM_CULLFACE) != 0 ? 1 : 0;
+			bool texturing = (data & GE_IMM_TEXTURE) != 0;
+			bool dither = (data & GE_IMM_DITHER) != 0;
+			char *p = buffer;
+			p += snprintf(p, bufsize - (p - buffer), "Vertex draw: alpha=%02x, prim=%s", data & 0xFF, primTypes[(data >> 8) & 7]);
+			if (antialias)
+				p += snprintf(p, bufsize - (p - buffer), ", antialias");
+			if (clip != 0)
+				p += snprintf(p, bufsize - (p - buffer), ", clip=%02x", clip);
+			if (shading)
+				p += snprintf(p, bufsize - (p - buffer), ", shading");
+			if (cullEnable)
+				p += snprintf(p, bufsize - (p - buffer), ", cull=%s", cullMode == 1 ? "back (CCW)" : "front (CW)");
+			if (texturing)
+				p += snprintf(p, bufsize - (p - buffer), ", texturing");
+			if (dither)
+				p += snprintf(p, bufsize - (p - buffer), ", dither");
+		}
+		break;
+
+	case GE_CMD_VFC:
+		if (data & ~0xFF)
+			snprintf(buffer, bufsize, "Vertex fog: %02x / %f (extra %04x)", data & 0xFF, (data & 0xFF) / 255.0f, data >> 8);
+		else
+			snprintf(buffer, bufsize, "Vertex fog: %02x / %f", data & 0xFF, (data & 0xFF) / 255.0f);
+		break;
+
+	case GE_CMD_VSCV:
+		snprintf(buffer, bufsize, "Vertex secondary color: %06x", data);
 		break;
 
 	default:

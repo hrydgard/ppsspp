@@ -23,6 +23,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/D3D9/D3D9StateCache.h"
+#include "Common/OSVersion.h"
 #include "Common/StringUtils.h"
 
 #include "Common/Log.h"
@@ -114,6 +115,7 @@ static const D3DSTENCILOP stencilOpToD3D9[] = {
 
 D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
 	switch (fmt) {
+	case DataFormat::R16_UNORM: return D3DFMT_L16;  // closest match, should be a fine substitution if we ignore channels except R.
 	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
 	case DataFormat::B8G8R8A8_UNORM: return D3DFMT_A8R8G8B8;
 	case DataFormat::R4G4B4A4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
@@ -152,7 +154,6 @@ public:
 	D3DCMPFUNC stencilCompareOp;
 
 	void Apply(LPDIRECT3DDEVICE9 device, uint8_t stencilRef, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
-		using namespace DX9;
 		dxstate.depthTest.set(depthTestEnabled);
 		if (depthTestEnabled) {
 			dxstate.depthWrite.set(depthWriteEnabled);
@@ -174,7 +175,6 @@ public:
 	DWORD cullMode;   // D3DCULL_*
 
 	void Apply(LPDIRECT3DDEVICE9 device) {
-		using namespace DX9;
 		dxstate.cullMode.set(cullMode);
 		dxstate.scissorTest.enable();
 	}
@@ -188,7 +188,6 @@ public:
 	uint32_t colorMask;
 
 	void Apply(LPDIRECT3DDEVICE9 device) {
-		using namespace DX9;
 		dxstate.blend.set(enabled);
 		dxstate.blendFunc.set(srcCol, dstCol, srcAlpha, dstAlpha);
 		dxstate.blendEquation.set(eqCol, eqAlpha);
@@ -202,12 +201,19 @@ public:
 	D3DTEXTUREFILTERTYPE magFilt, minFilt, mipFilt;
 
 	void Apply(LPDIRECT3DDEVICE9 device, int index) {
-		using namespace DX9;
-		dxstate.texAddressU.set(wrapS);
-		dxstate.texAddressV.set(wrapT);
-		dxstate.texMagFilter.set(magFilt);
-		dxstate.texMinFilter.set(minFilt);
-		dxstate.texMipFilter.set(mipFilt);
+		if (index == 0) {
+			dxstate.texAddressU.set(wrapS);
+			dxstate.texAddressV.set(wrapT);
+			dxstate.texMagFilter.set(magFilt);
+			dxstate.texMinFilter.set(minFilt);
+			dxstate.texMipFilter.set(mipFilt);
+		} else {
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_ADDRESSU, wrapS);
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_ADDRESSV, wrapT);
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_MAGFILTER, magFilt);
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_MINFILTER, minFilt);
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_MIPFILTER, mipFilt);
+		}
 	}
 };
 
@@ -259,17 +265,23 @@ class D3D9Pipeline : public Pipeline {
 public:
 	D3D9Pipeline() {}
 	~D3D9Pipeline() {
+		if (vshader) {
+			vshader->Release();
+		}
+		if (pshader) {
+			pshader->Release();
+		}
 	}
 
-	D3D9ShaderModule *vshader;
-	D3D9ShaderModule *pshader;
+	D3D9ShaderModule *vshader = nullptr;
+	D3D9ShaderModule *pshader = nullptr;
 
-	D3DPRIMITIVETYPE prim;
+	D3DPRIMITIVETYPE prim{};
 	AutoRef<D3D9InputLayout> inputLayout;
 	AutoRef<D3D9DepthStencilState> depthStencil;
 	AutoRef<D3D9BlendState> blend;
 	AutoRef<D3D9RasterState> raster;
-	UniformBufferDesc dynamicUniforms;
+	UniformBufferDesc dynamicUniforms{};
 
 	void Apply(LPDIRECT3DDEVICE9 device, uint8_t stencilRef, uint8_t stencilWriteMask, uint8_t stencilCompareMask);
 };
@@ -440,6 +452,17 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 					if (data != rect.pBits)
 						memcpy(dest, source, sizeof(uint32_t) * width);
 					break;
+
+				case DataFormat::R8_UNORM:
+					if (data != rect.pBits)
+						memcpy(dest, source, width);
+					break;
+
+				case DataFormat::R16_UNORM:
+					if (data != rect.pBits)
+						memcpy(dest, source, sizeof(uint16_t) * width);
+					break;
+
 				default:
 					// Unhandled data format copy.
 					DebugBreak();
@@ -487,13 +510,13 @@ public:
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
-	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) override;
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
+	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	Texture *CreateTexture(const TextureDesc &desc) override;
 
@@ -505,6 +528,7 @@ public:
 		// Not implemented
 	}
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
+	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
@@ -518,6 +542,8 @@ public:
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindNativeTexture(int index, void *nativeTexture) override;
+
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
 		_assert_(start + count <= MAX_BOUND_TEXTURES);
 		for (int i = 0; i < count; ++i) {
@@ -630,6 +656,63 @@ void D3D9Context::InvalidateCachedState() {
 	curPipeline_ = nullptr;
 }
 
+// TODO: Move this detection elsewhere when it's needed elsewhere, not before. It's ugly.
+// Source: https://envytools.readthedocs.io/en/latest/hw/pciid.html#gf100
+enum NVIDIAGeneration {
+	NV_PRE_KEPLER,
+	NV_KEPLER,
+	NV_MAXWELL,
+	NV_PASCAL,
+	NV_VOLTA,
+	NV_TURING,  // or later
+};
+
+static NVIDIAGeneration NVIDIAGetDeviceGeneration(int deviceID) {
+	if (deviceID >= 0x1180 && deviceID <= 0x11bf)
+		return NV_KEPLER;  // GK104
+	if (deviceID >= 0x11c0 && deviceID <= 0x11fa)
+		return NV_KEPLER;  // GK106
+	if (deviceID >= 0x0fc0 && deviceID <= 0x0fff)
+		return NV_KEPLER;  // GK107
+	if (deviceID >= 0x1003 && deviceID <= 0x1028)
+		return NV_KEPLER;  // GK110(B)
+	if (deviceID >= 0x1280 && deviceID <= 0x12ba)
+		return NV_KEPLER;  // GK208
+	if (deviceID >= 0x1381 && deviceID <= 0x13b0)
+		return NV_MAXWELL;  // GM107
+	if (deviceID >= 0x1340 && deviceID <= 0x134d)
+		return NV_MAXWELL;  // GM108
+	if (deviceID >= 0x13c0 && deviceID <= 0x13d9)
+		return NV_MAXWELL;  // GM204
+	if (deviceID >= 0x1401 && deviceID <= 0x1427)
+		return NV_MAXWELL;  // GM206
+	if (deviceID >= 0x15f7 && deviceID <= 0x15f9)
+		return NV_PASCAL;  // GP100
+	if (deviceID >= 0x15f7 && deviceID <= 0x15f9)
+		return NV_PASCAL;  // GP100
+	if (deviceID >= 0x1b00 && deviceID <= 0x1b38)
+		return NV_PASCAL;  // GP102
+	if (deviceID >= 0x1b80 && deviceID <= 0x1be1)
+		return NV_PASCAL;  // GP104
+	if (deviceID >= 0x1c02 && deviceID <= 0x1c62)
+		return NV_PASCAL;  // GP106
+	if (deviceID >= 0x1c81 && deviceID <= 0x1c92)
+		return NV_PASCAL;  // GP107
+	if (deviceID >= 0x1d01 && deviceID <= 0x1d12)
+		return NV_PASCAL;  // GP108
+	if (deviceID >= 0x1d81 && deviceID <= 0x1dba)
+		return NV_VOLTA;   // GV100
+	if (deviceID >= 0x1e02 && deviceID <= 0x1e3c)
+		return NV_TURING;  // TU102
+	if (deviceID >= 0x1e82 && deviceID <= 0x1ed0)
+		return NV_TURING;  // TU104
+	if (deviceID >= 0x1f02 && deviceID <= 0x1f51)
+		return NV_TURING;  // TU104
+	if (deviceID >= 0x1e02)
+		return NV_TURING;  // More TU models or later, probably.
+	return NV_PRE_KEPLER;
+}
+
 #define FB_DIV 1
 #define FOURCC_INTZ ((D3DFORMAT)(MAKEFOURCC('I', 'N', 'T', 'Z')))
 
@@ -649,27 +732,59 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 	}
 
-	if (!FAILED(device->GetDeviceCaps(&d3dCaps_))) {
+	D3DCAPS9 caps;
+	ZeroMemory(&caps, sizeof(caps));
+	HRESULT result = 0;
+	if (deviceEx_) {
+		result = deviceEx_->GetDeviceCaps(&caps);
+	} else {
+		result = device_->GetDeviceCaps(&caps);
+	}
+
+	if (SUCCEEDED(result)) {
 		sprintf(shadeLangVersion_, "PS: %04x VS: %04x", d3dCaps_.PixelShaderVersion & 0xFFFF, d3dCaps_.VertexShaderVersion & 0xFFFF);
 	} else {
+		WARN_LOG(G3D, "Direct3D9: Failed to get the device caps!");
 		strcpy(shadeLangVersion_, "N/A");
 	}
+
 	caps_.deviceID = identifier_.DeviceId;
 	caps_.multiViewport = false;
-	caps_.anisoSupported = true;
 	caps_.depthRangeMinusOneToOne = false;
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 	caps_.dualSourceBlend = false;
 	caps_.tesselationShaderSupported = false;
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = false;
-	caps_.framebufferDepthBlitSupported = true;
+	caps_.framebufferDepthBlitSupported = false;
 	caps_.framebufferStencilBlitSupported = false;
 	caps_.framebufferDepthCopySupported = false;
 	caps_.framebufferSeparateDepthCopySupported = false;
 	caps_.texture3DSupported = true;
-	caps_.textureNPOTFullySupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
+	caps_.blendMinMaxSupported = true;
+
+	if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1) {
+		caps_.anisoSupported = true;
+	}
+	if ((caps.TextureCaps & (D3DPTEXTURECAPS_NONPOW2CONDITIONAL | D3DPTEXTURECAPS_POW2)) == 0) {
+		caps_.textureNPOTFullySupported = true;
+	}
+
+	// VS range culling (killing triangles in the vertex shader using NaN) causes problems on Intel.
+	// Also causes problems on old NVIDIA.
+	switch (caps_.vendor) {
+	case Draw::GPUVendor::VENDOR_INTEL:
+		bugs_.Infest(Bugs::BROKEN_NAN_IN_CONDITIONAL);
+		break;
+	case Draw::GPUVendor::VENDOR_NVIDIA:
+		// Older NVIDIAs don't seem to like NaNs in their DX9 vertex shaders.
+		// No idea if KEPLER is the right cutoff, but let's go with it.
+		if (NVIDIAGetDeviceGeneration(caps_.deviceID) < NV_KEPLER) {
+			bugs_.Infest(Bugs::BROKEN_NAN_IN_CONDITIONAL);
+		}
+		break;
+	}
 
 	if (d3d) {
 		D3DDISPLAYMODE displayMode;
@@ -677,19 +792,21 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 
 		// To be safe, make sure both the display format and the FBO format support INTZ.
 		HRESULT displayINTZ = d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, displayMode.Format, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, FOURCC_INTZ);
-		HRESULT fboINTZ = d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, D3DFMT_A8R8G8B8, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, FOURCC_INTZ);
-		supportsINTZ = SUCCEEDED(displayINTZ) && SUCCEEDED(fboINTZ);
+		HRESULT displayINTY = d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, displayMode.Format, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, ((D3DFORMAT)(MAKEFOURCC('I', 'N', 'T', 'Y'))));
+		// Try to prevent INTZ on older Intel drivers that claim support.
+		supportsINTZ = SUCCEEDED(displayINTZ) && !SUCCEEDED(displayINTY) && IsWin7OrHigher();
 	}
+	caps_.textureDepthSupported = supportsINTZ;
 
 	shaderLanguageDesc_.Init(HLSL_D3D9);
 
-	DX9::dxstate.Restore();
+	dxstate.Restore();
 }
 
 D3D9Context::~D3D9Context() {
 }
 
-ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const std::string &tag) {
+ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const char *tag) {
 	D3D9ShaderModule *shader = new D3D9ShaderModule(stage, tag);
 	if (shader->Compile(device_, data, size)) {
 		return shader;
@@ -699,23 +816,25 @@ ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage 
 	}
 }
 
-Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
+Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) {
 	if (!desc.shaders.size()) {
-		ERROR_LOG(G3D,  "Pipeline requires at least one shader");
+		ERROR_LOG(G3D,  "Pipeline %s requires at least one shader", tag);
 		return NULL;
 	}
 	D3D9Pipeline *pipeline = new D3D9Pipeline();
 	for (auto iter : desc.shaders) {
 		if (!iter) {
-			ERROR_LOG(G3D,  "NULL shader passed to CreateGraphicsPipeline");
+			ERROR_LOG(G3D,  "NULL shader passed to CreateGraphicsPipeline(%s)", tag);
 			delete pipeline;
 			return NULL;
 		}
 		if (iter->GetStage() == ShaderStage::Fragment) {
 			pipeline->pshader = static_cast<D3D9ShaderModule *>(iter);
+			pipeline->pshader->AddRef();
 		}
 		else if (iter->GetStage() == ShaderStage::Vertex) {
 			pipeline->vshader = static_cast<D3D9ShaderModule *>(iter);
+			pipeline->vshader->AddRef();
 		}
 	}
 	pipeline->prim = primToD3D9[(int)desc.prim];
@@ -808,6 +927,11 @@ void D3D9Context::BindTextures(int start, int count, Texture **textures) {
 	}
 }
 
+void D3D9Context::BindNativeTexture(int index, void *nativeTexture) {
+	LPDIRECT3DTEXTURE9 texture = (LPDIRECT3DTEXTURE9)nativeTexture;
+	device_->SetTexture(index, texture);
+}
+
 void D3D9Context::EndFrame() {
 	curPipeline_ = nullptr;
 }
@@ -829,6 +953,10 @@ static void SemanticToD3D9UsageAndIndex(int semantic, BYTE *usage, BYTE *index) 
 		break;
 	case SEM_COLOR0:
 		*usage = D3DDECLUSAGE_COLOR;
+		break;
+	case SEM_COLOR1:
+		*usage = D3DDECLUSAGE_COLOR;
+		*index = 1;
 		break;
 	case SEM_TEXCOORD0:
 		*usage = D3DDECLUSAGE_TEXCOORD;
@@ -1029,15 +1157,11 @@ void D3D9Context::Clear(int mask, uint32_t colorval, float depthVal, int stencil
 }
 
 void D3D9Context::SetScissorRect(int left, int top, int width, int height) {
-	using namespace DX9;
-
 	dxstate.scissorRect.set(left, top, left + width, top + height);
 	dxstate.scissorTest.set(true);
 }
 
 void D3D9Context::SetViewports(int count, Viewport *viewports) {
-	using namespace DX9;
-
 	int x = (int)viewports[0].TopLeftX;
 	int y = (int)viewports[0].TopLeftY;
 	int w = (int)viewports[0].Width;
@@ -1050,7 +1174,6 @@ void D3D9Context::SetBlendFactor(float color[4]) {
 	uint32_t g = (uint32_t)(color[1] * 255.0f);
 	uint32_t b = (uint32_t)(color[2] * 255.0f);
 	uint32_t a = (uint32_t)(color[3] * 255.0f);
-	using namespace DX9;
 	dxstate.blendColor.set(color);
 }
 
@@ -1069,11 +1192,7 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 	auto compile = [&](const char *profile) -> HRESULT {
 		return dyn_D3DCompile(source, (UINT)strlen(source), nullptr, defines, includes, "main", profile, 0, 0, &codeBuffer, &errorBuffer);
 	};
-	HRESULT hr = compile(stage_ == ShaderStage::Fragment ? "ps_2_0" : "vs_2_0");
-	if (FAILED(hr) && hr == D3DXERR_INVALIDDATA) {
-		// Might be a post shader.  Let's try using shader model 3.
-		hr = compile(stage_ == ShaderStage::Fragment ? "ps_3_0" : "vs_3_0");
-	}
+	HRESULT hr = compile(stage_ == ShaderStage::Fragment ? "ps_3_0" : "vs_3_0");
 	if (FAILED(hr)) {
 		const char *error = errorBuffer ? (const char *)errorBuffer->GetBufferPointer() : "(no errorbuffer returned)";
 		if (hr == ERROR_MOD_NOT_FOUND) {
@@ -1171,7 +1290,6 @@ D3D9Framebuffer::~D3D9Framebuffer() {
 }
 
 void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
-	using namespace DX9;
 	if (fbo) {
 		D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
 		device_->SetRenderTarget(0, fb->surf);
@@ -1200,6 +1318,7 @@ void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPa
 	}
 
 	dxstate.scissorRect.restore();
+	dxstate.scissorTest.restore();
 	dxstate.viewport.restore();
 	stepId_++;
 }
@@ -1281,6 +1400,108 @@ bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int 
 	}
 	stepId_++;
 	return SUCCEEDED(device_->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, (filter == FB_BLIT_LINEAR && channelBits == FB_COLOR_BIT) ? D3DTEXF_LINEAR : D3DTEXF_POINT));
+}
+
+bool D3D9Context::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, const char *tag) {
+	D3D9Framebuffer *fb = (D3D9Framebuffer *)src;
+
+	if (fb) {
+		if (bx + bw > fb->Width()) {
+			bw -= (bx + bw) - fb->Width();
+		}
+		if (by + bh > fb->Height()) {
+			bh -= (by + bh) - fb->Height();
+		}
+	}
+
+	if (bh <= 0 || bw <= 0)
+		return true;
+
+	DataFormat srcFormat = Draw::DataFormat::R8G8B8A8_UNORM;
+	if (channelBits != FB_COLOR_BIT) {
+		srcFormat = Draw::DataFormat::D24_S8;
+		if (!supportsINTZ)
+			return false;
+	}
+
+	D3DSURFACE_DESC desc;
+	D3DLOCKED_RECT locked;
+	RECT rect = { (LONG)bx, (LONG)by, (LONG)bw, (LONG)bh };
+
+	LPDIRECT3DSURFACE9 offscreen = nullptr;
+	HRESULT hr = E_UNEXPECTED;
+	if (channelBits == FB_COLOR_BIT) {
+		fb->tex->GetLevelDesc(0, &desc);
+
+		hr = device_->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, nullptr);
+		if (SUCCEEDED(hr)) {
+			hr = device_->GetRenderTargetData(fb->surf, offscreen);
+			if (SUCCEEDED(hr)) {
+				hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
+			}
+		}
+	} else {
+		fb->depthstenciltex->GetLevelDesc(0, &desc);
+		hr = fb->depthstenciltex->LockRect(0, &locked, &rect, D3DLOCK_READONLY);
+	}
+
+	if (SUCCEEDED(hr)) {
+		switch (channelBits) {
+		case FB_COLOR_BIT:
+			// Pixel size always 4 here because we always request BGRA8888.
+			ConvertFromBGRA8888((uint8_t *)pixels, (const uint8_t *)locked.pBits, pixelStride, locked.Pitch / sizeof(uint32_t), bw, bh, destFormat);
+			break;
+		case FB_DEPTH_BIT:
+			if (srcFormat == destFormat) {
+				// Can just memcpy when it matches no matter the format!
+				uint8_t *dst = (uint8_t *)pixels;
+				const uint8_t *src = (const uint8_t *)locked.pBits;
+				for (int y = 0; y < bh; ++y) {
+					memcpy(dst, src, bw * DataFormatSizeInBytes(srcFormat));
+					dst += pixelStride * DataFormatSizeInBytes(srcFormat);
+					src += locked.Pitch;
+				}
+			} else if (destFormat == DataFormat::D32F) {
+				ConvertToD32F((uint8_t *)pixels, (const uint8_t *)locked.pBits, pixelStride, locked.Pitch / sizeof(uint32_t), bw, bh, srcFormat);
+			} else if (destFormat == DataFormat::D16) {
+				ConvertToD16((uint8_t *)pixels, (const uint8_t *)locked.pBits, pixelStride, locked.Pitch / sizeof(uint32_t), bw, bh, srcFormat);
+			} else {
+				_assert_(false);
+			}
+			break;
+		case FB_STENCIL_BIT:
+			if (srcFormat == destFormat) {
+				uint8_t *dst = (uint8_t *)pixels;
+				const uint8_t *src = (const uint8_t *)locked.pBits;
+				for (int y = 0; y < bh; ++y) {
+					memcpy(dst, src, bw * DataFormatSizeInBytes(srcFormat));
+					dst += pixelStride * DataFormatSizeInBytes(srcFormat);
+					src += locked.Pitch;
+				}
+			} else if (destFormat == DataFormat::S8) {
+				for (int y = 0; y < bh; y++) {
+					uint8_t *destStencil = (uint8_t *)pixels + y * pixelStride;
+					const uint32_t *src = (const uint32_t *)((const uint8_t *)locked.pBits + locked.Pitch * y);
+					for (int x = 0; x < bw; x++) {
+						destStencil[x] = src[x] >> 24;
+					}
+				}
+			} else {
+				_assert_(false);
+			}
+			break;
+		}
+	}
+
+	if (channelBits != FB_COLOR_BIT) {
+		fb->depthstenciltex->UnlockRect(0);
+	}
+	if (offscreen) {
+		offscreen->UnlockRect();
+		offscreen->Release();
+	}
+
+	return SUCCEEDED(hr);
 }
 
 void D3D9Context::HandleEvent(Event ev, int width, int height, void *param1, void *param2) {

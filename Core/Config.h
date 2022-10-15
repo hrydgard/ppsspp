@@ -164,6 +164,7 @@ public:
 	bool bHardwareTransform; // only used in the GLES backend
 	bool bSoftwareSkinning;  // may speed up some games
 	bool bVendorBugChecksEnabled;
+	bool bUseGeometryShader;
 
 	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering
 	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality
@@ -176,6 +177,7 @@ public:
 	bool bSustainedPerformanceMode;  // Android: Slows clocks down to avoid overheating/speed fluctuations.
 	bool bIgnoreScreenInsets;  // Android: Center screen disregarding insets if this is enabled.
 	bool bVSync;
+
 	int iFrameSkip;
 	int iFrameSkipType;
 	int iFastForwardMode; // See FastForwardMode in ConfigValues.h.
@@ -190,6 +192,7 @@ public:
 	int iWindowY;
 	int iWindowWidth;  // Windows and other windowed environments
 	int iWindowHeight;
+	bool bShowMenuBar;  // Windows-only
 
 	float fUITint;
 	float fUISaturation;
@@ -232,8 +235,6 @@ public:
 	float fGameListScrollPosition;
 	int iBloomHack; //0 = off, 1 = safe, 2 = balanced, 3 = aggressive
 	bool bBlockTransferGPU;
-	bool bDisableSlowFramebufEffects;
-	bool bFragmentTestCache;
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	bool bHardwareTessellation;
 	bool bShaderCache;  // Hidden ini-only setting, useful for debugging shader compile times.
@@ -243,7 +244,6 @@ public:
 	bool bShaderChainRequires60FPS;
 	std::string sTextureShaderName;
 	bool bGfxDebugOutput;
-	bool bGfxDebugSplitSubmit;
 	int iInflightFrames;
 	bool bRenderDuplicateFrames;
 
@@ -453,6 +453,13 @@ public:
 	int iFirmwareVersion;
 	bool bBypassOSKWithKeyboard;
 
+	// Virtual reality
+	bool bEnableVR;
+	bool bEnable6DoF;
+	bool bEnableStereo;
+	int iCanvasDistance;
+	int iFieldOfViewPercentage;
+
 	// Debugger
 	int iDisasmWindowX;
 	int iDisasmWindowY;
@@ -462,6 +469,9 @@ public:
 	int iGEWindowY;
 	int iGEWindowW;
 	int iGEWindowH;
+	uint32_t uGETabsLeft;
+	uint32_t uGETabsRight;
+	uint32_t uGETabsTopRight;
 	int iConsoleWindowX;
 	int iConsoleWindowY;
 	int iFontWidth;

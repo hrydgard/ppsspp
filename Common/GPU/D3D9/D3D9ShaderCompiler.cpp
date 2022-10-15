@@ -47,14 +47,14 @@ LPD3DBLOB CompileShaderToByteCodeD3D9(const char *code, const char *target, std:
 			pShaderCode = nullptr;
 		}
 	} else {
-		*errorMessage = "";
+		errorMessage->clear();
 	}
 
 	return pShaderCode;
 }
 
 bool CompilePixelShaderD3D9(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DPIXELSHADER9 *pShader, std::string *errorMessage) {
-	LPD3DBLOB pShaderCode = CompileShaderToByteCodeD3D9(code, "ps_2_0", errorMessage);
+	LPD3DBLOB pShaderCode = CompileShaderToByteCodeD3D9(code, "ps_3_0", errorMessage);
 	if (pShaderCode) {
 		// Create pixel shader.
 		device->CreatePixelShader((DWORD*)pShaderCode->GetBufferPointer(), pShader);
@@ -66,7 +66,7 @@ bool CompilePixelShaderD3D9(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT
 }
 
 bool CompileVertexShaderD3D9(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, std::string *errorMessage) {
-	LPD3DBLOB pShaderCode = CompileShaderToByteCodeD3D9(code, "vs_2_0", errorMessage);
+	LPD3DBLOB pShaderCode = CompileShaderToByteCodeD3D9(code, "vs_3_0", errorMessage);
 	if (pShaderCode) {
 		// Create vertex shader.
 		device->CreateVertexShader((DWORD*)pShaderCode->GetBufferPointer(), pShader);

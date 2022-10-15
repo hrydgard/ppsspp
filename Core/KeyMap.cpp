@@ -25,6 +25,7 @@
 #include "Common/System/System.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Input/InputState.h"
+#include "Common/VR/PPSSPPVR.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/HLE/sceUtility.h"
@@ -654,10 +655,11 @@ void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool repla
 void RestoreDefault() {
 	g_controllerMap.clear();
 	g_controllerMapGeneration++;
-#ifdef OPENXR
-	SetDefaultKeyMap(DEFAULT_MAPPING_VR_HEADSET, false);
-	return;
-#endif
+
+	if (IsVRBuild()) {
+		SetDefaultKeyMap(DEFAULT_MAPPING_VR_HEADSET, false);
+		return;
+	}
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);

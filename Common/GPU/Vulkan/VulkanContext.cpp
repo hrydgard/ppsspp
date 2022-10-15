@@ -600,8 +600,7 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	deviceFeatures_.enabled.samplerAnisotropy = deviceFeatures_.available.samplerAnisotropy;
 	deviceFeatures_.enabled.shaderClipDistance = deviceFeatures_.available.shaderClipDistance;
 	deviceFeatures_.enabled.shaderCullDistance = deviceFeatures_.available.shaderCullDistance;
-	// For easy wireframe mode, someday.
-	deviceFeatures_.enabled.fillModeNonSolid = deviceFeatures_.available.fillModeNonSolid;
+	deviceFeatures_.enabled.geometryShader = deviceFeatures_.available.geometryShader;
 
 	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
 
@@ -648,6 +647,7 @@ VkResult VulkanContext::CreateDevice() {
 	}
 	_dbg_assert_(found);
 
+	// TODO: A lot of these are on by default in later Vulkan versions, should check for that, technically.
 	extensionsLookup_.KHR_maintenance1 = EnableDeviceExtension(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
 	extensionsLookup_.KHR_maintenance2 = EnableDeviceExtension(VK_KHR_MAINTENANCE2_EXTENSION_NAME);
 	extensionsLookup_.KHR_maintenance3 = EnableDeviceExtension(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
@@ -666,7 +666,10 @@ VkResult VulkanContext::CreateDevice() {
 		extensionsLookup_.KHR_create_renderpass2 = true;
 		extensionsLookup_.KHR_depth_stencil_resolve = EnableDeviceExtension(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME);
 	}
+
 	extensionsLookup_.EXT_shader_stencil_export = EnableDeviceExtension(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
+	extensionsLookup_.EXT_fragment_shader_interlock = EnableDeviceExtension(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
+	extensionsLookup_.ARM_rasterization_order_attachment_access = EnableDeviceExtension(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME);
 
 	VkDeviceCreateInfo device_info{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	device_info.queueCreateInfoCount = 1;
@@ -684,7 +687,7 @@ VkResult VulkanContext::CreateDevice() {
 	} else {
 		VulkanLoadDeviceFunctions(device_, extensionsLookup_);
 	}
-	INFO_LOG(G3D, "Device created.\n");
+	INFO_LOG(G3D, "Vulkan Device created");
 	VulkanSetAvailable(true);
 
 	VmaAllocatorCreateInfo allocatorInfo = {};
@@ -1008,12 +1011,21 @@ bool VulkanContext::InitSwapchain() {
 	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, presentModes);
 	_dbg_assert_(res == VK_SUCCESS);
 
+	VkExtent2D currentExtent { surfCapabilities_.currentExtent };
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSurfaceCapabilitiesKHR.html
+	// currentExtent is the current width and height of the surface, or the special value (0xFFFFFFFF, 0xFFFFFFFF) indicating that the surface size will be determined by the extent of a swapchain targeting the surface.
+	if (currentExtent.width == 0xFFFFFFFFu || currentExtent.height == 0xFFFFFFFFu) {
+		_dbg_assert_((bool)cbGetDrawSize_)
+		if (cbGetDrawSize_) {
+			currentExtent = cbGetDrawSize_();
+		}
+	}
 
-	swapChainExtent_.width = clamp(surfCapabilities_.currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
-	swapChainExtent_.height = clamp(surfCapabilities_.currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
+	swapChainExtent_.width = clamp(currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
+	swapChainExtent_.height = clamp(currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
 
 	INFO_LOG(G3D, "surfCapabilities_.current: %dx%d min: %dx%d max: %dx%d computed: %dx%d",
-		surfCapabilities_.currentExtent.width, surfCapabilities_.currentExtent.height,
+		currentExtent.width, currentExtent.height,
 		surfCapabilities_.minImageExtent.width, surfCapabilities_.minImageExtent.height,
 		surfCapabilities_.maxImageExtent.width, surfCapabilities_.maxImageExtent.height,
 		swapChainExtent_.width, swapChainExtent_.height);
@@ -1158,6 +1170,10 @@ bool VulkanContext::InitSwapchain() {
 	return true;
 }
 
+void VulkanContext::SetCbGetDrawSize(std::function<VkExtent2D()> cb) {
+	cbGetDrawSize_ = cb;
+}
+
 VkFence VulkanContext::CreateFence(bool presignalled) {
 	VkFence fence;
 	VkFenceCreateInfo fenceInfo{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
@@ -1195,12 +1211,15 @@ void VulkanContext::DestroyDevice() {
 	device_ = nullptr;
 }
 
-bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule) {
+bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule, const char *tag) {
 	VkShaderModuleCreateInfo sm{ VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
 	sm.pCode = spirv.data();
 	sm.codeSize = spirv.size() * sizeof(uint32_t);
 	sm.flags = 0;
 	VkResult result = vkCreateShaderModule(device_, &sm, nullptr, shaderModule);
+	if (tag) {
+		SetDebugName(*shaderModule, VK_OBJECT_TYPE_SHADER_MODULE, tag);
+	}
 	if (result != VK_SUCCESS) {
 		return false;
 	} else {
@@ -1259,10 +1278,10 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, 
 
 	glslang::TProgram program;
 	const char *shaderStrings[1];
-	TBuiltInResource Resources;
+	TBuiltInResource Resources{};
 	init_resources(Resources);
 
-	int defaultVersion;
+	int defaultVersion = 0;
 	EShMessages messages;
 	EProfile profile;
 
@@ -1557,6 +1576,7 @@ const char *VulkanFormatToString(VkFormat format) {
 	switch (format) {
 	case VK_FORMAT_A1R5G5B5_UNORM_PACK16: return "A1R5G5B5_UNORM_PACK16";
 	case VK_FORMAT_A2B10G10R10_UNORM_PACK32: return "A2B10G10R10_UNORM_PACK32";
+	case VK_FORMAT_A2R10G10B10_UNORM_PACK32: return "A2R10G10B10_UNORM_PACK32";
 	case VK_FORMAT_A8B8G8R8_SNORM_PACK32: return "A8B8G8R8_SNORM_PACK32";
 	case VK_FORMAT_A8B8G8R8_SRGB_PACK32: return "A8B8G8R8_SRGB_PACK32";
 	case VK_FORMAT_A8B8G8R8_UNORM_PACK32: return "A8B8G8R8_UNORM_PACK32";

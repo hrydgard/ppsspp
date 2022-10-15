@@ -40,6 +40,10 @@ KernelObject *__KernelMemoryVPLObject();
 KernelObject *__KernelMemoryPMBObject();
 KernelObject *__KernelTlsplObject();
 
+BlockAllocator *BlockAllocatorFromID(int id);
+int BlockAllocatorToID(const BlockAllocator *alloc);
+BlockAllocator *BlockAllocatorFromAddr(u32 addr);
+
 SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr);
 int sceKernelDeleteVpl(SceUID uid);
 int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr);
