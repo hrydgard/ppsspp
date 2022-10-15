@@ -302,6 +302,9 @@ void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const C
 		// If any verts were outside range, throw the entire prim away.
 		if (v0.OutsideRange() || v1.OutsideRange() || v2.OutsideRange())
 			return;
+		// If all verts have negative W, we also cull.
+		if (v0.clippos.w < 0.0f && v1.clippos.w < 0.0f && v2.clippos.w < 0.0f)
+			return;
 
 		mask |= CalcClipMask(v0.clippos);
 		mask |= CalcClipMask(v1.clippos);
