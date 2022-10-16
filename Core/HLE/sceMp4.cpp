@@ -395,6 +395,16 @@ static u32 sceAacResetPlayPosition(u32 id)
 	return ctx->AuResetPlayPosition();
 }
 
+static u32 mp4msv_3C2183C7(u32 unknown1, u32 unknown2) {
+	ERROR_LOG(ME, "UNIMPL mp4msv_3C2183C7(%d, %x)", unknown1, unknown2);
+	return 0;
+}
+
+static u32 mp4msv_9CA13D1A(u32 unknown1, u32 unknown2) {
+	ERROR_LOG(ME, "UNIMPL mp4msv_9CA13D1A(%d, %x)", unknown1, unknown2);
+	return 0;
+}
+
 const HLEFunction sceMp4[] =
 {
 	{0X68651CBC, &WrapU_V<sceMp4Init>,                           "sceMp4Init",                        'x', ""       },
@@ -455,8 +465,15 @@ const HLEFunction sceAac[] = {
 	{0XD2DA2BBA, &WrapU_U<sceAacResetPlayPosition>,              "sceAacResetPlayPosition",           'x', "x"      },
 };
 
+const HLEFunction mp4msv[] = {
+	{0x3C2183C7, &WrapU_UU<mp4msv_3C2183C7>,                    "mp4msv_3C2183C7",               'x', "xx"      },
+	{0x9CA13D1A, &WrapU_UU<mp4msv_9CA13D1A>,                    "mp4msv_9CA13D1A",               'x', "xx"      },
+
+};
+
 void Register_sceMp4()
 {
 	RegisterModule("sceMp4", ARRAY_SIZE(sceMp4), sceMp4);
 	RegisterModule("sceAac", ARRAY_SIZE(sceAac), sceAac);
+	RegisterModule("mp4msv", ARRAY_SIZE(mp4msv), mp4msv);
 }
