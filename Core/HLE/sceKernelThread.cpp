@@ -1644,7 +1644,7 @@ void __KernelStopThread(SceUID threadID, int exitStatus, const char *reason)
 		t->nt.waitType = WAITTYPE_NONE;
 		t->nt.waitID = 0;
 	} else {
-		ERROR_LOG_REPORT(SCEKERNEL, "__KernelStopThread: thread %d does not exist", threadID);
+		ERROR_LOG_REPORT(SCEKERNEL, "__KernelStopThread: thread %d does not exist (%s)", threadID, reason ? reason : "?");
 	}
 }
 
