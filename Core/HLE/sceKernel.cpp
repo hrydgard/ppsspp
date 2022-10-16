@@ -735,7 +735,7 @@ const HLEFunction ThreadManForUser[] =
 	{0XB011B11F, &WrapI_IIU<sceKernelLockMutex>,                     "sceKernelLockMutex",                        'i', "iix",    HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0X5BF4DD27, &WrapI_IIU<sceKernelLockMutexCB>,                   "sceKernelLockMutexCB",                      'i', "iix",    HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0X6B30100F, &WrapI_II<sceKernelUnlockMutex>,                    "sceKernelUnlockMutex",                      'i', "ii"      },
-	{0XB7D098C6, &WrapI_CUIU<sceKernelCreateMutex>,                  "sceKernelCreateMutex",                      'i', "sxix"    },
+	{0XB7D098C6, &WrapI_CUIU<sceKernelCreateMutex>,                  "sceKernelCreateMutex",                      'i', "sxip"    },
 	{0X0DDCD2C9, &WrapI_II<sceKernelTryLockMutex>,                   "sceKernelTryLockMutex",                     'i', "ii"      },
 	{0XA9C2CB9A, &WrapI_IU<sceKernelReferMutexStatus>,               "sceKernelReferMutexStatus",                 'i', "ip"      },
 	{0X87D9223C, &WrapI_IIU<sceKernelCancelMutex>,                   "sceKernelCancelMutex",                      'i', "iix"     },
