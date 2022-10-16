@@ -21,7 +21,7 @@ namespace Rasterizer {
 	void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state);
 
 	bool DetectRectangleFromStrip(const RasterizerState &state, const ClipVertexData data[4], int *tlIndex, int *brIndex);
-	bool DetectRectangleFromFan(const RasterizerState &state, const ClipVertexData *data, int c, int *tlIndex, int *brIndex);
+	bool DetectRectangleFromFan(const RasterizerState &state, const ClipVertexData *data, int *tlIndex, int *brIndex);
 	bool DetectRectangleFromPair(const RasterizerState &state, const ClipVertexData data[6], int *tlIndex, int *brIndex);
 	bool DetectRectangleThroughModeSlices(const RasterizerState &state, const ClipVertexData data[4]);
 }
