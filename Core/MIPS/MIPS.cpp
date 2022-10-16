@@ -365,15 +365,9 @@ void MIPSState::ProcessPendingClears() {
 
 void MIPSState::InvalidateICache(u32 address, int length) {
 	// Only really applies to jit.
+	// Note that the backend is responsible for ensuring native code can still be returned to.
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-	if (!MIPSComp::jit || length == 0)
-		return;
-
-	if (coreState == CORE_RUNNING || insideJit) {
-		pendingClears.emplace_back(address, length);
-		hasPendingClears = true;
-		CoreTiming::ForceCheck();
-	} else {
+	if (MIPSComp::jit && length != 0) {
 		MIPSComp::jit->InvalidateCacheAt(address, length);
 	}
 }
