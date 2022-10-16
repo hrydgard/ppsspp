@@ -182,9 +182,10 @@ void ArmJit::ClearCache()
 	GenerateFixedCode();
 }
 
-void ArmJit::InvalidateCacheAt(u32 em_address, int length)
-{
-	blocks.InvalidateICache(em_address, length);
+void ArmJit::InvalidateCacheAt(u32 em_address, int length) {
+	if (blocks.RangeMayHaveEmuHacks(em_address, em_address + length)) {
+		blocks.InvalidateICache(em_address, length);
+	}
 }
 
 void ArmJit::EatInstruction(MIPSOpcode op) {
