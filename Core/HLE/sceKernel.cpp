@@ -392,7 +392,8 @@ int sceKernelDcacheInvalidateRange(u32 addr, int size)
 
 int sceKernelIcacheInvalidateRange(u32 addr, int size) {
 	DEBUG_LOG(CPU, "sceKernelIcacheInvalidateRange(%08x, %i)", addr, size);
-	currentMIPS->InvalidateICache(addr, size);
+	if (size != 0)
+		currentMIPS->InvalidateICache(addr, size);
 	return 0;
 }
 
