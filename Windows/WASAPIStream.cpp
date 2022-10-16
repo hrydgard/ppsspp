@@ -366,13 +366,16 @@ bool WASAPIAudioThread::DetectFormat() {
 				CoTaskMemFree(deviceFormat_);
 				deviceFormat_ = closest;
 			} else {
-				ERROR_LOG_REPORT_ONCE(badfallbackclosest, SCEAUDIO, "WASAPI fallback and closest unsupported");
+				wchar_t guid[256]{};
+				StringFromGUID2(closest->SubFormat, guid, 256);
+				ERROR_LOG_REPORT_ONCE(badfallbackclosest, SCEAUDIO, "WASAPI fallback and closest unsupported (fmt=%04x/%s)", closest->Format.wFormatTag, guid);
 				CoTaskMemFree(closest);
 				return false;
 			}
 		} else {
 			CoTaskMemFree(closest);
-			ERROR_LOG_REPORT_ONCE(badfallback, SCEAUDIO, "WASAPI fallback format was unsupported");
+			if (hr != AUDCLNT_E_DEVICE_INVALIDATED && hr != AUDCLNT_E_SERVICE_NOT_RUNNING)
+				ERROR_LOG_REPORT_ONCE(badfallback, SCEAUDIO, "WASAPI fallback format was unsupported (%08x)", hr);
 			return false;
 		}
 	}
@@ -390,7 +393,9 @@ bool WASAPIAudioThread::ValidateFormat(const WAVEFORMATEXTENSIBLE *fmt) {
 			if (fmt->Format.nChannels >= 1)
 				format_ = Format::IEEE_FLOAT;
 		} else {
-			ERROR_LOG_REPORT_ONCE(unexpectedformat, SCEAUDIO, "Got unexpected WASAPI 0xFFFE stream format, expected float!");
+			wchar_t guid[256]{};
+			StringFromGUID2(fmt->SubFormat, guid, 256);
+			ERROR_LOG_REPORT_ONCE(unexpectedformat, SCEAUDIO, "Got unexpected WASAPI 0xFFFE stream format (%S), expected float!", guid);
 			if (fmt->Format.wBitsPerSample == 16 && fmt->Format.nChannels == 2) {
 				format_ = Format::PCM16;
 			}
