@@ -86,7 +86,7 @@ static void OXR_CheckErrors(XrInstance instance, XrResult result, const char* fu
 #define OPENXR_HAS_PERFORMANCE_EXTENSION
 #endif
 
-enum { ovrMaxLayerCount = 1 };
+enum { ovrMaxLayerCount = 2 };
 enum { ovrMaxNumEyes = 2 };
 
 typedef union {

@@ -366,7 +366,9 @@ void VR_EndFrame( engine_t* engine ) {
 
 	// Show mouse cursor
 	int size = vrConfig[VR_CONFIG_MOUSE_SIZE];
-	if ((vrConfig[VR_CONFIG_MODE] == VR_MODE_FLAT_SCREEN) && (size > 0)) {
+	int vrMode = vrConfig[VR_CONFIG_MODE];
+	bool screenMode = (vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN);
+	if (screenMode && (size > 0)) {
 		int x = vrConfig[VR_CONFIG_MOUSE_X];
 		int y = vrConfig[VR_CONFIG_MOUSE_Y];
 		ovrRenderer_MouseCursor(&engine->appState.Renderer, x, y, size);
@@ -416,23 +418,9 @@ void VR_FinishFrame( engine_t* engine ) {
 		projection_layer.views = projection_layer_elements;
 
 		engine->appState.Layers[engine->appState.LayerCount++].Projection = projection_layer;
-	} else if (vrMode == VR_MODE_FLAT_SCREEN) {
+	} else if ((vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN)) {
 
-		// Build the cylinder layer
-		int width = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Width;
-		int height = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Height;
-		XrCompositionLayerCylinderKHR cylinder_layer = {};
-		cylinder_layer.type = XR_TYPE_COMPOSITION_LAYER_CYLINDER_KHR;
-		cylinder_layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-		cylinder_layer.space = engine->appState.CurrentSpace;
-		cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
-		memset(&cylinder_layer.subImage, 0, sizeof(XrSwapchainSubImage));
-		cylinder_layer.subImage.swapchain = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Handle;
-		cylinder_layer.subImage.imageRect.offset.x = 0;
-		cylinder_layer.subImage.imageRect.offset.y = 0;
-		cylinder_layer.subImage.imageRect.extent.width = width;
-		cylinder_layer.subImage.imageRect.extent.height = height;
-		cylinder_layer.subImage.imageArrayIndex = 0;
+		// Flat screen pose
 		float distance = (float)vrConfig[VR_CONFIG_CANVAS_DISTANCE];
 		float menuPitch = ToRadians((float)vrConfig[VR_CONFIG_MENU_PITCH]);
 		float menuYaw = ToRadians((float)vrConfig[VR_CONFIG_MENU_YAW]);
@@ -443,13 +431,42 @@ void VR_FinishFrame( engine_t* engine ) {
 		};
 		XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, -menuPitch);
 		XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, menuYaw);
+
+		// Setup the cylinder layer
+		XrCompositionLayerCylinderKHR cylinder_layer = {};
+		cylinder_layer.type = XR_TYPE_COMPOSITION_LAYER_CYLINDER_KHR;
+		cylinder_layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+		cylinder_layer.space = engine->appState.CurrentSpace;
+		memset(&cylinder_layer.subImage, 0, sizeof(XrSwapchainSubImage));
+		cylinder_layer.subImage.imageRect.offset.x = 0;
+		cylinder_layer.subImage.imageRect.offset.y = 0;
+		cylinder_layer.subImage.imageRect.extent.width = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Width;
+		cylinder_layer.subImage.imageRect.extent.height = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Height;
+		cylinder_layer.subImage.swapchain = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Handle;
+		cylinder_layer.subImage.imageArrayIndex = 0;
 		cylinder_layer.pose.orientation = XrQuaternionf_Multiply(pitch, yaw);
 		cylinder_layer.pose.position = pos;
 		cylinder_layer.radius = 12.0f;
 		cylinder_layer.centralAngle = M_PI * 0.5f;
 		cylinder_layer.aspectRatio = 1;
 
-		engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
+		// Build the cylinder layer
+		if (vrMode == VR_MODE_MONO_SCREEN) {
+			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
+		} else if (engine->appState.Renderer.Multiview) {
+			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_LEFT;
+			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
+			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
+			cylinder_layer.subImage.imageArrayIndex = 1;
+			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
+		} else {
+			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_LEFT;
+			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
+			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
+			cylinder_layer.subImage.swapchain = engine->appState.Renderer.FrameBuffer[1].ColorSwapChain.Handle;
+			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
+		}
 	} else {
 		assert(false);
 	}

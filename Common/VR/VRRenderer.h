@@ -34,9 +34,10 @@ enum VRMatrix {
 };
 
 enum VRMode {
-	VR_MODE_FLAT_SCREEN = 0,
-	VR_MODE_MONO_6DOF = 1,
-	VR_MODE_STEREO_6DOF = 2
+	VR_MODE_MONO_SCREEN,
+	VR_MODE_STEREO_SCREEN,
+	VR_MODE_MONO_6DOF,
+	VR_MODE_STEREO_6DOF
 };
 
 void VR_GetResolution( engine_t* engine, int *pWidth, int *pHeight );

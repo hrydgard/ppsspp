@@ -307,7 +307,7 @@ bool StartVRRender() {
 			bool stereo = VR_GetConfig(VR_CONFIG_6DOF_PRECISE) && g_Config.bEnableStereo;
 			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 		} else {
-			VR_SetConfig(VR_CONFIG_MODE, VR_MODE_FLAT_SCREEN);
+			VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
 		}
 		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) / 2);
 
@@ -345,7 +345,8 @@ bool IsMultiviewSupported() {
 }
 
 bool IsFlatVRScene() {
-	return VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN;
+	int vrMode = VR_GetConfig(VR_CONFIG_MODE);
+	return (vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN);
 }
 
 bool Is2DVRObject(float* projMatrix, bool ortho) {
