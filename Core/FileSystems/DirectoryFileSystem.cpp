@@ -115,6 +115,11 @@ Path DirectoryFileSystem::GetLocalPath(std::string internalPath) const {
 bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, FileAccess access, u32 &error) {
 	error = 0;
 
+	if (access == FILEACCESS_NONE) {
+		error = SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		return false;
+	}
+
 #if HOST_IS_CASE_SENSITIVE
 	if (access & (FILEACCESS_APPEND | FILEACCESS_CREATE | FILEACCESS_WRITE)) {
 		DEBUG_LOG(FILESYS, "Checking case for path %s", fileName.c_str());
