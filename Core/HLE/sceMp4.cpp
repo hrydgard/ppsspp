@@ -60,9 +60,9 @@ static u32 sceMp4Finish()
 	return 0;
 }
 
-static u32 sceMp4Create(u32 mp4, u32 unknown2, u32 readBufferAddr, u32 readBufferSize)
+static u32 sceMp4Create(u32 mp4, u32 callbacks, u32 readBufferAddr, u32 readBufferSize)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp4Create(mp4 %i,unknown2 %08x,readBufferAddr %08x,readBufferSize %i)", mp4, unknown2, readBufferAddr, readBufferSize);
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMp4Create(mp4 %i,unknown2 %08x,readBufferAddr %08x,readBufferSize %i)", mp4, callbacks, readBufferAddr, readBufferSize);
 	return 0;
 }
 
