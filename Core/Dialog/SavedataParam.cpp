@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <memory>
 #include "Common/Log.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Format/ZIMLoad.h"
@@ -36,13 +38,14 @@
 #include "Core/HW/MemoryStick.h"
 #include "Core/Util/PPGeDraw.h"
 
-#include <algorithm>
-
 static const std::string ICON0_FILENAME = "ICON0.PNG";
 static const std::string ICON1_FILENAME = "ICON1.PMF";
 static const std::string PIC1_FILENAME = "PIC1.PNG";
 static const std::string SND0_FILENAME = "SND0.AT3";
 static const std::string SFO_FILENAME = "PARAM.SFO";
+
+static const int FILE_LIST_COUNT_MAX = 99;
+static const u32 FILE_LIST_TOTAL_SIZE = sizeof(SaveSFOFileListEntry) * FILE_LIST_COUNT_MAX;
 
 static const std::string savePath = "ms0:/PSP/SAVEDATA/";
 
@@ -382,6 +385,39 @@ int SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 	ClearCaches();
 	pspFileSystem.RemoveFile(filePath);
 
+	// Update PARAM.SFO to remove the file, if it was in the list.
+	std::shared_ptr<ParamSFOData> sfoFile = LoadCachedSFO(sfoPath);
+	if (sfoFile) {
+		// Note: do not update values such as TITLE in this operation.
+		u32 fileListSize = 0;
+		SaveSFOFileListEntry *fileList = (SaveSFOFileListEntry *)sfoFile->GetValueData("SAVEDATA_FILE_LIST", &fileListSize);
+		size_t fileListCount = fileListSize / sizeof(SaveSFOFileListEntry);
+		bool changed = false;
+		for (size_t i = 0; i < fileListCount; ++i) {
+			if (strncmp(fileList[i].filename, fileName.c_str(), sizeof(fileList[i].filename)) != 0)
+				continue;
+
+			memset(fileList[i].filename, 0, sizeof(fileList[i].filename));
+			memset(fileList[i].hash, 0, sizeof(fileList[i].hash));
+			changed = true;
+			break;
+		}
+
+		if (changed) {
+			std::unique_ptr<u8[]> updatedList(new u8[fileListSize]);
+			memcpy(updatedList.get(), fileList, fileListSize);
+			sfoFile->SetValue("SAVEDATA_FILE_LIST", updatedList.get(), fileListSize, (int)FILE_LIST_TOTAL_SIZE);
+
+			u8 *sfoData;
+			size_t sfoSize;
+			sfoFile->WriteSFO(&sfoData, &sfoSize);
+
+			ClearCaches();
+			WritePSPFile(sfoPath, sfoData, (SceSize)sfoSize);
+			delete[] sfoData;
+		}
+	}
+
 	return 0;
 }
 
@@ -470,8 +506,6 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 
 	// Always write and update the file list.
 	// For each file, 13 bytes for filename, 16 bytes for file hash (0 in PPSSPP), 3 byte for padding
-	const int FILE_LIST_COUNT_MAX = 99;
-	const u32 FILE_LIST_TOTAL_SIZE = sizeof(SaveSFOFileListEntry) * FILE_LIST_COUNT_MAX;
 	u32 tmpDataSize = 0;
 	SaveSFOFileListEntry *tmpDataOrig = (SaveSFOFileListEntry *)sfoFile->GetValueData("SAVEDATA_FILE_LIST", &tmpDataSize);
 	SaveSFOFileListEntry *updatedList = new SaveSFOFileListEntry[FILE_LIST_COUNT_MAX];
@@ -825,7 +859,6 @@ std::vector<SaveSFOFileListEntry> SavedataParam::GetSFOEntries(const std::string
 		return result;
 	}
 
-	const int FILE_LIST_COUNT_MAX = 99;
 	u32 sfoFileListSize = 0;
 	SaveSFOFileListEntry *sfoFileList = (SaveSFOFileListEntry *)sfoFile->GetValueData("SAVEDATA_FILE_LIST", &sfoFileListSize);
 	const u32 count = std::min((u32)FILE_LIST_COUNT_MAX, sfoFileListSize / (u32)sizeof(SaveSFOFileListEntry));
