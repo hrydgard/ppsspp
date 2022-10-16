@@ -477,7 +477,7 @@ void WebSocketHLEFuncRename(DebuggerRequest &req) {
 // Parameters:
 //  - address: unsigned integer address for the start of the range.
 //  - size: unsigned integer size in bytes for scan.
-//  - recreate: optional bool indicating whether functions that intersect or inside lie inside the range must be removed before scanning
+//  - remove: optional bool indicating whether functions that intersect or inside lie inside the range must be removed before scanning
 //
 // Response (same event name) with no extra data.
 void WebSocketHLEFuncScan(DebuggerRequest &req) {
@@ -493,39 +493,14 @@ void WebSocketHLEFuncScan(DebuggerRequest &req) {
 	if (!req.ParamU32("size", &size))
 		return;
 
-	bool has_recreate = req.HasParam("recreate");
-	bool recreate = false;
-	if (has_recreate) {
-		if (!req.ParamBool("recreate", &recreate)) {
-			return;
-		}
-	}
+	bool remove = false;
+	if (!req.ParamBool("remove", &remove, DebuggerParamType::OPTIONAL))
+		return;
 
 	if (!Memory::IsValidRange(addr, size))
 		return req.Fail("Address or size outside valid memory");
 
-	if (recreate) {
-		// The following code doesn't do what I wanted it to do AND it's debatable whether it's needed at all
-		// In short, I wanted to shift the start and the end of the range before removal
-
-		//// let's see if the last function is partially inside our range
-
-		//u32 last_func_start = g_symbolMap->GetFunctionStart(addr + size - 1);
-		//if (last_func_start != SymbolMap::INVALID_ADDRESS) {
-		//	// there is a function
-		//	// u32 end = last_func_start + g_symbolMap->GetFunctionSize(last_func_start);
-		//	if (last_func_start + g_symbolMap->GetFunctionSize(last_func_start) != addr + size) {
-		//		size = last_func_start - addr; // decrease the size parameter
-		//	}
-		//}
-		//// let's see if the first function is partially inside our range
-		//u32 start = g_symbolMap->GetFunctionStart(addr);
-
-		//if (start != SymbolMap::INVALID_ADDRESS && start != addr) {
-		//	// skip to a byte after end
-		//	addr = start + g_symbolMap->GetFunctionSize(start);
-		//}
-
+	if (remove) {
 		RemoveFuncSymbolsInRange(addr, size);
 	}
 
