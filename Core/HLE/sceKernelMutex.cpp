@@ -305,23 +305,16 @@ void __KernelMutexEndCallback(SceUID threadID, SceUID prevCallbackId)
 		DEBUG_LOG(SCEKERNEL, "sceKernelLockMutexCB: Resuming lock wait for callback");
 }
 
-int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr)
-{
+int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr) {
 	if (!name)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
-		return SCE_KERNEL_ERROR_ERROR;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ERROR, "invalid name");
 	if (attr & ~0xBFF)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateMutex(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
-		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
-	}
+		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter %08x", attr);
 
 	if (initialCount < 0)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+		return hleLogDebug(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_COUNT, "illegal initial count");
 	if ((attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+		return hleLogDebug(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_COUNT, "illegal non-recursive count");
 
 	PSPMutex *mutex = new PSPMutex();
 	SceUID id = kernelObjects.Create(mutex);
@@ -331,18 +324,14 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	mutex->nm.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 	mutex->nm.attr = attr;
 	mutex->nm.initialCount = initialCount;
-	if (initialCount == 0)
-	{
+	if (initialCount == 0) {
 		mutex->nm.lockLevel = 0;
 		mutex->nm.lockThread = -1;
-	}
-	else
+	} else {
 		__KernelMutexAcquireLock(mutex, initialCount);
+	}
 
-	DEBUG_LOG(SCEKERNEL, "%i=sceKernelCreateMutex(%s, %08x, %d, %08x)", id, name, attr, initialCount, optionsPtr);
-
-	if (optionsPtr != 0)
-	{
+	if (optionsPtr != 0) {
 		u32 size = Memory::Read_U32(optionsPtr);
 		if (size > 4)
 			WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateMutex(%s) unsupported options parameter, size = %d", name, size);
@@ -350,7 +339,7 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateMutex(%s) unsupported attr parameter: %08x", name, attr);
 
-	return id;
+	return hleLogSuccessX(SCEKERNEL, id);
 }
 
 int sceKernelDeleteMutex(SceUID id)
