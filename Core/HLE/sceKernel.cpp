@@ -713,7 +713,7 @@ const HLEFunction ThreadManForUser[] =
 	{0XA66B0120, &WrapU_IU<sceKernelReferEventFlagStatus>,           "sceKernelReferEventFlagStatus",             'x', "ix"      },
 
 	{0X8FFDF9A2, &WrapI_IIU<sceKernelCancelSema>,                    "sceKernelCancelSema",                       'i', "iix"     },
-	{0XD6DA4BA1, &WrapI_CUIIU<sceKernelCreateSema>,                  "sceKernelCreateSema",                       'i', "sxiix"   },
+	{0XD6DA4BA1, &WrapI_CUIIU<sceKernelCreateSema>,                  "sceKernelCreateSema",                       'i', "sxiip"   },
 	{0X28B6489C, &WrapI_I<sceKernelDeleteSema>,                      "sceKernelDeleteSema",                       'i', "i"       },
 	{0X58B1F937, &WrapI_II<sceKernelPollSema>,                       "sceKernelPollSema",                         'i', "ii"      },
 	{0XBC6FEBC5, &WrapI_IU<sceKernelReferSemaStatus>,                "sceKernelReferSemaStatus",                  'i', "ip"      },
@@ -899,7 +899,7 @@ const HLEFunction ThreadManForKernel[] =
 	{0X75156E8F, &WrapI_I<sceKernelResumeThread>,                    "sceKernelResumeThread",                     'i', "i",      HLE_KERNEL_SYSCALL },
 	{0X94416130, &WrapU_UUUU<sceKernelGetThreadmanIdList>,           "sceKernelGetThreadmanIdList",               'x', "xxxx",   HLE_KERNEL_SYSCALL },
 	{0x278c0df5, &WrapI_IU<sceKernelWaitThreadEnd>,                  "sceKernelWaitThreadEnd",                    'i', "ix",     HLE_KERNEL_SYSCALL },
-	{0xd6da4ba1, &WrapI_CUIIU<sceKernelCreateSema>,                  "sceKernelCreateSema",                       'i', "sxiix",  HLE_KERNEL_SYSCALL },
+	{0xd6da4ba1, &WrapI_CUIIU<sceKernelCreateSema>,                  "sceKernelCreateSema",                       'i', "sxiip",  HLE_KERNEL_SYSCALL },
 	{0x28b6489c, &WrapI_I<sceKernelDeleteSema>,                      "sceKernelDeleteSema",                       'i', "i",      HLE_KERNEL_SYSCALL },
 	{0x3f53e640, &WrapI_II<sceKernelSignalSema>,                     "sceKernelSignalSema",                       'i', "ii",     HLE_KERNEL_SYSCALL },
 	{0x4e3a1105, &WrapI_IIU<sceKernelWaitSema>,                      "sceKernelWaitSema",                         'i', "iix",    HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL},
