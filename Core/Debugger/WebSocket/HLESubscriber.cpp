@@ -362,6 +362,42 @@ void WebSocketHLEFuncRemove(DebuggerRequest &req) {
 	json.writeUint("size", funcSize);
 }
 
+// This function removes function symbols that intersect or lie inside the range
+// (Note: this makes no checks whether the range is valid)
+// Returns the number of removed functions
+static u32 RemoveFuncSymbolsInRange(u32 addr, u32 size) {
+	u32 func_address = g_symbolMap->GetFunctionStart(addr);
+	if (func_address == SymbolMap::INVALID_ADDRESS) {
+		func_address = g_symbolMap->GetNextSymbolAddress(addr, SymbolType::ST_FUNCTION);
+	}
+
+	u32 counter = 0;
+	while (func_address < addr + size && func_address != SymbolMap::INVALID_ADDRESS) {
+		g_symbolMap->RemoveFunction(func_address, true);
+		++counter;
+		func_address = g_symbolMap->GetNextSymbolAddress(addr, SymbolType::ST_FUNCTION);
+	}
+
+	if (counter) {
+		MIPSAnalyst::ForgetFunctions(addr, addr + size - 1);
+
+		// The following was copied from hle.func.remove:
+		g_symbolMap->SortSymbols();
+
+		MIPSAnalyst::UpdateHashMap();
+		MIPSAnalyst::ApplyHashMap();
+
+		if (g_Config.bFuncReplacements) {
+			MIPSAnalyst::ReplaceFunctions();
+		}
+
+		// Clear cache for branch lines and such.
+		DisassemblyManager manager;
+		manager.clear();
+	}
+	return counter;
+}
+
 // Remove function symbols in range (hle.func.removeRange)
 //
 // Parameters:
@@ -386,34 +422,10 @@ void WebSocketHLEFuncRemoveRange(DebuggerRequest &req) {
 	if (!Memory::IsValidRange(addr, size))
 		return req.Fail("Address or size outside valid memory");
 
-	u32 first_address = g_symbolMap->GetFunctionStart(addr);
-	if (first_address == SymbolMap::INVALID_ADDRESS) {
-		first_address = g_symbolMap->GetNextSymbolAddress(addr, SymbolType::ST_FUNCTION);
-	}
-
-	u32 counter = 0;
-	for (u32 current_addr = first_address; (current_addr < addr + size) && current_addr != SymbolMap::INVALID_ADDRESS; current_addr = g_symbolMap->GetNextSymbolAddress(addr, SymbolType::ST_FUNCTION)) {
-		g_symbolMap->RemoveFunction(current_addr, true);
-		++counter;
-	}
-	MIPSAnalyst::ForgetFunctions(addr, addr + size - 1);
-
-	// The following was copied from hle.func.remove:
-	g_symbolMap->SortSymbols();
-
-	MIPSAnalyst::UpdateHashMap();
-	MIPSAnalyst::ApplyHashMap();
-
-	if (g_Config.bFuncReplacements) {
-		MIPSAnalyst::ReplaceFunctions();
-	}
-
-	// Clear cache for branch lines and such.
-	DisassemblyManager manager;
-	manager.clear();
+	u32 count = RemoveFuncSymbolsInRange(addr, size);
 
 	JsonWriter &json = req.Respond();
-	json.writeUint("count", counter);
+	json.writeUint("count", count);
 }
 
 // Rename a function symbol (hle.func.rename)
@@ -465,6 +477,7 @@ void WebSocketHLEFuncRename(DebuggerRequest &req) {
 // Parameters:
 //  - address: unsigned integer address for the start of the range.
 //  - size: unsigned integer size in bytes for scan.
+//  - remove: optional bool indicating whether functions that intersect or inside lie inside the range must be removed before scanning
 //
 // Response (same event name) with no extra data.
 void WebSocketHLEFuncScan(DebuggerRequest &req) {
@@ -480,8 +493,16 @@ void WebSocketHLEFuncScan(DebuggerRequest &req) {
 	if (!req.ParamU32("size", &size))
 		return;
 
+	bool remove = false;
+	if (!req.ParamBool("remove", &remove, DebuggerParamType::OPTIONAL))
+		return;
+
 	if (!Memory::IsValidRange(addr, size))
 		return req.Fail("Address or size outside valid memory");
+
+	if (remove) {
+		RemoveFuncSymbolsInRange(addr, size);
+	}
 
 	bool insertSymbols = MIPSAnalyst::ScanForFunctions(addr, addr + size - 1, true);
 	MIPSAnalyst::FinalizeScan(insertSymbols);
