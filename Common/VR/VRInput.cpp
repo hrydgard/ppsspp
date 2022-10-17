@@ -1,6 +1,7 @@
 #include "VRInput.h"
 #include <string.h>
-#include <sys/time.h>
+
+#include <Common/TimeUtil.h>
 
 //OpenXR
 XrPath leftHandPath;
@@ -41,20 +42,11 @@ float vibration_channel_intensity[2] = {0.0f, 0.0f};
 
 unsigned long sys_timeBase = 0;
 int milliseconds(void) {
-	struct timeval tp;
-
-	gettimeofday(&tp, NULL);
-
-	if (!sys_timeBase) {
-		sys_timeBase = tp.tv_sec;
-		return tp.tv_usec/1000;
-	}
-
-	return (tp.tv_sec - sys_timeBase)*1000 + tp.tv_usec/1000;
+	return (int)(1000.0 * time_now_d());
 }
 
 XrTime ToXrTime(const double timeInSeconds) {
-	return (timeInSeconds * 1e9);
+	return (XrTime)(timeInSeconds * 1e9);
 }
 
 void INVR_Vibrate( int duration, int chan, float intensity ) {
@@ -67,16 +59,15 @@ void INVR_Vibrate( int duration, int chan, float intensity ) {
 			if (vibration_channel_duration[channel] == -1.0f && duration != 0.0f)
 				return;
 
-			vibration_channel_duration[channel] = duration;
+			vibration_channel_duration[channel] = (float)duration;
 			vibration_channel_intensity[channel] = intensity;
 		}
 	}
 }
 
-
 void VR_processHaptics() {
 	float lastFrameTime = 0.0f;
-	float timestamp = (float)(milliseconds( ));
+	float timestamp = (float)(milliseconds());
 	float frametime = timestamp - lastFrameTime;
 	lastFrameTime = timestamp;
 
@@ -438,6 +429,6 @@ XrPosef IN_VRGetPose( int controllerIndex ) {
 	XrSpaceLocation loc = {};
 	loc.type = XR_TYPE_SPACE_LOCATION;
 	XrSpace aimSpace[] = { leftControllerAimSpace, rightControllerAimSpace };
-	xrLocateSpace(aimSpace[controllerIndex], engine->appState.CurrentSpace, engine->predictedDisplayTime, &loc);
+	xrLocateSpace(aimSpace[controllerIndex], engine->appState.CurrentSpace, (XrTime)(engine->predictedDisplayTime), &loc);
 	return loc.pose;
 }

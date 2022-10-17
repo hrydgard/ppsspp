@@ -1092,21 +1092,22 @@ if(ANDROID)
 		android/jni/OpenSLContext.h
 	)
 
+	set(nativeExtra ${nativeExtra}
+		Common/VR/PPSSPPVR.cpp
+		Common/VR/PPSSPPVR.h
+		Common/VR/VRBase.cpp
+		Common/VR/VRBase.h
+		Common/VR/VRFramebuffer.cpp
+		Common/VR/VRFramebuffer.h
+		Common/VR/VRInput.cpp
+		Common/VR/VRInput.h
+		Common/VR/VRMath.cpp
+		Common/VR/VRMath.h
+		Common/VR/VRRenderer.cpp
+		Common/VR/VRRenderer.h
+	)
+
 	if (OPENXR)
-		set(nativeExtra ${nativeExtra}
-			Common/VR/PPSSPPVR.cpp
-			Common/VR/PPSSPPVR.h
-			Common/VR/VRBase.cpp
-			Common/VR/VRBase.h
-			Common/VR/VRFramebuffer.cpp
-			Common/VR/VRFramebuffer.h
-			Common/VR/VRInput.cpp
-			Common/VR/VRInput.h
-			Common/VR/VRMath.cpp
-			Common/VR/VRMath.h
-			Common/VR/VRRenderer.cpp
-			Common/VR/VRRenderer.h
-		)
 		set(nativeExtraLibs ${nativeExtraLibs} openxr)
 	endif()
 	# No target

@@ -1,10 +1,14 @@
 #pragma once
 
-#ifdef ANDROID
+#include "ppsspp_config.h"
+
+// TODO: Switch to PPSSPP logging
+#if PPSSPP_PLATFORM(ANDROID)
 #include <android/log.h>
 #define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, "OpenXR", __VA_ARGS__);
 #define ALOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, "OpenXR", __VA_ARGS__);
 #else
+#include <cstdio>
 #define ALOGE(...) printf(__VA_ARGS__)
 #define ALOGV(...) printf(__VA_ARGS__)
 #endif
@@ -17,6 +21,7 @@
 using namespace PPSSPP_VK;
 #endif
 
+#if PPSSPP_PLATFORM(ANDROID)
 //OpenXR
 #define XR_USE_PLATFORM_ANDROID 1
 #define XR_USE_GRAPHICS_API_OPENGL_ES 1
@@ -24,13 +29,29 @@ using namespace PPSSPP_VK;
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <jni.h>
+#elif PPSSPP_PLATFORM(WINDOWS)
+#include "Common/CommonWindows.h"
+#include <unknwn.h>
+#define XR_USE_PLATFORM_WIN32 1
+#define XR_USE_GRAPHICS_API_OPENGL_ES 1
+#define XR_USE_GRAPHICS_API_VULKAN 1
+#else
+#define XR_USE_GRAPHICS_API_OPENGL_ES 1
+#define XR_USE_GRAPHICS_API_VULKAN 1
+#endif
+
 #include <math.h>
 #include <openxr.h>
 #include <openxr_platform.h>
+
+#if PPSSPP_PLATFORM(ANDROID)
+
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
 
-#ifdef _DEBUG
+#endif
+
+#if defined(_DEBUG) && PPSSPP_PLATFORM(ANDROID)
 static const char* GlErrorString(GLenum error) {
 	switch (error) {
 		case GL_NO_ERROR:
@@ -148,6 +169,7 @@ typedef struct {
 	ovrRenderer Renderer;
 } ovrApp;
 
+#if PPSSPP_PLATFORM(ANDROID)
 typedef struct {
 	JavaVM* Vm;
 	jobject ActivityObject;
@@ -155,17 +177,23 @@ typedef struct {
 	char AppName[64];
 	int AppVersion;
 } ovrJava;
+#endif
 
 typedef struct {
 	uint64_t frameIndex;
 	ovrApp appState;
+#if PPSSPP_PLATFORM(ANDROID)
 	ovrJava java;
+#endif
 	float predictedDisplayTime;
 	bool useVulkan;
 	XrGraphicsBindingVulkanKHR graphicsBindingVulkan;
 } engine_t;
 
+#if PPSSPP_PLATFORM(ANDROID)
 void VR_Init( ovrJava java, bool useVulkan );
+#endif
+
 void VR_Destroy( engine_t* engine );
 void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVulkan );
 void VR_LeaveVR( engine_t* engine );

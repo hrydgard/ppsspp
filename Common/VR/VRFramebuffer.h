@@ -1,6 +1,6 @@
 #pragma once
 
-#include "VR/VRBase.h"
+#include "Common/VR/VRBase.h"
 
 void ovrApp_Clear(ovrApp* app);
 void ovrApp_Destroy(ovrApp* app);

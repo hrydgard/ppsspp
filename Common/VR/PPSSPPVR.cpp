@@ -12,6 +12,8 @@
 #include "Core/KeyMap.h"
 #include "Core/System.h"
 
+#ifdef OPENXR
+
 static long vrCompat[VR_COMPAT_MAX];
 
 /*
@@ -99,6 +101,7 @@ bool IsVRBuild() {
 	return true;
 }
 
+#if PPSSPP_PLATFORM(ANDROID)
 void InitVROnAndroid(void* vm, void* activity, int version, const char* name) {
 	bool useVulkan = (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN;
 
@@ -111,6 +114,7 @@ void InitVROnAndroid(void* vm, void* activity, int version, const char* name) {
 
 	__DisplaySetFramerate(72);
 }
+#endif
 
 void EnterVR(bool firstStart, void* vulkanContext) {
 	if (firstStart) {
@@ -456,3 +460,5 @@ void UpdateVRView(float* leftEye, float* rightEye) {
 		memcpy(dst[index], renderView.M, 16 * sizeof(float));
 	}
 }
+
+#endif

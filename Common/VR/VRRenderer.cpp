@@ -2,9 +2,11 @@
 #include "VRInput.h"
 #include "VRRenderer.h"
 
-#include <assert.h>
-#include <stdlib.h>
-#include <string.h>
+#include "Common/Math/math_util.h"
+
+#include <cassert>
+#include <cstdlib>
+#include <cstring>
 
 XrFovf fov;
 XrView* projections;
@@ -301,8 +303,8 @@ bool VR_InitFrame( engine_t* engine ) {
 	// Update matrices
 	for (int matrix = 0; matrix < VR_MATRIX_COUNT; matrix++) {
 		if ((matrix == VR_PROJECTION_MATRIX_LEFT_EYE) || (matrix == VR_PROJECTION_MATRIX_RIGHT_EYE)) {
-			float near = (float)vrConfig[VR_CONFIG_FOV_SCALE] / 200.0f;
-			vrMatrix[matrix] = ovrMatrix4f_CreateProjectionFov(fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown, near, 0.0f );
+			float nearPlane = (float)vrConfig[VR_CONFIG_FOV_SCALE] / 200.0f;
+			vrMatrix[matrix] = ovrMatrix4f_CreateProjectionFov(fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown, nearPlane, 0.0f );
 		} else if ((matrix == VR_VIEW_MATRIX_LEFT_EYE) || (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
 			XrPosef invView = invViewTransform[0];
 

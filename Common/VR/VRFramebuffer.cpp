@@ -1,14 +1,17 @@
 #include "VRFramebuffer.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-#include <math.h>
-#include <time.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstdbool>
+#include <cstring>
+#include <cmath>
+#include <ctime>
+#include <cassert>
+
+#if PPSSPP_PLATFORM(ANDROID)
 #include <pthread.h>
 #include <sys/prctl.h>
-#include <assert.h>
+#endif
 
 double FromXrTime(const XrTime time) {
 	return (time * 1e-9);
@@ -40,6 +43,8 @@ void ovrFramebuffer_Clear(ovrFramebuffer* frameBuffer) {
 	frameBuffer->GLFrameBuffers = NULL;
 	frameBuffer->Acquired = false;
 }
+
+#if PPSSPP_PLATFORM(ANDROID)
 
 bool ovrFramebuffer_CreateGL(XrSession session, ovrFramebuffer* frameBuffer, int width, int height, bool multiview) {
 
@@ -132,6 +137,8 @@ bool ovrFramebuffer_CreateGL(XrSession session, ovrFramebuffer* frameBuffer, int
 
 	return true;
 }
+
+#endif
 
 bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int width, int height,
 							 bool multiview, void* context) {
@@ -248,8 +255,10 @@ void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
 		delete[] frameBuffer->VKDepthImages;
 		delete[] frameBuffer->VKFrameBuffers;
 	} else {
+#if PPSSPP_PLATFORM(ANDROID)
 		GL(glDeleteFramebuffers(frameBuffer->TextureSwapChainLength, frameBuffer->GLFrameBuffers));
 		free(frameBuffer->GLFrameBuffers);
+#endif
 	}
 	OXR(xrDestroySwapchain(frameBuffer->ColorSwapChain.Handle));
 	OXR(xrDestroySwapchain(frameBuffer->DepthSwapChain.Handle));
@@ -263,7 +272,9 @@ void* ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
 	if (frameBuffer->UseVulkan) {
 		return frameBuffer->VKFrameBuffers[frameBuffer->TextureSwapChainIndex];
 	} else {
+#if PPSSPP_PLATFORM(ANDROID)
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->GLFrameBuffers[frameBuffer->TextureSwapChainIndex]));
+#endif
 		return nullptr;
 	}
 }
@@ -293,6 +304,7 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 	if (frameBuffer->UseVulkan) {
 		//TODO:implement
 	} else {
+#if PPSSPP_PLATFORM(ANDROID)
 		GL(glEnable( GL_SCISSOR_TEST ));
 		GL(glViewport( 0, 0, frameBuffer->Width, frameBuffer->Height ));
 		GL(glClearColor( 0.0f, 0.0f, 0.0f, 1.0f ));
@@ -300,6 +312,7 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 		GL(glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT ));
 		GL(glScissor( 0, 0, 0, 0 ));
 		GL(glDisable( GL_SCISSOR_TEST ));
+#endif
 	}
 }
 
@@ -313,10 +326,12 @@ void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
 		if (frameBuffer->UseVulkan) {
 			//TODO:implement
 		} else {
+#if PPSSPP_PLATFORM(ANDROID)
 			GL(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE));
 			GL(glClearColor(0.0f, 0.0f, 0.0f, 1.0f));
 			GL(glClear(GL_COLOR_BUFFER_BIT));
 			GL(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
+#endif
 		}
 	}
 }
@@ -342,7 +357,9 @@ void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int
 		if (vulkanContext) {
 			ovrFramebuffer_CreateVK(session, &renderer->FrameBuffer[i], width, height, multiview, vulkanContext);
 		} else {
+#if PPSSPP_PLATFORM(ANDROID)
 			ovrFramebuffer_CreateGL(session, &renderer->FrameBuffer[i], width, height, multiview);
+#endif
 		}
 	}
 }
@@ -358,12 +375,14 @@ void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int size) {
 	if (renderer->FrameBuffer[0].UseVulkan) {
 		//TODO:implement
 	} else {
+#if PPSSPP_PLATFORM(ANDROID)
 		GL(glEnable(GL_SCISSOR_TEST));
 		GL(glScissor(x, y, size, size));
 		GL(glViewport(x, y, size, size));
 		GL(glClearColor(1.0f, 1.0f, 1.0f, 1.0f));
 		GL(glClear(GL_COLOR_BUFFER_BIT));
 		GL(glDisable(GL_SCISSOR_TEST));
+#endif
 	}
 }
 

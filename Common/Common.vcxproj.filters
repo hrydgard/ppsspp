@@ -443,9 +443,6 @@
     <ClInclude Include="VR\VRRenderer.h">
       <Filter>VR</Filter>
     </ClInclude>
-    <ClInclude Include="VR\VRTweaks.h">
-      <Filter>VR</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -840,9 +837,6 @@
       <Filter>VR</Filter>
     </ClCompile>
     <ClCompile Include="VR\VRRenderer.cpp">
-      <Filter>VR</Filter>
-    </ClCompile>
-    <ClCompile Include="VR\VRTweaks.cpp">
       <Filter>VR</Filter>
     </ClCompile>
   </ItemGroup>
