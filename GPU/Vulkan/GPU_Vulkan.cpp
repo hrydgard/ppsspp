@@ -268,6 +268,11 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
 	}
 
+	if (true) {
+		features |= GPU_USE_SINGLE_PASS_STEREO;
+		features &= ~GPU_USE_FRAMEBUFFER_FETCH;  // Need to figure out if this can be supported with multiview rendering
+	}
+
 	return features;
 }
 

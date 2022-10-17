@@ -89,6 +89,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
 	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
 
+	bool arrayTexture = id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
+	bool arrayTextureFramebuffer = id.Bit(FS_BIT_FRAMEBUFFER_ARRAY_TEXTURE);
+
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 
 	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE) && !flatBug;
@@ -155,11 +158,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseUBO {\n%s};\n", ub_baseStr);
 		if (doTexture) {
-			WRITE(p, "layout (binding = 0) uniform %s tex;\n", texture3D ? "sampler3D" : "sampler2D");
+			WRITE(p, "layout (binding = 0) uniform %s%s tex;\n", texture3D ? "sampler3D" : "sampler2D", arrayTexture ? "array" : "");
 		}
 
 		if (readFramebufferTex) {
-			WRITE(p, "layout (binding = 1) uniform sampler2D fbotex;\n");
+			WRITE(p, "layout (binding = 1) uniform sampler2D%s fbotex;\n", arrayTextureFramebuffer ? "array" : "");
 		} else if (fetchFramebuffer) {
 			WRITE(p, "layout (input_attachment_index = 0, binding = 9) uniform subpassInput inputColor;\n");
 			if (fragmentShaderFlags) {

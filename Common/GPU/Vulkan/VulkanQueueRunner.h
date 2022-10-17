@@ -37,12 +37,13 @@ enum class VKRRenderCommand : uint8_t {
 	DRAW,
 	DRAW_INDEXED,
 	PUSH_CONSTANTS,
+	BIND_DESCRIPTOR_SET,
 	SELF_DEPENDENCY_BARRIER,
 	DEBUG_ANNOTATION,
 	NUM_RENDER_COMMANDS,
 };
 
-enum class PipelineFlags {
+enum class PipelineFlags : u8 {
 	NONE = 0,
 	USES_BLEND_CONSTANT = (1 << 1),
 	USES_DEPTH_STENCIL = (1 << 2),  // Reads or writes the depth or stencil buffers.
@@ -115,7 +116,7 @@ struct VkRenderData {
 			VkDescriptorSet ds;
 			int numUboOffsets;
 			uint32_t uboOffsets[3];
-			VkBuffer vbuffer;  // might need to increase at some point
+			VkBuffer vbuffer;
 			VkBuffer ibuffer;
 			uint32_t voffset;
 			uint32_t ioffset;
@@ -152,6 +153,10 @@ struct VkRenderData {
 		struct {
 			const char *annotation;
 		} debugAnnotation;
+		struct {
+			uint32_t setIndex;
+			VkDescriptorSet descSet;
+		} bindDescSet;
 	};
 };
 
@@ -207,6 +212,7 @@ struct VKRStep {
 			VKRRenderPassStoreAction depthStore;
 			VKRRenderPassStoreAction stencilStore;
 			u8 clearStencil;
+			s8 layer;
 			uint32_t clearColor;
 			float clearDepth;
 			int numDraws;

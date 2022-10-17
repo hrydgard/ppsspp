@@ -354,11 +354,8 @@ public:
 	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) override;
 
 	// These functions should be self explanatory.
-	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	Framebuffer *GetCurrentRenderTarget() override {
-		return curRenderTarget_;
-	}
-	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit) override;
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo, int layer, const RenderPassInfo &rp, const char *tag) override;
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
@@ -1398,7 +1395,9 @@ Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	return fbo;
 }
 
-void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
+void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, int layer, const RenderPassInfo &rp, const char *tag) {
+	_dbg_assert_(layer == ALL_LAYERS || layer == 0);
+
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 	GLRRenderPassAction color = (GLRRenderPassAction)rp.color;
 	GLRRenderPassAction depth = (GLRRenderPassAction)rp.depth;
@@ -1439,7 +1438,7 @@ bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, in
 	return true;
 }
 
-void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit) {
+void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 	_assert_(binding < MAX_TEXTURE_SLOTS);
 

@@ -415,9 +415,11 @@ class Framebuffer : public RefCountedObject {
 public:
 	int Width() { return width_; }
 	int Height() { return height_; }
+	int Layers() { return layers_; }
+
 	virtual void UpdateTag(const char *tag) {}
 protected:
-	int width_ = -1, height_ = -1;
+	int width_ = -1, height_ = -1, layers_ = 1;
 };
 
 class Buffer : public RefCountedObject {
@@ -593,6 +595,8 @@ struct RenderPassInfo {
 	const char *tag;
 };
 
+const int ALL_LAYERS = -1;
+
 class DrawContext {
 public:
 	virtual ~DrawContext();
@@ -654,11 +658,10 @@ public:
 
 	// These functions should be self explanatory.
 	// Binding a zero render target means binding the backbuffer.
-	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) = 0;
-	virtual Framebuffer *GetCurrentRenderTarget() = 0;
+	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo, int layer, const RenderPassInfo &rp, const char *tag) = 0;
 
 	// binding must be < MAX_TEXTURE_SLOTS (0, 1 are okay if it's 2).
-	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit) = 0;
+	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) = 0;
 
 	// Framebuffer fetch / input attachment support, needs to be explicit in Vulkan.
 	virtual void BindCurrentFramebufferForColorInput() {}

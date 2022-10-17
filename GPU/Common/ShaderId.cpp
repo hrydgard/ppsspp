@@ -362,6 +362,15 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 
 		id.SetBit(FS_BIT_COLOR_WRITEMASK, colorWriteMask);
 
+		// Stereo support
+		if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
+			// All framebuffers are array textures in this mode.
+			if (gstate_c.arrayTexture) {
+				id.SetBit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
+			}
+			id.SetBit(FS_BIT_FRAMEBUFFER_ARRAY_TEXTURE);
+		}
+
 		if (g_Config.bVendorBugChecksEnabled && bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {
 			bool stencilWithoutDepth = !IsStencilTestOutputDisabled() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled());
 			if (stencilWithoutDepth) {

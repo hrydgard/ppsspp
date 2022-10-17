@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <vector>
 
@@ -119,6 +120,15 @@ public:
 		size_t off = Allocate(size, vkbuf);
 		*bindOffset = (uint32_t)off;
 		return writePtr_ + off;
+	}
+
+	template<class T>
+	void PushUBOData(const T &data, VkDescriptorBufferInfo *info) {
+		uint32_t bindOffset;
+		void *ptr = PushAligned(sizeof(T), &bindOffset, &info->buffer, vulkan_->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment);
+		memcpy(ptr, &data, sizeof(T));
+		info->offset = bindOffset;
+		info->range = sizeof(T);
 	}
 
 	size_t GetTotalSize() const;

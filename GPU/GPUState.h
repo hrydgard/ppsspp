@@ -583,6 +583,7 @@ struct GPUStateCache {
 
 	bool bgraTexture;
 	bool needShaderTexClamp;
+	bool arrayTexture;
 
 	float morphWeights[8];
 	u32 deferredVertTypeDirty;

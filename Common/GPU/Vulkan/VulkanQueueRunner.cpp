@@ -249,7 +249,7 @@ bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 
 	vulkan_->SetDebugName(depth_.image, VK_OBJECT_TYPE_IMAGE, "BackbufferDepth");
 
-	TransitionImageLayout2(cmd, depth_.image, 0, 1,
+	TransitionImageLayout2(cmd, depth_.image, 0, 1, 1,
 		aspectMask,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
@@ -330,6 +330,10 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	bool isBackbuffer = rpType == RP_TYPE_BACKBUFFER;
 	bool hasDepth = RenderPassTypeHasDepth(rpType);
 	bool multiview = RenderPassTypeHasMultiView(rpType);
+
+	if (multiview) {
+		// TODO: Assert that the device has multiview support enabled.
+	}
 
 	VkAttachmentDescription attachments[2] = {};
 	attachments[0].format = isBackbuffer ? vulkan->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
@@ -905,6 +909,10 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 		case RP_TYPE_COLOR_DEPTH: renderCmd = "RENDER_DEPTH"; break;
 		case RP_TYPE_COLOR_INPUT: renderCmd = "RENDER_INPUT"; break;
 		case RP_TYPE_COLOR_DEPTH_INPUT: renderCmd = "RENDER_DEPTH_INPUT"; break;
+		case RP_TYPE_MULTIVIEW_COLOR: renderCmd = "MV_RENDER"; break;
+		case RP_TYPE_MULTIVIEW_COLOR_DEPTH: renderCmd = "MV_RENDER_DEPTH"; break;
+		case RP_TYPE_MULTIVIEW_COLOR_INPUT: renderCmd = "MV_RENDER_INPUT"; break;
+		case RP_TYPE_MULTIVIEW_COLOR_DEPTH_INPUT: renderCmd = "MV_RENDER_DEPTH_INPUT"; break;
 		default: renderCmd = "N/A";
 		}
 		snprintf(buffer, sizeof(buffer), "%s %s %s (draws: %d, %dx%d/%dx%d)", renderCmd, step.tag, step.render.framebuffer ? step.render.framebuffer->Tag() : "", step.render.numDraws, actual_w, actual_h, w, h);
@@ -1565,6 +1573,10 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			vkCmdDraw(cmd, c.draw.count, 1, c.draw.offset, 0);
 			break;
 
+		case VKRRenderCommand::BIND_DESCRIPTOR_SET:
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, c.bindDescSet.setIndex, 1, &c.bindDescSet.descSet, 0, nullptr);
+			break;
+
 		case VKRRenderCommand::CLEAR:
 		{
 			// If we get here, we failed to merge a clear into a render pass load op. This is bad for perf.
@@ -1643,7 +1655,8 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 		renderPass = GetRenderPass(key);
 
 		VKRFramebuffer *fb = step.render.framebuffer;
-		framebuf = fb->Get(renderPass, step.render.renderPassType);
+		framebuf = fb->Get(renderPass, step.render.renderPassType, step.render.layer);
+		_dbg_assert_(framebuf != VK_NULL_HANDLE);
 		w = fb->width;
 		h = fb->height;
 
@@ -2014,7 +2027,7 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 	if (step.readback.src == nullptr) {
 		// We only take screenshots after the main render pass (anything else would be stupid) so we need to transition out of PRESENT,
 		// and then back into it.
-		TransitionImageLayout2(cmd, backbufferImage_, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+		TransitionImageLayout2(cmd, backbufferImage_, 0, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 			0, VK_ACCESS_TRANSFER_READ_BIT);
@@ -2048,7 +2061,7 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 	if (step.readback.src == nullptr) {
 		// We only take screenshots after the main render pass (anything else would be stupid) so we need to transition out of PRESENT,
 		// and then back into it.
-		TransitionImageLayout2(cmd, backbufferImage_, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+		TransitionImageLayout2(cmd, backbufferImage_, 0, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
 			VK_ACCESS_TRANSFER_READ_BIT, 0);
@@ -2079,7 +2092,7 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 	vkCmdCopyImageToBuffer(cmd, step.readback_image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readbackBuffer_, 1, &region);
 
 	// Now transfer it back to a texture.
-	TransitionImageLayout2(cmd, step.readback_image.image, 0, 1,
+	TransitionImageLayout2(cmd, step.readback_image.image, 0, 1, 1,  // TODO: Handle multiple layers
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,

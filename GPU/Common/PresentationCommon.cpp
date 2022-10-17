@@ -566,7 +566,7 @@ void PresentationCommon::BindSource(int binding) {
 	if (srcTexture_) {
 		draw_->BindTexture(binding, srcTexture_);
 	} else if (srcFramebuffer_) {
-		draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT);
+		draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, 0);
 	} else {
 		_assert_(false);
 	}
@@ -685,13 +685,13 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	PostShaderUniforms uniforms;
 	const auto performShaderPass = [&](const ShaderInfo *shaderInfo, Draw::Framebuffer *postShaderFramebuffer, Draw::Pipeline *postShaderPipeline) {
 		if (postShaderOutput) {
-			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT);
+			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
 		} else {
 			BindSource(0);
 		}
 		BindSource(1);
 		if (shaderInfo->usePreviousFrame)
-			draw_->BindFramebufferAsTexture(previousFramebuffer, 2, Draw::FB_COLOR_BIT);
+			draw_->BindFramebufferAsTexture(previousFramebuffer, 2, Draw::FB_COLOR_BIT, 0);
 
 		int nextWidth, nextHeight;
 		draw_->GetFramebufferDimensions(postShaderFramebuffer, &nextWidth, &nextHeight);
@@ -743,7 +743,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 				postShaderFramebuffer = previousFramebuffers_[previousIndex_];
 			}
 
-			draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "PostShader");
+			draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, 0, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "PostShader");
 			performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline);
 		}
 
@@ -764,7 +764,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 			previousIndex_ = 0;
 		Draw::Framebuffer *postShaderFramebuffer = previousFramebuffers_[previousIndex_];
 
-		draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "InterFrameBlit");
+		draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, 0, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "InterFrameBlit");
 		performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline);
 	}
 
@@ -773,13 +773,13 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		pipeline = postShaderPipelines_.back();
 	}
 
-	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "FinalBlit");
+	draw_->BindFramebufferAsRenderTarget(nullptr, 0, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "FinalBlit");
 	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 
 	draw_->BindPipeline(pipeline);
 
 	if (postShaderOutput) {
-		draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT);
+		draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
 	} else {
 		BindSource(0);
 	}

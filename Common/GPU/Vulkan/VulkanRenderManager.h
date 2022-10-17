@@ -24,13 +24,19 @@
 // Forward declaration
 VK_DEFINE_HANDLE(VmaAllocation);
 
-// Simple independent framebuffer image. Gets its own allocation, we don't have that many framebuffers so it's fine
-// to let them have individual non-pooled allocations. Until it's not fine. We'll see.
+// Simple independent framebuffer image.
 struct VKRImage {
 	// These four are "immutable".
 	VkImage image;
+
+	// These are 2D if single layer, 2D_ARRAY if multiple. Need to take that into account when picking
+	// shaders, or use layerViews below and multiple passes to work around it.
 	VkImageView imageView;
 	VkImageView depthSampleView;
+
+	// If it's a layered image (for stereo), this is two 2D views of it, to make it compatible with shaders that don't yet support stereo.
+	VkImageView layerViews[2]{};
+
 	VmaAllocation alloc;
 	VkFormat format;
 
@@ -40,6 +46,9 @@ struct VKRImage {
 	// For debugging.
 	std::string tag;
 };
+
+// NOTE: If numLayers > 1, it will create an array texture, rather than a normal 2D texture.
+// This requires a different sampling path!
 void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag);
 
 class VKRFramebuffer {
@@ -47,7 +56,7 @@ public:
 	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, bool createDepthStencilBuffer, const char *tag);
 	~VKRFramebuffer();
 
-	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
+	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType, int layer);
 
 	int width = 0;
 	int height = 0;
@@ -65,7 +74,7 @@ public:
 	// TODO: Hide.
 	VulkanContext *vulkan_;
 private:
-	VkFramebuffer framebuf[RP_TYPE_COUNT]{};
+	VkFramebuffer framebuf[RP_TYPE_COUNT][2]{};
 
 	std::string tag_;
 };
@@ -213,7 +222,7 @@ public:
 	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.
 	void Wipe();
 
-	// This starts a new step containing a render pass.
+	// This starts a new step containing a render pass (unless it can be trivially merged into the previous one, which is pretty common).
 	//
 	// After a "CopyFramebuffer" or the other functions that start "steps", you need to call this beforce
 	// making any new render state changes or draw calls.
@@ -228,11 +237,16 @@ public:
 	//
 	// It can be useful to use GetCurrentStepId() to figure out when you need to send all this state again, if you're
 	// not keeping track of your calls to this function on your own.
-	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag);
+	//
+	// For layer, we use the same convention as thin3d, where layer = -1 means all layers together. For texturing, that means that you
+	// get an array texture view.
+	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, int layer, const char *tag);
 
 	// Returns an ImageView corresponding to a framebuffer. Is called BindFramebufferAsTexture to maintain a similar interface
 	// as the other backends, even though there's no actual binding happening here.
-	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBits);
+	// For layer, we use the same convention as thin3d, where layer = -1 means all layers together. For texturing, that means that you
+	// get an array texture view.
+	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBits, int layer);
 
 	void BindCurrentFramebufferAsInputAttachment0(VkImageAspectFlags aspectBits);
 
@@ -254,6 +268,15 @@ public:
 		compileMutex_.lock();
 		compileCond_.notify_one();
 		compileMutex_.unlock();
+	}
+
+	// We always pass in desc set 0 directly in draw commands. This is used only to bind higher descriptor sets.
+	void BindDescriptorSet(int index, const VkDescriptorSet descSet) {
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		VkRenderData data{ VKRRenderCommand::BIND_DESCRIPTOR_SET };
+		data.bindDescSet.setIndex = index;
+		data.bindDescSet.descSet = descSet;
+		curRenderStep_->commands.push_back(data);
 	}
 
 	void BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {

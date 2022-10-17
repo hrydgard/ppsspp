@@ -365,7 +365,7 @@ void DrawEngineVulkan::BindShaderBlendTex() {
 	// Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
 		if (fboTexBindState_ == FBO_TEX_COPY_BIND_TEX) {
-			bool bindResult = framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+			bool bindResult = framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY, Draw::ALL_LAYERS);
 			_dbg_assert_(bindResult);
 			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE1_IMAGEVIEW);
 			boundSecondaryIsInputAttachment_ = false;
