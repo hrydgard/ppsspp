@@ -363,10 +363,6 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 
-	if (IsVRBuild()) {
-		dirty |= DIRTY_VIEWMATRIX;
-		SetVRCompat(VR_COMPAT_FOG_COLOR, gstate.fogcolor);
-	}
 	if (!dirty)
 		return;
 
@@ -459,6 +455,9 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	}
 	if (dirty & DIRTY_FOGCOLOR) {
 		SetColorUniform3(render_, &u_fogcolor, gstate.fogcolor);
+		if (IsVRBuild()) {
+			SetVRCompat(VR_COMPAT_FOG_COLOR, gstate.fogcolor);
+		}
 	}
 	if (dirty & DIRTY_FOGCOEF) {
 		float fogcoef[2] = {
