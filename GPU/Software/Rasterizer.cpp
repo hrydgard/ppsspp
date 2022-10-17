@@ -796,10 +796,17 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	int entireY1 = std::min(v0.screenpos.y, v1.screenpos.y);
 	int entireX2 = std::max(v0.screenpos.x, v1.screenpos.x) - 1;
 	int entireY2 = std::max(v0.screenpos.y, v1.screenpos.y) - 1;
-	int minX = std::max(entireX1, range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
-	int minY = std::max(entireY1, range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int minX = std::max(entireX1 & ~(SCREEN_SCALE_FACTOR - 1), range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int minY = std::max(entireY1 & ~(SCREEN_SCALE_FACTOR - 1), range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
 	int maxX = std::min(entireX2, range.x2);
 	int maxY = std::min(entireY2, range.y2);
+
+	// If TL x or y was after the half, we don't draw the pixel.
+	// TODO: Verify what center is used, allowing slight offset makes gpu/primitives/trianglefan pass.
+	if (minX < entireX1 - 1)
+		minX += SCREEN_SCALE_FACTOR;
+	if (minY < entireY1 - 1)
+		minY += SCREEN_SCALE_FACTOR;
 
 	RasterizerState state = OptimizeFlatRasterizerState(rastState, v1);
 
@@ -819,8 +826,8 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 			tc1.t() *= 1.0f / (float)(1 << state.samplerID.height0Shift);
 		}
 
-		int diffX = (entireX2 - entireX1 + 1) / SCREEN_SCALE_FACTOR;
-		int diffY = (entireY2 - entireY1 + 1) / SCREEN_SCALE_FACTOR;
+		float diffX = (entireX2 - entireX1 + 1) / (float)SCREEN_SCALE_FACTOR;
+		float diffY = (entireY2 - entireY1 + 1) / (float)SCREEN_SCALE_FACTOR;
 		float diffS = tc1.s() - tc0.s();
 		float diffT = tc1.t() - tc0.t();
 
@@ -853,8 +860,8 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 		}
 
 		// Okay, now move ST to the minX, minY position.
-		rowST += (stx / (float)(SCREEN_SCALE_FACTOR * 2)) * (minX - entireX1);
-		rowST += (sty / (float)(SCREEN_SCALE_FACTOR * 2)) * (minY - entireY1);
+		rowST += (stx / (float)(SCREEN_SCALE_FACTOR * 2)) * (minX - entireX1 + 1);
+		rowST += (sty / (float)(SCREEN_SCALE_FACTOR * 2)) * (minY - entireY1 + 1);
 	}
 
 	// And now what we add to spread out to 4 values.
@@ -1043,10 +1050,17 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 	int entireY1 = std::min(v0.screenpos.y, v1.screenpos.y);
 	int entireX2 = std::max(v0.screenpos.x, v1.screenpos.x) - 1;
 	int entireY2 = std::max(v0.screenpos.y, v1.screenpos.y) - 1;
-	int minX = std::max(entireX1, range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
-	int minY = std::max(entireY1, range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int minX = std::max(entireX1 & ~(SCREEN_SCALE_FACTOR - 1), range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int minY = std::max(entireY1 & ~(SCREEN_SCALE_FACTOR - 1), range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
 	int maxX = std::min(entireX2, range.x2);
 	int maxY = std::min(entireY2, range.y2);
+
+	// If TL x or y was after the half, we don't draw the pixel.
+	if (minX < entireX1 - 1)
+		minX += SCREEN_SCALE_FACTOR;
+	if (minY < entireY1 - 1)
+		minY += SCREEN_SCALE_FACTOR;
+
 	const DrawingCoords pprime = TransformUnit::ScreenToDrawing(minX, minY);
 	const DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX, maxY);
 	auto &pixelID = state.pixelID;

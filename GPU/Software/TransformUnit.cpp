@@ -793,7 +793,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				}
 
 				int tl = -1, br = -1;
-				if (Rasterizer::DetectRectangleFromFan(binner_->State(), data_, vertex_count, &tl, &br)) {
+				if (Rasterizer::DetectRectangleFromFan(binner_->State(), data_, &tl, &br)) {
 					Clipper::ProcessRect(data_[tl], data_[br], *binner_);
 					break;
 				}
