@@ -5,8 +5,6 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/VR/PPSSPPVR.h"
 
-#include "Core/Config.h"
-
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/Math/math_util.h"
@@ -580,10 +578,7 @@ void GLRenderManager::Run(int frame) {
 	}
 
 	if (IsVRBuild()) {
-		int passes = 1;
-		if (!IsMultiviewSupported() && g_Config.bEnableStereo) {
-			passes = 2;
-		}
+		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {
 			PreVRFrameRender(i);
 			queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, i < passes - 1);
