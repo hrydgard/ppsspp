@@ -74,19 +74,21 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
+	SmallDisplayZoom zoomType = (SmallDisplayZoom)g_Config.iSmallDisplayZoomType;
+
 	if (IsVRBuild()) {
 		if (IsFlatVRScene()) {
-			g_Config.iSmallDisplayZoomType = (int)SmallDisplayZoom::AUTO;
+			zoomType = SmallDisplayZoom::AUTO;
 		} else {
-			g_Config.iSmallDisplayZoomType = (int)SmallDisplayZoom::STRETCH;
+			zoomType = SmallDisplayZoom::STRETCH;
 		}
 	}
 
-	if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::STRETCH) {
+	if (zoomType == SmallDisplayZoom::STRETCH) {
 		outW = frame.w;
 		outH = frame.h;
 	} else {
-		if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::MANUAL) {
+		if (zoomType == SmallDisplayZoom::MANUAL) {
 			float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frame.w + frame.x;
 			float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frame.h + frame.y;
 			// Have to invert Y for GL
@@ -109,7 +111,7 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 				rc->h = floorf(smallDisplayW);
 				return;
 			}
-		} else if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::AUTO) {
+		} else if (zoomType == SmallDisplayZoom::AUTO) {
 			// Stretch to 1080 for 272*4.  But don't distort if not widescreen (i.e. ultrawide of halfwide.)
 			float pixelCrop = frame.h / 270.0f;
 			float resCommonWidescreen = pixelCrop - floor(pixelCrop);
@@ -130,13 +132,13 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 			outW = frame.w;
 			outH = frame.w / origRatio;
 			// Stretch a little bit
-			if (!rotated && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH)
+			if (!rotated && zoomType == SmallDisplayZoom::PARTIAL_STRETCH)
 				outH = (frame.h + outH) / 2.0f; // (408 + 720) / 2 = 564
 		} else {
 			// Image is taller than frame. Center horizontally.
 			outW = frame.h * origRatio;
 			outH = frame.h;
-			if (rotated && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH)
+			if (rotated && zoomType == SmallDisplayZoom::PARTIAL_STRETCH)
 				outW = (frame.h + outH) / 2.0f; // (408 + 720) / 2 = 564
 		}
 	}

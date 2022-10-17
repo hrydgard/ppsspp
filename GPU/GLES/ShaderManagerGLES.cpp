@@ -130,10 +130,9 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_cullRangeMax, "u_cullRangeMax" });
 	queries.push_back({ &u_rotation, "u_rotation" });
 
-	if (IsVRBuild()) {
-		queries.push_back({ &u_scaleX, "u_scaleX" });
-		queries.push_back({ &u_scaleY, "u_scaleY" });
-	}
+	// These two are only used for VR, but let's always query them for simplicity.
+	queries.push_back({ &u_scaleX, "u_scaleX" });
+	queries.push_back({ &u_scaleY, "u_scaleY" });
 
 #ifdef USE_BONE_ARRAY
 	queries.push_back({ &u_bone, "u_bone" });
@@ -378,7 +377,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	}
 
 	bool is2D, flatScreen;
-	if (IsVRBuild()) {
+	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 		// Analyze scene
 		is2D = Is2DVRObject(gstate.projMatrix, gstate.isModeThrough());
 		flatScreen = IsFlatVRScene();
@@ -402,7 +401,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
-		if (IsVRBuild()) {
+		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 			Matrix4x4 leftEyeMatrix, rightEyeMatrix;
 			if (flatScreen || is2D) {
 				memcpy(&leftEyeMatrix, gstate.projMatrix, 16 * sizeof(float));
@@ -536,7 +535,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		SetMatrix4x3(render_, &u_world, gstate.worldMatrix);
 	}
 	if (dirty & DIRTY_VIEWMATRIX) {
-		if (IsVRBuild()) {
+		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 			float leftEyeView[16];
 			float rightEyeView[16];
 			ConvertMatrix4x3To4x4Transposed(leftEyeView, gstate.viewMatrix);

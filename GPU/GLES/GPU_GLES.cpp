@@ -22,6 +22,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -207,6 +208,13 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 
 	if (!draw_->GetShaderLanguageDesc().bitwiseOps) {
 		features |= GPU_USE_FRAGMENT_TEST_CACHE;
+	}
+
+	if (IsVRBuild()) {
+		features |= GPU_USE_VIRTUAL_REALITY;
+	}
+	if (IsMultiviewSupported()) {
+		features |= GPU_USE_SINGLE_PASS_STEREO;
 	}
 
 	return features;

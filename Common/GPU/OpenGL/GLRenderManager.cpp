@@ -581,11 +581,11 @@ void GLRenderManager::Run(int frame) {
 		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {
 			PreVRFrameRender(i);
-			queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, i < passes - 1);
+			queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, i < passes - 1, true);
 			PostVRFrameRender();
 		}
 	} else {
-		queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
+		queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, false, false);
 	}
 	stepsOnThread.clear();
 

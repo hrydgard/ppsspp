@@ -497,6 +497,11 @@ enum {
 	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
 	GPU_USE_CLIP_DISTANCE = FLAG_BIT(24),
 	GPU_USE_CULL_DISTANCE = FLAG_BIT(25),
+
+	// VR flags (reserved or in-use)
+	GPU_USE_VIRTUAL_REALITY = FLAG_BIT(29),
+	GPU_USE_SINGLE_PASS_STEREO = FLAG_BIT(30),
+	GPU_USE_SIMPLE_STEREO_PERSPECTIVE = FLAG_BIT(31),
 };
 
 struct KnownVertexBounds {
