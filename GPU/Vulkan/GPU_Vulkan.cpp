@@ -52,7 +52,7 @@
 
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw), drawEngine_(draw) {
-	gstate_c.featureFlags = CheckGPUFeatures();
+	gstate_c.useFlags = CheckGPUFeatures();
 	drawEngine_.InitDeviceObjects();
 
 	VulkanContext *vulkan = (VulkanContext *)gfxCtx->GetAPIContext();
@@ -276,7 +276,7 @@ void GPU_Vulkan::BeginHostFrame() {
 	UpdateCmdInfo();
 
 	if (resized_) {
-		gstate_c.featureFlags = CheckGPUFeatures();
+		gstate_c.useFlags = CheckGPUFeatures();
 		// In case the GPU changed.
 		BuildReportingInfo();
 		framebufferManager_->Resized();
@@ -515,7 +515,7 @@ void GPU_Vulkan::DeviceRestore() {
 	GPUCommon::DeviceRestore();
 	InitDeviceObjects();
 
-	gstate_c.featureFlags = CheckGPUFeatures();
+	gstate_c.useFlags = CheckGPUFeatures();
 	BuildReportingInfo();
 	UpdateCmdInfo();
 

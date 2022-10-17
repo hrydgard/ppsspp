@@ -519,8 +519,9 @@ enum class SubmitType {
 };
 
 struct GPUStateCache {
-	bool Supports(u32 flags) { return (featureFlags & flags) != 0; } // Return true if ANY of flags are true.
-	bool SupportsAll(u32 flags) { return (featureFlags & flags) == flags; } // Return true if ALL flags are true.
+	bool Use(u32 flags) { return (useFlags & flags) != 0; } // Return true if ANY of flags are true.
+	bool UseAll(u32 flags) { return (useFlags & flags) == flags; } // Return true if ALL flags are true.
+
 	uint64_t GetDirtyUniforms() { return dirty & DIRTY_ALL_UNIFORMS; }
 	void Dirty(u64 what) {
 		dirty |= what;
@@ -561,7 +562,7 @@ struct GPUStateCache {
 		}
 	}
 
-	u32 featureFlags;
+	u32 useFlags;
 
 	u32 vertexAddr;
 	u32 indexAddr;

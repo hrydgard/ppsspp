@@ -183,7 +183,7 @@ ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
 		if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
 			return REPLACE_ALPHA_YES;
 		} else {
-			if (gstate_c.Supports(GPU_SUPPORTS_DUALSOURCE_BLEND)) {
+			if (gstate_c.Use(GPU_SUPPORTS_DUALSOURCE_BLEND)) {
 				return REPLACE_ALPHA_DUALSOURCE;
 			} else {
 				return REPLACE_ALPHA_NO;
@@ -275,7 +275,7 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 
 	case GE_BLENDMODE_MIN:
 	case GE_BLENDMODE_MAX:
-		if (gstate_c.Supports(GPU_SUPPORTS_BLEND_MINMAX)) {
+		if (gstate_c.Use(GPU_SUPPORTS_BLEND_MINMAX)) {
 			return REPLACE_BLEND_STANDARD;
 		} else {
 			return REPLACE_BLEND_READ_FRAMEBUFFER;
@@ -312,7 +312,7 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 			// We can't technically do this correctly (due to clamping) without reading the dst color.
 			// Using a copy isn't accurate either, though, when there's overlap.
-			if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
+			if (gstate_c.Use(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
 				return REPLACE_BLEND_READ_FRAMEBUFFER;
 			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 
@@ -454,14 +454,14 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 			if (funcA == GE_SRCBLEND_SRCALPHA || funcA == GE_SRCBLEND_INVSRCALPHA) {
 				// Can't safely double alpha, will clamp.  However, a copy may easily be worse due to overlap.
-				if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
+				if (gstate_c.Use(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
 					return REPLACE_BLEND_READ_FRAMEBUFFER;
 				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 			} else {
 				// This means dst alpha/color is used in the src factor.
 				// Unfortunately, copying here causes overlap problems in Silent Hill games (it seems?)
 				// We will just hope that doubling alpha for the dst factor will not clamp too badly.
-				if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
+				if (gstate_c.Use(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
 					return REPLACE_BLEND_READ_FRAMEBUFFER;
 				return REPLACE_BLEND_2X_ALPHA;
 			}
@@ -494,10 +494,10 @@ static const float DEPTH_SLICE_FACTOR_HIGH = 4.0f;
 static const float DEPTH_SLICE_FACTOR_16BIT = 256.0f;
 
 float DepthSliceFactor() {
-	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+	if (gstate_c.Use(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
 		return DEPTH_SLICE_FACTOR_16BIT;
 	}
-	if (gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP)) {
+	if (gstate_c.Use(GPU_SUPPORTS_DEPTH_CLAMP)) {
 		return 1.0f;
 	}
 	return DEPTH_SLICE_FACTOR_HIGH;
@@ -505,12 +505,12 @@ float DepthSliceFactor() {
 
 // This is used for float values which might not be integers, but are in the integer scale of 65535.
 float ToScaledDepthFromIntegerScale(float z) {
-	if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+	if (!gstate_c.Use(GPU_SUPPORTS_ACCURATE_DEPTH)) {
 		return z * (1.0f / 65535.0f);
 	}
 
 	const float depthSliceFactor = DepthSliceFactor();
-	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+	if (gstate_c.Use(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
 		const double doffset = 0.5 * (depthSliceFactor - 1.0) * (1.0 / depthSliceFactor);
 		// Use one bit for each value, rather than 1.0 / (25535.0 * 256.0).
 		return (float)((double)z * (1.0 / 16777215.0) + doffset);
@@ -523,7 +523,7 @@ float ToScaledDepthFromIntegerScale(float z) {
 // See struct DepthScaleFactors for how to apply.
 DepthScaleFactors GetDepthScaleFactors() {
 	DepthScaleFactors factors;
-	if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+	if (!gstate_c.Use(GPU_SUPPORTS_ACCURATE_DEPTH)) {
 		factors.offset = 0;
 		factors.scale = 65535.0f;
 		return factors;
@@ -728,7 +728,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		// This adjusts the center from halfActualZRange to vpZCenter.
 		out.zOffset = halfActualZRange < std::numeric_limits<float>::epsilon() ? 0.0f : (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
 
-		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+		if (!gstate_c.Use(GPU_SUPPORTS_ACCURATE_DEPTH)) {
 			out.depthScale = 1.0f;
 			out.zOffset = 0.0f;
 			out.depthRangeMin = ToScaledDepthFromIntegerScale(vpZCenter - vpZScale);
@@ -863,7 +863,7 @@ static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 
 	// Note: our shader solution applies logic ops BEFORE blending, not correctly after.
 	// This is however fine for the most common ones, like CLEAR/NOOP/SET, etc.
-	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
+	if (!gstate_c.Use(GPU_SUPPORTS_LOGIC_OP)) {
 		switch (gstate.getLogicOp()) {
 		case GE_LOGIC_CLEAR:
 			srcBlend = BlendFactor::ZERO;
@@ -944,7 +944,7 @@ static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 
 // Choose the shader part of the above logic op fallback simulation.
 SimulateLogicOpType SimulateLogicOpShaderTypeIfNeeded() {
-	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
+	if (!gstate_c.Use(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
 		switch (gstate.getLogicOp()) {
 		case GE_LOGIC_COPY_INVERTED:
 		case GE_LOGIC_AND_INVERTED:
@@ -1275,7 +1275,7 @@ static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBl
 
 	// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
 	BlendEq colorEq;
-	if (gstate_c.Supports(GPU_SUPPORTS_BLEND_MINMAX)) {
+	if (gstate_c.Use(GPU_SUPPORTS_BLEND_MINMAX)) {
 		colorEq = eqLookup[blendFuncEq];
 	} else {
 		colorEq = eqLookupNoMinMax[blendFuncEq];
@@ -1597,7 +1597,7 @@ void ComputedPipelineState::Convert(bool shaderBitOpsSuppported) {
 	// Passing on the previous applyFramebufferRead as forceFrameBuffer read in the next one,
 	// thus propagating forward.
 	ConvertMaskState(maskState, shaderBitOpsSuppported);
-	ConvertLogicOpState(logicState, gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP), shaderBitOpsSuppported, maskState.applyFramebufferRead);
+	ConvertLogicOpState(logicState, gstate_c.Use(GPU_SUPPORTS_LOGIC_OP), shaderBitOpsSuppported, maskState.applyFramebufferRead);
 	ConvertBlendState(blendState, logicState.applyFramebufferRead);
 
 	// Note: If the blend state decided it had to use framebuffer reads,

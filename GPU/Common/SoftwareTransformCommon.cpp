@@ -639,7 +639,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		result->drawIndexed = true;
 
 		// If we don't support custom cull in the shader, process it here.
-		if (!gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
+		if (!gstate_c.Use(GPU_SUPPORTS_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
 			const u16 *indsIn = (const u16 *)inds;
 			u16 *newInds = inds + vertexCount;
 			u16 *indsOut = newInds;

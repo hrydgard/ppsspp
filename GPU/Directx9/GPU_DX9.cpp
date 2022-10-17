@@ -81,7 +81,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
 	UpdateCmdInfo();
-	gstate_c.featureFlags = CheckGPUFeatures();
+	gstate_c.useFlags = CheckGPUFeatures();
 
 	BuildReportingInfo();
 
@@ -163,7 +163,7 @@ void GPU_DX9::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
 	if (resized_) {
-		gstate_c.featureFlags = CheckGPUFeatures();
+		gstate_c.useFlags = CheckGPUFeatures();
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		shaderManagerDX9_->DirtyShader();

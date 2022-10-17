@@ -537,7 +537,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 }
 
 void DrawEngineCommon::ApplyFramebufferRead(FBOTexState *fboTexState) {
-	if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
+	if (gstate_c.Use(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
 		*fboTexState = FBO_TEX_READ_FRAMEBUFFER;
 	} else {
 		gpuStats.numCopiesForShaderBlend++;

@@ -454,7 +454,7 @@ void GPUCommon::UpdateCmdInfo() {
 
 	// Reconfigure for light ubershader or not.
 	for (int i = 0; i < 4; i++) {
-		if (gstate_c.Supports(GPU_USE_LIGHT_UBERSHADER)) {
+		if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {
 			cmdInfo_[GE_CMD_LIGHTENABLE0 + i].RemoveDirty(DIRTY_VERTEXSHADER_STATE);
 			cmdInfo_[GE_CMD_LIGHTENABLE0 + i].AddDirty(DIRTY_LIGHT_CONTROL);
 			cmdInfo_[GE_CMD_LIGHTTYPE0 + i].RemoveDirty(DIRTY_VERTEXSHADER_STATE);
@@ -467,7 +467,7 @@ void GPUCommon::UpdateCmdInfo() {
 		}
 	}
 
-	if (gstate_c.Supports(GPU_USE_LIGHT_UBERSHADER)) {
+	if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {
 		cmdInfo_[GE_CMD_MATERIALUPDATE].RemoveDirty(DIRTY_VERTEXSHADER_STATE);
 		cmdInfo_[GE_CMD_MATERIALUPDATE].AddDirty(DIRTY_LIGHT_CONTROL);
 	} else {

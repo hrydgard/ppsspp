@@ -685,7 +685,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 }
 
 VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
-	if (!gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS)) {
+	if (!gstate_c.Use(GPU_SUPPORTS_16BIT_FORMATS)) {
 		return VK_FORMAT_R8G8B8A8_UNORM;
 	}
 	switch (format) {
@@ -726,7 +726,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	int decPitch;
 
 	TexDecodeFlags texDecFlags{};
-	if (!gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1 || dstFmt == VULKAN_8888_FORMAT) {
+	if (!gstate_c.Use(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1 || dstFmt == VULKAN_8888_FORMAT) {
 		texDecFlags |= TexDecodeFlags::EXPAND32;
 	}
 	if (entry.status & TexCacheEntry::STATUS_CLUT_GPU) {

@@ -83,7 +83,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	}
 
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough && !gstate.isModeClear();
-	bool vertexRangeCulling = gstate_c.Supports(GPU_SUPPORTS_VS_RANGE_CULLING) &&
+	bool vertexRangeCulling = gstate_c.Use(GPU_SUPPORTS_VS_RANGE_CULLING) &&
 		!isModeThrough && gstate_c.submitType == SubmitType::DRAW;  // neither hw nor sw spline/bezier. See #11692
 
 	VShaderID id;
@@ -124,7 +124,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 		if (gstate.isLightingEnabled()) {
 			// doShadeMapping is stored as UVGenMode, and light type doesn't matter for shade mapping.
 			id.SetBit(VS_BIT_LIGHTING_ENABLE);
-			if (gstate_c.Supports(GPU_USE_LIGHT_UBERSHADER)) {
+			if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {
 				id.SetBit(VS_BIT_LIGHT_UBERSHADER);
 			} else {
 				id.SetBits(VS_BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate());
@@ -390,11 +390,11 @@ void ComputeGeometryShaderID(GShaderID *id_out, const Draw::Bugs &bugs, int prim
 	bool isTriangle = prim == GE_PRIM_TRIANGLES || prim == GE_PRIM_TRIANGLE_FAN || prim == GE_PRIM_TRIANGLE_STRIP;
 
 	bool vertexRangeCulling = !isCurve;
-	bool clipClampedDepth = gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP) && !gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE);
+	bool clipClampedDepth = gstate_c.Use(GPU_SUPPORTS_DEPTH_CLAMP) && !gstate_c.Use(GPU_SUPPORTS_CLIP_DISTANCE);
 
 	// If we're not using GS culling, return a zero ID.
 	// Also, only use this for triangle primitives.
-	if ((!vertexRangeCulling && !clipClampedDepth) || isModeThrough || !isTriangle || !gstate_c.Supports(GPU_SUPPORTS_GS_CULLING)) {
+	if ((!vertexRangeCulling && !clipClampedDepth) || isModeThrough || !isTriangle || !gstate_c.Use(GPU_SUPPORTS_GS_CULLING)) {
 		*id_out = id;
 		return;
 	}

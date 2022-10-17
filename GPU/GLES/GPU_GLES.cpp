@@ -54,7 +54,7 @@
 GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw), drawEngine_(draw), fragmentTestCache_(draw) {
 	UpdateVsyncInterval(true);
-	gstate_c.featureFlags = CheckGPUFeatures();
+	gstate_c.useFlags = CheckGPUFeatures();
 
 	shaderManagerGL_ = new ShaderManagerGLES(draw);
 	framebufferManagerGL_ = new FramebufferManagerGLES(draw);
@@ -281,7 +281,7 @@ void GPU_GLES::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
 	if (resized_) {
-		gstate_c.featureFlags = CheckGPUFeatures();
+		gstate_c.useFlags = CheckGPUFeatures();
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		shaderManagerGL_->DirtyShader();

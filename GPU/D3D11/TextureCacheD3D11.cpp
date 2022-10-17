@@ -428,7 +428,7 @@ DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format) {
 }
 
 DXGI_FORMAT TextureCacheD3D11::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
-	if (!gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS)) {
+	if (!gstate_c.Use(GPU_SUPPORTS_16BIT_FORMATS)) {
 		return DXGI_FORMAT_B8G8R8A8_UNORM;
 	}
 
