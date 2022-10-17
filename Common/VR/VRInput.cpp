@@ -3,6 +3,8 @@
 
 #include <Common/TimeUtil.h>
 
+#ifdef OPENXR
+
 //OpenXR
 XrPath leftHandPath;
 XrPath rightHandPath;
@@ -432,3 +434,5 @@ XrPosef IN_VRGetPose( int controllerIndex ) {
 	xrLocateSpace(aimSpace[controllerIndex], engine->appState.CurrentSpace, (XrTime)(engine->predictedDisplayTime), &loc);
 	return loc.pose;
 }
+
+#endif

@@ -5,7 +5,7 @@
 #include <string.h>
 #include <vector>
 
-#if PPSSPP_PLATFORM(ANDROID)
+#if defined(ANDROID) && defined(OPENXR)
 
 #include <unistd.h>
 

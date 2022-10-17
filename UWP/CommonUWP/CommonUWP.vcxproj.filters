@@ -85,6 +85,9 @@
     <Filter Include="Render\Text">
       <UniqueIdentifier>{28139b08-f8d5-41a2-a5ee-bf86cf1469c3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="VR">
+      <UniqueIdentifier>{a5bfc343-9c3a-43ff-a033-7b0406e13816}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -374,6 +377,24 @@
     </ClCompile>
     <ClCompile Include="..\..\Common\Math\Statistics.cpp">
       <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\VR\PPSSPPVR.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\VR\VRBase.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\VR\VRFramebuffer.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\VR\VRInput.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\VR\VRMath.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\VR\VRRenderer.cpp">
+      <Filter>VR</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -693,6 +714,24 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\Math\Statistics.h">
       <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\VR\PPSSPPVR.h">
+      <Filter>VR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\VR\VRBase.h">
+      <Filter>VR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\VR\VRFramebuffer.h">
+      <Filter>VR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\VR\VRInput.h">
+      <Filter>VR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\VR\VRMath.h">
+      <Filter>VR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\VR\VRRenderer.h">
+      <Filter>VR</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -1,3 +1,5 @@
+#ifdef OPENXR
+
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 
@@ -11,8 +13,6 @@
 #include "Core/Config.h"
 #include "Core/KeyMap.h"
 #include "Core/System.h"
-
-#ifdef OPENXR
 
 static long vrCompat[VR_COMPAT_MAX];
 
