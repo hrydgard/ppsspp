@@ -197,7 +197,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			key.maxLevel = maxLevel * 256;
 			key.minLevel = 0;
 			key.lodBias = (int)(lodBias * 256.0f);
-			if (gstate_c.Use(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+			if (gstate_c.Use(GPU_USE_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
 				key.aniso = true;
 			}
 			break;
@@ -281,7 +281,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 		key.mipFilt = 1;
 		key.maxLevel = 9 * 256;
 		key.lodBias = 0.0f;
-		if (gstate_c.Use(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+		if (gstate_c.Use(GPU_USE_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
 			key.aniso = true;
 		}
 		break;
@@ -1103,7 +1103,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 			gstate_c.SetNeedShaderTexclamp(true);
 		}
 
-		if (channel == RASTER_DEPTH && !gstate_c.Use(GPU_SUPPORTS_DEPTH_TEXTURE)) {
+		if (channel == RASTER_DEPTH && !gstate_c.Use(GPU_USE_DEPTH_TEXTURE)) {
 			WARN_LOG_ONCE(ndepthtex, G3D, "Depth textures not supported, not binding");
 			// Flag to bind a null texture if we can't support depth textures.
 			// Should only happen on old OpenGL.
@@ -1202,7 +1202,7 @@ bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffe
 void TextureCacheCommon::NotifyConfigChanged() {
 	int scaleFactor = g_Config.iTexScalingLevel;
 
-	if (!gstate_c.Use(GPU_SUPPORTS_TEXTURE_NPOT)) {
+	if (!gstate_c.Use(GPU_USE_TEXTURE_NPOT)) {
 		// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
 		// TODO: In addition we should probably remove these options from the UI in this case.
 		while ((scaleFactor & (scaleFactor - 1)) != 0) {
@@ -2581,7 +2581,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 			int lastW = gstate.getTextureWidth(i - 1);
 			int lastH = gstate.getTextureHeight(i - 1);
 
-			if (gstate_c.Use(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+			if (gstate_c.Use(GPU_USE_TEXTURE_LOD_CONTROL)) {
 				if (tw != 1 && tw != (lastW >> 1))
 					plan.badMipSizes = true;
 				else if (th != 1 && th != (lastH >> 1))
@@ -2782,7 +2782,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 			decPitch = stride;
 		}
 
-		if (!gstate_c.Use(GPU_SUPPORTS_16BIT_FORMATS) || dstFmt == Draw::DataFormat::R8G8B8A8_UNORM) {
+		if (!gstate_c.Use(GPU_USE_16BIT_FORMATS) || dstFmt == Draw::DataFormat::R8G8B8A8_UNORM) {
 			texDecFlags |= TexDecodeFlags::EXPAND32;
 		}
 		if (entry.status & TexCacheEntry::STATUS_CLUT_GPU) {

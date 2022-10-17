@@ -112,7 +112,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[3].descriptorCount = 1;
 	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[3].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-	if (gstate_c.Use(GPU_SUPPORTS_GS_CULLING))
+	if (gstate_c.Use(GPU_USE_GS_CULLING))
 		bindings[3].stageFlags |= VK_SHADER_STAGE_GEOMETRY_BIT;
 	bindings[3].binding = DRAW_BINDING_DYNUBO_BASE;
 	bindings[4].descriptorCount = 1;

@@ -190,11 +190,11 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	switch (vulkan->GetPhysicalDeviceProperties().properties.vendorID) {
 	case VULKAN_VENDOR_AMD:
 		// Accurate depth is required on AMD (due to reverse-Z driver bug) so we ignore the compat flag to disable it on those. See #9545
-		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+		features |= GPU_USE_ACCURATE_DEPTH;
 		break;
 	case VULKAN_VENDOR_QUALCOMM:
 		// Accurate depth is required on Adreno too (seems to also have a reverse-Z driver bug).
-		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+		features |= GPU_USE_ACCURATE_DEPTH;
 		break;
 	case VULKAN_VENDOR_ARM:
 	{
@@ -206,40 +206,40 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 			|| VK_VERSION_MAJOR(vulkan->GetPhysicalDeviceProperties().properties.driverVersion) < 14;
 
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || driverTooOld) {
-			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+			features |= GPU_USE_ACCURATE_DEPTH;
 		}
 		break;
 	}
 	default:
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
-			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+			features |= GPU_USE_ACCURATE_DEPTH;
 		}
 		break;
 	}
 
 	// Might enable this later - in the first round we are mostly looking at depth/stencil/discard.
 	// if (!g_Config.bEnableVendorBugChecks)
-	// 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+	// 	features |= GPU_USE_ACCURATE_DEPTH;
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
-	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
-	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
-	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
+	features |= GPU_USE_TEXTURE_LOD_CONTROL;
+	features |= GPU_USE_INSTANCE_RENDERING;
+	features |= GPU_USE_VERTEX_TEXTURE_FETCH;
+	features |= GPU_USE_TEXTURE_FLOAT;
 
 	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled;
 	if (enabledFeatures.depthClamp) {
-		features |= GPU_SUPPORTS_DEPTH_CLAMP;
+		features |= GPU_USE_DEPTH_CLAMP;
 	}
 
 	// Fall back to geometry shader culling if we can't do vertex range culling.
 	if (enabledFeatures.geometryShader) {
 		const bool useGeometry = g_Config.bUseGeometryShader && !draw_->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
 		const bool vertexSupported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
-		if (useGeometry && (!vertexSupported || (features & GPU_SUPPORTS_VS_RANGE_CULLING) == 0)) {
+		if (useGeometry && (!vertexSupported || (features & GPU_USE_VS_RANGE_CULLING) == 0)) {
 			// Switch to culling via the geometry shader if not fully supported in vertex.
-			features |= GPU_SUPPORTS_GS_CULLING;
-			features &= ~GPU_SUPPORTS_VS_RANGE_CULLING;
+			features |= GPU_USE_GS_CULLING;
+			features &= ~GPU_USE_VS_RANGE_CULLING;
 		}
 	}
 
@@ -252,12 +252,12 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	// if it's not available, for simplicity.
 	uint32_t fmt565 = draw_->GetDataFormatSupport(Draw::DataFormat::B5G6R5_UNORM_PACK16);
 	if ((fmt4444 & Draw::FMT_TEXTURE) && (fmt565 & Draw::FMT_TEXTURE) && (fmt1555 & Draw::FMT_TEXTURE)) {
-		features |= GPU_SUPPORTS_16BIT_FORMATS;
+		features |= GPU_USE_16BIT_FORMATS;
 	} else {
 		INFO_LOG(G3D, "Deficient texture format support: 4444: %d  1555: %d  565: %d", fmt4444, fmt1555, fmt565);
 	}
 
-	if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
+	if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 	}
 	else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {

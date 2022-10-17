@@ -106,23 +106,23 @@ u32 GPU_D3D11::CheckGPUFeatures() const {
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
 	// TODO: Breaks text in PaRappa for some reason?
-	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+	features |= GPU_USE_ACCURATE_DEPTH;
 
 	if (draw_->GetDeviceCaps().depthClampSupported)
-		features |= GPU_SUPPORTS_DEPTH_CLAMP;
+		features |= GPU_USE_DEPTH_CLAMP;
 
-	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
-	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
-	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+	features |= GPU_USE_TEXTURE_FLOAT;
+	features |= GPU_USE_INSTANCE_RENDERING;
+	features |= GPU_USE_TEXTURE_LOD_CONTROL;
 
 	uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16);
 	uint32_t fmt1555 = draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16);
 	uint32_t fmt565 = draw_->GetDataFormatSupport(Draw::DataFormat::R5G6B5_UNORM_PACK16);
 	if ((fmt4444 & Draw::FMT_TEXTURE) && (fmt565 & Draw::FMT_TEXTURE) && (fmt1555 & Draw::FMT_TEXTURE)) {
-		features |= GPU_SUPPORTS_16BIT_FORMATS;
+		features |= GPU_USE_16BIT_FORMATS;
 	}
 
-	if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
+	if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 	} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
 		// Use fragment rounding on desktop and GLES3, most accurate.
@@ -132,7 +132,7 @@ u32 GPU_D3D11::CheckGPUFeatures() const {
 	}
 
 	// The Phantasy Star hack :(
-	if (PSP_CoreParameter().compat.flags().DepthRangeHack && (features & GPU_SUPPORTS_ACCURATE_DEPTH) == 0) {
+	if (PSP_CoreParameter().compat.flags().DepthRangeHack && (features & GPU_USE_ACCURATE_DEPTH) == 0) {
 		features |= GPU_USE_DEPTH_RANGE_HACK;
 	}
 

@@ -3285,44 +3285,44 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 u32 GPUCommon::CheckGPUFeatures() const {
 	u32 features = 0;
 	if (draw_->GetDeviceCaps().logicOpSupported) {
-		features |= GPU_SUPPORTS_LOGIC_OP;
+		features |= GPU_USE_LOGIC_OP;
 	}
 	if (draw_->GetDeviceCaps().anisoSupported) {
-		features |= GPU_SUPPORTS_ANISOTROPY;
+		features |= GPU_USE_ANISOTROPY;
 	}
 	if (draw_->GetDeviceCaps().textureNPOTFullySupported) {
-		features |= GPU_SUPPORTS_TEXTURE_NPOT;
+		features |= GPU_USE_TEXTURE_NPOT;
 	}
 	if (draw_->GetDeviceCaps().dualSourceBlend) {
 		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
-			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+			features |= GPU_USE_DUALSOURCE_BLEND;
 		}
 	}
 	if (draw_->GetDeviceCaps().blendMinMaxSupported) {
-		features |= GPU_SUPPORTS_BLEND_MINMAX;
+		features |= GPU_USE_BLEND_MINMAX;
 	}
 
 	if (draw_->GetDeviceCaps().clipDistanceSupported) {
-		features |= GPU_SUPPORTS_CLIP_DISTANCE;
+		features |= GPU_USE_CLIP_DISTANCE;
 	}
 
 	if (draw_->GetDeviceCaps().cullDistanceSupported) {
-		features |= GPU_SUPPORTS_CULL_DISTANCE;
+		features |= GPU_USE_CULL_DISTANCE;
 	}
 
 	if (draw_->GetDeviceCaps().textureDepthSupported) {
-		features |= GPU_SUPPORTS_DEPTH_TEXTURE;
+		features |= GPU_USE_DEPTH_TEXTURE;
 	}
 
 	bool canClipOrCull = draw_->GetDeviceCaps().clipDistanceSupported || draw_->GetDeviceCaps().cullDistanceSupported;
 	bool canDiscardVertex = draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
 	if (canClipOrCull || canDiscardVertex) {
 		// We'll dynamically use the parts that are supported, to reduce artifacts as much as possible.
-		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+		features |= GPU_USE_VS_RANGE_CULLING;
 	}
 
 	if (draw_->GetDeviceCaps().framebufferFetchSupported) {
-		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
+		features |= GPU_USE_ANY_FRAMEBUFFER_FETCH;
 	}
 
 	if (draw_->GetShaderLanguageDesc().bitwiseOps) {

@@ -105,7 +105,7 @@ static const GLuint MagFiltGL[2] = {
 };
 
 void TextureCacheGLES::ApplySamplingParams(const SamplerCacheKey &key) {
-	if (gstate_c.Use(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+	if (gstate_c.Use(GPU_USE_TEXTURE_LOD_CONTROL)) {
 		float minLod = (float)key.minLevel / 256.0f;
 		float maxLod = (float)key.maxLevel / 256.0f;
 		float lodBias = (float)key.lodBias / 256.0f;
@@ -286,7 +286,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		}
 	} 
 
-	if (!gstate_c.Use(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+	if (!gstate_c.Use(GPU_USE_TEXTURE_LOD_CONTROL)) {
 		// If the mip chain is not full..
 		if (plan.levelsToCreate != plan.maxPossibleLevels) {
 			// We need to avoid creating mips at all, or generate them all - can't be incomplete

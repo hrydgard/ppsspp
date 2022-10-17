@@ -137,8 +137,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	bool needFramebufferRead = replaceBlend == REPLACE_BLEND_READ_FRAMEBUFFER || colorWriteMask || replaceLogicOp;
 
-	bool fetchFramebuffer = needFramebufferRead && gstate_c.Use(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH);
-	bool readFramebufferTex = needFramebufferRead && !gstate_c.Use(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH);
+	bool fetchFramebuffer = needFramebufferRead && gstate_c.Use(GPU_USE_ANY_FRAMEBUFFER_FETCH);
+	bool readFramebufferTex = needFramebufferRead && !gstate_c.Use(GPU_USE_ANY_FRAMEBUFFER_FETCH);
 
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 	bool writeDepth = gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
@@ -1177,7 +1177,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		const double scale = DepthSliceFactor() * 65535.0;
 
 		WRITE(p, "  highp float z = gl_FragCoord.z;\n");
-		if (gstate_c.Use(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+		if (gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
 			// We center the depth with an offset, but only its fraction matters.
 			// When (DepthSliceFactor() - 1) is odd, it will be 0.5, otherwise 0.
 			if (((int)(DepthSliceFactor() - 1.0f) & 1) == 1) {

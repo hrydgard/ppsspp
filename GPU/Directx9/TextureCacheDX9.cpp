@@ -170,7 +170,7 @@ void TextureCacheDX9::StartFrame() {
 		Decimate();
 	}
 
-	if (gstate_c.Use(GPU_SUPPORTS_ANISOTROPY)) {
+	if (gstate_c.Use(GPU_USE_ANISOTROPY)) {
 		DWORD aniso = 1 << g_Config.iAnisotropyLevel;
 		DWORD anisotropyLevel = aniso > maxAnisotropyLevel ? maxAnisotropyLevel : aniso;
 		device_->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel);

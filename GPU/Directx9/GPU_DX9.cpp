@@ -100,13 +100,13 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 u32 GPU_DX9::CheckGPUFeatures() const {
 	u32 features = GPUCommon::CheckGPUFeatures();
-	features |= GPU_SUPPORTS_16BIT_FORMATS;
-	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+	features |= GPU_USE_16BIT_FORMATS;
+	features |= GPU_USE_TEXTURE_LOD_CONTROL;
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
 	// TODO: Breaks text in PaRappa for some reason?
-	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+	features |= GPU_USE_ACCURATE_DEPTH;
 
 	auto vendor = draw_->GetDeviceCaps().vendor;
 

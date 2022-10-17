@@ -151,29 +151,29 @@ GPU_GLES::~GPU_GLES() {
 u32 GPU_GLES::CheckGPUFeatures() const {
 	u32 features = GPUCommon::CheckGPUFeatures();
 
-	features |= GPU_SUPPORTS_16BIT_FORMATS;
+	features |= GPU_USE_16BIT_FORMATS;
 
 	if ((gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD))
 		features |= GPU_PREFER_REVERSE_COLOR_ORDER;
 
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
-		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+		features |= GPU_USE_TEXTURE_LOD_CONTROL;
 
 	bool canUseInstanceID = gl_extensions.EXT_draw_instanced || gl_extensions.ARB_draw_instanced;
 	bool canDefInstanceID = gl_extensions.IsGLES || gl_extensions.EXT_gpu_shader4 || gl_extensions.VersionGEThan(3, 1);
 	bool instanceRendering = gl_extensions.GLES3 || (canUseInstanceID && canDefInstanceID);
 	if (instanceRendering)
-		features |= GPU_SUPPORTS_INSTANCE_RENDERING;
+		features |= GPU_USE_INSTANCE_RENDERING;
 
 	int maxVertexTextureImageUnits = gl_extensions.maxVertexTextureUnits;
 	if (maxVertexTextureImageUnits >= 3) // At least 3 for hardware tessellation
-		features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
+		features |= GPU_USE_VERTEX_TEXTURE_FETCH;
 
 	if (gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float)
-		features |= GPU_SUPPORTS_TEXTURE_FLOAT;
+		features |= GPU_USE_TEXTURE_FLOAT;
 
 	if (draw_->GetDeviceCaps().depthClampSupported) {
-		features |= GPU_SUPPORTS_DEPTH_CLAMP | GPU_SUPPORTS_ACCURATE_DEPTH;
+		features |= GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH;
 		// Our implementation of depth texturing needs simple Z range, so can't
 		// use the extension hacks (yet).
 	}
@@ -181,13 +181,13 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	// If we already have a 16-bit depth buffer, we don't need to round.
 	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
 	if (prefer24) {
-		if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
+		if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
 			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
 			if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
 				// Use fragment rounding on desktop and GLES3, most accurate.
 				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-			} else if (prefer24 && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
+			} else if (prefer24 && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
 				// Here we can simulate a 16 bit depth buffer by scaling.
 				// Note that the depth buffer is fixed point, not floating, so dividing by 256 is pretty good.
 				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
@@ -201,7 +201,7 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	}
 
 	// The Phantasy Star hack :(
-	if (PSP_CoreParameter().compat.flags().DepthRangeHack && (features & GPU_SUPPORTS_ACCURATE_DEPTH) == 0) {
+	if (PSP_CoreParameter().compat.flags().DepthRangeHack && (features & GPU_USE_ACCURATE_DEPTH) == 0) {
 		features |= GPU_USE_DEPTH_RANGE_HACK;
 	}
 

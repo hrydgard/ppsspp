@@ -196,12 +196,12 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	initialize.push_back({ &u_tess_weights_v, 0, TEX_SLOT_SPLINE_WEIGHTS_V });
 
 	GLRProgramFlags flags{};
-	flags.supportDualSource = (gstate_c.useFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) != 0;
-	if (!VSID.Bit(VS_BIT_IS_THROUGH) && gstate_c.Use(GPU_SUPPORTS_DEPTH_CLAMP)) {
+	flags.supportDualSource = (gstate_c.useFlags & GPU_USE_DUALSOURCE_BLEND) != 0;
+	if (!VSID.Bit(VS_BIT_IS_THROUGH) && gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
 		flags.useClipDistance0 = true;
-		if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Use(GPU_SUPPORTS_CLIP_DISTANCE))
+		if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Use(GPU_USE_CLIP_DISTANCE))
 			flags.useClipDistance1 = true;
-	} else if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Use(GPU_SUPPORTS_CLIP_DISTANCE)) {
+	} else if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 		flags.useClipDistance0 = true;
 	}
 
@@ -564,7 +564,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		float viewZScale = halfActualZRange;
 		float viewZCenter = minz + halfActualZRange;
 
-		if (!gstate_c.Use(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+		if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
 			viewZScale = vpZScale;
 			viewZCenter = vpZCenter;
 		}
