@@ -38,6 +38,7 @@ void FinishVRRender();
 void PreVRFrameRender(int fboIndex);
 void PostVRFrameRender();
 int GetVRFBOIndex();
+int GetVRPassesCount();
 bool IsMultiviewSupported();
 bool IsFlatVRScene();
 bool Is2DVRObject(float* projMatrix, bool ortho);
@@ -65,6 +66,7 @@ inline void FinishVRRender() {}
 inline void PreVRFrameRender(int fboIndex) {}
 inline void PostVRFrameRender() {}
 inline int GetVRFBOIndex() { return 0; }
+inline int GetVRPassesCount() { return 1; }
 inline bool IsMultiviewSupported() { return false; }
 inline bool IsFlatVRScene() { return true; }
 inline bool Is2DVRObject(float* projMatrix, bool ortho) { return false; }

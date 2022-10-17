@@ -339,6 +339,14 @@ int GetVRFBOIndex() {
 	return VR_GetConfig(VR_CONFIG_CURRENT_FBO);
 }
 
+int GetVRPassesCount() {
+	if (!IsMultiviewSupported() && g_Config.bEnableStereo) {
+		return 2;
+	} else {
+		return 1;
+	}
+}
+
 bool IsMultiviewSupported() {
 	return false;
 }
