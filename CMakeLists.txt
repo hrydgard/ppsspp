@@ -119,7 +119,6 @@ add_definitions(-DASSETS_DIR="${CMAKE_INSTALL_FULL_DATADIR}/ppsspp/assets/")
 if(OPENXR)
 	add_definitions(-DOPENXR)
 	add_library(openxr SHARED IMPORTED)
-	include_directories(ext/openxr)
 	if(OPENXR_PLATFORM_PICO)
 	  add_definitions(-DOPENXR_PLATFORM_PICO)
 	  set_property(TARGET openxr PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/ext/openxr/libs/pico/arm64-v8a/libopenxr_loader.so")
@@ -507,6 +506,22 @@ if(WIN32)
 	)
 endif()
 
+set(CommonVR
+	Common/VR/PPSSPPVR.cpp
+	Common/VR/PPSSPPVR.h
+	Common/VR/VRBase.cpp
+	Common/VR/VRBase.h
+	Common/VR/VRFramebuffer.cpp
+	Common/VR/VRFramebuffer.h
+	Common/VR/VRInput.cpp
+	Common/VR/VRInput.h
+	Common/VR/VRMath.cpp
+	Common/VR/VRMath.h
+	Common/VR/VRRenderer.cpp
+	Common/VR/VRRenderer.h
+)
+include_directories(ext/openxr)
+
 add_library(Common STATIC
 	${CommonX86}
 	${CommonARM}
@@ -514,6 +529,7 @@ add_library(Common STATIC
 	${CommonMIPS}
 	${CommonRISCV64}
 	${CommonD3D}
+	${CommonVR}
 	Common/Serialize/Serializer.cpp
 	Common/Serialize/Serializer.h
 	Common/Serialize/SerializeDeque.h
@@ -1091,22 +1107,6 @@ if(ANDROID)
 		android/jni/OpenSLContext.cpp
 		android/jni/OpenSLContext.h
 	)
-
-	set(nativeExtra ${nativeExtra}
-		Common/VR/PPSSPPVR.cpp
-		Common/VR/PPSSPPVR.h
-		Common/VR/VRBase.cpp
-		Common/VR/VRBase.h
-		Common/VR/VRFramebuffer.cpp
-		Common/VR/VRFramebuffer.h
-		Common/VR/VRInput.cpp
-		Common/VR/VRInput.h
-		Common/VR/VRMath.cpp
-		Common/VR/VRMath.h
-		Common/VR/VRRenderer.cpp
-		Common/VR/VRRenderer.h
-	)
-
 	if (OPENXR)
 		set(nativeExtraLibs ${nativeExtraLibs} openxr)
 	endif()
