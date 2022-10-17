@@ -154,7 +154,7 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	features |= GPU_USE_16BIT_FORMATS;
 
 	if ((gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD))
-		features |= GPU_PREFER_REVERSE_COLOR_ORDER;
+		features |= GPU_USE_REVERSE_COLOR_ORDER;
 
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		features |= GPU_USE_TEXTURE_LOD_CONTROL;

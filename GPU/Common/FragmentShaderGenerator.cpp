@@ -137,8 +137,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	bool needFramebufferRead = replaceBlend == REPLACE_BLEND_READ_FRAMEBUFFER || colorWriteMask || replaceLogicOp;
 
-	bool fetchFramebuffer = needFramebufferRead && gstate_c.Use(GPU_USE_ANY_FRAMEBUFFER_FETCH);
-	bool readFramebufferTex = needFramebufferRead && !gstate_c.Use(GPU_USE_ANY_FRAMEBUFFER_FETCH);
+	bool fetchFramebuffer = needFramebufferRead && gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH);
+	bool readFramebufferTex = needFramebufferRead && !gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH);
 
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 	bool writeDepth = gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);

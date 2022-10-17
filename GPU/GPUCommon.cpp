@@ -3322,7 +3322,7 @@ u32 GPUCommon::CheckGPUFeatures() const {
 	}
 
 	if (draw_->GetDeviceCaps().framebufferFetchSupported) {
-		features |= GPU_USE_ANY_FRAMEBUFFER_FETCH;
+		features |= GPU_USE_FRAMEBUFFER_FETCH;
 	}
 
 	if (draw_->GetShaderLanguageDesc().bitwiseOps) {
