@@ -826,8 +826,8 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 			tc1.t() *= 1.0f / (float)(1 << state.samplerID.height0Shift);
 		}
 
-		int diffX = (entireX2 - entireX1 + 1) / SCREEN_SCALE_FACTOR;
-		int diffY = (entireY2 - entireY1 + 1) / SCREEN_SCALE_FACTOR;
+		float diffX = (entireX2 - entireX1 + 1) / (float)SCREEN_SCALE_FACTOR;
+		float diffY = (entireY2 - entireY1 + 1) / (float)SCREEN_SCALE_FACTOR;
 		float diffS = tc1.s() - tc0.s();
 		float diffT = tc1.t() - tc0.t();
 
@@ -860,8 +860,8 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 		}
 
 		// Okay, now move ST to the minX, minY position.
-		rowST += (stx / (float)(SCREEN_SCALE_FACTOR * 2)) * (minX - entireX1);
-		rowST += (sty / (float)(SCREEN_SCALE_FACTOR * 2)) * (minY - entireY1);
+		rowST += (stx / (float)(SCREEN_SCALE_FACTOR * 2)) * (minX - entireX1 + 1);
+		rowST += (sty / (float)(SCREEN_SCALE_FACTOR * 2)) * (minY - entireY1 + 1);
 	}
 
 	// And now what we add to spread out to 4 values.
