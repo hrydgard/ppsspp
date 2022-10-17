@@ -858,9 +858,12 @@ static inline bool blendColorSimilar(uint32_t a, uint32_t b, int margin = 25) { 
 // The shader might also need modification, the below function SimulateLogicOpShaderTypeIfNeeded
 // takes care of that.
 static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &blendEq) {
+	if (!gstate.isLogicOpEnabled())
+		return false;
+
 	// Note: our shader solution applies logic ops BEFORE blending, not correctly after.
 	// This is however fine for the most common ones, like CLEAR/NOOP/SET, etc.
-	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
+	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
 		switch (gstate.getLogicOp()) {
 		case GE_LOGIC_CLEAR:
 			srcBlend = BlendFactor::ZERO;
@@ -915,6 +918,25 @@ static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 			blendEq = BlendEq::ADD;
 			WARN_LOG_REPORT_ONCE(d3dLogicOpSet, G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
 			return true;
+		}
+	} else {
+		// Even if we support hardware logic ops, alpha is handled wrong.
+		// It's better to override blending for the simple cases.
+		switch (gstate.getLogicOp()) {
+		case GE_LOGIC_CLEAR:
+			srcBlend = BlendFactor::ZERO;
+			dstBlend = BlendFactor::ZERO;
+			blendEq = BlendEq::ADD;
+			return true;
+		case GE_LOGIC_NOOP:
+			srcBlend = BlendFactor::ZERO;
+			dstBlend = BlendFactor::ONE;
+			blendEq = BlendEq::ADD;
+			return true;
+
+		default:
+			// Let's hope hardware gets it right.
+			return false;
 		}
 	}
 	return false;
@@ -1598,5 +1620,7 @@ void GenericLogicState::ApplyToBlendState(GenericBlendState &blendState) {
 			blendState.dstAlpha = BlendFactor::ZERO;
 			blendState.eqAlpha = BlendEq::ADD;
 		}
+		logicOpEnabled = false;
+		logicOp = GE_LOGIC_COPY;
 	}
 }
