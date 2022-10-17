@@ -940,7 +940,7 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 	NativeMessageReceived("recreateviews", "");
 
 	if (IsVRBuild()) {
-		EnterVR(firstStart);
+		EnterVR(firstStart, graphicsContext->GetAPIContext());
 	}
 
 	return true;

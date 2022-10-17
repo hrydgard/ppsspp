@@ -1,4 +1,5 @@
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
 
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/VR/VRBase.h"
@@ -100,20 +101,37 @@ bool IsVRBuild() {
 }
 
 void InitVROnAndroid(void* vm, void* activity, int version, const char* name) {
+	bool useVulkan = (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN;
+
 	ovrJava java;
 	java.Vm = (JavaVM*)vm;
 	java.ActivityObject = (jobject)activity;
 	java.AppVersion = version;
 	strcpy(java.AppName, name);
-	VR_Init(java);
+	VR_Init(java, useVulkan);
 
 	__DisplaySetFramerate(72);
 }
 
-void EnterVR(bool firstStart) {
+void EnterVR(bool firstStart, void* vulkanContext) {
 	if (firstStart) {
-		VR_EnterVR(VR_GetEngine());
-		IN_VRInit(VR_GetEngine());
+		engine_t* engine = VR_GetEngine();
+		bool useVulkan = (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN;
+		if (useVulkan) {
+			auto* context = (VulkanContext*)vulkanContext;
+			engine->graphicsBindingVulkan = {};
+			engine->graphicsBindingVulkan.type = XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR;
+			engine->graphicsBindingVulkan.next = NULL;
+			engine->graphicsBindingVulkan.device = context->GetDevice();
+			engine->graphicsBindingVulkan.instance = context->GetInstance();
+			engine->graphicsBindingVulkan.physicalDevice = context->GetCurrentPhysicalDevice();
+			engine->graphicsBindingVulkan.queueFamilyIndex = context->GetGraphicsQueueFamilyIndex();
+			engine->graphicsBindingVulkan.queueIndex = 0;
+			VR_EnterVR(engine, &engine->graphicsBindingVulkan);
+		} else {
+			VR_EnterVR(engine, nullptr);
+		}
+		IN_VRInit(engine);
 	}
 	VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, false);
 }
@@ -272,8 +290,8 @@ VR rendering integration
 ================================================================================
 */
 
-void BindVRFramebuffer() {
-	VR_BindFramebuffer(VR_GetEngine());
+void* BindVRFramebuffer() {
+	return VR_BindFramebuffer(VR_GetEngine());
 }
 
 bool StartVRRender() {
@@ -289,7 +307,7 @@ bool StartVRRender() {
 			bool stereo = VR_GetConfig(VR_CONFIG_6DOF_PRECISE) && g_Config.bEnableStereo;
 			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 		} else {
-			VR_SetConfig(VR_CONFIG_MODE, VR_MODE_FLAT_SCREEN);
+			VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
 		}
 		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) / 2);
 
@@ -327,7 +345,8 @@ bool IsMultiviewSupported() {
 }
 
 bool IsFlatVRScene() {
-	return VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN;
+	int vrMode = VR_GetConfig(VR_CONFIG_MODE);
+	return (vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN);
 }
 
 bool Is2DVRObject(float* projMatrix, bool ortho) {

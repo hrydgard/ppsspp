@@ -1603,6 +1603,9 @@ void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
 		fbo_bind_fb_target(false, curFB_->handle);
 	} else {
 		fbo_unbind();
+		if (IsVRBuild()) {
+			BindVRFramebuffer();
+		}
 		// Backbuffer is now bound.
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
@@ -1754,10 +1757,6 @@ void GLQueueRunner::fbo_unbind() {
 #if PPSSPP_PLATFORM(IOS)
 	bindDefaultFBO();
 #endif
-
-	if (IsVRBuild()) {
-		BindVRFramebuffer();
-	}
 
 	currentDrawHandle_ = 0;
 	currentReadHandle_ = 0;

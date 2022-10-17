@@ -22,7 +22,7 @@ enum VRCompatFlag {
 // VR app flow integration
 bool IsVRBuild();
 void InitVROnAndroid(void* vm, void* activity, int version, const char* name);
-void EnterVR(bool firstStart);
+void EnterVR(bool firstStart, void* vulkanContext);
 void GetVRResolutionPerEye(int* width, int* height);
 void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale);
 void UpdateVRScreenKey(const KeyInput &key);
@@ -32,7 +32,7 @@ void PreprocessStepVR(void* step);
 void SetVRCompat(VRCompatFlag flag, long value);
 
 // VR rendering integration
-void BindVRFramebuffer();
+void* BindVRFramebuffer();
 bool StartVRRender();
 void FinishVRRender();
 void PreVRFrameRender(int fboIndex);
@@ -49,7 +49,7 @@ void UpdateVRView(float* leftEye, float* rightEye);
 // VR app flow integration
 inline bool IsVRBuild() { return false; }
 inline void InitVROnAndroid(void* vm, void* activity, int version, const char* name) {}
-inline void EnterVR(bool firstTime) {}
+inline void EnterVR(bool firstTime, void* vulkanContext) {}
 inline void GetVRResolutionPerEye(int* width, int* height) {}
 inline void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {}
 inline void UpdateVRScreenKey(const KeyInput &key) {}
@@ -59,7 +59,7 @@ inline void PreprocessStepVR(void* step) {}
 inline void SetVRCompat(VRCompatFlag flag, long value) {}
 
 // VR rendering integration
-inline void BindVRFramebuffer() {}
+inline void* BindVRFramebuffer() { return nullptr; }
 inline bool StartVRRender() { return false; }
 inline void FinishVRRender() {}
 inline void PreVRFrameRender(int fboIndex) {}

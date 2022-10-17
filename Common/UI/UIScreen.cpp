@@ -12,7 +12,6 @@
 #include "Common/UI/Root.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Render/DrawBuffer.h"
-#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
@@ -88,10 +87,6 @@ void UIScreen::preRender() {
 	// Bind and clear the back buffer
 	draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "UI");
 	screenManager()->getUIContext()->BeginFrame();
-
-	if (IsVRBuild()) {
-		BindVRFramebuffer();
-	}
 
 	Draw::Viewport viewport;
 	viewport.TopLeftX = 0;

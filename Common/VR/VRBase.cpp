@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <vector>
 
 #ifdef OPENXR_PLATFORM_PICO
 enum ConfigsSetEXT {
@@ -38,25 +39,7 @@ PFN_xrStopCVControllerThreadPico pfnXrStopCVControllerThreadPico = nullptr;
 static engine_t vr_engine;
 int vr_initialized = 0;
 
-const char* const requiredExtensionNames[] = {
-		XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME,
-#ifdef OPENXR_HAS_PERFORMANCE_EXTENSION
-		XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME,
-		XR_KHR_ANDROID_THREAD_SETTINGS_EXTENSION_NAME,
-#endif
-#ifdef OPENXR_PLATFORM_PICO
-		XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME,
-		"XR_PICO_android_controller_function_ext_enable",
-		"XR_PICO_view_state_ext_enable",
-		"XR_PICO_frame_end_info_ext",
-		"XR_PICO_configs_ext",
-		"XR_PICO_reset_sensor",
-#endif
-		XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME};
-const uint32_t numRequiredExtensions =
-		sizeof(requiredExtensionNames) / sizeof(requiredExtensionNames[0]);
-
-void VR_Init( ovrJava java ) {
+void VR_Init( ovrJava java, bool useVulkan ) {
 	if (vr_initialized)
 		return;
 
@@ -74,6 +57,26 @@ void VR_Init( ovrJava java ) {
 		loaderInitializeInfoAndroid.applicationContext = java.ActivityObject;
 		xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
 	}
+
+	std::vector<char*> extensions;
+	if (useVulkan) {
+		extensions.push_back(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME);
+	} else {
+		extensions.push_back(XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME);
+	}
+	extensions.push_back(XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME);
+#ifdef OPENXR_HAS_PERFORMANCE_EXTENSION
+	extensions.push_back(XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME);
+	extensions.push_back(XR_KHR_ANDROID_THREAD_SETTINGS_EXTENSION_NAME);
+#endif
+#ifdef OPENXR_PLATFORM_PICO
+	extensions.push_back(XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME);
+	extensions.push_back("XR_PICO_android_controller_function_ext_enable");
+	extensions.push_back("XR_PICO_view_state_ext_enable");
+	extensions.push_back("XR_PICO_frame_end_info_ext");
+	extensions.push_back("XR_PICO_configs_ext");
+	extensions.push_back("XR_PICO_reset_sensor");
+#endif
 
 	// Create the OpenXR instance.
 	XrApplicationInfo appInfo;
@@ -99,8 +102,8 @@ void VR_Init( ovrJava java ) {
 	instanceCreateInfo.applicationInfo = appInfo;
 	instanceCreateInfo.enabledApiLayerCount = 0;
 	instanceCreateInfo.enabledApiLayerNames = NULL;
-	instanceCreateInfo.enabledExtensionCount = numRequiredExtensions;
-	instanceCreateInfo.enabledExtensionNames = requiredExtensionNames;
+	instanceCreateInfo.enabledExtensionCount = extensions.size();
+	instanceCreateInfo.enabledExtensionNames = extensions.data();
 
 	XrResult initResult;
 	OXR(initResult = xrCreateInstance(&instanceCreateInfo, &vr_engine.appState.Instance));
@@ -143,20 +146,33 @@ void VR_Init( ovrJava java ) {
 	}
 
 	// Get the graphics requirements.
-	PFN_xrGetOpenGLESGraphicsRequirementsKHR pfnGetOpenGLESGraphicsRequirementsKHR = NULL;
-	OXR(xrGetInstanceProcAddr(
-			vr_engine.appState.Instance,
-			"xrGetOpenGLESGraphicsRequirementsKHR",
-			(PFN_xrVoidFunction*)(&pfnGetOpenGLESGraphicsRequirementsKHR)));
+	if (useVulkan) {
+		PFN_xrGetVulkanGraphicsRequirementsKHR pfnGetVulkanGraphicsRequirementsKHR = NULL;
+		OXR(xrGetInstanceProcAddr(
+				vr_engine.appState.Instance,
+				"xrGetVulkanGraphicsRequirementsKHR",
+				(PFN_xrVoidFunction*)(&pfnGetVulkanGraphicsRequirementsKHR)));
 
-	XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {};
-	graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR;
-	OXR(pfnGetOpenGLESGraphicsRequirementsKHR(vr_engine.appState.Instance, systemId, &graphicsRequirements));
+		XrGraphicsRequirementsVulkanKHR graphicsRequirements = {};
+		graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_VULKAN_KHR;
+		OXR(pfnGetVulkanGraphicsRequirementsKHR(vr_engine.appState.Instance, systemId, &graphicsRequirements));
+	} else {
+		PFN_xrGetOpenGLESGraphicsRequirementsKHR pfnGetOpenGLESGraphicsRequirementsKHR = NULL;
+		OXR(xrGetInstanceProcAddr(
+				vr_engine.appState.Instance,
+				"xrGetOpenGLESGraphicsRequirementsKHR",
+				(PFN_xrVoidFunction*)(&pfnGetOpenGLESGraphicsRequirementsKHR)));
+
+		XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {};
+		graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR;
+		OXR(pfnGetOpenGLESGraphicsRequirementsKHR(vr_engine.appState.Instance, systemId, &graphicsRequirements));
+	}
 
 	vr_engine.appState.MainThreadTid = gettid();
 	vr_engine.appState.SystemId = systemId;
 
 	vr_engine.java = java;
+	vr_engine.useVulkan = useVulkan;
 	vr_initialized = 1;
 }
 
@@ -172,7 +188,7 @@ void VR_Destroy( engine_t* engine ) {
 	}
 }
 
-void VR_EnterVR( engine_t* engine ) {
+void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVulkan ) {
 
 	if (engine->appState.Session) {
 		ALOGE("VR_EnterVR called with existing session");
@@ -180,17 +196,20 @@ void VR_EnterVR( engine_t* engine ) {
 	}
 
 	// Create the OpenXR Session.
-	XrGraphicsBindingOpenGLESAndroidKHR graphicsBindingAndroidGLES = {};
-	graphicsBindingAndroidGLES.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
-	graphicsBindingAndroidGLES.next = NULL;
-	graphicsBindingAndroidGLES.display = eglGetCurrentDisplay();
-	graphicsBindingAndroidGLES.config = eglGetCurrentSurface(EGL_DRAW);
-	graphicsBindingAndroidGLES.context = eglGetCurrentContext();
-
 	XrSessionCreateInfo sessionCreateInfo = {};
+	XrGraphicsBindingOpenGLESAndroidKHR graphicsBindingAndroidGLES = {};
 	memset(&sessionCreateInfo, 0, sizeof(sessionCreateInfo));
+	if (engine->useVulkan) {
+		sessionCreateInfo.next = graphicsBindingVulkan;
+	} else {
+		graphicsBindingAndroidGLES.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
+		graphicsBindingAndroidGLES.next = NULL;
+		graphicsBindingAndroidGLES.display = eglGetCurrentDisplay();
+		graphicsBindingAndroidGLES.config = eglGetCurrentSurface(EGL_DRAW);
+		graphicsBindingAndroidGLES.context = eglGetCurrentContext();
+		sessionCreateInfo.next = &graphicsBindingAndroidGLES;
+	}
 	sessionCreateInfo.type = XR_TYPE_SESSION_CREATE_INFO;
-	sessionCreateInfo.next = &graphicsBindingAndroidGLES;
 	sessionCreateInfo.createFlags = 0;
 	sessionCreateInfo.systemId = engine->appState.SystemId;
 
