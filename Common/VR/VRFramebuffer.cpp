@@ -270,7 +270,7 @@ void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
 
 void* ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
 	if (frameBuffer->UseVulkan) {
-		return frameBuffer->VKFrameBuffers[frameBuffer->TextureSwapChainIndex];
+		return (void *)frameBuffer->VKFrameBuffers[frameBuffer->TextureSwapChainIndex];
 	} else {
 #if PPSSPP_PLATFORM(ANDROID)
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->GLFrameBuffers[frameBuffer->TextureSwapChainIndex]));

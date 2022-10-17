@@ -61,7 +61,7 @@ void VR_Init( ovrJava java, bool useVulkan ) {
 		xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
 	}
 
-	std::vector<char*> extensions;
+	std::vector<const char *> extensions;
 	if (useVulkan) {
 		extensions.push_back(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME);
 	} else {
