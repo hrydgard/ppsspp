@@ -362,9 +362,43 @@ bool Is2DVRObject(float* projMatrix, bool ortho) {
 }
 
 void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
-	VR_TweakProjection(projMatrix, leftEye, VR_PROJECTION_MATRIX_LEFT_EYE);
-	VR_TweakProjection(projMatrix, rightEye, VR_PROJECTION_MATRIX_RIGHT_EYE);
-	VR_TweakMirroring(projMatrix);
+
+	// Update project matrices
+	float* dst[] = {leftEye, rightEye};
+	VRMatrix enums[] = {VR_PROJECTION_MATRIX_LEFT_EYE, VR_PROJECTION_MATRIX_RIGHT_EYE};
+	for (int index = 0; index < 2; index++) {
+		ovrMatrix4f hmdProjection = VR_GetMatrix(enums[index]);
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				if ((hmdProjection.M[i][j] > 0) != (projMatrix[i * 4 + j] > 0)) {
+					hmdProjection.M[i][j] *= -1.0f;
+				}
+			}
+		}
+		memcpy(dst[index], hmdProjection.M, 16 * sizeof(float));
+	}
+
+	// Set mirroring of axes
+	VR_SetConfig(VR_CONFIG_MIRROR_AXIS_X, projMatrix[0] < 0);
+	VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Y, projMatrix[5] < 0);
+	VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Z, projMatrix[10] > 0);
+	if ((projMatrix[0] < 0) && (projMatrix[10] < 0)) { //e.g. Dante's inferno
+		VR_SetConfig(VR_CONFIG_MIRROR_PITCH, true);
+		VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
+		VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
+	} else if (projMatrix[10] < 0) { //e.g. GTA - Liberty city
+		VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
+		VR_SetConfig(VR_CONFIG_MIRROR_YAW, false);
+		VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
+	} else if (projMatrix[5] < 0) { //e.g. PES 2014
+		VR_SetConfig(VR_CONFIG_MIRROR_PITCH, true);
+		VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
+		VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
+	} else { //e.g. Lego Pirates
+		VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
+		VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
+		VR_SetConfig(VR_CONFIG_MIRROR_ROLL, true);
+	}
 
 	// Set 6DoF scale
 	float scale = pow(fabs(projMatrix[14]), 1.15f);
@@ -378,6 +412,19 @@ void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
 }
 
 void UpdateVRView(float* leftEye, float* rightEye) {
-	VR_TweakView(leftEye, VR_VIEW_MATRIX_LEFT_EYE);
-	VR_TweakView(rightEye, VR_VIEW_MATRIX_RIGHT_EYE);
+	float* dst[] = {leftEye, rightEye};
+	VRMatrix enums[] = {VR_VIEW_MATRIX_LEFT_EYE, VR_VIEW_MATRIX_RIGHT_EYE};
+	for (int index = 0; index < 2; index++) {
+
+		// Get view matrix from the game
+		ovrMatrix4f gameView;
+		memcpy(gameView.M, dst[index], 16 * sizeof(float));
+
+		// Get view matrix from the headset
+		ovrMatrix4f hmdView = VR_GetMatrix(enums[index]);
+
+		// Combine the matrices
+		ovrMatrix4f renderView = ovrMatrix4f_Multiply(&hmdView, &gameView);
+		memcpy(dst[index], renderView.M, 16 * sizeof(float));
+	}
 }
