@@ -6,7 +6,6 @@
 #include "Common/VR/VRInput.h"
 #include "Common/VR/VRMath.h"
 #include "Common/VR/VRRenderer.h"
-#include "Common/VR/VRTweaks.h"
 
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Config.h"
@@ -350,11 +349,19 @@ bool IsFlatVRScene() {
 }
 
 bool Is2DVRObject(float* projMatrix, bool ortho) {
-	bool isOneTransform = (fabs(fabs(projMatrix[12]) - 1.0f) < EPSILON) && (fabs(fabs(projMatrix[13]) - 1.0f) < EPSILON) && (fabs(fabs(projMatrix[14]) - 1.0f) < EPSILON);;
-	bool isOneScale = (fabs(projMatrix[0] - 1) < EPSILON) && (fabs(projMatrix[5] - 1) < EPSILON);
-	bool isBigScale = (fabs(projMatrix[0]) > 10.0f) && (fabs(projMatrix[5]) > 10.0f);
-	bool isOrtho = fabs(projMatrix[15] - 1) < EPSILON;
 
+	// Quick analyze if the object is in 2D
+	if ((fabs(fabs(projMatrix[12]) - 1.0f) < EPSILON) && (fabs(fabs(projMatrix[13]) - 1.0f) < EPSILON) && (fabs(fabs(projMatrix[14]) - 1.0f) < EPSILON)) {
+		return true;
+	} else if ((fabs(projMatrix[0] - 1) < EPSILON) && (fabs(projMatrix[5] - 1) < EPSILON)) {
+		return true;
+	} else if ((fabs(projMatrix[0]) > 10.0f) && (fabs(projMatrix[5]) > 10.0f)) {
+		return true;
+	} else if (fabs(projMatrix[15] - 1) < EPSILON) {
+		return true;
+	}
+
+	// Chceck if the projection matrix is identity
 	bool identity = true;
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
@@ -367,11 +374,11 @@ bool Is2DVRObject(float* projMatrix, bool ortho) {
 		}
 	}
 
-	bool is2D = isBigScale || identity || isOrtho || isOneScale || isOneTransform;
-	if (!is2D && !ortho) {
+	// Update 3D geometry count
+	if (!identity && !ortho) {
 		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) + 1);
 	}
-	return is2D;
+	return identity;
 }
 
 void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
