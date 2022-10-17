@@ -796,10 +796,17 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	int entireY1 = std::min(v0.screenpos.y, v1.screenpos.y);
 	int entireX2 = std::max(v0.screenpos.x, v1.screenpos.x) - 1;
 	int entireY2 = std::max(v0.screenpos.y, v1.screenpos.y) - 1;
-	int minX = std::max(entireX1, range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
-	int minY = std::max(entireY1, range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int minX = std::max(entireX1 & ~(SCREEN_SCALE_FACTOR - 1), range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int minY = std::max(entireY1 & ~(SCREEN_SCALE_FACTOR - 1), range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
 	int maxX = std::min(entireX2, range.x2);
 	int maxY = std::min(entireY2, range.y2);
+
+	// If TL x or y was after the half, we don't draw the pixel.
+	// TODO: Verify what center is used, allowing slight offset makes gpu/primitives/trianglefan pass.
+	if (minX < entireX1 - 1)
+		minX += SCREEN_SCALE_FACTOR;
+	if (minY < entireY1 - 1)
+		minY += SCREEN_SCALE_FACTOR;
 
 	RasterizerState state = OptimizeFlatRasterizerState(rastState, v1);
 
@@ -1043,10 +1050,17 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 	int entireY1 = std::min(v0.screenpos.y, v1.screenpos.y);
 	int entireX2 = std::max(v0.screenpos.x, v1.screenpos.x) - 1;
 	int entireY2 = std::max(v0.screenpos.y, v1.screenpos.y) - 1;
-	int minX = std::max(entireX1, range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
-	int minY = std::max(entireY1, range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int minX = std::max(entireX1 & ~(SCREEN_SCALE_FACTOR - 1), range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int minY = std::max(entireY1 & ~(SCREEN_SCALE_FACTOR - 1), range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
 	int maxX = std::min(entireX2, range.x2);
 	int maxY = std::min(entireY2, range.y2);
+
+	// If TL x or y was after the half, we don't draw the pixel.
+	if (minX < entireX1 - 1)
+		minX += SCREEN_SCALE_FACTOR;
+	if (minY < entireY1 - 1)
+		minY += SCREEN_SCALE_FACTOR;
+
 	const DrawingCoords pprime = TransformUnit::ScreenToDrawing(minX, minY);
 	const DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX, maxY);
 	auto &pixelID = state.pixelID;
