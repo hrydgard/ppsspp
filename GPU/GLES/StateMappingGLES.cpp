@@ -209,7 +209,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 
 			// TODO: Get rid of the ifdef
 #ifndef USING_GLES2
-			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
+			if (gstate_c.Use(GPU_USE_LOGIC_OP)) {
 				renderManager->SetLogicOp(logicState.logicOpEnabled, logicOps[(int)logicState.logicOp]);
 			}
 #endif
@@ -232,7 +232,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
 				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
 				// But the alternate is not clamping in either direction...
-				depthClampEnable = gstate.isDepthClampEnabled() && gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP);
+				depthClampEnable = gstate.isDepthClampEnabled() && gstate_c.Use(GPU_USE_DEPTH_CLAMP);
 			} else {
 				// We just want to clip in this case, the clamp would be clipped anyway.
 				depthClampEnable = false;
@@ -304,7 +304,7 @@ void DrawEngineGLES::ApplyDrawStateLate(bool setStencilValue, int stencilValue) 
 
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
-	if (!gstate.isModeClear() && gstate_c.Supports(GPU_USE_FRAGMENT_TEST_CACHE)) {
+	if (!gstate.isModeClear() && gstate_c.Use(GPU_USE_FRAGMENT_TEST_CACHE)) {
 		// Apply last, once we know the alpha params of the texture.
 		if (gstate.isAlphaTestEnabled() || gstate.isColorTestEnabled()) {
 			fragmentTestCache_->BindTestTexture(TEX_SLOT_ALPHATEST);

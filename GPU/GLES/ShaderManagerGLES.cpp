@@ -196,12 +196,12 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	initialize.push_back({ &u_tess_weights_v, 0, TEX_SLOT_SPLINE_WEIGHTS_V });
 
 	GLRProgramFlags flags{};
-	flags.supportDualSource = (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) != 0;
-	if (!VSID.Bit(VS_BIT_IS_THROUGH) && gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP)) {
+	flags.supportDualSource = (gstate_c.useFlags & GPU_USE_DUALSOURCE_BLEND) != 0;
+	if (!VSID.Bit(VS_BIT_IS_THROUGH) && gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
 		flags.useClipDistance0 = true;
-		if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE))
+		if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Use(GPU_USE_CLIP_DISTANCE))
 			flags.useClipDistance1 = true;
-	} else if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+	} else if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 		flags.useClipDistance0 = true;
 	}
 
@@ -323,7 +323,7 @@ static inline void FlipProjMatrix(Matrix4x4 &in, bool useBufferedRendering) {
 
 	// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
 	// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
-	if (gstate_c.Supports(GPU_USE_DEPTH_RANGE_HACK)) {
+	if (gstate_c.Use(GPU_USE_DEPTH_RANGE_HACK)) {
 		float zScale = gstate.getViewportZScale() / 65535.0f;
 		float zCenter = gstate.getViewportZCenter() / 65535.0f;
 
@@ -564,7 +564,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		float viewZScale = halfActualZRange;
 		float viewZCenter = minz + halfActualZRange;
 
-		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+		if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
 			viewZScale = vpZScale;
 			viewZCenter = vpZCenter;
 		}
@@ -940,7 +940,7 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 struct CacheHeader {
 	uint32_t magic;
 	uint32_t version;
-	uint32_t featureFlags;
+	uint32_t useFlags;
 	uint32_t reserved;
 	int numVertexShaders;
 	int numFragmentShaders;
@@ -957,7 +957,7 @@ void ShaderManagerGLES::Load(const Path &filename) {
 	if (!f.ReadArray(&header, 1)) {
 		return;
 	}
-	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION || header.featureFlags != gstate_c.featureFlags) {
+	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION || header.useFlags != gstate_c.useFlags) {
 		return;
 	}
 	diskCachePending_.start = time_now_d();
@@ -1113,7 +1113,7 @@ void ShaderManagerGLES::Save(const Path &filename) {
 	header.magic = CACHE_HEADER_MAGIC;
 	header.version = CACHE_VERSION;
 	header.reserved = 0;
-	header.featureFlags = gstate_c.featureFlags;
+	header.useFlags = gstate_c.useFlags;
 	header.numVertexShaders = GetNumVertexShaders();
 	header.numFragmentShaders = GetNumFragmentShaders();
 	header.numLinkedPrograms = GetNumPrograms();

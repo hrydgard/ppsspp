@@ -139,7 +139,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (gl_extensions.EXT_gpu_shader4) {
 			gl_exts.push_back("#extension GL_EXT_gpu_shader4 : enable");
 		}
-		bool useClamp = gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP) && !id.Bit(VS_BIT_IS_THROUGH);
+		bool useClamp = gstate_c.Use(GPU_USE_DEPTH_CLAMP) && !id.Bit(VS_BIT_IS_THROUGH);
 		if (gl_extensions.EXT_clip_cull_distance && (id.Bit(VS_BIT_VERTEX_RANGE_CULLING) || useClamp)) {
 			gl_exts.push_back("#extension GL_EXT_clip_cull_distance : enable");
 		}
@@ -230,7 +230,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool texCoordInVec3 = false;
 
 	bool vertexRangeCulling = id.Bit(VS_BIT_VERTEX_RANGE_CULLING) && !isModeThrough;
-	bool clipClampedDepth = !isModeThrough && gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP) && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE);
+	bool clipClampedDepth = !isModeThrough && gstate_c.Use(GPU_USE_DEPTH_CLAMP) && gstate_c.Use(GPU_USE_CLIP_DISTANCE);
 	const char *clipClampedDepthSuffix = "[0]";
 	const char *vertexRangeClipSuffix = clipClampedDepth ? "[1]" : "[0]";
 
@@ -416,7 +416,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec4 gl_Position   : POSITION;\n");
 		} else {
 			WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
-			bool clipRange = vertexRangeCulling && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE);
+			bool clipRange = vertexRangeCulling && gstate_c.Use(GPU_USE_CLIP_DISTANCE);
 			if (clipClampedDepth && clipRange) {
 				WRITE(p, "  float2 gl_ClipDistance : SV_ClipDistance;\n");
 				clipClampedDepthSuffix = ".x";
@@ -426,7 +426,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				clipClampedDepthSuffix = "";
 				vertexRangeClipSuffix = "";
 			}
-			if (vertexRangeCulling && gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE)) {
+			if (vertexRangeCulling && gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
 				WRITE(p, "  float2 gl_CullDistance : SV_CullDistance0;\n");
 			}
 		}
@@ -597,7 +597,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 
 	// See comment above this function (GenerateVertexShader).
-	if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+	if (!isModeThrough && gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
 		// Apply the projection and viewport to get the Z buffer value, floor to integer, undo the viewport and projection.
 		WRITE(p, "\nvec4 depthRoundZVP(vec4 v) {\n");
 		WRITE(p, "  float z = v.z / v.w;\n");
@@ -847,7 +847,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 
 			// The viewport is used in this case, so need to compensate for that.
-			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+			if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
 				WRITE(p, "  vec4 outPos = depthRoundZVP(pos);\n");
 			} else {
 				WRITE(p, "  vec4 outPos = pos;\n");
@@ -927,7 +927,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view%s).xyz, 1.0);\n", matrixPostfix.c_str());
 
 		// Final view and projection transforms.
-		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+		if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
 			if (IsVRBuild()) {
 				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj_lens%s, viewPos));\n", matrixPostfix.c_str());
 				WRITE(p, "  vec4 orgPos = depthRoundZVP(mul(u_proj, viewPos));\n");
@@ -1306,11 +1306,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		const char *cull0 = compat.shaderLanguage == HLSL_D3D11 ? ".x" : "[0]";
 		const char *cull1 = compat.shaderLanguage == HLSL_D3D11 ? ".y" : "[1]";
-		if (gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 			// TODO: Ignore triangles from GE_PRIM_RECTANGLES in transform mode, which should not clip to neg z.
 			WRITE(p, "  %sgl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", compat.vsOutPrefix, vertexRangeClipSuffix);
 		}
-		if (gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE)) {
+		if (gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
 			// Cull any triangle fully outside in the same direction when depth clamp enabled.
 			WRITE(p, "  if (u_cullRangeMin.w > 0.0) {\n");
 			WRITE(p, "    %sgl_CullDistance%s = projPos.z - u_cullRangeMin.z;\n", compat.vsOutPrefix, cull0);
