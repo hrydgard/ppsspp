@@ -8,7 +8,7 @@
 #include <ctime>
 #include <cassert>
 
-#ifdef ANDROID
+#if !defined(_WIN32)
 #include <pthread.h>
 #include <sys/prctl.h>
 #endif
@@ -253,7 +253,7 @@ void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
 		delete[] frameBuffer->VKDepthImages;
 		delete[] frameBuffer->VKFrameBuffers;
 	} else {
-#ifdef ANDROID
+#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
 		GL(glDeleteFramebuffers(frameBuffer->TextureSwapChainLength, frameBuffer->GLFrameBuffers));
 		free(frameBuffer->GLFrameBuffers);
 #endif
@@ -270,7 +270,7 @@ void* ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
 	if (frameBuffer->UseVulkan) {
 		return (void *)frameBuffer->VKFrameBuffers[frameBuffer->TextureSwapChainIndex];
 	} else {
-#ifdef ANDROID
+#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->GLFrameBuffers[frameBuffer->TextureSwapChainIndex]));
 #endif
 		return nullptr;
@@ -302,7 +302,7 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 	if (frameBuffer->UseVulkan) {
 		//TODO:implement
 	} else {
-#ifdef ANDROID
+#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
 		GL(glEnable( GL_SCISSOR_TEST ));
 		GL(glViewport( 0, 0, frameBuffer->Width, frameBuffer->Height ));
 		GL(glClearColor( 0.0f, 0.0f, 0.0f, 1.0f ));
@@ -324,7 +324,7 @@ void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
 		if (frameBuffer->UseVulkan) {
 			//TODO:implement
 		} else {
-#ifdef ANDROID
+#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
 			GL(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE));
 			GL(glClearColor(0.0f, 0.0f, 0.0f, 1.0f));
 			GL(glClear(GL_COLOR_BUFFER_BIT));
@@ -355,7 +355,7 @@ void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int
 		if (vulkanContext) {
 			ovrFramebuffer_CreateVK(session, &renderer->FrameBuffer[i], width, height, multiview, vulkanContext);
 		} else {
-#ifdef ANDROID
+#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
 			ovrFramebuffer_CreateGL(session, &renderer->FrameBuffer[i], width, height, multiview);
 #endif
 		}
@@ -373,7 +373,7 @@ void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int size) {
 	if (renderer->FrameBuffer[0].UseVulkan) {
 		//TODO:implement
 	} else {
-#ifdef ANDROID
+#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
 		GL(glEnable(GL_SCISSOR_TEST));
 		GL(glScissor(x, y, size, size));
 		GL(glViewport(x, y, size, size));
@@ -433,6 +433,8 @@ void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 		app->SessionActive = (result == XR_SUCCESS);
 
 		// Set session state once we have entered VR mode and have a valid session object.
+
+		// TODO: This should be a runtime check of the extension's presence, no?
 #ifdef OPENXR_HAS_PERFORMANCE_EXTENSION
 		if (app->SessionActive) {
 			XrPerfSettingsLevelEXT cpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;

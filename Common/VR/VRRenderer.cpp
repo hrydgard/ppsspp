@@ -2,8 +2,6 @@
 #include "VRInput.h"
 #include "VRRenderer.h"
 
-#include "Common/Math/math_util.h"
-
 #include <cassert>
 #include <cstdlib>
 #include <cstring>

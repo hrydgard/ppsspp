@@ -1,9 +1,8 @@
+#define _USE_MATH_DEFINES
+
 #include <cmath>
 
 #include "VRMath.h"
-
-#include "Common/Math/math_util.h"
-
 
 float ToDegrees(float rad) {
 	return (float)(rad / M_PI * 180.0f);

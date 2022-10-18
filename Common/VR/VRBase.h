@@ -1,6 +1,5 @@
 #pragma once
 
-// TODO: Switch to PPSSPP logging
 #ifdef ANDROID
 #include <android/log.h>
 #define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, "OpenXR", __VA_ARGS__);
