@@ -314,6 +314,14 @@ SOURCES_CXX += \
 	$(COMMONDIR)/StringUtils.cpp \
 	$(COMMONDIR)/TimeUtil.cpp
 
+SOURCES_CXX += \
+	$(COMMONDIR)/VRBase.cpp \
+	$(COMMONDIR)/VRMath.cpp \
+	$(COMMONDIR)/VRFramebuffer.cpp \
+	$(COMMONDIR)/VRInput.cpp \
+	$(COMMONDIR)/VRMath.cpp \
+	$(COMMONDIR)/VRRenderer.cpp
+
 SOURCES_C +=\
 	$(COMMONDIR)/GPU/OpenGL/gl3stub.c \
 	$(COMMONDIR)/Math/fast/fast_matrix.c

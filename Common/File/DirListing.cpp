@@ -317,7 +317,7 @@ std::vector<std::string> GetWindowsDrives()
 	{
 		if (logicaldrives & (1 << i))
 		{
-			CHAR driveName[] = { TEXT('A') + i, TEXT(':'), TEXT('\\'), TEXT('\0') };
+			CHAR driveName[] = { (CHAR)(TEXT('A') + i), TEXT(':'), TEXT('\\'), TEXT('\0') };
 			std::string str(driveName);
 			drives.push_back(driveName);
 		}

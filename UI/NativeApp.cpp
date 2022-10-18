@@ -1296,7 +1296,6 @@ bool NativeTouch(const TouchInput &touch) {
 }
 
 bool NativeKey(const KeyInput &key) {
-
 	// Hack to quickly enable 2D mode in VR game mode.
 	if (IsVRBuild()) {
 		UpdateVRScreenKey(key);

@@ -15,6 +15,7 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../ext/miniupnp-build \
   $(LOCAL_PATH)/../../ext/libpng17 \
   $(LOCAL_PATH)/../../ext/libzip \
+  $(LOCAL_PATH)/../../ext/openxr \
   $(LOCAL_PATH)/../../ext/zstd/lib \
   $(LOCAL_PATH)/../../ext/armips \
   $(LOCAL_PATH)/../../ext/armips/ext/filesystem/include \

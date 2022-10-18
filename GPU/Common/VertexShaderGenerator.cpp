@@ -23,7 +23,6 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/GPU/thin3d.h"
-#include "Common/VR/PPSSPPVR.h"
 #include "Core/Config.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -149,10 +148,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (gl_extensions.ARB_cull_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
 			gl_exts.push_back("#extension GL_ARB_cull_distance : enable");
 		}
+		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY) && gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
+			gl_exts.push_back("#extension GL_OVR_multiview2 : enable\nlayout(num_views=2) in;");
+		}
 	}
-	if (IsVRBuild() && IsMultiviewSupported()) {
-		gl_exts.push_back("#extension GL_OVR_multiview2 : enable\nlayout(num_views=2) in;");
-	}
+
 	ShaderWriter p(buffer, compat, ShaderStage::Vertex, gl_exts.data(), gl_exts.size());
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
@@ -480,8 +480,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform mat4 u_proj_through;\n");
 			*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
 		} else if (useHWTransform) {
-			if (IsVRBuild()) {
-				if (IsMultiviewSupported()) {
+			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+				if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
 					WRITE(p, "layout(shared) uniform ProjectionMatrix { uniform mat4 u_proj_lens[2]; };\n");
 				} else {
 					WRITE(p, "uniform mat4 u_proj_lens;\n");
@@ -495,7 +495,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// When transforming by hardware, we need a great deal more uniforms...
 			// TODO: Use 4x3 matrices where possible. Though probably doesn't matter much.
 			WRITE(p, "uniform mat4 u_world;\n");
-			if (IsVRBuild() && IsMultiviewSupported()) {
+			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY) && gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
 				WRITE(p, "layout(shared) uniform ViewMatrices { uniform mat4 u_view[2]; };\n");
 			} else {
 				WRITE(p, "uniform mat4 u_view;\n");
@@ -560,7 +560,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform lowp float u_rotation;\n");
 		}
 
-		if (IsVRBuild()) {
+		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 			WRITE(p, "uniform lowp float u_scaleX;\n");
 			WRITE(p, "uniform lowp float u_scaleY;\n");
 		}
@@ -920,7 +920,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		std::string matrixPostfix;
-		if (IsVRBuild() && IsMultiviewSupported()) {
+		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY) && gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
 			matrixPostfix = "[gl_ViewID_OVR]";
 		}
 
@@ -928,14 +928,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		// Final view and projection transforms.
 		if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
-			if (IsVRBuild()) {
+			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj_lens%s, viewPos));\n", matrixPostfix.c_str());
 				WRITE(p, "  vec4 orgPos = depthRoundZVP(mul(u_proj, viewPos));\n");
 			} else {
 				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
 			}
 		} else {
-			if (IsVRBuild()) {
+			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 				WRITE(p, "  vec4 outPos = mul(u_proj_lens%s, viewPos);\n", matrixPostfix.c_str());
 				WRITE(p, "  vec4 orgPos = mul(u_proj, viewPos);\n");
 			} else {
@@ -1284,7 +1284,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  }\n");
 	}
 
-	if (vertexRangeCulling && !IsVRBuild()) {
+	if (vertexRangeCulling && !gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
 		WRITE(p, "  float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
 
@@ -1325,7 +1325,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	// We've named the output gl_Position in HLSL as well.
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
 
-	if (IsVRBuild()) {
+	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 		// Z correction for the depth buffer
 		if (useHWTransform) {
 			WRITE(p, "  %sgl_Position.z = orgPos.z / abs(orgPos.w) * abs(outPos.w);\n", compat.vsOutPrefix);

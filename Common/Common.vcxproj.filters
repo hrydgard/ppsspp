@@ -425,6 +425,24 @@
     <ClInclude Include="Math\Statistics.h">
       <Filter>Math</Filter>
     </ClInclude>
+    <ClInclude Include="VR\PPSSPPVR.h">
+      <Filter>VR</Filter>
+    </ClInclude>
+    <ClInclude Include="VR\VRBase.h">
+      <Filter>VR</Filter>
+    </ClInclude>
+    <ClInclude Include="VR\VRFramebuffer.h">
+      <Filter>VR</Filter>
+    </ClInclude>
+    <ClInclude Include="VR\VRInput.h">
+      <Filter>VR</Filter>
+    </ClInclude>
+    <ClInclude Include="VR\VRMath.h">
+      <Filter>VR</Filter>
+    </ClInclude>
+    <ClInclude Include="VR\VRRenderer.h">
+      <Filter>VR</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -803,6 +821,24 @@
     <ClCompile Include="Math\Statistics.cpp">
       <Filter>Math</Filter>
     </ClCompile>
+    <ClCompile Include="VR\PPSSPPVR.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
+    <ClCompile Include="VR\VRBase.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
+    <ClCompile Include="VR\VRFramebuffer.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
+    <ClCompile Include="VR\VRInput.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
+    <ClCompile Include="VR\VRMath.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
+    <ClCompile Include="VR\VRRenderer.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -906,6 +942,9 @@
     </Filter>
     <Filter Include="ext\vma">
       <UniqueIdentifier>{7b17065c-729c-47c3-a02d-66dc383529dd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VR">
+      <UniqueIdentifier>{9d1c29fd-8ac7-4475-8ea6-c8c759b695fe}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

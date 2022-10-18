@@ -71,6 +71,14 @@ SPIRV_CROSS_FILES := \
   $(SRC)/ext/SPIRV-Cross/spirv_parser.cpp \
   $(SRC)/ext/SPIRV-Cross/spirv_cross_parsed_ir.cpp
 
+VR_FILES := \
+  $(SRC)/Common/VR/PPSSPPVR.cpp \
+  $(SRC)/Common/VR/VRBase.cpp \
+  $(SRC)/Common/VR/VRFramebuffer.cpp \
+  $(SRC)/Common/VR/VRInput.cpp \
+  $(SRC)/Common/VR/VRMath.cpp \
+  $(SRC)/Common/VR/VRRenderer.cpp
+
 EXT_FILES := \
   $(SRC)/ext/cityhash/city.cpp \
   $(SRC)/ext/libpng17/png.c \
@@ -115,6 +123,7 @@ EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   $(EGL_FILES) \
   $(VULKAN_FILES) \
+  $(VR_FILES) \
   $(VMA_FILES) \
   $(SPIRV_CROSS_FILES) \
   $(EXT_FILES) \

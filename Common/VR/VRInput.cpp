@@ -1,6 +1,7 @@
 #include "VRInput.h"
-#include <string.h>
-#include <sys/time.h>
+#include <cstring>
+
+#ifdef OPENXR
 
 //OpenXR
 XrPath leftHandPath;
@@ -38,6 +39,8 @@ XrActionStateVector2f moveJoystickState[2];
 float vibration_channel_duration[2] = {0.0f, 0.0f};
 float vibration_channel_intensity[2] = {0.0f, 0.0f};
 
+#if !defined(_WIN32)
+#include <sys/time.h>
 
 unsigned long sys_timeBase = 0;
 int milliseconds(void) {
@@ -47,14 +50,33 @@ int milliseconds(void) {
 
 	if (!sys_timeBase) {
 		sys_timeBase = tp.tv_sec;
-		return tp.tv_usec/1000;
+		return tp.tv_usec / 1000;
 	}
 
-	return (tp.tv_sec - sys_timeBase)*1000 + tp.tv_usec/1000;
+	return (tp.tv_sec - sys_timeBase) * 1000 + tp.tv_usec / 1000;
+}
+#else
+
+static LARGE_INTEGER frequency;
+static double frequencyMult;
+static LARGE_INTEGER startTime;
+
+int milliseconds() {
+	if (frequency.QuadPart == 0) {
+		QueryPerformanceFrequency(&frequency);
+		QueryPerformanceCounter(&startTime);
+		frequencyMult = 1.0 / static_cast<double>(frequency.QuadPart);
+	}
+	LARGE_INTEGER time;
+	QueryPerformanceCounter(&time);
+	double elapsed = static_cast<double>(time.QuadPart - startTime.QuadPart);
+	return (int)(elapsed * frequencyMult * 1000.0);
 }
 
+#endif
+
 XrTime ToXrTime(const double timeInSeconds) {
-	return (timeInSeconds * 1e9);
+	return (XrTime)(timeInSeconds * 1e9);
 }
 
 void INVR_Vibrate( int duration, int chan, float intensity ) {
@@ -67,16 +89,15 @@ void INVR_Vibrate( int duration, int chan, float intensity ) {
 			if (vibration_channel_duration[channel] == -1.0f && duration != 0.0f)
 				return;
 
-			vibration_channel_duration[channel] = duration;
+			vibration_channel_duration[channel] = (float)duration;
 			vibration_channel_intensity[channel] = intensity;
 		}
 	}
 }
 
-
 void VR_processHaptics() {
 	float lastFrameTime = 0.0f;
-	float timestamp = (float)(milliseconds( ));
+	float timestamp = (float)(milliseconds());
 	float frametime = timestamp - lastFrameTime;
 	lastFrameTime = timestamp;
 
@@ -438,6 +459,8 @@ XrPosef IN_VRGetPose( int controllerIndex ) {
 	XrSpaceLocation loc = {};
 	loc.type = XR_TYPE_SPACE_LOCATION;
 	XrSpace aimSpace[] = { leftControllerAimSpace, rightControllerAimSpace };
-	xrLocateSpace(aimSpace[controllerIndex], engine->appState.CurrentSpace, engine->predictedDisplayTime, &loc);
+	xrLocateSpace(aimSpace[controllerIndex], engine->appState.CurrentSpace, (XrTime)(engine->predictedDisplayTime), &loc);
 	return loc.pose;
 }
+
+#endif

@@ -3,8 +3,11 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 #include <vector>
+
+#if defined(ANDROID) && defined(OPENXR)
+
+#include <unistd.h>
 
 #ifdef OPENXR_PLATFORM_PICO
 enum ConfigsSetEXT {
@@ -58,7 +61,7 @@ void VR_Init( ovrJava java, bool useVulkan ) {
 		xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
 	}
 
-	std::vector<char*> extensions;
+	std::vector<const char *> extensions;
 	if (useVulkan) {
 		extensions.push_back(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME);
 	} else {
@@ -248,3 +251,5 @@ void VR_LeaveVR( engine_t* engine ) {
 engine_t* VR_GetEngine( void ) {
 	return &vr_engine;
 }
+
+#endif
