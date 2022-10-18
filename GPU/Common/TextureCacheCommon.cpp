@@ -2045,6 +2045,7 @@ static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferForma
 			}
 			break;
 		case GE_FORMAT_CLUT8:
+		case GE_FORMAT_INVALID:
 			// Shouldn't happen here.
 			return false;
 		}

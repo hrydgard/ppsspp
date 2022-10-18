@@ -10,7 +10,6 @@
 
 #if !defined(_WIN32)
 #include <pthread.h>
-#include <sys/prctl.h>
 #endif
 
 double FromXrTime(const XrTime time) {

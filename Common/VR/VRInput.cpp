@@ -40,6 +40,8 @@ float vibration_channel_duration[2] = {0.0f, 0.0f};
 float vibration_channel_intensity[2] = {0.0f, 0.0f};
 
 #if !defined(_WIN32)
+#include <sys/time.h>
+
 unsigned long sys_timeBase = 0;
 int milliseconds(void) {
 	struct timeval tp;
