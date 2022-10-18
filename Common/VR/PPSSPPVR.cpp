@@ -321,6 +321,7 @@ bool StartVRRender() {
 		VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
 		VR_SetConfig(VR_CONFIG_CANVAS_DISTANCE, g_Config.iCanvasDistance);
 		VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.iFieldOfViewPercentage);
+		VR_SetConfig(VR_CONFIG_MIRROR_UPDATED, false);
 		return true;
 	}
 	return false;
@@ -411,25 +412,28 @@ void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
 	}
 
 	// Set mirroring of axes
-	VR_SetConfig(VR_CONFIG_MIRROR_AXIS_X, projMatrix[0] < 0);
-	VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Y, projMatrix[5] < 0);
-	VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Z, projMatrix[10] > 0);
-	if ((projMatrix[0] < 0) && (projMatrix[10] < 0)) { //e.g. Dante's inferno
-		VR_SetConfig(VR_CONFIG_MIRROR_PITCH, true);
-		VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
-		VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
-	} else if (projMatrix[10] < 0) { //e.g. GTA - Liberty city
-		VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
-		VR_SetConfig(VR_CONFIG_MIRROR_YAW, false);
-		VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
-	} else if (projMatrix[5] < 0) { //e.g. PES 2014
-		VR_SetConfig(VR_CONFIG_MIRROR_PITCH, true);
-		VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
-		VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
-	} else { //e.g. Lego Pirates
-		VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
-		VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
-		VR_SetConfig(VR_CONFIG_MIRROR_ROLL, true);
+	if (!VR_GetConfig(VR_CONFIG_MIRROR_UPDATED)) {
+		VR_SetConfig(VR_CONFIG_MIRROR_UPDATED, true);
+		VR_SetConfig(VR_CONFIG_MIRROR_AXIS_X, projMatrix[0] < 0);
+		VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Y, projMatrix[5] < 0);
+		VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Z, projMatrix[10] > 0);
+		if ((projMatrix[0] < 0) && (projMatrix[10] < 0)) { //e.g. Dante's inferno
+			VR_SetConfig(VR_CONFIG_MIRROR_PITCH, true);
+			VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
+			VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
+		} else if (projMatrix[10] < 0) { //e.g. GTA - Liberty city
+			VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
+			VR_SetConfig(VR_CONFIG_MIRROR_YAW, false);
+			VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
+		} else if (projMatrix[5] < 0) { //e.g. PES 2014
+			VR_SetConfig(VR_CONFIG_MIRROR_PITCH, true);
+			VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
+			VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
+		} else { //e.g. Lego Pirates
+			VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
+			VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
+			VR_SetConfig(VR_CONFIG_MIRROR_ROLL, true);
+		}
 	}
 
 	// Set 6DoF scale

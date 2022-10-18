@@ -362,6 +362,13 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 
+	// Analyze scene
+	bool is2D, flatScreen;
+	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+		is2D = Is2DVRObject(gstate.projMatrix, gstate.isModeThrough());
+		flatScreen = IsFlatVRScene();
+	}
+
 	if (!dirty)
 		return;
 
@@ -376,13 +383,8 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		render_->SetUniformUI1(&u_depal_mask_shift_off_fmt, val);
 	}
 
-	bool is2D, flatScreen;
+	// Set HUD mode
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-		// Analyze scene
-		is2D = Is2DVRObject(gstate.projMatrix, gstate.isModeThrough());
-		flatScreen = IsFlatVRScene();
-
-		// Set HUD mode
 		bool is3D = gstate.isDepthWriteEnabled();
 		bool hud = is2D && !is3D && !flatScreen &&
 		           gstate.isModeThrough() &&       //2D content requires orthographic projection
