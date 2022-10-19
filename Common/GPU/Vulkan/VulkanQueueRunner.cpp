@@ -1115,6 +1115,9 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 			case VKRRenderCommand::PUSH_CONSTANTS:
 				INFO_LOG(G3D, "  PushConstants(%d)", cmd.push.size);
 				break;
+			case VKRRenderCommand::DEBUG_ANNOTATION:
+				INFO_LOG(G3D, "  DebugAnnotation(%s)", cmd.debugAnnotation.annotation);
+				break;
 
 			case VKRRenderCommand::NUM_RENDER_COMMANDS:
 				break;
