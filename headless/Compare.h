@@ -58,6 +58,7 @@ protected:
 	u32 *reference_ = nullptr;
 	bool asBitmap_ = false;
 	std::string error_;
+	u32 referenceStride_ = 0;
 	u32 stride_;
 	u32 w_;
 	u32 h_;
