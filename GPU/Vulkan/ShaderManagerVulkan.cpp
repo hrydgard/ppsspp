@@ -81,6 +81,7 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 				case VK_SHADER_STAGE_FRAGMENT_BIT: createTag = "game_fragment"; break;
 				case VK_SHADER_STAGE_GEOMETRY_BIT: createTag = "game_geometry"; break;
 				case VK_SHADER_STAGE_COMPUTE_BIT: createTag = "game_compute"; break;
+				default: break;
 				}
 			}
 
