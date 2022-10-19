@@ -203,8 +203,9 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
 	PSP_BeginHostFrame();
-	if (coreParameter.graphicsContext && coreParameter.graphicsContext->GetDrawContext())
-		coreParameter.graphicsContext->GetDrawContext()->BeginFrame();
+	Draw::DrawContext *draw = coreParameter.graphicsContext ? coreParameter.graphicsContext->GetDrawContext() : nullptr;
+	if (draw)
+		draw->BeginFrame();
 
 	bool passed = true;
 	double deadline = time_now_d() + opt.timeout;
@@ -238,8 +239,14 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	}
 	PSP_EndHostFrame();
 
-	if (coreParameter.graphicsContext && coreParameter.graphicsContext->GetDrawContext())
-		coreParameter.graphicsContext->GetDrawContext()->EndFrame();
+	if (draw) {
+		draw->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Headless");
+		// Vulkan may get angry if we don't do a final present.
+		if (gpu)
+			gpu->CopyDisplayToOutput(true);
+
+		draw->EndFrame();
+	}
 
 	PSP_Shutdown();
 
