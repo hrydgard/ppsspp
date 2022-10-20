@@ -1130,6 +1130,7 @@ void GameSettingsScreen::CreateViews() {
 		vrStereo->SetEnabledPtr(&g_Config.bEnableVR);
 
 		vrSettings->Add(new ItemHeader(vr->T("VR camera")));
+		vrSettings->Add(new PopupSliderChoice(&g_Config.iCameraDistance, -10, 10, vr->T("Camera distance adjust", "Camera distance adjust"), 1, screenManager(), ""));
 		vrSettings->Add(new PopupSliderChoice(&g_Config.iCanvasDistance, 1, 10, vr->T("Distance to 2D menus and scenes", "Distance to 2D menus and scenes"), 1, screenManager(), ""));
 		vrSettings->Add(new PopupSliderChoice(&g_Config.iFieldOfViewPercentage, 100, 200, vr->T("Field of view scale", "Headset's field of view scale"), 10, screenManager(), vr->T("% of native FoV")));
 	}
