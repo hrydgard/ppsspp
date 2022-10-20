@@ -315,12 +315,13 @@ SOURCES_CXX += \
 	$(COMMONDIR)/TimeUtil.cpp
 
 SOURCES_CXX += \
-	$(COMMONDIR)/VRBase.cpp \
-	$(COMMONDIR)/VRMath.cpp \
-	$(COMMONDIR)/VRFramebuffer.cpp \
-	$(COMMONDIR)/VRInput.cpp \
-	$(COMMONDIR)/VRMath.cpp \
-	$(COMMONDIR)/VRRenderer.cpp
+	$(COMMONDIR)/VR/PPSSPPVR.cpp \
+	$(COMMONDIR)/VR/VRBase.cpp \
+	$(COMMONDIR)/VR/VRMath.cpp \
+	$(COMMONDIR)/VR/VRFramebuffer.cpp \
+	$(COMMONDIR)/VR/VRInput.cpp \
+	$(COMMONDIR)/VR/VRMath.cpp \
+	$(COMMONDIR)/VR/VRRenderer.cpp
 
 SOURCES_C +=\
 	$(COMMONDIR)/GPU/OpenGL/gl3stub.c \
