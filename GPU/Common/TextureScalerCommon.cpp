@@ -322,7 +322,7 @@ static void upscale_block_c(
 		float C0 = cx[ix][0], C1 = cx[ix][1], C2 = cx[ix][2], C3 = cx[ix][3];
 		for(ptrdiff_t iy = 0; iy < sy; ++iy)
 			for(ptrdiff_t k = 0; k < 4; ++k)
-				buf[1][iy][ix][k] = S(0)*C0+S(1)*C1+S(2)*C2+S(3)*C3;
+				buf[1][iy][ix][k] = S(0)*C0 + S(1)*C1 + S(2)*C2 + S(3)*C3;
 		#undef S
 	}
 	// Vertical pass.
@@ -331,7 +331,7 @@ static void upscale_block_c(
 		float C0 = cy[iy][0], C1 = cy[iy][1], C2 = cy[iy][2], C3 = cy[iy][3];
 		for(ptrdiff_t ix = 0; ix < BLOCK; ++ix)
 			for(ptrdiff_t k = 0; k < 4; ++k)
-				buf[0][iy][ix][k] = S(0)*C0+S(1)*C1+S(2)*C2+S(3)*C3;
+				buf[0][iy][ix][k] = S(0)*C0 + S(1)*C1 + S(2)*C2 + S(3)*C3;
 		#undef S
 	}
 	// Pack destination pixels.
@@ -429,8 +429,8 @@ static void upscale_block_sse2(
 #endif // defined(_M_SSE)
 
 static void upscale_cubic(
-	ptrdiff_t width, ptrdiff_t height, ptrdiff_t src_stride_in_bytes, const void *src_pixels,
-									ptrdiff_t dst_stride_in_bytes, void       *dst_pixels,
+	ptrdiff_t width, ptrdiff_t height,	ptrdiff_t src_stride_in_bytes, const void *src_pixels,
+									  	ptrdiff_t dst_stride_in_bytes, void       *dst_pixels,
 	ptrdiff_t scale, float B, float C, int wrap_mode,
 	ptrdiff_t x0, ptrdiff_t y0, ptrdiff_t x1, ptrdiff_t y1) {
 	u8 pixels[BLOCK*BLOCK*4];
@@ -441,7 +441,7 @@ static void upscale_cubic(
 #else
 			upscale_block_c   (width, height, src_stride_in_bytes, (const u8*)src_pixels, wrap_mode, scale, B, C, x, y, pixels);
 #endif
-			for(ptrdiff_t iy = 0, ny = (y1-y < BLOCK?y1-y:BLOCK), nx = (x1-x < BLOCK?x1-x:BLOCK); iy < ny; ++iy)
+			for(ptrdiff_t iy = 0, ny = (y1-y < BLOCK ? y1-y : BLOCK), nx = (x1-x < BLOCK ? x1-x : BLOCK); iy < ny; ++iy)
 				memcpy((u8*)dst_pixels + dst_stride_in_bytes*(y+iy) + 4*x, pixels + BLOCK*4*iy, (size_t)(4*nx));
 		}
 }
