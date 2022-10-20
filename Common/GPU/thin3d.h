@@ -658,7 +658,7 @@ public:
 	virtual Framebuffer *GetCurrentRenderTarget() = 0;
 
 	// binding must be < MAX_TEXTURE_SLOTS (0, 1 are okay if it's 2).
-	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
+	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit) = 0;
 
 	// Framebuffer fetch / input attachment support, needs to be explicit in Vulkan.
 	virtual void BindCurrentFramebufferForColorInput() {}

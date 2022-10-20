@@ -98,7 +98,7 @@ public:
 	Framebuffer *GetCurrentRenderTarget() override {
 		return curRenderTarget_;
 	}
-	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
@@ -1701,7 +1701,7 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 	stepId_++;
 }
 
-void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
+void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit) {
 	_assert_(binding < MAX_BOUND_TEXTURES);
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	switch (channelBit) {

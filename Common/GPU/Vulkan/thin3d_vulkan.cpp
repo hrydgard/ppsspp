@@ -408,7 +408,7 @@ public:
 	Framebuffer *GetCurrentRenderTarget() override {
 		return (Framebuffer *)curFramebuffer_.ptr;
 	}
-	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit) override;
 	void BindCurrentFramebufferForColorInput() override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
@@ -1563,7 +1563,7 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 	curFramebuffer_ = fb;
 }
 
-void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
+void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	_assert_(binding < MAX_BOUND_TEXTURES);
 
@@ -1583,8 +1583,9 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 		_assert_(false);
 		break;
 	}
+
 	boundTextures_[binding] = nullptr;
-	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, attachment);
+	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect);
 }
 
 void VKContext::BindCurrentFramebufferForColorInput() {

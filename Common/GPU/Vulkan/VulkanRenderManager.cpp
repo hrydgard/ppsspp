@@ -1176,7 +1176,7 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	steps_.push_back(step);
 }
 
-VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBit, int attachment) {
+VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBit) {
 	_dbg_assert_(curRenderStep_ != nullptr);
 
 	// We don't support texturing from stencil, neither do we support texturing from depth|stencil together (nonsensical).

@@ -552,7 +552,7 @@ void PresentationCommon::BindSource(int binding) {
 	if (srcTexture_) {
 		draw_->BindTexture(binding, srcTexture_);
 	} else if (srcFramebuffer_) {
-		draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, 0);
+		draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT);
 	} else {
 		_assert_(false);
 	}
@@ -671,13 +671,13 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	PostShaderUniforms uniforms;
 	const auto performShaderPass = [&](const ShaderInfo *shaderInfo, Draw::Framebuffer *postShaderFramebuffer, Draw::Pipeline *postShaderPipeline) {
 		if (postShaderOutput) {
-			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
+			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT);
 		} else {
 			BindSource(0);
 		}
 		BindSource(1);
 		if (shaderInfo->usePreviousFrame)
-			draw_->BindFramebufferAsTexture(previousFramebuffer, 2, Draw::FB_COLOR_BIT, 0);
+			draw_->BindFramebufferAsTexture(previousFramebuffer, 2, Draw::FB_COLOR_BIT);
 
 		int nextWidth, nextHeight;
 		draw_->GetFramebufferDimensions(postShaderFramebuffer, &nextWidth, &nextHeight);
@@ -765,7 +765,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	draw_->BindPipeline(pipeline);
 
 	if (postShaderOutput) {
-		draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
+		draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT);
 	} else {
 		BindSource(0);
 	}
