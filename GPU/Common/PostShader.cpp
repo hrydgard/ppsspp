@@ -169,6 +169,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					info.vertexShaderFile = path / temp;
 					section.Get("OutputResolution", &info.outputResolution, false);
 					section.Get("Upscaling", &info.isUpscalingFilter, false);
+					section.Get("Stereo", &info.isStereo, false);
 					section.Get("SSAA", &info.SSAAFilterLevel, 0);
 					section.Get("60fps", &info.requires60fps, false);
 					section.Get("UsePreviousFrame", &info.usePreviousFrame, false);
