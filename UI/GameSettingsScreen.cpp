@@ -1123,14 +1123,15 @@ void GameSettingsScreen::CreateViews() {
 	if (deviceType == DEVICE_TYPE_VR) {
 		LinearLayout *vrSettings = AddTab("GameSettingsVR", ms->T("VR"));
 		vrSettings->Add(new ItemHeader(vr->T("Virtual reality")));
-		vrSettings->Add(new CheckBox(&g_Config.bEnableVR, vr->T("Enable virtual reality")));
-		vrSettings->Add(new PopupSliderChoice(&g_Config.iCanvasDistance, 1, 10, vr->T("Distance to 2D menus and scenes", "Distance to 2D menus and scenes"), 1, screenManager(), ""));
-		CheckBox *vr6DoF = vrSettings->Add(new CheckBox(&g_Config.bEnable6DoF, vr->T("Enable 6 degrees of freedom movement")));
+		vrSettings->Add(new CheckBox(&g_Config.bEnableVR, vr->T("Virtual reality")));
+		CheckBox *vr6DoF = vrSettings->Add(new CheckBox(&g_Config.bEnable6DoF, vr->T("6DoF movement")));
 		vr6DoF->SetEnabledPtr(&g_Config.bEnableVR);
-		PopupSliderChoice *vrFieldOfView = vrSettings->Add(new PopupSliderChoice(&g_Config.iFieldOfViewPercentage, 100, 200, vr->T("Field of view scale", "Headset's field of view scale"), 10, screenManager(), vr->T("% of native FoV")));
-		vrFieldOfView->SetEnabledPtr(&g_Config.bEnableVR);
-		CheckBox *vrStereo = vrSettings->Add(new CheckBox(&g_Config.bEnableStereo, vr->T("Enable stereoscopic vision (Experimental)")));
+		CheckBox *vrStereo = vrSettings->Add(new CheckBox(&g_Config.bEnableStereo, vr->T("Stereoscopic vision (Experimental)")));
 		vrStereo->SetEnabledPtr(&g_Config.bEnableVR);
+
+		vrSettings->Add(new ItemHeader(vr->T("VR camera")));
+		vrSettings->Add(new PopupSliderChoice(&g_Config.iCanvasDistance, 1, 10, vr->T("Distance to 2D menus and scenes", "Distance to 2D menus and scenes"), 1, screenManager(), ""));
+		vrSettings->Add(new PopupSliderChoice(&g_Config.iFieldOfViewPercentage, 100, 200, vr->T("Field of view scale", "Headset's field of view scale"), 10, screenManager(), vr->T("% of native FoV")));
 	}
 }
 
