@@ -154,9 +154,11 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					continue;
 				}
 
-				if (section.Exists("Fragment") && section.Exists("Vertex") && strncasecmp(shaderType.c_str(), "render", shaderType.size()) == 0) {
+				if (section.Exists("Fragment") && section.Exists("Vertex") &&
+					(strncasecmp(shaderType.c_str(), "render", shaderType.size()) == 0 ||
+					 strncasecmp(shaderType.c_str(), "StereoToMono", shaderType.size()) == 0)) {
 					// Valid shader!
-					ShaderInfo info;
+					ShaderInfo info{};
 					std::string temp;
 					info.section = section.name();
 
@@ -169,13 +171,18 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					info.vertexShaderFile = path / temp;
 					section.Get("OutputResolution", &info.outputResolution, false);
 					section.Get("Upscaling", &info.isUpscalingFilter, false);
-					section.Get("Stereo", &info.isStereo, false);
 					section.Get("SSAA", &info.SSAAFilterLevel, 0);
 					section.Get("60fps", &info.requires60fps, false);
 					section.Get("UsePreviousFrame", &info.usePreviousFrame, false);
 
 					if (info.parent == "Off")
 						info.parent.clear();
+
+					if (strncasecmp(shaderType.c_str(), "stereotomono", shaderType.size()) == 0) {
+						info.isStereo = true;
+						info.isUpscalingFilter = false;
+						info.parent.clear();
+					}
 
 					for (size_t i = 0; i < ARRAY_SIZE(info.settings); ++i) {
 						auto &setting = info.settings[i];
@@ -207,7 +214,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					}
 				} else if (section.Exists("Compute") && strncasecmp(shaderType.c_str(), "texture", shaderType.size()) == 0) {
 					// This is a texture shader.
-					TextureShaderInfo info;
+					TextureShaderInfo info{};
 					std::string temp;
 					info.section = section.name();
 					section.Get("Name", &info.name, section.name().c_str());
@@ -217,6 +224,8 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					if (info.scaleFactor >= 2 && info.scaleFactor < 8) {
 						appendTextureShader(info);
 					}
+				} else if (!section.name().empty()) {
+					WARN_LOG(G3D, "Unrecognized shader type '%s' or invalid shader in section '%s' : %d", shaderType.c_str(), section.name().c_str());
 				}
 			}
 		}

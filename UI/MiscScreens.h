@@ -110,7 +110,7 @@ private:
 
 class PostProcScreen : public ListPopupScreen {
 public:
-	PostProcScreen(const std::string &title, int id);
+	PostProcScreen(const std::string &title, int id, bool showStereoShaders);
 
 	void CreateViews() override;
 
@@ -121,6 +121,8 @@ private:
 	bool ShowButtons() const override { return true; }
 	std::vector<ShaderInfo> shaders_;
 	int id_;
+	bool showStereoShaders_;
+	std::vector<int> indexTranslation_;
 };
 
 class TextureShaderScreen : public ListPopupScreen {

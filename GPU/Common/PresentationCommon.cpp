@@ -226,7 +226,19 @@ static std::string ReadShaderSrc(const Path &filename) {
 }
 
 // Note: called on resize and settings changes.
+// Also takes care of making sure the appropriate stereo shader is compiled.
 bool PresentationCommon::UpdatePostShader() {
+	DestroyStereoShader();
+
+	if (g_Config.bStereoRendering) {
+		const ShaderInfo *stereoShaderInfo = GetPostShaderInfo(g_Config.sStereoToMonoShader);
+		bool result = CompilePostShader(stereoShaderInfo, &stereoPipeline_);
+		if (!result) {
+			// We won't have a stereo shader. We have to check for this later.
+			stereoPipeline_ = nullptr;
+		}
+	}
+
 	std::vector<const ShaderInfo *> shaderInfo;
 	if (!g_Config.vPostShaderNames.empty()) {
 		ReloadAllPostShaderInfo(draw_);
@@ -517,6 +529,7 @@ void PresentationCommon::DestroyDeviceObjects() {
 
 	restorePostShader_ = usePostShader_;
 	DestroyPostShader();
+	DestroyStereoShader();
 }
 
 void PresentationCommon::DestroyPostShader() {
@@ -527,6 +540,10 @@ void PresentationCommon::DestroyPostShader() {
 	DoReleaseVector(previousFramebuffers_);
 	postShaderInfo_.clear();
 	postShaderFBOUsage_.clear();
+}
+
+void PresentationCommon::DestroyStereoShader() {
+	DoRelease(stereoPipeline_);
 }
 
 Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) const {
@@ -562,13 +579,28 @@ void PresentationCommon::SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidt
 	srcHeight_ = bufferHeight;
 }
 
-void PresentationCommon::BindSource(int binding) {
+// Return value is if stereo binding succeeded.
+bool PresentationCommon::BindSource(int binding, bool bindStereo) {
 	if (srcTexture_) {
 		draw_->BindTexture(binding, srcTexture_);
+		return false;
 	} else if (srcFramebuffer_) {
-		draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, 0);
+		if (bindStereo) {
+			if (srcFramebuffer_->Layers() > 1) {
+				draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, Draw::ALL_LAYERS);
+				return true;
+			} else {
+				// Single layer
+				draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, 0);
+				return false;
+			}
+		} else {
+			draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, 0);
+			return false;
+		}
 	} else {
 		_assert_(false);
+		return false;
 	}
 }
 
@@ -584,7 +616,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	// This should auto-disable usePostShader_ and call ShowPostShaderError().
 
 	bool useNearest = flags & OutputFlags::NEAREST;
-	const bool usePostShader = usePostShader_ && !(flags & OutputFlags::RB_SWIZZLE);
+	bool useStereo = g_Config.bStereoRendering && stereoPipeline_ != nullptr;  // TODO: Also check that the backend has support for it.
+
+	const bool usePostShader = usePostShader_ && !useStereo && !(flags & OutputFlags::RB_SWIZZLE);
 	const bool isFinalAtOutputResolution = usePostShader && postShaderFramebuffers_.size() < postShaderPipelines_.size();
 	Draw::Framebuffer *postShaderOutput = nullptr;
 	int lastWidth = srcWidth_;
@@ -687,9 +721,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		if (postShaderOutput) {
 			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
 		} else {
-			BindSource(0);
+			BindSource(0, false);
 		}
-		BindSource(1);
+		BindSource(1, false);
 		if (shaderInfo->usePreviousFrame)
 			draw_->BindFramebufferAsTexture(previousFramebuffer, 2, Draw::FB_COLOR_BIT, 0);
 
@@ -768,22 +802,30 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline);
 	}
 
-	Draw::Pipeline *pipeline = (flags & OutputFlags::RB_SWIZZLE) ? texColorRBSwizzle_ : texColor_;
-	if (isFinalAtOutputResolution && previousFramebuffers_.empty()) {
-		pipeline = postShaderPipelines_.back();
-	}
-
 	draw_->BindFramebufferAsRenderTarget(nullptr, 0, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "FinalBlit");
 	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 
-	draw_->BindPipeline(pipeline);
+	Draw::Pipeline *pipeline = (flags & OutputFlags::RB_SWIZZLE) ? texColorRBSwizzle_ : texColor_;
 
-	if (postShaderOutput) {
-		draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
+	if (useStereo) {
+		draw_->BindPipeline(stereoPipeline_);
+		if (!BindSource(0, true)) {
+			// Fall back
+			draw_->BindPipeline(texColor_);
+		}
 	} else {
-		BindSource(0);
+		if (isFinalAtOutputResolution && previousFramebuffers_.empty()) {
+			pipeline = postShaderPipelines_.back();
+		}
+
+		draw_->BindPipeline(pipeline);
+		if (postShaderOutput) {
+			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
+		} else {
+			BindSource(0, false);
+		}
 	}
-	BindSource(1);
+	BindSource(1, false);
 
 	if (isFinalAtOutputResolution && previousFramebuffers_.empty()) {
 		CalculatePostShaderUniforms(lastWidth, lastHeight, (int)rc.w, (int)rc.h, &postShaderInfo_.back(), &uniforms);
@@ -809,6 +851,8 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	CardboardSettings cardboardSettings;
 	GetCardboardSettings(&cardboardSettings);
 	if (cardboardSettings.enabled) {
+		// TODO: This could actually support stereo now, with an appropriate shader.
+
 		// This is what the left eye sees.
 		setViewport(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
 		draw_->DrawIndexed(6, 0);

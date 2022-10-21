@@ -107,7 +107,9 @@ public:
 protected:
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
+
 	void DestroyPostShader();
+	void DestroyStereoShader();
 
 	static void ShowPostShaderError(const std::string &errorString);
 
@@ -117,7 +119,7 @@ protected:
 	bool BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next, Draw::Pipeline **outPipeline);
 	bool AllocateFramebuffer(int w, int h);
 
-	void BindSource(int binding);
+	bool BindSource(int binding, bool bindStereo);
 
 	void GetCardboardSettings(CardboardSettings *cardboardSettings) const;
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) const;
@@ -131,6 +133,7 @@ protected:
 	Draw::Buffer *idata_ = nullptr;
 
 	std::vector<Draw::Pipeline *> postShaderPipelines_;
+	Draw::Pipeline *stereoPipeline_ = nullptr;
 	std::vector<Draw::Framebuffer *> postShaderFramebuffers_;
 	std::vector<ShaderInfo> postShaderInfo_;
 	std::vector<Draw::Framebuffer *> previousFramebuffers_;

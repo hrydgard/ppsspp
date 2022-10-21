@@ -1483,6 +1483,7 @@ public:
 		_assert_msg_(fb, "Null fb in VKFramebuffer constructor");
 		width_ = fb->width;
 		height_ = fb->height;
+		layers_ = fb->numLayers;
 	}
 	~VKFramebuffer() {
 		_assert_msg_(buf_, "Null buf_ in VKFramebuffer - double delete?");
