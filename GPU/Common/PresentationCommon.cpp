@@ -157,7 +157,7 @@ PresentationCommon::~PresentationCommon() {
 	DestroyDeviceObjects();
 }
 
-void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettings) {
+void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettings) const {
 	if (!g_Config.bEnableCardboardVR) {
 		cardboardSettings->enabled = false;
 		return;
@@ -183,7 +183,7 @@ void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettin
 	cardboardSettings->screenHeight = cardboardScreenHeight;
 }
 
-void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) {
+void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) const {
 	float u_delta = 1.0f / bufferWidth;
 	float v_delta = 1.0f / bufferHeight;
 	float u_pixel_delta = 1.0f / targetWidth;
@@ -234,17 +234,23 @@ bool PresentationCommon::UpdatePostShader() {
 	}
 
 	DestroyPostShader();
-	if (shaderInfo.empty())
+	if (shaderInfo.empty()) {
+		usePostShader_ = false;
 		return false;
+	}
 
 	bool usePreviousFrame = false;
 	bool usePreviousAtOutputResolution = false;
 	for (size_t i = 0; i < shaderInfo.size(); ++i) {
 		const ShaderInfo *next = i + 1 < shaderInfo.size() ? shaderInfo[i + 1] : nullptr;
-		if (!BuildPostShader(shaderInfo[i], next)) {
+		Draw::Pipeline *postPipeline = nullptr;
+		if (!BuildPostShader(shaderInfo[i], next, &postPipeline)) {
 			DestroyPostShader();
 			return false;
 		}
+		_dbg_assert_(postPipeline);
+		postShaderPipelines_.push_back(postPipeline);
+		postShaderInfo_.push_back(*shaderInfo[i]);
 		if (shaderInfo[i]->usePreviousFrame) {
 			usePreviousFrame = true;
 			usePreviousAtOutputResolution = shaderInfo[i]->outputResolution;
@@ -272,7 +278,7 @@ bool PresentationCommon::UpdatePostShader() {
 	return true;
 }
 
-bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next) {
+bool PresentationCommon::CompilePostShader(const ShaderInfo *shaderInfo, Draw::Pipeline **outPipeline) const {
 	std::string vsSourceGLSL = ReadShaderSrc(shaderInfo->vertexShaderFile);
 	std::string fsSourceGLSL = ReadShaderSrc(shaderInfo->fragmentShaderFile);
 	if (vsSourceGLSL.empty() || fsSourceGLSL.empty()) {
@@ -314,6 +320,15 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 	if (!pipeline)
 		return false;
 
+	*outPipeline = pipeline;
+	return true;
+}
+
+bool PresentationCommon::BuildPostShader(const ShaderInfo * shaderInfo, const ShaderInfo * next, Draw::Pipeline **outPipeline) {
+	if (!CompilePostShader(shaderInfo, outPipeline)) {
+		return false;
+	}
+
 	if (!shaderInfo->outputResolution || next) {
 		int nextWidth = renderWidth_;
 		int nextHeight = renderHeight_;
@@ -341,13 +356,12 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 		}
 
 		if (!AllocateFramebuffer(nextWidth, nextHeight)) {
-			pipeline->Release();
+			(*outPipeline)->Release();
+			*outPipeline = nullptr;
 			return false;
 		}
 	}
 
-	postShaderPipelines_.push_back(pipeline);
-	postShaderInfo_.push_back(*shaderInfo);
 	return true;
 }
 
@@ -416,7 +430,7 @@ void PresentationCommon::DeviceRestore(Draw::DrawContext *draw) {
 	CreateDeviceObjects();
 }
 
-Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc) {
+Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc) const {
 	using namespace Draw;
 
 	Semantic pos = SEM_POSITION;
@@ -515,7 +529,7 @@ void PresentationCommon::DestroyPostShader() {
 	postShaderFBOUsage_.clear();
 }
 
-Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) {
+Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) const {
 	std::string translated = src;
 	if (lang != lang_) {
 		// Gonna have to upconvert the shader.
@@ -816,7 +830,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	previousUniforms_ = uniforms;
 }
 
-void PresentationCommon::CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) {
+void PresentationCommon::CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) const {
 	// Check if postprocessing shader is doing upscaling as it requires native resolution
 	std::vector<const ShaderInfo *> shaderInfo;
 	if (!g_Config.vPostShaderNames.empty()) {

@@ -102,24 +102,25 @@ public:
 	void SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidth, int bufferHeight);
 	void CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
 
-	void CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa);
+	void CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) const;
 
 protected:
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
 	void DestroyPostShader();
 
-	void ShowPostShaderError(const std::string &errorString);
+	static void ShowPostShaderError(const std::string &errorString);
 
-	Draw::ShaderModule *CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString);
-	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc);
-	bool BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next);
+	Draw::ShaderModule *CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) const;
+	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc) const;
+	bool CompilePostShader(const ShaderInfo *shaderInfo, Draw::Pipeline **outPipeline) const;
+	bool BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next, Draw::Pipeline **outPipeline);
 	bool AllocateFramebuffer(int w, int h);
 
 	void BindSource(int binding);
 
-	void GetCardboardSettings(CardboardSettings *cardboardSettings);
-	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms);
+	void GetCardboardSettings(CardboardSettings *cardboardSettings) const;
+	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) const;
 
 	Draw::DrawContext *draw_;
 	Draw::Pipeline *texColor_ = nullptr;
