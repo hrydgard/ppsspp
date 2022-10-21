@@ -612,9 +612,9 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);
 
+	insideFrame_ = true;
 	vulkan_->BeginFrame(enableLogProfiler ? GetInitCmd() : VK_NULL_HANDLE);
 
-	insideFrame_ = true;
 	renderStepOffset_ = 0;
 
 	frameData.profile.timestampDescriptions.clear();
