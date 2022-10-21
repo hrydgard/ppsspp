@@ -307,6 +307,10 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 	} };
 
 	Draw::Pipeline *pipeline = CreatePipeline({ vs, fs }, true, &postShaderDesc);
+
+	fs->Release();
+	vs->Release();
+
 	if (!pipeline)
 		return false;
 
@@ -504,7 +508,6 @@ void PresentationCommon::DestroyDeviceObjects() {
 void PresentationCommon::DestroyPostShader() {
 	usePostShader_ = false;
 
-	DoReleaseVector(postShaderModules_);
 	DoReleaseVector(postShaderPipelines_);
 	DoReleaseVector(postShaderFramebuffers_);
 	DoReleaseVector(previousFramebuffers_);
@@ -521,10 +524,7 @@ Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, S
 			return nullptr;
 		}
 	}
-
 	Draw::ShaderModule *shader = draw_->CreateShaderModule(stage, lang_, (const uint8_t *)translated.c_str(), translated.size(), "postshader");
-	if (shader)
-		postShaderModules_.push_back(shader);
 	return shader;
 }
 

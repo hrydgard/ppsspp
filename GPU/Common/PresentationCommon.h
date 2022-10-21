@@ -129,7 +129,6 @@ protected:
 	Draw::Buffer *vdata_ = nullptr;
 	Draw::Buffer *idata_ = nullptr;
 
-	std::vector<Draw::ShaderModule *> postShaderModules_;
 	std::vector<Draw::Pipeline *> postShaderPipelines_;
 	std::vector<Draw::Framebuffer *> postShaderFramebuffers_;
 	std::vector<ShaderInfo> postShaderInfo_;
