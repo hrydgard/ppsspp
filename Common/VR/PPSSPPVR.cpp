@@ -319,6 +319,7 @@ bool StartVRRender() {
 
 		// Set customizations
 		VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
+		VR_SetConfig(VR_CONFIG_CAMERA_DISTANCE, g_Config.iCameraDistance);
 		VR_SetConfig(VR_CONFIG_CANVAS_DISTANCE, g_Config.iCanvasDistance);
 		VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.iFieldOfViewPercentage);
 		VR_SetConfig(VR_CONFIG_MIRROR_UPDATED, false);

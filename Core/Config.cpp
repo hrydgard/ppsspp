@@ -1206,6 +1206,7 @@ static ConfigSetting vrSettings[] = {
 	ConfigSetting("VREnable", &g_Config.bEnableVR, true),
 	ConfigSetting("VREnable6DoF", &g_Config.bEnable6DoF, true),
 	ConfigSetting("VREnableStereo", &g_Config.bEnableStereo, false),
+	ConfigSetting("VRCameraDistance", &g_Config.iCameraDistance, 0),
 	ConfigSetting("VRCanvasDistance", &g_Config.iCanvasDistance, 6),
 	ConfigSetting("VRFieldOfView", &g_Config.iFieldOfViewPercentage, 100),
 
