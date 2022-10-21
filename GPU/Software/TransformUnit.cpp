@@ -411,11 +411,9 @@ ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformS
 		vertex.v.clipw = vertex.clippos.w;
 
 		Vec3<float> worldnormal;
-		if (vreader.hasNormal()) {
+		if (state.enableLighting || state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
 			worldnormal = TransformUnit::ModelToWorldNormal(normal);
 			worldnormal.NormalizeOr001();
-		} else {
-			worldnormal = Vec3<float>(0.0f, 0.0f, 1.0f);
 		}
 
 		// Time to generate some texture coords.  Lighting will handle shade mapping.
