@@ -207,10 +207,10 @@ VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPas
 	VkImageView views[2]{};
 
 	bool hasDepth = RenderPassTypeHasDepth(rpType);
-	views[0] = (multiview || numLayers == 0) ? color.imageView : color.layerViews[layer];
+	views[0] = (multiview || numLayers == 1) ? color.imageView : color.layerViews[layer];
 	if (hasDepth) {
 		_dbg_assert_(depth.imageView != VK_NULL_HANDLE);
-		views[1] = (multiview || numLayers == 0) ? depth.imageView : depth.layerViews[layer];
+		views[1] = (multiview || numLayers == 1) ? depth.imageView : depth.layerViews[layer];
 	}
 	fbci.renderPass = compatibleRenderPass->Get(vulkan_, rpType);
 	fbci.attachmentCount = hasDepth ? 2 : 1;
