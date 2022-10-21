@@ -337,17 +337,12 @@ ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformS
 		vertex.v.texturecoords = lastTC;
 	}
 
-	Vec3f normal;
 	static Vec3f lastnormal;
-	if (vreader.hasNormal()) {
-		vreader.ReadNrm(normal.AsArray());
-		lastnormal = normal;
-
-		if (state.negateNormals)
-			normal = -normal;
-	} else {
-		normal = lastnormal;
-	}
+	if (vreader.hasNormal())
+		vreader.ReadNrm(lastnormal.AsArray());
+	Vec3f normal = lastnormal;
+	if (state.negateNormals)
+		normal = -normal;
 
 	if (state.readWeights) {
 		float W[8] = { 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
