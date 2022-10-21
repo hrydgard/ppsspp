@@ -108,6 +108,13 @@ bool FramebufferManagerCommon::UpdateSize() {
 
 void FramebufferManagerCommon::BeginFrame() {
 	DecimateFBOs();
+
+	// Might have a new post shader - let's compile it.
+	if (updatePostShaders_) {
+		presentation_->UpdatePostShader();
+		updatePostShaders_ = false;
+	}
+
 	currentRenderVfb_ = nullptr;
 }
 
@@ -2349,8 +2356,9 @@ void FramebufferManagerCommon::Resized() {
 		DestroyAllFBOs();
 	}
 
-	// Might have a new post shader - let's compile it.
-	presentation_->UpdatePostShader();
+	// No drawing is allowed here. This includes anything that might potentially touch a command buffer, like creating images!
+	// So we need to defer the post processing initialization.
+	updatePostShaders_ = true;
 
 #ifdef _WIN32
 	// Seems related - if you're ok with numbers all the time, show some more :)
