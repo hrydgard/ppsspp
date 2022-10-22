@@ -244,7 +244,7 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 //
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
 // our clipping planes, we reject the box. Tighter bounds would be desirable but would take more calculations.
-bool DrawEngineCommon::TestBoundingBox(const void* control_points, int vertexCount, u32 vertType, int *bytesRead) {
+bool DrawEngineCommon::TestBoundingBox(const void* control_points, int vertexCount, u32 vertType) {
 	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
 	float *verts = (float *)(decoded + 65536 * 18);
 
@@ -252,19 +252,16 @@ bool DrawEngineCommon::TestBoundingBox(const void* control_points, int vertexCou
 	// and a large vertex format.
 	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT) {
 		verts = (float *)control_points;
-		*bytesRead = 3 * sizeof(float) * vertexCount;
 	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT) {
 		const s8 *vtx = (const s8 *)control_points;
 		for (int i = 0; i < vertexCount * 3; i++) {
 			verts[i] = vtx[i] * (1.0f / 128.0f);
 		}
-		*bytesRead = 3 * sizeof(s8) * vertexCount;
 	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT) {
 		const s16 *vtx = (const s16*)control_points;
 		for (int i = 0; i < vertexCount * 3; i++) {
 			verts[i] = vtx[i] * (1.0f / 32768.0f);
 		}
-		*bytesRead = 3 * sizeof(s16) * vertexCount;
 	} else {
 		// Simplify away bones and morph before proceeding
 		u8 *temp_buffer = decoded + 65536 * 24;
@@ -275,7 +272,6 @@ bool DrawEngineCommon::TestBoundingBox(const void* control_points, int vertexCou
 			verts[i * 3 + 1] = corners[i].pos.y;
 			verts[i * 3 + 2] = corners[i].pos.z;
 		}
-		*bytesRead = vertexSize * vertexCount;
 	}
 
 	Plane planes[6];
