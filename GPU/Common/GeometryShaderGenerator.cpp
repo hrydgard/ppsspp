@@ -48,7 +48,7 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	bool vertexRangeCulling = !id.Bit(GS_BIT_CURVE);
 	bool clipClampedDepth = gstate_c.Use(GPU_USE_DEPTH_CLAMP);
 
-	ShaderWriter p(buffer, compat, ShaderStage::Geometry, gl_exts.data(), gl_exts.size());
+	ShaderWriter p(buffer, compat, ShaderStage::Geometry, gl_exts);
 	p.C("layout(triangles) in;\n");
 	if (clipClampedDepth && vertexRangeCulling && !gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 		p.C("layout(triangle_strip, max_vertices = 12) out;\n");

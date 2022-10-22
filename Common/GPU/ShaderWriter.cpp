@@ -7,7 +7,6 @@
 #include "Common/Log.h"
 
 const char * const vulkan_glsl_preamble_fs =
-"#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
 "#extension GL_ARB_conservative_depth : enable\n"
@@ -45,7 +44,6 @@ static const char * const hlsl_d3d9_preamble_fs =
 "#define DISCARD_BELOW(x) clip(x)\n";
 
 static const char * const vulkan_glsl_preamble_vs =
-"#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
 "#define mul(x, y) ((x) * (y))\n"
@@ -69,7 +67,6 @@ static const char * const hlsl_preamble_gs =
 "\n";
 
 static const char * const vulkan_glsl_preamble_gs =
-"#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
 "#define mul(x, y) ((x) * (y))\n"
@@ -113,9 +110,14 @@ ShaderWriter & ShaderWriter::F(const char *format, ...) {
 	return *this;
 }
 
-void ShaderWriter::Preamble(const char **gl_extensions, size_t num_gl_extensions) {
+void ShaderWriter::Preamble(Slice<const char *> extensions) {
 	switch (lang_.shaderLanguage) {
 	case GLSL_VULKAN:
+		C("#version 450\n");
+		// IMPORTANT! Extensions must be the first thing after #version.
+		for (size_t i = 0; i < extensions.size(); i++) {
+			F("%s\n", extensions[i]);
+		}
 		switch (stage_) {
 		case ShaderStage::Vertex:
 			W(vulkan_glsl_preamble_vs);
@@ -154,8 +156,8 @@ void ShaderWriter::Preamble(const char **gl_extensions, size_t num_gl_extensions
 	default:  // OpenGL
 		F("#version %d%s\n", lang_.glslVersionNumber, lang_.gles && lang_.glslES30 ? " es" : "");
 		// IMPORTANT! Extensions must be the first thing after #version.
-		for (size_t i = 0; i < num_gl_extensions; i++) {
-			F("%s\n", gl_extensions[i]);
+		for (size_t i = 0; i < extensions.size(); i++) {
+			F("%s\n", extensions[i]);
 		}
 		// Print some system info - useful to gather information directly from screenshots.
 		if (strlen(lang_.driverInfo) != 0) {

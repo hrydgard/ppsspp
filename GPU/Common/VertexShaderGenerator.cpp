@@ -153,7 +153,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 	}
 
-	ShaderWriter p(buffer, compat, ShaderStage::Vertex, gl_exts.data(), gl_exts.size());
+	ShaderWriter p(buffer, compat, ShaderStage::Vertex, gl_exts);
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE);
