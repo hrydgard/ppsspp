@@ -321,7 +321,6 @@ SOURCES_CXX += \
 	$(COMMONDIR)/VR/VRMath.cpp \
 	$(COMMONDIR)/VR/VRFramebuffer.cpp \
 	$(COMMONDIR)/VR/VRInput.cpp \
-	$(COMMONDIR)/VR/VRMath.cpp \
 	$(COMMONDIR)/VR/VRRenderer.cpp
 
 SOURCES_C +=\
