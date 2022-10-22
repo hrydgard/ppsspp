@@ -133,10 +133,13 @@ protected:
 	Draw::Buffer *idata_ = nullptr;
 
 	std::vector<Draw::Pipeline *> postShaderPipelines_;
-	Draw::Pipeline *stereoPipeline_ = nullptr;
 	std::vector<Draw::Framebuffer *> postShaderFramebuffers_;
 	std::vector<ShaderInfo> postShaderInfo_;
 	std::vector<Draw::Framebuffer *> previousFramebuffers_;
+	
+	Draw::Pipeline *stereoPipeline_ = nullptr;
+	ShaderInfo *stereoShaderInfo_ = nullptr;
+
 	int previousIndex_ = 0;
 	PostShaderUniforms previousUniforms_{};
 

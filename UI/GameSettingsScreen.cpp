@@ -364,6 +364,19 @@ void GameSettingsScreen::CreateViews() {
 			screenManager()->push(procScreen);
 			return UI::EVENT_DONE;
 		});
+		const ShaderInfo *shaderInfo = GetPostShaderInfo(g_Config.sStereoToMonoShader);
+		if (shaderInfo) {
+			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
+				auto &setting = shaderInfo->settings[i];
+				if (!setting.name.empty()) {
+					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
+					PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+					settingValue->SetEnabledFunc([] {
+						return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && g_Config.bStereoRendering;
+					});
+				}
+			}
+		}
 	}
 
 	std::set<std::string> alreadyAddedShader;

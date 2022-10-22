@@ -15,7 +15,7 @@ enum VShaderBit : uint8_t {
 	VS_BIT_HAS_COLOR = 3,
 	VS_BIT_DO_TEXTURE = 4,
 	VS_BIT_VERTEX_RANGE_CULLING = 5,
-	// 6 is free,
+	VS_BIT_SIMPLE_STEREO = 6,
 	// 7 is free.
 	VS_BIT_USE_HW_TRANSFORM = 8,
 	VS_BIT_HAS_NORMAL = 9,  // conditioned on hw transform

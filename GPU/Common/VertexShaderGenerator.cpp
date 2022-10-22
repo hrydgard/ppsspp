@@ -136,27 +136,33 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool highpFog = false;
 	bool highpTexcoord = false;
 
-	std::vector<const char*> gl_exts;
+	std::vector<const char*> extensions;
 	if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if (gl_extensions.EXT_gpu_shader4) {
-			gl_exts.push_back("#extension GL_EXT_gpu_shader4 : enable");
+			extensions.push_back("#extension GL_EXT_gpu_shader4 : enable");
 		}
 		bool useClamp = gstate_c.Use(GPU_USE_DEPTH_CLAMP) && !id.Bit(VS_BIT_IS_THROUGH);
 		if (gl_extensions.EXT_clip_cull_distance && (id.Bit(VS_BIT_VERTEX_RANGE_CULLING) || useClamp)) {
-			gl_exts.push_back("#extension GL_EXT_clip_cull_distance : enable");
+			extensions.push_back("#extension GL_EXT_clip_cull_distance : enable");
 		}
 		if (gl_extensions.APPLE_clip_distance && (id.Bit(VS_BIT_VERTEX_RANGE_CULLING) || useClamp)) {
-			gl_exts.push_back("#extension GL_APPLE_clip_distance : enable");
+			extensions.push_back("#extension GL_APPLE_clip_distance : enable");
 		}
 		if (gl_extensions.ARB_cull_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
-			gl_exts.push_back("#extension GL_ARB_cull_distance : enable");
+			extensions.push_back("#extension GL_ARB_cull_distance : enable");
 		}
 		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY) && gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
-			gl_exts.push_back("#extension GL_OVR_multiview2 : enable\nlayout(num_views=2) in;");
+			extensions.push_back("#extension GL_OVR_multiview2 : enable\nlayout(num_views=2) in;");
 		}
 	}
 
-	ShaderWriter p(buffer, compat, ShaderStage::Vertex, gl_exts);
+	bool useSimpleStereo = id.Bit(VS_BIT_SIMPLE_STEREO);
+
+	if (compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN && useSimpleStereo) {
+		extensions.push_back("#extension GL_EXT_multiview : enable");
+	}
+
+	ShaderWriter p(buffer, compat, ShaderStage::Vertex, extensions);
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE);
@@ -1339,6 +1345,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "    %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
 		WRITE(p, "    %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
 		WRITE(p, "  }\n");
+	}
+
+	if (useSimpleStereo) {
+		p.C("  float zFactor = 0.2 * float(gl_ViewIndex * 2 - 1);\n");
+		p.C("  float zFocus = 0.0;\n");
+		p.C("  gl_Position.x += (-gl_Position.z - zFocus) * zFactor;\n");
 	}
 
 	if (needsZWHack) {

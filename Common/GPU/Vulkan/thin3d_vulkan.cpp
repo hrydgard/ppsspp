@@ -270,6 +270,7 @@ public:
 	}
 
 	void SetDynamicUniformData(const void *data, size_t size) {
+		_dbg_assert_(size <= uboSize_);
 		memcpy(ubo_, data, size);
 	}
 

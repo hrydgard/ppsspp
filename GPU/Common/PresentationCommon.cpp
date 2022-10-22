@@ -207,7 +207,7 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	uniforms->gl_HalfPixel[0] = u_pixel_delta * 0.5f;
 	uniforms->gl_HalfPixel[1] = v_pixel_delta * 0.5f;
 
-	uniforms->setting[0] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue1"];;
+	uniforms->setting[0] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue1"];
 	uniforms->setting[1] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue2"];
 	uniforms->setting[2] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue3"];
 	uniforms->setting[3] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue4"];
@@ -235,7 +235,11 @@ bool PresentationCommon::UpdatePostShader() {
 		bool result = CompilePostShader(stereoShaderInfo, &stereoPipeline_);
 		if (!result) {
 			// We won't have a stereo shader. We have to check for this later.
+			delete stereoShaderInfo_;
+			stereoShaderInfo_ = nullptr;
 			stereoPipeline_ = nullptr;
+		} else {
+			stereoShaderInfo_ = new ShaderInfo(*stereoShaderInfo);
 		}
 	}
 
@@ -544,6 +548,8 @@ void PresentationCommon::DestroyPostShader() {
 
 void PresentationCommon::DestroyStereoShader() {
 	DoRelease(stereoPipeline_);
+	delete stereoShaderInfo_;
+	stereoShaderInfo_ = nullptr;
 }
 
 Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) const {
@@ -812,6 +818,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		if (!BindSource(0, true)) {
 			// Fall back
 			draw_->BindPipeline(texColor_);
+			useStereo = false;  // Otherwise we end up uploading the wrong uniforms
 		}
 	} else {
 		if (isFinalAtOutputResolution && previousFramebuffers_.empty()) {
@@ -829,6 +836,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	if (isFinalAtOutputResolution && previousFramebuffers_.empty()) {
 		CalculatePostShaderUniforms(lastWidth, lastHeight, (int)rc.w, (int)rc.h, &postShaderInfo_.back(), &uniforms);
+		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
+	} else if (useStereo) {
+		CalculatePostShaderUniforms(lastWidth, lastHeight, (int)rc.w, (int)rc.h, stereoShaderInfo_, &uniforms);
 		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
 	} else {
 		Draw::VsTexColUB ub{};

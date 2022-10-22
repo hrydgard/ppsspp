@@ -92,6 +92,10 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	id.SetBit(VS_BIT_HAS_COLOR, hasColor);
 	id.SetBit(VS_BIT_VERTEX_RANGE_CULLING, vertexRangeCulling);
 
+	if (!isModeThrough && VS_BIT_SIMPLE_STEREO) {
+		id.SetBit(VS_BIT_SIMPLE_STEREO);
+	}
+
 	if (doTexture) {
 		id.SetBit(VS_BIT_DO_TEXTURE);
 
