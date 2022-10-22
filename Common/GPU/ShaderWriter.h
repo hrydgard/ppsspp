@@ -37,8 +37,9 @@ enum FSFlags {
 
 class ShaderWriter {
 public:
-	ShaderWriter(char *buffer, const ShaderLanguageDesc &lang, ShaderStage stage, const char **gl_extensions = nullptr, size_t num_gl_extensions = 0) : p_(buffer), lang_(lang), stage_(stage) {
-		Preamble(gl_extensions, num_gl_extensions);
+	// Extensions are supported for both OpenGL ES and Vulkan (though of course, they're different).
+	ShaderWriter(char *buffer, const ShaderLanguageDesc &lang, ShaderStage stage, Slice<const char *> extensions = Slice<const char *>()) : p_(buffer), lang_(lang), stage_(stage) {
+		Preamble(extensions);
 	}
 	ShaderWriter(const ShaderWriter &) = delete;
 
@@ -110,7 +111,7 @@ private:
 	void DeclareSampler2D(const char *name, int binding);
 	void DeclareTexture2D(const char *name, int binding);
 
-	void Preamble(const char **gl_extensions, size_t num_gl_extensions);
+	void Preamble(Slice<const char *> extensions);
 
 	char *p_;
 	const ShaderLanguageDesc &lang_;

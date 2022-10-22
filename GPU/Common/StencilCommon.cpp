@@ -84,7 +84,7 @@ static const SamplerDef samplers[1] = {
 };
 
 void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw::Bugs &bugs) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Fragment, nullptr, 0);
+	ShaderWriter writer(buffer, lang, ShaderStage::Fragment);
 	writer.HighPrecisionFloat();
 	writer.DeclareSamplers(samplers);
 
@@ -111,7 +111,7 @@ void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw:
 
 // This can probably be shared with some other shaders, like reinterpret or the future depth upload.
 void GenerateStencilVs(char *buffer, const ShaderLanguageDesc &lang) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Vertex, nullptr, 0);
+	ShaderWriter writer(buffer, lang, ShaderStage::Vertex);
 
 	writer.BeginVSMain(lang.vertexIndex ? Slice<InputDef>::empty() : inputs, Slice<UniformDef>::empty(), varyings);
 

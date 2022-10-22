@@ -243,7 +243,7 @@ bool TestReinterpretShaders() {
 			for (int j = 0; j < 3; j++) {
 				if (i == j)
 					continue;  // useless shader!
-				ShaderWriter writer(buffer, desc, ShaderStage::Fragment, nullptr, 0);
+				ShaderWriter writer(buffer, desc, ShaderStage::Fragment);
 				GenerateReinterpretFragmentShader(writer, fmts[i], fmts[j]);
 				if (strlen(buffer) >= 8192) {
 					printf("Reinterpret fragment shader %d exceeded buffer:\n\n%s\n", (int)j, LineNumberString(buffer).c_str());
