@@ -367,8 +367,6 @@ bool Is2DVRObject(float* projMatrix, bool ortho) {
 	// Quick analyze if the object is in 2D
 	if ((fabs(fabs(projMatrix[12]) - 1.0f) < EPSILON) && (fabs(fabs(projMatrix[13]) - 1.0f) < EPSILON) && (fabs(fabs(projMatrix[14]) - 1.0f) < EPSILON)) {
 		return true;
-	} else if ((fabs(projMatrix[0] - 1) < EPSILON) && (fabs(projMatrix[5] - 1) < EPSILON)) {
-		return true;
 	} else if ((fabs(projMatrix[0]) > 10.0f) && (fabs(projMatrix[5]) > 10.0f)) {
 		return true;
 	} else if (fabs(projMatrix[15] - 1) < EPSILON) {
