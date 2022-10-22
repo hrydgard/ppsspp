@@ -295,7 +295,9 @@ bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *i
 	Matrix4ByMatrix4(worldview, world, view);
 	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
 	PlanesFromMatrix(worldviewproj, planes);
-	for (int plane = 0; plane < 6; plane++) {
+	// Note: near/far are not checked without clamp/clip enabled, so we skip those planes.
+	int totalPlanes = gstate.isDepthClampEnabled() ? 6 : 4;
+	for (int plane = 0; plane < totalPlanes; plane++) {
 		int inside = 0;
 		int out = 0;
 		for (int i = 0; i < vertexCount; i++) {
