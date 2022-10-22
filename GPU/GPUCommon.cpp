@@ -2159,6 +2159,9 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 		return;
 	}
 
+	// Approximate based on timings of several counts on a PSP.
+	cyclesExecuted += count * 22;
+
 	VertexDecoder *dec = drawEngineCommon_->GetVertexDecoder(gstate.vertType);
 	int bytesRead = dec->VertexSize() * count;
 
