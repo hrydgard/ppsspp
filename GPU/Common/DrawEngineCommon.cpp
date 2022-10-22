@@ -244,33 +244,42 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 //
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
 // our clipping planes, we reject the box. Tighter bounds would be desirable but would take more calculations.
-bool DrawEngineCommon::TestBoundingBox(const void* control_points, int vertexCount, u32 vertType) {
+bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *inds, int vertexCount, u32 vertType) {
 	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
 	float *verts = (float *)(decoded + 65536 * 18);
 
 	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
 	// and a large vertex format.
-	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT) {
+	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT && !inds) {
 		verts = (float *)control_points;
-	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT) {
+	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT && !inds) {
 		const s8 *vtx = (const s8 *)control_points;
 		for (int i = 0; i < vertexCount * 3; i++) {
 			verts[i] = vtx[i] * (1.0f / 128.0f);
 		}
-	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT) {
+	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT && !inds) {
 		const s16 *vtx = (const s16*)control_points;
 		for (int i = 0; i < vertexCount * 3; i++) {
 			verts[i] = vtx[i] * (1.0f / 32768.0f);
 		}
 	} else {
-		// Simplify away bones and morph before proceeding
+		// Simplify away indices, bones, and morph before proceeding.
 		u8 *temp_buffer = decoded + 65536 * 24;
 		int vertexSize = 0;
-		NormalizeVertices((u8 *)corners, temp_buffer, (const u8 *)control_points, 0, vertexCount, vertType, &vertexSize);
+
+		u16 indexLowerBound = 0;
+		u16 indexUpperBound = (u16)vertexCount - 1;
+		if (vertexCount > 0 && inds) {
+			GetIndexBounds(inds, vertexCount, vertType, &indexLowerBound, &indexUpperBound);
+		}
+
+		NormalizeVertices((u8 *)corners, temp_buffer, (const u8 *)control_points, indexLowerBound, indexUpperBound, vertType);
+
+		IndexConverter conv(vertType, inds);
 		for (int i = 0; i < vertexCount; i++) {
-			verts[i * 3] = corners[i].pos.x;
-			verts[i * 3 + 1] = corners[i].pos.y;
-			verts[i * 3 + 2] = corners[i].pos.z;
+			verts[i * 3] = corners[conv(i)].pos.x;
+			verts[i * 3 + 1] = corners[conv(i)].pos.y;
+			verts[i * 3 + 2] = corners[conv(i)].pos.z;
 		}
 	}
 

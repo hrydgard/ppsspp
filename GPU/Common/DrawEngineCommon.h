@@ -92,7 +92,7 @@ public:
 
 	virtual void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation);
 
-	bool TestBoundingBox(const void* control_points, int vertexCount, u32 vertType);
+	bool TestBoundingBox(const void *control_points, const void *inds, int vertexCount, u32 vertType);
 
 	void SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead);
 	template<class Surface>
