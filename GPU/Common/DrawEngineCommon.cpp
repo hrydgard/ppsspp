@@ -16,8 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cfloat>
 
 #include "Common/Data/Convert/ColorConv.h"
+#include "Common/Math/lin/matrix4x4.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/LogReporting.h"
 #include "Core/Config.h"
@@ -294,7 +296,34 @@ bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *i
 	// TODO: Create a Matrix4x3ByMatrix4x3, and Matrix4x4ByMatrix4x3?
 	Matrix4ByMatrix4(worldview, world, view);
 	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
-	PlanesFromMatrix(worldviewproj, planes);
+
+	// Next, we need to apply viewport, scissor, region, and even offset - but only for X/Y.
+	// Note that the PSP does not clip against the viewport.
+	const Vec2f baseOffset = Vec2f(gstate.getOffsetX(), gstate.getOffsetY());
+	// Region1 (rate) is used as an X1/Y1 here, matching PSP behavior.
+	Vec2f minOffset = baseOffset + Vec2f(std::max(gstate.getRegionRateX() - 0x100, gstate.getScissorX1()), std::max(gstate.getRegionRateY() - 0x100, gstate.getScissorY1())) - Vec2f(1.0f, 1.0f);
+	Vec2f maxOffset = baseOffset + Vec2f(std::min(gstate.getRegionX2(), gstate.getScissorX2()), std::min(gstate.getRegionY2(), gstate.getScissorY2())) + Vec2f(1.0f, 1.0f);
+
+	// Now let's apply the viewport to our scissor/region + offset range.
+	Vec2f inverseViewportScale = Vec2f(1.0f / gstate.getViewportXScale(), 1.0f / gstate.getViewportYScale());
+	Vec2f minViewport = (minOffset - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
+	Vec2f maxViewport = (maxOffset - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
+
+	Lin::Matrix4x4 applyViewport;
+	applyViewport.empty();
+	// Scale to the viewport's size.
+	applyViewport.xx = 2.0f / (maxViewport.x - minViewport.x);
+	applyViewport.yy = 2.0f / (maxViewport.y - minViewport.y);
+	applyViewport.zz = 1.0f;
+	applyViewport.ww = 1.0f;
+	// And offset to the viewport's centers.
+	applyViewport.wx = -(maxViewport.x + minViewport.x) / (maxViewport.x - minViewport.x);
+	applyViewport.wy = -(maxViewport.y + minViewport.y) / (maxViewport.y - minViewport.y);
+
+	float screenBounds[16];
+	Matrix4ByMatrix4(screenBounds, worldviewproj, applyViewport.m);
+
+	PlanesFromMatrix(screenBounds, planes);
 	// Note: near/far are not checked without clamp/clip enabled, so we skip those planes.
 	int totalPlanes = gstate.isDepthClampEnabled() ? 6 : 4;
 	for (int plane = 0; plane < totalPlanes; plane++) {
@@ -303,15 +332,27 @@ bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *i
 		for (int i = 0; i < vertexCount; i++) {
 			// Here we can test against the frustum planes!
 			float value = planes[plane].Test(verts + i * 3);
-			if (value < 0)
+			if (value <= -FLT_EPSILON)
 				out++;
 			else
 				inside++;
 		}
 
 		if (inside == 0) {
-			// All out
-			return false;
+			// All out - but check for X and Y if the offset was near the cullbox edge.
+			bool outsideEdge = false;
+			if (plane == 1)
+				outsideEdge = minOffset.x < 1.0f;
+			if (plane == 2)
+				outsideEdge = minOffset.y < 1.0f;
+			else if (plane == 0)
+				outsideEdge = maxOffset.x >= 4096.0f;
+			else if (plane == 3)
+				outsideEdge = maxOffset.y >= 4096.0f;
+
+			// Only consider this outside if offset + scissor/region is fully inside the cullbox.
+			if (!outsideEdge)
+				return false;
 		}
 
 		// Any out. For testing that the planes are in the right locations.
