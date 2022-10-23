@@ -293,7 +293,7 @@ int CtrlVertexList::GetRowCount() {
 	DisplayList list;
 	if (gpuDebug->GetCurrentDisplayList(list)) {
 		u32 cmd = Memory::Read_U32(list.pc);
-		if ((cmd >> 24) == GE_CMD_PRIM) {
+		if ((cmd >> 24) == GE_CMD_PRIM || (cmd >> 24) == GE_CMD_BOUNDINGBOX) {
 			rowCount_ = cmd & 0xFFFF;
 		} else if ((cmd >> 24) == GE_CMD_BEZIER || (cmd >> 24) == GE_CMD_SPLINE) {
 			u32 u = (cmd & 0x00FF) >> 0;

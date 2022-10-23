@@ -2153,29 +2153,50 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 
 void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	// Just resetting, nothing to check bounds for.
-	const u32 count = op & 0xFFFFFF;
+	const u32 count = op & 0xFFFF;
 	if (count == 0) {
 		currentList->bboxResult = false;
 		return;
 	}
-	if (((count & 7) == 0) && count <= 64) {  // Sanity check
-		const void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
+
+	// Approximate based on timings of several counts on a PSP.
+	cyclesExecuted += count * 22;
+
+	const bool useInds = (gstate.vertType & GE_VTYPE_IDX_MASK) != 0;
+	VertexDecoder *dec = drawEngineCommon_->GetVertexDecoder(gstate.vertType);
+	int bytesRead = (useInds ? 1 : dec->VertexSize()) * count;
+
+	if (Memory::IsValidRange(gstate_c.vertexAddr, bytesRead)) {
+		const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 		if (!control_points) {
 			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Invalid verts in bounding box check");
 			currentList->bboxResult = true;
 			return;
 		}
 
-		if (gstate.vertType & GE_VTYPE_IDX_MASK) {
-			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Indexed bounding box data not supported.");
-			// Data seems invalid. Let's assume the box test passed.
-			currentList->bboxResult = true;
-			return;
+		const void *inds = nullptr;
+		if (useInds) {
+			int indexShift = ((gstate.vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
+			inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+			if (!inds || !Memory::IsValidRange(gstate_c.indexAddr, count << indexShift)) {
+				ERROR_LOG_REPORT_ONCE(boundingboxInds, G3D, "Invalid inds in bounding box check");
+				currentList->bboxResult = true;
+				return;
+			}
 		}
 
 		// Test if the bounding box is within the drawing region.
-		int bytesRead;
-		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, count, gstate.vertType, &bytesRead);
+		// The PSP only seems to vary the result based on a single range of 0x100.
+		if (count > 0x200) {
+			// The second to last set of 0x100 is checked (even for odd counts.)
+			size_t skipSize = (count - 0x200) * dec->VertexSize();
+			currentList->bboxResult = drawEngineCommon_->TestBoundingBox((const uint8_t *)control_points + skipSize, inds, 0x100, gstate.vertType);
+		} else if (count > 0x100) {
+			int checkSize = count - 0x100;
+			currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, checkSize, gstate.vertType);
+		} else {
+			currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, count, gstate.vertType);
+		}
 		AdvanceVerts(gstate.vertType, count, bytesRead);
 	} else {
 		ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", count);

@@ -16,8 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cfloat>
 
 #include "Common/Data/Convert/ColorConv.h"
+#include "Common/Math/lin/matrix4x4.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/LogReporting.h"
 #include "Core/Config.h"
@@ -244,38 +246,48 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 //
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
 // our clipping planes, we reject the box. Tighter bounds would be desirable but would take more calculations.
-bool DrawEngineCommon::TestBoundingBox(const void* control_points, int vertexCount, u32 vertType, int *bytesRead) {
+bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *inds, int vertexCount, u32 vertType) {
 	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
 	float *verts = (float *)(decoded + 65536 * 18);
 
+	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
+	// Let's always say objects are within bounds.
+	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY))
+		return true;
+
 	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
 	// and a large vertex format.
-	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT) {
+	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT && !inds) {
 		verts = (float *)control_points;
-		*bytesRead = 3 * sizeof(float) * vertexCount;
-	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT) {
+	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT && !inds) {
 		const s8 *vtx = (const s8 *)control_points;
 		for (int i = 0; i < vertexCount * 3; i++) {
 			verts[i] = vtx[i] * (1.0f / 128.0f);
 		}
-		*bytesRead = 3 * sizeof(s8) * vertexCount;
-	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT) {
+	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT && !inds) {
 		const s16 *vtx = (const s16*)control_points;
 		for (int i = 0; i < vertexCount * 3; i++) {
 			verts[i] = vtx[i] * (1.0f / 32768.0f);
 		}
-		*bytesRead = 3 * sizeof(s16) * vertexCount;
 	} else {
-		// Simplify away bones and morph before proceeding
+		// Simplify away indices, bones, and morph before proceeding.
 		u8 *temp_buffer = decoded + 65536 * 24;
 		int vertexSize = 0;
-		NormalizeVertices((u8 *)corners, temp_buffer, (const u8 *)control_points, 0, vertexCount, vertType, &vertexSize);
-		for (int i = 0; i < vertexCount; i++) {
-			verts[i * 3] = corners[i].pos.x;
-			verts[i * 3 + 1] = corners[i].pos.y;
-			verts[i * 3 + 2] = corners[i].pos.z;
+
+		u16 indexLowerBound = 0;
+		u16 indexUpperBound = (u16)vertexCount - 1;
+		if (vertexCount > 0 && inds) {
+			GetIndexBounds(inds, vertexCount, vertType, &indexLowerBound, &indexUpperBound);
 		}
-		*bytesRead = vertexSize * vertexCount;
+
+		NormalizeVertices((u8 *)corners, temp_buffer, (const u8 *)control_points, indexLowerBound, indexUpperBound, vertType);
+
+		IndexConverter conv(vertType, inds);
+		for (int i = 0; i < vertexCount; i++) {
+			verts[i * 3] = corners[conv(i)].pos.x;
+			verts[i * 3 + 1] = corners[conv(i)].pos.y;
+			verts[i * 3 + 2] = corners[conv(i)].pos.z;
+		}
 	}
 
 	Plane planes[6];
@@ -289,22 +301,63 @@ bool DrawEngineCommon::TestBoundingBox(const void* control_points, int vertexCou
 	// TODO: Create a Matrix4x3ByMatrix4x3, and Matrix4x4ByMatrix4x3?
 	Matrix4ByMatrix4(worldview, world, view);
 	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
-	PlanesFromMatrix(worldviewproj, planes);
-	for (int plane = 0; plane < 6; plane++) {
+
+	// Next, we need to apply viewport, scissor, region, and even offset - but only for X/Y.
+	// Note that the PSP does not clip against the viewport.
+	const Vec2f baseOffset = Vec2f(gstate.getOffsetX(), gstate.getOffsetY());
+	// Region1 (rate) is used as an X1/Y1 here, matching PSP behavior.
+	Vec2f minOffset = baseOffset + Vec2f(std::max(gstate.getRegionRateX() - 0x100, gstate.getScissorX1()), std::max(gstate.getRegionRateY() - 0x100, gstate.getScissorY1())) - Vec2f(1.0f, 1.0f);
+	Vec2f maxOffset = baseOffset + Vec2f(std::min(gstate.getRegionX2(), gstate.getScissorX2()), std::min(gstate.getRegionY2(), gstate.getScissorY2())) + Vec2f(1.0f, 1.0f);
+
+	// Now let's apply the viewport to our scissor/region + offset range.
+	Vec2f inverseViewportScale = Vec2f(1.0f / gstate.getViewportXScale(), 1.0f / gstate.getViewportYScale());
+	Vec2f minViewport = (minOffset - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
+	Vec2f maxViewport = (maxOffset - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
+
+	Lin::Matrix4x4 applyViewport;
+	applyViewport.empty();
+	// Scale to the viewport's size.
+	applyViewport.xx = 2.0f / (maxViewport.x - minViewport.x);
+	applyViewport.yy = 2.0f / (maxViewport.y - minViewport.y);
+	applyViewport.zz = 1.0f;
+	applyViewport.ww = 1.0f;
+	// And offset to the viewport's centers.
+	applyViewport.wx = -(maxViewport.x + minViewport.x) / (maxViewport.x - minViewport.x);
+	applyViewport.wy = -(maxViewport.y + minViewport.y) / (maxViewport.y - minViewport.y);
+
+	float screenBounds[16];
+	Matrix4ByMatrix4(screenBounds, worldviewproj, applyViewport.m);
+
+	PlanesFromMatrix(screenBounds, planes);
+	// Note: near/far are not checked without clamp/clip enabled, so we skip those planes.
+	int totalPlanes = gstate.isDepthClampEnabled() ? 6 : 4;
+	for (int plane = 0; plane < totalPlanes; plane++) {
 		int inside = 0;
 		int out = 0;
 		for (int i = 0; i < vertexCount; i++) {
 			// Here we can test against the frustum planes!
 			float value = planes[plane].Test(verts + i * 3);
-			if (value < 0)
+			if (value <= -FLT_EPSILON)
 				out++;
 			else
 				inside++;
 		}
 
 		if (inside == 0) {
-			// All out
-			return false;
+			// All out - but check for X and Y if the offset was near the cullbox edge.
+			bool outsideEdge = false;
+			if (plane == 1)
+				outsideEdge = minOffset.x < 1.0f;
+			if (plane == 2)
+				outsideEdge = minOffset.y < 1.0f;
+			else if (plane == 0)
+				outsideEdge = maxOffset.x >= 4096.0f;
+			else if (plane == 3)
+				outsideEdge = maxOffset.y >= 4096.0f;
+
+			// Only consider this outside if offset + scissor/region is fully inside the cullbox.
+			if (!outsideEdge)
+				return false;
 		}
 
 		// Any out. For testing that the planes are in the right locations.

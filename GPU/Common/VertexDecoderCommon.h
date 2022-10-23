@@ -460,7 +460,8 @@ public:
 
 	bool throughmode;
 	bool skinInDecode;
-	u8 size;
+	// With morph and weights, this can be more than 256 bytes.
+	u16 size;
 	u8 onesize_;
 
 	u8 weightoff;
