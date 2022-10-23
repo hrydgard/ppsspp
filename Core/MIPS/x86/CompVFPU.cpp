@@ -1596,19 +1596,6 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 // MOVSS(fpr.R(sregs[3]), XMM0);
 // On SSE4 we should use EXTRACTPS.
 
-template <typename T>
-static bool Accessible(const T *t1, const T *t2) {
-	ptrdiff_t diff = (const uint8_t *)t1 - (const uint8_t *)t2;
-	return diff > -0x7FFFFFE0 && diff < 0x7FFFFFE0;
-}
-
-template <typename T>
-static OpArg MAccessibleDisp(X64Reg r, const T *tbase, const T *t) {
-	_assert_(Accessible(tbase, t));
-	ptrdiff_t diff = (const uint8_t *)t - (const uint8_t *)tbase;
-	return MDisp(r, (int)diff);
-}
-
 // Translation of ryg's half_to_float5_SSE2
 void Jit::Comp_Vh2f(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);

@@ -278,6 +278,19 @@ inline OpArg MRegSum(X64Reg base, X64Reg offset)
 	return MComplex(base, offset, 1, 0);
 }
 
+template <typename T>
+inline bool Accessible(const T *t1, const T *t2) {
+	ptrdiff_t diff = (const uint8_t *)t1 - (const uint8_t *)t2;
+	return diff > -0x7FFFFFE0 && diff < 0x7FFFFFE0;
+}
+
+template <typename T>
+inline OpArg MAccessibleDisp(X64Reg r, const T *tbase, const T *t) {
+	_assert_(Accessible(tbase, t));
+	ptrdiff_t diff = (const uint8_t *)t - (const uint8_t *)tbase;
+	return MDisp(r, (int)diff);
+}
+
 inline OpArg Imm8 (u8 imm)  {return OpArg(imm, SCALE_IMM8);}
 inline OpArg Imm16(u16 imm) {return OpArg(imm, SCALE_IMM16);} //rarely used
 inline OpArg Imm32(u32 imm) {return OpArg(imm, SCALE_IMM32);}
