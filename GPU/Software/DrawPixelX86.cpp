@@ -31,19 +31,6 @@ using namespace Gen;
 
 namespace Rasterizer {
 
-template <typename T>
-static bool Accessible(const T *t1, const T *t2) {
-	ptrdiff_t diff = (const uint8_t *)t1 - (const uint8_t *)t2;
-	return diff > -0x7FFFFFE0 && diff < 0x7FFFFFE0;
-}
-
-template <typename T>
-static OpArg MAccessibleDisp(X64Reg r, const T *tbase, const T *t) {
-	_assert_(Accessible(tbase, t));
-	ptrdiff_t diff = (const uint8_t *)t - (const uint8_t *)tbase;
-	return MDisp(r, (int)diff);
-}
-
 SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	// Setup the reg cache and disallow spill for arguments.
 	regCache_.SetupABI({
