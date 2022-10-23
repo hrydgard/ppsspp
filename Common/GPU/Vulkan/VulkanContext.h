@@ -252,6 +252,11 @@ public:
 		VkPhysicalDeviceExternalMemoryHostPropertiesEXT externalMemoryHostProperties;
 	};
 
+	struct AllPhysicalDeviceFeatures {
+		VkPhysicalDeviceFeatures standard;
+		VkPhysicalDeviceMultiviewFeatures multiview;
+	};
+
 	const PhysicalDeviceProps &GetPhysicalDeviceProperties(int i = -1) const {
 		if (i < 0)
 			i = GetCurrentPhysicalDeviceIndex();
@@ -276,8 +281,8 @@ public:
 	}
 
 	struct PhysicalDeviceFeatures {
-		VkPhysicalDeviceFeatures available{};
-		VkPhysicalDeviceFeatures enabled{};
+		AllPhysicalDeviceFeatures available{};
+		AllPhysicalDeviceFeatures enabled{};
 	};
 
 	const PhysicalDeviceFeatures &GetDeviceFeatures() const { return deviceFeatures_; }

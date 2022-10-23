@@ -227,7 +227,7 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	features |= GPU_USE_VERTEX_TEXTURE_FETCH;
 	features |= GPU_USE_TEXTURE_FLOAT;
 
-	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled;
+	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled.standard;
 	if (enabledFeatures.depthClamp) {
 		features |= GPU_USE_DEPTH_CLAMP;
 	}
@@ -325,9 +325,9 @@ void GPU_Vulkan::EndHostFrame() {
 void GPU_Vulkan::BuildReportingInfo() {
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	const auto &props = vulkan->GetPhysicalDeviceProperties().properties;
-	const auto &features = vulkan->GetDeviceFeatures().available;
+	const auto &available = vulkan->GetDeviceFeatures().available;
 
-#define CHECK_BOOL_FEATURE(n) do { if (features.n) { featureNames += ", " #n; } } while (false)
+#define CHECK_BOOL_FEATURE(n) do { if (available.standard.n) { featureNames += ", " #n; } } while (false)
 
 	std::string featureNames = "";
 	CHECK_BOOL_FEATURE(robustBufferAccess);

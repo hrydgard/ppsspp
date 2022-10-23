@@ -585,22 +585,32 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	// Optional features
 	if (extensionsLookup_.KHR_get_physical_device_properties2) {
 		VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR};
+		// Add to chain even if not supported, GetPhysicalDeviceFeatures is supposed to ignore unknown structs.
+		VkPhysicalDeviceMultiviewFeatures multiViewFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
+		features2.pNext = &multiViewFeatures;
 		vkGetPhysicalDeviceFeatures2KHR(physical_devices_[physical_device_], &features2);
-		deviceFeatures_.available = features2.features;
+		deviceFeatures_.available.standard = features2.features;
+		deviceFeatures_.available.multiview = multiViewFeatures;
 	} else {
-		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available);
+		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available.standard);
+		deviceFeatures_.available.multiview = {};
 	}
 
 	deviceFeatures_.enabled = {};
 	// Enable a few safe ones if they are available.
-	deviceFeatures_.enabled.dualSrcBlend = deviceFeatures_.available.dualSrcBlend;
-	deviceFeatures_.enabled.logicOp = deviceFeatures_.available.logicOp;
-	deviceFeatures_.enabled.depthClamp = deviceFeatures_.available.depthClamp;
-	deviceFeatures_.enabled.depthBounds = deviceFeatures_.available.depthBounds;
-	deviceFeatures_.enabled.samplerAnisotropy = deviceFeatures_.available.samplerAnisotropy;
-	deviceFeatures_.enabled.shaderClipDistance = deviceFeatures_.available.shaderClipDistance;
-	deviceFeatures_.enabled.shaderCullDistance = deviceFeatures_.available.shaderCullDistance;
-	deviceFeatures_.enabled.geometryShader = deviceFeatures_.available.geometryShader;
+	deviceFeatures_.enabled.standard.dualSrcBlend = deviceFeatures_.available.standard.dualSrcBlend;
+	deviceFeatures_.enabled.standard.logicOp = deviceFeatures_.available.standard.logicOp;
+	deviceFeatures_.enabled.standard.depthClamp = deviceFeatures_.available.standard.depthClamp;
+	deviceFeatures_.enabled.standard.depthBounds = deviceFeatures_.available.standard.depthBounds;
+	deviceFeatures_.enabled.standard.samplerAnisotropy = deviceFeatures_.available.standard.samplerAnisotropy;
+	deviceFeatures_.enabled.standard.shaderClipDistance = deviceFeatures_.available.standard.shaderClipDistance;
+	deviceFeatures_.enabled.standard.shaderCullDistance = deviceFeatures_.available.standard.shaderCullDistance;
+	deviceFeatures_.enabled.standard.geometryShader = deviceFeatures_.available.standard.geometryShader;
+
+	deviceFeatures_.enabled.multiview = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
+	// Don't yet enable these.
+	// deviceFeatures_.enabled.multiview.multiview = deviceFeatures_.available.multiview.multiview;
+	// deviceFeatures_.enabled.multiview.multiviewGeometryShader = deviceFeatures_.available.multiview.multiviewGeometryShader;
 
 	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
 
@@ -671,6 +681,8 @@ VkResult VulkanContext::CreateDevice() {
 	extensionsLookup_.EXT_fragment_shader_interlock = EnableDeviceExtension(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
 	extensionsLookup_.ARM_rasterization_order_attachment_access = EnableDeviceExtension(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME);
 
+	VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+
 	VkDeviceCreateInfo device_info{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	device_info.queueCreateInfoCount = 1;
 	device_info.pQueueCreateInfos = &queue_info;
@@ -678,7 +690,14 @@ VkResult VulkanContext::CreateDevice() {
 	device_info.ppEnabledLayerNames = device_info.enabledLayerCount ? device_layer_names_.data() : nullptr;
 	device_info.enabledExtensionCount = (uint32_t)device_extensions_enabled_.size();
 	device_info.ppEnabledExtensionNames = device_info.enabledExtensionCount ? device_extensions_enabled_.data() : nullptr;
-	device_info.pEnabledFeatures = &deviceFeatures_.enabled;
+
+	if (extensionsLookup_.KHR_get_physical_device_properties2) {
+		device_info.pNext = &features2;
+		features2.features = deviceFeatures_.enabled.standard;
+		features2.pNext = &deviceFeatures_.enabled.multiview;
+	} else {
+		device_info.pEnabledFeatures = &deviceFeatures_.enabled.standard;
+	}
 
 	VkResult res = vkCreateDevice(physical_devices_[physical_device_], &device_info, nullptr, &device_);
 	if (res != VK_SUCCESS) {
