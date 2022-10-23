@@ -33,6 +33,7 @@ struct VaryingDef {
 enum class ShaderWriterFlags {
 	NONE = 0,
 	FS_WRITE_DEPTH = 1,
+	FS_AUTO_STEREO = 2,
 };
 ENUM_CLASS_BITOPS(ShaderWriterFlags);
 
