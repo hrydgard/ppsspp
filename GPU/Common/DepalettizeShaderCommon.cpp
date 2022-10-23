@@ -349,7 +349,7 @@ void GenerateDepalSmoothed(ShaderWriter &writer, const DepalConfig &config) {
 void GenerateDepalFs(ShaderWriter &writer, const DepalConfig &config) {
 	writer.DeclareSamplers(samplers);
 	writer.HighPrecisionFloat();
-	writer.BeginFSMain(config.bufferFormat == GE_FORMAT_DEPTH16 ? g_draw2Duniforms : Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
+	writer.BeginFSMain(config.bufferFormat == GE_FORMAT_DEPTH16 ? g_draw2Duniforms : Slice<UniformDef>::empty(), varyings);
 	if (config.smoothedDepal) {
 		// Handles a limited set of cases, but doesn't need any integer math so we don't
 		// need two variants.
@@ -369,5 +369,5 @@ void GenerateDepalFs(ShaderWriter &writer, const DepalConfig &config) {
 			_assert_msg_(false, "Shader language not supported for depal: %d", (int)writer.Lang().shaderLanguage);
 		}
 	}
-	writer.EndFSMain("outColor", FSFLAG_NONE);
+	writer.EndFSMain("outColor");
 }

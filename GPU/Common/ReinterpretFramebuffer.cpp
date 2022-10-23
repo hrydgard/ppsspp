@@ -161,7 +161,7 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 		}
 	}
 
-	writer.BeginFSMain(g_draw2Duniforms, varyings, FSFLAG_NONE);
+	writer.BeginFSMain(g_draw2Duniforms, varyings);
 
 	if (IsBufferFormat16Bit(from) && IsBufferFormat16Bit(to)) {
 		writer.C("  vec4 val = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
@@ -182,7 +182,7 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 		writer.C("  vec4 outColor = unpackColor(u == 0.0 ? packColor(val.rg) : packColor(val.ba));\n");
 	}
 
-	writer.EndFSMain("outColor", FSFLAG_NONE);
+	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
 		"reinterpret",

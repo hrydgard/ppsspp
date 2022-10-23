@@ -30,15 +30,16 @@ struct VaryingDef {
 	const char *precision;
 };
 
-enum FSFlags {
-	FSFLAG_NONE = 0,
-	FSFLAG_WRITEDEPTH = 1,
+enum class ShaderWriterFlags {
+	NONE = 0,
+	FS_WRITE_DEPTH = 1,
 };
+ENUM_CLASS_BITOPS(ShaderWriterFlags);
 
 class ShaderWriter {
 public:
 	// Extensions are supported for both OpenGL ES and Vulkan (though of course, they're different).
-	ShaderWriter(char *buffer, const ShaderLanguageDesc &lang, ShaderStage stage, Slice<const char *> extensions = Slice<const char *>()) : p_(buffer), lang_(lang), stage_(stage) {
+	ShaderWriter(char *buffer, const ShaderLanguageDesc &lang, ShaderStage stage, Slice<const char *> extensions = Slice<const char *>(), ShaderWriterFlags flags = ShaderWriterFlags::NONE) : p_(buffer), lang_(lang), stage_(stage) {
 		Preamble(extensions);
 	}
 	ShaderWriter(const ShaderWriter &) = delete;
@@ -77,6 +78,7 @@ public:
 	void DeclareSamplers(Slice<SamplerDef> samplers);
 
 	void ConstFloat(const char *name, float value);
+	void SetFlags(ShaderWriterFlags flags) { flags_ |= flags; }
 
 	ShaderWriter &SampleTexture2D(const char *texName, const char *uv);
 	ShaderWriter &SampleTexture2DOffset(const char *texName, const char *uv, int offX, int offY);
@@ -85,12 +87,12 @@ public:
 
 	// Simple shaders with no special tricks.
 	void BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniforms, Slice<VaryingDef> varyings);
-	void BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> varyings, FSFlags flags);
+	void BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> varyings);
 	void BeginGSMain(Slice<VaryingDef> varyings, Slice<VaryingDef> outVaryings);
 
 	// For simple shaders that output a single color, we can deal with this generically.
 	void EndVSMain(Slice<VaryingDef> varyings);
-	void EndFSMain(const char *vec4_color_variable, FSFlags flags);
+	void EndFSMain(const char *vec4_color_variable);
 	void EndGSMain();
 
 	const ShaderLanguageDesc &Lang() const {
@@ -116,4 +118,5 @@ private:
 	char *p_;
 	const ShaderLanguageDesc &lang_;
 	const ShaderStage stage_;
+	ShaderWriterFlags flags_;
 };

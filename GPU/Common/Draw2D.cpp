@@ -59,9 +59,9 @@ const UniformBufferDesc draw2DUBDesc{ sizeof(Draw2DUB), {
 
 Draw2DPipelineInfo GenerateDraw2DCopyColorFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
-	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
+	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
 	writer.C("  vec4 outColor = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
-	writer.EndFSMain("outColor", FSFLAG_NONE);
+	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
 		"draw2d_copy_color",
@@ -72,13 +72,13 @@ Draw2DPipelineInfo GenerateDraw2DCopyColorFs(ShaderWriter &writer) {
 
 Draw2DPipelineInfo GenerateDraw2DCopyColorRect2LinFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
-	writer.BeginFSMain(g_draw2Duniforms, varyings, FSFLAG_NONE);
+	writer.BeginFSMain(g_draw2Duniforms, varyings);
 	writer.C("  vec2 tSize = texSize / scaleFactor;\n");
 	writer.C("  vec2 pixels = v_texcoord * tSize;\n");
 	writer.C("  float u = mod(pixels.x, tSize.x);\n");
 	writer.C("  float v = floor(pixels.x / tSize.x);\n");
 	writer.C("  vec4 outColor = ").SampleTexture2D("tex", "vec2(u, v) / tSize").C(";\n");
-	writer.EndFSMain("outColor", FSFLAG_NONE);
+	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
 		"draw2d_copy_color_rect2lin",
@@ -89,10 +89,11 @@ Draw2DPipelineInfo GenerateDraw2DCopyColorRect2LinFs(ShaderWriter &writer) {
 
 Draw2DPipelineInfo GenerateDraw2DCopyDepthFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
-	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_WRITEDEPTH);
+	writer.SetFlags(ShaderWriterFlags::FS_WRITE_DEPTH);
+	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	writer.C("  gl_FragDepth = ").SampleTexture2D("tex", "v_texcoord.xy").C(".x;\n");
-	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
+	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
 		"draw2d_copy_depth",
@@ -103,7 +104,8 @@ Draw2DPipelineInfo GenerateDraw2DCopyDepthFs(ShaderWriter &writer) {
 
 Draw2DPipelineInfo GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
-	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_WRITEDEPTH);
+	writer.SetFlags(ShaderWriterFlags::FS_WRITE_DEPTH);
+	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
 	// have to apply the scaling.
@@ -111,7 +113,7 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 	writer.C("  vec3 rgb = ").SampleTexture2D("tex", "v_texcoord.xy").C(".xyz;\n");
 	writer.F("  highp float depthValue = (floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0); \n");
 	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale, factors.offset);
-	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
+	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
 		"draw2d_565_to_depth",
@@ -122,7 +124,8 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 
 Draw2DPipelineInfo GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
-	writer.BeginFSMain(g_draw2Duniforms, varyings, FSFLAG_WRITEDEPTH);
+	writer.SetFlags(ShaderWriterFlags::FS_WRITE_DEPTH);
+	writer.BeginFSMain(g_draw2Duniforms, varyings);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
 	// have to apply the scaling.
@@ -136,7 +139,7 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	writer.C("  vec3 rgb = ").SampleTexture2D("tex", "coord").C(".xyz;\n");
 	writer.F("  highp float depthValue = (floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0); \n");
 	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale, factors.offset);
-	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
+	writer.EndFSMain("outColor");
 	
 	return Draw2DPipelineInfo{
 		"draw2d_565_to_depth_deswizzle",
