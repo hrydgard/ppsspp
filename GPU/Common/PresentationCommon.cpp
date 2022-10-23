@@ -699,7 +699,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		}
 	}
 
-	if (isFinalAtOutputResolution) {
+	if (isFinalAtOutputResolution || useStereo) {
 		// In this mode, we ignore the g_display_rot_matrix.  Apply manually.
 		if (g_display_rotation != DisplayRotation::ROTATE_0) {
 			for (int i = 0; i < 4; i++) {
