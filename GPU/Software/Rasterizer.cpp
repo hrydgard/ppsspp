@@ -340,7 +340,7 @@ static inline void CalculateSamplingParams(const float ds, const float dt, float
 	int detail;
 	switch (state.TexLevelMode()) {
 	case GE_TEXLEVEL_MODE_AUTO:
-		detail = TexLog2(std::max(ds * width, dt * height));
+		detail = TexLog2(std::max(std::abs(ds * width), std::abs(dt * height)));
 		break;
 	case GE_TEXLEVEL_MODE_SLOPE:
 		// This is always offset by an extra texlevel.
