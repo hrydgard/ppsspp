@@ -118,5 +118,5 @@ private:
 	char *p_;
 	const ShaderLanguageDesc &lang_;
 	const ShaderStage stage_;
-	ShaderWriterFlags flags_;
+	ShaderWriterFlags flags_ = ShaderWriterFlags::NONE;
 };
