@@ -252,7 +252,7 @@ void ShaderWriter::BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniform
 	}
 }
 
-void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> varyings, FSFlags flags) {
+void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> varyings) {
 	_assert_(this->stage_ == ShaderStage::Fragment);
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
@@ -266,13 +266,13 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 			C("};\n");
 		}
 
-		if (flags & FSFLAG_WRITEDEPTH) {
+		if (flags_ & ShaderWriterFlags::FS_WRITE_DEPTH) {
 			C("float gl_FragDepth;\n");
 		}
 
 		C("struct PS_OUT {\n");
 		C("  vec4 target : SV_Target0;\n");
-		if (flags & FSFLAG_WRITEDEPTH) {
+		if (flags_ & ShaderWriterFlags::FS_WRITE_DEPTH) {
 			C("  float depth : SV_Depth;\n");
 		}
 		C("};\n");
@@ -287,14 +287,14 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 
 		F(") {\n");
 		C("  PS_OUT ps_out;\n");
-		if (flags & FSFLAG_WRITEDEPTH) {
+		if (flags_ & ShaderWriterFlags::FS_WRITE_DEPTH) {
 			C("  float gl_FragDepth;\n");
 		}
 		break;
 	case HLSL_D3D9:
 		C("struct PS_OUT {\n");
 		C("  vec4 target : SV_Target0;\n");
-		if (flags & FSFLAG_WRITEDEPTH) {
+		if (flags_ & ShaderWriterFlags::FS_WRITE_DEPTH) {
 			C("  float depth : DEPTH;\n");
 		}
 		C("};\n");
@@ -312,7 +312,7 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 
 		F(") {\n");
 		C("  PS_OUT ps_out;\n");
-		if (flags & FSFLAG_WRITEDEPTH) {
+		if (flags_ & ShaderWriterFlags::FS_WRITE_DEPTH) {
 			C("  float gl_FragDepth;\n");
 		}
 
@@ -406,13 +406,13 @@ void ShaderWriter::EndVSMain(Slice<VaryingDef> varyings) {
 	C("}\n");
 }
 
-void ShaderWriter::EndFSMain(const char *vec4_color_variable, FSFlags flags) {
+void ShaderWriter::EndFSMain(const char *vec4_color_variable) {
 	_assert_(this->stage_ == ShaderStage::Fragment);
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
 	case HLSL_D3D9:
 		F("  ps_out.target = %s;\n", vec4_color_variable);
-		if (flags & FSFLAG_WRITEDEPTH) {
+		if (flags_ & ShaderWriterFlags::FS_WRITE_DEPTH) {
 			C("  ps_out.depth = gl_FragDepth;\n");
 		}
 		C("  return ps_out;\n");
