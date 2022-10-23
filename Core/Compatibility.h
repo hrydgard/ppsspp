@@ -89,6 +89,7 @@ struct CompatFlags {
 	bool ForceLowerResolutionForEffectsOn;
 	bool AllowDownloadCLUT;
 	bool NearestFilteringOnFramebufferCreate;
+	bool IgnoreEnqueue;
 };
 
 struct VRCompat {
