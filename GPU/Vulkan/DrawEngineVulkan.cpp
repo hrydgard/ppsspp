@@ -582,10 +582,6 @@ void DrawEngineVulkan::DoFlush() {
 	// Always use software for flat shading to fix the provoking index.
 	bool useHWTransform = CanUseHardwareTransform(prim) && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
 
-	VulkanVertexShader *vshader = nullptr;
-	VulkanFragmentShader *fshader = nullptr;
-	VulkanGeometryShader *gshader = nullptr;
-
 	uint32_t ibOffset;
 	uint32_t vbOffset;
 	
@@ -779,6 +775,10 @@ void DrawEngineVulkan::DoFlush() {
 				ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 			}
 
+			VulkanVertexShader *vshader = nullptr;
+			VulkanFragmentShader *fshader = nullptr;
+			VulkanGeometryShader *gshader = nullptr;
+
 			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat);  // usehwtransform
 			if (!vshader) {
 				// We're screwed.
@@ -909,6 +909,11 @@ void DrawEngineVulkan::DoFlush() {
 				if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 					ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 				}
+
+				VulkanVertexShader *vshader = nullptr;
+				VulkanFragmentShader *fshader = nullptr;
+				VulkanGeometryShader *gshader = nullptr;
+
 				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat);  // usehwtransform
 				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
 				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, false, 0);

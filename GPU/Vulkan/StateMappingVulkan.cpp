@@ -365,7 +365,8 @@ void DrawEngineVulkan::BindShaderBlendTex() {
 	// Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
 		if (fboTexBindState_ == FBO_TEX_COPY_BIND_TEX) {
-			bool bindResult = framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY, Draw::ALL_LAYERS);
+			VirtualFramebuffer *curRenderVfb = framebufferManager_->GetCurrentRenderVFB();
+			bool bindResult = framebufferManager_->BindFramebufferAsColorTexture(1, curRenderVfb, BINDFBCOLOR_MAY_COPY, Draw::ALL_LAYERS);
 			_dbg_assert_(bindResult);
 			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE1_IMAGEVIEW);
 			boundSecondaryIsInputAttachment_ = false;
@@ -376,7 +377,7 @@ void DrawEngineVulkan::BindShaderBlendTex() {
 			dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
 		} else if (fboTexBindState_ == FBO_TEX_READ_FRAMEBUFFER) {
 			draw_->BindCurrentFramebufferForColorInput();
-			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW);
+			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_LAYER, (void *)0);
 			boundSecondaryIsInputAttachment_ = true;
 			fboTexBindState_ = FBO_TEX_NONE;
 		} else {

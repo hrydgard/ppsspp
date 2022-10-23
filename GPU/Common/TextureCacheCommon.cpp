@@ -2191,7 +2191,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, depalWidth, framebuffer->renderHeight);
 		draw_->BindTexture(0, nullptr);
 		draw_->BindTexture(1, nullptr);
-		draw_->BindFramebufferAsRenderTarget(depalFBO, Draw::ALL_LAYERS, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
+		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
 		draw_->InvalidateFramebuffer(Draw::FB_INVALIDATION_STORE, Draw::FB_DEPTH_BIT | Draw::FB_STENCIL_BIT);
 		draw_->SetScissorRect(u1, v1, u2 - u1, v2 - v1);
 		Draw::Viewport vp{ 0.0f, 0.0f, (float)depalWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
@@ -2292,7 +2292,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, texWidth, texHeight);
 	draw_->BindTexture(0, nullptr);
 	draw_->BindTexture(1, nullptr);
-	draw_->BindFramebufferAsRenderTarget(depalFBO, 0, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
+	draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
 	draw_->InvalidateFramebuffer(Draw::FB_INVALIDATION_STORE, Draw::FB_DEPTH_BIT | Draw::FB_STENCIL_BIT);
 	draw_->SetScissorRect(u1, v1, u2 - u1, v2 - v1);
 	Draw::Viewport vp{ 0.0f, 0.0f, (float)texWidth, (float)texHeight, 0.0f, 1.0f };

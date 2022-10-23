@@ -204,8 +204,6 @@ enum class TempFBO {
 	BLIT,
 	// For copies of framebuffers (e.g. shader blending.)
 	COPY,
-	// For another type of framebuffers that can happen together with COPY (see Outrun)
-	REINTERPRET,
 	// Used to copy stencil data, means we need a stencil backing.
 	STENCIL,
 };

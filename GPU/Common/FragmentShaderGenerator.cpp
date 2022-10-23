@@ -43,6 +43,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 	errorString->clear();
 
+	bool useStereo = id.Bit(FS_BIT_STEREO);
+
 	bool highpFog = false;
 	bool highpTexcoord = false;
 	bool enableFragmentTestCache = gstate_c.Use(GPU_USE_FRAGMENT_TEST_CACHE);
@@ -58,23 +60,27 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
 
-	std::vector<const char*> gl_exts;
+	std::vector<const char*> extensions;
 	if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
-			gl_exts.push_back("#extension GL_EXT_blend_func_extended : require");
+			extensions.push_back("#extension GL_EXT_blend_func_extended : require");
 		}
 		if (gl_extensions.EXT_gpu_shader4) {
-			gl_exts.push_back("#extension GL_EXT_gpu_shader4 : enable");
+			extensions.push_back("#extension GL_EXT_gpu_shader4 : enable");
 		}
 		if (compat.framebufferFetchExtension) {
-			gl_exts.push_back(compat.framebufferFetchExtension);
+			extensions.push_back(compat.framebufferFetchExtension);
 		}
 		if (gl_extensions.OES_texture_3D && texture3D) {
-			gl_exts.push_back("#extension GL_OES_texture_3D: enable");
+			extensions.push_back("#extension GL_OES_texture_3D: enable");
 		}
+	} 
+
+	if (compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN && useStereo) {
+		extensions.push_back("#extension GL_EXT_multiview : enable");
 	}
 
-	ShaderWriter p(buffer, compat, ShaderStage::Fragment, gl_exts);
+	ShaderWriter p(buffer, compat, ShaderStage::Fragment, extensions);
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
@@ -90,7 +96,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
 
 	bool arrayTexture = id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
-	bool arrayTextureFramebuffer = id.Bit(FS_BIT_FRAMEBUFFER_ARRAY_TEXTURE);
 
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 
@@ -162,9 +167,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		if (readFramebufferTex) {
-			WRITE(p, "layout (binding = 1) uniform sampler2D%s fbotex;\n", arrayTextureFramebuffer ? "array" : "");
+			// The framebuffer texture is always bound as an array.
+			p.C("layout (binding = 1) uniform sampler2DArray fbotex;\n");
 		} else if (fetchFramebuffer) {
-			WRITE(p, "layout (input_attachment_index = 0, binding = 9) uniform subpassInput inputColor;\n");
+			p.C("layout (input_attachment_index = 0, binding = 9) uniform subpassInput inputColor;\n");
 			if (fragmentShaderFlags) {
 				*fragmentShaderFlags |= FragmentShaderFlags::INPUT_ATTACHMENT;
 			}
@@ -517,6 +523,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  vec4 destColor = fbotex.Load(int3((int)gl_FragCoord.x, (int)gl_FragCoord.y, 0));\n");
 		} else if (compat.shaderLanguage == HLSL_D3D9) {
 			WRITE(p, "  vec4 destColor = tex2D(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", compat.texture);
+		} else if (compat.shaderLanguage == GLSL_VULKAN) {
+			WRITE(p, "  lowp vec4 destColor = %s(fbotex, ivec3(gl_FragCoord.x, gl_FragCoord.y, %s), 0);\n", compat.texelFetch, useStereo ? "float(gl_ViewIndex)" : "0");
 		} else if (!compat.texelFetch) {
 			WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", compat.texture);
 		} else {

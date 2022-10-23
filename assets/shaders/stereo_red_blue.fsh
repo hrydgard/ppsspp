@@ -26,8 +26,6 @@ void main() {
 	vec3 leftColor = mix(vec3(leftGray), left, saturation) * red;
 	vec3 rightColor = mix(vec3(rightGray), right, saturation) * blue;
 
-	// TODO: Do something to gamma, maybe?
-
 	gl_FragColor.rgb = leftColor + rightColor;
 	gl_FragColor.a = 1.0;
 }

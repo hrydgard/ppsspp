@@ -175,42 +175,34 @@ void VKRFramebuffer::UpdateTag(const char *newTag) {
 	char name[128];
 	snprintf(name, sizeof(name), "fb_color_%s", tag_.c_str());
 	vulkan_->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, name);
-	vulkan_->SetDebugName(color.imageView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
+	vulkan_->SetDebugName(color.rtView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
 	if (depth.image) {
 		snprintf(name, sizeof(name), "fb_depth_%s", tag_.c_str());
 		vulkan_->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, name);
-		vulkan_->SetDebugName(depth.imageView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
+		vulkan_->SetDebugName(depth.rtView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
 	}
 	for (int rpType = 0; rpType < RP_TYPE_COUNT; rpType++) {
-		for (int i = 0; i < 2; i++) {
-			if (framebuf[rpType][i]) {
-				snprintf(name, sizeof(name), "fb_%s_%d", tag_.c_str(), i);
-				vulkan_->SetDebugName(framebuf[(int)rpType][i], VK_OBJECT_TYPE_FRAMEBUFFER, name);
-			}
+		if (framebuf[rpType]) {
+			snprintf(name, sizeof(name), "fb_%s", tag_.c_str());
+			vulkan_->SetDebugName(framebuf[(int)rpType], VK_OBJECT_TYPE_FRAMEBUFFER, name);
 		}
 	}
 }
 
-VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType, int layer) {
+VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType) {
 	bool multiview = RenderPassTypeHasMultiView(rpType);
-	
-	if (RenderPassTypeHasMultiView(rpType)) {
-		_dbg_assert_(layer == -1);
-		layer = 0;
-	}
 
-	if (framebuf[(int)rpType][layer]) {
-		return framebuf[(int)rpType][layer];
+	if (framebuf[(int)rpType]) {
+		return framebuf[(int)rpType];
 	}
 
 	VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
 	VkImageView views[2]{};
 
 	bool hasDepth = RenderPassTypeHasDepth(rpType);
-	views[0] = (multiview || numLayers == 1) ? color.imageView : color.layerViews[layer];
+	views[0] = color.rtView;  // 2D array texture if multilayered.
 	if (hasDepth) {
-		_dbg_assert_(depth.imageView != VK_NULL_HANDLE);
-		views[1] = (multiview || numLayers == 1) ? depth.imageView : depth.layerViews[layer];
+		views[1] = depth.rtView;
 	}
 	fbci.renderPass = compatibleRenderPass->Get(vulkan_, rpType);
 	fbci.attachmentCount = hasDepth ? 2 : 1;
@@ -219,21 +211,35 @@ VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPas
 	fbci.height = height;
 	fbci.layers = 1;  // With multiview, this should be set as 1.
 
-	VkResult res = vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf[(int)rpType][layer]);
+	VkResult res = vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf[(int)rpType]);
 	_assert_(res == VK_SUCCESS);
 
 	if (!tag_.empty() && vulkan_->Extensions().EXT_debug_utils) {
-		vulkan_->SetDebugName(framebuf[(int)rpType][layer], VK_OBJECT_TYPE_FRAMEBUFFER, StringFromFormat("fb_%s_%d", tag_.c_str(), layer).c_str());
+		vulkan_->SetDebugName(framebuf[(int)rpType], VK_OBJECT_TYPE_FRAMEBUFFER, StringFromFormat("fb_%s", tag_.c_str()).c_str());
 	}
 
-	return framebuf[(int)rpType][layer];
+	return framebuf[(int)rpType];
 }
 
 VKRFramebuffer::~VKRFramebuffer() {
-	if (color.imageView)
-		vulkan_->Delete().QueueDeleteImageView(color.imageView);
-	if (depth.imageView)
-		vulkan_->Delete().QueueDeleteImageView(depth.imageView);
+	// Get rid of the views first, feels cleaner (but in reality doesn't matter).
+	if (color.rtView)
+		vulkan_->Delete().QueueDeleteImageView(color.rtView);
+	if (depth.rtView)
+		vulkan_->Delete().QueueDeleteImageView(depth.rtView);
+	if (color.texAllLayersView)
+		vulkan_->Delete().QueueDeleteImageView(color.texAllLayersView);
+	if (depth.texAllLayersView)
+		vulkan_->Delete().QueueDeleteImageView(depth.texAllLayersView);
+	for (int i = 0; i < 2; i++) {
+		if (color.texLayerViews[i]) {
+			vulkan_->Delete().QueueDeleteImageView(color.texLayerViews[i]);
+		}
+		if (depth.texLayerViews[i]) {
+			vulkan_->Delete().QueueDeleteImageView(depth.texLayerViews[i]);
+		}
+	}
+
 	if (color.image) {
 		_dbg_assert_(color.alloc);
 		vulkan_->Delete().QueueDeleteImageAllocation(color.image, color.alloc);
@@ -242,21 +248,9 @@ VKRFramebuffer::~VKRFramebuffer() {
 		_dbg_assert_(depth.alloc);
 		vulkan_->Delete().QueueDeleteImageAllocation(depth.image, depth.alloc);
 	}
-	if (depth.depthSampleView)
-		vulkan_->Delete().QueueDeleteImageView(depth.depthSampleView);
-	for (int i = 0; i < 2; i++) {
-		if (color.layerViews[i]) {
-			vulkan_->Delete().QueueDeleteImageView(color.layerViews[i]);
-		}
-		if (depth.layerViews[i]) {
-			vulkan_->Delete().QueueDeleteImageView(depth.layerViews[i]);
-		}
-	}
 	for (auto &fb : framebuf) {
-		for (int i = 0; i < 2; i++) {
-			if (fb[i]) {
-				vulkan_->Delete().QueueDeleteFramebuffer(fb[i]);
-			}
+		if (fb) {
+			vulkan_->Delete().QueueDeleteFramebuffer(fb);
 		}
 	}
 }
@@ -301,28 +295,25 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	ivci.subresourceRange.aspectMask = aspects;
 	ivci.subresourceRange.layerCount = numLayers;
 	ivci.subresourceRange.levelCount = 1;
-	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.imageView);
+	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.rtView);
 
 	_dbg_assert_(res == VK_SUCCESS);
 
-	// Separate view for texture sampling that only exposes depth.
+	// Separate view for texture sampling all layers together.
 	if (!color) {
 		ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.depthSampleView);
-		_dbg_assert_(res == VK_SUCCESS);
-	} else {
-		img.depthSampleView = VK_NULL_HANDLE;
 	}
 
-	// Create 2D views for both layers, if layered.
+	ivci.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;  // layered for consistency, even if single image.
+	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.texAllLayersView);
+
+	// Create 2D views for both layers.
 	// Useful when multipassing shaders that don't yet exist in a single-pass-stereo version.
-	if (numLayers == 2) {
+	for (int i = 0; i < numLayers; i++) {
 		ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		ivci.subresourceRange.layerCount = 1;
-		res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.layerViews[0]);
-		_dbg_assert_(res == VK_SUCCESS);
-		ivci.subresourceRange.baseArrayLayer = 1;
-		res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.layerViews[1]);
+		ivci.subresourceRange.baseArrayLayer = i;
+		res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.texLayerViews[i]);
 		_dbg_assert_(res == VK_SUCCESS);
 	}
 
@@ -353,6 +344,7 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	img.layout = initialLayout;
 	img.format = format;
 	img.tag = tag ? tag : "N/A";
+	img.numLayers = numLayers;
 }
 
 VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan)
@@ -751,6 +743,7 @@ void VulkanRenderManager::EndCurRenderStep() {
 		}
 		// Framebuffers can be stereo, and if so, will control the render pass type to match.
 		// Pipelines can be mono and render fine to stereo etc, so not checking them here.
+		// Note that we don't support rendering to just one layer of a multilayer framebuffer!
 		if (curRenderStep_->render.framebuffer->numLayers > 1) {
 			rpType = (RenderPassType)(rpType | RP_TYPE_MULTIVIEW_COLOR);
 		}
@@ -794,7 +787,7 @@ void VulkanRenderManager::BindCurrentFramebufferAsInputAttachment0(VkImageAspect
 	curRenderStep_->commands.push_back(VkRenderData{ VKRRenderCommand::SELF_DEPENDENCY_BARRIER });
 }
 
-void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, int layer, const char *tag) {
+void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
 	_dbg_assert_(insideFrame_);
 	// Eliminate dupes (bind of the framebuffer we already are rendering to), instantly convert to a clear if possible.
 	if (!steps_.empty() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
@@ -833,6 +826,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 				data.clear.clearZ = clearDepth;
 				data.clear.clearStencil = clearStencil;
 				data.clear.clearMask = clearMask;
+				data.clear.numLayers = curRenderStep_->render.framebuffer ? curRenderStep_->render.framebuffer->numLayers : 1;
 				curRenderStep_->commands.push_back(data);
 				curRenderArea_.SetRect(0, 0, curWidth_, curHeight_);
 			}
@@ -875,7 +869,6 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
 	step->render.framebuffer = fb;
-	step->render.layer = layer;
 	step->render.colorLoad = color;
 	step->render.depthLoad = depth;
 	step->render.stencilLoad = stencil;
@@ -1254,10 +1247,10 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 	TransitionRequest rq{ fb, aspectBit, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
 	curRenderStep_->preTransitions.insert(rq);  // Note that insert avoids inserting duplicates.
 
-	if (layer == -1 || (layer == 0 && fb->numLayers == 1)) {
-		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.imageView : fb->depth.depthSampleView;
+	if (layer == -1) {
+		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.texAllLayersView : fb->depth.texAllLayersView;
 	} else {
-		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.layerViews[layer] : fb->depth.layerViews[layer];
+		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.texLayerViews[layer] : fb->depth.texLayerViews[layer];
 	}
 }
 

@@ -531,7 +531,7 @@ public:
 	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) override;
 
 	// These functions should be self explanatory.
-	void BindFramebufferAsRenderTarget(Framebuffer *fbo, int layer, const RenderPassInfo &rp, const char *tag) override;
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) override;
 
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
@@ -1289,8 +1289,7 @@ D3D9Framebuffer::~D3D9Framebuffer() {
 	}
 }
 
-void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, int layer, const RenderPassInfo &rp, const char *tag) {
-	_dbg_assert_(layer == ALL_LAYERS || layer == 0);  // No stereo support
+void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
 	if (fbo) {
 		D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
 		device_->SetRenderTarget(0, fb->surf);

@@ -405,7 +405,7 @@ public:
 	DataFormat PreferredFramebufferReadbackFormat(Framebuffer *src) override;
 
 	// These functions should be self explanatory.
-	void BindFramebufferAsRenderTarget(Framebuffer *fbo, int layer, const RenderPassInfo &rp, const char *tag) override;
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) override;
 	void BindCurrentFramebufferForColorInput() override;
 
@@ -1555,13 +1555,13 @@ DataFormat VKContext::PreferredFramebufferReadbackFormat(Framebuffer *src) {
 	return DrawContext::PreferredFramebufferReadbackFormat(src);
 }
 
-void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, int layer, const RenderPassInfo &rp, const char *tag) {
+void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	VKRRenderPassLoadAction color = (VKRRenderPassLoadAction)rp.color;
 	VKRRenderPassLoadAction depth = (VKRRenderPassLoadAction)rp.depth;
 	VKRRenderPassLoadAction stencil = (VKRRenderPassLoadAction)rp.stencil;
 
-	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->GetFB() : nullptr, color, depth, stencil, rp.clearColor, rp.clearDepth, rp.clearStencil, layer, tag);
+	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->GetFB() : nullptr, color, depth, stencil, rp.clearColor, rp.clearDepth, rp.clearStencil, tag);
 	curFramebuffer_ = fb;
 }
 
@@ -1650,8 +1650,13 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 		return (uint64_t)GetNullTexture()->GetImageView();
 	case NativeObject::TEXTURE_VIEW:
 		return (uint64_t)(((VKTexture *)srcObject)->GetImageView());
-	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW:
-		return (uint64_t)curFramebuffer_->GetFB()->color.imageView;
+	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_ALL_LAYERS:
+		return (uint64_t)curFramebuffer_->GetFB()->color.texAllLayersView;
+	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_LAYER: {
+		size_t layer = (size_t)srcObject;
+		_dbg_assert_(layer < curFramebuffer_->Layers());
+		return (uint64_t)curFramebuffer_->GetFB()->color.texLayerViews[layer];
+	}
 	default:
 		Crash();
 		return 0;

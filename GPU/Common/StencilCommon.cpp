@@ -187,7 +187,7 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 		// Otherwise, we can skip alpha in many cases, in which case we don't even use a shader.
 		if (flags & WriteStencil::IGNORE_ALPHA) {
 			if (dstBuffer->fbo) {
-				draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, 0, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "WriteStencilFromMemory_Clear");
+				draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "WriteStencilFromMemory_Clear");
 			}
 			return true;
 		}
@@ -281,9 +281,9 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 	Draw::Framebuffer *blitFBO = nullptr;
 	if (useBlit) {
 		blitFBO = GetTempFBO(TempFBO::STENCIL, w, h);
-		draw_->BindFramebufferAsRenderTarget(blitFBO, 0, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::CLEAR }, "WriteStencilFromMemory_Blit");
+		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::CLEAR }, "WriteStencilFromMemory_Blit");
 	} else if (dstBuffer->fbo) {
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, 0, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "WriteStencilFromMemory_NoBlit");
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "WriteStencilFromMemory_NoBlit");
 	}
 
 	Draw::Viewport viewport = { 0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f };

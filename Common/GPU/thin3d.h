@@ -241,9 +241,10 @@ enum class NativeObject {
 	BACKBUFFER_DEPTH_TEX,
 	FEATURE_LEVEL,
 	INIT_COMMANDBUFFER,
-	BOUND_TEXTURE0_IMAGEVIEW,
-	BOUND_TEXTURE1_IMAGEVIEW,
-	BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW,
+	BOUND_TEXTURE0_IMAGEVIEW,  // Layer etc depends on how you bound it...
+	BOUND_TEXTURE1_IMAGEVIEW,  // Layer etc depends on how you bound it...
+	BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_ALL_LAYERS,
+	BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_LAYER, // use an int cast to void *srcObject to specify layer.
 	RENDER_MANAGER,
 	TEXTURE_VIEW,
 	NULL_IMAGEVIEW,
@@ -658,7 +659,8 @@ public:
 
 	// These functions should be self explanatory.
 	// Binding a zero render target means binding the backbuffer.
-	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo, int layer, const RenderPassInfo &rp, const char *tag) = 0;
+	// If an fbo has two layers, we bind for stereo rendering ALWAYS. There's no rendering to one layer anymore.
+	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) = 0;
 
 	// binding must be < MAX_TEXTURE_SLOTS (0, 1 are okay if it's 2).
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) = 0;

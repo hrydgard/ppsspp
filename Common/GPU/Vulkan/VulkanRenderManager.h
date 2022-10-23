@@ -29,19 +29,22 @@ struct VKRImage {
 	// These four are "immutable".
 	VkImage image;
 
-	// These are 2D if single layer, 2D_ARRAY if multiple. Need to take that into account when picking
-	// shaders, or use layerViews below and multiple passes to work around it.
-	VkImageView imageView;
-	VkImageView depthSampleView;
+	VkImageView rtView;  // Used for rendering to, and readbacks of stencil. 2D if single layer, 2D_ARRAY if multiple. Includes both depth and stencil if depth/stencil.
+
+	// This is for texturing all layers at once. If aspect is depth/stencil, does not include stencil.
+	VkImageView texAllLayersView;
 
 	// If it's a layered image (for stereo), this is two 2D views of it, to make it compatible with shaders that don't yet support stereo.
-	VkImageView layerViews[2]{};
+	// If there's only one layer, layerViews[0] only is initialized.
+	VkImageView texLayerViews[2]{};
 
 	VmaAllocation alloc;
 	VkFormat format;
 
 	// This one is used by QueueRunner's Perform functions to keep track. CANNOT be used anywhere else due to sync issues.
 	VkImageLayout layout;
+
+	int numLayers;
 
 	// For debugging.
 	std::string tag;
@@ -56,7 +59,7 @@ public:
 	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, bool createDepthStencilBuffer, const char *tag);
 	~VKRFramebuffer();
 
-	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType, int layer);
+	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
 
 	int width = 0;
 	int height = 0;
@@ -74,7 +77,7 @@ public:
 	// TODO: Hide.
 	VulkanContext *vulkan_;
 private:
-	VkFramebuffer framebuf[RP_TYPE_COUNT][2]{};
+	VkFramebuffer framebuf[RP_TYPE_COUNT]{};
 
 	std::string tag_;
 };
@@ -237,10 +240,7 @@ public:
 	//
 	// It can be useful to use GetCurrentStepId() to figure out when you need to send all this state again, if you're
 	// not keeping track of your calls to this function on your own.
-	//
-	// For layer, we use the same convention as thin3d, where layer = -1 means all layers together. For texturing, that means that you
-	// get an array texture view.
-	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, int layer, const char *tag);
+	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag);
 
 	// Returns an ImageView corresponding to a framebuffer. Is called BindFramebufferAsTexture to maintain a similar interface
 	// as the other backends, even though there's no actual binding happening here.

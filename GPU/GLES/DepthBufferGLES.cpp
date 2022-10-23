@@ -204,7 +204,7 @@ bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int
 
 		shaderManager_->DirtyLastShader();
 		auto *blitFBO = GetTempFBO(TempFBO::COPY, fbo->Width(), fbo->Height());
-		draw_->BindFramebufferAsRenderTarget(blitFBO, 0, { RPAction::DONT_CARE, RPAction::DONT_CARE, RPAction::DONT_CARE }, "ReadbackDepthbufferSync");
+		draw_->BindFramebufferAsRenderTarget(blitFBO, { RPAction::DONT_CARE, RPAction::DONT_CARE, RPAction::DONT_CARE }, "ReadbackDepthbufferSync");
 		Draw::Viewport viewport = { 0.0f, 0.0f, (float)fbo->Width(), (float)fbo->Height(), 0.0f, 1.0f };
 		draw_->SetViewports(1, &viewport);
 
@@ -322,7 +322,7 @@ bool FramebufferManagerGLES::ReadbackStencilbufferSync(Draw::Framebuffer *fbo, i
 
 	shaderManager_->DirtyLastShader();
 	auto *blitFBO = GetTempFBO(TempFBO::COPY, fbo->Width(), fbo->Height());
-	draw_->BindFramebufferAsRenderTarget(blitFBO, 0, { RPAction::DONT_CARE, RPAction::DONT_CARE, RPAction::DONT_CARE }, "ReadbackStencilbufferSync");
+	draw_->BindFramebufferAsRenderTarget(blitFBO, { RPAction::DONT_CARE, RPAction::DONT_CARE, RPAction::DONT_CARE }, "ReadbackStencilbufferSync");
 	Draw::Viewport viewport = { 0.0f, 0.0f, (float)fbo->Width(), (float)fbo->Height(), 0.0f, 1.0f };
 	draw_->SetViewports(1, &viewport);
 

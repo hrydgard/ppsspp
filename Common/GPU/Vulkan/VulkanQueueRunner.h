@@ -129,6 +129,7 @@ struct VkRenderData {
 			float clearZ;
 			int clearStencil;
 			int clearMask;   // VK_IMAGE_ASPECT_COLOR_BIT etc
+			int numLayers;
 		} clear;
 		struct {
 			VkViewport vp;
@@ -212,7 +213,6 @@ struct VKRStep {
 			VKRRenderPassStoreAction depthStore;
 			VKRRenderPassStoreAction stencilStore;
 			u8 clearStencil;
-			s8 layer;
 			uint32_t clearColor;
 			float clearDepth;
 			int numDraws;

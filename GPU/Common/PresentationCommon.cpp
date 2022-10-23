@@ -783,7 +783,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 				postShaderFramebuffer = previousFramebuffers_[previousIndex_];
 			}
 
-			draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, 0, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "PostShader");
+			draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "PostShader");
 			performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline);
 		}
 
@@ -804,11 +804,11 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 			previousIndex_ = 0;
 		Draw::Framebuffer *postShaderFramebuffer = previousFramebuffers_[previousIndex_];
 
-		draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, 0, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "InterFrameBlit");
+		draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "InterFrameBlit");
 		performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline);
 	}
 
-	draw_->BindFramebufferAsRenderTarget(nullptr, 0, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "FinalBlit");
+	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "FinalBlit");
 	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 
 	Draw::Pipeline *pipeline = (flags & OutputFlags::RB_SWIZZLE) ? texColorRBSwizzle_ : texColor_;

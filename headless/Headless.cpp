@@ -240,7 +240,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	PSP_EndHostFrame();
 
 	if (draw) {
-		draw->BindFramebufferAsRenderTarget(nullptr, 0, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Headless");
+		draw->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Headless");
 		// Vulkan may get angry if we don't do a final present.
 		if (gpu)
 			gpu->CopyDisplayToOutput(true);
