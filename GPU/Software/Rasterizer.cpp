@@ -303,18 +303,18 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Ve
 	}
 }
 
-static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, int x, int y, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
 	const u8 **tptr0 = const_cast<const u8 **>(&state.texptr[texlevel]);
 	const uint16_t *bufw0 = &state.texbufw[texlevel];
 
 	if (!bilinear) {
-		return state.nearest(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
+		return state.nearest(s, t, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
 	}
-	return state.linear(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
+	return state.linear(s, t, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
 }
 
-static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(float s, float t, int x, int y, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
-	return ApplyTexturing(s, t, ((x & 15) + 1) / 2, ((y & 15) + 1) / 2, prim_color, texlevel, frac_texlevel, bilinear, state);
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(float s, float t, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
+	return ApplyTexturing(s, t, prim_color, texlevel, frac_texlevel, bilinear, state);
 }
 
 // Produces a signed 1.27.4 value.
@@ -377,7 +377,7 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 		filt = state.magFilt;
 }
 
-static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, int x, int y) {
+static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t) {
 	float ds = s[1] - s[0];
 	float dt = t[2] - t[0];
 
@@ -389,7 +389,7 @@ static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_
 	PROFILE_THIS_SCOPE("sampler");
 	for (int i = 0; i < 4; ++i) {
 		if (mask[i] >= 0)
-			prim_color[i] = ApplyTexturing(s[i], t[i], ((x & 15) + 1) / 2, ((y & 15) + 1) / 2, ToVec4IntArg(prim_color[i]), level, levelFrac, bilinear, state);
+			prim_color[i] = ApplyTexturing(s[i], t[i], ToVec4IntArg(prim_color[i]), level, levelFrac, bilinear, state);
 	}
 }
 
@@ -717,7 +717,7 @@ void DrawTriangleSlice(
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 					}
 
-					ApplyTexturing(state, prim_color, mask, s, t, curX, curY);
+					ApplyTexturing(state, prim_color, mask, s, t);
 				}
 
 				if (!clearMode) {
@@ -923,7 +923,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 				s = Vec4<float>::AssignToAll(st.s()) + sto4;
 				t = Vec4<float>::AssignToAll(st.t()) + tto4;
 
-				ApplyTexturing(state, prim_color, mask, s, t, curX, curY);
+				ApplyTexturing(state, prim_color, mask, s, t);
 			}
 
 			if (!state.pixelID.clearMode) {
@@ -1016,7 +1016,7 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 		bool bilinear;
 		CalculateSamplingParams(0.0f, 0.0f, state, texLevel, texLevelFrac, bilinear);
 		PROFILE_THIS_SCOPE("sampler");
-		prim_color = ApplyTexturingSingle(s, t, pos.x, pos.y, ToVec4IntArg(prim_color), texLevel, texLevelFrac, bilinear, state);
+		prim_color = ApplyTexturingSingle(s, t, ToVec4IntArg(prim_color), texLevel, texLevelFrac, bilinear, state);
 	}
 
 	if (!pixelID.clearMode)
@@ -1358,7 +1358,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				}
 
 				PROFILE_THIS_SCOPE("sampler");
-				prim_color = ApplyTexturingSingle(s, t, x, y, ToVec4IntArg(prim_color), texLevel, texLevelFrac, texBilinear, state);
+				prim_color = ApplyTexturingSingle(s, t, ToVec4IntArg(prim_color), texLevel, texLevelFrac, texBilinear, state);
 			}
 
 			if (!pixelID.clearMode)

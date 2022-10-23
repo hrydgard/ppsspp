@@ -245,9 +245,6 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 				}
 			}
 		} else {
-			int xoff = ((v0.screenpos.x & 15) + 1) / 2;
-			int yoff = ((v0.screenpos.y & 15) + 1) / 2;
-
 			float dsf = ds * (1.0f / (float)(1 << state.samplerID.width0Shift));
 			float dtf = dt * (1.0f / (float)(1 << state.samplerID.height0Shift));
 			float sf_start = s_start * (1.0f / (float)(1 << state.samplerID.width0Shift));
@@ -261,7 +258,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 					// Not really that fast but faster than triangle.
 					for (int x = pos0.x; x < pos1.x; x++) {
 						if (CheckDepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
-							Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(c0), &texptr, &texbufw, 0, 0, state.samplerID);
+							Vec4<int> prim_color = state.nearest(s, t, ToVec4IntArg(c0), &texptr, &texbufw, 0, 0, state.samplerID);
 							state.drawPixel(x, y, z, fog, ToVec4IntArg(prim_color), pixelID);
 						}
 
@@ -274,7 +271,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 					float s = sf_start;
 					// Not really that fast but faster than triangle.
 					for (int x = pos0.x; x < pos1.x; x++) {
-						Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(c0), &texptr, &texbufw, 0, 0, state.samplerID);
+						Vec4<int> prim_color = state.nearest(s, t, ToVec4IntArg(c0), &texptr, &texbufw, 0, 0, state.samplerID);
 						state.drawPixel(x, y, z, fog, ToVec4IntArg(prim_color), pixelID);
 						s += dsf;
 					}
