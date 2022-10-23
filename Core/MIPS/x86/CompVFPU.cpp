@@ -1596,6 +1596,19 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 // MOVSS(fpr.R(sregs[3]), XMM0);
 // On SSE4 we should use EXTRACTPS.
 
+template <typename T>
+static bool Accessible(const T *t1, const T *t2) {
+	ptrdiff_t diff = (const uint8_t *)t1 - (const uint8_t *)t2;
+	return diff > -0x7FFFFFE0 && diff < 0x7FFFFFE0;
+}
+
+template <typename T>
+static OpArg MAccessibleDisp(X64Reg r, const T *tbase, const T *t) {
+	_assert_(Accessible(tbase, t));
+	ptrdiff_t diff = (const uint8_t *)t - (const uint8_t *)tbase;
+	return MDisp(r, (int)diff);
+}
+
 // Translation of ryg's half_to_float5_SSE2
 void Jit::Comp_Vh2f(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
@@ -1605,13 +1618,25 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 #define SSE_CONST4(name, val) alignas(16) static const u32 name[4] = { (val), (val), (val), (val) }
 
 	SSE_CONST4(mask_nosign,         0x7fff);
+	SSE_CONST4(nan_mantissa,        0x800003ff);
 	SSE_CONST4(magic,               (254 - 15) << 23);
 	SSE_CONST4(was_infnan,          0x7bff);
 	SSE_CONST4(exp_infnan,          255 << 23);
 
-	// TODO: Fix properly
-	if (!RipAccessible(mask_nosign)) {
-		DISABLE;
+	OpArg mask_nosign_arg, nan_mantissa_arg, magic_arg, was_infnan_arg, exp_infnan_arg;
+	if (RipAccessible(mask_nosign)) {
+		mask_nosign_arg = M(&mask_nosign[0]);
+		nan_mantissa_arg = M(&nan_mantissa[0]);
+		magic_arg = M(&magic[0]);
+		was_infnan_arg = M(&was_infnan[0]);
+		exp_infnan_arg = M(&exp_infnan[0]);
+	} else {
+		MOV(PTRBITS, R(TEMPREG), ImmPtr(&mask_nosign[0]));
+		mask_nosign_arg = MAccessibleDisp(TEMPREG, &mask_nosign[0], &mask_nosign[0]);
+		nan_mantissa_arg = MAccessibleDisp(TEMPREG, &mask_nosign[0], &nan_mantissa[0]);
+		magic_arg = MAccessibleDisp(TEMPREG, &mask_nosign[0], &magic[0]);
+		was_infnan_arg = MAccessibleDisp(TEMPREG, &mask_nosign[0], &was_infnan[0]);
+		exp_infnan_arg = MAccessibleDisp(TEMPREG, &mask_nosign[0], &exp_infnan[0]);
 	}
 
 #undef SSE_CONST4
@@ -1649,30 +1674,36 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	// OK, 16 bits in each word.
 	// Let's go. Deep magic here.
 	MOVAPS(XMM1, R(XMM0));
-	ANDPS(XMM0, M(&mask_nosign[0])); // xmm0 = expmant. not rip accessible but bailing above
+	ANDPS(XMM0, mask_nosign_arg); // xmm0 = expmant
 	XORPS(XMM1, R(XMM0));  // xmm1 = justsign = expmant ^ xmm0
 	MOVAPS(tempR, R(XMM0));
-	PCMPGTD(tempR, M(&was_infnan[0]));  // xmm2 = b_wasinfnan. not rip accessible but bailing above
 	PSLLD(XMM0, 13);
-	MULPS(XMM0, M(magic));  /// xmm0 = scaled
+	MULPS(XMM0, magic_arg);  /// xmm0 = scaled
 	PSLLD(XMM1, 16);  // xmm1 = sign
-	ANDPS(tempR, M(&exp_infnan[0])); // not rip accessible but bailing above
-	ORPS(XMM1, R(tempR));
 	ORPS(XMM0, R(XMM1));
+
+	// Now create a NAN mask, adding in the sign.
+	ORPS(XMM1, R(tempR)); // xmm1 = sign + original mantissa.
+	ANDPS(XMM1, nan_mantissa_arg); // xmm1 = original mantissa
+	PCMPGTD(tempR, was_infnan_arg);  // xmm2 = b_wasinfnan
+	ORPS(XMM1, exp_infnan_arg); // xmm1 = infnan result
+	ANDPS(XMM1, R(tempR)); // xmm1 = infnan result OR zero if not infnan
+	ANDNPS(tempR, R(XMM0)); // tempR = result OR zero if infnan
+	ORPS(XMM1, R(tempR));
 
 	fpr.MapRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);  
 
 	// TODO: Could apply D-prefix in parallel here...
 
-	MOVSS(fpr.V(dregs[0]), XMM0);
-	SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
-	MOVSS(fpr.V(dregs[1]), XMM0);
+	MOVSS(fpr.V(dregs[0]), XMM1);
+	SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(3, 3, 2, 1));
+	MOVSS(fpr.V(dregs[1]), XMM1);
 
 	if (sz != V_Single) {
-		SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
-		MOVSS(fpr.V(dregs[2]), XMM0);
-		SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
-		MOVSS(fpr.V(dregs[3]), XMM0);
+		SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(3, 3, 2, 1));
+		MOVSS(fpr.V(dregs[2]), XMM1);
+		SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(3, 3, 2, 1));
+		MOVSS(fpr.V(dregs[3]), XMM1);
 	}
 
 	ApplyPrefixD(dregs, outsize);
