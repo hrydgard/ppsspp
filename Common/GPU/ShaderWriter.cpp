@@ -456,34 +456,35 @@ void ShaderWriter::ConstFloat(const char *name, float value) {
 
 void ShaderWriter::DeclareSamplers(Slice<SamplerDef> samplers) {
 	for (int i = 0; i < (int)samplers.size(); i++) {
-		DeclareTexture2D(samplers[i].name, i);
-		DeclareSampler2D(samplers[i].name, i);
+		DeclareTexture2D(samplers[i]);
+		DeclareSampler2D(samplers[i]);
 	}
+	samplerDefs_ = samplers;
 }
 
-void ShaderWriter::DeclareTexture2D(const char *name, int binding) {
+void ShaderWriter::DeclareTexture2D(const SamplerDef &def) {
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
-		F("Texture2D<float4> %s : register(t%d);\n", name, binding);
+		F("Texture2D<float4> %s : register(t%d);\n", def.name, def.binding);
 		break;
 	case HLSL_D3D9:
-		F("sampler %s: register(s%d);\n", name, binding);
+		F("sampler %s: register(s%d);\n", def.name, def.binding);
 		break;
 	case GLSL_VULKAN:
 		// In the thin3d descriptor set layout, textures start at 1 in set 0. Hence the +1.
-		F("layout(set = 0, binding = %d) uniform sampler2D %s;\n", binding + 1, name);
+		F("layout(set = 0, binding = %d) uniform sampler2D %s;\n", def.binding + texBindingBase_, def.name);
 		break;
 	default:
-		F("uniform sampler2D %s;\n", name);
+		F("uniform sampler2D %s;\n", def.name);
 		break;
 	}
 }
 
-void ShaderWriter::DeclareSampler2D(const char *name, int binding) {
+void ShaderWriter::DeclareSampler2D(const SamplerDef &def) {
 	// We only use separate samplers in HLSL D3D11, where we have no choice.
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
-		F("SamplerState %sSamp : register(s%d);\n", name, binding);
+		F("SamplerState %sSamp : register(s%d);\n", def.name, def.binding);
 		break;
 	default:
 		break;
@@ -554,4 +555,13 @@ ShaderWriter &ShaderWriter::GetTextureSize(const char *szVariable, const char *t
 		break;
 	}
 	return *this;
+}
+
+const SamplerDef *ShaderWriter::GetSamplerDef(const char *name) const {
+	for (int i = 0; i < (int)samplerDefs_.size(); i++) {
+		if (!strcmp(samplerDefs_[i].name, name)) {
+			return &samplerDefs_[i];
+		}
+	}
+	return nullptr;
 }

@@ -34,8 +34,8 @@ static const VaryingDef varyings[1] = {
 };
 
 static const SamplerDef samplers[2] = {
-	{ "tex" },
-	{ "pal" },
+	{ 0, "tex" },
+	{ 1, "pal" },
 };
 
 TextureShaderCache::TextureShaderCache(Draw::DrawContext *draw, Draw2D *draw2D) : draw_(draw), draw2D_(draw2D) { }

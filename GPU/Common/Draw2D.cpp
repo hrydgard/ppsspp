@@ -37,7 +37,7 @@ static const VaryingDef varyings[1] = {
 };
 
 static const SamplerDef samplers[1] = {
-	{ "tex" },
+	{ 0, "tex" },
 };
 
 const UniformDef g_draw2Duniforms[2] = {

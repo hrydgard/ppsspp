@@ -75,10 +75,12 @@ public:
 	void HighPrecisionFloat();
 	void LowPrecisionFloat();
 
+	// NOTE: samplers must live for the rest of ShaderWriter's lifetime. No way to express that in C++ though :(
 	void DeclareSamplers(Slice<SamplerDef> samplers);
 
 	void ConstFloat(const char *name, float value);
 	void SetFlags(ShaderWriterFlags flags) { flags_ |= flags; }
+	void SetTexBindingBase(int base) { texBindingBase_ = base; }
 
 	ShaderWriter &SampleTexture2D(const char *texName, const char *uv);
 	ShaderWriter &SampleTexture2DOffset(const char *texName, const char *uv, int offX, int offY);
@@ -110,8 +112,9 @@ public:
 
 private:
 	// Several of the shader languages ignore samplers, beware of that.
-	void DeclareSampler2D(const char *name, int binding);
-	void DeclareTexture2D(const char *name, int binding);
+	void DeclareSampler2D(const SamplerDef &def);
+	void DeclareTexture2D(const SamplerDef &def);
+	const SamplerDef *GetSamplerDef(const char *name) const;
 
 	void Preamble(Slice<const char *> extensions);
 
@@ -119,4 +122,6 @@ private:
 	const ShaderLanguageDesc &lang_;
 	const ShaderStage stage_;
 	ShaderWriterFlags flags_ = ShaderWriterFlags::NONE;
+	Slice<SamplerDef> samplerDefs_;
+	int texBindingBase_ = 1;
 };

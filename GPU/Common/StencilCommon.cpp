@@ -80,7 +80,7 @@ static const VaryingDef varyings[1] = {
 };
 
 static const SamplerDef samplers[1] = {
-	{ "tex" },
+	{ 0, "tex" },
 };
 
 void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw::Bugs &bugs) {
