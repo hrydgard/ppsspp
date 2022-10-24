@@ -94,6 +94,7 @@ struct UniformDef {
 struct SamplerDef {
 	int binding;  // Might only be used by some backends.
 	const char *name;
+	bool array;
 	// TODO: Might need unsigned samplers, 3d samplers, or other types in the future.
 };
 

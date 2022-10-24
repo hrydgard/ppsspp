@@ -33,7 +33,7 @@ struct VaryingDef {
 enum class ShaderWriterFlags {
 	NONE = 0,
 	FS_WRITE_DEPTH = 1,
-	FS_AUTO_STEREO = 2,
+	FS_AUTO_STEREO = 2,  // Automatically makes sampler 0 an array sampler, and samples it by gl_ViewIndex. Useful for stereo rendering.
 };
 ENUM_CLASS_BITOPS(ShaderWriterFlags);
 
@@ -119,9 +119,12 @@ private:
 
 	void Preamble(Slice<const char *> extensions);
 
+	const SamplerDef *GetSamplerDef(const char *name) const;
+
 	char *p_;
 	const ShaderLanguageDesc &lang_;
 	const ShaderStage stage_;
+	Slice<SamplerDef> samplers_;
 	ShaderWriterFlags flags_ = ShaderWriterFlags::NONE;
 	Slice<SamplerDef> samplerDefs_;
 	int texBindingBase_ = 1;

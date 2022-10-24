@@ -96,6 +96,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
 
 	bool arrayTexture = id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
+	if (texture3D && arrayTexture) {
+		*errorString = "Invalid combination of 3D texture and array texture, shouldn't happen";
+		return false;
+	}
 
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 
@@ -156,6 +160,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
+	// Currently only used by Vulkan.
+	std::vector<SamplerDef> samplers;
+
 	if (compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN) {
 		if (useDiscardStencilBugWorkaround && !gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
 			WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
@@ -163,7 +170,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseUBO {\n%s};\n", ub_baseStr);
 		if (doTexture) {
-			WRITE(p, "layout (binding = 0) uniform %s%s tex;\n", texture3D ? "sampler3D" : "sampler2D", arrayTexture ? "array" : "");
+			WRITE(p, "layout (binding = 0) uniform %s%s tex;\n", texture3D ? "sampler3D" : "sampler2D", arrayTexture ? "Array" : "");
 		}
 
 		if (readFramebufferTex) {
@@ -638,6 +645,15 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 							WRITE(p, "  vec4 t = %sProj(tex, vec4(%s.xy, u_mipBias, %s.z));\n", compat.texture3D, texcoord, texcoord);
 						} else {
 							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, u_mipBias));\n", compat.texture3D, texcoord);
+						}
+					} else if (arrayTexture) {
+						// Used for stereo rendering.
+						if (doTextureProjection) {
+							if (doTextureProjection) {
+								WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord);
+							} else {
+								WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
+							}
 						}
 					} else {
 						if (doTextureProjection) {
