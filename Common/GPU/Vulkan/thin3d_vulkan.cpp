@@ -526,9 +526,9 @@ private:
 		MAX_FRAME_COMMAND_BUFFERS = 256,
 	};
 	AutoRef<VKTexture> boundTextures_[MAX_BOUND_TEXTURES];
-	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES];
 	AutoRef<VKSamplerState> boundSamplers_[MAX_BOUND_TEXTURES];
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
+	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES];
 
 	struct FrameData {
 		FrameData() : descriptorPool("VKContext", false) {
@@ -1310,6 +1310,7 @@ void VKContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset,
 void VKContext::BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) {
 	_assert_(start + count <= MAX_BOUND_TEXTURES);
 	for (int i = start; i < start + count; i++) {
+		_dbg_assert_(i >= 0 && i < MAX_BOUND_TEXTURES);
 		boundTextures_[i] = static_cast<VKTexture *>(textures[i - start]);
 		boundTextureFlags_[i] = flags;
 		if (boundTextures_[i]) {
@@ -1326,6 +1327,7 @@ void VKContext::BindTextures(int start, int count, Texture **textures, TextureBi
 }
 
 void VKContext::BindNativeTexture(int sampler, void *nativeTexture) {
+	_dbg_assert_(sampler >= 0 && sampler < MAX_BOUND_TEXTURES);
 	boundTextures_[sampler] = nullptr;
 	boundImageView_[sampler] = (VkImageView)nativeTexture;
 }
@@ -1587,8 +1589,12 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 }
 
 void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) {
+	if (layer != ALL_LAYERS) {
+		layer = layer;
+	}
+
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
-	_assert_(binding < MAX_BOUND_TEXTURES);
+	_assert_(binding >= 0 && binding < MAX_BOUND_TEXTURES);
 
 	// TODO: There are cases where this is okay, actually. But requires layout transitions and stuff -
 	// we're not ready for this.
@@ -1607,7 +1613,7 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 		break;
 	}
 
-	boundTextures_[binding] = nullptr;
+	boundTextures_[binding].clear();
 	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, layer);
 }
 

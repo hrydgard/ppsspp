@@ -397,6 +397,16 @@ struct AutoRef {
 	operator T *() {
 		return ptr;
 	}
+	operator bool() const {
+		return ptr != nullptr;
+	}
+
+	void clear() {
+		if (ptr) {
+			ptr->Release();
+			ptr = nullptr;
+		}
+	}
 
 	T *ptr = nullptr;
 };

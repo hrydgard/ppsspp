@@ -184,6 +184,7 @@ void Draw2D::Ensure2DResources() {
 		char *vsCode = new char[8192];
 		ShaderWriterFlags flags = ShaderWriterFlags::NONE;
 		if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
+			// Hm, we're compiling the vertex shader here, probably don't need this...
 			flags = ShaderWriterFlags::FS_AUTO_STEREO;
 		}
 		ShaderWriter writer(vsCode, shaderLanguageDesc, ShaderStage::Vertex);
@@ -224,7 +225,11 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 
 	char *fsCode = new char[8192];
-	ShaderWriter writer(fsCode, shaderLanguageDesc, ShaderStage::Fragment);
+	ShaderWriterFlags flags = ShaderWriterFlags::NONE;
+	if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
+		flags = ShaderWriterFlags::FS_AUTO_STEREO;
+	}
+	ShaderWriter writer(fsCode, shaderLanguageDesc, ShaderStage::Fragment, Slice<const char *>::empty(), flags);
 	Draw2DPipelineInfo info = generate(writer);
 	_assert_msg_(strlen(fsCode) < 8192, "Draw2D FS length error: %d", (int)strlen(fsCode));
 

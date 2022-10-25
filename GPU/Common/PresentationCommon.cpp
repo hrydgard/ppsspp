@@ -596,7 +596,7 @@ bool PresentationCommon::BindSource(int binding, bool bindStereo) {
 				draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, Draw::ALL_LAYERS);
 				return true;
 			} else {
-				// Single layer
+				// Single layer. This might be from a post shader and those don't yet support stereo.
 				draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, 0);
 				return false;
 			}

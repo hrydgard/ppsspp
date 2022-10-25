@@ -846,6 +846,6 @@ std::string TextureCacheVulkan::DebugGetSamplerString(std::string id, DebugShade
 }
 
 void *TextureCacheVulkan::GetNativeTextureView(const TexCacheEntry *entry) {
-	VkImageView view = entry->vkTex->GetImageView();
+	VkImageView view = entry->vkTex->GetImageArrayView();
 	return (void *)view;
 }
