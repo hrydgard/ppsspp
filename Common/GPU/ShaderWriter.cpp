@@ -465,6 +465,10 @@ void ShaderWriter::DeclareSamplers(Slice<SamplerDef> samplers) {
 	samplerDefs_ = samplers;
 }
 
+void ShaderWriter::ApplySamplerMetadata(Slice<SamplerDef> samplers) {
+	samplerDefs_ = samplers;
+}
+
 void ShaderWriter::DeclareTexture2D(const SamplerDef &def) {
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
@@ -535,7 +539,7 @@ ShaderWriter &ShaderWriter::SampleTexture2DOffset(const char *sampName, const ch
 		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
 		if (samp && (samp->flags & SamplerFlags::ARRAY_ON_VULKAN)) {
 			const char *index = (flags_ & ShaderWriterFlags::FS_AUTO_STEREO) ? "float(gl_ViewIndex)" : "0.0";
-			F("%sOffset(%s, vec3(%s, %s), ivec3(%d, %d))", lang_.texture, sampName, uv, index, offX, offY);
+			F("%sOffset(%s, vec3(%s, %s), ivec2(%d, %d))", lang_.texture, sampName, uv, index, offX, offY);
 		} else {
 			F("%sOffset(%s, %s, ivec2(%d, %d))", lang_.texture, sampName, uv, offX, offY);
 		}

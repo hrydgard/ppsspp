@@ -36,6 +36,19 @@
 
 #define WRITE(p, ...) p.F(__VA_ARGS__)
 
+// This is only used in stereo mode, so okay to declare "tex" as ARRAY_ON_
+static const SamplerDef samplersMono[3] = {
+	{ 0, "tex" },
+	{ 1, "fbotex", SamplerFlags::ARRAY_ON_VULKAN },
+	{ 2, "pal" },
+};
+
+static const SamplerDef samplersStereo[3] = {
+	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN },
+	{ 1, "fbotex", SamplerFlags::ARRAY_ON_VULKAN },
+	{ 2, "pal" },
+};
+
 bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, FragmentShaderFlags *fragmentShaderFlags, std::string *errorString) {
 	*uniformMask = 0;
 	if (fragmentShaderFlags) {
@@ -44,7 +57,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	errorString->clear();
 
 	bool useStereo = id.Bit(FS_BIT_STEREO);
-
 	bool highpFog = false;
 	bool highpTexcoord = false;
 	bool enableFragmentTestCache = gstate_c.Use(GPU_USE_FRAGMENT_TEST_CACHE);
@@ -80,7 +92,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		extensions.push_back("#extension GL_EXT_multiview : enable");
 	}
 
-	ShaderWriter p(buffer, compat, ShaderStage::Fragment, extensions);
+	ShaderWriterFlags flags = ShaderWriterFlags::NONE;
+	if (useStereo) {
+		flags |= ShaderWriterFlags::FS_AUTO_STEREO;
+	}
+
+	ShaderWriter p(buffer, compat, ShaderStage::Fragment, extensions, flags);
+	p.ApplySamplerMetadata(useStereo ? samplersStereo : samplersMono);
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);

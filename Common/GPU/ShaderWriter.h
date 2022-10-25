@@ -40,7 +40,7 @@ ENUM_CLASS_BITOPS(ShaderWriterFlags);
 class ShaderWriter {
 public:
 	// Extensions are supported for both OpenGL ES and Vulkan (though of course, they're different).
-	ShaderWriter(char *buffer, const ShaderLanguageDesc &lang, ShaderStage stage, Slice<const char *> extensions = Slice<const char *>(), ShaderWriterFlags flags = ShaderWriterFlags::NONE) : p_(buffer), lang_(lang), stage_(stage) {
+	ShaderWriter(char *buffer, const ShaderLanguageDesc &lang, ShaderStage stage, Slice<const char *> extensions = Slice<const char *>(), ShaderWriterFlags flags = ShaderWriterFlags::NONE) : p_(buffer), lang_(lang), stage_(stage), flags_(flags) {
 		Preamble(extensions);
 	}
 	ShaderWriter(const ShaderWriter &) = delete;
@@ -78,6 +78,10 @@ public:
 
 	// NOTE: samplers must live for the rest of ShaderWriter's lifetime. No way to express that in C++ though :(
 	void DeclareSamplers(Slice<SamplerDef> samplers);
+
+	// Same as DeclareSamplers, but doesn't actually declare them.
+	// This is currently only required by FragmentShaderGenerator.
+	void ApplySamplerMetadata(Slice<SamplerDef> samplers);
 
 	void ConstFloat(const char *name, float value);
 	void SetFlags(ShaderWriterFlags flags) { flags_ |= flags; }
