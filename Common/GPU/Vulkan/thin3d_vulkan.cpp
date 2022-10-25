@@ -338,10 +338,16 @@ public:
 		if (vkTex_) {
 			vkTex_->Touch();
 			return vkTex_->GetImageView();
-		} else {
-			// This would be bad.
-			return VK_NULL_HANDLE;
 		}
+		return VK_NULL_HANDLE;  // This would be bad.
+	}
+
+	VkImageView GetImageArrayView() {
+		if (vkTex_) {
+			vkTex_->Touch();
+			return vkTex_->GetImageArrayView();
+		}
+		return VK_NULL_HANDLE;  // This would be bad.
 	}
 
 private:
@@ -417,7 +423,7 @@ public:
 	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **state) override;
-	void BindTextures(int start, int count, Texture **textures) override;
+	void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) override;
 	void BindNativeTexture(int sampler, void *nativeTexture) override;
 
 	void BindPipeline(Pipeline *pipeline) override {
@@ -520,6 +526,7 @@ private:
 		MAX_FRAME_COMMAND_BUFFERS = 256,
 	};
 	AutoRef<VKTexture> boundTextures_[MAX_BOUND_TEXTURES];
+	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES];
 	AutoRef<VKSamplerState> boundSamplers_[MAX_BOUND_TEXTURES];
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
 
@@ -994,7 +1001,11 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
 
 	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
-		key.imageViews_[i] = boundTextures_[i] ? boundTextures_[i]->GetImageView() : boundImageView_[i];
+		if (boundTextures_[i]) {
+			key.imageViews_[i] = (boundTextureFlags_[i] & TextureBindFlags::VULKAN_BIND_ARRAY) ? boundTextures_[i]->GetImageArrayView() : boundTextures_[i]->GetImageView();
+		} else {
+			key.imageViews_[i] = boundImageView_[i];
+		}
 		key.samplers_[i] = boundSamplers_[i];
 	}
 	key.buffer_ = buf;
@@ -1296,11 +1307,21 @@ void VKContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset,
 	memcpy(buf->data_ + offset, data, size);
 }
 
-void VKContext::BindTextures(int start, int count, Texture **textures) {
+void VKContext::BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) {
 	_assert_(start + count <= MAX_BOUND_TEXTURES);
 	for (int i = start; i < start + count; i++) {
 		boundTextures_[i] = static_cast<VKTexture *>(textures[i - start]);
-		boundImageView_[i] = boundTextures_[i] ? boundTextures_[i]->GetImageView() : GetNullTexture()->GetImageView();
+		boundTextureFlags_[i] = flags;
+		if (boundTextures_[i]) {
+			// NOTE: These image views are actually not used, it seems - they get overridden in GetOrCreateDescriptorSet
+			if (flags & TextureBindFlags::VULKAN_BIND_ARRAY) {
+				boundImageView_[i] = boundTextures_[i]->GetImageArrayView();
+			} else {
+				boundImageView_[i] = boundTextures_[i]->GetImageView();
+			}
+		} else {
+			boundImageView_[i] = GetNullTexture()->GetImageView();
+		}
 	}
 }
 

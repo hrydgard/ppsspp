@@ -538,7 +538,7 @@ public:
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
-	void BindTextures(int start, int count, Texture **textures) override;
+	void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) override;
 	void BindNativeTexture(int index, void *nativeTexture) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
@@ -912,7 +912,7 @@ Texture *D3D9Context::CreateTexture(const TextureDesc &desc) {
 	return tex;
 }
 
-void D3D9Context::BindTextures(int start, int count, Texture **textures) {
+void D3D9Context::BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) {
 	_assert_(start + count <= MAX_BOUND_TEXTURES);
 	for (int i = start; i < start + count; i++) {
 		D3D9Texture *tex = static_cast<D3D9Texture *>(textures[i - start]);

@@ -465,15 +465,6 @@ void ShaderWriter::DeclareSamplers(Slice<SamplerDef> samplers) {
 	samplerDefs_ = samplers;
 }
 
-const SamplerDef *ShaderWriter::GetSamplerDef(const char *name) const {
-	for (int i = 0; i < (int)samplers_.size(); i++) {
-		if (!strcmp(samplers_[i].name, name)) {
-			return &samplers_[i];
-		}
-	}
-	return nullptr;
-}
-
 void ShaderWriter::DeclareTexture2D(const SamplerDef &def) {
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
@@ -484,7 +475,7 @@ void ShaderWriter::DeclareTexture2D(const SamplerDef &def) {
 		break;
 	case GLSL_VULKAN:
 		// In the thin3d descriptor set layout, textures start at 1 in set 0. Hence the +1.
-		if ((flags_ & ShaderWriterFlags::FS_AUTO_STEREO) && def.array) {
+		if (def.flags & SamplerFlags::ARRAY_ON_VULKAN) {
 			F("layout(set = 0, binding = %d) uniform sampler2DArray %s;\n", def.binding + texBindingBase_, def.name);
 		} else {
 			F("layout(set = 0, binding = %d) uniform sampler2D %s;\n", def.binding + texBindingBase_, def.name);
@@ -518,7 +509,7 @@ ShaderWriter &ShaderWriter::SampleTexture2D(const char *sampName, const char *uv
 		break;
 	default:
 		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
-		if (samp && samp->array) {
+		if (samp && (samp->flags & SamplerFlags::ARRAY_ON_VULKAN)) {
 			const char *index = (flags_ & ShaderWriterFlags::FS_AUTO_STEREO) ? "float(gl_ViewIndex)" : "0.0";
 			F("%s(%s, vec3(%s, %s))", lang_.texture, sampName, uv, index);
 		} else {
@@ -542,7 +533,7 @@ ShaderWriter &ShaderWriter::SampleTexture2DOffset(const char *sampName, const ch
 		break;
 	default:
 		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
-		if (samp->array) {
+		if (samp && (samp->flags & SamplerFlags::ARRAY_ON_VULKAN)) {
 			const char *index = (flags_ & ShaderWriterFlags::FS_AUTO_STEREO) ? "float(gl_ViewIndex)" : "0.0";
 			F("%sOffset(%s, vec3(%s, %s), ivec3(%d, %d))", lang_.texture, sampName, uv, index, offX, offY);
 		} else {
@@ -566,8 +557,9 @@ ShaderWriter &ShaderWriter::LoadTexture2D(const char *sampName, const char *uv, 
 		break;
 	default:
 		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
-		if ((flags_ & ShaderWriterFlags::FS_AUTO_STEREO) && samp->array) {
-			F("texelFetch(%s, %s, %d)", sampName, uv, level);
+		if (samp && (samp->flags & SamplerFlags::ARRAY_ON_VULKAN)) {
+			const char *index = (flags_ & ShaderWriterFlags::FS_AUTO_STEREO) ? "gl_ViewIndex" : "0";
+			F("texelFetch(%s, vec3(%s, %s), %d)", sampName, uv, index, level);
 		} else {
 			F("texelFetch(%s, %s, %d)", sampName, uv, level);
 		}

@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "Common/Common.h"
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Shader.h"
 #include "Common/Data/Collections/Slice.h"
@@ -598,6 +599,12 @@ struct RenderPassInfo {
 
 const int ALL_LAYERS = -1;
 
+enum class TextureBindFlags {
+	NONE = 0,
+	VULKAN_BIND_ARRAY = 1,
+};
+ENUM_CLASS_BITOPS(TextureBindFlags);
+
 class DrawContext {
 public:
 	virtual ~DrawContext();
@@ -688,7 +695,7 @@ public:
 	virtual void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) = 0;
 
 	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
-	virtual void BindTextures(int start, int count, Texture **textures) = 0;
+	virtual void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags = TextureBindFlags::NONE) = 0;
 	virtual void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) = 0;
 	virtual void BindIndexBuffer(Buffer *indexBuffer, int offset) = 0;
 

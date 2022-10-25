@@ -123,6 +123,13 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 		_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
 		return false;
 	}
+
+	// Additionally, create an array view, but only if it's a 2D texture.
+	if (view_info.viewType == VK_IMAGE_VIEW_TYPE_2D) {
+		view_info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+		res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &arrayView_);
+		_assert_(res == VK_SUCCESS);
+	}
 	return true;
 }
 
@@ -244,6 +251,9 @@ VkImageView VulkanTexture::CreateViewForMip(int mip) {
 void VulkanTexture::Destroy() {
 	if (view_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteImageView(view_);
+	}
+	if (arrayView_ != VK_NULL_HANDLE) {
+		vulkan_->Delete().QueueDeleteImageView(arrayView_);
 	}
 	if (image_ != VK_NULL_HANDLE) {
 		_dbg_assert_(allocation_ != VK_NULL_HANDLE);

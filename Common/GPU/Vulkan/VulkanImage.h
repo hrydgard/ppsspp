@@ -51,6 +51,9 @@ public:
 	// Used for sampling, generally.
 	VkImageView GetImageView() const { return view_; }
 
+	// For use with some shaders, we might want to view it as a single entry array for convenience.
+	VkImageView GetImageArrayView() const { return arrayView_; }
+
 	int32_t GetWidth() const { return width_; }
 	int32_t GetHeight() const { return height_; }
 	int32_t GetNumMips() const { return numMips_; }
@@ -62,6 +65,7 @@ private:
 	VulkanContext *vulkan_;
 	VkImage image_ = VK_NULL_HANDLE;
 	VkImageView view_ = VK_NULL_HANDLE;
+	VkImageView arrayView_ = VK_NULL_HANDLE;
 	VmaAllocation allocation_ = VK_NULL_HANDLE;
 
 	int16_t width_ = 0;

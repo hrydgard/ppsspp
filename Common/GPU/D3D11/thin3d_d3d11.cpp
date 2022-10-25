@@ -101,7 +101,7 @@ public:
 
 	void InvalidateCachedState() override;
 
-	void BindTextures(int start, int count, Texture **textures) override;
+	void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) override;
 	void BindNativeTexture(int index, void *nativeTexture) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;
 	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override;
@@ -1381,7 +1381,7 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	return fb;
 }
 
-void D3D11DrawContext::BindTextures(int start, int count, Texture **textures) {
+void D3D11DrawContext::BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) {
 	// Collect the resource views from the textures.
 	ID3D11ShaderResourceView *views[MAX_BOUND_TEXTURES];
 	_assert_(start + count <= ARRAY_SIZE(views));
