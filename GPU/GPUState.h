@@ -562,6 +562,12 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE | (is3D ? DIRTY_MIPBIAS : 0));
 		}
 	}
+	void SetTextureIsArray(bool isArrayTexture) {  // VK only
+		if (arrayTexture != isArrayTexture) {
+			arrayTexture = isArrayTexture;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
 
 	u32 useFlags;
 

@@ -34,7 +34,7 @@ static const VaryingDef varyings[1] = {
 };
 
 static const SamplerDef samplers[2] = {
-	{ 0, "tex" },
+	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN },
 	{ 1, "pal" },
 };
 

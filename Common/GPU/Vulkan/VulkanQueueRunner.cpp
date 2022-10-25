@@ -1444,7 +1444,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	const RenderPassType rpType = step.render.renderPassType;
 
-	for (const auto &c : commands) {
+	for (size_t i = 0; i < commands.size(); i++) {
+		const VkRenderData &c = commands[i];
 		switch (c.cmd) {
 		case VKRRenderCommand::REMOVED:
 			break;

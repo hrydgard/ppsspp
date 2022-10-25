@@ -371,6 +371,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		Unbind();
+		gstate_c.arrayTexture = false;
 		return nullptr;
 	}
 
@@ -528,6 +529,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			gstate_c.curTextureWidth = w;
 			gstate_c.curTextureHeight = h;
 			gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
+			gstate_c.SetTextureIsArray(false);
 			if (rehash) {
 				// Update in case any of these changed.
 				entry->sizeInRAM = (textureBitsPerPixel[texFormat] * bufw * h / 2) / 8;
@@ -636,6 +638,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
 	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
+	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..
 
 	failedTexture_ = false;
 	nextTexture_ = entry;
@@ -1126,6 +1129,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	}
 
 	gstate_c.SetTextureIs3D(false);
+	gstate_c.SetTextureIsArray(true);
 
 	nextNeedsRehash_ = false;
 	nextNeedsChange_ = false;
@@ -2020,11 +2024,13 @@ void TextureCacheCommon::ApplyTexture() {
 		entry->lastFrame = gpuStats.numFlips;
 		gstate_c.SetTextureFullAlpha(false);
 		gstate_c.SetTextureIs3D(false);
+		gstate_c.SetTextureIsArray(false);
 	} else {
 		entry->lastFrame = gpuStats.numFlips;
 		BindTexture(entry);
 		gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
 		gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
+		gstate_c.SetTextureIsArray(false);
 	}
 }
 
@@ -2121,7 +2127,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend in BindAsClutTexture.
 			BindAsClutTexture(clutTexture.texture, smoothedDepal);
 
-			framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET, 0);
+			framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET, Draw::ALL_LAYERS);
 			// Vulkan needs to do some extra work here to pick out the native handle from Draw.
 			BoundFramebufferTexture();
 
@@ -2197,7 +2203,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		Draw::Viewport vp{ 0.0f, 0.0f, (float)depalWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
 		draw_->SetViewports(1, &vp);
 
-		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
+		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, Draw::ALL_LAYERS);
 		draw_->BindTexture(1, clutTexture.texture);
 		Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
 		Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(smoothedDepal);
@@ -2226,7 +2232,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		shaderManager_->DirtyLastShader();
 	} else {
 		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
-		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET, 0);
+		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET, Draw::ALL_LAYERS);
 		BoundFramebufferTexture();
 
 		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
@@ -2331,6 +2337,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 
 	// Since we've drawn using thin3d, might need these.
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
+
 }
 
 void TextureCacheCommon::Clear(bool delete_them) {

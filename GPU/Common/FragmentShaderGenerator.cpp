@@ -648,12 +648,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 						}
 					} else if (arrayTexture) {
 						// Used for stereo rendering.
+						const char *arrayIndex = useStereo ? "float(gl_ViewIndex)" : "0.0";
 						if (doTextureProjection) {
-							if (doTextureProjection) {
-								WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord);
-							} else {
-								WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
-							}
+							WRITE(p, "  vec4 t = %sProj(tex, vec4(%s, %s));\n", compat.texture, texcoord, arrayIndex);
+						} else {
+							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, %s));\n", compat.texture, texcoord, arrayIndex);
 						}
 					} else {
 						if (doTextureProjection) {
