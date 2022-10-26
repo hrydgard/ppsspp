@@ -113,6 +113,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		*errorString = "Invalid combination of 3D texture and array texture, shouldn't happen";
 		return false;
 	}
+	if (compat.shaderLanguage != ShaderLanguage::GLSL_VULKAN && arrayTexture) {
+		*errorString = "We only do array textures for framebuffers in Vulkan.";
+		return false;
+	}
 
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 
@@ -660,6 +664,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, u_mipBias));\n", compat.texture3D, texcoord);
 						}
 					} else if (arrayTexture) {
+						_dbg_assert_(compat.shaderLanguage == GLSL_VULKAN);
 						// Used for stereo rendering.
 						const char *arrayIndex = useStereo ? "float(gl_ViewIndex)" : "0.0";
 						if (doTextureProjection) {
