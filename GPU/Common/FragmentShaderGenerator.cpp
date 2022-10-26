@@ -68,6 +68,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	bool texture3D = id.Bit(FS_BIT_3D_TEXTURE);
+	bool arrayTexture = id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
 
 	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
 
@@ -93,7 +94,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	ShaderWriter p(buffer, compat, ShaderStage::Fragment, extensions, flags);
-	p.ApplySamplerMetadata(useStereo ? samplersStereo : samplersMono);
+	p.ApplySamplerMetadata(arrayTexture ? samplersStereo : samplersMono);
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
@@ -108,7 +109,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
 	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
 
-	bool arrayTexture = id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
 	if (texture3D && arrayTexture) {
 		*errorString = "Invalid combination of 3D texture and array texture, shouldn't happen";
 		return false;

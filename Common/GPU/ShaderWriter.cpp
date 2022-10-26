@@ -513,7 +513,7 @@ ShaderWriter &ShaderWriter::SampleTexture2D(const char *sampName, const char *uv
 		break;
 	default:
 		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
-		if (samp && (samp->flags & SamplerFlags::ARRAY_ON_VULKAN)) {
+		if (samp && (samp->flags & SamplerFlags::ARRAY_ON_VULKAN) && lang_.shaderLanguage == GLSL_VULKAN) {
 			const char *index = (flags_ & ShaderWriterFlags::FS_AUTO_STEREO) ? "float(gl_ViewIndex)" : "0.0";
 			F("%s(%s, vec3(%s, %s))", lang_.texture, sampName, uv, index);
 		} else {
@@ -537,7 +537,7 @@ ShaderWriter &ShaderWriter::SampleTexture2DOffset(const char *sampName, const ch
 		break;
 	default:
 		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
-		if (samp && (samp->flags & SamplerFlags::ARRAY_ON_VULKAN)) {
+		if (samp && (samp->flags & SamplerFlags::ARRAY_ON_VULKAN) && lang_.shaderLanguage == GLSL_VULKAN) {
 			const char *index = (flags_ & ShaderWriterFlags::FS_AUTO_STEREO) ? "float(gl_ViewIndex)" : "0.0";
 			F("%sOffset(%s, vec3(%s, %s), ivec2(%d, %d))", lang_.texture, sampName, uv, index, offX, offY);
 		} else {
@@ -561,7 +561,7 @@ ShaderWriter &ShaderWriter::LoadTexture2D(const char *sampName, const char *uv, 
 		break;
 	default:
 		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
-		if (samp && (samp->flags & SamplerFlags::ARRAY_ON_VULKAN)) {
+		if (samp && (samp->flags & SamplerFlags::ARRAY_ON_VULKAN) && lang_.shaderLanguage == GLSL_VULKAN) {
 			const char *index = (flags_ & ShaderWriterFlags::FS_AUTO_STEREO) ? "gl_ViewIndex" : "0";
 			F("texelFetch(%s, vec3(%s, %s), %d)", sampName, uv, index, level);
 		} else {

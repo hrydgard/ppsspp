@@ -41,6 +41,7 @@ class ShaderWriter {
 public:
 	// Extensions are supported for both OpenGL ES and Vulkan (though of course, they're different).
 	ShaderWriter(char *buffer, const ShaderLanguageDesc &lang, ShaderStage stage, Slice<const char *> extensions = Slice<const char *>(), ShaderWriterFlags flags = ShaderWriterFlags::NONE) : p_(buffer), lang_(lang), stage_(stage), flags_(flags) {
+		buffer[0] = '\0';
 		Preamble(extensions);
 	}
 	ShaderWriter(const ShaderWriter &) = delete;

@@ -28,6 +28,8 @@
 static constexpr size_t CODE_BUFFER_SIZE = 32768;
 
 bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs bugs, std::string *errorString) {
+	buffer[0] = '\0';
+
 	uint64_t uniformMask;
 	switch (lang) {
 	case ShaderLanguage::GLSL_VULKAN:
@@ -61,6 +63,8 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 }
 
 bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs bugs, std::string *errorString) {
+	buffer[0] = '\0';
+
 	uint32_t attrMask;
 	uint64_t uniformMask;
 	switch (lang) {
@@ -95,6 +99,8 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 }
 
 bool GenerateGShader(GShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs bugs, std::string *errorString) {
+	buffer[0] = '\0';
+
 	errorString->clear();
 
 	switch (lang) {

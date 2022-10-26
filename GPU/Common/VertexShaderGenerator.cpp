@@ -158,7 +158,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	bool useSimpleStereo = id.Bit(VS_BIT_SIMPLE_STEREO);
 
-	if (compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN && useSimpleStereo) {
+	if (useSimpleStereo) {
+		if (compat.shaderLanguage != ShaderLanguage::GLSL_VULKAN) {
+			*errorString = "Multiview only supported with Vulkan for now";
+			return false;
+		}
 		extensions.push_back("#extension GL_EXT_multiview : enable");
 	}
 
