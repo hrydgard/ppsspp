@@ -663,7 +663,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 						// Used for stereo rendering.
 						const char *arrayIndex = useStereo ? "float(gl_ViewIndex)" : "0.0";
 						if (doTextureProjection) {
-							WRITE(p, "  vec4 t = %sProj(tex, vec4(%s, %s));\n", compat.texture, texcoord, arrayIndex);
+							// There's no textureProj for array textures, so we need to emulate it.
+							// Should be fine on any Vulkan-compatible hardware.
+							WRITE(p, "  vec2 uv_proj = (%s.xy) / (%s.z);\n", texcoord, texcoord);
+							WRITE(p, "  vec4 t = %s(tex, vec3(uv_proj, %s));\n", compat.texture, texcoord, arrayIndex);
 						} else {
 							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, %s));\n", compat.texture, texcoord, arrayIndex);
 						}
