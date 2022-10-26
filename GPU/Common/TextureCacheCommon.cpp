@@ -371,7 +371,8 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		Unbind();
-		gstate_c.arrayTexture = false;
+		gstate_c.SetTextureIs3D(false);
+		gstate_c.SetTextureIsArray(false);
 		return nullptr;
 	}
 
@@ -2337,7 +2338,6 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 
 	// Since we've drawn using thin3d, might need these.
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
-
 }
 
 void TextureCacheCommon::Clear(bool delete_them) {

@@ -1314,7 +1314,8 @@ void VKContext::BindTextures(int start, int count, Texture **textures, TextureBi
 		boundTextures_[i] = static_cast<VKTexture *>(textures[i - start]);
 		boundTextureFlags_[i] = flags;
 		if (boundTextures_[i]) {
-			// NOTE: These image views are actually not used, it seems - they get overridden in GetOrCreateDescriptorSet
+			// If a texture is bound, we set these up in GetOrCreateDescriptorSet too.
+			// But we might need to set the view here anyway so it can be queried using GetNativeObject.
 			if (flags & TextureBindFlags::VULKAN_BIND_ARRAY) {
 				boundImageView_[i] = boundTextures_[i]->GetImageArrayView();
 			} else {
@@ -1589,10 +1590,6 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 }
 
 void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) {
-	if (layer != ALL_LAYERS) {
-		layer = layer;
-	}
-
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	_assert_(binding >= 0 && binding < MAX_BOUND_TEXTURES);
 

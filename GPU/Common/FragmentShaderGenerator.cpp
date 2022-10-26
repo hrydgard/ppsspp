@@ -36,7 +36,6 @@
 
 #define WRITE(p, ...) p.F(__VA_ARGS__)
 
-// This is only used in stereo mode, so okay to declare "tex" as ARRAY_ON_
 static const SamplerDef samplersMono[3] = {
 	{ 0, "tex" },
 	{ 1, "fbotex", SamplerFlags::ARRAY_ON_VULKAN },
@@ -87,10 +86,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			extensions.push_back("#extension GL_OES_texture_3D: enable");
 		}
 	} 
-
-	if (compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN && useStereo) {
-		extensions.push_back("#extension GL_EXT_multiview : enable");
-	}
 
 	ShaderWriterFlags flags = ShaderWriterFlags::NONE;
 	if (useStereo) {

@@ -478,7 +478,7 @@ void ShaderWriter::DeclareTexture2D(const SamplerDef &def) {
 		F("sampler %s: register(s%d);\n", def.name, def.binding);
 		break;
 	case GLSL_VULKAN:
-		// In the thin3d descriptor set layout, textures start at 1 in set 0. Hence the +1.
+		// texBindingBase_ is used for the thin3d descriptor set layout, where they start at 1.
 		if (def.flags & SamplerFlags::ARRAY_ON_VULKAN) {
 			F("layout(set = 0, binding = %d) uniform sampler2DArray %s;\n", def.binding + texBindingBase_, def.name);
 		} else {
