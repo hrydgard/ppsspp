@@ -123,13 +123,16 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 		_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
 		return false;
 	}
+	vulkan_->SetDebugName(view_, VK_OBJECT_TYPE_IMAGE_VIEW, tag_.c_str());
 
 	// Additionally, create an array view, but only if it's a 2D texture.
 	if (view_info.viewType == VK_IMAGE_VIEW_TYPE_2D) {
 		view_info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 		res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &arrayView_);
 		_assert_(res == VK_SUCCESS);
+		vulkan_->SetDebugName(arrayView_, VK_OBJECT_TYPE_IMAGE_VIEW, tag_.c_str());
 	}
+
 	return true;
 }
 
@@ -244,6 +247,7 @@ VkImageView VulkanTexture::CreateViewForMip(int mip) {
 	view_info.subresourceRange.layerCount = 1;
 	VkImageView view;
 	VkResult res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view);
+	vulkan_->SetDebugName(view, VK_OBJECT_TYPE_IMAGE_VIEW, "mipview");
 	_assert_(res == VK_SUCCESS);
 	return view;
 }

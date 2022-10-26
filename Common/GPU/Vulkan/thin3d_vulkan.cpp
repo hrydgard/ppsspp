@@ -1015,7 +1015,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 		return iter->second;
 	}
 
-	VkDescriptorSet descSet = frame->descriptorPool.Allocate(1, &descriptorSetLayout_);
+	VkDescriptorSet descSet = frame->descriptorPool.Allocate(1, &descriptorSetLayout_, "thin3d_descset");
 	if (descSet == VK_NULL_HANDLE) {
 		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed");
 		return VK_NULL_HANDLE;

@@ -296,6 +296,7 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	ivci.subresourceRange.layerCount = numLayers;
 	ivci.subresourceRange.levelCount = 1;
 	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.rtView);
+	vulkan->SetDebugName(img.rtView, VK_OBJECT_TYPE_IMAGE_VIEW, tag);
 
 	_dbg_assert_(res == VK_SUCCESS);
 
@@ -306,6 +307,7 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 
 	ivci.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;  // layered for consistency, even if single image.
 	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.texAllLayersView);
+	vulkan->SetDebugName(img.texAllLayersView, VK_OBJECT_TYPE_IMAGE_VIEW, tag);
 
 	// Create 2D views for both layers.
 	// Useful when multipassing shaders that don't yet exist in a single-pass-stereo version.
@@ -314,6 +316,11 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 		ivci.subresourceRange.layerCount = 1;
 		ivci.subresourceRange.baseArrayLayer = i;
 		res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.texLayerViews[i]);
+		if (vulkan->DebugLayerEnabled()) {
+			char temp[128];
+			snprintf(temp, sizeof(temp), "%s_layer%d", tag, i);
+			vulkan->SetDebugName(img.texLayerViews[i], VK_OBJECT_TYPE_IMAGE_VIEW, temp);
+		}
 		_dbg_assert_(res == VK_SUCCESS);
 	}
 

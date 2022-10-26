@@ -163,7 +163,7 @@ public:
 	void Create(VulkanContext *vulkan, const VkDescriptorPoolCreateInfo &info, const std::vector<VkDescriptorPoolSize> &sizes);
 	// Allocate a new set, which may resize and empty the current sets.
 	// Use only for the current frame, unless in a cache cleared by clear_.
-	VkDescriptorSet Allocate(int n, const VkDescriptorSetLayout *layouts);
+	VkDescriptorSet Allocate(int n, const VkDescriptorSetLayout *layouts, const char *tag);
 	void Reset();
 	void Destroy();
 

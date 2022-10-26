@@ -404,7 +404,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 
 	// Didn't find one in the frame descriptor set cache, let's make a new one.
 	// We wipe the cache on every frame.
-	VkDescriptorSet desc = frame.descPool.Allocate(1, &descriptorSetLayout_);
+	VkDescriptorSet desc = frame.descPool.Allocate(1, &descriptorSetLayout_, "game_descset");
 
 	// Even in release mode, this is bad.
 	_assert_msg_(desc != VK_NULL_HANDLE, "Ran out of descriptor space in pool. sz=%d", (int)frame.descSets.size());

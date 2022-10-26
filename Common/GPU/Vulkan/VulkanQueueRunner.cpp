@@ -178,6 +178,7 @@ bool VulkanQueueRunner::CreateSwapchain(VkCommandBuffer cmdInit) {
 		// Also, turns out it's illegal to transition un-acquired images, thanks Hans-Kristian. See #11417.
 
 		res = vkCreateImageView(vulkan_->GetDevice(), &color_image_view, nullptr, &sc_buffer.view);
+		vulkan_->SetDebugName(sc_buffer.view, VK_OBJECT_TYPE_IMAGE_VIEW, "swapchain_view");
 		swapchainImages_.push_back(sc_buffer);
 		_dbg_assert_(res == VK_SUCCESS);
 	}
@@ -276,6 +277,7 @@ bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	VkDevice device = vulkan_->GetDevice();
 
 	res = vkCreateImageView(device, &depth_view_info, NULL, &depth_.view);
+	vulkan_->SetDebugName(depth_.view, VK_OBJECT_TYPE_IMAGE_VIEW, "depth_stencil_backbuffer");
 	_dbg_assert_(res == VK_SUCCESS);
 	if (res != VK_SUCCESS)
 		return false;

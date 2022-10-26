@@ -222,6 +222,9 @@ public:
 			SetDebugNameImpl((uint64_t)handle, type, name);
 		}
 	}
+	bool DebugLayerEnabled() const {
+		return extensionsLookup_.EXT_debug_utils;
+	}
 
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
 
