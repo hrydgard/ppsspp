@@ -1629,6 +1629,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		default:
 			ERROR_LOG(G3D, "Unimpl queue command");
+			break;
 		}
 	}
 	vkCmdEndRenderPass(cmd);

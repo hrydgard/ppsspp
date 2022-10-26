@@ -368,12 +368,13 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
 		id.SetBit(FS_BIT_COLOR_WRITEMASK, colorWriteMask);
 
+		// All framebuffers are array textures now.
+		if (gstate_c.arrayTexture) {
+			id.SetBit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
+		}
+
 		// Stereo support
 		if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
-			// All framebuffers are array textures in this mode.
-			if (gstate_c.arrayTexture) {
-				id.SetBit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
-			}
 			id.SetBit(FS_BIT_STEREO);
 		}
 
