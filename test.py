@@ -192,6 +192,7 @@ tests_good = [
   "gpu/textures/mipmap",
   "gpu/textures/rotate",
   "gpu/vertices/colors",
+  "gpu/vertices/morph",
   "gpu/vertices/texcoords",
   "hash/hash",
   "hle/check_not_used_uids",

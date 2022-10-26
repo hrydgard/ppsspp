@@ -1423,8 +1423,8 @@ bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer)
 	return true;
 }
 
-bool SoftGPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices)
-{
+bool SoftGPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+	UpdateUVScaleOffset();
 	return drawEngine_->transformUnit.GetCurrentSimpleVertices(count, vertices, indices);
 }
 
