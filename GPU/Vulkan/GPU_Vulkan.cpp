@@ -340,14 +340,11 @@ void GPU_Vulkan::BuildReportingInfo() {
 	const auto &available = vulkan->GetDeviceFeatures().available;
 
 #define CHECK_BOOL_FEATURE(n) do { if (available.standard.n) { featureNames += ", " #n; } } while (false)
+#define CHECK_BOOL_FEATURE_MULTIVIEW(n) do { if (available.multiview.n) { featureNames += ", " #n; } } while (false)
 
 	std::string featureNames = "";
-	CHECK_BOOL_FEATURE(robustBufferAccess);
 	CHECK_BOOL_FEATURE(fullDrawIndexUint32);
-	CHECK_BOOL_FEATURE(imageCubeArray);
-	CHECK_BOOL_FEATURE(independentBlend);
 	CHECK_BOOL_FEATURE(geometryShader);
-	CHECK_BOOL_FEATURE(tessellationShader);
 	CHECK_BOOL_FEATURE(sampleRateShading);
 	CHECK_BOOL_FEATURE(dualSrcBlend);
 	CHECK_BOOL_FEATURE(logicOp);
@@ -355,46 +352,23 @@ void GPU_Vulkan::BuildReportingInfo() {
 	CHECK_BOOL_FEATURE(drawIndirectFirstInstance);
 	CHECK_BOOL_FEATURE(depthClamp);
 	CHECK_BOOL_FEATURE(depthBiasClamp);
-	CHECK_BOOL_FEATURE(fillModeNonSolid);
 	CHECK_BOOL_FEATURE(depthBounds);
-	CHECK_BOOL_FEATURE(alphaToOne);
-	CHECK_BOOL_FEATURE(multiViewport);
 	CHECK_BOOL_FEATURE(samplerAnisotropy);
 	CHECK_BOOL_FEATURE(textureCompressionETC2);
 	CHECK_BOOL_FEATURE(textureCompressionASTC_LDR);
 	CHECK_BOOL_FEATURE(textureCompressionBC);
 	CHECK_BOOL_FEATURE(occlusionQueryPrecise);
 	CHECK_BOOL_FEATURE(pipelineStatisticsQuery);
-	CHECK_BOOL_FEATURE(vertexPipelineStoresAndAtomics);
 	CHECK_BOOL_FEATURE(fragmentStoresAndAtomics);
 	CHECK_BOOL_FEATURE(shaderTessellationAndGeometryPointSize);
-	CHECK_BOOL_FEATURE(shaderImageGatherExtended);
-	CHECK_BOOL_FEATURE(shaderStorageImageExtendedFormats);
 	CHECK_BOOL_FEATURE(shaderStorageImageMultisample);
-	CHECK_BOOL_FEATURE(shaderStorageImageReadWithoutFormat);
-	CHECK_BOOL_FEATURE(shaderStorageImageWriteWithoutFormat);
-	CHECK_BOOL_FEATURE(shaderUniformBufferArrayDynamicIndexing);
 	CHECK_BOOL_FEATURE(shaderSampledImageArrayDynamicIndexing);
-	CHECK_BOOL_FEATURE(shaderStorageBufferArrayDynamicIndexing);
-	CHECK_BOOL_FEATURE(shaderStorageImageArrayDynamicIndexing);
 	CHECK_BOOL_FEATURE(shaderClipDistance);
 	CHECK_BOOL_FEATURE(shaderCullDistance);
-	CHECK_BOOL_FEATURE(shaderFloat64);
 	CHECK_BOOL_FEATURE(shaderInt64);
 	CHECK_BOOL_FEATURE(shaderInt16);
-	CHECK_BOOL_FEATURE(shaderResourceResidency);
-	CHECK_BOOL_FEATURE(shaderResourceMinLod);
-	CHECK_BOOL_FEATURE(sparseBinding);
-	CHECK_BOOL_FEATURE(sparseResidencyBuffer);
-	CHECK_BOOL_FEATURE(sparseResidencyImage2D);
-	CHECK_BOOL_FEATURE(sparseResidencyImage3D);
-	CHECK_BOOL_FEATURE(sparseResidency2Samples);
-	CHECK_BOOL_FEATURE(sparseResidency4Samples);
-	CHECK_BOOL_FEATURE(sparseResidency8Samples);
-	CHECK_BOOL_FEATURE(sparseResidency16Samples);
-	CHECK_BOOL_FEATURE(sparseResidencyAliased);
-	CHECK_BOOL_FEATURE(variableMultisampleRate);
-	CHECK_BOOL_FEATURE(inheritedQueries);
+	CHECK_BOOL_FEATURE_MULTIVIEW(multiview);
+	CHECK_BOOL_FEATURE_MULTIVIEW(multiviewGeometryShader);
 
 #undef CHECK_BOOL_FEATURE
 
