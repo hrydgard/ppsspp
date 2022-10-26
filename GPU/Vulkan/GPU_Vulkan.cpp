@@ -268,12 +268,13 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
 	}
 
-	if (g_Config.bStereoRendering) {
+	if (g_Config.bStereoRendering && draw_->GetDeviceCaps().multiViewSupported) {
 		features |= GPU_USE_SINGLE_PASS_STEREO;
+		features |= GPU_USE_SIMPLE_STEREO_PERSPECTIVE;
+
 		features &= ~GPU_USE_FRAMEBUFFER_FETCH;  // Need to figure out if this can be supported with multiview rendering
 		if (features & GPU_USE_GS_CULLING) {
 			// Many devices that support stereo and GS don't support GS during stereo.
-			// So we revert back to VS range culling.
 			features &= ~GPU_USE_GS_CULLING;
 			features |= GPU_USE_VS_RANGE_CULLING;
 		}

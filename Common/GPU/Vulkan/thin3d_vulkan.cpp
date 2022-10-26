@@ -785,7 +785,6 @@ VKContext::VKContext(VulkanContext *vulkan)
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.standard.samplerAnisotropy != 0;
 	caps_.geometryShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.geometryShader != 0;
 	caps_.tesselationShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.tessellationShader != 0;
-	caps_.multiViewport = vulkan->GetDeviceFeatures().enabled.standard.multiViewport != 0;
 	caps_.dualSourceBlend = vulkan->GetDeviceFeatures().enabled.standard.dualSrcBlend != 0;
 	caps_.depthClampSupported = vulkan->GetDeviceFeatures().enabled.standard.depthClamp != 0;
 	caps_.clipDistanceSupported = vulkan->GetDeviceFeatures().enabled.standard.shaderClipDistance != 0;
@@ -804,6 +803,7 @@ VKContext::VKContext(VulkanContext *vulkan)
 	caps_.fragmentShaderDepthWriteSupported = true;
 	caps_.blendMinMaxSupported = true;
 	caps_.logicOpSupported = vulkan->GetDeviceFeatures().enabled.standard.logicOp != 0;
+	caps_.multiViewSupported = vulkan->GetDeviceFeatures().enabled.multiview.multiview != 0;
 
 	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDeviceIndex()).properties;
 

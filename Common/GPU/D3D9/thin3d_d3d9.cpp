@@ -746,7 +746,6 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	}
 
 	caps_.deviceID = identifier_.DeviceId;
-	caps_.multiViewport = false;
 	caps_.depthRangeMinusOneToOne = false;
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 	caps_.dualSourceBlend = false;

@@ -34,6 +34,7 @@
 #include "Core/HW/Display.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/PresentationCommon.h"
+#include "GPU/GPUState.h"
 #include "Common/GPU/ShaderTranslation.h"
 
 struct Vertex {
@@ -230,7 +231,7 @@ static std::string ReadShaderSrc(const Path &filename) {
 bool PresentationCommon::UpdatePostShader() {
 	DestroyStereoShader();
 
-	if (g_Config.bStereoRendering) {
+	if (gstate_c.Use(GPU_USE_SIMPLE_STEREO_PERSPECTIVE)) {
 		const ShaderInfo *stereoShaderInfo = GetPostShaderInfo(g_Config.sStereoToMonoShader);
 		bool result = CompilePostShader(stereoShaderInfo, &stereoPipeline_);
 		if (!result) {
@@ -622,7 +623,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	// This should auto-disable usePostShader_ and call ShowPostShaderError().
 
 	bool useNearest = flags & OutputFlags::NEAREST;
-	bool useStereo = g_Config.bStereoRendering && stereoPipeline_ != nullptr;  // TODO: Also check that the backend has support for it.
+	bool useStereo = gstate_c.Use(GPU_USE_SIMPLE_STEREO_PERSPECTIVE) && stereoPipeline_ != nullptr;  // TODO: Also check that the backend has support for it.
 
 	const bool usePostShader = usePostShader_ && !useStereo && !(flags & OutputFlags::RB_SWIZZLE);
 	const bool isFinalAtOutputResolution = usePostShader && postShaderFramebuffers_.size() < postShaderPipelines_.size();

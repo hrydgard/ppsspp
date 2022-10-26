@@ -548,7 +548,6 @@ struct DeviceCaps {
 	bool depthRangeMinusOneToOne;  // OpenGL style depth
 	bool geometryShaderSupported;
 	bool tesselationShaderSupported;
-	bool multiViewport;
 	bool dualSourceBlend;
 	bool logicOpSupported;
 	bool depthClampSupported;
@@ -567,6 +566,7 @@ struct DeviceCaps {
 	bool fragmentShaderDepthWriteSupported;
 	bool textureDepthSupported;
 	bool blendMinMaxSupported;
+	bool multiViewSupported;
 
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
