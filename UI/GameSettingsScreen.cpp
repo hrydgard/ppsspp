@@ -350,17 +350,18 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Postprocessing effect")));
 
-	enableStereo_ = g_Config.bStereoRendering && draw->GetDeviceCaps().multiViewSupported;
+	bool multiViewSupported = draw->GetDeviceCaps().multiViewSupported;
+
+	auto enableStereo = [=]() -> bool {
+		return g_Config.bStereoRendering && multiViewSupported;
+	};
 
 	if (draw->GetDeviceCaps().multiViewSupported) {
-		graphicsSettings->Add(new CheckBox(&g_Config.bStereoRendering, gr->T("Stereo rendering")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
-			enableStereo_ = g_Config.bStereoRendering && draw->GetDeviceCaps().multiViewSupported;
-			return UI::EVENT_DONE;
-		});
+		graphicsSettings->Add(new CheckBox(&g_Config.bStereoRendering, gr->T("Stereo rendering")));
 		std::vector<std::string> stereoShaderNames;
 
 		ChoiceWithValueDisplay *stereoShaderChoice = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sStereoToMonoShader, "Stereo display shader", &PostShaderTranslateName));
-		stereoShaderChoice->SetEnabledPtr(&enableStereo_);
+		stereoShaderChoice->SetEnabledFunc(enableStereo);
 		stereoShaderChoice->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory("Graphics");
 			auto procScreen = new PostProcScreen(gr->T("Stereo display shader"), 0, true);
@@ -377,7 +378,7 @@ void GameSettingsScreen::CreateViews() {
 					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
 					PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
 					settingValue->SetEnabledFunc([&] {
-						return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && enableStereo_;
+						return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && enableStereo();
 					});
 				}
 			}
@@ -399,7 +400,7 @@ void GameSettingsScreen::CreateViews() {
 			return UI::EVENT_DONE;
 		});
 		postProcChoice_->SetEnabledFunc([&] {
-			return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !enableStereo_;
+			return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !enableStereo();
 		});
 
 		// No need for settings on the last one.
@@ -422,7 +423,7 @@ void GameSettingsScreen::CreateViews() {
 					} else {
 						PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
 						settingValue->SetEnabledFunc([&] {
-							return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !enableStereo_;
+							return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !enableStereo();
 						});
 					}
 				}
