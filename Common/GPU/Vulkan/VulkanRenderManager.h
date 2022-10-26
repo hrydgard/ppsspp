@@ -270,15 +270,6 @@ public:
 		compileMutex_.unlock();
 	}
 
-	// We always pass in desc set 0 directly in draw commands. This is used only to bind higher descriptor sets.
-	void BindDescriptorSet(int index, const VkDescriptorSet descSet) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
-		VkRenderData data{ VKRRenderCommand::BIND_DESCRIPTOR_SET };
-		data.bindDescSet.setIndex = index;
-		data.bindDescSet.descSet = descSet;
-		curRenderStep_->commands.push_back(data);
-	}
-
 	void BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);

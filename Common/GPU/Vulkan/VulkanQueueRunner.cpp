@@ -1583,17 +1583,13 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			vkCmdDraw(cmd, c.draw.count, 1, c.draw.offset, 0);
 			break;
 
-		case VKRRenderCommand::BIND_DESCRIPTOR_SET:
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, c.bindDescSet.setIndex, 1, &c.bindDescSet.descSet, 0, nullptr);
-			break;
-
 		case VKRRenderCommand::CLEAR:
 		{
 			// If we get here, we failed to merge a clear into a render pass load op. This is bad for perf.
 			int numAttachments = 0;
 			VkClearRect rc{};
 			rc.baseArrayLayer = 0;
-			rc.layerCount = c.clear.numLayers;
+			rc.layerCount = 1;  // In multiview mode, 1 means to replicate to all the active layers.
 			rc.rect.extent.width = (uint32_t)curWidth;
 			rc.rect.extent.height = (uint32_t)curHeight;
 			VkClearAttachment attachments[2]{};

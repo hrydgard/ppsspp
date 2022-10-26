@@ -833,7 +833,6 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 				data.clear.clearZ = clearDepth;
 				data.clear.clearStencil = clearStencil;
 				data.clear.clearMask = clearMask;
-				data.clear.numLayers = curRenderStep_->render.framebuffer ? curRenderStep_->render.framebuffer->numLayers : 1;
 				curRenderStep_->commands.push_back(data);
 				curRenderArea_.SetRect(0, 0, curWidth_, curHeight_);
 			}

@@ -37,7 +37,6 @@ enum class VKRRenderCommand : uint8_t {
 	DRAW,
 	DRAW_INDEXED,
 	PUSH_CONSTANTS,
-	BIND_DESCRIPTOR_SET,
 	SELF_DEPENDENCY_BARRIER,
 	DEBUG_ANNOTATION,
 	NUM_RENDER_COMMANDS,
@@ -129,7 +128,6 @@ struct VkRenderData {
 			float clearZ;
 			int clearStencil;
 			int clearMask;   // VK_IMAGE_ASPECT_COLOR_BIT etc
-			int numLayers;
 		} clear;
 		struct {
 			VkViewport vp;
@@ -154,10 +152,6 @@ struct VkRenderData {
 		struct {
 			const char *annotation;
 		} debugAnnotation;
-		struct {
-			uint32_t setIndex;
-			VkDescriptorSet descSet;
-		} bindDescSet;
 	};
 };
 

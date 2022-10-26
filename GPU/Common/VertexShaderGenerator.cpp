@@ -1351,7 +1351,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  }\n");
 	}
 
-	if (useSimpleStereo) {
+	if (useSimpleStereo && useHWTransform) {
 		p.C("  float zFactor = 0.2 * float(gl_ViewIndex * 2 - 1);\n");
 		p.C("  float zFocus = 0.0;\n");
 		p.C("  gl_Position.x += (-gl_Position.z - zFocus) * zFactor;\n");
