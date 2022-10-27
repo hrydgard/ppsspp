@@ -28,6 +28,8 @@
 static constexpr size_t CODE_BUFFER_SIZE = 32768;
 
 bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs bugs, std::string *errorString) {
+	buffer[0] = '\0';
+
 	uint64_t uniformMask;
 	switch (lang) {
 	case ShaderLanguage::GLSL_VULKAN:
@@ -61,33 +63,35 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 }
 
 bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs bugs, std::string *errorString) {
+	buffer[0] = '\0';
+
 	uint32_t attrMask;
 	uint64_t uniformMask;
 	switch (lang) {
 	case ShaderLanguage::GLSL_VULKAN:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_VULKAN);
-		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, errorString);
+		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, nullptr, errorString);
 	}
 	case ShaderLanguage::GLSL_1xx:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
-		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, errorString);
+		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, nullptr, errorString);
 	}
 	case ShaderLanguage::GLSL_3xx:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_3xx);
-		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, errorString);
+		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, nullptr, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D9);
-		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, errorString);
+		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, nullptr, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D11:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D11);
-		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, errorString);
+		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, nullptr, errorString);
 	}
 	default:
 		return false;
@@ -95,6 +99,8 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 }
 
 bool GenerateGShader(GShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs bugs, std::string *errorString) {
+	buffer[0] = '\0';
+
 	errorString->clear();
 
 	switch (lang) {

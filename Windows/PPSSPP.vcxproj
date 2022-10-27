@@ -1498,6 +1498,7 @@
     <None Include="..\android\jni\Locals.mk" />
     <None Include="..\appveyor.yml" />
     <None Include="..\assets\compat.ini" />
+    <None Include="..\assets\compatvr.ini" />
     <None Include="..\assets\knownfuncs.ini" />
     <None Include="..\assets\langregion.ini" />
     <None Include="..\atlasscript.txt" />

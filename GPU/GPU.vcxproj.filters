@@ -534,5 +534,11 @@
     <None Include="..\assets\shaders\defaultshaders.ini">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="..\assets\shaders\stereo_red_blue.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\stereo_sbs.fsh">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

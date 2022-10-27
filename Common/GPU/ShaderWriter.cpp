@@ -114,6 +114,9 @@ void ShaderWriter::Preamble(Slice<const char *> extensions) {
 	switch (lang_.shaderLanguage) {
 	case GLSL_VULKAN:
 		C("#version 450\n");
+		if (flags_ & ShaderWriterFlags::FS_AUTO_STEREO) {
+			C("#extension GL_EXT_multiview : enable\n");
+		}
 		// IMPORTANT! Extensions must be the first thing after #version.
 		for (size_t i = 0; i < extensions.size(); i++) {
 			F("%s\n", extensions[i]);
@@ -462,6 +465,10 @@ void ShaderWriter::DeclareSamplers(Slice<SamplerDef> samplers) {
 	samplerDefs_ = samplers;
 }
 
+void ShaderWriter::ApplySamplerMetadata(Slice<SamplerDef> samplers) {
+	samplerDefs_ = samplers;
+}
+
 void ShaderWriter::DeclareTexture2D(const SamplerDef &def) {
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
@@ -471,8 +478,12 @@ void ShaderWriter::DeclareTexture2D(const SamplerDef &def) {
 		F("sampler %s: register(s%d);\n", def.name, def.binding);
 		break;
 	case GLSL_VULKAN:
-		// In the thin3d descriptor set layout, textures start at 1 in set 0. Hence the +1.
-		F("layout(set = 0, binding = %d) uniform sampler2D %s;\n", def.binding + texBindingBase_, def.name);
+		// texBindingBase_ is used for the thin3d descriptor set layout, where they start at 1.
+		if (def.flags & SamplerFlags::ARRAY_ON_VULKAN) {
+			F("layout(set = 0, binding = %d) uniform sampler2DArray %s;\n", def.binding + texBindingBase_, def.name);
+		} else {
+			F("layout(set = 0, binding = %d) uniform sampler2D %s;\n", def.binding + texBindingBase_, def.name);
+		}
 		break;
 	default:
 		F("uniform sampler2D %s;\n", def.name);
@@ -492,6 +503,7 @@ void ShaderWriter::DeclareSampler2D(const SamplerDef &def) {
 }
 
 ShaderWriter &ShaderWriter::SampleTexture2D(const char *sampName, const char *uv) {
+	const SamplerDef *samp = GetSamplerDef(sampName);
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
 		F("%s.Sample(%sSamp, %s)", sampName, sampName, uv);
@@ -501,13 +513,20 @@ ShaderWriter &ShaderWriter::SampleTexture2D(const char *sampName, const char *uv
 		break;
 	default:
 		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
-		F("%s(%s, %s)", lang_.texture, sampName, uv);
+		if (samp && (samp->flags & SamplerFlags::ARRAY_ON_VULKAN) && lang_.shaderLanguage == GLSL_VULKAN) {
+			const char *index = (flags_ & ShaderWriterFlags::FS_AUTO_STEREO) ? "float(gl_ViewIndex)" : "0.0";
+			F("%s(%s, vec3(%s, %s))", lang_.texture, sampName, uv, index);
+		} else {
+			F("%s(%s, %s)", lang_.texture, sampName, uv);
+		}
 		break;
 	}
 	return *this;
 }
 
 ShaderWriter &ShaderWriter::SampleTexture2DOffset(const char *sampName, const char *uv, int offX, int offY) {
+	const SamplerDef *samp = GetSamplerDef(sampName);
+
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
 		F("%s.Sample(%sSamp, %s, int2(%d, %d))", sampName, sampName, uv, offX, offY);
@@ -518,13 +537,20 @@ ShaderWriter &ShaderWriter::SampleTexture2DOffset(const char *sampName, const ch
 		break;
 	default:
 		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
-		F("%sOffset(%s, %s, ivec2(%d, %d))", lang_.texture, sampName, uv, offX, offY);
+		if (samp && (samp->flags & SamplerFlags::ARRAY_ON_VULKAN) && lang_.shaderLanguage == GLSL_VULKAN) {
+			const char *index = (flags_ & ShaderWriterFlags::FS_AUTO_STEREO) ? "float(gl_ViewIndex)" : "0.0";
+			F("%sOffset(%s, vec3(%s, %s), ivec2(%d, %d))", lang_.texture, sampName, uv, index, offX, offY);
+		} else {
+			F("%sOffset(%s, %s, ivec2(%d, %d))", lang_.texture, sampName, uv, offX, offY);
+		}
 		break;
 	}
 	return *this;
 }
 
 ShaderWriter &ShaderWriter::LoadTexture2D(const char *sampName, const char *uv, int level) {
+	const SamplerDef *samp = GetSamplerDef(sampName);
+
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
 		F("%s.Load(ivec3(%s, %d))", sampName, uv, level);
@@ -535,7 +561,12 @@ ShaderWriter &ShaderWriter::LoadTexture2D(const char *sampName, const char *uv, 
 		break;
 	default:
 		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
-		F("texelFetch(%s, %s, %d)", sampName, uv, level);
+		if (samp && (samp->flags & SamplerFlags::ARRAY_ON_VULKAN) && lang_.shaderLanguage == GLSL_VULKAN) {
+			const char *index = (flags_ & ShaderWriterFlags::FS_AUTO_STEREO) ? "gl_ViewIndex" : "0";
+			F("texelFetch(%s, vec3(%s, %s), %d)", sampName, uv, index, level);
+		} else {
+			F("texelFetch(%s, %s, %d)", sampName, uv, level);
+		}
 		break;
 	}
 	return *this;

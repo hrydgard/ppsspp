@@ -14,14 +14,13 @@ static const VaryingDef varyings[1] = {
 };
 
 static const SamplerDef samplers[1] = {
-	{ 0, "tex" }
+	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN }
 };
 
 // Requires full size integer math. It would be possible to make a floating point-only version with lots of
 // modulo and stuff, might do it one day.
 Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBufferFormat from, GEBufferFormat to) {
 	writer.HighPrecisionFloat();
-
 	writer.DeclareSamplers(samplers);
 
 	if (writer.Lang().bitwiseOps) {

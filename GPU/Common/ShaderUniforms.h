@@ -131,6 +131,16 @@ static const char * const ub_vs_bonesStr =
 R"(	mat3x4 u_bone0; mat3x4 u_bone1; mat3x4 u_bone2; mat3x4 u_bone3; mat3x4 u_bone4; mat3x4 u_bone5; mat3x4 u_bone6; mat3x4 u_bone7; mat3x4 u_bone8;
 )";
 
+
+static const char * const ub_frame_globalstr =
+R"( vec4 unused;
+)";
+
+// VR stuff will go here.
+struct UB_FrameGlobal {
+	float unused[4];
+};
+
 void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bool hasNegZ);
 
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport, bool useBufferedRendering);

@@ -270,6 +270,7 @@ public:
 	}
 
 	void SetDynamicUniformData(const void *data, size_t size) {
+		_dbg_assert_(size <= uboSize_);
 		memcpy(ubo_, data, size);
 	}
 
@@ -337,10 +338,16 @@ public:
 		if (vkTex_) {
 			vkTex_->Touch();
 			return vkTex_->GetImageView();
-		} else {
-			// This would be bad.
-			return VK_NULL_HANDLE;
 		}
+		return VK_NULL_HANDLE;  // This would be bad.
+	}
+
+	VkImageView GetImageArrayView() {
+		if (vkTex_) {
+			vkTex_->Touch();
+			return vkTex_->GetImageArrayView();
+		}
+		return VK_NULL_HANDLE;  // This would be bad.
 	}
 
 private:
@@ -405,10 +412,7 @@ public:
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	Framebuffer *GetCurrentRenderTarget() override {
-		return (Framebuffer *)curFramebuffer_.ptr;
-	}
-	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit) override;
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) override;
 	void BindCurrentFramebufferForColorInput() override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
@@ -419,7 +423,7 @@ public:
 	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **state) override;
-	void BindTextures(int start, int count, Texture **textures) override;
+	void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) override;
 	void BindNativeTexture(int sampler, void *nativeTexture) override;
 
 	void BindPipeline(Pipeline *pipeline) override {
@@ -524,6 +528,7 @@ private:
 	AutoRef<VKTexture> boundTextures_[MAX_BOUND_TEXTURES];
 	AutoRef<VKSamplerState> boundSamplers_[MAX_BOUND_TEXTURES];
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
+	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES];
 
 	struct FrameData {
 		FrameData() : descriptorPool("VKContext", false) {
@@ -780,7 +785,6 @@ VKContext::VKContext(VulkanContext *vulkan)
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.standard.samplerAnisotropy != 0;
 	caps_.geometryShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.geometryShader != 0;
 	caps_.tesselationShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.tessellationShader != 0;
-	caps_.multiViewport = vulkan->GetDeviceFeatures().enabled.standard.multiViewport != 0;
 	caps_.dualSourceBlend = vulkan->GetDeviceFeatures().enabled.standard.dualSrcBlend != 0;
 	caps_.depthClampSupported = vulkan->GetDeviceFeatures().enabled.standard.depthClamp != 0;
 	caps_.clipDistanceSupported = vulkan->GetDeviceFeatures().enabled.standard.shaderClipDistance != 0;
@@ -799,6 +803,7 @@ VKContext::VKContext(VulkanContext *vulkan)
 	caps_.fragmentShaderDepthWriteSupported = true;
 	caps_.blendMinMaxSupported = true;
 	caps_.logicOpSupported = vulkan->GetDeviceFeatures().enabled.standard.logicOp != 0;
+	caps_.multiViewSupported = vulkan->GetDeviceFeatures().enabled.multiview.multiview != 0;
 
 	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDeviceIndex()).properties;
 
@@ -996,7 +1001,11 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
 
 	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
-		key.imageViews_[i] = boundTextures_[i] ? boundTextures_[i]->GetImageView() : boundImageView_[i];
+		if (boundTextures_[i]) {
+			key.imageViews_[i] = (boundTextureFlags_[i] & TextureBindFlags::VULKAN_BIND_ARRAY) ? boundTextures_[i]->GetImageArrayView() : boundTextures_[i]->GetImageView();
+		} else {
+			key.imageViews_[i] = boundImageView_[i];
+		}
 		key.samplers_[i] = boundSamplers_[i];
 	}
 	key.buffer_ = buf;
@@ -1006,7 +1015,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 		return iter->second;
 	}
 
-	VkDescriptorSet descSet = frame->descriptorPool.Allocate(1, &descriptorSetLayout_);
+	VkDescriptorSet descSet = frame->descriptorPool.Allocate(1, &descriptorSetLayout_, "thin3d_descset");
 	if (descSet == VK_NULL_HANDLE) {
 		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed");
 		return VK_NULL_HANDLE;
@@ -1298,15 +1307,28 @@ void VKContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset,
 	memcpy(buf->data_ + offset, data, size);
 }
 
-void VKContext::BindTextures(int start, int count, Texture **textures) {
+void VKContext::BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) {
 	_assert_(start + count <= MAX_BOUND_TEXTURES);
 	for (int i = start; i < start + count; i++) {
+		_dbg_assert_(i >= 0 && i < MAX_BOUND_TEXTURES);
 		boundTextures_[i] = static_cast<VKTexture *>(textures[i - start]);
-		boundImageView_[i] = boundTextures_[i] ? boundTextures_[i]->GetImageView() : GetNullTexture()->GetImageView();
+		boundTextureFlags_[i] = flags;
+		if (boundTextures_[i]) {
+			// If a texture is bound, we set these up in GetOrCreateDescriptorSet too.
+			// But we might need to set the view here anyway so it can be queried using GetNativeObject.
+			if (flags & TextureBindFlags::VULKAN_BIND_ARRAY) {
+				boundImageView_[i] = boundTextures_[i]->GetImageArrayView();
+			} else {
+				boundImageView_[i] = boundTextures_[i]->GetImageView();
+			}
+		} else {
+			boundImageView_[i] = GetNullTexture()->GetImageView();
+		}
 	}
 }
 
 void VKContext::BindNativeTexture(int sampler, void *nativeTexture) {
+	_dbg_assert_(sampler >= 0 && sampler < MAX_BOUND_TEXTURES);
 	boundTextures_[sampler] = nullptr;
 	boundImageView_[sampler] = (VkImageView)nativeTexture;
 }
@@ -1486,6 +1508,7 @@ public:
 		_assert_msg_(fb, "Null fb in VKFramebuffer constructor");
 		width_ = fb->width;
 		height_ = fb->height;
+		layers_ = fb->numLayers;
 	}
 	~VKFramebuffer() {
 		_assert_msg_(buf_, "Null buf_ in VKFramebuffer - double delete?");
@@ -1505,7 +1528,7 @@ private:
 
 Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	VkCommandBuffer cmd = renderManager_.GetInitCmd();
-	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.z_stencil, desc.tag);
+	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.numLayers, desc.z_stencil, desc.tag);
 	return new VKFramebuffer(vkrfb);
 }
 
@@ -1566,9 +1589,9 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 	curFramebuffer_ = fb;
 }
 
-void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit) {
+void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
-	_assert_(binding < MAX_BOUND_TEXTURES);
+	_assert_(binding >= 0 && binding < MAX_BOUND_TEXTURES);
 
 	// TODO: There are cases where this is okay, actually. But requires layout transitions and stuff -
 	// we're not ready for this.
@@ -1587,8 +1610,8 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 		break;
 	}
 
-	boundTextures_[binding] = nullptr;
-	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect);
+	boundTextures_[binding].clear();
+	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, layer);
 }
 
 void VKContext::BindCurrentFramebufferForColorInput() {
@@ -1651,8 +1674,13 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 		return (uint64_t)GetNullTexture()->GetImageView();
 	case NativeObject::TEXTURE_VIEW:
 		return (uint64_t)(((VKTexture *)srcObject)->GetImageView());
-	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW:
-		return (uint64_t)curFramebuffer_->GetFB()->color.imageView;
+	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_ALL_LAYERS:
+		return (uint64_t)curFramebuffer_->GetFB()->color.texAllLayersView;
+	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_LAYER: {
+		size_t layer = (size_t)srcObject;
+		_dbg_assert_(layer < curFramebuffer_->Layers());
+		return (uint64_t)curFramebuffer_->GetFB()->color.texLayerViews[layer];
+	}
 	default:
 		Crash();
 		return 0;

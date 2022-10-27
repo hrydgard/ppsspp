@@ -136,7 +136,7 @@ void VulkanComputeShaderManager::DestroyDeviceObjects() {
 VkDescriptorSet VulkanComputeShaderManager::GetDescriptorSet(VkImageView image, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkBuffer buffer2, VkDeviceSize offset2, VkDeviceSize range2) {
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
-	VkDescriptorSet desc = frameData.descPool.Allocate(1, &descriptorSetLayout_);
+	VkDescriptorSet desc = frameData.descPool.Allocate(1, &descriptorSetLayout_, "compute_descset");
 	_assert_(desc != VK_NULL_HANDLE);
 
 	VkWriteDescriptorSet writes[2]{};

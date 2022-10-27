@@ -211,8 +211,9 @@ private:
 
 	Draw::DrawContext *draw_;
 
-	// We use a single descriptor set layout for all PSP draws.
+	// We use a shared descriptor set layout for all PSP draws.
 	VkDescriptorSetLayout descriptorSetLayout_;
+
 	VkPipelineLayout pipelineLayout_;
 	VulkanPipeline *lastPipeline_;
 	VkDescriptorSet lastDs_ = VK_NULL_HANDLE;
