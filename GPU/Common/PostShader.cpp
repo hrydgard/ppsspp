@@ -225,7 +225,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 						appendTextureShader(info);
 					}
 				} else if (!section.name().empty()) {
-					WARN_LOG(G3D, "Unrecognized shader type '%s' or invalid shader in section '%s' : %d", shaderType.c_str(), section.name().c_str());
+					WARN_LOG(G3D, "Unrecognized shader type '%s' or invalid shader in section '%s'", shaderType.c_str(), section.name().c_str());
 				}
 			}
 		}
