@@ -35,14 +35,21 @@
 
 #include "Core/Config.h"
 
-// We use a simple descriptor set for all rendering: 1 sampler, 1 texture, 1 UBO binding point.
-// binding 0 - uniform data
-// binding 1 - sampler
-// binding 2 - sampler
-//
-// Vertex data lives in a separate namespace (location = 0, 1, etc)
-
 #include "Common/GPU/Vulkan/VulkanLoader.h"
+
+// We support a frame-global descriptor set, which can be optionally used by other code,
+// but is not directly used by thin3d. It has to be defined here though, be in set 0
+// and specified in every pipeline layout, otherwise it can't sit undisturbed when other
+// descriptor sets are bound on top.
+
+// For descriptor set 1, we use a simple descriptor set for all thin3d rendering: 1 UBO binding point, 3 combined texture/samples.
+//
+// binding 0 - uniform buffer
+// binding 1 - texture/sampler
+// binding 2 - texture/sampler
+// binding 3 - texture/sampler
+//
+// Vertex data lives in a separate namespace (location = 0, 1, etc).
 
 using namespace PPSSPP_VK;
 
@@ -514,6 +521,7 @@ private:
 	int curIBufferOffset_ = 0;
 
 	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
+	VkDescriptorSetLayout frameDescSetLayout_ = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 	AutoRef<VKFramebuffer> curFramebuffer_;
@@ -921,13 +929,25 @@ VKContext::VKContext(VulkanContext *vulkan)
 	VkResult res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descriptorSetLayout_);
 	_assert_(VK_SUCCESS == res);
 
+	VkDescriptorSetLayoutBinding frameBindings[1]{};
+	frameBindings[0].descriptorCount = 1;
+	frameBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	frameBindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	frameBindings[0].binding = 0;
+
+	dsl.bindingCount = ARRAY_SIZE(frameBindings);
+	dsl.pBindings = frameBindings;
+	res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &frameDescSetLayout_);
+	_dbg_assert_(VK_SUCCESS == res);
+
 	vulkan_->SetDebugName(descriptorSetLayout_, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, "thin3d_d_layout");
 
 	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
 	pl.pushConstantRangeCount = 0;
-	pl.setLayoutCount = 1;
-	pl.pSetLayouts = &descriptorSetLayout_;
+	VkDescriptorSetLayout setLayouts[2] = { frameDescSetLayout_, descriptorSetLayout_ };
+	pl.setLayoutCount = ARRAY_SIZE(setLayouts);
+	pl.pSetLayouts = setLayouts;
 	res = vkCreatePipelineLayout(device_, &pl, nullptr, &pipelineLayout_);
 	_assert_(VK_SUCCESS == res);
 
@@ -947,6 +967,7 @@ VKContext::~VKContext() {
 		delete frame_[i].pushBuffer;
 	}
 	vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
+	vulkan_->Delete().QueueDeleteDescriptorSetLayout(frameDescSetLayout_);
 	vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
 	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
 }
@@ -1681,6 +1702,11 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 		_dbg_assert_(layer < curFramebuffer_->Layers());
 		return (uint64_t)curFramebuffer_->GetFB()->color.texLayerViews[layer];
 	}
+	case NativeObject::FRAME_DATA_DESC_SET_LAYOUT:
+		return (uint64_t)frameDescSetLayout_;
+	case NativeObject::THIN3D_PIPELINE_LAYOUT:
+		return (uint64_t)pipelineLayout_;
+
 	default:
 		Crash();
 		return 0;

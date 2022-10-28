@@ -133,12 +133,12 @@ R"(	mat3x4 u_bone0; mat3x4 u_bone1; mat3x4 u_bone2; mat3x4 u_bone3; mat3x4 u_bon
 
 
 static const char * const ub_frame_globalstr =
-R"( vec4 unused;
+R"( vec4 stereoParams;
 )";
 
-// VR stuff will go here.
+// Frame-global uniforms.
 struct UB_FrameGlobal {
-	float unused[4];
+	float stereoParams[4];
 };
 
 void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bool hasNegZ);

@@ -56,7 +56,7 @@ VulkanComputeShaderManager::VulkanComputeShaderManager(VulkanContext *vulkan) : 
 }
 VulkanComputeShaderManager::~VulkanComputeShaderManager() {}
 
-void VulkanComputeShaderManager::InitDeviceObjects() {
+void VulkanComputeShaderManager::InitDeviceObjects(Draw::DrawContext *draw) {
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
 	_assert_(VK_SUCCESS == res);
@@ -106,8 +106,10 @@ void VulkanComputeShaderManager::InitDeviceObjects() {
 	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = &push;
 	pl.pushConstantRangeCount = 1;
-	pl.setLayoutCount = 1;
-	pl.pSetLayouts = &descriptorSetLayout_;
+	VkDescriptorSetLayout frameDescSetLayout = (VkDescriptorSetLayout)draw->GetNativeObject(Draw::NativeObject::FRAME_DATA_DESC_SET_LAYOUT);
+	VkDescriptorSetLayout setLayouts[2] = { frameDescSetLayout, descriptorSetLayout_ };
+	pl.setLayoutCount = ARRAY_SIZE(setLayouts);
+	pl.pSetLayouts = setLayouts;
 	pl.flags = 0;
 	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
 	_assert_(VK_SUCCESS == res);

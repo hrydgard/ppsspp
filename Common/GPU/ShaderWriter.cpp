@@ -326,7 +326,7 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 		}
 		C("layout(location = 0, index = 0) out vec4 fragColor0;\n");
 		if (!uniforms.is_empty()) {
-			C("layout(std140, set = 0, binding = 0) uniform bufferVals {\n");
+			C("layout(std140, set = 1, binding = 0) uniform bufferVals {\n");
 			for (auto &uniform : uniforms) {
 				F("%s %s;\n", uniform.type, uniform.name);
 			}
@@ -480,9 +480,9 @@ void ShaderWriter::DeclareTexture2D(const SamplerDef &def) {
 	case GLSL_VULKAN:
 		// texBindingBase_ is used for the thin3d descriptor set layout, where they start at 1.
 		if (def.flags & SamplerFlags::ARRAY_ON_VULKAN) {
-			F("layout(set = 0, binding = %d) uniform sampler2DArray %s;\n", def.binding + texBindingBase_, def.name);
+			F("layout(set = 1, binding = %d) uniform sampler2DArray %s;\n", def.binding + texBindingBase_, def.name);
 		} else {
-			F("layout(set = 0, binding = %d) uniform sampler2D %s;\n", def.binding + texBindingBase_, def.name);
+			F("layout(set = 1, binding = %d) uniform sampler2D %s;\n", def.binding + texBindingBase_, def.name);
 		}
 		break;
 	default:

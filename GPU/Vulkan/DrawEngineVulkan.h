@@ -211,7 +211,8 @@ private:
 
 	Draw::DrawContext *draw_;
 
-	// We use a shared descriptor set layout for all PSP draws.
+	// We use a shared descriptor set layouts for all PSP draws.
+	// Descriptors created from descriptorSetLayout_ is rebound all the time at set 1.
 	VkDescriptorSetLayout descriptorSetLayout_;
 
 	VkPipelineLayout pipelineLayout_;
@@ -253,6 +254,8 @@ private:
 		VulkanPushBuffer *pushUBO = nullptr;
 		VulkanPushBuffer *pushVertex = nullptr;
 		VulkanPushBuffer *pushIndex = nullptr;
+
+		bool frameDescSetUpdated = false;
 
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
 		DenseHashMap<DescriptorSetKey, VkDescriptorSet, (VkDescriptorSet)VK_NULL_HANDLE> descSets;

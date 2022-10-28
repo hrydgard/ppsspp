@@ -39,6 +39,7 @@ enum class VKRRenderCommand : uint8_t {
 	PUSH_CONSTANTS,
 	SELF_DEPENDENCY_BARRIER,
 	DEBUG_ANNOTATION,
+	BIND_DESCRIPTOR_SET,
 	NUM_RENDER_COMMANDS,
 };
 
@@ -152,6 +153,11 @@ struct VkRenderData {
 		struct {
 			const char *annotation;
 		} debugAnnotation;
+		struct {
+			int setNumber;
+			VkDescriptorSet set;
+			VkPipelineLayout pipelineLayout;
+		} bindDescSet;
 	};
 };
 

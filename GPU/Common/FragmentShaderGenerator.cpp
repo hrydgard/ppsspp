@@ -185,23 +185,23 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
 		}
 
-		WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseUBO {\n%s};\n", ub_baseStr);
+		WRITE(p, "layout (std140, set = 1, binding = 3) uniform baseUBO {\n%s};\n", ub_baseStr);
 		if (doTexture) {
-			WRITE(p, "layout (binding = 0) uniform %s%s tex;\n", texture3D ? "sampler3D" : "sampler2D", arrayTexture ? "Array" : "");
+			WRITE(p, "layout (set = 1, binding = 0) uniform %s%s tex;\n", texture3D ? "sampler3D" : "sampler2D", arrayTexture ? "Array" : "");
 		}
 
 		if (readFramebufferTex) {
 			// The framebuffer texture is always bound as an array.
-			p.C("layout (binding = 1) uniform sampler2DArray fbotex;\n");
+			p.C("layout (set = 1, binding = 1) uniform sampler2DArray fbotex;\n");
 		} else if (fetchFramebuffer) {
-			p.C("layout (input_attachment_index = 0, binding = 9) uniform subpassInput inputColor;\n");
+			p.C("layout (input_attachment_index = 0, set = 1, binding = 9) uniform subpassInput inputColor;\n");
 			if (fragmentShaderFlags) {
 				*fragmentShaderFlags |= FragmentShaderFlags::INPUT_ATTACHMENT;
 			}
 		}
 
 		if (shaderDepalMode != ShaderDepalMode::OFF) {
-			WRITE(p, "layout (binding = 2) uniform sampler2D pal;\n");
+			WRITE(p, "layout (set = 1, binding = 2) uniform sampler2D pal;\n");
 		}
 
 		// Note: the precision qualifiers must match the vertex shader!

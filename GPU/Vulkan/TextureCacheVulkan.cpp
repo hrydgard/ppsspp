@@ -65,9 +65,9 @@ const char *uploadShader = R"(
 // hardware vendors.
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-uniform layout(binding = 0, rgba8) writeonly image2D img;
+uniform layout(set = 1, binding = 0, rgba8) writeonly image2D img;
 
-layout(std430, binding = 1) buffer Buf {
+layout(std430, set = 1, binding = 1) buffer Buf {
 	uint data[];
 } buf;
 
@@ -251,7 +251,7 @@ void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
 
 	CompileScalingShader();
 
-	computeShaderManager_.DeviceRestore(vulkan);
+	computeShaderManager_.DeviceRestore(draw);
 }
 
 void TextureCacheVulkan::NotifyConfigChanged() {
@@ -626,7 +626,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 					"Compute Upload: %dx%d->%dx%d", mipUnscaledWidth, mipUnscaledHeight, mipWidth, mipHeight);
 				vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(uploadCS_));
-				vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
+				vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 1, 1, &descSet, 0, nullptr);
 				vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
 				vkCmdDispatch(cmdInit, (mipUnscaledWidth + 7) / 8, (mipUnscaledHeight + 7) / 8, 1);
 				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
