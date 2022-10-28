@@ -233,14 +233,21 @@ bool PresentationCommon::UpdatePostShader() {
 
 	if (gstate_c.Use(GPU_USE_SIMPLE_STEREO_PERSPECTIVE)) {
 		const ShaderInfo *stereoShaderInfo = GetPostShaderInfo(g_Config.sStereoToMonoShader);
-		bool result = CompilePostShader(stereoShaderInfo, &stereoPipeline_);
-		if (!result) {
+		if (stereoShaderInfo) {
+			bool result = CompilePostShader(stereoShaderInfo, &stereoPipeline_);
+			if (!result) {
+				// We won't have a stereo shader. We have to check for this later.
+				delete stereoShaderInfo_;
+				stereoShaderInfo_ = nullptr;
+				stereoPipeline_ = nullptr;
+			} else {
+				stereoShaderInfo_ = new ShaderInfo(*stereoShaderInfo);
+			}
+		} else {
 			// We won't have a stereo shader. We have to check for this later.
 			delete stereoShaderInfo_;
 			stereoShaderInfo_ = nullptr;
 			stereoPipeline_ = nullptr;
-		} else {
-			stereoShaderInfo_ = new ShaderInfo(*stereoShaderInfo);
 		}
 	}
 
@@ -296,6 +303,8 @@ bool PresentationCommon::UpdatePostShader() {
 }
 
 bool PresentationCommon::CompilePostShader(const ShaderInfo *shaderInfo, Draw::Pipeline **outPipeline) const {
+	_assert_(shaderInfo);
+
 	std::string vsSourceGLSL = ReadShaderSrc(shaderInfo->vertexShaderFile);
 	std::string fsSourceGLSL = ReadShaderSrc(shaderInfo->fragmentShaderFile);
 	if (vsSourceGLSL.empty() || fsSourceGLSL.empty()) {
