@@ -312,7 +312,8 @@ void DrawEngineVulkan::BeginFrame() {
 	frame->pushVertex->Begin(vulkan);
 	frame->pushIndex->Begin(vulkan);
 
-	// TODO: How can we make this nicer...
+	frame->frameDescSetUpdated = false;
+
 	tessDataTransferVulkan->SetPushBuffer(frame->pushUBO);
 
 	DirtyAllUBOs();
@@ -1016,6 +1017,30 @@ void DrawEngineVulkan::DoFlush() {
 }
 
 void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
+	if (!frame->frameDescSetUpdated) {
+		// Push frame global constants.
+		UB_FrameGlobal frameConstants{};
+		VkDescriptorBufferInfo frameConstantsBufInfo;
+		frame->pushUBO->PushUBOData(frameConstants, &frameConstantsBufInfo);
+
+		VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		VkDescriptorSetLayout frameDescSetLayout = (VkDescriptorSetLayout)draw_->GetNativeObject(Draw::NativeObject::FRAME_DATA_DESC_SET_LAYOUT);
+
+		VkDescriptorSet frameDescSet = frame->descPool.Allocate(1, &frameDescSetLayout, "frame_desc_set");
+
+		VkWriteDescriptorSet descWrite{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+		descWrite.descriptorCount = 1;
+		descWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descWrite.dstBinding = 0;
+		descWrite.dstSet = frameDescSet;
+		descWrite.pBufferInfo = &frameConstantsBufInfo;
+		vkUpdateDescriptorSets(vulkan->GetDevice(), 1, &descWrite, 0, nullptr);
+		renderManager->BindDescriptorSet(0, frameDescSet, pipelineLayout_);
+
+		frame->frameDescSetUpdated = true;
+	}
+
 	if ((dirtyUniforms_ & DIRTY_BASE_UNIFORMS) || baseBuf == VK_NULL_HANDLE) {
 		baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushUBO, &baseBuf);
 		dirtyUniforms_ &= ~DIRTY_BASE_UNIFORMS;
