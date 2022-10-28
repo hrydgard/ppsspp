@@ -25,7 +25,7 @@ void InitVROnAndroid(void* vm, void* activity, int version, const char* name);
 void EnterVR(bool firstStart, void* vulkanContext);
 void GetVRResolutionPerEye(int* width, int* height);
 void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale);
-void UpdateVRScreenKey(const KeyInput &key);
+void UpdateVRSpecialKeys(const KeyInput &key);
 
 // VR games compatibility
 void PreprocessStepVR(void* step);
@@ -53,7 +53,7 @@ inline void InitVROnAndroid(void* vm, void* activity, int version, const char* n
 inline void EnterVR(bool firstTime, void* vulkanContext) {}
 inline void GetVRResolutionPerEye(int* width, int* height) {}
 inline void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {}
-inline void UpdateVRScreenKey(const KeyInput &key) {}
+inline void UpdateVRSpecialKeys(const KeyInput &key) {}
 
 // VR games compatibility
 inline void PreprocessStepVR(void* step) {}

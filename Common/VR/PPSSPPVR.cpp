@@ -221,11 +221,16 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 	}
 }
 
-void UpdateVRScreenKey(const KeyInput &key) {
+void UpdateVRSpecialKeys(const KeyInput &key) {
 	std::vector<int> nativeKeys;
 	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
 		for (int& nativeKey : nativeKeys) {
-			if (nativeKey == CTRL_SCREEN) {
+			// adjust camera parameters
+			if (nativeKey == CTRL_HOLD) {
+				VR_SetConfig(VR_CONFIG_CAMERA_CONTROL, key.flags & KEY_DOWN);
+			}
+			// force 2D rendering
+			else if (nativeKey == CTRL_SCREEN) {
 				VR_SetConfig(VR_CONFIG_FORCE_2D, key.flags & KEY_DOWN);
 			}
 		}
@@ -316,6 +321,19 @@ bool StartVRRender() {
 
 		// Set compatibility
 		vrCompat[VR_COMPAT_SKYPLANE] = PSP_CoreParameter().compat.vrCompat().Skyplane;
+
+		// Camera control
+		if (VR_GetConfig(VR_CONFIG_CAMERA_CONTROL)) {
+			float dst = g_Config.fCameraDistance;
+			float fov = g_Config.fFieldOfViewPercentage;
+			int status = IN_VRGetButtonState(1);
+			if (status & ovrButton_Left) fov -= 1.0f;
+			if (status & ovrButton_Right) fov += 1.0f;
+			if (status & ovrButton_Down) dst -= 0.1f;
+			if (status & ovrButton_Up) dst += 0.1f;
+			g_Config.fCameraDistance = std::clamp(dst, -10.0f, 10.0f);
+			g_Config.fFieldOfViewPercentage = std::clamp(fov, 100.0f, 200.0f);
+		}
 
 		// Set customizations
 		VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
