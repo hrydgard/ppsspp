@@ -154,7 +154,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 
 	static constexpr int DEFAULT_DESC_POOL_SIZE = 512;
 	std::vector<VkDescriptorPoolSize> dpTypes;
-	dpTypes.resize(4);
+	dpTypes.resize(5);
 	dpTypes[0].descriptorCount = DEFAULT_DESC_POOL_SIZE * 3;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	dpTypes[1].descriptorCount = DEFAULT_DESC_POOL_SIZE * 3;  // Don't use these for tess anymore, need max three per set.
@@ -163,6 +163,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	dpTypes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	dpTypes[3].descriptorCount = DEFAULT_DESC_POOL_SIZE;  // TODO: Use a separate layout when no spline stuff is needed to reduce the need for these.
 	dpTypes[3].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+	dpTypes[4].descriptorCount = 1;  // For the frame global uniform buffer.
+	dpTypes[4].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 
 	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	// Don't want to mess around with individually freeing these.
