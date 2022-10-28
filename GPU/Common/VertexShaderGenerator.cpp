@@ -249,6 +249,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
+
+		if (!useHWTransform) {
+			WRITE(p, "layout (std140, set = 0, binding = 0) uniform frameVars {\n%s};\n", ub_frameStr);
+		}
+
 		WRITE(p, "layout (std140, set = 1, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
 		if (enableLighting || doShadeMapping)
 			WRITE(p, "layout (std140, set = 1, binding = 4) uniform lightVars {\n%s};\n", ub_vs_lightsStr);
