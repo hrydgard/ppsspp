@@ -770,7 +770,7 @@ void DrawEngineVulkan::DoFlush() {
 			textureCache_->ApplyTexture();
 			textureCache_->GetVulkanHandles(imageView, sampler);
 			if (imageView == VK_NULL_HANDLE)
-				imageView = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::NULL_IMAGEVIEW);
+				imageView = (VkImageView)draw_->GetNativeObject(gstate_c.arrayTexture ? Draw::NativeObject::NULL_IMAGEVIEW_ARRAY : Draw::NativeObject::NULL_IMAGEVIEW);
 			if (sampler == VK_NULL_HANDLE)
 				sampler = nullSampler_;
 		}
@@ -906,7 +906,7 @@ void DrawEngineVulkan::DoFlush() {
 				textureCache_->ApplyTexture();
 				textureCache_->GetVulkanHandles(imageView, sampler);
 				if (imageView == VK_NULL_HANDLE)
-					imageView = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::NULL_IMAGEVIEW);
+					imageView = (VkImageView)draw_->GetNativeObject(gstate_c.arrayTexture ? Draw::NativeObject::NULL_IMAGEVIEW_ARRAY : Draw::NativeObject::NULL_IMAGEVIEW);
 				if (sampler == VK_NULL_HANDLE)
 					sampler = nullSampler_;
 			}

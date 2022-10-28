@@ -1343,7 +1343,11 @@ void VKContext::BindTextures(int start, int count, Texture **textures, TextureBi
 				boundImageView_[i] = boundTextures_[i]->GetImageView();
 			}
 		} else {
-			boundImageView_[i] = GetNullTexture()->GetImageView();
+			if (flags & TextureBindFlags::VULKAN_BIND_ARRAY) {
+				boundImageView_[i] = GetNullTexture()->GetImageArrayView();
+			} else {
+				boundImageView_[i] = GetNullTexture()->GetImageView();
+			}
 		}
 	}
 }
@@ -1693,6 +1697,8 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 		return (uint64_t)(uintptr_t)&renderManager_;
 	case NativeObject::NULL_IMAGEVIEW:
 		return (uint64_t)GetNullTexture()->GetImageView();
+	case NativeObject::NULL_IMAGEVIEW_ARRAY:
+		return (uint64_t)GetNullTexture()->GetImageArrayView();
 	case NativeObject::TEXTURE_VIEW:
 		return (uint64_t)(((VKTexture *)srcObject)->GetImageView());
 	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_ALL_LAYERS:
