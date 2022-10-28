@@ -235,19 +235,11 @@ bool PresentationCommon::UpdatePostShader() {
 		const ShaderInfo *stereoShaderInfo = GetPostShaderInfo(g_Config.sStereoToMonoShader);
 		if (stereoShaderInfo) {
 			bool result = CompilePostShader(stereoShaderInfo, &stereoPipeline_);
-			if (!result) {
-				// We won't have a stereo shader. We have to check for this later.
-				delete stereoShaderInfo_;
-				stereoShaderInfo_ = nullptr;
-				stereoPipeline_ = nullptr;
-			} else {
+			if (result) {
 				stereoShaderInfo_ = new ShaderInfo(*stereoShaderInfo);
 			}
 		} else {
-			// We won't have a stereo shader. We have to check for this later.
-			delete stereoShaderInfo_;
-			stereoShaderInfo_ = nullptr;
-			stereoPipeline_ = nullptr;
+			WARN_LOG(G3D, "Failed to get info about stereo shader '%s'", g_Config.sStereoToMonoShader.c_str());
 		}
 	}
 
