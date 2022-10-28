@@ -19,8 +19,7 @@
 
 #pragma once
 
-#include "../MIPS.h"
-#include "../MIPSAnalyst.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Common/ArmEmitter.h"
@@ -45,6 +44,10 @@ enum {
 };
 
 }
+
+namespace MIPSAnalyst {
+struct AnalysisResults;
+};
 
 struct FPURegARM {
 	int mipsReg;  // if -1, no mipsreg attached.

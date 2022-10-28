@@ -23,6 +23,7 @@
 #include "Common/BitSet.h"
 #include "Common/CommonTypes.h"
 #include "Common/CPUDetect.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/x86/Jit.h"
 #include "Core/MIPS/x86/RegCache.h"

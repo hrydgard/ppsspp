@@ -19,7 +19,6 @@
 
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 
 #undef MAP_NOINIT
@@ -55,6 +54,10 @@ enum {
 #elif PPSSPP_ARCH(X86)
 #define NUM_X_FPREGS 8
 #endif
+
+namespace MIPSAnalyst {
+struct AnalysisResults;
+};
 
 struct X64CachedFPReg {
 	union {

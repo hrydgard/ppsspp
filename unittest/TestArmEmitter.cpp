@@ -2,6 +2,7 @@
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "ext/disarm.h"
 
