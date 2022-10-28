@@ -56,7 +56,7 @@ VulkanComputeShaderManager::VulkanComputeShaderManager(VulkanContext *vulkan) : 
 }
 VulkanComputeShaderManager::~VulkanComputeShaderManager() {}
 
-void VulkanComputeShaderManager::InitDeviceObjects() {
+void VulkanComputeShaderManager::InitDeviceObjects(Draw::DrawContext *draw) {
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
 	_assert_(VK_SUCCESS == res);
@@ -85,14 +85,14 @@ void VulkanComputeShaderManager::InitDeviceObjects() {
 
 	std::vector<VkDescriptorPoolSize> dpTypes;
 	dpTypes.resize(2);
-	dpTypes[0].descriptorCount = 8192;
+	dpTypes[0].descriptorCount = 4096;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	dpTypes[1].descriptorCount = 4096;
+	dpTypes[1].descriptorCount = 2048;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 
 	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
-	dp.maxSets = 4096;  // GTA can end up creating more than 1000 textures in the first frame!
+	dp.maxSets = 2048;  // GTA can end up creating more than 1000 textures in the first frame!
 
 	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
 		frameData_[i].descPool.Create(vulkan_, dp, dpTypes);
@@ -106,8 +106,10 @@ void VulkanComputeShaderManager::InitDeviceObjects() {
 	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = &push;
 	pl.pushConstantRangeCount = 1;
-	pl.setLayoutCount = 1;
-	pl.pSetLayouts = &descriptorSetLayout_;
+	VkDescriptorSetLayout frameDescSetLayout = (VkDescriptorSetLayout)draw->GetNativeObject(Draw::NativeObject::FRAME_DATA_DESC_SET_LAYOUT);
+	VkDescriptorSetLayout setLayouts[2] = { frameDescSetLayout, descriptorSetLayout_ };
+	pl.setLayoutCount = ARRAY_SIZE(setLayouts);
+	pl.pSetLayouts = setLayouts;
 	pl.flags = 0;
 	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
 	_assert_(VK_SUCCESS == res);

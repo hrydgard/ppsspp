@@ -1567,7 +1567,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::DRAW_INDEXED:
 		{
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
 			vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, (VkIndexType)c.drawIndexed.indexType);
 			VkDeviceSize voffset = c.drawIndexed.voffset;
 			vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &voffset);
@@ -1576,7 +1576,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		}
 
 		case VKRRenderCommand::DRAW:
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
 			if (c.draw.vbuffer) {
 				vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
 			}
@@ -1623,6 +1623,10 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				labelInfo.pLabelName = c.debugAnnotation.annotation;
 				vkCmdInsertDebugUtilsLabelEXT(cmd, &labelInfo);
 			}
+			break;
+
+		case VKRRenderCommand::BIND_DESCRIPTOR_SET:
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.bindDescSet.pipelineLayout, c.bindDescSet.setNumber, 1, &c.bindDescSet.set, 0, nullptr);
 			break;
 
 		default:

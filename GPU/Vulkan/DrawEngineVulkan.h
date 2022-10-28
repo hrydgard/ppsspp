@@ -211,7 +211,8 @@ private:
 
 	Draw::DrawContext *draw_;
 
-	// We use a shared descriptor set layout for all PSP draws.
+	// We use a shared descriptor set layouts for all PSP draws.
+	// Descriptors created from descriptorSetLayout_ is rebound all the time at set 1.
 	VkDescriptorSetLayout descriptorSetLayout_;
 
 	VkPipelineLayout pipelineLayout_;

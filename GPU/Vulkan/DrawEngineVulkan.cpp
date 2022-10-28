@@ -185,10 +185,12 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	VkPipelineLayoutCreateInfo pl{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
 	pl.pushConstantRangeCount = 0;
-	VkDescriptorSetLayout layouts[1] = { descriptorSetLayout_ };
+	VkDescriptorSetLayout frameDescSetLayout = (VkDescriptorSetLayout)draw_->GetNativeObject(Draw::NativeObject::FRAME_DATA_DESC_SET_LAYOUT);
+	VkDescriptorSetLayout layouts[2] = { frameDescSetLayout, descriptorSetLayout_};
 	pl.setLayoutCount = ARRAY_SIZE(layouts);
 	pl.pSetLayouts = layouts;
 	pl.flags = 0;
+
 	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
 	_dbg_assert_(VK_SUCCESS == res);
 
