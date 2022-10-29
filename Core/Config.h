@@ -465,6 +465,7 @@ public:
 	bool bEnableStereo;
 	float fCameraDistance;
 	float fCameraHeight;
+	float fCameraSide;
 	float fCanvasDistance;
 	float fFieldOfViewPercentage;
 
