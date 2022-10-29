@@ -344,7 +344,7 @@ bool StartVRRender() {
 
 		// Camera control
 		if (VR_GetConfig(VR_CONFIG_CAMERA_CONTROL)) {
-			//light joystick controls height and side
+			//left joystick controls height and side
 			float height = g_Config.fCameraHeight;
 			float side = g_Config.fCameraSide;
 			int status = IN_VRGetButtonState(0);
