@@ -1145,6 +1145,9 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 			case VKRRenderCommand::DEBUG_ANNOTATION:
 				INFO_LOG(G3D, "  DebugAnnotation(%s)", cmd.debugAnnotation.annotation);
 				break;
+			case VKRRenderCommand::BIND_DESCRIPTOR_SET:
+				INFO_LOG(G3D, "  BindDescSet(%d)", cmd.bindDescSet.setNumber);
+				break;
 
 			case VKRRenderCommand::NUM_RENDER_COMMANDS:
 				break;
