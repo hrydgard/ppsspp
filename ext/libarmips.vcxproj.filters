@@ -31,6 +31,9 @@
     <Filter Include="Parser">
       <UniqueIdentifier>{d1037c70-bb54-46fc-8b0c-a47c4ea4a252}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Archs\SuperH">
+      <UniqueIdentifier>{496988ff-1b2f-4046-bc02-b5ad9a1952b4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="armips\Archs\Architecture.cpp">
@@ -182,6 +185,24 @@
     </ClCompile>
     <ClCompile Include="armips\Core\ExpressionFunctionHandler.cpp">
       <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Archs\SuperH\ShOpcodes.cpp">
+      <Filter>Archs\SuperH</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Archs\SuperH\ShParser.cpp">
+      <Filter>Archs\SuperH</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Archs\SuperH\SuperH.cpp">
+      <Filter>Archs\SuperH</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Archs\SuperH\CShInstruction.cpp">
+      <Filter>Archs\SuperH</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Archs\SuperH\ShElfRelocator.cpp">
+      <Filter>Archs\SuperH</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Archs\SuperH\ShExpressionFunctions.cpp">
+      <Filter>Archs\SuperH</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -340,6 +361,24 @@
     </ClInclude>
     <ClInclude Include="armips\Core\ExpressionFunctionHandler.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Archs\SuperH\ShExpressionFunctions.h">
+      <Filter>Archs\SuperH</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Archs\SuperH\ShOpcodes.h">
+      <Filter>Archs\SuperH</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Archs\SuperH\ShParser.h">
+      <Filter>Archs\SuperH</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Archs\SuperH\SuperH.h">
+      <Filter>Archs\SuperH</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Archs\SuperH\CShInstruction.h">
+      <Filter>Archs\SuperH</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Archs\SuperH\ShElfRelocator.h">
+      <Filter>Archs\SuperH</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -584,6 +584,12 @@ LIBARMIPS_FILES := \
   $(SRC)/ext/armips/Archs/MIPS/MipsOpcodes.cpp \
   $(SRC)/ext/armips/Archs/MIPS/MipsParser.cpp \
   $(SRC)/ext/armips/Archs/MIPS/PsxRelocator.cpp \
+  $(SRC)/ext/armips/Archs/SuperH/CShInstruction.cpp \
+  $(SRC)/ext/armips/Archs/SuperH/ShElfRelocator.cpp \
+  $(SRC)/ext/armips/Archs/SuperH/ShExpressionFunctions.cpp \
+  $(SRC)/ext/armips/Archs/SuperH/ShOpcodes.cpp \
+  $(SRC)/ext/armips/Archs/SuperH/ShParser.cpp \
+  $(SRC)/ext/armips/Archs/SuperH/SuperH.cpp \
   $(SRC)/ext/armips/Archs/Architecture.cpp \
   $(SRC)/ext/armips/Commands/CAssemblerCommand.cpp \
   $(SRC)/ext/armips/Commands/CAssemblerLabel.cpp \
