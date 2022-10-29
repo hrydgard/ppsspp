@@ -150,22 +150,42 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 	KeyInput keyInput = {};
 	for (int j = 0; j < 2; j++) {
 		int status = IN_VRGetButtonState(j);
+		bool cameraControl = VR_GetConfig(VR_CONFIG_CAMERA_CONTROL);
 		for (ButtonMapping& m : controllerMapping[j]) {
+
+			//check if camera key was pressed
+			bool cameraKey = false;
+			std::vector<int> nativeKeys;
+			if (KeyMap::KeyToPspButton(controllerIds[j], m.keycode, &nativeKeys)) {
+				for (int& nativeKey : nativeKeys) {
+					if (nativeKey == CTRL_HOLD) {
+						cameraKey = true;
+						break;
+					}
+				}
+			}
+
+			//fill KeyInput structure
 			bool pressed = status & m.ovr;
 			keyInput.flags = pressed ? KEY_DOWN : KEY_UP;
 			keyInput.keyCode = m.keycode;
 			keyInput.deviceId = controllerIds[j];
 
+			//process the key action
 			if (m.pressed != pressed) {
 				if (pressed && haptics) {
 					INVR_Vibrate(100, j, 1000);
 				}
-				NativeKey(keyInput);
+				if (!cameraControl || cameraKey) {
+					NativeKey(keyInput);
+				}
 				m.pressed = pressed;
 				m.repeat = 0;
 			} else if (pressed && (m.repeat > 30)) {
 				keyInput.flags |= KEY_IS_REPEAT;
-				NativeKey(keyInput);
+				if (!cameraControl || cameraKey) {
+					NativeKey(keyInput);
+				}
 				m.repeat = 0;
 			} else {
 				m.repeat++;
@@ -331,6 +351,10 @@ bool StartVRRender() {
 			if (status & ovrButton_Right) fov += 1.0f;
 			if (status & ovrButton_Down) dst -= 0.1f;
 			if (status & ovrButton_Up) dst += 0.1f;
+			if (status & ovrButton_RThumb) {
+				fov = 100;
+				dst = 0;
+			}
 			g_Config.fCameraDistance = std::clamp(dst, -10.0f, 10.0f);
 			g_Config.fFieldOfViewPercentage = std::clamp(fov, 100.0f, 200.0f);
 		}
