@@ -158,7 +158,7 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 			std::vector<int> nativeKeys;
 			if (KeyMap::KeyToPspButton(controllerIds[j], m.keycode, &nativeKeys)) {
 				for (int& nativeKey : nativeKeys) {
-					if (nativeKey == CTRL_HOLD) {
+					if (nativeKey == VIRTKEY_VR_CAMERA_ADJUST) {
 						cameraKey = true;
 						break;
 					}
@@ -246,7 +246,7 @@ void UpdateVRSpecialKeys(const KeyInput &key) {
 	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
 		for (int& nativeKey : nativeKeys) {
 			// adjust camera parameters
-			if (nativeKey == CTRL_HOLD) {
+			if (nativeKey == VIRTKEY_VR_CAMERA_ADJUST) {
 				VR_SetConfig(VR_CONFIG_CAMERA_CONTROL, key.flags & KEY_DOWN);
 			}
 			// force 2D rendering
