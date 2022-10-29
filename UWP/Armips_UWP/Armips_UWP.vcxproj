@@ -278,6 +278,12 @@
     <ClInclude Include="..\..\ext\armips\Archs\MIPS\MipsOpcodes.h" />
     <ClInclude Include="..\..\ext\armips\Archs\MIPS\MipsParser.h" />
     <ClInclude Include="..\..\ext\armips\Archs\MIPS\PsxRelocator.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\SuperH\CShInstruction.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\SuperH\ShElfRelocator.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\SuperH\ShExpressionFunctions.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\SuperH\ShOpcodes.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\SuperH\ShParser.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\SuperH\SuperH.h" />
     <ClInclude Include="..\..\ext\armips\Commands\CAssemblerCommand.h" />
     <ClInclude Include="..\..\ext\armips\Commands\CAssemblerLabel.h" />
     <ClInclude Include="..\..\ext\armips\Commands\CDirectiveArea.h" />
@@ -329,6 +335,12 @@
     <ClCompile Include="..\..\ext\armips\Archs\MIPS\MipsOpcodes.cpp" />
     <ClCompile Include="..\..\ext\armips\Archs\MIPS\MipsParser.cpp" />
     <ClCompile Include="..\..\ext\armips\Archs\MIPS\PsxRelocator.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\SuperH\CShInstruction.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\SuperH\ShElfRelocator.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\SuperH\ShExpressionFunctions.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\SuperH\ShOpcodes.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\SuperH\ShParser.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\SuperH\SuperH.cpp" />
     <ClCompile Include="..\..\ext\armips\Commands\CAssemblerCommand.cpp" />
     <ClCompile Include="..\..\ext\armips\Commands\CAssemblerLabel.cpp" />
     <ClCompile Include="..\..\ext\armips\Commands\CDirectiveArea.cpp" />
