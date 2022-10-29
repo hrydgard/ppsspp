@@ -201,6 +201,7 @@ tests_good = [
   "intr/suspended",
   "intr/vblank/vblank",
   "io/cwd/cwd",
+  "io/open/badparent",
   "jpeg/create",
   "jpeg/delete",
   "jpeg/finish",
