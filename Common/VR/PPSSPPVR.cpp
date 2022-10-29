@@ -344,9 +344,20 @@ bool StartVRRender() {
 
 		// Camera control
 		if (VR_GetConfig(VR_CONFIG_CAMERA_CONTROL)) {
+			//light joystick controls height
+			float height = g_Config.fCameraHeight;
+			int status = IN_VRGetButtonState(0);
+			if (status & ovrButton_Down) height -= 0.05f;
+			if (status & ovrButton_Up) height += 0.05f;
+			if (status & ovrButton_LThumb) {
+				height = 0;
+			}
+			g_Config.fCameraHeight = std::clamp(height, -10.0f, 10.0f);
+
+			//right joystick controls distance and fov
 			float dst = g_Config.fCameraDistance;
 			float fov = g_Config.fFieldOfViewPercentage;
-			int status = IN_VRGetButtonState(1);
+			status = IN_VRGetButtonState(1);
 			if (status & ovrButton_Left) fov -= 1.0f;
 			if (status & ovrButton_Right) fov += 1.0f;
 			if (status & ovrButton_Down) dst -= 0.1f;
@@ -362,6 +373,7 @@ bool StartVRRender() {
 		// Set customizations
 		VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
 		VR_SetConfig(VR_CONFIG_CAMERA_DISTANCE, g_Config.fCameraDistance * 1000);
+		VR_SetConfig(VR_CONFIG_CAMERA_HEIGHT, g_Config.fCameraHeight * 1000);
 		VR_SetConfig(VR_CONFIG_CANVAS_DISTANCE, g_Config.fCanvasDistance);
 		VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.fFieldOfViewPercentage);
 		VR_SetConfig(VR_CONFIG_MIRROR_UPDATED, false);

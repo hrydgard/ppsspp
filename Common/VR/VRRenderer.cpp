@@ -346,6 +346,14 @@ bool VR_InitFrame( engine_t* engine ) {
 				vrMatrix[matrix].M[1][3] += forward.y;
 				vrMatrix[matrix].M[2][3] += forward.z;
 			}
+			if (abs(vrConfig[VR_CONFIG_CAMERA_HEIGHT]) > 0) {
+				XrVector3f up = {0.0f, -(float)vrConfig[VR_CONFIG_CAMERA_HEIGHT] * 0.001f * scale, 0.0f};
+				up = XrQuaternionf_Rotate(invView.orientation, up);
+				up = XrVector3f_ScalarMultiply(up, vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1.0f : 1.0f);
+				vrMatrix[matrix].M[0][3] += up.x;
+				vrMatrix[matrix].M[1][3] += up.y;
+				vrMatrix[matrix].M[2][3] += up.z;
+			}
 			if (vrConfig[VR_CONFIG_6DOF_PRECISE] && (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
 				float dx = fabs(invViewTransform[1].position.x - invViewTransform[0].position.x);
 				float dy = fabs(invViewTransform[1].position.y - invViewTransform[0].position.y);

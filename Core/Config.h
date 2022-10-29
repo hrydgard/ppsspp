@@ -464,6 +464,7 @@ public:
 	bool bEnable6DoF;
 	bool bEnableStereo;
 	float fCameraDistance;
+	float fCameraHeight;
 	float fCanvasDistance;
 	float fFieldOfViewPercentage;
 
