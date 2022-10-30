@@ -37,6 +37,7 @@ class TextureCacheCommon;
 class TextureReplacer;
 class ReplacedTextureTask;
 class LimitedWaitable;
+struct zip;
 
 // These must match the constants in TextureCacheCommon.
 enum class ReplacedTextureAlpha {
@@ -56,6 +57,10 @@ struct ReplacedTextureLevel {
 	int h;
 	Draw::DataFormat fmt;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
 	Path file;
+	// Can be ignored for hashing/equal, since file has all uniqueness.
+	// To be able to reload, we need to be able to reopen, unfortunate we can't use zip_file_t.
+	zip *z = nullptr;
+	int64_t zi = -1;
 
 	bool operator ==(const ReplacedTextureLevel &other) const {
 		if (w != other.w || h != other.h || fmt != other.fmt)
@@ -271,7 +276,8 @@ protected:
 	std::string LookupHashFile(u64 cachekey, u32 hash, int level);
 	std::string HashName(u64 cachekey, u32 hash, int level);
 	void PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h);
-	bool PopulateLevel(ReplacedTextureLevel &level, bool ignoreError);
+	bool PopulateLevelFromPath(ReplacedTextureLevel &level, bool ignoreError);
+	bool PopulateLevelFromZip(ReplacedTextureLevel &level, bool ignoreError);
 
 	bool enabled_ = false;
 	bool allowVideo_ = false;
@@ -284,6 +290,8 @@ protected:
 	std::string gameID_;
 	Path basePath_;
 	ReplacedTextureHash hash_ = ReplacedTextureHash::QUICK;
+	zip *zip_ = nullptr;
+
 	typedef std::pair<int, int> WidthHeightPair;
 	std::unordered_map<u64, WidthHeightPair> hashranges_;
 	std::unordered_map<u64, float> reducehashranges_;

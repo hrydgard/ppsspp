@@ -21,6 +21,11 @@
 #include <cstring>
 #include <memory>
 #include <png.h>
+#ifdef SHARED_LIBZIP
+#include <zip.h>
+#else
+#include "ext/libzip/zip.h"
+#endif
 
 #include "ext/xxhash.h"
 
@@ -44,6 +49,7 @@
 #include "GPU/Common/TextureDecoder.h"
 
 static const std::string INI_FILENAME = "textures.ini";
+static const std::string ZIP_FILENAME = "textures.zip";
 static const std::string NEW_TEXTURE_DIR = "new/";
 static const int VERSION = 1;
 static const int MAX_MIP_LEVELS = 12;  // 12 should be plenty, 8 is the max mip levels supported by the PSP.
@@ -55,6 +61,8 @@ TextureReplacer::TextureReplacer() {
 }
 
 TextureReplacer::~TextureReplacer() {
+	if (zip_)
+		zip_close(zip_);
 }
 
 void TextureReplacer::Init() {
@@ -79,12 +87,53 @@ void TextureReplacer::NotifyConfigChanged() {
 
 		enabled_ = File::IsDirectory(basePath_);
 	} else if (wasEnabled) {
+		if (zip_)
+			zip_close(zip_);
+		zip_ = nullptr;
 		Decimate(ReplacerDecimateMode::ALL);
 	}
 
 	if (enabled_) {
 		enabled_ = LoadIni();
 	}
+}
+
+static struct zip *ZipOpenPath(Path fileName) {
+	int error = 0;
+	if (fileName.Type() == PathType::CONTENT_URI) {
+		int fd = File::OpenFD(fileName, File::OPEN_READ);
+		return zip_fdopen(fd, 0, &error);
+	}
+	return zip_open(fileName.c_str(), 0, &error);
+}
+
+static constexpr zip_uint64_t INVALID_ZIP_SIZE = 0xFFFFFFFFFFFFFFFFULL;
+static zip_uint64_t ZipFileSize(zip *z, zip_int64_t i) {
+	zip_stat_t zstat;
+	if (zip_stat_index(z, i, 0, &zstat) != 0)
+		return INVALID_ZIP_SIZE;
+	if ((zstat.valid & ZIP_STAT_SIZE) == 0)
+		return INVALID_ZIP_SIZE;
+	return zstat.size;
+}
+
+static bool LoadIniZip(IniFile &ini, zip *z, const std::string &filename) {
+	zip_int64_t i = zip_name_locate(z, filename.c_str(), ZIP_FL_NOCASE);
+	if (i < 0)
+		return false;
+
+	std::string inistr;
+	zip_uint64_t sz = ZipFileSize(z, i);
+	if (sz == INVALID_ZIP_SIZE)
+		return false;
+	inistr.resize(sz);
+
+	zip_file_t *zf = zip_fopen_index(z, i, 0);
+	inistr.resize(zip_fread(zf, &inistr[0], inistr.size()));
+	zip_fclose(zf);
+
+	std::stringstream sstream(inistr);
+	return ini.Load(sstream);
 }
 
 bool TextureReplacer::LoadIni() {
@@ -102,8 +151,32 @@ bool TextureReplacer::LoadIni() {
 	// Prevents dumping the mipmaps.
 	ignoreMipmap_ = false;
 
+	if (zip_)
+		zip_close(zip_);
+	zip_ = nullptr;
+
 	IniFile ini;
-	if (ini.LoadFromVFS((basePath_ / INI_FILENAME).ToString())) {
+	bool iniLoaded = false;
+
+	// First, check for textures.zip, which is used to reduce IO.
+	zip *z = ZipOpenPath(basePath_ / ZIP_FILENAME);
+	if (z) {
+		iniLoaded = LoadIniZip(ini, z, INI_FILENAME);
+		// Require the zip have textures.ini to use it.
+		if (iniLoaded) {
+			iniLoaded = true;
+			zip_ = z;
+		} else {
+			zip_close(z);
+			z = nullptr;
+		}
+	}
+
+	if (!iniLoaded) {
+		iniLoaded = ini.LoadFromVFS((basePath_ / INI_FILENAME).ToString());
+	}
+
+	if (iniLoaded) {
 		if (!LoadIniValues(ini)) {
 			return false;
 		}
@@ -113,7 +186,11 @@ bool TextureReplacer::LoadIni() {
 		if (ini.GetOrCreateSection("games")->Get(gameID_.c_str(), &overrideFilename, "")) {
 			if (!overrideFilename.empty() && overrideFilename != INI_FILENAME) {
 				IniFile overrideIni;
-				if (!overrideIni.LoadFromVFS((basePath_ / overrideFilename).ToString())) {
+				if (zip_)
+					iniLoaded = LoadIniZip(overrideIni, zip_, overrideFilename);
+				else
+					iniLoaded = overrideIni.LoadFromVFS((basePath_ / overrideFilename).ToString());
+				if (!iniLoaded) {
 					ERROR_LOG(G3D, "Failed to load extra texture ini: %s", overrideFilename.c_str());
 					return false;
 				}
@@ -420,7 +497,16 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		ReplacedTextureLevel level;
 		level.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 		level.file = filename;
-		bool good = PopulateLevel(level, hashfile == HashName(cachekey, hash, i) + ".png");
+
+		bool good;
+		bool logError = hashfile != HashName(cachekey, hash, i) + ".png";
+		if (zip_) {
+			level.z = zip_;
+			level.zi = zip_name_locate(zip_, hashfile.c_str(), ZIP_FL_NOCASE);
+			good = PopulateLevelFromZip(level, !logError);
+		} else {
+			good = PopulateLevelFromPath(level, !logError);
+		}
 
 		// We pad files that have been hashrange'd so they are the same texture size.
 		level.w = (level.w * w) / newW;
@@ -456,12 +542,7 @@ enum class ReplacedImageType {
 	INVALID,
 };
 
-static ReplacedImageType Identify(FILE *fp) {
-	uint8_t magic[4];
-	if (fread(magic, 1, 4, fp) != 4)
-		return ReplacedImageType::INVALID;
-	rewind(fp);
-
+static ReplacedImageType Identify(const uint8_t magic[4]) {
 	if (strncmp((const char *)magic, "ZIMG", 4) == 0)
 		return ReplacedImageType::ZIM;
 	if (magic[0] == 0x89 && strncmp((const char *)&magic[1], "PNG", 3) == 0)
@@ -469,7 +550,24 @@ static ReplacedImageType Identify(FILE *fp) {
 	return ReplacedImageType::INVALID;
 }
 
-bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level, bool ignoreError) {
+static ReplacedImageType Identify(FILE *fp) {
+	uint8_t magic[4];
+	if (fread(magic, 1, 4, fp) != 4)
+		return ReplacedImageType::INVALID;
+	rewind(fp);
+
+	return Identify(magic);
+}
+
+static ReplacedImageType Identify(zip_file_t *zf) {
+	uint8_t magic[4];
+	if (zip_fread(zf, magic, 4) != 4)
+		return ReplacedImageType::INVALID;
+
+	return Identify(magic);
+}
+
+bool TextureReplacer::PopulateLevelFromPath(ReplacedTextureLevel &level, bool ignoreError) {
 	bool good = false;
 
 	FILE *fp = File::OpenCFile(level.file, "rb");
@@ -504,6 +602,62 @@ bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level, bool ignoreErro
 		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format", level.file.ToVisualString().c_str());
 	}
 	fclose(fp);
+
+	return good;
+}
+
+bool TextureReplacer::PopulateLevelFromZip(ReplacedTextureLevel &level, bool ignoreError) {
+	bool good = false;
+
+	if (!level.z || level.zi < 0) {
+		if (!ignoreError)
+			ERROR_LOG(G3D, "Error opening replacement texture file '%s' in textures.zip", level.file.c_str());
+		return false;
+	}
+
+	zip_file_t *zf = zip_fopen_index(level.z, level.zi, 0);
+	if (!zf)
+		return false;
+
+	auto imageType = Identify(zf);
+	zip_fclose(zf);
+
+	zf = zip_fopen_index(level.z, level.zi, 0);
+	if (imageType == ReplacedImageType::ZIM) {
+		uint32_t ignore = 0;
+		good = zip_fread(zf, &ignore, 4) == 4;
+		good = good && zip_fread(zf, &level.w, 4) == 4;
+		good = good && zip_fread(zf, &level.h, 4) == 4;
+		int flags;
+		if (good && zip_fread(zf, &flags, 4) == 4) {
+			good = (flags & ZIM_FORMAT_MASK) == ZIM_RGBA8888;
+		}
+	} else if (imageType == ReplacedImageType::PNG) {
+		png_image png = {};
+		png.version = PNG_IMAGE_VERSION;
+
+		// TODO: Use some way to stream data into libpng.  Better than the IO lookups on Android...
+		zip_uint64_t zsize = ZipFileSize(level.z, level.zi);
+		std::string pngdata;
+		if (zsize != INVALID_ZIP_SIZE)
+			pngdata.resize(zsize);
+		if (!pngdata.empty()) {
+			pngdata.resize(zip_fread(zf, pngdata.data(), pngdata.size()));
+		}
+
+		if (png_image_begin_read_from_memory(&png, pngdata.data(), pngdata.size())) {
+			// We pad files that have been hashrange'd so they are the same texture size.
+			level.w = png.width;
+			level.h = png.height;
+			good = true;
+		} else {
+			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s (zip)", level.file.ToVisualString().c_str(), png.message);
+		}
+		png_image_free(&png);
+	} else {
+		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format (zip)", level.file.ToVisualString().c_str());
+	}
+	zip_fclose(zf);
 
 	return good;
 }
@@ -905,26 +1059,66 @@ void ReplacedTexture::PrepareData(int level) {
 	if (!out.empty())
 		return;
 
-	FILE *fp = File::OpenCFile(info.file, "rb");
-	if (!fp) {
-		// Leaving the data sized at zero means failure.
-		return;
-	}
+	FILE *fp = nullptr;
+	zip_file_t *zf = nullptr;
+	ReplacedImageType imageType;
+	if (info.z) {
+		zf = zip_fopen_index(info.z, info.zi, 0);
+		if (!zf)
+			return;
 
-	auto imageType = Identify(fp);
-	if (imageType == ReplacedImageType::ZIM) {
-		size_t zimSize = File::GetFileSize(fp);
-		std::unique_ptr<uint8_t[]> zim(new uint8_t[zimSize]);
-		if (!zim) {
-			ERROR_LOG(G3D, "Failed to allocate memory for texture replacement");
-			fclose(fp);
+		imageType = Identify(zf);
+		// Can't assume we can seek.  Reopen.
+		zip_fclose(zf);
+		zf = zip_fopen_index(info.z, info.zi, 0);
+	} else {
+		fp = File::OpenCFile(info.file, "rb");
+		if (!fp) {
+			// Leaving the data sized at zero means failure.
 			return;
 		}
 
-		if (fread(&zim[0], 1, zimSize, fp) != zimSize) {
-			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", info.file.c_str());
+		imageType = Identify(fp);
+	}
+
+	auto cleanup = [&] {
+		if (zf)
+			zip_fclose(zf);
+		if (fp)
 			fclose(fp);
+	};
+
+	if (imageType == ReplacedImageType::ZIM) {
+		size_t zimSize;
+		if (fp) {
+			zimSize = File::GetFileSize(fp);
+		} else if (zf) {
+			zip_uint64_t zsize = ZipFileSize(info.z, info.zi);
+			zimSize = zsize == INVALID_ZIP_SIZE ? 0 : (size_t)zsize;
+		} else {
+			_assert_(false);
+		}
+		std::unique_ptr<uint8_t[]> zim(new uint8_t[zimSize]);
+		if (!zim) {
+			ERROR_LOG(G3D, "Failed to allocate memory for texture replacement");
+			cleanup();
 			return;
+		}
+
+		if (fp) {
+			if (fread(&zim[0], 1, zimSize, fp) != zimSize) {
+				ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", info.file.c_str());
+				cleanup();
+				return;
+			}
+		} else if (zf) {
+			if (zip_fread(zf, &zim[0], zimSize) != zimSize) {
+				ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM (zip)", info.file.c_str());
+				cleanup();
+				return;
+			}
+		} else {
+			_assert_(false);
 		}
 
 		int w, h, f;
@@ -933,7 +1127,7 @@ void ReplacedTexture::PrepareData(int level) {
 		if (LoadZIMPtr(&zim[0], zimSize, &w, &h, &f, &image)) {
 			if (w > info.w || h > info.h) {
 				ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
-				fclose(fp);
+				cleanup();
 				return;
 			}
 
@@ -956,14 +1150,33 @@ void ReplacedTexture::PrepareData(int level) {
 		png_image png = {};
 		png.version = PNG_IMAGE_VERSION;
 
-		if (!png_image_begin_read_from_stdio(&png, fp)) {
-			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", info.file.c_str(), png.message);
-			fclose(fp);
-			return;
+		// Needs to survive for a little while, used for zip only.
+		std::string pngdata;
+		if (fp) {
+			if (!png_image_begin_read_from_stdio(&png, fp)) {
+				ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", info.file.c_str(), png.message);
+				cleanup();
+				return;
+			}
+		} else if (zf) {
+			zip_uint64_t zsize = ZipFileSize(info.z, info.zi);
+			if (zsize != INVALID_ZIP_SIZE)
+				pngdata.resize(zsize);
+			if (!pngdata.empty()) {
+				pngdata.resize(zip_fread(zf, pngdata.data(), pngdata.size()));
+			}
+
+			if (!png_image_begin_read_from_memory(&png, pngdata.data(), pngdata.size())) {
+				ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s (zip)", info.file.c_str(), png.message);
+				cleanup();
+				return;
+			}
+		} else {
+			_assert_(false);
 		}
 		if (png.width > (uint32_t)info.w || png.height > (uint32_t)info.h) {
 			ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
-			fclose(fp);
+			cleanup();
 			return;
 		}
 
@@ -980,7 +1193,7 @@ void ReplacedTexture::PrepareData(int level) {
 		out.resize(info.w * info.h * 4);
 		if (!png_image_finish_read(&png, nullptr, &out[0], info.w * 4, nullptr)) {
 			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", info.file.c_str(), png.message);
-			fclose(fp);
+			cleanup();
 			out.resize(0);
 			return;
 		}
@@ -995,7 +1208,7 @@ void ReplacedTexture::PrepareData(int level) {
 		}
 	}
 
-	fclose(fp);
+	cleanup();
 }
 
 size_t ReplacedTexture::PurgeIfOlder(double t) {
