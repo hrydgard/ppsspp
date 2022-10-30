@@ -17,11 +17,13 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
 #include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "Common/CommonFuncs.h"
 #include "Common/CommonTypes.h"
 #include "Common/MemoryUtil.h"
 #include "Common/File/Path.h"
@@ -54,6 +56,33 @@ struct ReplacedTextureLevel {
 	int h;
 	Draw::DataFormat fmt;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
 	Path file;
+
+	bool operator ==(const ReplacedTextureLevel &other) const {
+		if (w != other.w || h != other.h || fmt != other.fmt)
+			return false;
+		return file == other.file;
+	}
+};
+
+namespace std {
+	template <>
+	struct hash<ReplacedTextureLevel> {
+		std::size_t operator()(const ReplacedTextureLevel &k) const {
+#if PPSSPP_ARCH(64BIT)
+			uint64_t v = (uint64_t)k.w | ((uint64_t)k.h << 32);
+			v = __rotl64(v ^ (uint64_t)k.fmt, 13);
+#else
+			uint32_t v = k.w ^ (uint32_t)k.fmt;
+			v = __rotl(__rotl(v, 13) ^ k.h, 13);
+#endif
+			return v ^ hash<string>()(k.file.ToString());
+		}
+	};
+}
+
+struct ReplacedLevelCache {
+	std::vector<uint8_t> data;
+	double lastUsed = 0.0;
 };
 
 struct ReplacementCacheKey {
@@ -170,7 +199,7 @@ protected:
 	size_t PurgeIfOlder(double t);
 
 	std::vector<ReplacedTextureLevel> levels_;
-	std::vector<std::vector<uint8_t>> levelData_;
+	std::vector<ReplacedLevelCache *> levelData_;
 	ReplacedTextureAlpha alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 	double lastUsed_ = 0.0;
 	LimitedWaitable *threadWaitable_ = nullptr;
@@ -263,4 +292,5 @@ protected:
 	ReplacedTexture none_;
 	std::unordered_map<ReplacementCacheKey, ReplacedTexture> cache_;
 	std::unordered_map<ReplacementCacheKey, std::pair<ReplacedTextureLevel, double>> savedCache_;
+	std::unordered_map<ReplacedTextureLevel, ReplacedLevelCache> levelCache_;
 };

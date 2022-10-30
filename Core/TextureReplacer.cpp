@@ -441,6 +441,12 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 			break;
 	}
 
+	// Populate the level data pointers for each level.
+	result->levelData_.resize(result->levels_.size());
+	for (size_t i = 0; i < result->levels_.size(); ++i) {
+		result->levelData_[i] = &levelCache_[result->levels_[i]];
+	}
+
 	result->prepareDone_ = true;
 }
 
@@ -836,8 +842,11 @@ bool ReplacedTexture::IsReady(double budget) {
 	}
 
 	// Loaded already, or not yet on a thread?
-	if (initDone_ && !levelData_.empty())
+	if (initDone_ && !levelData_.empty()) {
+		for (auto &l : levelData_)
+			l->lastUsed = lastUsed_;
 		return true;
+	}
 	// Let's not even start a new texture if we're already behind.
 	if (budget < 0.0)
 		return false;
@@ -871,7 +880,6 @@ void ReplacedTexture::Prepare() {
 		return;
 	}
 
-	levelData_.resize(levels_.size());
 	for (int i = 0; i < (int)levels_.size(); ++i) {
 		if (cancelPrepare_)
 			break;
@@ -885,9 +893,14 @@ void ReplacedTexture::Prepare() {
 
 void ReplacedTexture::PrepareData(int level) {
 	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
+	_assert_msg_(levelData_[level] != nullptr, "Level cache not set for miplevel");
 
 	const ReplacedTextureLevel &info = levels_[level];
-	std::vector<uint8_t> &out = levelData_[level];
+	std::vector<uint8_t> &out = levelData_[level]->data;
+
+	// Already populated from cache.
+	if (!out.empty())
+		return;
 
 	FILE *fp = File::OpenCFile(info.file, "rb");
 	if (!fp) {
@@ -987,14 +1000,19 @@ size_t ReplacedTexture::PurgeIfOlder(double t) {
 		return 0;
 
 	if (lastUsed_ < t) {
-		levelData_.clear();
-		initDone_ = false;
+		for (auto &l : levelData_) {
+			if (l->lastUsed < t) {
+				l->data.clear();
+				// This means we have to reload.  If we never purge any, there's no need.
+				initDone_ = false;
+			}
+		}
 		return 0;
 	}
 
 	size_t s = 0;
 	for (auto &l : levelData_) {
-		s += l.size();
+		s += l->data.size();
 	}
 	return s;
 }
@@ -1018,8 +1036,10 @@ bool ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	if (levelData_.empty())
 		return false;
 
+	_assert_msg_(levelData_[level] != nullptr, "Level cache not set for miplevel");
+
 	const ReplacedTextureLevel &info = levels_[level];
-	const std::vector<uint8_t> &data = levelData_[level];
+	const std::vector<uint8_t> &data = levelData_[level]->data;
 
 	if (data.empty())
 		return false;
