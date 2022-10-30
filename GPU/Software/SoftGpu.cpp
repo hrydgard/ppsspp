@@ -1216,9 +1216,14 @@ void SoftGPU::Execute_Call(u32 op, u32 diff) {
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	if (!Memory::IsValidAddress(target)) {
 		ERROR_LOG(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
-		gpuState = GPUSTATE_ERROR;
-		downcount = 0;
-		return;
+		if ((target == 0) & (op == 167772160)) {
+			return;
+		}
+		else {
+			gpuState = GPUSTATE_ERROR;
+			downcount = 0;
+			return;
+		}
 	}
 
 	const u32 retval = currentList->pc + 4;
