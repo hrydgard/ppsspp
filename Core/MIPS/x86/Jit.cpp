@@ -591,7 +591,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 	// Not sure about the cause.
 	Memory::Opcode origInstruction = Memory::Read_Instruction(GetCompilerPC(), true);
 	if (origInstruction.encoding == op.encoding) {
-		ERROR_LOG(HLE, "Replacement broken (savestate problem?): %08x", op.encoding);
+		ERROR_LOG(HLE, "Replacement broken (savestate problem?): %08x at %08x", op.encoding, GetCompilerPC());
 		return;
 	}
 
