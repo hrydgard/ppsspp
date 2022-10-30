@@ -393,6 +393,9 @@ struct AutoRef {
 		*this = p.ptr;
 		return *this;
 	}
+	bool operator !=(const AutoRef<T> &p) const {
+		return ptr != p.ptr;
+	}
 
 	T *operator->() const {
 		return ptr;
