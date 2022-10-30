@@ -47,6 +47,7 @@ static const std::string INI_FILENAME = "textures.ini";
 static const std::string NEW_TEXTURE_DIR = "new/";
 static const int VERSION = 1;
 static const int MAX_MIP_LEVELS = 12;  // 12 should be plenty, 8 is the max mip levels supported by the PSP.
+static const double MAX_CACHE_SIZE = 4.0;
 
 TextureReplacer::TextureReplacer() {
 	none_.initDone_ = true;
@@ -674,15 +675,27 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 void TextureReplacer::Decimate(ReplacerDecimateMode mode) {
 	// Allow replacements to be cached for a long time, although they're large.
 	double age = 1800.0;
-	if (mode == ReplacerDecimateMode::FORCE_PRESSURE)
+	if (mode == ReplacerDecimateMode::FORCE_PRESSURE) {
 		age = 90.0;
-	else if (mode == ReplacerDecimateMode::ALL)
+	} else if (mode == ReplacerDecimateMode::ALL) {
 		age = 0.0;
+	} else if (lastTextureCacheSizeGB_ > 1.0) {
+		double pressure = std::min(MAX_CACHE_SIZE, lastTextureCacheSizeGB_) / MAX_CACHE_SIZE;
+		// Get more aggressive the closer we are to the max.
+		age = 90.0 + (1.0 - pressure) * 1710.0;
+	}
 
 	const double threshold = time_now_d() - age;
+	size_t totalSize = 0;
 	for (auto &item : cache_) {
-		item.second.PurgeIfOlder(threshold);
+		totalSize += item.second.PurgeIfOlder(threshold);
 	}
+
+	double totalSizeGB = totalSize / (1024.0 * 1024.0 * 1024.0);
+	if (totalSizeGB >= 1.0) {
+		WARN_LOG(G3D, "Decimated replacements older than %fs, currently using %f GB of RAM", age, totalSizeGB);
+	}
+	lastTextureCacheSizeGB_ = totalSizeGB;
 }
 
 template <typename Key, typename Value>
@@ -968,11 +981,21 @@ void ReplacedTexture::PrepareData(int level) {
 	fclose(fp);
 }
 
-void ReplacedTexture::PurgeIfOlder(double t) {
-	if (lastUsed_ < t && (!threadWaitable_ || threadWaitable_->WaitFor(0.0))) {
+size_t ReplacedTexture::PurgeIfOlder(double t) {
+	if (threadWaitable_ && !threadWaitable_->WaitFor(0.0))
+		return 0;
+
+	if (lastUsed_ < t) {
 		levelData_.clear();
 		initDone_ = false;
+		return 0;
 	}
+
+	size_t s = 0;
+	for (auto &l : levelData_) {
+		s += l.size();
+	}
+	return s;
 }
 
 ReplacedTexture::~ReplacedTexture() {

@@ -166,7 +166,8 @@ struct ReplacedTexture {
 protected:
 	void Prepare();
 	void PrepareData(int level);
-	void PurgeIfOlder(double t);
+	// Returns size of data not purged.
+	size_t PurgeIfOlder(double t);
 
 	std::vector<ReplacedTextureLevel> levels_;
 	std::vector<std::vector<uint8_t>> levelData_;
@@ -248,6 +249,7 @@ protected:
 	bool reduceHash_ = false;
 	float reduceHashSize = 1.0; // default value with reduceHash to false
 	float reduceHashGlobalValue = 0.5; // Global value for textures dump pngs of all sizes, 0.5 by default but can be set in textures.ini
+	double lastTextureCacheSizeGB_ = 0.0;
 	bool ignoreMipmap_ = false;
 	std::string gameID_;
 	Path basePath_;
