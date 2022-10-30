@@ -1848,33 +1848,54 @@ namespace MIPSComp {
 		int imm = (op >> 16) & 0x1f;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
+		int sineLane = (imm >> 2) & 3;
+		int cosineLane = imm & 3;
 		bool negSin = (imm & 0x10) ? true : false;
+		bool broadcastSine = sineLane == cosineLane;
 
 		char d[4] = { '0', '0', '0', '0' };
-		if (((imm >> 2) & 3) == (imm & 3)) {
+		if (broadcastSine) {
 			for (int i = 0; i < 4; i++)
 				d[i] = 's';
 		}
-		d[(imm >> 2) & 3] = 's';
-		d[imm & 3] = 'c';
+		d[sineLane] = 's';
+		d[cosineLane] = 'c';
 
 		u8 dregs[4];
 		GetVectorRegs(dregs, sz, vd);
 		u8 sreg[1];
 		GetVectorRegs(sreg, V_Single, vs);
+
+		// If there's overlap, sin is calculated without it, but cosine uses the result.
+		// This corresponds with prefix handling, where cosine doesn't get in prefixes.
+		if (broadcastSine || !IsOverlapSafe(n, dregs, 1, sreg)) {
+			ir.Write(IROp::FSin, IRVTEMP_0, sreg[0]);
+			if (negSin)
+				ir.Write(IROp::FNeg, IRVTEMP_0, IRVTEMP_0);
+		}
+
 		for (int i = 0; i < n; i++) {
 			switch (d[i]) {
 			case '0':
 				ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(0.0f));
 				break;
 			case 's':
-				ir.Write(IROp::FSin, dregs[i], sreg[0]);
-				if (negSin) {
-					ir.Write(IROp::FNeg, dregs[i], dregs[i]);
+				if (broadcastSine || !IsOverlapSafe(n, dregs, 1, sreg)) {
+					ir.Write(IROp::FMov, dregs[i], IRVTEMP_0);
+				} else {
+					ir.Write(IROp::FSin, dregs[i], sreg[0]);
+					if (negSin) {
+						ir.Write(IROp::FNeg, dregs[i], dregs[i]);
+					}
 				}
 				break;
 			case 'c':
-				ir.Write(IROp::FCos, dregs[i], sreg[0]);
+				if (IsOverlapSafe(n, dregs, 1, sreg))
+					ir.Write(IROp::FCos, dregs[i], sreg[0]);
+				else if (dregs[sineLane] == sreg[0])
+					ir.Write(IROp::FCos, dregs[i], IRVTEMP_0);
+				else
+					ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(1.0f));
 				break;
 			}
 		}

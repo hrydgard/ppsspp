@@ -1607,7 +1607,24 @@ namespace MIPSInt
 		} else {
 			d[sineLane] = sine;
 		}
-		d[cosineLane] = cosine;
+
+		if (((vd >> 2) & 7) == ((vs >> 2) & 7)) {
+			u8 dregs[4]{};
+			GetVectorRegs(dregs, sz, vd);
+			// Calculate cosine based on sine/zero result.
+			bool written = false;
+			for (int i = 0; i < 4; i++) {
+				if (vs == dregs[i]) {
+					d[cosineLane] = vfpu_cos(d[i]);
+					written = true;
+					break;
+				}
+			}
+			if (!written)
+				d[cosineLane] = cosine;
+		} else {
+			d[cosineLane] = cosine;
+		}
 
 		// D prefix works, just not for x.
 		currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] &= 0xFFEFC;
