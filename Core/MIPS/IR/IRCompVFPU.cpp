@@ -1185,8 +1185,8 @@ namespace MIPSComp {
 		int vt = _VT;
 		u8 sregs[4], dregs[4], treg;
 		GetVectorRegsPrefixS(sregs, sz, vs);
-		// TODO: Prefixes seem strange...
-		GetVectorRegsPrefixT(&treg, V_Single, vt);
+		// T prefixes handled by interp.
+		GetVectorRegs(&treg, V_Single, vt);
 		GetVectorRegsPrefixD(dregs, sz, vd);
 
 		bool overlap = false;

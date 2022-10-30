@@ -540,8 +540,10 @@ namespace MIPSInt
 		ApplySwizzleS(&s[(n - 1) * 4], V_Quad);
 		// T prefix applies only for the last row, and is used per element.
 		// This is like vscl, but instead of zzzz it uses xxxx.
+		int tlane = (vt >> 5) & 3;
+		t[tlane] = t[0];
 		u32 tprefixRemove = VFPU_ANY_SWIZZLE();
-		u32 tprefixAdd = VFPU_SWIZZLE(0, 0, 0, 0);
+		u32 tprefixAdd = VFPU_SWIZZLE(tlane, tlane, tlane, tlane);
 		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 
 		for (int b = 0; b < n; b++) {
@@ -1518,9 +1520,10 @@ namespace MIPSInt
 
 		// T prefix forces swizzle (zzzz for some reason, so we force V_Quad.)
 		// That means negate still works, but constants are a bit weird.
-		t[2] = V(vt);
+		int tlane = (vt >> 5) & 3;
+		t[tlane] = V(vt);
 		u32 tprefixRemove = VFPU_ANY_SWIZZLE();
-		u32 tprefixAdd = VFPU_SWIZZLE(2, 2, 2, 2);
+		u32 tprefixAdd = VFPU_SWIZZLE(tlane, tlane, tlane, tlane);
 		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 
 		int n = GetNumVectorElements(sz);
