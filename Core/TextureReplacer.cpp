@@ -847,9 +847,14 @@ void TextureReplacer::Decimate(ReplacerDecimateMode mode) {
 	}
 
 	const double threshold = time_now_d() - age;
-	size_t totalSize = 0;
 	for (auto &item : cache_) {
-		totalSize += item.second.PurgeIfOlder(threshold);
+		item.second.PurgeIfOlder(threshold);
+	}
+
+	size_t totalSize = 0;
+	for (auto &item : levelCache_) {
+		std::lock_guard<std::mutex> guard(item.second.lock);
+		totalSize += item.second.data.size();
 	}
 
 	double totalSizeGB = totalSize / (1024.0 * 1024.0 * 1024.0);
@@ -1211,29 +1216,21 @@ void ReplacedTexture::PrepareData(int level) {
 	cleanup();
 }
 
-size_t ReplacedTexture::PurgeIfOlder(double t) {
+void ReplacedTexture::PurgeIfOlder(double t) {
 	if (threadWaitable_ && !threadWaitable_->WaitFor(0.0))
-		return 0;
+		return;
+	if (lastUsed_ >= t)
+		return;
 
-	if (lastUsed_ < t) {
-		for (auto &l : levelData_) {
-			if (l->lastUsed < t) {
-				// We have to lock since multiple textures might reference this same data.
-				std::lock_guard<std::mutex> guard(l->lock);
-				l->data.clear();
-				// This means we have to reload.  If we never purge any, there's no need.
-				initDone_ = false;
-			}
-		}
-		return 0;
-	}
-
-	size_t s = 0;
 	for (auto &l : levelData_) {
-		std::lock_guard<std::mutex> guard(l->lock);
-		s += l->data.size();
+		if (l->lastUsed < t) {
+			// We have to lock since multiple textures might reference this same data.
+			std::lock_guard<std::mutex> guard(l->lock);
+			l->data.clear();
+			// This means we have to reload.  If we never purge any, there's no need.
+			initDone_ = false;
+		}
 	}
-	return s;
 }
 
 ReplacedTexture::~ReplacedTexture() {

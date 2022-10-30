@@ -201,8 +201,7 @@ struct ReplacedTexture {
 protected:
 	void Prepare();
 	void PrepareData(int level);
-	// Returns size of data not purged.
-	size_t PurgeIfOlder(double t);
+	void PurgeIfOlder(double t);
 
 	std::vector<ReplacedTextureLevel> levels_;
 	std::vector<ReplacedLevelCache *> levelData_;
