@@ -150,22 +150,42 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 	KeyInput keyInput = {};
 	for (int j = 0; j < 2; j++) {
 		int status = IN_VRGetButtonState(j);
+		bool cameraControl = VR_GetConfig(VR_CONFIG_CAMERA_CONTROL);
 		for (ButtonMapping& m : controllerMapping[j]) {
+
+			//check if camera key was pressed
+			bool cameraKey = false;
+			std::vector<int> nativeKeys;
+			if (KeyMap::KeyToPspButton(controllerIds[j], m.keycode, &nativeKeys)) {
+				for (int& nativeKey : nativeKeys) {
+					if (nativeKey == VIRTKEY_VR_CAMERA_ADJUST) {
+						cameraKey = true;
+						break;
+					}
+				}
+			}
+
+			//fill KeyInput structure
 			bool pressed = status & m.ovr;
 			keyInput.flags = pressed ? KEY_DOWN : KEY_UP;
 			keyInput.keyCode = m.keycode;
 			keyInput.deviceId = controllerIds[j];
 
+			//process the key action
 			if (m.pressed != pressed) {
 				if (pressed && haptics) {
 					INVR_Vibrate(100, j, 1000);
 				}
-				NativeKey(keyInput);
+				if (!cameraControl || cameraKey) {
+					NativeKey(keyInput);
+				}
 				m.pressed = pressed;
 				m.repeat = 0;
 			} else if (pressed && (m.repeat > 30)) {
 				keyInput.flags |= KEY_IS_REPEAT;
-				NativeKey(keyInput);
+				if (!cameraControl || cameraKey) {
+					NativeKey(keyInput);
+				}
 				m.repeat = 0;
 			} else {
 				m.repeat++;
@@ -221,11 +241,16 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 	}
 }
 
-void UpdateVRScreenKey(const KeyInput &key) {
+void UpdateVRSpecialKeys(const KeyInput &key) {
 	std::vector<int> nativeKeys;
 	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
 		for (int& nativeKey : nativeKeys) {
-			if (nativeKey == CTRL_SCREEN) {
+			// adjust camera parameters
+			if (nativeKey == VIRTKEY_VR_CAMERA_ADJUST) {
+				VR_SetConfig(VR_CONFIG_CAMERA_CONTROL, key.flags & KEY_DOWN);
+			}
+			// force 2D rendering
+			else if (nativeKey == CTRL_SCREEN) {
 				VR_SetConfig(VR_CONFIG_FORCE_2D, key.flags & KEY_DOWN);
 			}
 		}
@@ -317,11 +342,46 @@ bool StartVRRender() {
 		// Set compatibility
 		vrCompat[VR_COMPAT_SKYPLANE] = PSP_CoreParameter().compat.vrCompat().Skyplane;
 
+		// Camera control
+		if (VR_GetConfig(VR_CONFIG_CAMERA_CONTROL)) {
+			//left joystick controls height and side
+			float height = g_Config.fCameraHeight;
+			float side = g_Config.fCameraSide;
+			int status = IN_VRGetButtonState(0);
+			if (status & ovrButton_Left) side -= 0.05f;
+			if (status & ovrButton_Right) side += 0.05f;
+			if (status & ovrButton_Down) height -= 0.05f;
+			if (status & ovrButton_Up) height += 0.05f;
+			if (status & ovrButton_LThumb) {
+				height = 0;
+				side = 0;
+			}
+			g_Config.fCameraHeight = std::clamp(height, -10.0f, 10.0f);
+			g_Config.fCameraSide = std::clamp(side, -10.0f, 10.0f);
+
+			//right joystick controls distance and fov
+			float dst = g_Config.fCameraDistance;
+			float fov = g_Config.fFieldOfViewPercentage;
+			status = IN_VRGetButtonState(1);
+			if (status & ovrButton_Left) fov -= 1.0f;
+			if (status & ovrButton_Right) fov += 1.0f;
+			if (status & ovrButton_Down) dst -= 0.1f;
+			if (status & ovrButton_Up) dst += 0.1f;
+			if (status & ovrButton_RThumb) {
+				fov = 100;
+				dst = 0;
+			}
+			g_Config.fCameraDistance = std::clamp(dst, -10.0f, 10.0f);
+			g_Config.fFieldOfViewPercentage = std::clamp(fov, 100.0f, 200.0f);
+		}
+
 		// Set customizations
 		VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
-		VR_SetConfig(VR_CONFIG_CAMERA_DISTANCE, g_Config.iCameraDistance);
-		VR_SetConfig(VR_CONFIG_CANVAS_DISTANCE, g_Config.iCanvasDistance);
-		VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.iFieldOfViewPercentage);
+		VR_SetConfig(VR_CONFIG_CAMERA_DISTANCE, g_Config.fCameraDistance * 1000);
+		VR_SetConfig(VR_CONFIG_CAMERA_HEIGHT, g_Config.fCameraHeight * 1000);
+		VR_SetConfig(VR_CONFIG_CAMERA_SIDE, g_Config.fCameraSide * 1000);
+		VR_SetConfig(VR_CONFIG_CANVAS_DISTANCE, g_Config.fCanvasDistance);
+		VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.fFieldOfViewPercentage);
 		VR_SetConfig(VR_CONFIG_MIRROR_UPDATED, false);
 		return true;
 	}
