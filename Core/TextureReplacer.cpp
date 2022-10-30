@@ -76,7 +76,7 @@ void TextureReplacer::NotifyConfigChanged() {
 			File::CreateEmptyFile(newTextureDir / ".nomedia");
 		}
 
-		enabled_ = File::Exists(basePath_) && File::IsDirectory(basePath_);
+		enabled_ = File::IsDirectory(basePath_);
 	} else if (wasEnabled) {
 		Decimate(ReplacerDecimateMode::ALL);
 	}
@@ -101,10 +101,8 @@ bool TextureReplacer::LoadIni() {
 	// Prevents dumping the mipmaps.
 	ignoreMipmap_ = false;
 
-	if (File::Exists(basePath_ / INI_FILENAME)) {
-		IniFile ini;
-		ini.LoadFromVFS((basePath_ / INI_FILENAME).ToString());
-
+	IniFile ini;
+	if (ini.LoadFromVFS((basePath_ / INI_FILENAME).ToString())) {
 		if (!LoadIniValues(ini)) {
 			return false;
 		}
@@ -113,10 +111,13 @@ bool TextureReplacer::LoadIni() {
 		std::string overrideFilename;
 		if (ini.GetOrCreateSection("games")->Get(gameID_.c_str(), &overrideFilename, "")) {
 			if (!overrideFilename.empty() && overrideFilename != INI_FILENAME) {
-				INFO_LOG(G3D, "Loading extra texture ini: %s", overrideFilename.c_str());
 				IniFile overrideIni;
-				overrideIni.LoadFromVFS((basePath_ / overrideFilename).ToString());
+				if (!overrideIni.LoadFromVFS((basePath_ / overrideFilename).ToString())) {
+					ERROR_LOG(G3D, "Failed to load extra texture ini: %s", overrideFilename.c_str());
+					return false;
+				}
 
+				INFO_LOG(G3D, "Loading extra texture ini: %s", overrideFilename.c_str());
 				if (!LoadIniValues(overrideIni, true)) {
 					return false;
 				}
