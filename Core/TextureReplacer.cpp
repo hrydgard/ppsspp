@@ -420,7 +420,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		ReplacedTextureLevel level;
 		level.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 		level.file = filename;
-		bool good = PopulateLevel(level);
+		bool good = PopulateLevel(level, hashfile == HashName(cachekey, hash, i) + ".png");
 
 		// We pad files that have been hashrange'd so they are the same texture size.
 		level.w = (level.w * w) / newW;
@@ -463,12 +463,13 @@ static ReplacedImageType Identify(FILE *fp) {
 	return ReplacedImageType::INVALID;
 }
 
-bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level) {
+bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level, bool ignoreError) {
 	bool good = false;
 
 	FILE *fp = File::OpenCFile(level.file, "rb");
 	if (!fp) {
-		ERROR_LOG(G3D, "Error opening replacement texture file '%s'", level.file.c_str());
+		if (!ignoreError)
+			ERROR_LOG(G3D, "Error opening replacement texture file '%s'", level.file.c_str());
 		return false;
 	}
 
