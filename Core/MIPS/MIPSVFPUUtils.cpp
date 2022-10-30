@@ -343,6 +343,10 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 }
 
 int GetVectorOverlap(int vec1, VectorSize size1, int vec2, VectorSize size2) {
+	// Different matrices?  Can't overlap, return early.
+	if (((vec1 >> 2) & 7) != ((vec2 >> 2) & 7))
+		return 0;
+
 	int n1 = GetNumVectorElements(size1);
 	int n2 = GetNumVectorElements(size2);
 	u8 regs1[4];
