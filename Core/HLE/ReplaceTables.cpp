@@ -1652,7 +1652,8 @@ std::map<u32, u32> SaveAndClearReplacements() {
 	std::map<u32, u32> saved;
 	for (auto it = replacedInstructions.begin(), end = replacedInstructions.end(); it != end; ++it) {
 		const u32 addr = it->first;
-		const u32 curInstr = Memory::Read_U32(addr);
+		// This will not retain jit blocks.
+		const u32 curInstr = Memory::Read_Opcode_JIT(addr).encoding;
 		if (MIPS_IS_REPLACEMENT(curInstr)) {
 			saved[addr] = curInstr;
 			Memory::Write_U32(it->second, addr);

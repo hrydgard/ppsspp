@@ -227,7 +227,7 @@ static bool AnalogValue(DebuggerRequest &req, float *value, const char *name) {
 	}
 
 	double val = node->value.toNumber();
-	if (val < 1.0 || val > 1.0) {
+	if (val < -1.0 || val > 1.0) {
 		req.Fail(StringFromFormat("Parameter '%s' must be between -1.0 and 1.0", name));
 		return false;
 	}
