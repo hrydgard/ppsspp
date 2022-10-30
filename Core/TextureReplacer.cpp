@@ -895,6 +895,9 @@ void ReplacedTexture::PrepareData(int level) {
 	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
 	_assert_msg_(levelData_[level] != nullptr, "Level cache not set for miplevel");
 
+	// We must lock around access to levelData_ in case two textures try to load it at once.
+	std::lock_guard<std::mutex> guard(levelData_[level]->lock);
+
 	const ReplacedTextureLevel &info = levels_[level];
 	std::vector<uint8_t> &out = levelData_[level]->data;
 
@@ -1002,6 +1005,8 @@ size_t ReplacedTexture::PurgeIfOlder(double t) {
 	if (lastUsed_ < t) {
 		for (auto &l : levelData_) {
 			if (l->lastUsed < t) {
+				// We have to lock since multiple textures might reference this same data.
+				std::lock_guard<std::mutex> guard(l->lock);
 				l->data.clear();
 				// This means we have to reload.  If we never purge any, there's no need.
 				initDone_ = false;
@@ -1012,6 +1017,7 @@ size_t ReplacedTexture::PurgeIfOlder(double t) {
 
 	size_t s = 0;
 	for (auto &l : levelData_) {
+		std::lock_guard<std::mutex> guard(l->lock);
 		s += l->data.size();
 	}
 	return s;
@@ -1037,6 +1043,9 @@ bool ReplacedTexture::Load(int level, void *out, int rowPitch) {
 		return false;
 
 	_assert_msg_(levelData_[level] != nullptr, "Level cache not set for miplevel");
+
+	// We probably could avoid this lock, but better to play it safe.
+	std::lock_guard<std::mutex> guard(levelData_[level]->lock);
 
 	const ReplacedTextureLevel &info = levels_[level];
 	const std::vector<uint8_t> &data = levelData_[level]->data;

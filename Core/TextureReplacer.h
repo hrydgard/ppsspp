@@ -81,6 +81,7 @@ namespace std {
 }
 
 struct ReplacedLevelCache {
+	std::mutex lock;
 	std::vector<uint8_t> data;
 	double lastUsed = 0.0;
 };
