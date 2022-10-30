@@ -410,7 +410,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 	for (int i = 0; i < MAX_MIP_LEVELS; ++i) {
 		const std::string hashfile = LookupHashFile(cachekey, hash, i);
 		const Path filename = basePath_ / hashfile;
-		if (hashfile.empty() || !File::Exists(filename)) {
+		if (hashfile.empty()) {
 			// Out of valid mip levels.  Bail out.
 			break;
 		}
