@@ -205,53 +205,55 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 	}
 
 	//motion control
-	bool activate;
-	for (int j = 0; j < 2; j++) {
-		float limit = 0.5f; //length of needed movement in meters
-		XrVector3f axis = {0, 1, 0};
-		float center = ToRadians((float)VR_GetConfig(VR_CONFIG_MENU_YAW));
-		XrQuaternionf orientation = XrQuaternionf_CreateFromVectorAngle(axis, center);
-		XrVector3f position = XrQuaternionf_Rotate(orientation, IN_VRGetPose(j).position);
+	if (g_Config.bEnableMotions) {
+		for (int j = 0; j < 2; j++) {
+			bool activate;
+			float limit = 0.5f; //length of needed movement in meters
+			XrVector3f axis = {0, 1, 0};
+			float center = ToRadians((float)VR_GetConfig(VR_CONFIG_MENU_YAW));
+			XrQuaternionf orientation = XrQuaternionf_CreateFromVectorAngle(axis, center);
+			XrVector3f position = XrQuaternionf_Rotate(orientation, IN_VRGetPose(j).position);
 
-		//up
-		activate = position.y > limit;
-		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-		keyInput.keyCode = NKCODE_EXT_MOTION_UP;
-		keyInput.deviceId = controllerIds[j];
-		if (controllerMotion[j][0] != activate) NativeKey(keyInput);
-		controllerMotion[j][0] = activate;
+			//up
+			activate = position.y > limit;
+			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_MOTION_UP;
+			keyInput.deviceId = controllerIds[j];
+			if (controllerMotion[j][0] != activate) NativeKey(keyInput);
+			controllerMotion[j][0] = activate;
 
-		//down
-		activate = position.y < -limit * 1.5f;
-		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-		keyInput.keyCode = NKCODE_EXT_MOTION_DOWN;
-		keyInput.deviceId = controllerIds[j];
-		if (controllerMotion[j][1] != activate) NativeKey(keyInput);
-		controllerMotion[j][1] = activate;
+			//down
+			activate = position.y < -limit * 1.5f;
+			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_MOTION_DOWN;
+			keyInput.deviceId = controllerIds[j];
+			if (controllerMotion[j][1] != activate) NativeKey(keyInput);
+			controllerMotion[j][1] = activate;
 
-		//left
-		activate = position.x < -limit * (j == 0 ? 1.0f : 0.25f);
-		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-		keyInput.keyCode = NKCODE_EXT_MOTION_LEFT;
-		keyInput.deviceId = controllerIds[j];
-		if (controllerMotion[j][2] != activate) NativeKey(keyInput);
-		controllerMotion[j][2] = activate;
+			//left
+			activate = position.x < -limit * (j == 0 ? 1.0f : 0.25f);
+			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_MOTION_LEFT;
+			keyInput.deviceId = controllerIds[j];
+			if (controllerMotion[j][2] != activate) NativeKey(keyInput);
+			controllerMotion[j][2] = activate;
 
-		//right
-		activate = position.x > limit * (j == 1 ? 1.0f : 0.25f);
-		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-		keyInput.keyCode = NKCODE_EXT_MOTION_RIGHT;
-		keyInput.deviceId = controllerIds[j];
-		if (controllerMotion[j][3] != activate) NativeKey(keyInput);
-		controllerMotion[j][3] = activate;
+			//right
+			activate = position.x > limit * (j == 1 ? 1.0f : 0.25f);
+			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_MOTION_RIGHT;
+			keyInput.deviceId = controllerIds[j];
+			if (controllerMotion[j][3] != activate) NativeKey(keyInput);
+			controllerMotion[j][3] = activate;
 
-		//forward
-		activate = position.z < -limit;
-		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-		keyInput.keyCode = NKCODE_EXT_MOTION_FORWARD;
-		keyInput.deviceId = controllerIds[j];
-		if (controllerMotion[j][4] != activate) NativeKey(keyInput);
-		controllerMotion[j][4] = activate;
+			//forward
+			activate = position.z < -limit;
+			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_MOTION_FORWARD;
+			keyInput.deviceId = controllerIds[j];
+			if (controllerMotion[j][4] != activate) NativeKey(keyInput);
+			controllerMotion[j][4] = activate;
+		}
 	}
 
 	//mouse cursor

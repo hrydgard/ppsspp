@@ -1163,6 +1163,8 @@ void GameSettingsScreen::CreateViews() {
 		vr6DoF->SetEnabledPtr(&g_Config.bEnableVR);
 		CheckBox *vrStereo = vrSettings->Add(new CheckBox(&g_Config.bEnableStereo, vr->T("Stereoscopic vision (Experimental)")));
 		vrStereo->SetEnabledPtr(&g_Config.bEnableVR);
+		CheckBox *vrMotions = vrSettings->Add(new CheckBox(&g_Config.bEnableMotions, vr->T("Map controller movements to keys")));
+		vrMotions->SetEnabledPtr(&g_Config.bEnableVR);
 
 		vrSettings->Add(new ItemHeader(vr->T("VR camera")));
 		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCameraDistance, -10.0f, 10.0f, vr->T("Camera distance adjust", "Camera distance adjust"), 1.0f, screenManager(), ""));
