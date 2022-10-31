@@ -871,3 +871,31 @@ void Register_InterruptManager()
 {
 	RegisterModule("InterruptManager", ARRAY_SIZE(InterruptManager), InterruptManager);
 }
+
+
+const HLEFunction InterruptManagerForKernel[] =
+{
+	{0x092968F4, &WrapI_V<sceKernelCpuSuspendIntr>,            "sceKernelCpuSuspendIntr",             'i', ""    ,HLE_KERNEL_SYSCALL },
+	{0X5F10D406, &WrapV_U<sceKernelCpuResumeIntr>,             "sceKernelCpuResumeIntr",              'v', "x"   ,HLE_KERNEL_SYSCALL },
+	{0X3B84732D, &WrapV_U<sceKernelCpuResumeIntrWithSync>,     "sceKernelCpuResumeIntrWithSync",      'v', "x"   ,HLE_KERNEL_SYSCALL },
+	{0X47A0B729, &WrapI_I<sceKernelIsCpuIntrSuspended>,        "sceKernelIsCpuIntrSuspended",         'i', "i"   ,HLE_KERNEL_SYSCALL },
+	{0xb55249d2, &WrapI_V<sceKernelIsCpuIntrEnable>,           "sceKernelIsCpuIntrEnable",            'i', "",    HLE_KERNEL_SYSCALL },
+	{0XA089ECA4, &WrapU_UUU<sceKernelMemset>,                  "sceKernelMemset",                     'x', "xxx" ,HLE_KERNEL_SYSCALL },
+	{0XDC692EE3, &WrapI_UI<sceKernelTryLockLwMutex>,           "sceKernelTryLockLwMutex",             'i', "xi"  ,HLE_KERNEL_SYSCALL },
+	{0X37431849, &WrapI_UI<sceKernelTryLockLwMutex_600>,       "sceKernelTryLockLwMutex_600",         'i', "xi"  ,HLE_KERNEL_SYSCALL },
+	{0XBEA46419, &WrapI_UIU<sceKernelLockLwMutex>,             "sceKernelLockLwMutex",                'i', "xix", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED ,HLE_KERNEL_SYSCALL},
+	{0X1FC64E09, &WrapI_UIU<sceKernelLockLwMutexCB>,           "sceKernelLockLwMutexCB",              'i', "xix", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED ,HLE_KERNEL_SYSCALL},
+	{0X15B6446B, &WrapI_UI<sceKernelUnlockLwMutex>,            "sceKernelUnlockLwMutex",              'i', "xi"  ,HLE_KERNEL_SYSCALL },
+	{0XC1734599, &WrapI_UU<sceKernelReferLwMutexStatus>,       "sceKernelReferLwMutexStatus",         'i', "xp"  ,HLE_KERNEL_SYSCALL },
+	{0X293B45B8, &WrapI_V<sceKernelGetThreadId>,               "sceKernelGetThreadId",                'i', ""    ,HLE_KERNEL_SYSCALL },
+	{0XD13BDE95, &WrapI_V<sceKernelCheckThreadStack>,          "sceKernelCheckThreadStack",           'i', ""    ,HLE_KERNEL_SYSCALL },
+	{0X1839852A, &WrapU_UUU<sceKernelMemcpy>,                  "sceKernelMemcpy",                     'x', "xxx" ,HLE_KERNEL_SYSCALL },
+	{0XFA835CDE, &WrapI_I<sceKernelGetTlsAddr>,                "sceKernelGetTlsAddr",                 'i', "i"   ,HLE_KERNEL_SYSCALL },
+	{0X05572A5F, &WrapV_V<sceKernelExitGame>,                  "sceKernelExitGame",                   'v', ""    ,HLE_KERNEL_SYSCALL },
+	{0X4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,      "sceKernelRegisterExitCallback",       'i', "i"   ,HLE_KERNEL_SYSCALL },
+};
+
+void Register_InterruptManagerForKernel()
+{
+	RegisterModule("InterruptManagerForKernel", ARRAY_SIZE(InterruptManagerForKernel), InterruptManagerForKernel);
+}
