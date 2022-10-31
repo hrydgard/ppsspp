@@ -1629,8 +1629,9 @@ namespace MIPSInt
 			d[cosineLane] = cosine;
 		}
 
-		// D prefix works, just not for x.
-		currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] &= 0xFFEFC;
+		// D prefix works, just not for the cosine lane.
+		uint32_t dprefixRemove = (3 << cosineLane) | (1 << (8 + cosineLane));
+		currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] &= 0xFFFFF ^ dprefixRemove;
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
