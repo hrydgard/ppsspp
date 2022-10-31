@@ -78,7 +78,7 @@ static std::vector<ButtonMapping> controllerMapping[2] = {
 		leftControllerMapping,
 		rightControllerMapping
 };
-static bool controllerMotion[2][5];
+static bool controllerMotion[2][5] = {};
 static int mouseController = -1;
 static bool mousePressed[] = {false, false};
 
