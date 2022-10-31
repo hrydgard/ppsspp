@@ -464,6 +464,7 @@ namespace MIPSComp {
 				init = Vec4Init::AllONE;
 				break;
 			default:
+				INVALIDOP;
 				return;
 			}
 			ir.Write(IROp::Vec4Init, vec[0], (int)init);
