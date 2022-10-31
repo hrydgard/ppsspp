@@ -469,6 +469,7 @@ public:
 	float fCameraSide;
 	float fCanvasDistance;
 	float fFieldOfViewPercentage;
+	float fMotionLength;
 
 	// Debugger
 	int iDisasmWindowX;

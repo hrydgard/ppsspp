@@ -208,7 +208,7 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 	if (g_Config.bEnableMotions) {
 		for (int j = 0; j < 2; j++) {
 			bool activate;
-			float limit = 0.5f; //length of needed movement in meters
+			float limit = g_Config.fMotionLength; //length of needed movement in meters
 			XrVector3f axis = {0, 1, 0};
 			float center = ToRadians((float)VR_GetConfig(VR_CONFIG_MENU_YAW));
 			XrQuaternionf orientation = XrQuaternionf_CreateFromVectorAngle(axis, center);
