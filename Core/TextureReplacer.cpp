@@ -642,10 +642,10 @@ bool TextureReplacer::PopulateLevelFromZip(ReplacedTextureLevel &level, bool ign
 		if (zsize != INVALID_ZIP_SIZE)
 			pngdata.resize(zsize);
 		if (!pngdata.empty()) {
-			pngdata.resize(zip_fread(zf, pngdata.data(), pngdata.size()));
+			pngdata.resize(zip_fread(zf, &pngdata[0], pngdata.size()));
 		}
 
-		if (png_image_begin_read_from_memory(&png, pngdata.data(), pngdata.size())) {
+		if (png_image_begin_read_from_memory(&png, &pngdata[0], pngdata.size())) {
 			// We pad files that have been hashrange'd so they are the same texture size.
 			level.w = png.width;
 			level.h = png.height;
@@ -1168,10 +1168,10 @@ void ReplacedTexture::PrepareData(int level) {
 			if (zsize != INVALID_ZIP_SIZE)
 				pngdata.resize(zsize);
 			if (!pngdata.empty()) {
-				pngdata.resize(zip_fread(zf, pngdata.data(), pngdata.size()));
+				pngdata.resize(zip_fread(zf, &pngdata[0], pngdata.size()));
 			}
 
-			if (!png_image_begin_read_from_memory(&png, pngdata.data(), pngdata.size())) {
+			if (!png_image_begin_read_from_memory(&png, &pngdata[0], pngdata.size())) {
 				ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s (zip)", info.file.c_str(), png.message);
 				cleanup();
 				return;
