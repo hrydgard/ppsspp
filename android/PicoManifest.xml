@@ -11,8 +11,7 @@
         android:logo="@drawable/ic_banner"
         android:isGame="true"
         android:banner="@drawable/tv_banner"
-        android:requestLegacyExternalStorage="true"
-        android:preserveLegacyExternalStorage="true">
+        android:requestLegacyExternalStorage="true">
 
         <meta-data android:name="pvr.app.type" android:value="vr" />
     </application>

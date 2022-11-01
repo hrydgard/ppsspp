@@ -29,7 +29,7 @@ public class ShortcutActivity extends Activity {
 
 		// Show file selector dialog here. If Android version is more than or equal to 11,
 		// use the native document file browser instead of our SimpleFileChooser.
-		scoped = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R);
+		scoped = (Build.VERSION.SDK_INT >= 30);
 
 		if (scoped) {
 			try {
