@@ -134,11 +134,11 @@ static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 param
 		if (size < 8) {
 			ERROR_LOG(HLE, "sceKernelAllocHeapMemoryWithOption(%08x, %08x, %08x): invalid param size", heapId, memSize, paramsPtr);
 			return 0;
-		}
-		if (size > 8) {
-			WARN_LOG(HLE, "sceKernelAllocHeapMemoryWithOption(): unexpected param size %d", size);
-		}
-		grain = Memory::Read_U32(paramsPtr + 4);
+	}
+	if (size > 8) {
+		WARN_LOG(HLE, "sceKernelAllocHeapMemoryWithOption(): unexpected param size %d", size);
+	}
+	grain = Memory::Read_U32(paramsPtr + 4);
 	}
 	INFO_LOG(HLE, "sceKernelAllocHeapMemoryWithOption(%08x, %08x, %08x)", heapId, memSize, paramsPtr);
 	// There's 8 bytes at the end of every block, reserved.
