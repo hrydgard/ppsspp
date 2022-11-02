@@ -16,9 +16,7 @@ ifeq (,$(TARGET_ARCH))
 	TARGET_ARCH = $(shell uname -m)
 endif
 
-ifneq (,$(findstring 64,$(TARGET_ARCH)))
-   TARGET_ARCH := x86_64
-else ifneq (,$(findstring 86,$(TARGET_ARCH)))
+ifneq (,$(findstring 86,$(TARGET_ARCH)))
    TARGET_ARCH := x86
 endif
 
@@ -143,7 +141,7 @@ else ifneq (,$(findstring osx,$(platform)))
 	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/macosx/universal/include
 	FFMPEGLIBDIR := $(FFMPEGDIR)/macosx/universal/lib
 	FFMPEGLDFLAGS += -liconv -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
-	PLATCFLAGS += -D__MACOSX__
+	PLATCFLAGS += -D__MACOSX__ -Wno-pointer-sign -Wno-nullability-completeness
 	GL_LIB := -framework OpenGL
 	PLATFORM_EXT = darwin
 
