@@ -420,9 +420,12 @@ static void FlushPrimState(int vcount) {
 	// We re-flush textures always in case the game changed them... kinda expensive.
 	// TODO: Dirty textures on transfer/stall/etc. somehow?
 	// TODO: Or maybe de-dup by validating if it has changed?
+	bool textureEnabled = gstate.isTextureMapEnabled() || gstate.isAntiAliasEnabled();
+	// Play it safe and allow texture coords to emit data too.
+	bool textureCoords = (gstate.vertType & GE_VTYPE_TC_MASK) != 0;
 	for (int level = 0; level < 8; ++level) {
 		u32 texaddr = gstate.getTextureAddress(level);
-		if (texaddr) {
+		if (texaddr && (textureEnabled || textureCoords)) {
 			EmitTextureData(level, texaddr);
 		}
 	}
