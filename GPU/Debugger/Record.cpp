@@ -123,10 +123,10 @@ static void DirtyVRAM(u32 start, u32 sz, DirtyVRAMFlag flag) {
 }
 
 static void DirtyDrawnVRAM() {
-	int w = std::max(gstate.getScissorX2(), gstate.getRegionX2()) + 1;
-	int h = std::max(gstate.getScissorY2(), gstate.getRegionY2()) + 1;
+	int w = std::min(gstate.getScissorX2(), gstate.getRegionX2()) + 1;
+	int h = std::min(gstate.getScissorY2(), gstate.getRegionY2()) + 1;
 
-	bool drawZ = gstate.isDepthWriteEnabled() && gstate.isDepthTestEnabled();
+	bool drawZ = !gstate.isModeClear() && gstate.isDepthWriteEnabled() && gstate.isDepthTestEnabled();
 	bool clearZ = gstate.isModeClear() && gstate.isClearModeDepthMask();
 	if (drawZ || clearZ) {
 		int bytes = 2 * gstate.DepthBufStride() * h;
