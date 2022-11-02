@@ -168,13 +168,13 @@ jobs:
           extra: libretro
           cc: gcc
           cxx: g++
-          args: ./b.sh --libretro
+          args: make -C libretro -f Makefile -j2
           id: gcc-libretro
         - os: ubuntu-latest
           extra: libretro
           cc: clang
           cxx: clang++
-          args: ./b.sh --libretro
+          args: make -C libretro -f Makefile -j2
           id: clang-libretro
 
         - os: macos-latest
