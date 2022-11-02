@@ -46,6 +46,7 @@
 namespace GPURecord {
 
 static std::string lastExecFilename;
+static uint32_t lastExecVersion;
 static std::vector<Command> lastExecCommands;
 static std::vector<u8> lastExecPushbuf;
 static std::mutex executeLock;
@@ -761,6 +762,7 @@ static void ReplayStop() {
 	lastExecFilename.clear();
 	lastExecCommands.clear();
 	lastExecPushbuf.clear();
+	lastExecVersion = 0;
 }
 
 bool RunMountedReplay(const std::string &filename) {
@@ -769,7 +771,7 @@ bool RunMountedReplay(const std::string &filename) {
 	std::lock_guard<std::mutex> guard(executeLock);
 	Core_ListenStopRequest(&ReplayStop);
 
-	uint32_t version = 0;
+	uint32_t version = lastExecVersion;
 	if (lastExecFilename != filename) {
 		PROFILE_THIS_SCOPE("ReplayLoad");
 		u32 fp = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
@@ -812,6 +814,7 @@ bool RunMountedReplay(const std::string &filename) {
 		}
 
 		lastExecFilename = filename;
+		lastExecVersion = version;
 	}
 
 	DumpExecute executor(lastExecPushbuf, lastExecCommands, version);
