@@ -131,13 +131,10 @@ static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 param
 	// 0 is ignored.
 	if (paramsPtr != 0) {
 		u32 size = Memory::Read_U32(paramsPtr);
-		if (size < 8) {
-			ERROR_LOG(HLE, "sceKernelAllocHeapMemoryWithOption(%08x, %08x, %08x): invalid param size", heapId, memSize, paramsPtr);
-			return 0;
-	}
-	if (size > 8) {
-		WARN_LOG(HLE, "sceKernelAllocHeapMemoryWithOption(): unexpected param size %d", size);
-	}
+		if (size < 8)
+			return hleLogError(SCEKERNEL, 0, "invalid param size");
+		if (size > 8) 
+			WARN_LOG(HLE, "sceKernelAllocHeapMemoryWithOption(): unexpected param size %d", size);
 	grain = Memory::Read_U32(paramsPtr + 4);
 	}
 	INFO_LOG(HLE, "sceKernelAllocHeapMemoryWithOption(%08x, %08x, %08x)", heapId, memSize, paramsPtr);
