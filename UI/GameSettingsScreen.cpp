@@ -1162,6 +1162,7 @@ void GameSettingsScreen::CreateViews() {
 		CheckBox *vr6DoF = vrSettings->Add(new CheckBox(&g_Config.bEnable6DoF, vr->T("6DoF movement")));
 		vr6DoF->SetEnabledPtr(&g_Config.bEnableVR);
 		vrSettings->Add(new CheckBox(&g_Config.bEnableStereo, vr->T("Stereoscopic vision (Experimental)")));
+		vrSettings->Add(new CheckBox(&g_Config.bForce72Hz, vr->T("Force 72Hz update")));
 
 		vrSettings->Add(new ItemHeader(vr->T("VR camera")));
 		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCameraDistance, -10.0f, 10.0f, vr->T("Camera distance adjust", "Camera distance adjust"), 1.0f, screenManager(), ""));
