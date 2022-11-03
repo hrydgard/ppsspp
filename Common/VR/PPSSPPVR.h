@@ -42,6 +42,7 @@ int GetVRPassesCount();
 bool IsMultiviewSupported();
 bool IsFlatVRScene();
 bool Is2DVRObject(float* projMatrix, bool ortho);
+void UpdateVRParams(float* projMatrix);
 void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye);
 void UpdateVRView(float* leftEye, float* rightEye);
 
@@ -70,6 +71,7 @@ inline int GetVRPassesCount() { return 1; }
 inline bool IsMultiviewSupported() { return false; }
 inline bool IsFlatVRScene() { return true; }
 inline bool Is2DVRObject(float* projMatrix, bool ortho) { return false; }
+inline void UpdateVRParams(float* projMatrix) {}
 inline void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {}
 inline void UpdateVRView(float* leftEye, float* rightEye) {}
 
