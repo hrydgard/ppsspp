@@ -103,9 +103,9 @@ void VR_Init( void* system, char* name, int version ) {
 	instanceCreateInfo.enabledExtensionNames = extensions.data();
 
 #ifdef ANDROID
+	XrInstanceCreateInfoAndroidKHR instanceCreateInfoAndroid = {XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
 	if (VR_GetPlatformFLag(VR_PLATFORM_PICO_INIT)) {
 		ovrJava* java = (ovrJava*)system;
-		XrInstanceCreateInfoAndroidKHR instanceCreateInfoAndroid = {XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
 		instanceCreateInfoAndroid.applicationVM = java->Vm;
 		instanceCreateInfoAndroid.applicationActivity = java->ActivityObject;
 		instanceCreateInfo.next = (XrBaseInStructure*)&instanceCreateInfoAndroid;

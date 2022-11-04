@@ -759,7 +759,7 @@ retry:
 
 	if (IsVRBuild()) {
 		Version gitVer(PPSSPP_GIT_VERSION);
-		InitVROnAndroid(gJvm, nativeActivity, gitVer.ToInteger(), "PPSSPP");
+		InitVROnAndroid(gJvm, nativeActivity, systemName.c_str(), gitVer.ToInteger(), "PPSSPP");
 	}
 }
 
