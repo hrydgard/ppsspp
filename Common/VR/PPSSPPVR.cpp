@@ -103,12 +103,21 @@ bool IsVRBuild() {
 
 #if PPSSPP_PLATFORM(ANDROID)
 void InitVROnAndroid(void* vm, void* activity, int version, char* name) {
-	bool useVulkan = (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN;
+
+	//TODO:get the flags in runtime
+#ifdef OPENXR_PLATFORM_PICO
+	VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_PICO, true);
+	VR_SetPlatformFLag(VR_PLATFORM_PICO_INIT, true);
+#elifdef OPENXR_PLATFORM_QUEST
+	VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
+	VR_SetPlatformFLag(VR_PLATFORM_PERFORMANCE_EXT, true);
+#endif
+	VR_SetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN, (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN);
 
 	ovrJava java;
 	java.Vm = (JavaVM*)vm;
 	java.ActivityObject = (jobject)activity;
-	VR_Init(&java, useVulkan, name, version);
+	VR_Init(&java, name, version);
 
 	__DisplaySetFramerate(72);
 }

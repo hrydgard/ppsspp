@@ -49,7 +49,6 @@ bool ovrFramebuffer_CreateGL(XrSession session, ovrFramebuffer* frameBuffer, int
 
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
-	frameBuffer->UseVulkan = false;
 
 	if (strstr((const char*)glGetString(GL_EXTENSIONS), "GL_OVR_multiview2") == nullptr)
 	{
@@ -142,7 +141,6 @@ bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int
 
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
-	frameBuffer->UseVulkan = true;
 	frameBuffer->VKContext = (XrGraphicsBindingVulkanKHR*)context;
 
 	XrSwapchainCreateInfo swapChainCreateInfo;
@@ -242,7 +240,7 @@ bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int
 }
 
 void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
-	if (frameBuffer->UseVulkan) {
+	if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
 		for (int i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
 			vkDestroyImageView(frameBuffer->VKContext->device, frameBuffer->VKColorImages[i], nullptr);
 			vkDestroyImageView(frameBuffer->VKContext->device, frameBuffer->VKDepthImages[i], nullptr);
@@ -266,7 +264,7 @@ void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
 }
 
 void* ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
-	if (frameBuffer->UseVulkan) {
+	if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
 		return (void *)frameBuffer->VKFrameBuffers[frameBuffer->TextureSwapChainIndex];
 	} else {
 #ifdef XR_USE_GRAPHICS_API_OPENGL_ES
@@ -298,7 +296,7 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 
 	ovrFramebuffer_SetCurrent(frameBuffer);
 
-	if (frameBuffer->UseVulkan) {
+	if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
 		//TODO:implement
 	} else {
 #ifdef XR_USE_GRAPHICS_API_OPENGL_ES
@@ -320,7 +318,7 @@ void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
 		frameBuffer->Acquired = false;
 
 		// Clear the alpha channel, other way OpenXR would not transfer the framebuffer fully
-		if (frameBuffer->UseVulkan) {
+		if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
 			//TODO:implement
 		} else {
 #ifdef XR_USE_GRAPHICS_API_OPENGL_ES
@@ -369,7 +367,7 @@ void ovrRenderer_Destroy(ovrRenderer* renderer) {
 }
 
 void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int size) {
-	if (renderer->FrameBuffer[0].UseVulkan) {
+	if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
 		//TODO:implement
 	} else {
 #ifdef XR_USE_GRAPHICS_API_OPENGL_ES
@@ -428,14 +426,9 @@ void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 
 		XrResult result;
 		OXR(result = xrBeginSession(app->Session, &sessionBeginInfo));
-
 		app->SessionActive = (result == XR_SUCCESS);
 
-		// Set session state once we have entered VR mode and have a valid session object.
-
-		// TODO: This should be a runtime check of the extension's presence, no?
-#ifdef OPENXR_HAS_PERFORMANCE_EXTENSION
-		if (app->SessionActive) {
+		if (app->SessionActive && VR_GetPlatformFLag(VR_PLATFORM_PERFORMANCE_EXT)) {
 			XrPerfSettingsLevelEXT cpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
 			XrPerfSettingsLevelEXT gpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
 
@@ -457,7 +450,6 @@ void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 			OXR(pfnSetAndroidApplicationThreadKHR(app->Session, XR_ANDROID_THREAD_TYPE_APPLICATION_MAIN_KHR, app->MainThreadTid));
 			OXR(pfnSetAndroidApplicationThreadKHR(app->Session, XR_ANDROID_THREAD_TYPE_RENDERER_MAIN_KHR, app->RenderThreadTid));
 		}
-#endif
 	} else if (state == XR_SESSION_STATE_STOPPING) {
 		assert(app->SessionActive);
 

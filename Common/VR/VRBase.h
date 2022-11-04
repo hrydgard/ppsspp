@@ -100,10 +100,6 @@ static void OXR_CheckErrors(XrInstance instance, XrResult result, const char* fu
 #define OXR(func) func;
 #endif
 
-#ifdef OPENXR_PLATFORM_QUEST
-#define OPENXR_HAS_PERFORMANCE_EXTENSION
-#endif
-
 enum { ovrMaxLayerCount = 2 };
 enum { ovrMaxNumEyes = 2 };
 
@@ -133,7 +129,6 @@ typedef struct {
 	VkImageView* VKDepthImages;
 
 	bool Acquired;
-	bool UseVulkan;
 	XrGraphicsBindingVulkanKHR* VKContext;
 } ovrFramebuffer;
 
@@ -178,16 +173,27 @@ typedef struct {
 	uint64_t frameIndex;
 	ovrApp appState;
 	float predictedDisplayTime;
-	bool useVulkan;
 	XrGraphicsBindingVulkanKHR graphicsBindingVulkan;
 } engine_t;
 
-void VR_Init( void* system, bool useVulkan, char* name, int version );
+enum VRPlatformFlag {
+	VR_PLATFORM_CONTROLLER_PICO,
+	VR_PLATFORM_CONTROLLER_QUEST,
+	VR_PLATFORM_PERFORMANCE_EXT,
+	VR_PLATFORM_PICO_INIT,
+	VR_PLATFORM_RENDERER_VULKAN,
+	VR_PLATFORM_TRACKING_FLOOR,
+	VR_PLATFORM_MAX
+};
+
+void VR_Init( void* system, char* name, int version );
 void VR_Destroy( engine_t* engine );
 void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVulkan );
 void VR_LeaveVR( engine_t* engine );
 
 engine_t* VR_GetEngine( void );
+bool VR_GetPlatformFLag(VRPlatformFlag flag);
+void VR_SetPlatformFLag(VRPlatformFlag flag, bool value);
 
 void ovrApp_Clear(ovrApp* app);
 void ovrApp_Destroy(ovrApp* app);
