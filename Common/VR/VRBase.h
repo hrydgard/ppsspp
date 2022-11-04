@@ -171,26 +171,18 @@ typedef struct {
 	JavaVM* Vm;
 	jobject ActivityObject;
 	JNIEnv* Env;
-	char AppName[64];
-	int AppVersion;
 } ovrJava;
 #endif
 
 typedef struct {
 	uint64_t frameIndex;
 	ovrApp appState;
-#ifdef ANDROID
-	ovrJava java;
-#endif
 	float predictedDisplayTime;
 	bool useVulkan;
 	XrGraphicsBindingVulkanKHR graphicsBindingVulkan;
 } engine_t;
 
-#ifdef ANDROID
-void VR_Init( ovrJava java, bool useVulkan );
-#endif
-
+void VR_Init( void* system, bool useVulkan, char* name, int version );
 void VR_Destroy( engine_t* engine );
 void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVulkan );
 void VR_LeaveVR( engine_t* engine );

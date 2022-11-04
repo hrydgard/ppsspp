@@ -102,15 +102,13 @@ bool IsVRBuild() {
 }
 
 #if PPSSPP_PLATFORM(ANDROID)
-void InitVROnAndroid(void* vm, void* activity, int version, const char* name) {
+void InitVROnAndroid(void* vm, void* activity, int version, char* name) {
 	bool useVulkan = (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN;
 
 	ovrJava java;
 	java.Vm = (JavaVM*)vm;
 	java.ActivityObject = (jobject)activity;
-	java.AppVersion = version;
-	strcpy(java.AppName, name);
-	VR_Init(java, useVulkan);
+	VR_Init(&java, useVulkan, name, version);
 
 	__DisplaySetFramerate(72);
 }

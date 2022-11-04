@@ -5,11 +5,10 @@
 #include <string.h>
 #include <vector>
 
-#if defined(ANDROID) && defined(OPENXR)
+#if defined(OPENXR)
 
 #include <unistd.h>
 
-#ifdef OPENXR_PLATFORM_PICO
 enum ConfigsSetEXT {
     UNREAL_VERSION = 0,
     TRACKING_ORIGIN,
@@ -37,29 +36,30 @@ PFN_xrSetConfigPICO pfnXrSetConfigPICO = nullptr;
 PFN_xrSetEngineVersionPico pfnXrSetEngineVersionPico = nullptr;
 PFN_xrStartCVControllerThreadPico pfnXrStartCVControllerThreadPico = nullptr;
 PFN_xrStopCVControllerThreadPico pfnXrStopCVControllerThreadPico = nullptr;
-#endif
 
 static engine_t vr_engine;
 int vr_initialized = 0;
 
-void VR_Init( ovrJava java, bool useVulkan ) {
+void VR_Init( void* system, bool useVulkan, char* name, int version ) {
 	if (vr_initialized)
 		return;
 
 	ovrApp_Clear(&vr_engine.appState);
 
+#ifdef ANDROID
 	PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
-	xrGetInstanceProcAddr(
-			XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)&xrInitializeLoaderKHR);
+	xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)&xrInitializeLoaderKHR);
 	if (xrInitializeLoaderKHR != NULL) {
-		XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid;
-		memset(&loaderInitializeInfoAndroid, 0, sizeof(loaderInitializeInfoAndroid));
-		loaderInitializeInfoAndroid.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
-		loaderInitializeInfoAndroid.next = NULL;
-		loaderInitializeInfoAndroid.applicationVM = java.Vm;
-		loaderInitializeInfoAndroid.applicationContext = java.ActivityObject;
-		xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
+		ovrJava* java = (ovrJava*)system;
+		XrLoaderInitInfoAndroidKHR loaderInitializeInfo;
+		memset(&loaderInitializeInfo, 0, sizeof(loaderInitializeInfo));
+		loaderInitializeInfo.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
+		loaderInitializeInfo.next = NULL;
+		loaderInitializeInfo.applicationVM = java->Vm;
+		loaderInitializeInfo.applicationContext = java->ActivityObject;
+		xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfo);
 	}
+#endif
 
 	std::vector<const char *> extensions;
 	if (useVulkan) {
@@ -84,29 +84,30 @@ void VR_Init( ovrJava java, bool useVulkan ) {
 	// Create the OpenXR instance.
 	XrApplicationInfo appInfo;
 	memset(&appInfo, 0, sizeof(appInfo));
-	strcpy(appInfo.applicationName, java.AppName);
-	strcpy(appInfo.engineName, java.AppName);
-	appInfo.applicationVersion = java.AppVersion;
-	appInfo.engineVersion = java.AppVersion;
+	strcpy(appInfo.applicationName, name);
+	strcpy(appInfo.engineName, name);
+	appInfo.applicationVersion = version;
+	appInfo.engineVersion = version;
 	appInfo.apiVersion = XR_CURRENT_API_VERSION;
 
 	XrInstanceCreateInfo instanceCreateInfo;
 	memset(&instanceCreateInfo, 0, sizeof(instanceCreateInfo));
 	instanceCreateInfo.type = XR_TYPE_INSTANCE_CREATE_INFO;
-#ifdef OPENXR_PLATFORM_PICO
-	XrInstanceCreateInfoAndroidKHR instanceCreateInfoAndroid = {XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
-	instanceCreateInfoAndroid.applicationVM = java.Vm;
-	instanceCreateInfoAndroid.applicationActivity = java.ActivityObject;
-	instanceCreateInfo.next = (XrBaseInStructure*)&instanceCreateInfoAndroid;
-#else
 	instanceCreateInfo.next = NULL;
-#endif
 	instanceCreateInfo.createFlags = 0;
 	instanceCreateInfo.applicationInfo = appInfo;
 	instanceCreateInfo.enabledApiLayerCount = 0;
 	instanceCreateInfo.enabledApiLayerNames = NULL;
 	instanceCreateInfo.enabledExtensionCount = extensions.size();
 	instanceCreateInfo.enabledExtensionNames = extensions.data();
+
+#if defined(ANDROID) && defined(OPENXR_PLATFORM_PICO)
+	ovrJava* java = (ovrJava*)system;
+	XrInstanceCreateInfoAndroidKHR instanceCreateInfoAndroid = {XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
+	instanceCreateInfoAndroid.applicationVM = java->Vm;
+	instanceCreateInfoAndroid.applicationActivity = java->ActivityObject;
+	instanceCreateInfo.next = (XrBaseInStructure*)&instanceCreateInfoAndroid;
+#endif
 
 	XrResult initResult;
 	OXR(initResult = xrCreateInstance(&instanceCreateInfo, &vr_engine.appState.Instance));
@@ -173,8 +174,6 @@ void VR_Init( ovrJava java, bool useVulkan ) {
 
 	vr_engine.appState.MainThreadTid = gettid();
 	vr_engine.appState.SystemId = systemId;
-
-	vr_engine.java = java;
 	vr_engine.useVulkan = useVulkan;
 	vr_initialized = 1;
 }
