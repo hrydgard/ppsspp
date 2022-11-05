@@ -54,38 +54,38 @@ enum class PipelineFlags : u8 {
 ENUM_CLASS_BITOPS(PipelineFlags);
 
 // Pipelines need to be created for the right type of render pass.
-enum RenderPassType {
+// TODO: Rename to RenderPassType? It is currently a bitfield.
+// When you add more flags, don't forget to update rpTypeDebugNames[].
+enum class RenderPassType {
+	DEFAULT = 0,
 	// These eight are organized so that bit 0 is DEPTH and bit 1 is INPUT and bit 2 is MULTIVIEW, so
 	// they can be OR-ed together in MergeRPTypes.
-	RP_TYPE_COLOR,
-	RP_TYPE_COLOR_DEPTH,
-	RP_TYPE_COLOR_INPUT,
-	RP_TYPE_COLOR_DEPTH_INPUT,
-
-	RP_TYPE_MULTIVIEW_COLOR,
-	RP_TYPE_MULTIVIEW_COLOR_DEPTH,
-	RP_TYPE_MULTIVIEW_COLOR_INPUT,
-	RP_TYPE_MULTIVIEW_COLOR_DEPTH_INPUT,
+	HAS_DEPTH = 1,
+	COLOR_INPUT = 2,  // input attachment
+	MULTIVIEW = 4,
 
 	// This is the odd one out, and gets special handling in MergeRPTypes.
-	RP_TYPE_BACKBUFFER,  // For the backbuffer we can always use CLEAR/DONT_CARE, so bandwidth cost for a depth channel is negligible.
+	// If this flag is set, none of the other flags can be set.
+	// For the backbuffer we can always use CLEAR/DONT_CARE, so bandwidth cost for a depth channel is negligible
+	// so we don't bother with a non-depth version.
+	BACKBUFFER = 8,
 
-	// Later will add pure-color render passes.
-	RP_TYPE_COUNT,
+	TYPE_COUNT = BACKBUFFER + 1,
 };
+ENUM_CLASS_BITOPS(RenderPassType);
 
 // Hm, soon time to exploit the bit properties in these..
 
 inline bool RenderPassTypeHasDepth(RenderPassType type) {
-	return type == RP_TYPE_BACKBUFFER || type == RP_TYPE_COLOR_DEPTH || type == RP_TYPE_COLOR_DEPTH_INPUT || type == RP_TYPE_MULTIVIEW_COLOR_DEPTH || type == RP_TYPE_MULTIVIEW_COLOR_DEPTH_INPUT;
+	return (type & RenderPassType::HAS_DEPTH) || type == RenderPassType::BACKBUFFER;
 }
 
 inline bool RenderPassTypeHasInput(RenderPassType type) {
-	return type == RP_TYPE_COLOR_INPUT || type == RP_TYPE_COLOR_DEPTH_INPUT || type == RP_TYPE_MULTIVIEW_COLOR_INPUT || type == RP_TYPE_MULTIVIEW_COLOR_DEPTH_INPUT;
+	return (type & RenderPassType::COLOR_INPUT) != 0;
 }
 
 inline bool RenderPassTypeHasMultiView(RenderPassType type) {
-	return type == RP_TYPE_MULTIVIEW_COLOR || type == RP_TYPE_MULTIVIEW_COLOR_DEPTH || type == RP_TYPE_MULTIVIEW_COLOR_INPUT || type == RP_TYPE_MULTIVIEW_COLOR_DEPTH_INPUT;
+	return (type & RenderPassType::MULTIVIEW) != 0;
 }
 
 struct VkRenderData {
@@ -270,7 +270,7 @@ public:
 
 	VkRenderPass Get(VulkanContext *vulkan, RenderPassType rpType);
 	void Destroy(VulkanContext *vulkan) {
-		for (int i = 0; i < RP_TYPE_COUNT; i++) {
+		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (pass[i]) {
 				vulkan->Delete().QueueDeleteRenderPass(pass[i]);
 			}
@@ -278,7 +278,8 @@ public:
 	}
 
 private:
-	VkRenderPass pass[RP_TYPE_COUNT]{};
+	// TODO: Might be better off with a hashmap once the render pass type count grows really large..
+	VkRenderPass pass[(size_t)RenderPassType::TYPE_COUNT]{};
 	RPKey key_;
 };
 

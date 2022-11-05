@@ -77,7 +77,7 @@ public:
 	// TODO: Hide.
 	VulkanContext *vulkan_;
 private:
-	VkFramebuffer framebuf[RP_TYPE_COUNT]{};
+	VkFramebuffer framebuf[(size_t)RenderPassType::TYPE_COUNT]{};
 
 	std::string tag_;
 };
@@ -167,7 +167,7 @@ struct VKRComputePipelineDesc {
 // Wrapped pipeline. Doesn't own desc.
 struct VKRGraphicsPipeline {
 	~VKRGraphicsPipeline() {
-		for (int i = 0; i < RP_TYPE_COUNT; i++) {
+		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			delete pipeline[i];
 		}
 	}
@@ -180,7 +180,7 @@ struct VKRGraphicsPipeline {
 	u32 GetVariantsBitmask() const;
 
 	VKRGraphicsPipelineDesc *desc = nullptr;  // not owned!
-	Promise<VkPipeline> *pipeline[RP_TYPE_COUNT]{};
+	Promise<VkPipeline> *pipeline[(size_t)RenderPassType::TYPE_COUNT]{};
 	std::string tag;
 };
 
@@ -201,7 +201,7 @@ struct VKRComputePipeline {
 struct CompileQueueEntry {
 	CompileQueueEntry(VKRGraphicsPipeline *p, VkRenderPass _compatibleRenderPass, RenderPassType _renderPassType)
 		: type(Type::GRAPHICS), graphics(p), compatibleRenderPass(_compatibleRenderPass), renderPassType(_renderPassType) {}
-	CompileQueueEntry(VKRComputePipeline *p) : type(Type::COMPUTE), compute(p), renderPassType(RP_TYPE_COLOR_DEPTH) {}
+	CompileQueueEntry(VKRComputePipeline *p) : type(Type::COMPUTE), compute(p), renderPassType(RenderPassType::HAS_DEPTH) {}  // renderpasstype here shouldn't matter
 	enum class Type {
 		GRAPHICS,
 		COMPUTE,
