@@ -70,37 +70,28 @@
 				
 				<category android:name="android.intent.category.DEFAULT" />
 				<category android:name="android.intent.category.BROWSABLE" />
-				
-				<data
-					android:host="*"
-					android:mimeType="*/*"
-					android:pathPattern=".*\\.iso"
-					android:scheme="file" />
-				<data
-					android:host="*"
-					android:mimeType="*/*"
-					android:pathPattern=".*\\.cso"
-					android:scheme="file" />
-				<data
-					android:host="*"
-					android:mimeType="*/*"
-					android:pathPattern=".*\\.elf"
-					android:scheme="file" />
-				<data
-					android:host="*"
-					android:mimeType="*/*"
-					android:pathPattern=".*\\.ISO"
-					android:scheme="file" />
-				<data
-					android:host="*"
-					android:mimeType="*/*"
-					android:pathPattern=".*\\.CSO"
-					android:scheme="file" />
-				<data
-					android:host="*"
-					android:mimeType="*/*"
-					android:pathPattern=".*\\.ELF"
-					android:scheme="file" />
+
+				<data android:scheme="file" />
+				<data android:mimeType="*/*" />
+				<data android:host="*" />
+				<data android:pathPattern=".*\\.iso" />
+				<data android:pathPattern=".*\\..*\\.iso" />
+				<data android:pathPattern=".*\\..*\\..*\\.iso" />
+				<data android:pathPattern=".*\\.cso" />
+				<data android:pathPattern=".*\\..*\\.cso" />
+				<data android:pathPattern=".*\\..*\\..*\\.cso" />
+				<data android:pathPattern=".*\\.elf" />
+				<data android:pathPattern=".*\\..*\\.elf" />
+				<data android:pathPattern=".*\\..*\\..*\\.elf" />
+				<data android:pathPattern=".*\\.ISO" />
+				<data android:pathPattern=".*\\..*\\.ISO" />
+				<data android:pathPattern=".*\\..*\\..*\\.ISO" />
+				<data android:pathPattern=".*\\.CSO" />
+				<data android:pathPattern=".*\\..*\\.CSO" />
+				<data android:pathPattern=".*\\..*\\..*\\.CSO" />
+				<data android:pathPattern=".*\\.ELF" />
+				<data android:pathPattern=".*\\..*\\.ELF" />
+				<data android:pathPattern=".*\\..*\\..*\\.ELF" />
 			</intent-filter>
         </activity>
         <meta-data android:name="isGame" android:value="true" />
