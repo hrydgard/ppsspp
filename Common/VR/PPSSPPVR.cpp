@@ -102,15 +102,32 @@ bool IsVRBuild() {
 }
 
 #if PPSSPP_PLATFORM(ANDROID)
-void InitVROnAndroid(void* vm, void* activity, int version, const char* name) {
-	bool useVulkan = (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN;
+void InitVROnAndroid(void* vm, void* activity, const char* system, int version, char* name) {
 
+	//Get device vendor (uppercase)
+	char vendor[64];
+	sscanf(system, "%[^:]", vendor);
+	for (unsigned int i = 0; i < strlen(vendor); i++) {
+		if ((vendor[i] >= 'a') && (vendor[i] <= 'z')) {
+			vendor[i] = vendor[i] - 'a' + 'A';
+		}
+	}
+
+	//Set platform flags
+	if (strcmp(vendor, "PICO") == 0) {
+		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_PICO, true);
+		VR_SetPlatformFLag(VR_PLATFORM_PICO_INIT, true);
+	} else if ((strcmp(vendor, "META") == 0) || (strcmp(vendor, "OCULUS") == 0)) {
+		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
+		VR_SetPlatformFLag(VR_PLATFORM_PERFORMANCE_EXT, true);
+	}
+	VR_SetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN, (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN);
+
+	//Init VR
 	ovrJava java;
 	java.Vm = (JavaVM*)vm;
 	java.ActivityObject = (jobject)activity;
-	java.AppVersion = version;
-	strcpy(java.AppName, name);
-	VR_Init(java, useVulkan);
+	VR_Init(&java, name, version);
 }
 #endif
 
