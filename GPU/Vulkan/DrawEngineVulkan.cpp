@@ -1021,7 +1021,9 @@ void DrawEngineVulkan::DoFlush() {
 void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 	if (!frame->frameDescSetUpdated) {
 		// Push frame global constants.
-		UB_FrameGlobal frameConstants{};
+		UB_Frame frameConstants{};
+		FrameUpdateUniforms(&frameConstants, framebufferManager_->UseBufferedRendering());
+
 		VkDescriptorBufferInfo frameConstantsBufInfo;
 		frame->pushUBO->PushUBOData(frameConstants, &frameConstantsBufInfo);
 
