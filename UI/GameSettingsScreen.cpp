@@ -1165,11 +1165,16 @@ void GameSettingsScreen::CreateViews() {
 		vrSettings->Add(new CheckBox(&g_Config.bForce72Hz, vr->T("Force 72Hz update")));
 
 		vrSettings->Add(new ItemHeader(vr->T("VR camera")));
-		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCameraDistance, -10.0f, 10.0f, vr->T("Camera distance adjust", "Camera distance adjust"), 1.0f, screenManager(), ""));
-		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCameraHeight, -10.0f, 10.0f, vr->T("Camera height adjust", "Camera height adjust"), 1.0f, screenManager(), ""));
-		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCameraSide, -10.0f, 10.0f, vr->T("Camera side adjust", "Camera side adjust"), 1.0f, screenManager(), ""));
-		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCanvasDistance, 1.0f, 10.0f, vr->T("Distance to 2D menus and scenes", "Distance to 2D menus and scenes"), 1.0f, screenManager(), ""));
-		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fFieldOfViewPercentage, 100.0f, 200.0f, vr->T("Field of view scale", "Headset's field of view scale"), 10.0f, screenManager(), vr->T("% of native FoV")));
+		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCameraDistance, -10.0f, 10.0f, vr->T("Camera distance adjust"), 1.0f, screenManager(), ""));
+		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCameraHeight, -10.0f, 10.0f, vr->T("Camera height adjust"), 1.0f, screenManager(), ""));
+		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCameraSide, -10.0f, 10.0f, vr->T("Camera side adjust"), 1.0f, screenManager(), ""));
+		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCanvasDistance, 1.0f, 10.0f, vr->T("Distance to 2D menus and scenes"), 1.0f, screenManager(), ""));
+		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fFieldOfViewPercentage, 100.0f, 200.0f, vr->T("Field of view scale"), 10.0f, screenManager(), vr->T("% of native FoV")));
+
+		vrSettings->Add(new ItemHeader(vr->T("VR controllers")));
+		vrSettings->Add(new CheckBox(&g_Config.bEnableMotions, vr->T("Map controller movements to keys")));
+		PopupSliderChoiceFloat *vrMotions = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMotionLength, 0.3f, 1.0f, vr->T("Motion needed to generate action"), 0.1f, screenManager(), vr->T("m")));
+		vrMotions->SetEnabledPtr(&g_Config.bEnableMotions);
 	}
 }
 

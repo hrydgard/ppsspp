@@ -463,12 +463,14 @@ public:
 	bool bEnableVR;
 	bool bEnable6DoF;
 	bool bEnableStereo;
+	bool bEnableMotions;
 	bool bForce72Hz;
 	float fCameraDistance;
 	float fCameraHeight;
 	float fCameraSide;
 	float fCanvasDistance;
 	float fFieldOfViewPercentage;
+	float fMotionLength;
 
 	// Debugger
 	int iDisasmWindowX;

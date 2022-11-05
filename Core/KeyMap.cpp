@@ -304,6 +304,13 @@ static const KeyMap_IntStrPair key_names[] = {
 	{NKCODE_EXT_MOUSEWHEEL_UP, "MWheelU"},
 	{NKCODE_EXT_MOUSEWHEEL_DOWN, "MWheelD"},
 
+
+	{NKCODE_EXT_MOTION_UP, "MotionUp"},
+	{NKCODE_EXT_MOTION_DOWN, "MotionDown"},
+	{NKCODE_EXT_MOTION_LEFT, "MotionLeft"},
+	{NKCODE_EXT_MOTION_RIGHT, "MotionRight"},
+	{NKCODE_EXT_MOTION_FORWARD, "MotionFwd"},
+
 	{NKCODE_START_QUESTION, "¿"},
 	{NKCODE_LEFTBRACE, "{"},
 	{NKCODE_RIGHTBRACE, "}"},
