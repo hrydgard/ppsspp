@@ -93,10 +93,10 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		// Would really like to log more here, we could probably attach more info to desc.
 		//
 		// At least create a null placeholder to avoid creating over and over if something is broken.
-		pipeline[rpType]->Post(VK_NULL_HANDLE);
+		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
 		success = false;
 	} else if (result != VK_SUCCESS) {
-		pipeline[rpType]->Post(VK_NULL_HANDLE);
+		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
 		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		success = false;
 	} else {
@@ -104,14 +104,14 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		if (!tag.empty()) {
 			vulkan->SetDebugName(vkpipeline, VK_OBJECT_TYPE_PIPELINE, tag.c_str());
 		}
-		pipeline[rpType]->Post(vkpipeline);
+		pipeline[(size_t)rpType]->Post(vkpipeline);
 	}
 
 	return success;
 }
 
 void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
-	for (int i = 0; i < RP_TYPE_COUNT; i++) {
+	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 		if (!pipeline[i])
 			continue;
 		VkPipeline pipeline = this->pipeline[i]->BlockUntilReady();
@@ -125,7 +125,7 @@ void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
 
 u32 VKRGraphicsPipeline::GetVariantsBitmask() const {
 	u32 bitmask = 0;
-	for (int i = 0; i < RP_TYPE_COUNT; i++) {
+	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 		if (pipeline[i]) {
 			bitmask |= 1 << i;
 		}
@@ -181,7 +181,7 @@ void VKRFramebuffer::UpdateTag(const char *newTag) {
 		vulkan_->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, name);
 		vulkan_->SetDebugName(depth.rtView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
 	}
-	for (int rpType = 0; rpType < RP_TYPE_COUNT; rpType++) {
+	for (size_t rpType = 0; rpType < (size_t)RenderPassType::TYPE_COUNT; rpType++) {
 		if (framebuf[rpType]) {
 			snprintf(name, sizeof(name), "fb_%s", tag_.c_str());
 			vulkan_->SetDebugName(framebuf[(int)rpType], VK_OBJECT_TYPE_FRAMEBUFFER, name);
@@ -688,7 +688,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
 		compileMutex_.lock();
 		bool needsCompile = false;
-		for (int i = 0; i < RP_TYPE_COUNT; i++) {
+		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (!(variantBitmask & (1 << i)))
 				continue;
 			RenderPassType rpType = (RenderPassType)i;
@@ -707,7 +707,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 				}
 			}
 
-			pipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
+			pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
 			compileQueue_.push_back(CompileQueueEntry(pipeline, compatibleRenderPass->Get(vulkan_, rpType), rpType));
 			needsCompile = true;
 		}
@@ -740,19 +740,19 @@ void VulkanRenderManager::EndCurRenderStep() {
 	// We'll often be able to avoid loading/saving the depth/stencil buffer.
 	curRenderStep_->render.pipelineFlags = curPipelineFlags_;
 	bool depthStencil = (curPipelineFlags_ & PipelineFlags::USES_DEPTH_STENCIL) != 0;
-	RenderPassType rpType = depthStencil ? RP_TYPE_COLOR_DEPTH : RP_TYPE_COLOR;
+	RenderPassType rpType = depthStencil ? RenderPassType::HAS_DEPTH : RenderPassType::DEFAULT;
 	if (!curRenderStep_->render.framebuffer) {
-		rpType = RP_TYPE_BACKBUFFER;
+		rpType = RenderPassType::BACKBUFFER;
 	} else {
 		if (curPipelineFlags_ & PipelineFlags::USES_INPUT_ATTACHMENT) {
 			// Not allowed on backbuffers.
-			rpType = depthStencil ? RP_TYPE_COLOR_DEPTH_INPUT : RP_TYPE_COLOR_INPUT;
+			rpType = depthStencil ? (RenderPassType::HAS_DEPTH | RenderPassType::COLOR_INPUT) : RenderPassType::COLOR_INPUT;
 		}
 		// Framebuffers can be stereo, and if so, will control the render pass type to match.
 		// Pipelines can be mono and render fine to stereo etc, so not checking them here.
 		// Note that we don't support rendering to just one layer of a multilayer framebuffer!
 		if (curRenderStep_->render.framebuffer->numLayers > 1) {
-			rpType = (RenderPassType)(rpType | RP_TYPE_MULTIVIEW_COLOR);
+			rpType = (RenderPassType)(rpType | RenderPassType::MULTIVIEW);
 		}
 	}
 
@@ -764,8 +764,8 @@ void VulkanRenderManager::EndCurRenderStep() {
 	compileMutex_.lock();
 	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
-		if (!pipeline->pipeline[rpType]) {
-			pipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
+		if (!pipeline->pipeline[(size_t)rpType]) {
+			pipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
 			compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->Get(vulkan_, rpType), rpType));
 			needsCompile = true;
 		}
