@@ -306,7 +306,13 @@ bool VR_InitFrame( engine_t* engine ) {
 			float nearPlane = (float)vrConfig[VR_CONFIG_FOV_SCALE] / 200.0f;
 			vrMatrix[matrix] = ovrMatrix4f_CreateProjectionFov(fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown, nearPlane, 0.0f );
 		} else if ((matrix == VR_VIEW_MATRIX_LEFT_EYE) || (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
+			bool flatScreen = false;
 			XrPosef invView = invViewTransform[0];
+			int vrMode = vrConfig[VR_CONFIG_MODE];
+			if ((vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN)) {
+				invView = XrPosef_Identity();
+				flatScreen = true;
+			}
 
 			// get axis mirroring configuration
 			float mx = vrConfig[VR_CONFIG_MIRROR_PITCH] ? -1 : 1;
@@ -333,7 +339,7 @@ bool VR_InitFrame( engine_t* engine ) {
 
 			vrMatrix[matrix] = ovrMatrix4f_CreateFromQuaternion(&invView.orientation);
 			float scale = (float)VR_GetConfig(VR_CONFIG_6DOF_SCALE) * 0.000001f;
-			if (vrConfig[VR_CONFIG_6DOF_ENABLED]) {
+			if (!flatScreen && vrConfig[VR_CONFIG_6DOF_ENABLED]) {
 				vrMatrix[matrix].M[0][3] -= hmdposition.x * (vrConfig[VR_CONFIG_MIRROR_AXIS_X] ? -1.0f : 1.0f) * scale;
 				vrMatrix[matrix].M[1][3] -= hmdposition.y * (vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1.0f : 1.0f) * scale;
 				vrMatrix[matrix].M[2][3] -= hmdposition.z * (vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1.0f : 1.0f) * scale;

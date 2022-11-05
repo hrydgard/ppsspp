@@ -112,8 +112,6 @@ void InitVROnAndroid(void* vm, void* activity, int version, const char* name) {
 	java.AppVersion = version;
 	strcpy(java.AppName, name);
 	VR_Init(java, useVulkan);
-
-	__DisplaySetFramerate(72);
 }
 #endif
 
@@ -429,6 +427,7 @@ bool StartVRRender() {
 		}
 
 		// Set customizations
+		__DisplaySetFramerate(g_Config.bForce72Hz ? 72 : 60);
 		VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
 		VR_SetConfig(VR_CONFIG_CAMERA_DISTANCE, g_Config.fCameraDistance * 1000);
 		VR_SetConfig(VR_CONFIG_CAMERA_HEIGHT, g_Config.fCameraHeight * 1000);
@@ -506,22 +505,7 @@ bool Is2DVRObject(float* projMatrix, bool ortho) {
 	return identity;
 }
 
-void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
-
-	// Update project matrices
-	float* dst[] = {leftEye, rightEye};
-	VRMatrix enums[] = {VR_PROJECTION_MATRIX_LEFT_EYE, VR_PROJECTION_MATRIX_RIGHT_EYE};
-	for (int index = 0; index < 2; index++) {
-		ovrMatrix4f hmdProjection = VR_GetMatrix(enums[index]);
-		for (int i = 0; i < 4; i++) {
-			for (int j = 0; j < 4; j++) {
-				if ((hmdProjection.M[i][j] > 0) != (projMatrix[i * 4 + j] > 0)) {
-					hmdProjection.M[i][j] *= -1.0f;
-				}
-			}
-		}
-		memcpy(dst[index], hmdProjection.M, 16 * sizeof(float));
-	}
+void UpdateVRParams(float* projMatrix) {
 
 	// Set mirroring of axes
 	if (!VR_GetConfig(VR_CONFIG_MIRROR_UPDATED)) {
@@ -557,6 +541,22 @@ void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
 		VR_SetConfig(VR_CONFIG_6DOF_PRECISE, false);
 	}
 	VR_SetConfig(VR_CONFIG_6DOF_SCALE, (int)(scale * 1000000));
+}
+
+void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
+	float* dst[] = {leftEye, rightEye};
+	VRMatrix enums[] = {VR_PROJECTION_MATRIX_LEFT_EYE, VR_PROJECTION_MATRIX_RIGHT_EYE};
+	for (int index = 0; index < 2; index++) {
+		ovrMatrix4f hmdProjection = VR_GetMatrix(enums[index]);
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				if ((hmdProjection.M[i][j] > 0) != (projMatrix[i * 4 + j] > 0)) {
+					hmdProjection.M[i][j] *= -1.0f;
+				}
+			}
+		}
+		memcpy(dst[index], hmdProjection.M, 16 * sizeof(float));
+	}
 }
 
 void UpdateVRView(float* leftEye, float* rightEye) {
