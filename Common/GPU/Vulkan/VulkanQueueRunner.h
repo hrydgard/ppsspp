@@ -54,7 +54,7 @@ enum class PipelineFlags : u8 {
 ENUM_CLASS_BITOPS(PipelineFlags);
 
 // Pipelines need to be created for the right type of render pass.
-// TODO: Rename to RenderPassType? It is currently a bitfield.
+// TODO: Rename to RenderPassFlags?
 // When you add more flags, don't forget to update rpTypeDebugNames[].
 enum class RenderPassType {
 	DEFAULT = 0,
@@ -73,8 +73,6 @@ enum class RenderPassType {
 	TYPE_COUNT = BACKBUFFER + 1,
 };
 ENUM_CLASS_BITOPS(RenderPassType);
-
-// Hm, soon time to exploit the bit properties in these..
 
 inline bool RenderPassTypeHasDepth(RenderPassType type) {
 	return (type & RenderPassType::HAS_DEPTH) || type == RenderPassType::BACKBUFFER;
