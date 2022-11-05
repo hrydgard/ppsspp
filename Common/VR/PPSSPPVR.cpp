@@ -111,8 +111,6 @@ void InitVROnAndroid(void* vm, void* activity, int version, const char* name) {
 	java.AppVersion = version;
 	strcpy(java.AppName, name);
 	VR_Init(java, useVulkan);
-
-	__DisplaySetFramerate(72);
 }
 #endif
 
@@ -376,6 +374,7 @@ bool StartVRRender() {
 		}
 
 		// Set customizations
+		__DisplaySetFramerate(g_Config.bForce72Hz ? 72 : 60);
 		VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
 		VR_SetConfig(VR_CONFIG_CAMERA_DISTANCE, g_Config.fCameraDistance * 1000);
 		VR_SetConfig(VR_CONFIG_CAMERA_HEIGHT, g_Config.fCameraHeight * 1000);
