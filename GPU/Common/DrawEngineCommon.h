@@ -52,10 +52,10 @@ enum FBOTexState {
 	FBO_TEX_READ_FRAMEBUFFER,
 };
 
-inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
+inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode, bool skinInDecode) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.
-	return (vertType & 0xFFFFFF) | (uvGenMode << 24);
+	return (vertType & 0xFFFFFF) | (uvGenMode << 24) | (skinInDecode << 26);
 }
 
 struct SimpleVertex;
