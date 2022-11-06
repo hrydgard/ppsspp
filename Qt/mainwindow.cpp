@@ -89,7 +89,6 @@ void MainWindow::updateMenus()
 	updateMenuGroupInt(saveStateGroup, g_Config.iCurrentStateSlot);
 	updateMenuGroupInt(displayRotationGroup, g_Config.iInternalScreenRotation);
 	updateMenuGroupInt(renderingResolutionGroup, g_Config.iInternalResolution);
-	updateMenuGroupInt(renderingModeGroup, g_Config.iRenderingMode);
 	updateMenuGroupInt(frameSkippingGroup, g_Config.iFrameSkip);
 	updateMenuGroupInt(frameSkippingTypeGroup, g_Config.iFrameSkipType);
 	updateMenuGroupInt(textureFilteringGroup, g_Config.iTexFiltering);
@@ -599,6 +598,9 @@ void MainWindow::createMenus()
 	gameSettingsMenu->add(new MenuAction(this, SLOT(fullscrAct()), QT_TR_NOOP("Fu&llscreen"), QKeySequence::FullScreen))
 #endif
 		->addEventChecked(&g_Config.bFullScreen);
+	gameSettingsMenu->add(new MenuAction(this, SLOT(bufferRenderAct()), QT_TR_NOOP("&Skip buffer effects")))
+		->addEventChecked(&g_Config.bSkipBufferEffects);
+
 	MenuTree* renderingResolutionMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("&Rendering resolution"));
 	renderingResolutionGroup = new MenuActionGroup(this, renderingResolutionMenu, SLOT(renderingResolutionGroup_triggered(QAction *)),
 		QStringList() << "&Auto" << "&1x" << "&2x" << "&3x" << "&4x" << "&5x" << "&6x" << "&7x" << "&8x" << "&9x" << "1&0x",
@@ -609,10 +611,6 @@ void MainWindow::createMenus()
 		QStringList() << "&1x" << "&2x" << "&3x" << "&4x" << "&5x" << "&6x" << "&7x" << "&8x" << "&9x" << "1&0x",
 		QList<int>() << 1 << 2 << 3 << 4 << 5 << 6 << 7 << 8 << 9 << 10);
 
-	MenuTree* renderingModeMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("Rendering m&ode"));
-	renderingModeGroup = new MenuActionGroup(this, renderingModeMenu, SLOT(renderingModeGroup_triggered(QAction *)),
-		QStringList() << "&Skip buffered effects (non-buffered, faster)" << "&Buffered rendering",
-		QList<int>() << 0 << 1);
 	MenuTree* frameSkippingMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("&Frame skipping"));
 	frameSkippingMenu->add(new MenuAction(this, SLOT(autoframeskipAct()),        QT_TR_NOOP("&Auto")))
 		->addEventChecked(&g_Config.bAutoFrameSkip);
