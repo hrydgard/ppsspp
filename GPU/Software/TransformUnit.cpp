@@ -137,7 +137,7 @@ void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVert
 }
 
 VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
-	const u32 vertTypeID = (vtype & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+	const u32 vertTypeID = GetVertTypeID(vtype, gstate.getUVGenMode());
 	return DrawEngineCommon::GetVertexDecoder(vertTypeID);
 }
 

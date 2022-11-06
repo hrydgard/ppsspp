@@ -507,7 +507,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	if (indices)
 		GetIndexBounds(indices, num_points, vertType, &index_lower_bound, &index_upper_bound);
 
-	VertexDecoder *origVDecoder = GetVertexDecoder((vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24));
+	VertexDecoder *origVDecoder = GetVertexDecoder(GetVertTypeID(vertType, gstate.getUVGenMode()));
 	*bytesRead = num_points * origVDecoder->VertexSize();
 
 	// Simplify away bones and morph before proceeding

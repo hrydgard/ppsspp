@@ -184,7 +184,7 @@ void DrawEngineCommon::Resized() {
 }
 
 u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize) {
-	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+	const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode());
 	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
 	if (vertexSize)
 		*vertexSize = dec->VertexSize();
