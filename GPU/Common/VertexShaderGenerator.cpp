@@ -30,6 +30,7 @@
 #include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/VertexShaderGenerator.h"
+#include "GPU/Vulkan/DrawEngineVulkan.h"
 
 #undef WRITE
 
@@ -256,11 +257,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "layout (std140, set = 0, binding = 0) uniform frameVars {\n%s};\n", ub_frameStr);
 		}
 
-		WRITE(p, "layout (std140, set = 1, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
+		WRITE(p, "layout (std140, set = 1, binding = %d) uniform baseVars {\n%s};\n", DRAW_BINDING_DYNUBO_BASE, ub_baseStr);
 		if (enableLighting || doShadeMapping)
-			WRITE(p, "layout (std140, set = 1, binding = 4) uniform lightVars {\n%s};\n", ub_vs_lightsStr);
+			WRITE(p, "layout (std140, set = 1, binding = %d) uniform lightVars {\n%s};\n", DRAW_BINDING_DYNUBO_LIGHT, ub_vs_lightsStr);
 		if (enableBones)
-			WRITE(p, "layout (std140, set = 1, binding = 5) uniform boneVars {\n%s};\n", ub_vs_bonesStr);
+			WRITE(p, "layout (std140, set = 1, binding = %d) uniform boneVars {\n%s};\n", DRAW_BINDING_DYNUBO_BONE, ub_vs_bonesStr);
 
 		if (enableBones) {
 			WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
@@ -638,7 +639,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec4 tex;\n");
 			WRITE(p, "  vec4 col;\n");
 			WRITE(p, "};\n");
-			WRITE(p, "layout (std430, set = 1, binding = 6) readonly buffer s_tess_data {\n");
+			WRITE(p, "layout (std430, set = 1, binding = %d) readonly buffer s_tess_data {\n", DRAW_BINDING_TESS_STORAGE_BUF);
 			WRITE(p, "  TessData tess_data[];\n");
 			WRITE(p, "};\n");
 
@@ -646,10 +647,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec4 basis;\n");
 			WRITE(p, "  vec4 deriv;\n");
 			WRITE(p, "};\n");
-			WRITE(p, "layout (std430, set = 1, binding = 7) readonly buffer s_tess_weights_u {\n");
+			WRITE(p, "layout (std430, set = 1, binding = %d) readonly buffer s_tess_weights_u {\n", DRAW_BINDING_TESS_STORAGE_BUF_WU);
 			WRITE(p, "  TessWeight tess_weights_u[];\n");
 			WRITE(p, "};\n");
-			WRITE(p, "layout (std430, set = 1, binding = 8) readonly buffer s_tess_weights_v {\n");
+			WRITE(p, "layout (std430, set = 1, binding = %d) readonly buffer s_tess_weights_v {\n", DRAW_BINDING_TESS_STORAGE_BUF_WV);
 			WRITE(p, "  TessWeight tess_weights_v[];\n");
 			WRITE(p, "};\n");
 		} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
