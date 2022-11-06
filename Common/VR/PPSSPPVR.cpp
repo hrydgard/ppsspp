@@ -23,8 +23,23 @@ enum VRMatrix {
 	VR_MATRIX_COUNT
 };
 
+enum VRMirroring {
+	VR_MIRRORING_UPDATED,
+	VR_MIRRORING_AXIS_X,
+	VR_MIRRORING_AXIS_Y,
+	VR_MIRRORING_AXIS_Z,
+	VR_MIRRORING_PITCH,
+	VR_MIRRORING_YAW,
+	VR_MIRRORING_ROLL,
+	VR_MIRRORING_COUNT
+};
+
+static int vr3DGeometryCount = 0;
+static bool vrCameraControl = false;
+static bool vrForce2D = false;
 static long vrCompat[VR_COMPAT_MAX];
 static float vrMatrix[VR_MATRIX_COUNT][16];
+static bool vrMirroring[VR_MIRRORING_COUNT];
 
 /*
 ================================================================================
@@ -182,7 +197,6 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 	KeyInput keyInput = {};
 	for (int j = 0; j < 2; j++) {
 		int status = IN_VRGetButtonState(j);
-		bool cameraControl = VR_GetConfig(VR_CONFIG_CAMERA_CONTROL);
 		for (ButtonMapping& m : controllerMapping[j]) {
 
 			//check if camera key was pressed
@@ -208,14 +222,14 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 				if (pressed && haptics) {
 					INVR_Vibrate(100, j, 1000);
 				}
-				if (!cameraControl || cameraKey) {
+				if (!vrCameraControl || cameraKey) {
 					NativeKey(keyInput);
 				}
 				m.pressed = pressed;
 				m.repeat = 0;
 			} else if (pressed && (m.repeat > 30)) {
 				keyInput.flags |= KEY_IS_REPEAT;
-				if (!cameraControl || cameraKey) {
+				if (!vrCameraControl || cameraKey) {
 					NativeKey(keyInput);
 				}
 				m.repeat = 0;
@@ -331,11 +345,11 @@ void UpdateVRSpecialKeys(const KeyInput &key) {
 		for (int& nativeKey : nativeKeys) {
 			// adjust camera parameters
 			if (nativeKey == VIRTKEY_VR_CAMERA_ADJUST) {
-				VR_SetConfig(VR_CONFIG_CAMERA_CONTROL, key.flags & KEY_DOWN);
+				vrCameraControl = key.flags & KEY_DOWN;
 			}
 			// force 2D rendering
 			else if (nativeKey == CTRL_SCREEN) {
-				VR_SetConfig(VR_CONFIG_FORCE_2D, key.flags & KEY_DOWN);
+				vrForce2D = key.flags & KEY_DOWN;
 			}
 		}
 	}
@@ -440,10 +454,18 @@ bool StartVRRender() {
 			invViewTransform[eye] = view.pose;
 		}
 
+		// Get 6DoF scale
+		float scale = 1.0f;
+		bool hasUnitScale = false;
+		if (PSP_CoreParameter().compat.vrCompat().UnitsPerMeter > 0) {
+			scale = PSP_CoreParameter().compat.vrCompat().UnitsPerMeter;
+			hasUnitScale = true;
+		}
+
 		// Update matrices
 		for (int matrix = 0; matrix < VR_MATRIX_COUNT; matrix++) {
 			if (matrix == VR_PROJECTION_MATRIX) {
-				float nearZ = VR_GetConfigFloat(VR_CONFIG_FOV_SCALE) / 200.0f;
+				float nearZ = g_Config.fFieldOfViewPercentage / 200.0f;
 				float tanAngleLeft = tanf(fov.angleLeft);
 				float tanAngleRight = tanf(fov.angleRight);
 				float tanAngleDown = tanf(fov.angleDown);
@@ -469,9 +491,9 @@ bool StartVRRender() {
 				}
 
 				// get axis mirroring configuration
-				float mx = VR_GetConfig(VR_CONFIG_MIRROR_PITCH) ? -1.0f : 1.0f;
-				float my = VR_GetConfig(VR_CONFIG_MIRROR_YAW) ? -1.0f : 1.0f;
-				float mz = VR_GetConfig(VR_CONFIG_MIRROR_ROLL) ? -1.0f : 1.0f;
+				float mx = vrMirroring[VR_MIRRORING_PITCH] ? -1.0f : 1.0f;
+				float my = vrMirroring[VR_MIRRORING_YAW] ? -1.0f : 1.0f;
+				float mz = vrMirroring[VR_MIRRORING_ROLL] ? -1.0f : 1.0f;
 
 				// ensure there is maximally one axis to mirror rotation
 				if (mx + my + mz < 0) {
@@ -495,44 +517,48 @@ bool StartVRRender() {
 				XrQuaternionf_ToMatrix4f(&invView.orientation, M);
 				memcpy(&M, M, sizeof(float) * 16);
 
-				float scale = VR_GetConfigFloat(VR_CONFIG_6DOF_SCALE);
-				if (!flatScreen && VR_GetConfig(VR_CONFIG_6DOF_ENABLED)) {
-					M[12] -= invViewTransform[0].position.x * (VR_GetConfig(VR_CONFIG_MIRROR_AXIS_X) ? -1.0f : 1.0f) * scale;
-					M[13] -= invViewTransform[0].position.y * (VR_GetConfig(VR_CONFIG_MIRROR_AXIS_Y) ? -1.0f : 1.0f) * scale;
-					M[14] -= invViewTransform[0].position.z * (VR_GetConfig(VR_CONFIG_MIRROR_AXIS_Z) ? -1.0f : 1.0f) * scale;
+				// Apply 6Dof head movement
+				if (!flatScreen && g_Config.bEnable6DoF) {
+					M[3] -= invViewTransform[0].position.x * (vrMirroring[VR_MIRRORING_AXIS_X] ? -1.0f : 1.0f) * scale;
+					M[7] -= invViewTransform[0].position.y * (vrMirroring[VR_MIRRORING_AXIS_Y] ? -1.0f : 1.0f) * scale;
+					M[11] -= invViewTransform[0].position.z * (vrMirroring[VR_MIRRORING_AXIS_Z] ? -1.0f : 1.0f) * scale;
 				}
-				if (fabsf(VR_GetConfigFloat(VR_CONFIG_CAMERA_DISTANCE)) > 0.0f) {
-					XrVector3f forward = {0.0f, 0.0f, VR_GetConfigFloat(VR_CONFIG_CAMERA_DISTANCE) * scale};
+				// Camera adjust - distance
+				if (fabsf(g_Config.fCameraDistance) > 0.0f) {
+					XrVector3f forward = {0.0f, 0.0f, g_Config.fCameraDistance * scale};
 					forward = XrQuaternionf_Rotate(invView.orientation, forward);
-					forward = XrVector3f_ScalarMultiply(forward, VR_GetConfig(VR_CONFIG_MIRROR_AXIS_Z) ? -1.0f : 1.0f);
+					forward = XrVector3f_ScalarMultiply(forward, vrMirroring[VR_MIRRORING_AXIS_Z] ? -1.0f : 1.0f);
 					M[3] += forward.x;
 					M[7] += forward.y;
 					M[11] += forward.z;
 				}
-				if (fabsf(VR_GetConfigFloat(VR_CONFIG_CAMERA_HEIGHT)) > 0.0f) {
-					XrVector3f up = {0.0f, -VR_GetConfigFloat(VR_CONFIG_CAMERA_HEIGHT) * scale, 0.0f};
+				// Camera adjust - height
+				if (fabsf(g_Config.fCameraHeight) > 0.0f) {
+					XrVector3f up = {0.0f, -g_Config.fCameraHeight * scale, 0.0f};
 					up = XrQuaternionf_Rotate(invView.orientation, up);
-					up = XrVector3f_ScalarMultiply(up, VR_GetConfig(VR_CONFIG_MIRROR_AXIS_Y) ? -1.0f : 1.0f);
+					up = XrVector3f_ScalarMultiply(up, vrMirroring[VR_MIRRORING_AXIS_Y] ? -1.0f : 1.0f);
 					M[3] += up.x;
 					M[7] += up.y;
 					M[11] += up.z;
 				}
-				if (fabsf(VR_GetConfigFloat(VR_CONFIG_CAMERA_SIDE)) > 0.0f) {
-					XrVector3f side = {-VR_GetConfigFloat(VR_CONFIG_CAMERA_SIDE) * scale, 0.0f,  0.0f};
+				// Camera adjust - side
+				if (fabsf(g_Config.fCameraSide) > 0.0f) {
+					XrVector3f side = {-g_Config.fCameraSide * scale, 0.0f,  0.0f};
 					side = XrQuaternionf_Rotate(invView.orientation, side);
-					side = XrVector3f_ScalarMultiply(side, VR_GetConfig(VR_CONFIG_MIRROR_AXIS_X) ? -1.0f : 1.0f);
+					side = XrVector3f_ScalarMultiply(side, vrMirroring[VR_MIRRORING_AXIS_X] ? -1.0f : 1.0f);
 					M[3] += side.x;
 					M[7] += side.y;
 					M[11] += side.z;
 				}
-				if (VR_GetConfig(VR_CONFIG_HAS_UNIT_SCALE) && (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
+				// Stereoscopy
+				if (hasUnitScale && (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
 					float dx = fabs(invViewTransform[1].position.x - invViewTransform[0].position.x);
 					float dy = fabs(invViewTransform[1].position.y - invViewTransform[0].position.y);
 					float dz = fabs(invViewTransform[1].position.z - invViewTransform[0].position.z);
 					float ipd = sqrt(dx * dx + dy * dy + dz * dz);
 					XrVector3f separation = {ipd * scale, 0.0f, 0.0f};
 					separation = XrQuaternionf_Rotate(invView.orientation, separation);
-					separation = XrVector3f_ScalarMultiply(separation, VR_GetConfig(VR_CONFIG_MIRROR_AXIS_Z) ? -1.0f : 1.0f);
+					separation = XrVector3f_ScalarMultiply(separation, vrMirroring[VR_MIRRORING_AXIS_Z] ? -1.0f : 1.0f);
 					M[3] -= separation.x;
 					M[7] -= separation.y;
 					M[11] -= separation.z;
@@ -544,19 +570,19 @@ bool StartVRRender() {
 		}
 
 		// Decide if the scene is 3D or not
-		if (g_Config.bEnableVR && !VR_GetConfig(VR_CONFIG_FORCE_2D) && (VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) > 15)) {
-			bool stereo = VR_GetConfig(VR_CONFIG_HAS_UNIT_SCALE) && g_Config.bEnableStereo;
+		if (g_Config.bEnableVR && !vrForce2D && (vr3DGeometryCount > 15)) {
+			bool stereo = hasUnitScale && g_Config.bEnableStereo;
 			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 		} else {
 			VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
 		}
-		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) / 2);
+		vr3DGeometryCount /= 2;
 
 		// Set compatibility
 		vrCompat[VR_COMPAT_SKYPLANE] = PSP_CoreParameter().compat.vrCompat().Skyplane;
 
 		// Camera control
-		if (VR_GetConfig(VR_CONFIG_CAMERA_CONTROL)) {
+		if (vrCameraControl) {
 			//left joystick controls height and side
 			float height = g_Config.fCameraHeight;
 			float side = g_Config.fCameraSide;
@@ -590,13 +616,8 @@ bool StartVRRender() {
 
 		// Set customizations
 		__DisplaySetFramerate(g_Config.bForce72Hz ? 72 : 60);
-		VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
-		VR_SetConfigFloat(VR_CONFIG_CAMERA_DISTANCE, g_Config.fCameraDistance);
-		VR_SetConfigFloat(VR_CONFIG_CAMERA_HEIGHT, g_Config.fCameraHeight);
-		VR_SetConfigFloat(VR_CONFIG_CAMERA_SIDE, g_Config.fCameraSide);
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_DISTANCE, g_Config.fCanvasDistance);
-		VR_SetConfigFloat(VR_CONFIG_FOV_SCALE, g_Config.fFieldOfViewPercentage);
-		VR_SetConfig(VR_CONFIG_MIRROR_UPDATED, false);
+		vrMirroring[VR_MIRRORING_UPDATED] = false;
 		return true;
 	}
 	return false;
@@ -662,7 +683,7 @@ bool Is2DVRObject(float* projMatrix, bool ortho) {
 
 	// Update 3D geometry count
 	if (!identity && !ortho) {
-		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) + 1);
+		vr3DGeometryCount++;
 	}
 	return identity;
 }
@@ -670,39 +691,29 @@ bool Is2DVRObject(float* projMatrix, bool ortho) {
 void UpdateVRParams(float* projMatrix) {
 
 	// Set mirroring of axes
-	if (!VR_GetConfig(VR_CONFIG_MIRROR_UPDATED)) {
-		VR_SetConfig(VR_CONFIG_MIRROR_UPDATED, true);
-		VR_SetConfig(VR_CONFIG_MIRROR_AXIS_X, projMatrix[0] < 0);
-		VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Y, projMatrix[5] < 0);
-		VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Z, projMatrix[10] > 0);
+	if (!vrMirroring[VR_MIRRORING_UPDATED]) {
+		vrMirroring[VR_MIRRORING_UPDATED] = true;
+		vrMirroring[VR_MIRRORING_AXIS_X] = projMatrix[0] < 0;
+		vrMirroring[VR_MIRRORING_AXIS_Y] = projMatrix[5] < 0;
+		vrMirroring[VR_MIRRORING_AXIS_Z] =  projMatrix[10] > 0;
 		if ((projMatrix[0] < 0) && (projMatrix[10] < 0)) { //e.g. Dante's inferno
-			VR_SetConfig(VR_CONFIG_MIRROR_PITCH, true);
-			VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
-			VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
+			vrMirroring[VR_MIRRORING_PITCH] = true;
+			vrMirroring[VR_MIRRORING_YAW] = true;
+			vrMirroring[VR_MIRRORING_ROLL] = false;
 		} else if (projMatrix[10] < 0) { //e.g. GTA - Liberty city
-			VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
-			VR_SetConfig(VR_CONFIG_MIRROR_YAW, false);
-			VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
+			vrMirroring[VR_MIRRORING_PITCH] = false;
+			vrMirroring[VR_MIRRORING_YAW] = false;
+			vrMirroring[VR_MIRRORING_ROLL] = false;
 		} else if (projMatrix[5] < 0) { //e.g. PES 2014
-			VR_SetConfig(VR_CONFIG_MIRROR_PITCH, true);
-			VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
-			VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
+			vrMirroring[VR_MIRRORING_PITCH] = true;
+			vrMirroring[VR_MIRRORING_YAW] = true;
+			vrMirroring[VR_MIRRORING_ROLL] = false;
 		} else { //e.g. Lego Pirates
-			VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
-			VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
-			VR_SetConfig(VR_CONFIG_MIRROR_ROLL, true);
+			vrMirroring[VR_MIRRORING_PITCH] = false;
+			vrMirroring[VR_MIRRORING_YAW] = true;
+			vrMirroring[VR_MIRRORING_ROLL] = true;
 		}
 	}
-
-	// Set 6DoF scale
-	float scale = 1.0f;
-	if (PSP_CoreParameter().compat.vrCompat().UnitsPerMeter > 0) {
-		scale = PSP_CoreParameter().compat.vrCompat().UnitsPerMeter;
-		VR_SetConfig(VR_CONFIG_HAS_UNIT_SCALE, true);
-	} else {
-		VR_SetConfig(VR_CONFIG_HAS_UNIT_SCALE, false);
-	}
-	VR_SetConfigFloat(VR_CONFIG_6DOF_SCALE, scale);
 }
 
 void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
