@@ -21,7 +21,7 @@ enum VRCompatFlag {
 
 // VR app flow integration
 bool IsVRBuild();
-void InitVROnAndroid(void* vm, void* activity, const char* system, int version, char* name);
+void InitVROnAndroid(void* vm, void* activity, const char* system, int version, const char* name);
 void EnterVR(bool firstStart, void* vulkanContext);
 void GetVRResolutionPerEye(int* width, int* height);
 void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale);
@@ -50,7 +50,7 @@ void UpdateVRView(float* leftEye, float* rightEye);
 
 // VR app flow integration
 inline bool IsVRBuild() { return false; }
-inline void InitVROnAndroid(void* vm, void* activity, const char* system, int version, char* name) {}
+inline void InitVROnAndroid(void* vm, void* activity, const char* system, int version, const char* name) {}
 inline void EnterVR(bool firstTime, void* vulkanContext) {}
 inline void GetVRResolutionPerEye(int* width, int* height) {}
 inline void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {}
