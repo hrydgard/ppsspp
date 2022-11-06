@@ -267,7 +267,7 @@ void DrawEngineGLES::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 
 	VShaderID vsid;
-	Shader *vshader = shaderManager_->ApplyVertexShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode, &vsid);
+	Shader *vshader = shaderManager_->ApplyVertexShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat, true, &vsid);
 
 	GLRBuffer *vertexBuffer = nullptr;
 	GLRBuffer *indexBuffer = nullptr;
@@ -278,8 +278,8 @@ void DrawEngineGLES::DoFlush() {
 		int vertexCount = 0;
 		bool useElements = true;
 
-		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
-			// If software skinning, we've already predecoded into "decoded". So push that content.
+		if (lastVType_ & GE_VTYPE_WEIGHT_MASK) {
+			// Since we're software skinning, we've already predecoded into "decoded". So push that content.
 			size_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 			u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vertexBufferOffset, &vertexBuffer);
 			memcpy(dest, decoded, size);
@@ -331,7 +331,6 @@ void DrawEngineGLES::DoFlush() {
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
-		decOptions_.applySkinInDecode = true;
 		DecodeVerts(decoded);
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
@@ -448,7 +447,6 @@ void DrawEngineGLES::DoFlush() {
 			}
 			gstate_c.Dirty(DIRTY_BLEND_STATE);  // Make sure the color mask gets re-applied.
 		}
-		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;

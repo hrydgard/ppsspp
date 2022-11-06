@@ -162,7 +162,6 @@ public:
 	bool bSoftwareRendering;
 	bool bSoftwareRenderingJit;
 	bool bHardwareTransform; // only used in the GLES backend
-	bool bSoftwareSkinning;
 	bool bVendorBugChecksEnabled;
 	bool bUseGeometryShader;
 

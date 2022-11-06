@@ -64,7 +64,6 @@ SoftwareDrawEngine::~SoftwareDrawEngine() {
 
 void SoftwareDrawEngine::NotifyConfigChanged() {
 	DrawEngineCommon::NotifyConfigChanged();
-	decOptions_.applySkinInDecode = true;
 }
 
 void SoftwareDrawEngine::DispatchFlush() {
@@ -940,7 +939,6 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 
 	VertexDecoder vdecoder;
 	VertexDecoderOptions options{};
-	options.applySkinInDecode = true;
 	vdecoder.SetVertexType(gstate.vertType, options);
 
 	if (!Memory::IsValidRange(gstate_c.vertexAddr, (indexUpperBound + 1) * vdecoder.VertexSize()))

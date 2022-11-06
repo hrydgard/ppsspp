@@ -436,13 +436,8 @@ GPUCommon::~GPUCommon() {
 }
 
 void GPUCommon::UpdateCmdInfo() {
-	if (g_Config.bSoftwareSkinning) {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexTypeSkinning;
-	} else {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexType;
-	}
+	cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+	cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexTypeSkinning;
 
 	if (g_Config.bFastMemory) {
 		cmdInfo_[GE_CMD_JUMP].func = &GPUCommon::Execute_JumpFast;
@@ -1834,7 +1829,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// cull mode
 	int cullMode = gstate.getCullMode();
 
-	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
+	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), true);
 	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, cullMode, &bytesRead);
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
@@ -1853,8 +1848,6 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// between each prim, we just change the triangle winding right here to still be able to join draw calls.
 
 	uint32_t vtypeCheckMask = ~GE_VTYPE_WEIGHTCOUNT_MASK;
-	if (!g_Config.bSoftwareSkinning)
-		vtypeCheckMask = 0xFFFFFFFF;
 
 	if (debugRecording_)
 		goto bail;
@@ -1892,7 +1885,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 				goto bail;
 			} else {
 				vertexType = data;
-				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
+				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), true);
 			}
 			break;
 		}
@@ -2033,10 +2026,6 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
-	}
-
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
 	if (flushOnParams_)
 		drawEngineCommon_->DispatchFlush();
@@ -2104,10 +2093,6 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-	}
-
-	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 	}
 
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
@@ -2451,35 +2436,16 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 	}
 
 	if (fastLoad) {
-		// If we can't use software skinning, we have to flush and dirty.
-		if (!g_Config.bSoftwareSkinning) {
-			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-				const u32 newVal = src[i] << 8;
-				if (dst[i] != newVal) {
-					Flush();
-					dst[i] = newVal;
-				}
-				if (++i >= end) {
-					break;
-				}
+		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+			dst[i] = src[i] << 8;
+			if (++i >= end) {
+				break;
 			}
+		}
 
-			const unsigned int numPlusCount = (op & 0x7F) + i;
-			for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
-				gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
-			}
-		} else {
-			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-				dst[i] = src[i] << 8;
-				if (++i >= end) {
-					break;
-				}
-			}
-
-			const unsigned int numPlusCount = (op & 0x7F) + i;
-			for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
-				gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
-			}
+		const unsigned int numPlusCount = (op & 0x7F) + i;
+		for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
+			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
 		}
 	}
 
@@ -2496,13 +2462,8 @@ void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 	int num = gstate.boneMatrixNumber & 0x00FFFFFF;
 	u32 newVal = op << 8;
 	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
-		// Bone matrices should NOT flush when software skinning is enabled!
-		if (!g_Config.bSoftwareSkinning) {
-			Flush();
-			gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
-		} else {
-			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
-		}
+		// Bone matrices should NOT flush since we're software skinning!
+		gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
 		((u32 *)gstate.boneMatrix)[num] = newVal;
 	}
 	num++;
@@ -2528,7 +2489,7 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 
 	int prim = (op >> 8) & 0x7;
 	if (prim != GE_PRIM_KEEP_PREVIOUS) {
-		// Flush before changing the prim type.  Only continue can be used to continue a prim.
+		// Flush before changing the prim type. Only continue can be used to continue a prim.
 		FlushImm();
 	}
 
@@ -2692,13 +2653,7 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
 	}
 
-	if (!g_Config.bSoftwareSkinning) {
-		if (flushOnParams_)
-			Flush();
-		gstate_c.Dirty(uniformsToDirty);
-	} else {
-		gstate_c.deferredVertTypeDirty |= uniformsToDirty;
-	}
+	gstate_c.deferredVertTypeDirty |= uniformsToDirty;
 	gstate.FastLoadBoneMatrix(target);
 }
 

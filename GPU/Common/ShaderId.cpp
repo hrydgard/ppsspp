@@ -118,7 +118,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 		}
 
 		// Bones.
-		bool enableBones = !useSkinInDecode && vertTypeIsSkinningEnabled(vertType);
+		bool enableBones = false;
 		id.SetBit(VS_BIT_ENABLE_BONES, enableBones);
 		if (enableBones) {
 			id.SetBits(VS_BIT_BONES, 3, TranslateNumBones(vertTypeGetNumBoneWeights(vertType)) - 1);

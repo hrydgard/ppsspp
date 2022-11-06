@@ -364,8 +364,8 @@ void DrawEngineD3D11::DoFlush() {
 
 		// Cannot cache vertex data with morph enabled.
 		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
-		// Also avoid caching when software skinning.
-		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
+		// Also avoid caching when skinning.
+		if (lastVType_ & GE_VTYPE_WEIGHT_MASK)
 			useCache = false;
 
 		if (useCache) {
@@ -538,7 +538,7 @@ rotateVBO:
 
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
-		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, useHWTransform, useHWTessellation_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
+		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, useHWTransform, useHWTessellation_, decOptions_.expandAllWeightsToFloat, true);
 		ID3D11InputLayout *inputLayout = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
 		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 		context_->VSSetShader(vshader->GetShader(), nullptr, 0);
@@ -581,7 +581,6 @@ rotateVBO:
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
-		decOptions_.applySkinInDecode = true;
 		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -649,7 +648,7 @@ rotateVBO:
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			D3D11VertexShader *vshader;
 			D3D11FragmentShader *fshader;
-			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
+			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
 			context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 			context_->VSSetShader(vshader->GetShader(), nullptr, 0);
 			shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
@@ -710,7 +709,6 @@ rotateVBO:
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
 			}
 		}
-		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;

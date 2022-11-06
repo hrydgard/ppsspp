@@ -436,7 +436,6 @@ int main(int argc, const char* argv[])
 	g_Config.iInternalResolution = 1;
 	g_Config.iFastForwardMode = (int)FastForwardMode::CONTINUOUS;
 	g_Config.bEnableLogging = fullLog;
-	g_Config.bSoftwareSkinning = true;
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bSoftwareRendering = coreParameter.gpuCore == GPUCORE_SOFTWARE;
 	g_Config.bSoftwareRenderingJit = true;

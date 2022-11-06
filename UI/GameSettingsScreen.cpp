@@ -540,12 +540,6 @@ void GameSettingsScreen::CreateViews() {
 		hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	}
 
-	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
-	swSkin->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("SoftwareSkinning Tip", "Combine skinned model draws on the CPU, faster in most games"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
 	tessellationHW->OnClick.Add([=](EventParams &e) {

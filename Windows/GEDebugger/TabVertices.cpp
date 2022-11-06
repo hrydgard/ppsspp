@@ -306,8 +306,6 @@ int CtrlVertexList::GetRowCount() {
 		rowCount_ = 0;
 	}
 	VertexDecoderOptions options{};
-	// TODO: Maybe an option?
-	options.applySkinInDecode = true;
 	decoder->SetVertexType(state.vertType, options);
 	return rowCount_;
 }

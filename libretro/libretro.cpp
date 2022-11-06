@@ -823,15 +823,6 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.bHardwareTransform = true;
    }
 
-   var.key = "ppsspp_software_skinning";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "disabled"))
-         g_Config.bSoftwareSkinning = false;
-      else
-         g_Config.bSoftwareSkinning = true;
-   }
-
    var.key = "ppsspp_vertex_cache";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {

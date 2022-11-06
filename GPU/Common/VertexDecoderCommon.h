@@ -333,7 +333,6 @@ typedef void(*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
 struct VertexDecoderOptions {
 	bool expandAllWeightsToFloat;
 	bool expand8BitNormalsToFloat;
-	bool applySkinInDecode;
 };
 
 class VertexDecoder {
