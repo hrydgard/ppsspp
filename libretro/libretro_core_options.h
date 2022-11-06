@@ -284,28 +284,24 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "480x272"
    },
    {
-      "ppsspp_rendering_mode",
-      "Rendering Mode",
+      "ppsspp_skip_buffer_effects",
+      "Skip Buffer Effects",
       NULL,
-      "'Skip Buffer Effects' is faster, but nothing may draw in some games.",
-      NULL,
-      "video",
-      {
-         { "Buffered",            NULL },
-         { "Skip Buffer Effects", NULL },
-         { NULL, NULL },
-      },
-      "Buffered"
-   },
-   {
-      "ppsspp_block_transfer_gpu",
-      "Block Transfer GPU",
-      NULL,
-      "Some games require this to be enabled for correct graphics.",
+      "Faster, but may cause major rendering issues.",
       NULL,
       "video",
       BOOL_OPTIONS,
-      "enabled"
+      "disabled"
+   },
+   {
+      "ppsspp_skip_gpu_readbacks",
+      "Skip GPU Readbacks",
+      NULL,
+      "Some games require GPU readbacks, so be careful.",
+      NULL,
+      "video",
+      BOOL_OPTIONS,
+      "disabled"
    },
    {
       "ppsspp_frameskip",

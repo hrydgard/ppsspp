@@ -96,9 +96,11 @@ impl Section {
                 continue;
             }
             if !other.lines.iter().any(|line| line.starts_with(prefix)) {
-                println!("Commenting out: {}", line);
-                // Comment out the line.
-                *line = "#".to_owned() + line;
+                if !prefix.contains("URL") {
+                    println!("Commenting out: {}", line);
+                    // Comment out the line.
+                    *line = "#".to_owned() + line;
+                }
             }
         }
     }
