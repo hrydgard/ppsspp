@@ -342,7 +342,7 @@ bool VR_InitFrame( engine_t* engine ) {
 			}
 
 			vrMatrix[matrix] = ovrMatrix4f_CreateFromQuaternion(&invView.orientation);
-			float scale = VR_GetConfigFloat(VR_CONFIG_6DOF_SCALE) * 0.000001f;
+			float scale = VR_GetConfigFloat(VR_CONFIG_6DOF_SCALE);
 			if (!flatScreen && vrConfig[VR_CONFIG_6DOF_ENABLED]) {
 				vrMatrix[matrix].M[0][3] -= hmdposition.x * (vrConfig[VR_CONFIG_MIRROR_AXIS_X] ? -1.0f : 1.0f) * scale;
 				vrMatrix[matrix].M[1][3] -= hmdposition.y * (vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1.0f : 1.0f) * scale;
