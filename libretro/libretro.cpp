@@ -745,22 +745,22 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iInternalResolution = 10;
    }
 
-   var.key = "ppsspp_rendering_mode";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "Buffered"))
-         g_Config.iRenderingMode = FB_BUFFERED_MODE;
-      else if (!strcmp(var.value, "Skip Buffer Effects"))
-         g_Config.iRenderingMode = FB_NON_BUFFERED_MODE;
-   }
-
-   var.key = "ppsspp_block_transfer_gpu";
+   var.key = "ppsspp_skip_buffer_effects";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
       if (!strcmp(var.value, "disabled"))
-         g_Config.bBlockTransferGPU = false;
+         g_Config.bSkipBufferEffects = false;
       else
-         g_Config.bBlockTransferGPU = true;
+         g_Config.bSkipBufferEffects = true;
+   }
+
+   var.key = "ppsspp_skip_gpu_readbacks";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         g_Config.bSkipGPUReadbacks = false;
+      else
+         g_Config.bSkipGPUReadbacks = true;
    }
 
    var.key = "ppsspp_frameskip";
