@@ -172,7 +172,7 @@ typedef struct {
 typedef struct {
 	uint64_t frameIndex;
 	ovrApp appState;
-	float predictedDisplayTime;
+	XrTime predictedDisplayTime;
 	XrGraphicsBindingVulkanKHR graphicsBindingVulkan;
 } engine_t;
 
