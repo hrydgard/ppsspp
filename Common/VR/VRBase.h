@@ -10,36 +10,10 @@
 #define ALOGV(...) printf(__VA_ARGS__)
 #endif
 
-//Vulkan
-#ifdef VK_USE_NATIVE_LIB
-#include <vulkan/vulkan.h>
-#else
-#include "Common/GPU/Vulkan/VulkanLoader.h"
-using namespace PPSSPP_VK;
-#endif
+#include "Common/VR/OpenXRLoader.h"
 
-#ifdef ANDROID
-//OpenXR
-#define XR_USE_PLATFORM_ANDROID 1
-#define XR_USE_GRAPHICS_API_OPENGL_ES 1
-#define XR_USE_GRAPHICS_API_VULKAN 1
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <jni.h>
-#elif defined(_WIN32)
-#include "Common/CommonWindows.h"
-#include <unknwn.h>
-#define XR_USE_PLATFORM_WIN32 1
-#define XR_USE_GRAPHICS_API_OPENGL_ES 1
-#define XR_USE_GRAPHICS_API_VULKAN 1
-#else
-#define XR_USE_GRAPHICS_API_OPENGL_ES 1
-#define XR_USE_GRAPHICS_API_VULKAN 1
-#endif
-
-#include <math.h>
-#include <openxr.h>
-#include <openxr_platform.h>
+#define _USE_MATH_DEFINES
+#include <cmath>
 
 #ifdef ANDROID
 
@@ -172,7 +146,7 @@ typedef struct {
 typedef struct {
 	uint64_t frameIndex;
 	ovrApp appState;
-	float predictedDisplayTime;
+	XrTime predictedDisplayTime;
 	XrGraphicsBindingVulkanKHR graphicsBindingVulkan;
 } engine_t;
 
@@ -192,7 +166,7 @@ void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVu
 void VR_LeaveVR( engine_t* engine );
 
 engine_t* VR_GetEngine( void );
-bool VR_GetPlatformFLag(VRPlatformFlag flag);
+bool VR_GetPlatformFlag(VRPlatformFlag flag);
 void VR_SetPlatformFLag(VRPlatformFlag flag, bool value);
 
 void ovrApp_Clear(ovrApp* app);

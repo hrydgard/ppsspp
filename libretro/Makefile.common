@@ -314,6 +314,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/TimeUtil.cpp
 
 SOURCES_CXX += \
+	$(COMMONDIR)/VR/OpenXRLoader.cpp \
 	$(COMMONDIR)/VR/PPSSPPVR.cpp \
 	$(COMMONDIR)/VR/VRBase.cpp \
 	$(COMMONDIR)/VR/VRMath.cpp \

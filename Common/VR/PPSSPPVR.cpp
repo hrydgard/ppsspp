@@ -1,13 +1,13 @@
-#ifdef OPENXR
-
-#include "Common/GPU/OpenGL/GLRenderManager.h"
-#include "Common/GPU/Vulkan/VulkanContext.h"
-
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/VR/VRBase.h"
 #include "Common/VR/VRInput.h"
 #include "Common/VR/VRMath.h"
 #include "Common/VR/VRRenderer.h"
+
+#if XR_USE_GRAPHICS_API_OPENGL
+#include "Common/GPU/OpenGL/GLRenderManager.h"
+#endif
+#include "Common/GPU/Vulkan/VulkanContext.h"
 
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Config.h"
@@ -98,8 +98,14 @@ VR app flow integration
 ================================================================================
 */
 
-bool IsVRBuild() {
+bool IsVREnabled() {
+	// For now, let the OPENXR build flag control enablement.
+	// This will change.
+#ifdef OPENXR
 	return true;
+#else
+	return false;
+#endif
 }
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -333,6 +339,8 @@ void UpdateVRSpecialKeys(const KeyInput &key) {
 ================================================================================
 */
 
+#if XR_USE_GRAPHICS_API_OPENGL
+
 void PreprocessSkyplane(GLRStep* step) {
 
 	// Do not do anything if the scene is not in VR.
@@ -374,6 +382,12 @@ void PreprocessStepVR(void* step) {
 	if (vrCompat[VR_COMPAT_SKYPLANE]) PreprocessSkyplane(glrStep);
 }
 
+#else
+
+void PreprocessStepVR(void* step) {}
+
+#endif
+
 void SetVRCompat(VRCompatFlag flag, long value) {
 	vrCompat[flag] = value;
 }
@@ -388,6 +402,12 @@ VR rendering integration
 
 void* BindVRFramebuffer() {
 	return VR_BindFramebuffer(VR_GetEngine());
+}
+
+inline float clampFloat(float x, float minValue, float maxValue) {
+	if (x < minValue) return minValue;
+	if (x > maxValue) return maxValue;
+	return x;
 }
 
 bool StartVRRender() {
@@ -424,8 +444,8 @@ bool StartVRRender() {
 				height = 0;
 				side = 0;
 			}
-			g_Config.fCameraHeight = std::clamp(height, -10.0f, 10.0f);
-			g_Config.fCameraSide = std::clamp(side, -10.0f, 10.0f);
+			g_Config.fCameraHeight = clampFloat(height, -10.0f, 10.0f);
+			g_Config.fCameraSide = clampFloat(side, -10.0f, 10.0f);
 
 			//right joystick controls distance and fov
 			float dst = g_Config.fCameraDistance;
@@ -439,8 +459,8 @@ bool StartVRRender() {
 				fov = 100;
 				dst = 0;
 			}
-			g_Config.fCameraDistance = std::clamp(dst, -10.0f, 10.0f);
-			g_Config.fFieldOfViewPercentage = std::clamp(fov, 100.0f, 200.0f);
+			g_Config.fCameraDistance = clampFloat(dst, -10.0f, 10.0f);
+			g_Config.fFieldOfViewPercentage = clampFloat(fov, 100.0f, 200.0f);
 		}
 
 		// Set customizations
@@ -593,5 +613,3 @@ void UpdateVRView(float* leftEye, float* rightEye) {
 		memcpy(dst[index], renderView.M, 16 * sizeof(float));
 	}
 }
-
-#endif

@@ -387,6 +387,7 @@
     <ClInclude Include="..\..\Common\BitSet.h" />
     <ClInclude Include="..\..\Common\Buffer.h" />
     <ClInclude Include="..\..\Common\File\AndroidStorage.h" />
+    <ClInclude Include="..\..\Common\GPU\Vulkan\VulkanLoader.h" />
     <ClInclude Include="..\..\Common\Math\Statistics.h" />
     <ClInclude Include="..\..\Common\Net\NetBuffer.h" />
     <ClInclude Include="..\..\Common\Data\Collections\ConstMap.h" />
@@ -502,6 +503,7 @@
     <ClInclude Include="..\..\Common\UI\UIScreen.h" />
     <ClInclude Include="..\..\Common\UI\View.h" />
     <ClInclude Include="..\..\Common\UI\ViewGroup.h" />
+    <ClInclude Include="..\..\Common\VR\OpenXRLoader.h" />
     <ClInclude Include="..\..\Common\VR\PPSSPPVR.h" />
     <ClInclude Include="..\..\Common\VR\VRBase.h" />
     <ClInclude Include="..\..\Common\VR\VRFramebuffer.h" />
@@ -526,6 +528,7 @@
     <ClCompile Include="..\..\Common\ArmEmitter.cpp" />
     <ClCompile Include="..\..\Common\Buffer.cpp" />
     <ClCompile Include="..\..\Common\File\AndroidStorage.cpp" />
+    <ClCompile Include="..\..\Common\GPU\Vulkan\VulkanLoader.cpp" />
     <ClCompile Include="..\..\Common\Math\Statistics.cpp" />
     <ClCompile Include="..\..\Common\Net\NetBuffer.cpp" />
     <ClCompile Include="..\..\Common\Data\Color\RGBAUtil.cpp" />
@@ -618,6 +621,7 @@
     <ClCompile Include="..\..\Common\UI\UIScreen.cpp" />
     <ClCompile Include="..\..\Common\UI\View.cpp" />
     <ClCompile Include="..\..\Common\UI\ViewGroup.cpp" />
+    <ClCompile Include="..\..\Common\VR\OpenXRLoader.cpp" />
     <ClCompile Include="..\..\Common\VR\PPSSPPVR.cpp" />
     <ClCompile Include="..\..\Common\VR\VRBase.cpp" />
     <ClCompile Include="..\..\Common\VR\VRFramebuffer.cpp" />

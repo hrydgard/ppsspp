@@ -557,6 +557,7 @@
     <ClInclude Include="UI\UIScreen.h" />
     <ClInclude Include="UI\View.h" />
     <ClInclude Include="UI\ViewGroup.h" />
+    <ClInclude Include="VR\OpenXRLoader.h" />
     <ClInclude Include="VR\PPSSPPVR.h" />
     <ClInclude Include="VR\VRBase.h" />
     <ClInclude Include="VR\VRFramebuffer.h" />
@@ -995,6 +996,7 @@
     <ClCompile Include="UI\UIScreen.cpp" />
     <ClCompile Include="UI\View.cpp" />
     <ClCompile Include="UI\ViewGroup.cpp" />
+    <ClCompile Include="VR\OpenXRLoader.cpp" />
     <ClCompile Include="VR\PPSSPPVR.cpp" />
     <ClCompile Include="VR\VRBase.cpp" />
     <ClCompile Include="VR\VRFramebuffer.cpp" />

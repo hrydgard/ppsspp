@@ -4,6 +4,7 @@
 #include "VRBase.h"
 #include "VRInput.h"
 #include "VRRenderer.h"
+#include "OpenXRLoader.h"
 
 #include <cassert>
 #include <cstdlib>
@@ -21,8 +22,6 @@ float vrConfigFloat[VR_CONFIG_FLOAT_MAX] = {};
 
 XrVector3f hmdorientation;
 XrVector3f hmdposition;
-
-#ifdef OPENXR
 
 void VR_UpdateStageBounds(ovrApp* pappState) {
 	XrExtent2Df stageBounds = {};
@@ -156,7 +155,7 @@ void VR_Recenter(engine_t* engine) {
 	// Create a default stage space to use if SPACE_TYPE_STAGE is not
 	// supported, or calls to xrGetReferenceSpaceBoundsRect fail.
 	spaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
-	if (VR_GetPlatformFLag(VR_PLATFORM_TRACKING_FLOOR)) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_TRACKING_FLOOR)) {
 		spaceCreateInfo.poseInReferenceSpace.position.y = -1.6750f;
 	}
 	OXR(xrCreateReferenceSpace(engine->appState.Session, &spaceCreateInfo, &engine->appState.FakeStageSpace));
@@ -168,7 +167,7 @@ void VR_Recenter(engine_t* engine) {
 		spaceCreateInfo.poseInReferenceSpace.position.y = 0.0;
 		OXR(xrCreateReferenceSpace(engine->appState.Session, &spaceCreateInfo, &engine->appState.StageSpace));
 		ALOGV("Created stage space");
-		if (VR_GetPlatformFLag(VR_PLATFORM_TRACKING_FLOOR)) {
+		if (VR_GetPlatformFlag(VR_PLATFORM_TRACKING_FLOOR)) {
 			engine->appState.CurrentSpace = engine->appState.StageSpace;
 		}
 	}
@@ -213,7 +212,7 @@ void VR_InitRenderer( engine_t* engine, bool multiview ) {
 	projections = (XrView*)(malloc(ovrMaxNumEyes * sizeof(XrView)));
 
 	void* vulkanContext = nullptr;
-	if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
 		vulkanContext = &engine->graphicsBindingVulkan;
 	}
 	ovrRenderer_Create(engine->appState.Session, &engine->appState.Renderer,
@@ -554,5 +553,3 @@ void* VR_BindFramebuffer(engine_t *engine) {
 ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 	return vrMatrix[matrix];
 }
-
-#endif

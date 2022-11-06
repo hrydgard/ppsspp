@@ -280,7 +280,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 				_dbg_assert_(query.name);
 
 				int location = -1;
-				if (IsVRBuild() && IsMultiviewSupported()) {
+				if (IsVREnabled() && IsMultiviewSupported()) {
 					int index = GetStereoBufferIndex(query.name);
 					if (index >= 0) {
 						std::string layout = GetStereoBufferLayout(query.name);
@@ -707,7 +707,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 		switch (step.stepType) {
 		case GLRStepType::RENDER:
 			renderCount++;
-			if (IsVRBuild()) {
+			if (IsVREnabled()) {
 				GLRStep vrStep = step;
 				PreprocessStepVR(&vrStep);
 				PerformRenderPass(vrStep, renderCount == 1, renderCount == totalRenderCount);
@@ -1603,7 +1603,7 @@ void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
 		fbo_bind_fb_target(false, curFB_->handle);
 	} else {
 		fbo_unbind();
-		if (IsVRBuild()) {
+		if (IsVREnabled()) {
 			BindVRFramebuffer();
 		}
 		// Backbuffer is now bound.

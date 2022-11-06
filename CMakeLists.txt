@@ -507,6 +507,8 @@ if(WIN32)
 endif()
 
 set(CommonVR
+	Common/VR/OpenXRLoader.cpp
+	Common/VR/OpenXRLoader.h
 	Common/VR/PPSSPPVR.cpp
 	Common/VR/PPSSPPVR.h
 	Common/VR/VRBase.cpp
