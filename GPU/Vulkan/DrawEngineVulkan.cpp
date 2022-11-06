@@ -841,6 +841,7 @@ void DrawEngineVulkan::DoFlush() {
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
+		decOptions_.applySkinInDecode = true;
 		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -927,6 +928,7 @@ void DrawEngineVulkan::DoFlush() {
 					decodedVerts_ = 0;
 					numDrawCalls = 0;
 					decodeCounter_ = 0;
+					decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 					return;
 				}
 				BindShaderBlendTex();  // This might cause copies so super important to do before BindPipeline.
@@ -994,6 +996,7 @@ void DrawEngineVulkan::DoFlush() {
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, result.color);
 			}
 		}
+		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;
