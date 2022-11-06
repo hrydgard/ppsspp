@@ -332,7 +332,7 @@ bool VR_InitFrame( engine_t* engine ) {
 			M[12] = 0;
 			M[13] = 0;
 			M[14] = -1;
-			M[15]= = 0;
+			M[15] = 0;
 
 			memcpy(vrMatrix[matrix], M, sizeof(float) * 16);
 		} else if ((matrix == VR_VIEW_MATRIX_LEFT_EYE) || (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
@@ -381,25 +381,25 @@ bool VR_InitFrame( engine_t* engine ) {
 				XrVector3f forward = {0.0f, 0.0f, VR_GetConfigFloat(VR_CONFIG_CAMERA_DISTANCE) * scale};
 				forward = XrQuaternionf_Rotate(invView.orientation, forward);
 				forward = XrVector3f_ScalarMultiply(forward, vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1.0f : 1.0f);
-				M[12] += forward.x;
-				M[13] += forward.y;
-				M[14] += forward.z;
+				M[3] += forward.x;
+				M[7] += forward.y;
+				M[11] += forward.z;
 			}
 			if (fabsf(VR_GetConfigFloat(VR_CONFIG_CAMERA_HEIGHT)) > 0.0f) {
 				XrVector3f up = {0.0f, -VR_GetConfigFloat(VR_CONFIG_CAMERA_HEIGHT) * scale, 0.0f};
 				up = XrQuaternionf_Rotate(invView.orientation, up);
 				up = XrVector3f_ScalarMultiply(up, vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1.0f : 1.0f);
-				M[12] += up.x;
-				M[13] += up.y;
-				M[14] += up.z;
+				M[3] += up.x;
+				M[7] += up.y;
+				M[11] += up.z;
 			}
 			if (fabsf(VR_GetConfigFloat(VR_CONFIG_CAMERA_SIDE)) > 0.0f) {
 				XrVector3f side = {-VR_GetConfigFloat(VR_CONFIG_CAMERA_SIDE) * scale, 0.0f,  0.0f};
 				side = XrQuaternionf_Rotate(invView.orientation, side);
 				side = XrVector3f_ScalarMultiply(side, vrConfig[VR_CONFIG_MIRROR_AXIS_X] ? -1.0f : 1.0f);
-				M[12] += side.x;
-				M[13] += side.y;
-				M[14] += side.z;
+				M[3] += side.x;
+				M[7] += side.y;
+				M[11] += side.z;
 			}
 			if (vrConfig[VR_CONFIG_HAS_UNIT_SCALE] && (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
 				float dx = fabs(invViewTransform[1].position.x - invViewTransform[0].position.x);
@@ -409,9 +409,9 @@ bool VR_InitFrame( engine_t* engine ) {
 				XrVector3f separation = {ipd * scale, 0.0f, 0.0f};
 				separation = XrQuaternionf_Rotate(invView.orientation, separation);
 				separation = XrVector3f_ScalarMultiply(separation, vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1.0f : 1.0f);
-				M[12] -= separation.x;
-				M[13] -= separation.y;
-				M[14] -= separation.z;
+				M[3] -= separation.x;
+				M[7] -= separation.y;
+				M[11] -= separation.z;
 			}
 			memcpy(vrMatrix[matrix], M, sizeof(float) * 16);
 		} else {
