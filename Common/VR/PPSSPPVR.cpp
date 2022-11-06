@@ -103,7 +103,7 @@ bool IsVRBuild() {
 }
 
 #if PPSSPP_PLATFORM(ANDROID)
-void InitVROnAndroid(void* vm, void* activity, const char* system, int version, char* name) {
+void InitVROnAndroid(void* vm, void* activity, const char* system, int version, const char* name) {
 
 	//Get device vendor (uppercase)
 	char vendor[64];
