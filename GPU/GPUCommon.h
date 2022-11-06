@@ -145,7 +145,6 @@ public:
 	void Execute_Ret(u32 op, u32 diff);
 	void Execute_End(u32 op, u32 diff);
 
-	void Execute_VertexType(u32 op, u32 diff);
 	void Execute_VertexTypeSkinning(u32 op, u32 diff);
 
 	void Execute_Prim(u32 op, u32 diff);

@@ -66,8 +66,8 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_BEZIER, FLAG_EXECUTE, 0, &GPUCommon::Execute_Bezier },
 	{ GE_CMD_SPLINE, FLAG_EXECUTE, 0, &GPUCommon::Execute_Spline },
 
-	// Changing the vertex type requires us to flush.
-	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexType },
+	// Changing the vertex type requires us to flush, unless we just change the weight count - need to handle in a func.
+	{ GE_CMD_VERTEXTYPE, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexTypeSkinning },
 
 	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_LoadClut },
 
@@ -436,9 +436,6 @@ GPUCommon::~GPUCommon() {
 }
 
 void GPUCommon::UpdateCmdInfo() {
-	cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-	cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexTypeSkinning;
-
 	if (g_Config.bFastMemory) {
 		cmdInfo_[GE_CMD_JUMP].func = &GPUCommon::Execute_JumpFast;
 		cmdInfo_[GE_CMD_CALL].func = &GPUCommon::Execute_CallFast;
@@ -1669,16 +1666,6 @@ void GPUCommon::Execute_TexSize0(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		// We will need to reset the texture now.
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-	}
-}
-
-void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
-	if (diff)
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
-		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-		if (diff & GE_VTYPE_THROUGH_MASK)
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
 	}
 }
 
