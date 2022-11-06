@@ -210,7 +210,7 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 		features |= GPU_USE_FRAGMENT_TEST_CACHE;
 	}
 
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		features |= GPU_USE_VIRTUAL_REALITY;
 	}
 	if (IsMultiviewSupported()) {

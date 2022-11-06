@@ -697,7 +697,7 @@ const char * const vulkanDefaultBlacklist[] = {
 };
 
 static int DefaultGPUBackend() {
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		return (int)GPUBackend::OPENGL;
 	}
 

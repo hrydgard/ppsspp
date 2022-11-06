@@ -309,7 +309,7 @@ void VulkanSetAvailable(bool available) {
 
 bool VulkanMayBeAvailable() {
 	// Unsupported in VR at the moment
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		return false;
 	}
 

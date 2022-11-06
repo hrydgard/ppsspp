@@ -98,8 +98,14 @@ VR app flow integration
 ================================================================================
 */
 
-bool IsVRBuild() {
+bool IsVREnabled() {
+	// For now, let the OPENXR build flag control enablement.
+	// This will change.
+#ifdef OPENXR
 	return true;
+#else
+	return false;
+#endif
 }
 
 #if PPSSPP_PLATFORM(ANDROID)

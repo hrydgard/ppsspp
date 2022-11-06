@@ -20,7 +20,7 @@ enum VRCompatFlag {
 #ifdef OPENXR
 
 // VR app flow integration
-bool IsVRBuild();
+bool IsVREnabled();
 void InitVROnAndroid(void* vm, void* activity, const char* system, int version, const char* name);
 void EnterVR(bool firstStart, void* vulkanContext);
 void GetVRResolutionPerEye(int* width, int* height);
@@ -49,7 +49,7 @@ void UpdateVRView(float* leftEye, float* rightEye);
 #else //dummy integration
 
 // VR app flow integration
-inline bool IsVRBuild() { return false; }
+inline bool IsVREnabled() { return false; }
 inline void InitVROnAndroid(void* vm, void* activity, const char* system, int version, const char* name) {}
 inline void EnterVR(bool firstTime, void* vulkanContext) {}
 inline void GetVRResolutionPerEye(int* width, int* height) {}

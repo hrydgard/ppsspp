@@ -22,8 +22,6 @@ float vrConfigFloat[VR_CONFIG_FLOAT_MAX] = {};
 XrVector3f hmdorientation;
 XrVector3f hmdposition;
 
-#ifdef OPENXR
-
 void VR_UpdateStageBounds(ovrApp* pappState) {
 	XrExtent2Df stageBounds = {};
 
@@ -554,5 +552,3 @@ void* VR_BindFramebuffer(engine_t *engine) {
 ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 	return vrMatrix[matrix];
 }
-
-#endif

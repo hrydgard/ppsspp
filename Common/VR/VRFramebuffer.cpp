@@ -43,9 +43,9 @@ void ovrFramebuffer_Clear(ovrFramebuffer* frameBuffer) {
 	frameBuffer->Acquired = false;
 }
 
-#ifdef OPENXR
+#if XR_USE_GRAPHICS_API_OPENGL_ES
 
-bool ovrFramebuffer_CreateGL(XrSession session, ovrFramebuffer* frameBuffer, int width, int height, bool multiview) {
+static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBuffer, int width, int height, bool multiview) {
 
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
@@ -56,12 +56,11 @@ bool ovrFramebuffer_CreateGL(XrSession session, ovrFramebuffer* frameBuffer, int
 	}
 
 	typedef void (*PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)(GLenum, GLenum, GLuint, GLint, GLint, GLsizei);
-	auto glFramebufferTextureMultiviewOVR = (PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)eglGetProcAddress ("glFramebufferTextureMultiviewOVR");
-	if (!glFramebufferTextureMultiviewOVR)
-	{
+	PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR glFramebufferTextureMultiviewOVR = nullptr;
+	glFramebufferTextureMultiviewOVR = (PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)eglGetProcAddress ("glFramebufferTextureMultiviewOVR");
+	if (!glFramebufferTextureMultiviewOVR) {
 		ALOGE("Can not get proc address for glFramebufferTextureMultiviewOVR.\n");
 	}
-
 	XrSwapchainCreateInfo swapChainCreateInfo;
 	memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
 	swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
@@ -136,8 +135,10 @@ bool ovrFramebuffer_CreateGL(XrSession session, ovrFramebuffer* frameBuffer, int
 	return true;
 }
 
-bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int width, int height,
-							 bool multiview, void* context) {
+#endif
+
+static bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int width, int height,
+							        bool multiview, void* context) {
 
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
@@ -241,7 +242,7 @@ bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int
 
 void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
 	if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
-		for (int i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
+		for (int i = 0; i < (int)frameBuffer->TextureSwapChainLength; i++) {
 			vkDestroyImageView(frameBuffer->VKContext->device, frameBuffer->VKColorImages[i], nullptr);
 			vkDestroyImageView(frameBuffer->VKContext->device, frameBuffer->VKDepthImages[i], nullptr);
 			vkDestroyFramebuffer(frameBuffer->VKContext->device, frameBuffer->VKFrameBuffers[i], nullptr);
@@ -250,7 +251,7 @@ void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
 		delete[] frameBuffer->VKDepthImages;
 		delete[] frameBuffer->VKFrameBuffers;
 	} else {
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 		GL(glDeleteFramebuffers(frameBuffer->TextureSwapChainLength, frameBuffer->GLFrameBuffers));
 		free(frameBuffer->GLFrameBuffers);
 #endif
@@ -267,7 +268,7 @@ void* ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
 	if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
 		return (void *)frameBuffer->VKFrameBuffers[frameBuffer->TextureSwapChainIndex];
 	} else {
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->GLFrameBuffers[frameBuffer->TextureSwapChainIndex]));
 #endif
 		return nullptr;
@@ -299,7 +300,7 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 	if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
 		//TODO:implement
 	} else {
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 		GL(glEnable( GL_SCISSOR_TEST ));
 		GL(glViewport( 0, 0, frameBuffer->Width, frameBuffer->Height ));
 		GL(glClearColor( 0.0f, 0.0f, 0.0f, 1.0f ));
@@ -321,7 +322,7 @@ void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
 		if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
 			//TODO:implement
 		} else {
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 			GL(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE));
 			GL(glClearColor(0.0f, 0.0f, 0.0f, 1.0f));
 			GL(glClear(GL_COLOR_BUFFER_BIT));
@@ -352,8 +353,10 @@ void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int
 		if (vulkanContext) {
 			ovrFramebuffer_CreateVK(session, &renderer->FrameBuffer[i], width, height, multiview, vulkanContext);
 		} else {
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
-			ovrFramebuffer_CreateGL(session, &renderer->FrameBuffer[i], width, height, multiview);
+#if XR_USE_GRAPHICS_API_OPENGL_ES
+			ovrFramebuffer_CreateGLES(session, &renderer->FrameBuffer[i], width, height, multiview);
+#elif XR_USE_GRAPHICS_API_OPENGL
+			// TODO
 #endif
 		}
 	}
@@ -370,7 +373,7 @@ void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int size) {
 	if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
 		//TODO:implement
 	} else {
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 		GL(glEnable(GL_SCISSOR_TEST));
 		GL(glScissor(x, y, size, size));
 		GL(glViewport(x, y, size, size));
@@ -414,6 +417,7 @@ void ovrApp_Destroy(ovrApp* app) {
 	ovrApp_Clear(app);
 }
 
+
 void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 	if (state == XR_SESSION_STATE_READY) {
 		assert(app->SessionActive == false);
@@ -428,6 +432,7 @@ void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 		OXR(result = xrBeginSession(app->Session, &sessionBeginInfo));
 		app->SessionActive = (result == XR_SUCCESS);
 
+#ifdef ANDROID
 		if (app->SessionActive && VR_GetPlatformFLag(VR_PLATFORM_PERFORMANCE_EXT)) {
 			XrPerfSettingsLevelEXT cpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
 			XrPerfSettingsLevelEXT gpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
@@ -450,6 +455,7 @@ void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 			OXR(pfnSetAndroidApplicationThreadKHR(app->Session, XR_ANDROID_THREAD_TYPE_APPLICATION_MAIN_KHR, app->MainThreadTid));
 			OXR(pfnSetAndroidApplicationThreadKHR(app->Session, XR_ANDROID_THREAD_TYPE_RENDERER_MAIN_KHR, app->RenderThreadTid));
 		}
+#endif
 	} else if (state == XR_SESSION_STATE_STOPPING) {
 		assert(app->SessionActive);
 
@@ -538,5 +544,3 @@ int ovrApp_HandleXrEvents(ovrApp* app) {
 	}
 	return recenter;
 }
-
-#endif

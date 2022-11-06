@@ -667,7 +667,7 @@ void RestoreDefault() {
 	g_controllerMap.clear();
 	g_controllerMapGeneration++;
 
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_VR_HEADSET, false);
 		return;
 	}

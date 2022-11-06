@@ -1711,7 +1711,7 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 		};
 		renderPass = GetRenderPass(key);
 
-		if (IsVRBuild()) {
+		if (IsVREnabled()) {
 			framebuf = (VkFramebuffer)BindVRFramebuffer();
 		} else {
 			framebuf = backbuffer_;

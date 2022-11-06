@@ -28,12 +28,12 @@ using namespace PPSSPP_VK;
 #include <jni.h>
 #elif defined(_WIN32)
 #include "Common/CommonWindows.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
 #include <unknwn.h>
 #define XR_USE_PLATFORM_WIN32 1
-#define XR_USE_GRAPHICS_API_OPENGL_ES 1
+#define XR_USE_GRAPHICS_API_OPENGL 1
 #define XR_USE_GRAPHICS_API_VULKAN 1
 #else
-#define XR_USE_GRAPHICS_API_OPENGL_ES 1
 #define XR_USE_GRAPHICS_API_VULKAN 1
 #endif
 

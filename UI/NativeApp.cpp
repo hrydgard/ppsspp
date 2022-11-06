@@ -1297,7 +1297,7 @@ bool NativeTouch(const TouchInput &touch) {
 
 bool NativeKey(const KeyInput &key) {
 	// Special key VR actions
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		UpdateVRSpecialKeys(key);
 	}
 

@@ -5,9 +5,9 @@
 #include <string.h>
 #include <vector>
 
-#if defined(OPENXR)
-
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 enum ConfigsSetEXT {
     UNREAL_VERSION = 0,
@@ -40,6 +40,8 @@ PFN_xrStopCVControllerThreadPico pfnXrStopCVControllerThreadPico = nullptr;
 static bool vr_platform[VR_PLATFORM_MAX];
 static engine_t vr_engine;
 int vr_initialized = 0;
+
+#if defined(OPENXR)
 
 void VR_Init( void* system, const char* name, int version ) {
 	if (vr_initialized)

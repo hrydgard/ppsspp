@@ -1325,7 +1325,7 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	if (task.steps.empty() && !frameData.hasAcquired)
 		frameData.skipSwap = true;
 	//queueRunner_.LogSteps(stepsOnThread, false);
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {
 			PreVRFrameRender(i);
