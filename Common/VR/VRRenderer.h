@@ -36,13 +36,6 @@ enum VRConfigFloat {
 	VR_CONFIG_FLOAT_MAX
 };
 
-enum VRMatrix {
-	VR_PROJECTION_MATRIX,
-	VR_VIEW_MATRIX_LEFT_EYE,
-	VR_VIEW_MATRIX_RIGHT_EYE,
-	VR_MATRIX_COUNT
-};
-
 enum VRMode {
 	VR_MODE_MONO_SCREEN,
 	VR_MODE_STEREO_SCREEN,
@@ -61,9 +54,8 @@ void VR_FinishFrame( engine_t* engine );
 
 int VR_GetConfig( VRConfig config );
 void VR_SetConfig( VRConfig config, int value);
-
 float VR_GetConfigFloat( VRConfigFloat config );
 void VR_SetConfigFloat( VRConfigFloat config, float value );
 
 void* VR_BindFramebuffer(engine_t *engine);
-float* VR_GetMatrix( VRMatrix matrix );
+XrView VR_GetView(int eye);

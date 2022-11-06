@@ -16,7 +16,15 @@
 #include "Core/KeyMap.h"
 #include "Core/System.h"
 
+enum VRMatrix {
+	VR_PROJECTION_MATRIX,
+	VR_VIEW_MATRIX_LEFT_EYE,
+	VR_VIEW_MATRIX_RIGHT_EYE,
+	VR_MATRIX_COUNT
+};
+
 static long vrCompat[VR_COMPAT_MAX];
+static float vrMatrix[VR_MATRIX_COUNT][16];
 
 /*
 ================================================================================
@@ -420,6 +428,121 @@ bool StartVRRender() {
 
 	if (VR_InitFrame(VR_GetEngine())) {
 
+		// Get OpenXR view and fov
+		XrFovf fov = {};
+		XrPosef invViewTransform[2];
+		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
+			XrView view = VR_GetView(eye);
+			fov.angleLeft += view.fov.angleLeft / 2.0f;
+			fov.angleRight += view.fov.angleRight / 2.0f;
+			fov.angleUp += view.fov.angleUp / 2.0f;
+			fov.angleDown += view.fov.angleDown / 2.0f;
+			invViewTransform[eye] = view.pose;
+		}
+
+		// Update matrices
+		for (int matrix = 0; matrix < VR_MATRIX_COUNT; matrix++) {
+			if (matrix == VR_PROJECTION_MATRIX) {
+				float nearZ = VR_GetConfigFloat(VR_CONFIG_FOV_SCALE) / 200.0f;
+				float tanAngleLeft = tanf(fov.angleLeft);
+				float tanAngleRight = tanf(fov.angleRight);
+				float tanAngleDown = tanf(fov.angleDown);
+				float tanAngleUp = tanf(fov.angleUp);
+
+				float M[16] = {};
+				M[0] = 2 / (tanAngleRight - tanAngleLeft);
+				M[2] = (tanAngleRight + tanAngleLeft) / (tanAngleRight - tanAngleLeft);
+				M[5] = 2 / (tanAngleUp - tanAngleDown);
+				M[6] = (tanAngleUp + tanAngleDown) / (tanAngleUp - tanAngleDown);
+				M[10] = -1;
+				M[11] = -(nearZ + nearZ);
+				M[14] = -1;
+
+				memcpy(vrMatrix[matrix], M, sizeof(float) * 16);
+			} else if ((matrix == VR_VIEW_MATRIX_LEFT_EYE) || (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
+				bool flatScreen = false;
+				XrPosef invView = invViewTransform[0];
+				int vrMode = VR_GetConfig(VR_CONFIG_MODE);
+				if ((vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN)) {
+					invView = XrPosef_Identity();
+					flatScreen = true;
+				}
+
+				// get axis mirroring configuration
+				float mx = VR_GetConfig(VR_CONFIG_MIRROR_PITCH) ? -1.0f : 1.0f;
+				float my = VR_GetConfig(VR_CONFIG_MIRROR_YAW) ? -1.0f : 1.0f;
+				float mz = VR_GetConfig(VR_CONFIG_MIRROR_ROLL) ? -1.0f : 1.0f;
+
+				// ensure there is maximally one axis to mirror rotation
+				if (mx + my + mz < 0) {
+					mx *= -1.0f;
+					my *= -1.0f;
+					mz *= -1.0f;
+				} else {
+					invView = XrPosef_Inverse(invView);
+				}
+
+				// create updated quaternion
+				if (mx + my + mz < 3 - EPSILON) {
+					XrVector3f rotation = XrQuaternionf_ToEulerAngles(invView.orientation);
+					XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mx * ToRadians(rotation.x));
+					XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, my * ToRadians(rotation.y));
+					XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, mz * ToRadians(rotation.z));
+					invView.orientation = XrQuaternionf_Multiply(roll, XrQuaternionf_Multiply(pitch, yaw));
+				}
+
+				float M[16];
+				XrQuaternionf_ToMatrix4f(&invView.orientation, M);
+				memcpy(&M, M, sizeof(float) * 16);
+
+				float scale = VR_GetConfigFloat(VR_CONFIG_6DOF_SCALE);
+				if (!flatScreen && VR_GetConfig(VR_CONFIG_6DOF_ENABLED)) {
+					M[12] -= invViewTransform[0].position.x * (VR_GetConfig(VR_CONFIG_MIRROR_AXIS_X) ? -1.0f : 1.0f) * scale;
+					M[13] -= invViewTransform[0].position.y * (VR_GetConfig(VR_CONFIG_MIRROR_AXIS_Y) ? -1.0f : 1.0f) * scale;
+					M[14] -= invViewTransform[0].position.z * (VR_GetConfig(VR_CONFIG_MIRROR_AXIS_Z) ? -1.0f : 1.0f) * scale;
+				}
+				if (fabsf(VR_GetConfigFloat(VR_CONFIG_CAMERA_DISTANCE)) > 0.0f) {
+					XrVector3f forward = {0.0f, 0.0f, VR_GetConfigFloat(VR_CONFIG_CAMERA_DISTANCE) * scale};
+					forward = XrQuaternionf_Rotate(invView.orientation, forward);
+					forward = XrVector3f_ScalarMultiply(forward, VR_GetConfig(VR_CONFIG_MIRROR_AXIS_Z) ? -1.0f : 1.0f);
+					M[3] += forward.x;
+					M[7] += forward.y;
+					M[11] += forward.z;
+				}
+				if (fabsf(VR_GetConfigFloat(VR_CONFIG_CAMERA_HEIGHT)) > 0.0f) {
+					XrVector3f up = {0.0f, -VR_GetConfigFloat(VR_CONFIG_CAMERA_HEIGHT) * scale, 0.0f};
+					up = XrQuaternionf_Rotate(invView.orientation, up);
+					up = XrVector3f_ScalarMultiply(up, VR_GetConfig(VR_CONFIG_MIRROR_AXIS_Y) ? -1.0f : 1.0f);
+					M[3] += up.x;
+					M[7] += up.y;
+					M[11] += up.z;
+				}
+				if (fabsf(VR_GetConfigFloat(VR_CONFIG_CAMERA_SIDE)) > 0.0f) {
+					XrVector3f side = {-VR_GetConfigFloat(VR_CONFIG_CAMERA_SIDE) * scale, 0.0f,  0.0f};
+					side = XrQuaternionf_Rotate(invView.orientation, side);
+					side = XrVector3f_ScalarMultiply(side, VR_GetConfig(VR_CONFIG_MIRROR_AXIS_X) ? -1.0f : 1.0f);
+					M[3] += side.x;
+					M[7] += side.y;
+					M[11] += side.z;
+				}
+				if (VR_GetConfig(VR_CONFIG_HAS_UNIT_SCALE) && (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
+					float dx = fabs(invViewTransform[1].position.x - invViewTransform[0].position.x);
+					float dy = fabs(invViewTransform[1].position.y - invViewTransform[0].position.y);
+					float dz = fabs(invViewTransform[1].position.z - invViewTransform[0].position.z);
+					float ipd = sqrt(dx * dx + dy * dy + dz * dz);
+					XrVector3f separation = {ipd * scale, 0.0f, 0.0f};
+					separation = XrQuaternionf_Rotate(invView.orientation, separation);
+					separation = XrVector3f_ScalarMultiply(separation, VR_GetConfig(VR_CONFIG_MIRROR_AXIS_Z) ? -1.0f : 1.0f);
+					M[3] -= separation.x;
+					M[7] -= separation.y;
+					M[11] -= separation.z;
+				}
+				memcpy(vrMatrix[matrix], M, sizeof(float) * 16);
+			} else {
+				assert(false);
+			}
+		}
+
 		// Decide if the scene is 3D or not
 		if (g_Config.bEnableVR && !VR_GetConfig(VR_CONFIG_FORCE_2D) && (VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) > 15)) {
 			bool stereo = VR_GetConfig(VR_CONFIG_HAS_UNIT_SCALE) && g_Config.bEnableStereo;
@@ -583,7 +706,7 @@ void UpdateVRParams(float* projMatrix) {
 }
 
 void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
-	float* hmdProjection = VR_GetMatrix(VR_PROJECTION_MATRIX);
+	float* hmdProjection = vrMatrix[VR_PROJECTION_MATRIX];
 	for (int i = 0; i < 16; i++) {
 		if ((hmdProjection[i] > 0) != (projMatrix[i] > 0)) {
 			hmdProjection[i] *= -1.0f;
@@ -595,7 +718,7 @@ void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
 
 void UpdateVRView(float* leftEye, float* rightEye) {
 	float* dst[] = {leftEye, rightEye};
-	VRMatrix enums[] = {VR_VIEW_MATRIX_LEFT_EYE, VR_VIEW_MATRIX_RIGHT_EYE};
+	float* matrix[] = {vrMatrix[VR_VIEW_MATRIX_LEFT_EYE], vrMatrix[VR_VIEW_MATRIX_RIGHT_EYE]};
 	for (int index = 0; index < 2; index++) {
 
 		// Get view matrix from the game
@@ -604,7 +727,7 @@ void UpdateVRView(float* leftEye, float* rightEye) {
 
 		// Get view matrix from the headset
 		Lin::Matrix4x4 hmdView = {};
-		memcpy(hmdView.m, VR_GetMatrix(enums[index]), 16 * sizeof(float));
+		memcpy(hmdView.m, matrix[index], 16 * sizeof(float));
 
 		// Combine the matrices
 		Lin::Matrix4x4 renderView = hmdView * gameView;
