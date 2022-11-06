@@ -400,7 +400,7 @@ bool StartVRRender() {
 
 		// Decide if the scene is 3D or not
 		if (g_Config.bEnableVR && !VR_GetConfig(VR_CONFIG_FORCE_2D) && (VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) > 15)) {
-			bool stereo = VR_GetConfig(VR_CONFIG_6DOF_PRECISE) && g_Config.bEnableStereo;
+			bool stereo = VR_GetConfig(VR_CONFIG_HAS_UNIT_SCALE) && g_Config.bEnableStereo;
 			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 		} else {
 			VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
@@ -553,9 +553,9 @@ void UpdateVRParams(float* projMatrix) {
 	float scale = 1.0f;
 	if (PSP_CoreParameter().compat.vrCompat().UnitsPerMeter > 0) {
 		scale = PSP_CoreParameter().compat.vrCompat().UnitsPerMeter;
-		VR_SetConfig(VR_CONFIG_6DOF_PRECISE, true);
+		VR_SetConfig(VR_CONFIG_HAS_UNIT_SCALE, true);
 	} else {
-		VR_SetConfig(VR_CONFIG_6DOF_PRECISE, false);
+		VR_SetConfig(VR_CONFIG_HAS_UNIT_SCALE, false);
 	}
 	VR_SetConfigFloat(VR_CONFIG_6DOF_SCALE, scale);
 }

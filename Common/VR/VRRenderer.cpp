@@ -372,7 +372,7 @@ bool VR_InitFrame( engine_t* engine ) {
 				vrMatrix[matrix].M[1][3] += side.y;
 				vrMatrix[matrix].M[2][3] += side.z;
 			}
-			if (vrConfig[VR_CONFIG_6DOF_PRECISE] && (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
+			if (vrConfig[VR_CONFIG_HAS_UNIT_SCALE] && (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
 				float dx = fabs(invViewTransform[1].position.x - invViewTransform[0].position.x);
 				float dy = fabs(invViewTransform[1].position.y - invViewTransform[0].position.y);
 				float dz = fabs(invViewTransform[1].position.z - invViewTransform[0].position.z);
