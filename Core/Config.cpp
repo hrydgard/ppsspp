@@ -904,7 +904,6 @@ static ConfigSetting graphicsSettings[] = {
 
 	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, false, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
-	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false, true, true),
 	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, false),
 
 #ifndef MOBILE_DEVICE

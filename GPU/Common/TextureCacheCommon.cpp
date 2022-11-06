@@ -767,7 +767,7 @@ void TextureCacheCommon::Decimate(bool forcePressure) {
 	}
 
 	// If enabled, we also need to clear the secondary cache.
-	if (g_Config.bTextureSecondaryCache && (forcePressure || secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE)) {
+	if (PSP_CoreParameter().compat.flags().SecondaryTextureCache && (forcePressure || secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE)) {
 		const u32 had = secondCacheSizeEstimate_;
 
 		for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ) {
@@ -2409,7 +2409,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	}
 
 	// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
-	if (g_Config.bTextureSecondaryCache) {
+	if (PSP_CoreParameter().compat.flags().SecondaryTextureCache) {
 		// Don't forget this one was unreliable (in case we match a secondary entry.)
 		entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
 

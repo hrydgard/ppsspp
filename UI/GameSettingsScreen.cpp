@@ -545,13 +545,6 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 
-	CheckBox *texSecondary_ = graphicsSettings->Add(new CheckBox(&g_Config.bTextureSecondaryCache, gr->T("Retain changed textures", "Retain changed textures (speedup, mem hog)")));
-	texSecondary_->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("RetainChangedTextures Tip", "Makes many games slower, but some games a lot faster"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	texSecondary_->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
 	// Seems solid, so we hide the setting.
 	/*CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gr->T("Vertex Decoder JIT")));
 
