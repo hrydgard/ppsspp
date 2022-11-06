@@ -168,6 +168,13 @@ void SoftwareTransform::SetProjMatrix(float mtx[14], bool invertedX, bool invert
 	projMatrix_.translateAndScale(trans, scale);
 }
 
+static void ReadWeightedNormal(Vec3f &source, VertexReader &reader, u32 vertType) {
+	if (reader.hasNormal())
+		reader.ReadNrm(source.AsArray());
+	if (gstate.areNormalsReversed())
+		source = -source;
+}
+
 void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
@@ -339,10 +346,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 							source = normal.Normalized(cpu_info.bSSE4_1);
 						} else {
 							reader.Goto(index);
-							if (reader.hasNormal())
-								reader.ReadNrm(source.AsArray());
-							if (gstate.areNormalsReversed())
-								source = -source;
+							ReadWeightedNormal(source, reader, vertType);
 							source.Normalize();
 						}
 						if (!reader.hasNormal()) {
@@ -357,10 +361,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 						} else {
 							// Need to read the normal for this vertex and weight it again..
 							reader.Goto(index);
-							if (reader.hasNormal())
-								reader.ReadNrm(source.AsArray());
-							if (gstate.areNormalsReversed())
-								source = -source;
+							ReadWeightedNormal(source, reader, vertType);
 						}
 						if (!reader.hasNormal()) {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
