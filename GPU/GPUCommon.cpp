@@ -67,7 +67,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_SPLINE, FLAG_EXECUTE, 0, &GPUCommon::Execute_Spline },
 
 	// Changing the vertex type requires us to flush, unless we just change the weight count - need to handle in a func.
-	{ GE_CMD_VERTEXTYPE, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexTypeSkinning },
+	{ GE_CMD_VERTEXTYPE, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexType },
 
 	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_LoadClut },
 
@@ -1674,7 +1674,7 @@ void GPUCommon::Execute_LoadClut(u32 op, u32 diff) {
 	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 }
 
-void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
+void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
 	// Don't flush when weight count changes.
 	if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
 		// Restore and flush
