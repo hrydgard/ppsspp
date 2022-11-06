@@ -192,7 +192,7 @@ void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVu
 void VR_LeaveVR( engine_t* engine );
 
 engine_t* VR_GetEngine( void );
-bool VR_GetPlatformFLag(VRPlatformFlag flag);
+bool VR_GetPlatformFlag(VRPlatformFlag flag);
 void VR_SetPlatformFLag(VRPlatformFlag flag, bool value);
 
 void ovrApp_Clear(ovrApp* app);

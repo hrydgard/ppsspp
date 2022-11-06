@@ -241,7 +241,7 @@ static bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuff
 }
 
 void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
-	if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
 		for (int i = 0; i < (int)frameBuffer->TextureSwapChainLength; i++) {
 			vkDestroyImageView(frameBuffer->VKContext->device, frameBuffer->VKColorImages[i], nullptr);
 			vkDestroyImageView(frameBuffer->VKContext->device, frameBuffer->VKDepthImages[i], nullptr);
@@ -265,7 +265,7 @@ void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
 }
 
 void* ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
-	if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
 		return (void *)frameBuffer->VKFrameBuffers[frameBuffer->TextureSwapChainIndex];
 	} else {
 #if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
@@ -297,7 +297,7 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 
 	ovrFramebuffer_SetCurrent(frameBuffer);
 
-	if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
 		//TODO:implement
 	} else {
 #if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
@@ -319,7 +319,7 @@ void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
 		frameBuffer->Acquired = false;
 
 		// Clear the alpha channel, other way OpenXR would not transfer the framebuffer fully
-		if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
+		if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
 			//TODO:implement
 		} else {
 #if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
@@ -370,7 +370,7 @@ void ovrRenderer_Destroy(ovrRenderer* renderer) {
 }
 
 void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int size) {
-	if (VR_GetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN)) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
 		//TODO:implement
 	} else {
 #if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
@@ -433,7 +433,7 @@ void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 		app->SessionActive = (result == XR_SUCCESS);
 
 #ifdef ANDROID
-		if (app->SessionActive && VR_GetPlatformFLag(VR_PLATFORM_PERFORMANCE_EXT)) {
+		if (app->SessionActive && VR_GetPlatformFlag(VR_PLATFORM_PERFORMANCE_EXT)) {
 			XrPerfSettingsLevelEXT cpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
 			XrPerfSettingsLevelEXT gpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
 
