@@ -9,13 +9,20 @@ using namespace PPSSPP_VK;
 #endif
 
 #ifdef ANDROID
-//OpenXR
+#include <jni.h>
 #define XR_USE_PLATFORM_ANDROID 1
 #define XR_USE_GRAPHICS_API_OPENGL_ES 1
 #define XR_USE_GRAPHICS_API_VULKAN 1
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include <jni.h>
+
+#if OPENXR
+// One of the Android-based headsets. We're linking with a static OpenXR loader.
+#else
+// Normal Android app, we don't have a loader so use our own dynamic loader, which won't load anything.
+#define XR_NO_PROTOTYPES 1
+#endif
+
 #elif defined(_WIN32)
 #include "Common/CommonWindows.h"
 #if defined(WINAPI_FAMILY) && defined(WINAPI_FAMILY_PARTITION)
