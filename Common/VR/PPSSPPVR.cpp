@@ -225,7 +225,7 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 			bool activate;
 			float limit = g_Config.fMotionLength; //length of needed movement in meters
 			XrVector3f axis = {0, 1, 0};
-			float center = ToRadians((float)VR_GetConfig(VR_CONFIG_MENU_YAW));
+			float center = ToRadians(VR_GetConfigFloat(VR_CONFIG_MENU_YAW));
 			XrQuaternionf orientation = XrQuaternionf_CreateFromVectorAngle(axis, center);
 			XrVector3f position = XrQuaternionf_Rotate(orientation, IN_VRGetPose(j).position);
 
@@ -281,13 +281,13 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 		float cx = width / 2;
 		float cy = height / 2;
 		float speed = (cx + cy) / 2;
-		float x = cx - tan(ToRadians(angles.y - (float)VR_GetConfig(VR_CONFIG_MENU_YAW))) * speed;
+		float x = cx - tan(ToRadians(angles.y - VR_GetConfigFloat(VR_CONFIG_MENU_YAW))) * speed;
 		float y = cy - tan(ToRadians(angles.x)) * speed;
 
 		//set renderer
 		VR_SetConfig(VR_CONFIG_MOUSE_X, (int)x);
 		VR_SetConfig(VR_CONFIG_MOUSE_Y, (int)y);
-		VR_SetConfig(VR_CONFIG_MOUSE_SIZE, 6 * (int)pow(VR_GetConfig(VR_CONFIG_CANVAS_DISTANCE), 0.25f));
+		VR_SetConfig(VR_CONFIG_MOUSE_SIZE, 6 * (int)pow(VR_GetConfigFloat(VR_CONFIG_CANVAS_DISTANCE), 0.25f));
 
 		//inform engine about the status
 		TouchInput touch;
@@ -446,11 +446,11 @@ bool StartVRRender() {
 		// Set customizations
 		__DisplaySetFramerate(g_Config.bForce72Hz ? 72 : 60);
 		VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
-		VR_SetConfig(VR_CONFIG_CAMERA_DISTANCE, g_Config.fCameraDistance * 1000);
-		VR_SetConfig(VR_CONFIG_CAMERA_HEIGHT, g_Config.fCameraHeight * 1000);
-		VR_SetConfig(VR_CONFIG_CAMERA_SIDE, g_Config.fCameraSide * 1000);
-		VR_SetConfig(VR_CONFIG_CANVAS_DISTANCE, g_Config.fCanvasDistance);
-		VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.fFieldOfViewPercentage);
+		VR_SetConfigFloat(VR_CONFIG_CAMERA_DISTANCE, g_Config.fCameraDistance);
+		VR_SetConfigFloat(VR_CONFIG_CAMERA_HEIGHT, g_Config.fCameraHeight);
+		VR_SetConfigFloat(VR_CONFIG_CAMERA_SIDE, g_Config.fCameraSide);
+		VR_SetConfigFloat(VR_CONFIG_CANVAS_DISTANCE, g_Config.fCanvasDistance);
+		VR_SetConfigFloat(VR_CONFIG_FOV_SCALE, g_Config.fFieldOfViewPercentage);
 		VR_SetConfig(VR_CONFIG_MIRROR_UPDATED, false);
 		return true;
 	}
@@ -550,14 +550,14 @@ void UpdateVRParams(float* projMatrix) {
 	}
 
 	// Set 6DoF scale
-	float scale = pow(fabs(projMatrix[14]), 1.15f);
+	float scale = 1.0f;
 	if (PSP_CoreParameter().compat.vrCompat().UnitsPerMeter > 0) {
 		scale = PSP_CoreParameter().compat.vrCompat().UnitsPerMeter;
 		VR_SetConfig(VR_CONFIG_6DOF_PRECISE, true);
 	} else {
 		VR_SetConfig(VR_CONFIG_6DOF_PRECISE, false);
 	}
-	VR_SetConfig(VR_CONFIG_6DOF_SCALE, (int)(scale * 1000000));
+	VR_SetConfigFloat(VR_CONFIG_6DOF_SCALE, scale);
 }
 
 void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
