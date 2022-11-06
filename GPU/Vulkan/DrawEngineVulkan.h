@@ -121,6 +121,19 @@ private:
 	VkDescriptorBufferInfo bufInfo_[3]{};
 };
 
+enum {
+	DRAW_BINDING_TEXTURE = 0,
+	DRAW_BINDING_2ND_TEXTURE = 1,
+	DRAW_BINDING_DEPAL_TEXTURE = 2,
+	DRAW_BINDING_DYNUBO_BASE = 3,
+	DRAW_BINDING_DYNUBO_LIGHT = 4,
+	DRAW_BINDING_TESS_STORAGE_BUF = 5,
+	DRAW_BINDING_TESS_STORAGE_BUF_WU = 6,
+	DRAW_BINDING_TESS_STORAGE_BUF_WV = 7,
+	DRAW_BINDING_INPUT_ATTACHMENT = 8,
+	DRAW_BINDING_COUNT = 9,
+};
+
 // Handles transform, lighting and drawing.
 class DrawEngineVulkan : public DrawEngineCommon {
 public:
@@ -207,7 +220,7 @@ private:
 	void UpdateUBOs(FrameData *frame);
 	FrameData &GetCurFrame();
 
-	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess);
+	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, bool tess);
 
 	Draw::DrawContext *draw_;
 
@@ -238,8 +251,7 @@ private:
 		VkImageView secondaryImageView_;
 		VkImageView depalImageView_;
 		VkSampler sampler_;
-		VkBuffer base_, light_, bone_;  // All three UBO slots will be set to this. This will usually be identical
-		// for all draws in a frame, except when the buffer has to grow.
+		VkBuffer base_, light_;
 		bool secondaryIsInputAttachment;
 	};
 
@@ -276,8 +288,7 @@ private:
 	uint64_t dirtyUniforms_;
 	uint32_t baseUBOOffset;
 	uint32_t lightUBOOffset;
-	uint32_t boneUBOOffset;
-	VkBuffer baseBuf, lightBuf, boneBuf;
+	VkBuffer baseBuf, lightBuf;
 	VkImageView imageView = VK_NULL_HANDLE;
 	VkSampler sampler = VK_NULL_HANDLE;
 

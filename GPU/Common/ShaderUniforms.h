@@ -120,17 +120,6 @@ R"(	vec4 u_ambient;
 	vec3 u_lightspecular3;
 )";
 
-// With some cleverness, we could get away with uploading just half this when only the four or five first
-// bones are being used. This is 384b.
-struct alignas(16) UB_VS_Bones {
-	float bones[8][12];
-};
-
-static const char * const ub_vs_bonesStr =
-R"(	mat3x4 u_bone0; mat3x4 u_bone1; mat3x4 u_bone2; mat3x4 u_bone3; mat3x4 u_bone4; mat3x4 u_bone5; mat3x4 u_bone6; mat3x4 u_bone7; mat3x4 u_bone8;
-)";
-
-
 static const char * const ub_frameStr =
 R"(
     float u_rotation;
@@ -145,7 +134,6 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport, bool useBufferedRendering);
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
-void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms);
 void FrameUpdateUniforms(UB_Frame *ub, bool useBufferedRendering);
 
 uint32_t PackLightControlBits();

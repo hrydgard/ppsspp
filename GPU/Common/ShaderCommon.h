@@ -90,11 +90,7 @@ enum : uint64_t {
 	DIRTY_MIPBIAS = 1ULL << 37,
 	DIRTY_LIGHT_CONTROL = 1ULL << 38,
 
-	// space for 1 more uniform dirty flags. Remember to update DIRTY_ALL_UNIFORMS.
-
-	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
-
-	DIRTY_ALL_UNIFORMS = 0x7FFFFFFFFFULL,
+	DIRTY_ALL_UNIFORMS = 0x7F00FFFFFFULL,  // 00 is where bone uniforms used to be.
 	DIRTY_ALL_LIGHTS = DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3,
 
 	// Other dirty elements that aren't uniforms!

@@ -407,14 +407,9 @@ bool TestVertexShaders() {
 
 		// The generated bits need some adjustment:
 
-		// We don't use these bits in the HLSL shader generator.
-		id.SetBits(VS_BIT_WEIGHT_FMTSCALE, 2, 0);
 		// If mode is through, we won't do hardware transform.
 		if (id.Bit(VS_BIT_IS_THROUGH)) {
 			id.SetBit(VS_BIT_USE_HW_TRANSFORM, 0);
-		}
-		if (!id.Bit(VS_BIT_USE_HW_TRANSFORM)) {
-			id.SetBit(VS_BIT_ENABLE_BONES, 0);
 		}
 		if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
 			continue;

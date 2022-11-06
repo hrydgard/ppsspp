@@ -29,9 +29,7 @@ enum VShaderBit : uint8_t {
 	VS_BIT_UVPROJ_MODE = 18,  // 2, can overlap with LS0
 	VS_BIT_LS0 = 18,  // 2
 	VS_BIT_LS1 = 20,  // 2
-	VS_BIT_BONES = 22,  // 3 should be enough, not 8
-	// 25 - 29 are free.
-	VS_BIT_ENABLE_BONES = 30,
+	// 21 - 30 are free.
 
 	// If this is set along with LIGHTING_ENABLE, all other lighting bits below
 	// are passed to the shader directly instead.
@@ -52,8 +50,7 @@ enum VShaderBit : uint8_t {
 	VS_BIT_LIGHT2_ENABLE = 54,
 	VS_BIT_LIGHT3_ENABLE = 55,
 	VS_BIT_LIGHTING_ENABLE = 56,
-	VS_BIT_WEIGHT_FMTSCALE = 57,  // only two bits
-	// 59 - 61 are free.
+	// 57 - 61 are free.
 	VS_BIT_FLATSHADE = 62, // 1 bit
 	VS_BIT_BEZIER = 63, // 1 bit
 	// No more free

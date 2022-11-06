@@ -67,13 +67,6 @@ public:
 	int u_scaleX;
 	int u_scaleY;
 
-#ifdef USE_BONE_ARRAY
-	int u_bone;  // array, size is numBones
-#else
-	int u_bone[8];
-#endif
-	int numBones;
-
 	// Shader blending.
 	int u_fbotex;
 	int u_blendFixA;

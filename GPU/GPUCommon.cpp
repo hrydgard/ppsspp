@@ -777,7 +777,7 @@ void GPUCommon::ResetMatrices() {
 		matrixVisible.tgen[i] = toFloat24(gstate.tgenMatrix[i]);
 
 	// Assume all the matrices changed, so dirty things related to them.
-	gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_PROJMATRIX | DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE | DIRTY_BONE_UNIFORMS);
+	gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_PROJMATRIX | DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) {

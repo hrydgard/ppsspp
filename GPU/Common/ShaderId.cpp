@@ -35,7 +35,6 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
 
 	if (uvgMode) desc << uvgModes[uvgMode];
-	if (id.Bit(VS_BIT_ENABLE_BONES)) desc << "Bones:" << (id.Bits(VS_BIT_BONES, 3) + 1) << " ";
 	// Lights
 	if (id.Bit(VS_BIT_LIGHTING_ENABLE)) {
 		desc << "Light: ";
@@ -51,7 +50,6 @@ std::string VertexShaderDesc(const VShaderID &id) {
 		}
 	}
 	if (id.Bits(VS_BIT_MATERIAL_UPDATE, 3)) desc << "MatUp:" << id.Bits(VS_BIT_MATERIAL_UPDATE, 3) << " ";
-	if (id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2)) desc << "WScale " << id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2) << " ";
 	if (id.Bit(VS_BIT_FLATSHADE)) desc << "Flat ";
 
 	if (id.Bit(VS_BIT_BEZIER)) desc << "Bezier ";
@@ -115,16 +113,6 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 		} else if (doShadeMapping) {
 			id.SetBits(VS_BIT_LS0, 2, gstate.getUVLS0());
 			id.SetBits(VS_BIT_LS1, 2, gstate.getUVLS1());
-		}
-
-		// Bones.
-		bool enableBones = false;
-		id.SetBit(VS_BIT_ENABLE_BONES, enableBones);
-		if (enableBones) {
-			id.SetBits(VS_BIT_BONES, 3, TranslateNumBones(vertTypeGetNumBoneWeights(vertType)) - 1);
-			// 2 bits. We should probably send in the weight scalefactor as a uniform instead,
-			// or simply preconvert all weights to floats.
-			id.SetBits(VS_BIT_WEIGHT_FMTSCALE, 2, weightsAsFloat ? 0 : (vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT);
 		}
 
 		if (gstate.isLightingEnabled()) {

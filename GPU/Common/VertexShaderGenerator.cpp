@@ -30,6 +30,7 @@
 #include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/VertexShaderGenerator.h"
+#include "GPU/Vulkan/DrawEngineVulkan.h"
 
 #undef WRITE
 
@@ -190,7 +191,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
-	bool enableBones = id.Bit(VS_BIT_ENABLE_BONES) && useHWTransform;
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
@@ -200,9 +200,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		return false;
 	}
 
-	// Apparently we don't support bezier/spline together with bones.
-	bool doBezier = id.Bit(VS_BIT_BEZIER) && !enableBones && useHWTransform;
-	bool doSpline = id.Bit(VS_BIT_SPLINE) && !enableBones && useHWTransform;
+	bool doBezier = id.Bit(VS_BIT_BEZIER) && useHWTransform;
+	bool doSpline = id.Bit(VS_BIT_SPLINE) && useHWTransform;
 	if (doBezier || doSpline) {
 		if (!hasNormal) {
 			// Bad usage.
@@ -235,11 +234,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 	}
 
-	int numBoneWeights = 0;
-	int boneWeightScale = id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2);
-	if (enableBones) {
-		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
-	}
 	bool texCoordInVec3 = false;
 
 	bool vertexRangeCulling = id.Bit(VS_BIT_VERTEX_RANGE_CULLING) && !isModeThrough;
@@ -254,15 +248,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "layout (std140, set = 0, binding = 0) uniform frameVars {\n%s};\n", ub_frameStr);
 		}
 
-		WRITE(p, "layout (std140, set = 1, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
+		WRITE(p, "layout (std140, set = 1, binding = %d) uniform baseVars {\n%s};\n", DRAW_BINDING_DYNUBO_BASE, ub_baseStr);
 		if (enableLighting || doShadeMapping)
-			WRITE(p, "layout (std140, set = 1, binding = 4) uniform lightVars {\n%s};\n", ub_vs_lightsStr);
-		if (enableBones)
-			WRITE(p, "layout (std140, set = 1, binding = 5) uniform boneVars {\n%s};\n", ub_vs_bonesStr);
-
-		if (enableBones) {
-			WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
-		}
+			WRITE(p, "layout (std140, set = 1, binding = %d) uniform lightVars {\n%s};\n", DRAW_BINDING_DYNUBO_LIGHT, ub_vs_lightsStr);
 
 		if (useHWTransform)
 			WRITE(p, "layout (location = %d) in vec3 position;\n", (int)PspAttributeLocation::POSITION);
@@ -304,7 +292,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (compat.shaderLanguage == HLSL_D3D11) {
 			WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
 			WRITE(p, "cbuffer lights: register(b1) {\n%s};\n", ub_vs_lightsStr);
-			WRITE(p, "cbuffer bones : register(b2) {\n%s};\n", ub_vs_bonesStr);
 		} else {
 			WRITE(p, "#pragma warning( disable : 3571 )\n");
 			if (isModeThrough) {
@@ -325,15 +312,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "mat3x4 u_view : register(c%i);\n", CONST_VS_VIEW);
 				if (doTextureTransform)
 					WRITE(p, "mat3x4 u_texmtx : register(c%i);\n", CONST_VS_TEXMTX);
-				if (enableBones) {
-#ifdef USE_BONE_ARRAY
-					WRITE(p, "mat3x4 u_bone[%i] : register(c%i);\n", numBones, CONST_VS_BONE0);
-#else
-					for (int i = 0; i < numBoneWeights; i++) {
-						WRITE(p, "mat3x4 u_bone%i : register(c%i);\n", i, CONST_VS_BONE0 + i * 3);
-					}
-#endif
-				}
 				if (doTexture) {
 					WRITE(p, "vec4 u_uvscaleoffset : register(c%i);\n", CONST_VS_UVSCALEOFFSET);
 				}
@@ -384,9 +362,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "struct VS_IN {                              \n");
 			if ((doSpline || doBezier) && compat.shaderLanguage == HLSL_D3D11) {
 				WRITE(p, "  uint instanceId : SV_InstanceID;\n");
-			}
-			if (enableBones) {
-				WRITE(p, "  %s", boneWeightAttrDeclHLSL[numBoneWeights]);
 			}
 			if (doTexture && hasTexcoord) {
 				WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
@@ -450,17 +425,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 		WRITE(p, "};\n");
 	} else {
-		if (enableBones) {
-			const char * const * boneWeightDecl = boneWeightAttrDecl;
-			if (!strcmp(compat.attribute, "in")) {
-				boneWeightDecl = boneWeightInDecl;
-			}
-			WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
-			*attrMask |= 1 << ATTR_W1;
-			if (numBoneWeights >= 5)
-				*attrMask |= 1 << ATTR_W2;
-		}
-
 		if (useHWTransform)
 			WRITE(p, "%s vec3 position;\n", compat.attribute);
 		else
@@ -522,12 +486,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (doTextureTransform) {
 				WRITE(p, "uniform mediump mat4 u_texmtx;\n");
 				*uniformMask |= DIRTY_TEXMATRIX;
-			}
-			if (enableBones) {
-				for (int i = 0; i < numBoneWeights; i++) {
-					WRITE(p, "uniform mat4 u_bone%i;\n", i);
-					*uniformMask |= DIRTY_BONEMATRIX0 << i;
-				}
 			}
 			if (doTexture) {
 				WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
@@ -636,7 +594,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec4 tex;\n");
 			WRITE(p, "  vec4 col;\n");
 			WRITE(p, "};\n");
-			WRITE(p, "layout (std430, set = 1, binding = 6) readonly buffer s_tess_data {\n");
+			WRITE(p, "layout (std430, set = 1, binding = %d) readonly buffer s_tess_data {\n", DRAW_BINDING_TESS_STORAGE_BUF);
 			WRITE(p, "  TessData tess_data[];\n");
 			WRITE(p, "};\n");
 
@@ -644,10 +602,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec4 basis;\n");
 			WRITE(p, "  vec4 deriv;\n");
 			WRITE(p, "};\n");
-			WRITE(p, "layout (std430, set = 1, binding = 7) readonly buffer s_tess_weights_u {\n");
+			WRITE(p, "layout (std430, set = 1, binding = %d) readonly buffer s_tess_weights_u {\n", DRAW_BINDING_TESS_STORAGE_BUF_WU);
 			WRITE(p, "  TessWeight tess_weights_u[];\n");
 			WRITE(p, "};\n");
-			WRITE(p, "layout (std430, set = 1, binding = 8) readonly buffer s_tess_weights_v {\n");
+			WRITE(p, "layout (std430, set = 1, binding = %d) readonly buffer s_tess_weights_v {\n", DRAW_BINDING_TESS_STORAGE_BUF_WV);
 			WRITE(p, "  TessWeight tess_weights_v[];\n");
 			WRITE(p, "};\n");
 		} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
@@ -823,9 +781,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (!useHWTransform) {
 			WRITE(p, "  float fog = In.fog;\n");
 		}
-		if (enableBones) {
-			WRITE(p, "%s", boneWeightAttrInitHLSL[numBoneWeights]);
-		}
 	}
 
 	if (!useHWTransform) {
@@ -873,7 +828,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 	} else {
 		// Step 1: World Transform / Skinning
-		if (!enableBones) {
+		if (true) {
 			if (doBezier || doSpline) {
 				// Hardware tessellation
 				WRITE(p, "  Tess tess;\n");
@@ -897,44 +852,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				else
 					WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(0.0, 0.0, %s1.0, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
 			}
-		} else {
-			static const char *rescale[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-			const char *factor = rescale[boneWeightScale];
-
-			static const char * const boneWeightAttr[8] = {
-				"w1.x", "w1.y", "w1.z", "w1.w",
-				"w2.x", "w2.y", "w2.z", "w2.w",
-			};
-
-			const char *boneMatrix = compat.forceMatrix4x4 ? "mat4" : "mat3x4";
-
-			// Uncomment this to screw up bone shaders to check the vertex shader software fallback
-			// WRITE(p, "THIS SHOULD ERROR! #error");
-			if (numBoneWeights == 1 && ShaderLanguageIsOpenGL(compat.shaderLanguage))
-				WRITE(p, "  %s skinMatrix = mul(w1, u_bone0)", boneMatrix);
-			else
-				WRITE(p, "  %s skinMatrix = mul(w1.x, u_bone0)", boneMatrix);
-			for (int i = 1; i < numBoneWeights; i++) {
-				const char *weightAttr = boneWeightAttr[i];
-				// workaround for "cant do .x of scalar" issue.
-				if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
-					if (numBoneWeights == 1 && i == 0) weightAttr = "w1";
-					if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
-				}
-				WRITE(p, " + mul(%s, u_bone%i)", weightAttr, i);
-			}
-
-			WRITE(p, ";\n");
-
-			WRITE(p, "  vec3 skinnedpos = mul(vec4(position, 1.0), skinMatrix).xyz%s;\n", factor);
-			WRITE(p, "  vec3 worldpos = mul(vec4(skinnedpos, 1.0), u_world).xyz;\n");
-
-			if (hasNormal) {
-				WRITE(p, "  mediump vec3 skinnednormal = mul(vec4(%snormal, 0.0), skinMatrix).xyz%s;\n", flipNormal ? "-" : "", factor);
-			} else {
-				WRITE(p, "  mediump vec3 skinnednormal = mul(vec4(0.0, 0.0, %s1.0, 0.0), skinMatrix).xyz%s;\n", flipNormal ? "-" : "", factor);
-			}
-			WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(skinnednormal, 0.0), u_world).xyz);\n");
 		}
 
 		std::string matrixPostfix;
