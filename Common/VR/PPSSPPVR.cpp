@@ -583,17 +583,14 @@ void UpdateVRParams(float* projMatrix) {
 }
 
 void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
-	float* dst[] = {leftEye, rightEye};
-	VRMatrix enums[] = {VR_PROJECTION_MATRIX_LEFT_EYE, VR_PROJECTION_MATRIX_RIGHT_EYE};
-	for (int index = 0; index < 2; index++) {
-		float* hmdProjection = VR_GetMatrix(enums[index]);
-		for (int i = 0; i < 16; i++) {
-			if ((hmdProjection[i] > 0) != (projMatrix[i] > 0)) {
-				hmdProjection[i] *= -1.0f;
-			}
+	float* hmdProjection = VR_GetMatrix(VR_PROJECTION_MATRIX);
+	for (int i = 0; i < 16; i++) {
+		if ((hmdProjection[i] > 0) != (projMatrix[i] > 0)) {
+			hmdProjection[i] *= -1.0f;
 		}
-		memcpy(dst[index], hmdProjection, 16 * sizeof(float));
 	}
+	memcpy(leftEye, hmdProjection, 16 * sizeof(float));
+	memcpy(rightEye, hmdProjection, 16 * sizeof(float));
 }
 
 void UpdateVRView(float* leftEye, float* rightEye) {

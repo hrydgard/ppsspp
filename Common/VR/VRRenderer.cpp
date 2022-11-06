@@ -305,34 +305,34 @@ bool VR_InitFrame( engine_t* engine ) {
 
 	// Update matrices
 	for (int matrix = 0; matrix < VR_MATRIX_COUNT; matrix++) {
-		if ((matrix == VR_PROJECTION_MATRIX_LEFT_EYE) || (matrix == VR_PROJECTION_MATRIX_RIGHT_EYE)) {
+		if (matrix == VR_PROJECTION_MATRIX) {
 			float nearZ = VR_GetConfigFloat(VR_CONFIG_FOV_SCALE) / 200.0f;
 			float tanAngleLeft = tanf(fov.angleLeft);
 			float tanAngleRight = tanf(fov.angleRight);
 			float tanAngleDown = tanf(fov.angleDown);
 			float tanAngleUp = tanf(fov.angleUp);
 
-			float M[4][4];
-			M[0][0] = 2 / (tanAngleRight - tanAngleLeft);
-			M[0][1] = 0;
-			M[0][2] = (tanAngleRight + tanAngleLeft) / (tanAngleRight - tanAngleLeft);
-			M[0][3] = 0;
+			float M[16];
+			M[0] = 2 / (tanAngleRight - tanAngleLeft);
+			M[1] = 0;
+			M[2] = (tanAngleRight + tanAngleLeft) / (tanAngleRight - tanAngleLeft);
+			M[3] = 0;
 
-			M[1][0] = 0;
-			M[1][1] = 2 / (tanAngleUp - tanAngleDown);
-			M[1][2] = (tanAngleUp + tanAngleDown) / (tanAngleUp - tanAngleDown);
-			M[1][3] = 0;
+			M[4] = 0;
+			M[5] = 2 / (tanAngleUp - tanAngleDown);
+			M[6] = (tanAngleUp + tanAngleDown) / (tanAngleUp - tanAngleDown);
+			M[7] = 0;
 
 			// place the far plane at infinity
-			M[2][0] = 0;
-			M[2][1] = 0;
-			M[2][2] = -1;
-			M[2][3] = -(nearZ + nearZ);
+			M[8] = 0;
+			M[9] = 0;
+			M[10] = -1;
+			M[11] = -(nearZ + nearZ);
 
-			M[3][0] = 0;
-			M[3][1] = 0;
-			M[3][2] = -1;
-			M[3][3] = 0;
+			M[12] = 0;
+			M[13] = 0;
+			M[14] = -1;
+			M[15]= = 0;
 
 			memcpy(vrMatrix[matrix], M, sizeof(float) * 16);
 		} else if ((matrix == VR_VIEW_MATRIX_LEFT_EYE) || (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
