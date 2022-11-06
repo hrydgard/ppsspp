@@ -41,7 +41,7 @@ static bool vr_platform[VR_PLATFORM_MAX];
 static engine_t vr_engine;
 int vr_initialized = 0;
 
-void VR_Init( void* system, char* name, int version ) {
+void VR_Init( void* system, const char* name, int version ) {
 	if (vr_initialized)
 		return;
 

@@ -186,7 +186,7 @@ enum VRPlatformFlag {
 	VR_PLATFORM_MAX
 };
 
-void VR_Init( void* system, char* name, int version );
+void VR_Init( void* system, const char* name, int version );
 void VR_Destroy( engine_t* engine );
 void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVulkan );
 void VR_LeaveVR( engine_t* engine );
