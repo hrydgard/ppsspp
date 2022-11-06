@@ -850,15 +850,6 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.bTextureBackoffCache = true;
    }
 
-   var.key = "ppsspp_retain_changed_textures";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "disabled"))
-         g_Config.bTextureSecondaryCache = false;
-      else
-         g_Config.bTextureSecondaryCache = true;
-   }
-
    var.key = "ppsspp_spline_quality";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {

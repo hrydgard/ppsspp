@@ -428,16 +428,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
-      "ppsspp_retain_changed_textures",
-      "Retain Changed Textures (Speedup, mem hog)",
-      NULL,
-      "Makes many games slower, but some games a lot faster.",
-      NULL,
-      "video",
-      BOOL_OPTIONS,
-      "disabled"
-   },
-   {
       "ppsspp_spline_quality",
       "Spline/Bezier Curves Quality",
       NULL,

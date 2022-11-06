@@ -199,7 +199,6 @@ public:
 
 	bool bVertexCache;
 	bool bTextureBackoffCache;
-	bool bTextureSecondaryCache;
 	bool bVertexDecoderJit;
 	bool bFullScreen;
 	bool bFullScreenMulti;
