@@ -421,6 +421,7 @@ int main(int argc, const char* argv[])
 	g_Config.sReportHost.clear();
 	g_Config.bAutoSaveSymbolMap = false;
 	g_Config.bSkipBufferEffects = false;
+	g_Config.bSkipGPUReadbacks = false;
 	g_Config.bHardwareTransform = true;
 	g_Config.iAnisotropyLevel = 0;  // When testing mipmapping we really don't want this.
 	g_Config.bVertexCache = false;
@@ -439,7 +440,6 @@ int main(int argc, const char* argv[])
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bSoftwareRendering = coreParameter.gpuCore == GPUCORE_SOFTWARE;
 	g_Config.bSoftwareRenderingJit = true;
-	g_Config.bBlockTransferGPU = true;
 	g_Config.iSplineBezierQuality = 2;
 	g_Config.bHighQualityDepth = true;
 	g_Config.bMemStickInserted = true;

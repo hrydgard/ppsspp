@@ -298,24 +298,6 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 
-	CheckBox *skipBufferEffects = graphicsSettings->Add(new CheckBox(&g_Config.bSkipBufferEffects, gr->T("Skip Buffer Effects")));
-	skipBufferEffects->OnClick.Add([=](EventParams &e) {
-		if (g_Config.bSkipBufferEffects) {
-			settingInfo_->Show(gr->T("RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games"), e.v);
-			g_Config.bAutoFrameSkip = false;
-		}
-		return UI::EVENT_DONE;
-	});
-	skipBufferEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
-	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gr->T("Simulate Block Transfer", "Simulate Block Transfer")));
-	blockTransfer->OnClick.Add([=](EventParams &e) {
-		if (!g_Config.bBlockTransferGPU)
-			settingInfo_->Show(gr->T("BlockTransfer Tip", "Some games require this to be On for correct graphics"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
 	if (deviceType != DEVICE_TYPE_VR) {
 		CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
 		softwareGPU->SetEnabled(!PSP_IsInited());
@@ -343,6 +325,46 @@ void GameSettingsScreen::CreateViews() {
 		PopupSliderChoice *analogSpeed = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercentAnalog_, 1, 1000, gr->T("Analog Alternative Speed", "Analog alternative speed (in %)"), 5, screenManager(), gr->T("%")));
 		altSpeed2->SetFormat("%i%%");
 	}
+
+	graphicsSettings->Add(new ItemHeader(gr->T("Speed Hacks", "Speed Hacks (can cause rendering errors!)")));
+
+	CheckBox *skipBufferEffects = graphicsSettings->Add(new CheckBox(&g_Config.bSkipBufferEffects, gr->T("Skip Buffer Effects")));
+	skipBufferEffects->OnClick.Add([=](EventParams &e) {
+		if (g_Config.bSkipBufferEffects) {
+			settingInfo_->Show(gr->T("RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games"), e.v);
+			g_Config.bAutoFrameSkip = false;
+		}
+		return UI::EVENT_DONE;
+	});
+	skipBufferEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
+	CheckBox *skipGPUReadbacks = graphicsSettings->Add(new CheckBox(&g_Config.bSkipGPUReadbacks, gr->T("Skip GPU Readbacks")));
+	skipGPUReadbacks->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
+	CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gr->T("Vertex Cache")));
+	vtxCache->OnClick.Add([=](EventParams &e) {
+		settingInfo_->Show(gr->T("VertexCache Tip", "Faster, but may cause temporary flicker"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
+	vtxCache->SetEnabledFunc([] {
+		return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform && g_Config.iGPUBackend != (int)GPUBackend::OPENGL;
+	});
+
+	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
+	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	texBackoff->OnClick.Add([=](EventParams& e) {
+		settingInfo_->Show(gr->T("Lazy texture caching Tip", "Faster, but can cause text problems in a few games"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
+
+	static const char *quality[] = { "Low", "Medium", "High" };
+	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
+	beziersChoice->OnChoice.Add([=](EventParams &e) {
+		if (g_Config.iSplineBezierQuality != 0) {
+			settingInfo_->Show(gr->T("LowCurves Tip", "Only used by some games, controls smoothness of curves"), e.v);
+		}
+		return UI::EVENT_CONTINUE;
+	});
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Postprocessing effect")));
 
@@ -524,38 +546,6 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
-	CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gr->T("Vertex Cache")));
-	vtxCache->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("VertexCache Tip", "Faster, but may cause temporary flicker"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	vtxCache->SetEnabledFunc([] {
-		return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform && g_Config.iGPUBackend != (int)GPUBackend::OPENGL;
-	});
-
-	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
-	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	texBackoff->OnClick.Add([=](EventParams& e) {
-		settingInfo_->Show(gr->T("Lazy texture caching Tip", "Faster, but can cause text problems in a few games"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-
-	// Seems solid, so we hide the setting.
-	/*CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gr->T("Vertex Decoder JIT")));
-
-	if (PSP_IsInited()) {
-		vtxJit->SetEnabled(false);
-	}*/
-
-	static const char *quality[] = { "Low", "Medium", "High" };
-	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
-	beziersChoice->OnChoice.Add([=](EventParams &e) {
-		if (g_Config.iSplineBezierQuality != 0) {
-			settingInfo_->Show(gr->T("LowCurves Tip", "Only used by some games, controls smoothness of curves"), e.v);
-		}
-		return UI::EVENT_CONTINUE;
-	});
 
 	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
 	tessellationHW->OnClick.Add([=](EventParams &e) {
