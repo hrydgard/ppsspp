@@ -406,10 +406,6 @@ float System_GetPropertyFloat(SystemProperty prop) {
 	}
 }
 
-bool VulkanMayBeAvailable() {
-	return false;
-}
-
 void System_Toast(const char *str) {}
 
 bool System_GetPropertyBool(SystemProperty prop) {

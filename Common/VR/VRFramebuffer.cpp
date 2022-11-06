@@ -137,6 +137,8 @@ static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBu
 
 #endif
 
+#if XR_USE_GRAPHICS_API_VULKAN
+
 static bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int width, int height,
 							        bool multiview, void* context) {
 
@@ -239,6 +241,8 @@ static bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuff
 
 	return true;
 }
+
+#endif
 
 void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
 	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {

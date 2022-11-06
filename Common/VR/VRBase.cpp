@@ -30,7 +30,7 @@ enum PxrTrackingDof {
 typedef XrResult (XRAPI_PTR *PFN_xrSetEngineVersionPico)(XrInstance instance,const char* version);
 typedef XrResult (XRAPI_PTR *PFN_xrStartCVControllerThreadPico)(XrInstance instance,int headSensorState, int handSensorState);
 typedef XrResult (XRAPI_PTR *PFN_xrStopCVControllerThreadPico)(XrInstance instance,int headSensorState, int handSensorState);
-typedef XrResult (XRAPI_PTR *PFN_xrSetConfigPICO) (XrSession instance, enum ConfigsSetEXT configIndex, char* configData);
+typedef XrResult (XRAPI_PTR *PFN_xrSetConfigPICO) (XrSession instance, enum ConfigsSetEXT configIndex, const char *configData);
 
 PFN_xrSetConfigPICO pfnXrSetConfigPICO = nullptr;
 PFN_xrSetEngineVersionPico pfnXrSetEngineVersionPico = nullptr;
@@ -218,7 +218,7 @@ void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVu
 	XrSessionCreateInfo sessionCreateInfo = {};
 #ifdef ANDROID
 	XrGraphicsBindingOpenGLESAndroidKHR graphicsBindingGL = {};
-#else
+#elif XR_USE_GRAPHICS_API_OPENGL
 	XrGraphicsBindingOpenGLWin32KHR graphicsBindingGL = {};
 #endif
 	memset(&sessionCreateInfo, 0, sizeof(sessionCreateInfo));
@@ -231,10 +231,10 @@ void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVu
 		graphicsBindingGL.display = eglGetCurrentDisplay();
 		graphicsBindingGL.config = eglGetCurrentSurface(EGL_DRAW);
 		graphicsBindingGL.context = eglGetCurrentContext();
+		sessionCreateInfo.next = &graphicsBindingGL;
 #else
 		//TODO:PCVR definition
 #endif
-		sessionCreateInfo.next = &graphicsBindingGL;
 	}
 	sessionCreateInfo.type = XR_TYPE_SESSION_CREATE_INFO;
 	sessionCreateInfo.createFlags = 0;

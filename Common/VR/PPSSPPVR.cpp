@@ -1,11 +1,13 @@
-#include "Common/GPU/OpenGL/GLRenderManager.h"
-#include "Common/GPU/Vulkan/VulkanContext.h"
-
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/VR/VRBase.h"
 #include "Common/VR/VRInput.h"
 #include "Common/VR/VRMath.h"
 #include "Common/VR/VRRenderer.h"
+
+#if XR_USE_GRAPHICS_API_OPENGL
+#include "Common/GPU/OpenGL/GLRenderManager.h"
+#endif
+#include "Common/GPU/Vulkan/VulkanContext.h"
 
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Config.h"
@@ -337,6 +339,8 @@ void UpdateVRSpecialKeys(const KeyInput &key) {
 ================================================================================
 */
 
+#if XR_USE_GRAPHICS_API_OPENGL
+
 void PreprocessSkyplane(GLRStep* step) {
 
 	// Do not do anything if the scene is not in VR.
@@ -377,6 +381,12 @@ void PreprocessStepVR(void* step) {
 	auto* glrStep = (GLRStep*)step;
 	if (vrCompat[VR_COMPAT_SKYPLANE]) PreprocessSkyplane(glrStep);
 }
+
+#else
+
+void PreprocessStepVR(void* step) {}
+
+#endif
 
 void SetVRCompat(VRCompatFlag flag, long value) {
 	vrCompat[flag] = value;

@@ -61,12 +61,12 @@ PFN_xrGetInputSourceLocalizedName		   xrGetInputSourceLocalizedName;
 PFN_xrApplyHapticFeedback				   xrApplyHapticFeedback;
 PFN_xrStopHapticFeedback				   xrStopHapticFeedback;
 
-#ifdef _WIN32
+#ifdef XR_USE_PLATFORM_WIN32
 #define dlsym(x, y) GetProcAddress(x, y)
 static HMODULE g_xrLibrary;
 #else
 #define dlsym(x, y) nullptr
-void *xrLibrary;
+void *g_xrLibrary;
 #endif
 
 #define LOAD_INSTANCE_FUNC(name) (PFN_ ## name)xrGetInstanceProcAddr(instance, #name, (PFN_xrVoidFunction *)(&name))
@@ -78,13 +78,13 @@ bool XRLoad() {
 		return true;
 	}
 
-#ifdef _WIN32
+#ifdef XR_USE_PLATFORM_WIN32
 	g_xrLibrary = LoadLibrary(L"openxr_loader.dll");
 	if (!g_xrLibrary) {
 		return false;
 	}
 #else
-	void *library = nullptr;
+	return false;
 #endif
 
 	// Load the three basic functions.
