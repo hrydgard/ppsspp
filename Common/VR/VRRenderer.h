@@ -67,4 +67,4 @@ float VR_GetConfigFloat( VRConfigFloat config );
 void VR_SetConfigFloat( VRConfigFloat config, float value );
 
 void* VR_BindFramebuffer(engine_t *engine);
-ovrMatrix4f VR_GetMatrix( VRMatrix matrix );
+float* VR_GetMatrix( VRMatrix matrix );

@@ -9,6 +9,8 @@
 #endif
 #include "Common/GPU/Vulkan/VulkanContext.h"
 
+#include "Common/Math/lin/matrix4x4.h"
+
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Config.h"
 #include "Core/KeyMap.h"
@@ -584,15 +586,13 @@ void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
 	float* dst[] = {leftEye, rightEye};
 	VRMatrix enums[] = {VR_PROJECTION_MATRIX_LEFT_EYE, VR_PROJECTION_MATRIX_RIGHT_EYE};
 	for (int index = 0; index < 2; index++) {
-		ovrMatrix4f hmdProjection = VR_GetMatrix(enums[index]);
-		for (int i = 0; i < 4; i++) {
-			for (int j = 0; j < 4; j++) {
-				if ((hmdProjection.M[i][j] > 0) != (projMatrix[i * 4 + j] > 0)) {
-					hmdProjection.M[i][j] *= -1.0f;
-				}
+		float* hmdProjection = VR_GetMatrix(enums[index]);
+		for (int i = 0; i < 16; i++) {
+			if ((hmdProjection[i] > 0) != (projMatrix[i] > 0)) {
+				hmdProjection[i] *= -1.0f;
 			}
 		}
-		memcpy(dst[index], hmdProjection.M, 16 * sizeof(float));
+		memcpy(dst[index], hmdProjection, 16 * sizeof(float));
 	}
 }
 
@@ -602,14 +602,15 @@ void UpdateVRView(float* leftEye, float* rightEye) {
 	for (int index = 0; index < 2; index++) {
 
 		// Get view matrix from the game
-		ovrMatrix4f gameView;
-		memcpy(gameView.M, dst[index], 16 * sizeof(float));
+		Lin::Matrix4x4 gameView = {};
+		memcpy(gameView.m, dst[index], 16 * sizeof(float));
 
 		// Get view matrix from the headset
-		ovrMatrix4f hmdView = VR_GetMatrix(enums[index]);
+		Lin::Matrix4x4 hmdView = {};
+		memcpy(hmdView.m, VR_GetMatrix(enums[index]), 16 * sizeof(float));
 
 		// Combine the matrices
-		ovrMatrix4f renderView = ovrMatrix4f_Multiply(&hmdView, &gameView);
-		memcpy(dst[index], renderView.M, 16 * sizeof(float));
+		Lin::Matrix4x4 renderView = hmdView * gameView;
+		memcpy(dst[index], renderView.m, 16 * sizeof(float));
 	}
 }
