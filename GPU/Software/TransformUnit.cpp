@@ -62,6 +62,11 @@ SoftwareDrawEngine::~SoftwareDrawEngine() {
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
 }
 
+void SoftwareDrawEngine::NotifyConfigChanged() {
+	DrawEngineCommon::NotifyConfigChanged();
+	decOptions_.applySkinInDecode = true;
+}
+
 void SoftwareDrawEngine::DispatchFlush() {
 	transformUnit.Flush("debug");
 }
@@ -72,7 +77,7 @@ void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds,
 }
 
 void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) {
-	uint32_t vertTypeID = GetVertTypeID(gstate.vertType | GE_VTYPE_POS_FLOAT, gstate.getUVGenMode());
+	uint32_t vertTypeID = GetVertTypeID(gstate.vertType | GE_VTYPE_POS_FLOAT, gstate.getUVGenMode(), true);
 
 	int flipCull = cullMode != gstate.getCullMode() ? 1 : 0;
 	// TODO: For now, just setting all dirty.
@@ -137,7 +142,7 @@ void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVert
 }
 
 VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
-	const u32 vertTypeID = (vtype & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+	const u32 vertTypeID = GetVertTypeID(vtype, gstate.getUVGenMode(), true);
 	return DrawEngineCommon::GetVertexDecoder(vertTypeID);
 }
 
@@ -245,7 +250,6 @@ struct TransformState {
 		bool enableLighting : 1;
 		bool enableFog : 1;
 		bool readUV : 1;
-		bool readWeights : 1;
 		bool negateNormals : 1;
 		uint8_t uvGenMode : 2;
 		uint8_t matrixMode : 2;
@@ -257,7 +261,6 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	state->enableLighting = gstate.isLightingEnabled();
 	state->enableFog = gstate.isFogEnabled();
 	state->readUV = !gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV();
-	state->readWeights = vreader.skinningEnabled() && state->enableTransform;
 	state->negateNormals = gstate.areNormalsReversed();
 
 	state->uvGenMode = gstate.getUVGenMode();
@@ -343,27 +346,6 @@ ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformS
 	Vec3f normal = lastnormal;
 	if (state.negateNormals)
 		normal = -normal;
-
-	if (state.readWeights) {
-		float W[8] = { 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
-		vreader.ReadWeights(W);
-
-		Vec3<float> tmppos(0.f, 0.f, 0.f);
-		Vec3<float> tmpnrm(0.f, 0.f, 0.f);
-
-		for (int i = 0; i < vreader.numBoneWeights(); ++i) {
-			Vec3<float> step = Vec3ByMatrix43(pos, gstate.boneMatrix + i * 12);
-			tmppos += step * W[i];
-			if (vreader.hasNormal()) {
-				step = Norm3ByMatrix43(normal, gstate.boneMatrix + i * 12);
-				tmpnrm += step * W[i];
-			}
-		}
-
-		pos = tmppos;
-		if (vreader.hasNormal())
-			normal = tmpnrm;
-	}
 
 	if (vreader.hasColor0()) {
 		vreader.ReadColor0_8888((u8 *)&vertex.v.color0);
@@ -858,7 +840,7 @@ void TransformUnit::SubmitImmVertex(const ClipVertexData &vert, SoftwareDrawEngi
 		break;
 	}
 
-	uint32_t vertTypeID = GetVertTypeID(gstate.vertType | GE_VTYPE_POS_FLOAT, gstate.getUVGenMode());
+	uint32_t vertTypeID = GetVertTypeID(gstate.vertType | GE_VTYPE_POS_FLOAT, gstate.getUVGenMode(), true);
 	// This now processes the step with shared logic, given the existing data_.
 	isImmDraw_ = true;
 	SubmitPrimitive(nullptr, nullptr, GE_PRIM_KEEP_PREVIOUS, 0, vertTypeID, nullptr, drawEngine);
@@ -958,6 +940,7 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 
 	VertexDecoder vdecoder;
 	VertexDecoderOptions options{};
+	options.applySkinInDecode = true;
 	vdecoder.SetVertexType(gstate.vertType, options);
 
 	if (!Memory::IsValidRange(gstate_c.vertexAddr, (indexUpperBound + 1) * vdecoder.VertexSize()))
