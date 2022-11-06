@@ -1,5 +1,3 @@
-#ifdef OPENXR
-
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 
@@ -396,6 +394,12 @@ void* BindVRFramebuffer() {
 	return VR_BindFramebuffer(VR_GetEngine());
 }
 
+inline float clampFloat(float x, float minValue, float maxValue) {
+	if (x < minValue) return minValue;
+	if (x > maxValue) return maxValue;
+	return x;
+}
+
 bool StartVRRender() {
 	if (!VR_GetConfig(VR_CONFIG_VIEWPORT_VALID)) {
 		VR_InitRenderer(VR_GetEngine(), IsMultiviewSupported());
@@ -430,8 +434,8 @@ bool StartVRRender() {
 				height = 0;
 				side = 0;
 			}
-			g_Config.fCameraHeight = std::clamp(height, -10.0f, 10.0f);
-			g_Config.fCameraSide = std::clamp(side, -10.0f, 10.0f);
+			g_Config.fCameraHeight = clampFloat(height, -10.0f, 10.0f);
+			g_Config.fCameraSide = clampFloat(side, -10.0f, 10.0f);
 
 			//right joystick controls distance and fov
 			float dst = g_Config.fCameraDistance;
@@ -445,8 +449,8 @@ bool StartVRRender() {
 				fov = 100;
 				dst = 0;
 			}
-			g_Config.fCameraDistance = std::clamp(dst, -10.0f, 10.0f);
-			g_Config.fFieldOfViewPercentage = std::clamp(fov, 100.0f, 200.0f);
+			g_Config.fCameraDistance = clampFloat(dst, -10.0f, 10.0f);
+			g_Config.fFieldOfViewPercentage = clampFloat(fov, 100.0f, 200.0f);
 		}
 
 		// Set customizations
@@ -599,5 +603,3 @@ void UpdateVRView(float* leftEye, float* rightEye) {
 		memcpy(dst[index], renderView.M, 16 * sizeof(float));
 	}
 }
-
-#endif

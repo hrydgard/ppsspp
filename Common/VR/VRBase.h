@@ -10,36 +10,10 @@
 #define ALOGV(...) printf(__VA_ARGS__)
 #endif
 
-//Vulkan
-#ifdef VK_USE_NATIVE_LIB
-#include <vulkan/vulkan.h>
-#else
-#include "Common/GPU/Vulkan/VulkanLoader.h"
-using namespace PPSSPP_VK;
-#endif
+#include "Common/VR/OpenXRLoader.h"
 
-#ifdef ANDROID
-//OpenXR
-#define XR_USE_PLATFORM_ANDROID 1
-#define XR_USE_GRAPHICS_API_OPENGL_ES 1
-#define XR_USE_GRAPHICS_API_VULKAN 1
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <jni.h>
-#elif defined(_WIN32)
-#include "Common/CommonWindows.h"
-#include "Common/GPU/OpenGL/GLCommon.h"
-#include <unknwn.h>
-#define XR_USE_PLATFORM_WIN32 1
-#define XR_USE_GRAPHICS_API_OPENGL 1
-#define XR_USE_GRAPHICS_API_VULKAN 1
-#else
-#define XR_USE_GRAPHICS_API_VULKAN 1
-#endif
-
-#include <math.h>
-#include <openxr.h>
-#include <openxr_platform.h>
+#define _USE_MATH_DEFINES
+#include <cmath>
 
 #ifdef ANDROID
 

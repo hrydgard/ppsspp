@@ -41,11 +41,13 @@ static bool vr_platform[VR_PLATFORM_MAX];
 static engine_t vr_engine;
 int vr_initialized = 0;
 
-#if defined(OPENXR)
-
 void VR_Init( void* system, const char* name, int version ) {
 	if (vr_initialized)
 		return;
+
+	if (!XRLoad()) {
+		return;
+	}
 
 	ovrApp_Clear(&vr_engine.appState);
 
@@ -68,9 +70,12 @@ void VR_Init( void* system, const char* name, int version ) {
 	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
 		extensions.push_back(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME);
 	} else {
+#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
 		extensions.push_back(XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME);
+#endif
 	}
 	extensions.push_back(XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME);
+#ifdef ANDROID
 	if (VR_GetPlatformFlag(VR_PLATFORM_PERFORMANCE_EXT)) {
 		extensions.push_back(XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME);
 		extensions.push_back(XR_KHR_ANDROID_THREAD_SETTINGS_EXTENSION_NAME);
@@ -83,6 +88,7 @@ void VR_Init( void* system, const char* name, int version ) {
 		extensions.push_back("XR_PICO_configs_ext");
 		extensions.push_back("XR_PICO_reset_sensor");
 	}
+#endif
 
 	// Create the OpenXR instance.
 	XrApplicationInfo appInfo;
@@ -101,7 +107,7 @@ void VR_Init( void* system, const char* name, int version ) {
 	instanceCreateInfo.applicationInfo = appInfo;
 	instanceCreateInfo.enabledApiLayerCount = 0;
 	instanceCreateInfo.enabledApiLayerNames = NULL;
-	instanceCreateInfo.enabledExtensionCount = extensions.size();
+	instanceCreateInfo.enabledExtensionCount = (uint32_t)extensions.size();
 	instanceCreateInfo.enabledExtensionNames = extensions.data();
 
 #ifdef ANDROID
@@ -120,6 +126,8 @@ void VR_Init( void* system, const char* name, int version ) {
 		ALOGE("Failed to create XR instance: %d.", initResult);
 		exit(1);
 	}
+
+	XRLoadInstanceFunctions(vr_engine.appState.Instance);
 
 	if (VR_GetPlatformFlag(VR_PLATFORM_PICO_INIT)) {
 		xrGetInstanceProcAddr(vr_engine.appState.Instance, "xrSetEngineVersionPico", (PFN_xrVoidFunction*)(&pfnXrSetEngineVersionPico));
@@ -166,6 +174,7 @@ void VR_Init( void* system, const char* name, int version ) {
 		graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_VULKAN_KHR;
 		OXR(pfnGetVulkanGraphicsRequirementsKHR(vr_engine.appState.Instance, systemId, &graphicsRequirements));
 	} else {
+#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
 		PFN_xrGetOpenGLESGraphicsRequirementsKHR pfnGetOpenGLESGraphicsRequirementsKHR = NULL;
 		OXR(xrGetInstanceProcAddr(
 				vr_engine.appState.Instance,
@@ -175,14 +184,15 @@ void VR_Init( void* system, const char* name, int version ) {
 		XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {};
 		graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR;
 		OXR(pfnGetOpenGLESGraphicsRequirementsKHR(vr_engine.appState.Instance, systemId, &graphicsRequirements));
+#endif
 	}
 
+#ifdef ANDROID
 	vr_engine.appState.MainThreadTid = gettid();
+#endif
 	vr_engine.appState.SystemId = systemId;
 	vr_initialized = 1;
 }
-
-#endif
 
 void VR_Destroy( engine_t* engine ) {
 	if (engine == &vr_engine) {

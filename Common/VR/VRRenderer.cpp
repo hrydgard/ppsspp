@@ -4,6 +4,7 @@
 #include "VRBase.h"
 #include "VRInput.h"
 #include "VRRenderer.h"
+#include "OpenXRLoader.h"
 
 #include <cassert>
 #include <cstdlib>
