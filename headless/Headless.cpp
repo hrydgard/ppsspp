@@ -420,7 +420,7 @@ int main(int argc, const char* argv[])
 	// Never report from tests.
 	g_Config.sReportHost.clear();
 	g_Config.bAutoSaveSymbolMap = false;
-	g_Config.iRenderingMode = FB_BUFFERED_MODE;
+	g_Config.bSkipBufferEffects = false;
 	g_Config.bHardwareTransform = true;
 	g_Config.iAnisotropyLevel = 0;  // When testing mipmapping we really don't want this.
 	g_Config.bVertexCache = false;

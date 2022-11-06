@@ -298,20 +298,16 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering" };
-	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
-	renderingModeChoice->OnChoice.Add([=](EventParams &e) {
-		switch (g_Config.iRenderingMode) {
-		case FB_NON_BUFFERED_MODE:
+	CheckBox *skipBufferEffects = graphicsSettings->Add(new CheckBox(&g_Config.bSkipBufferEffects, gr->T("Skip Buffer Effects")));
+	skipBufferEffects->OnClick.Add([=](EventParams &e) {
+		if (g_Config.bSkipBufferEffects) {
 			settingInfo_->Show(gr->T("RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games"), e.v);
-			break;
-		case FB_BUFFERED_MODE:
-			break;
+			g_Config.bAutoFrameSkip = false;
 		}
-		return UI::EVENT_CONTINUE;
+		return UI::EVENT_DONE;
 	});
-	renderingModeChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
-	renderingModeChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	skipBufferEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
 	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gr->T("Simulate Block Transfer", "Simulate Block Transfer")));
 	blockTransfer->OnClick.Add([=](EventParams &e) {
 		if (!g_Config.bBlockTransferGPU)
@@ -378,7 +374,7 @@ void GameSettingsScreen::CreateViews() {
 					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
 					PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
 					settingValue->SetEnabledFunc([=] {
-						return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && enableStereo();
+						return !g_Config.bSkipBufferEffects && enableStereo();
 					});
 				}
 			}
@@ -400,7 +396,7 @@ void GameSettingsScreen::CreateViews() {
 			return UI::EVENT_DONE;
 		});
 		postProcChoice_->SetEnabledFunc([=] {
-			return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !enableStereo();
+			return !g_Config.bSkipBufferEffects && !enableStereo();
 		});
 
 		// No need for settings on the last one.
@@ -423,7 +419,7 @@ void GameSettingsScreen::CreateViews() {
 					} else {
 						PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
 						settingValue->SetEnabledFunc([=] {
-							return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !enableStereo();
+							return !g_Config.bSkipBufferEffects && !enableStereo();
 						});
 					}
 				}
@@ -470,7 +466,7 @@ void GameSettingsScreen::CreateViews() {
 	resolutionChoice_ = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gr->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gr->GetName(), screenManager()));
 	resolutionChoice_->OnChoice.Handle(this, &GameSettingsScreen::OnResolutionChange);
 	resolutionChoice_->SetEnabledFunc([] {
-		return !g_Config.bSoftwareRendering && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		return !g_Config.bSoftwareRendering && !g_Config.bSkipBufferEffects;
 	});
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -499,7 +495,7 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 	frameDuplication->SetEnabledFunc([] {
-		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && g_Config.iFrameSkip == 0;
+		return !g_Config.bSkipBufferEffects && g_Config.iFrameSkip == 0;
 	});
 
 	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
@@ -1198,8 +1194,8 @@ UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
 	if (g_Config.bAutoFrameSkip && g_Config.iFrameSkip == 0) {
 		g_Config.iFrameSkip = 1;
 	}
-	if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-		g_Config.iRenderingMode = FB_BUFFERED_MODE;
+	if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
+		g_Config.bSkipBufferEffects = false;
 	}
 	return UI::EVENT_DONE;
 }
@@ -1240,20 +1236,6 @@ UI::EventReturn GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnSustainedPerformanceModeChange(UI::EventParams &e) {
 	System_SendMessage("sustainedPerfMode", "");
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
-	// We do not want to report when rendering mode is Framebuffer to memory - so many issues
-	// are caused by that (framebuffer copies overwriting display lists, etc).
-	Reporting::UpdateConfig();
-	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
-	if (!Reporting::IsSupported())
-		enableReports_ = Reporting::IsEnabled();
-
-	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-		g_Config.bAutoFrameSkip = false;
-	}
 	return UI::EVENT_DONE;
 }
 
