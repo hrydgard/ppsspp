@@ -204,7 +204,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 		vscale /= gstate_c.curTextureHeight;
 	}
 
-	bool skinningEnabled = vertTypeIsSkinningEnabled(vertType);
+	bool skinningEnabled = vertTypeIsSkinningEnabled(vertType) && !g_Config.bSoftwareSkinning;
 
 	const int w = gstate.getTextureWidth(0);
 	const int h = gstate.getTextureHeight(0);

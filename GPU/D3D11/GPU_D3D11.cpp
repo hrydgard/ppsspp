@@ -176,7 +176,7 @@ void GPU_D3D11::BeginHostFrame() {
 	if (resized_) {
 		gstate_c.useFlags = CheckGPUFeatures();
 		framebufferManager_->Resized();
-		drawEngine_.Resized();
+		drawEngine_.NotifyConfigChanged();
 		textureCache_->NotifyConfigChanged();
 		shaderManagerD3D11_->DirtyLastShader();
 		resized_ = false;

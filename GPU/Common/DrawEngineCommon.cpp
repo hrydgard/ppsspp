@@ -52,9 +52,7 @@ DrawEngineCommon::~DrawEngineCommon() {
 }
 
 void DrawEngineCommon::Init() {
-	useHWTransform_ = g_Config.bHardwareTransform;
-	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
-	decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
+	NotifyConfigChanged();
 }
 
 VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
@@ -170,7 +168,7 @@ static Vec3f ScreenToDrawing(const Vec3f& coords) {
 	return ret;
 }
 
-void DrawEngineCommon::Resized() {
+void DrawEngineCommon::NotifyConfigChanged() {
 	decJitCache_->Clear();
 	lastVType_ = -1;
 	dec_ = nullptr;
@@ -838,7 +836,7 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	numDrawCalls++;
 	vertexCountInDrawCalls_ += vertexCount;
 
-	if (g_Config.bSoftwareSkinning && (vertTypeID & GE_VTYPE_WEIGHT_MASK)) {
+	if (decOptions_.applySkinInDecode && (vertTypeID & GE_VTYPE_WEIGHT_MASK)) {
 		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
 		decodeCounter_++;
 	}

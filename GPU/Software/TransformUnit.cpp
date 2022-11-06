@@ -257,7 +257,7 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	state->enableLighting = gstate.isLightingEnabled();
 	state->enableFog = gstate.isFogEnabled();
 	state->readUV = !gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV();
-	state->readWeights = vreader.skinningEnabled() && state->enableTransform;
+	state->readWeights = vreader.skinningEnabled() && state->enableTransform && !g_Config.bSoftwareSkinning;
 	state->negateNormals = gstate.areNormalsReversed();
 
 	state->uvGenMode = gstate.getUVGenMode();

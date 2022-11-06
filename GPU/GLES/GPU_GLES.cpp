@@ -291,9 +291,9 @@ void GPU_GLES::BeginHostFrame() {
 	if (resized_) {
 		gstate_c.useFlags = CheckGPUFeatures();
 		framebufferManager_->Resized();
-		drawEngine_.Resized();
-		shaderManagerGL_->DirtyShader();
+		drawEngine_.NotifyConfigChanged();
 		textureCache_->NotifyConfigChanged();
+		shaderManagerGL_->DirtyShader();
 		resized_ = false;
 	}
 
