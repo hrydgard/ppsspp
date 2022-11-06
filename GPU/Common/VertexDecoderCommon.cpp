@@ -176,67 +176,6 @@ void PrintDecodedVertex(VertexReader &vtx) {
 	printf("P: %f %f %f\n", pos[0], pos[1], pos[2]);
 }
 
-void VertexDecoder::Step_WeightsU8() const
-{
-	u8 *wt = (u8 *)(decoded_ + decFmt.w0off);
-	const u8 *wdata = (const u8*)(ptr_);
-	int j;
-	for (j = 0; j < nweights; j++)
-		wt[j] = wdata[j];
-	while (j & 3)   // Zero additional weights rounding up to 4.
-		wt[j++] = 0;
-}
-
-void VertexDecoder::Step_WeightsU16() const
-{
-	u16 *wt = (u16 *)(decoded_ + decFmt.w0off);
-	const u16_le *wdata = (const u16_le *)(ptr_);
-	int j;
-	for (j = 0; j < nweights; j++)
-		wt[j] = wdata[j];
-	while (j & 3)   // Zero additional weights rounding up to 4.
-		wt[j++] = 0;
-}
-
-void VertexDecoder::Step_WeightsU8ToFloat() const
-{
-	float *wt = (float *)(decoded_ + decFmt.w0off);
-	const u8 *wdata = (const u8*)(ptr_);
-	int j;
-	for (j = 0; j < nweights; j++) {
-		wt[j] = (float)wdata[j] * (1.0f / 128.0f);
-	}
-	while (j & 3)   // Zero additional weights rounding up to 4.
-		wt[j++] = 0;
-}
-
-void VertexDecoder::Step_WeightsU16ToFloat() const
-{
-	float *wt = (float *)(decoded_ + decFmt.w0off);
-	const u16_le *wdata = (const u16_le *)(ptr_);
-	int j;
-	for (j = 0; j < nweights; j++) {
-		wt[j] = (float)wdata[j] * (1.0f / 32768.0f);
-	}
-	while (j & 3)   // Zero additional weights rounding up to 4.
-		wt[j++] = 0;
-}
-
-// Float weights should be uncommon, we can live with having to multiply these by 2.0
-// to avoid special checks in the vertex shader generator.
-// (PSP uses 0.0-2.0 fixed point numbers for weights)
-void VertexDecoder::Step_WeightsFloat() const
-{
-	float *wt = (float *)(decoded_ + decFmt.w0off);
-	const float_le *wdata = (const float_le *)(ptr_);
-	int j;
-	for (j = 0; j < nweights; j++) {
-		wt[j] = wdata[j];
-	}
-	while (j & 3)   // Zero additional weights rounding up to 4.
-		wt[j++] = 0.0f;
-}
-
 void VertexDecoder::ComputeSkinMatrix(const float weights[8]) const {
 	memset(skinMatrix, 0, sizeof(skinMatrix));
 	for (int j = 0; j < nweights; j++) {
@@ -876,20 +815,6 @@ void VertexDecoder::Step_PosFloatMorphSkin() const {
 	}
 	Vec3ByMatrix43(v, pos, skinMatrix);
 }
-
-static const StepFunction wtstep[4] = {
-	0,
-	&VertexDecoder::Step_WeightsU8,
-	&VertexDecoder::Step_WeightsU16,
-	&VertexDecoder::Step_WeightsFloat,
-};
-
-static const StepFunction wtstepToFloat[4] = {
-	0,
-	&VertexDecoder::Step_WeightsU8ToFloat,
-	&VertexDecoder::Step_WeightsU16ToFloat,
-	&VertexDecoder::Step_WeightsFloat,
-};
 
 // TODO: Morph weights correctly! This is missing. Not sure if any game actually
 // use this functionality at all.
