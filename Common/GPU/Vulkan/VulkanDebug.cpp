@@ -42,9 +42,10 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		// UNASSIGNED
 		return false;
 	}
-	if (messageCode == 606910136) {
+	if (messageCode == 606910136 || messageCode == -392708513) {
 		// VUID-vkCmdDraw-None-02686
-		// Seems to be a bug in the validation layers, in the check that the input attachment is bound to a descriptor.
+		// Kinda false positive, or at least very unnecessary, now that I solved the real issue.
+		// See https://github.com/hrydgard/ppsspp/pull/16354
 		return false;
 	}
 
