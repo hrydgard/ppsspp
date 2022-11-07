@@ -1,12 +1,14 @@
 #include "Common/VR/PPSSPPVR.h"
+
 #include "Common/VR/VRBase.h"
+#if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES
+#include "Common/GPU/OpenGL/GLRenderManager.h"
+#endif
+
 #include "Common/VR/VRInput.h"
 #include "Common/VR/VRMath.h"
 #include "Common/VR/VRRenderer.h"
 
-#if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES
-#include "Common/GPU/OpenGL/GLRenderManager.h"
-#endif
 #include "Common/GPU/Vulkan/VulkanContext.h"
 
 #include "Core/HLE/sceDisplay.h"
