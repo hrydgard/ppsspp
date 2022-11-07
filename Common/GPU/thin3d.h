@@ -245,7 +245,7 @@ enum class NativeObject {
 	BOUND_TEXTURE0_IMAGEVIEW,  // Layer etc depends on how you bound it...
 	BOUND_TEXTURE1_IMAGEVIEW,  // Layer etc depends on how you bound it...
 	BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_ALL_LAYERS,
-	BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_LAYER, // use an int cast to void *srcObject to specify layer.
+	BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_RT,
 	RENDER_MANAGER,
 	TEXTURE_VIEW,
 	NULL_IMAGEVIEW,
