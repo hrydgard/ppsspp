@@ -1042,17 +1042,18 @@ int main(int argc, char *argv[]) {
 				{
 					KeyInput key;
 					key.deviceId = DEVICE_ID_MOUSE;
+					key.flags = KEY_DOWN;
 					if (event.wheel.y > 0) {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 						mouseWheelMovedUpFrames = 5;
-					} else {
+						NativeKey(key);
+					} else if (event.wheel.y < 0) {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
 						mouseWheelMovedDownFrames = 5;
+						NativeKey(key);
 					}
-					key.flags = KEY_DOWN;
-					NativeKey(key);
+					break;
 				}
-				break;
 			case SDL_MOUSEMOTION:
 				if (mouseDown) {
 					TouchInput input;

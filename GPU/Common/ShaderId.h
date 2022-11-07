@@ -15,7 +15,7 @@ enum VShaderBit : uint8_t {
 	VS_BIT_HAS_COLOR = 3,
 	VS_BIT_DO_TEXTURE = 4,
 	VS_BIT_VERTEX_RANGE_CULLING = 5,
-	// 6 is free,
+	VS_BIT_SIMPLE_STEREO = 6,
 	// 7 is free.
 	VS_BIT_USE_HW_TRANSFORM = 8,
 	VS_BIT_HAS_NORMAL = 9,  // conditioned on hw transform
@@ -98,10 +98,24 @@ enum FShaderBit : uint8_t {
 	FS_BIT_COLOR_WRITEMASK = 50,
 	FS_BIT_REPLACE_LOGIC_OP = 51,  // 4 bits. GE_LOGIC_COPY means no-op/off.
 	FS_BIT_SHADER_DEPAL_MODE = 55,  // 2 bits (ShaderDepalMode)
+	FS_BIT_SAMPLE_ARRAY_TEXTURE = 57,  // For multiview, framebuffers are array textures and we need to sample the two layers correctly.
+	FS_BIT_STEREO = 58,
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {
 	return FShaderBit((int)bit + i);
+}
+
+// Some of these bits are straight from FShaderBit, since they essentially enable attributes directly.
+enum GShaderBit : uint8_t {
+	GS_BIT_ENABLED = 0,     // If not set, we don't use a geo shader.
+	GS_BIT_DO_TEXTURE = 1,  // presence of texcoords
+	GS_BIT_LMODE = 2,       // presence of specular color (regular color always present)
+	GS_BIT_CURVE = 3,       // curve, which means don't do range culling.
+};
+
+static inline GShaderBit operator +(GShaderBit bit, int i) {
+	return GShaderBit((int)bit + i);
 }
 
 struct ShaderID {
@@ -232,11 +246,36 @@ struct FShaderID : ShaderID {
 	}
 };
 
+struct GShaderID : ShaderID {
+	GShaderID() : ShaderID() {
+	}
+
+	explicit GShaderID(ShaderID &src) {
+		memcpy(d, src.d, sizeof(d));
+	}
+
+	bool Bit(GShaderBit bit) const {
+		return ShaderID::Bit((int)bit);
+	}
+
+	int Bits(GShaderBit bit, int count) const {
+		return ShaderID::Bits((int)bit, count);
+	}
+
+	void SetBit(GShaderBit bit, bool value = true) {
+		ShaderID::SetBit((int)bit, value);
+	}
+
+	void SetBits(GShaderBit bit, int count, int value) {
+		ShaderID::SetBits((int)bit, count, value);
+	}
+};
+
 namespace Draw {
 class Bugs;
 }
 
-void ComputeVertexShaderID(VShaderID *id, uint32_t vertexType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat);
+void ComputeVertexShaderID(VShaderID *id, uint32_t vertexType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
 // Generates a compact string that describes the shader. Useful in a list to get an overview
 // of the current flora of shaders.
 std::string VertexShaderDesc(const VShaderID &id);
@@ -244,3 +283,9 @@ std::string VertexShaderDesc(const VShaderID &id);
 struct ComputedPipelineState;
 void ComputeFragmentShaderID(FShaderID *id, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs);
 std::string FragmentShaderDesc(const FShaderID &id);
+
+void ComputeGeometryShaderID(GShaderID *id, const Draw::Bugs &bugs, int prim);
+std::string GeometryShaderDesc(const GShaderID &id);
+
+// For sanity checking.
+bool FragmentIdNeedsFramebufferRead(const FShaderID &id);

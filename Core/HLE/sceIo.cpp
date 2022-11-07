@@ -230,6 +230,17 @@ public:
 		return pendingAsyncResult || hasAsyncResult;
 	}
 
+	const PSPFileInfo &FileInfo() {
+		if (!infoReady) {
+			info = pspFileSystem.GetFileInfo(fullpath);
+			if (!info.exists) {
+				ERROR_LOG(IO, "File %s no longer exists when reading info", fullpath.c_str());
+			}
+			infoReady = true;
+		}
+		return info;
+	}
+
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("FileNode", 1, 3);
 		if (!s)
@@ -246,6 +257,9 @@ public:
 		Do(p, closePending);
 		Do(p, info);
 		Do(p, openMode);
+		if (p.mode == p.MODE_READ) {
+			infoReady = info.exists;
+		}
 
 		Do(p, npdrm);
 		Do(p, pgd_offset);
@@ -285,6 +299,7 @@ public:
 	// TODO: Use an enum instead?
 	bool closePending = false;
 
+	bool infoReady = false;
 	PSPFileInfo info;
 	u32 openMode = 0;
 
@@ -1356,7 +1371,7 @@ static s64 __IoLseekDest(FileNode *f, s64 offset, int whence, FileMove &seek) {
 		seek = FILEMOVE_CURRENT;
 		break;
 	case 2:
-		newPos = f->info.size + offset;
+		newPos = f->FileInfo().size + offset;
 		seek = FILEMOVE_END;
 		break;
 	default:
@@ -1489,8 +1504,6 @@ static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode)
 
 		isTTY = true;
 	} else {
-		info = pspFileSystem.GetFileInfo(filename);
-
 		h = pspFileSystem.OpenFile(filename, (FileAccess)access);
 		if (h < 0) {
 			error = h;
@@ -1504,7 +1517,10 @@ static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode)
 	f->handle = h;
 	f->fullpath = filename;
 	f->asyncResult = h;
-	f->info = info;
+	if (isTTY) {
+		f->info = info;
+		f->infoReady = true;
+	}
 	f->openMode = access;
 	f->isTTY = isTTY;
 
@@ -2320,16 +2336,19 @@ public:
 static u32 sceIoDopen(const char *path) {
 	DEBUG_LOG(SCEIO, "sceIoDopen(\"%s\")", path);
 
-	if (!pspFileSystem.GetFileInfo(path).exists) {
+	double startTime = time_now_d();
+
+	bool listingExists = false;
+	auto listing = pspFileSystem.GetDirListing(path, &listingExists);
+
+	if (!listingExists) {
 		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 
 	DirListing *dir = new DirListing();
 	SceUID id = kernelObjects.Create(dir);
 
-	double startTime = time_now_d();
-
-	dir->listing = pspFileSystem.GetDirListing(path);
+	dir->listing = listing;
 	dir->index = 0;
 	dir->name = std::string(path);
 
@@ -2528,7 +2547,7 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 		if(f->pgdInfo)
 			return f->pgdInfo->data_size;
 		else
-			return (int)f->info.size;
+			return (int)f->FileInfo().size;
 		break;
 
 	// Get UMD sector size
@@ -2571,7 +2590,7 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 			const auto seekInfo = PSPPointer<SeekInfo>::Create(indataPtr);
 			FileMove seek;
 			s64 newPos = __IoLseekDest(f, seekInfo->offset, seekInfo->whence, seek);
-			if (newPos < 0 || newPos > f->info.size) {
+			if (newPos < 0 || newPos > f->FileInfo().size) {
 				// Not allowed to seek past the end of the file with this API.
 				return ERROR_ERRNO_IO_ERROR;
 			}
@@ -2587,7 +2606,7 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
 		INFO_LOG(SCEIO, "sceIoIoctl: Asked for start sector of file %i", id);
 		if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
-			Memory::Write_U32(f->info.startSector, outdataPtr);
+			Memory::Write_U32(f->FileInfo().startSector, outdataPtr);
 		} else {
 			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
@@ -2599,7 +2618,7 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
 		INFO_LOG(SCEIO, "sceIoIoctl: Asked for size of file %i", id);
 		if (Memory::IsValidAddress(outdataPtr) && outlen >= 8) {
-			Memory::Write_U64(f->info.size, outdataPtr);
+			Memory::Write_U64(f->FileInfo().size, outdataPtr);
 		} else {
 			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
@@ -2676,7 +2695,7 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 			FileMove seek;
 			s64 newPos = __IoLseekDest(f, seekInfo->offset, seekInfo->whence, seek);
 			// Position is in sectors, don't forget.
-			if (newPos < 0 || newPos > f->info.size) {
+			if (newPos < 0 || newPos > f->FileInfo().size) {
 				// Not allowed to seek past the end of the file with this API.
 				return SCE_KERNEL_ERROR_ERRNO_INVALID_FILE_SIZE;
 			}

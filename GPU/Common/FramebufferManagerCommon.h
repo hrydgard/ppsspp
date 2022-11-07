@@ -204,8 +204,6 @@ enum class TempFBO {
 	BLIT,
 	// For copies of framebuffers (e.g. shader blending.)
 	COPY,
-	// For another type of framebuffers that can happen together with COPY (see Outrun)
-	REINTERPRET,
 	// Used to copy stencil data, means we need a stencil backing.
 	STENCIL,
 };
@@ -306,11 +304,11 @@ public:
 
 	void CopyDisplayToOutput(bool reallyDirty);
 
-	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset, u32 skipDrawReason);
-	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
+	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, GPUCopyFlag flags, u32 skipDrawReason);
+	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt);
 	void UpdateFromMemory(u32 addr, int size);
 	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
-	bool PerformStencilUpload(u32 addr, int size, StencilUpload flags);
+	bool PerformWriteStencilFromMemory(u32 addr, int size, WriteStencil flags);
 
 	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
 	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
@@ -322,7 +320,7 @@ public:
 	// Otherwise it doesn't get called.
 	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 
-	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
+	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags, int layer);
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
 
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
@@ -355,7 +353,9 @@ public:
 
 	bool MayIntersectFramebuffer(u32 start) const {
 		// Clear the cache/kernel bits.
-		start = start & 0x3FFFFFFF;
+		start &= 0x3FFFFFFF;
+		if (Memory::IsVRAMAddress(start))
+			start &= 0x041FFFFF;
 		// Most games only have two framebuffers at the start.
 		if (start >= framebufRangeEnd_ || start < PSP_GetVidMemBase()) {
 			return false;
@@ -439,7 +439,10 @@ public:
 		Draw2DPipeline *pipeline, const char *tag);
 
 protected:
-	virtual void PackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
+	virtual void ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
+	// Used for when a shader is required, such as GLES.
+	virtual bool ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride);
+	virtual bool ReadbackStencilbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride);
 	void SetViewport2D(int x, int y, int w, int h);
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
@@ -455,7 +458,7 @@ protected:
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, RasterChannel channel, const char *tag);
 
-	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
+	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags, int layer);
 
 	void EstimateDrawingSize(u32 fb_address, int fb_stride, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int &drawing_width, int &drawing_height);
 	u32 ColorBufferByteSize(const VirtualFramebuffer *vfb) const;
@@ -480,6 +483,8 @@ protected:
 	VirtualFramebuffer *CreateRAMFramebuffer(uint32_t fbAddress, int width, int height, int stride, GEBufferFormat format);
 
 	void UpdateFramebufUsage(VirtualFramebuffer *vfb);
+
+	int GetFramebufferLayers() const;
 
 	static void SetColorUpdated(VirtualFramebuffer *dstBuffer, int skipDrawReason) {
 		dstBuffer->memoryUpdated = false;
@@ -539,6 +544,7 @@ protected:
 	int pixelWidth_ = 0;
 	int pixelHeight_ = 0;
 	int bloomHack_ = 0;
+	bool updatePostShaders_ = false;
 
 	Draw::DataFormat preferredPixelsFormat_ = Draw::DataFormat::R8G8B8A8_UNORM;
 
@@ -564,8 +570,14 @@ protected:
 
 	// Common implementation of stencil buffer upload. Also not 100% optimal, but not performance
 	// critical either.
-	Draw::Pipeline *stencilUploadPipeline_ = nullptr;
-	Draw::SamplerState *stencilUploadSampler_ = nullptr;
+	Draw::Pipeline *stencilWritePipeline_ = nullptr;
+	Draw::SamplerState *stencilWriteSampler_ = nullptr;
+
+	// Used on GLES where we can't directly readback depth or stencil, but here for simplicity.
+	Draw::Pipeline *stencilReadbackPipeline_ = nullptr;
+	Draw::SamplerState *stencilReadbackSampler_ = nullptr;
+	Draw::Pipeline *depthReadbackPipeline_ = nullptr;
+	Draw::SamplerState *depthReadbackSampler_ = nullptr;
 
 	// Draw2D pipelines
 	Draw2DPipeline *draw2DPipelineColor_ = nullptr;

@@ -28,6 +28,7 @@
 #include "GPU/Common/FragmentShaderGenerator.h"
 
 class Shader;
+struct ShaderLanguageDesc;
 
 class LinkedShader {
 public:
@@ -35,7 +36,7 @@ public:
 	~LinkedShader();
 
 	void use(const ShaderID &VSID);
-	void UpdateUniforms(u32 vertType, const ShaderID &VSID, bool useBufferedRendering);
+	void UpdateUniforms(u32 vertType, const ShaderID &VSID, bool useBufferedRendering, const ShaderLanguageDesc &shaderLanguage);
 
 	GLRenderManager *render_;
 	Shader *vs_;
@@ -160,7 +161,7 @@ public:
 
 	// This is the old ApplyShader split into two parts, because of annoying information dependencies.
 	// If you call ApplyVertexShader, you MUST call ApplyFragmentShader soon afterwards.
-	Shader *ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat, VShaderID *VSID);
+	Shader *ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat, bool useSkinInDecode, VShaderID *VSID);
 	LinkedShader *ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, u32 vertType, bool useBufferedRendering);
 
 	void DeviceLost();

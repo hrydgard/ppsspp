@@ -245,9 +245,6 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 				}
 			}
 		} else {
-			int xoff = ((v0.screenpos.x & 15) + 1) / 2;
-			int yoff = ((v0.screenpos.y & 15) + 1) / 2;
-
 			float dsf = ds * (1.0f / (float)(1 << state.samplerID.width0Shift));
 			float dtf = dt * (1.0f / (float)(1 << state.samplerID.height0Shift));
 			float sf_start = s_start * (1.0f / (float)(1 << state.samplerID.width0Shift));
@@ -261,7 +258,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 					// Not really that fast but faster than triangle.
 					for (int x = pos0.x; x < pos1.x; x++) {
 						if (CheckDepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
-							Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(c0), &texptr, &texbufw, 0, 0, state.samplerID);
+							Vec4<int> prim_color = state.nearest(s, t, ToVec4IntArg(c0), &texptr, &texbufw, 0, 0, state.samplerID);
 							state.drawPixel(x, y, z, fog, ToVec4IntArg(prim_color), pixelID);
 						}
 
@@ -274,7 +271,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 					float s = sf_start;
 					// Not really that fast but faster than triangle.
 					for (int x = pos0.x; x < pos1.x; x++) {
-						Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(c0), &texptr, &texbufw, 0, 0, state.samplerID);
+						Vec4<int> prim_color = state.nearest(s, t, ToVec4IntArg(c0), &texptr, &texbufw, 0, 0, state.samplerID);
 						state.drawPixel(x, y, z, fog, ToVec4IntArg(prim_color), pixelID);
 						s += dsf;
 					}
@@ -483,40 +480,51 @@ bool DetectRectangleFromStrip(const RasterizerState &state, const ClipVertexData
 	return false;
 }
 
-bool DetectRectangleFromFan(const RasterizerState &state, const ClipVertexData *data, int c, int *tlIndex, int *brIndex) {
+bool DetectRectangleFromFan(const RasterizerState &state, const ClipVertexData *data, int *tlIndex, int *brIndex) {
 	// Color and Z must be flat.
-	for (int i = 1; i < c; ++i) {
+	int tl = 0, br = 0;
+	for (int i = 1; i < 4; ++i) {
 		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
 			return false;
+
+		if (data[i].v.screenpos.x <= data[tl].v.screenpos.x && data[i].v.screenpos.y <= data[tl].v.screenpos.y)
+			tl = i;
+		if (data[i].v.screenpos.x >= data[br].v.screenpos.x && data[i].v.screenpos.y >= data[br].v.screenpos.y)
+			br = i;
 	}
 
-	// Check for the common case: a single TL-TR-BR-BL.
-	if (c == 4) {
-		const auto &pos0 = data[0].v.screenpos, &pos1 = data[1].v.screenpos;
-		const auto &pos2 = data[2].v.screenpos, &pos3 = data[3].v.screenpos;
-		if (pos0.x == pos3.x && pos1.x == pos2.x && pos0.y == pos1.y && pos3.y == pos2.y) {
-			// Looking like yes.  Set TL/BR based on y order first...
-			*tlIndex = pos0.y > pos3.y ? 2 : 0;
-			*brIndex = pos0.y > pos3.y ? 0 : 2;
-			// And if it's horizontally flipped, trade to the actual TL/BR.
-			if (pos0.x > pos1.x) {
-				*tlIndex ^= 1;
-				*brIndex ^= 1;
-			}
+	*tlIndex = tl;
+	*brIndex = br;
 
-			// Do we need to think about rotation?
-			if (!state.enableTextures)
-				return true;
+	int tr = 1, bl = 1;
+	for (int i = 0; i < 4; ++i) {
+		if (i == tl || i == br)
+			continue;
 
-			const auto &textl = data[*tlIndex].v.texturecoords, &textr = data[*tlIndex ^ 1].v.texturecoords;
-			const auto &texbl = data[*brIndex ^ 1].v.texturecoords, &texbr = data[*brIndex].v.texturecoords;
+		if (data[i].v.screenpos.x <= data[tl].v.screenpos.x && data[i].v.screenpos.y >= data[tl].v.screenpos.y)
+			bl = i;
+		if (data[i].v.screenpos.x >= data[br].v.screenpos.x && data[i].v.screenpos.y <= data[br].v.screenpos.y)
+			tr = i;
+	}
 
-			if (textl.x == texbl.x && textr.x == texbr.x && textl.y == textr.y && texbl.y == texbr.y) {
-				// Okay, the texture is also good, but let's avoid rotation issues.
-				const auto &postl = data[*tlIndex].v.screenpos;
-				const auto &posbr = data[*brIndex].v.screenpos;
-				return textl.y < texbr.y && postl.y < posbr.y && textl.x < texbr.x && postl.x < posbr.x;
-			}
+	// Must have found each of the coordinates.
+	if (tl + tr + bl + br != 6)
+		return false;
+
+	// Note the common case is a single TL-TR-BR-BL.
+	const auto &postl = data[tl].v.screenpos, &postr = data[tr].v.screenpos;
+	const auto &posbr = data[br].v.screenpos, &posbl = data[bl].v.screenpos;
+	if (postl.x == posbl.x && postr.x == posbr.x && postl.y == postr.y && posbl.y == posbr.y) {
+		// Do we need to think about rotation?
+		if (!state.enableTextures)
+			return true;
+
+		const auto &textl = data[tl].v.texturecoords, &textr = data[tr].v.texturecoords;
+		const auto &texbl = data[bl].v.texturecoords, &texbr = data[br].v.texturecoords;
+
+		if (textl.x == texbl.x && textr.x == texbr.x && textl.y == textr.y && texbl.y == texbr.y) {
+			// Okay, the texture is also good, but let's avoid rotation issues.
+			return textl.y < texbr.y && postl.y < posbr.y && textl.x < texbr.x && postl.x < posbr.x;
 		}
 	}
 

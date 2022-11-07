@@ -26,7 +26,6 @@
 #include "ppsspp_config.h"
 #include "Common/CommonTypes.h"
 #include "Common/CodeBlock.h"
-#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPS.h"
 
 #if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)

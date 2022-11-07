@@ -3,9 +3,12 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
+#include <vector>
 
-#ifdef OPENXR_PLATFORM_PICO
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 enum ConfigsSetEXT {
     UNREAL_VERSION = 0,
     TRACKING_ORIGIN,
@@ -27,80 +30,95 @@ enum PxrTrackingDof {
 typedef XrResult (XRAPI_PTR *PFN_xrSetEngineVersionPico)(XrInstance instance,const char* version);
 typedef XrResult (XRAPI_PTR *PFN_xrStartCVControllerThreadPico)(XrInstance instance,int headSensorState, int handSensorState);
 typedef XrResult (XRAPI_PTR *PFN_xrStopCVControllerThreadPico)(XrInstance instance,int headSensorState, int handSensorState);
-typedef XrResult (XRAPI_PTR *PFN_xrSetConfigPICO) (XrSession instance, enum ConfigsSetEXT configIndex, char* configData);
+typedef XrResult (XRAPI_PTR *PFN_xrSetConfigPICO) (XrSession instance, enum ConfigsSetEXT configIndex, const char *configData);
 
 PFN_xrSetConfigPICO pfnXrSetConfigPICO = nullptr;
 PFN_xrSetEngineVersionPico pfnXrSetEngineVersionPico = nullptr;
 PFN_xrStartCVControllerThreadPico pfnXrStartCVControllerThreadPico = nullptr;
 PFN_xrStopCVControllerThreadPico pfnXrStopCVControllerThreadPico = nullptr;
-#endif
 
+static bool vr_platform[VR_PLATFORM_MAX];
 static engine_t vr_engine;
 int vr_initialized = 0;
 
-const char* const requiredExtensionNames[] = {
-		XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME,
-#ifdef OPENXR_HAS_PERFORMANCE_EXTENSION
-		XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME,
-		XR_KHR_ANDROID_THREAD_SETTINGS_EXTENSION_NAME,
-#endif
-#ifdef OPENXR_PLATFORM_PICO
-		XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME,
-		"XR_PICO_android_controller_function_ext_enable",
-		"XR_PICO_view_state_ext_enable",
-		"XR_PICO_frame_end_info_ext",
-		"XR_PICO_configs_ext",
-		"XR_PICO_reset_sensor",
-#endif
-		XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME};
-const uint32_t numRequiredExtensions =
-		sizeof(requiredExtensionNames) / sizeof(requiredExtensionNames[0]);
-
-void VR_Init( ovrJava java ) {
+void VR_Init( void* system, const char* name, int version ) {
 	if (vr_initialized)
 		return;
 
+	if (!XRLoad()) {
+		return;
+	}
+
 	ovrApp_Clear(&vr_engine.appState);
 
+#ifdef ANDROID
 	PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
-	xrGetInstanceProcAddr(
-			XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)&xrInitializeLoaderKHR);
+	xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)&xrInitializeLoaderKHR);
 	if (xrInitializeLoaderKHR != NULL) {
-		XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid;
-		memset(&loaderInitializeInfoAndroid, 0, sizeof(loaderInitializeInfoAndroid));
-		loaderInitializeInfoAndroid.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
-		loaderInitializeInfoAndroid.next = NULL;
-		loaderInitializeInfoAndroid.applicationVM = java.Vm;
-		loaderInitializeInfoAndroid.applicationContext = java.ActivityObject;
-		xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
+		ovrJava* java = (ovrJava*)system;
+		XrLoaderInitInfoAndroidKHR loaderInitializeInfo;
+		memset(&loaderInitializeInfo, 0, sizeof(loaderInitializeInfo));
+		loaderInitializeInfo.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
+		loaderInitializeInfo.next = NULL;
+		loaderInitializeInfo.applicationVM = java->Vm;
+		loaderInitializeInfo.applicationContext = java->ActivityObject;
+		xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfo);
 	}
+#endif
+
+	std::vector<const char *> extensions;
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+		extensions.push_back(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME);
+	} else {
+#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
+		extensions.push_back(XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME);
+#endif
+	}
+	extensions.push_back(XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME);
+#ifdef ANDROID
+	if (VR_GetPlatformFlag(VR_PLATFORM_PERFORMANCE_EXT)) {
+		extensions.push_back(XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME);
+		extensions.push_back(XR_KHR_ANDROID_THREAD_SETTINGS_EXTENSION_NAME);
+	}
+	if (VR_GetPlatformFlag(VR_PLATFORM_PICO_INIT)) {
+		extensions.push_back(XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME);
+		extensions.push_back("XR_PICO_android_controller_function_ext_enable");
+		extensions.push_back("XR_PICO_view_state_ext_enable");
+		extensions.push_back("XR_PICO_frame_end_info_ext");
+		extensions.push_back("XR_PICO_configs_ext");
+		extensions.push_back("XR_PICO_reset_sensor");
+	}
+#endif
 
 	// Create the OpenXR instance.
 	XrApplicationInfo appInfo;
 	memset(&appInfo, 0, sizeof(appInfo));
-	strcpy(appInfo.applicationName, java.AppName);
-	strcpy(appInfo.engineName, java.AppName);
-	appInfo.applicationVersion = java.AppVersion;
-	appInfo.engineVersion = java.AppVersion;
+	strcpy(appInfo.applicationName, name);
+	strcpy(appInfo.engineName, name);
+	appInfo.applicationVersion = version;
+	appInfo.engineVersion = version;
 	appInfo.apiVersion = XR_CURRENT_API_VERSION;
 
 	XrInstanceCreateInfo instanceCreateInfo;
 	memset(&instanceCreateInfo, 0, sizeof(instanceCreateInfo));
 	instanceCreateInfo.type = XR_TYPE_INSTANCE_CREATE_INFO;
-#ifdef OPENXR_PLATFORM_PICO
-	XrInstanceCreateInfoAndroidKHR instanceCreateInfoAndroid = {XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
-	instanceCreateInfoAndroid.applicationVM = java.Vm;
-	instanceCreateInfoAndroid.applicationActivity = java.ActivityObject;
-	instanceCreateInfo.next = (XrBaseInStructure*)&instanceCreateInfoAndroid;
-#else
 	instanceCreateInfo.next = NULL;
-#endif
 	instanceCreateInfo.createFlags = 0;
 	instanceCreateInfo.applicationInfo = appInfo;
 	instanceCreateInfo.enabledApiLayerCount = 0;
 	instanceCreateInfo.enabledApiLayerNames = NULL;
-	instanceCreateInfo.enabledExtensionCount = numRequiredExtensions;
-	instanceCreateInfo.enabledExtensionNames = requiredExtensionNames;
+	instanceCreateInfo.enabledExtensionCount = (uint32_t)extensions.size();
+	instanceCreateInfo.enabledExtensionNames = extensions.data();
+
+#ifdef ANDROID
+	XrInstanceCreateInfoAndroidKHR instanceCreateInfoAndroid = {XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
+	if (VR_GetPlatformFlag(VR_PLATFORM_PICO_INIT)) {
+		ovrJava* java = (ovrJava*)system;
+		instanceCreateInfoAndroid.applicationVM = java->Vm;
+		instanceCreateInfoAndroid.applicationActivity = java->ActivityObject;
+		instanceCreateInfo.next = (XrBaseInStructure*)&instanceCreateInfoAndroid;
+	}
+#endif
 
 	XrResult initResult;
 	OXR(initResult = xrCreateInstance(&instanceCreateInfo, &vr_engine.appState.Instance));
@@ -109,14 +127,16 @@ void VR_Init( ovrJava java ) {
 		exit(1);
 	}
 
-#ifdef OPENXR_PLATFORM_PICO
-	xrGetInstanceProcAddr(vr_engine.appState.Instance, "xrSetEngineVersionPico", (PFN_xrVoidFunction*)(&pfnXrSetEngineVersionPico));
-	xrGetInstanceProcAddr(vr_engine.appState.Instance, "xrStartCVControllerThreadPico", (PFN_xrVoidFunction*)(&pfnXrStartCVControllerThreadPico));
-	xrGetInstanceProcAddr(vr_engine.appState.Instance, "xrStopCVControllerThreadPico", (PFN_xrVoidFunction*)(&pfnXrStopCVControllerThreadPico));
-	xrGetInstanceProcAddr(vr_engine.appState.Instance,"xrSetConfigPICO", (PFN_xrVoidFunction*)(&pfnXrSetConfigPICO));
-	if (pfnXrSetEngineVersionPico != nullptr) pfnXrSetEngineVersionPico(vr_engine.appState.Instance, "2.8.0.1");
-	if (pfnXrStartCVControllerThreadPico != nullptr) pfnXrStartCVControllerThreadPico(vr_engine.appState.Instance, PXR_TRACKING_6DOF, PXR_TRACKING_6DOF);
-#endif
+	XRLoadInstanceFunctions(vr_engine.appState.Instance);
+
+	if (VR_GetPlatformFlag(VR_PLATFORM_PICO_INIT)) {
+		xrGetInstanceProcAddr(vr_engine.appState.Instance, "xrSetEngineVersionPico", (PFN_xrVoidFunction*)(&pfnXrSetEngineVersionPico));
+		xrGetInstanceProcAddr(vr_engine.appState.Instance, "xrStartCVControllerThreadPico", (PFN_xrVoidFunction*)(&pfnXrStartCVControllerThreadPico));
+		xrGetInstanceProcAddr(vr_engine.appState.Instance, "xrStopCVControllerThreadPico", (PFN_xrVoidFunction*)(&pfnXrStopCVControllerThreadPico));
+		xrGetInstanceProcAddr(vr_engine.appState.Instance,"xrSetConfigPICO", (PFN_xrVoidFunction*)(&pfnXrSetConfigPICO));
+		if (pfnXrSetEngineVersionPico != nullptr) pfnXrSetEngineVersionPico(vr_engine.appState.Instance, "2.8.0.1");
+		if (pfnXrStartCVControllerThreadPico != nullptr) pfnXrStartCVControllerThreadPico(vr_engine.appState.Instance, PXR_TRACKING_6DOF, PXR_TRACKING_6DOF);
+	}
 
 	XrInstanceProperties instanceInfo;
 	instanceInfo.type = XR_TYPE_INSTANCE_PROPERTIES;
@@ -143,36 +163,51 @@ void VR_Init( ovrJava java ) {
 	}
 
 	// Get the graphics requirements.
-	PFN_xrGetOpenGLESGraphicsRequirementsKHR pfnGetOpenGLESGraphicsRequirementsKHR = NULL;
-	OXR(xrGetInstanceProcAddr(
-			vr_engine.appState.Instance,
-			"xrGetOpenGLESGraphicsRequirementsKHR",
-			(PFN_xrVoidFunction*)(&pfnGetOpenGLESGraphicsRequirementsKHR)));
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+		PFN_xrGetVulkanGraphicsRequirementsKHR pfnGetVulkanGraphicsRequirementsKHR = NULL;
+		OXR(xrGetInstanceProcAddr(
+				vr_engine.appState.Instance,
+				"xrGetVulkanGraphicsRequirementsKHR",
+				(PFN_xrVoidFunction*)(&pfnGetVulkanGraphicsRequirementsKHR)));
 
-	XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {};
-	graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR;
-	OXR(pfnGetOpenGLESGraphicsRequirementsKHR(vr_engine.appState.Instance, systemId, &graphicsRequirements));
+		XrGraphicsRequirementsVulkanKHR graphicsRequirements = {};
+		graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_VULKAN_KHR;
+		OXR(pfnGetVulkanGraphicsRequirementsKHR(vr_engine.appState.Instance, systemId, &graphicsRequirements));
+	} else {
+#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
+		PFN_xrGetOpenGLESGraphicsRequirementsKHR pfnGetOpenGLESGraphicsRequirementsKHR = NULL;
+		OXR(xrGetInstanceProcAddr(
+				vr_engine.appState.Instance,
+				"xrGetOpenGLESGraphicsRequirementsKHR",
+				(PFN_xrVoidFunction*)(&pfnGetOpenGLESGraphicsRequirementsKHR)));
 
+		XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {};
+		graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR;
+		OXR(pfnGetOpenGLESGraphicsRequirementsKHR(vr_engine.appState.Instance, systemId, &graphicsRequirements));
+#endif
+	}
+
+#ifdef ANDROID
 	vr_engine.appState.MainThreadTid = gettid();
+#endif
 	vr_engine.appState.SystemId = systemId;
-
-	vr_engine.java = java;
 	vr_initialized = 1;
 }
 
 void VR_Destroy( engine_t* engine ) {
 	if (engine == &vr_engine) {
-#ifdef OPENXR_PLATFORM_PICO
-		if (pfnXrStopCVControllerThreadPico != nullptr) {
-			pfnXrStopCVControllerThreadPico(engine->appState.Instance, PXR_TRACKING_6DOF, PXR_TRACKING_6DOF);
+		if (VR_GetPlatformFlag(VR_PLATFORM_PICO_INIT)) {
+			if (pfnXrStopCVControllerThreadPico != nullptr) {
+				pfnXrStopCVControllerThreadPico(engine->appState.Instance, PXR_TRACKING_6DOF, PXR_TRACKING_6DOF);
+			}
 		}
-#endif
+
 		xrDestroyInstance(engine->appState.Instance);
 		ovrApp_Destroy(&engine->appState);
 	}
 }
 
-void VR_EnterVR( engine_t* engine ) {
+void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVulkan ) {
 
 	if (engine->appState.Session) {
 		ALOGE("VR_EnterVR called with existing session");
@@ -180,17 +215,28 @@ void VR_EnterVR( engine_t* engine ) {
 	}
 
 	// Create the OpenXR Session.
-	XrGraphicsBindingOpenGLESAndroidKHR graphicsBindingAndroidGLES = {};
-	graphicsBindingAndroidGLES.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
-	graphicsBindingAndroidGLES.next = NULL;
-	graphicsBindingAndroidGLES.display = eglGetCurrentDisplay();
-	graphicsBindingAndroidGLES.config = eglGetCurrentSurface(EGL_DRAW);
-	graphicsBindingAndroidGLES.context = eglGetCurrentContext();
-
 	XrSessionCreateInfo sessionCreateInfo = {};
+#ifdef ANDROID
+	XrGraphicsBindingOpenGLESAndroidKHR graphicsBindingGL = {};
+#elif XR_USE_GRAPHICS_API_OPENGL
+	XrGraphicsBindingOpenGLWin32KHR graphicsBindingGL = {};
+#endif
 	memset(&sessionCreateInfo, 0, sizeof(sessionCreateInfo));
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+		sessionCreateInfo.next = graphicsBindingVulkan;
+	} else {
+#ifdef ANDROID
+		graphicsBindingGL.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
+		graphicsBindingGL.next = NULL;
+		graphicsBindingGL.display = eglGetCurrentDisplay();
+		graphicsBindingGL.config = eglGetCurrentSurface(EGL_DRAW);
+		graphicsBindingGL.context = eglGetCurrentContext();
+		sessionCreateInfo.next = &graphicsBindingGL;
+#else
+		//TODO:PCVR definition
+#endif
+	}
 	sessionCreateInfo.type = XR_TYPE_SESSION_CREATE_INFO;
-	sessionCreateInfo.next = &graphicsBindingAndroidGLES;
 	sessionCreateInfo.createFlags = 0;
 	sessionCreateInfo.systemId = engine->appState.SystemId;
 
@@ -200,9 +246,9 @@ void VR_EnterVR( engine_t* engine ) {
 		ALOGE("Failed to create XR session: %d.", initResult);
 		exit(1);
 	}
-#ifdef OPENXR_PLATFORM_PICO
-	pfnXrSetConfigPICO(engine->appState.Session, TRACKING_ORIGIN, "1");
-#endif
+	if (VR_GetPlatformFlag(VR_PLATFORM_PICO_INIT)) {
+		pfnXrSetConfigPICO(engine->appState.Session, TRACKING_ORIGIN, "1");
+	}
 
 	// Create a space to the first path
 	XrReferenceSpaceCreateInfo spaceCreateInfo = {};
@@ -228,4 +274,12 @@ void VR_LeaveVR( engine_t* engine ) {
 
 engine_t* VR_GetEngine( void ) {
 	return &vr_engine;
+}
+
+bool VR_GetPlatformFlag(VRPlatformFlag flag) {
+	return vr_platform[flag];
+}
+
+void VR_SetPlatformFLag(VRPlatformFlag flag, bool value) {
+	vr_platform[flag] = value;
 }

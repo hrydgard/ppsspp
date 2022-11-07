@@ -122,7 +122,7 @@ u32 GetAdjustedRenderTargetAddress(u32 op) {
 	switch (cmd) {
 	case GE_CMD_FRAMEBUFPTR:
 	case GE_CMD_ZBUFPTR:
-		return op & 0x003FFFF0;
+		return op & 0x001FFFF0;
 	}
 
 	return (u32)-1;
@@ -278,7 +278,7 @@ bool IsRenderTargetBreakpoint(u32 addr, bool &temp) {
 		return false;
 	}
 
-	addr &= 0x003FFFF0;
+	addr &= 0x001FFFF0;
 
 	std::lock_guard<std::mutex> guard(breaksLock);
 	temp = breakRenderTargetsTemp.find(addr) != breakRenderTargetsTemp.end();
@@ -290,7 +290,7 @@ bool IsRenderTargetBreakpoint(u32 addr) {
 		return false;
 	}
 
-	addr &= 0x003FFFF0;
+	addr &= 0x001FFFF0;
 
 	std::lock_guard<std::mutex> guard(breaksLock);
 	return breakRenderTargets.find(addr) != breakRenderTargets.end();
@@ -339,7 +339,7 @@ void AddAddressBreakpoint(u32 addr, bool temp) {
 	} else {
 		// Remove the temporary marking.
 		breakPCsTemp.erase(addr);
-		breakPCs.insert(std::make_pair(addr, BreakpointInfo{}));
+		breakPCs.emplace(addr, BreakpointInfo{});
 	}
 
 	breakPCsCount = breakPCs.size();
@@ -385,7 +385,7 @@ void AddTextureBreakpoint(u32 addr, bool temp) {
 void AddRenderTargetBreakpoint(u32 addr, bool temp) {
 	std::lock_guard<std::mutex> guard(breaksLock);
 
-	addr &= 0x003FFFF0;
+	addr &= 0x001FFFF0;
 
 	if (temp) {
 		if (breakRenderTargets.find(addr) == breakRenderTargets.end()) {
@@ -444,7 +444,7 @@ void RemoveTextureBreakpoint(u32 addr) {
 void RemoveRenderTargetBreakpoint(u32 addr) {
 	std::lock_guard<std::mutex> guard(breaksLock);
 
-	addr &= 0x003FFFF0;
+	addr &= 0x001FFFF0;
 
 	breakRenderTargetsTemp.erase(addr);
 	breakRenderTargets.erase(addr);

@@ -25,6 +25,7 @@
 #include "Common/GPU/Vulkan/VulkanImage.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
+#include "Common/GPU/thin3d.h"
 
 extern const VkComponentMapping VULKAN_4444_SWIZZLE;
 extern const VkComponentMapping VULKAN_1555_SWIZZLE;
@@ -47,9 +48,9 @@ public:
 	void DeviceLost() {
 		DestroyDeviceObjects();
 	}
-	void DeviceRestore(VulkanContext *vulkan) {
-		vulkan_ = vulkan;
-		InitDeviceObjects();
+	void DeviceRestore(Draw::DrawContext *draw) {
+		vulkan_ = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
+		InitDeviceObjects(draw);
 	}
 
 	// Note: This doesn't cache. The descriptor is for immediate use only.
@@ -63,7 +64,7 @@ public:
 	void EndFrame();
 
 private:
-	void InitDeviceObjects();
+	void InitDeviceObjects(Draw::DrawContext *draw);
 	void DestroyDeviceObjects();
 
 	VulkanContext *vulkan_ = nullptr;

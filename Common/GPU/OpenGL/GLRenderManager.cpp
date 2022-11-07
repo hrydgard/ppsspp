@@ -5,8 +5,6 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/VR/PPSSPPVR.h"
 
-#include "Core/Config.h"
-
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/Math/math_util.h"
@@ -236,27 +234,11 @@ bool GLRenderManager::ThreadFrame() {
 			firstFrame = false;
 		}
 
-		// Start of an OpenXR frame. This updates user's head pose and VR timestamps.
-		// For fluent rendering, delay between StartVRRender and FinishVRRender must be very short.
-		if (IsVRBuild() && !vrRenderStarted) {
-			if (StartVRRender()) {
-				vrRenderStarted = true;
-			} else {
-				return false;
-			}
-		}
-
 		// Render the scene.
 		Run(threadFrame_);
 
 		VLOG("PULL: Finished frame %d", threadFrame_);
 	} while (!nextFrame);
-
-	// Post OpenXR frame on a screen.
-	if (IsVRBuild() && vrRenderStarted) {
-		FinishVRRender();
-		vrRenderStarted = false;
-	}
 
 	return true;
 }
@@ -374,7 +356,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	}
 }
 
-void GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment) {
+void GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit) {
 	_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 	_dbg_assert_(binding < MAX_GL_TEXTURE_SLOTS);
 	GLRRenderData data{ GLRRenderCommand::BIND_FB_TEXTURE };
@@ -595,18 +577,15 @@ void GLRenderManager::Run(int frame) {
 		}
 	}
 
-	if (IsVRBuild()) {
-		int passes = 1;
-		if (!IsMultiviewSupported() && g_Config.bEnableStereo) {
-			passes = 2;
-		}
+	if (IsVREnabled()) {
+		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {
 			PreVRFrameRender(i);
-			queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, i < passes - 1);
+			queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, i < passes - 1, true);
 			PostVRFrameRender();
 		}
 	} else {
-		queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
+		queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, false, false);
 	}
 	stepsOnThread.clear();
 

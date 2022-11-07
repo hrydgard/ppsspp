@@ -3,6 +3,7 @@
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
+#include "Common/VR/PPSSPPVR.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 
@@ -31,10 +32,12 @@ static void MergeRenderAreaRectInto(VkRect2D *dest, VkRect2D &src) {
 RenderPassType MergeRPTypes(RenderPassType a, RenderPassType b) {
 	// Either both are backbuffer type, or neither are.
 	// These can't merge with other renderpasses
-	if (a == RP_TYPE_BACKBUFFER || b == RP_TYPE_BACKBUFFER) {
+	if (a == RenderPassType::BACKBUFFER || b == RenderPassType::BACKBUFFER) {
 		_dbg_assert_(a == b);
 		return a;
 	}
+
+	_dbg_assert_((a & RenderPassType::MULTIVIEW) == (b & RenderPassType::MULTIVIEW));
 
 	// The rest we can just OR together to get the maximum feature set.
 	return (RenderPassType)((u32)a | (u32)b);
@@ -165,7 +168,7 @@ bool VulkanQueueRunner::CreateSwapchain(VkCommandBuffer cmdInit) {
 		color_image_view.subresourceRange.baseMipLevel = 0;
 		color_image_view.subresourceRange.levelCount = 1;
 		color_image_view.subresourceRange.baseArrayLayer = 0;
-		color_image_view.subresourceRange.layerCount = 1;
+		color_image_view.subresourceRange.layerCount = 1;  // TODO: Investigate hw-assisted stereo.
 		color_image_view.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		color_image_view.flags = 0;
 		color_image_view.image = sc_buffer.image;
@@ -175,6 +178,7 @@ bool VulkanQueueRunner::CreateSwapchain(VkCommandBuffer cmdInit) {
 		// Also, turns out it's illegal to transition un-acquired images, thanks Hans-Kristian. See #11417.
 
 		res = vkCreateImageView(vulkan_->GetDevice(), &color_image_view, nullptr, &sc_buffer.view);
+		vulkan_->SetDebugName(sc_buffer.view, VK_OBJECT_TYPE_IMAGE_VIEW, "swapchain_view");
 		swapchainImages_.push_back(sc_buffer);
 		_dbg_assert_(res == VK_SUCCESS);
 	}
@@ -194,7 +198,7 @@ bool VulkanQueueRunner::InitBackbufferFramebuffers(int width, int height) {
 	VkImageView attachments[2] = { VK_NULL_HANDLE, depth_.view };
 
 	VkFramebufferCreateInfo fb_info = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-	fb_info.renderPass = GetCompatibleRenderPass()->Get(vulkan_, RP_TYPE_BACKBUFFER);
+	fb_info.renderPass = GetCompatibleRenderPass()->Get(vulkan_, RenderPassType::BACKBUFFER);
 	fb_info.attachmentCount = 2;
 	fb_info.pAttachments = attachments;
 	fb_info.width = width;
@@ -248,7 +252,7 @@ bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 
 	vulkan_->SetDebugName(depth_.image, VK_OBJECT_TYPE_IMAGE, "BackbufferDepth");
 
-	TransitionImageLayout2(cmd, depth_.image, 0, 1,
+	TransitionImageLayout2(cmd, depth_.image, 0, 1, 1,
 		aspectMask,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
@@ -273,6 +277,7 @@ bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	VkDevice device = vulkan_->GetDevice();
 
 	res = vkCreateImageView(device, &depth_view_info, NULL, &depth_.view);
+	vulkan_->SetDebugName(depth_.view, VK_OBJECT_TYPE_IMAGE_VIEW, "depth_stencil_backbuffer");
 	_dbg_assert_(res == VK_SUCCESS);
 	if (res != VK_SUCCESS)
 		return false;
@@ -325,9 +330,14 @@ static VkAttachmentStoreOp ConvertStoreAction(VKRRenderPassStoreAction action) {
 // Also see https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
 
 VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPassType rpType) {
-	bool selfDependency = rpType == RP_TYPE_COLOR_INPUT || rpType == RP_TYPE_COLOR_DEPTH_INPUT;
-	bool isBackbuffer = rpType == RP_TYPE_BACKBUFFER;
-	bool hasDepth = rpType == RP_TYPE_BACKBUFFER || rpType == RP_TYPE_COLOR_DEPTH || rpType == RP_TYPE_COLOR_DEPTH_INPUT;
+	bool selfDependency = RenderPassTypeHasInput(rpType);
+	bool isBackbuffer = rpType == RenderPassType::BACKBUFFER;
+	bool hasDepth = RenderPassTypeHasDepth(rpType);
+	bool multiview = RenderPassTypeHasMultiView(rpType);
+
+	if (multiview) {
+		// TODO: Assert that the device has multiview support enabled.
+	}
 
 	VkAttachmentDescription attachments[2] = {};
 	attachments[0].format = isBackbuffer ? vulkan->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
@@ -388,6 +398,19 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	rp.pAttachments = attachments;
 	rp.subpassCount = 1;
 	rp.pSubpasses = &subpass;
+
+	VkRenderPassMultiviewCreateInfoKHR mv{ VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO_KHR };
+	uint32_t viewMask = 0x3;  // Must be outside the 'if (multiview)' scope!
+	int viewOffset = 0;
+	if (multiview) {
+		rp.pNext = &mv;
+		mv.subpassCount = 1;
+		mv.pViewMasks = &viewMask;
+		mv.dependencyCount = 0;
+		mv.pCorrelationMasks = &viewMask; // same masks
+		mv.correlationMaskCount = 1;
+		mv.pViewOffsets = &viewOffset;
+	}
 
 	if (isBackbuffer) {
 		deps[numDeps].srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -456,6 +479,7 @@ void VulkanQueueRunner::SelfDependencyBarrier(VKRImage &img, VkImageAspectFlags 
 			img.image,
 			0,
 			1,
+			img.numLayers,
 			aspect,
 			VK_IMAGE_LAYOUT_GENERAL,
 			VK_IMAGE_LAYOUT_GENERAL,
@@ -515,6 +539,8 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 					}
 					MergeRenderAreaRectInto(&steps[i]->render.renderArea, steps[j]->render.renderArea);
 					steps[i]->render.renderPassType = MergeRPTypes(steps[i]->render.renderPassType, steps[j]->render.renderPassType);
+					steps[i]->render.numDraws += steps[j]->render.numDraws;
+					steps[i]->render.numReads += steps[j]->render.numReads;
 					// Cheaply skip the first step.
 					steps[j]->stepType = VKRStepType::RENDER_SKIP;
 					break;
@@ -544,7 +570,7 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 	}
 }
 
-void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frameData, FrameDataShared &frameDataShared) {
+void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frameData, FrameDataShared &frameDataShared, bool keepSteps) {
 	QueueProfileContext *profile = frameData.profilingEnabled_ ? &frameData.profile : nullptr;
 
 	if (profile)
@@ -622,11 +648,12 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frame
 
 	// Deleting all in one go should be easier on the instruction cache than deleting
 	// them as we go - and easier to debug because we can look backwards in the frame.
-	for (auto step : steps) {
-		delete step;
+	if (!keepSteps) {
+		for (auto step : steps) {
+			delete step;
+		}
+		steps.clear();
 	}
-
-	steps.clear();
 
 	if (profile)
 		profile->cpuEndTime = time_now_d();
@@ -871,6 +898,18 @@ const char *AspectToString(VkImageAspectFlags aspect) {
 	}
 }
 
+static const char *rpTypeDebugNames[] = {
+	"RENDER",
+	"RENDER_DEPTH",
+	"RENDER_INPUT",
+	"RENDER_DEPTH_INPUT",
+	"MV_RENDER",
+	"MV_RENDER_DEPTH",
+	"MV_RENDER_INPUT",
+	"MV_RENDER_DEPTH_INPUT",
+	"BACKBUF",
+};
+
 std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 	char buffer[256];
 	switch (step.stepType) {
@@ -880,16 +919,8 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 		int h = step.render.framebuffer ? step.render.framebuffer->height : vulkan_->GetBackbufferHeight();
 		int actual_w = step.render.renderArea.extent.width;
 		int actual_h = step.render.renderArea.extent.height;
-		const char *renderCmd;
-		switch (step.render.renderPassType) {
-		case RP_TYPE_BACKBUFFER: renderCmd = "BACKBUF"; break;
-		case RP_TYPE_COLOR: renderCmd = "RENDER"; break;
-		case RP_TYPE_COLOR_DEPTH: renderCmd = "RENDER_DEPTH"; break;
-		case RP_TYPE_COLOR_INPUT: renderCmd = "RENDER_INPUT"; break;
-		case RP_TYPE_COLOR_DEPTH_INPUT: renderCmd = "RENDER_DEPTH_INPUT"; break;
-		default: renderCmd = "N/A";
-		}
-		snprintf(buffer, sizeof(buffer), "%s %s (draws: %d, %dx%d/%dx%d, fb: %p, )", renderCmd, step.tag, step.render.numDraws, actual_w, actual_h, w, h, step.render.framebuffer);
+		const char *renderCmd = rpTypeDebugNames[(size_t)step.render.renderPassType];
+		snprintf(buffer, sizeof(buffer), "%s %s %s (draws: %d, %dx%d/%dx%d)", renderCmd, step.tag, step.render.framebuffer ? step.render.framebuffer->Tag() : "", step.render.numDraws, actual_w, actual_h, w, h);
 		break;
 	}
 	case VKRStepType::COPY:
@@ -899,7 +930,7 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 		snprintf(buffer, sizeof(buffer), "BLIT '%s' %s -> %s (%dx%d->%dx%d, %s)", step.tag, step.copy.src->Tag(), step.copy.dst->Tag(), step.blit.srcRect.extent.width, step.blit.srcRect.extent.height, step.blit.dstRect.extent.width, step.blit.dstRect.extent.height, AspectToString(step.blit.aspectMask));
 		break;
 	case VKRStepType::READBACK:
-		snprintf(buffer, sizeof(buffer), "READBACK '%s' %s (%dx%d, %s)", step.tag, step.readback.src->Tag(), step.readback.srcRect.extent.width, step.readback.srcRect.extent.height, AspectToString(step.readback.aspectMask));
+		snprintf(buffer, sizeof(buffer), "READBACK '%s' %s (%dx%d, %s)", step.tag, step.readback.src ? step.readback.src->Tag() : "(backbuffer)", step.readback.srcRect.extent.width, step.readback.srcRect.extent.height, AspectToString(step.readback.aspectMask));
 		break;
 	case VKRStepType::READBACK_IMAGE:
 		snprintf(buffer, sizeof(buffer), "READBACK_IMAGE '%s' (%dx%d)", step.tag, step.readback_image.srcRect.extent.width, step.readback_image.srcRect.extent.height);
@@ -936,6 +967,8 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 		// So we don't consider it for other things, maybe doesn't matter.
 		src->dependencies.clear();
 		src->stepType = VKRStepType::RENDER_SKIP;
+		dst->render.numDraws += src->render.numDraws;
+		dst->render.numReads += src->render.numReads;
 		dst->render.pipelineFlags |= src->render.pipelineFlags;
 		dst->render.renderPassType = MergeRPTypes(dst->render.renderPassType, src->render.renderPassType);
 	};
@@ -1109,6 +1142,12 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 			case VKRRenderCommand::PUSH_CONSTANTS:
 				INFO_LOG(G3D, "  PushConstants(%d)", cmd.push.size);
 				break;
+			case VKRRenderCommand::DEBUG_ANNOTATION:
+				INFO_LOG(G3D, "  DebugAnnotation(%s)", cmd.debugAnnotation.annotation);
+				break;
+			case VKRRenderCommand::BIND_DESCRIPTOR_SET:
+				INFO_LOG(G3D, "  BindDescSet(%d)", cmd.bindDescSet.setNumber);
+				break;
 
 			case VKRRenderCommand::NUM_RENDER_COMMANDS:
 				break;
@@ -1136,7 +1175,7 @@ void VulkanQueueRunner::LogReadbackImage(const VKRStep &step) {
 	INFO_LOG(G3D, "%s", StepToString(step).c_str());
 }
 
-void TransitionToOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout colorLayout, VkImage depthStencilImage, VkImageLayout depthStencilLayout, VulkanBarrier *recordBarrier) {
+void TransitionToOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout colorLayout, VkImage depthStencilImage, VkImageLayout depthStencilLayout, int numLayers, VulkanBarrier *recordBarrier) {
 	if (colorLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
 		VkPipelineStageFlags srcStageMask = 0;
 		VkAccessFlags srcAccessMask = 0;
@@ -1169,7 +1208,7 @@ void TransitionToOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout 
 			break;
 		}
 		recordBarrier->TransitionImage(
-			colorImage, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+			colorImage, 0, 1, numLayers, VK_IMAGE_ASPECT_COLOR_BIT,
 			colorLayout,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			srcAccessMask,
@@ -1205,7 +1244,7 @@ void TransitionToOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout 
 			break;
 		}
 		recordBarrier->TransitionImage(
-			depthStencilImage, 0, 1, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+			depthStencilImage, 0, 1, numLayers, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
 			depthStencilLayout,
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 			srcAccessMask,
@@ -1215,7 +1254,7 @@ void TransitionToOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout 
 	}
 }
 
-void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout colorLayout, VkImage depthStencilImage, VkImageLayout depthStencilLayout) {
+void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout colorLayout, VkImage depthStencilImage, int numLayers, VkImageLayout depthStencilLayout) {
 	VkPipelineStageFlags srcStageMask = 0;
 	VkPipelineStageFlags dstStageMask = 0;
 
@@ -1257,7 +1296,7 @@ void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayou
 		barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		barrier[0].subresourceRange.baseMipLevel = 0;
 		barrier[0].subresourceRange.levelCount = 1;
-		barrier[0].subresourceRange.layerCount = 1;
+		barrier[0].subresourceRange.layerCount = numLayers;
 		barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrierCount++;
@@ -1296,7 +1335,7 @@ void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayou
 		barrier[barrierCount].subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 		barrier[barrierCount].subresourceRange.baseMipLevel = 0;
 		barrier[barrierCount].subresourceRange.levelCount = 1;
-		barrier[barrierCount].subresourceRange.layerCount = 1;
+		barrier[barrierCount].subresourceRange.layerCount = numLayers;
 		barrier[barrierCount].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier[barrierCount].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrierCount++;
@@ -1314,6 +1353,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				iter.fb->color.image,
 				0,
 				1,
+				iter.fb->numLayers,
 				VK_IMAGE_ASPECT_COLOR_BIT,
 				iter.fb->color.layout,
 				iter.targetLayout
@@ -1324,6 +1364,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				iter.fb->depth.image,
 				0,
 				1,
+				iter.fb->numLayers,
 				VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
 				iter.fb->depth.layout,
 				iter.targetLayout
@@ -1348,12 +1389,12 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		int n = 0;
 		int stage = 0;
 
-		VkImageMemoryBarrier barriers[2]{};
 		if (step.render.framebuffer->color.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
 			recordBarrier_.TransitionImage(
 				step.render.framebuffer->color.image,
 				0,
 				1,
+				step.render.framebuffer->numLayers,
 				VK_IMAGE_ASPECT_COLOR_BIT,
 				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -1368,6 +1409,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				step.render.framebuffer->depth.image,
 				0,
 				1,
+				step.render.framebuffer->numLayers,
 				VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
 				VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 				VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
@@ -1407,7 +1449,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	const RenderPassType rpType = step.render.renderPassType;
 
-	for (const auto &c : commands) {
+	for (size_t i = 0; i < commands.size(); i++) {
+		const VkRenderData &c = commands[i];
 		switch (c.cmd) {
 		case VKRRenderCommand::REMOVED:
 			break;
@@ -1416,17 +1459,17 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		{
 			VKRGraphicsPipeline *graphicsPipeline = c.graphics_pipeline.pipeline;
 			if (graphicsPipeline != lastGraphicsPipeline) {
-				if (!graphicsPipeline->pipeline[rpType]) {
+				if (!graphicsPipeline->pipeline[(size_t)rpType]) {
 					// NOTE: If render steps got merged, it can happen that, as they ended during recording,
 					// they didn't know their final render pass type so they created the wrong pipelines in EndCurRenderStep().
 					// Unfortunately I don't know if we can fix it in any more sensible place than here.
 					// Maybe a middle pass. But let's try to just block and compile here for now, this doesn't
 					// happen all that much.
-					graphicsPipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
+					graphicsPipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
 					graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType), rpType);
 				}
 
-				VkPipeline pipeline = graphicsPipeline->pipeline[rpType]->BlockUntilReady();
+				VkPipeline pipeline = graphicsPipeline->pipeline[(size_t)rpType]->BlockUntilReady();
 				if (pipeline != VK_NULL_HANDLE) {
 					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 					pipelineLayout = c.pipeline.pipelineLayout;
@@ -1527,7 +1570,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::DRAW_INDEXED:
 		{
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
 			vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, (VkIndexType)c.drawIndexed.indexType);
 			VkDeviceSize voffset = c.drawIndexed.voffset;
 			vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &voffset);
@@ -1536,7 +1579,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		}
 
 		case VKRRenderCommand::DRAW:
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
 			if (c.draw.vbuffer) {
 				vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
 			}
@@ -1549,7 +1592,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			int numAttachments = 0;
 			VkClearRect rc{};
 			rc.baseArrayLayer = 0;
-			rc.layerCount = 1;
+			rc.layerCount = 1;  // In multiview mode, 1 means to replicate to all the active layers.
 			rc.rect.extent.width = (uint32_t)curWidth;
 			rc.rect.extent.height = (uint32_t)curHeight;
 			VkClearAttachment attachments[2]{};
@@ -1576,15 +1619,29 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			}
 			break;
 		}
+
+		case VKRRenderCommand::DEBUG_ANNOTATION:
+			if (vulkan_->Extensions().EXT_debug_utils) {
+				VkDebugUtilsLabelEXT labelInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+				labelInfo.pLabelName = c.debugAnnotation.annotation;
+				vkCmdInsertDebugUtilsLabelEXT(cmd, &labelInfo);
+			}
+			break;
+
+		case VKRRenderCommand::BIND_DESCRIPTOR_SET:
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.bindDescSet.pipelineLayout, c.bindDescSet.setNumber, 1, &c.bindDescSet.set, 0, nullptr);
+			break;
+
 		default:
 			ERROR_LOG(G3D, "Unimpl queue command");
+			break;
 		}
 	}
 	vkCmdEndRenderPass(cmd);
 
 	if (fb) {
 		// If the desired final layout aren't the optimal layout for rendering, transition.
-		TransitionFromOptimal(cmd, fb->color.image, step.render.finalColorLayout, fb->depth.image, step.render.finalDepthStencilLayout);
+		TransitionFromOptimal(cmd, fb->color.image, step.render.finalColorLayout, fb->depth.image, fb->numLayers, step.render.finalDepthStencilLayout);
 
 		fb->color.layout = step.render.finalColorLayout;
 		fb->depth.layout = step.render.finalDepthStencilLayout;
@@ -1613,6 +1670,7 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 
 		VKRFramebuffer *fb = step.render.framebuffer;
 		framebuf = fb->Get(renderPass, step.render.renderPassType);
+		_dbg_assert_(framebuf != VK_NULL_HANDLE);
 		w = fb->width;
 		h = fb->height;
 
@@ -1624,7 +1682,7 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 			step.render.colorLoad == VKRRenderPassLoadAction::CLEAR &&
 			vulkan_->GetPhysicalDeviceProperties().properties.driverVersion == 0xaa9c4b29;
 		if (maliBugWorkaround) {
-			recordBarrier_.TransitionImage(step.render.framebuffer->color.image, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+			recordBarrier_.TransitionImage(fb->color.image, 0, 1, fb->numLayers, VK_IMAGE_ASPECT_COLOR_BIT,
 				fb->color.layout, VK_IMAGE_LAYOUT_GENERAL,
 				VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 				VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -1632,7 +1690,7 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 			fb->color.layout = VK_IMAGE_LAYOUT_GENERAL;
 		}
 
-		TransitionToOptimal(cmd, fb->color.image, fb->color.layout, fb->depth.image, fb->depth.layout, &recordBarrier_);
+		TransitionToOptimal(cmd, fb->color.image, fb->color.layout, fb->depth.image, fb->depth.layout, fb->numLayers, &recordBarrier_);
 
 		// The transition from the optimal format happens after EndRenderPass, now that we don't
 		// do it as part of the renderpass itself anymore.
@@ -1653,7 +1711,11 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 		};
 		renderPass = GetRenderPass(key);
 
-		framebuf = backbuffer_;
+		if (IsVREnabled()) {
+			framebuf = (VkFramebuffer)BindVRFramebuffer();
+		} else {
+			framebuf = backbuffer_;
+		}
 
 		// Raw, rotated backbuffer size.
 		w = vulkan_->GetBackbufferWidth();
@@ -1698,20 +1760,11 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 	VKRFramebuffer *src = step.copy.src;
 	VKRFramebuffer *dst = step.copy.dst;
 
-	VkImageCopy copy{};
-	copy.srcOffset.x = step.copy.srcRect.offset.x;
-	copy.srcOffset.y = step.copy.srcRect.offset.y;
-	copy.srcOffset.z = 0;
-	copy.srcSubresource.mipLevel = 0;
-	copy.srcSubresource.layerCount = 1;
-	copy.dstOffset.x = step.copy.dstPos.x;
-	copy.dstOffset.y = step.copy.dstPos.y;
-	copy.dstOffset.z = 0;
-	copy.dstSubresource.mipLevel = 0;
-	copy.dstSubresource.layerCount = 1;
-	copy.extent.width = step.copy.srcRect.extent.width;
-	copy.extent.height = step.copy.srcRect.extent.height;
-	copy.extent.depth = 1;
+	int layerCount = std::min(step.copy.src->numLayers, step.copy.dst->numLayers);
+	_dbg_assert_(step.copy.src->numLayers >= step.copy.dst->numLayers);
+
+	// TODO: If dst covers exactly the whole destination, we can set up a UNDEFINED->TRANSFER_DST_OPTIMAL transition,
+	// which can potentially be more efficient.
 
 	// First source barriers.
 	if (step.copy.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
@@ -1725,6 +1778,8 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 
 	// We can't copy only depth or only stencil unfortunately - or can we?.
 	if (step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+		_dbg_assert_(src->depth.image != VK_NULL_HANDLE);
+
 		if (src->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
 			SetupTransitionToTransferSrc(src->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
 		}
@@ -1739,6 +1794,21 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 	}
 
 	recordBarrier_.Flush(cmd);
+
+	VkImageCopy copy{};
+	copy.srcOffset.x = step.copy.srcRect.offset.x;
+	copy.srcOffset.y = step.copy.srcRect.offset.y;
+	copy.srcOffset.z = 0;
+	copy.srcSubresource.mipLevel = 0;
+	copy.srcSubresource.layerCount = layerCount;
+	copy.dstOffset.x = step.copy.dstPos.x;
+	copy.dstOffset.y = step.copy.dstPos.y;
+	copy.dstOffset.z = 0;
+	copy.dstSubresource.mipLevel = 0;
+	copy.dstSubresource.layerCount = layerCount;
+	copy.extent.width = step.copy.srcRect.extent.width;
+	copy.extent.height = step.copy.srcRect.extent.height;
+	copy.extent.depth = 1;
 
 	if (step.copy.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
 		copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1758,37 +1828,11 @@ void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
 	// The barrier code doesn't handle this case. We'd need to transition to GENERAL to do an intra-image copy.
 	_dbg_assert_(step.blit.src != step.blit.dst);
 
-	VkImageMemoryBarrier srcBarriers[2]{};
-	VkImageMemoryBarrier dstBarriers[2]{};
+	int layerCount = std::min(step.blit.src->numLayers, step.blit.dst->numLayers);
+	_dbg_assert_(step.blit.src->numLayers >= step.blit.dst->numLayers);
 
 	VKRFramebuffer *src = step.blit.src;
 	VKRFramebuffer *dst = step.blit.dst;
-
-	// If any validation needs to be performed here, it should probably have been done
-	// already when the blit was queued. So don't validate here.
-	VkImageBlit blit{};
-	blit.srcOffsets[0].x = step.blit.srcRect.offset.x;
-	blit.srcOffsets[0].y = step.blit.srcRect.offset.y;
-	blit.srcOffsets[0].z = 0;
-	blit.srcOffsets[1].x = step.blit.srcRect.offset.x + step.blit.srcRect.extent.width;
-	blit.srcOffsets[1].y = step.blit.srcRect.offset.y + step.blit.srcRect.extent.height;
-	blit.srcOffsets[1].z = 1;
-	blit.srcSubresource.mipLevel = 0;
-	blit.srcSubresource.layerCount = 1;
-	blit.dstOffsets[0].x = step.blit.dstRect.offset.x;
-	blit.dstOffsets[0].y = step.blit.dstRect.offset.y;
-	blit.dstOffsets[0].z = 0;
-	blit.dstOffsets[1].x = step.blit.dstRect.offset.x + step.blit.dstRect.extent.width;
-	blit.dstOffsets[1].y = step.blit.dstRect.offset.y + step.blit.dstRect.extent.height;
-	blit.dstOffsets[1].z = 1;
-	blit.dstSubresource.mipLevel = 0;
-	blit.dstSubresource.layerCount = 1;
-
-	VkPipelineStageFlags srcStage = 0;
-	VkPipelineStageFlags dstStage = 0;
-
-	int srcCount = 0;
-	int dstCount = 0;
 
 	// First source barriers.
 	if (step.blit.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
@@ -1814,6 +1858,26 @@ void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
 	}
 
 	recordBarrier_.Flush(cmd);
+
+	// If any validation needs to be performed here, it should probably have been done
+	// already when the blit was queued. So don't validate here.
+	VkImageBlit blit{};
+	blit.srcOffsets[0].x = step.blit.srcRect.offset.x;
+	blit.srcOffsets[0].y = step.blit.srcRect.offset.y;
+	blit.srcOffsets[0].z = 0;
+	blit.srcOffsets[1].x = step.blit.srcRect.offset.x + step.blit.srcRect.extent.width;
+	blit.srcOffsets[1].y = step.blit.srcRect.offset.y + step.blit.srcRect.extent.height;
+	blit.srcOffsets[1].z = 1;
+	blit.srcSubresource.mipLevel = 0;
+	blit.srcSubresource.layerCount = layerCount;
+	blit.dstOffsets[0].x = step.blit.dstRect.offset.x;
+	blit.dstOffsets[0].y = step.blit.dstRect.offset.y;
+	blit.dstOffsets[0].z = 0;
+	blit.dstOffsets[1].x = step.blit.dstRect.offset.x + step.blit.dstRect.extent.width;
+	blit.dstOffsets[1].y = step.blit.dstRect.offset.y + step.blit.dstRect.extent.height;
+	blit.dstOffsets[1].z = 1;
+	blit.dstSubresource.mipLevel = 0;
+	blit.dstSubresource.layerCount = layerCount;
 
 	if (step.blit.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
 		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1875,6 +1939,7 @@ void VulkanQueueRunner::SetupTransitionToTransferSrc(VKRImage &img, VkImageAspec
 		img.image,
 		0,
 		1,
+		img.numLayers,
 		imageAspect,
 		img.layout,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -1923,6 +1988,7 @@ void VulkanQueueRunner::SetupTransitionToTransferDst(VKRImage &img, VkImageAspec
 		img.image,
 		0,
 		1,
+		img.numLayers,
 		aspect,
 		img.layout,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -1952,6 +2018,7 @@ void VulkanQueueRunner::SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAs
 		img.image,
 		0,
 		1,
+		img.numLayers,
 		aspect,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -1980,7 +2047,8 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 	if (step.readback.src == nullptr) {
 		// We only take screenshots after the main render pass (anything else would be stupid) so we need to transition out of PRESENT,
 		// and then back into it.
-		TransitionImageLayout2(cmd, backbufferImage_, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+		// Regarding layers, backbuffer currently only has one layer.
+		TransitionImageLayout2(cmd, backbufferImage_, 0, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 			0, VK_ACCESS_TRANSFER_READ_BIT);
@@ -1992,6 +2060,7 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 			srcImage = &step.readback.src->color;
 		} else if (step.readback.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 			srcImage = &step.readback.src->depth;
+			_dbg_assert_(srcImage->image != VK_NULL_HANDLE);
 		} else {
 			_dbg_assert_msg_(false, "No image aspect to readback?");
 			return;
@@ -2013,7 +2082,8 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 	if (step.readback.src == nullptr) {
 		// We only take screenshots after the main render pass (anything else would be stupid) so we need to transition out of PRESENT,
 		// and then back into it.
-		TransitionImageLayout2(cmd, backbufferImage_, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+		// Regarding layers, backbuffer currently only has one layer.
+		TransitionImageLayout2(cmd, backbufferImage_, 0, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
 			VK_ACCESS_TRANSFER_READ_BIT, 0);
@@ -2044,7 +2114,7 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 	vkCmdCopyImageToBuffer(cmd, step.readback_image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readbackBuffer_, 1, &region);
 
 	// Now transfer it back to a texture.
-	TransitionImageLayout2(cmd, step.readback_image.image, 0, 1,
+	TransitionImageLayout2(cmd, step.readback_image.image, 0, 1, 1,  // I don't think we have any multilayer cases for regular textures. Above in PerformReadback, though..
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,

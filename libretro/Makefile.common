@@ -16,6 +16,7 @@ INCFLAGS += \
 	-I$(CORE_DIR) \
 	-I$(COMMONDIR) \
 	-I$(CORE_DIR)/libretro \
+	-I$(EXTDIR)/openxr \
 	-I$(EXTDIR)/glslang \
 	-I$(EXTDIR)/native \
 	-I$(EXTDIR)/zlib \
@@ -36,133 +37,131 @@ INCFLAGS += \
 	-I$(EXTDIR)/xxhash \
 	-I$(EXTDIR)/glew
 
-ifeq ($(PLATFORM_EXT), android)
-	INCFLAGS += -I$(EXTDIR)/libzip
-	SOURCES_C += \
-		$(EXTDIR)/libzip/zip_add.c \
-		$(EXTDIR)/libzip/zip_add_dir.c \
-		$(EXTDIR)/libzip/zip_add_entry.c \
-		$(EXTDIR)/libzip/zip_algorithm_deflate.c \
-		$(EXTDIR)/libzip/zip_buffer.c \
-		$(EXTDIR)/libzip/zip_close.c \
-		$(EXTDIR)/libzip/zip_delete.c \
-		$(EXTDIR)/libzip/zip_dir_add.c \
-		$(EXTDIR)/libzip/zip_dirent.c \
-		$(EXTDIR)/libzip/zip_discard.c \
-		$(EXTDIR)/libzip/zip_entry.c \
-		$(EXTDIR)/libzip/zip_error.c \
-		$(EXTDIR)/libzip/zip_error_clear.c \
-		$(EXTDIR)/libzip/zip_error_get.c \
-		$(EXTDIR)/libzip/zip_error_get_sys_type.c \
-		$(EXTDIR)/libzip/zip_error_strerror.c \
-		$(EXTDIR)/libzip/zip_error_to_str.c \
-		$(EXTDIR)/libzip/zip_extra_field.c \
-		$(EXTDIR)/libzip/zip_extra_field_api.c \
-		$(EXTDIR)/libzip/zip_fclose.c \
-		$(EXTDIR)/libzip/zip_fdopen.c \
-		$(EXTDIR)/libzip/zip_file_add.c \
-		$(EXTDIR)/libzip/zip_file_error_clear.c \
-		$(EXTDIR)/libzip/zip_file_error_get.c \
-		$(EXTDIR)/libzip/zip_file_get_comment.c \
-		$(EXTDIR)/libzip/zip_file_get_external_attributes.c \
-		$(EXTDIR)/libzip/zip_file_get_offset.c \
-		$(EXTDIR)/libzip/zip_file_rename.c \
-		$(EXTDIR)/libzip/zip_file_replace.c \
-		$(EXTDIR)/libzip/zip_file_set_comment.c \
-		$(EXTDIR)/libzip/zip_file_set_encryption.c \
-		$(EXTDIR)/libzip/zip_file_set_external_attributes.c \
-		$(EXTDIR)/libzip/zip_file_set_mtime.c \
-		$(EXTDIR)/libzip/zip_file_strerror.c \
-		$(EXTDIR)/libzip/zip_fopen.c \
-		$(EXTDIR)/libzip/zip_fopen_encrypted.c \
-		$(EXTDIR)/libzip/zip_fopen_index.c \
-		$(EXTDIR)/libzip/zip_fopen_index_encrypted.c \
-		$(EXTDIR)/libzip/zip_fread.c \
-		$(EXTDIR)/libzip/zip_fseek.c \
-		$(EXTDIR)/libzip/zip_ftell.c \
-		$(EXTDIR)/libzip/zip_get_archive_comment.c \
-		$(EXTDIR)/libzip/zip_get_archive_flag.c \
-		$(EXTDIR)/libzip/zip_get_encryption_implementation.c \
-		$(EXTDIR)/libzip/zip_get_file_comment.c \
-		$(EXTDIR)/libzip/zip_get_name.c \
-		$(EXTDIR)/libzip/zip_get_num_entries.c \
-		$(EXTDIR)/libzip/zip_get_num_files.c \
-		$(EXTDIR)/libzip/zip_hash.c \
-		$(EXTDIR)/libzip/zip_io_util.c \
-		$(EXTDIR)/libzip/zip_libzip_version.c \
-		$(EXTDIR)/libzip/zip_memdup.c \
-		$(EXTDIR)/libzip/zip_name_locate.c \
-		$(EXTDIR)/libzip/zip_new.c \
-		$(EXTDIR)/libzip/zip_open.c \
-		$(EXTDIR)/libzip/zip_pkware.c \
-		$(EXTDIR)/libzip/zip_progress.c \
-		$(EXTDIR)/libzip/zip_rename.c \
-		$(EXTDIR)/libzip/zip_replace.c \
-		$(EXTDIR)/libzip/zip_set_archive_comment.c \
-		$(EXTDIR)/libzip/zip_set_archive_flag.c \
-		$(EXTDIR)/libzip/zip_set_default_password.c \
-		$(EXTDIR)/libzip/zip_set_file_comment.c \
-		$(EXTDIR)/libzip/zip_set_file_compression.c \
-		$(EXTDIR)/libzip/zip_set_name.c \
-		$(EXTDIR)/libzip/zip_source_accept_empty.c \
-		$(EXTDIR)/libzip/zip_source_begin_write.c \
-		$(EXTDIR)/libzip/zip_source_begin_write_cloning.c \
-		$(EXTDIR)/libzip/zip_source_buffer.c \
-		$(EXTDIR)/libzip/zip_source_call.c \
-		$(EXTDIR)/libzip/zip_source_close.c \
-		$(EXTDIR)/libzip/zip_source_commit_write.c \
-		$(EXTDIR)/libzip/zip_source_compress.c \
-		$(EXTDIR)/libzip/zip_source_crc.c \
-		$(EXTDIR)/libzip/zip_source_error.c \
-		$(EXTDIR)/libzip/zip_source_file_common.c \
-		$(EXTDIR)/libzip/zip_source_file_stdio.c \
-		$(EXTDIR)/libzip/zip_source_free.c \
-		$(EXTDIR)/libzip/zip_source_function.c \
-		$(EXTDIR)/libzip/zip_source_get_file_attributes.c \
-		$(EXTDIR)/libzip/zip_source_is_deleted.c \
-		$(EXTDIR)/libzip/zip_source_layered.c \
-		$(EXTDIR)/libzip/zip_source_open.c \
-		$(EXTDIR)/libzip/zip_source_pkware_decode.c \
-		$(EXTDIR)/libzip/zip_source_pkware_encode.c \
-		$(EXTDIR)/libzip/zip_source_read.c \
-		$(EXTDIR)/libzip/zip_source_remove.c \
-		$(EXTDIR)/libzip/zip_source_rollback_write.c \
-		$(EXTDIR)/libzip/zip_source_seek.c \
-		$(EXTDIR)/libzip/zip_source_seek_write.c \
-		$(EXTDIR)/libzip/zip_source_stat.c \
-		$(EXTDIR)/libzip/zip_source_supports.c \
-		$(EXTDIR)/libzip/zip_source_tell.c \
-		$(EXTDIR)/libzip/zip_source_tell_write.c \
-		$(EXTDIR)/libzip/zip_source_window.c \
-		$(EXTDIR)/libzip/zip_source_write.c \
-		$(EXTDIR)/libzip/zip_source_zip.c \
-		$(EXTDIR)/libzip/zip_source_zip_new.c \
-		$(EXTDIR)/libzip/zip_stat.c \
-		$(EXTDIR)/libzip/zip_stat_index.c \
-		$(EXTDIR)/libzip/zip_stat_init.c \
-		$(EXTDIR)/libzip/zip_strerror.c \
-		$(EXTDIR)/libzip/zip_string.c \
-		$(EXTDIR)/libzip/zip_unchange.c \
-		$(EXTDIR)/libzip/zip_unchange_all.c \
-		$(EXTDIR)/libzip/zip_unchange_archive.c \
-		$(EXTDIR)/libzip/zip_unchange_data.c \
-		$(EXTDIR)/libzip/zip_utf-8.c \
-		$(EXTDIR)/libzip/zip_err_str.c
+INCFLAGS += -I$(EXTDIR)/libzip
+SOURCES_C += \
+	$(EXTDIR)/libzip/zip_add.c \
+	$(EXTDIR)/libzip/zip_add_dir.c \
+	$(EXTDIR)/libzip/zip_add_entry.c \
+	$(EXTDIR)/libzip/zip_algorithm_deflate.c \
+	$(EXTDIR)/libzip/zip_buffer.c \
+	$(EXTDIR)/libzip/zip_close.c \
+	$(EXTDIR)/libzip/zip_delete.c \
+	$(EXTDIR)/libzip/zip_dir_add.c \
+	$(EXTDIR)/libzip/zip_dirent.c \
+	$(EXTDIR)/libzip/zip_discard.c \
+	$(EXTDIR)/libzip/zip_entry.c \
+	$(EXTDIR)/libzip/zip_error.c \
+	$(EXTDIR)/libzip/zip_error_clear.c \
+	$(EXTDIR)/libzip/zip_error_get.c \
+	$(EXTDIR)/libzip/zip_error_get_sys_type.c \
+	$(EXTDIR)/libzip/zip_error_strerror.c \
+	$(EXTDIR)/libzip/zip_error_to_str.c \
+	$(EXTDIR)/libzip/zip_extra_field.c \
+	$(EXTDIR)/libzip/zip_extra_field_api.c \
+	$(EXTDIR)/libzip/zip_fclose.c \
+	$(EXTDIR)/libzip/zip_fdopen.c \
+	$(EXTDIR)/libzip/zip_file_add.c \
+	$(EXTDIR)/libzip/zip_file_error_clear.c \
+	$(EXTDIR)/libzip/zip_file_error_get.c \
+	$(EXTDIR)/libzip/zip_file_get_comment.c \
+	$(EXTDIR)/libzip/zip_file_get_external_attributes.c \
+	$(EXTDIR)/libzip/zip_file_get_offset.c \
+	$(EXTDIR)/libzip/zip_file_rename.c \
+	$(EXTDIR)/libzip/zip_file_replace.c \
+	$(EXTDIR)/libzip/zip_file_set_comment.c \
+	$(EXTDIR)/libzip/zip_file_set_encryption.c \
+	$(EXTDIR)/libzip/zip_file_set_external_attributes.c \
+	$(EXTDIR)/libzip/zip_file_set_mtime.c \
+	$(EXTDIR)/libzip/zip_file_strerror.c \
+	$(EXTDIR)/libzip/zip_fopen.c \
+	$(EXTDIR)/libzip/zip_fopen_encrypted.c \
+	$(EXTDIR)/libzip/zip_fopen_index.c \
+	$(EXTDIR)/libzip/zip_fopen_index_encrypted.c \
+	$(EXTDIR)/libzip/zip_fread.c \
+	$(EXTDIR)/libzip/zip_fseek.c \
+	$(EXTDIR)/libzip/zip_ftell.c \
+	$(EXTDIR)/libzip/zip_get_archive_comment.c \
+	$(EXTDIR)/libzip/zip_get_archive_flag.c \
+	$(EXTDIR)/libzip/zip_get_encryption_implementation.c \
+	$(EXTDIR)/libzip/zip_get_file_comment.c \
+	$(EXTDIR)/libzip/zip_get_name.c \
+	$(EXTDIR)/libzip/zip_get_num_entries.c \
+	$(EXTDIR)/libzip/zip_get_num_files.c \
+	$(EXTDIR)/libzip/zip_hash.c \
+	$(EXTDIR)/libzip/zip_io_util.c \
+	$(EXTDIR)/libzip/zip_libzip_version.c \
+	$(EXTDIR)/libzip/zip_memdup.c \
+	$(EXTDIR)/libzip/zip_name_locate.c \
+	$(EXTDIR)/libzip/zip_new.c \
+	$(EXTDIR)/libzip/zip_open.c \
+	$(EXTDIR)/libzip/zip_pkware.c \
+	$(EXTDIR)/libzip/zip_progress.c \
+	$(EXTDIR)/libzip/zip_rename.c \
+	$(EXTDIR)/libzip/zip_replace.c \
+	$(EXTDIR)/libzip/zip_set_archive_comment.c \
+	$(EXTDIR)/libzip/zip_set_archive_flag.c \
+	$(EXTDIR)/libzip/zip_set_default_password.c \
+	$(EXTDIR)/libzip/zip_set_file_comment.c \
+	$(EXTDIR)/libzip/zip_set_file_compression.c \
+	$(EXTDIR)/libzip/zip_set_name.c \
+	$(EXTDIR)/libzip/zip_source_accept_empty.c \
+	$(EXTDIR)/libzip/zip_source_begin_write.c \
+	$(EXTDIR)/libzip/zip_source_begin_write_cloning.c \
+	$(EXTDIR)/libzip/zip_source_buffer.c \
+	$(EXTDIR)/libzip/zip_source_call.c \
+	$(EXTDIR)/libzip/zip_source_close.c \
+	$(EXTDIR)/libzip/zip_source_commit_write.c \
+	$(EXTDIR)/libzip/zip_source_compress.c \
+	$(EXTDIR)/libzip/zip_source_crc.c \
+	$(EXTDIR)/libzip/zip_source_error.c \
+	$(EXTDIR)/libzip/zip_source_file_common.c \
+	$(EXTDIR)/libzip/zip_source_file_stdio.c \
+	$(EXTDIR)/libzip/zip_source_free.c \
+	$(EXTDIR)/libzip/zip_source_function.c \
+	$(EXTDIR)/libzip/zip_source_get_file_attributes.c \
+	$(EXTDIR)/libzip/zip_source_is_deleted.c \
+	$(EXTDIR)/libzip/zip_source_layered.c \
+	$(EXTDIR)/libzip/zip_source_open.c \
+	$(EXTDIR)/libzip/zip_source_pkware_decode.c \
+	$(EXTDIR)/libzip/zip_source_pkware_encode.c \
+	$(EXTDIR)/libzip/zip_source_read.c \
+	$(EXTDIR)/libzip/zip_source_remove.c \
+	$(EXTDIR)/libzip/zip_source_rollback_write.c \
+	$(EXTDIR)/libzip/zip_source_seek.c \
+	$(EXTDIR)/libzip/zip_source_seek_write.c \
+	$(EXTDIR)/libzip/zip_source_stat.c \
+	$(EXTDIR)/libzip/zip_source_supports.c \
+	$(EXTDIR)/libzip/zip_source_tell.c \
+	$(EXTDIR)/libzip/zip_source_tell_write.c \
+	$(EXTDIR)/libzip/zip_source_window.c \
+	$(EXTDIR)/libzip/zip_source_write.c \
+	$(EXTDIR)/libzip/zip_source_zip.c \
+	$(EXTDIR)/libzip/zip_source_zip_new.c \
+	$(EXTDIR)/libzip/zip_stat.c \
+	$(EXTDIR)/libzip/zip_stat_index.c \
+	$(EXTDIR)/libzip/zip_stat_init.c \
+	$(EXTDIR)/libzip/zip_strerror.c \
+	$(EXTDIR)/libzip/zip_string.c \
+	$(EXTDIR)/libzip/zip_unchange.c \
+	$(EXTDIR)/libzip/zip_unchange_all.c \
+	$(EXTDIR)/libzip/zip_unchange_archive.c \
+	$(EXTDIR)/libzip/zip_unchange_data.c \
+	$(EXTDIR)/libzip/zip_utf-8.c \
+	$(EXTDIR)/libzip/zip_err_str.c
 
-	ifeq ($(PLATFORM_EXT), win32)
-		SOURCES_C += \
-			$(EXTDIR)/libzip/zip_source_file_win32.c \
-			$(EXTDIR)/libzip/zip_source_file_win32_named.c \
-			$(EXTDIR)/libzip/zip_source_file_win32_utf16.c \
-			$(EXTDIR)/libzip/zip_source_file_win32_utf8.c \
-			$(EXTDIR)/libzip/zip_source_file_win32_ansi.c \
-			$(EXTDIR)/libzip/zip_random_win32.c
-	else
-		SOURCES_C += \
-			$(EXTDIR)/libzip/zip_mkstempm.c \
-			$(EXTDIR)/libzip/zip_source_file_stdio_named.c \
-			$(EXTDIR)/libzip/zip_random_unix.c
-	endif
+ifeq ($(PLATFORM_EXT), win32)
+	SOURCES_C += \
+		$(EXTDIR)/libzip/zip_source_file_win32.c \
+		$(EXTDIR)/libzip/zip_source_file_win32_named.c \
+		$(EXTDIR)/libzip/zip_source_file_win32_utf16.c \
+		$(EXTDIR)/libzip/zip_source_file_win32_utf8.c \
+		$(EXTDIR)/libzip/zip_source_file_win32_ansi.c \
+		$(EXTDIR)/libzip/zip_random_win32.c
+else
+	SOURCES_C += \
+		$(EXTDIR)/libzip/zip_mkstempm.c \
+		$(EXTDIR)/libzip/zip_source_file_stdio_named.c \
+		$(EXTDIR)/libzip/zip_random_unix.c
 endif
 
 SOURCES_C += $(LIBRETRODIR)/ext/glew/glew.c
@@ -209,6 +208,9 @@ SOURCES_CXX += \
 	$(EXTDIR)/gason/gason.cpp
 
 SOURCES_CXX += $(EXTDIR)/cityhash/city.cpp
+
+SOURCES_CXX += \
+	$(EXTDIR)/armips/Core/Types.cpp
 
 SOURCES_CXX += \
 	$(COMMONDIR)/Crypto/md5.cpp \
@@ -268,6 +270,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Math/curves.cpp \
 	$(COMMONDIR)/Math/expression_parser.cpp \
 	$(COMMONDIR)/Math/math_util.cpp \
+	$(COMMONDIR)/Math/Statistics.cpp \
 	$(COMMONDIR)/Math/lin/vec3.cpp \
 	$(COMMONDIR)/Math/lin/matrix4x4.cpp \
 	$(COMMONDIR)/Net/HTTPClient.cpp \
@@ -310,6 +313,15 @@ SOURCES_CXX += \
 	$(COMMONDIR)/StringUtils.cpp \
 	$(COMMONDIR)/TimeUtil.cpp
 
+SOURCES_CXX += \
+	$(COMMONDIR)/VR/OpenXRLoader.cpp \
+	$(COMMONDIR)/VR/PPSSPPVR.cpp \
+	$(COMMONDIR)/VR/VRBase.cpp \
+	$(COMMONDIR)/VR/VRMath.cpp \
+	$(COMMONDIR)/VR/VRFramebuffer.cpp \
+	$(COMMONDIR)/VR/VRInput.cpp \
+	$(COMMONDIR)/VR/VRRenderer.cpp
+
 SOURCES_C +=\
 	$(COMMONDIR)/GPU/OpenGL/gl3stub.c \
 	$(COMMONDIR)/Math/fast/fast_matrix.c
@@ -342,6 +354,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Debugger/Stepping.cpp \
 	$(GPUDIR)/Common/FragmentShaderGenerator.cpp \
 	$(GPUDIR)/Common/VertexShaderGenerator.cpp \
+	$(GPUDIR)/Common/GeometryShaderGenerator.cpp \
 	$(GPUDIR)/Common/TextureCacheCommon.cpp \
 	$(GPUDIR)/Common/TextureScalerCommon.cpp \
 	$(GPUDIR)/Common/SoftwareTransformCommon.cpp \

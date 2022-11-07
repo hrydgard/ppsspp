@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <functional>
 
 #include "Common/Log.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
@@ -190,6 +191,7 @@ public:
 	VkResult ReinitSurface();
 
 	bool InitSwapchain();
+	void SetCbGetDrawSize(std::function<VkExtent2D()>);
 
 	void DestroySwapchain();
 	void DestroySurface();
@@ -219,6 +221,9 @@ public:
 		if (extensionsLookup_.EXT_debug_utils) {
 			SetDebugNameImpl((uint64_t)handle, type, name);
 		}
+	}
+	bool DebugLayerEnabled() const {
+		return extensionsLookup_.EXT_debug_utils;
 	}
 
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
@@ -250,6 +255,11 @@ public:
 		VkPhysicalDeviceExternalMemoryHostPropertiesEXT externalMemoryHostProperties;
 	};
 
+	struct AllPhysicalDeviceFeatures {
+		VkPhysicalDeviceFeatures standard;
+		VkPhysicalDeviceMultiviewFeatures multiview;
+	};
+
 	const PhysicalDeviceProps &GetPhysicalDeviceProperties(int i = -1) const {
 		if (i < 0)
 			i = GetCurrentPhysicalDeviceIndex();
@@ -274,8 +284,8 @@ public:
 	}
 
 	struct PhysicalDeviceFeatures {
-		VkPhysicalDeviceFeatures available{};
-		VkPhysicalDeviceFeatures enabled{};
+		AllPhysicalDeviceFeatures available{};
+		AllPhysicalDeviceFeatures enabled{};
 	};
 
 	const PhysicalDeviceFeatures &GetDeviceFeatures() const { return deviceFeatures_; }
@@ -363,6 +373,7 @@ private:
 	// that we really don't want in everything that uses VulkanContext.
 	void *winsysData1_;
 	void *winsysData2_;
+	std::function<VkExtent2D()> cbGetDrawSize_;
 
 	VkInstance instance_ = VK_NULL_HANDLE;
 	VkDevice device_ = VK_NULL_HANDLE;
@@ -433,7 +444,7 @@ private:
 };
 
 // Detailed control.
-void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int mipLevels, VkImageAspectFlags aspectMask,
+void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int mipLevels, int numLayers, VkImageAspectFlags aspectMask,
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
 	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
 	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask);
@@ -450,7 +461,6 @@ enum class GLSLVariant {
 
 bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, GLSLVariant variant, std::vector<uint32_t> &spirv, std::string *errorMessage);
 
-const char *VulkanResultToString(VkResult res);
 const char *VulkanColorSpaceToString(VkColorSpaceKHR colorSpace);
 const char *VulkanFormatToString(VkFormat format);
 

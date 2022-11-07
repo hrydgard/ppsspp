@@ -110,6 +110,11 @@ VkCommandBuffer FrameData::GetInitCmd(VulkanContext *vulkan) {
 		if (res != VK_SUCCESS) {
 			return VK_NULL_HANDLE;
 		}
+
+		// Good spot to reset the query pool.
+		vkCmdResetQueryPool(initCmd, profile.queryPool, 0, MAX_TIMESTAMP_QUERIES);
+		vkCmdWriteTimestamp(initCmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, profile.queryPool, 0);
+
 		hasInitCommands = true;
 	}
 	return initCmd;

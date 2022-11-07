@@ -206,7 +206,7 @@ void Section::Set(const char* key, const char* newValue)
 	else
 	{
 		// The key did not already exist in this section - let's add it.
-		lines.push_back(std::string(key) + " = " + EscapeComments(newValue));
+		lines.emplace_back(std::string(key) + " = " + EscapeComments(newValue));
 	}
 }
 
@@ -272,7 +272,7 @@ void Section::Set(const char* key, const std::vector<std::string>& newValues)
 }
 
 void Section::AddComment(const std::string &comment) {
-	lines.push_back("# " + comment);
+	lines.emplace_back("# " + comment);
 }
 
 bool Section::Get(const char* key, std::vector<std::string>& values) 

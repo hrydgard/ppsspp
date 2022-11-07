@@ -59,6 +59,7 @@ static const int audioSamplesBytes = audioSamples * 4;
 static int videoPixelMode = GE_CMODE_32BIT_ABGR8888;
 static int videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 static int psmfPlayerLibVersion = 0;
+static u32 psmfPlayerLibcrc = 0;
 
 int eventPsmfPlayerStatusChange = -1;
 
@@ -696,8 +697,9 @@ void __PsmfInit() {
 	eventPsmfPlayerStatusChange = CoreTiming::RegisterEvent("PsmfPlayerStatusChange", &__PsmfPlayerStatusChange);
 }
 
-void __PsmfPlayerLoadModule(int devkitVersion) {
+void __PsmfPlayerLoadModule(int devkitVersion, u32 crc) {
 	psmfPlayerLibVersion = devkitVersion;
+	psmfPlayerLibcrc = crc;
 }
 
 void __PsmfDoState(PointerWrap &p) {
@@ -709,7 +711,7 @@ void __PsmfDoState(PointerWrap &p) {
 }
 
 void __PsmfPlayerDoState(PointerWrap &p) {
-	auto s = p.Section("scePsmfPlayer", 1, 3);
+	auto s = p.Section("scePsmfPlayer", 1, 4);
 	if (!s)
 		return;
 
@@ -722,6 +724,11 @@ void __PsmfPlayerDoState(PointerWrap &p) {
 		Do(p, eventPsmfPlayerStatusChange);
 	}
 	CoreTiming::RestoreRegisterEvent(eventPsmfPlayerStatusChange, "PsmfPlayerStatusChangeEvent", &__PsmfPlayerStatusChange);
+	if (s < 4) {
+		psmfPlayerLibcrc = 0;
+	} else {
+		Do(p, psmfPlayerLibcrc);
+	}
 	if (s < 2) {
 		// Assume the latest, which is what we were emulating before.
 		psmfPlayerLibVersion = 0x06060010;
@@ -1157,7 +1164,8 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr) {
 
 	int delayUs = 20000;
 	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_INIT, delayUs);
-	return hleLogSuccessInfoI(ME, hleDelayResult(0, "player create", delayUs));
+	INFO_LOG(ME, "psmfplayer create, psmfPlayerLibVersion 0x%0x, psmfPlayerLibcrc %x", psmfPlayerLibVersion, psmfPlayerLibcrc);
+	return hleDelayResult(0, "player create", delayUs);	
 }
 
 static int scePsmfPlayerStop(u32 psmfPlayer) {
@@ -1427,7 +1435,7 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	psmfplayer->playMode = playerData->playMode;
 	psmfplayer->playSpeed = playerData->playSpeed;
 
-	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d,(mode %d, speed %d)", psmfPlayer, psmfPlayerData, initPts, playerData->playMode, playerData->playSpeed);
+	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d (mode %d, speed %d)", psmfPlayer, psmfPlayerData, initPts, playerData->playMode, playerData->playSpeed);
 
 	// Does not alter current pts, it just catches up when Update()/etc. get there.
 
@@ -1625,7 +1633,7 @@ static int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	int bufw = videoData->frameWidth == 0 ? 512 : videoData->frameWidth & ~1;
 	// Always write the video frame, even after the video has ended.
 	int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, bufw, videoPixelMode);
-	gpu->NotifyVideoUpload(videoData->displaybuf, displaybufSize, bufw, videoPixelMode);
+	gpu->PerformWriteFormattedFromMemory(videoData->displaybuf, displaybufSize, bufw, (GEBufferFormat)videoPixelMode);
 	__PsmfUpdatePts(psmfplayer, videoData);
 
 	_PsmfPlayerFillRingbuffer(psmfplayer);

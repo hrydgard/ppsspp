@@ -521,7 +521,7 @@ void PromptScreen::TriggerFinish(DialogResult result) {
 	UIDialogScreenWithBackground::TriggerFinish(result);
 }
 
-PostProcScreen::PostProcScreen(const std::string &title, int id) : ListPopupScreen(title), id_(id) { }
+PostProcScreen::PostProcScreen(const std::string &title, int id, bool showStereoShaders) : ListPopupScreen(title), id_(id), showStereoShaders_(showStereoShaders) { }
 
 void PostProcScreen::CreateViews() {
 	auto ps = GetI18NCategory("PostShaders");
@@ -530,12 +530,16 @@ void PostProcScreen::CreateViews() {
 	std::vector<std::string> items;
 	int selected = -1;
 	const std::string selectedName = id_ >= (int)g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[id_];
+
 	for (int i = 0; i < (int)shaders_.size(); i++) {
 		if (!shaders_[i].visible)
 			continue;
+		if (shaders_[i].isStereo != showStereoShaders_)
+			continue;
 		if (shaders_[i].section == selectedName)
-			selected = i;
+			selected = (int)indexTranslation_.size();
 		items.push_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
+		indexTranslation_.push_back(i);
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);
 	ListPopupScreen::CreateViews();
@@ -544,11 +548,16 @@ void PostProcScreen::CreateViews() {
 void PostProcScreen::OnCompleted(DialogResult result) {
 	if (result != DR_OK)
 		return;
-	const std::string &value = shaders_[listView_->GetSelected()].section;
-	if (id_ < (int)g_Config.vPostShaderNames.size())
-		g_Config.vPostShaderNames[id_] = value;
-	else
-		g_Config.vPostShaderNames.push_back(value);
+	const std::string &value = shaders_[indexTranslation_[listView_->GetSelected()]].section;
+	// I feel this logic belongs more in the caller, but eh...
+	if (showStereoShaders_) {
+		g_Config.sStereoToMonoShader = value;
+	} else {
+		if (id_ < (int)g_Config.vPostShaderNames.size())
+			g_Config.vPostShaderNames[id_] = value;
+		else
+			g_Config.vPostShaderNames.push_back(value);
+	}
 }
 
 TextureShaderScreen::TextureShaderScreen(const std::string &title) : ListPopupScreen(title) {}

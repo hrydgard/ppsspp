@@ -1256,11 +1256,11 @@ void PPGeDisableTexture()
 std::vector<PPGeImage *> PPGeImage::loadedTextures_;
 
 PPGeImage::PPGeImage(const std::string &pspFilename)
-	: filename_(pspFilename), texture_(0) {
+	: filename_(pspFilename) {
 }
 
 PPGeImage::PPGeImage(u32 pngPointer, size_t pngSize)
-	: filename_(""), png_(pngPointer), size_(pngSize), texture_(0) {
+	: filename_(""), png_(pngPointer), size_(pngSize) {
 }
 
 PPGeImage::~PPGeImage() {
@@ -1268,6 +1268,7 @@ PPGeImage::~PPGeImage() {
 }
 
 bool PPGeImage::Load() {
+	loadFailed_ = false;
 	Free();
 
 	// In case it fails to load.
@@ -1281,7 +1282,8 @@ bool PPGeImage::Load() {
 	} else {
 		std::vector<u8> pngData;
 		if (pspFileSystem.ReadEntireFile(filename_, pngData) < 0) {
-			WARN_LOG(SCEGE, "Bad PPGeImage - cannot load file");
+			WARN_LOG(SCEGE, "PPGeImage cannot load file %s", filename_.c_str());
+			loadFailed_ = true;
 			return false;
 		}
 
@@ -1289,6 +1291,7 @@ bool PPGeImage::Load() {
 	}
 	if (!success) {
 		WARN_LOG(SCEGE, "Bad PPGeImage - not a valid png");
+		loadFailed_ = true;
 		return false;
 	}
 
@@ -1298,6 +1301,7 @@ bool PPGeImage::Load() {
 	if (texture_ == 0) {
 		free(textureData);
 		WARN_LOG(SCEGE, "Bad PPGeImage - unable to allocate space for texture");
+		// Don't set loadFailed_ here, we'll try again if there's more memory later.
 		return false;
 	}
 
@@ -1310,16 +1314,28 @@ bool PPGeImage::Load() {
 	return true;
 }
 
+bool PPGeImage::IsValid() {
+	if (loadFailed_)
+		return false;
+
+	if (texture_ == 0) {
+		Decimate();
+		return Load();
+	}
+	return true;
+}
+
 void PPGeImage::Free() {
 	if (texture_ != 0) {
 		kernelMemory.Free(texture_);
 		texture_ = 0;
 		loadedTextures_.erase(std::remove(loadedTextures_.begin(), loadedTextures_.end(), this), loadedTextures_.end());
+		loadFailed_ = false;
 	}
 }
 
 void PPGeImage::DoState(PointerWrap &p) {
-	auto s = p.Section("PPGeImage", 1);
+	auto s = p.Section("PPGeImage", 1, 2);
 	if (!s)
 		return;
 
@@ -1330,6 +1346,11 @@ void PPGeImage::DoState(PointerWrap &p) {
 	Do(p, width_);
 	Do(p, height_);
 	Do(p, lastFrame_);
+	if (s >= 2) {
+		Do(p, loadFailed_);
+	} else {
+		loadFailed_ = false;
+	}
 }
 
 void PPGeImage::CompatLoad(u32 texture, int width, int height) {
@@ -1337,6 +1358,7 @@ void PPGeImage::CompatLoad(u32 texture, int width, int height) {
 	texture_ = texture;
 	width_ = width;
 	height_ = height;
+	loadFailed_ = false;
 }
 
 void PPGeImage::Decimate(int age) {
@@ -1351,7 +1373,7 @@ void PPGeImage::Decimate(int age) {
 }
 
 void PPGeImage::SetTexture() {
-	if (texture_ == 0) {
+	if (texture_ == 0 && !loadFailed_) {
 		Decimate();
 		Load();
 	}

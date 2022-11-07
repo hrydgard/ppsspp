@@ -392,7 +392,8 @@ int sceKernelDcacheInvalidateRange(u32 addr, int size)
 
 int sceKernelIcacheInvalidateRange(u32 addr, int size) {
 	DEBUG_LOG(CPU, "sceKernelIcacheInvalidateRange(%08x, %i)", addr, size);
-	currentMIPS->InvalidateICache(addr, size);
+	if (size != 0)
+		currentMIPS->InvalidateICache(addr, size);
 	return 0;
 }
 
@@ -712,7 +713,7 @@ const HLEFunction ThreadManForUser[] =
 	{0XA66B0120, &WrapU_IU<sceKernelReferEventFlagStatus>,           "sceKernelReferEventFlagStatus",             'x', "ix"      },
 
 	{0X8FFDF9A2, &WrapI_IIU<sceKernelCancelSema>,                    "sceKernelCancelSema",                       'i', "iix"     },
-	{0XD6DA4BA1, &WrapI_CUIIU<sceKernelCreateSema>,                  "sceKernelCreateSema",                       'i', "sxiix"   },
+	{0XD6DA4BA1, &WrapI_CUIIU<sceKernelCreateSema>,                  "sceKernelCreateSema",                       'i', "sxiip"   },
 	{0X28B6489C, &WrapI_I<sceKernelDeleteSema>,                      "sceKernelDeleteSema",                       'i', "i"       },
 	{0X58B1F937, &WrapI_II<sceKernelPollSema>,                       "sceKernelPollSema",                         'i', "ii"      },
 	{0XBC6FEBC5, &WrapI_IU<sceKernelReferSemaStatus>,                "sceKernelReferSemaStatus",                  'i', "ip"      },
@@ -734,7 +735,7 @@ const HLEFunction ThreadManForUser[] =
 	{0XB011B11F, &WrapI_IIU<sceKernelLockMutex>,                     "sceKernelLockMutex",                        'i', "iix",    HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0X5BF4DD27, &WrapI_IIU<sceKernelLockMutexCB>,                   "sceKernelLockMutexCB",                      'i', "iix",    HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0X6B30100F, &WrapI_II<sceKernelUnlockMutex>,                    "sceKernelUnlockMutex",                      'i', "ii"      },
-	{0XB7D098C6, &WrapI_CUIU<sceKernelCreateMutex>,                  "sceKernelCreateMutex",                      'i', "sxix"    },
+	{0XB7D098C6, &WrapI_CUIU<sceKernelCreateMutex>,                  "sceKernelCreateMutex",                      'i', "sxip"    },
 	{0X0DDCD2C9, &WrapI_II<sceKernelTryLockMutex>,                   "sceKernelTryLockMutex",                     'i', "ii"      },
 	{0XA9C2CB9A, &WrapI_IU<sceKernelReferMutexStatus>,               "sceKernelReferMutexStatus",                 'i', "ip"      },
 	{0X87D9223C, &WrapI_IIU<sceKernelCancelMutex>,                   "sceKernelCancelMutex",                      'i', "iix"     },
@@ -898,7 +899,7 @@ const HLEFunction ThreadManForKernel[] =
 	{0X75156E8F, &WrapI_I<sceKernelResumeThread>,                    "sceKernelResumeThread",                     'i', "i",      HLE_KERNEL_SYSCALL },
 	{0X94416130, &WrapU_UUUU<sceKernelGetThreadmanIdList>,           "sceKernelGetThreadmanIdList",               'x', "xxxx",   HLE_KERNEL_SYSCALL },
 	{0x278c0df5, &WrapI_IU<sceKernelWaitThreadEnd>,                  "sceKernelWaitThreadEnd",                    'i', "ix",     HLE_KERNEL_SYSCALL },
-	{0xd6da4ba1, &WrapI_CUIIU<sceKernelCreateSema>,                  "sceKernelCreateSema",                       'i', "sxiix",  HLE_KERNEL_SYSCALL },
+	{0xd6da4ba1, &WrapI_CUIIU<sceKernelCreateSema>,                  "sceKernelCreateSema",                       'i', "sxiip",  HLE_KERNEL_SYSCALL },
 	{0x28b6489c, &WrapI_I<sceKernelDeleteSema>,                      "sceKernelDeleteSema",                       'i', "i",      HLE_KERNEL_SYSCALL },
 	{0x3f53e640, &WrapI_II<sceKernelSignalSema>,                     "sceKernelSignalSema",                       'i', "ii",     HLE_KERNEL_SYSCALL },
 	{0x4e3a1105, &WrapI_IIU<sceKernelWaitSema>,                      "sceKernelWaitSema",                         'i', "iix",    HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL},

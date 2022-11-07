@@ -12,6 +12,7 @@
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #if 0 // def _DEBUG
 #define VLOG(...) NOTICE_LOG(G3D, __VA_ARGS__)
@@ -30,8 +31,9 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	// Fill in the last part of the desc since now it's time to block.
 	VkShaderModule vs = desc->vertexShader->BlockUntilReady();
 	VkShaderModule fs = desc->fragmentShader->BlockUntilReady();
+	VkShaderModule gs = desc->geometryShader ? desc->geometryShader->BlockUntilReady() : VK_NULL_HANDLE;
 
-	if (!vs || !fs) {
+	if (!vs || !fs || (!gs && desc->geometryShader)) {
 		ERROR_LOG(G3D, "Failed creating graphics pipeline - missing shader modules");
 		// We're kinda screwed here?
 		return false;
@@ -49,6 +51,14 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	ss[1].pSpecializationInfo = nullptr;
 	ss[1].module = fs;
 	ss[1].pName = "main";
+	if (gs) {
+		stageCount++;
+		ss[2].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		ss[2].stage = VK_SHADER_STAGE_GEOMETRY_BIT;
+		ss[2].pSpecializationInfo = nullptr;
+		ss[2].module = gs;
+		ss[2].pName = "main";
+	}
 
 	VkGraphicsPipelineCreateInfo pipe{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 	pipe.pStages = ss;
@@ -83,10 +93,10 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		// Would really like to log more here, we could probably attach more info to desc.
 		//
 		// At least create a null placeholder to avoid creating over and over if something is broken.
-		pipeline[rpType]->Post(VK_NULL_HANDLE);
+		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
 		success = false;
 	} else if (result != VK_SUCCESS) {
-		pipeline[rpType]->Post(VK_NULL_HANDLE);
+		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
 		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		success = false;
 	} else {
@@ -94,14 +104,14 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		if (!tag.empty()) {
 			vulkan->SetDebugName(vkpipeline, VK_OBJECT_TYPE_PIPELINE, tag.c_str());
 		}
-		pipeline[rpType]->Post(vkpipeline);
+		pipeline[(size_t)rpType]->Post(vkpipeline);
 	}
 
 	return success;
 }
 
 void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
-	for (int i = 0; i < RP_TYPE_COUNT; i++) {
+	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 		if (!pipeline[i])
 			continue;
 		VkPipeline pipeline = this->pipeline[i]->BlockUntilReady();
@@ -115,7 +125,7 @@ void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
 
 u32 VKRGraphicsPipeline::GetVariantsBitmask() const {
 	u32 bitmask = 0;
-	for (int i = 0; i < RP_TYPE_COUNT; i++) {
+	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 		if (pipeline[i]) {
 			bitmask |= 1 << i;
 		}
@@ -145,15 +155,14 @@ bool VKRComputePipeline::Create(VulkanContext *vulkan) {
 	return success;
 }
 
-VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, bool createDepthStencilBuffer, const char *tag) : vulkan_(vk), tag_(tag) {
-	width = _width;
-	height = _height;
+VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, bool createDepthStencilBuffer, const char *tag)
+	: vulkan_(vk), tag_(tag), width(_width), height(_height), numLayers(_numLayers) {
 
 	_dbg_assert_(tag);
 
-	CreateImage(vulkan_, initCmd, color, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
+	CreateImage(vulkan_, initCmd, color, width, height, numLayers, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 	if (createDepthStencilBuffer) {
-		CreateImage(vulkan_, initCmd, depth, width, height, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
+		CreateImage(vulkan_, initCmd, depth, width, height, numLayers, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 	}
 
 	UpdateTag(tag);
@@ -166,13 +175,13 @@ void VKRFramebuffer::UpdateTag(const char *newTag) {
 	char name[128];
 	snprintf(name, sizeof(name), "fb_color_%s", tag_.c_str());
 	vulkan_->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, name);
-	vulkan_->SetDebugName(color.imageView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
+	vulkan_->SetDebugName(color.rtView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
 	if (depth.image) {
 		snprintf(name, sizeof(name), "fb_depth_%s", tag_.c_str());
 		vulkan_->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, name);
-		vulkan_->SetDebugName(depth.imageView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
+		vulkan_->SetDebugName(depth.rtView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
 	}
-	for (int rpType = 0; rpType < RP_TYPE_COUNT; rpType++) {
+	for (size_t rpType = 0; rpType < (size_t)RenderPassType::TYPE_COUNT; rpType++) {
 		if (framebuf[rpType]) {
 			snprintf(name, sizeof(name), "fb_%s", tag_.c_str());
 			vulkan_->SetDebugName(framebuf[(int)rpType], VK_OBJECT_TYPE_FRAMEBUFFER, name);
@@ -181,6 +190,8 @@ void VKRFramebuffer::UpdateTag(const char *newTag) {
 }
 
 VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType) {
+	bool multiview = RenderPassTypeHasMultiView(rpType);
+
 	if (framebuf[(int)rpType]) {
 		return framebuf[(int)rpType];
 	}
@@ -188,19 +199,17 @@ VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPas
 	VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
 	VkImageView views[2]{};
 
-	bool hasDepth = rpType == RP_TYPE_BACKBUFFER || rpType == RP_TYPE_COLOR_DEPTH || rpType == RP_TYPE_COLOR_DEPTH_INPUT;
-
-	views[0] = color.imageView;
+	bool hasDepth = RenderPassTypeHasDepth(rpType);
+	views[0] = color.rtView;  // 2D array texture if multilayered.
 	if (hasDepth) {
-		_dbg_assert_(depth.imageView != VK_NULL_HANDLE);
-		views[1] = depth.imageView;
+		views[1] = depth.rtView;
 	}
 	fbci.renderPass = compatibleRenderPass->Get(vulkan_, rpType);
 	fbci.attachmentCount = hasDepth ? 2 : 1;
 	fbci.pAttachments = views;
 	fbci.width = width;
 	fbci.height = height;
-	fbci.layers = 1;
+	fbci.layers = 1;  // With multiview, this should be set as 1.
 
 	VkResult res = vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf[(int)rpType]);
 	_assert_(res == VK_SUCCESS);
@@ -213,10 +222,24 @@ VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPas
 }
 
 VKRFramebuffer::~VKRFramebuffer() {
-	if (color.imageView)
-		vulkan_->Delete().QueueDeleteImageView(color.imageView);
-	if (depth.imageView)
-		vulkan_->Delete().QueueDeleteImageView(depth.imageView);
+	// Get rid of the views first, feels cleaner (but in reality doesn't matter).
+	if (color.rtView)
+		vulkan_->Delete().QueueDeleteImageView(color.rtView);
+	if (depth.rtView)
+		vulkan_->Delete().QueueDeleteImageView(depth.rtView);
+	if (color.texAllLayersView)
+		vulkan_->Delete().QueueDeleteImageView(color.texAllLayersView);
+	if (depth.texAllLayersView)
+		vulkan_->Delete().QueueDeleteImageView(depth.texAllLayersView);
+	for (int i = 0; i < 2; i++) {
+		if (color.texLayerViews[i]) {
+			vulkan_->Delete().QueueDeleteImageView(color.texLayerViews[i]);
+		}
+		if (depth.texLayerViews[i]) {
+			vulkan_->Delete().QueueDeleteImageView(depth.texLayerViews[i]);
+		}
+	}
+
 	if (color.image) {
 		_dbg_assert_(color.alloc);
 		vulkan_->Delete().QueueDeleteImageAllocation(color.image, color.alloc);
@@ -225,17 +248,19 @@ VKRFramebuffer::~VKRFramebuffer() {
 		_dbg_assert_(depth.alloc);
 		vulkan_->Delete().QueueDeleteImageAllocation(depth.image, depth.alloc);
 	}
-	if (depth.depthSampleView)
-		vulkan_->Delete().QueueDeleteImageView(depth.depthSampleView);
 	for (auto &fb : framebuf) {
-		if (fb)
+		if (fb) {
 			vulkan_->Delete().QueueDeleteFramebuffer(fb);
+		}
 	}
 }
 
-void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag) {
+void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag) {
+	// We don't support more exotic layer setups for now. Mono or stereo.
+	_dbg_assert_(numLayers == 1 || numLayers == 2);
+
 	VkImageCreateInfo ici{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-	ici.arrayLayers = 1;
+	ici.arrayLayers = numLayers;
 	ici.mipLevels = 1;
 	ici.extent.width = width;
 	ici.extent.height = height;
@@ -266,20 +291,37 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	ivci.components = { VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY };
 	ivci.format = ici.format;
 	ivci.image = img.image;
-	ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	ivci.viewType = numLayers == 1 ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 	ivci.subresourceRange.aspectMask = aspects;
-	ivci.subresourceRange.layerCount = 1;
+	ivci.subresourceRange.layerCount = numLayers;
 	ivci.subresourceRange.levelCount = 1;
-	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.imageView);
+	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.rtView);
+	vulkan->SetDebugName(img.rtView, VK_OBJECT_TYPE_IMAGE_VIEW, tag);
+
 	_dbg_assert_(res == VK_SUCCESS);
 
-	// Separate view for texture sampling that only exposes depth.
+	// Separate view for texture sampling all layers together.
 	if (!color) {
 		ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.depthSampleView);
+	}
+
+	ivci.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;  // layered for consistency, even if single image.
+	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.texAllLayersView);
+	vulkan->SetDebugName(img.texAllLayersView, VK_OBJECT_TYPE_IMAGE_VIEW, tag);
+
+	// Create 2D views for both layers.
+	// Useful when multipassing shaders that don't yet exist in a single-pass-stereo version.
+	for (int i = 0; i < numLayers; i++) {
+		ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		ivci.subresourceRange.layerCount = 1;
+		ivci.subresourceRange.baseArrayLayer = i;
+		res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.texLayerViews[i]);
+		if (vulkan->DebugLayerEnabled()) {
+			char temp[128];
+			snprintf(temp, sizeof(temp), "%s_layer%d", tag, i);
+			vulkan->SetDebugName(img.texLayerViews[i], VK_OBJECT_TYPE_IMAGE_VIEW, temp);
+		}
 		_dbg_assert_(res == VK_SUCCESS);
-	} else {
-		img.depthSampleView = VK_NULL_HANDLE;
 	}
 
 	VkPipelineStageFlags dstStage;
@@ -302,17 +344,22 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 		return;
 	}
 
-	TransitionImageLayout2(cmd, img.image, 0, 1, aspects,
+	TransitionImageLayout2(cmd, img.image, 0, 1, numLayers, aspects,
 		VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
 		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, dstStage,
 		0, dstAccessMask);
 	img.layout = initialLayout;
-
 	img.format = format;
 	img.tag = tag ? tag : "N/A";
+	img.numLayers = numLayers;
 }
 
-VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan), queueRunner_(vulkan) {
+VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan)
+	: vulkan_(vulkan), queueRunner_(vulkan),
+	initTimeMs_("initTimeMs"),
+	totalGPUTimeMs_("totalGPUTimeMs"),
+	renderCPUTimeMs_("renderCPUTimeMs")
+{
 	inflightFramesAtStart_ = vulkan_->GetInflightFrames();
 
 	frameDataShared_.Init(vulkan);
@@ -564,14 +611,25 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 				std::stringstream str;
 
 				char line[256];
-				snprintf(line, sizeof(line), "Total GPU time: %0.3f ms\n", ((double)((queryResults[numQueries - 1] - queryResults[0]) & timestampDiffMask) * timestampConversionFactor));
+				totalGPUTimeMs_.Update(((double)((queryResults[numQueries - 1] - queryResults[0]) & timestampDiffMask) * timestampConversionFactor));
+				totalGPUTimeMs_.Format(line, sizeof(line));
 				str << line;
-				snprintf(line, sizeof(line), "Render CPU time: %0.3f ms\n", (frameData.profile.cpuEndTime - frameData.profile.cpuStartTime) * 1000.0);
+				renderCPUTimeMs_.Update((frameData.profile.cpuEndTime - frameData.profile.cpuStartTime) * 1000.0);
+				renderCPUTimeMs_.Format(line, sizeof(line));
 				str << line;
 				for (int i = 0; i < numQueries - 1; i++) {
 					uint64_t diff = (queryResults[i + 1] - queryResults[i]) & timestampDiffMask;
 					double milliseconds = (double)diff * timestampConversionFactor;
-					snprintf(line, sizeof(line), "%s: %0.3f ms\n", frameData.profile.timestampDescriptions[i + 1].c_str(), milliseconds);
+
+					// Can't use SimpleStat for these very easily since these are dynamic per frame.
+					// Only the first one is static, the initCmd.
+					// Could try some hashtable tracking for the rest, later.
+					if (i == 0) {
+						initTimeMs_.Update(milliseconds);
+						initTimeMs_.Format(line, sizeof(line));
+					} else {
+						snprintf(line, sizeof(line), "%s: %0.3f ms\n", frameData.profile.timestampDescriptions[i + 1].c_str(), milliseconds);
+					}
 					str << line;
 				}
 				frameData.profile.profileSummary = str.str();
@@ -586,9 +644,9 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);
 
+	insideFrame_ = true;
 	vulkan_->BeginFrame(enableLogProfiler ? GetInitCmd() : VK_NULL_HANDLE);
 
-	insideFrame_ = true;
 	renderStepOffset_ = 0;
 
 	frameData.profile.timestampDescriptions.clear();
@@ -600,8 +658,6 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 		frameData.profile.timestampDescriptions.push_back("initCmd Begin");
 		frameData.profile.timestampDescriptions.push_back("initCmd");
 		VkCommandBuffer initCmd = GetInitCmd();
-		vkCmdResetQueryPool(initCmd, frameData.profile.queryPool, 0, MAX_TIMESTAMP_QUERIES);
-		vkCmdWriteTimestamp(initCmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frameData.profile.queryPool, 0);
 	}
 }
 
@@ -632,7 +688,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
 		compileMutex_.lock();
 		bool needsCompile = false;
-		for (int i = 0; i < RP_TYPE_COUNT; i++) {
+		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (!(variantBitmask & (1 << i)))
 				continue;
 			RenderPassType rpType = (RenderPassType)i;
@@ -651,7 +707,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 				}
 			}
 
-			pipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
+			pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
 			compileQueue_.push_back(CompileQueueEntry(pipeline, compatibleRenderPass->Get(vulkan_, rpType), rpType));
 			needsCompile = true;
 		}
@@ -684,13 +740,22 @@ void VulkanRenderManager::EndCurRenderStep() {
 	// We'll often be able to avoid loading/saving the depth/stencil buffer.
 	curRenderStep_->render.pipelineFlags = curPipelineFlags_;
 	bool depthStencil = (curPipelineFlags_ & PipelineFlags::USES_DEPTH_STENCIL) != 0;
-	RenderPassType rpType = depthStencil ? RP_TYPE_COLOR_DEPTH : RP_TYPE_COLOR;
+	RenderPassType rpType = depthStencil ? RenderPassType::HAS_DEPTH : RenderPassType::DEFAULT;
 	if (!curRenderStep_->render.framebuffer) {
-		rpType = RP_TYPE_BACKBUFFER;
-	} else if (curPipelineFlags_ & PipelineFlags::USES_INPUT_ATTACHMENT) {
-		// Not allowed on backbuffers.
-		rpType = depthStencil ? RP_TYPE_COLOR_DEPTH_INPUT : RP_TYPE_COLOR_INPUT;
+		rpType = RenderPassType::BACKBUFFER;
+	} else {
+		if (curPipelineFlags_ & PipelineFlags::USES_INPUT_ATTACHMENT) {
+			// Not allowed on backbuffers.
+			rpType = depthStencil ? (RenderPassType::HAS_DEPTH | RenderPassType::COLOR_INPUT) : RenderPassType::COLOR_INPUT;
+		}
+		// Framebuffers can be stereo, and if so, will control the render pass type to match.
+		// Pipelines can be mono and render fine to stereo etc, so not checking them here.
+		// Note that we don't support rendering to just one layer of a multilayer framebuffer!
+		if (curRenderStep_->render.framebuffer->numLayers > 1) {
+			rpType = (RenderPassType)(rpType | RenderPassType::MULTIVIEW);
+		}
 	}
+
 	// TODO: Also add render pass types for depth/stencil-less.
 
 	VKRRenderPass *renderPass = queueRunner_.GetRenderPass(key);
@@ -699,8 +764,8 @@ void VulkanRenderManager::EndCurRenderStep() {
 	compileMutex_.lock();
 	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
-		if (!pipeline->pipeline[rpType]) {
-			pipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
+		if (!pipeline->pipeline[(size_t)rpType]) {
+			pipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
 			compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->Get(vulkan_, rpType), rpType));
 			needsCompile = true;
 		}
@@ -1152,7 +1217,7 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	steps_.push_back(step);
 }
 
-VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBit, int attachment) {
+VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBit, int layer) {
 	_dbg_assert_(curRenderStep_ != nullptr);
 
 	// We don't support texturing from stencil, neither do we support texturing from depth|stencil together (nonsensical).
@@ -1187,7 +1252,12 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 	// Add this pretransition unless we already have it.
 	TransitionRequest rq{ fb, aspectBit, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
 	curRenderStep_->preTransitions.insert(rq);  // Note that insert avoids inserting duplicates.
-	return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.imageView : fb->depth.depthSampleView;
+
+	if (layer == -1) {
+		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.texAllLayersView : fb->depth.texAllLayersView;
+	} else {
+		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.texLayerViews[layer] : fb->depth.texLayerViews[layer];
+	}
 }
 
 // Called on main thread.
@@ -1255,7 +1325,16 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	if (task.steps.empty() && !frameData.hasAcquired)
 		frameData.skipSwap = true;
 	//queueRunner_.LogSteps(stepsOnThread, false);
-	queueRunner_.RunSteps(task.steps, frameData, frameDataShared_);
+	if (IsVREnabled()) {
+		int passes = GetVRPassesCount();
+		for (int i = 0; i < passes; i++) {
+			PreVRFrameRender(i);
+			queueRunner_.RunSteps(task.steps, frameData, frameDataShared_, i < passes - 1);
+			PostVRFrameRender();
+		}
+	} else {
+		queueRunner_.RunSteps(task.steps, frameData, frameDataShared_);
+	}
 
 	switch (task.runType) {
 	case VKRRunType::PRESENT:
@@ -1330,4 +1409,10 @@ void VulkanRenderManager::FlushSync() {
 		}
 		frameData.syncDone = false;
 	}
+}
+
+void VulkanRenderManager::ResetStats() {
+	initTimeMs_.Reset();
+	totalGPUTimeMs_.Reset();
+	renderCPUTimeMs_.Reset();
 }

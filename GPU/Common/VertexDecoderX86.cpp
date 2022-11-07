@@ -1391,7 +1391,13 @@ void VertexDecoderJitCache::Jit_PosFloatThrough() {
 
 	CVTTPS2DQ(fpScratchReg, R(fpScratchReg));
 	// Use pack to saturate to 0,65535.
-	PACKUSDW(fpScratchReg, R(fpScratchReg));
+	if (cpu_info.bSSE4_1) {
+		PACKUSDW(fpScratchReg, R(fpScratchReg));
+	} else {
+		PSLLD(fpScratchReg, 16);
+		PSRAD(fpScratchReg, 16);
+		PACKSSDW(fpScratchReg, R(fpScratchReg));
+	}
 	PUNPCKLWD(fpScratchReg, R(fpScratchReg2));
 	CVTDQ2PS(fpScratchReg, R(fpScratchReg));
 

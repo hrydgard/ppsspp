@@ -757,9 +757,9 @@ retry:
 		EmuThreadStart();
 	}
 
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		Version gitVer(PPSSPP_GIT_VERSION);
-		InitVROnAndroid(gJvm, nativeActivity, gitVer.ToInteger(), "PPSSPP");
+		InitVROnAndroid(gJvm, nativeActivity, systemName.c_str(), gitVer.ToInteger(), "PPSSPP");
 	}
 }
 
@@ -939,8 +939,8 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 	}
 	NativeMessageReceived("recreateviews", "");
 
-	if (IsVRBuild()) {
-		EnterVR(firstStart);
+	if (IsVREnabled()) {
+		EnterVR(firstStart, graphicsContext->GetAPIContext());
 	}
 
 	return true;
@@ -982,7 +982,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	pixel_yres = bufh;
 	backbuffer_format = format;
 
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		GetVRResolutionPerEye(&pixel_xres, &pixel_yres);
 	}
 
@@ -1057,16 +1057,20 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 		SetCurrentThreadName("AndroidRender");
 	}
 
+	if (IsVREnabled() && !StartVRRender())
+		return;
+
 	if (useCPUThread) {
 		// This is the "GPU thread".
-		if (graphicsContext)
-			graphicsContext->ThreadFrame();
+		if (!graphicsContext || !graphicsContext->ThreadFrame())
+			return;
 	} else {
 		UpdateRunLoopAndroid(env);
 	}
 
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		UpdateVRInput(NativeKey, NativeTouch, g_Config.bHapticFeedback, dp_xscale, dp_yscale);
+		FinishVRRender();
 	}
 }
 
@@ -1287,7 +1291,7 @@ void getDesiredBackbufferSize(int &sz_x, int &sz_y) {
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JNIEnv *, jclass, jint xres, jint yres, jint dpi, jfloat refreshRate) {
 	INFO_LOG(G3D, "NativeApp.setDisplayParameters(%d x %d, dpi=%d, refresh=%0.2f)", xres, yres, dpi, refreshRate);
 
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		int width, height;
 		GetVRResolutionPerEye(&width, &height);
 		xres = width;

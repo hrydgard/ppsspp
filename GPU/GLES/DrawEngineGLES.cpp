@@ -259,7 +259,7 @@ void DrawEngineGLES::DoFlush() {
 		textureCache_->SetTexture();
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		textureNeedsApply = true;
-	} else if (gstate.getTextureAddress(0) == ((gstate.getFrameBufRawAddress() | 0x04000000) & 0x3FFFFFFF)) {
+	} else if (gstate.getTextureAddress(0) == (gstate.getFrameBufRawAddress() | 0x04000000)) {
 		// This catches the case of clearing a texture. (#10957)
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	}
@@ -267,7 +267,7 @@ void DrawEngineGLES::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 
 	VShaderID vsid;
-	Shader *vshader = shaderManager_->ApplyVertexShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat, &vsid);
+	Shader *vshader = shaderManager_->ApplyVertexShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode, &vsid);
 
 	GLRBuffer *vertexBuffer = nullptr;
 	GLRBuffer *indexBuffer = nullptr;
@@ -278,7 +278,7 @@ void DrawEngineGLES::DoFlush() {
 		int vertexCount = 0;
 		bool useElements = true;
 
-		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we've already predecoded into "decoded". So push that content.
 			size_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 			u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vertexBufferOffset, &vertexBuffer);
@@ -331,7 +331,9 @@ void DrawEngineGLES::DoFlush() {
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
+		decOptions_.applySkinInDecode = true;
 		DecodeVerts(decoded);
+
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -437,7 +439,7 @@ void DrawEngineGLES::DoFlush() {
 			render_->Clear(clearColor, clearDepth, clearColor >> 24, target, rgbaMask, vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorW, vpAndScissor.scissorH);
 			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
-			if ((gstate_c.featureFlags & GPU_USE_CLEAR_RAM_HACK) && colorMask && (alphaMask || gstate_c.framebufFormat == GE_FORMAT_565)) {
+			if (gstate_c.Use(GPU_USE_CLEAR_RAM_HACK) && colorMask && (alphaMask || gstate_c.framebufFormat == GE_FORMAT_565)) {
 				int scissorX1 = gstate.getScissorX1();
 				int scissorY1 = gstate.getScissorY1();
 				int scissorX2 = gstate.getScissorX2() + 1;
@@ -446,6 +448,7 @@ void DrawEngineGLES::DoFlush() {
 			}
 			gstate_c.Dirty(DIRTY_BLEND_STATE);  // Make sure the color mask gets re-applied.
 		}
+		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;
@@ -474,9 +477,10 @@ bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
 
+// TODO: Refactor this to a single USE flag.
 bool DrawEngineGLES::SupportsHWTessellation() const {
 	bool hasTexelFetch = gl_extensions.GLES3 || (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 3, 0)) || gl_extensions.EXT_gpu_shader4;
-	return hasTexelFetch && gstate_c.SupportsAll(GPU_SUPPORTS_VERTEX_TEXTURE_FETCH | GPU_SUPPORTS_TEXTURE_FLOAT | GPU_SUPPORTS_INSTANCE_RENDERING);
+	return hasTexelFetch && gstate_c.UseAll(GPU_USE_VERTEX_TEXTURE_FETCH | GPU_USE_TEXTURE_FLOAT | GPU_USE_INSTANCE_RENDERING);
 }
 
 bool DrawEngineGLES::UpdateUseHWTessellation(bool enable) {

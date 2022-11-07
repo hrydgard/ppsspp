@@ -191,21 +191,21 @@ void PSPNpSigninDialog::DisplayMessage(std::string text1, std::string text2a, st
 
 	PPGeScissor(0, (int)(centerY - h2 - 2), 480, (int)(centerY + h2 + 2));
 	PPGeDrawTextWrapped(text1.c_str(), 240.0f, centerY - h2 - scrollPos_, WRAP_WIDTH, 0, messageStyle);
-	if (text2a != "") {
-		if (text2b != "")
+	if (!text2a.empty()) {
+		if (!text2b.empty())
 			PPGeDrawTextWrapped(text2a.c_str(), 240.0f - 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyleRight);
 		else
 			PPGeDrawTextWrapped(text2a.c_str(), 240.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyle);
 	}
-	if (text2b != "")
+	if (!text2b.empty())
 		PPGeDrawTextWrapped(text2b.c_str(), 240.0f + 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyleLeft);
-	if (text3a != "") {
-		if (text3b != "")
+	if (!text3a.empty()) {
+		if (!text3b.empty())
 			PPGeDrawTextWrapped(text3a.c_str(), 240.0f - 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyleRight);
 		else
 			PPGeDrawTextWrapped(text3a.c_str(), 240.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyle);
 	}
-	if (text3b != "")
+	if (!text3b.empty())
 		PPGeDrawTextWrapped(text3b.c_str(), 240.0f + 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyleLeft);
 	PPGeScissorReset();
 

@@ -52,10 +52,10 @@ enum FBOTexState {
 	FBO_TEX_READ_FRAMEBUFFER,
 };
 
-inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
+inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode, bool skinInDecode) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.
-	return (vertType & 0xFFFFFF) | (uvGenMode << 24);
+	return (vertType & 0xFFFFFF) | (uvGenMode << 24) | (skinInDecode << 26);
 }
 
 struct SimpleVertex;
@@ -92,7 +92,7 @@ public:
 
 	virtual void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation);
 
-	bool TestBoundingBox(const void* control_points, int vertexCount, u32 vertType, int *bytesRead);
+	bool TestBoundingBox(const void *control_points, const void *inds, int vertexCount, u32 vertType);
 
 	void SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead);
 	template<class Surface>
@@ -105,7 +105,7 @@ public:
 	std::vector<std::string> DebugGetVertexLoaderIDs();
 	std::string DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType);
 
-	virtual void Resized();
+	virtual void NotifyConfigChanged();
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
 		return decJitCache_->IsInSpace(ptr);

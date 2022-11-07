@@ -428,7 +428,7 @@ DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format) {
 }
 
 DXGI_FORMAT TextureCacheD3D11::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
-	if (!gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS)) {
+	if (!gstate_c.Use(GPU_USE_16BIT_FORMATS)) {
 		return DXGI_FORMAT_B8G8R8A8_UNORM;
 	}
 
@@ -453,24 +453,10 @@ DXGI_FORMAT TextureCacheD3D11::GetDestFormat(GETextureFormat format, GEPaletteFo
 	}
 }
 
-bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
+bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
 	SetTexture();
 	if (!nextTexture_) {
-		if (nextFramebufferTexture_) {
-			VirtualFramebuffer *vfb = nextFramebufferTexture_;
-			buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
-			bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth, "GetCurrentTextureDebug");
-			// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
-			// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
-			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
-			// We may have blitted to a temp FBO.
-			framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
-			if (!retval)
-				ERROR_LOG(G3D, "Failed to get debug texture: copy to memory failed");
-			return retval;
-		} else {
-			return false;
-		}
+		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
 	}
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
@@ -484,8 +470,31 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 	D3D11_TEXTURE2D_DESC desc;
 	texture->GetDesc(&desc);
 
-	if (desc.Format != DXGI_FORMAT_B8G8R8A8_UNORM) {
-		// TODO: Support the other formats
+	int width = desc.Width >> level;
+	int height = desc.Height >> level;
+
+	switch (desc.Format) {
+	case DXGI_FORMAT_B8G8R8A8_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_8888);
+		break;
+
+	case DXGI_FORMAT_B5G6R5_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_565);
+		break;
+
+	case DXGI_FORMAT_B4G4R4A4_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_4444);
+		break;
+
+	case DXGI_FORMAT_B5G5R5A1_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_5551);
+		break;
+
+	case DXGI_FORMAT_R8_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_8BIT);
+		break;
+
+	default:
 		return false;
 	}
 
@@ -497,22 +506,20 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 	device_->CreateTexture2D(&desc, nullptr, &stagingCopy);
 	context_->CopyResource(stagingCopy, texture);
 
-	int width = desc.Width >> level;
-	int height = desc.Height >> level;
-	buffer.Allocate(width, height, GPU_DBG_FORMAT_8888);
-
 	D3D11_MAPPED_SUBRESOURCE map;
 	if (FAILED(context_->Map(stagingCopy, level, D3D11_MAP_READ, 0, &map))) {
 		stagingCopy->Release();
 		return false;
 	}
 
+	int bufferRowSize = buffer.PixelSize() * width;
 	for (int y = 0; y < height; y++) {
-		memcpy(buffer.GetData() + 4 * width * y, (const uint8_t *)map.pData + map.RowPitch * y, 4 * width);
+		memcpy(buffer.GetData() + bufferRowSize * y, (const uint8_t *)map.pData + map.RowPitch * y, bufferRowSize);
 	}
 
 	context_->Unmap(stagingCopy, level);
 	stagingCopy->Release();
+	*isFramebuffer = false;
 	return true;
 }
 

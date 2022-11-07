@@ -254,3 +254,5 @@ bool VulkanLoad();
 void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions);
 void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions);
 void VulkanFree();
+
+const char *VulkanResultToString(VkResult res);

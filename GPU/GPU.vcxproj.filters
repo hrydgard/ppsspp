@@ -261,6 +261,9 @@
     <ClInclude Include="Debugger\GECommandTable.h">
       <Filter>Debugger</Filter>
     </ClInclude>
+    <ClInclude Include="Common\GeometryShaderGenerator.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -512,6 +515,9 @@
     <ClCompile Include="Debugger\GECommandTable.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="Common\GeometryShaderGenerator.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\assets\shaders\tex_4xbrz.csh">
@@ -526,6 +532,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\assets\shaders\defaultshaders.ini">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\stereo_red_blue.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\stereo_sbs.fsh">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

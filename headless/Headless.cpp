@@ -203,8 +203,9 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
 	PSP_BeginHostFrame();
-	if (coreParameter.graphicsContext && coreParameter.graphicsContext->GetDrawContext())
-		coreParameter.graphicsContext->GetDrawContext()->BeginFrame();
+	Draw::DrawContext *draw = coreParameter.graphicsContext ? coreParameter.graphicsContext->GetDrawContext() : nullptr;
+	if (draw)
+		draw->BeginFrame();
 
 	bool passed = true;
 	double deadline = time_now_d() + opt.timeout;
@@ -238,8 +239,14 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	}
 	PSP_EndHostFrame();
 
-	if (coreParameter.graphicsContext && coreParameter.graphicsContext->GetDrawContext())
-		coreParameter.graphicsContext->GetDrawContext()->EndFrame();
+	if (draw) {
+		draw->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Headless");
+		// Vulkan may get angry if we don't do a final present.
+		if (gpu)
+			gpu->CopyDisplayToOutput(true);
+
+		draw->EndFrame();
+	}
 
 	PSP_Shutdown();
 
@@ -411,9 +418,10 @@ int main(int argc, const char* argv[])
 	g_Config.bFirstRun = false;
 	g_Config.bIgnoreBadMemAccess = true;
 	// Never report from tests.
-	g_Config.sReportHost = "";
+	g_Config.sReportHost.clear();
 	g_Config.bAutoSaveSymbolMap = false;
-	g_Config.iRenderingMode = FB_BUFFERED_MODE;
+	g_Config.bSkipBufferEffects = false;
+	g_Config.bSkipGPUReadbacks = false;
 	g_Config.bHardwareTransform = true;
 	g_Config.iAnisotropyLevel = 0;  // When testing mipmapping we really don't want this.
 	g_Config.bVertexCache = false;
@@ -432,12 +440,10 @@ int main(int argc, const char* argv[])
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bSoftwareRendering = coreParameter.gpuCore == GPUCORE_SOFTWARE;
 	g_Config.bSoftwareRenderingJit = true;
-	g_Config.bBlockTransferGPU = true;
 	g_Config.iSplineBezierQuality = 2;
 	g_Config.bHighQualityDepth = true;
 	g_Config.bMemStickInserted = true;
 	g_Config.iMemStickSizeGB = 16;
-	g_Config.bFragmentTestCache = true;
 	g_Config.bEnableWlan = true;
 	g_Config.sMACAddress = "12:34:56:78:9A:BC";
 	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;

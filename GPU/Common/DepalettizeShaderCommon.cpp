@@ -35,8 +35,8 @@ static const InputDef vsInputs[2] = {
 
 // TODO: Deduplicate with TextureShaderCommon.cpp
 static const SamplerDef samplers[2] = {
-	{ "tex" },
-	{ "pal" },
+	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN },
+	{ 1, "pal" },
 };
 
 static const VaryingDef varyings[1] = {
@@ -174,7 +174,10 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 	case GE_FORMAT_CLUT8:
 		if (shift == 0 && mask == 0xFF) {
 			// Easy peasy.
-			sprintf(lookupMethod, "index.r");
+			if (writer.Lang().shaderLanguage == HLSL_D3D9)
+				sprintf(lookupMethod, "index.a");
+			else
+				sprintf(lookupMethod, "index.r");
 			formatOK = true;
 		} else {
 			// Deal with this if we find it.
@@ -302,6 +305,10 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 	// Offset by half a texel (plus clutBase) to turn NEAREST filtering into FLOOR.
 	// Technically, the clutBase should be |'d, not added, but that's hard with floats.
 	float texel_offset = ((float)config.startPos + 0.5f) / texturePixels;
+	if (writer.Lang().shaderLanguage == HLSL_D3D9) {
+		// Seems to need a half-pixel offset fix?  Might mean it was rendered wrong...
+		texel_offset += 0.5f / texturePixels;
+	}
 	char offset[128] = "";
 	sprintf(offset, " + %f", texel_offset);
 
@@ -342,7 +349,7 @@ void GenerateDepalSmoothed(ShaderWriter &writer, const DepalConfig &config) {
 void GenerateDepalFs(ShaderWriter &writer, const DepalConfig &config) {
 	writer.DeclareSamplers(samplers);
 	writer.HighPrecisionFloat();
-	writer.BeginFSMain(config.bufferFormat == GE_FORMAT_DEPTH16 ? g_draw2Duniforms : Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
+	writer.BeginFSMain(config.bufferFormat == GE_FORMAT_DEPTH16 ? g_draw2Duniforms : Slice<UniformDef>::empty(), varyings);
 	if (config.smoothedDepal) {
 		// Handles a limited set of cases, but doesn't need any integer math so we don't
 		// need two variants.
@@ -362,5 +369,5 @@ void GenerateDepalFs(ShaderWriter &writer, const DepalConfig &config) {
 			_assert_msg_(false, "Shader language not supported for depal: %d", (int)writer.Lang().shaderLanguage);
 		}
 	}
-	writer.EndFSMain("outColor", FSFLAG_NONE);
+	writer.EndFSMain("outColor");
 }

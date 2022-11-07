@@ -119,7 +119,6 @@ add_definitions(-DASSETS_DIR="${CMAKE_INSTALL_FULL_DATADIR}/ppsspp/assets/")
 if(OPENXR)
 	add_definitions(-DOPENXR)
 	add_library(openxr SHARED IMPORTED)
-	include_directories(ext/openxr)
 	if(OPENXR_PLATFORM_PICO)
 	  add_definitions(-DOPENXR_PLATFORM_PICO)
 	  set_property(TARGET openxr PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/ext/openxr/libs/pico/arm64-v8a/libopenxr_loader.so")
@@ -507,6 +506,24 @@ if(WIN32)
 	)
 endif()
 
+set(CommonVR
+	Common/VR/OpenXRLoader.cpp
+	Common/VR/OpenXRLoader.h
+	Common/VR/PPSSPPVR.cpp
+	Common/VR/PPSSPPVR.h
+	Common/VR/VRBase.cpp
+	Common/VR/VRBase.h
+	Common/VR/VRFramebuffer.cpp
+	Common/VR/VRFramebuffer.h
+	Common/VR/VRInput.cpp
+	Common/VR/VRInput.h
+	Common/VR/VRMath.cpp
+	Common/VR/VRMath.h
+	Common/VR/VRRenderer.cpp
+	Common/VR/VRRenderer.h
+)
+include_directories(ext/openxr)
+
 add_library(Common STATIC
 	${CommonX86}
 	${CommonARM}
@@ -514,6 +531,7 @@ add_library(Common STATIC
 	${CommonMIPS}
 	${CommonRISCV64}
 	${CommonD3D}
+	${CommonVR}
 	Common/Serialize/Serializer.cpp
 	Common/Serialize/Serializer.h
 	Common/Serialize/SerializeDeque.h
@@ -650,6 +668,8 @@ add_library(Common STATIC
 	Common/Math/lin/vec3.h
 	Common/Math/math_util.cpp
 	Common/Math/math_util.h
+	Common/Math/Statistics.h
+	Common/Math/Statistics.cpp
 	Common/Net/HTTPClient.cpp
 	Common/Net/HTTPClient.h
 	Common/Net/HTTPHeaders.cpp
@@ -1089,24 +1109,7 @@ if(ANDROID)
 		android/jni/OpenSLContext.cpp
 		android/jni/OpenSLContext.h
 	)
-
 	if (OPENXR)
-		set(nativeExtra ${nativeExtra}
-			Common/VR/PPSSPPVR.cpp
-			Common/VR/PPSSPPVR.h
-			Common/VR/VRBase.cpp
-			Common/VR/VRBase.h
-			Common/VR/VRFramebuffer.cpp
-			Common/VR/VRFramebuffer.h
-			Common/VR/VRInput.cpp
-			Common/VR/VRInput.h
-			Common/VR/VRMath.cpp
-			Common/VR/VRMath.h
-			Common/VR/VRRenderer.cpp
-			Common/VR/VRRenderer.h
-			Common/VR/VRTweaks.cpp
-			Common/VR/VRTweaks.h
-		)
 		set(nativeExtraLibs ${nativeExtraLibs} openxr)
 	endif()
 	# No target
@@ -1562,6 +1565,8 @@ set(GPU_SOURCES
 	GPU/Common/FragmentShaderGenerator.h
 	GPU/Common/VertexShaderGenerator.cpp
 	GPU/Common/VertexShaderGenerator.h
+	GPU/Common/GeometryShaderGenerator.cpp
+	GPU/Common/GeometryShaderGenerator.h
 	GPU/Common/FramebufferManagerCommon.cpp
 	GPU/Common/FramebufferManagerCommon.h
 	GPU/Common/GPUDebugInterface.cpp
@@ -2511,6 +2516,8 @@ if(UNIX AND NOT ANDROID AND NOT APPLE)
 		DIRECTORY "${CMAKE_BINARY_DIR}/assets"
 		DESTINATION "${CMAKE_INSTALL_DATADIR}/ppsspp"
 		PATTERN ".git*" EXCLUDE
+		PATTERN "mime" EXCLUDE
+		PATTERN "lang/README.md" EXCLUDE
 	)
 	install(
 		FILES "${CMAKE_BINARY_DIR}/ppsspp.desktop"
@@ -2523,7 +2530,11 @@ if(UNIX AND NOT ANDROID AND NOT APPLE)
 	)
 	install(
 		FILES "${CMAKE_SOURCE_DIR}/icons/icon-512.svg"
-		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/pixmaps"
-		RENAME ppsspp.svg
+		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps"
+		RENAME "ppsspp.svg"
+	)
+	install(
+		FILES "${CMAKE_SOURCE_DIR}/assets/mime/ppsspp.xml"
+		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/mime/packages"
 	)
 endif()

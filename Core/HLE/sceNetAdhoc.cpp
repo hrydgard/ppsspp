@@ -5063,7 +5063,8 @@ static int sceNetAdhocMatchingStart(int matchingId, int evthPri, int evthStack, 
 
 	int retval = NetAdhocMatching_Start(matchingId, evthPri, USER_PARTITION_ID, evthStack, inthPri, USER_PARTITION_ID, inthStack, optLen, optDataAddr);
 	// Give a little time to make sure matching Threads are ready before the game use the next sceNet functions, should've checked for status instead of guessing the time?
-	return hleDelayResult(retval, "give some time", adhocMatchingEventDelay);
+	hleEatMicro(adhocMatchingEventDelay);
+	return retval;
 }
 
 // With params for Partition ID for the event & input handler stack
@@ -5074,7 +5075,8 @@ static int sceNetAdhocMatchingStart2(int matchingId, int evthPri, int evthPartit
 
 	int retval = NetAdhocMatching_Start(matchingId, evthPri, evthPartitionId, evthStack, inthPri, inthPartitionId, inthStack, optLen, optDataAddr);
 	// Give a little time to make sure matching Threads are ready before the game use the next sceNet functions, should've checked for status instead of guessing the time?
-	return hleDelayResult(retval, "give some time", adhocMatchingEventDelay);
+	hleEatMicro(adhocMatchingEventDelay);
+	return retval;
 }
 
 

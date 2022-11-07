@@ -150,7 +150,7 @@ public:
 
 	void ClearTrackedVertexArrays() override;
 
-	void Resized() override;
+	void NotifyConfigChanged() override;
 
 	void ClearInputLayoutMap();
 

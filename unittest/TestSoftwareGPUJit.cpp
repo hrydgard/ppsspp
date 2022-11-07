@@ -89,8 +89,8 @@ static bool TestSamplerJit() {
 
 		// Try running each to make sure they don't trivially crash.
 		const auto primArg = Rasterizer::ToVec4IntArg(Math3D::Vec4<int>(127, 127, 127, 127));
-		linearFunc(0.0f, 0.0f, 0, 0, primArg, tptr, bufw, 1, 7, id);
-		nearestFunc(0.0f, 0.0f, 0, 0, primArg, tptr, bufw, 1, 7, id);
+		linearFunc(0.0f, 0.0f, primArg, tptr, bufw, 1, 7, id);
+		nearestFunc(0.0f, 0.0f, primArg, tptr, bufw, 1, 7, id);
 		fetchFunc(0, 0, tptr[0], bufw[0], 1, id);
 	}
 

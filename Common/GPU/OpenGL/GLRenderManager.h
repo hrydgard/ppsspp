@@ -526,7 +526,7 @@ public:
 	void BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, GLRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag);
 
 	// Binds a framebuffer as a texture, for the following draws.
-	void BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment);
+	void BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit);
 
 	bool CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 	void CopyImageToMemorySync(GLRTexture *texture, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
@@ -1051,7 +1051,6 @@ private:
 
 	bool nextFrame = false;
 	bool firstFrame = true;
-	bool vrRenderStarted = false;
 
 	GLDeleter deleter_;
 	bool skipGLCalls_ = false;

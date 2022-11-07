@@ -303,18 +303,18 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Ve
 	}
 }
 
-static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, int x, int y, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
 	const u8 **tptr0 = const_cast<const u8 **>(&state.texptr[texlevel]);
 	const uint16_t *bufw0 = &state.texbufw[texlevel];
 
 	if (!bilinear) {
-		return state.nearest(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
+		return state.nearest(s, t, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
 	}
-	return state.linear(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
+	return state.linear(s, t, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
 }
 
-static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(float s, float t, int x, int y, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
-	return ApplyTexturing(s, t, ((x & 15) + 1) / 2, ((y & 15) + 1) / 2, prim_color, texlevel, frac_texlevel, bilinear, state);
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(float s, float t, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
+	return ApplyTexturing(s, t, prim_color, texlevel, frac_texlevel, bilinear, state);
 }
 
 // Produces a signed 1.27.4 value.
@@ -332,7 +332,7 @@ static int TexLog2(float delta) {
 	return useful - 127 * 16;
 }
 
-static inline void CalculateSamplingParams(const float ds, const float dt, const RasterizerState &state, int &level, int &levelFrac, bool &filt) {
+static inline void CalculateSamplingParams(const float ds, const float dt, float w, const RasterizerState &state, int &level, int &levelFrac, bool &filt) {
 	const int width = 1 << state.samplerID.width0Shift;
 	const int height = 1 << state.samplerID.height0Shift;
 
@@ -340,11 +340,11 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 	int detail;
 	switch (state.TexLevelMode()) {
 	case GE_TEXLEVEL_MODE_AUTO:
-		detail = TexLog2(std::max(ds * width, dt * height));
+		detail = TexLog2(std::max(std::abs(ds * width), std::abs(dt * height)));
 		break;
 	case GE_TEXLEVEL_MODE_SLOPE:
 		// This is always offset by an extra texlevel.
-		detail = 1 * 16 + TexLog2(state.textureLodSlope);
+		detail = TexLog2(2.0f * w * state.textureLodSlope);
 		break;
 	case GE_TEXLEVEL_MODE_CONST:
 	default:
@@ -377,19 +377,19 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 		filt = state.magFilt;
 }
 
-static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, int x, int y) {
+static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, float w) {
 	float ds = s[1] - s[0];
 	float dt = t[2] - t[0];
 
 	int level;
 	int levelFrac;
 	bool bilinear;
-	CalculateSamplingParams(ds, dt, state, level, levelFrac, bilinear);
+	CalculateSamplingParams(ds, dt, w, state, level, levelFrac, bilinear);
 
 	PROFILE_THIS_SCOPE("sampler");
 	for (int i = 0; i < 4; ++i) {
 		if (mask[i] >= 0)
-			prim_color[i] = ApplyTexturing(s[i], t[i], ((x & 15) + 1) / 2, ((y & 15) + 1) / 2, ToVec4IntArg(prim_color[i]), level, levelFrac, bilinear, state);
+			prim_color[i] = ApplyTexturing(s[i], t[i], ToVec4IntArg(prim_color[i]), level, levelFrac, bilinear, state);
 	}
 }
 
@@ -717,7 +717,13 @@ void DrawTriangleSlice(
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 					}
 
-					ApplyTexturing(state, prim_color, mask, s, t, curX, curY);
+					if (state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE) {
+						// Not sure what's right, but we need one value for the slope.
+						float clipw = (v0.clipw * w0.x + v1.clipw * w1.x + v2.clipw * w2.x) * wsum_recip.x;
+						ApplyTexturing(state, prim_color, mask, s, t, clipw);
+					} else {
+						ApplyTexturing(state, prim_color, mask, s, t, 0.0f);
+					}
 				}
 
 				if (!clearMode) {
@@ -796,10 +802,17 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	int entireY1 = std::min(v0.screenpos.y, v1.screenpos.y);
 	int entireX2 = std::max(v0.screenpos.x, v1.screenpos.x) - 1;
 	int entireY2 = std::max(v0.screenpos.y, v1.screenpos.y) - 1;
-	int minX = std::max(entireX1, range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
-	int minY = std::max(entireY1, range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int minX = std::max(entireX1 & ~(SCREEN_SCALE_FACTOR - 1), range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int minY = std::max(entireY1 & ~(SCREEN_SCALE_FACTOR - 1), range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
 	int maxX = std::min(entireX2, range.x2);
 	int maxY = std::min(entireY2, range.y2);
+
+	// If TL x or y was after the half, we don't draw the pixel.
+	// TODO: Verify what center is used, allowing slight offset makes gpu/primitives/trianglefan pass.
+	if (minX < entireX1 - 1)
+		minX += SCREEN_SCALE_FACTOR;
+	if (minY < entireY1 - 1)
+		minY += SCREEN_SCALE_FACTOR;
 
 	RasterizerState state = OptimizeFlatRasterizerState(rastState, v1);
 
@@ -819,8 +832,8 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 			tc1.t() *= 1.0f / (float)(1 << state.samplerID.height0Shift);
 		}
 
-		int diffX = (entireX2 - entireX1 + 1) / SCREEN_SCALE_FACTOR;
-		int diffY = (entireY2 - entireY1 + 1) / SCREEN_SCALE_FACTOR;
+		float diffX = (entireX2 - entireX1 + 1) / (float)SCREEN_SCALE_FACTOR;
+		float diffY = (entireY2 - entireY1 + 1) / (float)SCREEN_SCALE_FACTOR;
 		float diffS = tc1.s() - tc0.s();
 		float diffT = tc1.t() - tc0.t();
 
@@ -853,8 +866,8 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 		}
 
 		// Okay, now move ST to the minX, minY position.
-		rowST += (stx / (float)(SCREEN_SCALE_FACTOR * 2)) * (minX - entireX1);
-		rowST += (sty / (float)(SCREEN_SCALE_FACTOR * 2)) * (minY - entireY1);
+		rowST += (stx / (float)(SCREEN_SCALE_FACTOR * 2)) * (minX - entireX1 + 1);
+		rowST += (sty / (float)(SCREEN_SCALE_FACTOR * 2)) * (minY - entireY1 + 1);
 	}
 
 	// And now what we add to spread out to 4 values.
@@ -916,7 +929,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 				s = Vec4<float>::AssignToAll(st.s()) + sto4;
 				t = Vec4<float>::AssignToAll(st.t()) + tto4;
 
-				ApplyTexturing(state, prim_color, mask, s, t, curX, curY);
+				ApplyTexturing(state, prim_color, mask, s, t, v1.clipw);
 			}
 
 			if (!state.pixelID.clearMode) {
@@ -1007,9 +1020,9 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 		int texLevel;
 		int texLevelFrac;
 		bool bilinear;
-		CalculateSamplingParams(0.0f, 0.0f, state, texLevel, texLevelFrac, bilinear);
+		CalculateSamplingParams(0.0f, 0.0f, v0.clipw, state, texLevel, texLevelFrac, bilinear);
 		PROFILE_THIS_SCOPE("sampler");
-		prim_color = ApplyTexturingSingle(s, t, pos.x, pos.y, ToVec4IntArg(prim_color), texLevel, texLevelFrac, bilinear, state);
+		prim_color = ApplyTexturingSingle(s, t, ToVec4IntArg(prim_color), texLevel, texLevelFrac, bilinear, state);
 	}
 
 	if (!pixelID.clearMode)
@@ -1043,10 +1056,17 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 	int entireY1 = std::min(v0.screenpos.y, v1.screenpos.y);
 	int entireX2 = std::max(v0.screenpos.x, v1.screenpos.x) - 1;
 	int entireY2 = std::max(v0.screenpos.y, v1.screenpos.y) - 1;
-	int minX = std::max(entireX1, range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
-	int minY = std::max(entireY1, range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int minX = std::max(entireX1 & ~(SCREEN_SCALE_FACTOR - 1), range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int minY = std::max(entireY1 & ~(SCREEN_SCALE_FACTOR - 1), range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
 	int maxX = std::min(entireX2, range.x2);
 	int maxY = std::min(entireY2, range.y2);
+
+	// If TL x or y was after the half, we don't draw the pixel.
+	if (minX < entireX1 - 1)
+		minX += SCREEN_SCALE_FACTOR;
+	if (minY < entireY1 - 1)
+		minY += SCREEN_SCALE_FACTOR;
+
 	const DrawingCoords pprime = TransformUnit::ScreenToDrawing(minX, minY);
 	const DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX, maxY);
 	auto &pixelID = state.pixelID;
@@ -1328,11 +1348,12 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				// If inc is 0, force the delta to zero.
 				float ds = xinc == 0.0 ? 0.0f : (s1 - s) * (float)SCREEN_SCALE_FACTOR * (1.0f / xinc);
 				float dt = yinc == 0.0 ? 0.0f : (t1 - t) * (float)SCREEN_SCALE_FACTOR * (1.0f / yinc);
+				float w = (v0.clipw * (float)(steps - i) + v1.clipw * (float)i) / steps1;
 
 				int texLevel;
 				int texLevelFrac;
 				bool texBilinear;
-				CalculateSamplingParams(ds, dt, state, texLevel, texLevelFrac, texBilinear);
+				CalculateSamplingParams(ds, dt, w, state, texLevel, texLevelFrac, texBilinear);
 
 				if (state.antialiasLines) {
 					// TODO: This is a naive and wrong implementation.
@@ -1344,7 +1365,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				}
 
 				PROFILE_THIS_SCOPE("sampler");
-				prim_color = ApplyTexturingSingle(s, t, x, y, ToVec4IntArg(prim_color), texLevel, texLevelFrac, texBilinear, state);
+				prim_color = ApplyTexturingSingle(s, t, ToVec4IntArg(prim_color), texLevel, texLevelFrac, texBilinear, state);
 			}
 
 			if (!pixelID.clearMode)

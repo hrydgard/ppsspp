@@ -80,11 +80,11 @@ static const VaryingDef varyings[1] = {
 };
 
 static const SamplerDef samplers[1] = {
-	{ "tex" },
+	{ 0, "tex" },
 };
 
 void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw::Bugs &bugs) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Fragment, nullptr, 0);
+	ShaderWriter writer(buffer, lang, ShaderStage::Fragment);
 	writer.HighPrecisionFloat();
 	writer.DeclareSamplers(samplers);
 
@@ -94,7 +94,7 @@ void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw:
 
 	writer.C("float roundAndScaleTo255f(in float x) { return floor(x * 255.99); }\n");
 
-	writer.BeginFSMain(uniforms, varyings, FSFLAG_NONE);
+	writer.BeginFSMain(uniforms, varyings);
 
 	writer.C("  vec4 index = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
 	writer.C("  vec4 outColor = index.aaaa;\n");  // Only care about a.
@@ -106,12 +106,12 @@ void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw:
 		writer.C("  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 
-	writer.EndFSMain("outColor", FSFLAG_NONE);
+	writer.EndFSMain("outColor");
 }
 
 // This can probably be shared with some other shaders, like reinterpret or the future depth upload.
 void GenerateStencilVs(char *buffer, const ShaderLanguageDesc &lang) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Vertex, nullptr, 0);
+	ShaderWriter writer(buffer, lang, ShaderStage::Vertex);
 
 	writer.BeginVSMain(lang.vertexIndex ? Slice<InputDef>::empty() : inputs, Slice<UniformDef>::empty(), varyings);
 
@@ -127,7 +127,7 @@ void GenerateStencilVs(char *buffer, const ShaderLanguageDesc &lang) {
 	writer.EndVSMain(varyings);
 }
 
-bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilUpload flags) {
+bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size, WriteStencil flags) {
 	using namespace Draw;
 
 	addr &= 0x3FFFFFFF;
@@ -178,16 +178,16 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	}
 
 	if (usedBits == 0) {
-		if (flags & StencilUpload::STENCIL_IS_ZERO) {
+		if (flags & WriteStencil::STENCIL_IS_ZERO) {
 			// Common when creating buffers, it's already 0.
 			// We're done.
 			return false;
 		}
 
 		// Otherwise, we can skip alpha in many cases, in which case we don't even use a shader.
-		if (flags & StencilUpload::IGNORE_ALPHA) {
+		if (flags & WriteStencil::IGNORE_ALPHA) {
 			if (dstBuffer->fbo) {
-				draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "PerformStencilUpload_Clear");
+				draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "WriteStencilFromMemory_Clear");
 			}
 			return true;
 		}
@@ -196,13 +196,16 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	shaderManager_->DirtyLastShader();
 	textureCache_->ForgetLastTexture();
 
-	if (!stencilUploadPipeline_) {
+	if (!stencilWritePipeline_) {
 		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 
-		char *fsCode = new char[4000];
-		char *vsCode = new char[4000];
+		char *fsCode = new char[8192];
+		char *vsCode = new char[8192];
 		GenerateStencilFs(fsCode, shaderLanguageDesc, draw_->GetBugs());
 		GenerateStencilVs(vsCode, shaderLanguageDesc);
+
+		_assert_msg_(strlen(fsCode) < 8192, "StenFS length error: %d", (int)strlen(fsCode));
+		_assert_msg_(strlen(vsCode) < 8192, "StenVS length error: %d", (int)strlen(vsCode));
 
 		ShaderModule *stencilUploadFs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "stencil_fs");
 		ShaderModule *stencilUploadVs = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "stencil_vs");
@@ -234,8 +237,8 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 			{ stencilUploadVs, stencilUploadFs },
 			inputLayout, stencilWrite, blendOff, rasterNoCull, &stencilUBDesc,
 		};
-		stencilUploadPipeline_ = draw_->CreateGraphicsPipeline(stencilWriteDesc, "stencil_upload");
-		_assert_(stencilUploadPipeline_);
+		stencilWritePipeline_ = draw_->CreateGraphicsPipeline(stencilWriteDesc, "stencil_upload");
+		_assert_(stencilWritePipeline_);
 
 		delete[] fsCode;
 		delete[] vsCode;
@@ -249,7 +252,7 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 		stencilUploadVs->Release();
 
 		SamplerStateDesc descNearest{};
-		stencilUploadSampler_ = draw_->CreateSamplerState(descNearest);
+		stencilWriteSampler_ = draw_->CreateSamplerState(descNearest);
 	}
 
 	// Fullscreen triangle coordinates.
@@ -268,7 +271,7 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 		useBlit = false;
 	}
 	// The blit path doesn't set alpha, so we can't use it if that's needed.
-	if (!(flags & StencilUpload::IGNORE_ALPHA)) {
+	if (!(flags & WriteStencil::IGNORE_ALPHA)) {
 		useBlit = false;
 	}
 
@@ -278,9 +281,9 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	Draw::Framebuffer *blitFBO = nullptr;
 	if (useBlit) {
 		blitFBO = GetTempFBO(TempFBO::STENCIL, w, h);
-		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::CLEAR }, "PerformStencilUpload_Blit");
+		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::CLEAR }, "WriteStencilFromMemory_Blit");
 	} else if (dstBuffer->fbo) {
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "PerformStencilUpload_NoBlit");
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "WriteStencilFromMemory_NoBlit");
 	}
 
 	Draw::Viewport viewport = { 0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f };
@@ -294,11 +297,11 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	}
 
 	draw_->BindTextures(TEX_SLOT_PSP_TEXTURE, 1, &tex);
-	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &stencilUploadSampler_);
+	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &stencilWriteSampler_);
 
 	// We must bind the program after starting the render pass, and set the color mask after clearing.
 	draw_->SetScissorRect(0, 0, w, h);
-	draw_->BindPipeline(stencilUploadPipeline_);
+	draw_->BindPipeline(stencilWritePipeline_);
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {
@@ -323,7 +326,7 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	if (useBlit) {
 		// Note that scissors don't affect blits on other APIs than OpenGL, so might want to try to get rid of this.
 		draw_->SetScissorRect(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
-		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::FB_STENCIL_BIT, Draw::FB_BLIT_NEAREST, "PerformStencilUpload_Blit");
+		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::FB_STENCIL_BIT, Draw::FB_BLIT_NEAREST, "WriteStencilFromMemory_Blit");
 		RebindFramebuffer("RebindFramebuffer - Stencil");
 	}
 	tex->Release();

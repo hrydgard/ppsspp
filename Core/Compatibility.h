@@ -77,7 +77,6 @@ struct CompatFlags {
 	bool DateLimited;
 	bool ShaderColorBitmask;
 	bool DisableFirstFrameReadback;
-	bool DisableRangeCulling;
 	bool MpegAvcWarmUp;
 	bool BlueToAlpha;
 	bool CenteredLines;
@@ -90,6 +89,7 @@ struct CompatFlags {
 	bool ForceLowerResolutionForEffectsOn;
 	bool AllowDownloadCLUT;
 	bool NearestFilteringOnFramebufferCreate;
+	bool SecondaryTextureCache;
 };
 
 struct VRCompat {
@@ -115,6 +115,7 @@ public:
 private:
 	void Clear();
 	void CheckSettings(IniFile &iniFile, const std::string &gameID);
+	void CheckVRSettings(IniFile &iniFile, const std::string &gameID);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, float *value);
 

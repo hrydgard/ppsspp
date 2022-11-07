@@ -394,7 +394,9 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 	if (gl_extensions.IsCoreContext) {
 		glewExperimental = true;
 	}
-	if (GLEW_OK != glewInit()) {
+	GLenum glew_err = glewInit();
+	// glx is not required, igore.
+	if (glew_err != GLEW_OK && glew_err != GLEW_ERROR_NO_GLX_DISPLAY) {
 		printf("Failed to initialize glew!\n");
 		return 1;
 	}

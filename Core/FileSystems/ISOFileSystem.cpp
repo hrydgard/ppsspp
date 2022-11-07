@@ -148,7 +148,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	if (!blockDevice->ReadBlock(16, (u8*)&desc))
 		blockDevice->NotifyReadError();
 
-	entireISO.name = "";
+	entireISO.name.clear();
 	entireISO.isDirectory = false;
 	entireISO.startingPosition = 0;
 	entireISO.size = _blockDevice->GetNumBlocks();
@@ -631,11 +631,14 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) {
 	return x;
 }
 
-std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path) {
+std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(const std::string &path, bool *exists) {
 	std::vector<PSPFileInfo> myVector;
 	TreeEntry *entry = GetFromPath(path);
-	if (!entry)
+	if (!entry) {
+		if (exists)
+			*exists = false;
 		return myVector;
+	}
 
 	const std::string dot(".");
 	const std::string dotdot("..");
@@ -651,6 +654,7 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path) {
 		x.name = e->name;
 		// Strangely, it seems to be executable even for files.
 		x.access = 0555;
+		x.exists = true;
 		x.size = e->size;
 		x.type = e->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
@@ -659,6 +663,8 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path) {
 		x.numSectors = (u32)((e->size + sectorSize - 1) / sectorSize);
 		myVector.push_back(x);
 	}
+	if (exists)
+		*exists = true;
 	return myVector;
 }
 

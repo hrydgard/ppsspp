@@ -258,7 +258,8 @@ struct MpegContext {
 };
 
 static bool isMpegInit;
-static int mpegLibVersion;
+static int mpegLibVersion = 0;
+static u32 mpegLibCrc = 0;
 static u32 streamIdGen;
 static int actionPostPut;
 static std::map<u32, MpegContext *> mpegMap;
@@ -403,7 +404,7 @@ void __MpegInit() {
 }
 
 void __MpegDoState(PointerWrap &p) {
-	auto s = p.Section("sceMpeg", 1, 3);
+	auto s = p.Section("sceMpeg", 1, 4);
 	if (!s)
 		return;
 
@@ -421,7 +422,14 @@ void __MpegDoState(PointerWrap &p) {
 			ringbufferPutPacketsAdded = 0;
 		} else {
 			Do(p, ringbufferPutPacketsAdded);
+		} 
+		if (s < 4) {
+			mpegLibCrc = 0;
 		}
+		else {
+			Do(p, mpegLibCrc);
+		}
+
 		Do(p, streamIdGen);
 		Do(p, mpegLibVersion);
 	}
@@ -440,8 +448,9 @@ void __MpegShutdown() {
 	mpegMap.clear();
 }
 
-void __MpegLoadModule(int version) {
+void __MpegLoadModule(int version,u32 crc) {
 	mpegLibVersion = version;
+	mpegLibCrc = crc;
 }
 
 static u32 sceMpegInit() {
@@ -450,7 +459,7 @@ static u32 sceMpegInit() {
 		// TODO: Need to properly hook module load/unload for this to work right.
 		//return ERROR_MPEG_ALREADY_INIT;
 	} else {
-		INFO_LOG(ME, "sceMpegInit()");
+		INFO_LOG(ME, "sceMpegInit(), mpegLibVersion 0x%0x, mpegLibcrc %x", mpegLibVersion, mpegLibCrc);
 	}
 	isMpegInit = true;
 	return hleDelayResult(0, "mpeg init", 750);
@@ -1162,7 +1171,7 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 			// playing all pmp_queue frames
 			ctx->mediaengine->m_pFrameRGB = pmp_queue.front();
 			int bufferSize = ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
-			gpu->NotifyVideoUpload(buffer, bufferSize, frameWidth, ctx->videoPixelMode);
+			gpu->PerformWriteFormattedFromMemory(buffer, bufferSize, frameWidth, (GEBufferFormat)ctx->videoPixelMode);
 			ctx->avc.avcFrameStatus = 1;
 			ctx->videoFrameCount++;
 			
@@ -1174,7 +1183,7 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 	}
 	else if(ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
 		int bufferSize = ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
-		gpu->NotifyVideoUpload(buffer, bufferSize, frameWidth, ctx->videoPixelMode);
+		gpu->PerformWriteFormattedFromMemory(buffer, bufferSize, frameWidth, (GEBufferFormat)ctx->videoPixelMode);
 		ctx->avc.avcFrameStatus = 1;
 		ctx->videoFrameCount++;
 	} else {
@@ -1361,8 +1370,14 @@ static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initA
 	// Flush structs back to memory
 	avcAu.write(auAddr);
 
-	// Save the current frame's status to initAddr 
-	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
+	if (mpegLibVersion >= 0x010A) {
+		// Sunday Vs Magazine Shuuketsu! Choujou Daikessen expect, issue #11060
+		Memory::Write_U32(1, initAddr);
+	}
+	else {	
+	// Save the current frame's status to initAddr
+		Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
+	}
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
 	DEBUG_LOG(ME, "sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x)", mpeg, auAddr, bufferAddr, initAddr);
@@ -2035,7 +2050,7 @@ static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth
 	}
 
 	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode, x, y, width, height);
-	gpu->NotifyVideoUpload(destAddr, destSize, frameWidth, ctx->videoPixelMode);
+	gpu->PerformWriteFormattedFromMemory(destAddr, destSize, frameWidth, (GEBufferFormat)ctx->videoPixelMode);
 
 	// Do not use avcDecodeDelayMs 's value
 	// Will cause video 's screen dislocation in Bleach heat of soul 6

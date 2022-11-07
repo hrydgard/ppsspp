@@ -127,6 +127,9 @@ public:
 	DrawEngineVulkan(Draw::DrawContext *draw);
 	virtual ~DrawEngineVulkan();
 
+	// We reference feature flags, so this is called after construction.
+	void InitDeviceObjects();
+
 	void SetShaderManager(ShaderManagerVulkan *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
@@ -196,7 +199,6 @@ private:
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
 	void BindShaderBlendTex();
 
-	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
 	void DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
@@ -209,8 +211,10 @@ private:
 
 	Draw::DrawContext *draw_;
 
-	// We use a single descriptor set layout for all PSP draws.
+	// We use a shared descriptor set layouts for all PSP draws.
+	// Descriptors created from descriptorSetLayout_ is rebound all the time at set 1.
 	VkDescriptorSetLayout descriptorSetLayout_;
+
 	VkPipelineLayout pipelineLayout_;
 	VulkanPipeline *lastPipeline_;
 	VkDescriptorSet lastDs_ = VK_NULL_HANDLE;
@@ -250,6 +254,8 @@ private:
 		VulkanPushBuffer *pushUBO = nullptr;
 		VulkanPushBuffer *pushVertex = nullptr;
 		VulkanPushBuffer *pushIndex = nullptr;
+
+		bool frameDescSetUpdated = false;
 
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
 		DenseHashMap<DescriptorSetKey, VkDescriptorSet, (VkDescriptorSet)VK_NULL_HANDLE> descSets;

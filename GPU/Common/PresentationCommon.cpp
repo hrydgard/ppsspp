@@ -34,6 +34,7 @@
 #include "Core/HW/Display.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/PresentationCommon.h"
+#include "GPU/GPUState.h"
 #include "Common/GPU/ShaderTranslation.h"
 
 struct Vertex {
@@ -74,19 +75,21 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
-	if (IsVRBuild()) {
+	SmallDisplayZoom zoomType = (SmallDisplayZoom)g_Config.iSmallDisplayZoomType;
+
+	if (IsVREnabled()) {
 		if (IsFlatVRScene()) {
-			g_Config.iSmallDisplayZoomType = (int)SmallDisplayZoom::AUTO;
+			zoomType = SmallDisplayZoom::AUTO;
 		} else {
-			g_Config.iSmallDisplayZoomType = (int)SmallDisplayZoom::STRETCH;
+			zoomType = SmallDisplayZoom::STRETCH;
 		}
 	}
 
-	if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::STRETCH) {
+	if (zoomType == SmallDisplayZoom::STRETCH) {
 		outW = frame.w;
 		outH = frame.h;
 	} else {
-		if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::MANUAL) {
+		if (zoomType == SmallDisplayZoom::MANUAL) {
 			float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frame.w + frame.x;
 			float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frame.h + frame.y;
 			// Have to invert Y for GL
@@ -109,7 +112,7 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 				rc->h = floorf(smallDisplayW);
 				return;
 			}
-		} else if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::AUTO) {
+		} else if (zoomType == SmallDisplayZoom::AUTO) {
 			// Stretch to 1080 for 272*4.  But don't distort if not widescreen (i.e. ultrawide of halfwide.)
 			float pixelCrop = frame.h / 270.0f;
 			float resCommonWidescreen = pixelCrop - floor(pixelCrop);
@@ -130,13 +133,13 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 			outW = frame.w;
 			outH = frame.w / origRatio;
 			// Stretch a little bit
-			if (!rotated && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH)
+			if (!rotated && zoomType == SmallDisplayZoom::PARTIAL_STRETCH)
 				outH = (frame.h + outH) / 2.0f; // (408 + 720) / 2 = 564
 		} else {
 			// Image is taller than frame. Center horizontally.
 			outW = frame.h * origRatio;
 			outH = frame.h;
-			if (rotated && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH)
+			if (rotated && zoomType == SmallDisplayZoom::PARTIAL_STRETCH)
 				outW = (frame.h + outH) / 2.0f; // (408 + 720) / 2 = 564
 		}
 	}
@@ -155,7 +158,7 @@ PresentationCommon::~PresentationCommon() {
 	DestroyDeviceObjects();
 }
 
-void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettings) {
+void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettings) const {
 	if (!g_Config.bEnableCardboardVR) {
 		cardboardSettings->enabled = false;
 		return;
@@ -181,7 +184,7 @@ void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettin
 	cardboardSettings->screenHeight = cardboardScreenHeight;
 }
 
-void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) {
+void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) const {
 	float u_delta = 1.0f / bufferWidth;
 	float v_delta = 1.0f / bufferHeight;
 	float u_pixel_delta = 1.0f / targetWidth;
@@ -205,7 +208,7 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	uniforms->gl_HalfPixel[0] = u_pixel_delta * 0.5f;
 	uniforms->gl_HalfPixel[1] = v_pixel_delta * 0.5f;
 
-	uniforms->setting[0] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue1"];;
+	uniforms->setting[0] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue1"];
 	uniforms->setting[1] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue2"];
 	uniforms->setting[2] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue3"];
 	uniforms->setting[3] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue4"];
@@ -224,7 +227,22 @@ static std::string ReadShaderSrc(const Path &filename) {
 }
 
 // Note: called on resize and settings changes.
+// Also takes care of making sure the appropriate stereo shader is compiled.
 bool PresentationCommon::UpdatePostShader() {
+	DestroyStereoShader();
+
+	if (gstate_c.Use(GPU_USE_SIMPLE_STEREO_PERSPECTIVE)) {
+		const ShaderInfo *stereoShaderInfo = GetPostShaderInfo(g_Config.sStereoToMonoShader);
+		if (stereoShaderInfo) {
+			bool result = CompilePostShader(stereoShaderInfo, &stereoPipeline_);
+			if (result) {
+				stereoShaderInfo_ = new ShaderInfo(*stereoShaderInfo);
+			}
+		} else {
+			WARN_LOG(G3D, "Failed to get info about stereo shader '%s'", g_Config.sStereoToMonoShader.c_str());
+		}
+	}
+
 	std::vector<const ShaderInfo *> shaderInfo;
 	if (!g_Config.vPostShaderNames.empty()) {
 		ReloadAllPostShaderInfo(draw_);
@@ -232,17 +250,23 @@ bool PresentationCommon::UpdatePostShader() {
 	}
 
 	DestroyPostShader();
-	if (shaderInfo.empty())
+	if (shaderInfo.empty()) {
+		usePostShader_ = false;
 		return false;
+	}
 
 	bool usePreviousFrame = false;
 	bool usePreviousAtOutputResolution = false;
 	for (size_t i = 0; i < shaderInfo.size(); ++i) {
 		const ShaderInfo *next = i + 1 < shaderInfo.size() ? shaderInfo[i + 1] : nullptr;
-		if (!BuildPostShader(shaderInfo[i], next)) {
+		Draw::Pipeline *postPipeline = nullptr;
+		if (!BuildPostShader(shaderInfo[i], next, &postPipeline)) {
 			DestroyPostShader();
 			return false;
 		}
+		_dbg_assert_(postPipeline);
+		postShaderPipelines_.push_back(postPipeline);
+		postShaderInfo_.push_back(*shaderInfo[i]);
 		if (shaderInfo[i]->usePreviousFrame) {
 			usePreviousFrame = true;
 			usePreviousAtOutputResolution = shaderInfo[i]->outputResolution;
@@ -270,7 +294,9 @@ bool PresentationCommon::UpdatePostShader() {
 	return true;
 }
 
-bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next) {
+bool PresentationCommon::CompilePostShader(const ShaderInfo *shaderInfo, Draw::Pipeline **outPipeline) const {
+	_assert_(shaderInfo);
+
 	std::string vsSourceGLSL = ReadShaderSrc(shaderInfo->vertexShaderFile);
 	std::string fsSourceGLSL = ReadShaderSrc(shaderInfo->fragmentShaderFile);
 	if (vsSourceGLSL.empty() || fsSourceGLSL.empty()) {
@@ -305,8 +331,21 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 	} };
 
 	Draw::Pipeline *pipeline = CreatePipeline({ vs, fs }, true, &postShaderDesc);
+
+	fs->Release();
+	vs->Release();
+
 	if (!pipeline)
 		return false;
+
+	*outPipeline = pipeline;
+	return true;
+}
+
+bool PresentationCommon::BuildPostShader(const ShaderInfo * shaderInfo, const ShaderInfo * next, Draw::Pipeline **outPipeline) {
+	if (!CompilePostShader(shaderInfo, outPipeline)) {
+		return false;
+	}
 
 	if (!shaderInfo->outputResolution || next) {
 		int nextWidth = renderWidth_;
@@ -335,13 +374,12 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 		}
 
 		if (!AllocateFramebuffer(nextWidth, nextHeight)) {
-			pipeline->Release();
+			(*outPipeline)->Release();
+			*outPipeline = nullptr;
 			return false;
 		}
 	}
 
-	postShaderPipelines_.push_back(pipeline);
-	postShaderInfo_.push_back(*shaderInfo);
 	return true;
 }
 
@@ -410,7 +448,7 @@ void PresentationCommon::DeviceRestore(Draw::DrawContext *draw) {
 	CreateDeviceObjects();
 }
 
-Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc) {
+Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc) const {
 	using namespace Draw;
 
 	Semantic pos = SEM_POSITION;
@@ -497,12 +535,12 @@ void PresentationCommon::DestroyDeviceObjects() {
 
 	restorePostShader_ = usePostShader_;
 	DestroyPostShader();
+	DestroyStereoShader();
 }
 
 void PresentationCommon::DestroyPostShader() {
 	usePostShader_ = false;
 
-	DoReleaseVector(postShaderModules_);
 	DoReleaseVector(postShaderPipelines_);
 	DoReleaseVector(postShaderFramebuffers_);
 	DoReleaseVector(previousFramebuffers_);
@@ -510,7 +548,13 @@ void PresentationCommon::DestroyPostShader() {
 	postShaderFBOUsage_.clear();
 }
 
-Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) {
+void PresentationCommon::DestroyStereoShader() {
+	DoRelease(stereoPipeline_);
+	delete stereoShaderInfo_;
+	stereoShaderInfo_ = nullptr;
+}
+
+Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) const {
 	std::string translated = src;
 	if (lang != lang_) {
 		// Gonna have to upconvert the shader.
@@ -519,10 +563,7 @@ Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, S
 			return nullptr;
 		}
 	}
-
 	Draw::ShaderModule *shader = draw_->CreateShaderModule(stage, lang_, (const uint8_t *)translated.c_str(), translated.size(), "postshader");
-	if (shader)
-		postShaderModules_.push_back(shader);
 	return shader;
 }
 
@@ -546,13 +587,28 @@ void PresentationCommon::SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidt
 	srcHeight_ = bufferHeight;
 }
 
-void PresentationCommon::BindSource(int binding) {
+// Return value is if stereo binding succeeded.
+bool PresentationCommon::BindSource(int binding, bool bindStereo) {
 	if (srcTexture_) {
 		draw_->BindTexture(binding, srcTexture_);
+		return false;
 	} else if (srcFramebuffer_) {
-		draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, 0);
+		if (bindStereo) {
+			if (srcFramebuffer_->Layers() > 1) {
+				draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, Draw::ALL_LAYERS);
+				return true;
+			} else {
+				// Single layer. This might be from a post shader and those don't yet support stereo.
+				draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, 0);
+				return false;
+			}
+		} else {
+			draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, 0);
+			return false;
+		}
 	} else {
 		_assert_(false);
+		return false;
 	}
 }
 
@@ -568,7 +624,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	// This should auto-disable usePostShader_ and call ShowPostShaderError().
 
 	bool useNearest = flags & OutputFlags::NEAREST;
-	const bool usePostShader = usePostShader_ && !(flags & OutputFlags::RB_SWIZZLE);
+	bool useStereo = gstate_c.Use(GPU_USE_SIMPLE_STEREO_PERSPECTIVE) && stereoPipeline_ != nullptr;  // TODO: Also check that the backend has support for it.
+
+	const bool usePostShader = usePostShader_ && !useStereo && !(flags & OutputFlags::RB_SWIZZLE);
 	const bool isFinalAtOutputResolution = usePostShader && postShaderFramebuffers_.size() < postShaderPipelines_.size();
 	Draw::Framebuffer *postShaderOutput = nullptr;
 	int lastWidth = srcWidth_;
@@ -643,7 +701,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		}
 	}
 
-	if (isFinalAtOutputResolution) {
+	if (isFinalAtOutputResolution || useStereo) {
 		// In this mode, we ignore the g_display_rot_matrix.  Apply manually.
 		if (g_display_rotation != DisplayRotation::ROTATE_0) {
 			for (int i = 0; i < 4; i++) {
@@ -671,9 +729,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		if (postShaderOutput) {
 			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
 		} else {
-			BindSource(0);
+			BindSource(0, false);
 		}
-		BindSource(1);
+		BindSource(1, false);
 		if (shaderInfo->usePreviousFrame)
 			draw_->BindFramebufferAsTexture(previousFramebuffer, 2, Draw::FB_COLOR_BIT, 0);
 
@@ -752,25 +810,37 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline);
 	}
 
-	Draw::Pipeline *pipeline = (flags & OutputFlags::RB_SWIZZLE) ? texColorRBSwizzle_ : texColor_;
-	if (isFinalAtOutputResolution && previousFramebuffers_.empty()) {
-		pipeline = postShaderPipelines_.back();
-	}
-
 	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "FinalBlit");
 	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 
-	draw_->BindPipeline(pipeline);
+	Draw::Pipeline *pipeline = (flags & OutputFlags::RB_SWIZZLE) ? texColorRBSwizzle_ : texColor_;
 
-	if (postShaderOutput) {
-		draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
+	if (useStereo) {
+		draw_->BindPipeline(stereoPipeline_);
+		if (!BindSource(0, true)) {
+			// Fall back
+			draw_->BindPipeline(texColor_);
+			useStereo = false;  // Otherwise we end up uploading the wrong uniforms
+		}
 	} else {
-		BindSource(0);
+		if (isFinalAtOutputResolution && previousFramebuffers_.empty()) {
+			pipeline = postShaderPipelines_.back();
+		}
+
+		draw_->BindPipeline(pipeline);
+		if (postShaderOutput) {
+			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
+		} else {
+			BindSource(0, false);
+		}
 	}
-	BindSource(1);
+	BindSource(1, false);
 
 	if (isFinalAtOutputResolution && previousFramebuffers_.empty()) {
 		CalculatePostShaderUniforms(lastWidth, lastHeight, (int)rc.w, (int)rc.h, &postShaderInfo_.back(), &uniforms);
+		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
+	} else if (useStereo) {
+		CalculatePostShaderUniforms(lastWidth, lastHeight, (int)rc.w, (int)rc.h, stereoShaderInfo_, &uniforms);
 		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
 	} else {
 		Draw::VsTexColUB ub{};
@@ -793,6 +863,8 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	CardboardSettings cardboardSettings;
 	GetCardboardSettings(&cardboardSettings);
 	if (cardboardSettings.enabled) {
+		// TODO: This could actually support stereo now, with an appropriate shader.
+
 		// This is what the left eye sees.
 		setViewport(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
 		draw_->DrawIndexed(6, 0);
@@ -814,7 +886,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	previousUniforms_ = uniforms;
 }
 
-void PresentationCommon::CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) {
+void PresentationCommon::CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) const {
 	// Check if postprocessing shader is doing upscaling as it requires native resolution
 	std::vector<const ShaderInfo *> shaderInfo;
 	if (!g_Config.vPostShaderNames.empty()) {

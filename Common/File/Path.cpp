@@ -271,7 +271,7 @@ bool Path::CanNavigateUp() const {
 	if (type_ == PathType::CONTENT_URI) {
 		return AndroidContentURI(path_).CanNavigateUp();
 	}
-	if (path_ == "/" || path_ == "") {
+	if (path_ == "/" || path_.empty()) {
 		return false;
 	}
 	if (type_ == PathType::HTTP) {
@@ -357,7 +357,6 @@ bool Path::ComputePathTo(const Path &other, std::string &path) const {
 		return true;
 	}
 
-	std::string diff;
 	if (type_ == PathType::CONTENT_URI) {
 		AndroidContentURI a(path_);
 		AndroidContentURI b(other.path_);

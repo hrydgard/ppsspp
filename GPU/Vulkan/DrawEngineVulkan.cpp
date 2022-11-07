@@ -42,6 +42,7 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
@@ -89,8 +90,6 @@ DrawEngineVulkan::DrawEngineVulkan(Draw::DrawContext *draw)
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 
 	indexGen.Setup(decIndex);
-
-	InitDeviceObjects();
 }
 
 void DrawEngineVulkan::InitDeviceObjects() {
@@ -114,6 +113,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[3].descriptorCount = 1;
 	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[3].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	if (gstate_c.Use(GPU_USE_GS_CULLING))
+		bindings[3].stageFlags |= VK_SHADER_STAGE_GEOMETRY_BIT;
 	bindings[3].binding = DRAW_BINDING_DYNUBO_BASE;
 	bindings[4].descriptorCount = 1;
 	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
@@ -153,7 +154,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 
 	static constexpr int DEFAULT_DESC_POOL_SIZE = 512;
 	std::vector<VkDescriptorPoolSize> dpTypes;
-	dpTypes.resize(4);
+	dpTypes.resize(5);
 	dpTypes[0].descriptorCount = DEFAULT_DESC_POOL_SIZE * 3;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	dpTypes[1].descriptorCount = DEFAULT_DESC_POOL_SIZE * 3;  // Don't use these for tess anymore, need max three per set.
@@ -162,6 +163,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	dpTypes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	dpTypes[3].descriptorCount = DEFAULT_DESC_POOL_SIZE;  // TODO: Use a separate layout when no spline stuff is needed to reduce the need for these.
 	dpTypes[3].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+	dpTypes[4].descriptorCount = 1;  // For the frame global uniform buffer.
+	dpTypes[4].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 
 	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	// Don't want to mess around with individually freeing these.
@@ -184,9 +187,12 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	VkPipelineLayoutCreateInfo pl{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
 	pl.pushConstantRangeCount = 0;
-	pl.setLayoutCount = 1;
-	pl.pSetLayouts = &descriptorSetLayout_;
+	VkDescriptorSetLayout frameDescSetLayout = (VkDescriptorSetLayout)draw_->GetNativeObject(Draw::NativeObject::FRAME_DATA_DESC_SET_LAYOUT);
+	VkDescriptorSetLayout layouts[2] = { frameDescSetLayout, descriptorSetLayout_};
+	pl.setLayoutCount = ARRAY_SIZE(layouts);
+	pl.pSetLayouts = layouts;
 	pl.flags = 0;
+
 	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
 	_dbg_assert_(VK_SUCCESS == res);
 
@@ -303,11 +309,13 @@ void DrawEngineVulkan::BeginFrame() {
 	frame->pushIndex->Reset();
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+
 	frame->pushUBO->Begin(vulkan);
 	frame->pushVertex->Begin(vulkan);
 	frame->pushIndex->Begin(vulkan);
 
-	// TODO: How can we make this nicer...
+	frame->frameDescSetUpdated = false;
+
 	tessDataTransferVulkan->SetPushBuffer(frame->pushUBO);
 
 	DirtyAllUBOs();
@@ -401,7 +409,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 
 	// Didn't find one in the frame descriptor set cache, let's make a new one.
 	// We wipe the cache on every frame.
-	VkDescriptorSet desc = frame.descPool.Allocate(1, &descriptorSetLayout_);
+	VkDescriptorSet desc = frame.descPool.Allocate(1, &descriptorSetLayout_, "game_descset");
 
 	// Even in release mode, this is bad.
 	_assert_msg_(desc != VK_NULL_HANDLE, "Ran out of descriptor space in pool. sz=%d", (int)frame.descSets.size());
@@ -569,7 +577,7 @@ void DrawEngineVulkan::DoFlush() {
 		textureCache_->SetTexture();
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		textureNeedsApply = true;
-	} else if (gstate.getTextureAddress(0) == ((gstate.getFrameBufRawAddress() | 0x04000000) & 0x3FFFFFFF)) {
+	} else if (gstate.getTextureAddress(0) == (gstate.getFrameBufRawAddress() | 0x04000000)) {
 		// This catches the case of clearing a texture.
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	}
@@ -578,9 +586,6 @@ void DrawEngineVulkan::DoFlush() {
 
 	// Always use software for flat shading to fix the provoking index.
 	bool useHWTransform = CanUseHardwareTransform(prim) && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
-
-	VulkanVertexShader *vshader = nullptr;
-	VulkanFragmentShader *fshader = nullptr;
 
 	uint32_t ibOffset;
 	uint32_t vbOffset;
@@ -594,7 +599,7 @@ void DrawEngineVulkan::DoFlush() {
 		// Also avoid caching when software skinning.
 		VkBuffer vbuf = VK_NULL_HANDLE;
 		VkBuffer ibuf = VK_NULL_HANDLE;
-		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			useCache = false;
 		}
 
@@ -734,7 +739,7 @@ void DrawEngineVulkan::DoFlush() {
 				break;
 			}
 		} else {
-			if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+			if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 				// If software skinning, we've already predecoded into "decoded". So push that content.
 				VkDeviceSize size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 				u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vbOffset, &vbuf);
@@ -765,24 +770,28 @@ void DrawEngineVulkan::DoFlush() {
 			textureCache_->ApplyTexture();
 			textureCache_->GetVulkanHandles(imageView, sampler);
 			if (imageView == VK_NULL_HANDLE)
-				imageView = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::NULL_IMAGEVIEW);
+				imageView = (VkImageView)draw_->GetNativeObject(gstate_c.arrayTexture ? Draw::NativeObject::NULL_IMAGEVIEW_ARRAY : Draw::NativeObject::NULL_IMAGEVIEW);
 			if (sampler == VK_NULL_HANDLE)
 				sampler = nullSampler_;
 		}
 
-		if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
+		if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE) || prim != lastPrim_) {
 			if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 				ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 			}
 
-			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat);  // usehwtransform
+			VulkanVertexShader *vshader = nullptr;
+			VulkanFragmentShader *fshader = nullptr;
+			VulkanGeometryShader *gshader = nullptr;
+
+			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
 			if (!vshader) {
 				// We're screwed.
 				return;
 			}
 			_dbg_assert_msg_(vshader->UseHWTransform(), "Bad vshader");
 
-			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, true, 0);
+			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, true, 0);
 			if (!pipeline || !pipeline->pipeline) {
 				// Already logged, let's bail out.
 				return;
@@ -832,6 +841,7 @@ void DrawEngineVulkan::DoFlush() {
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
+		decOptions_.applySkinInDecode = true;
 		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -897,22 +907,28 @@ void DrawEngineVulkan::DoFlush() {
 				textureCache_->ApplyTexture();
 				textureCache_->GetVulkanHandles(imageView, sampler);
 				if (imageView == VK_NULL_HANDLE)
-					imageView = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::NULL_IMAGEVIEW);
+					imageView = (VkImageView)draw_->GetNativeObject(gstate_c.arrayTexture ? Draw::NativeObject::NULL_IMAGEVIEW_ARRAY : Draw::NativeObject::NULL_IMAGEVIEW);
 				if (sampler == VK_NULL_HANDLE)
 					sampler = nullSampler_;
 			}
-			if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
+			if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE) || prim != lastPrim_) {
 				if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 					ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 				}
-				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat);  // usehwtransform
+
+				VulkanVertexShader *vshader = nullptr;
+				VulkanFragmentShader *fshader = nullptr;
+				VulkanGeometryShader *gshader = nullptr;
+
+				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
 				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
-				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, false, 0);
+				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, false, 0);
 				if (!pipeline || !pipeline->pipeline) {
 					// Already logged, let's bail out.
 					decodedVerts_ = 0;
 					numDrawCalls = 0;
 					decodeCounter_ = 0;
+					decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 					return;
 				}
 				BindShaderBlendTex();  // This might cause copies so super important to do before BindPipeline.
@@ -972,7 +988,7 @@ void DrawEngineVulkan::DoFlush() {
 			// If non-buffered though, it'll just do a plain clear.
 			framebufferManager_->NotifyClear(gstate.isClearModeColorMask(), gstate.isClearModeAlphaMask(), gstate.isClearModeDepthMask(), result.color, result.depth);
 
-			if (gstate_c.Supports(GPU_USE_CLEAR_RAM_HACK) && gstate.isClearModeColorMask() && (gstate.isClearModeAlphaMask() || gstate.FrameBufFormat() == GE_FORMAT_565)) {
+			if (gstate_c.Use(GPU_USE_CLEAR_RAM_HACK) && gstate.isClearModeColorMask() && (gstate.isClearModeAlphaMask() || gstate.FrameBufFormat() == GE_FORMAT_565)) {
 				int scissorX1 = gstate.getScissorX1();
 				int scissorY1 = gstate.getScissorY1();
 				int scissorX2 = gstate.getScissorX2() + 1;
@@ -980,6 +996,7 @@ void DrawEngineVulkan::DoFlush() {
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, result.color);
 			}
 		}
+		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;
@@ -1005,6 +1022,32 @@ void DrawEngineVulkan::DoFlush() {
 }
 
 void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
+	if (!frame->frameDescSetUpdated) {
+		// Push frame global constants.
+		UB_Frame frameConstants{};
+		FrameUpdateUniforms(&frameConstants, framebufferManager_->UseBufferedRendering());
+
+		VkDescriptorBufferInfo frameConstantsBufInfo;
+		frame->pushUBO->PushUBOData(frameConstants, &frameConstantsBufInfo);
+
+		VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		VkDescriptorSetLayout frameDescSetLayout = (VkDescriptorSetLayout)draw_->GetNativeObject(Draw::NativeObject::FRAME_DATA_DESC_SET_LAYOUT);
+
+		VkDescriptorSet frameDescSet = frame->descPool.Allocate(1, &frameDescSetLayout, "frame_desc_set");
+
+		VkWriteDescriptorSet descWrite{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+		descWrite.descriptorCount = 1;
+		descWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descWrite.dstBinding = 0;
+		descWrite.dstSet = frameDescSet;
+		descWrite.pBufferInfo = &frameConstantsBufInfo;
+		vkUpdateDescriptorSets(vulkan->GetDevice(), 1, &descWrite, 0, nullptr);
+		renderManager->BindDescriptorSet(0, frameDescSet, pipelineLayout_);
+
+		frame->frameDescSetUpdated = true;
+	}
+
 	if ((dirtyUniforms_ & DIRTY_BASE_UNIFORMS) || baseBuf == VK_NULL_HANDLE) {
 		baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushUBO, &baseBuf);
 		dirtyUniforms_ &= ~DIRTY_BASE_UNIFORMS;

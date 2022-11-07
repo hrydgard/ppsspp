@@ -201,11 +201,19 @@ public:
 	D3DTEXTUREFILTERTYPE magFilt, minFilt, mipFilt;
 
 	void Apply(LPDIRECT3DDEVICE9 device, int index) {
-		dxstate.texAddressU.set(wrapS);
-		dxstate.texAddressV.set(wrapT);
-		dxstate.texMagFilter.set(magFilt);
-		dxstate.texMinFilter.set(minFilt);
-		dxstate.texMipFilter.set(mipFilt);
+		if (index == 0) {
+			dxstate.texAddressU.set(wrapS);
+			dxstate.texAddressV.set(wrapT);
+			dxstate.texMagFilter.set(magFilt);
+			dxstate.texMinFilter.set(minFilt);
+			dxstate.texMipFilter.set(mipFilt);
+		} else {
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_ADDRESSU, wrapS);
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_ADDRESSV, wrapT);
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_MAGFILTER, magFilt);
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_MINFILTER, minFilt);
+			pD3Ddevice9->SetSamplerState(index, D3DSAMP_MIPFILTER, mipFilt);
+		}
 	}
 };
 
@@ -520,19 +528,17 @@ public:
 		// Not implemented
 	}
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
+	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	Framebuffer *GetCurrentRenderTarget() override {
-		return curRenderTarget_;
-	}
-	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
-	
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) override;
+
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
-	void BindTextures(int start, int count, Texture **textures) override;
+	void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) override;
 	void BindNativeTexture(int index, void *nativeTexture) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
@@ -740,7 +746,6 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	}
 
 	caps_.deviceID = identifier_.DeviceId;
-	caps_.multiViewport = false;
 	caps_.depthRangeMinusOneToOne = false;
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 	caps_.dualSourceBlend = false;
@@ -906,7 +911,7 @@ Texture *D3D9Context::CreateTexture(const TextureDesc &desc) {
 	return tex;
 }
 
-void D3D9Context::BindTextures(int start, int count, Texture **textures) {
+void D3D9Context::BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) {
 	_assert_(start + count <= MAX_BOUND_TEXTURES);
 	for (int i = start; i < start + count; i++) {
 		D3D9Texture *tex = static_cast<D3D9Texture *>(textures[i - start]);
@@ -1235,6 +1240,9 @@ public:
 };
 
 Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
+	// Don't think D3D9 does array layers.
+	_dbg_assert_(desc.numLayers == 1);
+
 	static uint32_t id = 0;
 
 	D3D9Framebuffer *fbo = new D3D9Framebuffer(desc.width, desc.height);
@@ -1309,6 +1317,7 @@ void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPa
 	}
 
 	dxstate.scissorRect.restore();
+	dxstate.scissorTest.restore();
 	dxstate.viewport.restore();
 	stepId_++;
 }
@@ -1338,8 +1347,9 @@ uintptr_t D3D9Context::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit
 	}
 }
 
-void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
-	_assert_(binding < MAX_BOUND_TEXTURES);
+void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) {
+	_dbg_assert_(binding < MAX_BOUND_TEXTURES);
+	_dbg_assert_(layer == ALL_LAYERS || layer == 0);  // No stereo support
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
 	switch (channelBit) {
 	case FB_DEPTH_BIT:
@@ -1390,6 +1400,108 @@ bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int 
 	}
 	stepId_++;
 	return SUCCEEDED(device_->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, (filter == FB_BLIT_LINEAR && channelBits == FB_COLOR_BIT) ? D3DTEXF_LINEAR : D3DTEXF_POINT));
+}
+
+bool D3D9Context::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, const char *tag) {
+	D3D9Framebuffer *fb = (D3D9Framebuffer *)src;
+
+	if (fb) {
+		if (bx + bw > fb->Width()) {
+			bw -= (bx + bw) - fb->Width();
+		}
+		if (by + bh > fb->Height()) {
+			bh -= (by + bh) - fb->Height();
+		}
+	}
+
+	if (bh <= 0 || bw <= 0)
+		return true;
+
+	DataFormat srcFormat = Draw::DataFormat::R8G8B8A8_UNORM;
+	if (channelBits != FB_COLOR_BIT) {
+		srcFormat = Draw::DataFormat::D24_S8;
+		if (!supportsINTZ)
+			return false;
+	}
+
+	D3DSURFACE_DESC desc;
+	D3DLOCKED_RECT locked;
+	RECT rect = { (LONG)bx, (LONG)by, (LONG)bw, (LONG)bh };
+
+	LPDIRECT3DSURFACE9 offscreen = nullptr;
+	HRESULT hr = E_UNEXPECTED;
+	if (channelBits == FB_COLOR_BIT) {
+		fb->tex->GetLevelDesc(0, &desc);
+
+		hr = device_->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, nullptr);
+		if (SUCCEEDED(hr)) {
+			hr = device_->GetRenderTargetData(fb->surf, offscreen);
+			if (SUCCEEDED(hr)) {
+				hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
+			}
+		}
+	} else {
+		fb->depthstenciltex->GetLevelDesc(0, &desc);
+		hr = fb->depthstenciltex->LockRect(0, &locked, &rect, D3DLOCK_READONLY);
+	}
+
+	if (SUCCEEDED(hr)) {
+		switch (channelBits) {
+		case FB_COLOR_BIT:
+			// Pixel size always 4 here because we always request BGRA8888.
+			ConvertFromBGRA8888((uint8_t *)pixels, (const uint8_t *)locked.pBits, pixelStride, locked.Pitch / sizeof(uint32_t), bw, bh, destFormat);
+			break;
+		case FB_DEPTH_BIT:
+			if (srcFormat == destFormat) {
+				// Can just memcpy when it matches no matter the format!
+				uint8_t *dst = (uint8_t *)pixels;
+				const uint8_t *src = (const uint8_t *)locked.pBits;
+				for (int y = 0; y < bh; ++y) {
+					memcpy(dst, src, bw * DataFormatSizeInBytes(srcFormat));
+					dst += pixelStride * DataFormatSizeInBytes(srcFormat);
+					src += locked.Pitch;
+				}
+			} else if (destFormat == DataFormat::D32F) {
+				ConvertToD32F((uint8_t *)pixels, (const uint8_t *)locked.pBits, pixelStride, locked.Pitch / sizeof(uint32_t), bw, bh, srcFormat);
+			} else if (destFormat == DataFormat::D16) {
+				ConvertToD16((uint8_t *)pixels, (const uint8_t *)locked.pBits, pixelStride, locked.Pitch / sizeof(uint32_t), bw, bh, srcFormat);
+			} else {
+				_assert_(false);
+			}
+			break;
+		case FB_STENCIL_BIT:
+			if (srcFormat == destFormat) {
+				uint8_t *dst = (uint8_t *)pixels;
+				const uint8_t *src = (const uint8_t *)locked.pBits;
+				for (int y = 0; y < bh; ++y) {
+					memcpy(dst, src, bw * DataFormatSizeInBytes(srcFormat));
+					dst += pixelStride * DataFormatSizeInBytes(srcFormat);
+					src += locked.Pitch;
+				}
+			} else if (destFormat == DataFormat::S8) {
+				for (int y = 0; y < bh; y++) {
+					uint8_t *destStencil = (uint8_t *)pixels + y * pixelStride;
+					const uint32_t *src = (const uint32_t *)((const uint8_t *)locked.pBits + locked.Pitch * y);
+					for (int x = 0; x < bw; x++) {
+						destStencil[x] = src[x] >> 24;
+					}
+				}
+			} else {
+				_assert_(false);
+			}
+			break;
+		}
+	}
+
+	if (channelBits != FB_COLOR_BIT) {
+		fb->depthstenciltex->UnlockRect(0);
+	}
+	if (offscreen) {
+		offscreen->UnlockRect();
+		offscreen->Release();
+	}
+
+	return SUCCEEDED(hr);
 }
 
 void D3D9Context::HandleEvent(Event ev, int width, int height, void *param1, void *param2) {

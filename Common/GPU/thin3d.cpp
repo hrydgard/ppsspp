@@ -137,7 +137,7 @@ static const std::vector<ShaderSource> fsTexCol = {
 	"layout(location = 0) in vec4 oColor0;\n"
 	"layout(location = 1) in vec2 oTexCoord0;\n"
 	"layout(location = 0) out vec4 fragColor0;\n"
-	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
+	"layout(set = 1, binding = 1) uniform sampler2D Sampler0;\n"
 	"void main() { fragColor0 = texture(Sampler0, oTexCoord0) * oColor0; }\n"
 	}
 };
@@ -181,7 +181,7 @@ static const std::vector<ShaderSource> fsTexColRBSwizzle = {
 	"layout(location = 0) in vec4 oColor0;\n"
 	"layout(location = 1) in vec2 oTexCoord0;\n"
 	"layout(location = 0) out vec4 fragColor0\n;"
-	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
+	"layout(set = 1, binding = 1) uniform sampler2D Sampler0;\n"
 	"void main() { fragColor0 = texture(Sampler0, oTexCoord0).bgra * oColor0; }\n"
 	}
 };
@@ -270,7 +270,7 @@ static const std::vector<ShaderSource> vsCol = {
 R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
-layout (std140, set = 0, binding = 0) uniform bufferVals {
+layout (std140, set = 1, binding = 0) uniform bufferVals {
 	mat4 WorldViewProj;
 	vec2 TintSaturation;
 } myBufferVals;
@@ -416,7 +416,7 @@ VS_OUTPUT main(VS_INPUT input) {
 	R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
-layout (std140, set = 0, binding = 0) uniform bufferVals {
+layout (std140, set = 1, binding = 0) uniform bufferVals {
 	mat4 WorldViewProj;
 	vec2 TintSaturation;
 } myBufferVals;
@@ -586,7 +586,36 @@ void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 			dst += dstStride * 3;
 		}
 	} else {
-		WARN_LOG(G3D, "Unable to convert from format to BGRA: %d", (int)format);
+		// But here it shouldn't matter if they do intersect
+		uint16_t *dst16 = (uint16_t *)dst;
+		switch (format) {
+		case Draw::DataFormat::R5G6B5_UNORM_PACK16: // BGR 565
+			for (uint32_t y = 0; y < height; ++y) {
+				ConvertBGRA8888ToRGB565(dst16, src32, width);
+				src32 += srcStride;
+				dst16 += dstStride;
+			}
+			break;
+		case Draw::DataFormat::A1R5G5B5_UNORM_PACK16: // ABGR 1555
+			for (uint32_t y = 0; y < height; ++y) {
+				ConvertBGRA8888ToRGBA5551(dst16, src32, width);
+				src32 += srcStride;
+				dst16 += dstStride;
+			}
+			break;
+		case Draw::DataFormat::A4R4G4B4_UNORM_PACK16: // ABGR 4444
+			for (uint32_t y = 0; y < height; ++y) {
+				ConvertBGRA8888ToRGBA4444(dst16, src32, width);
+				src32 += srcStride;
+				dst16 += dstStride;
+			}
+			break;
+		case Draw::DataFormat::R8G8B8A8_UNORM:
+		case Draw::DataFormat::UNDEFINED:
+		default:
+			WARN_LOG(G3D, "Unable to convert from format to BGRA: %d", (int)format);
+			break;
+		}
 	}
 }
 

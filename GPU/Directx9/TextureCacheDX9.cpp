@@ -47,6 +47,8 @@ Draw::DataFormat FromD3D9Format(u32 fmt) {
 		return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
 	case D3DFMT_R5G6B5:
 		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case D3DFMT_A8:
+		return Draw::DataFormat::R8_UNORM;
 	case D3DFMT_A8R8G8B8:
 	default:
 		return Draw::DataFormat::R8G8B8A8_UNORM;
@@ -168,7 +170,7 @@ void TextureCacheDX9::StartFrame() {
 		Decimate();
 	}
 
-	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY)) {
+	if (gstate_c.Use(GPU_USE_ANISOTROPY)) {
 		DWORD aniso = 1 << g_Config.iAnisotropyLevel;
 		DWORD anisotropyLevel = aniso > maxAnisotropyLevel ? maxAnisotropyLevel : aniso;
 		device_->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel);
@@ -251,6 +253,8 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		dstFmt = ToD3D9Format(plan.replaced->Format(plan.baseLevelSrc));
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = D3DFMT_A8R8G8B8;
+	} else if (plan.decodeToClut8) {
+		dstFmt = D3DFMT_A8;
 	}
 
 	int levels;
@@ -358,8 +362,12 @@ D3DFORMAT TextureCacheDX9::GetDestFormat(GETextureFormat format, GEPaletteFormat
 	}
 }
 
-bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
+bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
 	SetTexture();
+	if (!nextTexture_) {
+		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
+	}
+
 	ApplyTexture();
 
 	LPDIRECT3DBASETEXTURE9 baseTex;
@@ -392,6 +400,9 @@ bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) 
 					}
 					renderTarget->Release();
 				}
+				*isFramebuffer = true;
+			} else {
+				*isFramebuffer = false;
 			}
 
 			if (SUCCEEDED(hr)) {

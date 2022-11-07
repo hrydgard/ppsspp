@@ -17,7 +17,7 @@ enum : uint64_t {
 	DIRTY_MATDIFFUSE | DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE | DIRTY_AMBIENT,
 };
 
-// Currently 480 bytes. Probably can't get to 256 (nVidia's UBO alignment, also common in other vendors).
+// Currently 448 bytes.
 // Every line here is a 4-float.
 struct alignas(16) UB_VS_FS_Base {
 	float proj[16];
@@ -27,20 +27,20 @@ struct alignas(16) UB_VS_FS_Base {
 	float tex[12];
 	float uvScaleOffset[4];
 	float depthRange[4];
-	// Rotation is used only for software transform.
 	float matAmbient[4];
 	float cullRangeMin[4];
 	float cullRangeMax[4];
 	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
 	uint32_t colorWriteMask; float mipBias;
 	// Fragment data
-	float fogColor[4];     // .w is unused
+	float fogColor[3]; uint32_t alphaColorRef;
 	float texEnvColor[3]; uint32_t colorTestMask;
-	int alphaColorRef[4];
 	float blendFixA[3]; float stencil;
-	float blendFixB[3]; float rotation;
+	float blendFixB[3]; float padUnused;
 	float texClamp[4];
 	float texClampOffset[2]; float fogCoef[2];
+	// VR stuff is to go here, later. For normal drawing, we can then get away
+	// with just uploading the first 448 bytes of the struct (up to and including fogCoef).
 };
 
 static const char * const ub_baseStr =
@@ -58,12 +58,10 @@ R"(  mat4 u_proj;
   uint u_depal_mask_shift_off_fmt;
   uint u_colorWriteMask;
   float u_mipBias;
-  vec3 u_fogcolor;
-  vec3 u_texenv;
-  uint u_alphacolormask;
-  ivec4 u_alphacolorref;
+  vec3 u_fogcolor;  uint u_alphacolorref;
+  vec3 u_texenv;    uint u_alphacolormask;
   vec3 u_blendFixA; float u_stencilReplaceValue;
-  vec3 u_blendFixB; float u_rotation;
+  vec3 u_blendFixB; float u_padUnused;
   vec4 u_texclamp;
   vec2 u_texclampoff;
   vec2 u_fogcoef;
@@ -132,10 +130,22 @@ static const char * const ub_vs_bonesStr =
 R"(	mat3x4 u_bone0; mat3x4 u_bone1; mat3x4 u_bone2; mat3x4 u_bone3; mat3x4 u_bone4; mat3x4 u_bone5; mat3x4 u_bone6; mat3x4 u_bone7; mat3x4 u_bone8;
 )";
 
+
+static const char * const ub_frameStr =
+R"(
+    float u_rotation;
+)";
+
+// Frame-global uniforms.
+struct UB_Frame {
+	float rotation;  // This is only used when using software transform, and non-buffered, to support native screen rotation.
+};
+
 void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bool hasNegZ);
 
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport, bool useBufferedRendering);
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
 void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms);
+void FrameUpdateUniforms(UB_Frame *ub, bool useBufferedRendering);
 
 uint32_t PackLightControlBits();

@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "Common/Common.h"
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Shader.h"
 #include "Common/Data/Collections/Slice.h"
@@ -241,12 +242,16 @@ enum class NativeObject {
 	BACKBUFFER_DEPTH_TEX,
 	FEATURE_LEVEL,
 	INIT_COMMANDBUFFER,
-	BOUND_TEXTURE0_IMAGEVIEW,
-	BOUND_TEXTURE1_IMAGEVIEW,
-	BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW,
+	BOUND_TEXTURE0_IMAGEVIEW,  // Layer etc depends on how you bound it...
+	BOUND_TEXTURE1_IMAGEVIEW,  // Layer etc depends on how you bound it...
+	BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_ALL_LAYERS,
+	BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_LAYER, // use an int cast to void *srcObject to specify layer.
 	RENDER_MANAGER,
 	TEXTURE_VIEW,
 	NULL_IMAGEVIEW,
+	NULL_IMAGEVIEW_ARRAY,
+	FRAME_DATA_DESC_SET_LAYOUT,
+	THIN3D_PIPELINE_LAYOUT,
 };
 
 enum FBChannel {
@@ -293,7 +298,7 @@ struct FramebufferDesc {
 	int width;
 	int height;
 	int depth;
-	int numColorAttachments;
+	int numLayers;
 	bool z_stencil;
 	const char *tag;  // For graphics debuggers
 };
@@ -333,11 +338,14 @@ public:
 		RASPBERRY_SHADER_COMP_HANG = 8,
 		MALI_CONSTANT_LOAD_BUG = 9,
 		SUBPASS_FEEDBACK_BROKEN = 10,
+		GEOMETRY_SHADERS_SLOW_OR_BROKEN = 11,
 		MAX_BUG,
 	};
 
 protected:
 	uint32_t flags_ = 0;
+
+	static_assert(sizeof(flags_) * 8 > MAX_BUG, "Ran out of space for bugs.");
 };
 
 class RefCountedObject {
@@ -385,12 +393,25 @@ struct AutoRef {
 		*this = p.ptr;
 		return *this;
 	}
+	bool operator !=(const AutoRef<T> &p) const {
+		return ptr != p.ptr;
+	}
 
 	T *operator->() const {
 		return ptr;
 	}
 	operator T *() {
 		return ptr;
+	}
+	operator bool() const {
+		return ptr != nullptr;
+	}
+
+	void clear() {
+		if (ptr) {
+			ptr->Release();
+			ptr = nullptr;
+		}
 	}
 
 	T *ptr = nullptr;
@@ -412,9 +433,11 @@ class Framebuffer : public RefCountedObject {
 public:
 	int Width() { return width_; }
 	int Height() { return height_; }
+	int Layers() { return layers_; }
+
 	virtual void UpdateTag(const char *tag) {}
 protected:
-	int width_ = -1, height_ = -1;
+	int width_ = -1, height_ = -1, layers_ = 1;
 };
 
 class Buffer : public RefCountedObject {
@@ -531,7 +554,6 @@ struct DeviceCaps {
 	bool depthRangeMinusOneToOne;  // OpenGL style depth
 	bool geometryShaderSupported;
 	bool tesselationShaderSupported;
-	bool multiViewport;
 	bool dualSourceBlend;
 	bool logicOpSupported;
 	bool depthClampSupported;
@@ -550,6 +572,7 @@ struct DeviceCaps {
 	bool fragmentShaderDepthWriteSupported;
 	bool textureDepthSupported;
 	bool blendMinMaxSupported;
+	bool multiViewSupported;
 
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
@@ -590,6 +613,14 @@ struct RenderPassInfo {
 	const char *tag;
 };
 
+const int ALL_LAYERS = -1;
+
+enum class TextureBindFlags {
+	NONE = 0,
+	VULKAN_BIND_ARRAY = 1,
+};
+ENUM_CLASS_BITOPS(TextureBindFlags);
+
 class DrawContext {
 public:
 	virtual ~DrawContext();
@@ -612,6 +643,8 @@ public:
 	virtual uint32_t GetSupportedShaderLanguages() const = 0;
 
 	virtual void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {}
+
+	virtual void DebugAnnotate(const char *annotation) {}
 
 	// Partial pipeline state, used to create pipelines. (in practice, in d3d11 they'll use the native state objects directly).
 	// TODO: Possibly ditch these and just put the descs directly in PipelineDesc since only D3D11 benefits.
@@ -649,11 +682,11 @@ public:
 
 	// These functions should be self explanatory.
 	// Binding a zero render target means binding the backbuffer.
+	// If an fbo has two layers, we bind for stereo rendering ALWAYS. There's no rendering to one layer anymore.
 	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) = 0;
-	virtual Framebuffer *GetCurrentRenderTarget() = 0;
 
 	// binding must be < MAX_TEXTURE_SLOTS (0, 1 are okay if it's 2).
-	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
+	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) = 0;
 
 	// Framebuffer fetch / input attachment support, needs to be explicit in Vulkan.
 	virtual void BindCurrentFramebufferForColorInput() {}
@@ -678,7 +711,7 @@ public:
 	virtual void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) = 0;
 
 	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
-	virtual void BindTextures(int start, int count, Texture **textures) = 0;
+	virtual void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags = TextureBindFlags::NONE) = 0;
 	virtual void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) = 0;
 	virtual void BindIndexBuffer(Buffer *indexBuffer, int offset) = 0;
 
@@ -731,6 +764,9 @@ public:
 
 	// Flush state like scissors etc so the caller can do its own custom drawing.
 	virtual void FlushState() {}
+
+	// This is called when we launch a new game, so any collected internal stats in the backends don't carry over.
+	virtual void ResetStats() {}
 
 	virtual int GetCurrentStepId() const = 0;
 

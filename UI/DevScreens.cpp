@@ -1156,7 +1156,7 @@ int ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout *
 struct { DebugShaderType type; const char *name; } shaderTypes[] = {
 	{ SHADER_TYPE_VERTEX, "Vertex" },
 	{ SHADER_TYPE_FRAGMENT, "Fragment" },
-	// { SHADER_TYPE_GEOMETRY, "Geometry" },
+	{ SHADER_TYPE_GEOMETRY, "Geometry" },
 	{ SHADER_TYPE_VERTEXLOADER, "VertexLoader" },
 	{ SHADER_TYPE_PIPELINE, "Pipeline" },
 	{ SHADER_TYPE_TEXTURE, "Texture" },

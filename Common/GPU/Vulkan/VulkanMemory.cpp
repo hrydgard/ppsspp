@@ -153,7 +153,7 @@ void VulkanDescSetPool::Create(VulkanContext *vulkan, const VkDescriptorPoolCrea
 	_assert_msg_(res == VK_SUCCESS, "Could not create VulkanDescSetPool %s", tag_);
 }
 
-VkDescriptorSet VulkanDescSetPool::Allocate(int n, const VkDescriptorSetLayout *layouts) {
+VkDescriptorSet VulkanDescSetPool::Allocate(int n, const VkDescriptorSetLayout *layouts, const char *tag) {
 	if (descPool_ == VK_NULL_HANDLE || usage_ + n >= info_.maxSets) {
 		// Missing or out of space, need to recreate.
 		VkResult res = Recreate(grow_);
@@ -180,9 +180,12 @@ VkDescriptorSet VulkanDescSetPool::Allocate(int n, const VkDescriptorSetLayout *
 		_assert_msg_(result == VK_SUCCESS, "Ran out of descriptor space (frag?) and failed to allocate after recreating a descriptor pool. res=%d", (int)result);
 	}
 
-	if (result == VK_SUCCESS)
-		return desc;
-	return VK_NULL_HANDLE;
+	if (result != VK_SUCCESS) {
+		return VK_NULL_HANDLE;
+	}
+
+	vulkan_->SetDebugName(desc, VK_OBJECT_TYPE_DESCRIPTOR_SET, tag);
+	return desc;
 }
 
 void VulkanDescSetPool::Reset() {

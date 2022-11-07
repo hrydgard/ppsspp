@@ -130,8 +130,8 @@ void DrawEngineD3D11::ClearInputLayoutMap() {
 	inputLayoutMap_.Clear();
 }
 
-void DrawEngineD3D11::Resized() {
-	DrawEngineCommon::Resized();
+void DrawEngineD3D11::NotifyConfigChanged() {
+	DrawEngineCommon::NotifyConfigChanged();
 	ClearInputLayoutMap();
 }
 
@@ -340,7 +340,7 @@ void DrawEngineD3D11::DoFlush() {
 		textureCache_->SetTexture();
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		textureNeedsApply = true;
-	} else if (gstate.getTextureAddress(0) == ((gstate.getFrameBufRawAddress() | 0x04000000) & 0x3FFFFFFF)) {
+	} else if (gstate.getTextureAddress(0) == (gstate.getFrameBufRawAddress() | 0x04000000)) {
 		// This catches the case of clearing a texture. (#10957)
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	}
@@ -365,7 +365,7 @@ void DrawEngineD3D11::DoFlush() {
 		// Cannot cache vertex data with morph enabled.
 		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
 		// Also avoid caching when software skinning.
-		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
+		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
 			useCache = false;
 
 		if (useCache) {
@@ -538,7 +538,7 @@ rotateVBO:
 
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
-		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, useHWTransform, useHWTessellation_, decOptions_.expandAllWeightsToFloat);
+		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, useHWTransform, useHWTessellation_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
 		ID3D11InputLayout *inputLayout = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
 		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 		context_->VSSetShader(vshader->GetShader(), nullptr, 0);
@@ -581,6 +581,7 @@ rotateVBO:
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
+		decOptions_.applySkinInDecode = true;
 		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -648,7 +649,7 @@ rotateVBO:
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			D3D11VertexShader *vshader;
 			D3D11FragmentShader *fshader;
-			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat);
+			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
 			context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 			context_->VSSetShader(vshader->GetShader(), nullptr, 0);
 			shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
@@ -701,7 +702,7 @@ rotateVBO:
 			uint8_t clearStencil = clearColor >> 24;
 			draw_->Clear(clearFlag, clearColor, clearDepth, clearStencil);
 
-			if ((gstate_c.featureFlags & GPU_USE_CLEAR_RAM_HACK) && gstate.isClearModeColorMask() && (gstate.isClearModeAlphaMask() || gstate_c.framebufFormat == GE_FORMAT_565)) {
+			if ((gstate_c.useFlags & GPU_USE_CLEAR_RAM_HACK) && gstate.isClearModeColorMask() && (gstate.isClearModeAlphaMask() || gstate_c.framebufFormat == GE_FORMAT_565)) {
 				int scissorX1 = gstate.getScissorX1();
 				int scissorY1 = gstate.getScissorY1();
 				int scissorX2 = gstate.getScissorX2() + 1;
@@ -709,6 +710,7 @@ rotateVBO:
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
 			}
 		}
+		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;

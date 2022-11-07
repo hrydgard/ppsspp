@@ -80,6 +80,8 @@ struct FrameData {
 
 	void AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared);
 	VkResult QueuePresent(VulkanContext *vulkan, FrameDataShared &shared);
+
+	// Generally called from the main thread, unlike most of the rest.
 	VkCommandBuffer GetInitCmd(VulkanContext *vulkan);
 
 	// This will only submit if we are actually recording init commands.

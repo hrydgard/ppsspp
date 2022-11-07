@@ -148,7 +148,7 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 		std::string tmp;
 		while (*filter) {
 			if (*filter == ':') {
-				filters.insert("." + tmp);
+				filters.emplace("." + tmp);
 				tmp.clear();
 			} else {
 				tmp.push_back(*filter);
@@ -156,7 +156,7 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 			filter++;
 		}
 		if (!tmp.empty())
-			filters.insert("." + tmp);
+			filters.emplace("." + tmp);
 	}
 
 	auto pred = [&](const File::FileInfo &info) {
@@ -171,10 +171,11 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 
 bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter, int flags) {
 	if (directory.Type() == PathType::CONTENT_URI) {
-		std::vector<File::FileInfo> fileList = Android_ListContentUri(directory.ToString());
+		bool exists = false;
+		std::vector<File::FileInfo> fileList = Android_ListContentUri(directory.ToString(), &exists);
 		*files = ApplyFilter(fileList, filter);
 		std::sort(files->begin(), files->end());
-		return true;
+		return exists;
 	}
 
 	std::set<std::string> filters;
@@ -219,7 +220,7 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 	HANDLE hFind = FindFirstFileEx((directory.ToWString() + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
 #endif
 	if (hFind == INVALID_HANDLE_VALUE) {
-		return 0;
+		return false;
 	}
 	do {
 		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
@@ -266,7 +267,7 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 	struct dirent *result = NULL;
 	DIR *dirp = opendir(directory.c_str());
 	if (!dirp)
-		return 0;
+		return false;
 	while ((result = readdir(dirp))) {
 		const std::string virtualName(result->d_name);
 		// check for "." and ".."
@@ -316,7 +317,7 @@ std::vector<std::string> GetWindowsDrives()
 	{
 		if (logicaldrives & (1 << i))
 		{
-			CHAR driveName[] = { TEXT('A') + i, TEXT(':'), TEXT('\\'), TEXT('\0') };
+			CHAR driveName[] = { (CHAR)(TEXT('A') + i), TEXT(':'), TEXT('\\'), TEXT('\0') };
 			std::string str(driveName);
 			drives.push_back(driveName);
 		}

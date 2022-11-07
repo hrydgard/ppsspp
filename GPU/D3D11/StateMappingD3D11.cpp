@@ -147,7 +147,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		} else {
 			keys_.blend.value = 0;
 
-			pipelineState_.Convert(draw_->GetDeviceCaps().fragmentShaderInt32Supported);
+			pipelineState_.Convert(draw_->GetShaderLanguageDesc().bitwiseOps);
 			GenericMaskState &maskState = pipelineState_.maskState;
 			GenericBlendState &blendState = pipelineState_.blendState;
 			// We ignore the logicState on D3D since there's no support, the emulation of it is blend-and-shader only.
@@ -159,7 +159,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
 				if (fboTexBindState == FBO_TEX_COPY_BIND_TEX) {
-					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY, 0);
 					// No sampler required, we do a plain Load in the pixel shader.
 					fboTexBound_ = true;
 					fboTexBindState = FBO_TEX_NONE;
@@ -202,7 +202,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				dynState_.useBlendColor = false;
 			}
 
-			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
+			if (gstate_c.Use(GPU_USE_LOGIC_OP)) {
 				// Logic Ops
 				if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
 					keys_.blend.blendEnable = false;  // Can't have both blend & logic op - although I think the PSP can!
@@ -229,7 +229,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
 				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
 				// But the alternate is not clamping in either direction...
-				keys_.raster.depthClipEnable = !gstate.isDepthClampEnabled() || !gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP);
+				keys_.raster.depthClipEnable = !gstate.isDepthClampEnabled() || !gstate_c.Use(GPU_USE_DEPTH_CLAMP);
 			} else {
 				// We just want to clip in this case, the clamp would be clipped anyway.
 				keys_.raster.depthClipEnable = 1;
@@ -433,7 +433,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-	} else if (gstate.getTextureAddress(0) == ((gstate.getFrameBufRawAddress() | 0x04000000) & 0x3FFFFFFF)) {
+	} else if (gstate.getTextureAddress(0) == (gstate.getFrameBufRawAddress() | 0x04000000)) {
 		// This catches the case of clearing a texture.
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	}

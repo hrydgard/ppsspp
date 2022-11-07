@@ -55,7 +55,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 	off.name = "Off";
 	off.section = "Off";
 	for (size_t i = 0; i < ARRAY_SIZE(off.settings); ++i) {
-		off.settings[i].name = "";
+		off.settings[i].name.clear();
 		off.settings[i].value = 0.0f;
 		off.settings[i].minValue = -1.0f;
 		off.settings[i].maxValue = 1.0f;
@@ -154,9 +154,11 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					continue;
 				}
 
-				if (section.Exists("Fragment") && section.Exists("Vertex") && strncasecmp(shaderType.c_str(), "render", shaderType.size()) == 0) {
+				if (section.Exists("Fragment") && section.Exists("Vertex") &&
+					(strncasecmp(shaderType.c_str(), "render", shaderType.size()) == 0 ||
+					 strncasecmp(shaderType.c_str(), "StereoToMono", shaderType.size()) == 0)) {
 					// Valid shader!
-					ShaderInfo info;
+					ShaderInfo info{};
 					std::string temp;
 					info.section = section.name();
 
@@ -174,7 +176,13 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					section.Get("UsePreviousFrame", &info.usePreviousFrame, false);
 
 					if (info.parent == "Off")
-						info.parent = "";
+						info.parent.clear();
+
+					if (strncasecmp(shaderType.c_str(), "stereotomono", shaderType.size()) == 0) {
+						info.isStereo = true;
+						info.isUpscalingFilter = false;
+						info.parent.clear();
+					}
 
 					for (size_t i = 0; i < ARRAY_SIZE(info.settings); ++i) {
 						auto &setting = info.settings[i];
@@ -187,7 +195,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 						// Populate the default setting value.
 						std::string section = StringFromFormat("%sSettingValue%d", info.section.c_str(), i + 1);
 						if (!setting.name.empty() && g_Config.mPostShaderSetting.find(section) == g_Config.mPostShaderSetting.end()) {
-							g_Config.mPostShaderSetting.insert(std::pair<std::string, float>(section, setting.value));
+							g_Config.mPostShaderSetting.emplace(section, setting.value);
 						}
 					}
 
@@ -206,7 +214,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					}
 				} else if (section.Exists("Compute") && strncasecmp(shaderType.c_str(), "texture", shaderType.size()) == 0) {
 					// This is a texture shader.
-					TextureShaderInfo info;
+					TextureShaderInfo info{};
 					std::string temp;
 					info.section = section.name();
 					section.Get("Name", &info.name, section.name().c_str());
@@ -216,6 +224,8 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					if (info.scaleFactor >= 2 && info.scaleFactor < 8) {
 						appendTextureShader(info);
 					}
+				} else if (!section.name().empty()) {
+					WARN_LOG(G3D, "Unrecognized shader type '%s' or invalid shader in section '%s'", shaderType.c_str(), section.name().c_str());
 				}
 			}
 		}

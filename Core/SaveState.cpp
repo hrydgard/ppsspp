@@ -316,7 +316,11 @@ namespace SaveState
 		} else {
 			Memory::DoState(p);
 		}
-		RestoreSavedReplacements(savedReplacements);
+
+		// Don't bother restoring if reading, we'll deal with that in KernelModuleDoState.
+		// In theory, different functions might have been runtime loaded in the state.
+		if (p.mode != p.MODE_READ)
+			RestoreSavedReplacements(savedReplacements);
 
 		MemoryStick_DoState(p);
 		currentMIPS->DoState(p);

@@ -697,7 +697,7 @@ const char * const vulkanDefaultBlacklist[] = {
 };
 
 static int DefaultGPUBackend() {
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		return (int)GPUBackend::OPENGL;
 	}
 
@@ -874,7 +874,8 @@ static ConfigSetting graphicsSettings[] = {
 #endif
 	ConfigSetting("CameraDevice", &g_Config.sCameraDevice, "", true, false),
 	ConfigSetting("VendorBugChecksEnabled", &g_Config.bVendorBugChecksEnabled, true, false, false),
-	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, 1, true, true),
+	ConfigSetting("UseGeometryShader", &g_Config.bUseGeometryShader, true, true, true),
+	ReportedConfigSetting("SkipBufferEffects", &g_Config.bSkipBufferEffects, false, true, true),
 	ConfigSetting("SoftwareRenderer", &g_Config.bSoftwareRendering, false, true, true),
 	ConfigSetting("SoftwareRendererJit", &g_Config.bSoftwareRenderingJit, true, true, true),
 	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true, true, true),
@@ -887,6 +888,8 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("FrameSkip", &g_Config.iFrameSkip, 0, true, true),
 	ReportedConfigSetting("FrameSkipType", &g_Config.iFrameSkipType, 0, true, true),
 	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false, true, true),
+	ConfigSetting("StereoRendering", &g_Config.bStereoRendering, false, true, true),
+	ConfigSetting("StereoToMonoShader", &g_Config.sStereoToMonoShader, "RedBlue", true, true),
 	ConfigSetting("FrameRate", &g_Config.iFpsLimit1, 0, true, true),
 	ConfigSetting("FrameRate2", &g_Config.iFpsLimit2, -1, true, true),
 	ConfigSetting("AnalogFrameRate", &g_Config.iAnalogFpsLimit, 240, true, true),
@@ -901,7 +904,6 @@ static ConfigSetting graphicsSettings[] = {
 
 	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, false, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
-	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false, true, true),
 	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, false),
 
 #ifndef MOBILE_DEVICE
@@ -935,8 +937,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("TextureShader", &g_Config.sTextureShaderName, "Off", true, true),
 	ConfigSetting("ShaderChainRequires60FPS", &g_Config.bShaderChainRequires60FPS, false, true, true),
 
-	ReportedConfigSetting("MemBlockTransferGPU", &g_Config.bBlockTransferGPU, true, true, true),
-	ReportedConfigSetting("FragmentTestCache", &g_Config.bFragmentTestCache, true, true, true),
+	ReportedConfigSetting("SkipGPUReadbacks", &g_Config.bSkipGPUReadbacks, false, true, true),
 
 	ConfigSetting("GfxDebugOutput", &g_Config.bGfxDebugOutput, false, false, false),
 	ConfigSetting("LogFrameDrops", &g_Config.bLogFrameDrops, false, true, false),
@@ -1206,8 +1207,14 @@ static ConfigSetting vrSettings[] = {
 	ConfigSetting("VREnable", &g_Config.bEnableVR, true),
 	ConfigSetting("VREnable6DoF", &g_Config.bEnable6DoF, true),
 	ConfigSetting("VREnableStereo", &g_Config.bEnableStereo, false),
-	ConfigSetting("VRCanvasDistance", &g_Config.iCanvasDistance, 6),
-	ConfigSetting("VRFieldOfView", &g_Config.iFieldOfViewPercentage, 100),
+	ConfigSetting("VREnableMotions", &g_Config.bEnableMotions, true),
+	ConfigSetting("VRbForce72Hz", &g_Config.bForce72Hz, true),
+	ConfigSetting("VRCameraDistance", &g_Config.fCameraDistance, 0.0f),
+	ConfigSetting("VRCameraHeight", &g_Config.fCameraHeight, 0.0f),
+	ConfigSetting("VRCameraSide", &g_Config.fCameraSide, 0.0f),
+	ConfigSetting("VRCanvasDistance", &g_Config.fCanvasDistance, 6.0f),
+	ConfigSetting("VRFieldOfView", &g_Config.fFieldOfViewPercentage, 100.0f),
+	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f),
 
 	ConfigSetting(false),
 };
@@ -1403,9 +1410,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (iAnisotropyLevel > 4) {
 		iAnisotropyLevel = 4;
 	}
-	if (iRenderingMode != FB_NON_BUFFERED_MODE && iRenderingMode != FB_BUFFERED_MODE) {
-		g_Config.iRenderingMode = FB_BUFFERED_MODE;
-	}
 
 	// Check for an old dpad setting
 	Section *control = iniFile.GetOrCreateSection("Control");
@@ -1424,7 +1428,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// build of PPSSPP, receive an upgrade notice, then start a newer version, and still receive the upgrade notice,
 	// even if said newer version is >= the upgrade found online.
 	if ((dismissedVersion == upgradeVersion) || (versionsValid && (installed >= upgrade))) {
-		upgradeMessage = "";
+		upgradeMessage.clear();
 	}
 
 	// Check for new version on every 10 runs.
@@ -1456,8 +1460,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (sMACAddress.length() != 17)
 		sMACAddress = CreateRandMAC();
 
-	if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-		g_Config.iRenderingMode = FB_BUFFERED_MODE;
+	if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
+		g_Config.bSkipBufferEffects = false;
 	}
 
 	// Override ppsspp.ini JIT value to prevent crashing
@@ -1636,16 +1640,16 @@ void Config::DownloadCompletedCallback(http::Download &download) {
 
 	if (installed >= upgrade) {
 		INFO_LOG(LOADER, "Version check: Already up to date, erasing any upgrade message");
-		g_Config.upgradeMessage = "";
+		g_Config.upgradeMessage.clear();
 		g_Config.upgradeVersion = upgrade.ToString();
-		g_Config.dismissedVersion = "";
+		g_Config.dismissedVersion.clear();
 		return;
 	}
 
 	if (installed < upgrade && dismissed != upgrade) {
 		g_Config.upgradeMessage = "New version of PPSSPP available!";
 		g_Config.upgradeVersion = upgrade.ToString();
-		g_Config.dismissedVersion = "";
+		g_Config.dismissedVersion.clear();
 	}
 }
 
@@ -1978,5 +1982,5 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 }
 
 bool Config::IsPortrait() const {
-	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && iRenderingMode != FB_NON_BUFFERED_MODE;
+	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && !bSkipBufferEffects;
 }

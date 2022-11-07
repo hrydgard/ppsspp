@@ -376,7 +376,10 @@ void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, char desc[256])
 
 	if (showClut_) {
 		// In this case, we're showing the texture here.
-		snprintf(desc, 256, "Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
+		if (primaryIsFramebuffer_)
+			snprintf(desc, 256, "FB Tex L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
+		else
+			snprintf(desc, 256, "Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
 		return;
 	}
 
@@ -416,6 +419,8 @@ void CGEDebugger::DescribeSecondPreview(const GPUgstate &state, char desc[256]) 
 
 	if (showClut_) {
 		snprintf(desc, 256, "CLUT: 0x%08x (%d)", state.getClutAddress(), state.getClutPaletteFormat());
+	} else if (secondIsFramebuffer_) {
+		snprintf(desc, 256, "FB Tex L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
 	} else {
 		snprintf(desc, 256, "Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
 	}
@@ -658,8 +663,9 @@ void CGEDebugger::UpdatePrimaryPreview(const GPUgstate &state) {
 	SetupPreviews();
 
 	primaryBuffer_ = nullptr;
+	primaryIsFramebuffer_ = false;
 	if (showClut_) {
-		bufferResult = GPU_GetCurrentTexture(primaryBuffer_, textureLevel_);
+		bufferResult = GPU_GetCurrentTexture(primaryBuffer_, textureLevel_, &primaryIsFramebuffer_);
 		flags = TexturePreviewFlags(state);
 		if (bufferResult) {
 			UpdateLastTexture(state.getTextureAddress(textureLevel_));
@@ -707,10 +713,11 @@ void CGEDebugger::UpdateSecondPreview(const GPUgstate &state) {
 	SetupPreviews();
 
 	secondBuffer_ = nullptr;
+	secondIsFramebuffer_ = false;
 	if (showClut_) {
 		bufferResult = GPU_GetCurrentClut(secondBuffer_);
 	} else {
-		bufferResult = GPU_GetCurrentTexture(secondBuffer_, textureLevel_);
+		bufferResult = GPU_GetCurrentTexture(secondBuffer_, textureLevel_, &secondIsFramebuffer_);
 		if (bufferResult) {
 			UpdateLastTexture(state.getTextureAddress(textureLevel_));
 		} else {
@@ -1067,6 +1074,8 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 				UpdatePreviews();
 				lastCounter = GPUStepping::GetSteppingCounter();
 			}
+		} else if (!PSP_IsInited() && primaryBuffer_) {
+			SendMessage(m_hDlg, WM_COMMAND, IDC_GEDBG_RESUME, 0);
 		}
 		break;
 

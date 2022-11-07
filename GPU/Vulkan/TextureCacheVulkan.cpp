@@ -65,9 +65,9 @@ const char *uploadShader = R"(
 // hardware vendors.
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-uniform layout(binding = 0, rgba8) writeonly image2D img;
+uniform layout(set = 1, binding = 0, rgba8) writeonly image2D img;
 
-layout(std430, binding = 1) buffer Buf {
+layout(std430, set = 1, binding = 1) buffer Buf {
 	uint data[];
 } buf;
 
@@ -251,7 +251,7 @@ void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
 
 	CompileScalingShader();
 
-	computeShaderManager_.DeviceRestore(vulkan);
+	computeShaderManager_.DeviceRestore(draw);
 }
 
 void TextureCacheVulkan::NotifyConfigChanged() {
@@ -626,7 +626,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 					"Compute Upload: %dx%d->%dx%d", mipUnscaledWidth, mipUnscaledHeight, mipWidth, mipHeight);
 				vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(uploadCS_));
-				vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
+				vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 1, 1, &descSet, 0, nullptr);
 				vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
 				vkCmdDispatch(cmdInit, (mipUnscaledWidth + 7) / 8, (mipUnscaledHeight + 7) / 8, 1);
 				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
@@ -685,7 +685,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 }
 
 VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
-	if (!gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS)) {
+	if (!gstate_c.Use(GPU_USE_16BIT_FORMATS)) {
 		return VK_FORMAT_R8G8B8A8_UNORM;
 	}
 	switch (format) {
@@ -726,7 +726,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	int decPitch;
 
 	TexDecodeFlags texDecFlags{};
-	if (!gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1 || dstFmt == VULKAN_8888_FORMAT) {
+	if (!gstate_c.Use(GPU_USE_16BIT_FORMATS) || scaleFactor > 1 || dstFmt == VULKAN_8888_FORMAT) {
 		texDecFlags |= TexDecodeFlags::EXPAND32;
 	}
 	if (entry.status & TexCacheEntry::STATUS_CLUT_GPU) {
@@ -774,24 +774,10 @@ void TextureCacheVulkan::BoundFramebufferTexture() {
 	imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 }
 
-bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
+bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
 	SetTexture();
 	if (!nextTexture_) {
-		if (nextFramebufferTexture_) {
-			VirtualFramebuffer *vfb = nextFramebufferTexture_;
-			buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
-			bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth, "GetCurrentTextureDebug");
-			// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
-			// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
-			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
-			// We may have blitted to a temp FBO.
-			framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
-			if (!retval)
-				ERROR_LOG(G3D, "Failed to get debug texture: copy to memory failed");
-			return retval;
-		} else {
-			return false;
-		}
+		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
 	}
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
@@ -843,6 +829,7 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 	// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 	framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
+	*isFramebuffer = false;
 	return true;
 }
 
@@ -859,6 +846,6 @@ std::string TextureCacheVulkan::DebugGetSamplerString(std::string id, DebugShade
 }
 
 void *TextureCacheVulkan::GetNativeTextureView(const TexCacheEntry *entry) {
-	VkImageView view = entry->vkTex->GetImageView();
+	VkImageView view = entry->vkTex->GetImageArrayView();
 	return (void *)view;
 }

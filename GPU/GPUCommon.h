@@ -124,14 +124,14 @@ public:
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void CopyDisplayToOutput(bool reallyDirty) override = 0;
 	void InitClear() override = 0;
-	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
+	bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
-	bool PerformMemoryDownload(u32 dest, int size) override;
-	bool PerformMemoryUpload(u32 dest, int size) override;
+	bool PerformReadbackToMemory(u32 dest, int size) override;
+	bool PerformWriteColorFromMemory(u32 dest, int size) override;
 
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
-	void NotifyVideoUpload(u32 addr, int size, int width, int format) override;
-	bool PerformStencilUpload(u32 dest, int size, StencilUpload flags) override;
+	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format) override;
+	bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) override;
 
 	void Execute_OffsetAddr(u32 op, u32 diff);
 	void Execute_Vaddr(u32 op, u32 diff);
@@ -200,7 +200,7 @@ public:
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) override;
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
-	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
+	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
@@ -269,14 +269,14 @@ protected:
 	void SetDrawType(DrawType type, GEPrimitiveType prim) {
 		if (type != lastDraw_) {
 			// We always flush when drawing splines/beziers so no need to do so here
-			gstate_c.Dirty(DIRTY_UVSCALEOFFSET | DIRTY_VERTEXSHADER_STATE);
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 			lastDraw_ = type;
 		}
 		// Prim == RECTANGLES can cause CanUseHardwareTransform to flip, so we need to dirty.
 		// Also, culling may be affected so dirty the raster state.
 		if (IsTrianglePrim(prim) != IsTrianglePrim(lastPrim_)) {
 			Flush();
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE);
+			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 			lastPrim_ = prim;
 		}
 	}

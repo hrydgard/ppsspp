@@ -117,8 +117,9 @@ namespace MIPSComp {
 			int abs = (prefix >> (8 + i)) & 1;
 			int negate = (prefix >> (16 + i)) & 1;
 			int constants = (prefix >> (12 + i)) & 1;
-			if (regnum < n || abs || negate || constants) {
-				return false;
+			if (regnum >= n && !constants) {
+				if (abs || negate || regnum != i)
+					return false;
 			}
 		}
 
@@ -464,6 +465,7 @@ namespace MIPSComp {
 				init = Vec4Init::AllONE;
 				break;
 			default:
+				INVALIDOP;
 				return;
 			}
 			ir.Write(IROp::Vec4Init, vec[0], (int)init);
@@ -472,7 +474,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VHdp(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op)) {
+		if (js.HasUnknownPrefix() || js.HasSPrefix() || !IsPrefixWithinSize(js.prefixT, op)) {
 			DISABLE;
 		}
 
@@ -754,8 +756,15 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VV2Op(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op))
-			DISABLE;
+		int optype = (op >> 16) & 0x1f;
+		if (optype == 0) {
+			if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op))
+				DISABLE;
+		} else {
+			// Many of these apply the D prefix strangely or override parts of the S prefix.
+			if (!js.HasNoPrefix())
+				DISABLE;
+		}
 
 		// Vector unary operation
 		// d[N] = OP(s[N]) (see below)
@@ -763,7 +772,6 @@ namespace MIPSComp {
 		int vs = _VS;
 		int vd = _VD;
 
-		int optype = (op >> 16) & 0x1f;
 		if (optype >= 16 && !js.HasNoPrefix()) {
 			DISABLE;
 		} else if ((optype == 1 || optype == 2) && js.HasSPrefix()) {
@@ -1185,8 +1193,8 @@ namespace MIPSComp {
 		int vt = _VT;
 		u8 sregs[4], dregs[4], treg;
 		GetVectorRegsPrefixS(sregs, sz, vs);
-		// TODO: Prefixes seem strange...
-		GetVectorRegsPrefixT(&treg, V_Single, vt);
+		// T prefixes handled by interp.
+		GetVectorRegs(&treg, V_Single, vt);
 		GetVectorRegsPrefixD(dregs, sz, vd);
 
 		bool overlap = false;
@@ -1458,7 +1466,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VDet(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || (js.prefixT & 0x000CFCF0) != 0x000E0) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
 			DISABLE;
 		}
 
@@ -1848,33 +1856,54 @@ namespace MIPSComp {
 		int imm = (op >> 16) & 0x1f;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
+		int sineLane = (imm >> 2) & 3;
+		int cosineLane = imm & 3;
 		bool negSin = (imm & 0x10) ? true : false;
+		bool broadcastSine = sineLane == cosineLane;
 
 		char d[4] = { '0', '0', '0', '0' };
-		if (((imm >> 2) & 3) == (imm & 3)) {
+		if (broadcastSine) {
 			for (int i = 0; i < 4; i++)
 				d[i] = 's';
 		}
-		d[(imm >> 2) & 3] = 's';
-		d[imm & 3] = 'c';
+		d[sineLane] = 's';
+		d[cosineLane] = 'c';
 
 		u8 dregs[4];
 		GetVectorRegs(dregs, sz, vd);
 		u8 sreg[1];
 		GetVectorRegs(sreg, V_Single, vs);
+
+		// If there's overlap, sin is calculated without it, but cosine uses the result.
+		// This corresponds with prefix handling, where cosine doesn't get in prefixes.
+		if (broadcastSine || !IsOverlapSafe(n, dregs, 1, sreg)) {
+			ir.Write(IROp::FSin, IRVTEMP_0, sreg[0]);
+			if (negSin)
+				ir.Write(IROp::FNeg, IRVTEMP_0, IRVTEMP_0);
+		}
+
 		for (int i = 0; i < n; i++) {
 			switch (d[i]) {
 			case '0':
 				ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(0.0f));
 				break;
 			case 's':
-				ir.Write(IROp::FSin, dregs[i], sreg[0]);
-				if (negSin) {
-					ir.Write(IROp::FNeg, dregs[i], dregs[i]);
+				if (broadcastSine || !IsOverlapSafe(n, dregs, 1, sreg)) {
+					ir.Write(IROp::FMov, dregs[i], IRVTEMP_0);
+				} else {
+					ir.Write(IROp::FSin, dregs[i], sreg[0]);
+					if (negSin) {
+						ir.Write(IROp::FNeg, dregs[i], dregs[i]);
+					}
 				}
 				break;
 			case 'c':
-				ir.Write(IROp::FCos, dregs[i], sreg[0]);
+				if (IsOverlapSafe(n, dregs, 1, sreg))
+					ir.Write(IROp::FCos, dregs[i], sreg[0]);
+				else if (dregs[sineLane] == sreg[0])
+					ir.Write(IROp::FCos, dregs[i], IRVTEMP_0);
+				else
+					ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(1.0f));
 				break;
 			}
 		}
@@ -1882,7 +1911,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vsgn(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op)) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
 			DISABLE;
 		}
 
@@ -1978,7 +2007,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vbfy(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix() || (js.prefixS & VFPU_NEGATE(1, 1, 1, 1)) != 0) {
 			DISABLE;
 		}
 

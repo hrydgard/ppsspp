@@ -138,12 +138,12 @@ public:
 	void CopyDisplayToOutput(bool reallyDirty) override;
 	void GetStats(char *buffer, size_t bufsize) override;
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
-	void NotifyVideoUpload(u32 addr, int size, int width, int format) override;
-	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
+	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format) override;
+	bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
-	bool PerformMemoryDownload(u32 dest, int size) override;
-	bool PerformMemoryUpload(u32 dest, int size) override;
-	bool PerformStencilUpload(u32 dest, int size, StencilUpload flags) override;
+	bool PerformReadbackToMemory(u32 dest, int size) override;
+	bool PerformWriteColorFromMemory(u32 dest, int size) override;
+	bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) override;
 	void ClearCacheNextFrame() override {}
 
 	void DeviceLost() override;
@@ -162,7 +162,7 @@ public:
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
-	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
+	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 

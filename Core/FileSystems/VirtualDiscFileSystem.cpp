@@ -81,7 +81,6 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 		return;
 	}
 
-	std::string buf;
 	static const int MAX_LINE_SIZE = 2048;
 	char linebuf[MAX_LINE_SIZE]{};
 	while (fgets(linebuf, MAX_LINE_SIZE, f)) {
@@ -330,7 +329,7 @@ int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 	entry.size = 0;
 	entry.startOffset = 0;
 
-	if (filename == "")
+	if (filename.empty())
 	{
 		entry.type = VFILETYPE_ISO;
 		entry.fileIndex = -1;
@@ -662,8 +661,7 @@ static void tmFromFiletime(tm &dest, FILETIME &src)
 }
 #endif
 
-std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
-{
+std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(const std::string &path, bool *exists) {
 	std::vector<PSPFileInfo> myVector;
 
 	// TODO(scoped): Switch this over to GetFilesInDir!
@@ -682,8 +680,13 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 	hFind = FindFirstFileEx(w32path.c_str(), FindExInfoStandard, &findData, FindExSearchNameMatch, NULL, 0);
 #endif
 	if (hFind == INVALID_HANDLE_VALUE) {
+		if (exists)
+			*exists = false;
 		return myVector; //the empty list
 	}
+
+	if (exists)
+		*exists = true;
 
 	for (BOOL retval = 1; retval; retval = FindNextFile(hFind, &findData)) {
 		if (!wcscmp(findData.cFileName, L"..") || !wcscmp(findData.cFileName, L".")) {
@@ -698,6 +701,7 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 		}
 
 		entry.access = 0555;
+		entry.exists = true;
 		entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
 		entry.name = ConvertWStringToUTF8(findData.cFileName);
 		tmFromFiletime(entry.atime, findData.ftLastAccessTime);
@@ -718,17 +722,23 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 	DIR *dp = opendir(localPath.c_str());
 
 #if HOST_IS_CASE_SENSITIVE
-	if(dp == NULL && FixPathCase(basePath, path, FPC_FILE_MUST_EXIST)) {
+	std::string fixedPath = path;
+	if(dp == NULL && FixPathCase(basePath, fixedPath, FPC_FILE_MUST_EXIST)) {
 		// May have failed due to case sensitivity, try again
-		localPath = GetLocalPath(path);
+		localPath = GetLocalPath(fixedPath);
 		dp = opendir(localPath.c_str());
 	}
 #endif
 
 	if (dp == NULL) {
 		ERROR_LOG(FILESYS,"Error opening directory %s\n", path.c_str());
+		if (exists)
+			*exists = false;
 		return myVector;
 	}
+
+	if (exists)
+		*exists = true;
 
 	while ((dirp = readdir(dp)) != NULL) {
 		if (!strcmp(dirp->d_name, "..") || !strcmp(dirp->d_name, ".")) {
@@ -737,13 +747,14 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 
 		PSPFileInfo entry;
 		struct stat s;
-		std::string fullName = (GetLocalPath(path) / std::string(dirp->d_name)).ToString();
+		std::string fullName = (localPath / std::string(dirp->d_name)).ToString();
 		stat(fullName.c_str(), &s);
 		if (S_ISDIR(s.st_mode))
 			entry.type = FILETYPE_DIRECTORY;
 		else
 			entry.type = FILETYPE_NORMAL;
 		entry.access = 0555;
+		entry.exists = true;
 		entry.name = dirp->d_name;
 		entry.size = s.st_size;
 		localtime_r((time_t*)&s.st_atime,&entry.atime);

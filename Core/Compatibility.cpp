@@ -17,6 +17,7 @@
 
 #include <cstring>
 
+#include "Common/Log.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/StringUtils.h"
 #include "Core/Compatibility.h"
@@ -43,20 +44,28 @@ void Compatibility::Load(const std::string &gameID) {
 	}
 
 	{
+		IniFile compat2;
+		// This one is user-editable. Need to load it after the system one.
+		Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compat.ini";
+		if (compat2.Load(path.ToString())) {
+			CheckSettings(compat2, gameID);
+		}
+	}
+
+	{
 		IniFile compat;
 		// This loads from assets.
 		if (compat.LoadFromVFS("compatvr.ini")) {
-			CheckSetting(compat, gameID, "Skyplane", &vrCompat_.Skyplane);
-			CheckSetting(compat, gameID, "UnitsPerMeter", &vrCompat_.UnitsPerMeter);
+			CheckVRSettings(compat, gameID);
 		}
 	}
 
 	{
 		IniFile compat2;
 		// This one is user-editable. Need to load it after the system one.
-		Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compat.ini";
+		Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compatvr.ini";
 		if (compat2.Load(path.ToString())) {
-			CheckSettings(compat2, gameID);
+			CheckVRSettings(compat2, gameID);
 		}
 	}
 }
@@ -97,7 +106,6 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "DateLimited", &flags_.DateLimited);
 	CheckSetting(iniFile, gameID, "ShaderColorBitmask", &flags_.ShaderColorBitmask);
 	CheckSetting(iniFile, gameID, "DisableFirstFrameReadback", &flags_.DisableFirstFrameReadback);
-	CheckSetting(iniFile, gameID, "DisableRangeCulling", &flags_.DisableRangeCulling);
 	CheckSetting(iniFile, gameID, "MpegAvcWarmUp", &flags_.MpegAvcWarmUp);
 	CheckSetting(iniFile, gameID, "BlueToAlpha", &flags_.BlueToAlpha);
 	CheckSetting(iniFile, gameID, "CenteredLines", &flags_.CenteredLines);
@@ -110,6 +118,14 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "ForceLowerResolutionForEffectsOn", &flags_.ForceLowerResolutionForEffectsOn);
 	CheckSetting(iniFile, gameID, "AllowDownloadCLUT", &flags_.AllowDownloadCLUT);
 	CheckSetting(iniFile, gameID, "NearestFilteringOnFramebufferCreate", &flags_.NearestFilteringOnFramebufferCreate);
+	CheckSetting(iniFile, gameID, "SecondaryTextureCache", &flags_.SecondaryTextureCache);
+}
+
+void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {
+	CheckSetting(iniFile, gameID, "Skyplane", &vrCompat_.Skyplane);
+	CheckSetting(iniFile, gameID, "UnitsPerMeter", &vrCompat_.UnitsPerMeter);
+
+	NOTICE_LOG(G3D, "UnitsPerMeter for %s: %f", gameID.c_str(), vrCompat_.UnitsPerMeter);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {

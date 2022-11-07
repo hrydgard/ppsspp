@@ -52,7 +52,8 @@
 
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw), drawEngine_(draw) {
-	gstate_c.featureFlags = CheckGPUFeatures();
+	gstate_c.useFlags = CheckGPUFeatures();
+	drawEngine_.InitDeviceObjects();
 
 	VulkanContext *vulkan = (VulkanContext *)gfxCtx->GetAPIContext();
 
@@ -189,11 +190,11 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	switch (vulkan->GetPhysicalDeviceProperties().properties.vendorID) {
 	case VULKAN_VENDOR_AMD:
 		// Accurate depth is required on AMD (due to reverse-Z driver bug) so we ignore the compat flag to disable it on those. See #9545
-		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+		features |= GPU_USE_ACCURATE_DEPTH;
 		break;
 	case VULKAN_VENDOR_QUALCOMM:
 		// Accurate depth is required on Adreno too (seems to also have a reverse-Z driver bug).
-		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+		features |= GPU_USE_ACCURATE_DEPTH;
 		break;
 	case VULKAN_VENDOR_ARM:
 	{
@@ -205,30 +206,41 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 			|| VK_VERSION_MAJOR(vulkan->GetPhysicalDeviceProperties().properties.driverVersion) < 14;
 
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || driverTooOld) {
-			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+			features |= GPU_USE_ACCURATE_DEPTH;
 		}
 		break;
 	}
 	default:
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
-			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+			features |= GPU_USE_ACCURATE_DEPTH;
 		}
 		break;
 	}
 
 	// Might enable this later - in the first round we are mostly looking at depth/stencil/discard.
 	// if (!g_Config.bEnableVendorBugChecks)
-	// 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+	// 	features |= GPU_USE_ACCURATE_DEPTH;
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
-	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
-	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
-	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
+	features |= GPU_USE_TEXTURE_LOD_CONTROL;
+	features |= GPU_USE_INSTANCE_RENDERING;
+	features |= GPU_USE_VERTEX_TEXTURE_FETCH;
+	features |= GPU_USE_TEXTURE_FLOAT;
 
-	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled;
+	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled.standard;
 	if (enabledFeatures.depthClamp) {
-		features |= GPU_SUPPORTS_DEPTH_CLAMP;
+		features |= GPU_USE_DEPTH_CLAMP;
+	}
+
+	// Fall back to geometry shader culling if we can't do vertex range culling.
+	if (enabledFeatures.geometryShader) {
+		const bool useGeometry = g_Config.bUseGeometryShader && !draw_->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
+		const bool vertexSupported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
+		if (useGeometry && (!vertexSupported || (features & GPU_USE_VS_RANGE_CULLING) == 0)) {
+			// Switch to culling via the geometry shader if not fully supported in vertex.
+			features |= GPU_USE_GS_CULLING;
+			features &= ~GPU_USE_VS_RANGE_CULLING;
+		}
 	}
 
 	// These are VULKAN_4444_FORMAT and friends.
@@ -240,12 +252,12 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	// if it's not available, for simplicity.
 	uint32_t fmt565 = draw_->GetDataFormatSupport(Draw::DataFormat::B5G6R5_UNORM_PACK16);
 	if ((fmt4444 & Draw::FMT_TEXTURE) && (fmt565 & Draw::FMT_TEXTURE) && (fmt1555 & Draw::FMT_TEXTURE)) {
-		features |= GPU_SUPPORTS_16BIT_FORMATS;
+		features |= GPU_USE_16BIT_FORMATS;
 	} else {
 		INFO_LOG(G3D, "Deficient texture format support: 4444: %d  1555: %d  565: %d", fmt4444, fmt1555, fmt565);
 	}
 
-	if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
+	if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 	}
 	else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
@@ -256,6 +268,18 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
 	}
 
+	if (g_Config.bStereoRendering && draw_->GetDeviceCaps().multiViewSupported) {
+		features |= GPU_USE_SINGLE_PASS_STEREO;
+		features |= GPU_USE_SIMPLE_STEREO_PERSPECTIVE;
+
+		features &= ~GPU_USE_FRAMEBUFFER_FETCH;  // Need to figure out if this can be supported with multiview rendering
+		if (features & GPU_USE_GS_CULLING) {
+			// Many devices that support stereo and GS don't support GS during stereo.
+			features &= ~GPU_USE_GS_CULLING;
+			features |= GPU_USE_VS_RANGE_CULLING;
+		}
+	}
+
 	return features;
 }
 
@@ -264,11 +288,11 @@ void GPU_Vulkan::BeginHostFrame() {
 	UpdateCmdInfo();
 
 	if (resized_) {
-		gstate_c.featureFlags = CheckGPUFeatures();
+		gstate_c.useFlags = CheckGPUFeatures();
 		// In case the GPU changed.
 		BuildReportingInfo();
 		framebufferManager_->Resized();
-		drawEngine_.Resized();
+		drawEngine_.NotifyConfigChanged();
 		textureCache_->NotifyConfigChanged();
 		resized_ = false;
 	}
@@ -313,17 +337,14 @@ void GPU_Vulkan::EndHostFrame() {
 void GPU_Vulkan::BuildReportingInfo() {
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	const auto &props = vulkan->GetPhysicalDeviceProperties().properties;
-	const auto &features = vulkan->GetDeviceFeatures().available;
+	const auto &available = vulkan->GetDeviceFeatures().available;
 
-#define CHECK_BOOL_FEATURE(n) do { if (features.n) { featureNames += ", " #n; } } while (false)
+#define CHECK_BOOL_FEATURE(n) do { if (available.standard.n) { featureNames += ", " #n; } } while (false)
+#define CHECK_BOOL_FEATURE_MULTIVIEW(n) do { if (available.multiview.n) { featureNames += ", " #n; } } while (false)
 
 	std::string featureNames = "";
-	CHECK_BOOL_FEATURE(robustBufferAccess);
 	CHECK_BOOL_FEATURE(fullDrawIndexUint32);
-	CHECK_BOOL_FEATURE(imageCubeArray);
-	CHECK_BOOL_FEATURE(independentBlend);
 	CHECK_BOOL_FEATURE(geometryShader);
-	CHECK_BOOL_FEATURE(tessellationShader);
 	CHECK_BOOL_FEATURE(sampleRateShading);
 	CHECK_BOOL_FEATURE(dualSrcBlend);
 	CHECK_BOOL_FEATURE(logicOp);
@@ -331,46 +352,23 @@ void GPU_Vulkan::BuildReportingInfo() {
 	CHECK_BOOL_FEATURE(drawIndirectFirstInstance);
 	CHECK_BOOL_FEATURE(depthClamp);
 	CHECK_BOOL_FEATURE(depthBiasClamp);
-	CHECK_BOOL_FEATURE(fillModeNonSolid);
 	CHECK_BOOL_FEATURE(depthBounds);
-	CHECK_BOOL_FEATURE(alphaToOne);
-	CHECK_BOOL_FEATURE(multiViewport);
 	CHECK_BOOL_FEATURE(samplerAnisotropy);
 	CHECK_BOOL_FEATURE(textureCompressionETC2);
 	CHECK_BOOL_FEATURE(textureCompressionASTC_LDR);
 	CHECK_BOOL_FEATURE(textureCompressionBC);
 	CHECK_BOOL_FEATURE(occlusionQueryPrecise);
 	CHECK_BOOL_FEATURE(pipelineStatisticsQuery);
-	CHECK_BOOL_FEATURE(vertexPipelineStoresAndAtomics);
 	CHECK_BOOL_FEATURE(fragmentStoresAndAtomics);
 	CHECK_BOOL_FEATURE(shaderTessellationAndGeometryPointSize);
-	CHECK_BOOL_FEATURE(shaderImageGatherExtended);
-	CHECK_BOOL_FEATURE(shaderStorageImageExtendedFormats);
 	CHECK_BOOL_FEATURE(shaderStorageImageMultisample);
-	CHECK_BOOL_FEATURE(shaderStorageImageReadWithoutFormat);
-	CHECK_BOOL_FEATURE(shaderStorageImageWriteWithoutFormat);
-	CHECK_BOOL_FEATURE(shaderUniformBufferArrayDynamicIndexing);
 	CHECK_BOOL_FEATURE(shaderSampledImageArrayDynamicIndexing);
-	CHECK_BOOL_FEATURE(shaderStorageBufferArrayDynamicIndexing);
-	CHECK_BOOL_FEATURE(shaderStorageImageArrayDynamicIndexing);
 	CHECK_BOOL_FEATURE(shaderClipDistance);
 	CHECK_BOOL_FEATURE(shaderCullDistance);
-	CHECK_BOOL_FEATURE(shaderFloat64);
 	CHECK_BOOL_FEATURE(shaderInt64);
 	CHECK_BOOL_FEATURE(shaderInt16);
-	CHECK_BOOL_FEATURE(shaderResourceResidency);
-	CHECK_BOOL_FEATURE(shaderResourceMinLod);
-	CHECK_BOOL_FEATURE(sparseBinding);
-	CHECK_BOOL_FEATURE(sparseResidencyBuffer);
-	CHECK_BOOL_FEATURE(sparseResidencyImage2D);
-	CHECK_BOOL_FEATURE(sparseResidencyImage3D);
-	CHECK_BOOL_FEATURE(sparseResidency2Samples);
-	CHECK_BOOL_FEATURE(sparseResidency4Samples);
-	CHECK_BOOL_FEATURE(sparseResidency8Samples);
-	CHECK_BOOL_FEATURE(sparseResidency16Samples);
-	CHECK_BOOL_FEATURE(sparseResidencyAliased);
-	CHECK_BOOL_FEATURE(variableMultisampleRate);
-	CHECK_BOOL_FEATURE(inheritedQueries);
+	CHECK_BOOL_FEATURE_MULTIVIEW(multiview);
+	CHECK_BOOL_FEATURE_MULTIVIEW(multiviewGeometryShader);
 
 #undef CHECK_BOOL_FEATURE
 
@@ -503,7 +501,7 @@ void GPU_Vulkan::DeviceRestore() {
 	GPUCommon::DeviceRestore();
 	InitDeviceObjects();
 
-	gstate_c.featureFlags = CheckGPUFeatures();
+	gstate_c.useFlags = CheckGPUFeatures();
 	BuildReportingInfo();
 	UpdateCmdInfo();
 

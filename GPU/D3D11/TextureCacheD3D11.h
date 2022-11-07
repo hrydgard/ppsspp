@@ -53,7 +53,7 @@ public:
 	void ForgetLastTexture() override;
 	void InvalidateLastTexture() override;
 
-	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
+	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;

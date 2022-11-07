@@ -56,6 +56,31 @@ const static int SAVEDATA_DIALOG_SIZE_V1 = 1480;
 const static int SAVEDATA_DIALOG_SIZE_V2 = 1500;
 const static int SAVEDATA_DIALOG_SIZE_V3 = 1536;
 
+static bool IsNotVisibleAction(SceUtilitySavedataType type) {
+	switch (type) {
+	case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
+	case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
+	case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
+	case SCE_UTILITY_SAVEDATA_TYPE_LIST:
+	case SCE_UTILITY_SAVEDATA_TYPE_FILES:
+	case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
+	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
+	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:
+		return true;
+
+	default:
+		break;
+	}
+	return false;
+}
 
 PSPSaveDialog::PSPSaveDialog(UtilityDialogType type) : PSPDialog(type) {
 	param.SetPspParam(0);
@@ -87,6 +112,8 @@ int PSPSaveDialog::Init(int paramAddr)
 	Memory::Memcpy(&request, requestAddr, size);
 	Memory::Memcpy(&originalRequest, requestAddr, size);
 
+	param.SetIgnoreTextures(IsNotVisibleAction((SceUtilitySavedataType)(u32)request.mode));
+	param.ClearCaches();
 	int retval = param.SetPspParam(&request);
 
 	const u32 mode = (u32)param.GetPspParam()->mode;
@@ -197,6 +224,8 @@ int PSPSaveDialog::Init(int paramAddr)
 		case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
 		case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
 		case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
+		case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
+		case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
 		case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
 			display = DS_NONE;
 			break;
@@ -239,6 +268,7 @@ int PSPSaveDialog::Init(int paramAddr)
 		ChangeStatusInit(SAVEDATA_INIT_DELAY_US);
 	}
 
+	param.ClearCaches();
 	UpdateButtons();
 	StartFade(true);
 
@@ -345,7 +375,7 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 		PPGeImageStyle imageStyle = FadedImageStyle();
 		auto fileInfo = param.GetFileInfo(displayCount);
 
-		if (fileInfo.size == 0 && fileInfo.texture != NULL)
+		if (fileInfo.size == 0 && fileInfo.texture && fileInfo.texture->IsValid())
 			imageStyle.color = CalcFadedColor(0xFF777777);
 
 		// Calc save image position on screen
@@ -370,7 +400,7 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 			continue;
 
 		int pad = 0;
-		if (fileInfo.texture != nullptr) {
+		if (fileInfo.texture != nullptr && fileInfo.texture->IsValid()) {
 			fileInfo.texture->SetTexture();
 			int tw = fileInfo.texture->Width();
 			int th = fileInfo.texture->Height();
@@ -420,7 +450,7 @@ void PSPSaveDialog::DisplaySaveIcon(bool checkExists)
 
 	int tw = 256;
 	int th = 256;
-	if (curSave.texture != NULL) {
+	if (curSave.texture != nullptr && curSave.texture->IsValid()) {
 		curSave.texture->SetTexture();
 		tw = curSave.texture->Width();
 		th = curSave.texture->Height();
@@ -618,6 +648,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		param.SetPspParam(&request);
 	}
 
+	param.ClearCaches();
 	UpdateButtons();
 	UpdateFade(animSpeed);
 
@@ -1035,11 +1066,13 @@ int PSPSaveDialog::Update(int animSpeed)
 
 	if (ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED)
 		Memory::Memcpy(requestAddr, &request, request.common.size, "SaveDialogParam");
+	param.ClearCaches();
 	
 	return 0;
 }
 
 void PSPSaveDialog::ExecuteIOAction() {
+	param.ClearCaches();
 	auto &result = param.GetPspParam()->common.result;
 	std::lock_guard<std::mutex> guard(paramLock);
 	switch (display) {
@@ -1078,9 +1111,11 @@ void PSPSaveDialog::ExecuteIOAction() {
 	}
 
 	ioThreadStatus = SAVEIO_DONE;
+	param.ClearCaches();
 }
 
 void PSPSaveDialog::ExecuteNotVisibleIOAction() {
+	param.ClearCaches();
 	auto &result = param.GetPspParam()->common.result;
 
 	switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode) {
@@ -1161,6 +1196,8 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 	default:
 		break;
 	}
+
+	param.ClearCaches();
 }
 
 void PSPSaveDialog::JoinIOThread() {
@@ -1198,6 +1235,7 @@ int PSPSaveDialog::Shutdown(bool force) {
 		ChangeStatusShutdown(SAVEDATA_SHUTDOWN_DELAY_US);
 	}
 	param.SetPspParam(0);
+	param.ClearCaches();
 
 	return 0;
 }

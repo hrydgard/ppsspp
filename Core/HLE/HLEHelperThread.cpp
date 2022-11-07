@@ -26,7 +26,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 
-HLEHelperThread::HLEHelperThread() : id_(-1), entry_(0) {
+HLEHelperThread::HLEHelperThread() : id_(0), entry_(0) {
 }
 
 HLEHelperThread::HLEHelperThread(const char *threadName, const u32 instructions[], u32 instrCount, u32 prio, int stacksize) {
@@ -52,7 +52,7 @@ HLEHelperThread::HLEHelperThread(const char *threadName, const char *module, con
 }
 
 HLEHelperThread::~HLEHelperThread() {
-	if (id_)
+	if (id_ > 0)
 		__KernelDeleteThread(id_, SCE_KERNEL_ERROR_THREAD_TERMINATED, "helper deleted");
 	if (entry_)
 		kernelMemory.Free(entry_);

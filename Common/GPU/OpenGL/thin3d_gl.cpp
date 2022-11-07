@@ -355,10 +355,7 @@ public:
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	Framebuffer *GetCurrentRenderTarget() override {
-		return curRenderTarget_;
-	}
-	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
@@ -400,7 +397,7 @@ public:
 			curPipeline_->depthStencil->stencilPass);
 	}
 
-	void BindTextures(int start, int count, Texture **textures) override;
+	void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) override;
 	void BindNativeTexture(int sampler, void *nativeTexture) override;
 
 	void BindPipeline(Pipeline *pipeline) override;
@@ -551,7 +548,7 @@ OpenGLContext::OpenGLContext() {
 	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object || gl_extensions.GLES3;
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
 	caps_.framebufferStencilBlitSupported = caps_.framebufferBlitSupported;
-	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp;
+	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp || gl_extensions.EXT_depth_clamp;
 	caps_.blendMinMaxSupported = gl_extensions.EXT_blend_minmax;
 
 	if (gl_extensions.IsGLES) {
@@ -1130,7 +1127,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const 
 	}
 }
 
-void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
+void OpenGLContext::BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) {
 	_assert_(start + count <= MAX_TEXTURE_SLOTS);
 	for (int i = start; i < start + count; i++) {
 		OpenGLTexture *glTex = static_cast<OpenGLTexture *>(textures[i - start]);
@@ -1203,6 +1200,7 @@ bool OpenGLPipeline::LinkShaders() {
 	}
 
 	std::vector<GLRProgram::Semantic> semantics;
+	semantics.reserve(8);
 	// Bind all the common vertex data points. Mismatching ones will be ignored.
 	semantics.push_back({ SEM_POSITION, "Position" });
 	semantics.push_back({ SEM_COLOR0, "Color0" });
@@ -1389,6 +1387,9 @@ void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	CheckGLExtensions();
 
+	// TODO: Support multiview later. (It's our only use case for multi layers).
+	_dbg_assert_(desc.numLayers == 1);
+
 	GLRFramebuffer *framebuffer = renderManager_.CreateFramebuffer(desc.width, desc.height, desc.z_stencil);
 	OpenGLFramebuffer *fbo = new OpenGLFramebuffer(&renderManager_, framebuffer);
 	return fbo;
@@ -1435,7 +1436,7 @@ bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, in
 	return true;
 }
 
-void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
+void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 	_assert_(binding < MAX_TEXTURE_SLOTS);
 
@@ -1452,7 +1453,7 @@ void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBCh
 		aspect |= GL_STENCIL_BUFFER_BIT;
 		boundTextures_[binding] = &fb->framebuffer_->z_stencil_texture;
 	}
-	renderManager_.BindFramebufferAsTexture(fb->framebuffer_, binding, aspect, color);
+	renderManager_.BindFramebufferAsTexture(fb->framebuffer_, binding, aspect);
 }
 
 void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {

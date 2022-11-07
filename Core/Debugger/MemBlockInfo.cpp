@@ -399,12 +399,18 @@ void FlushPendingMemInfo() {
 	pendingNotifyMaxAddr2 = 0;
 }
 
+static inline uint32_t NormalizeAddress(uint32_t addr) {
+	if ((addr & 0x3F000000) == 0x04000000)
+		return addr & 0x041FFFFF;
+	return addr & 0x3FFFFFFF;
+}
+
 void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_t pc, const char *tagStr, size_t strLength) {
 	if (size == 0) {
 		return;
 	}
 	// Clear the uncached and kernel bits.
-	start &= ~0xC0000000;
+	start = NormalizeAddress(start);
 
 	bool needFlush = false;
 	// When the setting is off, we skip smaller info to keep things fast.
@@ -450,7 +456,7 @@ void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const cha
 }
 
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
-	start &= ~0xC0000000;
+	start = NormalizeAddress(start);
 
 	if (pendingNotifyMinAddr1 < start + size && pendingNotifyMaxAddr1 >= start)
 		FlushPendingMemInfo();
@@ -466,7 +472,7 @@ std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
 }
 
 std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start, uint32_t size) {
-	start &= ~0xC0000000;
+	start = NormalizeAddress(start);
 
 	if (pendingNotifyMinAddr1 < start + size && pendingNotifyMaxAddr1 >= start)
 		FlushPendingMemInfo();
@@ -486,7 +492,7 @@ std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start,
 }
 
 static const char *FindWriteTagByFlag(MemBlockFlags flags, uint32_t start, uint32_t size) {
-	start &= ~0xC0000000;
+	start = NormalizeAddress(start);
 
 	if (pendingNotifyMinAddr1 < start + size && pendingNotifyMaxAddr1 >= start)
 		FlushPendingMemInfo();

@@ -265,7 +265,7 @@ void __DisplayListenVblank(VblankCallback callback) {
 
 void __DisplayListenFlip(FlipCallback callback, void *userdata) {
 	std::lock_guard<std::mutex> guard(listenersLock);
-	flipListeners.push_back(std::make_pair(callback, userdata));
+	flipListeners.emplace_back(callback, userdata);
 }
 
 void __DisplayForgetFlip(FlipCallback callback, void *userdata) {

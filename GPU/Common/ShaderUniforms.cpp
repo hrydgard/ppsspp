@@ -72,22 +72,26 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 	maxValues[3] = NAN;
 }
 
+void FrameUpdateUniforms(UB_Frame *ub, bool useBufferedRendering) {
+	ub->rotation = useBufferedRendering ? 0 : (float)g_display_rotation;
+}
+
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport, bool useBufferedRendering) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
-		Uint8x3ToFloat4(ub->texEnvColor, gstate.texenvcolor);
+		Uint8x3ToFloat3(ub->texEnvColor, gstate.texenvcolor);
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORREF) {
-		Uint8x3ToInt4_Alpha(ub->alphaColorRef, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
+		ub->alphaColorRef = gstate.getColorTestRef() | ((gstate.getAlphaTestRef() & gstate.getAlphaTestMask()) << 24);
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORMASK) {
 		ub->colorTestMask = gstate.getColorTestMask() | (gstate.getAlphaTestMask() << 24);
 	}
 	if (dirtyUniforms & DIRTY_FOGCOLOR) {
-		Uint8x3ToFloat4(ub->fogColor, gstate.fogcolor);
+		Uint8x3ToFloat3(ub->fogColor, gstate.fogcolor);
 	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
-		Uint8x3ToFloat4(ub->blendFixA, gstate.getFixA());
-		Uint8x3ToFloat4(ub->blendFixB, gstate.getFixB());
+		Uint8x3ToFloat3(ub->blendFixA, gstate.getFixA());
+		Uint8x3ToFloat3(ub->blendFixB, gstate.getFixB());
 	}
 	if (dirtyUniforms & DIRTY_TEXCLAMP) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
@@ -139,7 +143,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 			flippedMatrix = flippedMatrix * g_display_rot_matrix;
 		}
 		CopyMatrix4x4(ub->proj, flippedMatrix.getReadPtr());
-		ub->rotation = useBufferedRendering ? 0 : (float)g_display_rotation;
 	}
 
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
@@ -160,7 +163,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		}
 
 		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
-		ub->rotation = useBufferedRendering ? 0 : (float)g_display_rotation;
 	}
 
 	// Transform
@@ -303,9 +305,7 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 	}
 	if (dirtyUniforms & DIRTY_MATEMISSIVE) {
 		// We're not touching the fourth f32 here, because we store an u32 of control bits in it.
-		float temp[4];
-		Uint8x3ToFloat4(temp, gstate.materialemissive);
-		memcpy(ub->materialEmissive, temp, 12);
+		Uint8x3ToFloat3(ub->materialEmissive, gstate.materialemissive);
 	}
 	if (dirtyUniforms & DIRTY_LIGHT_CONTROL) {
 		ub->lightControl = PackLightControlBits();

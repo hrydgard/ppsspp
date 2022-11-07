@@ -256,7 +256,7 @@ void GameSettingsScreen::CreateViews() {
 	root_->Add(settingInfo_);
 
 	// Show it again if we recreated the view
-	if (oldSettingInfo_ != "") {
+	if (!oldSettingInfo_.empty()) {
 		settingInfo_->Show(oldSettingInfo_, nullptr);
 	}
 
@@ -298,28 +298,6 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering" };
-	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
-	renderingModeChoice->OnChoice.Add([=](EventParams &e) {
-		switch (g_Config.iRenderingMode) {
-		case FB_NON_BUFFERED_MODE:
-			settingInfo_->Show(gr->T("RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games"), e.v);
-			break;
-		case FB_BUFFERED_MODE:
-			break;
-		}
-		return UI::EVENT_CONTINUE;
-	});
-	renderingModeChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
-	renderingModeChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gr->T("Simulate Block Transfer", "Simulate Block Transfer")));
-	blockTransfer->OnClick.Add([=](EventParams &e) {
-		if (!g_Config.bBlockTransferGPU)
-			settingInfo_->Show(gr->T("BlockTransfer Tip", "Some games require this to be On for correct graphics"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
 	if (deviceType != DEVICE_TYPE_VR) {
 		CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
 		softwareGPU->SetEnabled(!PSP_IsInited());
@@ -348,7 +326,82 @@ void GameSettingsScreen::CreateViews() {
 		altSpeed2->SetFormat("%i%%");
 	}
 
+	graphicsSettings->Add(new ItemHeader(gr->T("Speed Hacks", "Speed Hacks (can cause rendering errors!)")));
+
+	CheckBox *skipBufferEffects = graphicsSettings->Add(new CheckBox(&g_Config.bSkipBufferEffects, gr->T("Skip Buffer Effects")));
+	skipBufferEffects->OnClick.Add([=](EventParams &e) {
+		if (g_Config.bSkipBufferEffects) {
+			settingInfo_->Show(gr->T("RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games"), e.v);
+			g_Config.bAutoFrameSkip = false;
+		}
+		return UI::EVENT_DONE;
+	});
+	skipBufferEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
+	CheckBox *skipGPUReadbacks = graphicsSettings->Add(new CheckBox(&g_Config.bSkipGPUReadbacks, gr->T("Skip GPU Readbacks")));
+	skipGPUReadbacks->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
+	CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gr->T("Vertex Cache")));
+	vtxCache->OnClick.Add([=](EventParams &e) {
+		settingInfo_->Show(gr->T("VertexCache Tip", "Faster, but may cause temporary flicker"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
+	vtxCache->SetEnabledFunc([] {
+		return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform && g_Config.iGPUBackend != (int)GPUBackend::OPENGL;
+	});
+
+	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
+	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	texBackoff->OnClick.Add([=](EventParams& e) {
+		settingInfo_->Show(gr->T("Lazy texture caching Tip", "Faster, but can cause text problems in a few games"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
+
+	static const char *quality[] = { "Low", "Medium", "High" };
+	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
+	beziersChoice->OnChoice.Add([=](EventParams &e) {
+		if (g_Config.iSplineBezierQuality != 0) {
+			settingInfo_->Show(gr->T("LowCurves Tip", "Only used by some games, controls smoothness of curves"), e.v);
+		}
+		return UI::EVENT_CONTINUE;
+	});
+
 	graphicsSettings->Add(new ItemHeader(gr->T("Postprocessing effect")));
+
+	bool multiViewSupported = draw->GetDeviceCaps().multiViewSupported;
+
+	auto enableStereo = [=]() -> bool {
+		return g_Config.bStereoRendering && multiViewSupported;
+	};
+
+	if (draw->GetDeviceCaps().multiViewSupported) {
+		graphicsSettings->Add(new CheckBox(&g_Config.bStereoRendering, gr->T("Stereo rendering")));
+		std::vector<std::string> stereoShaderNames;
+
+		ChoiceWithValueDisplay *stereoShaderChoice = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sStereoToMonoShader, "Stereo display shader", &PostShaderTranslateName));
+		stereoShaderChoice->SetEnabledFunc(enableStereo);
+		stereoShaderChoice->OnClick.Add([=](EventParams &e) {
+			auto gr = GetI18NCategory("Graphics");
+			auto procScreen = new PostProcScreen(gr->T("Stereo display shader"), 0, true);
+			if (e.v)
+				procScreen->SetPopupOrigin(e.v);
+			screenManager()->push(procScreen);
+			return UI::EVENT_DONE;
+		});
+		const ShaderInfo *shaderInfo = GetPostShaderInfo(g_Config.sStereoToMonoShader);
+		if (shaderInfo) {
+			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
+				auto &setting = shaderInfo->settings[i];
+				if (!setting.name.empty()) {
+					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
+					PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+					settingValue->SetEnabledFunc([=] {
+						return !g_Config.bSkipBufferEffects && enableStereo();
+					});
+				}
+			}
+		}
+	}
 
 	std::set<std::string> alreadyAddedShader;
 	for (int i = 0; i < (int)g_Config.vPostShaderNames.size() + 1 && i < ARRAY_SIZE(shaderNames_); ++i) {
@@ -357,15 +410,15 @@ void GameSettingsScreen::CreateViews() {
 		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&shaderNames_[i], StringFromFormat("%s #%d", gr->T("Postprocessing Shader"), i + 1), &PostShaderTranslateName));
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory("Graphics");
-			auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"), i);
+			auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"), i, false);
 			procScreen->OnChoice.Handle(this, &GameSettingsScreen::OnPostProcShaderChange);
 			if (e.v)
 				procScreen->SetPopupOrigin(e.v);
 			screenManager()->push(procScreen);
 			return UI::EVENT_DONE;
 		});
-		postProcChoice_->SetEnabledFunc([] {
-			return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		postProcChoice_->SetEnabledFunc([=] {
+			return !g_Config.bSkipBufferEffects && !enableStereo();
 		});
 
 		// No need for settings on the last one.
@@ -387,8 +440,8 @@ void GameSettingsScreen::CreateViews() {
 						settingValue->SetEnabled(false);
 					} else {
 						PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
-						settingValue->SetEnabledFunc([] {
-							return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+						settingValue->SetEnabledFunc([=] {
+							return !g_Config.bSkipBufferEffects && !enableStereo();
 						});
 					}
 				}
@@ -435,7 +488,7 @@ void GameSettingsScreen::CreateViews() {
 	resolutionChoice_ = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gr->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gr->GetName(), screenManager()));
 	resolutionChoice_->OnChoice.Handle(this, &GameSettingsScreen::OnResolutionChange);
 	resolutionChoice_->SetEnabledFunc([] {
-		return !g_Config.bSoftwareRendering && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		return !g_Config.bSoftwareRendering && !g_Config.bSkipBufferEffects;
 	});
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -464,13 +517,22 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 	frameDuplication->SetEnabledFunc([] {
-		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && g_Config.iFrameSkip == 0;
+		return !g_Config.bSkipBufferEffects && g_Config.iFrameSkip == 0;
 	});
 
 	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
 		static const char *bufferOptions[] = { "No buffer", "Up to 1", "Up to 2" };
 		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands (faster, input lag)"), bufferOptions, 1, ARRAY_SIZE(bufferOptions), gr->GetName(), screenManager()));
 		inflightChoice->OnChoice.Handle(this, &GameSettingsScreen::OnInflightFramesChoice);
+	}
+
+	if (GetGPUBackend() == GPUBackend::VULKAN) {
+		const bool usable = !draw->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
+		const bool vertexSupported = draw->GetDeviceCaps().clipDistanceSupported && draw->GetDeviceCaps().cullDistanceSupported;
+		if (usable && !vertexSupported) {
+			CheckBox *geometryCulling = graphicsSettings->Add(new CheckBox(&g_Config.bUseGeometryShader, gr->T("Geometry shader culling")));
+			geometryCulling->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		}
 	}
 
 	if (deviceType != DEVICE_TYPE_VR) {
@@ -484,45 +546,6 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
-	CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gr->T("Vertex Cache")));
-	vtxCache->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("VertexCache Tip", "Faster, but may cause temporary flicker"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	vtxCache->SetEnabledFunc([] {
-		return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform && g_Config.iGPUBackend != (int)GPUBackend::OPENGL;
-	});
-
-	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
-	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	texBackoff->OnClick.Add([=](EventParams& e) {
-		settingInfo_->Show(gr->T("Lazy texture caching Tip", "Faster, but can cause text problems in a few games"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-
-	CheckBox *texSecondary_ = graphicsSettings->Add(new CheckBox(&g_Config.bTextureSecondaryCache, gr->T("Retain changed textures", "Retain changed textures (speedup, mem hog)")));
-	texSecondary_->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("RetainChangedTextures Tip", "Makes many games slower, but some games a lot faster"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	texSecondary_->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
-	// Seems solid, so we hide the setting.
-	/*CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gr->T("Vertex Decoder JIT")));
-
-	if (PSP_IsInited()) {
-		vtxJit->SetEnabled(false);
-	}*/
-
-	static const char *quality[] = { "Low", "Medium", "High" };
-	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
-	beziersChoice->OnChoice.Add([=](EventParams &e) {
-		if (g_Config.iSplineBezierQuality != 0) {
-			settingInfo_->Show(gr->T("LowCurves Tip", "Only used by some games, controls smoothness of curves"), e.v);
-		}
-		return UI::EVENT_CONTINUE;
-	});
 
 	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
 	tessellationHW->OnClick.Add([=](EventParams &e) {
@@ -1114,14 +1137,23 @@ void GameSettingsScreen::CreateViews() {
 	if (deviceType == DEVICE_TYPE_VR) {
 		LinearLayout *vrSettings = AddTab("GameSettingsVR", ms->T("VR"));
 		vrSettings->Add(new ItemHeader(vr->T("Virtual reality")));
-		vrSettings->Add(new CheckBox(&g_Config.bEnableVR, vr->T("Enable virtual reality")));
-		vrSettings->Add(new PopupSliderChoice(&g_Config.iCanvasDistance, 1, 10, vr->T("Distance to 2D menus and scenes", "Distance to 2D menus and scenes"), 1, screenManager(), ""));
-		CheckBox *vr6DoF = vrSettings->Add(new CheckBox(&g_Config.bEnable6DoF, vr->T("Enable 6 degrees of freedom movement")));
+		vrSettings->Add(new CheckBox(&g_Config.bEnableVR, vr->T("Virtual reality")));
+		CheckBox *vr6DoF = vrSettings->Add(new CheckBox(&g_Config.bEnable6DoF, vr->T("6DoF movement")));
 		vr6DoF->SetEnabledPtr(&g_Config.bEnableVR);
-		PopupSliderChoice *vrFieldOfView = vrSettings->Add(new PopupSliderChoice(&g_Config.iFieldOfViewPercentage, 100, 200, vr->T("Field of view scale", "Headset's field of view scale"), 10, screenManager(), vr->T("% of native FoV")));
-		vrFieldOfView->SetEnabledPtr(&g_Config.bEnableVR);
-		CheckBox *vrStereo = vrSettings->Add(new CheckBox(&g_Config.bEnableStereo, vr->T("Enable stereoscopic vision (Experimental)")));
-		vrStereo->SetEnabledPtr(&g_Config.bEnableVR);
+		vrSettings->Add(new CheckBox(&g_Config.bEnableStereo, vr->T("Stereoscopic vision (Experimental)")));
+		vrSettings->Add(new CheckBox(&g_Config.bForce72Hz, vr->T("Force 72Hz update")));
+
+		vrSettings->Add(new ItemHeader(vr->T("VR camera")));
+		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCameraDistance, -10.0f, 10.0f, vr->T("Camera distance adjust"), 1.0f, screenManager(), ""));
+		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCameraHeight, -10.0f, 10.0f, vr->T("Camera height adjust"), 1.0f, screenManager(), ""));
+		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCameraSide, -10.0f, 10.0f, vr->T("Camera side adjust"), 1.0f, screenManager(), ""));
+		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCanvasDistance, 1.0f, 10.0f, vr->T("Distance to 2D menus and scenes"), 1.0f, screenManager(), ""));
+		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fFieldOfViewPercentage, 100.0f, 200.0f, vr->T("Field of view scale"), 10.0f, screenManager(), vr->T("% of native FoV")));
+
+		vrSettings->Add(new ItemHeader(vr->T("VR controllers")));
+		vrSettings->Add(new CheckBox(&g_Config.bEnableMotions, vr->T("Map controller movements to keys")));
+		PopupSliderChoiceFloat *vrMotions = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMotionLength, 0.3f, 1.0f, vr->T("Motion needed to generate action"), 0.1f, screenManager(), vr->T("m")));
+		vrMotions->SetEnabledPtr(&g_Config.bEnableMotions);
 	}
 }
 
@@ -1152,8 +1184,8 @@ UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
 	if (g_Config.bAutoFrameSkip && g_Config.iFrameSkip == 0) {
 		g_Config.iFrameSkip = 1;
 	}
-	if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-		g_Config.iRenderingMode = FB_BUFFERED_MODE;
+	if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
+		g_Config.bSkipBufferEffects = false;
 	}
 	return UI::EVENT_DONE;
 }
@@ -1197,20 +1229,6 @@ UI::EventReturn GameSettingsScreen::OnSustainedPerformanceModeChange(UI::EventPa
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
-	// We do not want to report when rendering mode is Framebuffer to memory - so many issues
-	// are caused by that (framebuffer copies overwriting display lists, etc).
-	Reporting::UpdateConfig();
-	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
-	if (!Reporting::IsSupported())
-		enableReports_ = Reporting::IsEnabled();
-
-	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-		g_Config.bAutoFrameSkip = false;
-	}
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 	NativeMessageReceived("clear jit", "");
 	return UI::EVENT_DONE;
@@ -1222,7 +1240,7 @@ UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnOpenMemStick(UI::EventParams &e) {
-	OpenDirectory(File::ResolvePath(g_Config.memStickDirectory.ToString().c_str()).c_str());
+	OpenDirectory(File::ResolvePath(g_Config.memStickDirectory.ToString()).c_str());
 	return UI::EVENT_DONE;
 }
 
@@ -1488,7 +1506,7 @@ void GameSettingsScreen::TriggerRestart(const char *why) {
 	std::string param = "--gamesettings";
 	if (editThenRestore_) {
 		// We won't pass the gameID, so don't resume back into settings.
-		param = "";
+		param.clear();
 	} else if (!gamePath_.empty()) {
 		param += " \"" + ReplaceAll(ReplaceAll(gamePath_.ToString(), "\\", "\\\\"), "\"", "\\\"") + "\"";
 	}

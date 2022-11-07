@@ -283,7 +283,7 @@ std::string ParamSFOData::GenerateFakeID(std::string filename) {
 	// Generates fake gameID for homebrew based on it's folder name.
 	// Should probably not be a part of ParamSFO, but it'll be called in same places.
 	std::string file = PSP_CoreParameter().fileToStart.ToString();
-	if (filename != "")
+	if (!filename.empty())
 		file = filename;
 
 	std::size_t lslash = file.find_last_of("/");

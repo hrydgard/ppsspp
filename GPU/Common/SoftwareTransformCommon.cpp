@@ -168,29 +168,6 @@ void SoftwareTransform::SetProjMatrix(float mtx[14], bool invertedX, bool invert
 	projMatrix_.translateAndScale(trans, scale);
 }
 
-static void ReadWeightedNormal(Vec3f &source, VertexReader &reader, u32 vertType, bool skinningEnabled) {
-	if (reader.hasNormal())
-		reader.ReadNrm(source.AsArray());
-	if (skinningEnabled) {
-		float weights[8];
-		reader.ReadWeights(weights);
-
-		// Have to recalculate this, unfortunately.  Please use software skinning...
-		Vec3f nsum(0, 0, 0);
-		for (int i = 0; i < vertTypeGetNumBoneWeights(vertType); i++) {
-			if (weights[i] != 0.0f) {
-				Vec3f norm;
-				Norm3ByMatrix43(norm.AsArray(), source.AsArray(), gstate.boneMatrix + i * 12);
-				nsum += norm * weights[i];
-			}
-		}
-
-		source = nsum;
-	}
-	if (gstate.areNormalsReversed())
-		source = -source;
-}
-
 void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
@@ -203,8 +180,6 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 		uscale /= gstate_c.curTextureWidth;
 		vscale /= gstate_c.curTextureHeight;
 	}
-
-	bool skinningEnabled = vertTypeIsSkinningEnabled(vertType);
 
 	const int w = gstate.getTextureWidth(0);
 	const int h = gstate.getTextureHeight(0);
@@ -296,47 +271,13 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			if (reader.hasNormal())
 				reader.ReadNrm(normal.AsArray());
 
-			if (!skinningEnabled) {
-				Vec3ByMatrix43(out, pos, gstate.worldMatrix);
-				if (reader.hasNormal()) {
-					if (gstate.areNormalsReversed()) {
-						normal = -normal;
-					}
-					Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
-					worldnormal = worldnormal.NormalizedOr001(cpu_info.bSSE4_1);
+			Vec3ByMatrix43(out, pos, gstate.worldMatrix);
+			if (reader.hasNormal()) {
+				if (gstate.areNormalsReversed()) {
+					normal = -normal;
 				}
-			} else {
-				float weights[8];
-				// For flat, we need the vertex weights.
-				reader.Goto(index);
-				reader.ReadWeights(weights);
-
-				// Skinning
-				Vec3f psum(0, 0, 0);
-				Vec3f nsum(0, 0, 0);
-				for (int i = 0; i < vertTypeGetNumBoneWeights(vertType); i++) {
-					if (weights[i] != 0.0f) {
-						Vec3ByMatrix43(out, pos, gstate.boneMatrix+i*12);
-						Vec3f tpos(out);
-						psum += tpos * weights[i];
-						if (reader.hasNormal()) {
-							Vec3f norm;
-							Norm3ByMatrix43(norm.AsArray(), normal.AsArray(), gstate.boneMatrix+i*12);
-							nsum += norm * weights[i];
-						}
-					}
-				}
-
-				// Yes, we really must multiply by the world matrix too.
-				Vec3ByMatrix43(out, psum.AsArray(), gstate.worldMatrix);
-				if (reader.hasNormal()) {
-					normal = nsum;
-					if (gstate.areNormalsReversed()) {
-						normal = -normal;
-					}
-					Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
-					worldnormal = worldnormal.NormalizedOr001(cpu_info.bSSE4_1);
-				}
+				Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
+				worldnormal = worldnormal.NormalizedOr001(cpu_info.bSSE4_1);
 			}
 
 			// Perform lighting here if enabled.
@@ -398,7 +339,10 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 							source = normal.Normalized(cpu_info.bSSE4_1);
 						} else {
 							reader.Goto(index);
-							ReadWeightedNormal(source, reader, vertType, skinningEnabled);
+							if (reader.hasNormal())
+								reader.ReadNrm(source.AsArray());
+							if (gstate.areNormalsReversed())
+								source = -source;
 							source.Normalize();
 						}
 						if (!reader.hasNormal()) {
@@ -413,7 +357,10 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 						} else {
 							// Need to read the normal for this vertex and weight it again..
 							reader.Goto(index);
-							ReadWeightedNormal(source, reader, vertType, skinningEnabled);
+							if (reader.hasNormal())
+								reader.ReadNrm(source.AsArray());
+							if (gstate.areNormalsReversed())
+								source = -source;
 						}
 						if (!reader.hasNormal()) {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
@@ -639,7 +586,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		result->drawIndexed = true;
 
 		// If we don't support custom cull in the shader, process it here.
-		if (!gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
+		if (!gstate_c.Use(GPU_USE_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
 			const u16 *indsIn = (const u16 *)inds;
 			u16 *newInds = inds + vertexCount;
 			u16 *indsOut = newInds;

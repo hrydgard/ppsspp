@@ -34,6 +34,7 @@
 #include "Core/MemMap.h"
 
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -180,7 +181,9 @@ void Arm64Jit::ClearCache() {
 }
 
 void Arm64Jit::InvalidateCacheAt(u32 em_address, int length) {
-	blocks.InvalidateICache(em_address, length);
+	if (blocks.RangeMayHaveEmuHacks(em_address, em_address + length)) {
+		blocks.InvalidateICache(em_address, length);
+	}
 }
 
 void Arm64Jit::EatInstruction(MIPSOpcode op) {

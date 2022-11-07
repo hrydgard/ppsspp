@@ -39,6 +39,8 @@ struct ShaderInfo {
 	bool outputResolution;
 	// Use x1 rendering res + nearest screen scaling filter
 	bool isUpscalingFilter;
+	// Is used to post-process stereo-rendering to mono, like red/blue.
+	bool isStereo;
 	// Use 2x display resolution for supersampling with blurry shaders.
 	int SSAAFilterLevel;
 	// Force constant/max refresh for animated filters

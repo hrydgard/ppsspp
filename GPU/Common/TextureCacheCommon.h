@@ -336,7 +336,7 @@ public:
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to,
 	// so that it can invalidate TexCacheEntries pointed at those addresses.
 	void NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg);
-	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
+	void NotifyWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt);
 
 	size_t NumLoadedTextures() const {
 		return cache_.size();
@@ -348,7 +348,7 @@ public:
 	bool VideoIsPlaying() {
 		return !videos_.empty();
 	}
-	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) { return false; }
+	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) { return false; }
 
 protected:
 	virtual void *GetNativeTextureView(const TexCacheEntry *entry) = 0;
@@ -399,6 +399,7 @@ protected:
 	bool GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate) const;
 
 	void SetTextureFramebuffer(const AttachCandidate &candidate);
+	bool GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer, bool *isFramebuffer);
 
 	virtual void BoundFramebufferTexture() {}
 

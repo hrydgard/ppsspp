@@ -136,6 +136,8 @@ struct GPUDebugBuffer {
 	void Allocate(u32 stride, u32 height, GPUDebugBufferFormat fmt, bool flipped = false);
 	void Free();
 
+	void ZeroBytes();
+
 	u8 *GetData() {
 		return data_;
 	}
@@ -238,7 +240,7 @@ public:
 	}
 
 	// Similar to GetCurrentFramebuffer(), with texture level specification.
-	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
+	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
 		return false;
 	}
 

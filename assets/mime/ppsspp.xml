@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-compressed-iso">
+    <glob pattern="*.cso"/>
+    <magic>
+      <match type="little32" offset="0" value="0x4F534943"/>
+    </magic>
+    <comment>Compressed ISO Image</comment>
+    <comment xml:lang="de">Komprimiertes ISO&#x2011;Abbild</comment>
+    <comment xml:lang="pl">Skomprymowany obraz ISO</comment>
+    <acronym>CSO</acronym>
+    <generic-icon name="media-optical"/>
+  </mime-type>
+</mime-info>
