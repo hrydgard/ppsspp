@@ -300,8 +300,6 @@ public:
 	bool hasNormal() const { return decFmt_.nrmfmt != 0; }
 	bool hasUV() const { return decFmt_.uvfmt != 0; }
 	bool isThrough() const { return (vtype_ & GE_VTYPE_THROUGH) != 0; }
-	bool skinningEnabled() const { return vertTypeIsSkinningEnabled(vtype_); }
-	int numBoneWeights() const { return vertTypeGetNumBoneWeights(vtype_); }
 	void Goto(int index) {
 		data_ = base_ + index * decFmt_.stride;
 	}
@@ -335,6 +333,7 @@ typedef void(*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
 struct VertexDecoderOptions {
 	bool expandAllWeightsToFloat;
 	bool expand8BitNormalsToFloat;
+	bool applySkinInDecode;
 };
 
 class VertexDecoder {

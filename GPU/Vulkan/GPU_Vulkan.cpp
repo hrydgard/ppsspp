@@ -292,7 +292,7 @@ void GPU_Vulkan::BeginHostFrame() {
 		// In case the GPU changed.
 		BuildReportingInfo();
 		framebufferManager_->Resized();
-		drawEngine_.Resized();
+		drawEngine_.NotifyConfigChanged();
 		textureCache_->NotifyConfigChanged();
 		resized_ = false;
 	}

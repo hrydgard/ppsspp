@@ -52,8 +52,7 @@ DrawEngineCommon::~DrawEngineCommon() {
 }
 
 void DrawEngineCommon::Init() {
-	useHWTransform_ = g_Config.bHardwareTransform;
-	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
+	NotifyConfigChanged();
 }
 
 VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
@@ -169,7 +168,7 @@ static Vec3f ScreenToDrawing(const Vec3f& coords) {
 	return ret;
 }
 
-void DrawEngineCommon::Resized() {
+void DrawEngineCommon::NotifyConfigChanged() {
 	decJitCache_->Clear();
 	lastVType_ = -1;
 	dec_ = nullptr;
@@ -181,10 +180,11 @@ void DrawEngineCommon::Resized() {
 
 	useHWTransform_ = g_Config.bHardwareTransform;
 	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
+	decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 }
 
 u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize) {
-	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+	const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode(), decOptions_.applySkinInDecode);
 	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
 	if (vertexSize)
 		*vertexSize = dec->VertexSize();
@@ -232,7 +232,7 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 	}
 
 	int bytesRead;
-	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
+	uint32_t vertTypeID = GetVertTypeID(vtype, 0, decOptions_.applySkinInDecode);
 	SubmitPrim(&temp[0], nullptr, prim, vertexCount, vertTypeID, cullMode, &bytesRead);
 	DispatchFlush();
 
@@ -280,7 +280,11 @@ bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *i
 			GetIndexBounds(inds, vertexCount, vertType, &indexLowerBound, &indexUpperBound);
 		}
 
+		// Force software skinning.
+		bool wasApplyingSkinInDecode = decOptions_.applySkinInDecode;
+		decOptions_.applySkinInDecode = true;
 		NormalizeVertices((u8 *)corners, temp_buffer, (const u8 *)control_points, indexLowerBound, indexUpperBound, vertType);
+		decOptions_.applySkinInDecode = wasApplyingSkinInDecode;
 
 		IndexConverter conv(vertType, inds);
 		for (int i = 0; i < vertexCount; i++) {
@@ -510,7 +514,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 	};
 
 	// Let's have two separate loops, one for non skinning and one for skinning.
-	if (!g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
+	if (!dec->skinInDecode && (vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
 		int numBoneWeights = vertTypeGetNumBoneWeights(vertType);
 		for (int i = lowerBound; i <= upperBound; i++) {
 			reader.Goto(i - lowerBound);
@@ -832,7 +836,7 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	numDrawCalls++;
 	vertexCountInDrawCalls_ += vertexCount;
 
-	if (g_Config.bSoftwareSkinning && (vertTypeID & GE_VTYPE_WEIGHT_MASK)) {
+	if (decOptions_.applySkinInDecode && (vertTypeID & GE_VTYPE_WEIGHT_MASK)) {
 		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
 		decodeCounter_++;
 	}
