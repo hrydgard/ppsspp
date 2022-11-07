@@ -107,7 +107,7 @@ public:
 		}
 	}
 
-	// For outside injection of data, when not using Spawn
+	// For outside injection of data, when not using Spawn.
 	void Post(T data) {
 		rx_->Send(data);
 	}
