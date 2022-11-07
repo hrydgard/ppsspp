@@ -25,6 +25,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/TimeUtil.h"
 
 #include "Common/StringUtils.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -92,11 +93,10 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 			if (tag)
 				delete tag;
 		}
-
 		return shaderModule;
 	};
 
-#ifdef _DEBUG
+#if defined(_DEBUG) || PPSSPP_PLATFORM(ANDROID)
 	// Don't parallelize in debug mode, pathological behavior due to mutex locks in allocator which is HEAVILY used by glslang.
 	return Promise<VkShaderModule>::AlreadyDone(compile());
 #else
