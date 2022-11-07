@@ -18,7 +18,7 @@
 
 #if defined(_DEBUG) && (defined(XR_USE_GRAPHICS_API_OPENGL) || defined(XR_USE_GRAPHICS_API_OPENGL_ES))
 
-void GLCheckErrors(char* file, int line);
+void GLCheckErrors(const char* file, int line);
 
 #define GL(func) func; GLCheckErrors(__FILE__ , __LINE__);
 #else
