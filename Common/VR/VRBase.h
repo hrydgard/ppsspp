@@ -14,6 +14,7 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <cassert>
 
 #ifdef ANDROID
 

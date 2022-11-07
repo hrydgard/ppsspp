@@ -564,6 +564,8 @@ bool StartVRRender() {
 					M[11] -= separation.z;
 				}
 				memcpy(vrMatrix[matrix], M, sizeof(float) * 16);
+			} else {
+				assert(false);
 			}
 		}
 

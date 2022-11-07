@@ -6,7 +6,6 @@
 #include "VRRenderer.h"
 #include "OpenXRLoader.h"
 
-#include <cassert>
 #include <cstdlib>
 #include <cstring>
 
