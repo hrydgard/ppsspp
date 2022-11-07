@@ -381,6 +381,7 @@ void DrawEngineVulkan::BindShaderBlendTex() {
 			boundSecondaryIsInputAttachment_ = true;
 			fboTexBindState_ = FBO_TEX_NONE;
 		} else {
+			boundSecondaryIsInputAttachment_ = false;
 			boundSecondary_ = VK_NULL_HANDLE;
 		}
 	}
