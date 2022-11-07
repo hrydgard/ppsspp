@@ -14,6 +14,7 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <cassert>
 
 #if defined(_DEBUG) && (defined(XR_USE_GRAPHICS_API_OPENGL) || defined(XR_USE_GRAPHICS_API_OPENGL_ES))
 
