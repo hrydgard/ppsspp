@@ -34,9 +34,9 @@ enum VRMirroring {
 	VR_MIRRORING_COUNT
 };
 
+static std::map<int, bool> pspKeys;
+
 static int vr3DGeometryCount = 0;
-static bool vrCameraControl = false;
-static bool vrForce2D = false;
 static long vrCompat[VR_COMPAT_MAX];
 static float vrMatrix[VR_MATRIX_COUNT][16];
 static bool vrMirroring[VR_MIRRORING_COUNT];
@@ -222,14 +222,14 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 				if (pressed && haptics) {
 					INVR_Vibrate(100, j, 1000);
 				}
-				if (!vrCameraControl || cameraKey) {
+				if (!pspKeys[VIRTKEY_VR_CAMERA_ADJUST] || cameraKey) {
 					NativeKey(keyInput);
 				}
 				m.pressed = pressed;
 				m.repeat = 0;
 			} else if (pressed && (m.repeat > 30)) {
 				keyInput.flags |= KEY_IS_REPEAT;
-				if (!vrCameraControl || cameraKey) {
+				if (!pspKeys[VIRTKEY_VR_CAMERA_ADJUST] || cameraKey) {
 					NativeKey(keyInput);
 				}
 				m.repeat = 0;
@@ -343,14 +343,7 @@ void UpdateVRSpecialKeys(const KeyInput &key) {
 	std::vector<int> nativeKeys;
 	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
 		for (int& nativeKey : nativeKeys) {
-			// adjust camera parameters
-			if (nativeKey == VIRTKEY_VR_CAMERA_ADJUST) {
-				vrCameraControl = key.flags & KEY_DOWN;
-			}
-			// force 2D rendering
-			else if (nativeKey == CTRL_SCREEN) {
-				vrForce2D = key.flags & KEY_DOWN;
-			}
+			pspKeys[nativeKey] = key.flags & KEY_DOWN;
 		}
 	}
 }
@@ -570,7 +563,7 @@ bool StartVRRender() {
 		}
 
 		// Decide if the scene is 3D or not
-		if (g_Config.bEnableVR && !vrForce2D && (vr3DGeometryCount > 15)) {
+		if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && (vr3DGeometryCount > 15)) {
 			bool stereo = hasUnitScale && g_Config.bEnableStereo;
 			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 		} else {
@@ -582,7 +575,7 @@ bool StartVRRender() {
 		vrCompat[VR_COMPAT_SKYPLANE] = PSP_CoreParameter().compat.vrCompat().Skyplane;
 
 		// Camera control
-		if (vrCameraControl) {
+		if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
 			//left joystick controls height and side
 			float height = g_Config.fCameraHeight;
 			float side = g_Config.fCameraSide;
