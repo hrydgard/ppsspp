@@ -377,7 +377,7 @@ void DrawEngineVulkan::BindShaderBlendTex() {
 			dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
 		} else if (fboTexBindState_ == FBO_TEX_READ_FRAMEBUFFER) {
 			draw_->BindCurrentFramebufferForColorInput();
-			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_LAYER, (void *)0);
+			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_RT, (void *)0);
 			boundSecondaryIsInputAttachment_ = true;
 			fboTexBindState_ = FBO_TEX_NONE;
 		} else {

@@ -42,6 +42,11 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		// UNASSIGNED
 		return false;
 	}
+	if (messageCode == 606910136) {
+		// VUID-vkCmdDraw-None-02686
+		// Seems to be a bug in the validation layers, in the check that the input attachment is bound to a descriptor.
+		return false;
+	}
 
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
 		message << "ERROR(";
