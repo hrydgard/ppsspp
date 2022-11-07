@@ -71,7 +71,7 @@ static const char* GlErrorString(GLenum error) {
 	}
 }
 
-void GLCheckErrors(char* file, int line) {
+void GLCheckErrors(const char* file, int line) {
 	for (int i = 0; i < 10; i++) {
 		const GLenum error = glGetError();
 		if (error == GL_NO_ERROR) {
@@ -86,7 +86,6 @@ void GLCheckErrors(char* file, int line) {
 #if XR_USE_GRAPHICS_API_OPENGL_ES
 
 static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBuffer, int width, int height, bool multiview) {
-
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
 

@@ -94,10 +94,13 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		//
 		// At least create a null placeholder to avoid creating over and over if something is broken.
 		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
+		ERROR_LOG(G3D, "Failed creating graphics pipeline! VK_INCOMPLETE");
+		LogCreationFailure();
 		success = false;
 	} else if (result != VK_SUCCESS) {
 		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
 		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
+		LogCreationFailure();
 		success = false;
 	} else {
 		// Success!
@@ -112,10 +115,13 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 
 void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
 	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
-		if (!pipeline[i])
+		if (!this->pipeline[i])
 			continue;
 		VkPipeline pipeline = this->pipeline[i]->BlockUntilReady();
-		vulkan->Delete().QueueDeletePipeline(pipeline);
+		// pipeline can be nullptr here, if it failed to compile before.
+		if (pipeline) {
+			vulkan->Delete().QueueDeletePipeline(pipeline);
+		}
 	}
 	vulkan->Delete().QueueCallback([](void *p) {
 		VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;
@@ -131,6 +137,16 @@ u32 VKRGraphicsPipeline::GetVariantsBitmask() const {
 		}
 	}
 	return bitmask;
+}
+
+void VKRGraphicsPipeline::LogCreationFailure() const {
+	ERROR_LOG(G3D, "vs: %s\n[END VS]", desc->vertexShaderSource.c_str());
+	ERROR_LOG(G3D, "fs: %s\n[END FS]", desc->fragmentShaderSource.c_str());
+	if (desc->geometryShader) {
+		ERROR_LOG(G3D, "gs: %s\n[END GS]", desc->geometryShaderSource.c_str());
+	}
+	// TODO: Maybe log various other state?
+	ERROR_LOG(G3D, "======== END OF PIPELINE ==========");
 }
 
 bool VKRComputePipeline::Create(VulkanContext *vulkan) {

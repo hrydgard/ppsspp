@@ -1443,6 +1443,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	VkPipeline lastPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 
+	bool pipelineOK = false;
+
 	int lastStencilWriteMask = -1;
 	int lastStencilCompareMask = -1;
 	int lastStencilReference = -1;
@@ -1474,11 +1476,15 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 					pipelineLayout = c.pipeline.pipelineLayout;
 					lastGraphicsPipeline = graphicsPipeline;
-					// Reset dynamic state so it gets refreshed with the new pipeline.
-					lastStencilWriteMask = -1;
-					lastStencilCompareMask = -1;
-					lastStencilReference = -1;
+					pipelineOK = true;
+				} else {
+					pipelineOK = false;
 				}
+
+				// Reset dynamic state so it gets refreshed with the new pipeline.
+				lastStencilWriteMask = -1;
+				lastStencilCompareMask = -1;
+				lastStencilReference = -1;
 			}
 			break;
 		}
@@ -1550,7 +1556,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		}
 
 		case VKRRenderCommand::PUSH_CONSTANTS:
-			vkCmdPushConstants(cmd, pipelineLayout, c.push.stages, c.push.offset, c.push.size, c.push.data);
+			if (pipelineOK) {
+				vkCmdPushConstants(cmd, pipelineLayout, c.push.stages, c.push.offset, c.push.size, c.push.data);
+			}
 			break;
 
 		case VKRRenderCommand::STENCIL:
@@ -1569,21 +1577,23 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			break;
 
 		case VKRRenderCommand::DRAW_INDEXED:
-		{
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
-			vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, (VkIndexType)c.drawIndexed.indexType);
-			VkDeviceSize voffset = c.drawIndexed.voffset;
-			vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &voffset);
-			vkCmdDrawIndexed(cmd, c.drawIndexed.count, c.drawIndexed.instances, 0, 0, 0);
+			if (pipelineOK) {
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
+				vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, (VkIndexType)c.drawIndexed.indexType);
+				VkDeviceSize voffset = c.drawIndexed.voffset;
+				vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &voffset);
+				vkCmdDrawIndexed(cmd, c.drawIndexed.count, c.drawIndexed.instances, 0, 0, 0);
+			}
 			break;
-		}
 
 		case VKRRenderCommand::DRAW:
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
-			if (c.draw.vbuffer) {
-				vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
+			if (pipelineOK) {
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
+				if (c.draw.vbuffer) {
+					vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
+				}
+				vkCmdDraw(cmd, c.draw.count, 1, c.draw.offset, 0);
 			}
-			vkCmdDraw(cmd, c.draw.count, 1, c.draw.offset, 0);
 			break;
 
 		case VKRRenderCommand::CLEAR:

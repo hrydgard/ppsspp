@@ -145,6 +145,12 @@ struct VKRGraphicsPipelineDesc {
 	Promise<VkShaderModule> *fragmentShader = nullptr;
 	Promise<VkShaderModule> *geometryShader = nullptr;
 
+	// These are for pipeline creation failure logging.
+	// TODO: Store pointers to the string instead? Feels iffy but will probably work.
+	std::string vertexShaderSource;
+	std::string fragmentShaderSource;
+	std::string geometryShaderSource;
+
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	VkVertexInputAttributeDescription attrs[8]{};
 	VkVertexInputBindingDescription ibd{};
@@ -178,6 +184,8 @@ struct VKRGraphicsPipeline {
 	void QueueForDeletion(VulkanContext *vulkan);
 
 	u32 GetVariantsBitmask() const;
+
+	void LogCreationFailure() const;
 
 	VKRGraphicsPipelineDesc *desc = nullptr;  // not owned!
 	Promise<VkPipeline> *pipeline[(size_t)RenderPassType::TYPE_COUNT]{};

@@ -94,6 +94,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	ShaderWriter p(buffer, compat, ShaderStage::Fragment, extensions, flags);
+	p.F("// %s\n", FragmentShaderDesc(id).c_str());
+
 	p.ApplySamplerMetadata(arrayTexture ? samplersStereo : samplersMono);
 
 	bool lmode = id.Bit(FS_BIT_LMODE);

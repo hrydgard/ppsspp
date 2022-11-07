@@ -96,7 +96,7 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 		return shaderModule;
 	};
 
-#if defined(_DEBUG) || PPSSPP_PLATFORM(ANDROID)
+#if defined(_DEBUG)
 	// Don't parallelize in debug mode, pathological behavior due to mutex locks in allocator which is HEAVILY used by glslang.
 	return Promise<VkShaderModule>::AlreadyDone(compile());
 #else

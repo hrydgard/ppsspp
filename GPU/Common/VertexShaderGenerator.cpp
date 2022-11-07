@@ -168,6 +168,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	ShaderWriter p(buffer, compat, ShaderStage::Vertex, extensions);
 
+	p.F("// %s\n", VertexShaderDesc(id).c_str());
+
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE);
 	bool doTexture = id.Bit(VS_BIT_DO_TEXTURE);
