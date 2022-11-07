@@ -584,9 +584,9 @@ bool StartVRRender() {
 			}
 
 			// Clamp values
-			g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -10.0f, 10.0f);
-			g_Config.fCameraSide = clampFloat(g_Config.fCameraSide, -10.0f, 10.0f);
-			g_Config.fCameraDistance = clampFloat(g_Config.fCameraDistance, -10.0f, 10.0f);
+			g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -50.0f, 50.0f);
+			g_Config.fCameraSide = clampFloat(g_Config.fCameraSide, -50.0f, 50.0f);
+			g_Config.fCameraDistance = clampFloat(g_Config.fCameraDistance, -50.0f, 50.0f);
 			g_Config.fFieldOfViewPercentage = clampFloat(g_Config.fFieldOfViewPercentage, 100.0f, 200.0f);
 		}
 
