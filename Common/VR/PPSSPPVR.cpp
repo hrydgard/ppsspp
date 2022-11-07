@@ -199,18 +199,6 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 		int status = IN_VRGetButtonState(j);
 		for (ButtonMapping& m : controllerMapping[j]) {
 
-			//check if camera key was pressed
-			bool cameraKey = false;
-			std::vector<int> nativeKeys;
-			if (KeyMap::KeyToPspButton(controllerIds[j], m.keycode, &nativeKeys)) {
-				for (int& nativeKey : nativeKeys) {
-					if (nativeKey == VIRTKEY_VR_CAMERA_ADJUST) {
-						cameraKey = true;
-						break;
-					}
-				}
-			}
-
 			//fill KeyInput structure
 			bool pressed = status & m.ovr;
 			keyInput.flags = pressed ? KEY_DOWN : KEY_UP;
@@ -222,16 +210,12 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 				if (pressed && haptics) {
 					INVR_Vibrate(100, j, 1000);
 				}
-				if (!pspKeys[VIRTKEY_VR_CAMERA_ADJUST] || cameraKey) {
-					NativeKey(keyInput);
-				}
+				NativeKey(keyInput);
 				m.pressed = pressed;
 				m.repeat = 0;
 			} else if (pressed && (m.repeat > 30)) {
 				keyInput.flags |= KEY_IS_REPEAT;
-				if (!pspKeys[VIRTKEY_VR_CAMERA_ADJUST] || cameraKey) {
-					NativeKey(keyInput);
-				}
+				NativeKey(keyInput);
 				m.repeat = 0;
 			} else {
 				m.repeat++;
@@ -339,13 +323,14 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 	}
 }
 
-void UpdateVRSpecialKeys(const KeyInput &key) {
+bool UpdateVRSpecialKeys(const KeyInput &key) {
 	std::vector<int> nativeKeys;
 	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
 		for (int& nativeKey : nativeKeys) {
 			pspKeys[nativeKey] = key.flags & KEY_DOWN;
 		}
 	}
+	return !pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
 }
 
 /*
@@ -577,34 +562,30 @@ bool StartVRRender() {
 		// Camera control
 		if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
 			//left joystick controls height and side
-			float height = g_Config.fCameraHeight;
-			float side = g_Config.fCameraSide;
-			int status = IN_VRGetButtonState(0);
-			if (status & ovrButton_Left) side -= 0.05f;
-			if (status & ovrButton_Right) side += 0.05f;
-			if (status & ovrButton_Down) height -= 0.05f;
-			if (status & ovrButton_Up) height += 0.05f;
-			if (status & ovrButton_LThumb) {
-				height = 0;
-				side = 0;
-			}
-			g_Config.fCameraHeight = clampFloat(height, -10.0f, 10.0f);
-			g_Config.fCameraSide = clampFloat(side, -10.0f, 10.0f);
+			if (pspKeys[CTRL_LEFT]) g_Config.fCameraSide -= 0.05f;
+			if (pspKeys[CTRL_RIGHT]) g_Config.fCameraSide += 0.05f;
+			if (pspKeys[CTRL_DOWN]) g_Config.fCameraHeight -= 0.05f;
+			if (pspKeys[CTRL_UP]) g_Config.fCameraHeight += 0.05f;
 
 			//right joystick controls distance and fov
-			float dst = g_Config.fCameraDistance;
-			float fov = g_Config.fFieldOfViewPercentage;
-			status = IN_VRGetButtonState(1);
-			if (status & ovrButton_Left) fov -= 1.0f;
-			if (status & ovrButton_Right) fov += 1.0f;
-			if (status & ovrButton_Down) dst -= 0.1f;
-			if (status & ovrButton_Up) dst += 0.1f;
-			if (status & ovrButton_RThumb) {
-				fov = 100;
-				dst = 0;
+			if (pspKeys[VIRTKEY_AXIS_X_MIN]) g_Config.fFieldOfViewPercentage -= 1.0f;
+			if (pspKeys[VIRTKEY_AXIS_X_MAX]) g_Config.fFieldOfViewPercentage += 1.0f;
+			if (pspKeys[VIRTKEY_AXIS_Y_MIN]) g_Config.fCameraDistance -= 0.1f;
+			if (pspKeys[VIRTKEY_AXIS_Y_MAX]) g_Config.fCameraDistance += 0.1f;
+
+			// Reset values
+			if (pspKeys[VIRTKEY_VR_CAMERA_RESET]) {
+				g_Config.fCameraHeight = 0;
+				g_Config.fCameraSide = 0;
+				g_Config.fCameraDistance = 0;
+				g_Config.fFieldOfViewPercentage = 100;
 			}
-			g_Config.fCameraDistance = clampFloat(dst, -10.0f, 10.0f);
-			g_Config.fFieldOfViewPercentage = clampFloat(fov, 100.0f, 200.0f);
+
+			// Clamp values
+			g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -10.0f, 10.0f);
+			g_Config.fCameraSide = clampFloat(g_Config.fCameraSide, -10.0f, 10.0f);
+			g_Config.fCameraDistance = clampFloat(g_Config.fCameraDistance, -10.0f, 10.0f);
+			g_Config.fFieldOfViewPercentage = clampFloat(g_Config.fFieldOfViewPercentage, 100.0f, 200.0f);
 		}
 
 		// Set customizations
