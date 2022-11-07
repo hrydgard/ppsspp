@@ -4,7 +4,7 @@
 #include "Common/VR/VRMath.h"
 #include "Common/VR/VRRenderer.h"
 
-#if XR_USE_GRAPHICS_API_OPENGL
+#if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #endif
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -339,7 +339,7 @@ void UpdateVRSpecialKeys(const KeyInput &key) {
 ================================================================================
 */
 
-#if XR_USE_GRAPHICS_API_OPENGL
+#if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES
 
 void PreprocessSkyplane(GLRStep* step) {
 
