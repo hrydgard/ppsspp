@@ -1054,11 +1054,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("        ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
 				p.C("      }\n");
 				p.C("    }\n");
-				p.C("    switch (type) {\n");  // Attenuation
-				p.C("    case 1u:\n");  // GE_LIGHTTYPE_POINT
+				p.C("    switch (int(type)) {\n");  // Attenuation
+				p.C("    case 1:\n");  // GE_LIGHTTYPE_POINT
 				p.F("      lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
 				p.C("      break;\n");
-				p.C("    case 2u:\n");  // GE_LIGHTTYPE_SPOT
+				p.C("    case 2:\n");  // GE_LIGHTTYPE_SPOT
 				p.F("      angle = length(u_lightdir%i) == 0.0 ? 0.0 : dot(normalize(u_lightdir%i), toLight);\n", i, i);
 				p.F("      if (angle >= u_lightangle_spotCoef%i.x) {\n", i);
 				p.F("        lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%i.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%i.y));\n", i, i, i);
