@@ -1683,7 +1683,12 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 					// We simply expand the CLUT to 32-bit, then we deindex as usual. Probably the fastest way.
 					const u16 *clut = GetCurrentRawClut<u16>() + clutSharingOffset;
 					const int clutStart = gstate.getClutIndexStartPos();
-					ConvertFormatToRGBA8888(clutformat, expandClut_ + clutStart, clut + clutStart, 16);
+					if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexMask() <= 16) {
+						ConvertFormatToRGBA8888(clutformat, expandClut_ + clutStart, clut + clutStart, 16);
+					} else {
+						// To be safe for shifts and wrap around, convert the entire CLUT.
+						ConvertFormatToRGBA8888(clutformat, expandClut_, clut, 512);
+					}
 					fullAlphaMask = 0xFF000000;
 					for (int y = 0; y < h; ++y) {
 						DeIndexTexture4<u32>((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, expandClut_, &alphaSum);
