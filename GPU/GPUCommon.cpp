@@ -3080,9 +3080,9 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
 		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, flags, gstate_c.skipDrawReason)) {
-			// We use a little hack for PerformReadbackToMemory/PerformWriteColorFromMemory using a VRAM mirror.
+			// We use matching values in PerformReadbackToMemory/PerformWriteColorFromMemory.
 			// Since they're identical we don't need to copy.
-			if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
+			if (dest != src) {
 				if (MemBlockInfoDetailed(size)) {
 					const std::string tag = GetMemWriteTagAt("GPUMemcpy/", src, size);
 					Memory::Memcpy(dest, src, size, tag.c_str(), tag.size());
