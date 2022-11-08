@@ -82,7 +82,9 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 		// This way they can load a new game.
 		if (!Core_IsActive())
 			UpdateUIState(UISTATE_MENU);
-		Core_Run(g_graphicsContext);
+		if (!Core_Run(g_graphicsContext)) {
+			emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+		}
 	}
 
 	emuThreadState = (int)EmuThreadState::STOPPED;
@@ -99,12 +101,14 @@ static void EmuThreadStart(GraphicsContext *graphicsContext) {
 }
 
 static void EmuThreadStop() {
-	emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+	if (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED &&
+		emuThreadState != (int)EmuThreadState::STOPPED) {
+		emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+	}
 }
 
 static void EmuThreadJoin() {
 	emuThread.join();
-	emuThread = std::thread();
 	INFO_LOG(SYSTEM, "EmuThreadJoin - joined");
 }
 

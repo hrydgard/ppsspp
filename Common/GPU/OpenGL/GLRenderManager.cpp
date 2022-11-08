@@ -247,6 +247,7 @@ void GLRenderManager::StopThread() {
 		GLRRenderThreadTask exitTask{};
 		exitTask.runType = GLRRunType::EXIT;
 		renderThreadQueue_.push(exitTask);
+		pushCondVar_.notify_one();
 	} else {
 		WARN_LOG(G3D, "GL submission thread was already paused.");
 	}

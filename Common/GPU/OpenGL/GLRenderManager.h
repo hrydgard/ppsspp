@@ -437,7 +437,7 @@ public:
 	// We pass in width/height here even though it's not strictly needed until we support glTextureStorage
 	// and then we'll also need formats and stuff.
 	GLRTexture *CreateTexture(GLenum target, int width, int height, int depth, int numMips) {
-		GLRInitStep step{ GLRInitStepType::CREATE_TEXTURE };
+		GLRInitStep step { GLRInitStepType::CREATE_TEXTURE };
 		step.create_texture.texture = new GLRTexture(caps_, width, height, depth, numMips);
 		step.create_texture.texture->target = target;
 		initSteps_.push_back(step);

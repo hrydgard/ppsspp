@@ -328,14 +328,14 @@ void Core_ProcessStepping() {
 
 // Many platforms, like Android, do not call this function but handle things on their own.
 // Instead they simply call NativeRender and NativeUpdate directly.
-void Core_Run(GraphicsContext *ctx) {
+bool Core_Run(GraphicsContext *ctx) {
 	host->UpdateDisassembly();
 	while (true) {
 		if (GetUIState() != UISTATE_INGAME) {
 			Core_StateProcessed();
 			if (GetUIState() == UISTATE_EXIT) {
 				UpdateRunLoop();
-				return;
+				return false;
 			}
 			Core_RunLoop(ctx);
 			continue;
@@ -348,7 +348,7 @@ void Core_Run(GraphicsContext *ctx) {
 			Core_RunLoop(ctx);
 			if (coreState == CORE_POWERDOWN) {
 				Core_StateProcessed();
-				return;
+				return true;
 			}
 			break;
 
@@ -359,10 +359,10 @@ void Core_Run(GraphicsContext *ctx) {
 			// Exit loop!!
 			Core_StateProcessed();
 
-			return;
+			return true;
 
 		case CORE_NEXTFRAME:
-			return;
+			return true;
 		}
 	}
 }
