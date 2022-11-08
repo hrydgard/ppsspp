@@ -13,9 +13,8 @@
 #include <thread>
 #include <atomic>
 
-#include <android/log.h>
-
 #ifndef _MSC_VER
+
 #include <jni.h>
 #include <android/native_window_jni.h>
 #include <android/log.h>
@@ -286,7 +285,12 @@ static void EmuThreadFunc() {
 	} else {
 		INFO_LOG(SYSTEM, "Runloop: Graphics context available! %p", graphicsContext);
 	}
-	NativeInitGraphics(graphicsContext);
+
+	if (!NativeInitGraphics(graphicsContext)) {
+		_assert_msg_(false, "Failed to initialize graphics, might as well bail");
+		emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+		return;
+	}
 
 	INFO_LOG(SYSTEM, "Graphics initialized. Entering loop.");
 

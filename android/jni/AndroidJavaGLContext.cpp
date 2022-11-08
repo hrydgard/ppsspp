@@ -13,13 +13,18 @@ AndroidJavaEGLGraphicsContext::AndroidJavaEGLGraphicsContext() {
 bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
 	INFO_LOG(G3D, "AndroidJavaEGLGraphicsContext::InitFromRenderThread");
 	CheckGLExtensions();
+
 	// OpenGL handles rotated rendering in the driver.
 	g_display_rotation = DisplayRotation::ROTATE_0;
 	g_display_rot_matrix.setIdentity();
 	draw_ = Draw::T3DCreateGLContext();  // Can't fail
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
-	draw_->CreatePresets();
+
+	if (!draw_->CreatePresets()) {
+		_assert_msg_(false, "Failed to compile preset shaders");
+		return false;
+	}
 	return true;
 }
 
