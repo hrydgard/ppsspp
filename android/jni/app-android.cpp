@@ -868,16 +868,18 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		EmuThreadStop("shutdown");
 		INFO_LOG(SYSTEM, "BeginAndroidShutdown");
 		graphicsContext->BeginAndroidShutdown();
-		INFO_LOG(SYSTEM, "Joining emuthread");
-		EmuThreadJoin();
 		// Now, it could be that we had some frames queued up. Get through them.
 		// We're on the render thread, so this is synchronous.
-		while (graphicsContext->ThreadFrame()) {
-			INFO_LOG(SYSTEM, "graphicsContext->ThreadFrame executed to clear buffers");
-		}
+		do {
+			INFO_LOG(SYSTEM, "Executing graphicsContext->ThreadFrame to clear buffers");
+		} while (graphicsContext->ThreadFrame());
 		graphicsContext->ThreadEnd();
+		INFO_LOG(SYSTEM, "ThreadEnd called.");
 		graphicsContext->ShutdownFromRenderThread();
 		INFO_LOG(SYSTEM, "Graphics context now shut down from NativeApp_shutdown");
+
+		INFO_LOG(SYSTEM, "Joining emuthread");
+		EmuThreadJoin();
 	}
 
 	INFO_LOG(SYSTEM, "NativeApp.shutdown() -- begin");
