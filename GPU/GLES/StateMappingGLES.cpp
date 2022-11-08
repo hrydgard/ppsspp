@@ -254,6 +254,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		} else {
 			// Depth Test
 			renderManager->SetDepth(gstate.isDepthTestEnabled(), gstate.isDepthWriteEnabled(), compareOps[gstate.getDepthTestFunction()]);
+			if (gstate.isDepthTestEnabled())
+				UpdateEverUsedEqualDepth(gstate.getDepthTestFunction());
 
 			// Stencil Test
 			if (stencilState.enabled) {
