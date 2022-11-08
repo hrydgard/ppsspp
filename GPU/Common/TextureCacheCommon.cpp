@@ -105,19 +105,18 @@ inline int dimHeight(u16 dim) {
 	return 1 << ((dim >> 8) & 0xFF);
 }
 
-// Vulkan color formats:
-// TODO
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
 	: draw_(draw), draw2D_(draw2D) {
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
-	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.
-	clutBufRaw_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
-	clutBufConverted_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
+	// It's only possible to have 1KB of palette entries, although we allow 2KB in a hack.
+	clutBufRaw_ = (u32 *)AllocateAlignedMemory(2048, 16);
+	clutBufConverted_ = (u32 *)AllocateAlignedMemory(2048, 16);
+	expandClut_ = (u32 *)AllocateAlignedMemory(1024, 16);
 
 	// Zap so we get consistent behavior if the game fails to load some of the CLUT.
-	memset(clutBufRaw_, 0, 1024 * sizeof(u32));
-	memset(clutBufConverted_, 0, 1024 * sizeof(u32));
+	memset(clutBufRaw_, 0, 2048);
+	memset(clutBufConverted_, 0, 2048);
 	clutBuf_ = clutBufConverted_;
 
 	// These buffers will grow if necessary, but most won't need more than this.
@@ -134,6 +133,7 @@ TextureCacheCommon::~TextureCacheCommon() {
 
 	FreeAlignedMemory(clutBufConverted_);
 	FreeAlignedMemory(clutBufRaw_);
+	FreeAlignedMemory(expandClut_);
 }
 
 // Produces a signed 1.23.8 value.
@@ -1236,8 +1236,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 		return;
 	}
 
-	u32 startPos = gstate.getClutIndexStartPos();
-
+	_assert_(loadBytes <= 2048);
 	clutTotalBytes_ = loadBytes;
 	clutRenderAddress_ = 0xFFFFFFFF;
 
@@ -1320,6 +1319,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 
 		// It's possible for a game to load CLUT outside valid memory without crashing, should result in zeroes.
 		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
+		_assert_(bytes <= 2048);
 		bool performDownload = PSP_CoreParameter().compat.flags().AllowDownloadCLUT;
 		if (GPURecord::IsActive())
 			performDownload = true;
