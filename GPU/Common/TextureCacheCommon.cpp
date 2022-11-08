@@ -112,7 +112,8 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
 	// It's only possible to have 1KB of palette entries, although we allow 2KB in a hack.
 	clutBufRaw_ = (u32 *)AllocateAlignedMemory(2048, 16);
 	clutBufConverted_ = (u32 *)AllocateAlignedMemory(2048, 16);
-	expandClut_ = (u32 *)AllocateAlignedMemory(1024, 16);
+	// Here we need 2KB to expand a 1KB CLUT.
+	expandClut_ = (u32 *)AllocateAlignedMemory(2048, 16);
 
 	// Zap so we get consistent behavior if the game fails to load some of the CLUT.
 	memset(clutBufRaw_, 0, 2048);
@@ -1681,7 +1682,8 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 				if (expandTo32bit) {
 					// We simply expand the CLUT to 32-bit, then we deindex as usual. Probably the fastest way.
 					const u16 *clut = GetCurrentRawClut<u16>() + clutSharingOffset;
-					ConvertFormatToRGBA8888(clutformat, expandClut_, clut, 16);
+					const int clutStart = gstate.getClutIndexStartPos();
+					ConvertFormatToRGBA8888(clutformat, expandClut_ + clutStart, clut + clutStart, 16);
 					fullAlphaMask = 0xFF000000;
 					for (int y = 0; y < h; ++y) {
 						DeIndexTexture4<u32>((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, expandClut_, &alphaSum);
@@ -1880,7 +1882,14 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 
 	if (expandTo32Bit && palFormat != GE_CMODE_32BIT_ABGR8888) {
 		const u16 *clut16raw = (const u16 *)clutBufRaw_ + clutSharingOffset;
-		ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_, clut16raw, 256);
+		// It's possible to access the latter half of the CLUT using the start pos.
+		const int clutStart = gstate.getClutIndexStartPos();
+		if (clutStart > 256) {
+			// Access wraps around when start + index goes over.
+			ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_, clut16raw, 512);
+		} else {
+			ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_ + clutStart, clut16raw + clutStart, 256);
+		}
 		clut32 = expandClut_;
 		palFormat = GE_CMODE_32BIT_ABGR8888;
 	}
