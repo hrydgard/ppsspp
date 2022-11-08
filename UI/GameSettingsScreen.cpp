@@ -1144,9 +1144,6 @@ void GameSettingsScreen::CreateViews() {
 		vrSettings->Add(new CheckBox(&g_Config.bForce72Hz, vr->T("Force 72Hz update")));
 
 		vrSettings->Add(new ItemHeader(vr->T("VR camera")));
-		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCameraDistance, -10.0f, 10.0f, vr->T("Camera distance adjust"), 1.0f, screenManager(), ""));
-		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCameraHeight, -10.0f, 10.0f, vr->T("Camera height adjust"), 1.0f, screenManager(), ""));
-		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCameraSide, -10.0f, 10.0f, vr->T("Camera side adjust"), 1.0f, screenManager(), ""));
 		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCanvasDistance, 1.0f, 10.0f, vr->T("Distance to 2D menus and scenes"), 1.0f, screenManager(), ""));
 		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fFieldOfViewPercentage, 100.0f, 200.0f, vr->T("Field of view scale"), 10.0f, screenManager(), vr->T("% of native FoV")));
 
