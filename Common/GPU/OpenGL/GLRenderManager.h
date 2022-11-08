@@ -365,7 +365,7 @@ public:
 };
 
 enum class GLRRunType {
-	END,
+	PRESENT,
 	SYNC,
 	EXIT,
 };
@@ -430,13 +430,8 @@ public:
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
 	void BeginFrame();
 	// Can run on a different thread!
-	void Finish();
-	void Run(GLRRenderThreadTask &task);
-
-	void WaitUntilQueueIdle() {
-		// Don't think this needs to do anything anymore, at least not if called
-		// from render thread.
-	}
+	void Finish(); 
+	bool Run(GLRRenderThreadTask &task);
 
 	// Creation commands. These were not needed in Vulkan since there we can do that on the main thread.
 	// We pass in width/height here even though it's not strictly needed until we support glTextureStorage

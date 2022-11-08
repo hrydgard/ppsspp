@@ -1197,11 +1197,11 @@ void VulkanRenderManager::Finish() {
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 
+	VLOG("PUSH: Frame[%d]", curFrame);
+	VKRRenderThreadTask task;
+	task.frame = curFrame;
+	task.runType = VKRRunType::PRESENT;
 	{
-		VLOG("PUSH: Frame[%d]", curFrame);
-		VKRRenderThreadTask task;
-		task.frame = curFrame;
-		task.runType = VKRRunType::PRESENT;
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
 		renderThreadQueue_.back().steps = std::move(steps_);
