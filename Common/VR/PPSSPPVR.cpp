@@ -644,30 +644,19 @@ bool Is2DVRObject(float* projMatrix, bool ortho) {
 		return true;
 	}
 
-	// Chceck if the projection matrix is identity
-	bool identity = true;
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			float value = projMatrix[i * 4 + j];
-
-			// Other number than zero on non-diagonale
-			if ((i != j) && (fabs(value) > EPSILON)) identity = false;
-			// Other number than one on diagonale
-			if ((i == j) && (fabs(value - 1.0f) > EPSILON)) identity = false;
-		}
-	}
-
 	// Update 3D geometry count
+	bool identity = IsMatrixIdentity(projMatrix);
 	if (!identity && !ortho) {
 		vr3DGeometryCount++;
 	}
 	return identity;
 }
 
-void UpdateVRParams(float* projMatrix) {
+void UpdateVRParams(float* projMatrix, float* viewMatrix) {
 
 	// Set mirroring of axes
-	if (!vrMirroring[VR_MIRRORING_UPDATED]) {
+	bool identityView = PSP_CoreParameter().compat.vrCompat().IdentityViewHack && IsMatrixIdentity(viewMatrix);
+	if (!vrMirroring[VR_MIRRORING_UPDATED] && !IsMatrixIdentity(projMatrix) && !identityView) {
 		vrMirroring[VR_MIRRORING_UPDATED] = true;
 		vrMirroring[VR_MIRRORING_AXIS_X] = projMatrix[0] < 0;
 		vrMirroring[VR_MIRRORING_AXIS_Y] = projMatrix[5] < 0;
@@ -707,6 +696,11 @@ void UpdateVRView(float* leftEye, float* rightEye) {
 	float* dst[] = {leftEye, rightEye};
 	float* matrix[] = {vrMatrix[VR_VIEW_MATRIX_LEFT_EYE], vrMatrix[VR_VIEW_MATRIX_RIGHT_EYE]};
 	for (int index = 0; index < 2; index++) {
+
+		// Validate the view matrix
+		if (PSP_CoreParameter().compat.vrCompat().IdentityViewHack && IsMatrixIdentity(dst[index])) {
+			return;
+		}
 
 		// Get view matrix from the game
 		Lin::Matrix4x4 gameView = {};
