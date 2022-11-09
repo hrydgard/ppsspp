@@ -2199,25 +2199,17 @@ static int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int 
 	return (width << 16) | height;
 }
 
-static int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 unknown1, int unknown2)
-{
-	if (!Memory::IsValidAddress(bufferOutputAddr)) {
-		ERROR_LOG(ME, "sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x): invalid addresses", mpeg, bufferOutputAddr, unknown1, unknown2);
-		return -1;
-	}
+static int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 bufferAddr, int unknown2) {
+	if (!Memory::IsValidAddress(bufferOutputAddr))
+		return hleLogError(ME, ERROR_MPEG_INVALID_VALUE, "invalid addresses");
 
 	MpegContext *ctx = getMpegCtx(mpeg);
-	if (!ctx) {
-		WARN_LOG(ME, "sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x): bad mpeg handle", mpeg, bufferOutputAddr, unknown1, unknown2);
-		return -1;
-	}
+	if (!ctx)
+		return hleLogWarning(ME, -1, "bad mpeg handle");
 
-	if (ctx->mediaengine->m_buffer == 0){
-		WARN_LOG(ME, "sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x): m_buffer is zero ", mpeg, bufferOutputAddr, unknown1, unknown2);
-		return ERROR_MPEG_AVC_INVALID_VALUE;
-	}
+	if (ctx->mediaengine->m_buffer == 0)
+		return hleLogWarning(ME, ERROR_MPEG_AVC_INVALID_VALUE, "m_buffer is zero");
 
-	DEBUG_LOG(ME, "sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x)", mpeg, bufferOutputAddr, unknown1, unknown2);
 	const u8 *data = ctx->mediaengine->getFrameImage();
 	int width = ctx->mediaengine->m_desWidth;
 	int height = ctx->mediaengine->m_desHeight;
@@ -2225,7 +2217,7 @@ static int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 unknown
 	if (data) {
 		__MpegAvcConvertToYuv420(data, bufferOutputAddr, width, height);
 	}
-	return 0;
+	return hleLogSuccessX(ME, (width << 16) | height);
 }
 
 static int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr)
@@ -2397,7 +2389,7 @@ const HLEFunction sceMpeg[] =
 	{0X8160A2FE, &WrapU_U<sceMpegAvcResourceFinish>,           "sceMpegAvcResourceFinish",           'x', "x"      },
 	{0XAF26BB01, &WrapU_U<sceMpegAvcResourceGetAvcEsBuf>,      "sceMpegAvcResourceGetAvcEsBuf",      'x', "x"      },
 	{0XFCBDB5AD, &WrapU_U<sceMpegAvcResourceInit>,             "sceMpegAvcResourceInit",             'x', "x"      },
-	{0XF5E7EA31, &WrapI_UUUI<sceMpegAvcConvertToYuv420>,       "sceMpegAvcConvertToYuv420",          'i', "xxxi"   },
+	{0XF5E7EA31, &WrapI_UUUI<sceMpegAvcConvertToYuv420>,       "sceMpegAvcConvertToYuv420",          'x', "xxxi"   },
 	{0X01977054, &WrapI_UUUU<sceMpegGetUserdataAu>,            "sceMpegGetUserdataAu",               'i', "xxxx"   },
 	{0X3C37A7A6, &WrapU_UU<sceMpegNextAvcRpAu>,                "sceMpegNextAvcRpAu",                 'x', "xx"     },
 	{0X11F95CF1, &WrapU_U<sceMpegGetAvcNalAu>,                 "sceMpegGetAvcNalAu",                 'x', "x"      },
