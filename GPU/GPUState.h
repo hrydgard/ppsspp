@@ -568,6 +568,12 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
+	void SetTextureIsBGRA(bool isBGRA) {
+		if (bgraTexture != isBGRA) {
+			bgraTexture = isBGRA;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
 
 	u32 useFlags;
 
