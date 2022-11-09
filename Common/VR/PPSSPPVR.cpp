@@ -655,7 +655,8 @@ bool Is2DVRObject(float* projMatrix, bool ortho) {
 void UpdateVRParams(float* projMatrix, float* viewMatrix) {
 
 	// Set mirroring of axes
-	if (!vrMirroring[VR_MIRRORING_UPDATED] && !IsMatrixIdentity(projMatrix) && !IsMatrixIdentity(viewMatrix)) {
+	bool identityView = PSP_CoreParameter().compat.vrCompat().IdentityViewHack && IsMatrixIdentity(viewMatrix);
+	if (!vrMirroring[VR_MIRRORING_UPDATED] && !IsMatrixIdentity(projMatrix) && !identityView) {
 		vrMirroring[VR_MIRRORING_UPDATED] = true;
 		vrMirroring[VR_MIRRORING_AXIS_X] = projMatrix[0] < 0;
 		vrMirroring[VR_MIRRORING_AXIS_Y] = projMatrix[5] < 0;
@@ -697,7 +698,7 @@ void UpdateVRView(float* leftEye, float* rightEye) {
 	for (int index = 0; index < 2; index++) {
 
 		// Validate the view matrix
-		if (IsMatrixIdentity(dst[index])) {
+		if (PSP_CoreParameter().compat.vrCompat().IdentityViewHack && IsMatrixIdentity(dst[index])) {
 			return;
 		}
 
