@@ -13,6 +13,20 @@ float ToRadians(float deg) {
 	return (float)(deg * M_PI / 180.0f);
 }
 
+bool IsMatrixIdentity(float* matrix) {
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			float value = matrix[i * 4 + j];
+
+			// Other number than zero on non-diagonale
+			if ((i != j) && (fabs(value) > EPSILON)) return false;
+			// Other number than one on diagonale
+			if ((i == j) && (fabs(value - 1.0f) > EPSILON)) return false;
+		}
+	}
+	return true;
+}
+
 /*
 ================================================================================
 
