@@ -136,6 +136,15 @@ bool IsColorTestTriviallyTrue() {
 	}
 }
 
+bool IsDepthTestEffectivelyDisabled() {
+	if (!gstate.isDepthTestEnabled())
+		return true;
+	// We can ignore stencil, because ALWAYS and disabled choose the same stencil path.
+	if (gstate.getDepthTestFunction() != GE_COMP_ALWAYS)
+		return false;
+	return !gstate.isDepthWriteEnabled();
+}
+
 const bool nonAlphaSrcFactors[16] = {
 	true,  // GE_SRCBLEND_DSTCOLOR,
 	true,  // GE_SRCBLEND_INVDSTCOLOR,

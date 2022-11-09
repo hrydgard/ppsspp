@@ -274,10 +274,11 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			}
 		} else {
 			// Depth Test
-			if (gstate.isDepthTestEnabled()) {
+			if (!IsDepthTestEffectivelyDisabled()) {
 				key.depthTestEnable = true;
 				key.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
 				key.depthWriteEnable = gstate.isDepthWriteEnabled();
+				UpdateEverUsedEqualDepth(gstate.getDepthTestFunction());
 			} else {
 				key.depthTestEnable = false;
 				key.depthWriteEnable = false;
