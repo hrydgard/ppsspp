@@ -652,10 +652,10 @@ bool Is2DVRObject(float* projMatrix, bool ortho) {
 	return identity;
 }
 
-void UpdateVRParams(float* projMatrix) {
+void UpdateVRParams(float* projMatrix, float* viewMatrix) {
 
 	// Set mirroring of axes
-	if (!vrMirroring[VR_MIRRORING_UPDATED]) {
+	if (!vrMirroring[VR_MIRRORING_UPDATED] && !IsMatrixIdentity(projMatrix) && !IsMatrixIdentity(viewMatrix)) {
 		vrMirroring[VR_MIRRORING_UPDATED] = true;
 		vrMirroring[VR_MIRRORING_AXIS_X] = projMatrix[0] < 0;
 		vrMirroring[VR_MIRRORING_AXIS_Y] = projMatrix[5] < 0;
