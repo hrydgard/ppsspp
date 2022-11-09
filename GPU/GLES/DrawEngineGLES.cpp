@@ -452,7 +452,7 @@ void DrawEngineGLES::DoFlush() {
 			}
 			gstate_c.Dirty(DIRTY_BLEND_STATE);  // Make sure the color mask gets re-applied.
 		}
-		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
+		decOptions_.applySkinInDecode = gstate_c.Use(GPU_USE_SOFTWARE_SKINNING);
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;

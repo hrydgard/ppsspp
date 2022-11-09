@@ -714,7 +714,7 @@ rotateVBO:
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
 			}
 		}
-		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
+		decOptions_.applySkinInDecode = gstate_c.Use(GPU_USE_SOFTWARE_SKINNING);
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;

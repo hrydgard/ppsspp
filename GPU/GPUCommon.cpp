@@ -436,7 +436,7 @@ GPUCommon::~GPUCommon() {
 }
 
 void GPUCommon::UpdateCmdInfo() {
-	if (g_Config.bSoftwareSkinning) {
+	if (gstate_c.Use(GPU_USE_SOFTWARE_SKINNING)) {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexTypeSkinning;
 	} else {
@@ -1834,7 +1834,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// cull mode
 	int cullMode = gstate.getCullMode();
 
-	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
+	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), gstate_c.Use(GPU_USE_SOFTWARE_SKINNING));
 	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, cullMode, &bytesRead);
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
@@ -1853,7 +1853,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// between each prim, we just change the triangle winding right here to still be able to join draw calls.
 
 	uint32_t vtypeCheckMask = ~GE_VTYPE_WEIGHTCOUNT_MASK;
-	if (!g_Config.bSoftwareSkinning)
+	if (!gstate_c.Use(GPU_USE_SOFTWARE_SKINNING))
 		vtypeCheckMask = 0xFFFFFFFF;
 
 	if (debugRecording_)
@@ -1892,7 +1892,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 				goto bail;
 			} else {
 				vertexType = data;
-				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
+				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), gstate_c.Use(GPU_USE_SOFTWARE_SKINNING));
 			}
 			break;
 		}
@@ -2452,7 +2452,7 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 
 	if (fastLoad) {
 		// If we can't use software skinning, we have to flush and dirty.
-		if (!g_Config.bSoftwareSkinning) {
+		if (!gstate_c.Use(GPU_USE_SOFTWARE_SKINNING)) {
 			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
 				const u32 newVal = src[i] << 8;
 				if (dst[i] != newVal) {
@@ -2497,7 +2497,7 @@ void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 	u32 newVal = op << 8;
 	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
 		// Bone matrices should NOT flush when software skinning is enabled!
-		if (!g_Config.bSoftwareSkinning) {
+		if (!gstate_c.Use(GPU_USE_SOFTWARE_SKINNING)) {
 			Flush();
 			gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
 		} else {
@@ -2692,7 +2692,7 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
 	}
 
-	if (!g_Config.bSoftwareSkinning) {
+	if (!gstate_c.Use(GPU_USE_SOFTWARE_SKINNING)) {
 		if (flushOnParams_)
 			Flush();
 		gstate_c.Dirty(uniformsToDirty);
@@ -3353,6 +3353,10 @@ u32 GPUCommon::CheckGPUFeatures() const {
 
 	if (PSP_CoreParameter().compat.flags().ClearToRAM) {
 		features |= GPU_USE_CLEAR_RAM_HACK;
+	}
+
+	if (g_Config.bSoftwareSkinning || !g_Config.bHardwareTransform) {
+		features |= GPU_USE_SOFTWARE_SKINNING;
 	}
 
 	return features;

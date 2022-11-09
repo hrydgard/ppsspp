@@ -932,7 +932,7 @@ void DrawEngineVulkan::DoFlush() {
 					decodedVerts_ = 0;
 					numDrawCalls = 0;
 					decodeCounter_ = 0;
-					decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
+					decOptions_.applySkinInDecode = gstate_c.Use(GPU_USE_SOFTWARE_SKINNING);
 					return;
 				}
 				BindShaderBlendTex();  // This might cause copies so super important to do before BindPipeline.
@@ -1000,7 +1000,7 @@ void DrawEngineVulkan::DoFlush() {
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, result.color);
 			}
 		}
-		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
+		decOptions_.applySkinInDecode = gstate_c.Use(GPU_USE_SOFTWARE_SKINNING);
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;

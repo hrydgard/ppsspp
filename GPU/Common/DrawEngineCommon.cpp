@@ -180,7 +180,7 @@ void DrawEngineCommon::NotifyConfigChanged() {
 
 	useHWTransform_ = g_Config.bHardwareTransform;
 	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
-	decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
+	decOptions_.applySkinInDecode = gstate_c.Use(GPU_USE_SOFTWARE_SKINNING);
 }
 
 u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize) {
