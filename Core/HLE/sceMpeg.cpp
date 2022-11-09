@@ -2173,28 +2173,26 @@ static int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int 
 	u8 *Cb = Y + sizeY;
 	u8 *Cr = Cb + sizeCb;
 
-	for (int y = 0; y < height; ++y) {
-		for (int x = 0; x < width; x += 4) {
-			u32 abgr0 = imageBuffer[x + 0];
-			u32 abgr1 = imageBuffer[x + 1];
-			u32 abgr2 = imageBuffer[x + 2];
-			u32 abgr3 = imageBuffer[x + 3];
+	for (int y = 0; y < height; y += 2) {
+		for (int x = 0; x < width; x += 2) {
+			u32 abgr0 = imageBuffer[width * (y + 0) + x + 0];
+			u32 abgr1 = imageBuffer[width * (y + 0) + x + 1];
+			u32 abgr2 = imageBuffer[width * (y + 1) + x + 0];
+			u32 abgr3 = imageBuffer[width * (y + 1) + x + 1];
 
 			u32 yCbCr0 = convertABGRToYCbCr(abgr0);
 			u32 yCbCr1 = convertABGRToYCbCr(abgr1);
 			u32 yCbCr2 = convertABGRToYCbCr(abgr2);
 			u32 yCbCr3 = convertABGRToYCbCr(abgr3);
 			
-			Y[x + 0] = (yCbCr0 >> 16) & 0xFF;
-			Y[x + 1] = (yCbCr1 >> 16) & 0xFF;
-			Y[x + 2] = (yCbCr2 >> 16) & 0xFF;
-			Y[x + 3] = (yCbCr3 >> 16) & 0xFF;
+			Y[width * (y + 0) + x + 0] = (yCbCr0 >> 16) & 0xFF;
+			Y[width * (y + 0) + x + 1] = (yCbCr1 >> 16) & 0xFF;
+			Y[width * (y + 1) + x + 0] = (yCbCr2 >> 16) & 0xFF;
+			Y[width * (y + 1) + x + 1] = (yCbCr3 >> 16) & 0xFF;
 
-			*Cb++ = (yCbCr0 >> 8) & 0xFF;
-			*Cr++ = yCbCr0 & 0xFF;
+			Cb[(width >> 1) * (y >> 1) + (x >> 1)] = (yCbCr0 >> 8) & 0xFF;
+			Cr[(width >> 1) * (y >> 1) + (x >> 1)] = yCbCr0 & 0xFF;
 		}
-		imageBuffer += width;
-		Y += width ;
 	}
 	return (width << 16) | height;
 }
