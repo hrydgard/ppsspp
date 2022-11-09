@@ -546,7 +546,11 @@ rotateVBO:
 			}
 		}
 	} else {
-		decOptions_.applySkinInDecode = true;
+		if (!decOptions_.applySkinInDecode) {
+			decOptions_.applySkinInDecode = true;
+			lastVType_ |= (1 << 26);
+			dec_ = GetVertexDecoder(lastVType_);
+		}
 		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -618,7 +622,7 @@ rotateVBO:
 
 		ApplyDrawStateLate();
 
-		VSShader *vshader = shaderManager_->ApplyShader(false, false, lastVType_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode, pipelineState_);
+		VSShader *vshader = shaderManager_->ApplyShader(false, false, lastVType_, decOptions_.expandAllWeightsToFloat, true, pipelineState_);
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {
