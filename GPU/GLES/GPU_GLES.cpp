@@ -144,6 +144,9 @@ GPU_GLES::~GPU_GLES() {
 	shaderManagerGL_ = nullptr;
 	delete framebufferManagerGL_;
 	delete textureCacheGL_;
+
+	// Clear features so they're not visible in system info.
+	gstate_c.useFlags = 0;
 }
 
 // Take the raw GL extension and versioning data and turn into feature flags.

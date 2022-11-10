@@ -56,6 +56,27 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 	}
 }
 
+const char *DataFormatToString(DataFormat fmt) {
+	switch (fmt) {
+	case DataFormat::R8_UNORM: return "R8_UNORM";
+	case DataFormat::R8G8_UNORM: return "R8G8_UNORM";
+	case DataFormat::R8G8B8A8_UNORM: return "R8G8B8A8_UNORM";
+	case DataFormat::B8G8R8A8_UNORM: return "B8G8R8A8_UNORM";
+	case DataFormat::R16_UNORM: return "R16_UNORM";
+	case DataFormat::R16_FLOAT: return "R16_FLOAT";
+	case DataFormat::R32_FLOAT: return "R32_FLOAT";
+
+	case DataFormat::S8: return "S8";
+	case DataFormat::D16: return "D16";
+	case DataFormat::D24_S8: return "D24_S8";
+	case DataFormat::D32F: return "D32F";
+	case DataFormat::D32F_S8: return "D32F_S8";
+
+	default:
+		return "(N/A)";
+	}
+}
+
 bool DataFormatIsDepthStencil(DataFormat fmt) {
 	switch (fmt) {
 	case DataFormat::D16:

@@ -76,6 +76,9 @@ inline bool DataFormatIsColor(DataFormat fmt) {
 	return !DataFormatIsDepthStencil(fmt);
 }
 
+// Limited format support for now.
+const char *DataFormatToString(DataFormat fmt);
+
 void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format);
 void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format);
 void ConvertToD32F(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format);
