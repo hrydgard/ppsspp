@@ -485,13 +485,11 @@ bool StartVRRender() {
 				}
 
 				// create updated quaternion
-				if (mx + my + mz < 3 - EPSILON) {
-					XrVector3f rotation = XrQuaternionf_ToEulerAngles(invView.orientation);
-					XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mx * ToRadians(rotation.x));
-					XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, my * ToRadians(rotation.y));
-					XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, mz * ToRadians(rotation.z));
-					invView.orientation = XrQuaternionf_Multiply(roll, XrQuaternionf_Multiply(pitch, yaw));
-				}
+				XrVector3f rotation = XrQuaternionf_ToEulerAngles(invView.orientation);
+				XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mx * ToRadians(rotation.x));
+				XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, my * ToRadians(rotation.y));
+				XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, mz * ToRadians(rotation.z));
+				invView.orientation = XrQuaternionf_Multiply(roll, XrQuaternionf_Multiply(pitch, yaw));
 
 				float M[16];
 				XrQuaternionf_ToMatrix4f(&invView.orientation, M);
@@ -661,22 +659,49 @@ void UpdateVRParams(float* projMatrix, float* viewMatrix) {
 		vrMirroring[VR_MIRRORING_AXIS_X] = projMatrix[0] < 0;
 		vrMirroring[VR_MIRRORING_AXIS_Y] = projMatrix[5] < 0;
 		vrMirroring[VR_MIRRORING_AXIS_Z] =  projMatrix[10] > 0;
-		if ((projMatrix[0] < 0) && (projMatrix[10] < 0)) { //e.g. Dante's inferno
-			vrMirroring[VR_MIRRORING_PITCH] = true;
-			vrMirroring[VR_MIRRORING_YAW] = true;
-			vrMirroring[VR_MIRRORING_ROLL] = false;
-		} else if (projMatrix[10] < 0) { //e.g. GTA - Liberty city
-			vrMirroring[VR_MIRRORING_PITCH] = false;
-			vrMirroring[VR_MIRRORING_YAW] = false;
-			vrMirroring[VR_MIRRORING_ROLL] = false;
-		} else if (projMatrix[5] < 0) { //e.g. PES 2014
-			vrMirroring[VR_MIRRORING_PITCH] = true;
-			vrMirroring[VR_MIRRORING_YAW] = true;
-			vrMirroring[VR_MIRRORING_ROLL] = false;
-		} else { //e.g. Lego Pirates
-			vrMirroring[VR_MIRRORING_PITCH] = false;
-			vrMirroring[VR_MIRRORING_YAW] = true;
-			vrMirroring[VR_MIRRORING_ROLL] = true;
+
+		float up = 0;
+		for (int i = 4; i < 8;  i++) {
+			up += viewMatrix[i];
+		}
+
+		int variant = projMatrix[0] < 0;
+		variant += (projMatrix[5] < 0) << 1;
+		variant += (projMatrix[10] < 0) << 2;
+		variant += (up < 0) << 3;
+
+		switch (variant) {
+			case 0:
+			case 1:
+				vrMirroring[VR_MIRRORING_PITCH] = false;
+				vrMirroring[VR_MIRRORING_YAW] = true;
+				vrMirroring[VR_MIRRORING_ROLL] = true;
+				break;
+			case 2:
+			case 3:
+			case 5:
+			case 7:
+			case 8:
+			case 9:
+			case 10:
+			case 11:
+			case 13:
+			case 15:
+				vrMirroring[VR_MIRRORING_PITCH] = true;
+				vrMirroring[VR_MIRRORING_YAW] = true;
+				vrMirroring[VR_MIRRORING_ROLL] = false;
+				break;
+			case 4:
+			case 6:
+			case 12:
+			case 14:
+				vrMirroring[VR_MIRRORING_PITCH] = true;
+				vrMirroring[VR_MIRRORING_YAW] = false;
+				vrMirroring[VR_MIRRORING_ROLL] = true;
+				break;
+			default:
+				assert(false);
+				std::exit(1);
 		}
 	}
 }
