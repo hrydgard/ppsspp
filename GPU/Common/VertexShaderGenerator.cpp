@@ -300,8 +300,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		WRITE(p, "layout (location = 3) out highp float v_fogdepth;\n");
-		WRITE(p, "invariant gl_Position;\n");
 
+		WRITE(p, "invariant gl_Position;\n");
 	} else if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		// Note: These two share some code after this hellishly large if/else.
 		if (compat.shaderLanguage == HLSL_D3D11) {

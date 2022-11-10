@@ -256,7 +256,7 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	else if (id.Bit(FS_BIT_COLOR_TEST)) desc << "ColorTest " << alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match
 	if (id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO)) desc << "TestDiscardToZero ";
 	if (id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL)) desc << "StencilDiscardWorkaround ";
-	if (id.Bits(FS_BIT_REPLACE_LOGIC_OP, 4) != GE_LOGIC_COPY) desc << "ReplaceLogic ";
+	if ((id.Bits(FS_BIT_REPLACE_LOGIC_OP, 4) != GE_LOGIC_COPY) && !id.Bit(FS_BIT_CLEARMODE)) desc << "ReplaceLogic ";
 	if (id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE)) desc << "TexArray ";
 	if (id.Bit(FS_BIT_STEREO)) desc << "Stereo ";
 	return desc.str();
