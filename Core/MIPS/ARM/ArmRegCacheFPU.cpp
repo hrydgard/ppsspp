@@ -216,6 +216,11 @@ void ArmRegCacheFPU::LoadToRegV(ARMReg armReg, int vreg) {
 void ArmRegCacheFPU::MapRegsAndSpillLockV(int vec, VectorSize sz, int flags) {
 	u8 v[4];
 	GetVectorRegs(v, sz, vec);
+
+	// TODO: Check if all are unmapped, add a special "ldp" path in quad cases.
+	// MapReg is pretty complicated, so one way might be to take off the load flag
+	// from flag if present, and just do ldp instead.
+
 	SpillLockV(v, sz);
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
 		MapRegV(v[i], flags);
@@ -223,6 +228,8 @@ void ArmRegCacheFPU::MapRegsAndSpillLockV(int vec, VectorSize sz, int flags) {
 }
 
 void ArmRegCacheFPU::MapRegsAndSpillLockV(const u8 *v, VectorSize sz, int flags) {
+	// TODO: Check if all are unmapped, add a special "ldp" path in quad cases.
+
 	SpillLockV(v, sz);
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
 		MapRegV(v[i], flags);

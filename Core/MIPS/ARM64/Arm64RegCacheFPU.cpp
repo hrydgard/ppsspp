@@ -245,6 +245,20 @@ void Arm64RegCacheFPU::MapDirtyInV(int vd, int vs, bool avoidLoad) {
 	ReleaseSpillLockV(vs);
 }
 
+void Arm64RegCacheFPU::MapDirtyInVMultiLock(u8 *vd, u8 *vs, int count, bool avoidLoad) {
+	for (int i = 0; i < count; i++) {
+		SpillLockV(vd[i]);
+		SpillLockV(vs[i]);
+	}
+	for (int i = 0; i < count; i++) {
+		bool load = !avoidLoad || (vd[i] == vs[i]);
+		MapRegV(vd[i], load ? MAP_DIRTY : MAP_NOINIT);
+	}
+	for (int i = 0; i < count; i++) {
+		MapRegV(vs[i]);
+	}
+}
+
 void Arm64RegCacheFPU::MapDirtyInInV(int vd, int vs, int vt, bool avoidLoad) {
 	bool load = !avoidLoad || (vd == vs || vd == vt);
 	SpillLockV(vd);
@@ -256,6 +270,24 @@ void Arm64RegCacheFPU::MapDirtyInInV(int vd, int vs, int vt, bool avoidLoad) {
 	ReleaseSpillLockV(vd);
 	ReleaseSpillLockV(vs);
 	ReleaseSpillLockV(vt);
+}
+
+void Arm64RegCacheFPU::MapDirtyInInVMultiLock(u8 *vd, u8 *vs, u8 *vt, int count, bool avoidLoad) {
+	for (int i = 0; i < count; i++) {
+		SpillLockV(vd[i]);
+		SpillLockV(vs[i]);
+		SpillLockV(vt[i]);
+	}
+	for (int i = 0; i < count; i++) {
+		bool load = !avoidLoad || (vd[i] == vs[i]);
+		MapRegV(vd[i], load ? MAP_DIRTY : MAP_NOINIT);
+	}
+	for (int i = 0; i < count; i++) {
+		MapRegV(vs[i]);
+	}
+	for (int i = 0; i < count; i++) {
+		MapRegV(vt[i]);
+	}
 }
 
 void Arm64RegCacheFPU::FlushArmReg(ARM64Reg r) {
@@ -351,9 +383,7 @@ void Arm64RegCacheFPU::FlushAll() {
 
 	int numArmRegs = 0;
 
-	const ARM64Reg *order = GetMIPSAllocationOrder(numArmRegs);
-
-	// Flush pairs first when possible. Note that STP's offset can't reach more than 256 bytes so
+	// Flush s register pairs first when possible. Note that STP's offset can't reach more than 256 bytes so
 	// most VFPU registers cannot be flushed this way, unless we are willing to generate another offset pointer
 	// (which we could actually do right here, point right in the middle of the VFPU stuff and would reach it all)... TODO
 	for (int i = 0; i < 31; i++) {
@@ -370,6 +400,8 @@ void Arm64RegCacheFPU::FlushAll() {
 	}
 
 	// Then flush one by one.
+
+	const ARM64Reg *order = GetMIPSAllocationOrder(numArmRegs);
 
 	for (int i = 0; i < numArmRegs; i++) {
 		int a = DecodeReg(order[i]);

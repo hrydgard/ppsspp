@@ -120,6 +120,8 @@ public:
 	void MapInInV(int rt, int rs);
 	void MapDirtyInV(int rd, int rs, bool avoidLoad = true);
 	void MapDirtyInInV(int rd, int rs, int rt, bool avoidLoad = true);
+	void MapDirtyInVMultiLock(u8 *vd, u8 *vs, int count, bool avoidLoad = true);
+	void MapDirtyInInVMultiLock(u8 *vd, u8 *vs, u8 *vt, int count, bool avoidLoad = true);
 
 	bool IsTempX(Arm64Gen::ARM64Reg r) const;
 	MIPSReg GetTempV() { return GetTempR() - 32; }

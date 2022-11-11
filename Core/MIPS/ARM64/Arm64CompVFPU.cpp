@@ -629,7 +629,7 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, _VT);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
-		MIPSReg tempregs[4];
+		u8 tempregs[4];
 		for (int i = 0; i < n; i++) {
 			if (!IsOverlapSafe(dregs[i], i, n, sregs, n, tregs)) {
 				tempregs[i] = fpr.GetTempV();
@@ -641,14 +641,7 @@ namespace MIPSComp {
 		// Map first, then work. This will allow us to use VLDMIA more often
 		// (when we add the appropriate map function) and the instruction ordering
 		// will improve.
-		// Note that mapping like this (instead of first all sregs, first all tregs etc)
-		// reduces the amount of continuous registers a lot :(
-		for (int i = 0; i < n; i++) {
-			fpr.MapDirtyInInV(tempregs[i], sregs[i], tregs[i]);
-			fpr.SpillLockV(tempregs[i]);
-			fpr.SpillLockV(sregs[i]);
-			fpr.SpillLockV(tregs[i]);
-		}
+		fpr.MapDirtyInInVMultiLock(tempregs, sregs, tregs, n);
 
 		for (int i = 0; i < n; i++) {
 			switch (op >> 26) {
@@ -803,7 +796,7 @@ namespace MIPSComp {
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
-		MIPSReg tempregs[4];
+		u8 tempregs[4];
 		for (int i = 0; i < n; ++i) {
 			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
 				tempregs[i] = fpr.GetTempV();
@@ -813,13 +806,7 @@ namespace MIPSComp {
 		}
 
 		// Pre map the registers to get better instruction ordering.
-		// Note that mapping like this (instead of first all sregs, first all tempregs etc)
-		// reduces the amount of continuous registers a lot :(
-		for (int i = 0; i < n; i++) {
-			fpr.MapDirtyInV(tempregs[i], sregs[i]);
-			fpr.SpillLockV(tempregs[i]);
-			fpr.SpillLockV(sregs[i]);
-		}
+		fpr.MapDirtyInVMultiLock(tempregs, sregs, n);
 
 		// Warning: sregs[i] and tempxregs[i] may be the same reg.
 		// Helps for vmov, hurts for vrcp, etc.
@@ -1197,7 +1184,7 @@ namespace MIPSComp {
 
 		// For prefixes to work, we just have to ensure that none of the output registers spill
 		// and that there's no overlap.
-		MIPSReg tempregs[4];
+		u8 tempregs[4];
 		for (int i = 0; i < n; ++i) {
 			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
 				// Need to use temp regs
@@ -1207,12 +1194,15 @@ namespace MIPSComp {
 			}
 		}
 
-		// The meat of the function!
+		// Pre-map the registers.
+		fpr.MapDirtyInVMultiLock(tempregs, sregs, n);
+
+		// The meat of the function is pretty simple.
 		for (int i = 0; i < n; i++) {
-			fpr.MapDirtyInV(tempregs[i], sregs[i]);
 			fp.FMUL(fpr.V(tempregs[i]), fpr.V(sregs[i]), S0);
 		}
 
+		// TODO: Avoid unless prefixes are enabled?
 		for (int i = 0; i < n; i++) {
 			// All must be mapped for prefixes to work.
 			if (dregs[i] != tempregs[i]) {
