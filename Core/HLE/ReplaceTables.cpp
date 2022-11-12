@@ -1271,10 +1271,12 @@ static u32 marvelalliance1_copy_size = 0;
 static int Hook_marvelalliance1_copy_a1_before() {
 	marvelalliance1_copy_src = currentMIPS->r[MIPS_REG_A1];
 	marvelalliance1_copy_dst = currentMIPS->r[MIPS_REG_V1];
-	marvelalliance1_copy_size = currentMIPS->r[MIPS_REG_V0] - currentMIPS->r[MIPS_REG_V1];
+	marvelalliance1_copy_size = currentMIPS->r[MIPS_REG_V0] - currentMIPS->r[MIPS_REG_A1];
 
-	gpu->PerformReadbackToMemory(marvelalliance1_copy_src, marvelalliance1_copy_size);
-	NotifyMemInfo(MemBlockFlags::WRITE, marvelalliance1_copy_src, marvelalliance1_copy_size, "marvelalliance1_copy_a1_before");
+	if (Memory::IsValidRange(marvelalliance1_copy_src, marvelalliance1_copy_size)) {
+		gpu->PerformReadbackToMemory(marvelalliance1_copy_src, marvelalliance1_copy_size);
+		NotifyMemInfo(MemBlockFlags::WRITE, marvelalliance1_copy_src, marvelalliance1_copy_size, "marvelalliance1_copy_a1_before");
+	}
 
 	return 0;
 }
@@ -1284,15 +1286,19 @@ static int Hook_marvelalliance1_copy_a2_before() {
 	marvelalliance1_copy_dst = currentMIPS->r[MIPS_REG_V0];
 	marvelalliance1_copy_size = currentMIPS->r[MIPS_REG_A1] - currentMIPS->r[MIPS_REG_A2];
 
-	gpu->PerformReadbackToMemory(marvelalliance1_copy_src, marvelalliance1_copy_size);
-	NotifyMemInfo(MemBlockFlags::WRITE, marvelalliance1_copy_src, marvelalliance1_copy_size, "marvelalliance1_copy_a2_before");
+	if (Memory::IsValidRange(marvelalliance1_copy_src, marvelalliance1_copy_size)) {
+		gpu->PerformReadbackToMemory(marvelalliance1_copy_src, marvelalliance1_copy_size);
+		NotifyMemInfo(MemBlockFlags::WRITE, marvelalliance1_copy_src, marvelalliance1_copy_size, "marvelalliance1_copy_a2_before");
+	}
 
 	return 0;
 }
 
 static int Hook_marvelalliance1_copy_after() {
-	gpu->PerformWriteColorFromMemory(marvelalliance1_copy_dst, marvelalliance1_copy_size);
-	NotifyMemInfo(MemBlockFlags::READ, marvelalliance1_copy_dst, marvelalliance1_copy_size, "marvelalliance1_copy_after");
+	if (Memory::IsValidRange(marvelalliance1_copy_dst, marvelalliance1_copy_size)) {
+		gpu->PerformWriteColorFromMemory(marvelalliance1_copy_dst, marvelalliance1_copy_size);
+		NotifyMemInfo(MemBlockFlags::READ, marvelalliance1_copy_dst, marvelalliance1_copy_size, "marvelalliance1_copy_after");
+	}
 
 	return 0;
 }
