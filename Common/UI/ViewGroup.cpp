@@ -22,7 +22,7 @@
 
 namespace UI {
 
-const float ITEM_HEIGHT = 64.f;
+static constexpr Size ITEM_HEIGHT = 64.f;
 
 void ApplyGravity(const Bounds outer, const Margins &margins, float w, float h, int gravity, Bounds &inner) {
 	inner.w = w;
