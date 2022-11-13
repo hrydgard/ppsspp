@@ -1070,6 +1070,15 @@ static void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSuppo
 		maskState.channelMask &= ~8;
 		maskState.uniformMask &= ~0xFF000000;
 	}
+
+	// For 5551, only the top alpha bit matters.  We might even want to swizzle 4444.
+	// Alpha should correctly read as 255 from a 5551 texture.
+	if (gstate.FrameBufFormat() == GE_FORMAT_5551) {
+		if ((maskState.uniformMask & 0x80000000) != 0)
+			maskState.uniformMask |= 0xFF000000;
+		else
+			maskState.uniformMask &= ~0xFF000000;
+	}
 }
 
 // Called even if AlphaBlendEnable == false - it also deals with stencil-related blend state.
