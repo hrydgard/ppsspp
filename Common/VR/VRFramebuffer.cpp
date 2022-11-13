@@ -1,8 +1,14 @@
 #include "VRFramebuffer.h"
 
+#if XR_USE_GRAPHICS_API_OPENGL_ES
+
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
+
+#endif
+
 #include <cstdio>
 #include <cstdlib>
-#include <cstdbool>
 #include <cstring>
 #include <cmath>
 #include <ctime>
@@ -43,13 +49,44 @@ void ovrFramebuffer_Clear(ovrFramebuffer* frameBuffer) {
 	frameBuffer->Acquired = false;
 }
 
-#ifdef OPENXR
+#if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES
 
-bool ovrFramebuffer_CreateGL(XrSession session, ovrFramebuffer* frameBuffer, int width, int height, bool multiview) {
+static const char* GlErrorString(GLenum error) {
+	switch (error) {
+	case GL_NO_ERROR:
+		return "GL_NO_ERROR";
+	case GL_INVALID_ENUM:
+		return "GL_INVALID_ENUM";
+	case GL_INVALID_VALUE:
+		return "GL_INVALID_VALUE";
+	case GL_INVALID_OPERATION:
+		return "GL_INVALID_OPERATION";
+	case GL_INVALID_FRAMEBUFFER_OPERATION:
+		return "GL_INVALID_FRAMEBUFFER_OPERATION";
+	case GL_OUT_OF_MEMORY:
+		return "GL_OUT_OF_MEMORY";
+	default:
+		return "unknown";
+	}
+}
 
+void GLCheckErrors(const char* file, int line) {
+	for (int i = 0; i < 10; i++) {
+		const GLenum error = glGetError();
+		if (error == GL_NO_ERROR) {
+			break;
+		}
+		ALOGE("GL error on line %s:%d %s", file, line, GlErrorString(error));
+	}
+}
+
+#endif
+
+#if XR_USE_GRAPHICS_API_OPENGL_ES
+
+static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBuffer, int width, int height, bool multiview) {
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
-	frameBuffer->UseVulkan = false;
 
 	if (strstr((const char*)glGetString(GL_EXTENSIONS), "GL_OVR_multiview2") == nullptr)
 	{
@@ -57,12 +94,11 @@ bool ovrFramebuffer_CreateGL(XrSession session, ovrFramebuffer* frameBuffer, int
 	}
 
 	typedef void (*PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)(GLenum, GLenum, GLuint, GLint, GLint, GLsizei);
-	auto glFramebufferTextureMultiviewOVR = (PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)eglGetProcAddress ("glFramebufferTextureMultiviewOVR");
-	if (!glFramebufferTextureMultiviewOVR)
-	{
+	PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR glFramebufferTextureMultiviewOVR = nullptr;
+	glFramebufferTextureMultiviewOVR = (PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)eglGetProcAddress ("glFramebufferTextureMultiviewOVR");
+	if (!glFramebufferTextureMultiviewOVR) {
 		ALOGE("Can not get proc address for glFramebufferTextureMultiviewOVR.\n");
 	}
-
 	XrSwapchainCreateInfo swapChainCreateInfo;
 	memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
 	swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
@@ -137,12 +173,15 @@ bool ovrFramebuffer_CreateGL(XrSession session, ovrFramebuffer* frameBuffer, int
 	return true;
 }
 
-bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int width, int height,
-							 bool multiview, void* context) {
+#endif
+
+#if XR_USE_GRAPHICS_API_VULKAN
+
+static bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int width, int height,
+							        bool multiview, void* context) {
 
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
-	frameBuffer->UseVulkan = true;
 	frameBuffer->VKContext = (XrGraphicsBindingVulkanKHR*)context;
 
 	XrSwapchainCreateInfo swapChainCreateInfo;
@@ -241,9 +280,11 @@ bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int
 	return true;
 }
 
+#endif
+
 void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
-	if (frameBuffer->UseVulkan) {
-		for (int i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+		for (int i = 0; i < (int)frameBuffer->TextureSwapChainLength; i++) {
 			vkDestroyImageView(frameBuffer->VKContext->device, frameBuffer->VKColorImages[i], nullptr);
 			vkDestroyImageView(frameBuffer->VKContext->device, frameBuffer->VKDepthImages[i], nullptr);
 			vkDestroyFramebuffer(frameBuffer->VKContext->device, frameBuffer->VKFrameBuffers[i], nullptr);
@@ -252,7 +293,7 @@ void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
 		delete[] frameBuffer->VKDepthImages;
 		delete[] frameBuffer->VKFrameBuffers;
 	} else {
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 		GL(glDeleteFramebuffers(frameBuffer->TextureSwapChainLength, frameBuffer->GLFrameBuffers));
 		free(frameBuffer->GLFrameBuffers);
 #endif
@@ -266,10 +307,10 @@ void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
 }
 
 void* ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
-	if (frameBuffer->UseVulkan) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
 		return (void *)frameBuffer->VKFrameBuffers[frameBuffer->TextureSwapChainIndex];
 	} else {
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->GLFrameBuffers[frameBuffer->TextureSwapChainIndex]));
 #endif
 		return nullptr;
@@ -298,10 +339,10 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 
 	ovrFramebuffer_SetCurrent(frameBuffer);
 
-	if (frameBuffer->UseVulkan) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
 		//TODO:implement
 	} else {
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 		GL(glEnable( GL_SCISSOR_TEST ));
 		GL(glViewport( 0, 0, frameBuffer->Width, frameBuffer->Height ));
 		GL(glClearColor( 0.0f, 0.0f, 0.0f, 1.0f ));
@@ -320,10 +361,10 @@ void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
 		frameBuffer->Acquired = false;
 
 		// Clear the alpha channel, other way OpenXR would not transfer the framebuffer fully
-		if (frameBuffer->UseVulkan) {
+		if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
 			//TODO:implement
 		} else {
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 			GL(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE));
 			GL(glClearColor(0.0f, 0.0f, 0.0f, 1.0f));
 			GL(glClear(GL_COLOR_BUFFER_BIT));
@@ -354,8 +395,10 @@ void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int
 		if (vulkanContext) {
 			ovrFramebuffer_CreateVK(session, &renderer->FrameBuffer[i], width, height, multiview, vulkanContext);
 		} else {
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
-			ovrFramebuffer_CreateGL(session, &renderer->FrameBuffer[i], width, height, multiview);
+#if XR_USE_GRAPHICS_API_OPENGL_ES
+			ovrFramebuffer_CreateGLES(session, &renderer->FrameBuffer[i], width, height, multiview);
+#elif XR_USE_GRAPHICS_API_OPENGL
+			// TODO
 #endif
 		}
 	}
@@ -369,10 +412,10 @@ void ovrRenderer_Destroy(ovrRenderer* renderer) {
 }
 
 void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int size) {
-	if (renderer->FrameBuffer[0].UseVulkan) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
 		//TODO:implement
 	} else {
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 		GL(glEnable(GL_SCISSOR_TEST));
 		GL(glScissor(x, y, size, size));
 		GL(glViewport(x, y, size, size));
@@ -416,6 +459,7 @@ void ovrApp_Destroy(ovrApp* app) {
 	ovrApp_Clear(app);
 }
 
+
 void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 	if (state == XR_SESSION_STATE_READY) {
 		assert(app->SessionActive == false);
@@ -428,14 +472,10 @@ void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 
 		XrResult result;
 		OXR(result = xrBeginSession(app->Session, &sessionBeginInfo));
-
 		app->SessionActive = (result == XR_SUCCESS);
 
-		// Set session state once we have entered VR mode and have a valid session object.
-
-		// TODO: This should be a runtime check of the extension's presence, no?
-#ifdef OPENXR_HAS_PERFORMANCE_EXTENSION
-		if (app->SessionActive) {
+#ifdef ANDROID
+		if (app->SessionActive && VR_GetPlatformFlag(VR_PLATFORM_PERFORMANCE_EXT)) {
 			XrPerfSettingsLevelEXT cpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
 			XrPerfSettingsLevelEXT gpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
 
@@ -546,5 +586,3 @@ int ovrApp_HandleXrEvents(ovrApp* app) {
 	}
 	return recenter;
 }
-
-#endif

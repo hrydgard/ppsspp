@@ -62,10 +62,12 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	if (id.Bit(VS_BIT_NORM_REVERSE_TESS)) desc << "TessRevN ";
 	if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) desc << "Cull ";
 
+	if (id.Bit(VS_BIT_SIMPLE_STEREO)) desc << "SimpleStereo ";
+
 	return desc.str();
 }
 
-void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat) {
+void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode) {
 	bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doShadeMapping = doTexture && (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP);
@@ -92,6 +94,10 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	id.SetBit(VS_BIT_HAS_COLOR, hasColor);
 	id.SetBit(VS_BIT_VERTEX_RANGE_CULLING, vertexRangeCulling);
 
+	if (!isModeThrough && gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
+		id.SetBit(VS_BIT_SIMPLE_STEREO);
+	}
+
 	if (doTexture) {
 		id.SetBit(VS_BIT_DO_TEXTURE);
 
@@ -112,7 +118,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 		}
 
 		// Bones.
-		bool enableBones = vertTypeIsSkinningEnabled(vertType);
+		bool enableBones = !useSkinInDecode && vertTypeIsSkinningEnabled(vertType);
 		id.SetBit(VS_BIT_ENABLE_BONES, enableBones);
 		if (enableBones) {
 			id.SetBits(VS_BIT_BONES, 3, TranslateNumBones(vertTypeGetNumBoneWeights(vertType)) - 1);
@@ -251,7 +257,8 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO)) desc << "TestDiscardToZero ";
 	if (id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL)) desc << "StencilDiscardWorkaround ";
 	if (id.Bits(FS_BIT_REPLACE_LOGIC_OP, 4) != GE_LOGIC_COPY) desc << "ReplaceLogic ";
-
+	if (id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE)) desc << "TexArray ";
+	if (id.Bit(FS_BIT_STEREO)) desc << "Stereo ";
 	return desc.str();
 }
 
@@ -359,8 +366,17 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			id.SetBits(FS_BIT_BLENDFUNC_B, 4, gstate.getBlendFuncB());
 		}
 		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
-
 		id.SetBit(FS_BIT_COLOR_WRITEMASK, colorWriteMask);
+
+		// All framebuffers are array textures in Vulkan now.
+		if (gstate_c.arrayTexture && g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+			id.SetBit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
+		}
+
+		// Stereo support
+		if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
+			id.SetBit(FS_BIT_STEREO);
+		}
 
 		if (g_Config.bVendorBugChecksEnabled && bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {
 			bool stencilWithoutDepth = !IsStencilTestOutputDisabled() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled());

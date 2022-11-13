@@ -95,16 +95,13 @@ public:
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	Framebuffer *GetCurrentRenderTarget() override {
-		return curRenderTarget_;
-	}
-	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit) override;
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void InvalidateCachedState() override;
 
-	void BindTextures(int start, int count, Texture **textures) override;
+	void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) override;
 	void BindNativeTexture(int index, void *nativeTexture) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;
 	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override;
@@ -1306,35 +1303,38 @@ public:
 Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	HRESULT hr;
 	D3D11Framebuffer *fb = new D3D11Framebuffer(desc.width, desc.height);
-	if (desc.numColorAttachments) {
-		fb->colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-		D3D11_TEXTURE2D_DESC descColor{};
-		descColor.Width = desc.width;
-		descColor.Height = desc.height;
-		descColor.MipLevels = 1;
-		descColor.ArraySize = 1;
-		descColor.Format = fb->colorFormat;
-		descColor.SampleDesc.Count = 1;
-		descColor.SampleDesc.Quality = 0;
-		descColor.Usage = D3D11_USAGE_DEFAULT;
-		descColor.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-		descColor.CPUAccessFlags = 0;
-		descColor.MiscFlags = 0;
-		hr = device_->CreateTexture2D(&descColor, nullptr, &fb->colorTex);
-		if (FAILED(hr)) {
-			delete fb;
-			return nullptr;
-		}
-		hr = device_->CreateRenderTargetView(fb->colorTex, nullptr, &fb->colorRTView);
-		if (FAILED(hr)) {
-			delete fb;
-			return nullptr;
-		}
-		hr = device_->CreateShaderResourceView(fb->colorTex, nullptr, &fb->colorSRView);
-		if (FAILED(hr)) {
-			delete fb;
-			return nullptr;
-		}
+
+	// We don't (yet?) support multiview for D3D11. Not sure if there's a way to do it.
+	// Texture arrays are supported but we don't have any other use cases yet.
+	_dbg_assert_(desc.numLayers == 1);
+
+	fb->colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+	D3D11_TEXTURE2D_DESC descColor{};
+	descColor.Width = desc.width;
+	descColor.Height = desc.height;
+	descColor.MipLevels = 1;
+	descColor.ArraySize = 1;
+	descColor.Format = fb->colorFormat;
+	descColor.SampleDesc.Count = 1;
+	descColor.SampleDesc.Quality = 0;
+	descColor.Usage = D3D11_USAGE_DEFAULT;
+	descColor.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	descColor.CPUAccessFlags = 0;
+	descColor.MiscFlags = 0;
+	hr = device_->CreateTexture2D(&descColor, nullptr, &fb->colorTex);
+	if (FAILED(hr)) {
+		delete fb;
+		return nullptr;
+	}
+	hr = device_->CreateRenderTargetView(fb->colorTex, nullptr, &fb->colorRTView);
+	if (FAILED(hr)) {
+		delete fb;
+		return nullptr;
+	}
+	hr = device_->CreateShaderResourceView(fb->colorTex, nullptr, &fb->colorSRView);
+	if (FAILED(hr)) {
+		delete fb;
+		return nullptr;
 	}
 
 	if (desc.z_stencil) {
@@ -1381,7 +1381,7 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	return fb;
 }
 
-void D3D11DrawContext::BindTextures(int start, int count, Texture **textures) {
+void D3D11DrawContext::BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) {
 	// Collect the resource views from the textures.
 	ID3D11ShaderResourceView *views[MAX_BOUND_TEXTURES];
 	_assert_(start + count <= ARRAY_SIZE(views));
@@ -1701,8 +1701,9 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 	stepId_++;
 }
 
-void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit) {
-	_assert_(binding < MAX_BOUND_TEXTURES);
+void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) {
+	_dbg_assert_(binding < MAX_BOUND_TEXTURES);
+	_dbg_assert_(layer == ALL_LAYERS || layer == 0);  // No multiple layer support on D3D
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	switch (channelBit) {
 	case FBChannel::FB_COLOR_BIT:

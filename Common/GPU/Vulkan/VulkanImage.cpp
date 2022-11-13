@@ -87,7 +87,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 		switch (initialLayout) {
 		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
 		case VK_IMAGE_LAYOUT_GENERAL:
-			TransitionImageLayout2(cmd, image_, 0, numMips, VK_IMAGE_ASPECT_COLOR_BIT,
+			TransitionImageLayout2(cmd, image_, 0, numMips, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 				VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
 				VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 				0, VK_ACCESS_TRANSFER_WRITE_BIT);
@@ -123,6 +123,16 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 		_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
 		return false;
 	}
+	vulkan_->SetDebugName(view_, VK_OBJECT_TYPE_IMAGE_VIEW, tag_.c_str());
+
+	// Additionally, create an array view, but only if it's a 2D texture.
+	if (view_info.viewType == VK_IMAGE_VIEW_TYPE_2D) {
+		view_info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+		res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &arrayView_);
+		_assert_(res == VK_SUCCESS);
+		vulkan_->SetDebugName(arrayView_, VK_OBJECT_TYPE_IMAGE_VIEW, tag_.c_str());
+	}
+
 	return true;
 }
 
@@ -164,7 +174,7 @@ void VulkanTexture::GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bo
 	_assert_msg_(firstMipToGenerate < numMips_, "Can't generate levels beyond storage");
 
 	// Transition the pre-set levels to GENERAL.
-	TransitionImageLayout2(cmd, image_, 0, firstMipToGenerate, VK_IMAGE_ASPECT_COLOR_BIT,
+	TransitionImageLayout2(cmd, image_, 0, firstMipToGenerate, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 		fromCompute ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		VK_IMAGE_LAYOUT_GENERAL,
 		fromCompute ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_TRANSFER_BIT, 
@@ -173,7 +183,7 @@ void VulkanTexture::GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bo
 		VK_ACCESS_TRANSFER_READ_BIT);
 
 	// Do the same with the uninitialized levels.
-	TransitionImageLayout2(cmd, image_, firstMipToGenerate, numMips_ - firstMipToGenerate,
+	TransitionImageLayout2(cmd, image_, firstMipToGenerate, numMips_ - firstMipToGenerate, 1,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_GENERAL,
@@ -206,7 +216,7 @@ void VulkanTexture::GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bo
 
 		vkCmdBlitImage(cmd, image_, VK_IMAGE_LAYOUT_GENERAL, image_, VK_IMAGE_LAYOUT_GENERAL, 1, &blit, VK_FILTER_LINEAR);
 
-		TransitionImageLayout2(cmd, image_, mip, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+		TransitionImageLayout2(cmd, image_, mip, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
 			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
@@ -214,7 +224,7 @@ void VulkanTexture::GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bo
 }
 
 void VulkanTexture::EndCreate(VkCommandBuffer cmd, bool vertexTexture, VkPipelineStageFlags prevStage, VkImageLayout layout) {
-	TransitionImageLayout2(cmd, image_, 0, numMips_,
+	TransitionImageLayout2(cmd, image_, 0, numMips_, 1,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		layout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		prevStage, vertexTexture ? VK_PIPELINE_STAGE_VERTEX_SHADER_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
@@ -237,6 +247,7 @@ VkImageView VulkanTexture::CreateViewForMip(int mip) {
 	view_info.subresourceRange.layerCount = 1;
 	VkImageView view;
 	VkResult res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view);
+	vulkan_->SetDebugName(view, VK_OBJECT_TYPE_IMAGE_VIEW, "mipview");
 	_assert_(res == VK_SUCCESS);
 	return view;
 }
@@ -244,6 +255,9 @@ VkImageView VulkanTexture::CreateViewForMip(int mip) {
 void VulkanTexture::Destroy() {
 	if (view_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteImageView(view_);
+	}
+	if (arrayView_ != VK_NULL_HANDLE) {
+		vulkan_->Delete().QueueDeleteImageView(arrayView_);
 	}
 	if (image_ != VK_NULL_HANDLE) {
 		_dbg_assert_(allocation_ != VK_NULL_HANDLE);

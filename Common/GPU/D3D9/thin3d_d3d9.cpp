@@ -532,16 +532,13 @@ public:
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	Framebuffer *GetCurrentRenderTarget() override {
-		return curRenderTarget_;
-	}
-	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit) override;
-	
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) override;
+
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
-	void BindTextures(int start, int count, Texture **textures) override;
+	void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) override;
 	void BindNativeTexture(int index, void *nativeTexture) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
@@ -749,7 +746,6 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	}
 
 	caps_.deviceID = identifier_.DeviceId;
-	caps_.multiViewport = false;
 	caps_.depthRangeMinusOneToOne = false;
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 	caps_.dualSourceBlend = false;
@@ -915,7 +911,7 @@ Texture *D3D9Context::CreateTexture(const TextureDesc &desc) {
 	return tex;
 }
 
-void D3D9Context::BindTextures(int start, int count, Texture **textures) {
+void D3D9Context::BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) {
 	_assert_(start + count <= MAX_BOUND_TEXTURES);
 	for (int i = start; i < start + count; i++) {
 		D3D9Texture *tex = static_cast<D3D9Texture *>(textures[i - start]);
@@ -1244,6 +1240,9 @@ public:
 };
 
 Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
+	// Don't think D3D9 does array layers.
+	_dbg_assert_(desc.numLayers == 1);
+
 	static uint32_t id = 0;
 
 	D3D9Framebuffer *fbo = new D3D9Framebuffer(desc.width, desc.height);
@@ -1348,8 +1347,9 @@ uintptr_t D3D9Context::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit
 	}
 }
 
-void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit) {
-	_assert_(binding < MAX_BOUND_TEXTURES);
+void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) {
+	_dbg_assert_(binding < MAX_BOUND_TEXTURES);
+	_dbg_assert_(layer == ALL_LAYERS || layer == 0);  // No stereo support
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
 	switch (channelBit) {
 	case FB_DEPTH_BIT:

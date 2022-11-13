@@ -12,6 +12,7 @@
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/Common/ShaderId.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
@@ -255,6 +256,11 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	desc->fragmentShader = fs->GetModule();
 	desc->vertexShader = vs->GetModule();
 	desc->geometryShader = gs ? gs->GetModule() : nullptr;
+	desc->fragmentShaderSource = fs->GetShaderString(SHADER_STRING_SOURCE_CODE);
+	desc->vertexShaderSource = vs->GetShaderString(SHADER_STRING_SOURCE_CODE);
+	if (gs) {
+		desc->geometryShaderSource =  gs->GetShaderString(SHADER_STRING_SOURCE_CODE);
+	}
 
 	VkPipelineInputAssemblyStateCreateInfo &inputAssembly = desc->inputAssembly;
 	inputAssembly.flags = 0;
@@ -296,7 +302,12 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 
 	desc->pipelineLayout = layout;
 
-	VKRGraphicsPipeline *pipeline = renderManager->CreateGraphicsPipeline(desc, pipelineFlags, variantBitmask, "game");
+	std::string tag = "game";
+#ifdef _DEBUG
+	tag = FragmentShaderDesc(fs->GetID()) + " VS " + VertexShaderDesc(vs->GetID());
+#endif
+
+	VKRGraphicsPipeline *pipeline = renderManager->CreateGraphicsPipeline(desc, pipelineFlags, variantBitmask, tag.c_str());
 
 	vulkanPipeline->pipeline = pipeline;
 	if (useBlendConstant) {
@@ -335,6 +346,9 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 	PipelineFlags pipelineFlags = (PipelineFlags)0;
 	if (fs->Flags() & FragmentShaderFlags::INPUT_ATTACHMENT) {
 		pipelineFlags |= PipelineFlags::USES_INPUT_ATTACHMENT;
+	}
+	if (vs->Flags() & VertexShaderFlags::MULTI_VIEW) {
+		pipelineFlags |= PipelineFlags::USES_MULTIVIEW;
 	}
 
 	VulkanPipeline *pipeline = CreateVulkanPipeline(

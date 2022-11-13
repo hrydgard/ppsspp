@@ -507,7 +507,7 @@ protected:
 
 	bool isBgraBackend_ = false;
 
-	u32 expandClut_[256];
+	u32 *expandClut_;
 };
 
 inline bool TexCacheEntry::Matches(u16 dim2, u8 format2, u8 maxLevel2) const {

@@ -165,9 +165,9 @@ void GPU_DX9::BeginHostFrame() {
 	if (resized_) {
 		gstate_c.useFlags = CheckGPUFeatures();
 		framebufferManager_->Resized();
-		drawEngine_.Resized();
-		shaderManagerDX9_->DirtyShader();
+		drawEngine_.NotifyConfigChanged();
 		textureCache_->NotifyConfigChanged();
+		shaderManagerDX9_->DirtyShader();
 		resized_ = false;
 	}
 }

@@ -159,7 +159,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
 				if (fboTexBindState == FBO_TEX_COPY_BIND_TEX) {
-					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY, 0);
 					// No sampler required, we do a plain Load in the pixel shader.
 					fboTexBound_ = true;
 					fboTexBindState = FBO_TEX_NONE;
@@ -270,10 +270,11 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		} else {
 			keys_.depthStencil.value = 0;
 			// Depth Test
-			if (gstate.isDepthTestEnabled()) {
+			if (!IsDepthTestEffectivelyDisabled()) {
 				keys_.depthStencil.depthTestEnable = true;
 				keys_.depthStencil.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
 				keys_.depthStencil.depthWriteEnable = gstate.isDepthWriteEnabled();
+				UpdateEverUsedEqualDepth(gstate.getDepthTestFunction());
 			} else {
 				keys_.depthStencil.depthTestEnable = false;
 				keys_.depthStencil.depthWriteEnable = false;

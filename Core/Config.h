@@ -162,11 +162,13 @@ public:
 	bool bSoftwareRendering;
 	bool bSoftwareRenderingJit;
 	bool bHardwareTransform; // only used in the GLES backend
-	bool bSoftwareSkinning;  // may speed up some games
+	bool bSoftwareSkinning;
 	bool bVendorBugChecksEnabled;
 	bool bUseGeometryShader;
 
-	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering
+	// Speedhacks (more will be moved here):
+	bool bSkipBufferEffects;
+
 	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality
 	int iBufFilter; // 1 = linear, 2 = nearest
 	int iSmallDisplayZoomType;  // Used to fit display into screen 0 = stretch, 1 = partial stretch, 2 = auto scaling, 3 = manual scaling.
@@ -199,7 +201,6 @@ public:
 
 	bool bVertexCache;
 	bool bTextureBackoffCache;
-	bool bTextureSecondaryCache;
 	bool bVertexDecoderJit;
 	bool bFullScreen;
 	bool bFullScreenMulti;
@@ -234,13 +235,19 @@ public:
 	float fCwCheatScrollPosition;
 	float fGameListScrollPosition;
 	int iBloomHack; //0 = off, 1 = safe, 2 = balanced, 3 = aggressive
-	bool bBlockTransferGPU;
+	bool bSkipGPUReadbacks;
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	bool bHardwareTessellation;
 	bool bShaderCache;  // Hidden ini-only setting, useful for debugging shader compile times.
 
 	std::vector<std::string> vPostShaderNames; // Off for chain end (only Off for no shader)
 	std::map<std::string, float> mPostShaderSetting;
+
+	// Note that this is separate from VR stereo, though it'll share some code paths.
+	bool bStereoRendering;
+	// There can only be one, unlike regular post shaders.
+	std::string sStereoToMonoShader;
+
 	bool bShaderChainRequires60FPS;
 	std::string sTextureShaderName;
 	bool bGfxDebugOutput;
@@ -457,9 +464,14 @@ public:
 	bool bEnableVR;
 	bool bEnable6DoF;
 	bool bEnableStereo;
-	int iCameraDistance;
-	int iCanvasDistance;
-	int iFieldOfViewPercentage;
+	bool bEnableMotions;
+	bool bForce72Hz;
+	float fCameraDistance;
+	float fCameraHeight;
+	float fCameraSide;
+	float fCanvasDistance;
+	float fFieldOfViewPercentage;
+	float fMotionLength;
 
 	// Debugger
 	int iDisasmWindowX;

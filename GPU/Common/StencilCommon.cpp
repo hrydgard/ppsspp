@@ -80,7 +80,7 @@ static const VaryingDef varyings[1] = {
 };
 
 static const SamplerDef samplers[1] = {
-	{ "tex" },
+	{ 0, "tex" },
 };
 
 void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw::Bugs &bugs) {
@@ -94,7 +94,7 @@ void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw:
 
 	writer.C("float roundAndScaleTo255f(in float x) { return floor(x * 255.99); }\n");
 
-	writer.BeginFSMain(uniforms, varyings, FSFLAG_NONE);
+	writer.BeginFSMain(uniforms, varyings);
 
 	writer.C("  vec4 index = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
 	writer.C("  vec4 outColor = index.aaaa;\n");  // Only care about a.
@@ -106,7 +106,7 @@ void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw:
 		writer.C("  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 
-	writer.EndFSMain("outColor", FSFLAG_NONE);
+	writer.EndFSMain("outColor");
 }
 
 // This can probably be shared with some other shaders, like reinterpret or the future depth upload.

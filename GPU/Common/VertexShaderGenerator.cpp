@@ -126,34 +126,49 @@ static const char * const boneWeightDecl[9] = {
 	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec4 w2;\n",
 };
 
-bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
+bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint32_t *attrMask, uint64_t *uniformMask, VertexShaderFlags *vertexShaderFlags, std::string *errorString) {
 	*attrMask = 0;
 	*uniformMask = 0;
+	if (vertexShaderFlags) {
+		*vertexShaderFlags = (VertexShaderFlags)0;
+	}
 
 	bool highpFog = false;
 	bool highpTexcoord = false;
 
-	std::vector<const char*> gl_exts;
+	std::vector<const char*> extensions;
 	if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if (gl_extensions.EXT_gpu_shader4) {
-			gl_exts.push_back("#extension GL_EXT_gpu_shader4 : enable");
+			extensions.push_back("#extension GL_EXT_gpu_shader4 : enable");
 		}
 		bool useClamp = gstate_c.Use(GPU_USE_DEPTH_CLAMP) && !id.Bit(VS_BIT_IS_THROUGH);
 		if (gl_extensions.EXT_clip_cull_distance && (id.Bit(VS_BIT_VERTEX_RANGE_CULLING) || useClamp)) {
-			gl_exts.push_back("#extension GL_EXT_clip_cull_distance : enable");
+			extensions.push_back("#extension GL_EXT_clip_cull_distance : enable");
 		}
 		if (gl_extensions.APPLE_clip_distance && (id.Bit(VS_BIT_VERTEX_RANGE_CULLING) || useClamp)) {
-			gl_exts.push_back("#extension GL_APPLE_clip_distance : enable");
+			extensions.push_back("#extension GL_APPLE_clip_distance : enable");
 		}
 		if (gl_extensions.ARB_cull_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
-			gl_exts.push_back("#extension GL_ARB_cull_distance : enable");
+			extensions.push_back("#extension GL_ARB_cull_distance : enable");
 		}
 		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY) && gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
-			gl_exts.push_back("#extension GL_OVR_multiview2 : enable\nlayout(num_views=2) in;");
+			extensions.push_back("#extension GL_OVR_multiview2 : enable\nlayout(num_views=2) in;");
 		}
 	}
 
-	ShaderWriter p(buffer, compat, ShaderStage::Vertex, gl_exts);
+	bool useSimpleStereo = id.Bit(VS_BIT_SIMPLE_STEREO);
+
+	if (useSimpleStereo) {
+		if (compat.shaderLanguage != ShaderLanguage::GLSL_VULKAN) {
+			*errorString = "Multiview only supported with Vulkan for now";
+			return false;
+		}
+		extensions.push_back("#extension GL_EXT_multiview : enable");
+	}
+
+	ShaderWriter p(buffer, compat, ShaderStage::Vertex, extensions);
+
+	p.F("// %s\n", VertexShaderDesc(id).c_str());
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE);
@@ -236,11 +251,16 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
-		WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
+
+		if (!useHWTransform) {
+			WRITE(p, "layout (std140, set = 0, binding = 0) uniform frameVars {\n%s};\n", ub_frameStr);
+		}
+
+		WRITE(p, "layout (std140, set = 1, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
 		if (enableLighting || doShadeMapping)
-			WRITE(p, "layout (std140, set = 0, binding = 4) uniform lightVars {\n%s};\n", ub_vs_lightsStr);
+			WRITE(p, "layout (std140, set = 1, binding = 4) uniform lightVars {\n%s};\n", ub_vs_lightsStr);
 		if (enableBones)
-			WRITE(p, "layout (std140, set = 0, binding = 5) uniform boneVars {\n%s};\n", ub_vs_bonesStr);
+			WRITE(p, "layout (std140, set = 1, binding = 5) uniform boneVars {\n%s};\n", ub_vs_bonesStr);
 
 		if (enableBones) {
 			WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
@@ -618,7 +638,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec4 tex;\n");
 			WRITE(p, "  vec4 col;\n");
 			WRITE(p, "};\n");
-			WRITE(p, "layout (std430, set = 0, binding = 6) readonly buffer s_tess_data {\n");
+			WRITE(p, "layout (std430, set = 1, binding = 6) readonly buffer s_tess_data {\n");
 			WRITE(p, "  TessData tess_data[];\n");
 			WRITE(p, "};\n");
 
@@ -626,10 +646,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec4 basis;\n");
 			WRITE(p, "  vec4 deriv;\n");
 			WRITE(p, "};\n");
-			WRITE(p, "layout (std430, set = 0, binding = 7) readonly buffer s_tess_weights_u {\n");
+			WRITE(p, "layout (std430, set = 1, binding = 7) readonly buffer s_tess_weights_u {\n");
 			WRITE(p, "  TessWeight tess_weights_u[];\n");
 			WRITE(p, "};\n");
-			WRITE(p, "layout (std430, set = 0, binding = 8) readonly buffer s_tess_weights_v {\n");
+			WRITE(p, "layout (std430, set = 1, binding = 8) readonly buffer s_tess_weights_v {\n");
 			WRITE(p, "  TessWeight tess_weights_v[];\n");
 			WRITE(p, "};\n");
 		} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
@@ -833,7 +853,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// The proj_through matrix already has the rotation, if needed.
 			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
 		} else {
-			if (compat.shaderLanguage == GLSL_VULKAN || compat.shaderLanguage == HLSL_D3D11) {
+			if (compat.shaderLanguage == GLSL_VULKAN) {
 				// Apply rotation from the uniform.
 				WRITE(p, "  mat2 displayRotation = mat2(\n");
 				WRITE(p, "    u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0), u_rotation == 1.0 ? 1.0 : (u_rotation == 3.0 ? -1.0 : 0.0),\n");
@@ -1034,11 +1054,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("        ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
 				p.C("      }\n");
 				p.C("    }\n");
-				p.C("    switch (type) {\n");  // Attenuation
-				p.C("    case 1u:\n");  // GE_LIGHTTYPE_POINT
+				p.C("    switch (int(type)) {\n");  // Attenuation
+				p.C("    case 1:\n");  // GE_LIGHTTYPE_POINT
 				p.F("      lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
 				p.C("      break;\n");
-				p.C("    case 2u:\n");  // GE_LIGHTTYPE_SPOT
+				p.C("    case 2:\n");  // GE_LIGHTTYPE_SPOT
 				p.F("      angle = length(u_lightdir%i) == 0.0 ? 0.0 : dot(normalize(u_lightdir%i), toLight);\n", i, i);
 				p.F("      if (angle >= u_lightangle_spotCoef%i.x) {\n", i);
 				p.F("        lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%i.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%i.y));\n", i, i, i);
@@ -1336,6 +1356,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "    %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
 		WRITE(p, "    %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
 		WRITE(p, "  }\n");
+	}
+
+	if (useSimpleStereo && useHWTransform) {
+		p.C("  float zFactor = 0.2 * float(gl_ViewIndex * 2 - 1);\n");
+		p.C("  float zFocus = 0.0;\n");
+		p.C("  gl_Position.x += (-gl_Position.z - zFocus) * zFactor;\n");
 	}
 
 	if (needsZWHack) {

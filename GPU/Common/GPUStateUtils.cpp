@@ -136,6 +136,15 @@ bool IsColorTestTriviallyTrue() {
 	}
 }
 
+bool IsDepthTestEffectivelyDisabled() {
+	if (!gstate.isDepthTestEnabled())
+		return true;
+	// We can ignore stencil, because ALWAYS and disabled choose the same stencil path.
+	if (gstate.getDepthTestFunction() != GE_COMP_ALWAYS)
+		return false;
+	return !gstate.isDepthWriteEnabled();
+}
+
 const bool nonAlphaSrcFactors[16] = {
 	true,  // GE_SRCBLEND_DSTCOLOR,
 	true,  // GE_SRCBLEND_INVDSTCOLOR,
@@ -1265,7 +1274,7 @@ static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBl
 	// Some Android devices (especially old Mali, it seems) composite badly if there's alpha in the backbuffer.
 	// So in non-buffered rendering, we will simply consider the dest alpha to be zero in blending equations.
 #ifdef __ANDROID__
-	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+	if (g_Config.bSkipBufferEffects) {
 		if (glBlendFuncA == BlendFactor::DST_ALPHA) glBlendFuncA = BlendFactor::ZERO;
 		if (glBlendFuncB == BlendFactor::DST_ALPHA) glBlendFuncB = BlendFactor::ZERO;
 		if (glBlendFuncA == BlendFactor::ONE_MINUS_DST_ALPHA) glBlendFuncA = BlendFactor::ONE;

@@ -45,6 +45,8 @@ android {
 		}
 	}
 	compileSdkVersion 32
+	ndkVersion "21.4.7075529"
+
 	defaultConfig {
 		applicationId 'org.ppsspp.ppsspp'
 		if (androidGitVersion.name() != "unknown" && androidGitVersion.code() >= 14000000) {

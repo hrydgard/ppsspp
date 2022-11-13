@@ -56,6 +56,7 @@ bool IsColorTestAgainstZero();
 bool IsColorTestTriviallyTrue();
 bool IsAlphaTestAgainstZero();
 bool NeedsTestDiscard();
+bool IsDepthTestEffectivelyDisabled();
 bool IsStencilTestOutputDisabled();
 
 StencilValueType ReplaceAlphaWithStencilType();

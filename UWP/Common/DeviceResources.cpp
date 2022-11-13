@@ -470,13 +470,13 @@ void DX::DeviceResources::SetWindow(CoreWindow^ window)
 			try
 			{
 				const auto dm = hdi->GetCurrentDisplayMode();
-				const unsigned int hdmi_width = dm->ResolutionWidthInRawPixels;
-				const unsigned int hdmi_height = dm->ResolutionHeightInRawPixels;
+				const float hdmi_width = (float)dm->ResolutionWidthInRawPixels;
+				const float hdmi_height = (float)dm->ResolutionHeightInRawPixels;
 				// If we're running on Xbox, use the HDMI mode instead of the CoreWindow size.
 				// In UWP, the CoreWindow is always 1920x1080, even when running at 4K.
 
 				m_logicalSize = Windows::Foundation::Size(hdmi_width, hdmi_height);
-				m_dpi = currentDisplayInformation->LogicalDpi * 1.5;
+				m_dpi = currentDisplayInformation->LogicalDpi * 1.5f;
 			}
 			catch (const Platform::Exception^)
 			{

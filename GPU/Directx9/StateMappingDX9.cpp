@@ -101,7 +101,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 		if (fboTexBindState_ = FBO_TEX_COPY_BIND_TEX) {
 			// Note that this is positions, not UVs, that we need the copy from.
-			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY, 0);
 			// If we are rendering at a higher resolution, linear is probably best for the dest color.
 			device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
 			device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
@@ -139,7 +139,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 				if (fboTexBindState_ == FBO_TEX_COPY_BIND_TEX) {
 					// Note that this is positions, not UVs, that we need the copy from.
-					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY, Draw::ALL_LAYERS);
 					// If we are rendering at a higher resolution, linear is probably best for the dest color.
 					device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
 					device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
@@ -228,10 +228,11 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			}
 		} else {
 			// Depth Test
-			if (gstate.isDepthTestEnabled()) {
+			if (!IsDepthTestEffectivelyDisabled()) {
 				dxstate.depthTest.enable();
 				dxstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
 				dxstate.depthWrite.set(gstate.isDepthWriteEnabled());
+				UpdateEverUsedEqualDepth(gstate.getDepthTestFunction());
 			} else {
 				dxstate.depthTest.disable();
 			}

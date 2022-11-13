@@ -275,7 +275,7 @@ void DisplayLayoutScreen::CreateViews() {
 	root_->Add(new Boundary(new AnchorLayoutParams(previewWidth, vertBoundariesHeight, horizPreviewPadding, vertPreviewPadding - vertBoundariesHeight, NONE, NONE)));
 	root_->Add(new Boundary(new AnchorLayoutParams(previewWidth, vertBoundariesHeight, horizPreviewPadding, vertPreviewPadding + previewHeight, NONE, NONE)));
 
-	bool displayRotEnable = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) || g_Config.bSoftwareRendering;
+	bool displayRotEnable = !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 	bRotated_ = false;
 	if (displayRotEnable && (g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180)) {
 		bRotated_ = true;
@@ -371,7 +371,7 @@ void DisplayLayoutScreen::CreateViews() {
 	static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
 	auto rotation = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, previewWidth - 200.0f, 10, NONE, bounds.h - 64 - 10));
 	rotation->SetEnabledFunc([] {
-		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE || g_Config.bSoftwareRendering;
+		return !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 	});
 	root_->Add(rotation);
 

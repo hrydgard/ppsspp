@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <vector>
 
@@ -121,6 +122,15 @@ public:
 		return writePtr_ + off;
 	}
 
+	template<class T>
+	void PushUBOData(const T &data, VkDescriptorBufferInfo *info) {
+		uint32_t bindOffset;
+		void *ptr = PushAligned(sizeof(T), &bindOffset, &info->buffer, vulkan_->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment);
+		memcpy(ptr, &data, sizeof(T));
+		info->offset = bindOffset;
+		info->range = sizeof(T);
+	}
+
 	size_t GetTotalSize() const;
 
 private:
@@ -153,7 +163,7 @@ public:
 	void Create(VulkanContext *vulkan, const VkDescriptorPoolCreateInfo &info, const std::vector<VkDescriptorPoolSize> &sizes);
 	// Allocate a new set, which may resize and empty the current sets.
 	// Use only for the current frame, unless in a cache cleared by clear_.
-	VkDescriptorSet Allocate(int n, const VkDescriptorSetLayout *layouts);
+	VkDescriptorSet Allocate(int n, const VkDescriptorSetLayout *layouts, const char *tag);
 	void Reset();
 	void Destroy();
 

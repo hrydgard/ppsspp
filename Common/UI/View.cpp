@@ -19,9 +19,9 @@
 
 namespace UI {
 
-const float ITEM_HEIGHT = 64.f;
-const float MIN_TEXT_SCALE = 0.8f;
-const float MAX_ITEM_SIZE = 65535.0f;
+static constexpr Size ITEM_HEIGHT = 64.f;
+static constexpr float MIN_TEXT_SCALE = 0.8f;
+static constexpr float MAX_ITEM_SIZE = 65535.0f;
 
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured) {
 	*measured = sz;

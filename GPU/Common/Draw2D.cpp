@@ -37,7 +37,7 @@ static const VaryingDef varyings[1] = {
 };
 
 static const SamplerDef samplers[1] = {
-	{ "tex" },
+	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN },
 };
 
 const UniformDef g_draw2Duniforms[2] = {
@@ -59,9 +59,9 @@ const UniformBufferDesc draw2DUBDesc{ sizeof(Draw2DUB), {
 
 Draw2DPipelineInfo GenerateDraw2DCopyColorFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
-	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
+	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
 	writer.C("  vec4 outColor = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
-	writer.EndFSMain("outColor", FSFLAG_NONE);
+	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
 		"draw2d_copy_color",
@@ -72,13 +72,13 @@ Draw2DPipelineInfo GenerateDraw2DCopyColorFs(ShaderWriter &writer) {
 
 Draw2DPipelineInfo GenerateDraw2DCopyColorRect2LinFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
-	writer.BeginFSMain(g_draw2Duniforms, varyings, FSFLAG_NONE);
+	writer.BeginFSMain(g_draw2Duniforms, varyings);
 	writer.C("  vec2 tSize = texSize / scaleFactor;\n");
 	writer.C("  vec2 pixels = v_texcoord * tSize;\n");
 	writer.C("  float u = mod(pixels.x, tSize.x);\n");
 	writer.C("  float v = floor(pixels.x / tSize.x);\n");
 	writer.C("  vec4 outColor = ").SampleTexture2D("tex", "vec2(u, v) / tSize").C(";\n");
-	writer.EndFSMain("outColor", FSFLAG_NONE);
+	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
 		"draw2d_copy_color_rect2lin",
@@ -88,11 +88,12 @@ Draw2DPipelineInfo GenerateDraw2DCopyColorRect2LinFs(ShaderWriter &writer) {
 }
 
 Draw2DPipelineInfo GenerateDraw2DCopyDepthFs(ShaderWriter &writer) {
+	writer.SetFlags(ShaderWriterFlags::FS_WRITE_DEPTH);
 	writer.DeclareSamplers(samplers);
-	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_WRITEDEPTH);
+	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	writer.C("  gl_FragDepth = ").SampleTexture2D("tex", "v_texcoord.xy").C(".x;\n");
-	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
+	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
 		"draw2d_copy_depth",
@@ -102,8 +103,9 @@ Draw2DPipelineInfo GenerateDraw2DCopyDepthFs(ShaderWriter &writer) {
 }
 
 Draw2DPipelineInfo GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
+	writer.SetFlags(ShaderWriterFlags::FS_WRITE_DEPTH);
 	writer.DeclareSamplers(samplers);
-	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_WRITEDEPTH);
+	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
 	// have to apply the scaling.
@@ -111,7 +113,7 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 	writer.C("  vec3 rgb = ").SampleTexture2D("tex", "v_texcoord.xy").C(".xyz;\n");
 	writer.F("  highp float depthValue = (floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0); \n");
 	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale, factors.offset);
-	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
+	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
 		"draw2d_565_to_depth",
@@ -121,8 +123,9 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 }
 
 Draw2DPipelineInfo GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
+	writer.SetFlags(ShaderWriterFlags::FS_WRITE_DEPTH);
 	writer.DeclareSamplers(samplers);
-	writer.BeginFSMain(g_draw2Duniforms, varyings, FSFLAG_WRITEDEPTH);
+	writer.BeginFSMain(g_draw2Duniforms, varyings);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
 	// have to apply the scaling.
@@ -136,7 +139,7 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	writer.C("  vec3 rgb = ").SampleTexture2D("tex", "coord").C(".xyz;\n");
 	writer.F("  highp float depthValue = (floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0); \n");
 	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale, factors.offset);
-	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
+	writer.EndFSMain("outColor");
 	
 	return Draw2DPipelineInfo{
 		"draw2d_565_to_depth_deswizzle",
@@ -179,6 +182,11 @@ void Draw2D::Ensure2DResources() {
 
 	if (!draw2DVs_) {
 		char *vsCode = new char[8192];
+		ShaderWriterFlags flags = ShaderWriterFlags::NONE;
+		if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
+			// Hm, we're compiling the vertex shader here, probably don't need this...
+			flags = ShaderWriterFlags::FS_AUTO_STEREO;
+		}
 		ShaderWriter writer(vsCode, shaderLanguageDesc, ShaderStage::Vertex);
 		GenerateDraw2DVS(writer);
 		_assert_msg_(strlen(vsCode) < 8192, "Draw2D VS length error: %d", (int)strlen(vsCode));
@@ -217,7 +225,11 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 
 	char *fsCode = new char[8192];
-	ShaderWriter writer(fsCode, shaderLanguageDesc, ShaderStage::Fragment);
+	ShaderWriterFlags flags = ShaderWriterFlags::NONE;
+	if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
+		flags = ShaderWriterFlags::FS_AUTO_STEREO;
+	}
+	ShaderWriter writer(fsCode, shaderLanguageDesc, ShaderStage::Fragment, Slice<const char *>::empty(), flags);
 	Draw2DPipelineInfo info = generate(writer);
 	_assert_msg_(strlen(fsCode) < 8192, "Draw2D FS length error: %d", (int)strlen(fsCode));
 
@@ -312,6 +324,7 @@ void Draw2D::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCoun
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 
 	if (tex) {
+		// This won't work since all the shaders above expect array textures on Vulkan.
 		draw_->BindTextures(TEX_SLOT_PSP_TEXTURE, 1, &tex);
 	}
 	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, linearFilter ? &draw2DSamplerLinear_ : &draw2DSamplerNearest_);

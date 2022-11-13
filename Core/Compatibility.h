@@ -89,10 +89,12 @@ struct CompatFlags {
 	bool ForceLowerResolutionForEffectsOn;
 	bool AllowDownloadCLUT;
 	bool NearestFilteringOnFramebufferCreate;
+	bool SecondaryTextureCache;
 	bool IgnoreEnqueue;
 };
 
 struct VRCompat {
+	bool IdentityViewHack;
 	bool Skyplane;
 	float UnitsPerMeter;
 };

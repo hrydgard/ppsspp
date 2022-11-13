@@ -36,6 +36,18 @@
 
 #define WRITE(p, ...) p.F(__VA_ARGS__)
 
+static const SamplerDef samplersMono[3] = {
+	{ 0, "tex" },
+	{ 1, "fbotex", SamplerFlags::ARRAY_ON_VULKAN },
+	{ 2, "pal" },
+};
+
+static const SamplerDef samplersStereo[3] = {
+	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN },
+	{ 1, "fbotex", SamplerFlags::ARRAY_ON_VULKAN },
+	{ 2, "pal" },
+};
+
 bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, FragmentShaderFlags *fragmentShaderFlags, std::string *errorString) {
 	*uniformMask = 0;
 	if (fragmentShaderFlags) {
@@ -43,6 +55,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 	errorString->clear();
 
+	bool useStereo = id.Bit(FS_BIT_STEREO);
 	bool highpFog = false;
 	bool highpTexcoord = false;
 	bool enableFragmentTestCache = gstate_c.Use(GPU_USE_FRAGMENT_TEST_CACHE);
@@ -55,26 +68,35 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	bool texture3D = id.Bit(FS_BIT_3D_TEXTURE);
+	bool arrayTexture = id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
 
 	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
 
-	std::vector<const char*> gl_exts;
+	std::vector<const char*> extensions;
 	if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
-			gl_exts.push_back("#extension GL_EXT_blend_func_extended : require");
+			extensions.push_back("#extension GL_EXT_blend_func_extended : require");
 		}
 		if (gl_extensions.EXT_gpu_shader4) {
-			gl_exts.push_back("#extension GL_EXT_gpu_shader4 : enable");
+			extensions.push_back("#extension GL_EXT_gpu_shader4 : enable");
 		}
 		if (compat.framebufferFetchExtension) {
-			gl_exts.push_back(compat.framebufferFetchExtension);
+			extensions.push_back(compat.framebufferFetchExtension);
 		}
 		if (gl_extensions.OES_texture_3D && texture3D) {
-			gl_exts.push_back("#extension GL_OES_texture_3D: enable");
+			extensions.push_back("#extension GL_OES_texture_3D: enable");
 		}
+	} 
+
+	ShaderWriterFlags flags = ShaderWriterFlags::NONE;
+	if (useStereo) {
+		flags |= ShaderWriterFlags::FS_AUTO_STEREO;
 	}
 
-	ShaderWriter p(buffer, compat, ShaderStage::Fragment, gl_exts);
+	ShaderWriter p(buffer, compat, ShaderStage::Fragment, extensions, flags);
+	p.F("// %s\n", FragmentShaderDesc(id).c_str());
+
+	p.ApplySamplerMetadata(arrayTexture ? samplersStereo : samplersMono);
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
@@ -88,6 +110,15 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
 	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
+
+	if (texture3D && arrayTexture) {
+		*errorString = "Invalid combination of 3D texture and array texture, shouldn't happen";
+		return false;
+	}
+	if (compat.shaderLanguage != ShaderLanguage::GLSL_VULKAN && arrayTexture) {
+		*errorString = "We only do array textures for framebuffers in Vulkan.";
+		return false;
+	}
 
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 
@@ -148,27 +179,31 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
+	// Currently only used by Vulkan.
+	std::vector<SamplerDef> samplers;
+
 	if (compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN) {
 		if (useDiscardStencilBugWorkaround && !gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
 			WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
 		}
 
-		WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseUBO {\n%s};\n", ub_baseStr);
+		WRITE(p, "layout (std140, set = 1, binding = 3) uniform baseUBO {\n%s};\n", ub_baseStr);
 		if (doTexture) {
-			WRITE(p, "layout (binding = 0) uniform %s tex;\n", texture3D ? "sampler3D" : "sampler2D");
+			WRITE(p, "layout (set = 1, binding = 0) uniform %s%s tex;\n", texture3D ? "sampler3D" : "sampler2D", arrayTexture ? "Array" : "");
 		}
 
 		if (readFramebufferTex) {
-			WRITE(p, "layout (binding = 1) uniform sampler2D fbotex;\n");
+			// The framebuffer texture is always bound as an array.
+			p.C("layout (set = 1, binding = 1) uniform sampler2DArray fbotex;\n");
 		} else if (fetchFramebuffer) {
-			WRITE(p, "layout (input_attachment_index = 0, binding = 9) uniform subpassInput inputColor;\n");
+			p.C("layout (input_attachment_index = 0, set = 1, binding = 9) uniform subpassInput inputColor;\n");
 			if (fragmentShaderFlags) {
 				*fragmentShaderFlags |= FragmentShaderFlags::INPUT_ATTACHMENT;
 			}
 		}
 
 		if (shaderDepalMode != ShaderDepalMode::OFF) {
-			WRITE(p, "layout (binding = 2) uniform sampler2D pal;\n");
+			WRITE(p, "layout (set = 1, binding = 2) uniform sampler2D pal;\n");
 		}
 
 		// Note: the precision qualifiers must match the vertex shader!
@@ -514,6 +549,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  vec4 destColor = fbotex.Load(int3((int)gl_FragCoord.x, (int)gl_FragCoord.y, 0));\n");
 		} else if (compat.shaderLanguage == HLSL_D3D9) {
 			WRITE(p, "  vec4 destColor = tex2D(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", compat.texture);
+		} else if (compat.shaderLanguage == GLSL_VULKAN) {
+			WRITE(p, "  lowp vec4 destColor = %s(fbotex, ivec3(gl_FragCoord.x, gl_FragCoord.y, %s), 0);\n", compat.texelFetch, useStereo ? "float(gl_ViewIndex)" : "0");
 		} else if (!compat.texelFetch) {
 			WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", compat.texture);
 		} else {
@@ -627,6 +664,18 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 							WRITE(p, "  vec4 t = %sProj(tex, vec4(%s.xy, u_mipBias, %s.z));\n", compat.texture3D, texcoord, texcoord);
 						} else {
 							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, u_mipBias));\n", compat.texture3D, texcoord);
+						}
+					} else if (arrayTexture) {
+						_dbg_assert_(compat.shaderLanguage == GLSL_VULKAN);
+						// Used for stereo rendering.
+						const char *arrayIndex = useStereo ? "float(gl_ViewIndex)" : "0.0";
+						if (doTextureProjection) {
+							// There's no textureProj for array textures, so we need to emulate it.
+							// Should be fine on any Vulkan-compatible hardware.
+							WRITE(p, "  vec2 uv_proj = (%s.xy) / (%s.z);\n", texcoord, texcoord);
+							WRITE(p, "  vec4 t = %s(tex, vec3(uv_proj, %s));\n", compat.texture, texcoord, arrayIndex);
+						} else {
+							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, %s));\n", compat.texture, texcoord, arrayIndex);
 						}
 					} else {
 						if (doTextureProjection) {

@@ -470,8 +470,31 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 	D3D11_TEXTURE2D_DESC desc;
 	texture->GetDesc(&desc);
 
-	if (desc.Format != DXGI_FORMAT_B8G8R8A8_UNORM) {
-		// TODO: Support the other formats
+	int width = desc.Width >> level;
+	int height = desc.Height >> level;
+
+	switch (desc.Format) {
+	case DXGI_FORMAT_B8G8R8A8_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_8888);
+		break;
+
+	case DXGI_FORMAT_B5G6R5_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_565);
+		break;
+
+	case DXGI_FORMAT_B4G4R4A4_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_4444);
+		break;
+
+	case DXGI_FORMAT_B5G5R5A1_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_5551);
+		break;
+
+	case DXGI_FORMAT_R8_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_8BIT);
+		break;
+
+	default:
 		return false;
 	}
 
@@ -483,18 +506,15 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 	device_->CreateTexture2D(&desc, nullptr, &stagingCopy);
 	context_->CopyResource(stagingCopy, texture);
 
-	int width = desc.Width >> level;
-	int height = desc.Height >> level;
-	buffer.Allocate(width, height, GPU_DBG_FORMAT_8888);
-
 	D3D11_MAPPED_SUBRESOURCE map;
 	if (FAILED(context_->Map(stagingCopy, level, D3D11_MAP_READ, 0, &map))) {
 		stagingCopy->Release();
 		return false;
 	}
 
+	int bufferRowSize = buffer.PixelSize() * width;
 	for (int y = 0; y < height; y++) {
-		memcpy(buffer.GetData() + 4 * width * y, (const uint8_t *)map.pData + map.RowPitch * y, 4 * width);
+		memcpy(buffer.GetData() + bufferRowSize * y, (const uint8_t *)map.pData + map.RowPitch * y, bufferRowSize);
 	}
 
 	context_->Unmap(stagingCopy, level);

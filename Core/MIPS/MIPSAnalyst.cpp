@@ -355,6 +355,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x9f269daa6f0da803, 128, "dl_write_scissor_region", },
 	{ 0x9f7919eeb43982b0, 208, "__fixdfsi", },
 	{ 0xa1c9b0a2c71235bf, 1752, "marvelalliance1_copy" }, // Marvel Ultimate Alliance 1 (EU)
+	{ 0x9b76c7f2a41aa805, 1752, "marvelalliance1_copy" }, // Marvel Ultimate alliance 1 (US)
 	{ 0xa1ca0640f11182e7, 72, "strcspn", },
 	{ 0xa243486be51ce224, 272, "cosf", },
 	{ 0xa2bcef60a550a3ef, 92, "matrix_rot_z", },

@@ -158,7 +158,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				// fboTexNeedsBind_ won't be set if we can read directly from the target.
 				if (fboTexBindState == FBO_TEX_COPY_BIND_TEX) {
 					// Note that this is positions, not UVs, that we need the copy from.
-					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY, 0);
 					// If we are rendering at a higher resolution, linear is probably best for the dest color.
 					renderManager->SetTextureSampler(1, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
 					fboTexBound_ = true;
@@ -253,7 +253,10 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			renderManager->SetDepth(true, gstate.isClearModeDepthMask() ? true : false, GL_ALWAYS);
 		} else {
 			// Depth Test
-			renderManager->SetDepth(gstate.isDepthTestEnabled(), gstate.isDepthWriteEnabled(), compareOps[gstate.getDepthTestFunction()]);
+			bool depthTestUsed = !IsDepthTestEffectivelyDisabled();
+			renderManager->SetDepth(depthTestUsed, gstate.isDepthWriteEnabled(), compareOps[gstate.getDepthTestFunction()]);
+			if (depthTestUsed)
+				UpdateEverUsedEqualDepth(gstate.getDepthTestFunction());
 
 			// Stencil Test
 			if (stencilState.enabled) {

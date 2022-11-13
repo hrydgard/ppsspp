@@ -916,20 +916,19 @@ ExpressionType GEExpressionFunctions::getFieldType(GECmdFormat fmt, GECmdField f
 }
 
 bool GEExpressionFunctions::getMemoryValue(uint32_t address, int size, uint32_t &dest, char *error) {
-	if (!Memory::IsValidRange(address, size)) {
-		sprintf(error, "Invalid address or size %08x + %d", address, size);
-		return false;
-	}
+	// We allow, but ignore, bad access.
+	// If we didn't, log/condition statements that reference registers couldn't be configured.
+	bool valid = Memory::IsValidRange(address, size);
 
 	switch (size) {
 	case 1:
-		dest = Memory::Read_U8(address);
+		dest = valid ? Memory::Read_U8(address) : 0;
 		return true;
 	case 2:
-		dest = Memory::Read_U16(address);
+		dest = valid ? Memory::Read_U16(address) : 0;
 		return true;
 	case 4:
-		dest = Memory::Read_U32(address);
+		dest = valid ? Memory::Read_U32(address) : 0;
 		return true;
 	}
 

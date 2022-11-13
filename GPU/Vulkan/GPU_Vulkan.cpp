@@ -227,7 +227,7 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	features |= GPU_USE_VERTEX_TEXTURE_FETCH;
 	features |= GPU_USE_TEXTURE_FLOAT;
 
-	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled;
+	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled.standard;
 	if (enabledFeatures.depthClamp) {
 		features |= GPU_USE_DEPTH_CLAMP;
 	}
@@ -257,15 +257,34 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		INFO_LOG(G3D, "Deficient texture format support: 4444: %d  1555: %d  565: %d", fmt4444, fmt1555, fmt565);
 	}
 
-	if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
+	bool prefer16 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D16;
+	if (!prefer16) {
+		if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
+			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
+			if (prefer24 && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
+				// Here we can simulate a 16 bit depth buffer by scaling.
+				// Note that the depth buffer is fixed point, not floating, so dividing by 256 is pretty good.
+				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+			} else {
+				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+			}
+		} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
+			features |= GPU_ROUND_DEPTH_TO_16BIT;
+		}
 	}
-	else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-		// Use fragment rounding on desktop and GLES3, most accurate.
-		features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-	}
-	else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
-		features |= GPU_ROUND_DEPTH_TO_16BIT;
+
+	if (g_Config.bStereoRendering && draw_->GetDeviceCaps().multiViewSupported) {
+		features |= GPU_USE_SINGLE_PASS_STEREO;
+		features |= GPU_USE_SIMPLE_STEREO_PERSPECTIVE;
+
+		features &= ~GPU_USE_FRAMEBUFFER_FETCH;  // Need to figure out if this can be supported with multiview rendering
+		if (features & GPU_USE_GS_CULLING) {
+			// Many devices that support stereo and GS don't support GS during stereo.
+			features &= ~GPU_USE_GS_CULLING;
+			features |= GPU_USE_VS_RANGE_CULLING;
+		}
 	}
 
 	return features;
@@ -280,7 +299,7 @@ void GPU_Vulkan::BeginHostFrame() {
 		// In case the GPU changed.
 		BuildReportingInfo();
 		framebufferManager_->Resized();
-		drawEngine_.Resized();
+		drawEngine_.NotifyConfigChanged();
 		textureCache_->NotifyConfigChanged();
 		resized_ = false;
 	}
@@ -325,17 +344,14 @@ void GPU_Vulkan::EndHostFrame() {
 void GPU_Vulkan::BuildReportingInfo() {
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	const auto &props = vulkan->GetPhysicalDeviceProperties().properties;
-	const auto &features = vulkan->GetDeviceFeatures().available;
+	const auto &available = vulkan->GetDeviceFeatures().available;
 
-#define CHECK_BOOL_FEATURE(n) do { if (features.n) { featureNames += ", " #n; } } while (false)
+#define CHECK_BOOL_FEATURE(n) do { if (available.standard.n) { featureNames += ", " #n; } } while (false)
+#define CHECK_BOOL_FEATURE_MULTIVIEW(n) do { if (available.multiview.n) { featureNames += ", " #n; } } while (false)
 
 	std::string featureNames = "";
-	CHECK_BOOL_FEATURE(robustBufferAccess);
 	CHECK_BOOL_FEATURE(fullDrawIndexUint32);
-	CHECK_BOOL_FEATURE(imageCubeArray);
-	CHECK_BOOL_FEATURE(independentBlend);
 	CHECK_BOOL_FEATURE(geometryShader);
-	CHECK_BOOL_FEATURE(tessellationShader);
 	CHECK_BOOL_FEATURE(sampleRateShading);
 	CHECK_BOOL_FEATURE(dualSrcBlend);
 	CHECK_BOOL_FEATURE(logicOp);
@@ -343,46 +359,23 @@ void GPU_Vulkan::BuildReportingInfo() {
 	CHECK_BOOL_FEATURE(drawIndirectFirstInstance);
 	CHECK_BOOL_FEATURE(depthClamp);
 	CHECK_BOOL_FEATURE(depthBiasClamp);
-	CHECK_BOOL_FEATURE(fillModeNonSolid);
 	CHECK_BOOL_FEATURE(depthBounds);
-	CHECK_BOOL_FEATURE(alphaToOne);
-	CHECK_BOOL_FEATURE(multiViewport);
 	CHECK_BOOL_FEATURE(samplerAnisotropy);
 	CHECK_BOOL_FEATURE(textureCompressionETC2);
 	CHECK_BOOL_FEATURE(textureCompressionASTC_LDR);
 	CHECK_BOOL_FEATURE(textureCompressionBC);
 	CHECK_BOOL_FEATURE(occlusionQueryPrecise);
 	CHECK_BOOL_FEATURE(pipelineStatisticsQuery);
-	CHECK_BOOL_FEATURE(vertexPipelineStoresAndAtomics);
 	CHECK_BOOL_FEATURE(fragmentStoresAndAtomics);
 	CHECK_BOOL_FEATURE(shaderTessellationAndGeometryPointSize);
-	CHECK_BOOL_FEATURE(shaderImageGatherExtended);
-	CHECK_BOOL_FEATURE(shaderStorageImageExtendedFormats);
 	CHECK_BOOL_FEATURE(shaderStorageImageMultisample);
-	CHECK_BOOL_FEATURE(shaderStorageImageReadWithoutFormat);
-	CHECK_BOOL_FEATURE(shaderStorageImageWriteWithoutFormat);
-	CHECK_BOOL_FEATURE(shaderUniformBufferArrayDynamicIndexing);
 	CHECK_BOOL_FEATURE(shaderSampledImageArrayDynamicIndexing);
-	CHECK_BOOL_FEATURE(shaderStorageBufferArrayDynamicIndexing);
-	CHECK_BOOL_FEATURE(shaderStorageImageArrayDynamicIndexing);
 	CHECK_BOOL_FEATURE(shaderClipDistance);
 	CHECK_BOOL_FEATURE(shaderCullDistance);
-	CHECK_BOOL_FEATURE(shaderFloat64);
 	CHECK_BOOL_FEATURE(shaderInt64);
 	CHECK_BOOL_FEATURE(shaderInt16);
-	CHECK_BOOL_FEATURE(shaderResourceResidency);
-	CHECK_BOOL_FEATURE(shaderResourceMinLod);
-	CHECK_BOOL_FEATURE(sparseBinding);
-	CHECK_BOOL_FEATURE(sparseResidencyBuffer);
-	CHECK_BOOL_FEATURE(sparseResidencyImage2D);
-	CHECK_BOOL_FEATURE(sparseResidencyImage3D);
-	CHECK_BOOL_FEATURE(sparseResidency2Samples);
-	CHECK_BOOL_FEATURE(sparseResidency4Samples);
-	CHECK_BOOL_FEATURE(sparseResidency8Samples);
-	CHECK_BOOL_FEATURE(sparseResidency16Samples);
-	CHECK_BOOL_FEATURE(sparseResidencyAliased);
-	CHECK_BOOL_FEATURE(variableMultisampleRate);
-	CHECK_BOOL_FEATURE(inheritedQueries);
+	CHECK_BOOL_FEATURE_MULTIVIEW(multiview);
+	CHECK_BOOL_FEATURE_MULTIVIEW(multiviewGeometryShader);
 
 #undef CHECK_BOOL_FEATURE
 

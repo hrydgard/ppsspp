@@ -125,8 +125,7 @@ u32 GPU_D3D11::CheckGPUFeatures() const {
 	if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 	} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-		// Use fragment rounding on desktop and GLES3, most accurate.
-		features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 	} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
 	}
@@ -176,7 +175,7 @@ void GPU_D3D11::BeginHostFrame() {
 	if (resized_) {
 		gstate_c.useFlags = CheckGPUFeatures();
 		framebufferManager_->Resized();
-		drawEngine_.Resized();
+		drawEngine_.NotifyConfigChanged();
 		textureCache_->NotifyConfigChanged();
 		shaderManagerD3D11_->DirtyLastShader();
 		resized_ = false;

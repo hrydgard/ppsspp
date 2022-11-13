@@ -23,6 +23,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/x86/Jit.h"
 #include "Core/MIPS/x86/JitSafeMem.h"
 #include "Core/System.h"

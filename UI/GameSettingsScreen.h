@@ -142,6 +142,7 @@ private:
 	bool enableReports_ = false;
 	bool enableReportsSet_ = false;
 	bool analogSpeedMapped_ = false;
+
 	std::string shaderNames_[256];
 	std::string searchFilter_;
 

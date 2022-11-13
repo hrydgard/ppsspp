@@ -1235,6 +1235,12 @@ public abstract class NativeActivity extends Activity {
 
 	// The return value is sent to C++ via seqID.
 	public void inputBox(final String seqID, final String title, String defaultText, String defaultAction) {
+		// Workaround for issue #13363 to fix Split/Second game start
+		if (isVRDevice()) {
+			NativeApp.sendInputBox(seqID, false, defaultText);
+			return;
+		}
+
 		final FrameLayout fl = new FrameLayout(this);
 		final EditText input = new EditText(this);
 		input.setGravity(Gravity.CENTER);
@@ -1551,7 +1557,7 @@ public abstract class NativeActivity extends Activity {
 		}
 	}
 
-	private boolean isVRDevice() {
+	public static boolean isVRDevice() {
 		return BuildConfig.FLAVOR.startsWith("vr_");
 	}
 }
