@@ -1188,6 +1188,11 @@ void GPUCommon::BeginFrame() {
 	}
 	GPUDebug::NotifyBeginFrame();
 	GPURecord::NotifyBeginFrame();
+
+	if (drawEngineCommon_->EverUsedExactEqualDepth() && !sawExactEqualDepth_) {
+		sawExactEqualDepth_ = true;
+		gstate_c.useFlags = CheckGPUFeatures();
+	}
 }
 
 void GPUCommon::SlowRunLoop(DisplayList &list)
@@ -3368,7 +3373,14 @@ u32 GPUCommon::CheckGPUFeaturesLate(u32 features) const {
 	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
 	bool prefer16 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D16;
 	if (!prefer16) {
-		if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
+		if (sawExactEqualDepth_ && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
+			// Exact equal tests tend to have issues unless we use the PSP's depth range.
+			// We use 24-bit depth virtually everwhere, the fallback is just for safety.
+			if (prefer24)
+				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+			else
+				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+		} else if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
 			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
 			if (prefer24 && (features & GPU_USE_ACCURATE_DEPTH) != 0) {

@@ -356,6 +356,7 @@ protected:
 	bool debugRecording_;
 	bool interruptsEnabled_;
 	bool resized_ = false;
+	bool sawExactEqualDepth_ = false;
 	DrawType lastDraw_ = DRAW_UNKNOWN;
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
 
