@@ -203,7 +203,15 @@ void ProcessRect(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 		else if (outsidePos >= 2 || outsideNeg >= 2)
 			return;
 
-		if (v0.v.fogdepth != v1.v.fogdepth) {
+		bool splitFog = v0.v.fogdepth != v1.v.fogdepth;
+		if (splitFog) {
+			// If they match the same 1/255, we can consider the fog flat.  Seen in Resistance.
+			// More efficient if we can avoid splitting.
+			static constexpr float foghalfstep = 0.5f / 255.0f;
+			if (v1.v.fogdepth - foghalfstep <= v0.v.fogdepth && v1.v.fogdepth + foghalfstep >= v0.v.fogdepth)
+				splitFog = false;
+		}
+		if (splitFog) {
 			// Rectangles seem to always use nearest along X for fog depth, but reversed.
 			// TODO: Check exactness of middle.
 			VertexData vhalf0 = v1.v;
