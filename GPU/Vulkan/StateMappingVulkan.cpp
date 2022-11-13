@@ -209,10 +209,11 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			if ((gstate.pmskc & 0x00FFFFFF) == 0x00FFFFFF && g_Config.bVendorBugChecksEnabled && draw_->GetBugs().Has(Draw::Bugs::COLORWRITEMASK_BROKEN_WITH_DEPTHTEST)) {
 				key.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 				if (!key.blendEnable) {
+					bool writeAlpha = maskState.channelMask & 8;
 					key.blendEnable = true;
 					key.blendOpAlpha = VK_BLEND_OP_ADD;
-					key.srcAlpha = VK_BLEND_FACTOR_ZERO;
-					key.destAlpha = VK_BLEND_FACTOR_ONE;
+					key.srcAlpha = writeAlpha ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_ZERO;
+					key.destAlpha = writeAlpha ? VK_BLEND_FACTOR_ZERO : VK_BLEND_FACTOR_ONE;
 				}
 				key.blendOpColor = VK_BLEND_OP_ADD;
 				key.srcColor = VK_BLEND_FACTOR_ZERO;
