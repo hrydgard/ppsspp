@@ -273,6 +273,7 @@ private:
 	void MarkPendingReads(const Rasterizer::RasterizerState &state);
 	void MarkPendingWrites(const Rasterizer::RasterizerState &state);
 	bool HasTextureWrite(const Rasterizer::RasterizerState &state);
+	bool IsExactSelfRender(const Rasterizer::RasterizerState &state, const BinItem &item);
 	BinCoords Scissor(BinCoords range);
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);
 	BinCoords Range(const VertexData &v0, const VertexData &v1);

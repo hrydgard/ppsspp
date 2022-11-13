@@ -27,6 +27,9 @@
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRectangle.h"
 
+// Sometimes useful for debugging.
+static constexpr bool FORCE_SINGLE_THREAD = false;
+
 using namespace Rasterizer;
 
 struct BinWaitable : public Waitable {
@@ -215,7 +218,7 @@ void BinManager::UpdateState() {
 
 		// Disallow threads when rendering to the target, even offset.
 		bool selfRender = HasTextureWrite(state);
-		int newMaxTasks = selfRender ? 1 : g_threadManager.GetNumLooperThreads();
+		int newMaxTasks = selfRender || FORCE_SINGLE_THREAD ? 1 : g_threadManager.GetNumLooperThreads();
 		if (newMaxTasks > MAX_POSSIBLE_TASKS)
 			newMaxTasks = MAX_POSSIBLE_TASKS;
 		// We don't want to overlap wrong, so flush any pending.
@@ -252,6 +255,40 @@ bool BinManager::HasTextureWrite(const RasterizerState &state) {
 	}
 
 	return false;
+}
+
+bool BinManager::IsExactSelfRender(const Rasterizer::RasterizerState &state, const BinItem &item) {
+	if (item.type != BinItemType::SPRITE && item.type != BinItemType::RECT)
+		return false;
+	if (state.textureProj || state.maxTexLevel > 0)
+		return false;
+
+	// Only possible if the texture is 1:1.
+	if ((state.texaddr[0] & 0x0F1FFFFF) != (gstate.getFrameBufAddress() & 0x0F1FFFFF))
+		return false;
+	int bufferPixelWidth = BufferFormatBytesPerPixel(state.pixelID.FBFormat());
+	int texturePixelWidth = textureBitsPerPixel[state.samplerID.texfmt] / 8;
+	if (bufferPixelWidth != texturePixelWidth)
+		return false;
+
+	Vec4f tc = Vec4f(item.v0.texturecoords.x, item.v0.texturecoords.y, item.v1.texturecoords.x, item.v1.texturecoords.y);
+	if (state.throughMode) {
+		// Already at texels, convert to screen.
+		tc = tc * SCREEN_SCALE_FACTOR;
+	} else {
+		// Need to also multiply by width/height in transform mode.
+		int w = state.samplerID.cached.sizes[0].w * SCREEN_SCALE_FACTOR;
+		int h = state.samplerID.cached.sizes[0].h * SCREEN_SCALE_FACTOR;
+		tc = tc * Vec4f(w, h, w, h);
+	}
+
+	Vec4<int> tci = tc.Cast<int>();
+	if (tci.x != item.v0.screenpos.x || tci.y != item.v0.screenpos.y)
+		return false;
+	if (tci.z != item.v1.screenpos.x || tci.w != item.v1.screenpos.y)
+		return false;
+
+	return true;
 }
 
 void BinManager::MarkPendingReads(const Rasterizer::RasterizerState &state) {
@@ -417,6 +454,14 @@ void BinManager::Drain(bool flushing) {
 		// Always bin the entire possible range, but focus on the drawn area.
 		ScreenCoords tl(0, 0, 0);
 		ScreenCoords br(1024 * SCREEN_SCALE_FACTOR, 1024 * SCREEN_SCALE_FACTOR, 0);
+
+		if (pendingOverlap_ && maxTasks_ == 1 && flushing && queue_.Size() == 1 && !FORCE_SINGLE_THREAD) {
+			// If the drawing is 1:1, we can potentially use threads.  It's worth checking.
+			const auto &item = queue_.PeekNext();
+			const auto &state = states_[item.stateIndex];
+			if (IsExactSelfRender(state, item))
+				maxTasks_ = std::min(g_threadManager.GetNumLooperThreads(), MAX_POSSIBLE_TASKS);
+		}
 
 		taskRanges_.clear();
 		if (h2 >= 18 && w2 >= h2 * 4) {
@@ -681,6 +726,9 @@ void BinManager::Expand(const BinCoords &range) {
 	queueRange_.y2 = std::max(queueRange_.y2, range.y2);
 
 	if (maxTasks_ == 1 || (queueRange_.y2 - queueRange_.y1 >= 224 * SCREEN_SCALE_FACTOR && enqueues_ < 36 * maxTasks_)) {
-		Drain();
+		if (pendingOverlap_)
+			Flush("expand");
+		else
+			Drain();
 	}
 }
