@@ -262,6 +262,9 @@ protected:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
+	// Add additional common features dependent on other features, which may be backend-determined.
+	u32 CheckGPUFeaturesLate(u32 features) const;
+
 	inline bool IsTrianglePrim(GEPrimitiveType prim) const {
 		return prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP;
 	}

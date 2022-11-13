@@ -105,11 +105,7 @@ u32 GPU_D3D11::CheckGPUFeatures() const {
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
-	// TODO: Breaks text in PaRappa for some reason?
 	features |= GPU_USE_ACCURATE_DEPTH;
-
-	if (draw_->GetDeviceCaps().depthClampSupported)
-		features |= GPU_USE_DEPTH_CLAMP;
 
 	features |= GPU_USE_TEXTURE_FLOAT;
 	features |= GPU_USE_INSTANCE_RENDERING;
@@ -122,20 +118,12 @@ u32 GPU_D3D11::CheckGPUFeatures() const {
 		features |= GPU_USE_16BIT_FORMATS;
 	}
 
-	if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-	} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-	} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
-		features |= GPU_ROUND_DEPTH_TO_16BIT;
-	}
-
 	// The Phantasy Star hack :(
 	if (PSP_CoreParameter().compat.flags().DepthRangeHack && (features & GPU_USE_ACCURATE_DEPTH) == 0) {
 		features |= GPU_USE_DEPTH_RANGE_HACK;
 	}
 
-	return features;
+	return CheckGPUFeaturesLate(features);
 }
 
 // Needs to be called on GPU thread, not reporting thread.

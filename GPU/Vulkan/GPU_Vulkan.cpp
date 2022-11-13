@@ -207,12 +207,16 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || driverTooOld) {
 			features |= GPU_USE_ACCURATE_DEPTH;
+		} else {
+			features &= ~GPU_USE_ACCURATE_DEPTH;
 		}
 		break;
 	}
 	default:
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
 			features |= GPU_USE_ACCURATE_DEPTH;
+		} else {
+			features &= ~GPU_USE_ACCURATE_DEPTH;
 		}
 		break;
 	}
@@ -227,13 +231,8 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	features |= GPU_USE_VERTEX_TEXTURE_FETCH;
 	features |= GPU_USE_TEXTURE_FLOAT;
 
-	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled.standard;
-	if (enabledFeatures.depthClamp) {
-		features |= GPU_USE_DEPTH_CLAMP;
-	}
-
 	// Fall back to geometry shader culling if we can't do vertex range culling.
-	if (enabledFeatures.geometryShader) {
+	if (draw_->GetDeviceCaps().geometryShaderSupported) {
 		const bool useGeometry = g_Config.bUseGeometryShader && !draw_->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
 		const bool vertexSupported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
 		if (useGeometry && (!vertexSupported || (features & GPU_USE_VS_RANGE_CULLING) == 0)) {
@@ -257,24 +256,6 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		INFO_LOG(G3D, "Deficient texture format support: 4444: %d  1555: %d  565: %d", fmt4444, fmt1555, fmt565);
 	}
 
-	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
-	bool prefer16 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D16;
-	if (!prefer16) {
-		if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-			if (prefer24 && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-				// Here we can simulate a 16 bit depth buffer by scaling.
-				// Note that the depth buffer is fixed point, not floating, so dividing by 256 is pretty good.
-				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-			} else {
-				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-			}
-		} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
-			features |= GPU_ROUND_DEPTH_TO_16BIT;
-		}
-	}
-
 	if (g_Config.bStereoRendering && draw_->GetDeviceCaps().multiViewSupported) {
 		features |= GPU_USE_SINGLE_PASS_STEREO;
 		features |= GPU_USE_SIMPLE_STEREO_PERSPECTIVE;
@@ -287,7 +268,7 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		}
 	}
 
-	return features;
+	return CheckGPUFeaturesLate(features);
 }
 
 void GPU_Vulkan::BeginHostFrame() {

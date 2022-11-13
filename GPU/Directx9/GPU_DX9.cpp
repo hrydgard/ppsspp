@@ -105,21 +105,9 @@ u32 GPU_DX9::CheckGPUFeatures() const {
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
-	// TODO: Breaks text in PaRappa for some reason?
 	features |= GPU_USE_ACCURATE_DEPTH;
 
-	auto vendor = draw_->GetDeviceCaps().vendor;
-
-	if (!g_Config.bHighQualityDepth) {
-		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-	} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-		// Assume we always have a 24-bit depth buffer.
-		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-	} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
-		features |= GPU_ROUND_DEPTH_TO_16BIT;
-	}
-
-	return features;
+	return CheckGPUFeaturesLate(features);
 }
 
 GPU_DX9::~GPU_DX9() {
