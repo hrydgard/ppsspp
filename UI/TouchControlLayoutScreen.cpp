@@ -620,7 +620,7 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10)));
+	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 84)));
 	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
 
 	mode_ = new ChoiceStrip(ORIENT_VERTICAL);
@@ -638,7 +638,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	leftColumn->Add(snap);
 	leftColumn->Add(gridSize);
 	leftColumn->Add(new Choice(di->T("Reset")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
-	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	AddStandardBack(root_);
 
 	root_->Add(new BorderView(BORDER_BOTTOM, BorderStyle::ITEM_DOWN_BG, 4.0f, new AnchorLayoutParams(leftColumnWidth + 10, bounds.h * (1.0f - layoutAreaScale), 0.0f, NONE, false)));
 	root_->Add(new BorderView(BORDER_RIGHT, BorderStyle::ITEM_DOWN_BG, 4.0f, new AnchorLayoutParams(leftColumnWidth + 10, 0.0f, NONE, 0.0f, false)));
