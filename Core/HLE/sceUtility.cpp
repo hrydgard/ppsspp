@@ -886,6 +886,11 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LANGUAGE:
 		param = g_Config.iLanguage;
+		if (PSP_CoreParameter().compat.flags().EnglishOrJapaneseOnly) {
+			if (param != PSP_SYSTEMPARAM_LANGUAGE_ENGLISH && param != PSP_SYSTEMPARAM_LANGUAGE_JAPANESE) {
+				param = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+			}
+		}
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_BUTTON_PREFERENCE:
 		param = g_Config.iButtonPreference;

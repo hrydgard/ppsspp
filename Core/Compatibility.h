@@ -90,6 +90,7 @@ struct CompatFlags {
 	bool AllowDownloadCLUT;
 	bool NearestFilteringOnFramebufferCreate;
 	bool SecondaryTextureCache;
+	bool EnglishOrJapaneseOnly;
 };
 
 struct VRCompat {
