@@ -105,19 +105,19 @@ inline int dimHeight(u16 dim) {
 	return 1 << ((dim >> 8) & 0xFF);
 }
 
-// Vulkan color formats:
-// TODO
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
 	: draw_(draw), draw2D_(draw2D) {
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
-	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.
-	clutBufRaw_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
-	clutBufConverted_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
+	// It's only possible to have 1KB of palette entries, although we allow 2KB in a hack.
+	clutBufRaw_ = (u32 *)AllocateAlignedMemory(2048, 16);
+	clutBufConverted_ = (u32 *)AllocateAlignedMemory(2048, 16);
+	// Here we need 2KB to expand a 1KB CLUT.
+	expandClut_ = (u32 *)AllocateAlignedMemory(2048, 16);
 
 	// Zap so we get consistent behavior if the game fails to load some of the CLUT.
-	memset(clutBufRaw_, 0, 1024 * sizeof(u32));
-	memset(clutBufConverted_, 0, 1024 * sizeof(u32));
+	memset(clutBufRaw_, 0, 2048);
+	memset(clutBufConverted_, 0, 2048);
 	clutBuf_ = clutBufConverted_;
 
 	// These buffers will grow if necessary, but most won't need more than this.
@@ -134,6 +134,7 @@ TextureCacheCommon::~TextureCacheCommon() {
 
 	FreeAlignedMemory(clutBufConverted_);
 	FreeAlignedMemory(clutBufRaw_);
+	FreeAlignedMemory(expandClut_);
 }
 
 // Produces a signed 1.23.8 value.
@@ -422,11 +423,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 
 	bool isBgraTexture = isBgraBackend_ && !hasClutGPU;
-
-	if (gstate_c.bgraTexture != isBgraTexture) {
-		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
-	}
-	gstate_c.bgraTexture = isBgraTexture;
+	gstate_c.SetTextureIsBGRA(isBgraTexture);
 
 	if (entryIter != cache_.end()) {
 		entry = entryIter->second.get();
@@ -767,7 +764,7 @@ void TextureCacheCommon::Decimate(bool forcePressure) {
 	}
 
 	// If enabled, we also need to clear the secondary cache.
-	if (g_Config.bTextureSecondaryCache && (forcePressure || secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE)) {
+	if (PSP_CoreParameter().compat.flags().SecondaryTextureCache && (forcePressure || secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE)) {
 		const u32 had = secondCacheSizeEstimate_;
 
 		for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ) {
@@ -1092,12 +1089,10 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 			gstate_c.curTextureWidth = RoundUpToPowerOf2(gstate_c.curTextureWidth);
 		}
 
-		if (gstate_c.bgraTexture) {
-			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
-		} else if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
+		if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
-		gstate_c.bgraTexture = false;
+		gstate_c.SetTextureIsBGRA(false);
 		gstate_c.curTextureXOffset = fbInfo.xOffset;
 		gstate_c.curTextureYOffset = fbInfo.yOffset;
 		u32 texW = (u32)gstate.getTextureWidth(0);
@@ -1236,8 +1231,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 		return;
 	}
 
-	u32 startPos = gstate.getClutIndexStartPos();
-
+	_assert_(loadBytes <= 2048);
 	clutTotalBytes_ = loadBytes;
 	clutRenderAddress_ = 0xFFFFFFFF;
 
@@ -1320,6 +1314,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 
 		// It's possible for a game to load CLUT outside valid memory without crashing, should result in zeroes.
 		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
+		_assert_(bytes <= 2048);
 		bool performDownload = PSP_CoreParameter().compat.flags().AllowDownloadCLUT;
 		if (GPURecord::IsActive())
 			performDownload = true;
@@ -1681,7 +1676,13 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 				if (expandTo32bit) {
 					// We simply expand the CLUT to 32-bit, then we deindex as usual. Probably the fastest way.
 					const u16 *clut = GetCurrentRawClut<u16>() + clutSharingOffset;
-					ConvertFormatToRGBA8888(clutformat, expandClut_, clut, 16);
+					const int clutStart = gstate.getClutIndexStartPos();
+					if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexMask() <= 16) {
+						ConvertFormatToRGBA8888(clutformat, expandClut_ + clutStart, clut + clutStart, 16);
+					} else {
+						// To be safe for shifts and wrap around, convert the entire CLUT.
+						ConvertFormatToRGBA8888(clutformat, expandClut_, clut, 512);
+					}
 					fullAlphaMask = 0xFF000000;
 					for (int y = 0; y < h; ++y) {
 						DeIndexTexture4<u32>((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, expandClut_, &alphaSum);
@@ -1880,7 +1881,14 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 
 	if (expandTo32Bit && palFormat != GE_CMODE_32BIT_ABGR8888) {
 		const u16 *clut16raw = (const u16 *)clutBufRaw_ + clutSharingOffset;
-		ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_, clut16raw, 256);
+		// It's possible to access the latter half of the CLUT using the start pos.
+		const int clutStart = gstate.getClutIndexStartPos();
+		if (clutStart > 256) {
+			// Access wraps around when start + index goes over.
+			ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_, clut16raw, 512);
+		} else {
+			ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_ + clutStart, clut16raw + clutStart, 256);
+		}
 		clut32 = expandClut_;
 		palFormat = GE_CMODE_32BIT_ABGR8888;
 	}
@@ -2409,7 +2417,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	}
 
 	// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
-	if (g_Config.bTextureSecondaryCache) {
+	if (PSP_CoreParameter().compat.flags().SecondaryTextureCache) {
 		// Don't forget this one was unreliable (in case we match a secondary entry.)
 		entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
 

@@ -17,6 +17,7 @@
 
 #include <cstring>
 
+#include "Common/Log.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/StringUtils.h"
 #include "Core/Compatibility.h"
@@ -117,11 +118,15 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "ForceLowerResolutionForEffectsOn", &flags_.ForceLowerResolutionForEffectsOn);
 	CheckSetting(iniFile, gameID, "AllowDownloadCLUT", &flags_.AllowDownloadCLUT);
 	CheckSetting(iniFile, gameID, "NearestFilteringOnFramebufferCreate", &flags_.NearestFilteringOnFramebufferCreate);
+	CheckSetting(iniFile, gameID, "SecondaryTextureCache", &flags_.SecondaryTextureCache);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {
+	CheckSetting(iniFile, gameID, "IdentityViewHack", &vrCompat_.IdentityViewHack);
 	CheckSetting(iniFile, gameID, "Skyplane", &vrCompat_.Skyplane);
 	CheckSetting(iniFile, gameID, "UnitsPerMeter", &vrCompat_.UnitsPerMeter);
+
+	NOTICE_LOG(G3D, "UnitsPerMeter for %s: %f", gameID.c_str(), vrCompat_.UnitsPerMeter);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {

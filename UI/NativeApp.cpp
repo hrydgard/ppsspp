@@ -934,6 +934,16 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 bool CreateGlobalPipelines() {
 	using namespace Draw;
 
+	ShaderModule *vs_color_2d = g_draw->GetVshaderPreset(VS_COLOR_2D);
+	ShaderModule *fs_color_2d = g_draw->GetFshaderPreset(FS_COLOR_2D);
+	ShaderModule *vs_texture_color_2d = g_draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
+	ShaderModule *fs_texture_color_2d = g_draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D);
+
+	if (!vs_color_2d || !fs_color_2d || !vs_texture_color_2d || !fs_texture_color_2d) {
+		ERROR_LOG(G3D, "Failed to get shader preset");
+		return false;
+	}
+
 	InputLayout *inputLayout = ui_draw2d.CreateInputLayout(g_draw);
 	BlendState *blendNormal = g_draw->CreateBlendState({ true, 0xF, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
 	DepthStencilState *depth = g_draw->CreateDepthStencilState({ false, false, Comparison::LESS });
@@ -941,12 +951,12 @@ bool CreateGlobalPipelines() {
 
 	PipelineDesc colorDesc{
 		Primitive::TRIANGLE_LIST,
-		{ g_draw->GetVshaderPreset(VS_COLOR_2D), g_draw->GetFshaderPreset(FS_COLOR_2D) },
+		{ vs_color_2d, fs_color_2d },
 		inputLayout, depth, blendNormal, rasterNoCull, &vsColBufDesc,
 	};
 	PipelineDesc texColorDesc{
 		Primitive::TRIANGLE_LIST,
-		{ g_draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D), g_draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
+		{ vs_texture_color_2d, fs_texture_color_2d },
 		inputLayout, depth, blendNormal, rasterNoCull, &vsTexColBufDesc,
 	};
 
@@ -1297,8 +1307,8 @@ bool NativeTouch(const TouchInput &touch) {
 
 bool NativeKey(const KeyInput &key) {
 	// Special key VR actions
-	if (IsVRBuild()) {
-		UpdateVRSpecialKeys(key);
+	if (IsVREnabled() && !UpdateVRSpecialKeys(key)) {
+		return false;
 	}
 
 	// INFO_LOG(SYSTEM, "Key code: %i flags: %i", key.keyCode, key.flags);

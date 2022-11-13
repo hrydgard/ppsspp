@@ -697,7 +697,7 @@ const char * const vulkanDefaultBlacklist[] = {
 };
 
 static int DefaultGPUBackend() {
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		return (int)GPUBackend::OPENGL;
 	}
 
@@ -875,7 +875,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("CameraDevice", &g_Config.sCameraDevice, "", true, false),
 	ConfigSetting("VendorBugChecksEnabled", &g_Config.bVendorBugChecksEnabled, true, false, false),
 	ConfigSetting("UseGeometryShader", &g_Config.bUseGeometryShader, true, true, true),
-	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, 1, true, true),
+	ReportedConfigSetting("SkipBufferEffects", &g_Config.bSkipBufferEffects, false, true, true),
 	ConfigSetting("SoftwareRenderer", &g_Config.bSoftwareRendering, false, true, true),
 	ConfigSetting("SoftwareRendererJit", &g_Config.bSoftwareRenderingJit, true, true, true),
 	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true, true, true),
@@ -904,7 +904,6 @@ static ConfigSetting graphicsSettings[] = {
 
 	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, false, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
-	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false, true, true),
 	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, false),
 
 #ifndef MOBILE_DEVICE
@@ -938,7 +937,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("TextureShader", &g_Config.sTextureShaderName, "Off", true, true),
 	ConfigSetting("ShaderChainRequires60FPS", &g_Config.bShaderChainRequires60FPS, false, true, true),
 
-	ReportedConfigSetting("MemBlockTransferGPU", &g_Config.bBlockTransferGPU, true, true, true),
+	ReportedConfigSetting("SkipGPUReadbacks", &g_Config.bSkipGPUReadbacks, false, true, true),
 
 	ConfigSetting("GfxDebugOutput", &g_Config.bGfxDebugOutput, false, false, false),
 	ConfigSetting("LogFrameDrops", &g_Config.bLogFrameDrops, false, true, false),
@@ -1208,11 +1207,14 @@ static ConfigSetting vrSettings[] = {
 	ConfigSetting("VREnable", &g_Config.bEnableVR, true),
 	ConfigSetting("VREnable6DoF", &g_Config.bEnable6DoF, true),
 	ConfigSetting("VREnableStereo", &g_Config.bEnableStereo, false),
+	ConfigSetting("VREnableMotions", &g_Config.bEnableMotions, true),
+	ConfigSetting("VRbForce72Hz", &g_Config.bForce72Hz, true),
 	ConfigSetting("VRCameraDistance", &g_Config.fCameraDistance, 0.0f),
 	ConfigSetting("VRCameraHeight", &g_Config.fCameraHeight, 0.0f),
 	ConfigSetting("VRCameraSide", &g_Config.fCameraSide, 0.0f),
 	ConfigSetting("VRCanvasDistance", &g_Config.fCanvasDistance, 6.0f),
 	ConfigSetting("VRFieldOfView", &g_Config.fFieldOfViewPercentage, 100.0f),
+	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f),
 
 	ConfigSetting(false),
 };
@@ -1408,9 +1410,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (iAnisotropyLevel > 4) {
 		iAnisotropyLevel = 4;
 	}
-	if (iRenderingMode != FB_NON_BUFFERED_MODE && iRenderingMode != FB_BUFFERED_MODE) {
-		g_Config.iRenderingMode = FB_BUFFERED_MODE;
-	}
 
 	// Check for an old dpad setting
 	Section *control = iniFile.GetOrCreateSection("Control");
@@ -1461,8 +1460,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (sMACAddress.length() != 17)
 		sMACAddress = CreateRandMAC();
 
-	if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-		g_Config.iRenderingMode = FB_BUFFERED_MODE;
+	if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
+		g_Config.bSkipBufferEffects = false;
 	}
 
 	// Override ppsspp.ini JIT value to prevent crashing
@@ -1983,5 +1982,5 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 }
 
 bool Config::IsPortrait() const {
-	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && iRenderingMode != FB_NON_BUFFERED_MODE;
+	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && !bSkipBufferEffects;
 }

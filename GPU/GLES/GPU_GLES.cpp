@@ -181,17 +181,18 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 
 	// If we already have a 16-bit depth buffer, we don't need to round.
 	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
-	if (prefer24) {
+	bool prefer16 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D16;
+	if (!prefer16) {
 		if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
 			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-			if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
-				// Use fragment rounding on desktop and GLES3, most accurate.
-				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-			} else if (prefer24 && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
+			if (prefer24 && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
 				// Here we can simulate a 16 bit depth buffer by scaling.
 				// Note that the depth buffer is fixed point, not floating, so dividing by 256 is pretty good.
 				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+			} else if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+				// Use fragment rounding on desktop and GLES3, most accurate.
+				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
 			} else {
 				// At least do vertex rounding if nothing else.
 				features |= GPU_ROUND_DEPTH_TO_16BIT;
@@ -210,7 +211,7 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 		features |= GPU_USE_FRAGMENT_TEST_CACHE;
 	}
 
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		features |= GPU_USE_VIRTUAL_REALITY;
 	}
 	if (IsMultiviewSupported()) {
@@ -291,9 +292,9 @@ void GPU_GLES::BeginHostFrame() {
 	if (resized_) {
 		gstate_c.useFlags = CheckGPUFeatures();
 		framebufferManager_->Resized();
-		drawEngine_.Resized();
-		shaderManagerGL_->DirtyShader();
+		drawEngine_.NotifyConfigChanged();
 		textureCache_->NotifyConfigChanged();
+		shaderManagerGL_->DirtyShader();
 		resized_ = false;
 	}
 

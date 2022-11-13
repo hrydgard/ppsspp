@@ -577,7 +577,7 @@ void GLRenderManager::Run(int frame) {
 		}
 	}
 
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {
 			PreVRFrameRender(i);

@@ -1178,7 +1178,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	raster->ToVulkan(&gDesc.rs);
 
-	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << RP_TYPE_BACKBUFFER, tag ? tag : "thin3d");
+	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << (size_t)RenderPassType::BACKBUFFER, tag ? tag : "thin3d");
 
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;
@@ -1703,11 +1703,8 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 		return (uint64_t)(((VKTexture *)srcObject)->GetImageView());
 	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_ALL_LAYERS:
 		return (uint64_t)curFramebuffer_->GetFB()->color.texAllLayersView;
-	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_LAYER: {
-		size_t layer = (size_t)srcObject;
-		_dbg_assert_(layer < curFramebuffer_->Layers());
-		return (uint64_t)curFramebuffer_->GetFB()->color.texLayerViews[layer];
-	}
+	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_RT:
+		return (uint64_t)curFramebuffer_->GetFB()->color.rtView;
 	case NativeObject::FRAME_DATA_DESC_SET_LAYOUT:
 		return (uint64_t)frameDescSetLayout_;
 	case NativeObject::THIN3D_PIPELINE_LAYOUT:

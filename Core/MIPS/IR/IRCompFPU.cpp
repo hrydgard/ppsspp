@@ -118,7 +118,7 @@ void IRFrontend::Comp_FPUComp(MIPSOpcode op) {
 		break;
 	case 3:      // ueq, ngl (equal, unordered)
 		mode = IRFpCompareMode::EqualUnordered;
-		return;
+		break;
 	case 4:      // olt, lt (less than, ordered)
 		mode = IRFpCompareMode::LessOrdered;
 		break;

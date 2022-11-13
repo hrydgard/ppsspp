@@ -267,7 +267,7 @@ void DrawEngineGLES::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 
 	VShaderID vsid;
-	Shader *vshader = shaderManager_->ApplyVertexShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat, &vsid);
+	Shader *vshader = shaderManager_->ApplyVertexShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode || !CanUseHardwareTransform(prim), &vsid);
 
 	GLRBuffer *vertexBuffer = nullptr;
 	GLRBuffer *indexBuffer = nullptr;
@@ -278,7 +278,7 @@ void DrawEngineGLES::DoFlush() {
 		int vertexCount = 0;
 		bool useElements = true;
 
-		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we've already predecoded into "decoded". So push that content.
 			size_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 			u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vertexBufferOffset, &vertexBuffer);
@@ -331,7 +331,13 @@ void DrawEngineGLES::DoFlush() {
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
+		if (!decOptions_.applySkinInDecode) {
+			decOptions_.applySkinInDecode = true;
+			lastVType_ |= (1 << 26);
+			dec_ = GetVertexDecoder(lastVType_);
+		}
 		DecodeVerts(decoded);
+
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -389,6 +395,10 @@ void DrawEngineGLES::DoFlush() {
 		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, invertedY, trans, scale);
 
 		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
+		// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
+		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
+		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
+			result.action = SW_NOT_READY;
 		if (result.action == SW_NOT_READY)
 			swTransform.DetectOffsetTexture(maxIndex);
 
@@ -446,6 +456,7 @@ void DrawEngineGLES::DoFlush() {
 			}
 			gstate_c.Dirty(DIRTY_BLEND_STATE);  // Make sure the color mask gets re-applied.
 		}
+		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;

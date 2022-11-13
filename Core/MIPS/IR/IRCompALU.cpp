@@ -118,7 +118,7 @@ void IRFrontend::Comp_RType3(MIPSOpcode op) {
 	MIPSGPReg rd = _RD;
 
 	// noop, won't write to ZERO.
-	if (rd == 0)
+	if (rd == MIPS_REG_ZERO)
 		return;
 
 	switch (op & 63) {
@@ -298,7 +298,7 @@ void IRFrontend::Comp_Allegrex2(MIPSOpcode op) {
 	MIPSGPReg rd = _RD;
 
 	// Don't change $zr.
-	if (rd == 0)
+	if (rd == MIPS_REG_ZERO)
 		return;
 
 	switch (op & 0x3ff) {

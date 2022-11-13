@@ -119,7 +119,6 @@ private slots:
 	void moreSettingsAct() { NativeMessageReceived("settings", ""); }
 
 	void bufferRenderAct() {
-		g_Config.iRenderingMode = !g_Config.iRenderingMode;
 		NativeMessageReceived("gpu_resized", "");
 	}
 	void linearAct() { g_Config.iTexFiltering = (g_Config.iTexFiltering != 0) ? 0 : 3; }
@@ -134,15 +133,10 @@ private slots:
 		g_Config.iSmallDisplayZoomType = action->data().toInt();
 		NativeMessageReceived("gpu_resized", "");
 	}
-	void renderingModeGroup_triggered(QAction *action) {
-		g_Config.iRenderingMode = action->data().toInt();
-		g_Config.bAutoFrameSkip = false;
-		NativeMessageReceived("gpu_resized", "");
-	}
 	void autoframeskipAct() {
 		g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
-		if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-			g_Config.iRenderingMode = FB_BUFFERED_MODE;
+		if (g_Config.bSkipBufferEffects) {
+			g_Config.bSkipBufferEffects = false;
 			NativeMessageReceived("gpu_resized", "");
 		}
 	}
@@ -224,7 +218,7 @@ private:
 	             *textureScalingLevelGroup, *textureScalingTypeGroup,
 	             *screenScalingFilterGroup, *textureFilteringGroup,
 	             *frameSkippingTypeGroup, *frameSkippingGroup,
-	             *renderingModeGroup, *renderingResolutionGroup,
+	             *renderingResolutionGroup,
 	             *displayRotationGroup, *saveStateGroup;
 
 	std::queue<MainWindowMsg> msgQueue_;

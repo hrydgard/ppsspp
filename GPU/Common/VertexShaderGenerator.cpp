@@ -168,6 +168,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	ShaderWriter p(buffer, compat, ShaderStage::Vertex, extensions);
 
+	p.F("// %s\n", VertexShaderDesc(id).c_str());
+
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE);
 	bool doTexture = id.Bit(VS_BIT_DO_TEXTURE);
@@ -249,6 +251,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
+
+		if (!useHWTransform) {
+			WRITE(p, "layout (std140, set = 0, binding = 0) uniform frameVars {\n%s};\n", ub_frameStr);
+		}
+
 		WRITE(p, "layout (std140, set = 1, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
 		if (enableLighting || doShadeMapping)
 			WRITE(p, "layout (std140, set = 1, binding = 4) uniform lightVars {\n%s};\n", ub_vs_lightsStr);
@@ -846,7 +853,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// The proj_through matrix already has the rotation, if needed.
 			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
 		} else {
-			if (compat.shaderLanguage == GLSL_VULKAN || compat.shaderLanguage == HLSL_D3D11) {
+			if (compat.shaderLanguage == GLSL_VULKAN) {
 				// Apply rotation from the uniform.
 				WRITE(p, "  mat2 displayRotation = mat2(\n");
 				WRITE(p, "    u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0), u_rotation == 1.0 ? 1.0 : (u_rotation == 3.0 ? -1.0 : 0.0),\n");
@@ -1047,11 +1054,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("        ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
 				p.C("      }\n");
 				p.C("    }\n");
-				p.C("    switch (type) {\n");  // Attenuation
-				p.C("    case 1u:\n");  // GE_LIGHTTYPE_POINT
+				p.C("    switch (int(type)) {\n");  // Attenuation
+				p.C("    case 1:\n");  // GE_LIGHTTYPE_POINT
 				p.F("      lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
 				p.C("      break;\n");
-				p.C("    case 2u:\n");  // GE_LIGHTTYPE_SPOT
+				p.C("    case 2:\n");  // GE_LIGHTTYPE_SPOT
 				p.F("      angle = length(u_lightdir%i) == 0.0 ? 0.0 : dot(normalize(u_lightdir%i), toLight);\n", i, i);
 				p.F("      if (angle >= u_lightangle_spotCoef%i.x) {\n", i);
 				p.F("        lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%i.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%i.y));\n", i, i, i);

@@ -1,8 +1,6 @@
 #include "VRInput.h"
 #include <cstring>
 
-#ifdef OPENXR
-
 //OpenXR
 XrPath leftHandPath;
 XrPath rightHandPath;
@@ -268,25 +266,27 @@ void IN_VRInit( engine_t *engine ) {
 	handPoseRightAction = CreateAction(runningActionSet, XR_ACTION_TYPE_POSE_INPUT, "hand_pose_right", NULL, 1, &rightHandPath);
 
 	XrPath interactionProfilePath = XR_NULL_PATH;
-#ifdef OPENXR_PLATFORM_QUEST
-	OXR(xrStringToPath(engine->appState.Instance, "/interaction_profiles/oculus/touch_controller", &interactionProfilePath));
-#elif OPENXR_PLATFORM_PICO
-	OXR(xrStringToPath(engine->appState.Instance, "/interaction_profiles/pico/neo3_controller", &interactionProfilePath));
-#endif
+	if (VR_GetPlatformFlag(VR_PLATFORM_CONTROLLER_QUEST)) {
+		OXR(xrStringToPath(engine->appState.Instance, "/interaction_profiles/oculus/touch_controller", &interactionProfilePath));
+	} else if (VR_GetPlatformFlag(VR_PLATFORM_CONTROLLER_PICO)) {
+		OXR(xrStringToPath(engine->appState.Instance, "/interaction_profiles/pico/neo3_controller", &interactionProfilePath));
+	}
+
 	// Map bindings
 	XrActionSuggestedBinding bindings[32]; // large enough for all profiles
 	int currBinding = 0;
 
-#ifdef OPENXR_PLATFORM_QUEST
-	bindings[currBinding++] = ActionSuggestedBinding(indexLeftAction, "/user/hand/left/input/trigger");
-	bindings[currBinding++] = ActionSuggestedBinding(indexRightAction, "/user/hand/right/input/trigger");
-	bindings[currBinding++] = ActionSuggestedBinding(menuAction, "/user/hand/left/input/menu/click");
-#elif OPENXR_PLATFORM_PICO
-	bindings[currBinding++] = ActionSuggestedBinding(indexLeftAction,  "/user/hand/left/input/trigger/click");
-	bindings[currBinding++] = ActionSuggestedBinding(indexRightAction,  "/user/hand/right/input/trigger/click");
-	bindings[currBinding++] = ActionSuggestedBinding(menuAction, "/user/hand/left/input/back/click");
-	bindings[currBinding++] = ActionSuggestedBinding(menuAction, "/user/hand/right/input/back/click");
-#endif
+
+	if (VR_GetPlatformFlag(VR_PLATFORM_CONTROLLER_QUEST)) {
+		bindings[currBinding++] = ActionSuggestedBinding(indexLeftAction, "/user/hand/left/input/trigger");
+		bindings[currBinding++] = ActionSuggestedBinding(indexRightAction, "/user/hand/right/input/trigger");
+		bindings[currBinding++] = ActionSuggestedBinding(menuAction, "/user/hand/left/input/menu/click");
+	} else if (VR_GetPlatformFlag(VR_PLATFORM_CONTROLLER_PICO)) {
+		bindings[currBinding++] = ActionSuggestedBinding(indexLeftAction,  "/user/hand/left/input/trigger/click");
+		bindings[currBinding++] = ActionSuggestedBinding(indexRightAction,  "/user/hand/right/input/trigger/click");
+		bindings[currBinding++] = ActionSuggestedBinding(menuAction, "/user/hand/left/input/back/click");
+		bindings[currBinding++] = ActionSuggestedBinding(menuAction, "/user/hand/right/input/back/click");
+	}
 	bindings[currBinding++] = ActionSuggestedBinding(buttonXAction, "/user/hand/left/input/x/click");
 	bindings[currBinding++] = ActionSuggestedBinding(buttonYAction, "/user/hand/left/input/y/click");
 	bindings[currBinding++] = ActionSuggestedBinding(buttonAAction, "/user/hand/right/input/a/click");
@@ -462,5 +462,3 @@ XrPosef IN_VRGetPose( int controllerIndex ) {
 	xrLocateSpace(aimSpace[controllerIndex], engine->appState.CurrentSpace, (XrTime)(engine->predictedDisplayTime), &loc);
 	return loc.pose;
 }
-
-#endif

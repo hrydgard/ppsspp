@@ -52,10 +52,10 @@ enum FBOTexState {
 	FBO_TEX_READ_FRAMEBUFFER,
 };
 
-inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
+inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode, bool skinInDecode) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.
-	return (vertType & 0xFFFFFF) | (uvGenMode << 24);
+	return (vertType & 0xFFFFFF) | (uvGenMode << 24) | (skinInDecode << 26);
 }
 
 struct SimpleVertex;
@@ -105,7 +105,7 @@ public:
 	std::vector<std::string> DebugGetVertexLoaderIDs();
 	std::string DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType);
 
-	virtual void Resized();
+	virtual void NotifyConfigChanged();
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
 		return decJitCache_->IsInSpace(ptr);
@@ -145,10 +145,27 @@ protected:
 		return 1;
 	}
 
+	inline void UpdateEverUsedEqualDepth(GEComparison comp) {
+		switch (comp) {
+		case GE_COMP_EQUAL:
+		case GE_COMP_NOTEQUAL:
+		case GE_COMP_LEQUAL:
+		case GE_COMP_GEQUAL:
+			everUsedEqualDepth_ = true;
+			break;
+
+		default:
+			break;
+		}
+	}
+
 	bool useHWTransform_ = false;
 	bool useHWTessellation_ = false;
 	// Used to prevent unnecessary flushing in softgpu.
 	bool flushOnParams_ = true;
+
+	// Set once a equal depth test is encountered.
+	bool everUsedEqualDepth_ = false;
 
 	// Vertex collector buffers
 	u8 *decoded = nullptr;

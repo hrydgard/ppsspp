@@ -304,6 +304,13 @@ static const KeyMap_IntStrPair key_names[] = {
 	{NKCODE_EXT_MOUSEWHEEL_UP, "MWheelU"},
 	{NKCODE_EXT_MOUSEWHEEL_DOWN, "MWheelD"},
 
+
+	{NKCODE_EXT_MOTION_UP, "MotionUp"},
+	{NKCODE_EXT_MOTION_DOWN, "MotionDown"},
+	{NKCODE_EXT_MOTION_LEFT, "MotionLeft"},
+	{NKCODE_EXT_MOTION_RIGHT, "MotionRight"},
+	{NKCODE_EXT_MOTION_FORWARD, "MotionFwd"},
+
 	{NKCODE_START_QUESTION, "¿"},
 	{NKCODE_LEFTBRACE, "{"},
 	{NKCODE_RIGHTBRACE, "}"},
@@ -401,6 +408,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 
 #ifdef OPENXR
 	{VIRTKEY_VR_CAMERA_ADJUST, "VR camera adjust"},
+	{VIRTKEY_VR_CAMERA_RESET, "VR camera reset"},
 #else
 	{VIRTKEY_SCREEN_ROTATION_VERTICAL, "Display Portrait"},
 	{VIRTKEY_SCREEN_ROTATION_VERTICAL180, "Display Portrait Reversed"},
@@ -660,7 +668,7 @@ void RestoreDefault() {
 	g_controllerMap.clear();
 	g_controllerMapGeneration++;
 
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_VR_HEADSET, false);
 		return;
 	}

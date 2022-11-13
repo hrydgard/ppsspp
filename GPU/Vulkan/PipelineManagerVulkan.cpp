@@ -256,6 +256,11 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	desc->fragmentShader = fs->GetModule();
 	desc->vertexShader = vs->GetModule();
 	desc->geometryShader = gs ? gs->GetModule() : nullptr;
+	desc->fragmentShaderSource = fs->GetShaderString(SHADER_STRING_SOURCE_CODE);
+	desc->vertexShaderSource = vs->GetShaderString(SHADER_STRING_SOURCE_CODE);
+	if (gs) {
+		desc->geometryShaderSource =  gs->GetShaderString(SHADER_STRING_SOURCE_CODE);
+	}
 
 	VkPipelineInputAssemblyStateCreateInfo &inputAssembly = desc->inputAssembly;
 	inputAssembly.flags = 0;

@@ -552,6 +552,7 @@ BEGIN
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Fullscreen",                              ID_OPTIONS_FULLSCREEN
         MENUITEM "VSync",                                   ID_OPTIONS_VSYNC
+        MENUITEM "Skip Buffer Effects",                     ID_OPTIONS_SKIP_BUFFER_EFFECTS
         POPUP "Postprocessing Shader",                      ID_OPTIONS_SHADER_MENU
         BEGIN
             MENUITEM "", 0, MFT_SEPARATOR
@@ -592,11 +593,7 @@ BEGIN
             MENUITEM "Vulkan",                              ID_OPTIONS_VULKAN
         END
 
-        POPUP "Rendering Mode",                             ID_OPTIONS_RENDERMODE_MENU
-        BEGIN
-            MENUITEM "Non-Buffered Rendering",              ID_OPTIONS_NONBUFFEREDRENDERING
-            MENUITEM "Buffered Rendering",                  ID_OPTIONS_BUFFEREDRENDERING
-        END
+
         POPUP "Frame Skipping",                             ID_OPTIONS_FRAMESKIP_MENU
         BEGIN
             MENUITEM "Auto",                                ID_OPTIONS_FRAMESKIP_AUTO

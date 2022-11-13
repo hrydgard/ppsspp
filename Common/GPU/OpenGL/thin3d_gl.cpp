@@ -10,6 +10,7 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
+#include "Common/Log.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/OpenGL/DataFormatGL.h"
@@ -249,9 +250,13 @@ bool OpenGLShaderModule::Compile(GLRenderManager *render, ShaderLanguage languag
 		if (source_.find("#version") == source_.npos) {
 			source_ = ApplyGLSLPrelude(source_, glstage_);
 		}
+	} else {
+		// Unsupported shader type
+		return false;
 	}
 
 	shader_ = render->CreateShader(glstage_, source_, tag_);
+	_assert_(shader_ != nullptr);  // normally can't fail since we defer creation, unless there's a memory error or similar.
 	return true;
 }
 
@@ -276,7 +281,9 @@ public:
 		for (auto &iter : shaders) {
 			iter->Release();
 		}
-		if (program_) render_->DeleteProgram(program_);
+		if (program_) {
+			render_->DeleteProgram(program_);
+		}
 	}
 
 	bool LinkShaders();

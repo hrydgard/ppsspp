@@ -275,7 +275,7 @@ namespace Draw {
 class Bugs;
 }
 
-void ComputeVertexShaderID(VShaderID *id, uint32_t vertexType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat);
+void ComputeVertexShaderID(VShaderID *id, uint32_t vertexType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
 // Generates a compact string that describes the shader. Useful in a list to get an overview
 // of the current flora of shaders.
 std::string VertexShaderDesc(const VShaderID &id);

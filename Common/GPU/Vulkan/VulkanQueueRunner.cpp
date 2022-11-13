@@ -32,12 +32,12 @@ static void MergeRenderAreaRectInto(VkRect2D *dest, VkRect2D &src) {
 RenderPassType MergeRPTypes(RenderPassType a, RenderPassType b) {
 	// Either both are backbuffer type, or neither are.
 	// These can't merge with other renderpasses
-	if (a == RP_TYPE_BACKBUFFER || b == RP_TYPE_BACKBUFFER) {
+	if (a == RenderPassType::BACKBUFFER || b == RenderPassType::BACKBUFFER) {
 		_dbg_assert_(a == b);
 		return a;
 	}
 
-	_dbg_assert_((a & RP_TYPE_MULTIVIEW_COLOR) == (b & RP_TYPE_MULTIVIEW_COLOR));
+	_dbg_assert_((a & RenderPassType::MULTIVIEW) == (b & RenderPassType::MULTIVIEW));
 
 	// The rest we can just OR together to get the maximum feature set.
 	return (RenderPassType)((u32)a | (u32)b);
@@ -198,7 +198,7 @@ bool VulkanQueueRunner::InitBackbufferFramebuffers(int width, int height) {
 	VkImageView attachments[2] = { VK_NULL_HANDLE, depth_.view };
 
 	VkFramebufferCreateInfo fb_info = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-	fb_info.renderPass = GetCompatibleRenderPass()->Get(vulkan_, RP_TYPE_BACKBUFFER);
+	fb_info.renderPass = GetCompatibleRenderPass()->Get(vulkan_, RenderPassType::BACKBUFFER);
 	fb_info.attachmentCount = 2;
 	fb_info.pAttachments = attachments;
 	fb_info.width = width;
@@ -331,7 +331,7 @@ static VkAttachmentStoreOp ConvertStoreAction(VKRRenderPassStoreAction action) {
 
 VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPassType rpType) {
 	bool selfDependency = RenderPassTypeHasInput(rpType);
-	bool isBackbuffer = rpType == RP_TYPE_BACKBUFFER;
+	bool isBackbuffer = rpType == RenderPassType::BACKBUFFER;
 	bool hasDepth = RenderPassTypeHasDepth(rpType);
 	bool multiview = RenderPassTypeHasMultiView(rpType);
 
@@ -898,6 +898,18 @@ const char *AspectToString(VkImageAspectFlags aspect) {
 	}
 }
 
+static const char *rpTypeDebugNames[] = {
+	"RENDER",
+	"RENDER_DEPTH",
+	"RENDER_INPUT",
+	"RENDER_DEPTH_INPUT",
+	"MV_RENDER",
+	"MV_RENDER_DEPTH",
+	"MV_RENDER_INPUT",
+	"MV_RENDER_DEPTH_INPUT",
+	"BACKBUF",
+};
+
 std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 	char buffer[256];
 	switch (step.stepType) {
@@ -907,19 +919,7 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 		int h = step.render.framebuffer ? step.render.framebuffer->height : vulkan_->GetBackbufferHeight();
 		int actual_w = step.render.renderArea.extent.width;
 		int actual_h = step.render.renderArea.extent.height;
-		const char *renderCmd;
-		switch (step.render.renderPassType) {
-		case RP_TYPE_BACKBUFFER: renderCmd = "BACKBUF"; break;
-		case RP_TYPE_COLOR: renderCmd = "RENDER"; break;
-		case RP_TYPE_COLOR_DEPTH: renderCmd = "RENDER_DEPTH"; break;
-		case RP_TYPE_COLOR_INPUT: renderCmd = "RENDER_INPUT"; break;
-		case RP_TYPE_COLOR_DEPTH_INPUT: renderCmd = "RENDER_DEPTH_INPUT"; break;
-		case RP_TYPE_MULTIVIEW_COLOR: renderCmd = "MV_RENDER"; break;
-		case RP_TYPE_MULTIVIEW_COLOR_DEPTH: renderCmd = "MV_RENDER_DEPTH"; break;
-		case RP_TYPE_MULTIVIEW_COLOR_INPUT: renderCmd = "MV_RENDER_INPUT"; break;
-		case RP_TYPE_MULTIVIEW_COLOR_DEPTH_INPUT: renderCmd = "MV_RENDER_DEPTH_INPUT"; break;
-		default: renderCmd = "N/A";
-		}
+		const char *renderCmd = rpTypeDebugNames[(size_t)step.render.renderPassType];
 		snprintf(buffer, sizeof(buffer), "%s %s %s (draws: %d, %dx%d/%dx%d)", renderCmd, step.tag, step.render.framebuffer ? step.render.framebuffer->Tag() : "", step.render.numDraws, actual_w, actual_h, w, h);
 		break;
 	}
@@ -1443,6 +1443,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	VkPipeline lastPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 
+	bool pipelineOK = false;
+
 	int lastStencilWriteMask = -1;
 	int lastStencilCompareMask = -1;
 	int lastStencilReference = -1;
@@ -1459,26 +1461,30 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		{
 			VKRGraphicsPipeline *graphicsPipeline = c.graphics_pipeline.pipeline;
 			if (graphicsPipeline != lastGraphicsPipeline) {
-				if (!graphicsPipeline->pipeline[rpType]) {
+				if (!graphicsPipeline->pipeline[(size_t)rpType]) {
 					// NOTE: If render steps got merged, it can happen that, as they ended during recording,
 					// they didn't know their final render pass type so they created the wrong pipelines in EndCurRenderStep().
 					// Unfortunately I don't know if we can fix it in any more sensible place than here.
 					// Maybe a middle pass. But let's try to just block and compile here for now, this doesn't
 					// happen all that much.
-					graphicsPipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
+					graphicsPipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
 					graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType), rpType);
 				}
 
-				VkPipeline pipeline = graphicsPipeline->pipeline[rpType]->BlockUntilReady();
+				VkPipeline pipeline = graphicsPipeline->pipeline[(size_t)rpType]->BlockUntilReady();
 				if (pipeline != VK_NULL_HANDLE) {
 					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 					pipelineLayout = c.pipeline.pipelineLayout;
 					lastGraphicsPipeline = graphicsPipeline;
-					// Reset dynamic state so it gets refreshed with the new pipeline.
-					lastStencilWriteMask = -1;
-					lastStencilCompareMask = -1;
-					lastStencilReference = -1;
+					pipelineOK = true;
+				} else {
+					pipelineOK = false;
 				}
+
+				// Reset dynamic state so it gets refreshed with the new pipeline.
+				lastStencilWriteMask = -1;
+				lastStencilCompareMask = -1;
+				lastStencilReference = -1;
 			}
 			break;
 		}
@@ -1550,7 +1556,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		}
 
 		case VKRRenderCommand::PUSH_CONSTANTS:
-			vkCmdPushConstants(cmd, pipelineLayout, c.push.stages, c.push.offset, c.push.size, c.push.data);
+			if (pipelineOK) {
+				vkCmdPushConstants(cmd, pipelineLayout, c.push.stages, c.push.offset, c.push.size, c.push.data);
+			}
 			break;
 
 		case VKRRenderCommand::STENCIL:
@@ -1569,21 +1577,23 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			break;
 
 		case VKRRenderCommand::DRAW_INDEXED:
-		{
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
-			vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, (VkIndexType)c.drawIndexed.indexType);
-			VkDeviceSize voffset = c.drawIndexed.voffset;
-			vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &voffset);
-			vkCmdDrawIndexed(cmd, c.drawIndexed.count, c.drawIndexed.instances, 0, 0, 0);
+			if (pipelineOK) {
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
+				vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, (VkIndexType)c.drawIndexed.indexType);
+				VkDeviceSize voffset = c.drawIndexed.voffset;
+				vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &voffset);
+				vkCmdDrawIndexed(cmd, c.drawIndexed.count, c.drawIndexed.instances, 0, 0, 0);
+			}
 			break;
-		}
 
 		case VKRRenderCommand::DRAW:
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
-			if (c.draw.vbuffer) {
-				vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
+			if (pipelineOK) {
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
+				if (c.draw.vbuffer) {
+					vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
+				}
+				vkCmdDraw(cmd, c.draw.count, 1, c.draw.offset, 0);
 			}
-			vkCmdDraw(cmd, c.draw.count, 1, c.draw.offset, 0);
 			break;
 
 		case VKRRenderCommand::CLEAR:
@@ -1711,7 +1721,7 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 		};
 		renderPass = GetRenderPass(key);
 
-		if (IsVRBuild()) {
+		if (IsVREnabled()) {
 			framebuf = (VkFramebuffer)BindVRFramebuffer();
 		} else {
 			framebuf = backbuffer_;

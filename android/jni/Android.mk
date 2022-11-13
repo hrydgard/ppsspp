@@ -72,6 +72,7 @@ SPIRV_CROSS_FILES := \
   $(SRC)/ext/SPIRV-Cross/spirv_cross_parsed_ir.cpp
 
 VR_FILES := \
+  $(SRC)/Common/VR/OpenXRLoader.cpp \
   $(SRC)/Common/VR/PPSSPPVR.cpp \
   $(SRC)/Common/VR/VRBase.cpp \
   $(SRC)/Common/VR/VRFramebuffer.cpp \

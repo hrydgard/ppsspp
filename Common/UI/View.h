@@ -128,10 +128,10 @@ enum FocusDirection {
 	FOCUS_NEXT_PAGE,
 };
 
-enum {
-	WRAP_CONTENT = -1,
-	FILL_PARENT = -2,
-};
+typedef float Size;  // can also be WRAP_CONTENT or FILL_PARENT.
+
+static constexpr Size WRAP_CONTENT = -1.0f;
+static constexpr Size FILL_PARENT = -2.0f;
 
 // Gravity
 enum Gravity {
@@ -173,8 +173,6 @@ enum class BorderStyle {
 	HEADER_FG,
 	ITEM_DOWN_BG,
 };
-
-typedef float Size;  // can also be WRAP_CONTENT or FILL_PARENT.
 
 enum Orientation {
 	ORIENT_HORIZONTAL,

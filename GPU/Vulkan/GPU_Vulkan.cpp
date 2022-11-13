@@ -257,15 +257,22 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		INFO_LOG(G3D, "Deficient texture format support: 4444: %d  1555: %d  565: %d", fmt4444, fmt1555, fmt565);
 	}
 
-	if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-	}
-	else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-		// Use fragment rounding on desktop and GLES3, most accurate.
-		features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-	}
-	else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
-		features |= GPU_ROUND_DEPTH_TO_16BIT;
+	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
+	bool prefer16 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D16;
+	if (!prefer16) {
+		if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
+			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
+			if (prefer24 && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
+				// Here we can simulate a 16 bit depth buffer by scaling.
+				// Note that the depth buffer is fixed point, not floating, so dividing by 256 is pretty good.
+				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+			} else {
+				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+			}
+		} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
+			features |= GPU_ROUND_DEPTH_TO_16BIT;
+		}
 	}
 
 	if (g_Config.bStereoRendering && draw_->GetDeviceCaps().multiViewSupported) {
@@ -292,7 +299,7 @@ void GPU_Vulkan::BeginHostFrame() {
 		// In case the GPU changed.
 		BuildReportingInfo();
 		framebufferManager_->Resized();
-		drawEngine_.Resized();
+		drawEngine_.NotifyConfigChanged();
 		textureCache_->NotifyConfigChanged();
 		resized_ = false;
 	}

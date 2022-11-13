@@ -544,7 +544,7 @@ void __DisplayFlip(int cyclesLate) {
 	// non-buffered rendering. The interaction with frame skipping seems to need
 	// some work.
 	// But, let's flip at least once every 10 vblanks, to update fps, etc.
-	const bool noRecentFlip = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && numVBlanksSinceFlip >= 10;
+	const bool noRecentFlip = !g_Config.bSkipBufferEffects && numVBlanksSinceFlip >= 10;
 	// Also let's always flip for animated shaders.
 	bool postEffectRequiresFlip = false;
 
@@ -556,7 +556,7 @@ void __DisplayFlip(int cyclesLate) {
 		fastForwardSkipFlip = true;
 	}
 
-	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+	if (!g_Config.bSkipBufferEffects) {
 		postEffectRequiresFlip = duplicateFrames || g_Config.bShaderChainRequires60FPS;
 	}
 
@@ -777,7 +777,7 @@ void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelFormat, int sync) 
 		// IMMEDIATE means that the buffer is fine. We can just flip immediately.
 		// Doing it in non-buffered though creates problems (black screen) on occasion though
 		// so let's not.
-		if (!flippedThisFrame && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+		if (!flippedThisFrame && !g_Config.bSkipBufferEffects) {
 			double before_flip = time_now_d();
 			__DisplayFlip(0);
 			double after_flip = time_now_d();

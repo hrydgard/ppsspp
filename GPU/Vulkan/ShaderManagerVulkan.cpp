@@ -25,6 +25,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/TimeUtil.h"
 
 #include "Common/StringUtils.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -92,11 +93,10 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 			if (tag)
 				delete tag;
 		}
-
 		return shaderModule;
 	};
 
-#ifdef _DEBUG
+#if defined(_DEBUG)
 	// Don't parallelize in debug mode, pathological behavior due to mutex locks in allocator which is HEAVILY used by glslang.
 	return Promise<VkShaderModule>::AlreadyDone(compile());
 #else
@@ -280,11 +280,11 @@ uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering) {
 	return dirty;
 }
 
-void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat) {
+void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode) {
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, vertType, useHWTransform, useHWTessellation, weightsAsFloat);
+		ComputeVertexShaderID(&VSID, vertType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
 	} else {
 		VSID = lastVSID_;
 	}

@@ -599,7 +599,7 @@ void DrawEngineVulkan::DoFlush() {
 		// Also avoid caching when software skinning.
 		VkBuffer vbuf = VK_NULL_HANDLE;
 		VkBuffer ibuf = VK_NULL_HANDLE;
-		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			useCache = false;
 		}
 
@@ -739,7 +739,7 @@ void DrawEngineVulkan::DoFlush() {
 				break;
 			}
 		} else {
-			if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+			if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 				// If software skinning, we've already predecoded into "decoded". So push that content.
 				VkDeviceSize size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 				u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vbOffset, &vbuf);
@@ -784,7 +784,7 @@ void DrawEngineVulkan::DoFlush() {
 			VulkanFragmentShader *fshader = nullptr;
 			VulkanGeometryShader *gshader = nullptr;
 
-			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat);  // usehwtransform
+			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
 			if (!vshader) {
 				// We're screwed.
 				return;
@@ -841,6 +841,11 @@ void DrawEngineVulkan::DoFlush() {
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
+		if (!decOptions_.applySkinInDecode) {
+			decOptions_.applySkinInDecode = true;
+			lastVType_ |= (1 << 26);
+			dec_ = GetVertexDecoder(lastVType_);
+		}
 		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -891,6 +896,10 @@ void DrawEngineVulkan::DoFlush() {
 		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight < 0, trans, scale);
 
 		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
+		// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
+		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
+		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
+			result.action = SW_NOT_READY;
 		if (result.action == SW_NOT_READY) {
 			swTransform.DetectOffsetTexture(maxIndex);
 			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, maxIndex, &result);
@@ -919,7 +928,7 @@ void DrawEngineVulkan::DoFlush() {
 				VulkanFragmentShader *fshader = nullptr;
 				VulkanGeometryShader *gshader = nullptr;
 
-				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat);  // usehwtransform
+				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
 				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
 				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, false, 0);
 				if (!pipeline || !pipeline->pipeline) {
@@ -927,6 +936,7 @@ void DrawEngineVulkan::DoFlush() {
 					decodedVerts_ = 0;
 					numDrawCalls = 0;
 					decodeCounter_ = 0;
+					decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 					return;
 				}
 				BindShaderBlendTex();  // This might cause copies so super important to do before BindPipeline.
@@ -994,6 +1004,7 @@ void DrawEngineVulkan::DoFlush() {
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, result.color);
 			}
 		}
+		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;
@@ -1021,7 +1032,9 @@ void DrawEngineVulkan::DoFlush() {
 void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 	if (!frame->frameDescSetUpdated) {
 		// Push frame global constants.
-		UB_FrameGlobal frameConstants{};
+		UB_Frame frameConstants{};
+		FrameUpdateUniforms(&frameConstants, framebufferManager_->UseBufferedRendering());
+
 		VkDescriptorBufferInfo frameConstantsBufInfo;
 		frame->pushUBO->PushUBOData(frameConstants, &frameConstantsBufInfo);
 

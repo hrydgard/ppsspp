@@ -1839,7 +1839,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// cull mode
 	int cullMode = gstate.getCullMode();
 
-	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
+	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
 	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, cullMode, &bytesRead);
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
@@ -1897,7 +1897,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 				goto bail;
 			} else {
 				vertexType = data;
-				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
+				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
 			}
 			break;
 		}
@@ -3085,9 +3085,9 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
 		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, flags, gstate_c.skipDrawReason)) {
-			// We use a little hack for PerformReadbackToMemory/PerformWriteColorFromMemory using a VRAM mirror.
+			// We use matching values in PerformReadbackToMemory/PerformWriteColorFromMemory.
 			// Since they're identical we don't need to copy.
-			if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
+			if (dest != src) {
 				if (MemBlockInfoDetailed(size)) {
 					const std::string tag = GetMemWriteTagAt("GPUMemcpy/", src, size);
 					Memory::Memcpy(dest, src, size, tag.c_str(), tag.size());

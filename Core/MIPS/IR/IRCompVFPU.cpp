@@ -117,8 +117,9 @@ namespace MIPSComp {
 			int abs = (prefix >> (8 + i)) & 1;
 			int negate = (prefix >> (16 + i)) & 1;
 			int constants = (prefix >> (12 + i)) & 1;
-			if (regnum < n || abs || negate || constants) {
-				return false;
+			if (regnum >= n && !constants) {
+				if (abs || negate || regnum != i)
+					return false;
 			}
 		}
 
@@ -464,6 +465,7 @@ namespace MIPSComp {
 				init = Vec4Init::AllONE;
 				break;
 			default:
+				INVALIDOP;
 				return;
 			}
 			ir.Write(IROp::Vec4Init, vec[0], (int)init);
@@ -472,7 +474,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VHdp(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op)) {
+		if (js.HasUnknownPrefix() || js.HasSPrefix() || !IsPrefixWithinSize(js.prefixT, op)) {
 			DISABLE;
 		}
 
@@ -754,8 +756,15 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VV2Op(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op))
-			DISABLE;
+		int optype = (op >> 16) & 0x1f;
+		if (optype == 0) {
+			if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op))
+				DISABLE;
+		} else {
+			// Many of these apply the D prefix strangely or override parts of the S prefix.
+			if (!js.HasNoPrefix())
+				DISABLE;
+		}
 
 		// Vector unary operation
 		// d[N] = OP(s[N]) (see below)
@@ -763,7 +772,6 @@ namespace MIPSComp {
 		int vs = _VS;
 		int vd = _VD;
 
-		int optype = (op >> 16) & 0x1f;
 		if (optype >= 16 && !js.HasNoPrefix()) {
 			DISABLE;
 		} else if ((optype == 1 || optype == 2) && js.HasSPrefix()) {
@@ -1458,7 +1466,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VDet(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || (js.prefixT & 0x000CFCF0) != 0x000E0) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
 			DISABLE;
 		}
 
@@ -1903,7 +1911,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vsgn(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op)) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
 			DISABLE;
 		}
 
@@ -1999,7 +2007,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vbfy(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix() || (js.prefixS & VFPU_NEGATE(1, 1, 1, 1)) != 0) {
 			DISABLE;
 		}
 

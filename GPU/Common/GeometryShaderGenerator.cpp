@@ -49,6 +49,9 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	bool clipClampedDepth = gstate_c.Use(GPU_USE_DEPTH_CLAMP);
 
 	ShaderWriter p(buffer, compat, ShaderStage::Geometry, extensions);
+
+	p.F("// %s\n", GeometryShaderDesc(id).c_str());
+
 	p.C("layout(triangles) in;\n");
 	if (clipClampedDepth && vertexRangeCulling && !gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 		p.C("layout(triangle_strip, max_vertices = 12) out;\n");
@@ -58,7 +61,7 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
-		WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
+		WRITE(p, "layout (std140, set = 1, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
 	} else if (compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
 	}

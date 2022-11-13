@@ -77,7 +77,7 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 
 	SmallDisplayZoom zoomType = (SmallDisplayZoom)g_Config.iSmallDisplayZoomType;
 
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		if (IsFlatVRScene()) {
 			zoomType = SmallDisplayZoom::AUTO;
 		} else {
