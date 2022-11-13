@@ -1394,13 +1394,11 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	if (!Memory::IsValidAddress(target)) {
 		ERROR_LOG(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
-		if ((target == 0) & (op  == 167772160)) {
+		if (g_Config.bIgnoreBadMemAccess) {
 			return;
 		}
-		else {
-			UpdateState(GPUSTATE_ERROR);
-			return;
-		}		
+		UpdateState(GPUSTATE_ERROR);
+		return;
 	}
 	DoExecuteCall(target);
 }
