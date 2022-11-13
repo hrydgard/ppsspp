@@ -203,15 +203,26 @@ void ProcessRect(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 		else if (outsidePos >= 2 || outsideNeg >= 2)
 			return;
 
-		if (v0.v.fogdepth != v1.v.fogdepth) {
+		bool splitFog = v0.v.fogdepth != v1.v.fogdepth;
+		if (splitFog) {
+			// If they match the same 1/255, we can consider the fog flat.  Seen in Resistance.
+			// More efficient if we can avoid splitting.
+			static constexpr float foghalfstep = 0.5f / 255.0f;
+			if (v1.v.fogdepth - foghalfstep <= v0.v.fogdepth && v1.v.fogdepth + foghalfstep >= v0.v.fogdepth)
+				splitFog = false;
+		}
+		if (splitFog) {
 			// Rectangles seem to always use nearest along X for fog depth, but reversed.
 			// TODO: Check exactness of middle.
 			VertexData vhalf0 = v1.v;
 			vhalf0.screenpos.x = v0.v.screenpos.x + (v1.v.screenpos.x - v0.v.screenpos.x) / 2;
+			vhalf0.texturecoords.x = v0.v.texturecoords.x + (v1.v.texturecoords.x - v0.v.texturecoords.x) / 2;
 
 			VertexData vhalf1 = v1.v;
 			vhalf1.screenpos.x = v0.v.screenpos.x + (v1.v.screenpos.x - v0.v.screenpos.x) / 2;
 			vhalf1.screenpos.y = v0.v.screenpos.y;
+			vhalf1.texturecoords.x = v0.v.texturecoords.x + (v1.v.texturecoords.x - v0.v.texturecoords.x) / 2;
+			vhalf1.texturecoords.y = v0.v.texturecoords.y;
 
 			VertexData vrev1 = v1.v;
 			vrev1.fogdepth = v0.v.fogdepth;
