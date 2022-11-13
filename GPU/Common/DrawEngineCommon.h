@@ -107,6 +107,10 @@ public:
 
 	virtual void NotifyConfigChanged();
 
+	bool EverUsedExactEqualDepth() const {
+		return everUsedExactEqualDepth_;
+	}
+
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
 		return decJitCache_->IsInSpace(ptr);
 	}
@@ -148,6 +152,10 @@ protected:
 	inline void UpdateEverUsedEqualDepth(GEComparison comp) {
 		switch (comp) {
 		case GE_COMP_EQUAL:
+			everUsedExactEqualDepth_ = true;
+			everUsedEqualDepth_ = true;
+			break;
+
 		case GE_COMP_NOTEQUAL:
 		case GE_COMP_LEQUAL:
 		case GE_COMP_GEQUAL:
@@ -166,6 +174,7 @@ protected:
 
 	// Set once a equal depth test is encountered.
 	bool everUsedEqualDepth_ = false;
+	bool everUsedExactEqualDepth_ = false;
 
 	// Vertex collector buffers
 	u8 *decoded = nullptr;
