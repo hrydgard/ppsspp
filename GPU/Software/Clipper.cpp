@@ -208,10 +208,13 @@ void ProcessRect(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 			// TODO: Check exactness of middle.
 			VertexData vhalf0 = v1.v;
 			vhalf0.screenpos.x = v0.v.screenpos.x + (v1.v.screenpos.x - v0.v.screenpos.x) / 2;
+			vhalf0.texturecoords.x = v0.v.texturecoords.x + (v1.v.texturecoords.x - v0.v.texturecoords.x) / 2;
 
 			VertexData vhalf1 = v1.v;
 			vhalf1.screenpos.x = v0.v.screenpos.x + (v1.v.screenpos.x - v0.v.screenpos.x) / 2;
 			vhalf1.screenpos.y = v0.v.screenpos.y;
+			vhalf1.texturecoords.x = v0.v.texturecoords.x + (v1.v.texturecoords.x - v0.v.texturecoords.x) / 2;
+			vhalf1.texturecoords.y = v0.v.texturecoords.y;
 
 			VertexData vrev1 = v1.v;
 			vrev1.fogdepth = v0.v.fogdepth;
