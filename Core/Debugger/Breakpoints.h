@@ -167,6 +167,7 @@ public:
 	static const std::vector<MemCheck> GetMemChecks();
 	static const std::vector<BreakPoint> GetBreakpoints();
 
+	static bool HasBreakPoints();
 	static bool HasMemChecks();
 
 	static void Update(u32 addr = 0);

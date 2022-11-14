@@ -938,8 +938,7 @@ void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces) {
 	}
 }
 
-void MIPSInterpret(MIPSOpcode op) {
-	const MIPSInstruction *instr = MIPSGetInstruction(op);
+static inline void Interpret(const MIPSInstruction *instr, MIPSOpcode op) {
 	if (instr && instr->interpret) {
 		instr->interpret(op);
 	} else {
@@ -947,9 +946,20 @@ void MIPSInterpret(MIPSOpcode op) {
 		// Try to disassemble it
 		char disasm[256];
 		MIPSDisAsm(op, currentMIPS->pc, disasm);
-		_dbg_assert_msg_( 0, "%s", disasm);
+		_dbg_assert_msg_(0, "%s", disasm);
 		currentMIPS->pc += 4;
 	}
+}
+
+inline int GetInstructionCycleEstimate(const MIPSInstruction *instr) {
+	if (instr)
+		return instr->flags.cycles;
+	return 1;
+}
+
+void MIPSInterpret(MIPSOpcode op) {
+	const MIPSInstruction *instr = MIPSGetInstruction(op);
+	Interpret(instr, op);
 }
 
 #define _RS   ((op>>21) & 0x1F)
@@ -957,59 +967,78 @@ void MIPSInterpret(MIPSOpcode op) {
 #define _RD   ((op>>11) & 0x1F)
 #define R(i)   (curMips->r[i])
 
-
-int MIPSInterpret_RunUntil(u64 globalTicks)
-{
+static inline void RunUntilFast() {
 	MIPSState *curMips = currentMIPS;
-	while (coreState == CORE_RUNNING)
-	{
+	// NEVER stop in a delay slot!
+	while (curMips->downcount >= 0 && coreState == CORE_RUNNING) {
+		do {
+			// Replacements and similar are processed here, intentionally.
+			MIPSOpcode op = MIPSOpcode(Memory::Read_U32(curMips->pc));
+
+			bool wasInDelaySlot = curMips->inDelaySlot;
+			const MIPSInstruction *instr = MIPSGetInstruction(op);
+			Interpret(instr, op);
+			curMips->downcount -= GetInstructionCycleEstimate(instr);
+
+			// The reason we have to check this is the delay slot hack in Int_Syscall.
+			if (curMips->inDelaySlot && wasInDelaySlot) {
+				curMips->pc = curMips->nextPC;
+				curMips->inDelaySlot = false;
+			}
+		} while (curMips->inDelaySlot);
+	}
+}
+
+static void RunUntilWithChecks(u64 globalTicks) {
+	MIPSState *curMips = currentMIPS;
+	// NEVER stop in a delay slot!
+	while (curMips->downcount >= 0 && coreState == CORE_RUNNING) {
+		do {
+			// Replacements and similar are processed here, intentionally.
+			MIPSOpcode op = MIPSOpcode(Memory::Read_U32(curMips->pc));
+
+			// Check for breakpoint
+			if (CBreakPoints::IsAddressBreakPoint(curMips->pc) && CBreakPoints::CheckSkipFirst() != curMips->pc) {
+				auto cond = CBreakPoints::GetBreakPointCondition(currentMIPS->pc);
+				if (!cond || cond->Evaluate()) {
+					Core_EnableStepping(true, "cpu.breakpoint", curMips->pc);
+					if (CBreakPoints::IsTempBreakPoint(curMips->pc))
+						CBreakPoints::RemoveBreakPoint(curMips->pc);
+					break;
+				}
+			}
+
+			bool wasInDelaySlot = curMips->inDelaySlot;
+			const MIPSInstruction *instr = MIPSGetInstruction(op);
+			Interpret(instr, op);
+			curMips->downcount -= GetInstructionCycleEstimate(instr);
+
+			// The reason we have to check this is the delay slot hack in Int_Syscall.
+			if (curMips->inDelaySlot && wasInDelaySlot) {
+				curMips->pc = curMips->nextPC;
+				curMips->inDelaySlot = false;
+			}
+		} while (curMips->inDelaySlot);
+
+		if (CoreTiming::GetTicks() > globalTicks)
+			return;
+	}
+}
+
+int MIPSInterpret_RunUntil(u64 globalTicks) {
+	MIPSState *curMips = currentMIPS;
+	while (coreState == CORE_RUNNING) {
 		CoreTiming::Advance();
 
-		// NEVER stop in a delay slot!
-		while (curMips->downcount >= 0 && coreState == CORE_RUNNING)
-		{
-			// int cycles = 0;
-			{
-				again:
-				MIPSOpcode op = MIPSOpcode(Memory::Read_U32(curMips->pc));
-				//MIPSOpcode op = Memory::Read_Opcode_JIT(mipsr4k.pc);
+		uint64_t ticksLeft = globalTicks - CoreTiming::GetTicks();
+		if (CBreakPoints::HasBreakPoints() || CBreakPoints::HasMemChecks() || ticksLeft <= curMips->downcount)
+			RunUntilWithChecks(globalTicks);
+		else
+			RunUntilFast();
 
-		//2: check for breakpoint (VERY SLOW)
-#if defined(_DEBUG)
-				if (CBreakPoints::IsAddressBreakPoint(curMips->pc) && CBreakPoints::CheckSkipFirst() != curMips->pc) {
-					auto cond = CBreakPoints::GetBreakPointCondition(currentMIPS->pc);
-					if (!cond || cond->Evaluate())
-					{
-						Core_EnableStepping(true, "cpu.breakpoint", curMips->pc);
-						if (CBreakPoints::IsTempBreakPoint(curMips->pc))
-							CBreakPoints::RemoveBreakPoint(curMips->pc);
-						break;
-					}
-				}
-#endif
-
-				bool wasInDelaySlot = curMips->inDelaySlot;
-				MIPSInterpret(op);
-				curMips->downcount -= MIPSGetInstructionCycleEstimate(op);
-
-				if (curMips->inDelaySlot)
-				{
-					// The reason we have to check this is the delay slot hack in Int_Syscall.
-					if (wasInDelaySlot)
-					{
-						curMips->pc = curMips->nextPC;
-						curMips->inDelaySlot = false;
-						continue;
-					}
-					goto again;
-				}
-			}
-
-			if (CoreTiming::GetTicks() > globalTicks)
-			{
-				// DEBUG_LOG(CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks());
-				return 1;
-			}
+		if (CoreTiming::GetTicks() > globalTicks) {
+			// DEBUG_LOG(CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks());
+			return 1;
 		}
 	}
 
@@ -1048,8 +1077,8 @@ MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op)
 // TODO: Do something that makes sense here.
 int MIPSGetInstructionCycleEstimate(MIPSOpcode op)
 {
-	MIPSInfo info = MIPSGetInfo(op);
-	return info.cycles;
+	const MIPSInstruction *instr = MIPSGetInstruction(op);
+	return GetInstructionCycleEstimate(instr);
 }
 
 const char *MIPSDisasmAt(u32 compilerPC) {

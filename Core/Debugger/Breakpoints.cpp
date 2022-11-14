@@ -646,10 +646,12 @@ const std::vector<BreakPoint> CBreakPoints::GetBreakpoints()
 	return breakPoints_;
 }
 
-bool CBreakPoints::HasMemChecks()
-{
-	std::lock_guard<std::mutex> guard(memCheckMutex_);
-	return !memChecks_.empty();
+bool CBreakPoints::HasBreakPoints() {
+	return anyBreakPoints_;
+}
+
+bool CBreakPoints::HasMemChecks() {
+	return anyMemChecks_;
 }
 
 void CBreakPoints::Update(u32 addr) {
