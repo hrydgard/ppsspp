@@ -401,8 +401,8 @@ void ControlLayoutView::Touch(const TouchInput &touch) {
 			newPos.x = startObjectX_ + (touch.x - startDragX_);
 			newPos.y = startObjectY_ + (touch.y - startDragY_);
 			if (g_Config.bTouchSnapToGrid) {
-				newPos.x -= fmod(newPos.x - controlBounds.w, g_Config.iTouchSnapGridSize);
-				newPos.y -= fmod(newPos.y - controlBounds.h, g_Config.iTouchSnapGridSize);
+				newPos.x -= fmod(newPos.x, g_Config.iTouchSnapGridSize);
+				newPos.y -= fmod(newPos.y, g_Config.iTouchSnapGridSize);
 			}
 
 			newPos = ClampTo(newPos, validRange);
