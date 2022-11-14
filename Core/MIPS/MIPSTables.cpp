@@ -1081,6 +1081,27 @@ int MIPSGetInstructionCycleEstimate(MIPSOpcode op)
 	return GetInstructionCycleEstimate(instr);
 }
 
+int MIPSGetMemoryAccessSize(MIPSOpcode op) {
+	MIPSInfo info = MIPSGetInfo(op);
+	if ((info & (IN_MEM | OUT_MEM)) == 0) {
+		return 0;
+	}
+
+	switch (info & MEMTYPE_MASK) {
+	case MEMTYPE_BYTE:
+		return 1;
+	case MEMTYPE_HWORD:
+		return 2;
+	case MEMTYPE_WORD:
+	case MEMTYPE_FLOAT:
+		return 4;
+	case MEMTYPE_VQUAD:
+		return 16;
+	}
+
+	return 0;
+}
+
 const char *MIPSDisasmAt(u32 compilerPC) {
 	static char temp[256];
 	MIPSDisAsm(Memory::Read_Instruction(compilerPC), 0, temp);
