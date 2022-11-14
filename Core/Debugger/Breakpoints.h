@@ -115,7 +115,7 @@ struct MemCheck {
 
 // BreakPoints cannot overlap, only one is allowed per address.
 // MemChecks can overlap, as long as their ends are different.
-// WARNING: MemChecks are not used in the interpreter or HLE currently.
+// WARNING: MemChecks are not always tracked in HLE currently.
 class CBreakPoints
 {
 public:

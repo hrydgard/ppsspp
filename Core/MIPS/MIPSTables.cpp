@@ -992,13 +992,16 @@ static inline void RunUntilFast() {
 static void RunUntilWithChecks(u64 globalTicks) {
 	MIPSState *curMips = currentMIPS;
 	// NEVER stop in a delay slot!
+	bool hasBPs = CBreakPoints::HasBreakPoints();
+	bool hasMCs = CBreakPoints::HasMemChecks();
 	while (curMips->downcount >= 0 && coreState == CORE_RUNNING) {
 		do {
 			// Replacements and similar are processed here, intentionally.
 			MIPSOpcode op = MIPSOpcode(Memory::Read_U32(curMips->pc));
+			const MIPSInstruction *instr = MIPSGetInstruction(op);
 
 			// Check for breakpoint
-			if (CBreakPoints::IsAddressBreakPoint(curMips->pc) && CBreakPoints::CheckSkipFirst() != curMips->pc) {
+			if (hasBPs && CBreakPoints::IsAddressBreakPoint(curMips->pc) && CBreakPoints::CheckSkipFirst() != curMips->pc) {
 				auto cond = CBreakPoints::GetBreakPointCondition(currentMIPS->pc);
 				if (!cond || cond->Evaluate()) {
 					Core_EnableStepping(true, "cpu.breakpoint", curMips->pc);
@@ -1007,9 +1010,23 @@ static void RunUntilWithChecks(u64 globalTicks) {
 					break;
 				}
 			}
+			if (hasMCs && (instr->flags & (IN_MEM | OUT_MEM)) != 0 && CBreakPoints::CheckSkipFirst() != curMips->pc && instr->interpret != &Int_Syscall) {
+				// This is common for all IN_MEM/OUT_MEM funcs.
+				int offset = (instr->flags & IS_VFPU) != 0 ? SignExtend16ToS32(op & 0xFFFC) : SignExtend16ToS32(op);
+				u32 addr = (R(_RS) + offset) & 0xFFFFFFFC;
+				int sz = MIPSGetMemoryAccessSize(op);
+
+				if ((instr->flags & IN_MEM) != 0)
+					CBreakPoints::ExecMemCheck(addr, false, sz, curMips->pc, "interpret");
+				if ((instr->flags & OUT_MEM) != 0)
+					CBreakPoints::ExecMemCheck(addr, true, sz, curMips->pc, "interpret");
+
+				// If it tripped, bail without running.
+				if (coreState == CORE_STEPPING)
+					break;
+			}
 
 			bool wasInDelaySlot = curMips->inDelaySlot;
-			const MIPSInstruction *instr = MIPSGetInstruction(op);
 			Interpret(instr, op);
 			curMips->downcount -= GetInstructionCycleEstimate(instr);
 
