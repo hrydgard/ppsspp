@@ -976,8 +976,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 
 		//2: check for breakpoint (VERY SLOW)
 #if defined(_DEBUG)
-				if (CBreakPoints::IsAddressBreakPoint(curMips->pc))
-				{
+				if (CBreakPoints::IsAddressBreakPoint(curMips->pc) && CBreakPoints::CheckSkipFirst() != curMips->pc) {
 					auto cond = CBreakPoints::GetBreakPointCondition(currentMIPS->pc);
 					if (!cond || cond->Evaluate())
 					{
