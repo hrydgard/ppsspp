@@ -115,7 +115,7 @@ struct MemCheck {
 
 // BreakPoints cannot overlap, only one is allowed per address.
 // MemChecks can overlap, as long as their ends are different.
-// WARNING: MemChecks are not used in the interpreter or HLE currently.
+// WARNING: MemChecks are not always tracked in HLE currently.
 class CBreakPoints
 {
 public:
@@ -167,6 +167,7 @@ public:
 	static const std::vector<MemCheck> GetMemChecks();
 	static const std::vector<BreakPoint> GetBreakpoints();
 
+	static bool HasBreakPoints();
 	static bool HasMemChecks();
 
 	static void Update(u32 addr = 0);

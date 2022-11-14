@@ -611,25 +611,7 @@ namespace MIPSAnalyst {
 
 	int OpMemoryAccessSize(u32 pc) {
 		const auto op = Memory::Read_Instruction(pc, true);
-		MIPSInfo info = MIPSGetInfo(op);
-		if ((info & (IN_MEM | OUT_MEM)) == 0) {
-			return 0;
-		}
-
-		// TODO: Verify lwl/lwr/etc.?
-		switch (info & MEMTYPE_MASK) {
-		case MEMTYPE_BYTE:
-			return 1;
-		case MEMTYPE_HWORD:
-			return 2;
-		case MEMTYPE_WORD:
-		case MEMTYPE_FLOAT:
-			return 4;
-		case MEMTYPE_VQUAD:
-			return 16;
-		}
-
-		return 0;
+		return MIPSGetMemoryAccessSize(op);
 	}
 
 	bool IsOpMemoryWrite(u32 pc) {
@@ -1553,21 +1535,7 @@ skip:
 		// lw, sh, ...
 		if (!IsSyscall(op) && (opInfo & (IN_MEM | OUT_MEM)) != 0) {
 			info.isDataAccess = true;
-			switch (opInfo & MEMTYPE_MASK) {
-			case MEMTYPE_BYTE:
-				info.dataSize = 1;
-				break;
-			case MEMTYPE_HWORD:
-				info.dataSize = 2;
-				break;
-			case MEMTYPE_WORD:
-			case MEMTYPE_FLOAT:
-				info.dataSize = 4;
-				break;
-
-			case MEMTYPE_VQUAD:
-				info.dataSize = 16;
-			}
+			info.dataSize = MIPSGetMemoryAccessSize(op);
 
 			u32 rs = cpu->GetRegValue(0, (int)MIPS_GET_RS(op));
 			s16 imm16 = op & 0xFFFF;

@@ -26,7 +26,6 @@ namespace MIPSInt
 	void Int_SV(MIPSOpcode op);
 	void Int_SVQ(MIPSOpcode op);
 	void Int_Mftv(MIPSOpcode op);
-	void Int_MatrixSet(MIPSOpcode op);
 	void Int_VecDo3(MIPSOpcode op);
 	void Int_Vcst(MIPSOpcode op);
 	void Int_VMatrixInit(MIPSOpcode op);

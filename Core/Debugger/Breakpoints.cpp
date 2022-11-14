@@ -31,6 +31,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/CoreTiming.h"
 
+std::atomic<bool> anyBreakPoints_(false);
 std::atomic<bool> anyMemChecks_(false);
 
 static std::mutex breakPointsMutex_;
@@ -160,6 +161,8 @@ size_t CBreakPoints::FindMemCheck(u32 start, u32 end)
 
 bool CBreakPoints::IsAddressBreakPoint(u32 addr)
 {
+	if (!anyBreakPoints_)
+		return false;
 	std::lock_guard<std::mutex> guard(breakPointsMutex_);
 	size_t bp = FindBreakpoint(addr);
 	return bp != INVALID_BREAKPOINT && breakPoints_[bp].result != BREAK_ACTION_IGNORE;
@@ -167,6 +170,8 @@ bool CBreakPoints::IsAddressBreakPoint(u32 addr)
 
 bool CBreakPoints::IsAddressBreakPoint(u32 addr, bool* enabled)
 {
+	if (!anyBreakPoints_)
+		return false;
 	std::lock_guard<std::mutex> guard(breakPointsMutex_);
 	size_t bp = FindBreakpoint(addr);
 	if (bp == INVALID_BREAKPOINT) return false;
@@ -184,6 +189,8 @@ bool CBreakPoints::IsTempBreakPoint(u32 addr)
 
 bool CBreakPoints::RangeContainsBreakPoint(u32 addr, u32 size)
 {
+	if (!anyBreakPoints_)
+		return false;
 	std::lock_guard<std::mutex> guard(breakPointsMutex_);
 	const u32 end = addr + size;
 	for (const auto &bp : breakPoints_)
@@ -207,6 +214,7 @@ void CBreakPoints::AddBreakPoint(u32 addr, bool temp)
 		pt.addr = addr;
 
 		breakPoints_.push_back(pt);
+		anyBreakPoints_ = true;
 		guard.unlock();
 		Update(addr);
 	}
@@ -232,6 +240,7 @@ void CBreakPoints::RemoveBreakPoint(u32 addr)
 		if (bp != INVALID_BREAKPOINT)
 			breakPoints_.erase(breakPoints_.begin() + bp);
 
+		anyBreakPoints_ = !breakPoints_.empty();
 		guard.unlock();
 		Update(addr);
 	}
@@ -267,6 +276,8 @@ void CBreakPoints::ChangeBreakPoint(u32 addr, BreakAction result)
 
 void CBreakPoints::ClearAllBreakPoints()
 {
+	if (!anyBreakPoints_)
+		return;
 	std::unique_lock<std::mutex> guard(breakPointsMutex_);
 	if (!breakPoints_.empty())
 	{
@@ -278,9 +289,9 @@ void CBreakPoints::ClearAllBreakPoints()
 
 void CBreakPoints::ClearTemporaryBreakPoints()
 {
-	std::unique_lock<std::mutex> guard(breakPointsMutex_);
-	if (breakPoints_.empty())
+	if (!anyBreakPoints_)
 		return;
+	std::unique_lock<std::mutex> guard(breakPointsMutex_);
 
 	bool update = false;
 	for (int i = (int)breakPoints_.size()-1; i >= 0; --i)
@@ -342,6 +353,8 @@ void CBreakPoints::ChangeBreakPointLogFormat(u32 addr, const std::string &fmt) {
 }
 
 BreakAction CBreakPoints::ExecBreakPoint(u32 addr) {
+	if (!anyBreakPoints_)
+		return BREAK_ACTION_IGNORE;
 	std::unique_lock<std::mutex> guard(breakPointsMutex_);
 	size_t bp = FindBreakpoint(addr, false);
 	if (bp != INVALID_BREAKPOINT) {
@@ -633,10 +646,12 @@ const std::vector<BreakPoint> CBreakPoints::GetBreakpoints()
 	return breakPoints_;
 }
 
-bool CBreakPoints::HasMemChecks()
-{
-	std::lock_guard<std::mutex> guard(memCheckMutex_);
-	return !memChecks_.empty();
+bool CBreakPoints::HasBreakPoints() {
+	return anyBreakPoints_;
+}
+
+bool CBreakPoints::HasMemChecks() {
+	return anyMemChecks_;
 }
 
 void CBreakPoints::Update(u32 addr) {
