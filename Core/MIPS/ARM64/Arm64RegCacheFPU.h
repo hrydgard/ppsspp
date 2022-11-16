@@ -106,10 +106,10 @@ public:
 	void MapDirty(MIPSReg rd);
 	void MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad = true);
 	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
-	bool IsMapped(MIPSReg r);
-	bool IsMappedV(MIPSReg r) { return IsMapped((MIPSReg)(r + 32)); }
-	bool IsInRAM(MIPSReg r);
-	bool IsInRAMV(MIPSReg r) { return IsInRAM((MIPSReg)(r + 32)); }
+	bool IsMapped(MIPSReg r) const;
+	bool IsMappedV(MIPSReg r) const { return IsMapped((MIPSReg)(r + 32)); }
+	bool IsInRAM(MIPSReg r) const;
+	bool IsInRAMV(MIPSReg r) const { return IsInRAM((MIPSReg)(r + 32)); }
 	void FlushArmReg(Arm64Gen::ARM64Reg r);
 	void FlushR(MIPSReg r);
 	void DiscardR(MIPSReg r);
@@ -142,8 +142,8 @@ public:
 
 	void SetEmitter(Arm64Gen::ARM64XEmitter *emitter, Arm64Gen::ARM64FloatEmitter *fp) { emit_ = emitter; fp_ = fp; }
 
-	int GetMipsRegOffset(MIPSReg r);
-	int GetMipsRegOffsetV(MIPSReg r) {
+	static int GetMipsRegOffset(MIPSReg r);
+	static int GetMipsRegOffsetV(MIPSReg r) {
 		return GetMipsRegOffset(r + 32);
 	}
 

@@ -27,10 +27,12 @@ This should be trivially collapsible to a single stp instruction -
 though turns out a bit less easy than hoped due to the fact that
 stp has a more limited range of offsets than normal stores.
 Can be fixed by generating an offset in a temp register...
+But we still then have the problem of voffset, that reorders the registers
+to a more SIMD-compatible setup.
 
 DONE: register ordering fixed in this case, now just need the offset stuff.
-
 DONE: register allocation ordering also fixed for 3-op instructions like vadd.q.
+NOT DONE: actually using stp instructions
 
 ### Use ldp in MapRegsAndSpillLockV
 

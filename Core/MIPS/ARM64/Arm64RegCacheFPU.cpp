@@ -85,11 +85,11 @@ const ARM64Reg *Arm64RegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	return allocationOrder;
 }
 
-bool Arm64RegCacheFPU::IsMapped(MIPSReg r) {
+bool Arm64RegCacheFPU::IsMapped(MIPSReg r) const {
 	return mr[r].loc == ML_ARMREG;
 }
 
-bool Arm64RegCacheFPU::IsInRAM(MIPSReg r) {
+bool Arm64RegCacheFPU::IsInRAM(MIPSReg r) const {
 	return mr[r].loc == ML_MEM;
 }
 

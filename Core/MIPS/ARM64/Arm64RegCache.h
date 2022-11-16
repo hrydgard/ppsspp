@@ -106,9 +106,9 @@ public:
 	Arm64Gen::ARM64Reg MapReg(MIPSGPReg reg, int mapFlags = 0);
 	Arm64Gen::ARM64Reg MapRegAsPointer(MIPSGPReg reg);
 
-	bool IsMapped(MIPSGPReg reg);
-	bool IsMappedAsPointer(MIPSGPReg reg);
-	bool IsInRAM(MIPSGPReg reg);
+	bool IsMapped(MIPSGPReg reg) const;
+	bool IsMappedAsPointer(MIPSGPReg reg) const;
+	bool IsInRAM(MIPSGPReg reg) const;
 
 	void MarkDirty(Arm64Gen::ARM64Reg reg);
 	void MapIn(MIPSGPReg rs);
@@ -133,7 +133,7 @@ public:
 	// For better log output only.
 	void SetCompilerPC(u32 compilerPC) { compilerPC_ = compilerPC; }
 
-	int GetMipsRegOffset(MIPSGPReg r);
+	static int GetMipsRegOffset(MIPSGPReg r);
 
 	// These are called once on startup to generate functions, that you should then call.
 	void EmitLoadStaticRegisters();

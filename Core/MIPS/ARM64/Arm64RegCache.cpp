@@ -137,15 +137,15 @@ void Arm64RegCache::FlushBeforeCall() {
 	FlushArmReg(W30);
 }
 
-bool Arm64RegCache::IsInRAM(MIPSGPReg reg) {
+bool Arm64RegCache::IsInRAM(MIPSGPReg reg) const {
 	return mr[reg].loc == ML_MEM;
 }
 
-bool Arm64RegCache::IsMapped(MIPSGPReg mipsReg) {
+bool Arm64RegCache::IsMapped(MIPSGPReg mipsReg) const {
 	return mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM;
 }
 
-bool Arm64RegCache::IsMappedAsPointer(MIPSGPReg mipsReg) {
+bool Arm64RegCache::IsMappedAsPointer(MIPSGPReg mipsReg) const {
 	if (mr[mipsReg].loc == ML_ARMREG) {
 		return ar[mr[mipsReg].reg].pointerified;
 	} else if (mr[mipsReg].loc == ML_ARMREG_IMM) {
