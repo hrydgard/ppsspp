@@ -147,6 +147,12 @@ public:
 		return GetMipsRegOffset(r + 32);
 	}
 
+	bool LogBlock() {
+		bool log = logBlock_;
+		logBlock_ = false;
+		return log;
+	}
+
 private:
 	Arm64Gen::ARM64Reg ARM64RegForFlush(int r);
 	MIPSReg GetTempR();
@@ -174,6 +180,7 @@ private:
 
 	bool pendingFlush;
 	bool initialReady = false;
+	bool logBlock_ = false;
 	FPURegARM64 arInitial[MAX_ARMFPUREG];
 	FPURegMIPS mrInitial[NUM_MIPSFPUREG];
 };

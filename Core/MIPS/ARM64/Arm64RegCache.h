@@ -139,6 +139,12 @@ public:
 	void EmitLoadStaticRegisters();
 	void EmitSaveStaticRegisters();
 
+	bool LogBlock() {
+		bool log = logBlock_;
+		logBlock_ = false;
+		return log;
+	}
+
 private:
 	struct StaticAllocation {
 		MIPSGPReg mr;
@@ -157,6 +163,7 @@ private:
 	MIPSComp::JitState *js_;
 	MIPSComp::JitOptions *jo_;
 	u32 compilerPC_;
+	bool logBlock_ = false;
 
 	enum {
 		NUM_ARMREG = 32,  // 31 actual registers, plus the zero/sp register which is not mappable.

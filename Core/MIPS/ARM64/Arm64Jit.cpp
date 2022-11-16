@@ -378,6 +378,10 @@ void Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 		}
 	}
 
+	if (gpr.LogBlock() || fpr.LogBlock()) {
+		logBlocks++;
+	}
+
 	if (jo.useForwardJump) {
 		SetJumpTarget(bail);
 		MOVI2R(SCRATCH1, js.blockStart);

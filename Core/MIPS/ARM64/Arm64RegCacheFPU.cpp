@@ -383,7 +383,7 @@ void Arm64RegCacheFPU::FlushAll() {
 
 	int numArmRegs = 0;
 
-	// Flush s register pairs first when possible. Note that STP's offset can't reach more than 256 bytes so
+	// Flushes register pairs first when possible. Note that STP's offset can't reach more than 256 bytes so
 	// most VFPU registers cannot be flushed this way, unless we are willing to generate another offset pointer
 	// (which we could actually do right here, point right in the middle of the VFPU stuff and would reach it all)... TODO
 	for (int i = 0; i < 31; i++) {
