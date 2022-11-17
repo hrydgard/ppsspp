@@ -37,8 +37,6 @@ enum VRMirroring {
 };
 
 static VRAppMode appMode = VR_MENU_MODE;
-static int pspAxisDeviceId = 0;
-static std::map<int, float> pspAxis;
 static std::map<int, bool> pspKeys;
 
 static int vr3DGeometryCount = 0;
@@ -101,6 +99,12 @@ static std::vector<ButtonMapping> controllerMapping[2] = {
 static bool controllerMotion[2][5] = {};
 static int mouseController = 1;
 static bool mousePressed = false;
+
+inline float clampFloat(float x, float minValue, float maxValue) {
+	if (x < minValue) return minValue;
+	if (x > maxValue) return maxValue;
+	return x;
+}
 
 /*
 ================================================================================
@@ -357,16 +361,32 @@ void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(co
 }
 
 bool UpdateVRAxis(const AxisInput &axis) {
-	//do not store small input if two devices used at the same time
-	if (pspAxisDeviceId != axis.deviceId) {
-		if (fabs(axis.value) < 0.5f) {
-			return !pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
+
+	// Camera control
+	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
+		switch(axis.axisId) {
+			case JOYSTICK_AXIS_X:
+				if (axis.value < -0.5f) g_Config.fCameraSide -= 0.05f;
+				if (axis.value > 0.5f) g_Config.fCameraSide += 0.05f;
+				g_Config.fCameraSide = clampFloat(g_Config.fCameraSide, -50.0f, 50.0f);
+				break;
+			case JOYSTICK_AXIS_Y:
+				if (axis.value > 0.5f) g_Config.fCameraHeight -= 0.05f;
+				if (axis.value < -0.5f) g_Config.fCameraHeight += 0.05f;
+				g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -50.0f, 50.0f);
+				break;
+			case JOYSTICK_AXIS_Z:
+				if (axis.value < -0.5f) g_Config.fFieldOfViewPercentage -= 1.0f;
+				if (axis.value > 0.5f) g_Config.fFieldOfViewPercentage += 1.0f;
+				g_Config.fFieldOfViewPercentage = clampFloat(g_Config.fFieldOfViewPercentage, 100.0f, 200.0f);
+				break;
+			case JOYSTICK_AXIS_RZ:
+				if (axis.value > 0.5f) g_Config.fCameraDistance -= 0.1f;
+				if (axis.value < -0.5f) g_Config.fCameraDistance += 0.1f;
+				g_Config.fCameraDistance = clampFloat(g_Config.fCameraDistance, -50.0f, 50.0f);
+				break;
 		}
 	}
-
-	//store axis value
-	pspAxis[axis.axisId] = axis.value;
-	pspAxisDeviceId = axis.deviceId;
 	return !pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
 }
 
@@ -379,7 +399,7 @@ bool UpdateVRKeys(const KeyInput &key) {
 		}
 	}
 
-	//block keys in the UI
+	//block keys in the UI mode
 	if ((appMode == VR_DIALOG_MODE) || (appMode == VR_MENU_MODE)) {
 		switch (key.keyCode) {
 			case NKCODE_BACK:
@@ -389,6 +409,14 @@ bool UpdateVRKeys(const KeyInput &key) {
 			default:
 				return false;
 		}
+	}
+
+	// Reset camera adjust
+	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST] && pspKeys[VIRTKEY_VR_CAMERA_RESET]) {
+		g_Config.fCameraHeight = 0;
+		g_Config.fCameraSide = 0;
+		g_Config.fCameraDistance = 0;
+		g_Config.fFieldOfViewPercentage = 100;
 	}
 
 	//block keys by camera adjust
@@ -466,12 +494,6 @@ VR rendering integration
 
 void* BindVRFramebuffer() {
 	return VR_BindFramebuffer(VR_GetEngine());
-}
-
-inline float clampFloat(float x, float minValue, float maxValue) {
-	if (x < minValue) return minValue;
-	if (x > maxValue) return maxValue;
-	return x;
 }
 
 bool StartVRRender() {
@@ -621,35 +643,6 @@ bool StartVRRender() {
 
 		// Set compatibility
 		vrCompat[VR_COMPAT_SKYPLANE] = PSP_CoreParameter().compat.vrCompat().Skyplane;
-
-		// Camera control
-		if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
-			//left joystick controls height and side
-			if (pspAxis[JOYSTICK_AXIS_X] < -0.5f) g_Config.fCameraSide -= 0.05f;
-			if (pspAxis[JOYSTICK_AXIS_X] > 0.5f) g_Config.fCameraSide += 0.05f;
-			if (pspAxis[JOYSTICK_AXIS_Y] > 0.5f) g_Config.fCameraHeight -= 0.05f;
-			if (pspAxis[JOYSTICK_AXIS_Y] < -0.5f) g_Config.fCameraHeight += 0.05f;
-
-			//right joystick controls distance and fov
-			if (pspAxis[JOYSTICK_AXIS_Z] < -0.5f) g_Config.fFieldOfViewPercentage -= 1.0f;
-			if (pspAxis[JOYSTICK_AXIS_Z] > 0.5f) g_Config.fFieldOfViewPercentage += 1.0f;
-			if (pspAxis[JOYSTICK_AXIS_RZ] > 0.5f) g_Config.fCameraDistance -= 0.1f;
-			if (pspAxis[JOYSTICK_AXIS_RZ] < -0.5f) g_Config.fCameraDistance += 0.1f;
-
-			// Reset values
-			if (pspKeys[VIRTKEY_VR_CAMERA_RESET]) {
-				g_Config.fCameraHeight = 0;
-				g_Config.fCameraSide = 0;
-				g_Config.fCameraDistance = 0;
-				g_Config.fFieldOfViewPercentage = 100;
-			}
-
-			// Clamp values
-			g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -50.0f, 50.0f);
-			g_Config.fCameraSide = clampFloat(g_Config.fCameraSide, -50.0f, 50.0f);
-			g_Config.fCameraDistance = clampFloat(g_Config.fCameraDistance, -50.0f, 50.0f);
-			g_Config.fFieldOfViewPercentage = clampFloat(g_Config.fFieldOfViewPercentage, 100.0f, 200.0f);
-		}
 
 		// Set customizations
 		__DisplaySetFramerate(g_Config.bForce72Hz ? 72 : 60);
