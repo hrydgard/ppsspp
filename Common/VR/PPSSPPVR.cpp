@@ -36,6 +36,7 @@ enum VRMirroring {
 	VR_MIRRORING_COUNT
 };
 
+static VRAppMode appMode = VR_MENU_MODE;
 static int pspAxisDeviceId = 0;
 static std::map<int, float> pspAxis;
 static std::map<int, bool> pspKeys;
@@ -64,16 +65,6 @@ struct ButtonMapping {
 		this->ovr = ovr;
 		pressed = false;
 		repeat = 0;
-	}
-};
-
-struct MouseActivator {
-	bool activate;
-	ovrButton ovr;
-
-	MouseActivator(bool activate, ovrButton ovr) {
-		this->activate = activate;
-		this->ovr = ovr;
 	}
 };
 
@@ -108,16 +99,8 @@ static std::vector<ButtonMapping> controllerMapping[2] = {
 		rightControllerMapping
 };
 static bool controllerMotion[2][5] = {};
-static int mouseController = -1;
-static bool mousePressed[] = {false, false};
-
-static std::vector<MouseActivator> mouseActivators = {
-		MouseActivator(true, ovrButton_Trigger),
-		MouseActivator(false, ovrButton_Up),
-		MouseActivator(false, ovrButton_Down),
-		MouseActivator(false, ovrButton_Left),
-		MouseActivator(false, ovrButton_Right),
-};
+static int mouseController = 1;
+static bool mousePressed = false;
 
 /*
 ================================================================================
@@ -196,6 +179,18 @@ void GetVRResolutionPerEye(int* width, int* height) {
 	}
 }
 
+/*
+================================================================================
+
+VR input integration
+
+================================================================================
+*/
+
+void SetVRAppMode(VRAppMode mode) {
+	appMode = mode;
+}
+
 void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(const KeyInput &key),
                    bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {
 	//axis
@@ -241,16 +236,6 @@ void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(co
 				m.repeat = 0;
 			} else {
 				m.repeat++;
-			}
-		}
-	}
-
-	//enable or disable mouse
-	for (int j = 0; j < 2; j++) {
-		int status = IN_VRGetButtonState(j);
-		for (MouseActivator& m : mouseActivators) {
-			if (status & m.ovr) {
-				mouseController = m.activate ? j : -1;
 			}
 		}
 	}
@@ -307,8 +292,22 @@ void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(co
 		}
 	}
 
+	//enable or disable mouse
+	for (int j = 0; j < 2; j++) {
+		bool pressed = IN_VRGetButtonState(j) & ovrButton_Trigger;
+		if (pressed) {
+			int lastController = mouseController;
+			mouseController = j;
+
+			//prevent misclicks when changing the left/right controller
+			if (lastController != mouseController) {
+				mousePressed = true;
+			}
+		}
+	}
+
 	//mouse cursor
-	if (mouseController >= 0) {
+	if ((mouseController >= 0) && (appMode == VR_MENU_MODE)) {
 		//get position on screen
 		XrPosef pose = IN_VRGetPose(mouseController);
 		XrVector3f angles = XrQuaternionf_ToEulerAngles(pose.orientation);
@@ -331,15 +330,25 @@ void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(co
 		touch.x = x * dp_xscale;
 		touch.y = (height - y - 1) * dp_yscale;
 		bool pressed = IN_VRGetButtonState(mouseController) & ovrButton_Trigger;
-		if (mousePressed[mouseController] != pressed) {
-			if (!pressed) {
+		if (mousePressed != pressed) {
+			if (pressed) {
 				touch.flags = TOUCH_DOWN;
 				NativeTouch(touch);
 				touch.flags = TOUCH_UP;
 				NativeTouch(touch);
 			}
-			mousePressed[mouseController] = pressed;
+			mousePressed = pressed;
 		}
+
+		//mouse wheel emulation
+		keyInput.deviceId = controllerIds[mouseController];
+		float scroll = -IN_VRGetJoystickState(mouseController).y;
+		keyInput.flags = scroll < -0.5f ? KEY_DOWN : KEY_UP;
+		keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+		NativeKey(keyInput);
+		keyInput.flags = scroll > 0.5f ? KEY_DOWN : KEY_UP;
+		keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+		NativeKey(keyInput);
 	} else {
 		VR_SetConfig(VR_CONFIG_MOUSE_SIZE, 0);
 	}
@@ -360,12 +369,27 @@ bool UpdateVRAxis(const AxisInput &axis) {
 }
 
 bool UpdateVRKeys(const KeyInput &key) {
+	//store key value
 	std::vector<int> nativeKeys;
 	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
 		for (int& nativeKey : nativeKeys) {
 			pspKeys[nativeKey] = key.flags & KEY_DOWN;
 		}
 	}
+
+	//block keys in the menus
+	if (appMode == VR_MENU_MODE) {
+		switch (key.keyCode) {
+			case NKCODE_BACK:
+			case NKCODE_EXT_MOUSEWHEEL_UP:
+			case NKCODE_EXT_MOUSEWHEEL_DOWN:
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	//block keys by camera adjust
 	return !pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
 }
 

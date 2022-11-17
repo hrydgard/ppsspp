@@ -28,6 +28,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
@@ -355,6 +356,8 @@ void GamePauseScreen::update() {
 		TriggerFinish(DR_CANCEL);
 		finishNextFrame_ = false;
 	}
+
+	SetVRAppMode(VRAppMode::VR_MENU_MODE);
 }
 
 GamePauseScreen::~GamePauseScreen() {

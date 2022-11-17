@@ -31,6 +31,7 @@ using namespace std::placeholders;
 #include "Common/UI/Context.h"
 #include "Common/UI/Tween.h"
 #include "Common/UI/View.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
@@ -1475,6 +1476,8 @@ void EmuScreen::render() {
 		screenManager()->getUIContext()->BeginFrame();
 		renderUI();
 	}
+
+	SetVRAppMode(VRAppMode::VR_GAME_MODE);
 }
 
 bool EmuScreen::hasVisibleUI() {
