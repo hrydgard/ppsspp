@@ -194,20 +194,22 @@ void SetVRAppMode(VRAppMode mode) {
 void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(const KeyInput &key),
                    bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {
 	//axis
-	AxisInput axis = {};
-	for (int j = 0; j < 2; j++) {
-		XrVector2f joystick = IN_VRGetJoystickState(j);
-		axis.deviceId = DEVICE_ID_DEFAULT;
+	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
+		AxisInput axis = {};
+		for (int j = 0; j < 2; j++) {
+			XrVector2f joystick = IN_VRGetJoystickState(j);
+			axis.deviceId = DEVICE_ID_DEFAULT;
 
-		//horizontal
-		axis.axisId = j == 0 ? JOYSTICK_AXIS_X : JOYSTICK_AXIS_Z;
-		axis.value = joystick.x;
-		NativeAxis(axis);
+			//horizontal
+			axis.axisId = j == 0 ? JOYSTICK_AXIS_X : JOYSTICK_AXIS_Z;
+			axis.value = joystick.x;
+			NativeAxis(axis);
 
-		//vertical
-		axis.axisId = j == 0 ? JOYSTICK_AXIS_Y : JOYSTICK_AXIS_RZ;
-		axis.value = -joystick.y;
-		NativeAxis(axis);
+			//vertical
+			axis.axisId = j == 0 ? JOYSTICK_AXIS_Y : JOYSTICK_AXIS_RZ;
+			axis.value = -joystick.y;
+			NativeAxis(axis);
+		}
 	}
 
 	//buttons
