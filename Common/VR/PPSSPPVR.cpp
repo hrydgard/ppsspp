@@ -36,6 +36,7 @@ enum VRMirroring {
 	VR_MIRRORING_COUNT
 };
 
+static int pspAxisDeviceId = 0;
 static std::map<int, float> pspAxis;
 static std::map<int, bool> pspKeys;
 
@@ -195,7 +196,25 @@ void GetVRResolutionPerEye(int* width, int* height) {
 	}
 }
 
-void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {
+void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(const KeyInput &key),
+                   bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {
+	//axis
+	AxisInput axis = {};
+	for (int j = 0; j < 2; j++) {
+		XrVector2f joystick = IN_VRGetJoystickState(j);
+		axis.deviceId = DEVICE_ID_DEFAULT;
+
+		//horizontal
+		axis.axisId = j == 0 ? JOYSTICK_AXIS_X : JOYSTICK_AXIS_Z;
+		axis.value = joystick.x;
+		NativeAxis(axis);
+
+		//vertical
+		axis.axisId = j == 0 ? JOYSTICK_AXIS_Y : JOYSTICK_AXIS_RZ;
+		axis.value = -joystick.y;
+		NativeAxis(axis);
+	}
+
 	//buttons
 	KeyInput keyInput = {};
 	for (int j = 0; j < 2; j++) {
@@ -327,7 +346,16 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 }
 
 bool UpdateVRAxis(const AxisInput &axis) {
+	//do not store small input if two devices used at the same time
+	if (pspAxisDeviceId != axis.deviceId) {
+		if (fabs(axis.value) < 0.5f) {
+			return !pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
+		}
+	}
+
+	//store axis value
 	pspAxis[axis.axisId] = axis.value;
+	pspAxisDeviceId = axis.deviceId;
 	return !pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
 }
 
@@ -568,16 +596,16 @@ bool StartVRRender() {
 		// Camera control
 		if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
 			//left joystick controls height and side
-			if (pspKeys[CTRL_LEFT] || (pspAxis[JOYSTICK_AXIS_X] < -0.5f)) g_Config.fCameraSide -= 0.05f;
-			if (pspKeys[CTRL_RIGHT] || (pspAxis[JOYSTICK_AXIS_X] > 0.5f)) g_Config.fCameraSide += 0.05f;
-			if (pspKeys[CTRL_DOWN] || (pspAxis[JOYSTICK_AXIS_Y] > 0.5f)) g_Config.fCameraHeight -= 0.05f;
-			if (pspKeys[CTRL_UP] || (pspAxis[JOYSTICK_AXIS_Y] < -0.5f)) g_Config.fCameraHeight += 0.05f;
+			if (pspAxis[JOYSTICK_AXIS_X] < -0.5f) g_Config.fCameraSide -= 0.05f;
+			if (pspAxis[JOYSTICK_AXIS_X] > 0.5f) g_Config.fCameraSide += 0.05f;
+			if (pspAxis[JOYSTICK_AXIS_Y] > 0.5f) g_Config.fCameraHeight -= 0.05f;
+			if (pspAxis[JOYSTICK_AXIS_Y] < -0.5f) g_Config.fCameraHeight += 0.05f;
 
 			//right joystick controls distance and fov
-			if (pspKeys[VIRTKEY_AXIS_X_MIN] || (pspAxis[JOYSTICK_AXIS_Z] < -0.5f)) g_Config.fFieldOfViewPercentage -= 1.0f;
-			if (pspKeys[VIRTKEY_AXIS_X_MAX] || (pspAxis[JOYSTICK_AXIS_Z] > 0.5f)) g_Config.fFieldOfViewPercentage += 1.0f;
-			if (pspKeys[VIRTKEY_AXIS_Y_MIN] || (pspAxis[JOYSTICK_AXIS_RZ] > 0.5f)) g_Config.fCameraDistance -= 0.1f;
-			if (pspKeys[VIRTKEY_AXIS_Y_MAX] || (pspAxis[JOYSTICK_AXIS_RZ] < -0.5f)) g_Config.fCameraDistance += 0.1f;
+			if (pspAxis[JOYSTICK_AXIS_Z] < -0.5f) g_Config.fFieldOfViewPercentage -= 1.0f;
+			if (pspAxis[JOYSTICK_AXIS_Z] > 0.5f) g_Config.fFieldOfViewPercentage += 1.0f;
+			if (pspAxis[JOYSTICK_AXIS_RZ] > 0.5f) g_Config.fCameraDistance -= 0.1f;
+			if (pspAxis[JOYSTICK_AXIS_RZ] < -0.5f) g_Config.fCameraDistance += 0.1f;
 
 			// Reset values
 			if (pspKeys[VIRTKEY_VR_CAMERA_RESET]) {

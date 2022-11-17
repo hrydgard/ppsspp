@@ -1079,7 +1079,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	}
 
 	if (IsVREnabled()) {
-		UpdateVRInput(NativeKey, NativeTouch, g_Config.bHapticFeedback, dp_xscale, dp_yscale);
+		UpdateVRInput(NativeAxis, NativeKey, NativeTouch, g_Config.bHapticFeedback, dp_xscale, dp_yscale);
 		FinishVRRender();
 	}
 }

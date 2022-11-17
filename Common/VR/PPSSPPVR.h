@@ -22,7 +22,8 @@ bool IsVREnabled();
 void InitVROnAndroid(void* vm, void* activity, const char* system, int version, const char* name);
 void EnterVR(bool firstStart, void* vulkanContext);
 void GetVRResolutionPerEye(int* width, int* height);
-void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale);
+void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(const KeyInput &key),
+                   bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale);
 bool UpdateVRAxis(const AxisInput &axis);
 bool UpdateVRKeys(const KeyInput &key);
 
