@@ -1305,7 +1305,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 		int width, height;
 		GetVRResolutionPerEye(&width, &height);
 		xres = width;
-		yres = height;
+		yres = height * 272 / 480;
 		dpi = 320;
 	}
 

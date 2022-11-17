@@ -394,7 +394,7 @@ void VR_FinishFrame( engine_t* engine ) {
 		cylinder_layer.pose.position = pos;
 		cylinder_layer.radius = 12.0f;
 		cylinder_layer.centralAngle = (float)(M_PI * 0.5);
-		cylinder_layer.aspectRatio = 1;
+		cylinder_layer.aspectRatio = VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
 
 		// Build the cylinder layer
 		if (vrMode == VR_MODE_MONO_SCREEN) {

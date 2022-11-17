@@ -319,7 +319,7 @@ void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(co
 		float cy = height / 2;
 		float speed = (cx + cy) / 2;
 		float x = cx - tan(ToRadians(angles.y - VR_GetConfigFloat(VR_CONFIG_MENU_YAW))) * speed;
-		float y = cy - tan(ToRadians(angles.x)) * speed;
+		float y = cy - tan(ToRadians(angles.x)) * speed * VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
 
 		//set renderer
 		VR_SetConfig(VR_CONFIG_MOUSE_X, (int)x);
@@ -330,7 +330,7 @@ void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(co
 		TouchInput touch;
 		touch.id = mouseController;
 		touch.x = x * dp_xscale;
-		touch.y = (height - y - 1) * dp_yscale;
+		touch.y = (height - y - 1) * dp_yscale / VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
 		bool pressed = IN_VRGetButtonState(mouseController) & ovrButton_Trigger;
 		if (mousePressed != pressed) {
 			if (pressed) {
@@ -608,6 +608,7 @@ bool StartVRRender() {
 		}
 
 		// Decide if the scene is 3D or not
+		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 480.0f / 272.0f);
 		if ((appMode == VR_DIALOG_MODE) || (appMode == VR_MENU_MODE)) {
 			VR_SetConfig(VR_CONFIG_MODE, VR_MODE_MONO_SCREEN);
 		} else if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && (vr3DGeometryCount > 15)) {
