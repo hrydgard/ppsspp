@@ -330,7 +330,7 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	std::string pspButtonName = KeyMap::GetPspButtonName(this->pspBtn_);
 
 	parent->Add(new TextView(std::string(km->T("Map a new key for")) + " " + mc->T(pspButtonName), new LinearLayoutParams(Margins(10,0))));
-	SetVRAppMode(VRAppMode::VR_CONTROLL_MAPPING_MODE);
+	SetVRAppMode(VRAppMode::VR_CONTROLLER_MAPPING_MODE);
 }
 
 bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
@@ -363,7 +363,7 @@ void KeyMappingNewMouseKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	auto km = GetI18NCategory("KeyMapping");
 
 	parent->Add(new TextView(std::string(km->T("You can press ESC to cancel.")), new LinearLayoutParams(Margins(10, 0))));
-	SetVRAppMode(VRAppMode::VR_CONTROLL_MAPPING_MODE);
+	SetVRAppMode(VRAppMode::VR_CONTROLLER_MAPPING_MODE);
 }
 
 bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
