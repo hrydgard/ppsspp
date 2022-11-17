@@ -347,14 +347,16 @@ void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(co
 		}
 
 		//mouse wheel emulation
-		keyInput.deviceId = controllerIds[mouseController];
-		float scroll = -IN_VRGetJoystickState(mouseController).y;
-		keyInput.flags = scroll < -0.5f ? KEY_DOWN : KEY_UP;
-		keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-		NativeKey(keyInput);
-		keyInput.flags = scroll > 0.5f ? KEY_DOWN : KEY_UP;
-		keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-		NativeKey(keyInput);
+		for (int j = 0; j < 2; j++) {
+			keyInput.deviceId = controllerIds[j];
+			float scroll = -IN_VRGetJoystickState(j).y;
+			keyInput.flags = scroll < -0.5f ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+			NativeKey(keyInput);
+			keyInput.flags = scroll > 0.5f ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+			NativeKey(keyInput);
+		}
 	} else {
 		VR_SetConfig(VR_CONFIG_MOUSE_SIZE, 0);
 	}
