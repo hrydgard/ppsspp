@@ -1477,7 +1477,11 @@ void EmuScreen::render() {
 		renderUI();
 	}
 
-	SetVRAppMode(VRAppMode::VR_GAME_MODE);
+	if (chatMenu_ && (chatMenu_->GetVisibility() == UI::V_VISIBLE)) {
+		SetVRAppMode(VRAppMode::VR_DIALOG_MODE);
+	} else {
+		SetVRAppMode(screenManager()->topScreen() == this ? VRAppMode::VR_GAME_MODE : VRAppMode::VR_DIALOG_MODE);
+	}
 }
 
 bool EmuScreen::hasVisibleUI() {

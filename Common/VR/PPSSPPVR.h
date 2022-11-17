@@ -19,6 +19,7 @@ enum VRCompatFlag {
 
 enum VRAppMode {
 	VR_CONTROLL_MAPPING_MODE,
+	VR_DIALOG_MODE,
 	VR_GAME_MODE,
 	VR_MENU_MODE,
 };

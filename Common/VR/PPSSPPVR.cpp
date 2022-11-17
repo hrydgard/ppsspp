@@ -309,7 +309,7 @@ void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(co
 	}
 
 	//mouse cursor
-	if ((mouseController >= 0) && (appMode == VR_MENU_MODE)) {
+	if ((mouseController >= 0) && ((appMode == VR_DIALOG_MODE) || (appMode == VR_MENU_MODE))) {
 		//get position on screen
 		XrPosef pose = IN_VRGetPose(mouseController);
 		XrVector3f angles = XrQuaternionf_ToEulerAngles(pose.orientation);
@@ -379,8 +379,8 @@ bool UpdateVRKeys(const KeyInput &key) {
 		}
 	}
 
-	//block keys in the menus
-	if (appMode == VR_MENU_MODE) {
+	//block keys in the UI
+	if ((appMode == VR_DIALOG_MODE) || (appMode == VR_MENU_MODE)) {
 		switch (key.keyCode) {
 			case NKCODE_BACK:
 			case NKCODE_EXT_MOUSEWHEEL_UP:
@@ -608,7 +608,9 @@ bool StartVRRender() {
 		}
 
 		// Decide if the scene is 3D or not
-		if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && (vr3DGeometryCount > 15)) {
+		if ((appMode == VR_DIALOG_MODE) || (appMode == VR_MENU_MODE)) {
+			VR_SetConfig(VR_CONFIG_MODE, VR_MODE_MONO_SCREEN);
+		} else if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && (vr3DGeometryCount > 15)) {
 			bool stereo = hasUnitScale && g_Config.bEnableStereo;
 			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 		} else {
