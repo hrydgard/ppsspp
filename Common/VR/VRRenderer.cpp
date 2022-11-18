@@ -311,13 +311,14 @@ void VR_EndFrame( engine_t* engine ) {
 	VR_BindFramebuffer(engine);
 
 	// Show mouse cursor
-	int size = vrConfig[VR_CONFIG_MOUSE_SIZE];
 	int vrMode = vrConfig[VR_CONFIG_MODE];
 	bool screenMode = (vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN);
-	if (screenMode && (size > 0)) {
+	if (screenMode && (vrConfig[VR_CONFIG_MOUSE_SIZE] > 0)) {
 		int x = vrConfig[VR_CONFIG_MOUSE_X];
 		int y = vrConfig[VR_CONFIG_MOUSE_Y];
-		ovrRenderer_MouseCursor(&engine->appState.Renderer, x, y, size);
+		int sx = vrConfig[VR_CONFIG_MOUSE_SIZE];
+		int sy = sx * VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
+		ovrRenderer_MouseCursor(&engine->appState.Renderer, x, y, sx, sy);
 	}
 
 	ovrFramebuffer_Release(&engine->appState.Renderer.FrameBuffer[fboIndex]);
@@ -394,7 +395,7 @@ void VR_FinishFrame( engine_t* engine ) {
 		cylinder_layer.pose.position = pos;
 		cylinder_layer.radius = 12.0f;
 		cylinder_layer.centralAngle = (float)(M_PI * 0.5);
-		cylinder_layer.aspectRatio = 1;
+		cylinder_layer.aspectRatio = VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
 
 		// Build the cylinder layer
 		if (vrMode == VR_MODE_MONO_SCREEN) {

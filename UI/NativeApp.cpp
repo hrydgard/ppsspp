@@ -1306,8 +1306,8 @@ bool NativeTouch(const TouchInput &touch) {
 }
 
 bool NativeKey(const KeyInput &key) {
-	// Special key VR actions
-	if (IsVREnabled() && !UpdateVRSpecialKeys(key)) {
+	// VR actions
+	if (IsVREnabled() && !UpdateVRKeys(key)) {
 		return false;
 	}
 
@@ -1331,6 +1331,11 @@ bool NativeKey(const KeyInput &key) {
 }
 
 bool NativeAxis(const AxisInput &axis) {
+	// VR actions
+	if (IsVREnabled() && !UpdateVRAxis(axis)) {
+		return false;
+	}
+
 	if (!screenManager) {
 		// Too early.
 		return false;

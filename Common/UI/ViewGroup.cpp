@@ -826,13 +826,21 @@ bool ScrollView::Key(const KeyInput &input) {
 	if (visibility_ != V_VISIBLE)
 		return ViewGroup::Key(input);
 
+	float scrollSpeed = 250;
+	switch (input.deviceId) {
+		case DEVICE_ID_XR_CONTROLLER_LEFT:
+		case DEVICE_ID_XR_CONTROLLER_RIGHT:
+			scrollSpeed = 50;
+			break;
+	}
+
 	if (input.flags & KEY_DOWN) {
 		switch (input.keyCode) {
 		case NKCODE_EXT_MOUSEWHEEL_UP:
-			ScrollRelative(-250);
+			ScrollRelative(-scrollSpeed);
 			break;
 		case NKCODE_EXT_MOUSEWHEEL_DOWN:
-			ScrollRelative(250);
+			ScrollRelative(scrollSpeed);
 			break;
 		}
 	}

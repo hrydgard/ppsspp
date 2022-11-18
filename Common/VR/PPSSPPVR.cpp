@@ -36,6 +36,7 @@ enum VRMirroring {
 	VR_MIRRORING_COUNT
 };
 
+static VRAppMode appMode = VR_MENU_MODE;
 static std::map<int, bool> pspKeys;
 
 static int vr3DGeometryCount = 0;
@@ -62,16 +63,6 @@ struct ButtonMapping {
 		this->ovr = ovr;
 		pressed = false;
 		repeat = 0;
-	}
-};
-
-struct MouseActivator {
-	bool activate;
-	ovrButton ovr;
-
-	MouseActivator(bool activate, ovrButton ovr) {
-		this->activate = activate;
-		this->ovr = ovr;
 	}
 };
 
@@ -106,16 +97,14 @@ static std::vector<ButtonMapping> controllerMapping[2] = {
 		rightControllerMapping
 };
 static bool controllerMotion[2][5] = {};
-static int mouseController = -1;
-static bool mousePressed[] = {false, false};
+static int mouseController = 1;
+static bool mousePressed = false;
 
-static std::vector<MouseActivator> mouseActivators = {
-		MouseActivator(true, ovrButton_Trigger),
-		MouseActivator(false, ovrButton_Up),
-		MouseActivator(false, ovrButton_Down),
-		MouseActivator(false, ovrButton_Left),
-		MouseActivator(false, ovrButton_Right),
-};
+inline float clampFloat(float x, float minValue, float maxValue) {
+	if (x < minValue) return minValue;
+	if (x > maxValue) return maxValue;
+	return x;
+}
 
 /*
 ================================================================================
@@ -194,7 +183,39 @@ void GetVRResolutionPerEye(int* width, int* height) {
 	}
 }
 
-void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {
+/*
+================================================================================
+
+VR input integration
+
+================================================================================
+*/
+
+void SetVRAppMode(VRAppMode mode) {
+	appMode = mode;
+}
+
+void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(const KeyInput &key),
+                   bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {
+	//axis
+	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
+		AxisInput axis = {};
+		for (int j = 0; j < 2; j++) {
+			XrVector2f joystick = IN_VRGetJoystickState(j);
+			axis.deviceId = DEVICE_ID_DEFAULT;
+
+			//horizontal
+			axis.axisId = j == 0 ? JOYSTICK_AXIS_X : JOYSTICK_AXIS_Z;
+			axis.value = joystick.x;
+			NativeAxis(axis);
+
+			//vertical
+			axis.axisId = j == 0 ? JOYSTICK_AXIS_Y : JOYSTICK_AXIS_RZ;
+			axis.value = -joystick.y;
+			NativeAxis(axis);
+		}
+	}
+
 	//buttons
 	KeyInput keyInput = {};
 	for (int j = 0; j < 2; j++) {
@@ -221,16 +242,6 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 				m.repeat = 0;
 			} else {
 				m.repeat++;
-			}
-		}
-	}
-
-	//enable or disable mouse
-	for (int j = 0; j < 2; j++) {
-		int status = IN_VRGetButtonState(j);
-		for (MouseActivator& m : mouseActivators) {
-			if (status & m.ovr) {
-				mouseController = m.activate ? j : -1;
 			}
 		}
 	}
@@ -287,8 +298,22 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 		}
 	}
 
+	//enable or disable mouse
+	for (int j = 0; j < 2; j++) {
+		bool pressed = IN_VRGetButtonState(j) & ovrButton_Trigger;
+		if (pressed) {
+			int lastController = mouseController;
+			mouseController = j;
+
+			//prevent misclicks when changing the left/right controller
+			if (lastController != mouseController) {
+				mousePressed = true;
+			}
+		}
+	}
+
 	//mouse cursor
-	if (mouseController >= 0) {
+	if ((mouseController >= 0) && ((appMode == VR_DIALOG_MODE) || (appMode == VR_MENU_MODE))) {
 		//get position on screen
 		XrPosef pose = IN_VRGetPose(mouseController);
 		XrVector3f angles = XrQuaternionf_ToEulerAngles(pose.orientation);
@@ -298,7 +323,7 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 		float cy = height / 2;
 		float speed = (cx + cy) / 2;
 		float x = cx - tan(ToRadians(angles.y - VR_GetConfigFloat(VR_CONFIG_MENU_YAW))) * speed;
-		float y = cy - tan(ToRadians(angles.x)) * speed;
+		float y = cy - tan(ToRadians(angles.x)) * speed * VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
 
 		//set renderer
 		VR_SetConfig(VR_CONFIG_MOUSE_X, (int)x);
@@ -309,29 +334,94 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 		TouchInput touch;
 		touch.id = mouseController;
 		touch.x = x * dp_xscale;
-		touch.y = (height - y - 1) * dp_yscale;
+		touch.y = (height - y - 1) * dp_yscale / VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
 		bool pressed = IN_VRGetButtonState(mouseController) & ovrButton_Trigger;
-		if (mousePressed[mouseController] != pressed) {
-			if (!pressed) {
+		if (mousePressed != pressed) {
+			if (pressed) {
 				touch.flags = TOUCH_DOWN;
 				NativeTouch(touch);
 				touch.flags = TOUCH_UP;
 				NativeTouch(touch);
 			}
-			mousePressed[mouseController] = pressed;
+			mousePressed = pressed;
+		}
+
+		//mouse wheel emulation
+		for (int j = 0; j < 2; j++) {
+			keyInput.deviceId = controllerIds[j];
+			float scroll = -IN_VRGetJoystickState(j).y;
+			keyInput.flags = scroll < -0.5f ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+			NativeKey(keyInput);
+			keyInput.flags = scroll > 0.5f ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+			NativeKey(keyInput);
 		}
 	} else {
 		VR_SetConfig(VR_CONFIG_MOUSE_SIZE, 0);
 	}
 }
 
-bool UpdateVRSpecialKeys(const KeyInput &key) {
+bool UpdateVRAxis(const AxisInput &axis) {
+
+	// Camera control
+	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
+		switch(axis.axisId) {
+			case JOYSTICK_AXIS_X:
+				if (axis.value < -0.5f) g_Config.fCameraSide -= 0.05f;
+				if (axis.value > 0.5f) g_Config.fCameraSide += 0.05f;
+				g_Config.fCameraSide = clampFloat(g_Config.fCameraSide, -50.0f, 50.0f);
+				break;
+			case JOYSTICK_AXIS_Y:
+				if (axis.value > 0.5f) g_Config.fCameraHeight -= 0.05f;
+				if (axis.value < -0.5f) g_Config.fCameraHeight += 0.05f;
+				g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -50.0f, 50.0f);
+				break;
+			case JOYSTICK_AXIS_Z:
+				if (axis.value < -0.5f) g_Config.fFieldOfViewPercentage -= 1.0f;
+				if (axis.value > 0.5f) g_Config.fFieldOfViewPercentage += 1.0f;
+				g_Config.fFieldOfViewPercentage = clampFloat(g_Config.fFieldOfViewPercentage, 100.0f, 200.0f);
+				break;
+			case JOYSTICK_AXIS_RZ:
+				if (axis.value > 0.5f) g_Config.fCameraDistance -= 0.1f;
+				if (axis.value < -0.5f) g_Config.fCameraDistance += 0.1f;
+				g_Config.fCameraDistance = clampFloat(g_Config.fCameraDistance, -50.0f, 50.0f);
+				break;
+		}
+	}
+	return !pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
+}
+
+bool UpdateVRKeys(const KeyInput &key) {
+	//store key value
 	std::vector<int> nativeKeys;
 	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
 		for (int& nativeKey : nativeKeys) {
 			pspKeys[nativeKey] = key.flags & KEY_DOWN;
 		}
 	}
+
+	//block keys in the UI mode
+	if ((appMode == VR_DIALOG_MODE) || (appMode == VR_MENU_MODE)) {
+		switch (key.keyCode) {
+			case NKCODE_BACK:
+			case NKCODE_EXT_MOUSEWHEEL_UP:
+			case NKCODE_EXT_MOUSEWHEEL_DOWN:
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	// Reset camera adjust
+	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST] && pspKeys[VIRTKEY_VR_CAMERA_RESET]) {
+		g_Config.fCameraHeight = 0;
+		g_Config.fCameraSide = 0;
+		g_Config.fCameraDistance = 0;
+		g_Config.fFieldOfViewPercentage = 100;
+	}
+
+	//block keys by camera adjust
 	return !pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
 }
 
@@ -406,12 +496,6 @@ VR rendering integration
 
 void* BindVRFramebuffer() {
 	return VR_BindFramebuffer(VR_GetEngine());
-}
-
-inline float clampFloat(float x, float minValue, float maxValue) {
-	if (x < minValue) return minValue;
-	if (x > maxValue) return maxValue;
-	return x;
 }
 
 bool StartVRRender() {
@@ -548,7 +632,10 @@ bool StartVRRender() {
 		}
 
 		// Decide if the scene is 3D or not
-		if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && (vr3DGeometryCount > 15)) {
+		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 480.0f / 272.0f);
+		if ((appMode == VR_DIALOG_MODE) || (appMode == VR_MENU_MODE)) {
+			VR_SetConfig(VR_CONFIG_MODE, VR_MODE_MONO_SCREEN);
+		} else if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && (vr3DGeometryCount > 15)) {
 			bool stereo = hasUnitScale && g_Config.bEnableStereo;
 			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 		} else {
@@ -558,35 +645,6 @@ bool StartVRRender() {
 
 		// Set compatibility
 		vrCompat[VR_COMPAT_SKYPLANE] = PSP_CoreParameter().compat.vrCompat().Skyplane;
-
-		// Camera control
-		if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
-			//left joystick controls height and side
-			if (pspKeys[CTRL_LEFT]) g_Config.fCameraSide -= 0.05f;
-			if (pspKeys[CTRL_RIGHT]) g_Config.fCameraSide += 0.05f;
-			if (pspKeys[CTRL_DOWN]) g_Config.fCameraHeight -= 0.05f;
-			if (pspKeys[CTRL_UP]) g_Config.fCameraHeight += 0.05f;
-
-			//right joystick controls distance and fov
-			if (pspKeys[VIRTKEY_AXIS_X_MIN]) g_Config.fFieldOfViewPercentage -= 1.0f;
-			if (pspKeys[VIRTKEY_AXIS_X_MAX]) g_Config.fFieldOfViewPercentage += 1.0f;
-			if (pspKeys[VIRTKEY_AXIS_Y_MIN]) g_Config.fCameraDistance -= 0.1f;
-			if (pspKeys[VIRTKEY_AXIS_Y_MAX]) g_Config.fCameraDistance += 0.1f;
-
-			// Reset values
-			if (pspKeys[VIRTKEY_VR_CAMERA_RESET]) {
-				g_Config.fCameraHeight = 0;
-				g_Config.fCameraSide = 0;
-				g_Config.fCameraDistance = 0;
-				g_Config.fFieldOfViewPercentage = 100;
-			}
-
-			// Clamp values
-			g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -50.0f, 50.0f);
-			g_Config.fCameraSide = clampFloat(g_Config.fCameraSide, -50.0f, 50.0f);
-			g_Config.fCameraDistance = clampFloat(g_Config.fCameraDistance, -50.0f, 50.0f);
-			g_Config.fFieldOfViewPercentage = clampFloat(g_Config.fFieldOfViewPercentage, 100.0f, 200.0f);
-		}
 
 		// Set customizations
 		__DisplaySetFramerate(g_Config.bForce72Hz ? 72 : 60);

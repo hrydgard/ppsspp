@@ -17,13 +17,25 @@ enum VRCompatFlag {
 	VR_COMPAT_MAX
 };
 
+enum VRAppMode {
+	VR_CONTROLLER_MAPPING_MODE,
+	VR_DIALOG_MODE,
+	VR_GAME_MODE,
+	VR_MENU_MODE,
+};
+
 // VR app flow integration
 bool IsVREnabled();
 void InitVROnAndroid(void* vm, void* activity, const char* system, int version, const char* name);
 void EnterVR(bool firstStart, void* vulkanContext);
 void GetVRResolutionPerEye(int* width, int* height);
-void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale);
-bool UpdateVRSpecialKeys(const KeyInput &key);
+
+// VR input integration
+void SetVRAppMode(VRAppMode mode);
+void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(const KeyInput &key),
+                   bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale);
+bool UpdateVRAxis(const AxisInput &axis);
+bool UpdateVRKeys(const KeyInput &key);
 
 // VR games compatibility
 void PreprocessStepVR(void* step);

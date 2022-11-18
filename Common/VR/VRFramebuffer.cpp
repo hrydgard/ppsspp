@@ -411,14 +411,14 @@ void ovrRenderer_Destroy(ovrRenderer* renderer) {
 	}
 }
 
-void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int size) {
+void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int sx, int sy) {
 	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
 		//TODO:implement
 	} else {
 #if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 		GL(glEnable(GL_SCISSOR_TEST));
-		GL(glScissor(x, y, size, size));
-		GL(glViewport(x, y, size, size));
+		GL(glScissor(x, y, sx, sy));
+		GL(glViewport(x, y, sx, sy));
 		GL(glClearColor(1.0f, 1.0f, 1.0f, 1.0f));
 		GL(glClear(GL_COLOR_BUFFER_BIT));
 		GL(glDisable(GL_SCISSOR_TEST));

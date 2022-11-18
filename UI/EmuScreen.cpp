@@ -31,6 +31,7 @@ using namespace std::placeholders;
 #include "Common/UI/Context.h"
 #include "Common/UI/Tween.h"
 #include "Common/UI/View.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
@@ -1474,6 +1475,12 @@ void EmuScreen::render() {
 		cardboardDisableButton_->SetVisibility(g_Config.bEnableCardboardVR ? UI::V_VISIBLE : UI::V_GONE);
 		screenManager()->getUIContext()->BeginFrame();
 		renderUI();
+	}
+
+	if (chatMenu_ && (chatMenu_->GetVisibility() == UI::V_VISIBLE)) {
+		SetVRAppMode(VRAppMode::VR_DIALOG_MODE);
+	} else {
+		SetVRAppMode(screenManager()->topScreen() == this ? VRAppMode::VR_GAME_MODE : VRAppMode::VR_DIALOG_MODE);
 	}
 }
 
