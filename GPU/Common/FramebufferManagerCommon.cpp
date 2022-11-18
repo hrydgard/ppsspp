@@ -944,33 +944,21 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	bool useCopy = draw_->GetDeviceCaps().framebufferSeparateDepthCopySupported || (!draw_->GetDeviceCaps().framebufferDepthBlitSupported && draw_->GetDeviceCaps().framebufferCopySupported);
 	bool useBlit = draw_->GetDeviceCaps().framebufferDepthBlitSupported;
 
-	bool useRaster = draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported;
-
-	// Could do an attempt at optimization - if destination already bound, draw depth using raster.
-	// Let's experiment later, commented out for now. Currently we fall back to raster as a last resort here.
-	
-	/*
-	if (currentRenderVfb_ == dst) {
-		useCopy = false;
-		useBlit = false;
-	}
-	*/
+	bool useRaster = draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported && draw_->GetDeviceCaps().textureDepthSupported;
 
 	int w = std::min(src->renderWidth, dst->renderWidth);
 	int h = std::min(src->renderHeight, dst->renderHeight);
 
-	// TODO: It might even be advantageous on some GPUs to do this copy using a fragment shader that writes to Z, that way upcoming commands can just continue that render pass.
-
 	// Some GPUs can copy depth but only if stencil gets to come along for the ride. We only want to use this if there is no blit functionality.
-	if (useCopy) {
+	if (useRaster) {
+		BlitUsingRaster(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, false, dst->renderScaleFactor, Get2DPipeline(Draw2DShader::DRAW2D_COPY_DEPTH), "BlitDepthRaster");
+	} else if (useCopy) {
 		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, w, h, 1, Draw::FB_DEPTH_BIT, "CopyFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
 	} else if (useBlit) {
 		// We'll accept whether we get a separate depth blit or not...
 		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
-	} else if (useRaster) {
-		BlitUsingRaster(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, false, dst->renderScaleFactor, Get2DPipeline(Draw2DShader::DRAW2D_COPY_DEPTH), "BlitDepthRaster");
 	}
 
 	draw_->InvalidateCachedState();
