@@ -72,6 +72,24 @@ namespace MIPSComp {
 			     regs[3] == regs[2] + 1;
 	}
 
+	static bool IsVec4(VectorSize sz, const u8 regs[4]) {
+		return sz == V_Quad && IsConsecutive4(regs) && (regs[0] & 3) == 0;
+	}
+
+	static bool IsMatrixVec4(MatrixSize sz, const u8 regs[16]) {
+		if (sz != M_4x4)
+			return false;
+		if (!IsConsecutive4(&regs[0]) || (regs[0] & 3) != 0)
+			return false;
+		if (!IsConsecutive4(&regs[4]) || (regs[4] & 3) != 0)
+			return false;
+		if (!IsConsecutive4(&regs[8]) || (regs[8] & 3) != 0)
+			return false;
+		if (!IsConsecutive4(&regs[12]) || (regs[12] & 3) != 0)
+			return false;
+		return true;
+	}
+
 	// Vector regs can overlap in all sorts of swizzled ways.
 	// This does allow a single overlap in sregs[i].
 	static bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
@@ -173,7 +191,7 @@ namespace MIPSComp {
 			origV[i] = vregs[i];
 
 		// Some common vector prefixes
-		if (sz == V_Quad && IsConsecutive4(vregs)) {
+		if (IsVec4(sz, vregs)) {
 			if (prefix == 0xF00E4) {
 				InitRegs(vregs, tempReg);
 				ir.Write(IROp::Vec4Neg, vregs[0], origV[0]);
@@ -327,7 +345,7 @@ namespace MIPSComp {
 
 		switch (op >> 26) {
 		case 54: //lv.q
-			if (IsConsecutive4(vregs)) {
+			if (IsVec4(V_Quad, vregs)) {
 				ir.Write(IROp::LoadVec4, vregs[0], rs, ir.AddConstant(imm));
 			} else {
 				// Let's not even bother with "vertical" loads for now.
@@ -341,7 +359,7 @@ namespace MIPSComp {
 			break;
 
 		case 62: //sv.q
-			if (IsConsecutive4(vregs)) {
+			if (IsVec4(V_Quad, vregs)) {
 				ir.Write(IROp::StoreVec4, vregs[0], rs, ir.AddConstant(imm));
 			} else {
 				// Let's not even bother with "vertical" stores for now.
@@ -381,7 +399,7 @@ namespace MIPSComp {
 		u8 dregs[4];
 		GetVectorRegsPrefixD(dregs, sz, vd);
 
-		if (sz == V_Quad && IsConsecutive4(dregs)) {
+		if (IsVec4(sz, dregs)) {
 			ir.Write(IROp::Vec4Init, dregs[0], (int)(type == 6 ? Vec4Init::AllZERO : Vec4Init::AllONE));
 		} else {
 			for (int i = 0; i < n; i++) {
@@ -406,7 +424,7 @@ namespace MIPSComp {
 		u8 dregs[4];
 		GetVectorRegsPrefixD(dregs, sz, vd);
 
-		if (sz == 4 && IsConsecutive4(dregs)) {
+		if (IsVec4(sz, dregs)) {
 			int row = vd & 3;
 			Vec4Init init = Vec4Init((int)Vec4Init::Set_1000 + row);
 			ir.Write(IROp::Vec4Init, dregs[0], (int)init);
@@ -574,7 +592,7 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, vt);
 		GetVectorRegsPrefixD(dregs, V_Single, vd);
 
-		if (sz == V_Quad && IsConsecutive4(sregs) && IsConsecutive4(tregs) && IsOverlapSafe(dregs[0], n, sregs, n, tregs)) {
+		if (IsVec4(sz, sregs) && IsVec4(sz, tregs) && IsOverlapSafe(dregs[0], n, sregs, n, tregs)) {
 			ir.Write(IROp::Vec4Dot, dregs[0], sregs[0], tregs[0]);
 			ApplyPrefixD(dregs, V_Single);
 			return;
@@ -660,7 +678,7 @@ namespace MIPSComp {
 		}
 
 		// If all three are consecutive 4, we're safe regardless of if we use temps so we should not check that here.
-		if (allowSIMD && sz == V_Quad && IsConsecutive4(dregs) && IsConsecutive4(sregs) && IsConsecutive4(tregs)) {
+		if (allowSIMD && IsVec4(sz, dregs) && IsVec4(sz, sregs) && IsVec4(sz, tregs)) {
 			IROp opFunc = IROp::Nop;
 			switch (op >> 26) {
 			case 24: //VFPU0
@@ -809,12 +827,11 @@ namespace MIPSComp {
 		case 0:  // vmov
 		case 1:  // vabs
 		case 2:  // vneg
-			// Our Vec4 ops require aligned regs and sets of 4.
-			canSIMD = n == 4 && (sregs[0] & 3) == 0 && (dregs[0] & 3) == 0;
+			canSIMD = true;
 			break;
 		}
 
-		if (canSIMD && !usingTemps && IsConsecutive4(sregs) && IsConsecutive4(dregs)) {
+		if (canSIMD && !usingTemps && IsVec4(sz, sregs) && IsVec4(sz, dregs)) {
 			switch (optype) {
 			case 0:  // vmov
 				ir.Write(IROp::Vec4Mov, dregs[0], sregs[0]);
@@ -1212,7 +1229,7 @@ namespace MIPSComp {
 			}
 		}
 
-		if (n == 4 && IsConsecutive4(sregs) && IsConsecutive4(dregs)) {
+		if (IsVec4(sz, sregs) && IsVec4(sz, dregs)) {
 			if (!overlap || (vs == vd && IsOverlapSafe(treg, n, dregs))) {
 				ir.Write(IROp::Vec4Scale, dregs[0], sregs[0], treg);
 				ApplyPrefixD(dregs, sz);
@@ -1297,12 +1314,12 @@ namespace MIPSComp {
 
 		// dregs are always consecutive, thanks to our transpose trick.
 		// However, not sure this is always worth it.
-		if (sz == M_4x4 && IsConsecutive4(dregs)) {
+		if (IsMatrixVec4(sz, dregs)) {
 			// TODO: The interpreter would like proper matrix ops better. Can generate those, and
 			// expand them like this as needed on "real" architectures.
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_T;
-			if (!IsConsecutive4(sregs)) {
+			if (!IsMatrixVec4(sz, sregs)) {
 				// METHOD 1: Handles AbC and Abc
 				for (int j = 0; j < 4; j++) {
 					ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[j * 4]);
@@ -1313,7 +1330,7 @@ namespace MIPSComp {
 					ir.Write(IROp::Vec4Mov, dregs[j * 4], s0);
 				}
 				return;
-			} else if (IsConsecutive4(tregs)) {
+			} else if (IsMatrixVec4(sz, tregs)) {
 				// METHOD 2: Handles ABC only. Not efficient on CPUs that don't do fast dots.
 				// Dots only work if tregs are consecutive.
 				// TODO: Skip this and resort to method one and transpose the output?
@@ -1379,7 +1396,7 @@ namespace MIPSComp {
 		GetVectorRegs(dregs, sz, _VD);
 
 		// SIMD-optimized implementations - if sregs[0..3] is non-consecutive, it's transposed.
-		if (msz == M_4x4 && !IsConsecutive4(sregs)) {
+		if (msz == M_4x4 && !IsMatrixVec4(msz, sregs)) {
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_S;
 			// For this algorithm, we don't care if tregs are consecutive or not,
@@ -1394,7 +1411,7 @@ namespace MIPSComp {
 					ir.Write(IROp::Vec4Add, s0, s0, sregs[i]);
 				}
 			}
-			if (IsConsecutive4(dregs)) {
+			if (IsVec4(sz, dregs)) {
 				ir.Write(IROp::Vec4Mov, dregs[0], s0);
 			} else {
 				for (int i = 0; i < 4; i++) {
@@ -1402,7 +1419,7 @@ namespace MIPSComp {
 				}
 			}
 			return;
-		} else if (msz == M_4x4 && IsConsecutive4(sregs)) {
+		} else if (msz == M_4x4 && IsMatrixVec4(msz, sregs)) {
 			// Consecutive, which is harder.
 			DISABLE;
 			int s0 = IRVTEMP_0;
@@ -1417,7 +1434,7 @@ namespace MIPSComp {
 					ir.Write(IROp::Vec4Add, s0, s0, sregs[i]);
 				}
 			}
-			if (IsConsecutive4(dregs)) {
+			if (IsVec4(sz, dregs)) {
 				ir.Write(IROp::Vec4Mov, dregs[0], s0);
 			} else {
 				for (int i = 0; i < 4; i++) {
@@ -1517,8 +1534,8 @@ namespace MIPSComp {
 
 		int nOut = GetNumVectorElements(outsize);
 
-		// If src registers aren't contiguous, make them.
-		if (sz == V_Quad && !IsConsecutive4(sregs)) {
+		// If src registers aren't contiguous, make them (mainly for bits == 8.)
+		if (sz == V_Quad && !IsVec4(sz, sregs)) {
 			// T prefix is unused.
 			for (int i = 0; i < 4; i++) {
 				srcregs[i] = IRVTEMP_PFX_T + i;
@@ -1624,7 +1641,7 @@ namespace MIPSComp {
 				}
 			}
 		} else if (outsize == V_Quad) {
-			bool consecutive = IsConsecutive4(dregs);
+			bool consecutive = IsVec4(outsize, dregs);
 			if (!consecutive || !IsOverlapSafe(nOut, dregs, nIn, srcregs)) {
 				for (int i = 0; i < nOut; i++) {
 					tempregs[i] = IRVTEMP_PFX_T + i;
