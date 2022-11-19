@@ -795,7 +795,7 @@ namespace MIPSComp {
 		bool usingTemps = false;
 		u8 tempregs[4];
 		for (int i = 0; i < n; ++i) {
-			if (!IsOverlapSafe(dregs[i], n, sregs)) {
+			if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs)) {
 				usingTemps = true;
 				tempregs[i] = IRVTEMP_0 + i;
 			} else {
