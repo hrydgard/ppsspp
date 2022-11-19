@@ -37,6 +37,7 @@ GLRTexture::GLRTexture(const Draw::DeviceCaps &caps, int width, int height, int 
 GLRTexture::~GLRTexture() {
 	if (texture) {
 		glDeleteTextures(1, &texture);
+		texture = 0;
 	}
 }
 
