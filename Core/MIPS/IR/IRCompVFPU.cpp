@@ -788,7 +788,7 @@ namespace MIPSComp {
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
-		u8 sregs[4], dregs[4];
+		u8 sregs[4]{}, dregs[4]{};
 		GetVectorRegsPrefixS(sregs, sz, vs);
 		GetVectorRegsPrefixD(dregs, sz, vd);
 
@@ -809,7 +809,8 @@ namespace MIPSComp {
 		case 0:  // vmov
 		case 1:  // vabs
 		case 2:  // vneg
-			canSIMD = true;
+			// Our Vec4 ops require aligned regs and sets of 4.
+			canSIMD = n == 4 && (sregs[0] & 3) == 0 && (dregs[0] & 3) == 0;
 			break;
 		}
 
