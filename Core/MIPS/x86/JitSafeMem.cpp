@@ -462,7 +462,7 @@ void JitSafeMemFuncs::Init(ThunkManager *thunks) {
 	AllocCodeSpace(FUNCS_ARENA_SIZE);
 	thunks_ = thunks;
 
-	BeginWrite();
+	BeginWrite(1024);
 	readU32 = GetCodePtr();
 	CreateReadFunc(32, (const void *)&Memory::Read_U32);
 	readU16 = GetCodePtr();
