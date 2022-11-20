@@ -77,6 +77,7 @@ public:
 		return draw_;
 	}
 	virtual u32 CheckGPUFeatures() const;
+	void CheckResized() override;
 
 	void UpdateCmdInfo();
 
@@ -308,6 +309,8 @@ protected:
 	}
 
 	size_t FormatGPUStatsCommon(char *buf, size_t size);
+
+	virtual void BuildReportingInfo() = 0;
 
 	FramebufferManagerCommon *framebufferManager_ = nullptr;
 	TextureCacheCommon *textureCache_ = nullptr;

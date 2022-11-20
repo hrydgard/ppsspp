@@ -205,6 +205,8 @@ protected:
 	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight);
 	void ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, const uint16_t *overrideData = nullptr);
 
+	void BuildReportingInfo() override {}
+
 private:
 	void MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value);
 	void MarkDirty(uint32_t addr, uint32_t bytes, SoftGPUVRAMDirty value);

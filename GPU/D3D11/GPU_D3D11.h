@@ -66,7 +66,7 @@ private:
 	}
 	// void ApplyDrawState(int prim);
 	void CheckFlushOp(int cmd, u32 diff);
-	void BuildReportingInfo();
+	void BuildReportingInfo() override;
 
 	void InitClear() override;
 	void BeginFrame() override;
