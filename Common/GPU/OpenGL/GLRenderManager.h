@@ -27,6 +27,7 @@ class GLRTexture {
 public:
 	GLRTexture(const Draw::DeviceCaps &caps, int width, int height, int depth, int numMips);
 	~GLRTexture();
+	void GenerateTexture();
 
 	GLuint texture = 0;
 	uint16_t w;

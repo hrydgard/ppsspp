@@ -9,12 +9,15 @@
 #include "Common/MemoryUtil.h"
 #include "Common/Math/math_util.h"
 
+#include <queue>
+
 #if 0 // def _DEBUG
 #define VLOG(...) INFO_LOG(G3D, __VA_ARGS__)
 #else
 #define VLOG(...)
 #endif
 
+static std::queue<GLuint> recycledTextures;
 static std::thread::id renderThreadId;
 #if MAX_LOGLEVEL >= DEBUG_LEVEL
 static bool OnRenderThread() {
@@ -36,8 +39,16 @@ GLRTexture::GLRTexture(const Draw::DeviceCaps &caps, int width, int height, int 
 
 GLRTexture::~GLRTexture() {
 	if (texture) {
-		glDeleteTextures(1, &texture);
-		texture = 0;
+		recycledTextures.push(texture);
+	}
+}
+
+void GLRTexture::GenerateTexture() {
+	if (recycledTextures.empty()) {
+		glGenTextures(1, &texture);
+	} else {
+		texture = recycledTextures.front();
+		recycledTextures.pop();
 	}
 }
 

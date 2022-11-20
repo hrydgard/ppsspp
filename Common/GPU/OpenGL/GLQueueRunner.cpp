@@ -179,7 +179,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 		case GLRInitStepType::CREATE_TEXTURE:
 		{
 			GLRTexture *tex = step.create_texture.texture;
-			glGenTextures(1, &tex->texture);
+			tex->GenerateTexture();
 			glBindTexture(tex->target, tex->texture);
 			boundTexture = tex->texture;
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -492,7 +492,7 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 	CHECK_GL_ERROR_IF_DEBUG();
 
 	auto initFBOTexture = [&](GLRTexture &tex, GLint internalFormat, GLenum format, GLenum type, bool linear) {
-		glGenTextures(1, &tex.texture);
+		tex.GenerateTexture();
 		tex.target = GL_TEXTURE_2D;
 		tex.maxLod = 0.0f;
 
