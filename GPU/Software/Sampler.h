@@ -34,13 +34,13 @@ namespace Sampler {
 #endif
 
 typedef Rasterizer::Vec4IntResult(SOFTRAST_CALL *FetchFunc)(int u, int v, const u8 *tptr, int bufw, int level, const SamplerID &samplerID);
-FetchFunc GetFetchFunc(SamplerID id);
+FetchFunc GetFetchFunc(SamplerID id, std::function<void()> flushForCompile);
 
 typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *NearestFunc)(float s, float t, Rasterizer::Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int level, int levelFrac, const SamplerID &samplerID);
-NearestFunc GetNearestFunc(SamplerID id);
+NearestFunc GetNearestFunc(SamplerID id, std::function<void()> flushForCompile);
 
 typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *LinearFunc)(float s, float t, Rasterizer::Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int level, int levelFrac, const SamplerID &samplerID);
-LinearFunc GetLinearFunc(SamplerID id);
+LinearFunc GetLinearFunc(SamplerID id, std::function<void()> flushForCompile);
 
 void Init();
 void Shutdown();
@@ -52,9 +52,9 @@ public:
 	SamplerJitCache();
 
 	// Returns a pointer to the code to run.
-	NearestFunc GetNearest(const SamplerID &id);
-	LinearFunc GetLinear(const SamplerID &id);
-	FetchFunc GetFetch(const SamplerID &id);
+	NearestFunc GetNearest(const SamplerID &id, std::function<void()> flushForCompile);
+	LinearFunc GetLinear(const SamplerID &id, std::function<void()> flushForCompile);
+	FetchFunc GetFetch(const SamplerID &id, std::function<void()> flushForCompile);
 	void Clear() override;
 
 	std::string DescribeCodePtr(const u8 *ptr) override;

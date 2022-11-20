@@ -19,6 +19,7 @@
 
 #include "ppsspp_config.h"
 
+#include <functional>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -36,7 +37,7 @@ namespace Rasterizer {
 #endif
 
 typedef void (SOFTRAST_CALL *SingleFunc)(int x, int y, int z, int fog, Vec4IntArg color_in, const PixelFuncID &pixelID);
-SingleFunc GetSingleFunc(const PixelFuncID &id);
+SingleFunc GetSingleFunc(const PixelFuncID &id, std::function<void()> flushForCompile);
 
 void Init();
 void Shutdown();
@@ -60,7 +61,7 @@ public:
 	PixelJitCache();
 
 	// Returns a pointer to the code to run.
-	SingleFunc GetSingle(const PixelFuncID &id);
+	SingleFunc GetSingle(const PixelFuncID &id, std::function<void()> flushForCompile);
 	SingleFunc GenericSingle(const PixelFuncID &id);
 	void Clear() override;
 

@@ -93,15 +93,15 @@ static inline Vec4<float> Interpolate(const float &c0, const float &c1, const fl
 	return Interpolate(c0, c1, c2, w0.Cast<float>(), w1.Cast<float>(), w2.Cast<float>(), wsum_recip);
 }
 
-void ComputeRasterizerState(RasterizerState *state) {
+void ComputeRasterizerState(RasterizerState *state, std::function<void()> flushForCompile) {
 	ComputePixelFuncID(&state->pixelID);
-	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID);
+	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID, flushForCompile);
 
 	state->enableTextures = gstate.isTextureMapEnabled() && !state->pixelID.clearMode;
 	if (state->enableTextures) {
 		ComputeSamplerID(&state->samplerID);
-		state->linear = Sampler::GetLinearFunc(state->samplerID);
-		state->nearest = Sampler::GetNearestFunc(state->samplerID);
+		state->linear = Sampler::GetLinearFunc(state->samplerID, flushForCompile);
+		state->nearest = Sampler::GetNearestFunc(state->samplerID, flushForCompile);
 
 		// Since the definitions are the same, just force this setting using the func pointer.
 		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
@@ -153,6 +153,11 @@ void ComputeRasterizerState(RasterizerState *state) {
 RasterizerState OptimizeFlatRasterizerState(RasterizerState state, const VertexData &v1) {
 	uint8_t alpha = v1.color0 >> 24;
 
+	// TODO: Problematic to potentially execute-protect blocks at runtime.
+	// This might actually be a very slight risk anyway, since it could clear the codespace?
+	if (PlatformIsWXExclusive())
+		return state;
+
 	bool changedPixelID = false;
 	bool changedSamplerID = false;
 	if (!state.pixelID.clearMode) {
@@ -197,10 +202,10 @@ RasterizerState OptimizeFlatRasterizerState(RasterizerState state, const VertexD
 	}
 
 	if (changedPixelID)
-		state.drawPixel = Rasterizer::GetSingleFunc(state.pixelID);
+		state.drawPixel = Rasterizer::GetSingleFunc(state.pixelID, [] {});
 	if (changedSamplerID) {
-		state.linear = Sampler::GetLinearFunc(state.samplerID);
-		state.nearest = Sampler::GetNearestFunc(state.samplerID);
+		state.linear = Sampler::GetLinearFunc(state.samplerID, [] {});
+		state.nearest = Sampler::GetNearestFunc(state.samplerID, [] {});
 
 		// Since the definitions are the same, just force this setting using the func pointer.
 		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR)
@@ -1417,7 +1422,10 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 	ComputeSamplerID(&id);
 	id.cached.clut = clut;
 
-	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id);
+	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id, [] {
+		if (gpuDebug)
+			gpuDebug->DispatchFlush();
+	});
 
 	u8 *texptr = Memory::GetPointerWrite(texaddr);
 	u32 *row = (u32 *)buffer.GetData();

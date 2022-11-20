@@ -63,9 +63,9 @@ bool DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return true;
 }
 
-NearestFunc GetNearestFunc(SamplerID id) {
+NearestFunc GetNearestFunc(SamplerID id, std::function<void()> flushForCompile) {
 	id.linear = false;
-	NearestFunc jitted = jitCache->GetNearest(id);
+	NearestFunc jitted = jitCache->GetNearest(id, flushForCompile);
 	if (jitted) {
 		return jitted;
 	}
@@ -73,9 +73,9 @@ NearestFunc GetNearestFunc(SamplerID id) {
 	return &SampleNearest;
 }
 
-LinearFunc GetLinearFunc(SamplerID id) {
+LinearFunc GetLinearFunc(SamplerID id, std::function<void()> flushForCompile) {
 	id.linear = true;
-	LinearFunc jitted = jitCache->GetLinear(id);
+	LinearFunc jitted = jitCache->GetLinear(id, flushForCompile);
 	if (jitted) {
 		return jitted;
 	}
@@ -83,9 +83,9 @@ LinearFunc GetLinearFunc(SamplerID id) {
 	return &SampleLinear;
 }
 
-FetchFunc GetFetchFunc(SamplerID id) {
+FetchFunc GetFetchFunc(SamplerID id, std::function<void()> flushForCompile) {
 	id.fetch = true;
-	FetchFunc jitted = jitCache->GetFetch(id);
+	FetchFunc jitted = jitCache->GetFetch(id, flushForCompile);
 	if (jitted) {
 		return jitted;
 	}
@@ -138,14 +138,19 @@ std::string SamplerJitCache::DescribeCodePtr(const u8 *ptr) {
 	return CodeBlock::DescribeCodePtr(ptr);
 }
 
-NearestFunc SamplerJitCache::GetNearest(const SamplerID &id) {
-	std::lock_guard<std::mutex> guard(jitCacheLock);
+NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, std::function<void()> flushForCompile) {
+	std::unique_lock<std::mutex> guard(jitCacheLock);
 
 	auto it = cache_.find(id);
 	if (it != cache_.end())
 		return (NearestFunc)it->second;
 
-	Compile(id);
+	if (g_Config.bSoftwareRenderingJit) {
+		guard.unlock();
+		flushForCompile();
+		guard.lock();
+		Compile(id);
+	}
 
 	// Okay, should be there now.
 	it = cache_.find(id);
@@ -154,14 +159,19 @@ NearestFunc SamplerJitCache::GetNearest(const SamplerID &id) {
 	return nullptr;
 }
 
-LinearFunc SamplerJitCache::GetLinear(const SamplerID &id) {
-	std::lock_guard<std::mutex> guard(jitCacheLock);
+LinearFunc SamplerJitCache::GetLinear(const SamplerID &id, std::function<void()> flushForCompile) {
+	std::unique_lock<std::mutex> guard(jitCacheLock);
 
 	auto it = cache_.find(id);
 	if (it != cache_.end())
 		return (LinearFunc)it->second;
 
-	Compile(id);
+	if (g_Config.bSoftwareRenderingJit) {
+		guard.unlock();
+		flushForCompile();
+		guard.lock();
+		Compile(id);
+	}
 
 	// Okay, should be there now.
 	it = cache_.find(id);
@@ -170,14 +180,19 @@ LinearFunc SamplerJitCache::GetLinear(const SamplerID &id) {
 	return nullptr;
 }
 
-FetchFunc SamplerJitCache::GetFetch(const SamplerID &id) {
-	std::lock_guard<std::mutex> guard(jitCacheLock);
+FetchFunc SamplerJitCache::GetFetch(const SamplerID &id, std::function<void()> flushForCompile) {
+	std::unique_lock<std::mutex> guard(jitCacheLock);
 
 	auto it = cache_.find(id);
 	if (it != cache_.end())
 		return (FetchFunc)it->second;
 
-	Compile(id);
+	if (g_Config.bSoftwareRenderingJit) {
+		guard.unlock();
+		flushForCompile();
+		guard.lock();
+		Compile(id);
+	}
 
 	// Okay, should be there now.
 	it = cache_.find(id);
@@ -195,25 +210,23 @@ void SamplerJitCache::Compile(const SamplerID &id) {
 	// We compile them together so the cache can't possibly be cleared in between.
 	// We might vary between nearest and linear, so we can't clear between.
 #if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-	if (g_Config.bSoftwareRenderingJit) {
-		SamplerID fetchID = id;
-		fetchID.linear = false;
-		fetchID.fetch = true;
-		addresses_[fetchID] = GetCodePointer();
-		cache_[fetchID] = (NearestFunc)CompileFetch(fetchID);
+	SamplerID fetchID = id;
+	fetchID.linear = false;
+	fetchID.fetch = true;
+	addresses_[fetchID] = GetCodePointer();
+	cache_[fetchID] = (NearestFunc)CompileFetch(fetchID);
 
-		SamplerID nearestID = id;
-		nearestID.linear = false;
-		nearestID.fetch = false;
-		addresses_[nearestID] = GetCodePointer();
-		cache_[nearestID] = (NearestFunc)CompileNearest(nearestID);
+	SamplerID nearestID = id;
+	nearestID.linear = false;
+	nearestID.fetch = false;
+	addresses_[nearestID] = GetCodePointer();
+	cache_[nearestID] = (NearestFunc)CompileNearest(nearestID);
 
-		SamplerID linearID = id;
-		linearID.linear = true;
-		linearID.fetch = false;
-		addresses_[linearID] = GetCodePointer();
-		cache_[linearID] = (NearestFunc)CompileLinear(linearID);
-	}
+	SamplerID linearID = id;
+	linearID.linear = true;
+	linearID.fetch = false;
+	addresses_[linearID] = GetCodePointer();
+	cache_[linearID] = (NearestFunc)CompileLinear(linearID);
 #endif
 }
 
