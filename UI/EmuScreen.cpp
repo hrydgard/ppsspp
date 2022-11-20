@@ -1105,7 +1105,6 @@ void EmuScreen::update() {
 			}
 		}
 	}
-
 }
 
 void EmuScreen::checkPowerDown() {
@@ -1356,8 +1355,7 @@ void EmuScreen::preRender() {
 	// We only bind it in FramebufferManager::CopyDisplayToOutput (unless non-buffered)...
 	// We do, however, start the frame in other ways.
 
-	bool useBufferedRendering = !g_Config.bSkipBufferEffects;
-	if ((!useBufferedRendering && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
+	if ((g_Config.bSkipBufferEffects && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
 		// We need to clear here already so that drawing during the frame is done on a clean slate.
 		if (Core_IsStepping() && gpuStats.numFlips != 0) {
 			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_BackBuffer");
@@ -1392,6 +1390,18 @@ void EmuScreen::render() {
 	DrawContext *thin3d = screenManager()->getDrawContext();
 	if (!thin3d)
 		return;  // shouldn't really happen but I've seen a suspicious stack trace..
+
+	// We can still render behind the pause screen.
+	bool paused = screenManager()->topScreen() != this;
+
+	if (paused) {
+		// If we're paused and PauseScreen is transparent (will only be in buffered rendering mode), we just copy display to output.
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Paused");
+		if (PSP_IsInited()) {
+			gpu->CopyDisplayToOutput(true);
+		}
+		return;
+	}
 
 	if (invalid_) {
 		// Loading, or after shutdown?

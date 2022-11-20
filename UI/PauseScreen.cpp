@@ -364,6 +364,24 @@ GamePauseScreen::~GamePauseScreen() {
 	__DisplaySetWasPaused();
 }
 
+bool GamePauseScreen::isTransparent() const {
+	// We don't support transparent pause screen in skipbuffereffects mode.
+	return !g_Config.bSkipBufferEffects && !IsVREnabled();
+}
+
+void GamePauseScreen::DrawBackground(UIContext &dc) {
+	if (isTransparent()) {
+		// Darken the game screen coming from below, so the UI on top stands out.
+		dc.Flush();
+		uint32_t color = blackAlpha(0.45f);
+		dc.FillRect(UI::Drawable(color), dc.GetBounds());
+		dc.Flush();
+		return;
+	}
+
+	UIDialogScreenWithGameBackground::DrawBackground(dc);
+}
+
 void GamePauseScreen::CreateViews() {
 	static const int NUM_SAVESLOTS = 5;
 
