@@ -392,6 +392,11 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 	// TODO: Unfortunate.  Maybe Texture commands should contain the bufw instead.
 	// The goal here is to realistically combine prims in dumps.  Stalling for the bufw flushes.
 	u32_le *ops = (u32_le *)Memory::GetPointerUnchecked(writePos);
+
+	u32 lastTexHigh[8]{};
+	for (int i = 0; i < 8; ++i)
+		lastTexHigh[i] = ((lastTex_[i] & 0xFF000000) >> 8) | ((GE_CMD_TEXBUFWIDTH0 + i) << 24);
+
 	for (u32 i = 0; i < sz / 4; ++i) {
 		u32 cmd = ops[i] >> 24;
 		if (cmd >= GE_CMD_TEXBUFWIDTH0 && cmd <= GE_CMD_TEXBUFWIDTH7) {
@@ -402,7 +407,7 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 			if (bufw == lastBufw_[level])
 				ops[i] = GE_CMD_NOP << 24;
 			else
-				ops[i] = (gstate.texbufwidth[level] & 0xFFFF0000) | bufw;
+				ops[i] = lastTexHigh[level] | bufw;
 			lastBufw_[level] = bufw;
 		}
 
