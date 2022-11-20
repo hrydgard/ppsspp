@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <functional>
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/FuncId.h"
 #include "GPU/Software/Sampler.h"
@@ -66,7 +67,7 @@ struct RasterizerState {
 	}
 };
 
-void ComputeRasterizerState(RasterizerState *state);
+void ComputeRasterizerState(RasterizerState *state, std::function<void()> flushForCompile);
 
 // Draws a triangle if its vertices are specified in counter-clockwise order
 void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const BinCoords &range, const RasterizerState &state);

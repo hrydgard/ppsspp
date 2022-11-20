@@ -97,8 +97,8 @@ namespace MIPSComp {
 using namespace Arm64JitConstants;
 
 void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
+	BeginWrite(GetMemoryProtectPageSize());
 	const u8 *start = AlignCodePage();
-	BeginWrite();
 
 	if (jo.useStaticAlloc) {
 		saveStaticRegisters = AlignCode16();

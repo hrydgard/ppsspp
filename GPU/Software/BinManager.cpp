@@ -170,7 +170,10 @@ void BinManager::UpdateState() {
 		if (states_.Full())
 			Flush("states");
 		stateIndex_ = (uint16_t)states_.Push(RasterizerState());
-		ComputeRasterizerState(&states_[stateIndex_]);
+		// When new funcs are compiled, we need to flush if WX exclusive.
+		ComputeRasterizerState(&states_[stateIndex_], [&]() {
+			Flush("compile");
+		});
 		states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
 
 		ClearDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL);

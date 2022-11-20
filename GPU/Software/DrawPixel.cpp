@@ -703,8 +703,8 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	SetPixelColor(fbFormat, pixelID.cached.framebufStride, x, y, new_color, old_color, targetWriteMask);
 }
 
-SingleFunc GetSingleFunc(const PixelFuncID &id) {
-	SingleFunc jitted = jitCache->GetSingle(id);
+SingleFunc GetSingleFunc(const PixelFuncID &id, std::function<void()> flushForCompile) {
+	SingleFunc jitted = jitCache->GetSingle(id, flushForCompile);
 	if (jitted) {
 		return jitted;
 	}
@@ -771,27 +771,31 @@ std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {
 	return CodeBlock::DescribeCodePtr(ptr);
 }
 
-SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id) {
-	std::lock_guard<std::mutex> guard(jitCacheLock);
+SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, std::function<void()> flushForCompile) {
+	std::unique_lock<std::mutex> guard(jitCacheLock);
 
 	auto it = cache_.find(id);
 	if (it != cache_.end()) {
 		return it->second;
 	}
 
-	// x64 is typically 200-500 bytes, but let's be safe.
-	if (GetSpaceLeft() < 65536) {
-		Clear();
-	}
+	if (g_Config.bSoftwareRenderingJit) {
+		guard.unlock();
+		flushForCompile();
+		guard.lock();
+
+		// x64 is typically 200-500 bytes, but let's be safe.
+		if (GetSpaceLeft() < 65536) {
+			Clear();
+		}
 
 #if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-	if (g_Config.bSoftwareRenderingJit) {
 		addresses_[id] = GetCodePointer();
 		SingleFunc func = CompileSingle(id);
 		cache_[id] = func;
 		return func;
-	}
 #endif
+	}
 	return nullptr;
 }
 

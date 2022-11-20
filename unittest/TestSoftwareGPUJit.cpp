@@ -29,17 +29,17 @@ static bool TestSamplerJit() {
 	auto GetLinear = [&](SamplerID &id) {
 		id.linear = true;
 		id.fetch = false;
-		return cache->GetLinear(id);
+		return cache->GetLinear(id, [] {});
 	};
 	auto GetNearest = [&](SamplerID &id) {
 		id.linear = false;
 		id.fetch = false;
-		return cache->GetNearest(id);
+		return cache->GetNearest(id, [] {});
 	};
 	auto GetFetch = [&](SamplerID &id) {
 		id.linear = false;
 		id.fetch = true;
-		return cache->GetFetch(id);
+		return cache->GetFetch(id, [] {});
 	};
 
 	GMRng rng;
@@ -134,7 +134,7 @@ static bool TestPixelJit() {
 			continue;
 		i++;
 
-		SingleFunc func = cache->GetSingle(id);
+		SingleFunc func = cache->GetSingle(id, [] {});
 		SingleFunc genericFunc = cache->GenericSingle(id);
 		if (func != genericFunc) {
 			successes++;

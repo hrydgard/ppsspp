@@ -71,8 +71,8 @@ namespace MIPSComp {
 using namespace ArmJitConstants;
 
 void ArmJit::GenerateFixedCode() {
+	BeginWrite(GetMemoryProtectPageSize());
 	const u8 *start = AlignCodePage();
-	BeginWrite();
 
 	// LR == SCRATCHREG2 on ARM32 so it needs to be pushed.
 	restoreRoundingMode = AlignCode16(); {
