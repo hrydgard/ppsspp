@@ -36,6 +36,10 @@ void Init() {
 	jitCache = new PixelJitCache();
 }
 
+void FlushJit() {
+	jitCache->Flush();
+}
+
 void Shutdown() {
 	delete jitCache;
 	jitCache = nullptr;
@@ -771,7 +775,17 @@ std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {
 	return CodeBlock::DescribeCodePtr(ptr);
 }
 
+void PixelJitCache::Flush() {
+	std::unique_lock<std::mutex> guard(jitCacheLock);
+	for (const auto &queued : compileQueue_)
+		Compile(queued);
+	compileQueue_.clear();
+}
+
 SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, std::function<void()> flushForCompile) {
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
+
 	std::unique_lock<std::mutex> guard(jitCacheLock);
 
 	auto it = cache_.find(id);
@@ -779,24 +793,39 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, std::function<void()>
 		return it->second;
 	}
 
-	if (g_Config.bSoftwareRenderingJit) {
-		guard.unlock();
-		flushForCompile();
-		guard.lock();
+	if (!flushForCompile) {
+		// Can't compile, let's try to do it later when there's an opportunity.
+		compileQueue_.insert(id);
+		return nullptr;
+	}
 
-		// x64 is typically 200-500 bytes, but let's be safe.
-		if (GetSpaceLeft() < 65536) {
-			Clear();
-		}
+	guard.unlock();
+	flushForCompile();
+	guard.lock();
+
+	for (const auto &queued : compileQueue_)
+		Compile(queued);
+	compileQueue_.clear();
+
+	Compile(id);
+
+	it = cache_.find(id);
+	if (it != cache_.end())
+		return it->second;
+	return nullptr;
+}
+
+void PixelJitCache::Compile(const PixelFuncID &id) {
+	// x64 is typically 200-500 bytes, but let's be safe.
+	if (GetSpaceLeft() < 65536) {
+		Clear();
+	}
 
 #if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-		addresses_[id] = GetCodePointer();
-		SingleFunc func = CompileSingle(id);
-		cache_[id] = func;
-		return func;
+	addresses_[id] = GetCodePointer();
+	SingleFunc func = CompileSingle(id);
+	cache_[id] = func;
 #endif
-	}
-	return nullptr;
 }
 
 void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id) {

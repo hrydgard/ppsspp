@@ -49,6 +49,10 @@ void Init() {
 	jitCache = new SamplerJitCache();
 }
 
+void FlushJit() {
+	jitCache->Flush();
+}
+
 void Shutdown() {
 	delete jitCache;
 	jitCache = nullptr;
@@ -138,67 +142,56 @@ std::string SamplerJitCache::DescribeCodePtr(const u8 *ptr) {
 	return CodeBlock::DescribeCodePtr(ptr);
 }
 
-NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, std::function<void()> flushForCompile) {
+void SamplerJitCache::Flush() {
+	std::unique_lock<std::mutex> guard(jitCacheLock);
+	for (const auto &queued : compileQueue_)
+		Compile(queued);
+	compileQueue_.clear();
+}
+
+NearestFunc SamplerJitCache::GetByID(const SamplerID &id, std::function<void()> flushForCompile) {
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
+
 	std::unique_lock<std::mutex> guard(jitCacheLock);
 
 	auto it = cache_.find(id);
 	if (it != cache_.end())
-		return (NearestFunc)it->second;
+		return it->second;
 
-	if (g_Config.bSoftwareRenderingJit) {
-		guard.unlock();
-		flushForCompile();
-		guard.lock();
-		Compile(id);
+	if (!flushForCompile) {
+		// Can't compile, let's try to do it later when there's an opportunity.
+		compileQueue_.insert(id);
+		return nullptr;
 	}
+
+	guard.unlock();
+	flushForCompile();
+	guard.lock();
+
+	for (const auto &queued : compileQueue_)
+		Compile(queued);
+	compileQueue_.clear();
+
+	Compile(id);
 
 	// Okay, should be there now.
 	it = cache_.find(id);
 	if (it != cache_.end())
-		return (NearestFunc)it->second;
+		return it->second;
 	return nullptr;
+}
+
+NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, std::function<void()> flushForCompile) {
+	return (NearestFunc)GetByID(id, flushForCompile);
 }
 
 LinearFunc SamplerJitCache::GetLinear(const SamplerID &id, std::function<void()> flushForCompile) {
-	std::unique_lock<std::mutex> guard(jitCacheLock);
-
-	auto it = cache_.find(id);
-	if (it != cache_.end())
-		return (LinearFunc)it->second;
-
-	if (g_Config.bSoftwareRenderingJit) {
-		guard.unlock();
-		flushForCompile();
-		guard.lock();
-		Compile(id);
-	}
-
-	// Okay, should be there now.
-	it = cache_.find(id);
-	if (it != cache_.end())
-		return (LinearFunc)it->second;
-	return nullptr;
+	return (LinearFunc)GetByID(id, flushForCompile);
 }
 
 FetchFunc SamplerJitCache::GetFetch(const SamplerID &id, std::function<void()> flushForCompile) {
-	std::unique_lock<std::mutex> guard(jitCacheLock);
-
-	auto it = cache_.find(id);
-	if (it != cache_.end())
-		return (FetchFunc)it->second;
-
-	if (g_Config.bSoftwareRenderingJit) {
-		guard.unlock();
-		flushForCompile();
-		guard.lock();
-		Compile(id);
-	}
-
-	// Okay, should be there now.
-	it = cache_.find(id);
-	if (it != cache_.end())
-		return (FetchFunc)it->second;
-	return nullptr;
+	return (FetchFunc)GetByID(id, flushForCompile);
 }
 
 void SamplerJitCache::Compile(const SamplerID &id) {

@@ -558,6 +558,9 @@ void BinManager::Flush(const char *reason) {
 	while (cluts_.Size() > 1)
 		cluts_.SkipNext();
 
+	Rasterizer::FlushJit();
+	Sampler::FlushJit();
+
 	queueRange_.x1 = 0x7FFFFFFF;
 	queueRange_.y1 = 0x7FFFFFFF;
 	queueRange_.x2 = 0;

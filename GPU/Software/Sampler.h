@@ -19,7 +19,9 @@
 
 #include "ppsspp_config.h"
 
+#include <functional>
 #include <unordered_map>
+#include <unordered_set>
 #include "GPU/Math3D.h"
 #include "GPU/Software/FuncId.h"
 #include "GPU/Software/RasterizerRegCache.h"
@@ -43,6 +45,7 @@ typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *LinearFunc)(float s, float t, 
 LinearFunc GetLinearFunc(SamplerID id, std::function<void()> flushForCompile);
 
 void Init();
+void FlushJit();
 void Shutdown();
 
 bool DescribeCodePtr(const u8 *ptr, std::string &name);
@@ -56,11 +59,13 @@ public:
 	LinearFunc GetLinear(const SamplerID &id, std::function<void()> flushForCompile);
 	FetchFunc GetFetch(const SamplerID &id, std::function<void()> flushForCompile);
 	void Clear() override;
+	void Flush();
 
 	std::string DescribeCodePtr(const u8 *ptr) override;
 
 private:
 	void Compile(const SamplerID &id);
+	NearestFunc GetByID(const SamplerID &id, std::function<void()> flushForCompile);
 	FetchFunc CompileFetch(const SamplerID &id);
 	NearestFunc CompileNearest(const SamplerID &id);
 	LinearFunc CompileLinear(const SamplerID &id);
@@ -123,6 +128,7 @@ private:
 
 	std::unordered_map<SamplerID, NearestFunc> cache_;
 	std::unordered_map<SamplerID, const u8 *> addresses_;
+	std::unordered_set<SamplerID> compileQueue_;
 };
 
 #if defined(__clang__) || defined(__GNUC__)

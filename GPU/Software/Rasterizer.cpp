@@ -150,13 +150,9 @@ void ComputeRasterizerState(RasterizerState *state, std::function<void()> flushF
 #endif
 }
 
-RasterizerState OptimizeFlatRasterizerState(RasterizerState state, const VertexData &v1) {
+RasterizerState OptimizeFlatRasterizerState(const RasterizerState &origState, const VertexData &v1) {
 	uint8_t alpha = v1.color0 >> 24;
-
-	// TODO: Problematic to potentially execute-protect blocks at runtime.
-	// This might actually be a very slight risk anyway, since it could clear the codespace?
-	if (PlatformIsWXExclusive())
-		return state;
+	RasterizerState state = origState;
 
 	bool changedPixelID = false;
 	bool changedSamplerID = false;
@@ -201,11 +197,18 @@ RasterizerState OptimizeFlatRasterizerState(RasterizerState state, const VertexD
 		}
 	}
 
-	if (changedPixelID)
-		state.drawPixel = Rasterizer::GetSingleFunc(state.pixelID, [] {});
+	if (changedPixelID) {
+		state.drawPixel = Rasterizer::GetSingleFunc(state.pixelID, nullptr);
+		// Can't compile during runtime.
+		if (!state.drawPixel)
+			return origState;
+	}
 	if (changedSamplerID) {
-		state.linear = Sampler::GetLinearFunc(state.samplerID, [] {});
-		state.nearest = Sampler::GetNearestFunc(state.samplerID, [] {});
+		state.linear = Sampler::GetLinearFunc(state.samplerID, nullptr);
+		state.nearest = Sampler::GetNearestFunc(state.samplerID, nullptr);
+		// Can't compile during runtime.
+		if (!state.linear || !state.nearest)
+			return origState;
 
 		// Since the definitions are the same, just force this setting using the func pointer.
 		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR)

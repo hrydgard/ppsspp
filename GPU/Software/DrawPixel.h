@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include "GPU/Math3D.h"
 #include "GPU/Software/FuncId.h"
 #include "GPU/Software/RasterizerRegCache.h"
@@ -40,6 +41,7 @@ typedef void (SOFTRAST_CALL *SingleFunc)(int x, int y, int z, int fog, Vec4IntAr
 SingleFunc GetSingleFunc(const PixelFuncID &id, std::function<void()> flushForCompile);
 
 void Init();
+void FlushJit();
 void Shutdown();
 
 bool CheckDepthTestPassed(GEComparison func, int x, int y, int stride, u16 z);
@@ -64,10 +66,12 @@ public:
 	SingleFunc GetSingle(const PixelFuncID &id, std::function<void()> flushForCompile);
 	SingleFunc GenericSingle(const PixelFuncID &id);
 	void Clear() override;
+	void Flush();
 
 	std::string DescribeCodePtr(const u8 *ptr) override;
 
 private:
+	void Compile(const PixelFuncID &id);
 	SingleFunc CompileSingle(const PixelFuncID &id);
 
 	RegCache::Reg GetPixelID();
@@ -105,6 +109,7 @@ private:
 
 	std::unordered_map<PixelFuncID, SingleFunc> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;
+	std::unordered_set<PixelFuncID> compileQueue_;
 
 	const u8 *constBlendHalf_11_4s_ = nullptr;
 	const u8 *constBlendInvert_11_4s_ = nullptr;
