@@ -37,6 +37,7 @@ enum VRMirroring {
 };
 
 static VRAppMode appMode = VR_MENU_MODE;
+static std::map<int, std::map<int, float> > pspAxis;
 static std::map<int, bool> pspKeys;
 
 static int vr3DGeometryCount = 0;
@@ -298,6 +299,36 @@ void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(co
 		}
 	}
 
+	// Camera adjust
+	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
+		for (auto& device : pspAxis) {
+			for (auto& axis : device.second) {
+				switch(axis.first) {
+					case JOYSTICK_AXIS_X:
+						if (axis.second < -0.75f) g_Config.fCameraSide -= 0.05f;
+						if (axis.second > 0.75f) g_Config.fCameraSide += 0.05f;
+						g_Config.fCameraSide = clampFloat(g_Config.fCameraSide, -50.0f, 50.0f);
+						break;
+					case JOYSTICK_AXIS_Y:
+						if (axis.second > 0.75f) g_Config.fCameraHeight -= 0.05f;
+						if (axis.second < -0.75f) g_Config.fCameraHeight += 0.05f;
+						g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -50.0f, 50.0f);
+						break;
+					case JOYSTICK_AXIS_Z:
+						if (axis.second < -0.75f) g_Config.fFieldOfViewPercentage -= 1.0f;
+						if (axis.second > 0.75f) g_Config.fFieldOfViewPercentage += 1.0f;
+						g_Config.fFieldOfViewPercentage = clampFloat(g_Config.fFieldOfViewPercentage, 100.0f, 200.0f);
+						break;
+					case JOYSTICK_AXIS_RZ:
+						if (axis.second > 0.75f) g_Config.fCameraDistance -= 0.1f;
+						if (axis.second < -0.75f) g_Config.fCameraDistance += 0.1f;
+						g_Config.fCameraDistance = clampFloat(g_Config.fCameraDistance, -50.0f, 50.0f);
+						break;
+				}
+			}
+		}
+	}
+
 	//enable or disable mouse
 	for (int j = 0; j < 2; j++) {
 		bool pressed = IN_VRGetButtonState(j) & ovrButton_Trigger;
@@ -363,32 +394,10 @@ void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(co
 }
 
 bool UpdateVRAxis(const AxisInput &axis) {
-
-	// Camera control
-	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
-		switch(axis.axisId) {
-			case JOYSTICK_AXIS_X:
-				if (axis.value < -0.5f) g_Config.fCameraSide -= 0.05f;
-				if (axis.value > 0.5f) g_Config.fCameraSide += 0.05f;
-				g_Config.fCameraSide = clampFloat(g_Config.fCameraSide, -50.0f, 50.0f);
-				break;
-			case JOYSTICK_AXIS_Y:
-				if (axis.value > 0.5f) g_Config.fCameraHeight -= 0.05f;
-				if (axis.value < -0.5f) g_Config.fCameraHeight += 0.05f;
-				g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -50.0f, 50.0f);
-				break;
-			case JOYSTICK_AXIS_Z:
-				if (axis.value < -0.5f) g_Config.fFieldOfViewPercentage -= 1.0f;
-				if (axis.value > 0.5f) g_Config.fFieldOfViewPercentage += 1.0f;
-				g_Config.fFieldOfViewPercentage = clampFloat(g_Config.fFieldOfViewPercentage, 100.0f, 200.0f);
-				break;
-			case JOYSTICK_AXIS_RZ:
-				if (axis.value > 0.5f) g_Config.fCameraDistance -= 0.1f;
-				if (axis.value < -0.5f) g_Config.fCameraDistance += 0.1f;
-				g_Config.fCameraDistance = clampFloat(g_Config.fCameraDistance, -50.0f, 50.0f);
-				break;
-		}
+	if (pspAxis.find(axis.deviceId) == pspAxis.end()) {
+		pspAxis[axis.deviceId] = std::map<int, float>();
 	}
+	pspAxis[axis.deviceId][axis.axisId] = axis.value;
 	return !pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
 }
 
@@ -401,15 +410,17 @@ bool UpdateVRKeys(const KeyInput &key) {
 		}
 	}
 
-	//block keys in the UI mode
-	if ((appMode == VR_DIALOG_MODE) || (appMode == VR_MENU_MODE)) {
-		switch (key.keyCode) {
-			case NKCODE_BACK:
-			case NKCODE_EXT_MOUSEWHEEL_UP:
-			case NKCODE_EXT_MOUSEWHEEL_DOWN:
-				return true;
-			default:
-				return false;
+	//block VR controller keys in the UI mode
+	if ((key.deviceId == controllerIds[0]) || (key.deviceId == controllerIds[1])) {
+		if ((appMode == VR_DIALOG_MODE) || (appMode == VR_MENU_MODE)) {
+			switch (key.keyCode) {
+				case NKCODE_BACK:
+				case NKCODE_EXT_MOUSEWHEEL_UP:
+				case NKCODE_EXT_MOUSEWHEEL_DOWN:
+					return true;
+				default:
+					return false;
+			}
 		}
 	}
 
