@@ -147,12 +147,6 @@ void GPU_DX9::InitClear() {
 	}
 }
 
-void GPU_DX9::BeginHostFrame() {
-	GPUCommon::BeginHostFrame();
-	UpdateCmdInfo();
-	CheckResized();
-}
-
 void GPU_DX9::ReapplyGfxState() {
 	dxstate.Restore();
 	GPUCommon::ReapplyGfxState();

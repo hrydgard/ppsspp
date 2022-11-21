@@ -157,23 +157,6 @@ void GPU_D3D11::InitClear() {
 	}
 }
 
-void GPU_D3D11::BeginHostFrame() {
-	GPUCommon::BeginHostFrame();
-	UpdateCmdInfo();
-	CheckResized();
-}
-
-void GPU_D3D11::ReapplyGfxState() {
-	GPUCommon::ReapplyGfxState();
-
-	// TODO: Dirty our caches for depth states etc
-}
-
-void GPU_D3D11::EndHostFrame() {
-	// Probably not really necessary.
-	draw_->InvalidateCachedState();
-}
-
 void GPU_D3D11::BeginFrame() {
 	GPUCommon::BeginFrame();
 
