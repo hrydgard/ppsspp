@@ -77,7 +77,8 @@ public:
 		return draw_;
 	}
 	virtual u32 CheckGPUFeatures() const;
-	void CheckResized() override;
+
+	void CheckDisplayResized() override;
 
 	void UpdateCmdInfo();
 
@@ -264,6 +265,9 @@ public:
 protected:
 	void DeviceLost() override;
 	void DeviceRestore() override;
+
+	void CheckConfigChanged();
+	void CheckRenderResized();
 
 	// Add additional common features dependent on other features, which may be backend-determined.
 	u32 CheckGPUFeaturesLate(u32 features) const;
