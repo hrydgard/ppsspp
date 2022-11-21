@@ -63,19 +63,6 @@ enum {
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
 enum {
-	DRAW_BINDING_TEXTURE = 0,
-	DRAW_BINDING_2ND_TEXTURE = 1,
-	DRAW_BINDING_DEPAL_TEXTURE = 2,
-	DRAW_BINDING_DYNUBO_BASE = 3,
-	DRAW_BINDING_DYNUBO_LIGHT = 4,
-	DRAW_BINDING_DYNUBO_BONE = 5,
-	DRAW_BINDING_TESS_STORAGE_BUF = 6,
-	DRAW_BINDING_TESS_STORAGE_BUF_WU = 7,
-	DRAW_BINDING_TESS_STORAGE_BUF_WV = 8,
-	DRAW_BINDING_INPUT_ATTACHMENT = 9,
-};
-
-enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
@@ -97,7 +84,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 
 	// TODO: Make things more flexible, so we at least have specialized layouts for input attachments and tess.
 	// Note that it becomes a support matrix..
-	VkDescriptorSetLayoutBinding bindings[10]{};
+	VkDescriptorSetLayoutBinding bindings[DRAW_BINDING_COUNT]{};
 	bindings[0].descriptorCount = 1;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -415,7 +402,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	_assert_msg_(desc != VK_NULL_HANDLE, "Ran out of descriptor space in pool. sz=%d", (int)frame.descSets.size());
 
 	// We just don't write to the slots we don't care about, which is fine.
-	VkWriteDescriptorSet writes[9]{};
+	VkWriteDescriptorSet writes[DRAW_BINDING_COUNT]{};
 	// Main texture
 	int n = 0;
 	VkDescriptorImageInfo tex[3]{};
