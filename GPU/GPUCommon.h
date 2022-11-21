@@ -97,7 +97,10 @@ public:
 		interruptsEnabled_ = enable;
 	}
 
-	void Resized() override;
+	void NotifyDisplayResized() override;
+	void NotifyRenderResized() override;
+	void NotifyConfigChanged() override;
+
 	void DumpNextFrame() override;
 
 	void ExecuteOp(u32 op, u32 diff) override;
@@ -357,7 +360,9 @@ protected:
 	bool dumpThisFrame_ = false;
 	bool debugRecording_;
 	bool interruptsEnabled_;
-	bool resized_ = false;
+	bool displayResized_ = false;
+	bool renderResized_ = false;
+	bool configChanged_ = false;
 	bool sawExactEqualDepth_ = false;
 	DrawType lastDraw_ = DRAW_UNKNOWN;
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;

@@ -472,7 +472,7 @@ namespace MainWindow {
 	// not static
 	void setTexScalingMultiplier(int level) {
 		g_Config.iTexScalingLevel = level;
-		NativeMessageReceived("gpu_clearCache", "");
+		NativeMessageReceived("gpu_configChanged", "");
 	}
 
 	static void setTexFiltering(int type) {
@@ -485,12 +485,12 @@ namespace MainWindow {
 
 	static void setTexScalingType(int type) {
 		g_Config.iTexScalingType = type;
-		NativeMessageReceived("gpu_clearCache", "");
+		NativeMessageReceived("gpu_configChanged", "");
 	}
 
 	static void setSkipBufferEffects(bool skip) {
 		g_Config.bSkipBufferEffects = skip;
-		NativeMessageReceived("gpu_resized", "");
+		NativeMessageReceived("gpu_configChanged", "");
 	}
 
 	static void setFrameSkipping(int framesToSkip = -1) {
@@ -744,7 +744,7 @@ namespace MainWindow {
 			g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
 			if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
 				g_Config.bSkipBufferEffects = false;
-				NativeMessageReceived("gpu_resized", "");
+				NativeMessageReceived("gpu_configChanged", "");
 			}
 			break;
 
@@ -761,7 +761,7 @@ namespace MainWindow {
 
 		case ID_TEXTURESCALING_DEPOSTERIZE:
 			g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
-			NativeMessageReceived("gpu_clearCache", "");
+			NativeMessageReceived("gpu_configChanged", "");
 			break;
 
 		case ID_OPTIONS_DIRECT3D9:
@@ -790,7 +790,7 @@ namespace MainWindow {
 
 		case ID_OPTIONS_SKIP_BUFFER_EFFECTS:
 			g_Config.bSkipBufferEffects = !g_Config.bSkipBufferEffects;
-			NativeMessageReceived("gpu_resized", "");
+			NativeMessageReceived("gpu_configChanged", "");
 			osm.ShowOnOff(gr->T("Skip Buffer Effects"), g_Config.bSkipBufferEffects);
 			break;
 
@@ -801,7 +801,7 @@ namespace MainWindow {
 
 		case ID_OPTIONS_HARDWARETRANSFORM:
 			g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-			NativeMessageReceived("gpu_resized", "");
+			NativeMessageReceived("gpu_configChanged", "");
 			osm.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
 			break;
 
@@ -1045,7 +1045,7 @@ namespace MainWindow {
 					g_Config.vPostShaderNames.push_back(availableShaders[index]);
 				g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
 
-				NativeMessageReceived("gpu_resized", "");
+				NativeMessageReceived("gpu_renderResized", "");
 				NativeMessageReceived("postshader_updated", "");
 				break;
 			}

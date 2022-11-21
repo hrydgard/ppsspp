@@ -445,7 +445,10 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		presentation_ = new PresentationCommon(draw_);
 		presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
 	}
-	Resized();
+
+	NotifyConfigChanged();
+	NotifyRenderResized();
+	NotifyDisplayResized();
 }
 
 void SoftGPU::DeviceLost() {
@@ -701,7 +704,7 @@ bool SoftGPU::ClearDirty(uint32_t addr, uint32_t bytes, SoftGPUVRAMDirty value) 
 	return result;
 }
 
-void SoftGPU::Resized() {
+void SoftGPU::NotifyRenderResized() {
 	// Force the render params to 480x272 so other things work.
 	if (g_Config.IsPortrait()) {
 		PSP_CoreParameter().renderWidth = 272;
@@ -710,13 +713,17 @@ void SoftGPU::Resized() {
 		PSP_CoreParameter().renderWidth = 480;
 		PSP_CoreParameter().renderHeight = 272;
 	}
+}
 
+void SoftGPU::NotifyDisplayResized() {
 	if (presentation_) {
 		presentation_->UpdateDisplaySize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		presentation_->UpdateRenderSize(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 		presentation_->UpdatePostShader();
 	}
 }
+
+void SoftGPU::NotifyConfigChanged() {}
 
 void SoftGPU::FastRunLoop(DisplayList &list) {
 	PROFILE_THIS_SCOPE("soft_runloop");
