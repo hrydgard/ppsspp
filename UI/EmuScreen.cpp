@@ -1394,7 +1394,7 @@ void EmuScreen::render() {
 	// We can still render behind the pause screen.
 	bool paused = screenManager()->topScreen() != this;
 
-	if (paused) {
+	if (paused && screenManager()->topScreen()->isTransparent()) {
 		// If we're paused and PauseScreen is transparent (will only be in buffered rendering mode), we just copy display to output.
 		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Paused");
 		if (PSP_IsInited()) {
