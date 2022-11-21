@@ -26,7 +26,7 @@
 #include "Common/Thread/Event.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Common/File/Path.h"
-#include "UI/TextureUtil.h"
+#include "Common/Render/ManagedTexture.h"
 
 namespace Draw {
 	class DrawContext;

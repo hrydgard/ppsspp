@@ -31,6 +31,7 @@ using namespace std::placeholders;
 #include "Common/UI/Context.h"
 #include "Common/UI/Tween.h"
 #include "Common/UI/View.h"
+#include "Common/UI/AsyncImageFileView.h"
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Data/Text/I18n.h"

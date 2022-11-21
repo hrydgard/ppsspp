@@ -166,6 +166,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/GPU/Shader.cpp \
   $(SRC)/Common/GPU/ShaderWriter.cpp \
   $(SRC)/Common/GPU/ShaderTranslation.cpp \
+  $(SRC)/Common/Render/ManagedTexture.cpp \
   $(SRC)/Common/Render/DrawBuffer.cpp \
   $(SRC)/Common/Render/TextureAtlas.cpp \
   $(SRC)/Common/Render/Text/draw_text.cpp \
@@ -192,6 +193,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Thread/ThreadUtil.cpp \
   $(SRC)/Common/Thread/ThreadManager.cpp \
   $(SRC)/Common/Thread/ParallelLoop.cpp \
+  $(SRC)/Common/UI/AsyncImageFileView.cpp \
   $(SRC)/Common/UI/Root.cpp \
   $(SRC)/Common/UI/Screen.cpp \
   $(SRC)/Common/UI/UI.cpp \
@@ -713,7 +715,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/OnScreenDisplay.cpp \
   $(SRC)/UI/ProfilerDraw.cpp \
   $(SRC)/UI/NativeApp.cpp \
-  $(SRC)/UI/TextureUtil.cpp \
   $(SRC)/UI/Theme.cpp \
   $(SRC)/UI/ComboKeyMappingScreen.cpp
 

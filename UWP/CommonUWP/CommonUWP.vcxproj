@@ -448,6 +448,7 @@
     <ClInclude Include="..\..\Common\Net\WebsocketServer.h" />
     <ClInclude Include="..\..\Common\Profiler\Profiler.h" />
     <ClInclude Include="..\..\Common\Render\DrawBuffer.h" />
+    <ClInclude Include="..\..\Common\Render\ManagedTexture.h" />
     <ClInclude Include="..\..\Common\Render\TextureAtlas.h" />
     <ClInclude Include="..\..\Common\Render\Text\draw_text.h" />
     <ClInclude Include="..\..\Common\Render\Text\draw_text_android.h" />
@@ -495,6 +496,7 @@
     <ClInclude Include="..\..\Common\Thread\ParallelLoop.h" />
     <ClInclude Include="..\..\Common\Thunk.h" />
     <ClInclude Include="..\..\Common\TimeUtil.h" />
+    <ClInclude Include="..\..\Common\UI\AsyncImageFileView.h" />
     <ClInclude Include="..\..\Common\UI\Context.h" />
     <ClInclude Include="..\..\Common\UI\Root.h" />
     <ClInclude Include="..\..\Common\UI\Screen.h" />
@@ -578,6 +580,7 @@
     <ClCompile Include="..\..\Common\Net\WebsocketServer.cpp" />
     <ClCompile Include="..\..\Common\Profiler\Profiler.cpp" />
     <ClCompile Include="..\..\Common\Render\DrawBuffer.cpp" />
+    <ClCompile Include="..\..\Common\Render\ManagedTexture.cpp" />
     <ClCompile Include="..\..\Common\Render\TextureAtlas.cpp" />
     <ClCompile Include="..\..\Common\Render\Text\draw_text.cpp" />
     <ClCompile Include="..\..\Common\Render\Text\draw_text_android.cpp" />
@@ -613,6 +616,7 @@
     <ClCompile Include="..\..\Common\Thread\ParallelLoop.cpp" />
     <ClCompile Include="..\..\Common\Thunk.cpp" />
     <ClCompile Include="..\..\Common\TimeUtil.cpp" />
+    <ClCompile Include="..\..\Common\UI\AsyncImageFileView.cpp" />
     <ClCompile Include="..\..\Common\UI\Context.cpp" />
     <ClCompile Include="..\..\Common\UI\Root.cpp" />
     <ClCompile Include="..\..\Common\UI\Screen.cpp" />
