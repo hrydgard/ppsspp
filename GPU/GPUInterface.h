@@ -197,7 +197,8 @@ public:
 	// Frame managment
 	virtual void BeginHostFrame() = 0;
 	virtual void EndHostFrame() = 0;
-	virtual void CheckResized() = 0;
+
+	virtual void CheckDisplayResized() = 0;
 
 	// Draw queue management
 	virtual DisplayList* getList(int listid) = 0;

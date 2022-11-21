@@ -484,7 +484,9 @@ void GPUCommon::BeginHostFrame() {
 	gstate_c.Dirty(DIRTY_ALL);
 
 	UpdateCmdInfo();
-	CheckResized();
+	CheckConfigChanged();
+	CheckDisplayResized();
+	CheckRenderResized();
 }
 
 void GPUCommon::EndHostFrame() {
@@ -625,7 +627,7 @@ void GPUCommon::NotifyDisplayResized() {
 
 // Called once per frame. Might also get called during the pause screen
 // if "transparent".
-void GPUCommon::CheckResized() {
+void GPUCommon::CheckConfigChanged() {
 	if (configChanged_) {
 		ClearCacheNextFrame();
 		gstate_c.useFlags = CheckGPUFeatures();
@@ -635,12 +637,16 @@ void GPUCommon::CheckResized() {
 		BuildReportingInfo();
 		configChanged_ = false;
 	}
+}
 
+void GPUCommon::CheckDisplayResized() {
 	if (displayResized_) {
 		framebufferManager_->NotifyDisplayResized();
 		displayResized_ = false;
 	}
+}
 
+void GPUCommon::CheckRenderResized() {
 	if (renderResized_) {
 		framebufferManager_->NotifyRenderResized();
 		renderResized_ = false;

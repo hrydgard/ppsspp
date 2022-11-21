@@ -1399,7 +1399,7 @@ void EmuScreen::render() {
 		// If we're paused and PauseScreen is transparent (will only be in buffered rendering mode), we just copy display to output.
 		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Paused");
 		if (PSP_IsInited()) {
-			gpu->CheckResized();
+			gpu->CheckDisplayResized();
 			gpu->CopyDisplayToOutput(true);
 		}
 
