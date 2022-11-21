@@ -1095,8 +1095,7 @@ static void check_variables(CoreParameter &coreParam)
          || g_Config.iTexScalingLevel != iTexScalingLevel_prev
          || g_Config.sTextureShaderName != sTextureShaderName_prev))
    {
-      gpu->ClearCacheNextFrame();
-      gpu->Resized();
+      gpu->NotifyConfigChanged();
    }
 
    if (g_Config.iLanguage < 0)
@@ -1131,7 +1130,7 @@ static void check_variables(CoreParameter &coreParam)
          retro_get_system_av_info(&avInfo);
          environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &avInfo);
          updateAvInfo = false;
-         gpu->Resized();
+         gpu->NotifyDisplayResized();
       }
    }
 
