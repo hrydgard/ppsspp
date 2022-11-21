@@ -78,9 +78,11 @@ public:
 	PresentationCommon(Draw::DrawContext *draw);
 	~PresentationCommon();
 
-	void UpdateSize(int w, int h, int rw, int rh) {
+	void UpdateDisplaySize(int w, int h) {
 		pixelWidth_ = w;
 		pixelHeight_ = h;
+	}
+	void UpdateRenderSize(int rw, int rh) {
 		renderWidth_ = rw;
 		renderHeight_ = rh;
 	}
