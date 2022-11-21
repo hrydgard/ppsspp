@@ -20,6 +20,7 @@
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
 #include "Common/Render/DrawBuffer.h"
 #include "Common/GPU/thin3d.h"
+#include "Common/UI/AsyncImageFileView.h"
 #include "Common/UI/Context.h"
 #include "UI/PauseScreen.h"
 #include "UI/ReportScreen.h"

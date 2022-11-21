@@ -446,6 +446,12 @@
     <ClInclude Include="VR\OpenXRLoader.h">
       <Filter>VR</Filter>
     </ClInclude>
+    <ClInclude Include="UI\AsyncImageFileView.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\ManagedTexture.h">
+      <Filter>Render</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -844,6 +850,12 @@
     </ClCompile>
     <ClCompile Include="VR\OpenXRLoader.cpp">
       <Filter>VR</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\AsyncImageFileView.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\ManagedTexture.cpp">
+      <Filter>Render</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
