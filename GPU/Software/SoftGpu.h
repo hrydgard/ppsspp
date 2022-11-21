@@ -149,7 +149,10 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
-	void Resized() override;
+	void NotifyRenderResized() override;
+	void NotifyDisplayResized() override;
+	void NotifyConfigChanged() override;
+
 	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
 		primaryInfo = "Software";
 		fullInfo = "Software";

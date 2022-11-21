@@ -238,7 +238,7 @@ namespace MainWindow
 				g_Config.iInternalResolution = 0;
 		}
 
-		NativeMessageReceived("gpu_resized", "");
+		NativeMessageReceived("gpu_renderResized", "");
 	}
 
 	void CorrectCursor() {
@@ -302,7 +302,8 @@ namespace MainWindow
 		DEBUG_LOG(SYSTEM, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
 		if (UpdateScreenScale(width, height)) {
-			NativeMessageReceived("gpu_resized", "");
+			NativeMessageReceived("gpu_displayResized", "");
+			NativeMessageReceived("gpu_renderResized", "");
 		}
 
 		// Don't save the window state if fullscreen.

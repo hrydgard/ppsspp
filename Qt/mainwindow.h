@@ -119,25 +119,26 @@ private slots:
 	void moreSettingsAct() { NativeMessageReceived("settings", ""); }
 
 	void bufferRenderAct() {
-		NativeMessageReceived("gpu_resized", "");
+		NativeMessageReceived("gpu_renderResized", "");
+		NativeMessageReceived("gpu_configChanged", "");
 	}
 	void linearAct() { g_Config.iTexFiltering = (g_Config.iTexFiltering != 0) ? 0 : 3; }
 
 	void renderingResolutionGroup_triggered(QAction *action) {
 		g_Config.iInternalResolution = action->data().toInt();
-		NativeMessageReceived("gpu_resized", "");
+		NativeMessageReceived("gpu_renderResized", "");
 	}
 	void windowGroup_triggered(QAction *action) { SetWindowScale(action->data().toInt()); }
 
 	void displayLayoutGroup_triggered(QAction *action) {
 		g_Config.iSmallDisplayZoomType = action->data().toInt();
-		NativeMessageReceived("gpu_resized", "");
+		NativeMessageReceived("gpu_displayResized", "");
 	}
 	void autoframeskipAct() {
 		g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
 		if (g_Config.bSkipBufferEffects) {
 			g_Config.bSkipBufferEffects = false;
-			NativeMessageReceived("gpu_resized", "");
+			NativeMessageReceived("gpu_configChanged", "");
 		}
 	}
 	void frameSkippingGroup_triggered(QAction *action) { g_Config.iFrameSkip = action->data().toInt(); }
@@ -146,19 +147,19 @@ private slots:
 	void screenScalingFilterGroup_triggered(QAction *action) { g_Config.iBufFilter = action->data().toInt(); }
 	void textureScalingLevelGroup_triggered(QAction *action) {
 		g_Config.iTexScalingLevel = action->data().toInt();
-		NativeMessageReceived("gpu_clearCache", "");
+		NativeMessageReceived("gpu_configChanged", "");
 	}
 	void textureScalingTypeGroup_triggered(QAction *action) {
 		g_Config.iTexScalingType = action->data().toInt();
-		NativeMessageReceived("gpu_clearCache", "");
+		NativeMessageReceived("gpu_configChanged", "");
 	}
 	void deposterizeAct() {
 		g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
-		NativeMessageReceived("gpu_clearCache", "");
+		NativeMessageReceived("gpu_configChanged", "");
 	}
 	void transformAct() {
 		g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-		NativeMessageReceived("gpu_resized", "");
+		NativeMessageReceived("gpu_configChanged", "");
 	}
 	void vertexCacheAct() { g_Config.bVertexCache = !g_Config.bVertexCache; }
 	void frameskipAct() { g_Config.iFrameSkip = !g_Config.iFrameSkip; }

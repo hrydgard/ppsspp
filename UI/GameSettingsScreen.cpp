@@ -1391,8 +1391,8 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	KeyMap::UpdateNativeMenuKeys();
 
 	// Wipe some caches after potentially changing settings.
-	NativeMessageReceived("gpu_resized", "");
-	NativeMessageReceived("gpu_clearCache", "");
+	// Let's not send resize messages here, handled elsewhere.
+	NativeMessageReceived("gpu_configChanged", "");
 }
 
 void GameSettingsScreen::sendMessage(const char *message, const char *value) {
@@ -1717,7 +1717,8 @@ UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
 	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
 
-	NativeMessageReceived("gpu_resized", "");
+	NativeMessageReceived("gpu_configChanged", "");
+	NativeMessageReceived("gpu_renderResized", "");  // To deal with shaders that can change render resolution like upscaling.
 	NativeMessageReceived("postshader_updated", "");
 	return UI::EVENT_DONE;
 }
@@ -1733,7 +1734,7 @@ UI::EventReturn GameSettingsScreen::OnTextureShader(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnTextureShaderChange(UI::EventParams &e) {
-	NativeMessageReceived("gpu_resized", "");
+	NativeMessageReceived("gpu_configChanged", "");
 	RecreateViews(); // Update setting name
 	g_Config.bTexHardwareScaling = g_Config.sTextureShaderName != "Off";
 	return UI::EVENT_DONE;
@@ -1903,7 +1904,7 @@ void DeveloperToolsScreen::CreateViews() {
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
 	g_Config.Save("DeveloperToolsScreen::onFinish");
-	NativeMessageReceived("gpu_resized", "");
+	NativeMessageReceived("gpu_configChanged", "");
 }
 
 void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {

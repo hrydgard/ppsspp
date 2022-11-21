@@ -661,7 +661,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		if (g_Config.bDumpFrames == g_Config.bDumpAudio) {
 			g_Config.bDumpFrames = !g_Config.bDumpFrames;
 			g_Config.bDumpAudio = !g_Config.bDumpAudio;
-		} else { 
+		} else {
 			// This hotkey should always toggle both audio and video together.
 			// So let's make sure that's the only outcome even if video OR audio was already being dumped.
 			if (g_Config.bDumpFrames) {
@@ -706,7 +706,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		g_Config.bSaveNewTextures = !g_Config.bSaveNewTextures;
 		if (g_Config.bSaveNewTextures) {
 			osm.Show(sc->T("saveNewTextures_true", "Textures will now be saved to your storage"), 2.0);
-			NativeMessageReceived("gpu_clearCache", "");
+			NativeMessageReceived("gpu_configChanged", "");
 		} else {
 			osm.Show(sc->T("saveNewTextures_false", "Texture saving was disabled"), 2.0);
 		}
@@ -717,7 +717,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 			osm.Show(sc->T("replaceTextures_true", "Texture replacement enabled"), 2.0);
 		else
 			osm.Show(sc->T("replaceTextures_false", "Textures no longer are being replaced"), 2.0);
-		NativeMessageReceived("gpu_clearCache", "");
+		NativeMessageReceived("gpu_configChanged", "");
 		break;
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(true);
