@@ -267,9 +267,6 @@ void GPU_GLES::InitClear() {
 
 void GPU_GLES::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
-	UpdateCmdInfo();
-	CheckResized();
-
 	drawEngine_.BeginFrame();
 }
 

@@ -482,10 +482,14 @@ void GPUCommon::BeginHostFrame() {
 
 	// TODO: Assume config may have changed - maybe move to resize.
 	gstate_c.Dirty(DIRTY_ALL);
+
+	UpdateCmdInfo();
+	CheckResized();
 }
 
 void GPUCommon::EndHostFrame() {
-
+	// Probably not necessary.
+	draw_->InvalidateCachedState();
 }
 
 void GPUCommon::Reinitialize() {
