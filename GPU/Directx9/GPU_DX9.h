@@ -41,7 +41,6 @@ public:
 
 	void ReapplyGfxState() override;
 	void GetStats(char *buffer, size_t bufsize) override;
-	void ClearCacheNextFrame() override;
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 	void DeviceRestore() override;
 
