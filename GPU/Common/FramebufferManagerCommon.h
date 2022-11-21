@@ -398,7 +398,9 @@ public:
 	}
 	void SetSafeSize(u16 w, u16 h);
 
-	virtual void Resized();
+	virtual void NotifyRenderResized();
+	virtual void NotifyDisplayResized();
+
 	virtual void DestroyAllFBOs();
 
 	virtual void DeviceLost();
