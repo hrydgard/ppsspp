@@ -70,8 +70,9 @@ void FramebufferManagerGLES::DeviceLost() {
 	}
 }
 
-void FramebufferManagerGLES::Resized() {
-	FramebufferManagerCommon::Resized();
+void FramebufferManagerGLES::NotifyDisplayResized() {
+	FramebufferManagerCommon::NotifyDisplayResized();
+
 	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	render->Resize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }

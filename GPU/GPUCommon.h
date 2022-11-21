@@ -84,8 +84,7 @@ public:
 	bool IsReady() override {
 		return true;
 	}
-	void CancelReady() override {
-	}
+	void CancelReady() override {}
 	void Reinitialize() override;
 
 	void BeginHostFrame() override;

@@ -617,7 +617,8 @@ void GPUCommon::CheckResized() {
 	if (resized_) {
 		gstate_c.useFlags = CheckGPUFeatures();
 		BuildReportingInfo();
-		framebufferManager_->Resized();
+		framebufferManager_->NotifyDisplayResized();
+		framebufferManager_->NotifyRenderResized();
 		drawEngineCommon_->NotifyConfigChanged();
 		textureCache_->NotifyConfigChanged();
 		shaderManager_->DirtyLastShader();
