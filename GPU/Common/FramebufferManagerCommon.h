@@ -450,7 +450,7 @@ protected:
 	void CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 	void CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 
-	bool UpdateSize();
+	bool UpdateRenderSize();
 
 	void FlushBeforeCopy();
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra

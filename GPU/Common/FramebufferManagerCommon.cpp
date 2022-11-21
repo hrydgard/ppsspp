@@ -86,11 +86,10 @@ void FramebufferManagerCommon::Init() {
 	Resized();
 }
 
-bool FramebufferManagerCommon::UpdateSize() {
+bool FramebufferManagerCommon::UpdateRenderSize() {
 	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight;
 
 	const int effectiveBloomHack = PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn ? 3 : g_Config.iBloomHack;
-
 
 	bool newBuffered = !g_Config.bSkipBufferEffects;
 	const bool newSettings = bloomHack_ != effectiveBloomHack || useBufferedRendering_ != newBuffered;
@@ -98,13 +97,11 @@ bool FramebufferManagerCommon::UpdateSize() {
 	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
 	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
 	renderScaleFactor_ = (float)PSP_CoreParameter().renderScaleFactor;
-	pixelWidth_ = PSP_CoreParameter().pixelWidth;
-	pixelHeight_ = PSP_CoreParameter().pixelHeight;
+
 	bloomHack_ = effectiveBloomHack;
 	useBufferedRendering_ = newBuffered;
 
-	presentation_->UpdateSize(pixelWidth_, pixelHeight_, renderWidth_, renderHeight_);
-
+	presentation_->UpdateRenderSize(renderWidth_, renderHeight_);
 	return newRender || newSettings;
 }
 
@@ -2342,7 +2339,11 @@ void FramebufferManagerCommon::Resized() {
 	PSP_CoreParameter().renderHeight = h;
 	PSP_CoreParameter().renderScaleFactor = scaleFactor;
 
-	if (UpdateSize()) {
+	pixelWidth_ = PSP_CoreParameter().pixelWidth;
+	pixelHeight_ = PSP_CoreParameter().pixelHeight;
+	presentation_->UpdateDisplaySize(pixelWidth_, pixelHeight_);
+
+	if (UpdateRenderSize()) {
 		DestroyAllFBOs();
 	}
 

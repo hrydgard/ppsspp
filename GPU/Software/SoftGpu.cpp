@@ -712,7 +712,8 @@ void SoftGPU::Resized() {
 	}
 
 	if (presentation_) {
-		presentation_->UpdateSize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		presentation_->UpdateDisplaySize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		presentation_->UpdateRenderSize(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 		presentation_->UpdatePostShader();
 	}
 }
