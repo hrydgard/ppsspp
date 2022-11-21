@@ -275,15 +275,7 @@ void GPU_Vulkan::BeginHostFrame() {
 	drawEngine_.BeginFrame();
 	UpdateCmdInfo();
 
-	if (resized_) {
-		gstate_c.useFlags = CheckGPUFeatures();
-		// In case the GPU changed.
-		BuildReportingInfo();
-		framebufferManager_->Resized();
-		drawEngine_.NotifyConfigChanged();
-		textureCache_->NotifyConfigChanged();
-		resized_ = false;
-	}
+	CheckResized();
 
 	textureCacheVulkan_->StartFrame();
 

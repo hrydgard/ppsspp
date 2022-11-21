@@ -611,6 +611,20 @@ void GPUCommon::Resized() {
 	resized_ = true;
 }
 
+// Called once per frame. Might also get called during the pause screen
+// if "transparent".
+void GPUCommon::CheckResized() {
+	if (resized_) {
+		gstate_c.useFlags = CheckGPUFeatures();
+		BuildReportingInfo();
+		framebufferManager_->Resized();
+		drawEngineCommon_->NotifyConfigChanged();
+		textureCache_->NotifyConfigChanged();
+		shaderManager_->DirtyLastShader();
+		resized_ = false;
+	}
+}
+
 void GPUCommon::DumpNextFrame() {
 	dumpNextFrame_ = true;
 }

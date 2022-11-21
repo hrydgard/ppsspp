@@ -268,14 +268,7 @@ void GPU_GLES::InitClear() {
 void GPU_GLES::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
-	if (resized_) {
-		gstate_c.useFlags = CheckGPUFeatures();
-		framebufferManager_->Resized();
-		drawEngine_.NotifyConfigChanged();
-		textureCache_->NotifyConfigChanged();
-		shaderManagerGL_->DirtyShader();
-		resized_ = false;
-	}
+	CheckResized();
 
 	drawEngine_.BeginFrame();
 }

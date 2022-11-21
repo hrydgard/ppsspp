@@ -160,14 +160,7 @@ void GPU_D3D11::InitClear() {
 void GPU_D3D11::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
-	if (resized_) {
-		gstate_c.useFlags = CheckGPUFeatures();
-		framebufferManager_->Resized();
-		drawEngine_.NotifyConfigChanged();
-		textureCache_->NotifyConfigChanged();
-		shaderManagerD3D11_->DirtyLastShader();
-		resized_ = false;
-	}
+	CheckResized();
 }
 
 void GPU_D3D11::ReapplyGfxState() {
