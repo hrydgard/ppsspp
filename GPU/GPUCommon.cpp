@@ -629,7 +629,6 @@ void GPUCommon::NotifyDisplayResized() {
 // if "transparent".
 void GPUCommon::CheckConfigChanged() {
 	if (configChanged_) {
-		ClearCacheNextFrame();
 		gstate_c.useFlags = CheckGPUFeatures();
 		drawEngineCommon_->NotifyConfigChanged();
 		shaderManager_->DirtyLastShader();  // Don't think this is needed, at all.
