@@ -463,7 +463,10 @@ void GameSettingsScreen::CreateViews() {
 #endif
 		// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
 		displayEditor_ = graphicsSettings->Add(new Choice(gr->T("Display layout editor")));
-		displayEditor_->OnClick.Handle(this, &GameSettingsScreen::OnDisplayLayoutEditor);
+		displayEditor_->OnClick.Add([&](EventParams &params) {
+			screenManager()->push(new DisplayLayoutScreen());
+			return UI::EVENT_DONE;
+		});
 
 #if PPSSPP_PLATFORM(ANDROID)
 		// Hide insets option if no insets, or OS too old.
@@ -1331,11 +1334,6 @@ UI::EventReturn GameSettingsScreen::OnFullscreenMultiChange(UI::EventParams &e) 
 	System_SendMessage("toggle_fullscreen", g_Config.UseFullScreen() ? "1" : "0");
 	return UI::EVENT_DONE;
 }
-
-UI::EventReturn GameSettingsScreen::OnDisplayLayoutEditor(UI::EventParams &e) {
-	screenManager()->push(new DisplayLayoutScreen());
-	return UI::EVENT_DONE;
-};
 
 UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 	if (g_Config.iAndroidHwScale == 1) {

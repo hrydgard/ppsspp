@@ -48,6 +48,8 @@ protected:
 	void DrawBackground(UIContext &dc) override;
 
 private:
+	void CreateDisplaySettingsViews();
+
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 	UI::EventReturn OnExitToMenu(UI::EventParams &e);
 	UI::EventReturn OnReportFeedback(UI::EventParams &e);

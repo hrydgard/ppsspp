@@ -263,18 +263,64 @@ bool GamePauseScreen::isTransparent() const {
 
 void GamePauseScreen::DrawBackground(UIContext &dc) {
 	if (isTransparent()) {
-		// Darken the game screen coming from below, so the UI on top stands out.
-		dc.Flush();
-		uint32_t color = blackAlpha(0.45f);
-		dc.FillRect(UI::Drawable(color), dc.GetBounds());
-		dc.Flush();
+		// If not in display settings mode, darken the game screen
+		// from below, so the UI on top stands out.
+		if (mode_ == PauseScreenMode::MAIN) {
+			dc.Flush();
+			uint32_t color = blackAlpha(0.45f);
+			dc.FillRect(UI::Drawable(color), dc.GetBounds());
+			dc.Flush();
+		}
 		return;
+	} else {
+		// If we end up here with mode_ == PauseScreenMode::DISPLAY_SETTINGS,
+		// which means we're in skip-buffer mode and have nothing to display,
+		// we could render a filled rectangle representing the screen, for size config purposes.
+		// Would need to query PresentationCommon for the rectangle.
 	}
 
 	UIDialogScreenWithGameBackground::DrawBackground(dc);
 }
 
+void GamePauseScreen::CreateDisplaySettingsViews() {
+	using namespace UI;
+	auto di = GetI18NCategory("Dialog");
+	auto gr = GetI18NCategory("Graphics");
+
+	Margins actionMenuMargins(0, 20, 15, 0);
+
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	root_->Add(new Spacer(new LinearLayoutParams(1.0f)));
+	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(200.0f, FILL_PARENT, actionMenuMargins));
+
+	root_->Add(rightColumn);
+
+	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
+	rightColumn->Add(rightColumnItems);
+
+	// TODO: Add post-processing parameter adjustment here.
+
+	// TODO: The manual mode needs a parameter here - or click-drag adjustment. Plus, lateral movement
+	// can be done with click-drag too...
+	// Should figure out the differente between Stretching and Partial Stretch too.
+
+	static const char *zoomLevels[] = { "Stretching", "Partial Stretch", "Auto Scaling", "Manual Scaling" };
+	auto zoom = new PopupMultiChoice(&g_Config.iSmallDisplayZoomType, "", zoomLevels, 0, ARRAY_SIZE(zoomLevels), gr->GetName(), screenManager());
+	rightColumnItems->Add(zoom);
+
+	rightColumnItems->Add(new Choice(di->T("Back")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+		mode_ = PauseScreenMode::MAIN;
+		RecreateViews();
+		return UI::EVENT_DONE;
+	});
+}
+
 void GamePauseScreen::CreateViews() {
+	if (mode_ == PauseScreenMode::DISPLAY_SETTINGS) {
+		CreateDisplaySettingsViews();
+		return;
+	}
+
 	static const int NUM_SAVESLOTS = 5;
 
 	using namespace UI;
@@ -340,6 +386,11 @@ void GamePauseScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(pa->T("Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 		rightColumnItems->Add(new Choice(pa->T("Create Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
 	}
+	rightColumnItems->Add(new Choice(pa->T("Display Settings")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+		mode_ = PauseScreenMode::DISPLAY_SETTINGS;
+		RecreateViews();
+		return UI::EVENT_DONE;
+	});
 	if (g_Config.bEnableCheats) {
 		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
 	}
