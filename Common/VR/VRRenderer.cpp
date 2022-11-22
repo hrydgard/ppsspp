@@ -317,7 +317,7 @@ void VR_EndFrame( engine_t* engine ) {
 		int x = vrConfig[VR_CONFIG_MOUSE_X];
 		int y = vrConfig[VR_CONFIG_MOUSE_Y];
 		int sx = vrConfig[VR_CONFIG_MOUSE_SIZE];
-		int sy = sx * VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
+		int sy = (int)((float)sx * VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT));
 		ovrRenderer_MouseCursor(&engine->appState.Renderer, x, y, sx, sy);
 	}
 

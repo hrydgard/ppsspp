@@ -77,15 +77,15 @@ public:
 		return draw_;
 	}
 	virtual u32 CheckGPUFeatures() const;
-	void CheckResized() override;
+
+	void CheckDisplayResized() override;
 
 	void UpdateCmdInfo();
 
 	bool IsReady() override {
 		return true;
 	}
-	void CancelReady() override {
-	}
+	void CancelReady() override {}
 	void Reinitialize() override;
 
 	void BeginHostFrame() override;
@@ -98,7 +98,10 @@ public:
 		interruptsEnabled_ = enable;
 	}
 
-	void Resized() override;
+	void NotifyDisplayResized() override;
+	void NotifyRenderResized() override;
+	void NotifyConfigChanged() override;
+
 	void DumpNextFrame() override;
 
 	void ExecuteOp(u32 op, u32 diff) override;
@@ -263,6 +266,9 @@ protected:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
+	void CheckConfigChanged();
+	void CheckRenderResized();
+
 	// Add additional common features dependent on other features, which may be backend-determined.
 	u32 CheckGPUFeaturesLate(u32 features) const;
 
@@ -358,7 +364,9 @@ protected:
 	bool dumpThisFrame_ = false;
 	bool debugRecording_;
 	bool interruptsEnabled_;
-	bool resized_ = false;
+	bool displayResized_ = false;
+	bool renderResized_ = false;
+	bool configChanged_ = false;
 	bool sawExactEqualDepth_ = false;
 	DrawType lastDraw_ = DRAW_UNKNOWN;
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;

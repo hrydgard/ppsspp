@@ -323,7 +323,6 @@ public:
 	bool SetOffsetTexture(u32 yOffset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
-	void ClearNextFrame();
 
 	TextureShaderCache *GetTextureShaderCache() { return textureShaderCache_; }
 

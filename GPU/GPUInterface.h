@@ -197,7 +197,8 @@ public:
 	// Frame managment
 	virtual void BeginHostFrame() = 0;
 	virtual void EndHostFrame() = 0;
-	virtual void CheckResized() = 0;
+
+	virtual void CheckDisplayResized() = 0;
 
 	// Draw queue management
 	virtual DisplayList* getList(int listid) = 0;
@@ -243,9 +244,6 @@ public:
 	virtual bool PerformWriteColorFromMemory(u32 dest, int size) = 0;
 	virtual bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags = WriteStencil::NEEDS_CLEAR) = 0;
 
-	// Will cause the texture cache to be cleared at the start of the next frame.
-	virtual void ClearCacheNextFrame() = 0;
-
 	// Internal hack to avoid interrupts from "PPGe" drawing (utility UI, etc)
 	virtual void EnableInterrupts(bool enable) = 0;
 
@@ -255,7 +253,10 @@ public:
 	virtual void DoState(PointerWrap &p) = 0;
 
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
-	virtual void Resized() = 0;
+	virtual void NotifyDisplayResized() = 0;
+	virtual void NotifyRenderResized() = 0;
+	virtual void NotifyConfigChanged() = 0;
+
 	virtual void ClearShaderCache() = 0;
 	virtual void CleanupBeforeUI() = 0;
 	virtual bool FramebufferDirty() = 0;

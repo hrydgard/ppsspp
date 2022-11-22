@@ -398,7 +398,9 @@ public:
 	}
 	void SetSafeSize(u16 w, u16 h);
 
-	virtual void Resized();
+	virtual void NotifyRenderResized();
+	virtual void NotifyDisplayResized();
+
 	virtual void DestroyAllFBOs();
 
 	virtual void DeviceLost();
@@ -450,7 +452,7 @@ protected:
 	void CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 	void CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 
-	bool UpdateSize();
+	bool UpdateRenderSize();
 
 	void FlushBeforeCopy();
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra

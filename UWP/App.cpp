@@ -57,20 +57,20 @@ void App::Initialize(CoreApplicationView^ applicationView) {
 	CoreApplication::Resuming +=
 		ref new EventHandler<Platform::Object^>(this, &App::OnResuming);
 
-	// At this point we have access to the device. 
+	// At this point we have access to the device.
 	// We can create the device-dependent resources.
 	m_deviceResources = std::make_shared<DX::DeviceResources>();
 }
 
 // Called when the CoreWindow object is created (or re-created).
 void App::SetWindow(CoreWindow^ window) {
-	window->SizeChanged += 
+	window->SizeChanged +=
 		ref new TypedEventHandler<CoreWindow^, WindowSizeChangedEventArgs^>(this, &App::OnWindowSizeChanged);
 
 	window->VisibilityChanged +=
 		ref new TypedEventHandler<CoreWindow^, VisibilityChangedEventArgs^>(this, &App::OnVisibilityChanged);
 
-	window->Closed += 
+	window->Closed +=
 		ref new TypedEventHandler<CoreWindow^, CoreWindowEventArgs^>(this, &App::OnWindowClosed);
 
 	DisplayInformation^ currentDisplayInformation = DisplayInformation::GetForCurrentView();
@@ -267,7 +267,7 @@ void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ ar
 	PSP_CoreParameter().pixelWidth = (int)(width * scale);
 	PSP_CoreParameter().pixelHeight = (int)(height * scale);
 	if (UpdateScreenScale((int)width, (int)height)) {
-		NativeMessageReceived("gpu_resized", "");
+		NativeMessageReceived("gpu_displayResized", "");
 	}
 }
 

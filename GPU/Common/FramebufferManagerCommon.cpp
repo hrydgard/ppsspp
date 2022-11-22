@@ -83,14 +83,14 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 
 void FramebufferManagerCommon::Init() {
 	// We may need to override the render size if the shader is upscaling or SSAA.
-	Resized();
+	NotifyDisplayResized();
+	NotifyRenderResized();
 }
 
-bool FramebufferManagerCommon::UpdateSize() {
+bool FramebufferManagerCommon::UpdateRenderSize() {
 	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight;
 
 	const int effectiveBloomHack = PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn ? 3 : g_Config.iBloomHack;
-
 
 	bool newBuffered = !g_Config.bSkipBufferEffects;
 	const bool newSettings = bloomHack_ != effectiveBloomHack || useBufferedRendering_ != newBuffered;
@@ -98,13 +98,11 @@ bool FramebufferManagerCommon::UpdateSize() {
 	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
 	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
 	renderScaleFactor_ = (float)PSP_CoreParameter().renderScaleFactor;
-	pixelWidth_ = PSP_CoreParameter().pixelWidth;
-	pixelHeight_ = PSP_CoreParameter().pixelHeight;
+
 	bloomHack_ = effectiveBloomHack;
 	useBufferedRendering_ = newBuffered;
 
-	presentation_->UpdateSize(pixelWidth_, pixelHeight_, renderWidth_, renderHeight_);
-
+	presentation_->UpdateRenderSize(renderWidth_, renderHeight_);
 	return newRender || newSettings;
 }
 
@@ -2333,7 +2331,17 @@ void FramebufferManagerCommon::SetSafeSize(u16 w, u16 h) {
 	}
 }
 
-void FramebufferManagerCommon::Resized() {
+void FramebufferManagerCommon::NotifyDisplayResized() {
+	pixelWidth_ = PSP_CoreParameter().pixelWidth;
+	pixelHeight_ = PSP_CoreParameter().pixelHeight;
+	presentation_->UpdateDisplaySize(pixelWidth_, pixelHeight_);
+
+	// No drawing is allowed here. This includes anything that might potentially touch a command buffer, like creating images!
+	// So we need to defer the post processing initialization.
+	updatePostShaders_ = true;
+}
+
+void FramebufferManagerCommon::NotifyRenderResized() {
 	gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
 
 	int w, h, scaleFactor;
@@ -2342,7 +2350,7 @@ void FramebufferManagerCommon::Resized() {
 	PSP_CoreParameter().renderHeight = h;
 	PSP_CoreParameter().renderScaleFactor = scaleFactor;
 
-	if (UpdateSize()) {
+	if (UpdateRenderSize()) {
 		DestroyAllFBOs();
 	}
 

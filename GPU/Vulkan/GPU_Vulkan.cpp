@@ -272,11 +272,9 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 }
 
 void GPU_Vulkan::BeginHostFrame() {
+	GPUCommon::BeginHostFrame();
+
 	drawEngine_.BeginFrame();
-	UpdateCmdInfo();
-
-	CheckResized();
-
 	textureCacheVulkan_->StartFrame();
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
@@ -310,7 +308,7 @@ void GPU_Vulkan::EndHostFrame() {
 	drawEngine_.EndFrame();
 	textureCacheVulkan_->EndFrame();
 
-	draw_->InvalidateCachedState();
+	GPUCommon::EndHostFrame();
 }
 
 // Needs to be called on GPU thread, not reporting thread.
@@ -513,10 +511,6 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		drawStats.pushIndexSpaceUsed,
 		texStats
 	);
-}
-
-void GPU_Vulkan::ClearCacheNextFrame() {
-	textureCacheVulkan_->ClearNextFrame();
 }
 
 void GPU_Vulkan::ClearShaderCache() {

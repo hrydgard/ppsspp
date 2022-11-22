@@ -144,12 +144,14 @@ public:
 	bool PerformReadbackToMemory(u32 dest, int size) override;
 	bool PerformWriteColorFromMemory(u32 dest, int size) override;
 	bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) override;
-	void ClearCacheNextFrame() override {}
 
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
-	void Resized() override;
+	void NotifyRenderResized() override;
+	void NotifyDisplayResized() override;
+	void NotifyConfigChanged() override;
+
 	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
 		primaryInfo = "Software";
 		fullInfo = "Software";

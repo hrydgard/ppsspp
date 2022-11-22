@@ -477,15 +477,23 @@ void GPUCommon::UpdateCmdInfo() {
 }
 
 void GPUCommon::BeginHostFrame() {
-	UpdateVsyncInterval(resized_);
+	UpdateVsyncInterval(displayResized_);
 	ReapplyGfxState();
 
 	// TODO: Assume config may have changed - maybe move to resize.
 	gstate_c.Dirty(DIRTY_ALL);
+
+	UpdateCmdInfo();
+	CheckConfigChanged();
+	CheckDisplayResized();
+	CheckRenderResized();
 }
 
 void GPUCommon::EndHostFrame() {
-
+	// Probably not necessary.
+	if (draw_) {
+		draw_->InvalidateCachedState();
+	}
 }
 
 void GPUCommon::Reinitialize() {
@@ -607,21 +615,42 @@ bool GPUCommon::BusyDrawing() {
 	return false;
 }
 
-void GPUCommon::Resized() {
-	resized_ = true;
+void GPUCommon::NotifyConfigChanged() {
+	configChanged_ = true;
+}
+
+void GPUCommon::NotifyRenderResized() {
+	renderResized_ = true;
+}
+
+void GPUCommon::NotifyDisplayResized() {
+	displayResized_ = true;
 }
 
 // Called once per frame. Might also get called during the pause screen
 // if "transparent".
-void GPUCommon::CheckResized() {
-	if (resized_) {
+void GPUCommon::CheckConfigChanged() {
+	if (configChanged_) {
 		gstate_c.useFlags = CheckGPUFeatures();
-		BuildReportingInfo();
-		framebufferManager_->Resized();
 		drawEngineCommon_->NotifyConfigChanged();
+		shaderManager_->DirtyLastShader();  // Don't think this is needed, at all.
 		textureCache_->NotifyConfigChanged();
-		shaderManager_->DirtyLastShader();
-		resized_ = false;
+		BuildReportingInfo();
+		configChanged_ = false;
+	}
+}
+
+void GPUCommon::CheckDisplayResized() {
+	if (displayResized_) {
+		framebufferManager_->NotifyDisplayResized();
+		displayResized_ = false;
+	}
+}
+
+void GPUCommon::CheckRenderResized() {
+	if (renderResized_) {
+		framebufferManager_->NotifyRenderResized();
+		renderResized_ = false;
 	}
 }
 

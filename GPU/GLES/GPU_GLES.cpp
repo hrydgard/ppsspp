@@ -267,9 +267,6 @@ void GPU_GLES::InitClear() {
 
 void GPU_GLES::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
-	UpdateCmdInfo();
-	CheckResized();
-
 	drawEngine_.BeginFrame();
 }
 
@@ -354,10 +351,6 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerGL_->GetNumFragmentShaders(),
 		shaderManagerGL_->GetNumPrograms()
 	);
-}
-
-void GPU_GLES::ClearCacheNextFrame() {
-	textureCacheGL_->ClearNextFrame();
 }
 
 void GPU_GLES::ClearShaderCache() {

@@ -40,9 +40,7 @@ public:
 	void PreExecuteOp(u32 op, u32 diff) override;
 	void ExecuteOp(u32 op, u32 diff) override;
 
-	void ReapplyGfxState() override;
 	void GetStats(char *buffer, size_t bufsize) override;
-	void ClearCacheNextFrame() override;
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 	void DeviceRestore() override;
 
@@ -53,9 +51,6 @@ public:
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
-
-	void BeginHostFrame() override;
-	void EndHostFrame() override;
 
 protected:
 	void FinishDeferred() override;

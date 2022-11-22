@@ -147,12 +147,6 @@ void GPU_DX9::InitClear() {
 	}
 }
 
-void GPU_DX9::BeginHostFrame() {
-	GPUCommon::BeginHostFrame();
-	UpdateCmdInfo();
-	CheckResized();
-}
-
 void GPU_DX9::ReapplyGfxState() {
 	dxstate.Restore();
 	GPUCommon::ReapplyGfxState();
@@ -224,10 +218,6 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerDX9_->GetNumVertexShaders(),
 		shaderManagerDX9_->GetNumFragmentShaders()
 	);
-}
-
-void GPU_DX9::ClearCacheNextFrame() {
-	textureCacheDX9_->ClearNextFrame();
 }
 
 void GPU_DX9::ClearShaderCache() {
