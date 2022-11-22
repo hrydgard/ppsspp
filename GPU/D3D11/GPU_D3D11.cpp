@@ -118,11 +118,6 @@ u32 GPU_D3D11::CheckGPUFeatures() const {
 		features |= GPU_USE_16BIT_FORMATS;
 	}
 
-	// The Phantasy Star hack :(
-	if (PSP_CoreParameter().compat.flags().DepthRangeHack && (features & GPU_USE_ACCURATE_DEPTH) == 0) {
-		features |= GPU_USE_DEPTH_RANGE_HACK;
-	}
-
 	return CheckGPUFeaturesLate(features);
 }
 
