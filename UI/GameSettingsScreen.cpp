@@ -366,7 +366,7 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Postprocessing effect")));
+	graphicsSettings->Add(new ItemHeader(gr->T("Stereo rendering")));
 
 	bool multiViewSupported = draw->GetDeviceCaps().multiViewSupported;
 

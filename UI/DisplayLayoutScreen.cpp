@@ -204,8 +204,10 @@ void DisplayLayoutScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 10.f, 10.0f, 10.0f, false));
-	root_->Add(rightColumn);
+	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 10.f, 10.0f, 10.0f, false));
+	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL); // , new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 10.f, 10.0f, 10.0f, false));
+	rightScrollView->Add(rightColumn);
+	root_->Add(rightScrollView);
 
 	// We manually implement insets here for the buttons. This file defied refactoring :(
 	float leftInset = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
@@ -278,7 +280,7 @@ void DisplayLayoutScreen::CreateViews() {
 	}
 
 	static const char *zoomLevels[] = { "Stretching", "Partial Stretch", "Auto Scaling", "Manual Scaling" };
-	auto zoom = new PopupMultiChoice(&g_Config.iSmallDisplayZoomType, di->T("Options"), zoomLevels, 0, ARRAY_SIZE(zoomLevels), gr->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, bounds.w / 2.0f - 200.0f, NONE, NONE, 10));
+	auto zoom = new PopupMultiChoice(&g_Config.iSmallDisplayZoomType, gr->T("Mode"), zoomLevels, 0, ARRAY_SIZE(zoomLevels), gr->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, bounds.w / 2.0f - 200.0f, NONE, NONE, 10));
 	zoom->OnChoice.Handle(this, &DisplayLayoutScreen::OnZoomTypeChange);
 	rightColumn->Add(zoom);
 
