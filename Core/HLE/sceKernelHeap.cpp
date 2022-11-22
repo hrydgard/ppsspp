@@ -45,11 +45,16 @@ struct KernelHeap : public KernelObject {
 static int sceKernelCreateHeap(int partitionId, int size, int flags, const char *Name) {
 	u32 allocSize = (size + 3) & ~3;
 
-	// TODO: partitionId should probably decide if we allocate from userMemory or kernel or whatever...
-	u32 addr = userMemory.Alloc(allocSize, g_fromBottom, "SysMemForKernel-Heap");
+	BlockAllocator *allocator = BlockAllocatorFromAddr(partitionId);
+	// TODO: Validate error code.
+	if (!allocator)
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition");
+
+	// TODO: This should probably actually use flags?  Name?
+	u32 addr = allocator->Alloc(allocSize, g_fromBottom, "SysMemForKernel-Heap");
 	if (addr == (u32)-1) {
-		ERROR_LOG(HLE, "sceKernelCreateHeap(partitionId=%d): Failed to allocate %d bytes memory", partitionId, size);
-		return SCE_KERNEL_ERROR_NO_MEMORY;  // Blind guess
+		// TODO: Validate error code.
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "fFailed to allocate %d bytes of memory", size);
 	}
 
 	KernelHeap *heap = new KernelHeap();
@@ -74,7 +79,7 @@ static int sceKernelAllocHeapMemory(int heapId, int size) {
 		u32 addr = heap->alloc.Alloc(memSize, true);
 		return hleLogSuccessInfoX(SCEKERNEL, addr);
 	} else {
-		return hleLogError(SCEKERNEL, error, "sceKernelAllocHeapMemory(%d): invalid heapId", heapId);
+		return hleLogError(SCEKERNEL, error, "invalid heapId");
 	}
 }
 
@@ -82,26 +87,31 @@ static int sceKernelDeleteHeap(int heapId) {
 	u32 error;
 	KernelHeap *heap = kernelObjects.Get<KernelHeap>(heapId, error);
 	if (heap) {
-		userMemory.Free(heap->address);
+		// Not using heap->partitionId here for backwards compatibility with old save states.
+		BlockAllocator *allocator = BlockAllocatorFromAddr(heap->address);
+		if (allocator)
+			allocator->Free(heap->address);
 		kernelObjects.Destroy<KernelHeap>(heap->uid);
 		return hleLogSuccessInfoX(SCEKERNEL, 0);
 	} else {
-		return hleLogError(SCEKERNEL, error, "sceKernelDeleteHeap(%d): invalid heapId", heapId);
+		return hleLogError(SCEKERNEL, error, "invalid heapId");
 	}
 }
 
 static u32 sceKernelPartitionTotalFreeMemSize(int partitionId) {
-	ERROR_LOG(SCEKERNEL, "UNIMP sceKernelPartitionTotalFreeMemSize(%d)", partitionId);
-	//Need more work #13021
-	///We ignore partitionId for now
-	return userMemory.GetTotalFreeBytes();
+	BlockAllocator *allocator = BlockAllocatorFromID(partitionId);
+	// TODO: Validate error code.
+	if (!allocator)
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition");
+	return hleLogWarning(SCEKERNEL, allocator->GetTotalFreeBytes());
 }
 
 static u32 sceKernelPartitionMaxFreeMemSize(int partitionId) {
-	ERROR_LOG(SCEKERNEL, "UNIMP sceKernelPartitionMaxFreeMemSize(%d)", partitionId);
-	//Need more work #13021
-	///We ignore partitionId for now
-	return userMemory.GetLargestFreeBlockSize();
+	BlockAllocator *allocator = BlockAllocatorFromID(partitionId);
+	// TODO: Validate error code.
+	if (!allocator)
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition");
+	return hleLogWarning(SCEKERNEL, allocator->GetLargestFreeBlockSize());
 }
 
 static u32 SysMemForKernel_536AD5E1()
