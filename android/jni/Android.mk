@@ -689,7 +689,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/DiscordIntegration.cpp \
   $(SRC)/UI/ChatScreen.cpp \
   $(SRC)/UI/DevScreens.cpp \
-  $(SRC)/UI/DisplayLayoutEditor.cpp \
   $(SRC)/UI/DisplayLayoutScreen.cpp \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \

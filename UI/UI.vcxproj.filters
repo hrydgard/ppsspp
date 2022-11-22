@@ -63,7 +63,6 @@
     <ClCompile Include="DisplayLayoutScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-    <ClCompile Include="DisplayLayoutEditor.cpp" />
     <ClCompile Include="RemoteISOScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -144,7 +143,6 @@
     <ClInclude Include="DisplayLayoutScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="DisplayLayoutEditor.h" />
     <ClInclude Include="HostTypes.h" />
     <ClInclude Include="RemoteISOScreen.h">
       <Filter>Screens</Filter>

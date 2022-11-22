@@ -1247,8 +1247,6 @@ list(APPEND NativeAppSource
 	UI/ChatScreen.cpp
 	UI/DevScreens.cpp
 	UI/DevScreens.h
-	UI/DisplayLayoutEditor.cpp
-	UI/DisplayLayoutEditor.h
 	UI/DisplayLayoutScreen.cpp
 	UI/DisplayLayoutScreen.h
 	UI/EmuScreen.h

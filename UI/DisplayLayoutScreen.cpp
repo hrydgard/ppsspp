@@ -23,6 +23,8 @@
 #include "Common/Render/DrawBuffer.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
+#include "Common/Math/math_util.h"
+#include "Common/System/Display.h"
 
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Text/I18n.h"
@@ -30,64 +32,24 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
-#include "DisplayLayoutEditor.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
+#include "GPU/Common/PresentationCommon.h"
 
 static const int leftColumnWidth = 200;
-static const float orgRatio = 1.764706f;
+static const float orgRatio = 1.764706f;  // 480.0 / 272.0
 
-static const float UI_DISPLAY_SCALE = 8.0f;
-static float ScaleSettingToUI() {
-	float scale = g_Config.fSmallDisplayZoomLevel * UI_DISPLAY_SCALE;
-	// Account for 1x display doubling dps.
-	if (g_dpi_scale_x > 1.0f) {
-		scale *= g_dpi_scale_x;
-	}
-	return scale;
-}
-
-static void UpdateScaleSetting(float scale) {
-	// Account for 1x display doubling dps.
-	if (g_dpi_scale_x > 1.0f) {
-		scale /= g_dpi_scale_x;
-	}
-	g_Config.fSmallDisplayZoomLevel = scale;
-}
-
-static void UpdateScaleSettingFromUI(float scale) {
-	UpdateScaleSetting(scale / UI_DISPLAY_SCALE);
-}
-
-class DragDropDisplay : public MultiTouchDisplay {
-public:
-	DragDropDisplay(float &x, float &y, ImageID img, float scale, const Bounds &screenBounds)
-		: MultiTouchDisplay(img, scale, new UI::AnchorLayoutParams(x * screenBounds.w, y * screenBounds.h, UI::NONE, UI::NONE, true)),
-		x_(x), y_(y), screenBounds_(screenBounds) {
-		UpdateScale(scale);
-	}
-
-	std::string DescribeText() const override;
-
-	void SaveDisplayPosition() {
-		x_ = bounds_.centerX() / screenBounds_.w;
-		y_ = bounds_.centerY() / screenBounds_.h;
-	}
-
-	void UpdateScale(float s) {
-		scale_ = s;
-	}
-	float Scale() {
-		return scale_;
-	}
-
-private:
-	float &x_, &y_;
-	const Bounds &screenBounds_;
+enum Mode {
+	MODE_MOVE,
+	MODE_RESIZE,
 };
 
-std::string DragDropDisplay::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
-	return u->T("Screen representation");
+static Bounds FRectToBounds(FRect rc) {
+	Bounds b;
+	b.x = rc.x * g_dpi_scale_x;
+	b.y = rc.y * g_dpi_scale_y;
+	b.w = rc.w * g_dpi_scale_x;
+	b.h = rc.h * g_dpi_scale_y;
+	return b;
 }
 
 DisplayLayoutScreen::DisplayLayoutScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {
@@ -96,6 +58,25 @@ DisplayLayoutScreen::DisplayLayoutScreen(const Path &filename) : UIDialogScreenW
 
 	// Show background at full brightness
 	darkenGameBackground_ = false;
+}
+
+void DisplayLayoutScreen::DrawBackground(UIContext &dc) {
+	if (PSP_IsInited() && !g_Config.bSkipBufferEffects) {
+		// We normally rely on the PSP screen.
+		UIDialogScreenWithGameBackground::DrawBackground(dc);
+	} else {
+		// But if it's not present (we're not in game, or skip buffer effects is used),
+		// we have to draw a substitute ourselves.
+
+		// TODO: Clean this up a bit, this GetScreenFrame/CenterDisplay combo is too common.
+		FRect screenFrame = GetScreenFrame(pixel_xres, pixel_yres);
+		FRect rc;
+		CenterDisplayOutputRect(&rc, 480.0f, 272.0f, screenFrame, g_Config.iInternalScreenRotation);
+
+		dc.Flush();
+		ImageID bg = ImageID("I_PSP_DISPLAY");
+		dc.Draw()->DrawImageStretch(bg, FRectToBounds(rc), 0x7FFFFFFF);
+	}
 }
 
 bool DisplayLayoutScreen::touch(const TouchInput &touch) {
@@ -108,89 +89,42 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 		mode = -1;
 	}
 
-	const Bounds &screen_bounds = screenManager()->getUIContext()->GetBounds();
+	const Bounds &screenBounds = screenManager()->getUIContext()->GetBounds();
 	if ((touch.flags & TOUCH_MOVE) != 0 && dragging_) {
-		int touchX = touch.x - offsetTouchX_;
-		int touchY = touch.y - offsetTouchY_;
-		if (mode == 0) {
-			const auto &prevParams = displayRepresentation_->GetLayoutParams()->As<AnchorLayoutParams>();
-			Point newPos(prevParams->left, prevParams->top);
+		float relativeTouchX = touch.x - startX_;
+		float relativeTouchY = touch.y - startY_;
 
-			int limitX = g_Config.fSmallDisplayZoomLevel * 120;
-			int limitY = g_Config.fSmallDisplayZoomLevel * 68;
-
-			const int quarterResX = screen_bounds.w / 4;
-			const int quarterResY = screen_bounds.h / 4;
-
-			if (bRotated_) {
-				//swap X/Y limit for rotated display
-				std::swap(limitX, limitY);
-			}
-
-			// Check where each edge of the screen is
-			const int windowLeftEdge = quarterResX;
-			const int windowRightEdge = windowLeftEdge * 3;
-			const int windowUpperEdge = quarterResY;
-			const int windowLowerEdge = windowUpperEdge * 3;
-			// And stick display when close to any edge
-			stickToEdgeX_ = false;
-			stickToEdgeY_ = false;
-			if (touchX > windowLeftEdge - 8 + limitX && touchX < windowLeftEdge + 8 + limitX) { touchX = windowLeftEdge + limitX; stickToEdgeX_ = true; }
-			if (touchX > windowRightEdge - 8 - limitX && touchX < windowRightEdge + 8 - limitX) { touchX = windowRightEdge - limitX; stickToEdgeX_ = true; }
-			if (touchY > windowUpperEdge - 8 + limitY && touchY < windowUpperEdge + 8 + limitY) { touchY = windowUpperEdge + limitY; stickToEdgeY_ = true; }
-			if (touchY > windowLowerEdge - 8 - limitY && touchY < windowLowerEdge + 8 - limitY) { touchY = windowLowerEdge - limitY; stickToEdgeY_ = true; }
-
-			const int minX = screen_bounds.w / 2;
-			const int maxX = screen_bounds.w + minX;
-			const int minY = screen_bounds.h / 2;
-			const int maxY = screen_bounds.h + minY;
-			// Display visualization disappear outside of those bounds, so we have to limit
-			if (touchX < -minX) touchX = -minX;
-			if (touchX >  maxX) touchX =  maxX;
-			if (touchY < -minY) touchY = -minY;
-			if (touchY >  maxY) touchY =  maxY;
-
-			// Limit small display on much larger output a bit differently
-			if (quarterResX > limitX) limitX = quarterResX;
-			if (quarterResY > limitY) limitY = quarterResY;
-
-			// Allow moving zoomed in display freely as long as at least noticeable portion of the screen is occupied
-			if (touchX > minX - limitX - 10 && touchX < minX + limitX + 10) {
-				newPos.x = touchX;
-			}
-			if (touchY > minY - limitY - 10 && touchY < minY + limitY + 10) {
-				newPos.y = touchY;
-			}
-			displayRepresentation_->ReplaceLayoutParams(new AnchorLayoutParams(newPos.x, newPos.y, NONE, NONE, true));
-		} else if (mode == 1) {
+		switch (mode) {
+		case MODE_MOVE:
+		{
+			g_Config.fSmallDisplayOffsetX = startDisplayOffsetX_ + relativeTouchX * 0.5f / screenBounds.w;
+			g_Config.fSmallDisplayOffsetY = startDisplayOffsetY_ + relativeTouchY * 0.5f / screenBounds.h;
+			break;
+		}
+		case MODE_RESIZE:
+		{
 			// Resize. Vertical = scaling; Up should be bigger so let's negate in that direction
-			float diffY = -(touchY - startY_);
-
-			float movementScale = 0.5f;
-			float newScale = startScale_ + diffY * movementScale;
-			// Desired scale * 8.0 since the visualization is tiny size and multiplied by 8.
-			newScale = clamp_value(newScale, UI_DISPLAY_SCALE, UI_DISPLAY_SCALE * 10.0f);
-			displayRepresentation_->UpdateScale(newScale);
-			UpdateScaleSettingFromUI(newScale);
+			float diffYProp = -relativeTouchY * 0.007f;
+			g_Config.fSmallDisplayZoomLevel = startScale_ * powf(2.0f, diffYProp);
+			break;
+		}
 		}
 	}
+
 	if ((touch.flags & TOUCH_DOWN) != 0 && !dragging_) {
 		dragging_ = true;
-		const Bounds &bounds = displayRepresentation_->GetBounds();
-		startY_ = bounds.centerY();
-		offsetTouchX_ = touch.x - bounds.centerX();
-		offsetTouchY_ = touch.y - bounds.centerY();
-		startScale_ = displayRepresentation_->Scale();
+		startX_ = touch.x;
+		startY_ = touch.y;
+		startDisplayOffsetX_ = g_Config.fSmallDisplayOffsetX;
+		startDisplayOffsetY_ = g_Config.fSmallDisplayOffsetY;
+		startScale_ = g_Config.fSmallDisplayZoomLevel;
 	}
+
 	if ((touch.flags & TOUCH_UP) != 0 && dragging_) {
-		displayRepresentation_->SaveDisplayPosition();
 		dragging_ = false;
 	}
-	return true;
-}
 
-void DisplayLayoutScreen::resized() {
-	RecreateViews();
+	return true;
 }
 
 void DisplayLayoutScreen::onFinish(DialogResult reason) {
@@ -198,22 +132,23 @@ void DisplayLayoutScreen::onFinish(DialogResult reason) {
 }
 
 UI::EventReturn DisplayLayoutScreen::OnCenter(UI::EventParams &e) {
-	if (!stickToEdgeX_ || (stickToEdgeX_ && stickToEdgeY_))
-		g_Config.fSmallDisplayOffsetX = 0.5f;
-	if (!stickToEdgeY_ || (stickToEdgeX_ && stickToEdgeY_))
-		g_Config.fSmallDisplayOffsetY = 0.5f;
+	g_Config.fSmallDisplayOffsetX = 0.5f;
+	g_Config.fSmallDisplayOffsetY = 0.5f;
 	RecreateViews();
 	return UI::EVENT_DONE;
 };
 
 UI::EventReturn DisplayLayoutScreen::OnZoomTypeChange(UI::EventParams &e) {
-	if (g_Config.iSmallDisplayZoomType < (int)SmallDisplayZoom::MANUAL) {
-		const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
-		float autoBound = bounds.w / 480.0f;
-		UpdateScaleSetting(autoBound);
-		displayRepresentation_->UpdateScale(ScaleSettingToUI());
+	switch (g_Config.iSmallDisplayZoomType) {
+	case (int)SmallDisplayZoom::AUTO:
+	case (int)SmallDisplayZoom::PARTIAL_STRETCH:
+	case (int)SmallDisplayZoom::STRETCH:
 		g_Config.fSmallDisplayOffsetX = 0.5f;
 		g_Config.fSmallDisplayOffsetY = 0.5f;
+		break;
+	default:
+		// Not SmallDisplayZoom::MANUAL
+		break;
 	}
 	RecreateViews();
 	return UI::EVENT_DONE;
@@ -222,20 +157,6 @@ UI::EventReturn DisplayLayoutScreen::OnZoomTypeChange(UI::EventParams &e) {
 void DisplayLayoutScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	RecreateViews();
 }
-
-class Boundary : public UI::View {
-public:
-	Boundary(UI::LayoutParams *layoutParams) : UI::View(layoutParams) {
-	}
-
-	std::string DescribeText() const override {
-		return "";
-	}
-
-	void Draw(UIContext &dc) override {
-		dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color);
-	}
-};
 
 // Stealing StickyChoice's layout and text rendering.
 class HighlightLabel : public UI::StickyChoice {
@@ -259,24 +180,8 @@ void DisplayLayoutScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	const float previewWidth = bounds.w / 2.0f;
-	const float previewHeight = bounds.h / 2.0f;
-
-	// Just visual boundaries of the screen, should be easier to use than imagination
-	const float horizPreviewPadding = bounds.w / 4.0f;
-	const float vertPreviewPadding = bounds.h / 4.0f;
-	const float horizBoundariesWidth = 4.0f;
-	// This makes it have at least 10.0f padding below at 1x.
-	const float vertBoundariesHeight = 52.0f;
-
 	// We manually implement insets here for the buttons. This file defied refactoring :(
 	float leftInset = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
-
-	// Left side, right, top, bottom.
-	root_->Add(new Boundary(new AnchorLayoutParams(horizBoundariesWidth, FILL_PARENT, horizPreviewPadding - horizBoundariesWidth, 0, NONE, 0)));
-	root_->Add(new Boundary(new AnchorLayoutParams(horizBoundariesWidth, FILL_PARENT, horizPreviewPadding + previewWidth, 0, NONE, 0)));
-	root_->Add(new Boundary(new AnchorLayoutParams(previewWidth, vertBoundariesHeight, horizPreviewPadding, vertPreviewPadding - vertBoundariesHeight, NONE, NONE)));
-	root_->Add(new Boundary(new AnchorLayoutParams(previewWidth, vertBoundariesHeight, horizPreviewPadding, vertPreviewPadding + previewHeight, NONE, NONE)));
 
 	bool displayRotEnable = !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 	bRotated_ = false;
@@ -305,7 +210,7 @@ void DisplayLayoutScreen::CreateViews() {
 					}
 				}
 			}
-			UpdateScaleSetting(autoBound);
+			g_Config.fSmallDisplayZoomLevel = autoBound;
 			g_Config.fSmallDisplayOffsetX = 0.5f;
 			g_Config.fSmallDisplayOffsetY = 0.5f;
 		} else { // Manual Scaling
@@ -323,19 +228,11 @@ void DisplayLayoutScreen::CreateViews() {
 			mode_->AddChoice(di->T("Resize"));
 			mode_->SetSelection(0, false);
 		}
-		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, ImageID("I_PSP_DISPLAY"), ScaleSettingToUI(), bounds);
-		displayRepresentation_->SetVisibility(V_VISIBLE);
 	} else { // Stretching
 		label = new HighlightLabel(gr->T("Stretching"), new AnchorLayoutParams(WRAP_CONTENT, 64.0f, bounds.w / 2.0f, bounds.h / 2.0f, NONE, NONE, true));
-		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, ImageID("I_PSP_DISPLAY"), ScaleSettingToUI(), bounds);
-		displayRepresentation_->SetVisibility(V_INVISIBLE);
-		float width = previewWidth;
-		float height = previewHeight;
-		if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::STRETCH) {
-			Choice *stretched = new Choice("", "", false, new AnchorLayoutParams(width, height, width - width / 2.0f, NONE, NONE, height - height / 2.0f));
-			stretched->SetEnabled(false);
-			root_->Add(stretched);
-		} else { // Partially stretched
+		float width = bounds.w;
+		float height = bounds.h;
+		if (g_Config.iSmallDisplayZoomType != (int)SmallDisplayZoom::STRETCH) {
 			float origRatio = !bRotated_ ? 480.0f / 272.0f : 272.0f / 480.0f;
 			float frameRatio = width / height;
 			if (origRatio > frameRatio) {
@@ -349,16 +246,9 @@ void DisplayLayoutScreen::CreateViews() {
 					width = (272.0f + height) / 2.0f;
 				}
 			}
-			Choice *stretched = new Choice("", "", false, new AnchorLayoutParams(width, height, previewWidth - width / 2.0f, NONE, NONE, previewHeight - height / 2.0f));
-			stretched->SetEnabled(false);
-			root_->Add(stretched);
 		}
 	}
-	if (bRotated_) {
-		displayRepresentation_->SetAngle(90.0f);
-	}
 
-	root_->Add(displayRepresentation_);
 	if (mode_) {
 		root_->Add(mode_);
 	}
@@ -367,12 +257,12 @@ void DisplayLayoutScreen::CreateViews() {
 	}
 
 	static const char *zoomLevels[] = { "Stretching", "Partial Stretch", "Auto Scaling", "Manual Scaling" };
-	auto zoom = new PopupMultiChoice(&g_Config.iSmallDisplayZoomType, di->T("Options"), zoomLevels, 0, ARRAY_SIZE(zoomLevels), gr->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, previewWidth - 200.0f, NONE, NONE, 10));
+	auto zoom = new PopupMultiChoice(&g_Config.iSmallDisplayZoomType, di->T("Options"), zoomLevels, 0, ARRAY_SIZE(zoomLevels), gr->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, bounds.w / 2.0f - 200.0f, NONE, NONE, 10));
 	zoom->OnChoice.Handle(this, &DisplayLayoutScreen::OnZoomTypeChange);
 	root_->Add(zoom);
 
 	static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
-	auto rotation = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, previewWidth - 200.0f, 10, NONE, bounds.h - 64 - 10));
+	auto rotation = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, bounds.w / 2.0f - 200.0f, 10, NONE, bounds.h - 64 - 10));
 	rotation->SetEnabledFunc([] {
 		return !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 	});
