@@ -43,6 +43,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/HLE/sceUtility.h"
 #include "GPU/GPUState.h"
+#include "GPU/GPUInterface.h"
 #include "GPU/Common/PostShader.h"
 
 #include "UI/ControlMappingScreen.h"
@@ -355,7 +356,33 @@ void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
 	}
 }
 
-void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z) {
+void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z, bool darkenGame) {
+	using namespace Draw;
+	using namespace UI;
+
+	if (PSP_IsInited() && !g_Config.bSkipBufferEffects) {
+		gpu->CheckDisplayResized();
+		gpu->CopyDisplayToOutput(true);
+
+		DrawContext *draw = dc.GetDrawContext();
+		Viewport viewport;
+		viewport.TopLeftX = 0;
+		viewport.TopLeftY = 0;
+		viewport.Width = pixel_xres;
+		viewport.Height = pixel_yres;
+		viewport.MaxDepth = 1.0;
+		viewport.MinDepth = 0.0;
+		draw->SetViewports(1, &viewport);
+		dc.BeginFrame();
+		dc.RebindTexture();
+		dc.Begin();
+
+		uint32_t color = colorAlpha(colorBlend(dc.GetTheme().backgroundColor, 0, 0.5f), 0.45f);
+		dc.FillRect(UI::Drawable(color), dc.GetBounds());
+		dc.Flush();
+		return;
+	}
+
 	std::shared_ptr<GameInfo> ginfo;
 	if (!gamePath.empty())
 		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GAMEINFO_WANTBG);
@@ -427,7 +454,7 @@ void UIScreenWithGameBackground::DrawBackground(UIContext &dc) {
 	float x, y, z;
 	screenManager()->getFocusPosition(x, y, z);
 	if (!gamePath_.empty()) {
-		DrawGameBackground(dc, gamePath_, x, y, z);
+		DrawGameBackground(dc, gamePath_, x, y, z, darkenGameBackground_);
 	} else {
 		::DrawBackground(dc, 1.0f, x, y, z);
 		dc.Flush();
@@ -443,9 +470,11 @@ void UIScreenWithGameBackground::sendMessage(const char *message, const char *va
 }
 
 void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {
+	using namespace UI;
+	using namespace Draw;
 	float x, y, z;
 	screenManager()->getFocusPosition(x, y, z);
-	DrawGameBackground(dc, gamePath_, x, y, z);
+	DrawGameBackground(dc, gamePath_, x, y, z, true);
 }
 
 void UIDialogScreenWithGameBackground::sendMessage(const char *message, const char *value) {
