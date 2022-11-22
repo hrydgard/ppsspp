@@ -643,14 +643,12 @@ bool StartVRRender() {
 		}
 
 		// Decide if the scene is 3D or not
+		bool stereo = hasUnitScale && g_Config.bEnableStereo;
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 480.0f / 272.0f);
-		if ((appMode == VR_DIALOG_MODE) || (appMode == VR_MENU_MODE)) {
-			VR_SetConfig(VR_CONFIG_MODE, VR_MODE_MONO_SCREEN);
-		} else if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && (vr3DGeometryCount > 15)) {
-			bool stereo = hasUnitScale && g_Config.bEnableStereo;
+		if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && (appMode == VR_GAME_MODE) && (vr3DGeometryCount > 15)) {
 			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 		} else {
-			VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
+			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
 		}
 		vr3DGeometryCount /= 2;
 
