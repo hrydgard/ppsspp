@@ -21,16 +21,20 @@
 #include "Common/UI/ViewGroup.h"
 #include "MiscScreens.h"
 
-class DragDropDisplay;
-
-class DisplayLayoutScreen : public UIDialogScreenWithBackground {
+class DisplayLayoutScreen : public UIDialogScreenWithGameBackground {
 public:
-	DisplayLayoutScreen();
-	virtual void CreateViews() override;
-	virtual bool touch(const TouchInput &touch) override;
-	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
-	virtual void onFinish(DialogResult reason) override;
-	virtual void resized() override;
+	DisplayLayoutScreen(const Path &filename);
+	void CreateViews() override;
+	bool touch(const TouchInput &touch) override;
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
+	void onFinish(DialogResult reason) override;
+
+	void DrawBackground(UIContext &dc) override;
+
+	void resized() override {
+		RecreateViews();
+	}
+
 	const char *tag() const override { return "DisplayLayout"; }
 	
 protected:
@@ -38,16 +42,14 @@ protected:
 	virtual UI::EventReturn OnZoomTypeChange(UI::EventParams &e);
 
 private:
-	DragDropDisplay *displayRepresentation_ = nullptr;
 	UI::ChoiceStrip *mode_ = nullptr;
 	bool dragging_ = false;
 	bool bRotated_ = false;
-	bool stickToEdgeX_ = false;
-	bool stickToEdgeY_ = false;
+
 	// Touch down state for drag to resize etc
+	float startX_ = 0.0f;
 	float startY_ = 0.0f;
-	float startScale_ = 1.0f;
-	int offsetTouchX_ = 0;
-	int offsetTouchY_ = 0;
-	
+	float startScale_ = -1.0f;
+	float startDisplayOffsetX_ = -1.0f;
+	float startDisplayOffsetY_ = -1.0f;
 };

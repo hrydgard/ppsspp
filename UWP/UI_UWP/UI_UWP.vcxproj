@@ -386,7 +386,6 @@
     <ClInclude Include="..\..\UI\CwCheatScreen.h" />
     <ClInclude Include="..\..\UI\DevScreens.h" />
     <ClInclude Include="..\..\UI\DiscordIntegration.h" />
-    <ClInclude Include="..\..\UI\DisplayLayoutEditor.h" />
     <ClInclude Include="..\..\UI\DisplayLayoutScreen.h" />
     <ClInclude Include="..\..\UI\EmuScreen.h" />
     <ClInclude Include="..\..\UI\GameInfoCache.h" />
@@ -422,7 +421,6 @@
     <ClCompile Include="..\..\UI\CwCheatScreen.cpp" />
     <ClCompile Include="..\..\UI\DevScreens.cpp" />
     <ClCompile Include="..\..\UI\DiscordIntegration.cpp" />
-    <ClCompile Include="..\..\UI\DisplayLayoutEditor.cpp" />
     <ClCompile Include="..\..\UI\DisplayLayoutScreen.cpp" />
     <ClCompile Include="..\..\UI\EmuScreen.cpp" />
     <ClCompile Include="..\..\UI\GameInfoCache.cpp" />

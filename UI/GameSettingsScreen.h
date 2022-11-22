@@ -105,7 +105,6 @@ private:
 	UI::EventReturn OnChangeBackground(UI::EventParams &e);
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
 	UI::EventReturn OnFullscreenMultiChange(UI::EventParams &e);
-	UI::EventReturn OnDisplayLayoutEditor(UI::EventParams &e);
 	UI::EventReturn OnResolutionChange(UI::EventParams &e);
 	UI::EventReturn OnHwScaleChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);

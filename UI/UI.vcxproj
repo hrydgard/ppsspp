@@ -42,7 +42,6 @@
     <ClCompile Include="CwCheatScreen.cpp" />
     <ClCompile Include="DevScreens.cpp" />
     <ClCompile Include="DiscordIntegration.cpp" />
-    <ClCompile Include="DisplayLayoutEditor.cpp" />
     <ClCompile Include="DisplayLayoutScreen.cpp" />
     <ClCompile Include="EmuScreen.cpp" />
     <ClCompile Include="GameInfoCache.cpp" />
@@ -75,7 +74,6 @@
     <ClInclude Include="ControlMappingScreen.h" />
     <ClInclude Include="DevScreens.h" />
     <ClInclude Include="DiscordIntegration.h" />
-    <ClInclude Include="DisplayLayoutEditor.h" />
     <ClInclude Include="DisplayLayoutScreen.h" />
     <ClInclude Include="EmuScreen.h" />
     <ClInclude Include="GameInfoCache.h" />

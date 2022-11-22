@@ -356,7 +356,7 @@ void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
 	}
 }
 
-void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z, bool darkenGame) {
+void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z, bool darkenBackground) {
 	using namespace Draw;
 	using namespace UI;
 
@@ -377,9 +377,11 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 		dc.RebindTexture();
 		dc.Begin();
 
-		uint32_t color = colorAlpha(colorBlend(dc.GetTheme().backgroundColor, 0, 0.5f), 0.45f);
-		dc.FillRect(UI::Drawable(color), dc.GetBounds());
-		dc.Flush();
+		if (darkenBackground) {
+			uint32_t color = colorAlpha(colorBlend(dc.GetTheme().backgroundColor, 0, 0.5f), 0.45f);
+			dc.FillRect(UI::Drawable(color), dc.GetBounds());
+			dc.Flush();
+		}
 		return;
 	}
 
@@ -391,8 +393,6 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 	GameInfoTex *pic = ginfo ? ginfo->GetBGPic() : nullptr;
 	if (pic) {
 		dc.GetDrawContext()->BindTexture(0, pic->texture->GetTexture());
-	}
-	if (pic) {
 		uint32_t color = whiteAlpha(ease((time_now_d() - pic->timeLoaded) * 3)) & 0xFFc0c0c0;
 		dc.Draw()->DrawTexRect(dc.GetBounds(), 0,0,1,1, color);
 		dc.Flush();
@@ -419,7 +419,7 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 		manager->push(new ControlMappingScreen());
 	} else if (!strcmp(message, "display layout editor") && isActiveScreen && std::string(activeScreen->tag()) != "DisplayLayout") {
 		UpdateUIState(UISTATE_MENU);
-		manager->push(new DisplayLayoutScreen());
+		manager->push(new DisplayLayoutScreen(Path()));
 	} else if (!strcmp(message, "settings") && isActiveScreen && std::string(activeScreen->tag()) != "GameSettings") {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new GameSettingsScreen(Path()));
@@ -474,7 +474,7 @@ void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {
 	using namespace Draw;
 	float x, y, z;
 	screenManager()->getFocusPosition(x, y, z);
-	DrawGameBackground(dc, gamePath_, x, y, z, true);
+	DrawGameBackground(dc, gamePath_, x, y, z, darkenGameBackground_);
 }
 
 void UIDialogScreenWithGameBackground::sendMessage(const char *message, const char *value) {
