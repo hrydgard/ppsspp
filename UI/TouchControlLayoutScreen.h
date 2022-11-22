@@ -23,9 +23,9 @@
 
 class ControlLayoutView;
 
-class TouchControlLayoutScreen : public UIDialogScreenWithBackground {
+class TouchControlLayoutScreen : public UIDialogScreenWithGameBackground {
 public:
-	TouchControlLayoutScreen();
+	TouchControlLayoutScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 
 	virtual void CreateViews() override;
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;

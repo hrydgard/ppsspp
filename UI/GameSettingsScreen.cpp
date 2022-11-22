@@ -792,7 +792,7 @@ void GameSettingsScreen::CreateViews() {
 		style->SetEnabledPtr(&g_Config.bShowTouchControls);
 		Choice *gesture = controlsSettings->Add(new Choice(co->T("Gesture mapping")));
 		gesture->OnClick.Add([=](EventParams &e) {
-			screenManager()->push(new GestureMappingScreen());
+			screenManager()->push(new GestureMappingScreen(gamePath_));
 			return UI::EVENT_DONE;
 		});
 		gesture->SetEnabledPtr(&g_Config.bShowTouchControls);
@@ -1739,7 +1739,7 @@ UI::EventReturn GameSettingsScreen::OnTextureShaderChange(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
-	screenManager()->push(new DeveloperToolsScreen());
+	screenManager()->push(new DeveloperToolsScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -1749,17 +1749,17 @@ UI::EventReturn GameSettingsScreen::OnRemoteISO(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
-	screenManager()->push(new ControlMappingScreen());
+	screenManager()->push(new ControlMappingScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnCalibrateAnalogs(UI::EventParams &e) {
-	screenManager()->push(new AnalogSetupScreen());
+	screenManager()->push(new AnalogSetupScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnTouchControlLayout(UI::EventParams &e) {
-	screenManager()->push(new TouchControlLayoutScreen());
+	screenManager()->push(new TouchControlLayoutScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -1991,7 +1991,7 @@ UI::EventReturn DeveloperToolsScreen::OnFramedumpTest(UI::EventParams &e) {
 }
 
 UI::EventReturn DeveloperToolsScreen::OnTouchscreenTest(UI::EventParams &e) {
-	screenManager()->push(new TouchTestScreen());
+	screenManager()->push(new TouchTestScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 

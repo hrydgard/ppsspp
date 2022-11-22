@@ -557,8 +557,6 @@ DragDropButton *ControlLayoutView::getPickedControl(const int x, const int y) {
 	return bestMatch;
 }
 
-TouchControlLayoutScreen::TouchControlLayoutScreen() {}
-
 void TouchControlLayoutScreen::resized() {
 	RecreateViews();
 }
@@ -568,7 +566,7 @@ void TouchControlLayoutScreen::onFinish(DialogResult reason) {
 }
 
 UI::EventReturn TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
-	screenManager()->push(new TouchControlVisibilityScreen());
+	screenManager()->push(new TouchControlVisibilityScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 

@@ -147,7 +147,7 @@ UI::EventReturn DevMenuScreen::OnLogConfig(UI::EventParams &e) {
 
 UI::EventReturn DevMenuScreen::OnDeveloperTools(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new DeveloperToolsScreen());
+	screenManager()->push(new DeveloperToolsScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 

@@ -279,7 +279,7 @@ void ControlMappingScreen::update() {
 		RecreateViews();
 	}
 
-	UIDialogScreenWithBackground::update();
+	UIDialogScreenWithGameBackground::update();
 	SetVRAppMode(VRAppMode::VR_MENU_MODE);
 }
 
@@ -309,7 +309,7 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 }
 
 UI::EventReturn ControlMappingScreen::OnVisualizeMapping(UI::EventParams &params) {
-	VisualMappingScreen *visualMapping = new VisualMappingScreen();
+	VisualMappingScreen *visualMapping = new VisualMappingScreen(gamePath_);
 	screenManager()->push(visualMapping);
 	return UI::EVENT_DONE;
 }
@@ -581,7 +581,7 @@ void JoystickHistoryView::Update() {
 	}
 }
 
-AnalogSetupScreen::AnalogSetupScreen() {
+AnalogSetupScreen::AnalogSetupScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	mapper_.SetCallbacks([](int vkey) {}, [](int vkey) {}, [&](int stick, float x, float y) {
 		analogX_[stick] = x;
 		analogY_[stick] = y;
@@ -673,7 +673,7 @@ UI::EventReturn AnalogSetupScreen::OnResetToDefaults(UI::EventParams &e) {
 }
 
 bool TouchTestScreen::touch(const TouchInput &touch) {
-	UIDialogScreenWithBackground::touch(touch);
+	UIDialogScreenWithGameBackground::touch(touch);
 	if (touch.flags & TOUCH_DOWN) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
@@ -802,7 +802,7 @@ bool TouchTestScreen::axis(const AxisInput &axis) {
 }
 
 void TouchTestScreen::render() {
-	UIDialogScreenWithBackground::render();
+	UIDialogScreenWithGameBackground::render();
 	UIContext *ui_context = screenManager()->getUIContext();
 	Bounds bounds = ui_context->GetLayoutBounds();
 
@@ -1161,7 +1161,7 @@ void VisualMappingScreen::CreateViews() {
 }
 
 void VisualMappingScreen::resized() {
-	UIDialogScreenWithBackground::resized();
+	UIDialogScreenWithGameBackground::resized();
 	RecreateViews();
 }
 

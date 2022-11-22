@@ -486,7 +486,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		RecreateViews();
 	} else if (!strcmp(message, "control mapping") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_PAUSEMENU);
-		screenManager()->push(new ControlMappingScreen());
+		screenManager()->push(new ControlMappingScreen(gamePath_));
 	} else if (!strcmp(message, "display layout editor") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_PAUSEMENU);
 		screenManager()->push(new DisplayLayoutScreen(gamePath_));
@@ -968,7 +968,7 @@ void EmuScreen::CreateViews() {
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
 	auto dev = GetI18NCategory("Developer");
-	DevMenuScreen *devMenu = new DevMenuScreen(dev);
+	DevMenuScreen *devMenu = new DevMenuScreen(gamePath_, dev);
 	if (params.v)
 		devMenu->SetPopupOrigin(params.v);
 	screenManager()->push(devMenu);

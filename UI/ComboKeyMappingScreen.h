@@ -24,9 +24,9 @@ namespace UI {
 	class CheckBox;
 }
 
-class ComboKeyScreen : public UIDialogScreenWithBackground {
+class ComboKeyScreen : public UIDialogScreenWithGameBackground {
 public:
-	ComboKeyScreen(int id): id_(id) {}
+	ComboKeyScreen(const Path &gamePath, int id) : UIDialogScreenWithGameBackground(gamePath), id_(id) {}
 
 	const char *tag() const override { return "ComboKey"; }
 

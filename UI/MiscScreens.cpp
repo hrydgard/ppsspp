@@ -416,7 +416,7 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 		currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
 	} else if (!strcmp(message, "control mapping") && isActiveScreen && std::string(activeScreen->tag()) != "ControlMapping") {
 		UpdateUIState(UISTATE_MENU);
-		manager->push(new ControlMappingScreen());
+		manager->push(new ControlMappingScreen(Path()));
 	} else if (!strcmp(message, "display layout editor") && isActiveScreen && std::string(activeScreen->tag()) != "DisplayLayout") {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new DisplayLayoutScreen(Path()));

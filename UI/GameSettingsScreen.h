@@ -155,8 +155,10 @@ private:
 	std::string oldSettingInfo_;
 };
 
-class DeveloperToolsScreen : public UIDialogScreenWithBackground {
+class DeveloperToolsScreen : public UIDialogScreenWithGameBackground {
 public:
+	DeveloperToolsScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+
 	void update() override;
 	void onFinish(DialogResult result) override;
 
@@ -247,8 +249,9 @@ private:
 };
 
 
-class GestureMappingScreen : public UIDialogScreenWithBackground {
+class GestureMappingScreen : public UIDialogScreenWithGameBackground {
 public:
+	GestureMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 	void CreateViews() override;
 
 	const char *tag() const override { return "GestureMapping"; }
