@@ -204,8 +204,8 @@ void DisplayLayoutScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 10.f, 10.0f, 10.0f, false));
-	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL); // , new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 10.f, 10.0f, 10.0f, false));
+	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 10.f, 10.f, 10.f, false));
+	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL);
 	rightScrollView->Add(rightColumn);
 	root_->Add(rightScrollView);
 
@@ -245,33 +245,12 @@ void DisplayLayoutScreen::CreateViews() {
 			center->OnClick.Handle(this, &DisplayLayoutScreen::OnCenter);
 			root_->Add(center);
 			float minZoom = 1.0f;
-			if (g_dpi_scale_x > 1.0f) {
-				minZoom /= g_dpi_scale_x;
-			}
 			PopupSliderChoiceFloat *zoomlvl = new PopupSliderChoiceFloat(&g_Config.fSmallDisplayZoomLevel, minZoom, 10.0f, di->T("Zoom"), 1.0f, screenManager(), di->T("* PSP res"), new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 10 + 64 + 64));
 			root_->Add(zoomlvl);
 			mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 158 + 64 + 10));
 			mode_->AddChoice(di->T("Move"));
 			mode_->AddChoice(di->T("Resize"));
 			mode_->SetSelection(0, false);
-		}
-	} else { // Stretching
-		float width = bounds.w;
-		float height = bounds.h;
-		if (g_Config.iSmallDisplayZoomType != (int)SmallDisplayZoom::STRETCH) {
-			float origRatio = !bRotated_ ? 480.0f / 272.0f : 272.0f / 480.0f;
-			float frameRatio = width / height;
-			if (origRatio > frameRatio) {
-				height = width / origRatio;
-				if (!bRotated_ && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH) {
-					height = (272.0f + height) / 2.0f;
-				}
-			} else {
-				width = height * origRatio;
-				if (bRotated_ && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH) {
-					width = (272.0f + height) / 2.0f;
-				}
-			}
 		}
 	}
 
