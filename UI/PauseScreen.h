@@ -44,9 +44,6 @@ protected:
 	void update() override;
 	void CallbackDeleteConfig(bool yes);
 
-	bool isTransparent() const override;
-	void DrawBackground(UIContext &dc) override;
-
 private:
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 	UI::EventReturn OnExitToMenu(UI::EventParams &e);

@@ -51,6 +51,8 @@ public:
 	void sendMessage(const char *message, const char *value) override;
 protected:
 	Path gamePath_;
+
+	bool darkenGameBackground_ = false;
 };
 
 class UIDialogScreenWithBackground : public UIDialogScreen {
