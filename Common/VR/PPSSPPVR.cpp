@@ -42,6 +42,7 @@ static std::map<int, bool> pspKeys;
 
 static int vr3DGeometryCount = 0;
 static long vrCompat[VR_COMPAT_MAX];
+static bool vrFlatGame = false;
 static float vrMatrix[VR_MATRIX_COUNT][16];
 static bool vrMirroring[VR_MIRRORING_COUNT];
 
@@ -643,14 +644,16 @@ bool StartVRRender() {
 		}
 
 		// Decide if the scene is 3D or not
+		bool stereo = hasUnitScale && g_Config.bEnableStereo;
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 480.0f / 272.0f);
-		if ((appMode == VR_DIALOG_MODE) || (appMode == VR_MENU_MODE)) {
-			VR_SetConfig(VR_CONFIG_MODE, VR_MODE_MONO_SCREEN);
-		} else if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && (vr3DGeometryCount > 15)) {
-			bool stereo = hasUnitScale && g_Config.bEnableStereo;
+		if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && (appMode == VR_GAME_MODE) && (vr3DGeometryCount > 15)) {
 			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
+			vrFlatGame = false;
 		} else {
-			VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
+			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
+			if (IsGameVRScene()) {
+				vrFlatGame = true;
+			}
 		}
 		vr3DGeometryCount /= 2;
 
@@ -695,9 +698,17 @@ bool IsMultiviewSupported() {
 	return false;
 }
 
+bool IsFlatVRGame() {
+	return vrFlatGame;
+}
+
 bool IsFlatVRScene() {
 	int vrMode = VR_GetConfig(VR_CONFIG_MODE);
 	return (vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN);
+}
+
+bool IsGameVRScene() {
+	return (appMode == VR_GAME_MODE) || (appMode == VR_DIALOG_MODE);
 }
 
 bool Is2DVRObject(float* projMatrix, bool ortho) {

@@ -27,6 +27,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
 #include "Common/System/Display.h"
+#include "Common/VR/PPSSPPVR.h"
 #include "Common/CommonTypes.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
@@ -1451,6 +1452,21 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		float v0 = offsetY / (float)vfb->bufferHeight;
 		float u1 = (480.0f + offsetX) / (float)vfb->bufferWidth;
 		float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
+
+		//clip the VR framebuffer to keep the aspect ratio
+		if (IsVREnabled() && !IsFlatVRGame() && !IsGameVRScene()) {
+			float aspect = 272.0f / 480.0f;
+			float clipY = 272.0f * (1.0f - aspect) / 2.0f;
+			v0 = (clipY + offsetY) / (float)vfb->bufferHeight;
+			v1 = (272.0f - clipY + offsetY) / (float)vfb->bufferHeight;
+
+			//zoom inside
+			float zoom = 0.1f;
+			u0 += zoom / aspect;
+			u1 -= zoom / aspect;
+			v0 += zoom;
+			v1 -= zoom;
+		}
 
 		textureCache_->ForgetLastTexture();
 
