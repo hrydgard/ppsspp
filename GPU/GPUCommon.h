@@ -79,6 +79,7 @@ public:
 	virtual u32 CheckGPUFeatures() const;
 
 	void CheckDisplayResized() override;
+	void CheckConfigChanged() override;
 
 	void UpdateCmdInfo();
 
@@ -266,7 +267,6 @@ protected:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
-	void CheckConfigChanged();
 	void CheckRenderResized();
 
 	// Add additional common features dependent on other features, which may be backend-determined.

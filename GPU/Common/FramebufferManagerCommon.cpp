@@ -107,14 +107,15 @@ bool FramebufferManagerCommon::UpdateRenderSize() {
 	return newRender || newSettings;
 }
 
-void FramebufferManagerCommon::BeginFrame() {
-	DecimateFBOs();
-
-	// Might have a new post shader - let's compile it.
+void FramebufferManagerCommon::CheckPostShaders() {
 	if (updatePostShaders_) {
 		presentation_->UpdatePostShader();
 		updatePostShaders_ = false;
 	}
+}
+
+void FramebufferManagerCommon::BeginFrame() {
+	DecimateFBOs();
 
 	currentRenderVfb_ = nullptr;
 }
@@ -2380,6 +2381,10 @@ void FramebufferManagerCommon::NotifyRenderResized() {
 		ShowScreenResolution();
 	}
 #endif
+}
+
+void FramebufferManagerCommon::NotifyConfigChanged() {
+	updatePostShaders_ = true;
 }
 
 void FramebufferManagerCommon::DestroyAllFBOs() {

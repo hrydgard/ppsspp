@@ -633,11 +633,13 @@ void GPUCommon::CheckConfigChanged() {
 	if (configChanged_) {
 		gstate_c.useFlags = CheckGPUFeatures();
 		drawEngineCommon_->NotifyConfigChanged();
-		shaderManager_->DirtyLastShader();  // Don't think this is needed, at all.
 		textureCache_->NotifyConfigChanged();
+		framebufferManager_->NotifyConfigChanged();
 		BuildReportingInfo();
 		configChanged_ = false;
 	}
+
+	framebufferManager_->CheckPostShaders();
 }
 
 void GPUCommon::CheckDisplayResized() {

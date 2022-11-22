@@ -362,6 +362,7 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 
 	if (PSP_IsInited() && !g_Config.bSkipBufferEffects) {
 		gpu->CheckDisplayResized();
+		gpu->CheckConfigChanged();
 		gpu->CopyDisplayToOutput(true);
 
 		DrawContext *draw = dc.GetDrawContext();
