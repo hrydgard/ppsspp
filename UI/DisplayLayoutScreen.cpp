@@ -90,9 +90,12 @@ std::string DragDropDisplay::DescribeText() const {
 	return u->T("Screen representation");
 }
 
-DisplayLayoutScreen::DisplayLayoutScreen() {
+DisplayLayoutScreen::DisplayLayoutScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {
 	// Ignore insets - just couldn't get the logic to work.
 	ignoreInsets_ = true;
+
+	// Show background at full brightness
+	darkenGameBackground_ = false;
 }
 
 bool DisplayLayoutScreen::touch(const TouchInput &touch) {

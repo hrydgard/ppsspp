@@ -49,6 +49,7 @@
 #include "UI/MainScreen.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GameInfoCache.h"
+#include "UI/DisplayLayoutScreen.h"
 
 static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {
 	if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
@@ -260,6 +261,7 @@ void GamePauseScreen::CreateViews() {
 	static const int NUM_SAVESLOTS = 5;
 
 	using namespace UI;
+
 	Margins scrollMargins(0, 20, 0, 0);
 	Margins actionMenuMargins(0, 20, 15, 0);
 	auto gr = GetI18NCategory("Graphics");
@@ -314,6 +316,8 @@ void GamePauseScreen::CreateViews() {
 	root_->SetDefaultFocusView(continueChoice);
 	continueChoice->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
+	rightColumnItems->Add(new Spacer(25.0));
+
 	std::string gameId = g_paramSFO.GetDiscID();
 	if (g_Config.hasGameConfig(gameId)) {
 		rightColumnItems->Add(new Choice(pa->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
@@ -322,6 +326,11 @@ void GamePauseScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(pa->T("Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 		rightColumnItems->Add(new Choice(pa->T("Create Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
 	}
+	UI::Choice *displayEditor_ = rightColumnItems->Add(new Choice(gr->T("Display layout editor")));
+	displayEditor_->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+		screenManager()->push(new DisplayLayoutScreen(gamePath_));
+		return UI::EVENT_DONE;
+	});
 	if (g_Config.bEnableCheats) {
 		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
 	}

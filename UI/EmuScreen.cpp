@@ -489,7 +489,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		screenManager()->push(new ControlMappingScreen());
 	} else if (!strcmp(message, "display layout editor") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_PAUSEMENU);
-		screenManager()->push(new DisplayLayoutScreen());
+		screenManager()->push(new DisplayLayoutScreen(gamePath_));
 	} else if (!strcmp(message, "settings") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_PAUSEMENU);
 		screenManager()->push(new GameSettingsScreen(gamePath_));

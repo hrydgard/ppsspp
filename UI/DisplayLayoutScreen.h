@@ -23,9 +23,9 @@
 
 class DragDropDisplay;
 
-class DisplayLayoutScreen : public UIDialogScreenWithBackground {
+class DisplayLayoutScreen : public UIDialogScreenWithGameBackground {
 public:
-	DisplayLayoutScreen();
+	DisplayLayoutScreen(const Path &filename);
 	virtual void CreateViews() override;
 	virtual bool touch(const TouchInput &touch) override;
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
@@ -49,5 +49,4 @@ private:
 	float startScale_ = 1.0f;
 	int offsetTouchX_ = 0;
 	int offsetTouchY_ = 0;
-	
 };

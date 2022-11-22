@@ -419,7 +419,7 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 		manager->push(new ControlMappingScreen());
 	} else if (!strcmp(message, "display layout editor") && isActiveScreen && std::string(activeScreen->tag()) != "DisplayLayout") {
 		UpdateUIState(UISTATE_MENU);
-		manager->push(new DisplayLayoutScreen());
+		manager->push(new DisplayLayoutScreen(Path()));
 	} else if (!strcmp(message, "settings") && isActiveScreen && std::string(activeScreen->tag()) != "GameSettings") {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new GameSettingsScreen(Path()));
@@ -474,7 +474,7 @@ void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {
 	using namespace Draw;
 	float x, y, z;
 	screenManager()->getFocusPosition(x, y, z);
-	DrawGameBackground(dc, gamePath_, x, y, z, true);
+	DrawGameBackground(dc, gamePath_, x, y, z, darkenGameBackground_);
 }
 
 void UIDialogScreenWithGameBackground::sendMessage(const char *message, const char *value) {
