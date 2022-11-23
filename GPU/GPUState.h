@@ -470,6 +470,7 @@ struct UVScale {
 // location. Sometimes we need to take things into account in multiple places, it helps
 // to centralize into flags like this. They're also fast to check since the cache line
 // will be hot.
+// NOTE: Do not forget to update the string array at the end of GPUState.cpp!
 enum {
 	GPU_USE_DUALSOURCE_BLEND = FLAG_BIT(0),
 	GPU_USE_LIGHT_UBERSHADER = FLAG_BIT(1),
@@ -503,6 +504,9 @@ enum {
 	GPU_USE_SINGLE_PASS_STEREO = FLAG_BIT(30),
 	GPU_USE_SIMPLE_STEREO_PERSPECTIVE = FLAG_BIT(31),
 };
+
+// Note that this take a flag index, not the bit value.
+const char *GpuUseFlagToString(int useFlag);
 
 struct KnownVertexBounds {
 	u16 minU;
