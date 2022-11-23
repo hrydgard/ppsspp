@@ -398,8 +398,11 @@ public:
 	}
 	void SetSafeSize(u16 w, u16 h);
 
-	virtual void NotifyRenderResized();
+	void NotifyRenderResized();
 	virtual void NotifyDisplayResized();
+	void NotifyConfigChanged();
+
+	void CheckPostShaders();
 
 	virtual void DestroyAllFBOs();
 

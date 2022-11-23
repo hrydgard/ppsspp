@@ -55,7 +55,6 @@ private:
 	bool lastVertical_;
 	UI::CheckBox *enableReportsCheckbox_;
 	UI::Choice *layoutEditorChoice_;
-	UI::Choice *postProcChoice_;
 	UI::Choice *displayEditor_;
 	UI::Choice *backgroundChoice_ = nullptr;
 	UI::PopupMultiChoice *resolutionChoice_;
@@ -142,7 +141,6 @@ private:
 	bool enableReportsSet_ = false;
 	bool analogSpeedMapped_ = false;
 
-	std::string shaderNames_[256];
 	std::string searchFilter_;
 
 	//edit the game-specific settings and restore the global settings after exiting
@@ -155,8 +153,10 @@ private:
 	std::string oldSettingInfo_;
 };
 
-class DeveloperToolsScreen : public UIDialogScreenWithBackground {
+class DeveloperToolsScreen : public UIDialogScreenWithGameBackground {
 public:
+	DeveloperToolsScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+
 	void update() override;
 	void onFinish(DialogResult result) override;
 
@@ -247,8 +247,9 @@ private:
 };
 
 
-class GestureMappingScreen : public UIDialogScreenWithBackground {
+class GestureMappingScreen : public UIDialogScreenWithGameBackground {
 public:
+	GestureMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 	void CreateViews() override;
 
 	const char *tag() const override { return "GestureMapping"; }

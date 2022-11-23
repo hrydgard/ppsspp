@@ -25,6 +25,8 @@
 #include "Common/UI/View.h"
 #include "Common/Math/math_util.h"
 #include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/StringUtils.h"
 
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Text/I18n.h"
@@ -34,6 +36,7 @@
 #include "Core/System.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
+#include "GPU/Common/PostShader.h"
 
 static const int leftColumnWidth = 200;
 static const float orgRatio = 1.764706f;  // 480.0 / 272.0
@@ -158,16 +161,36 @@ void DisplayLayoutScreen::dialogFinished(const Screen *dialog, DialogResult resu
 	RecreateViews();
 }
 
-// Stealing StickyChoice's layout and text rendering.
-class HighlightLabel : public UI::StickyChoice {
-public:
-	HighlightLabel(const std::string &text, UI::LayoutParams *layoutParams)
-		: UI::StickyChoice(text, "", layoutParams) {
-		Press();
-	}
+UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) {
+	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
 
-	bool CanBeFocused() const override { return false; }
-};
+	NativeMessageReceived("gpu_configChanged", "");
+	NativeMessageReceived("gpu_renderResized", "");  // To deal with shaders that can change render resolution like upscaling.
+	NativeMessageReceived("postshader_updated", "");
+
+	if (gpu) {
+		gpu->NotifyConfigChanged();
+	}
+	return UI::EVENT_DONE;
+}
+
+static std::string PostShaderTranslateName(const char *value) {
+	auto ps = GetI18NCategory("PostShaders");
+	const ShaderInfo *info = GetPostShaderInfo(value);
+	if (info) {
+		return ps->T(value, info ? info->name.c_str() : value);
+	} else {
+		return value;
+	}
+}
+
+void DisplayLayoutScreen::sendMessage(const char *message, const char *value) {
+	UIDialogScreenWithGameBackground::sendMessage(message, value);
+	if (!strcmp(message, "postshader_updated")) {
+		g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
+		RecreateViews();
+	}
+}
 
 void DisplayLayoutScreen::CreateViews() {
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
@@ -177,8 +200,14 @@ void DisplayLayoutScreen::CreateViews() {
 	auto di = GetI18NCategory("Dialog");
 	auto gr = GetI18NCategory("Graphics");
 	auto co = GetI18NCategory("Controls");
+	auto ps = GetI18NCategory("PostShaders");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+
+	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 10.f, 10.f, 10.f, false));
+	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL);
+	rightScrollView->Add(rightColumn);
+	root_->Add(rightScrollView);
 
 	// We manually implement insets here for the buttons. This file defied refactoring :(
 	float leftInset = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
@@ -189,11 +218,9 @@ void DisplayLayoutScreen::CreateViews() {
 		bRotated_ = true;
 	}
 
-	HighlightLabel *label = nullptr;
 	mode_ = nullptr;
 	if (g_Config.iSmallDisplayZoomType >= (int)SmallDisplayZoom::AUTO) { // Scaling
 		if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::AUTO) {
-			label = new HighlightLabel(gr->T("Auto Scaling"), new AnchorLayoutParams(WRAP_CONTENT, 64.0f, bounds.w / 2.0f, bounds.h / 2.0f, NONE, NONE, true));
 			float autoBound = bounds.h / 270.0f;
 			// Case of screen rotated ~ only works with buffered rendering
 			if (bRotated_) {
@@ -218,9 +245,6 @@ void DisplayLayoutScreen::CreateViews() {
 			center->OnClick.Handle(this, &DisplayLayoutScreen::OnCenter);
 			root_->Add(center);
 			float minZoom = 1.0f;
-			if (g_dpi_scale_x > 1.0f) {
-				minZoom /= g_dpi_scale_x;
-			}
 			PopupSliderChoiceFloat *zoomlvl = new PopupSliderChoiceFloat(&g_Config.fSmallDisplayZoomLevel, minZoom, 10.0f, di->T("Zoom"), 1.0f, screenManager(), di->T("* PSP res"), new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 10 + 64 + 64));
 			root_->Add(zoomlvl);
 			mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 158 + 64 + 10));
@@ -228,47 +252,81 @@ void DisplayLayoutScreen::CreateViews() {
 			mode_->AddChoice(di->T("Resize"));
 			mode_->SetSelection(0, false);
 		}
-	} else { // Stretching
-		label = new HighlightLabel(gr->T("Stretching"), new AnchorLayoutParams(WRAP_CONTENT, 64.0f, bounds.w / 2.0f, bounds.h / 2.0f, NONE, NONE, true));
-		float width = bounds.w;
-		float height = bounds.h;
-		if (g_Config.iSmallDisplayZoomType != (int)SmallDisplayZoom::STRETCH) {
-			float origRatio = !bRotated_ ? 480.0f / 272.0f : 272.0f / 480.0f;
-			float frameRatio = width / height;
-			if (origRatio > frameRatio) {
-				height = width / origRatio;
-				if (!bRotated_ && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH) {
-					height = (272.0f + height) / 2.0f;
-				}
-			} else {
-				width = height * origRatio;
-				if (bRotated_ && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH) {
-					width = (272.0f + height) / 2.0f;
-				}
-			}
-		}
 	}
 
 	if (mode_) {
 		root_->Add(mode_);
 	}
-	if (label) {
-		root_->Add(label);
-	}
 
 	static const char *zoomLevels[] = { "Stretching", "Partial Stretch", "Auto Scaling", "Manual Scaling" };
-	auto zoom = new PopupMultiChoice(&g_Config.iSmallDisplayZoomType, di->T("Options"), zoomLevels, 0, ARRAY_SIZE(zoomLevels), gr->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, bounds.w / 2.0f - 200.0f, NONE, NONE, 10));
+	auto zoom = new PopupMultiChoice(&g_Config.iSmallDisplayZoomType, gr->T("Mode"), zoomLevels, 0, ARRAY_SIZE(zoomLevels), gr->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, bounds.w / 2.0f - 200.0f, NONE, NONE, 10));
 	zoom->OnChoice.Handle(this, &DisplayLayoutScreen::OnZoomTypeChange);
-	root_->Add(zoom);
+	rightColumn->Add(zoom);
 
 	static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
-	auto rotation = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, bounds.w / 2.0f - 200.0f, 10, NONE, bounds.h - 64 - 10));
+	auto rotation = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager());
 	rotation->SetEnabledFunc([] {
 		return !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 	});
-	root_->Add(rotation);
+	rightColumn->Add(rotation);
 
-	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 10));
+	rightColumn->Add(new ItemHeader(gr->T("Postprocessing effect")));
+
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+
+	bool multiViewSupported = draw->GetDeviceCaps().multiViewSupported;
+
+	auto enableStereo = [=]() -> bool {
+		return g_Config.bStereoRendering && multiViewSupported;
+	};
+
+	std::set<std::string> alreadyAddedShader;
+	for (int i = 0; i < (int)g_Config.vPostShaderNames.size() + 1 && i < ARRAY_SIZE(shaderNames_); ++i) {
+		// Vector element pointer get invalidated on resize, cache name to have always a valid reference in the rendering thread
+		shaderNames_[i] = i == g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[i];
+		postProcChoice_ = rightColumn->Add(new ChoiceWithValueDisplay(&shaderNames_[i], StringFromFormat("%s #%d", gr->T("Postprocessing Shader"), i + 1), &PostShaderTranslateName));
+		postProcChoice_->OnClick.Add([=](EventParams &e) {
+			auto gr = GetI18NCategory("Graphics");
+			auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"), i, false);
+			procScreen->OnChoice.Handle(this, &DisplayLayoutScreen::OnPostProcShaderChange);
+			if (e.v)
+				procScreen->SetPopupOrigin(e.v);
+			screenManager()->push(procScreen);
+			return UI::EVENT_DONE;
+		});
+		postProcChoice_->SetEnabledFunc([=] {
+			return !g_Config.bSkipBufferEffects && !enableStereo();
+		});
+
+		// No need for settings on the last one.
+		if (i == g_Config.vPostShaderNames.size())
+			continue;
+
+		auto shaderChain = GetPostShaderChain(g_Config.vPostShaderNames[i]);
+		for (auto shaderInfo : shaderChain) {
+			// Disable duplicated shader slider
+			bool duplicated = alreadyAddedShader.find(shaderInfo->section) != alreadyAddedShader.end();
+			alreadyAddedShader.insert(shaderInfo->section);
+			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
+				auto &setting = shaderInfo->settings[i];
+				if (!setting.name.empty()) {
+					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
+					if (duplicated) {
+						auto sliderName = StringFromFormat("%s %s", ps->T(setting.name), ps->T("(duplicated setting, previous slider will be used)"));
+						PopupSliderChoiceFloat *settingValue = rightColumn->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, sliderName, setting.step, screenManager()));
+						settingValue->SetEnabled(false);
+					} else {
+						PopupSliderChoiceFloat *settingValue = rightColumn->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+						settingValue->SetEnabledFunc([=] {
+							return !g_Config.bSkipBufferEffects && !enableStereo();
+						});
+					}
+				}
+			}
+		}
+	}
+
+	Choice *back = new Choice(di->T("Back"), "", false);
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	root_->Add(back);
+	rightColumn->Add(back);
 }

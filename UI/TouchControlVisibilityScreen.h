@@ -31,8 +31,9 @@ struct TouchButtonToggle {
 	std::function<UI::EventReturn(UI::EventParams&)> handle;
 };
 
-class TouchControlVisibilityScreen : public UIDialogScreenWithBackground {
+class TouchControlVisibilityScreen : public UIDialogScreenWithGameBackground {
 public:
+	TouchControlVisibilityScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 	void CreateViews() override;
 	void onFinish(DialogResult result) override;
 
@@ -46,8 +47,9 @@ private:
 	bool nextToggleAll_ = true;
 };
 
-class RightAnalogMappingScreen : public UIDialogScreenWithBackground {
+class RightAnalogMappingScreen : public UIDialogScreenWithGameBackground {
 public:
+	RightAnalogMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 	void CreateViews() override;
 
 	const char *tag() const override { return "RightAnalogMapping"; }

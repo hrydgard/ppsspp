@@ -145,16 +145,6 @@ static std::string TextureTranslateName(const char *value) {
 	}
 }
 
-static std::string PostShaderTranslateName(const char *value) {
-	auto ps = GetI18NCategory("PostShaders");
-	const ShaderInfo *info = GetPostShaderInfo(value);
-	if (info) {
-		return ps->T(value, info ? info->name.c_str() : value);
-	} else {
-		return value;
-	}
-}
-
 static std::string *GPUDeviceNameSetting() {
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 		return &g_Config.sVulkanDevice;
@@ -190,6 +180,16 @@ bool PathToVisualUsbPath(Path path, std::string &outPath) {
 		break;
 	}
 	return false;
+}
+
+static std::string PostShaderTranslateName(const char *value) {
+	auto ps = GetI18NCategory("PostShaders");
+	const ShaderInfo *info = GetPostShaderInfo(value);
+	if (info) {
+		return ps->T(value, info ? info->name.c_str() : value);
+	} else {
+		return value;
+	}
 }
 
 void GameSettingsScreen::CreateViews() {
@@ -366,7 +366,7 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Postprocessing effect")));
+	graphicsSettings->Add(new ItemHeader(gr->T("Stereo rendering")));
 
 	bool multiViewSupported = draw->GetDeviceCaps().multiViewSupported;
 
@@ -398,52 +398,6 @@ void GameSettingsScreen::CreateViews() {
 					settingValue->SetEnabledFunc([=] {
 						return !g_Config.bSkipBufferEffects && enableStereo();
 					});
-				}
-			}
-		}
-	}
-
-	std::set<std::string> alreadyAddedShader;
-	for (int i = 0; i < (int)g_Config.vPostShaderNames.size() + 1 && i < ARRAY_SIZE(shaderNames_); ++i) {
-		// Vector element pointer get invalidated on resize, cache name to have always a valid reference in the rendering thread
-		shaderNames_[i] = i == g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[i];
-		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&shaderNames_[i], StringFromFormat("%s #%d", gr->T("Postprocessing Shader"), i + 1), &PostShaderTranslateName));
-		postProcChoice_->OnClick.Add([=](EventParams &e) {
-			auto gr = GetI18NCategory("Graphics");
-			auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"), i, false);
-			procScreen->OnChoice.Handle(this, &GameSettingsScreen::OnPostProcShaderChange);
-			if (e.v)
-				procScreen->SetPopupOrigin(e.v);
-			screenManager()->push(procScreen);
-			return UI::EVENT_DONE;
-		});
-		postProcChoice_->SetEnabledFunc([=] {
-			return !g_Config.bSkipBufferEffects && !enableStereo();
-		});
-
-		// No need for settings on the last one.
-		if (i == g_Config.vPostShaderNames.size())
-			continue;
-
-		auto shaderChain = GetPostShaderChain(g_Config.vPostShaderNames[i]);
-		for (auto shaderInfo : shaderChain) {
-			// Disable duplicated shader slider
-			bool duplicated = alreadyAddedShader.find(shaderInfo->section) != alreadyAddedShader.end();
-			alreadyAddedShader.insert(shaderInfo->section);
-			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
-				auto &setting = shaderInfo->settings[i];
-				if (!setting.name.empty()) {
-					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
-					if (duplicated) {
-						auto sliderName = StringFromFormat("%s %s", ps->T(setting.name), ps->T("(duplicated setting, previous slider will be used)"));
-						PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, sliderName, setting.step, screenManager()));
-						settingValue->SetEnabled(false);
-					} else {
-						PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
-						settingValue->SetEnabledFunc([=] {
-							return !g_Config.bSkipBufferEffects && !enableStereo();
-						});
-					}
 				}
 			}
 		}
@@ -792,7 +746,7 @@ void GameSettingsScreen::CreateViews() {
 		style->SetEnabledPtr(&g_Config.bShowTouchControls);
 		Choice *gesture = controlsSettings->Add(new Choice(co->T("Gesture mapping")));
 		gesture->OnClick.Add([=](EventParams &e) {
-			screenManager()->push(new GestureMappingScreen());
+			screenManager()->push(new GestureMappingScreen(gamePath_));
 			return UI::EVENT_DONE;
 		});
 		gesture->SetEnabledPtr(&g_Config.bShowTouchControls);
@@ -1395,10 +1349,6 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 
 void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 	UIDialogScreenWithGameBackground::sendMessage(message, value);
-	if (!strcmp(message, "postshader_updated")) {
-		g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
-		RecreateViews();
-	}
 	if (!strcmp(message, "gameSettings_search")) {
 		std::string filter = value ? value : "";
 		searchFilter_.resize(filter.size());
@@ -1712,15 +1662,6 @@ UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
-	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
-
-	NativeMessageReceived("gpu_configChanged", "");
-	NativeMessageReceived("gpu_renderResized", "");  // To deal with shaders that can change render resolution like upscaling.
-	NativeMessageReceived("postshader_updated", "");
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn GameSettingsScreen::OnTextureShader(UI::EventParams &e) {
 	auto gr = GetI18NCategory("Graphics");
 	auto shaderScreen = new TextureShaderScreen(gr->T("Texture Shader"));
@@ -1739,7 +1680,7 @@ UI::EventReturn GameSettingsScreen::OnTextureShaderChange(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
-	screenManager()->push(new DeveloperToolsScreen());
+	screenManager()->push(new DeveloperToolsScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -1749,17 +1690,17 @@ UI::EventReturn GameSettingsScreen::OnRemoteISO(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
-	screenManager()->push(new ControlMappingScreen());
+	screenManager()->push(new ControlMappingScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnCalibrateAnalogs(UI::EventParams &e) {
-	screenManager()->push(new AnalogSetupScreen());
+	screenManager()->push(new AnalogSetupScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnTouchControlLayout(UI::EventParams &e) {
-	screenManager()->push(new TouchControlLayoutScreen());
+	screenManager()->push(new TouchControlLayoutScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -1991,7 +1932,7 @@ UI::EventReturn DeveloperToolsScreen::OnFramedumpTest(UI::EventParams &e) {
 }
 
 UI::EventReturn DeveloperToolsScreen::OnTouchscreenTest(UI::EventParams &e) {
-	screenManager()->push(new TouchTestScreen());
+	screenManager()->push(new TouchTestScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 

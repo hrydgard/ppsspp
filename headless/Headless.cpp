@@ -1,6 +1,8 @@
 // Headless version of PPSSPP, for testing using http://code.google.com/p/pspautotests/ .
 // See headless.txt.
 // To build on non-windows systems, just run CMake in the SDL directory, it will build both a normal ppsspp and the headless version.
+// Example command line to run a test in the VS debugger (useful to debug failures):
+// > --root pspautotests/tests/../ --compare --timeout=5 --graphics=software pspautotests/tests/cpu/cpu_alu/cpu_alu.prx
 
 #include "ppsspp_config.h"
 #include <cstdio>
