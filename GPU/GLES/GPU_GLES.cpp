@@ -189,6 +189,12 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 		features |= GPU_USE_SINGLE_PASS_STEREO;
 	}
 
+	if (draw_->GetBugs().Has(Draw::Bugs::ADRENO_RESOURCE_DEADLOCK)) {
+		if (PSP_CoreParameter().compat.flags().OldAdrenoPixelDepthRoundingGL) {
+			features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+		}
+	}
+
 	features = CheckGPUFeaturesLate(features);
 
 	// This is a bit ugly, but lets us reuse most of the depth logic in GPUCommon.

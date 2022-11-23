@@ -645,6 +645,11 @@ OpenGLContext::OpenGLContext() {
 		bugs_.Infest(Bugs::PVR_GENMIPMAP_HEIGHT_GREATER);
 	}
 
+	if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
+		if (gl_extensions.modelNumber < 600)
+			bugs_.Infest(Bugs::ADRENO_RESOURCE_DEADLOCK);
+	}
+
 #if PPSSPP_PLATFORM(IOS)
 	// For some reason, this bug does not appear on M1.
 	if (caps_.vendor == GPUVendor::VENDOR_APPLE) {

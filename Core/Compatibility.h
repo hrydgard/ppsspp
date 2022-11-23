@@ -91,6 +91,7 @@ struct CompatFlags {
 	bool NearestFilteringOnFramebufferCreate;
 	bool SecondaryTextureCache;
 	bool EnglishOrJapaneseOnly;
+	bool OldAdrenoPixelDepthRoundingGL;
 };
 
 struct VRCompat {
