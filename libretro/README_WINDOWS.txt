@@ -13,7 +13,15 @@ pacman -S make
 Then use the following in msys:
 
 cd libretro
+
+If you have Visual Studio 2017 installed:
+make platform=windows_msvc2017_desktop_x64 -j32 && cp ppsspp_libretro.* /d/retroarch/cores
+
+If you have Visual Studio 2019 installed:
 make platform=windows_msvc2019_desktop_x64 -j32 && cp ppsspp_libretro.* /d/retroarch/cores
+
+If you have Visual Studio 2022 installed:
+make platform=windows_msvc2022_desktop_x64 -j32 && cp ppsspp_libretro.* /d/retroarch/cores
 
 Note that the latter part copies the DLL/PDB into wherever retroarch reads it from. Might need to adjust the path,
 and adjust -j32 depending on your number of logical CPUs - might not need that many threads (or you might need more...).
