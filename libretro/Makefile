@@ -539,22 +539,22 @@ else ifneq (,$(findstring windows_msvc2022,$(platform)))
 	PlatformSuffix = $(subst windows_msvc2022_,,$(platform))
 	ifneq (,$(findstring desktop,$(PlatformSuffix)))
 		WinPartition = desktop
-		MSVC2019CompileFlags = -DWINAPI_FAMILY=WINAPI_FAMILY_DESKTOP_APP -D_UNICODE -DUNICODE -DWINVER=0x0600 -D_WIN32_WINNT=0x0600
+		MSVC2022CompileFlags = -DWINAPI_FAMILY=WINAPI_FAMILY_DESKTOP_APP -D_UNICODE -DUNICODE -DWINVER=0x0600 -D_WIN32_WINNT=0x0600
 		LDFLAGS += -MANIFEST -NXCOMPAT -DYNAMICBASE -DEBUG -OPT:REF -INCREMENTAL:NO -SUBSYSTEM:WINDOWS -MANIFESTUAC:"level='asInvoker' uiAccess='false'" -OPT:ICF -ERRORREPORT:PROMPT -NOLOGO -TLBID:1
 		LIBS += kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib
 	else ifneq (,$(findstring uwp,$(PlatformSuffix)))
 		WinPartition = uwp
-		MSVC2019CompileFlags = -DWINAPI_FAMILY=WINAPI_FAMILY_APP -DWINDLL -D_UNICODE -DUNICODE -DWRL_NO_DEFAULT_LIB
+		MSVC2022CompileFlags = -DWINAPI_FAMILY=WINAPI_FAMILY_APP -DWINDLL -D_UNICODE -DUNICODE -DWRL_NO_DEFAULT_LIB
 		LDFLAGS += -APPCONTAINER -NXCOMPAT -DYNAMICBASE -MANIFEST:NO -OPT:REF -SUBSYSTEM:CONSOLE -MANIFESTUAC:NO -OPT:ICF -ERRORREPORT:PROMPT -NOLOGO -TLBID:1 -DEBUG:FULL -WINMD:NO
 		LIBS += WindowsApp.lib
 	endif
 
 	ifeq ($(DEBUG), 1)
-		MSVC2019CompileFlags += -DEBUG
+		MSVC2022CompileFlags += -DEBUG
 	endif
 
-	CFLAGS += $(MSVC2019CompileFlags) -nologo
-	CXXFLAGS += $(MSVC2019CompileFlags) -nologo -EHsc -DARMIPS_USE_STD_FILESYSTEM
+	CFLAGS += $(MSVC2022CompileFlags) -nologo
+	CXXFLAGS += $(MSVC2022CompileFlags) -nologo -EHsc -DARMIPS_USE_STD_FILESYSTEM
 
 	TargetArchMoniker = $(subst $(WinPartition)_,,$(PlatformSuffix))
 
