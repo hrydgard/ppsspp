@@ -1795,7 +1795,7 @@
        inkscape:label="Drop Shadow">
       <feFlood
          id="feFlood5134-8"
-         flood-opacity="0.2"
+         flood-opacity="0.20000000000000001"
          flood-color="rgb(0,0,0)"
          result="flood" />
       <feComposite
@@ -2107,17 +2107,17 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.4"
-     inkscape:cx="161.61162"
-     inkscape:cy="822.07002"
+     inkscape:zoom="31.678384"
+     inkscape:cx="169.82176"
+     inkscape:cy="724.41117"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
-     inkscape:window-width="1446"
-     inkscape:window-height="906"
-     inkscape:window-x="252"
-     inkscape:window-y="290"
-     inkscape:window-maximized="1"
+     inkscape:window-width="1869"
+     inkscape:window-height="1617"
+     inkscape:window-x="1606"
+     inkscape:window-y="112"
+     inkscape:window-maximized="0"
      inkscape:document-rotation="0"
      inkscape:pagecheckerboard="0">
     <inkscape:grid
@@ -2145,8 +2145,8 @@
        id="rect5044"
        width="399.68362"
        height="362.96939"
-       x="1.3355882"
-       y="-8.7092419" />
+       x="-5.226912"
+       y="-5.6735277" />
     <g
        id="g3918"
        inkscape:export-xdpi="135"
@@ -3071,5 +3071,94 @@
        transform="matrix(1.222815,0,0,1.222815,-53.018711,-41.061989)"
        inkscape:export-xdpi="135"
        inkscape:export-ydpi="135" />
+    <g
+       inkscape:export-filename="C:\Users\hrydg\folder_open_line.png"
+       inkscape:export-ydpi="135"
+       inkscape:export-xdpi="135"
+       id="g5019"
+       transform="translate(-15.419355,43.255668)">
+      <path
+         style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3);enable-background:accumulate"
+         d="m 323.92509,307.20884 h -27.89304 l 0.12627,-20.09454 2.46301,-5.08929 h 10.80357 l 2.14285,4.375 h 11.57929 l 0.77805,0.53571 0.12627,2.88756"
+         id="path5015"
+         inkscape:connector-curvature="0"
+         sodipodi:nodetypes="ccccccccc"
+         inkscape:export-filename="C:\dev\ppsspp\source_assets\image\folder_line.png"
+         inkscape:export-xdpi="135"
+         inkscape:export-ydpi="135" />
+      <path
+         style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3);enable-background:accumulate"
+         d="m 302.46697,290.20495 26.90454,-0.0893 -5.44642,17.09319 h -27.51423 z"
+         id="path5017"
+         inkscape:connector-curvature="0"
+         sodipodi:nodetypes="ccccc"
+         inkscape:export-filename="C:\dev\ppsspp\source_assets\image\folder_line.png"
+         inkscape:export-xdpi="135"
+         inkscape:export-ydpi="135" />
+    </g>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       x="253.83929"
+       y="343.88004"
+       id="text5023"><tspan
+         sodipodi:role="line"
+         id="tspan5021"
+         x="253.83929"
+         y="380.37326" /></text>
+    <g
+       id="g5067"
+       inkscape:export-xdpi="135"
+       inkscape:export-ydpi="135">
+      <rect
+         style="opacity:1;vector-effect:none;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3)"
+         id="rect5029"
+         width="1.6071385"
+         height="11.428567"
+         x="168.28108"
+         y="330.54053" />
+      <rect
+         y="330.54053"
+         x="171.98645"
+         height="11.428567"
+         width="1.6071385"
+         id="rect5036"
+         style="opacity:1;vector-effect:none;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3)" />
+      <rect
+         style="opacity:1;vector-effect:none;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3)"
+         id="rect5038"
+         width="1.6071385"
+         height="11.428567"
+         x="175.51323"
+         y="330.54053" />
+      <path
+         transform="matrix(0.93415882,0,0,0.87040224,11.368845,44.781213)"
+         inkscape:export-ydpi="133.41901"
+         inkscape:export-xdpi="133.41901"
+         inkscape:export-filename="C:\dev\ppsspp\source_assets\image\folder_line.png"
+         sodipodi:nodetypes="ccccc"
+         inkscape:connector-curvature="0"
+         id="path5040"
+         d="m 164.82396,325.44548 15.69353,-0.11451 -0.0486,20.08278 -15.64493,0.12627 z"
+         style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3);enable-background:accumulate" />
+      <path
+         transform="matrix(1,0,0,1.3969583,-0.059574,-130.17522)"
+         style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3);enable-background:accumulate"
+         d="m 170.46367,324.75718 4.70812,0.0118 2.91873,3.06802 -10.72044,0.0947 z"
+         id="path5057"
+         inkscape:connector-curvature="0"
+         sodipodi:nodetypes="ccccc"
+         inkscape:export-filename="C:\dev\ppsspp\source_assets\image\folder_line.png"
+         inkscape:export-xdpi="133.41901"
+         inkscape:export-ydpi="133.41901" />
+      <rect
+         transform="matrix(0,1,-1.7569537,0,761.80772,171.85765)"
+         y="329.60303"
+         x="154.97752"
+         height="11.428567"
+         width="1.6071385"
+         id="rect5059"
+         style="opacity:1;vector-effect:none;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3)" />
+    </g>
   </g>
 </svg>
