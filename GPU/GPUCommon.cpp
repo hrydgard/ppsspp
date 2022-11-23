@@ -639,7 +639,10 @@ void GPUCommon::CheckConfigChanged() {
 		configChanged_ = false;
 	}
 
-	framebufferManager_->CheckPostShaders();
+	// Check needed when running tests.
+	if (framebufferManager_) {
+		framebufferManager_->CheckPostShaders();
+	}
 }
 
 void GPUCommon::CheckDisplayResized() {
