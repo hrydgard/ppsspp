@@ -142,14 +142,14 @@ void SingleControlMapper::Refresh() {
 		std::string keyName = KeyMap::GetKeyOrAxisName(mappings[i].keyCode);
 
 		LinearLayout *row = rightColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		row->SetSpacing(1.0f);
+		row->SetSpacing(2.0f);
 		rows_.push_back(row);
 
 		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(FILL_PARENT, itemH, 1.0f)));
 		c->SetTag(StringFromFormat("%d_Change%d", (int)i, pspKey_));
 		c->OnClick.Handle(this, &SingleControlMapper::OnReplace);
 
-		Choice *d = row->Add(new Choice(" X ", new LayoutParams(WRAP_CONTENT, itemH)));
+		Choice *d = row->Add(new Choice(ImageID("I_TRASHCAN"), new LayoutParams(WRAP_CONTENT, itemH)));
 		d->SetTag(StringFromFormat("%d_Del%d", (int)i, pspKey_));
 		d->OnClick.Handle(this, &SingleControlMapper::OnDelete);
 	}
@@ -583,6 +583,7 @@ void JoystickHistoryView::Update() {
 
 AnalogSetupScreen::AnalogSetupScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	mapper_.SetCallbacks([](int vkey) {}, [](int vkey) {}, [&](int stick, float x, float y) {
+		NOTICE_LOG(COMMON, "analog value from mapper: %f %f", x, y);
 		analogX_[stick] = x;
 		analogY_[stick] = y;
 	});

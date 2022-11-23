@@ -136,8 +136,6 @@ static void __EmuScreenVblank()
 }
 
 // Handles control rotation due to internal screen rotation.
-// TODO: This should be a callback too, so we don't actually call the __Ctrl functions
-// from settings screens, etc.
 static void SetPSPAnalog(int stick, float x, float y) {
 	switch (g_Config.iInternalScreenRotation) {
 	case ROTATION_LOCKED_HORIZONTAL:
@@ -164,7 +162,6 @@ static void SetPSPAnalog(int stick, float x, float y) {
 	default:
 		break;
 	}
-
 	__CtrlSetAnalogXY(stick, x, y);
 }
 
