@@ -170,7 +170,7 @@ const int baseActionButtonSpacing = 60;
 class ComboKey : public MultiTouchButton {
 public:
 	ComboKey(uint64_t pspButtonBit, const char *key, bool toggle, bool repeat, ControlMapper* controllMapper, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, bool invertedContextDimension, UI::LayoutParams *layoutParams)
-		: MultiTouchButton(key, bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit), toggle_(toggle), repeat_(repeat), controllMapper_(controllMapper), on_(false), invertedContextDimension_(invertedContextDimension) {
+		: MultiTouchButton(key, bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit), toggle_(toggle), repeat_(repeat), controlMapper_(controllMapper), on_(false), invertedContextDimension_(invertedContextDimension) {
 	}
 	void Touch(const TouchInput &input) override;
 	void Update() override;
@@ -182,14 +182,14 @@ private:
 	bool toggle_;
 	bool repeat_;
 	int pressedFrames_ = 0;
-	ControlMapper* controllMapper_;
+	ControlMapper* controlMapper_;
 	bool on_;
 	bool invertedContextDimension_; // Swap width and height
 };
 
 class GestureGamepad : public UI::View {
 public:
-	GestureGamepad(ControlMapper* controllMapper) : controllMapper_(controllMapper) {};
+	GestureGamepad(ControlMapper* controllMapper) : controlMapper_(controllMapper) {};
 
 	void Touch(const TouchInput &input) override;
 	void Update() override;
@@ -208,7 +208,7 @@ protected:
 	bool swipeUpReleased_ = true;
 	bool swipeDownReleased_ = true;
 	bool haveDoubleTapped_ = false;
-	ControlMapper* controllMapper_;
+	ControlMapper* controlMapper_;
 };
 
 // Just edit this to add new image, shape or button function

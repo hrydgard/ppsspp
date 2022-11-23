@@ -33,6 +33,7 @@ enum {
 	DEVICE_ID_ACCELEROMETER = 30,
 	DEVICE_ID_XR_CONTROLLER_LEFT = 40,
 	DEVICE_ID_XR_CONTROLLER_RIGHT = 41,
+	DEVICE_ID_TOUCH = 42,
 };
 
 //number of contiguous generic joypad IDs
