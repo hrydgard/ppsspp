@@ -191,6 +191,12 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 
 	features = CheckGPUFeaturesLate(features);
 
+	if (draw_->GetBugs().Has(Draw::Bugs::ADRENO_RESOURCE_DEADLOCK) && g_Config.bVendorBugChecksEnabled) {
+		if (PSP_CoreParameter().compat.flags().OldAdrenoPixelDepthRoundingGL) {
+			features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+		}
+	}
+
 	// This is a bit ugly, but lets us reuse most of the depth logic in GPUCommon.
 	if (features & GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) {
 		if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
