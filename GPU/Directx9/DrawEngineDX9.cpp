@@ -126,10 +126,11 @@ DrawEngineDX9::~DrawEngineDX9() {
 }
 
 void DrawEngineDX9::InitDeviceObjects() {
-
+	draw_->SetInvalidationCallback(std::bind(&DrawEngineDX9::Invalidate, this, std::placeholders::_1));
 }
 
 void DrawEngineDX9::DestroyDeviceObjects() {
+	draw_->SetInvalidationCallback(InvalidationCallback());
 	ClearTrackedVertexArrays();
 }
 
@@ -310,17 +311,16 @@ void DrawEngineDX9::BeginFrame() {
 	lastRenderStepId_ = -1;
 }
 
+// In D3D, we're synchronous and state carries over so all we reset here on a new step is the viewport/scissor.
+void DrawEngineDX9::Invalidate(InvalidationFlags flags) {
+	if (flags & InvalidationFlags::RENDER_PASS_STATE) {
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+	}
+}
+
 // The inline wrapper in the header checks for numDrawCalls == 0
 void DrawEngineDX9::DoFlush() {
 	gpuStats.numFlushes++;
-
-	// In D3D, we're synchronous and state carries over so all we reset here on a new step is the viewport/scissor.
-	int curRenderStepId = draw_->GetCurrentStepId();
-	if (lastRenderStepId_ != curRenderStepId) {
-		// Dirty everything that has dynamic state that will need re-recording.
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-		lastRenderStepId_ = curRenderStepId;
-	}
 
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {

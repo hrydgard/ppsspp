@@ -452,6 +452,9 @@
     <ClInclude Include="Render\ManagedTexture.h">
       <Filter>Render</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\MiscTypes.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />

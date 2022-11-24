@@ -113,6 +113,8 @@ void DrawEngineD3D11::InitDeviceObjects() {
 
 	tessDataTransferD3D11 = new TessellationDataTransferD3D11(context_, device_);
 	tessDataTransfer = tessDataTransferD3D11;
+
+	draw_->SetInvalidationCallback(std::bind(&DrawEngineD3D11::Invalidate, this, std::placeholders::_1));
 }
 
 void DrawEngineD3D11::ClearTrackedVertexArrays() {
@@ -136,6 +138,8 @@ void DrawEngineD3D11::NotifyConfigChanged() {
 }
 
 void DrawEngineD3D11::DestroyDeviceObjects() {
+	draw_->SetInvalidationCallback(InvalidationCallback());
+
 	ClearTrackedVertexArrays();
 	ClearInputLayoutMap();
 	delete tessDataTransferD3D11;
@@ -322,18 +326,17 @@ VertexArrayInfoD3D11::~VertexArrayInfoD3D11() {
 		ebo->Release();
 }
 
+// In D3D, we're synchronous and state carries over so all we reset here on a new step is the viewport/scissor.
+void DrawEngineD3D11::Invalidate(InvalidationFlags flags) {
+	if (flags & InvalidationFlags::RENDER_PASS_STATE) {
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		textureCache_->ForgetLastTexture();
+	}
+}
+
 // The inline wrapper in the header checks for numDrawCalls == 0
 void DrawEngineD3D11::DoFlush() {
 	gpuStats.numFlushes++;
-
-	// In D3D, we're synchronous and state carries over so all we reset here on a new step is the viewport/scissor.
-	int curRenderStepId = draw_->GetCurrentStepId();
-	if (lastRenderStepId_ != curRenderStepId) {
-		// Dirty everything that has dynamic state that will need re-recording.
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-		textureCache_->ForgetLastTexture();
-		lastRenderStepId_ = curRenderStepId;
-	}
 
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {

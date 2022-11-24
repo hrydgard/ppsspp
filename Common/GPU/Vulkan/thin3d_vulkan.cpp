@@ -498,13 +498,13 @@ public:
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
-	int GetCurrentStepId() const override {
-		return renderManager_.GetCurrentStepId();
-	}
-
 	void InvalidateCachedState() override;
 
 	void InvalidateFramebuffer(FBInvalidationStage stage, uint32_t channels) override;
+
+	void SetInvalidationCallback(InvalidationCallback callback) {
+		renderManager_.SetInvalidationCallback(callback);
+	}
 
 private:
 	VulkanTexture *GetNullTexture();

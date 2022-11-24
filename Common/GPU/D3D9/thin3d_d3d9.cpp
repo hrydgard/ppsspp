@@ -610,18 +610,17 @@ public:
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
-	int GetCurrentStepId() const override {
-		return stepId_;
-	}
-
 	void InvalidateCachedState() override;
+
+	void SetInvalidationCallback(InvalidationCallback callback) override {
+		invalidationCallback_ = callback;
+	}
 
 private:
 	LPDIRECT3D9 d3d_;
 	LPDIRECT3D9EX d3dEx_;
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;
-	int stepId_ = -1;
 	int adapterId_ = -1;
 	D3DADAPTER_IDENTIFIER9 identifier_{};
 	D3DCAPS9 d3dCaps_;
@@ -647,6 +646,8 @@ private:
 
 	// Dynamic state
 	uint8_t stencilRef_ = 0;
+
+	InvalidationCallback invalidationCallback_;
 };
 
 void D3D9Context::InvalidateCachedState() {
@@ -1319,7 +1320,10 @@ void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPa
 	dxstate.scissorRect.restore();
 	dxstate.scissorTest.restore();
 	dxstate.viewport.restore();
-	stepId_++;
+
+	if (invalidationCallback_) {
+		invalidationCallback_(InvalidationFlags::RENDER_PASS_STATE);
+	}
 }
 
 uintptr_t D3D9Context::GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {
@@ -1398,7 +1402,6 @@ bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int 
 	} else {
 		return false;
 	}
-	stepId_++;
 	return SUCCEEDED(device_->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, (filter == FB_BLIT_LINEAR && channelBits == FB_COLOR_BIT) ? D3DTEXF_LINEAR : D3DTEXF_POINT));
 }
 
@@ -1519,7 +1522,6 @@ void D3D9Context::HandleEvent(Event ev, int width, int height, void *param1, voi
 		device_->GetDepthStencilSurface(&deviceDSsurf);
 		break;
 	case Event::PRESENTED:
-		stepId_ = 0;
 		break;
 	}
 }

@@ -668,8 +668,6 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	insideFrame_ = true;
 	vulkan_->BeginFrame(enableLogProfiler ? GetInitCmd() : VK_NULL_HANDLE);
 
-	renderStepOffset_ = 0;
-
 	frameData.profile.timestampDescriptions.clear();
 	if (frameData.profilingEnabled_) {
 		// For various reasons, we need to always use an init cmd buffer in this case to perform the vkCmdResetQueryPool,
@@ -955,6 +953,10 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		data.clear.clearStencil = clearStencil;
 		data.clear.clearMask = lateClearMask;
 		curRenderStep_->commands.push_back(data);
+	}
+
+	if (invalidationCallback_) {
+		invalidationCallback_(InvalidationFlags::RENDER_PASS_STATE);
 	}
 }
 
@@ -1414,7 +1416,9 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 
 // Called from main thread.
 void VulkanRenderManager::FlushSync() {
-	renderStepOffset_ += (int)steps_.size();
+	if (invalidationCallback_) {
+		invalidationCallback_(InvalidationFlags::COMMAND_BUFFER_STATE);
+	}
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];

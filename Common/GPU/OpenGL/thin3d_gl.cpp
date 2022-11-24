@@ -466,11 +466,11 @@ public:
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override {}
 
-	int GetCurrentStepId() const override {
-		return renderManager_.GetCurrentStepId();
-	}
-
 	void InvalidateCachedState() override;
+
+	void SetInvalidationCallback(InvalidationCallback callback) {
+		renderManager_.SetInvalidationCallback(callback);
+	}
 
 private:
 	void ApplySamplers();

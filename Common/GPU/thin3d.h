@@ -16,6 +16,7 @@
 #include "Common/Common.h"
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Shader.h"
+#include "Common/GPU/MiscTypes.h"
 #include "Common/Data/Collections/Slice.h"
 
 namespace Lin {
@@ -769,7 +770,9 @@ public:
 	// This is called when we launch a new game, so any collected internal stats in the backends don't carry over.
 	virtual void ResetStats() {}
 
-	virtual int GetCurrentStepId() const = 0;
+	// Used by the DrawEngines to know when they have to re-apply some state.
+	// Not very elegant, but more elegant than the old passId hack.
+	virtual void SetInvalidationCallback(InvalidationCallback callback) = 0;
 
 protected:
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
