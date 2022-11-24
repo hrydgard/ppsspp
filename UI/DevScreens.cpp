@@ -106,6 +106,7 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		items->Add(new CheckBox(&g_Config.bShowGpuProfile, dev->T("GPU Profile")));
 	}
 	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenuScreen::OnFreezeFrame);
+
 	items->Add(new Choice(dev->T("Dump Frame GPU Commands")))->OnClick.Handle(this, &DevMenuScreen::OnDumpFrame);
 	items->Add(new Choice(dev->T("Toggle Audio Debug")))->OnClick.Handle(this, &DevMenuScreen::OnToggleAudioDebug);
 #ifdef USE_PROFILER

@@ -303,6 +303,33 @@ void GameSettingsScreen::CreateViews() {
 		softwareGPU->SetEnabled(!PSP_IsInited());
 	}
 
+	static const char *internalResolutions[] = { "Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
+	resolutionChoice_ = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gr->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gr->GetName(), screenManager()));
+	resolutionChoice_->OnChoice.Handle(this, &GameSettingsScreen::OnResolutionChange);
+	resolutionChoice_->SetEnabledFunc([] {
+		return !g_Config.bSoftwareRendering && !g_Config.bSkipBufferEffects;
+	});
+
+#if PPSSPP_PLATFORM(ANDROID)
+	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
+		static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
+		int max_res_temp = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 2;
+		if (max_res_temp == 3)
+			max_res_temp = 4;  // At least allow 2x
+		int max_res = std::min(max_res_temp, (int)ARRAY_SIZE(deviceResolutions));
+		UI::PopupMultiChoice *hwscale = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAndroidHwScale, gr->T("Display Resolution (HW scaler)"), deviceResolutions, 0, max_res, gr->GetName(), screenManager()));
+		hwscale->OnChoice.Handle(this, &GameSettingsScreen::OnHwScaleChange);  // To refresh the display mode
+	}
+#endif
+
+#if !(PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS))
+	CheckBox *vSync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
+	vSync->OnClick.Add([=](EventParams &e) {
+		NativeResized();
+		return UI::EVENT_CONTINUE;
+	});
+#endif
+
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gr->GetName(), screenManager()));
@@ -441,33 +468,6 @@ void GameSettingsScreen::CreateViews() {
 	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Performance")));
-	static const char *internalResolutions[] = { "Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
-	resolutionChoice_ = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gr->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gr->GetName(), screenManager()));
-	resolutionChoice_->OnChoice.Handle(this, &GameSettingsScreen::OnResolutionChange);
-	resolutionChoice_->SetEnabledFunc([] {
-		return !g_Config.bSoftwareRendering && !g_Config.bSkipBufferEffects;
-	});
-
-#if PPSSPP_PLATFORM(ANDROID)
-	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
-		static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
-		int max_res_temp = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 2;
-		if (max_res_temp == 3)
-			max_res_temp = 4;  // At least allow 2x
-		int max_res = std::min(max_res_temp, (int)ARRAY_SIZE(deviceResolutions));
-		UI::PopupMultiChoice *hwscale = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAndroidHwScale, gr->T("Display Resolution (HW scaler)"), deviceResolutions, 0, max_res, gr->GetName(), screenManager()));
-		hwscale->OnChoice.Handle(this, &GameSettingsScreen::OnHwScaleChange);  // To refresh the display mode
-	}
-#endif
-
-#if !(PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS))
-	CheckBox *vSync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
-	vSync->OnClick.Add([=](EventParams &e) {
-		NativeResized();
-		return UI::EVENT_CONTINUE;
-	});
-#endif
-
 	CheckBox *frameDuplication = graphicsSettings->Add(new CheckBox(&g_Config.bRenderDuplicateFrames, gr->T("Render duplicate frames to 60hz")));
 	frameDuplication->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("RenderDuplicateFrames Tip", "Can make framerate smoother in games that run at lower framerates"), e.v);
@@ -605,13 +605,6 @@ void GameSettingsScreen::CreateViews() {
 	static const char *fpsChoices[] = { "None", "Speed", "FPS", "Both" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gr->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gr->GetName(), screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
-
-	// Developer tools are not accessible ingame, so it goes here.
-	graphicsSettings->Add(new ItemHeader(gr->T("Debugging")));
-	Choice *dump = graphicsSettings->Add(new Choice(gr->T("Dump next frame to log")));
-	dump->OnClick.Handle(this, &GameSettingsScreen::OnDumpNextFrameToLog);
-	if (!PSP_IsInited())
-		dump->SetEnabled(false);
 
 	// Audio
 	LinearLayout *audioSettings = AddTab("GameSettingsAudio", ms->T("Audio"));
@@ -1296,13 +1289,6 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnHwScaleChange(UI::EventParams &e) {
 	RecreateActivity();
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnDumpNextFrameToLog(UI::EventParams &e) {
-	if (gpu) {
-		gpu->DumpNextFrame();
-	}
 	return UI::EVENT_DONE;
 }
 
