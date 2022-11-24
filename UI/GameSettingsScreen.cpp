@@ -298,11 +298,6 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 
-	if (deviceType != DEVICE_TYPE_VR) {
-		CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
-		softwareGPU->SetEnabled(!PSP_IsInited());
-	}
-
 	static const char *internalResolutions[] = { "Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
 	resolutionChoice_ = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gr->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gr->GetName(), screenManager()));
 	resolutionChoice_->OnChoice.Handle(this, &GameSettingsScreen::OnResolutionChange);
@@ -322,13 +317,10 @@ void GameSettingsScreen::CreateViews() {
 	}
 #endif
 
-#if !(PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS))
-	CheckBox *vSync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
-	vSync->OnClick.Add([=](EventParams &e) {
-		NativeResized();
-		return UI::EVENT_CONTINUE;
-	});
-#endif
+	if (deviceType != DEVICE_TYPE_VR) {
+		CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
+		softwareGPU->SetEnabled(!PSP_IsInited());
+	}
 
 	if (deviceType != DEVICE_TYPE_VR) {
 #if !defined(MOBILE_DEVICE)
@@ -340,6 +332,14 @@ void GameSettingsScreen::CreateViews() {
 			});
 			graphicsSettings->Add(fullscreenMulti)->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenMultiChange);
 		}
+#endif
+
+#if !(PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS))
+		CheckBox *vSync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
+		vSync->OnClick.Add([=](EventParams &e) {
+			NativeResized();
+			return UI::EVENT_CONTINUE;
+		});
 #endif
 
 #if PPSSPP_PLATFORM(ANDROID)
