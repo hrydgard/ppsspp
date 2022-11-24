@@ -468,7 +468,7 @@ public:
 
 	void InvalidateCachedState() override;
 
-	void SetInvalidationCallback(InvalidationCallback callback) {
+	void SetInvalidationCallback(InvalidationCallback callback) override {
 		renderManager_.SetInvalidationCallback(callback);
 	}
 

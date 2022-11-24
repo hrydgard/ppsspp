@@ -502,7 +502,7 @@ public:
 
 	void InvalidateFramebuffer(FBInvalidationStage stage, uint32_t channels) override;
 
-	void SetInvalidationCallback(InvalidationCallback callback) {
+	void SetInvalidationCallback(InvalidationCallback callback) override {
 		renderManager_.SetInvalidationCallback(callback);
 	}
 
