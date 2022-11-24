@@ -136,10 +136,10 @@ static bool UsingHardwareTextureScaling() {
 }
 
 static std::string TextureTranslateName(const char *value) {
-	auto ps = GetI18NCategory("TextureShaders");
+	auto ts = GetI18NCategory("TextureShaders");
 	const TextureShaderInfo *info = GetTextureShaderInfo(value);
 	if (info) {
-		return ps->T(value, info ? info->name.c_str() : value);
+		return ts->T(value, info ? info->name.c_str() : value);
 	} else {
 		return value;
 	}
@@ -428,43 +428,6 @@ void GameSettingsScreen::CreateViews() {
 		}
 		return UI::EVENT_CONTINUE;
 	});
-
-	graphicsSettings->Add(new ItemHeader(gr->T("Stereo rendering")));
-
-	bool multiViewSupported = draw->GetDeviceCaps().multiViewSupported;
-
-	auto enableStereo = [=]() -> bool {
-		return g_Config.bStereoRendering && multiViewSupported;
-	};
-
-	if (draw->GetDeviceCaps().multiViewSupported) {
-		graphicsSettings->Add(new CheckBox(&g_Config.bStereoRendering, gr->T("Stereo rendering")));
-		std::vector<std::string> stereoShaderNames;
-
-		ChoiceWithValueDisplay *stereoShaderChoice = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sStereoToMonoShader, "Stereo display shader", &PostShaderTranslateName));
-		stereoShaderChoice->SetEnabledFunc(enableStereo);
-		stereoShaderChoice->OnClick.Add([=](EventParams &e) {
-			auto gr = GetI18NCategory("Graphics");
-			auto procScreen = new PostProcScreen(gr->T("Stereo display shader"), 0, true);
-			if (e.v)
-				procScreen->SetPopupOrigin(e.v);
-			screenManager()->push(procScreen);
-			return UI::EVENT_DONE;
-		});
-		const ShaderInfo *shaderInfo = GetPostShaderInfo(g_Config.sStereoToMonoShader);
-		if (shaderInfo) {
-			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
-				auto &setting = shaderInfo->settings[i];
-				if (!setting.name.empty()) {
-					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
-					PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
-					settingValue->SetEnabledFunc([=] {
-						return !g_Config.bSkipBufferEffects && enableStereo();
-					});
-				}
-			}
-		}
-	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Performance")));
 	CheckBox *frameDuplication = graphicsSettings->Add(new CheckBox(&g_Config.bRenderDuplicateFrames, gr->T("Render duplicate frames to 60hz")));
@@ -1741,6 +1704,7 @@ void DeveloperToolsScreen::CreateViews() {
 	auto gr = GetI18NCategory("Graphics");
 	auto a = GetI18NCategory("Audio");
 	auto sy = GetI18NCategory("System");
+	auto ps = GetI18NCategory("PostShaders");
 
 	AddStandardBack(root_);
 
@@ -1797,6 +1761,46 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new ItemHeader(dev->T("Texture Replacement")));
 	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
 	list->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
+
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+
+	// Experimental, will move to main graphics settings later.
+	list->Add(new ItemHeader(gr->T("Stereo rendering")));
+
+	bool multiViewSupported = draw->GetDeviceCaps().multiViewSupported;
+
+	auto enableStereo = [=]() -> bool {
+		return g_Config.bStereoRendering && multiViewSupported;
+	};
+
+	if (draw->GetDeviceCaps().multiViewSupported) {
+		list->Add(new CheckBox(&g_Config.bStereoRendering, gr->T("Stereo rendering")));
+		std::vector<std::string> stereoShaderNames;
+
+		ChoiceWithValueDisplay *stereoShaderChoice = list->Add(new ChoiceWithValueDisplay(&g_Config.sStereoToMonoShader, "Stereo display shader", &PostShaderTranslateName));
+		stereoShaderChoice->SetEnabledFunc(enableStereo);
+		stereoShaderChoice->OnClick.Add([=](EventParams &e) {
+			auto gr = GetI18NCategory("Graphics");
+			auto procScreen = new PostProcScreen(gr->T("Stereo display shader"), 0, true);
+			if (e.v)
+				procScreen->SetPopupOrigin(e.v);
+			screenManager()->push(procScreen);
+			return UI::EVENT_DONE;
+		});
+		const ShaderInfo *shaderInfo = GetPostShaderInfo(g_Config.sStereoToMonoShader);
+		if (shaderInfo) {
+			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
+				auto &setting = shaderInfo->settings[i];
+				if (!setting.name.empty()) {
+					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
+					PopupSliderChoiceFloat *settingValue = list->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+					settingValue->SetEnabledFunc([=] {
+						return !g_Config.bSkipBufferEffects && enableStereo();
+					});
+				}
+			}
+		}
+	}
 
 	// Makes it easy to get savestates out of an iOS device. The file listing shown in MacOS doesn't allow
 	// you to descend into directories.
