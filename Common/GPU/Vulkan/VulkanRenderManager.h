@@ -50,10 +50,6 @@ struct VKRImage {
 	std::string tag;
 };
 
-// NOTE: If numLayers > 1, it will create an array texture, rather than a normal 2D texture.
-// This requires a different sampling path!
-void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag);
-
 class VKRFramebuffer {
 public:
 	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, bool createDepthStencilBuffer, const char *tag);
@@ -74,9 +70,15 @@ public:
 
 	void UpdateTag(const char *newTag);
 
+	bool HasDepth() const {
+		return depth.image != VK_NULL_HANDLE;
+	}
+
 	// TODO: Hide.
 	VulkanContext *vulkan_;
 private:
+	static void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag);
+
 	VkFramebuffer framebuf[(size_t)RenderPassType::TYPE_COUNT]{};
 
 	std::string tag_;
@@ -295,6 +297,10 @@ public:
 		pipelinesToCheck_.push_back(pipeline);
 		data.graphics_pipeline.pipeline = pipeline;
 		data.graphics_pipeline.pipelineLayout = pipelineLayout;
+		// This can be used to debug cases where depth/stencil rendering is used on color-only framebuffers.
+		// if ((flags & PipelineFlags::USES_DEPTH_STENCIL) && curRenderStep_->render.framebuffer && !curRenderStep_->render.framebuffer->HasDepth()) {
+		//     DebugBreak();
+		// }
 		curPipelineFlags_ |= flags;
 		curRenderStep_->commands.push_back(data);
 	}

@@ -218,6 +218,10 @@ VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPas
 	bool hasDepth = RenderPassTypeHasDepth(rpType);
 	views[0] = color.rtView;  // 2D array texture if multilayered.
 	if (hasDepth) {
+		if (!depth.rtView) {
+			WARN_LOG(G3D, "depth render type to non-depth fb: %p %p fmt=%d (%s %dx%d)", depth.image, depth.texAllLayersView, depth.format, tag_.c_str(), width, height);
+			// Will probably crash, depending on driver.
+		}
 		views[1] = depth.rtView;
 	}
 	fbci.renderPass = compatibleRenderPass->Get(vulkan_, rpType);
@@ -271,7 +275,9 @@ VKRFramebuffer::~VKRFramebuffer() {
 	}
 }
 
-void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag) {
+// NOTE: If numLayers > 1, it will create an array texture, rather than a normal 2D texture.
+// This requires a different sampling path!
+void VKRFramebuffer::CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag) {
 	// We don't support more exotic layer setups for now. Mono or stereo.
 	_dbg_assert_(numLayers == 1 || numLayers == 2);
 
@@ -313,7 +319,6 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	ivci.subresourceRange.levelCount = 1;
 	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.rtView);
 	vulkan->SetDebugName(img.rtView, VK_OBJECT_TYPE_IMAGE_VIEW, tag);
-
 	_dbg_assert_(res == VK_SUCCESS);
 
 	// Separate view for texture sampling all layers together.
@@ -757,6 +762,12 @@ void VulkanRenderManager::EndCurRenderStep() {
 	curRenderStep_->render.pipelineFlags = curPipelineFlags_;
 	bool depthStencil = (curPipelineFlags_ & PipelineFlags::USES_DEPTH_STENCIL) != 0;
 	RenderPassType rpType = depthStencil ? RenderPassType::HAS_DEPTH : RenderPassType::DEFAULT;
+
+	if (curRenderStep_->render.framebuffer && (rpType & RenderPassType::HAS_DEPTH) && !curRenderStep_->render.framebuffer->HasDepth()) {
+		WARN_LOG(G3D, "Trying to render with a depth-writing pipeline to a framebuffer without depth: %s", curRenderStep_->render.framebuffer->Tag());
+		rpType = RenderPassType::DEFAULT;
+	}
+
 	if (!curRenderStep_->render.framebuffer) {
 		rpType = RenderPassType::BACKBUFFER;
 	} else {
@@ -771,8 +782,6 @@ void VulkanRenderManager::EndCurRenderStep() {
 			rpType = (RenderPassType)(rpType | RenderPassType::MULTIVIEW);
 		}
 	}
-
-	// TODO: Also add render pass types for depth/stencil-less.
 
 	VKRRenderPass *renderPass = queueRunner_.GetRenderPass(key);
 	curRenderStep_->render.renderPassType = rpType;
@@ -1095,6 +1104,7 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 	_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 	if (!clearMask)
 		return;
+
 	// If this is the first drawing command or clears everything, merge it into the pass.
 	int allAspects = VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 	if (curRenderStep_->render.numDraws == 0 || clearMask == allAspects) {
@@ -1106,7 +1116,11 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 		curRenderStep_->render.stencilLoad = (clearMask & VK_IMAGE_ASPECT_STENCIL_BIT) ? VKRRenderPassLoadAction::CLEAR : VKRRenderPassLoadAction::KEEP;
 
 		if (clearMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
-			curPipelineFlags_ |= PipelineFlags::USES_DEPTH_STENCIL;
+			if (curRenderStep_->render.framebuffer && !curRenderStep_->render.framebuffer->HasDepth()) {
+				WARN_LOG(G3D, "Trying to clear depth/stencil on a non-depth framebuffer: %s", curRenderStep_->render.framebuffer->Tag());
+			} else {
+				curPipelineFlags_ |= PipelineFlags::USES_DEPTH_STENCIL;
+			}
 		}
 
 		// In case there were commands already.
