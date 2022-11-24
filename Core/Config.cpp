@@ -1467,7 +1467,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// Override ppsspp.ini JIT value to prevent crashing
 	if (DefaultCpuCore() != (int)CPUCore::JIT && g_Config.iCpuCore == (int)CPUCore::JIT) {
 		jitForcedOff = true;
-		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
+		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
 	}
 
 	// Automatically silence secondary instances. Could be an option I guess, but meh.
@@ -1589,11 +1589,8 @@ bool Config::Save(const char *saveReason) {
 	}
 	if (jitForcedOff) {
 		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
-#if PPSSPP_PLATFORM(IOS)
-		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
-#else
-		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
-#endif
+		if (g_Config.iCpuCore != (int)CPUCore::INTERPRETER)
+			g_Config.iCpuCore = (int)CPUCore::IR_JIT;
 	}
 	return true;
 }
