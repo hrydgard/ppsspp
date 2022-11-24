@@ -74,12 +74,10 @@ void ControlMapper::SetPSPAxis(int device, char axis, float value, int stick) {
 
 	if (inDeadZone && lastNonDeadzoneDeviceID_[stick] != device) {
 		// Ignore this event! See issue #15465
-		NOTICE_LOG(COMMON, "Ignoring deadzone event from device %d (%d, %f)", device, axis, value);
 		ignore = true;
 	}
 
 	if (!inDeadZone) {
-		NOTICE_LOG(COMMON, "Got a non deadzone event from device %d (%d, %f > %f)", device, axis, value, g_Config.fAnalogDeadzone);
 		lastNonDeadzoneDeviceID_[stick] = device;
 	}
 

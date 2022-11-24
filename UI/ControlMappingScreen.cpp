@@ -583,7 +583,6 @@ void JoystickHistoryView::Update() {
 
 AnalogSetupScreen::AnalogSetupScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	mapper_.SetCallbacks([](int vkey) {}, [](int vkey) {}, [&](int stick, float x, float y) {
-		NOTICE_LOG(COMMON, "analog value from mapper: %f %f", x, y);
 		analogX_[stick] = x;
 		analogY_[stick] = y;
 	});
