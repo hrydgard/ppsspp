@@ -727,7 +727,7 @@ bool Is2DVRObject(float* projMatrix, bool ortho) {
 	if (!identity && !ortho) {
 		vr3DGeometryCount++;
 	}
-	return identity;
+	return identity || ortho;
 }
 
 void UpdateVRParams(float* projMatrix, float* viewMatrix) {

@@ -385,12 +385,11 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 
 	// Set HUD mode
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-		bool is3D = gstate.isDepthWriteEnabled();
-		bool hud = is2D && !is3D && !flatScreen &&
-		           gstate.isModeThrough() &&       //2D content requires orthographic projection
+		bool hud = is2D && !flatScreen &&
 		           gstate.isAlphaBlendEnabled() && //2D content has to be blended
 		           !gstate.isLightingEnabled() &&  //2D content cannot be rendered with lights on
-		           !gstate.isFogEnabled();         //2D content cannot be rendered with fog on
+		           !gstate.isFogEnabled() &&       //2D content cannot be rendered with fog on
+		           !gstate.isDepthWriteEnabled();  //This breaks minimap in GTA but works elsewhere
 		if (hud) {
 			float scale = 0.5f;
 			render_->SetUniformF1(&u_scaleX, scale);
