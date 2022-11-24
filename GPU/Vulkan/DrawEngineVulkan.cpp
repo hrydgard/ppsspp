@@ -550,8 +550,6 @@ void DrawEngineVulkan::Invalidate(InvalidationFlags flags) {
 	}
 	if (flags & InvalidationFlags::RENDER_PASS_STATE) {
 		// If have a new render pass, dirty our dynamic state so it gets re-set.
-		// We have to do this again after the last possible place in DoFlush that can cause a renderpass switch
-		// like a shader blend blit or similar. But before we actually set the state!
 		//
 		// Dirty everything that has dynamic state that will need re-recording.
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);

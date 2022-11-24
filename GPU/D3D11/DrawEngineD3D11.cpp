@@ -330,7 +330,6 @@ VertexArrayInfoD3D11::~VertexArrayInfoD3D11() {
 void DrawEngineD3D11::Invalidate(InvalidationFlags flags) {
 	if (flags & InvalidationFlags::RENDER_PASS_STATE) {
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-		textureCache_->ForgetLastTexture();
 	}
 }
 
