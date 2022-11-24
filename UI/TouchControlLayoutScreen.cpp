@@ -22,6 +22,7 @@
 #include "Common/Render/DrawBuffer.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/math_util.h"
+#include "Common/System/Display.h"
 #include "Common/UI/Context.h"
 
 #include "Common/CommonTypes.h"
@@ -327,10 +328,19 @@ public:
 			dc.BeginNoTex();
 			float xOffset = bounds_.x;
 			float yOffset = bounds_.y;
-			for (int x = x1; x < x2; x += g_Config.iTouchSnapGridSize)
+
+			dc.Draw()->Rect((x1+x2)/2 + xOffset - pixel_in_dps_x, y1 + yOffset, 3.0*pixel_in_dps_x, y2-y1, col);
+			for (int x = (x1+x2)/2 - g_Config.iTouchSnapGridSize; x > 0; x -= g_Config.iTouchSnapGridSize)
 				dc.Draw()->vLine(x + xOffset, y1 + yOffset, y2 + yOffset, col);
-			for (int y = y1; y < y2; y += g_Config.iTouchSnapGridSize)
+			for (int x = (x1+x2)/2 + g_Config.iTouchSnapGridSize; x < x2; x += g_Config.iTouchSnapGridSize)
+				dc.Draw()->vLine(x + xOffset, y1 + yOffset, y2 + yOffset, col);
+
+			dc.Draw()->Rect(x1 + xOffset, (y1+y2)/2 + yOffset - pixel_in_dps_y, x2-x1, 3.0*pixel_in_dps_y, col);
+			for (int y = (y1+y2)/2 - g_Config.iTouchSnapGridSize; y > 0; y -= g_Config.iTouchSnapGridSize)
 				dc.Draw()->hLine(x1 + xOffset, y + yOffset, x2 + xOffset, col);
+			for (int y = (y1+y2)/2 + g_Config.iTouchSnapGridSize; y < y2; y += g_Config.iTouchSnapGridSize)
+				dc.Draw()->hLine(x1 + xOffset, y + yOffset, x2 + xOffset, col);
+
 			dc.Flush();
 			dc.Begin();
 		}
@@ -401,8 +411,8 @@ void ControlLayoutView::Touch(const TouchInput &touch) {
 			newPos.x = startObjectX_ + (touch.x - startDragX_);
 			newPos.y = startObjectY_ + (touch.y - startDragY_);
 			if (g_Config.bTouchSnapToGrid) {
-				newPos.x -= fmod(newPos.x, g_Config.iTouchSnapGridSize);
-				newPos.y -= fmod(newPos.y, g_Config.iTouchSnapGridSize);
+				newPos.x -= fmod(newPos.x - validRange.w/2, g_Config.iTouchSnapGridSize);
+				newPos.y -= fmod(newPos.y - validRange.h/2, g_Config.iTouchSnapGridSize);
 			}
 
 			newPos = ClampTo(newPos, validRange);
