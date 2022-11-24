@@ -341,12 +341,6 @@ void GameSettingsScreen::CreateViews() {
 			graphicsSettings->Add(fullscreenMulti)->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenMultiChange);
 		}
 #endif
-		// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
-		displayEditor_ = graphicsSettings->Add(new Choice(gr->T("Display layout editor")));
-		displayEditor_->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
-			screenManager()->push(new DisplayLayoutScreen(gamePath_));
-			return UI::EVENT_DONE;
-		});
 
 #if PPSSPP_PLATFORM(ANDROID)
 		// Hide insets option if no insets, or OS too old.
@@ -364,6 +358,12 @@ void GameSettingsScreen::CreateViews() {
 			graphicsSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
 		}
 #endif
+		// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
+		displayEditor_ = graphicsSettings->Add(new Choice(gr->T("Display Layout && Effects")));
+		displayEditor_->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+			screenManager()->push(new DisplayLayoutScreen(gamePath_));
+			return UI::EVENT_DONE;
+		});
 	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
