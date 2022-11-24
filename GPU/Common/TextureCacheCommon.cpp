@@ -1308,6 +1308,8 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 					chosenFramebuffer->fbo, 0.0f, 0.0f, 512.0f * chosenFramebuffer->renderScaleFactor, 1.0f, 
 					dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, 
 					false, chosenFramebuffer->renderScaleFactor, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR_RECT2LIN), "copy_clut_to_temp");
+
+				framebufferManager_->RebindFramebuffer("after_copy_clut_to_temp");
 				clutRenderFormat_ = chosenFramebuffer->fb_format;
 			}
 			NotifyMemInfo(MemBlockFlags::ALLOC, clutAddr, loadBytes, "CLUT");
