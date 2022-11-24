@@ -312,9 +312,9 @@ else ifeq ($(platform), emscripten)
 	PLATFORM_EXT = unix
 
 # Windows MSVC all architectures
-else ifneq (,$(findstring windows_msvc,$(platform)))
+else ifneq (,$(findstring windows_msvc2019,$(platform)))
 
-	PlatformSuffix = $(subst windows_msvc_,,$(platform))
+	PlatformSuffix = $(subst windows_msvc2019_,,$(platform))
 	ifneq (,$(findstring desktop,$(PlatformSuffix)))
 		WinPartition = desktop
 		MSVCCompileFlags = -DWINAPI_FAMILY=WINAPI_FAMILY_DESKTOP_APP -D_UNICODE -DUNICODE -DWINVER=0x0600 -D_WIN32_WINNT=0x0600
