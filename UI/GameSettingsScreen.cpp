@@ -1755,9 +1755,6 @@ void DeveloperToolsScreen::CreateViews() {
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		list->Add(new CheckBox(&g_Config.bGpuLogProfiler, gr->T("GPU log profiler")));
 	}
-	list->Add(new ItemHeader(dev->T("Language")));
-	list->Add(new Choice(dev->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
-	list->Add(new Choice(dev->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
 	list->Add(new ItemHeader(dev->T("Texture Replacement")));
 	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
 	list->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
@@ -1866,16 +1863,6 @@ UI::EventReturn DeveloperToolsScreen::OnRunCPUTests(UI::EventParams &e) {
 #if !PPSSPP_PLATFORM(UWP)
 	RunTests();
 #endif
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DeveloperToolsScreen::OnSaveLanguageIni(UI::EventParams &e) {
-	i18nrepo.SaveIni(g_Config.sLanguageIni);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DeveloperToolsScreen::OnLoadLanguageIni(UI::EventParams &e) {
-	i18nrepo.LoadIni(g_Config.sLanguageIni);
 	return UI::EVENT_DONE;
 }
 
