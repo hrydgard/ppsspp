@@ -270,6 +270,9 @@ void DisplayLayoutScreen::CreateViews() {
 	});
 	rightColumn->Add(rotation);
 
+	static const char *bufFilters[] = { "Linear", "Nearest", };
+	rightColumn->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
+
 	rightColumn->Add(new ItemHeader(gr->T("Postprocessing effect")));
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();

@@ -569,9 +569,6 @@ void GameSettingsScreen::CreateViews() {
 	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Auto Max Quality"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gr->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), gr->GetName(), screenManager()));
 
-	static const char *bufFilters[] = { "Linear", "Nearest", };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
-
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	bool showCardboardSettings = deviceType != DEVICE_TYPE_VR;
 #else
