@@ -84,7 +84,6 @@ public:
 	void BeginFrame();
 	void EndFrame();
 
-
 	// So that this can be inlined
 	void Flush() {
 		if (!numDrawCalls)
@@ -117,6 +116,8 @@ protected:
 	bool UpdateUseHWTessellation(bool enable) override;
 
 private:
+	void Invalidate(InvalidationFlags flags);
+
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 

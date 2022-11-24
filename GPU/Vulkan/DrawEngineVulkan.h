@@ -43,6 +43,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Vulkan/StateMappingVulkan.h"
+#include "GPU/Vulkan/VulkanRenderManager.h"
 
 struct DecVtxFormat;
 struct UVScale;
@@ -208,6 +209,8 @@ public:
 	}
 
 private:
+	void Invalidate(InvalidationFlags flags);
+
 	struct FrameData;
 	void ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
@@ -308,6 +311,4 @@ private:
 
 	// Hardware tessellation
 	TessellationDataTransferVulkan *tessDataTransferVulkan;
-
-	int lastRenderStepId_ = -1;
 };

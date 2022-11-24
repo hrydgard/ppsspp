@@ -144,6 +144,7 @@ protected:
 	void DecimateTrackedVertexArrays();
 
 private:
+	void Invalidate(InvalidationFlags flags);
 	void DoFlush();
 
 	void ApplyDrawState(int prim);

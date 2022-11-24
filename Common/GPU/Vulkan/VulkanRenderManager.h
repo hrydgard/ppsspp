@@ -19,6 +19,7 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/DataFormat.h"
+#include "Common/GPU/MiscTypes.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
 // Forward declaration
@@ -234,6 +235,10 @@ public:
 	void Finish();
 	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.
 	void Wipe();
+
+	void SetInvalidationCallback(InvalidationCallback callback) {
+		invalidationCallback_ = callback;
+	}
 
 	// This starts a new step containing a render pass (unless it can be trivially merged into the previous one, which is pretty common).
 	//
@@ -475,12 +480,6 @@ public:
 
 	VkCommandBuffer GetInitCmd();
 
-	// Gets a frame-unique ID of the current step being recorded. Can be used to figure out
-	// when the current step has changed, which means the caller will need to re-record its state.
-	int GetCurrentStepId() const {
-		return renderStepOffset_ + (int)steps_.size();
-	}
-
 	bool CreateBackbuffers();
 	void DestroyBackbuffers();
 
@@ -520,7 +519,6 @@ private:
 	void DrainCompileQueue();
 
 	void Run(VKRRenderThreadTask &task);
-	void BeginSubmitFrame(int frame);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
@@ -548,7 +546,6 @@ private:
 	bool run_ = false;
 
 	// This is the offset within this frame, in case of a mid-frame sync.
-	int renderStepOffset_ = 0;
 	VKRStep *curRenderStep_ = nullptr;
 	bool curStepHasViewport_ = false;
 	bool curStepHasScissor_ = false;
@@ -587,4 +584,6 @@ private:
 	SimpleStat initTimeMs_;
 	SimpleStat totalGPUTimeMs_;
 	SimpleStat renderCPUTimeMs_;
+
+	std::function<void(InvalidationFlags)> invalidationCallback_;
 };
