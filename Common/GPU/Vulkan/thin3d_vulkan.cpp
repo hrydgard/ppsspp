@@ -592,6 +592,8 @@ static int GetBpp(VkFormat format) {
 static VkFormat DataFormatToVulkan(DataFormat format) {
 	switch (format) {
 	case DataFormat::D16: return VK_FORMAT_D16_UNORM;
+	case DataFormat::D16_S8: return VK_FORMAT_D16_UNORM_S8_UINT;
+	case DataFormat::D24_S8: return VK_FORMAT_D24_UNORM_S8_UINT;
 	case DataFormat::D32F: return VK_FORMAT_D32_SFLOAT;
 	case DataFormat::D32F_S8: return VK_FORMAT_D32_SFLOAT_S8_UINT;
 	case DataFormat::S8: return VK_FORMAT_S8_UINT;
@@ -784,6 +786,25 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 	return true;
 }
 
+static DataFormat DataFormatFromVulkanDepth(VkFormat fmt) {
+	switch (fmt) {
+	case VK_FORMAT_D24_UNORM_S8_UINT:
+		return DataFormat::D24_S8;
+	case VK_FORMAT_D16_UNORM:
+		return DataFormat::D16;
+	case VK_FORMAT_D32_SFLOAT:
+		return DataFormat::D32F;
+	case VK_FORMAT_D32_SFLOAT_S8_UINT:
+		return DataFormat::D32F_S8;
+	case VK_FORMAT_D16_UNORM_S8_UINT:
+		return DataFormat::D16_S8;
+	default:
+		break;
+	}
+
+	return DataFormat::UNDEFINED;
+}
+
 VKContext::VKContext(VulkanContext *vulkan)
 	: vulkan_(vulkan), renderManager_(vulkan) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
@@ -803,7 +824,8 @@ VKContext::VKContext(VulkanContext *vulkan)
 	caps_.framebufferStencilBlitSupported = caps_.framebufferDepthBlitSupported;
 	caps_.framebufferDepthCopySupported = true;   // Will pretty much always be the case.
 	caps_.framebufferSeparateDepthCopySupported = true;   // Will pretty much always be the case.
-	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;  // TODO: Ask vulkan.
+	// This doesn't affect what depth/stencil format is actually used, see VulkanQueueRunner.
+	caps_.preferredDepthBufferFormat = DataFormatFromVulkanDepth(vulkan->GetDeviceInfo().preferredDepthStencilFormat);
 	caps_.texture3DSupported = true;
 	caps_.textureDepthSupported = true;
 	caps_.fragmentShaderInt32Supported = true;

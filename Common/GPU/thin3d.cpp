@@ -46,6 +46,7 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 
 	case DataFormat::S8: return 1;
 	case DataFormat::D16: return 2;
+	case DataFormat::D16_S8: return 3;
 	case DataFormat::D24_S8: return 4;
 	case DataFormat::D32F: return 4;
 	// Or maybe 8...
@@ -68,6 +69,7 @@ const char *DataFormatToString(DataFormat fmt) {
 
 	case DataFormat::S8: return "S8";
 	case DataFormat::D16: return "D16";
+	case DataFormat::D16_S8: return "D16_S8";
 	case DataFormat::D24_S8: return "D24_S8";
 	case DataFormat::D32F: return "D32F";
 	case DataFormat::D32F_S8: return "D32F_S8";
@@ -80,6 +82,7 @@ const char *DataFormatToString(DataFormat fmt) {
 bool DataFormatIsDepthStencil(DataFormat fmt) {
 	switch (fmt) {
 	case DataFormat::D16:
+	case DataFormat::D16_S8:
 	case DataFormat::D24_S8:
 	case DataFormat::S8:
 	case DataFormat::D32F:
