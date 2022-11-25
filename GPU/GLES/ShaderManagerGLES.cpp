@@ -385,16 +385,29 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 
 	// Set HUD mode
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-		bool postprocess = gstate.isClearModeColorMask() || gstate_c.textureFullAlpha ||
-		                   //rendering framebuffer on screen
-		                   (gstate_c.curTextureWidth % 480 == 0) && (gstate_c.curTextureHeight % 272 == 0) ||
-		                   //rendering far plane
-		                   (fabs(gstate.viewMatrix[9]) > 1000) || (fabs(gstate.viewMatrix[11]) > 1000);
 
-		bool hud = is2D && !flatScreen && !postprocess &&
-		           gstate.isAlphaBlendEnabled() && //2D content has to be blended
-		           !gstate.isLightingEnabled() &&  //2D content cannot be rendered with lights on
-		           !gstate.isFogEnabled();         //2D content cannot be rendered with fog on
+		bool hud = true;
+		//HUD cannot be rendered in flatscreen
+		if (flatScreen) hud = false;
+		//HUD has to be 2D
+		else if (!is2D) hud = false;
+		//HUD has to be blended
+		else if (!gstate.isAlphaBlendEnabled()) hud = false;
+		//HUD cannot be rendered with clear color mask
+		else if (gstate.isClearModeColorMask()) hud = false;
+		//HUD cannot be rendered with fog on
+		else if (gstate.isFogEnabled()) hud = false;
+		//HUD cannot be rendered with lights on
+		else if (gstate.isLightingEnabled()) hud = false;
+		//HUD texture has to contain alpha channel
+		else if (!gstate.isTextureAlphaUsed()) hud = false;
+		//HUD cannot have full alpha
+		else if (gstate_c.textureFullAlpha) hud = false;
+		//HUD cannot render FB screenshot
+		else if  (gstate_c.curTextureHeight == 272) hud = false;
+		//HUD cannot render far plane
+		if ((fabs(gstate.viewMatrix[9]) > 1000) || (fabs(gstate.viewMatrix[11]) > 1000)) hud = false;
+
 		if (hud) {
 			render_->SetUniformF1(&u_scaleX, g_Config.fHeadUpDidplayScale * 480.0f / 272.0f);
 			render_->SetUniformF1(&u_scaleY, g_Config.fHeadUpDidplayScale);
