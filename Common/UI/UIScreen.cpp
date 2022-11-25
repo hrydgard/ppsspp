@@ -849,20 +849,30 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	const std::string valueText = ValueText();
-	// Assume we want at least 20% of the size for the label, at a minimum.
-	float availWidth = (bounds_.w - paddingX * 2) * 0.8f;
-	float scale = CalculateValueScale(dc, valueText, availWidth);
 
-	float w, h;
-	Bounds availBounds(0, 0, availWidth, bounds_.h);
-	dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText.c_str(), (int)valueText.size(), availBounds, &w, &h, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
-	textPadding_.right = w + paddingX;
+	// If there is a label, assume we want at least 20% of the size for it, at a minimum.
 
-	Choice::Draw(dc);
-	dc.SetFontScale(scale, scale);
-	Bounds valueBounds(bounds_.x2() - textPadding_.right, bounds_.y, w, bounds_.h);
-	dc.DrawTextRect(valueText.c_str(), valueBounds, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
-	dc.SetFontScale(1.0f, 1.0f);
+	if (!text_.empty()) {
+		float availWidth = (bounds_.w - paddingX * 2) * 0.8f;
+		float scale = CalculateValueScale(dc, valueText, availWidth);
+
+		float w, h;
+		Bounds availBounds(0, 0, availWidth, bounds_.h);
+		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText.c_str(), (int)valueText.size(), availBounds, &w, &h, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		textPadding_.right = w + paddingX;
+
+		Choice::Draw(dc);
+		dc.SetFontScale(scale, scale);
+		Bounds valueBounds(bounds_.x2() - textPadding_.right, bounds_.y, w, bounds_.h);
+		dc.DrawTextRect(valueText.c_str(), valueBounds, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.SetFontScale(1.0f, 1.0f);
+	} else {
+		Choice::Draw(dc);
+		float scale = CalculateValueScale(dc, valueText, bounds_.w);
+		dc.SetFontScale(scale, scale);
+		dc.DrawTextRect(valueText.c_str(), bounds_.Expand(-paddingX, 0.0f), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.SetFontScale(1.0f, 1.0f);
+	}
 }
 
 float AbstractChoiceWithValueDisplay::CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const {
