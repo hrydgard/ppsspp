@@ -316,9 +316,9 @@ void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(co
 						g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -50.0f, 50.0f);
 						break;
 					case JOYSTICK_AXIS_Z:
-						if (axis.second < -0.75f) g_Config.fHeadUpDidplayScale -= 0.01f;
-						if (axis.second > 0.75f) g_Config.fHeadUpDidplayScale += 0.01f;
-						g_Config.fHeadUpDidplayScale = clampFloat(g_Config.fHeadUpDidplayScale, 0.2f, 1.0f);
+						if (axis.second < -0.75f) g_Config.fHeadUpDisplayScale -= 0.01f;
+						if (axis.second > 0.75f) g_Config.fHeadUpDisplayScale += 0.01f;
+						g_Config.fHeadUpDisplayScale = clampFloat(g_Config.fHeadUpDisplayScale, 0.2f, 1.0f);
 						break;
 					case JOYSTICK_AXIS_RZ:
 						if (axis.second > 0.75f) g_Config.fCameraDistance -= 0.1f;
@@ -430,7 +430,7 @@ bool UpdateVRKeys(const KeyInput &key) {
 		g_Config.fCameraHeight = 0;
 		g_Config.fCameraSide = 0;
 		g_Config.fCameraDistance = 0;
-		g_Config.fHeadUpDidplayScale = 0.3f;
+		g_Config.fHeadUpDisplayScale = 0.3f;
 	}
 
 	//block keys by camera adjust

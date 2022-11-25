@@ -409,8 +409,8 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		if ((fabs(gstate.viewMatrix[9]) > 100) || (fabs(gstate.viewMatrix[11]) > 100)) hud = false;
 
 		if (hud) {
-			render_->SetUniformF1(&u_scaleX, g_Config.fHeadUpDidplayScale * 480.0f / 272.0f);
-			render_->SetUniformF1(&u_scaleY, g_Config.fHeadUpDidplayScale);
+			render_->SetUniformF1(&u_scaleX, g_Config.fHeadUpDisplayScale * 480.0f / 272.0f);
+			render_->SetUniformF1(&u_scaleY, g_Config.fHeadUpDisplayScale);
 		} else {
 			render_->SetUniformF1(&u_scaleX, 1.0f);
 			render_->SetUniformF1(&u_scaleY, 1.0f);
