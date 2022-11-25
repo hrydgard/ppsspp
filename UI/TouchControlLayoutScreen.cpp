@@ -330,15 +330,11 @@ public:
 			float yOffset = bounds_.y;
 
 			dc.Draw()->Rect((x1+x2)/2 + xOffset - pixel_in_dps_x, y1 + yOffset, 3.0*pixel_in_dps_x, y2-y1, col);
-			for (int x = (x1+x2)/2 - g_Config.iTouchSnapGridSize; x > 0; x -= g_Config.iTouchSnapGridSize)
-				dc.Draw()->vLine(x + xOffset, y1 + yOffset, y2 + yOffset, col);
-			for (int x = (x1+x2)/2 + g_Config.iTouchSnapGridSize; x < x2; x += g_Config.iTouchSnapGridSize)
-				dc.Draw()->vLine(x + xOffset, y1 + yOffset, y2 + yOffset, col);
-
 			dc.Draw()->Rect(x1 + xOffset, (y1+y2)/2 + yOffset - pixel_in_dps_y, x2-x1, 3.0*pixel_in_dps_y, col);
-			for (int y = (y1+y2)/2 - g_Config.iTouchSnapGridSize; y > 0; y -= g_Config.iTouchSnapGridSize)
-				dc.Draw()->hLine(x1 + xOffset, y + yOffset, x2 + xOffset, col);
-			for (int y = (y1+y2)/2 + g_Config.iTouchSnapGridSize; y < y2; y += g_Config.iTouchSnapGridSize)
+
+			for (int x = x1 + (x1+x2)/2 % g_Config.iTouchSnapGridSize; x < x2; x += g_Config.iTouchSnapGridSize)
+				dc.Draw()->vLine(x + xOffset, y1 + yOffset, y2 + yOffset, col);
+			for (int y = y1 + (y1+y2)/2 % g_Config.iTouchSnapGridSize; y < y2; y += g_Config.iTouchSnapGridSize)
 				dc.Draw()->hLine(x1 + xOffset, y + yOffset, x2 + xOffset, col);
 
 			dc.Flush();
