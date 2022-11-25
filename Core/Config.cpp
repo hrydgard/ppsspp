@@ -1214,6 +1214,7 @@ static ConfigSetting vrSettings[] = {
 	ConfigSetting("VRCameraSide", &g_Config.fCameraSide, 0.0f),
 	ConfigSetting("VRCanvasDistance", &g_Config.fCanvasDistance, 6.0f),
 	ConfigSetting("VRFieldOfView", &g_Config.fFieldOfViewPercentage, 100.0f),
+	ConfigSetting("VRHeadUpDisplayScale", &g_Config.fHeadUpDisplayScale, 0.3f),
 	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f),
 
 	ConfigSetting(false),

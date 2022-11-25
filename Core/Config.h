@@ -471,6 +471,7 @@ public:
 	float fCameraSide;
 	float fCanvasDistance;
 	float fFieldOfViewPercentage;
+	float fHeadUpDisplayScale;
 	float fMotionLength;
 
 	// Debugger
