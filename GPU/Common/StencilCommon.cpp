@@ -135,10 +135,11 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 		return false;
 	}
 
-	VirtualFramebuffer *dstBuffer = 0;
+	VirtualFramebuffer *dstBuffer = nullptr;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		if (vfb->fb_address == addr) {
+		// TODO: Maybe we should broadcast to all?  Most of the time, there's only one.
+		if (vfb->fb_address == addr && (!dstBuffer || dstBuffer->colorBindSeq < vfb->colorBindSeq)) {
 			dstBuffer = vfb;
 		}
 	}
