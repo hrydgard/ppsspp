@@ -570,6 +570,7 @@ struct DeviceCaps {
 	bool fragmentShaderInt32Supported;
 	bool textureNPOTFullySupported;
 	bool fragmentShaderDepthWriteSupported;
+	bool fragmentShaderStencilWriteSupported;
 	bool textureDepthSupported;
 	bool blendMinMaxSupported;
 	bool multiViewSupported;

@@ -809,6 +809,7 @@ VKContext::VKContext(VulkanContext *vulkan)
 	caps_.fragmentShaderInt32Supported = true;
 	caps_.textureNPOTFullySupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
+	caps_.fragmentShaderStencilWriteSupported = vulkan->Extensions().EXT_shader_stencil_export;
 	caps_.blendMinMaxSupported = true;
 	caps_.logicOpSupported = vulkan->GetDeviceFeatures().enabled.standard.logicOp != 0;
 	caps_.multiViewSupported = vulkan->GetDeviceFeatures().enabled.multiview.multiview != 0;
