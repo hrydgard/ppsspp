@@ -483,7 +483,7 @@ void Choice::Draw(UIContext &dc) {
 
 	if (image_.isValid() && text_.empty()) {
 		dc.Draw()->DrawImageRotated(image_, bounds_.centerX(), bounds_.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
-	} else {
+	} else if (!text_.empty()) {
 		dc.SetFontStyle(dc.theme->uiFont);
 
 		int paddingX = 12;
