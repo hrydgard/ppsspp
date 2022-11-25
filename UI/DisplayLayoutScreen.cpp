@@ -321,6 +321,8 @@ void DisplayLayoutScreen::CreateViews() {
 						settingValue->SetEnabled(false);
 					} else {
 						PopupSliderChoiceFloat *settingValue = rightColumn->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+						settingValue->SetLiveUpdate(true);
+						settingValue->SetHasDropShadow(false);
 						settingValue->SetEnabledFunc([=] {
 							return !g_Config.bSkipBufferEffects && !enableStereo();
 						});
