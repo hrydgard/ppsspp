@@ -392,8 +392,8 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		           !gstate.isFogEnabled() &&       //2D content cannot be rendered with fog on
 		           !gstate.isDepthWriteEnabled();  //This breaks minimap in GTA but works elsewhere
 		if (hud) {
-			render_->SetUniformF1(&u_scaleX, g_Config.fHeadUpDidplayScale);
-			render_->SetUniformF1(&u_scaleY, g_Config.fHeadUpDidplayScale / 480.0f * 272.0f);
+			render_->SetUniformF1(&u_scaleX, g_Config.fHeadUpDidplayScale * 480.0f / 272.0f);
+			render_->SetUniformF1(&u_scaleY, g_Config.fHeadUpDidplayScale);
 		} else {
 			render_->SetUniformF1(&u_scaleX, 1.0f);
 			render_->SetUniformF1(&u_scaleY, 1.0f);
