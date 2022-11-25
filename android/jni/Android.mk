@@ -739,6 +739,18 @@ ifeq ($(HEADLESS),1)
   include $(BUILD_EXECUTABLE)
 endif
 
+ifeq ($(OPENXR),1)
+  LOCAL_CFLAGS += -DOPENXR
+endif
+
+ifeq ($(OPENXR_PLATFORM_QUEST),1)
+  LOCAL_CFLAGS += -DOPENXR_PLATFORM_QUEST
+endif
+
+ifeq ($(OPENXR_PLATFORM_PICO),1)
+  LOCAL_CFLAGS += -DOPENXR_PLATFORM_PICO
+endif
+
 ifeq ($(UNITTEST),1)
   include $(CLEAR_VARS)
   include $(LOCAL_PATH)/Locals.mk
