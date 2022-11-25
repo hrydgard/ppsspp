@@ -406,7 +406,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		//HUD cannot render FB screenshot
 		else if  (gstate_c.curTextureHeight == 272) hud = false;
 		//HUD cannot render far plane
-		if ((fabs(gstate.viewMatrix[9]) > 1000) || (fabs(gstate.viewMatrix[11]) > 1000)) hud = false;
+		if ((fabs(gstate.viewMatrix[9]) > 100) || (fabs(gstate.viewMatrix[11]) > 100)) hud = false;
 
 		if (hud) {
 			render_->SetUniformF1(&u_scaleX, g_Config.fHeadUpDidplayScale * 480.0f / 272.0f);
