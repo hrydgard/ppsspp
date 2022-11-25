@@ -385,7 +385,8 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 
 	// Set HUD mode
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-		bool hud = is2D && !flatScreen &&
+		bool postprocess = ((gstate_c.curTextureWidth % 480 == 0) && (gstate_c.curTextureHeight % 272 == 0)) || gstate_c.textureFullAlpha;
+		bool hud = is2D && !flatScreen && !postprocess &&
 		           gstate.isAlphaBlendEnabled() && //2D content has to be blended
 		           !gstate.isLightingEnabled() &&  //2D content cannot be rendered with lights on
 		           !gstate.isFogEnabled() &&       //2D content cannot be rendered with fog on
