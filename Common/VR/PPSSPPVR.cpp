@@ -430,7 +430,7 @@ bool UpdateVRKeys(const KeyInput &key) {
 		g_Config.fCameraHeight = 0;
 		g_Config.fCameraSide = 0;
 		g_Config.fCameraDistance = 0;
-		g_Config.fFieldOfViewPercentage = 100;
+		g_Config.fHeadUpDidplayScale = 0.3f;
 	}
 
 	//block keys by camera adjust
