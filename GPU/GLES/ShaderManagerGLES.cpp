@@ -353,6 +353,33 @@ static inline void FlipProjMatrix(Matrix4x4 &in, bool useBufferedRendering) {
 	}
 }
 
+static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
+
+	bool hud = true;
+	//HUD cannot be rendered in flatscreen
+	if (flatScreen) hud = false;
+	//HUD has to be 2D
+	else if (!is2D) hud = false;
+	//HUD has to be blended
+	else if (!gstate.isAlphaBlendEnabled()) hud = false;
+	//HUD cannot be rendered with clear color mask
+	else if (gstate.isClearModeColorMask()) hud = false;
+	//HUD cannot be rendered with fog on
+	else if (gstate.isFogEnabled()) hud = false;
+	//HUD cannot be rendered with lights on
+	else if (gstate.isLightingEnabled()) hud = false;
+	//HUD texture has to contain alpha channel
+	else if (!gstate.isTextureAlphaUsed()) hud = false;
+	//HUD cannot have full alpha
+	else if (gstate_c.textureFullAlpha) hud = false;
+	//HUD cannot render FB screenshot
+	else if (gstate_c.curTextureHeight == 272) hud = false;
+	//HUD cannot render far plane
+	else if ((fabs(gstate.viewMatrix[9]) > 100) || (fabs(gstate.viewMatrix[11]) > 100)) hud = false;
+
+	return hud;
+}
+
 void LinkedShader::use(const ShaderID &VSID) {
 	render_->BindProgram(program);
 	// Note that we no longer track attr masks here - we do it for the input layouts instead.
@@ -385,30 +412,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 
 	// Set HUD mode
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-
-		bool hud = true;
-		//HUD cannot be rendered in flatscreen
-		if (flatScreen) hud = false;
-		//HUD has to be 2D
-		else if (!is2D) hud = false;
-		//HUD has to be blended
-		else if (!gstate.isAlphaBlendEnabled()) hud = false;
-		//HUD cannot be rendered with clear color mask
-		else if (gstate.isClearModeColorMask()) hud = false;
-		//HUD cannot be rendered with fog on
-		else if (gstate.isFogEnabled()) hud = false;
-		//HUD cannot be rendered with lights on
-		else if (gstate.isLightingEnabled()) hud = false;
-		//HUD texture has to contain alpha channel
-		else if (!gstate.isTextureAlphaUsed()) hud = false;
-		//HUD cannot have full alpha
-		else if (gstate_c.textureFullAlpha) hud = false;
-		//HUD cannot render FB screenshot
-		else if  (gstate_c.curTextureHeight == 272) hud = false;
-		//HUD cannot render far plane
-		if ((fabs(gstate.viewMatrix[9]) > 100) || (fabs(gstate.viewMatrix[11]) > 100)) hud = false;
-
-		if (hud) {
+		if (GuessVRDrawingHUD(is2D, flatScreen)) {
 			render_->SetUniformF1(&u_scaleX, g_Config.fHeadUpDisplayScale * 480.0f / 272.0f);
 			render_->SetUniformF1(&u_scaleY, g_Config.fHeadUpDisplayScale);
 		} else {
