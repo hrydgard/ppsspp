@@ -371,6 +371,7 @@ void CheckGLExtensions() {
 	gl_extensions.ARB_uniform_buffer_object = g_set_gl_extensions.count("GL_ARB_uniform_buffer_object") != 0;
 	gl_extensions.ARB_explicit_attrib_location = g_set_gl_extensions.count("GL_ARB_explicit_attrib_location") != 0;
 	gl_extensions.ARB_texture_non_power_of_two = g_set_gl_extensions.count("GL_ARB_texture_non_power_of_two") != 0;
+	gl_extensions.ARB_shader_stencil_export = g_set_gl_extensions.count("GL_ARB_shader_stencil_export") != 0;
 	if (gl_extensions.IsGLES) {
 		gl_extensions.EXT_blend_func_extended = g_set_gl_extensions.count("GL_EXT_blend_func_extended") != 0;
 		gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_OES_texture_npot") != 0;

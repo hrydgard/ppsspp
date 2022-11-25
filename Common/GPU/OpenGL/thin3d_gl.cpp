@@ -575,6 +575,7 @@ OpenGLContext::OpenGLContext() {
 	} else {
 		caps_.fragmentShaderDepthWriteSupported = true;
 	}
+	caps_.fragmentShaderStencilWriteSupported = gl_extensions.ARB_shader_stencil_export;
 
 	// GLES has no support for logic framebuffer operations. There doesn't even seem to exist any such extensions.
 	caps_.logicOpSupported = !gl_extensions.IsGLES;

@@ -65,6 +65,7 @@ enum class DataFormat : uint8_t {
 
 	S8,
 	D16,
+	D16_S8,
 	D24_S8,
 	D32F,
 	D32F_S8,

@@ -291,17 +291,21 @@ bool TestStencilShaders() {
 		ShaderLanguageDesc desc(languages[k]);
 		std::string errorMessage;
 
-		// Generate all despite failures - it's only 6.
-		GenerateStencilFs(buffer, desc, bugs);
-		if (strlen(buffer) >= 8192) {
-			printf("Stencil fragment shader exceeded buffer:\n\n%s\n", LineNumberString(buffer).c_str());
-			failed = true;
-		}
-		if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
-			printf("Error compiling stencil shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
-			failed = true;
-		} else {
-			printf("===\n%s\n===\n", buffer);
+		// Generate all despite failures - it's only a few.
+		// Only use export on Vulkan, because GLSL_3xx is ES which doesn't support stencil export.
+		bool allowUseExport = languages[k] == ShaderLanguage::GLSL_VULKAN;
+		for (int useExport = 0; useExport <= (allowUseExport ? 1 : 0); ++useExport) {
+			GenerateStencilFs(buffer, desc, bugs, useExport == 1);
+			if (strlen(buffer) >= 8192) {
+				printf("Stencil fragment shader (useExport=%d) exceeded buffer:\n\n%s\n", useExport, LineNumberString(buffer).c_str());
+				failed = true;
+			}
+			if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
+				printf("Error compiling stencil shader (useExport=%d):\n\n%s\n\n%s\n", useExport, LineNumberString(buffer).c_str(), errorMessage.c_str());
+				failed = true;
+			} else {
+				printf("===\n%s\n===\n", buffer);
+			}
 		}
 
 		GenerateStencilVs(buffer, desc);

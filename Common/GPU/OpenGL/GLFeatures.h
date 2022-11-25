@@ -72,6 +72,7 @@ struct GLExtensions {
 	bool ARB_uniform_buffer_object;
 	bool ARB_texture_non_power_of_two;
 	bool ARB_stencil_texturing;
+	bool ARB_shader_stencil_export;
 
 	// EXT
 	bool EXT_swap_control_tear;
