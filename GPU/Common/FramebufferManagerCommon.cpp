@@ -1353,10 +1353,12 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	shaderManager_->DirtyLastShader();
 
 	if (displayFramebufPtr_ == 0) {
-		if (Core_IsStepping())
-			VERBOSE_LOG(FRAMEBUF, "Display disabled, displaying only black");
-		else
-			DEBUG_LOG(FRAMEBUF, "Display disabled, displaying only black");
+		if (GetUIState() != UISTATE_PAUSEMENU) {
+			if (Core_IsStepping())
+				VERBOSE_LOG(FRAMEBUF, "Display disabled, displaying only black");
+			else
+				DEBUG_LOG(FRAMEBUF, "Display disabled, displaying only black");
+		}
 		// No framebuffer to display! Clear to black.
 		if (useBufferedRendering_) {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput");
@@ -1444,10 +1446,12 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	displayFramebuf_ = vfb;
 
 	if (vfb->fbo) {
-		if (Core_IsStepping())
-			VERBOSE_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
-		else
-			DEBUG_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
+		if (GetUIState() != UISTATE_PAUSEMENU) {
+			if (Core_IsStepping())
+				VERBOSE_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
+			else
+				DEBUG_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
+		}
 
 		float u0 = offsetX / (float)vfb->bufferWidth;
 		float v0 = offsetY / (float)vfb->bufferHeight;
