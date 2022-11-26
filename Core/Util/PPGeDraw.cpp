@@ -913,12 +913,20 @@ static void PPGeDrawTextImage(PPGeTextDrawerImage im, float x, float y, const PP
 		return;
 	}
 
+	// Sometimes our texture can be larger than 512 wide, which means we need to tile it.
 	int bufw = ((im.entry.bmWidth + 31) / 32) * 32;
-	int wp2 = GetPow2(im.entry.bmWidth);
+	int tile1bmWidth = std::min(512, im.entry.bmWidth);
+	int tile2bmWidth = tile1bmWidth == 512 ? im.entry.bmWidth - 512 : 0;
+	bool hasTile2 = tile2bmWidth != 0;
+
+	// Now figure the tile shift value.
+	int tile1wp2 = GetPow2(tile1bmWidth);
+	int tile2wp2 = hasTile2 ? GetPow2(tile2bmWidth) : 0;
 	int hp2 = GetPow2(im.entry.bmHeight);
+
 	WriteCmd(GE_CMD_TEXADDR0, im.ptr & 0xFFFFF0);
 	WriteCmd(GE_CMD_TEXBUFWIDTH0, bufw | ((im.ptr & 0xFF000000) >> 8));
-	WriteCmd(GE_CMD_TEXSIZE0, wp2 | (hp2 << 8));
+	WriteCmd(GE_CMD_TEXSIZE0, tile1wp2 | (hp2 << 8));
 	WriteCmd(GE_CMD_TEXFLUSH, 0);
 
 	float w = im.entry.width * style.scale;
@@ -934,21 +942,62 @@ static void PPGeDrawTextImage(PPGeTextDrawerImage im, float x, float y, const PP
 		y -= h;
 
 	BeginVertexData();
-	float u1 = (float)im.entry.width / (1 << wp2);
+	float tile2x = 512 * style.scale;
+	float tile1w = hasTile2 ? 512.0f * style.scale : w;
+	float tile2w = hasTile2 ? w - tile1w : 0.0f;
+	float tile1u1 = hasTile2 ? 1.0f : (float)im.entry.width / (1 << tile1wp2);
+	float tile2u1 = hasTile2 ? (float)(im.entry.width - 512) / (1 << tile2wp2) : 0.0f;
 	float v1 = (float)im.entry.height / (1 << hp2);
 	if (style.hasShadow) {
 		// Draw more shadows for a blurrier shadow.
+		u32 shadowColor = alphaMul(style.shadowColor, 0.35f);
 		for (float dy = 0.0f; dy <= 2.0f; dy += 1.0f) {
 			for (float dx = 0.0f; dx <= 1.0f; dx += 0.5f) {
 				if (dx == 0.0f && dy == 0.0f)
 					continue;
-				Vertex(x + dx, y + dy, 0, 0, 1 << wp2, 1 << hp2, alphaMul(style.shadowColor, 0.35f));
-				Vertex(x + dx + w, y + dy + h, u1, v1, 1 << wp2, 1 << hp2, alphaMul(style.shadowColor, 0.35f));
+
+				Vertex(x + dx, y + dy, 0, 0, 1 << tile1wp2, 1 << hp2, shadowColor);
+				Vertex(x + dx + tile1w, y + dy + h, tile1u1, v1, 1 << tile1wp2, 1 << hp2, shadowColor);
 			}
 		}
+
+		// Did we need another tile?
+		if (hasTile2) {
+			// Flush to change to tile2.
+			EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
+			BeginVertexData();
+			WriteCmd(GE_CMD_TEXADDR0, (im.ptr & 0xFFFFF0) + 256);
+			WriteCmd(GE_CMD_TEXSIZE0, tile2wp2 | (hp2 << 8));
+
+			for (float dy = 0.0f; dy <= 2.0f; dy += 1.0f) {
+				for (float dx = 0.0f; dx <= 1.0f; dx += 0.5f) {
+					if (dx == 0.0f && dy == 0.0f)
+						continue;
+
+					Vertex(x + tile2x + dx, y + dy, 0, 0, 1 << tile2wp2, 1 << hp2, shadowColor);
+					Vertex(x + tile2x + dx + tile2w, y + dy + h, tile2u1, v1, 1 << tile2wp2, 1 << hp2, shadowColor);
+				}
+			}
+
+			// Return to tile1 for the text.
+			EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
+			BeginVertexData();
+			WriteCmd(GE_CMD_TEXADDR0, im.ptr & 0xFFFFF0);
+			WriteCmd(GE_CMD_TEXSIZE0, tile1wp2 | (hp2 << 8));
+		}
 	}
-	Vertex(x, y, 0, 0, 1 << wp2, 1 << hp2, style.color);
-	Vertex(x + w, y + h, u1, v1, 1 << wp2, 1 << hp2, style.color);
+
+	Vertex(x, y, 0, 0, 1 << tile1wp2, 1 << hp2, style.color);
+	Vertex(x + tile1w, y + h, tile1u1, v1, 1 << tile1wp2, 1 << hp2, style.color);
+	if (hasTile2) {
+		EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
+		BeginVertexData();
+		WriteCmd(GE_CMD_TEXADDR0, (im.ptr & 0xFFFFF0) + 256);
+		WriteCmd(GE_CMD_TEXSIZE0, tile2wp2 | (hp2 << 8));
+
+		Vertex(x + tile2x, y, 0, 0, 1 << tile2wp2, 1 << hp2, style.color);
+		Vertex(x + tile2x + tile2w, y + h, tile2u1, v1, 1 << tile2wp2, 1 << hp2, style.color);
+	}
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 
 	PPGeSetDefaultTexture();
