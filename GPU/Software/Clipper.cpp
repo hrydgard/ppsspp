@@ -50,13 +50,16 @@ inline float clip_dotprod(const ClipVertexData &vert, float A, float B, float C,
 }
 
 inline void clip_interpolate(ClipVertexData &dest, float t, const ClipVertexData &a, const ClipVertexData &b) {
-	dest.Lerp(t, a, b);
 	if (different_signs(a.clippos.w, b.clippos.w)) {
-		dest.v.screenpos.x = 0x7FFFFFFF;
-	} else {
-		dest.v.screenpos = TransformUnit::ClipToScreen(dest.clippos);
-		dest.v.clipw = dest.clippos.w;
+		if (a.clippos.w < -1.0f || b.clippos.w < -1.0f) {
+			dest.v.screenpos.x = 0x7FFFFFFF;
+			return;
+		}
 	}
+
+	dest.Lerp(t, a, b);
+	dest.v.screenpos = TransformUnit::ClipToScreen(dest.clippos);
+	dest.v.clipw = dest.clippos.w;
 }
 
 #define CLIP_POLY( PLANE_BIT, A, B, C, D )							\
