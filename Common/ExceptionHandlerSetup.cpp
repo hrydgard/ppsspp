@@ -127,7 +127,7 @@ static void ExceptionThread(mach_port_t port) {
 #pragma pack()
 	memset(&msg_in, 0xee, sizeof(msg_in));
 	memset(&msg_out, 0xee, sizeof(msg_out));
-	mach_msg_header_t* send_msg = nullptr;
+	mach_msg_header_t* send_msg = &msg_out.Head;
 	mach_msg_size_t send_size = 0;
 	mach_msg_option_t option = MACH_RCV_MSG;
 	while (true) {
