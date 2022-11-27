@@ -178,13 +178,15 @@ void DisplayLayoutScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
+	ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, 10.f, 10.f, NONE, 10.f, false));
+	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL);
+	leftScrollView->Add(leftColumn);
+	root_->Add(leftScrollView);
+
 	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 10.f, 10.f, 10.f, false));
 	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL);
 	rightScrollView->Add(rightColumn);
 	root_->Add(rightScrollView);
-
-	// We manually implement insets here for the buttons. This file defied refactoring :(
-	float leftInset = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
 
 	bool displayRotEnable = !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 	bRotated_ = false;
@@ -192,34 +194,36 @@ void DisplayLayoutScreen::CreateViews() {
 		bRotated_ = true;
 	}
 
-	Choice *center = new Choice(di->T("Center"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 74));
-	center->OnClick.Add([&](UI::EventParams &) {
-		g_Config.fDisplayOffsetX = 0.5f;
-		g_Config.fDisplayOffsetY = 0.5f;
-		return UI::EVENT_DONE;
-	});
-	root_->Add(center);
+	PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, di->T("Aspect Ratio"), screenManager());
+	leftColumn->Add(aspectRatio);
 
-	PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, di->T("Aspect Ratio"), screenManager(), "", new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 10 + 64 + 64));
-	root_->Add(aspectRatio);
+	auto stretch = new CheckBox(&g_Config.bDisplayStretch, gr->T("Stretch"));
+	leftColumn->Add(stretch);
 
-	mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 158 + 64 + 10));
+	mode_ = new ChoiceStrip(ORIENT_VERTICAL);
 	mode_->AddChoice(di->T("Move"));
 	mode_->AddChoice(di->T("Resize"));
 	mode_->SetSelection(0, false);
-	if (mode_) {
-		root_->Add(mode_);
-	}
-
-	auto stretch = new CheckBox(&g_Config.bDisplayStretch, gr->T("Stretched"));
-	rightColumn->Add(stretch);
+	leftColumn->Add(mode_);
 
 	static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
 	auto rotation = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager());
 	rotation->SetEnabledFunc([] {
 		return !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 	});
-	rightColumn->Add(rotation);
+	leftColumn->Add(rotation);
+
+	leftColumn->Add(new Spacer(12.0f));
+
+	Choice *center = new Choice(di->T("Reset"));
+	center->OnClick.Add([&](UI::EventParams &) {
+		g_Config.fDisplayAspectRatio = 1.0f;
+		g_Config.fDisplayScale = 1.0f;
+		g_Config.fDisplayOffsetX = 0.5f;
+		g_Config.fDisplayOffsetY = 0.5f;
+		return UI::EVENT_DONE;
+	});
+	leftColumn->Add(center);
 
 	static const char *bufFilters[] = { "Linear", "Nearest", };
 	rightColumn->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
