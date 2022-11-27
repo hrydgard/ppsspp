@@ -45,8 +45,9 @@ GamepadView::GamepadView(const char *key, UI::LayoutParams *layoutParams) : UI::
 	lastFrameTime_ = time_now_d();
 }
 
-void GamepadView::Touch(const TouchInput &input) {
+bool GamepadView::Touch(const TouchInput &input) {
 	secondsWithoutTouch_ = 0.0f;
+	return true;
 }
 
 void GamepadView::Update() {
@@ -96,8 +97,8 @@ void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float
 	}
 }
 
-void MultiTouchButton::Touch(const TouchInput &input) {
-	GamepadView::Touch(input);
+bool MultiTouchButton::Touch(const TouchInput &input) {
+	bool retval = GamepadView::Touch(input);
 	if ((input.flags & TOUCH_DOWN) && bounds_.Contains(input.x, input.y)) {
 		pointerDownMask_ |= 1 << input.id;
 		usedPointerMask |= 1 << input.id;
@@ -116,6 +117,7 @@ void MultiTouchButton::Touch(const TouchInput &input) {
 		pointerDownMask_ = 0;
 		usedPointerMask = 0;
 	}
+	return retval;
 }
 
 void MultiTouchButton::Draw(UIContext &dc) {
@@ -152,9 +154,9 @@ void MultiTouchButton::Draw(UIContext &dc) {
 	dc.Draw()->DrawImageRotated(img_, bounds_.centerX(), y, scale, angle_ * (M_PI * 2 / 360.0f), color);
 }
 
-void BoolButton::Touch(const TouchInput &input) {
+bool BoolButton::Touch(const TouchInput &input) {
 	bool lastDown = pointerDownMask_ != 0;
-	MultiTouchButton::Touch(input);
+	bool retval = MultiTouchButton::Touch(input);
 	bool down = pointerDownMask_ != 0;
 
 	if (down != lastDown) {
@@ -163,11 +165,12 @@ void BoolButton::Touch(const TouchInput &input) {
 		params.a = down;
 		OnChange.Trigger(params);
 	}
+	return retval;
 }
 
-void PSPButton::Touch(const TouchInput &input) {
+bool PSPButton::Touch(const TouchInput &input) {
 	bool lastDown = pointerDownMask_ != 0;
-	MultiTouchButton::Touch(input);
+	bool retval = MultiTouchButton::Touch(input);
 	bool down = pointerDownMask_ != 0;
 	if (down && !lastDown) {
 		if (g_Config.bHapticFeedback) {
@@ -177,6 +180,7 @@ void PSPButton::Touch(const TouchInput &input) {
 	} else if (lastDown && !down) {
 		__CtrlButtonUp(pspButtonBit_);
 	}
+	return retval;
 }
 
 bool ComboKey::IsDown() {
@@ -192,10 +196,10 @@ void ComboKey::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 	}
 }
 
-void ComboKey::Touch(const TouchInput &input) {
+bool ComboKey::Touch(const TouchInput &input) {
 	using namespace CustomKey;
 	bool lastDown = pointerDownMask_ != 0;
-	MultiTouchButton::Touch(input);
+	bool retval = MultiTouchButton::Touch(input);
 	bool down = pointerDownMask_ != 0;
 
 	if (down && !lastDown) {
@@ -220,6 +224,7 @@ void ComboKey::Touch(const TouchInput &input) {
 		}
 		on_ = false;
 	}
+	return retval;
 }
 
 void ComboKey::Update() {
@@ -272,8 +277,8 @@ void PSPDpad::GetContentDimensions(const UIContext &dc, float &w, float &h) cons
 	}
 }
 
-void PSPDpad::Touch(const TouchInput &input) {
-	GamepadView::Touch(input);
+bool PSPDpad::Touch(const TouchInput &input) {
+	bool retval = GamepadView::Touch(input);
 
 	if (input.flags & TOUCH_DOWN) {
 		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
@@ -297,6 +302,7 @@ void PSPDpad::Touch(const TouchInput &input) {
 			ProcessTouch(input.x, input.y, false);
 		}
 	}
+	return retval;
 }
 
 void PSPDpad::ProcessTouch(float x, float y, bool down) {
@@ -438,8 +444,8 @@ void PSPStick::Draw(UIContext &dc) {
 	dc.Draw()->DrawImage(stickImageIndex_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_ * headScale, colorBg, ALIGN_CENTER);
 }
 
-void PSPStick::Touch(const TouchInput &input) {
-	GamepadView::Touch(input);
+bool PSPStick::Touch(const TouchInput &input) {
+	bool retval = GamepadView::Touch(input);
 	if (input.flags & TOUCH_RELEASE_ALL) {
 		dragPointerId_ = -1;
 		centerX_ = bounds_.centerX();
@@ -447,7 +453,7 @@ void PSPStick::Touch(const TouchInput &input) {
 		__CtrlSetAnalogXY(stick_, 0.0f, 0.0f);
 		usedPointerMask = 0;
 		analogPointerMask = 0;
-		return;
+		return retval;
 	}
 	if (input.flags & TOUCH_DOWN) {
 		float fac = 0.5f*(stick_ ? g_Config.fRightStickHeadScale : g_Config.fLeftStickHeadScale)-0.5f;
@@ -463,11 +469,13 @@ void PSPStick::Touch(const TouchInput &input) {
 			usedPointerMask |= 1 << input.id;
 			analogPointerMask |= 1 << input.id;
 			ProcessTouch(input.x, input.y, true);
+			retval = true;
 		}
 	}
 	if (input.flags & TOUCH_MOVE) {
 		if (input.id == dragPointerId_) {
 			ProcessTouch(input.x, input.y, true);
+			retval = true;
 		}
 	}
 	if (input.flags & TOUCH_UP) {
@@ -478,8 +486,10 @@ void PSPStick::Touch(const TouchInput &input) {
 			usedPointerMask &= ~(1 << input.id);
 			analogPointerMask &= ~(1 << input.id);
 			ProcessTouch(input.x, input.y, false);
+			retval = true;
 		}
 	}
+	return retval;
 }
 
 void PSPStick::ProcessTouch(float x, float y, bool down) {
@@ -542,8 +552,8 @@ void PSPCustomStick::Draw(UIContext &dc) {
 	dc.Draw()->DrawImage(stickImageIndex_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f*scale_*g_Config.fRightStickHeadScale, colorBg, ALIGN_CENTER);
 }
 
-void PSPCustomStick::Touch(const TouchInput &input) {
-	GamepadView::Touch(input);
+bool PSPCustomStick::Touch(const TouchInput &input) {
+	bool retval = GamepadView::Touch(input);
 	if (input.flags & TOUCH_RELEASE_ALL) {
 		dragPointerId_ = -1;
 		centerX_ = bounds_.centerX();
@@ -552,7 +562,7 @@ void PSPCustomStick::Touch(const TouchInput &input) {
 		posY_ = 0.0f;
 		usedPointerMask = 0;
 		analogPointerMask = 0;
-		return;
+		return false;
 	}
 	if (input.flags & TOUCH_DOWN) {
 		float fac = 0.5f*g_Config.fRightStickHeadScale-0.5f;
@@ -568,11 +578,13 @@ void PSPCustomStick::Touch(const TouchInput &input) {
 			usedPointerMask |= 1 << input.id;
 			analogPointerMask |= 1 << input.id;
 			ProcessTouch(input.x, input.y, true);
+			retval = true;
 		}
 	}
 	if (input.flags & TOUCH_MOVE) {
 		if (input.id == dragPointerId_) {
 			ProcessTouch(input.x, input.y, true);
+			retval = true;
 		}
 	}
 	if (input.flags & TOUCH_UP) {
@@ -583,8 +595,10 @@ void PSPCustomStick::Touch(const TouchInput &input) {
 			usedPointerMask &= ~(1 << input.id);
 			analogPointerMask &= ~(1 << input.id);
 			ProcessTouch(input.x, input.y, false);
+			retval = true;
 		}
 	}
+	return true;
 }
 
 void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
@@ -890,17 +904,16 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	return root;
 }
 
-
-void GestureGamepad::Touch(const TouchInput &input) {
+bool GestureGamepad::Touch(const TouchInput &input) {
 	if (usedPointerMask & (1 << input.id)) {
 		if (input.id == dragPointerId_)
 			dragPointerId_ = -1;
-		return;
+		return false;
 	}
 
 	if (input.flags & TOUCH_RELEASE_ALL) {
 		dragPointerId_ = -1;
-		return;
+		return false;
 	}
 
 	if (input.flags & TOUCH_DOWN) {
@@ -940,6 +953,7 @@ void GestureGamepad::Touch(const TouchInput &input) {
 			}
 		}
 	}
+	return true;
 }
 
 void GestureGamepad::Update() {

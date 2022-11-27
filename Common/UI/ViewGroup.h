@@ -28,7 +28,7 @@ public:
 
 	// Pass through external events to children.
 	virtual bool Key(const KeyInput &input) override;
-	virtual void Touch(const TouchInput &input) override;
+	virtual bool Touch(const TouchInput &input) override;
 	virtual void Axis(const AxisInput &input) override;
 
 	// By default, a container will layout to its own bounds.
@@ -77,6 +77,7 @@ public:
 	int GetNumSubviews() const { return (int)views_.size(); }
 	void SetHasDropShadow(bool has) { hasDropShadow_ = has; }
 	void SetDropShadowExpand(float s) { dropShadowExpand_ = s; }
+	void SetExclusiveTouch(bool exclusive) { exclusiveTouch_ = exclusive; }
 
 	void Lock() { modifyLock_.lock(); }
 	void Unlock() { modifyLock_.unlock(); }
@@ -96,6 +97,7 @@ protected:
 	float dropShadowExpand_ = 0.0f;
 	bool hasDropShadow_ = false;
 	bool clip_ = false;
+	bool exclusiveTouch_ = false;
 };
 
 // A frame layout contains a single child view (normally).
@@ -270,7 +272,7 @@ public:
 	void Layout() override;
 
 	bool Key(const KeyInput &input) override;
-	void Touch(const TouchInput &input) override;
+	bool Touch(const TouchInput &input) override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeLog() const override { return "ScrollView: " + View::DescribeLog(); }
 

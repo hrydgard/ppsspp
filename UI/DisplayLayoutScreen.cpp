@@ -59,7 +59,7 @@ class DisplayLayoutBackground : public UI::View {
 public:
 	DisplayLayoutBackground(UI::ChoiceStrip *mode, UI::LayoutParams *layoutParams) : UI::View(layoutParams), mode_(mode) {}
 
-	void Touch(const TouchInput &touch) {
+	bool Touch(const TouchInput &touch) {
 		int mode = mode_ ? mode_->GetSelection() : 0;
 
 		const Bounds &screenBounds = bounds_;
@@ -96,6 +96,8 @@ public:
 		if ((touch.flags & TOUCH_UP) != 0 && dragging_) {
 			dragging_ = false;
 		}
+
+		return true;
 	}
 
 private:
@@ -187,6 +189,10 @@ void DisplayLayoutScreen::CreateViews() {
 	auto ps = GetI18NCategory("PostShaders");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+
+	// Make it so that a touch can only affect one view. Makes manipulating the background through the buttons
+	// impossible.
+	root_->SetExclusiveTouch(true);
 
 	ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, 10.f, 10.f, NONE, 10.f, false));
 	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL);
