@@ -10,6 +10,7 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
+#include "Common/System/System.h"
 #include "Common/Log.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Shader.h"
@@ -647,8 +648,12 @@ OpenGLContext::OpenGLContext() {
 	}
 
 	if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
-		if (gl_extensions.modelNumber < 600)
+#if PPSSPP_PLATFORM(ANDROID)
+		// The bug seems to affect Adreno 3xx and 5xx, and appeared in Android 8.0 Oreo, so API 26.
+		// See https://github.com/hrydgard/ppsspp/issues/16015#issuecomment-1328316080.
+		if (gl_extensions.modelNumber < 600 && System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 26)
 			bugs_.Infest(Bugs::ADRENO_RESOURCE_DEADLOCK);
+#endif
 	}
 
 #if PPSSPP_PLATFORM(IOS)
