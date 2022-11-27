@@ -79,9 +79,8 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 
 	float offsetX = g_Config.fDisplayOffsetX;
 	float offsetY = g_Config.fDisplayOffsetY;
-	// Have to invert Y for GL
-	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		offsetY = offsetY * -1.0f;
+	if (GetGPUBackend() != GPUBackend::VULKAN) {
+		offsetY = 1.0 - offsetY;
 	}
 
 	float scale = g_Config.fDisplayScale;
