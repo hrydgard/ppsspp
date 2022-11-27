@@ -96,6 +96,14 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 		aspectRatioAdjust = 1.0f;
 	}
 
+	// Ye olde 1080p hack, new version: If everything is setup to exactly cover the screen (defaults), and the screen display aspect ratio is 16:9,
+	// stretch the PSP's aspect ratio veeery slightly to fill it completely.
+	if (scale == 1.0f && offsetX == 0.5f && offsetY == 0.5f && aspectRatioAdjust == 1.0f) {
+		if (fabsf(frame.w / frame.h - 16.0f / 9.0f) < 0.0001f) {
+			aspectRatioAdjust = (frame.w / frame.h) / (480.0f / 272.0f);
+		}
+	}
+
 	float origRatio = !rotated ? origW / origH : origH / origW;
 	float frameRatio = frame.w / frame.h;
 
