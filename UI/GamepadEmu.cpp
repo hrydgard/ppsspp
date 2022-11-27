@@ -588,7 +588,10 @@ void PSPCustomStick::Touch(const TouchInput &input) {
 }
 
 void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
-	static const int button[16] = {CTRL_LTRIGGER, CTRL_RTRIGGER, CTRL_SQUARE, CTRL_TRIANGLE, CTRL_CIRCLE, CTRL_CROSS, CTRL_UP, CTRL_DOWN, CTRL_LEFT, CTRL_RIGHT, CTRL_START, CTRL_SELECT};
+	static const int buttons[16] = {0, CTRL_LTRIGGER, CTRL_RTRIGGER, CTRL_SQUARE, CTRL_TRIANGLE, CTRL_CIRCLE, CTRL_CROSS, CTRL_UP, CTRL_DOWN, CTRL_LEFT, CTRL_RIGHT, CTRL_START, CTRL_SELECT};
+
+	u32 press = 0;
+	u32 release = 0;
 
 	if (down && centerX_ >= 0.0f) {
 		float inv_stick_size = 1.0f / (stick_size_ * scale_);
@@ -601,49 +604,54 @@ void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
 
 		if (g_Config.iRightAnalogRight != 0) {
 			if (dx > 0.5f && (!g_Config.bRightAnalogDisableDiagonal || fabs(dx) > fabs(dy)))
-				__CtrlButtonDown(button[g_Config.iRightAnalogRight-1]);
+				press |= buttons[g_Config.iRightAnalogRight];
 			else
-				__CtrlButtonUp(button[g_Config.iRightAnalogRight-1]);
+				release |= buttons[g_Config.iRightAnalogRight];
 		}
 		if (g_Config.iRightAnalogLeft != 0) {
 			if (dx < -0.5f && (!g_Config.bRightAnalogDisableDiagonal || fabs(dx) > fabs(dy)))
-				__CtrlButtonDown(button[g_Config.iRightAnalogLeft-1]);
+				press |= buttons[g_Config.iRightAnalogLeft];
 			else
-				__CtrlButtonUp(button[g_Config.iRightAnalogLeft-1]);
+				release |= buttons[g_Config.iRightAnalogLeft];
 		}
 		if (g_Config.iRightAnalogUp != 0) {
 			if (dy < -0.5f && (!g_Config.bRightAnalogDisableDiagonal || fabs(dx) <= fabs(dy)))
-				__CtrlButtonDown(button[g_Config.iRightAnalogUp-1]);
+				press |= buttons[g_Config.iRightAnalogUp];
 			else
-				__CtrlButtonUp(button[g_Config.iRightAnalogUp-1]);
+				release |= buttons[g_Config.iRightAnalogUp];
 		}
 		if (g_Config.iRightAnalogDown != 0) {
 			if (dy > 0.5f && (!g_Config.bRightAnalogDisableDiagonal || fabs(dx) <= fabs(dy)))
-				__CtrlButtonDown(button[g_Config.iRightAnalogDown-1]);
+				press |= buttons[g_Config.iRightAnalogDown];
 			else
-				__CtrlButtonUp(button[g_Config.iRightAnalogDown-1]);
+				release |= buttons[g_Config.iRightAnalogDown];
 		}
 		if (g_Config.iRightAnalogPress != 0)
-			__CtrlButtonDown(button[g_Config.iRightAnalogPress-1]);
+			press |= buttons[g_Config.iRightAnalogPress];
 
 		posX_ = dx;
 		posY_ = dy;
 
 	} else {
 		if (g_Config.iRightAnalogUp != 0)
-			__CtrlButtonUp(button[g_Config.iRightAnalogUp-1]);
+			release |= buttons[g_Config.iRightAnalogUp];
 		if (g_Config.iRightAnalogDown != 0)
-			__CtrlButtonUp(button[g_Config.iRightAnalogDown-1]);
+			release |= buttons[g_Config.iRightAnalogDown];
 		if (g_Config.iRightAnalogLeft != 0)
-			__CtrlButtonUp(button[g_Config.iRightAnalogLeft-1]);
+			release |= buttons[g_Config.iRightAnalogLeft];
 		if (g_Config.iRightAnalogRight != 0)
-			__CtrlButtonUp(button[g_Config.iRightAnalogRight-1]);
+			release |= buttons[g_Config.iRightAnalogRight];
 		if (g_Config.iRightAnalogPress != 0)
-			__CtrlButtonUp(button[g_Config.iRightAnalogPress-1]);
+			release |= buttons[g_Config.iRightAnalogPress];
 
 		posX_ = 0.0f;
 		posY_ = 0.0f;
 	}
+
+	if (release != 0)
+		__CtrlButtonUp(release);
+	if (press != 0)
+		__CtrlButtonDown(press);
 }
 
 void InitPadLayout(float xres, float yres, float globalScale) {
