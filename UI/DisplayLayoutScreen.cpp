@@ -55,6 +55,61 @@ static Bounds FRectToBounds(FRect rc) {
 	return b;
 }
 
+class DisplayLayoutBackground : public UI::View {
+public:
+	DisplayLayoutBackground(UI::ChoiceStrip *mode, UI::LayoutParams *layoutParams) : UI::View(layoutParams), mode_(mode) {}
+
+	void Touch(const TouchInput &touch) {
+		int mode = mode_ ? mode_->GetSelection() : 0;
+
+		const Bounds &screenBounds = bounds_;
+		if ((touch.flags & TOUCH_MOVE) != 0 && dragging_) {
+			float relativeTouchX = touch.x - startX_;
+			float relativeTouchY = touch.y - startY_;
+
+			switch (mode) {
+			case MODE_MOVE:
+			{
+				g_Config.fDisplayOffsetX = startDisplayOffsetX_ + relativeTouchX / screenBounds.w;
+				g_Config.fDisplayOffsetY = startDisplayOffsetY_ + relativeTouchY / screenBounds.h;
+				break;
+			}
+			case MODE_RESIZE:
+			{
+				// Resize. Vertical = scaling; Up should be bigger so let's negate in that direction
+				float diffYProp = -relativeTouchY * 0.007f;
+				g_Config.fDisplayScale = startScale_ * powf(2.0f, diffYProp);
+				break;
+			}
+			}
+		}
+
+		if ((touch.flags & TOUCH_DOWN) != 0 && !dragging_) {
+			dragging_ = true;
+			startX_ = touch.x;
+			startY_ = touch.y;
+			startDisplayOffsetX_ = g_Config.fDisplayOffsetX;
+			startDisplayOffsetY_ = g_Config.fDisplayOffsetY;
+			startScale_ = g_Config.fDisplayScale;
+		}
+
+		if ((touch.flags & TOUCH_UP) != 0 && dragging_) {
+			dragging_ = false;
+		}
+	}
+
+private:
+	UI::ChoiceStrip *mode_;
+	bool dragging_ = false;
+
+	// Touch down state for drag to resize etc
+	float startX_ = 0.0f;
+	float startY_ = 0.0f;
+	float startScale_ = -1.0f;
+	float startDisplayOffsetX_ = -1.0f;
+	float startDisplayOffsetY_ = -1.0f;
+};
+
 DisplayLayoutScreen::DisplayLayoutScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {
 	// Ignore insets - just couldn't get the logic to work.
 	ignoreInsets_ = true;
@@ -80,51 +135,6 @@ void DisplayLayoutScreen::DrawBackground(UIContext &dc) {
 		ImageID bg = ImageID("I_PSP_DISPLAY");
 		dc.Draw()->DrawImageStretch(bg, FRectToBounds(rc), 0x7FFFFFFF);
 	}
-}
-
-bool DisplayLayoutScreen::touch(const TouchInput &touch) {
-	UIScreen::touch(touch);
-
-	using namespace UI;
-
-	int mode = mode_ ? mode_->GetSelection() : 0;
-
-	const Bounds &screenBounds = screenManager()->getUIContext()->GetBounds();
-	if ((touch.flags & TOUCH_MOVE) != 0 && dragging_) {
-		float relativeTouchX = touch.x - startX_;
-		float relativeTouchY = touch.y - startY_;
-
-		switch (mode) {
-		case MODE_MOVE:
-		{
-			g_Config.fDisplayOffsetX = startDisplayOffsetX_ + relativeTouchX / screenBounds.w;
-			g_Config.fDisplayOffsetY = startDisplayOffsetY_ + relativeTouchY / screenBounds.h;
-			break;
-		}
-		case MODE_RESIZE:
-		{
-			// Resize. Vertical = scaling; Up should be bigger so let's negate in that direction
-			float diffYProp = -relativeTouchY * 0.007f;
-			g_Config.fDisplayScale = startScale_ * powf(2.0f, diffYProp);
-			break;
-		}
-		}
-	}
-
-	if ((touch.flags & TOUCH_DOWN) != 0 && !dragging_) {
-		dragging_ = true;
-		startX_ = touch.x;
-		startY_ = touch.y;
-		startDisplayOffsetX_ = g_Config.fDisplayOffsetX;
-		startDisplayOffsetY_ = g_Config.fDisplayOffsetY;
-		startScale_ = g_Config.fDisplayScale;
-	}
-
-	if ((touch.flags & TOUCH_UP) != 0 && dragging_) {
-		dragging_ = false;
-	}
-
-	return true;
 }
 
 void DisplayLayoutScreen::onFinish(DialogResult reason) {
@@ -187,12 +197,6 @@ void DisplayLayoutScreen::CreateViews() {
 	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL);
 	rightScrollView->Add(rightColumn);
 	root_->Add(rightScrollView);
-
-	bool displayRotEnable = !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
-	bRotated_ = false;
-	if (displayRotEnable && (g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180)) {
-		bRotated_ = true;
-	}
 
 	PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, di->T("Aspect Ratio"), screenManager());
 	leftColumn->Add(aspectRatio);
@@ -290,4 +294,6 @@ void DisplayLayoutScreen::CreateViews() {
 	Choice *back = new Choice(di->T("Back"), "", false);
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	rightColumn->Add(back);
+
+	root_->Add(new DisplayLayoutBackground(mode_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, 0.0f, 0.0f, 0.0f, 0.0f)));
 }
