@@ -845,6 +845,14 @@ VKContext::VKContext(VulkanContext *vulkan)
 	default: caps_.vendor = GPUVendor::VENDOR_UNKNOWN; break;
 	}
 
+	bool hasLazyMemory = false;
+	for (u32 i = 0; i < vulkan->GetMemoryProperties().memoryTypeCount; i++) {
+		if (vulkan->GetMemoryProperties().memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT) {
+			hasLazyMemory = true;
+		}
+	}
+	caps_.isTilingGPU = hasLazyMemory;
+
 	if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
 		// Adreno 5xx devices, all known driver versions, fail to discard stencil when depth write is off.
 		// See: https://github.com/hrydgard/ppsspp/pull/11684

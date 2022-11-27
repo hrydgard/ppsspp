@@ -576,6 +576,7 @@ struct DeviceCaps {
 	bool textureDepthSupported;
 	bool blendMinMaxSupported;
 	bool multiViewSupported;
+	bool isTilingGPU;  // This means that it benefits from correct store-ops, msaa without backing memory, etc.
 
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };

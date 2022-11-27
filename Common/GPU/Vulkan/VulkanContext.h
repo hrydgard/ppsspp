@@ -283,6 +283,10 @@ public:
 		return device_extensions_enabled_;
 	}
 
+	const VkPhysicalDeviceMemoryProperties &GetMemoryProperties() const {
+		return memory_properties_;
+	}
+
 	struct PhysicalDeviceFeatures {
 		AllPhysicalDeviceFeatures available{};
 		AllPhysicalDeviceFeatures enabled{};
@@ -401,7 +405,8 @@ private:
 	uint32_t graphics_queue_family_index_ = -1;
 	std::vector<PhysicalDeviceProps> physicalDeviceProperties_;
 	std::vector<VkQueueFamilyProperties> queueFamilyProperties_;
-	VkPhysicalDeviceMemoryProperties memory_properties{};
+
+	VkPhysicalDeviceMemoryProperties memory_properties_{};
 
 	// Custom collection of things that are good to know
 	VulkanPhysicalDeviceInfo deviceInfo_{};
