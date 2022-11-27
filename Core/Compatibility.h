@@ -92,6 +92,7 @@ struct CompatFlags {
 	bool SecondaryTextureCache;
 	bool EnglishOrJapaneseOnly;
 	bool OldAdrenoPixelDepthRoundingGL;
+	bool ForceCircleButtonConfirm;
 };
 
 struct VRCompat {

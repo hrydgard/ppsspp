@@ -893,7 +893,7 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		}
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_BUTTON_PREFERENCE:
-		param = g_Config.iButtonPreference;
+		param = PSP_CoreParameter().compat.flags().ForceCircleButtonConfirm ? PSP_SYSTEMPARAM_BUTTON_CIRCLE : g_Config.iButtonPreference;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LOCK_PARENTAL_LEVEL:
 		param = g_Config.iLockParentalLevel;
