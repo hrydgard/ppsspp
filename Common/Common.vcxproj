@@ -450,6 +450,7 @@
     <ClInclude Include="GPU\Vulkan\VulkanBarrier.h" />
     <ClInclude Include="GPU\Vulkan\VulkanContext.h" />
     <ClInclude Include="GPU\Vulkan\VulkanDebug.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanFramebuffer.h" />
     <ClInclude Include="GPU\Vulkan\VulkanFrameData.h" />
     <ClInclude Include="GPU\Vulkan\VulkanImage.h" />
     <ClInclude Include="GPU\Vulkan\VulkanLoader.h" />
@@ -881,6 +882,7 @@
     <ClCompile Include="GPU\Vulkan\VulkanBarrier.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanContext.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanDebug.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanFramebuffer.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanFrameData.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanImage.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanLoader.cpp" />
