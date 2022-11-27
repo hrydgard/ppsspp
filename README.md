@@ -25,6 +25,47 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.14
+==================
+* Massive number of rendering fixes
+  - Water in Outrun 2006 and DiRT 2 now renders correctly (logic op fixes)
+  - Split/Second now renders all effects correctly
+  - Killzone color effect now renders efficiently and correctly (in-game only, not title screen)
+  - Ridge Racer speedometers and lens flares fixed
+  - Lens flare effect fixed in Burnout Dominator, Ridge Racer, Colin McRae, several others
+  - Shadows in Colin McRae are no longer flickering (side effect of other fixes)
+  - Spongebob: Yellow Avenger renders correctly (previously very broken)
+  - Cars: Race-o-Rama, and MX vs ATV Reflex render correctly (at 1x resolution only) ([#15898], [#15907])
+  - Asphalt 2 depth occlusion problems fixed ([#15854])
+  - Silent Hill games are less broken
+  - Depth occlusion problems fixed in Kurohyou (both games) and Ratchet & Clank ([#15772], [#15728], [#15859])
+  - Other rendering problems fixed in Kurohyou ([#16454])
+  - Misshitsu no Sacrifice intro animation and Macross water rendering fixed (3d texture) ([#15727])
+  - Tekken 6 Nancy laser beam fixed, plus line rendering fixes in other games
+  - Multiple workarounds for clipping/culling, both through clip planes and geometry shaders, fixing
+    graphical issues in many games
+  - Many, many others
+* Software renderer performance and accuracy improvements
+  - Better performance
+  - Clipping improvements, various fixes ([#16384], [#16385])
+* New features
+  - Initial VR support added (Quest and PICO only for now, PC in the future)
+  - MSAA antialiasing added to the Vulkan backend (desktop only) ([#16458])
+* UI improvements
+  - New interactive Display Layout & Effects screen, replacing the old Display Layout Editor
+  - Game being played can now be seen as a background in most menus ([#16404], more)
+* Stability fixes
+  - Workaround for hangs on older Adreno GPUs ([#16422])
+  - Many others
+* IR interpreter bug fixes
+  - Metal Gear Solid - Peace Walker no longer bugged out ([#16396])
+  - VFPU fixes ([#16302])
+* Performance improvements
+  - Vulkan bandwidth and synchronization optimizations ([#16434])
+  - Assorted minor other improvements
+* Other compatibility fixes (Twinbee, Shining Ark)
+* GE debugger improvements
+
 What's new in 1.13.2
 ====================
 * Crashfix on Android 12 when playing certain background music ([#15990])
