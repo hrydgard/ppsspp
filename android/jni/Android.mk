@@ -56,6 +56,7 @@ VULKAN_FILES := \
   $(SRC)/Common/GPU/Vulkan/VulkanContext.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanDebug.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanImage.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanFramebuffer.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanMemory.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanProfiler.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanBarrier.cpp

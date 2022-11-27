@@ -9,6 +9,7 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanBarrier.h"
 #include "Common/GPU/Vulkan/VulkanFrameData.h"
+#include "Common/GPU/Vulkan/VulkanFramebuffer.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/GPU/DataFormat.h"
@@ -52,39 +53,6 @@ enum class PipelineFlags : u8 {
 	USES_MULTIVIEW = (1 << 5),  // Inherited from the render pass it was created with.
 };
 ENUM_CLASS_BITOPS(PipelineFlags);
-
-// Pipelines need to be created for the right type of render pass.
-// TODO: Rename to RenderPassFlags?
-// When you add more flags, don't forget to update rpTypeDebugNames[].
-enum class RenderPassType {
-	DEFAULT = 0,
-	// These eight are organized so that bit 0 is DEPTH and bit 1 is INPUT and bit 2 is MULTIVIEW, so
-	// they can be OR-ed together in MergeRPTypes.
-	HAS_DEPTH = 1,
-	COLOR_INPUT = 2,  // input attachment
-	MULTIVIEW = 4,
-
-	// This is the odd one out, and gets special handling in MergeRPTypes.
-	// If this flag is set, none of the other flags can be set.
-	// For the backbuffer we can always use CLEAR/DONT_CARE, so bandwidth cost for a depth channel is negligible
-	// so we don't bother with a non-depth version.
-	BACKBUFFER = 8,
-
-	TYPE_COUNT = BACKBUFFER + 1,
-};
-ENUM_CLASS_BITOPS(RenderPassType);
-
-inline bool RenderPassTypeHasDepth(RenderPassType type) {
-	return (type & RenderPassType::HAS_DEPTH) || type == RenderPassType::BACKBUFFER;
-}
-
-inline bool RenderPassTypeHasInput(RenderPassType type) {
-	return (type & RenderPassType::COLOR_INPUT) != 0;
-}
-
-inline bool RenderPassTypeHasMultiView(RenderPassType type) {
-	return (type & RenderPassType::MULTIVIEW) != 0;
-}
 
 struct VkRenderData {
 	VKRRenderCommand cmd;
@@ -168,18 +136,6 @@ enum class VKRStepType : uint8_t {
 	READBACK_IMAGE,
 };
 
-// Must be the same order as Draw::RPAction
-enum class VKRRenderPassLoadAction : uint8_t {
-	KEEP,  // default. avoid when possible.
-	CLEAR,
-	DONT_CARE,
-};
-
-enum class VKRRenderPassStoreAction : uint8_t {
-	STORE,  // default. avoid when possible.
-	DONT_CARE,
-};
-
 struct TransitionRequest {
 	VKRFramebuffer *fb;
 	VkImageAspectFlags aspect;  // COLOR or DEPTH
@@ -250,35 +206,6 @@ struct VKRStep {
 			int mipLevel;
 		} readback_image;
 	};
-};
-
-struct RPKey {
-	// Only render-pass-compatibility-volatile things can be here.
-	VKRRenderPassLoadAction colorLoadAction;
-	VKRRenderPassLoadAction depthLoadAction;
-	VKRRenderPassLoadAction stencilLoadAction;
-	VKRRenderPassStoreAction colorStoreAction;
-	VKRRenderPassStoreAction depthStoreAction;
-	VKRRenderPassStoreAction stencilStoreAction;
-};
-
-class VKRRenderPass {
-public:
-	VKRRenderPass(const RPKey &key) : key_(key) {}
-
-	VkRenderPass Get(VulkanContext *vulkan, RenderPassType rpType);
-	void Destroy(VulkanContext *vulkan) {
-		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
-			if (pass[i]) {
-				vulkan->Delete().QueueDeleteRenderPass(pass[i]);
-			}
-		}
-	}
-
-private:
-	// TODO: Might be better off with a hashmap once the render pass type count grows really large..
-	VkRenderPass pass[(size_t)RenderPassType::TYPE_COUNT]{};
-	RPKey key_;
 };
 
 // These are enqueued from the main thread,

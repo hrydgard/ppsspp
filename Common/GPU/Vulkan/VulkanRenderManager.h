@@ -21,69 +21,10 @@
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/MiscTypes.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
+#include "Common/GPU/Vulkan/VulkanFramebuffer.h"
 
 // Forward declaration
 VK_DEFINE_HANDLE(VmaAllocation);
-
-// Simple independent framebuffer image.
-struct VKRImage {
-	// These four are "immutable".
-	VkImage image;
-
-	VkImageView rtView;  // Used for rendering to, and readbacks of stencil. 2D if single layer, 2D_ARRAY if multiple. Includes both depth and stencil if depth/stencil.
-
-	// This is for texturing all layers at once. If aspect is depth/stencil, does not include stencil.
-	VkImageView texAllLayersView;
-
-	// If it's a layered image (for stereo), this is two 2D views of it, to make it compatible with shaders that don't yet support stereo.
-	// If there's only one layer, layerViews[0] only is initialized.
-	VkImageView texLayerViews[2]{};
-
-	VmaAllocation alloc;
-	VkFormat format;
-
-	// This one is used by QueueRunner's Perform functions to keep track. CANNOT be used anywhere else due to sync issues.
-	VkImageLayout layout;
-
-	int numLayers;
-
-	// For debugging.
-	std::string tag;
-};
-
-class VKRFramebuffer {
-public:
-	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, bool createDepthStencilBuffer, const char *tag);
-	~VKRFramebuffer();
-
-	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
-
-	int width = 0;
-	int height = 0;
-	int numLayers = 0;
-
-	VKRImage color{};  // color.image is always there.
-	VKRImage depth{};  // depth.image is allowed to be VK_NULL_HANDLE.
-
-	const char *Tag() const {
-		return tag_.c_str();
-	}
-
-	void UpdateTag(const char *newTag);
-
-	bool HasDepth() const {
-		return depth.image != VK_NULL_HANDLE;
-	}
-
-	// TODO: Hide.
-	VulkanContext *vulkan_;
-private:
-	static void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag);
-
-	VkFramebuffer framebuf[(size_t)RenderPassType::TYPE_COUNT]{};
-
-	std::string tag_;
-};
 
 struct BoundingRect {
 	int x1;
