@@ -1247,6 +1247,7 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 		RecreateActivity();
 	}
 	Reporting::UpdateConfig();
+	NativeMessageReceived("gpu_renderResized", "");
 	return UI::EVENT_DONE;
 }
 
