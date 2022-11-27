@@ -69,16 +69,14 @@ public:
 
 			switch (mode) {
 			case MODE_MOVE:
-			{
-				g_Config.fDisplayOffsetX = startDisplayOffsetX_ + relativeTouchX / screenBounds.w;
-				g_Config.fDisplayOffsetY = startDisplayOffsetY_ + relativeTouchY / screenBounds.h;
+				g_Config.fDisplayOffsetX = clamp_value(startDisplayOffsetX_ + relativeTouchX / screenBounds.w, 0.0f, 1.0f);
+				g_Config.fDisplayOffsetY = clamp_value(startDisplayOffsetY_ + relativeTouchY / screenBounds.h, 0.0f, 1.0f);
 				break;
-			}
 			case MODE_RESIZE:
 			{
 				// Resize. Vertical = scaling; Up should be bigger so let's negate in that direction
 				float diffYProp = -relativeTouchY * 0.007f;
-				g_Config.fDisplayScale = startScale_ * powf(2.0f, diffYProp);
+				g_Config.fDisplayScale = clamp_value(startScale_ * powf(2.0f, diffYProp), 0.2f, 2.0f);
 				break;
 			}
 			}
@@ -204,11 +202,14 @@ void DisplayLayoutScreen::CreateViews() {
 	rightScrollView->Add(rightColumn);
 	root_->Add(rightScrollView);
 
-	PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, di->T("Aspect Ratio"), screenManager());
-	leftColumn->Add(aspectRatio);
-
 	auto stretch = new CheckBox(&g_Config.bDisplayStretch, gr->T("Stretch"));
 	leftColumn->Add(stretch);
+
+	PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, di->T("Aspect Ratio"), screenManager());
+	leftColumn->Add(aspectRatio);
+	aspectRatio->SetDisabledPtr(&g_Config.bDisplayStretch);
+	aspectRatio->SetHasDropShadow(false);
+	aspectRatio->SetLiveUpdate(true);
 
 	mode_ = new ChoiceStrip(ORIENT_VERTICAL);
 	mode_->AddChoice(di->T("Move"));

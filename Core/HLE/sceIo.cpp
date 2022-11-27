@@ -2046,15 +2046,23 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			return 0;
 		case EMULATOR_DEVCTL__GET_ASPECT_RATIO:
 			if (Memory::IsValidAddress(outPtr)) {
-				float ar = g_Config.fDisplayAspectRatio * (480.0f / 272.0f);
-				Memory::Write_U32(*(reinterpret_cast<u32*>(&ar)), outPtr);
+				// TODO: Share code with CenterDisplayOutputRect to take a few more things into account.
+				// I have a planned further refactoring.
+				float ar;
+				if (g_Config.bDisplayStretch) {
+					ar = (float)dp_xres / (float)dp_yres;
+				} else {
+					ar = g_Config.fDisplayAspectRatio * (480.0f / 272.0f);
+				}
+				Memory::Write_Float(ar, outPtr);
 			}
 			return 0;
 		case EMULATOR_DEVCTL__GET_SCALE:
 			if (Memory::IsValidAddress(outPtr)) {
 				// TODO: Maybe do something more sophisticated taking the longest side and screen rotation
 				// into account, etc.
-				Memory::Write_U32(static_cast<float>(dp_xres) * g_Config.fDisplayScale / 480.0f, outPtr);
+				float scale = float(dp_xres) * g_Config.fDisplayScale / 480.0f;
+				Memory::Write_Float(scale, outPtr);
 			}
 			return 0;
 		case EMULATOR_DEVCTL__GET_LTRIGGER:
