@@ -38,9 +38,6 @@ public:
 	const char *tag() const override { return "DisplayLayout"; }
 	
 protected:
-	virtual UI::EventReturn OnCenter(UI::EventParams &e);
-	virtual UI::EventReturn OnZoomTypeChange(UI::EventParams &e);
-
 	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
 
 	void sendMessage(const char *message, const char *value) override;

@@ -75,73 +75,58 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
-	SmallDisplayZoom zoomType = (SmallDisplayZoom)g_Config.iSmallDisplayZoomType;
+	bool stretch = g_Config.bDisplayStretch;
+
+	float offsetX = g_Config.fDisplayOffsetX;
+	float offsetY = g_Config.fDisplayOffsetY;
+	// Have to invert Y for GL
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
+		offsetY = offsetY * -1.0f;
+	}
+
+	float scale = g_Config.fDisplayScale;
+	float aspectRatioAdjust = g_Config.fDisplayAspectRatio;
 
 	if (IsVREnabled()) {
-		zoomType = SmallDisplayZoom::STRETCH;
+		stretch = 0;
+		rotated = false;
+		offsetX = 0.0f;
+		offsetY = 0.0f;
+		scale = 1.0f;
+		aspectRatioAdjust = 1.0f;
 	}
 
-	if (zoomType == SmallDisplayZoom::STRETCH) {
-		outW = frame.w;
-		outH = frame.h;
-	} else {
-		if (zoomType == SmallDisplayZoom::MANUAL) {
-			float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frame.w + frame.x;
-			float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frame.h + frame.y;
-			// Have to invert Y for GL
-			if (GetGPUBackend() == GPUBackend::OPENGL) {
-				offsetY = offsetY * -1.0f;
-			}
-			float customZoom = g_Config.fSmallDisplayZoomLevel;
-			float smallDisplayW = origW * customZoom;
-			float smallDisplayH = origH * customZoom;
-			if (!rotated) {
-				rc->x = floorf(((frame.w - smallDisplayW) / 2.0f) + offsetX);
-				rc->y = floorf(((frame.h - smallDisplayH) / 2.0f) + offsetY);
-				rc->w = floorf(smallDisplayW);
-				rc->h = floorf(smallDisplayH);
-				return;
-			} else {
-				rc->x = floorf(((frame.w - smallDisplayH) / 2.0f) + offsetX);
-				rc->y = floorf(((frame.h - smallDisplayW) / 2.0f) + offsetY);
-				rc->w = floorf(smallDisplayH);
-				rc->h = floorf(smallDisplayW);
-				return;
-			}
-		} else if (zoomType == SmallDisplayZoom::AUTO) {
-			// Stretch to 1080 for 272*4.  But don't distort if not widescreen (i.e. ultrawide of halfwide.)
-			float pixelCrop = frame.h / 270.0f;
-			float resCommonWidescreen = pixelCrop - floor(pixelCrop);
-			if (!rotated && resCommonWidescreen == 0.0f && frame.w >= pixelCrop * 480.0f) {
-				rc->x = floorf((frame.w - pixelCrop * 480.0f) * 0.5f + frame.x);
-				rc->y = floorf(-pixelCrop + frame.y);
-				rc->w = floorf(pixelCrop * 480.0f);
-				rc->h = floorf(pixelCrop * 272.0f);
-				return;
-			}
-		}
+	float origRatio = !rotated ? origW / origH : origH / origW;
+	float frameRatio = frame.w / frame.h;
 
-		float origRatio = !rotated ? origW / origH : origH / origW;
-		float frameRatio = frame.w / frame.h;
-
-		if (origRatio > frameRatio) {
-			// Image is wider than frame. Center vertically.
-			outW = frame.w;
-			outH = frame.w / origRatio;
-			// Stretch a little bit
-			if (!rotated && zoomType == SmallDisplayZoom::PARTIAL_STRETCH)
-				outH = (frame.h + outH) / 2.0f; // (408 + 720) / 2 = 564
+	if (stretch) {
+		// Automatically set aspect ratio to match the display, IF the rotation matches the output display ratio! Otherwise, just
+		// sets standard aspect ratio because actually stretching will just look silly.
+		bool globalRotated = g_display_rotation == DisplayRotation::ROTATE_90 || g_display_rotation == DisplayRotation::ROTATE_270;
+		if (rotated == dp_yres > dp_xres) {
+			origRatio = frameRatio;
 		} else {
-			// Image is taller than frame. Center horizontally.
-			outW = frame.h * origRatio;
-			outH = frame.h;
-			if (rotated && zoomType == SmallDisplayZoom::PARTIAL_STRETCH)
-				outW = (frame.h + outH) / 2.0f; // (408 + 720) / 2 = 564
+			origRatio *= aspectRatioAdjust;
 		}
+	} else {
+		origRatio *= aspectRatioAdjust;
 	}
 
-	rc->x = floorf((frame.w - outW) / 2.0f + frame.x);
-	rc->y = floorf((frame.h - outH) / 2.0f + frame.y);
+	float scaledWidth = frame.w * scale;
+	float scaledHeight = frame.h * scale;
+
+	if (origRatio > frameRatio) {
+		// Image is wider than frame. Center vertically.
+		outW = scaledWidth;
+		outH = scaledWidth / origRatio;
+	} else {
+		// Image is taller than frame. Center horizontally.
+		outW = scaledHeight * origRatio;
+		outH = scaledHeight;
+	}
+
+	rc->x = floorf(frame.x + frame.w * offsetX - outW * 0.5f);
+	rc->y = floorf(frame.y + frame.h * offsetY - outH * 0.5f);
 	rc->w = floorf(outW);
 	rc->h = floorf(outH);
 }

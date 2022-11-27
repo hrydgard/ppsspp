@@ -2045,15 +2045,17 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				PSP_CoreParameter().fastForward = false;
 			return 0;
 		case EMULATOR_DEVCTL__GET_ASPECT_RATIO:
-			if (Memory::IsValidAddress(outPtr))
-			{
-				float ar = static_cast<float>(PSP_CoreParameter().pixelWidth) / static_cast<float>(PSP_CoreParameter().pixelHeight);
+			if (Memory::IsValidAddress(outPtr)) {
+				float ar = g_Config.fDisplayAspectRatio * (480.0f / 272.0f);
 				Memory::Write_U32(*(reinterpret_cast<u32*>(&ar)), outPtr);
 			}
 			return 0;
 		case EMULATOR_DEVCTL__GET_SCALE:
-			if (Memory::IsValidAddress(outPtr))
-				Memory::Write_U32(static_cast<float>(dp_xres) / 480.0f, outPtr);
+			if (Memory::IsValidAddress(outPtr)) {
+				// TODO: Maybe do something more sophisticated taking the longest side and screen rotation
+				// into account, etc.
+				Memory::Write_U32(static_cast<float>(dp_xres) * g_Config.fDisplayScale / 480.0f, outPtr);
+			}
 			return 0;
 		case EMULATOR_DEVCTL__GET_LTRIGGER:
 			//To-do

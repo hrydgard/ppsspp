@@ -122,6 +122,9 @@ void DrawEngineGLES::InitDeviceObjects() {
 }
 
 void DrawEngineGLES::DestroyDeviceObjects() {
+	if (!draw_) {
+		return;
+	}
 	draw_->SetInvalidationCallback(InvalidationCallback());
 
 	// Beware: this could be called twice in a row, sometimes.
