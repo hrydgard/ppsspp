@@ -136,8 +136,8 @@ public:
 	void SetHoldEnabled(bool hold) {
 		holdEnabled_ = hold;
 	}
-	void Touch(const TouchInput &input) override {
-		UI::Clickable::Touch(input);
+	bool Touch(const TouchInput &input) override {
+		bool retval = UI::Clickable::Touch(input);
 		hovering_ = bounds_.Contains(input.x, input.y);
 		if (hovering_ && (input.flags & TOUCH_DOWN)) {
 			holdStart_ = time_now_d();
@@ -145,6 +145,7 @@ public:
 		if (input.flags & TOUCH_UP) {
 			holdStart_ = 0;
 		}
+		return retval;
 	}
 
 	bool Key(const KeyInput &key) override {

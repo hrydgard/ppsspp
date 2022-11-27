@@ -226,11 +226,13 @@ void Clickable::FocusChanged(int focusFlags) {
 	}
 }
 
-void Clickable::Touch(const TouchInput &input) {
+bool Clickable::Touch(const TouchInput &input) {
+	bool contains = bounds_.Contains(input.x, input.y);
+
 	if (!IsEnabled()) {
 		dragging_ = false;
 		down_ = false;
-		return;
+		return contains;
 	}
 
 	if (input.flags & TOUCH_DOWN) {
@@ -255,6 +257,7 @@ void Clickable::Touch(const TouchInput &input) {
 		downCountDown_ = 0;
 		dragging_ = false;
 	}
+	return contains;
 }
 
 static bool MatchesKeyDef(const std::vector<KeyDef> &defs, const KeyInput &key) {
@@ -350,21 +353,24 @@ bool Clickable::Key(const KeyInput &key) {
 	return ret;
 }
 
-void StickyChoice::Touch(const TouchInput &input) {
+bool StickyChoice::Touch(const TouchInput &touch) {
+	bool contains = bounds_.Contains(touch.x, touch.y);
 	dragging_ = false;
 	if (!IsEnabled()) {
 		down_ = false;
-		return;
+		return contains;
 	}
 
-	if (input.flags & TOUCH_DOWN) {
-		if (bounds_.Contains(input.x, input.y)) {
+	if (touch.flags & TOUCH_DOWN) {
+		if (contains) {
 			if (IsFocusMovementEnabled())
 				SetFocusedView(this);
 			down_ = true;
 			Click();
+			return true;
 		}
 	}
+	return false;
 }
 
 bool StickyChoice::Key(const KeyInput &key) {
@@ -1069,12 +1075,14 @@ static std::string FirstLine(const std::string &text) {
 	return text;
 }
 
-void TextEdit::Touch(const TouchInput &touch) {
+bool TextEdit::Touch(const TouchInput &touch) {
 	if (touch.flags & TOUCH_DOWN) {
 		if (bounds_.Contains(touch.x, touch.y)) {
 			SetFocusedView(this, true);
+			return true;
 		}
 	}
+	return false;
 }
 
 bool TextEdit::Key(const KeyInput &input) {
@@ -1259,14 +1267,15 @@ void Spinner::Draw(UIContext &dc) {
 	}
 }
 
-void TriggerButton::Touch(const TouchInput &input) {
+bool TriggerButton::Touch(const TouchInput &input) {
+	bool contains = bounds_.Contains(input.x, input.y);
 	if (input.flags & TOUCH_DOWN) {
-		if (bounds_.Contains(input.x, input.y)) {
+		if (contains) {
 			down_ |= 1 << input.id;
 		}
 	}
 	if (input.flags & TOUCH_MOVE) {
-		if (bounds_.Contains(input.x, input.y))
+		if (contains)
 			down_ |= 1 << input.id;
 		else
 			down_ &= ~(1 << input.id);
@@ -1281,6 +1290,8 @@ void TriggerButton::Touch(const TouchInput &input) {
 	} else {
 		*bitField_ &= ~bit_;
 	}
+
+	return contains;
 }
 
 void TriggerButton::Draw(UIContext &dc) {
@@ -1344,9 +1355,10 @@ bool Slider::ApplyKey(int keyCode) {
 	return true;
 }
 
-void Slider::Touch(const TouchInput &input) {
+bool Slider::Touch(const TouchInput &input) {
 	// Calling it afterwards, so dragging_ hasn't been set false yet when checking it above.
-	Clickable::Touch(input);
+	bool contains = Clickable::Touch(input);
+
 	if (dragging_) {
 		float relativeX = (input.x - (bounds_.x + paddingLeft_)) / (bounds_.w - paddingLeft_ - paddingRight_);
 		*value_ = floorf(relativeX * (maxValue_ - minValue_) + minValue_ + 0.5f);
@@ -1360,6 +1372,7 @@ void Slider::Touch(const TouchInput &input) {
 
 	// Cancel any key repeat.
 	repeat_ = -1;
+	return contains;
 }
 
 void Slider::Clamp() {
@@ -1470,8 +1483,8 @@ bool SliderFloat::ApplyKey(int keyCode) {
 	return true;
 }
 
-void SliderFloat::Touch(const TouchInput &input) {
-	Clickable::Touch(input);
+bool SliderFloat::Touch(const TouchInput &input) {
+	bool contains = Clickable::Touch(input);
 	if (dragging_) {
 		float relativeX = (input.x - (bounds_.x + paddingLeft_)) / (bounds_.w - paddingLeft_ - paddingRight_);
 		*value_ = (relativeX * (maxValue_ - minValue_) + minValue_);
@@ -1485,6 +1498,7 @@ void SliderFloat::Touch(const TouchInput &input) {
 
 	// Cancel any key repeat.
 	repeat_ = -1;
+	return contains;
 }
 
 void SliderFloat::Clamp() {

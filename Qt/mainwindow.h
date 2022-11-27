@@ -130,10 +130,6 @@ private slots:
 	}
 	void windowGroup_triggered(QAction *action) { SetWindowScale(action->data().toInt()); }
 
-	void displayLayoutGroup_triggered(QAction *action) {
-		g_Config.iSmallDisplayZoomType = action->data().toInt();
-		NativeMessageReceived("gpu_displayResized", "");
-	}
 	void autoframeskipAct() {
 		g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
 		if (g_Config.bSkipBufferEffects) {

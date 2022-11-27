@@ -55,6 +55,63 @@ static Bounds FRectToBounds(FRect rc) {
 	return b;
 }
 
+class DisplayLayoutBackground : public UI::View {
+public:
+	DisplayLayoutBackground(UI::ChoiceStrip *mode, UI::LayoutParams *layoutParams) : UI::View(layoutParams), mode_(mode) {}
+
+	bool Touch(const TouchInput &touch) {
+		int mode = mode_ ? mode_->GetSelection() : 0;
+
+		const Bounds &screenBounds = bounds_;
+		if ((touch.flags & TOUCH_MOVE) != 0 && dragging_) {
+			float relativeTouchX = touch.x - startX_;
+			float relativeTouchY = touch.y - startY_;
+
+			switch (mode) {
+			case MODE_MOVE:
+			{
+				g_Config.fDisplayOffsetX = startDisplayOffsetX_ + relativeTouchX / screenBounds.w;
+				g_Config.fDisplayOffsetY = startDisplayOffsetY_ + relativeTouchY / screenBounds.h;
+				break;
+			}
+			case MODE_RESIZE:
+			{
+				// Resize. Vertical = scaling; Up should be bigger so let's negate in that direction
+				float diffYProp = -relativeTouchY * 0.007f;
+				g_Config.fDisplayScale = startScale_ * powf(2.0f, diffYProp);
+				break;
+			}
+			}
+		}
+
+		if ((touch.flags & TOUCH_DOWN) != 0 && !dragging_) {
+			dragging_ = true;
+			startX_ = touch.x;
+			startY_ = touch.y;
+			startDisplayOffsetX_ = g_Config.fDisplayOffsetX;
+			startDisplayOffsetY_ = g_Config.fDisplayOffsetY;
+			startScale_ = g_Config.fDisplayScale;
+		}
+
+		if ((touch.flags & TOUCH_UP) != 0 && dragging_) {
+			dragging_ = false;
+		}
+
+		return true;
+	}
+
+private:
+	UI::ChoiceStrip *mode_;
+	bool dragging_ = false;
+
+	// Touch down state for drag to resize etc
+	float startX_ = 0.0f;
+	float startY_ = 0.0f;
+	float startScale_ = -1.0f;
+	float startDisplayOffsetX_ = -1.0f;
+	float startDisplayOffsetY_ = -1.0f;
+};
+
 DisplayLayoutScreen::DisplayLayoutScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {
 	// Ignore insets - just couldn't get the logic to work.
 	ignoreInsets_ = true;
@@ -82,80 +139,9 @@ void DisplayLayoutScreen::DrawBackground(UIContext &dc) {
 	}
 }
 
-bool DisplayLayoutScreen::touch(const TouchInput &touch) {
-	UIScreen::touch(touch);
-
-	using namespace UI;
-
-	int mode = mode_ ? mode_->GetSelection() : 0;
-	if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::AUTO) {
-		mode = -1;
-	}
-
-	const Bounds &screenBounds = screenManager()->getUIContext()->GetBounds();
-	if ((touch.flags & TOUCH_MOVE) != 0 && dragging_) {
-		float relativeTouchX = touch.x - startX_;
-		float relativeTouchY = touch.y - startY_;
-
-		switch (mode) {
-		case MODE_MOVE:
-		{
-			g_Config.fSmallDisplayOffsetX = startDisplayOffsetX_ + relativeTouchX * 0.5f / screenBounds.w;
-			g_Config.fSmallDisplayOffsetY = startDisplayOffsetY_ + relativeTouchY * 0.5f / screenBounds.h;
-			break;
-		}
-		case MODE_RESIZE:
-		{
-			// Resize. Vertical = scaling; Up should be bigger so let's negate in that direction
-			float diffYProp = -relativeTouchY * 0.007f;
-			g_Config.fSmallDisplayZoomLevel = startScale_ * powf(2.0f, diffYProp);
-			break;
-		}
-		}
-	}
-
-	if ((touch.flags & TOUCH_DOWN) != 0 && !dragging_) {
-		dragging_ = true;
-		startX_ = touch.x;
-		startY_ = touch.y;
-		startDisplayOffsetX_ = g_Config.fSmallDisplayOffsetX;
-		startDisplayOffsetY_ = g_Config.fSmallDisplayOffsetY;
-		startScale_ = g_Config.fSmallDisplayZoomLevel;
-	}
-
-	if ((touch.flags & TOUCH_UP) != 0 && dragging_) {
-		dragging_ = false;
-	}
-
-	return true;
-}
-
 void DisplayLayoutScreen::onFinish(DialogResult reason) {
 	g_Config.Save("DisplayLayoutScreen::onFinish");
 }
-
-UI::EventReturn DisplayLayoutScreen::OnCenter(UI::EventParams &e) {
-	g_Config.fSmallDisplayOffsetX = 0.5f;
-	g_Config.fSmallDisplayOffsetY = 0.5f;
-	RecreateViews();
-	return UI::EVENT_DONE;
-};
-
-UI::EventReturn DisplayLayoutScreen::OnZoomTypeChange(UI::EventParams &e) {
-	switch (g_Config.iSmallDisplayZoomType) {
-	case (int)SmallDisplayZoom::AUTO:
-	case (int)SmallDisplayZoom::PARTIAL_STRETCH:
-	case (int)SmallDisplayZoom::STRETCH:
-		g_Config.fSmallDisplayOffsetX = 0.5f;
-		g_Config.fSmallDisplayOffsetY = 0.5f;
-		break;
-	default:
-		// Not SmallDisplayZoom::MANUAL
-		break;
-	}
-	RecreateViews();
-	return UI::EVENT_DONE;
-};
 
 void DisplayLayoutScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	RecreateViews();
@@ -204,71 +190,50 @@ void DisplayLayoutScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
+	// Make it so that a touch can only affect one view. Makes manipulating the background through the buttons
+	// impossible.
+	root_->SetExclusiveTouch(true);
+
+	ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, 10.f, 10.f, NONE, 10.f, false));
+	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL);
+	leftScrollView->Add(leftColumn);
+	root_->Add(leftScrollView);
+
 	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 10.f, 10.f, 10.f, false));
 	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL);
 	rightScrollView->Add(rightColumn);
 	root_->Add(rightScrollView);
 
-	// We manually implement insets here for the buttons. This file defied refactoring :(
-	float leftInset = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
+	PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, di->T("Aspect Ratio"), screenManager());
+	leftColumn->Add(aspectRatio);
 
-	bool displayRotEnable = !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
-	bRotated_ = false;
-	if (displayRotEnable && (g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180)) {
-		bRotated_ = true;
-	}
+	auto stretch = new CheckBox(&g_Config.bDisplayStretch, gr->T("Stretch"));
+	leftColumn->Add(stretch);
 
-	mode_ = nullptr;
-	if (g_Config.iSmallDisplayZoomType >= (int)SmallDisplayZoom::AUTO) { // Scaling
-		if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::AUTO) {
-			float autoBound = bounds.h / 270.0f;
-			// Case of screen rotated ~ only works with buffered rendering
-			if (bRotated_) {
-				autoBound = bounds.h / 480.0f;
-			} else { // Without rotation in common cases like 1080p we cut off 2 pixels of height, this reflects other cases
-				float resCommonWidescreen = autoBound - floor(autoBound);
-				if (resCommonWidescreen != 0.0f) {
-					float ratio = bounds.w / bounds.h;
-					if (ratio < orgRatio) {
-						autoBound = bounds.w / 480.0f;
-					}
-					else {
-						autoBound = bounds.h / 272.0f;
-					}
-				}
-			}
-			g_Config.fSmallDisplayZoomLevel = autoBound;
-			g_Config.fSmallDisplayOffsetX = 0.5f;
-			g_Config.fSmallDisplayOffsetY = 0.5f;
-		} else { // Manual Scaling
-			Choice *center = new Choice(di->T("Center"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 74));
-			center->OnClick.Handle(this, &DisplayLayoutScreen::OnCenter);
-			root_->Add(center);
-			float minZoom = 1.0f;
-			PopupSliderChoiceFloat *zoomlvl = new PopupSliderChoiceFloat(&g_Config.fSmallDisplayZoomLevel, minZoom, 10.0f, di->T("Zoom"), 1.0f, screenManager(), di->T("* PSP res"), new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 10 + 64 + 64));
-			root_->Add(zoomlvl);
-			mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 158 + 64 + 10));
-			mode_->AddChoice(di->T("Move"));
-			mode_->AddChoice(di->T("Resize"));
-			mode_->SetSelection(0, false);
-		}
-	}
-
-	if (mode_) {
-		root_->Add(mode_);
-	}
-
-	static const char *zoomLevels[] = { "Stretching", "Partial Stretch", "Auto Scaling", "Manual Scaling" };
-	auto zoom = new PopupMultiChoice(&g_Config.iSmallDisplayZoomType, gr->T("Mode"), zoomLevels, 0, ARRAY_SIZE(zoomLevels), gr->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, bounds.w / 2.0f - 200.0f, NONE, NONE, 10));
-	zoom->OnChoice.Handle(this, &DisplayLayoutScreen::OnZoomTypeChange);
-	rightColumn->Add(zoom);
+	mode_ = new ChoiceStrip(ORIENT_VERTICAL);
+	mode_->AddChoice(di->T("Move"));
+	mode_->AddChoice(di->T("Resize"));
+	mode_->SetSelection(0, false);
+	leftColumn->Add(mode_);
 
 	static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
 	auto rotation = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager());
 	rotation->SetEnabledFunc([] {
 		return !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 	});
-	rightColumn->Add(rotation);
+	leftColumn->Add(rotation);
+
+	leftColumn->Add(new Spacer(12.0f));
+
+	Choice *center = new Choice(di->T("Reset"));
+	center->OnClick.Add([&](UI::EventParams &) {
+		g_Config.fDisplayAspectRatio = 1.0f;
+		g_Config.fDisplayScale = 1.0f;
+		g_Config.fDisplayOffsetX = 0.5f;
+		g_Config.fDisplayOffsetY = 0.5f;
+		return UI::EVENT_DONE;
+	});
+	leftColumn->Add(center);
 
 	static const char *bufFilters[] = { "Linear", "Nearest", };
 	rightColumn->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
@@ -335,4 +300,6 @@ void DisplayLayoutScreen::CreateViews() {
 	Choice *back = new Choice(di->T("Back"), "", false);
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	rightColumn->Add(back);
+
+	root_->Add(new DisplayLayoutBackground(mode_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, 0.0f, 0.0f, 0.0f, 0.0f)));
 }

@@ -171,11 +171,14 @@ public:
 
 	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality
 	int iBufFilter; // 1 = linear, 2 = nearest
-	int iSmallDisplayZoomType;  // Used to fit display into screen 0 = stretch, 1 = partial stretch, 2 = auto scaling, 3 = manual scaling.
-	float fSmallDisplayOffsetX; // Along with Y it goes from 0.0 to 1.0, XY (0.5, 0.5) = center of the screen
-	float fSmallDisplayOffsetY;
-	float fSmallDisplayZoomLevel; //This is used for zoom values, both in and out.
-	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 that hides the back button etc.
+
+	bool bDisplayStretch;  // Automatically matches the aspect ratio of the window.
+	float fDisplayOffsetX;
+	float fDisplayOffsetY;
+	float fDisplayScale;   // Relative to the most constraining axis (x or y).
+	float fDisplayAspectRatio;  // Stored relative to the PSP's native ratio, so 1.0 is the normal pixel aspect ratio.
+
+	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 and later that hides the back button etc.
 	bool bSustainedPerformanceMode;  // Android: Slows clocks down to avoid overheating/speed fluctuations.
 	bool bIgnoreScreenInsets;  // Android: Center screen disregarding insets if this is enabled.
 	bool bVSync;

@@ -87,13 +87,20 @@ void ViewGroup::PersistData(PersistStatus status, std::string anonId, PersistMap
 	}
 }
 
-void ViewGroup::Touch(const TouchInput &input) {
+bool ViewGroup::Touch(const TouchInput &input) {
 	std::lock_guard<std::mutex> guard(modifyLock_);
+	bool any = false;
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if ((*iter)->GetVisibility() == V_VISIBLE)
-			(*iter)->Touch(input);
+		if ((*iter)->GetVisibility() == V_VISIBLE) {
+			bool touch = (*iter)->Touch(input);
+			any = any || touch;
+			if (exclusiveTouch_ && touch) {
+				break;
+			}
+		}
 	}
+	return any;
 }
 
 void ViewGroup::Query(float x, float y, std::vector<View *> &list) {
@@ -850,7 +857,7 @@ bool ScrollView::Key(const KeyInput &input) {
 const float friction = 0.92f;
 const float stop_threshold = 0.1f;
 
-void ScrollView::Touch(const TouchInput &input) {
+bool ScrollView::Touch(const TouchInput &input) {
 	if ((input.flags & TOUCH_DOWN) && scrollTouchId_ == -1) {
 		scrollStart_ = scrollPos_;
 		inertia_ = 0.0f;
@@ -884,7 +891,9 @@ void ScrollView::Touch(const TouchInput &input) {
 	}
 
 	if (!(input.flags & TOUCH_DOWN) || bounds_.Contains(input.x, input.y)) {
-		ViewGroup::Touch(input2);
+		return ViewGroup::Touch(input2);
+	} else {
+		return false;
 	}
 }
 

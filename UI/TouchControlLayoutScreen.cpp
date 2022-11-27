@@ -359,7 +359,7 @@ public:
 		: UI::AnchorLayout(layoutParams) {
 	}
 
-	void Touch(const TouchInput &input) override;
+	bool Touch(const TouchInput &input) override;
 	void CreateViews();
 	bool HasCreatedViews() const {
 		return !controls_.empty();
@@ -384,7 +384,7 @@ static Point ClampTo(const Point &p, const Bounds &b) {
 	return Point(clamp_value(p.x, b.x, b.x + b.w), clamp_value(p.y, b.y, b.y + b.h));
 }
 
-void ControlLayoutView::Touch(const TouchInput &touch) {
+bool ControlLayoutView::Touch(const TouchInput &touch) {
 	using namespace UI;
 
 	if ((touch.flags & TOUCH_MOVE) && pickedControl_ != nullptr) {
@@ -452,6 +452,7 @@ void ControlLayoutView::Touch(const TouchInput &touch) {
 		pickedControl_->SavePosition();
 		pickedControl_ = 0;
 	}
+	return true;
 }
 
 void ControlLayoutView::CreateViews() {

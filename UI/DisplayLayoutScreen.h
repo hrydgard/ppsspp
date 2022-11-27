@@ -25,7 +25,6 @@ class DisplayLayoutScreen : public UIDialogScreenWithGameBackground {
 public:
 	DisplayLayoutScreen(const Path &filename);
 	void CreateViews() override;
-	bool touch(const TouchInput &touch) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void onFinish(DialogResult reason) override;
 
@@ -38,9 +37,6 @@ public:
 	const char *tag() const override { return "DisplayLayout"; }
 	
 protected:
-	virtual UI::EventReturn OnCenter(UI::EventParams &e);
-	virtual UI::EventReturn OnZoomTypeChange(UI::EventParams &e);
-
 	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
 
 	void sendMessage(const char *message, const char *value) override;
@@ -49,14 +45,4 @@ private:
 	UI::ChoiceStrip *mode_ = nullptr;
 	UI::Choice *postProcChoice_ = nullptr;
 	std::string shaderNames_[256];
-
-	bool dragging_ = false;
-	bool bRotated_ = false;
-
-	// Touch down state for drag to resize etc
-	float startX_ = 0.0f;
-	float startY_ = 0.0f;
-	float startScale_ = -1.0f;
-	float startDisplayOffsetX_ = -1.0f;
-	float startDisplayOffsetY_ = -1.0f;
 };
