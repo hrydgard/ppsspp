@@ -15,12 +15,13 @@ enum class RenderPassType {
 	HAS_DEPTH = 1,
 	COLOR_INPUT = 2,  // input attachment
 	MULTIVIEW = 4,
+	MULTISAMPLE = 8,
 
 	// This is the odd one out, and gets special handling in MergeRPTypes.
 	// If this flag is set, none of the other flags can be set.
 	// For the backbuffer we can always use CLEAR/DONT_CARE, so bandwidth cost for a depth channel is negligible
 	// so we don't bother with a non-depth version.
-	BACKBUFFER = 8,
+	BACKBUFFER = 16,
 
 	TYPE_COUNT = BACKBUFFER + 1,
 };
@@ -54,7 +55,7 @@ struct VKRImage {
 
 class VKRFramebuffer {
 public:
-	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, bool createDepthStencilBuffer, const char *tag);
+	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, int _numSamples, bool createDepthStencilBuffer, const char *tag);
 	~VKRFramebuffer();
 
 	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
@@ -62,9 +63,14 @@ public:
 	int width = 0;
 	int height = 0;
 	int numLayers = 0;
+	VkSampleCountFlagBits sampleCount;
 
 	VKRImage color{};  // color.image is always there.
 	VKRImage depth{};  // depth.image is allowed to be VK_NULL_HANDLE.
+
+	// These are only initialized and used if numSamples > 1.
+	VKRImage msaaColor{};
+	VKRImage msaaDepth{};
 
 	const char *Tag() const {
 		return tag_.c_str();
@@ -76,13 +82,13 @@ public:
 		return depth.image != VK_NULL_HANDLE;
 	}
 
-	// TODO: Hide.
-	VulkanContext *vulkan_;
+	VulkanContext *Vulkan() const { return vulkan_; }
 private:
-	static void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag);
+	static void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkSampleCountFlagBits sampleCount, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag);
 
 	VkFramebuffer framebuf[(size_t)RenderPassType::TYPE_COUNT]{};
 
+	VulkanContext *vulkan_;
 	std::string tag_;
 };
 
@@ -97,6 +103,8 @@ inline bool RenderPassTypeHasInput(RenderPassType type) {
 inline bool RenderPassTypeHasMultiView(RenderPassType type) {
 	return (type & RenderPassType::MULTIVIEW) != 0;
 }
+
+VkSampleCountFlagBits SampleCountToFlagBits(int count);
 
 // Must be the same order as Draw::RPAction
 enum class VKRRenderPassLoadAction : uint8_t {
@@ -124,7 +132,7 @@ class VKRRenderPass {
 public:
 	VKRRenderPass(const RPKey &key) : key_(key) {}
 
-	VkRenderPass Get(VulkanContext *vulkan, RenderPassType rpType);
+	VkRenderPass Get(VulkanContext *vulkan, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
 	void Destroy(VulkanContext *vulkan) {
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (pass[i]) {

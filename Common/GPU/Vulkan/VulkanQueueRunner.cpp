@@ -198,7 +198,7 @@ bool VulkanQueueRunner::InitBackbufferFramebuffers(int width, int height) {
 	VkImageView attachments[2] = { VK_NULL_HANDLE, depth_.view };
 
 	VkFramebufferCreateInfo fb_info = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-	fb_info.renderPass = GetCompatibleRenderPass()->Get(vulkan_, RenderPassType::BACKBUFFER);
+	fb_info.renderPass = GetCompatibleRenderPass()->Get(vulkan_, RenderPassType::BACKBUFFER, VK_SAMPLE_COUNT_1_BIT);
 	fb_info.attachmentCount = 2;
 	fb_info.pAttachments = attachments;
 	fb_info.width = width;
@@ -1323,7 +1323,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 					// Maybe a middle pass. But let's try to just block and compile here for now, this doesn't
 					// happen all that much.
 					graphicsPipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
-					graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType), rpType);
+					graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType, step.render.framebuffer ? step.render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT), rpType);
 				}
 
 				VkPipeline pipeline = graphicsPipeline->pipeline[(size_t)rpType]->BlockUntilReady();
@@ -1523,6 +1523,8 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 
 	bool hasDepth = RenderPassTypeHasDepth(step.render.renderPassType);
 
+	VkSampleCountFlagBits sampleCount;
+
 	if (step.render.framebuffer) {
 		_dbg_assert_(step.render.finalColorLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 		_dbg_assert_(step.render.finalDepthStencilLayout != VK_IMAGE_LAYOUT_UNDEFINED);
@@ -1535,6 +1537,7 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 
 		VKRFramebuffer *fb = step.render.framebuffer;
 		framebuf = fb->Get(renderPass, step.render.renderPassType);
+		sampleCount = fb->sampleCount;
 		_dbg_assert_(framebuf != VK_NULL_HANDLE);
 		w = fb->width;
 		h = fb->height;
@@ -1590,10 +1593,11 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 		numClearVals = hasDepth ? 2 : 1;  // We might do depth-less backbuffer in the future, though doubtful of the value.
 		clearVal[1].depthStencil.depth = 0.0f;
 		clearVal[1].depthStencil.stencil = 0;
+		sampleCount = VK_SAMPLE_COUNT_1_BIT;
 	}
 
 	VkRenderPassBeginInfo rp_begin = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-	rp_begin.renderPass = renderPass->Get(vulkan_, step.render.renderPassType);
+	rp_begin.renderPass = renderPass->Get(vulkan_, step.render.renderPassType, sampleCount);
 	rp_begin.framebuffer = framebuf;
 
 	VkRect2D rc = step.render.renderArea;

@@ -1299,6 +1299,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 					desc.depth = 1;
 					desc.z_stencil = false;
 					desc.numLayers = 1;
+					desc.numSamples = 1;
 					desc.tag = "dynamic_clut";
 					dynamicClutFbo_ = draw_->CreateFramebuffer(desc);
 					desc.tag = "dynamic_clut_temp";

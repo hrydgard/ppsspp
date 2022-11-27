@@ -2,14 +2,41 @@
 #include "Common/GPU/Vulkan/VulkanFramebuffer.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
-VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, bool createDepthStencilBuffer, const char *tag)
+VkSampleCountFlagBits SampleCountToFlagBits(int count) {
+	// TODO: Check hardware support here, or elsewhere?
+	// Some hardware only supports 4x.
+	switch (count) {
+	case 1: return VK_SAMPLE_COUNT_1_BIT;
+	case 2: return VK_SAMPLE_COUNT_2_BIT;
+	case 4: return VK_SAMPLE_COUNT_4_BIT;
+	case 8: return VK_SAMPLE_COUNT_8_BIT;
+	case 16: return VK_SAMPLE_COUNT_16_BIT; // rare
+	default:
+		_assert_(false);
+		return VK_SAMPLE_COUNT_1_BIT;
+	}
+}
+
+VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, int _numSamples, bool createDepthStencilBuffer, const char *tag)
 	: vulkan_(vk), tag_(tag), width(_width), height(_height), numLayers(_numLayers) {
 
 	_dbg_assert_(tag);
 
-	CreateImage(vulkan_, initCmd, color, width, height, numLayers, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
+	CreateImage(vulkan_, initCmd, color, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 	if (createDepthStencilBuffer) {
-		CreateImage(vulkan_, initCmd, depth, width, height, numLayers, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
+		CreateImage(vulkan_, initCmd, depth, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
+	}
+
+	if (_numSamples > 1) {
+		sampleCount = SampleCountToFlagBits(_numSamples);
+
+		// TODO: Create a different tag for these?
+		CreateImage(vulkan_, initCmd, msaaColor, width, height, numLayers, sampleCount, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
+		if (createDepthStencilBuffer) {
+			CreateImage(vulkan_, initCmd, depth, width, height, numLayers, sampleCount, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
+		}
+	} else {
+		sampleCount = VK_SAMPLE_COUNT_1_BIT;
 	}
 
 	UpdateTag(tag);
@@ -55,7 +82,7 @@ VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPas
 		}
 		views[1] = depth.rtView;
 	}
-	fbci.renderPass = compatibleRenderPass->Get(vulkan_, rpType);
+	fbci.renderPass = compatibleRenderPass->Get(vulkan_, rpType, sampleCount);
 	fbci.attachmentCount = hasDepth ? 2 : 1;
 	fbci.pAttachments = views;
 	fbci.width = width;
@@ -108,7 +135,7 @@ VKRFramebuffer::~VKRFramebuffer() {
 
 // NOTE: If numLayers > 1, it will create an array texture, rather than a normal 2D texture.
 // This requires a different sampling path!
-void VKRFramebuffer::CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag) {
+void VKRFramebuffer::CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkSampleCountFlagBits sampleCount, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag) {
 	// We don't support more exotic layer setups for now. Mono or stereo.
 	_dbg_assert_(numLayers == 1 || numLayers == 2);
 
@@ -120,7 +147,7 @@ void VKRFramebuffer::CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKR
 	ici.extent.depth = 1;
 	ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	ici.imageType = VK_IMAGE_TYPE_2D;
-	ici.samples = VK_SAMPLE_COUNT_1_BIT;
+	ici.samples = sampleCount;
 	ici.tiling = VK_IMAGE_TILING_OPTIMAL;
 	ici.format = format;
 	// Strictly speaking we don't yet need VK_IMAGE_USAGE_SAMPLED_BIT for depth buffers since we do not yet sample depth buffers.
@@ -226,45 +253,76 @@ static VkAttachmentStoreOp ConvertStoreAction(VKRRenderPassStoreAction action) {
 // Self-dependency: https://github.com/gpuweb/gpuweb/issues/442#issuecomment-547604827
 // Also see https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
 
-VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPassType rpType) {
+VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPassType rpType, VkSampleCountFlagBits sampleCount) {
 	bool selfDependency = RenderPassTypeHasInput(rpType);
 	bool isBackbuffer = rpType == RenderPassType::BACKBUFFER;
 	bool hasDepth = RenderPassTypeHasDepth(rpType);
 	bool multiview = RenderPassTypeHasMultiView(rpType);
+	bool multisample = rpType & RenderPassType::MULTISAMPLE;
 
 	if (multiview) {
 		// TODO: Assert that the device has multiview support enabled.
 	}
 
-	VkAttachmentDescription attachments[2] = {};
-	attachments[0].format = isBackbuffer ? vulkan->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
-	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachments[0].loadOp = ConvertLoadAction(key.colorLoadAction);
-	attachments[0].storeOp = ConvertStoreAction(key.colorStoreAction);
-	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attachments[0].initialLayout = isBackbuffer ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	attachments[0].finalLayout = isBackbuffer ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	attachments[0].flags = 0;
+	int colorAttachmentIndex = 0;
+	int depthAttachmentIndex = 1;
+
+	int attachmentCount = 0;
+	VkAttachmentDescription attachments[4]{};
+	attachments[attachmentCount].format = isBackbuffer ? vulkan->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
+	attachments[attachmentCount].samples = VK_SAMPLE_COUNT_1_BIT;
+	attachments[attachmentCount].loadOp = multisample ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : ConvertLoadAction(key.colorLoadAction);
+	attachments[attachmentCount].storeOp = ConvertStoreAction(key.colorStoreAction);
+	attachments[attachmentCount].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachments[attachmentCount].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachments[attachmentCount].initialLayout = isBackbuffer ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[attachmentCount].finalLayout = isBackbuffer ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachmentCount++;
 
 	if (hasDepth) {
-		attachments[1].format = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
-		attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
-		attachments[1].loadOp = ConvertLoadAction(key.depthLoadAction);
-		attachments[1].storeOp = ConvertStoreAction(key.depthStoreAction);
-		attachments[1].stencilLoadOp = ConvertLoadAction(key.stencilLoadAction);
-		attachments[1].stencilStoreOp = ConvertStoreAction(key.stencilStoreAction);
-		attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		attachments[1].flags = 0;
+		attachments[attachmentCount].format = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
+		attachments[attachmentCount].samples = VK_SAMPLE_COUNT_1_BIT;
+		attachments[attachmentCount].loadOp = multisample ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : ConvertLoadAction(key.depthLoadAction);
+		attachments[attachmentCount].storeOp = ConvertStoreAction(key.depthStoreAction);
+		attachments[attachmentCount].stencilLoadOp = ConvertLoadAction(key.stencilLoadAction);
+		attachments[attachmentCount].stencilStoreOp = ConvertStoreAction(key.stencilStoreAction);
+		attachments[attachmentCount].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		attachments[attachmentCount].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		attachmentCount++;
+	}
+
+	if (multisample) {
+		colorAttachmentIndex = attachmentCount;
+		attachments[attachmentCount].format = isBackbuffer ? vulkan->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
+		attachments[attachmentCount].samples = sampleCount;
+		attachments[attachmentCount].loadOp = ConvertLoadAction(key.colorLoadAction);
+		attachments[attachmentCount].storeOp = ConvertStoreAction(key.colorStoreAction);
+		attachments[attachmentCount].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachments[attachmentCount].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachments[attachmentCount].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		attachments[attachmentCount].finalLayout = isBackbuffer ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		attachmentCount++;
+
+		if (hasDepth) {
+			depthAttachmentIndex = attachmentCount;
+			attachments[attachmentCount].format = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
+			attachments[attachmentCount].samples = VK_SAMPLE_COUNT_1_BIT;
+			attachments[attachmentCount].loadOp = ConvertLoadAction(key.depthLoadAction);
+			attachments[attachmentCount].storeOp = ConvertStoreAction(key.depthStoreAction);
+			attachments[attachmentCount].stencilLoadOp = ConvertLoadAction(key.stencilLoadAction);
+			attachments[attachmentCount].stencilStoreOp = ConvertStoreAction(key.stencilStoreAction);
+			attachments[attachmentCount].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			attachments[attachmentCount].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			attachmentCount++;
+		}
 	}
 
 	VkAttachmentReference color_reference{};
-	color_reference.attachment = 0;
+	color_reference.attachment = colorAttachmentIndex;
 	color_reference.layout = selfDependency ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	VkAttachmentReference depth_reference{};
-	depth_reference.attachment = 1;
+	depth_reference.attachment = depthAttachmentIndex;
 	depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	VkSubpassDescription subpass{};
@@ -279,7 +337,14 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	}
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &color_reference;
-	subpass.pResolveAttachments = nullptr;
+
+	VkAttachmentReference resolve_references[2];
+	if (multisample) {
+		resolve_references[0].attachment = 0;  // the non-msaa color buffer.
+		subpass.pResolveAttachments = resolve_references;
+	} else {
+		subpass.pResolveAttachments = nullptr;
+	}
 	if (hasDepth) {
 		subpass.pDepthStencilAttachment = &depth_reference;
 	}
@@ -291,7 +356,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	size_t numDeps = 0;
 
 	VkRenderPassCreateInfo rp{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
-	rp.attachmentCount = hasDepth ? 2 : 1;
+	rp.attachmentCount = attachmentCount;
 	rp.pAttachments = attachments;
 	rp.subpassCount = 1;
 	rp.pSubpasses = &subpass;
@@ -342,12 +407,16 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	return pass;
 }
 
-VkRenderPass VKRRenderPass::Get(VulkanContext *vulkan, RenderPassType rpType) {
+VkRenderPass VKRRenderPass::Get(VulkanContext *vulkan, RenderPassType rpType, VkSampleCountFlagBits sampleCount) {
 	// When we create a render pass, we create all "types" of it immediately,
 	// practical later when referring to it. Could change to on-demand if it feels motivated
 	// but I think the render pass objects are cheap.
+
+	// WARNING: We don't include sampleCount in the key, there's only the distinction multisampled or not
+	// which comes from the rpType.
+	// So you CAN NOT mix and match different non-one sample counts.
 	if (!pass[(int)rpType]) {
-		pass[(int)rpType] = CreateRenderPass(vulkan, key_, (RenderPassType)rpType);
+		pass[(int)rpType] = CreateRenderPass(vulkan, key_, (RenderPassType)rpType, sampleCount);
 	}
 	return pass[(int)rpType];
 }

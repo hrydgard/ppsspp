@@ -481,7 +481,7 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	return frameData_[curFrame].GetInitCmd(vulkan_);
 }
 
-VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, const char *tag) {
+VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, const char *tag) {
 	VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline();
 	_dbg_assert_(desc->vertexShader);
 	_dbg_assert_(desc->fragmentShader);
@@ -523,7 +523,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			}
 
 			pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
-			compileQueue_.push_back(CompileQueueEntry(pipeline, compatibleRenderPass->Get(vulkan_, rpType), rpType));
+			compileQueue_.push_back(CompileQueueEntry(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType));
 			needsCompile = true;
 		}
 		if (needsCompile)
@@ -575,17 +575,23 @@ void VulkanRenderManager::EndCurRenderStep() {
 		if (curRenderStep_->render.framebuffer->numLayers > 1) {
 			rpType = (RenderPassType)(rpType | RenderPassType::MULTIVIEW);
 		}
+
+		if (curRenderStep_->render.framebuffer->sampleCount != VK_SAMPLE_COUNT_1_BIT) {
+			rpType = (RenderPassType)(rpType | RenderPassType::MULTISAMPLE);
+		}
 	}
 
 	VKRRenderPass *renderPass = queueRunner_.GetRenderPass(key);
 	curRenderStep_->render.renderPassType = rpType;
+
+	VkSampleCountFlagBits sampleCount = curRenderStep_->render.framebuffer ? curRenderStep_->render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT;
 
 	compileMutex_.lock();
 	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
 		if (!pipeline->pipeline[(size_t)rpType]) {
 			pipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
-			compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->Get(vulkan_, rpType), rpType));
+			compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->Get(vulkan_, rpType, sampleCount), rpType));
 			needsCompile = true;
 		}
 	}

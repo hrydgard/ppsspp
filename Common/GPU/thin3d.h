@@ -300,6 +300,7 @@ struct FramebufferDesc {
 	int height;
 	int depth;
 	int numLayers;
+	int numSamples;
 	bool z_stencil;
 	const char *tag;  // For graphics debuggers
 };
