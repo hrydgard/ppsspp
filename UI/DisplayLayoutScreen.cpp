@@ -204,11 +204,12 @@ void DisplayLayoutScreen::CreateViews() {
 	rightScrollView->Add(rightColumn);
 	root_->Add(rightScrollView);
 
-	PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, di->T("Aspect Ratio"), screenManager());
-	leftColumn->Add(aspectRatio);
-
 	auto stretch = new CheckBox(&g_Config.bDisplayStretch, gr->T("Stretch"));
 	leftColumn->Add(stretch);
+
+	PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, di->T("Aspect Ratio"), screenManager());
+	leftColumn->Add(aspectRatio);
+	aspectRatio->SetDisabledPtr(&g_Config.bDisplayStretch);
 
 	mode_ = new ChoiceStrip(ORIENT_VERTICAL);
 	mode_->AddChoice(di->T("Move"));
