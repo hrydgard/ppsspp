@@ -600,9 +600,9 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			// First, check inside/outside directions for each index.
 			for (int i = 0; i < vertexCount; ++i) {
 				float z = transformed[indsIn[i]].z / transformed[indsIn[i]].pos_w;
-				if (z >= maxZValue)
+				if (z > maxZValue)
 					outsideZ[i] = 1;
-				else if (z <= minZValue)
+				else if (z < minZValue)
 					outsideZ[i] = -1;
 				else
 					outsideZ[i] = 0;
