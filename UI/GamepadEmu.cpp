@@ -598,7 +598,7 @@ bool PSPCustomStick::Touch(const TouchInput &input) {
 			retval = true;
 		}
 	}
-	return true;
+	return retval;
 }
 
 void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
