@@ -271,6 +271,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	caps_.fragmentShaderDepthWriteSupported = true;
 	caps_.fragmentShaderStencilWriteSupported = false;
 	caps_.blendMinMaxSupported = true;
+	caps_.multiSampleLevelsMask = 1;   // More could be supported with some work.
 
 	D3D11_FEATURE_DATA_D3D11_OPTIONS options{};
 	HRESULT result = device_->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS, &options, sizeof(options));

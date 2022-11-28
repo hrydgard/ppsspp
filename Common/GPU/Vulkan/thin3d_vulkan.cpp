@@ -832,6 +832,7 @@ VKContext::VKContext(VulkanContext *vulkan)
 	caps_.blendMinMaxSupported = true;
 	caps_.logicOpSupported = vulkan->GetDeviceFeatures().enabled.standard.logicOp != 0;
 	caps_.multiViewSupported = vulkan->GetDeviceFeatures().enabled.multiview.multiview != 0;
+	const auto &limits = vulkan->GetPhysicalDeviceProperties().properties.limits;
 
 	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDeviceIndex()).properties;
 
@@ -852,6 +853,14 @@ VKContext::VKContext(VulkanContext *vulkan)
 		}
 	}
 	caps_.isTilingGPU = hasLazyMemory;
+
+	// VkSampleCountFlagBits is arranged correctly for our purposes.
+	// Only support MSAA levels that have support for all three of color, depth, stencil.
+	if (!caps_.isTilingGPU) {
+		caps_.multiSampleLevelsMask = (limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts & limits.framebufferStencilSampleCounts);
+	} else {
+		caps_.multiSampleLevelsMask = 1;
+	}
 
 	if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
 		// Adreno 5xx devices, all known driver versions, fail to discard stencil when depth write is off.
@@ -1196,9 +1205,6 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 		gDesc.dynamicStates[i] = dynamics[i];
 	}
 	gDesc.ds.pDynamicStates = gDesc.dynamicStates;
-
-	gDesc.ms.pSampleMask = nullptr;
-	gDesc.ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
 	gDesc.views.viewportCount = 1;
 	gDesc.views.scissorCount = 1;
@@ -1741,7 +1747,7 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_ALL_LAYERS:
 		return (uint64_t)curFramebuffer_->GetFB()->color.texAllLayersView;
 	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_RT:
-		return (uint64_t)curFramebuffer_->GetFB()->color.rtView;
+		return (uint64_t)curFramebuffer_->GetFB()->GetRTView();
 	case NativeObject::FRAME_DATA_DESC_SET_LAYOUT:
 		return (uint64_t)frameDescSetLayout_;
 	case NativeObject::THIN3D_PIPELINE_LAYOUT:

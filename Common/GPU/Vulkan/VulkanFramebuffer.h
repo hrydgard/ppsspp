@@ -43,6 +43,7 @@ struct VKRImage {
 
 	VmaAllocation alloc;
 	VkFormat format;
+	VkSampleCountFlagBits sampleCount;
 
 	// This one is used by QueueRunner's Perform functions to keep track. CANNOT be used anywhere else due to sync issues.
 	VkImageLayout layout;
@@ -51,6 +52,8 @@ struct VKRImage {
 
 	// For debugging.
 	std::string tag;
+
+	void Delete(VulkanContext *vulkan);
 };
 
 class VKRFramebuffer {
@@ -82,6 +85,14 @@ public:
 		return depth.image != VK_NULL_HANDLE;
 	}
 
+	VkImageView GetRTView() {
+		if (sampleCount == VK_SAMPLE_COUNT_1_BIT) {
+			return color.rtView;
+		} else {
+			return msaaColor.rtView;
+		}
+	}
+
 	VulkanContext *Vulkan() const { return vulkan_; }
 private:
 	static void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkSampleCountFlagBits sampleCount, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag);
@@ -104,7 +115,11 @@ inline bool RenderPassTypeHasMultiView(RenderPassType type) {
 	return (type & RenderPassType::MULTIVIEW) != 0;
 }
 
-VkSampleCountFlagBits SampleCountToFlagBits(int count);
+inline bool RenderPassTypeHasMultisample(RenderPassType type) {
+	return (type & RenderPassType::MULTISAMPLE) != 0;
+}
+
+VkSampleCountFlagBits MultiSampleLevelToFlagBits(int count);
 
 // Must be the same order as Draw::RPAction
 enum class VKRRenderPassLoadAction : uint8_t {

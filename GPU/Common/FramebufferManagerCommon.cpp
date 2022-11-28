@@ -1652,7 +1652,10 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	shaderManager_->DirtyLastShader();
 	char tag[128];
 	size_t len = FormatFramebufferName(vfb, tag, sizeof(tag));
-	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), 1, true, tag });
+
+	int msaaLevel = g_Config.iMultiSampleLevel;
+
+	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), msaaLevel, true, tag });
 	if (Memory::IsVRAMAddress(vfb->fb_address) && vfb->fb_stride != 0) {
 		NotifyMemInfo(MemBlockFlags::ALLOC, vfb->fb_address, ColorBufferByteSize(vfb), tag, len);
 	}

@@ -305,6 +305,21 @@ void GameSettingsScreen::CreateViews() {
 		return !g_Config.bSoftwareRendering && !g_Config.bSkipBufferEffects;
 	});
 
+	if (draw->GetDeviceCaps().multiSampleLevelsMask != 1) {
+		static const char *msaaModes[] = { "Off", "2xMSAA", "4xMSAA", "8xMSAA", "16xMSAA" };
+		auto msaaChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iMultiSampleLevel, gr->T("Antialiasing (MSAA)"), msaaModes, 0, ARRAY_SIZE(msaaModes), gr->GetName(), screenManager()));
+		msaaChoice->OnChoice.Add([&](UI::EventParams &) -> UI::EventReturn {
+			NativeMessageReceived("gpu_renderResized", "");
+			return UI::EVENT_DONE;
+		});
+		// Hide unsupported levels.
+		for (int i = 1; i < 5; i++) {
+			if ((draw->GetDeviceCaps().multiSampleLevelsMask & (1 << i)) == 0) {
+				msaaChoice->HideChoice(i);
+			}
+		}
+	}
+
 #if PPSSPP_PLATFORM(ANDROID)
 	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
 		static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };

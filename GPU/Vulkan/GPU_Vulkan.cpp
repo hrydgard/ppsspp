@@ -269,6 +269,12 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		}
 	}
 
+	// We need to turn off framebuffer fetch through input attachments if MSAA is on for now.
+	// This is fixable, just needs some shader generator work (subpassInputMS).
+	if (g_Config.iMultiSampleLevel != 0) {
+		features &= ~GPU_USE_FRAMEBUFFER_FETCH;
+	}
+
 	return CheckGPUFeaturesLate(features);
 }
 

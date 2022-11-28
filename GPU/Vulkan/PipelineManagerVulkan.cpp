@@ -250,17 +250,13 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	rs.polygonMode = VK_POLYGON_MODE_FILL;
 	rs.depthClampEnable = key.depthClampEnable;
 
-	VkPipelineMultisampleStateCreateInfo &ms = desc->ms;
-	ms.pSampleMask = nullptr;
-	ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
 	desc->fragmentShader = fs->GetModule();
 	desc->vertexShader = vs->GetModule();
 	desc->geometryShader = gs ? gs->GetModule() : nullptr;
 	desc->fragmentShaderSource = fs->GetShaderString(SHADER_STRING_SOURCE_CODE);
 	desc->vertexShaderSource = vs->GetShaderString(SHADER_STRING_SOURCE_CODE);
 	if (gs) {
-		desc->geometryShaderSource =  gs->GetShaderString(SHADER_STRING_SOURCE_CODE);
+		desc->geometryShaderSource = gs->GetShaderString(SHADER_STRING_SOURCE_CODE);
 	}
 
 	VkPipelineInputAssemblyStateCreateInfo &inputAssembly = desc->inputAssembly;
@@ -352,7 +348,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 		pipelineFlags |= PipelineFlags::USES_MULTIVIEW;
 	}
 
-	VkSampleCountFlagBits sampleCount = SampleCountToFlagBits(g_Config.iMultiSampleLevel);
+	VkSampleCountFlagBits sampleCount = MultiSampleLevelToFlagBits(g_Config.iMultiSampleLevel);
 
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		renderManager, pipelineCache_, layout, pipelineFlags, sampleCount,

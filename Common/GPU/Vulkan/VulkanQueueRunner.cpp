@@ -762,6 +762,14 @@ static const char *rpTypeDebugNames[] = {
 	"MV_RENDER_DEPTH",
 	"MV_RENDER_INPUT",
 	"MV_RENDER_DEPTH_INPUT",
+	"MS_RENDER",
+	"MS_RENDER_DEPTH",
+	"MS_RENDER_INPUT",
+	"MS_RENDER_DEPTH_INPUT",
+	"MS_MV_RENDER",
+	"MS_MV_RENDER_DEPTH",
+	"MS_MV_RENDER_INPUT",
+	"MS_MV_RENDER_DEPTH_INPUT",
 	"BACKBUF",
 };
 
@@ -1323,7 +1331,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 					// Maybe a middle pass. But let's try to just block and compile here for now, this doesn't
 					// happen all that much.
 					graphicsPipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
-					graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType, step.render.framebuffer ? step.render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT), rpType);
+					VkSampleCountFlagBits sampleCount = step.render.framebuffer ? step.render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT;
+					graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
 				}
 
 				VkPipeline pipeline = graphicsPipeline->pipeline[(size_t)rpType]->BlockUntilReady();
@@ -1405,7 +1414,12 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		{
 			_assert_(step.render.pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT);
 			VulkanBarrier barrier;
-			SelfDependencyBarrier(step.render.framebuffer->color, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
+			if (step.render.framebuffer->sampleCount != VK_SAMPLE_COUNT_1_BIT) {
+				// Rendering is happening to the multisample buffer, not the color buffer.
+				SelfDependencyBarrier(step.render.framebuffer->msaaColor, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
+			} else {
+				SelfDependencyBarrier(step.render.framebuffer->color, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
+			}
 			barrier.Flush(cmd);
 			break;
 		}
@@ -1516,7 +1530,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step, VkCommandBuffer cmd) {
 	VKRRenderPass *renderPass;
 	int numClearVals = 0;
-	VkClearValue clearVal[2]{};
+	VkClearValue clearVal[4]{};
 	VkFramebuffer framebuf;
 	int w;
 	int h;
@@ -1563,15 +1577,22 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 		// The transition from the optimal format happens after EndRenderPass, now that we don't
 		// do it as part of the renderpass itself anymore.
 
+		if (sampleCount != VK_SAMPLE_COUNT_1_BIT) {
+			// We don't initialize values for these.
+			numClearVals = hasDepth ? 2 : 1; // Skip the resolve buffers, don't need to clear those.
+		}
 		if (step.render.colorLoad == VKRRenderPassLoadAction::CLEAR) {
-			Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
-			numClearVals = 1;
+			Uint8x4ToFloat4(clearVal[numClearVals].color.float32, step.render.clearColor);
 		}
-		if (hasDepth && (step.render.depthLoad == VKRRenderPassLoadAction::CLEAR || step.render.stencilLoad == VKRRenderPassLoadAction::CLEAR)) {
-			clearVal[1].depthStencil.depth = step.render.clearDepth;
-			clearVal[1].depthStencil.stencil = step.render.clearStencil;
-			numClearVals = 2;
+		numClearVals++;
+		if (hasDepth) {
+			if (step.render.depthLoad == VKRRenderPassLoadAction::CLEAR || step.render.stencilLoad == VKRRenderPassLoadAction::CLEAR) {
+				clearVal[numClearVals].depthStencil.depth = step.render.clearDepth;
+				clearVal[numClearVals].depthStencil.stencil = step.render.clearStencil;
+			}
+			numClearVals++;
 		}
+		_dbg_assert_(numClearVals != 3);
 	} else {
 		RPKey key{
 			VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR,

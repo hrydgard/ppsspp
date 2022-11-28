@@ -2,18 +2,36 @@
 #include "Common/GPU/Vulkan/VulkanFramebuffer.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
-VkSampleCountFlagBits SampleCountToFlagBits(int count) {
+VkSampleCountFlagBits MultiSampleLevelToFlagBits(int count) {
 	// TODO: Check hardware support here, or elsewhere?
 	// Some hardware only supports 4x.
 	switch (count) {
-	case 1: return VK_SAMPLE_COUNT_1_BIT;
-	case 2: return VK_SAMPLE_COUNT_2_BIT;
-	case 4: return VK_SAMPLE_COUNT_4_BIT;
-	case 8: return VK_SAMPLE_COUNT_8_BIT;
-	case 16: return VK_SAMPLE_COUNT_16_BIT; // rare
+	case 0: return VK_SAMPLE_COUNT_1_BIT;
+	case 1: return VK_SAMPLE_COUNT_2_BIT;
+	case 2: return VK_SAMPLE_COUNT_4_BIT;  // The only non-1 level supported on some mobile chips.
+	case 3: return VK_SAMPLE_COUNT_8_BIT;
+	case 4: return VK_SAMPLE_COUNT_16_BIT; // rare but exists, on Intel for example
 	default:
 		_assert_(false);
 		return VK_SAMPLE_COUNT_1_BIT;
+	}
+}
+
+void VKRImage::Delete(VulkanContext *vulkan) {
+	// Get rid of the views first, feels cleaner (but in reality doesn't matter).
+	if (rtView)
+		vulkan->Delete().QueueDeleteImageView(rtView);
+	if (texAllLayersView)
+		vulkan->Delete().QueueDeleteImageView(texAllLayersView);
+	for (int i = 0; i < 2; i++) {
+		if (texLayerViews[i]) {
+			vulkan->Delete().QueueDeleteImageView(texLayerViews[i]);
+		}
+	}
+
+	if (image) {
+		_dbg_assert_(alloc);
+		vulkan->Delete().QueueDeleteImageAllocation(image, alloc);
 	}
 }
 
@@ -28,12 +46,12 @@ VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRe
 	}
 
 	if (_numSamples > 1) {
-		sampleCount = SampleCountToFlagBits(_numSamples);
+		sampleCount = MultiSampleLevelToFlagBits(_numSamples);
 
 		// TODO: Create a different tag for these?
 		CreateImage(vulkan_, initCmd, msaaColor, width, height, numLayers, sampleCount, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 		if (createDepthStencilBuffer) {
-			CreateImage(vulkan_, initCmd, depth, width, height, numLayers, sampleCount, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
+			CreateImage(vulkan_, initCmd, msaaDepth, width, height, numLayers, sampleCount, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 		}
 	} else {
 		sampleCount = VK_SAMPLE_COUNT_1_BIT;
@@ -71,19 +89,27 @@ VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPas
 	}
 
 	VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-	VkImageView views[2]{};
+	VkImageView views[4]{};
 
 	bool hasDepth = RenderPassTypeHasDepth(rpType);
-	views[0] = color.rtView;  // 2D array texture if multilayered.
+	int attachmentCount = 0;
+	views[attachmentCount++] = color.rtView;  // 2D array texture if multilayered.
 	if (hasDepth) {
 		if (!depth.rtView) {
 			WARN_LOG(G3D, "depth render type to non-depth fb: %p %p fmt=%d (%s %dx%d)", depth.image, depth.texAllLayersView, depth.format, tag_.c_str(), width, height);
 			// Will probably crash, depending on driver.
 		}
-		views[1] = depth.rtView;
+		views[attachmentCount++] = depth.rtView;
 	}
+	if (rpType & RenderPassType::MULTISAMPLE) {
+		views[attachmentCount++] = msaaColor.rtView;
+		if (hasDepth) {
+			views[attachmentCount++] = msaaDepth.rtView;
+		}
+	}
+
 	fbci.renderPass = compatibleRenderPass->Get(vulkan_, rpType, sampleCount);
-	fbci.attachmentCount = hasDepth ? 2 : 1;
+	fbci.attachmentCount = attachmentCount;
 	fbci.pAttachments = views;
 	fbci.width = width;
 	fbci.height = height;
@@ -100,32 +126,11 @@ VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPas
 }
 
 VKRFramebuffer::~VKRFramebuffer() {
-	// Get rid of the views first, feels cleaner (but in reality doesn't matter).
-	if (color.rtView)
-		vulkan_->Delete().QueueDeleteImageView(color.rtView);
-	if (depth.rtView)
-		vulkan_->Delete().QueueDeleteImageView(depth.rtView);
-	if (color.texAllLayersView)
-		vulkan_->Delete().QueueDeleteImageView(color.texAllLayersView);
-	if (depth.texAllLayersView)
-		vulkan_->Delete().QueueDeleteImageView(depth.texAllLayersView);
-	for (int i = 0; i < 2; i++) {
-		if (color.texLayerViews[i]) {
-			vulkan_->Delete().QueueDeleteImageView(color.texLayerViews[i]);
-		}
-		if (depth.texLayerViews[i]) {
-			vulkan_->Delete().QueueDeleteImageView(depth.texLayerViews[i]);
-		}
-	}
+	color.Delete(vulkan_);
+	depth.Delete(vulkan_);
+	msaaColor.Delete(vulkan_);
+	msaaDepth.Delete(vulkan_);
 
-	if (color.image) {
-		_dbg_assert_(color.alloc);
-		vulkan_->Delete().QueueDeleteImageAllocation(color.image, color.alloc);
-	}
-	if (depth.image) {
-		_dbg_assert_(depth.alloc);
-		vulkan_->Delete().QueueDeleteImageAllocation(depth.image, depth.alloc);
-	}
 	for (auto &fb : framebuf) {
 		if (fb) {
 			vulkan_->Delete().QueueDeleteFramebuffer(fb);
@@ -229,6 +234,7 @@ void VKRFramebuffer::CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKR
 		0, dstAccessMask);
 	img.layout = initialLayout;
 	img.format = format;
+	img.sampleCount = sampleCount;
 	img.tag = tag ? tag : "N/A";
 	img.numLayers = numLayers;
 }
@@ -258,7 +264,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	bool isBackbuffer = rpType == RenderPassType::BACKBUFFER;
 	bool hasDepth = RenderPassTypeHasDepth(rpType);
 	bool multiview = RenderPassTypeHasMultiView(rpType);
-	bool multisample = rpType & RenderPassType::MULTISAMPLE;
+	bool multisample = RenderPassTypeHasMultisample(rpType);
 
 	if (multiview) {
 		// TODO: Assert that the device has multiview support enabled.
@@ -306,7 +312,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		if (hasDepth) {
 			depthAttachmentIndex = attachmentCount;
 			attachments[attachmentCount].format = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
-			attachments[attachmentCount].samples = VK_SAMPLE_COUNT_1_BIT;
+			attachments[attachmentCount].samples = sampleCount;
 			attachments[attachmentCount].loadOp = ConvertLoadAction(key.depthLoadAction);
 			attachments[attachmentCount].storeOp = ConvertStoreAction(key.depthStoreAction);
 			attachments[attachmentCount].stencilLoadOp = ConvertLoadAction(key.stencilLoadAction);
@@ -338,9 +344,10 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &color_reference;
 
-	VkAttachmentReference resolve_references[2];
+	VkAttachmentReference resolve_references[2]{};
 	if (multisample) {
 		resolve_references[0].attachment = 0;  // the non-msaa color buffer.
+		resolve_references[0].layout = selfDependency ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		subpass.pResolveAttachments = resolve_references;
 	} else {
 		subpass.pResolveAttachments = nullptr;
@@ -415,6 +422,9 @@ VkRenderPass VKRRenderPass::Get(VulkanContext *vulkan, RenderPassType rpType, Vk
 	// WARNING: We don't include sampleCount in the key, there's only the distinction multisampled or not
 	// which comes from the rpType.
 	// So you CAN NOT mix and match different non-one sample counts.
+
+	_dbg_assert_(!((rpType & RenderPassType::MULTISAMPLE) && sampleCount == VK_SAMPLE_COUNT_1_BIT));
+
 	if (!pass[(int)rpType]) {
 		pass[(int)rpType] = CreateRenderPass(vulkan, key_, (RenderPassType)rpType, sampleCount);
 	}

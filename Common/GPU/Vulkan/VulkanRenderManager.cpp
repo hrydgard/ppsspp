@@ -27,7 +27,7 @@
 using namespace PPSSPP_VK;
 
 // renderPass is an example of the "compatibility class" or RenderPassType type.
-bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType) {
+bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount) {
 	// Fill in the last part of the desc since now it's time to block.
 	VkShaderModule vs = desc->vertexShader->BlockUntilReady();
 	VkShaderModule fs = desc->fragmentShader->BlockUntilReady();
@@ -69,13 +69,16 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	pipe.pDepthStencilState = &desc->dss;
 	pipe.pRasterizationState = &desc->rs;
 
+	VkPipelineMultisampleStateCreateInfo ms{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
+	ms.rasterizationSamples = sampleCount;
+
 	// We will use dynamic viewport state.
 	pipe.pVertexInputState = &desc->vis;
 	pipe.pViewportState = &desc->views;
 	pipe.pTessellationState = nullptr;
 	pipe.pDynamicState = &desc->ds;
 	pipe.pInputAssemblyState = &desc->inputAssembly;
-	pipe.pMultisampleState = &desc->ms;
+	pipe.pMultisampleState = &ms;
 	pipe.layout = desc->pipelineLayout;
 	pipe.basePipelineHandle = VK_NULL_HANDLE;
 	pipe.basePipelineIndex = 0;
@@ -332,7 +335,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 		for (auto &entry : toCompile) {
 			switch (entry.type) {
 			case CompileQueueEntry::Type::GRAPHICS:
-				entry.graphics->Create(vulkan_, entry.compatibleRenderPass, entry.renderPassType);
+				entry.graphics->Create(vulkan_, entry.compatibleRenderPass, entry.renderPassType, entry.sampleCount);
 				break;
 			case CompileQueueEntry::Type::COMPUTE:
 				entry.compute->Create(vulkan_);
@@ -523,7 +526,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			}
 
 			pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
-			compileQueue_.push_back(CompileQueueEntry(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType));
+			compileQueue_.push_back(CompileQueueEntry(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount));
 			needsCompile = true;
 		}
 		if (needsCompile)
@@ -591,7 +594,7 @@ void VulkanRenderManager::EndCurRenderStep() {
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
 		if (!pipeline->pipeline[(size_t)rpType]) {
 			pipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
-			compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->Get(vulkan_, rpType, sampleCount), rpType));
+			compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount));
 			needsCompile = true;
 		}
 	}
