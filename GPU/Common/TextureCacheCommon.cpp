@@ -1250,6 +1250,10 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 
 			VirtualFramebuffer *chosenFramebuffer = nullptr;
 			for (VirtualFramebuffer *framebuffer : framebuffers) {
+				// Let's not deal with divide by zero.
+				if (framebuffer->fb_stride == 0)
+					continue;
+
 				const u32 fb_address = framebuffer->fb_address;
 				const u32 fb_bpp = BufferFormatBytesPerPixel(framebuffer->fb_format);
 				int offset = clutLoadAddr - fb_address;
@@ -1302,12 +1306,18 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 					dynamicClutTemp_ = draw_->CreateFramebuffer(desc);
 				}
 
+				// We'll need to copy from the offset.
+				const u32 fb_bpp = BufferFormatBytesPerPixel(chosenFramebuffer->fb_format);
+				const int totalPixelsOffset = clutRenderOffset_ / fb_bpp;
+				const int clutYOffset = totalPixelsOffset / chosenFramebuffer->fb_stride;
+				const int clutXOffset = totalPixelsOffset % chosenFramebuffer->fb_stride;
+				const int scale = chosenFramebuffer->renderScaleFactor;
+
 				// Copy the pixels to our temp clut, scaling down if needed and wrapping.
-				// TODO: Take the clutRenderOffset_ into account here.
 				framebufferManager_->BlitUsingRaster(
-					chosenFramebuffer->fbo, 0.0f, 0.0f, 512.0f * chosenFramebuffer->renderScaleFactor, 1.0f, 
+					chosenFramebuffer->fbo, clutXOffset * scale, clutYOffset * scale, (clutXOffset + 512.0f) * scale, (clutYOffset + 1.0f) * scale,
 					dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, 
-					false, chosenFramebuffer->renderScaleFactor, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR_RECT2LIN), "copy_clut_to_temp");
+					false, scale, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR_RECT2LIN), "copy_clut_to_temp");
 
 				framebufferManager_->RebindFramebuffer("after_copy_clut_to_temp");
 				clutRenderFormat_ = chosenFramebuffer->fb_format;
