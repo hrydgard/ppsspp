@@ -317,7 +317,7 @@ int PSPDialog::GetConfirmButton() {
 
 int PSPDialog::GetCancelButton() {
 	if (PSP_CoreParameter().compat.flags().ForceCircleButtonConfirm) {
-		return CTRL_CIRCLE;
+		return CTRL_CROSS;
 	}
 	return g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
 }
