@@ -1274,6 +1274,8 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 					if (matchRange && !inMargin && offset < (int)clutRenderOffset_) {
 						WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d", loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset);
 						framebuffer->last_frame_clut = gpuStats.numFlips;
+						// Also mark used so it's not decimated.
+						framebuffer->last_frame_used = gpuStats.numFlips;
 						framebuffer->usageFlags |= FB_USAGE_CLUT;
 						bestClutAddress = framebuffer->fb_address;
 						clutRenderOffset_ = (u32)offset;
