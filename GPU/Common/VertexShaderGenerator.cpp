@@ -1354,10 +1354,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		// HUD scaling
-		WRITE(p, "  if ((u_scaleX < 0.99) || (u_scaleY < 0.99)) {\n");
-		WRITE(p, "    %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
-		WRITE(p, "    %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
-		WRITE(p, "  }\n");
+		WRITE(p, "  %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
+		WRITE(p, "  %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
 	}
 
 	if (useSimpleStereo && useHWTransform) {

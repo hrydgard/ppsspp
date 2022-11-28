@@ -26,6 +26,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
+#include "Common/VR/PPSSPPVR.h"
 #include "Common/StringUtils.h"
 
 #include "Common/Data/Color/RGBAUtil.h"
@@ -202,39 +203,42 @@ void DisplayLayoutScreen::CreateViews() {
 	rightScrollView->Add(rightColumn);
 	root_->Add(rightScrollView);
 
-	auto stretch = new CheckBox(&g_Config.bDisplayStretch, gr->T("Stretch"));
-	leftColumn->Add(stretch);
 
-	PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, di->T("Aspect Ratio"), screenManager());
-	leftColumn->Add(aspectRatio);
-	aspectRatio->SetDisabledPtr(&g_Config.bDisplayStretch);
-	aspectRatio->SetHasDropShadow(false);
-	aspectRatio->SetLiveUpdate(true);
+	if (!IsVREnabled()) {
+		auto stretch = new CheckBox(&g_Config.bDisplayStretch, gr->T("Stretch"));
+		leftColumn->Add(stretch);
 
-	mode_ = new ChoiceStrip(ORIENT_VERTICAL);
-	mode_->AddChoice(di->T("Move"));
-	mode_->AddChoice(di->T("Resize"));
-	mode_->SetSelection(0, false);
-	leftColumn->Add(mode_);
+		PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, di->T("Aspect Ratio"), screenManager());
+		leftColumn->Add(aspectRatio);
+		aspectRatio->SetDisabledPtr(&g_Config.bDisplayStretch);
+		aspectRatio->SetHasDropShadow(false);
+		aspectRatio->SetLiveUpdate(true);
 
-	static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
-	auto rotation = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager());
-	rotation->SetEnabledFunc([] {
-		return !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
-	});
-	leftColumn->Add(rotation);
+		mode_ = new ChoiceStrip(ORIENT_VERTICAL);
+		mode_->AddChoice(di->T("Move"));
+		mode_->AddChoice(di->T("Resize"));
+		mode_->SetSelection(0, false);
+		leftColumn->Add(mode_);
 
-	leftColumn->Add(new Spacer(12.0f));
+		static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
+		auto rotation = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager());
+		rotation->SetEnabledFunc([] {
+			return !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
+		});
+		leftColumn->Add(rotation);
 
-	Choice *center = new Choice(di->T("Reset"));
-	center->OnClick.Add([&](UI::EventParams &) {
-		g_Config.fDisplayAspectRatio = 1.0f;
-		g_Config.fDisplayScale = 1.0f;
-		g_Config.fDisplayOffsetX = 0.5f;
-		g_Config.fDisplayOffsetY = 0.5f;
-		return UI::EVENT_DONE;
-	});
-	leftColumn->Add(center);
+		leftColumn->Add(new Spacer(12.0f));
+
+		Choice *center = new Choice(di->T("Reset"));
+		center->OnClick.Add([&](UI::EventParams &) {
+			g_Config.fDisplayAspectRatio = 1.0f;
+			g_Config.fDisplayScale = 1.0f;
+			g_Config.fDisplayOffsetX = 0.5f;
+			g_Config.fDisplayOffsetY = 0.5f;
+			return UI::EVENT_DONE;
+		});
+		leftColumn->Add(center);
+	}
 
 	static const char *bufFilters[] = { "Linear", "Nearest", };
 	rightColumn->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
