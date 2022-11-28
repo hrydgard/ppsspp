@@ -437,10 +437,11 @@ public:
 	int Width() { return width_; }
 	int Height() { return height_; }
 	int Layers() { return layers_; }
+	int MultiSampleLevel() { return multiSampleLevel_; }
 
 	virtual void UpdateTag(const char *tag) {}
 protected:
-	int width_ = -1, height_ = -1, layers_ = 1;
+	int width_ = -1, height_ = -1, layers_ = 1, multiSampleLevel_ = 0;
 };
 
 class Buffer : public RefCountedObject {
