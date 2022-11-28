@@ -23,6 +23,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Data/Collections/Hashmaps.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
@@ -181,11 +182,7 @@ public:
 	void ReadColor0(float color[4]) const {
 		switch (decFmt_.c0fmt) {
 		case DEC_U8_4:
-			{
-				const u8 *b = (const u8 *)(data_ + decFmt_.c0off);
-				for (int i = 0; i < 4; i++)
-					color[i] = b[i] * (1.f / 255.f);
-			}
+			Uint8x4ToFloat4(color, *(const u32 *)(data_ + decFmt_.c0off));
 			break;
 		case DEC_FLOAT_4:
 			memcpy(color, data_ + decFmt_.c0off, 16); 

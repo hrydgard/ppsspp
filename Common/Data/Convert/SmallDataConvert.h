@@ -23,7 +23,6 @@ extern const float one_over_255_x4[4];
 // NEON intrinsics: http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0491f/BABDCGGF.html
 
 // LSBs in f[0], etc.
-// Could be SSE optimized.
 inline void Uint8x4ToFloat4(float f[4], uint32_t u) {
 #ifdef _M_SSE
 	__m128i zero = _mm_setzero_si128();
