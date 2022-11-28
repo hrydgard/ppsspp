@@ -344,11 +344,11 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &color_reference;
 
-	VkAttachmentReference resolve_references[2]{};
+	VkAttachmentReference color_resolve_reference;
 	if (multisample) {
-		resolve_references[0].attachment = 0;  // the non-msaa color buffer.
-		resolve_references[0].layout = selfDependency ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		subpass.pResolveAttachments = resolve_references;
+		color_resolve_reference.attachment = 0;  // the non-msaa color buffer.
+		color_resolve_reference.layout = selfDependency ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		subpass.pResolveAttachments = &color_resolve_reference;
 	} else {
 		subpass.pResolveAttachments = nullptr;
 	}
@@ -408,7 +408,82 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	}
 
 	VkRenderPass pass;
-	VkResult res = vkCreateRenderPass(vulkan->GetDevice(), &rp, nullptr, &pass);
+	VkResult res;
+	if (vulkan->Extensions().KHR_create_renderpass2) {
+		// It's a bit unfortunate that we can't rely on vkCreateRenderPass2, because here we now have
+		// to do a bunch of struct conversion, just to not have to repeat the logic from above.
+		VkAttachmentDescription2KHR attachments2[4]{};
+		for (int i = 0; i < attachmentCount; i++) {
+			attachments2[i].sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2_KHR;
+			attachments2[i].format = attachments[i].format;
+			attachments2[i].samples = attachments[i].samples;
+			attachments2[i].loadOp = attachments[i].loadOp;
+			attachments2[i].storeOp = attachments[i].storeOp;
+			attachments2[i].stencilLoadOp = attachments[i].stencilLoadOp;
+			attachments2[i].stencilStoreOp = attachments[i].stencilStoreOp;
+			attachments2[i].initialLayout = attachments[i].initialLayout;
+			attachments2[i].finalLayout = attachments[i].finalLayout;
+		}
+
+		VkAttachmentReference2KHR colorReference2{ VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2_KHR };
+		colorReference2.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		colorReference2.attachment = color_reference.attachment;
+		colorReference2.layout = color_reference.layout;
+
+		VkAttachmentReference2KHR depthReference2{ VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2_KHR };
+		depthReference2.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		depthReference2.attachment = depth_reference.attachment;
+		depthReference2.layout = depth_reference.layout;
+
+		VkSubpassDependency2KHR deps2[2]{};
+		for (int i = 0; i < numDeps; i++) {
+			deps2[i].sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2_KHR;
+			deps2[i].dependencyFlags = deps[i].dependencyFlags;
+			deps2[i].srcAccessMask = deps[i].srcAccessMask;
+			deps2[i].dstAccessMask = deps[i].dstAccessMask;
+			deps2[i].srcStageMask = deps[i].srcStageMask;
+			deps2[i].dstStageMask = deps[i].dstStageMask;
+			deps2[i].srcSubpass = deps[i].srcSubpass;
+			deps2[i].dstSubpass = deps[i].dstSubpass;
+			deps2[i].dependencyFlags = deps[i].dependencyFlags;
+			deps2[i].viewOffset = 0;
+		}
+
+		VkAttachmentReference2KHR colorResolveReference2{ VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2_KHR };
+
+		VkSubpassDescription2KHR subpass2{ VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2_KHR };
+		subpass2.colorAttachmentCount = subpass.colorAttachmentCount;
+		subpass2.flags = subpass.flags;
+		subpass2.inputAttachmentCount = subpass.inputAttachmentCount;
+		subpass2.pColorAttachments = &colorReference2;
+		if (hasDepth) {
+			subpass2.pDepthStencilAttachment = &depthReference2;
+		}
+		subpass2.pipelineBindPoint = subpass.pipelineBindPoint;
+		subpass2.viewMask = multiview ? viewMask : 0;
+		if (multisample) {
+			colorResolveReference2.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			colorResolveReference2.attachment = color_resolve_reference.attachment;  // the non-msaa color buffer.
+			colorResolveReference2.layout = selfDependency ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			subpass2.pResolveAttachments = &colorResolveReference2;
+		} else {
+			subpass2.pResolveAttachments = nullptr;
+		}
+
+		VkRenderPassCreateInfo2KHR rp2{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2_KHR };
+		rp2.pAttachments = attachments2;
+		rp2.pDependencies = deps2;
+		rp2.attachmentCount = rp.attachmentCount;
+		rp2.dependencyCount = rp.dependencyCount;
+		rp2.correlatedViewMaskCount = multiview ? 1 : 0;
+		rp2.pCorrelatedViewMasks = multiview ? &viewMask : nullptr;
+		rp2.pSubpasses = &subpass2;
+		rp2.subpassCount = 1;
+		res = vkCreateRenderPass2KHR(vulkan->GetDevice(), &rp2, nullptr, &pass);
+	} else {
+		res = vkCreateRenderPass(vulkan->GetDevice(), &rp, nullptr, &pass);
+	}
+
 	_assert_(res == VK_SUCCESS);
 	_assert_(pass != VK_NULL_HANDLE);
 	return pass;

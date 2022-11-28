@@ -253,6 +253,7 @@ public:
 		VkPhysicalDeviceProperties properties;
 		VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProperties;
 		VkPhysicalDeviceExternalMemoryHostPropertiesEXT externalMemoryHostProperties;
+		VkPhysicalDeviceDepthStencilResolveProperties depthStencilResolve;
 	};
 
 	struct AllPhysicalDeviceFeatures {

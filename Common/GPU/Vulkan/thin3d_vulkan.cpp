@@ -857,7 +857,15 @@ VKContext::VKContext(VulkanContext *vulkan)
 	// VkSampleCountFlagBits is arranged correctly for our purposes.
 	// Only support MSAA levels that have support for all three of color, depth, stencil.
 	if (!caps_.isTilingGPU) {
-		caps_.multiSampleLevelsMask = (limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts & limits.framebufferStencilSampleCounts);
+		// Check for depth stencil resolve. Without it, depth textures won't work, and we don't want that mess
+		// of compatibility reports, so we'll just disable stencil in this case for now.
+		// There are potential workarounds for devices that don't support it, but those are nearly non-existent now.
+		const auto &resolveProperties = vulkan->GetPhysicalDeviceProperties().depthStencilResolve;
+		if (vulkan->Extensions().KHR_depth_stencil_resolve) {
+			caps_.multiSampleLevelsMask = (limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts & limits.framebufferStencilSampleCounts);
+		} else {
+			caps_.multiSampleLevelsMask = 1;
+		}
 	} else {
 		caps_.multiSampleLevelsMask = 1;
 	}

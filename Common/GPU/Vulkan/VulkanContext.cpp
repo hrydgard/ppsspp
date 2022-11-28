@@ -253,15 +253,21 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			VkPhysicalDeviceProperties2 props2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
 			VkPhysicalDevicePushDescriptorPropertiesKHR pushProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR};
 			VkPhysicalDeviceExternalMemoryHostPropertiesEXT extHostMemProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT};
+			VkPhysicalDeviceDepthStencilResolveProperties depthStencilResolveProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES};
+
 			props2.pNext = &pushProps;
 			pushProps.pNext = &extHostMemProps;
+			extHostMemProps.pNext = &depthStencilResolveProps;
 			vkGetPhysicalDeviceProperties2KHR(physical_devices_[i], &props2);
 			// Don't want bad pointers sitting around.
 			props2.pNext = nullptr;
 			pushProps.pNext = nullptr;
+			extHostMemProps.pNext = nullptr;
+			depthStencilResolveProps.pNext = nullptr;
 			physicalDeviceProperties_[i].properties = props2.properties;
 			physicalDeviceProperties_[i].pushDescriptorProperties = pushProps;
 			physicalDeviceProperties_[i].externalMemoryHostProperties = extHostMemProps;
+			physicalDeviceProperties_[i].depthStencilResolve = depthStencilResolveProps;
 		}
 	} else {
 		for (uint32_t i = 0; i < gpu_count; i++) {
