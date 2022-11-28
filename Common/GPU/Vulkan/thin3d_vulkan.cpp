@@ -1590,13 +1590,13 @@ private:
 };
 
 Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
-	_assert_(desc.numSamples > 0);
+	_assert_(desc.multiSampleLevel >= 0);
 	_assert_(desc.numLayers > 0);
 	_assert_(desc.width > 0);
 	_assert_(desc.height > 0);
 
 	VkCommandBuffer cmd = renderManager_.GetInitCmd();
-	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.numLayers, desc.numSamples, desc.z_stencil, desc.tag);
+	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.numLayers, desc.multiSampleLevel, desc.z_stencil, desc.tag);
 	return new VKFramebuffer(vkrfb);
 }
 

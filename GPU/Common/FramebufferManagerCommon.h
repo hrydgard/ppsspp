@@ -545,6 +545,7 @@ protected:
 	float renderWidth_ = 0.0f;
 	float renderHeight_ = 0.0f;
 
+	int msaaLevel_ = 0;
 	int renderScaleFactor_ = 1;
 	int pixelWidth_ = 0;
 	int pixelHeight_ = 0;

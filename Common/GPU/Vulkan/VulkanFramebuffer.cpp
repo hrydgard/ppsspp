@@ -35,7 +35,7 @@ void VKRImage::Delete(VulkanContext *vulkan) {
 	}
 }
 
-VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, int _numSamples, bool createDepthStencilBuffer, const char *tag)
+VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag)
 	: vulkan_(vk), tag_(tag), width(_width), height(_height), numLayers(_numLayers) {
 
 	_dbg_assert_(tag);
@@ -45,8 +45,8 @@ VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRe
 		CreateImage(vulkan_, initCmd, depth, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 	}
 
-	if (_numSamples > 1) {
-		sampleCount = MultiSampleLevelToFlagBits(_numSamples);
+	if (_multiSampleLevel > 0) {
+		sampleCount = MultiSampleLevelToFlagBits(_multiSampleLevel);
 
 		// TODO: Create a different tag for these?
 		CreateImage(vulkan_, initCmd, msaaColor, width, height, numLayers, sampleCount, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
@@ -425,8 +425,12 @@ VkRenderPass VKRRenderPass::Get(VulkanContext *vulkan, RenderPassType rpType, Vk
 
 	_dbg_assert_(!((rpType & RenderPassType::MULTISAMPLE) && sampleCount == VK_SAMPLE_COUNT_1_BIT));
 
-	if (!pass[(int)rpType]) {
+	if (!pass[(int)rpType] || sampleCounts[(int)rpType] != sampleCount) {
+		if (pass[(int)rpType]) {
+			vulkan->Delete().QueueDeleteRenderPass(pass[(int)rpType]);
+		}
 		pass[(int)rpType] = CreateRenderPass(vulkan, key_, (RenderPassType)rpType, sampleCount);
+		sampleCounts[(int)rpType] = sampleCount;
 	}
 	return pass[(int)rpType];
 }

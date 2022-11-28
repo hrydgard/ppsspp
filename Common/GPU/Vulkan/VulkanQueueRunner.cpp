@@ -1324,6 +1324,15 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		{
 			VKRGraphicsPipeline *graphicsPipeline = c.graphics_pipeline.pipeline;
 			if (graphicsPipeline != lastGraphicsPipeline) {
+				VkSampleCountFlagBits fbSampleCount = step.render.framebuffer ? step.render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT;
+
+				if (RenderPassTypeHasMultisample(rpType) && fbSampleCount != graphicsPipeline->SampleCount()) {
+					// Sample count might have started mismatching if the user changed multisampling mode. Let's get rid of all variants
+					// and start over.
+					// (We could avoid this if sample count was baked into the rpType, but I don't want that to grow too big).
+					graphicsPipeline->DestroyAllVariants(vulkan_);
+				}
+
 				if (!graphicsPipeline->pipeline[(size_t)rpType]) {
 					// NOTE: If render steps got merged, it can happen that, as they ended during recording,
 					// they didn't know their final render pass type so they created the wrong pipelines in EndCurRenderStep().
@@ -1331,11 +1340,11 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 					// Maybe a middle pass. But let's try to just block and compile here for now, this doesn't
 					// happen all that much.
 					graphicsPipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
-					VkSampleCountFlagBits sampleCount = step.render.framebuffer ? step.render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT;
-					graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
+					graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType, fbSampleCount), rpType, fbSampleCount);
 				}
 
 				VkPipeline pipeline = graphicsPipeline->pipeline[(size_t)rpType]->BlockUntilReady();
+
 				if (pipeline != VK_NULL_HANDLE) {
 					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 					pipelineLayout = c.pipeline.pipelineLayout;

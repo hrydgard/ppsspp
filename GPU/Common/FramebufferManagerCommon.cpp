@@ -89,7 +89,7 @@ void FramebufferManagerCommon::Init() {
 }
 
 bool FramebufferManagerCommon::UpdateRenderSize() {
-	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight;
+	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight || msaaLevel_ != g_Config.iMultiSampleLevel;
 
 	const int effectiveBloomHack = PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn ? 3 : g_Config.iBloomHack;
 
@@ -99,6 +99,7 @@ bool FramebufferManagerCommon::UpdateRenderSize() {
 	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
 	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
 	renderScaleFactor_ = (float)PSP_CoreParameter().renderScaleFactor;
+	msaaLevel_ = g_Config.iMultiSampleLevel;
 
 	bloomHack_ = effectiveBloomHack;
 	useBufferedRendering_ = newBuffered;
@@ -2022,7 +2023,7 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	char name[64];
 	snprintf(name, sizeof(name), "%08x_color_RAM", vfb->fb_address);
 	textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_CREATED);
-	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), 1, true, name });
+	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), 0, true, name });
 	vfbs_.push_back(vfb);
 
 	u32 byteSize = ColorBufferByteSize(vfb);
@@ -2075,7 +2076,7 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		snprintf(name, sizeof(name), "download_temp");
 		// TODO: We don't have a way to create a depth-only framebuffer yet.
 		// Also, at least on Vulkan we always create both depth and color, need to rework how we handle renderpasses.
-		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, 1, channel == RASTER_DEPTH ? true : false, name });
+		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, 0, channel == RASTER_DEPTH ? true : false, name });
 		if (!nvfb->fbo) {
 			ERROR_LOG(FRAMEBUF, "Error creating FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
 			delete nvfb;
@@ -2469,7 +2470,7 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 	char name[128];
 	snprintf(name, sizeof(name), "tempfbo_%s_%dx%d", TempFBOReasonToString(reason), w / renderScaleFactor_, h / renderScaleFactor_);
 
-	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, GetFramebufferLayers(), 1, z_stencil, name });
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, GetFramebufferLayers(), 0, z_stencil, name });
 	if (!fbo) {
 		return nullptr;
 	}
@@ -3159,7 +3160,7 @@ VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(Vi
 
 		char tag[128];
 		FormatFramebufferName(vfb, tag, sizeof(tag));
-		vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), 1, true, tag });
+		vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), 0, true, tag });
 		vfbs_.push_back(vfb);
 	}
 

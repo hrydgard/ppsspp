@@ -28,6 +28,15 @@ using namespace PPSSPP_VK;
 
 // renderPass is an example of the "compatibility class" or RenderPassType type.
 bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount) {
+	bool multisample = RenderPassTypeHasMultisample(rpType);
+	if (multisample) {
+		if (sampleCount_ != VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM) {
+			_assert_(sampleCount == sampleCount_);
+		} else {
+			sampleCount_ = sampleCount;
+		}
+	}
+
 	// Fill in the last part of the desc since now it's time to block.
 	VkShaderModule vs = desc->vertexShader->BlockUntilReady();
 	VkShaderModule fs = desc->fragmentShader->BlockUntilReady();
@@ -70,7 +79,7 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	pipe.pRasterizationState = &desc->rs;
 
 	VkPipelineMultisampleStateCreateInfo ms{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
-	ms.rasterizationSamples = sampleCount;
+	ms.rasterizationSamples = multisample ? sampleCount : VK_SAMPLE_COUNT_1_BIT;
 
 	// We will use dynamic viewport state.
 	pipe.pVertexInputState = &desc->vis;
@@ -107,8 +116,8 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		success = false;
 	} else {
 		// Success!
-		if (!tag.empty()) {
-			vulkan->SetDebugName(vkpipeline, VK_OBJECT_TYPE_PIPELINE, tag.c_str());
+		if (!tag_.empty()) {
+			vulkan->SetDebugName(vkpipeline, VK_OBJECT_TYPE_PIPELINE, tag_.c_str());
 		}
 		pipeline[(size_t)rpType]->Post(vkpipeline);
 	}
@@ -116,7 +125,7 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	return success;
 }
 
-void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
+void VKRGraphicsPipeline::DestroyAllVariants(VulkanContext *vulkan) {
 	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 		if (!this->pipeline[i])
 			continue;
@@ -125,7 +134,13 @@ void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
 		if (pipeline) {
 			vulkan->Delete().QueueDeletePipeline(pipeline);
 		}
+		this->pipeline[i] = nullptr;
 	}
+	sampleCount_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
+}
+
+void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
+	DestroyAllVariants(vulkan);
 	vulkan->Delete().QueueCallback([](void *p) {
 		VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;
 		delete pipeline;
@@ -485,11 +500,10 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 }
 
 VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, const char *tag) {
-	VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline();
+	VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline(tag);
 	_dbg_assert_(desc->vertexShader);
 	_dbg_assert_(desc->fragmentShader);
 	pipeline->desc = desc;
-	pipeline->tag = tag;
 	if (curRenderStep_) {
 		// The common case
 		pipelinesToCheck_.push_back(pipeline);

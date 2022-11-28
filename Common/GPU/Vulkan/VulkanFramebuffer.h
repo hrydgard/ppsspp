@@ -58,7 +58,7 @@ struct VKRImage {
 
 class VKRFramebuffer {
 public:
-	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, int _numSamples, bool createDepthStencilBuffer, const char *tag);
+	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag);
 	~VKRFramebuffer();
 
 	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
@@ -159,5 +159,6 @@ public:
 private:
 	// TODO: Might be better off with a hashmap once the render pass type count grows really large..
 	VkRenderPass pass[(size_t)RenderPassType::TYPE_COUNT]{};
+	VkSampleCountFlagBits sampleCounts[(size_t)RenderPassType::TYPE_COUNT];
 	RPKey key_;
 };

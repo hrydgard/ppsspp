@@ -115,6 +115,7 @@ struct VKRComputePipelineDesc {
 
 // Wrapped pipeline. Doesn't own desc.
 struct VKRGraphicsPipeline {
+	VKRGraphicsPipeline(const char *tag) : tag_(tag) {}
 	~VKRGraphicsPipeline() {
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			delete pipeline[i];
@@ -122,6 +123,8 @@ struct VKRGraphicsPipeline {
 	}
 
 	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
+
+	void DestroyAllVariants(VulkanContext *vulkan);
 
 	// This deletes the whole VKRGraphicsPipeline, you must remove your last pointer to it when doing this.
 	void QueueForDeletion(VulkanContext *vulkan);
@@ -132,7 +135,11 @@ struct VKRGraphicsPipeline {
 
 	VKRGraphicsPipelineDesc *desc = nullptr;  // not owned!
 	Promise<VkPipeline> *pipeline[(size_t)RenderPassType::TYPE_COUNT]{};
-	std::string tag;
+
+	VkSampleCountFlagBits SampleCount() const { return sampleCount_; }
+private:
+	std::string tag_;
+	VkSampleCountFlagBits sampleCount_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
 };
 
 struct VKRComputePipeline {
