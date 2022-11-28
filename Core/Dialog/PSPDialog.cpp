@@ -20,6 +20,8 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
+#include "Core/Config.h"
+#include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/HLE/sceCtrl.h"
@@ -304,4 +306,18 @@ void PSPDialog::DisplayButtons(int flags, const char *caption)
 		PPGeDrawImage(cancelButtonImg, x1, 256, 11.5f, 11.5f, textStyle);
 		PPGeDrawText(text, x1 + 14.5f, 252, textStyle);
 	}
+}
+
+int PSPDialog::GetConfirmButton() {
+	if (PSP_CoreParameter().compat.flags().ForceCircleButtonConfirm) {
+		return CTRL_CIRCLE;
+	}
+	return g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
+}
+
+int PSPDialog::GetCancelButton() {
+	if (PSP_CoreParameter().compat.flags().ForceCircleButtonConfirm) {
+		return CTRL_CROSS;
+	}
+	return g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
 }

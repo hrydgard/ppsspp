@@ -46,7 +46,7 @@ void __ImposeInit()
 			language = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 		}
 	}
-	buttonValue = g_Config.iButtonPreference;
+	buttonValue = PSP_CoreParameter().compat.flags().ForceCircleButtonConfirm ? PSP_SYSTEMPARAM_BUTTON_CIRCLE : g_Config.iButtonPreference;
 	umdPopup = PSP_UMD_POPUP_DISABLE;
 	backlightOffTime = 0;
 }
