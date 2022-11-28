@@ -331,6 +331,39 @@ static Command EmitCommandWithRAM(CommandType t, const void *p, u32 sz, u32 alig
 	return cmd;
 }
 
+static void UpdateLastVRAM(u32 addr, u32 bytes) {
+	u32 base = addr & 0x001FFFFF;
+	if (base + bytes > 0x00200000) {
+		memcpy(&lastVRAM[base], Memory::GetPointerUnchecked(0x04000000 | base), 0x00200000 - base);
+		bytes = base + bytes - 0x00200000;
+		base = 0;
+	}
+	memcpy(&lastVRAM[base], Memory::GetPointerUnchecked(0x04000000 | base), bytes);
+}
+
+static void ClearLastVRAM(u32 addr, u8 c, u32 bytes) {
+	u32 base = addr & 0x001FFFFF;
+	if (base + bytes > 0x00200000) {
+		memset(&lastVRAM[base], c, 0x00200000 - base);
+		bytes = base + bytes - 0x00200000;
+		base = 0;
+	}
+	memset(&lastVRAM[base], c, bytes);
+}
+
+static int CompareLastVRAM(u32 addr, u32 bytes) {
+	u32 base = addr & 0x001FFFFF;
+	if (base + bytes > 0x00200000) {
+		int result = memcmp(&lastVRAM[base], Memory::GetPointerUnchecked(0x04000000 | base), 0x00200000 - base);
+		if (result != 0)
+			return result;
+
+		bytes = base + bytes - 0x00200000;
+		base = 0;
+	}
+	return memcmp(&lastVRAM[base], Memory::GetPointerUnchecked(0x04000000 | base), bytes);
+}
+
 static u32 GetTargetFlags(u32 addr, u32 sizeInRAM) {
 	addr &= 0x041FFFFF;
 	const bool isTarget = lastRenderTargets.find(addr) != lastRenderTargets.end();
@@ -358,7 +391,7 @@ static u32 GetTargetFlags(u32 addr, u32 sizeInRAM) {
 	if (isUnknownVRAM && isDirtyVRAM) {
 		// This means it's only UNKNOWN/CLEAN and not known to be actually dirty.
 		// Let's check our shadow copy of what we last sent for this VRAM.
-		int diff = memcmp(&lastVRAM[addr & 0x001FFFFF], Memory::GetPointerUnchecked(addr), sizeInRAM);
+		int diff = CompareLastVRAM(addr, sizeInRAM);
 		if (diff == 0)
 			isDirtyVRAM = false;
 	}
@@ -404,7 +437,7 @@ static void EmitTextureData(int level, u32 texaddr) {
 		p = &framebufData[0];
 
 		if ((flags & 2) == 0)
-			memcpy(&lastVRAM[texaddr & 0x001FFFFF], Memory::GetPointerUnchecked(texaddr), bytes);
+			UpdateLastVRAM(texaddr, bytes);
 
 		// Okay, now we'll just emit this instead.
 		type = CommandType((int)CommandType::FRAMEBUF0 + level);
@@ -534,7 +567,7 @@ static void EmitClut(u32 op) {
 			commands.push_back(cmd);
 
 			if ((flags & 2) == 0)
-				memcpy(&lastVRAM[addr & 0x001FFFFF], Memory::GetPointerUnchecked(addr), bytes);
+				UpdateLastVRAM(addr, bytes);
 		}
 		EmitCommandWithRAM(CommandType::CLUT, Memory::GetPointerUnchecked(addr), bytes, 16);
 	}
@@ -684,7 +717,7 @@ void NotifyMemcpy(u32 dest, u32 src, u32 sz) {
 		sz = Memory::ValidSize(dest, sz);
 		if (sz != 0) {
 			EmitCommandWithRAM(CommandType::MEMCPYDATA, Memory::GetPointerUnchecked(dest), sz, 1);
-			memcpy(&lastVRAM[dest & 0x001FFFFF], Memory::GetPointerUnchecked(dest), sz);
+			UpdateLastVRAM(dest, sz);
 			DirtyVRAM(dest, sz, DirtyVRAMFlag::CLEAN);
 		}
 	}
@@ -711,7 +744,7 @@ void NotifyMemset(u32 dest, int v, u32 sz) {
 		pushbuf.resize(pushbuf.size() + sizeof(data));
 		memcpy(pushbuf.data() + cmd.ptr, &data, sizeof(data));
 		commands.push_back(cmd);
-		memset(&lastVRAM[dest & 0x001FFFFF], v, sz);
+		ClearLastVRAM(dest, v, sz);
 		DirtyVRAM(dest, sz, DirtyVRAMFlag::CLEAN);
 	}
 }
