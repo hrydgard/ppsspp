@@ -306,7 +306,7 @@ void GameSettingsScreen::CreateViews() {
 	});
 
 	if (draw->GetDeviceCaps().multiSampleLevelsMask != 1) {
-		static const char *msaaModes[] = { "Off", "2xMSAA", "4xMSAA", "8xMSAA", "16xMSAA" };
+		static const char *msaaModes[] = { "Off", "2x", "4x", "8x", "16x" };
 		auto msaaChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iMultiSampleLevel, gr->T("Antialiasing (MSAA)"), msaaModes, 0, ARRAY_SIZE(msaaModes), gr->GetName(), screenManager()));
 		msaaChoice->OnChoice.Add([&](UI::EventParams &) -> UI::EventReturn {
 			NativeMessageReceived("gpu_renderResized", "");

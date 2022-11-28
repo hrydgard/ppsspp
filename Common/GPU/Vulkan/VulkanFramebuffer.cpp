@@ -323,37 +323,37 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		}
 	}
 
-	VkAttachmentReference color_reference{};
-	color_reference.attachment = colorAttachmentIndex;
-	color_reference.layout = selfDependency ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	VkAttachmentReference colorReference{};
+	colorReference.attachment = colorAttachmentIndex;
+	colorReference.layout = selfDependency ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-	VkAttachmentReference depth_reference{};
-	depth_reference.attachment = depthAttachmentIndex;
-	depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	VkAttachmentReference depthReference{};
+	depthReference.attachment = depthAttachmentIndex;
+	depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpass.flags = 0;
 	if (selfDependency) {
 		subpass.inputAttachmentCount = 1;
-		subpass.pInputAttachments = &color_reference;
+		subpass.pInputAttachments = &colorReference;
 	} else {
 		subpass.inputAttachmentCount = 0;
 		subpass.pInputAttachments = nullptr;
 	}
 	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &color_reference;
+	subpass.pColorAttachments = &colorReference;
 
-	VkAttachmentReference color_resolve_reference;
+	VkAttachmentReference colorResolveReference;
 	if (multisample) {
-		color_resolve_reference.attachment = 0;  // the non-msaa color buffer.
-		color_resolve_reference.layout = selfDependency ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		subpass.pResolveAttachments = &color_resolve_reference;
+		colorResolveReference.attachment = 0;  // the non-msaa color buffer.
+		colorResolveReference.layout = selfDependency ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		subpass.pResolveAttachments = &colorResolveReference;
 	} else {
 		subpass.pResolveAttachments = nullptr;
 	}
 	if (hasDepth) {
-		subpass.pDepthStencilAttachment = &depth_reference;
+		subpass.pDepthStencilAttachment = &depthReference;
 	}
 	subpass.preserveAttachmentCount = 0;
 	subpass.pPreserveAttachments = nullptr;
@@ -427,13 +427,13 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 
 		VkAttachmentReference2KHR colorReference2{ VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2_KHR };
 		colorReference2.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		colorReference2.attachment = color_reference.attachment;
-		colorReference2.layout = color_reference.layout;
+		colorReference2.attachment = colorReference.attachment;
+		colorReference2.layout = colorReference.layout;
 
 		VkAttachmentReference2KHR depthReference2{ VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2_KHR };
 		depthReference2.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-		depthReference2.attachment = depth_reference.attachment;
-		depthReference2.layout = depth_reference.layout;
+		depthReference2.attachment = depthReference.attachment;
+		depthReference2.layout = depthReference.layout;
 
 		VkSubpassDependency2KHR deps2[2]{};
 		for (int i = 0; i < numDeps; i++) {
@@ -463,11 +463,24 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		subpass2.viewMask = multiview ? viewMask : 0;
 		if (multisample) {
 			colorResolveReference2.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			colorResolveReference2.attachment = color_resolve_reference.attachment;  // the non-msaa color buffer.
+			colorResolveReference2.attachment = colorResolveReference.attachment;  // the non-msaa color buffer.
 			colorResolveReference2.layout = selfDependency ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 			subpass2.pResolveAttachments = &colorResolveReference2;
 		} else {
 			subpass2.pResolveAttachments = nullptr;
+		}
+
+		VkAttachmentReference2KHR depthResolveReference2{ VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2_KHR };
+		VkSubpassDescriptionDepthStencilResolveKHR depthStencilResolve{ VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE_KHR };
+		if (hasDepth && multisample) {
+			subpass2.pNext = &depthStencilResolve;
+			depthResolveReference2.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+			depthResolveReference2.attachment = 1;
+			depthResolveReference2.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			// TODO: Some games might benefit from the other depth resolve modes when depth texturing.
+			depthStencilResolve.depthResolveMode = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT_KHR;
+			depthStencilResolve.stencilResolveMode = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT_KHR;
+			depthStencilResolve.pDepthStencilResolveAttachment = &depthResolveReference2;
 		}
 
 		VkRenderPassCreateInfo2KHR rp2{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2_KHR };
