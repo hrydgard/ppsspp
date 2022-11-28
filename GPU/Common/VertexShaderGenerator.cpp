@@ -130,9 +130,7 @@ static const char * const boneWeightDecl[9] = {
 bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint32_t *attrMask, uint64_t *uniformMask, VertexShaderFlags *vertexShaderFlags, std::string *errorString) {
 	*attrMask = 0;
 	*uniformMask = 0;
-	if (vertexShaderFlags) {
-		*vertexShaderFlags = (VertexShaderFlags)0;
-	}
+	*vertexShaderFlags = (VertexShaderFlags)0;
 
 	bool highpFog = false;
 	bool highpTexcoord = false;
