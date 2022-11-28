@@ -86,15 +86,6 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 	float scale = g_Config.fDisplayScale;
 	float aspectRatioAdjust = g_Config.fDisplayAspectRatio;
 
-	if (IsVREnabled()) {
-		stretch = 0;
-		rotated = false;
-		offsetX = 0.0f;
-		offsetY = 0.0f;
-		scale = 1.0f;
-		aspectRatioAdjust = 1.0f;
-	}
-
 	// Ye olde 1080p hack, new version: If everything is setup to exactly cover the screen (defaults), and the screen display aspect ratio is 16:9,
 	// stretch the PSP's aspect ratio veeery slightly to fill it completely.
 	if (scale == 1.0f && offsetX == 0.5f && offsetY == 0.5f && aspectRatioAdjust == 1.0f) {
@@ -132,10 +123,19 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 		outH = scaledHeight;
 	}
 
-	rc->x = floorf(frame.x + frame.w * offsetX - outW * 0.5f);
-	rc->y = floorf(frame.y + frame.h * offsetY - outH * 0.5f);
-	rc->w = floorf(outW);
-	rc->h = floorf(outH);
+	if (IsVREnabled()) {
+		rc->x = 0;
+		rc->y = 0;
+		rc->w = floorf(frame.w);
+		rc->h = floorf(frame.h);
+		outW = frame.w;
+		outH = frame.h;
+	} else {
+		rc->x = floorf(frame.x + frame.w * offsetX - outW * 0.5f);
+		rc->y = floorf(frame.y + frame.h * offsetY - outH * 0.5f);
+		rc->w = floorf(outW);
+		rc->h = floorf(outH);
+	}
 }
 
 PresentationCommon::PresentationCommon(Draw::DrawContext *draw) : draw_(draw) {
