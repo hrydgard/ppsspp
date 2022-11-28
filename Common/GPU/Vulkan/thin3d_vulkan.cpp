@@ -683,6 +683,7 @@ public:
 		s.addressModeV = AddressModeToVulkan(desc.wrapV);
 		s.addressModeW = AddressModeToVulkan(desc.wrapW);
 		s.anisotropyEnable = desc.maxAniso > 1.0f;
+		s.maxAnisotropy = desc.maxAniso;
 		s.magFilter = desc.magFilter == TextureFilter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 		s.minFilter = desc.minFilter == TextureFilter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 		s.mipmapMode = desc.mipFilter == TextureFilter::LINEAR ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;

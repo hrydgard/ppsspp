@@ -881,15 +881,25 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
+		for (float dy = 0.0f; dy <= 4.0f; dy += 1.0f) {
+			for (float dx = 0.0f; dx <= 4.0f; dx += 1.0f) {
+				if (dx == 2.0f && dy == 2.0f)
+					continue;
+				DrawPSP(dc, dx, dy, 0x06C1B6B6);
+			}
+		}
+		DrawPSP(dc, 2.0f, 2.0f, 0xC01C1818);
+	}
+
+	void DrawPSP(UIContext &dc, float xoff, float yoff, uint32_t color) {
 		using namespace UI;
 
 		const AtlasImage *whiteImage = dc.Draw()->GetAtlas()->getImage(dc.theme->whiteImage);
 		float centerU = (whiteImage->u1 + whiteImage->u2) * 0.5f;
 		float centerV = (whiteImage->v1 + whiteImage->v2) * 0.5f;
-		const uint32_t color = 0xB01C1818;
 
 		auto V = [&](float x, float y) {
-			dc.Draw()->V(bounds_.x + x * scale_, bounds_.y + y * scale_, color, centerU, centerV);
+			dc.Draw()->V(bounds_.x + (x + xoff) * scale_, bounds_.y + (y + yoff) * scale_, color, centerU, centerV);
 		};
 		auto R = [&](float x1, float y1, float x2, float y2) {
 			V(x1, y1); V(x2, y1); V(x2, y2);
@@ -932,8 +942,8 @@ public:
 	}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
-		w = 474.0f * scale_;
-		h = 200.0f * scale_;
+		w = 478.0f * scale_;
+		h = 204.0f * scale_;
 	}
 
 protected:
