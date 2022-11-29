@@ -76,9 +76,9 @@ protected:
 	bool darkenGameBackground_ = true;
 };
 
-class PromptScreen : public UIDialogScreenWithBackground {
+class PromptScreen : public UIDialogScreenWithGameBackground {
 public:
-	PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText,
+	PromptScreen(const Path& gamePath, std::string message, std::string yesButtonText, std::string noButtonText,
 		std::function<void(bool)> callback = &NoOpVoidBool);
 
 	void CreateViews() override;

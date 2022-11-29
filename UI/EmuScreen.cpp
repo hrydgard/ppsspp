@@ -1058,7 +1058,7 @@ void EmuScreen::update() {
 		errLoadingFile.append(" ");
 		errLoadingFile.append(err->T(errorMessage_.c_str()));
 
-		screenManager()->push(new PromptScreen(errLoadingFile, "OK", ""));
+		screenManager()->push(new PromptScreen(gamePath_, errLoadingFile, "OK", ""));
 		errorMessage_.clear();
 		quit_ = true;
 		return;
