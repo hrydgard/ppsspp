@@ -1217,6 +1217,20 @@ void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer
 }
 
 Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+	Draw::DataFormat depthFormat = Draw::DataFormat::UNDEFINED;
+	if (srcPixelFormat == GE_FORMAT_DEPTH16) {
+		if ((draw_->GetDataFormatSupport(Draw::DataFormat::R16_UNORM) & Draw::FMT_TEXTURE) != 0) {
+			depthFormat = Draw::DataFormat::R16_UNORM;
+		} else if ((draw_->GetDataFormatSupport(Draw::DataFormat::R8_UNORM) & Draw::FMT_TEXTURE) != 0) {
+			// This could be improved by using specific draw shaders to pack full precision in two channels.
+			// However, not really worth the trouble until we find a game that requires it.
+			depthFormat = Draw::DataFormat::R8_UNORM;
+		} else {
+			// No usable single channel format. Can't be bothered.
+			return nullptr;
+		}
+	}
+
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
 	auto generateTexture = [&](uint8_t *data, const uint8_t *initData, uint32_t w, uint32_t h, uint32_t d, uint32_t byteStride, uint32_t sliceByteStride) {
@@ -1225,6 +1239,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 			const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
 			u32 *dst = (u32 *)(data + byteStride * y);
 			u16 *dst16 = (u16 *)(data + byteStride * y);
+			u8 *dst8 = (u8 *)(data + byteStride * y);
 			switch (srcPixelFormat) {
 			case GE_FORMAT_565:
 				if (preferredPixelsFormat_ == Draw::DataFormat::B8G8R8A8_UNORM)
@@ -1263,7 +1278,16 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 				// to do one of two different swizzle operations. However, for the only use of this so far,
 				// the Burnout lens flare trickery, swizzle doesn't matter since it's just a 0, 7fff, 0, 7fff pattern
 				// which comes out the same.
-				memcpy(dst16, src16, w * 2);
+				if (depthFormat == Draw::DataFormat::R16_UNORM) {
+					// We just use this format straight.
+					memcpy(dst16, src16, w * 2);
+				} else if (depthFormat == Draw::DataFormat::R8_UNORM) {
+					// We fall back to R8_UNORM. Precision is enough for most cases of depth clearing and initialization we've seen,
+					// but hardly ideal.
+					for (int i = 0; i < width; i++) {
+						dst8[i] = src16[i] >> 8;
+					}
+				}
 				break;
 
 			case GE_FORMAT_INVALID:
@@ -1279,7 +1303,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 	// and likely more efficient.
 	Draw::TextureDesc desc{
 		Draw::TextureType::LINEAR2D,
-		srcPixelFormat == GE_FORMAT_DEPTH16 ? Draw::DataFormat::R16_UNORM : preferredPixelsFormat_,
+		srcPixelFormat == GE_FORMAT_DEPTH16 ? depthFormat : preferredPixelsFormat_,
 		width,
 		height,
 		1,
