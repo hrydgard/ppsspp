@@ -11,6 +11,8 @@ use structopt::StructOpt;
 struct Opt {
     #[structopt(subcommand)]
     cmd: Command,
+    #[structopt(short, long)]
+    dry_run: bool,
 }
 
 #[derive(StructOpt, Debug)]
@@ -170,7 +172,9 @@ fn main() {
             }
         }
 
-        target_ini.write().unwrap();
+        if !opt.dry_run {
+            target_ini.write().unwrap();
+        }
     }
 
     println!("Langtool processing {}", reference_ini_filename);
@@ -199,5 +203,7 @@ fn main() {
         _ => {}
     }
 
-    // println!("{:#?}", target_ini);
+    if !opt.dry_run {
+        reference_ini.write().unwrap();
+    }
 }
