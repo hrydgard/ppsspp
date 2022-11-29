@@ -1516,6 +1516,13 @@ uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 
 	case DataFormat::R8_UNORM:
 		return FMT_TEXTURE;
+	case DataFormat::R16_UNORM:
+		if (!gl_extensions.IsGLES) {
+			return FMT_TEXTURE;
+		} else {
+			return 0;
+		}
+		break;
 
 	case DataFormat::BC1_RGBA_UNORM_BLOCK:
 	case DataFormat::BC2_UNORM_BLOCK:
