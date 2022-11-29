@@ -364,6 +364,8 @@ static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
 	else if (!gstate.isAlphaBlendEnabled()) hud = false;
 	//HUD cannot be rendered with clear color mask
 	else if (gstate.isClearModeColorMask()) hud = false;
+	//HUD cannot be rendered with depth color mask
+	else if (gstate.isClearModeDepthMask()) hud = false;
 	//HUD cannot be rendered with fog on
 	else if (gstate.isFogEnabled()) hud = false;
 	//HUD cannot be rendered with lights on
@@ -374,8 +376,6 @@ static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
 	else if (gstate_c.textureFullAlpha) hud = false;
 	//HUD cannot render FB screenshot
 	else if (gstate_c.curTextureHeight == 272) hud = false;
-	//HUD cannot render far plane
-	else if ((fabs(gstate.viewMatrix[9]) > 100) || (fabs(gstate.viewMatrix[11]) > 100)) hud = false;
 
 	return hud;
 }
