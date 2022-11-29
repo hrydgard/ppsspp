@@ -1762,6 +1762,21 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
 	list->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
 
+	Choice *createTextureIni = list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
+	createTextureIni->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
+	createTextureIni->SetEnabledFunc([&] {
+		if (!PSP_IsInited())
+			return false;
+
+		// Disable the choice to Open/Create if the textures.ini file already exists, and we can't open it due to platform support limitations.
+		if (!System_GetPropertyBool(SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR)) {
+			if (hasTexturesIni_ == HasIni::MAYBE)
+				hasTexturesIni_ = TextureReplacer::IniExists(g_paramSFO.GetDiscID()) ? HasIni::YES : HasIni::NO;
+			return hasTexturesIni_ != HasIni::YES;
+		}
+		return true;
+	});
+
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
 	// Experimental, will move to main graphics settings later.
@@ -1810,21 +1825,6 @@ void DeveloperToolsScreen::CreateViews() {
 
 	// Reconsider whenever recreating views.
 	hasTexturesIni_ = HasIni::MAYBE;
-
-	Choice *createTextureIni = list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
-	createTextureIni->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
-	createTextureIni->SetEnabledFunc([&] {
-		if (!PSP_IsInited())
-			return false;
-
-		// Disable the choice to Open/Create if the textures.ini file already exists, and we can't open it due to platform support limitations.
-		if (!System_GetPropertyBool(SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR)) {
-			if (hasTexturesIni_ == HasIni::MAYBE)
-				hasTexturesIni_ = TextureReplacer::IniExists(g_paramSFO.GetDiscID()) ? HasIni::YES : HasIni::NO;
-			return hasTexturesIni_ != HasIni::YES;
-		}
-		return true;
-	});
 }
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
