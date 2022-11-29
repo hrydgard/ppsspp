@@ -368,8 +368,6 @@ static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
 	else if (gstate.isClearModeDepthMask()) hud = false;
 	//HUD cannot be rendered with fog on
 	else if (gstate.isFogEnabled()) hud = false;
-	//HUD cannot be rendered with lights on
-	else if (gstate.isLightingEnabled()) hud = false;
 	//HUD texture has to contain alpha channel
 	else if (!gstate.isTextureAlphaUsed()) hud = false;
 	//HUD cannot have full alpha
