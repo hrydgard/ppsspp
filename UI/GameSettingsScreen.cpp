@@ -829,7 +829,7 @@ void GameSettingsScreen::CreateViews() {
 	LinearLayout *systemSettings = AddTab("GameSettingsSystem", ms->T("System"));
 
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
-	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
+	systemSettings->Add(new Choice(sy->T("Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 	systemSettings->Add(new CheckBox(&g_Config.bUISound, sy->T("UI Sound")));
 	const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
 	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
@@ -1592,8 +1592,8 @@ UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
-	auto dev = GetI18NCategory("Developer");
-	auto langScreen = new NewLanguageScreen(dev->T("Language"));
+	auto sy = GetI18NCategory("System");
+	auto langScreen = new NewLanguageScreen(sy->T("Language"));
 	langScreen->OnChoice.Handle(this, &GameSettingsScreen::OnLanguageChange);
 	if (e.v)
 		langScreen->SetPopupOrigin(e.v);

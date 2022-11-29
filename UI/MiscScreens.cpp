@@ -425,8 +425,8 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new GameSettingsScreen(Path()));
 	} else if (!strcmp(message, "language screen") && isActiveScreen) {
-		auto dev = GetI18NCategory("Developer");
-		auto langScreen = new NewLanguageScreen(dev->T("Language"));
+		auto sy = GetI18NCategory("System");
+		auto langScreen = new NewLanguageScreen(sy->T("Language"));
 		langScreen->OnChoice.Add([](UI::EventParams &) {
 			NativeMessageReceived("recreateviews", "");
 			if (host) {
