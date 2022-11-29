@@ -409,7 +409,11 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 
 	VkRenderPass pass;
 	VkResult res;
-	if (vulkan->Extensions().KHR_create_renderpass2) {
+
+	// We could always use renderpass2, but I think it'll get both paths better tested if we
+	// only use it with multisample enabled.
+	// if (vulkan->Extensions().KHR_create_renderpass2) {
+	if (multisample) {
 		// It's a bit unfortunate that we can't rely on vkCreateRenderPass2, because here we now have
 		// to do a bunch of struct conversion, just to not have to repeat the logic from above.
 		VkAttachmentDescription2KHR attachments2[4]{};
@@ -454,7 +458,10 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		VkSubpassDescription2KHR subpass2{ VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2_KHR };
 		subpass2.colorAttachmentCount = subpass.colorAttachmentCount;
 		subpass2.flags = subpass.flags;
-		subpass2.inputAttachmentCount = subpass.inputAttachmentCount;
+		if (selfDependency) {
+			subpass2.inputAttachmentCount = subpass.inputAttachmentCount;
+			subpass2.pInputAttachments = &colorReference2;
+		}
 		subpass2.pColorAttachments = &colorReference2;
 		if (hasDepth) {
 			subpass2.pDepthStencilAttachment = &depthReference2;
