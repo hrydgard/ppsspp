@@ -1287,7 +1287,7 @@ void AnchorLayout::Layout() {
 }
 
 GridLayout::GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams)
-	: ViewGroup(layoutParams), settings_(settings), numColumns_(1) {
+	: ViewGroup(layoutParams), settings_(settings) {
 	if (settings.orientation != ORIENT_HORIZONTAL)
 		ERROR_LOG(SYSTEM, "GridLayout: Vertical layouts not yet supported");
 }
@@ -1468,7 +1468,7 @@ void TabHolder::PersistData(PersistStatus status, std::string anonId, PersistMap
 }
 
 ChoiceStrip::ChoiceStrip(Orientation orientation, LayoutParams *layoutParams)
-		: LinearLayout(orientation, layoutParams), selected_(0), topTabs_(false) {
+		: LinearLayout(orientation, layoutParams) {
 	SetSpacing(0.0f);
 }
 
