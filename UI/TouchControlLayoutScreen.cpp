@@ -618,7 +618,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	InitPadLayout(bounds.w, bounds.h);
 
 	const float leftColumnWidth = 170.0f;
-	layoutAreaScale = 1.0-(leftColumnWidth+10)/bounds.w;
+	layoutAreaScale = 1.0f - (leftColumnWidth + 10.0f) / std::max(bounds.w, 1.0f);
 
 	auto co = GetI18NCategory("Controls");
 	auto di = GetI18NCategory("Dialog");
