@@ -1071,7 +1071,8 @@ float ScrollView::ClampedScrollPos(float pos) {
 	}
 
 	float childSize = orientation_ == ORIENT_VERTICAL ? views_[0]->GetBounds().h : views_[0]->GetBounds().w;
-	float scrollMax = std::max(0.0f, childSize - (orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w));
+	float containerSize = (orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w);
+	float scrollMax = std::max(0.0f, childSize - containerSize);
 
 	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
 
@@ -1094,7 +1095,9 @@ float ScrollView::ClampedScrollPos(float pos) {
 	if (pos > scrollMax && pos > scrollMax + pull_) {
 		pos = scrollMax + pull_;
 	}
-
+	if (childSize < containerSize && alignOpposite_) {
+		pos = -(containerSize - childSize);
+	}
 	return pos;
 }
 

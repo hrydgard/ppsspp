@@ -293,6 +293,11 @@ public:
 	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 	void SetVisibility(Visibility visibility) override;
 
+	// If the view is smaller than the scroll view, sets whether to align to the bottom/right instead of the left.
+	void SetAlignOpposite(bool alignOpposite) {
+		alignOpposite_ = alignOpposite;
+	}
+
 	NeighborResult FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) override;
 
 private:
@@ -310,6 +315,7 @@ private:
 	float pull_ = 0.0f;
 	float lastViewSize_ = 0.0f;
 	float *rememberPos_ = nullptr;
+	bool alignOpposite_ = false;
 
 	static float lastScrollPosX;
 	static float lastScrollPosY;

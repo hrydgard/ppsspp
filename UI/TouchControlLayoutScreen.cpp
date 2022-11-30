@@ -361,6 +361,7 @@ public:
 
 	bool Touch(const TouchInput &input) override;
 	void CreateViews();
+	void Draw(UIContext& ui) override;
 	bool HasCreatedViews() const {
 		return !controls_.empty();
 	}
@@ -453,6 +454,12 @@ bool ControlLayoutView::Touch(const TouchInput &touch) {
 		pickedControl_ = 0;
 	}
 	return true;
+}
+
+void ControlLayoutView::Draw(UIContext& dc) {
+	using namespace UI;
+	dc.FillRect(Drawable(0x80000000), bounds_);
+	UI::AnchorLayout::Draw(dc);
 }
 
 void ControlLayoutView::CreateViews() {
@@ -617,16 +624,19 @@ void TouchControlLayoutScreen::CreateViews() {
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	InitPadLayout(bounds.w, bounds.h);
 
-	const float leftColumnWidth = 170.0f;
+	const float leftColumnWidth = 200.0f;
 	layoutAreaScale = 1.0f - (leftColumnWidth + 10.0f) / std::max(bounds.w, 1.0f);
 
 	auto co = GetI18NCategory("Controls");
 	auto di = GetI18NCategory("Dialog");
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	auto rootLayout = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+	rootLayout->SetSpacing(0.0f);
+	root_ = rootLayout;
 
-	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 84)));
-	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
+	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(leftColumnWidth, FILL_PARENT)));
+	leftColumnScroll->SetAlignOpposite(true);
+	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(12.0f, 0.0f))));
 
 	mode_ = new ChoiceStrip(ORIENT_VERTICAL);
 	mode_->AddChoice(di->T("Move"));
@@ -635,7 +645,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	mode_->OnChoice.Handle(this, &TouchControlLayoutScreen::OnMode);
 
 	CheckBox *snap = new CheckBox(&g_Config.bTouchSnapToGrid, di->T("Snap"));
-	PopupSliderChoice *gridSize = new PopupSliderChoice(&g_Config.iTouchSnapGridSize, 2, 256, di->T("Grid"), screenManager(), "", new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158));
+	PopupSliderChoice *gridSize = new PopupSliderChoice(&g_Config.iTouchSnapGridSize, 2, 256, di->T("Grid"), screenManager(), "");
 	gridSize->SetEnabledPtr(&g_Config.bTouchSnapToGrid);
 
 	leftColumn->Add(mode_);
@@ -643,9 +653,12 @@ void TouchControlLayoutScreen::CreateViews() {
 	leftColumn->Add(snap);
 	leftColumn->Add(gridSize);
 	leftColumn->Add(new Choice(di->T("Reset")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
-	AddStandardBack(root_);
+	leftColumn->Add(new Spacer(12.0f));
+	leftColumn->Add(new Choice(di->T("Back"), "", false))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	leftColumn->Add(new Spacer(0.0f));
 
-	root_->Add(new BorderView(BORDER_BOTTOM, BorderStyle::ITEM_DOWN_BG, 4.0f, new AnchorLayoutParams(leftColumnWidth + 10, bounds.h * (1.0f - layoutAreaScale), 0.0f, NONE, false)));
-	root_->Add(new BorderView(BORDER_RIGHT, BorderStyle::ITEM_DOWN_BG, 4.0f, new AnchorLayoutParams(leftColumnWidth + 10, 0.0f, NONE, 0.0f, false)));
-	layoutView_ = root_->Add(new ControlLayoutView(new AnchorLayoutParams(leftColumnWidth + 10, bounds.h * (1.0 - layoutAreaScale), 0.0f, 0.0f, false)));
+	LinearLayout* rightColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(0.0f, 12.0f, 12.0f, 12.0f))));
+	rightColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
+	float previewHeight = bounds.h * layoutAreaScale;
+	layoutView_ = rightColumn->Add(new ControlLayoutView(new LinearLayoutParams(FILL_PARENT, previewHeight)));
 }
