@@ -113,9 +113,7 @@ const float NONE = -FLT_MAX;
 class AnchorLayoutParams : public LayoutParams {
 public:
 	AnchorLayoutParams(Size w, Size h, float l, float t, float r, float b, bool c = false)
-		: LayoutParams(w, h, LP_ANCHOR), left(l), top(t), right(r), bottom(b), center(c) {
-
-	}
+		: LayoutParams(w, h, LP_ANCHOR), left(l), top(t), right(r), bottom(b), center(c) {}
 	// There's a small hack here to make this behave more intuitively - AnchorLayout ordinarily ignores FILL_PARENT.
 	AnchorLayoutParams(Size w, Size h, bool c = false)
 		: LayoutParams(w, h, LP_ANCHOR), left(0), top(0), right(w == FILL_PARENT ? 0 : NONE), bottom(h == FILL_PARENT ? 0 : NONE), center(c) {
@@ -135,7 +133,7 @@ public:
 
 class AnchorLayout : public ViewGroup {
 public:
-	AnchorLayout(LayoutParams *layoutParams = 0) : ViewGroup(layoutParams), overflow_(true) {}
+	AnchorLayout(LayoutParams *layoutParams = 0) : ViewGroup(layoutParams) {}
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
 	void Overflow(bool allow) {
@@ -145,7 +143,7 @@ public:
 
 private:
 	void MeasureViews(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
-	bool overflow_;
+	bool overflow_ = true;
 };
 
 class LinearLayoutParams : public LayoutParams {
@@ -157,7 +155,7 @@ public:
 	LinearLayoutParams(float wgt, const Margins &mgn)
 		: LayoutParams(LP_LINEAR), weight(wgt), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(Size w, Size h, float wgt = 0.0f, Gravity grav = G_TOPLEFT)
-		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(grav), hasMargins_(false) {}
+		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(grav), margins(0), hasMargins_(false) {}
 	LinearLayoutParams(Size w, Size h, float wgt, Gravity grav, const Margins &mgn)
 		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(grav), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(Size w, Size h, const Margins &mgn)
@@ -184,7 +182,7 @@ private:
 class LinearLayout : public ViewGroup {
 public:
 	LinearLayout(Orientation orientation, LayoutParams *layoutParams = 0)
-		: ViewGroup(layoutParams), orientation_(orientation), defaultMargins_(0), spacing_(10) {}
+		: ViewGroup(layoutParams), orientation_(orientation), defaultMargins_(0) {}
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
@@ -197,7 +195,7 @@ protected:
 	Orientation orientation_;
 private:
 	Margins defaultMargins_;
-	float spacing_;
+	float spacing_ = 10.0f;
 };
 
 class LinearLayoutList : public LinearLayout {
@@ -249,7 +247,7 @@ public:
 
 private:
 	GridLayoutSettings settings_;
-	int numColumns_;
+	int numColumns_ = 1;
 };
 
 class GridLayoutList : public GridLayout {
@@ -295,6 +293,11 @@ public:
 	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 	void SetVisibility(Visibility visibility) override;
 
+	// If the view is smaller than the scroll view, sets whether to align to the bottom/right instead of the left.
+	void SetAlignOpposite(bool alignOpposite) {
+		alignOpposite_ = alignOpposite;
+	}
+
 	NeighborResult FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) override;
 
 private:
@@ -312,15 +315,11 @@ private:
 	float pull_ = 0.0f;
 	float lastViewSize_ = 0.0f;
 	float *rememberPos_ = nullptr;
+	bool alignOpposite_ = false;
 
 	static float lastScrollPosX;
 	static float lastScrollPosY;
 };
-
-class ViewPager : public ScrollView {
-public:
-};
-
 
 class ChoiceStrip : public LinearLayout {
 public:
@@ -348,8 +347,8 @@ private:
 	StickyChoice *Choice(int index);
 	EventReturn OnChoiceClick(EventParams &e);
 
-	int selected_;
-	bool topTabs_;  // Can be controlled with L/R.
+	int selected_ = 0;   // Can be controlled with L/R.
+	bool topTabs_ = false;
 };
 
 

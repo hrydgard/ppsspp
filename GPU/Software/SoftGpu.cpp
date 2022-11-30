@@ -807,15 +807,38 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 		u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
 		u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
 
+		u32 bytesToCopy = width * height * bpp;
+
+		if (!Memory::IsValidRange(srcLineStartAddr, bytesToCopy)) {
+			// What should we do here? Memset zeroes to the dest instead?
+			return;
+		}
+		if (!Memory::IsValidRange(dstLineStartAddr, bytesToCopy)) {
+			// What should we do here? Just not do the write, or partial write if
+			// some part is in-range?
+			return;
+		}
+
 		const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
 		u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
-		memcpy(dstp, srcp, width * height * bpp);
-		GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * height * bpp);
+		memcpy(dstp, srcp, bytesToCopy);
+		GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, bytesToCopy);
 	} else {
 		for (int y = 0; y < height; y++) {
 			u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
 			u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
 
+			u32 bytesToCopy = width * bpp;
+			if (!Memory::IsValidRange(srcLineStartAddr, bytesToCopy)) {
+				// What should we do here? Due to the y loop, in this case we might have
+				// performed a partial copy. Probably fine.
+				break;
+			}
+			if (!Memory::IsValidRange(dstLineStartAddr, bytesToCopy)) {
+				// What should we do here? Due to the y loop, in this case we might have
+				// performed a partial copy. Probably fine.
+				break;
+			}
 			const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
 			u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
 			memcpy(dstp, srcp, width * bpp);

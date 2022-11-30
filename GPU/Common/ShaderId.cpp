@@ -259,6 +259,7 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if ((id.Bits(FS_BIT_REPLACE_LOGIC_OP, 4) != GE_LOGIC_COPY) && !id.Bit(FS_BIT_CLEARMODE)) desc << "ReplaceLogic ";
 	if (id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE)) desc << "TexArray ";
 	if (id.Bit(FS_BIT_STEREO)) desc << "Stereo ";
+	if (id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH)) desc << "(fetch)";
 	return desc.str();
 }
 
@@ -382,6 +383,14 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			bool stencilWithoutDepth = !IsStencilTestOutputDisabled() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled());
 			if (stencilWithoutDepth) {
 				id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, stencilWithoutDepth);
+			}
+		}
+
+		// In case the USE flag changes (for example, in multisampling we might disable input attachments),
+		// we don't want to accidentally use the wrong cached shader here. So moved it to a bit.
+		if (FragmentIdNeedsFramebufferRead(id)) {
+			if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH)) {
+				id.SetBit(FS_BIT_USE_FRAMEBUFFER_FETCH);
 			}
 		}
 	}

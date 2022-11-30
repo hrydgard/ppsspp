@@ -3073,11 +3073,11 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	u32 dstLastAddr = dstBasePtr + ((dstY + height - 1) * dstStride + (dstX + width - 1)) * bpp;
 
 	if (!Memory::IsValidAddress(srcLastAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bottom-right corner of source of block transfer is at an invalid address: %08x", srcLastAddr);
+		ERROR_LOG_N_TIMES(bad_xfer_src, 5, G3D, "Bottom-right corner of source of %dx%d src=(%d, %d) block transfer from buffer at %08x is at an invalid address: %08x. Skipping.", width, height, srcX, srcY, srcBasePtr, srcLastAddr);
 		return;
 	}
 	if (!Memory::IsValidAddress(dstLastAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bottom-right corner of destination of block transfer is at an invalid address: %08x", srcLastAddr);
+		ERROR_LOG_N_TIMES(bad_xfer_src, 5, G3D, "Bottom-right corner of destination of %dx%d dst=(%d, %d) block transfer to buffer at %08x is at an invalid address: %08x. Skipping.", width, height, dstX, dstY, dstBasePtr, srcLastAddr);
 		return;
 	}
 

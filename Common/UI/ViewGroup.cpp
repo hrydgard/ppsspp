@@ -31,13 +31,13 @@ void ApplyGravity(const Bounds outer, const Margins &margins, float w, float h, 
 	switch (gravity & G_HORIZMASK) {
 	case G_LEFT: inner.x = outer.x + margins.left; break;
 	case G_RIGHT: inner.x = outer.x + outer.w - w - margins.right; break;
-	case G_HCENTER: inner.x = outer.x + (outer.w - w) / 2; break;
+	case G_HCENTER: inner.x = outer.x + (outer.w - w) * 0.5f; break;
 	}
 
 	switch (gravity & G_VERTMASK) {
 	case G_TOP: inner.y = outer.y + margins.top; break;
 	case G_BOTTOM: inner.y = outer.y + outer.h - h - margins.bottom; break;
-	case G_VCENTER: inner.y = outer.y + (outer.h - h) / 2; break;
+	case G_VCENTER: inner.y = outer.y + (outer.h - h) * 0.5f; break;
 	}
 }
 
@@ -267,11 +267,12 @@ static float HorizontalOverlap(const Bounds &a, const Bounds &b) {
 	// okay they do overlap. Let's clip.
 	float maxMin = std::max(a.x, b.x);
 	float minMax = std::min(a.x2(), b.x2());
+	float minW = std::min(a.w, b.w);
 	float overlap = minMax - maxMin;
-	if (overlap < 0.0f)
+	if (overlap < 0.0f || minW <= 0.0f)
 		return 0.0f;
 	else
-		return std::min(1.0f, overlap / std::min(a.w, b.w));
+		return std::min(1.0f, overlap / minW);
 }
 
 // Returns the percentage the smaller one overlaps the bigger one.
@@ -281,11 +282,12 @@ static float VerticalOverlap(const Bounds &a, const Bounds &b) {
 	// okay they do overlap. Let's clip.
 	float maxMin = std::max(a.y, b.y);
 	float minMax = std::min(a.y2(), b.y2());
+	float minH = std::min(a.h, b.h);
 	float overlap = minMax - maxMin;
-	if (overlap < 0.0f)
+	if (overlap < 0.0f || minH <= 0.0f)
 		return 0.0f;
 	else
-		return std::min(1.0f, overlap / std::min(a.h, b.h));
+		return std::min(1.0f, overlap / minH);
 }
 
 float GetTargetScore(const Point &originPos, int originIndex, View *origin, View *destination, FocusDirection direction) {
@@ -303,6 +305,9 @@ float GetTargetScore(const Point &originPos, int originIndex, View *origin, View
 	float dy = destPos.y - originPos.y;
 
 	float distance = sqrtf(dx*dx + dy*dy);
+	if (distance == 0.0f) {
+		distance = 0.001f;
+	}
 	float overlap = 0.0f;
 	float dirX = dx / distance;
 	float dirY = dy / distance;
@@ -594,6 +599,10 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				if (v.type == UNSPECIFIED && measuredHeight_ != 0.0f)
 					v = MeasureSpec(AT_MOST, measuredHeight_);
 				float unit = (allowedWidth - weightZeroSum) / weightSum;
+				if (weightSum == 0.0f) {
+					// We must have gotten an inf.
+					unit = 1.0f;
+				}
 				MeasureSpec h(AT_MOST, unit * linLayoutParams->weight - margins.horiz());
 				if (horiz.type == EXACTLY) {
 					h.type = EXACTLY;
@@ -635,6 +644,9 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				if (h.type == UNSPECIFIED && measuredWidth_ != 0.0f)
 					h = MeasureSpec(AT_MOST, measuredWidth_);
 				float unit = (allowedHeight - weightZeroSum) / weightSum;
+				if (weightSum == 0.0f) {
+					unit = 1.0f;
+				}
 				MeasureSpec v(AT_MOST, unit * linLayoutParams->weight - margins.vert());
 				if (vert.type == EXACTLY) {
 					v.type = EXACTLY;
@@ -735,8 +747,8 @@ void FrameLayout::Layout() {
 		bounds.w = w;
 		bounds.h = h;
 
-		bounds.x = bounds_.x + (measuredWidth_ - w) / 2;
-		bounds.y = bounds_.y + (measuredWidth_ - h) / 2;
+		bounds.x = bounds_.x + (measuredWidth_ - w) * 0.5f;
+		bounds.y = bounds_.y + (measuredWidth_ - h) * 0.5f;
 		views_[i]->SetBounds(bounds);
 	}
 }
@@ -912,7 +924,7 @@ void ScrollView::Draw(UIContext &dc) {
 	float childHeight = views_[0]->GetBounds().h;
 	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
 
-	float ratio = bounds_.h / views_[0]->GetBounds().h;
+	float ratio = bounds_.h / std::max(0.01f, views_[0]->GetBounds().h);
 
 	float bobWidth = 5;
 	if (ratio < 1.0f && scrollMax > 0.0f) {
@@ -1054,16 +1066,17 @@ void ScrollView::ScrollRelative(float distance) {
 }
 
 float ScrollView::ClampedScrollPos(float pos) {
-	if (!views_.size()) {
+	if (!views_.size() || bounds_.h == 0.0f) {
 		return 0.0f;
 	}
 
 	float childSize = orientation_ == ORIENT_VERTICAL ? views_[0]->GetBounds().h : views_[0]->GetBounds().w;
-	float scrollMax = std::max(0.0f, childSize - (orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w));
+	float containerSize = (orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w);
+	float scrollMax = std::max(0.0f, childSize - containerSize);
 
 	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
 
-	if (scrollTouchId_ >= 0 && gesture_.IsGestureActive(gesture, scrollTouchId_) && bounds_.h > 0) {
+	if (scrollTouchId_ >= 0 && gesture_.IsGestureActive(gesture, scrollTouchId_) && bounds_.h > 0.0f) {
 		float maxPull = bounds_.h * 0.1f;
 		if (pos < 0.0f) {
 			float dist = std::min(-pos * (1.0f / bounds_.h), 1.0f);
@@ -1082,7 +1095,9 @@ float ScrollView::ClampedScrollPos(float pos) {
 	if (pos > scrollMax && pos > scrollMax + pull_) {
 		pos = scrollMax + pull_;
 	}
-
+	if (childSize < containerSize && alignOpposite_) {
+		pos = -(containerSize - childSize);
+	}
 	return pos;
 }
 
@@ -1275,7 +1290,7 @@ void AnchorLayout::Layout() {
 }
 
 GridLayout::GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams)
-	: ViewGroup(layoutParams), settings_(settings), numColumns_(1) {
+	: ViewGroup(layoutParams), settings_(settings) {
 	if (settings.orientation != ORIENT_HORIZONTAL)
 		ERROR_LOG(SYSTEM, "GridLayout: Vertical layouts not yet supported");
 }
@@ -1456,7 +1471,7 @@ void TabHolder::PersistData(PersistStatus status, std::string anonId, PersistMap
 }
 
 ChoiceStrip::ChoiceStrip(Orientation orientation, LayoutParams *layoutParams)
-		: LinearLayout(orientation, layoutParams), selected_(0), topTabs_(false) {
+		: LinearLayout(orientation, layoutParams) {
 	SetSpacing(0.0f);
 }
 
