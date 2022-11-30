@@ -55,9 +55,7 @@ public:
 
 	void Draw(UIContext &dc) override {
 		scale_ = theScale_*layoutAreaScale; // Scale down just for rendering
-		dc.PushScissor(screenBounds_);
 		MultiTouchButton::Draw(dc);
-		dc.PopScissor();
 		scale_ = theScale_/layoutAreaScale; // is this is needed?
 	}
 
@@ -118,7 +116,6 @@ public:
 
 	void Draw(UIContext &dc) override {
 		scale_ = theScale_*layoutAreaScale;
-		dc.PushScissor(screenBounds_);
 		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
 		uint32_t color = colorAlpha(0xFFFFFF, GetButtonOpacity());
 
@@ -147,7 +144,6 @@ public:
 			dc.Draw()->DrawImageRotated(roundId_, centerX - spacing, centerY, scale_, 0, colorBg, false);
 			dc.Draw()->DrawImageRotated(squareId_, centerX - spacing, centerY, scale_, 0, color, false);
 		}
-		dc.PopScissor();
 		scale_ = theScale_/layoutAreaScale;
 	};
 
@@ -248,7 +244,6 @@ public:
 
 	void Draw(UIContext &dc) override {
 		scale_ = theScale_*layoutAreaScale;
-		dc.PushScissor(screenBounds_);
 		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
 		uint32_t color = colorAlpha(0xFFFFFF, GetButtonOpacity());
 
@@ -268,7 +263,6 @@ public:
 			dc.Draw()->DrawImageRotated(dirImage, x, y, scale_, angle + PI, colorBg, false);
 			dc.Draw()->DrawImageRotated(ImageID("I_ARROW"), x2, y2, scale_, angle + PI, color);
 		}
-		dc.PopScissor();
 		scale_ = theScale_/layoutAreaScale;
 	}
 
@@ -357,6 +351,7 @@ class ControlLayoutView : public UI::AnchorLayout {
 public:
 	explicit ControlLayoutView(UI::LayoutParams *layoutParams)
 		: UI::AnchorLayout(layoutParams) {
+		SetClip(true);
 	}
 
 	bool Touch(const TouchInput &input) override;
@@ -459,6 +454,7 @@ bool ControlLayoutView::Touch(const TouchInput &touch) {
 void ControlLayoutView::Draw(UIContext& dc) {
 	using namespace UI;
 	dc.FillRect(Drawable(0x80000000), bounds_);
+	dc.Flush();
 	UI::AnchorLayout::Draw(dc);
 }
 
