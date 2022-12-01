@@ -29,6 +29,7 @@
 #include "Core/Core.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 #include "Core/MIPS/MIPS.h"
@@ -792,6 +793,12 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 
 	int bpp = gstate.getTransferBpp();
 
+	// For VRAM, we wrap around when outside valid memory (mirrors still work.)
+	if ((srcBasePtr & 0x04800000) == 0x04800000)
+		srcBasePtr &= ~0x00800000;
+	if ((dstBasePtr & 0x04800000) == 0x04800000)
+		dstBasePtr &= ~0x00800000;
+
 	// Use height less one to account for width, which can be greater or less than stride.
 	const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
 	const uint32_t srcSize = (height - 1) * srcStride * bpp + width * bpp;
@@ -805,68 +812,93 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 
 	bool srcDstOverlap = src + srcSize > dst && dst + dstSize > src;
+	bool srcValid = Memory::IsValidRange(src, srcSize);
+	bool dstValid = Memory::IsValidRange(dst, dstSize);
+	bool srcWraps = Memory::IsVRAMAddress(srcBasePtr) && !srcValid;
+	bool dstWraps = Memory::IsVRAMAddress(dstBasePtr) && !dstValid;
 
-	if (srcStride == dstStride && (u32)width == srcStride && !srcDstOverlap) {
+	// Simple case: just a straight copy, no overlap or wrapping.
+	if (srcStride == dstStride && (u32)width == srcStride && !srcDstOverlap && srcValid && dstValid) {
 		u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
 		u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-
 		u32 bytesToCopy = width * height * bpp;
-
-		if (!Memory::IsValidRange(srcLineStartAddr, bytesToCopy)) {
-			// What should we do here? Memset zeroes to the dest instead?
-			return;
-		}
-		if (!Memory::IsValidRange(dstLineStartAddr, bytesToCopy)) {
-			// What should we do here? Just not do the write, or partial write if
-			// some part is in-range?
-			return;
-		}
 
 		const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
 		u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
 		memcpy(dstp, srcp, bytesToCopy);
 		GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, bytesToCopy);
-	} else if (srcDstOverlap) {
+
+		if (MemBlockInfoDetailed(bytesToCopy)) {
+			const std::string tag = GetMemWriteTagAt("GPUBlockTransfer/", src, bytesToCopy);
+			NotifyMemInfo(MemBlockFlags::READ, src, bytesToCopy, tag.c_str(), tag.size());
+			NotifyMemInfo(MemBlockFlags::WRITE, dst, bytesToCopy, tag.c_str(), tag.size());
+		}
+	} else if (srcDstOverlap || srcWraps || dstWraps) {
+		u32 bytesToCopy = width * bpp;
+		static std::string tag;
+		bool notifyDetail = MemBlockInfoDetailed(bytesToCopy);
+		bool notifyAll = !notifyDetail && MemBlockInfoDetailed(srcSize, dstSize);
+		if (notifyDetail || notifyAll) {
+			tag = GetMemWriteTagAt("GPUBlockTransfer/", src, srcSize);
+		}
+
+		// TODO: Handle wrapping.
 		for (int y = 0; y < height; y++) {
 			u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
 			u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
 			const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
 			u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
 
-			u32 totalToCopy = width * bpp;
-			for (u32 i = 0; i < totalToCopy; i += 64) {
-				u32 chunk = i + 64 > totalToCopy ? totalToCopy - i : 64;
+			for (u32 i = 0; i < bytesToCopy; i += 64) {
+				u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
 				memmove(dstp + i, srcp + i, chunk);
 			}
-			GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, totalToCopy);
+			GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, bytesToCopy);
+
+			// If we're tracking detail, it's useful to have the gaps illustrated properly.
+			if (notifyDetail) {
+				NotifyMemInfo(MemBlockFlags::READ, srcLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
+				NotifyMemInfo(MemBlockFlags::WRITE, dstLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
+			}
 		}
-	} else {
+
+		if (notifyAll) {
+			NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
+			NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
+		}
+	} else if (srcValid && dstValid) {
+		u32 bytesToCopy = width * bpp;
+		static std::string tag;
+		bool notifyDetail = MemBlockInfoDetailed(bytesToCopy);
+		bool notifyAll = !notifyDetail && MemBlockInfoDetailed(srcSize, dstSize);
+		if (notifyDetail || notifyAll) {
+			tag = GetMemWriteTagAt("GPUBlockTransfer/", src, srcSize);
+		}
+
 		for (int y = 0; y < height; y++) {
 			u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
 			u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
 
-			u32 bytesToCopy = width * bpp;
-			if (!Memory::IsValidRange(srcLineStartAddr, bytesToCopy)) {
-				// What should we do here? Due to the y loop, in this case we might have
-				// performed a partial copy. Probably fine.
-				break;
-			}
-			if (!Memory::IsValidRange(dstLineStartAddr, bytesToCopy)) {
-				// What should we do here? Due to the y loop, in this case we might have
-				// performed a partial copy. Probably fine.
-				break;
-			}
 			const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
 			u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
-			memcpy(dstp, srcp, width * bpp);
-			GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * bpp);
-		}
-	}
+			memcpy(dstp, srcp, bytesToCopy);
+			GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, bytesToCopy);
 
-	if (MemBlockInfoDetailed(srcSize, dstSize)) {
-		const std::string tag = GetMemWriteTagAt("GPUBlockTransfer/", src, srcSize);
-		NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
+			// If we're tracking detail, it's useful to have the gaps illustrated properly.
+			if (notifyDetail) {
+				NotifyMemInfo(MemBlockFlags::READ, srcLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
+				NotifyMemInfo(MemBlockFlags::WRITE, dstLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
+			}
+		}
+
+		if (notifyAll) {
+			NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
+			NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
+		}
+	} else {
+		// This seems to cause the GE to require a break/reset on a PSP.
+		// TODO: Handle that and figure out which bytes are still copied?
+		ERROR_LOG_REPORT(G3D, "Block transfer invalid: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 	}
 
 	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
