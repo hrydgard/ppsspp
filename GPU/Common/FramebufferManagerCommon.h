@@ -443,6 +443,8 @@ public:
 		int scaleFactor,  // usually unused, except for swizzle...
 		Draw2DPipeline *pipeline, const char *tag);
 
+	void ReleasePipelines();
+
 protected:
 	virtual void ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
 	// Used for when a shader is required, such as GLES.

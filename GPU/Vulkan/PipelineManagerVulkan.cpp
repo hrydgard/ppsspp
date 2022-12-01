@@ -49,6 +49,12 @@ void PipelineManagerVulkan::Clear() {
 	pipelines_.Clear();
 }
 
+void PipelineManagerVulkan::InvalidateMSAAPipelines() {
+	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
+		value->pipeline->DestroyVariants(vulkan_, true);
+	});
+}
+
 void PipelineManagerVulkan::DeviceLost() {
 	Clear();
 	if (pipelineCache_ != VK_NULL_HANDLE)

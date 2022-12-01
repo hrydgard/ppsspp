@@ -242,7 +242,7 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 #endif
 
 	VkShaderModule shaderModule = VK_NULL_HANDLE;
-	if (vulkan->CreateShaderModule(spirv, &shaderModule, vkstage_ == VK_SHADER_STAGE_VERTEX_BIT ? "thin3d_vs" : "thin3d_fs")) {
+	if (vulkan->CreateShaderModule(spirv, &shaderModule, tag_.c_str())) {
 		module_ = Promise<VkShaderModule>::AlreadyDone(shaderModule);
 		ok_ = true;
 	} else {

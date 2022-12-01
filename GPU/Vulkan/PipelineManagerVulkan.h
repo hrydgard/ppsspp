@@ -88,6 +88,8 @@ public:
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);
 
+	void InvalidateMSAAPipelines();
+
 	std::string DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type);
 

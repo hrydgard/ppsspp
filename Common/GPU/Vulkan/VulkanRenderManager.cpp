@@ -130,10 +130,13 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	return success;
 }
 
-void VKRGraphicsPipeline::DestroyAllVariants(VulkanContext *vulkan) {
+void VKRGraphicsPipeline::DestroyVariants(VulkanContext *vulkan, bool msaaOnly) {
 	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 		if (!this->pipeline[i])
 			continue;
+		if (msaaOnly && (i & (int)RenderPassType::MULTISAMPLE) == 0)
+			continue;
+
 		VkPipeline pipeline = this->pipeline[i]->BlockUntilReady();
 		// pipeline can be nullptr here, if it failed to compile before.
 		if (pipeline) {
@@ -145,7 +148,7 @@ void VKRGraphicsPipeline::DestroyAllVariants(VulkanContext *vulkan) {
 }
 
 void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
-	DestroyAllVariants(vulkan);
+	DestroyVariants(vulkan, false);
 	vulkan->Delete().QueueCallback([](void *p) {
 		VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;
 		delete pipeline;

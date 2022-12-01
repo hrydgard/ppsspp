@@ -2878,11 +2878,7 @@ static void DoRelease(T *&obj) {
 	obj = nullptr;
 }
 
-void FramebufferManagerCommon::DeviceLost() {
-	DestroyAllFBOs();
-
-	presentation_->DeviceLost();
-
+void FramebufferManagerCommon::ReleasePipelines() {
 	for (int i = 0; i < ARRAY_SIZE(reinterpretFromTo_); i++) {
 		for (int j = 0; j < ARRAY_SIZE(reinterpretFromTo_); j++) {
 			DoRelease(reinterpretFromTo_[i][j]);
@@ -2899,8 +2895,15 @@ void FramebufferManagerCommon::DeviceLost() {
 	DoRelease(draw2DPipelineDepth_);
 	DoRelease(draw2DPipeline565ToDepth_);
 	DoRelease(draw2DPipeline565ToDepthDeswizzle_);
+}
 
+void FramebufferManagerCommon::DeviceLost() {
+	DestroyAllFBOs();
+
+	presentation_->DeviceLost();
 	draw2D_.DeviceLost();
+
+	ReleasePipelines();
 
 	draw_ = nullptr;
 }

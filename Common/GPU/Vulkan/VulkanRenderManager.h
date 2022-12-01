@@ -124,7 +124,7 @@ struct VKRGraphicsPipeline {
 
 	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
 
-	void DestroyAllVariants(VulkanContext *vulkan);
+	void DestroyVariants(VulkanContext *vulkan, bool msaaOnly);
 
 	// This deletes the whole VKRGraphicsPipeline, you must remove your last pointer to it when doing this.
 	void QueueForDeletion(VulkanContext *vulkan);
@@ -457,6 +457,8 @@ public:
 		// Accepting a few of these makes shutdown simpler.
 		return outOfDateFrames_ > VulkanContext::MAX_INFLIGHT_FRAMES;
 	}
+
+	void Invalidate(InvalidationFlags flags);
 
 	void ResetStats();
 

@@ -1327,10 +1327,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				VkSampleCountFlagBits fbSampleCount = step.render.framebuffer ? step.render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT;
 
 				if (RenderPassTypeHasMultisample(rpType) && fbSampleCount != graphicsPipeline->SampleCount()) {
-					// Sample count might have started mismatching if the user changed multisampling mode. Let's get rid of all variants
-					// and start over.
-					// (We could avoid this if sample count was baked into the rpType, but I don't want that to grow too big).
-					graphicsPipeline->DestroyAllVariants(vulkan_);
+					// Shouldn't happen, pipeline invalidation after render resized should have taken care of this.
+					_assert_(false);
 				}
 
 				if (!graphicsPipeline->pipeline[(size_t)rpType]) {

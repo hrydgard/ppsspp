@@ -465,6 +465,14 @@ void GPU_Vulkan::DestroyDeviceObjects() {
 	}
 }
 
+void GPU_Vulkan::CheckRenderResized() {
+	if (renderResized_) {
+		GPUCommon::CheckRenderResized();
+		pipelineManager_->InvalidateMSAAPipelines();
+		framebufferManager_->ReleasePipelines();
+	}
+}
+
 void GPU_Vulkan::DeviceLost() {
 	CancelReady();
 	while (!IsReady()) {
