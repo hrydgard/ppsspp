@@ -1253,7 +1253,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
 	// TODO: Use a proper line drawing algorithm that handles fractional endpoints correctly.
 	Vec3<int> a(v0.screenpos.x, v0.screenpos.y, v0.screenpos.z);
-	Vec3<int> b(v1.screenpos.x, v1.screenpos.y, v0.screenpos.z);
+	Vec3<int> b(v1.screenpos.x, v1.screenpos.y, v1.screenpos.z);
 
 	int dx = b.x - a.x;
 	int dy = b.y - a.y;
