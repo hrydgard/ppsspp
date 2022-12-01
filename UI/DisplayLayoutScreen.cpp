@@ -213,7 +213,7 @@ void DisplayLayoutScreen::CreateViews() {
 		auto stretch = new CheckBox(&g_Config.bDisplayStretch, gr->T("Stretch"));
 		leftColumn->Add(stretch);
 
-		PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, di->T("Aspect Ratio"), screenManager());
+		PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, gr->T("Aspect Ratio"), screenManager());
 		leftColumn->Add(aspectRatio);
 		aspectRatio->SetDisabledPtr(&g_Config.bDisplayStretch);
 		aspectRatio->SetHasDropShadow(false);
