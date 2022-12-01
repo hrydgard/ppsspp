@@ -792,10 +792,11 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 
 	int bpp = gstate.getTransferBpp();
 
+	// Use height less one to account for width, which can be greater or less than stride.
 	const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-	const uint32_t srcSize = height * srcStride * bpp;
+	const uint32_t srcSize = (height - 1) * srcStride * bpp + width * bpp;
 	const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-	const uint32_t dstSize = height * dstStride * bpp;
+	const uint32_t dstSize = (height - 1) * dstStride * bpp + width * bpp;
 
 	// Need to flush both source and target, so we overwrite properly.
 	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", false, src, srcStride, width * bpp, height);
