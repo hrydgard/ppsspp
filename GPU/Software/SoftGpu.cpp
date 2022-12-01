@@ -29,6 +29,7 @@
 #include "Core/Core.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 #include "Core/MIPS/MIPS.h"
@@ -792,68 +793,21 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 
 	int bpp = gstate.getTransferBpp();
 
+	// Use height less one to account for width, which can be greater or less than stride.
 	const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-	const uint32_t srcSize = height * srcStride * bpp;
+	const uint32_t srcSize = (height - 1) * (srcStride + width) * bpp;
 	const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-	const uint32_t dstSize = height * dstStride * bpp;
+	const uint32_t dstSize = (height - 1) * (dstStride + width) * bpp;
 
 	// Need to flush both source and target, so we overwrite properly.
-	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", false, src, srcStride, width * bpp, height);
-	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", true, dst, dstStride, width * bpp, height);
-
-	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
-
-	if (srcStride == dstStride && (u32)width == srcStride) {
-		u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-		u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-
-		u32 bytesToCopy = width * height * bpp;
-
-		if (!Memory::IsValidRange(srcLineStartAddr, bytesToCopy)) {
-			// What should we do here? Memset zeroes to the dest instead?
-			return;
-		}
-		if (!Memory::IsValidRange(dstLineStartAddr, bytesToCopy)) {
-			// What should we do here? Just not do the write, or partial write if
-			// some part is in-range?
-			return;
-		}
-
-		const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
-		u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
-		memcpy(dstp, srcp, bytesToCopy);
-		GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, bytesToCopy);
+	if (Memory::IsValidRange(src, srcSize) && Memory::IsValidRange(dst, dstSize)) {
+		drawEngine_->transformUnit.FlushIfOverlap("blockxfer", false, src, srcStride, width * bpp, height);
+		drawEngine_->transformUnit.FlushIfOverlap("blockxfer", true, dst, dstStride, width * bpp, height);
 	} else {
-		for (int y = 0; y < height; y++) {
-			u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
-			u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
-
-			u32 bytesToCopy = width * bpp;
-			if (!Memory::IsValidRange(srcLineStartAddr, bytesToCopy)) {
-				// What should we do here? Due to the y loop, in this case we might have
-				// performed a partial copy. Probably fine.
-				break;
-			}
-			if (!Memory::IsValidRange(dstLineStartAddr, bytesToCopy)) {
-				// What should we do here? Due to the y loop, in this case we might have
-				// performed a partial copy. Probably fine.
-				break;
-			}
-			const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
-			u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
-			memcpy(dstp, srcp, width * bpp);
-			GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * bpp);
-		}
+		drawEngine_->transformUnit.Flush("blockxfer_wrap");
 	}
 
-	if (MemBlockInfoDetailed(srcSize, dstSize)) {
-		const std::string tag = GetMemWriteTagAt("GPUBlockTransfer/", src, srcSize);
-		NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
-	}
-
-	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
-	cyclesExecuted += ((height * width * bpp) * 16) / 10;
+	DoBlockTransfer(gstate_c.skipDrawReason);
 
 	// Could theoretically dirty the framebuffer.
 	MarkDirty(dst, dstSize, SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY);

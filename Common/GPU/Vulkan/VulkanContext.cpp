@@ -1136,11 +1136,21 @@ bool VulkanContext::InitSwapchain() {
 	INFO_LOG(G3D, "Transform supported: %s current: %s chosen: %s", supportedTransforms.c_str(), currentTransform.c_str(), preTransformStr.c_str());
 
 	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
-		INFO_LOG(G3D, "Applying PowerVR hack (rounding off the width!)");
-		// Swap chain width hack to avoid issue #11743 (PowerVR driver bug).
-		// To keep the size consistent even with pretransform, do this after the swap. Should be fine.
-		// This is fixed in newer PowerVR drivers but I don't know the cutoff.
-		swapChainExtent_.width &= ~31;
+		u32 driverVersion = physicalDeviceProperties_[physical_device_].properties.driverVersion;
+		// Cutoff the hack at driver version 1.386.1368 (0x00582558, see issue #15773).
+		if (driverVersion < 0x00582558) {
+			INFO_LOG(G3D, "Applying PowerVR hack (rounding off the width!) driverVersion=%08x", driverVersion);
+			// Swap chain width hack to avoid issue #11743 (PowerVR driver bug).
+			// To keep the size consistent even with pretransform, do this after the swap. Should be fine.
+			// This is fixed in newer PowerVR drivers but I don't know the cutoff.
+			swapChainExtent_.width &= ~31;
+
+			// TODO: Also modify display_xres/display_yres appropriately for scissors to match.
+			// This will get a bit messy. Ideally we should remove that logic from app-android.cpp
+			// and move it here, but the OpenGL code still needs it.
+		} else {
+			INFO_LOG(G3D, "PowerVR driver version new enough (%08x), not applying swapchain width hack", driverVersion);
+		}
 	}
 
 	VkSwapchainCreateInfoKHR swap_chain_info{ VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
