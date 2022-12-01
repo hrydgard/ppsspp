@@ -3090,7 +3090,6 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 			const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
 			u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
 			memcpy(dstp, srcp, bytesToCopy);
-			GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, bytesToCopy);
 
 			if (MemBlockInfoDetailed(bytesToCopy)) {
 				const std::string tag = GetMemWriteTagAt("GPUBlockTransfer/", src, bytesToCopy);
@@ -3112,7 +3111,6 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				const u8 *srcp = Memory::GetPointer(s);
 				u8 *dstp = Memory::GetPointerWrite(d);
 				memmove(dstp, srcp, sz);
-				GPURecord::NotifyMemcpy(d, s, sz);
 
 				if (notifyDetail) {
 					NotifyMemInfo(MemBlockFlags::READ, s, sz, tag.c_str(), tag.size());
@@ -3139,7 +3137,6 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 						u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
 						memmove(dstp + i, srcp + i, chunk);
 					}
-					GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, bytesToCopy);
 
 					// If we're tracking detail, it's useful to have the gaps illustrated properly.
 					if (notifyDetail) {
@@ -3219,7 +3216,6 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
 				u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
 				memcpy(dstp, srcp, bytesToCopy);
-				GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, bytesToCopy);
 
 				// If we're tracking detail, it's useful to have the gaps illustrated properly.
 				if (notifyDetail) {
