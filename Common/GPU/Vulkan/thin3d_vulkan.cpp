@@ -845,7 +845,11 @@ VKContext::VKContext(VulkanContext *vulkan)
 	case VULKAN_VENDOR_NVIDIA: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
 	case VULKAN_VENDOR_QUALCOMM: caps_.vendor = GPUVendor::VENDOR_QUALCOMM; break;
 	case VULKAN_VENDOR_INTEL: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
-	default: caps_.vendor = GPUVendor::VENDOR_UNKNOWN; break;
+	case VULKAN_VENDOR_APPLE: caps_.vendor = GPUVendor::VENDOR_APPLE; break;
+	default:
+		WARN_LOG(G3D, "Unknown vendor ID %08x", deviceProps.vendorID);
+		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
+		break;
 	}
 
 	bool hasLazyMemory = false;
@@ -854,7 +858,7 @@ VKContext::VKContext(VulkanContext *vulkan)
 			hasLazyMemory = true;
 		}
 	}
-	caps_.isTilingGPU = hasLazyMemory;
+	caps_.isTilingGPU = hasLazyMemory && caps_.vendor != GPUVendor::VENDOR_APPLE;
 
 	// VkSampleCountFlagBits is arranged correctly for our purposes.
 	// Only support MSAA levels that have support for all three of color, depth, stencil.
