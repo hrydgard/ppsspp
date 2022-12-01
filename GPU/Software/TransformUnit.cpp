@@ -162,7 +162,7 @@ ClipCoords TransformUnit::ViewToClip(const ViewCoords &coords) {
 	return Vec3ByMatrix44(coords, gstate.projMatrix);
 }
 
-template <bool depthClamp, bool writeOutsideFlag>
+template <bool depthClamp, bool alwaysCheckRange>
 static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords, bool *outside_range_flag) {
 	ScreenCoords ret;
 
@@ -173,7 +173,7 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 	// This matches hardware tests - depth is clamped when this flag is on.
 	if (depthClamp) {
 		// Note: if the depth is clipped (z/w <= -1.0), the outside_range_flag should NOT be set, even for x and y.
-		if (writeOutsideFlag && coords.z > -coords.w && (scaled.x >= SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
+		if ((alwaysCheckRange || coords.z > -coords.w) && (scaled.x >= SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
 			*outside_range_flag = true;
 		}
 
@@ -181,7 +181,7 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 			scaled.z = 0.f;
 		else if (scaled.z > 65535.0f)
 			scaled.z = 65535.0f;
-	} else if (writeOutsideFlag && (scaled.x > SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
+	} else if (scaled.x > SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0) {
 		*outside_range_flag = true;
 	}
 
@@ -209,17 +209,13 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords &coords, bool *
 	float z = coords.z * zScale / coords.w + zCenter;
 
 	if (gstate.isDepthClampEnabled()) {
-		if (outside_range_flag)
-			return ClipToScreenInternal<true, true>(Vec3f(x, y, z), coords, outside_range_flag);
-		return ClipToScreenInternal<true, false>(Vec3f(x, y, z), coords, outside_range_flag);
+		return ClipToScreenInternal<true, true>(Vec3f(x, y, z), coords, outside_range_flag);
 	}
-	if (outside_range_flag)
-		return ClipToScreenInternal<false, true>(Vec3f(x, y, z), coords, outside_range_flag);
-	return ClipToScreenInternal<false, false>(Vec3f(x, y, z), coords, outside_range_flag);
+	return ClipToScreenInternal<false, true>(Vec3f(x, y, z), coords, outside_range_flag);
 }
 
-ScreenCoords TransformUnit::ClipToScreen(const ClipCoords &coords) {
-	return ClipToScreenInternal(coords, nullptr);
+ScreenCoords TransformUnit::ClipToScreen(const ClipCoords &coords, bool *outsideRangeFlag) {
+	return ClipToScreenInternal(coords, outsideRangeFlag);
 }
 
 ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords &coords, u16 z) {
@@ -317,9 +313,9 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	}
 
 	if (gstate.isDepthClampEnabled())
-		state->roundToScreen = &ClipToScreenInternal<true, true>;
+		state->roundToScreen = &ClipToScreenInternal<true, false>;
 	else
-		state->roundToScreen = &ClipToScreenInternal<false, true>;
+		state->roundToScreen = &ClipToScreenInternal<false, false>;
 }
 
 ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState &state) {
@@ -977,7 +973,8 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 			vertices[i].z = vert.pos.z;
 		} else {
 			Vec4f clipPos = Vec3ByMatrix44(vert.pos, worldviewproj);
-			ScreenCoords screenPos = ClipToScreen(clipPos);
+			bool outsideRangeFlag;
+			ScreenCoords screenPos = ClipToScreen(clipPos, &outsideRangeFlag);
 			float z = clipPos.z * zScale / clipPos.w + zCenter;
 
 			if (gstate.vertType & GE_VTYPE_TC_MASK) {

@@ -50,16 +50,15 @@ inline float clip_dotprod(const ClipVertexData &vert, float A, float B, float C,
 }
 
 inline void clip_interpolate(ClipVertexData &dest, float t, const ClipVertexData &a, const ClipVertexData &b) {
-	if (different_signs(a.clippos.w, b.clippos.w)) {
-		if (a.clippos.w < -1.0f || b.clippos.w < -1.0f) {
-			dest.v.screenpos.x = 0x7FFFFFFF;
-			return;
-		}
-	}
-
+	bool outsideRange = false;
 	dest.Lerp(t, a, b);
-	dest.v.screenpos = TransformUnit::ClipToScreen(dest.clippos);
+	dest.v.screenpos = TransformUnit::ClipToScreen(dest.clippos, &outsideRange);
 	dest.v.clipw = dest.clippos.w;
+
+	// If the clipped coordinate is outside range, then we throw it away.
+	// This prevents a lot of inversions that shouldn't be drawn.
+	if (outsideRange)
+		dest.v.screenpos.x = 0x7FFFFFFF;
 }
 
 #define CLIP_POLY( PLANE_BIT, A, B, C, D )							\
