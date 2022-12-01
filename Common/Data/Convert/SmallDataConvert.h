@@ -18,6 +18,7 @@
 #endif
 
 extern const float one_over_255_x4[4];
+extern const float exactly_255_x4[4];
 
 // Utilities useful for filling in std140-layout uniform buffers, and similar.
 // NEON intrinsics: http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0491f/BABDCGGF.html
@@ -46,6 +47,19 @@ inline void Uint8x4ToFloat4(float f[4], uint32_t u) {
 
 // Could be SSE optimized.
 inline uint32_t Float4ToUint8x4(const float f[4]) {
+#ifdef _M_SSE
+	__m128i zero = _mm_setzero_si128();
+	__m128 value = _mm_mul_ps(_mm_loadu_ps(f), _mm_load_ps(exactly_255_x4));
+	__m128i ivalue = _mm_packus_epi16(_mm_packs_epi32(_mm_cvtps_epi32(value), zero), zero);
+	return _mm_cvtsi128_si32(ivalue);
+#elif PPSSPP_ARCH(ARM_NEON)
+	const float32x4_t value = vmulq_f32(vld1q_f32(f), vdupq_n_f32(255.0f));
+	uint32x4_t ivalue32 = vcvtq_u32_f32(value);
+	uint16x4_t ivalue16 = vqmovn_u32(ivalue32);
+	uint8x8_t ivalue8 = vqmovn_u16(vcombine_u16(ivalue16, ivalue16));  // Is there no way to avoid the combine here?
+	uint32x2_t outValue32 = vreinterpret_u8_u32(ivalue8);
+	return vget_lane_u32(outValue32, 0);
+#else
 	int i4[4];
 	for (int i = 0; i < 4; i++) {
 		if (f[i] > 1.0f) {
@@ -57,6 +71,30 @@ inline uint32_t Float4ToUint8x4(const float f[4]) {
 		}
 	}
 	return i4[0] | (i4[1] << 8) | (i4[2] << 16) | (i4[3] << 24);
+#endif
+}
+
+inline uint32_t Float4ToUint8x4_NoClamp(const float f[4]) {
+#ifdef _M_SSE
+	// Does actually clamp, no way to avoid it with the pack ops!
+	__m128i zero = _mm_setzero_si128();
+	__m128 value = _mm_mul_ps(_mm_loadu_ps(f), _mm_load_ps(exactly_255_x4));
+	__m128i ivalue = _mm_packus_epi16(_mm_packs_epi32(_mm_cvtps_epi32(value), zero), zero);
+	return _mm_cvtsi128_si32(ivalue);
+#elif PPSSPP_ARCH(ARM_NEON)
+	const float32x4_t value = vmulq_f32(vld1q_f32(f), vdupq_n_f32(255.0f));
+	uint32x4_t ivalue32 = vcvtq_u32_f32(value);
+	uint16x4_t ivalue16 = vqmovn_u32(ivalue32);
+	uint8x8_t ivalue8 = vqmovn_u16(vcombine_u16(ivalue16, ivalue16));  // Is there no way to avoid the combine here?
+	uint32x2_t outValue32 = vreinterpret_u8_u32(ivalue8);
+	return vget_lane_u32(outValue32, 0);
+#else
+	u32 i4[4];
+	for (int i = 0; i < 4; i++) {
+		i4[i] = (int)(f[i] * 255.0f);
+	}
+	return i4[0] | (i4[1] << 8) | (i4[2] << 16) | (i4[3] << 24);
+#endif
 }
 
 inline void Uint8x3ToFloat4_AlphaUint8(float f[4], uint32_t u, uint8_t alpha) {

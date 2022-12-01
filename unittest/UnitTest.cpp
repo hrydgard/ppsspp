@@ -41,6 +41,7 @@
 #endif
 
 #include "Common/Data/Collections/TinySet.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Text/WrapText.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -782,6 +783,15 @@ static bool TestWrapText() {
 	return true;
 }
 
+static bool TestSmallDataConvert() {
+	float f[4] = { 1.0f / 255.0f, 2.0f / 255.0f, 3.0f / 255.0f, 4.0f / 255.f };
+	uint32_t result = Float4ToUint8x4_NoClamp(f);
+	EXPECT_EQ_HEX(result, 0x04030201);
+	result = Float4ToUint8x4(f);
+	EXPECT_EQ_HEX(result, 0x04030201);
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -832,6 +842,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(ThreadManager),
 	TEST_ITEM(WrapText),
 	TEST_ITEM(TinySet),
+	TEST_ITEM(SmallDataConvert),
 };
 
 int main(int argc, const char *argv[]) {

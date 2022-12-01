@@ -205,6 +205,9 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 
 	VertexReader reader(decoded, decVtxFormat, vertType);
 	if (throughmode) {
+		const u32 materialAmbientRGBA = gstate.getMaterialAmbientRGBA();
+		const bool hasColor = reader.hasColor0();
+		const bool hasUV = reader.hasUV();
 		for (int index = 0; index < maxIndex; index++) {
 			// Do not touch the coordinates or the colors. No lighting.
 			reader.Goto(index);
@@ -213,19 +216,19 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			reader.ReadPos(vert.pos);
 			vert.pos_w = 1.0f;
 
-			if (reader.hasColor0()) {
+			if (hasColor) {
 				if (provokeIndOffset != 0 && index + provokeIndOffset < maxIndex) {
 					reader.Goto(index + provokeIndOffset);
-					reader.ReadColor0_8888(vert.color0);
+					vert.color0_32 = reader.ReadColor0_8888();
 					reader.Goto(index);
 				} else {
-					reader.ReadColor0_8888(vert.color0);
+					vert.color0_32 = reader.ReadColor0_8888();
 				}
 			} else {
-				vert.color0_32 = gstate.getMaterialAmbientRGBA();
+				vert.color0_32 = materialAmbientRGBA;
 			}
 
-			if (reader.hasUV()) {
+			if (hasUV) {
 				reader.ReadUV(vert.uv);
 
 				vert.u *= uscale;
@@ -240,6 +243,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			// The w of uv is also never used (hardcoded to 1.0.)
 		}
 	} else {
+		const Vec4f materialAmbientRGBA = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 		// Okay, need to actually perform the full transform.
 		for (int index = 0; index < maxIndex; index++) {
 			reader.Goto(index);
@@ -267,7 +271,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			if (reader.hasColor0())
 				reader.ReadColor0(unlitColor.AsArray());
 			else
-				unlitColor = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
+				unlitColor = materialAmbientRGBA;
 			if (reader.hasNormal())
 				reader.ReadNrm(normal.AsArray());
 

@@ -3075,6 +3075,9 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	bool srcWraps = Memory::IsVRAMAddress(srcBasePtr) && !srcValid;
 	bool dstWraps = Memory::IsVRAMAddress(dstBasePtr) && !dstValid;
 
+	char tag[128];
+	size_t tagSize;
+
 	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
 	if (!framebufferManager_ || !framebufferManager_->NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason)) {
 		// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
@@ -3092,19 +3095,18 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 			memcpy(dstp, srcp, bytesToCopy);
 
 			if (MemBlockInfoDetailed(bytesToCopy)) {
-				const std::string tag = GetMemWriteTagAt("GPUBlockTransfer/", src, bytesToCopy);
-				NotifyMemInfo(MemBlockFlags::READ, src, bytesToCopy, tag.c_str(), tag.size());
-				NotifyMemInfo(MemBlockFlags::WRITE, dst, bytesToCopy, tag.c_str(), tag.size());
+				tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUBlockTransfer/", src, bytesToCopy);
+				NotifyMemInfo(MemBlockFlags::READ, src, bytesToCopy, tag, tagSize);
+				NotifyMemInfo(MemBlockFlags::WRITE, dst, bytesToCopy, tag, tagSize);
 			}
 		} else if ((srcDstOverlap || srcWraps || dstWraps) && (srcValid || srcWraps) && (dstValid || dstWraps)) {
 			// This path means we have either src/dst overlap, OR one or both of src and dst wrap.
 			// This should be uncommon so it's the slowest path.
 			u32 bytesToCopy = width * bpp;
-			static std::string tag;
 			bool notifyDetail = MemBlockInfoDetailed(srcWraps || dstWraps ? 64 : bytesToCopy);
 			bool notifyAll = !notifyDetail && MemBlockInfoDetailed(srcSize, dstSize);
 			if (notifyDetail || notifyAll) {
-				tag = GetMemWriteTagAt("GPUBlockTransfer/", src, srcSize);
+				tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUBlockTransfer/", src, srcSize);
 			}
 
 			auto notifyingMemmove = [&](u32 d, u32 s, u32 sz) {
@@ -3113,8 +3115,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				memmove(dstp, srcp, sz);
 
 				if (notifyDetail) {
-					NotifyMemInfo(MemBlockFlags::READ, s, sz, tag.c_str(), tag.size());
-					NotifyMemInfo(MemBlockFlags::WRITE, d, sz, tag.c_str(), tag.size());
+					NotifyMemInfo(MemBlockFlags::READ, s, sz, tag, tagSize);
+					NotifyMemInfo(MemBlockFlags::WRITE, d, sz, tag, tagSize);
 				}
 			};
 
@@ -3140,8 +3142,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 
 					// If we're tracking detail, it's useful to have the gaps illustrated properly.
 					if (notifyDetail) {
-						NotifyMemInfo(MemBlockFlags::READ, srcLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
-						NotifyMemInfo(MemBlockFlags::WRITE, dstLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
+						NotifyMemInfo(MemBlockFlags::READ, srcLineStartAddr, bytesToCopy, tag, tagSize);
+						NotifyMemInfo(MemBlockFlags::WRITE, dstLineStartAddr, bytesToCopy, tag, tagSize);
 					}
 				} else {
 					// We can wrap at any point, so along with overlap this gets a bit complicated.
@@ -3187,26 +3189,25 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 			if (notifyAll) {
 				if (srcWraps) {
 					u32 validSize = Memory::ValidSize(src, srcSize);
-					NotifyMemInfo(MemBlockFlags::READ, src, validSize, tag.c_str(), tag.size());
-					NotifyMemInfo(MemBlockFlags::READ, PSP_GetVidMemBase(), srcSize - validSize, tag.c_str(), tag.size());
+					NotifyMemInfo(MemBlockFlags::READ, src, validSize, tag, tagSize);
+					NotifyMemInfo(MemBlockFlags::READ, PSP_GetVidMemBase(), srcSize - validSize, tag, tagSize);
 				} else {
-					NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
+					NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag, tagSize);
 				}
 				if (dstWraps) {
 					u32 validSize = Memory::ValidSize(dst, dstSize);
-					NotifyMemInfo(MemBlockFlags::WRITE, dst, validSize, tag.c_str(), tag.size());
-					NotifyMemInfo(MemBlockFlags::WRITE, PSP_GetVidMemBase(), dstSize - validSize, tag.c_str(), tag.size());
+					NotifyMemInfo(MemBlockFlags::WRITE, dst, validSize, tag, tagSize);
+					NotifyMemInfo(MemBlockFlags::WRITE, PSP_GetVidMemBase(), dstSize - validSize, tag, tagSize);
 				} else {
-					NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
+					NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag, tagSize);
 				}
 			}
 		} else if (srcValid && dstValid) {
 			u32 bytesToCopy = width * bpp;
-			static std::string tag;
 			bool notifyDetail = MemBlockInfoDetailed(bytesToCopy);
 			bool notifyAll = !notifyDetail && MemBlockInfoDetailed(srcSize, dstSize);
 			if (notifyDetail || notifyAll) {
-				tag = GetMemWriteTagAt("GPUBlockTransfer/", src, srcSize);
+				tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUBlockTransfer/", src, srcSize);
 			}
 
 			for (int y = 0; y < height; y++) {
@@ -3219,14 +3220,14 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 
 				// If we're tracking detail, it's useful to have the gaps illustrated properly.
 				if (notifyDetail) {
-					NotifyMemInfo(MemBlockFlags::READ, srcLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
-					NotifyMemInfo(MemBlockFlags::WRITE, dstLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
+					NotifyMemInfo(MemBlockFlags::READ, srcLineStartAddr, bytesToCopy, tag, tagSize);
+					NotifyMemInfo(MemBlockFlags::WRITE, dstLineStartAddr, bytesToCopy, tag, tagSize);
 				}
 			}
 
 			if (notifyAll) {
-				NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
-				NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
+				NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag, tagSize);
+				NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag, tagSize);
 			}
 		} else {
 			// This seems to cause the GE to require a break/reset on a PSP.
@@ -3253,8 +3254,9 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 			// Since they're identical we don't need to copy.
 			if (dest != src) {
 				if (MemBlockInfoDetailed(size)) {
-					const std::string tag = GetMemWriteTagAt("GPUMemcpy/", src, size);
-					Memory::Memcpy(dest, src, size, tag.c_str(), tag.size());
+					char tag[128];
+					size_t tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUMemcpy/", src, size);
+					Memory::Memcpy(dest, src, size, tag, tagSize);
 				} else {
 					Memory::Memcpy(dest, src, size, "GPUMemcpy");
 				}
@@ -3265,9 +3267,10 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 	}
 
 	if (MemBlockInfoDetailed(size)) {
-		const std::string tag = GetMemWriteTagAt("GPUMemcpy/", src, size);
-		NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, dest, size, tag.c_str(), tag.size());
+		char tag[128];
+		size_t tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUMemcpy/", src, size);
+		NotifyMemInfo(MemBlockFlags::READ, src, size, tag, tagSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, dest, size, tag, tagSize);
 	}
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	if (!(flags & GPUCopyFlag::DEBUG_NOTIFIED))
