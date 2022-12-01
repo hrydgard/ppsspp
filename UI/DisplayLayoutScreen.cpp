@@ -63,15 +63,14 @@ public:
 	bool Touch(const TouchInput &touch) {
 		int mode = mode_ ? mode_->GetSelection() : 0;
 
-		const Bounds &screenBounds = bounds_;
 		if ((touch.flags & TOUCH_MOVE) != 0 && dragging_) {
 			float relativeTouchX = touch.x - startX_;
 			float relativeTouchY = touch.y - startY_;
 
 			switch (mode) {
 			case MODE_MOVE:
-				g_Config.fDisplayOffsetX = clamp_value(startDisplayOffsetX_ + relativeTouchX / screenBounds.w, 0.0f, 1.0f);
-				g_Config.fDisplayOffsetY = clamp_value(startDisplayOffsetY_ + relativeTouchY / screenBounds.h, 0.0f, 1.0f);
+				g_Config.fDisplayOffsetX = clamp_value(startDisplayOffsetX_ + relativeTouchX / bounds_.w, 0.0f, 1.0f);
+				g_Config.fDisplayOffsetY = clamp_value(startDisplayOffsetY_ + relativeTouchY / bounds_.h, 0.0f, 1.0f);
 				break;
 			case MODE_RESIZE:
 			{
@@ -84,12 +83,18 @@ public:
 		}
 
 		if ((touch.flags & TOUCH_DOWN) != 0 && !dragging_) {
-			dragging_ = true;
-			startX_ = touch.x;
-			startY_ = touch.y;
-			startDisplayOffsetX_ = g_Config.fDisplayOffsetX;
-			startDisplayOffsetY_ = g_Config.fDisplayOffsetY;
-			startScale_ = g_Config.fDisplayScale;
+			// Check that we're in the central 80% of the screen.
+			// If outside, it may be a drag from displaying the back button on phones
+			// where you have to drag from the side, etc.
+			if (touch.x >= bounds_.w * 0.1f && touch.x <= bounds_.w * 0.9f &&
+				touch.y >= bounds_.h * 0.1f && touch.y <= bounds_.h * 0.9f) {
+				dragging_ = true;
+				startX_ = touch.x;
+				startY_ = touch.y;
+				startDisplayOffsetX_ = g_Config.fDisplayOffsetX;
+				startDisplayOffsetY_ = g_Config.fDisplayOffsetY;
+				startScale_ = g_Config.fDisplayScale;
+			}
 		}
 
 		if ((touch.flags & TOUCH_UP) != 0 && dragging_) {
