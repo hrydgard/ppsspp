@@ -482,7 +482,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 
 	delete entry->vkTex;
-	entry->vkTex = new VulkanTexture(vulkan);
+
+	char texName[64]{};
+	snprintf(texName, sizeof(texName), "tex_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format, gstate.getClutPaletteFormat()));
+	entry->vkTex = new VulkanTexture(vulkan, texName);
 	VulkanTexture *image = entry->vkTex;
 
 	const VkComponentMapping *mapping;
@@ -512,10 +515,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	if (plan.saveTexture) {
 		actualFmt = VULKAN_8888_FORMAT;
 	}
-
-	char texName[128]{};
-	snprintf(texName, sizeof(texName), "tex_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format, gstate.getClutPaletteFormat()));
-	image->SetTag(texName);
 
 	bool allocSuccess = image->CreateDirect(cmdInit, plan.createW, plan.createH, plan.depth, plan.levelsToCreate, actualFmt, imageLayout, usage, mapping);
 	if (!allocSuccess && !lowMemoryMode_) {

@@ -652,8 +652,7 @@ static inline VkSamplerAddressMode AddressModeToVulkan(Draw::TextureAddressMode 
 VulkanTexture *VKContext::GetNullTexture() {
 	if (!nullTexture_) {
 		VkCommandBuffer cmdInit = renderManager_.GetInitCmd();
-		nullTexture_ = new VulkanTexture(vulkan_);
-		nullTexture_->SetTag("Null");
+		nullTexture_ = new VulkanTexture(vulkan_, "Null");
 		int w = 8;
 		int h = 8;
 		nullTexture_->CreateDirect(cmdInit, w, h, 1, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -737,10 +736,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 	width_ = desc.width;
 	height_ = desc.height;
 	depth_ = desc.depth;
-	vkTex_ = new VulkanTexture(vulkan_);
-	if (desc.tag) {
-		vkTex_->SetTag(desc.tag);
-	}
+	vkTex_ = new VulkanTexture(vulkan_, desc.tag);
 	VkFormat vulkanFormat = DataFormatToVulkan(format_);
 	int bpp = GetBpp(vulkanFormat);
 	int bytesPerPixel = bpp / 8;
