@@ -3057,72 +3057,188 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 
 	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 
-	if (!Memory::IsValidAddress(srcBasePtr)) {
-		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad source transfer address %08x!", srcBasePtr);
-		return;
-	}
+	// For VRAM, we wrap around when outside valid memory (mirrors still work.)
+	if ((srcBasePtr & 0x04800000) == 0x04800000)
+		srcBasePtr &= ~0x00800000;
+	if ((dstBasePtr & 0x04800000) == 0x04800000)
+		dstBasePtr &= ~0x00800000;
 
-	if (!Memory::IsValidAddress(dstBasePtr)) {
-		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad destination transfer address %08x!", dstBasePtr);
-		return;
-	}
+	// Use height less one to account for width, which can be greater or less than stride.
+	const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
+	const uint32_t srcSize = (height - 1) * (srcStride + width) * bpp;
+	const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
+	const uint32_t dstSize = (height - 1) * (dstStride + width) * bpp;
 
-	// Check that the last address of both source and dest are valid addresses
-
-	u32 srcLastAddr = srcBasePtr + ((srcY + height - 1) * srcStride + (srcX + width - 1)) * bpp;
-	u32 dstLastAddr = dstBasePtr + ((dstY + height - 1) * dstStride + (dstX + width - 1)) * bpp;
-
-	if (!Memory::IsValidAddress(srcLastAddr)) {
-		ERROR_LOG_N_TIMES(bad_xfer_src, 5, G3D, "Bottom-right corner of source of %dx%d src=(%d, %d) block transfer from buffer at %08x is at an invalid address: %08x. Skipping.", width, height, srcX, srcY, srcBasePtr, srcLastAddr);
-		return;
-	}
-	if (!Memory::IsValidAddress(dstLastAddr)) {
-		ERROR_LOG_N_TIMES(bad_xfer_src, 5, G3D, "Bottom-right corner of destination of %dx%d dst=(%d, %d) block transfer to buffer at %08x is at an invalid address: %08x. Skipping.", width, height, dstX, dstY, dstBasePtr, srcLastAddr);
-		return;
-	}
+	bool srcDstOverlap = src + srcSize > dst && dst + dstSize > src;
+	bool srcValid = Memory::IsValidRange(src, srcSize);
+	bool dstValid = Memory::IsValidRange(dst, dstSize);
+	bool srcWraps = Memory::IsVRAMAddress(srcBasePtr) && !srcValid;
+	bool dstWraps = Memory::IsVRAMAddress(dstBasePtr) && !dstValid;
 
 	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
-	if (!framebufferManager_->NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason)) {
+	if (!framebufferManager_ || !framebufferManager_->NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason)) {
 		// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
 		// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
 		// entirely by walking a couple of pointers...
-		if (srcStride == dstStride && (u32)width == srcStride) {
-			// Common case in God of War, let's do it all in one chunk.
+
+		// Simple case: just a straight copy, no overlap or wrapping.
+		if (srcStride == dstStride && (u32)width == srcStride && !srcDstOverlap && srcValid && dstValid) {
 			u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
 			u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-			const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
-			u8 *dst = Memory::GetPointerWriteUnchecked(dstLineStartAddr);
-			memcpy(dst, src, width * height * bpp);
-			GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * height * bpp);
-		} else {
+			u32 bytesToCopy = width * height * bpp;
+
+			const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
+			u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+			memcpy(dstp, srcp, bytesToCopy);
+
+			if (MemBlockInfoDetailed(bytesToCopy)) {
+				const std::string tag = GetMemWriteTagAt("GPUBlockTransfer/", src, bytesToCopy);
+				NotifyMemInfo(MemBlockFlags::READ, src, bytesToCopy, tag.c_str(), tag.size());
+				NotifyMemInfo(MemBlockFlags::WRITE, dst, bytesToCopy, tag.c_str(), tag.size());
+			}
+		} else if ((srcDstOverlap || srcWraps || dstWraps) && (srcValid || srcWraps) && (dstValid || dstWraps)) {
+			// This path means we have either src/dst overlap, OR one or both of src and dst wrap.
+			// This should be uncommon so it's the slowest path.
+			u32 bytesToCopy = width * bpp;
+			static std::string tag;
+			bool notifyDetail = MemBlockInfoDetailed(srcWraps || dstWraps ? 64 : bytesToCopy);
+			bool notifyAll = !notifyDetail && MemBlockInfoDetailed(srcSize, dstSize);
+			if (notifyDetail || notifyAll) {
+				tag = GetMemWriteTagAt("GPUBlockTransfer/", src, srcSize);
+			}
+
+			auto notifyingMemmove = [&](u32 d, u32 s, u32 sz) {
+				const u8 *srcp = Memory::GetPointer(s);
+				u8 *dstp = Memory::GetPointerWrite(d);
+				memmove(dstp, srcp, sz);
+
+				if (notifyDetail) {
+					NotifyMemInfo(MemBlockFlags::READ, s, sz, tag.c_str(), tag.size());
+					NotifyMemInfo(MemBlockFlags::WRITE, d, sz, tag.c_str(), tag.size());
+				}
+			};
+
+			for (int y = 0; y < height; y++) {
+				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
+				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
+				// If we already passed a wrap, we can use the quicker path.
+				if ((srcLineStartAddr & 0x04800000) == 0x04800000)
+					srcLineStartAddr &= ~0x00800000;
+				if ((dstLineStartAddr & 0x04800000) == 0x04800000)
+					dstLineStartAddr &= ~0x00800000;
+				// These flags mean there's a wrap inside this line.
+				bool srcLineWrap = !Memory::IsValidRange(srcLineStartAddr, bytesToCopy);
+				bool dstLineWrap = !Memory::IsValidRange(dstLineStartAddr, bytesToCopy);
+
+				if (!srcLineWrap && !dstLineWrap) {
+					const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
+					u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+					for (u32 i = 0; i < bytesToCopy; i += 64) {
+						u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
+						memmove(dstp + i, srcp + i, chunk);
+					}
+
+					// If we're tracking detail, it's useful to have the gaps illustrated properly.
+					if (notifyDetail) {
+						NotifyMemInfo(MemBlockFlags::READ, srcLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
+						NotifyMemInfo(MemBlockFlags::WRITE, dstLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
+					}
+				} else {
+					// We can wrap at any point, so along with overlap this gets a bit complicated.
+					// We're just going to do this the slow and easy way.
+					u32 srcLinePos = srcLineStartAddr;
+					u32 dstLinePos = dstLineStartAddr;
+					for (u32 i = 0; i < bytesToCopy; i += 64) {
+						u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
+						u32 srcValid = Memory::ValidSize(srcLinePos, chunk);
+						u32 dstValid = Memory::ValidSize(dstLinePos, chunk);
+
+						// First chunk, for which both are valid.
+						u32 bothSize = std::min(srcValid, dstValid);
+						if (bothSize != 0)
+							notifyingMemmove(dstLinePos, srcLinePos, bothSize);
+
+						// Now, whichever side has more valid (or the rest, if only one side must wrap.)
+						u32 exclusiveSize = std::max(srcValid, dstValid) - bothSize;
+						if (exclusiveSize != 0 && srcValid >= dstValid) {
+							notifyingMemmove(PSP_GetVidMemBase(), srcLineStartAddr + bothSize, exclusiveSize);
+						} else if (exclusiveSize != 0 && srcValid < dstValid) {
+							notifyingMemmove(dstLineStartAddr + bothSize, PSP_GetVidMemBase(), exclusiveSize);
+						}
+
+						// Finally, if both src and dst wrapped, that portion.
+						u32 wrappedSize = chunk - bothSize - exclusiveSize;
+						if (wrappedSize != 0 && srcValid >= dstValid) {
+							notifyingMemmove(PSP_GetVidMemBase() + exclusiveSize, PSP_GetVidMemBase(), wrappedSize);
+						} else if (wrappedSize != 0 && srcValid < dstValid) {
+							notifyingMemmove(PSP_GetVidMemBase(), PSP_GetVidMemBase() + exclusiveSize, wrappedSize);
+						}
+
+						srcLinePos += chunk;
+						dstLinePos += chunk;
+						if ((srcLinePos & 0x04800000) == 0x04800000)
+							srcLinePos &= ~0x00800000;
+						if ((dstLinePos & 0x04800000) == 0x04800000)
+							dstLinePos &= ~0x00800000;
+					}
+				}
+			}
+
+			if (notifyAll) {
+				if (srcWraps) {
+					u32 validSize = Memory::ValidSize(src, srcSize);
+					NotifyMemInfo(MemBlockFlags::READ, src, validSize, tag.c_str(), tag.size());
+					NotifyMemInfo(MemBlockFlags::READ, PSP_GetVidMemBase(), srcSize - validSize, tag.c_str(), tag.size());
+				} else {
+					NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
+				}
+				if (dstWraps) {
+					u32 validSize = Memory::ValidSize(dst, dstSize);
+					NotifyMemInfo(MemBlockFlags::WRITE, dst, validSize, tag.c_str(), tag.size());
+					NotifyMemInfo(MemBlockFlags::WRITE, PSP_GetVidMemBase(), dstSize - validSize, tag.c_str(), tag.size());
+				} else {
+					NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
+				}
+			}
+		} else if (srcValid && dstValid) {
+			u32 bytesToCopy = width * bpp;
+			static std::string tag;
+			bool notifyDetail = MemBlockInfoDetailed(bytesToCopy);
+			bool notifyAll = !notifyDetail && MemBlockInfoDetailed(srcSize, dstSize);
+			if (notifyDetail || notifyAll) {
+				tag = GetMemWriteTagAt("GPUBlockTransfer/", src, srcSize);
+			}
+
 			for (int y = 0; y < height; y++) {
 				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
 				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
 
-				const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
-				u8 *dst = Memory::GetPointerWriteUnchecked(dstLineStartAddr);
-				memcpy(dst, src, width * bpp);
-				GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * bpp);
+				const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
+				u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+				memcpy(dstp, srcp, bytesToCopy);
+
+				// If we're tracking detail, it's useful to have the gaps illustrated properly.
+				if (notifyDetail) {
+					NotifyMemInfo(MemBlockFlags::READ, srcLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
+					NotifyMemInfo(MemBlockFlags::WRITE, dstLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
+				}
 			}
+
+			if (notifyAll) {
+				NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
+				NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
+			}
+		} else {
+			// This seems to cause the GE to require a break/reset on a PSP.
+			// TODO: Handle that and figure out which bytes are still copied?
+			ERROR_LOG_REPORT_ONCE(invalidtransfer, G3D, "Block transfer invalid: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 		}
 
-		// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
-		textureCache_->Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
-		framebufferManager_->NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason);
-	}
-
-	const uint32_t numBytes = width * height * bpp;
-	const uint32_t srcSize = height * srcStride * bpp;
-	const uint32_t dstSize = height * dstStride * bpp;
-	// We do the check here on the number of bytes to avoid marking really tiny images.
-	// Helps perf in GT menu which does insane amounts of these, one for each text character per frame.
-	if (MemBlockInfoDetailed(numBytes, numBytes)) {
-		const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-		const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-		char tag[128];
-		size_t tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUBlockTransfer/", src, srcSize);
-		NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag, tagSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag, tagSize);
+		if (framebufferManager_) {
+			// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
+			textureCache_->Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
+			framebufferManager_->NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason);
+		}
 	}
 
 	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
