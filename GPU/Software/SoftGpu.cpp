@@ -833,38 +833,111 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 			NotifyMemInfo(MemBlockFlags::READ, src, bytesToCopy, tag.c_str(), tag.size());
 			NotifyMemInfo(MemBlockFlags::WRITE, dst, bytesToCopy, tag.c_str(), tag.size());
 		}
-	} else if (srcDstOverlap || srcWraps || dstWraps) {
+	} else if ((srcDstOverlap || srcWraps || dstWraps) && (srcValid || srcWraps) && (dstValid || dstWraps)) {
+		// This path means we have either src/dst overlap, OR one or both of src and dst wrap.
+		// This should be uncommon so it's the slowest path.
 		u32 bytesToCopy = width * bpp;
 		static std::string tag;
-		bool notifyDetail = MemBlockInfoDetailed(bytesToCopy);
+		bool notifyDetail = MemBlockInfoDetailed(srcWraps || dstWraps ? 64 : bytesToCopy);
 		bool notifyAll = !notifyDetail && MemBlockInfoDetailed(srcSize, dstSize);
 		if (notifyDetail || notifyAll) {
 			tag = GetMemWriteTagAt("GPUBlockTransfer/", src, srcSize);
 		}
 
-		// TODO: Handle wrapping.
+		auto notifyingMemmove = [&](u32 d, u32 s, u32 sz) {
+			const u8 *srcp = Memory::GetPointer(s);
+			u8 *dstp = Memory::GetPointerWrite(d);
+			memmove(dstp, srcp, sz);
+			GPURecord::NotifyMemcpy(d, s, sz);
+
+			if (notifyDetail) {
+				NotifyMemInfo(MemBlockFlags::READ, s, sz, tag.c_str(), tag.size());
+				NotifyMemInfo(MemBlockFlags::WRITE, d, sz, tag.c_str(), tag.size());
+			}
+		};
+
 		for (int y = 0; y < height; y++) {
 			u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
 			u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
-			const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
-			u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+			// If we already passed a wrap, we can use the quicker path.
+			if ((srcLineStartAddr & 0x04800000) == 0x04800000)
+				srcLineStartAddr &= ~0x00800000;
+			if ((dstLineStartAddr & 0x04800000) == 0x04800000)
+				dstLineStartAddr &= ~0x00800000;
+			// These flags mean there's a wrap inside this line.
+			bool srcLineWrap = !Memory::IsValidRange(srcLineStartAddr, bytesToCopy);
+			bool dstLineWrap = !Memory::IsValidRange(dstLineStartAddr, bytesToCopy);
 
-			for (u32 i = 0; i < bytesToCopy; i += 64) {
-				u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
-				memmove(dstp + i, srcp + i, chunk);
-			}
-			GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, bytesToCopy);
+			if (!srcLineWrap && !dstLineWrap) {
+				const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
+				u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+				for (u32 i = 0; i < bytesToCopy; i += 64) {
+					u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
+					memmove(dstp + i, srcp + i, chunk);
+				}
+				GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, bytesToCopy);
 
-			// If we're tracking detail, it's useful to have the gaps illustrated properly.
-			if (notifyDetail) {
-				NotifyMemInfo(MemBlockFlags::READ, srcLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
-				NotifyMemInfo(MemBlockFlags::WRITE, dstLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
+				// If we're tracking detail, it's useful to have the gaps illustrated properly.
+				if (notifyDetail) {
+					NotifyMemInfo(MemBlockFlags::READ, srcLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
+					NotifyMemInfo(MemBlockFlags::WRITE, dstLineStartAddr, bytesToCopy, tag.c_str(), tag.size());
+				}
+			} else {
+				// We can wrap at any point, so along with overlap this gets a bit complicated.
+				// We're just going to do this the slow and easy way.
+				u32 srcLinePos = srcLineStartAddr;
+				u32 dstLinePos = dstLineStartAddr;
+				for (u32 i = 0; i < bytesToCopy; i += 64) {
+					u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
+					u32 srcValid = Memory::ValidSize(srcLinePos, chunk);
+					u32 dstValid = Memory::ValidSize(dstLinePos, chunk);
+
+					// First chunk, for which both are valid.
+					u32 bothSize = std::min(srcValid, dstValid);
+					if (bothSize != 0)
+						notifyingMemmove(dstLinePos, srcLinePos, bothSize);
+
+					// Now, whichever side has more valid (or the rest, if only one side must wrap.)
+					u32 exclusiveSize = std::max(srcValid, dstValid) - bothSize;
+					if (exclusiveSize != 0 && srcValid >= dstValid) {
+						notifyingMemmove(PSP_GetVidMemBase(), srcLineStartAddr + bothSize, exclusiveSize);
+					} else if (exclusiveSize != 0 && srcValid < dstValid) {
+						notifyingMemmove(dstLineStartAddr + bothSize, PSP_GetVidMemBase(), exclusiveSize);
+					}
+
+					// Finally, if both src and dst wrapped, that portion.
+					u32 wrappedSize = chunk - bothSize - exclusiveSize;
+					if (wrappedSize != 0 && srcValid >= dstValid) {
+						notifyingMemmove(PSP_GetVidMemBase() + exclusiveSize, PSP_GetVidMemBase(), wrappedSize);
+					} else if (wrappedSize != 0 && srcValid < dstValid) {
+						notifyingMemmove(PSP_GetVidMemBase(), PSP_GetVidMemBase() + exclusiveSize, wrappedSize);
+					}
+
+					srcLinePos += chunk;
+					dstLinePos += chunk;
+					if ((srcLinePos & 0x04800000) == 0x04800000)
+						srcLinePos &= ~0x00800000;
+					if ((dstLinePos & 0x04800000) == 0x04800000)
+						dstLinePos &= ~0x00800000;
+				}
 			}
 		}
 
 		if (notifyAll) {
-			NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
-			NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
+			if (srcWraps) {
+				u32 validSize = Memory::ValidSize(src, srcSize);
+				NotifyMemInfo(MemBlockFlags::READ, src, validSize, tag.c_str(), tag.size());
+				NotifyMemInfo(MemBlockFlags::READ, PSP_GetVidMemBase(), srcSize - validSize, tag.c_str(), tag.size());
+			} else {
+				NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
+			}
+			if (dstWraps) {
+				u32 validSize = Memory::ValidSize(dst, dstSize);
+				NotifyMemInfo(MemBlockFlags::WRITE, dst, validSize, tag.c_str(), tag.size());
+				NotifyMemInfo(MemBlockFlags::WRITE, PSP_GetVidMemBase(), dstSize - validSize, tag.c_str(), tag.size());
+			} else {
+				NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
+			}
 		}
 	} else if (srcValid && dstValid) {
 		u32 bytesToCopy = width * bpp;
