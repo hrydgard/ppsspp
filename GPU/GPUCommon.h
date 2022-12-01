@@ -301,6 +301,7 @@ protected:
 	void UpdateState(GPURunState state);
 	void FastLoadBoneMatrix(u32 target);
 	void FlushImm();
+	void DoBlockTransfer(u32 skipDrawReason);
 
 	// TODO: Unify this.
 	virtual void FinishDeferred() {}
@@ -406,7 +407,6 @@ protected:
 
 private:
 	void CheckDepthUsage(VirtualFramebuffer *vfb);
-	void DoBlockTransfer(u32 skipDrawReason);
 	void DoExecuteCall(u32 target);
 	void PopDLQueue();
 	void CheckDrawSync();
