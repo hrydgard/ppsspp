@@ -219,10 +219,10 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			if (hasColor) {
 				if (provokeIndOffset != 0 && index + provokeIndOffset < maxIndex) {
 					reader.Goto(index + provokeIndOffset);
-					reader.ReadColor0_8888(vert.color0);
+					vert.color0_32 = reader.ReadColor0_8888();
 					reader.Goto(index);
 				} else {
-					reader.ReadColor0_8888(vert.color0);
+					vert.color0_32 = reader.ReadColor0_8888();
 				}
 			} else {
 				vert.color0_32 = materialAmbientRGBA;

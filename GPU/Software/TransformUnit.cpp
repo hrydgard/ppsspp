@@ -344,7 +344,7 @@ ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformS
 		normal = -normal;
 
 	if (vreader.hasColor0()) {
-		vreader.ReadColor0_8888((u8 *)&vertex.v.color0);
+		vertex.v.color0 = vreader.ReadColor0_8888();
 	} else {
 		vertex.v.color0 = gstate.getMaterialAmbientRGBA();
 	}
