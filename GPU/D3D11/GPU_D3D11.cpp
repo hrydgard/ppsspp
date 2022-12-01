@@ -131,7 +131,7 @@ void GPU_D3D11::BuildReportingInfo() {
 }
 
 void GPU_D3D11::DeviceLost() {
-	draw_->InvalidateCachedState();
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	shaderManagerD3D11_->ClearShaders();

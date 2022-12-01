@@ -467,7 +467,7 @@ public:
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override {}
 
-	void InvalidateCachedState() override;
+	void Invalidate(InvalidationFlags flags) override;
 
 	void SetInvalidationCallback(InvalidationCallback callback) override {
 		renderManager_.SetInvalidationCallback(callback);
@@ -761,18 +761,20 @@ void OpenGLContext::EndFrame() {
 	renderManager_.EndPushBuffer(frameData.push);  // upload the data!
 	renderManager_.Finish();
 
-	InvalidateCachedState();
+	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }
 
-void OpenGLContext::InvalidateCachedState() {
-	// Unbind stuff.
-	for (auto &texture : boundTextures_) {
-		texture = nullptr;
+void OpenGLContext::Invalidate(InvalidationFlags flags) {
+	if (flags & InvalidationFlags::CACHED_RENDER_STATE) {
+		// Unbind stuff.
+		for (auto &texture : boundTextures_) {
+			texture = nullptr;
+		}
+		for (auto &sampler : boundSamplers_) {
+			sampler = nullptr;
+		}
+		curPipeline_ = nullptr;
 	}
-	for (auto &sampler : boundSamplers_) {
-		sampler = nullptr;
-	}
-	curPipeline_ = nullptr;
 }
 
 InputLayout *OpenGLContext::CreateInputLayout(const InputLayoutDesc &desc) {

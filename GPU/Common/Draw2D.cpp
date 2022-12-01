@@ -330,7 +330,7 @@ void Draw2D::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCoun
 	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, linearFilter ? &draw2DSamplerLinear_ : &draw2DSamplerNearest_);
 	draw_->DrawUP(verts, vertexCount);
 
-	draw_->InvalidateCachedState();
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
 	gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_VERTEXSHADER_STATE);
 }

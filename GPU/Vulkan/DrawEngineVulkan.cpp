@@ -544,11 +544,11 @@ void MarkUnreliable(VertexArrayInfoVulkan *vai) {
 	// For now we just leave it in the pushbuffer.
 }
 
-void DrawEngineVulkan::Invalidate(InvalidationFlags flags) {
-	if (flags & InvalidationFlags::COMMAND_BUFFER_STATE) {
+void DrawEngineVulkan::Invalidate(InvalidationCallbackFlags flags) {
+	if (flags & InvalidationCallbackFlags::COMMAND_BUFFER_STATE) {
 		GetCurFrame().frameDescSetUpdated = false;
 	}
-	if (flags & InvalidationFlags::RENDER_PASS_STATE) {
+	if (flags & InvalidationCallbackFlags::RENDER_PASS_STATE) {
 		// If have a new render pass, dirty our dynamic state so it gets re-set.
 		//
 		// Dirty everything that has dynamic state that will need re-recording.

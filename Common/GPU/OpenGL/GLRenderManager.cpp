@@ -356,7 +356,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	}
 
 	if (invalidationCallback_) {
-		invalidationCallback_(InvalidationFlags::RENDER_PASS_STATE);
+		invalidationCallback_(InvalidationCallbackFlags::RENDER_PASS_STATE);
 	}
 }
 
