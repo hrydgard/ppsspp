@@ -3065,9 +3065,9 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 
 	// Use height less one to account for width, which can be greater or less than stride.
 	const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-	const uint32_t srcSize = (height - 1) * srcStride * bpp + width * bpp;
+	const uint32_t srcSize = (height - 1) * (srcStride + width) * bpp;
 	const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-	const uint32_t dstSize = (height - 1) * dstStride * bpp + width * bpp;
+	const uint32_t dstSize = (height - 1) * (dstStride + width) * bpp;
 
 	bool srcDstOverlap = src + srcSize > dst && dst + dstSize > src;
 	bool srcValid = Memory::IsValidRange(src, srcSize);
