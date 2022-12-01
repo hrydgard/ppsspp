@@ -172,7 +172,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool fetchFramebuffer = needFramebufferRead && id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH);
 	bool readFramebufferTex = needFramebufferRead && !id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH);
 
-	if (fetchFramebuffer && (compat.shaderLanguage != GLSL_VULKAN || compat.shaderLanguage != GLSL_3xx)) {
+	if (fetchFramebuffer && (compat.shaderLanguage != GLSL_VULKAN && compat.shaderLanguage != GLSL_3xx)) {
 		*errorString = "framebuffer fetch requires GLSL: vulkan or 3xx";
 		return false;
 	}
