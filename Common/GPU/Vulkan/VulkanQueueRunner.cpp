@@ -1327,8 +1327,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				VkSampleCountFlagBits fbSampleCount = step.render.framebuffer ? step.render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT;
 
 				if (RenderPassTypeHasMultisample(rpType) && fbSampleCount != graphicsPipeline->SampleCount()) {
-					// Shouldn't happen, pipeline invalidation after render resized should have taken care of this.
-					_assert_(false);
+					// should have been invalidated.
+					_assert_msg_(graphicsPipeline->SampleCount() == VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM,
+						"expected %d sample count, got %d", fbSampleCount, graphicsPipeline->SampleCount());
 				}
 
 				if (!graphicsPipeline->pipeline[(size_t)rpType]) {
