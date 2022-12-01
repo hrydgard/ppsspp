@@ -166,7 +166,6 @@ public:
 			}
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmtnrm, G3D, "Reader: Unsupported Nrm Format %d", decFmt_.nrmfmt);
 			memset(nrm, 0, sizeof(float) * 3);
 			break;
 		}
@@ -188,7 +187,6 @@ public:
 			memcpy(color, data_ + decFmt_.c0off, 16); 
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmtc0, G3D, "Reader: Unsupported C0 Format %d", decFmt_.c0fmt);
 			memset(color, 0, sizeof(float) * 4);
 			break;
 		}
@@ -199,8 +197,7 @@ public:
 		case DEC_U8_4:
 			{
 				const u8 *b = (const u8 *)(data_ + decFmt_.c0off);
-				for (int i = 0; i < 4; i++)
-					color[i] = b[i];
+				memcpy(color, b, 4);
 			}
 			break;
 		case DEC_FLOAT_4:
@@ -211,7 +208,6 @@ public:
 			}
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmtc0_8888, G3D, "Reader: Unsupported C0 Format %d", decFmt_.c0fmt);
 			memset(color, 0, sizeof(u8) * 4);
 			break;
 		}
@@ -231,7 +227,6 @@ public:
 			memcpy(color, data_ + decFmt_.c1off, 12); 
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmtc1, G3D, "Reader: Unsupported C1 Format %d", decFmt_.c1fmt);
 			memset(color, 0, sizeof(float) * 3);
 			break;
 		}
