@@ -3,9 +3,14 @@
 #include "Common/Common.h"
 
 enum class InvalidationFlags {
-	RENDER_PASS_STATE = 1,
-	COMMAND_BUFFER_STATE = 2,
+	CACHED_RENDER_STATE = 1,
 };
 ENUM_CLASS_BITOPS(InvalidationFlags);
 
-typedef std::function<void(InvalidationFlags)> InvalidationCallback;
+enum class InvalidationCallbackFlags {
+	RENDER_PASS_STATE = 1,
+	COMMAND_BUFFER_STATE = 2,
+};
+ENUM_CLASS_BITOPS(InvalidationCallbackFlags);
+
+typedef std::function<void(InvalidationCallbackFlags)> InvalidationCallback;

@@ -2187,7 +2187,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
 			gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
 
-			draw_->InvalidateCachedState();
+			draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 			InvalidateLastTexture();
 			return;
 		}
@@ -2262,7 +2262,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
 		gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
 
-		draw_->InvalidateCachedState();
+		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 		shaderManager_->DirtyLastShader();
 	} else {
 		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
@@ -2363,7 +2363,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	// We don't know about alpha at all.
 	gstate_c.SetTextureFullAlpha(false);
 
-	draw_->InvalidateCachedState();
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	shaderManager_->DirtyLastShader();
 
 	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(texWidth, texHeight);

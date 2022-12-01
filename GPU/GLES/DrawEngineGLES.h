@@ -116,7 +116,7 @@ protected:
 	bool UpdateUseHWTessellation(bool enable) override;
 
 private:
-	void Invalidate(InvalidationFlags flags);
+	void Invalidate(InvalidationCallbackFlags flags);
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();

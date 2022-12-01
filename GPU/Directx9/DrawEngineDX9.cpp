@@ -312,8 +312,8 @@ void DrawEngineDX9::BeginFrame() {
 }
 
 // In D3D, we're synchronous and state carries over so all we reset here on a new step is the viewport/scissor.
-void DrawEngineDX9::Invalidate(InvalidationFlags flags) {
-	if (flags & InvalidationFlags::RENDER_PASS_STATE) {
+void DrawEngineDX9::Invalidate(InvalidationCallbackFlags flags) {
+	if (flags & InvalidationCallbackFlags::RENDER_PASS_STATE) {
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	}
 }

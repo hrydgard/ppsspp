@@ -492,7 +492,7 @@ void GPUCommon::BeginHostFrame() {
 void GPUCommon::EndHostFrame() {
 	// Probably not necessary.
 	if (draw_) {
-		draw_->InvalidateCachedState();
+		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	}
 }
 

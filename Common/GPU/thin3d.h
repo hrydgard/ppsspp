@@ -737,7 +737,7 @@ public:
 	// Clear state cached within thin3d. Must be called after directly calling API functions.
 	// Note that framebuffer state (which framebuffer is bounds) may not be cached.
 	// Must not actually perform any API calls itself since this can be called when no framebuffer is bound for rendering.
-	virtual void InvalidateCachedState() = 0;
+	virtual void Invalidate(InvalidationFlags flags) = 0;
 
 	virtual void BindPipeline(Pipeline *pipeline) = 0;
 

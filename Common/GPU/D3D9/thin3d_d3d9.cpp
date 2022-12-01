@@ -610,7 +610,7 @@ public:
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
-	void InvalidateCachedState() override;
+	void Invalidate(InvalidationFlags flags) override;
 
 	void SetInvalidationCallback(InvalidationCallback callback) override {
 		invalidationCallback_ = callback;
@@ -650,8 +650,10 @@ private:
 	InvalidationCallback invalidationCallback_;
 };
 
-void D3D9Context::InvalidateCachedState() {
-	curPipeline_ = nullptr;
+void D3D9Context::Invalidate(InvalidationFlags flags) {
+	if (flags & InvalidationFlags::CACHED_RENDER_STATE) {
+		curPipeline_ = nullptr;
+	}
 }
 
 // TODO: Move this detection elsewhere when it's needed elsewhere, not before. It's ugly.
@@ -1323,7 +1325,7 @@ void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPa
 	dxstate.viewport.restore();
 
 	if (invalidationCallback_) {
-		invalidationCallback_(InvalidationFlags::RENDER_PASS_STATE);
+		invalidationCallback_(InvalidationCallbackFlags::RENDER_PASS_STATE);
 	}
 }
 

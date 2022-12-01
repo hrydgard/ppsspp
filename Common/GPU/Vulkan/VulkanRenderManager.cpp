@@ -752,7 +752,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	}
 
 	if (invalidationCallback_) {
-		invalidationCallback_(InvalidationFlags::RENDER_PASS_STATE);
+		invalidationCallback_(InvalidationCallbackFlags::RENDER_PASS_STATE);
 	}
 }
 
@@ -1213,7 +1213,7 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 // Called from main thread.
 void VulkanRenderManager::FlushSync() {
 	if (invalidationCallback_) {
-		invalidationCallback_(InvalidationFlags::COMMAND_BUFFER_STATE);
+		invalidationCallback_(InvalidationCallbackFlags::COMMAND_BUFFER_STATE);
 	}
 
 	int curFrame = vulkan_->GetCurFrame();

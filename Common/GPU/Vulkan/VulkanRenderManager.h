@@ -526,5 +526,5 @@ private:
 	SimpleStat totalGPUTimeMs_;
 	SimpleStat renderCPUTimeMs_;
 
-	std::function<void(InvalidationFlags)> invalidationCallback_;
+	std::function<void(InvalidationCallbackFlags)> invalidationCallback_;
 };

@@ -209,7 +209,7 @@ public:
 	}
 
 private:
-	void Invalidate(InvalidationFlags flags);
+	void Invalidate(InvalidationCallbackFlags flags);
 
 	struct FrameData;
 	void ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);

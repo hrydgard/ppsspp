@@ -327,8 +327,8 @@ VertexArrayInfoD3D11::~VertexArrayInfoD3D11() {
 }
 
 // In D3D, we're synchronous and state carries over so all we reset here on a new step is the viewport/scissor.
-void DrawEngineD3D11::Invalidate(InvalidationFlags flags) {
-	if (flags & InvalidationFlags::RENDER_PASS_STATE) {
+void DrawEngineD3D11::Invalidate(InvalidationCallbackFlags flags) {
+	if (flags & InvalidationCallbackFlags::RENDER_PASS_STATE) {
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	}
 }

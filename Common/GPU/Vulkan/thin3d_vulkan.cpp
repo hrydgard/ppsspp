@@ -498,7 +498,7 @@ public:
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
-	void InvalidateCachedState() override;
+	void Invalidate(InvalidationFlags flags) override;
 
 	void InvalidateFramebuffer(FBInvalidationStage stage, uint32_t channels) override;
 
@@ -1021,20 +1021,22 @@ void VKContext::EndFrame() {
 	push_ = nullptr;
 
 	// Unbind stuff, to avoid accidentally relying on it across frames (and provide some protection against forgotten unbinds of deleted things).
-	InvalidateCachedState();
+	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }
 
-void VKContext::InvalidateCachedState() {
-	curPipeline_ = nullptr;
+void VKContext::Invalidate(InvalidationFlags flags) {
+	if (flags & InvalidationFlags::CACHED_RENDER_STATE) {
+		curPipeline_ = nullptr;
 
-	for (auto &view : boundImageView_) {
-		view = VK_NULL_HANDLE;
-	}
-	for (auto &sampler : boundSamplers_) {
-		sampler = nullptr;
-	}
-	for (auto &texture : boundTextures_) {
-		texture = nullptr;
+		for (auto &view : boundImageView_) {
+			view = VK_NULL_HANDLE;
+		}
+		for (auto &sampler : boundSamplers_) {
+			sampler = nullptr;
+		}
+		for (auto &texture : boundTextures_) {
+			texture = nullptr;
+		}
 	}
 }
 

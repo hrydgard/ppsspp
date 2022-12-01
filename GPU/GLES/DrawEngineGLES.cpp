@@ -247,8 +247,8 @@ void *DrawEngineGLES::DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bind
 
 // A new render step means we need to flush any dynamic state. Really, any state that is reset in
 // GLQueueRunner::PerformRenderPass.
-void DrawEngineGLES::Invalidate(InvalidationFlags flags) {
-	if (flags & InvalidationFlags::RENDER_PASS_STATE) {
+void DrawEngineGLES::Invalidate(InvalidationCallbackFlags flags) {
+	if (flags & InvalidationCallbackFlags::RENDER_PASS_STATE) {
 		// Dirty everything that has dynamic state that will need re-recording.
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	}

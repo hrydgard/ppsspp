@@ -155,7 +155,7 @@ public:
 	void ClearInputLayoutMap();
 
 private:
-	void Invalidate(InvalidationFlags flags);
+	void Invalidate(InvalidationCallbackFlags flags);
 
 	void DoFlush();
 
