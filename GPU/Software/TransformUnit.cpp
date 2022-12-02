@@ -181,7 +181,7 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 			scaled.z = 0.f;
 		else if (scaled.z > 65535.0f)
 			scaled.z = 65535.0f;
-	} else if (scaled.x > SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0) {
+	} else if (scaled.x > SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0 || scaled.z < 0.0f || scaled.z >= 65536.0f) {
 		*outside_range_flag = true;
 	}
 
