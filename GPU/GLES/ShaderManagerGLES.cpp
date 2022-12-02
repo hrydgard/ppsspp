@@ -366,12 +366,12 @@ static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
 	else if (gstate.isClearModeColorMask()) hud = false;
 	//HUD cannot be rendered with depth color mask
 	else if (gstate.isClearModeDepthMask()) hud = false;
-	//HUD cannot be rendered with fog on
-	else if (gstate.isFogEnabled()) hud = false;
 	//HUD texture has to contain alpha channel
 	else if (!gstate.isTextureAlphaUsed()) hud = false;
-	//HUD cannot have full alpha
+	//HUD cannot have full texture alpha
 	else if (gstate_c.textureFullAlpha) hud = false;
+	//HUD must have full vertex alpha
+	else if (!gstate_c.vertexFullAlpha) hud = false;
 	//HUD cannot render FB screenshot
 	else if (gstate_c.curTextureHeight == 272) hud = false;
 
