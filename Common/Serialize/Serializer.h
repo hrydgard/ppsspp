@@ -95,9 +95,10 @@ class PointerWrap
 public:
 	enum Mode {
 		MODE_READ = 1, // load
-		MODE_WRITE, // save
-		MODE_MEASURE, // calculate size
-		MODE_VERIFY, // compare
+		MODE_WRITE,    // save
+		MODE_MEASURE,  // calculate size
+		MODE_VERIFY,   // compare
+		MODE_NOOP,     // don't do anything. Useful to cleanly doing stuff once we've hit an error.
 	};
 
 	enum Error {

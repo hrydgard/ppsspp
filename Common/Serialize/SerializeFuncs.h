@@ -85,7 +85,8 @@ template<class T>
 void DoVector(PointerWrap &p, std::vector<T> &x, T &default_val) {
 	u32 vec_size = (u32)x.size();
 	Do(p, vec_size);
-	x.resize(vec_size, default_val);
+	if (vec_size != x.size())
+		x.resize(vec_size, default_val);
 	if (vec_size > 0)
 		DoArray(p, &x[0], vec_size);
 }

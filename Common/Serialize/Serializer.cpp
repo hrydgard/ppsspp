@@ -105,8 +105,10 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 		if (!firstBadSectionTitle_) {
 			firstBadSectionTitle_ = title;
 		}
-		WARN_LOG(SAVESTATE, "Savestate failure: wrong version %d found for section '%s'", foundVersion, title);
-		SetError(ERROR_FAILURE);
+		if (mode != MODE_NOOP) {
+			WARN_LOG(SAVESTATE, "Savestate failure: wrong version %d found for section '%s'", foundVersion, title);
+			SetError(ERROR_FAILURE);
+		}
 		return PointerWrapSection(*this, -1, title);
 	}
 	return PointerWrapSection(*this, foundVersion, title);
@@ -117,8 +119,9 @@ void PointerWrap::SetError(Error error_) {
 		error = error_;
 	}
 	if (error > ERROR_WARNING) {
-		// For the rest of this run, just measure.
-		mode = PointerWrap::MODE_MEASURE;
+		// For the rest of this run, do nothing, to avoid running off the end of memory or something,
+		// and also not logspam like MEASURE will do in an error case.
+		mode = PointerWrap::MODE_NOOP;
 	}
 }
 
