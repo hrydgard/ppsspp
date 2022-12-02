@@ -295,17 +295,30 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		if (state->enableFog) {
 			float fogEnd = getFloat24(gstate.fog1);
 			float fogSlope = getFloat24(gstate.fog2);
-			// Same fixup as in ShaderManagerGLES.cpp
-			if (my_isnanorinf(fogEnd)) {
-				fogEnd = std::signbit(fogEnd) ? -INFINITY : INFINITY;
-			}
-			if (my_isnanorinf(fogSlope)) {
-				fogSlope = std::signbit(fogSlope) ? -INFINITY : INFINITY;
-			}
 
 			// We bake fog end and slope into the dot product.
 			state->posToFog = Vec4f(worldview[2], worldview[6], worldview[10], worldview[14] + fogEnd);
-			state->posToFog *= fogSlope;
+
+			// If either are NAN/INF, we simplify so there's no inf + -inf muddying things.
+			// This is required for Outrun to render proper skies, for example.
+			// The PSP treats these exponents as if they were valid.
+			if (my_isnanorinf(fogEnd)) {
+				bool sign = std::signbit(fogEnd);
+				// The multiply would reverse it.
+				if (my_isnanorinf(fogSlope) && std::signbit(fogSlope))
+					sign = !sign;
+
+				// Since this is constant for the entire draw, we don't even use infinity.
+				float forced = sign ? 0.0f : 1.0f;
+				state->posToFog = Vec4f(0.0f, 0.0f, 0.0f, forced);
+			} else if (my_isnanorinf(fogSlope)) {
+				// We can't have signs differ with infinities, so we use a large value.
+				// Anything outside [0, 1] will clamp, so this essentially forces extremes.
+				fogSlope = std::signbit(fogSlope) ? -262144.0f : 262144.0f;
+				state->posToFog *= fogSlope;
+			} else {
+				state->posToFog *= fogSlope;
+			}
 		}
 
 		state->screenScale = Vec3f(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
