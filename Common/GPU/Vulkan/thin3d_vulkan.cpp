@@ -867,7 +867,8 @@ VKContext::VKContext(VulkanContext *vulkan)
 		// of compatibility reports, so we'll just disable multisampling in this case for now.
 		// There are potential workarounds for devices that don't support it, but those are nearly non-existent now.
 		const auto &resolveProperties = vulkan->GetPhysicalDeviceProperties().depthStencilResolve;
-		if (vulkan->Extensions().KHR_depth_stencil_resolve) {
+		if (vulkan->Extensions().KHR_depth_stencil_resolve &&
+			((resolveProperties.supportedDepthResolveModes & resolveProperties.supportedStencilResolveModes) & VK_RESOLVE_MODE_SAMPLE_ZERO_BIT) != 0) {
 			caps_.multiSampleLevelsMask = (limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts & limits.framebufferStencilSampleCounts);
 		} else {
 			caps_.multiSampleLevelsMask = 1;
