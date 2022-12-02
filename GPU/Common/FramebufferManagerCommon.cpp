@@ -947,6 +947,14 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 
 	bool useRaster = draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported && draw_->GetDeviceCaps().textureDepthSupported;
 
+	if (src->fbo->MultiSampleLevel() > 0 && dst->fbo->MultiSampleLevel() > 0) {
+		// If multisampling, we want to copy depth properly so we get all the samples, to avoid aliased edges.
+		// Can be seen in the fire in Jeanne D'arc, for example.
+		if (useRaster && useCopy) {
+			useRaster = false;
+		}
+	}
+
 	int w = std::min(src->renderWidth, dst->renderWidth);
 	int h = std::min(src->renderHeight, dst->renderHeight);
 
