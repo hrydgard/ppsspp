@@ -35,7 +35,7 @@ static constexpr SerializeCompressType SAVE_TYPE = SerializeCompressType::ZSTD;
 
 void PointerWrap::RewindForWrite(u8 *writePtr) {
 	_assert_(mode == MODE_MEASURE);
-	// Switch to writing mode and
+	// Switch to writing mode, save the size for later checking and start again.
 	measuredSize_ = Offset();
 	mode = MODE_WRITE;
 	*ptr = writePtr;

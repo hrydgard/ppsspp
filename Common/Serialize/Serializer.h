@@ -111,8 +111,11 @@ public:
 	Mode mode;
 	Error error = ERROR_NONE;
 
-	PointerWrap(u8 **ptr_, Mode mode_) : ptr(ptr_), ptrStart_(*ptr), mode(mode_) {}
-	PointerWrap(unsigned char **ptr_, int mode_) : ptr((u8**)ptr_), ptrStart_(*ptr), mode((Mode)mode_) {}
+	PointerWrap(u8 **ptr_, Mode mode_) : ptr(ptr_), ptrStart_(*ptr), mode(mode_) {
+		if (mode == MODE_MEASURE) {
+			checkpoints_.reserve(750);
+		}
+	}
 
 	void RewindForWrite(u8 *writePtr);
 	bool CheckAfterWrite();
@@ -143,7 +146,6 @@ public:
 	size_t Offset() const { return *ptr - ptrStart_; }
 
 private:
-
 	const char *firstBadSectionTitle_ = nullptr;
 	u8 *ptrStart_;
 	std::vector<SerializeCheckpoint> checkpoints_;
