@@ -1890,13 +1890,13 @@ void SavedataParam::DoState(PointerWrap &p) {
 	Do(p, saveDataListCount);
 	Do(p, saveNameListDataCount);
 	if (p.mode == p.MODE_READ) {
-		if (saveDataList != NULL)
+		if (saveDataList)
 			delete [] saveDataList;
 		if (saveDataListCount != 0) {
 			saveDataList = new SaveFileInfo[saveDataListCount];
 			DoArray(p, saveDataList, saveDataListCount);
 		} else {
-			saveDataList = NULL;
+			saveDataList = nullptr;
 		}
 	}
 	else
