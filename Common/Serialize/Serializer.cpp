@@ -36,15 +36,17 @@ static constexpr SerializeCompressType SAVE_TYPE = SerializeCompressType::ZSTD;
 void PointerWrap::RewindForWrite(u8 *writePtr) {
 	_assert_(mode == MODE_MEASURE);
 	// Switch to writing mode and
+	measuredSize_ = Offset();
 	mode = MODE_WRITE;
 	*ptr = writePtr;
 	ptrStart_ = writePtr;
 }
 
 bool PointerWrap::CheckAfterWrite() {
-	_assert_(mode == MODE_WRITE);
-	if (measuredSize_ != 0 && Offset() != measuredSize_) {
-		WARN_LOG(SAVESTATE, "CheckAfterWrite: Size mismatch! %d vs %d", (int)Offset(), (int)measuredSize_);
+	_assert_(error != ERROR_NONE || mode == MODE_WRITE);
+	size_t offset = Offset();
+	if (measuredSize_ != 0 && offset != measuredSize_) {
+		WARN_LOG(SAVESTATE, "CheckAfterWrite: Size mismatch! %d but expected %d", (int)offset, (int)measuredSize_);
 		return false;
 	}
 	if (!checkpoints_.empty() && curCheckpoint_ != checkpoints_.size()) {
@@ -63,8 +65,9 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 	strncpy(marker, title, sizeof(marker));
 
 	// Compare the measure and write passes. Sanity check to catch bugs, doesn't do anything for output.
+	size_t offset = Offset();
 	if (mode == MODE_MEASURE) {
-		checkpoints_.emplace_back(marker, Offset());
+		checkpoints_.emplace_back(marker, offset);
 	} else if (mode == MODE_WRITE) {
 		if (!checkpoints_.empty()) {
 			if (checkpoints_.size() <= curCheckpoint_) {
@@ -72,8 +75,8 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 				SetError(ERROR_FAILURE);
 				return PointerWrapSection(*this, -1, title);
 			}
-			if (!checkpoints_[curCheckpoint_].Matches(marker, Offset())) {
-				WARN_LOG(SAVESTATE, "Checkpoint mismatch during write! Section %s vs %s, offset %d vs %d", title, marker, (int)Offset(), (int)checkpoints_[curCheckpoint_].offset);
+			if (!checkpoints_[curCheckpoint_].Matches(marker, offset)) {
+				WARN_LOG(SAVESTATE, "Checkpoint mismatch during write! Section %s but expected %s, offset %d but expected %d", title, marker, offset, (int)checkpoints_[curCheckpoint_].offset);
 				if (curCheckpoint_ > 1) {
 					WARN_LOG(SAVESTATE, "Previous checkpoint: %s (%d)", checkpoints_[curCheckpoint_ - 1].title, (int)checkpoints_[curCheckpoint_ - 1].offset);
 				}
@@ -83,6 +86,7 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 		} else {
 			WARN_LOG(SAVESTATE, "Writing savestate without checkpoints. This is OK but should be fixed.");
 		}
+		curCheckpoint_++;
 	}
 
 	if (!ExpectVoid(marker, sizeof(marker))) {

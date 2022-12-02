@@ -139,8 +139,9 @@ public:
 
 	void DoMarker(const char *prevName, u32 arbitraryNumber = 0x42);
 
-private:
 	size_t Offset() const { return *ptr - ptrStart_; }
+
+private:
 
 	const char *firstBadSectionTitle_ = nullptr;
 	u8 *ptrStart_;
@@ -178,7 +179,7 @@ public:
 	template<class T>
 	static size_t MeasurePtr(T &_class)
 	{
-		u8 *ptr = 0;
+		u8 *ptr = nullptr;
 		PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
 		_class.DoState(p);
 		return (size_t)ptr;
@@ -192,9 +193,35 @@ public:
 		PointerWrap p(&ptr, PointerWrap::MODE_WRITE);
 		_class.DoState(p);
 
-		if (p.error != p.ERROR_FAILURE && (expected_end == ptr || expected_size == 0)) {
+		if (p.error != PointerWrap::ERROR_FAILURE && (expected_end == ptr || expected_size == 0)) {
 			return ERROR_NONE;
 		} else {
+			return ERROR_BROKEN_STATE;
+		}
+	}
+
+	template<class T>
+	static Error MeasureAndSavePtr(T &_class, u8 **saved, size_t *savedSize)
+	{
+		u8 *ptr = nullptr;
+		PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
+		_class.DoState(p);
+		_assert_(p.error == PointerWrap::ERROR_NONE);
+
+		size_t measuredSize = p.Offset();
+		u8 *data = (u8 *)malloc(measuredSize);
+		if (!data)
+			return ERROR_BAD_ALLOC;
+
+		p.RewindForWrite(data);
+		_class.DoState(p);
+
+		if (p.CheckAfterWrite()) {
+			*saved = data;
+			*savedSize = measuredSize;
+			return ERROR_NONE;
+		} else {
+			free(data);
 			return ERROR_BROKEN_STATE;
 		}
 	}
@@ -223,19 +250,16 @@ public:
 	template<class T>
 	static Error Save(const Path &filename, const std::string &title, const char *gitVersion, T& _class)
 	{
-		// Get data
-		size_t const sz = MeasurePtr(_class);
-		u8 *buffer = (u8 *)malloc(sz);
-		if (!buffer)
-			return ERROR_BAD_ALLOC;
-		Error error = SavePtr(buffer, _class, sz);
+		u8 *buffer;
+		size_t sz;
+		Error error = MeasureAndSavePtr(_class, &buffer, &sz);
 
 		// SaveFile takes ownership of buffer (malloc/free)
 		if (error == ERROR_NONE)
 			error = SaveFile(filename, title, gitVersion, buffer, sz);
 		return error;
 	}
-	
+
 	template <class T>
 	static Error Verify(T& _class)
 	{
