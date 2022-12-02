@@ -59,45 +59,54 @@ const ExpressionOpcode ExpressionOpcodes[] = {
 	{ "",	0,	0,	0,	false }		// EXOP_NONE
 };
 
-bool parseNumber(char* str, int defaultrad, int len, uint32_t& result)
-{
+static int radixFromZeroPrefix(char c) {
+	switch (tolower(c)) {
+	case 'b': return 2;
+	case 'o': return 8;
+	case 'x': return 16;
+	// Inventing a prefix since we default to hex.
+	case 'd': return 10;
+	}
+
+	return -1;
+}
+
+static int radixFromSuffix(char c, int defaultrad) {
+	switch (tolower(c)) {
+	case 'o': return 8;
+	case 'h': return 16;
+	case 'i': return 10;
+	case 'u': return 10;
+	case 'b': return defaultrad == 16 ? -1 : 2;
+	}
+
+	return -1;
+}
+
+bool parseNumber(char *str, int defaultrad, int len, uint32_t &result) {
 	int val = 0;
 	int r = 0;
-	if (len == 0) len = (int) strlen(str);
+	if (len == 0)
+		len = (int)strlen(str);
 
-	if (str[0] == '0' && tolower(str[1]) == 'x')
-	{
-		r = 16;
-		str+=2;
-		len-=2;
-	} else if (str[0] == '$')
-	{
+	if (str[0] == '0' && radixFromZeroPrefix(str[1]) != -1) {
+		r = radixFromZeroPrefix(str[1]);
+		str += 2;
+		len -= 2;
+	} else if (str[0] == '$') {
 		r = 16;
 		str++;
 		len--;
-	} else if (str[0] == '0' && tolower(str[1]) == 'o')
-	{
-		r = 8;
-		str+=2;
-		len-=2;
-	} else {
-		if (!(str[0] >= '0' && str[0] <= '9')) return false;
-
-		if (tolower(str[len-1]) == 'b' && defaultrad != 16)
-		{
-			r = 2;
-			len--;
-		} else if (tolower(str[len-1]) == 'o')
-		{
-			r = 8;
-			len--;
-		} else if (tolower(str[len-1]) == 'h')
-		{
-			r = 16;
+	} else if (str[0] >= '0' && str[0] <= '9') {
+		int suffix = radixFromSuffix(str[len - 1], defaultrad);
+		if (suffix != -1) {
+			r = suffix;
 			len--;
 		} else {
 			r = defaultrad;
 		}
+	} else {
+		return false;
 	}
 
 	switch (r)
