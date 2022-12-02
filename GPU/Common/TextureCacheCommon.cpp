@@ -1197,7 +1197,6 @@ bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffe
 }
 
 void TextureCacheCommon::NotifyConfigChanged() {
-	clearCacheNextFrame_ = true;
 	int scaleFactor = g_Config.iTexScalingLevel;
 
 	if (!gstate_c.Use(GPU_USE_TEXTURE_NPOT)) {
@@ -2577,6 +2576,10 @@ void TextureCacheCommon::InvalidateAll(GPUInvalidationType /*unused*/) {
 		}
 		iter->second->invalidHint++;
 	}
+}
+
+void TextureCacheCommon::ClearNextFrame() {
+	clearCacheNextFrame_ = true;
 }
 
 std::string AttachCandidate::ToString() const {
