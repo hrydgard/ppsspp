@@ -57,7 +57,7 @@ inline uint32_t Float4ToUint8x4(const float f[4]) {
 	uint32x4_t ivalue32 = vcvtq_u32_f32(value);
 	uint16x4_t ivalue16 = vqmovn_u32(ivalue32);
 	uint8x8_t ivalue8 = vqmovn_u16(vcombine_u16(ivalue16, ivalue16));  // Is there no way to avoid the combine here?
-	uint32x2_t outValue32 = vreinterpret_u8_u32(ivalue8);
+	uint32x2_t outValue32 = vreinterpret_u32_u8(ivalue8);
 	return vget_lane_u32(outValue32, 0);
 #else
 	int i4[4];
@@ -86,7 +86,7 @@ inline uint32_t Float4ToUint8x4_NoClamp(const float f[4]) {
 	uint32x4_t ivalue32 = vcvtq_u32_f32(value);
 	uint16x4_t ivalue16 = vqmovn_u32(ivalue32);
 	uint8x8_t ivalue8 = vqmovn_u16(vcombine_u16(ivalue16, ivalue16));  // Is there no way to avoid the combine here?
-	uint32x2_t outValue32 = vreinterpret_u8_u32(ivalue8);
+	uint32x2_t outValue32 = vreinterpret_u32_u8(ivalue8);
 	return vget_lane_u32(outValue32, 0);
 #else
 	u32 i4[4];
