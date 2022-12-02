@@ -914,7 +914,10 @@ void PresentationCommon::CalculateRenderResolution(int *width, int *height, int 
 		}
 	}
 
-	if (g_Config.IsPortrait()) {
+	if (IsVREnabled()) {
+		*width = 480 * zoom;
+		*height = 480 * zoom;
+	} else if (g_Config.IsPortrait()) {
 		*width = 272 * zoom;
 		*height = 480 * zoom;
 	} else {
