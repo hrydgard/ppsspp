@@ -373,7 +373,7 @@ static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
 	//HUD must have full vertex alpha
 	else if (!gstate_c.vertexFullAlpha && gstate.getDepthTestFunction() == GE_COMP_NEVER) hud = false;
 	//HUD cannot render FB screenshot
-	else if (gstate_c.curTextureHeight == 272) hud = false;
+	else if (gstate_c.curTextureHeight % 136 <= 1) hud = false;
 	//HUD cannot be rendered with replace function
 	else if (gstate.getTextureFunction() == GETexFunc::GE_TEXFUNC_REPLACE) hud = false;
 	//HUD cannot be rendered with full clear color mask
