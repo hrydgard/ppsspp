@@ -33,8 +33,25 @@ enum class SerializeCompressType {
 
 static constexpr SerializeCompressType SAVE_TYPE = SerializeCompressType::ZSTD;
 
-PointerWrapSection PointerWrap::Section(const char *title, int ver) {
-	return Section(title, ver, ver);
+void PointerWrap::RewindForWrite(u8 *writePtr) {
+	_assert_(mode == MODE_MEASURE);
+	// Switch to writing mode and
+	mode = MODE_WRITE;
+	*ptr = writePtr;
+	ptrStart_ = writePtr;
+}
+
+bool PointerWrap::CheckAfterWrite() {
+	_assert_(mode == MODE_WRITE);
+	if (measuredSize_ != 0 && Offset() != measuredSize_) {
+		WARN_LOG(SAVESTATE, "CheckAfterWrite: Size mismatch! %d vs %d", (int)Offset(), (int)measuredSize_);
+		return false;
+	}
+	if (!checkpoints_.empty() && curCheckpoint_ != checkpoints_.size()) {
+		WARN_LOG(SAVESTATE, "Checkpoint count mismatch!");
+		return false;
+	}
+	return true;
 }
 
 PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) {
@@ -44,6 +61,30 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 	// This is strncpy because we rely on its weird non-null-terminating zero-filling truncation behaviour.
 	// Can't replace it with the more sensible truncate_cpy because that would break savestates.
 	strncpy(marker, title, sizeof(marker));
+
+	// Compare the measure and write passes. Sanity check to catch bugs, doesn't do anything for output.
+	if (mode == MODE_MEASURE) {
+		checkpoints_.emplace_back(marker, Offset());
+	} else if (mode == MODE_WRITE) {
+		if (!checkpoints_.empty()) {
+			if (checkpoints_.size() <= curCheckpoint_) {
+				WARN_LOG(SAVESTATE, "Write: Not enough checkpoints from measure pass (%d). cur section: %s", (int)checkpoints_.size(), title);
+				SetError(ERROR_FAILURE);
+				return PointerWrapSection(*this, -1, title);
+			}
+			if (!checkpoints_[curCheckpoint_].Matches(marker, Offset())) {
+				WARN_LOG(SAVESTATE, "Checkpoint mismatch during write! Section %s vs %s, offset %d vs %d", title, marker, (int)Offset(), (int)checkpoints_[curCheckpoint_].offset);
+				if (curCheckpoint_ > 1) {
+					WARN_LOG(SAVESTATE, "Previous checkpoint: %s (%d)", checkpoints_[curCheckpoint_ - 1].title, (int)checkpoints_[curCheckpoint_ - 1].offset);
+				}
+				SetError(ERROR_FAILURE);
+				return PointerWrapSection(*this, -1, title);
+			}
+		} else {
+			WARN_LOG(SAVESTATE, "Writing savestate without checkpoints. This is OK but should be fixed.");
+		}
+	}
+
 	if (!ExpectVoid(marker, sizeof(marker))) {
 		// Might be before we added name markers for safety.
 		if (foundVersion == 1 && ExpectVoid(&foundVersion, sizeof(foundVersion))) {

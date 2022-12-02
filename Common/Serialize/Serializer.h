@@ -30,6 +30,7 @@
 // - Serialization code for anything complex has to be manually written.
 
 #include <string>
+#include <cstring>
 #include <vector>
 #include <cstdlib>
 
@@ -52,8 +53,7 @@ class PointerWrap;
 class PointerWrapSection
 {
 public:
-	PointerWrapSection(PointerWrap &p, int ver, const char *title) : p_(p), ver_(ver), title_(title) {
-	}
+	PointerWrapSection(PointerWrap &p, int ver, const char *title) : p_(p), ver_(ver), title_(title) {}
 	~PointerWrapSection();
 	
 	bool operator == (const int &v) const { return ver_ == v; }
@@ -71,6 +71,22 @@ private:
 	PointerWrap &p_;
 	int ver_;
 	const char *title_;
+};
+
+// For measure vs write detailed verification
+struct SerializeCheckpoint {
+	char title[17];  // 16-byte section header, plus a zero terminator for debug printing.
+	size_t offset;
+
+	SerializeCheckpoint(char _title[16], size_t off) {
+		memcpy(title, _title, 16);
+		title[16] = 0;
+		offset = off;
+	}
+
+	bool Matches(const char *_title, size_t off) const {
+		return memcmp(title, _title, 16) == 0 && off == offset;
+	}
 };
 
 // Wrapper class
@@ -94,19 +110,23 @@ public:
 	Mode mode;
 	Error error = ERROR_NONE;
 
-	PointerWrap(u8 **ptr_, Mode mode_) : ptr(ptr_), mode(mode_) {}
-	PointerWrap(unsigned char **ptr_, int mode_) : ptr((u8**)ptr_), mode((Mode)mode_) {}
+	PointerWrap(u8 **ptr_, Mode mode_) : ptr(ptr_), ptrStart_(*ptr), mode(mode_) {}
+	PointerWrap(unsigned char **ptr_, int mode_) : ptr((u8**)ptr_), ptrStart_(*ptr), mode((Mode)mode_) {}
 
-	PointerWrapSection Section(const char *title, int ver);
+	void RewindForWrite(u8 *writePtr);
+	bool CheckAfterWrite();
 
 	// The returned object can be compared against the version that was loaded.
 	// This can be used to support versions as old as minVer.
 	// Version = 0 means the section was not found.
 	PointerWrapSection Section(const char *title, int minVer, int ver);
+	PointerWrapSection Section(const char *title, int ver) {
+		return Section(title, ver, ver);
+	}
 
-	void SetMode(Mode mode_) {mode = mode_;}
-	Mode GetMode() const {return mode;}
-	u8 **GetPPtr() {return ptr;}
+	void SetMode(Mode mode_) { mode = mode_; }
+	Mode GetMode() const { return mode; }
+	u8 **GetPPtr() { return ptr; }
 	void SetError(Error error_);
 
 	const char *GetBadSectionTitle() const {
@@ -120,7 +140,13 @@ public:
 	void DoMarker(const char *prevName, u32 arbitraryNumber = 0x42);
 
 private:
+	size_t Offset() const { return *ptr - ptrStart_; }
+
 	const char *firstBadSectionTitle_ = nullptr;
+	u8 *ptrStart_;
+	std::vector<SerializeCheckpoint> checkpoints_;
+	size_t curCheckpoint_ = 0;
+	size_t measuredSize_ = 0;
 };
 
 class CChunkFileReader
@@ -204,7 +230,7 @@ public:
 			return ERROR_BAD_ALLOC;
 		Error error = SavePtr(buffer, _class, sz);
 
-		// SaveFile takes ownership of buffer
+		// SaveFile takes ownership of buffer (malloc/free)
 		if (error == ERROR_NONE)
 			error = SaveFile(filename, title, gitVersion, buffer, sz);
 		return error;
