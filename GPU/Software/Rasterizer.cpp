@@ -132,7 +132,12 @@ void ComputeRasterizerState(RasterizerState *state, std::function<void()> flushF
 		state->textureProj = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		if (state->textureProj) {
 			// We may be able to optimize this off.  This is actually kinda common.
-			if (gstate.tgenMatrix[2] == 0.0f && gstate.tgenMatrix[5] == 0.0f && gstate.tgenMatrix[8] == 0.0f && gstate.tgenMatrix[11] == 1.0f) {
+			const bool qZeroST = gstate.tgenMatrix[2] == 0.0f && gstate.tgenMatrix[5] == 0.0f;
+			const bool qZeroQ = gstate.tgenMatrix[8] == 0.0f;
+
+			// Two common cases: the source q factor is zero, OR source is UV.
+			const bool qFactorZero = gstate.getUVProjMode() == GE_PROJMAP_UV;
+			if (qZeroST && (qZeroQ || qFactorZero) && gstate.tgenMatrix[11] == 1.0f) {
 				state->textureProj = false;
 			}
 		}
