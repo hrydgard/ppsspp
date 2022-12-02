@@ -304,9 +304,13 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 			// The PSP treats these exponents as if they were valid.
 			if (my_isnanorinf(fogEnd)) {
 				bool sign = std::signbit(fogEnd);
-				// The multiply would reverse it.
-				if (my_isnanorinf(fogSlope) && std::signbit(fogSlope))
+				// The multiply would reverse it if it wasn't infinity (doesn't matter if it's infnan.)
+				if (std::signbit(fogSlope))
 					sign = !sign;
+				// Also allow a multiply by zero (slope) to result in zero, regardless of sign.
+				// Act like it was negative and clamped to zero.
+				if (fogSlope == 0.0f)
+					sign = true;
 
 				// Since this is constant for the entire draw, we don't even use infinity.
 				float forced = sign ? 0.0f : 1.0f;
