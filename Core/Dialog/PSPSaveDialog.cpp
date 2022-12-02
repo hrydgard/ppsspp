@@ -1255,7 +1255,7 @@ void PSPSaveDialog::DoState(PointerWrap &p) {
 	// Just reset it.
 	bool hasParam = param.GetPspParam() != NULL;
 	Do(p, hasParam);
-	if (hasParam) {
+	if (hasParam && p.mode == p.MODE_READ) {
 		param.SetPspParam(&request);
 	}
 	Do(p, requestAddr);
