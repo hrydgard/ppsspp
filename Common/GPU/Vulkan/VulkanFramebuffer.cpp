@@ -155,10 +155,15 @@ void VKRFramebuffer::CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKR
 	ici.samples = sampleCount;
 	ici.tiling = VK_IMAGE_TILING_OPTIMAL;
 	ici.format = format;
-	// Strictly speaking we don't yet need VK_IMAGE_USAGE_SAMPLED_BIT for depth buffers since we do not yet sample depth buffers.
-	ici.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	ici.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	if (sampleCount == VK_SAMPLE_COUNT_1_BIT) {
+		ici.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+	}
 	if (color) {
-		ici.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+		ici.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		if (sampleCount == VK_SAMPLE_COUNT_1_BIT) {
+			ici.usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+		}
 	} else {
 		ici.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	}

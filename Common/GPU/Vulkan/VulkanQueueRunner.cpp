@@ -1666,28 +1666,43 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 
 	// First source barriers.
 	if (step.copy.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
-		if (src->color.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-			SetupTransitionToTransferSrc(src->color, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
-		}
-		if (dst->color.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-			SetupTransitionToTransferDst(dst->color, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
-		}
+		SetupTransitionToTransferSrc(src->color, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
+		SetupTransitionToTransferDst(dst->color, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
 	}
 
 	// We can't copy only depth or only stencil unfortunately - or can we?.
 	if (step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 		_dbg_assert_(src->depth.image != VK_NULL_HANDLE);
 
-		if (src->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-			SetupTransitionToTransferSrc(src->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
-		}
+		SetupTransitionToTransferSrc(src->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
 		if (dst->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
 			SetupTransitionToTransferDst(dst->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
 			_dbg_assert_(dst->depth.layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		} else {
-			// Kingdom Hearts: Subsequent copies to the same depth buffer without any other use.
+			// Kingdom Hearts: Subsequent copies twice to the same depth buffer without any other use.
 			// Not super sure how that happens, but we need a barrier to pass sync validation.
 			SetupTransferDstWriteAfterWrite(dst->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
+		}
+	}
+	recordBarrier_.Flush(cmd);
+
+	bool multisampled = src->sampleCount != VK_SAMPLE_COUNT_1_BIT && dst->sampleCount != VK_SAMPLE_COUNT_1_BIT;
+	if (multisampled) {
+		// If both the targets are multisampled, copy the msaa targets too.
+		// For that, we need to transition them from their normally permanent VK_*_ATTACHMENT_OPTIMAL layouts, and then back.
+		if (step.copy.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
+			SetupTransitionToTransferSrc(src->msaaColor, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
+			recordBarrier_.Flush(cmd);
+			SetupTransitionToTransferDst(dst->msaaColor, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
+			recordBarrier_.Flush(cmd);
+		}
+		if (step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+			// Kingdom Hearts: Subsequent copies to the same depth buffer without any other use.
+			// Not super sure how that happens, but we need a barrier to pass sync validation.
+			SetupTransitionToTransferSrc(src->msaaDepth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
+			recordBarrier_.Flush(cmd);
+			SetupTransitionToTransferDst(dst->msaaDepth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
+			recordBarrier_.Flush(cmd);
 		}
 	}
 
@@ -1712,6 +1727,10 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 		copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		copy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		vkCmdCopyImage(cmd, src->color.image, src->color.layout, dst->color.image, dst->color.layout, 1, &copy);
+
+		if (multisampled) {
+			vkCmdCopyImage(cmd, src->msaaColor.image, src->msaaColor.layout, dst->msaaColor.image, dst->msaaColor.layout, 1, &copy);
+		}
 	}
 	if (step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 		_dbg_assert_(src->depth.image != VK_NULL_HANDLE);
@@ -1719,6 +1738,75 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 		copy.srcSubresource.aspectMask = step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 		copy.dstSubresource.aspectMask = step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 		vkCmdCopyImage(cmd, src->depth.image, src->depth.layout, dst->depth.image, dst->depth.layout, 1, &copy);
+
+		if (multisampled) {
+			vkCmdCopyImage(cmd, src->msaaDepth.image, src->msaaDepth.layout, dst->msaaDepth.image, dst->msaaDepth.layout, 1, &copy);
+		}
+	}
+
+	if (multisampled) {
+		// Transition the MSAA surfaces back to optimal.
+		if (step.copy.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
+			recordBarrier_.TransitionImage(
+				src->msaaColor.image,
+				0,
+				1,
+				src->msaaColor.numLayers,
+				VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				VK_ACCESS_TRANSFER_READ_BIT,
+				VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+			);
+			recordBarrier_.TransitionImage(
+				dst->msaaColor.image,
+				0,
+				1,
+				dst->msaaColor.numLayers,
+				VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				VK_ACCESS_TRANSFER_WRITE_BIT,
+				VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+			);
+			src->msaaColor.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			dst->msaaColor.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		}
+		if (step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+			recordBarrier_.TransitionImage(
+				src->msaaDepth.image,
+				0,
+				1,
+				src->msaaDepth.numLayers,
+				VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+				VK_ACCESS_TRANSFER_READ_BIT,
+				VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT
+			);
+			recordBarrier_.TransitionImage(
+				dst->msaaDepth.image,
+				0,
+				1,
+				dst->msaaDepth.numLayers,
+				VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+				VK_ACCESS_TRANSFER_WRITE_BIT,
+				VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT
+			);
+			src->msaaDepth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			dst->msaaDepth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		}
+		recordBarrier_.Flush(cmd);
 	}
 }
 
@@ -1734,12 +1822,8 @@ void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
 
 	// First source barriers.
 	if (step.blit.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
-		if (src->color.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-			SetupTransitionToTransferSrc(src->color, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
-		}
-		if (dst->color.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-			SetupTransitionToTransferDst(dst->color, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
-		}
+		SetupTransitionToTransferSrc(src->color, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
+		SetupTransitionToTransferDst(dst->color, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
 	}
 
 	// We can't copy only depth or only stencil unfortunately.
@@ -1747,12 +1831,8 @@ void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
 		_dbg_assert_(src->depth.image != VK_NULL_HANDLE);
 		_dbg_assert_(dst->depth.image != VK_NULL_HANDLE);
 
-		if (src->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-			SetupTransitionToTransferSrc(src->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
-		}
-		if (dst->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-			SetupTransitionToTransferDst(dst->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
-		}
+		SetupTransitionToTransferSrc(src->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
+		SetupTransitionToTransferDst(dst->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
 	}
 
 	recordBarrier_.Flush(cmd);
@@ -1801,6 +1881,9 @@ void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
 }
 
 void VulkanQueueRunner::SetupTransitionToTransferSrc(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier) {
+	if (img.layout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+		return;
+	}
 	VkImageAspectFlags imageAspect = aspect;
 	VkAccessFlags srcAccessMask = 0;
 	VkPipelineStageFlags srcStageMask = 0;
@@ -1850,6 +1933,9 @@ void VulkanQueueRunner::SetupTransitionToTransferSrc(VKRImage &img, VkImageAspec
 }
 
 void VulkanQueueRunner::SetupTransitionToTransferDst(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier) {
+	if (img.layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+		return;
+	}
 	VkImageAspectFlags imageAspect = aspect;
 	VkAccessFlags srcAccessMask = 0;
 	VkPipelineStageFlags srcStageMask = 0;
