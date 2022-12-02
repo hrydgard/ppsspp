@@ -134,6 +134,11 @@ bool NotifyCommand(u32 pc) {
 	if (IsBreakpoint(pc, op)) {
 		GPUBreakpoints::ClearTempBreakpoints();
 
+		if (coreState == CORE_POWERDOWN || !gpuDebug) {
+			breakNext = BreakNext::NONE;
+			return process;
+		}
+
 		auto info = gpuDebug->DissassembleOp(pc);
 		if (lastStepTime >= 0.0) {
 			NOTICE_LOG(G3D, "Waiting at %08x, %s (%fms)", pc, info.desc.c_str(), (time_now_d() - lastStepTime) * 1000.0);
