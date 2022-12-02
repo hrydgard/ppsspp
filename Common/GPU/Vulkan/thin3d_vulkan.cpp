@@ -864,7 +864,7 @@ VKContext::VKContext(VulkanContext *vulkan)
 	// Only support MSAA levels that have support for all three of color, depth, stencil.
 	if (!caps_.isTilingGPU) {
 		// Check for depth stencil resolve. Without it, depth textures won't work, and we don't want that mess
-		// of compatibility reports, so we'll just disable stencil in this case for now.
+		// of compatibility reports, so we'll just disable multisampling in this case for now.
 		// There are potential workarounds for devices that don't support it, but those are nearly non-existent now.
 		const auto &resolveProperties = vulkan->GetPhysicalDeviceProperties().depthStencilResolve;
 		if (vulkan->Extensions().KHR_depth_stencil_resolve) {

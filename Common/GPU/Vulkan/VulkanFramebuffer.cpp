@@ -290,7 +290,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		attachments[attachmentCount].samples = VK_SAMPLE_COUNT_1_BIT;
 		attachments[attachmentCount].loadOp = multisample ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : ConvertLoadAction(key.depthLoadAction);
 		attachments[attachmentCount].storeOp = ConvertStoreAction(key.depthStoreAction);
-		attachments[attachmentCount].stencilLoadOp = ConvertLoadAction(key.stencilLoadAction);
+		attachments[attachmentCount].stencilLoadOp = multisample ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : ConvertLoadAction(key.stencilLoadAction);
 		attachments[attachmentCount].stencilStoreOp = ConvertStoreAction(key.stencilStoreAction);
 		attachments[attachmentCount].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		attachments[attachmentCount].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
