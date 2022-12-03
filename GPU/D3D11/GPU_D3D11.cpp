@@ -223,15 +223,6 @@ void GPU_D3D11::GetStats(char *buffer, size_t bufsize) {
 	);
 }
 
-void GPU_D3D11::ClearCacheNextFrame() {
-	textureCacheD3D11_->ClearNextFrame();
-}
-
-void GPU_D3D11::ClearShaderCache() {
-	shaderManagerD3D11_->ClearShaders();
-	drawEngine_.ClearInputLayoutMap();
-}
-
 void GPU_D3D11::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 

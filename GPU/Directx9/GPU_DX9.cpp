@@ -220,14 +220,6 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 	);
 }
 
-void GPU_DX9::ClearCacheNextFrame() {
-	textureCacheDX9_->ClearNextFrame();
-}
-
-void GPU_DX9::ClearShaderCache() {
-	shaderManagerDX9_->ClearCache(true);
-}
-
 void GPU_DX9::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 
