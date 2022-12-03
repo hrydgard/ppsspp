@@ -21,7 +21,7 @@ extern const float one_over_255_x4[4];
 extern const float exactly_255_x4[4];
 
 // Utilities useful for filling in std140-layout uniform buffers, and similar.
-// NEON intrinsics: http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0491f/BABDCGGF.html
+// NEON intrinsics: https://developer.arm.com/documentation/den0018/a/NEON-Intrinsics?lang=en
 
 // LSBs in f[0], etc.
 inline void Uint8x4ToFloat4(float f[4], uint32_t u) {

@@ -71,6 +71,7 @@ public:
 
 protected:
 	void FinishDeferred() override;
+	void CheckRenderResized() override;
 
 private:
 	void Flush() {

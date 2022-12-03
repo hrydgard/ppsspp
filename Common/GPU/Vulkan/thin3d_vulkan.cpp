@@ -242,7 +242,7 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 #endif
 
 	VkShaderModule shaderModule = VK_NULL_HANDLE;
-	if (vulkan->CreateShaderModule(spirv, &shaderModule, vkstage_ == VK_SHADER_STAGE_VERTEX_BIT ? "thin3d_vs" : "thin3d_fs")) {
+	if (vulkan->CreateShaderModule(spirv, &shaderModule, tag_.c_str())) {
 		module_ = Promise<VkShaderModule>::AlreadyDone(shaderModule);
 		ok_ = true;
 	} else {
@@ -832,6 +832,9 @@ VKContext::VKContext(VulkanContext *vulkan)
 	caps_.blendMinMaxSupported = true;
 	caps_.logicOpSupported = vulkan->GetDeviceFeatures().enabled.standard.logicOp != 0;
 	caps_.multiViewSupported = vulkan->GetDeviceFeatures().enabled.multiview.multiview != 0;
+	caps_.sampleRateShadingSupported = vulkan->GetDeviceFeatures().enabled.standard.sampleRateShading != 0;
+
+	const auto &limits = vulkan->GetPhysicalDeviceProperties().properties.limits;
 
 	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDeviceIndex()).properties;
 
@@ -842,7 +845,36 @@ VKContext::VKContext(VulkanContext *vulkan)
 	case VULKAN_VENDOR_NVIDIA: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
 	case VULKAN_VENDOR_QUALCOMM: caps_.vendor = GPUVendor::VENDOR_QUALCOMM; break;
 	case VULKAN_VENDOR_INTEL: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
-	default: caps_.vendor = GPUVendor::VENDOR_UNKNOWN; break;
+	case VULKAN_VENDOR_APPLE: caps_.vendor = GPUVendor::VENDOR_APPLE; break;
+	default:
+		WARN_LOG(G3D, "Unknown vendor ID %08x", deviceProps.vendorID);
+		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
+		break;
+	}
+
+	bool hasLazyMemory = false;
+	for (u32 i = 0; i < vulkan->GetMemoryProperties().memoryTypeCount; i++) {
+		if (vulkan->GetMemoryProperties().memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT) {
+			hasLazyMemory = true;
+		}
+	}
+	caps_.isTilingGPU = hasLazyMemory && caps_.vendor != GPUVendor::VENDOR_APPLE;
+
+	// VkSampleCountFlagBits is arranged correctly for our purposes.
+	// Only support MSAA levels that have support for all three of color, depth, stencil.
+	if (!caps_.isTilingGPU) {
+		// Check for depth stencil resolve. Without it, depth textures won't work, and we don't want that mess
+		// of compatibility reports, so we'll just disable multisampling in this case for now.
+		// There are potential workarounds for devices that don't support it, but those are nearly non-existent now.
+		const auto &resolveProperties = vulkan->GetPhysicalDeviceProperties().depthStencilResolve;
+		if (vulkan->Extensions().KHR_depth_stencil_resolve &&
+			((resolveProperties.supportedDepthResolveModes & resolveProperties.supportedStencilResolveModes) & VK_RESOLVE_MODE_SAMPLE_ZERO_BIT) != 0) {
+			caps_.multiSampleLevelsMask = (limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts & limits.framebufferStencilSampleCounts);
+		} else {
+			caps_.multiSampleLevelsMask = 1;
+		}
+	} else {
+		caps_.multiSampleLevelsMask = 1;
 	}
 
 	if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
@@ -1189,9 +1221,6 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	}
 	gDesc.ds.pDynamicStates = gDesc.dynamicStates;
 
-	gDesc.ms.pSampleMask = nullptr;
-	gDesc.ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
 	gDesc.views.viewportCount = 1;
 	gDesc.views.scissorCount = 1;
 	gDesc.views.pViewports = nullptr;  // dynamic
@@ -1202,7 +1231,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	raster->ToVulkan(&gDesc.rs);
 
-	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << (size_t)RenderPassType::BACKBUFFER, tag ? tag : "thin3d");
+	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << (size_t)RenderPassType::BACKBUFFER, VK_SAMPLE_COUNT_1_BIT, tag ? tag : "thin3d");
 
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;
@@ -1553,15 +1582,16 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 // use this frame's init command buffer.
 class VKFramebuffer : public Framebuffer {
 public:
-	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) {
+	VKFramebuffer(VKRFramebuffer *fb, int multiSampleLevel) : buf_(fb) {
 		_assert_msg_(fb, "Null fb in VKFramebuffer constructor");
 		width_ = fb->width;
 		height_ = fb->height;
 		layers_ = fb->numLayers;
+		multiSampleLevel_ = multiSampleLevel;
 	}
 	~VKFramebuffer() {
 		_assert_msg_(buf_, "Null buf_ in VKFramebuffer - double delete?");
-		buf_->vulkan_->Delete().QueueCallback([](void *fb) {
+		buf_->Vulkan()->Delete().QueueCallback([](void *fb) {
 			VKRFramebuffer *vfb = static_cast<VKRFramebuffer *>(fb);
 			delete vfb;
 		}, buf_);
@@ -1576,9 +1606,14 @@ private:
 };
 
 Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
+	_assert_(desc.multiSampleLevel >= 0);
+	_assert_(desc.numLayers > 0);
+	_assert_(desc.width > 0);
+	_assert_(desc.height > 0);
+
 	VkCommandBuffer cmd = renderManager_.GetInitCmd();
-	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.numLayers, desc.z_stencil, desc.tag);
-	return new VKFramebuffer(vkrfb);
+	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.numLayers, desc.multiSampleLevel, desc.z_stencil, desc.tag);
+	return new VKFramebuffer(vkrfb, desc.multiSampleLevel);
 }
 
 void VKContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) {
@@ -1728,7 +1763,7 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_ALL_LAYERS:
 		return (uint64_t)curFramebuffer_->GetFB()->color.texAllLayersView;
 	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_RT:
-		return (uint64_t)curFramebuffer_->GetFB()->color.rtView;
+		return (uint64_t)curFramebuffer_->GetFB()->GetRTView();
 	case NativeObject::FRAME_DATA_DESC_SET_LAYOUT:
 		return (uint64_t)frameDescSetLayout_;
 	case NativeObject::THIN3D_PIPELINE_LAYOUT:

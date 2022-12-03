@@ -9,4 +9,5 @@ void VulkanBarrier::Flush(VkCommandBuffer cmd) {
 	imageBarriers_.clear();
 	srcStageMask_ = 0;
 	dstStageMask_ = 0;
+	dependencyFlags_ = 0;
 }

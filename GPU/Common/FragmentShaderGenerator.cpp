@@ -51,9 +51,7 @@ static const SamplerDef samplersStereo[3] = {
 
 bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, FragmentShaderFlags *fragmentShaderFlags, std::string *errorString) {
 	*uniformMask = 0;
-	if (fragmentShaderFlags) {
-		*fragmentShaderFlags = (FragmentShaderFlags)0;
-	}
+	*fragmentShaderFlags = (FragmentShaderFlags)0;
 	errorString->clear();
 
 	bool useStereo = id.Bit(FS_BIT_STEREO);
@@ -203,9 +201,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			p.F("layout (set = 1, binding = %d) uniform sampler2DArray fbotex;\n", DRAW_BINDING_2ND_TEXTURE);
 		} else if (fetchFramebuffer) {
 			p.F("layout (input_attachment_index = 0, set = 1, binding = %d) uniform subpassInput inputColor;\n", DRAW_BINDING_INPUT_ATTACHMENT);
-			if (fragmentShaderFlags) {
-				*fragmentShaderFlags |= FragmentShaderFlags::INPUT_ATTACHMENT;
-			}
+			*fragmentShaderFlags |= FragmentShaderFlags::INPUT_ATTACHMENT;
 		}
 
 		if (shaderDepalMode != ShaderDepalMode::OFF) {
@@ -922,6 +918,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		const char *discardStatement = testForceToZero ? "v.a = 0.0;" : "DISCARD;";
 		if (enableAlphaTest) {
+			*fragmentShaderFlags |= FragmentShaderFlags::USES_DISCARD;
+
 			if (alphaTestAgainstZero) {
 				// When testing against 0 (extremely common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
@@ -959,6 +957,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		if (enableColorTest) {
+			*fragmentShaderFlags |= FragmentShaderFlags::USES_DISCARD;
+
 			if (colorTestAgainstZero) {
 				// When testing against 0 (common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.

@@ -223,6 +223,7 @@ PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
 PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
 PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR;
 PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR;
+PFN_vkCreateRenderPass2KHR vkCreateRenderPass2KHR;
 } // namespace PPSSPP_VK
 
 using namespace PPSSPP_VK;
@@ -719,6 +720,9 @@ void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledE
 	if (enabledExtensions.KHR_dedicated_allocation) {
 		LOAD_DEVICE_FUNC(device, vkGetBufferMemoryRequirements2KHR);
 		LOAD_DEVICE_FUNC(device, vkGetImageMemoryRequirements2KHR);
+	}
+	if (enabledExtensions.KHR_create_renderpass2) {
+		LOAD_DEVICE_FUNC(device, vkCreateRenderPass2KHR);
 	}
 }
 

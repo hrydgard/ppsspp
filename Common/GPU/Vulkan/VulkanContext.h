@@ -35,6 +35,7 @@ enum {
 	VULKAN_VENDOR_ARM = 0x000013B5,  // Mali
 	VULKAN_VENDOR_QUALCOMM = 0x00005143,
 	VULKAN_VENDOR_IMGTEC = 0x00001010,  // PowerVR
+	VULKAN_VENDOR_APPLE = 0x0000106b,  // Apple through MoltenVK
 };
 
 VK_DEFINE_HANDLE(VmaAllocator);
@@ -253,6 +254,7 @@ public:
 		VkPhysicalDeviceProperties properties;
 		VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProperties;
 		VkPhysicalDeviceExternalMemoryHostPropertiesEXT externalMemoryHostProperties;
+		VkPhysicalDeviceDepthStencilResolveProperties depthStencilResolve;
 	};
 
 	struct AllPhysicalDeviceFeatures {
@@ -281,6 +283,10 @@ public:
 	}
 	const std::vector<const char *> &GetDeviceExtensionsEnabled() const {
 		return device_extensions_enabled_;
+	}
+
+	const VkPhysicalDeviceMemoryProperties &GetMemoryProperties() const {
+		return memory_properties_;
 	}
 
 	struct PhysicalDeviceFeatures {
@@ -401,7 +407,8 @@ private:
 	uint32_t graphics_queue_family_index_ = -1;
 	std::vector<PhysicalDeviceProps> physicalDeviceProperties_;
 	std::vector<VkQueueFamilyProperties> queueFamilyProperties_;
-	VkPhysicalDeviceMemoryProperties memory_properties{};
+
+	VkPhysicalDeviceMemoryProperties memory_properties_{};
 
 	// Custom collection of things that are good to know
 	VulkanPhysicalDeviceInfo deviceInfo_{};

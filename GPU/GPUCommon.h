@@ -267,7 +267,7 @@ protected:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
-	void CheckRenderResized();
+	virtual void CheckRenderResized();
 
 	// Add additional common features dependent on other features, which may be backend-determined.
 	u32 CheckGPUFeaturesLate(u32 features) const;
