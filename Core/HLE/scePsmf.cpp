@@ -751,7 +751,7 @@ static void DelayPsmfStateChange(u32 psmfPlayer, u32 newState, s64 delayUs) {
 }
 
 static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData) {
-	if (!Memory::IsValidAddress(psmfData) || !Memory::IsValidAddress(psmfData)) {
+	if (!Memory::IsValidAddress(psmfStruct) || !Memory::IsValidAddress(psmfData)) {
 		// Crashes on a PSP.
 		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad address");
 	}
