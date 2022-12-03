@@ -203,7 +203,10 @@ public:
 			DEBUG_LOG(G3D, "Queueing %s (shmodule %p) for release", tag_.c_str(), module_);
 			VkShaderModule shaderModule = module_->BlockUntilReady();
 			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
-			delete module_;
+			vulkan_->Delete().QueueCallback([](void *m) {
+				auto module = (Promise<VkShaderModule> *)m;
+				delete module;
+			}, module_);
 		}
 	}
 	Promise<VkShaderModule> *Get() const { return module_; }
