@@ -143,7 +143,7 @@ void ComputeRasterizerState(RasterizerState *state, std::function<void()> flushF
 		}
 	}
 
-	state->shadeGouraud = gstate.getShadeMode() == GE_SHADE_GOURAUD;
+	state->shadeGouraud = !gstate.isModeClear() && gstate.getShadeMode() == GE_SHADE_GOURAUD;
 	state->throughMode = gstate.isModeThrough();
 	state->antialiasLines = gstate.isAntiAliasEnabled();
 
@@ -602,7 +602,7 @@ void DrawTriangleSlice(
 	// All the z values are the same, no interpolation required.
 	// This is common, and when we interpolate, we lose accuracy.
 	const bool flatZ = v0.screenpos.z == v1.screenpos.z && v0.screenpos.z == v2.screenpos.z;
-	const bool flatColorAll = clearMode || !state.shadeGouraud;
+	const bool flatColorAll = !state.shadeGouraud;
 	const bool flatColor0 = flatColorAll || (v0.color0 == v1.color0 && v0.color0 == v2.color0);
 	const bool flatColor1 = flatColorAll || (v0.color1 == v1.color1 && v0.color1 == v2.color1);
 	const bool noFog = clearMode || !pixelID.applyFog || (v0.fogdepth >= 1.0f && v1.fogdepth >= 1.0f && v2.fogdepth >= 1.0f);
