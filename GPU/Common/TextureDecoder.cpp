@@ -641,16 +641,12 @@ void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height) {
 
 #ifdef _M_SSE
 inline u32 SSEReduce32And(__m128i value) {
-	// TODO: Should use a shuffle instead of slri, probably.
-	value = _mm_and_si128(value, _mm_srli_si128(value, 64));
-	value = _mm_and_si128(value, _mm_srli_si128(value, 32));
+	value = _mm_and_si128(value, _mm_shuffle_epi32(value, _MM_SHUFFLE(1, 0, 3, 2)));
+	value = _mm_and_si128(value, _mm_shuffle_epi32(value, _MM_SHUFFLE(1, 1, 1, 1)));
 	return _mm_cvtsi128_si32(value);
 }
 inline u32 SSEReduce16And(__m128i value) {
-	// TODO: Should use a shuffle instead of slri, probably.
-	value = _mm_and_si128(value, _mm_srli_si128(value, 64));
-	value = _mm_and_si128(value, _mm_srli_si128(value, 32));
-	u32 mask = _mm_cvtsi128_si32(value);
+	u32 mask = SSEReduce32And(value);
 	return mask & (mask >> 16);
 }
 #endif
