@@ -1128,7 +1128,7 @@ void MainScreen::CreateViews() {
 #endif
 
 	rightColumnItems->Add(logos);
-	TextView *ver = rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))));
+	TextView *ver = rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -10, 0, 4))));
 	ver->SetSmall(true);
 	ver->SetClip(false);
 
