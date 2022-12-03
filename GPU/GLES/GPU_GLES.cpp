@@ -362,6 +362,10 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 	);
 }
 
+void GPU_GLES::ClearCacheNextFrame() {
+	textureCacheGL_->ClearNextFrame();
+}
+
 void GPU_GLES::ClearShaderCache() {
 	shaderManagerGL_->ClearCache(true);
 }
