@@ -66,6 +66,12 @@ struct ShaderInfo {
 	bool operator == (const ShaderInfo &other) {
 		return name == other.name;
 	}
+
+	bool operator < (const ShaderInfo &other) {
+		if (name < other.name) return true;
+		if (name > other.name) return false;
+		return false;
+	}
 };
 
 struct TextureShaderInfo {

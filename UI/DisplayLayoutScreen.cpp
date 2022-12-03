@@ -267,6 +267,7 @@ void DisplayLayoutScreen::CreateViews() {
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory("Graphics");
 			auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"), i, false);
+			procScreen->SetHasDropShadow(false);
 			procScreen->OnChoice.Handle(this, &DisplayLayoutScreen::OnPostProcShaderChange);
 			if (e.v)
 				procScreen->SetPopupOrigin(e.v);

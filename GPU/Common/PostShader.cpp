@@ -50,18 +50,6 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 	}
 
 	shaderInfo.clear();
-	ShaderInfo off{};
-	off.visible = true;
-	off.name = "Off";
-	off.section = "Off";
-	for (size_t i = 0; i < ARRAY_SIZE(off.settings); ++i) {
-		off.settings[i].name.clear();
-		off.settings[i].value = 0.0f;
-		off.settings[i].minValue = -1.0f;
-		off.settings[i].maxValue = 1.0f;
-		off.settings[i].step = 0.01f;
-	}
-	shaderInfo.push_back(off);
 
 	textureShaderInfo.clear();
 	TextureShaderInfo textureOff{};
@@ -230,6 +218,22 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 			}
 		}
 	}
+
+	// Sort shaders alphabetically.
+	std::sort(shaderInfo.begin(), shaderInfo.end());
+
+	ShaderInfo off{};
+	off.visible = true;
+	off.name = "Off";
+	off.section = "Off";
+	for (size_t i = 0; i < ARRAY_SIZE(off.settings); ++i) {
+		off.settings[i].name.clear();
+		off.settings[i].value = 0.0f;
+		off.settings[i].minValue = -1.0f;
+		off.settings[i].maxValue = 1.0f;
+		off.settings[i].step = 0.01f;
+	}
+	shaderInfo.insert(shaderInfo.begin(), off);
 
 	// We always want the not visible ones at the end.  Makes menus easier.
 	for (const auto &info : notVisible) {
