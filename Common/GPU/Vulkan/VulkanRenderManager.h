@@ -22,6 +22,7 @@
 #include "Common/GPU/MiscTypes.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 #include "Common/GPU/Vulkan/VulkanFramebuffer.h"
+#include "Common/GPU/thin3d.h"
 
 // Forward declaration
 VK_DEFINE_HANDLE(VmaAllocation);
@@ -74,7 +75,7 @@ struct BoundingRect {
 };
 
 // All the data needed to create a graphics pipeline.
-struct VKRGraphicsPipelineDesc {
+struct VKRGraphicsPipelineDesc : Draw::RefCountedObject {
 	VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 	VkPipelineColorBlendStateCreateInfo cbs{ VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
 	VkPipelineColorBlendAttachmentState blend0{};
@@ -120,6 +121,8 @@ struct VKRGraphicsPipeline {
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			delete pipeline[i];
 		}
+		if (desc)
+			desc->Release();
 	}
 
 	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
@@ -133,7 +136,7 @@ struct VKRGraphicsPipeline {
 
 	void LogCreationFailure() const;
 
-	VKRGraphicsPipelineDesc *desc = nullptr;  // not owned!
+	VKRGraphicsPipelineDesc *desc = nullptr;
 	Promise<VkPipeline> *pipeline[(size_t)RenderPassType::TYPE_COUNT]{};
 
 	VkSampleCountFlagBits SampleCount() const { return sampleCount_; }

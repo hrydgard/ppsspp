@@ -101,8 +101,12 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	double start = time_now_d();
 	VkPipeline vkpipeline;
 	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &pipe, nullptr, &vkpipeline);
+	double taken_ms = (time_now_d() - start) * 1000.0;
 
-	INFO_LOG(G3D, "Pipeline creation time: %0.2f ms", (time_now_d() - start) * 1000.0);
+	if (taken_ms < 0.1)
+		DEBUG_LOG(G3D, "Pipeline creation time: %0.2f ms (fast)", taken_ms);
+	else
+		INFO_LOG(G3D, "Pipeline creation time: %0.2f ms", taken_ms);
 
 	bool success = true;
 	if (result == VK_INCOMPLETE) {
@@ -512,6 +516,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 	_dbg_assert_(desc->vertexShader);
 	_dbg_assert_(desc->fragmentShader);
 	pipeline->desc = desc;
+	pipeline->desc->AddRef();
 	if (curRenderStep_) {
 		// The common case
 		pipelinesToCheck_.push_back(pipeline);

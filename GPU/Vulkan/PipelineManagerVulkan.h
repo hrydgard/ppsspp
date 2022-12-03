@@ -54,8 +54,12 @@ struct VulkanPipelineKey {
 
 // Simply wraps a Vulkan pipeline, providing some metadata.
 struct VulkanPipeline {
+	~VulkanPipeline() {
+		desc->Release();
+	}
+
 	VKRGraphicsPipeline *pipeline;
-	VKRGraphicsPipelineDesc desc;
+	VKRGraphicsPipelineDesc *desc;
 	PipelineFlags pipelineFlags;  // PipelineFlags enum above.
 
 	bool UsesBlendConstant() const { return (pipelineFlags & PipelineFlags::USES_BLEND_CONSTANT) != 0; }
