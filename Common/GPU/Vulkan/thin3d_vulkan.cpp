@@ -264,6 +264,7 @@ public:
 	VKPipeline(VulkanContext *vulkan, size_t size, PipelineFlags _flags, const char *tag) : vulkan_(vulkan), flags(_flags), tag_(tag) {
 		uboSize_ = (int)size;
 		ubo_ = new uint8_t[uboSize_];
+		vkrDesc = new VKRGraphicsPipelineDesc();
 	}
 	~VKPipeline() {
 		DEBUG_LOG(G3D, "Queueing %s (pipeline) for release", tag_.c_str());
@@ -274,6 +275,7 @@ public:
 			dep->Release();
 		}
 		delete[] ubo_;
+		vkrDesc->Release();
 	}
 
 	void SetDynamicUniformData(const void *data, size_t size) {
@@ -291,7 +293,7 @@ public:
 	}
 
 	VKRGraphicsPipeline *pipeline = nullptr;
-	VKRGraphicsPipelineDesc vkrDesc;
+	VKRGraphicsPipelineDesc *vkrDesc = nullptr;
 	PipelineFlags flags;
 
 	std::vector<VKShaderModule *> deps;
@@ -1163,7 +1165,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 
 	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), pipelineFlags, tag);
 
-	VKRGraphicsPipelineDesc &gDesc = pipeline->vkrDesc;
+	VKRGraphicsPipelineDesc &gDesc = *pipeline->vkrDesc;
 
 	std::vector<VkPipelineShaderStageCreateInfo> stages;
 	stages.resize(desc.shaders.size());

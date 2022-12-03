@@ -512,6 +512,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 	_dbg_assert_(desc->vertexShader);
 	_dbg_assert_(desc->fragmentShader);
 	pipeline->desc = desc;
+	pipeline->desc->AddRef();
 	if (curRenderStep_) {
 		// The common case
 		pipelinesToCheck_.push_back(pipeline);

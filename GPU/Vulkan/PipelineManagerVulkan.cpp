@@ -181,7 +181,8 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	VkPipelineLayout layout, PipelineFlags pipelineFlags, VkSampleCountFlagBits sampleCount, const VulkanPipelineRasterStateKey &key,
 	const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, VulkanGeometryShader *gs, bool useHwTransform, u32 variantBitmask) {
 	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
-	VKRGraphicsPipelineDesc *desc = &vulkanPipeline->desc;
+	vulkanPipeline->desc = new VKRGraphicsPipelineDesc();
+	VKRGraphicsPipelineDesc *desc = vulkanPipeline->desc;
 	desc->pipelineCache = pipelineCache;
 
 	PROFILE_THIS_SCOPE("pipelinebuild");
