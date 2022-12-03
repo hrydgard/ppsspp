@@ -211,17 +211,65 @@ static inline RasterizerStateFlags ReplaceSamplerIDFlags(const RasterizerStateFl
 	return updated | (RasterizerStateFlags)OptimizeSamplerIDFlags(replace);
 }
 
+static bool CheckClutAlphaFull(RasterizerState *state) {
+	// We only need to check it once.
+	if (state->flags & RasterizerStateFlags::CLUT_ALPHA_CHECKED)
+		return !(state->flags & RasterizerStateFlags::CLUT_ALPHA_NON_FULL);
+	// For now, let's keep things simple.
+	const SamplerID &samplerID = state->samplerID;
+	if (samplerID.hasClutOffset || !samplerID.useSharedClut)
+		return false;
+
+	uint32_t count = samplerID.TexFmt() == GE_TFMT_CLUT4 ? 16 : 256;
+	if (samplerID.hasClutMask)
+		count = std::min(count, ((samplerID.cached.clutFormat >> 8) & 0xFF) + 1);
+
+	bool onlyFull = true;
+	switch (samplerID.ClutFmt()) {
+	case GE_CMODE_16BIT_BGR5650:
+		break;
+
+	case GE_CMODE_16BIT_ABGR5551:
+		onlyFull = CheckAlpha16((const uint16_t *)samplerID.cached.clut, count, 0x8000) == CHECKALPHA_FULL;
+		break;
+
+	case GE_CMODE_16BIT_ABGR4444:
+		onlyFull = CheckAlpha16((const uint16_t *)samplerID.cached.clut, count, 0xF000) == CHECKALPHA_FULL;
+		break;
+
+	case GE_CMODE_32BIT_ABGR8888:
+		onlyFull = CheckAlpha32((const uint32_t *)samplerID.cached.clut, count, 0xFF000000) == CHECKALPHA_FULL;
+		break;
+	}
+
+	if (!onlyFull)
+		state->flags |= RasterizerStateFlags::CLUT_ALPHA_NON_FULL;
+	state->flags |= RasterizerStateFlags::CLUT_ALPHA_CHECKED;
+
+	return onlyFull;
+}
+
 static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 	// Note: all optimizations must be undoable.
 	RasterizerStateFlags optimize = RasterizerStateFlags::NONE;
+	auto &pixelID = state->pixelID;
+	auto &samplerID = state->samplerID;
 
-	if (!state->pixelID.clearMode) {
-		auto &pixelID = state->pixelID;
+	bool alphaZero = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_ZERO);
+	bool alphaFull = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_FULL);
+	bool needTextureAlpha = state->enableTextures && samplerID.useTextureAlpha;
+
+	if (!pixelID.clearMode) {
 		auto &cached = pixelID.cached;
 
-		bool useTextureAlpha = state->enableTextures && state->samplerID.useTextureAlpha;
 		bool alphaBlend = pixelID.alphaBlend || (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_OFF);
-		if (alphaBlend && !useTextureAlpha) {
+		if (needTextureAlpha && alphaBlend && alphaFull) {
+			bool usesClut = (samplerID.texfmt & 4) != 0;
+			if (usesClut && CheckClutAlphaFull(state))
+				needTextureAlpha = false;
+		}
+
+		if (alphaBlend && !needTextureAlpha) {
 			PixelBlendFactor src = pixelID.AlphaBlendSrc();
 			PixelBlendFactor dst = pixelID.AlphaBlendDst();
 			if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_SRC)
@@ -229,17 +277,15 @@ static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 			if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_DST)
 				dst = PixelBlendFactor::INVSRCALPHA;
 
-			bool canZero = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_ZERO);
-			bool canFull = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_FULL);
 			// Okay, we may be able to convert this to a fixed value.
-			if (canZero || canFull) {
+			if (alphaZero || alphaFull) {
 				// If it was already set and we still can, set it again.
 				if (src == PixelBlendFactor::SRCALPHA)
 					optimize |= RasterizerStateFlags::OPTIMIZED_BLEND_SRC;
 				if (dst == PixelBlendFactor::INVSRCALPHA)
 					optimize |= RasterizerStateFlags::OPTIMIZED_BLEND_DST;
 			}
-			if (canFull && (src == PixelBlendFactor::SRCALPHA || src == PixelBlendFactor::ONE) && (dst == PixelBlendFactor::INVSRCALPHA || dst == PixelBlendFactor::ZERO)) {
+			if (alphaFull && (src == PixelBlendFactor::SRCALPHA || src == PixelBlendFactor::ONE) && (dst == PixelBlendFactor::INVSRCALPHA || dst == PixelBlendFactor::ZERO)) {
 				optimize |= RasterizerStateFlags::OPTIMIZED_BLEND_OFF;
 			}
 		}
@@ -253,17 +299,30 @@ static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 	}
 
 	if (state->enableTextures) {
-		bool useTextureAlpha = state->samplerID.useTextureAlpha;
-		bool alphaFull = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_FULL);
 		bool colorFull = !(state->flags & RasterizerStateFlags::VERTEX_NON_FULL_WHITE);
-		if (colorFull && (!useTextureAlpha || alphaFull)) {
+		if (colorFull && (!needTextureAlpha || alphaFull)) {
 			// Modulate is common, sometimes even with a fixed color.  Replace is cheaper.
-			GETexFunc texFunc = state->samplerID.TexFunc();
+			GETexFunc texFunc = samplerID.TexFunc();
 			if (state->flags & RasterizerStateFlags::OPTIMIZED_TEXREPLACE)
 				texFunc = GE_TEXFUNC_MODULATE;
 
 			if (texFunc == GE_TEXFUNC_MODULATE)
 				optimize |= RasterizerStateFlags::OPTIMIZED_TEXREPLACE;
+		}
+
+		bool usesClut = (samplerID.texfmt & 4) != 0;
+		if (usesClut && alphaFull && samplerID.useTextureAlpha) {
+			GEComparison alphaTestFunc = pixelID.AlphaTestFunc();
+			// We optimize > 0 to != 0, so this is especially common.
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE)
+				alphaTestFunc = GE_COMP_NOTEQUAL;
+			// > 16, 8, or similar are also very common.
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT)
+				alphaTestFunc = GE_COMP_GREATER;
+
+			bool alphaTest = (alphaTestFunc == GE_COMP_NOTEQUAL || alphaTestFunc == GE_COMP_GREATER) && pixelID.alphaTestRef < 0xFF && !state->pixelID.hasAlphaTestMask;
+			if (alphaTest && CheckClutAlphaFull(state))
+				optimize |= alphaTestFunc == GE_COMP_NOTEQUAL ? RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE : RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT;
 		}
 	}
 
@@ -294,6 +353,12 @@ static bool ApplyStateOptimizations(RasterizerState *state, const RasterizerStat
 			pixelID.applyFog = false;
 		else if (state->flags & RasterizerStateFlags::OPTIMIZED_FOG_OFF)
 			pixelID.applyFog = true;
+		if (optimize & (RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE | RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT))
+			pixelID.alphaTestFunc = GE_COMP_ALWAYS;
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE)
+			pixelID.alphaTestFunc = GE_COMP_NOTEQUAL;
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT)
+			pixelID.alphaTestFunc = GE_COMP_GREATER;
 
 		SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID, nullptr);
 		// Can't compile during runtime.  This failing is a bit of a problem when undoing...

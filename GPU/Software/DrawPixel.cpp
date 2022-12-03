@@ -816,7 +816,9 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, std::function<void()>
 	}
 	compileQueue_.clear();
 
-	Compile(id);
+	// Might've been in the queue.
+	if (!cache_.Get(key))
+		Compile(id);
 
 	return cache_.Get(key);
 }

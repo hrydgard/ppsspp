@@ -182,7 +182,8 @@ NearestFunc SamplerJitCache::GetByID(const SamplerID &id, std::function<void()> 
 	}
 	compileQueue_.clear();
 
-	Compile(id);
+	if (!cache_.Get(key))
+		Compile(id);
 
 	// Okay, should be there now.
 	return cache_.Get(key);
