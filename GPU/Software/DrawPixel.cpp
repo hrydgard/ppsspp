@@ -744,12 +744,12 @@ SingleFunc PixelJitCache::GenericSingle(const PixelFuncID &id) {
 }
 
 // 256k should be plenty of space for plenty of variations.
-PixelJitCache::PixelJitCache() : CodeBlock(1024 * 64 * 4) {
+PixelJitCache::PixelJitCache() : CodeBlock(1024 * 64 * 4), cache_(64) {
 }
 
 void PixelJitCache::Clear() {
 	CodeBlock::Clear();
-	cache_.clear();
+	cache_.Clear();
 	addresses_.clear();
 
 	constBlendHalf_11_4s_ = nullptr;
@@ -777,8 +777,12 @@ std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {
 
 void PixelJitCache::Flush() {
 	std::unique_lock<std::mutex> guard(jitCacheLock);
-	for (const auto &queued : compileQueue_)
-		Compile(queued);
+	for (const auto &queued : compileQueue_) {
+		// Might've been compiled after enqueue, but before now.
+		size_t queuedKey = std::hash<PixelFuncID>()(queued);
+		if (!cache_.Get(queuedKey))
+			Compile(queued);
+	}
 	compileQueue_.clear();
 }
 
@@ -787,10 +791,11 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, std::function<void()>
 		return nullptr;
 
 	std::unique_lock<std::mutex> guard(jitCacheLock);
+	const size_t key = std::hash<PixelFuncID>()(id);
 
-	auto it = cache_.find(id);
-	if (it != cache_.end()) {
-		return it->second;
+	auto it = cache_.Get(key);
+	if (it != nullptr) {
+		return it;
 	}
 
 	if (!flushForCompile) {
@@ -803,16 +808,17 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, std::function<void()>
 	flushForCompile();
 	guard.lock();
 
-	for (const auto &queued : compileQueue_)
-		Compile(queued);
+	for (const auto &queued : compileQueue_) {
+		// Might've been compiled after enqueue, but before now.
+		size_t queuedKey = std::hash<PixelFuncID>()(queued);
+		if (!cache_.Get(queuedKey))
+			Compile(queued);
+	}
 	compileQueue_.clear();
 
 	Compile(id);
 
-	it = cache_.find(id);
-	if (it != cache_.end())
-		return it->second;
-	return nullptr;
+	return cache_.Get(key);
 }
 
 void PixelJitCache::Compile(const PixelFuncID &id) {
@@ -824,7 +830,7 @@ void PixelJitCache::Compile(const PixelFuncID &id) {
 #if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
 	addresses_[id] = GetCodePointer();
 	SingleFunc func = CompileSingle(id);
-	cache_[id] = func;
+	cache_.Insert(std::hash<PixelFuncID>()(id), func);
 #endif
 }
 

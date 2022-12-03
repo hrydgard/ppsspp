@@ -143,7 +143,7 @@ void ComputeRasterizerState(RasterizerState *state, std::function<void()> flushF
 		}
 	}
 
-	state->shadeGouraud = gstate.getShadeMode() == GE_SHADE_GOURAUD;
+	state->shadeGouraud = !gstate.isModeClear() && gstate.getShadeMode() == GE_SHADE_GOURAUD;
 	state->throughMode = gstate.isModeThrough();
 	state->antialiasLines = gstate.isAntiAliasEnabled();
 
@@ -155,74 +155,220 @@ void ComputeRasterizerState(RasterizerState *state, std::function<void()> flushF
 #endif
 }
 
+static inline void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, bool useColor) {
+	if (useColor) {
+		if ((v0.color0 & 0x00FFFFFF) != 0x00FFFFFF)
+			state->flags |= RasterizerStateFlags::VERTEX_NON_FULL_WHITE;
+		uint8_t alpha = v0.color0 >> 24;
+		if (alpha != 0)
+			state->flags |= RasterizerStateFlags::VERTEX_ALPHA_NON_ZERO;
+		if (alpha != 0xFF)
+			state->flags |= RasterizerStateFlags::VERTEX_ALPHA_NON_FULL;
+	}
+	if (!(v0.fogdepth >= 1.0f))
+		state->flags |= RasterizerStateFlags::VERTEX_HAS_FOG;
+}
+
+void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0) {
+	CalculateRasterStateFlags(state, v0, true);
+}
+
+void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, bool forceFlat) {
+	CalculateRasterStateFlags(state, v0, !forceFlat && state->shadeGouraud);
+	CalculateRasterStateFlags(state, v1, true);
+}
+
+void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, const VertexData &v2) {
+	CalculateRasterStateFlags(state, v0, state->shadeGouraud);
+	CalculateRasterStateFlags(state, v1, state->shadeGouraud);
+	CalculateRasterStateFlags(state, v2, true);
+}
+
+static inline int OptimizePixelIDFlags(const RasterizerStateFlags &flags) {
+	return (int)flags & (int)RasterizerStateFlags::OPTIMIZED_PIXELID;
+}
+
+static inline int OptimizeSamplerIDFlags(const RasterizerStateFlags &flags) {
+	return (int)flags & (int)RasterizerStateFlags::OPTIMIZED_SAMPLERID;
+}
+
+static inline int OptimizeAllFlags(const RasterizerStateFlags &flags) {
+	return OptimizePixelIDFlags(flags) | OptimizeSamplerIDFlags(flags);
+}
+
+static inline RasterizerStateFlags ClearFlags(const RasterizerStateFlags &flags, const RasterizerStateFlags &mask) {
+	int clearBits = (int)flags & (int)mask;
+	return (RasterizerStateFlags)((int)flags & ~clearBits);
+}
+
+static inline RasterizerStateFlags ReplacePixelIDFlags(const RasterizerStateFlags &flags, const RasterizerStateFlags &replace) {
+	RasterizerStateFlags updated = ClearFlags(flags, RasterizerStateFlags::OPTIMIZED_PIXELID);
+	return updated | (RasterizerStateFlags)OptimizePixelIDFlags(replace);
+}
+
+static inline RasterizerStateFlags ReplaceSamplerIDFlags(const RasterizerStateFlags &flags, const RasterizerStateFlags &replace) {
+	RasterizerStateFlags updated = ClearFlags(flags, RasterizerStateFlags::OPTIMIZED_SAMPLERID);
+	return updated | (RasterizerStateFlags)OptimizeSamplerIDFlags(replace);
+}
+
+static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
+	// Note: all optimizations must be undoable.
+	RasterizerStateFlags optimize = RasterizerStateFlags::NONE;
+
+	if (!state->pixelID.clearMode) {
+		auto &pixelID = state->pixelID;
+		auto &cached = pixelID.cached;
+
+		bool useTextureAlpha = state->enableTextures && state->samplerID.useTextureAlpha;
+		bool alphaBlend = pixelID.alphaBlend || (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_OFF);
+		if (alphaBlend && !useTextureAlpha) {
+			PixelBlendFactor src = pixelID.AlphaBlendSrc();
+			PixelBlendFactor dst = pixelID.AlphaBlendDst();
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_SRC)
+				src = PixelBlendFactor::SRCALPHA;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_DST)
+				dst = PixelBlendFactor::INVSRCALPHA;
+
+			bool canZero = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_ZERO);
+			bool canFull = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_FULL);
+			// Okay, we may be able to convert this to a fixed value.
+			if (canZero || canFull) {
+				// If it was already set and we still can, set it again.
+				if (src == PixelBlendFactor::SRCALPHA)
+					optimize |= RasterizerStateFlags::OPTIMIZED_BLEND_SRC;
+				if (dst == PixelBlendFactor::INVSRCALPHA)
+					optimize |= RasterizerStateFlags::OPTIMIZED_BLEND_DST;
+			}
+			if (canFull && (src == PixelBlendFactor::SRCALPHA || src == PixelBlendFactor::ONE) && (dst == PixelBlendFactor::INVSRCALPHA || dst == PixelBlendFactor::ZERO)) {
+				optimize |= RasterizerStateFlags::OPTIMIZED_BLEND_OFF;
+			}
+		}
+
+		bool applyFog = pixelID.applyFog || (state->flags & RasterizerStateFlags::OPTIMIZED_FOG_OFF);
+		if (applyFog) {
+			bool hasFog = state->flags & RasterizerStateFlags::VERTEX_HAS_FOG;
+			if (!hasFog)
+				optimize |= RasterizerStateFlags::OPTIMIZED_FOG_OFF;
+		}
+	}
+
+	if (state->enableTextures) {
+		bool useTextureAlpha = state->samplerID.useTextureAlpha;
+		bool alphaFull = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_FULL);
+		bool colorFull = !(state->flags & RasterizerStateFlags::VERTEX_NON_FULL_WHITE);
+		if (colorFull && (!useTextureAlpha || alphaFull)) {
+			// Modulate is common, sometimes even with a fixed color.  Replace is cheaper.
+			GETexFunc texFunc = state->samplerID.TexFunc();
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_TEXREPLACE)
+				texFunc = GE_TEXFUNC_MODULATE;
+
+			if (texFunc == GE_TEXFUNC_MODULATE)
+				optimize |= RasterizerStateFlags::OPTIMIZED_TEXREPLACE;
+		}
+	}
+
+	return optimize;
+}
+
+static bool ApplyStateOptimizations(RasterizerState *state, const RasterizerStateFlags &optimize) {
+	bool changed = false;
+
+	// Check if we can compile the new funcs before replacing.
+	if (OptimizePixelIDFlags(state->flags) != OptimizePixelIDFlags(optimize)) {
+		bool canFull = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_FULL);
+
+		PixelFuncID pixelID = state->pixelID;
+		if (optimize & RasterizerStateFlags::OPTIMIZED_BLEND_OFF)
+			pixelID.alphaBlend = false;
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_OFF)
+			pixelID.alphaBlend = true;
+		if (optimize & RasterizerStateFlags::OPTIMIZED_BLEND_SRC)
+			pixelID.alphaBlendSrc = (uint8_t)(canFull ? PixelBlendFactor::ONE : PixelBlendFactor::ZERO);
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_SRC)
+			pixelID.alphaBlendSrc = (uint8_t)PixelBlendFactor::SRCALPHA;
+		if (optimize & RasterizerStateFlags::OPTIMIZED_BLEND_DST)
+			pixelID.alphaBlendDst = (uint8_t)(canFull ? PixelBlendFactor::ZERO : PixelBlendFactor::ONE);
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_DST)
+			pixelID.alphaBlendDst = (uint8_t)PixelBlendFactor::INVSRCALPHA;
+		if (optimize & RasterizerStateFlags::OPTIMIZED_FOG_OFF)
+			pixelID.applyFog = false;
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_FOG_OFF)
+			pixelID.applyFog = true;
+
+		SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID, nullptr);
+		// Can't compile during runtime.  This failing is a bit of a problem when undoing...
+		if (drawPixel) {
+			state->drawPixel = drawPixel;
+			memcpy(&state->pixelID, &pixelID, sizeof(PixelFuncID));
+			state->flags = ReplacePixelIDFlags(state->flags, optimize) | RasterizerStateFlags::OPTIMIZED;
+			changed = true;
+		}
+	}
+
+	if (OptimizeSamplerIDFlags(state->flags) != OptimizeSamplerIDFlags(optimize)) {
+		SamplerID samplerID = state->samplerID;
+		if (optimize & RasterizerStateFlags::OPTIMIZED_TEXREPLACE)
+			samplerID.texFunc = (uint8_t)GE_TEXFUNC_REPLACE;
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_TEXREPLACE)
+			samplerID.texFunc = (uint8_t)GE_TEXFUNC_MODULATE;
+
+		Sampler::LinearFunc linear = Sampler::GetLinearFunc(samplerID, nullptr);
+		Sampler::LinearFunc nearest = Sampler::GetNearestFunc(samplerID, nullptr);
+		// Can't compile during runtime.  This failing is a bit of a problem when undoing...
+		if (linear && nearest) {
+			// Since the definitions are the same, just force this setting using the func pointer.
+			if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
+				state->nearest = linear;
+				state->linear = linear;
+			} else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST) {
+				state->nearest = nearest;
+				state->linear = nearest;
+			} else {
+				state->nearest = nearest;
+				state->linear = linear;
+			}
+			memcpy(&state->samplerID, &samplerID, sizeof(SamplerID));
+			state->flags = ReplaceSamplerIDFlags(state->flags, optimize) | RasterizerStateFlags::OPTIMIZED;
+			changed = true;
+		}
+	}
+
+	state->lastFlags = state->flags;
+	return changed;
+}
+
+bool OptimizeRasterState(RasterizerState *state) {
+	if (state->flags == state->lastFlags)
+		return false;
+
+	RasterizerStateFlags optimize = DetectStateOptimizations(state);
+
+	// If it was optimized before, just revert and don't churn.
+	if ((state->flags & RasterizerStateFlags::OPTIMIZED) && OptimizeAllFlags(state->flags) != OptimizeAllFlags(optimize)) {
+		optimize = RasterizerStateFlags::NONE;
+	} else if (optimize == RasterizerStateFlags::NONE && !(state->flags & RasterizerStateFlags::OPTIMIZED)) {
+		state->lastFlags = state->flags;
+		return false;
+	}
+
+	return ApplyStateOptimizations(state, optimize);
+}
+
 RasterizerState OptimizeFlatRasterizerState(const RasterizerState &origState, const VertexData &v1) {
 	uint8_t alpha = v1.color0 >> 24;
 	RasterizerState state = origState;
 
-	bool changedPixelID = false;
-	bool changedSamplerID = false;
-	if (!state.pixelID.clearMode) {
-		auto &pixelID = state.pixelID;
-		auto &cached = pixelID.cached;
+	// Sometimes, a particular draw can do better than the overall state.
+	state.flags = ClearFlags(state.flags, RasterizerStateFlags::VERTEX_FLAT_RESET);
+	CalculateRasterStateFlags(&state, v1, true);
 
-		bool useTextureAlpha = state.enableTextures && state.samplerID.useTextureAlpha;
-		if (pixelID.alphaBlend && pixelID.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA && !useTextureAlpha) {
-			// Okay, we may be able to convert this to a fixed value.
-			if (alpha == 0) {
-				pixelID.alphaBlendSrc = (uint8_t)PixelBlendFactor::ZERO;
-				changedPixelID = true;
-			} else if (alpha == 0xFF) {
-				pixelID.alphaBlendSrc = (uint8_t)PixelBlendFactor::ONE;
-				changedPixelID = true;
-			}
-		}
-		if (pixelID.alphaBlend && pixelID.AlphaBlendDst() == PixelBlendFactor::INVSRCALPHA && !useTextureAlpha) {
-			if (alpha == 0) {
-				pixelID.alphaBlendDst = (uint8_t)PixelBlendFactor::ONE;
-				changedPixelID = true;
-			} else if (alpha == 0xFF) {
-				pixelID.alphaBlendDst = (uint8_t)PixelBlendFactor::ZERO;
-				changedPixelID = true;
-			}
-		}
-		if (pixelID.alphaBlend && pixelID.AlphaBlendSrc() == PixelBlendFactor::ONE && pixelID.AlphaBlendDst() == PixelBlendFactor::ZERO) {
-			if (pixelID.AlphaBlendEq() == GE_BLENDMODE_MUL_AND_ADD) {
-				pixelID.alphaBlend = false;
-				changedPixelID = true;
-			}
-		}
-	}
-	if (state.enableTextures) {
-		if (v1.color0 == 0xFFFFFFFF) {
-			// Modulate is common, sometimes even with a fixed color.  Replace is cheaper.
-			if (state.samplerID.TexFunc() == GE_TEXFUNC_MODULATE) {
-				state.samplerID.texFunc = (uint8_t)GE_TEXFUNC_REPLACE;
-				changedSamplerID = true;
-			}
-		}
+	RasterizerStateFlags optimize = DetectStateOptimizations(&state);
+	if (OptimizeAllFlags(state.flags) != OptimizeAllFlags(optimize)) {
+		ApplyStateOptimizations(&state, optimize);
+		return state;
 	}
 
-	if (changedPixelID) {
-		state.drawPixel = Rasterizer::GetSingleFunc(state.pixelID, nullptr);
-		// Can't compile during runtime.
-		if (!state.drawPixel)
-			return origState;
-	}
-	if (changedSamplerID) {
-		state.linear = Sampler::GetLinearFunc(state.samplerID, nullptr);
-		state.nearest = Sampler::GetNearestFunc(state.samplerID, nullptr);
-		// Can't compile during runtime.
-		if (!state.linear || !state.nearest)
-			return origState;
-
-		// Since the definitions are the same, just force this setting using the func pointer.
-		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR)
-			state.nearest = state.linear;
-		else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST)
-			state.linear = state.nearest;
-	}
-
-	return state;
+	return origState;
 }
 
 static inline u8 ClampFogDepth(float fogdepth) {
@@ -602,7 +748,7 @@ void DrawTriangleSlice(
 	// All the z values are the same, no interpolation required.
 	// This is common, and when we interpolate, we lose accuracy.
 	const bool flatZ = v0.screenpos.z == v1.screenpos.z && v0.screenpos.z == v2.screenpos.z;
-	const bool flatColorAll = clearMode || !state.shadeGouraud;
+	const bool flatColorAll = !state.shadeGouraud;
 	const bool flatColor0 = flatColorAll || (v0.color0 == v1.color0 && v0.color0 == v2.color0);
 	const bool flatColor1 = flatColorAll || (v0.color1 == v1.color1 && v0.color1 == v2.color1);
 	const bool noFog = clearMode || !pixelID.applyFog || (v0.fogdepth >= 1.0f && v1.fogdepth >= 1.0f && v2.fogdepth >= 1.0f);

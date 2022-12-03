@@ -22,6 +22,7 @@
 #include <functional>
 #include <unordered_map>
 #include <unordered_set>
+#include "Common/Data/Collections/Hashmaps.h"
 #include "GPU/Math3D.h"
 #include "GPU/Software/FuncId.h"
 #include "GPU/Software/RasterizerRegCache.h"
@@ -126,7 +127,7 @@ private:
 	const u8 *const5551Swizzle_ = nullptr;
 	const u8 *const5650Swizzle_ = nullptr;
 
-	std::unordered_map<SamplerID, NearestFunc> cache_;
+	DenseHashMap<size_t, NearestFunc, nullptr> cache_;
 	std::unordered_map<SamplerID, const u8 *> addresses_;
 	std::unordered_set<SamplerID> compileQueue_;
 };
