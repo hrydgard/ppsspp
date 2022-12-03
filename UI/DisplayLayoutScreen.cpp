@@ -117,9 +117,6 @@ private:
 };
 
 DisplayLayoutScreen::DisplayLayoutScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {
-	// Ignore insets - just couldn't get the logic to work.
-	ignoreInsets_ = true;
-
 	// Show background at full brightness
 	darkenGameBackground_ = false;
 }
