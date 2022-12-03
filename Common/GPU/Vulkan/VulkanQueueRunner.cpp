@@ -2080,6 +2080,7 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 	VKRImage srcImage{};
 	srcImage.image = step.readback_image.image;
 	srcImage.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	srcImage.numLayers = 1;
 
 	SetupTransitionToTransferSrc(srcImage, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
 	recordBarrier_.Flush(cmd);
