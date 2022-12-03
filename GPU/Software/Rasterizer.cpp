@@ -309,6 +309,16 @@ static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 			if (texFunc == GE_TEXFUNC_MODULATE)
 				optimize |= RasterizerStateFlags::OPTIMIZED_TEXREPLACE;
 		}
+
+		bool usesClut = (samplerID.texfmt & 4) != 0;
+		if (usesClut && alphaFull && samplerID.useTextureAlpha) {
+			bool alphaTest = pixelID.AlphaTestFunc() == GE_COMP_NOTEQUAL && pixelID.alphaTestRef == 0 && !state->pixelID.hasAlphaTestMask;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF)
+				alphaTest = true;
+
+			if (alphaTest && CheckClutAlphaFull(state))
+				optimize |= RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF;
+		}
 	}
 
 	return optimize;
@@ -338,6 +348,10 @@ static bool ApplyStateOptimizations(RasterizerState *state, const RasterizerStat
 			pixelID.applyFog = false;
 		else if (state->flags & RasterizerStateFlags::OPTIMIZED_FOG_OFF)
 			pixelID.applyFog = true;
+		if (optimize & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF)
+			pixelID.alphaTestFunc = GE_COMP_ALWAYS;
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF)
+			pixelID.alphaTestFunc = GE_COMP_NOTEQUAL;
 
 		SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID, nullptr);
 		// Can't compile during runtime.  This failing is a bit of a problem when undoing...
