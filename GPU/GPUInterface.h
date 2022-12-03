@@ -261,8 +261,6 @@ public:
 	virtual void NotifyRenderResized() = 0;
 	virtual void NotifyConfigChanged() = 0;
 
-	virtual void ClearShaderCache() = 0;
-	virtual void CleanupBeforeUI() = 0;
 	virtual bool FramebufferDirty() = 0;
 	virtual bool FramebufferReallyDirty() = 0;
 	virtual bool BusyDrawing() = 0;
