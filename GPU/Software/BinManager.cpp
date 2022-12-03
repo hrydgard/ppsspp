@@ -169,12 +169,14 @@ void BinManager::UpdateState() {
 	if (HasDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL)) {
 		if (states_.Full())
 			Flush("states");
+		creatingState_ = true;
 		stateIndex_ = (uint16_t)states_.Push(RasterizerState());
 		// When new funcs are compiled, we need to flush if WX exclusive.
 		ComputeRasterizerState(&states_[stateIndex_], [&]() {
 			Flush("compile");
 		});
 		states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
+		creatingState_ = false;
 
 		ClearDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL);
 	}
@@ -492,6 +494,10 @@ void BinManager::Drain(bool flushing) {
 		tasksSplit_ = true;
 	}
 
+	// Let's try to optimize states, if we can.
+	OptimizePendingStates(pendingStateIndex_, stateIndex_);
+	pendingStateIndex_ = stateIndex_;
+
 	if (taskRanges_.size() <= 1) {
 		PROFILE_THIS_SCOPE("bin_drain_single");
 		while (!queue_.Empty()) {
@@ -587,6 +593,22 @@ void BinManager::Flush(const char *reason) {
 			slowestFlushTime_ = et - st;
 			slowestFlushReason_ = reason;
 		}
+	}
+}
+
+void BinManager::OptimizePendingStates(uint16_t first, uint16_t last) {
+	// We can sometimes hit this when compiling new funcs while creating a state.
+	// At that point, the state isn't loaded fully yet, so don't touch it.
+	if (creatingState_ && last == stateIndex_) {
+		if (first == last)
+			return;
+		last--;
+	}
+
+	int count = (QUEUED_STATES + last - first) % QUEUED_STATES + 1;
+	for (int i = 0; i < count; ++i) {
+		size_t pos = (first + i) % QUEUED_STATES;
+		OptimizeRasterState(&states_[pos]);
 	}
 }
 

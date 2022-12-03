@@ -39,6 +39,15 @@ enum class RasterizerStateFlags {
 	VERTEX_ALPHA_NON_ZERO = 0x0002,
 	VERTEX_ALPHA_NON_FULL = 0x0004,
 
+	OPTIMIZED = 0x0001'0000,
+	OPTIMIZED_BLEND_SRC = 0x0002'0000,
+	OPTIMIZED_BLEND_DST = 0x0004'0000,
+	OPTIMIZED_BLEND_OFF = 0x0008'0000,
+	OPTIMIZED_TEXREPLACE = 0x0010'0000,
+
+	OPTIMIZED_PIXELID = OPTIMIZED_BLEND_SRC | OPTIMIZED_BLEND_DST | OPTIMIZED_BLEND_OFF,
+	OPTIMIZED_SAMPLERID = OPTIMIZED_TEXREPLACE,
+
 	INVALID = 0x7FFFFFFF,
 };
 ENUM_CLASS_BITOPS(RasterizerStateFlags);
@@ -54,6 +63,7 @@ struct RasterizerState {
 	const u8 *texptr[8]{};
 	float textureLodSlope;
 	RasterizerStateFlags flags = RasterizerStateFlags::NONE;
+	RasterizerStateFlags lastFlags = RasterizerStateFlags::INVALID;
 
 	struct {
 		uint8_t maxTexLevel : 3;
@@ -82,6 +92,7 @@ void ComputeRasterizerState(RasterizerState *state, std::function<void()> flushF
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0);
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, bool forceFlat);
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, const VertexData &v2);
+bool OptimizeRasterState(RasterizerState *state);
 
 // Draws a triangle if its vertices are specified in counter-clockwise order
 void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const BinCoords &range, const RasterizerState &state);
