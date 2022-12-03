@@ -165,6 +165,8 @@ static inline void CalculateRasterStateFlags(RasterizerState *state, const Verte
 		if (alpha != 0xFF)
 			state->flags |= RasterizerStateFlags::VERTEX_ALPHA_NON_FULL;
 	}
+	if (!(v0.fogdepth >= 1.0f))
+		state->flags |= RasterizerStateFlags::VERTEX_HAS_FOG;
 }
 
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0) {
@@ -241,6 +243,13 @@ static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 				optimize |= RasterizerStateFlags::OPTIMIZED_BLEND_OFF;
 			}
 		}
+
+		bool applyFog = pixelID.applyFog || (state->flags & RasterizerStateFlags::OPTIMIZED_FOG_OFF);
+		if (applyFog) {
+			bool hasFog = state->flags & RasterizerStateFlags::VERTEX_HAS_FOG;
+			if (!hasFog)
+				optimize |= RasterizerStateFlags::OPTIMIZED_FOG_OFF;
+		}
 	}
 
 	if (state->enableTextures) {
@@ -281,6 +290,10 @@ static bool ApplyStateOptimizations(RasterizerState *state, const RasterizerStat
 			pixelID.alphaBlendDst = (uint8_t)(canFull ? PixelBlendFactor::ZERO : PixelBlendFactor::ONE);
 		else if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_DST)
 			pixelID.alphaBlendDst = (uint8_t)PixelBlendFactor::INVSRCALPHA;
+		if (optimize & RasterizerStateFlags::OPTIMIZED_FOG_OFF)
+			pixelID.applyFog = false;
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_FOG_OFF)
+			pixelID.applyFog = true;
 
 		SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID, nullptr);
 		// Can't compile during runtime.  This failing is a bit of a problem when undoing...
@@ -346,7 +359,7 @@ RasterizerState OptimizeFlatRasterizerState(const RasterizerState &origState, co
 	RasterizerState state = origState;
 
 	// Sometimes, a particular draw can do better than the overall state.
-	state.flags = ClearFlags(state.flags, RasterizerStateFlags::VERTEX_NON_FULL_WHITE | RasterizerStateFlags::VERTEX_ALPHA_NON_FULL | RasterizerStateFlags::VERTEX_ALPHA_NON_ZERO);
+	state.flags = ClearFlags(state.flags, RasterizerStateFlags::VERTEX_FLAT_RESET);
 	CalculateRasterStateFlags(&state, v1, true);
 
 	RasterizerStateFlags optimize = DetectStateOptimizations(&state);
