@@ -50,6 +50,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 	}
 
 	shaderInfo.clear();
+	textureShaderInfo.clear();
 
 	auto appendShader = [&](const ShaderInfo &info) {
 		auto beginErase = std::remove(shaderInfo.begin(), shaderInfo.end(), info.name);
@@ -230,11 +231,10 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 	}
 	shaderInfo.insert(shaderInfo.begin(), off);
 
-	textureShaderInfo.clear();
 	TextureShaderInfo textureOff{};
 	textureOff.name = "Off";
 	textureOff.section = "Off";
-	textureShaderInfo.push_back(textureOff);
+	textureShaderInfo.insert(textureShaderInfo.begin(), textureOff);
 
 	// We always want the not visible ones at the end.  Makes menus easier.
 	for (const auto &info : notVisible) {
