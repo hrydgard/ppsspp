@@ -485,7 +485,7 @@ void ReportFinishScreen::ShowSuggestions() {
 			const char *suggestion = nullptr;
 			if (item == "Upgrade") {
 				suggestion = rp->T("SuggestionUpgrade", "Upgrade to a newer PPSSPP build");
-			} if (item == "Downgrade") {
+			} else if (item == "Downgrade") {
 				suggestion = rp->T("SuggestionDowngrade", "Downgrade to an older PPSSPP version (please report this bug)");
 			} else if (item == "VerifyDisc") {
 				suggestion = rp->T("SuggestionVerifyDisc", "Check your ISO is a good copy of your disc");
