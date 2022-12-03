@@ -1272,6 +1272,9 @@ void AnchorLayout::Layout() {
 			if (center) {
 				vBounds.x += vBounds.w * 0.5f;
 			}
+		} else {
+			// Both left and right are NONE. Center.
+			vBounds.x = (bounds_.w - vBounds.w) / 2.0f + bounds_.x;
 		}
 
 		if (top > NONE) {
@@ -1282,6 +1285,9 @@ void AnchorLayout::Layout() {
 			vBounds.y = bounds_.y2() - bottom - vBounds.h;
 			if (center)
 				vBounds.y += vBounds.h * 0.5f;
+		} else {
+			// Both top and bottom are NONE. Center.
+			vBounds.y = (bounds_.h - vBounds.h) / 2.0f + bounds_.y;
 		}
 
 		views_[i]->SetBounds(vBounds);
