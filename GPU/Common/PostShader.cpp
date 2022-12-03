@@ -51,12 +51,6 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 
 	shaderInfo.clear();
 
-	textureShaderInfo.clear();
-	TextureShaderInfo textureOff{};
-	textureOff.name = "Off";
-	textureOff.section = "Off";
-	textureShaderInfo.push_back(textureOff);
-
 	auto appendShader = [&](const ShaderInfo &info) {
 		auto beginErase = std::remove(shaderInfo.begin(), shaderInfo.end(), info.name);
 		if (beginErase != shaderInfo.end()) {
@@ -221,6 +215,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 
 	// Sort shaders alphabetically.
 	std::sort(shaderInfo.begin(), shaderInfo.end());
+	std::sort(textureShaderInfo.begin(), textureShaderInfo.end());
 
 	ShaderInfo off{};
 	off.visible = true;
@@ -234,6 +229,12 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 		off.settings[i].step = 0.01f;
 	}
 	shaderInfo.insert(shaderInfo.begin(), off);
+
+	textureShaderInfo.clear();
+	TextureShaderInfo textureOff{};
+	textureOff.name = "Off";
+	textureOff.section = "Off";
+	textureShaderInfo.push_back(textureOff);
 
 	// We always want the not visible ones at the end.  Makes menus easier.
 	for (const auto &info : notVisible) {

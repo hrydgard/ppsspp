@@ -60,16 +60,19 @@ struct ShaderInfo {
 	// TODO: Add support for all kinds of fun options like mapping the depth buffer,
 	// SRGB texture reads, etc.  prev shader?
 
-	bool operator == (const std::string &other) {
+	bool operator == (const std::string &other) const {
 		return name == other;
 	}
-	bool operator == (const ShaderInfo &other) {
+	bool operator == (const ShaderInfo &other) const {
 		return name == other.name;
 	}
 
-	bool operator < (const ShaderInfo &other) {
+	bool operator < (const ShaderInfo &other) const {
 		if (name < other.name) return true;
 		if (name > other.name) return false;
+		// Tie breaker
+		if (iniFile < other.iniFile) return true;
+		if (iniFile > other.iniFile) return false;
 		return false;
 	}
 };
@@ -84,11 +87,20 @@ struct TextureShaderInfo {
 	// Upscaling shaders have a fixed scale factor.
 	int scaleFactor;
 
-	bool operator == (const std::string &other) {
+	bool operator == (const std::string &other) const {
 		return name == other;
 	}
-	bool operator == (const TextureShaderInfo &other) {
+	bool operator == (const TextureShaderInfo &other) const {
 		return name == other.name;
+	}
+
+	bool operator < (const TextureShaderInfo &other) const {
+		if (name < other.name) return true;
+		if (name > other.name) return false;
+		// Tie breaker
+		if (iniFile < other.iniFile) return true;
+		if (iniFile > other.iniFile) return false;
+		return false;
 	}
 };
 
