@@ -141,7 +141,7 @@ VkDescriptorSet VulkanComputeShaderManager::GetDescriptorSet(VkImageView image, 
 	VkDescriptorSet desc = frameData.descPool.Allocate(1, &descriptorSetLayout_, "compute_descset");
 	_assert_(desc != VK_NULL_HANDLE);
 
-	VkWriteDescriptorSet writes[2]{};
+	VkWriteDescriptorSet writes[3]{};
 	int n = 0;
 	VkDescriptorImageInfo imageInfo = {};
 	VkDescriptorBufferInfo bufferInfo[2] = {};
