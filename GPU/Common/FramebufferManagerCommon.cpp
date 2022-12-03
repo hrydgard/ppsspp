@@ -91,7 +91,12 @@ void FramebufferManagerCommon::Init() {
 bool FramebufferManagerCommon::UpdateRenderSize() {
 	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight || msaaLevel_ != g_Config.iMultiSampleLevel;
 
-	const int effectiveBloomHack = PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn ? 3 : g_Config.iBloomHack;
+	int effectiveBloomHack = g_Config.iBloomHack;
+	if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn) {
+		effectiveBloomHack = 3;
+	} else if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOff) {
+		effectiveBloomHack = 0;
+	}
 
 	bool newBuffered = !g_Config.bSkipBufferEffects;
 	const bool newSettings = bloomHack_ != effectiveBloomHack || useBufferedRendering_ != newBuffered;
