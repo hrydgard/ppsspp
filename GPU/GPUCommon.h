@@ -267,6 +267,8 @@ protected:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
+	void ClearCacheNextFrame();
+
 	virtual void CheckRenderResized();
 
 	// Add additional common features dependent on other features, which may be backend-determined.

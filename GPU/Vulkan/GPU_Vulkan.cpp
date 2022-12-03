@@ -528,10 +528,6 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 	);
 }
 
-void GPU_Vulkan::ClearCacheNextFrame() {
-	textureCacheVulkan_->ClearNextFrame();
-}
-
 void GPU_Vulkan::ClearShaderCache() {
 	// TODO
 }
