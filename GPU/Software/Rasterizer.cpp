@@ -312,12 +312,17 @@ static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 
 		bool usesClut = (samplerID.texfmt & 4) != 0;
 		if (usesClut && alphaFull && samplerID.useTextureAlpha) {
-			bool alphaTest = pixelID.AlphaTestFunc() == GE_COMP_NOTEQUAL && pixelID.alphaTestRef == 0 && !state->pixelID.hasAlphaTestMask;
-			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF)
-				alphaTest = true;
+			GEComparison alphaTestFunc = pixelID.AlphaTestFunc();
+			// We optimize > 0 to != 0, so this is especially common.
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE)
+				alphaTestFunc = GE_COMP_NOTEQUAL;
+			// > 16, 8, or similar are also very common.
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT)
+				alphaTestFunc = GE_COMP_GREATER;
 
+			bool alphaTest = (alphaTestFunc == GE_COMP_NOTEQUAL || alphaTestFunc == GE_COMP_GREATER) && pixelID.alphaTestRef < 0xFF && !state->pixelID.hasAlphaTestMask;
 			if (alphaTest && CheckClutAlphaFull(state))
-				optimize |= RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF;
+				optimize |= alphaTestFunc == GE_COMP_NOTEQUAL ? RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE : RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT;
 		}
 	}
 
@@ -348,10 +353,12 @@ static bool ApplyStateOptimizations(RasterizerState *state, const RasterizerStat
 			pixelID.applyFog = false;
 		else if (state->flags & RasterizerStateFlags::OPTIMIZED_FOG_OFF)
 			pixelID.applyFog = true;
-		if (optimize & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF)
+		if (optimize & (RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE | RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT))
 			pixelID.alphaTestFunc = GE_COMP_ALWAYS;
-		else if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF)
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE)
 			pixelID.alphaTestFunc = GE_COMP_NOTEQUAL;
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT)
+			pixelID.alphaTestFunc = GE_COMP_GREATER;
 
 		SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID, nullptr);
 		// Can't compile during runtime.  This failing is a bit of a problem when undoing...
