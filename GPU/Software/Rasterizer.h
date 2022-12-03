@@ -33,6 +33,16 @@ struct BinCoords;
 
 namespace Rasterizer {
 
+enum class RasterizerStateFlags {
+	NONE = 0,
+	VERTEX_NON_FULL_WHITE = 0x0001,
+	VERTEX_ALPHA_NON_ZERO = 0x0002,
+	VERTEX_ALPHA_NON_FULL = 0x0004,
+
+	INVALID = 0x7FFFFFFF,
+};
+ENUM_CLASS_BITOPS(RasterizerStateFlags);
+
 struct RasterizerState {
 	PixelFuncID pixelID;
 	SamplerID samplerID;
@@ -43,6 +53,7 @@ struct RasterizerState {
 	uint16_t texbufw[8]{};
 	const u8 *texptr[8]{};
 	float textureLodSlope;
+	RasterizerStateFlags flags = RasterizerStateFlags::NONE;
 
 	struct {
 		uint8_t maxTexLevel : 3;
@@ -68,6 +79,9 @@ struct RasterizerState {
 };
 
 void ComputeRasterizerState(RasterizerState *state, std::function<void()> flushForCompile);
+void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0);
+void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, bool forceFlat);
+void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, const VertexData &v2);
 
 // Draws a triangle if its vertices are specified in counter-clockwise order
 void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const BinCoords &range, const RasterizerState &state);

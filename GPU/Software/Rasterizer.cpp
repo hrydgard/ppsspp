@@ -155,6 +155,33 @@ void ComputeRasterizerState(RasterizerState *state, std::function<void()> flushF
 #endif
 }
 
+static inline void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, bool useColor) {
+	if (useColor) {
+		if ((v0.color0 & 0x00FFFFFF) != 0x00FFFFFF)
+			state->flags |= RasterizerStateFlags::VERTEX_NON_FULL_WHITE;
+		uint8_t alpha = v0.color0 >> 24;
+		if (alpha != 0)
+			state->flags |= RasterizerStateFlags::VERTEX_ALPHA_NON_ZERO;
+		if (alpha != 0xFF)
+			state->flags |= RasterizerStateFlags::VERTEX_ALPHA_NON_FULL;
+	}
+}
+
+void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0) {
+	CalculateRasterStateFlags(state, v0, true);
+}
+
+void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, bool forceFlat) {
+	CalculateRasterStateFlags(state, v0, !forceFlat && state->shadeGouraud);
+	CalculateRasterStateFlags(state, v1, true);
+}
+
+void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, const VertexData &v2) {
+	CalculateRasterStateFlags(state, v0, state->shadeGouraud);
+	CalculateRasterStateFlags(state, v1, state->shadeGouraud);
+	CalculateRasterStateFlags(state, v2, true);
+}
+
 RasterizerState OptimizeFlatRasterizerState(const RasterizerState &origState, const VertexData &v1) {
 	uint8_t alpha = v1.color0 >> 24;
 	RasterizerState state = origState;

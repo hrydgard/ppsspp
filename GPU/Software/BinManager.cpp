@@ -388,6 +388,7 @@ void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const V
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::TRIANGLE, stateIndex_, range, v0, v1, v2 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, v2);
 	Expand(range);
 }
 
@@ -399,6 +400,7 @@ void BinManager::AddClearRect(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::CLEAR_RECT, stateIndex_, range, v0, v1 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, true);
 	Expand(range);
 }
 
@@ -410,6 +412,7 @@ void BinManager::AddRect(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::RECT, stateIndex_, range, v0, v1 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, true);
 	Expand(range);
 }
 
@@ -421,6 +424,7 @@ void BinManager::AddSprite(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::SPRITE, stateIndex_, range, v0, v1 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, true);
 	Expand(range);
 }
 
@@ -432,6 +436,7 @@ void BinManager::AddLine(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::LINE, stateIndex_, range, v0, v1 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, false);
 	Expand(range);
 }
 
@@ -443,6 +448,7 @@ void BinManager::AddPoint(const VertexData &v0) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::POINT, stateIndex_, range, v0 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0);
 	Expand(range);
 }
 
