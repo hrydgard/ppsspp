@@ -218,24 +218,28 @@ static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 		auto &cached = pixelID.cached;
 
 		bool useTextureAlpha = state->enableTextures && state->samplerID.useTextureAlpha;
-		if (pixelID.alphaBlend && !useTextureAlpha) {
+		bool alphaBlend = pixelID.alphaBlend || (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_OFF);
+		if (alphaBlend && !useTextureAlpha) {
+			PixelBlendFactor src = pixelID.AlphaBlendSrc();
+			PixelBlendFactor dst = pixelID.AlphaBlendDst();
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_SRC)
+				src = PixelBlendFactor::SRCALPHA;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_DST)
+				dst = PixelBlendFactor::INVSRCALPHA;
+
 			bool canZero = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_ZERO);
 			bool canFull = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_FULL);
 			// Okay, we may be able to convert this to a fixed value.
 			if (canZero || canFull) {
 				// If it was already set and we still can, set it again.
-				if (pixelID.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA || (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_SRC))
+				if (src == PixelBlendFactor::SRCALPHA)
 					optimize |= RasterizerStateFlags::OPTIMIZED_BLEND_SRC;
-				if (pixelID.AlphaBlendDst() == PixelBlendFactor::INVSRCALPHA || (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_DST))
+				if (dst == PixelBlendFactor::INVSRCALPHA)
 					optimize |= RasterizerStateFlags::OPTIMIZED_BLEND_DST;
 			}
-			if (canFull && (pixelID.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA || pixelID.AlphaBlendSrc() == PixelBlendFactor::ONE) && (pixelID.AlphaBlendDst() == PixelBlendFactor::INVSRCALPHA || pixelID.AlphaBlendDst() == PixelBlendFactor::ZERO)) {
+			if (canFull && (src == PixelBlendFactor::SRCALPHA || src == PixelBlendFactor::ONE) && (dst == PixelBlendFactor::INVSRCALPHA || dst == PixelBlendFactor::ZERO)) {
 				optimize |= RasterizerStateFlags::OPTIMIZED_BLEND_OFF;
 			}
-		} else if (!pixelID.alphaBlend && (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_OFF)) {
-			bool canFull = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_FULL);
-			if (canFull)
-				optimize |= RasterizerStateFlags::OPTIMIZED_BLEND_OFF;
 		}
 	}
 
@@ -245,7 +249,11 @@ static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 		bool colorFull = !(state->flags & RasterizerStateFlags::VERTEX_NON_FULL_WHITE);
 		if (colorFull && (!useTextureAlpha || alphaFull)) {
 			// Modulate is common, sometimes even with a fixed color.  Replace is cheaper.
-			if (state->samplerID.TexFunc() == GE_TEXFUNC_MODULATE || (state->flags & RasterizerStateFlags::OPTIMIZED_TEXREPLACE))
+			GETexFunc texFunc = state->samplerID.TexFunc();
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_TEXREPLACE)
+				texFunc = GE_TEXFUNC_MODULATE;
+
+			if (texFunc == GE_TEXFUNC_MODULATE)
 				optimize |= RasterizerStateFlags::OPTIMIZED_TEXREPLACE;
 		}
 	}
