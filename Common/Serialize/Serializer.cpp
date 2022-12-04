@@ -171,6 +171,7 @@ void Do(PointerWrap &p, std::string &x) {
 	case PointerWrap::MODE_READ: x = (char*)*p.ptr; break;
 	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
 	case PointerWrap::MODE_MEASURE: break;
+	case PointerWrap::MODE_NOOP: break;
 	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(!strcmp(x.c_str(), (char*)*p.ptr), "Savestate verification failure: \"%s\" != \"%s\" (at %p).\n", x.c_str(), (char *)*p.ptr, p.ptr); break;
 	}
 	(*p.ptr) += stringLen;
@@ -198,6 +199,7 @@ void Do(PointerWrap &p, std::wstring &x) {
 	case PointerWrap::MODE_READ: x = read(); break;
 	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
 	case PointerWrap::MODE_MEASURE: break;
+	case PointerWrap::MODE_NOOP: break;
 	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(x == read(), "Savestate verification failure: \"%ls\" != \"%ls\" (at %p).\n", x.c_str(), read().c_str(), p.ptr); break;
 	}
 	(*p.ptr) += stringLen;
@@ -225,6 +227,7 @@ void Do(PointerWrap &p, std::u16string &x) {
 	case PointerWrap::MODE_READ: x = read(); break;
 	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
 	case PointerWrap::MODE_MEASURE: break;
+	case PointerWrap::MODE_NOOP: break;
 	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(x == read(), "Savestate verification failure: (at %p).\n", p.ptr); break;
 	}
 	(*p.ptr) += stringLen;

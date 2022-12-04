@@ -46,9 +46,8 @@ void DoSet(PointerWrap &p, std::set<T> &x) {
 			Do(p, *itr++);
 	}
 	break;
-
-	default:
-		ERROR_LOG(SAVESTATE, "Savestate error: invalid mode %d.", p.mode);
+	case PointerWrap::MODE_NOOP:
+		break;
 	}
 }
 

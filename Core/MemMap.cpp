@@ -335,6 +335,8 @@ static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
 				_dbg_assert_msg_(d[i] == storage[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", d[i], d[i], &d[i], storage[i], storage[i], &storage[i]);
 		}, 0, size, 128);
 		break;
+	case PointerWrap::MODE_NOOP:
+		break;
 	}
 	storage += size;
 }
