@@ -76,7 +76,7 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 				return PointerWrapSection(*this, -1, title);
 			}
 			if (!checkpoints_[curCheckpoint_].Matches(marker, offset)) {
-				WARN_LOG(SAVESTATE, "Checkpoint mismatch during write! Section %s but expected %s, offset %d but expected %d", title, marker, offset, (int)checkpoints_[curCheckpoint_].offset);
+				WARN_LOG(SAVESTATE, "Checkpoint mismatch during write! Section %s but expected %s, offset %d but expected %d", title, marker, (int)offset, (int)checkpoints_[curCheckpoint_].offset);
 				if (curCheckpoint_ > 1) {
 					WARN_LOG(SAVESTATE, "Previous checkpoint: %s (%d)", checkpoints_[curCheckpoint_ - 1].title, (int)checkpoints_[curCheckpoint_ - 1].offset);
 				}
