@@ -581,7 +581,8 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 		std::string genErrorString;
 		uint32_t attrMask;
 		uint64_t uniformMask;
-		if (GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, nullptr, &genErrorString)) {
+		VertexShaderFlags flags;
+		if (GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &flags, &genErrorString)) {
 			vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
 		}
 		if (!vs || vs->Failed()) {
@@ -606,7 +607,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 			// Can still work with software transform.
 			uint32_t attrMask;
 			uint64_t uniformMask;
-			bool success = GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, nullptr, &genErrorString);
+			bool success = GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &flags, &genErrorString);
 			_assert_(success);
 			vs = new VSShader(device_, VSID, codeBuffer_, false);
 		}
@@ -623,7 +624,8 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 		// Fragment shader not in cache. Let's compile it.
 		std::string errorString;
 		uint64_t uniformMask;
-		bool success = GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, nullptr, &errorString);
+		FragmentShaderFlags flags;
+		bool success = GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, &flags, &errorString);
 		// We're supposed to handle all possible cases.
 		_assert_(success);
 		fs = new PSShader(device_, FSID, codeBuffer_);

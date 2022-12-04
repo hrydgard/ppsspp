@@ -98,12 +98,12 @@ FetchFunc GetFetchFunc(SamplerID id, std::function<void()> flushForCompile) {
 }
 
 // 256k should be enough.
-SamplerJitCache::SamplerJitCache() : Rasterizer::CodeBlock(1024 * 64 * 4) {
+SamplerJitCache::SamplerJitCache() : Rasterizer::CodeBlock(1024 * 64 * 4), cache_(64) {
 }
 
 void SamplerJitCache::Clear() {
 	CodeBlock::Clear();
-	cache_.clear();
+	cache_.Clear();
 	addresses_.clear();
 
 	const10All16_ = nullptr;
@@ -144,8 +144,12 @@ std::string SamplerJitCache::DescribeCodePtr(const u8 *ptr) {
 
 void SamplerJitCache::Flush() {
 	std::unique_lock<std::mutex> guard(jitCacheLock);
-	for (const auto &queued : compileQueue_)
-		Compile(queued);
+	for (const auto &queued : compileQueue_) {
+		// Might've been compiled after enqueue, but before now.
+		size_t queuedKey = std::hash<SamplerID>()(queued);
+		if (!cache_.Get(queuedKey))
+			Compile(queued);
+	}
 	compileQueue_.clear();
 }
 
@@ -154,10 +158,11 @@ NearestFunc SamplerJitCache::GetByID(const SamplerID &id, std::function<void()> 
 		return nullptr;
 
 	std::unique_lock<std::mutex> guard(jitCacheLock);
+	const size_t key = std::hash<SamplerID>()(id);
 
-	auto it = cache_.find(id);
-	if (it != cache_.end())
-		return it->second;
+	auto it = cache_.Get(key);
+	if (it != nullptr)
+		return it;
 
 	if (!flushForCompile) {
 		// Can't compile, let's try to do it later when there's an opportunity.
@@ -169,17 +174,19 @@ NearestFunc SamplerJitCache::GetByID(const SamplerID &id, std::function<void()> 
 	flushForCompile();
 	guard.lock();
 
-	for (const auto &queued : compileQueue_)
-		Compile(queued);
+	for (const auto &queued : compileQueue_) {
+		// Might've been compiled after enqueue, but before now.
+		size_t queuedKey = std::hash<SamplerID>()(queued);
+		if (!cache_.Get(queuedKey))
+			Compile(queued);
+	}
 	compileQueue_.clear();
 
-	Compile(id);
+	if (!cache_.Get(key))
+		Compile(id);
 
 	// Okay, should be there now.
-	it = cache_.find(id);
-	if (it != cache_.end())
-		return it->second;
-	return nullptr;
+	return cache_.Get(key);
 }
 
 NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, std::function<void()> flushForCompile) {
@@ -207,19 +214,19 @@ void SamplerJitCache::Compile(const SamplerID &id) {
 	fetchID.linear = false;
 	fetchID.fetch = true;
 	addresses_[fetchID] = GetCodePointer();
-	cache_[fetchID] = (NearestFunc)CompileFetch(fetchID);
+	cache_.Insert(std::hash<SamplerID>()(fetchID), (NearestFunc)CompileFetch(fetchID));
 
 	SamplerID nearestID = id;
 	nearestID.linear = false;
 	nearestID.fetch = false;
 	addresses_[nearestID] = GetCodePointer();
-	cache_[nearestID] = (NearestFunc)CompileNearest(nearestID);
+	cache_.Insert(std::hash<SamplerID>()(nearestID), (NearestFunc)CompileNearest(nearestID));
 
 	SamplerID linearID = id;
 	linearID.linear = true;
 	linearID.fetch = false;
 	addresses_[linearID] = GetCodePointer();
-	cache_[linearID] = (NearestFunc)CompileLinear(linearID);
+	cache_.Insert(std::hash<SamplerID>()(linearID), (NearestFunc)CompileLinear(linearID));
 #endif
 }
 

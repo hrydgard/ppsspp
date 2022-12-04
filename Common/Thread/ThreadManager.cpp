@@ -113,7 +113,7 @@ bool ThreadManager::TeardownTask(Task *task, bool enqueue) {
 		if (task->Type() == TaskType::CPU_COMPUTE) {
 			global_->compute_queue.push_back(task);
 			global_->compute_queue_size++;
-		} else if (task->Type() == TaskType::CPU_COMPUTE) {
+		} else if (task->Type() == TaskType::IO_BLOCKING) {
 			global_->io_queue.push_back(task);
 			global_->io_queue_size++;
 		} else {

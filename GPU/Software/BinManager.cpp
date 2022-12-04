@@ -169,12 +169,14 @@ void BinManager::UpdateState() {
 	if (HasDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL)) {
 		if (states_.Full())
 			Flush("states");
+		creatingState_ = true;
 		stateIndex_ = (uint16_t)states_.Push(RasterizerState());
 		// When new funcs are compiled, we need to flush if WX exclusive.
 		ComputeRasterizerState(&states_[stateIndex_], [&]() {
 			Flush("compile");
 		});
 		states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
+		creatingState_ = false;
 
 		ClearDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL);
 	}
@@ -388,6 +390,7 @@ void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const V
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::TRIANGLE, stateIndex_, range, v0, v1, v2 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, v2);
 	Expand(range);
 }
 
@@ -399,6 +402,7 @@ void BinManager::AddClearRect(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::CLEAR_RECT, stateIndex_, range, v0, v1 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, true);
 	Expand(range);
 }
 
@@ -410,6 +414,7 @@ void BinManager::AddRect(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::RECT, stateIndex_, range, v0, v1 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, true);
 	Expand(range);
 }
 
@@ -421,6 +426,7 @@ void BinManager::AddSprite(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::SPRITE, stateIndex_, range, v0, v1 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, true);
 	Expand(range);
 }
 
@@ -432,6 +438,7 @@ void BinManager::AddLine(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::LINE, stateIndex_, range, v0, v1 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, false);
 	Expand(range);
 }
 
@@ -443,6 +450,7 @@ void BinManager::AddPoint(const VertexData &v0) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::POINT, stateIndex_, range, v0 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0);
 	Expand(range);
 }
 
@@ -485,6 +493,10 @@ void BinManager::Drain(bool flushing) {
 
 		tasksSplit_ = true;
 	}
+
+	// Let's try to optimize states, if we can.
+	OptimizePendingStates(pendingStateIndex_, stateIndex_);
+	pendingStateIndex_ = stateIndex_;
 
 	if (taskRanges_.size() <= 1) {
 		PROFILE_THIS_SCOPE("bin_drain_single");
@@ -581,6 +593,22 @@ void BinManager::Flush(const char *reason) {
 			slowestFlushTime_ = et - st;
 			slowestFlushReason_ = reason;
 		}
+	}
+}
+
+void BinManager::OptimizePendingStates(uint16_t first, uint16_t last) {
+	// We can sometimes hit this when compiling new funcs while creating a state.
+	// At that point, the state isn't loaded fully yet, so don't touch it.
+	if (creatingState_ && last == stateIndex_) {
+		if (first == last)
+			return;
+		last--;
+	}
+
+	int count = (QUEUED_STATES + last - first) % QUEUED_STATES + 1;
+	for (int i = 0; i < count; ++i) {
+		size_t pos = (first + i) % QUEUED_STATES;
+		OptimizeRasterState(&states_[pos]);
 	}
 }
 

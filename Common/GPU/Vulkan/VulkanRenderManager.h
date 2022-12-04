@@ -22,6 +22,7 @@
 #include "Common/GPU/MiscTypes.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 #include "Common/GPU/Vulkan/VulkanFramebuffer.h"
+#include "Common/GPU/thin3d.h"
 
 // Forward declaration
 VK_DEFINE_HANDLE(VmaAllocation);
@@ -74,7 +75,7 @@ struct BoundingRect {
 };
 
 // All the data needed to create a graphics pipeline.
-struct VKRGraphicsPipelineDesc {
+struct VKRGraphicsPipelineDesc : Draw::RefCountedObject {
 	VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 	VkPipelineColorBlendStateCreateInfo cbs{ VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
 	VkPipelineColorBlendAttachmentState blend0{};
@@ -82,7 +83,6 @@ struct VKRGraphicsPipelineDesc {
 	VkDynamicState dynamicStates[6]{};
 	VkPipelineDynamicStateCreateInfo ds{ VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
-	VkPipelineMultisampleStateCreateInfo ms{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
 
 	// Replaced the ShaderStageInfo with promises here so we can wait for compiles to finish.
 	Promise<VkShaderModule> *vertexShader = nullptr;
@@ -116,13 +116,18 @@ struct VKRComputePipelineDesc {
 
 // Wrapped pipeline. Doesn't own desc.
 struct VKRGraphicsPipeline {
+	VKRGraphicsPipeline(PipelineFlags flags, const char *tag) : flags_(flags), tag_(tag) {}
 	~VKRGraphicsPipeline() {
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			delete pipeline[i];
 		}
+		if (desc)
+			desc->Release();
 	}
 
-	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType);
+	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
+
+	void DestroyVariants(VulkanContext *vulkan, bool msaaOnly);
 
 	// This deletes the whole VKRGraphicsPipeline, you must remove your last pointer to it when doing this.
 	void QueueForDeletion(VulkanContext *vulkan);
@@ -131,9 +136,14 @@ struct VKRGraphicsPipeline {
 
 	void LogCreationFailure() const;
 
-	VKRGraphicsPipelineDesc *desc = nullptr;  // not owned!
+	VKRGraphicsPipelineDesc *desc = nullptr;
 	Promise<VkPipeline> *pipeline[(size_t)RenderPassType::TYPE_COUNT]{};
-	std::string tag;
+
+	VkSampleCountFlagBits SampleCount() const { return sampleCount_; }
+private:
+	std::string tag_;
+	PipelineFlags flags_;
+	VkSampleCountFlagBits sampleCount_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
 };
 
 struct VKRComputePipeline {
@@ -151,9 +161,9 @@ struct VKRComputePipeline {
 };
 
 struct CompileQueueEntry {
-	CompileQueueEntry(VKRGraphicsPipeline *p, VkRenderPass _compatibleRenderPass, RenderPassType _renderPassType)
-		: type(Type::GRAPHICS), graphics(p), compatibleRenderPass(_compatibleRenderPass), renderPassType(_renderPassType) {}
-	CompileQueueEntry(VKRComputePipeline *p) : type(Type::COMPUTE), compute(p), renderPassType(RenderPassType::HAS_DEPTH) {}  // renderpasstype here shouldn't matter
+	CompileQueueEntry(VKRGraphicsPipeline *p, VkRenderPass _compatibleRenderPass, RenderPassType _renderPassType, VkSampleCountFlagBits _sampleCount)
+		: type(Type::GRAPHICS), graphics(p), compatibleRenderPass(_compatibleRenderPass), renderPassType(_renderPassType), sampleCount(_sampleCount) {}
+	CompileQueueEntry(VKRComputePipeline *p) : type(Type::COMPUTE), compute(p), renderPassType(RenderPassType::HAS_DEPTH), sampleCount(VK_SAMPLE_COUNT_1_BIT) {}  // renderpasstype here shouldn't matter
 	enum class Type {
 		GRAPHICS,
 		COMPUTE,
@@ -163,6 +173,7 @@ struct CompileQueueEntry {
 	RenderPassType renderPassType;
 	VKRGraphicsPipeline *graphics = nullptr;
 	VKRComputePipeline *compute = nullptr;
+	VkSampleCountFlagBits sampleCount;
 };
 
 class VulkanRenderManager {
@@ -217,7 +228,7 @@ public:
 	// We delay creating pipelines until the end of the current render pass, so we can create the right type immediately.
 	// Unless a variantBitmask is passed in, in which case we can just go ahead.
 	// WARNING: desc must stick around during the lifetime of the pipeline! It's not enough to build it on the stack and drop it.
-	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, const char *tag);
+	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, const char *tag);
 	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc);
 
 	void NudgeCompilerThread() {
@@ -449,6 +460,8 @@ public:
 		// Accepting a few of these makes shutdown simpler.
 		return outOfDateFrames_ > VulkanContext::MAX_INFLIGHT_FRAMES;
 	}
+
+	void Invalidate(InvalidationFlags flags);
 
 	void ResetStats();
 

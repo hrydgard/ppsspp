@@ -305,6 +305,28 @@ void GameSettingsScreen::CreateViews() {
 		return !g_Config.bSoftwareRendering && !g_Config.bSkipBufferEffects;
 	});
 
+	if (deviceType != DEVICE_TYPE_VR) {
+		CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
+		softwareGPU->SetEnabled(!PSP_IsInited());
+	}
+
+	if (draw->GetDeviceCaps().multiSampleLevelsMask != 1) {
+		static const char *msaaModes[] = { "Off", "2x", "4x", "8x", "16x" };
+		auto msaaChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iMultiSampleLevel, gr->T("Antialiasing (MSAA)"), msaaModes, 0, ARRAY_SIZE(msaaModes), gr->GetName(), screenManager()));
+		msaaChoice->OnChoice.Add([&](UI::EventParams &) -> UI::EventReturn {
+			NativeMessageReceived("gpu_renderResized", "");
+			return UI::EVENT_DONE;
+		});
+		msaaChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
+		// Hide unsupported levels.
+		for (int i = 1; i < 5; i++) {
+			if ((draw->GetDeviceCaps().multiSampleLevelsMask & (1 << i)) == 0) {
+				msaaChoice->HideChoice(i);
+			}
+		}
+	}
+
 #if PPSSPP_PLATFORM(ANDROID)
 	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
 		static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
@@ -316,11 +338,6 @@ void GameSettingsScreen::CreateViews() {
 		hwscale->OnChoice.Handle(this, &GameSettingsScreen::OnHwScaleChange);  // To refresh the display mode
 	}
 #endif
-
-	if (deviceType != DEVICE_TYPE_VR) {
-		CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
-		softwareGPU->SetEnabled(!PSP_IsInited());
-	}
 
 	if (deviceType != DEVICE_TYPE_VR) {
 #if !defined(MOBILE_DEVICE)

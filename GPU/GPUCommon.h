@@ -243,8 +243,6 @@ public:
 		return dlQueue;
 	}
 	std::vector<FramebufferInfo> GetFramebufferList() const override;
-	void ClearShaderCache() override {}
-	void CleanupBeforeUI() override {}
 
 	s64 GetListTicks(int listid) const override {
 		if (listid >= 0 && listid < DisplayListMaxCount) {
@@ -267,7 +265,9 @@ protected:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
-	void CheckRenderResized();
+	void ClearCacheNextFrame();
+
+	virtual void CheckRenderResized();
 
 	// Add additional common features dependent on other features, which may be backend-determined.
 	u32 CheckGPUFeaturesLate(u32 features) const;

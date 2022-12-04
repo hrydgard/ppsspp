@@ -87,6 +87,7 @@ struct CompatFlags {
 	bool DeswizzleDepth;
 	bool SplitFramebufferMargin;
 	bool ForceLowerResolutionForEffectsOn;
+	bool ForceLowerResolutionForEffectsOff;
 	bool AllowDownloadCLUT;
 	bool NearestFilteringOnFramebufferCreate;
 	bool SecondaryTextureCache;

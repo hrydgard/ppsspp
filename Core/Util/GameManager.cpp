@@ -652,7 +652,7 @@ bool GameManager::InstallMemstickZip(struct zip *z, const Path &zipfile, const P
 		if (fwrite(buffer, readSize, 1, outf) != 1)
 			break;
 		bytesCopied += readSize;
-		installProgress_ = (float)allBytes / (float)allBytes;
+		installProgress_ = (float)bytesCopied / (float)allBytes;
 	}
 
 	delete[] buffer;

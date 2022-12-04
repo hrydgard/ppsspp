@@ -557,6 +557,7 @@ OpenGLContext::OpenGLContext() {
 	caps_.framebufferStencilBlitSupported = caps_.framebufferBlitSupported;
 	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp || gl_extensions.EXT_depth_clamp;
 	caps_.blendMinMaxSupported = gl_extensions.EXT_blend_minmax;
+	caps_.multiSampleLevelsMask = 1;  // More could be supported with some work.
 
 	if (gl_extensions.IsGLES) {
 		caps_.clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
@@ -601,6 +602,10 @@ OpenGLContext::OpenGLContext() {
 		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 		break;
 	}
+
+	// Very rough heuristic!
+	caps_.isTilingGPU = gl_extensions.IsGLES && caps_.vendor != GPUVendor::VENDOR_NVIDIA && caps_.vendor != GPUVendor::VENDOR_INTEL;
+
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
 		frameData_[i].push = renderManager_.CreatePushBuffer(i, GL_ARRAY_BUFFER, 64 * 1024);
 	}

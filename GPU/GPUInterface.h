@@ -245,6 +245,9 @@ public:
 	virtual bool PerformWriteColorFromMemory(u32 dest, int size) = 0;
 	virtual bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags = WriteStencil::NEEDS_CLEAR) = 0;
 
+	// Will cause the texture cache to be cleared at the start of the next frame.
+	virtual void ClearCacheNextFrame() = 0;
+
 	// Internal hack to avoid interrupts from "PPGe" drawing (utility UI, etc)
 	virtual void EnableInterrupts(bool enable) = 0;
 
@@ -258,8 +261,6 @@ public:
 	virtual void NotifyRenderResized() = 0;
 	virtual void NotifyConfigChanged() = 0;
 
-	virtual void ClearShaderCache() = 0;
-	virtual void CleanupBeforeUI() = 0;
 	virtual bool FramebufferDirty() = 0;
 	virtual bool FramebufferReallyDirty() = 0;
 	virtual bool BusyDrawing() = 0;

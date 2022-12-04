@@ -107,7 +107,7 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_FOG1, 0, SoftDirty::TRANSFORM_FOG },
 	{ GE_CMD_FOG2, 0, SoftDirty::TRANSFORM_FOG },
 
-	{ GE_CMD_CLEARMODE, 0, SoftDirty::TRANSFORM_BASIC | SoftDirty::RAST_TEX | SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST | SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_ALPHA | SoftDirty::PIXEL_STENCIL | SoftDirty::PIXEL_CACHED | SoftDirty::BINNER_RANGE | SoftDirty::BINNER_OVERLAP },
+	{ GE_CMD_CLEARMODE, 0, SoftDirty::TRANSFORM_BASIC | SoftDirty::RAST_BASIC | SoftDirty::RAST_TEX | SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST | SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_ALPHA | SoftDirty::PIXEL_STENCIL | SoftDirty::PIXEL_CACHED | SoftDirty::BINNER_RANGE | SoftDirty::BINNER_OVERLAP },
 	{ GE_CMD_TEXTUREMAPENABLE, 0, SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST | SoftDirty::RAST_TEX | SoftDirty::TRANSFORM_BASIC | SoftDirty::BINNER_OVERLAP },
 	{ GE_CMD_FOGENABLE, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED | SoftDirty::TRANSFORM_BASIC | SoftDirty::TRANSFORM_FOG | SoftDirty::TRANSFORM_MATRIX },
 	{ GE_CMD_TEXMODE, 0, SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST | SoftDirty::RAST_TEX },
