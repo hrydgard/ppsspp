@@ -69,8 +69,7 @@ jobs:
         path: ppsspp/
 
   build-uwp:
-    if: ${{false}}  # Temporarily disable
-    runs-on: windows-latest
+    runs-on: windows-2019
     steps:
     - uses: actions/checkout@v3
       with:
