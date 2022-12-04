@@ -626,6 +626,8 @@ add_library(Common STATIC
 	Common/GPU/OpenGL/GLFeatures.cpp
 	Common/GPU/OpenGL/GLFeatures.h
 	Common/GPU/OpenGL/thin3d_gl.cpp
+	Common/GPU/OpenGL/GLTexture.cpp
+	Common/GPU/OpenGL/GLTexture.h
 	Common/GPU/OpenGL/GLRenderManager.cpp
 	Common/GPU/OpenGL/GLRenderManager.h
 	Common/GPU/OpenGL/GLQueueRunner.cpp

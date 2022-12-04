@@ -40,6 +40,7 @@ NATIVE_FILES :=\
   $(SRC)/Common/GPU/OpenGL/GLFeatures.cpp \
   $(SRC)/Common/GPU/OpenGL/GLRenderManager.cpp \
   $(SRC)/Common/GPU/OpenGL/GLQueueRunner.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLTexture.cpp \
   $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp
 
 EGL_FILES := \

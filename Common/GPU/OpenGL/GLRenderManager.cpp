@@ -7,7 +7,6 @@
 
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
-#include "Common/Math/math_util.h"
 
 #if 0 // def _DEBUG
 #define VLOG(...) INFO_LOG(G3D, __VA_ARGS__)
@@ -21,24 +20,6 @@ static bool OnRenderThread() {
 	return std::this_thread::get_id() == renderThreadId;
 }
 #endif
-
-GLRTexture::GLRTexture(const Draw::DeviceCaps &caps, int width, int height, int depth, int numMips) {
-	if (caps.textureNPOTFullySupported) {
-		canWrap = true;
-	} else {
-		canWrap = isPowerOf2(width) && isPowerOf2(height);
-	}
-	w = width;
-	h = height;
-	d = depth;
-	this->numMips = numMips;
-}
-
-GLRTexture::~GLRTexture() {
-	if (texture) {
-		glDeleteTextures(1, &texture);
-	}
-}
 
 void GLDeleter::Take(GLDeleter &other) {
 	_assert_msg_(IsEmpty(), "Deleter already has stuff");

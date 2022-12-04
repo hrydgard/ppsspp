@@ -253,6 +253,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/OpenGL/GLFeatures.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLRenderManager.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLQueueRunner.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLTexture.cpp \
 	$(COMMONDIR)/GPU/OpenGL/DataFormatGL.cpp \
 	$(COMMONDIR)/GPU/Vulkan/thin3d_vulkan.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanQueueRunner.cpp \

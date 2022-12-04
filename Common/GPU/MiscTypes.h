@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include "Common/Common.h"
 
 enum class InvalidationFlags {

@@ -441,6 +441,7 @@
     <ClInclude Include="GPU\OpenGL\GLSLProgram.h" />
     <ClInclude Include="GPU\OpenGL\GLCommon.h" />
     <ClInclude Include="GPU\OpenGL\GLDebugLog.h" />
+    <ClInclude Include="GPU\OpenGL\GLTexture.h" />
     <ClInclude Include="GPU\Shader.h" />
     <ClInclude Include="GPU\ShaderTranslation.h" />
     <ClInclude Include="GPU\ShaderWriter.h" />
@@ -873,6 +874,7 @@
     <ClCompile Include="GPU\OpenGL\GLRenderManager.cpp" />
     <ClCompile Include="GPU\OpenGL\GLSLProgram.cpp" />
     <ClCompile Include="GPU\OpenGL\GLDebugLog.cpp" />
+    <ClCompile Include="GPU\OpenGL\GLTexture.cpp" />
     <ClCompile Include="GPU\OpenGL\thin3d_gl.cpp" />
     <ClCompile Include="GPU\Shader.cpp" />
     <ClCompile Include="GPU\ShaderTranslation.cpp" />

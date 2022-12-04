@@ -14,6 +14,7 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "GLQueueRunner.h"
+#include "Common/GPU/OpenGL/GLTexture.h"
 
 class GLRInputLayout;
 class GLPushBuffer;
@@ -23,30 +24,6 @@ class DrawContext;
 }
 
 constexpr int MAX_GL_TEXTURE_SLOTS = 8;
-
-class GLRTexture {
-public:
-	GLRTexture(const Draw::DeviceCaps &caps, int width, int height, int depth, int numMips);
-	~GLRTexture();
-
-	GLuint texture = 0;
-	uint16_t w;
-	uint16_t h;
-	uint16_t d;
-
-	// We don't trust OpenGL defaults - setting wildly off values ensures that we'll end up overwriting these parameters.
-	GLenum target = 0xFFFF;
-	GLenum wrapS = 0xFFFF;
-	GLenum wrapT = 0xFFFF;
-	GLenum magFilter = 0xFFFF;
-	GLenum minFilter = 0xFFFF;
-	uint8_t numMips = 0;
-	bool canWrap = true;
-	float anisotropy = -100000.0f;
-	float minLod = -1000.0f;
-	float maxLod = 1000.0f;
-	float lodBias = 0.0f;
-};
 
 class GLRFramebuffer {
 public:
@@ -74,7 +51,6 @@ public:
 
 // We need to create some custom heap-allocated types so we can forward things that need to be created on the GL thread, before
 // they've actually been created.
-
 class GLRShader {
 public:
 	~GLRShader() {
@@ -360,6 +336,8 @@ public:
 	std::vector<Entry> entries;
 	int semanticsMask_ = 0;
 };
+
+class GLRTexturePool;
 
 // Note: The GLRenderManager is created and destroyed on the render thread, and the latter
 // happens after the emu thread has been destroyed. Therefore, it's safe to run wild deleting stuff
@@ -1071,6 +1049,8 @@ private:
 	GLRProgram *curProgram_ = nullptr;
 #endif
 	Draw::DeviceCaps caps_{};
+
+	GLRTexturePool *texPool_;
 
 	InvalidationCallback invalidationCallback_;
 };

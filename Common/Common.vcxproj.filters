@@ -458,6 +458,9 @@
     <ClInclude Include="GPU\Vulkan\VulkanFramebuffer.h">
       <Filter>GPU\Vulkan</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\OpenGL\GLTexture.h">
+      <Filter>GPU\OpenGL</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -865,6 +868,9 @@
     </ClCompile>
     <ClCompile Include="GPU\Vulkan\VulkanFramebuffer.cpp">
       <Filter>GPU\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\OpenGL\GLTexture.cpp">
+      <Filter>GPU\OpenGL</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
