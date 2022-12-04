@@ -1997,7 +1997,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			EMULATOR_DEVCTL__GET_SCALE,
 			EMULATOR_DEVCTL__GET_LTRT,
 			EMULATOR_DEVCTL__GET_VKEY,
-			EMULATOR_DEVCTL__GET_MOUSE
+			EMULATOR_DEVCTL__GET_MOUSE_DELTA
 		};
 
 		switch (cmd) {
@@ -2080,7 +2080,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				Memory::Write_U8(PluginDataKeys[argAddr], outPtr);
 			}
 			return 0;
-		case EMULATOR_DEVCTL__GET_MOUSE:
+		case EMULATOR_DEVCTL__GET_MOUSE_DELTA:
 #if PPSSPP_PLATFORM(WINDOWS)
 			if (Memory::IsValidAddress(outPtr)) {
 				extern float g_mouseDeltaX;
