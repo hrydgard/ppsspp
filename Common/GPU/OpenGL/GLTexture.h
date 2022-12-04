@@ -24,6 +24,7 @@ public:
 	GLenum magFilter = 0xFFFF;
 	GLenum minFilter = 0xFFFF;
 	uint8_t numMips = 0;
+	bool isRenderTarget = false;
 	bool canWrap = true;
 	float anisotropy = -100000.0f;
 	float minLod = -1000.0f;
@@ -41,6 +42,8 @@ struct PooledTexture {
 	GLuint texture;
 	uint16_t w;
 	uint16_t h;
+	uint8_t numMips;
+	bool isRenderTarget;
 };
 
 // Managed by queuerunner, everything is done from GL submit thread.

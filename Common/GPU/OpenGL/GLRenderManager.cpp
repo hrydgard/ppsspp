@@ -93,6 +93,8 @@ void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
 }
 
 GLRenderManager::~GLRenderManager() {
+	queueRunner_.DestroyDeviceObjects();
+
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 		_assert_(frameData_[i].deleter.IsEmpty());
 		_assert_(frameData_[i].deleter_prev.IsEmpty());
@@ -152,7 +154,6 @@ void GLRenderManager::ThreadEnd() {
 
 	// Wait for any shutdown to complete in StopThread().
 	std::unique_lock<std::mutex> lock(mutex_);
-	queueRunner_.DestroyDeviceObjects();
 	VLOG("PULL: Quitting");
 
 	// Good point to run all the deleters to get rid of leftover objects.

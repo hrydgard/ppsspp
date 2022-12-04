@@ -270,12 +270,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		dstFmt = Draw::DataFormat::R8_UNORM;
 	}
 
-	if (plan.depth == 1) {
-		entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, tw, tw, 1, plan.levelsToCreate);
-	} else {
-		entry->textureName = render_->CreateTexture(GL_TEXTURE_3D, tw, tw, plan.depth, 1);
-	}
-
 	// Apply some additional compatibility checks.
 	if (plan.levelsToLoad > 1) {
 		// Avoid PowerVR driver bug
@@ -295,6 +289,12 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 			plan.levelsToLoad = 1;
 			entry->status |= TexCacheEntry::STATUS_NO_MIPS;
 		}
+	}
+
+	if (plan.depth == 1) {
+		entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, tw, tw, 1, plan.levelsToCreate);
+	} else {
+		entry->textureName = render_->CreateTexture(GL_TEXTURE_3D, tw, tw, plan.depth, 1);
 	}
 
 	if (plan.depth == 1) {

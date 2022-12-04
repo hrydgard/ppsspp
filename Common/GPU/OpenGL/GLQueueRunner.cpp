@@ -78,7 +78,6 @@ void GLQueueRunner::CreateDeviceObjects() {
 
 void GLQueueRunner::DestroyDeviceObjects() {
 	CHECK_GL_ERROR_IF_DEBUG();
-	texPool_.Clear();
 	if (gl_extensions.ARB_vertex_array_object) {
 		glDeleteVertexArrays(1, &globalVAO_);
 	}
@@ -88,6 +87,7 @@ void GLQueueRunner::DestroyDeviceObjects() {
 	delete[] tempBuffer_;
 	tempBuffer_ = nullptr;
 	tempBufferSize_ = 0;
+	texPool_.Clear();
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
@@ -492,6 +492,8 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 		// To improve the pool lookup.
 		tex.w = fbo->width;
 		tex.h = fbo->height;
+		tex.numMips = 1;
+		tex.isRenderTarget = true;
 
 		texPool_.Allocate(&tex);
 		tex.target = GL_TEXTURE_2D;
@@ -1639,6 +1641,8 @@ void GLQueueRunner::fbo_ext_create(const GLRInitStep &step) {
 	glGenFramebuffersEXT(1, &fbo->handle);
 	fbo->color_texture.w = fbo->width;
 	fbo->color_texture.h = fbo->height;
+	fbo->color_texture.numMips = 1;
+	fbo->color_texture.isRenderTarget = true;
 	texPool_.Allocate(&fbo->color_texture);
 
 	// Create the surfaces.
