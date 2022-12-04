@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 #include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLTexture.h"
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
@@ -429,10 +430,6 @@ private:
 	GLuint currentDrawHandle_ = 0;
 	GLuint currentReadHandle_ = 0;
 
-	GLuint AllocTextureName();
-
-	// Texture name cache. Ripped straight from TextureCacheGLES.
-	std::vector<GLuint> nameCache_;
 	std::unordered_map<int, std::string> glStrings_;
 
 	bool sawOutOfMemory_ = false;
@@ -440,4 +437,6 @@ private:
 
 	ErrorCallbackFn errorCallback_ = nullptr;
 	void *errorCallbackUserData_ = nullptr;
+
+	GLRTexturePool texPool_;
 };

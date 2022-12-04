@@ -78,10 +78,7 @@ void GLQueueRunner::CreateDeviceObjects() {
 
 void GLQueueRunner::DestroyDeviceObjects() {
 	CHECK_GL_ERROR_IF_DEBUG();
-	if (!nameCache_.empty()) {
-		glDeleteTextures((GLsizei)nameCache_.size(), &nameCache_[0]);
-		nameCache_.clear();
-	}
+	texPool_.Clear();
 	if (gl_extensions.ARB_vertex_array_object) {
 		glDeleteVertexArrays(1, &globalVAO_);
 	}
@@ -179,7 +176,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 		case GLRInitStepType::CREATE_TEXTURE:
 		{
 			GLRTexture *tex = step.create_texture.texture;
-			glGenTextures(1, &tex->texture);
+			texPool_.Create(tex);
 			glBindTexture(tex->target, tex->texture);
 			boundTexture = tex->texture;
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -1623,17 +1620,6 @@ void GLQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat s
 	for (int y = 0; y < height; y++) {
 		memcpy(pixels + y * pixelStride * bpp, readbackBuffer_ + y * width * bpp, width * bpp);
 	}
-}
-
-GLuint GLQueueRunner::AllocTextureName() {
-	if (nameCache_.empty()) {
-		nameCache_.resize(TEXCACHE_NAME_CACHE_SIZE);
-		glGenTextures(TEXCACHE_NAME_CACHE_SIZE, &nameCache_[0]);
-	}
-	u32 name = nameCache_.back();
-	nameCache_.pop_back();
-	CHECK_GL_ERROR_IF_DEBUG();
-	return name;
 }
 
 // On PC, we always use GL_DEPTH24_STENCIL8. 

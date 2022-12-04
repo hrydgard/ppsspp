@@ -337,8 +337,6 @@ public:
 	int semanticsMask_ = 0;
 };
 
-class GLRTexturePool;
-
 // Note: The GLRenderManager is created and destroyed on the render thread, and the latter
 // happens after the emu thread has been destroyed. Therefore, it's safe to run wild deleting stuff
 // directly in the destructor.
@@ -1049,8 +1047,6 @@ private:
 	GLRProgram *curProgram_ = nullptr;
 #endif
 	Draw::DeviceCaps caps_{};
-
-	GLRTexturePool *texPool_;
 
 	InvalidationCallback invalidationCallback_;
 };
