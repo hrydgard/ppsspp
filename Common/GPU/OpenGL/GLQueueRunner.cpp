@@ -176,7 +176,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 		case GLRInitStepType::CREATE_TEXTURE:
 		{
 			GLRTexture *tex = step.create_texture.texture;
-			texPool_.Create(tex);
+			texPool_.Allocate(tex);
 			glBindTexture(tex->target, tex->texture);
 			boundTexture = tex->texture;
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -489,7 +489,11 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 	CHECK_GL_ERROR_IF_DEBUG();
 
 	auto initFBOTexture = [&](GLRTexture &tex, GLint internalFormat, GLenum format, GLenum type, bool linear) {
-		glGenTextures(1, &tex.texture);
+		// To improve the pool lookup.
+		tex.w = fbo->width;
+		tex.h = fbo->height;
+
+		texPool_.Allocate(&tex);
 		tex.target = GL_TEXTURE_2D;
 		tex.maxLod = 0.0f;
 
@@ -1633,7 +1637,9 @@ void GLQueueRunner::fbo_ext_create(const GLRInitStep &step) {
 
 	// Color texture is same everywhere
 	glGenFramebuffersEXT(1, &fbo->handle);
-	glGenTextures(1, &fbo->color_texture.texture);
+	fbo->color_texture.w = fbo->width;
+	fbo->color_texture.h = fbo->height;
+	texPool_.Allocate(&fbo->color_texture);
 
 	// Create the surfaces.
 	glBindTexture(GL_TEXTURE_2D, fbo->color_texture.texture);

@@ -49,7 +49,7 @@ public:
 	~GLRTexturePool();
 
 	// Called from GL submit thread
-	void Create(GLRTexture *texture);
+	void Allocate(GLRTexture *texture);
 	void MoveToPoolFromDestructor(GLRTexture *texture);
 
 	void Clear();
