@@ -76,7 +76,7 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 				return PointerWrapSection(*this, -1, title);
 			}
 			if (!checkpoints_[curCheckpoint_].Matches(marker, offset)) {
-				WARN_LOG(SAVESTATE, "Checkpoint mismatch during write! Section %s but expected %s, offset %d but expected %d", title, marker, offset, (int)checkpoints_[curCheckpoint_].offset);
+				WARN_LOG(SAVESTATE, "Checkpoint mismatch during write! Section %s but expected %s, offset %d but expected %d", title, marker, (int)offset, (int)checkpoints_[curCheckpoint_].offset);
 				if (curCheckpoint_ > 1) {
 					WARN_LOG(SAVESTATE, "Previous checkpoint: %s (%d)", checkpoints_[curCheckpoint_ - 1].title, (int)checkpoints_[curCheckpoint_ - 1].offset);
 				}
@@ -171,6 +171,7 @@ void Do(PointerWrap &p, std::string &x) {
 	case PointerWrap::MODE_READ: x = (char*)*p.ptr; break;
 	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
 	case PointerWrap::MODE_MEASURE: break;
+	case PointerWrap::MODE_NOOP: break;
 	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(!strcmp(x.c_str(), (char*)*p.ptr), "Savestate verification failure: \"%s\" != \"%s\" (at %p).\n", x.c_str(), (char *)*p.ptr, p.ptr); break;
 	}
 	(*p.ptr) += stringLen;
@@ -198,6 +199,7 @@ void Do(PointerWrap &p, std::wstring &x) {
 	case PointerWrap::MODE_READ: x = read(); break;
 	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
 	case PointerWrap::MODE_MEASURE: break;
+	case PointerWrap::MODE_NOOP: break;
 	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(x == read(), "Savestate verification failure: \"%ls\" != \"%ls\" (at %p).\n", x.c_str(), read().c_str(), p.ptr); break;
 	}
 	(*p.ptr) += stringLen;
@@ -225,6 +227,7 @@ void Do(PointerWrap &p, std::u16string &x) {
 	case PointerWrap::MODE_READ: x = read(); break;
 	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
 	case PointerWrap::MODE_MEASURE: break;
+	case PointerWrap::MODE_NOOP: break;
 	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(x == read(), "Savestate verification failure: (at %p).\n", p.ptr); break;
 	}
 	(*p.ptr) += stringLen;
