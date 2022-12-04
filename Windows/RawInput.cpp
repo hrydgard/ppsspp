@@ -55,6 +55,9 @@
 #define HID_USAGE_GENERIC_MULTIAXIS    ((USHORT) 0x07)
 #endif
 
+extern float PluginDataMouseDeltaX;
+extern float PluginDataMouseDeltaY;
+
 namespace WindowsRawInput {
 	static std::set<int> keyboardKeysDown;
 	static void *rawInputBuffer;
@@ -319,6 +322,9 @@ namespace WindowsRawInput {
 
 		g_mouseDeltaX += raw->data.mouse.lLastX;
 		g_mouseDeltaY += raw->data.mouse.lLastY;
+
+		PluginDataMouseDeltaX = g_mouseDeltaX;
+		PluginDataMouseDeltaY = g_mouseDeltaY;
 
 		const int rawInputDownID[5] = {
 			RI_MOUSE_LEFT_BUTTON_DOWN,

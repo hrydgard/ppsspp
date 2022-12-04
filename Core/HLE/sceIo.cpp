@@ -73,6 +73,14 @@ extern "C" {
 // For EMULATOR_DEVCTL__GET_SCALE
 #include <System/Display.h>
 
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(ARM64)
+extern float PluginDataLT;
+extern float PluginDataRT;
+extern std::map<int, uint8_t> PluginDataKeys;
+extern float PluginDataMouseDeltaX;
+extern float PluginDataMouseDeltaY;
+#endif
+
 static const int ERROR_ERRNO_IO_ERROR                     = 0x80010005;
 static const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
 static const int ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS = 0x80220082;
@@ -2067,26 +2075,25 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			}
 			return 0;
 		case EMULATOR_DEVCTL__GET_LTRT:
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(ARM64)
 			if (Memory::IsValidAddress(outPtr)) {
-				extern float PluginDataLT;
-				extern float PluginDataRT;
 				Memory::Write_Float(PluginDataLT, outPtr);
 				Memory::Write_Float(PluginDataRT, outPtr + sizeof(float));
 			}
+#endif
 			return 0;
 		case EMULATOR_DEVCTL__GET_VKEY:
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(ARM64)
 			if (Memory::IsValidAddress(outPtr)) {
-				extern std::map<int, uint8_t> PluginDataKeys;
 				Memory::Write_U8(PluginDataKeys[argAddr], outPtr);
 			}
+#endif
 			return 0;
 		case EMULATOR_DEVCTL__GET_MOUSE_DELTA:
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(ARM64)
 			if (Memory::IsValidAddress(outPtr)) {
-				extern float g_mouseDeltaX;
-				extern float g_mouseDeltaY;
-				Memory::Write_Float(g_mouseDeltaX, outPtr);
-				Memory::Write_Float(g_mouseDeltaY, outPtr + sizeof(float));
+				Memory::Write_Float(PluginDataMouseDeltaX, outPtr);
+				Memory::Write_Float(PluginDataMouseDeltaY, outPtr + sizeof(float));
 			}
 #endif
 			return 0;
