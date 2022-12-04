@@ -141,6 +141,12 @@
 #include <mach-o/dyld.h>
 #endif
 
+float PluginDataLT;
+float PluginDataRT;
+float PluginDataMouseX;
+float PluginDataMouseY;
+std::map<int, uint8_t> PluginDataKeys;
+
 ScreenManager *screenManager;
 std::string config_filename;
 
@@ -1334,7 +1340,13 @@ bool NativeKey(const KeyInput &key) {
 #endif
 	bool retval = false;
 	if (screenManager)
+	{
+		if (key.deviceId == DEVICE_ID_KEYBOARD || key.deviceId == DEVICE_ID_MOUSE)
+		{
+			PluginDataKeys[key.keyCode] = (key.flags & KEY_DOWN) ? 1 : 0;
+		}
 		retval = screenManager->key(key);
+	}
 	return retval;
 }
 
@@ -1355,6 +1367,11 @@ bool NativeAxis(const AxisInput &axis) {
 	if (g_Config.iTiltInputType == TILT_NULL) {
 		// if tilt events are disabled, then run it through the usual way.
 		if (screenManager) {
+			if (axis.axisId == JOYSTICK_AXIS_LTRIGGER)
+				PluginDataLT = axis.value;
+			else if (axis.axisId == JOYSTICK_AXIS_RTRIGGER)
+				PluginDataRT = axis.value;
+			
 			return screenManager->axis(axis);
 		} else {
 			return false;
@@ -1430,6 +1447,10 @@ bool NativeAxis(const AxisInput &axis) {
 			return false;
 
 		default:
+			if (axis.axisId == JOYSTICK_AXIS_LTRIGGER)
+				PluginDataLT = axis.value;
+			else if (axis.axisId == JOYSTICK_AXIS_RTRIGGER)
+				PluginDataRT = axis.value;
 			// Don't take over completely!
 			return screenManager->axis(axis);
 	}

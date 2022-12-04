@@ -1996,7 +1996,9 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			EMULATOR_DEVCTL__GET_ASPECT_RATIO,
 			EMULATOR_DEVCTL__GET_SCALE,
 			EMULATOR_DEVCTL__GET_LTRIGGER,
-			EMULATOR_DEVCTL__GET_RTRIGGER
+			EMULATOR_DEVCTL__GET_RTRIGGER,
+			EMULATOR_DEVCTL__GET_VKEY,
+			EMULATOR_DEVCTL__GET_MOUSE
 		};
 
 		switch (cmd) {
@@ -2066,10 +2068,30 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			}
 			return 0;
 		case EMULATOR_DEVCTL__GET_LTRIGGER:
-			//To-do
+			if (Memory::IsValidAddress(outPtr)) {
+				extern float PluginDataLT;
+				Memory::Write_Float(PluginDataLT, outPtr);
+			}
 			return 0;
 		case EMULATOR_DEVCTL__GET_RTRIGGER:
-			//To-do
+			if (Memory::IsValidAddress(outPtr)) {
+				extern float PluginDataRT;
+				Memory::Write_Float(PluginDataRT, outPtr);
+			}
+			return 0;
+		case EMULATOR_DEVCTL__GET_VKEY:
+			if (Memory::IsValidAddress(outPtr)) {
+				extern std::map<int, uint8_t> PluginDataKeys;
+				Memory::Write_U8(PluginDataKeys[argAddr], outPtr);
+			}
+			return 0;
+		case EMULATOR_DEVCTL__GET_MOUSE:
+			if (Memory::IsValidAddress(outPtr)) {
+				extern float g_mouseDeltaX;
+				extern float g_mouseDeltaY;
+				Memory::Write_Float(g_mouseDeltaX, outPtr);
+				Memory::Write_Float(g_mouseDeltaY, outPtr + 4);
+			}
 			return 0;
 		}
 
