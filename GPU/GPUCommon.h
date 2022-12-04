@@ -265,7 +265,7 @@ protected:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
-	void ClearCacheNextFrame();
+	void ClearCacheNextFrame() override;
 
 	virtual void CheckRenderResized();
 
