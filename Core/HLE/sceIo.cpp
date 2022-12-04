@@ -1995,8 +1995,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			EMULATOR_DEVCTL__TOGGLE_FASTFORWARD = 0x30,
 			EMULATOR_DEVCTL__GET_ASPECT_RATIO,
 			EMULATOR_DEVCTL__GET_SCALE,
-			EMULATOR_DEVCTL__GET_LTRIGGER,
-			EMULATOR_DEVCTL__GET_RTRIGGER,
+			EMULATOR_DEVCTL__GET_LTRT,
 			EMULATOR_DEVCTL__GET_VKEY,
 			EMULATOR_DEVCTL__GET_MOUSE
 		};
@@ -2067,16 +2066,12 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				Memory::Write_Float(scale, outPtr);
 			}
 			return 0;
-		case EMULATOR_DEVCTL__GET_LTRIGGER:
+		case EMULATOR_DEVCTL__GET_LTRT:
 			if (Memory::IsValidAddress(outPtr)) {
 				extern float PluginDataLT;
-				Memory::Write_Float(PluginDataLT, outPtr);
-			}
-			return 0;
-		case EMULATOR_DEVCTL__GET_RTRIGGER:
-			if (Memory::IsValidAddress(outPtr)) {
 				extern float PluginDataRT;
-				Memory::Write_Float(PluginDataRT, outPtr);
+				Memory::Write_Float(PluginDataLT, outPtr);
+				Memory::Write_Float(PluginDataRT, outPtr + sizeof(float));
 			}
 			return 0;
 		case EMULATOR_DEVCTL__GET_VKEY:
@@ -2086,12 +2081,14 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			}
 			return 0;
 		case EMULATOR_DEVCTL__GET_MOUSE:
+#if PPSSPP_PLATFORM(WINDOWS)
 			if (Memory::IsValidAddress(outPtr)) {
 				extern float g_mouseDeltaX;
 				extern float g_mouseDeltaY;
 				Memory::Write_Float(g_mouseDeltaX, outPtr);
-				Memory::Write_Float(g_mouseDeltaY, outPtr + 4);
+				Memory::Write_Float(g_mouseDeltaY, outPtr + sizeof(float));
 			}
+#endif
 			return 0;
 		}
 

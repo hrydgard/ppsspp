@@ -143,8 +143,6 @@
 
 float PluginDataLT;
 float PluginDataRT;
-float PluginDataMouseX;
-float PluginDataMouseY;
 std::map<int, uint8_t> PluginDataKeys;
 
 ScreenManager *screenManager;
