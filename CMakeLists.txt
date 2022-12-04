@@ -884,7 +884,7 @@ add_library(cityhash STATIC
 	ext/cityhash/city.h
 	ext/cityhash/citycrc.h
 )
-include_directories(ext/cityhash)
+target_include_directories(cityhash PRIVATE ext/cityhash)
 
 if(NOT MSVC)
 	# These can be fast even for debug.
@@ -1360,7 +1360,7 @@ add_library(kirk STATIC
 	ext/libkirk/kirk_engine.c
 	ext/libkirk/kirk_engine.h
 )
-include_directories(ext/libkirk)
+target_include_directories(kirk PRIVATE ext/libkirk)
 
 add_library(sfmt19937 STATIC
 	ext/sfmt19937/SFMT.c
@@ -1376,13 +1376,13 @@ add_library(xbrz STATIC
 	ext/xbrz/xbrz.cpp
 	ext/xbrz/xbrz.h
 )
-include_directories(ext/xbrz)
+target_include_directories(xbrz PRIVATE ext/xbrz)
 
 add_library(xxhash STATIC
 	ext/xxhash.c
 	ext/xxhash.h
 )
-include_directories(ext/xxhash)
+target_include_directories(xxhash PRIVATE ext/xxhash)
 
 set(CoreExtra)
 set(CoreExtraLibs)
