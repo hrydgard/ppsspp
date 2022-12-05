@@ -846,7 +846,17 @@ void GameSettingsScreen::CreateViews() {
 	LinearLayout *systemSettings = AddTab("GameSettingsSystem", ms->T("System"));
 
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
-	systemSettings->Add(new Choice(sy->T("Language")))->OnClick.Add([&](UI::EventParams &e) {
+
+	auto langCodeToName = [](const char *value) -> std::string {
+		auto &mapping = g_Config.GetLangValuesMapping();
+		auto iter = mapping.find(value);
+		if (iter != mapping.end()) {
+			return iter->second.first;
+		}
+		return value;
+	};
+
+	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sLanguageIni, sy->T("Language"), langCodeToName))->OnClick.Add([&](UI::EventParams &e) {
 		auto sy = GetI18NCategory("System");
 		auto langScreen = new NewLanguageScreen(sy->T("Language"));
 		langScreen->OnChoice.Add([&](UI::EventParams &e) {
