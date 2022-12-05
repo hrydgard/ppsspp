@@ -1593,6 +1593,7 @@ StickyChoice *ChoiceStrip::Choice(int index) {
 		return static_cast<StickyChoice *>(views_[index]);
 	return nullptr;
 }
+
 ListView::ListView(ListAdaptor *a, std::set<int> hidden, LayoutParams *layoutParams)
 	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a), maxHeight_(0), hidden_(hidden) {
 

@@ -692,6 +692,11 @@ public:
 
 	// Draws the item background.
 	void Draw(UIContext &dc) override;
+
+	void SetAutoExpand(bool autoExpand) { autoExpand_ = autoExpand; }
+
+private:
+	bool autoExpand_ = true;
 };
 
 // Use to trigger something or open a submenu screen.

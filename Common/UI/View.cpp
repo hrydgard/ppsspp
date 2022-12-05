@@ -16,6 +16,7 @@
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/Log.h"
 
 namespace UI {
 
@@ -24,7 +25,6 @@ static constexpr float MIN_TEXT_SCALE = 0.8f;
 static constexpr float MAX_ITEM_SIZE = 65535.0f;
 
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured) {
-	*measured = sz;
 	if (sz == WRAP_CONTENT) {
 		if (spec.type == UNSPECIFIED)
 			*measured = contentWidth;
@@ -40,6 +40,8 @@ void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measure
 			*measured = spec.size;
 	} else if (spec.type == EXACTLY || (spec.type == AT_MOST && *measured > spec.size)) {
 		*measured = spec.size;
+	} else {
+		*measured = sz;
 	}
 }
 
@@ -412,7 +414,7 @@ void ClickableItem::GetContentDimensions(const UIContext &dc, float &w, float &h
 }
 
 ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParams) {
-	if (!layoutParams) {
+	if (!layoutParams && autoExpand_) {
 		if (layoutParams_->width == WRAP_CONTENT)
 			layoutParams_->width = FILL_PARENT;
 	}
