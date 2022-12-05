@@ -71,6 +71,7 @@
 
 #include "Windows/main.h"
 #include "UI/OnScreenDisplay.h"
+#include <Core/HLE/Plugins.h>
 
 float g_mouseDeltaX = 0;
 float g_mouseDeltaY = 0;
@@ -258,6 +259,9 @@ void WindowsHost::PollControllers() {
 
 	g_mouseDeltaX *= g_Config.fMouseSmoothing;
 	g_mouseDeltaY *= g_Config.fMouseSmoothing;
+
+	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_X] = g_mouseDeltaX;
+	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = g_mouseDeltaY;
 }
 
 void WindowsHost::BootDone() {
