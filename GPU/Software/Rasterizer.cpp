@@ -224,24 +224,34 @@ static bool CheckClutAlphaFull(RasterizerState *state) {
 	if (samplerID.hasClutMask)
 		count = std::min(count, ((samplerID.cached.clutFormat >> 8) & 0xFF) + 1);
 
+	u32 alphaSum = 0xFFFFFFFF;
+	if (samplerID.ClutFmt() == GE_CMODE_32BIT_ABGR8888) {
+		CheckMask32((const uint32_t *)samplerID.cached.clut, count, &alphaSum);
+	} else {
+		CheckMask16((const uint16_t *)samplerID.cached.clut, count, &alphaSum);
+	}
+
 	bool onlyFull = true;
 	switch (samplerID.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:
 		break;
 
 	case GE_CMODE_16BIT_ABGR5551:
-		onlyFull = CheckAlpha16((const uint16_t *)samplerID.cached.clut, count, 0x8000) == CHECKALPHA_FULL;
+		onlyFull = (alphaSum & 0x8000) != 0;
 		break;
 
 	case GE_CMODE_16BIT_ABGR4444:
-		onlyFull = CheckAlpha16((const uint16_t *)samplerID.cached.clut, count, 0xF000) == CHECKALPHA_FULL;
+		onlyFull = (alphaSum & 0xF000) == 0xF000;
 		break;
 
 	case GE_CMODE_32BIT_ABGR8888:
-		onlyFull = CheckAlpha32((const uint32_t *)samplerID.cached.clut, count, 0xFF000000) == CHECKALPHA_FULL;
+		onlyFull = (alphaSum & 0xFF000000) == 0xFF000000;
 		break;
 	}
 
+	// Might just be different patterns, but if alphaSum != 0, it can't contain zero.
+	if (alphaSum != 0)
+		state->flags |= RasterizerStateFlags::CLUT_ALPHA_NON_ZERO;
 	if (!onlyFull)
 		state->flags |= RasterizerStateFlags::CLUT_ALPHA_NON_FULL;
 	state->flags |= RasterizerStateFlags::CLUT_ALPHA_CHECKED;
@@ -290,6 +300,37 @@ static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 			}
 		}
 
+		if (alphaBlend && (needTextureAlpha || !alphaFull)) {
+			// Okay, we're blending, and we need to.  Are we alpha testing?
+			GEComparison alphaTestFunc = pixelID.AlphaTestFunc();
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE)
+				alphaTestFunc = GE_COMP_NOTEQUAL;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT)
+				alphaTestFunc = GE_COMP_GREATER;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON)
+				alphaTestFunc = GE_COMP_ALWAYS;
+
+			PixelBlendFactor src = pixelID.AlphaBlendSrc();
+			PixelBlendFactor dst = pixelID.AlphaBlendDst();
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_SRC)
+				src = PixelBlendFactor::SRCALPHA;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_DST)
+				dst = PixelBlendFactor::INVSRCALPHA;
+
+			if (alphaTestFunc == GE_COMP_ALWAYS && src == PixelBlendFactor::SRCALPHA && dst == PixelBlendFactor::INVSRCALPHA) {
+				bool usesClut = (samplerID.texfmt & 4) != 0;
+				bool couldHaveZeroTexAlpha = true;
+				if (usesClut && CheckClutAlphaFull(state))
+					couldHaveZeroTexAlpha = false;
+				if (state->flags & RasterizerStateFlags::CLUT_ALPHA_NON_ZERO)
+					couldHaveZeroTexAlpha = false;
+
+				// Blending is expensive, since we read the target.  Force alpha testing on.
+				if (!pixelID.depthWrite && !pixelID.stencilTest && couldHaveZeroTexAlpha)
+					optimize |= RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON;
+			}
+		}
+
 		bool applyFog = pixelID.applyFog || (state->flags & RasterizerStateFlags::OPTIMIZED_FOG_OFF);
 		if (applyFog) {
 			bool hasFog = state->flags & RasterizerStateFlags::VERTEX_HAS_FOG;
@@ -319,10 +360,17 @@ static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 			// > 16, 8, or similar are also very common.
 			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT)
 				alphaTestFunc = GE_COMP_GREATER;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON)
+				alphaTestFunc = GE_COMP_ALWAYS;
 
 			bool alphaTest = (alphaTestFunc == GE_COMP_NOTEQUAL || alphaTestFunc == GE_COMP_GREATER) && pixelID.alphaTestRef < 0xFF && !state->pixelID.hasAlphaTestMask;
-			if (alphaTest && CheckClutAlphaFull(state))
-				optimize |= alphaTestFunc == GE_COMP_NOTEQUAL ? RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE : RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT;
+			if (alphaTest) {
+				bool canSkipAlphaTest = CheckClutAlphaFull(state);
+				if ((state->flags & RasterizerStateFlags::CLUT_ALPHA_NON_ZERO) && pixelID.alphaTestRef == 0)
+					canSkipAlphaTest = true;
+				if (canSkipAlphaTest)
+					optimize |= alphaTestFunc == GE_COMP_NOTEQUAL ? RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE : RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT;
+			}
 		}
 	}
 
@@ -359,6 +407,13 @@ static bool ApplyStateOptimizations(RasterizerState *state, const RasterizerStat
 			pixelID.alphaTestFunc = GE_COMP_NOTEQUAL;
 		else if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT)
 			pixelID.alphaTestFunc = GE_COMP_GREATER;
+		else if (optimize & RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON) {
+			pixelID.alphaTestFunc = GE_COMP_NOTEQUAL;
+			pixelID.alphaTestRef = 0;
+			pixelID.hasAlphaTestMask = false;
+		} else if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON) {
+			pixelID.alphaTestFunc = GE_COMP_ALWAYS;
+		}
 
 		SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID, nullptr);
 		// Can't compile during runtime.  This failing is a bit of a problem when undoing...
