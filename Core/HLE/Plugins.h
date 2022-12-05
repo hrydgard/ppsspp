@@ -31,4 +31,6 @@ void DoState(PointerWrap &p);
 
 bool HasEnabled();
 
+extern std::map<int, float> PluginDataAxis;
+extern std::map<int, uint8_t> PluginDataKeys;
 };

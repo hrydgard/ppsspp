@@ -29,6 +29,8 @@
 #include "Core/HLE/sceKernelModule.h"
 
 namespace HLEPlugins {
+std::map<int, float> PluginDataAxis;
+std::map<int, uint8_t> PluginDataKeys;
 
 static bool anyEnabled = false;
 static std::vector<std::string> prxPlugins;

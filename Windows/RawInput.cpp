@@ -29,6 +29,7 @@
 #include "Common/CommonFuncs.h"
 #include "Common/SysError.h"
 #include "Core/Config.h"
+#include "Core/HLE/Plugins.h"
 
 #ifndef HID_USAGE_PAGE_GENERIC
 #define HID_USAGE_PAGE_GENERIC         ((USHORT) 0x01)
@@ -54,9 +55,6 @@
 #ifndef HID_USAGE_GENERIC_MULTIAXIS
 #define HID_USAGE_GENERIC_MULTIAXIS    ((USHORT) 0x07)
 #endif
-
-extern float PluginDataMouseDeltaX;
-extern float PluginDataMouseDeltaY;
 
 namespace WindowsRawInput {
 	static std::set<int> keyboardKeysDown;
@@ -323,8 +321,8 @@ namespace WindowsRawInput {
 		g_mouseDeltaX += raw->data.mouse.lLastX;
 		g_mouseDeltaY += raw->data.mouse.lLastY;
 
-		PluginDataMouseDeltaX = g_mouseDeltaX;
-		PluginDataMouseDeltaY = g_mouseDeltaY;
+		HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_X] = g_mouseDeltaX;
+		HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = g_mouseDeltaY;
 
 		const int rawInputDownID[5] = {
 			RI_MOUSE_LEFT_BUTTON_DOWN,

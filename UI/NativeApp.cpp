@@ -141,11 +141,7 @@
 #include <mach-o/dyld.h>
 #endif
 
-float PluginDataLT;
-float PluginDataRT;
-float PluginDataMouseDeltaX;
-float PluginDataMouseDeltaY;
-std::map<int, uint8_t> PluginDataKeys;
+#include <Core/HLE/Plugins.h>
 
 ScreenManager *screenManager;
 std::string config_filename;
@@ -1343,7 +1339,7 @@ bool NativeKey(const KeyInput &key) {
 	{
 		if (key.deviceId == DEVICE_ID_KEYBOARD || key.deviceId == DEVICE_ID_MOUSE)
 		{
-			PluginDataKeys[key.keyCode] = (key.flags & KEY_DOWN) ? 1 : 0;
+			HLEPlugins::PluginDataKeys[key.keyCode] = (key.flags & KEY_DOWN) ? 1 : 0;
 		}
 		retval = screenManager->key(key);
 	}
@@ -1367,11 +1363,7 @@ bool NativeAxis(const AxisInput &axis) {
 	if (g_Config.iTiltInputType == TILT_NULL) {
 		// if tilt events are disabled, then run it through the usual way.
 		if (screenManager) {
-			if (axis.axisId == JOYSTICK_AXIS_LTRIGGER)
-				PluginDataLT = axis.value;
-			else if (axis.axisId == JOYSTICK_AXIS_RTRIGGER)
-				PluginDataRT = axis.value;
-			
+			HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
 			return screenManager->axis(axis);
 		} else {
 			return false;
@@ -1447,10 +1439,7 @@ bool NativeAxis(const AxisInput &axis) {
 			return false;
 
 		default:
-			if (axis.axisId == JOYSTICK_AXIS_LTRIGGER)
-				PluginDataLT = axis.value;
-			else if (axis.axisId == JOYSTICK_AXIS_RTRIGGER)
-				PluginDataRT = axis.value;
+			HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
 			// Don't take over completely!
 			return screenManager->axis(axis);
 	}

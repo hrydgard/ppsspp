@@ -71,15 +71,9 @@ extern "C" {
 // For headless screenshots.
 #include "Core/HLE/sceDisplay.h"
 // For EMULATOR_DEVCTL__GET_SCALE
-#include <System/Display.h>
-
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(ARM64)
-extern float PluginDataLT;
-extern float PluginDataRT;
-extern std::map<int, uint8_t> PluginDataKeys;
-extern float PluginDataMouseDeltaX;
-extern float PluginDataMouseDeltaY;
-#endif
+#include "System/Display.h"
+// For EMULATOR_DEVCTL__GET_AXIS/VKEY
+#include "Core/HLE/Plugins.h"
 
 static const int ERROR_ERRNO_IO_ERROR                     = 0x80010005;
 static const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
@@ -2003,9 +1997,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			EMULATOR_DEVCTL__TOGGLE_FASTFORWARD = 0x30,
 			EMULATOR_DEVCTL__GET_ASPECT_RATIO,
 			EMULATOR_DEVCTL__GET_SCALE,
-			EMULATOR_DEVCTL__GET_LTRT,
+			EMULATOR_DEVCTL__GET_AXIS,
 			EMULATOR_DEVCTL__GET_VKEY,
-			EMULATOR_DEVCTL__GET_MOUSE_DELTA
 		};
 
 		switch (cmd) {
@@ -2074,28 +2067,15 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				Memory::Write_Float(scale, outPtr);
 			}
 			return 0;
-		case EMULATOR_DEVCTL__GET_LTRT:
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(ARM64)
+		case EMULATOR_DEVCTL__GET_AXIS:
 			if (Memory::IsValidAddress(outPtr)) {
-				Memory::Write_Float(PluginDataLT, outPtr);
-				Memory::Write_Float(PluginDataRT, outPtr + sizeof(float));
+				Memory::Write_Float(HLEPlugins::PluginDataAxis[argAddr], outPtr);
 			}
-#endif
 			return 0;
 		case EMULATOR_DEVCTL__GET_VKEY:
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(ARM64)
 			if (Memory::IsValidAddress(outPtr)) {
-				Memory::Write_U8(PluginDataKeys[argAddr], outPtr);
+				Memory::Write_U8(HLEPlugins::PluginDataKeys[argAddr], outPtr);
 			}
-#endif
-			return 0;
-		case EMULATOR_DEVCTL__GET_MOUSE_DELTA:
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(ARM64)
-			if (Memory::IsValidAddress(outPtr)) {
-				Memory::Write_Float(PluginDataMouseDeltaX, outPtr);
-				Memory::Write_Float(PluginDataMouseDeltaY, outPtr + sizeof(float));
-			}
-#endif
 			return 0;
 		}
 
