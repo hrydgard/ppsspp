@@ -173,11 +173,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	if (gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float)
 		features |= GPU_USE_TEXTURE_FLOAT;
 
-	// The Phantasy Star hack :(
-	if (PSP_CoreParameter().compat.flags().DepthRangeHack && (features & GPU_USE_ACCURATE_DEPTH) == 0) {
-		features |= GPU_USE_DEPTH_RANGE_HACK;
-	}
-
 	if (!draw_->GetShaderLanguageDesc().bitwiseOps) {
 		features |= GPU_USE_FRAGMENT_TEST_CACHE;
 	}
