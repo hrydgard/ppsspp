@@ -1116,7 +1116,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	std::string ztag = StringFromFormat("DisplayListRZ_%08x", state.listPC);
 #endif
 
-	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR * 2, rowST += sty) {
+	for (int64_t curY = minY; curY < maxY; curY += SCREEN_SCALE_FACTOR * 2, rowST += sty) {
 		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, curY);
 
 		int scissorY2 = curY + SCREEN_SCALE_FACTOR > maxY ? -1 : 0;
@@ -1124,7 +1124,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 		Vec4<int> scissor_step = Vec4<int>(0, -(SCREEN_SCALE_FACTOR * 2), 0, -(SCREEN_SCALE_FACTOR * 2));
 		Vec2f st = rowST;
 
-		for (int64_t curX = minX; curX <= maxX; curX += SCREEN_SCALE_FACTOR * 2,
+		for (int64_t curX = minX; curX < maxX; curX += SCREEN_SCALE_FACTOR * 2,
 			st += stx,
 			scissor_mask += scissor_step,
 			p.x = (p.x + 2) & 0x3FF) {
@@ -1292,7 +1292,8 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 		minY += SCREEN_SCALE_FACTOR;
 
 	const DrawingCoords pprime = TransformUnit::ScreenToDrawing(minX, minY);
-	const DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX, maxY);
+	// Only include the end pixel when it's >= 0.5.
+	const DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX - SCREEN_SCALE_FACTOR / 2, maxY - SCREEN_SCALE_FACTOR / 2);
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
