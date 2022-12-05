@@ -80,15 +80,11 @@ private:
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
 	UI::EventReturn OnCalibrateAnalogs(UI::EventParams &e);
 	UI::EventReturn OnTouchControlLayout(UI::EventParams &e);
-	UI::EventReturn OnDumpNextFrameToLog(UI::EventParams &e);
 	UI::EventReturn OnTiltTypeChange(UI::EventParams &e);
 	UI::EventReturn OnTiltCustomize(UI::EventParams &e);
 
 	// Global settings handlers
-	UI::EventReturn OnLanguage(UI::EventParams &e);
-	UI::EventReturn OnLanguageChange(UI::EventParams &e);
 	UI::EventReturn OnAutoFrameskip(UI::EventParams &e);
-	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
 	UI::EventReturn OnTextureShader(UI::EventParams &e);
 	UI::EventReturn OnTextureShaderChange(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);

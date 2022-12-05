@@ -346,7 +346,7 @@ int PSPOskDialog::Init(u32 oskPtr) {
 			inputChars += c;
 	}
 
-	languageMapping = GetLangValuesMapping();
+	languageMapping = g_Config.GetLangValuesMapping();
 
 	// Eat any keys pressed before the dialog inited.
 	UpdateButtons();
