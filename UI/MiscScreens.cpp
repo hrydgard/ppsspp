@@ -619,7 +619,7 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 #ifdef _MSC_VER
 #pragma warning(disable:4566)
 #endif
-	langValuesMapping = GetLangValuesMapping();
+	auto &langValuesMapping = g_Config.GetLangValuesMapping();
 
 	std::vector<File::FileInfo> tempLangs;
 	VFSGetFileListing("lang", &tempLangs, "ini");
@@ -655,11 +655,12 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 		std::string buttonTitle = lang.name;
 
 		if (!code.empty()) {
-			if (langValuesMapping.find(code) == langValuesMapping.end()) {
+			auto iter = langValuesMapping.find(code);
+			if (iter == langValuesMapping.end()) {
 				// No title found, show locale code
 				buttonTitle = code;
 			} else {
-				buttonTitle = langValuesMapping[code].first;
+				buttonTitle = iter->second.first;
 			}
 		}
 		if (g_Config.sLanguageIni == code)
@@ -700,11 +701,14 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 
 	if (iniLoadedSuccessfully) {
 		// Dunno what else to do here.
-		if (langValuesMapping.find(code) == langValuesMapping.end()) {
+		auto &langValuesMapping = g_Config.GetLangValuesMapping();
+
+		auto iter = langValuesMapping.find(code);
+		if (iter == langValuesMapping.end()) {
 			// Fallback to English
 			g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 		} else {
-			g_Config.iLanguage = langValuesMapping[code].second;
+			g_Config.iLanguage = iter->second.second;
 		}
 		RecreateViews();
 	} else {

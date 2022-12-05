@@ -568,21 +568,24 @@ public:
 	bool HasRecentIsos() const;
 	void ClearRecentIsos();
 
+	const std::map<std::string, std::pair<std::string, int>> &GetLangValuesMapping();
+
 protected:
 	void LoadStandardControllerIni();
+	void LoadLangValuesMapping();
 
 private:
 	bool reload_ = false;
 	std::string gameId_;
 	std::string gameIdTitle_;
 	std::vector<std::string> recentIsos;
+	std::map<std::string, std::pair<std::string, int>> langValuesMapping_;
 	Path iniFilename_;
 	Path controllerIniFilename_;
 	Path searchPath_;
 	ConfigPrivate *private_ = nullptr;
 };
 
-std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
 std::string CreateRandMAC();
 
 // TODO: Find a better place for this.
