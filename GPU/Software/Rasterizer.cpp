@@ -224,24 +224,34 @@ static bool CheckClutAlphaFull(RasterizerState *state) {
 	if (samplerID.hasClutMask)
 		count = std::min(count, ((samplerID.cached.clutFormat >> 8) & 0xFF) + 1);
 
+	u32 alphaSum = 0xFFFFFFFF;
+	if (samplerID.ClutFmt() == GE_CMODE_32BIT_ABGR8888) {
+		CheckMask32((const uint32_t *)samplerID.cached.clut, count, &alphaSum);
+	} else {
+		CheckMask16((const uint16_t *)samplerID.cached.clut, count, &alphaSum);
+	}
+
 	bool onlyFull = true;
 	switch (samplerID.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:
 		break;
 
 	case GE_CMODE_16BIT_ABGR5551:
-		onlyFull = CheckAlpha16((const uint16_t *)samplerID.cached.clut, count, 0x8000) == CHECKALPHA_FULL;
+		onlyFull = (alphaSum & 0x8000) != 0;
 		break;
 
 	case GE_CMODE_16BIT_ABGR4444:
-		onlyFull = CheckAlpha16((const uint16_t *)samplerID.cached.clut, count, 0xF000) == CHECKALPHA_FULL;
+		onlyFull = (alphaSum & 0xF000) == 0xF000;
 		break;
 
 	case GE_CMODE_32BIT_ABGR8888:
-		onlyFull = CheckAlpha32((const uint32_t *)samplerID.cached.clut, count, 0xFF000000) == CHECKALPHA_FULL;
+		onlyFull = (alphaSum & 0xFF000000) == 0xFF000000;
 		break;
 	}
 
+	// Might just be different patterns, but if alphaSum != 0, it can't contain zero.
+	if (alphaSum != 0)
+		state->flags |= RasterizerStateFlags::CLUT_ALPHA_NON_ZERO;
 	if (!onlyFull)
 		state->flags |= RasterizerStateFlags::CLUT_ALPHA_NON_FULL;
 	state->flags |= RasterizerStateFlags::CLUT_ALPHA_CHECKED;
@@ -321,8 +331,13 @@ static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 				alphaTestFunc = GE_COMP_GREATER;
 
 			bool alphaTest = (alphaTestFunc == GE_COMP_NOTEQUAL || alphaTestFunc == GE_COMP_GREATER) && pixelID.alphaTestRef < 0xFF && !state->pixelID.hasAlphaTestMask;
-			if (alphaTest && CheckClutAlphaFull(state))
-				optimize |= alphaTestFunc == GE_COMP_NOTEQUAL ? RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE : RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT;
+			if (alphaTest) {
+				bool canSkipAlphaTest = CheckClutAlphaFull(state);
+				if ((state->flags & RasterizerStateFlags::CLUT_ALPHA_NON_ZERO) && pixelID.alphaTestRef == 0)
+					canSkipAlphaTest = true;
+				if (canSkipAlphaTest)
+					optimize |= alphaTestFunc == GE_COMP_NOTEQUAL ? RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE : RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT;
+			}
 		}
 	}
 
