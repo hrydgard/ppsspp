@@ -100,7 +100,11 @@ bool ViewGroup::Touch(const TouchInput &input) {
 			}
 		}
 	}
-	return any;
+	if (clickableBackground_) {
+		return any || bounds_.Contains(input.x, input.y);
+	} else {
+		return any;
+	}
 }
 
 void ViewGroup::Query(float x, float y, std::vector<View *> &list) {

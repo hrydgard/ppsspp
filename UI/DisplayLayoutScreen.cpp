@@ -43,8 +43,9 @@ static const int leftColumnWidth = 200;
 static const float orgRatio = 1.764706f;  // 480.0 / 272.0
 
 enum Mode {
-	MODE_MOVE,
-	MODE_RESIZE,
+	MODE_INACTIVE = 0,
+	MODE_MOVE = 1,
+	MODE_RESIZE = 2,
 };
 
 static Bounds FRectToBounds(FRect rc) {
@@ -198,11 +199,13 @@ void DisplayLayoutScreen::CreateViews() {
 	ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, 10.f, 10.f, NONE, 10.f, false));
 	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL);
 	leftScrollView->Add(leftColumn);
+	leftScrollView->SetClickableBackground(true);
 	root_->Add(leftScrollView);
 
 	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 10.f, 10.f, 10.f, false));
 	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL);
 	rightScrollView->Add(rightColumn);
+	rightScrollView->SetClickableBackground(true);
 	root_->Add(rightScrollView);
 
 	LinearLayout *bottomControls = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, NONE, NONE, 10.0f, false));
@@ -219,6 +222,7 @@ void DisplayLayoutScreen::CreateViews() {
 		aspectRatio->SetLiveUpdate(true);
 
 		mode_ = new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+		mode_->AddChoice(di->T("Inactive"));
 		mode_->AddChoice(di->T("Move"));
 		mode_->AddChoice(di->T("Resize"));
 		mode_->SetSelection(0, false);
@@ -290,16 +294,19 @@ void DisplayLayoutScreen::CreateViews() {
 			// Disable duplicated shader slider
 			bool duplicated = alreadyAddedShader.find(shaderInfo->section) != alreadyAddedShader.end();
 			alreadyAddedShader.insert(shaderInfo->section);
+
+			LinearLayout *settingContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT, UI::Margins(24.0f, 0.0f, 0.0f, 0.0f)));
+			leftColumn->Add(settingContainer);
 			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
 				auto &setting = shaderInfo->settings[i];
 				if (!setting.name.empty()) {
 					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
 					if (duplicated) {
 						auto sliderName = StringFromFormat("%s %s", ps->T(setting.name), ps->T("(duplicated setting, previous slider will be used)"));
-						PopupSliderChoiceFloat *settingValue = leftColumn->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, sliderName, setting.step, screenManager()));
+						PopupSliderChoiceFloat *settingValue = settingContainer->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, sliderName, setting.step, screenManager()));
 						settingValue->SetEnabled(false);
 					} else {
-						PopupSliderChoiceFloat *settingValue = leftColumn->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+						PopupSliderChoiceFloat *settingValue = settingContainer->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
 						settingValue->SetLiveUpdate(true);
 						settingValue->SetHasDropShadow(false);
 						settingValue->SetEnabledFunc([=] {

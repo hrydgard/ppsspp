@@ -78,6 +78,7 @@ public:
 	void SetHasDropShadow(bool has) { hasDropShadow_ = has; }
 	void SetDropShadowExpand(float s) { dropShadowExpand_ = s; }
 	void SetExclusiveTouch(bool exclusive) { exclusiveTouch_ = exclusive; }
+	void SetClickableBackground(bool clickableBackground) { clickableBackground_ = clickableBackground; }
 
 	void Lock() { modifyLock_.lock(); }
 	void Unlock() { modifyLock_.unlock(); }
@@ -96,6 +97,7 @@ protected:
 	Drawable bg_;
 	float dropShadowExpand_ = 0.0f;
 	bool hasDropShadow_ = false;
+	bool clickableBackground_ = false;
 	bool clip_ = false;
 	bool exclusiveTouch_ = false;
 };
