@@ -349,16 +349,18 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	int ydiff = v1.screenpos.y - v0.screenpos.y;
 	int udiff = (v1.texturecoords.x - v0.texturecoords.x) * (float)SCREEN_SCALE_FACTOR;
 	int vdiff = (v1.texturecoords.y - v0.texturecoords.y) * (float)SCREEN_SCALE_FACTOR;
-	bool coord_check =
-		(xdiff == udiff || xdiff == -udiff) &&
-		(ydiff == vdiff || ydiff == -vdiff);
 	// Currently only works for TL/BR, which is the most common but not required.
 	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	// We already have a fast path for clear in ClearRectangle.
-	bool state_check = state.throughMode && !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(state, v0.texturecoords.uv()) && NoClampOrWrap(state, v1.texturecoords.uv());
+	bool state_check = state.throughMode && !state.pixelID.clearMode && !state.samplerID.hasAnyMips && !state.textureProj;
+	bool coord_check = true;
+	if (state.enableTextures) {
+		state_check = state_check && NoClampOrWrap(state, v0.texturecoords.uv()) && NoClampOrWrap(state, v1.texturecoords.uv());
+		coord_check = (xdiff == udiff || xdiff == -udiff) && (ydiff == vdiff || ydiff == -vdiff);
+	}
 	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
 	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) == 0;
-	if ((coord_check || !state.enableTextures) && orient_check && state_check && subpixel_check) {
+	if (coord_check && orient_check && state_check && subpixel_check) {
 		binner.AddSprite(v0, v1);
 		return true;
 	}
