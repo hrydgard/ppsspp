@@ -413,6 +413,9 @@ static bool AreCoordsRectangleCompatible(const RasterizerState &state, const Cli
 			if (data1.clippos.w - halftexel > data0.clippos.w || data1.clippos.w + halftexel < data0.clippos.w)
 				return false;
 		}
+		// We might need to cull this if all verts have negative w, which doesn't seem to happen for rectangles.
+		if (data0.clippos.w < 0.0f && data1.clippos.w < 0.0f)
+			return false;
 		// If we're projecting textures, only allow an exact match for simplicity.
 		if (state.enableTextures && data1.v.texturecoords.q() != data0.v.texturecoords.q())
 			return false;
