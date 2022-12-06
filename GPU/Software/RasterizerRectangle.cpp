@@ -156,6 +156,50 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 	return ToVec4IntResult(out);
 }
 
+template <bool isWhite>
+static void DrawSpriteTex5551(const DrawingCoords &pos0, const DrawingCoords &pos1, int s_start, int t_start, int ds, int dt, u32 color0, const RasterizerState &state, Sampler::FetchFunc fetchFunc) {
+	const u8 *texptr = state.texptr[0];
+	uint16_t texbufw = state.texbufw[0];
+
+	int t = t_start;
+	const Vec4<int> c0 = Vec4<int>::FromRGBA(color0);
+	for (int y = pos0.y; y < pos1.y; y++) {
+		int s = s_start;
+		u16 *pixel = fb.Get16Ptr(pos0.x, y, state.pixelID.cached.framebufStride);
+		for (int x = pos0.x; x < pos1.x; x++) {
+			Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0, state.samplerID);
+			if (isWhite) {
+				u32 tex_color32 = Vec4<int>(tex_color).ToRGBA();
+				if (tex_color32 & 0xFF000000) {
+					DrawSinglePixel5551(pixel, tex_color32);
+				}
+			} else {
+				Vec4<int> prim_color = c0;
+				prim_color = Vec4<int>(ModulateRGBA(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color), state.samplerID));
+				if (prim_color.a() > 0) {
+					DrawSinglePixel5551(pixel, prim_color.ToRGBA());
+				}
+			}
+			s += ds;
+			pixel++;
+		}
+		t += dt;
+	}
+}
+
+static void DrawSpriteNoTex5551(const DrawingCoords &pos0, const DrawingCoords &pos1, u32 color0, const RasterizerState &state) {
+	if (Vec4<int>::FromRGBA(color0).a() == 0)
+		return;
+
+	for (int y = pos0.y; y < pos1.y; y++) {
+		u16 *pixel = fb.Get16Ptr(pos0.x, y, state.pixelID.cached.framebufStride);
+		for (int x = pos0.x; x < pos1.x; x++) {
+			DrawSinglePixel5551(pixel, color0);
+			pixel++;
+		}
+	}
+}
+
 void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
 	const u8 *texptr = state.texptr[0];
 
@@ -213,38 +257,9 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 
 		if (UseDrawSinglePixel5551(pixelID) && samplerID.TexFunc() == GE_TEXFUNC_MODULATE && samplerID.useTextureAlpha) {
 			if (isWhite) {
-				int t = t_start;
-				for (int y = pos0.y; y < pos1.y; y++) {
-					int s = s_start;
-					u16 *pixel = fb.Get16Ptr(pos0.x, y, pixelID.cached.framebufStride);
-					for (int x = pos0.x; x < pos1.x; x++) {
-						u32 tex_color = Vec4<int>(fetchFunc(s, t, texptr, texbufw, 0, state.samplerID)).ToRGBA();
-						if (tex_color & 0xFF000000) {
-							DrawSinglePixel5551(pixel, tex_color);
-						}
-						s += ds;
-						pixel++;
-					}
-					t += dt;
-				}
+				DrawSpriteTex5551<true>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
 			} else {
-				int t = t_start;
-				const Vec4<int> c0 = Vec4<int>::FromRGBA(v1.color0);
-				for (int y = pos0.y; y < pos1.y; y++) {
-					int s = s_start;
-					u16 *pixel = fb.Get16Ptr(pos0.x, y, pixelID.cached.framebufStride);
-					for (int x = pos0.x; x < pos1.x; x++) {
-						Vec4<int> prim_color = c0;
-						Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0, state.samplerID);
-						prim_color = Vec4<int>(ModulateRGBA(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color), state.samplerID));
-						if (prim_color.a() > 0) {
-							DrawSinglePixel5551(pixel, prim_color.ToRGBA());
-						}
-						s += ds;
-						pixel++;
-					}
-					t += dt;
-				}
+				DrawSpriteTex5551<false>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
 			}
 		} else {
 			float dsf = ds * (1.0f / (float)(1 << state.samplerID.width0Shift));
@@ -287,16 +302,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 		if (pos0.x < scissorTL.x) pos0.x = scissorTL.x;
 		if (pos0.y < scissorTL.y) pos0.y = scissorTL.y;
 		if (UseDrawSinglePixel5551(pixelID)) {
-			if (Vec4<int>::FromRGBA(v1.color0).a() == 0)
-				return;
-
-			for (int y = pos0.y; y < pos1.y; y++) {
-				u16 *pixel = fb.Get16Ptr(pos0.x, y, pixelID.cached.framebufStride);
-				for (int x = pos0.x; x < pos1.x; x++) {
-					DrawSinglePixel5551(pixel, v1.color0);
-					pixel++;
-				}
-			}
+			DrawSpriteNoTex5551(pos0, pos1, v1.color0, state);
 		} else if (pixelID.earlyZChecks) {
 			const Vec4<int> prim_color = Vec4<int>::FromRGBA(v1.color0);
 			for (int y = pos0.y; y < pos1.y; y++) {
