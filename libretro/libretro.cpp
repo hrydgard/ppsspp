@@ -1389,6 +1389,9 @@ bool retro_load_game(const struct retro_game_info *game)
 
    useEmuThread              = ctx->GetGPUCore() == GPUCORE_GLES;
 
+   // default to interpreter to allow startup in platforms w/o JIT capability
+   g_Config.iCpuCore         = (int)CPUCore::INTERPRETER;
+
    CoreParameter coreParam   = {};
    coreParam.enableSound     = true;
    coreParam.fileToStart     = Path(std::string(game->path));
@@ -1398,8 +1401,10 @@ bool retro_load_game(const struct retro_game_info *game)
    coreParam.headLess        = true;
    coreParam.graphicsContext = ctx;
    coreParam.gpuCore         = ctx->GetGPUCore();
-   coreParam.cpuCore         = (CPUCore)g_Config.iCpuCore;
    check_variables(coreParam);
+
+   // set cpuCore from libretro setting variable
+   coreParam.cpuCore         =  (CPUCore)g_Config.iCpuCore;
 
    std::string error_string;
    if (!PSP_InitStart(coreParam, &error_string))
