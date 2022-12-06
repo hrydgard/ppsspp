@@ -392,6 +392,19 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	return false;
 }
 
+static bool IsCoordRectangleCompatible(const RasterizerState &state, const ClipVertexData &data) {
+	if (!state.throughMode) {
+		// See AreCoordsRectangleCompatible() for most of these, this just checks the main vert.
+		if (data.OutsideRange())
+			return false;
+		if (data.clippos.w < 0.0f)
+			return false;
+		if (data.clippos.z < -data.clippos.w)
+			return false;
+	}
+	return true;
+}
+
 static bool AreCoordsRectangleCompatible(const RasterizerState &state, const ClipVertexData &data0, const ClipVertexData &data1) {
 	if (data1.v.color0 != data0.v.color0)
 		return false;
@@ -404,7 +417,7 @@ static bool AreCoordsRectangleCompatible(const RasterizerState &state, const Cli
 		if (data1.v.color1 != data0.v.color1)
 			return false;
 		// This means it should be culled, outside range.
-		if (data1.OutsideRange() || data0.OutsideRange())
+		if (data1.OutsideRange())
 			return false;
 		// Do we have to think about perspective correction or slope mip level?
 		if (state.enableTextures && data1.clippos.w != data0.clippos.w) {
@@ -414,7 +427,10 @@ static bool AreCoordsRectangleCompatible(const RasterizerState &state, const Cli
 				return false;
 		}
 		// We might need to cull this if all verts have negative w, which doesn't seem to happen for rectangles.
-		if (data0.clippos.w < 0.0f && data1.clippos.w < 0.0f)
+		if (data1.clippos.w < 0.0f)
+			return false;
+		// And we also may need to clip, even if flat.
+		if (data1.clippos.z < -data1.clippos.w)
 			return false;
 		// If we're projecting textures, only allow an exact match for simplicity.
 		if (state.enableTextures && data1.v.texturecoords.q() != data0.v.texturecoords.q())
@@ -430,10 +446,13 @@ static bool AreCoordsRectangleCompatible(const RasterizerState &state, const Cli
 }
 
 bool DetectRectangleFromStrip(const RasterizerState &state, const ClipVertexData data[4], int *tlIndex, int *brIndex) {
+	if (!IsCoordRectangleCompatible(state, data[0]))
+		return false;
+
 	// Color and Z must be flat.  Also find the TL and BR meanwhile.
 	int tl = 0, br = 0;
 	for (int i = 1; i < 4; ++i) {
-		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
+		if (!AreCoordsRectangleCompatible(state, data[0], data[i]))
 			return false;
 
 		if (data[i].v.screenpos.x <= data[tl].v.screenpos.x && data[i].v.screenpos.y <= data[tl].v.screenpos.y)
@@ -486,10 +505,13 @@ bool DetectRectangleFromStrip(const RasterizerState &state, const ClipVertexData
 }
 
 bool DetectRectangleFromFan(const RasterizerState &state, const ClipVertexData *data, int *tlIndex, int *brIndex) {
+	if (!IsCoordRectangleCompatible(state, data[0]))
+		return false;
+
 	// Color and Z must be flat.
 	int tl = 0, br = 0;
 	for (int i = 1; i < 4; ++i) {
-		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
+		if (!AreCoordsRectangleCompatible(state, data[0], data[i]))
 			return false;
 
 		if (data[i].v.screenpos.x <= data[tl].v.screenpos.x && data[i].v.screenpos.y <= data[tl].v.screenpos.y)
@@ -537,10 +559,13 @@ bool DetectRectangleFromFan(const RasterizerState &state, const ClipVertexData *
 }
 
 bool DetectRectangleFromPair(const RasterizerState &state, const ClipVertexData data[6], int *tlIndex, int *brIndex) {
+	if (!IsCoordRectangleCompatible(state, data[0]))
+		return false;
+
 	// Color and Z must be flat.  Also find the TL and BR meanwhile.
 	int tl = 0, br = 0;
 	for (int i = 1; i < 6; ++i) {
-		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
+		if (!AreCoordsRectangleCompatible(state, data[0], data[i]))
 			return false;
 
 		if (data[i].v.screenpos.x <= data[tl].v.screenpos.x && data[i].v.screenpos.y <= data[tl].v.screenpos.y)
