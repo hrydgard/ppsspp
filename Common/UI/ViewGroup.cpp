@@ -514,8 +514,9 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 	float sum = 0.0f;
 	float maxOther = 0.0f;
 	float totalWeight = 0.0f;
-	float weightSum = 0.0f;
-	float weightZeroSum = 0.0f;
+
+	float weightSum = 0.0f;  // Total sum of weights
+	float weightZeroSum = 0.0f;  // Sum of sizes of things with weight 0.0, a bit confusingly named
 
 	int numVisible = 0;
 
@@ -593,8 +594,11 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		for (View *view : views_) {
 			if (view->GetVisibility() == V_GONE)
 				continue;
-			const LinearLayoutParams *linLayoutParams = view->GetLayoutParams()->As<LinearLayoutParams>();
+			// FILL_PARENT is not appropriate in this direction. It gets ignored though.
+			// We have a bit too many of these due to the hack in the ClickableItem constructor.
+			// _dbg_assert_(view->GetLayoutParams()->width != UI::FILL_PARENT);
 
+			const LinearLayoutParams *linLayoutParams = view->GetLayoutParams()->As<LinearLayoutParams>();
 			if (linLayoutParams && linLayoutParams->weight > 0.0f) {
 				Margins margins = defaultMargins_;
 				if (linLayoutParams->HasMargins())
@@ -638,8 +642,11 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		for (View *view : views_) {
 			if (view->GetVisibility() == V_GONE)
 				continue;
-			const LinearLayoutParams *linLayoutParams = view->GetLayoutParams()->As<LinearLayoutParams>();
+			// FILL_PARENT is not appropriate in this direction. It gets ignored though.
+			// We have a bit too many of these due to the hack in the ClickableItem constructor.
+			// _dbg_assert_(view->GetLayoutParams()->height != UI::FILL_PARENT);
 
+			const LinearLayoutParams *linLayoutParams = view->GetLayoutParams()->As<LinearLayoutParams>();
 			if (linLayoutParams && linLayoutParams->weight > 0.0f) {
 				Margins margins = defaultMargins_;
 				if (linLayoutParams->HasMargins())
@@ -649,6 +656,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 					h = MeasureSpec(AT_MOST, measuredWidth_);
 				float unit = (allowedHeight - weightZeroSum) / weightSum;
 				if (weightSum == 0.0f) {
+					// We must have gotten an inf.
 					unit = 1.0f;
 				}
 				MeasureSpec v(AT_MOST, unit * linLayoutParams->weight - margins.vert());

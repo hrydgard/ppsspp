@@ -814,7 +814,7 @@ void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext 
 	const std::string valueText = ValueText();
 	int paddingX = 12;
 	// Assume we want at least 20% of the size for the label, at a minimum.
-	float availWidth = (horiz.size - paddingX * 2) * 0.8f;
+	float availWidth = (horiz.size - paddingX * 2) * (text_.empty() ? 1.0f : 0.8f);
 	if (availWidth < 0) {
 		availWidth = 65535.0f;
 	}
@@ -826,11 +826,15 @@ void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext 
 	valueW += paddingX;
 
 	// Give the choice itself less space to grow in, so it shrinks if needed.
-	MeasureSpec horizLabel = horiz;
-	horizLabel.size -= valueW;
+	// MeasureSpec horizLabel = horiz;
+	// horizLabel.size -= valueW;
 	Choice::GetContentDimensionsBySpec(dc, horiz, vert, w, h);
 
 	w += valueW;
+	// Fill out anyway if there's space.
+	if (horiz.type == AT_MOST && w < horiz.size) {
+		w = horiz.size;
+	}
 	h = std::max(h, valueH);
 }
 

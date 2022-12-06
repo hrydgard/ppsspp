@@ -463,8 +463,8 @@ public:
 private:
 	std::string ValueText() const override;
 
-	int *iValue_ = nullptr;
 	std::string *sValue_ = nullptr;
+	int *iValue_ = nullptr;
 	const char *category_ = nullptr;
 	std::string (*translateCallback_)(const char *value) = nullptr;
 };

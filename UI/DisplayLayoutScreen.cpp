@@ -271,13 +271,11 @@ void DisplayLayoutScreen::CreateViews() {
 		// Vector element pointer get invalidated on resize, cache name to have always a valid reference in the rendering thread
 		shaderNames_[i] = i == g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[i];
 
-		// TODO: I want to set UI::FILL_PARENT or an explicit width here, but breaks badly???
-		LinearLayout *shaderRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT));
+		LinearLayout *shaderRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT));
 		shaderRow->SetSpacing(4.0f);
 		leftColumn->Add(shaderRow);
 
 		postProcChoice_ = shaderRow->Add(new ChoiceWithValueDisplay(&shaderNames_[i], "", &PostShaderTranslateName, new LinearLayoutParams(1.0f)));
-		postProcChoice_->SetAutoExpand(false);
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory("Graphics");
 			auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"), i, false);
@@ -305,7 +303,7 @@ void DisplayLayoutScreen::CreateViews() {
 				}
 			}
 			if (hasSettings) {
-				auto settingsButton = shaderRow->Add(new Choice(ImageID("I_SLIDERS")));
+				auto settingsButton = shaderRow->Add(new Choice(ImageID("I_SLIDERS"), new LinearLayoutParams(0.0f)));
 				settingsButton->OnClick.Add([=](EventParams &e) {
 					settingsVisible_[i] = !settingsVisible_[i];
 					RecreateViews();
@@ -315,7 +313,7 @@ void DisplayLayoutScreen::CreateViews() {
 		}
 
 		if (i > 0 && i < g_Config.vPostShaderNames.size()) {
-			auto upButton = shaderRow->Add(new Choice(ImageID("I_ARROW_UP")));
+			auto upButton = shaderRow->Add(new Choice(ImageID("I_ARROW_UP"), new LinearLayoutParams(0.0f)));
 			upButton->OnClick.Add([=](EventParams &e) {
 				std::swap(g_Config.vPostShaderNames[i - 1], g_Config.vPostShaderNames[i]);
 				RecreateViews();
@@ -323,7 +321,7 @@ void DisplayLayoutScreen::CreateViews() {
 			});
 		}
 		if (i < g_Config.vPostShaderNames.size() - 1) {
-			auto downButton = shaderRow->Add(new Choice(ImageID("I_ARROW_DOWN")));
+			auto downButton = shaderRow->Add(new Choice(ImageID("I_ARROW_DOWN"), new LinearLayoutParams(0.0f)));
 			downButton->OnClick.Add([=](EventParams &e) {
 				std::swap(g_Config.vPostShaderNames[i], g_Config.vPostShaderNames[i + 1]);
 				RecreateViews();
@@ -331,7 +329,7 @@ void DisplayLayoutScreen::CreateViews() {
 			});
 		}
 		if (i < g_Config.vPostShaderNames.size()) {
-			auto deleteButton = shaderRow->Add(new Choice(ImageID("I_TRASHCAN")));
+			auto deleteButton = shaderRow->Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(0.0f)));
 			deleteButton->OnClick.Add([=](EventParams &e) {
 				g_Config.vPostShaderNames.erase(g_Config.vPostShaderNames.begin() + i);
 				RecreateViews();

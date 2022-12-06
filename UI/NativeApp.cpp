@@ -1064,7 +1064,7 @@ void TakeScreenshot() {
 }
 
 void RenderOverlays(UIContext *dc, void *userdata) {
-	// Thin bar at the top of the screen like Chrome.
+	// Thin bar at the top of the screen.
 	std::vector<float> progress = g_DownloadManager.GetCurrentProgress();
 	if (!progress.empty()) {
 		static const uint32_t colors[4] = {
@@ -1091,8 +1091,8 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 }
 
 void NativeRender(GraphicsContext *graphicsContext) {
-	_assert_(graphicsContext != nullptr);
-	_assert_(screenManager != nullptr);
+	_dbg_assert_(graphicsContext != nullptr);
+	_dbg_assert_(screenManager != nullptr);
 
 	g_GameManager.Update();
 

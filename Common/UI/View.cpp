@@ -414,7 +414,8 @@ void ClickableItem::GetContentDimensions(const UIContext &dc, float &w, float &h
 }
 
 ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParams) {
-	if (!layoutParams && autoExpand_) {
+	if (!layoutParams) {
+		// The default LayoutParams assigned by View::View defaults to WRAP_CONTENT/WRAP_CONTENT.
 		if (layoutParams_->width == WRAP_CONTENT)
 			layoutParams_->width = FILL_PARENT;
 	}
