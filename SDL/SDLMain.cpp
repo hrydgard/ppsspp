@@ -770,7 +770,13 @@ int main(int argc, char *argv[]) {
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
 
 	char iconPath[PATH_MAX];
+#if defined(ASSETS_DIR)
+	snprintf(iconPath, PATH_MAX, "%sicon_regular_72.png", ASSETS_DIR);
+	if (access(iconPath, F_OK) != 0)
+		snprintf(iconPath, PATH_MAX, "%sassets/icon_regular_72.png", SDL_GetBasePath() ? SDL_GetBasePath() : "");
+#else
 	snprintf(iconPath, PATH_MAX, "%sassets/icon_regular_72.png", SDL_GetBasePath() ? SDL_GetBasePath() : "");
+#endif
 	int width = 0, height = 0;
 	unsigned char *imageData;
 	if (pngLoad(iconPath, &width, &height, &imageData) == 1) {
