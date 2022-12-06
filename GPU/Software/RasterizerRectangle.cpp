@@ -255,8 +255,8 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			pos0.y = scissorTL.y;
 		}
 
-		if (UseDrawSinglePixel5551(pixelID) && samplerID.TexFunc() == GE_TEXFUNC_MODULATE && samplerID.useTextureAlpha) {
-			if (isWhite) {
+		if (UseDrawSinglePixel5551(pixelID) && (samplerID.TexFunc() == GE_TEXFUNC_MODULATE || samplerID.TexFunc() == GE_TEXFUNC_REPLACE) && samplerID.useTextureAlpha) {
+			if (isWhite || samplerID.TexFunc() == GE_TEXFUNC_REPLACE) {
 				DrawSpriteTex5551<true>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
 			} else {
 				DrawSpriteTex5551<false>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
