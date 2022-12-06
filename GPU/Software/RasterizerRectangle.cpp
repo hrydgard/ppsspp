@@ -72,10 +72,11 @@ static uint32_t StandardAlphaBlend(uint32_t source, uint32_t dst) {
 }
 
 // Through mode, with the specific Darkstalker settings.
+template <bool alphaBlend>
 inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in) {
 	u32 new_color;
 	// Because of this check, we only support src.a / 1-src.a blending.
-	if ((color_in >> 24) == 255) {
+	if ((color_in >> 24) == 255 || !alphaBlend) {
 		new_color = color_in & 0xFFFFFF;
 	} else {
 		const u32 old_color = RGBA5551ToRGBA8888(*pixel);
@@ -113,13 +114,15 @@ bool UseDrawSinglePixel5551(const PixelFuncID &pixelID) {
 		return false;
 	if (!AlphaTestIsNeedless(pixelID) || pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
 		return false;
-	if (pixelID.FBFormat() != GE_FORMAT_5551 || !pixelID.alphaBlend)
+	if (pixelID.FBFormat() != GE_FORMAT_5551)
 		return false;
 	// We skip blending when alpha = FF, so we can't allow other blend modes.
-	if (pixelID.AlphaBlendEq() != GE_BLENDMODE_MUL_AND_ADD || pixelID.AlphaBlendSrc() != PixelBlendFactor::SRCALPHA)
-		return false;
-	if (pixelID.AlphaBlendDst() != PixelBlendFactor::INVSRCALPHA)
-		return false;
+	if (pixelID.alphaBlend) {
+		if (pixelID.AlphaBlendEq() != GE_BLENDMODE_MUL_AND_ADD || pixelID.AlphaBlendSrc() != PixelBlendFactor::SRCALPHA)
+			return false;
+		if (pixelID.AlphaBlendDst() != PixelBlendFactor::INVSRCALPHA)
+			return false;
+	}
 	if (pixelID.dithering || pixelID.applyLogicOp || pixelID.applyColorWriteMask)
 		return false;
 
@@ -156,7 +159,7 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 	return ToVec4IntResult(out);
 }
 
-template <bool isWhite>
+template <bool isWhite, bool alphaBlend>
 static void DrawSpriteTex5551(const DrawingCoords &pos0, const DrawingCoords &pos1, int s_start, int t_start, int ds, int dt, u32 color0, const RasterizerState &state, Sampler::FetchFunc fetchFunc) {
 	const u8 *texptr = state.texptr[0];
 	uint16_t texbufw = state.texbufw[0];
@@ -170,14 +173,14 @@ static void DrawSpriteTex5551(const DrawingCoords &pos0, const DrawingCoords &po
 			Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0, state.samplerID);
 			if (isWhite) {
 				u32 tex_color32 = Vec4<int>(tex_color).ToRGBA();
-				if (tex_color32 & 0xFF000000) {
-					DrawSinglePixel5551(pixel, tex_color32);
+				if (!alphaBlend || tex_color32 & 0xFF000000) {
+					DrawSinglePixel5551<alphaBlend>(pixel, tex_color32);
 				}
 			} else {
 				Vec4<int> prim_color = c0;
 				prim_color = Vec4<int>(ModulateRGBA(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color), state.samplerID));
-				if (prim_color.a() > 0) {
-					DrawSinglePixel5551(pixel, prim_color.ToRGBA());
+				if (!alphaBlend || prim_color.a() > 0) {
+					DrawSinglePixel5551<alphaBlend>(pixel, prim_color.ToRGBA());
 				}
 			}
 			s += ds;
@@ -187,14 +190,15 @@ static void DrawSpriteTex5551(const DrawingCoords &pos0, const DrawingCoords &po
 	}
 }
 
+template <bool alphaBlend>
 static void DrawSpriteNoTex5551(const DrawingCoords &pos0, const DrawingCoords &pos1, u32 color0, const RasterizerState &state) {
-	if (Vec4<int>::FromRGBA(color0).a() == 0)
+	if (alphaBlend && Vec4<int>::FromRGBA(color0).a() == 0)
 		return;
 
 	for (int y = pos0.y; y < pos1.y; y++) {
 		u16 *pixel = fb.Get16Ptr(pos0.x, y, state.pixelID.cached.framebufStride);
 		for (int x = pos0.x; x < pos1.x; x++) {
-			DrawSinglePixel5551(pixel, color0);
+			DrawSinglePixel5551<alphaBlend>(pixel, color0);
 			pixel++;
 		}
 	}
@@ -257,9 +261,15 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 
 		if (UseDrawSinglePixel5551(pixelID) && (samplerID.TexFunc() == GE_TEXFUNC_MODULATE || samplerID.TexFunc() == GE_TEXFUNC_REPLACE) && samplerID.useTextureAlpha) {
 			if (isWhite || samplerID.TexFunc() == GE_TEXFUNC_REPLACE) {
-				DrawSpriteTex5551<true>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
+				if (pixelID.alphaBlend)
+					DrawSpriteTex5551<true, true>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
+				else
+					DrawSpriteTex5551<true, false>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
 			} else {
-				DrawSpriteTex5551<false>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
+				if (pixelID.alphaBlend)
+					DrawSpriteTex5551<false, true>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
+				else
+					DrawSpriteTex5551<false, false>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
 			}
 		} else {
 			float dsf = ds * (1.0f / (float)(1 << state.samplerID.width0Shift));
@@ -302,7 +312,10 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 		if (pos0.x < scissorTL.x) pos0.x = scissorTL.x;
 		if (pos0.y < scissorTL.y) pos0.y = scissorTL.y;
 		if (UseDrawSinglePixel5551(pixelID)) {
-			DrawSpriteNoTex5551(pos0, pos1, v1.color0, state);
+			if (pixelID.alphaBlend)
+				DrawSpriteNoTex5551<true>(pos0, pos1, v1.color0, state);
+			else
+				DrawSpriteNoTex5551<false>(pos0, pos1, v1.color0, state);
 		} else if (pixelID.earlyZChecks) {
 			const Vec4<int> prim_color = Vec4<int>::FromRGBA(v1.color0);
 			for (int y = pos0.y; y < pos1.y; y++) {
