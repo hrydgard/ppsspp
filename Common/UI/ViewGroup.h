@@ -106,6 +106,7 @@ protected:
 // It simply centers the child view.
 class FrameLayout : public ViewGroup {
 public:
+	FrameLayout(LayoutParams *layoutParams = nullptr) : ViewGroup(layoutParams) {}
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
 };
@@ -193,6 +194,7 @@ public:
 		spacing_ = spacing;
 	}
 	std::string DescribeLog() const override { return (orientation_ == ORIENT_HORIZONTAL ? "LinearLayoutHoriz: " : "LinearLayoutVert: ") + View::DescribeLog(); }
+	Margins padding;
 
 protected:
 	Orientation orientation_;
