@@ -250,6 +250,16 @@ void ReloadAllPostShaderInfo(Draw::DrawContext *draw) {
 	LoadPostShaderInfo(draw, directories);
 }
 
+void RemoveUnknownPostShaders(std::vector<std::string> *names) {
+	for (auto iter = names->begin(); iter != names->end(); ) {
+		if (GetPostShaderInfo(*iter) == nullptr) {
+			iter = names->erase(iter);
+		} else {
+			++iter;
+		}
+	}
+}
+
 const ShaderInfo *GetPostShaderInfo(const std::string &name) {
 	for (size_t i = 0; i < shaderInfo.size(); i++) {
 		if (shaderInfo[i].section == name)
