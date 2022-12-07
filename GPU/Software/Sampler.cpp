@@ -98,6 +98,10 @@ FetchFunc GetFetchFunc(SamplerID id, BinManager *binner) {
 	return &SampleFetch;
 }
 
+thread_local SamplerJitCache::LastCache SamplerJitCache::lastFetch_;
+thread_local SamplerJitCache::LastCache SamplerJitCache::lastNearest_;
+thread_local SamplerJitCache::LastCache SamplerJitCache::lastLinear_;
+
 // 256k should be enough.
 SamplerJitCache::SamplerJitCache() : Rasterizer::CodeBlock(1024 * 64 * 4), cache_(64) {
 }
@@ -190,12 +194,11 @@ NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, BinManager *binner)
 		return nullptr;
 
 	const size_t key = std::hash<SamplerID>()(id);
-	auto last = lastNearest_.load();
-	if (last.key == key)
-		return (NearestFunc)last.func;
+	if (lastNearest_.key == key)
+		return (NearestFunc)lastNearest_.func;
 
 	auto func = GetByID(id, key, binner);
-	lastNearest_ = { key, func };
+	lastNearest_.Set(key, func);
 	return (NearestFunc)func;
 }
 
@@ -204,12 +207,11 @@ LinearFunc SamplerJitCache::GetLinear(const SamplerID &id, BinManager *binner) {
 		return nullptr;
 
 	const size_t key = std::hash<SamplerID>()(id);
-	auto last = lastLinear_.load();
-	if (last.key == key)
-		return (LinearFunc)last.func;
+	if (lastLinear_.key == key)
+		return (LinearFunc)lastLinear_.func;
 
 	auto func = GetByID(id, key, binner);
-	lastLinear_ = { key, func };
+	lastLinear_.Set(key, func);
 	return (LinearFunc)func;
 }
 
@@ -218,12 +220,11 @@ FetchFunc SamplerJitCache::GetFetch(const SamplerID &id, BinManager *binner) {
 		return nullptr;
 
 	const size_t key = std::hash<SamplerID>()(id);
-	auto last = lastFetch_.load();
-	if (last.key == key)
-		return (FetchFunc)last.func;
+	if (lastFetch_.key == key)
+		return (FetchFunc)lastFetch_.func;
 
 	auto func = GetByID(id, key, binner);
-	lastFetch_ = { key, func };
+	lastFetch_.Set(key, func);
 	return (FetchFunc)func;
 }
 
