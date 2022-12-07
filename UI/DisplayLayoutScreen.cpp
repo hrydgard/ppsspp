@@ -23,6 +23,7 @@
 #include "Common/Render/DrawBuffer.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
+#include "Common/UI/UIScreen.h"
 #include "Common/Math/math_util.h"
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
@@ -267,6 +268,12 @@ void DisplayLayoutScreen::CreateViews() {
 	std::set<std::string> alreadyAddedShader;
 	settingsVisible_.resize(g_Config.vPostShaderNames.size());
 
+	static ContextMenuItem postShaderContextMenu[] = {
+		{ "Move Up", "I_ARROW_UP" },
+		{ "Move Down", "I_ARROW_DOWN" },
+		{ "Remove", "I_TRASHCAN" },
+	};
+
 	for (int i = 0; i < (int)g_Config.vPostShaderNames.size() + 1 && i < ARRAY_SIZE(shaderNames_); ++i) {
 		// Vector element pointer get invalidated on resize, cache name to have always a valid reference in the rendering thread
 		shaderNames_[i] = i == g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[i];
@@ -310,32 +317,35 @@ void DisplayLayoutScreen::CreateViews() {
 					return UI::EVENT_DONE;
 				});
 			}
+
+			auto moreButton = shaderRow->Add(new Choice(ImageID("I_THREE_DOTS"), new LinearLayoutParams(0.0f)));
+			moreButton->OnClick.Add([=](EventParams &e) -> UI::EventReturn {
+				PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(postShaderContextMenu, ARRAY_SIZE(postShaderContextMenu), gr.get(), moreButton);
+				screenManager()->push(contextMenu);
+				contextMenu->SetEnabled(0, i > 0);
+				contextMenu->SetEnabled(1, i < g_Config.vPostShaderNames.size() - 1);
+				contextMenu->OnChoice.Add([=](EventParams &e) -> UI::EventReturn {
+					switch (e.a) {
+					case 0:  // Move up
+						std::swap(g_Config.vPostShaderNames[i - 1], g_Config.vPostShaderNames[i]);
+						break;
+					case 1:  // Move down
+						std::swap(g_Config.vPostShaderNames[i], g_Config.vPostShaderNames[i + 1]);
+						break;
+					case 2:  // Remove
+						g_Config.vPostShaderNames.erase(g_Config.vPostShaderNames.begin() + i);
+						break;
+					default:
+						return UI::EVENT_DONE;
+					}
+					NativeMessageReceived("gpu_configChanged", "");
+					RecreateViews();
+					return UI::EVENT_DONE;
+				});
+				return UI::EVENT_DONE;
+			});
 		}
 
-		if (i > 0 && i < g_Config.vPostShaderNames.size()) {
-			auto upButton = shaderRow->Add(new Choice(ImageID("I_ARROW_UP"), new LinearLayoutParams(0.0f)));
-			upButton->OnClick.Add([=](EventParams &e) {
-				std::swap(g_Config.vPostShaderNames[i - 1], g_Config.vPostShaderNames[i]);
-				RecreateViews();
-				return UI::EVENT_DONE;
-			});
-		}
-		if (i < g_Config.vPostShaderNames.size() - 1) {
-			auto downButton = shaderRow->Add(new Choice(ImageID("I_ARROW_DOWN"), new LinearLayoutParams(0.0f)));
-			downButton->OnClick.Add([=](EventParams &e) {
-				std::swap(g_Config.vPostShaderNames[i], g_Config.vPostShaderNames[i + 1]);
-				RecreateViews();
-				return UI::EVENT_DONE;
-			});
-		}
-		if (i < g_Config.vPostShaderNames.size()) {
-			auto deleteButton = shaderRow->Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(0.0f)));
-			deleteButton->OnClick.Add([=](EventParams &e) {
-				g_Config.vPostShaderNames.erase(g_Config.vPostShaderNames.begin() + i);
-				RecreateViews();
-				return UI::EVENT_DONE;
-			});
-		}
 
 		// No need for settings on the last one.
 		if (i == g_Config.vPostShaderNames.size())
@@ -405,11 +415,20 @@ void PostProcScreen::OnCompleted(DialogResult result) {
 	const std::string &value = shaders_[indexTranslation_[listView_->GetSelected()]].section;
 	// I feel this logic belongs more in the caller, but eh...
 	if (showStereoShaders_) {
-		g_Config.sStereoToMonoShader = value;
+		if (g_Config.sStereoToMonoShader != value) {
+			g_Config.sStereoToMonoShader = value;
+			NativeMessageReceived("gpu_configChanged", "");
+		}
 	} else {
-		if (id_ < (int)g_Config.vPostShaderNames.size())
-			g_Config.vPostShaderNames[id_] = value;
-		else
+		if (id_ < (int)g_Config.vPostShaderNames.size()) {
+			if (g_Config.vPostShaderNames[id_] != value) {
+				g_Config.vPostShaderNames[id_] = value;
+				NativeMessageReceived("gpu_configChanged", "");
+			}
+		}
+		else {
 			g_Config.vPostShaderNames.push_back(value);
+			NativeMessageReceived("gpu_configChanged", "");
+		}
 	}
 }
