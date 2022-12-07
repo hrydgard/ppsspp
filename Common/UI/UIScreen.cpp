@@ -411,7 +411,7 @@ PopupContextMenuScreen::PopupContextMenuScreen(const ContextMenuItem *items, siz
 void PopupContextMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	for (size_t i = 0; i < itemCount_; i++) {
 		if (items_[i].imageID) {
-			Choice *choice = new Choice(items_[i].text, ImageID(items_[i].imageID));
+			Choice *choice = new Choice(category_->T(items_[i].text), ImageID(items_[i].imageID));
 			parent->Add(choice);
 			if (enabled_[i]) {
 				choice->OnClick.Add([=](EventParams &p) {
