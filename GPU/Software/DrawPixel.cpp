@@ -748,9 +748,11 @@ thread_local PixelJitCache::LastCache PixelJitCache::lastSingle_;
 
 // 256k should be plenty of space for plenty of variations.
 PixelJitCache::PixelJitCache() : CodeBlock(1024 * 64 * 4), cache_(64) {
+	lastSingle_.gen = -1;
 }
 
 void PixelJitCache::Clear() {
+	clearGen_++;
 	CodeBlock::Clear();
 	cache_.Clear();
 	addresses_.clear();
@@ -794,13 +796,13 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, BinManager *binner) {
 		return nullptr;
 
 	const size_t key = std::hash<PixelFuncID>()(id);
-	if (lastSingle_.key == key)
+	if (lastSingle_.Match(key, clearGen_))
 		return lastSingle_.func;
 
 	std::unique_lock<std::mutex> guard(jitCacheLock);
 	auto it = cache_.Get(key);
 	if (it != nullptr) {
-		lastSingle_.Set(key, it);
+		lastSingle_.Set(key, it, clearGen_);
 		return it;
 	}
 
@@ -827,7 +829,7 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, BinManager *binner) {
 		Compile(id);
 
 	it = cache_.Get(key);
-	lastSingle_.Set(key, it);
+	lastSingle_.Set(key, it, clearGen_);
 	return it;
 }
 

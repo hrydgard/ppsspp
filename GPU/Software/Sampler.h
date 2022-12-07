@@ -131,16 +131,23 @@ private:
 	struct LastCache {
 		size_t key;
 		NearestFunc func;
+		int gen = -1;
 
-		void Set(size_t k, NearestFunc f) {
+		bool Match(size_t k, int g) const {
+			return key == k && gen == g;
+		}
+
+		void Set(size_t k, NearestFunc f, int g) {
 			key = k;
 			func = f;
+			gen = g;
 		}
 	};
 
 	DenseHashMap<size_t, NearestFunc, nullptr> cache_;
 	std::unordered_map<SamplerID, const u8 *> addresses_;
 	std::unordered_set<SamplerID> compileQueue_;
+	int clearGen_ = 0;
 	static thread_local LastCache lastFetch_;
 	static thread_local LastCache lastNearest_;
 	static thread_local LastCache lastLinear_;

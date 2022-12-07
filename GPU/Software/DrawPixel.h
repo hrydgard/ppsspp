@@ -112,16 +112,23 @@ private:
 	struct LastCache {
 		size_t key;
 		SingleFunc func;
+		int gen = -1;
 
-		void Set(size_t k, SingleFunc f) {
+		bool Match(size_t k, int g) const {
+			return key == k && gen == g;
+		}
+
+		void Set(size_t k, SingleFunc f, int g) {
 			key = k;
 			func = f;
+			gen = g;
 		}
 	};
 
 	DenseHashMap<size_t, SingleFunc, nullptr> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;
 	std::unordered_set<PixelFuncID> compileQueue_;
+	int clearGen_ = 0;
 	static thread_local LastCache lastSingle_;
 
 	const u8 *constBlendHalf_11_4s_ = nullptr;
