@@ -192,3 +192,5 @@ private:
 	float cutOffY_;
 	bool showing_ = false;
 };
+
+uint32_t GetBackgroundColorWithAlpha(UIContext &dc);

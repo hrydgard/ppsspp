@@ -356,6 +356,10 @@ void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
 	}
 }
 
+uint32_t GetBackgroundColorWithAlpha(UIContext &dc) {
+	return colorAlpha(colorBlend(dc.GetTheme().backgroundColor, 0, 0.5f), 0.65f);  // 0.65 = 166 = A6
+}
+
 void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z, bool darkenBackground) {
 	using namespace Draw;
 	using namespace UI;
@@ -379,7 +383,7 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 		dc.Begin();
 
 		if (darkenBackground) {
-			uint32_t color = colorAlpha(colorBlend(dc.GetTheme().backgroundColor, 0, 0.5f), 0.65f);
+			uint32_t color = GetBackgroundColorWithAlpha(dc);
 			dc.FillRect(UI::Drawable(color), dc.GetBounds());
 			dc.Flush();
 		}

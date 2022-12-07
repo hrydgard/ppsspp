@@ -218,6 +218,11 @@ void DisplayLayoutScreen::CreateViews() {
 	LinearLayout *bottomControls = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, NONE, NONE, 10.0f, false));
 	root_->Add(bottomControls);
 
+	// Set backgrounds for readability
+	Drawable backgroundWithAlpha(GetBackgroundColorWithAlpha(*screenManager()->getUIContext()));
+	leftScrollView->SetBG(backgroundWithAlpha);
+	rightScrollView->SetBG(backgroundWithAlpha);
+
 	if (!IsVREnabled()) {
 		auto stretch = new CheckBox(&g_Config.bDisplayStretch, gr->T("Stretch"));
 		rightColumn->Add(stretch);
