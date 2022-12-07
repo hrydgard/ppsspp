@@ -690,6 +690,10 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 			relevancy -= 2;
 		}
 
+		if (candidate.match.xOffset != 0 && PSP_CoreParameter().compat.flags().DisallowFramebufferAtOffset) {
+			continue;
+		}
+
 		// Avoid binding as texture the framebuffer we're rendering to.
 		// In Killzone, we split the framebuffer but the matching algorithm can still pick the wrong one,
 		// which this avoids completely.
@@ -714,6 +718,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 			if (i != candidates.size() - 1)
 				cands += "\n";
 		}
+		cands += "\n";
 
 		WARN_LOG(G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
 			(int)candidates.size(),

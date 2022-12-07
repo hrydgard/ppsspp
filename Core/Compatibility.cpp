@@ -123,6 +123,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "EnglishOrJapaneseOnly", &flags_.EnglishOrJapaneseOnly);
 	CheckSetting(iniFile, gameID, "OldAdrenoPixelDepthRoundingGL", &flags_.OldAdrenoPixelDepthRoundingGL);
 	CheckSetting(iniFile, gameID, "ForceCircleButtonConfirm", &flags_.ForceCircleButtonConfirm);
+	CheckSetting(iniFile, gameID, "DisallowFramebufferAtOffset", &flags_.DisallowFramebufferAtOffset);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {

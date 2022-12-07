@@ -429,7 +429,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 				vfb->height = drawing_height;
 			}
 			break;
-		} else if (v->fb_stride == params.fb_stride && v->fb_format == params.fb_format && !PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
+		} else if (!PSP_CoreParameter().compat.flags().DisallowFramebufferAtOffset && v->fb_stride == params.fb_stride && v->fb_format == params.fb_format && !PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
 			u32 v_fb_first_line_end_ptr = v->fb_address + v->fb_stride * bpp;
 			u32 v_fb_end_ptr = v->fb_address + v->fb_stride * v->height * bpp;
 
