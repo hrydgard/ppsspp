@@ -109,23 +109,6 @@ private:
 	std::vector<File::FileInfo> langs_;
 };
 
-class PostProcScreen : public ListPopupScreen {
-public:
-	PostProcScreen(const std::string &title, int id, bool showStereoShaders);
-
-	void CreateViews() override;
-
-	const char *tag() const override { return "PostProc"; }
-
-private:
-	void OnCompleted(DialogResult result) override;
-	bool ShowButtons() const override { return true; }
-	std::vector<ShaderInfo> shaders_;
-	int id_;
-	bool showStereoShaders_;
-	std::vector<int> indexTranslation_;
-};
-
 class TextureShaderScreen : public ListPopupScreen {
 public:
 	TextureShaderScreen(const std::string &title);
