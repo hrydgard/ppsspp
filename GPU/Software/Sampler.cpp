@@ -154,13 +154,8 @@ void SamplerJitCache::Flush() {
 	compileQueue_.clear();
 }
 
-NearestFunc SamplerJitCache::GetByID(const SamplerID &id, BinManager *binner) {
-	if (!g_Config.bSoftwareRenderingJit)
-		return nullptr;
-
+NearestFunc SamplerJitCache::GetByID(const SamplerID &id, size_t key, BinManager *binner) {
 	std::unique_lock<std::mutex> guard(jitCacheLock);
-	const size_t key = std::hash<SamplerID>()(id);
-
 	auto it = cache_.Get(key);
 	if (it != nullptr)
 		return it;
@@ -191,15 +186,45 @@ NearestFunc SamplerJitCache::GetByID(const SamplerID &id, BinManager *binner) {
 }
 
 NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, BinManager *binner) {
-	return (NearestFunc)GetByID(id, binner);
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
+
+	const size_t key = std::hash<SamplerID>()(id);
+	auto last = lastNearest_.load();
+	if (last.key == key)
+		return (NearestFunc)last.func;
+
+	auto func = GetByID(id, key, binner);
+	lastNearest_ = { key, func };
+	return (NearestFunc)func;
 }
 
 LinearFunc SamplerJitCache::GetLinear(const SamplerID &id, BinManager *binner) {
-	return (LinearFunc)GetByID(id, binner);
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
+
+	const size_t key = std::hash<SamplerID>()(id);
+	auto last = lastLinear_.load();
+	if (last.key == key)
+		return (LinearFunc)last.func;
+
+	auto func = GetByID(id, key, binner);
+	lastLinear_ = { key, func };
+	return (LinearFunc)func;
 }
 
 FetchFunc SamplerJitCache::GetFetch(const SamplerID &id, BinManager *binner) {
-	return (FetchFunc)GetByID(id, binner);
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
+
+	const size_t key = std::hash<SamplerID>()(id);
+	auto last = lastFetch_.load();
+	if (last.key == key)
+		return (FetchFunc)last.func;
+
+	auto func = GetByID(id, key, binner);
+	lastFetch_ = { key, func };
+	return (FetchFunc)func;
 }
 
 void SamplerJitCache::Compile(const SamplerID &id) {

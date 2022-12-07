@@ -791,11 +791,15 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, BinManager *binner) {
 	if (!g_Config.bSoftwareRenderingJit)
 		return nullptr;
 
-	std::unique_lock<std::mutex> guard(jitCacheLock);
 	const size_t key = std::hash<PixelFuncID>()(id);
+	auto last = lastSingle_.load();
+	if (last.key == key)
+		return last.func;
 
+	std::unique_lock<std::mutex> guard(jitCacheLock);
 	auto it = cache_.Get(key);
 	if (it != nullptr) {
+		lastSingle_ = { key, it };
 		return it;
 	}
 
@@ -821,7 +825,9 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, BinManager *binner) {
 	if (!cache_.Get(key))
 		Compile(id);
 
-	return cache_.Get(key);
+	it = cache_.Get(key);
+	lastSingle_ = { key, it };
+	return it;
 }
 
 void PixelJitCache::Compile(const PixelFuncID &id) {

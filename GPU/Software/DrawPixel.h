@@ -19,6 +19,7 @@
 
 #include "ppsspp_config.h"
 
+#include <atomic>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -109,9 +110,15 @@ private:
 	bool Jit_ConvertFrom5551(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha);
 	bool Jit_ConvertFrom4444(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha);
 
+	struct LastEntry {
+		size_t key;
+		SingleFunc func;
+	};
+
 	DenseHashMap<size_t, SingleFunc, nullptr> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;
 	std::unordered_set<PixelFuncID> compileQueue_;
+	std::atomic<LastEntry> lastSingle_;
 
 	const u8 *constBlendHalf_11_4s_ = nullptr;
 	const u8 *constBlendInvert_11_4s_ = nullptr;

@@ -19,6 +19,7 @@
 
 #include "ppsspp_config.h"
 
+#include <atomic>
 #include <unordered_map>
 #include <unordered_set>
 #include "Common/Data/Collections/Hashmaps.h"
@@ -67,7 +68,7 @@ public:
 
 private:
 	void Compile(const SamplerID &id);
-	NearestFunc GetByID(const SamplerID &id, BinManager *binner);
+	NearestFunc GetByID(const SamplerID &id, size_t key, BinManager *binner);
 	FetchFunc CompileFetch(const SamplerID &id);
 	NearestFunc CompileNearest(const SamplerID &id);
 	LinearFunc CompileLinear(const SamplerID &id);
@@ -128,9 +129,17 @@ private:
 	const u8 *const5551Swizzle_ = nullptr;
 	const u8 *const5650Swizzle_ = nullptr;
 
+	struct LastEntry {
+		size_t key;
+		NearestFunc func;
+	};
+
 	DenseHashMap<size_t, NearestFunc, nullptr> cache_;
 	std::unordered_map<SamplerID, const u8 *> addresses_;
 	std::unordered_set<SamplerID> compileQueue_;
+	std::atomic<LastEntry> lastFetch_;
+	std::atomic<LastEntry> lastNearest_;
+	std::atomic<LastEntry> lastLinear_;
 };
 
 #if defined(__clang__) || defined(__GNUC__)
