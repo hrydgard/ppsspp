@@ -93,15 +93,15 @@ static inline Vec4<float> Interpolate(const float &c0, const float &c1, const fl
 	return Interpolate(c0, c1, c2, w0.Cast<float>(), w1.Cast<float>(), w2.Cast<float>(), wsum_recip);
 }
 
-void ComputeRasterizerState(RasterizerState *state, std::function<void()> flushForCompile) {
+void ComputeRasterizerState(RasterizerState *state, BinManager *binner) {
 	ComputePixelFuncID(&state->pixelID);
-	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID, flushForCompile);
+	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID, binner);
 
 	state->enableTextures = gstate.isTextureMapEnabled() && !state->pixelID.clearMode;
 	if (state->enableTextures) {
 		ComputeSamplerID(&state->samplerID);
-		state->linear = Sampler::GetLinearFunc(state->samplerID, flushForCompile);
-		state->nearest = Sampler::GetNearestFunc(state->samplerID, flushForCompile);
+		state->linear = Sampler::GetLinearFunc(state->samplerID, binner);
+		state->nearest = Sampler::GetNearestFunc(state->samplerID, binner);
 
 		// Since the definitions are the same, just force this setting using the func pointer.
 		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
@@ -224,24 +224,34 @@ static bool CheckClutAlphaFull(RasterizerState *state) {
 	if (samplerID.hasClutMask)
 		count = std::min(count, ((samplerID.cached.clutFormat >> 8) & 0xFF) + 1);
 
+	u32 alphaSum = 0xFFFFFFFF;
+	if (samplerID.ClutFmt() == GE_CMODE_32BIT_ABGR8888) {
+		CheckMask32((const uint32_t *)samplerID.cached.clut, count, &alphaSum);
+	} else {
+		CheckMask16((const uint16_t *)samplerID.cached.clut, count, &alphaSum);
+	}
+
 	bool onlyFull = true;
 	switch (samplerID.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:
 		break;
 
 	case GE_CMODE_16BIT_ABGR5551:
-		onlyFull = CheckAlpha16((const uint16_t *)samplerID.cached.clut, count, 0x8000) == CHECKALPHA_FULL;
+		onlyFull = (alphaSum & 0x8000) != 0;
 		break;
 
 	case GE_CMODE_16BIT_ABGR4444:
-		onlyFull = CheckAlpha16((const uint16_t *)samplerID.cached.clut, count, 0xF000) == CHECKALPHA_FULL;
+		onlyFull = (alphaSum & 0xF000) == 0xF000;
 		break;
 
 	case GE_CMODE_32BIT_ABGR8888:
-		onlyFull = CheckAlpha32((const uint32_t *)samplerID.cached.clut, count, 0xFF000000) == CHECKALPHA_FULL;
+		onlyFull = (alphaSum & 0xFF000000) == 0xFF000000;
 		break;
 	}
 
+	// Might just be different patterns, but if alphaSum != 0, it can't contain zero.
+	if (alphaSum != 0)
+		state->flags |= RasterizerStateFlags::CLUT_ALPHA_NON_ZERO;
 	if (!onlyFull)
 		state->flags |= RasterizerStateFlags::CLUT_ALPHA_NON_FULL;
 	state->flags |= RasterizerStateFlags::CLUT_ALPHA_CHECKED;
@@ -290,6 +300,37 @@ static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 			}
 		}
 
+		if (alphaBlend && (needTextureAlpha || !alphaFull)) {
+			// Okay, we're blending, and we need to.  Are we alpha testing?
+			GEComparison alphaTestFunc = pixelID.AlphaTestFunc();
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE)
+				alphaTestFunc = GE_COMP_NOTEQUAL;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT)
+				alphaTestFunc = GE_COMP_GREATER;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON)
+				alphaTestFunc = GE_COMP_ALWAYS;
+
+			PixelBlendFactor src = pixelID.AlphaBlendSrc();
+			PixelBlendFactor dst = pixelID.AlphaBlendDst();
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_SRC)
+				src = PixelBlendFactor::SRCALPHA;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_DST)
+				dst = PixelBlendFactor::INVSRCALPHA;
+
+			if (alphaTestFunc == GE_COMP_ALWAYS && src == PixelBlendFactor::SRCALPHA && dst == PixelBlendFactor::INVSRCALPHA) {
+				bool usesClut = (samplerID.texfmt & 4) != 0;
+				bool couldHaveZeroTexAlpha = true;
+				if (usesClut && CheckClutAlphaFull(state))
+					couldHaveZeroTexAlpha = false;
+				if (state->flags & RasterizerStateFlags::CLUT_ALPHA_NON_ZERO)
+					couldHaveZeroTexAlpha = false;
+
+				// Blending is expensive, since we read the target.  Force alpha testing on.
+				if (!pixelID.depthWrite && !pixelID.stencilTest && couldHaveZeroTexAlpha)
+					optimize |= RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON;
+			}
+		}
+
 		bool applyFog = pixelID.applyFog || (state->flags & RasterizerStateFlags::OPTIMIZED_FOG_OFF);
 		if (applyFog) {
 			bool hasFog = state->flags & RasterizerStateFlags::VERTEX_HAS_FOG;
@@ -319,10 +360,17 @@ static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 			// > 16, 8, or similar are also very common.
 			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT)
 				alphaTestFunc = GE_COMP_GREATER;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON)
+				alphaTestFunc = GE_COMP_ALWAYS;
 
 			bool alphaTest = (alphaTestFunc == GE_COMP_NOTEQUAL || alphaTestFunc == GE_COMP_GREATER) && pixelID.alphaTestRef < 0xFF && !state->pixelID.hasAlphaTestMask;
-			if (alphaTest && CheckClutAlphaFull(state))
-				optimize |= alphaTestFunc == GE_COMP_NOTEQUAL ? RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE : RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT;
+			if (alphaTest) {
+				bool canSkipAlphaTest = CheckClutAlphaFull(state);
+				if ((state->flags & RasterizerStateFlags::CLUT_ALPHA_NON_ZERO) && pixelID.alphaTestRef == 0)
+					canSkipAlphaTest = true;
+				if (canSkipAlphaTest)
+					optimize |= alphaTestFunc == GE_COMP_NOTEQUAL ? RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE : RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT;
+			}
 		}
 	}
 
@@ -359,6 +407,13 @@ static bool ApplyStateOptimizations(RasterizerState *state, const RasterizerStat
 			pixelID.alphaTestFunc = GE_COMP_NOTEQUAL;
 		else if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT)
 			pixelID.alphaTestFunc = GE_COMP_GREATER;
+		else if (optimize & RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON) {
+			pixelID.alphaTestFunc = GE_COMP_NOTEQUAL;
+			pixelID.alphaTestRef = 0;
+			pixelID.hasAlphaTestMask = false;
+		} else if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON) {
+			pixelID.alphaTestFunc = GE_COMP_ALWAYS;
+		}
 
 		SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID, nullptr);
 		// Can't compile during runtime.  This failing is a bit of a problem when undoing...
@@ -1116,7 +1171,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	std::string ztag = StringFromFormat("DisplayListRZ_%08x", state.listPC);
 #endif
 
-	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR * 2, rowST += sty) {
+	for (int64_t curY = minY; curY < maxY; curY += SCREEN_SCALE_FACTOR * 2, rowST += sty) {
 		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, curY);
 
 		int scissorY2 = curY + SCREEN_SCALE_FACTOR > maxY ? -1 : 0;
@@ -1124,7 +1179,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 		Vec4<int> scissor_step = Vec4<int>(0, -(SCREEN_SCALE_FACTOR * 2), 0, -(SCREEN_SCALE_FACTOR * 2));
 		Vec2f st = rowST;
 
-		for (int64_t curX = minX; curX <= maxX; curX += SCREEN_SCALE_FACTOR * 2,
+		for (int64_t curX = minX; curX < maxX; curX += SCREEN_SCALE_FACTOR * 2,
 			st += stx,
 			scissor_mask += scissor_step,
 			p.x = (p.x + 2) & 0x3FF) {
@@ -1292,7 +1347,8 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 		minY += SCREEN_SCALE_FACTOR;
 
 	const DrawingCoords pprime = TransformUnit::ScreenToDrawing(minX, minY);
-	const DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX, maxY);
+	// Only include the end pixel when it's >= 0.5.
+	const DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX - SCREEN_SCALE_FACTOR / 2, maxY - SCREEN_SCALE_FACTOR / 2);
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
@@ -1641,10 +1697,14 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 	ComputeSamplerID(&id);
 	id.cached.clut = clut;
 
-	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id, [] {
-		if (gpuDebug)
-			gpuDebug->DispatchFlush();
-	});
+	// Slight annoyance, we may have to force a compile.
+	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id, nullptr);
+	if (!sampler) {
+		Sampler::FlushJit();
+		sampler = Sampler::GetFetchFunc(id, nullptr);
+		if (!sampler)
+			return false;
+	}
 
 	u8 *texptr = Memory::GetPointerWrite(texaddr);
 	u32 *row = (u32 *)buffer.GetData();

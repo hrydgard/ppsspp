@@ -19,10 +19,10 @@
 // Postprocessing shader manager
 // For FXAA, "Natural", bloom, B&W, cross processing and whatnot.
 
+#pragma once
+
 #include <string>
 #include <vector>
-
-#include "Common/Data/Format/IniFile.h"
 
 struct ShaderInfo {
 	Path iniFile;  // which ini file was this definition in? So we can write settings back later

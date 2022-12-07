@@ -3537,6 +3537,11 @@ u32 GPUCommon::CheckGPUFeatures() const {
 		features |= GPU_USE_CLEAR_RAM_HACK;
 	}
 
+	// Even without depth clamp, force accurate depth on for some games that break without it.
+	if (PSP_CoreParameter().compat.flags().DepthRangeHack) {
+		features |= GPU_USE_ACCURATE_DEPTH;
+	}
+
 	return features;
 }
 

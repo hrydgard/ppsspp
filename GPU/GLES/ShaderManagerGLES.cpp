@@ -319,38 +319,6 @@ static inline void FlipProjMatrix(Matrix4x4 &in, bool useBufferedRendering) {
 		in[8] = -in[8];
 		in[12] = -in[12];
 	}
-
-	// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
-	// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
-	if (gstate_c.Use(GPU_USE_DEPTH_RANGE_HACK)) {
-		float zScale = gstate.getViewportZScale() / 65535.0f;
-		float zCenter = gstate.getViewportZCenter() / 65535.0f;
-
-		// if far depth range < 0
-		if (zCenter + zScale < 0.0f) {
-			// if perspective projection
-			if (in[11] < 0.0f) {
-				float depthMax = gstate.getDepthRangeMax() / 65535.0f;
-				float depthMin = gstate.getDepthRangeMin() / 65535.0f;
-
-				float a = in[10];
-				float b = in[14];
-
-				float n = b / (a - 1.0f);
-				float f = b / (a + 1.0f);
-
-				f = (n * f) / (n + ((zCenter + zScale) * (n - f) / (depthMax - depthMin)));
-
-				a = (n + f) / (n - f);
-				b = (2.0f * n * f) / (n - f);
-
-				if (!my_isnan(a) && !my_isnan(b)) {
-					in[10] = a;
-					in[14] = b;
-				}
-			}
-		}
-	}
 }
 
 static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {

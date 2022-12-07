@@ -597,6 +597,7 @@ static void check_variables(CoreParameter &coreParam)
    int iInternalResolution_prev;
    int iTexScalingType_prev;
    int iTexScalingLevel_prev;
+   int iMultiSampleLevel_prev;
 
    var.key = "ppsspp_language";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
@@ -743,6 +744,21 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iInternalResolution = 9;
       else if (!strcmp(var.value, "4800x2720"))
          g_Config.iInternalResolution = 10;
+   }
+
+   var.key = "ppsspp_mulitsample_level";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      iMultiSampleLevel_prev = g_Config.iMultiSampleLevel;
+
+      if (!strcmp(var.value, "Disabled"))
+         g_Config.iMultiSampleLevel = 0;
+      else if (!strcmp(var.value, "x2"))
+         g_Config.iMultiSampleLevel = 1;
+      else if (!strcmp(var.value, "x4"))
+         g_Config.iMultiSampleLevel = 2;
+      else if (!strcmp(var.value, "x8"))
+         g_Config.iMultiSampleLevel = 3;
    }
 
    var.key = "ppsspp_skip_buffer_effects";
@@ -1131,6 +1147,14 @@ static void check_variables(CoreParameter &coreParam)
          environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &avInfo);
          updateAvInfo = false;
          gpu->NotifyDisplayResized();
+      }
+   }
+
+   if (g_Config.iMultiSampleLevel != iMultiSampleLevel_prev && PSP_IsInited())
+   {
+      if (gpu)
+      {
+         gpu->NotifyRenderResized();
       }
    }
 

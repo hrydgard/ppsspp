@@ -569,10 +569,9 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		// Some games send rectangles as a series of regular triangles.
 		// We look for this, but only in throughmode.
 		ClipVertexData buf[6];
-		int buf_index = data_index_;
-		for (int i = 0; i < data_index_; ++i) {
-			buf[i] = data_[i];
-		}
+		// Could start at data_index_ and copy to buf, but there's little reason.
+		int buf_index = 0;
+		_assert_(data_index_ == 0);
 
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
 			buf[buf_index++] = vreader.Read(vtx);

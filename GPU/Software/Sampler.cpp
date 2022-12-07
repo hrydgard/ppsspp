@@ -25,6 +25,7 @@
 #include "Core/Reporting.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUState.h"
+#include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRegCache.h"
 #include "GPU/Software/Sampler.h"
@@ -67,9 +68,9 @@ bool DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return true;
 }
 
-NearestFunc GetNearestFunc(SamplerID id, std::function<void()> flushForCompile) {
+NearestFunc GetNearestFunc(SamplerID id, BinManager *binner) {
 	id.linear = false;
-	NearestFunc jitted = jitCache->GetNearest(id, flushForCompile);
+	NearestFunc jitted = jitCache->GetNearest(id, binner);
 	if (jitted) {
 		return jitted;
 	}
@@ -77,9 +78,9 @@ NearestFunc GetNearestFunc(SamplerID id, std::function<void()> flushForCompile) 
 	return &SampleNearest;
 }
 
-LinearFunc GetLinearFunc(SamplerID id, std::function<void()> flushForCompile) {
+LinearFunc GetLinearFunc(SamplerID id, BinManager *binner) {
 	id.linear = true;
-	LinearFunc jitted = jitCache->GetLinear(id, flushForCompile);
+	LinearFunc jitted = jitCache->GetLinear(id, binner);
 	if (jitted) {
 		return jitted;
 	}
@@ -87,9 +88,9 @@ LinearFunc GetLinearFunc(SamplerID id, std::function<void()> flushForCompile) {
 	return &SampleLinear;
 }
 
-FetchFunc GetFetchFunc(SamplerID id, std::function<void()> flushForCompile) {
+FetchFunc GetFetchFunc(SamplerID id, BinManager *binner) {
 	id.fetch = true;
-	FetchFunc jitted = jitCache->GetFetch(id, flushForCompile);
+	FetchFunc jitted = jitCache->GetFetch(id, binner);
 	if (jitted) {
 		return jitted;
 	}
@@ -97,11 +98,19 @@ FetchFunc GetFetchFunc(SamplerID id, std::function<void()> flushForCompile) {
 	return &SampleFetch;
 }
 
+thread_local SamplerJitCache::LastCache SamplerJitCache::lastFetch_;
+thread_local SamplerJitCache::LastCache SamplerJitCache::lastNearest_;
+thread_local SamplerJitCache::LastCache SamplerJitCache::lastLinear_;
+
 // 256k should be enough.
 SamplerJitCache::SamplerJitCache() : Rasterizer::CodeBlock(1024 * 64 * 4), cache_(64) {
+	lastFetch_.gen = -1;
+	lastNearest_.gen = -1;
+	lastLinear_.gen = -1;
 }
 
 void SamplerJitCache::Clear() {
+	clearGen_++;
 	CodeBlock::Clear();
 	cache_.Clear();
 	addresses_.clear();
@@ -153,25 +162,20 @@ void SamplerJitCache::Flush() {
 	compileQueue_.clear();
 }
 
-NearestFunc SamplerJitCache::GetByID(const SamplerID &id, std::function<void()> flushForCompile) {
-	if (!g_Config.bSoftwareRenderingJit)
-		return nullptr;
-
+NearestFunc SamplerJitCache::GetByID(const SamplerID &id, size_t key, BinManager *binner) {
 	std::unique_lock<std::mutex> guard(jitCacheLock);
-	const size_t key = std::hash<SamplerID>()(id);
-
 	auto it = cache_.Get(key);
 	if (it != nullptr)
 		return it;
 
-	if (!flushForCompile) {
+	if (!binner) {
 		// Can't compile, let's try to do it later when there's an opportunity.
 		compileQueue_.insert(id);
 		return nullptr;
 	}
 
 	guard.unlock();
-	flushForCompile();
+	binner->Flush("compile");
 	guard.lock();
 
 	for (const auto &queued : compileQueue_) {
@@ -189,16 +193,43 @@ NearestFunc SamplerJitCache::GetByID(const SamplerID &id, std::function<void()> 
 	return cache_.Get(key);
 }
 
-NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, std::function<void()> flushForCompile) {
-	return (NearestFunc)GetByID(id, flushForCompile);
+NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, BinManager *binner) {
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
+
+	const size_t key = std::hash<SamplerID>()(id);
+	if (lastNearest_.Match(key, clearGen_))
+		return (NearestFunc)lastNearest_.func;
+
+	auto func = GetByID(id, key, binner);
+	lastNearest_.Set(key, func, clearGen_);
+	return (NearestFunc)func;
 }
 
-LinearFunc SamplerJitCache::GetLinear(const SamplerID &id, std::function<void()> flushForCompile) {
-	return (LinearFunc)GetByID(id, flushForCompile);
+LinearFunc SamplerJitCache::GetLinear(const SamplerID &id, BinManager *binner) {
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
+
+	const size_t key = std::hash<SamplerID>()(id);
+	if (lastLinear_.Match(key, clearGen_))
+		return (LinearFunc)lastLinear_.func;
+
+	auto func = GetByID(id, key, binner);
+	lastLinear_.Set(key, func, clearGen_);
+	return (LinearFunc)func;
 }
 
-FetchFunc SamplerJitCache::GetFetch(const SamplerID &id, std::function<void()> flushForCompile) {
-	return (FetchFunc)GetByID(id, flushForCompile);
+FetchFunc SamplerJitCache::GetFetch(const SamplerID &id, BinManager *binner) {
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
+
+	const size_t key = std::hash<SamplerID>()(id);
+	if (lastFetch_.Match(key, clearGen_))
+		return (FetchFunc)lastFetch_.func;
+
+	auto func = GetByID(id, key, binner);
+	lastFetch_.Set(key, func, clearGen_);
+	return (FetchFunc)func;
 }
 
 void SamplerJitCache::Compile(const SamplerID &id) {

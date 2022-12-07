@@ -551,45 +551,6 @@ void PromptScreen::TriggerFinish(DialogResult result) {
 	UIDialogScreenWithBackground::TriggerFinish(result);
 }
 
-PostProcScreen::PostProcScreen(const std::string &title, int id, bool showStereoShaders) : ListPopupScreen(title), id_(id), showStereoShaders_(showStereoShaders) { }
-
-void PostProcScreen::CreateViews() {
-	auto ps = GetI18NCategory("PostShaders");
-	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
-	shaders_ = GetAllPostShaderInfo();
-	std::vector<std::string> items;
-	int selected = -1;
-	const std::string selectedName = id_ >= (int)g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[id_];
-
-	for (int i = 0; i < (int)shaders_.size(); i++) {
-		if (!shaders_[i].visible)
-			continue;
-		if (shaders_[i].isStereo != showStereoShaders_)
-			continue;
-		if (shaders_[i].section == selectedName)
-			selected = (int)indexTranslation_.size();
-		items.push_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
-		indexTranslation_.push_back(i);
-	}
-	adaptor_ = UI::StringVectorListAdaptor(items, selected);
-	ListPopupScreen::CreateViews();
-}
-
-void PostProcScreen::OnCompleted(DialogResult result) {
-	if (result != DR_OK)
-		return;
-	const std::string &value = shaders_[indexTranslation_[listView_->GetSelected()]].section;
-	// I feel this logic belongs more in the caller, but eh...
-	if (showStereoShaders_) {
-		g_Config.sStereoToMonoShader = value;
-	} else {
-		if (id_ < (int)g_Config.vPostShaderNames.size())
-			g_Config.vPostShaderNames[id_] = value;
-		else
-			g_Config.vPostShaderNames.push_back(value);
-	}
-}
-
 TextureShaderScreen::TextureShaderScreen(const std::string &title) : ListPopupScreen(title) {}
 
 void TextureShaderScreen::CreateViews() {
@@ -619,7 +580,7 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 #ifdef _MSC_VER
 #pragma warning(disable:4566)
 #endif
-	langValuesMapping = GetLangValuesMapping();
+	auto &langValuesMapping = g_Config.GetLangValuesMapping();
 
 	std::vector<File::FileInfo> tempLangs;
 	VFSGetFileListing("lang", &tempLangs, "ini");
@@ -655,11 +616,12 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 		std::string buttonTitle = lang.name;
 
 		if (!code.empty()) {
-			if (langValuesMapping.find(code) == langValuesMapping.end()) {
+			auto iter = langValuesMapping.find(code);
+			if (iter == langValuesMapping.end()) {
 				// No title found, show locale code
 				buttonTitle = code;
 			} else {
-				buttonTitle = langValuesMapping[code].first;
+				buttonTitle = iter->second.first;
 			}
 		}
 		if (g_Config.sLanguageIni == code)
@@ -700,11 +662,14 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 
 	if (iniLoadedSuccessfully) {
 		// Dunno what else to do here.
-		if (langValuesMapping.find(code) == langValuesMapping.end()) {
+		auto &langValuesMapping = g_Config.GetLangValuesMapping();
+
+		auto iter = langValuesMapping.find(code);
+		if (iter == langValuesMapping.end()) {
 			// Fallback to English
 			g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 		} else {
-			g_Config.iLanguage = langValuesMapping[code].second;
+			g_Config.iLanguage = iter->second.second;
 		}
 		RecreateViews();
 	} else {
