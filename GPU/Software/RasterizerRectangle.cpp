@@ -338,12 +338,14 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 
 #if defined(SOFTGPU_MEMORY_TAGGING_BASIC) || defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
 	uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
-	std::string tag = StringFromFormat("DisplayListR_%08x", state.listPC);
-	std::string ztag = StringFromFormat("DisplayListRZ_%08x", state.listPC);
+	char tag[64]{};
+	// char ztag[64]{};
+	int tagLen = snprintf(tag, sizeof(tag), "DisplayListR_%08x", state.listPC);
+	// int ztagLen = snprintf(ztag, sizeof(ztag), "DisplayListRZ_%08x", state.listPC);
 
 	for (int y = pos0.y; y < pos1.y; y++) {
 		uint32_t row = gstate.getFrameBufAddress() + y * pixelID.cached.framebufStride * bpp;
-		NotifyMemInfo(MemBlockFlags::WRITE, row + pos0.x * bpp, (pos1.x - pos0.x) * bpp, tag.c_str(), tag.size());
+		NotifyMemInfo(MemBlockFlags::WRITE, row + pos0.x * bpp, (pos1.x - pos0.x) * bpp, tag, tagLen);
 	}
 #endif
 }
@@ -508,6 +510,7 @@ bool DetectRectangleFromStrip(const RasterizerState &state, const ClipVertexData
 	// There's the other vertex order too...
 	if (data[0].v.screenpos.x == data[2].v.screenpos.x &&
 		data[0].v.screenpos.y == data[1].v.screenpos.y &&
+
 		data[1].v.screenpos.x == data[3].v.screenpos.x &&
 		data[2].v.screenpos.y == data[3].v.screenpos.y) {
 		// Okay, this is in the shape of a rectangle, but what about texture?
