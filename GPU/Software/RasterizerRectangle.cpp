@@ -377,12 +377,6 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 		state_check = state_check && NoClampOrWrap(state, v0.texturecoords.uv()) && NoClampOrWrap(state, v1.texturecoords.uv());
 		coord_check = (xdiff == udiff || xdiff == -udiff) && (ydiff == vdiff || ydiff == -vdiff);
 	}
-	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
-	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) == 0;
-	if (coord_check && orient_check && state_check && subpixel_check) {
-		binner.AddSprite(v0, v1);
-		return true;
-	}
 
 	// Eliminate the stretch blit in DarkStalkers.
 	// We compensate for that when blitting the framebuffer in SoftGpu.cpp.
@@ -409,6 +403,13 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 		} else {
 			g_needsClearAfterDialog = true;
 		}
+	}
+
+	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
+	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) == 0;
+	if (coord_check && orient_check && state_check && subpixel_check) {
+		binner.AddSprite(v0, v1);
+		return true;
 	}
 	return false;
 }
