@@ -310,9 +310,9 @@ void DisplayLayoutScreen::CreateViews() {
 				}
 			}
 			if (hasSettings) {
-				auto settingsButton = shaderRow->Add(new Choice(ImageID("I_SLIDERS"), new LinearLayoutParams(0.0f)));
+				CheckBox *checkBox = new CheckBox(&settingsVisible_[i], ImageID("I_SLIDERS"), new LinearLayoutParams(0.0f));
+				auto settingsButton = shaderRow->Add(checkBox);
 				settingsButton->OnClick.Add([=](EventParams &e) {
-					settingsVisible_[i] = !settingsVisible_[i];
 					RecreateViews();
 					return UI::EVENT_DONE;
 				});

@@ -700,28 +700,55 @@ void CheckBox::Draw(UIContext &dc) {
 	if (!IsEnabled()) {
 		style = dc.theme->itemDisabledStyle;
 	}
-	if (HasFocus()) {
-		style = dc.theme->itemFocusedStyle;
+	ImageID image = Toggled() ? dc.theme->checkOn : dc.theme->checkOff;
+
+	// In image mode, light up instead of showing a checkbox.
+	if (imageID_.isValid()) {
+		image = imageID_;
+		if (Toggled()) {
+			if (HasFocus()) {
+				style = dc.theme->itemDownStyle;
+			} else {
+				style = dc.theme->itemFocusedStyle;
+			}
+		} else {
+			if (HasFocus()) {
+				style = dc.theme->itemDownStyle;
+			} else {
+				style = dc.theme->itemStyle;
+			}
+		}
+
+		if (down_) {
+			style.background.color = lightenColor(style.background.color);
+		}
+
+	} else {
+		if (HasFocus()) {
+			style = dc.theme->itemFocusedStyle;
+		}
+		if (down_) {
+			style = dc.theme->itemDownStyle;
+		}
 	}
-	if (down_) {
-		style = dc.theme->itemDownStyle;
-	}
+
 	dc.SetFontStyle(dc.theme->uiFont);
 
-	ClickableItem::Draw(dc);
+	DrawBG(dc, style);
 
-	ImageID image = Toggled() ? dc.theme->checkOn : dc.theme->checkOff;
 	float imageW, imageH;
 	dc.Draw()->MeasureImage(image, &imageW, &imageH);
 
 	const int paddingX = 12;
 	// Padding right of the checkbox image too.
 	const float availWidth = bounds_.w - paddingX * 2 - imageW - paddingX;
-	float scale = CalculateTextScale(dc, availWidth);
 
-	dc.SetFontScale(scale, scale);
-	Bounds textBounds(bounds_.x + paddingX, bounds_.y, availWidth, bounds_.h);
-	dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	if (!text_.empty()) {
+		float scale = CalculateTextScale(dc, availWidth);
+		dc.SetFontScale(scale, scale);
+		Bounds textBounds(bounds_.x + paddingX, bounds_.y, availWidth, bounds_.h);
+		dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	}
 	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 	dc.SetFontScale(1.0f, 1.0f);
 }
@@ -747,24 +774,41 @@ float CheckBox::CalculateTextScale(const UIContext &dc, float availWidth) const 
 
 void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	ImageID image = Toggled() ? dc.theme->checkOn : dc.theme->checkOff;
+	if (imageID_.isValid()) {
+		image = imageID_;
+	}
+
 	float imageW, imageH;
 	dc.Draw()->MeasureImage(image, &imageW, &imageH);
 
 	const int paddingX = 12;
+
+	if (imageID_.isValid()) {
+		w = imageW + paddingX * 2;
+		h = std::max(imageH, ITEM_HEIGHT);
+		return;
+	}
+
+	// The below code is kinda wacky, we shouldn't involve bounds_ here.
+
 	// Padding right of the checkbox image too.
 	float availWidth = bounds_.w - paddingX * 2 - imageW - paddingX;
 	if (availWidth < 0.0f) {
 		// Let it have as much space as it needs.
 		availWidth = MAX_ITEM_SIZE;
 	}
-	float scale = CalculateTextScale(dc, availWidth);
 
-	float actualWidth, actualHeight;
-	Bounds availBounds(0, 0, availWidth, bounds_.h);
-	dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	if (!text_.empty()) {
+		float scale = CalculateTextScale(dc, availWidth);
 
+		float actualWidth, actualHeight;
+		Bounds availBounds(0, 0, availWidth, bounds_.h);
+		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		h = std::max(actualHeight, ITEM_HEIGHT);
+	} else {
+		h = std::max(imageH, ITEM_HEIGHT);
+	}
 	w = bounds_.w;
-	h = std::max(actualHeight, ITEM_HEIGHT);
 }
 
 void BitCheckBox::Toggle() {
