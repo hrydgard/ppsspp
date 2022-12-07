@@ -289,7 +289,11 @@ void DisplayLayoutScreen::CreateViews() {
 		shaderRow->SetSpacing(4.0f);
 		leftColumn->Add(shaderRow);
 
-		postProcChoice_ = shaderRow->Add(new ChoiceWithValueDisplay(&shaderNames_[i], "", &PostShaderTranslateName, new LinearLayoutParams(1.0f)));
+		if (shaderNames_[i] != "Off") {
+			postProcChoice_ = shaderRow->Add(new ChoiceWithValueDisplay(&shaderNames_[i], "", &PostShaderTranslateName, new LinearLayoutParams(1.0f)));
+		} else {
+			postProcChoice_ = shaderRow->Add(new Choice(ImageID("I_PLUS")));
+		}
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory("Graphics");
 			auto procScreen = new PostProcScreen(gr->T("Postprocessing shaders"), i, false);
