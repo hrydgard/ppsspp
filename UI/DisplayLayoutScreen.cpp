@@ -150,6 +150,7 @@ void DisplayLayoutScreen::dialogFinished(const Screen *dialog, DialogResult resu
 }
 
 UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) {
+	// Remove the virtual "Off" entry. TODO: Get rid of it generally.
 	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
 
 	NativeMessageReceived("gpu_configChanged", "");
@@ -163,7 +164,13 @@ UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) 
 }
 
 static std::string PostShaderTranslateName(const char *value) {
+	auto gr = GetI18NCategory("Graphics");
 	auto ps = GetI18NCategory("PostShaders");
+	if (!strcmp(value, "Off")) {
+		// Off is a legacy fake item (gonna migrate off it later).
+		return gr->T("Add postprocessing shader");
+	}
+
 	const ShaderInfo *info = GetPostShaderInfo(value);
 	if (info) {
 		return ps->T(value, info ? info->name.c_str() : value);
@@ -263,7 +270,7 @@ void DisplayLayoutScreen::CreateViews() {
 		return g_Config.bStereoRendering && multiViewSupported;
 	};
 
-	leftColumn->Add(new ItemHeader(gr->T("Postprocessing effect")));
+	leftColumn->Add(new ItemHeader(gr->T("Postprocessing shaders")));
 
 	std::set<std::string> alreadyAddedShader;
 	settingsVisible_.resize(g_Config.vPostShaderNames.size());
@@ -285,7 +292,7 @@ void DisplayLayoutScreen::CreateViews() {
 		postProcChoice_ = shaderRow->Add(new ChoiceWithValueDisplay(&shaderNames_[i], "", &PostShaderTranslateName, new LinearLayoutParams(1.0f)));
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory("Graphics");
-			auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"), i, false);
+			auto procScreen = new PostProcScreen(gr->T("Postprocessing shaders"), i, false);
 			procScreen->SetHasDropShadow(false);
 			procScreen->OnChoice.Handle(this, &DisplayLayoutScreen::OnPostProcShaderChange);
 			if (e.v)
