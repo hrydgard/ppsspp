@@ -76,14 +76,15 @@ template <bool alphaBlend>
 inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in) {
 	u32 new_color;
 	// Because of this check, we only support src.a / 1-src.a blending.
-	if ((color_in >> 24) == 255 || !alphaBlend) {
+	// We take advantage of short circuiting by checking the constant (template) value first.
+	if (!alphaBlend || (color_in >> 24) == 255) {
 		new_color = color_in & 0xFFFFFF;
 	} else {
 		const u32 old_color = RGBA5551ToRGBA8888(*pixel);
 		new_color = StandardAlphaBlend(color_in, old_color);
 	}
-	new_color |= (*pixel & 0x8000) ? 0xff000000 : 0x00000000;
-	*pixel = RGBA8888ToRGBA5551(new_color);
+	u16 value = RGBA8888ToRGBA555X(new_color) | (*pixel & 0x8000);
+	*pixel = value;
 }
 
 // Check if we can safely ignore the alpha test, assuming standard alpha blending.
@@ -172,8 +173,8 @@ static void DrawSpriteTex5551(const DrawingCoords &pos0, const DrawingCoords &po
 		for (int x = pos0.x; x < pos1.x; x++) {
 			Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0, state.samplerID);
 			if (isWhite) {
-				u32 tex_color32 = Vec4<int>(tex_color).ToRGBA();
-				if (!alphaBlend || tex_color32 & 0xFF000000) {
+				if (!alphaBlend || tex_color.a() != 0) {
+					u32 tex_color32 = tex_color.ToRGBA();
 					DrawSinglePixel5551<alphaBlend>(pixel, tex_color32);
 				}
 			} else {
@@ -338,12 +339,14 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 
 #if defined(SOFTGPU_MEMORY_TAGGING_BASIC) || defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
 	uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
-	std::string tag = StringFromFormat("DisplayListR_%08x", state.listPC);
-	std::string ztag = StringFromFormat("DisplayListRZ_%08x", state.listPC);
+	char tag[64]{};
+	// char ztag[64]{};
+	int tagLen = snprintf(tag, sizeof(tag), "DisplayListR_%08x", state.listPC);
+	// int ztagLen = snprintf(ztag, sizeof(ztag), "DisplayListRZ_%08x", state.listPC);
 
 	for (int y = pos0.y; y < pos1.y; y++) {
 		uint32_t row = gstate.getFrameBufAddress() + y * pixelID.cached.framebufStride * bpp;
-		NotifyMemInfo(MemBlockFlags::WRITE, row + pos0.x * bpp, (pos1.x - pos0.x) * bpp, tag.c_str(), tag.size());
+		NotifyMemInfo(MemBlockFlags::WRITE, row + pos0.x * bpp, (pos1.x - pos0.x) * bpp, tag, tagLen);
 	}
 #endif
 }
@@ -377,12 +380,6 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 		state_check = state_check && NoClampOrWrap(state, v0.texturecoords.uv()) && NoClampOrWrap(state, v1.texturecoords.uv());
 		coord_check = (xdiff == udiff || xdiff == -udiff) && (ydiff == vdiff || ydiff == -vdiff);
 	}
-	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
-	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) == 0;
-	if (coord_check && orient_check && state_check && subpixel_check) {
-		binner.AddSprite(v0, v1);
-		return true;
-	}
 
 	// Eliminate the stretch blit in DarkStalkers.
 	// We compensate for that when blitting the framebuffer in SoftGpu.cpp.
@@ -409,6 +406,13 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 		} else {
 			g_needsClearAfterDialog = true;
 		}
+	}
+
+	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
+	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) == 0;
+	if (coord_check && orient_check && state_check && subpixel_check) {
+		binner.AddSprite(v0, v1);
+		return true;
 	}
 	return false;
 }
@@ -507,6 +511,7 @@ bool DetectRectangleFromStrip(const RasterizerState &state, const ClipVertexData
 	// There's the other vertex order too...
 	if (data[0].v.screenpos.x == data[2].v.screenpos.x &&
 		data[0].v.screenpos.y == data[1].v.screenpos.y &&
+
 		data[1].v.screenpos.x == data[3].v.screenpos.x &&
 		data[2].v.screenpos.y == data[3].v.screenpos.y) {
 		// Okay, this is in the shape of a rectangle, but what about texture?
