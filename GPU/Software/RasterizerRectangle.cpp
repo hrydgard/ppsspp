@@ -76,7 +76,8 @@ template <bool alphaBlend>
 inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in) {
 	u32 new_color;
 	// Because of this check, we only support src.a / 1-src.a blending.
-	if ((color_in >> 24) == 255 || !alphaBlend) {
+	// We take advantage of short circuiting by checking the constant (template) value first.
+	if (!alphaBlend || (color_in >> 24) == 255) {
 		new_color = color_in & 0xFFFFFF;
 	} else {
 		const u32 old_color = RGBA5551ToRGBA8888(*pixel);
@@ -172,8 +173,8 @@ static void DrawSpriteTex5551(const DrawingCoords &pos0, const DrawingCoords &po
 		for (int x = pos0.x; x < pos1.x; x++) {
 			Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0, state.samplerID);
 			if (isWhite) {
-				u32 tex_color32 = Vec4<int>(tex_color).ToRGBA();
-				if (!alphaBlend || (tex_color32 & 0xFF000000)) {
+				if (!alphaBlend || tex_color.a() != 0) {
+					u32 tex_color32 = tex_color.ToRGBA();
 					DrawSinglePixel5551<alphaBlend>(pixel, tex_color32);
 				}
 			} else {
