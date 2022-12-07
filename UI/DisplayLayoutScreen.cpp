@@ -320,7 +320,7 @@ void DisplayLayoutScreen::CreateViews() {
 
 			auto moreButton = shaderRow->Add(new Choice(ImageID("I_THREE_DOTS"), new LinearLayoutParams(0.0f)));
 			moreButton->OnClick.Add([=](EventParams &e) -> UI::EventReturn {
-				PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(postShaderContextMenu, ARRAY_SIZE(postShaderContextMenu), gr.get(), moreButton);
+				PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(postShaderContextMenu, ARRAY_SIZE(postShaderContextMenu), di.get(), moreButton);
 				screenManager()->push(contextMenu);
 				contextMenu->SetEnabled(0, i > 0);
 				contextMenu->SetEnabled(1, i < g_Config.vPostShaderNames.size() - 1);
