@@ -72,19 +72,59 @@ static uint32_t StandardAlphaBlend(uint32_t source, uint32_t dst) {
 }
 
 // Through mode, with the specific Darkstalker settings.
-template <bool alphaBlend>
-inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in) {
+template <GEBufferFormat fmt, bool alphaBlend>
+static inline void DrawSinglePixel(u16 *pixel, const u32 color_in) {
 	u32 new_color;
 	// Because of this check, we only support src.a / 1-src.a blending.
 	// We take advantage of short circuiting by checking the constant (template) value first.
 	if (!alphaBlend || (color_in >> 24) == 255) {
 		new_color = color_in & 0xFFFFFF;
 	} else {
-		const u32 old_color = RGBA5551ToRGBA8888(*pixel);
+		u32 old_color;
+		switch (fmt) {
+		case GE_FORMAT_565:
+			old_color = RGB565ToRGBA8888(*pixel);
+			break;
+		case GE_FORMAT_5551:
+			old_color = RGBA5551ToRGBA8888(*pixel);
+			break;
+		case GE_FORMAT_4444:
+			old_color = RGBA4444ToRGBA8888(*pixel);
+			break;
+		default:
+			break;
+		}
+
 		new_color = StandardAlphaBlend(color_in, old_color);
 	}
-	u16 value = RGBA8888ToRGBA555X(new_color) | (*pixel & 0x8000);
-	*pixel = value;
+
+	switch (fmt) {
+	case GE_FORMAT_565:
+		*pixel = RGBA8888ToRGB565(new_color);
+		break;
+	case GE_FORMAT_5551:
+		*pixel = RGBA8888ToRGBA555X(new_color) | (*pixel & 0x8000);
+		break;
+	case GE_FORMAT_4444:
+		*pixel = RGBA8888ToRGBA444X(new_color) | (*pixel & 0xF000);
+		break;
+	default:
+		break;
+	}
+}
+
+template <bool alphaBlend>
+static inline void DrawSinglePixel32(u32 *pixel, const u32 color_in) {
+	u32 new_color;
+	// Because of this check, we only support src.a / 1-src.a blending.
+	if ((color_in >> 24) == 255 || !alphaBlend) {
+		new_color = color_in & 0xFFFFFF;
+	} else {
+		const u32 old_color = *pixel;
+		new_color = StandardAlphaBlend(color_in, old_color);
+	}
+	new_color |= *pixel & 0xFF000000;
+	*pixel = new_color;
 }
 
 // Check if we can safely ignore the alpha test, assuming standard alpha blending.
@@ -110,12 +150,10 @@ static inline bool AlphaTestIsNeedless(const PixelFuncID &pixelID) {
 	return false;
 }
 
-bool UseDrawSinglePixel5551(const PixelFuncID &pixelID) {
+static bool UseDrawSinglePixel(const PixelFuncID &pixelID) {
 	if (pixelID.clearMode || pixelID.colorTest || pixelID.stencilTest)
 		return false;
 	if (!AlphaTestIsNeedless(pixelID) || pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
-		return false;
-	if (pixelID.FBFormat() != GE_FORMAT_5551)
 		return false;
 	// We skip blending when alpha = FF, so we can't allow other blend modes.
 	if (pixelID.alphaBlend) {
@@ -160,8 +198,8 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 	return ToVec4IntResult(out);
 }
 
-template <bool isWhite, bool alphaBlend>
-static void DrawSpriteTex5551(const DrawingCoords &pos0, const DrawingCoords &pos1, int s_start, int t_start, int ds, int dt, u32 color0, const RasterizerState &state, Sampler::FetchFunc fetchFunc) {
+template <GEBufferFormat fmt, bool isWhite, bool alphaBlend>
+static void DrawSpriteTex(const DrawingCoords &pos0, const DrawingCoords &pos1, int s_start, int t_start, int ds, int dt, u32 color0, const RasterizerState &state, Sampler::FetchFunc fetchFunc) {
 	const u8 *texptr = state.texptr[0];
 	uint16_t texbufw = state.texbufw[0];
 
@@ -169,39 +207,99 @@ static void DrawSpriteTex5551(const DrawingCoords &pos0, const DrawingCoords &po
 	const Vec4<int> c0 = Vec4<int>::FromRGBA(color0);
 	for (int y = pos0.y; y < pos1.y; y++) {
 		int s = s_start;
-		u16 *pixel = fb.Get16Ptr(pos0.x, y, state.pixelID.cached.framebufStride);
+		u16 *pixel16 = fb.Get16Ptr(pos0.x, y, state.pixelID.cached.framebufStride);
+		u32 *pixel32 = fb.Get32Ptr(pos0.x, y, state.pixelID.cached.framebufStride);
 		for (int x = pos0.x; x < pos1.x; x++) {
 			Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0, state.samplerID);
 			if (isWhite) {
 				if (!alphaBlend || tex_color.a() != 0) {
 					u32 tex_color32 = tex_color.ToRGBA();
-					DrawSinglePixel5551<alphaBlend>(pixel, tex_color32);
+					if (fmt == GE_FORMAT_8888)
+						DrawSinglePixel32<alphaBlend>(pixel32, tex_color32);
+					else
+						DrawSinglePixel<fmt, alphaBlend>(pixel16, tex_color32);
 				}
 			} else {
 				Vec4<int> prim_color = c0;
 				prim_color = Vec4<int>(ModulateRGBA(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color), state.samplerID));
 				if (!alphaBlend || prim_color.a() > 0) {
-					DrawSinglePixel5551<alphaBlend>(pixel, prim_color.ToRGBA());
+					if (fmt == GE_FORMAT_8888)
+						DrawSinglePixel32<alphaBlend>(pixel32, prim_color.ToRGBA());
+					else
+						DrawSinglePixel<fmt, alphaBlend>(pixel16, prim_color.ToRGBA());
 				}
 			}
 			s += ds;
-			pixel++;
+			if (fmt == GE_FORMAT_8888)
+				pixel32++;
+			else
+				pixel16++;
 		}
 		t += dt;
 	}
 }
 
-template <bool alphaBlend>
-static void DrawSpriteNoTex5551(const DrawingCoords &pos0, const DrawingCoords &pos1, u32 color0, const RasterizerState &state) {
+template <bool isWhite, bool alphaBlend>
+static void DrawSpriteTex(const DrawingCoords &pos0, const DrawingCoords &pos1, int s_start, int t_start, int ds, int dt, u32 color0, const RasterizerState &state, Sampler::FetchFunc fetchFunc) {
+	switch (state.pixelID.FBFormat()) {
+	case GE_FORMAT_565:
+		DrawSpriteTex<GE_FORMAT_565, isWhite, alphaBlend>(pos0, pos1, s_start, t_start, ds, dt, color0, state, fetchFunc);
+		break;
+	case GE_FORMAT_5551:
+		DrawSpriteTex<GE_FORMAT_5551, isWhite, alphaBlend>(pos0, pos1, s_start, t_start, ds, dt, color0, state, fetchFunc);
+		break;
+	case GE_FORMAT_4444:
+		DrawSpriteTex<GE_FORMAT_4444, isWhite, alphaBlend>(pos0, pos1, s_start, t_start, ds, dt, color0, state, fetchFunc);
+		break;
+	case GE_FORMAT_8888:
+		DrawSpriteTex<GE_FORMAT_8888, isWhite, alphaBlend>(pos0, pos1, s_start, t_start, ds, dt, color0, state, fetchFunc);
+		break;
+	default:
+		// Invalid, don't draw anything...
+		break;
+	}
+}
+
+template <GEBufferFormat fmt, bool alphaBlend>
+static void DrawSpriteNoTex(const DrawingCoords &pos0, const DrawingCoords &pos1, u32 color0, const RasterizerState &state) {
 	if (alphaBlend && Vec4<int>::FromRGBA(color0).a() == 0)
 		return;
 
 	for (int y = pos0.y; y < pos1.y; y++) {
-		u16 *pixel = fb.Get16Ptr(pos0.x, y, state.pixelID.cached.framebufStride);
-		for (int x = pos0.x; x < pos1.x; x++) {
-			DrawSinglePixel5551<alphaBlend>(pixel, color0);
-			pixel++;
+		if (fmt == GE_FORMAT_8888) {
+			u32 *pixel = fb.Get32Ptr(pos0.x, y, state.pixelID.cached.framebufStride);
+			for (int x = pos0.x; x < pos1.x; x++) {
+				DrawSinglePixel32<alphaBlend>(pixel, color0);
+				pixel++;
+			}
+		} else {
+			u16 *pixel = fb.Get16Ptr(pos0.x, y, state.pixelID.cached.framebufStride);
+			for (int x = pos0.x; x < pos1.x; x++) {
+				DrawSinglePixel<fmt, alphaBlend>(pixel, color0);
+				pixel++;
+			}
 		}
+	}
+}
+
+template <bool alphaBlend>
+static void DrawSpriteNoTex(const DrawingCoords &pos0, const DrawingCoords &pos1, u32 color0, const RasterizerState &state) {
+	switch (state.pixelID.FBFormat()) {
+	case GE_FORMAT_565:
+		DrawSpriteNoTex<GE_FORMAT_565, alphaBlend>(pos0, pos1, color0, state);
+		break;
+	case GE_FORMAT_5551:
+		DrawSpriteNoTex<GE_FORMAT_5551, alphaBlend>(pos0, pos1, color0, state);
+		break;
+	case GE_FORMAT_4444:
+		DrawSpriteNoTex<GE_FORMAT_4444, alphaBlend>(pos0, pos1, color0, state);
+		break;
+	case GE_FORMAT_8888:
+		DrawSpriteNoTex<GE_FORMAT_8888, alphaBlend>(pos0, pos1, color0, state);
+		break;
+	default:
+		// Invalid, don't draw anything...
+		break;
 	}
 }
 
@@ -260,17 +358,17 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			pos0.y = scissorTL.y;
 		}
 
-		if (UseDrawSinglePixel5551(pixelID) && (samplerID.TexFunc() == GE_TEXFUNC_MODULATE || samplerID.TexFunc() == GE_TEXFUNC_REPLACE) && samplerID.useTextureAlpha) {
+		if (UseDrawSinglePixel(pixelID) && (samplerID.TexFunc() == GE_TEXFUNC_MODULATE || samplerID.TexFunc() == GE_TEXFUNC_REPLACE) && samplerID.useTextureAlpha) {
 			if (isWhite || samplerID.TexFunc() == GE_TEXFUNC_REPLACE) {
 				if (pixelID.alphaBlend)
-					DrawSpriteTex5551<true, true>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
+					DrawSpriteTex<true, true>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
 				else
-					DrawSpriteTex5551<true, false>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
+					DrawSpriteTex<true, false>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
 			} else {
 				if (pixelID.alphaBlend)
-					DrawSpriteTex5551<false, true>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
+					DrawSpriteTex<false, true>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
 				else
-					DrawSpriteTex5551<false, false>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
+					DrawSpriteTex<false, false>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
 			}
 		} else {
 			float dsf = ds * (1.0f / (float)(1 << state.samplerID.width0Shift));
@@ -312,11 +410,11 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 		if (pos1.y > scissorBR.y) pos1.y = scissorBR.y + 1;
 		if (pos0.x < scissorTL.x) pos0.x = scissorTL.x;
 		if (pos0.y < scissorTL.y) pos0.y = scissorTL.y;
-		if (UseDrawSinglePixel5551(pixelID)) {
+		if (UseDrawSinglePixel(pixelID)) {
 			if (pixelID.alphaBlend)
-				DrawSpriteNoTex5551<true>(pos0, pos1, v1.color0, state);
+				DrawSpriteNoTex<true>(pos0, pos1, v1.color0, state);
 			else
-				DrawSpriteNoTex5551<false>(pos0, pos1, v1.color0, state);
+				DrawSpriteNoTex<false>(pos0, pos1, v1.color0, state);
 		} else if (pixelID.earlyZChecks) {
 			const Vec4<int> prim_color = Vec4<int>::FromRGBA(v1.color0);
 			for (int y = pos0.y; y < pos1.y; y++) {
@@ -366,20 +464,6 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	const RasterizerState &state = binner.State();
 
 	g_DarkStalkerStretch = DSStretch::Off;
-	// Check for 1:1 texture mapping. In that case we can call DrawSprite.
-	int xdiff = v1.screenpos.x - v0.screenpos.x;
-	int ydiff = v1.screenpos.y - v0.screenpos.y;
-	int udiff = (v1.texturecoords.x - v0.texturecoords.x) * (float)SCREEN_SCALE_FACTOR;
-	int vdiff = (v1.texturecoords.y - v0.texturecoords.y) * (float)SCREEN_SCALE_FACTOR;
-	// Currently only works for TL/BR, which is the most common but not required.
-	bool orient_check = xdiff >= 0 && ydiff >= 0;
-	// We already have a fast path for clear in ClearRectangle.
-	bool state_check = state.throughMode && !state.pixelID.clearMode && !state.samplerID.hasAnyMips && !state.textureProj;
-	bool coord_check = true;
-	if (state.enableTextures) {
-		state_check = state_check && NoClampOrWrap(state, v0.texturecoords.uv()) && NoClampOrWrap(state, v1.texturecoords.uv());
-		coord_check = (xdiff == udiff || xdiff == -udiff) && (ydiff == vdiff || ydiff == -vdiff);
-	}
 
 	// Eliminate the stretch blit in DarkStalkers.
 	// We compensate for that when blitting the framebuffer in SoftGpu.cpp.
@@ -408,6 +492,21 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 		}
 	}
 
+	// Check for 1:1 texture mapping. In that case we can call DrawSprite.
+	int xdiff = v1.screenpos.x - v0.screenpos.x;
+	int ydiff = v1.screenpos.y - v0.screenpos.y;
+	int udiff = (v1.texturecoords.x - v0.texturecoords.x) * (float)SCREEN_SCALE_FACTOR;
+	int vdiff = (v1.texturecoords.y - v0.texturecoords.y) * (float)SCREEN_SCALE_FACTOR;
+
+	// Currently only works for TL/BR, which is the most common but not required.
+	bool orient_check = xdiff >= 0 && ydiff >= 0;
+	// We already have a fast path for clear in ClearRectangle.
+	bool state_check = state.throughMode && !state.pixelID.clearMode && !state.samplerID.hasAnyMips && !state.textureProj;
+	bool coord_check = true;
+	if (state.enableTextures) {
+		state_check = state_check && NoClampOrWrap(state, v0.texturecoords.uv()) && NoClampOrWrap(state, v1.texturecoords.uv());
+		coord_check = (xdiff == udiff || xdiff == -udiff) && (ydiff == vdiff || ydiff == -vdiff);
+	}
 	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
 	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) == 0;
 	if (coord_check && orient_check && state_check && subpixel_check) {
@@ -511,7 +610,6 @@ bool DetectRectangleFromStrip(const RasterizerState &state, const ClipVertexData
 	// There's the other vertex order too...
 	if (data[0].v.screenpos.x == data[2].v.screenpos.x &&
 		data[0].v.screenpos.y == data[1].v.screenpos.y &&
-
 		data[1].v.screenpos.x == data[3].v.screenpos.x &&
 		data[2].v.screenpos.y == data[3].v.screenpos.y) {
 		// Okay, this is in the shape of a rectangle, but what about texture?

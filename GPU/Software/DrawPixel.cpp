@@ -20,6 +20,7 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
+#include "GPU/Software/BinManager.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/FuncId.h"
 #include "GPU/Software/Rasterizer.h"
@@ -707,8 +708,8 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	SetPixelColor(fbFormat, pixelID.cached.framebufStride, x, y, new_color, old_color, targetWriteMask);
 }
 
-SingleFunc GetSingleFunc(const PixelFuncID &id, std::function<void()> flushForCompile) {
-	SingleFunc jitted = jitCache->GetSingle(id, flushForCompile);
+SingleFunc GetSingleFunc(const PixelFuncID &id, BinManager *binner) {
+	SingleFunc jitted = jitCache->GetSingle(id, binner);
 	if (jitted) {
 		return jitted;
 	}
@@ -743,11 +744,15 @@ SingleFunc PixelJitCache::GenericSingle(const PixelFuncID &id) {
 	return nullptr;
 }
 
+thread_local PixelJitCache::LastCache PixelJitCache::lastSingle_;
+
 // 256k should be plenty of space for plenty of variations.
 PixelJitCache::PixelJitCache() : CodeBlock(1024 * 64 * 4), cache_(64) {
+	lastSingle_.gen = -1;
 }
 
 void PixelJitCache::Clear() {
+	clearGen_++;
 	CodeBlock::Clear();
 	cache_.Clear();
 	addresses_.clear();
@@ -786,26 +791,29 @@ void PixelJitCache::Flush() {
 	compileQueue_.clear();
 }
 
-SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, std::function<void()> flushForCompile) {
+SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, BinManager *binner) {
 	if (!g_Config.bSoftwareRenderingJit)
 		return nullptr;
 
-	std::unique_lock<std::mutex> guard(jitCacheLock);
 	const size_t key = std::hash<PixelFuncID>()(id);
+	if (lastSingle_.Match(key, clearGen_))
+		return lastSingle_.func;
 
+	std::unique_lock<std::mutex> guard(jitCacheLock);
 	auto it = cache_.Get(key);
 	if (it != nullptr) {
+		lastSingle_.Set(key, it, clearGen_);
 		return it;
 	}
 
-	if (!flushForCompile) {
+	if (!binner) {
 		// Can't compile, let's try to do it later when there's an opportunity.
 		compileQueue_.insert(id);
 		return nullptr;
 	}
 
 	guard.unlock();
-	flushForCompile();
+	binner->Flush("compile");
 	guard.lock();
 
 	for (const auto &queued : compileQueue_) {
@@ -820,7 +828,9 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, std::function<void()>
 	if (!cache_.Get(key))
 		Compile(id);
 
-	return cache_.Get(key);
+	it = cache_.Get(key);
+	lastSingle_.Set(key, it, clearGen_);
+	return it;
 }
 
 void PixelJitCache::Compile(const PixelFuncID &id) {

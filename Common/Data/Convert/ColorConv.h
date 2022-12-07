@@ -118,6 +118,14 @@ inline u16 RGBA8888ToRGBA4444(u32 value) {
 	return r | g | b | a;
 }
 
+inline u16 RGBA8888ToRGBA444X(u32 value) {
+	const u32 c = value >> 4;
+	const u16 r = (c >> 0) & 0x000F;
+	const u16 g = (c >> 4) & 0x00F0;
+	const u16 b = (c >> 8) & 0x0F00;
+	return r | g | b;
+}
+
 // convert image to 8888, parallelizable
 // TODO: Implement these in terms of the conversion functions below.
 void convert4444_gl(u16* data, u32* out, int width, int l, int u);

@@ -19,7 +19,6 @@
 
 #include "ppsspp_config.h"
 
-#include <functional>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -28,6 +27,8 @@
 #include "GPU/Math3D.h"
 #include "GPU/Software/FuncId.h"
 #include "GPU/Software/RasterizerRegCache.h"
+
+class BinManager;
 
 namespace Rasterizer {
 
@@ -39,7 +40,7 @@ namespace Rasterizer {
 #endif
 
 typedef void (SOFTRAST_CALL *SingleFunc)(int x, int y, int z, int fog, Vec4IntArg color_in, const PixelFuncID &pixelID);
-SingleFunc GetSingleFunc(const PixelFuncID &id, std::function<void()> flushForCompile);
+SingleFunc GetSingleFunc(const PixelFuncID &id, BinManager *binner);
 
 void Init();
 void FlushJit();
@@ -64,7 +65,7 @@ public:
 	PixelJitCache();
 
 	// Returns a pointer to the code to run.
-	SingleFunc GetSingle(const PixelFuncID &id, std::function<void()> flushForCompile);
+	SingleFunc GetSingle(const PixelFuncID &id, BinManager *binner);
 	SingleFunc GenericSingle(const PixelFuncID &id);
 	void Clear() override;
 	void Flush();
@@ -108,9 +109,27 @@ private:
 	bool Jit_ConvertFrom5551(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha);
 	bool Jit_ConvertFrom4444(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha);
 
+	struct LastCache {
+		size_t key;
+		SingleFunc func;
+		int gen = -1;
+
+		bool Match(size_t k, int g) const {
+			return key == k && gen == g;
+		}
+
+		void Set(size_t k, SingleFunc f, int g) {
+			key = k;
+			func = f;
+			gen = g;
+		}
+	};
+
 	DenseHashMap<size_t, SingleFunc, nullptr> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;
 	std::unordered_set<PixelFuncID> compileQueue_;
+	int clearGen_ = 0;
+	static thread_local LastCache lastSingle_;
 
 	const u8 *constBlendHalf_11_4s_ = nullptr;
 	const u8 *constBlendInvert_11_4s_ = nullptr;
