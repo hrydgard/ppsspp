@@ -82,8 +82,8 @@ inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in) {
 		const u32 old_color = RGBA5551ToRGBA8888(*pixel);
 		new_color = StandardAlphaBlend(color_in, old_color);
 	}
-	new_color |= (*pixel & 0x8000) ? 0xff000000 : 0x00000000;
-	*pixel = RGBA8888ToRGBA5551(new_color);
+	u16 value = RGBA8888ToRGBA555X(new_color) | (*pixel & 0x8000);
+	*pixel = value;
 }
 
 // Check if we can safely ignore the alpha test, assuming standard alpha blending.
@@ -173,7 +173,7 @@ static void DrawSpriteTex5551(const DrawingCoords &pos0, const DrawingCoords &po
 			Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0, state.samplerID);
 			if (isWhite) {
 				u32 tex_color32 = Vec4<int>(tex_color).ToRGBA();
-				if (!alphaBlend || tex_color32 & 0xFF000000) {
+				if (!alphaBlend || (tex_color32 & 0xFF000000)) {
 					DrawSinglePixel5551<alphaBlend>(pixel, tex_color32);
 				}
 			} else {

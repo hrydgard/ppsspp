@@ -101,6 +101,14 @@ inline u16 RGBA8888ToRGBA5551(u32 value) {
 	return (u16)(r | g | b | a);
 }
 
+// Used in fast sprite path.
+inline u16 RGBA8888ToRGBA555X(u32 value) {
+	u32 r = (value >> 3) & 0x1F;
+	u32 g = (value >> 6) & (0x1F << 5);
+	u32 b = (value >> 9) & (0x1F << 10);
+	return (u16)(r | g | b);
+}
+
 inline u16 RGBA8888ToRGBA4444(u32 value) {
 	const u32 c = value >> 4;
 	const u16 r = (c >> 0) & 0x000F;
