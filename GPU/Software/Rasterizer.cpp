@@ -93,15 +93,15 @@ static inline Vec4<float> Interpolate(const float &c0, const float &c1, const fl
 	return Interpolate(c0, c1, c2, w0.Cast<float>(), w1.Cast<float>(), w2.Cast<float>(), wsum_recip);
 }
 
-void ComputeRasterizerState(RasterizerState *state, std::function<void()> flushForCompile) {
+void ComputeRasterizerState(RasterizerState *state, BinManager *binner) {
 	ComputePixelFuncID(&state->pixelID);
-	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID, flushForCompile);
+	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID, binner);
 
 	state->enableTextures = gstate.isTextureMapEnabled() && !state->pixelID.clearMode;
 	if (state->enableTextures) {
 		ComputeSamplerID(&state->samplerID);
-		state->linear = Sampler::GetLinearFunc(state->samplerID, flushForCompile);
-		state->nearest = Sampler::GetNearestFunc(state->samplerID, flushForCompile);
+		state->linear = Sampler::GetLinearFunc(state->samplerID, binner);
+		state->nearest = Sampler::GetNearestFunc(state->samplerID, binner);
 
 		// Since the definitions are the same, just force this setting using the func pointer.
 		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
@@ -1697,10 +1697,14 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 	ComputeSamplerID(&id);
 	id.cached.clut = clut;
 
-	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id, [] {
-		if (gpuDebug)
-			gpuDebug->DispatchFlush();
-	});
+	// Slight annoyance, we may have to force a compile.
+	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id, nullptr);
+	if (!sampler) {
+		Sampler::FlushJit();
+		sampler = Sampler::GetFetchFunc(id, nullptr);
+		if (!sampler)
+			return false;
+	}
 
 	u8 *texptr = Memory::GetPointerWrite(texaddr);
 	u32 *row = (u32 *)buffer.GetData();

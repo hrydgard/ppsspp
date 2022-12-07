@@ -20,6 +20,7 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
+#include "GPU/Software/BinManager.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/FuncId.h"
 #include "GPU/Software/Rasterizer.h"
@@ -707,8 +708,8 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	SetPixelColor(fbFormat, pixelID.cached.framebufStride, x, y, new_color, old_color, targetWriteMask);
 }
 
-SingleFunc GetSingleFunc(const PixelFuncID &id, std::function<void()> flushForCompile) {
-	SingleFunc jitted = jitCache->GetSingle(id, flushForCompile);
+SingleFunc GetSingleFunc(const PixelFuncID &id, BinManager *binner) {
+	SingleFunc jitted = jitCache->GetSingle(id, binner);
 	if (jitted) {
 		return jitted;
 	}
@@ -786,7 +787,7 @@ void PixelJitCache::Flush() {
 	compileQueue_.clear();
 }
 
-SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, std::function<void()> flushForCompile) {
+SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, BinManager *binner) {
 	if (!g_Config.bSoftwareRenderingJit)
 		return nullptr;
 
@@ -798,14 +799,14 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, std::function<void()>
 		return it;
 	}
 
-	if (!flushForCompile) {
+	if (!binner) {
 		// Can't compile, let's try to do it later when there's an opportunity.
 		compileQueue_.insert(id);
 		return nullptr;
 	}
 
 	guard.unlock();
-	flushForCompile();
+	binner->Flush("compile");
 	guard.lock();
 
 	for (const auto &queued : compileQueue_) {

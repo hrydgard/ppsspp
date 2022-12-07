@@ -19,13 +19,14 @@
 
 #include "ppsspp_config.h"
 
-#include <functional>
 #include <unordered_map>
 #include <unordered_set>
 #include "Common/Data/Collections/Hashmaps.h"
 #include "GPU/Math3D.h"
 #include "GPU/Software/FuncId.h"
 #include "GPU/Software/RasterizerRegCache.h"
+
+class BinManager;
 
 namespace Sampler {
 
@@ -37,13 +38,13 @@ namespace Sampler {
 #endif
 
 typedef Rasterizer::Vec4IntResult(SOFTRAST_CALL *FetchFunc)(int u, int v, const u8 *tptr, int bufw, int level, const SamplerID &samplerID);
-FetchFunc GetFetchFunc(SamplerID id, std::function<void()> flushForCompile);
+FetchFunc GetFetchFunc(SamplerID id, BinManager *binner);
 
 typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *NearestFunc)(float s, float t, Rasterizer::Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int level, int levelFrac, const SamplerID &samplerID);
-NearestFunc GetNearestFunc(SamplerID id, std::function<void()> flushForCompile);
+NearestFunc GetNearestFunc(SamplerID id, BinManager *binner);
 
 typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *LinearFunc)(float s, float t, Rasterizer::Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int level, int levelFrac, const SamplerID &samplerID);
-LinearFunc GetLinearFunc(SamplerID id, std::function<void()> flushForCompile);
+LinearFunc GetLinearFunc(SamplerID id, BinManager *binner);
 
 void Init();
 void FlushJit();
@@ -56,9 +57,9 @@ public:
 	SamplerJitCache();
 
 	// Returns a pointer to the code to run.
-	NearestFunc GetNearest(const SamplerID &id, std::function<void()> flushForCompile);
-	LinearFunc GetLinear(const SamplerID &id, std::function<void()> flushForCompile);
-	FetchFunc GetFetch(const SamplerID &id, std::function<void()> flushForCompile);
+	NearestFunc GetNearest(const SamplerID &id, BinManager *binner);
+	LinearFunc GetLinear(const SamplerID &id, BinManager *binner);
+	FetchFunc GetFetch(const SamplerID &id, BinManager *binner);
 	void Clear() override;
 	void Flush();
 
@@ -66,7 +67,7 @@ public:
 
 private:
 	void Compile(const SamplerID &id);
-	NearestFunc GetByID(const SamplerID &id, std::function<void()> flushForCompile);
+	NearestFunc GetByID(const SamplerID &id, BinManager *binner);
 	FetchFunc CompileFetch(const SamplerID &id);
 	NearestFunc CompileNearest(const SamplerID &id);
 	LinearFunc CompileLinear(const SamplerID &id);
