@@ -186,6 +186,16 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 	}
 	const __m128i b = _mm_mulhi_epi16(pboost, t);
 	out.ivec = _mm_unpacklo_epi16(b, _mm_setzero_si128());
+#elif PPSSPP_ARCH(ARM_NEON)
+	uint16x4_t p = vshl_n_u16(vqmovn_u32(prim_color.ivec), 4);
+	uint16x4_t pboost = vadd_u16(p, vdup_n_u16(1 << 4));
+	uint16x4_t t = vshl_n_u16(vqmovn_u32(texcolor.ivec), 4);
+	if (samplerID.useColorDoubling) {
+		// Should double only r, g, and B here.
+		t = vshl_u16(t, vcreate_u16(0x0000000100010001ULL));
+	}
+	uint32x4_t b = vshrq_n_u32(vmull_u16(pboost, t), 16);
+	out.ivec = b;
 #else
 	if (samplerID.useColorDoubling) {
 		Vec4<int> tex = texcolor * Vec4<int>(2, 2, 2, 1);
