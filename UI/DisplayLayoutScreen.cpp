@@ -203,20 +203,27 @@ void DisplayLayoutScreen::CreateViews() {
 	// impossible.
 	root_->SetExclusiveTouch(true);
 
-	ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(400.0f, FILL_PARENT, 10.f, 10.f, NONE, 10.f, false));
-	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL);
+	ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(420.0f, FILL_PARENT, 0.f, 0.f, NONE, 0.f, false));
+	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL);
+	leftColumn->padding.SetAll(8.0f);
 	leftScrollView->Add(leftColumn);
 	leftScrollView->SetClickableBackground(true);
 	root_->Add(leftScrollView);
 
-	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 10.f, 10.f, 10.f, false));
-	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL);
+	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 0.f, 0.f, 0.f, false));
+	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL);
+	rightColumn->padding.SetAll(8.0f);
 	rightScrollView->Add(rightColumn);
 	rightScrollView->SetClickableBackground(true);
 	root_->Add(rightScrollView);
 
 	LinearLayout *bottomControls = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, NONE, NONE, 10.0f, false));
 	root_->Add(bottomControls);
+
+	// Set backgrounds for readability
+	Drawable backgroundWithAlpha(GetBackgroundColorWithAlpha(*screenManager()->getUIContext()));
+	leftColumn->SetBG(backgroundWithAlpha);
+	rightColumn->SetBG(backgroundWithAlpha);
 
 	if (!IsVREnabled()) {
 		auto stretch = new CheckBox(&g_Config.bDisplayStretch, gr->T("Stretch"));
@@ -273,7 +280,13 @@ void DisplayLayoutScreen::CreateViews() {
 	leftColumn->Add(new ItemHeader(gr->T("Postprocessing shaders")));
 
 	std::set<std::string> alreadyAddedShader;
-	settingsVisible_.resize(g_Config.vPostShaderNames.size());
+	// If there's a single post shader and we're just entering the dialog,
+	// auto-open the settings.
+	if (settingsVisible_.empty() && g_Config.vPostShaderNames.size() == 1) {
+		settingsVisible_.push_back(true);
+	} else if (settingsVisible_.size() < g_Config.vPostShaderNames.size()) {
+		settingsVisible_.resize(g_Config.vPostShaderNames.size());
+	}
 
 	static ContextMenuItem postShaderContextMenu[] = {
 		{ "Move Up", "I_ARROW_UP" },

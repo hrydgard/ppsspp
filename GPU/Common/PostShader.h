@@ -114,3 +114,4 @@ const std::vector<ShaderInfo> &GetAllPostShaderInfo();
 
 const TextureShaderInfo *GetTextureShaderInfo(const std::string &name);
 const std::vector<TextureShaderInfo> &GetAllTextureShaderInfo();
+void RemoveUnknownPostShaders(std::vector<std::string> *names);

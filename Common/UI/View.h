@@ -287,6 +287,13 @@ struct Margins {
 	int vert() const {
 		return top + bottom;
 	}
+	void SetAll(float f) {
+		int8_t i = (int)f;
+		top = i;
+		bottom = i;
+		left = i;
+		right = i;
+	}
 
 	int8_t top;
 	int8_t bottom;
