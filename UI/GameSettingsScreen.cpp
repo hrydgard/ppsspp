@@ -92,13 +92,8 @@ extern AndroidAudioState *g_audioState;
 
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), editThenRestore_(editThenRestore) {
-	lastVertical_ = UseVerticalLayout();
 	prevInflightFrames_ = g_Config.iInflightFrames;
 	analogSpeedMapped_ = KeyMap::AxisFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, nullptr, nullptr);
-}
-
-bool GameSettingsScreen::UseVerticalLayout() const {
-	return dp_yres > dp_xres * 1.1f;
 }
 
 // This needs before run CheckGPUFeatures()
@@ -1295,16 +1290,6 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnHwScaleChange(UI::EventParams &e) {
 	RecreateActivity();
 	return UI::EVENT_DONE;
-}
-
-void GameSettingsScreen::update() {
-	UIScreen::update();
-
-	bool vertical = UseVerticalLayout();
-	if (vertical != lastVertical_) {
-		RecreateViews();
-		lastVertical_ = vertical;
-	}
 }
 
 void GameSettingsScreen::onFinish(DialogResult result) {

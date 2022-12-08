@@ -30,7 +30,6 @@ class GameSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
 	GameSettingsScreen(const Path &gamePath, std::string gameID = "", bool editThenRestore = false);
 
-	void update() override;
 	void onFinish(DialogResult result) override;
 	const char *tag() const override { return "GameSettings"; }
 
@@ -42,7 +41,6 @@ protected:
 	void CallbackRenderingDevice(bool yes);
 	void CallbackInflightFrames(bool yes);
 	void CallbackMemstickFolder(bool yes);
-	bool UseVerticalLayout() const;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void RecreateViews() override;
 
@@ -52,7 +50,6 @@ private:
 	void TriggerRestart(const char *why);
 
 	std::string gameID_;
-	bool lastVertical_;
 	UI::CheckBox *enableReportsCheckbox_;
 	UI::Choice *layoutEditorChoice_;
 	UI::Choice *displayEditor_;

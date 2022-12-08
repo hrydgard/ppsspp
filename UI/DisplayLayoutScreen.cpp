@@ -199,16 +199,21 @@ void DisplayLayoutScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
+	bool vertical = bounds.h > bounds.w;
+
 	// Make it so that a touch can only affect one view. Makes manipulating the background through the buttons
 	// impossible.
 	root_->SetExclusiveTouch(true);
 
-	ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(420.0f, FILL_PARENT, 0.f, 0.f, NONE, 0.f, false));
-	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL);
-	leftColumn->padding.SetAll(8.0f);
-	leftScrollView->Add(leftColumn);
-	leftScrollView->SetClickableBackground(true);
-	root_->Add(leftScrollView);
+	LinearLayout *leftColumn;
+	if (!vertical) {
+		ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(420.0f, FILL_PARENT, 0.f, 0.f, NONE, 0.f, false));
+		leftColumn = new LinearLayout(ORIENT_VERTICAL);
+		leftColumn->padding.SetAll(8.0f);
+		leftScrollView->Add(leftColumn);
+		leftScrollView->SetClickableBackground(true);
+		root_->Add(leftScrollView);
+	}
 
 	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 0.f, 0.f, 0.f, false));
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL);
@@ -217,8 +222,15 @@ void DisplayLayoutScreen::CreateViews() {
 	rightScrollView->SetClickableBackground(true);
 	root_->Add(rightScrollView);
 
-	LinearLayout *bottomControls = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, NONE, NONE, 10.0f, false));
-	root_->Add(bottomControls);
+	LinearLayout *bottomControls;
+	if (vertical) {
+		bottomControls = new LinearLayout(ORIENT_HORIZONTAL);
+		rightColumn->Add(bottomControls);
+		leftColumn = rightColumn;
+	} else {
+		bottomControls = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, NONE, NONE, 10.0f, false));
+		root_->Add(bottomControls);
+	}
 
 	// Set backgrounds for readability
 	Drawable backgroundWithAlpha(GetBackgroundColorWithAlpha(*screenManager()->getUIContext()));
@@ -265,6 +277,10 @@ void DisplayLayoutScreen::CreateViews() {
 	Choice *back = new Choice(di->T("Back"), "", false);
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	rightColumn->Add(back);
+
+	if (vertical) {
+		leftColumn->Add(new Spacer(24.0f));
+	}
 
 	static const char *bufFilters[] = { "Linear", "Nearest", };
 	leftColumn->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));

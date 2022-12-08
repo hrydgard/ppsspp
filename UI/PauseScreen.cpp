@@ -132,7 +132,7 @@ UI::EventReturn ScreenshotViewScreen::OnUndoState(UI::EventParams &e) {
 
 class SaveSlotView : public UI::LinearLayout {
 public:
-	SaveSlotView(const Path &gamePath, int slot, UI::LayoutParams *layoutParams = nullptr);
+	SaveSlotView(const Path &gamePath, int slot, bool vertical, UI::LayoutParams *layoutParams = nullptr);
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		w = 500; h = 90;
@@ -169,7 +169,7 @@ private:
 	Path screenshotFilename_;
 };
 
-SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), slot_(slot), gamePath_(gameFilename) {
+SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, bool vertical, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), slot_(slot), gamePath_(gameFilename) {
 	using namespace UI;
 
 	screenshotFilename_ = SaveState::GenerateSaveSlotFilename(gamePath_, slot, SaveState::SCREENSHOT_EXTENSION);
@@ -185,7 +185,7 @@ SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams 
 
 	Add(lines);
 
-	LinearLayout *buttons = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+	LinearLayout *buttons = new LinearLayout(vertical ? ORIENT_VERTICAL : ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 	buttons->SetSpacing(10.0f);
 
 	lines->Add(buttons);
@@ -201,7 +201,11 @@ SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams 
 
 		std::string dateStr = SaveState::GetSlotDateAsString(gamePath_, slot_);
 		if (!dateStr.empty()) {
-			lines->Add(new TextView(dateStr, new LinearLayoutParams(0.0, G_VCENTER)))->SetShadow(true);
+			TextView *dateView = new TextView(dateStr, new LinearLayoutParams(0.0, G_VCENTER));
+			if (vertical) {
+				dateView->SetSmall(true);
+			}
+			lines->Add(dateView)->SetShadow(true);
 		}
 	} else {
 		fv->SetFilename(Path());
@@ -262,6 +266,8 @@ void GamePauseScreen::CreateViews() {
 
 	using namespace UI;
 
+	bool vertical = UseVerticalLayout();
+
 	Margins scrollMargins(0, 20, 0, 0);
 	Margins actionMenuMargins(0, 20, 15, 0);
 	auto gr = GetI18NCategory("Graphics");
@@ -278,7 +284,7 @@ void GamePauseScreen::CreateViews() {
 	leftColumnItems->Add(new Spacer(0.0));
 	leftColumnItems->SetSpacing(10.0);
 	for (int i = 0; i < NUM_SAVESLOTS; i++) {
-		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(gamePath_, i, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(gamePath_, i, vertical, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		slot->OnStateLoaded.Handle(this, &GamePauseScreen::OnState);
 		slot->OnStateSaved.Handle(this, &GamePauseScreen::OnState);
 		slot->OnScreenshotClicked.Handle(this, &GamePauseScreen::OnScreenshotClicked);
@@ -302,7 +308,7 @@ void GamePauseScreen::CreateViews() {
 		rewindButton->OnClick.Handle(this, &GamePauseScreen::OnRewind);
 	}
 
-	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
+	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(vertical ? 200 : 300, FILL_PARENT, actionMenuMargins));
 	root_->Add(rightColumn);
 
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
