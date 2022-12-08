@@ -966,7 +966,6 @@ UI::EventReturn GameBrowser::OnHomebrewStore(UI::EventParams &e) {
 MainScreen::MainScreen() {
 	System_SendMessage("event", "mainscreen");
 	g_BackgroundAudio.SetGame(Path());
-	lastVertical_ = UseVerticalLayout();
 }
 
 MainScreen::~MainScreen() {
@@ -1255,15 +1254,6 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 void MainScreen::update() {
 	UIScreen::update();
 	UpdateUIState(UISTATE_MENU);
-	bool vertical = UseVerticalLayout();
-	if (vertical != lastVertical_) {
-		RecreateViews();
-		lastVertical_ = vertical;
-	}
-}
-
-bool MainScreen::UseVerticalLayout() const {
-	return dp_yres > dp_xres * 1.1f;
 }
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {

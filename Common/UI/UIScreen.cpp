@@ -20,10 +20,15 @@ static const bool ClickDebug = false;
 
 UIScreen::UIScreen()
 	: Screen() {
+	lastVertical_ = UseVerticalLayout();
 }
 
 UIScreen::~UIScreen() {
 	delete root_;
+}
+
+bool UIScreen::UseVerticalLayout() const {
+	return dp_yres > dp_xres * 1.1f;
 }
 
 void UIScreen::DoRecreateViews() {
@@ -60,6 +65,12 @@ void UIScreen::DoRecreateViews() {
 }
 
 void UIScreen::update() {
+	bool vertical = UseVerticalLayout();
+	if (vertical != lastVertical_) {
+		RecreateViews();
+		lastVertical_ = vertical;
+	}
+
 	DoRecreateViews();
 
 	if (root_) {
