@@ -280,7 +280,13 @@ void DisplayLayoutScreen::CreateViews() {
 	leftColumn->Add(new ItemHeader(gr->T("Postprocessing shaders")));
 
 	std::set<std::string> alreadyAddedShader;
-	settingsVisible_.resize(g_Config.vPostShaderNames.size());
+	// If there's a single post shader and we're just entering the dialog,
+	// auto-open the settings.
+	if (settingsVisible_.empty() && g_Config.vPostShaderNames.size() == 1) {
+		settingsVisible_.push_back(true);
+	} else if (settingsVisible_.size() < g_Config.vPostShaderNames.size()) {
+		settingsVisible_.resize(g_Config.vPostShaderNames.size());
+	}
 
 	static ContextMenuItem postShaderContextMenu[] = {
 		{ "Move Up", "I_ARROW_UP" },
