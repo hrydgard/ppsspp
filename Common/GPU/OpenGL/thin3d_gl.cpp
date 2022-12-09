@@ -1238,14 +1238,17 @@ bool OpenGLPipeline::LinkShaders() {
 	semantics.push_back({ SEM_TEXCOORD0, "a_texcoord0" });
 
 	std::vector<GLRProgram::UniformLocQuery> queries;
+	int samplersToCheck;
 	if (!samplers_.is_empty()) {
 		for (int i = 0; i < (int)std::min((const uint32_t)samplers_.size(), MAX_TEXTURE_SLOTS); i++) {
 			queries.push_back({ &samplerLocs_[i], samplers_[i].name, true });
 		}
+		samplersToCheck = (int)samplers_.size();
 	} else {
 		queries.push_back({ &samplerLocs_[0], "sampler0" });
 		queries.push_back({ &samplerLocs_[1], "sampler1" });
 		queries.push_back({ &samplerLocs_[2], "sampler2" });
+		samplersToCheck = 3;
 	}
 
 	_assert_(queries.size() <= MAX_TEXTURE_SLOTS);
@@ -1254,7 +1257,7 @@ bool OpenGLPipeline::LinkShaders() {
 	}
 	std::vector<GLRProgram::Initializer> initialize;
 	for (int i = 0; i < MAX_TEXTURE_SLOTS; ++i) {
-		if (i < (int)samplers_.size()) {
+		if (i < samplersToCheck) {
 			initialize.push_back({ &samplerLocs_[i], 0, i });
 		} else {
 			samplerLocs_[i] = -1;
