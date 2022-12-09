@@ -1316,6 +1316,10 @@ if(ANDROID)
 	endif()
 endif()
 
+if (IOS)
+        set(nativeExtra ${nativeExtra} ${NativeAppSource})
+endif()
+
 add_library(native STATIC
 	${nativeExtra}
 	Common/Render/Text/draw_text_qt.cpp
