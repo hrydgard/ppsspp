@@ -163,22 +163,36 @@ inline void DeIndexTexture4(/*WRITEONLY*/ ClutT *dest, const u8 *indexed, int le
 
 	ClutT alphaSum = (ClutT)(-1);
 	if (nakedIndex) {
-		for (int i = 0; i < length; i += 2) {
+		while (length >= 2) {
 			u8 index = *indexed++;
 			ClutT color0 = clut[index & 0xf];
 			ClutT color1 = clut[index >> 4];
-			dest[i + 0] = color0;
-			dest[i + 1] = color1;
+			*dest++ = color0;
+			*dest++ = color1;
 			alphaSum &= color0 & color1;
+			length -= 2;
+		}
+		if (length) {  // Last pixel. Can really only happen in 1xY textures, but making this work generically.
+			u8 index = *indexed++;
+			ClutT color0 = clut[index & 0xf];
+			*dest = color0;
+			alphaSum &= color0;
 		}
 	} else {
-		for (int i = 0; i < length; i += 2) {
+		while (length >= 2) {
 			u8 index = *indexed++;
 			ClutT color0 = clut[gstate.transformClutIndex((index >> 0) & 0xf)];
 			ClutT color1 = clut[gstate.transformClutIndex((index >> 4) & 0xf)];
-			dest[i + 0] = color0;
-			dest[i + 1] = color1;
+			*dest++ = color0;
+			*dest++ = color1;
 			alphaSum &= color0 & color1;
+			length -= 2;
+		}
+		if (length) {
+			u8 index = *indexed++;
+			ClutT color0 = clut[gstate.transformClutIndex((index >> 0) & 0xf)];
+			*dest = color0;
+			alphaSum &= color0;
 		}
 	}
 
@@ -187,10 +201,15 @@ inline void DeIndexTexture4(/*WRITEONLY*/ ClutT *dest, const u8 *indexed, int le
 
 template <typename ClutT>
 inline void DeIndexTexture4Optimal(ClutT *dest, const u8 *indexed, int length, ClutT color) {
-	for (int i = 0; i < length; i += 2) {
+	while (length >= 2) {
 		u8 index = *indexed++;
-		dest[i + 0] = color | ((index >> 0) & 0xf);
-		dest[i + 1] = color | ((index >> 4) & 0xf);
+		*dest++ = color | ((index >> 0) & 0xf);
+		*dest++ = color | ((index >> 4) & 0xf);
+		length -= 2;
+	}
+	if (length) {
+		u8 index = *indexed++;
+		*dest++ = color | ((index >> 0) & 0xf);
 	}
 }
 

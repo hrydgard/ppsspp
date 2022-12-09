@@ -1673,7 +1673,9 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 		case GE_CMODE_16BIT_ABGR5551:
 		case GE_CMODE_16BIT_ABGR4444:
 		{
-			if (clutAlphaLinear_ && mipmapShareClut && !expandTo32bit) {
+			// The w > 1 check is to not need a case that handles a single pixel
+			// in DeIndexTexture4Optimal<u16>.
+			if (clutAlphaLinear_ && mipmapShareClut && !expandTo32bit && w >= 4) {
 				// We don't bother with fullalpha here (clutAlphaLinear_)
 				// Here, reverseColors means the CLUT is already reversed.
 				if (reverseColors) {
