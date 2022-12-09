@@ -115,3 +115,8 @@ const std::vector<ShaderInfo> &GetAllPostShaderInfo();
 const TextureShaderInfo *GetTextureShaderInfo(const std::string &name);
 const std::vector<TextureShaderInfo> &GetAllTextureShaderInfo();
 void RemoveUnknownPostShaders(std::vector<std::string> *names);
+
+// Call this any time you alter the postshader list. It makes sure
+// that "usePrevFrame" shaders are at the end, and that there's only one.
+// It'll also enforce any similar future rules.
+void FixPostShaderOrder(std::vector<std::string> *names);
