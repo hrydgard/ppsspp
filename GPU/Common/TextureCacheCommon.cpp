@@ -1556,15 +1556,16 @@ static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t tex
 		u32 blockIndex = (y / 4) * (bufw / 4);
 		int blockHeight = std::min(h - y, 4);
 		for (int x = 0; x < minw; x += 4) {
+			int blockWidth = std::min(minw - x, 4);
 			switch (n) {
 			case 1:
-				DecodeDXT1Block(dst + outPitch32 * y + x, (const DXT1Block *)src + blockIndex, outPitch32, blockHeight, &alphaSum);
+				DecodeDXT1Block(dst + outPitch32 * y + x, (const DXT1Block *)src + blockIndex, outPitch32, blockWidth, blockHeight, &alphaSum);
 				break;
 			case 3:
-				DecodeDXT3Block(dst + outPitch32 * y + x, (const DXT3Block *)src + blockIndex, outPitch32, blockHeight);
+				DecodeDXT3Block(dst + outPitch32 * y + x, (const DXT3Block *)src + blockIndex, outPitch32, blockWidth, blockHeight);
 				break;
 			case 5:
-				DecodeDXT5Block(dst + outPitch32 * y + x, (const DXT5Block *)src + blockIndex, outPitch32, blockHeight);
+				DecodeDXT5Block(dst + outPitch32 * y + x, (const DXT5Block *)src + blockIndex, outPitch32, blockWidth, blockHeight);
 				break;
 			}
 			blockIndex++;

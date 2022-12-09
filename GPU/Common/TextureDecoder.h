@@ -65,9 +65,9 @@ struct DXT5Block {
 	u8 alpha1; u8 alpha2;
 };
 
-void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, u32 *alpha);
-void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height);
-void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height);
+void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int width, int height, u32 *alpha);
+void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int width, int height);
+void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int width, int height);
 
 uint32_t GetDXT1Texel(const DXT1Block *src, int x, int y);
 uint32_t GetDXT3Texel(const DXT3Block *src, int x, int y);
