@@ -516,6 +516,19 @@ static bool DefaultEnableStateUndo() {
 	return true;
 }
 
+static float DefaultUISaturation() {
+	std::string device = System_GetProperty(SYSPROP_NAME);
+	if (IsVREnabled() && startsWith(device, "Pico")) {
+		return 1.5f;
+	} else if (IsVREnabled() && startsWith(device, "Oculus")) {
+		return 1.25f;
+	} else if (IsVREnabled() && startsWith(device, "Meta")) {
+		return 1.25f;
+	} else {
+		return 1.0f;
+	}
+}
+
 struct ConfigSectionSettings {
 	const char *section;
 	ConfigSetting *settings;
@@ -597,7 +610,7 @@ static ConfigSetting generalSettings[] = {
 
 	ConfigSetting("BackgroundAnimation", &g_Config.iBackgroundAnimation, 1, true, false),
 	ConfigSetting("UITint", &g_Config.fUITint, 0.0, true, false),
-	ConfigSetting("UISaturation", &g_Config.fUISaturation, 1.0, true, false),
+	ConfigSetting("UISaturation", &g_Config.fUISaturation, &DefaultUISaturation, true, false),
 
 #if defined(USING_WIN_UI)
 	ConfigSetting("TopMost", &g_Config.bTopMost, false),
