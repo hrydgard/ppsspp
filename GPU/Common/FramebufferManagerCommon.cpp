@@ -202,10 +202,6 @@ VirtualFramebuffer *FramebufferManagerCommon::GetDisplayVFB() {
 	return GetExactVFB(displayFramebufPtr_, displayStride_, displayFormat_);
 }
 
-u32 FramebufferManagerCommon::ColorBufferByteSize(const VirtualFramebuffer *vfb) const {
-	return vfb->fb_stride * vfb->height * (vfb->fb_format == GE_FORMAT_8888 ? 4 : 2);
-}
-
 // Heuristics to figure out the size of FBO to create.
 // TODO: Possibly differentiate on whether through mode is used (since in through mode, viewport is meaningless?)
 void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, int fb_stride, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int &drawing_width, int &drawing_height) {
@@ -512,7 +508,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		vfb->fb_format = params.fb_format;
 		vfb->usageFlags = FB_USAGE_RENDER_COLOR;
 
-		u32 colorByteSize = ColorBufferByteSize(vfb);
+		u32 colorByteSize = vfb->BufferByteSize(RASTER_COLOR);
 		if (Memory::IsVRAMAddress(params.fb_address) && params.fb_address + colorByteSize > framebufRangeEnd_) {
 			framebufRangeEnd_ = params.fb_address + colorByteSize;
 		}
@@ -1463,7 +1459,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		const u32 addr = fbaddr;
 		for (auto v : vfbs_) {
 			const u32 v_addr = v->fb_address;
-			const u32 v_size = ColorBufferByteSize(v);
+			const u32 v_size = v->BufferByteSize(RASTER_COLOR);
 
 			if (v->fb_format != displayFormat_ || v->fb_stride != displayStride_) {
 				// Displaying a buffer of the wrong format or stride is nonsense, ignore it.
@@ -1715,12 +1711,12 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 
 	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), msaaLevel_, true, tag });
 	if (Memory::IsVRAMAddress(vfb->fb_address) && vfb->fb_stride != 0) {
-		NotifyMemInfo(MemBlockFlags::ALLOC, vfb->fb_address, ColorBufferByteSize(vfb), tag, len);
+		NotifyMemInfo(MemBlockFlags::ALLOC, vfb->fb_address, vfb->BufferByteSize(RASTER_COLOR), tag, len);
 	}
 	if (Memory::IsVRAMAddress(vfb->z_address) && vfb->z_stride != 0) {
 		char buf[128];
 		size_t len = snprintf(buf, sizeof(buf), "Z_%s", tag);
-		NotifyMemInfo(MemBlockFlags::ALLOC, vfb->z_address, vfb->fb_stride * vfb->height * sizeof(uint16_t), buf, len);
+		NotifyMemInfo(MemBlockFlags::ALLOC, vfb->z_address, vfb->z_stride * vfb->height * sizeof(uint16_t), buf, len);
 	}
 	if (old.fbo) {
 		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %dx%dx%s", vfb->fb_address, w, h, GeBufferFormatToString(vfb->fb_format));
@@ -1747,7 +1743,6 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 }
 
 // This is called from detected memcopies and framebuffer initialization from VRAM. Not block transfers.
-// MotoGP goes this path so we need to catch those copies here.
 bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size, GPUCopyFlag flags, u32 skipDrawReason) {
 	if (size == 0) {
 		return false;
@@ -1781,7 +1776,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 
 		// We only remove the kernel and uncached bits when comparing.
 		const u32 vfb_address = vfb->fb_address;
-		const u32 vfb_size = ColorBufferByteSize(vfb);
+		const u32 vfb_size = vfb->BufferByteSize(RASTER_COLOR);
 		const u32 vfb_bpp = BufferFormatBytesPerPixel(vfb->fb_format);
 		const u32 vfb_byteStride = vfb->fb_stride * vfb_bpp;
 		const int vfb_byteWidth = vfb->width * vfb_bpp;
@@ -1917,8 +1912,8 @@ std::string BlockTransferRect::ToString() const {
 	return StringFromFormat("%08x/%d/%s seq:%d  %d,%d %dx%d", vfb->fb_address, vfb->FbStrideInBytes(), GeBufferFormatToString(vfb->fb_format), vfb->colorBindSeq, x_bytes / bpp, y, w_bytes / bpp, h);
 }
 
-// Only looks for color buffers. Due to swizzling and other concerns, games have not been seen using block copies
-// for depth data yet.
+// Only looks for color buffers for now.
+// The only known game to block transfer depth buffers is Iron Man, see #16530.
 bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_pixels, int x_pixels, int y, int w_pixels, int h, int bpp, bool destination, BlockTransferRect *rect) {
 	basePtr &= 0x3FFFFFFF;
 	if (Memory::IsVRAMAddress(basePtr))
@@ -1951,7 +1946,7 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 		}
 
 		const u32 vfb_address = vfb->fb_address;
-		const u32 vfb_size = ColorBufferByteSize(vfb);
+		const u32 vfb_size = vfb->BufferByteSize(RASTER_COLOR);
 
 		if (basePtr < vfb_address || basePtr >= vfb_address + vfb_size) {
 			continue;
@@ -2087,7 +2082,7 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), 0, true, name });
 	vfbs_.push_back(vfb);
 
-	u32 byteSize = ColorBufferByteSize(vfb);
+	u32 byteSize = vfb->BufferByteSize(RASTER_COLOR);
 	if (fbAddress + byteSize > framebufRangeEnd_) {
 		framebufRangeEnd_ = fbAddress + byteSize;
 	}

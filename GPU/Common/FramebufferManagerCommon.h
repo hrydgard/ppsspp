@@ -159,6 +159,10 @@ struct VirtualFramebuffer {
 	inline int Stride(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_stride : z_stride; }
 	inline u32 Address(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_address : z_address; }
 	inline int Format(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_format : GE_FORMAT_DEPTH16; }
+
+	int BufferByteSize(RasterChannel channel) const {
+		return channel == RASTER_COLOR ? fb_stride * height * (fb_format == GE_FORMAT_8888 ? 4 : 2) : z_stride * height * 2;
+	}
 };
 
 struct FramebufferHeuristicParams {
@@ -484,7 +488,6 @@ protected:
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags, int layer);
 
 	void EstimateDrawingSize(u32 fb_address, int fb_stride, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int &drawing_width, int &drawing_height);
-	u32 ColorBufferByteSize(const VirtualFramebuffer *vfb) const;
 
 	void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb);
 	void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb);
