@@ -348,7 +348,6 @@ public:
 
 	VkImageView GetImageView() {
 		if (vkTex_) {
-			vkTex_->Touch();
 			return vkTex_->GetImageView();
 		}
 		return VK_NULL_HANDLE;  // This would be bad.
@@ -356,7 +355,6 @@ public:
 
 	VkImageView GetImageArrayView() {
 		if (vkTex_) {
-			vkTex_->Touch();
 			return vkTex_->GetImageArrayView();
 		}
 		return VK_NULL_HANDLE;  // This would be bad.
@@ -673,8 +671,6 @@ VulkanTexture *VKContext::GetNullTexture() {
 		}
 		nullTexture_->UploadMip(cmdInit, 0, w, h, 0, bindBuf, bindOffset, w);
 		nullTexture_->EndCreate(cmdInit, false, VK_PIPELINE_STAGE_TRANSFER_BIT);
-	} else {
-		nullTexture_->Touch();
 	}
 	return nullTexture_;
 }

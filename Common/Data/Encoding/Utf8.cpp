@@ -219,19 +219,14 @@ int u8_strlen(const char *s)
 }
 
 /* reads the next utf-8 sequence out of a string, updating an index */
-uint32_t u8_nextchar(const char *s, int *i)
-{
-  uint32_t ch = 0;
-  int sz = 0;
-
-  do {
-    ch <<= 6;
-    ch += (unsigned char)s[(*i)++];
-    sz++;
-  } while (s[*i] && !isutf(s[*i]));
-  ch -= offsetsFromUTF8[sz-1];
-
-  return ch;
+uint32_t u8_nextchar(const char *s, int *i) {
+	uint32_t ch = 0;
+	int sz = 0;
+	do {
+		ch = (ch << 6) + (unsigned char)s[(*i)++];
+		sz++;
+	} while (s[*i] && ((s[*i]) & 0xC0) == 0x80);
+	return ch - offsetsFromUTF8[sz - 1];
 }
 
 uint32_t u8_nextchar_unsafe(const char *s, int *i) {

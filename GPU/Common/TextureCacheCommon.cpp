@@ -1036,7 +1036,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 			}
 			return true;
 		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
-			WARN_LOG_ONCE(fourEightBit, G3D, "%s fb_format not matching framebuffer of format %s at %08x/%d", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address, fb_stride);
+			WARN_LOG_ONCE(fourEightBit, G3D, "%s texture format not matching framebuffer of format %s at %08x/%d", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address, fb_stride);
 			return false;
 		}
 

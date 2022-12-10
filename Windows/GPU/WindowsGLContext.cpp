@@ -90,7 +90,7 @@ void WindowsGLContext::Resume() {
 void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenum type,
 													GLuint id, GLenum severity, const char *msg) {
 
-	char sourceStr[32];
+	char sourceStr[32]{};
 	const char *sourceFmt;
 	switch(source) {
 	case GL_DEBUG_SOURCE_API_ARB:             sourceFmt = "API"; break;
@@ -103,7 +103,7 @@ void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenu
 	}
 	snprintf(sourceStr, sizeof(sourceStr), sourceFmt, source);
 
-	char typeStr[32];
+	char typeStr[32]{};
 	const char *typeFmt;
 	switch(type) {
 	case GL_DEBUG_TYPE_ERROR_ARB:               typeFmt = "ERROR"; break;
@@ -116,7 +116,7 @@ void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenu
 	}
 	snprintf(typeStr, sizeof(typeStr), typeFmt, type);
 
-	char severityStr[32];
+	char severityStr[32]{};
 	const char *severityFmt;
 	switch (severity) {
 	case GL_DEBUG_SEVERITY_HIGH_ARB:   severityFmt = "HIGH"; break;
@@ -130,7 +130,7 @@ void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenu
 }
 
 void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
-											GLsizei length, const GLchar *message, GLvoid *userParam) {
+                      GLsizei length, const GLchar *message, GLvoid *userParam) {
 	// Ignore buffer mapping messages from NVIDIA
 	if (source == GL_DEBUG_SOURCE_API_ARB && type == GL_DEBUG_TYPE_OTHER_ARB && id == 131185) {
 		return;

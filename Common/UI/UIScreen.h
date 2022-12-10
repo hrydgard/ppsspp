@@ -420,7 +420,7 @@ private:
 	std::string negativeLabel_;
 	std::string units_;
 	ScreenManager *screenManager_;
-	bool restoreFocus_;
+	bool restoreFocus_ = false;
 };
 
 class PopupSliderChoiceFloat : public AbstractChoiceWithValueDisplay {
@@ -457,7 +457,7 @@ private:
 	std::string zeroLabel_;
 	std::string units_;
 	ScreenManager *screenManager_;
-	bool restoreFocus_;
+	bool restoreFocus_ = false;
 	bool liveUpdate_ = false;
 	bool hasDropShadow_ = true;
 };
