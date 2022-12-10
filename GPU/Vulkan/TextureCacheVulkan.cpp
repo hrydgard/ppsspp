@@ -404,8 +404,6 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 		return;
 	}
 
-	entry->vkTex->Touch();
-
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);

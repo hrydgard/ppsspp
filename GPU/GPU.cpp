@@ -114,6 +114,9 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 #endif
 
 void GPU_Shutdown() {
+	// Reduce the risk for weird races with the Windows GE debugger.
+	gpuDebug = nullptr;
+
 	// Wait for IsReady, since it might be running on a thread.
 	if (gpu) {
 		gpu->CancelReady();
@@ -123,5 +126,4 @@ void GPU_Shutdown() {
 	}
 	delete gpu;
 	gpu = nullptr;
-	gpuDebug = nullptr;
 }

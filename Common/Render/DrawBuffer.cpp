@@ -285,7 +285,9 @@ void DrawBuffer::DrawImageRotated(ImageID atlas_image, float x, float y, float s
 		{u1, image->v2},
 	};
 	for (int i = 0; i < 6; i++) {
-		rot(v[i], angle, x, y);
+		if (angle != 0.0f) {
+			rot(v[i], angle, x, y);
+		}
 		V(v[i][0], v[i][1], 0, color, uv[i][0], uv[i][1]);
 	}
 }
