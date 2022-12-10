@@ -204,7 +204,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 		flags.useClipDistance0 = true;
 	}
 
-	program = render->CreateProgram(shaders, semantics, queries, initialize, flags);
+	program = render->CreateProgram(shaders, semantics, queries, initialize, nullptr, flags);
 
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL_UNIFORMS;

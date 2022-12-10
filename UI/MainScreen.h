@@ -114,7 +114,6 @@ protected:
 	void sendMessage(const char *message, const char *value) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
-	bool UseVerticalLayout() const;
 	bool DrawBackgroundFor(UIContext &dc, const Path &gamePath, float progress);
 
 	UI::EventReturn OnGameSelected(UI::EventParams &e);

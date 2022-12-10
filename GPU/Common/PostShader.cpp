@@ -250,6 +250,16 @@ void ReloadAllPostShaderInfo(Draw::DrawContext *draw) {
 	LoadPostShaderInfo(draw, directories);
 }
 
+void RemoveUnknownPostShaders(std::vector<std::string> *names) {
+	for (auto iter = names->begin(); iter != names->end(); ) {
+		if (GetPostShaderInfo(*iter) == nullptr) {
+			iter = names->erase(iter);
+		} else {
+			++iter;
+		}
+	}
+}
+
 const ShaderInfo *GetPostShaderInfo(const std::string &name) {
 	for (size_t i = 0; i < shaderInfo.size(); i++) {
 		if (shaderInfo[i].section == name)
@@ -313,4 +323,26 @@ const TextureShaderInfo *GetTextureShaderInfo(const std::string &name) {
 }
 const std::vector<TextureShaderInfo> &GetAllTextureShaderInfo() {
 	return textureShaderInfo;
+}
+
+void FixPostShaderOrder(std::vector<std::string> *names) {
+	// There's one rule only that we enforce - only one shader can use UsePreviousFrame,
+	// and it has to be the last one. So we simply remove any we find from the list,
+	// and then append it to the end if there is one.
+	std::string prevFrameShader;
+	for (auto iter = names->begin(); iter != names->end(); ) {
+		const ShaderInfo *info = GetPostShaderInfo(*iter);
+		if (info) {
+			if (info->usePreviousFrame) {
+				prevFrameShader = *iter;
+				iter = names->erase(iter++);
+				continue;
+			}
+		}
+		++iter;
+	}
+
+	if (!prevFrameShader.empty()) {
+		names->push_back(prevFrameShader);
+	}
 }

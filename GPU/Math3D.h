@@ -898,7 +898,8 @@ inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 	vecOut[1] = vectorGetByIndex<1>(sum);
 	vecOut[2] = vectorGetByIndex<2>(sum);
 #elif PPSSPP_ARCH(ARM64_NEON)
-	float32x4_t sum = Vec3ByMatrix43Internal(vld1q_f32(v), m);
+	float vecIn[4] = {v[0], v[1], v[2], 1.0f};
+	float32x4_t sum = Vec3ByMatrix43Internal(vld1q_f32(vecIn), m);
 	vecOut[0] = vgetq_lane_f32(sum, 0);
 	vecOut[1] = vgetq_lane_f32(sum, 1);
 	vecOut[2] = vgetq_lane_f32(sum, 2);
@@ -957,7 +958,8 @@ inline void Vec3ByMatrix44(float vecOut[4], const float v[3], const float m[16])
 	__m128 sum = Vec3ByMatrix44Internal(x, y, z, m);
 	_mm_storeu_ps(vecOut, sum);
 #elif PPSSPP_ARCH(ARM64_NEON)
-	float32x4_t sum = Vec3ByMatrix44Internal(vld1q_f32(v), m);
+	float vecIn[4] = {v[0], v[1], v[2], 1.0f};
+	float32x4_t sum = Vec3ByMatrix44Internal(vld1q_f32(vecIn), m);
 	vst1q_f32(vecOut, sum);
 #else
 	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];

@@ -42,7 +42,8 @@ protected:
 	virtual void CreateViews() = 0;
 	virtual void DrawBackground(UIContext &dc) {}
 
-	virtual void RecreateViews() override { recreateViews_ = true; }
+	void RecreateViews() override { recreateViews_ = true; }
+	bool UseVerticalLayout() const;
 
 	UI::ViewGroup *root_ = nullptr;
 	Vec3 translation_ = Vec3(0.0f);
@@ -54,6 +55,7 @@ private:
 	void DoRecreateViews();
 
 	bool recreateViews_ = true;
+	bool lastVertical_;
 };
 
 class UIDialogScreen : public UIScreen {
@@ -280,7 +282,7 @@ public:
 	UI::Event OnChoice;
 
 protected:
-	bool HasTitleBar() const { return false; }
+	bool HasTitleBar() const override { return false; }
 
 private:
 	const ContextMenuItem *items_;

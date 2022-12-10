@@ -879,6 +879,8 @@ void PresentationCommon::CalculateRenderResolution(int *width, int *height, int 
 	std::vector<const ShaderInfo *> shaderInfo;
 	if (!g_Config.vPostShaderNames.empty()) {
 		ReloadAllPostShaderInfo(draw_);
+		RemoveUnknownPostShaders(&g_Config.vPostShaderNames);
+		FixPostShaderOrder(&g_Config.vPostShaderNames);
 		shaderInfo = GetFullPostShadersChain(g_Config.vPostShaderNames);
 	}
 

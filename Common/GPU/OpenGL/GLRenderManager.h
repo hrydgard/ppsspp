@@ -99,11 +99,22 @@ struct GLRProgramFlags {
 	bool useClipDistance2 : 1;
 };
 
+// Unless you manage lifetimes in some smart way,
+// your loc data for uniforms and samplers need to be in a struct
+// derived from this, and passed into CreateProgram.
+class GLRProgramLocData {
+public:
+	virtual ~GLRProgramLocData() {}
+};
+
 class GLRProgram {
 public:
 	~GLRProgram() {
 		if (program) {
 			glDeleteProgram(program);
+		}
+		if (locData_) {
+			delete locData_;
 		}
 	}
 	struct Semantic {
@@ -127,6 +138,8 @@ public:
 	std::vector<Semantic> semantics_;
 	std::vector<UniformLocQuery> queries_;
 	std::vector<Initializer> initialize_;
+
+	GLRProgramLocData *locData_;
 	bool use_clip_distance[8]{};
 
 	struct UniformInfo {
@@ -148,6 +161,7 @@ public:
 		}
 		return loc;
 	}
+
 	std::unordered_map<std::string, UniformInfo> uniformCache_;
 };
 
@@ -438,13 +452,14 @@ public:
 	// not be an active render pass.
 	GLRProgram *CreateProgram(
 		std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics, std::vector<GLRProgram::UniformLocQuery> queries,
-		std::vector<GLRProgram::Initializer> initializers, const GLRProgramFlags &flags) {
+		std::vector<GLRProgram::Initializer> initializers, GLRProgramLocData *locData, const GLRProgramFlags &flags) {
 		GLRInitStep step{ GLRInitStepType::CREATE_PROGRAM };
 		_assert_(shaders.size() <= ARRAY_SIZE(step.create_program.shaders));
 		step.create_program.program = new GLRProgram();
 		step.create_program.program->semantics_ = semantics;
 		step.create_program.program->queries_ = queries;
 		step.create_program.program->initialize_ = initializers;
+		step.create_program.program->locData_ = locData;
 		step.create_program.program->use_clip_distance[0] = flags.useClipDistance0;
 		step.create_program.program->use_clip_distance[1] = flags.useClipDistance1;
 		step.create_program.program->use_clip_distance[2] = flags.useClipDistance2;

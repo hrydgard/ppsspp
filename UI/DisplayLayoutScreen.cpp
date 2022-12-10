@@ -152,6 +152,7 @@ void DisplayLayoutScreen::dialogFinished(const Screen *dialog, DialogResult resu
 UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) {
 	// Remove the virtual "Off" entry. TODO: Get rid of it generally.
 	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
+	FixPostShaderOrder(&g_Config.vPostShaderNames);
 
 	NativeMessageReceived("gpu_configChanged", "");
 	NativeMessageReceived("gpu_renderResized", "");  // To deal with shaders that can change render resolution like upscaling.
@@ -199,24 +200,43 @@ void DisplayLayoutScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
+	bool vertical = bounds.h > bounds.w;
+
 	// Make it so that a touch can only affect one view. Makes manipulating the background through the buttons
 	// impossible.
 	root_->SetExclusiveTouch(true);
 
-	ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(400.0f, FILL_PARENT, 10.f, 10.f, NONE, 10.f, false));
-	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL);
-	leftScrollView->Add(leftColumn);
-	leftScrollView->SetClickableBackground(true);
-	root_->Add(leftScrollView);
+	LinearLayout *leftColumn;
+	if (!vertical) {
+		ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(420.0f, FILL_PARENT, 0.f, 0.f, NONE, 0.f, false));
+		leftColumn = new LinearLayout(ORIENT_VERTICAL);
+		leftColumn->padding.SetAll(8.0f);
+		leftScrollView->Add(leftColumn);
+		leftScrollView->SetClickableBackground(true);
+		root_->Add(leftScrollView);
+	}
 
-	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 10.f, 10.f, 10.f, false));
-	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL);
+	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 0.f, 0.f, 0.f, false));
+	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL);
+	rightColumn->padding.SetAll(8.0f);
 	rightScrollView->Add(rightColumn);
 	rightScrollView->SetClickableBackground(true);
 	root_->Add(rightScrollView);
 
-	LinearLayout *bottomControls = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, NONE, NONE, 10.0f, false));
-	root_->Add(bottomControls);
+	LinearLayout *bottomControls;
+	if (vertical) {
+		bottomControls = new LinearLayout(ORIENT_HORIZONTAL);
+		rightColumn->Add(bottomControls);
+		leftColumn = rightColumn;
+	} else {
+		bottomControls = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, NONE, NONE, 10.0f, false));
+		root_->Add(bottomControls);
+	}
+
+	// Set backgrounds for readability
+	Drawable backgroundWithAlpha(GetBackgroundColorWithAlpha(*screenManager()->getUIContext()));
+	leftColumn->SetBG(backgroundWithAlpha);
+	rightColumn->SetBG(backgroundWithAlpha);
 
 	if (!IsVREnabled()) {
 		auto stretch = new CheckBox(&g_Config.bDisplayStretch, gr->T("Stretch"));
@@ -259,6 +279,10 @@ void DisplayLayoutScreen::CreateViews() {
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	rightColumn->Add(back);
 
+	if (vertical) {
+		leftColumn->Add(new Spacer(24.0f));
+	}
+
 	static const char *bufFilters[] = { "Linear", "Nearest", };
 	leftColumn->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
 
@@ -273,7 +297,13 @@ void DisplayLayoutScreen::CreateViews() {
 	leftColumn->Add(new ItemHeader(gr->T("Postprocessing shaders")));
 
 	std::set<std::string> alreadyAddedShader;
-	settingsVisible_.resize(g_Config.vPostShaderNames.size());
+	// If there's a single post shader and we're just entering the dialog,
+	// auto-open the settings.
+	if (settingsVisible_.empty() && g_Config.vPostShaderNames.size() == 1) {
+		settingsVisible_.push_back(true);
+	} else if (settingsVisible_.size() < g_Config.vPostShaderNames.size()) {
+		settingsVisible_.resize(g_Config.vPostShaderNames.size());
+	}
 
 	static ContextMenuItem postShaderContextMenu[] = {
 		{ "Move Up", "I_ARROW_UP" },
@@ -341,7 +371,9 @@ void DisplayLayoutScreen::CreateViews() {
 			moreButton->OnClick.Add([=](EventParams &e) -> UI::EventReturn {
 				PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(postShaderContextMenu, ARRAY_SIZE(postShaderContextMenu), di.get(), moreButton);
 				screenManager()->push(contextMenu);
-				contextMenu->SetEnabled(0, i > 0);
+				const ShaderInfo *info = GetPostShaderInfo(g_Config.vPostShaderNames[i]);
+				bool usesLastFrame = info ? info->usePreviousFrame : false;
+				contextMenu->SetEnabled(0, i > 0 && !usesLastFrame);
 				contextMenu->SetEnabled(1, i < g_Config.vPostShaderNames.size() - 1);
 				contextMenu->OnChoice.Add([=](EventParams &e) -> UI::EventReturn {
 					switch (e.a) {
@@ -357,6 +389,7 @@ void DisplayLayoutScreen::CreateViews() {
 					default:
 						return UI::EVENT_DONE;
 					}
+					FixPostShaderOrder(&g_Config.vPostShaderNames);
 					NativeMessageReceived("gpu_configChanged", "");
 					RecreateViews();
 					return UI::EVENT_DONE;
