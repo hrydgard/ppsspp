@@ -10,9 +10,9 @@
 #include "Common/UI/Context.h"
 #include "Common/Render/DrawBuffer.h"
 #include "Common/Render/Text/draw_text.h"
+#include "Common/Render/ManagedTexture.h"
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
-#include "UI/TextureUtil.h"
 
 UIContext::UIContext() {
 	fontStyle_ = new UI::FontStyle();

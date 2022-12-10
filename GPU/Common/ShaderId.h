@@ -100,6 +100,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_SHADER_DEPAL_MODE = 55,  // 2 bits (ShaderDepalMode)
 	FS_BIT_SAMPLE_ARRAY_TEXTURE = 57,  // For multiview, framebuffers are array textures and we need to sample the two layers correctly.
 	FS_BIT_STEREO = 58,
+	FS_BIT_USE_FRAMEBUFFER_FETCH = 59,
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {

@@ -105,21 +105,9 @@ u32 GPU_DX9::CheckGPUFeatures() const {
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
-	// TODO: Breaks text in PaRappa for some reason?
 	features |= GPU_USE_ACCURATE_DEPTH;
 
-	auto vendor = draw_->GetDeviceCaps().vendor;
-
-	if (!g_Config.bHighQualityDepth) {
-		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-	} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-		// Assume we always have a 24-bit depth buffer.
-		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-	} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
-		features |= GPU_ROUND_DEPTH_TO_16BIT;
-	}
-
-	return features;
+	return CheckGPUFeaturesLate(features);
 }
 
 GPU_DX9::~GPU_DX9() {
@@ -156,19 +144,6 @@ void GPU_DX9::InitClear() {
 		dxstate.depthWrite.set(true);
 		dxstate.colorMask.set(0xF);
 		device_->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
-	}
-}
-
-void GPU_DX9::BeginHostFrame() {
-	GPUCommon::BeginHostFrame();
-	UpdateCmdInfo();
-	if (resized_) {
-		gstate_c.useFlags = CheckGPUFeatures();
-		framebufferManager_->Resized();
-		drawEngine_.NotifyConfigChanged();
-		textureCache_->NotifyConfigChanged();
-		shaderManagerDX9_->DirtyShader();
-		resized_ = false;
 	}
 }
 
@@ -243,14 +218,6 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerDX9_->GetNumVertexShaders(),
 		shaderManagerDX9_->GetNumFragmentShaders()
 	);
-}
-
-void GPU_DX9::ClearCacheNextFrame() {
-	textureCacheDX9_->ClearNextFrame();
-}
-
-void GPU_DX9::ClearShaderCache() {
-	shaderManagerDX9_->ClearCache(true);
 }
 
 void GPU_DX9::DoState(PointerWrap &p) {

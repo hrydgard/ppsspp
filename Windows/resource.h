@@ -118,8 +118,6 @@
 #define IDC_GEDBG_PRIMCOUNTER           1201
 #define IDC_BUTTON_SEARCH               1204
 
-#define ID_SHADERS_BASE  5000
-
 #define ID_FILE_EXIT                     40000
 #define ID_DEBUG_SAVEMAPFILE             40001
 #define ID_DISASM_RUNTOHERE              40004

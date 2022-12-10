@@ -14,8 +14,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
-#include "UI/TextureUtil.h"
-#include "UI/GameInfoCache.h"
+#include "Common/Render/ManagedTexture.h"
 
 static Draw::DataFormat ZimToT3DFormat(int zim) {
 	switch (zim) {
@@ -216,39 +215,4 @@ std::unique_ptr<ManagedTexture> CreateTextureFromFileData(Draw::DrawContext *dra
 		delete mtex;
 		return std::unique_ptr<ManagedTexture>();
 	}
-}
-
-void GameIconView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	w = textureWidth_;
-	h = textureHeight_;
-}
-
-void GameIconView::Draw(UIContext &dc) {
-	using namespace UI;
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
-
-	if (!info->icon.texture) {
-		return;
-	}
-
-	textureWidth_ = info->icon.texture->Width() * scale_;
-	textureHeight_ = info->icon.texture->Height() * scale_;
-
-	// Fade icon with the backgrounds.
-	double loadTime = info->icon.timeLoaded;
-	auto pic = info->GetBGPic();
-	if (pic) {
-		loadTime = std::max(loadTime, pic->timeLoaded);
-	}
-	uint32_t color = whiteAlpha(ease((time_now_d() - loadTime) * 3));
-
-	// Adjust size so we don't stretch the image vertically or horizontally.
-	// Make sure it's not wider than 144 (like Doom Legacy homebrew), ugly in the grid mode.
-	float nw = std::min(bounds_.h * textureWidth_ / textureHeight_, (float)bounds_.w);
-
-	dc.Flush();
-	dc.GetDrawContext()->BindTexture(0, info->icon.texture->GetTexture());
-	dc.Draw()->Rect(bounds_.x, bounds_.y, nw, bounds_.h, color);
-	dc.Flush();
-	dc.RebindTexture();
 }

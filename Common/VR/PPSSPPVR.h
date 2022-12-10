@@ -17,13 +17,25 @@ enum VRCompatFlag {
 	VR_COMPAT_MAX
 };
 
+enum VRAppMode {
+	VR_CONTROLLER_MAPPING_MODE,
+	VR_DIALOG_MODE,
+	VR_GAME_MODE,
+	VR_MENU_MODE,
+};
+
 // VR app flow integration
 bool IsVREnabled();
 void InitVROnAndroid(void* vm, void* activity, const char* system, int version, const char* name);
 void EnterVR(bool firstStart, void* vulkanContext);
 void GetVRResolutionPerEye(int* width, int* height);
-void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale);
-void UpdateVRSpecialKeys(const KeyInput &key);
+
+// VR input integration
+void SetVRAppMode(VRAppMode mode);
+void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(const KeyInput &key),
+                   bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale);
+bool UpdateVRAxis(const AxisInput &axis);
+bool UpdateVRKeys(const KeyInput &key);
 
 // VR games compatibility
 void PreprocessStepVR(void* step);
@@ -38,8 +50,10 @@ void PostVRFrameRender();
 int GetVRFBOIndex();
 int GetVRPassesCount();
 bool IsMultiviewSupported();
+bool IsFlatVRGame();
 bool IsFlatVRScene();
+bool IsGameVRScene();
 bool Is2DVRObject(float* projMatrix, bool ortho);
-void UpdateVRParams(float* projMatrix);
+void UpdateVRParams(float* projMatrix, float* viewMatrix);
 void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye);
 void UpdateVRView(float* leftEye, float* rightEye);

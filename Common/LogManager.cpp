@@ -56,7 +56,7 @@ void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char 
 	if (instance) {
 		instance->Log(level, type, file, line, fmt, args);
 	} else {
-		// Fall back to printf if we're before the log manager has been initialized.
+		// Fall back to printf or direct android logger with a small buffer if the log manager hasn't been initialized yet.
 #if PPSSPP_PLATFORM(ANDROID)
 		char temp[512];
 		vsnprintf(temp, sizeof(temp), fmt, args);

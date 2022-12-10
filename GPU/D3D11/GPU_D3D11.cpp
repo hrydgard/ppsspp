@@ -105,11 +105,7 @@ u32 GPU_D3D11::CheckGPUFeatures() const {
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
-	// TODO: Breaks text in PaRappa for some reason?
 	features |= GPU_USE_ACCURATE_DEPTH;
-
-	if (draw_->GetDeviceCaps().depthClampSupported)
-		features |= GPU_USE_DEPTH_CLAMP;
 
 	features |= GPU_USE_TEXTURE_FLOAT;
 	features |= GPU_USE_INSTANCE_RENDERING;
@@ -122,21 +118,7 @@ u32 GPU_D3D11::CheckGPUFeatures() const {
 		features |= GPU_USE_16BIT_FORMATS;
 	}
 
-	if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-	} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-		// Use fragment rounding on desktop and GLES3, most accurate.
-		features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-	} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
-		features |= GPU_ROUND_DEPTH_TO_16BIT;
-	}
-
-	// The Phantasy Star hack :(
-	if (PSP_CoreParameter().compat.flags().DepthRangeHack && (features & GPU_USE_ACCURATE_DEPTH) == 0) {
-		features |= GPU_USE_DEPTH_RANGE_HACK;
-	}
-
-	return features;
+	return CheckGPUFeaturesLate(features);
 }
 
 // Needs to be called on GPU thread, not reporting thread.
@@ -149,7 +131,7 @@ void GPU_D3D11::BuildReportingInfo() {
 }
 
 void GPU_D3D11::DeviceLost() {
-	draw_->InvalidateCachedState();
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	shaderManagerD3D11_->ClearShaders();
@@ -168,30 +150,6 @@ void GPU_D3D11::InitClear() {
 	if (!framebufferManager_->UseBufferedRendering()) {
 		// device_->Clear(0, NULL, D3DCLEAR_STENCIL | D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
 	}
-}
-
-void GPU_D3D11::BeginHostFrame() {
-	GPUCommon::BeginHostFrame();
-	UpdateCmdInfo();
-	if (resized_) {
-		gstate_c.useFlags = CheckGPUFeatures();
-		framebufferManager_->Resized();
-		drawEngine_.NotifyConfigChanged();
-		textureCache_->NotifyConfigChanged();
-		shaderManagerD3D11_->DirtyLastShader();
-		resized_ = false;
-	}
-}
-
-void GPU_D3D11::ReapplyGfxState() {
-	GPUCommon::ReapplyGfxState();
-
-	// TODO: Dirty our caches for depth states etc
-}
-
-void GPU_D3D11::EndHostFrame() {
-	// Probably not really necessary.
-	draw_->InvalidateCachedState();
 }
 
 void GPU_D3D11::BeginFrame() {
@@ -263,15 +221,6 @@ void GPU_D3D11::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerD3D11_->GetNumVertexShaders(),
 		shaderManagerD3D11_->GetNumFragmentShaders()
 	);
-}
-
-void GPU_D3D11::ClearCacheNextFrame() {
-	textureCacheD3D11_->ClearNextFrame();
-}
-
-void GPU_D3D11::ClearShaderCache() {
-	shaderManagerD3D11_->ClearShaders();
-	drawEngine_.ClearInputLayoutMap();
 }
 
 void GPU_D3D11::DoState(PointerWrap &p) {

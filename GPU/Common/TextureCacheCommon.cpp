@@ -105,19 +105,19 @@ inline int dimHeight(u16 dim) {
 	return 1 << ((dim >> 8) & 0xFF);
 }
 
-// Vulkan color formats:
-// TODO
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
 	: draw_(draw), draw2D_(draw2D) {
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
-	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.
-	clutBufRaw_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
-	clutBufConverted_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
+	// It's only possible to have 1KB of palette entries, although we allow 2KB in a hack.
+	clutBufRaw_ = (u32 *)AllocateAlignedMemory(2048, 16);
+	clutBufConverted_ = (u32 *)AllocateAlignedMemory(2048, 16);
+	// Here we need 2KB to expand a 1KB CLUT.
+	expandClut_ = (u32 *)AllocateAlignedMemory(2048, 16);
 
 	// Zap so we get consistent behavior if the game fails to load some of the CLUT.
-	memset(clutBufRaw_, 0, 1024 * sizeof(u32));
-	memset(clutBufConverted_, 0, 1024 * sizeof(u32));
+	memset(clutBufRaw_, 0, 2048);
+	memset(clutBufConverted_, 0, 2048);
 	clutBuf_ = clutBufConverted_;
 
 	// These buffers will grow if necessary, but most won't need more than this.
@@ -134,6 +134,7 @@ TextureCacheCommon::~TextureCacheCommon() {
 
 	FreeAlignedMemory(clutBufConverted_);
 	FreeAlignedMemory(clutBufRaw_);
+	FreeAlignedMemory(expandClut_);
 }
 
 // Produces a signed 1.23.8 value.
@@ -422,11 +423,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 
 	bool isBgraTexture = isBgraBackend_ && !hasClutGPU;
-
-	if (gstate_c.bgraTexture != isBgraTexture) {
-		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
-	}
-	gstate_c.bgraTexture = isBgraTexture;
+	gstate_c.SetTextureIsBGRA(isBgraTexture);
 
 	if (entryIter != cache_.end()) {
 		entry = entryIter->second.get();
@@ -573,9 +570,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		nextTexture_ = nullptr;
 		nextNeedsRebuild_ = false;
 
-		if (hasClutGPU) {
-			WARN_LOG_ONCE(clut_fb, G3D, "Render-to-CLUT combined with framebuffer texture at %08x - Not yet supported", texaddr);
-		}
 		SetTextureFramebuffer(bestCandidate);  // sets curTexture3D
 		return nullptr;
 	}
@@ -696,6 +690,10 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 			relevancy -= 2;
 		}
 
+		if (candidate.match.xOffset != 0 && PSP_CoreParameter().compat.flags().DisallowFramebufferAtOffset) {
+			continue;
+		}
+
 		// Avoid binding as texture the framebuffer we're rendering to.
 		// In Killzone, we split the framebuffer but the matching algorithm can still pick the wrong one,
 		// which this avoids completely.
@@ -720,6 +718,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 			if (i != candidates.size() - 1)
 				cands += "\n";
 		}
+		cands += "\n";
 
 		WARN_LOG(G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
 			(int)candidates.size(),
@@ -1023,12 +1022,9 @@ bool TextureCacheCommon::MatchFramebuffer(
 		}
 
 		// Note the check for texHeight - we really don't care about a stride mismatch if texHeight == 1.
+		// This also takes care of the 4x1 texture check we used to have here for Burnout Dominator.
 		if (fb_stride_in_bytes != tex_stride_in_bytes && texHeight > 1) {
-			// Probably irrelevant. Although, as we shall see soon, there are exceptions.
-			// Burnout Dominator lens flare trick special case.
-			if (fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT8 && texWidth == 4 && texHeight == 1) {
-				return true;
-			}
+			// Probably irrelevant.
 			return false;
 		}
 
@@ -1092,12 +1088,10 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 			gstate_c.curTextureWidth = RoundUpToPowerOf2(gstate_c.curTextureWidth);
 		}
 
-		if (gstate_c.bgraTexture) {
-			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
-		} else if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
+		if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
-		gstate_c.bgraTexture = false;
+		gstate_c.SetTextureIsBGRA(false);
 		gstate_c.curTextureXOffset = fbInfo.xOffset;
 		gstate_c.curTextureYOffset = fbInfo.yOffset;
 		u32 texW = (u32)gstate.getTextureWidth(0);
@@ -1236,8 +1230,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 		return;
 	}
 
-	u32 startPos = gstate.getClutIndexStartPos();
-
+	_assert_(loadBytes <= 2048);
 	clutTotalBytes_ = loadBytes;
 	clutRenderAddress_ = 0xFFFFFFFF;
 
@@ -1255,6 +1248,10 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 
 			VirtualFramebuffer *chosenFramebuffer = nullptr;
 			for (VirtualFramebuffer *framebuffer : framebuffers) {
+				// Let's not deal with divide by zero.
+				if (framebuffer->fb_stride == 0)
+					continue;
+
 				const u32 fb_address = framebuffer->fb_address;
 				const u32 fb_bpp = BufferFormatBytesPerPixel(framebuffer->fb_format);
 				int offset = clutLoadAddr - fb_address;
@@ -1278,6 +1275,8 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 					if (matchRange && !inMargin && offset < (int)clutRenderOffset_) {
 						WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d", loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset);
 						framebuffer->last_frame_clut = gpuStats.numFlips;
+						// Also mark used so it's not decimated.
+						framebuffer->last_frame_used = gpuStats.numFlips;
 						framebuffer->usageFlags |= FB_USAGE_CLUT;
 						bestClutAddress = framebuffer->fb_address;
 						clutRenderOffset_ = (u32)offset;
@@ -1301,18 +1300,27 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 					desc.depth = 1;
 					desc.z_stencil = false;
 					desc.numLayers = 1;
+					desc.multiSampleLevel = 0;
 					desc.tag = "dynamic_clut";
 					dynamicClutFbo_ = draw_->CreateFramebuffer(desc);
 					desc.tag = "dynamic_clut_temp";
 					dynamicClutTemp_ = draw_->CreateFramebuffer(desc);
 				}
 
+				// We'll need to copy from the offset.
+				const u32 fb_bpp = BufferFormatBytesPerPixel(chosenFramebuffer->fb_format);
+				const int totalPixelsOffset = clutRenderOffset_ / fb_bpp;
+				const int clutYOffset = totalPixelsOffset / chosenFramebuffer->fb_stride;
+				const int clutXOffset = totalPixelsOffset % chosenFramebuffer->fb_stride;
+				const int scale = chosenFramebuffer->renderScaleFactor;
+
 				// Copy the pixels to our temp clut, scaling down if needed and wrapping.
-				// TODO: Take the clutRenderOffset_ into account here.
 				framebufferManager_->BlitUsingRaster(
-					chosenFramebuffer->fbo, 0.0f, 0.0f, 512.0f * chosenFramebuffer->renderScaleFactor, 1.0f, 
+					chosenFramebuffer->fbo, clutXOffset * scale, clutYOffset * scale, (clutXOffset + 512.0f) * scale, (clutYOffset + 1.0f) * scale,
 					dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, 
-					false, chosenFramebuffer->renderScaleFactor, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR_RECT2LIN), "copy_clut_to_temp");
+					false, scale, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR_RECT2LIN), "copy_clut_to_temp");
+
+				framebufferManager_->RebindFramebuffer("after_copy_clut_to_temp");
 				clutRenderFormat_ = chosenFramebuffer->fb_format;
 			}
 			NotifyMemInfo(MemBlockFlags::ALLOC, clutAddr, loadBytes, "CLUT");
@@ -1320,6 +1328,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 
 		// It's possible for a game to load CLUT outside valid memory without crashing, should result in zeroes.
 		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
+		_assert_(bytes <= 2048);
 		bool performDownload = PSP_CoreParameter().compat.flags().AllowDownloadCLUT;
 		if (GPURecord::IsActive())
 			performDownload = true;
@@ -1547,15 +1556,16 @@ static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t tex
 		u32 blockIndex = (y / 4) * (bufw / 4);
 		int blockHeight = std::min(h - y, 4);
 		for (int x = 0; x < minw; x += 4) {
+			int blockWidth = std::min(minw - x, 4);
 			switch (n) {
 			case 1:
-				DecodeDXT1Block(dst + outPitch32 * y + x, (const DXT1Block *)src + blockIndex, outPitch32, blockHeight, &alphaSum);
+				DecodeDXT1Block(dst + outPitch32 * y + x, (const DXT1Block *)src + blockIndex, outPitch32, blockWidth, blockHeight, &alphaSum);
 				break;
 			case 3:
-				DecodeDXT3Block(dst + outPitch32 * y + x, (const DXT3Block *)src + blockIndex, outPitch32, blockHeight);
+				DecodeDXT3Block(dst + outPitch32 * y + x, (const DXT3Block *)src + blockIndex, outPitch32, blockWidth, blockHeight);
 				break;
 			case 5:
-				DecodeDXT5Block(dst + outPitch32 * y + x, (const DXT5Block *)src + blockIndex, outPitch32, blockHeight);
+				DecodeDXT5Block(dst + outPitch32 * y + x, (const DXT5Block *)src + blockIndex, outPitch32, blockWidth, blockHeight);
 				break;
 			}
 			blockIndex++;
@@ -1664,7 +1674,9 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 		case GE_CMODE_16BIT_ABGR5551:
 		case GE_CMODE_16BIT_ABGR4444:
 		{
-			if (clutAlphaLinear_ && mipmapShareClut && !expandTo32bit) {
+			// The w > 1 check is to not need a case that handles a single pixel
+			// in DeIndexTexture4Optimal<u16>.
+			if (clutAlphaLinear_ && mipmapShareClut && !expandTo32bit && w >= 4) {
 				// We don't bother with fullalpha here (clutAlphaLinear_)
 				// Here, reverseColors means the CLUT is already reversed.
 				if (reverseColors) {
@@ -1681,7 +1693,13 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 				if (expandTo32bit) {
 					// We simply expand the CLUT to 32-bit, then we deindex as usual. Probably the fastest way.
 					const u16 *clut = GetCurrentRawClut<u16>() + clutSharingOffset;
-					ConvertFormatToRGBA8888(clutformat, expandClut_, clut, 16);
+					const int clutStart = gstate.getClutIndexStartPos();
+					if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexMask() <= 16) {
+						ConvertFormatToRGBA8888(clutformat, expandClut_ + clutStart, clut + clutStart, 16);
+					} else {
+						// To be safe for shifts and wrap around, convert the entire CLUT.
+						ConvertFormatToRGBA8888(clutformat, expandClut_, clut, 512);
+					}
 					fullAlphaMask = 0xFF000000;
 					for (int y = 0; y < h; ++y) {
 						DeIndexTexture4<u32>((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, expandClut_, &alphaSum);
@@ -1880,7 +1898,14 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 
 	if (expandTo32Bit && palFormat != GE_CMODE_32BIT_ABGR8888) {
 		const u16 *clut16raw = (const u16 *)clutBufRaw_ + clutSharingOffset;
-		ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_, clut16raw, 256);
+		// It's possible to access the latter half of the CLUT using the start pos.
+		const int clutStart = gstate.getClutIndexStartPos();
+		if (clutStart > 256) {
+			// Access wraps around when start + index goes over.
+			ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_, clut16raw, 512);
+		} else {
+			ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_ + clutStart, clut16raw + clutStart, 256);
+		}
 		clut32 = expandClut_;
 		palFormat = GE_CMODE_32BIT_ABGR8888;
 	}
@@ -2102,7 +2127,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 	// Shader depal is not supported during 3D texturing or depth texturing, and requires 32-bit integer instructions in the shader.
 	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer &&
-		!depth &&
+		!depth && clutRenderAddress_ == 0xFFFFFFFF &&
 		!gstate_c.curTextureIs3D &&
 		draw_->GetShaderLanguageDesc().bitwiseOps;
 
@@ -2121,8 +2146,20 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	u32 depthUpperBits = 0;
 
 	if (need_depalettize) {
-		clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
-		smoothedDepal = CanUseSmoothDepal(gstate, framebuffer->fb_format, clutTexture.rampLength);
+		if (clutRenderAddress_ == 0xFFFFFFFF) {
+			clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
+			smoothedDepal = CanUseSmoothDepal(gstate, framebuffer->fb_format, clutTexture.rampLength);
+		} else {
+			// The CLUT texture is dynamic, it's the framebuffer pointed to by clutRenderAddress.
+			// Instead of texturing directly from that, we copy to a temporary CLUT texture.
+			GEBufferFormat expectedCLUTBufferFormat = (GEBufferFormat)clutFormat;
+
+			// OK, figure out what format we want our framebuffer in, so it can be reinterpreted if needed.
+			// If no reinterpretation is needed, we'll automatically just get a copy shader.
+			float scaleFactorX = 1.0f;
+			Draw2DPipeline *reinterpret = framebufferManager_->GetReinterpretPipeline(clutRenderFormat_, expectedCLUTBufferFormat, &scaleFactorX);
+			framebufferManager_->BlitUsingRaster(dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, dynamicClutFbo_, 0.0f, 0.0f, scaleFactorX * 512.0f, 1.0f, false, 1.0f, reinterpret, "reinterpret_clut");
+		}
 
 		if (useShaderDepal) {
 			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend in BindAsClutTexture.
@@ -2155,7 +2192,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
 			gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
 
-			draw_->InvalidateCachedState();
+			draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 			InvalidateLastTexture();
 			return;
 		}
@@ -2167,9 +2204,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	}
 
 	if (textureShader) {
-		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-		ClutTexture clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
-
 		bool needsDepthXSwizzle = depthUpperBits == 2;
 
 		int depalWidth = framebuffer->renderWidth;
@@ -2205,7 +2239,11 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		draw_->SetViewports(1, &vp);
 
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, Draw::ALL_LAYERS);
-		draw_->BindTexture(1, clutTexture.texture);
+		if (clutRenderAddress_ == 0xFFFFFFFF) {
+			draw_->BindTexture(1, clutTexture.texture);
+		} else {
+			draw_->BindFramebufferAsTexture(dynamicClutFbo_, 1, Draw::FB_COLOR_BIT, 0);
+		}
 		Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
 		Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(smoothedDepal);
 		draw_->BindSamplerStates(0, 1, &nearest);
@@ -2229,7 +2267,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
 		gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
 
-		draw_->InvalidateCachedState();
+		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 		shaderManager_->DirtyLastShader();
 	} else {
 		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
@@ -2330,7 +2368,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	// We don't know about alpha at all.
 	gstate_c.SetTextureFullAlpha(false);
 
-	draw_->InvalidateCachedState();
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	shaderManager_->DirtyLastShader();
 
 	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(texWidth, texHeight);

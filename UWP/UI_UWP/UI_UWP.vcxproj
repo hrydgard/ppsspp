@@ -386,7 +386,6 @@
     <ClInclude Include="..\..\UI\CwCheatScreen.h" />
     <ClInclude Include="..\..\UI\DevScreens.h" />
     <ClInclude Include="..\..\UI\DiscordIntegration.h" />
-    <ClInclude Include="..\..\UI\DisplayLayoutEditor.h" />
     <ClInclude Include="..\..\UI\DisplayLayoutScreen.h" />
     <ClInclude Include="..\..\UI\EmuScreen.h" />
     <ClInclude Include="..\..\UI\GameInfoCache.h" />
@@ -407,7 +406,6 @@
     <ClInclude Include="..\..\UI\ReportScreen.h" />
     <ClInclude Include="..\..\UI\SavedataScreen.h" />
     <ClInclude Include="..\..\UI\Store.h" />
-    <ClInclude Include="..\..\UI\TextureUtil.h" />
     <ClInclude Include="..\..\UI\TiltAnalogSettingsScreen.h" />
     <ClInclude Include="..\..\UI\TiltEventProcessor.h" />
     <ClInclude Include="..\..\UI\TouchControlLayoutScreen.h" />
@@ -423,7 +421,6 @@
     <ClCompile Include="..\..\UI\CwCheatScreen.cpp" />
     <ClCompile Include="..\..\UI\DevScreens.cpp" />
     <ClCompile Include="..\..\UI\DiscordIntegration.cpp" />
-    <ClCompile Include="..\..\UI\DisplayLayoutEditor.cpp" />
     <ClCompile Include="..\..\UI\DisplayLayoutScreen.cpp" />
     <ClCompile Include="..\..\UI\EmuScreen.cpp" />
     <ClCompile Include="..\..\UI\GameInfoCache.cpp" />
@@ -444,7 +441,6 @@
     <ClCompile Include="..\..\UI\ReportScreen.cpp" />
     <ClCompile Include="..\..\UI\SavedataScreen.cpp" />
     <ClCompile Include="..\..\UI\Store.cpp" />
-    <ClCompile Include="..\..\UI\TextureUtil.cpp" />
     <ClCompile Include="..\..\UI\TiltAnalogSettingsScreen.cpp" />
     <ClCompile Include="..\..\UI\TiltEventProcessor.cpp" />
     <ClCompile Include="..\..\UI\TouchControlLayoutScreen.cpp" />

@@ -207,12 +207,16 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || driverTooOld) {
 			features |= GPU_USE_ACCURATE_DEPTH;
+		} else {
+			features &= ~GPU_USE_ACCURATE_DEPTH;
 		}
 		break;
 	}
 	default:
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
 			features |= GPU_USE_ACCURATE_DEPTH;
+		} else {
+			features &= ~GPU_USE_ACCURATE_DEPTH;
 		}
 		break;
 	}
@@ -227,13 +231,9 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	features |= GPU_USE_VERTEX_TEXTURE_FETCH;
 	features |= GPU_USE_TEXTURE_FLOAT;
 
-	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled.standard;
-	if (enabledFeatures.depthClamp) {
-		features |= GPU_USE_DEPTH_CLAMP;
-	}
-
 	// Fall back to geometry shader culling if we can't do vertex range culling.
-	if (enabledFeatures.geometryShader) {
+	// Checking accurate depth here because the old depth path is uncommon and not well tested for this.
+	if (draw_->GetDeviceCaps().geometryShaderSupported && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
 		const bool useGeometry = g_Config.bUseGeometryShader && !draw_->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
 		const bool vertexSupported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
 		if (useGeometry && (!vertexSupported || (features & GPU_USE_VS_RANGE_CULLING) == 0)) {
@@ -257,17 +257,6 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		INFO_LOG(G3D, "Deficient texture format support: 4444: %d  1555: %d  565: %d", fmt4444, fmt1555, fmt565);
 	}
 
-	if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-	}
-	else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-		// Use fragment rounding on desktop and GLES3, most accurate.
-		features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-	}
-	else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
-		features |= GPU_ROUND_DEPTH_TO_16BIT;
-	}
-
 	if (g_Config.bStereoRendering && draw_->GetDeviceCaps().multiViewSupported) {
 		features |= GPU_USE_SINGLE_PASS_STEREO;
 		features |= GPU_USE_SIMPLE_STEREO_PERSPECTIVE;
@@ -280,23 +269,19 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		}
 	}
 
-	return features;
+	// We need to turn off framebuffer fetch through input attachments if MSAA is on for now.
+	// This is fixable, just needs some shader generator work (subpassInputMS).
+	if (g_Config.iMultiSampleLevel != 0) {
+		features &= ~GPU_USE_FRAMEBUFFER_FETCH;
+	}
+
+	return CheckGPUFeaturesLate(features);
 }
 
 void GPU_Vulkan::BeginHostFrame() {
+	GPUCommon::BeginHostFrame();
+
 	drawEngine_.BeginFrame();
-	UpdateCmdInfo();
-
-	if (resized_) {
-		gstate_c.useFlags = CheckGPUFeatures();
-		// In case the GPU changed.
-		BuildReportingInfo();
-		framebufferManager_->Resized();
-		drawEngine_.NotifyConfigChanged();
-		textureCache_->NotifyConfigChanged();
-		resized_ = false;
-	}
-
 	textureCacheVulkan_->StartFrame();
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
@@ -330,7 +315,7 @@ void GPU_Vulkan::EndHostFrame() {
 	drawEngine_.EndFrame();
 	textureCacheVulkan_->EndFrame();
 
-	draw_->InvalidateCachedState();
+	GPUCommon::EndHostFrame();
 }
 
 // Needs to be called on GPU thread, not reporting thread.
@@ -480,6 +465,14 @@ void GPU_Vulkan::DestroyDeviceObjects() {
 	}
 }
 
+void GPU_Vulkan::CheckRenderResized() {
+	if (renderResized_) {
+		GPUCommon::CheckRenderResized();
+		pipelineManager_->InvalidateMSAAPipelines();
+		framebufferManager_->ReleasePipelines();
+	}
+}
+
 void GPU_Vulkan::DeviceLost() {
 	CancelReady();
 	while (!IsReady()) {
@@ -533,14 +526,6 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		drawStats.pushIndexSpaceUsed,
 		texStats
 	);
-}
-
-void GPU_Vulkan::ClearCacheNextFrame() {
-	textureCacheVulkan_->ClearNextFrame();
-}
-
-void GPU_Vulkan::ClearShaderCache() {
-	// TODO
 }
 
 void GPU_Vulkan::DoState(PointerWrap &p) {

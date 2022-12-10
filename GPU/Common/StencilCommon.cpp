@@ -58,6 +58,34 @@ static u8 StencilBits8888(const u8 *ptr8, u32 numPixels) {
 	return bits >> 24;
 }
 
+static bool CheckStencilBits(const u8 *src, const VirtualFramebuffer *dstBuffer, int &values, u8 &usedBits) {
+	switch (dstBuffer->fb_format) {
+	case GE_FORMAT_565:
+		// Well, this doesn't make much sense.
+		return false;
+	case GE_FORMAT_5551:
+		usedBits = StencilBits5551(src, dstBuffer->fb_stride * dstBuffer->bufferHeight);
+		values = 2;
+		break;
+	case GE_FORMAT_4444:
+		usedBits = StencilBits4444(src, dstBuffer->fb_stride * dstBuffer->bufferHeight);
+		values = 16;
+		break;
+	case GE_FORMAT_8888:
+		usedBits = StencilBits8888(src, dstBuffer->fb_stride * dstBuffer->bufferHeight);
+		values = 256;
+		break;
+	case GE_FORMAT_INVALID:
+	case GE_FORMAT_DEPTH16:
+	case GE_FORMAT_CLUT8:
+		// Inconceivable.
+		_assert_(false);
+		return false;
+	}
+
+	return true;
+}
+
 struct StencilUB {
 	float stencilValue;
 };
@@ -83,8 +111,12 @@ static const SamplerDef samplers[1] = {
 	{ 0, "tex" },
 };
 
-void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw::Bugs &bugs) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Fragment);
+void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw::Bugs &bugs, bool useExport) {
+	std::vector<const char *> extensions;
+	if (useExport)
+		extensions.push_back("#extension GL_ARB_shader_stencil_export : require");
+
+	ShaderWriter writer(buffer, lang, ShaderStage::Fragment, extensions);
 	writer.HighPrecisionFloat();
 	writer.DeclareSamplers(samplers);
 
@@ -98,9 +130,13 @@ void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw:
 
 	writer.C("  vec4 index = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
 	writer.C("  vec4 outColor = index.aaaa;\n");  // Only care about a.
-	writer.C("  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(stencilValue);\n");
-	// Bitwise operations on floats, ugh.
-	writer.C("  if (mod(floor(shifted), 2.0) < 0.99) DISCARD;\n");
+	if (useExport) {
+		writer.C("  gl_FragStencilRefARB = int(roundAndScaleTo255f(index.a));\n");
+	} else {
+		writer.C("  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(stencilValue);\n");
+		// Bitwise operations on floats, ugh.
+		writer.C("  if (mod(floor(shifted), 2.0) < 0.99) DISCARD;\n");
+	}
 
 	if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {
 		writer.C("  gl_FragDepth = gl_FragCoord.z;\n");
@@ -135,10 +171,11 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 		return false;
 	}
 
-	VirtualFramebuffer *dstBuffer = 0;
+	VirtualFramebuffer *dstBuffer = nullptr;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		if (vfb->fb_address == addr) {
+		// TODO: Maybe we should broadcast to all?  Most of the time, there's only one.
+		if (vfb->fb_address == addr && (!dstBuffer || dstBuffer->colorBindSeq < vfb->colorBindSeq)) {
 			dstBuffer = vfb;
 		}
 	}
@@ -148,34 +185,15 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 
 	int values = 0;
 	u8 usedBits = 0;
+	bool useExportShader = draw_->GetDeviceCaps().fragmentShaderStencilWriteSupported;
 
 	const u8 *src = Memory::GetPointer(addr);
 	if (!src)
 		return false;
 
-	switch (dstBuffer->fb_format) {
-	case GE_FORMAT_565:
-		// Well, this doesn't make much sense.
+	// Could skip this when doing useExportShader, but then we couldn't optimize usedBits == 0.
+	if (!CheckStencilBits(src, dstBuffer, values, usedBits))
 		return false;
-	case GE_FORMAT_5551:
-		usedBits = StencilBits5551(src, dstBuffer->fb_stride * dstBuffer->bufferHeight);
-		values = 2;
-		break;
-	case GE_FORMAT_4444:
-		usedBits = StencilBits4444(src, dstBuffer->fb_stride * dstBuffer->bufferHeight);
-		values = 16;
-		break;
-	case GE_FORMAT_8888:
-		usedBits = StencilBits8888(src, dstBuffer->fb_stride * dstBuffer->bufferHeight);
-		values = 256;
-		break;
-	case GE_FORMAT_INVALID:
-	case GE_FORMAT_DEPTH16:
-	case GE_FORMAT_CLUT8:
-		// Inconceivable.
-		_assert_(false);
-		break;
-	}
 
 	if (usedBits == 0) {
 		if (flags & WriteStencil::STENCIL_IS_ZERO) {
@@ -201,7 +219,7 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 
 		char *fsCode = new char[8192];
 		char *vsCode = new char[8192];
-		GenerateStencilFs(fsCode, shaderLanguageDesc, draw_->GetBugs());
+		GenerateStencilFs(fsCode, shaderLanguageDesc, draw_->GetBugs(), useExportShader);
 		GenerateStencilVs(vsCode, shaderLanguageDesc);
 
 		_assert_msg_(strlen(fsCode) < 8192, "StenFS length error: %d", (int)strlen(fsCode));
@@ -303,24 +321,32 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 	draw_->SetScissorRect(0, 0, w, h);
 	draw_->BindPipeline(stencilWritePipeline_);
 
-	for (int i = 1; i < values; i += i) {
-		if (!(usedBits & i)) {
-			// It's already zero, let's skip it.
-			continue;
-		}
+	if (useExportShader) {
+		// We only need to do one pass if using an export shader.
 		StencilUB ub{};
-		if (dstBuffer->fb_format == GE_FORMAT_4444) {
-			draw_->SetStencilParams(0xFF, (i << 4) | i, 0xFF);
-			ub.stencilValue = i * (16.0f / 255.0f);
-		} else if (dstBuffer->fb_format == GE_FORMAT_5551) {
-			draw_->SetStencilParams(0xFF, 0xFF, 0xFF);
-			ub.stencilValue = i * (128.0f / 255.0f);
-		} else {
-			draw_->SetStencilParams(0xFF, i, 0xFF);
-			ub.stencilValue = i * (1.0f / 255.0f);
-		}
+		draw_->SetStencilParams(0xFF, 0xFF, 0xFF);
 		draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 		draw_->DrawUP(positions, 3);
+	} else {
+		for (int i = 1; i < values; i += i) {
+			if (!(usedBits & i)) {
+				// It's already zero, let's skip it.
+				continue;
+			}
+			StencilUB ub{};
+			if (dstBuffer->fb_format == GE_FORMAT_4444) {
+				draw_->SetStencilParams(0xFF, (i << 4) | i, 0xFF);
+				ub.stencilValue = i * (16.0f / 255.0f);
+			} else if (dstBuffer->fb_format == GE_FORMAT_5551) {
+				draw_->SetStencilParams(0xFF, 0xFF, 0xFF);
+				ub.stencilValue = i * (128.0f / 255.0f);
+			} else {
+				draw_->SetStencilParams(0xFF, i, 0xFF);
+				ub.stencilValue = i * (1.0f / 255.0f);
+			}
+			draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
+			draw_->DrawUP(positions, 3);
+		}
 	}
 
 	if (useBlit) {
@@ -331,7 +357,7 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 	}
 	tex->Release();
 
-	draw_->InvalidateCachedState();
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 	return true;
 }

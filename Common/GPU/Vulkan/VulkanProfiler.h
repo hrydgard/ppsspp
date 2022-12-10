@@ -13,7 +13,7 @@
 // Put the whole thing in a FrameData to allow for overlap.
 
 struct ProfilerScope {
-	std::string name;
+	char name[52];  // to make a struct size of 64, just because
 	int startQueryId;
 	int endQueryId;
 	int level;

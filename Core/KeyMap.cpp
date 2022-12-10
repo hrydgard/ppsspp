@@ -408,6 +408,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 
 #ifdef OPENXR
 	{VIRTKEY_VR_CAMERA_ADJUST, "VR camera adjust"},
+	{VIRTKEY_VR_CAMERA_RESET, "VR camera reset"},
 #else
 	{VIRTKEY_SCREEN_ROTATION_VERTICAL, "Display Portrait"},
 	{VIRTKEY_SCREEN_ROTATION_VERTICAL180, "Display Portrait Reversed"},

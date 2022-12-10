@@ -42,7 +42,6 @@
     <ClCompile Include="CwCheatScreen.cpp" />
     <ClCompile Include="DevScreens.cpp" />
     <ClCompile Include="DiscordIntegration.cpp" />
-    <ClCompile Include="DisplayLayoutEditor.cpp" />
     <ClCompile Include="DisplayLayoutScreen.cpp" />
     <ClCompile Include="EmuScreen.cpp" />
     <ClCompile Include="GameInfoCache.cpp" />
@@ -61,7 +60,6 @@
     <ClCompile Include="ReportScreen.cpp" />
     <ClCompile Include="SavedataScreen.cpp" />
     <ClCompile Include="Store.cpp" />
-    <ClCompile Include="TextureUtil.cpp" />
     <ClCompile Include="TiltAnalogSettingsScreen.cpp" />
     <ClCompile Include="TiltEventProcessor.cpp" />
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
@@ -76,7 +74,6 @@
     <ClInclude Include="ControlMappingScreen.h" />
     <ClInclude Include="DevScreens.h" />
     <ClInclude Include="DiscordIntegration.h" />
-    <ClInclude Include="DisplayLayoutEditor.h" />
     <ClInclude Include="DisplayLayoutScreen.h" />
     <ClInclude Include="EmuScreen.h" />
     <ClInclude Include="GameInfoCache.h" />
@@ -96,7 +93,6 @@
     <ClInclude Include="ReportScreen.h" />
     <ClInclude Include="SavedataScreen.h" />
     <ClInclude Include="Store.h" />
-    <ClInclude Include="TextureUtil.h" />
     <ClInclude Include="TiltAnalogSettingsScreen.h" />
     <ClInclude Include="TiltEventProcessor.h" />
     <ClInclude Include="TouchControlLayoutScreen.h" />

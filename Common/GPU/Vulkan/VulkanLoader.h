@@ -224,6 +224,7 @@ extern PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
 extern PFN_vkGetMemoryHostPointerPropertiesEXT vkGetMemoryHostPointerPropertiesEXT;
 extern PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR;
 extern PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR;
+extern PFN_vkCreateRenderPass2KHR vkCreateRenderPass2KHR;
 } // namespace PPSSPP_VK
 
 // For fast extension-enabled checks.

@@ -203,7 +203,10 @@ public:
 			DEBUG_LOG(G3D, "Queueing %s (shmodule %p) for release", tag_.c_str(), module_);
 			VkShaderModule shaderModule = module_->BlockUntilReady();
 			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
-			delete module_;
+			vulkan_->Delete().QueueCallback([](void *m) {
+				auto module = (Promise<VkShaderModule> *)m;
+				delete module;
+			}, module_);
 		}
 	}
 	Promise<VkShaderModule> *Get() const { return module_; }
@@ -242,7 +245,7 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 #endif
 
 	VkShaderModule shaderModule = VK_NULL_HANDLE;
-	if (vulkan->CreateShaderModule(spirv, &shaderModule, vkstage_ == VK_SHADER_STAGE_VERTEX_BIT ? "thin3d_vs" : "thin3d_fs")) {
+	if (vulkan->CreateShaderModule(spirv, &shaderModule, tag_.c_str())) {
 		module_ = Promise<VkShaderModule>::AlreadyDone(shaderModule);
 		ok_ = true;
 	} else {
@@ -264,6 +267,7 @@ public:
 	VKPipeline(VulkanContext *vulkan, size_t size, PipelineFlags _flags, const char *tag) : vulkan_(vulkan), flags(_flags), tag_(tag) {
 		uboSize_ = (int)size;
 		ubo_ = new uint8_t[uboSize_];
+		vkrDesc = new VKRGraphicsPipelineDesc();
 	}
 	~VKPipeline() {
 		DEBUG_LOG(G3D, "Queueing %s (pipeline) for release", tag_.c_str());
@@ -274,6 +278,7 @@ public:
 			dep->Release();
 		}
 		delete[] ubo_;
+		vkrDesc->Release();
 	}
 
 	void SetDynamicUniformData(const void *data, size_t size) {
@@ -291,7 +296,7 @@ public:
 	}
 
 	VKRGraphicsPipeline *pipeline = nullptr;
-	VKRGraphicsPipelineDesc vkrDesc;
+	VKRGraphicsPipelineDesc *vkrDesc = nullptr;
 	PipelineFlags flags;
 
 	std::vector<VKShaderModule *> deps;
@@ -498,13 +503,13 @@ public:
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
-	int GetCurrentStepId() const override {
-		return renderManager_.GetCurrentStepId();
-	}
-
-	void InvalidateCachedState() override;
+	void Invalidate(InvalidationFlags flags) override;
 
 	void InvalidateFramebuffer(FBInvalidationStage stage, uint32_t channels) override;
+
+	void SetInvalidationCallback(InvalidationCallback callback) override {
+		renderManager_.SetInvalidationCallback(callback);
+	}
 
 private:
 	VulkanTexture *GetNullTexture();
@@ -592,6 +597,8 @@ static int GetBpp(VkFormat format) {
 static VkFormat DataFormatToVulkan(DataFormat format) {
 	switch (format) {
 	case DataFormat::D16: return VK_FORMAT_D16_UNORM;
+	case DataFormat::D16_S8: return VK_FORMAT_D16_UNORM_S8_UINT;
+	case DataFormat::D24_S8: return VK_FORMAT_D24_UNORM_S8_UINT;
 	case DataFormat::D32F: return VK_FORMAT_D32_SFLOAT;
 	case DataFormat::D32F_S8: return VK_FORMAT_D32_SFLOAT_S8_UINT;
 	case DataFormat::S8: return VK_FORMAT_S8_UINT;
@@ -650,8 +657,7 @@ static inline VkSamplerAddressMode AddressModeToVulkan(Draw::TextureAddressMode 
 VulkanTexture *VKContext::GetNullTexture() {
 	if (!nullTexture_) {
 		VkCommandBuffer cmdInit = renderManager_.GetInitCmd();
-		nullTexture_ = new VulkanTexture(vulkan_);
-		nullTexture_->SetTag("Null");
+		nullTexture_ = new VulkanTexture(vulkan_, "Null");
 		int w = 8;
 		int h = 8;
 		nullTexture_->CreateDirect(cmdInit, w, h, 1, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -681,6 +687,7 @@ public:
 		s.addressModeV = AddressModeToVulkan(desc.wrapV);
 		s.addressModeW = AddressModeToVulkan(desc.wrapW);
 		s.anisotropyEnable = desc.maxAniso > 1.0f;
+		s.maxAnisotropy = desc.maxAniso;
 		s.magFilter = desc.magFilter == TextureFilter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 		s.minFilter = desc.minFilter == TextureFilter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 		s.mipmapMode = desc.mipFilter == TextureFilter::LINEAR ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
@@ -734,10 +741,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 	width_ = desc.width;
 	height_ = desc.height;
 	depth_ = desc.depth;
-	vkTex_ = new VulkanTexture(vulkan_);
-	if (desc.tag) {
-		vkTex_->SetTag(desc.tag);
-	}
+	vkTex_ = new VulkanTexture(vulkan_, desc.tag);
 	VkFormat vulkanFormat = DataFormatToVulkan(format_);
 	int bpp = GetBpp(vulkanFormat);
 	int bytesPerPixel = bpp / 8;
@@ -784,6 +788,25 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 	return true;
 }
 
+static DataFormat DataFormatFromVulkanDepth(VkFormat fmt) {
+	switch (fmt) {
+	case VK_FORMAT_D24_UNORM_S8_UINT:
+		return DataFormat::D24_S8;
+	case VK_FORMAT_D16_UNORM:
+		return DataFormat::D16;
+	case VK_FORMAT_D32_SFLOAT:
+		return DataFormat::D32F;
+	case VK_FORMAT_D32_SFLOAT_S8_UINT:
+		return DataFormat::D32F_S8;
+	case VK_FORMAT_D16_UNORM_S8_UINT:
+		return DataFormat::D16_S8;
+	default:
+		break;
+	}
+
+	return DataFormat::UNDEFINED;
+}
+
 VKContext::VKContext(VulkanContext *vulkan)
 	: vulkan_(vulkan), renderManager_(vulkan) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
@@ -803,15 +826,20 @@ VKContext::VKContext(VulkanContext *vulkan)
 	caps_.framebufferStencilBlitSupported = caps_.framebufferDepthBlitSupported;
 	caps_.framebufferDepthCopySupported = true;   // Will pretty much always be the case.
 	caps_.framebufferSeparateDepthCopySupported = true;   // Will pretty much always be the case.
-	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;  // TODO: Ask vulkan.
+	// This doesn't affect what depth/stencil format is actually used, see VulkanQueueRunner.
+	caps_.preferredDepthBufferFormat = DataFormatFromVulkanDepth(vulkan->GetDeviceInfo().preferredDepthStencilFormat);
 	caps_.texture3DSupported = true;
 	caps_.textureDepthSupported = true;
 	caps_.fragmentShaderInt32Supported = true;
 	caps_.textureNPOTFullySupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
+	caps_.fragmentShaderStencilWriteSupported = vulkan->Extensions().EXT_shader_stencil_export;
 	caps_.blendMinMaxSupported = true;
 	caps_.logicOpSupported = vulkan->GetDeviceFeatures().enabled.standard.logicOp != 0;
 	caps_.multiViewSupported = vulkan->GetDeviceFeatures().enabled.multiview.multiview != 0;
+	caps_.sampleRateShadingSupported = vulkan->GetDeviceFeatures().enabled.standard.sampleRateShading != 0;
+
+	const auto &limits = vulkan->GetPhysicalDeviceProperties().properties.limits;
 
 	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDeviceIndex()).properties;
 
@@ -822,7 +850,36 @@ VKContext::VKContext(VulkanContext *vulkan)
 	case VULKAN_VENDOR_NVIDIA: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
 	case VULKAN_VENDOR_QUALCOMM: caps_.vendor = GPUVendor::VENDOR_QUALCOMM; break;
 	case VULKAN_VENDOR_INTEL: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
-	default: caps_.vendor = GPUVendor::VENDOR_UNKNOWN; break;
+	case VULKAN_VENDOR_APPLE: caps_.vendor = GPUVendor::VENDOR_APPLE; break;
+	default:
+		WARN_LOG(G3D, "Unknown vendor ID %08x", deviceProps.vendorID);
+		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
+		break;
+	}
+
+	bool hasLazyMemory = false;
+	for (u32 i = 0; i < vulkan->GetMemoryProperties().memoryTypeCount; i++) {
+		if (vulkan->GetMemoryProperties().memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT) {
+			hasLazyMemory = true;
+		}
+	}
+	caps_.isTilingGPU = hasLazyMemory && caps_.vendor != GPUVendor::VENDOR_APPLE;
+
+	// VkSampleCountFlagBits is arranged correctly for our purposes.
+	// Only support MSAA levels that have support for all three of color, depth, stencil.
+	if (!caps_.isTilingGPU) {
+		// Check for depth stencil resolve. Without it, depth textures won't work, and we don't want that mess
+		// of compatibility reports, so we'll just disable multisampling in this case for now.
+		// There are potential workarounds for devices that don't support it, but those are nearly non-existent now.
+		const auto &resolveProperties = vulkan->GetPhysicalDeviceProperties().depthStencilResolve;
+		if (vulkan->Extensions().KHR_depth_stencil_resolve &&
+			((resolveProperties.supportedDepthResolveModes & resolveProperties.supportedStencilResolveModes) & VK_RESOLVE_MODE_SAMPLE_ZERO_BIT) != 0) {
+			caps_.multiSampleLevelsMask = (limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts & limits.framebufferStencilSampleCounts);
+		} else {
+			caps_.multiSampleLevelsMask = 1;
+		}
+	} else {
+		caps_.multiSampleLevelsMask = 1;
 	}
 
 	if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
@@ -835,7 +892,9 @@ VKContext::VKContext(VulkanContext *vulkan)
 		}
 		// Color write mask not masking write in certain scenarios with a depth test, see #10421.
 		// Known still present on driver 0x80180000 and Adreno 5xx (possibly more.)
-		bugs_.Infest(Bugs::COLORWRITEMASK_BROKEN_WITH_DEPTHTEST);
+		// Known working on driver 0x801EA000 and Adreno 620.
+		if (deviceProps.driverVersion < 0x801EA000 || deviceProps.deviceID < 0x06000000)
+			bugs_.Infest(Bugs::COLORWRITEMASK_BROKEN_WITH_DEPTHTEST);
 
 		// Trying to follow all the rules in https://registry.khronos.org/vulkan/specs/1.3/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
 		// and https://registry.khronos.org/vulkan/specs/1.3/html/vkspec.html#renderpass-feedbackloop, but still it doesn't
@@ -995,20 +1054,22 @@ void VKContext::EndFrame() {
 	push_ = nullptr;
 
 	// Unbind stuff, to avoid accidentally relying on it across frames (and provide some protection against forgotten unbinds of deleted things).
-	InvalidateCachedState();
+	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }
 
-void VKContext::InvalidateCachedState() {
-	curPipeline_ = nullptr;
+void VKContext::Invalidate(InvalidationFlags flags) {
+	if (flags & InvalidationFlags::CACHED_RENDER_STATE) {
+		curPipeline_ = nullptr;
 
-	for (auto &view : boundImageView_) {
-		view = VK_NULL_HANDLE;
-	}
-	for (auto &sampler : boundSamplers_) {
-		sampler = nullptr;
-	}
-	for (auto &texture : boundTextures_) {
-		texture = nullptr;
+		for (auto &view : boundImageView_) {
+			view = VK_NULL_HANDLE;
+		}
+		for (auto &sampler : boundSamplers_) {
+			sampler = nullptr;
+		}
+		for (auto &texture : boundTextures_) {
+			texture = nullptr;
+		}
 	}
 }
 
@@ -1107,7 +1168,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 
 	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), pipelineFlags, tag);
 
-	VKRGraphicsPipelineDesc &gDesc = pipeline->vkrDesc;
+	VKRGraphicsPipelineDesc &gDesc = *pipeline->vkrDesc;
 
 	std::vector<VkPipelineShaderStageCreateInfo> stages;
 	stages.resize(desc.shaders.size());
@@ -1165,9 +1226,6 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	}
 	gDesc.ds.pDynamicStates = gDesc.dynamicStates;
 
-	gDesc.ms.pSampleMask = nullptr;
-	gDesc.ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
 	gDesc.views.viewportCount = 1;
 	gDesc.views.scissorCount = 1;
 	gDesc.views.pViewports = nullptr;  // dynamic
@@ -1178,7 +1236,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	raster->ToVulkan(&gDesc.rs);
 
-	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << (size_t)RenderPassType::BACKBUFFER, tag ? tag : "thin3d");
+	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << (size_t)RenderPassType::BACKBUFFER, VK_SAMPLE_COUNT_1_BIT, tag ? tag : "thin3d");
 
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;
@@ -1529,15 +1587,16 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 // use this frame's init command buffer.
 class VKFramebuffer : public Framebuffer {
 public:
-	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) {
+	VKFramebuffer(VKRFramebuffer *fb, int multiSampleLevel) : buf_(fb) {
 		_assert_msg_(fb, "Null fb in VKFramebuffer constructor");
 		width_ = fb->width;
 		height_ = fb->height;
 		layers_ = fb->numLayers;
+		multiSampleLevel_ = multiSampleLevel;
 	}
 	~VKFramebuffer() {
 		_assert_msg_(buf_, "Null buf_ in VKFramebuffer - double delete?");
-		buf_->vulkan_->Delete().QueueCallback([](void *fb) {
+		buf_->Vulkan()->Delete().QueueCallback([](void *fb) {
 			VKRFramebuffer *vfb = static_cast<VKRFramebuffer *>(fb);
 			delete vfb;
 		}, buf_);
@@ -1552,9 +1611,14 @@ private:
 };
 
 Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
+	_assert_(desc.multiSampleLevel >= 0);
+	_assert_(desc.numLayers > 0);
+	_assert_(desc.width > 0);
+	_assert_(desc.height > 0);
+
 	VkCommandBuffer cmd = renderManager_.GetInitCmd();
-	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.numLayers, desc.z_stencil, desc.tag);
-	return new VKFramebuffer(vkrfb);
+	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.numLayers, desc.multiSampleLevel, desc.z_stencil, desc.tag);
+	return new VKFramebuffer(vkrfb, desc.multiSampleLevel);
 }
 
 void VKContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) {
@@ -1703,11 +1767,8 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 		return (uint64_t)(((VKTexture *)srcObject)->GetImageView());
 	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_ALL_LAYERS:
 		return (uint64_t)curFramebuffer_->GetFB()->color.texAllLayersView;
-	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_LAYER: {
-		size_t layer = (size_t)srcObject;
-		_dbg_assert_(layer < curFramebuffer_->Layers());
-		return (uint64_t)curFramebuffer_->GetFB()->color.texLayerViews[layer];
-	}
+	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_RT:
+		return (uint64_t)curFramebuffer_->GetFB()->GetRTView();
 	case NativeObject::FRAME_DATA_DESC_SET_LAYOUT:
 		return (uint64_t)frameDescSetLayout_;
 	case NativeObject::THIN3D_PIPELINE_LAYOUT:

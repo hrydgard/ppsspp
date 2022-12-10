@@ -1,8 +1,14 @@
 #include "VRFramebuffer.h"
 
+#if XR_USE_GRAPHICS_API_OPENGL_ES
+
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
+
+#endif
+
 #include <cstdio>
 #include <cstdlib>
-#include <cstdbool>
 #include <cstring>
 #include <cmath>
 #include <ctime>
@@ -43,10 +49,42 @@ void ovrFramebuffer_Clear(ovrFramebuffer* frameBuffer) {
 	frameBuffer->Acquired = false;
 }
 
+#if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES
+
+static const char* GlErrorString(GLenum error) {
+	switch (error) {
+	case GL_NO_ERROR:
+		return "GL_NO_ERROR";
+	case GL_INVALID_ENUM:
+		return "GL_INVALID_ENUM";
+	case GL_INVALID_VALUE:
+		return "GL_INVALID_VALUE";
+	case GL_INVALID_OPERATION:
+		return "GL_INVALID_OPERATION";
+	case GL_INVALID_FRAMEBUFFER_OPERATION:
+		return "GL_INVALID_FRAMEBUFFER_OPERATION";
+	case GL_OUT_OF_MEMORY:
+		return "GL_OUT_OF_MEMORY";
+	default:
+		return "unknown";
+	}
+}
+
+void GLCheckErrors(const char* file, int line) {
+	for (int i = 0; i < 10; i++) {
+		const GLenum error = glGetError();
+		if (error == GL_NO_ERROR) {
+			break;
+		}
+		ALOGE("GL error on line %s:%d %s", file, line, GlErrorString(error));
+	}
+}
+
+#endif
+
 #if XR_USE_GRAPHICS_API_OPENGL_ES
 
 static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBuffer, int width, int height, bool multiview) {
-
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
 
@@ -373,14 +411,14 @@ void ovrRenderer_Destroy(ovrRenderer* renderer) {
 	}
 }
 
-void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int size) {
+void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int sx, int sy) {
 	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
 		//TODO:implement
 	} else {
 #if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 		GL(glEnable(GL_SCISSOR_TEST));
-		GL(glScissor(x, y, size, size));
-		GL(glViewport(x, y, size, size));
+		GL(glScissor(x, y, sx, sy));
+		GL(glViewport(x, y, sx, sy));
 		GL(glClearColor(1.0f, 1.0f, 1.0f, 1.0f));
 		GL(glClear(GL_COLOR_BUFFER_BIT));
 		GL(glDisable(GL_SCISSOR_TEST));

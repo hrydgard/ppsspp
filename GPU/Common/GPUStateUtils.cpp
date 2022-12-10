@@ -136,6 +136,15 @@ bool IsColorTestTriviallyTrue() {
 	}
 }
 
+bool IsDepthTestEffectivelyDisabled() {
+	if (!gstate.isDepthTestEnabled())
+		return true;
+	// We can ignore stencil, because ALWAYS and disabled choose the same stencil path.
+	if (gstate.getDepthTestFunction() != GE_COMP_ALWAYS)
+		return false;
+	return !gstate.isDepthWriteEnabled();
+}
+
 const bool nonAlphaSrcFactors[16] = {
 	true,  // GE_SRCBLEND_DSTCOLOR,
 	true,  // GE_SRCBLEND_INVDSTCOLOR,
@@ -1060,6 +1069,15 @@ static void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSuppo
 	if (IsStencilTestOutputDisabled() || ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
 		maskState.channelMask &= ~8;
 		maskState.uniformMask &= ~0xFF000000;
+	}
+
+	// For 5551, only the top alpha bit matters.  We might even want to swizzle 4444.
+	// Alpha should correctly read as 255 from a 5551 texture.
+	if (gstate.FrameBufFormat() == GE_FORMAT_5551) {
+		if ((maskState.uniformMask & 0x80000000) != 0)
+			maskState.uniformMask |= 0xFF000000;
+		else
+			maskState.uniformMask &= ~0xFF000000;
 	}
 }
 

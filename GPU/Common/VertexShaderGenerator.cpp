@@ -30,6 +30,7 @@
 #include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/VertexShaderGenerator.h"
+#include "GPU/Vulkan/DrawEngineVulkan.h"
 
 #undef WRITE
 
@@ -129,9 +130,7 @@ static const char * const boneWeightDecl[9] = {
 bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint32_t *attrMask, uint64_t *uniformMask, VertexShaderFlags *vertexShaderFlags, std::string *errorString) {
 	*attrMask = 0;
 	*uniformMask = 0;
-	if (vertexShaderFlags) {
-		*vertexShaderFlags = (VertexShaderFlags)0;
-	}
+	*vertexShaderFlags = (VertexShaderFlags)0;
 
 	bool highpFog = false;
 	bool highpTexcoord = false;
@@ -167,6 +166,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 
 	ShaderWriter p(buffer, compat, ShaderStage::Vertex, extensions);
+
+	p.F("// %s\n", VertexShaderDesc(id).c_str());
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE);
@@ -254,11 +255,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "layout (std140, set = 0, binding = 0) uniform frameVars {\n%s};\n", ub_frameStr);
 		}
 
-		WRITE(p, "layout (std140, set = 1, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
+		WRITE(p, "layout (std140, set = 1, binding = %d) uniform baseVars {\n%s};\n", DRAW_BINDING_DYNUBO_BASE, ub_baseStr);
 		if (enableLighting || doShadeMapping)
-			WRITE(p, "layout (std140, set = 1, binding = 4) uniform lightVars {\n%s};\n", ub_vs_lightsStr);
+			WRITE(p, "layout (std140, set = 1, binding = %d) uniform lightVars {\n%s};\n", DRAW_BINDING_DYNUBO_LIGHT, ub_vs_lightsStr);
 		if (enableBones)
-			WRITE(p, "layout (std140, set = 1, binding = 5) uniform boneVars {\n%s};\n", ub_vs_bonesStr);
+			WRITE(p, "layout (std140, set = 1, binding = %d) uniform boneVars {\n%s};\n", DRAW_BINDING_DYNUBO_BONE, ub_vs_bonesStr);
 
 		if (enableBones) {
 			WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
@@ -297,8 +298,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		WRITE(p, "layout (location = 3) out highp float v_fogdepth;\n");
-		WRITE(p, "invariant gl_Position;\n");
 
+		WRITE(p, "invariant gl_Position;\n");
 	} else if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		// Note: These two share some code after this hellishly large if/else.
 		if (compat.shaderLanguage == HLSL_D3D11) {
@@ -636,7 +637,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec4 tex;\n");
 			WRITE(p, "  vec4 col;\n");
 			WRITE(p, "};\n");
-			WRITE(p, "layout (std430, set = 1, binding = 6) readonly buffer s_tess_data {\n");
+			WRITE(p, "layout (std430, set = 1, binding = %d) readonly buffer s_tess_data {\n", DRAW_BINDING_TESS_STORAGE_BUF);
 			WRITE(p, "  TessData tess_data[];\n");
 			WRITE(p, "};\n");
 
@@ -644,10 +645,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec4 basis;\n");
 			WRITE(p, "  vec4 deriv;\n");
 			WRITE(p, "};\n");
-			WRITE(p, "layout (std430, set = 1, binding = 7) readonly buffer s_tess_weights_u {\n");
+			WRITE(p, "layout (std430, set = 1, binding = %d) readonly buffer s_tess_weights_u {\n", DRAW_BINDING_TESS_STORAGE_BUF_WU);
 			WRITE(p, "  TessWeight tess_weights_u[];\n");
 			WRITE(p, "};\n");
-			WRITE(p, "layout (std430, set = 1, binding = 8) readonly buffer s_tess_weights_v {\n");
+			WRITE(p, "layout (std430, set = 1, binding = %d) readonly buffer s_tess_weights_v {\n", DRAW_BINDING_TESS_STORAGE_BUF_WV);
 			WRITE(p, "  TessWeight tess_weights_v[];\n");
 			WRITE(p, "};\n");
 		} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
@@ -1052,11 +1053,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("        ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
 				p.C("      }\n");
 				p.C("    }\n");
-				p.C("    switch (type) {\n");  // Attenuation
-				p.C("    case 1u:\n");  // GE_LIGHTTYPE_POINT
+				p.C("    switch (int(type)) {\n");  // Attenuation
+				p.C("    case 1:\n");  // GE_LIGHTTYPE_POINT
 				p.F("      lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
 				p.C("      break;\n");
-				p.C("    case 2u:\n");  // GE_LIGHTTYPE_SPOT
+				p.C("    case 2:\n");  // GE_LIGHTTYPE_SPOT
 				p.F("      angle = length(u_lightdir%i) == 0.0 ? 0.0 : dot(normalize(u_lightdir%i), toLight);\n", i, i);
 				p.F("      if (angle >= u_lightangle_spotCoef%i.x) {\n", i);
 				p.F("        lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%i.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%i.y));\n", i, i, i);
@@ -1326,7 +1327,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		const char *cull1 = compat.shaderLanguage == HLSL_D3D11 ? ".y" : "[1]";
 		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 			// TODO: Ignore triangles from GE_PRIM_RECTANGLES in transform mode, which should not clip to neg z.
-			WRITE(p, "  %sgl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", compat.vsOutPrefix, vertexRangeClipSuffix);
+			// We add a small amount to prevent error as in #15816 (PSP Z is only 16-bit fixed point, anyway.)
+			WRITE(p, "  %sgl_ClipDistance%s = projZ * outPos.w + outPos.w + %f;\n", compat.vsOutPrefix, vertexRangeClipSuffix, 0.0625 / 65536.0);
 		}
 		if (gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
 			// Cull any triangle fully outside in the same direction when depth clamp enabled.
@@ -1350,10 +1352,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		// HUD scaling
-		WRITE(p, "  if ((u_scaleX < 0.99) || (u_scaleY < 0.99)) {\n");
-		WRITE(p, "    %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
-		WRITE(p, "    %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
-		WRITE(p, "  }\n");
+		WRITE(p, "  %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
+		WRITE(p, "  %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
 	}
 
 	if (useSimpleStereo && useHWTransform) {

@@ -198,6 +198,9 @@ public:
 	virtual void BeginHostFrame() = 0;
 	virtual void EndHostFrame() = 0;
 
+	virtual void CheckDisplayResized() = 0;
+	virtual void CheckConfigChanged() = 0;
+
 	// Draw queue management
 	virtual DisplayList* getList(int listid) = 0;
 	// TODO: Much of this should probably be shared between the different GPU implementations.
@@ -254,9 +257,10 @@ public:
 	virtual void DoState(PointerWrap &p) = 0;
 
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
-	virtual void Resized() = 0;
-	virtual void ClearShaderCache() = 0;
-	virtual void CleanupBeforeUI() = 0;
+	virtual void NotifyDisplayResized() = 0;
+	virtual void NotifyRenderResized() = 0;
+	virtual void NotifyConfigChanged() = 0;
+
 	virtual bool FramebufferDirty() = 0;
 	virtual bool FramebufferReallyDirty() = 0;
 	virtual bool BusyDrawing() = 0;

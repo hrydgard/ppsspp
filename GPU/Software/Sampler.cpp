@@ -25,6 +25,7 @@
 #include "Core/Reporting.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUState.h"
+#include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRegCache.h"
 #include "GPU/Software/Sampler.h"
@@ -49,6 +50,10 @@ void Init() {
 	jitCache = new SamplerJitCache();
 }
 
+void FlushJit() {
+	jitCache->Flush();
+}
+
 void Shutdown() {
 	delete jitCache;
 	jitCache = nullptr;
@@ -63,9 +68,9 @@ bool DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return true;
 }
 
-NearestFunc GetNearestFunc(SamplerID id) {
+NearestFunc GetNearestFunc(SamplerID id, BinManager *binner) {
 	id.linear = false;
-	NearestFunc jitted = jitCache->GetNearest(id);
+	NearestFunc jitted = jitCache->GetNearest(id, binner);
 	if (jitted) {
 		return jitted;
 	}
@@ -73,9 +78,9 @@ NearestFunc GetNearestFunc(SamplerID id) {
 	return &SampleNearest;
 }
 
-LinearFunc GetLinearFunc(SamplerID id) {
+LinearFunc GetLinearFunc(SamplerID id, BinManager *binner) {
 	id.linear = true;
-	LinearFunc jitted = jitCache->GetLinear(id);
+	LinearFunc jitted = jitCache->GetLinear(id, binner);
 	if (jitted) {
 		return jitted;
 	}
@@ -83,9 +88,9 @@ LinearFunc GetLinearFunc(SamplerID id) {
 	return &SampleLinear;
 }
 
-FetchFunc GetFetchFunc(SamplerID id) {
+FetchFunc GetFetchFunc(SamplerID id, BinManager *binner) {
 	id.fetch = true;
-	FetchFunc jitted = jitCache->GetFetch(id);
+	FetchFunc jitted = jitCache->GetFetch(id, binner);
 	if (jitted) {
 		return jitted;
 	}
@@ -93,13 +98,21 @@ FetchFunc GetFetchFunc(SamplerID id) {
 	return &SampleFetch;
 }
 
+thread_local SamplerJitCache::LastCache SamplerJitCache::lastFetch_;
+thread_local SamplerJitCache::LastCache SamplerJitCache::lastNearest_;
+thread_local SamplerJitCache::LastCache SamplerJitCache::lastLinear_;
+
 // 256k should be enough.
-SamplerJitCache::SamplerJitCache() : Rasterizer::CodeBlock(1024 * 64 * 4) {
+SamplerJitCache::SamplerJitCache() : Rasterizer::CodeBlock(1024 * 64 * 4), cache_(64) {
+	lastFetch_.gen = -1;
+	lastNearest_.gen = -1;
+	lastLinear_.gen = -1;
 }
 
 void SamplerJitCache::Clear() {
+	clearGen_++;
 	CodeBlock::Clear();
-	cache_.clear();
+	cache_.Clear();
 	addresses_.clear();
 
 	const10All16_ = nullptr;
@@ -138,52 +151,85 @@ std::string SamplerJitCache::DescribeCodePtr(const u8 *ptr) {
 	return CodeBlock::DescribeCodePtr(ptr);
 }
 
-NearestFunc SamplerJitCache::GetNearest(const SamplerID &id) {
-	std::lock_guard<std::mutex> guard(jitCacheLock);
-
-	auto it = cache_.find(id);
-	if (it != cache_.end())
-		return (NearestFunc)it->second;
-
-	Compile(id);
-
-	// Okay, should be there now.
-	it = cache_.find(id);
-	if (it != cache_.end())
-		return (NearestFunc)it->second;
-	return nullptr;
+void SamplerJitCache::Flush() {
+	std::unique_lock<std::mutex> guard(jitCacheLock);
+	for (const auto &queued : compileQueue_) {
+		// Might've been compiled after enqueue, but before now.
+		size_t queuedKey = std::hash<SamplerID>()(queued);
+		if (!cache_.Get(queuedKey))
+			Compile(queued);
+	}
+	compileQueue_.clear();
 }
 
-LinearFunc SamplerJitCache::GetLinear(const SamplerID &id) {
-	std::lock_guard<std::mutex> guard(jitCacheLock);
+NearestFunc SamplerJitCache::GetByID(const SamplerID &id, size_t key, BinManager *binner) {
+	std::unique_lock<std::mutex> guard(jitCacheLock);
+	auto it = cache_.Get(key);
+	if (it != nullptr)
+		return it;
 
-	auto it = cache_.find(id);
-	if (it != cache_.end())
-		return (LinearFunc)it->second;
+	if (!binner) {
+		// Can't compile, let's try to do it later when there's an opportunity.
+		compileQueue_.insert(id);
+		return nullptr;
+	}
 
-	Compile(id);
+	guard.unlock();
+	binner->Flush("compile");
+	guard.lock();
+
+	for (const auto &queued : compileQueue_) {
+		// Might've been compiled after enqueue, but before now.
+		size_t queuedKey = std::hash<SamplerID>()(queued);
+		if (!cache_.Get(queuedKey))
+			Compile(queued);
+	}
+	compileQueue_.clear();
+
+	if (!cache_.Get(key))
+		Compile(id);
 
 	// Okay, should be there now.
-	it = cache_.find(id);
-	if (it != cache_.end())
-		return (LinearFunc)it->second;
-	return nullptr;
+	return cache_.Get(key);
 }
 
-FetchFunc SamplerJitCache::GetFetch(const SamplerID &id) {
-	std::lock_guard<std::mutex> guard(jitCacheLock);
+NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, BinManager *binner) {
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
 
-	auto it = cache_.find(id);
-	if (it != cache_.end())
-		return (FetchFunc)it->second;
+	const size_t key = std::hash<SamplerID>()(id);
+	if (lastNearest_.Match(key, clearGen_))
+		return (NearestFunc)lastNearest_.func;
 
-	Compile(id);
+	auto func = GetByID(id, key, binner);
+	lastNearest_.Set(key, func, clearGen_);
+	return (NearestFunc)func;
+}
 
-	// Okay, should be there now.
-	it = cache_.find(id);
-	if (it != cache_.end())
-		return (FetchFunc)it->second;
-	return nullptr;
+LinearFunc SamplerJitCache::GetLinear(const SamplerID &id, BinManager *binner) {
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
+
+	const size_t key = std::hash<SamplerID>()(id);
+	if (lastLinear_.Match(key, clearGen_))
+		return (LinearFunc)lastLinear_.func;
+
+	auto func = GetByID(id, key, binner);
+	lastLinear_.Set(key, func, clearGen_);
+	return (LinearFunc)func;
+}
+
+FetchFunc SamplerJitCache::GetFetch(const SamplerID &id, BinManager *binner) {
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
+
+	const size_t key = std::hash<SamplerID>()(id);
+	if (lastFetch_.Match(key, clearGen_))
+		return (FetchFunc)lastFetch_.func;
+
+	auto func = GetByID(id, key, binner);
+	lastFetch_.Set(key, func, clearGen_);
+	return (FetchFunc)func;
 }
 
 void SamplerJitCache::Compile(const SamplerID &id) {
@@ -195,25 +241,23 @@ void SamplerJitCache::Compile(const SamplerID &id) {
 	// We compile them together so the cache can't possibly be cleared in between.
 	// We might vary between nearest and linear, so we can't clear between.
 #if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-	if (g_Config.bSoftwareRenderingJit) {
-		SamplerID fetchID = id;
-		fetchID.linear = false;
-		fetchID.fetch = true;
-		addresses_[fetchID] = GetCodePointer();
-		cache_[fetchID] = (NearestFunc)CompileFetch(fetchID);
+	SamplerID fetchID = id;
+	fetchID.linear = false;
+	fetchID.fetch = true;
+	addresses_[fetchID] = GetCodePointer();
+	cache_.Insert(std::hash<SamplerID>()(fetchID), (NearestFunc)CompileFetch(fetchID));
 
-		SamplerID nearestID = id;
-		nearestID.linear = false;
-		nearestID.fetch = false;
-		addresses_[nearestID] = GetCodePointer();
-		cache_[nearestID] = (NearestFunc)CompileNearest(nearestID);
+	SamplerID nearestID = id;
+	nearestID.linear = false;
+	nearestID.fetch = false;
+	addresses_[nearestID] = GetCodePointer();
+	cache_.Insert(std::hash<SamplerID>()(nearestID), (NearestFunc)CompileNearest(nearestID));
 
-		SamplerID linearID = id;
-		linearID.linear = true;
-		linearID.fetch = false;
-		addresses_[linearID] = GetCodePointer();
-		cache_[linearID] = (NearestFunc)CompileLinear(linearID);
-	}
+	SamplerID linearID = id;
+	linearID.linear = true;
+	linearID.fetch = false;
+	addresses_[linearID] = GetCodePointer();
+	cache_.Insert(std::hash<SamplerID>()(linearID), (NearestFunc)CompileLinear(linearID));
 #endif
 }
 

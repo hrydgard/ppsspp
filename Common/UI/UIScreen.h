@@ -42,7 +42,8 @@ protected:
 	virtual void CreateViews() = 0;
 	virtual void DrawBackground(UIContext &dc) {}
 
-	virtual void RecreateViews() override { recreateViews_ = true; }
+	void RecreateViews() override { recreateViews_ = true; }
+	bool UseVerticalLayout() const;
 
 	UI::ViewGroup *root_ = nullptr;
 	Vec3 translation_ = Vec3(0.0f);
@@ -54,6 +55,7 @@ private:
 	void DoRecreateViews();
 
 	bool recreateViews_ = true;
+	bool lastVertical_;
 };
 
 class UIDialogScreen : public UIScreen {
@@ -76,7 +78,6 @@ public:
 	virtual bool isTransparent() const override { return true; }
 	virtual bool touch(const TouchInput &touch) override;
 	virtual bool key(const KeyInput &key) override;
-	virtual void resized() override;
 
 	virtual void TriggerFinish(DialogResult result) override;
 
@@ -91,6 +92,7 @@ protected:
 	virtual bool ShowButtons() const { return true; }
 	virtual bool CanComplete(DialogResult result) { return true; }
 	virtual void OnCompleted(DialogResult result) {}
+	virtual bool HasTitleBar() const { return true; }
 	const std::string &Title() { return title_; }
 
 	virtual void update() override;
@@ -250,12 +252,44 @@ public:
 	Event OnChange;
 
 private:
-	virtual void OnCompleted(DialogResult result) override;
+	void OnCompleted(DialogResult result) override;
 	TextEdit *edit_;
 	std::string *value_;
 	std::string textEditValue_;
 	std::string placeholder_;
 	int maxLen_;
+};
+
+// TODO: Break out a lot of popup stuff from UIScreen.h.
+
+struct ContextMenuItem {
+	const char *text;
+	const char *imageID;
+};
+
+// Once a selection has been made,
+class PopupContextMenuScreen : public PopupScreen {
+public:
+	PopupContextMenuScreen(const ContextMenuItem *items, size_t itemCount, I18NCategory *category, UI::View *sourceView);
+	void CreatePopupContents(ViewGroup *parent) override;
+
+	const char *tag() const override { return "ContextMenuPopup"; }
+
+	void SetEnabled(size_t index, bool enabled) {
+		enabled_[index] = enabled;
+	}
+
+	UI::Event OnChoice;
+
+protected:
+	bool HasTitleBar() const override { return false; }
+
+private:
+	const ContextMenuItem *items_;
+	size_t itemCount_;
+	I18NCategory *category_;
+	UI::View *sourceView_;
+	std::vector<bool> enabled_;
 };
 
 class AbstractChoiceWithValueDisplay : public UI::Choice {
@@ -264,7 +298,7 @@ public:
 		: Choice(text, layoutParams) {
 	}
 
-	virtual void Draw(UIContext &dc) override;
+	void Draw(UIContext &dc) override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 
 protected:
@@ -463,8 +497,8 @@ public:
 private:
 	std::string ValueText() const override;
 
-	int *iValue_ = nullptr;
 	std::string *sValue_ = nullptr;
+	int *iValue_ = nullptr;
 	const char *category_ = nullptr;
 	std::string (*translateCallback_)(const char *value) = nullptr;
 };

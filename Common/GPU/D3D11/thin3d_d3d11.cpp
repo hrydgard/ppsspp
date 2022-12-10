@@ -99,7 +99,7 @@ public:
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
-	void InvalidateCachedState() override;
+	void Invalidate(InvalidationFlags flags) override;
 
 	void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) override;
 	void BindNativeTexture(int index, void *nativeTexture) override;
@@ -163,8 +163,8 @@ public:
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
-	int GetCurrentStepId() const override {
-		return stepId_;
+	void SetInvalidationCallback(InvalidationCallback callback) override {
+		invalidationCallback_ = callback;
 	}
 
 private:
@@ -177,7 +177,6 @@ private:
 	ID3D11DeviceContext *context_;
 	ID3D11Device1 *device1_;
 	ID3D11DeviceContext1 *context1_;
-	int stepId_ = -1;
 
 	ID3D11Texture2D *bbRenderTargetTex_ = nullptr; // NOT OWNED
 	ID3D11RenderTargetView *bbRenderTargetView_ = nullptr;
@@ -215,6 +214,8 @@ private:
 	bool dirtyIndexBuffer_ = false;
 	ID3D11Buffer *nextIndexBuffer_ = nullptr;
 	int nextIndexBufferOffset_ = 0;
+
+	InvalidationCallback invalidationCallback_;
 
 	// Dynamic state
 	float blendFactor_[4]{};
@@ -261,13 +262,16 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	caps_.framebufferStencilBlitSupported = false;
 	caps_.framebufferDepthCopySupported = true;
 	caps_.framebufferSeparateDepthCopySupported = false;  // Though could be emulated with a draw.
+	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 	caps_.textureDepthSupported = true;
 	caps_.texture3DSupported = true;
 	caps_.fragmentShaderInt32Supported = true;
 	caps_.anisoSupported = true;
 	caps_.textureNPOTFullySupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
+	caps_.fragmentShaderStencilWriteSupported = false;
 	caps_.blendMinMaxSupported = true;
+	caps_.multiSampleLevelsMask = 1;   // More could be supported with some work.
 
 	D3D11_FEATURE_DATA_D3D11_OPTIONS options{};
 	HRESULT result = device_->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS, &options, sizeof(options));
@@ -305,6 +309,8 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 		}
 		dxgiDevice->Release();
 	}
+
+	caps_.isTilingGPU = false;
 
 	// Temp texture for read-back of small images. Custom textures are created on demand for larger ones.
 	// TODO: Should really benchmark if this extra complexity has any benefit.
@@ -398,7 +404,6 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1
 		// Make sure that we don't eliminate the next time the render target is set.
 		curRenderTargetView_ = nullptr;
 		curDepthStencilView_ = nullptr;
-		stepId_ = 0;
 		break;
 	}
 }
@@ -1078,17 +1083,19 @@ void D3D11DrawContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 	context_->Unmap(curPipeline_->dynamicUniforms, 0);
 }
 
-void D3D11DrawContext::InvalidateCachedState() {
-	// This is a signal to forget all our state caching.
-	curBlend_ = nullptr;
-	curDepthStencil_ = nullptr;
-	curRaster_ = nullptr;
-	curPS_ = nullptr;
-	curVS_ = nullptr;
-	curGS_ = nullptr;
-	curInputLayout_ = nullptr;
-	curTopology_ = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
-	curPipeline_ = nullptr;
+void D3D11DrawContext::Invalidate(InvalidationFlags flags) {
+	if (flags & InvalidationFlags::CACHED_RENDER_STATE) {
+		// This is a signal to forget all our state caching.
+		curBlend_ = nullptr;
+		curDepthStencil_ = nullptr;
+		curRaster_ = nullptr;
+		curPS_ = nullptr;
+		curVS_ = nullptr;
+		curGS_ = nullptr;
+		curInputLayout_ = nullptr;
+		curTopology_ = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+		curPipeline_ = nullptr;
+	}
 }
 
 void D3D11DrawContext::BindPipeline(Pipeline *pipeline) {
@@ -1499,13 +1506,11 @@ void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x
 		D3D11_BOX srcBox{ (UINT)x, (UINT)y, (UINT)z, (UINT)(x + width), (UINT)(y + height), (UINT)(z + depth) };
 		context_->CopySubresourceRegion(dstTex, dstLevel, dstX, dstY, dstZ, srcTex, level, &srcBox);
 	}
-	stepId_++;
 }
 
 bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) {
 	// Unfortunately D3D11 has no equivalent to this, gotta render a quad. Well, in some cases we can issue a copy instead.
 	Crash();
-	stepId_++;
 	return false;
 }
 
@@ -1651,7 +1656,6 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 	if (!useGlobalPacktex) {
 		packTex->Release();
 	}
-	stepId_++;
 	return true;
 }
 
@@ -1698,7 +1702,9 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 		context_->ClearDepthStencilView(curDepthStencilView_, mask, rp.clearDepth, rp.clearStencil);
 	}
 
-	stepId_++;
+	if (invalidationCallback_) {
+		invalidationCallback_(InvalidationCallbackFlags::RENDER_PASS_STATE);
+	}
 }
 
 void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) {

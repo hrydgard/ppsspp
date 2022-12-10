@@ -209,10 +209,11 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			if ((gstate.pmskc & 0x00FFFFFF) == 0x00FFFFFF && g_Config.bVendorBugChecksEnabled && draw_->GetBugs().Has(Draw::Bugs::COLORWRITEMASK_BROKEN_WITH_DEPTHTEST)) {
 				key.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 				if (!key.blendEnable) {
+					bool writeAlpha = maskState.channelMask & 8;
 					key.blendEnable = true;
 					key.blendOpAlpha = VK_BLEND_OP_ADD;
-					key.srcAlpha = VK_BLEND_FACTOR_ZERO;
-					key.destAlpha = VK_BLEND_FACTOR_ONE;
+					key.srcAlpha = writeAlpha ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_ZERO;
+					key.destAlpha = writeAlpha ? VK_BLEND_FACTOR_ZERO : VK_BLEND_FACTOR_ONE;
 				}
 				key.blendOpColor = VK_BLEND_OP_ADD;
 				key.srcColor = VK_BLEND_FACTOR_ZERO;
@@ -274,10 +275,11 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			}
 		} else {
 			// Depth Test
-			if (gstate.isDepthTestEnabled()) {
+			if (!IsDepthTestEffectivelyDisabled()) {
 				key.depthTestEnable = true;
 				key.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
 				key.depthWriteEnable = gstate.isDepthWriteEnabled();
+				UpdateEverUsedEqualDepth(gstate.getDepthTestFunction());
 			} else {
 				key.depthTestEnable = false;
 				key.depthWriteEnable = false;
@@ -377,10 +379,11 @@ void DrawEngineVulkan::BindShaderBlendTex() {
 			dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
 		} else if (fboTexBindState_ == FBO_TEX_READ_FRAMEBUFFER) {
 			draw_->BindCurrentFramebufferForColorInput();
-			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_LAYER, (void *)0);
+			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_RT, (void *)0);
 			boundSecondaryIsInputAttachment_ = true;
 			fboTexBindState_ = FBO_TEX_NONE;
 		} else {
+			boundSecondaryIsInputAttachment_ = false;
 			boundSecondary_ = VK_NULL_HANDLE;
 		}
 	}

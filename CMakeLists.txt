@@ -606,6 +606,7 @@ add_library(Common STATIC
 	Common/File/FileDescriptor.cpp
 	Common/File/FileDescriptor.h
 	Common/GPU/DataFormat.h
+	Common/GPU/MiscTypes.h
 	Common/GPU/thin3d.cpp
 	Common/GPU/thin3d.h
 	Common/GPU/thin3d_create.h
@@ -637,6 +638,8 @@ add_library(Common STATIC
 	Common/GPU/Vulkan/VulkanDebug.h
 	Common/GPU/Vulkan/VulkanContext.cpp
 	Common/GPU/Vulkan/VulkanContext.h
+	Common/GPU/Vulkan/VulkanFramebuffer.cpp
+	Common/GPU/Vulkan/VulkanFramebuffer.h
 	Common/GPU/Vulkan/VulkanImage.cpp
 	Common/GPU/Vulkan/VulkanImage.h
 	Common/GPU/Vulkan/VulkanLoader.cpp
@@ -692,6 +695,8 @@ add_library(Common STATIC
 	Common/Render/TextureAtlas.h
 	Common/Render/DrawBuffer.cpp
 	Common/Render/DrawBuffer.h
+	Common/Render/ManagedTexture.cpp
+	Common/Render/ManagedTexture.h
 	Common/Render/Text/draw_text.cpp
 	Common/Render/Text/draw_text.h
 	Common/Render/Text/draw_text_android.cpp
@@ -710,6 +715,8 @@ add_library(Common STATIC
 	Common/Thread/ThreadUtil.h
 	Common/Thread/ThreadManager.cpp
 	Common/Thread/ThreadManager.h
+	Common/UI/AsyncImageFileView.cpp
+	Common/UI/AsyncImageFileView.h
 	Common/UI/Root.cpp
 	Common/UI/Root.h
 	Common/UI/Screen.cpp
@@ -877,7 +884,7 @@ add_library(cityhash STATIC
 	ext/cityhash/city.h
 	ext/cityhash/citycrc.h
 )
-include_directories(ext/cityhash)
+target_include_directories(cityhash PRIVATE ext/cityhash)
 
 if(NOT MSVC)
 	# These can be fast even for debug.
@@ -1243,8 +1250,6 @@ list(APPEND NativeAppSource
 	UI/ChatScreen.cpp
 	UI/DevScreens.cpp
 	UI/DevScreens.h
-	UI/DisplayLayoutEditor.cpp
-	UI/DisplayLayoutEditor.h
 	UI/DisplayLayoutScreen.cpp
 	UI/DisplayLayoutScreen.h
 	UI/EmuScreen.h
@@ -1293,8 +1298,6 @@ list(APPEND NativeAppSource
 	UI/MemStickScreen.cpp
 	UI/ProfilerDraw.h
 	UI/ProfilerDraw.cpp
-	UI/TextureUtil.h
-	UI/TextureUtil.cpp
 	UI/ComboKeyMappingScreen.h
 	UI/ComboKeyMappingScreen.cpp
 	UI/Theme.h
@@ -1311,6 +1314,10 @@ if(ANDROID)
 	if (NOT LIBRETRO)
 		set(nativeExtra ${nativeExtra} ${NativeAppSource})
 	endif()
+endif()
+
+if (IOS)
+        set(nativeExtra ${nativeExtra} ${NativeAppSource})
 endif()
 
 add_library(native STATIC
@@ -1357,7 +1364,7 @@ add_library(kirk STATIC
 	ext/libkirk/kirk_engine.c
 	ext/libkirk/kirk_engine.h
 )
-include_directories(ext/libkirk)
+target_include_directories(kirk PRIVATE ext/libkirk)
 
 add_library(sfmt19937 STATIC
 	ext/sfmt19937/SFMT.c
@@ -1366,19 +1373,20 @@ add_library(sfmt19937 STATIC
 	ext/sfmt19937/SFMT-params.h
 	ext/sfmt19937/SFMT-params19937.h
 )
-include_directories(ext/sfmt19937)
+target_compile_definitions(sfmt19937 PRIVATE SFMT_MEXP=19937)
+target_include_directories(sfmt19937 PRIVATE ext/sfmt19937)
 
 add_library(xbrz STATIC
 	ext/xbrz/xbrz.cpp
 	ext/xbrz/xbrz.h
 )
-include_directories(ext/xbrz)
+target_include_directories(xbrz PRIVATE ext/xbrz)
 
 add_library(xxhash STATIC
 	ext/xxhash.c
 	ext/xxhash.h
 )
-include_directories(ext/xxhash)
+target_include_directories(xxhash PRIVATE ext/xxhash)
 
 set(CoreExtra)
 set(CoreExtraLibs)
@@ -2064,6 +2072,7 @@ if(USE_SYSTEM_ZSTD)
 	target_link_libraries(${CoreLibName} ${ZSTD_LIBRARY})
 else()
 	set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "we don't need zstd programs" FORCE)
+	set(ZSTD_LEGACY_SUPPORT OFF CACHE BOOL "we don't use any old zstd files" FORCE)
 	add_subdirectory(ext/zstd/build/cmake EXCLUDE_FROM_ALL)
 	set(CoreExtraLibs ${CoreExtraLibs} libzstd_static)
 	include_directories(ext/zstd/lib)

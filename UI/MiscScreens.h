@@ -51,6 +51,8 @@ public:
 	void sendMessage(const char *message, const char *value) override;
 protected:
 	Path gamePath_;
+
+	bool darkenGameBackground_ = false;
 };
 
 class UIDialogScreenWithBackground : public UIDialogScreen {
@@ -71,11 +73,12 @@ public:
 	void sendMessage(const char *message, const char *value) override;
 protected:
 	Path gamePath_;
+	bool darkenGameBackground_ = true;
 };
 
-class PromptScreen : public UIDialogScreenWithBackground {
+class PromptScreen : public UIDialogScreenWithGameBackground {
 public:
-	PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText,
+	PromptScreen(const Path& gamePath, std::string message, std::string yesButtonText, std::string noButtonText,
 		std::function<void(bool)> callback = &NoOpVoidBool);
 
 	void CreateViews() override;
@@ -103,26 +106,7 @@ public:
 private:
 	void OnCompleted(DialogResult result) override;
 	bool ShowButtons() const override { return true; }
-	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
-	std::map<std::string, std::string> titleCodeMapping;
 	std::vector<File::FileInfo> langs_;
-};
-
-class PostProcScreen : public ListPopupScreen {
-public:
-	PostProcScreen(const std::string &title, int id, bool showStereoShaders);
-
-	void CreateViews() override;
-
-	const char *tag() const override { return "PostProc"; }
-
-private:
-	void OnCompleted(DialogResult result) override;
-	bool ShowButtons() const override { return true; }
-	std::vector<ShaderInfo> shaders_;
-	int id_;
-	bool showStereoShaders_;
-	std::vector<int> indexTranslation_;
 };
 
 class TextureShaderScreen : public ListPopupScreen {
@@ -208,3 +192,5 @@ private:
 	float cutOffY_;
 	bool showing_ = false;
 };
+
+uint32_t GetBackgroundColorWithAlpha(UIContext &dc);

@@ -524,7 +524,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 			}
 
 			if (vertType & GE_VTYPE_COL_MASK) {
-				reader.ReadColor0_8888(sv.color);
+				sv.color_32 = reader.ReadColor0_8888();
 			} else {
 				memcpy(sv.color, defaultColor, 4);
 			}
@@ -573,7 +573,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 				sv.uv[1] = 0.0f;
 			}
 			if (vertType & GE_VTYPE_COL_MASK) {
-				reader.ReadColor0_8888(sv.color);
+				sv.color_32 = reader.ReadColor0_8888();
 			} else {
 				memcpy(sv.color, defaultColor, 4);
 			}

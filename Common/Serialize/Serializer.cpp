@@ -33,8 +33,27 @@ enum class SerializeCompressType {
 
 static constexpr SerializeCompressType SAVE_TYPE = SerializeCompressType::ZSTD;
 
-PointerWrapSection PointerWrap::Section(const char *title, int ver) {
-	return Section(title, ver, ver);
+void PointerWrap::RewindForWrite(u8 *writePtr) {
+	_assert_(mode == MODE_MEASURE);
+	// Switch to writing mode, save the size for later checking and start again.
+	measuredSize_ = Offset();
+	mode = MODE_WRITE;
+	*ptr = writePtr;
+	ptrStart_ = writePtr;
+}
+
+bool PointerWrap::CheckAfterWrite() {
+	_assert_(error != ERROR_NONE || mode == MODE_WRITE);
+	size_t offset = Offset();
+	if (measuredSize_ != 0 && offset != measuredSize_) {
+		WARN_LOG(SAVESTATE, "CheckAfterWrite: Size mismatch! %d but expected %d", (int)offset, (int)measuredSize_);
+		return false;
+	}
+	if (!checkpoints_.empty() && curCheckpoint_ != checkpoints_.size()) {
+		WARN_LOG(SAVESTATE, "Checkpoint count mismatch!");
+		return false;
+	}
+	return true;
 }
 
 PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) {
@@ -44,6 +63,32 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 	// This is strncpy because we rely on its weird non-null-terminating zero-filling truncation behaviour.
 	// Can't replace it with the more sensible truncate_cpy because that would break savestates.
 	strncpy(marker, title, sizeof(marker));
+
+	// Compare the measure and write passes. Sanity check to catch bugs, doesn't do anything for output.
+	size_t offset = Offset();
+	if (mode == MODE_MEASURE) {
+		checkpoints_.emplace_back(marker, offset);
+	} else if (mode == MODE_WRITE) {
+		if (!checkpoints_.empty()) {
+			if (checkpoints_.size() <= curCheckpoint_) {
+				WARN_LOG(SAVESTATE, "Write: Not enough checkpoints from measure pass (%d). cur section: %s", (int)checkpoints_.size(), title);
+				SetError(ERROR_FAILURE);
+				return PointerWrapSection(*this, -1, title);
+			}
+			if (!checkpoints_[curCheckpoint_].Matches(marker, offset)) {
+				WARN_LOG(SAVESTATE, "Checkpoint mismatch during write! Section %s but expected %s, offset %d but expected %d", title, marker, (int)offset, (int)checkpoints_[curCheckpoint_].offset);
+				if (curCheckpoint_ > 1) {
+					WARN_LOG(SAVESTATE, "Previous checkpoint: %s (%d)", checkpoints_[curCheckpoint_ - 1].title, (int)checkpoints_[curCheckpoint_ - 1].offset);
+				}
+				SetError(ERROR_FAILURE);
+				return PointerWrapSection(*this, -1, title);
+			}
+		} else {
+			WARN_LOG(SAVESTATE, "Writing savestate without checkpoints. This is OK but should be fixed.");
+		}
+		curCheckpoint_++;
+	}
+
 	if (!ExpectVoid(marker, sizeof(marker))) {
 		// Might be before we added name markers for safety.
 		if (foundVersion == 1 && ExpectVoid(&foundVersion, sizeof(foundVersion))) {
@@ -60,8 +105,10 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 		if (!firstBadSectionTitle_) {
 			firstBadSectionTitle_ = title;
 		}
-		WARN_LOG(SAVESTATE, "Savestate failure: wrong version %d found for section '%s'", foundVersion, title);
-		SetError(ERROR_FAILURE);
+		if (mode != MODE_NOOP) {
+			WARN_LOG(SAVESTATE, "Savestate failure: wrong version %d found for section '%s'", foundVersion, title);
+			SetError(ERROR_FAILURE);
+		}
 		return PointerWrapSection(*this, -1, title);
 	}
 	return PointerWrapSection(*this, foundVersion, title);
@@ -72,8 +119,9 @@ void PointerWrap::SetError(Error error_) {
 		error = error_;
 	}
 	if (error > ERROR_WARNING) {
-		// For the rest of this run, just measure.
-		mode = PointerWrap::MODE_MEASURE;
+		// For the rest of this run, do nothing, to avoid running off the end of memory or something,
+		// and also not logspam like MEASURE will do in an error case.
+		mode = PointerWrap::MODE_NOOP;
 	}
 }
 
@@ -123,6 +171,7 @@ void Do(PointerWrap &p, std::string &x) {
 	case PointerWrap::MODE_READ: x = (char*)*p.ptr; break;
 	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
 	case PointerWrap::MODE_MEASURE: break;
+	case PointerWrap::MODE_NOOP: break;
 	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(!strcmp(x.c_str(), (char*)*p.ptr), "Savestate verification failure: \"%s\" != \"%s\" (at %p).\n", x.c_str(), (char *)*p.ptr, p.ptr); break;
 	}
 	(*p.ptr) += stringLen;
@@ -150,6 +199,7 @@ void Do(PointerWrap &p, std::wstring &x) {
 	case PointerWrap::MODE_READ: x = read(); break;
 	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
 	case PointerWrap::MODE_MEASURE: break;
+	case PointerWrap::MODE_NOOP: break;
 	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(x == read(), "Savestate verification failure: \"%ls\" != \"%ls\" (at %p).\n", x.c_str(), read().c_str(), p.ptr); break;
 	}
 	(*p.ptr) += stringLen;
@@ -177,6 +227,7 @@ void Do(PointerWrap &p, std::u16string &x) {
 	case PointerWrap::MODE_READ: x = read(); break;
 	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
 	case PointerWrap::MODE_MEASURE: break;
+	case PointerWrap::MODE_NOOP: break;
 	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(x == read(), "Savestate verification failure: (at %p).\n", p.ptr); break;
 	}
 	(*p.ptr) += stringLen;

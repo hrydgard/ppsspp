@@ -42,11 +42,12 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 		RegCache::GEN_ARG_ID,
 	});
 
-	BeginWrite();
+	BeginWrite(64);
 	Describe("Init");
 	WriteConstantPool(id);
 
 	const u8 *resetPos = AlignCode16();
+	EndWrite();
 	bool success = true;
 
 #if PPSSPP_PLATFORM(WINDOWS)

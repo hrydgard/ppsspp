@@ -23,6 +23,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Data/Collections/Hashmaps.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
@@ -165,7 +166,6 @@ public:
 			}
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmtnrm, G3D, "Reader: Unsupported Nrm Format %d", decFmt_.nrmfmt);
 			memset(nrm, 0, sizeof(float) * 3);
 			break;
 		}
@@ -181,45 +181,37 @@ public:
 	void ReadColor0(float color[4]) const {
 		switch (decFmt_.c0fmt) {
 		case DEC_U8_4:
-			{
-				const u8 *b = (const u8 *)(data_ + decFmt_.c0off);
-				for (int i = 0; i < 4; i++)
-					color[i] = b[i] * (1.f / 255.f);
-			}
+			Uint8x4ToFloat4(color, *(const u32 *)(data_ + decFmt_.c0off));
 			break;
 		case DEC_FLOAT_4:
 			memcpy(color, data_ + decFmt_.c0off, 16); 
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmtc0, G3D, "Reader: Unsupported C0 Format %d", decFmt_.c0fmt);
 			memset(color, 0, sizeof(float) * 4);
 			break;
 		}
 	}
 
-	void ReadColor0_8888(u8 color[4]) const {
+	u32 ReadColor0_8888() const {
 		switch (decFmt_.c0fmt) {
 		case DEC_U8_4:
 			{
 				const u8 *b = (const u8 *)(data_ + decFmt_.c0off);
-				for (int i = 0; i < 4; i++)
-					color[i] = b[i];
+				u32 value;
+				memcpy(&value, b, 4);
+				return value;
 			}
 			break;
 		case DEC_FLOAT_4:
 			{
 				const float *f = (const float *)(data_ + decFmt_.c0off);
-				for (int i = 0; i < 4; i++)
-					color[i] = f[i] * 255.0f;
+				return Float4ToUint8x4_NoClamp(f);
 			}
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmtc0_8888, G3D, "Reader: Unsupported C0 Format %d", decFmt_.c0fmt);
-			memset(color, 0, sizeof(u8) * 4);
-			break;
+			return 0;
 		}
 	}
-
 
 	void ReadColor1(float color[3]) const {
 		switch (decFmt_.c1fmt) {
@@ -234,7 +226,6 @@ public:
 			memcpy(color, data_ + decFmt_.c1off, 12); 
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmtc1, G3D, "Reader: Unsupported C1 Format %d", decFmt_.c1fmt);
 			memset(color, 0, sizeof(float) * 3);
 			break;
 		}
@@ -289,7 +280,6 @@ public:
 		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;
 		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i+4] = s[i]  * (1.f / 32768.f); break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmtw1, G3D, "Reader: Unsupported W1 Format %d", decFmt_.w1fmt);
 			memset(weights + 4, 0, sizeof(float) * 4);
 			break;
 		}

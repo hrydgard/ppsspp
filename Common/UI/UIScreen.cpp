@@ -20,10 +20,15 @@ static const bool ClickDebug = false;
 
 UIScreen::UIScreen()
 	: Screen() {
+	lastVertical_ = UseVerticalLayout();
 }
 
 UIScreen::~UIScreen() {
 	delete root_;
+}
+
+bool UIScreen::UseVerticalLayout() const {
+	return dp_yres > dp_xres * 1.1f;
 }
 
 void UIScreen::DoRecreateViews() {
@@ -60,6 +65,12 @@ void UIScreen::DoRecreateViews() {
 }
 
 void UIScreen::update() {
+	bool vertical = UseVerticalLayout();
+	if (vertical != lastVertical_) {
+		RecreateViews();
+		lastVertical_ = vertical;
+	}
+
 	DoRecreateViews();
 
 	if (root_) {
@@ -312,10 +323,6 @@ void PopupScreen::TriggerFinish(DialogResult result) {
 	}
 }
 
-void PopupScreen::resized() {
-	RecreateViews();
-}
-
 void PopupScreen::CreateViews() {
 	using namespace UI;
 	UIContext &dc = *screenManager()->getUIContext();
@@ -336,7 +343,9 @@ void PopupScreen::CreateViews() {
 	box_->SetDropShadowExpand(std::max(dp_xres, dp_yres));
 
 	View *title = new PopupHeader(title_);
-	box_->Add(title);
+	if (HasTitleBar()) {
+		box_->Add(title);
+	}
 
 	CreatePopupContents(box_);
 	root_->SetDefaultFocusView(box_);
@@ -402,6 +411,39 @@ UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 }
 
 namespace UI {
+
+PopupContextMenuScreen::PopupContextMenuScreen(const ContextMenuItem *items, size_t itemCount, I18NCategory *category, UI::View *sourceView)
+	: PopupScreen("", "", ""), items_(items), itemCount_(itemCount), category_(category), sourceView_(sourceView)
+{
+	enabled_.resize(itemCount, true);
+	SetPopupOrigin(sourceView);
+}
+
+void PopupContextMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	for (size_t i = 0; i < itemCount_; i++) {
+		if (items_[i].imageID) {
+			Choice *choice = new Choice(category_->T(items_[i].text), ImageID(items_[i].imageID));
+			parent->Add(choice);
+			if (enabled_[i]) {
+				choice->OnClick.Add([=](EventParams &p) {
+					TriggerFinish(DR_OK);
+					p.a = (uint32_t)i;
+					OnChoice.Dispatch(p);
+					return EVENT_DONE;
+				});
+			}
+			else {
+				choice->SetEnabled(false);
+			}
+		}
+	}
+
+	// Hacky: Override the position to look like a popup menu.
+	AnchorLayoutParams *ap = (AnchorLayoutParams *)parent->GetLayoutParams();
+	ap->center = false;
+	ap->left = sourceView_->GetBounds().x;
+	ap->top = sourceView_->GetBounds().y2();
+}
 
 std::string ChopTitle(const std::string &title) {
 	size_t pos = title.find('\n');
@@ -814,7 +856,7 @@ void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext 
 	const std::string valueText = ValueText();
 	int paddingX = 12;
 	// Assume we want at least 20% of the size for the label, at a minimum.
-	float availWidth = (horiz.size - paddingX * 2) * 0.8f;
+	float availWidth = (horiz.size - paddingX * 2) * (text_.empty() ? 1.0f : 0.8f);
 	if (availWidth < 0) {
 		availWidth = 65535.0f;
 	}
@@ -826,11 +868,15 @@ void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext 
 	valueW += paddingX;
 
 	// Give the choice itself less space to grow in, so it shrinks if needed.
-	MeasureSpec horizLabel = horiz;
-	horizLabel.size -= valueW;
+	// MeasureSpec horizLabel = horiz;
+	// horizLabel.size -= valueW;
 	Choice::GetContentDimensionsBySpec(dc, horiz, vert, w, h);
 
 	w += valueW;
+	// Fill out anyway if there's space.
+	if (horiz.type == AT_MOST && w < horiz.size) {
+		w = horiz.size;
+	}
 	h = std::max(h, valueH);
 }
 
@@ -849,20 +895,30 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	const std::string valueText = ValueText();
-	// Assume we want at least 20% of the size for the label, at a minimum.
-	float availWidth = (bounds_.w - paddingX * 2) * 0.8f;
-	float scale = CalculateValueScale(dc, valueText, availWidth);
 
-	float w, h;
-	Bounds availBounds(0, 0, availWidth, bounds_.h);
-	dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText.c_str(), (int)valueText.size(), availBounds, &w, &h, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
-	textPadding_.right = w + paddingX;
+	// If there is a label, assume we want at least 20% of the size for it, at a minimum.
 
-	Choice::Draw(dc);
-	dc.SetFontScale(scale, scale);
-	Bounds valueBounds(bounds_.x2() - textPadding_.right, bounds_.y, w, bounds_.h);
-	dc.DrawTextRect(valueText.c_str(), valueBounds, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
-	dc.SetFontScale(1.0f, 1.0f);
+	if (!text_.empty()) {
+		float availWidth = (bounds_.w - paddingX * 2) * 0.8f;
+		float scale = CalculateValueScale(dc, valueText, availWidth);
+
+		float w, h;
+		Bounds availBounds(0, 0, availWidth, bounds_.h);
+		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText.c_str(), (int)valueText.size(), availBounds, &w, &h, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		textPadding_.right = w + paddingX;
+
+		Choice::Draw(dc);
+		dc.SetFontScale(scale, scale);
+		Bounds valueBounds(bounds_.x2() - textPadding_.right, bounds_.y, w, bounds_.h);
+		dc.DrawTextRect(valueText.c_str(), valueBounds, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.SetFontScale(1.0f, 1.0f);
+	} else {
+		Choice::Draw(dc);
+		float scale = CalculateValueScale(dc, valueText, bounds_.w);
+		dc.SetFontScale(scale, scale);
+		dc.DrawTextRect(valueText.c_str(), bounds_.Expand(-paddingX, 0.0f), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.SetFontScale(1.0f, 1.0f);
+	}
 }
 
 float AbstractChoiceWithValueDisplay::CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const {

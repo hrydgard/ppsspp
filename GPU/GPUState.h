@@ -470,6 +470,7 @@ struct UVScale {
 // location. Sometimes we need to take things into account in multiple places, it helps
 // to centralize into flags like this. They're also fast to check since the cache line
 // will be hot.
+// NOTE: Do not forget to update the string array at the end of GPUState.cpp!
 enum {
 	GPU_USE_DUALSOURCE_BLEND = FLAG_BIT(0),
 	GPU_USE_LIGHT_UBERSHADER = FLAG_BIT(1),
@@ -477,7 +478,7 @@ enum {
 	GPU_USE_VS_RANGE_CULLING = FLAG_BIT(3),
 	GPU_USE_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_USE_LOGIC_OP = FLAG_BIT(5),
-	GPU_USE_DEPTH_RANGE_HACK = FLAG_BIT(6),
+	// Bit 6 is free.
 	GPU_USE_TEXTURE_NPOT = FLAG_BIT(7),
 	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
@@ -490,7 +491,7 @@ enum {
 	GPU_USE_DEPTH_TEXTURE = FLAG_BIT(16),
 	GPU_USE_ACCURATE_DEPTH = FLAG_BIT(17),
 	GPU_USE_GS_CULLING = FLAG_BIT(18),  // Geometry shader
-	GPU_USE_REVERSE_COLOR_ORDER = FLAG_BIT(19),
+	// Bit 19 free.
 	GPU_USE_FRAMEBUFFER_FETCH = FLAG_BIT(20),
 	GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT = FLAG_BIT(21),
 	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(22),
@@ -503,6 +504,9 @@ enum {
 	GPU_USE_SINGLE_PASS_STEREO = FLAG_BIT(30),
 	GPU_USE_SIMPLE_STEREO_PERSPECTIVE = FLAG_BIT(31),
 };
+
+// Note that this take a flag index, not the bit value.
+const char *GpuUseFlagToString(int useFlag);
 
 struct KnownVertexBounds {
 	u16 minU;
@@ -565,6 +569,12 @@ struct GPUStateCache {
 	void SetTextureIsArray(bool isArrayTexture) {  // VK only
 		if (arrayTexture != isArrayTexture) {
 			arrayTexture = isArrayTexture;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
+	void SetTextureIsBGRA(bool isBGRA) {
+		if (bgraTexture != isBGRA) {
+			bgraTexture = isBGRA;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}

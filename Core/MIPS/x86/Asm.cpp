@@ -66,8 +66,8 @@ void ImHere() {
 }
 
 void Jit::GenerateFixedCode(JitOptions &jo) {
+	BeginWrite(GetMemoryProtectPageSize());
 	AlignCodePage();
-	BeginWrite();
 
 	restoreRoundingMode = AlignCode16(); {
 		STMXCSR(MIPSSTATE_VAR(temp));

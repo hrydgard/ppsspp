@@ -5,14 +5,7 @@
 
 enum VRConfig {
 	//switching between 2D and 3D
-	VR_CONFIG_MODE, VR_CONFIG_3D_GEOMETRY_COUNT, VR_CONFIG_FORCE_2D,
-	//camera setup
-	VR_CONFIG_CAMERA_CONTROL,
-	VR_CONFIG_HAS_UNIT_SCALE,
-	//6DoF
-	VR_CONFIG_6DOF_ENABLED, VR_CONFIG_MIRROR_UPDATED,
-	VR_CONFIG_MIRROR_AXIS_X, VR_CONFIG_MIRROR_AXIS_Y, VR_CONFIG_MIRROR_AXIS_Z,
-	VR_CONFIG_MIRROR_PITCH, VR_CONFIG_MIRROR_YAW, VR_CONFIG_MIRROR_ROLL,
+	VR_CONFIG_MODE,
 	//mouse cursor
 	VR_CONFIG_MOUSE_SIZE, VR_CONFIG_MOUSE_X, VR_CONFIG_MOUSE_Y,
 	//viewport setup
@@ -25,23 +18,11 @@ enum VRConfig {
 };
 
 enum VRConfigFloat {
-	// 6dof
-	VR_CONFIG_6DOF_SCALE,
-	// camera setup
-	VR_CONFIG_FOV_SCALE, VR_CONFIG_CAMERA_DISTANCE,
-	VR_CONFIG_CAMERA_HEIGHT, VR_CONFIG_CAMERA_SIDE, VR_CONFIG_CANVAS_DISTANCE,
 	// 2D canvas positioning
-	VR_CONFIG_MENU_PITCH, VR_CONFIG_MENU_YAW, VR_CONFIG_RECENTER_YAW,
+	VR_CONFIG_CANVAS_DISTANCE, VR_CONFIG_MENU_PITCH, VR_CONFIG_MENU_YAW, VR_CONFIG_RECENTER_YAW,
+	VR_CONFIG_CANVAS_ASPECT,
 
 	VR_CONFIG_FLOAT_MAX
-};
-
-enum VRMatrix {
-	VR_PROJECTION_MATRIX_LEFT_EYE,
-	VR_PROJECTION_MATRIX_RIGHT_EYE,
-	VR_VIEW_MATRIX_LEFT_EYE,
-	VR_VIEW_MATRIX_RIGHT_EYE,
-	VR_MATRIX_COUNT
 };
 
 enum VRMode {
@@ -62,9 +43,8 @@ void VR_FinishFrame( engine_t* engine );
 
 int VR_GetConfig( VRConfig config );
 void VR_SetConfig( VRConfig config, int value);
-
 float VR_GetConfigFloat( VRConfigFloat config );
 void VR_SetConfigFloat( VRConfigFloat config, float value );
 
 void* VR_BindFramebuffer(engine_t *engine);
-ovrMatrix4f VR_GetMatrix( VRMatrix matrix );
+XrView VR_GetView(int eye);

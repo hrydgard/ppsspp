@@ -432,6 +432,7 @@
     <ClInclude Include="GPU\D3D9\D3D9ShaderCompiler.h" />
     <ClInclude Include="GPU\D3D9\D3D9StateCache.h" />
     <ClInclude Include="GPU\DataFormat.h" />
+    <ClInclude Include="GPU\MiscTypes.h" />
     <ClInclude Include="GPU\OpenGL\DataFormatGL.h" />
     <ClInclude Include="GPU\OpenGL\gl3stub.h" />
     <ClInclude Include="GPU\OpenGL\GLFeatures.h" />
@@ -449,6 +450,7 @@
     <ClInclude Include="GPU\Vulkan\VulkanBarrier.h" />
     <ClInclude Include="GPU\Vulkan\VulkanContext.h" />
     <ClInclude Include="GPU\Vulkan\VulkanDebug.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanFramebuffer.h" />
     <ClInclude Include="GPU\Vulkan\VulkanFrameData.h" />
     <ClInclude Include="GPU\Vulkan\VulkanImage.h" />
     <ClInclude Include="GPU\Vulkan\VulkanLoader.h" />
@@ -477,6 +479,7 @@
     <ClInclude Include="Net\WebsocketServer.h" />
     <ClInclude Include="Profiler\Profiler.h" />
     <ClInclude Include="Render\DrawBuffer.h" />
+    <ClInclude Include="Render\ManagedTexture.h" />
     <ClInclude Include="Render\TextureAtlas.h" />
     <ClInclude Include="Render\Text\draw_text.h" />
     <ClInclude Include="Render\Text\draw_text_android.h" />
@@ -549,6 +552,7 @@
     <ClInclude Include="Thread\ThreadUtil.h" />
     <ClInclude Include="Thunk.h" />
     <ClInclude Include="TimeUtil.h" />
+    <ClInclude Include="UI\AsyncImageFileView.h" />
     <ClInclude Include="UI\Context.h" />
     <ClInclude Include="UI\Root.h" />
     <ClInclude Include="UI\Screen.h" />
@@ -878,6 +882,7 @@
     <ClCompile Include="GPU\Vulkan\VulkanBarrier.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanContext.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanDebug.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanFramebuffer.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanFrameData.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanImage.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanLoader.cpp" />
@@ -905,6 +910,7 @@
     <ClCompile Include="Net\WebsocketServer.cpp" />
     <ClCompile Include="Profiler\Profiler.cpp" />
     <ClCompile Include="Render\DrawBuffer.cpp" />
+    <ClCompile Include="Render\ManagedTexture.cpp" />
     <ClCompile Include="Render\TextureAtlas.cpp" />
     <ClCompile Include="Render\Text\draw_text.cpp" />
     <ClCompile Include="Render\Text\draw_text_android.cpp" />
@@ -988,6 +994,7 @@
     <ClCompile Include="Thread\ThreadUtil.cpp" />
     <ClCompile Include="Thunk.cpp" />
     <ClCompile Include="TimeUtil.cpp" />
+    <ClCompile Include="UI\AsyncImageFileView.cpp" />
     <ClCompile Include="UI\Context.cpp" />
     <ClCompile Include="UI\Root.cpp" />
     <ClCompile Include="UI\Screen.cpp" />

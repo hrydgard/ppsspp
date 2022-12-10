@@ -35,8 +35,7 @@
 static const int FILE_CHECK_FRAME_INTERVAL = 53;
 
 CwCheatScreen::CwCheatScreen(const Path &gamePath)
-	: UIDialogScreenWithBackground() {
-	gamePath_ = gamePath;
+	: UIDialogScreenWithGameBackground(gamePath) {
 }
 
 CwCheatScreen::~CwCheatScreen() {
@@ -129,7 +128,7 @@ void CwCheatScreen::update() {
 		fileCheckCounter_ = 0;
 	}
 
-	UIDialogScreenWithBackground::update();
+	UIDialogScreenWithGameBackground::update();
 }
 
 void CwCheatScreen::onFinish(DialogResult result) {

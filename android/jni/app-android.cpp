@@ -13,9 +13,8 @@
 #include <thread>
 #include <atomic>
 
-#include <android/log.h>
-
 #ifndef _MSC_VER
+
 #include <jni.h>
 #include <android/native_window_jni.h>
 #include <android/log.h>
@@ -198,37 +197,43 @@ AndroidGraphicsContext *graphicsContext;
 #define LOG_APP_NAME "PPSSPP"
 #endif
 
-#ifdef _DEBUG
-#define DLOG(...)    __android_log_print(ANDROID_LOG_INFO, LOG_APP_NAME, __VA_ARGS__);
-#else
-#define DLOG(...)
-#endif
-
-#define ILOG(...)    __android_log_print(ANDROID_LOG_INFO, LOG_APP_NAME, __VA_ARGS__);
-#define WLOG(...)    __android_log_print(ANDROID_LOG_WARN, LOG_APP_NAME, __VA_ARGS__);
-#define ELOG(...)    __android_log_print(ANDROID_LOG_ERROR, LOG_APP_NAME, __VA_ARGS__);
-#define FLOG(...)    __android_log_print(ANDROID_LOG_FATAL, LOG_APP_NAME, __VA_ARGS__);
-
 #define MessageBox(a, b, c, d) __android_log_print(ANDROID_LOG_INFO, APP_NAME, "%s %s", (b), (c));
 
 void AndroidLogger::Log(const LogMessage &message) {
-	// Log with simplified headers as Android already provides timestamp etc.
+	int mode;
 	switch (message.level) {
-	case LogTypes::LVERBOSE:
-	case LogTypes::LDEBUG:
-	case LogTypes::LINFO:
-		ILOG("[%s] %s", message.log, message.msg.c_str());
+	case LogTypes::LWARNING:
+		mode = ANDROID_LOG_WARN;
 		break;
 	case LogTypes::LERROR:
-		ELOG("[%s] %s", message.log, message.msg.c_str());
+		mode = ANDROID_LOG_ERROR;
 		break;
-	case LogTypes::LWARNING:
-		WLOG("[%s] %s", message.log, message.msg.c_str());
-		break;
-	case LogTypes::LNOTICE:
 	default:
-		ILOG("[%s] !!! %s", message.log, message.msg.c_str());
+		mode = ANDROID_LOG_INFO;
 		break;
+	}
+
+	// Long log messages need splitting up.
+	// Not sure what the actual limit is (seems to vary), but let's be conservative.
+	const size_t maxLogLength = 512;
+	if (message.msg.length() < maxLogLength) {
+		// Log with simplified headers as Android already provides timestamp etc.
+		__android_log_print(mode, LOG_APP_NAME, "[%s] %s", message.log, message.msg.c_str());
+	} else {
+		std::string msg = message.msg;
+
+		// Ideally we should split at line breaks, but it's at least fairly usable anyway.
+		std::string first_part = msg.substr(0, maxLogLength);
+		__android_log_print(mode, LOG_APP_NAME, "[%s] %s", message.log, first_part.c_str());
+		msg = msg.substr(maxLogLength);
+
+		while (msg.length() > maxLogLength) {
+			std::string first_part = msg.substr(0, maxLogLength);
+			__android_log_print(mode, LOG_APP_NAME, "%s", first_part.c_str());
+			msg = msg.substr(maxLogLength);
+		}
+		// Print the final part.
+		__android_log_print(mode, LOG_APP_NAME, "%s", msg.c_str());
 	}
 }
 
@@ -280,7 +285,12 @@ static void EmuThreadFunc() {
 	} else {
 		INFO_LOG(SYSTEM, "Runloop: Graphics context available! %p", graphicsContext);
 	}
-	NativeInitGraphics(graphicsContext);
+
+	if (!NativeInitGraphics(graphicsContext)) {
+		_assert_msg_(false, "Failed to initialize graphics, might as well bail");
+		emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+		return;
+	}
 
 	INFO_LOG(SYSTEM, "Graphics initialized. Entering loop.");
 
@@ -1069,7 +1079,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	}
 
 	if (IsVREnabled()) {
-		UpdateVRInput(NativeKey, NativeTouch, g_Config.bHapticFeedback, dp_xscale, dp_yscale);
+		UpdateVRInput(NativeAxis, NativeKey, NativeTouch, g_Config.bHapticFeedback, dp_xscale, dp_yscale);
 		FinishVRRender();
 	}
 }
@@ -1295,7 +1305,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 		int width, height;
 		GetVRResolutionPerEye(&width, &height);
 		xres = width;
-		yres = height;
+		yres = height * 272 / 480;
 		dpi = 320;
 	}
 

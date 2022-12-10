@@ -49,6 +49,9 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	bool clipClampedDepth = gstate_c.Use(GPU_USE_DEPTH_CLAMP);
 
 	ShaderWriter p(buffer, compat, ShaderStage::Geometry, extensions);
+
+	p.F("// %s\n", GeometryShaderDesc(id).c_str());
+
 	p.C("layout(triangles) in;\n");
 	if (clipClampedDepth && vertexRangeCulling && !gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 		p.C("layout(triangle_strip, max_vertices = 12) out;\n");
@@ -120,7 +123,8 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	if (!gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 		// This is basically the same value as gl_ClipDistance would take, z + w.
 		if (vertexRangeCulling) {
-			p.C("    clip0[i] = projZ * outPos.w + outPos.w;\n");
+			// We add a small amount to prevent error as in #15816 (PSP Z is only 16-bit fixed point, anyway.)
+			p.F("    clip0[i] = projZ * outPos.w + outPos.w + %f;\n", 0.0625 / 65536.0);
 		} else {
 			// Let's not complicate the code overly for this case.  We'll clipClampedDepth.
 			p.C("    clip0[i] = 0.0;\n");
@@ -287,7 +291,8 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 			p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clipSuffix1);
 		} else {
 			// We shouldn't need to worry about rectangles-as-triangles here, since we don't use geometry shaders for that.
-			p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clipSuffix0);
+			// We add a small amount to prevent error as in #15816 (PSP Z is only 16-bit fixed point, anyway.)
+			p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w + %f;\n", clipSuffix0, 0.0625 / 65536.0);
 		}
 		p.C("    gl_Position = outPos;\n");
 		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {

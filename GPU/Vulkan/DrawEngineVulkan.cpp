@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <functional>
 
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Profiler/Profiler.h"
@@ -63,19 +64,6 @@ enum {
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
 enum {
-	DRAW_BINDING_TEXTURE = 0,
-	DRAW_BINDING_2ND_TEXTURE = 1,
-	DRAW_BINDING_DEPAL_TEXTURE = 2,
-	DRAW_BINDING_DYNUBO_BASE = 3,
-	DRAW_BINDING_DYNUBO_LIGHT = 4,
-	DRAW_BINDING_DYNUBO_BONE = 5,
-	DRAW_BINDING_TESS_STORAGE_BUF = 6,
-	DRAW_BINDING_TESS_STORAGE_BUF_WU = 7,
-	DRAW_BINDING_TESS_STORAGE_BUF_WV = 8,
-	DRAW_BINDING_INPUT_ATTACHMENT = 9,
-};
-
-enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
@@ -97,7 +85,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 
 	// TODO: Make things more flexible, so we at least have specialized layouts for input attachments and tess.
 	// Note that it becomes a support matrix..
-	VkDescriptorSetLayoutBinding bindings[10]{};
+	VkDescriptorSetLayoutBinding bindings[DRAW_BINDING_COUNT]{};
 	bindings[0].descriptorCount = 1;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -163,7 +151,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	dpTypes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	dpTypes[3].descriptorCount = DEFAULT_DESC_POOL_SIZE;  // TODO: Use a separate layout when no spline stuff is needed to reduce the need for these.
 	dpTypes[3].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-	dpTypes[4].descriptorCount = 1;  // For the frame global uniform buffer.
+	dpTypes[4].descriptorCount = DEFAULT_DESC_POOL_SIZE;  // For the frame global uniform buffer. Might need to allocate multiple times.
 	dpTypes[4].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 
 	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
@@ -217,6 +205,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 
 	tessDataTransferVulkan = new TessellationDataTransferVulkan(vulkan);
 	tessDataTransfer = tessDataTransferVulkan;
+
+	draw_->SetInvalidationCallback(std::bind(&DrawEngineVulkan::Invalidate, this, std::placeholders::_1));
 }
 
 DrawEngineVulkan::~DrawEngineVulkan() {
@@ -247,7 +237,14 @@ void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
 }
 
 void DrawEngineVulkan::DestroyDeviceObjects() {
-	VulkanContext *vulkan = draw_ ? (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT) : nullptr;
+	if (!draw_) {
+		// We've already done this from LostDevice.
+		return;
+	}
+
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+
+	draw_->SetInvalidationCallback(InvalidationCallback());
 
 	delete tessDataTransferVulkan;
 	tessDataTransfer = nullptr;
@@ -295,8 +292,6 @@ void DrawEngineVulkan::BeginFrame() {
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
 	lastPipeline_ = nullptr;
-
-	lastRenderStepId_ = -1;
 
 	FrameData *frame = &GetCurFrame();
 
@@ -415,7 +410,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	_assert_msg_(desc != VK_NULL_HANDLE, "Ran out of descriptor space in pool. sz=%d", (int)frame.descSets.size());
 
 	// We just don't write to the slots we don't care about, which is fine.
-	VkWriteDescriptorSet writes[9]{};
+	VkWriteDescriptorSet writes[DRAW_BINDING_COUNT]{};
 	// Main texture
 	int n = 0;
 	VkDescriptorImageInfo tex[3]{};
@@ -549,6 +544,19 @@ void MarkUnreliable(VertexArrayInfoVulkan *vai) {
 	// For now we just leave it in the pushbuffer.
 }
 
+void DrawEngineVulkan::Invalidate(InvalidationCallbackFlags flags) {
+	if (flags & InvalidationCallbackFlags::COMMAND_BUFFER_STATE) {
+		GetCurFrame().frameDescSetUpdated = false;
+	}
+	if (flags & InvalidationCallbackFlags::RENDER_PASS_STATE) {
+		// If have a new render pass, dirty our dynamic state so it gets re-set.
+		//
+		// Dirty everything that has dynamic state that will need re-recording.
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		lastPipeline_ = nullptr;
+	}
+}
+
 // The inline wrapper in the header checks for numDrawCalls == 0
 void DrawEngineVulkan::DoFlush() {
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
@@ -558,18 +566,6 @@ void DrawEngineVulkan::DoFlush() {
 
 	gpuStats.numFlushes++;
 	
-	// If have a new render pass, dirty our dynamic state so it gets re-set.
-	// We have to do this again after the last possible place in DoFlush that can cause a renderpass switch
-	// like a shader blend blit or similar. But before we actually set the state!
-	int curRenderStepId = renderManager->GetCurrentStepId();
-	if (lastRenderStepId_ != curRenderStepId) {
-		// Dirty everything that has dynamic state that will need re-recording.
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-		textureCache_->ForgetLastTexture();
-		lastRenderStepId_ = curRenderStepId;
-		lastPipeline_ = nullptr;
-	}
-
 	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
 
 	bool textureNeedsApply = false;
@@ -798,16 +794,6 @@ void DrawEngineVulkan::DoFlush() {
 			}
 			BindShaderBlendTex();  // This might cause copies so important to do before BindPipeline.
 
-			// If have a new render pass, dirty our dynamic state so it gets re-set.
-			// WARNING: We have to do this AFTER the last possible place in DoFlush that can cause a renderpass switch
-			// like a shader blend blit or similar. But before we actually set the state!
-			int curRenderStepId = renderManager->GetCurrentStepId();
-			if (lastRenderStepId_ != curRenderStepId) {
-				// Dirty everything that has dynamic state that will need re-recording.
-				gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE);
-				lastRenderStepId_ = curRenderStepId;
-			}
-
 			renderManager->BindPipeline(pipeline->pipeline, pipeline->pipelineFlags, pipelineLayout_);
 			if (pipeline != lastPipeline_) {
 				if (lastPipeline_ && !(lastPipeline_->UsesBlendConstant() && pipeline->UsesBlendConstant())) {
@@ -841,7 +827,11 @@ void DrawEngineVulkan::DoFlush() {
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
-		decOptions_.applySkinInDecode = true;
+		if (!decOptions_.applySkinInDecode) {
+			decOptions_.applySkinInDecode = true;
+			lastVType_ |= (1 << 26);
+			dec_ = GetVertexDecoder(lastVType_);
+		}
 		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -892,6 +882,10 @@ void DrawEngineVulkan::DoFlush() {
 		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight < 0, trans, scale);
 
 		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
+		// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
+		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
+		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
+			result.action = SW_NOT_READY;
 		if (result.action == SW_NOT_READY) {
 			swTransform.DetectOffsetTexture(maxIndex);
 			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, maxIndex, &result);
@@ -920,7 +914,7 @@ void DrawEngineVulkan::DoFlush() {
 				VulkanFragmentShader *fshader = nullptr;
 				VulkanGeometryShader *gshader = nullptr;
 
-				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
+				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
 				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
 				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, false, 0);
 				if (!pipeline || !pipeline->pipeline) {
@@ -932,16 +926,6 @@ void DrawEngineVulkan::DoFlush() {
 					return;
 				}
 				BindShaderBlendTex();  // This might cause copies so super important to do before BindPipeline.
-
-				// If have a new render pass, dirty our dynamic state so it gets re-set.
-				// WARNING: We have to do this AFTER the last possible place in DoFlush that can cause a renderpass switch
-				// like a shader blend blit or similar. But before we actually set the state!
-				int curRenderStepId = renderManager->GetCurrentStepId();
-				if (lastRenderStepId_ != curRenderStepId) {
-					// Dirty everything that has dynamic state that will need re-recording.
-					gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE);
-					lastRenderStepId_ = curRenderStepId;
-				}
 
 				renderManager->BindPipeline(pipeline->pipeline, pipeline->pipelineFlags, pipelineLayout_);
 				if (pipeline != lastPipeline_) {

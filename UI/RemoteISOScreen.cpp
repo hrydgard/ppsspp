@@ -517,10 +517,10 @@ RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::string &url, const std::
 }
 
 void RemoteISOBrowseScreen::CreateViews() {
-	bool vertical = UseVerticalLayout();
-
 	auto di = GetI18NCategory("Dialog");
 	auto ri = GetI18NCategory("RemoteISO");
+
+	bool vertical = UseVerticalLayout();
 
 	Margins actionMenuMargins(0, 10, 10, 0);
 

@@ -398,7 +398,12 @@ public:
 	}
 	void SetSafeSize(u16 w, u16 h);
 
-	virtual void Resized();
+	void NotifyRenderResized();
+	virtual void NotifyDisplayResized();
+	void NotifyConfigChanged();
+
+	void CheckPostShaders();
+
 	virtual void DestroyAllFBOs();
 
 	virtual void DeviceLost();
@@ -438,6 +443,8 @@ public:
 		int scaleFactor,  // usually unused, except for swizzle...
 		Draw2DPipeline *pipeline, const char *tag);
 
+	void ReleasePipelines();
+
 protected:
 	virtual void ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
 	// Used for when a shader is required, such as GLES.
@@ -450,7 +457,7 @@ protected:
 	void CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 	void CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 
-	bool UpdateSize();
+	bool UpdateRenderSize();
 
 	void FlushBeforeCopy();
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
@@ -540,6 +547,7 @@ protected:
 	float renderWidth_ = 0.0f;
 	float renderHeight_ = 0.0f;
 
+	int msaaLevel_ = 0;
 	int renderScaleFactor_ = 1;
 	int pixelWidth_ = 0;
 	int pixelHeight_ = 0;

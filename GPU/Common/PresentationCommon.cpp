@@ -75,79 +75,67 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
-	SmallDisplayZoom zoomType = (SmallDisplayZoom)g_Config.iSmallDisplayZoomType;
+	bool stretch = g_Config.bDisplayStretch;
 
-	if (IsVREnabled()) {
-		if (IsFlatVRScene()) {
-			zoomType = SmallDisplayZoom::AUTO;
-		} else {
-			zoomType = SmallDisplayZoom::STRETCH;
+	float offsetX = g_Config.fDisplayOffsetX;
+	float offsetY = g_Config.fDisplayOffsetY;
+	if (GetGPUBackend() != GPUBackend::VULKAN) {
+		offsetY = 1.0 - offsetY;
+	}
+
+	float scale = g_Config.fDisplayScale;
+	float aspectRatioAdjust = g_Config.fDisplayAspectRatio;
+
+	// Ye olde 1080p hack, new version: If everything is setup to exactly cover the screen (defaults), and the screen display aspect ratio is 16:9,
+	// stretch the PSP's aspect ratio veeery slightly to fill it completely.
+	if (scale == 1.0f && offsetX == 0.5f && offsetY == 0.5f && aspectRatioAdjust == 1.0f) {
+		if (fabsf(frame.w / frame.h - 16.0f / 9.0f) < 0.0001f) {
+			aspectRatioAdjust = (frame.w / frame.h) / (480.0f / 272.0f);
 		}
 	}
 
-	if (zoomType == SmallDisplayZoom::STRETCH) {
+	float origRatio = !rotated ? origW / origH : origH / origW;
+	float frameRatio = frame.w / frame.h;
+
+	if (stretch) {
+		// Automatically set aspect ratio to match the display, IF the rotation matches the output display ratio! Otherwise, just
+		// sets standard aspect ratio because actually stretching will just look silly.
+		bool globalRotated = g_display_rotation == DisplayRotation::ROTATE_90 || g_display_rotation == DisplayRotation::ROTATE_270;
+		if (rotated == dp_yres > dp_xres) {
+			origRatio = frameRatio;
+		} else {
+			origRatio *= aspectRatioAdjust;
+		}
+	} else {
+		origRatio *= aspectRatioAdjust;
+	}
+
+	float scaledWidth = frame.w * scale;
+	float scaledHeight = frame.h * scale;
+
+	if (origRatio > frameRatio) {
+		// Image is wider than frame. Center vertically.
+		outW = scaledWidth;
+		outH = scaledWidth / origRatio;
+	} else {
+		// Image is taller than frame. Center horizontally.
+		outW = scaledHeight * origRatio;
+		outH = scaledHeight;
+	}
+
+	if (IsVREnabled()) {
+		rc->x = 0;
+		rc->y = 0;
+		rc->w = floorf(frame.w);
+		rc->h = floorf(frame.h);
 		outW = frame.w;
 		outH = frame.h;
 	} else {
-		if (zoomType == SmallDisplayZoom::MANUAL) {
-			float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frame.w + frame.x;
-			float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frame.h + frame.y;
-			// Have to invert Y for GL
-			if (GetGPUBackend() == GPUBackend::OPENGL) {
-				offsetY = offsetY * -1.0f;
-			}
-			float customZoom = g_Config.fSmallDisplayZoomLevel;
-			float smallDisplayW = origW * customZoom;
-			float smallDisplayH = origH * customZoom;
-			if (!rotated) {
-				rc->x = floorf(((frame.w - smallDisplayW) / 2.0f) + offsetX);
-				rc->y = floorf(((frame.h - smallDisplayH) / 2.0f) + offsetY);
-				rc->w = floorf(smallDisplayW);
-				rc->h = floorf(smallDisplayH);
-				return;
-			} else {
-				rc->x = floorf(((frame.w - smallDisplayH) / 2.0f) + offsetX);
-				rc->y = floorf(((frame.h - smallDisplayW) / 2.0f) + offsetY);
-				rc->w = floorf(smallDisplayH);
-				rc->h = floorf(smallDisplayW);
-				return;
-			}
-		} else if (zoomType == SmallDisplayZoom::AUTO) {
-			// Stretch to 1080 for 272*4.  But don't distort if not widescreen (i.e. ultrawide of halfwide.)
-			float pixelCrop = frame.h / 270.0f;
-			float resCommonWidescreen = pixelCrop - floor(pixelCrop);
-			if (!rotated && resCommonWidescreen == 0.0f && frame.w >= pixelCrop * 480.0f) {
-				rc->x = floorf((frame.w - pixelCrop * 480.0f) * 0.5f + frame.x);
-				rc->y = floorf(-pixelCrop + frame.y);
-				rc->w = floorf(pixelCrop * 480.0f);
-				rc->h = floorf(pixelCrop * 272.0f);
-				return;
-			}
-		}
-
-		float origRatio = !rotated ? origW / origH : origH / origW;
-		float frameRatio = frame.w / frame.h;
-
-		if (origRatio > frameRatio) {
-			// Image is wider than frame. Center vertically.
-			outW = frame.w;
-			outH = frame.w / origRatio;
-			// Stretch a little bit
-			if (!rotated && zoomType == SmallDisplayZoom::PARTIAL_STRETCH)
-				outH = (frame.h + outH) / 2.0f; // (408 + 720) / 2 = 564
-		} else {
-			// Image is taller than frame. Center horizontally.
-			outW = frame.h * origRatio;
-			outH = frame.h;
-			if (rotated && zoomType == SmallDisplayZoom::PARTIAL_STRETCH)
-				outW = (frame.h + outH) / 2.0f; // (408 + 720) / 2 = 564
-		}
+		rc->x = floorf(frame.x + frame.w * offsetX - outW * 0.5f);
+		rc->y = floorf(frame.y + frame.h * offsetY - outH * 0.5f);
+		rc->w = floorf(outW);
+		rc->h = floorf(outH);
 	}
-
-	rc->x = floorf((frame.w - outW) / 2.0f + frame.x);
-	rc->y = floorf((frame.h - outH) / 2.0f + frame.y);
-	rc->w = floorf(outW);
-	rc->h = floorf(outH);
 }
 
 PresentationCommon::PresentationCommon(Draw::DrawContext *draw) : draw_(draw) {
@@ -282,7 +270,7 @@ bool PresentationCommon::UpdatePostShader() {
 		previousIndex_ = 0;
 
 		for (int i = 0; i < FRAMES; ++i) {
-			previousFramebuffers_[i] = draw_->CreateFramebuffer({ w, h, 1, 1, false, "inter_presentation" });
+			previousFramebuffers_[i] = draw_->CreateFramebuffer({ w, h, 1, 1, 0, false, "inter_presentation" });
 			if (!previousFramebuffers_[i]) {
 				DestroyPostShader();
 				return false;
@@ -398,7 +386,7 @@ bool PresentationCommon::AllocateFramebuffer(int w, int h) {
 	}
 
 	// No depth/stencil for post processing
-	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, "presentation" });
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, 0, false, "presentation" });
 	if (!fbo) {
 		return false;
 	}
@@ -617,7 +605,7 @@ void PresentationCommon::UpdateUniforms(bool hasVideo) {
 }
 
 void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1) {
-	draw_->InvalidateCachedState();
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
 	// TODO: If shader objects have been created by now, we might have received errors.
 	// GLES can have the shader fail later, shader->failed / shader->error.
@@ -881,7 +869,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	DoRelease(srcTexture_);
 
 	// Unbinds all textures and samplers too, needed since sometimes a MakePixelTexture is deleted etc.
-	draw_->InvalidateCachedState();
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
 	previousUniforms_ = uniforms;
 }
@@ -891,6 +879,8 @@ void PresentationCommon::CalculateRenderResolution(int *width, int *height, int 
 	std::vector<const ShaderInfo *> shaderInfo;
 	if (!g_Config.vPostShaderNames.empty()) {
 		ReloadAllPostShaderInfo(draw_);
+		RemoveUnknownPostShaders(&g_Config.vPostShaderNames);
+		FixPostShaderOrder(&g_Config.vPostShaderNames);
 		shaderInfo = GetFullPostShadersChain(g_Config.vPostShaderNames);
 	}
 

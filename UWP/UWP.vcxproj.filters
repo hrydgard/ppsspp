@@ -273,12 +273,6 @@
     <None Include="Content\shaders\GaussianDownscale.fsh">
       <Filter>Content\shaders</Filter>
     </None>
-    <None Include="Content\shaders\grayscale.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\inversecolors.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
     <None Include="Content\flash0\font\jpn0.pgf">
       <Filter>Content\flash0\font</Filter>
     </None>

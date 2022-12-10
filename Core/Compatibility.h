@@ -87,12 +87,18 @@ struct CompatFlags {
 	bool DeswizzleDepth;
 	bool SplitFramebufferMargin;
 	bool ForceLowerResolutionForEffectsOn;
+	bool ForceLowerResolutionForEffectsOff;
 	bool AllowDownloadCLUT;
 	bool NearestFilteringOnFramebufferCreate;
 	bool SecondaryTextureCache;
+	bool EnglishOrJapaneseOnly;
+	bool OldAdrenoPixelDepthRoundingGL;
+	bool ForceCircleButtonConfirm;
+	bool DisallowFramebufferAtOffset;
 };
 
 struct VRCompat {
+	bool IdentityViewHack;
 	bool Skyplane;
 	float UnitsPerMeter;
 };

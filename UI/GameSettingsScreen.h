@@ -30,7 +30,6 @@ class GameSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
 	GameSettingsScreen(const Path &gamePath, std::string gameID = "", bool editThenRestore = false);
 
-	void update() override;
 	void onFinish(DialogResult result) override;
 	const char *tag() const override { return "GameSettings"; }
 
@@ -42,7 +41,6 @@ protected:
 	void CallbackRenderingDevice(bool yes);
 	void CallbackInflightFrames(bool yes);
 	void CallbackMemstickFolder(bool yes);
-	bool UseVerticalLayout() const;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void RecreateViews() override;
 
@@ -52,10 +50,8 @@ private:
 	void TriggerRestart(const char *why);
 
 	std::string gameID_;
-	bool lastVertical_;
 	UI::CheckBox *enableReportsCheckbox_;
 	UI::Choice *layoutEditorChoice_;
-	UI::Choice *postProcChoice_;
 	UI::Choice *displayEditor_;
 	UI::Choice *backgroundChoice_ = nullptr;
 	UI::PopupMultiChoice *resolutionChoice_;
@@ -81,15 +77,11 @@ private:
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
 	UI::EventReturn OnCalibrateAnalogs(UI::EventParams &e);
 	UI::EventReturn OnTouchControlLayout(UI::EventParams &e);
-	UI::EventReturn OnDumpNextFrameToLog(UI::EventParams &e);
 	UI::EventReturn OnTiltTypeChange(UI::EventParams &e);
 	UI::EventReturn OnTiltCustomize(UI::EventParams &e);
 
 	// Global settings handlers
-	UI::EventReturn OnLanguage(UI::EventParams &e);
-	UI::EventReturn OnLanguageChange(UI::EventParams &e);
 	UI::EventReturn OnAutoFrameskip(UI::EventParams &e);
-	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
 	UI::EventReturn OnTextureShader(UI::EventParams &e);
 	UI::EventReturn OnTextureShaderChange(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
@@ -105,7 +97,6 @@ private:
 	UI::EventReturn OnChangeBackground(UI::EventParams &e);
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
 	UI::EventReturn OnFullscreenMultiChange(UI::EventParams &e);
-	UI::EventReturn OnDisplayLayoutEditor(UI::EventParams &e);
 	UI::EventReturn OnResolutionChange(UI::EventParams &e);
 	UI::EventReturn OnHwScaleChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
@@ -143,7 +134,6 @@ private:
 	bool enableReportsSet_ = false;
 	bool analogSpeedMapped_ = false;
 
-	std::string shaderNames_[256];
 	std::string searchFilter_;
 
 	//edit the game-specific settings and restore the global settings after exiting
@@ -156,8 +146,10 @@ private:
 	std::string oldSettingInfo_;
 };
 
-class DeveloperToolsScreen : public UIDialogScreenWithBackground {
+class DeveloperToolsScreen : public UIDialogScreenWithGameBackground {
 public:
+	DeveloperToolsScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+
 	void update() override;
 	void onFinish(DialogResult result) override;
 
@@ -169,8 +161,6 @@ protected:
 private:
 	UI::EventReturn OnRunCPUTests(UI::EventParams &e);
 	UI::EventReturn OnLoggingChanged(UI::EventParams &e);
-	UI::EventReturn OnLoadLanguageIni(UI::EventParams &e);
-	UI::EventReturn OnSaveLanguageIni(UI::EventParams &e);
 	UI::EventReturn OnOpenTexturesIniFile(UI::EventParams &e);
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
@@ -248,8 +238,9 @@ private:
 };
 
 
-class GestureMappingScreen : public UIDialogScreenWithBackground {
+class GestureMappingScreen : public UIDialogScreenWithGameBackground {
 public:
+	GestureMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 	void CreateViews() override;
 
 	const char *tag() const override { return "GestureMapping"; }

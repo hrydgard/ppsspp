@@ -5,6 +5,7 @@
 #include <QApplication>
 #include <QDesktopServices>
 #include <QDesktopWidget>
+#include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>
 
@@ -26,7 +27,14 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	nextState(CORE_POWERDOWN),
 	lastUIState(UISTATE_MENU)
 {
+#if defined(ASSETS_DIR)
+	if (QFile::exists(ASSETS_DIR "icon_regular_72.png"))
+		setWindowIcon(QIcon(ASSETS_DIR "icon_regular_72.png"));
+	else
+		setWindowIcon(QIcon(qApp->applicationDirPath() + "/assets/icon_regular_72.png"));
+#else
 	setWindowIcon(QIcon(qApp->applicationDirPath() + "/assets/icon_regular_72.png"));
+#endif
 
 	SetGameTitle("");
 	emugl = new MainUI(this);
@@ -589,7 +597,7 @@ void MainWindow::createMenus()
 	MenuTree* gameSettingsMenu = new MenuTree(this, menuBar(), QT_TR_NOOP("&Game settings"));
 	gameSettingsMenu->add(new MenuAction(this, SLOT(languageAct()),        QT_TR_NOOP("La&nguage...")));
 	gameSettingsMenu->add(new MenuAction(this, SLOT(controlMappingAct()),        QT_TR_NOOP("C&ontrol mapping...")));
-	gameSettingsMenu->add(new MenuAction(this, SLOT(displayLayoutEditorAct()),        QT_TR_NOOP("Display layout editor...")));
+	gameSettingsMenu->add(new MenuAction(this, SLOT(displayLayoutEditorAct()),        QT_TR_NOOP("Display layout & effects...")));
 	gameSettingsMenu->add(new MenuAction(this, SLOT(moreSettingsAct()),        QT_TR_NOOP("&More settings...")));
 	gameSettingsMenu->addSeparator();
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)

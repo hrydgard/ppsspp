@@ -173,8 +173,9 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 
 static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
 
-static bool MatrixNeedsProjection(const float m[12]) {
-	return m[2] != 0.0f || m[5] != 0.0f || m[8] != 0.0f || m[11] != 1.0f;
+static bool MatrixNeedsProjection(const float m[12], GETexProjMapMode mode) {
+	// For GE_PROJMAP_UV, we can ignore m[8] since it multiplies to zero.
+	return m[2] != 0.0f || m[5] != 0.0f || (m[8] != 0.0f && mode != GE_PROJMAP_UV) || m[11] != 1.0f;
 }
 
 std::string FragmentShaderDesc(const FShaderID &id) {
@@ -256,9 +257,10 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	else if (id.Bit(FS_BIT_COLOR_TEST)) desc << "ColorTest " << alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match
 	if (id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO)) desc << "TestDiscardToZero ";
 	if (id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL)) desc << "StencilDiscardWorkaround ";
-	if (id.Bits(FS_BIT_REPLACE_LOGIC_OP, 4) != GE_LOGIC_COPY) desc << "ReplaceLogic ";
+	if ((id.Bits(FS_BIT_REPLACE_LOGIC_OP, 4) != GE_LOGIC_COPY) && !id.Bit(FS_BIT_CLEARMODE)) desc << "ReplaceLogic ";
 	if (id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE)) desc << "TexArray ";
 	if (id.Bit(FS_BIT_STEREO)) desc << "Stereo ";
+	if (id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH)) desc << "(fetch)";
 	return desc.str();
 }
 
@@ -282,7 +284,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
-		bool doTextureProjection = (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX && MatrixNeedsProjection(gstate.tgenMatrix));
+		bool doTextureProjection = (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX && MatrixNeedsProjection(gstate.tgenMatrix, gstate.getUVProjMode()));
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 
@@ -382,6 +384,14 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			bool stencilWithoutDepth = !IsStencilTestOutputDisabled() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled());
 			if (stencilWithoutDepth) {
 				id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, stencilWithoutDepth);
+			}
+		}
+
+		// In case the USE flag changes (for example, in multisampling we might disable input attachments),
+		// we don't want to accidentally use the wrong cached shader here. So moved it to a bit.
+		if (FragmentIdNeedsFramebufferRead(id)) {
+			if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH)) {
+				id.SetBit(FS_BIT_USE_FRAMEBUFFER_FETCH);
 			}
 		}
 	}

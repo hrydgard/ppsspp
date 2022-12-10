@@ -16,6 +16,7 @@
 #include "Common/Common.h"
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Shader.h"
+#include "Common/GPU/MiscTypes.h"
 #include "Common/Data/Collections/Slice.h"
 
 namespace Lin {
@@ -245,7 +246,7 @@ enum class NativeObject {
 	BOUND_TEXTURE0_IMAGEVIEW,  // Layer etc depends on how you bound it...
 	BOUND_TEXTURE1_IMAGEVIEW,  // Layer etc depends on how you bound it...
 	BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_ALL_LAYERS,
-	BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_LAYER, // use an int cast to void *srcObject to specify layer.
+	BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_RT,
 	RENDER_MANAGER,
 	TEXTURE_VIEW,
 	NULL_IMAGEVIEW,
@@ -299,6 +300,7 @@ struct FramebufferDesc {
 	int height;
 	int depth;
 	int numLayers;
+	int multiSampleLevel;  // 0 = 1xaa, 1 = 2xaa, and so on.
 	bool z_stencil;
 	const char *tag;  // For graphics debuggers
 };
@@ -339,6 +341,7 @@ public:
 		MALI_CONSTANT_LOAD_BUG = 9,
 		SUBPASS_FEEDBACK_BROKEN = 10,
 		GEOMETRY_SHADERS_SLOW_OR_BROKEN = 11,
+		ADRENO_RESOURCE_DEADLOCK = 12,
 		MAX_BUG,
 	};
 
@@ -434,10 +437,11 @@ public:
 	int Width() { return width_; }
 	int Height() { return height_; }
 	int Layers() { return layers_; }
+	int MultiSampleLevel() { return multiSampleLevel_; }
 
 	virtual void UpdateTag(const char *tag) {}
 protected:
-	int width_ = -1, height_ = -1, layers_ = 1;
+	int width_ = -1, height_ = -1, layers_ = 1, multiSampleLevel_ = 0;
 };
 
 class Buffer : public RefCountedObject {
@@ -570,10 +574,14 @@ struct DeviceCaps {
 	bool fragmentShaderInt32Supported;
 	bool textureNPOTFullySupported;
 	bool fragmentShaderDepthWriteSupported;
+	bool fragmentShaderStencilWriteSupported;
 	bool textureDepthSupported;
 	bool blendMinMaxSupported;
 	bool multiViewSupported;
+	bool isTilingGPU;  // This means that it benefits from correct store-ops, msaa without backing memory, etc.
+	bool sampleRateShadingSupported;
 
+	u32 multiSampleLevelsMask;  // Bit n is set if (1 << n) is a valid multisample level. Bit 0 is always set.
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
 
@@ -734,7 +742,7 @@ public:
 	// Clear state cached within thin3d. Must be called after directly calling API functions.
 	// Note that framebuffer state (which framebuffer is bounds) may not be cached.
 	// Must not actually perform any API calls itself since this can be called when no framebuffer is bound for rendering.
-	virtual void InvalidateCachedState() = 0;
+	virtual void Invalidate(InvalidationFlags flags) = 0;
 
 	virtual void BindPipeline(Pipeline *pipeline) = 0;
 
@@ -768,7 +776,9 @@ public:
 	// This is called when we launch a new game, so any collected internal stats in the backends don't carry over.
 	virtual void ResetStats() {}
 
-	virtual int GetCurrentStepId() const = 0;
+	// Used by the DrawEngines to know when they have to re-apply some state.
+	// Not very elegant, but more elegant than the old passId hack.
+	virtual void SetInvalidationCallback(InvalidationCallback callback) = 0;
 
 protected:
 	ShaderModule *vsPresets_[VS_MAX_PRESET];

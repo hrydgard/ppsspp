@@ -107,6 +107,10 @@ public:
 
 	virtual void NotifyConfigChanged();
 
+	bool EverUsedExactEqualDepth() const {
+		return everUsedExactEqualDepth_;
+	}
+
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
 		return decJitCache_->IsInSpace(ptr);
 	}
@@ -145,10 +149,32 @@ protected:
 		return 1;
 	}
 
+	inline void UpdateEverUsedEqualDepth(GEComparison comp) {
+		switch (comp) {
+		case GE_COMP_EQUAL:
+			everUsedExactEqualDepth_ = true;
+			everUsedEqualDepth_ = true;
+			break;
+
+		case GE_COMP_NOTEQUAL:
+		case GE_COMP_LEQUAL:
+		case GE_COMP_GEQUAL:
+			everUsedEqualDepth_ = true;
+			break;
+
+		default:
+			break;
+		}
+	}
+
 	bool useHWTransform_ = false;
 	bool useHWTessellation_ = false;
 	// Used to prevent unnecessary flushing in softgpu.
 	bool flushOnParams_ = true;
+
+	// Set once a equal depth test is encountered.
+	bool everUsedEqualDepth_ = false;
+	bool everUsedExactEqualDepth_ = false;
 
 	// Vertex collector buffers
 	u8 *decoded = nullptr;

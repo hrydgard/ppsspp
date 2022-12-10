@@ -14,43 +14,11 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <cassert>
 
-#ifdef ANDROID
+#if defined(_DEBUG) && (defined(XR_USE_GRAPHICS_API_OPENGL) || defined(XR_USE_GRAPHICS_API_OPENGL_ES))
 
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
-
-#endif
-
-#if defined(_DEBUG) && defined(ANDROID)
-static const char* GlErrorString(GLenum error) {
-	switch (error) {
-		case GL_NO_ERROR:
-			return "GL_NO_ERROR";
-		case GL_INVALID_ENUM:
-			return "GL_INVALID_ENUM";
-		case GL_INVALID_VALUE:
-			return "GL_INVALID_VALUE";
-		case GL_INVALID_OPERATION:
-			return "GL_INVALID_OPERATION";
-		case GL_INVALID_FRAMEBUFFER_OPERATION:
-			return "GL_INVALID_FRAMEBUFFER_OPERATION";
-		case GL_OUT_OF_MEMORY:
-			return "GL_OUT_OF_MEMORY";
-		default:
-			return "unknown";
-	}
-}
-
-static void GLCheckErrors(char* file, int line) {
-	for (int i = 0; i < 10; i++) {
-		const GLenum error = glGetError();
-		if (error == GL_NO_ERROR) {
-			break;
-		}
-		ALOGE("GL error on line %s:%d %s", file, line, GlErrorString(error));
-	}
-}
+void GLCheckErrors(const char* file, int line);
 
 #define GL(func) func; GLCheckErrors(__FILE__ , __LINE__);
 #else
@@ -153,8 +121,8 @@ typedef struct {
 enum VRPlatformFlag {
 	VR_PLATFORM_CONTROLLER_PICO,
 	VR_PLATFORM_CONTROLLER_QUEST,
+	VR_PLATFORM_INSTANCE_EXT,
 	VR_PLATFORM_PERFORMANCE_EXT,
-	VR_PLATFORM_PICO_INIT,
 	VR_PLATFORM_RENDERER_VULKAN,
 	VR_PLATFORM_TRACKING_FLOOR,
 	VR_PLATFORM_MAX

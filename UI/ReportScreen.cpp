@@ -20,6 +20,7 @@
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
 #include "Common/Render/DrawBuffer.h"
 #include "Common/GPU/thin3d.h"
+#include "Common/UI/AsyncImageFileView.h"
 #include "Common/UI/Context.h"
 #include "UI/PauseScreen.h"
 #include "UI/ReportScreen.h"
@@ -484,7 +485,7 @@ void ReportFinishScreen::ShowSuggestions() {
 			const char *suggestion = nullptr;
 			if (item == "Upgrade") {
 				suggestion = rp->T("SuggestionUpgrade", "Upgrade to a newer PPSSPP build");
-			} if (item == "Downgrade") {
+			} else if (item == "Downgrade") {
 				suggestion = rp->T("SuggestionDowngrade", "Downgrade to an older PPSSPP version (please report this bug)");
 			} else if (item == "VerifyDisc") {
 				suggestion = rp->T("SuggestionVerifyDisc", "Check your ISO is a good copy of your disc");

@@ -1,6 +1,8 @@
 // Headless version of PPSSPP, for testing using http://code.google.com/p/pspautotests/ .
 // See headless.txt.
 // To build on non-windows systems, just run CMake in the SDL directory, it will build both a normal ppsspp and the headless version.
+// Example command line to run a test in the VS debugger (useful to debug failures):
+// > --root pspautotests/tests/../ --compare --timeout=5 --graphics=software pspautotests/tests/cpu/cpu_alu/cpu_alu.prx
 
 #include "ppsspp_config.h"
 #include <cstdio>
@@ -424,6 +426,7 @@ int main(int argc, const char* argv[])
 	g_Config.bSkipGPUReadbacks = false;
 	g_Config.bHardwareTransform = true;
 	g_Config.iAnisotropyLevel = 0;  // When testing mipmapping we really don't want this.
+	g_Config.iMultiSampleLevel = 0;
 	g_Config.bVertexCache = false;
 	g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 	g_Config.iTimeFormat = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;

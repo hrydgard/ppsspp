@@ -155,6 +155,8 @@ public:
 	void ClearInputLayoutMap();
 
 private:
+	void Invalidate(InvalidationCallbackFlags flags);
+
 	void DoFlush();
 
 	void ApplyDrawState(int prim);

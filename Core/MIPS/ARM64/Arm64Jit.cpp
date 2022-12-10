@@ -230,7 +230,7 @@ void Arm64Jit::Compile(u32 em_address) {
 		ClearCache();
 	}
 
-	BeginWrite(4);
+	BeginWrite(JitBlockCache::MAX_BLOCK_INSTRUCTIONS * 16);
 
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);

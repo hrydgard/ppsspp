@@ -420,7 +420,7 @@ int CodeBlock::WriteProlog(int extraStack, const std::vector<RegCache::Reg> &vec
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	using namespace Gen;
 
-	BeginWrite();
+	BeginWrite(32768);
 	AlignCode16();
 	lastPrologStart_ = GetWritableCodePtr();
 

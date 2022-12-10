@@ -20,6 +20,7 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
+#include "GPU/Software/BinManager.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/FuncId.h"
 #include "GPU/Software/Rasterizer.h"
@@ -34,6 +35,10 @@ PixelJitCache *jitCache = nullptr;
 
 void Init() {
 	jitCache = new PixelJitCache();
+}
+
+void FlushJit() {
+	jitCache->Flush();
 }
 
 void Shutdown() {
@@ -703,8 +708,8 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	SetPixelColor(fbFormat, pixelID.cached.framebufStride, x, y, new_color, old_color, targetWriteMask);
 }
 
-SingleFunc GetSingleFunc(const PixelFuncID &id) {
-	SingleFunc jitted = jitCache->GetSingle(id);
+SingleFunc GetSingleFunc(const PixelFuncID &id, BinManager *binner) {
+	SingleFunc jitted = jitCache->GetSingle(id, binner);
 	if (jitted) {
 		return jitted;
 	}
@@ -739,13 +744,17 @@ SingleFunc PixelJitCache::GenericSingle(const PixelFuncID &id) {
 	return nullptr;
 }
 
+thread_local PixelJitCache::LastCache PixelJitCache::lastSingle_;
+
 // 256k should be plenty of space for plenty of variations.
-PixelJitCache::PixelJitCache() : CodeBlock(1024 * 64 * 4) {
+PixelJitCache::PixelJitCache() : CodeBlock(1024 * 64 * 4), cache_(64) {
+	lastSingle_.gen = -1;
 }
 
 void PixelJitCache::Clear() {
+	clearGen_++;
 	CodeBlock::Clear();
-	cache_.clear();
+	cache_.Clear();
 	addresses_.clear();
 
 	constBlendHalf_11_4s_ = nullptr;
@@ -771,28 +780,70 @@ std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {
 	return CodeBlock::DescribeCodePtr(ptr);
 }
 
-SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id) {
-	std::lock_guard<std::mutex> guard(jitCacheLock);
+void PixelJitCache::Flush() {
+	std::unique_lock<std::mutex> guard(jitCacheLock);
+	for (const auto &queued : compileQueue_) {
+		// Might've been compiled after enqueue, but before now.
+		size_t queuedKey = std::hash<PixelFuncID>()(queued);
+		if (!cache_.Get(queuedKey))
+			Compile(queued);
+	}
+	compileQueue_.clear();
+}
 
-	auto it = cache_.find(id);
-	if (it != cache_.end()) {
-		return it->second;
+SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, BinManager *binner) {
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
+
+	const size_t key = std::hash<PixelFuncID>()(id);
+	if (lastSingle_.Match(key, clearGen_))
+		return lastSingle_.func;
+
+	std::unique_lock<std::mutex> guard(jitCacheLock);
+	auto it = cache_.Get(key);
+	if (it != nullptr) {
+		lastSingle_.Set(key, it, clearGen_);
+		return it;
 	}
 
+	if (!binner) {
+		// Can't compile, let's try to do it later when there's an opportunity.
+		compileQueue_.insert(id);
+		return nullptr;
+	}
+
+	guard.unlock();
+	binner->Flush("compile");
+	guard.lock();
+
+	for (const auto &queued : compileQueue_) {
+		// Might've been compiled after enqueue, but before now.
+		size_t queuedKey = std::hash<PixelFuncID>()(queued);
+		if (!cache_.Get(queuedKey))
+			Compile(queued);
+	}
+	compileQueue_.clear();
+
+	// Might've been in the queue.
+	if (!cache_.Get(key))
+		Compile(id);
+
+	it = cache_.Get(key);
+	lastSingle_.Set(key, it, clearGen_);
+	return it;
+}
+
+void PixelJitCache::Compile(const PixelFuncID &id) {
 	// x64 is typically 200-500 bytes, but let's be safe.
 	if (GetSpaceLeft() < 65536) {
 		Clear();
 	}
 
 #if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-	if (g_Config.bSoftwareRenderingJit) {
-		addresses_[id] = GetCodePointer();
-		SingleFunc func = CompileSingle(id);
-		cache_[id] = func;
-		return func;
-	}
+	addresses_[id] = GetCodePointer();
+	SingleFunc func = CompileSingle(id);
+	cache_.Insert(std::hash<PixelFuncID>()(id), func);
 #endif
-	return nullptr;
 }
 
 void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id) {

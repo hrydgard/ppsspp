@@ -901,6 +901,7 @@ static ConfigSetting graphicsSettings[] = {
 
 	// Most low-performance (and many high performance) mobile GPUs do not support aniso anyway so defaulting to 4 is fine.
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 4, true, true),
+	ConfigSetting("MultiSampleLevel", &g_Config.iMultiSampleLevel, 0, true, true),  // Number of samples is 1 << iMultiSampleLevel
 
 	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, false, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
@@ -911,10 +912,12 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("FullScreenMulti", &g_Config.bFullScreenMulti, false),
 #endif
 
-	ConfigSetting("SmallDisplayZoomType", &g_Config.iSmallDisplayZoomType, &DefaultZoomType, true, true),
-	ConfigSetting("SmallDisplayOffsetX", &g_Config.fSmallDisplayOffsetX, 0.5f, true, true),
-	ConfigSetting("SmallDisplayOffsetY", &g_Config.fSmallDisplayOffsetY, 0.5f, true, true),
-	ConfigSetting("SmallDisplayZoomLevel", &g_Config.fSmallDisplayZoomLevel, 1.0f, true, true),
+	ConfigSetting("DisplayOffsetX", &g_Config.fDisplayOffsetX, 0.5f, true, true),
+	ConfigSetting("DisplayOffsetY", &g_Config.fDisplayOffsetY, 0.5f, true, true),
+	ConfigSetting("DisplayScale", &g_Config.fDisplayScale, 1.0f, true, true),
+	ConfigSetting("DisplayAspectRatio", &g_Config.fDisplayAspectRatio, 1.0f, true, true),
+	ConfigSetting("DisplayStretch", &g_Config.bDisplayStretch, false, true, true),
+
 	ConfigSetting("ImmersiveMode", &g_Config.bImmersiveMode, true, true, true),
 	ConfigSetting("SustainedPerformanceMode", &g_Config.bSustainedPerformanceMode, false, true, true),
 	ConfigSetting("IgnoreScreenInsets", &g_Config.bIgnoreScreenInsets, true, true, false),
@@ -1121,9 +1124,10 @@ static int DefaultSystemParamLanguage() {
 	int defaultLang = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 	if (g_Config.bFirstRun) {
 		// TODO: Be smart about same language, different country
-		auto langValuesMapping = GetLangValuesMapping();
-		if (langValuesMapping.find(g_Config.sLanguageIni) != langValuesMapping.end()) {
-			defaultLang = langValuesMapping[g_Config.sLanguageIni].second;
+		auto &langValuesMapping = g_Config.GetLangValuesMapping();
+		auto iter = langValuesMapping.find(g_Config.sLanguageIni);
+		if (iter != langValuesMapping.end()) {
+			defaultLang = iter->second.second;
 		}
 	}
 	return defaultLang;
@@ -1214,6 +1218,7 @@ static ConfigSetting vrSettings[] = {
 	ConfigSetting("VRCameraSide", &g_Config.fCameraSide, 0.0f),
 	ConfigSetting("VRCanvasDistance", &g_Config.fCanvasDistance, 6.0f),
 	ConfigSetting("VRFieldOfView", &g_Config.fFieldOfViewPercentage, 100.0f),
+	ConfigSetting("VRHeadUpDisplayScale", &g_Config.fHeadUpDisplayScale, 0.3f),
 	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f),
 
 	ConfigSetting(false),
@@ -1269,13 +1274,11 @@ Config::~Config() {
 	delete private_;
 }
 
-std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
-	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
+void Config::LoadLangValuesMapping() {
 	IniFile mapping;
 	mapping.LoadFromVFS("langregion.ini");
 	std::vector<std::string> keys;
 	mapping.GetKeys("LangRegionNames", keys);
-
 
 	std::map<std::string, int> langCodeMapping;
 	langCodeMapping["JAPANESE"] = PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
@@ -1291,8 +1294,8 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 	langCodeMapping["CHINESE_TRADITIONAL"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL;
 	langCodeMapping["CHINESE_SIMPLIFIED"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
 
-	Section *langRegionNames = mapping.GetOrCreateSection("LangRegionNames");
-	Section *systemLanguage = mapping.GetOrCreateSection("SystemLanguage");
+	const Section *langRegionNames = mapping.GetOrCreateSection("LangRegionNames");
+	const Section *systemLanguage = mapping.GetOrCreateSection("SystemLanguage");
 
 	for (size_t i = 0; i < keys.size(); i++) {
 		std::string langName;
@@ -1302,9 +1305,15 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 		int iLangCode = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 		if (langCodeMapping.find(langCode) != langCodeMapping.end())
 			iLangCode = langCodeMapping[langCode];
-		langValuesMapping[keys[i]] = std::make_pair(langName, iLangCode);
+		langValuesMapping_[keys[i]] = std::make_pair(langName, iLangCode);
 	}
-	return langValuesMapping;
+}
+
+const std::map<std::string, std::pair<std::string, int>> &Config::GetLangValuesMapping() {
+	if (langValuesMapping_.empty()) {
+		LoadLangValuesMapping();
+	}
+	return langValuesMapping_;
 }
 
 void Config::Reload() {
@@ -1467,7 +1476,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// Override ppsspp.ini JIT value to prevent crashing
 	if (DefaultCpuCore() != (int)CPUCore::JIT && g_Config.iCpuCore == (int)CPUCore::JIT) {
 		jitForcedOff = true;
-		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
+		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
 	}
 
 	// Automatically silence secondary instances. Could be an option I guess, but meh.
@@ -1589,11 +1598,8 @@ bool Config::Save(const char *saveReason) {
 	}
 	if (jitForcedOff) {
 		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
-#if PPSSPP_PLATFORM(IOS)
-		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
-#else
-		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
-#endif
+		if (g_Config.iCpuCore != (int)CPUCore::INTERPRETER)
+			g_Config.iCpuCore = (int)CPUCore::IR_JIT;
 	}
 	return true;
 }

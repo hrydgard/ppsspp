@@ -31,6 +31,7 @@
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
+#include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
@@ -50,9 +51,7 @@ static const SamplerDef samplersStereo[3] = {
 
 bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, FragmentShaderFlags *fragmentShaderFlags, std::string *errorString) {
 	*uniformMask = 0;
-	if (fragmentShaderFlags) {
-		*fragmentShaderFlags = (FragmentShaderFlags)0;
-	}
+	*fragmentShaderFlags = (FragmentShaderFlags)0;
 	errorString->clear();
 
 	bool useStereo = id.Bit(FS_BIT_STEREO);
@@ -94,6 +93,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	ShaderWriter p(buffer, compat, ShaderStage::Fragment, extensions, flags);
+	p.F("// %s\n", FragmentShaderDesc(id).c_str());
+
 	p.ApplySamplerMetadata(arrayTexture ? samplersStereo : samplersMono);
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
@@ -166,8 +167,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	bool needFramebufferRead = replaceBlend == REPLACE_BLEND_READ_FRAMEBUFFER || colorWriteMask || replaceLogicOp;
 
-	bool fetchFramebuffer = needFramebufferRead && gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH);
-	bool readFramebufferTex = needFramebufferRead && !gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH);
+	bool fetchFramebuffer = needFramebufferRead && id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH);
+	bool readFramebufferTex = needFramebufferRead && !id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH);
+
+	if (fetchFramebuffer && compat.shaderLanguage != GLSL_VULKAN && (compat.shaderLanguage != GLSL_3xx || !compat.lastFragData)) {
+		*errorString = "framebuffer fetch requires GLSL: vulkan or 3xx";
+		return false;
+	}
 
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 	bool writeDepth = gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
@@ -185,23 +191,21 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
 		}
 
-		WRITE(p, "layout (std140, set = 1, binding = 3) uniform baseUBO {\n%s};\n", ub_baseStr);
+		WRITE(p, "layout (std140, set = 1, binding = %d) uniform baseUBO {\n%s};\n", DRAW_BINDING_DYNUBO_BASE, ub_baseStr);
 		if (doTexture) {
-			WRITE(p, "layout (set = 1, binding = 0) uniform %s%s tex;\n", texture3D ? "sampler3D" : "sampler2D", arrayTexture ? "Array" : "");
+			WRITE(p, "layout (set = 1, binding = %d) uniform %s%s tex;\n", DRAW_BINDING_TEXTURE, texture3D ? "sampler3D" : "sampler2D", arrayTexture ? "Array" : "");
 		}
 
 		if (readFramebufferTex) {
 			// The framebuffer texture is always bound as an array.
-			p.C("layout (set = 1, binding = 1) uniform sampler2DArray fbotex;\n");
+			p.F("layout (set = 1, binding = %d) uniform sampler2DArray fbotex;\n", DRAW_BINDING_2ND_TEXTURE);
 		} else if (fetchFramebuffer) {
-			p.C("layout (input_attachment_index = 0, set = 1, binding = 9) uniform subpassInput inputColor;\n");
-			if (fragmentShaderFlags) {
-				*fragmentShaderFlags |= FragmentShaderFlags::INPUT_ATTACHMENT;
-			}
+			p.F("layout (input_attachment_index = 0, set = 1, binding = %d) uniform subpassInput inputColor;\n", DRAW_BINDING_INPUT_ATTACHMENT);
+			*fragmentShaderFlags |= FragmentShaderFlags::INPUT_ATTACHMENT;
 		}
 
 		if (shaderDepalMode != ShaderDepalMode::OFF) {
-			WRITE(p, "layout (set = 1, binding = 2) uniform sampler2D pal;\n");
+			WRITE(p, "layout (set = 1, binding = %d) uniform sampler2D pal;\n", DRAW_BINDING_DEPAL_TEXTURE);
 		}
 
 		// Note: the precision qualifiers must match the vertex shader!
@@ -560,7 +564,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (compat.shaderLanguage == GLSL_3xx) {
 			WRITE(p, "  lowp vec4 destColor = %s;\n", compat.lastFragData);
 		} else if (compat.shaderLanguage == GLSL_VULKAN) {
-			WRITE(p, "  lowp vec4 destColor = subpassLoad(inputColor);\n", compat.lastFragData);
+			WRITE(p, "  lowp vec4 destColor = subpassLoad(inputColor);\n");
 		} else {
 			_assert_msg_(false, "Need fetch destColor, but not a compatible language");
 		}
@@ -914,6 +918,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		const char *discardStatement = testForceToZero ? "v.a = 0.0;" : "DISCARD;";
 		if (enableAlphaTest) {
+			*fragmentShaderFlags |= FragmentShaderFlags::USES_DISCARD;
+
 			if (alphaTestAgainstZero) {
 				// When testing against 0 (extremely common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
@@ -951,6 +957,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		if (enableColorTest) {
+			*fragmentShaderFlags |= FragmentShaderFlags::USES_DISCARD;
+
 			if (colorTestAgainstZero) {
 				// When testing against 0 (common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.

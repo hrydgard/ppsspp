@@ -5,8 +5,14 @@
 #include "Common/GPU/Vulkan/VulkanAlloc.h"
 #include "Common/GPU/Vulkan/VulkanImage.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
+#include "Common/StringUtils.h"
 
 using namespace PPSSPP_VK;
+
+VulkanTexture::VulkanTexture(VulkanContext *vulkan, const char *tag)
+	: vulkan_(vulkan) {
+	truncate_cpy(tag_, tag);
+}
 
 void VulkanTexture::Wipe() {
 	if (view_ != VK_NULL_HANDLE) {
@@ -80,7 +86,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 	VkResult res = vmaCreateImage(vulkan_->Allocator(), &image_create_info, &allocCreateInfo, &image_, &allocation_, &allocInfo);
 
 	// Apply the tag
-	vulkan_->SetDebugName(image_, VK_OBJECT_TYPE_IMAGE, tag_.c_str());
+	vulkan_->SetDebugName(image_, VK_OBJECT_TYPE_IMAGE, tag_);
 
 	// Write a command to transition the image to the requested layout, if it's not already that layout.
 	if (initialLayout != VK_IMAGE_LAYOUT_UNDEFINED && initialLayout != VK_IMAGE_LAYOUT_PREINITIALIZED) {
@@ -123,14 +129,14 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 		_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
 		return false;
 	}
-	vulkan_->SetDebugName(view_, VK_OBJECT_TYPE_IMAGE_VIEW, tag_.c_str());
+	vulkan_->SetDebugName(view_, VK_OBJECT_TYPE_IMAGE_VIEW, tag_);
 
 	// Additionally, create an array view, but only if it's a 2D texture.
 	if (view_info.viewType == VK_IMAGE_VIEW_TYPE_2D) {
 		view_info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 		res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &arrayView_);
 		_assert_(res == VK_SUCCESS);
-		vulkan_->SetDebugName(arrayView_, VK_OBJECT_TYPE_IMAGE_VIEW, tag_.c_str());
+		vulkan_->SetDebugName(arrayView_, VK_OBJECT_TYPE_IMAGE_VIEW, tag_);
 	}
 
 	return true;

@@ -19,6 +19,7 @@
 #include "Common/Math/expression_parser.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/GECommandTable.h"
 #include "GPU/GPUState.h"
 
@@ -34,6 +35,8 @@ enum class GEReferenceIndex : uint32_t {
 	CLUTADDR,
 	TRANSFERSRC,
 	TRANSFERDST,
+	PRIMCOUNT,
+	LASTPRIMCOUNT,
 
 	TEXADDR0,
 	TEXADDR1,
@@ -74,6 +77,8 @@ static constexpr ReferenceName referenceNames[] = {
 	{ GEReferenceIndex::CLUTADDR, "clutaddr" },
 	{ GEReferenceIndex::TRANSFERSRC, "transfersrc" },
 	{ GEReferenceIndex::TRANSFERDST, "transferdst" },
+	{ GEReferenceIndex::PRIMCOUNT, "primcount" },
+	{ GEReferenceIndex::LASTPRIMCOUNT, "lastprimcount" },
 	{ GEReferenceIndex::TEXADDR0, "texaddr0" },
 	{ GEReferenceIndex::TEXADDR1, "texaddr1" },
 	{ GEReferenceIndex::TEXADDR2, "texaddr2" },
@@ -694,6 +699,12 @@ uint32_t GEExpressionFunctions::getReferenceValue(uint32_t referenceIndex) {
 
 	case GEReferenceIndex::TRANSFERDST:
 		return state.getTransferDstAddress();
+
+	case GEReferenceIndex::PRIMCOUNT:
+		return GPUDebug::PrimsThisFrame();
+
+	case GEReferenceIndex::LASTPRIMCOUNT:
+		return GPUDebug::PrimsLastFrame();
 
 	case GEReferenceIndex::TEXADDR0:
 	case GEReferenceIndex::TEXADDR1:

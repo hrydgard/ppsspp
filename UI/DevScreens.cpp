@@ -106,7 +106,8 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		items->Add(new CheckBox(&g_Config.bShowGpuProfile, dev->T("GPU Profile")));
 	}
 	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenuScreen::OnFreezeFrame);
-	items->Add(new Choice(dev->T("Dump Frame GPU Commands")))->OnClick.Handle(this, &DevMenuScreen::OnDumpFrame);
+
+	items->Add(new Choice(dev->T("Dump next frame to log")))->OnClick.Handle(this, &DevMenuScreen::OnDumpFrame);
 	items->Add(new Choice(dev->T("Toggle Audio Debug")))->OnClick.Handle(this, &DevMenuScreen::OnToggleAudioDebug);
 #ifdef USE_PROFILER
 	items->Add(new CheckBox(&g_Config.bShowFrameProfiler, dev->T("Frame Profiler"), ""));
@@ -147,7 +148,7 @@ UI::EventReturn DevMenuScreen::OnLogConfig(UI::EventParams &e) {
 
 UI::EventReturn DevMenuScreen::OnDeveloperTools(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new DeveloperToolsScreen());
+	screenManager()->push(new DeveloperToolsScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -553,6 +554,7 @@ void SystemInfoScreen::CreateViews() {
 			deviceSpecs->Add(new InfoItem(si->T("High precision float range"), temp));
 		}
 	}
+	deviceSpecs->Add(new InfoItem(si->T("Depth buffer format"), DataFormatToString(draw->GetDeviceCaps().preferredDepthBufferFormat)));
 	deviceSpecs->Add(new ItemHeader(si->T("OS Information")));
 	deviceSpecs->Add(new InfoItem(si->T("Memory Page Size"), StringFromFormat(si->T("%d bytes"), GetMemoryProtectPageSize())));
 	deviceSpecs->Add(new InfoItem(si->T("RW/RX exclusive"), PlatformIsWXExclusive() ? di->T("Active") : di->T("Inactive")));
@@ -616,6 +618,19 @@ void SystemInfoScreen::CreateViews() {
 	}
 	deviceSpecs->Add(new InfoItem("Moga", moga));
 #endif
+
+	if (gstate_c.useFlags != 0) {
+		// We're in-game, and can determine these.
+		// TODO: Call a static version of GPUCommon::CheckGPUFeatures() and derive them here directly.
+
+		deviceSpecs->Add(new ItemHeader(si->T("GPU Flags")));
+
+		for (int i = 0; i < 32; i++) {
+			if (gstate_c.Use((1 << i))) {
+				deviceSpecs->Add(new TextView(GpuUseFlagToString(i), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+			}
+		}
+	}
 
 	ViewGroup *storageScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	storageScroll->SetTag("DevSystemInfoBuildConfig");

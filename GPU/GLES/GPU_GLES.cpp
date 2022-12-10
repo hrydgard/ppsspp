@@ -144,6 +144,9 @@ GPU_GLES::~GPU_GLES() {
 	shaderManagerGL_ = nullptr;
 	delete framebufferManagerGL_;
 	delete textureCacheGL_;
+
+	// Clear features so they're not visible in system info.
+	gstate_c.useFlags = 0;
 }
 
 // Take the raw GL extension and versioning data and turn into feature flags.
@@ -153,9 +156,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	u32 features = GPUCommon::CheckGPUFeatures();
 
 	features |= GPU_USE_16BIT_FORMATS;
-
-	if ((gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD))
-		features |= GPU_USE_REVERSE_COLOR_ORDER;
 
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		features |= GPU_USE_TEXTURE_LOD_CONTROL;
@@ -173,39 +173,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	if (gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float)
 		features |= GPU_USE_TEXTURE_FLOAT;
 
-	if (draw_->GetDeviceCaps().depthClampSupported) {
-		features |= GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH;
-		// Our implementation of depth texturing needs simple Z range, so can't
-		// use the extension hacks (yet).
-	}
-
-	// If we already have a 16-bit depth buffer, we don't need to round.
-	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
-	if (prefer24) {
-		if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-			if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
-				// Use fragment rounding on desktop and GLES3, most accurate.
-				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-			} else if (prefer24 && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-				// Here we can simulate a 16 bit depth buffer by scaling.
-				// Note that the depth buffer is fixed point, not floating, so dividing by 256 is pretty good.
-				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-			} else {
-				// At least do vertex rounding if nothing else.
-				features |= GPU_ROUND_DEPTH_TO_16BIT;
-			}
-		} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
-			features |= GPU_ROUND_DEPTH_TO_16BIT;
-		}
-	}
-
-	// The Phantasy Star hack :(
-	if (PSP_CoreParameter().compat.flags().DepthRangeHack && (features & GPU_USE_ACCURATE_DEPTH) == 0) {
-		features |= GPU_USE_DEPTH_RANGE_HACK;
-	}
-
 	if (!draw_->GetShaderLanguageDesc().bitwiseOps) {
 		features |= GPU_USE_FRAGMENT_TEST_CACHE;
 	}
@@ -215,6 +182,23 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	}
 	if (IsMultiviewSupported()) {
 		features |= GPU_USE_SINGLE_PASS_STEREO;
+	}
+
+	features = CheckGPUFeaturesLate(features);
+
+	if (draw_->GetBugs().Has(Draw::Bugs::ADRENO_RESOURCE_DEADLOCK) && g_Config.bVendorBugChecksEnabled) {
+		if (PSP_CoreParameter().compat.flags().OldAdrenoPixelDepthRoundingGL) {
+			features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+		}
+	}
+
+	// This is a bit ugly, but lets us reuse most of the depth logic in GPUCommon.
+	if (features & GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) {
+		if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
+			// Unsupported, switch to GPU_ROUND_DEPTH_TO_16BIT instead.
+			features &= ~GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+			features |= GPU_ROUND_DEPTH_TO_16BIT;
+		}
 	}
 
 	return features;
@@ -287,16 +271,6 @@ void GPU_GLES::InitClear() {
 
 void GPU_GLES::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
-	UpdateCmdInfo();
-	if (resized_) {
-		gstate_c.useFlags = CheckGPUFeatures();
-		framebufferManager_->Resized();
-		drawEngine_.NotifyConfigChanged();
-		textureCache_->NotifyConfigChanged();
-		shaderManagerGL_->DirtyShader();
-		resized_ = false;
-	}
-
 	drawEngine_.BeginFrame();
 }
 
@@ -381,19 +355,6 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerGL_->GetNumFragmentShaders(),
 		shaderManagerGL_->GetNumPrograms()
 	);
-}
-
-void GPU_GLES::ClearCacheNextFrame() {
-	textureCacheGL_->ClearNextFrame();
-}
-
-void GPU_GLES::ClearShaderCache() {
-	shaderManagerGL_->ClearCache(true);
-}
-
-void GPU_GLES::CleanupBeforeUI() {
-	// Clear any enabled vertex arrays.
-	shaderManagerGL_->DirtyLastShader();
 }
 
 void GPU_GLES::DoState(PointerWrap &p) {

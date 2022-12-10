@@ -26,12 +26,12 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Format/JSONReader.h"
 #include "Common/StringUtils.h"
+#include "Common/Render/ManagedTexture.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Util/GameManager.h"
 #include "UI/EmuScreen.h"
 #include "UI/Store.h"
-#include "UI/TextureUtil.h"
 
 const std::string storeBaseUrl = "http://store.ppsspp.org/";
 

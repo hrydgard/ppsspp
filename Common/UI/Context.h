@@ -71,7 +71,6 @@ public:
 
 	DrawBuffer *Draw() const { return uidrawbuffer_; }
 	DrawBuffer *DrawTop() const { return uidrawbufferTop_; }
-	const UI::Theme *theme;
 
 	// Utility methods
 	TextDrawer *Text() const { return textDrawer_; }
@@ -94,6 +93,9 @@ public:
 	const Bounds &GetBounds() const { return bounds_; }
 	Bounds GetLayoutBounds() const;
 	Draw::DrawContext *GetDrawContext() { return draw_; }
+	const UI::Theme &GetTheme() const {
+		return *theme;
+	}
 	void SetCurZ(float curZ);
 
 	void PushTransform(const UITransform &transform);
@@ -105,6 +107,9 @@ public:
 	void SetScreenTag(const char *tag) {
 		screenTag_ = tag;
 	}
+
+	// TODO: Move to private.
+	const UI::Theme *theme;
 
 private:
 	Draw::DrawContext *draw_ = nullptr;
