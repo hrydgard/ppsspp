@@ -1147,7 +1147,10 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		draw_->BindTextures(0, 1, &pixelsTex, Draw::TextureBindFlags::VULKAN_BIND_ARRAY);
 
 		// TODO: Replace with draw2D_.Blit() directly.
-		DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
+		DrawActiveTexture(dstX, dstY, width, height,
+			vfb ? vfb->bufferWidth : pixel_xres,
+			vfb ? vfb->bufferHeight : pixel_yres,
+			u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 
 		gpuStats.numUploads++;
 		pixelsTex->Release();
