@@ -282,7 +282,7 @@ public:
 	UI::Event OnChoice;
 
 protected:
-	bool HasTitleBar() const { return false; }
+	bool HasTitleBar() const override { return false; }
 
 private:
 	const ContextMenuItem *items_;
