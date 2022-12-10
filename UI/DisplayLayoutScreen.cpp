@@ -152,6 +152,7 @@ void DisplayLayoutScreen::dialogFinished(const Screen *dialog, DialogResult resu
 UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) {
 	// Remove the virtual "Off" entry. TODO: Get rid of it generally.
 	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
+	FixPostShaderOrder(&g_Config.vPostShaderNames);
 
 	NativeMessageReceived("gpu_configChanged", "");
 	NativeMessageReceived("gpu_renderResized", "");  // To deal with shaders that can change render resolution like upscaling.
@@ -370,7 +371,9 @@ void DisplayLayoutScreen::CreateViews() {
 			moreButton->OnClick.Add([=](EventParams &e) -> UI::EventReturn {
 				PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(postShaderContextMenu, ARRAY_SIZE(postShaderContextMenu), di.get(), moreButton);
 				screenManager()->push(contextMenu);
-				contextMenu->SetEnabled(0, i > 0);
+				const ShaderInfo *info = GetPostShaderInfo(g_Config.vPostShaderNames[i]);
+				bool usesLastFrame = info ? info->usePreviousFrame : false;
+				contextMenu->SetEnabled(0, i > 0 && !usesLastFrame);
 				contextMenu->SetEnabled(1, i < g_Config.vPostShaderNames.size() - 1);
 				contextMenu->OnChoice.Add([=](EventParams &e) -> UI::EventReturn {
 					switch (e.a) {
@@ -386,6 +389,7 @@ void DisplayLayoutScreen::CreateViews() {
 					default:
 						return UI::EVENT_DONE;
 					}
+					FixPostShaderOrder(&g_Config.vPostShaderNames);
 					NativeMessageReceived("gpu_configChanged", "");
 					RecreateViews();
 					return UI::EVENT_DONE;
