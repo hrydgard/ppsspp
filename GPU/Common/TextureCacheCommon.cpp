@@ -2646,15 +2646,22 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.scaleFactor = plan.scaleFactor > 4 ? 4 : (plan.scaleFactor > 2 ? 2 : 1);
 	}
 
+	bool isFakeMipmapChange = IsFakeMipmapChange();
+
 	if (plan.badMipSizes) {
 		// Check for pure 3D texture.
 		int tw = gstate.getTextureWidth(0);
 		int th = gstate.getTextureHeight(0);
 		bool pure3D = true;
-		for (int i = 0; i < plan.levelsToLoad; i++) {
-			if (gstate.getTextureWidth(i) != gstate.getTextureWidth(0) || gstate.getTextureHeight(i) != gstate.getTextureHeight(0)) {
-				pure3D = false;
+		if (!isFakeMipmapChange) {
+			for (int i = 0; i < plan.levelsToLoad; i++) {
+				if (gstate.getTextureWidth(i) != gstate.getTextureWidth(0) || gstate.getTextureHeight(i) != gstate.getTextureHeight(0)) {
+					pure3D = false;
+					break;
+				}
 			}
+		} else {
+			pure3D = false;
 		}
 
 		if (pure3D && draw_->GetDeviceCaps().texture3DSupported) {
@@ -2777,11 +2784,13 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 	// Always load base level texture here 
 	plan.baseLevelSrc = 0;
-	if (IsFakeMipmapChange()) {
+	if (isFakeMipmapChange) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		plan.baseLevelSrc = std::max(0, gstate.getTexLevelOffset16() / 16);
 		plan.levelsToCreate = 1;
 		plan.levelsToLoad = 1;
+		// Make sure we already decided not to do a 3D texture above.
+		_dbg_assert_(plan.depth == 1);
 	}
 
 	if (plan.isVideo || plan.depth != 1 || plan.decodeToClut8) {
