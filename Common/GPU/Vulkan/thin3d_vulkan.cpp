@@ -382,7 +382,7 @@ class VKFramebuffer;
 class VKContext : public DrawContext {
 public:
 	VKContext(VulkanContext *vulkan);
-	virtual ~VKContext();
+	~VKContext();
 
 	void DebugAnnotate(const char *annotation) override;
 
@@ -1184,16 +1184,12 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 		}
 	}
 
-	if (input) {
-		for (int i = 0; i < (int)input->bindings.size(); i++) {
-			pipeline->stride[i] = input->bindings[i].stride;
-		}
-	} else {
-		pipeline->stride[0] = 0;
-	}
-	_dbg_assert_(input->bindings.size() == 1);
+	_dbg_assert_(input && input->bindings.size() == 1);
 	_dbg_assert_((int)input->attributes.size() == (int)input->visc.vertexAttributeDescriptionCount);
 
+	for (int i = 0; i < (int)input->bindings.size(); i++) {
+		pipeline->stride[i] = input->bindings[i].stride;
+	}
 	gDesc.ibd = input->bindings[0];
 	for (size_t i = 0; i < input->attributes.size(); i++) {
 		gDesc.attrs[i] = input->attributes[i];
@@ -1362,7 +1358,7 @@ public:
 	VKBuffer(size_t size, uint32_t flags) : dataSize_(size) {
 		data_ = new uint8_t[size];
 	}
-	~VKBuffer() override {
+	~VKBuffer() {
 		delete[] data_;
 	}
 

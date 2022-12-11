@@ -38,7 +38,7 @@ static XInputGetState_t PPSSPP_XInputGetState = nullptr;
 static XInputSetState_t PPSSPP_XInputSetState = nullptr;
 static XInputGetCapabilitiesEx_t PPSSPP_XInputGetCapabilitiesEx = nullptr;
 static DWORD PPSSPP_XInputVersion = 0;
-static HMODULE s_pXInputDLL = 0;
+static HMODULE s_pXInputDLL = nullptr;
 static int s_XInputDLLRefCount = 0;
 
 static void UnloadXInputDLL();
@@ -105,7 +105,7 @@ static void UnloadXInputDLL() {
 	if ( s_pXInputDLL ) {
 		if (--s_XInputDLLRefCount == 0) {
 			FreeLibrary( s_pXInputDLL );
-			s_pXInputDLL = NULL;
+			s_pXInputDLL = nullptr;
 		}
 	}
 }
@@ -206,7 +206,7 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 	if (!notified[pad]) {
 		notified[pad] = true;
 #if !PPSSPP_PLATFORM(UWP)
-		XINPUT_CAPABILITIES_EX caps;
+		XINPUT_CAPABILITIES_EX caps{};
 		if (PPSSPP_XInputGetCapabilitiesEx != nullptr && PPSSPP_XInputGetCapabilitiesEx(1, pad, 0, &caps) == ERROR_SUCCESS) {
 			KeyMap::NotifyPadConnected(DEVICE_ID_XINPUT_0 + pad, StringFromFormat("Xbox 360 Pad: %d/%d", caps.vendorId, caps.productId));
 		} else {

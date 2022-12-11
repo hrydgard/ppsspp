@@ -117,7 +117,7 @@ public:
 class DrawEngineD3D11 : public DrawEngineCommon {
 public:
 	DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context);
-	virtual ~DrawEngineD3D11();
+	~DrawEngineD3D11();
 
 	void SetShaderManager(ShaderManagerD3D11 *shaderManager) {
 		shaderManager_ = shaderManager;

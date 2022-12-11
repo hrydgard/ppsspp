@@ -15,6 +15,7 @@ enum ExpressionType
 class IExpressionFunctions
 {
 public:
+	virtual ~IExpressionFunctions() {}
 	virtual bool parseReference(char* str, uint32_t& referenceIndex) = 0;
 	virtual bool parseSymbol(char* str, uint32_t& symbolValue) = 0;
 	virtual uint32_t getReferenceValue(uint32_t referenceIndex) = 0;

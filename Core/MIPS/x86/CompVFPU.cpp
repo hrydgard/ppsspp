@@ -220,7 +220,7 @@ void Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
 
 // Vector regs can overlap in all sorts of swizzled ways.
 // This does allow a single overlap in sregs[i].
-bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
+bool IsOverlapSafeAllowS(int dreg, int di, int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = NULL) {
 	for (int i = 0; i < sn; ++i) {
 		if (sregs[i] == dreg && i != di)
 			return false;
@@ -234,7 +234,7 @@ bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tr
 	return true;
 }
 
-bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
+bool IsOverlapSafe(int dreg, int di, int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = NULL) {
 	return IsOverlapSafeAllowS(dreg, di, sn, sregs, tn, tregs) && sregs[di] != dreg;
 }
 

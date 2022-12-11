@@ -50,7 +50,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
-static size_t FormatFramebufferName(VirtualFramebuffer *vfb, char *tag, size_t len) {
+static size_t FormatFramebufferName(const VirtualFramebuffer *vfb, char *tag, size_t len) {
 	return snprintf(tag, len, "FB_%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, vfb->bufferWidth, vfb->bufferHeight, GeBufferFormatToString(vfb->fb_format));
 }
 
@@ -1999,7 +1999,7 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 		}
 	}
 
-	if (!candidates.empty()) {
+	if (best) {
 		*rect = *best;
 		return true;
 	} else {

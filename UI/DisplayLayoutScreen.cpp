@@ -61,7 +61,7 @@ class DisplayLayoutBackground : public UI::View {
 public:
 	DisplayLayoutBackground(UI::ChoiceStrip *mode, UI::LayoutParams *layoutParams) : UI::View(layoutParams), mode_(mode) {}
 
-	bool Touch(const TouchInput &touch) {
+	bool Touch(const TouchInput &touch) override {
 		int mode = mode_ ? mode_->GetSelection() : 0;
 
 		if ((touch.flags & TOUCH_MOVE) != 0 && dragging_) {

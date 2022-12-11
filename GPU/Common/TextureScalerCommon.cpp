@@ -71,7 +71,7 @@ namespace {
 // 3x3 convolution with Neumann boundary conditions, parallelizable
 // quite slow, could be sped up a lot
 // especially handling of separable kernels
-void convolve3x3(u32* data, u32* out, const int kernel[3][3], int width, int height, int l, int u) {
+void convolve3x3(const u32 *data, u32 *out, const int kernel[3][3], int width, int height, int l, int u) {
 	for (int yb = 0; yb < (u - l) / BLOCK_SIZE + 1; ++yb) {
 		for (int xb = 0; xb < width / BLOCK_SIZE + 1; ++xb) {
 			for (int y = l + yb*BLOCK_SIZE; y < l + (yb + 1)*BLOCK_SIZE && y < u; ++y) {
@@ -92,7 +92,7 @@ void convolve3x3(u32* data, u32* out, const int kernel[3][3], int width, int hei
 }
 
 // deposterization: smoothes posterized gradients from low-color-depth (e.g. 444, 565, compressed) sources
-void deposterizeH(u32* data, u32* out, int w, int l, int u) {
+void deposterizeH(const u32 *data, u32 *out, int w, int l, int u) {
 	static const int T = 8;
 	for (int y = l; y < u; ++y) {
 		for (int x = 0; x < w; ++x) {
@@ -120,7 +120,7 @@ void deposterizeH(u32* data, u32* out, int w, int l, int u) {
 		}
 	}
 }
-void deposterizeV(u32* data, u32* out, int w, int h, int l, int u) {
+void deposterizeV(const u32 *data, u32 *out, int w, int h, int l, int u) {
 	static const int T = 8;
 	for (int xb = 0; xb < w / BLOCK_SIZE + 1; ++xb) {
 		for (int y = l; y < u; ++y) {
@@ -152,7 +152,7 @@ void deposterizeV(u32* data, u32* out, int w, int h, int l, int u) {
 
 // generates a distance mask value for each pixel in data
 // higher values -> larger distance to the surrounding pixels
-void generateDistanceMask(u32* data, u32* out, int width, int height, int l, int u) {
+void generateDistanceMask(const u32 *data, u32 *out, int width, int height, int l, int u) {
 	for (int yb = 0; yb < (u - l) / BLOCK_SIZE + 1; ++yb) {
 		for (int xb = 0; xb < width / BLOCK_SIZE + 1; ++xb) {
 			for (int y = l + yb*BLOCK_SIZE; y < l + (yb + 1)*BLOCK_SIZE && y < u; ++y) {
@@ -183,7 +183,7 @@ void generateDistanceMask(u32* data, u32* out, int width, int height, int l, int
 }
 
 // mix two images based on a mask
-void mix(u32* data, u32* source, u32* mask, u32 maskmax, int width, int l, int u) {
+void mix(u32 *data, const u32 *source, const u32 *mask, u32 maskmax, int width, int l, int u) {
 	for (int y = l; y < u; ++y) {
 		for (int x = 0; x < width; ++x) {
 			int pos = y*width + x;
@@ -448,7 +448,7 @@ static void upscale_cubic(
 
 // End of pasted cubic upscaler.
 
-void scaleBicubicBSpline(int factor, u32* data, u32* out, int w, int h, int l, int u) {
+void scaleBicubicBSpline(int factor, const u32 *data, u32 *out, int w, int h, int l, int u) {
 	const float B = 1.0f, C = 0.0f;
 	const int wrap_mode = 1; // Clamp
 	upscale_cubic(
@@ -458,7 +458,7 @@ void scaleBicubicBSpline(int factor, u32* data, u32* out, int w, int h, int l, i
 		0, factor*l, factor*w, factor*u);
 }
 
-void scaleBicubicMitchell(int factor, u32* data, u32* out, int w, int h, int l, int u) {
+void scaleBicubicMitchell(int factor, const u32 *data, u32 *out, int w, int h, int l, int u) {
 	const float B = 0.0f, C = 0.5f; // Actually, Catmull-Rom
 	const int wrap_mode = 1; // Clamp
 	upscale_cubic(
@@ -478,7 +478,7 @@ const static u8 BILINEAR_FACTORS[4][3][2] = {
 };
 // integral bilinear upscaling by factor f, horizontal part
 template<int f>
-void bilinearHt(u32* data, u32* out, int w, int l, int u) {
+void bilinearHt(const u32 *data, u32 *out, int w, int l, int u) {
 	static_assert(f > 1 && f <= 5, "Bilinear scaling only implemented for factors 2 to 5");
 	int outw = w*f;
 	for (int y = l; y < u; ++y) {
@@ -497,7 +497,7 @@ void bilinearHt(u32* data, u32* out, int w, int l, int u) {
 		}
 	}
 }
-void bilinearH(int factor, u32* data, u32* out, int w, int l, int u) {
+void bilinearH(int factor, const u32 *data, u32 *out, int w, int l, int u) {
 	switch (factor) {
 	case 2: bilinearHt<2>(data, out, w, l, u); break;
 	case 3: bilinearHt<3>(data, out, w, l, u); break;
@@ -509,7 +509,7 @@ void bilinearH(int factor, u32* data, u32* out, int w, int l, int u) {
 // integral bilinear upscaling by factor f, vertical part
 // gl/gu == global lower and upper bound
 template<int f>
-void bilinearVt(u32* data, u32* out, int w, int gl, int gu, int l, int u) {
+void bilinearVt(const u32 *data, u32 *out, int w, int gl, int gu, int l, int u) {
 	static_assert(f>1 && f <= 5, "Bilinear scaling only implemented for 2x, 3x, 4x, and 5x");
 	int outw = w*f;
 	for (int xb = 0; xb < outw / BLOCK_SIZE + 1; ++xb) {
@@ -531,7 +531,7 @@ void bilinearVt(u32* data, u32* out, int w, int gl, int gu, int l, int u) {
 		}
 	}
 }
-void bilinearV(int factor, u32* data, u32* out, int w, int gl, int gu, int l, int u) {
+void bilinearV(int factor, const u32 *data, u32 *out, int w, int gl, int gu, int l, int u) {
 	switch (factor) {
 	case 2: bilinearVt<2>(data, out, w, gl, gu, l, u); break;
 	case 3: bilinearVt<3>(data, out, w, gl, gu, l, u); break;

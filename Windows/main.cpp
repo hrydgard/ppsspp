@@ -113,7 +113,7 @@ void OpenDirectory(const char *path) {
 	// SHParseDisplayName can't handle relative paths, so normalize first.
 	std::string resolved = ReplaceAll(File::ResolvePath(path), "/", "\\");
 
-	SFGAOF flags;
+	SFGAOF flags{};
 	PIDLIST_ABSOLUTE pidl = nullptr;
 	HRESULT hr = SHParseDisplayName(ConvertUTF8ToWString(resolved).c_str(), nullptr, &pidl, 0, &flags);
 
@@ -174,8 +174,8 @@ std::string GetVideoCardDriverVersion() {
 	IEnumWbemClassObject* pEnum;
 	hr = pIWbemServices->ExecQuery(bstrWQL, bstrPath, WBEM_FLAG_FORWARD_ONLY, NULL, &pEnum);
 
-	ULONG uReturned;
-	VARIANT var;
+	ULONG uReturned = 0;
+	VARIANT var{};
 	IWbemClassObject* pObj = NULL;
 	if (!FAILED(hr)) {
 		hr = pEnum->Next(WBEM_INFINITE, 1, &pObj, &uReturned);
@@ -372,16 +372,8 @@ void System_SendMessage(const char *command, const char *parameter) {
 		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
 		MessageBox(MainWindow::GetHWND(), full_error.c_str(), title.c_str(), MB_OK);
 	} else if (!strcmp(command, "setclipboardtext")) {
-		if (OpenClipboard(MainWindow::GetDisplayHWND())) {
-			std::wstring data = ConvertUTF8ToWString(parameter);
-			HANDLE handle = GlobalAlloc(GMEM_MOVEABLE, (data.size() + 1) * sizeof(wchar_t));
-			wchar_t *wstr = (wchar_t *)GlobalLock(handle);
-			memcpy(wstr, data.c_str(), (data.size() + 1) * sizeof(wchar_t));
-			GlobalUnlock(wstr);
-			SetClipboardData(CF_UNICODETEXT, handle);
-			GlobalFree(handle);
-			CloseClipboard();
-		}
+		std::wstring data = ConvertUTF8ToWString(parameter);
+		W32Util::CopyTextToClipboard(MainWindow::GetDisplayHWND(), data);
 	} else if (!strcmp(command, "browse_file")) {
 		MainWindow::BrowseAndBoot("");
 	} else if (!strcmp(command, "browse_folder")) {
@@ -411,6 +403,8 @@ void EnableCrashingOnCrashes() {
 	const DWORD EXCEPTION_SWALLOWING = 0x1;
 
 	HMODULE kernel32 = LoadLibrary(L"kernel32.dll");
+	if (!kernel32)
+		return;
 	tGetPolicy pGetPolicy = (tGetPolicy)GetProcAddress(kernel32,
 		"GetProcessUserModeExceptionPolicy");
 	tSetPolicy pSetPolicy = (tSetPolicy)GetProcAddress(kernel32,
@@ -773,7 +767,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			break;
 		}
 
-		if (!TranslateAccelerator(wnd, accel, &msg)) {
+		if (!wnd || !accel || !TranslateAccelerator(wnd, accel, &msg)) {
 			if (!DialogManager::IsDialogMessage(&msg)) {
 				//and finally translate and dispatch
 				TranslateMessage(&msg);

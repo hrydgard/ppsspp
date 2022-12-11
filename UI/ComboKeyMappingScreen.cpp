@@ -271,7 +271,7 @@ void ComboKeyScreen::CreateViews() {
 	}
 }
 
-static uint64_t arrayToInt(bool ary[ARRAY_SIZE(CustomKey::comboKeyList)]) {
+static uint64_t arrayToInt(const bool ary[ARRAY_SIZE(CustomKey::comboKeyList)]) {
 	uint64_t value = 0;
 	for (int i = ARRAY_SIZE(CustomKey::comboKeyList)-1; i >= 0; i--) {
 		value |= ary[i] ? 1 : 0;

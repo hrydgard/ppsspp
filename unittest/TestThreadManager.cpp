@@ -74,8 +74,8 @@ class IncrementTask : public Task {
 public:
 	IncrementTask(TaskType type, LimitedWaitable *waitable) : type_(type), waitable_(waitable) {}
 	~IncrementTask() {}
-	virtual TaskType Type() const { return type_; }
-	virtual void Run() {
+	TaskType Type() const override { return type_; }
+	void Run() override {
 		g_atomicCounter++;
 		waitable_->Notify();
 	}

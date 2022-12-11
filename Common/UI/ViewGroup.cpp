@@ -294,7 +294,7 @@ static float VerticalOverlap(const Bounds &a, const Bounds &b) {
 		return std::min(1.0f, overlap / minH);
 }
 
-float GetTargetScore(const Point &originPos, int originIndex, View *origin, View *destination, FocusDirection direction) {
+float GetTargetScore(const Point &originPos, int originIndex, const View *origin, const View *destination, FocusDirection direction) {
 	// Skip labels and things like that.
 	if (!destination->CanBeFocused())
 		return 0.0f;
@@ -394,7 +394,7 @@ float GetTargetScore(const Point &originPos, int originIndex, View *origin, View
 	}
 }
 
-float GetDirectionScore(int originIndex, View *origin, View *destination, FocusDirection direction) {
+static float GetDirectionScore(int originIndex, const View *origin, View *destination, FocusDirection direction) {
 	Point originPos = origin->GetFocusPosition(direction);
 	return GetTargetScore(originPos, originIndex, origin, destination, direction);
 }
@@ -963,7 +963,7 @@ bool ScrollView::SubviewFocused(View *view) {
 	float visibleSize = orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w;
 	float visibleEnd = scrollPos_ + visibleSize;
 
-	float viewStart, viewEnd;
+	float viewStart = 0.0f, viewEnd = 0.0f;
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
 		viewStart = layoutScrollPos_ + vBounds.x - bounds_.x;

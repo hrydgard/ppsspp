@@ -47,9 +47,11 @@ public:
 	JsonReader(const std::string &filename);
 	JsonReader(const void *data, size_t size) {
 		buffer_ = (char *)malloc(size + 1);
-		memcpy(buffer_, data, size);
-		buffer_[size] = 0;
-		parse();
+		if (buffer_) {
+			memcpy(buffer_, data, size);
+			buffer_[size] = 0;
+			parse();
+		}
 	}
 	JsonReader(const JsonNode *node) {
 		ok_ = true;

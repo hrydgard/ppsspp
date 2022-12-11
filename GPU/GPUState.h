@@ -445,7 +445,7 @@ struct GPUgstate {
 
 	void Reset();
 	void Save(u32_le *ptr);
-	void Restore(u32_le *ptr);
+	void Restore(const u32_le *ptr);
 };
 
 bool vertTypeIsSkinningEnabled(u32 vertType);

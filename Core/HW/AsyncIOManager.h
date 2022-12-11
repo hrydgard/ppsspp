@@ -98,7 +98,7 @@ private:
 	bool PopResult(u32 handle, AsyncIOResult &result);
 	bool ReadResult(u32 handle, AsyncIOResult &result);
 	void Read(u32 handle, u8 *buf, size_t bytes, u32 invalidateAddr);
-	void Write(u32 handle, u8 *buf, size_t bytes);
+	void Write(u32 handle, const u8 *buf, size_t bytes);
 
 	void EventResult(u32 handle, AsyncIOResult result);
 

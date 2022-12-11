@@ -8,7 +8,7 @@
 class WASAPIAudioBackend : public WindowsAudioBackend {
 public:
 	WASAPIAudioBackend();
-	~WASAPIAudioBackend() override;
+	~WASAPIAudioBackend();
 
 	bool Init(HWND window, StreamCallback callback, int sampleRate) override;  // If fails, can safely delete the object
 	void Update() override {}

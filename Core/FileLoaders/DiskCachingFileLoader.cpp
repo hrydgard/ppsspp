@@ -480,7 +480,7 @@ bool DiskCachingFileLoaderCache::ReadBlockData(u8 *dest, BlockInfo &info, size_t
 	return !failed;
 }
 
-void DiskCachingFileLoaderCache::WriteBlockData(BlockInfo &info, u8 *src) {
+void DiskCachingFileLoaderCache::WriteBlockData(BlockInfo &info, const u8 *src) {
 	if (!f_) {
 		return;
 	}

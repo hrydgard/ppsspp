@@ -140,7 +140,7 @@ enum {
 class DrawEngineVulkan : public DrawEngineCommon {
 public:
 	DrawEngineVulkan(Draw::DrawContext *draw);
-	virtual ~DrawEngineVulkan();
+	~DrawEngineVulkan();
 
 	// We reference feature flags, so this is called after construction.
 	void InitDeviceObjects();

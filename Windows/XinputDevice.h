@@ -8,7 +8,7 @@ class XinputDevice final : public InputDevice {
 public:
 	XinputDevice();
 	~XinputDevice();
-	virtual int UpdateState() override;
+	int UpdateState() override;
 
 private:
 	void UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATION &vibration);

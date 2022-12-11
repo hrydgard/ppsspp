@@ -288,7 +288,7 @@ bool MpegDemux::demux(int audioChannel)
 	return looksValid;
 }
 
-static bool isHeader(u8* audioStream, int offset)
+static bool isHeader(const u8 *audioStream, int offset)
 {
 	const u8 header1 = (u8)0x0F;
 	const u8 header2 = (u8)0xD0;

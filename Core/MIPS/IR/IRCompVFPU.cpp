@@ -92,7 +92,7 @@ namespace MIPSComp {
 
 	// Vector regs can overlap in all sorts of swizzled ways.
 	// This does allow a single overlap in sregs[i].
-	static bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
+	static bool IsOverlapSafeAllowS(int dreg, int di, int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = NULL) {
 		for (int i = 0; i < sn; ++i) {
 			if (sregs[i] == dreg && i != di)
 				return false;
@@ -106,7 +106,7 @@ namespace MIPSComp {
 		return true;
 	}
 
-	static bool IsOverlapSafeAllowS(int dn, u8 dregs[], int sn, u8 sregs[], int tn = 0, u8 tregs[] = nullptr) {
+	static bool IsOverlapSafeAllowS(int dn, const u8 dregs[], int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = nullptr) {
 		for (int i = 0; i < dn; ++i) {
 			if (!IsOverlapSafeAllowS(dregs[i], i, sn, sregs, tn, tregs)) {
 				return false;
@@ -115,11 +115,11 @@ namespace MIPSComp {
 		return true;
 	}
 
-	static bool IsOverlapSafe(int dreg, int sn, u8 sregs[], int tn = 0, u8 tregs[] = nullptr) {
+	static bool IsOverlapSafe(int dreg, int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = nullptr) {
 		return IsOverlapSafeAllowS(dreg, -1, sn, sregs, tn, tregs);
 	}
 
-	static bool IsOverlapSafe(int dn, u8 dregs[], int sn, u8 sregs[], int tn = 0, u8 tregs[] = nullptr) {
+	static bool IsOverlapSafe(int dn, const u8 dregs[], int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = nullptr) {
 		for (int i = 0; i < dn; ++i) {
 			if (!IsOverlapSafe(dregs[i], sn, sregs, tn, tregs)) {
 				return false;
@@ -184,7 +184,7 @@ namespace MIPSComp {
 			return;
 
 		int n = GetNumVectorElements(sz);
-		u8 origV[4];
+		u8 origV[4]{};
 		static const float constantArray[8] = { 0.f, 1.f, 2.f, 0.5f, 3.f, 1.f / 3.f, 0.25f, 1.f / 6.f };
 
 		for (int i = 0; i < n; i++)
@@ -1697,7 +1697,7 @@ namespace MIPSComp {
 		GetVectorRegs(tregs, sz, _VT);
 		GetVectorRegs(dregs, sz, _VD);
 
-		u8 tempregs[4];
+		u8 tempregs[4]{};
 		for (int i = 0; i < n; ++i) {
 			if (!IsOverlapSafe(dregs[i], n, sregs, n, tregs)) {
 				tempregs[i] = IRVTEMP_PFX_T + i;   // using IRTEMP0 for other things

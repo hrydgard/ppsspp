@@ -1466,7 +1466,7 @@ void __KernelSaveContext(PSPThreadContext *ctx, bool vfpuEnabled) {
 }
 
 // Loads a CPU context
-void __KernelLoadContext(PSPThreadContext *ctx, bool vfpuEnabled) {
+void __KernelLoadContext(const PSPThreadContext *ctx, bool vfpuEnabled) {
 	// r and f are immediately next to each other and must be.
 	memcpy((void *)currentMIPS->r, (void *)ctx->r, sizeof(ctx->r) + sizeof(ctx->f));
 

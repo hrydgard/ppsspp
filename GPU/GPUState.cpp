@@ -213,7 +213,7 @@ void GPUgstate::FastLoadBoneMatrix(u32 addr) {
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 }
 
-void GPUgstate::Restore(u32_le *ptr) {
+void GPUgstate::Restore(const u32_le *ptr) {
 	// Not sure what the first 10 values are, exactly, but these seem right.
 	gstate_c.vertexAddr = ptr[5];
 	gstate_c.indexAddr = ptr[6];

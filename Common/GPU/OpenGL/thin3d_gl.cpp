@@ -324,7 +324,7 @@ class OpenGLTexture;
 class OpenGLContext : public DrawContext {
 public:
 	OpenGLContext();
-	virtual ~OpenGLContext();
+	~OpenGLContext();
 
 	void SetTargetSize(int w, int h) override {
 		DrawContext::SetTargetSize(w, h);
@@ -517,7 +517,7 @@ static constexpr int MakeIntelSimpleVer(int v1, int v2, int v3) {
 	return (v1 << 16) | (v2 << 8) | v3;
 }
 
-static bool HasIntelDualSrcBug(int versions[4]) {
+static bool HasIntelDualSrcBug(const int versions[4]) {
 	// Intel uses a confusing set of at least 3 version numbering schemes.  This is the one given to OpenGL.
 	switch (MakeIntelSimpleVer(versions[0], versions[1], versions[2])) {
 	case MakeIntelSimpleVer(9, 17, 10):
@@ -1084,7 +1084,7 @@ public:
 		buffer_ = render->CreateBuffer(target_, size, usage_);
 		totalSize_ = size;
 	}
-	~OpenGLBuffer() override {
+	~OpenGLBuffer() {
 		render_->DeleteBuffer(buffer_);
 	}
 

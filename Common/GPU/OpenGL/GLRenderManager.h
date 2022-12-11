@@ -481,7 +481,7 @@ public:
 		return step.create_program.program;
 	}
 
-	GLRInputLayout *CreateInputLayout(std::vector<GLRInputLayout::Entry> &entries) {
+	GLRInputLayout *CreateInputLayout(const std::vector<GLRInputLayout::Entry> &entries) {
 		GLRInitStep step{ GLRInitStepType::CREATE_INPUT_LAYOUT };
 		step.create_input_layout.inputLayout = new GLRInputLayout();
 		step.create_input_layout.inputLayout->entries = entries;

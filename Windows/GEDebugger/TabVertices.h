@@ -35,9 +35,9 @@ public:
 	}
 
 protected:
-	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) { return false; };
-	virtual void GetColumnText(wchar_t *dest, int row, int col);
-	virtual int GetRowCount();
+	bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT &returnValue) override { return false; }
+	void GetColumnText(wchar_t *dest, int row, int col) override;
+	int GetRowCount() override;
 
 private:
 	void FormatVertCol(wchar_t *dest, const GPUDebugVertex &vert, int col);
@@ -57,12 +57,12 @@ public:
 	TabVertices(HINSTANCE _hInstance, HWND _hParent);
 	~TabVertices();
 
-	virtual void Update() {
+	void Update() override {
 		values->Update();
 	}
 
 protected:
-	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) override;
 
 private:
 	void UpdateSize(WORD width, WORD height);
@@ -98,12 +98,12 @@ public:
 	TabMatrices(HINSTANCE _hInstance, HWND _hParent);
 	~TabMatrices();
 
-	virtual void Update() {
+	void Update() override {
 		values->Update();
 	}
 
 protected:
-	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) override;
 
 private:
 	void UpdateSize(WORD width, WORD height);

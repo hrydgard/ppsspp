@@ -197,7 +197,7 @@ void ShaderManagerDX9::VSSetColorUniform3(int creg, u32 color) {
 	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
-void ShaderManagerDX9::VSSetFloatUniform4(int creg, float data[4]) {
+void ShaderManagerDX9::VSSetFloatUniform4(int creg, const float data[4]) {
 	device_->SetVertexShaderConstantF(creg, data, 1);
 }
 

@@ -65,7 +65,7 @@ bool audioRecording_State() { return false; }
 
 class PrintfLogger : public LogListener {
 public:
-	void Log(const LogMessage &message) {
+	void Log(const LogMessage &message) override {
 		switch (message.level) {
 		case LogTypes::LVERBOSE:
 			fprintf(stderr, "V %s", message.msg.c_str());

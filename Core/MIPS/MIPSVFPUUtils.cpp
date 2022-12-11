@@ -678,7 +678,7 @@ static int32_t get_sign(uint32_t x) {
 	return x & 0x80000000;
 }
 
-float vfpu_dot(float a[4], float b[4]) {
+float vfpu_dot(const float a[4], const float b[4]) {
 	static const int EXTRA_BITS = 2;
 	float2int result;
 	float2int src[2];

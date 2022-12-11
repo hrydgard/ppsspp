@@ -69,6 +69,7 @@ TextDrawerWin32::TextDrawerWin32(Draw::DrawContext *draw) : TextDrawer(draw), ct
 	bmi.bmiHeader.biBitCount = 32;
 
 	ctx_->hbmBitmap = CreateDIBSection(ctx_->hDC, &bmi, DIB_RGB_COLORS, (VOID**)&ctx_->pBitmapBits, NULL, 0);
+	_assert_(ctx_->hbmBitmap != nullptr);
 	SetMapMode(ctx_->hDC, MM_TEXT);
 
 	SelectObject(ctx_->hDC, ctx_->hbmBitmap);

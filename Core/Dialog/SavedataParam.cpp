@@ -86,7 +86,7 @@ namespace
 		return result != 0;
 	}
 
-	bool WritePSPFile(std::string filename, u8 *data, SceSize dataSize)
+	bool WritePSPFile(std::string filename, const u8 *data, SceSize dataSize)
 	{
 		int handle = pspFileSystem.OpenFile(filename, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
 		if (handle < 0)
@@ -1516,7 +1516,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			saveDataListCount++;
 		}
 
-		if (saveDataListCount > 0 && wouldHasMultiSaveName(param)) {
+		if (saveDataListCount > 0 && WouldHaveMultiSaveName(param)) {
 			hasMultipleFileName = true;
 			saveDataList = new SaveFileInfo[saveDataListCount];
 			
@@ -1842,8 +1842,7 @@ int SavedataParam::GetLastEmptySave()
 	return idx;
 }
 
-int SavedataParam::GetSaveNameIndex(SceUtilitySavedataParam* param)
-{
+int SavedataParam::GetSaveNameIndex(const SceUtilitySavedataParam *param) {
 	std::string saveName = GetSaveName(param);
 	for (int i = 0; i < saveNameListDataCount; i++)
 	{
@@ -1857,7 +1856,7 @@ int SavedataParam::GetSaveNameIndex(SceUtilitySavedataParam* param)
 	return 0;
 }
 
-bool SavedataParam::wouldHasMultiSaveName(SceUtilitySavedataParam* param) {
+bool SavedataParam::WouldHaveMultiSaveName(const SceUtilitySavedataParam *param) {
 	switch ((SceUtilitySavedataType)(u32)param->mode) {
 	case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
@@ -1937,7 +1936,7 @@ std::shared_ptr<ParamSFOData> SavedataParam::LoadCachedSFO(const std::string &pa
 	return sfoCache_.at(path);
 }
 
-int SavedataParam::GetSaveCryptMode(SceUtilitySavedataParam *param, const std::string &saveDirName) {
+int SavedataParam::GetSaveCryptMode(const SceUtilitySavedataParam *param, const std::string &saveDirName) {
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
 	std::string sfopath = dirPath + "/" + SFO_FILENAME;
 	std::shared_ptr<ParamSFOData> sfoFile = LoadCachedSFO(sfopath);

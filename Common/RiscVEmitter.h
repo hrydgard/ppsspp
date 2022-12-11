@@ -113,7 +113,7 @@ struct FixupBranch {
 	~FixupBranch();
 
 	const u8 *ptr = nullptr;
-	FixupBranchType type;
+	FixupBranchType type = FixupBranchType::B;
 };
 
 class RiscVEmitter {

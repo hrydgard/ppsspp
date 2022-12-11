@@ -333,7 +333,7 @@ void BinManager::MarkPendingWrites(const Rasterizer::RasterizerState &state) {
 		pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
 }
 
-inline void BinDirtyRange::Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, DrawingCoords &tl, DrawingCoords &br) {
+inline void BinDirtyRange::Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, const DrawingCoords &tl, const DrawingCoords &br) {
 	const uint32_t w = br.x - tl.x + 1;
 	const uint32_t h = br.y - tl.y + 1;
 

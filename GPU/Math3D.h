@@ -145,7 +145,7 @@ public:
 	float Length() const;
 	void SetLength(const float l);
 	Vec2 WithLength(const float l) const;
-	float Distance2To(Vec2 &other);
+	float Distance2To(const Vec2 &other) const;
 	Vec2 Normalized() const;
 	float Normalize(); // returns the previous length, which is often useful
 
@@ -310,7 +310,7 @@ public:
 	float Length() const;
 	void SetLength(const float l);
 	Vec3 WithLength(const float l) const;
-	float Distance2To(Vec3 &other);
+	float Distance2To(const Vec3 &other) const;
 	Vec3 Normalized(bool useSSE4 = false) const;
 	Vec3 NormalizedOr001(bool useSSE4 = false) const;
 	float Normalize(); // returns the previous length, which is often useful
@@ -478,7 +478,7 @@ public:
 	float Length() const;
 	void SetLength(const float l);
 	Vec3Packed WithLength(const float l) const;
-	float Distance2To(Vec3Packed &other);
+	float Distance2To(const Vec3Packed &other) const;
 	Vec3Packed Normalized() const;
 	float Normalize(); // returns the previous length, which is often useful
 
@@ -674,7 +674,7 @@ public:
 	float Length() const;
 	void SetLength(const float l);
 	Vec4 WithLength(const float l) const;
-	float Distance2To(Vec4 &other);
+	float Distance2To(const Vec4 &other) const;
 	Vec4 Normalized() const;
 	float Normalize(); // returns the previous length, which is often useful
 

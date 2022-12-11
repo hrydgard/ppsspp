@@ -157,7 +157,7 @@ int PSPSaveDialog::Init(int paramAddr)
 		break;
 	}
 
-	if(!param.wouldHasMultiSaveName(param.GetPspParam()))
+	if (!param.WouldHaveMultiSaveName(param.GetPspParam()))
 		currentSelectedSave = 0;
 
 	switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode)

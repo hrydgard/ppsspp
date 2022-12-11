@@ -406,8 +406,8 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 	size_t num = 0;
 	uint32_t opcode;
 	std::vector<uint32_t> valueStack;
-	unsigned int arg[5];
-	float fArg[5];
+	unsigned int arg[5]{};
+	float fArg[5]{};
 	bool useFloat = false;
 
 	while (num < exp.size())

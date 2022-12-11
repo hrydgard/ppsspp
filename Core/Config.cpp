@@ -257,7 +257,7 @@ struct ConfigSetting {
 		return type_ != TYPE_TERMINATOR;
 	}
 
-	bool Get(Section *section) {
+	bool Get(const Section *section) {
 		switch (type_) {
 		case TYPE_BOOL:
 			if (cb_.b) {

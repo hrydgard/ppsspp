@@ -116,12 +116,12 @@ class WindowsCaptureDevice;
 class ReaderCallback final : public IMFSourceReaderCallback {
 public:
 	ReaderCallback(WindowsCaptureDevice *device);
-	~ReaderCallback();
+	virtual ~ReaderCallback();
 
 	// IUnknown methods.
-	STDMETHODIMP QueryInterface(REFIID iid, void** ppv);
-	STDMETHODIMP_(ULONG) AddRef() { return 0; }  // Unused, just define.
-	STDMETHODIMP_(ULONG) Release() { return 0; } // Unused, just define.
+	STDMETHODIMP QueryInterface(REFIID iid, void** ppv) override;
+	STDMETHODIMP_(ULONG) AddRef() override { return 0; }  // Unused, just define.
+	STDMETHODIMP_(ULONG) Release() override { return 0; } // Unused, just define.
 
 	// IMFSourceReaderCallback methods.
 	STDMETHODIMP OnReadSample(
@@ -130,10 +130,10 @@ public:
 		DWORD dwStreamFlags,
 		LONGLONG llTimestamp,
 		IMFSample *pSample   // Can be null,even if hrStatus is success.
-	);
+	) override;
 
-	STDMETHODIMP OnEvent(DWORD, IMFMediaEvent *) { return S_OK; }
-	STDMETHODIMP OnFlush(DWORD) { return S_OK; }
+	STDMETHODIMP OnEvent(DWORD, IMFMediaEvent *) override { return S_OK; }
+	STDMETHODIMP OnFlush(DWORD) override { return S_OK; }
 
 	AVPixelFormat getAVVideoFormatbyMFVideoFormat(const GUID &MFVideoFormat);
 	AVSampleFormat getAVAudioFormatbyMFAudioFormat(const GUID &MFAudioFormat, const u32 &bitsPerSample);

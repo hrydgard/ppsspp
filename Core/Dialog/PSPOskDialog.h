@@ -213,16 +213,16 @@ enum class PSPOskNativeStatus {
 class PSPOskDialog: public PSPDialog {
 public:
 	PSPOskDialog(UtilityDialogType type);
-	virtual ~PSPOskDialog();
+	~PSPOskDialog();
 
-	virtual int Init(u32 oskPtr);
-	virtual int Update(int animSpeed) override;
-	virtual int Shutdown(bool force = false) override;
-	virtual void DoState(PointerWrap &p) override;
-	virtual pspUtilityDialogCommon *GetCommonParam() override;
+	int Init(u32 oskPtr);
+	int Update(int animSpeed) override;
+	int Shutdown(bool force = false) override;
+	void DoState(PointerWrap &p) override;
+	pspUtilityDialogCommon *GetCommonParam() override;
 
 protected:
-	virtual bool UseAutoStatus() override {
+	bool UseAutoStatus() override {
 		return false;
 	}
 

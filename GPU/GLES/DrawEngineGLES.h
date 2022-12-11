@@ -61,7 +61,7 @@ public:
 class DrawEngineGLES : public DrawEngineCommon {
 public:
 	DrawEngineGLES(Draw::DrawContext *draw);
-	virtual ~DrawEngineGLES();
+	~DrawEngineGLES();
 
 	void SetShaderManager(ShaderManagerGLES *shaderManager) {
 		shaderManager_ = shaderManager;
@@ -96,8 +96,6 @@ public:
 			return;
 		DoFlush();
 	}
-
-	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 
 	void DispatchFlush() override { Flush(); }
 

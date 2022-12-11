@@ -200,7 +200,7 @@ void LogManager::SaveConfig(Section *section) {
 	}
 }
 
-void LogManager::LoadConfig(Section *section, bool debugDefaults) {
+void LogManager::LoadConfig(const Section *section, bool debugDefaults) {
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
 		bool enabled = false;
 		int level = 0;

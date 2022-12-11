@@ -24,27 +24,23 @@ struct NeighborResult {
 class ViewGroup : public View {
 public:
 	ViewGroup(LayoutParams *layoutParams = 0) : View(layoutParams) {}
-	virtual ~ViewGroup();
+	~ViewGroup();
 
 	// Pass through external events to children.
-	virtual bool Key(const KeyInput &input) override;
-	virtual bool Touch(const TouchInput &input) override;
-	virtual void Axis(const AxisInput &input) override;
+	bool Key(const KeyInput &input) override;
+	bool Touch(const TouchInput &input) override;
+	void Axis(const AxisInput &input) override;
 
 	// By default, a container will layout to its own bounds.
-	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override = 0;
-	virtual void Layout() override = 0;
-	virtual void Update() override;
-	virtual void Query(float x, float y, std::vector<View *> &list) override;
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override = 0;
+	void Layout() override = 0;
+	void Update() override;
+	void Query(float x, float y, std::vector<View *> &list) override;
 
-	virtual void DeviceLost() override;
-	virtual void DeviceRestored(Draw::DrawContext *draw) override;
+	void DeviceLost() override;
+	void DeviceRestored(Draw::DrawContext *draw) override;
 
-	virtual void Draw(UIContext &dc) override;
-
-	// These should be unused.
-	virtual float GetContentWidth() const { return 0.0f; }
-	virtual float GetContentHeight() const { return 0.0f; }
+	void Draw(UIContext &dc) override;
 
 	// Takes ownership! DO NOT add a view to multiple parents!
 	template <class T>
@@ -54,8 +50,8 @@ public:
 		return view;
 	}
 
-	virtual bool SetFocus() override;
-	virtual bool SubviewFocused(View *view) override;
+	bool SetFocus() override;
+	bool SubviewFocused(View *view) override;
 	virtual void RemoveSubview(View *view);
 
 	void SetDefaultFocusView(View *view) { defaultFocusView_ = view; }
@@ -406,9 +402,9 @@ public:
 class ChoiceListAdaptor : public ListAdaptor {
 public:
 	ChoiceListAdaptor(const char *items[], int numItems) : items_(items), numItems_(numItems) {}
-	virtual View *CreateItemView(int index);
-	virtual int GetNumItems() { return numItems_; }
-	virtual bool AddEventCallback(View *view, std::function<EventReturn(EventParams&)> callback);
+	View *CreateItemView(int index) override;
+	int GetNumItems() override { return numItems_; }
+	bool AddEventCallback(View *view, std::function<EventReturn(EventParams&)> callback) override;
 
 private:
 	const char **items_;
@@ -421,12 +417,12 @@ class StringVectorListAdaptor : public ListAdaptor {
 public:
 	StringVectorListAdaptor() : selected_(-1) {}
 	StringVectorListAdaptor(const std::vector<std::string> &items, int selected = -1) : items_(items), selected_(selected) {}
-	virtual View *CreateItemView(int index) override;
-	virtual int GetNumItems() override { return (int)items_.size(); }
-	virtual bool AddEventCallback(View *view, std::function<EventReturn(EventParams&)> callback) override;
+	View *CreateItemView(int index) override;
+	int GetNumItems() override { return (int)items_.size(); }
+	bool AddEventCallback(View *view, std::function<EventReturn(EventParams&)> callback) override;
 	void SetSelected(int sel) override { selected_ = sel; }
-	virtual std::string GetTitle(int index) const override { return items_[index]; }
-	virtual int GetSelected() override { return selected_; }
+	std::string GetTitle(int index) const override { return items_[index]; }
+	int GetSelected() override { return selected_; }
 
 private:
 	std::vector<std::string> items_;
@@ -440,7 +436,7 @@ public:
 	ListView(ListAdaptor *a, std::set<int> hidden = std::set<int>(), LayoutParams *layoutParams = 0);
 
 	int GetSelected() { return adaptor_->GetSelected(); }
-	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	virtual void SetMaxHeight(float mh) { maxHeight_ = mh; }
 	Event OnChoice;
 	std::string DescribeLog() const override { return "ListView: " + View::DescribeLog(); }

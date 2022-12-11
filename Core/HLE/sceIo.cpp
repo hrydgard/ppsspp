@@ -271,8 +271,9 @@ public:
 			if (p.mode == p.MODE_READ) {
 				pgdInfo = (PGD_DESC*) malloc(sizeof(PGD_DESC));
 			}
-			p.DoVoid(pgdInfo, sizeof(PGD_DESC));
-			if (p.mode == p.MODE_READ) {
+			if (pgdInfo)
+				p.DoVoid(pgdInfo, sizeof(PGD_DESC));
+			if (p.mode == p.MODE_READ && pgdInfo) {
 				pgdInfo->block_buf = (u8 *)malloc(pgdInfo->block_size * 2);
 			}
 		}
@@ -796,7 +797,7 @@ void __IoShutdown() {
 	memStickFatCallbacks.clear();
 }
 
-static std::string IODetermineFilename(FileNode *f) {
+static std::string IODetermineFilename(const FileNode *f) {
 	uint64_t offset = pspFileSystem.GetSeekPos(f->handle);
 	if ((pspFileSystem.DevType(f->handle) & PSPDevType::BLOCK) != 0) {
 		return StringFromFormat("%s offset 0x%08llx", f->fullpath.c_str(), offset * 2048);

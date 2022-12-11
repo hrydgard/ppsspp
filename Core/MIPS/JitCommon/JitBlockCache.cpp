@@ -304,7 +304,7 @@ bool JitBlockCache::RangeMayHaveEmuHacks(u32 start, u32 end) const {
 	return false;
 }
 
-static int binary_search(JitBlock blocks_[], const u8 *baseoff, int imin, int imax) {
+static int binary_search(const JitBlock blocks_[], const u8 *baseoff, int imin, int imax) {
 	while (imin < imax) {
 		int imid = (imin + imax) / 2;
 		if (blocks_[imid].normalEntry < baseoff)

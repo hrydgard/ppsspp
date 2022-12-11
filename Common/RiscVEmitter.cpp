@@ -615,7 +615,7 @@ const u8 *RiscVEmitter::AlignCode16() {
 
 const u8 *RiscVEmitter::AlignCodePage() {
 	int page_size = GetMemoryProtectPageSize();
-	int c = int((u64)code_ & (page_size - 1));
+	int c = int((intptr_t)code_ & ((intptr_t)page_size - 1));
 	if (c)
 		ReserveCodeSpace(page_size - c);
 	return code_;
@@ -747,7 +747,7 @@ void RiscVEmitter::SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp)
 		if (SignReduce64(v, 32) == v || force) {
 			int32_t lower = (int32_t)SignReduce64(svalue, 12);
 			int32_t upper = ((v - lower) >> 12) << 12;
-			_assert_msg_(force || upper + lower == v, "Upper + ADDI immediate math mistake?");
+			_assert_msg_(force || (int64_t)upper + lower == v, "Upper + ADDI immediate math mistake?");
 
 			// Should be fused on some processors.
 			(this->*upperOp)(rd, upper);

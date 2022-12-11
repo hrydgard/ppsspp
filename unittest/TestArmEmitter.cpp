@@ -10,7 +10,7 @@
 
 #include "UnitTest.h"
 
-static bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {
+static bool CheckLast(const ArmGen::ARMXEmitter &emit, const char *comp) {
 	u32 instr;
 	memcpy(&instr, emit.GetCodePointer() - 4, 4);
 	char disasm[512];

@@ -65,9 +65,6 @@ protected:
 	void FinishDeferred() override;
 
 private:
-	void Flush() {
-		drawEngine_.Flush();
-	}
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo() override;
 

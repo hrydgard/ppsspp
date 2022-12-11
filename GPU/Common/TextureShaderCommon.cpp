@@ -53,7 +53,7 @@ void TextureShaderCache::DeviceLost() {
 	draw_ = nullptr;
 }
 
-ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut) {
+ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, const u32 *rawClut) {
 	// Simplistic, but works well enough.
 	u32 clutId = clutHash ^ (uint32_t)clutFormat;
 
@@ -233,7 +233,7 @@ std::vector<std::string> TextureShaderCache::DebugGetShaderIDs(DebugShaderType t
 }
 
 std::string TextureShaderCache::DebugGetShaderString(std::string idstr, DebugShaderType type, DebugShaderStringType stringType) {
-	uint32_t id;
+	uint32_t id = 0;
 	sscanf(idstr.c_str(), "%08x", &id);
 	auto iter = depalCache_.find(id);
 	if (iter == depalCache_.end())

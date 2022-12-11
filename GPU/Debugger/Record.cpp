@@ -373,6 +373,8 @@ static u32 GetTargetFlags(u32 addr, u32 sizeInRAM) {
 	bool isDrawnVRAM = false;
 	uint32_t start = (addr >> DIRTY_VRAM_SHIFT) & DIRTY_VRAM_MASK;
 	uint32_t blocks = (sizeInRAM + DIRTY_VRAM_ROUND) >> DIRTY_VRAM_SHIFT;
+	if (start + blocks >= DIRTY_VRAM_SIZE)
+		return 0;
 	bool startEven = (addr & DIRTY_VRAM_ROUND) == 0;
 	bool endEven = ((addr + sizeInRAM) & DIRTY_VRAM_ROUND) == 0;
 	for (uint32_t i = 0; i < blocks; ++i) {

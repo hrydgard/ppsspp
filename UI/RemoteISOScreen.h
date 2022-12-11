@@ -57,7 +57,7 @@ enum class ScanStatus {
 class RemoteISOConnectScreen : public UIScreenWithBackground {
 public:
 	RemoteISOConnectScreen();
-	~RemoteISOConnectScreen() override;
+	~RemoteISOConnectScreen();
 
 	const char *tag() const override { return "RemoteISOConnect"; }
 

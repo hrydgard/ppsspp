@@ -31,6 +31,8 @@ enum {
 class DebugInterface
 {
 public:
+	virtual ~DebugInterface() {}
+
 	virtual const char *disasm(unsigned int address, unsigned int align) {return "NODEBUGGER";}
 	virtual int getInstructionSize(int instruction) {return 1;}
 

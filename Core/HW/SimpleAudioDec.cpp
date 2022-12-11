@@ -120,7 +120,7 @@ bool SimpleAudio::OpenCodec(int block_align) {
 #endif  // USE_FFMPEG
 }
 
-void SimpleAudio::SetExtraData(u8 *data, int size, int wav_bytes_per_packet) {
+void SimpleAudio::SetExtraData(const u8 *data, int size, int wav_bytes_per_packet) {
 #ifdef USE_FFMPEG
 	if (codecCtx_) {
 		codecCtx_->extradata = (uint8_t *)av_mallocz(size);
