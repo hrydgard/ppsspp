@@ -517,16 +517,7 @@ static bool DefaultEnableStateUndo() {
 }
 
 static float DefaultUISaturation() {
-	std::string device = System_GetProperty(SYSPROP_NAME);
-	if (IsVREnabled() && startsWith(device, "Pico")) {
-		return 1.5f;
-	} else if (IsVREnabled() && startsWith(device, "Oculus")) {
-		return 1.25f;
-	} else if (IsVREnabled() && startsWith(device, "Meta")) {
-		return 1.25f;
-	} else {
-		return 1.0f;
-	}
+	return IsVREnabled() ? 1.5f : 1.0f;
 }
 
 struct ConfigSectionSettings {
@@ -1420,15 +1411,27 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		}
 	}
 
-	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
+	// Default values for post process shaders
+	bool postShadersInitialized = iniFile.HasSection("PostShaderList");
+	Section *postShaderChain = iniFile.GetOrCreateSection("PostShaderList");
+	Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
+	if (IsVREnabled() && !postShadersInitialized) {
+		postShaderChain->Set("PostShader1", "ColorCorrection");
+		postShaderSetting->Set("ColorCorrectionSettingValue1",1.0f);
+		postShaderSetting->Set("ColorCorrectionSettingValue2",1.5f);
+		postShaderSetting->Set("ColorCorrectionSettingValue3",1.1f);
+		postShaderSetting->Set("ColorCorrectionSettingValue4",1.0f);
+	}
+
+	// Load post process shader values
 	mPostShaderSetting.clear();
-	for (auto it : postShaderSetting) {
+	for (const auto& it : postShaderSetting->ToMap()) {
 		mPostShaderSetting[it.first] = std::stof(it.second);
 	}
 
-	auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
+	// Load post process shader names
 	vPostShaderNames.clear();
-	for (auto it : postShaderChain) {
+	for (const auto& it : postShaderChain->ToMap()) {
 		if (it.second != "Off")
 			vPostShaderNames.push_back(it.second);
 	}
