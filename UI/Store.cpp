@@ -361,8 +361,6 @@ UI::EventReturn ProductView::OnLaunchClick(UI::EventParams &e) {
 }
 
 StoreScreen::StoreScreen() {
-	StoreFilter noFilter;
-	SetFilter(noFilter);
 	lang_ = g_Config.sLanguageIni;
 	loading_ = true;
 
@@ -498,14 +496,6 @@ void StoreScreen::CreateViews() {
 	root_->Add(content);
 }
 
-std::vector<StoreEntry> StoreScreen::FilterEntries() {
-	std::vector<StoreEntry> filtered;
-	for (size_t i = 0; i < entries_.size(); i++) {
-		filtered.push_back(entries_[i]);
-	}
-	return filtered;
-}
-
 ProductItemView *StoreScreen::GetSelectedItem() {
 	for (int i = 0; i < scrollItemView_->GetNumSubviews(); ++i) {
 		ProductItemView *item = static_cast<ProductItemView *>(scrollItemView_->GetViewByIndex(i));
@@ -539,13 +529,8 @@ UI::EventReturn StoreScreen::OnGameLaunch(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void StoreScreen::SetFilter(const StoreFilter &filter) {
-	filter_ = filter;
-	RecreateViews();
-}
-
 UI::EventReturn StoreScreen::OnRetry(UI::EventParams &e) {
-	SetFilter(filter_);
+	RecreateViews();
 	return UI::EVENT_DONE;
 }
 
