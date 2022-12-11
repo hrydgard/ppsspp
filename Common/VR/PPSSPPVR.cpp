@@ -46,6 +46,10 @@ static bool vrFlatGame = false;
 static float vrMatrix[VR_MATRIX_COUNT][16];
 static bool vrMirroring[VR_MIRRORING_COUNT];
 
+static bool(*NativeAxis)(const AxisInput &axis);
+static bool(*NativeKey)(const KeyInput &key);
+static bool(*NativeTouch)(const TouchInput &touch);
+
 /*
 ================================================================================
 
@@ -185,6 +189,12 @@ void GetVRResolutionPerEye(int* width, int* height) {
 	}
 }
 
+void SetVRCallbacks(bool(*axis)(const AxisInput &axis), bool(*key)(const KeyInput &key), bool(*touch)(const TouchInput &touch)) {
+	NativeAxis = axis;
+	NativeKey = key;
+	NativeTouch = touch;
+}
+
 /*
 ================================================================================
 
@@ -197,8 +207,7 @@ void SetVRAppMode(VRAppMode mode) {
 	appMode = mode;
 }
 
-void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(const KeyInput &key),
-                   bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {
+void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 	//axis
 	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
 		AxisInput axis = {};
@@ -318,7 +327,7 @@ void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(co
 					case JOYSTICK_AXIS_Z:
 						if (axis.second < -0.75f) g_Config.fHeadUpDisplayScale -= 0.01f;
 						if (axis.second > 0.75f) g_Config.fHeadUpDisplayScale += 0.01f;
-						g_Config.fHeadUpDisplayScale = clampFloat(g_Config.fHeadUpDisplayScale, 0.2f, 1.0f);
+						g_Config.fHeadUpDisplayScale = clampFloat(g_Config.fHeadUpDisplayScale, 0.2f, 1.5f);
 						break;
 					case JOYSTICK_AXIS_RZ:
 						if (axis.second > 0.75f) g_Config.fCameraDistance -= 0.1f;
@@ -405,6 +414,7 @@ bool UpdateVRAxis(const AxisInput &axis) {
 bool UpdateVRKeys(const KeyInput &key) {
 	//store key value
 	std::vector<int> nativeKeys;
+	bool wasCameraAdjustOn = pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
 	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
 		for (int& nativeKey : nativeKeys) {
 			pspKeys[nativeKey] = key.flags & KEY_DOWN;
@@ -423,6 +433,22 @@ bool UpdateVRKeys(const KeyInput &key) {
 					return false;
 			}
 		}
+	}
+
+	// Release keys on enabling camera adjust
+	if (!wasCameraAdjustOn && pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
+		KeyInput keyUp;
+		keyUp.deviceId = key.deviceId;
+		keyUp.flags = KEY_UP;
+
+		pspKeys[VIRTKEY_VR_CAMERA_ADJUST] = false;
+		for (auto& pspKey : pspKeys) {
+			if (pspKey.second) {
+				keyUp.keyCode = pspKey.first;
+				NativeKey(keyUp);
+			}
+		}
+		pspKeys[VIRTKEY_VR_CAMERA_ADJUST] = true;
 	}
 
 	// Reset camera adjust
