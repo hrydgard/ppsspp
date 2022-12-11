@@ -105,7 +105,7 @@ public:
 class DrawEngineDX9 : public DrawEngineCommon {
 public:
 	DrawEngineDX9(Draw::DrawContext *draw);
-	virtual ~DrawEngineDX9();
+	~DrawEngineDX9();
 
 	void SetShaderManager(ShaderManagerDX9 *shaderManager) {
 		shaderManager_ = shaderManager;

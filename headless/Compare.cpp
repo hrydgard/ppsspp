@@ -138,11 +138,11 @@ protected:
 	BufferedLineReader() {
 	}
 
-	virtual bool HasMoreLines() {
+	bool HasMoreLines() {
 		return pos_ != data_.npos;
 	}
 
-	virtual std::string ReadLine() {
+	std::string ReadLine() {
 		size_t next = data_.find('\n', pos_);
 		if (next == data_.npos) {
 			std::string result = data_.substr(pos_);

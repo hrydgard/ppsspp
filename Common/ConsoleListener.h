@@ -41,7 +41,7 @@ public:
 #if defined(USING_WIN_UI)
 	COORD GetCoordinates(int BytesRead, int BufferWidth);
 #endif
-	void Log(const LogMessage &message);
+	void Log(const LogMessage &message) override;
 	void ClearScreen(bool Cursor = true);
 
 	void Show(bool bShow);

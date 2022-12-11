@@ -68,7 +68,7 @@ struct DebuggerGPUStatsEvent {
 
 struct WebSocketGPUStatsState : public DebuggerSubscriber {
 	WebSocketGPUStatsState();
-	~WebSocketGPUStatsState() override;
+	~WebSocketGPUStatsState();
 	void Get(DebuggerRequest &req);
 	void Feed(DebuggerRequest &req);
 

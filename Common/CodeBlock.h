@@ -57,7 +57,10 @@ private:
 
 public:
 	CodeBlock() {}
-	virtual ~CodeBlock() { if (region) FreeCodeSpace(); }
+	~CodeBlock() {
+		if (region)
+			FreeCodeSpace();
+	}
 
 	// Call this before you generate any code.
 	void AllocCodeSpace(int size) {

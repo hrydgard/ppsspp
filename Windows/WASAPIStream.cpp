@@ -38,7 +38,7 @@ public:
 	CMMNotificationClient() {
 	}
 
-	~CMMNotificationClient() {
+	virtual ~CMMNotificationClient() {
 		CoTaskMemFree(currentDevice_);
 		currentDevice_ = nullptr;
 		SAFE_RELEASE(_pEnumerator)

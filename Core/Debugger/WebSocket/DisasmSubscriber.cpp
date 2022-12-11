@@ -36,7 +36,7 @@ public:
 	WebSocketDisasmState() {
 		disasm_.setCpu(currentDebugMIPS);
 	}
-	~WebSocketDisasmState() override {
+	~WebSocketDisasmState() {
 		disasm_.clear();
 	}
 

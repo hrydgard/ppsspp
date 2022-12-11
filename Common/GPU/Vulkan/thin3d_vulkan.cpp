@@ -382,7 +382,7 @@ class VKFramebuffer;
 class VKContext : public DrawContext {
 public:
 	VKContext(VulkanContext *vulkan);
-	virtual ~VKContext();
+	~VKContext();
 
 	void DebugAnnotate(const char *annotation) override;
 
@@ -1362,7 +1362,7 @@ public:
 	VKBuffer(size_t size, uint32_t flags) : dataSize_(size) {
 		data_ = new uint8_t[size];
 	}
-	~VKBuffer() override {
+	~VKBuffer() {
 		delete[] data_;
 	}
 

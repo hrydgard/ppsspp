@@ -157,7 +157,6 @@ public:
 
 class FloatingSymbolsAnimation : public Animation {
 public:
-	~FloatingSymbolsAnimation() override {}
 	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
 		float xres = dc.GetBounds().w;
 		float yres = dc.GetBounds().h;
@@ -196,7 +195,6 @@ private:
 
 class RecentGamesAnimation : public Animation {
 public:
-	~RecentGamesAnimation() override {}
 	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
 		if (lastIndex_ == nextIndex_) {
 			CheckNext(dc, t);
@@ -812,7 +810,7 @@ void CreditsScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	Button *back = root_->Add(new Button(di->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)));
-	back->OnClick.Handle(this, &CreditsScreen::OnOK);
+	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 	root_->SetDefaultFocusView(back);
 
 	// Really need to redo this whole layout with some linear layouts...
@@ -878,11 +876,6 @@ UI::EventReturn CreditsScreen::OnDiscord(UI::EventParams &e) {
 UI::EventReturn CreditsScreen::OnShare(UI::EventParams &e) {
 	auto cr = GetI18NCategory("PSPCredits");
 	System_SendMessage("sharetext", cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn CreditsScreen::OnOK(UI::EventParams &e) {
-	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }
 

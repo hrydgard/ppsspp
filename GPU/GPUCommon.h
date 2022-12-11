@@ -71,7 +71,7 @@ struct TransformedVertex {
 class GPUCommon : public GPUInterface, public GPUDebugInterface {
 public:
 	GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
-	virtual ~GPUCommon();
+	~GPUCommon();
 
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;

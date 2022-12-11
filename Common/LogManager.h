@@ -55,7 +55,7 @@ public:
 	FileLogListener(const char *filename);
 	~FileLogListener();
 
-	void Log(const LogMessage &msg);
+	void Log(const LogMessage &msg) override;
 
 	bool IsValid() { if (!fp_) return false; else return true; }
 	bool IsEnabled() const { return m_enable; }
@@ -71,13 +71,12 @@ private:
 
 class OutputDebugStringLogListener : public LogListener {
 public:
-	void Log(const LogMessage &msg);
+	void Log(const LogMessage &msg) override;
 };
 
 class RingbufferLogListener : public LogListener {
 public:
-	RingbufferLogListener() : curMessage_(0), count_(0), enabled_(false) {}
-	void Log(const LogMessage &msg);
+	void Log(const LogMessage &msg) override;
 
 	bool IsEnabled() const { return enabled_; }
 	void SetEnabled(bool enable) { enabled_ = enable; }
@@ -89,9 +88,9 @@ public:
 private:
 	enum { MAX_LOGS = 128 };
 	LogMessage messages_[MAX_LOGS];
-	int curMessage_;
-	int count_;
-	bool enabled_;
+	int curMessage_ = 0;
+	int count_ = 0;
+	bool enabled_ = false;
 };
 
 // TODO: A simple buffered log that can be used to display the log in-window

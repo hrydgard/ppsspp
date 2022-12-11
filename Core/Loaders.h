@@ -94,7 +94,7 @@ public:
 class ProxiedFileLoader : public FileLoader {
 public:
 	ProxiedFileLoader(FileLoader *backend) : backend_(backend) {}
-	~ProxiedFileLoader() override {
+	~ProxiedFileLoader() {
 		// Takes ownership.
 		delete backend_;
 	}

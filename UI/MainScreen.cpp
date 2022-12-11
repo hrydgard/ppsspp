@@ -434,7 +434,7 @@ public:
 	DirButton(const Path &path, const std::string &text, bool gridStyle, UI::LayoutParams *layoutParams = 0)
 		: UI::Button(text, layoutParams), path_(path), gridStyle_(gridStyle), absolute_(true) {}
 
-	virtual void Draw(UIContext &dc);
+	void Draw(UIContext &dc) override;
 
 	const Path &GetPath() const {
 		return path_;
@@ -1490,7 +1490,7 @@ void UmdReplaceScreen::CreateViews() {
 
 	tabAllGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
-	rightColumnItems->Add(new Choice(di->T("Cancel")))->OnClick.Handle(this, &UmdReplaceScreen::OnCancel);
+	rightColumnItems->Add(new Choice(di->T("Cancel")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
 
 	if (g_Config.HasRecentIsos()) {
@@ -1512,11 +1512,6 @@ void UmdReplaceScreen::update() {
 UI::EventReturn UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {
 	__UmdReplace(Path(e.s));
 	TriggerFinish(DR_OK);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn UmdReplaceScreen::OnCancel(UI::EventParams &e) {
-	TriggerFinish(DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 

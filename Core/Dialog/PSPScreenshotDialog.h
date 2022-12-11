@@ -25,13 +25,13 @@ struct SceUtilityScreenshotParams;
 class PSPScreenshotDialog : public PSPDialog {
 public:
 	PSPScreenshotDialog(UtilityDialogType type);
-	virtual ~PSPScreenshotDialog();
+	~PSPScreenshotDialog();
 
-	virtual int Init(u32 paramAddr);
-	virtual int Update(int animSpeed) override;
-	virtual int ContStart();
-	virtual void DoState(PointerWrap &p) override;
-	virtual pspUtilityDialogCommon *GetCommonParam() override;
+	int Init(u32 paramAddr);
+	int Update(int animSpeed) override;
+	int ContStart();
+	void DoState(PointerWrap &p) override;
+	pspUtilityDialogCommon *GetCommonParam() override;
 
 protected:
 	// TODO: Manage status correctly.

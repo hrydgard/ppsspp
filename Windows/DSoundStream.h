@@ -11,7 +11,7 @@ struct IDirectSoundBuffer;
 class DSoundAudioBackend : public WindowsAudioBackend {
 public:
 	DSoundAudioBackend();
-	~DSoundAudioBackend() override;
+	~DSoundAudioBackend();
 
 	bool Init(HWND window, StreamCallback callback, int sampleRate) override;  // If fails, can safely delete the object
 	void Update() override;

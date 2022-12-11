@@ -30,45 +30,45 @@ public:
 		mainWindow = mainWindow_;
 	}
 
-	virtual void UpdateUI() override {
+	void UpdateUI() override {
 		mainWindow->updateMenus();
 	}
 
-	virtual void UpdateMemView() override {
+	void UpdateMemView() override {
 	}
-	virtual void UpdateDisassembly() override {
+	void UpdateDisassembly() override {
 		mainWindow->updateMenus();
 	}
 
-	virtual void SetDebugMode(bool mode) override {
+	void SetDebugMode(bool mode) override {
 	}
 
-	virtual bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
-	virtual void ShutdownGraphics() override {}
+	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
+	void ShutdownGraphics() override {}
 
-	virtual void InitSound() override;
-	virtual void UpdateSound() override {}
-	virtual void ShutdownSound() override;
+	void InitSound() override;
+	void UpdateSound() override {}
+	void ShutdownSound() override;
 
 	// this is sent from EMU thread! Make sure that Host handles it properly!
-	virtual void BootDone() override {
+	void BootDone() override {
 		g_symbolMap->SortSymbols();
 		mainWindow->Notify(MainWindowMsg::BOOT_DONE);
 	}
 
-	virtual bool IsDebuggingEnabled() override {
+	bool IsDebuggingEnabled() override {
 #ifdef _DEBUG
 		return true;
 #else
 		return false;
 #endif
 	}
-	virtual bool AttemptLoadSymbolMap() override {
+	bool AttemptLoadSymbolMap() override {
 		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
 		return g_symbolMap->LoadSymbolMap(fn);
 	}
 
-	virtual void NotifySymbolMapUpdated() override { g_symbolMap->SortSymbols(); }
+	void NotifySymbolMapUpdated() override { g_symbolMap->SortSymbols(); }
 
 	void PrepareShutdown() {
 		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);

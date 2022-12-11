@@ -31,7 +31,7 @@ class DiskCachingFileLoaderCache;
 class DiskCachingFileLoader : public ProxiedFileLoader {
 public:
 	DiskCachingFileLoader(FileLoader *backend);
-	~DiskCachingFileLoader() override;
+	~DiskCachingFileLoader();
 
 	bool Exists() override;
 	bool ExistsFast() override;

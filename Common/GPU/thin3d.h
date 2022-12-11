@@ -483,10 +483,7 @@ public:
 	virtual ShaderStage GetStage() const = 0;
 };
 
-class Pipeline : public RefCountedObject {
-public:
-	virtual ~Pipeline() {}
-};
+class Pipeline : public RefCountedObject { };
 
 class RasterState : public RefCountedObject {};
 

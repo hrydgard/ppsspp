@@ -291,7 +291,7 @@ public:
 	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, const TextureDesc &desc);
 	~D3D9Texture();
 	void SetToSampler(LPDIRECT3DDEVICE9 device, int sampler);
-	LPDIRECT3DBASETEXTURE9 Texture() const {
+	LPDIRECT3DBASETEXTURE9 TexturePtr() const {
 		// TODO: Cleanup
 		if (tex_) {
 			return tex_;
@@ -590,7 +590,7 @@ public:
 		case NativeObject::DEVICE_EX:
 			return (uint64_t)(uintptr_t)deviceEx_;
 		case NativeObject::TEXTURE_VIEW:
-			return (uint64_t)(((D3D9Texture *)srcObject)->Texture());
+			return (uint64_t)(((D3D9Texture *)srcObject)->TexturePtr());
 		default:
 			return 0;
 		}
@@ -1007,7 +1007,7 @@ public:
 			device->CreateVertexBuffer((UINT)size, usage, 0, D3DPOOL_DEFAULT, &vbuffer_, NULL);
 		}
 	}
-	virtual ~D3D9Buffer() override {
+	~D3D9Buffer() {
 		if (ibuffer_) {
 			ibuffer_->Release();
 		}

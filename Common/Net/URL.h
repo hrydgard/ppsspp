@@ -15,6 +15,8 @@
 
 struct UrlEncoder
 {
+	virtual ~UrlEncoder() {}
+
 	UrlEncoder() : paramCount(0)
 	{
 		data.reserve(256);
@@ -129,8 +131,7 @@ struct MultipartFormDataEncoder : UrlEncoder
 		boundary = temp;
 	}
 
-	virtual void Add(const std::string &key, const std::string &value)
-	{
+	void Add(const std::string &key, const std::string &value) override {
 		Add(key, value, "", "");
 	}
 
@@ -158,13 +159,11 @@ struct MultipartFormDataEncoder : UrlEncoder
 		Add(key, std::string((const char *)&value[0], value.size()), filename, mimeType);
 	}
 
-	virtual void Finish()
-	{
+	void Finish() override {
 		data += "--" + boundary + "--";
 	}
 
-	virtual std::string GetMimeType() const
-	{
+	std::string GetMimeType() const override {
 		return "multipart/form-data; boundary=\"" + boundary + "\"";
 	}
 

@@ -324,7 +324,7 @@ class OpenGLTexture;
 class OpenGLContext : public DrawContext {
 public:
 	OpenGLContext();
-	virtual ~OpenGLContext();
+	~OpenGLContext();
 
 	void SetTargetSize(int w, int h) override {
 		DrawContext::SetTargetSize(w, h);
@@ -1084,7 +1084,7 @@ public:
 		buffer_ = render->CreateBuffer(target_, size, usage_);
 		totalSize_ = size;
 	}
-	~OpenGLBuffer() override {
+	~OpenGLBuffer() {
 		render_->DeleteBuffer(buffer_);
 	}
 

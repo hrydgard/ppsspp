@@ -12,12 +12,15 @@ class CtrlDisplayListStack: public GenericListControl
 {
 public:
 	CtrlDisplayListStack(HWND hwnd);
-	void setDisplayList(DisplayList& _list) { list = _list; Update(); }
+	void setDisplayList(const DisplayList &_list) {
+		list = _list;
+		Update();
+	}
 protected:
-	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) { return false; };
-	virtual void GetColumnText(wchar_t* dest, int row, int col);
-	virtual int GetRowCount() { return list.stackptr; };
-	virtual void OnDoubleClick(int itemIndex, int column);
+	bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT &returnValue) override { return false; }
+	void GetColumnText(wchar_t *dest, int row, int col) override;
+	int GetRowCount() override { return list.stackptr; }
+	void OnDoubleClick(int itemIndex, int column) override;
 private:
 	DisplayList list;
 };
@@ -26,12 +29,15 @@ class CtrlAllDisplayLists: public GenericListControl
 {
 public:
 	CtrlAllDisplayLists(HWND hwnd);
-	void setDisplayLists(std::vector<DisplayList>& _lists) { lists = _lists; Update(); };
+	void setDisplayLists(const std::vector<DisplayList> &_lists) {
+		lists = _lists;
+		Update();
+	}
 protected:
-	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue);
-	virtual void GetColumnText(wchar_t* dest, int row, int col);
-	virtual int GetRowCount() { return (int) lists.size(); };
-	virtual void OnDoubleClick(int itemIndex, int column);
+	bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT &returnValue) override;
+	void GetColumnText(wchar_t *dest, int row, int col) override;
+	int GetRowCount() override { return (int) lists.size(); }
+	void OnDoubleClick(int itemIndex, int column) override;
 private:
 	std::vector<DisplayList> lists;
 };
@@ -43,7 +49,7 @@ public:
 	~TabDisplayLists();
 	void Update(bool reload = true);
 protected:
-	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) override;
 private:
 	void UpdateSize(WORD width, WORD height);
 
