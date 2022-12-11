@@ -773,6 +773,11 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 		caps_.textureNPOTFullySupported = true;
 	}
 
+	caps_.supportsD3D9 = true;
+	if (!strcmp(identifier_.Description, "Intel(R) Iris(R) Xe Graphics")) {
+		caps_.supportsD3D9 = false;
+	}
+
 	// VS range culling (killing triangles in the vertex shader using NaN) causes problems on Intel.
 	// Also causes problems on old NVIDIA.
 	switch (caps_.vendor) {
@@ -1254,10 +1259,10 @@ Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 	D3D9Framebuffer *fbo = new D3D9Framebuffer(desc.width, desc.height);
 	fbo->depthstenciltex = nullptr;
 
-	HRESULT rtResult = device_->CreateTexture(desc.width, desc.height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, NULL);
+	HRESULT rtResult = device_->CreateTexture(desc.width, desc.height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, nullptr);
 	if (FAILED(rtResult)) {
 		ERROR_LOG(G3D,  "Failed to create render target");
-		delete fbo;
+		fbo->Release();
 		return NULL;
 	}
 	fbo->tex->GetSurfaceLevel(0, &fbo->surf);
@@ -1286,9 +1291,15 @@ Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 }
 
 D3D9Framebuffer::~D3D9Framebuffer() {
-	tex->Release();
-	surf->Release();
-	depthstencil->Release();
+	if (tex) {
+		tex->Release();
+	}
+	if (surf) {
+		surf->Release();
+	}
+	if (depthstencil) {
+		depthstencil->Release();
+	}
 	if (depthstenciltex) {
 		depthstenciltex->Release();
 	}
