@@ -67,7 +67,9 @@ int Buffer::TakeLineCRLF(std::string *dest) {
 	if (after_next_line < 0) {
 		return after_next_line;
 	} else {
-		Take(after_next_line - 2, dest);
+		_dbg_assert_(after_next_line >= 2);
+		if (after_next_line != 2)
+			Take((size_t)after_next_line - 2, dest);
 		Skip(2);  // Skip the CRLF
 		return after_next_line - 2;
 	}

@@ -1999,7 +1999,7 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 		}
 	}
 
-	if (!candidates.empty()) {
+	if (best) {
 		*rect = *best;
 		return true;
 	} else {
