@@ -126,15 +126,6 @@ inline u16 RGBA8888ToRGBA444X(u32 value) {
 	return r | g | b;
 }
 
-// convert image to 8888, parallelizable
-// TODO: Implement these in terms of the conversion functions below.
-void convert4444_gl(u16* data, u32* out, int width, int l, int u);
-void convert565_gl(u16* data, u32* out, int width, int l, int u);
-void convert5551_gl(u16* data, u32* out, int width, int l, int u);
-void convert4444_dx9(u16* data, u32* out, int width, int l, int u);
-void convert565_dx9(u16* data, u32* out, int width, int l, int u);
-void convert5551_dx9(u16* data, u32* out, int width, int l, int u);
-
 // "Complete" set of color conversion functions between the usual formats.
 
 // TODO: Need to revisit the naming convention of these. Seems totally backwards
