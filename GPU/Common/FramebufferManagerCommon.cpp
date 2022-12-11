@@ -2683,6 +2683,10 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		// NotifyBlockTransferAfter will take care of the rest.
 		return false;
 	} else if (srcBuffer) {
+		if (width == 48 && height == 48 && srcY == 224 && srcX == 432 && PSP_CoreParameter().compat.flags().TacticsOgreEliminateDebugReadback) {
+			return false;
+		}
+
 		WARN_LOG_N_TIMES(btd, 10, G3D, "Block transfer readback %dx%d %dbpp from %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d)",
 			width, height, bpp,
 			srcBasePtr, srcRect.x_bytes / bpp, srcRect.y, srcStride,
