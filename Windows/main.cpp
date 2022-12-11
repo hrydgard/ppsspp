@@ -776,8 +776,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		}
 	}
 
-	MainThread_Stop();
-
 	VFSShutdown();
 
 	MainWindow::DestroyDebugWindows();
