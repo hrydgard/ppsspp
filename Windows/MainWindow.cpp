@@ -195,7 +195,7 @@ namespace MainWindow
 		if (g_Config.UseFullScreen() || inFullscreenResize)
 			return;
 
-		WINDOWPLACEMENT placement;
+		WINDOWPLACEMENT placement{};
 		GetWindowPlacement(hwndMain, &placement);
 		if (placement.showCmd == SW_SHOWNORMAL) {
 			RECT rc;

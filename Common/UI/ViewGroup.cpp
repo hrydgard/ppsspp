@@ -963,7 +963,7 @@ bool ScrollView::SubviewFocused(View *view) {
 	float visibleSize = orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w;
 	float visibleEnd = scrollPos_ + visibleSize;
 
-	float viewStart, viewEnd;
+	float viewStart = 0.0f, viewEnd = 0.0f;
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
 		viewStart = layoutScrollPos_ + vBounds.x - bounds_.x;

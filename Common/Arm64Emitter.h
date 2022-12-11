@@ -253,7 +253,7 @@ public:
 private:
 	ARM64Reg        m_destReg;
 	WidthSpecifier  m_width;
-	ExtendSpecifier m_extend;
+	ExtendSpecifier m_extend = EXTEND_UXTB;
 	TypeSpecifier   m_type;
 	ShiftType       m_shifttype;
 	u32             m_shift;

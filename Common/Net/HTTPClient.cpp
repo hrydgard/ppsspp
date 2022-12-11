@@ -224,7 +224,7 @@ void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *prog
 		inbuffer->TakeLineCRLF(&line);
 		if (!line.size())
 			return;
-		unsigned int chunkSize;
+		unsigned int chunkSize = 0;
 		sscanf(line.c_str(), "%x", &chunkSize);
 		if (chunkSize) {
 			std::string data;

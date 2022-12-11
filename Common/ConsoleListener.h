@@ -66,8 +66,8 @@ private:
 	static std::atomic<uint32_t> logPendingReadPos;
 	static std::atomic<uint32_t> logPendingWritePos;
 
-	int openWidth_;
-	int openHeight_;
+	int openWidth_ = 0;
+	int openHeight_ = 0;
 	std::wstring title_;
 #endif
 	bool bHidden;

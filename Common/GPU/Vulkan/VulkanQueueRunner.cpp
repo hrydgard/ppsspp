@@ -1324,7 +1324,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		{
 			VKRGraphicsPipeline *graphicsPipeline = c.graphics_pipeline.pipeline;
 			if (graphicsPipeline != lastGraphicsPipeline) {
-				VkSampleCountFlagBits fbSampleCount = step.render.framebuffer ? step.render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT;
+				VkSampleCountFlagBits fbSampleCount = fb ? fb->sampleCount : VK_SAMPLE_COUNT_1_BIT;
 
 				if (RenderPassTypeHasMultisample(rpType) && fbSampleCount != graphicsPipeline->SampleCount()) {
 					// should have been invalidated.
@@ -1421,12 +1421,13 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		case VKRRenderCommand::SELF_DEPENDENCY_BARRIER:
 		{
 			_assert_(step.render.pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT);
+			_assert_(fb);
 			VulkanBarrier barrier;
-			if (step.render.framebuffer->sampleCount != VK_SAMPLE_COUNT_1_BIT) {
+			if (fb->sampleCount != VK_SAMPLE_COUNT_1_BIT) {
 				// Rendering is happening to the multisample buffer, not the color buffer.
-				SelfDependencyBarrier(step.render.framebuffer->msaaColor, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
+				SelfDependencyBarrier(fb->msaaColor, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
 			} else {
-				SelfDependencyBarrier(step.render.framebuffer->color, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
+				SelfDependencyBarrier(fb->color, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
 			}
 			barrier.Flush(cmd);
 			break;

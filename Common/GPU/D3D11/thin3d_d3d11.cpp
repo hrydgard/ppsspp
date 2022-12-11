@@ -1476,6 +1476,7 @@ void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x
 		dstTex = dst->depthStencilTex;
 		break;
 	}
+	_assert_(srcTex && dstTex);
 
 	// TODO: Check for level too!
 	if (width == src->Width() && width == dst->Width() && height == src->Height() && height == dst->Height() && x == 0 && y == 0 && z == 0 && dstX == 0 && dstY == 0 && dstZ == 0) {
@@ -1534,7 +1535,7 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 
 	bool useGlobalPacktex = (bx + bw <= 512 && by + bh <= 512) && channelBits == FB_COLOR_BIT;
 
-	ID3D11Texture2D *packTex;
+	ID3D11Texture2D *packTex = nullptr;
 	if (!useGlobalPacktex) {
 		D3D11_TEXTURE2D_DESC packDesc{};
 		packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
@@ -1572,6 +1573,9 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 		}
 		packTex = packTexture_;
 	}
+
+	if (!packTex)
+		return false;
 
 	D3D11_BOX srcBox{ (UINT)bx, (UINT)by, 0, (UINT)(bx + bw), (UINT)(by + bh), 1 };
 	DataFormat srcFormat = DataFormat::UNDEFINED;

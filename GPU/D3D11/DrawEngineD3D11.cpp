@@ -760,6 +760,14 @@ TessellationDataTransferD3D11::~TessellationDataTransferD3D11() {
 	}
 }
 
+template <typename T>
+static void DoRelease(T *&ptr) {
+	if (ptr) {
+		ptr->Release();
+		ptr = nullptr;
+	}
+}
+
 void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {
 	struct TessData {
 		float pos[3]; float pad1;
@@ -769,19 +777,24 @@ void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *
 
 	int size = size_u * size_v;
 
-	if (prevSize < size) {
+	if (prevSize < size || !buf[0]) {
 		prevSize = size;
-		if (buf[0]) buf[0]->Release();
-		if (view[0]) view[0]->Release();
+		DoRelease(buf[0]);
+		DoRelease(view[0]);
 
 		desc.ByteWidth = size * sizeof(TessData);
 		desc.StructureByteStride = sizeof(TessData);
 		device_->CreateBuffer(&desc, nullptr, &buf[0]);
-		device_->CreateShaderResourceView(buf[0], nullptr, &view[0]);
+		if (buf[0])
+			device_->CreateShaderResourceView(buf[0], nullptr, &view[0]);
+		if (!buf[0] || !view[0])
+			return;
 		context_->VSSetShaderResources(0, 1, &view[0]);
 	}
-	D3D11_MAPPED_SUBRESOURCE map;
-	context_->Map(buf[0], 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	D3D11_MAPPED_SUBRESOURCE map{};
+	HRESULT hr = context_->Map(buf[0], 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	if (FAILED(hr))
+		return;
 	uint8_t *data = (uint8_t *)map.pData;
 
 	float *pos = (float *)(data);
@@ -796,34 +809,42 @@ void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *
 	using Spline::Weight;
 
 	// Weights U
-	if (prevSizeWU < weights.size_u) {
+	if (prevSizeWU < weights.size_u || !buf[1]) {
 		prevSizeWU = weights.size_u;
-		if (buf[1]) buf[1]->Release();
-		if (view[1]) view[1]->Release();
+		DoRelease(buf[1]);
+		DoRelease(view[1]);
 
 		desc.ByteWidth = weights.size_u * sizeof(Weight);
 		desc.StructureByteStride = sizeof(Weight);
 		device_->CreateBuffer(&desc, nullptr, &buf[1]);
-		device_->CreateShaderResourceView(buf[1], nullptr, &view[1]);
+		if (buf[1])
+			device_->CreateShaderResourceView(buf[1], nullptr, &view[1]);
+		if (!buf[1] || !view[1])
+			return;
 		context_->VSSetShaderResources(1, 1, &view[1]);
 	}
-	context_->Map(buf[1], 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-	memcpy(map.pData, weights.u, weights.size_u * sizeof(Weight));
+	hr = context_->Map(buf[1], 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	if (SUCCEEDED(hr))
+		memcpy(map.pData, weights.u, weights.size_u * sizeof(Weight));
 	context_->Unmap(buf[1], 0);
 
 	// Weights V
 	if (prevSizeWV < weights.size_v) {
 		prevSizeWV = weights.size_v;
-		if (buf[2]) buf[2]->Release();
-		if (view[2]) view[2]->Release();
+		DoRelease(buf[2]);
+		DoRelease(view[2]);
 
 		desc.ByteWidth = weights.size_v * sizeof(Weight);
 		desc.StructureByteStride = sizeof(Weight);
 		device_->CreateBuffer(&desc, nullptr, &buf[2]);
-		device_->CreateShaderResourceView(buf[2], nullptr, &view[2]);
+		if (buf[2])
+			device_->CreateShaderResourceView(buf[2], nullptr, &view[2]);
+		if (!buf[2] || !view[2])
+			return;
 		context_->VSSetShaderResources(2, 1, &view[2]);
 	}
-	context_->Map(buf[2], 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-	memcpy(map.pData, weights.v, weights.size_v * sizeof(Weight));
+	hr = context_->Map(buf[2], 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	if (SUCCEEDED(hr))
+		memcpy(map.pData, weights.v, weights.size_v * sizeof(Weight));
 	context_->Unmap(buf[2], 0);
 }

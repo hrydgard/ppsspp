@@ -269,7 +269,7 @@ void WindowsHost::BootDone() {
 }
 
 static Path SymbolMapFilename(const Path &currentFilename, const char *ext) {
-	File::FileInfo info;
+	File::FileInfo info{};
 	// can't fail, definitely exists if it gets this far
 	File::GetFileInfo(currentFilename, &info);
 	if (info.isDirectory) {
@@ -311,14 +311,16 @@ bool WindowsHost::IsDebuggingEnabled() {
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
 HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathLink, LPCWSTR lpszDesc) { 
 	HRESULT hres; 
-	IShellLink* psl; 
-	CoInitializeEx(NULL, COINIT_MULTITHREADED);
+	IShellLink *psl = nullptr;
+	hres = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+	if (FAILED(hres))
+		return hres;
 
 	// Get a pointer to the IShellLink interface. It is assumed that CoInitialize
 	// has already been called.
 	hres = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLink, (LPVOID*)&psl); 
-	if (SUCCEEDED(hres)) { 
-		IPersistFile* ppf; 
+	if (SUCCEEDED(hres) && psl) {
+		IPersistFile *ppf = nullptr;
 
 		// Set the path to the shortcut target and add the description. 
 		psl->SetPath(lpszPathObj); 
@@ -329,7 +331,7 @@ HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathL
 		// shortcut in persistent storage. 
 		hres = psl->QueryInterface(IID_IPersistFile, (LPVOID*)&ppf); 
 
-		if (SUCCEEDED(hres)) { 
+		if (SUCCEEDED(hres) && ppf) {
 			// Save the link by calling IPersistFile::Save. 
 			hres = ppf->Save(lpszPathLink, TRUE); 
 			ppf->Release(); 

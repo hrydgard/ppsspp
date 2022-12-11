@@ -229,8 +229,8 @@ void DumpMemoryWindow::changeMode(HWND hwnd, Mode newMode)
 		if (filenameChosen_ == false)
 			SetWindowTextA(GetDlgItem(hwnd,IDC_DUMP_FILENAME),"Custom.dump");
 	} else {
-		u32 start, size;
-		const char* defaultFileName;
+		u32 start = 0, size = 0;
+		const char *defaultFileName = "";
 
 		switch (selectedMode)
 		{

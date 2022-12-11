@@ -233,7 +233,7 @@ std::vector<std::string> TextureShaderCache::DebugGetShaderIDs(DebugShaderType t
 }
 
 std::string TextureShaderCache::DebugGetShaderString(std::string idstr, DebugShaderType type, DebugShaderStringType stringType) {
-	uint32_t id;
+	uint32_t id = 0;
 	sscanf(idstr.c_str(), "%08x", &id);
 	auto iter = depalCache_.find(id);
 	if (iter == depalCache_.end())

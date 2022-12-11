@@ -71,12 +71,14 @@ namespace W32Util
 		// Lock the handle and copy the text to the buffer.
 
 		wchar_t *lptstrCopy = (wchar_t *)GlobalLock(hglbCopy);
-		wcscpy(lptstrCopy, wtext.c_str());
-		lptstrCopy[wtext.size()] = (wchar_t) 0;    // null character
-		GlobalUnlock(hglbCopy);
-		SetClipboardData(CF_UNICODETEXT, hglbCopy);
+		if (lptstrCopy) {
+			wcscpy(lptstrCopy, wtext.c_str());
+			lptstrCopy[wtext.size()] = (wchar_t) 0;    // null character
+			GlobalUnlock(hglbCopy);
+			SetClipboardData(CF_UNICODETEXT, hglbCopy);
+		}
 		CloseClipboard();
-		return TRUE;
+		return lptstrCopy ? TRUE : FALSE;
 	}
 
 	void MakeTopMost(HWND hwnd, bool topMost) {

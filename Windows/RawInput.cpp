@@ -379,15 +379,21 @@ namespace WindowsRawInput {
 	}
 
 	LRESULT Process(HWND hWnd, WPARAM wParam, LPARAM lParam) {
-		UINT dwSize;
+		UINT dwSize = 0;
 		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
 		if (!rawInputBuffer) {
 			rawInputBuffer = malloc(dwSize);
+			if (!rawInputBuffer)
+				return DefWindowProc(hWnd, WM_INPUT, wParam, lParam);
 			memset(rawInputBuffer, 0, dwSize);
 			rawInputBufferSize = dwSize;
 		}
 		if (dwSize > rawInputBufferSize) {
-			rawInputBuffer = realloc(rawInputBuffer, dwSize);
+			void *newBuf = realloc(rawInputBuffer, dwSize);
+			if (!newBuf)
+				return DefWindowProc(hWnd, WM_INPUT, wParam, lParam);
+			rawInputBuffer = newBuf;
+			rawInputBufferSize = dwSize;
 			memset(rawInputBuffer, 0, dwSize);
 		}
 		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, rawInputBuffer, &dwSize, sizeof(RAWINPUTHEADER));

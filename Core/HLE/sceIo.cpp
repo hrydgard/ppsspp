@@ -271,8 +271,9 @@ public:
 			if (p.mode == p.MODE_READ) {
 				pgdInfo = (PGD_DESC*) malloc(sizeof(PGD_DESC));
 			}
-			p.DoVoid(pgdInfo, sizeof(PGD_DESC));
-			if (p.mode == p.MODE_READ) {
+			if (pgdInfo)
+				p.DoVoid(pgdInfo, sizeof(PGD_DESC));
+			if (p.mode == p.MODE_READ && pgdInfo) {
 				pgdInfo->block_buf = (u8 *)malloc(pgdInfo->block_size * 2);
 			}
 		}

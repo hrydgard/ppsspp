@@ -1072,16 +1072,16 @@ void D3D9Context::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offse
 		return;
 	}
 	if (buf->vbuffer_) {
-		void *ptr;
+		void *ptr = nullptr;
 		HRESULT res = buf->vbuffer_->Lock((UINT)offset, (UINT)size, &ptr, (flags & UPDATE_DISCARD) ? D3DLOCK_DISCARD : 0);
-		if (!FAILED(res)) {
+		if (!FAILED(res) && ptr) {
 			memcpy(ptr, data, size);
 			buf->vbuffer_->Unlock();
 		}
 	} else if (buf->ibuffer_) {
-		void *ptr;
+		void *ptr = nullptr;
 		HRESULT res = buf->ibuffer_->Lock((UINT)offset, (UINT)size, &ptr, (flags & UPDATE_DISCARD) ? D3DLOCK_DISCARD : 0);
-		if (!FAILED(res)) {
+		if (!FAILED(res) && ptr) {
 			memcpy(ptr, data, size);
 			buf->ibuffer_->Unlock();
 		}
@@ -1438,6 +1438,7 @@ bool D3D9Context::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits,
 
 	LPDIRECT3DSURFACE9 offscreen = nullptr;
 	HRESULT hr = E_UNEXPECTED;
+	_assert_(fb != nullptr);
 	if (channelBits == FB_COLOR_BIT) {
 		fb->tex->GetLevelDesc(0, &desc);
 
