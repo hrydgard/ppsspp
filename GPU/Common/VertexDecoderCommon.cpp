@@ -149,7 +149,7 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 	*indexUpperBound = (u16)upperBound;
 }
 
-void PrintDecodedVertex(VertexReader &vtx) {
+void PrintDecodedVertex(const VertexReader &vtx) {
 	if (vtx.hasNormal()) {
 		float nrm[3];
 		vtx.ReadNrm(nrm);

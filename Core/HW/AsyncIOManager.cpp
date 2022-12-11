@@ -134,7 +134,7 @@ void AsyncIOManager::Read(u32 handle, u8 *buf, size_t bytes, u32 invalidateAddr)
 	EventResult(handle, AsyncIOResult(result, usec, invalidateAddr));
 }
 
-void AsyncIOManager::Write(u32 handle, u8 *buf, size_t bytes) {
+void AsyncIOManager::Write(u32 handle, const u8 *buf, size_t bytes) {
 	int usec = 0;
 	s64 result = pspFileSystem.WriteFile(handle, buf, bytes, usec);
 	EventResult(handle, AsyncIOResult(result, usec));

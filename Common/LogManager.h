@@ -183,5 +183,5 @@ public:
 	void ChangeFileLog(const char *filename);
 
 	void SaveConfig(Section *section);
-	void LoadConfig(Section *section, bool debugDefaults);
+	void LoadConfig(const Section *section, bool debugDefaults);
 };

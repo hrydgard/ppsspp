@@ -11,7 +11,7 @@ using namespace PPSSPP_VK;
 
 // Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP NativeGLView NativeRenderer NativeSurfaceView PowerSaveModeReceiver InputDeviceState
 
-static void MergeRenderAreaRectInto(VkRect2D *dest, VkRect2D &src) {
+static void MergeRenderAreaRectInto(VkRect2D *dest, const VkRect2D &src) {
 	if (dest->offset.x > src.offset.x) {
 		dest->extent.width += (dest->offset.x - src.offset.x);
 		dest->offset.x = src.offset.x;

@@ -314,7 +314,7 @@ static u32 getMpegVersion(u32 mpegRawVersion) {
 	}
 }
 
-static void AnalyzeMpeg(u8 *buffer, u32 validSize, MpegContext *ctx) {
+static void AnalyzeMpeg(const u8 *buffer, u32 validSize, MpegContext *ctx) {
 	ctx->mpegMagic = *(u32_le*)buffer;
 	ctx->mpegRawVersion = *(u32_le*)(buffer + PSMF_STREAM_VERSION_OFFSET);
 	ctx->mpegVersion = getMpegVersion(ctx->mpegRawVersion);
@@ -883,11 +883,11 @@ public:
 		}
 	};
 	
-	void add(H264Frames *p){
+	void add(const H264Frames *p) {
 		add(p->stream, p->size);
 	};
 
-	void add(u8* str, int sz){
+	void add(const u8 *str, int sz) {
 		int newsize = size + sz;
 		u8* newstream = new u8[newsize];
 		// join two streams

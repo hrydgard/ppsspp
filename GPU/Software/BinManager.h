@@ -177,7 +177,7 @@ struct BinDirtyRange {
 	uint32_t widthBytes;
 	uint32_t height;
 
-	void Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, DrawingCoords &tl, DrawingCoords &br);
+	void Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, const DrawingCoords &tl, const DrawingCoords &br);
 };
 
 class BinManager {

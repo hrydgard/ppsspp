@@ -112,7 +112,7 @@ int u8_toucs(uint32_t *dest, int sz, const char *src, int srcsz)
    the NUL as well.
    the destination string will never be bigger than the source string.
 */
-int u8_toutf8(char *dest, int sz, uint32_t *src, int srcsz)
+int u8_toutf8(char *dest, int sz, const uint32_t *src, int srcsz)
 {
   uint32_t ch;
   int i = 0;

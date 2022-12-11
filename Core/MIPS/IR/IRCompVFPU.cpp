@@ -92,7 +92,7 @@ namespace MIPSComp {
 
 	// Vector regs can overlap in all sorts of swizzled ways.
 	// This does allow a single overlap in sregs[i].
-	static bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
+	static bool IsOverlapSafeAllowS(int dreg, int di, int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = NULL) {
 		for (int i = 0; i < sn; ++i) {
 			if (sregs[i] == dreg && i != di)
 				return false;
@@ -106,7 +106,7 @@ namespace MIPSComp {
 		return true;
 	}
 
-	static bool IsOverlapSafeAllowS(int dn, u8 dregs[], int sn, u8 sregs[], int tn = 0, u8 tregs[] = nullptr) {
+	static bool IsOverlapSafeAllowS(int dn, const u8 dregs[], int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = nullptr) {
 		for (int i = 0; i < dn; ++i) {
 			if (!IsOverlapSafeAllowS(dregs[i], i, sn, sregs, tn, tregs)) {
 				return false;
@@ -115,11 +115,11 @@ namespace MIPSComp {
 		return true;
 	}
 
-	static bool IsOverlapSafe(int dreg, int sn, u8 sregs[], int tn = 0, u8 tregs[] = nullptr) {
+	static bool IsOverlapSafe(int dreg, int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = nullptr) {
 		return IsOverlapSafeAllowS(dreg, -1, sn, sregs, tn, tregs);
 	}
 
-	static bool IsOverlapSafe(int dn, u8 dregs[], int sn, u8 sregs[], int tn = 0, u8 tregs[] = nullptr) {
+	static bool IsOverlapSafe(int dn, const u8 dregs[], int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = nullptr) {
 		for (int i = 0; i < dn; ++i) {
 			if (!IsOverlapSafe(dregs[i], sn, sregs, tn, tregs)) {
 				return false;

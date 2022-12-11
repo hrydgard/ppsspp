@@ -301,7 +301,7 @@ private:
 	int vtype_;
 };
 // Debugging utilities
-void PrintDecodedVertex(VertexReader &vtx);
+void PrintDecodedVertex(const VertexReader &vtx);
 
 
 class VertexDecoder;

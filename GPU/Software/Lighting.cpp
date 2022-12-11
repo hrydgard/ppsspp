@@ -24,7 +24,7 @@
 
 namespace Lighting {
 
-static inline Vec3f GetLightVec(u32 lparams[12], int light) {
+static inline Vec3f GetLightVec(const u32 lparams[12], int light) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	__m128i values = _mm_loadu_si128((__m128i *)&lparams[3 * light]);
 	__m128i from24 = _mm_slli_epi32(values, 8);

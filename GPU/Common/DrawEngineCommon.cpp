@@ -132,10 +132,10 @@ std::string DrawEngineCommon::DebugGetVertexLoaderString(std::string id, DebugSh
 struct Plane {
 	float x, y, z, w;
 	void Set(float _x, float _y, float _z, float _w) { x = _x; y = _y; z = _z; w = _w; }
-	float Test(float f[3]) const { return x * f[0] + y * f[1] + z * f[2] + w; }
+	float Test(const float f[3]) const { return x * f[0] + y * f[1] + z * f[2] + w; }
 };
 
-static void PlanesFromMatrix(float mtx[16], Plane planes[6]) {
+static void PlanesFromMatrix(const float mtx[16], Plane planes[6]) {
 	planes[0].Set(mtx[3]-mtx[0], mtx[7]-mtx[4], mtx[11]-mtx[8], mtx[15]-mtx[12]);  // Right
 	planes[1].Set(mtx[3]+mtx[0], mtx[7]+mtx[4], mtx[11]+mtx[8], mtx[15]+mtx[12]);  // Left
 	planes[2].Set(mtx[3]+mtx[1], mtx[7]+mtx[5], mtx[11]+mtx[9], mtx[15]+mtx[13]);  // Bottom

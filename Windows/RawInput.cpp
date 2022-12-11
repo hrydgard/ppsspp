@@ -251,7 +251,7 @@ namespace WindowsRawInput {
 		return windowsTransTable[vKey];
 	}
 
-	void ProcessKeyboard(RAWINPUT *raw, bool foreground) {
+	void ProcessKeyboard(const RAWINPUT *raw, bool foreground) {
 		if (menuActive && UpdateMenuActive()) {
 			// Ignore keyboard input while a menu is active, it's probably interacting with the menu.
 			return;
@@ -302,7 +302,7 @@ namespace WindowsRawInput {
 		return true;
 	}
 
-	void ProcessMouse(HWND hWnd, RAWINPUT *raw, bool foreground) {
+	void ProcessMouse(HWND hWnd, const RAWINPUT *raw, bool foreground) {
 		if (menuActive && UpdateMenuActive()) {
 			// Ignore mouse input while a menu is active, it's probably interacting with the menu.
 			return;

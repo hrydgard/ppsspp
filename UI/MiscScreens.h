@@ -179,7 +179,7 @@ public:
 	void SetBottomCutoff(float y) {
 		cutOffY_ = y;
 	}
-	void Show(const std::string &text, UI::View *refView = nullptr);
+	void Show(const std::string &text, const UI::View *refView = nullptr);
 
 	void Draw(UIContext &dc) override;
 	std::string GetText() const;
@@ -191,4 +191,4 @@ private:
 	bool showing_ = false;
 };
 
-uint32_t GetBackgroundColorWithAlpha(UIContext &dc);
+uint32_t GetBackgroundColorWithAlpha(const UIContext &dc);

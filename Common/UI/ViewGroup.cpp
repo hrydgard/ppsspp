@@ -294,7 +294,7 @@ static float VerticalOverlap(const Bounds &a, const Bounds &b) {
 		return std::min(1.0f, overlap / minH);
 }
 
-float GetTargetScore(const Point &originPos, int originIndex, View *origin, View *destination, FocusDirection direction) {
+float GetTargetScore(const Point &originPos, int originIndex, const View *origin, const View *destination, FocusDirection direction) {
 	// Skip labels and things like that.
 	if (!destination->CanBeFocused())
 		return 0.0f;
@@ -394,7 +394,7 @@ float GetTargetScore(const Point &originPos, int originIndex, View *origin, View
 	}
 }
 
-float GetDirectionScore(int originIndex, View *origin, View *destination, FocusDirection direction) {
+static float GetDirectionScore(int originIndex, const View *origin, View *destination, FocusDirection direction) {
 	Point originPos = origin->GetFocusPosition(direction);
 	return GetTargetScore(originPos, originIndex, origin, destination, direction);
 }

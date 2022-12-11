@@ -410,7 +410,7 @@ protected:
 
 	static CheckAlphaResult CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFmt, int w);
 
-	inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TexCacheEntry *entry) const {
+	inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, const TexCacheEntry *entry) const {
 		if (replacer.Enabled()) {
 			return replacer.ComputeHash(addr, bufw, w, h, format, entry->maxSeenV);
 		}

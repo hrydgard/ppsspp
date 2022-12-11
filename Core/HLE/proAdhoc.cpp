@@ -180,7 +180,7 @@ std::string ip2str(in_addr in, bool maskPublicIP) {
 	return std::string(str);
 }
 
-std::string mac2str(SceNetEtherAddr* mac) {
+std::string mac2str(const SceNetEtherAddr *mac) {
 	char str[18] = ":::::";
 
 	if (mac != NULL) {

@@ -44,7 +44,7 @@ public:
 	void DoState(PointerWrap &p) override;
 
 	int Abort();
-	std::string GetGameDataInstallFileName(SceUtilityGamedataInstallParam *param, std::string filename);
+	std::string GetGameDataInstallFileName(const SceUtilityGamedataInstallParam *param, std::string filename);
 
 protected:
 	// TODO: Manage status correctly.

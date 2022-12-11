@@ -170,7 +170,7 @@ public:
 private:
 	void ApplyCurrentState();
 
-	ID3D11DepthStencilState *GetCachedDepthStencilState(D3D11DepthStencilState *state, uint8_t stencilWriteMask, uint8_t stencilCompareMask);
+	ID3D11DepthStencilState *GetCachedDepthStencilState(const D3D11DepthStencilState *state, uint8_t stencilWriteMask, uint8_t stencilCompareMask);
 
 	HWND hWnd_;
 	ID3D11Device *device_;
@@ -550,7 +550,7 @@ public:
 	float blendFactor[4];
 };
 
-ID3D11DepthStencilState *D3D11DrawContext::GetCachedDepthStencilState(D3D11DepthStencilState *state, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
+ID3D11DepthStencilState *D3D11DrawContext::GetCachedDepthStencilState(const D3D11DepthStencilState *state, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
 	D3D11DepthStencilKey key;
 	key.desc = state->desc;
 	key.writeMask = stencilWriteMask;

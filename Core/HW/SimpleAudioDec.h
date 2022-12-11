@@ -53,7 +53,7 @@ public:
 	int GetAudioCodecID(int audioType); // Get audioCodecId from audioType
 
 	// Not save stated, only used by UI.  Used for ATRAC3 (non+) files.
-	void SetExtraData(u8 *data, int size, int wav_bytes_per_packet);
+	void SetExtraData(const u8 *data, int size, int wav_bytes_per_packet);
 
 	void SetChannels(int channels);
 

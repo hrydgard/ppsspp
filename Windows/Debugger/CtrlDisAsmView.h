@@ -72,7 +72,7 @@ class CtrlDisAsmView
 	void calculatePixelPositions();
 	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData);
 	void updateStatusBarText();
-	void drawBranchLine(HDC hdc, std::map<u32,int>& addressPositions, BranchLine& line);
+	void drawBranchLine(HDC hdc, std::map<u32, int> &addressPositions, const BranchLine &line);
 	void copyInstructions(u32 startAddr, u32 endAddr, bool withDisasm);
 	std::set<std::string> getSelectedLineArguments();
 	void drawArguments(HDC hdc, const DisassemblyLineInfo &line, int x, int y, int textColor, const std::set<std::string> &currentArguments);

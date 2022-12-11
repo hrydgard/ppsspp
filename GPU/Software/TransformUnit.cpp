@@ -335,7 +335,7 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		state->roundToScreen = &ClipToScreenInternal<false, false>;
 }
 
-ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState &state) {
+ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState &state) {
 	PROFILE_THIS_SCOPE("read_vert");
 	// If we ever thread this, we'll have to change this.
 	ClipVertexData vertex;

@@ -53,7 +53,7 @@ void TextureShaderCache::DeviceLost() {
 	draw_ = nullptr;
 }
 
-ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut) {
+ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, const u32 *rawClut) {
 	// Simplistic, but works well enough.
 	u32 clutId = clutHash ^ (uint32_t)clutFormat;
 
