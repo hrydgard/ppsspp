@@ -48,7 +48,6 @@ public:
 
 	//overridden functions
 	const char *GetName() override;
-	int GetGPRSize() override { return GPR_SIZE_32; }
 	u32 GetGPR32Value(int reg) override { return cpu->r[reg]; }
 	u32 GetPC() override { return cpu->pc; }
 	u32 GetLR() override { return cpu->r[MIPS_REG_RA]; }
