@@ -198,7 +198,7 @@ public:
 	StoreEntry GetEntry() const { return entry_; }
 
 private:
-	const StoreEntry &entry_;
+	const StoreEntry entry_;
 };
 
 // This is a "details" view of a game. Lets you install it.
@@ -441,7 +441,7 @@ void StoreScreen::ParseListing(std::string json) {
 			e.size = game.getInt("size");
 			e.downloadURL = game.getString("download-url", "");
 			e.iconURL = game.getString("icon-url", "");
-			e.hidden = game.getBool("hidden", false);
+			e.hidden = false;  // NOTE: Handling of the "hidden" flag is broken in old versions of PPSSPP. Do not use.
 			const char *file = game.getString("file", nullptr);
 			if (!file)
 				continue;
@@ -484,8 +484,7 @@ void StoreScreen::CreateViews() {
 		scrollItemView_ = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 		leftScroll->Add(scrollItemView_);
 
-		std::vector<StoreEntry> entries = FilterEntries();
-		for (size_t i = 0; i < entries.size(); i++) {
+		for (size_t i = 0; i < entries_.size(); i++) {
 			scrollItemView_->Add(new ProductItemView(entries_[i]))->OnClick.Handle(this, &StoreScreen::OnGameSelected);
 		}
 
@@ -511,9 +510,7 @@ void StoreScreen::CreateViews() {
 std::vector<StoreEntry> StoreScreen::FilterEntries() {
 	std::vector<StoreEntry> filtered;
 	for (size_t i = 0; i < entries_.size(); i++) {
-		// TODO: Actually filter by category etc.
-		if (!entries_[i].hidden)
-			filtered.push_back(entries_[i]);
+		filtered.push_back(entries_[i]);
 	}
 	return filtered;
 }
