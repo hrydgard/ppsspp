@@ -403,19 +403,6 @@ void StoreScreen::update() {
 		// Forget the listing.
 		listing_.reset();
 	}
-
-	const char *storeName = "PPSSPP Homebrew Store";
-	switch (g_GameManager.GetState()) {
-	case GameManagerState::DOWNLOADING:
-		titleText_->SetText(std::string(storeName) + " - downloading");
-		break;
-	case GameManagerState::INSTALLING:
-		titleText_->SetText(std::string(storeName) + " - installing");
-		break;
-	default:
-		titleText_->SetText(storeName);
-		break;
-	}
 }
 
 void StoreScreen::ParseListing(std::string json) {
@@ -458,11 +445,12 @@ void StoreScreen::CreateViews() {
 	
 	auto di = GetI18NCategory("Dialog");
 	auto st = GetI18NCategory("Store");
+	auto mm = GetI18NCategory("MainMenu");
 
 	// Top bar
 	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
 	topBar->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	titleText_ = new TextView("PPSSPP Homebrew Store");
+	titleText_ = new TextView(mm->T("PPSSPP Homebrew Store"));
 	topBar->Add(titleText_);
 	UI::Drawable solid(0xFFbd9939);
 	topBar->SetBG(solid);
@@ -471,7 +459,10 @@ void StoreScreen::CreateViews() {
 	if (connectionError_ || loading_) {
 		content = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 		content->Add(new TextView(loading_ ? std::string(st->T("Loading...")) : StringFromFormat("%s: %d", st->T("Connection Error"), resultCode_)));
-		content->Add(new Button(di->T("Retry")))->OnClick.Handle(this, &StoreScreen::OnRetry);
+		if (!loading_) {
+			content->Add(new Button(di->T("Retry")))->OnClick.Handle(this, &StoreScreen::OnRetry);
+
+		}
 		content->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 		scrollItemView_ = nullptr;
