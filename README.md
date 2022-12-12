@@ -47,34 +47,38 @@ What's new in 1.14
   - Tekken 6 Nancy laser beam fixed, plus line rendering fixes in other games ([#16067])
   - Many, many others like ([#16265], [#16043])
 * Software renderer performance and accuracy improvements
-  - Better performance, various fixes ([#16384], [#16385])
-  - Clipping improvements ([#16231], [#16384], [#16440], [#16402], more)
+  - Better performance ([#15998], [#16001], [#16011], [#16039], [#16054], [#16080], [#16085], [#16094], [#16102], [#16387], [#16486], [#16502], [#16518])
+  - Improved accuracy, clipping ([#15999], [#16005], [#16042], [#16086], [#16117], [#16231], [#16241], [#16265], [#16274], [#16469], [#16470], [#16478], [#16480], [#16485])
 * New features
-  - Initial VR support added (Quest and PICO only for now, PC in the future)
+  - Initial VR support added (Quest and PICO only for now, PC in the future) ([#15659], [#15901], [#16246], [#16262], [#16273])
   - MSAA antialiasing added to the Vulkan backend (desktop only) ([#16458])
   - New API for plugins to access aspect ratio, scaling and fast-forward ([#16441])
   - Read texture replacement packs directly from ZIP files ([#16304])
 * UI improvements
-  - New interactive Display Layout & Effects screen, replacing the old Display Layout Editor
+  - New interactive Display Layout & Effects screen, replacing the old Display Layout Editor ([#16409], [#16415], [#16417], [#16445])
   - Game being played can now be seen as a background in most menus ([#16404], more)
+  - Reorganize speed hack settings ([#16346], [#16347], [#16348], [#16432])
 * Stability fixes
   - Workaround for hangs on older Adreno GPUs ([#16422])
-* IR interpreter bug fixes
+  - Input handling fixes for deadzones and touch controls ([#16419], [#16450])
+  - Avoid game bugs in Twinbee Portable ([#16388]) and Shining Ark ([#16449])
+* IR interpreter (iOS, etc.) bug fixes
   - Metal Gear Solid - Peace Walker no longer bugged out ([#16396])
-  - VFPU fixes ([#16302], [#16305], [#16306])
+  - VFPU fixes for Dissidia, others ([#16302], [#16305], [#16306])
 * Performance improvements
   - Vulkan bandwidth and synchronization optimizations ([#16434], [#16099], [#16090], [#16072], [#16061], [#16060], [#16035], [#15917])
-  - Lighting "ubershader" optimization ([#16104])
-  - Assorted minor other improvements ([#16190])
-* Other 
-  - Minor compatibility workarounds (Twinbee [#16388], Shining Ark)
-  - HLE accuracy improvments ([#16413], [#16257], [#16070], [#16058], [#15930], more)
-* GE debugger improvements
+  - Lighting "ubershader" optimization to prevent hitches ([#16104], [#16111])
+  - Assorted minor other improvements ([#15589], [#15843], [#16190])
+  - Improve texture replacement memory usage ([#15884], [#16304], [#16314])
+* Other
+  - HLE accuracy improvements ([#16413], [#16070], [#16058], [#15930], more)
+  - GE debugger improvements ([#15839], [#15851], [#15894], [#15925], [#15974], [#16007], [#16047], [#16096], [#16201])
+  - Optional memory alignment validation in IR mode ([#15879], [#15880])
 
 What's new in 1.13.2
 ====================
 * Crashfix on Android 12 when playing certain background music ([#15990])
-* Fix Star Ocean battles in D3D backends (#[15889])
+* Fix Star Ocean battles in D3D backends ([#15889])
 * Minor fixes that might fix some other crashes
 
 What's new in 1.13.1
