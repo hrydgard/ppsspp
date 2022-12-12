@@ -172,7 +172,7 @@ Looking for [older news](history.md)?
 
 Adhoc support
 -------------
-Not fully functional, but some games work.  Check the [Ad-Hoc section of the forum](http://forums.ppsspp.org/forumdisplay.php?fid=34) for help.
+Not fully functional, but some games work.  Check the [Ad-Hoc section of the forum](https://forums.ppsspp.org/forumdisplay.php?fid=34) for help.
 
 Credit goes to:
  - ANR2ME
