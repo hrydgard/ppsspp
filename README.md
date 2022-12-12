@@ -28,42 +28,47 @@ For game compatibility, see [community compatibility feedback](https://report.pp
 What's new in 1.14
 ==================
 * Massive number of rendering fixes
-  - Water in Outrun 2006 and DiRT 2 now renders correctly (logic op fixes)
+  - Water in Outrun 2006 and DiRT 2 now renders correctly (logic op fixes) ([#15960], [#16208], [#16032], [#16024], [#15967])
   - Split/Second now renders all effects correctly
-  - Killzone color effect now renders efficiently and correctly (in-game only, not title screen)
-  - Ridge Racer speedometers and lens flares fixed
-  - Lens flare effect fixed in Burnout Dominator, Ridge Racer, Colin McRae, several others
+  - Multiple fixes workarounds for clipping/culling, both through clip planes and geometry shaders, fixing
+    graphical issues in many, many games and getting rid of hacks ([#16142], [#16504], [#16442], [#16383], [#16165], many others)
+  - Killzone color effect now renders efficiently and correctly (in-game only, not title screen) ([#15934])
+  - Ridge Racer speedometers and lens flares fixed ([#16084], [#16188], [#16115])
+  - Lens flare effect fixed in Burnout Dominator, Ridge Racer, Colin McRae, several others ([#16014], [#16081], [#16076], [#16073])
   - Shadows in Colin McRae are no longer flickering (side effect of other fixes)
-  - Spongebob: Yellow Avenger renders correctly (previously very broken)
+  - Spongebob: Yellow Avenger renders correctly (previously very broken) ([#15907], [#15903])
   - Cars: Race-o-Rama, and MX vs ATV Reflex render correctly (at 1x resolution only) ([#15898], [#15907])
-  - Asphalt 2 depth occlusion problems fixed ([#15854])
+  - Asphalt 2 depth occlusion problems fixed ([#15854], [#15853])
+  - Fix performance regression in Juiced 2 while also fixing the graphics ([#15888])
   - Silent Hill games are less broken
   - Depth occlusion problems fixed in Kurohyou (both games) and Ratchet & Clank ([#15772], [#15728], [#15859])
   - Other rendering problems fixed in Kurohyou ([#16454])
   - Misshitsu no Sacrifice intro animation and Macross water rendering fixed (3d texture) ([#15727])
-  - Tekken 6 Nancy laser beam fixed, plus line rendering fixes in other games
-  - Multiple workarounds for clipping/culling, both through clip planes and geometry shaders, fixing
-    graphical issues in many games
-  - Many, many others
+  - Tekken 6 Nancy laser beam fixed, plus line rendering fixes in other games ([#16067])
+  - Many, many others like ([#16265], [#16043])
 * Software renderer performance and accuracy improvements
-  - Better performance
-  - Clipping improvements, various fixes ([#16384], [#16385])
+  - Better performance, various fixes ([#16384], [#16385])
+  - Clipping improvements ([#16231], [#16384], [#16440], [#16402], more)
 * New features
   - Initial VR support added (Quest and PICO only for now, PC in the future)
   - MSAA antialiasing added to the Vulkan backend (desktop only) ([#16458])
+  - New API for plugins to access aspect ratio, scaling and fast-forward ([#16441])
+  - Read texture replacement packs directly from ZIP files ([#16304])
 * UI improvements
   - New interactive Display Layout & Effects screen, replacing the old Display Layout Editor
   - Game being played can now be seen as a background in most menus ([#16404], more)
 * Stability fixes
   - Workaround for hangs on older Adreno GPUs ([#16422])
-  - Many others
 * IR interpreter bug fixes
   - Metal Gear Solid - Peace Walker no longer bugged out ([#16396])
-  - VFPU fixes ([#16302])
+  - VFPU fixes ([#16302], [#16305], [#16306])
 * Performance improvements
-  - Vulkan bandwidth and synchronization optimizations ([#16434])
-  - Assorted minor other improvements
-* Other compatibility fixes (Twinbee, Shining Ark)
+  - Vulkan bandwidth and synchronization optimizations ([#16434], [#16099], [#16090], [#16072], [#16061], [#16060], [#16035], [#15917])
+  - Lighting "ubershader" optimization ([#16104])
+  - Assorted minor other improvements ([#16190])
+* Other 
+  - Minor compatibility workarounds (Twinbee [#16388], Shining Ark)
+  - HLE accuracy improvments ([#16413], [#16257], [#16070], [#16058], [#15930], more)
 * GE debugger improvements
 
 What's new in 1.13.2
@@ -124,89 +129,6 @@ UI
 * Color change and basic theme support ([#15396], [#15394])
 * Fix input focus bug ([#15560])
 * New GE debugger features and other UI fixes ([#15393], [#15324], [#15377], [#15424], [#15402], [#15378], [#15338]), etc.
-
-What's new in 1.12.3
-====================
-* Fix background music speed. A couple translation fixes.
-
-What's new in 1.12.2
-====================
-* Fix joystick detection bug on Android.
-
-What's new in 1.12.1
-====================
-* Bug fixes (control mapping fix, popup menus in the Windows debugger, a few crashfixes)
-
-What's new in 1.12
-==================
-
-Platform support:
-* Add support for Android 12 Scoped Storage restrictions ([#11997])
-* iOS: Fix multitouch tracking ([#5099])
-* Android: Fix screenshot orientation on Vulkan ([#14053])
-* Linux: Improve support for system FFmpeg 3.1+ ([#14176], [#14188], [#14199])
-* libretro: Always enable function hooks ([#14145])
-* AMD: Enable Vulkan rendering on a thread ([#13864])
-* Add iOS version detection, turn off JIT on bootup if >= 14.3. ([#14201])
-* iOS: Try a different JIT detection method, thanks Halo-Michael ([#14241])
-* Windows: Restore window size correctly ([#14317])
-
-Game fixes:
-* Fix NBA Live 08 loading ([#8288])
-* Display Open Season title screen correctly ([#13252])
-* Fix Metal Gear Solid Peace Walker Chinese Patched blue screen ([#14127])
-* Load Ape Academy 2 correctly ([#14271])
-* Many more...
-
-Graphics and Sound:
-* Add new texture filtering mode "Auto Max Quality" ([#14789])
-* Fix Princess Maker 5 Portable half screen in Vulkan ([#13741])
-* Fix Pro Yakyu Spirits 2010 (NPJH50234): Rendering errors with hardware transform off ([#14167])
-* Support texture replacement filtering overrides ([#14230])
-* Fix Yarudora Portable: Double Cast's FMVs artifacting ([#13759])
-* Fix Sims 2 Castaway/Pets EA Logo glitched out ([#13146])
-* Fix bad size & position on Japanese & Numbers & Alphabets ([#14209])
-* Implement basic depth texturing for OpenGL ([#14042])
-* Google Cardboard fixes ([#14966], [#14768])
-* Correct mini-map update in Z.H.P. ([#14069])
-* Fix crash in vertex jit on ARM32 ([#14879])
-* Add a setting for reverb volume ([#14711])
-* Option to switch to new devices or not, on Windows.
-
-UI:
-* Add a setting for choosing background animation in PPSSPP's menus ([#14313], [#14818], [#14810], [#14347])
-* Add CRC calculation on game info screen and feedback screen ([#14000], [#14041])
-* Add a Storage tab to System Information with some path info ([#14224], [#14238])
-* Track and show memory allocation / usage information in debugger ([#14056])
-* Allow searching within the savedata manager ([#14237])
-* Enable postshaders to access previous frame ([#14528])
-* Add missing Japanese keyboard symbol ([#14548])
-* Add Reset button on crash screen, allow load state and related ([#14708])
-* Implement save state load and save undo ([#14676], [#14679], [#14697])
-* A lot of minor debugger improvements
-
-Controls:
-* New analog stick calibration menu ([#14596])
-* Improved combo button and moved settings to Customize Touch Control -> Customize -> Custom button ([#13869])
-* Improved tilt control, allow to change axis ([#12530])
-* Add a visual means of control mapping ([#14769])
-* Add basic motion gesture support ([#13107])
-* Fix touch control DPAD not getting input when dragged over, and make touch analog drag not activate other buttons ([#14843])
-* Allow adjusting touch control analog stick head size ([#14480])
-
-Adhoc/Network:
-* Fix multiplayer issue on MGS:PW due to detecting an incorrect source port on incoming data ([#14140])
-* Always enable TCPNoDelay to improve response time ([#14235])
-* Fix Teenage Mutant Ninja Turtles multiplayer ([#14284])
-* Fix FlatOut Head On multiplayer ([#14290])
-* Prevent flooding Adhoc Server with connection attempts ([#14335])
-* Fix crashing issue when leaving a multiplayer game room (ie. GTA Vice City Stories) ([#14342])
-* Fix stuck issue when scanning AP to Recruit on MGS:PW ([#14345])
-* Fix possible crash issue on blocking socket implementation (ie. Kao Challengers) ([#14466])
-* Create GameMode's socket after Master and all Replicas have been created (ie. Fading Shadows) ([#14492])
-* Reduce HLE delays due to multiplayer performance regressions (ie. Ys vs. Sora no Kiseki) ([#14513])
-* Fix socket error 10014 on Windows when hosting a game of Vulcanus Seek and Destroy ([#14849])
-
 
 Looking for [older news](history.md)?
 
