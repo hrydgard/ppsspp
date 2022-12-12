@@ -47,6 +47,10 @@ fn copy_missing_lines(reference_ini: &IniFile, target_ini: &mut IniFile) -> io::
                 //target_section.remove_lines_if_not_in(reference_section);
                 target_section.comment_out_lines_if_not_in(reference_section);
             }
+        } else {
+            // Note: insert_section_if_missing will copy the entire section,
+            // no need to loop over the lines here.
+            println!("Inserted missing section: {}", reference_section.name);
         }
     }
     Ok(())
@@ -114,7 +118,8 @@ fn main() {
     let root = "../../assets/lang";
     let reference_ini_filename = "en_US.ini";
 
-    let mut reference_ini = IniFile::parse(&format!("{}/{}", root, reference_ini_filename)).unwrap();
+    let mut reference_ini =
+        IniFile::parse(&format!("{}/{}", root, reference_ini_filename)).unwrap();
 
     if filenames.is_empty() {
         // Grab them all.
