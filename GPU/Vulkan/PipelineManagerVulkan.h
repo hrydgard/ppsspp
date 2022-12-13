@@ -36,9 +36,9 @@ class VulkanRenderManager;
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here
 	VKRRenderPass *renderPass;
-	Promise<VkShaderModule> *vShader;
-	Promise<VkShaderModule> *fShader;
-	Promise<VkShaderModule> *gShader;
+	Promise<VKRCompiledShaderModule> *vShader;
+	Promise<VKRCompiledShaderModule> *fShader;
+	Promise<VKRCompiledShaderModule> *gShader;
 	uint32_t vtxFmtId;
 	bool useHWTransform;
 

@@ -47,7 +47,7 @@
 // Most drivers treat vkCreateShaderModule as pretty much a memcpy. What actually
 // takes time here, and makes this worthy of parallelization, is GLSLtoSPV.
 // Takes ownership over tag.
-static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::string *tag) {
+static Promise<VKRCompiledShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::string *tag) {
 	auto compile = [=] {
 		PROFILE_THIS_SCOPE("shadercomp");
 
@@ -73,7 +73,7 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 			Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 		}
 
-		VkShaderModule shaderModule = VK_NULL_HANDLE;
+		VKRCompiledShaderModule shaderModule{};
 		if (success) {
 			const char *createTag = tag ? tag->c_str() : nullptr;
 			if (!createTag) {
@@ -86,21 +86,22 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 				}
 			}
 
-			success = vulkan->CreateShaderModule(spirv, &shaderModule, createTag);
+			success = vulkan->CreateShaderModule(spirv, &shaderModule.shaderModule, createTag);
 #ifdef SHADERLOG
 			OutputDebugStringA("OK");
 #endif
 			if (tag)
 				delete tag;
 		}
+		shaderModule.spirv = spirv;
 		return shaderModule;
 	};
 
 #if defined(_DEBUG)
 	// Don't parallelize in debug mode, pathological behavior due to mutex locks in allocator which is HEAVILY used by glslang.
-	return Promise<VkShaderModule>::AlreadyDone(compile());
+	return Promise<VKRCompiledShaderModule>::AlreadyDone(compile());
 #else
-	return Promise<VkShaderModule>::Spawn(&g_threadManager, compile, TaskType::CPU_COMPUTE);
+	return Promise<VKRCompiledShaderModule>::Spawn(&g_threadManager, compile, TaskType::CPU_COMPUTE);
 #endif
 }
 
@@ -118,10 +119,10 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 
 VulkanFragmentShader::~VulkanFragmentShader() {
 	if (module_) {
-		VkShaderModule shaderModule = module_->BlockUntilReady();
-		vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		VKRCompiledShaderModule shaderModule = module_->BlockUntilReady();
+		vulkan_->Delete().QueueDeleteShaderModule(shaderModule.shaderModule);
 		vulkan_->Delete().QueueCallback([](void *m) {
-			auto module = (Promise<VkShaderModule> *)m;
+			auto module = (Promise<VKRCompiledShaderModule> *)m;
 			delete module;
 		}, module_);
 	}
@@ -151,10 +152,10 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, Vert
 
 VulkanVertexShader::~VulkanVertexShader() {
 	if (module_) {
-		VkShaderModule shaderModule = module_->BlockUntilReady();
-		vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		VKRCompiledShaderModule shaderModule = module_->BlockUntilReady();
+		vulkan_->Delete().QueueDeleteShaderModule(shaderModule.shaderModule);
 		vulkan_->Delete().QueueCallback([](void *m) {
-			auto module = (Promise<VkShaderModule> *)m;
+			auto module = (Promise<VKRCompiledShaderModule> *)m;
 			delete module;
 		}, module_);
 	}
@@ -184,10 +185,10 @@ VulkanGeometryShader::VulkanGeometryShader(VulkanContext *vulkan, GShaderID id, 
 
 VulkanGeometryShader::~VulkanGeometryShader() {
 	if (module_) {
-		VkShaderModule shaderModule = module_->BlockUntilReady();
-		vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		VKRCompiledShaderModule shaderModule = module_->BlockUntilReady();
+		vulkan_->Delete().QueueDeleteShaderModule(shaderModule.shaderModule);
 		vulkan_->Delete().QueueCallback([](void *m) {
-			auto module = (Promise<VkShaderModule> *)m;
+			auto module = (Promise<VKRCompiledShaderModule> *)m;
 			delete module;
 		}, module_);
 	}
@@ -454,9 +455,9 @@ std::string ShaderManagerVulkan::DebugGetShaderString(std::string id, DebugShade
 VulkanVertexShader *ShaderManagerVulkan::GetVertexShaderFromModule(VkShaderModule module) {
 	VulkanVertexShader *vs = nullptr;
 	vsCache_.Iterate([&](const VShaderID &id, VulkanVertexShader *shader) {
-		Promise<VkShaderModule> *p = shader->GetModule();
-		VkShaderModule m = p->BlockUntilReady();
-		if (m == module)
+		Promise<VKRCompiledShaderModule> *p = shader->GetModule();
+		VKRCompiledShaderModule m = p->BlockUntilReady();
+		if (m.shaderModule == module)
 			vs = shader;
 	});
 	return vs;
@@ -465,9 +466,9 @@ VulkanVertexShader *ShaderManagerVulkan::GetVertexShaderFromModule(VkShaderModul
 VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromModule(VkShaderModule module) {
 	VulkanFragmentShader *fs = nullptr;
 	fsCache_.Iterate([&](const FShaderID &id, VulkanFragmentShader *shader) {
-		Promise<VkShaderModule> *p = shader->GetModule();
-		VkShaderModule m = p->BlockUntilReady();
-		if (m == module)
+		Promise<VKRCompiledShaderModule> *p = shader->GetModule();
+		VKRCompiledShaderModule m = p->BlockUntilReady();
+		if (m.shaderModule == module)
 			fs = shader;
 	});
 	return fs;
@@ -476,9 +477,9 @@ VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromModule(VkShaderM
 VulkanGeometryShader *ShaderManagerVulkan::GetGeometryShaderFromModule(VkShaderModule module) {
 	VulkanGeometryShader *gs = nullptr;
 	gsCache_.Iterate([&](const GShaderID &id, VulkanGeometryShader *shader) {
-		Promise<VkShaderModule> *p = shader->GetModule();
-		VkShaderModule m = p->BlockUntilReady();
-		if (m == module)
+		Promise<VKRCompiledShaderModule> *p = shader->GetModule();
+		VKRCompiledShaderModule m = p->BlockUntilReady();
+		if (m.shaderModule == module)
 			gs = shader;
 	});
 	return gs;

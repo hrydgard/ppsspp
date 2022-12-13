@@ -14,6 +14,9 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/VR/PPSSPPVR.h"
 
+#include "Common/File/FileUtil.h"
+#include "Core/System.h"
+
 #if 0 // def _DEBUG
 #define VLOG(...) NOTICE_LOG(G3D, __VA_ARGS__)
 #else
@@ -38,11 +41,11 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	}
 
 	// Fill in the last part of the desc since now it's time to block.
-	VkShaderModule vs = desc->vertexShader->BlockUntilReady();
-	VkShaderModule fs = desc->fragmentShader->BlockUntilReady();
-	VkShaderModule gs = desc->geometryShader ? desc->geometryShader->BlockUntilReady() : VK_NULL_HANDLE;
+	VKRCompiledShaderModule vs = desc->vertexShader->BlockUntilReady();
+	VKRCompiledShaderModule fs = desc->fragmentShader->BlockUntilReady();
+	VKRCompiledShaderModule gs = desc->geometryShader ? desc->geometryShader->BlockUntilReady() : VKRCompiledShaderModule{};
 
-	if (!vs || !fs || (!gs && desc->geometryShader)) {
+	if (!vs.shaderModule || !fs.shaderModule || (!gs.shaderModule && desc->geometryShader)) {
 		ERROR_LOG(G3D, "Failed creating graphics pipeline - missing shader modules");
 		// We're kinda screwed here?
 		return false;
@@ -53,19 +56,19 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 	ss[0].pSpecializationInfo = nullptr;
-	ss[0].module = vs;
+	ss[0].module = vs.shaderModule;
 	ss[0].pName = "main";
 	ss[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	ss[1].pSpecializationInfo = nullptr;
-	ss[1].module = fs;
+	ss[1].module = fs.shaderModule;
 	ss[1].pName = "main";
-	if (gs) {
+	if (gs.shaderModule) {
 		stageCount++;
 		ss[2].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		ss[2].stage = VK_SHADER_STAGE_GEOMETRY_BIT;
 		ss[2].pSpecializationInfo = nullptr;
-		ss[2].module = gs;
+		ss[2].module = gs.shaderModule;
 		ss[2].pName = "main";
 	}
 
@@ -110,6 +113,20 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		INFO_LOG(G3D, "Pipeline creation time: %0.2f ms (fast) rpType: %08x sampleBits: %d\n(%s)", taken_ms, (u32)rpType, (u32)sampleCount, tag_.c_str());
 	} else {
 		INFO_LOG(G3D, "Pipeline creation time: %0.2f ms  rpType: %08x sampleBits: %d\n(%s)", taken_ms, (u32)rpType, (u32)sampleCount, tag_.c_str());
+	}
+
+	if (taken_ms > 100.0f && gs.shaderModule != VK_NULL_HANDLE) {
+		Path dump = GetSysDirectory(DIRECTORY_DUMP);
+		File::CreateDir(dump);
+		Path vsPath = dump / "vsdump.spv";
+		Path fsPath = dump / "fsdump.spv";
+		Path gsPath = dump / "gsdump.spv";
+		if (!File::Exists(gsPath)) {
+			NOTICE_LOG(G3D, "VERY Slow pipeline compilation including geoshader. Dumping out files. %s", gsPath.c_str());
+			File::WriteDataToFile(false, vs.spirv.data(), vs.spirv.size() * 4, vsPath);
+			File::WriteDataToFile(false, fs.spirv.data(), fs.spirv.size() * 4, fsPath);
+			File::WriteDataToFile(false, gs.spirv.data(), gs.spirv.size() * 4, gsPath);
+		}
 	}
 
 	bool success = true;

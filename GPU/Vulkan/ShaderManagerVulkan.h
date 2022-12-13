@@ -30,6 +30,7 @@
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "GPU/Common/ShaderUniforms.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
 class VulkanContext;
 class VulkanPushBuffer;
@@ -44,13 +45,13 @@ public:
 	bool Failed() const { return failed_; }
 
 	std::string GetShaderString(DebugShaderStringType type) const;
-	Promise<VkShaderModule> *GetModule() { return module_; }
+	Promise<VKRCompiledShaderModule> *GetModule() { return module_; }
 	const FShaderID &GetID() const { return id_; }
 
 	FragmentShaderFlags Flags() const { return flags_;  }
 
 protected:	
-	Promise<VkShaderModule> *module_ = nullptr;
+	Promise<VKRCompiledShaderModule> *module_ = nullptr;
 
 	VulkanContext *vulkan_;
 	std::string source_;
@@ -71,11 +72,11 @@ public:
 	VertexShaderFlags Flags() const { return flags_; }
 
 	std::string GetShaderString(DebugShaderStringType type) const;
-	Promise<VkShaderModule> *GetModule() { return module_; }
+	Promise<VKRCompiledShaderModule> *GetModule() { return module_; }
 	const VShaderID &GetID() const { return id_; }
 
 protected:
-	Promise<VkShaderModule> *module_ = nullptr;
+	Promise<VKRCompiledShaderModule> *module_ = nullptr;
 
 	VulkanContext *vulkan_;
 	std::string source_;
@@ -95,11 +96,11 @@ public:
 	bool Failed() const { return failed_; }
 
 	std::string GetShaderString(DebugShaderStringType type) const;
-	Promise<VkShaderModule> *GetModule() const { return module_; }
+	Promise<VKRCompiledShaderModule> *GetModule() const { return module_; }
 	const GShaderID &GetID() { return id_; }
 
 protected:
-	Promise<VkShaderModule> *module_ = nullptr;
+	Promise<VKRCompiledShaderModule> *module_ = nullptr;
 
 	VulkanContext *vulkan_;
 	std::string source_;

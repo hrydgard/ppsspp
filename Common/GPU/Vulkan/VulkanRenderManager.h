@@ -74,6 +74,11 @@ struct BoundingRect {
 	}
 };
 
+struct VKRCompiledShaderModule {
+	VkShaderModule shaderModule;
+	std::vector<uint32_t> spirv;
+};
+
 // All the data needed to create a graphics pipeline.
 // TODO: Compress this down greatly.
 struct VKRGraphicsPipelineDesc : Draw::RefCountedObject {
@@ -86,9 +91,9 @@ struct VKRGraphicsPipelineDesc : Draw::RefCountedObject {
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 
 	// Replaced the ShaderStageInfo with promises here so we can wait for compiles to finish.
-	Promise<VkShaderModule> *vertexShader = nullptr;
-	Promise<VkShaderModule> *fragmentShader = nullptr;
-	Promise<VkShaderModule> *geometryShader = nullptr;
+	Promise<VKRCompiledShaderModule> *vertexShader = nullptr;
+	Promise<VKRCompiledShaderModule> *fragmentShader = nullptr;
+	Promise<VKRCompiledShaderModule> *geometryShader = nullptr;
 
 	// These are for pipeline creation failure logging.
 	// TODO: Store pointers to the string instead? Feels iffy but will probably work.

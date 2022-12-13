@@ -614,11 +614,11 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 	pipelines_.Iterate([&](const VulkanPipelineKey &pkey, VulkanPipeline *value) {
 		if (failed)
 			return;
-		VulkanVertexShader *vshader = shaderManager->GetVertexShaderFromModule(pkey.vShader->BlockUntilReady());
-		VulkanFragmentShader *fshader = shaderManager->GetFragmentShaderFromModule(pkey.fShader->BlockUntilReady());
+		VulkanVertexShader *vshader = shaderManager->GetVertexShaderFromModule(pkey.vShader->BlockUntilReady().shaderModule);
+		VulkanFragmentShader *fshader = shaderManager->GetFragmentShaderFromModule(pkey.fShader->BlockUntilReady().shaderModule);
 		VulkanGeometryShader *gshader = nullptr;
 		if (pkey.gShader) {
-			gshader = shaderManager->GetGeometryShaderFromModule(pkey.gShader->BlockUntilReady());
+			gshader = shaderManager->GetGeometryShaderFromModule(pkey.gShader->BlockUntilReady().shaderModule);
 			if (!gshader)
 				failed = true;
 		}

@@ -201,22 +201,22 @@ public:
 	~VKShaderModule() {
 		if (module_) {
 			DEBUG_LOG(G3D, "Queueing %s (shmodule %p) for release", tag_.c_str(), module_);
-			VkShaderModule shaderModule = module_->BlockUntilReady();
-			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+			VKRCompiledShaderModule shaderModule = module_->BlockUntilReady();
+			vulkan_->Delete().QueueDeleteShaderModule(shaderModule.shaderModule);
 			vulkan_->Delete().QueueCallback([](void *m) {
-				auto module = (Promise<VkShaderModule> *)m;
+				auto module = (Promise<VKRCompiledShaderModule> *)m;
 				delete module;
 			}, module_);
 		}
 	}
-	Promise<VkShaderModule> *Get() const { return module_; }
+	Promise<VKRCompiledShaderModule> *Get() const { return module_; }
 	ShaderStage GetStage() const override {
 		return stage_;
 	}
 
 private:
 	VulkanContext *vulkan_;
-	Promise<VkShaderModule> *module_ = nullptr;
+	Promise<VKRCompiledShaderModule> *module_ = nullptr;
 	VkShaderStageFlagBits vkstage_;
 	bool ok_ = false;
 	ShaderStage stage_;
@@ -244,9 +244,10 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 	}
 #endif
 
-	VkShaderModule shaderModule = VK_NULL_HANDLE;
-	if (vulkan->CreateShaderModule(spirv, &shaderModule, tag_.c_str())) {
-		module_ = Promise<VkShaderModule>::AlreadyDone(shaderModule);
+	VKRCompiledShaderModule shaderModule{};
+	shaderModule.spirv = spirv;
+	if (vulkan->CreateShaderModule(spirv, &shaderModule.shaderModule, tag_.c_str())) {
+		module_ = Promise<VKRCompiledShaderModule>::AlreadyDone(shaderModule);
 		ok_ = true;
 	} else {
 		WARN_LOG(G3D, "vkCreateShaderModule failed (%s)", tag_.c_str());
