@@ -515,8 +515,8 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		WARN_LOG(G3D, "Shader cache version mismatch, %d, expected %d", header.version, CACHE_VERSION);
 		return false;
 	}
-	if (header.useFlags != gstate_c.useFlags) {
-		WARN_LOG(G3D, "Shader cache useFlags mismatch, %08x, expected %08x", header.useFlags, gstate_c.useFlags);
+	if (header.useFlags != gstate_c.GetUseFlags()) {
+		WARN_LOG(G3D, "Shader cache useFlags mismatch, %08x, expected %08x", header.useFlags, gstate_c.GetUseFlags());
 		return false;
 	}
 
@@ -584,7 +584,7 @@ void ShaderManagerVulkan::SaveCache(FILE *f) {
 	VulkanCacheHeader header{};
 	header.magic = CACHE_HEADER_MAGIC;
 	header.version = CACHE_VERSION;
-	header.useFlags = gstate_c.useFlags;
+	header.useFlags = gstate_c.GetUseFlags();
 	header.reserved = 0;
 	header.numVertexShaders = (int)vsCache_.size();
 	header.numFragmentShaders = (int)fsCache_.size();

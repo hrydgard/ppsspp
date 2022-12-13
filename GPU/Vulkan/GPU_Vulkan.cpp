@@ -52,7 +52,7 @@
 
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw), drawEngine_(draw) {
-	gstate_c.useFlags = CheckGPUFeatures();
+	gstate_c.SetUseFlags(CheckGPUFeatures());
 	drawEngine_.InitDeviceObjects();
 
 	VulkanContext *vulkan = (VulkanContext *)gfxCtx->GetAPIContext();
@@ -497,7 +497,7 @@ void GPU_Vulkan::DeviceRestore() {
 	GPUCommon::DeviceRestore();
 	InitDeviceObjects();
 
-	gstate_c.useFlags = CheckGPUFeatures();
+	gstate_c.SetUseFlags(CheckGPUFeatures());
 	BuildReportingInfo();
 	UpdateCmdInfo();
 

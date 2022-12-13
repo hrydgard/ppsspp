@@ -636,7 +636,7 @@ void GPUCommon::ClearCacheNextFrame() {
 void GPUCommon::CheckConfigChanged() {
 	if (configChanged_) {
 		ClearCacheNextFrame();
-		gstate_c.useFlags = CheckGPUFeatures();
+		gstate_c.SetUseFlags(CheckGPUFeatures());
 		drawEngineCommon_->NotifyConfigChanged();
 		textureCache_->NotifyConfigChanged();
 		framebufferManager_->NotifyConfigChanged();
@@ -1244,7 +1244,7 @@ void GPUCommon::BeginFrame() {
 
 	if (drawEngineCommon_->EverUsedExactEqualDepth() && !sawExactEqualDepth_) {
 		sawExactEqualDepth_ = true;
-		gstate_c.useFlags = CheckGPUFeatures();
+		gstate_c.SetUseFlags(CheckGPUFeatures());
 	}
 }
 

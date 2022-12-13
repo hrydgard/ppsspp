@@ -195,7 +195,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	initialize.push_back({ &u_tess_weights_v, 0, TEX_SLOT_SPLINE_WEIGHTS_V });
 
 	GLRProgramFlags flags{};
-	flags.supportDualSource = (gstate_c.useFlags & GPU_USE_DUALSOURCE_BLEND) != 0;
+	flags.supportDualSource = gstate_c.Use(GPU_USE_DUALSOURCE_BLEND);
 	if (!VSID.Bit(VS_BIT_IS_THROUGH) && gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
 		flags.useClipDistance0 = true;
 		if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Use(GPU_USE_CLIP_DISTANCE))
@@ -952,7 +952,7 @@ void ShaderManagerGLES::Load(const Path &filename) {
 	if (!f.ReadArray(&header, 1)) {
 		return;
 	}
-	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION || header.useFlags != gstate_c.useFlags) {
+	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION || header.useFlags != gstate_c.GetUseFlags()) {
 		return;
 	}
 	diskCachePending_.start = time_now_d();
@@ -1108,7 +1108,7 @@ void ShaderManagerGLES::Save(const Path &filename) {
 	header.magic = CACHE_HEADER_MAGIC;
 	header.version = CACHE_VERSION;
 	header.reserved = 0;
-	header.useFlags = gstate_c.useFlags;
+	header.useFlags = gstate_c.GetUseFlags();
 	header.numVertexShaders = GetNumVertexShaders();
 	header.numFragmentShaders = GetNumFragmentShaders();
 	header.numLinkedPrograms = GetNumPrograms();
