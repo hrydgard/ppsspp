@@ -1431,6 +1431,8 @@ bool NativeAxis(const AxisInput &axis) {
 
 		default:
 			// Don't take over completely!
+			if (!screenManager)
+				return false;
 			return screenManager->axis(axis);
 	}
 
