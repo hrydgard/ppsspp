@@ -135,6 +135,9 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 	// It's when recreating the pipelines that the pipeline cache is useful - in the ideal case,
 	// it can just memcpy the finished shader binaries out of the pipeline cache file.
 	bool result = shaderManagerVulkan_->LoadCache(f);
+	if (!result) {
+		WARN_LOG(G3D, "ShaderManagerVulkan failed to load cache.");
+	}
 	if (result) {
 		// WARNING: See comment in LoadCache if you are tempted to flip the second parameter to true.
 		result = pipelineManager_->LoadCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout());
