@@ -619,7 +619,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Moga", moga));
 #endif
 
-	if (gstate_c.useFlags != 0) {
+	if (gstate_c.GetUseFlags()) {
 		// We're in-game, and can determine these.
 		// TODO: Call a static version of GPUCommon::CheckGPUFeatures() and derive them here directly.
 

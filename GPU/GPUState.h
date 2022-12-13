@@ -524,8 +524,8 @@ enum class SubmitType {
 };
 
 struct GPUStateCache {
-	bool Use(u32 flags) { return (useFlags & flags) != 0; } // Return true if ANY of flags are true.
-	bool UseAll(u32 flags) { return (useFlags & flags) == flags; } // Return true if ALL flags are true.
+	bool Use(u32 flags) { return (useFlags_ & flags) != 0; } // Return true if ANY of flags are true.
+	bool UseAll(u32 flags) { return (useFlags_ & flags) == flags; } // Return true if ALL flags are true.
 
 	uint64_t GetDirtyUniforms() { return dirty & DIRTY_ALL_UNIFORMS; }
 	void Dirty(u64 what) {
@@ -578,9 +578,21 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
+	void SetUseFlags(u32 newFlags) {
+		if (newFlags != useFlags_) {
+			useFlags_ = newFlags;
+			// Recompile shaders and stuff?
+		}
+	}
 
-	u32 useFlags;
+	// When checking for a single flag, use Use()/UseAll().
+	u32 GetUseFlags() const {
+		return useFlags_;
+	}
 
+private:
+	u32 useFlags_;
+public:
 	u32 vertexAddr;
 	u32 indexAddr;
 	u32 offsetAddr;

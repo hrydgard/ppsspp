@@ -82,7 +82,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
 	UpdateCmdInfo();
-	gstate_c.useFlags = CheckGPUFeatures();
+	gstate_c.SetUseFlags(CheckGPUFeatures());
 
 	BuildReportingInfo();
 
