@@ -172,6 +172,14 @@ void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettin
 	cardboardSettings->screenHeight = cardboardScreenHeight;
 }
 
+static float GetShaderSettingValue(const ShaderInfo *shaderInfo, int i, const char *nameSuffix) {
+	std::string key = shaderInfo->section + nameSuffix;
+	auto it = g_Config.mPostShaderSetting.find(key);
+	if (it != g_Config.mPostShaderSetting.end())
+		return it->second;
+	return shaderInfo->settings[i].value;
+}
+
 void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) const {
 	float u_delta = 1.0f / bufferWidth;
 	float v_delta = 1.0f / bufferHeight;
@@ -196,10 +204,10 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	uniforms->gl_HalfPixel[0] = u_pixel_delta * 0.5f;
 	uniforms->gl_HalfPixel[1] = v_pixel_delta * 0.5f;
 
-	uniforms->setting[0] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue1"];
-	uniforms->setting[1] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue2"];
-	uniforms->setting[2] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue3"];
-	uniforms->setting[3] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue4"];
+	uniforms->setting[0] = GetShaderSettingValue(shaderInfo, 0, "SettingValue1");
+	uniforms->setting[1] = GetShaderSettingValue(shaderInfo, 1, "SettingValue2");
+	uniforms->setting[2] = GetShaderSettingValue(shaderInfo, 2, "SettingValue3");
+	uniforms->setting[3] = GetShaderSettingValue(shaderInfo, 3, "SettingValue4");
 }
 
 static std::string ReadShaderSrc(const Path &filename) {
