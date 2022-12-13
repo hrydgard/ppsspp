@@ -75,6 +75,7 @@ struct BoundingRect {
 };
 
 // All the data needed to create a graphics pipeline.
+// TODO: Compress this down greatly.
 struct VKRGraphicsPipelineDesc : Draw::RefCountedObject {
 	VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 	VkPipelineColorBlendStateCreateInfo cbs{ VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
@@ -95,7 +96,7 @@ struct VKRGraphicsPipelineDesc : Draw::RefCountedObject {
 	std::string fragmentShaderSource;
 	std::string geometryShaderSource;
 
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
+	VkPrimitiveTopology topology;
 	VkVertexInputAttributeDescription attrs[8]{};
 	VkVertexInputBindingDescription ibd{};
 	VkPipelineVertexInputStateCreateInfo vis{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };

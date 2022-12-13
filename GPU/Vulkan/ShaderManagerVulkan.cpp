@@ -507,19 +507,25 @@ struct VulkanCacheHeader {
 bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	VulkanCacheHeader header{};
 	bool success = fread(&header, sizeof(header), 1, f) == 1;
-	if (!success || header.magic != CACHE_HEADER_MAGIC)
+	if (!success || header.magic != CACHE_HEADER_MAGIC) {
+		WARN_LOG(G3D, "Shader cache magic mismatch");
 		return false;
-	if (header.version != CACHE_VERSION)
+	}
+	if (header.version != CACHE_VERSION) {
+		WARN_LOG(G3D, "Shader cache version mismatch, %d, expected %d", header.version, CACHE_VERSION);
 		return false;
-	if (header.useFlags != gstate_c.useFlags)
+	}
+	if (header.useFlags != gstate_c.useFlags) {
+		WARN_LOG(G3D, "Shader cache useFlags mismatch, %08x, expected %08x", header.useFlags, gstate_c.useFlags);
 		return false;
+	}
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	for (int i = 0; i < header.numVertexShaders; i++) {
 		VShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {
-			ERROR_LOG(G3D, "Vulkan shader cache truncated");
-			break;
+			ERROR_LOG(G3D, "Vulkan shader cache truncated (in VertexShaders)");
+			return false;
 		}
 		bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
 		std::string genErrorString;
@@ -527,6 +533,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		uint64_t uniformMask = 0;
 		VertexShaderFlags flags;
 		if (!GenerateVertexShader(id, codeBuffer_, compat_, draw_->GetBugs(), &attributeMask, &uniformMask, &flags, &genErrorString)) {
+			WARN_LOG(G3D, "Failed to generate vertex shader during cache load");
 			return false;
 		}
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
@@ -538,13 +545,14 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	for (int i = 0; i < header.numFragmentShaders; i++) {
 		FShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {
-			ERROR_LOG(G3D, "Vulkan shader cache truncated");
-			break;
+			ERROR_LOG(G3D, "Vulkan shader cache truncated (in FragmentShaders)");
+			return false;
 		}
 		std::string genErrorString;
 		uint64_t uniformMask = 0;
 		FragmentShaderFlags flags;
 		if (!GenerateFragmentShader(id, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &flags, &genErrorString)) {
+			WARN_LOG(G3D, "Failed to generate fragment shader during cache load");
 			return false;
 		}
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
@@ -555,11 +563,12 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	for (int i = 0; i < header.numGeometryShaders; i++) {
 		GShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {
-			ERROR_LOG(G3D, "Vulkan shader cache truncated");
-			break;
+			ERROR_LOG(G3D, "Vulkan shader cache truncated (in GeometryShaders)");
+			return false;
 		}
 		std::string genErrorString;
 		if (!GenerateGeometryShader(id, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString)) {
+			WARN_LOG(G3D, "Failed to generate geometry shader during cache load");
 			return false;
 		}
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
@@ -567,7 +576,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		gsCache_.Insert(id, gs);
 	}
 
-	NOTICE_LOG(G3D, "Loaded %d vertex and %d fragment shaders", header.numVertexShaders, header.numFragmentShaders);
+	NOTICE_LOG(G3D, "ShaderCache: Loaded %d vertex, %d fragment shaders and %d geometry shaders", header.numVertexShaders, header.numFragmentShaders, header.numGeometryShaders);
 	return true;
 }
 

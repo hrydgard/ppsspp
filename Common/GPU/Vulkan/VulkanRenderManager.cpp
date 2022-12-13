@@ -86,12 +86,15 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		ms.minSampleShading = 1.0f;
 	}
 
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
+	inputAssembly.topology = desc->topology;
+
 	// We will use dynamic viewport state.
 	pipe.pVertexInputState = &desc->vis;
 	pipe.pViewportState = &desc->views;
 	pipe.pTessellationState = nullptr;
 	pipe.pDynamicState = &desc->ds;
-	pipe.pInputAssemblyState = &desc->inputAssembly;
+	pipe.pInputAssemblyState = &inputAssembly;
 	pipe.pMultisampleState = &ms;
 	pipe.layout = desc->pipelineLayout;
 	pipe.basePipelineHandle = VK_NULL_HANDLE;
@@ -103,10 +106,11 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &pipe, nullptr, &vkpipeline);
 	double taken_ms = (time_now_d() - start) * 1000.0;
 
-	if (taken_ms < 0.1)
-		DEBUG_LOG(G3D, "Pipeline creation time: %0.2f ms (fast)", taken_ms);
-	else
-		INFO_LOG(G3D, "Pipeline creation time: %0.2f ms", taken_ms);
+	if (taken_ms < 0.1) {
+		INFO_LOG(G3D, "Pipeline creation time: %0.2f ms (fast) rpType: %08x sampleBits: %d\n(%s)", taken_ms, (u32)rpType, (u32)sampleCount, tag_.c_str());
+	} else {
+		INFO_LOG(G3D, "Pipeline creation time: %0.2f ms  rpType: %08x sampleBits: %d\n(%s)", taken_ms, (u32)rpType, (u32)sampleCount, tag_.c_str());
+	}
 
 	bool success = true;
 	if (result == VK_INCOMPLETE) {
@@ -352,10 +356,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 			break;
 		}
 
-		if (!toCompile.empty()) {
-			INFO_LOG(G3D, "Compilation thread has %d pipelines to create", (int)toCompile.size());
-		}
-
+		double time = time_now_d();
 		// TODO: Here we can sort the pending pipelines by vertex and fragment shaders,
 		// and split up further.
 		// Those with the same pairs of shaders should be on the same thread.
@@ -369,6 +370,12 @@ void VulkanRenderManager::CompileThreadFunc() {
 				break;
 			}
 		}
+
+		double delta = time_now_d() - time;
+		if (delta > 0.005f) {
+			INFO_LOG(G3D, "CompileThreadFunc: Creating %d pipelines took %0.3f ms", (int)toCompile.size(), delta * 1000.0f);
+		}
+
 		queueRunner_.NotifyCompileDone();
 	}
 }

@@ -1216,7 +1216,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	raster->ToVulkan(&gDesc.rs);
 
 	// Copy bindings from input layout.
-	gDesc.inputAssembly.topology = primToVK[(int)desc.prim];
+	gDesc.topology = primToVK[(int)desc.prim];
 
 	// We treat the three stencil states as a unit in other places, so let's do that here too.
 	const VkDynamicState dynamics[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK, VK_DYNAMIC_STATE_STENCIL_REFERENCE, VK_DYNAMIC_STATE_STENCIL_WRITE_MASK };

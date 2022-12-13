@@ -266,12 +266,9 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 		desc->geometryShaderSource = gs->GetShaderString(SHADER_STRING_SOURCE_CODE);
 	}
 
-	VkPipelineInputAssemblyStateCreateInfo &inputAssembly = desc->inputAssembly;
-	inputAssembly.flags = 0;
-	inputAssembly.topology = (VkPrimitiveTopology)key.topology;
-	inputAssembly.primitiveRestartEnable = false;
-	int vertexStride = 0;
+	desc->topology = (VkPrimitiveTopology)key.topology;
 
+	int vertexStride = 0;
 	VkVertexInputAttributeDescription *attrs = &desc->attrs[0];
 
 	int attributeCount;
@@ -478,13 +475,14 @@ std::string PipelineManagerVulkan::DebugGetObjectString(std::string id, DebugSha
 	VulkanPipelineKey pipelineKey;
 	pipelineKey.FromString(id);
 
-	VulkanPipeline *iter = pipelines_.Get(pipelineKey);
-	if (!iter) {
-		return "";
+	VulkanPipeline *pipeline = pipelines_.Get(pipelineKey);
+	if (!pipeline) {
+		return "N/A (missing)";
 	}
+	u32 variants = pipeline->GetVariantsBitmask();
 
-	std::string str = pipelineKey.GetDescription(stringType);
-	return StringFromFormat("%p: %s", iter, str.c_str());
+	std::string keyDescription = pipelineKey.GetDescription(stringType);
+	return StringFromFormat("%s. v: %08x", keyDescription.c_str(), variants);
 }
 
 std::string VulkanPipelineKey::GetDescription(DebugShaderStringType stringType) const {
@@ -675,6 +673,7 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 
 	uint32_t size = 0;
 	if (loadRawPipelineCache) {
+		NOTICE_LOG(G3D, "WARNING: Using the badly tested raw pipeline cache path!!!!");
 		// WARNING: Do not use this path until after reading and implementing https://zeux.io/2019/07/17/serializing-pipeline-cache/ !
 		bool success = fread(&size, sizeof(size), 1, file) == 1;
 		if (!size || !success) {
@@ -710,12 +709,14 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 		} else {
 			vkMergePipelineCaches(vulkan_->GetDevice(), pipelineCache_, 1, &cache);
 		}
-		NOTICE_LOG(G3D, "Loaded Vulkan pipeline cache (%d bytes).", (int)size);
+		NOTICE_LOG(G3D, "Loaded Vulkan binary pipeline cache (%d bytes).", (int)size);
+		// Note that after loading the cache, it's still a good idea to pre-create the various pipelines.
 	} else {
 		if (!pipelineCache_) {
 			VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 			VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
 			if (res != VK_SUCCESS) {
+				WARN_LOG(G3D, "vkCreatePipelineCache failed (%08x), highly unexpected", (u32)res);
 				return false;
 			}
 		}
@@ -724,7 +725,7 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 	// Read the number of pipelines.
 	bool failed = fread(&size, sizeof(size), 1, file) != 1;
 
-	NOTICE_LOG(G3D, "Creating %d pipelines...", size);
+	NOTICE_LOG(G3D, "Creating %d pipelines from cache...", size);
 	int pipelineCreateFailCount = 0;
 	for (uint32_t i = 0; i < size; i++) {
 		if (failed || cancelCache_) {
