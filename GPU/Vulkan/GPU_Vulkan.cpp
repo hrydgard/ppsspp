@@ -121,7 +121,7 @@ void GPU_Vulkan::CancelReady() {
 
 void GPU_Vulkan::LoadCache(const Path &filename) {
 	if (!g_Config.bShaderCache) {
-		INFO_LOG(G3D, "Shader cache disabled. Not loading.");
+		WARN_LOG(G3D, "!!!! Shader cache disabled. Not loading.");
 		return;
 	}
 

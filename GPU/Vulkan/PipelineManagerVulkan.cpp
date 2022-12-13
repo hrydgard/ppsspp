@@ -266,12 +266,9 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 		desc->geometryShaderSource = gs->GetShaderString(SHADER_STRING_SOURCE_CODE);
 	}
 
-	VkPipelineInputAssemblyStateCreateInfo &inputAssembly = desc->inputAssembly;
-	inputAssembly.flags = 0;
-	inputAssembly.topology = (VkPrimitiveTopology)key.topology;
-	inputAssembly.primitiveRestartEnable = false;
-	int vertexStride = 0;
+	desc->topology = (VkPrimitiveTopology)key.topology;
 
+	int vertexStride = 0;
 	VkVertexInputAttributeDescription *attrs = &desc->attrs[0];
 
 	int attributeCount;
