@@ -125,6 +125,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	bindings[8].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	bindings[8].binding = DRAW_BINDING_TESS_STORAGE_BUF_WV;
+	// Note: This binding is not included if !gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH), using bindingCount below.
 	bindings[9].descriptorCount = 1;
 	bindings[9].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 	bindings[9].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -134,7 +135,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	VkDevice device = vulkan->GetDevice();
 
 	VkDescriptorSetLayoutCreateInfo dsl{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-	dsl.bindingCount = ARRAY_SIZE(bindings);
+	dsl.bindingCount = gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH) ? ARRAY_SIZE(bindings) : ARRAY_SIZE(bindings) - 1;
 	dsl.pBindings = bindings;
 	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 	_dbg_assert_(VK_SUCCESS == res);
