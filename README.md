@@ -31,7 +31,7 @@ What's new in 1.14
   - Water in Outrun 2006 and DiRT 2 now renders correctly (logic op fixes) ([#15960], [#16208], [#16032], [#16024], [#15967])
   - Split/Second now renders all effects correctly
   - Multiple fixes workarounds for clipping/culling, both through clip planes and geometry shaders, fixing
-    graphical issues in many, many games and getting rid of hacks ([#16142], [#16504], [#16442], [#16383], [#16165], many others)
+    graphical issues in many, many games and getting rid of hacks ([#16142], [#16504], [#16442], [#16383], [#16165], [#16162], [#16049], others)
   - Killzone color effect now renders efficiently and correctly (in-game only, not title screen) ([#15934])
   - Ridge Racer speedometers and lens flares fixed ([#16084], [#16188], [#16115])
   - Lens flare effect fixed in Burnout Dominator, Ridge Racer, Colin McRae, several others ([#16014], [#16081], [#16076], [#16073])
@@ -40,28 +40,30 @@ What's new in 1.14
   - Cars: Race-o-Rama, and MX vs ATV Reflex render correctly (at 1x resolution only) ([#15898], [#15907])
   - Asphalt 2 depth occlusion problems fixed ([#15854], [#15853])
   - Fix performance regression in Juiced 2 while also fixing the graphics ([#15888])
-  - Silent Hill games are less broken
-  - Depth occlusion problems fixed in Kurohyou (both games) and Ratchet & Clank ([#15772], [#15728], [#15859])
-  - Other rendering problems fixed in Kurohyou ([#16454])
-  - Misshitsu no Sacrifice intro animation and Macross water rendering fixed (3d texture) ([#15727])
-  - Tekken 6 Nancy laser beam fixed, plus line rendering fixes in other games ([#16067])
-  - Many, many others like ([#16265], [#16043])
+  - Silent Hill games are less broken ([#16127])
+  - Depth occlusion and other problems fixed in Kurohyou (both games) and Ratchet & Clank ([#16454], [#15772], [#15728], [#15859])
+  - Misshitsu no Sacrifice intro animation and Macross water rendering fixed (3D texture) ([#15727])
+  - Tekken 6 Nancy laser beam fixed, plus line rendering fixes in rRootage and other games ([#16067])
+  - Tiger & Bunny, Yu-Gi-Oh, GEB, and PlayView games - JPEG image display issues ([#16179], [#16184], [#15924])
+  - Many, many others like Hunter x Hunter, Crash: Mind over Mutant, Boundless Trails, etc. ([#16265], [#16043], [#16379], [#15822], [#16358])
 * Software renderer performance and accuracy improvements
   - Better performance ([#15998], [#16001], [#16011], [#16039], [#16054], [#16080], [#16085], [#16094], [#16102], [#16387], [#16486], [#16502], [#16518])
   - Improved accuracy, clipping ([#15999], [#16005], [#16042], [#16086], [#16117], [#16231], [#16241], [#16265], [#16274], [#16469], [#16470], [#16478], [#16480], [#16485])
 * New features
   - Initial VR support added (Quest and PICO only for now, PC in the future) ([#15659], [#15901], [#16246], [#16262], [#16273])
   - MSAA antialiasing added to the Vulkan backend (desktop only) ([#16458])
-  - New API for plugins to access aspect ratio, scaling and fast-forward ([#16441])
+  - New API for plugins to access aspect ratio, scaling and fast-forward ([#16441]), other new APIs & improvements ([#15748], [#16121], [#16187], [#16198], [#16389])
   - Read texture replacement packs directly from ZIP files ([#16304])
 * UI improvements
   - New interactive Display Layout & Effects screen, replacing the old Display Layout Editor ([#16409], [#16415], [#16417], [#16445])
+  - Add default shader for LCD persistence simulation ([#16531])
   - Game being played can now be seen as a background in most menus ([#16404], more)
   - Reorganize speed hack settings ([#16346], [#16347], [#16348], [#16432])
 * Stability fixes
   - Workaround for hangs on older Adreno GPUs ([#16422])
   - Input handling fixes for deadzones and touch controls ([#16419], [#16450])
   - Avoid game bugs in Twinbee Portable ([#16388]) and Shining Ark ([#16449])
+  - Fixes to D3D9 backend issues ([#15723], [#15815], [#15926], [#16100], [#16232], [#16550])
 * IR interpreter (iOS, etc.) bug fixes
   - Metal Gear Solid - Peace Walker no longer bugged out ([#16396])
   - VFPU fixes for Dissidia, others ([#16302], [#16305], [#16306])
@@ -70,10 +72,12 @@ What's new in 1.14
   - Lighting "ubershader" optimization to prevent hitches ([#16104], [#16111])
   - Assorted minor other improvements ([#15589], [#15843], [#16190])
   - Improve texture replacement memory usage ([#15884], [#16304], [#16314])
+  - Texture upscaling speedup and fixes ([#15803], [#16125])
 * Other
-  - HLE accuracy improvements ([#16413], [#16070], [#16058], [#15930], more)
-  - GE debugger improvements ([#15839], [#15851], [#15894], [#15925], [#15974], [#16007], [#16047], [#16096], [#16201])
+  - HLE/CPU accuracy improvements helping Brooktown High, Frontier Gate, Madoka Magicka, some language patches ([#16413], [#16070], [#16052], [#15930], [#15952], [#15957], more)
+  - Many GE debugger improvements ([#15839], [#15851], [#15894], [#15925], [#15974], [#16007], [#16047], [#16096], [#16201])
   - Optional memory alignment validation in IR mode ([#15879], [#15880])
+  - Fix netplay assertion in Cars ([#16089])
 
 What's new in 1.13.2
 ====================
