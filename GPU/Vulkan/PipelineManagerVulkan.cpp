@@ -578,7 +578,7 @@ struct StoredVulkanPipelineKey {
 
 // If you're looking for how to invalidate the cache, it's done in ShaderManagerVulkan, look for CACHE_VERSION and increment it.
 // (Header of the same file this is stored in).
-void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext) {
+void PipelineManagerVulkan::SavePipelineCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext) {
 	VulkanRenderManager *rm = (VulkanRenderManager *)drawContext->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	VulkanQueueRunner *queueRunner = rm->GetQueueRunner();
 
@@ -667,7 +667,7 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 	}
 }
 
-bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VkPipelineLayout layout) {
+bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VkPipelineLayout layout) {
 	VulkanRenderManager *rm = (VulkanRenderManager *)drawContext->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	VulkanQueueRunner *queueRunner = rm->GetQueueRunner();
 

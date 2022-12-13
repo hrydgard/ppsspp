@@ -515,6 +515,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		WARN_LOG(G3D, "Shader cache version mismatch, %d, expected %d", header.version, CACHE_VERSION);
 		return false;
 	}
+
 	if (header.useFlags != gstate_c.GetUseFlags()) {
 		WARN_LOG(G3D, "Shader cache useFlags mismatch, %08x, expected %08x", header.useFlags, gstate_c.GetUseFlags());
 		return false;
