@@ -1417,10 +1417,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
 	if (IsVREnabled() && !postShadersInitialized) {
 		postShaderChain->Set("PostShader1", "ColorCorrection");
-		postShaderSetting->Set("ColorCorrectionSettingValue1",1.0f);
-		postShaderSetting->Set("ColorCorrectionSettingValue2",1.5f);
-		postShaderSetting->Set("ColorCorrectionSettingValue3",1.1f);
-		postShaderSetting->Set("ColorCorrectionSettingValue4",1.0f);
+		postShaderSetting->Set("ColorCorrectionSettingCurrentValue1", 1.0f);
+		postShaderSetting->Set("ColorCorrectionSettingCurrentValue2", 1.5f);
+		postShaderSetting->Set("ColorCorrectionSettingCurrentValue3", 1.1f);
+		postShaderSetting->Set("ColorCorrectionSettingCurrentValue4", 1.0f);
 	}
 
 	// Load post process shader values

@@ -174,12 +174,6 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 						section.Get(StringFromFormat("SettingMinValue%d", i + 1).c_str(), &setting.minValue, -1.0f);
 						section.Get(StringFromFormat("SettingMaxValue%d", i + 1).c_str(), &setting.maxValue, 1.0f);
 						section.Get(StringFromFormat("SettingStep%d", i + 1).c_str(), &setting.step, 0.01f);
-
-						// Populate the default setting value.
-						std::string section = StringFromFormat("%sSettingValue%d", info.section.c_str(), i + 1);
-						if (!setting.name.empty() && g_Config.mPostShaderSetting.find(section) == g_Config.mPostShaderSetting.end()) {
-							g_Config.mPostShaderSetting.emplace(section, setting.value);
-						}
 					}
 
 					// Let's ignore shaders we can't support. TODO: Not a very good check
