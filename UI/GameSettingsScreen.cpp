@@ -1817,7 +1817,7 @@ void DeveloperToolsScreen::CreateViews() {
 			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
 				auto &setting = shaderInfo->settings[i];
 				if (!setting.name.empty()) {
-					std::string key = StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1);
+					std::string key = StringFromFormat("%sSettingCurrentValue%d", shaderInfo->section.c_str(), i + 1);
 					bool keyExisted = g_Config.mPostShaderSetting.find(key) != g_Config.mPostShaderSetting.end();
 					auto &value = g_Config.mPostShaderSetting[key];
 					if (!keyExisted)

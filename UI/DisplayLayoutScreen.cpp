@@ -418,7 +418,7 @@ void DisplayLayoutScreen::CreateViews() {
 				auto &setting = shaderInfo->settings[i];
 				if (!setting.name.empty()) {
 					// This map lookup will create the setting in the mPostShaderSetting map if it doesn't exist, with a default value of 0.0.
-					std::string key = StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1);
+					std::string key = StringFromFormat("%sSettingCurrentValue%d", shaderInfo->section.c_str(), i + 1);
 					bool keyExisted = g_Config.mPostShaderSetting.find(key) != g_Config.mPostShaderSetting.end();
 					auto &value = g_Config.mPostShaderSetting[key];
 					if (!keyExisted)
