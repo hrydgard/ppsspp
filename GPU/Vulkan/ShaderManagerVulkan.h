@@ -19,6 +19,7 @@
 
 #include <cstdio>
 #include <cstdint>
+#include <mutex>
 
 #include "Common/Thread/Promise.h"
 #include "Common/Data/Collections/Hashmaps.h"
@@ -174,6 +175,7 @@ private:
 	GSCache gsCache_;
 
 	char *codeBuffer_;
+	std::mutex cacheLock_;
 
 	uint64_t uboAlignment_;
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
