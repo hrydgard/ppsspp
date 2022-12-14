@@ -76,7 +76,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerVulkan_->SetTextureCache(textureCacheVulkan_);
 	framebufferManagerVulkan_->SetDrawEngine(&drawEngine_);
 	framebufferManagerVulkan_->SetShaderManager(shaderManagerVulkan_);
-	framebufferManagerVulkan_->Init();
+	framebufferManagerVulkan_->Init(msaaLevel_);
 	textureCacheVulkan_->SetFramebufferManager(framebufferManagerVulkan_);
 	textureCacheVulkan_->SetShaderManager(shaderManagerVulkan_);
 	textureCacheVulkan_->SetDrawEngine(&drawEngine_);
@@ -140,9 +140,10 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 	}
 	if (result) {
 		// WARNING: See comment in LoadPipelineCache if you are tempted to flip the second parameter to true.
-		result = pipelineManager_->LoadPipelineCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout());
+		result = pipelineManager_->LoadPipelineCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout(), msaaLevel_);
 	}
 	fclose(f);
+
 	if (!result) {
 		WARN_LOG(G3D, "Incompatible Vulkan pipeline cache - rebuilding.");
 		// Bad cache file for this GPU/Driver/etc. Delete it.
@@ -274,7 +275,7 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 
 	// We need to turn off framebuffer fetch through input attachments if MSAA is on for now.
 	// This is fixable, just needs some shader generator work (subpassInputMS).
-	if (g_Config.iMultiSampleLevel != 0) {
+	if (msaaLevel_ != 0) {
 		features &= ~GPU_USE_FRAMEBUFFER_FETCH;
 	}
 

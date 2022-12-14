@@ -324,7 +324,7 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	return vulkanPipeline;
 }
 
-VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, VulkanGeometryShader *gs, bool useHwTransform, u32 variantBitmask) {
+VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, VulkanGeometryShader *gs, bool useHwTransform, u32 variantBitmask, int multiSampleLevel) {
 	if (!pipelineCache_) {
 		VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 		VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
@@ -355,7 +355,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 		pipelineFlags |= PipelineFlags::USES_MULTIVIEW;
 	}
 
-	VkSampleCountFlagBits sampleCount = MultiSampleLevelToFlagBits(g_Config.iMultiSampleLevel);
+	VkSampleCountFlagBits sampleCount = MultiSampleLevelToFlagBits(multiSampleLevel);
 
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		renderManager, pipelineCache_, layout, pipelineFlags, sampleCount,
@@ -370,7 +370,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 	}
 }
 
-std::vector<std::string> PipelineManagerVulkan::DebugGetObjectIDs(DebugShaderType type) {
+std::vector<std::string> PipelineManagerVulkan::DebugGetObjectIDs(DebugShaderType type) const {
 	std::vector<std::string> ids;
 	switch (type) {
 	case SHADER_TYPE_PIPELINE:
@@ -667,7 +667,7 @@ void PipelineManagerVulkan::SavePipelineCache(FILE *file, bool saveRawPipelineCa
 	}
 }
 
-bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VkPipelineLayout layout) {
+bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VkPipelineLayout layout, int multiSampleLevel) {
 	VulkanRenderManager *rm = (VulkanRenderManager *)drawContext->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	VulkanQueueRunner *queueRunner = rm->GetQueueRunner();
 
@@ -727,7 +727,7 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 	// Read the number of pipelines.
 	bool failed = fread(&size, sizeof(size), 1, file) != 1;
 
-	NOTICE_LOG(G3D, "Creating %d pipelines from cache...", size);
+	NOTICE_LOG(G3D, "Creating %d pipelines from cache (%dx MSAA)...", size, (1 << multiSampleLevel));
 	int pipelineCreateFailCount = 0;
 	int shaderFailCount = 0;
 	for (uint32_t i = 0; i < size; i++) {
@@ -752,7 +752,7 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 
 		// Avoid creating multisampled shaders if it's not enabled, as that results in an invalid combination.
 		u32 variantsToBuild = key.variants;
-		if (g_Config.iMultiSampleLevel == 0) {
+		if (multiSampleLevel == 0) {
 			for (u32 i = 0; i < (int)RenderPassType::TYPE_COUNT; i++) {
 				if (RenderPassTypeHasMultisample((RenderPassType)i)) {
 					variantsToBuild &= ~(1 << i);
@@ -763,7 +763,7 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 		DecVtxFormat fmt;
 		fmt.InitializeFromID(key.vtxFmtId);
 		VulkanPipeline *pipeline = GetOrCreatePipeline(
-			rm, layout, key.raster, key.useHWTransform ? &fmt : 0, vs, fs, gs, key.useHWTransform, variantsToBuild);
+			rm, layout, key.raster, key.useHWTransform ? &fmt : 0, vs, fs, gs, key.useHWTransform, variantsToBuild, multiSampleLevel);
 		if (!pipeline) {
 			pipelineCreateFailCount += 1;
 		}
