@@ -565,6 +565,9 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		// This can simply be a result of sawExactEqualDepth_ having been flipped to true in the previous run.
 		// Let's just keep going.
 		WARN_LOG(G3D, "Shader cache useFlags mismatch, %08x, expected %08x", header.useFlags, gstate_c.GetUseFlags());
+	} else {
+		// We're compiling shaders now, so they haven't changed anymore.
+		gstate_c.useFlagsChanged = false;
 	}
 
 	int failCount = 0;

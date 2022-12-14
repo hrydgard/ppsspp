@@ -135,6 +135,9 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 	}
 	if (result) {
 		// Reload use flags in case LoadCacheFlags() changed them.
+		if (drawEngineCommon_->EverUsedExactEqualDepth()) {
+			sawExactEqualDepth_ = true;
+		}
 		gstate_c.SetUseFlags(CheckGPUFeatures());
 		result = shaderManagerVulkan_->LoadCache(f);
 		if (!result) {
@@ -303,6 +306,14 @@ void GPU_Vulkan::BeginHostFrame() {
 
 	shaderManagerVulkan_->DirtyShader();
 	gstate_c.Dirty(DIRTY_ALL);
+
+	if (gstate_c.useFlagsChanged) {
+		// TODO: It'd be better to recompile them in the background, probably?
+		// This most likely means that saw equal depth changed.
+		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders");
+		shaderManagerVulkan_->ClearShaders();
+		gstate_c.useFlagsChanged = false;
+	}
 
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");

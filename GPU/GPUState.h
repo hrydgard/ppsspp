@@ -581,7 +581,7 @@ struct GPUStateCache {
 	void SetUseFlags(u32 newFlags) {
 		if (newFlags != useFlags_) {
 			useFlags_ = newFlags;
-			// Recompile shaders and stuff?
+			useFlagsChanged = true;
 		}
 	}
 
@@ -612,6 +612,7 @@ public:
 	bool bgraTexture;
 	bool needShaderTexClamp;
 	bool arrayTexture;
+	bool useFlagsChanged;
 
 	float morphWeights[8];
 	u32 deferredVertTypeDirty;
