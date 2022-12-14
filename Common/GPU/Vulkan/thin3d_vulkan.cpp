@@ -853,13 +853,16 @@ VKContext::VKContext(VulkanContext *vulkan)
 		break;
 	}
 
-	bool hasLazyMemory = false;
-	for (u32 i = 0; i < vulkan->GetMemoryProperties().memoryTypeCount; i++) {
-		if (vulkan->GetMemoryProperties().memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT) {
-			hasLazyMemory = true;
-		}
+	switch (caps_.vendor) {
+	case GPUVendor::VENDOR_ARM:
+	case GPUVendor::VENDOR_IMGTEC:
+	case GPUVendor::VENDOR_QUALCOMM:
+		caps_.isTilingGPU = true;
+		break;
+	default:
+		caps_.isTilingGPU = false;
+		break;
 	}
-	caps_.isTilingGPU = hasLazyMemory && caps_.vendor != GPUVendor::VENDOR_APPLE;
 
 	// Hide D3D9 when we know it likely won't work well.
 #if PPSSPP_PLATFORM(WINDOWS)
