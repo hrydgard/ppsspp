@@ -580,8 +580,9 @@ struct GPUStateCache {
 	}
 	void SetUseFlags(u32 newFlags) {
 		if (newFlags != useFlags_) {
+			if (useFlags_ != 0)
+				useFlagsChanged = true;
 			useFlags_ = newFlags;
-			useFlagsChanged = true;
 		}
 	}
 

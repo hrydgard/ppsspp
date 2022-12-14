@@ -552,14 +552,7 @@ bool ShaderManagerVulkan::LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine) 
 bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	VulkanCacheHeader header{};
 	bool success = fread(&header, sizeof(header), 1, f) == 1;
-	if (!success || header.magic != CACHE_HEADER_MAGIC) {
-		WARN_LOG(G3D, "Shader cache magic mismatch");
-		return false;
-	}
-	if (header.version != CACHE_VERSION) {
-		WARN_LOG(G3D, "Shader cache version mismatch, %d, expected %d", header.version, CACHE_VERSION);
-		return false;
-	}
+	// We don't need to validate magic/version again, done in LoadCacheFlags().
 
 	if (header.useFlags != gstate_c.GetUseFlags()) {
 		// This can simply be a result of sawExactEqualDepth_ having been flipped to true in the previous run.
