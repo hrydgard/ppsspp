@@ -140,7 +140,7 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 	}
 	if (result) {
 		// WARNING: See comment in LoadPipelineCache if you are tempted to flip the second parameter to true.
-		result = pipelineManager_->LoadPipelineCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout());
+		result = pipelineManager_->LoadPipelineCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout(), g_Config.iMultiSampleLevel);
 	}
 	fclose(f);
 	if (!result) {
