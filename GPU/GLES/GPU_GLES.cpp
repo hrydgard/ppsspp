@@ -271,6 +271,14 @@ void GPU_GLES::InitClear() {
 void GPU_GLES::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	drawEngine_.BeginFrame();
+
+	if (gstate_c.useFlagsChanged) {
+		// TODO: It'd be better to recompile them in the background, probably?
+		// This most likely means that saw equal depth changed.
+		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders");
+		shaderManagerGL_->ClearCache(true);
+		gstate_c.useFlagsChanged = false;
+	}
 }
 
 void GPU_GLES::EndHostFrame() {
