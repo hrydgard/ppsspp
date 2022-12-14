@@ -666,10 +666,6 @@ static int DefaultFastForwardMode() {
 #endif
 }
 
-static int DefaultZoomType() {
-	return (int)SmallDisplayZoom::AUTO;
-}
-
 static int DefaultAndroidHwScale() {
 #ifdef __ANDROID__
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19 || System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
