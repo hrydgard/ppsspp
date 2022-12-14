@@ -129,9 +129,17 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 	// First compile shaders to SPIR-V, then load the pipeline cache and recreate the pipelines.
 	// It's when recreating the pipelines that the pipeline cache is useful - in the ideal case,
 	// it can just memcpy the finished shader binaries out of the pipeline cache file.
-	bool result = shaderManagerVulkan_->LoadCache(f);
+	bool result = shaderManagerVulkan_->LoadCacheFlags(f, &drawEngine_);
 	if (!result) {
-		WARN_LOG(G3D, "ShaderManagerVulkan failed to load cache.");
+		WARN_LOG(G3D, "ShaderManagerVulkan failed to load cache header.");
+	}
+	if (result) {
+		// Reload use flags in case LoadCacheFlags() changed them.
+		gstate_c.SetUseFlags(CheckGPUFeatures());
+		result = shaderManagerVulkan_->LoadCache(f);
+		if (!result) {
+			WARN_LOG(G3D, "ShaderManagerVulkan failed to load cache.");
+		}
 	}
 	if (result) {
 		// WARNING: See comment in LoadPipelineCache if you are tempted to flip the second parameter to true.
@@ -163,7 +171,7 @@ void GPU_Vulkan::SaveCache(const Path &filename) {
 	FILE *f = File::OpenCFile(filename, "wb");
 	if (!f)
 		return;
-	shaderManagerVulkan_->SaveCache(f);
+	shaderManagerVulkan_->SaveCache(f, &drawEngine_);
 	// WARNING: See comment in LoadCache if you are tempted to flip the second parameter to true.
 	pipelineManager_->SavePipelineCache(f, false, shaderManagerVulkan_, draw_);
 	INFO_LOG(G3D, "Saved Vulkan pipeline cache");

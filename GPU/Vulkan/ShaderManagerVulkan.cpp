@@ -496,17 +496,43 @@ VulkanGeometryShader *ShaderManagerVulkan::GetGeometryShaderFromModule(VkShaderM
 // pipelines compiled from SPIR-V matching these shaders, pipeline creation will be practically
 // instantaneous.
 
+enum class VulkanCacheDetectFlags {
+	EQUAL_DEPTH = 1,
+};
+
 #define CACHE_HEADER_MAGIC 0xff51f420 
 #define CACHE_VERSION 35
 struct VulkanCacheHeader {
 	uint32_t magic;
 	uint32_t version;
 	uint32_t useFlags;
-	uint32_t reserved;
+	uint32_t detectFlags;
 	int numVertexShaders;
 	int numFragmentShaders;
 	int numGeometryShaders;
 };
+
+bool ShaderManagerVulkan::LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine) {
+	VulkanCacheHeader header{};
+	long pos = ftell(f);
+	bool success = fread(&header, sizeof(header), 1, f) == 1;
+	// We'll read it again later, this is just to check the flags.
+	success = success && fseek(f, pos, SEEK_SET) == 0;
+	if (!success || header.magic != CACHE_HEADER_MAGIC) {
+		WARN_LOG(G3D, "Shader cache magic mismatch");
+		return false;
+	}
+	if (header.version != CACHE_VERSION) {
+		WARN_LOG(G3D, "Shader cache version mismatch, %d, expected %d", header.version, CACHE_VERSION);
+		return false;
+	}
+
+	if ((header.detectFlags & (uint32_t)VulkanCacheDetectFlags::EQUAL_DEPTH) != 0) {
+		drawEngine->SetEverUsedExactEqualDepth(true);
+	}
+
+	return true;
+}
 
 bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	VulkanCacheHeader header{};
@@ -594,12 +620,14 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	return true;
 }
 
-void ShaderManagerVulkan::SaveCache(FILE *f) {
+void ShaderManagerVulkan::SaveCache(FILE *f, DrawEngineVulkan *drawEngine) {
 	VulkanCacheHeader header{};
 	header.magic = CACHE_HEADER_MAGIC;
 	header.version = CACHE_VERSION;
 	header.useFlags = gstate_c.GetUseFlags();
-	header.reserved = 0;
+	header.detectFlags = 0;
+	if (drawEngine->EverUsedExactEqualDepth())
+		header.detectFlags |= (uint32_t)VulkanCacheDetectFlags::EQUAL_DEPTH;
 	header.numVertexShaders = (int)vsCache_.size();
 	header.numFragmentShaders = (int)fsCache_.size();
 	header.numGeometryShaders = (int)gsCache_.size();

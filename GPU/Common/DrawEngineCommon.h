@@ -110,6 +110,9 @@ public:
 	bool EverUsedExactEqualDepth() const {
 		return everUsedExactEqualDepth_;
 	}
+	void SetEverUsedExactEqualDepth(bool v) {
+		everUsedExactEqualDepth_ = v;
+	}
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
 		return decJitCache_->IsInSpace(ptr);

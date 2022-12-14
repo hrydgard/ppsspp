@@ -32,6 +32,7 @@
 #include "GPU/Common/ShaderUniforms.h"
 
 class VulkanContext;
+class DrawEngineVulkan;
 class VulkanPushBuffer;
 
 class VulkanFragmentShader {
@@ -154,8 +155,9 @@ public:
 		return dest->PushAligned(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
 	}
 
+	bool LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine);
 	bool LoadCache(FILE *f);
-	void SaveCache(FILE *f);
+	void SaveCache(FILE *f, DrawEngineVulkan *drawEngine);
 
 private:
 	void Clear();
