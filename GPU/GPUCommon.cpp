@@ -3582,7 +3582,7 @@ u32 GPUCommon::CheckGPUFeaturesLate(u32 features) const {
 
 void GPUCommon::UpdateMSAALevel(Draw::DrawContext *draw) {
 	int level = g_Config.iMultiSampleLevel;
-	if (draw->GetDeviceCaps().multiSampleLevelsMask & (1 << level)) {
+	if (draw && draw->GetDeviceCaps().multiSampleLevelsMask & (1 << level)) {
 		msaaLevel_ = level;
 	} else {
 		// Didn't support the configured level, so revert to 0.
