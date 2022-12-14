@@ -48,6 +48,12 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		return false;
 	}
 
+	if (!compatibleRenderPass) {
+		ERROR_LOG(G3D, "Failed creating graphics pipeline - compatible render pass was null");
+		// We're kinda screwed here?
+		return false;
+	}
+
 	uint32_t stageCount = 2;
 	VkPipelineShaderStageCreateInfo ss[3]{};
 	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

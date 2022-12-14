@@ -82,14 +82,14 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 	delete presentation_;
 }
 
-void FramebufferManagerCommon::Init() {
+void FramebufferManagerCommon::Init(int msaaLevel) {
 	// We may need to override the render size if the shader is upscaling or SSAA.
 	NotifyDisplayResized();
-	NotifyRenderResized();
+	NotifyRenderResized(msaaLevel);
 }
 
-bool FramebufferManagerCommon::UpdateRenderSize() {
-	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight || msaaLevel_ != g_Config.iMultiSampleLevel;
+bool FramebufferManagerCommon::UpdateRenderSize(int msaaLevel) {
+	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight || msaaLevel_ != msaaLevel;
 
 	int effectiveBloomHack = g_Config.iBloomHack;
 	if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn) {
@@ -104,7 +104,7 @@ bool FramebufferManagerCommon::UpdateRenderSize() {
 	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
 	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
 	renderScaleFactor_ = (float)PSP_CoreParameter().renderScaleFactor;
-	msaaLevel_ = g_Config.iMultiSampleLevel;
+	msaaLevel_ = msaaLevel;
 
 	bloomHack_ = effectiveBloomHack;
 	useBufferedRendering_ = newBuffered;
@@ -1670,9 +1670,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	char tag[128];
 	size_t len = FormatFramebufferName(vfb, tag, sizeof(tag));
 
-	int msaaLevel = g_Config.iMultiSampleLevel;
-
-	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), msaaLevel, true, tag });
+	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), msaaLevel_, true, tag });
 	if (Memory::IsVRAMAddress(vfb->fb_address) && vfb->fb_stride != 0) {
 		NotifyMemInfo(MemBlockFlags::ALLOC, vfb->fb_address, ColorBufferByteSize(vfb), tag, len);
 	}
@@ -2406,7 +2404,7 @@ void FramebufferManagerCommon::NotifyDisplayResized() {
 	updatePostShaders_ = true;
 }
 
-void FramebufferManagerCommon::NotifyRenderResized() {
+void FramebufferManagerCommon::NotifyRenderResized(int msaaLevel) {
 	gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
 
 	int w, h, scaleFactor;
@@ -2415,7 +2413,7 @@ void FramebufferManagerCommon::NotifyRenderResized() {
 	PSP_CoreParameter().renderHeight = h;
 	PSP_CoreParameter().renderScaleFactor = scaleFactor;
 
-	if (UpdateRenderSize()) {
+	if (UpdateRenderSize(msaaLevel)) {
 		DestroyAllFBOs();
 	}
 

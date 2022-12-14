@@ -261,6 +261,10 @@ public:
 		fullInfo = reportingFullInfo_;
 	}
 
+	int MSAALevel() const {
+		return msaaLevel_;
+	}
+
 protected:
 	void DeviceLost() override;
 	void DeviceRestore() override;
@@ -318,6 +322,8 @@ protected:
 	size_t FormatGPUStatsCommon(char *buf, size_t size);
 
 	virtual void BuildReportingInfo() = 0;
+
+	void UpdateMSAALevel(Draw::DrawContext *draw);
 
 	FramebufferManagerCommon *framebufferManager_ = nullptr;
 	TextureCacheCommon *textureCache_ = nullptr;
@@ -405,6 +411,8 @@ protected:
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
 
+	int msaaLevel_ = 0;
+
 private:
 	void CheckDepthUsage(VirtualFramebuffer *vfb);
 	void DoExecuteCall(u32 target);
@@ -415,6 +423,7 @@ private:
 	// Debug stats.
 	double timeSteppingStarted_;
 	double timeSpentStepping_;
+
 	int lastVsync_ = -1;
 };
 
