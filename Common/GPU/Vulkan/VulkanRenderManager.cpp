@@ -546,17 +546,18 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			RenderPassType rpType = (RenderPassType)i;
 
 			// Sanity check - don't compile incompatible types (could be caused by corrupt caches, changes in data structures, etc).
-			if (pipelineFlags & PipelineFlags::USES_DEPTH_STENCIL) {
-				if (!RenderPassTypeHasDepth(rpType)) {
-					WARN_LOG(G3D, "Not compiling pipeline that requires depth, for non depth renderpass type");
-					continue;
-				}
+			if ((pipelineFlags & PipelineFlags::USES_DEPTH_STENCIL) && !RenderPassTypeHasDepth(rpType)) {
+				WARN_LOG(G3D, "Not compiling pipeline that requires depth, for non depth renderpass type");
+				continue;
 			}
-			if (pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT) {
-				if (!RenderPassTypeHasInput(rpType)) {
-					WARN_LOG(G3D, "Not compiling pipeline that requires input attachment, for non input renderpass type");
-					continue;
-				}
+			if ((pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT) && !RenderPassTypeHasInput(rpType)) {
+				WARN_LOG(G3D, "Not compiling pipeline that requires input attachment, for non input renderpass type");
+				continue;
+			}
+			// Shouldn't hit this, these should have been filtered elsewhere. However, still a good check to do.
+			if (sampleCount == VK_SAMPLE_COUNT_1_BIT && RenderPassTypeHasMultisample(rpType)) {
+				WARN_LOG(G3D, "Not compiling single sample pipeline for a multisampled render pass type");
+				continue;
 			}
 
 			pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();

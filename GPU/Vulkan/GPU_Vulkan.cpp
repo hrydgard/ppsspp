@@ -139,8 +139,8 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 		WARN_LOG(G3D, "ShaderManagerVulkan failed to load cache.");
 	}
 	if (result) {
-		// WARNING: See comment in LoadCache if you are tempted to flip the second parameter to true.
-		result = pipelineManager_->LoadCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout());
+		// WARNING: See comment in LoadPipelineCache if you are tempted to flip the second parameter to true.
+		result = pipelineManager_->LoadPipelineCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout());
 	}
 	fclose(f);
 	if (!result) {
@@ -169,7 +169,7 @@ void GPU_Vulkan::SaveCache(const Path &filename) {
 		return;
 	shaderManagerVulkan_->SaveCache(f);
 	// WARNING: See comment in LoadCache if you are tempted to flip the second parameter to true.
-	pipelineManager_->SaveCache(f, false, shaderManagerVulkan_, draw_);
+	pipelineManager_->SavePipelineCache(f, false, shaderManagerVulkan_, draw_);
 	INFO_LOG(G3D, "Saved Vulkan pipeline cache");
 	fclose(f);
 }

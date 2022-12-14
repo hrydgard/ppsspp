@@ -515,10 +515,14 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		WARN_LOG(G3D, "Shader cache version mismatch, %d, expected %d", header.version, CACHE_VERSION);
 		return false;
 	}
+
 	if (header.useFlags != gstate_c.GetUseFlags()) {
+		// This can simply be a result of sawExactEqualDepth_ having been flipped to true in the previous run.
+		// Let's just keep going.
 		WARN_LOG(G3D, "Shader cache useFlags mismatch, %08x, expected %08x", header.useFlags, gstate_c.GetUseFlags());
-		return false;
 	}
+
+	int failCount = 0;
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	for (int i = 0; i < header.numVertexShaders; i++) {
@@ -534,7 +538,9 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		VertexShaderFlags flags;
 		if (!GenerateVertexShader(id, codeBuffer_, compat_, draw_->GetBugs(), &attributeMask, &uniformMask, &flags, &genErrorString)) {
 			WARN_LOG(G3D, "Failed to generate vertex shader during cache load");
-			return false;
+			// We just ignore this one and carry on.
+			failCount++;
+			continue;
 		}
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
 		VulkanVertexShader *vs = new VulkanVertexShader(vulkan, id, flags, codeBuffer_, useHWTransform);
@@ -553,7 +559,9 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		FragmentShaderFlags flags;
 		if (!GenerateFragmentShader(id, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &flags, &genErrorString)) {
 			WARN_LOG(G3D, "Failed to generate fragment shader during cache load");
-			return false;
+			// We just ignore this one and carry on.
+			failCount++;
+			continue;
 		}
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
 		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan, id, flags, codeBuffer_);
@@ -569,14 +577,16 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		std::string genErrorString;
 		if (!GenerateGeometryShader(id, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString)) {
 			WARN_LOG(G3D, "Failed to generate geometry shader during cache load");
-			return false;
+			// We just ignore this one and carry on.
+			failCount++;
+			continue;
 		}
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
 		VulkanGeometryShader *gs = new VulkanGeometryShader(vulkan, id, codeBuffer_);
 		gsCache_.Insert(id, gs);
 	}
 
-	NOTICE_LOG(G3D, "ShaderCache: Loaded %d vertex, %d fragment shaders and %d geometry shaders", header.numVertexShaders, header.numFragmentShaders, header.numGeometryShaders);
+	NOTICE_LOG(G3D, "ShaderCache: Loaded %d vertex, %d fragment shaders and %d geometry shaders (failed %d)", header.numVertexShaders, header.numFragmentShaders, header.numGeometryShaders, failCount);
 	return true;
 }
 
