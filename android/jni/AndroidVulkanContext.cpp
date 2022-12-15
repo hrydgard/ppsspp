@@ -21,10 +21,17 @@ AndroidVulkanContext::~AndroidVulkanContext() {
 }
 
 static uint32_t FlagsFromConfig() {
+	uint32_t flags;
+
 	if (g_Config.bVSync) {
-		return VULKAN_FLAG_PRESENT_FIFO;
+		flags = VULKAN_FLAG_PRESENT_FIFO;
+	} else {
+		flags = VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED;
 	}
-	return VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED;
+#ifdef _DEBUG
+	flags |= VULKAN_FLAG_VALIDATE;
+#endif
+	return flags;
 }
 
 bool AndroidVulkanContext::InitAPI() {
