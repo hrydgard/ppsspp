@@ -1109,9 +1109,14 @@ bool VulkanContext::InitSwapchain() {
 	std::string currentTransform = surface_transforms_to_string(surfCapabilities_.currentTransform);
 	g_display_rotation = DisplayRotation::ROTATE_0;
 	g_display_rot_matrix.setIdentity();
+
+	uint32_t allowedRotations = VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR;
+	// Hack: Don't allow 270 degrees pretransform (inverse landscape), it creates bizarre issues on some devices (see #15773).
+	allowedRotations &= ~VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR;
+
 	if (surfCapabilities_.currentTransform & (VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR | VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR)) {
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-	} else if (surfCapabilities_.currentTransform & (VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR)) {
+	} else if (surfCapabilities_.currentTransform & allowedRotations) {
 		// Normal, sensible rotations. Let's handle it.
 		preTransform = surfCapabilities_.currentTransform;
 		g_display_rot_matrix.setIdentity();
@@ -1134,12 +1139,11 @@ bool VulkanContext::InitSwapchain() {
 			_dbg_assert_(false);
 		}
 	} else {
-		// Let the OS rotate the image (potentially slow on many Android devices)
+		// Let the OS rotate the image (potentially slower on many Android devices)
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	}
 
 	std::string preTransformStr = surface_transforms_to_string(preTransform);
-
 	INFO_LOG(G3D, "Transform supported: %s current: %s chosen: %s", supportedTransforms.c_str(), currentTransform.c_str(), preTransformStr.c_str());
 
 	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
