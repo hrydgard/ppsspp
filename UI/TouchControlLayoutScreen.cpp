@@ -308,13 +308,8 @@ private:
 
 class SnapGrid : public UI::View {
 public:
-	SnapGrid(int leftMargin, int rightMargin, int topMargin, int bottomMargin, u32 color) {
-		x1 = leftMargin;
-		x2 = rightMargin;
-		y1 = topMargin;
-		y2 = bottomMargin;
-		col = color;
-	}
+	SnapGrid(int leftMargin, int rightMargin, int topMargin, int bottomMargin, u32 color)
+		: UI::View(), x1(leftMargin), x2(rightMargin), y1(topMargin), y2(bottomMargin), col(color) {}
 
 	void Draw(UIContext &dc) override {
 		if (g_Config.bTouchSnapToGrid) {
@@ -602,7 +597,7 @@ UI::EventReturn TouchControlLayoutScreen::OnMode(UI::EventParams &e) {
 }
 
 void TouchControlLayoutScreen::update() {
-	UIDialogScreenWithBackground::update();
+	UIDialogScreenWithGameBackground::update();
 
 	// TODO: We really, really need a cleaner solution for creating sub-views
 	// of custom compound controls.
