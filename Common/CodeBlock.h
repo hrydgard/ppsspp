@@ -57,7 +57,10 @@ private:
 
 public:
 	CodeBlock() {}
-	virtual ~CodeBlock() { if (region) FreeCodeSpace(); }
+	~CodeBlock() {
+		if (region)
+			FreeCodeSpace();
+	}
 
 	// Call this before you generate any code.
 	void AllocCodeSpace(int size) {
@@ -80,7 +83,7 @@ public:
 		// If not WX Exclusive, no need to call ProtectMemoryPages because we never change the protection from RWX.
 		PoisonMemory(offset);
 		ResetCodePtr(offset);
-		if (PlatformIsWXExclusive()) {
+		if (PlatformIsWXExclusive() && offset != 0) {
 			// Need to re-protect the part we didn't clear.
 			ProtectMemoryPages(region, offset, MEM_PROT_READ | MEM_PROT_EXEC);
 		}
@@ -95,7 +98,22 @@ public:
 		// In case the last block made the current page exec/no-write, let's fix that.
 		if (PlatformIsWXExclusive()) {
 			writeStart_ = GetCodePtr();
+			if (writeStart_ + sizeEstimate - region > (ptrdiff_t)region_size)
+				sizeEstimate = region_size - (writeStart_ - region);
+			writeEstimated_ = sizeEstimate;
 			ProtectMemoryPages(writeStart_, sizeEstimate, MEM_PROT_READ | MEM_PROT_WRITE);
+		}
+	}
+
+	// In case you now know your original estimate is wrong.
+	void ContinueWrite(size_t sizeEstimate = 1) {
+		_dbg_assert_msg_(writeStart_, "Must have already called BeginWrite()");
+		if (PlatformIsWXExclusive()) {
+			const uint8_t *pos = GetCodePtr();
+			if (pos + sizeEstimate - region > (ptrdiff_t)region_size)
+				sizeEstimate = region_size - (pos - region);
+			writeEstimated_ = pos - writeStart_ + sizeEstimate;
+			ProtectMemoryPages(pos, sizeEstimate, MEM_PROT_READ | MEM_PROT_WRITE);
 		}
 	}
 
@@ -103,7 +121,14 @@ public:
 		// OK, we're done. Re-protect the memory we touched.
 		if (PlatformIsWXExclusive() && writeStart_ != nullptr) {
 			const uint8_t *end = GetCodePtr();
-			ProtectMemoryPages(writeStart_, end - writeStart_, MEM_PROT_READ | MEM_PROT_EXEC);
+			size_t sz = end - writeStart_;
+			if (sz > writeEstimated_)
+				WARN_LOG(JIT, "EndWrite(): Estimated %d bytes, wrote %d", (int)writeEstimated_, (int)sz);
+			// If we protected and wrote less, we may need to unprotect.
+			// Especially if we're linking blocks or similar.
+			if (sz < writeEstimated_)
+				sz = writeEstimated_;
+			ProtectMemoryPages(writeStart_, sz, MEM_PROT_READ | MEM_PROT_EXEC);
 			writeStart_ = nullptr;
 		}
 	}
@@ -150,5 +175,6 @@ private:
 	// Note: this is a readable pointer.
 	const uint8_t *writeStart_ = nullptr;
 	uint8_t *writableRegion = nullptr;
+	size_t writeEstimated_ = 0;
 };
 

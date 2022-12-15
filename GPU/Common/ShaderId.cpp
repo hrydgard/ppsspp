@@ -62,10 +62,12 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	if (id.Bit(VS_BIT_NORM_REVERSE_TESS)) desc << "TessRevN ";
 	if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) desc << "Cull ";
 
+	if (id.Bit(VS_BIT_SIMPLE_STEREO)) desc << "SimpleStereo ";
+
 	return desc.str();
 }
 
-void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat) {
+void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode) {
 	bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doShadeMapping = doTexture && (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP);
@@ -83,7 +85,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	}
 
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough && !gstate.isModeClear();
-	bool vertexRangeCulling = gstate_c.Supports(GPU_SUPPORTS_VS_RANGE_CULLING) &&
+	bool vertexRangeCulling = gstate_c.Use(GPU_USE_VS_RANGE_CULLING) &&
 		!isModeThrough && gstate_c.submitType == SubmitType::DRAW;  // neither hw nor sw spline/bezier. See #11692
 
 	VShaderID id;
@@ -91,6 +93,10 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	id.SetBit(VS_BIT_IS_THROUGH, isModeThrough);
 	id.SetBit(VS_BIT_HAS_COLOR, hasColor);
 	id.SetBit(VS_BIT_VERTEX_RANGE_CULLING, vertexRangeCulling);
+
+	if (!isModeThrough && gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
+		id.SetBit(VS_BIT_SIMPLE_STEREO);
+	}
 
 	if (doTexture) {
 		id.SetBit(VS_BIT_DO_TEXTURE);
@@ -112,7 +118,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 		}
 
 		// Bones.
-		bool enableBones = vertTypeIsSkinningEnabled(vertType);
+		bool enableBones = !useSkinInDecode && vertTypeIsSkinningEnabled(vertType);
 		id.SetBit(VS_BIT_ENABLE_BONES, enableBones);
 		if (enableBones) {
 			id.SetBits(VS_BIT_BONES, 3, TranslateNumBones(vertTypeGetNumBoneWeights(vertType)) - 1);
@@ -124,7 +130,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 		if (gstate.isLightingEnabled()) {
 			// doShadeMapping is stored as UVGenMode, and light type doesn't matter for shade mapping.
 			id.SetBit(VS_BIT_LIGHTING_ENABLE);
-			if (gstate_c.Supports(GPU_USE_LIGHT_UBERSHADER)) {
+			if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {
 				id.SetBit(VS_BIT_LIGHT_UBERSHADER);
 			} else {
 				id.SetBits(VS_BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate());
@@ -167,8 +173,9 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 
 static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
 
-static bool MatrixNeedsProjection(const float m[12]) {
-	return m[2] != 0.0f || m[5] != 0.0f || m[8] != 0.0f || m[11] != 1.0f;
+static bool MatrixNeedsProjection(const float m[12], GETexProjMapMode mode) {
+	// For GE_PROJMAP_UV, we can ignore m[8] since it multiplies to zero.
+	return m[2] != 0.0f || m[5] != 0.0f || (m[8] != 0.0f && mode != GE_PROJMAP_UV) || m[11] != 1.0f;
 }
 
 std::string FragmentShaderDesc(const FShaderID &id) {
@@ -250,8 +257,10 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	else if (id.Bit(FS_BIT_COLOR_TEST)) desc << "ColorTest " << alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match
 	if (id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO)) desc << "TestDiscardToZero ";
 	if (id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL)) desc << "StencilDiscardWorkaround ";
-	if (id.Bits(FS_BIT_REPLACE_LOGIC_OP, 4) != GE_LOGIC_COPY) desc << "ReplaceLogic ";
-
+	if ((id.Bits(FS_BIT_REPLACE_LOGIC_OP, 4) != GE_LOGIC_COPY) && !id.Bit(FS_BIT_CLEARMODE)) desc << "ReplaceLogic ";
+	if (id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE)) desc << "TexArray ";
+	if (id.Bit(FS_BIT_STEREO)) desc << "Stereo ";
+	if (id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH)) desc << "(fetch)";
 	return desc.str();
 }
 
@@ -275,7 +284,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
-		bool doTextureProjection = (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX && MatrixNeedsProjection(gstate.tgenMatrix));
+		bool doTextureProjection = (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX && MatrixNeedsProjection(gstate.tgenMatrix, gstate.getUVProjMode()));
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 
@@ -359,13 +368,30 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			id.SetBits(FS_BIT_BLENDFUNC_B, 4, gstate.getBlendFuncB());
 		}
 		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
-
 		id.SetBit(FS_BIT_COLOR_WRITEMASK, colorWriteMask);
+
+		// All framebuffers are array textures in Vulkan now.
+		if (gstate_c.arrayTexture && g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+			id.SetBit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
+		}
+
+		// Stereo support
+		if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
+			id.SetBit(FS_BIT_STEREO);
+		}
 
 		if (g_Config.bVendorBugChecksEnabled && bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {
 			bool stencilWithoutDepth = !IsStencilTestOutputDisabled() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled());
 			if (stencilWithoutDepth) {
 				id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, stencilWithoutDepth);
+			}
+		}
+
+		// In case the USE flag changes (for example, in multisampling we might disable input attachments),
+		// we don't want to accidentally use the wrong cached shader here. So moved it to a bit.
+		if (FragmentIdNeedsFramebufferRead(id)) {
+			if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH)) {
+				id.SetBit(FS_BIT_USE_FRAMEBUFFER_FETCH);
 			}
 		}
 	}
@@ -390,11 +416,11 @@ void ComputeGeometryShaderID(GShaderID *id_out, const Draw::Bugs &bugs, int prim
 	bool isTriangle = prim == GE_PRIM_TRIANGLES || prim == GE_PRIM_TRIANGLE_FAN || prim == GE_PRIM_TRIANGLE_STRIP;
 
 	bool vertexRangeCulling = !isCurve;
-	bool clipClampedDepth = gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP) && !gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE);
+	bool clipClampedDepth = gstate_c.Use(GPU_USE_DEPTH_CLAMP) && !gstate_c.Use(GPU_USE_CLIP_DISTANCE);
 
 	// If we're not using GS culling, return a zero ID.
 	// Also, only use this for triangle primitives.
-	if ((!vertexRangeCulling && !clipClampedDepth) || isModeThrough || !isTriangle || !gstate_c.Supports(GPU_SUPPORTS_GS_CULLING)) {
+	if ((!vertexRangeCulling && !clipClampedDepth) || isModeThrough || !isTriangle || !gstate_c.Use(GPU_USE_GS_CULLING)) {
 		*id_out = id;
 		return;
 	}

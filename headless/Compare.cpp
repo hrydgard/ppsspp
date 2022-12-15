@@ -138,11 +138,11 @@ protected:
 	BufferedLineReader() {
 	}
 
-	virtual bool HasMoreLines() {
+	bool HasMoreLines() {
 		return pos_ != data_.npos;
 	}
 
-	virtual std::string ReadLine() {
+	std::string ReadLine() {
 		size_t next = data_.find('\n', pos_);
 		if (next == data_.npos) {
 			std::string result = data_.substr(pos_);
@@ -399,6 +399,7 @@ double ScreenshotComparer::Compare(const Path &screenshotFilename) {
 
 		if (header[0] == 'B' && header[1] == 'M') {
 			reference_ = (u32 *)calloc(stride_ * h_, sizeof(u32));
+			referenceStride_ = stride_;
 			asBitmap_ = true;
 			// The bitmap header is 14 + 40 bytes.  We could validate it but the test would fail either way.
 			if (reference_ && loader->ReadAt(14 + 40, sizeof(u32), stride_ * h_, reference_) != stride_ * h_) {
@@ -424,6 +425,8 @@ double ScreenshotComparer::Compare(const Path &screenshotFilename) {
 				reference_ = nullptr;
 				return -1.0f;
 			}
+
+			referenceStride_ = width;
 		}
 	} else {
 		error_ = "Unable to read screenshot: " + screenshotFilename.ToVisualString();
@@ -439,15 +442,15 @@ double ScreenshotComparer::Compare(const Path &screenshotFilename) {
 	if (asBitmap_) {
 		// The reference is flipped and BGRA by default for the common BMP compare case.
 		for (u32 y = 0; y < h_; ++y) {
-			u32 yoff = y * stride_;
+			u32 yoff = y * referenceStride_;
 			for (u32 x = 0; x < w_; ++x)
 				errors += ComparePixel(pixels_[y * stride_ + x], reference_[yoff + x]);
 		}
 	} else {
 		// Just convert to BGRA for simplicity.
-		ConvertRGBA8888ToBGRA8888(reference_, reference_, h_ * stride_);
+		ConvertRGBA8888ToBGRA8888(reference_, reference_, h_ * referenceStride_);
 		for (u32 y = 0; y < h_; ++y) {
-			u32 yoff = (h_ - y - 1) * stride_;
+			u32 yoff = (h_ - y - 1) * referenceStride_;
 			for (u32 x = 0; x < w_; ++x)
 				errors += ComparePixel(pixels_[y * stride_ + x], reference_[yoff + x]);
 		}
@@ -486,7 +489,7 @@ bool ScreenshotComparer::SaveVisualComparisonPNG(const Path &resultFilename) {
 	if (asBitmap_) {
 		// The reference is flipped and BGRA by default for the common BMP compare case.
 		for (u32 y = 0; y < h_; ++y) {
-			u32 yoff = y * stride_;
+			u32 yoff = y * referenceStride_;
 			u32 comparisonRow = (h_ - y - 1) * 2 * w_ * 2;
 			for (u32 x = 0; x < w_; ++x) {
 				PlotVisualComparison(comparison.get(), comparisonRow + x * 2, pixels_[y * stride_ + x], reference_[yoff + x]);
@@ -495,7 +498,7 @@ bool ScreenshotComparer::SaveVisualComparisonPNG(const Path &resultFilename) {
 	} else {
 		// Reference is already in BGRA either way.
 		for (u32 y = 0; y < h_; ++y) {
-			u32 yoff = (h_ - y - 1) * stride_;
+			u32 yoff = (h_ - y - 1) * referenceStride_;
 			u32 comparisonRow = (h_ - y - 1) * 2 * w_ * 2;
 			for (u32 x = 0; x < w_; ++x) {
 				PlotVisualComparison(comparison.get(), comparisonRow + x * 2, pixels_[y * stride_ + x], reference_[yoff + x]);

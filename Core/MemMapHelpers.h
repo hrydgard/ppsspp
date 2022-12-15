@@ -71,9 +71,8 @@ inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len, 
 	if (MemBlockInfoDetailed(len)) {
 		char tagData[128];
 		if (!tag) {
-			const std::string srcTag = GetMemWriteTagAt("Memcpy/", from_address, len);
+			tagLen = FormatMemWriteTagAt(tagData, sizeof(tagData), "Memcpy/", from_address, len);
 			tag = tagData;
-			tagLen = truncate_cpy(tagData, srcTag.c_str());
 		}
 		NotifyMemInfo(MemBlockFlags::READ, from_address, len, tag, tagLen);
 		NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, tag, tagLen);

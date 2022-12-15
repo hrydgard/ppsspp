@@ -5,51 +5,20 @@
 #define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, "OpenXR", __VA_ARGS__);
 #define ALOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, "OpenXR", __VA_ARGS__);
 #else
+#include <cstdio>
 #define ALOGE(...) printf(__VA_ARGS__)
 #define ALOGV(...) printf(__VA_ARGS__)
 #endif
 
-//OpenXR
-#define XR_USE_PLATFORM_ANDROID 1
-#define XR_USE_GRAPHICS_API_OPENGL_ES 1
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <jni.h>
-#include <math.h>
-#include <openxr.h>
-#include <openxr_platform.h>
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
+#include "Common/VR/OpenXRLoader.h"
 
-#ifdef _DEBUG
-static const char* GlErrorString(GLenum error) {
-	switch (error) {
-		case GL_NO_ERROR:
-			return "GL_NO_ERROR";
-		case GL_INVALID_ENUM:
-			return "GL_INVALID_ENUM";
-		case GL_INVALID_VALUE:
-			return "GL_INVALID_VALUE";
-		case GL_INVALID_OPERATION:
-			return "GL_INVALID_OPERATION";
-		case GL_INVALID_FRAMEBUFFER_OPERATION:
-			return "GL_INVALID_FRAMEBUFFER_OPERATION";
-		case GL_OUT_OF_MEMORY:
-			return "GL_OUT_OF_MEMORY";
-		default:
-			return "unknown";
-	}
-}
+#define _USE_MATH_DEFINES
+#include <cmath>
+#include <cassert>
 
-static void GLCheckErrors(char* file, int line) {
-	for (int i = 0; i < 10; i++) {
-		const GLenum error = glGetError();
-		if (error == GL_NO_ERROR) {
-			break;
-		}
-		ALOGE("GL error on line %s:%d %s", file, line, GlErrorString(error));
-	}
-}
+#if defined(_DEBUG) && (defined(XR_USE_GRAPHICS_API_OPENGL) || defined(XR_USE_GRAPHICS_API_OPENGL_ES))
+
+void GLCheckErrors(const char* file, int line);
 
 #define GL(func) func; GLCheckErrors(__FILE__ , __LINE__);
 #else
@@ -73,11 +42,7 @@ static void OXR_CheckErrors(XrInstance instance, XrResult result, const char* fu
 #define OXR(func) func;
 #endif
 
-#ifdef OPENXR_PLATFORM_QUEST
-#define OPENXR_HAS_PERFORMANCE_EXTENSION
-#endif
-
-enum { ovrMaxLayerCount = 1 };
+enum { ovrMaxLayerCount = 2 };
 enum { ovrMaxNumEyes = 2 };
 
 typedef union {
@@ -98,10 +63,15 @@ typedef struct {
 	uint32_t TextureSwapChainIndex;
 	ovrSwapChain ColorSwapChain;
 	ovrSwapChain DepthSwapChain;
-	XrSwapchainImageOpenGLESKHR* ColorSwapChainImage;
-	XrSwapchainImageOpenGLESKHR* DepthSwapChainImage;
-	unsigned int* FrameBuffers;
+	void* ColorSwapChainImage;
+	void* DepthSwapChainImage;
+	unsigned int* GLFrameBuffers;
+	VkFramebuffer* VKFrameBuffers;
+	VkImageView* VKColorImages;
+	VkImageView* VKDepthImages;
+
 	bool Acquired;
+	XrGraphicsBindingVulkanKHR* VKContext;
 } ovrFramebuffer;
 
 typedef struct {
@@ -133,27 +103,39 @@ typedef struct {
 	ovrRenderer Renderer;
 } ovrApp;
 
+#ifdef ANDROID
 typedef struct {
 	JavaVM* Vm;
 	jobject ActivityObject;
 	JNIEnv* Env;
-	char AppName[64];
-	int AppVersion;
 } ovrJava;
+#endif
 
 typedef struct {
 	uint64_t frameIndex;
 	ovrApp appState;
-	ovrJava java;
-	float predictedDisplayTime;
+	XrTime predictedDisplayTime;
+	XrGraphicsBindingVulkanKHR graphicsBindingVulkan;
 } engine_t;
 
-void VR_Init( ovrJava java );
+enum VRPlatformFlag {
+	VR_PLATFORM_CONTROLLER_PICO,
+	VR_PLATFORM_CONTROLLER_QUEST,
+	VR_PLATFORM_INSTANCE_EXT,
+	VR_PLATFORM_PERFORMANCE_EXT,
+	VR_PLATFORM_RENDERER_VULKAN,
+	VR_PLATFORM_TRACKING_FLOOR,
+	VR_PLATFORM_MAX
+};
+
+void VR_Init( void* system, const char* name, int version );
 void VR_Destroy( engine_t* engine );
-void VR_EnterVR( engine_t* engine );
+void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVulkan );
 void VR_LeaveVR( engine_t* engine );
 
 engine_t* VR_GetEngine( void );
+bool VR_GetPlatformFlag(VRPlatformFlag flag);
+void VR_SetPlatformFLag(VRPlatformFlag flag, bool value);
 
 void ovrApp_Clear(ovrApp* app);
 void ovrApp_Destroy(ovrApp* app);

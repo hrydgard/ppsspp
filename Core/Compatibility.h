@@ -87,12 +87,19 @@ struct CompatFlags {
 	bool DeswizzleDepth;
 	bool SplitFramebufferMargin;
 	bool ForceLowerResolutionForEffectsOn;
+	bool ForceLowerResolutionForEffectsOff;
 	bool AllowDownloadCLUT;
 	bool NearestFilteringOnFramebufferCreate;
-	bool Fontltn12Hack;
+	bool SecondaryTextureCache;
+	bool EnglishOrJapaneseOnly;
+	bool OldAdrenoPixelDepthRoundingGL;
+	bool ForceCircleButtonConfirm;
+	bool DisallowFramebufferAtOffset;
+  bool Fontltn12Hack;
 };
 
 struct VRCompat {
+	bool IdentityViewHack;
 	bool Skyplane;
 	float UnitsPerMeter;
 };
@@ -115,6 +122,7 @@ public:
 private:
 	void Clear();
 	void CheckSettings(IniFile &iniFile, const std::string &gameID);
+	void CheckVRSettings(IniFile &iniFile, const std::string &gameID);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, float *value);
 

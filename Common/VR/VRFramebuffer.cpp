@@ -1,16 +1,22 @@
 #include "VRFramebuffer.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-#include <math.h>
-#include <time.h>
-#include <pthread.h>
-#include <sys/prctl.h>
-#include <assert.h>
+#if XR_USE_GRAPHICS_API_OPENGL_ES
+
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
+
+#endif
+
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cmath>
+#include <ctime>
+#include <cassert>
+
+#if !defined(_WIN32)
+#include <pthread.h>
+#endif
 
 double FromXrTime(const XrTime time) {
 	return (time * 1e-9);
@@ -39,12 +45,46 @@ void ovrFramebuffer_Clear(ovrFramebuffer* frameBuffer) {
 	frameBuffer->DepthSwapChain.Height = 0;
 	frameBuffer->DepthSwapChainImage = NULL;
 
-	frameBuffer->FrameBuffers = NULL;
+	frameBuffer->GLFrameBuffers = NULL;
 	frameBuffer->Acquired = false;
 }
 
-bool ovrFramebuffer_Create(XrSession session, ovrFramebuffer* frameBuffer, int width, int height, bool multiview) {
+#if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES
 
+static const char* GlErrorString(GLenum error) {
+	switch (error) {
+	case GL_NO_ERROR:
+		return "GL_NO_ERROR";
+	case GL_INVALID_ENUM:
+		return "GL_INVALID_ENUM";
+	case GL_INVALID_VALUE:
+		return "GL_INVALID_VALUE";
+	case GL_INVALID_OPERATION:
+		return "GL_INVALID_OPERATION";
+	case GL_INVALID_FRAMEBUFFER_OPERATION:
+		return "GL_INVALID_FRAMEBUFFER_OPERATION";
+	case GL_OUT_OF_MEMORY:
+		return "GL_OUT_OF_MEMORY";
+	default:
+		return "unknown";
+	}
+}
+
+void GLCheckErrors(const char* file, int line) {
+	for (int i = 0; i < 10; i++) {
+		const GLenum error = glGetError();
+		if (error == GL_NO_ERROR) {
+			break;
+		}
+		ALOGE("GL error on line %s:%d %s", file, line, GlErrorString(error));
+	}
+}
+
+#endif
+
+#if XR_USE_GRAPHICS_API_OPENGL_ES
+
+static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBuffer, int width, int height, bool multiview) {
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
 
@@ -54,12 +94,11 @@ bool ovrFramebuffer_Create(XrSession session, ovrFramebuffer* frameBuffer, int w
 	}
 
 	typedef void (*PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)(GLenum, GLenum, GLuint, GLint, GLint, GLsizei);
-	auto glFramebufferTextureMultiviewOVR = (PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)eglGetProcAddress ("glFramebufferTextureMultiviewOVR");
-	if (!glFramebufferTextureMultiviewOVR)
-	{
+	PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR glFramebufferTextureMultiviewOVR = nullptr;
+	glFramebufferTextureMultiviewOVR = (PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)eglGetProcAddress ("glFramebufferTextureMultiviewOVR");
+	if (!glFramebufferTextureMultiviewOVR) {
 		ALOGE("Can not get proc address for glFramebufferTextureMultiviewOVR.\n");
 	}
-
 	XrSwapchainCreateInfo swapChainCreateInfo;
 	memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
 	swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
@@ -80,20 +119,20 @@ bool ovrFramebuffer_Create(XrSession session, ovrFramebuffer* frameBuffer, int w
 	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
 	OXR(xrCreateSwapchain(session, &swapChainCreateInfo, &frameBuffer->ColorSwapChain.Handle));
 	OXR(xrEnumerateSwapchainImages(frameBuffer->ColorSwapChain.Handle, 0, &frameBuffer->TextureSwapChainLength, NULL));
-	frameBuffer->ColorSwapChainImage = (XrSwapchainImageOpenGLESKHR*)malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
+	frameBuffer->ColorSwapChainImage = malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
 
 	// Create the depth swapchain.
 	swapChainCreateInfo.format = GL_DEPTH24_STENCIL8;
 	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	OXR(xrCreateSwapchain(session, &swapChainCreateInfo, &frameBuffer->DepthSwapChain.Handle));
-	frameBuffer->DepthSwapChainImage = (XrSwapchainImageOpenGLESKHR*)malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
+	frameBuffer->DepthSwapChainImage = malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
 
 	// Populate the swapchain image array.
 	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
-		frameBuffer->ColorSwapChainImage[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
-		frameBuffer->ColorSwapChainImage[i].next = NULL;
-		frameBuffer->DepthSwapChainImage[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
-		frameBuffer->DepthSwapChainImage[i].next = NULL;
+		((XrSwapchainImageOpenGLESKHR*)frameBuffer->ColorSwapChainImage)[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
+		((XrSwapchainImageOpenGLESKHR*)frameBuffer->ColorSwapChainImage)[i].next = NULL;
+		((XrSwapchainImageOpenGLESKHR*)frameBuffer->DepthSwapChainImage)[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
+		((XrSwapchainImageOpenGLESKHR*)frameBuffer->DepthSwapChainImage)[i].next = NULL;
 	}
 	OXR(xrEnumerateSwapchainImages(
 			frameBuffer->ColorSwapChain.Handle,
@@ -106,14 +145,14 @@ bool ovrFramebuffer_Create(XrSession session, ovrFramebuffer* frameBuffer, int w
 			&frameBuffer->TextureSwapChainLength,
 			(XrSwapchainImageBaseHeader*)frameBuffer->DepthSwapChainImage));
 
-	frameBuffer->FrameBuffers = (GLuint*)malloc(frameBuffer->TextureSwapChainLength * sizeof(GLuint));
+	frameBuffer->GLFrameBuffers = (GLuint*)malloc(frameBuffer->TextureSwapChainLength * sizeof(GLuint));
 	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
-		const GLuint colorTexture = frameBuffer->ColorSwapChainImage[i].image;
-		const GLuint depthTexture = frameBuffer->DepthSwapChainImage[i].image;
+		const GLuint colorTexture = ((XrSwapchainImageOpenGLESKHR*)frameBuffer->ColorSwapChainImage)[i].image;
+		const GLuint depthTexture = ((XrSwapchainImageOpenGLESKHR*)frameBuffer->DepthSwapChainImage)[i].image;
 
 		// Create the frame buffer.
-		GL(glGenFramebuffers(1, &frameBuffer->FrameBuffers[i]));
-		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->FrameBuffers[i]));
+		GL(glGenFramebuffers(1, &frameBuffer->GLFrameBuffers[i]));
+		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->GLFrameBuffers[i]));
 		if (multiview) {
 			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, depthTexture, 0, 0, 2));
 			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthTexture, 0, 0, 2));
@@ -134,29 +173,148 @@ bool ovrFramebuffer_Create(XrSession session, ovrFramebuffer* frameBuffer, int w
 	return true;
 }
 
+#endif
+
+#if XR_USE_GRAPHICS_API_VULKAN
+
+static bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int width, int height,
+							        bool multiview, void* context) {
+
+	frameBuffer->Width = width;
+	frameBuffer->Height = height;
+	frameBuffer->VKContext = (XrGraphicsBindingVulkanKHR*)context;
+
+	XrSwapchainCreateInfo swapChainCreateInfo;
+	memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
+	swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+	swapChainCreateInfo.sampleCount = 1;
+	swapChainCreateInfo.width = width;
+	swapChainCreateInfo.height = height;
+	swapChainCreateInfo.faceCount = 1;
+	swapChainCreateInfo.mipCount = 1;
+	swapChainCreateInfo.arraySize = multiview ? 2 : 1;
+
+	frameBuffer->ColorSwapChain.Width = swapChainCreateInfo.width;
+	frameBuffer->ColorSwapChain.Height = swapChainCreateInfo.height;
+	frameBuffer->DepthSwapChain.Width = swapChainCreateInfo.width;
+	frameBuffer->DepthSwapChain.Height = swapChainCreateInfo.height;
+
+	// Create the color swapchain.
+	swapChainCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
+	OXR(xrCreateSwapchain(session, &swapChainCreateInfo, &frameBuffer->ColorSwapChain.Handle));
+	OXR(xrEnumerateSwapchainImages(frameBuffer->ColorSwapChain.Handle, 0, &frameBuffer->TextureSwapChainLength, NULL));
+	frameBuffer->ColorSwapChainImage = malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageVulkanKHR));
+
+	// Create the depth swapchain.
+	swapChainCreateInfo.format = VK_FORMAT_D24_UNORM_S8_UINT;
+	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	OXR(xrCreateSwapchain(session, &swapChainCreateInfo, &frameBuffer->DepthSwapChain.Handle));
+	frameBuffer->DepthSwapChainImage = malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageVulkanKHR));
+
+	// Populate the swapchain image array.
+	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
+		((XrSwapchainImageVulkanKHR*)frameBuffer->ColorSwapChainImage)[i].type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR;
+		((XrSwapchainImageVulkanKHR*)frameBuffer->ColorSwapChainImage)[i].next = NULL;
+		((XrSwapchainImageVulkanKHR*)frameBuffer->DepthSwapChainImage)[i].type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR;
+		((XrSwapchainImageVulkanKHR*)frameBuffer->DepthSwapChainImage)[i].next = NULL;
+	}
+	OXR(xrEnumerateSwapchainImages(
+			frameBuffer->ColorSwapChain.Handle,
+			frameBuffer->TextureSwapChainLength,
+			&frameBuffer->TextureSwapChainLength,
+			(XrSwapchainImageBaseHeader*)frameBuffer->ColorSwapChainImage));
+	OXR(xrEnumerateSwapchainImages(
+			frameBuffer->DepthSwapChain.Handle,
+			frameBuffer->TextureSwapChainLength,
+			&frameBuffer->TextureSwapChainLength,
+			(XrSwapchainImageBaseHeader*)frameBuffer->DepthSwapChainImage));
+
+	frameBuffer->VKColorImages = new VkImageView[frameBuffer->TextureSwapChainLength];
+	frameBuffer->VKDepthImages = new VkImageView[frameBuffer->TextureSwapChainLength];
+	frameBuffer->VKFrameBuffers = new VkFramebuffer[frameBuffer->TextureSwapChainLength];
+	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
+		VkImageViewCreateInfo createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		createInfo.image = ((XrSwapchainImageVulkanKHR*)frameBuffer->ColorSwapChainImage)[i].image;
+		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		createInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+		createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		createInfo.subresourceRange.baseMipLevel = 0;
+		createInfo.subresourceRange.levelCount = 1;
+		createInfo.subresourceRange.baseArrayLayer = 0;
+		createInfo.subresourceRange.layerCount = swapChainCreateInfo.arraySize;
+		if (vkCreateImageView(frameBuffer->VKContext->device, &createInfo, nullptr, &frameBuffer->VKColorImages[i]) != VK_SUCCESS) {
+			ALOGE("failed to create color image view!");
+			return false;
+		}
+
+		createInfo.image = ((XrSwapchainImageVulkanKHR*)frameBuffer->DepthSwapChainImage)[i].image;
+		createInfo.format = VK_FORMAT_D24_UNORM_S8_UINT;
+		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		if (vkCreateImageView(frameBuffer->VKContext->device, &createInfo, nullptr, &frameBuffer->VKDepthImages[i]) != VK_SUCCESS) {
+			ALOGE("failed to create depth image view!");
+			return false;
+		}
+
+		// Create the frame buffer.
+		VkImageView attachments[] = { frameBuffer->VKColorImages[i], frameBuffer->VKDepthImages[i] };
+		VkFramebufferCreateInfo framebufferInfo{};
+		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferInfo.renderPass = VK_NULL_HANDLE; //TODO:This is probably wrong
+		framebufferInfo.attachmentCount = 2;
+		framebufferInfo.pAttachments = attachments;
+		framebufferInfo.width = width;
+		framebufferInfo.height = height;
+		framebufferInfo.layers = swapChainCreateInfo.arraySize;
+		if (vkCreateFramebuffer(frameBuffer->VKContext->device, &framebufferInfo, nullptr, &frameBuffer->VKFrameBuffers[i]) != VK_SUCCESS) {
+			ALOGE("failed to create framebuffer!");
+			return false;
+		}
+	}
+
+	return true;
+}
+
+#endif
+
 void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
-	GL(glDeleteFramebuffers(frameBuffer->TextureSwapChainLength, frameBuffer->FrameBuffers));
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+		for (int i = 0; i < (int)frameBuffer->TextureSwapChainLength; i++) {
+			vkDestroyImageView(frameBuffer->VKContext->device, frameBuffer->VKColorImages[i], nullptr);
+			vkDestroyImageView(frameBuffer->VKContext->device, frameBuffer->VKDepthImages[i], nullptr);
+			vkDestroyFramebuffer(frameBuffer->VKContext->device, frameBuffer->VKFrameBuffers[i], nullptr);
+		}
+		delete[] frameBuffer->VKColorImages;
+		delete[] frameBuffer->VKDepthImages;
+		delete[] frameBuffer->VKFrameBuffers;
+	} else {
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
+		GL(glDeleteFramebuffers(frameBuffer->TextureSwapChainLength, frameBuffer->GLFrameBuffers));
+		free(frameBuffer->GLFrameBuffers);
+#endif
+	}
 	OXR(xrDestroySwapchain(frameBuffer->ColorSwapChain.Handle));
 	OXR(xrDestroySwapchain(frameBuffer->DepthSwapChain.Handle));
 	free(frameBuffer->ColorSwapChainImage);
 	free(frameBuffer->DepthSwapChainImage);
-	free(frameBuffer->FrameBuffers);
 
 	ovrFramebuffer_Clear(frameBuffer);
 }
 
-void ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
-	GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->FrameBuffers[frameBuffer->TextureSwapChainIndex]));
-}
-
-void ovrFramebuffer_SetNone() {
-	GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0));
-}
-
-void ovrFramebuffer_Resolve(ovrFramebuffer* frameBuffer) {
-	// Discard the depth buffer, so the tiler won't need to write it back out to memory.
-	const GLenum depthAttachment[1] = {GL_DEPTH_ATTACHMENT};
-	glInvalidateFramebuffer(GL_DRAW_FRAMEBUFFER, 1, depthAttachment);
+void* ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+		return (void *)frameBuffer->VKFrameBuffers[frameBuffer->TextureSwapChainIndex];
+	} else {
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
+		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->GLFrameBuffers[frameBuffer->TextureSwapChainIndex]));
+#endif
+		return nullptr;
+	}
 }
 
 void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
@@ -178,6 +336,22 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 				waitInfo.timeout * (1E-9));
 	}
 	frameBuffer->Acquired = res == XR_SUCCESS;
+
+	ovrFramebuffer_SetCurrent(frameBuffer);
+
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+		//TODO:implement
+	} else {
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
+		GL(glEnable( GL_SCISSOR_TEST ));
+		GL(glViewport( 0, 0, frameBuffer->Width, frameBuffer->Height ));
+		GL(glClearColor( 0.0f, 0.0f, 0.0f, 1.0f ));
+		GL(glScissor( 0, 0, frameBuffer->Width, frameBuffer->Height ));
+		GL(glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT ));
+		GL(glScissor( 0, 0, 0, 0 ));
+		GL(glDisable( GL_SCISSOR_TEST ));
+#endif
+	}
 }
 
 void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
@@ -185,6 +359,18 @@ void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
 		XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
 		OXR(xrReleaseSwapchainImage(frameBuffer->ColorSwapChain.Handle, &releaseInfo));
 		frameBuffer->Acquired = false;
+
+		// Clear the alpha channel, other way OpenXR would not transfer the framebuffer fully
+		if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+			//TODO:implement
+		} else {
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
+			GL(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE));
+			GL(glClearColor(0.0f, 0.0f, 0.0f, 1.0f));
+			GL(glClear(GL_COLOR_BUFFER_BIT));
+			GL(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
+#endif
+		}
 	}
 }
 
@@ -202,11 +388,19 @@ void ovrRenderer_Clear(ovrRenderer* renderer) {
 	}
 }
 
-void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int height, bool multiview) {
+void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int height, bool multiview, void* vulkanContext) {
 	renderer->Multiview = multiview;
 	int instances = renderer->Multiview ? 1 : ovrMaxNumEyes;
 	for (int i = 0; i < instances; i++) {
-		ovrFramebuffer_Create(session, &renderer->FrameBuffer[i], width, height, multiview);
+		if (vulkanContext) {
+			ovrFramebuffer_CreateVK(session, &renderer->FrameBuffer[i], width, height, multiview, vulkanContext);
+		} else {
+#if XR_USE_GRAPHICS_API_OPENGL_ES
+			ovrFramebuffer_CreateGLES(session, &renderer->FrameBuffer[i], width, height, multiview);
+#elif XR_USE_GRAPHICS_API_OPENGL
+			// TODO
+#endif
+		}
 	}
 }
 
@@ -214,6 +408,21 @@ void ovrRenderer_Destroy(ovrRenderer* renderer) {
 	int instances = renderer->Multiview ? 1 : ovrMaxNumEyes;
 	for (int i = 0; i < instances; i++) {
 		ovrFramebuffer_Destroy(&renderer->FrameBuffer[i]);
+	}
+}
+
+void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int sx, int sy) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+		//TODO:implement
+	} else {
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
+		GL(glEnable(GL_SCISSOR_TEST));
+		GL(glScissor(x, y, sx, sy));
+		GL(glViewport(x, y, sx, sy));
+		GL(glClearColor(1.0f, 1.0f, 1.0f, 1.0f));
+		GL(glClear(GL_COLOR_BUFFER_BIT));
+		GL(glDisable(GL_SCISSOR_TEST));
+#endif
 	}
 }
 
@@ -250,6 +459,7 @@ void ovrApp_Destroy(ovrApp* app) {
 	ovrApp_Clear(app);
 }
 
+
 void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 	if (state == XR_SESSION_STATE_READY) {
 		assert(app->SessionActive == false);
@@ -262,12 +472,10 @@ void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 
 		XrResult result;
 		OXR(result = xrBeginSession(app->Session, &sessionBeginInfo));
-
 		app->SessionActive = (result == XR_SUCCESS);
 
-		// Set session state once we have entered VR mode and have a valid session object.
-#ifdef OPENXR_HAS_PERFORMANCE_EXTENSION
-		if (app->SessionActive) {
+#ifdef ANDROID
+		if (app->SessionActive && VR_GetPlatformFlag(VR_PLATFORM_PERFORMANCE_EXT)) {
 			XrPerfSettingsLevelEXT cpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
 			XrPerfSettingsLevelEXT gpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
 

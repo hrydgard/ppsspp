@@ -33,6 +33,7 @@
 #include "Core/MemMap.h"
 
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -182,9 +183,10 @@ void ArmJit::ClearCache()
 	GenerateFixedCode();
 }
 
-void ArmJit::InvalidateCacheAt(u32 em_address, int length)
-{
-	blocks.InvalidateICache(em_address, length);
+void ArmJit::InvalidateCacheAt(u32 em_address, int length) {
+	if (blocks.RangeMayHaveEmuHacks(em_address, em_address + length)) {
+		blocks.InvalidateICache(em_address, length);
+	}
 }
 
 void ArmJit::EatInstruction(MIPSOpcode op) {
@@ -232,7 +234,7 @@ void ArmJit::Compile(u32 em_address) {
 		ClearCache();
 	}
 
-	BeginWrite();
+	BeginWrite(JitBlockCache::MAX_BLOCK_INSTRUCTIONS * 16);
 
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);

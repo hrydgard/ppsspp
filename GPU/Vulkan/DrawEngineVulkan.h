@@ -43,6 +43,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Vulkan/StateMappingVulkan.h"
+#include "GPU/Vulkan/VulkanRenderManager.h"
 
 struct DecVtxFormat;
 struct UVScale;
@@ -121,11 +122,25 @@ private:
 	VkDescriptorBufferInfo bufInfo_[3]{};
 };
 
+enum {
+	DRAW_BINDING_TEXTURE = 0,
+	DRAW_BINDING_2ND_TEXTURE = 1,
+	DRAW_BINDING_DEPAL_TEXTURE = 2,
+	DRAW_BINDING_DYNUBO_BASE = 3,
+	DRAW_BINDING_DYNUBO_LIGHT = 4,
+	DRAW_BINDING_DYNUBO_BONE = 5,
+	DRAW_BINDING_TESS_STORAGE_BUF = 6,
+	DRAW_BINDING_TESS_STORAGE_BUF_WU = 7,
+	DRAW_BINDING_TESS_STORAGE_BUF_WV = 8,
+	DRAW_BINDING_INPUT_ATTACHMENT = 9,
+	DRAW_BINDING_COUNT = 10,
+};
+
 // Handles transform, lighting and drawing.
 class DrawEngineVulkan : public DrawEngineCommon {
 public:
 	DrawEngineVulkan(Draw::DrawContext *draw);
-	virtual ~DrawEngineVulkan();
+	~DrawEngineVulkan();
 
 	// We reference feature flags, so this is called after construction.
 	void InitDeviceObjects();
@@ -194,6 +209,8 @@ public:
 	}
 
 private:
+	void Invalidate(InvalidationCallbackFlags flags);
+
 	struct FrameData;
 	void ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
@@ -211,8 +228,10 @@ private:
 
 	Draw::DrawContext *draw_;
 
-	// We use a single descriptor set layout for all PSP draws.
+	// We use a shared descriptor set layouts for all PSP draws.
+	// Descriptors created from descriptorSetLayout_ is rebound all the time at set 1.
 	VkDescriptorSetLayout descriptorSetLayout_;
+
 	VkPipelineLayout pipelineLayout_;
 	VulkanPipeline *lastPipeline_;
 	VkDescriptorSet lastDs_ = VK_NULL_HANDLE;
@@ -253,6 +272,8 @@ private:
 		VulkanPushBuffer *pushVertex = nullptr;
 		VulkanPushBuffer *pushIndex = nullptr;
 
+		bool frameDescSetUpdated = false;
+
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
 		DenseHashMap<DescriptorSetKey, VkDescriptorSet, (VkDescriptorSet)VK_NULL_HANDLE> descSets;
 
@@ -290,6 +311,4 @@ private:
 
 	// Hardware tessellation
 	TessellationDataTransferVulkan *tessDataTransferVulkan;
-
-	int lastRenderStepId_ = -1;
 };

@@ -195,7 +195,7 @@ namespace MainWindow
 		if (g_Config.UseFullScreen() || inFullscreenResize)
 			return;
 
-		WINDOWPLACEMENT placement;
+		WINDOWPLACEMENT placement{};
 		GetWindowPlacement(hwndMain, &placement);
 		if (placement.showCmd == SW_SHOWNORMAL) {
 			RECT rc;
@@ -238,7 +238,7 @@ namespace MainWindow
 				g_Config.iInternalResolution = 0;
 		}
 
-		NativeMessageReceived("gpu_resized", "");
+		NativeMessageReceived("gpu_renderResized", "");
 	}
 
 	void CorrectCursor() {
@@ -302,7 +302,8 @@ namespace MainWindow
 		DEBUG_LOG(SYSTEM, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
 		if (UpdateScreenScale(width, height)) {
-			NativeMessageReceived("gpu_resized", "");
+			NativeMessageReceived("gpu_displayResized", "");
+			NativeMessageReceived("gpu_renderResized", "");
 		}
 
 		// Don't save the window state if fullscreen.
@@ -967,6 +968,7 @@ namespace MainWindow
 			break;
 
 		case WM_CLOSE:
+			MainThread_Stop();
 			InputDevice::StopPolling();
 			WindowsRawInput::Shutdown();
 			return DefWindowProc(hWnd,message,wParam,lParam);
@@ -975,8 +977,9 @@ namespace MainWindow
 			KillTimer(hWnd, TIMER_CURSORUPDATE);
 			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
 			KillTimer(hWnd, TIMER_WHEELRELEASE);
+			// Main window is gone, this tells the message loop to exit.
 			PostQuitMessage(0);
-			break;
+			return 0;
 
 		case WM_USER + 1:
 			NotifyDebuggerMapLoaded();

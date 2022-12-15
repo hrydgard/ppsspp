@@ -61,13 +61,14 @@ protected:
 
 class VulkanVertexShader {
 public:
-	VulkanVertexShader(VulkanContext *vulkan, VShaderID id, const char *code, bool useHWTransform);
+	VulkanVertexShader(VulkanContext *vulkan, VShaderID id, VertexShaderFlags flags, const char *code, bool useHWTransform);
 	~VulkanVertexShader();
 
 	const std::string &source() const { return source_; }
 
 	bool Failed() const { return failed_; }
-	bool UseHWTransform() const { return useHWTransform_; }
+	bool UseHWTransform() const { return useHWTransform_; }  // TODO: Roll into flags
+	VertexShaderFlags Flags() const { return flags_; }
 
 	std::string GetShaderString(DebugShaderStringType type) const;
 	Promise<VkShaderModule> *GetModule() { return module_; }
@@ -81,6 +82,7 @@ protected:
 	bool failed_ = false;
 	bool useHWTransform_;
 	VShaderID id_;
+	VertexShaderFlags flags_;
 };
 
 class VulkanGeometryShader {
@@ -113,7 +115,7 @@ public:
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
 
-	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat);
+	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
 	void ClearShaders();
 	void DirtyShader();
 	void DirtyLastShader() override;

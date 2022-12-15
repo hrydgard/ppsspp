@@ -45,7 +45,7 @@ FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
 	regCache_.ForceRetain(RegCache::GEN_RESULT);
 	regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
 
-	BeginWrite();
+	BeginWrite(2048);
 	Describe("Init");
 	const u8 *start = AlignCode16();
 
@@ -122,7 +122,7 @@ FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
 
 NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 	_assert_msg_(!id.fetch && !id.linear, "Fetch and linear should be cleared on sampler id");
-	BeginWrite();
+	BeginWrite(2048);
 	Describe("Init");
 
 	// Let's drop some helpful constants here.
@@ -133,8 +133,6 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 	regCache_.SetupABI({
 		RegCache::VEC_ARG_S,
 		RegCache::VEC_ARG_T,
-		RegCache::GEN_ARG_X,
-		RegCache::GEN_ARG_Y,
 		RegCache::VEC_ARG_COLOR,
 		RegCache::GEN_ARG_TEXPTR_PTR,
 		RegCache::GEN_ARG_BUFW_PTR,
@@ -144,16 +142,16 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 	});
 
 #if PPSSPP_PLATFORM(WINDOWS)
-	// RET + shadow space + 8 byte space for color arg (the Win32 ABI is kinda ugly.)
-	stackArgPos_ = 8 + 32 + 8;
+	// RET + shadow space.
+	stackArgPos_ = 8 + 32;
 
-	// Positions: stackArgPos_+0=src, stackArgPos_+8=bufw, stackArgPos_+16=level, stackArgPos_+24=levelFrac
-	stackIDOffset_ = 32;
-	stackLevelOffset_ = 16;
+	// Positions: stackArgPos_+0=bufwptr, stackArgPos_+8=level, stackArgPos_+16=levelFrac
+	stackIDOffset_ = 24;
+	stackLevelOffset_ = 8;
 #else
 	stackArgPos_ = 0;
-	// This is the only arg that went to the stack, it's after the RET.
-	stackIDOffset_ = 8;
+	// No args on the stack.
+	stackIDOffset_ = -1;
 	stackLevelOffset_ = -1;
 #endif
 
@@ -182,23 +180,20 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 	if (!id.hasAnyMips && regCache_.Has(RegCache::GEN_ARG_LEVELFRAC))
 		regCache_.ForceRelease(RegCache::GEN_ARG_LEVELFRAC);
 
-	if (regCache_.Has(RegCache::GEN_ARG_BUFW_PTR)) {
-		// On Linux, RCX is currently bufwptr, but we'll need it for other things.
+	if (regCache_.Has(RegCache::GEN_ARG_LEVELFRAC)) {
+		// On Linux, RCX is currently levelFrac, but we'll need it for other things.
 		if (!cpu_info.bBMI2) {
-			X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
-			MOV(64, R(R15), R(bufwReg));
-			regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
-			regCache_.ForceRelease(RegCache::GEN_ARG_BUFW_PTR);
-			regCache_.ChangeReg(R15, RegCache::GEN_ARG_BUFW_PTR);
-			regCache_.ForceRetain(RegCache::GEN_ARG_BUFW_PTR);
+			X64Reg levelFracReg = regCache_.Find(RegCache::GEN_ARG_LEVELFRAC);
+			MOV(64, R(R15), R(levelFracReg));
+			regCache_.Unlock(levelFracReg, RegCache::GEN_ARG_LEVELFRAC);
+			regCache_.ForceRelease(RegCache::GEN_ARG_LEVELFRAC);
+			regCache_.ChangeReg(R15, RegCache::GEN_ARG_LEVELFRAC);
+			regCache_.ForceRetain(RegCache::GEN_ARG_LEVELFRAC);
 		}
-	} else {
-		// Let's load bufwptr/texptrptr into regs.  Match Linux just for consistency - RDX is free.
+	} else if (!regCache_.Has(RegCache::GEN_ARG_BUFW_PTR)) {
+		// Let's load bufwptr into regs.  RDX is free.
 		MOV(64, R(RDX), MDisp(RSP, stackArgPos_ + 0));
-		MOV(64, R(R15), MDisp(RSP, stackArgPos_ + 8));
-		regCache_.ChangeReg(RDX, RegCache::GEN_ARG_TEXPTR_PTR);
-		regCache_.ChangeReg(R15, RegCache::GEN_ARG_BUFW_PTR);
-		regCache_.ForceRetain(RegCache::GEN_ARG_TEXPTR_PTR);
+		regCache_.ChangeReg(RDX, RegCache::GEN_ARG_BUFW_PTR);
 		regCache_.ForceRetain(RegCache::GEN_ARG_BUFW_PTR);
 	}
 	// Okay, now lock RCX as a shifting reg.
@@ -284,7 +279,7 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 			CMP(8, R(levelFracReg), Imm8(0));
 			regCache_.Unlock(levelFracReg, RegCache::GEN_ARG_LEVELFRAC);
 		} else {
-			CMP(8, MDisp(RSP, stackArgPos_ + 24), Imm8(0));
+			CMP(8, MDisp(RSP, stackArgPos_ + 16), Imm8(0));
 		}
 		FixupBranch skip = J_CC(CC_Z, true);
 
@@ -295,7 +290,7 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
 		} else {
 			// It's fine to just modify this in place.
-			ADD(32, MDisp(RSP, stackArgPos_ + 16), Imm8(1));
+			ADD(32, MDisp(RSP, stackArgPos_ + stackLevelOffset_), Imm8(1));
 		}
 
 		// This is inside the conditional, but it's okay because we throw it away after.
@@ -357,7 +352,7 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 		Describe("BlendMips");
 		if (!regCache_.Has(RegCache::GEN_ARG_LEVELFRAC)) {
 			X64Reg levelFracReg = regCache_.Alloc(RegCache::GEN_ARG_LEVELFRAC);
-			MOVZX(32, 8, levelFracReg, MDisp(RSP, stackArgPos_ + 24));
+			MOVZX(32, 8, levelFracReg, MDisp(RSP, stackArgPos_ + 16));
 			regCache_.Unlock(levelFracReg, RegCache::GEN_ARG_LEVELFRAC);
 			regCache_.ForceRetain(RegCache::GEN_ARG_LEVELFRAC);
 		}
@@ -413,6 +408,8 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 	}
 
 	regCache_.ForceRelease(RegCache::VEC_RESULT);
+	if (regCache_.Has(RegCache::GEN_ARG_ID))
+		regCache_.ForceRelease(RegCache::GEN_ARG_ID);
 
 	if (!success) {
 		regCache_.Reset(false);
@@ -441,7 +438,7 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 
 LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	_assert_msg_(id.linear && !id.fetch, "Only linear should be set on sampler id");
-	BeginWrite();
+	BeginWrite(2048);
 	Describe("Init");
 
 	// We don't use stackArgPos_ here, this is just for DXT.
@@ -525,8 +522,6 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	regCache_.SetupABI({
 		RegCache::VEC_ARG_S,
 		RegCache::VEC_ARG_T,
-		RegCache::GEN_ARG_X,
-		RegCache::GEN_ARG_Y,
 		RegCache::VEC_ARG_COLOR,
 		RegCache::GEN_ARG_TEXPTR_PTR,
 		RegCache::GEN_ARG_BUFW_PTR,
@@ -536,22 +531,21 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	});
 
 #if PPSSPP_PLATFORM(WINDOWS)
-	// RET + shadow space + 8 byte space for color arg (the Win32 ABI is kinda ugly.)
-	stackArgPos_ = 8 + 32 + 8;
+	// RET + shadow space.
+	stackArgPos_ = 8 + 32;
 	// Free up some more vector regs on Windows too, where we're a bit tight.
 	stackArgPos_ += WriteProlog(0, { XMM6, XMM7, XMM8, XMM9, XMM10, XMM11, XMM12 }, { R15, R14, R13, R12 });
 
-	// Positions: stackArgPos_+0=src, stackArgPos_+8=bufw, stackArgPos_+16=level, stackArgPos_+24=levelFrac
-	stackIDOffset_ = 32;
-	stackLevelOffset_ = 16;
+	// Positions: stackArgPos_+0=bufwptr, stackArgPos_+8=level, stackArgPos_+16=levelFrac
+	stackIDOffset_ = 24;
+	stackLevelOffset_ = 8;
 
-	// If needed, we could store UV1 data in shadow space, but we no longer due.
+	// If needed, we could store UV1 data in shadow space, but we no longer do.
 	stackUV1Offset_ = -8;
 #else
 	stackArgPos_ = 0;
 	stackArgPos_ += WriteProlog(0, {}, { R15, R14, R13, R12 });
-	// Just after the RET.
-	stackIDOffset_ = 8;
+	stackIDOffset_ = -1;
 	stackLevelOffset_ = -1;
 
 	// Use the red zone.
@@ -591,8 +585,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	}
 
 	// We also want to save src and bufw for later.  Might be in a reg already.
-	if (regCache_.Has(RegCache::GEN_ARG_TEXPTR_PTR)) {
-		_assert_(regCache_.Has(RegCache::GEN_ARG_BUFW_PTR));
+	if (regCache_.Has(RegCache::GEN_ARG_TEXPTR_PTR) && regCache_.Has(RegCache::GEN_ARG_BUFW_PTR)) {
 		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR_PTR);
 		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
 		MOV(64, R(R14), R(srcReg));
@@ -601,6 +594,12 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
 		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR_PTR);
 		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW_PTR);
+	} else if (regCache_.Has(RegCache::GEN_ARG_TEXPTR_PTR)) {
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR_PTR);
+		MOV(64, R(R14), R(srcReg));
+		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR_PTR);
+		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR_PTR);
+		MOV(64, R(R15), MDisp(RSP, stackArgPos_ + 0));
 	} else {
 		MOV(64, R(R14), MDisp(RSP, stackArgPos_ + 0));
 		MOV(64, R(R15), MDisp(RSP, stackArgPos_ + 8));
@@ -608,9 +607,11 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 	// Okay, and now remember we moved to R14/R15.
 	regCache_.ChangeReg(R14, RegCache::GEN_ARG_TEXPTR_PTR);
-	regCache_.ChangeReg(R15, RegCache::GEN_ARG_BUFW_PTR);
 	regCache_.ForceRetain(RegCache::GEN_ARG_TEXPTR_PTR);
-	regCache_.ForceRetain(RegCache::GEN_ARG_BUFW_PTR);
+	if (!regCache_.Has(RegCache::GEN_ARG_BUFW_PTR)) {
+		regCache_.ChangeReg(R15, RegCache::GEN_ARG_BUFW_PTR);
+		regCache_.ForceRetain(RegCache::GEN_ARG_BUFW_PTR);
+	}
 
 	bool success = true;
 
@@ -758,7 +759,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 			CMP(8, R(levelFracReg), Imm8(0));
 			regCache_.Unlock(levelFracReg, RegCache::GEN_ARG_LEVELFRAC);
 		} else {
-			CMP(8, MDisp(RSP, stackArgPos_ + 24), Imm8(0));
+			CMP(8, MDisp(RSP, stackArgPos_ + 16), Imm8(0));
 		}
 		FixupBranch skip = J_CC(CC_Z, true);
 
@@ -769,7 +770,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
 		} else {
 			// It's fine to just modify this in place.
-			ADD(32, MDisp(RSP, stackArgPos_ + 16), Imm8(1));
+			ADD(32, MDisp(RSP, stackArgPos_ + stackLevelOffset_), Imm8(1));
 		}
 
 		if (nearest != nullptr) {
@@ -808,7 +809,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		Describe("BlendMips");
 		if (!regCache_.Has(RegCache::GEN_ARG_LEVELFRAC)) {
 			X64Reg levelFracReg = regCache_.Alloc(RegCache::GEN_ARG_LEVELFRAC);
-			MOVZX(32, 8, levelFracReg, MDisp(RSP, stackArgPos_ + 24));
+			MOVZX(32, 8, levelFracReg, MDisp(RSP, stackArgPos_ + 16));
 			regCache_.Unlock(levelFracReg, RegCache::GEN_ARG_LEVELFRAC);
 			regCache_.ForceRetain(RegCache::GEN_ARG_LEVELFRAC);
 		}
@@ -870,6 +871,8 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	}
 
 	regCache_.ForceRelease(RegCache::VEC_RESULT);
+	if (regCache_.Has(RegCache::GEN_ARG_ID))
+		regCache_.ForceRelease(RegCache::GEN_ARG_ID);
 
 	if (!success) {
 		regCache_.Reset(false);
@@ -1223,9 +1226,9 @@ bool SamplerJitCache::Jit_ReadClutQuad(const SamplerID &id, bool level1) {
 		} else {
 #if PPSSPP_PLATFORM(WINDOWS)
 			if (cpu_info.bAVX2) {
-				VPBROADCASTD(128, vecLevelReg, MDisp(RSP, stackArgPos_ + 16));
+				VPBROADCASTD(128, vecLevelReg, MDisp(RSP, stackArgPos_ + stackLevelOffset_));
 			} else {
-				MOVD_xmm(vecLevelReg, MDisp(RSP, stackArgPos_ + 16));
+				MOVD_xmm(vecLevelReg, MDisp(RSP, stackArgPos_ + stackLevelOffset_));
 				PSHUFD(vecLevelReg, R(vecLevelReg), _MM_SHUFFLE(0, 0, 0, 0));
 			}
 #else
@@ -2583,11 +2586,6 @@ bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTex
 bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 	Describe("Texel");
 
-	// First, adjust X and Y...
-	// TODO: Shouldn't do this in the sampler, need to get s/t right.
-	regCache_.ForceRelease(RegCache::GEN_ARG_X);
-	regCache_.ForceRelease(RegCache::GEN_ARG_Y);
-
 	X64Reg uReg = regCache_.Alloc(RegCache::GEN_ARG_U);
 	X64Reg vReg = regCache_.Alloc(RegCache::GEN_ARG_V);
 	X64Reg sReg = regCache_.Find(RegCache::VEC_ARG_S);
@@ -2602,7 +2600,7 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 			levelReg = regCache_.Find(RegCache::GEN_ARG_LEVEL);
 		} else {
 			levelReg = regCache_.Alloc(RegCache::GEN_ARG_LEVEL);
-			MOV(32, R(levelReg), MDisp(RSP, stackArgPos_ + 16));
+			MOV(32, R(levelReg), MDisp(RSP, stackArgPos_ + stackLevelOffset_));
 		}
 
 		// We'll multiply these at the same time, so it's nice to put together.
@@ -2774,7 +2772,7 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 		} else {
 			releaseLevelReg = true;
 			levelReg = regCache_.Alloc(RegCache::GEN_ARG_LEVEL);
-			MOV(32, R(levelReg), MDisp(RSP, stackArgPos_ + 16));
+			MOV(32, R(levelReg), MDisp(RSP, stackArgPos_ + stackLevelOffset_));
 		}
 
 		// This will load the current and next level's sizes, 16x4.
@@ -2826,8 +2824,6 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	PSLLD(tempXYReg, 7);
 	PADDD(sReg, R(tempXYReg));
 	regCache_.Release(tempXYReg, RegCache::VEC_TEMP0);
-	regCache_.ForceRelease(RegCache::GEN_ARG_X);
-	regCache_.ForceRelease(RegCache::GEN_ARG_Y);
 
 	// We do want the fraction, though, so extract that to an XMM for later.
 	X64Reg allFracReg = INVALID_REG;

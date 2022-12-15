@@ -159,37 +159,25 @@ public:
 		return EXPR_TYPE_UINT;
 	}
 	
-	bool getMemoryValue(uint32_t address, int size, uint32_t& dest, char* error) override
-	{
-		switch (size)
-		{
-		case 1: case 2: case 4:
-			break;
-		default:
-			sprintf(error,"Invalid memory access size %d",size);
-			return false;
-		}
+	bool getMemoryValue(uint32_t address, int size, uint32_t& dest, char* error) override {
+		// We allow, but ignore, bad access.
+		// If we didn't, log/condition statements that reference registers couldn't be configured.
+		bool valid = Memory::IsValidRange(address, size);
 
-		if (address % size)
-		{
-			sprintf(error,"Invalid memory access (unaligned)");
-			return false;
-		}
-
-		switch (size)
-		{
+		switch (size) {
 		case 1:
-			dest = Memory::Read_U8(address);
-			break;
+			dest = valid ? Memory::Read_U8(address) : 0;
+			return true;
 		case 2:
-			dest = Memory::Read_U16(address);
-			break;
+			dest = valid ? Memory::Read_U16(address) : 0;
+			return true;
 		case 4:
-			dest = Memory::Read_U32(address);
-			break;
+			dest = valid ? Memory::Read_U32(address) : 0;
+			return true;
 		}
 
-		return true;
+		sprintf(error, "Unexpected memory access size %d", size);
+		return false;
 	}
 
 private:

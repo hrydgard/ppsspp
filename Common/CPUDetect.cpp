@@ -321,7 +321,10 @@ void CPUInfo::Detect() {
 #if PPSSPP_PLATFORM(WINDOWS)
 #if !PPSSPP_PLATFORM(UWP)
 	typedef BOOL (WINAPI *getLogicalProcessorInformationEx_f)(LOGICAL_PROCESSOR_RELATIONSHIP RelationshipType, PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX Buffer, PDWORD ReturnedLength);
-	auto getLogicalProcessorInformationEx = (getLogicalProcessorInformationEx_f)GetProcAddress(GetModuleHandle(L"kernel32.dll"), "GetLogicalProcessorInformationEx");
+	getLogicalProcessorInformationEx_f getLogicalProcessorInformationEx = nullptr;
+	HMODULE kernel32 = GetModuleHandle(L"kernel32.dll");
+	if (kernel32)
+		getLogicalProcessorInformationEx = (getLogicalProcessorInformationEx_f)GetProcAddress(kernel32, "GetLogicalProcessorInformationEx");
 #else
 	void *getLogicalProcessorInformationEx = nullptr;
 #endif

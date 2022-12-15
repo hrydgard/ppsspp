@@ -20,7 +20,6 @@
 #include "ppsspp_config.h"
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/MIPSAnalyst.h"
 
 namespace X64JitConstants {
 #if PPSSPP_ARCH(AMD64)
@@ -41,6 +40,10 @@ namespace X64JitConstants {
 	const u32 NUM_X_REGS = 8;
 #endif
 }
+
+namespace MIPSAnalyst {
+struct AnalysisResults;
+};
 
 struct MIPSCachedReg {
 	Gen::OpArg location;

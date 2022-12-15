@@ -71,20 +71,22 @@ struct TransformedVertex {
 class GPUCommon : public GPUInterface, public GPUDebugInterface {
 public:
 	GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
-	virtual ~GPUCommon();
+	~GPUCommon();
 
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
 	virtual u32 CheckGPUFeatures() const;
 
+	void CheckDisplayResized() override;
+	void CheckConfigChanged() override;
+
 	void UpdateCmdInfo();
 
 	bool IsReady() override {
 		return true;
 	}
-	void CancelReady() override {
-	}
+	void CancelReady() override {}
 	void Reinitialize() override;
 
 	void BeginHostFrame() override;
@@ -97,7 +99,10 @@ public:
 		interruptsEnabled_ = enable;
 	}
 
-	void Resized() override;
+	void NotifyDisplayResized() override;
+	void NotifyRenderResized() override;
+	void NotifyConfigChanged() override;
+
 	void DumpNextFrame() override;
 
 	void ExecuteOp(u32 op, u32 diff) override;
@@ -238,8 +243,6 @@ public:
 		return dlQueue;
 	}
 	std::vector<FramebufferInfo> GetFramebufferList() const override;
-	void ClearShaderCache() override {}
-	void CleanupBeforeUI() override {}
 
 	s64 GetListTicks(int listid) const override {
 		if (listid >= 0 && listid < DisplayListMaxCount) {
@@ -258,9 +261,20 @@ public:
 		fullInfo = reportingFullInfo_;
 	}
 
+	int MSAALevel() const {
+		return msaaLevel_;
+	}
+
 protected:
 	void DeviceLost() override;
 	void DeviceRestore() override;
+
+	void ClearCacheNextFrame() override;
+
+	virtual void CheckRenderResized();
+
+	// Add additional common features dependent on other features, which may be backend-determined.
+	u32 CheckGPUFeaturesLate(u32 features) const;
 
 	inline bool IsTrianglePrim(GEPrimitiveType prim) const {
 		return prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP;
@@ -291,6 +305,7 @@ protected:
 	void UpdateState(GPURunState state);
 	void FastLoadBoneMatrix(u32 target);
 	void FlushImm();
+	void DoBlockTransfer(u32 skipDrawReason);
 
 	// TODO: Unify this.
 	virtual void FinishDeferred() {}
@@ -305,6 +320,10 @@ protected:
 	}
 
 	size_t FormatGPUStatsCommon(char *buf, size_t size);
+
+	virtual void BuildReportingInfo() = 0;
+
+	void UpdateMSAALevel(Draw::DrawContext *draw);
 
 	FramebufferManagerCommon *framebufferManager_ = nullptr;
 	TextureCacheCommon *textureCache_ = nullptr;
@@ -352,7 +371,10 @@ protected:
 	bool dumpThisFrame_ = false;
 	bool debugRecording_;
 	bool interruptsEnabled_;
-	bool resized_ = false;
+	bool displayResized_ = false;
+	bool renderResized_ = false;
+	bool configChanged_ = false;
+	bool sawExactEqualDepth_ = false;
 	DrawType lastDraw_ = DRAW_UNKNOWN;
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
 
@@ -389,9 +411,10 @@ protected:
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
 
+	int msaaLevel_ = 0;
+
 private:
 	void CheckDepthUsage(VirtualFramebuffer *vfb);
-	void DoBlockTransfer(u32 skipDrawReason);
 	void DoExecuteCall(u32 target);
 	void PopDLQueue();
 	void CheckDrawSync();
@@ -400,6 +423,7 @@ private:
 	// Debug stats.
 	double timeSteppingStarted_;
 	double timeSpentStepping_;
+
 	int lastVsync_ = -1;
 };
 

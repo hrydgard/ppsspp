@@ -136,6 +136,15 @@ bool IsColorTestTriviallyTrue() {
 	}
 }
 
+bool IsDepthTestEffectivelyDisabled() {
+	if (!gstate.isDepthTestEnabled())
+		return true;
+	// We can ignore stencil, because ALWAYS and disabled choose the same stencil path.
+	if (gstate.getDepthTestFunction() != GE_COMP_ALWAYS)
+		return false;
+	return !gstate.isDepthWriteEnabled();
+}
+
 const bool nonAlphaSrcFactors[16] = {
 	true,  // GE_SRCBLEND_DSTCOLOR,
 	true,  // GE_SRCBLEND_INVDSTCOLOR,
@@ -183,7 +192,7 @@ ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
 		if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
 			return REPLACE_ALPHA_YES;
 		} else {
-			if (gstate_c.Supports(GPU_SUPPORTS_DUALSOURCE_BLEND)) {
+			if (gstate_c.Use(GPU_USE_DUALSOURCE_BLEND)) {
 				return REPLACE_ALPHA_DUALSOURCE;
 			} else {
 				return REPLACE_ALPHA_NO;
@@ -275,7 +284,7 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 
 	case GE_BLENDMODE_MIN:
 	case GE_BLENDMODE_MAX:
-		if (gstate_c.Supports(GPU_SUPPORTS_BLEND_MINMAX)) {
+		if (gstate_c.Use(GPU_USE_BLEND_MINMAX)) {
 			return REPLACE_BLEND_STANDARD;
 		} else {
 			return REPLACE_BLEND_READ_FRAMEBUFFER;
@@ -312,7 +321,7 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 			// We can't technically do this correctly (due to clamping) without reading the dst color.
 			// Using a copy isn't accurate either, though, when there's overlap.
-			if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
+			if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH))
 				return REPLACE_BLEND_READ_FRAMEBUFFER;
 			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 
@@ -454,14 +463,14 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 			if (funcA == GE_SRCBLEND_SRCALPHA || funcA == GE_SRCBLEND_INVSRCALPHA) {
 				// Can't safely double alpha, will clamp.  However, a copy may easily be worse due to overlap.
-				if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
+				if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH))
 					return REPLACE_BLEND_READ_FRAMEBUFFER;
 				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 			} else {
 				// This means dst alpha/color is used in the src factor.
 				// Unfortunately, copying here causes overlap problems in Silent Hill games (it seems?)
 				// We will just hope that doubling alpha for the dst factor will not clamp too badly.
-				if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
+				if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH))
 					return REPLACE_BLEND_READ_FRAMEBUFFER;
 				return REPLACE_BLEND_2X_ALPHA;
 			}
@@ -494,10 +503,10 @@ static const float DEPTH_SLICE_FACTOR_HIGH = 4.0f;
 static const float DEPTH_SLICE_FACTOR_16BIT = 256.0f;
 
 float DepthSliceFactor() {
-	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+	if (gstate_c.Use(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
 		return DEPTH_SLICE_FACTOR_16BIT;
 	}
-	if (gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP)) {
+	if (gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
 		return 1.0f;
 	}
 	return DEPTH_SLICE_FACTOR_HIGH;
@@ -505,12 +514,12 @@ float DepthSliceFactor() {
 
 // This is used for float values which might not be integers, but are in the integer scale of 65535.
 float ToScaledDepthFromIntegerScale(float z) {
-	if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+	if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
 		return z * (1.0f / 65535.0f);
 	}
 
 	const float depthSliceFactor = DepthSliceFactor();
-	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+	if (gstate_c.Use(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
 		const double doffset = 0.5 * (depthSliceFactor - 1.0) * (1.0 / depthSliceFactor);
 		// Use one bit for each value, rather than 1.0 / (25535.0 * 256.0).
 		return (float)((double)z * (1.0 / 16777215.0) + doffset);
@@ -523,7 +532,7 @@ float ToScaledDepthFromIntegerScale(float z) {
 // See struct DepthScaleFactors for how to apply.
 DepthScaleFactors GetDepthScaleFactors() {
 	DepthScaleFactors factors;
-	if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+	if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
 		factors.offset = 0;
 		factors.scale = 65535.0f;
 		return factors;
@@ -728,7 +737,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		// This adjusts the center from halfActualZRange to vpZCenter.
 		out.zOffset = halfActualZRange < std::numeric_limits<float>::epsilon() ? 0.0f : (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
 
-		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+		if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
 			out.depthScale = 1.0f;
 			out.zOffset = 0.0f;
 			out.depthRangeMin = ToScaledDepthFromIntegerScale(vpZCenter - vpZScale);
@@ -858,9 +867,12 @@ static inline bool blendColorSimilar(uint32_t a, uint32_t b, int margin = 25) { 
 // The shader might also need modification, the below function SimulateLogicOpShaderTypeIfNeeded
 // takes care of that.
 static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &blendEq) {
+	if (!gstate.isLogicOpEnabled())
+		return false;
+
 	// Note: our shader solution applies logic ops BEFORE blending, not correctly after.
 	// This is however fine for the most common ones, like CLEAR/NOOP/SET, etc.
-	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
+	if (!gstate_c.Use(GPU_USE_LOGIC_OP)) {
 		switch (gstate.getLogicOp()) {
 		case GE_LOGIC_CLEAR:
 			srcBlend = BlendFactor::ZERO;
@@ -916,13 +928,32 @@ static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 			WARN_LOG_REPORT_ONCE(d3dLogicOpSet, G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
 			return true;
 		}
+	} else {
+		// Even if we support hardware logic ops, alpha is handled wrong.
+		// It's better to override blending for the simple cases.
+		switch (gstate.getLogicOp()) {
+		case GE_LOGIC_CLEAR:
+			srcBlend = BlendFactor::ZERO;
+			dstBlend = BlendFactor::ZERO;
+			blendEq = BlendEq::ADD;
+			return true;
+		case GE_LOGIC_NOOP:
+			srcBlend = BlendFactor::ZERO;
+			dstBlend = BlendFactor::ONE;
+			blendEq = BlendEq::ADD;
+			return true;
+
+		default:
+			// Let's hope hardware gets it right.
+			return false;
+		}
 	}
 	return false;
 }
 
 // Choose the shader part of the above logic op fallback simulation.
 SimulateLogicOpType SimulateLogicOpShaderTypeIfNeeded() {
-	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
+	if (!gstate_c.Use(GPU_USE_LOGIC_OP) && gstate.isLogicOpEnabled()) {
 		switch (gstate.getLogicOp()) {
 		case GE_LOGIC_COPY_INVERTED:
 		case GE_LOGIC_AND_INVERTED:
@@ -1038,6 +1069,15 @@ static void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSuppo
 	if (IsStencilTestOutputDisabled() || ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
 		maskState.channelMask &= ~8;
 		maskState.uniformMask &= ~0xFF000000;
+	}
+
+	// For 5551, only the top alpha bit matters.  We might even want to swizzle 4444.
+	// Alpha should correctly read as 255 from a 5551 texture.
+	if (gstate.FrameBufFormat() == GE_FORMAT_5551) {
+		if ((maskState.uniformMask & 0x80000000) != 0)
+			maskState.uniformMask |= 0xFF000000;
+		else
+			maskState.uniformMask &= ~0xFF000000;
 	}
 }
 
@@ -1243,7 +1283,7 @@ static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBl
 	// Some Android devices (especially old Mali, it seems) composite badly if there's alpha in the backbuffer.
 	// So in non-buffered rendering, we will simply consider the dest alpha to be zero in blending equations.
 #ifdef __ANDROID__
-	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+	if (g_Config.bSkipBufferEffects) {
 		if (glBlendFuncA == BlendFactor::DST_ALPHA) glBlendFuncA = BlendFactor::ZERO;
 		if (glBlendFuncB == BlendFactor::DST_ALPHA) glBlendFuncB = BlendFactor::ZERO;
 		if (glBlendFuncA == BlendFactor::ONE_MINUS_DST_ALPHA) glBlendFuncA = BlendFactor::ONE;
@@ -1253,7 +1293,7 @@ static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBl
 
 	// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
 	BlendEq colorEq;
-	if (gstate_c.Supports(GPU_SUPPORTS_BLEND_MINMAX)) {
+	if (gstate_c.Use(GPU_USE_BLEND_MINMAX)) {
 		colorEq = eqLookup[blendFuncEq];
 	} else {
 		colorEq = eqLookupNoMinMax[blendFuncEq];
@@ -1575,7 +1615,7 @@ void ComputedPipelineState::Convert(bool shaderBitOpsSuppported) {
 	// Passing on the previous applyFramebufferRead as forceFrameBuffer read in the next one,
 	// thus propagating forward.
 	ConvertMaskState(maskState, shaderBitOpsSuppported);
-	ConvertLogicOpState(logicState, gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP), shaderBitOpsSuppported, maskState.applyFramebufferRead);
+	ConvertLogicOpState(logicState, gstate_c.Use(GPU_USE_LOGIC_OP), shaderBitOpsSuppported, maskState.applyFramebufferRead);
 	ConvertBlendState(blendState, logicState.applyFramebufferRead);
 
 	// Note: If the blend state decided it had to use framebuffer reads,
@@ -1598,5 +1638,7 @@ void GenericLogicState::ApplyToBlendState(GenericBlendState &blendState) {
 			blendState.dstAlpha = BlendFactor::ZERO;
 			blendState.eqAlpha = BlendEq::ADD;
 		}
+		logicOpEnabled = false;
+		logicOp = GE_LOGIC_COPY;
 	}
 }

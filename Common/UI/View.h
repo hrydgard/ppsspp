@@ -128,10 +128,10 @@ enum FocusDirection {
 	FOCUS_NEXT_PAGE,
 };
 
-enum {
-	WRAP_CONTENT = -1,
-	FILL_PARENT = -2,
-};
+typedef float Size;  // can also be WRAP_CONTENT or FILL_PARENT.
+
+static constexpr Size WRAP_CONTENT = -1.0f;
+static constexpr Size FILL_PARENT = -2.0f;
 
 // Gravity
 enum Gravity {
@@ -173,8 +173,6 @@ enum class BorderStyle {
 	HEADER_FG,
 	ITEM_DOWN_BG,
 };
-
-typedef float Size;  // can also be WRAP_CONTENT or FILL_PARENT.
 
 enum Orientation {
 	ORIENT_HORIZONTAL,
@@ -289,6 +287,13 @@ struct Margins {
 	int vert() const {
 		return top + bottom;
 	}
+	void SetAll(float f) {
+		int8_t i = (int)f;
+		top = i;
+		bottom = i;
+		left = i;
+		right = i;
+	}
 
 	int8_t top;
 	int8_t bottom;
@@ -377,7 +382,7 @@ public:
 	// Can even be called on a different thread! This is to really minimize latency, and decouple
 	// touch response from the frame rate. Same with Key and Axis.
 	virtual bool Key(const KeyInput &input) { return false; }
-	virtual void Touch(const TouchInput &input) {}
+	virtual bool Touch(const TouchInput &input) { return true; }
 	virtual void Axis(const AxisInput &input) {}
 	virtual void Update();
 
@@ -463,7 +468,7 @@ public:
 	virtual bool IsViewGroup() const { return false; }
 	virtual bool ContainsSubview(const View *view) const { return false; }
 
-	Point GetFocusPosition(FocusDirection dir);
+	Point GetFocusPosition(FocusDirection dir) const;
 
 	template <class T>
 	T *AddTween(T *t) {
@@ -503,7 +508,7 @@ public:
 		: View(layoutParams) {}
 
 	bool Key(const KeyInput &input) override { return false; }
-	void Touch(const TouchInput &input) override {}
+	bool Touch(const TouchInput &input) override { return false; }
 	bool CanBeFocused() const override { return false; }
 };
 
@@ -514,7 +519,7 @@ public:
 	Clickable(LayoutParams *layoutParams);
 
 	bool Key(const KeyInput &input) override;
-	void Touch(const TouchInput &input) override;
+	bool Touch(const TouchInput &input) override;
 
 	void FocusChanged(int focusFlags) override;
 
@@ -604,7 +609,7 @@ public:
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
 	bool Key(const KeyInput &input) override;
-	void Touch(const TouchInput &input) override;
+	bool Touch(const TouchInput &input) override;
 	void Update() override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void SetShowPercent(bool s) { showPercent_ = s; }
@@ -635,7 +640,7 @@ public:
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
 	bool Key(const KeyInput &input) override;
-	void Touch(const TouchInput &input) override;
+	bool Touch(const TouchInput &input) override;
 	void Update() override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
@@ -663,7 +668,7 @@ public:
 	TriggerButton(uint32_t *bitField, uint32_t bit, ImageID imageBackground, ImageID imageForeground, LayoutParams *layoutParams)
 		: View(layoutParams), down_(0.0), bitField_(bitField), bit_(bit), imageBackground_(imageBackground), imageForeground_(imageForeground) {}
 
-	void Touch(const TouchInput &input) override;
+	bool Touch(const TouchInput &input) override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
@@ -757,7 +762,7 @@ public:
 		: Choice(buttonImage, layoutParams) {}
 
 	bool Key(const KeyInput &key) override;
-	void Touch(const TouchInput &touch) override;
+	bool Touch(const TouchInput &touch) override;
 	void FocusChanged(int focusFlags) override;
 
 	void Press() { down_ = true; dragging_ = false;  }
@@ -829,8 +834,14 @@ private:
 
 class CheckBox : public ClickableItem {
 public:
-	CheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
+	CheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), toggle_(toggle), text_(text), smallText_(smallText) {
+		OnClick.Handle(this, &CheckBox::OnClicked);
+	}
+
+	// Image-only "checkbox", lights up instead of showing a checkmark.
+	CheckBox(bool *toggle, ImageID imageID, LayoutParams *layoutParams = nullptr)
+		: ClickableItem(layoutParams), toggle_(toggle), imageID_(imageID) {
 		OnClick.Handle(this, &CheckBox::OnClicked);
 	}
 
@@ -848,6 +859,7 @@ private:
 	bool *toggle_;
 	std::string text_;
 	std::string smallText_;
+	ImageID imageID_;
 };
 
 class BitCheckBox : public CheckBox {
@@ -945,7 +957,7 @@ public:
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
 	bool Key(const KeyInput &key) override;
-	void Touch(const TouchInput &touch) override;
+	bool Touch(const TouchInput &touch) override;
 
 	Event OnTextChange;
 	Event OnEnter;

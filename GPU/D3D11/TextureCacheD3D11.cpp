@@ -314,7 +314,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
 		levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
 
-		ID3D11Texture2D *tex;
+		ID3D11Texture2D *tex = nullptr;
 		D3D11_TEXTURE2D_DESC desc{};
 		desc.CPUAccessFlags = 0;
 		desc.Usage = D3D11_USAGE_DEFAULT;
@@ -329,7 +329,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &tex));
 		texture = tex;
 	} else {
-		ID3D11Texture3D *tex;
+		ID3D11Texture3D *tex = nullptr;
 		D3D11_TEXTURE3D_DESC desc{};
 		desc.CPUAccessFlags = 0;
 		desc.Usage = D3D11_USAGE_DEFAULT;
@@ -428,7 +428,7 @@ DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format) {
 }
 
 DXGI_FORMAT TextureCacheD3D11::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
-	if (!gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS)) {
+	if (!gstate_c.Use(GPU_USE_16BIT_FORMATS)) {
 		return DXGI_FORMAT_B8G8R8A8_UNORM;
 	}
 
@@ -470,8 +470,31 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 	D3D11_TEXTURE2D_DESC desc;
 	texture->GetDesc(&desc);
 
-	if (desc.Format != DXGI_FORMAT_B8G8R8A8_UNORM) {
-		// TODO: Support the other formats
+	int width = desc.Width >> level;
+	int height = desc.Height >> level;
+
+	switch (desc.Format) {
+	case DXGI_FORMAT_B8G8R8A8_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_8888);
+		break;
+
+	case DXGI_FORMAT_B5G6R5_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_565);
+		break;
+
+	case DXGI_FORMAT_B4G4R4A4_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_4444);
+		break;
+
+	case DXGI_FORMAT_B5G5R5A1_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_5551);
+		break;
+
+	case DXGI_FORMAT_R8_UNORM:
+		buffer.Allocate(width, height, GPU_DBG_FORMAT_8BIT);
+		break;
+
+	default:
 		return false;
 	}
 
@@ -481,11 +504,9 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 
 	ID3D11Texture2D *stagingCopy = nullptr;
 	device_->CreateTexture2D(&desc, nullptr, &stagingCopy);
+	if (!stagingCopy)
+		return false;
 	context_->CopyResource(stagingCopy, texture);
-
-	int width = desc.Width >> level;
-	int height = desc.Height >> level;
-	buffer.Allocate(width, height, GPU_DBG_FORMAT_8888);
 
 	D3D11_MAPPED_SUBRESOURCE map;
 	if (FAILED(context_->Map(stagingCopy, level, D3D11_MAP_READ, 0, &map))) {
@@ -493,8 +514,9 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 		return false;
 	}
 
+	int bufferRowSize = buffer.PixelSize() * width;
 	for (int y = 0; y < height; y++) {
-		memcpy(buffer.GetData() + 4 * width * y, (const uint8_t *)map.pData + map.RowPitch * y, 4 * width);
+		memcpy(buffer.GetData() + bufferRowSize * y, (const uint8_t *)map.pData + map.RowPitch * y, bufferRowSize);
 	}
 
 	context_->Unmap(stagingCopy, level);

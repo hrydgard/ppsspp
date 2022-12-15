@@ -525,9 +525,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	case GE_CMD_TRANSFERSRCW:
 		{
 			u32 xferSrc = (gstate.transfersrc & 0x00FFFFFF) | ((data & 0xFF0000) << 8);
-			u32 xferSrcW = data & 0x3FF;
-			if (data & ~0xFF03FF)
-				snprintf(buffer, bufsize, "Block transfer src: high=%02x, w=%d (addr %08x, extra %x)", data >> 16, xferSrcW, xferSrc, data & ~0xFF03FF);
+			u32 xferSrcW = (data & 0x400) != 0 ? 0x400 : (data & 0x3FF);
+			u32 validMask = (data & 0x400) != 0 ? 0xFF0400 : 0xFF03FF;
+			if (data & ~validMask)
+				snprintf(buffer, bufsize, "Block transfer src: high=%02x, w=%d (addr %08x, extra %x)", data >> 16, xferSrcW, xferSrc, data & ~validMask);
 			else
 				snprintf(buffer, bufsize, "Block transfer src: high=%02x, w=%d (addr %08x)", data >> 16, xferSrcW, xferSrc);
 			break;
@@ -546,9 +547,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	case GE_CMD_TRANSFERDSTW:
 		{
 			u32 xferDst = (gstate.transferdst & 0x00FFFFFF) | ((data & 0xFF0000) << 8);
-			u32 xferDstW = data & 0x3FF;
-			if (data & ~0xFF03FF)
-				snprintf(buffer, bufsize, "Block transfer dst: high=%02x, w=%d (addr %08x, extra %x)", data >> 16, xferDstW, xferDst, data & ~0xFF03FF);
+			u32 xferDstW = (data & 0x400) != 0 ? 0x400 : (data & 0x3FF);
+			u32 validMask = (data & 0x400) != 0 ? 0xFF0400 : 0xFF03FF;
+			if (data & ~validMask)
+				snprintf(buffer, bufsize, "Block transfer dst: high=%02x, w=%d (addr %08x, extra %x)", data >> 16, xferDstW, xferDst, data & ~validMask);
 			else
 				snprintf(buffer, bufsize, "Block transfer dst: high=%02x, w=%d (addr %08x)", data >> 16, xferDstW, xferDst);
 			break;

@@ -29,6 +29,7 @@
 #include "Core/Core.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 #include "Core/MIPS/MIPS.h"
@@ -106,7 +107,7 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_FOG1, 0, SoftDirty::TRANSFORM_FOG },
 	{ GE_CMD_FOG2, 0, SoftDirty::TRANSFORM_FOG },
 
-	{ GE_CMD_CLEARMODE, 0, SoftDirty::TRANSFORM_BASIC | SoftDirty::RAST_TEX | SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST | SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_ALPHA | SoftDirty::PIXEL_STENCIL | SoftDirty::PIXEL_CACHED | SoftDirty::BINNER_RANGE | SoftDirty::BINNER_OVERLAP },
+	{ GE_CMD_CLEARMODE, 0, SoftDirty::TRANSFORM_BASIC | SoftDirty::RAST_BASIC | SoftDirty::RAST_TEX | SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST | SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_ALPHA | SoftDirty::PIXEL_STENCIL | SoftDirty::PIXEL_CACHED | SoftDirty::BINNER_RANGE | SoftDirty::BINNER_OVERLAP },
 	{ GE_CMD_TEXTUREMAPENABLE, 0, SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST | SoftDirty::RAST_TEX | SoftDirty::TRANSFORM_BASIC | SoftDirty::BINNER_OVERLAP },
 	{ GE_CMD_FOGENABLE, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED | SoftDirty::TRANSFORM_BASIC | SoftDirty::TRANSFORM_FOG | SoftDirty::TRANSFORM_MATRIX },
 	{ GE_CMD_TEXMODE, 0, SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST | SoftDirty::RAST_TEX },
@@ -445,7 +446,10 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		presentation_ = new PresentationCommon(draw_);
 		presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
 	}
-	Resized();
+
+	NotifyConfigChanged();
+	NotifyRenderResized();
+	NotifyDisplayResized();
 }
 
 void SoftGPU::DeviceLost() {
@@ -701,7 +705,7 @@ bool SoftGPU::ClearDirty(uint32_t addr, uint32_t bytes, SoftGPUVRAMDirty value) 
 	return result;
 }
 
-void SoftGPU::Resized() {
+void SoftGPU::NotifyRenderResized() {
 	// Force the render params to 480x272 so other things work.
 	if (g_Config.IsPortrait()) {
 		PSP_CoreParameter().renderWidth = 272;
@@ -710,12 +714,17 @@ void SoftGPU::Resized() {
 		PSP_CoreParameter().renderWidth = 480;
 		PSP_CoreParameter().renderHeight = 272;
 	}
+}
 
+void SoftGPU::NotifyDisplayResized() {
 	if (presentation_) {
-		presentation_->UpdateSize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		presentation_->UpdateDisplaySize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		presentation_->UpdateRenderSize(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 		presentation_->UpdatePostShader();
 	}
 }
+
+void SoftGPU::NotifyConfigChanged() {}
 
 void SoftGPU::FastRunLoop(DisplayList &list) {
 	PROFILE_THIS_SCOPE("soft_runloop");
@@ -784,45 +793,21 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 
 	int bpp = gstate.getTransferBpp();
 
+	// Use height less one to account for width, which can be greater or less than stride.
 	const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-	const uint32_t srcSize = height * srcStride * bpp;
+	const uint32_t srcSize = (height - 1) * (srcStride + width) * bpp;
 	const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-	const uint32_t dstSize = height * dstStride * bpp;
+	const uint32_t dstSize = (height - 1) * (dstStride + width) * bpp;
 
 	// Need to flush both source and target, so we overwrite properly.
-	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", false, src, srcStride, width * bpp, height);
-	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", true, dst, dstStride, width * bpp, height);
-
-	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
-
-	if (srcStride == dstStride && (u32)width == srcStride) {
-		u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-		u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-
-		const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
-		u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
-		memcpy(dstp, srcp, width * height * bpp);
-		GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * height * bpp);
+	if (Memory::IsValidRange(src, srcSize) && Memory::IsValidRange(dst, dstSize)) {
+		drawEngine_->transformUnit.FlushIfOverlap("blockxfer", false, src, srcStride, width * bpp, height);
+		drawEngine_->transformUnit.FlushIfOverlap("blockxfer", true, dst, dstStride, width * bpp, height);
 	} else {
-		for (int y = 0; y < height; y++) {
-			u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
-			u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
-
-			const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
-			u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
-			memcpy(dstp, srcp, width * bpp);
-			GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * bpp);
-		}
+		drawEngine_->transformUnit.Flush("blockxfer_wrap");
 	}
 
-	if (MemBlockInfoDetailed(srcSize, dstSize)) {
-		const std::string tag = GetMemWriteTagAt("GPUBlockTransfer/", src, srcSize);
-		NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
-	}
-
-	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
-	cyclesExecuted += ((height * width * bpp) * 16) / 10;
+	DoBlockTransfer(gstate_c.skipDrawReason);
 
 	// Could theoretically dirty the framebuffer.
 	MarkDirty(dst, dstSize, SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY);
@@ -1423,8 +1408,8 @@ bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer)
 	return true;
 }
 
-bool SoftGPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices)
-{
+bool SoftGPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+	UpdateUVScaleOffset();
 	return drawEngine_->transformUnit.GetCurrentSimpleVertices(count, vertices, indices);
 }
 

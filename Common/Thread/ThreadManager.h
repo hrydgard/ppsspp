@@ -4,7 +4,7 @@
 
 // The new threadpool.
 
-// To help future smart scheduling.
+// To help smart scheduling.
 enum class TaskType {
 	CPU_COMPUTE,
 	IO_BLOCKING,

@@ -1466,7 +1466,7 @@ void __KernelSaveContext(PSPThreadContext *ctx, bool vfpuEnabled) {
 }
 
 // Loads a CPU context
-void __KernelLoadContext(PSPThreadContext *ctx, bool vfpuEnabled) {
+void __KernelLoadContext(const PSPThreadContext *ctx, bool vfpuEnabled) {
 	// r and f are immediately next to each other and must be.
 	memcpy((void *)currentMIPS->r, (void *)ctx->r, sizeof(ctx->r) + sizeof(ctx->f));
 
@@ -1644,7 +1644,7 @@ void __KernelStopThread(SceUID threadID, int exitStatus, const char *reason)
 		t->nt.waitType = WAITTYPE_NONE;
 		t->nt.waitID = 0;
 	} else {
-		ERROR_LOG_REPORT(SCEKERNEL, "__KernelStopThread: thread %d does not exist", threadID);
+		ERROR_LOG_REPORT(SCEKERNEL, "__KernelStopThread: thread %d does not exist (%s)", threadID, reason ? reason : "?");
 	}
 }
 

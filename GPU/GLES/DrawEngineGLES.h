@@ -61,7 +61,7 @@ public:
 class DrawEngineGLES : public DrawEngineCommon {
 public:
 	DrawEngineGLES(Draw::DrawContext *draw);
-	virtual ~DrawEngineGLES();
+	~DrawEngineGLES();
 
 	void SetShaderManager(ShaderManagerGLES *shaderManager) {
 		shaderManager_ = shaderManager;
@@ -84,7 +84,6 @@ public:
 	void BeginFrame();
 	void EndFrame();
 
-
 	// So that this can be inlined
 	void Flush() {
 		if (!numDrawCalls)
@@ -97,8 +96,6 @@ public:
 			return;
 		DoFlush();
 	}
-
-	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 
 	void DispatchFlush() override { Flush(); }
 
@@ -117,6 +114,8 @@ protected:
 	bool UpdateUseHWTessellation(bool enable) override;
 
 private:
+	void Invalidate(InvalidationCallbackFlags flags);
+
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 

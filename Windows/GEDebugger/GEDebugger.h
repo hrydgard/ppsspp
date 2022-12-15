@@ -81,7 +81,7 @@ public:
 	StepCountDlg(HINSTANCE _hInstance, HWND _hParent);
 	~StepCountDlg();
 protected:
-	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) override;
 private:
 	void Jump(int count, bool relative);
 };
@@ -94,7 +94,7 @@ public:
 	static void Init();
 
 protected:
-	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) override;
 
 private:
 	void SetupPreviews();

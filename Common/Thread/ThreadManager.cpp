@@ -113,7 +113,7 @@ bool ThreadManager::TeardownTask(Task *task, bool enqueue) {
 		if (task->Type() == TaskType::CPU_COMPUTE) {
 			global_->compute_queue.push_back(task);
 			global_->compute_queue_size++;
-		} else if (task->Type() == TaskType::CPU_COMPUTE) {
+		} else if (task->Type() == TaskType::IO_BLOCKING) {
 			global_->io_queue.push_back(task);
 			global_->io_queue_size++;
 		} else {
@@ -125,7 +125,12 @@ bool ThreadManager::TeardownTask(Task *task, bool enqueue) {
 
 static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread) {
 	char threadName[16];
-	snprintf(threadName, sizeof(threadName), "PoolWorker %d", thread->index);
+	if (thread->type == TaskType::CPU_COMPUTE) {
+		snprintf(threadName, sizeof(threadName), "PoolWorker %d", thread->index);
+	} else {
+		_assert_(thread->type == TaskType::IO_BLOCKING);
+		snprintf(threadName, sizeof(threadName), "PoolWorkerIO %d", thread->index);
+	}
 	SetCurrentThreadName(threadName);
 
 	const bool isCompute = thread->type == TaskType::CPU_COMPUTE;
@@ -199,8 +204,8 @@ void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 		thread->cancelled.store(false);
 		thread->private_single.store(nullptr);
 		thread->type = i < numComputeThreads_ ? TaskType::CPU_COMPUTE : TaskType::IO_BLOCKING;
-		thread->thread = std::thread(&WorkerThreadFunc, global_, thread);
 		thread->index = i;
+		thread->thread = std::thread(&WorkerThreadFunc, global_, thread);
 		global_->threads_.push_back(thread);
 	}
 }

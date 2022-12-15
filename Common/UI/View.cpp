@@ -16,15 +16,15 @@
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/Log.h"
 
 namespace UI {
 
-const float ITEM_HEIGHT = 64.f;
-const float MIN_TEXT_SCALE = 0.8f;
-const float MAX_ITEM_SIZE = 65535.0f;
+static constexpr Size ITEM_HEIGHT = 64.f;
+static constexpr float MIN_TEXT_SCALE = 0.8f;
+static constexpr float MAX_ITEM_SIZE = 65535.0f;
 
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured) {
-	*measured = sz;
 	if (sz == WRAP_CONTENT) {
 		if (spec.type == UNSPECIFIED)
 			*measured = contentWidth;
@@ -40,6 +40,8 @@ void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measure
 			*measured = spec.size;
 	} else if (spec.type == EXACTLY || (spec.type == AT_MOST && *measured > spec.size)) {
 		*measured = spec.size;
+	} else {
+		*measured = sz;
 	}
 }
 
@@ -167,7 +169,7 @@ void View::PersistData(PersistStatus status, std::string anonId, PersistMap &sto
 	}
 }
 
-Point View::GetFocusPosition(FocusDirection dir) {
+Point View::GetFocusPosition(FocusDirection dir) const {
 	// The +2/-2 is some extra fudge factor to cover for views sitting right next to each other.
 	// Distance zero yields strange results otherwise.
 	switch (dir) {
@@ -226,11 +228,13 @@ void Clickable::FocusChanged(int focusFlags) {
 	}
 }
 
-void Clickable::Touch(const TouchInput &input) {
+bool Clickable::Touch(const TouchInput &input) {
+	bool contains = bounds_.Contains(input.x, input.y);
+
 	if (!IsEnabled()) {
 		dragging_ = false;
 		down_ = false;
-		return;
+		return contains;
 	}
 
 	if (input.flags & TOUCH_DOWN) {
@@ -255,6 +259,7 @@ void Clickable::Touch(const TouchInput &input) {
 		downCountDown_ = 0;
 		dragging_ = false;
 	}
+	return contains;
 }
 
 static bool MatchesKeyDef(const std::vector<KeyDef> &defs, const KeyInput &key) {
@@ -350,21 +355,24 @@ bool Clickable::Key(const KeyInput &key) {
 	return ret;
 }
 
-void StickyChoice::Touch(const TouchInput &input) {
+bool StickyChoice::Touch(const TouchInput &touch) {
+	bool contains = bounds_.Contains(touch.x, touch.y);
 	dragging_ = false;
 	if (!IsEnabled()) {
 		down_ = false;
-		return;
+		return contains;
 	}
 
-	if (input.flags & TOUCH_DOWN) {
-		if (bounds_.Contains(input.x, input.y)) {
+	if (touch.flags & TOUCH_DOWN) {
+		if (contains) {
 			if (IsFocusMovementEnabled())
 				SetFocusedView(this);
 			down_ = true;
 			Click();
+			return true;
 		}
 	}
+	return false;
 }
 
 bool StickyChoice::Key(const KeyInput &key) {
@@ -407,6 +415,7 @@ void ClickableItem::GetContentDimensions(const UIContext &dc, float &w, float &h
 
 ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParams) {
 	if (!layoutParams) {
+		// The default LayoutParams assigned by View::View defaults to WRAP_CONTENT/WRAP_CONTENT.
 		if (layoutParams_->width == WRAP_CONTENT)
 			layoutParams_->width = FILL_PARENT;
 	}
@@ -483,7 +492,7 @@ void Choice::Draw(UIContext &dc) {
 
 	if (image_.isValid() && text_.empty()) {
 		dc.Draw()->DrawImageRotated(image_, bounds_.centerX(), bounds_.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
-	} else {
+	} else if (!text_.empty()) {
 		dc.SetFontStyle(dc.theme->uiFont);
 
 		int paddingX = 12;
@@ -491,6 +500,7 @@ void Choice::Draw(UIContext &dc) {
 
 		if (image_.isValid()) {
 			const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(image_);
+			_dbg_assert_(image);
 			paddingX += image->w + 6;
 			availWidth -= image->w + 6;
 			// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
@@ -690,28 +700,55 @@ void CheckBox::Draw(UIContext &dc) {
 	if (!IsEnabled()) {
 		style = dc.theme->itemDisabledStyle;
 	}
-	if (HasFocus()) {
-		style = dc.theme->itemFocusedStyle;
+	ImageID image = Toggled() ? dc.theme->checkOn : dc.theme->checkOff;
+
+	// In image mode, light up instead of showing a checkbox.
+	if (imageID_.isValid()) {
+		image = imageID_;
+		if (Toggled()) {
+			if (HasFocus()) {
+				style = dc.theme->itemDownStyle;
+			} else {
+				style = dc.theme->itemFocusedStyle;
+			}
+		} else {
+			if (HasFocus()) {
+				style = dc.theme->itemDownStyle;
+			} else {
+				style = dc.theme->itemStyle;
+			}
+		}
+
+		if (down_) {
+			style.background.color = lightenColor(style.background.color);
+		}
+
+	} else {
+		if (HasFocus()) {
+			style = dc.theme->itemFocusedStyle;
+		}
+		if (down_) {
+			style = dc.theme->itemDownStyle;
+		}
 	}
-	if (down_) {
-		style = dc.theme->itemDownStyle;
-	}
+
 	dc.SetFontStyle(dc.theme->uiFont);
 
-	ClickableItem::Draw(dc);
+	DrawBG(dc, style);
 
-	ImageID image = Toggled() ? dc.theme->checkOn : dc.theme->checkOff;
 	float imageW, imageH;
 	dc.Draw()->MeasureImage(image, &imageW, &imageH);
 
 	const int paddingX = 12;
 	// Padding right of the checkbox image too.
 	const float availWidth = bounds_.w - paddingX * 2 - imageW - paddingX;
-	float scale = CalculateTextScale(dc, availWidth);
 
-	dc.SetFontScale(scale, scale);
-	Bounds textBounds(bounds_.x + paddingX, bounds_.y, availWidth, bounds_.h);
-	dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	if (!text_.empty()) {
+		float scale = CalculateTextScale(dc, availWidth);
+		dc.SetFontScale(scale, scale);
+		Bounds textBounds(bounds_.x + paddingX, bounds_.y, availWidth, bounds_.h);
+		dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	}
 	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 	dc.SetFontScale(1.0f, 1.0f);
 }
@@ -737,24 +774,41 @@ float CheckBox::CalculateTextScale(const UIContext &dc, float availWidth) const 
 
 void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	ImageID image = Toggled() ? dc.theme->checkOn : dc.theme->checkOff;
+	if (imageID_.isValid()) {
+		image = imageID_;
+	}
+
 	float imageW, imageH;
 	dc.Draw()->MeasureImage(image, &imageW, &imageH);
 
 	const int paddingX = 12;
+
+	if (imageID_.isValid()) {
+		w = imageW + paddingX * 2;
+		h = std::max(imageH, ITEM_HEIGHT);
+		return;
+	}
+
+	// The below code is kinda wacky, we shouldn't involve bounds_ here.
+
 	// Padding right of the checkbox image too.
 	float availWidth = bounds_.w - paddingX * 2 - imageW - paddingX;
 	if (availWidth < 0.0f) {
 		// Let it have as much space as it needs.
 		availWidth = MAX_ITEM_SIZE;
 	}
-	float scale = CalculateTextScale(dc, availWidth);
 
-	float actualWidth, actualHeight;
-	Bounds availBounds(0, 0, availWidth, bounds_.h);
-	dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	if (!text_.empty()) {
+		float scale = CalculateTextScale(dc, availWidth);
 
+		float actualWidth, actualHeight;
+		Bounds availBounds(0, 0, availWidth, bounds_.h);
+		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		h = std::max(actualHeight, ITEM_HEIGHT);
+	} else {
+		h = std::max(imageH, ITEM_HEIGHT);
+	}
 	w = bounds_.w;
-	h = std::max(actualHeight, ITEM_HEIGHT);
 }
 
 void BitCheckBox::Toggle() {
@@ -1069,12 +1123,14 @@ static std::string FirstLine(const std::string &text) {
 	return text;
 }
 
-void TextEdit::Touch(const TouchInput &touch) {
+bool TextEdit::Touch(const TouchInput &touch) {
 	if (touch.flags & TOUCH_DOWN) {
 		if (bounds_.Contains(touch.x, touch.y)) {
 			SetFocusedView(this, true);
+			return true;
 		}
 	}
+	return false;
 }
 
 bool TextEdit::Key(const KeyInput &input) {
@@ -1259,14 +1315,15 @@ void Spinner::Draw(UIContext &dc) {
 	}
 }
 
-void TriggerButton::Touch(const TouchInput &input) {
+bool TriggerButton::Touch(const TouchInput &input) {
+	bool contains = bounds_.Contains(input.x, input.y);
 	if (input.flags & TOUCH_DOWN) {
-		if (bounds_.Contains(input.x, input.y)) {
+		if (contains) {
 			down_ |= 1 << input.id;
 		}
 	}
 	if (input.flags & TOUCH_MOVE) {
-		if (bounds_.Contains(input.x, input.y))
+		if (contains)
 			down_ |= 1 << input.id;
 		else
 			down_ &= ~(1 << input.id);
@@ -1281,6 +1338,8 @@ void TriggerButton::Touch(const TouchInput &input) {
 	} else {
 		*bitField_ &= ~bit_;
 	}
+
+	return contains;
 }
 
 void TriggerButton::Draw(UIContext &dc) {
@@ -1344,9 +1403,10 @@ bool Slider::ApplyKey(int keyCode) {
 	return true;
 }
 
-void Slider::Touch(const TouchInput &input) {
+bool Slider::Touch(const TouchInput &input) {
 	// Calling it afterwards, so dragging_ hasn't been set false yet when checking it above.
-	Clickable::Touch(input);
+	bool contains = Clickable::Touch(input);
+
 	if (dragging_) {
 		float relativeX = (input.x - (bounds_.x + paddingLeft_)) / (bounds_.w - paddingLeft_ - paddingRight_);
 		*value_ = floorf(relativeX * (maxValue_ - minValue_) + minValue_ + 0.5f);
@@ -1360,6 +1420,7 @@ void Slider::Touch(const TouchInput &input) {
 
 	// Cancel any key repeat.
 	repeat_ = -1;
+	return contains;
 }
 
 void Slider::Clamp() {
@@ -1470,8 +1531,8 @@ bool SliderFloat::ApplyKey(int keyCode) {
 	return true;
 }
 
-void SliderFloat::Touch(const TouchInput &input) {
-	Clickable::Touch(input);
+bool SliderFloat::Touch(const TouchInput &input) {
+	bool contains = Clickable::Touch(input);
 	if (dragging_) {
 		float relativeX = (input.x - (bounds_.x + paddingLeft_)) / (bounds_.w - paddingLeft_ - paddingRight_);
 		*value_ = (relativeX * (maxValue_ - minValue_) + minValue_);
@@ -1485,6 +1546,7 @@ void SliderFloat::Touch(const TouchInput &input) {
 
 	// Cancel any key repeat.
 	repeat_ = -1;
+	return contains;
 }
 
 void SliderFloat::Clamp() {

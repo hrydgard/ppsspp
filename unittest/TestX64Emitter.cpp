@@ -14,13 +14,13 @@
 
 static const u8 *prevStart = NULL;
 
-bool CheckLast(Gen::XEmitter &emit, const char *comp) {
+static bool CheckLast(const Gen::XEmitter &emit, const char *comp) {
 	auto vec = DisassembleX86(prevStart, (int)(emit.GetCodePointer() - prevStart));
 	EXPECT_EQ_STR(vec[0], std::string(comp));
 	return true;
 }
 
-void PrintLast(Gen::XEmitter &emit) {
+static void PrintLast(const Gen::XEmitter &emit) {
 	for (const u8 *p = prevStart; p < emit.GetCodePointer(); p++) {
 		printf("%02x ", *p);
 	}

@@ -24,6 +24,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
+#include "Core/System.h"
 
 const int PSP_UMD_POPUP_DISABLE = 0;
 const int PSP_UMD_POPUP_ENABLE = 1;
@@ -40,7 +41,12 @@ static u32 backlightOffTime;
 void __ImposeInit()
 {
 	language = g_Config.iLanguage;
-	buttonValue = g_Config.iButtonPreference;
+	if (PSP_CoreParameter().compat.flags().EnglishOrJapaneseOnly) {
+		if (language != PSP_SYSTEMPARAM_LANGUAGE_ENGLISH && language != PSP_SYSTEMPARAM_LANGUAGE_JAPANESE) {
+			language = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+		}
+	}
+	buttonValue = PSP_CoreParameter().compat.flags().ForceCircleButtonConfirm ? PSP_SYSTEMPARAM_BUTTON_CIRCLE : g_Config.iButtonPreference;
 	umdPopup = PSP_UMD_POPUP_DISABLE;
 	backlightOffTime = 0;
 }

@@ -33,11 +33,7 @@ void Do(PointerWrap &p, tm &t);
 
 // This makes it a compile error if you forget to define DoState() on non-POD.
 // Which also can be a problem, for example struct tm is non-POD on linux, for whatever reason...
-#ifdef _MSC_VER
-template<typename T, bool isPOD = std::is_pod<T>::value, bool isPointer = std::is_pointer<T>::value>
-#else
-template<typename T, bool isPOD = __is_pod(T), bool isPointer = std::is_pointer<T>::value>
-#endif
+template<typename T, bool isPOD = std::is_standard_layout<T>::value && std::is_trivial<T>::value, bool isPointer = std::is_pointer<T>::value>
 struct DoHelper_ {
 	static void DoArray(PointerWrap &p, T *x, int count) {
 		for (int i = 0; i < count; ++i)
@@ -89,7 +85,8 @@ template<class T>
 void DoVector(PointerWrap &p, std::vector<T> &x, T &default_val) {
 	u32 vec_size = (u32)x.size();
 	Do(p, vec_size);
-	x.resize(vec_size, default_val);
+	if (vec_size != x.size())
+		x.resize(vec_size, default_val);
 	if (vec_size > 0)
 		DoArray(p, &x[0], vec_size);
 }

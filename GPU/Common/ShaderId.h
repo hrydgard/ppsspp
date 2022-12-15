@@ -15,7 +15,7 @@ enum VShaderBit : uint8_t {
 	VS_BIT_HAS_COLOR = 3,
 	VS_BIT_DO_TEXTURE = 4,
 	VS_BIT_VERTEX_RANGE_CULLING = 5,
-	// 6 is free,
+	VS_BIT_SIMPLE_STEREO = 6,
 	// 7 is free.
 	VS_BIT_USE_HW_TRANSFORM = 8,
 	VS_BIT_HAS_NORMAL = 9,  // conditioned on hw transform
@@ -98,6 +98,9 @@ enum FShaderBit : uint8_t {
 	FS_BIT_COLOR_WRITEMASK = 50,
 	FS_BIT_REPLACE_LOGIC_OP = 51,  // 4 bits. GE_LOGIC_COPY means no-op/off.
 	FS_BIT_SHADER_DEPAL_MODE = 55,  // 2 bits (ShaderDepalMode)
+	FS_BIT_SAMPLE_ARRAY_TEXTURE = 57,  // For multiview, framebuffers are array textures and we need to sample the two layers correctly.
+	FS_BIT_STEREO = 58,
+	FS_BIT_USE_FRAMEBUFFER_FETCH = 59,
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {
@@ -273,7 +276,7 @@ namespace Draw {
 class Bugs;
 }
 
-void ComputeVertexShaderID(VShaderID *id, uint32_t vertexType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat);
+void ComputeVertexShaderID(VShaderID *id, uint32_t vertexType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
 // Generates a compact string that describes the shader. Useful in a list to get an overview
 // of the current flora of shaders.
 std::string VertexShaderDesc(const VShaderID &id);

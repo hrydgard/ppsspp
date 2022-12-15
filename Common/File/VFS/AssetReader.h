@@ -47,10 +47,10 @@ class DirectoryAssetReader : public AssetReader {
 public:
 	explicit DirectoryAssetReader(const Path &path);
 	// use delete[]
-	virtual uint8_t *ReadAsset(const char *path, size_t *size);
-	virtual bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter);
-	virtual bool GetFileInfo(const char *path, File::FileInfo *info);
-	virtual std::string toString() const {
+	uint8_t *ReadAsset(const char *path, size_t *size) override;
+	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter) override;
+	bool GetFileInfo(const char *path, File::FileInfo *info) override;
+	std::string toString() const override {
 		return path_.ToString();
 	}
 

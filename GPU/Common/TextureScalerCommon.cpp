@@ -71,7 +71,7 @@ namespace {
 // 3x3 convolution with Neumann boundary conditions, parallelizable
 // quite slow, could be sped up a lot
 // especially handling of separable kernels
-void convolve3x3(u32* data, u32* out, const int kernel[3][3], int width, int height, int l, int u) {
+void convolve3x3(const u32 *data, u32 *out, const int kernel[3][3], int width, int height, int l, int u) {
 	for (int yb = 0; yb < (u - l) / BLOCK_SIZE + 1; ++yb) {
 		for (int xb = 0; xb < width / BLOCK_SIZE + 1; ++xb) {
 			for (int y = l + yb*BLOCK_SIZE; y < l + (yb + 1)*BLOCK_SIZE && y < u; ++y) {
@@ -92,7 +92,7 @@ void convolve3x3(u32* data, u32* out, const int kernel[3][3], int width, int hei
 }
 
 // deposterization: smoothes posterized gradients from low-color-depth (e.g. 444, 565, compressed) sources
-void deposterizeH(u32* data, u32* out, int w, int l, int u) {
+void deposterizeH(const u32 *data, u32 *out, int w, int l, int u) {
 	static const int T = 8;
 	for (int y = l; y < u; ++y) {
 		for (int x = 0; x < w; ++x) {
@@ -120,7 +120,7 @@ void deposterizeH(u32* data, u32* out, int w, int l, int u) {
 		}
 	}
 }
-void deposterizeV(u32* data, u32* out, int w, int h, int l, int u) {
+void deposterizeV(const u32 *data, u32 *out, int w, int h, int l, int u) {
 	static const int T = 8;
 	for (int xb = 0; xb < w / BLOCK_SIZE + 1; ++xb) {
 		for (int y = l; y < u; ++y) {
@@ -152,7 +152,7 @@ void deposterizeV(u32* data, u32* out, int w, int h, int l, int u) {
 
 // generates a distance mask value for each pixel in data
 // higher values -> larger distance to the surrounding pixels
-void generateDistanceMask(u32* data, u32* out, int width, int height, int l, int u) {
+void generateDistanceMask(const u32 *data, u32 *out, int width, int height, int l, int u) {
 	for (int yb = 0; yb < (u - l) / BLOCK_SIZE + 1; ++yb) {
 		for (int xb = 0; xb < width / BLOCK_SIZE + 1; ++xb) {
 			for (int y = l + yb*BLOCK_SIZE; y < l + (yb + 1)*BLOCK_SIZE && y < u; ++y) {
@@ -183,7 +183,7 @@ void generateDistanceMask(u32* data, u32* out, int width, int height, int l, int
 }
 
 // mix two images based on a mask
-void mix(u32* data, u32* source, u32* mask, u32 maskmax, int width, int l, int u) {
+void mix(u32 *data, const u32 *source, const u32 *mask, u32 maskmax, int width, int l, int u) {
 	for (int y = l; y < u; ++y) {
 		for (int x = 0; x < width; ++x) {
 			int pos = y*width + x;
@@ -211,10 +211,10 @@ static void load_sample(ptrdiff_t w, ptrdiff_t h, ptrdiff_t s, const u8 *pixels,
 	// equivalent to a>=0&&a<b.
 	static_assert(sizeof(ptrdiff_t) == sizeof(size_t), "Assumes ptrdiff_t same width as size_t");
 
-	if((size_t)x >= (size_t)w||(size_t)y >= (size_t)h) {
+	if((size_t)x >= (size_t)w || (size_t)y >= (size_t)h) {
 		switch(wrap_mode) {
 			case 0: // Wrap
-				if(!((w&(w-1))|(h&(h-1)))) {
+				if(!((w & (w-1)) | (h & (h-1)))) {
 					// Both w and h are powers of 2.
 					x &= w-1;
 					y &= h-1;
@@ -239,7 +239,7 @@ static void load_sample(ptrdiff_t w, ptrdiff_t h, ptrdiff_t s, const u8 *pixels,
 				break;
 		}
 	}
-	memcpy(output, pixels+s*y+4*x, 4);
+	memcpy(output, pixels + s*y + 4*x, 4);
 }
 
 #define BLOCK 8
@@ -260,7 +260,7 @@ static void init_block(
 	float   w00 = B/6.0f     ,  w01 = -C-0.5f*B,  w02 = 2.0f*C+0.5f*B      , w03 = -C-B/6.0f     ;
 	float   w10 = 1.0f-B/3.0f,/*w11 = 0.0f     ,*/w12 = C+2.0f*B-3.0f      , w13 = -C-1.5f*B+2.0f;
 	float   w20 = B/6.0f     ,  w21 =  C+0.5f*B,  w22 = -2.0f*C-2.5f*B+3.0f, w23 =  C+1.5f*B-2.0f;
-	float /*w30 = 0.0f       ,  w31 = 0.0f     ,*/w32 = -C                 , w33 =  C+B/6.0f      ;
+	float /*w30 = 0.0f       ,  w31 = 0.0f     ,*/w32 = -C                 , w33 =  C+B/6.0f     ;
 	// Express the sampling position as a rational
 	// number num/den-1 (off by one, so that num is
 	// always positive, since the C language does
@@ -269,9 +269,9 @@ static void init_block(
 	ptrdiff_t den = 2*factor;
 	float inv_den = 1.0f/(float)den;
 	for(int dir = 0; dir < 2; ++dir) {
-		ptrdiff_t num = (dir?2*y0+1+factor:2*x0+1+factor);
-		ptrdiff_t *l = (dir?ly:lx), *l0 = (dir?ly0:lx0), *s = (dir?sy:sx);
-		float (*c)[4] = (dir?cy:cx);
+		ptrdiff_t num = (dir ? 2*y0+1+factor : 2*x0+1+factor);
+		ptrdiff_t *l = (dir ? ly : lx), *l0 = (dir ? ly0 : lx0), *s = (dir ? sy : sx);
+		float (*c)[4] = (dir ? cy : cx);
 		(*l0) = num/den-2;
 		num = num%den;
 		for(ptrdiff_t i = 0, j = 0; i < BLOCK; ++i) {
@@ -288,13 +288,13 @@ static void init_block(
 		(*s) = l[BLOCK-1]+4; // Total sampled src pixels in {x|y} direction.
 	}
 	// Get a local copy of the source pixels.
-	if((*lx0) >=0 && (*ly0) >= 0 && *lx0+(*sx) <= w && *ly0+(*sy) <= h) {
+	if((*lx0) >=0 && (*ly0) >= 0 && *lx0 + (*sx) <= w && *ly0 + (*sy) <= h) {
 		for(ptrdiff_t iy = 0; iy < (*sy); ++iy)
-			memcpy(src[iy], src_pixels+src_stride*((*ly0)+iy)+4*(*lx0), (size_t)(4*(*sx)));
+			memcpy(src[iy], src_pixels+src_stride*((*ly0) + iy) + 4*(*lx0), (size_t)(4*(*sx)));
 	}
 	else {
 		for(ptrdiff_t iy = 0; iy < (*sy); ++iy) for(ptrdiff_t ix = 0; ix < (*sx); ++ix)
-			load_sample(w, h, src_stride, src_pixels, wrap_mode, (*lx0)+ix, (*ly0)+iy, src[iy]+4*ix);
+			load_sample(w, h, src_stride, src_pixels, wrap_mode, (*lx0) + ix, (*ly0) + iy, src[iy] + 4*ix);
 	}
 }
 
@@ -315,14 +315,14 @@ static void upscale_block_c(
 	for(ptrdiff_t iy = 0; iy < sy; ++iy)
 		for(ptrdiff_t ix = 0; ix < sx; ++ix)
 			for(ptrdiff_t k = 0; k < 4; ++k)
-				buf[0][iy][ix][k] = (float)(int)src[iy][4*ix+k];
+				buf[0][iy][ix][k] = (float)(int)src[iy][4*ix + k];
 	// Horizontal pass.
 	for(ptrdiff_t ix = 0; ix < BLOCK; ++ix) {
-		#define S(i) (buf[0][iy][lx[ix]+i][k])
+		#define S(i) (buf[0][iy][lx[ix] + i][k])
 		float C0 = cx[ix][0], C1 = cx[ix][1], C2 = cx[ix][2], C3 = cx[ix][3];
 		for(ptrdiff_t iy = 0; iy < sy; ++iy)
 			for(ptrdiff_t k = 0; k < 4; ++k)
-				buf[1][iy][ix][k] = S(0)*C0+S(1)*C1+S(2)*C2+S(3)*C3;
+				buf[1][iy][ix][k] = S(0)*C0 + S(1)*C1 + S(2)*C2 + S(3)*C3;
 		#undef S
 	}
 	// Vertical pass.
@@ -331,7 +331,7 @@ static void upscale_block_c(
 		float C0 = cy[iy][0], C1 = cy[iy][1], C2 = cy[iy][2], C3 = cy[iy][3];
 		for(ptrdiff_t ix = 0; ix < BLOCK; ++ix)
 			for(ptrdiff_t k = 0; k < 4; ++k)
-				buf[0][iy][ix][k] = S(0)*C0+S(1)*C1+S(2)*C2+S(3)*C3;
+				buf[0][iy][ix][k] = S(0)*C0 + S(1)*C1 + S(2)*C2 + S(3)*C3;
 		#undef S
 	}
 	// Pack destination pixels.
@@ -342,9 +342,9 @@ static void upscale_block_c(
 				float C = buf[0][iy][ix][k];
 				if(!(C>0.0f)) C = 0.0f;
 				if(C>255.0f)  C = 255.0f;
-				pixel[k] = (u8)(int)(C+0.5f);
+				pixel[k] = (u8)(int)(C + 0.5f);
 			}
-			memcpy(dst_pixels+4*(BLOCK*iy+ix), pixel, 4);
+			memcpy(dst_pixels + 4*(BLOCK*iy + ix), pixel, 4);
 		}
 }
 
@@ -377,7 +377,7 @@ static void upscale_block_sse2(
 	for(ptrdiff_t iy = 0; iy < sy; ++iy)
 		for(ptrdiff_t ix = 0; ix < sx; ++ix) {
 			int pixel;
-			memcpy(&pixel, src[iy]+4*ix, 4);
+			memcpy(&pixel, src[iy] + 4*ix, 4);
 			__m128i C = _mm_cvtsi32_si128(pixel);
 			C = _mm_unpacklo_epi8(C, _mm_set1_epi32(0));
 			C = _mm_unpacklo_epi8(C, _mm_set1_epi32(0));
@@ -385,7 +385,7 @@ static void upscale_block_sse2(
 		}
 	// Horizontal pass.
 	for(ptrdiff_t ix = 0; ix < BLOCK; ++ix) {
-		#define S(i) (buf[0][iy][lx[ix]+i])
+		#define S(i) (buf[0][iy][lx[ix] + i])
 		__m128 C0 = _mm_set1_ps(cx[ix][0]),
 			C1 = _mm_set1_ps(cx[ix][1]),
 			C2 = _mm_set1_ps(cx[ix][2]),
@@ -395,12 +395,12 @@ static void upscale_block_sse2(
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(0)), C0),
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(1)), C1),
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(2)), C2),
-						_mm_mul_ps(_mm_loadu_ps(S(3)), C3)))));
+						   _mm_mul_ps(_mm_loadu_ps(S(3)), C3)))));
 		#undef S
 	}
 	// Vertical pass.
 	for(ptrdiff_t iy = 0; iy < BLOCK; ++iy) {
-		#define S(i) (buf[1][ly[iy]+i][ix])
+		#define S(i) (buf[1][ly[iy] + i][ix])
 		__m128 C0 = _mm_set1_ps(cy[iy][0]),
 			C1 = _mm_set1_ps(cy[iy][1]),
 			C2 = _mm_set1_ps(cy[iy][2]),
@@ -410,7 +410,7 @@ static void upscale_block_sse2(
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(0)), C0),
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(1)), C1),
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(2)), C2),
-						_mm_mul_ps(_mm_loadu_ps(S(3)), C3)))));
+						   _mm_mul_ps(_mm_loadu_ps(S(3)), C3)))));
 		#undef S
 	}
 	// Pack destination pixels.
@@ -423,14 +423,14 @@ static void upscale_block_sse2(
 			R = _mm_packus_epi16(R, R);
 			R = _mm_packus_epi16(R, R);
 			int pixel = _mm_cvtsi128_si32(R);
-			memcpy(dst_pixels+4*(BLOCK*iy+ix), &pixel, 4);
+			memcpy(dst_pixels + 4*(BLOCK*iy+ix), &pixel, 4);
 		}
 }
 #endif // defined(_M_SSE)
 
 static void upscale_cubic(
-	ptrdiff_t width, ptrdiff_t height, ptrdiff_t src_stride_in_bytes, const void *src_pixels,
-									ptrdiff_t dst_stride_in_bytes, void       *dst_pixels,
+	ptrdiff_t width, ptrdiff_t height,	ptrdiff_t src_stride_in_bytes, const void *src_pixels,
+									  	ptrdiff_t dst_stride_in_bytes, void       *dst_pixels,
 	ptrdiff_t scale, float B, float C, int wrap_mode,
 	ptrdiff_t x0, ptrdiff_t y0, ptrdiff_t x1, ptrdiff_t y1) {
 	u8 pixels[BLOCK*BLOCK*4];
@@ -441,16 +441,16 @@ static void upscale_cubic(
 #else
 			upscale_block_c   (width, height, src_stride_in_bytes, (const u8*)src_pixels, wrap_mode, scale, B, C, x, y, pixels);
 #endif
-			for(ptrdiff_t iy = 0, ny = (y1-y < BLOCK?y1-y:BLOCK), nx = (x1-x < BLOCK?x1-x:BLOCK); iy < ny; ++iy)
-				memcpy((u8*)dst_pixels+dst_stride_in_bytes*(y+iy)+4*x, pixels+BLOCK*4*iy, (size_t)(4*nx));
+			for(ptrdiff_t iy = 0, ny = (y1-y < BLOCK ? y1-y : BLOCK), nx = (x1-x < BLOCK ? x1-x : BLOCK); iy < ny; ++iy)
+				memcpy((u8*)dst_pixels + dst_stride_in_bytes*(y+iy) + 4*x, pixels + BLOCK*4*iy, (size_t)(4*nx));
 		}
 }
 
 // End of pasted cubic upscaler.
 
-void scaleBicubicBSpline(int factor, u32* data, u32* out, int w, int h, int l, int u) {
+void scaleBicubicBSpline(int factor, const u32 *data, u32 *out, int w, int h, int l, int u) {
 	const float B = 1.0f, C = 0.0f;
-	const int wrap_mode = 0; // Clamp
+	const int wrap_mode = 1; // Clamp
 	upscale_cubic(
 		w, h, w*4, data,
 		factor*w*4, out,
@@ -458,9 +458,9 @@ void scaleBicubicBSpline(int factor, u32* data, u32* out, int w, int h, int l, i
 		0, factor*l, factor*w, factor*u);
 }
 
-void scaleBicubicMitchell(int factor, u32* data, u32* out, int w, int h, int l, int u) {
+void scaleBicubicMitchell(int factor, const u32 *data, u32 *out, int w, int h, int l, int u) {
 	const float B = 0.0f, C = 0.5f; // Actually, Catmull-Rom
-	const int wrap_mode = 0; // Clamp
+	const int wrap_mode = 1; // Clamp
 	upscale_cubic(
 		w, h, w*4, data,
 		factor*w*4, out,
@@ -478,7 +478,7 @@ const static u8 BILINEAR_FACTORS[4][3][2] = {
 };
 // integral bilinear upscaling by factor f, horizontal part
 template<int f>
-void bilinearHt(u32* data, u32* out, int w, int l, int u) {
+void bilinearHt(const u32 *data, u32 *out, int w, int l, int u) {
 	static_assert(f > 1 && f <= 5, "Bilinear scaling only implemented for factors 2 to 5");
 	int outw = w*f;
 	for (int y = l; y < u; ++y) {
@@ -497,7 +497,7 @@ void bilinearHt(u32* data, u32* out, int w, int l, int u) {
 		}
 	}
 }
-void bilinearH(int factor, u32* data, u32* out, int w, int l, int u) {
+void bilinearH(int factor, const u32 *data, u32 *out, int w, int l, int u) {
 	switch (factor) {
 	case 2: bilinearHt<2>(data, out, w, l, u); break;
 	case 3: bilinearHt<3>(data, out, w, l, u); break;
@@ -509,7 +509,7 @@ void bilinearH(int factor, u32* data, u32* out, int w, int l, int u) {
 // integral bilinear upscaling by factor f, vertical part
 // gl/gu == global lower and upper bound
 template<int f>
-void bilinearVt(u32* data, u32* out, int w, int gl, int gu, int l, int u) {
+void bilinearVt(const u32 *data, u32 *out, int w, int gl, int gu, int l, int u) {
 	static_assert(f>1 && f <= 5, "Bilinear scaling only implemented for 2x, 3x, 4x, and 5x");
 	int outw = w*f;
 	for (int xb = 0; xb < outw / BLOCK_SIZE + 1; ++xb) {
@@ -531,7 +531,7 @@ void bilinearVt(u32* data, u32* out, int w, int gl, int gu, int l, int u) {
 		}
 	}
 }
-void bilinearV(int factor, u32* data, u32* out, int w, int gl, int gu, int l, int u) {
+void bilinearV(int factor, const u32 *data, u32 *out, int w, int gl, int gu, int l, int u) {
 	switch (factor) {
 	case 2: bilinearVt<2>(data, out, w, gl, gu, l, u); break;
 	case 3: bilinearVt<3>(data, out, w, gl, gu, l, u); break;

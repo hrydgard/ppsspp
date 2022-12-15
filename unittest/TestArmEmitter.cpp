@@ -2,6 +2,7 @@
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "ext/disarm.h"
 
@@ -9,7 +10,7 @@
 
 #include "UnitTest.h"
 
-static bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {
+static bool CheckLast(const ArmGen::ARMXEmitter &emit, const char *comp) {
 	u32 instr;
 	memcpy(&instr, emit.GetCodePointer() - 4, 4);
 	char disasm[512];

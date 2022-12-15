@@ -901,8 +901,8 @@ void CDisasm::ProcessUpdateDialog() {
 
 	// Update Debug Counter
 	if (PSP_IsInited()) {
-		wchar_t tempTicks[24];
-		_snwprintf(tempTicks, 24, L"%lld", CoreTiming::GetTicks() - lastTicks);
+		wchar_t tempTicks[24]{};
+		_snwprintf(tempTicks, 23, L"%lld", CoreTiming::GetTicks() - lastTicks);
 		SetDlgItemText(m_hDlg, IDC_DEBUG_COUNT, tempTicks);
 	}
 

@@ -41,7 +41,7 @@ public:
 #if defined(USING_WIN_UI)
 	COORD GetCoordinates(int BytesRead, int BufferWidth);
 #endif
-	void Log(const LogMessage &message);
+	void Log(const LogMessage &message) override;
 	void ClearScreen(bool Cursor = true);
 
 	void Show(bool bShow);
@@ -66,8 +66,8 @@ private:
 	static std::atomic<uint32_t> logPendingReadPos;
 	static std::atomic<uint32_t> logPendingWritePos;
 
-	int openWidth_;
-	int openHeight_;
+	int openWidth_ = 0;
+	int openHeight_ = 0;
 	std::wstring title_;
 #endif
 	bool bHidden;

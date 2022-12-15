@@ -97,7 +97,6 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>../../../../;../../ext;../../;../../../../ext;../prebuilt;../../../../ext/zstd/lib</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

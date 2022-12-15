@@ -19,6 +19,7 @@
 #include "Common/Math/expression_parser.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/GECommandTable.h"
 #include "GPU/GPUState.h"
 
@@ -34,6 +35,8 @@ enum class GEReferenceIndex : uint32_t {
 	CLUTADDR,
 	TRANSFERSRC,
 	TRANSFERDST,
+	PRIMCOUNT,
+	LASTPRIMCOUNT,
 
 	TEXADDR0,
 	TEXADDR1,
@@ -74,6 +77,8 @@ static constexpr ReferenceName referenceNames[] = {
 	{ GEReferenceIndex::CLUTADDR, "clutaddr" },
 	{ GEReferenceIndex::TRANSFERSRC, "transfersrc" },
 	{ GEReferenceIndex::TRANSFERDST, "transferdst" },
+	{ GEReferenceIndex::PRIMCOUNT, "primcount" },
+	{ GEReferenceIndex::LASTPRIMCOUNT, "lastprimcount" },
 	{ GEReferenceIndex::TEXADDR0, "texaddr0" },
 	{ GEReferenceIndex::TEXADDR1, "texaddr1" },
 	{ GEReferenceIndex::TEXADDR2, "texaddr2" },
@@ -695,6 +700,12 @@ uint32_t GEExpressionFunctions::getReferenceValue(uint32_t referenceIndex) {
 	case GEReferenceIndex::TRANSFERDST:
 		return state.getTransferDstAddress();
 
+	case GEReferenceIndex::PRIMCOUNT:
+		return GPUDebug::PrimsThisFrame();
+
+	case GEReferenceIndex::LASTPRIMCOUNT:
+		return GPUDebug::PrimsLastFrame();
+
 	case GEReferenceIndex::TEXADDR0:
 	case GEReferenceIndex::TEXADDR1:
 	case GEReferenceIndex::TEXADDR2:
@@ -916,20 +927,19 @@ ExpressionType GEExpressionFunctions::getFieldType(GECmdFormat fmt, GECmdField f
 }
 
 bool GEExpressionFunctions::getMemoryValue(uint32_t address, int size, uint32_t &dest, char *error) {
-	if (!Memory::IsValidRange(address, size)) {
-		sprintf(error, "Invalid address or size %08x + %d", address, size);
-		return false;
-	}
+	// We allow, but ignore, bad access.
+	// If we didn't, log/condition statements that reference registers couldn't be configured.
+	bool valid = Memory::IsValidRange(address, size);
 
 	switch (size) {
 	case 1:
-		dest = Memory::Read_U8(address);
+		dest = valid ? Memory::Read_U8(address) : 0;
 		return true;
 	case 2:
-		dest = Memory::Read_U16(address);
+		dest = valid ? Memory::Read_U16(address) : 0;
 		return true;
 	case 4:
-		dest = Memory::Read_U32(address);
+		dest = valid ? Memory::Read_U32(address) : 0;
 		return true;
 	}
 

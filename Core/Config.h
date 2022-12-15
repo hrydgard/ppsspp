@@ -162,18 +162,23 @@ public:
 	bool bSoftwareRendering;
 	bool bSoftwareRenderingJit;
 	bool bHardwareTransform; // only used in the GLES backend
-	bool bSoftwareSkinning;  // may speed up some games
+	bool bSoftwareSkinning;
 	bool bVendorBugChecksEnabled;
 	bool bUseGeometryShader;
 
-	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering
+	// Speedhacks (more will be moved here):
+	bool bSkipBufferEffects;
+
 	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality
 	int iBufFilter; // 1 = linear, 2 = nearest
-	int iSmallDisplayZoomType;  // Used to fit display into screen 0 = stretch, 1 = partial stretch, 2 = auto scaling, 3 = manual scaling.
-	float fSmallDisplayOffsetX; // Along with Y it goes from 0.0 to 1.0, XY (0.5, 0.5) = center of the screen
-	float fSmallDisplayOffsetY;
-	float fSmallDisplayZoomLevel; //This is used for zoom values, both in and out.
-	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 that hides the back button etc.
+
+	bool bDisplayStretch;  // Automatically matches the aspect ratio of the window.
+	float fDisplayOffsetX;
+	float fDisplayOffsetY;
+	float fDisplayScale;   // Relative to the most constraining axis (x or y).
+	float fDisplayAspectRatio;  // Stored relative to the PSP's native ratio, so 1.0 is the normal pixel aspect ratio.
+
+	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 and later that hides the back button etc.
 	bool bSustainedPerformanceMode;  // Android: Slows clocks down to avoid overheating/speed fluctuations.
 	bool bIgnoreScreenInsets;  // Android: Center screen disregarding insets if this is enabled.
 	bool bVSync;
@@ -199,13 +204,13 @@ public:
 
 	bool bVertexCache;
 	bool bTextureBackoffCache;
-	bool bTextureSecondaryCache;
 	bool bVertexDecoderJit;
 	bool bFullScreen;
 	bool bFullScreenMulti;
 	int iForceFullScreen = -1; // -1 = nope, 0 = force off, 1 = force on (not saved.)
 	int iInternalResolution;  // 0 = Auto (native), 1 = 1x (480x272), 2 = 2x, 3 = 3x, 4 = 4x and so on.
 	int iAnisotropyLevel;  // 0 - 5, powers of 2: 0 = 1x = no aniso
+	int iMultiSampleLevel;
 	int bHighQualityDepth;
 	bool bReplaceTextures;
 	bool bSaveNewTextures;
@@ -234,13 +239,19 @@ public:
 	float fCwCheatScrollPosition;
 	float fGameListScrollPosition;
 	int iBloomHack; //0 = off, 1 = safe, 2 = balanced, 3 = aggressive
-	bool bBlockTransferGPU;
+	bool bSkipGPUReadbacks;
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	bool bHardwareTessellation;
 	bool bShaderCache;  // Hidden ini-only setting, useful for debugging shader compile times.
 
 	std::vector<std::string> vPostShaderNames; // Off for chain end (only Off for no shader)
 	std::map<std::string, float> mPostShaderSetting;
+
+	// Note that this is separate from VR stereo, though it'll share some code paths.
+	bool bStereoRendering;
+	// There can only be one, unlike regular post shaders.
+	std::string sStereoToMonoShader;
+
 	bool bShaderChainRequires60FPS;
 	std::string sTextureShaderName;
 	bool bGfxDebugOutput;
@@ -457,8 +468,15 @@ public:
 	bool bEnableVR;
 	bool bEnable6DoF;
 	bool bEnableStereo;
-	int iCanvasDistance;
-	int iFieldOfViewPercentage;
+	bool bEnableMotions;
+	bool bForce72Hz;
+	float fCameraDistance;
+	float fCameraHeight;
+	float fCameraSide;
+	float fCanvasDistance;
+	float fFieldOfViewPercentage;
+	float fHeadUpDisplayScale;
+	float fMotionLength;
 
 	// Debugger
 	int iDisasmWindowX;
@@ -550,21 +568,24 @@ public:
 	bool HasRecentIsos() const;
 	void ClearRecentIsos();
 
+	const std::map<std::string, std::pair<std::string, int>> &GetLangValuesMapping();
+
 protected:
 	void LoadStandardControllerIni();
+	void LoadLangValuesMapping();
 
 private:
 	bool reload_ = false;
 	std::string gameId_;
 	std::string gameIdTitle_;
 	std::vector<std::string> recentIsos;
+	std::map<std::string, std::pair<std::string, int>> langValuesMapping_;
 	Path iniFilename_;
 	Path controllerIniFilename_;
 	Path searchPath_;
 	ConfigPrivate *private_ = nullptr;
 };
 
-std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
 std::string CreateRandMAC();
 
 // TODO: Find a better place for this.

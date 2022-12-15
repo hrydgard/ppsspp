@@ -44,7 +44,7 @@ struct RegCacheState {
 class Jit : public Gen::XCodeBlock, public JitInterface, public MIPSFrontendInterface {
 public:
 	Jit(MIPSState *mipsState);
-	virtual ~Jit();
+	~Jit();
 
 	const JitOptions &GetJitOptions() { return jo; }
 

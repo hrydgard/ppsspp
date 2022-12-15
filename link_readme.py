@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# Requirement:
+# python3 -m pip install lxml
+
 import re
 from time import sleep
 from urllib.request import urlopen

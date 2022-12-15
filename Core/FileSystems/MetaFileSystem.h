@@ -91,7 +91,7 @@ public:
 	int MapFilePath(const std::string &inpath, std::string &outpath, MountPoint **system);
 
 	inline int MapFilePath(const std::string &_inpath, std::string &outpath, IFileSystem **system) {
-		MountPoint *mountPoint;
+		MountPoint *mountPoint = nullptr;
 		int error = MapFilePath(_inpath, outpath, &mountPoint);
 		if (error == 0) {
 			*system = mountPoint->system.get();

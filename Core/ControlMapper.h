@@ -16,7 +16,7 @@ public:
 	void Update();
 
 	bool Key(const KeyInput &key, bool *pauseTrigger);
-	void pspKey(int pspKeyCode, int flags);
+	void pspKey(int deviceId, int pspKeyCode, int flags);
 	bool Axis(const AxisInput &axis);
 
 	// Required callbacks
@@ -30,19 +30,23 @@ public:
 
 private:
 	void processAxis(const AxisInput &axis, int direction);
-	void setVKeyAnalog(char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero = true);
+	void setVKeyAnalog(int deviceId, char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero = true);
 
-	void SetPSPAxis(char axis, float value, int stick);
+	void SetPSPAxis(int deviceId, char axis, float value, int stick);
 	void ProcessAnalogSpeed(const AxisInput &axis, bool opposite);
 
-	void onVKeyDown(int vkey);
-	void onVKeyUp(int vkey);
+	void onVKeyDown(int deviceId, int vkey);
+	void onVKeyUp(int deviceId, int vkey);
 
 	// To track mappable virtual keys. We can have as many as we want.
 	bool virtKeys[VIRTKEY_COUNT]{};
 
 	// De-noise mapped axis updates
 	int axisState_[JOYSTICK_AXIS_MAX]{};
+
+	int lastNonDeadzoneDeviceID_[2]{};
+
+	float history[2][2] = {};
 
 	// Mappable auto-rotation. Useful for keyboard/dpad->analog in a few games.
 	bool autoRotatingAnalogCW_ = false;

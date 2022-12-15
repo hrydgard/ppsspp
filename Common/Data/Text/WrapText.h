@@ -7,6 +7,7 @@ public:
 	WordWrapper(const char *str, float maxW, int flags)
 		: str_(str), maxW_(maxW), flags_(flags) {
 	}
+	virtual ~WordWrapper() {}
 
 	std::string Wrapped();
 

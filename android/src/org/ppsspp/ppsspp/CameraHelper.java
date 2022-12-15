@@ -159,6 +159,9 @@ class CameraHelper {
 
 	static ArrayList<String> getDeviceList() {
 		ArrayList<String> deviceList = new ArrayList<>();
+		if (NativeActivity.isVRDevice()) {
+			return deviceList;
+		}
 		int nrCam = Camera.getNumberOfCameras();
 		for (int index = 0; index < nrCam; index++) {
 			try {

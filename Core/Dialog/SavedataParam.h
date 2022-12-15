@@ -317,7 +317,7 @@ public:
 	bool GetList(SceUtilitySavedataParam* param);
 	int GetFilesList(SceUtilitySavedataParam* param, u32 requestAddr);
 	bool GetSize(SceUtilitySavedataParam* param);
-	int GetSaveCryptMode(SceUtilitySavedataParam* param, const std::string &saveDirName);
+	int GetSaveCryptMode(const SceUtilitySavedataParam *param, const std::string &saveDirName);
 	bool IsInSaveDataList(std::string saveName, int count);
 
 	std::string GetGameName(const SceUtilitySavedataParam *param) const;
@@ -351,9 +351,9 @@ public:
 	int GetLastDataSave();
 	int GetFirstEmptySave();
 	int GetLastEmptySave();
-	int GetSaveNameIndex(SceUtilitySavedataParam* param);
+	int GetSaveNameIndex(const SceUtilitySavedataParam *param);
 
-	bool wouldHasMultiSaveName(SceUtilitySavedataParam* param);
+	bool WouldHaveMultiSaveName(const SceUtilitySavedataParam *param);
 
 	void ClearCaches();
 

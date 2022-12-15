@@ -115,6 +115,11 @@ Path DirectoryFileSystem::GetLocalPath(std::string internalPath) const {
 bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, FileAccess access, u32 &error) {
 	error = 0;
 
+	if (access == FILEACCESS_NONE) {
+		error = SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		return false;
+	}
+
 #if HOST_IS_CASE_SENSITIVE
 	if (access & (FILEACCESS_APPEND | FILEACCESS_CREATE | FILEACCESS_WRITE)) {
 		DEBUG_LOG(FILESYS, "Checking case for path %s", fileName.c_str());
@@ -707,7 +712,7 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 #ifdef _WIN32
 #define FILETIME_FROM_UNIX_EPOCH_US 11644473600000000ULL
 
-static void tmFromFiletime(tm &dest, FILETIME &src) {
+static void tmFromFiletime(tm &dest, const FILETIME &src) {
 	u64 from_1601_us = (((u64) src.dwHighDateTime << 32ULL) + (u64) src.dwLowDateTime) / 10ULL;
 	u64 from_1970_us = from_1601_us - FILETIME_FROM_UNIX_EPOCH_US;
 

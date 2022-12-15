@@ -149,7 +149,7 @@ static int ColorIndexOffset(int prim, GEShadeMode shadeMode, bool clearMode) {
 	return 0;
 }
 
-void SoftwareTransform::SetProjMatrix(float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale) {
+void SoftwareTransform::SetProjMatrix(const float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale) {
 	memcpy(&projMatrix_.m, mtx, 16 * sizeof(float));
 
 	if (invertedY) {
@@ -168,29 +168,6 @@ void SoftwareTransform::SetProjMatrix(float mtx[14], bool invertedX, bool invert
 	projMatrix_.translateAndScale(trans, scale);
 }
 
-static void ReadWeightedNormal(Vec3f &source, VertexReader &reader, u32 vertType, bool skinningEnabled) {
-	if (reader.hasNormal())
-		reader.ReadNrm(source.AsArray());
-	if (skinningEnabled) {
-		float weights[8];
-		reader.ReadWeights(weights);
-
-		// Have to recalculate this, unfortunately.  Please use software skinning...
-		Vec3f nsum(0, 0, 0);
-		for (int i = 0; i < vertTypeGetNumBoneWeights(vertType); i++) {
-			if (weights[i] != 0.0f) {
-				Vec3f norm;
-				Norm3ByMatrix43(norm.AsArray(), source.AsArray(), gstate.boneMatrix + i * 12);
-				nsum += norm * weights[i];
-			}
-		}
-
-		source = nsum;
-	}
-	if (gstate.areNormalsReversed())
-		source = -source;
-}
-
 void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
@@ -203,8 +180,6 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 		uscale /= gstate_c.curTextureWidth;
 		vscale /= gstate_c.curTextureHeight;
 	}
-
-	bool skinningEnabled = vertTypeIsSkinningEnabled(vertType);
 
 	const int w = gstate.getTextureWidth(0);
 	const int h = gstate.getTextureHeight(0);
@@ -230,6 +205,9 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 
 	VertexReader reader(decoded, decVtxFormat, vertType);
 	if (throughmode) {
+		const u32 materialAmbientRGBA = gstate.getMaterialAmbientRGBA();
+		const bool hasColor = reader.hasColor0();
+		const bool hasUV = reader.hasUV();
 		for (int index = 0; index < maxIndex; index++) {
 			// Do not touch the coordinates or the colors. No lighting.
 			reader.Goto(index);
@@ -238,19 +216,19 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			reader.ReadPos(vert.pos);
 			vert.pos_w = 1.0f;
 
-			if (reader.hasColor0()) {
+			if (hasColor) {
 				if (provokeIndOffset != 0 && index + provokeIndOffset < maxIndex) {
 					reader.Goto(index + provokeIndOffset);
-					reader.ReadColor0_8888(vert.color0);
+					vert.color0_32 = reader.ReadColor0_8888();
 					reader.Goto(index);
 				} else {
-					reader.ReadColor0_8888(vert.color0);
+					vert.color0_32 = reader.ReadColor0_8888();
 				}
 			} else {
-				vert.color0_32 = gstate.getMaterialAmbientRGBA();
+				vert.color0_32 = materialAmbientRGBA;
 			}
 
-			if (reader.hasUV()) {
+			if (hasUV) {
 				reader.ReadUV(vert.uv);
 
 				vert.u *= uscale;
@@ -265,6 +243,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			// The w of uv is also never used (hardcoded to 1.0.)
 		}
 	} else {
+		const Vec4f materialAmbientRGBA = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 		// Okay, need to actually perform the full transform.
 		for (int index = 0; index < maxIndex; index++) {
 			reader.Goto(index);
@@ -292,51 +271,17 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			if (reader.hasColor0())
 				reader.ReadColor0(unlitColor.AsArray());
 			else
-				unlitColor = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
+				unlitColor = materialAmbientRGBA;
 			if (reader.hasNormal())
 				reader.ReadNrm(normal.AsArray());
 
-			if (!skinningEnabled) {
-				Vec3ByMatrix43(out, pos, gstate.worldMatrix);
-				if (reader.hasNormal()) {
-					if (gstate.areNormalsReversed()) {
-						normal = -normal;
-					}
-					Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
-					worldnormal = worldnormal.NormalizedOr001(cpu_info.bSSE4_1);
+			Vec3ByMatrix43(out, pos, gstate.worldMatrix);
+			if (reader.hasNormal()) {
+				if (gstate.areNormalsReversed()) {
+					normal = -normal;
 				}
-			} else {
-				float weights[8];
-				// For flat, we need the vertex weights.
-				reader.Goto(index);
-				reader.ReadWeights(weights);
-
-				// Skinning
-				Vec3f psum(0, 0, 0);
-				Vec3f nsum(0, 0, 0);
-				for (int i = 0; i < vertTypeGetNumBoneWeights(vertType); i++) {
-					if (weights[i] != 0.0f) {
-						Vec3ByMatrix43(out, pos, gstate.boneMatrix+i*12);
-						Vec3f tpos(out);
-						psum += tpos * weights[i];
-						if (reader.hasNormal()) {
-							Vec3f norm;
-							Norm3ByMatrix43(norm.AsArray(), normal.AsArray(), gstate.boneMatrix+i*12);
-							nsum += norm * weights[i];
-						}
-					}
-				}
-
-				// Yes, we really must multiply by the world matrix too.
-				Vec3ByMatrix43(out, psum.AsArray(), gstate.worldMatrix);
-				if (reader.hasNormal()) {
-					normal = nsum;
-					if (gstate.areNormalsReversed()) {
-						normal = -normal;
-					}
-					Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
-					worldnormal = worldnormal.NormalizedOr001(cpu_info.bSSE4_1);
-				}
+				Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
+				worldnormal = worldnormal.NormalizedOr001(cpu_info.bSSE4_1);
 			}
 
 			// Perform lighting here if enabled.
@@ -398,7 +343,10 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 							source = normal.Normalized(cpu_info.bSSE4_1);
 						} else {
 							reader.Goto(index);
-							ReadWeightedNormal(source, reader, vertType, skinningEnabled);
+							if (reader.hasNormal())
+								reader.ReadNrm(source.AsArray());
+							if (gstate.areNormalsReversed())
+								source = -source;
 							source.Normalize();
 						}
 						if (!reader.hasNormal()) {
@@ -413,7 +361,10 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 						} else {
 							// Need to read the normal for this vertex and weight it again..
 							reader.Goto(index);
-							ReadWeightedNormal(source, reader, vertType, skinningEnabled);
+							if (reader.hasNormal())
+								reader.ReadNrm(source.AsArray());
+							if (gstate.areNormalsReversed())
+								source = -source;
 						}
 						if (!reader.hasNormal()) {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
@@ -639,7 +590,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		result->drawIndexed = true;
 
 		// If we don't support custom cull in the shader, process it here.
-		if (!gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
+		if (!gstate_c.Use(GPU_USE_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
 			const u16 *indsIn = (const u16 *)inds;
 			u16 *newInds = inds + vertexCount;
 			u16 *indsOut = newInds;
@@ -653,9 +604,9 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			// First, check inside/outside directions for each index.
 			for (int i = 0; i < vertexCount; ++i) {
 				float z = transformed[indsIn[i]].z / transformed[indsIn[i]].pos_w;
-				if (z >= maxZValue)
+				if (z > maxZValue)
 					outsideZ[i] = 1;
-				else if (z <= minZValue)
+				else if (z < minZValue)
 					outsideZ[i] = -1;
 				else
 					outsideZ[i] = 0;
@@ -722,7 +673,7 @@ void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) {
 		std::swap(minZValue, maxZValue);
 }
 
-void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
@@ -783,7 +734,7 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 	inds = newInds;
 }
 
-void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	// Lines always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
@@ -906,7 +857,7 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 	inds = newInds;
 }
 
-void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	numTrans = 0;
 	TransformedVertex *trans = &transformedExpanded[0];
 

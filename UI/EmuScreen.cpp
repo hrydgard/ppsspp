@@ -31,6 +31,8 @@ using namespace std::placeholders;
 #include "Common/UI/Context.h"
 #include "Common/UI/Tween.h"
 #include "Common/UI/View.h"
+#include "Common/UI/AsyncImageFileView.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
@@ -134,8 +136,6 @@ static void __EmuScreenVblank()
 }
 
 // Handles control rotation due to internal screen rotation.
-// TODO: This should be a callback too, so we don't actually call the __Ctrl functions
-// from settings screens, etc.
 static void SetPSPAnalog(int stick, float x, float y) {
 	switch (g_Config.iInternalScreenRotation) {
 	case ROTATION_LOCKED_HORIZONTAL:
@@ -162,7 +162,6 @@ static void SetPSPAnalog(int stick, float x, float y) {
 	default:
 		break;
 	}
-
 	__CtrlSetAnalogXY(stick, x, y);
 }
 
@@ -327,12 +326,12 @@ void EmuScreen::bootGame(const Path &filename) {
 		System_SendMessage("event", "failstartgame");
 	}
 
-	if (PSP_CoreParameter().compat.flags().RequireBufferedRendering && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+	if (PSP_CoreParameter().compat.flags().RequireBufferedRendering && g_Config.bSkipBufferEffects) {
 		auto gr = GetI18NCategory("Graphics");
 		host->NotifyUserMessage(gr->T("BufferedRenderingRequired", "Warning: This game requires Rendering Mode to be set to Buffered."), 15.0f);
 	}
 
-	if (PSP_CoreParameter().compat.flags().RequireBlockTransfer && g_Config.bBlockTransferGPU == false) {
+	if (PSP_CoreParameter().compat.flags().RequireBlockTransfer && g_Config.bSkipGPUReadbacks) {
 		auto gr = GetI18NCategory("Graphics");
 		host->NotifyUserMessage(gr->T("BlockTransferRequired", "Warning: This game requires Simulate Block Transfer Mode to be set to On."), 15.0f);
 	}
@@ -484,10 +483,10 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		RecreateViews();
 	} else if (!strcmp(message, "control mapping") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_PAUSEMENU);
-		screenManager()->push(new ControlMappingScreen());
+		screenManager()->push(new ControlMappingScreen(gamePath_));
 	} else if (!strcmp(message, "display layout editor") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_PAUSEMENU);
-		screenManager()->push(new DisplayLayoutScreen());
+		screenManager()->push(new DisplayLayoutScreen(gamePath_));
 	} else if (!strcmp(message, "settings") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_PAUSEMENU);
 		screenManager()->push(new GameSettingsScreen(gamePath_));
@@ -659,7 +658,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		if (g_Config.bDumpFrames == g_Config.bDumpAudio) {
 			g_Config.bDumpFrames = !g_Config.bDumpFrames;
 			g_Config.bDumpAudio = !g_Config.bDumpAudio;
-		} else { 
+		} else {
 			// This hotkey should always toggle both audio and video together.
 			// So let's make sure that's the only outcome even if video OR audio was already being dumped.
 			if (g_Config.bDumpFrames) {
@@ -704,7 +703,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		g_Config.bSaveNewTextures = !g_Config.bSaveNewTextures;
 		if (g_Config.bSaveNewTextures) {
 			osm.Show(sc->T("saveNewTextures_true", "Textures will now be saved to your storage"), 2.0);
-			NativeMessageReceived("gpu_clearCache", "");
+			NativeMessageReceived("gpu_configChanged", "");
 		} else {
 			osm.Show(sc->T("saveNewTextures_false", "Texture saving was disabled"), 2.0);
 		}
@@ -715,7 +714,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 			osm.Show(sc->T("replaceTextures_true", "Texture replacement enabled"), 2.0);
 		else
 			osm.Show(sc->T("replaceTextures_false", "Textures no longer are being replaced"), 2.0);
-		NativeMessageReceived("gpu_clearCache", "");
+		NativeMessageReceived("gpu_configChanged", "");
 		break;
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(true);
@@ -966,7 +965,7 @@ void EmuScreen::CreateViews() {
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
 	auto dev = GetI18NCategory("Developer");
-	DevMenuScreen *devMenu = new DevMenuScreen(dev);
+	DevMenuScreen *devMenu = new DevMenuScreen(gamePath_, dev);
 	if (params.v)
 		devMenu->SetPopupOrigin(params.v);
 	screenManager()->push(devMenu);
@@ -1059,7 +1058,7 @@ void EmuScreen::update() {
 		errLoadingFile.append(" ");
 		errLoadingFile.append(err->T(errorMessage_.c_str()));
 
-		screenManager()->push(new PromptScreen(errLoadingFile, "OK", ""));
+		screenManager()->push(new PromptScreen(gamePath_, errLoadingFile, "OK", ""));
 		errorMessage_.clear();
 		quit_ = true;
 		return;
@@ -1104,7 +1103,6 @@ void EmuScreen::update() {
 			}
 		}
 	}
-
 }
 
 void EmuScreen::checkPowerDown() {
@@ -1355,8 +1353,7 @@ void EmuScreen::preRender() {
 	// We only bind it in FramebufferManager::CopyDisplayToOutput (unless non-buffered)...
 	// We do, however, start the frame in other ways.
 
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	if ((!useBufferedRendering && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
+	if ((g_Config.bSkipBufferEffects && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
 		// We need to clear here already so that drawing during the frame is done on a clean slate.
 		if (Core_IsStepping() && gpuStats.numFlips != 0) {
 			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_BackBuffer");
@@ -1474,6 +1471,12 @@ void EmuScreen::render() {
 		cardboardDisableButton_->SetVisibility(g_Config.bEnableCardboardVR ? UI::V_VISIBLE : UI::V_GONE);
 		screenManager()->getUIContext()->BeginFrame();
 		renderUI();
+	}
+
+	if (chatMenu_ && (chatMenu_->GetVisibility() == UI::V_VISIBLE)) {
+		SetVRAppMode(VRAppMode::VR_DIALOG_MODE);
+	} else {
+		SetVRAppMode(screenManager()->topScreen() == this ? VRAppMode::VR_GAME_MODE : VRAppMode::VR_DIALOG_MODE);
 	}
 }
 

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <string>
 #include "VulkanLoader.h"
 
 class VulkanContext;
@@ -12,9 +11,7 @@ VK_DEFINE_HANDLE(VmaAllocation);
 // ALWAYS use an allocator when calling CreateDirect.
 class VulkanTexture {
 public:
-	VulkanTexture(VulkanContext *vulkan)
-		: vulkan_(vulkan) {
-	}
+	VulkanTexture(VulkanContext *vulkan, const char *tag);
 	~VulkanTexture() {
 		Destroy();
 	}
@@ -37,19 +34,18 @@ public:
 
 	void Destroy();
 
-	void SetTag(const char *tag) {
-		tag_ = tag;
-	}
-	const std::string &Tag() const {
+	const char *Tag() const {
 		return tag_;
 	}
-	void Touch() {}
 
 	// Used in image copies, etc.
 	VkImage GetImage() const { return image_; }
 
 	// Used for sampling, generally.
 	VkImageView GetImageView() const { return view_; }
+
+	// For use with some shaders, we might want to view it as a single entry array for convenience.
+	VkImageView GetImageArrayView() const { return arrayView_; }
 
 	int32_t GetWidth() const { return width_; }
 	int32_t GetHeight() const { return height_; }
@@ -62,6 +58,7 @@ private:
 	VulkanContext *vulkan_;
 	VkImage image_ = VK_NULL_HANDLE;
 	VkImageView view_ = VK_NULL_HANDLE;
+	VkImageView arrayView_ = VK_NULL_HANDLE;
 	VmaAllocation allocation_ = VK_NULL_HANDLE;
 
 	int16_t width_ = 0;
@@ -70,5 +67,5 @@ private:
 	int16_t depth_ = 1;
 
 	VkFormat format_ = VK_FORMAT_UNDEFINED;
-	std::string tag_;
+	char tag_[64];
 };

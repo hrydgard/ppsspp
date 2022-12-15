@@ -70,6 +70,8 @@ extern "C" {
 
 // For headless screenshots.
 #include "Core/HLE/sceDisplay.h"
+// For EMULATOR_DEVCTL__GET_SCALE
+#include <System/Display.h>
 
 static const int ERROR_ERRNO_IO_ERROR                     = 0x80010005;
 static const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
@@ -269,8 +271,9 @@ public:
 			if (p.mode == p.MODE_READ) {
 				pgdInfo = (PGD_DESC*) malloc(sizeof(PGD_DESC));
 			}
-			p.DoVoid(pgdInfo, sizeof(PGD_DESC));
-			if (p.mode == p.MODE_READ) {
+			if (pgdInfo)
+				p.DoVoid(pgdInfo, sizeof(PGD_DESC));
+			if (p.mode == p.MODE_READ && pgdInfo) {
 				pgdInfo->block_buf = (u8 *)malloc(pgdInfo->block_size * 2);
 			}
 		}
@@ -794,7 +797,7 @@ void __IoShutdown() {
 	memStickFatCallbacks.clear();
 }
 
-static std::string IODetermineFilename(FileNode *f) {
+static std::string IODetermineFilename(const FileNode *f) {
 	uint64_t offset = pspFileSystem.GetSeekPos(f->handle);
 	if ((pspFileSystem.DevType(f->handle) & PSPDevType::BLOCK) != 0) {
 		return StringFromFormat("%s offset 0x%08llx", f->fullpath.c_str(), offset * 2048);
@@ -1980,12 +1983,29 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 	if (!strcmp(name, "kemulator:") || !strcmp(name, "emulator:"))
 	{
 		// Emulator special tricks!
+		
+		enum
+		{
+			EMULATOR_DEVCTL__GET_HAS_DISPLAY = 1,
+			EMULATOR_DEVCTL__SEND_OUTPUT,
+			EMULATOR_DEVCTL__IS_EMULATOR,
+			EMULATOR_DEVCTL__VERIFY_STATE,
+
+			EMULATOR_DEVCTL__EMIT_SCREENSHOT = 0x20,
+			
+			EMULATOR_DEVCTL__TOGGLE_FASTFORWARD = 0x30,
+			EMULATOR_DEVCTL__GET_ASPECT_RATIO,
+			EMULATOR_DEVCTL__GET_SCALE,
+			EMULATOR_DEVCTL__GET_LTRIGGER,
+			EMULATOR_DEVCTL__GET_RTRIGGER
+		};
+
 		switch (cmd) {
-		case 1:	// EMULATOR_DEVCTL__GET_HAS_DISPLAY
+		case EMULATOR_DEVCTL__GET_HAS_DISPLAY:
 			if (Memory::IsValidAddress(outPtr))
 				Memory::Write_U32(PSP_CoreParameter().headLess ? 0 : 1, outPtr);
 			return 0;
-		case 2:	// EMULATOR_DEVCTL__SEND_OUTPUT
+		case EMULATOR_DEVCTL__SEND_OUTPUT:
 			{
 				std::string data(Memory::GetCharPointer(argAddr), argLen);
 				if (PSP_CoreParameter().printfEmuLog) {
@@ -1999,17 +2019,17 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				}
 				return 0;
 			}
-		case 3:	// EMULATOR_DEVCTL__IS_EMULATOR
+		case EMULATOR_DEVCTL__IS_EMULATOR:
 			if (Memory::IsValidAddress(outPtr))
 				Memory::Write_U32(1, outPtr);
 			return 0;
-		case 4: // EMULATOR_DEVCTL__VERIFY_STATE
+		case EMULATOR_DEVCTL__VERIFY_STATE:
 			// Note that this is async, and makes sure the save state matches up.
 			SaveState::Verify();
 			// TODO: Maybe save/load to a file just to be sure?
 			return 0;
 
-		case 0x20: // EMULATOR_DEVCTL__EMIT_SCREENSHOT
+		case EMULATOR_DEVCTL__EMIT_SCREENSHOT:
 		{
 			PSPPointer<u8> topaddr;
 			u32 linesize;
@@ -2019,6 +2039,39 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			host->SendDebugScreenshot(topaddr, linesize, 272);
 			return 0;
 		}
+		case EMULATOR_DEVCTL__TOGGLE_FASTFORWARD:
+			if (argAddr)
+				PSP_CoreParameter().fastForward = true;
+			else
+				PSP_CoreParameter().fastForward = false;
+			return 0;
+		case EMULATOR_DEVCTL__GET_ASPECT_RATIO:
+			if (Memory::IsValidAddress(outPtr)) {
+				// TODO: Share code with CenterDisplayOutputRect to take a few more things into account.
+				// I have a planned further refactoring.
+				float ar;
+				if (g_Config.bDisplayStretch) {
+					ar = (float)dp_xres / (float)dp_yres;
+				} else {
+					ar = g_Config.fDisplayAspectRatio * (480.0f / 272.0f);
+				}
+				Memory::Write_Float(ar, outPtr);
+			}
+			return 0;
+		case EMULATOR_DEVCTL__GET_SCALE:
+			if (Memory::IsValidAddress(outPtr)) {
+				// TODO: Maybe do something more sophisticated taking the longest side and screen rotation
+				// into account, etc.
+				float scale = float(dp_xres) * g_Config.fDisplayScale / 480.0f;
+				Memory::Write_Float(scale, outPtr);
+			}
+			return 0;
+		case EMULATOR_DEVCTL__GET_LTRIGGER:
+			//To-do
+			return 0;
+		case EMULATOR_DEVCTL__GET_RTRIGGER:
+			//To-do
+			return 0;
 		}
 
 		ERROR_LOG(SCEIO, "sceIoDevCtl: UNKNOWN PARAMETERS");

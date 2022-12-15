@@ -10,6 +10,7 @@
 #include <condition_variable>
 
 #include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/MiscTypes.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "GLQueueRunner.h"
@@ -98,11 +99,22 @@ struct GLRProgramFlags {
 	bool useClipDistance2 : 1;
 };
 
+// Unless you manage lifetimes in some smart way,
+// your loc data for uniforms and samplers need to be in a struct
+// derived from this, and passed into CreateProgram.
+class GLRProgramLocData {
+public:
+	virtual ~GLRProgramLocData() {}
+};
+
 class GLRProgram {
 public:
 	~GLRProgram() {
 		if (program) {
 			glDeleteProgram(program);
+		}
+		if (locData_) {
+			delete locData_;
 		}
 	}
 	struct Semantic {
@@ -126,6 +138,8 @@ public:
 	std::vector<Semantic> semantics_;
 	std::vector<UniformLocQuery> queries_;
 	std::vector<Initializer> initialize_;
+
+	GLRProgramLocData *locData_;
 	bool use_clip_distance[8]{};
 
 	struct UniformInfo {
@@ -147,6 +161,7 @@ public:
 		}
 		return loc;
 	}
+
 	std::unordered_map<std::string, UniformInfo> uniformCache_;
 };
 
@@ -368,6 +383,9 @@ public:
 	GLRenderManager() {}
 	~GLRenderManager();
 
+	void SetInvalidationCallback(InvalidationCallback callback) {
+		invalidationCallback_ = callback;
+	}
 	void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {
 		queueRunner_.SetErrorCallback(callback, userdata);
 	}
@@ -434,13 +452,14 @@ public:
 	// not be an active render pass.
 	GLRProgram *CreateProgram(
 		std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics, std::vector<GLRProgram::UniformLocQuery> queries,
-		std::vector<GLRProgram::Initializer> initializers, const GLRProgramFlags &flags) {
+		std::vector<GLRProgram::Initializer> initializers, GLRProgramLocData *locData, const GLRProgramFlags &flags) {
 		GLRInitStep step{ GLRInitStepType::CREATE_PROGRAM };
 		_assert_(shaders.size() <= ARRAY_SIZE(step.create_program.shaders));
 		step.create_program.program = new GLRProgram();
 		step.create_program.program->semantics_ = semantics;
 		step.create_program.program->queries_ = queries;
 		step.create_program.program->initialize_ = initializers;
+		step.create_program.program->locData_ = locData;
 		step.create_program.program->use_clip_distance[0] = flags.useClipDistance0;
 		step.create_program.program->use_clip_distance[1] = flags.useClipDistance1;
 		step.create_program.program->use_clip_distance[2] = flags.useClipDistance2;
@@ -462,7 +481,7 @@ public:
 		return step.create_program.program;
 	}
 
-	GLRInputLayout *CreateInputLayout(std::vector<GLRInputLayout::Entry> &entries) {
+	GLRInputLayout *CreateInputLayout(const std::vector<GLRInputLayout::Entry> &entries) {
 		GLRInitStep step{ GLRInitStepType::CREATE_INPUT_LAYOUT };
 		step.create_input_layout.inputLayout = new GLRInputLayout();
 		step.create_input_layout.inputLayout->entries = entries;
@@ -526,7 +545,7 @@ public:
 	void BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, GLRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag);
 
 	// Binds a framebuffer as a texture, for the following draws.
-	void BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment);
+	void BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit);
 
 	bool CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 	void CopyImageToMemorySync(GLRTexture *texture, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
@@ -980,12 +999,6 @@ public:
 		skipGLCalls_ = true;
 	}
 
-	// Gets a frame-unique ID of the current step being recorded. Can be used to figure out
-	// when the current step has changed, which means the caller will need to re-record its state.
-	int GetCurrentStepId() const {
-		return renderStepOffset_ + (int)steps_.size();
-	}
-
 private:
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
@@ -1033,8 +1046,7 @@ private:
 
 	// Submission time state
 	bool insideFrame_ = false;
-	// This is the offset within this frame, in case of a mid-frame sync.
-	int renderStepOffset_ = 0;
+
 	GLRStep *curRenderStep_ = nullptr;
 	std::vector<GLRStep *> steps_;
 	std::vector<GLRInitStep> initSteps_;
@@ -1074,4 +1086,6 @@ private:
 	GLRProgram *curProgram_ = nullptr;
 #endif
 	Draw::DeviceCaps caps_{};
+
+	InvalidationCallback invalidationCallback_;
 };

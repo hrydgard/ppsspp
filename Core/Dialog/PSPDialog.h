@@ -106,6 +106,9 @@ protected:
 	// TODO: Remove this once all dialogs are updated.
 	virtual bool UseAutoStatus() = 0;
 
+	static int GetConfirmButton();
+	static int GetCancelButton();
+
 	void StartFade(bool fadeIn_);
 	void UpdateFade(int animSpeed);
 	virtual void FinishFadeOut();

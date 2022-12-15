@@ -14,7 +14,7 @@ public:
 class IRToX86 : public IRToNativeInterface {
 public:
 	void SetCodeBlock(Gen::XCodeBlock *code) { code_ = code; }
-	virtual void ConvertIRToNative(const IRInst *instructions, int count, const u32 *constants) override;
+	void ConvertIRToNative(const IRInst *instructions, int count, const u32 *constants) override;
 
 private:
 	Gen::XCodeBlock *code_;

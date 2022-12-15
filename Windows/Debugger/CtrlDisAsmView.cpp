@@ -332,8 +332,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 }
 
 
-void CtrlDisAsmView::drawBranchLine(HDC hdc, std::map<u32,int>& addressPositions, BranchLine& line)
-{
+void CtrlDisAsmView::drawBranchLine(HDC hdc, std::map<u32,int> &addressPositions, const BranchLine &line) {
 	HPEN pen;
 	u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
 	

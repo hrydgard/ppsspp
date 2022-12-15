@@ -84,48 +84,48 @@ void TouchControlVisibilityScreen::CreateViews() {
 	toggles_.push_back({ "Dpad", &g_Config.touchDpad.show, ImageID::invalid(), nullptr });
 	toggles_.push_back({ "Analog Stick", &g_Config.touchAnalogStick.show, ImageID::invalid(), nullptr });
 	toggles_.push_back({ "Right Analog Stick", &g_Config.touchRightAnalogStick.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new RightAnalogMappingScreen());
+		screenManager()->push(new RightAnalogMappingScreen(gamePath_));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Fast-forward", &g_Config.touchFastForwardKey.show, ImageID::invalid(), nullptr });
 	toggles_.push_back({ "Custom 1", &g_Config.touchCombo0.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(0));
+		screenManager()->push(new ComboKeyScreen(gamePath_, 0));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 2", &g_Config.touchCombo1.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(1));
+		screenManager()->push(new ComboKeyScreen(gamePath_, 1));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 3", &g_Config.touchCombo2.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(2));
+		screenManager()->push(new ComboKeyScreen(gamePath_, 2));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 4", &g_Config.touchCombo3.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(3));
+		screenManager()->push(new ComboKeyScreen(gamePath_, 3));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 5", &g_Config.touchCombo4.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(4));
+		screenManager()->push(new ComboKeyScreen(gamePath_, 4));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 6", &g_Config.touchCombo5.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(5));
+		screenManager()->push(new ComboKeyScreen(gamePath_, 5));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 7", &g_Config.touchCombo6.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(6));
+		screenManager()->push(new ComboKeyScreen(gamePath_, 6));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 8", &g_Config.touchCombo7.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(7));
+		screenManager()->push(new ComboKeyScreen(gamePath_, 7));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 9", &g_Config.touchCombo8.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(8));
+		screenManager()->push(new ComboKeyScreen(gamePath_, 8));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 10", &g_Config.touchCombo9.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(9));
+		screenManager()->push(new ComboKeyScreen(gamePath_, 9));
 		return UI::EVENT_DONE;
 	}});
 

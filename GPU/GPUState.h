@@ -445,7 +445,7 @@ struct GPUgstate {
 
 	void Reset();
 	void Save(u32_le *ptr);
-	void Restore(u32_le *ptr);
+	void Restore(const u32_le *ptr);
 };
 
 bool vertTypeIsSkinningEnabled(u32 vertType);
@@ -470,38 +470,43 @@ struct UVScale {
 // location. Sometimes we need to take things into account in multiple places, it helps
 // to centralize into flags like this. They're also fast to check since the cache line
 // will be hot.
+// NOTE: Do not forget to update the string array at the end of GPUState.cpp!
 enum {
-	GPU_SUPPORTS_DUALSOURCE_BLEND = FLAG_BIT(0),
+	GPU_USE_DUALSOURCE_BLEND = FLAG_BIT(0),
 	GPU_USE_LIGHT_UBERSHADER = FLAG_BIT(1),
 	GPU_USE_FRAGMENT_TEST_CACHE = FLAG_BIT(2),
-	GPU_SUPPORTS_VS_RANGE_CULLING = FLAG_BIT(3),
-	GPU_SUPPORTS_BLEND_MINMAX = FLAG_BIT(4),
-	GPU_SUPPORTS_LOGIC_OP = FLAG_BIT(5),
-	GPU_USE_DEPTH_RANGE_HACK = FLAG_BIT(6),
-	// Free bit: 7
-	GPU_SUPPORTS_ANISOTROPY = FLAG_BIT(8),
+	GPU_USE_VS_RANGE_CULLING = FLAG_BIT(3),
+	GPU_USE_BLEND_MINMAX = FLAG_BIT(4),
+	GPU_USE_LOGIC_OP = FLAG_BIT(5),
+	// Bit 6 is free.
+	GPU_USE_TEXTURE_NPOT = FLAG_BIT(7),
+	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
-	GPU_SUPPORTS_INSTANCE_RENDERING = FLAG_BIT(10),
-	GPU_SUPPORTS_VERTEX_TEXTURE_FETCH = FLAG_BIT(11),
-	GPU_SUPPORTS_TEXTURE_FLOAT = FLAG_BIT(12),
-	GPU_SUPPORTS_16BIT_FORMATS = FLAG_BIT(13),
-	GPU_SUPPORTS_DEPTH_CLAMP = FLAG_BIT(14),
-	// Free bit: 15
-	GPU_SUPPORTS_DEPTH_TEXTURE = FLAG_BIT(16),
-	GPU_SUPPORTS_ACCURATE_DEPTH = FLAG_BIT(17),
-	GPU_SUPPORTS_GS_CULLING = FLAG_BIT(18),  // Geometry shader
-	// Free bit: 19
-	GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH = FLAG_BIT(20),
+	GPU_USE_INSTANCE_RENDERING = FLAG_BIT(10),
+	GPU_USE_VERTEX_TEXTURE_FETCH = FLAG_BIT(11),
+	GPU_USE_TEXTURE_FLOAT = FLAG_BIT(12),
+	GPU_USE_16BIT_FORMATS = FLAG_BIT(13),
+	GPU_USE_DEPTH_CLAMP = FLAG_BIT(14),
+	GPU_USE_TEXTURE_LOD_CONTROL = FLAG_BIT(15),
+	GPU_USE_DEPTH_TEXTURE = FLAG_BIT(16),
+	GPU_USE_ACCURATE_DEPTH = FLAG_BIT(17),
+	GPU_USE_GS_CULLING = FLAG_BIT(18),  // Geometry shader
+	// Bit 19 free.
+	GPU_USE_FRAMEBUFFER_FETCH = FLAG_BIT(20),
 	GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT = FLAG_BIT(21),
 	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(22),
 	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
-	GPU_SUPPORTS_TEXTURE_LOD_CONTROL = FLAG_BIT(24),
-	// Free bits: 25-27
-	GPU_SUPPORTS_TEXTURE_NPOT = FLAG_BIT(28),
-	GPU_SUPPORTS_CLIP_DISTANCE = FLAG_BIT(29),
-	GPU_SUPPORTS_CULL_DISTANCE = FLAG_BIT(30),
-	GPU_PREFER_REVERSE_COLOR_ORDER = FLAG_BIT(31),
+	GPU_USE_CLIP_DISTANCE = FLAG_BIT(24),
+	GPU_USE_CULL_DISTANCE = FLAG_BIT(25),
+
+	// VR flags (reserved or in-use)
+	GPU_USE_VIRTUAL_REALITY = FLAG_BIT(29),
+	GPU_USE_SINGLE_PASS_STEREO = FLAG_BIT(30),
+	GPU_USE_SIMPLE_STEREO_PERSPECTIVE = FLAG_BIT(31),
 };
+
+// Note that this take a flag index, not the bit value.
+const char *GpuUseFlagToString(int useFlag);
 
 struct KnownVertexBounds {
 	u16 minU;
@@ -519,8 +524,9 @@ enum class SubmitType {
 };
 
 struct GPUStateCache {
-	bool Supports(u32 flags) { return (featureFlags & flags) != 0; } // Return true if ANY of flags are true.
-	bool SupportsAll(u32 flags) { return (featureFlags & flags) == flags; } // Return true if ALL flags are true.
+	bool Use(u32 flags) { return (useFlags_ & flags) != 0; } // Return true if ANY of flags are true.
+	bool UseAll(u32 flags) { return (useFlags_ & flags) == flags; } // Return true if ALL flags are true.
+
 	uint64_t GetDirtyUniforms() { return dirty & DIRTY_ALL_UNIFORMS; }
 	void Dirty(u64 what) {
 		dirty |= what;
@@ -560,9 +566,33 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE | (is3D ? DIRTY_MIPBIAS : 0));
 		}
 	}
+	void SetTextureIsArray(bool isArrayTexture) {  // VK only
+		if (arrayTexture != isArrayTexture) {
+			arrayTexture = isArrayTexture;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
+	void SetTextureIsBGRA(bool isBGRA) {
+		if (bgraTexture != isBGRA) {
+			bgraTexture = isBGRA;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
+	void SetUseFlags(u32 newFlags) {
+		if (newFlags != useFlags_) {
+			useFlags_ = newFlags;
+			// Recompile shaders and stuff?
+		}
+	}
 
-	u32 featureFlags;
+	// When checking for a single flag, use Use()/UseAll().
+	u32 GetUseFlags() const {
+		return useFlags_;
+	}
 
+private:
+	u32 useFlags_;
+public:
 	u32 vertexAddr;
 	u32 indexAddr;
 	u32 offsetAddr;
@@ -581,6 +611,7 @@ struct GPUStateCache {
 
 	bool bgraTexture;
 	bool needShaderTexClamp;
+	bool arrayTexture;
 
 	float morphWeights[8];
 	u32 deferredVertTypeDirty;

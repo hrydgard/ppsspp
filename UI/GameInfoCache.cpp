@@ -29,6 +29,7 @@
 #include "Common/File/Path.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+#include "Common/Render/ManagedTexture.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
@@ -39,7 +40,6 @@
 #include "Core/Util/GameManager.h"
 #include "Core/Config.h"
 #include "UI/GameInfoCache.h"
-#include "UI/TextureUtil.h"
 
 GameInfoCache *g_gameInfoCache;
 
@@ -334,7 +334,7 @@ public:
 		: gamePath_(gamePath), info_(info) {
 	}
 
-	~GameInfoWorkItem() override {
+	~GameInfoWorkItem() {
 		info_->pending.store(false);
 		info_->working.store(false);
 		info_->DisposeFileLoader();

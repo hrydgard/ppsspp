@@ -27,6 +27,7 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
 #include "Common/Data/Color/RGBAUtil.h"
@@ -141,14 +142,14 @@ void SingleControlMapper::Refresh() {
 		std::string keyName = KeyMap::GetKeyOrAxisName(mappings[i].keyCode);
 
 		LinearLayout *row = rightColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		row->SetSpacing(1.0f);
+		row->SetSpacing(2.0f);
 		rows_.push_back(row);
 
 		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(FILL_PARENT, itemH, 1.0f)));
 		c->SetTag(StringFromFormat("%d_Change%d", (int)i, pspKey_));
 		c->OnClick.Handle(this, &SingleControlMapper::OnReplace);
 
-		Choice *d = row->Add(new Choice(" X ", new LayoutParams(WRAP_CONTENT, itemH)));
+		Choice *d = row->Add(new Choice(ImageID("I_TRASHCAN"), new LayoutParams(WRAP_CONTENT, itemH)));
 		d->SetTag(StringFromFormat("%d_Del%d", (int)i, pspKey_));
 		d->OnClick.Handle(this, &SingleControlMapper::OnDelete);
 	}
@@ -278,7 +279,8 @@ void ControlMappingScreen::update() {
 		RecreateViews();
 	}
 
-	UIDialogScreenWithBackground::update();
+	UIDialogScreenWithGameBackground::update();
+	SetVRAppMode(VRAppMode::VR_MENU_MODE);
 }
 
 UI::EventReturn ControlMappingScreen::OnClearMapping(UI::EventParams &params) {
@@ -307,7 +309,7 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 }
 
 UI::EventReturn ControlMappingScreen::OnVisualizeMapping(UI::EventParams &params) {
-	VisualMappingScreen *visualMapping = new VisualMappingScreen();
+	VisualMappingScreen *visualMapping = new VisualMappingScreen(gamePath_);
 	screenManager()->push(visualMapping);
 	return UI::EVENT_DONE;
 }
@@ -328,6 +330,7 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	std::string pspButtonName = KeyMap::GetPspButtonName(this->pspBtn_);
 
 	parent->Add(new TextView(std::string(km->T("Map a new key for")) + " " + mc->T(pspButtonName), new LinearLayoutParams(Margins(10,0))));
+	SetVRAppMode(VRAppMode::VR_CONTROLLER_MAPPING_MODE);
 }
 
 bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
@@ -360,6 +363,7 @@ void KeyMappingNewMouseKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	auto km = GetI18NCategory("KeyMapping");
 
 	parent->Add(new TextView(std::string(km->T("You can press ESC to cancel.")), new LinearLayoutParams(Margins(10, 0))));
+	SetVRAppMode(VRAppMode::VR_CONTROLLER_MAPPING_MODE);
 }
 
 bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
@@ -577,7 +581,7 @@ void JoystickHistoryView::Update() {
 	}
 }
 
-AnalogSetupScreen::AnalogSetupScreen() {
+AnalogSetupScreen::AnalogSetupScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	mapper_.SetCallbacks([](int vkey) {}, [](int vkey) {}, [&](int stick, float x, float y) {
 		analogX_[stick] = x;
 		analogY_[stick] = y;
@@ -669,7 +673,7 @@ UI::EventReturn AnalogSetupScreen::OnResetToDefaults(UI::EventParams &e) {
 }
 
 bool TouchTestScreen::touch(const TouchInput &touch) {
-	UIDialogScreenWithBackground::touch(touch);
+	UIDialogScreenWithGameBackground::touch(touch);
 	if (touch.flags & TOUCH_DOWN) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
@@ -798,7 +802,7 @@ bool TouchTestScreen::axis(const AxisInput &axis) {
 }
 
 void TouchTestScreen::render() {
-	UIDialogScreenWithBackground::render();
+	UIDialogScreenWithGameBackground::render();
 	UIContext *ui_context = screenManager()->getUIContext();
 	Bounds bounds = ui_context->GetLayoutBounds();
 
@@ -877,15 +881,25 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
+		for (float dy = 0.0f; dy <= 4.0f; dy += 1.0f) {
+			for (float dx = 0.0f; dx <= 4.0f; dx += 1.0f) {
+				if (dx == 2.0f && dy == 2.0f)
+					continue;
+				DrawPSP(dc, dx, dy, 0x06C1B6B6);
+			}
+		}
+		DrawPSP(dc, 2.0f, 2.0f, 0xC01C1818);
+	}
+
+	void DrawPSP(UIContext &dc, float xoff, float yoff, uint32_t color) {
 		using namespace UI;
 
 		const AtlasImage *whiteImage = dc.Draw()->GetAtlas()->getImage(dc.theme->whiteImage);
 		float centerU = (whiteImage->u1 + whiteImage->u2) * 0.5f;
 		float centerV = (whiteImage->v1 + whiteImage->v2) * 0.5f;
-		const uint32_t color = 0xB01C1818;
 
 		auto V = [&](float x, float y) {
-			dc.Draw()->V(bounds_.x + x * scale_, bounds_.y + y * scale_, color, centerU, centerV);
+			dc.Draw()->V(bounds_.x + (x + xoff) * scale_, bounds_.y + (y + yoff) * scale_, color, centerU, centerV);
 		};
 		auto R = [&](float x1, float y1, float x2, float y2) {
 			V(x1, y1); V(x2, y1); V(x2, y2);
@@ -928,8 +942,8 @@ public:
 	}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
-		w = 474.0f * scale_;
-		h = 200.0f * scale_;
+		w = 478.0f * scale_;
+		h = 204.0f * scale_;
 	}
 
 protected:
@@ -1157,7 +1171,7 @@ void VisualMappingScreen::CreateViews() {
 }
 
 void VisualMappingScreen::resized() {
-	UIDialogScreenWithBackground::resized();
+	UIDialogScreenWithGameBackground::resized();
 	RecreateViews();
 }
 

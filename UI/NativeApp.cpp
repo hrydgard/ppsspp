@@ -114,7 +114,6 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/TiltEventProcessor.h"
-#include "UI/TextureUtil.h"
 #include "UI/Theme.h"
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
@@ -827,7 +826,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
 	} else if (gotoTouchScreenTest) {
 		screenManager->switchScreen(new MainScreen());
-		screenManager->push(new TouchTestScreen());
+		screenManager->push(new TouchTestScreen(Path()));
 	} else if (skipLogo) {
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
@@ -934,6 +933,16 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 bool CreateGlobalPipelines() {
 	using namespace Draw;
 
+	ShaderModule *vs_color_2d = g_draw->GetVshaderPreset(VS_COLOR_2D);
+	ShaderModule *fs_color_2d = g_draw->GetFshaderPreset(FS_COLOR_2D);
+	ShaderModule *vs_texture_color_2d = g_draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
+	ShaderModule *fs_texture_color_2d = g_draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D);
+
+	if (!vs_color_2d || !fs_color_2d || !vs_texture_color_2d || !fs_texture_color_2d) {
+		ERROR_LOG(G3D, "Failed to get shader preset");
+		return false;
+	}
+
 	InputLayout *inputLayout = ui_draw2d.CreateInputLayout(g_draw);
 	BlendState *blendNormal = g_draw->CreateBlendState({ true, 0xF, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
 	DepthStencilState *depth = g_draw->CreateDepthStencilState({ false, false, Comparison::LESS });
@@ -941,12 +950,12 @@ bool CreateGlobalPipelines() {
 
 	PipelineDesc colorDesc{
 		Primitive::TRIANGLE_LIST,
-		{ g_draw->GetVshaderPreset(VS_COLOR_2D), g_draw->GetFshaderPreset(FS_COLOR_2D) },
+		{ vs_color_2d, fs_color_2d },
 		inputLayout, depth, blendNormal, rasterNoCull, &vsColBufDesc,
 	};
 	PipelineDesc texColorDesc{
 		Primitive::TRIANGLE_LIST,
-		{ g_draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D), g_draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
+		{ vs_texture_color_2d, fs_texture_color_2d },
 		inputLayout, depth, blendNormal, rasterNoCull, &vsTexColBufDesc,
 	};
 
@@ -1055,7 +1064,7 @@ void TakeScreenshot() {
 }
 
 void RenderOverlays(UIContext *dc, void *userdata) {
-	// Thin bar at the top of the screen like Chrome.
+	// Thin bar at the top of the screen.
 	std::vector<float> progress = g_DownloadManager.GetCurrentProgress();
 	if (!progress.empty()) {
 		static const uint32_t colors[4] = {
@@ -1082,8 +1091,8 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 }
 
 void NativeRender(GraphicsContext *graphicsContext) {
-	_assert_(graphicsContext != nullptr);
-	_assert_(screenManager != nullptr);
+	_dbg_assert_(graphicsContext != nullptr);
+	_dbg_assert_(screenManager != nullptr);
 
 	g_GameManager.Update();
 
@@ -1158,7 +1167,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 #if !PPSSPP_PLATFORM(WINDOWS) && !defined(ANDROID)
 		PSP_CoreParameter().pixelWidth = pixel_xres;
 		PSP_CoreParameter().pixelHeight = pixel_yres;
-		NativeMessageReceived("gpu_resized", "");
+		NativeMessageReceived("gpu_displayResized", "");
 #endif
 	} else {
 		// INFO_LOG(G3D, "Polling graphics context");
@@ -1179,10 +1188,10 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "inputDeviceConnectedID") {
 		nextInputDeviceID = parseLong(value);
 	}
-	if (msg == "inputDeviceConnected") {
+	else if (msg == "inputDeviceConnected") {
 		KeyMap::NotifyPadConnected(nextInputDeviceID, value);
 	}
-	if (msg == "bgImage_updated") {
+	else if (msg == "bgImage_updated") {
 		if (!value.empty()) {
 			Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
 			File::Copy(Path(value), dest);
@@ -1190,20 +1199,29 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		UIBackgroundShutdown();
 		// It will init again automatically.  We can't init outside a frame on Vulkan.
 	}
-	if (msg == "savestate_displayslot") {
+	else if (msg == "savestate_displayslot") {
 		auto sy = GetI18NCategory("System");
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
 		osm.Show(msg, 2.0f, 0xFFFFFF, -1, true, "savestate_slot");
 	}
-	if (msg == "gpu_resized" || msg == "gpu_clearCache") {
+	else if (msg == "gpu_displayResized") {
 		if (gpu) {
-			gpu->ClearCacheNextFrame();
-			gpu->Resized();
+			gpu->NotifyDisplayResized();
+		}
+	}
+	else if (msg == "gpu_renderResized") {
+		if (gpu) {
+			gpu->NotifyRenderResized();
+		}
+	}
+	else if (msg == "gpu_configChanged") {
+		if (gpu) {
+			gpu->NotifyConfigChanged();
 		}
 		Reporting::UpdateConfig();
 	}
-	if (msg == "core_powerSaving") {
+	else if (msg == "core_powerSaving") {
 		if (value != "false") {
 			auto sy = GetI18NCategory("System");
 #if PPSSPP_PLATFORM(ANDROID)
@@ -1214,7 +1232,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		}
 		Core_SetPowerSaving(value != "false");
 	}
-	if (msg == "permission_granted" && value == "storage") {
+	else if (msg == "permission_granted" && value == "storage") {
 #if PPSSPP_PLATFORM(ANDROID)
 		CreateDirectoriesAndroid();
 #endif
@@ -1230,7 +1248,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		PostLoadConfig();
 		g_Config.iGPUBackend = gpuBackend;
 	}
-	if (msg == "app_resumed" || msg == "got_focus") {
+	else if (msg == "app_resumed" || msg == "got_focus") {
 		// Assume that the user may have modified things.
 		MemoryStick_NotifyWrite();
 	}
@@ -1296,10 +1314,9 @@ bool NativeTouch(const TouchInput &touch) {
 }
 
 bool NativeKey(const KeyInput &key) {
-
-	// Hack to quickly enable 2D mode in VR game mode.
-	if (IsVRBuild()) {
-		UpdateVRScreenKey(key);
+	// VR actions
+	if (IsVREnabled() && !UpdateVRKeys(key)) {
+		return false;
 	}
 
 	// INFO_LOG(SYSTEM, "Key code: %i flags: %i", key.keyCode, key.flags);
@@ -1322,6 +1339,11 @@ bool NativeKey(const KeyInput &key) {
 }
 
 bool NativeAxis(const AxisInput &axis) {
+	// VR actions
+	if (IsVREnabled() && !UpdateVRAxis(axis)) {
+		return false;
+	}
+
 	if (!screenManager) {
 		// Too early.
 		return false;
@@ -1331,7 +1353,7 @@ bool NativeAxis(const AxisInput &axis) {
 
 	// only handle tilt events if tilt is enabled.
 	if (g_Config.iTiltInputType == TILT_NULL) {
-		// if tilt events are disabled, then run it through the usual way. 
+		// if tilt events are disabled, then run it through the usual way.
 		if (screenManager) {
 			return screenManager->axis(axis);
 		} else {
@@ -1397,7 +1419,7 @@ bool NativeAxis(const AxisInput &axis) {
 				currentTilt.y_ = -axis.value;
 			}
 			break;
-			
+
 		case JOYSTICK_AXIS_OUYA_UNKNOWN1:
 		case JOYSTICK_AXIS_OUYA_UNKNOWN2:
 		case JOYSTICK_AXIS_OUYA_UNKNOWN3:
@@ -1409,6 +1431,8 @@ bool NativeAxis(const AxisInput &axis) {
 
 		default:
 			// Don't take over completely!
+			if (!screenManager)
+				return false;
 			return screenManager->axis(axis);
 	}
 
@@ -1419,7 +1443,7 @@ bool NativeAxis(const AxisInput &axis) {
 	//then a value of 70-80 is the way to go.
 	float xSensitivity = g_Config.iTiltSensitivityX / 50.0;
 	float ySensitivity = g_Config.iTiltSensitivityY / 50.0;
-	
+
 	//now transform out current tilt to the calibrated coordinate system
 	Tilt trueTilt = GenTilt(baseTilt, currentTilt, g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius, xSensitivity, ySensitivity);
 

@@ -32,9 +32,9 @@
 
 class SingleControlMapper;
 
-class ControlMappingScreen : public UIDialogScreenWithBackground {
+class ControlMappingScreen : public UIDialogScreenWithGameBackground {
 public:
-	ControlMappingScreen() {}
+	ControlMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 	const char *tag() const override { return "ControlMapping"; }
 
 protected:
@@ -84,7 +84,7 @@ private:
 
 class KeyMappingNewMouseKeyDialog : public PopupScreen {
 public:
-	explicit KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
+	KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
 		: PopupScreen(i18n->T("Map Mouse"), "", ""), callback_(callback), mapped_(false) {
 		pspBtn_ = btn;
 	}
@@ -109,9 +109,9 @@ private:
 
 class JoystickHistoryView;
 
-class AnalogSetupScreen : public UIDialogScreenWithBackground {
+class AnalogSetupScreen : public UIDialogScreenWithGameBackground {
 public:
-	AnalogSetupScreen();
+	AnalogSetupScreen(const Path &gamePath);
 
 	bool key(const KeyInput &key) override;
 	bool axis(const AxisInput &axis) override;
@@ -136,9 +136,9 @@ private:
 	JoystickHistoryView *stickView_[2]{};
 };
 
-class TouchTestScreen : public UIDialogScreenWithBackground {
+class TouchTestScreen : public UIDialogScreenWithGameBackground {
 public:
-	TouchTestScreen() {
+	TouchTestScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 			touches_[i].id = -1;
 		}
@@ -175,9 +175,9 @@ protected:
 
 class MockPSP;
 
-class VisualMappingScreen : public UIDialogScreenWithBackground {
+class VisualMappingScreen : public UIDialogScreenWithGameBackground {
 public:
-	VisualMappingScreen() {}
+	VisualMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 
 	const char *tag() const override { return "VisualMapping"; }
 

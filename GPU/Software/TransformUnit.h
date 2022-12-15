@@ -121,7 +121,7 @@ public:
 	static WorldCoords ModelToWorld(const ModelCoords& coords);
 	static ViewCoords WorldToView(const WorldCoords& coords);
 	static ClipCoords ViewToClip(const ViewCoords& coords);
-	static ScreenCoords ClipToScreen(const ClipCoords& coords);
+	static ScreenCoords ClipToScreen(const ClipCoords &coords, bool *outsideRangeFlag);
 	static inline DrawingCoords ScreenToDrawing(int x, int y) {
 		DrawingCoords ret;
 		// When offset > coord, this is negative and force-scissors.
@@ -149,7 +149,7 @@ public:
 	SoftDirty GetDirty();
 
 private:
-	ClipVertexData ReadVertex(VertexReader &vreader, const TransformState &state);
+	ClipVertexData ReadVertex(const VertexReader &vreader, const TransformState &state);
 	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2);
 
 	u8 *decoded_ = nullptr;
@@ -171,6 +171,7 @@ public:
 	SoftwareDrawEngine();
 	~SoftwareDrawEngine();
 
+	void NotifyConfigChanged() override;
 	void DispatchFlush() override;
 	void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int cullMode, int *bytesRead) override;
 	void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) override;

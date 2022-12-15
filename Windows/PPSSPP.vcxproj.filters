@@ -711,6 +711,9 @@
     <None Include="..\SDL\buildassets.sh">
       <Filter>Other Platforms\SDL</Filter>
     </None>
+    <None Include="..\assets\compatvr.ini">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">

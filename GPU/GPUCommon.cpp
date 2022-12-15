@@ -428,6 +428,8 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	ResetMatrices();
 
 	PPGeSetDrawContext(draw);
+
+	UpdateMSAALevel(draw);
 }
 
 GPUCommon::~GPUCommon() {
@@ -454,7 +456,7 @@ void GPUCommon::UpdateCmdInfo() {
 
 	// Reconfigure for light ubershader or not.
 	for (int i = 0; i < 4; i++) {
-		if (gstate_c.Supports(GPU_USE_LIGHT_UBERSHADER)) {
+		if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {
 			cmdInfo_[GE_CMD_LIGHTENABLE0 + i].RemoveDirty(DIRTY_VERTEXSHADER_STATE);
 			cmdInfo_[GE_CMD_LIGHTENABLE0 + i].AddDirty(DIRTY_LIGHT_CONTROL);
 			cmdInfo_[GE_CMD_LIGHTTYPE0 + i].RemoveDirty(DIRTY_VERTEXSHADER_STATE);
@@ -467,7 +469,7 @@ void GPUCommon::UpdateCmdInfo() {
 		}
 	}
 
-	if (gstate_c.Supports(GPU_USE_LIGHT_UBERSHADER)) {
+	if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {
 		cmdInfo_[GE_CMD_MATERIALUPDATE].RemoveDirty(DIRTY_VERTEXSHADER_STATE);
 		cmdInfo_[GE_CMD_MATERIALUPDATE].AddDirty(DIRTY_LIGHT_CONTROL);
 	} else {
@@ -477,15 +479,25 @@ void GPUCommon::UpdateCmdInfo() {
 }
 
 void GPUCommon::BeginHostFrame() {
-	UpdateVsyncInterval(resized_);
+	UpdateVsyncInterval(displayResized_);
 	ReapplyGfxState();
 
 	// TODO: Assume config may have changed - maybe move to resize.
 	gstate_c.Dirty(DIRTY_ALL);
+
+	UpdateCmdInfo();
+
+	UpdateMSAALevel(draw_);
+	CheckConfigChanged();
+	CheckDisplayResized();
+	CheckRenderResized();
 }
 
 void GPUCommon::EndHostFrame() {
-
+	// Probably not necessary.
+	if (draw_) {
+		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+	}
 }
 
 void GPUCommon::Reinitialize() {
@@ -607,8 +619,53 @@ bool GPUCommon::BusyDrawing() {
 	return false;
 }
 
-void GPUCommon::Resized() {
-	resized_ = true;
+void GPUCommon::NotifyConfigChanged() {
+	configChanged_ = true;
+}
+
+void GPUCommon::NotifyRenderResized() {
+	renderResized_ = true;
+}
+
+void GPUCommon::NotifyDisplayResized() {
+	displayResized_ = true;
+}
+
+void GPUCommon::ClearCacheNextFrame() {
+	textureCache_->ClearNextFrame();
+}
+
+// Called once per frame. Might also get called during the pause screen
+// if "transparent".
+void GPUCommon::CheckConfigChanged() {
+	if (configChanged_) {
+		ClearCacheNextFrame();
+		gstate_c.SetUseFlags(CheckGPUFeatures());
+		drawEngineCommon_->NotifyConfigChanged();
+		textureCache_->NotifyConfigChanged();
+		framebufferManager_->NotifyConfigChanged();
+		BuildReportingInfo();
+		configChanged_ = false;
+	}
+
+	// Check needed when running tests.
+	if (framebufferManager_) {
+		framebufferManager_->CheckPostShaders();
+	}
+}
+
+void GPUCommon::CheckDisplayResized() {
+	if (displayResized_) {
+		framebufferManager_->NotifyDisplayResized();
+		displayResized_ = false;
+	}
+}
+
+void GPUCommon::CheckRenderResized() {
+	if (renderResized_) {
+		framebufferManager_->NotifyRenderResized(msaaLevel_);
+		renderResized_ = false;
+	}
 }
 
 void GPUCommon::DumpNextFrame() {
@@ -1188,6 +1245,11 @@ void GPUCommon::BeginFrame() {
 	}
 	GPUDebug::NotifyBeginFrame();
 	GPURecord::NotifyBeginFrame();
+
+	if (drawEngineCommon_->EverUsedExactEqualDepth() && !sawExactEqualDepth_) {
+		sawExactEqualDepth_ = true;
+		gstate_c.SetUseFlags(CheckGPUFeatures());
+	}
 }
 
 void GPUCommon::SlowRunLoop(DisplayList &list)
@@ -1834,7 +1896,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// cull mode
 	int cullMode = gstate.getCullMode();
 
-	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
+	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
 	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, cullMode, &bytesRead);
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
@@ -1892,7 +1954,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 				goto bail;
 			} else {
 				vertexType = data;
-				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
+				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
 			}
 			break;
 		}
@@ -2153,29 +2215,50 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 
 void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	// Just resetting, nothing to check bounds for.
-	const u32 count = op & 0xFFFFFF;
+	const u32 count = op & 0xFFFF;
 	if (count == 0) {
 		currentList->bboxResult = false;
 		return;
 	}
-	if (((count & 7) == 0) && count <= 64) {  // Sanity check
-		const void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
+
+	// Approximate based on timings of several counts on a PSP.
+	cyclesExecuted += count * 22;
+
+	const bool useInds = (gstate.vertType & GE_VTYPE_IDX_MASK) != 0;
+	VertexDecoder *dec = drawEngineCommon_->GetVertexDecoder(gstate.vertType);
+	int bytesRead = (useInds ? 1 : dec->VertexSize()) * count;
+
+	if (Memory::IsValidRange(gstate_c.vertexAddr, bytesRead)) {
+		const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 		if (!control_points) {
 			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Invalid verts in bounding box check");
 			currentList->bboxResult = true;
 			return;
 		}
 
-		if (gstate.vertType & GE_VTYPE_IDX_MASK) {
-			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Indexed bounding box data not supported.");
-			// Data seems invalid. Let's assume the box test passed.
-			currentList->bboxResult = true;
-			return;
+		const void *inds = nullptr;
+		if (useInds) {
+			int indexShift = ((gstate.vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
+			inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+			if (!inds || !Memory::IsValidRange(gstate_c.indexAddr, count << indexShift)) {
+				ERROR_LOG_REPORT_ONCE(boundingboxInds, G3D, "Invalid inds in bounding box check");
+				currentList->bboxResult = true;
+				return;
+			}
 		}
 
 		// Test if the bounding box is within the drawing region.
-		int bytesRead;
-		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, count, gstate.vertType, &bytesRead);
+		// The PSP only seems to vary the result based on a single range of 0x100.
+		if (count > 0x200) {
+			// The second to last set of 0x100 is checked (even for odd counts.)
+			size_t skipSize = (count - 0x200) * dec->VertexSize();
+			currentList->bboxResult = drawEngineCommon_->TestBoundingBox((const uint8_t *)control_points + skipSize, inds, 0x100, gstate.vertType);
+		} else if (count > 0x100) {
+			int checkSize = count - 0x100;
+			currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, checkSize, gstate.vertType);
+		} else {
+			currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, count, gstate.vertType);
+		}
 		AdvanceVerts(gstate.vertType, count, bytesRead);
 	} else {
 		ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", count);
@@ -2983,72 +3066,189 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 
 	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 
-	if (!Memory::IsValidAddress(srcBasePtr)) {
-		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad source transfer address %08x!", srcBasePtr);
-		return;
-	}
+	// For VRAM, we wrap around when outside valid memory (mirrors still work.)
+	if ((srcBasePtr & 0x04800000) == 0x04800000)
+		srcBasePtr &= ~0x00800000;
+	if ((dstBasePtr & 0x04800000) == 0x04800000)
+		dstBasePtr &= ~0x00800000;
 
-	if (!Memory::IsValidAddress(dstBasePtr)) {
-		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad destination transfer address %08x!", dstBasePtr);
-		return;
-	}
+	// Use height less one to account for width, which can be greater or less than stride.
+	const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
+	const uint32_t srcSize = (height - 1) * (srcStride + width) * bpp;
+	const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
+	const uint32_t dstSize = (height - 1) * (dstStride + width) * bpp;
 
-	// Check that the last address of both source and dest are valid addresses
+	bool srcDstOverlap = src + srcSize > dst && dst + dstSize > src;
+	bool srcValid = Memory::IsValidRange(src, srcSize);
+	bool dstValid = Memory::IsValidRange(dst, dstSize);
+	bool srcWraps = Memory::IsVRAMAddress(srcBasePtr) && !srcValid;
+	bool dstWraps = Memory::IsVRAMAddress(dstBasePtr) && !dstValid;
 
-	u32 srcLastAddr = srcBasePtr + ((srcY + height - 1) * srcStride + (srcX + width - 1)) * bpp;
-	u32 dstLastAddr = dstBasePtr + ((dstY + height - 1) * dstStride + (dstX + width - 1)) * bpp;
-
-	if (!Memory::IsValidAddress(srcLastAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bottom-right corner of source of block transfer is at an invalid address: %08x", srcLastAddr);
-		return;
-	}
-	if (!Memory::IsValidAddress(dstLastAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bottom-right corner of destination of block transfer is at an invalid address: %08x", srcLastAddr);
-		return;
-	}
+	char tag[128];
+	size_t tagSize;
 
 	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
-	if (!framebufferManager_->NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason)) {
+	if (!framebufferManager_ || !framebufferManager_->NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason)) {
 		// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
 		// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
 		// entirely by walking a couple of pointers...
-		if (srcStride == dstStride && (u32)width == srcStride) {
-			// Common case in God of War, let's do it all in one chunk.
+
+		// Simple case: just a straight copy, no overlap or wrapping.
+		if (srcStride == dstStride && (u32)width == srcStride && !srcDstOverlap && srcValid && dstValid) {
 			u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
 			u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-			const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
-			u8 *dst = Memory::GetPointerWriteUnchecked(dstLineStartAddr);
-			memcpy(dst, src, width * height * bpp);
-			GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * height * bpp);
-		} else {
+			u32 bytesToCopy = width * height * bpp;
+
+			const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
+			u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+			memcpy(dstp, srcp, bytesToCopy);
+
+			if (MemBlockInfoDetailed(bytesToCopy)) {
+				tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUBlockTransfer/", src, bytesToCopy);
+				NotifyMemInfo(MemBlockFlags::READ, src, bytesToCopy, tag, tagSize);
+				NotifyMemInfo(MemBlockFlags::WRITE, dst, bytesToCopy, tag, tagSize);
+			}
+		} else if ((srcDstOverlap || srcWraps || dstWraps) && (srcValid || srcWraps) && (dstValid || dstWraps)) {
+			// This path means we have either src/dst overlap, OR one or both of src and dst wrap.
+			// This should be uncommon so it's the slowest path.
+			u32 bytesToCopy = width * bpp;
+			bool notifyDetail = MemBlockInfoDetailed(srcWraps || dstWraps ? 64 : bytesToCopy);
+			bool notifyAll = !notifyDetail && MemBlockInfoDetailed(srcSize, dstSize);
+			if (notifyDetail || notifyAll) {
+				tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUBlockTransfer/", src, srcSize);
+			}
+
+			auto notifyingMemmove = [&](u32 d, u32 s, u32 sz) {
+				const u8 *srcp = Memory::GetPointer(s);
+				u8 *dstp = Memory::GetPointerWrite(d);
+				memmove(dstp, srcp, sz);
+
+				if (notifyDetail) {
+					NotifyMemInfo(MemBlockFlags::READ, s, sz, tag, tagSize);
+					NotifyMemInfo(MemBlockFlags::WRITE, d, sz, tag, tagSize);
+				}
+			};
+
+			for (int y = 0; y < height; y++) {
+				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
+				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
+				// If we already passed a wrap, we can use the quicker path.
+				if ((srcLineStartAddr & 0x04800000) == 0x04800000)
+					srcLineStartAddr &= ~0x00800000;
+				if ((dstLineStartAddr & 0x04800000) == 0x04800000)
+					dstLineStartAddr &= ~0x00800000;
+				// These flags mean there's a wrap inside this line.
+				bool srcLineWrap = !Memory::IsValidRange(srcLineStartAddr, bytesToCopy);
+				bool dstLineWrap = !Memory::IsValidRange(dstLineStartAddr, bytesToCopy);
+
+				if (!srcLineWrap && !dstLineWrap) {
+					const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
+					u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+					for (u32 i = 0; i < bytesToCopy; i += 64) {
+						u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
+						memmove(dstp + i, srcp + i, chunk);
+					}
+
+					// If we're tracking detail, it's useful to have the gaps illustrated properly.
+					if (notifyDetail) {
+						NotifyMemInfo(MemBlockFlags::READ, srcLineStartAddr, bytesToCopy, tag, tagSize);
+						NotifyMemInfo(MemBlockFlags::WRITE, dstLineStartAddr, bytesToCopy, tag, tagSize);
+					}
+				} else {
+					// We can wrap at any point, so along with overlap this gets a bit complicated.
+					// We're just going to do this the slow and easy way.
+					u32 srcLinePos = srcLineStartAddr;
+					u32 dstLinePos = dstLineStartAddr;
+					for (u32 i = 0; i < bytesToCopy; i += 64) {
+						u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
+						u32 srcValid = Memory::ValidSize(srcLinePos, chunk);
+						u32 dstValid = Memory::ValidSize(dstLinePos, chunk);
+
+						// First chunk, for which both are valid.
+						u32 bothSize = std::min(srcValid, dstValid);
+						if (bothSize != 0)
+							notifyingMemmove(dstLinePos, srcLinePos, bothSize);
+
+						// Now, whichever side has more valid (or the rest, if only one side must wrap.)
+						u32 exclusiveSize = std::max(srcValid, dstValid) - bothSize;
+						if (exclusiveSize != 0 && srcValid >= dstValid) {
+							notifyingMemmove(PSP_GetVidMemBase(), srcLineStartAddr + bothSize, exclusiveSize);
+						} else if (exclusiveSize != 0 && srcValid < dstValid) {
+							notifyingMemmove(dstLineStartAddr + bothSize, PSP_GetVidMemBase(), exclusiveSize);
+						}
+
+						// Finally, if both src and dst wrapped, that portion.
+						u32 wrappedSize = chunk - bothSize - exclusiveSize;
+						if (wrappedSize != 0 && srcValid >= dstValid) {
+							notifyingMemmove(PSP_GetVidMemBase() + exclusiveSize, PSP_GetVidMemBase(), wrappedSize);
+						} else if (wrappedSize != 0 && srcValid < dstValid) {
+							notifyingMemmove(PSP_GetVidMemBase(), PSP_GetVidMemBase() + exclusiveSize, wrappedSize);
+						}
+
+						srcLinePos += chunk;
+						dstLinePos += chunk;
+						if ((srcLinePos & 0x04800000) == 0x04800000)
+							srcLinePos &= ~0x00800000;
+						if ((dstLinePos & 0x04800000) == 0x04800000)
+							dstLinePos &= ~0x00800000;
+					}
+				}
+			}
+
+			if (notifyAll) {
+				if (srcWraps) {
+					u32 validSize = Memory::ValidSize(src, srcSize);
+					NotifyMemInfo(MemBlockFlags::READ, src, validSize, tag, tagSize);
+					NotifyMemInfo(MemBlockFlags::READ, PSP_GetVidMemBase(), srcSize - validSize, tag, tagSize);
+				} else {
+					NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag, tagSize);
+				}
+				if (dstWraps) {
+					u32 validSize = Memory::ValidSize(dst, dstSize);
+					NotifyMemInfo(MemBlockFlags::WRITE, dst, validSize, tag, tagSize);
+					NotifyMemInfo(MemBlockFlags::WRITE, PSP_GetVidMemBase(), dstSize - validSize, tag, tagSize);
+				} else {
+					NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag, tagSize);
+				}
+			}
+		} else if (srcValid && dstValid) {
+			u32 bytesToCopy = width * bpp;
+			bool notifyDetail = MemBlockInfoDetailed(bytesToCopy);
+			bool notifyAll = !notifyDetail && MemBlockInfoDetailed(srcSize, dstSize);
+			if (notifyDetail || notifyAll) {
+				tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUBlockTransfer/", src, srcSize);
+			}
+
 			for (int y = 0; y < height; y++) {
 				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
 				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
 
-				const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
-				u8 *dst = Memory::GetPointerWriteUnchecked(dstLineStartAddr);
-				memcpy(dst, src, width * bpp);
-				GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * bpp);
+				const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
+				u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+				memcpy(dstp, srcp, bytesToCopy);
+
+				// If we're tracking detail, it's useful to have the gaps illustrated properly.
+				if (notifyDetail) {
+					NotifyMemInfo(MemBlockFlags::READ, srcLineStartAddr, bytesToCopy, tag, tagSize);
+					NotifyMemInfo(MemBlockFlags::WRITE, dstLineStartAddr, bytesToCopy, tag, tagSize);
+				}
 			}
+
+			if (notifyAll) {
+				NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag, tagSize);
+				NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag, tagSize);
+			}
+		} else {
+			// This seems to cause the GE to require a break/reset on a PSP.
+			// TODO: Handle that and figure out which bytes are still copied?
+			ERROR_LOG_REPORT_ONCE(invalidtransfer, G3D, "Block transfer invalid: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 		}
 
-		// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
-		textureCache_->Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
-		framebufferManager_->NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason);
-	}
-
-	const uint32_t numBytes = width * height * bpp;
-	const uint32_t srcSize = height * srcStride * bpp;
-	const uint32_t dstSize = height * dstStride * bpp;
-	// We do the check here on the number of bytes to avoid marking really tiny images.
-	// Helps perf in GT menu which does insane amounts of these, one for each text character per frame.
-	if (MemBlockInfoDetailed(numBytes, numBytes)) {
-		const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-		const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-		char tag[128];
-		size_t tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUBlockTransfer/", src, srcSize);
-		NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag, tagSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag, tagSize);
+		if (framebufferManager_) {
+			// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
+			textureCache_->Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
+			framebufferManager_->NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason);
+		}
 	}
 
 	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
@@ -3059,12 +3259,13 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
 		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, flags, gstate_c.skipDrawReason)) {
-			// We use a little hack for PerformReadbackToMemory/PerformWriteColorFromMemory using a VRAM mirror.
+			// We use matching values in PerformReadbackToMemory/PerformWriteColorFromMemory.
 			// Since they're identical we don't need to copy.
-			if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
+			if (dest != src) {
 				if (MemBlockInfoDetailed(size)) {
-					const std::string tag = GetMemWriteTagAt("GPUMemcpy/", src, size);
-					Memory::Memcpy(dest, src, size, tag.c_str(), tag.size());
+					char tag[128];
+					size_t tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUMemcpy/", src, size);
+					Memory::Memcpy(dest, src, size, tag, tagSize);
 				} else {
 					Memory::Memcpy(dest, src, size, "GPUMemcpy");
 				}
@@ -3075,9 +3276,10 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 	}
 
 	if (MemBlockInfoDetailed(size)) {
-		const std::string tag = GetMemWriteTagAt("GPUMemcpy/", src, size);
-		NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, dest, size, tag.c_str(), tag.size());
+		char tag[128];
+		size_t tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUMemcpy/", src, size);
+		NotifyMemInfo(MemBlockFlags::READ, src, size, tag, tagSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, dest, size, tag, tagSize);
 	}
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	if (!(flags & GPUCopyFlag::DEBUG_NOTIFIED))
@@ -3183,6 +3385,7 @@ std::vector<FramebufferInfo> GPUCommon::GetFramebufferList() const {
 }
 
 bool GPUCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+	UpdateUVScaleOffset();
 	return drawEngineCommon_->GetCurrentSimpleVertices(count, vertices, indices);
 }
 
@@ -3285,44 +3488,49 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 u32 GPUCommon::CheckGPUFeatures() const {
 	u32 features = 0;
 	if (draw_->GetDeviceCaps().logicOpSupported) {
-		features |= GPU_SUPPORTS_LOGIC_OP;
+		features |= GPU_USE_LOGIC_OP;
 	}
 	if (draw_->GetDeviceCaps().anisoSupported) {
-		features |= GPU_SUPPORTS_ANISOTROPY;
+		features |= GPU_USE_ANISOTROPY;
 	}
 	if (draw_->GetDeviceCaps().textureNPOTFullySupported) {
-		features |= GPU_SUPPORTS_TEXTURE_NPOT;
+		features |= GPU_USE_TEXTURE_NPOT;
 	}
 	if (draw_->GetDeviceCaps().dualSourceBlend) {
 		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
-			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+			features |= GPU_USE_DUALSOURCE_BLEND;
 		}
 	}
 	if (draw_->GetDeviceCaps().blendMinMaxSupported) {
-		features |= GPU_SUPPORTS_BLEND_MINMAX;
+		features |= GPU_USE_BLEND_MINMAX;
 	}
 
 	if (draw_->GetDeviceCaps().clipDistanceSupported) {
-		features |= GPU_SUPPORTS_CLIP_DISTANCE;
+		features |= GPU_USE_CLIP_DISTANCE;
 	}
 
 	if (draw_->GetDeviceCaps().cullDistanceSupported) {
-		features |= GPU_SUPPORTS_CULL_DISTANCE;
+		features |= GPU_USE_CULL_DISTANCE;
 	}
 
 	if (draw_->GetDeviceCaps().textureDepthSupported) {
-		features |= GPU_SUPPORTS_DEPTH_TEXTURE;
+		features |= GPU_USE_DEPTH_TEXTURE;
+	}
+
+	if (draw_->GetDeviceCaps().depthClampSupported) {
+		// Some backends always do GPU_USE_ACCURATE_DEPTH, but it's required for depth clamp.
+		features |= GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH;
 	}
 
 	bool canClipOrCull = draw_->GetDeviceCaps().clipDistanceSupported || draw_->GetDeviceCaps().cullDistanceSupported;
 	bool canDiscardVertex = draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
 	if (canClipOrCull || canDiscardVertex) {
 		// We'll dynamically use the parts that are supported, to reduce artifacts as much as possible.
-		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+		features |= GPU_USE_VS_RANGE_CULLING;
 	}
 
 	if (draw_->GetDeviceCaps().framebufferFetchSupported) {
-		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
+		features |= GPU_USE_FRAMEBUFFER_FETCH;
 	}
 
 	if (draw_->GetShaderLanguageDesc().bitwiseOps) {
@@ -3333,5 +3541,51 @@ u32 GPUCommon::CheckGPUFeatures() const {
 		features |= GPU_USE_CLEAR_RAM_HACK;
 	}
 
+	// Even without depth clamp, force accurate depth on for some games that break without it.
+	if (PSP_CoreParameter().compat.flags().DepthRangeHack) {
+		features |= GPU_USE_ACCURATE_DEPTH;
+	}
+
 	return features;
+}
+
+u32 GPUCommon::CheckGPUFeaturesLate(u32 features) const {
+	// If we already have a 16-bit depth buffer, we don't need to round.
+	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
+	bool prefer16 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D16;
+	if (!prefer16) {
+		if (sawExactEqualDepth_ && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
+			// Exact equal tests tend to have issues unless we use the PSP's depth range.
+			// We use 24-bit depth virtually everwhere, the fallback is just for safety.
+			if (prefer24)
+				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+			else
+				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+		} else if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
+			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
+			if (prefer24 && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
+				// Here we can simulate a 16 bit depth buffer by scaling.
+				// Note that the depth buffer is fixed point, not floating, so dividing by 256 is pretty good.
+				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+			} else {
+				// Use fragment rounding on where available otherwise.
+				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+			}
+		} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
+			features |= GPU_ROUND_DEPTH_TO_16BIT;
+		}
+	}
+
+	return features;
+}
+
+void GPUCommon::UpdateMSAALevel(Draw::DrawContext *draw) {
+	int level = g_Config.iMultiSampleLevel;
+	if (draw && draw->GetDeviceCaps().multiSampleLevelsMask & (1 << level)) {
+		msaaLevel_ = level;
+	} else {
+		// Didn't support the configured level, so revert to 0.
+		msaaLevel_ = 0;
+	}
 }

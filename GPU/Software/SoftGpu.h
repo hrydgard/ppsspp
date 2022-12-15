@@ -149,7 +149,10 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
-	void Resized() override;
+	void NotifyRenderResized() override;
+	void NotifyDisplayResized() override;
+	void NotifyConfigChanged() override;
+
 	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
 		primaryInfo = "Software";
 		fullInfo = "Software";
@@ -204,6 +207,8 @@ protected:
 	void FastRunLoop(DisplayList &list) override;
 	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight);
 	void ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, const uint16_t *overrideData = nullptr);
+
+	void BuildReportingInfo() override {}
 
 private:
 	void MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value);

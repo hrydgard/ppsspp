@@ -25,7 +25,13 @@
 
 struct VShaderID;
 
-bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, const Draw::Bugs bugs, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString);
+// Can technically be deduced from the vertex shader ID, but this is safer.
+enum class VertexShaderFlags : u32 {
+	MULTI_VIEW = 1,
+};
+ENUM_CLASS_BITOPS(VertexShaderFlags);
+
+bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, const Draw::Bugs bugs, uint32_t *attrMask, uint64_t *uniformMask, VertexShaderFlags *vertexShaderFlags, std::string *errorString);
 
 // D3D9 constants.
 enum {

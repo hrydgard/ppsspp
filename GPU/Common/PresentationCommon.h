@@ -78,9 +78,11 @@ public:
 	PresentationCommon(Draw::DrawContext *draw);
 	~PresentationCommon();
 
-	void UpdateSize(int w, int h, int rw, int rh) {
+	void UpdateDisplaySize(int w, int h) {
 		pixelWidth_ = w;
 		pixelHeight_ = h;
+	}
+	void UpdateRenderSize(int rw, int rh) {
 		renderWidth_ = rw;
 		renderHeight_ = rh;
 	}
@@ -102,24 +104,27 @@ public:
 	void SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidth, int bufferHeight);
 	void CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
 
-	void CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa);
+	void CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) const;
 
 protected:
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
+
 	void DestroyPostShader();
+	void DestroyStereoShader();
 
-	void ShowPostShaderError(const std::string &errorString);
+	static void ShowPostShaderError(const std::string &errorString);
 
-	Draw::ShaderModule *CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString);
-	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc);
-	bool BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next);
+	Draw::ShaderModule *CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) const;
+	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc) const;
+	bool CompilePostShader(const ShaderInfo *shaderInfo, Draw::Pipeline **outPipeline) const;
+	bool BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next, Draw::Pipeline **outPipeline);
 	bool AllocateFramebuffer(int w, int h);
 
-	void BindSource(int binding);
+	bool BindSource(int binding, bool bindStereo);
 
-	void GetCardboardSettings(CardboardSettings *cardboardSettings);
-	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms);
+	void GetCardboardSettings(CardboardSettings *cardboardSettings) const;
+	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) const;
 
 	Draw::DrawContext *draw_;
 	Draw::Pipeline *texColor_ = nullptr;
@@ -129,11 +134,14 @@ protected:
 	Draw::Buffer *vdata_ = nullptr;
 	Draw::Buffer *idata_ = nullptr;
 
-	std::vector<Draw::ShaderModule *> postShaderModules_;
 	std::vector<Draw::Pipeline *> postShaderPipelines_;
 	std::vector<Draw::Framebuffer *> postShaderFramebuffers_;
 	std::vector<ShaderInfo> postShaderInfo_;
 	std::vector<Draw::Framebuffer *> previousFramebuffers_;
+	
+	Draw::Pipeline *stereoPipeline_ = nullptr;
+	ShaderInfo *stereoShaderInfo_ = nullptr;
+
 	int previousIndex_ = 0;
 	PostShaderUniforms previousUniforms_{};
 

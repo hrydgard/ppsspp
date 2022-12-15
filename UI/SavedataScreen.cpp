@@ -29,6 +29,7 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/AsyncImageFileView.h"
 #include "UI/SavedataScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/GameInfoCache.h"
@@ -706,4 +707,39 @@ void SavedataScreen::sendMessage(const char *message, const char *value) {
 		dataBrowser_->SetSearchFilter(searchFilter_);
 		stateBrowser_->SetSearchFilter(searchFilter_);
 	}
+}
+
+void GameIconView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	w = textureWidth_;
+	h = textureHeight_;
+}
+
+void GameIconView::Draw(UIContext &dc) {
+	using namespace UI;
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+
+	if (!info->icon.texture) {
+		return;
+	}
+
+	textureWidth_ = info->icon.texture->Width() * scale_;
+	textureHeight_ = info->icon.texture->Height() * scale_;
+
+	// Fade icon with the backgrounds.
+	double loadTime = info->icon.timeLoaded;
+	auto pic = info->GetBGPic();
+	if (pic) {
+		loadTime = std::max(loadTime, pic->timeLoaded);
+	}
+	uint32_t color = whiteAlpha(ease((time_now_d() - loadTime) * 3));
+
+	// Adjust size so we don't stretch the image vertically or horizontally.
+	// Make sure it's not wider than 144 (like Doom Legacy homebrew), ugly in the grid mode.
+	float nw = std::min(bounds_.h * textureWidth_ / textureHeight_, (float)bounds_.w);
+
+	dc.Flush();
+	dc.GetDrawContext()->BindTexture(0, info->icon.texture->GetTexture());
+	dc.Draw()->Rect(bounds_.x, bounds_.y, nw, bounds_.h, color);
+	dc.Flush();
+	dc.RebindTexture();
 }

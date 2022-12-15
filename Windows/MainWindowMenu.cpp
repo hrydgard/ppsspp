@@ -154,68 +154,6 @@ namespace MainWindow {
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_ABOUT, aboutPPSSPP.c_str());
 	}
 
-	void UpdateDynamicMenuCheckmarks(HMENU menu) {
-		int item = ID_SHADERS_BASE + 1;
-
-		for (size_t i = 0; i < availableShaders.size(); i++) {
-			bool checked = false;
-			if (g_Config.vPostShaderNames.empty() && availableShaders[i] == "Off")
-				checked = true;
-			else if (g_Config.vPostShaderNames.size() == 1 && availableShaders[i] == g_Config.vPostShaderNames[0])
-				checked = true;
-
-			CheckMenuItem(menu, item++, checked ? MF_CHECKED : MF_UNCHECKED);
-		}
-	}
-
-	bool CreateShadersSubmenu(HMENU menu) {
-		// NOTE: We do not load this until translations are loaded!
-		if (!I18NCategoryLoaded("PostShaders"))
-			return false;
-
-		// We only reload this initially and when a menu is actually opened.
-		if (!menuShaderInfoLoaded) {
-			// This is on Windows where we don't currently blacklist any vendors, or similar.
-			// TODO: Figure out how to have the GPU data while reloading the post shader info.
-			ReloadAllPostShaderInfo(nullptr);
-			menuShaderInfoLoaded = true;
-		}
-
-		std::vector<ShaderInfo> info = GetAllPostShaderInfo();
-
-		if (menuShaderInfo.size() == info.size() && std::equal(info.begin(), info.end(), menuShaderInfo.begin())) {
-			return false;
-		}
-
-		auto ps = GetI18NCategory("PostShaders");
-
-		HMENU shaderMenu = GetSubmenuById(menu, ID_OPTIONS_SHADER_MENU);
-		EmptySubMenu(shaderMenu);
-
-		int item = ID_SHADERS_BASE + 1;
-		const char *translatedShaderName = nullptr;
-
-		availableShaders.clear();
-		for (auto i = info.begin(); i != info.end(); ++i) {
-			if (!i->visible)
-				continue;
-			int checkedStatus = MF_UNCHECKED;
-			availableShaders.push_back(i->section);
-			if (g_Config.vPostShaderNames.empty() && i->section == "Off") {
-				checkedStatus = MF_CHECKED;
-			} else if (g_Config.vPostShaderNames.size() == 1 && g_Config.vPostShaderNames[0] == i->section) {
-				checkedStatus = MF_CHECKED;
-			}
-
-			translatedShaderName = ps->T(i->section.c_str(), i->name.c_str());
-
-			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, ConvertUTF8ToWString(translatedShaderName).c_str());
-		}
-
-		menuShaderInfo = info;
-		return true;
-	}
-
 	static void TranslateMenuItem(const HMENU hMenu, const int menuID, const std::wstring& accelerator = L"", const char *key = nullptr) {
 		auto des = GetI18NCategory("DesktopUI");
 
@@ -302,7 +240,6 @@ namespace MainWindow {
 		// Skip display multipliers x1-x10
 		TranslateMenuItem(menu, ID_OPTIONS_FULLSCREEN, g_Config.bSystemControls ? L"\tAlt+Return, F11" : L"");
 		TranslateMenuItem(menu, ID_OPTIONS_VSYNC);
-		TranslateMenuItem(menu, ID_OPTIONS_SHADER_MENU);
 		TranslateMenuItem(menu, ID_OPTIONS_SCREEN_MENU, g_Config.bSystemControls ? L"\tCtrl+1" : L"");
 		TranslateMenuItem(menu, ID_OPTIONS_SCREENAUTO);
 		// Skip rendering resolution 2x-5x..
@@ -315,8 +252,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_OPTIONS_VULKAN);
 
 		TranslateMenuItem(menu, ID_OPTIONS_RENDERMODE_MENU);
-		TranslateMenuItem(menu, ID_OPTIONS_NONBUFFEREDRENDERING);
-		TranslateMenuItem(menu, ID_OPTIONS_BUFFEREDRENDERING);
+		TranslateMenuItem(menu, ID_OPTIONS_SKIP_BUFFER_EFFECTS);
 		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_MENU, g_Config.bSystemControls ? L"\tF7" : L"");
 		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_AUTO);
 		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_0);
@@ -358,10 +294,6 @@ namespace MainWindow {
 		if (curLanguageID != menuLanguageID || KeyMap::HasChanged(menuKeymapGeneration)) {
 			DoTranslateMenus(hWnd, menu);
 			menuLanguageID = curLanguageID;
-			changed = true;
-		}
-
-		if (CreateShadersSubmenu(menu)) {
 			changed = true;
 		}
 
@@ -473,7 +405,7 @@ namespace MainWindow {
 	// not static
 	void setTexScalingMultiplier(int level) {
 		g_Config.iTexScalingLevel = level;
-		NativeMessageReceived("gpu_clearCache", "");
+		NativeMessageReceived("gpu_configChanged", "");
 	}
 
 	static void setTexFiltering(int type) {
@@ -486,25 +418,12 @@ namespace MainWindow {
 
 	static void setTexScalingType(int type) {
 		g_Config.iTexScalingType = type;
-		NativeMessageReceived("gpu_clearCache", "");
+		NativeMessageReceived("gpu_configChanged", "");
 	}
 
-	static void setRenderingMode(int mode) {
-		auto gr = GetI18NCategory("Graphics");
-
-		g_Config.iRenderingMode = mode;
-		switch (g_Config.iRenderingMode) {
-		case FB_NON_BUFFERED_MODE:
-			osm.Show(gr->T("Non-Buffered Rendering"));
-			g_Config.bAutoFrameSkip = false;
-			break;
-
-		case FB_BUFFERED_MODE:
-			osm.Show(gr->T("Buffered Rendering"));
-			break;
-		}
-
-		NativeMessageReceived("gpu_resized", "");
+	static void setSkipBufferEffects(bool skip) {
+		g_Config.bSkipBufferEffects = skip;
+		NativeMessageReceived("gpu_configChanged", "");
 	}
 
 	static void setFrameSkipping(int framesToSkip = -1) {
@@ -756,9 +675,9 @@ namespace MainWindow {
 
 		case ID_OPTIONS_FRAMESKIP_AUTO:
 			g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
-			if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-				g_Config.iRenderingMode = FB_BUFFERED_MODE;
-				NativeMessageReceived("gpu_resized", "");
+			if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
+				g_Config.bSkipBufferEffects = false;
+				NativeMessageReceived("gpu_configChanged", "");
 			}
 			break;
 
@@ -775,7 +694,7 @@ namespace MainWindow {
 
 		case ID_TEXTURESCALING_DEPOSTERIZE:
 			g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
-			NativeMessageReceived("gpu_clearCache", "");
+			NativeMessageReceived("gpu_configChanged", "");
 			break;
 
 		case ID_OPTIONS_DIRECT3D9:
@@ -802,8 +721,11 @@ namespace MainWindow {
 			RestartApp();
 			break;
 
-		case ID_OPTIONS_NONBUFFEREDRENDERING:   setRenderingMode(FB_NON_BUFFERED_MODE); break;
-		case ID_OPTIONS_BUFFEREDRENDERING:      setRenderingMode(FB_BUFFERED_MODE); break;
+		case ID_OPTIONS_SKIP_BUFFER_EFFECTS:
+			g_Config.bSkipBufferEffects = !g_Config.bSkipBufferEffects;
+			NativeMessageReceived("gpu_configChanged", "");
+			osm.ShowOnOff(gr->T("Skip Buffer Effects"), g_Config.bSkipBufferEffects);
+			break;
 
 		case ID_DEBUG_SHOWDEBUGSTATISTICS:
 			g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
@@ -812,7 +734,7 @@ namespace MainWindow {
 
 		case ID_OPTIONS_HARDWARETRANSFORM:
 			g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-			NativeMessageReceived("gpu_resized", "");
+			NativeMessageReceived("gpu_configChanged", "");
 			osm.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
 			break;
 
@@ -1045,25 +967,8 @@ namespace MainWindow {
 			break;
 
 		default:
-		{
-			// Handle the dynamic shader switching here.
-			// The Menu ID is contained in wParam, so subtract
-			// ID_SHADERS_BASE and an additional 1 off it.
-			u32 index = (wParam - ID_SHADERS_BASE - 1);
-			if (index < availableShaders.size()) {
-				g_Config.vPostShaderNames.clear();
-				if (availableShaders[index] != "Off")
-					g_Config.vPostShaderNames.push_back(availableShaders[index]);
-				g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
-
-				NativeMessageReceived("gpu_resized", "");
-				NativeMessageReceived("postshader_updated", "");
-				break;
-			}
-
 			MessageBox(hWnd, L"Unimplemented", L"Sorry", 0);
-		}
-		break;
+			break;
 		}
 	}
 
@@ -1095,6 +1000,7 @@ namespace MainWindow {
 		CHECKITEM(ID_FILE_USEFFV1, g_Config.bUseFFV1);
 		CHECKITEM(ID_FILE_DUMP_VIDEO_OUTPUT, g_Config.bDumpVideoOutput);
 		CHECKITEM(ID_FILE_DUMPAUDIO, g_Config.bDumpAudio);
+		CHECKITEM(ID_OPTIONS_SKIP_BUFFER_EFFECTS, g_Config.bSkipBufferEffects);
 
 		static const int displayrotationitems[] = {
 			ID_EMULATION_ROTATION_H,
@@ -1238,15 +1144,6 @@ namespace MainWindow {
 			CheckMenuItem(menu, bufferfilteritems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iBufFilter ? MF_CHECKED : MF_UNCHECKED));
 		}
 
-		static const int renderingmode[] = {
-			ID_OPTIONS_NONBUFFEREDRENDERING,
-			ID_OPTIONS_BUFFEREDRENDERING,
-		};
-
-		for (int i = 0; i < ARRAY_SIZE(renderingmode); i++) {
-			CheckMenuItem(menu, renderingmode[i], MF_BYCOMMAND | ((i == g_Config.iRenderingMode) ? MF_CHECKED : MF_UNCHECKED));
-		}
-
 		static const int frameskipping[] = {
 			ID_OPTIONS_FRAMESKIP_0,
 			ID_OPTIONS_FRAMESKIP_1,
@@ -1348,7 +1245,6 @@ namespace MainWindow {
 		EnableMenuItem(menu, ID_DEBUG_GEDEBUGGER, MF_GRAYED);
 #endif
 
-		UpdateDynamicMenuCheckmarks(menu);
 		UpdateCommands();
 	}
 

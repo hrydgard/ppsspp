@@ -23,6 +23,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/x86/Jit.h"
 #include "Core/MIPS/x86/JitSafeMem.h"
 #include "Core/System.h"
@@ -461,7 +462,7 @@ void JitSafeMemFuncs::Init(ThunkManager *thunks) {
 	AllocCodeSpace(FUNCS_ARENA_SIZE);
 	thunks_ = thunks;
 
-	BeginWrite();
+	BeginWrite(1024);
 	readU32 = GetCodePtr();
 	CreateReadFunc(32, (const void *)&Memory::Read_U32);
 	readU16 = GetCodePtr();

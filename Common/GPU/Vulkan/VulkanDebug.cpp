@@ -42,6 +42,12 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		// UNASSIGNED
 		return false;
 	}
+	if (messageCode == 606910136 || messageCode == -392708513 || messageCode == -384083808) {
+		// VUID-vkCmdDraw-None-02686
+		// Kinda false positive, or at least very unnecessary, now that I solved the real issue.
+		// See https://github.com/hrydgard/ppsspp/pull/16354
+		return false;
+	}
 
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
 		message << "ERROR(";
@@ -86,6 +92,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 	} else {
 		WARN_LOG(G3D, "VKDEBUG: %s", msg.c_str());
 	}
+
 	// false indicates that layer should not bail-out of an
 	// API call that had validation failures. This may mean that the
 	// app dies inside the driver due to invalid parameter(s).

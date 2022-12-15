@@ -145,7 +145,7 @@ public:
 	float Length() const;
 	void SetLength(const float l);
 	Vec2 WithLength(const float l) const;
-	float Distance2To(Vec2 &other);
+	float Distance2To(const Vec2 &other) const;
 	Vec2 Normalized() const;
 	float Normalize(); // returns the previous length, which is often useful
 
@@ -310,7 +310,7 @@ public:
 	float Length() const;
 	void SetLength(const float l);
 	Vec3 WithLength(const float l) const;
-	float Distance2To(Vec3 &other);
+	float Distance2To(const Vec3 &other) const;
 	Vec3 Normalized(bool useSSE4 = false) const;
 	Vec3 NormalizedOr001(bool useSSE4 = false) const;
 	float Normalize(); // returns the previous length, which is often useful
@@ -478,7 +478,7 @@ public:
 	float Length() const;
 	void SetLength(const float l);
 	Vec3Packed WithLength(const float l) const;
-	float Distance2To(Vec3Packed &other);
+	float Distance2To(const Vec3Packed &other) const;
 	Vec3Packed Normalized() const;
 	float Normalize(); // returns the previous length, which is often useful
 
@@ -674,7 +674,7 @@ public:
 	float Length() const;
 	void SetLength(const float l);
 	Vec4 WithLength(const float l) const;
-	float Distance2To(Vec4 &other);
+	float Distance2To(const Vec4 &other) const;
 	Vec4 Normalized() const;
 	float Normalize(); // returns the previous length, which is often useful
 
@@ -898,7 +898,8 @@ inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 	vecOut[1] = vectorGetByIndex<1>(sum);
 	vecOut[2] = vectorGetByIndex<2>(sum);
 #elif PPSSPP_ARCH(ARM64_NEON)
-	float32x4_t sum = Vec3ByMatrix43Internal(vld1q_f32(v), m);
+	float vecIn[4] = {v[0], v[1], v[2], 1.0f};
+	float32x4_t sum = Vec3ByMatrix43Internal(vld1q_f32(vecIn), m);
 	vecOut[0] = vgetq_lane_f32(sum, 0);
 	vecOut[1] = vgetq_lane_f32(sum, 1);
 	vecOut[2] = vgetq_lane_f32(sum, 2);
@@ -957,7 +958,8 @@ inline void Vec3ByMatrix44(float vecOut[4], const float v[3], const float m[16])
 	__m128 sum = Vec3ByMatrix44Internal(x, y, z, m);
 	_mm_storeu_ps(vecOut, sum);
 #elif PPSSPP_ARCH(ARM64_NEON)
-	float32x4_t sum = Vec3ByMatrix44Internal(vld1q_f32(v), m);
+	float vecIn[4] = {v[0], v[1], v[2], 1.0f};
+	float32x4_t sum = Vec3ByMatrix44Internal(vld1q_f32(vecIn), m);
 	vst1q_f32(vecOut, sum);
 #else
 	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];

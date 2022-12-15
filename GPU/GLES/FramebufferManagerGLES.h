@@ -31,7 +31,7 @@ public:
 	FramebufferManagerGLES(Draw::DrawContext *draw);
 	~FramebufferManagerGLES();
 
-	void Resized() override;
+	void NotifyDisplayResized() override;
 	void DeviceLost() override;
 
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;

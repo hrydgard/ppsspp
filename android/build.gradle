@@ -45,6 +45,8 @@ android {
 		}
 	}
 	compileSdkVersion 32
+	ndkVersion "21.4.7075529"
+
 	defaultConfig {
 		applicationId 'org.ppsspp.ppsspp'
 		if (androidGitVersion.name() != "unknown" && androidGitVersion.code() >= 14000000) {
@@ -149,7 +151,7 @@ android {
 			}
 		}
 		vr_pico {
-			applicationId 'org.ppsspp.ppsspp'
+			applicationId 'org.ppsspp.ppssppvr'
 			dimension "variant"
 			externalNativeBuild {
 				cmake {
@@ -169,7 +171,7 @@ android {
 			}
 		}
 		vr_quest {
-			applicationId 'org.ppsspp.ppsspp'
+			applicationId 'org.ppsspp.ppssppvr'
 			dimension "variant"
 			externalNativeBuild {
 				cmake {

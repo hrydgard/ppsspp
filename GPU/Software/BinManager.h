@@ -177,7 +177,7 @@ struct BinDirtyRange {
 	uint32_t widthBytes;
 	uint32_t height;
 
-	void Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, DrawingCoords &tl, DrawingCoords &br);
+	void Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, const DrawingCoords &tl, const DrawingCoords &br);
 };
 
 class BinManager {
@@ -261,6 +261,8 @@ private:
 	std::unordered_map<uint32_t, BinDirtyRange> pendingReads_;
 
 	bool pendingOverlap_ = false;
+	bool creatingState_ = false;
+	uint16_t pendingStateIndex_ = 0;
 
 	std::unordered_map<const char *, double> flushReasonTimes_;
 	std::unordered_map<const char *, double> lastFlushReasonTimes_;
@@ -273,6 +275,8 @@ private:
 	void MarkPendingReads(const Rasterizer::RasterizerState &state);
 	void MarkPendingWrites(const Rasterizer::RasterizerState &state);
 	bool HasTextureWrite(const Rasterizer::RasterizerState &state);
+	bool IsExactSelfRender(const Rasterizer::RasterizerState &state, const BinItem &item);
+	void OptimizePendingStates(uint16_t first, uint16_t last);
 	BinCoords Scissor(BinCoords range);
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);
 	BinCoords Range(const VertexData &v0, const VertexData &v1);

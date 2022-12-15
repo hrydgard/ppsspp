@@ -502,6 +502,12 @@
     <ClCompile Include="armips\Archs\MIPS\MipsOpcodes.cpp" />
     <ClCompile Include="armips\Archs\MIPS\MipsParser.cpp" />
     <ClCompile Include="armips\Archs\MIPS\PsxRelocator.cpp" />
+    <ClCompile Include="armips\Archs\SuperH\CShInstruction.cpp" />
+    <ClCompile Include="armips\Archs\SuperH\ShElfRelocator.cpp" />
+    <ClCompile Include="armips\Archs\SuperH\ShExpressionFunctions.cpp" />
+    <ClCompile Include="armips\Archs\SuperH\ShOpcodes.cpp" />
+    <ClCompile Include="armips\Archs\SuperH\ShParser.cpp" />
+    <ClCompile Include="armips\Archs\SuperH\SuperH.cpp" />
     <ClCompile Include="armips\Commands\CAssemblerCommand.cpp" />
     <ClCompile Include="armips\Commands\CAssemblerLabel.cpp" />
     <ClCompile Include="armips\Commands\CDirectiveArea.cpp" />
@@ -554,6 +560,12 @@
     <ClInclude Include="armips\Archs\MIPS\MipsOpcodes.h" />
     <ClInclude Include="armips\Archs\MIPS\MipsParser.h" />
     <ClInclude Include="armips\Archs\MIPS\PsxRelocator.h" />
+    <ClInclude Include="armips\Archs\SuperH\CShInstruction.h" />
+    <ClInclude Include="armips\Archs\SuperH\ShElfRelocator.h" />
+    <ClInclude Include="armips\Archs\SuperH\ShExpressionFunctions.h" />
+    <ClInclude Include="armips\Archs\SuperH\ShOpcodes.h" />
+    <ClInclude Include="armips\Archs\SuperH\ShParser.h" />
+    <ClInclude Include="armips\Archs\SuperH\SuperH.h" />
     <ClInclude Include="armips\Commands\CAssemblerCommand.h" />
     <ClInclude Include="armips\Commands\CAssemblerLabel.h" />
     <ClInclude Include="armips\Commands\CDirectiveArea.h" />

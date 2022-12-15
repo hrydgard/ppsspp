@@ -291,7 +291,7 @@ public:
 	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, const TextureDesc &desc);
 	~D3D9Texture();
 	void SetToSampler(LPDIRECT3DDEVICE9 device, int sampler);
-	LPDIRECT3DBASETEXTURE9 Texture() const {
+	LPDIRECT3DBASETEXTURE9 TexturePtr() const {
 		// TODO: Cleanup
 		if (tex_) {
 			return tex_;
@@ -532,16 +532,13 @@ public:
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	Framebuffer *GetCurrentRenderTarget() override {
-		return curRenderTarget_;
-	}
-	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
-	
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) override;
+
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
-	void BindTextures(int start, int count, Texture **textures) override;
+	void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) override;
 	void BindNativeTexture(int index, void *nativeTexture) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
@@ -593,7 +590,7 @@ public:
 		case NativeObject::DEVICE_EX:
 			return (uint64_t)(uintptr_t)deviceEx_;
 		case NativeObject::TEXTURE_VIEW:
-			return (uint64_t)(((D3D9Texture *)srcObject)->Texture());
+			return (uint64_t)(((D3D9Texture *)srcObject)->TexturePtr());
 		default:
 			return 0;
 		}
@@ -613,18 +610,17 @@ public:
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
-	int GetCurrentStepId() const override {
-		return stepId_;
-	}
+	void Invalidate(InvalidationFlags flags) override;
 
-	void InvalidateCachedState() override;
+	void SetInvalidationCallback(InvalidationCallback callback) override {
+		invalidationCallback_ = callback;
+	}
 
 private:
 	LPDIRECT3D9 d3d_;
 	LPDIRECT3D9EX d3dEx_;
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;
-	int stepId_ = -1;
 	int adapterId_ = -1;
 	D3DADAPTER_IDENTIFIER9 identifier_{};
 	D3DCAPS9 d3dCaps_;
@@ -650,10 +646,14 @@ private:
 
 	// Dynamic state
 	uint8_t stencilRef_ = 0;
+
+	InvalidationCallback invalidationCallback_;
 };
 
-void D3D9Context::InvalidateCachedState() {
-	curPipeline_ = nullptr;
+void D3D9Context::Invalidate(InvalidationFlags flags) {
+	if (flags & InvalidationFlags::CACHED_RENDER_STATE) {
+		curPipeline_ = nullptr;
+	}
 }
 
 // TODO: Move this detection elsewhere when it's needed elsewhere, not before. It's ugly.
@@ -749,7 +749,6 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	}
 
 	caps_.deviceID = identifier_.DeviceId;
-	caps_.multiViewport = false;
 	caps_.depthRangeMinusOneToOne = false;
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 	caps_.dualSourceBlend = false;
@@ -762,13 +761,21 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.framebufferSeparateDepthCopySupported = false;
 	caps_.texture3DSupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
+	caps_.fragmentShaderStencilWriteSupported = false;
 	caps_.blendMinMaxSupported = true;
+	caps_.isTilingGPU = false;
+	caps_.multiSampleLevelsMask = 1;  // More could be supported with some work.
 
 	if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1) {
 		caps_.anisoSupported = true;
 	}
 	if ((caps.TextureCaps & (D3DPTEXTURECAPS_NONPOW2CONDITIONAL | D3DPTEXTURECAPS_POW2)) == 0) {
 		caps_.textureNPOTFullySupported = true;
+	}
+
+	caps_.supportsD3D9 = true;
+	if (!strcmp(identifier_.Description, "Intel(R) Iris(R) Xe Graphics")) {
+		caps_.supportsD3D9 = false;
 	}
 
 	// VS range culling (killing triangles in the vertex shader using NaN) causes problems on Intel.
@@ -915,7 +922,7 @@ Texture *D3D9Context::CreateTexture(const TextureDesc &desc) {
 	return tex;
 }
 
-void D3D9Context::BindTextures(int start, int count, Texture **textures) {
+void D3D9Context::BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) {
 	_assert_(start + count <= MAX_BOUND_TEXTURES);
 	for (int i = start; i < start + count; i++) {
 		D3D9Texture *tex = static_cast<D3D9Texture *>(textures[i - start]);
@@ -1005,7 +1012,7 @@ public:
 			device->CreateVertexBuffer((UINT)size, usage, 0, D3DPOOL_DEFAULT, &vbuffer_, NULL);
 		}
 	}
-	virtual ~D3D9Buffer() override {
+	~D3D9Buffer() {
 		if (ibuffer_) {
 			ibuffer_->Release();
 		}
@@ -1070,16 +1077,16 @@ void D3D9Context::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offse
 		return;
 	}
 	if (buf->vbuffer_) {
-		void *ptr;
+		void *ptr = nullptr;
 		HRESULT res = buf->vbuffer_->Lock((UINT)offset, (UINT)size, &ptr, (flags & UPDATE_DISCARD) ? D3DLOCK_DISCARD : 0);
-		if (!FAILED(res)) {
+		if (!FAILED(res) && ptr) {
 			memcpy(ptr, data, size);
 			buf->vbuffer_->Unlock();
 		}
 	} else if (buf->ibuffer_) {
-		void *ptr;
+		void *ptr = nullptr;
 		HRESULT res = buf->ibuffer_->Lock((UINT)offset, (UINT)size, &ptr, (flags & UPDATE_DISCARD) ? D3DLOCK_DISCARD : 0);
-		if (!FAILED(res)) {
+		if (!FAILED(res) && ptr) {
 			memcpy(ptr, data, size);
 			buf->ibuffer_->Unlock();
 		}
@@ -1244,15 +1251,18 @@ public:
 };
 
 Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
+	// Don't think D3D9 does array layers.
+	_dbg_assert_(desc.numLayers == 1);
+
 	static uint32_t id = 0;
 
 	D3D9Framebuffer *fbo = new D3D9Framebuffer(desc.width, desc.height);
 	fbo->depthstenciltex = nullptr;
 
-	HRESULT rtResult = device_->CreateTexture(desc.width, desc.height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, NULL);
+	HRESULT rtResult = device_->CreateTexture(desc.width, desc.height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, nullptr);
 	if (FAILED(rtResult)) {
 		ERROR_LOG(G3D,  "Failed to create render target");
-		delete fbo;
+		fbo->Release();
 		return NULL;
 	}
 	fbo->tex->GetSurfaceLevel(0, &fbo->surf);
@@ -1281,9 +1291,15 @@ Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 }
 
 D3D9Framebuffer::~D3D9Framebuffer() {
-	tex->Release();
-	surf->Release();
-	depthstencil->Release();
+	if (tex) {
+		tex->Release();
+	}
+	if (surf) {
+		surf->Release();
+	}
+	if (depthstencil) {
+		depthstencil->Release();
+	}
 	if (depthstenciltex) {
 		depthstenciltex->Release();
 	}
@@ -1320,7 +1336,10 @@ void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPa
 	dxstate.scissorRect.restore();
 	dxstate.scissorTest.restore();
 	dxstate.viewport.restore();
-	stepId_++;
+
+	if (invalidationCallback_) {
+		invalidationCallback_(InvalidationCallbackFlags::RENDER_PASS_STATE);
+	}
 }
 
 uintptr_t D3D9Context::GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {
@@ -1348,8 +1367,9 @@ uintptr_t D3D9Context::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit
 	}
 }
 
-void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
-	_assert_(binding < MAX_BOUND_TEXTURES);
+void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) {
+	_dbg_assert_(binding < MAX_BOUND_TEXTURES);
+	_dbg_assert_(layer == ALL_LAYERS || layer == 0);  // No stereo support
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
 	switch (channelBit) {
 	case FB_DEPTH_BIT:
@@ -1398,7 +1418,6 @@ bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int 
 	} else {
 		return false;
 	}
-	stepId_++;
 	return SUCCEEDED(device_->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, (filter == FB_BLIT_LINEAR && channelBits == FB_COLOR_BIT) ? D3DTEXF_LINEAR : D3DTEXF_POINT));
 }
 
@@ -1430,6 +1449,7 @@ bool D3D9Context::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits,
 
 	LPDIRECT3DSURFACE9 offscreen = nullptr;
 	HRESULT hr = E_UNEXPECTED;
+	_assert_(fb != nullptr);
 	if (channelBits == FB_COLOR_BIT) {
 		fb->tex->GetLevelDesc(0, &desc);
 
@@ -1519,7 +1539,6 @@ void D3D9Context::HandleEvent(Event ev, int width, int height, void *param1, voi
 		device_->GetDepthStencilSurface(&deviceDSsurf);
 		break;
 	case Event::PRESENTED:
-		stepId_ = 0;
 		break;
 	}
 }

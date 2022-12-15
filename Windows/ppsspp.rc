@@ -547,15 +547,12 @@ BEGIN
         MENUITEM "Ignore Windows Key",                      ID_OPTIONS_IGNOREWINKEY
         MENUITEM "Language...",                             ID_OPTIONS_LANGUAGE
         MENUITEM "Control Mapping...",                      ID_OPTIONS_CONTROLS
-        MENUITEM "Display Layout Editor",                   ID_OPTIONS_DISPLAY_LAYOUT
+        MENUITEM "Display Layout && Effects",               ID_OPTIONS_DISPLAY_LAYOUT
         MENUITEM "More Settings...",                        ID_OPTIONS_MORE_SETTINGS
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Fullscreen",                              ID_OPTIONS_FULLSCREEN
         MENUITEM "VSync",                                   ID_OPTIONS_VSYNC
-        POPUP "Postprocessing Shader",                      ID_OPTIONS_SHADER_MENU
-        BEGIN
-            MENUITEM "", 0, MFT_SEPARATOR
-        END
+        MENUITEM "Skip Buffer Effects",                     ID_OPTIONS_SKIP_BUFFER_EFFECTS
         POPUP "Rendering Resolution",                       ID_OPTIONS_SCREEN_MENU
         BEGIN
             MENUITEM "Auto",                                ID_OPTIONS_SCREENAUTO
@@ -592,11 +589,7 @@ BEGIN
             MENUITEM "Vulkan",                              ID_OPTIONS_VULKAN
         END
 
-        POPUP "Rendering Mode",                             ID_OPTIONS_RENDERMODE_MENU
-        BEGIN
-            MENUITEM "Non-Buffered Rendering",              ID_OPTIONS_NONBUFFEREDRENDERING
-            MENUITEM "Buffered Rendering",                  ID_OPTIONS_BUFFEREDRENDERING
-        END
+
         POPUP "Frame Skipping",                             ID_OPTIONS_FRAMESKIP_MENU
         BEGIN
             MENUITEM "Auto",                                ID_OPTIONS_FRAMESKIP_AUTO

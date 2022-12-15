@@ -233,8 +233,9 @@ static int Replace_memcpy16() {
 	bool skip = false;
 
 	// Some games use memcpy on executable code.  We need to flush emuhack ops.
-	currentMIPS->InvalidateICache(srcPtr, bytes);
-	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMCPY) == 0) {
+	if (bytes != 0)
+		currentMIPS->InvalidateICache(srcPtr, bytes);
+	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMCPY) == 0 && bytes != 0) {
 		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 		}
@@ -305,7 +306,7 @@ static int Replace_memmove() {
 	bool skip = false;
 
 	// Some games use memcpy on executable code.  We need to flush emuhack ops.
-	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMMOVE) == 0) {
+	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMMOVE) == 0 && bytes != 0) {
 		currentMIPS->InvalidateICache(srcPtr, bytes);
 		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
@@ -1270,10 +1271,12 @@ static u32 marvelalliance1_copy_size = 0;
 static int Hook_marvelalliance1_copy_a1_before() {
 	marvelalliance1_copy_src = currentMIPS->r[MIPS_REG_A1];
 	marvelalliance1_copy_dst = currentMIPS->r[MIPS_REG_V1];
-	marvelalliance1_copy_size = currentMIPS->r[MIPS_REG_V0] - currentMIPS->r[MIPS_REG_V1];
+	marvelalliance1_copy_size = currentMIPS->r[MIPS_REG_V0] - currentMIPS->r[MIPS_REG_A1];
 
-	gpu->PerformReadbackToMemory(marvelalliance1_copy_src, marvelalliance1_copy_size);
-	NotifyMemInfo(MemBlockFlags::WRITE, marvelalliance1_copy_src, marvelalliance1_copy_size, "marvelalliance1_copy_a1_before");
+	if (Memory::IsValidRange(marvelalliance1_copy_src, marvelalliance1_copy_size)) {
+		gpu->PerformReadbackToMemory(marvelalliance1_copy_src, marvelalliance1_copy_size);
+		NotifyMemInfo(MemBlockFlags::WRITE, marvelalliance1_copy_src, marvelalliance1_copy_size, "marvelalliance1_copy_a1_before");
+	}
 
 	return 0;
 }
@@ -1283,15 +1286,19 @@ static int Hook_marvelalliance1_copy_a2_before() {
 	marvelalliance1_copy_dst = currentMIPS->r[MIPS_REG_V0];
 	marvelalliance1_copy_size = currentMIPS->r[MIPS_REG_A1] - currentMIPS->r[MIPS_REG_A2];
 
-	gpu->PerformReadbackToMemory(marvelalliance1_copy_src, marvelalliance1_copy_size);
-	NotifyMemInfo(MemBlockFlags::WRITE, marvelalliance1_copy_src, marvelalliance1_copy_size, "marvelalliance1_copy_a2_before");
+	if (Memory::IsValidRange(marvelalliance1_copy_src, marvelalliance1_copy_size)) {
+		gpu->PerformReadbackToMemory(marvelalliance1_copy_src, marvelalliance1_copy_size);
+		NotifyMemInfo(MemBlockFlags::WRITE, marvelalliance1_copy_src, marvelalliance1_copy_size, "marvelalliance1_copy_a2_before");
+	}
 
 	return 0;
 }
 
 static int Hook_marvelalliance1_copy_after() {
-	gpu->PerformWriteColorFromMemory(marvelalliance1_copy_dst, marvelalliance1_copy_size);
-	NotifyMemInfo(MemBlockFlags::READ, marvelalliance1_copy_dst, marvelalliance1_copy_size, "marvelalliance1_copy_after");
+	if (Memory::IsValidRange(marvelalliance1_copy_dst, marvelalliance1_copy_size)) {
+		gpu->PerformWriteColorFromMemory(marvelalliance1_copy_dst, marvelalliance1_copy_size);
+		NotifyMemInfo(MemBlockFlags::READ, marvelalliance1_copy_dst, marvelalliance1_copy_size, "marvelalliance1_copy_after");
+	}
 
 	return 0;
 }
@@ -1651,7 +1658,8 @@ std::map<u32, u32> SaveAndClearReplacements() {
 	std::map<u32, u32> saved;
 	for (auto it = replacedInstructions.begin(), end = replacedInstructions.end(); it != end; ++it) {
 		const u32 addr = it->first;
-		const u32 curInstr = Memory::Read_U32(addr);
+		// This will not retain jit blocks.
+		const u32 curInstr = Memory::Read_Opcode_JIT(addr).encoding;
 		if (MIPS_IS_REPLACEMENT(curInstr)) {
 			saved[addr] = curInstr;
 			Memory::Write_U32(it->second, addr);

@@ -35,6 +35,7 @@ enum {
 	VULKAN_VENDOR_ARM = 0x000013B5,  // Mali
 	VULKAN_VENDOR_QUALCOMM = 0x00005143,
 	VULKAN_VENDOR_IMGTEC = 0x00001010,  // PowerVR
+	VULKAN_VENDOR_APPLE = 0x0000106b,  // Apple through MoltenVK
 };
 
 VK_DEFINE_HANDLE(VmaAllocator);
@@ -222,6 +223,9 @@ public:
 			SetDebugNameImpl((uint64_t)handle, type, name);
 		}
 	}
+	bool DebugLayerEnabled() const {
+		return extensionsLookup_.EXT_debug_utils;
+	}
 
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
 
@@ -250,6 +254,12 @@ public:
 		VkPhysicalDeviceProperties properties;
 		VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProperties;
 		VkPhysicalDeviceExternalMemoryHostPropertiesEXT externalMemoryHostProperties;
+		VkPhysicalDeviceDepthStencilResolveProperties depthStencilResolve;
+	};
+
+	struct AllPhysicalDeviceFeatures {
+		VkPhysicalDeviceFeatures standard;
+		VkPhysicalDeviceMultiviewFeatures multiview;
 	};
 
 	const PhysicalDeviceProps &GetPhysicalDeviceProperties(int i = -1) const {
@@ -275,9 +285,13 @@ public:
 		return device_extensions_enabled_;
 	}
 
+	const VkPhysicalDeviceMemoryProperties &GetMemoryProperties() const {
+		return memory_properties_;
+	}
+
 	struct PhysicalDeviceFeatures {
-		VkPhysicalDeviceFeatures available{};
-		VkPhysicalDeviceFeatures enabled{};
+		AllPhysicalDeviceFeatures available{};
+		AllPhysicalDeviceFeatures enabled{};
 	};
 
 	const PhysicalDeviceFeatures &GetDeviceFeatures() const { return deviceFeatures_; }
@@ -393,7 +407,8 @@ private:
 	uint32_t graphics_queue_family_index_ = -1;
 	std::vector<PhysicalDeviceProps> physicalDeviceProperties_;
 	std::vector<VkQueueFamilyProperties> queueFamilyProperties_;
-	VkPhysicalDeviceMemoryProperties memory_properties{};
+
+	VkPhysicalDeviceMemoryProperties memory_properties_{};
 
 	// Custom collection of things that are good to know
 	VulkanPhysicalDeviceInfo deviceInfo_{};
@@ -436,7 +451,7 @@ private:
 };
 
 // Detailed control.
-void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int mipLevels, VkImageAspectFlags aspectMask,
+void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int mipLevels, int numLayers, VkImageAspectFlags aspectMask,
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
 	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
 	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask);
@@ -453,7 +468,6 @@ enum class GLSLVariant {
 
 bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, GLSLVariant variant, std::vector<uint32_t> &spirv, std::string *errorMessage);
 
-const char *VulkanResultToString(VkResult res);
 const char *VulkanColorSpaceToString(VkColorSpaceKHR colorSpace);
 const char *VulkanFormatToString(VkFormat format);
 

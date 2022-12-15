@@ -346,7 +346,7 @@ int PSPOskDialog::Init(u32 oskPtr) {
 			inputChars += c;
 	}
 
-	languageMapping = GetLangValuesMapping();
+	languageMapping = g_Config.GetLangValuesMapping();
 
 	// Eat any keys pressed before the dialog inited.
 	UpdateButtons();
@@ -941,8 +941,9 @@ int PSPOskDialog::Update(int animSpeed) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	int cancelButton = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
-	int confirmButton = cancelButton == CTRL_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
+	int cancelButton = GetCancelButton();
+	int confirmButton = GetConfirmButton();
+
 	static int cancelBtnFramesHeld = 0;
 	static int confirmBtnFramesHeld = 0;
 	static int leftBtnFramesHeld = 0;
@@ -979,7 +980,7 @@ int PSPOskDialog::Update(int animSpeed) {
 	PPGeDrawImage(ImageID("I_SQUARE"), 365, 222, 16, 16, guideStyle);
 	PPGeDrawText(di->T("Space"), 390, 222, actionStyle);
 
-	if (g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE) {
+	if (GetConfirmButton() != PSP_SYSTEMPARAM_BUTTON_CIRCLE) {
 		PPGeDrawImage(ImageID("I_CROSS"), 45, 222, 16, 16, guideStyle);
 		PPGeDrawImage(ImageID("I_CIRCLE"), 45, 247, 16, 16, guideStyle);
 	} else {

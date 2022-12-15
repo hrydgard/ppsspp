@@ -130,5 +130,6 @@ int MIPSInterpret_RunUntil(u64 globalTicks);
 MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op);
 
 int MIPSGetInstructionCycleEstimate(MIPSOpcode op);
+int MIPSGetMemoryAccessSize(MIPSOpcode op);
 const char *MIPSGetName(MIPSOpcode op);
 const char *MIPSDisasmAt(u32 compilerPC);

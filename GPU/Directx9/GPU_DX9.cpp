@@ -69,7 +69,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerDX9_->SetTextureCache(textureCacheDX9_);
 	framebufferManagerDX9_->SetShaderManager(shaderManagerDX9_);
 	framebufferManagerDX9_->SetDrawEngine(&drawEngine_);
-	framebufferManagerDX9_->Init();
+	framebufferManagerDX9_->Init(msaaLevel_);
 	textureCacheDX9_->SetFramebufferManager(framebufferManagerDX9_);
 	textureCacheDX9_->SetShaderManager(shaderManagerDX9_);
 
@@ -81,7 +81,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
 	UpdateCmdInfo();
-	gstate_c.featureFlags = CheckGPUFeatures();
+	gstate_c.SetUseFlags(CheckGPUFeatures());
 
 	BuildReportingInfo();
 
@@ -100,26 +100,14 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 u32 GPU_DX9::CheckGPUFeatures() const {
 	u32 features = GPUCommon::CheckGPUFeatures();
-	features |= GPU_SUPPORTS_16BIT_FORMATS;
-	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+	features |= GPU_USE_16BIT_FORMATS;
+	features |= GPU_USE_TEXTURE_LOD_CONTROL;
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
-	// TODO: Breaks text in PaRappa for some reason?
-	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+	features |= GPU_USE_ACCURATE_DEPTH;
 
-	auto vendor = draw_->GetDeviceCaps().vendor;
-
-	if (!g_Config.bHighQualityDepth) {
-		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-	} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-		// Assume we always have a 24-bit depth buffer.
-		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-	} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
-		features |= GPU_ROUND_DEPTH_TO_16BIT;
-	}
-
-	return features;
+	return CheckGPUFeaturesLate(features);
 }
 
 GPU_DX9::~GPU_DX9() {
@@ -156,19 +144,6 @@ void GPU_DX9::InitClear() {
 		dxstate.depthWrite.set(true);
 		dxstate.colorMask.set(0xF);
 		device_->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
-	}
-}
-
-void GPU_DX9::BeginHostFrame() {
-	GPUCommon::BeginHostFrame();
-	UpdateCmdInfo();
-	if (resized_) {
-		gstate_c.featureFlags = CheckGPUFeatures();
-		framebufferManager_->Resized();
-		drawEngine_.Resized();
-		shaderManagerDX9_->DirtyShader();
-		textureCache_->NotifyConfigChanged();
-		resized_ = false;
 	}
 }
 
@@ -243,14 +218,6 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerDX9_->GetNumVertexShaders(),
 		shaderManagerDX9_->GetNumFragmentShaders()
 	);
-}
-
-void GPU_DX9::ClearCacheNextFrame() {
-	textureCacheDX9_->ClearNextFrame();
-}
-
-void GPU_DX9::ClearShaderCache() {
-	shaderManagerDX9_->ClearCache(true);
 }
 
 void GPU_DX9::DoState(PointerWrap &p) {

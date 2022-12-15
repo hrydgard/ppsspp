@@ -19,54 +19,13 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/DataFormat.h"
+#include "Common/GPU/MiscTypes.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
+#include "Common/GPU/Vulkan/VulkanFramebuffer.h"
+#include "Common/GPU/thin3d.h"
 
 // Forward declaration
 VK_DEFINE_HANDLE(VmaAllocation);
-
-// Simple independent framebuffer image. Gets its own allocation, we don't have that many framebuffers so it's fine
-// to let them have individual non-pooled allocations. Until it's not fine. We'll see.
-struct VKRImage {
-	// These four are "immutable".
-	VkImage image;
-	VkImageView imageView;
-	VkImageView depthSampleView;
-	VmaAllocation alloc;
-	VkFormat format;
-
-	// This one is used by QueueRunner's Perform functions to keep track. CANNOT be used anywhere else due to sync issues.
-	VkImageLayout layout;
-
-	// For debugging.
-	std::string tag;
-};
-void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag);
-
-class VKRFramebuffer {
-public:
-	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, bool createDepthStencilBuffer, const char *tag);
-	~VKRFramebuffer();
-
-	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
-
-	int width = 0;
-	int height = 0;
-	VKRImage color{};  // color.image is always there.
-	VKRImage depth{};  // depth.image is allowed to be VK_NULL_HANDLE.
-
-	const char *Tag() const {
-		return tag_.c_str();
-	}
-
-	void UpdateTag(const char *newTag);
-
-	// TODO: Hide.
-	VulkanContext *vulkan_;
-private:
-	VkFramebuffer framebuf[RP_TYPE_COUNT]{};
-
-	std::string tag_;
-};
 
 struct BoundingRect {
 	int x1;
@@ -116,7 +75,8 @@ struct BoundingRect {
 };
 
 // All the data needed to create a graphics pipeline.
-struct VKRGraphicsPipelineDesc {
+// TODO: Compress this down greatly.
+struct VKRGraphicsPipelineDesc : Draw::RefCountedObject {
 	VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 	VkPipelineColorBlendStateCreateInfo cbs{ VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
 	VkPipelineColorBlendAttachmentState blend0{};
@@ -124,14 +84,19 @@ struct VKRGraphicsPipelineDesc {
 	VkDynamicState dynamicStates[6]{};
 	VkPipelineDynamicStateCreateInfo ds{ VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
-	VkPipelineMultisampleStateCreateInfo ms{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
 
 	// Replaced the ShaderStageInfo with promises here so we can wait for compiles to finish.
 	Promise<VkShaderModule> *vertexShader = nullptr;
 	Promise<VkShaderModule> *fragmentShader = nullptr;
 	Promise<VkShaderModule> *geometryShader = nullptr;
 
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
+	// These are for pipeline creation failure logging.
+	// TODO: Store pointers to the string instead? Feels iffy but will probably work.
+	std::string vertexShaderSource;
+	std::string fragmentShaderSource;
+	std::string geometryShaderSource;
+
+	VkPrimitiveTopology topology;
 	VkVertexInputAttributeDescription attrs[8]{};
 	VkVertexInputBindingDescription ibd{};
 	VkPipelineVertexInputStateCreateInfo vis{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
@@ -152,22 +117,34 @@ struct VKRComputePipelineDesc {
 
 // Wrapped pipeline. Doesn't own desc.
 struct VKRGraphicsPipeline {
+	VKRGraphicsPipeline(PipelineFlags flags, const char *tag) : flags_(flags), tag_(tag) {}
 	~VKRGraphicsPipeline() {
-		for (int i = 0; i < RP_TYPE_COUNT; i++) {
+		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			delete pipeline[i];
 		}
+		if (desc)
+			desc->Release();
 	}
 
-	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType);
+	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
+
+	void DestroyVariants(VulkanContext *vulkan, bool msaaOnly);
 
 	// This deletes the whole VKRGraphicsPipeline, you must remove your last pointer to it when doing this.
 	void QueueForDeletion(VulkanContext *vulkan);
 
 	u32 GetVariantsBitmask() const;
 
-	VKRGraphicsPipelineDesc *desc = nullptr;  // not owned!
-	Promise<VkPipeline> *pipeline[RP_TYPE_COUNT]{};
-	std::string tag;
+	void LogCreationFailure() const;
+
+	VKRGraphicsPipelineDesc *desc = nullptr;
+	Promise<VkPipeline> *pipeline[(size_t)RenderPassType::TYPE_COUNT]{};
+
+	VkSampleCountFlagBits SampleCount() const { return sampleCount_; }
+private:
+	std::string tag_;
+	PipelineFlags flags_;
+	VkSampleCountFlagBits sampleCount_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
 };
 
 struct VKRComputePipeline {
@@ -185,9 +162,9 @@ struct VKRComputePipeline {
 };
 
 struct CompileQueueEntry {
-	CompileQueueEntry(VKRGraphicsPipeline *p, VkRenderPass _compatibleRenderPass, RenderPassType _renderPassType)
-		: type(Type::GRAPHICS), graphics(p), compatibleRenderPass(_compatibleRenderPass), renderPassType(_renderPassType) {}
-	CompileQueueEntry(VKRComputePipeline *p) : type(Type::COMPUTE), compute(p), renderPassType(RP_TYPE_COLOR_DEPTH) {}
+	CompileQueueEntry(VKRGraphicsPipeline *p, VkRenderPass _compatibleRenderPass, RenderPassType _renderPassType, VkSampleCountFlagBits _sampleCount)
+		: type(Type::GRAPHICS), graphics(p), compatibleRenderPass(_compatibleRenderPass), renderPassType(_renderPassType), sampleCount(_sampleCount) {}
+	CompileQueueEntry(VKRComputePipeline *p) : type(Type::COMPUTE), compute(p), renderPassType(RenderPassType::HAS_DEPTH), sampleCount(VK_SAMPLE_COUNT_1_BIT) {}  // renderpasstype here shouldn't matter
 	enum class Type {
 		GRAPHICS,
 		COMPUTE,
@@ -197,6 +174,7 @@ struct CompileQueueEntry {
 	RenderPassType renderPassType;
 	VKRGraphicsPipeline *graphics = nullptr;
 	VKRComputePipeline *compute = nullptr;
+	VkSampleCountFlagBits sampleCount;
 };
 
 class VulkanRenderManager {
@@ -211,7 +189,11 @@ public:
 	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.
 	void Wipe();
 
-	// This starts a new step containing a render pass.
+	void SetInvalidationCallback(InvalidationCallback callback) {
+		invalidationCallback_ = callback;
+	}
+
+	// This starts a new step containing a render pass (unless it can be trivially merged into the previous one, which is pretty common).
 	//
 	// After a "CopyFramebuffer" or the other functions that start "steps", you need to call this beforce
 	// making any new render state changes or draw calls.
@@ -230,7 +212,9 @@ public:
 
 	// Returns an ImageView corresponding to a framebuffer. Is called BindFramebufferAsTexture to maintain a similar interface
 	// as the other backends, even though there's no actual binding happening here.
-	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBits, int attachment);
+	// For layer, we use the same convention as thin3d, where layer = -1 means all layers together. For texturing, that means that you
+	// get an array texture view.
+	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBits, int layer);
 
 	void BindCurrentFramebufferAsInputAttachment0(VkImageAspectFlags aspectBits);
 
@@ -245,13 +229,23 @@ public:
 	// We delay creating pipelines until the end of the current render pass, so we can create the right type immediately.
 	// Unless a variantBitmask is passed in, in which case we can just go ahead.
 	// WARNING: desc must stick around during the lifetime of the pipeline! It's not enough to build it on the stack and drop it.
-	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, const char *tag);
+	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, const char *tag);
 	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc);
 
 	void NudgeCompilerThread() {
 		compileMutex_.lock();
 		compileCond_.notify_one();
 		compileMutex_.unlock();
+	}
+
+	// Mainly used to bind the frame-global desc set.
+	// Can be done before binding a pipeline, so not asserting on that.
+	void BindDescriptorSet(int setNumber, VkDescriptorSet set, VkPipelineLayout pipelineLayout) {
+		VkRenderData data{ VKRRenderCommand::BIND_DESCRIPTOR_SET };
+		data.bindDescSet.setNumber = setNumber;
+		data.bindDescSet.set = set;
+		data.bindDescSet.pipelineLayout = pipelineLayout;
+		curRenderStep_->commands.push_back(data);
 	}
 
 	void BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
@@ -261,6 +255,10 @@ public:
 		pipelinesToCheck_.push_back(pipeline);
 		data.graphics_pipeline.pipeline = pipeline;
 		data.graphics_pipeline.pipelineLayout = pipelineLayout;
+		// This can be used to debug cases where depth/stencil rendering is used on color-only framebuffers.
+		// if ((flags & PipelineFlags::USES_DEPTH_STENCIL) && curRenderStep_->render.framebuffer && !curRenderStep_->render.framebuffer->HasDepth()) {
+		//     DebugBreak();
+		// }
 		curPipelineFlags_ |= flags;
 		curRenderStep_->commands.push_back(data);
 	}
@@ -435,12 +433,6 @@ public:
 
 	VkCommandBuffer GetInitCmd();
 
-	// Gets a frame-unique ID of the current step being recorded. Can be used to figure out
-	// when the current step has changed, which means the caller will need to re-record its state.
-	int GetCurrentStepId() const {
-		return renderStepOffset_ + (int)steps_.size();
-	}
-
 	bool CreateBackbuffers();
 	void DestroyBackbuffers();
 
@@ -470,6 +462,8 @@ public:
 		return outOfDateFrames_ > VulkanContext::MAX_INFLIGHT_FRAMES;
 	}
 
+	void Invalidate(InvalidationFlags flags);
+
 	void ResetStats();
 
 private:
@@ -480,7 +474,6 @@ private:
 	void DrainCompileQueue();
 
 	void Run(VKRRenderThreadTask &task);
-	void BeginSubmitFrame(int frame);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
@@ -508,7 +501,6 @@ private:
 	bool run_ = false;
 
 	// This is the offset within this frame, in case of a mid-frame sync.
-	int renderStepOffset_ = 0;
 	VKRStep *curRenderStep_ = nullptr;
 	bool curStepHasViewport_ = false;
 	bool curStepHasScissor_ = false;
@@ -547,4 +539,6 @@ private:
 	SimpleStat initTimeMs_;
 	SimpleStat totalGPUTimeMs_;
 	SimpleStat renderCPUTimeMs_;
+
+	std::function<void(InvalidationCallbackFlags)> invalidationCallback_;
 };

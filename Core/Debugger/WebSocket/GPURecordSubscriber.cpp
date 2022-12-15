@@ -23,7 +23,7 @@
 #include "GPU/Debugger/Record.h"
 
 struct WebSocketGPURecordState : public DebuggerSubscriber {
-	~WebSocketGPURecordState() override;
+	~WebSocketGPURecordState();
 	void Dump(DebuggerRequest &req);
 
 	void Broadcast(net::WebSocketServer *ws) override;

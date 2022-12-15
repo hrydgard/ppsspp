@@ -42,7 +42,8 @@ protected:
 	virtual void CreateViews() = 0;
 	virtual void DrawBackground(UIContext &dc) {}
 
-	virtual void RecreateViews() override { recreateViews_ = true; }
+	void RecreateViews() override { recreateViews_ = true; }
+	bool UseVerticalLayout() const;
 
 	UI::ViewGroup *root_ = nullptr;
 	Vec3 translation_ = Vec3(0.0f);
@@ -54,6 +55,7 @@ private:
 	void DoRecreateViews();
 
 	bool recreateViews_ = true;
+	bool lastVertical_;
 };
 
 class UIDialogScreen : public UIScreen {
@@ -72,13 +74,12 @@ public:
 	PopupScreen(std::string title, std::string button1 = "", std::string button2 = "");
 
 	virtual void CreatePopupContents(UI::ViewGroup *parent) = 0;
-	virtual void CreateViews() override;
-	virtual bool isTransparent() const override { return true; }
-	virtual bool touch(const TouchInput &touch) override;
-	virtual bool key(const KeyInput &key) override;
-	virtual void resized() override;
+	void CreateViews() override;
+	bool isTransparent() const override { return true; }
+	bool touch(const TouchInput &touch) override;
+	bool key(const KeyInput &key) override;
 
-	virtual void TriggerFinish(DialogResult result) override;
+	void TriggerFinish(DialogResult result) override;
 
 	void SetPopupOrigin(const UI::View *view);
 	void SetPopupOffset(float y);
@@ -91,9 +92,10 @@ protected:
 	virtual bool ShowButtons() const { return true; }
 	virtual bool CanComplete(DialogResult result) { return true; }
 	virtual void OnCompleted(DialogResult result) {}
+	virtual bool HasTitleBar() const { return true; }
 	const std::string &Title() { return title_; }
 
-	virtual void update() override;
+	void update() override;
 
 private:
 	UI::ViewGroup *box_;
@@ -141,9 +143,9 @@ public:
 	UI::Event OnChoice;
 
 protected:
-	virtual bool FillVertical() const override { return false; }
-	virtual bool ShowButtons() const override { return showButtons_; }
-	virtual void CreatePopupContents(UI::ViewGroup *parent) override;
+	bool FillVertical() const override { return false; }
+	bool ShowButtons() const override { return showButtons_; }
+	void CreatePopupContents(UI::ViewGroup *parent) override;
 	UI::StringVectorListAdaptor adaptor_;
 	UI::ListView *listView_ = nullptr;
 
@@ -162,9 +164,9 @@ public:
 	UI::Event OnChoice;
 
 protected:
-	virtual bool FillVertical() const override { return false; }
-	virtual bool ShowButtons() const override { return true; }
-	virtual void CreatePopupContents(UI::ViewGroup *parent) override;
+	bool FillVertical() const override { return false; }
+	bool ShowButtons() const override { return true; }
+	void CreatePopupContents(UI::ViewGroup *parent) override;
 
 private:
 	void OnCompleted(DialogResult result) override;
@@ -180,7 +182,7 @@ class SliderPopupScreen : public PopupScreen {
 public:
 	SliderPopupScreen(int *value, int minValue, int maxValue, const std::string &title, int step = 1, const std::string &units = "")
 		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step) {}
-	virtual void CreatePopupContents(ViewGroup *parent) override;
+	void CreatePopupContents(ViewGroup *parent) override;
 
 	void SetNegativeDisable(const std::string &str) {
 		negativeLabel_ = str;
@@ -196,7 +198,7 @@ private:
 	EventReturn OnIncrease(EventParams &params);
 	EventReturn OnTextChange(EventParams &params);
 	EventReturn OnSliderChange(EventParams &params);
-	virtual void OnCompleted(DialogResult result) override;
+	void OnCompleted(DialogResult result) override;
 	Slider *slider_ = nullptr;
 	UI::TextEdit *edit_ = nullptr;
 	std::string units_;
@@ -225,7 +227,7 @@ private:
 	EventReturn OnDecrease(EventParams &params);
 	EventReturn OnTextChange(EventParams &params);
 	EventReturn OnSliderChange(EventParams &params);
-	virtual void OnCompleted(DialogResult result) override;
+	void OnCompleted(DialogResult result) override;
 	UI::SliderFloat *slider_;
 	UI::TextEdit *edit_;
 	std::string units_;
@@ -243,19 +245,51 @@ class TextEditPopupScreen : public PopupScreen {
 public:
 	TextEditPopupScreen(std::string *value, const std::string &placeholder, const std::string &title, int maxLen)
 		: PopupScreen(title, "OK", "Cancel"), value_(value), placeholder_(placeholder), maxLen_(maxLen) {}
-	virtual void CreatePopupContents(ViewGroup *parent) override;
+	void CreatePopupContents(ViewGroup *parent) override;
 
 	const char *tag() const override { return "TextEditPopup"; }
 
 	Event OnChange;
 
 private:
-	virtual void OnCompleted(DialogResult result) override;
+	void OnCompleted(DialogResult result) override;
 	TextEdit *edit_;
 	std::string *value_;
 	std::string textEditValue_;
 	std::string placeholder_;
 	int maxLen_;
+};
+
+// TODO: Break out a lot of popup stuff from UIScreen.h.
+
+struct ContextMenuItem {
+	const char *text;
+	const char *imageID;
+};
+
+// Once a selection has been made,
+class PopupContextMenuScreen : public PopupScreen {
+public:
+	PopupContextMenuScreen(const ContextMenuItem *items, size_t itemCount, I18NCategory *category, UI::View *sourceView);
+	void CreatePopupContents(ViewGroup *parent) override;
+
+	const char *tag() const override { return "ContextMenuPopup"; }
+
+	void SetEnabled(size_t index, bool enabled) {
+		enabled_[index] = enabled;
+	}
+
+	UI::Event OnChoice;
+
+protected:
+	bool HasTitleBar() const override { return false; }
+
+private:
+	const ContextMenuItem *items_;
+	size_t itemCount_;
+	I18NCategory *category_;
+	UI::View *sourceView_;
+	std::vector<bool> enabled_;
 };
 
 class AbstractChoiceWithValueDisplay : public UI::Choice {
@@ -264,7 +298,7 @@ public:
 		: Choice(text, layoutParams) {
 	}
 
-	virtual void Draw(UIContext &dc) override;
+	void Draw(UIContext &dc) override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 
 protected:
@@ -344,7 +378,7 @@ public:
 	}
 
 protected:
-	void PostChoiceCallback(int num) {
+	void PostChoiceCallback(int num) override {
 		*valueStr_ = choices_[num];
 	}
 
@@ -386,7 +420,7 @@ private:
 	std::string negativeLabel_;
 	std::string units_;
 	ScreenManager *screenManager_;
-	bool restoreFocus_;
+	bool restoreFocus_ = false;
 };
 
 class PopupSliderChoiceFloat : public AbstractChoiceWithValueDisplay {
@@ -423,7 +457,7 @@ private:
 	std::string zeroLabel_;
 	std::string units_;
 	ScreenManager *screenManager_;
-	bool restoreFocus_;
+	bool restoreFocus_ = false;
 	bool liveUpdate_ = false;
 	bool hasDropShadow_ = true;
 };
@@ -463,8 +497,8 @@ public:
 private:
 	std::string ValueText() const override;
 
-	int *iValue_ = nullptr;
 	std::string *sValue_ = nullptr;
+	int *iValue_ = nullptr;
 	const char *category_ = nullptr;
 	std::string (*translateCallback_)(const char *value) = nullptr;
 };

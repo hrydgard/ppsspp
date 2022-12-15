@@ -1017,7 +1017,7 @@ bool isPTPPortInUse(uint16_t port, bool forListen, SceNetEtherAddr* dstmac = nul
 std::string ip2str(in_addr in, bool maskPublicIP = true);
 
 // Convert MAC address to string
-std::string mac2str(SceNetEtherAddr* mac);
+std::string mac2str(const SceNetEtherAddr *mac);
 
 /*
  * Matching Members

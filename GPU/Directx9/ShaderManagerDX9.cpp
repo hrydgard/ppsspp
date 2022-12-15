@@ -197,7 +197,7 @@ void ShaderManagerDX9::VSSetColorUniform3(int creg, u32 color) {
 	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
-void ShaderManagerDX9::VSSetFloatUniform4(int creg, float data[4]) {
+void ShaderManagerDX9::VSSetFloatUniform4(int creg, const float data[4]) {
 	device_->SetVertexShaderConstantF(creg, data, 1);
 }
 
@@ -544,11 +544,11 @@ void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
 	lastPShader_ = nullptr;
 }
 
-VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat, const ComputedPipelineState &pipelineState) {
+VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat, bool useSkinInDecode, const ComputedPipelineState &pipelineState) {
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, vertType, useHWTransform, useHWTessellation, weightsAsFloat);
+		ComputeVertexShaderID(&VSID, vertType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
 	} else {
 		VSID = lastVSID_;
 	}
@@ -581,7 +581,8 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 		std::string genErrorString;
 		uint32_t attrMask;
 		uint64_t uniformMask;
-		if (GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &genErrorString)) {
+		VertexShaderFlags flags;
+		if (GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &flags, &genErrorString)) {
 			vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
 		}
 		if (!vs || vs->Failed()) {
@@ -597,7 +598,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 			}
 			delete vs;
 
-			ComputeVertexShaderID(&VSID, vertType, false, false, weightsAsFloat);
+			ComputeVertexShaderID(&VSID, vertType, false, false, weightsAsFloat, useSkinInDecode);
 
 			// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure
 			// that that shader ID is not used when computing the linked shader ID below, because then IDs won't match
@@ -606,7 +607,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 			// Can still work with software transform.
 			uint32_t attrMask;
 			uint64_t uniformMask;
-			bool success = GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &genErrorString);
+			bool success = GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &flags, &genErrorString);
 			_assert_(success);
 			vs = new VSShader(device_, VSID, codeBuffer_, false);
 		}
@@ -623,7 +624,8 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 		// Fragment shader not in cache. Let's compile it.
 		std::string errorString;
 		uint64_t uniformMask;
-		bool success = GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, nullptr, &errorString);
+		FragmentShaderFlags flags;
+		bool success = GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, &flags, &errorString);
 		// We're supposed to handle all possible cases.
 		_assert_(success);
 		fs = new PSShader(device_, FSID, codeBuffer_);

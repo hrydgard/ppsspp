@@ -72,6 +72,10 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 	maxValues[3] = NAN;
 }
 
+void FrameUpdateUniforms(UB_Frame *ub, bool useBufferedRendering) {
+	ub->rotation = useBufferedRendering ? 0 : (float)g_display_rotation;
+}
+
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport, bool useBufferedRendering) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
 		Uint8x3ToFloat3(ub->texEnvColor, gstate.texenvcolor);
@@ -139,7 +143,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 			flippedMatrix = flippedMatrix * g_display_rot_matrix;
 		}
 		CopyMatrix4x4(ub->proj, flippedMatrix.getReadPtr());
-		ub->rotation = useBufferedRendering ? 0 : (float)g_display_rotation;
 	}
 
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
@@ -160,7 +163,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		}
 
 		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
-		ub->rotation = useBufferedRendering ? 0 : (float)g_display_rotation;
 	}
 
 	// Transform

@@ -70,6 +70,8 @@ static bool IsNotVisibleAction(SceUtilitySavedataType type) {
 	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
 	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:
 		return true;
@@ -155,7 +157,7 @@ int PSPSaveDialog::Init(int paramAddr)
 		break;
 	}
 
-	if(!param.wouldHasMultiSaveName(param.GetPspParam()))
+	if (!param.WouldHaveMultiSaveName(param.GetPspParam()))
 		currentSelectedSave = 0;
 
 	switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode)
@@ -222,6 +224,8 @@ int PSPSaveDialog::Init(int paramAddr)
 		case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
 		case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
 		case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
+		case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
+		case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
 		case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
 			display = DS_NONE;
 			break;
@@ -1251,7 +1255,7 @@ void PSPSaveDialog::DoState(PointerWrap &p) {
 	// Just reset it.
 	bool hasParam = param.GetPspParam() != NULL;
 	Do(p, hasParam);
-	if (hasParam) {
+	if (hasParam && p.mode == p.MODE_READ) {
 		param.SetPspParam(&request);
 	}
 	Do(p, requestAddr);

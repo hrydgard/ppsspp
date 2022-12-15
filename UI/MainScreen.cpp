@@ -136,8 +136,8 @@ public:
 	void SetHoldEnabled(bool hold) {
 		holdEnabled_ = hold;
 	}
-	void Touch(const TouchInput &input) override {
-		UI::Clickable::Touch(input);
+	bool Touch(const TouchInput &input) override {
+		bool retval = UI::Clickable::Touch(input);
 		hovering_ = bounds_.Contains(input.x, input.y);
 		if (hovering_ && (input.flags & TOUCH_DOWN)) {
 			holdStart_ = time_now_d();
@@ -145,6 +145,7 @@ public:
 		if (input.flags & TOUCH_UP) {
 			holdStart_ = 0;
 		}
+		return retval;
 	}
 
 	bool Key(const KeyInput &key) override {
@@ -433,7 +434,7 @@ public:
 	DirButton(const Path &path, const std::string &text, bool gridStyle, UI::LayoutParams *layoutParams = 0)
 		: UI::Button(text, layoutParams), path_(path), gridStyle_(gridStyle), absolute_(true) {}
 
-	virtual void Draw(UIContext &dc);
+	void Draw(UIContext &dc) override;
 
 	const Path &GetPath() const {
 		return path_;
@@ -965,7 +966,6 @@ UI::EventReturn GameBrowser::OnHomebrewStore(UI::EventParams &e) {
 MainScreen::MainScreen() {
 	System_SendMessage("event", "mainscreen");
 	g_BackgroundAudio.SetGame(Path());
-	lastVertical_ = UseVerticalLayout();
 }
 
 MainScreen::~MainScreen() {
@@ -1127,7 +1127,7 @@ void MainScreen::CreateViews() {
 #endif
 
 	rightColumnItems->Add(logos);
-	TextView *ver = rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))));
+	TextView *ver = rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -10, 0, 4))));
 	ver->SetSmall(true);
 	ver->SetClip(false);
 
@@ -1254,15 +1254,6 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 void MainScreen::update() {
 	UIScreen::update();
 	UpdateUIState(UISTATE_MENU);
-	bool vertical = UseVerticalLayout();
-	if (vertical != lastVertical_) {
-		RecreateViews();
-		lastVertical_ = vertical;
-	}
-}
-
-bool MainScreen::UseVerticalLayout() const {
-	return dp_yres > dp_xres * 1.1f;
 }
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
@@ -1499,7 +1490,7 @@ void UmdReplaceScreen::CreateViews() {
 
 	tabAllGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
-	rightColumnItems->Add(new Choice(di->T("Cancel")))->OnClick.Handle(this, &UmdReplaceScreen::OnCancel);
+	rightColumnItems->Add(new Choice(di->T("Cancel")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
 
 	if (g_Config.HasRecentIsos()) {
@@ -1521,11 +1512,6 @@ void UmdReplaceScreen::update() {
 UI::EventReturn UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {
 	__UmdReplace(Path(e.s));
 	TriggerFinish(DR_OK);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn UmdReplaceScreen::OnCancel(UI::EventParams &e) {
-	TriggerFinish(DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 

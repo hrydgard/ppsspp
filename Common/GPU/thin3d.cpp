@@ -46,6 +46,7 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 
 	case DataFormat::S8: return 1;
 	case DataFormat::D16: return 2;
+	case DataFormat::D16_S8: return 3;
 	case DataFormat::D24_S8: return 4;
 	case DataFormat::D32F: return 4;
 	// Or maybe 8...
@@ -56,9 +57,32 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 	}
 }
 
+const char *DataFormatToString(DataFormat fmt) {
+	switch (fmt) {
+	case DataFormat::R8_UNORM: return "R8_UNORM";
+	case DataFormat::R8G8_UNORM: return "R8G8_UNORM";
+	case DataFormat::R8G8B8A8_UNORM: return "R8G8B8A8_UNORM";
+	case DataFormat::B8G8R8A8_UNORM: return "B8G8R8A8_UNORM";
+	case DataFormat::R16_UNORM: return "R16_UNORM";
+	case DataFormat::R16_FLOAT: return "R16_FLOAT";
+	case DataFormat::R32_FLOAT: return "R32_FLOAT";
+
+	case DataFormat::S8: return "S8";
+	case DataFormat::D16: return "D16";
+	case DataFormat::D16_S8: return "D16_S8";
+	case DataFormat::D24_S8: return "D24_S8";
+	case DataFormat::D32F: return "D32F";
+	case DataFormat::D32F_S8: return "D32F_S8";
+
+	default:
+		return "(N/A)";
+	}
+}
+
 bool DataFormatIsDepthStencil(DataFormat fmt) {
 	switch (fmt) {
 	case DataFormat::D16:
+	case DataFormat::D16_S8:
 	case DataFormat::D24_S8:
 	case DataFormat::S8:
 	case DataFormat::D32F:
@@ -137,7 +161,7 @@ static const std::vector<ShaderSource> fsTexCol = {
 	"layout(location = 0) in vec4 oColor0;\n"
 	"layout(location = 1) in vec2 oTexCoord0;\n"
 	"layout(location = 0) out vec4 fragColor0;\n"
-	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
+	"layout(set = 1, binding = 1) uniform sampler2D Sampler0;\n"
 	"void main() { fragColor0 = texture(Sampler0, oTexCoord0) * oColor0; }\n"
 	}
 };
@@ -181,7 +205,7 @@ static const std::vector<ShaderSource> fsTexColRBSwizzle = {
 	"layout(location = 0) in vec4 oColor0;\n"
 	"layout(location = 1) in vec2 oTexCoord0;\n"
 	"layout(location = 0) out vec4 fragColor0\n;"
-	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
+	"layout(set = 1, binding = 1) uniform sampler2D Sampler0;\n"
 	"void main() { fragColor0 = texture(Sampler0, oTexCoord0).bgra * oColor0; }\n"
 	}
 };
@@ -270,7 +294,7 @@ static const std::vector<ShaderSource> vsCol = {
 R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
-layout (std140, set = 0, binding = 0) uniform bufferVals {
+layout (std140, set = 1, binding = 0) uniform bufferVals {
 	mat4 WorldViewProj;
 	vec2 TintSaturation;
 } myBufferVals;
@@ -416,7 +440,7 @@ VS_OUTPUT main(VS_INPUT input) {
 	R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
-layout (std140, set = 0, binding = 0) uniform bufferVals {
+layout (std140, set = 1, binding = 0) uniform bufferVals {
 	mat4 WorldViewProj;
 	vec2 TintSaturation;
 } myBufferVals;
@@ -712,6 +736,8 @@ const char *Bugs::GetBugName(uint32_t bug) {
 	case RASPBERRY_SHADER_COMP_HANG: return "RASPBERRY_SHADER_COMP_HANG";
 	case MALI_CONSTANT_LOAD_BUG: return "MALI_CONSTANT_LOAD_BUG";
 	case SUBPASS_FEEDBACK_BROKEN: return "SUBPASS_FEEDBACK_BROKEN";
+	case GEOMETRY_SHADERS_SLOW_OR_BROKEN: return "GEOMETRY_SHADERS_SLOW_OR_BROKEN";
+	case ADRENO_RESOURCE_DEADLOCK: return "ADRENO_RESOURCE_DEADLOCK";
 	default: return "(N/A)";
 	}
 }

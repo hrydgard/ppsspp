@@ -39,18 +39,21 @@
 
 
 bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLanguageDesc &compat, const Draw::Bugs bugs, std::string *errorString) {
-	std::vector<const char*> gl_exts;
+	std::vector<const char*> extensions;
 	if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if (gl_extensions.EXT_gpu_shader4) {
-			gl_exts.push_back("#extension GL_EXT_gpu_shader4 : enable");
+			extensions.push_back("#extension GL_EXT_gpu_shader4 : enable");
 		}
 	}
 	bool vertexRangeCulling = !id.Bit(GS_BIT_CURVE);
-	bool clipClampedDepth = gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP);
+	bool clipClampedDepth = gstate_c.Use(GPU_USE_DEPTH_CLAMP);
 
-	ShaderWriter p(buffer, compat, ShaderStage::Geometry, gl_exts.data(), gl_exts.size());
+	ShaderWriter p(buffer, compat, ShaderStage::Geometry, extensions);
+
+	p.F("// %s\n", GeometryShaderDesc(id).c_str());
+
 	p.C("layout(triangles) in;\n");
-	if (clipClampedDepth && vertexRangeCulling && !gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+	if (clipClampedDepth && vertexRangeCulling && !gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 		p.C("layout(triangle_strip, max_vertices = 12) out;\n");
 	} else {
 		p.C("layout(triangle_strip, max_vertices = 6) out;\n");
@@ -58,7 +61,7 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
-		WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
+		WRITE(p, "layout (std140, set = 1, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
 	} else if (compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
 	}
@@ -85,7 +88,7 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 		p.C("  bool anyInside = false;\n");
 	}
 	// And apply manual clipping if necessary.
-	if (!gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+	if (!gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 		p.C("  float clip0[3];\n");
 		if (clipClampedDepth) {
 			p.C("  float clip1[3];\n");
@@ -117,10 +120,11 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 		p.C("    }\n");
 	}
 
-	if (!gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+	if (!gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 		// This is basically the same value as gl_ClipDistance would take, z + w.
 		if (vertexRangeCulling) {
-			p.C("    clip0[i] = projZ * outPos.w + outPos.w;\n");
+			// We add a small amount to prevent error as in #15816 (PSP Z is only 16-bit fixed point, anyway.)
+			p.F("    clip0[i] = projZ * outPos.w + outPos.w + %f;\n", 0.0625 / 65536.0);
 		} else {
 			// Let's not complicate the code overly for this case.  We'll clipClampedDepth.
 			p.C("    clip0[i] = 0.0;\n");
@@ -156,7 +160,7 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 		p.C("  }\n");
 	}
 
-	if (!gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+	if (!gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 		// Clipping against one half-space cuts a triangle (17/27), culls (7/27), or creates two triangles (3/27).
 		// We clip against two, so we can generate up to 4 triangles, a polygon with 6 points.
 		p.C("  int indices[6];\n");
@@ -287,10 +291,11 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 			p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clipSuffix1);
 		} else {
 			// We shouldn't need to worry about rectangles-as-triangles here, since we don't use geometry shaders for that.
-			p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clipSuffix0);
+			// We add a small amount to prevent error as in #15816 (PSP Z is only 16-bit fixed point, anyway.)
+			p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w + %f;\n", clipSuffix0, 0.0625 / 65536.0);
 		}
 		p.C("    gl_Position = outPos;\n");
-		if (gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 		}
 
 		for (size_t i = 0; i < varyings.size(); i++) {

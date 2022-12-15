@@ -204,8 +204,6 @@ enum class TempFBO {
 	BLIT,
 	// For copies of framebuffers (e.g. shader blending.)
 	COPY,
-	// For another type of framebuffers that can happen together with COPY (see Outrun)
-	REINTERPRET,
 	// Used to copy stencil data, means we need a stencil backing.
 	STENCIL,
 };
@@ -274,7 +272,7 @@ public:
 		drawEngine_ = td;
 	}
 
-	virtual void Init();
+	void Init(int msaaLevel);
 	virtual void BeginFrame();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 	void DestroyFramebuf(VirtualFramebuffer *v);
@@ -322,7 +320,7 @@ public:
 	// Otherwise it doesn't get called.
 	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 
-	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
+	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags, int layer);
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
 
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
@@ -400,7 +398,12 @@ public:
 	}
 	void SetSafeSize(u16 w, u16 h);
 
-	virtual void Resized();
+	void NotifyRenderResized(int msaaLevel);
+	virtual void NotifyDisplayResized();
+	void NotifyConfigChanged();
+
+	void CheckPostShaders();
+
 	virtual void DestroyAllFBOs();
 
 	virtual void DeviceLost();
@@ -440,6 +443,12 @@ public:
 		int scaleFactor,  // usually unused, except for swizzle...
 		Draw2DPipeline *pipeline, const char *tag);
 
+	void ReleasePipelines();
+
+	int GetMSAALevel() const {
+		return msaaLevel_;
+	}
+
 protected:
 	virtual void ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
 	// Used for when a shader is required, such as GLES.
@@ -452,7 +461,7 @@ protected:
 	void CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 	void CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 
-	bool UpdateSize();
+	bool UpdateRenderSize(int msaaLevel);
 
 	void FlushBeforeCopy();
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
@@ -460,7 +469,7 @@ protected:
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, RasterChannel channel, const char *tag);
 
-	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
+	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags, int layer);
 
 	void EstimateDrawingSize(u32 fb_address, int fb_stride, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int &drawing_width, int &drawing_height);
 	u32 ColorBufferByteSize(const VirtualFramebuffer *vfb) const;
@@ -485,6 +494,8 @@ protected:
 	VirtualFramebuffer *CreateRAMFramebuffer(uint32_t fbAddress, int width, int height, int stride, GEBufferFormat format);
 
 	void UpdateFramebufUsage(VirtualFramebuffer *vfb);
+
+	int GetFramebufferLayers() const;
 
 	static void SetColorUpdated(VirtualFramebuffer *dstBuffer, int skipDrawReason) {
 		dstBuffer->memoryUpdated = false;
@@ -540,10 +551,12 @@ protected:
 	float renderWidth_ = 0.0f;
 	float renderHeight_ = 0.0f;
 
+	int msaaLevel_ = 0;
 	int renderScaleFactor_ = 1;
 	int pixelWidth_ = 0;
 	int pixelHeight_ = 0;
 	int bloomHack_ = 0;
+	bool updatePostShaders_ = false;
 
 	Draw::DataFormat preferredPixelsFormat_ = Draw::DataFormat::R8G8B8A8_UNORM;
 

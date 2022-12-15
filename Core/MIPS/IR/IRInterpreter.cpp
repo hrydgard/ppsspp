@@ -881,16 +881,22 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 				break;
 			}
 			case IRFpCompareMode::EqualOrdered:
-			case IRFpCompareMode::EqualUnordered:
 				mips->fpcond = mips->f[inst->src1] == mips->f[inst->src2];
 				break;
+			case IRFpCompareMode::EqualUnordered:
+				mips->fpcond = mips->f[inst->src1] == mips->f[inst->src2] || my_isnan(mips->f[inst->src1]) || my_isnan(mips->f[inst->src2]);
+				break;
 			case IRFpCompareMode::LessEqualOrdered:
-			case IRFpCompareMode::LessEqualUnordered:
 				mips->fpcond = mips->f[inst->src1] <= mips->f[inst->src2];
 				break;
+			case IRFpCompareMode::LessEqualUnordered:
+				mips->fpcond = !(mips->f[inst->src1] > mips->f[inst->src2]);
+				break;
 			case IRFpCompareMode::LessOrdered:
-			case IRFpCompareMode::LessUnordered:
 				mips->fpcond = mips->f[inst->src1] < mips->f[inst->src2];
+				break;
+			case IRFpCompareMode::LessUnordered:
+				mips->fpcond = !(mips->f[inst->src1] >= mips->f[inst->src2]);
 				break;
 			}
 			break;

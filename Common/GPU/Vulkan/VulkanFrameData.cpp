@@ -121,7 +121,7 @@ VkCommandBuffer FrameData::GetInitCmd(VulkanContext *vulkan) {
 }
 
 void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &sharedData) {
-	VkCommandBuffer cmdBufs[2];
+	VkCommandBuffer cmdBufs[3];
 	int numCmdBufs = 0;
 
 	VkFence fenceToTrigger = VK_NULL_HANDLE;

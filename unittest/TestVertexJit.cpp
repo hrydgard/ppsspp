@@ -545,8 +545,10 @@ static bool TestVertexColor565() {
 
 static bool TestVertex8Skin() {
 	VertexDecoderTestHarness dec;
+	VertexDecoderOptions opts{};
+	opts.applySkinInDecode = true;
+	dec.SetOptions(opts);
 
-	g_Config.bSoftwareSkinning = true;
 	for (int i = 0; i < 8 * 12; ++i) {
 		gstate.boneMatrix[i] = 0.0f;
 	}
@@ -575,8 +577,10 @@ static bool TestVertex8Skin() {
 
 static bool TestVertex16Skin() {
 	VertexDecoderTestHarness dec;
+	VertexDecoderOptions opts{};
+	opts.applySkinInDecode = true;
+	dec.SetOptions(opts);
 
-	g_Config.bSoftwareSkinning = true;
 	for (int i = 0; i < 8 * 12; ++i) {
 		gstate.boneMatrix[i] = 0.0f;
 	}
@@ -605,8 +609,10 @@ static bool TestVertex16Skin() {
 
 static bool TestVertexFloatSkin() {
 	VertexDecoderTestHarness dec;
+	VertexDecoderOptions opts{};
+	opts.applySkinInDecode = true;
+	dec.SetOptions(opts);
 
-	g_Config.bSoftwareSkinning = true;
 	for (int i = 0; i < 8 * 12; ++i) {
 		gstate.boneMatrix[i] = 0.0f;
 	}

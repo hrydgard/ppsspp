@@ -27,7 +27,6 @@ struct alignas(16) UB_VS_FS_Base {
 	float tex[12];
 	float uvScaleOffset[4];
 	float depthRange[4];
-	// Rotation is used only for software transform.
 	float matAmbient[4];
 	float cullRangeMin[4];
 	float cullRangeMax[4];
@@ -37,7 +36,7 @@ struct alignas(16) UB_VS_FS_Base {
 	float fogColor[3]; uint32_t alphaColorRef;
 	float texEnvColor[3]; uint32_t colorTestMask;
 	float blendFixA[3]; float stencil;
-	float blendFixB[3]; float rotation;
+	float blendFixB[3]; float padUnused;
 	float texClamp[4];
 	float texClampOffset[2]; float fogCoef[2];
 	// VR stuff is to go here, later. For normal drawing, we can then get away
@@ -62,7 +61,7 @@ R"(  mat4 u_proj;
   vec3 u_fogcolor;  uint u_alphacolorref;
   vec3 u_texenv;    uint u_alphacolormask;
   vec3 u_blendFixA; float u_stencilReplaceValue;
-  vec3 u_blendFixB; float u_rotation;
+  vec3 u_blendFixB; float u_padUnused;
   vec4 u_texclamp;
   vec2 u_texclampoff;
   vec2 u_fogcoef;
@@ -131,10 +130,22 @@ static const char * const ub_vs_bonesStr =
 R"(	mat3x4 u_bone0; mat3x4 u_bone1; mat3x4 u_bone2; mat3x4 u_bone3; mat3x4 u_bone4; mat3x4 u_bone5; mat3x4 u_bone6; mat3x4 u_bone7; mat3x4 u_bone8;
 )";
 
+
+static const char * const ub_frameStr =
+R"(
+    float u_rotation;
+)";
+
+// Frame-global uniforms.
+struct UB_Frame {
+	float rotation;  // This is only used when using software transform, and non-buffered, to support native screen rotation.
+};
+
 void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bool hasNegZ);
 
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport, bool useBufferedRendering);
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
 void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms);
+void FrameUpdateUniforms(UB_Frame *ub, bool useBufferedRendering);
 
 uint32_t PackLightControlBits();

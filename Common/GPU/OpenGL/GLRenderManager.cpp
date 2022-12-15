@@ -5,8 +5,6 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/VR/PPSSPPVR.h"
 
-#include "Core/Config.h"
-
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/Math/math_util.h"
@@ -356,9 +354,13 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 			step->dependencies.insert(fb);
 		}
 	}
+
+	if (invalidationCallback_) {
+		invalidationCallback_(InvalidationCallbackFlags::RENDER_PASS_STATE);
+	}
 }
 
-void GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment) {
+void GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit) {
 	_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 	_dbg_assert_(binding < MAX_GL_TEXTURE_SLOTS);
 	GLRRenderData data{ GLRRenderCommand::BIND_FB_TEXTURE };
@@ -482,7 +484,6 @@ void GLRenderManager::BeginFrame() {
 	// In GL, we have to do deletes on the submission thread.
 
 	insideFrame_ = true;
-	renderStepOffset_ = 0;
 }
 
 void GLRenderManager::Finish() {
@@ -579,18 +580,15 @@ void GLRenderManager::Run(int frame) {
 		}
 	}
 
-	if (IsVRBuild()) {
-		int passes = 1;
-		if (!IsMultiviewSupported() && g_Config.bEnableStereo) {
-			passes = 2;
-		}
+	if (IsVREnabled()) {
+		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {
 			PreVRFrameRender(i);
-			queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, i < passes - 1);
+			queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, i < passes - 1, true);
 			PostVRFrameRender();
 		}
 	} else {
-		queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
+		queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, false, false);
 	}
 	stepsOnThread.clear();
 
@@ -617,9 +615,6 @@ void GLRenderManager::Run(int frame) {
 }
 
 void GLRenderManager::FlushSync() {
-	// TODO: Reset curRenderStep_?
-	renderStepOffset_ += (int)steps_.size();
-
 	int curFrame = curFrame_;
 	FrameData &frameData = frameData_[curFrame];
 	{

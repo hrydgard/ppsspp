@@ -98,9 +98,10 @@ void FakeJit::ClearCache()
 	//GenerateFixedCode();
 }
 
-void FakeJit::InvalidateCacheAt(u32 em_address, int length)
-{
-	blocks.InvalidateICache(em_address, length);
+void FakeJit::InvalidateCacheAt(u32 em_address, int length) {
+	if (blocks.RangeMayHaveEmuHacks(em_address, em_address + length)) {
+		blocks.InvalidateICache(em_address, length);
+	}
 }
 
 void FakeJit::EatInstruction(MIPSOpcode op) {

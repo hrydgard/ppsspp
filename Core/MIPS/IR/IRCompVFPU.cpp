@@ -72,9 +72,27 @@ namespace MIPSComp {
 			     regs[3] == regs[2] + 1;
 	}
 
+	static bool IsVec4(VectorSize sz, const u8 regs[4]) {
+		return sz == V_Quad && IsConsecutive4(regs) && (regs[0] & 3) == 0;
+	}
+
+	static bool IsMatrixVec4(MatrixSize sz, const u8 regs[16]) {
+		if (sz != M_4x4)
+			return false;
+		if (!IsConsecutive4(&regs[0]) || (regs[0] & 3) != 0)
+			return false;
+		if (!IsConsecutive4(&regs[4]) || (regs[4] & 3) != 0)
+			return false;
+		if (!IsConsecutive4(&regs[8]) || (regs[8] & 3) != 0)
+			return false;
+		if (!IsConsecutive4(&regs[12]) || (regs[12] & 3) != 0)
+			return false;
+		return true;
+	}
+
 	// Vector regs can overlap in all sorts of swizzled ways.
 	// This does allow a single overlap in sregs[i].
-	static bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
+	static bool IsOverlapSafeAllowS(int dreg, int di, int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = NULL) {
 		for (int i = 0; i < sn; ++i) {
 			if (sregs[i] == dreg && i != di)
 				return false;
@@ -88,7 +106,7 @@ namespace MIPSComp {
 		return true;
 	}
 
-	static bool IsOverlapSafeAllowS(int dn, u8 dregs[], int sn, u8 sregs[], int tn = 0, u8 tregs[] = nullptr) {
+	static bool IsOverlapSafeAllowS(int dn, const u8 dregs[], int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = nullptr) {
 		for (int i = 0; i < dn; ++i) {
 			if (!IsOverlapSafeAllowS(dregs[i], i, sn, sregs, tn, tregs)) {
 				return false;
@@ -97,11 +115,11 @@ namespace MIPSComp {
 		return true;
 	}
 
-	static bool IsOverlapSafe(int dreg, int sn, u8 sregs[], int tn = 0, u8 tregs[] = nullptr) {
+	static bool IsOverlapSafe(int dreg, int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = nullptr) {
 		return IsOverlapSafeAllowS(dreg, -1, sn, sregs, tn, tregs);
 	}
 
-	static bool IsOverlapSafe(int dn, u8 dregs[], int sn, u8 sregs[], int tn = 0, u8 tregs[] = nullptr) {
+	static bool IsOverlapSafe(int dn, const u8 dregs[], int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = nullptr) {
 		for (int i = 0; i < dn; ++i) {
 			if (!IsOverlapSafe(dregs[i], sn, sregs, tn, tregs)) {
 				return false;
@@ -117,8 +135,9 @@ namespace MIPSComp {
 			int abs = (prefix >> (8 + i)) & 1;
 			int negate = (prefix >> (16 + i)) & 1;
 			int constants = (prefix >> (12 + i)) & 1;
-			if (regnum < n || abs || negate || constants) {
-				return false;
+			if (regnum >= n && !constants) {
+				if (abs || negate || regnum != i)
+					return false;
 			}
 		}
 
@@ -165,14 +184,14 @@ namespace MIPSComp {
 			return;
 
 		int n = GetNumVectorElements(sz);
-		u8 origV[4];
+		u8 origV[4]{};
 		static const float constantArray[8] = { 0.f, 1.f, 2.f, 0.5f, 3.f, 1.f / 3.f, 0.25f, 1.f / 6.f };
 
 		for (int i = 0; i < n; i++)
 			origV[i] = vregs[i];
 
 		// Some common vector prefixes
-		if (sz == V_Quad && IsConsecutive4(vregs)) {
+		if (IsVec4(sz, vregs)) {
 			if (prefix == 0xF00E4) {
 				InitRegs(vregs, tempReg);
 				ir.Write(IROp::Vec4Neg, vregs[0], origV[0]);
@@ -326,7 +345,7 @@ namespace MIPSComp {
 
 		switch (op >> 26) {
 		case 54: //lv.q
-			if (IsConsecutive4(vregs)) {
+			if (IsVec4(V_Quad, vregs)) {
 				ir.Write(IROp::LoadVec4, vregs[0], rs, ir.AddConstant(imm));
 			} else {
 				// Let's not even bother with "vertical" loads for now.
@@ -340,7 +359,7 @@ namespace MIPSComp {
 			break;
 
 		case 62: //sv.q
-			if (IsConsecutive4(vregs)) {
+			if (IsVec4(V_Quad, vregs)) {
 				ir.Write(IROp::StoreVec4, vregs[0], rs, ir.AddConstant(imm));
 			} else {
 				// Let's not even bother with "vertical" stores for now.
@@ -380,7 +399,7 @@ namespace MIPSComp {
 		u8 dregs[4];
 		GetVectorRegsPrefixD(dregs, sz, vd);
 
-		if (sz == V_Quad && IsConsecutive4(dregs)) {
+		if (IsVec4(sz, dregs)) {
 			ir.Write(IROp::Vec4Init, dregs[0], (int)(type == 6 ? Vec4Init::AllZERO : Vec4Init::AllONE));
 		} else {
 			for (int i = 0; i < n; i++) {
@@ -405,7 +424,7 @@ namespace MIPSComp {
 		u8 dregs[4];
 		GetVectorRegsPrefixD(dregs, sz, vd);
 
-		if (sz == 4 && IsConsecutive4(dregs)) {
+		if (IsVec4(sz, dregs)) {
 			int row = vd & 3;
 			Vec4Init init = Vec4Init((int)Vec4Init::Set_1000 + row);
 			ir.Write(IROp::Vec4Init, dregs[0], (int)init);
@@ -464,6 +483,7 @@ namespace MIPSComp {
 				init = Vec4Init::AllONE;
 				break;
 			default:
+				INVALIDOP;
 				return;
 			}
 			ir.Write(IROp::Vec4Init, vec[0], (int)init);
@@ -472,7 +492,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VHdp(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op)) {
+		if (js.HasUnknownPrefix() || js.HasSPrefix() || !IsPrefixWithinSize(js.prefixT, op)) {
 			DISABLE;
 		}
 
@@ -572,7 +592,7 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, vt);
 		GetVectorRegsPrefixD(dregs, V_Single, vd);
 
-		if (sz == V_Quad && IsConsecutive4(sregs) && IsConsecutive4(tregs) && IsOverlapSafe(dregs[0], n, sregs, n, tregs)) {
+		if (IsVec4(sz, sregs) && IsVec4(sz, tregs) && IsOverlapSafe(dregs[0], n, sregs, n, tregs)) {
 			ir.Write(IROp::Vec4Dot, dregs[0], sregs[0], tregs[0]);
 			ApplyPrefixD(dregs, V_Single);
 			return;
@@ -658,7 +678,7 @@ namespace MIPSComp {
 		}
 
 		// If all three are consecutive 4, we're safe regardless of if we use temps so we should not check that here.
-		if (allowSIMD && sz == V_Quad && IsConsecutive4(dregs) && IsConsecutive4(sregs) && IsConsecutive4(tregs)) {
+		if (allowSIMD && IsVec4(sz, dregs) && IsVec4(sz, sregs) && IsVec4(sz, tregs)) {
 			IROp opFunc = IROp::Nop;
 			switch (op >> 26) {
 			case 24: //VFPU0
@@ -754,8 +774,15 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VV2Op(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op))
-			DISABLE;
+		int optype = (op >> 16) & 0x1f;
+		if (optype == 0) {
+			if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op))
+				DISABLE;
+		} else {
+			// Many of these apply the D prefix strangely or override parts of the S prefix.
+			if (!js.HasNoPrefix())
+				DISABLE;
+		}
 
 		// Vector unary operation
 		// d[N] = OP(s[N]) (see below)
@@ -763,7 +790,6 @@ namespace MIPSComp {
 		int vs = _VS;
 		int vd = _VD;
 
-		int optype = (op >> 16) & 0x1f;
 		if (optype >= 16 && !js.HasNoPrefix()) {
 			DISABLE;
 		} else if ((optype == 1 || optype == 2) && js.HasSPrefix()) {
@@ -780,14 +806,14 @@ namespace MIPSComp {
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
-		u8 sregs[4], dregs[4];
+		u8 sregs[4]{}, dregs[4]{};
 		GetVectorRegsPrefixS(sregs, sz, vs);
 		GetVectorRegsPrefixD(dregs, sz, vd);
 
 		bool usingTemps = false;
 		u8 tempregs[4];
 		for (int i = 0; i < n; ++i) {
-			if (!IsOverlapSafe(dregs[i], n, sregs)) {
+			if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs)) {
 				usingTemps = true;
 				tempregs[i] = IRVTEMP_0 + i;
 			} else {
@@ -805,7 +831,7 @@ namespace MIPSComp {
 			break;
 		}
 
-		if (canSIMD && !usingTemps && IsConsecutive4(sregs) && IsConsecutive4(dregs)) {
+		if (canSIMD && !usingTemps && IsVec4(sz, sregs) && IsVec4(sz, dregs)) {
 			switch (optype) {
 			case 0:  // vmov
 				ir.Write(IROp::Vec4Mov, dregs[0], sregs[0]);
@@ -1185,8 +1211,8 @@ namespace MIPSComp {
 		int vt = _VT;
 		u8 sregs[4], dregs[4], treg;
 		GetVectorRegsPrefixS(sregs, sz, vs);
-		// TODO: Prefixes seem strange...
-		GetVectorRegsPrefixT(&treg, V_Single, vt);
+		// T prefixes handled by interp.
+		GetVectorRegs(&treg, V_Single, vt);
 		GetVectorRegsPrefixD(dregs, sz, vd);
 
 		bool overlap = false;
@@ -1203,7 +1229,7 @@ namespace MIPSComp {
 			}
 		}
 
-		if (n == 4 && IsConsecutive4(sregs) && IsConsecutive4(dregs)) {
+		if (IsVec4(sz, sregs) && IsVec4(sz, dregs)) {
 			if (!overlap || (vs == vd && IsOverlapSafe(treg, n, dregs))) {
 				ir.Write(IROp::Vec4Scale, dregs[0], sregs[0], treg);
 				ApplyPrefixD(dregs, sz);
@@ -1288,12 +1314,12 @@ namespace MIPSComp {
 
 		// dregs are always consecutive, thanks to our transpose trick.
 		// However, not sure this is always worth it.
-		if (sz == M_4x4 && IsConsecutive4(dregs)) {
+		if (IsMatrixVec4(sz, dregs)) {
 			// TODO: The interpreter would like proper matrix ops better. Can generate those, and
 			// expand them like this as needed on "real" architectures.
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_T;
-			if (!IsConsecutive4(sregs)) {
+			if (!IsMatrixVec4(sz, sregs)) {
 				// METHOD 1: Handles AbC and Abc
 				for (int j = 0; j < 4; j++) {
 					ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[j * 4]);
@@ -1304,7 +1330,7 @@ namespace MIPSComp {
 					ir.Write(IROp::Vec4Mov, dregs[j * 4], s0);
 				}
 				return;
-			} else if (IsConsecutive4(tregs)) {
+			} else if (IsMatrixVec4(sz, tregs)) {
 				// METHOD 2: Handles ABC only. Not efficient on CPUs that don't do fast dots.
 				// Dots only work if tregs are consecutive.
 				// TODO: Skip this and resort to method one and transpose the output?
@@ -1370,7 +1396,7 @@ namespace MIPSComp {
 		GetVectorRegs(dregs, sz, _VD);
 
 		// SIMD-optimized implementations - if sregs[0..3] is non-consecutive, it's transposed.
-		if (msz == M_4x4 && !IsConsecutive4(sregs)) {
+		if (msz == M_4x4 && !IsMatrixVec4(msz, sregs)) {
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_S;
 			// For this algorithm, we don't care if tregs are consecutive or not,
@@ -1385,7 +1411,7 @@ namespace MIPSComp {
 					ir.Write(IROp::Vec4Add, s0, s0, sregs[i]);
 				}
 			}
-			if (IsConsecutive4(dregs)) {
+			if (IsVec4(sz, dregs)) {
 				ir.Write(IROp::Vec4Mov, dregs[0], s0);
 			} else {
 				for (int i = 0; i < 4; i++) {
@@ -1393,7 +1419,7 @@ namespace MIPSComp {
 				}
 			}
 			return;
-		} else if (msz == M_4x4 && IsConsecutive4(sregs)) {
+		} else if (msz == M_4x4 && IsMatrixVec4(msz, sregs)) {
 			// Consecutive, which is harder.
 			DISABLE;
 			int s0 = IRVTEMP_0;
@@ -1408,7 +1434,7 @@ namespace MIPSComp {
 					ir.Write(IROp::Vec4Add, s0, s0, sregs[i]);
 				}
 			}
-			if (IsConsecutive4(dregs)) {
+			if (IsVec4(sz, dregs)) {
 				ir.Write(IROp::Vec4Mov, dregs[0], s0);
 			} else {
 				for (int i = 0; i < 4; i++) {
@@ -1458,7 +1484,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VDet(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || (js.prefixT & 0x000CFCF0) != 0x000E0) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
 			DISABLE;
 		}
 
@@ -1508,8 +1534,8 @@ namespace MIPSComp {
 
 		int nOut = GetNumVectorElements(outsize);
 
-		// If src registers aren't contiguous, make them.
-		if (sz == V_Quad && !IsConsecutive4(sregs)) {
+		// If src registers aren't contiguous, make them (mainly for bits == 8.)
+		if (sz == V_Quad && !IsVec4(sz, sregs)) {
 			// T prefix is unused.
 			for (int i = 0; i < 4; i++) {
 				srcregs[i] = IRVTEMP_PFX_T + i;
@@ -1615,7 +1641,7 @@ namespace MIPSComp {
 				}
 			}
 		} else if (outsize == V_Quad) {
-			bool consecutive = IsConsecutive4(dregs);
+			bool consecutive = IsVec4(outsize, dregs);
 			if (!consecutive || !IsOverlapSafe(nOut, dregs, nIn, srcregs)) {
 				for (int i = 0; i < nOut; i++) {
 					tempregs[i] = IRVTEMP_PFX_T + i;
@@ -1671,7 +1697,7 @@ namespace MIPSComp {
 		GetVectorRegs(tregs, sz, _VT);
 		GetVectorRegs(dregs, sz, _VD);
 
-		u8 tempregs[4];
+		u8 tempregs[4]{};
 		for (int i = 0; i < n; ++i) {
 			if (!IsOverlapSafe(dregs[i], n, sregs, n, tregs)) {
 				tempregs[i] = IRVTEMP_PFX_T + i;   // using IRTEMP0 for other things
@@ -1848,33 +1874,54 @@ namespace MIPSComp {
 		int imm = (op >> 16) & 0x1f;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
+		int sineLane = (imm >> 2) & 3;
+		int cosineLane = imm & 3;
 		bool negSin = (imm & 0x10) ? true : false;
+		bool broadcastSine = sineLane == cosineLane;
 
 		char d[4] = { '0', '0', '0', '0' };
-		if (((imm >> 2) & 3) == (imm & 3)) {
+		if (broadcastSine) {
 			for (int i = 0; i < 4; i++)
 				d[i] = 's';
 		}
-		d[(imm >> 2) & 3] = 's';
-		d[imm & 3] = 'c';
+		d[sineLane] = 's';
+		d[cosineLane] = 'c';
 
 		u8 dregs[4];
 		GetVectorRegs(dregs, sz, vd);
 		u8 sreg[1];
 		GetVectorRegs(sreg, V_Single, vs);
+
+		// If there's overlap, sin is calculated without it, but cosine uses the result.
+		// This corresponds with prefix handling, where cosine doesn't get in prefixes.
+		if (broadcastSine || !IsOverlapSafe(n, dregs, 1, sreg)) {
+			ir.Write(IROp::FSin, IRVTEMP_0, sreg[0]);
+			if (negSin)
+				ir.Write(IROp::FNeg, IRVTEMP_0, IRVTEMP_0);
+		}
+
 		for (int i = 0; i < n; i++) {
 			switch (d[i]) {
 			case '0':
 				ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(0.0f));
 				break;
 			case 's':
-				ir.Write(IROp::FSin, dregs[i], sreg[0]);
-				if (negSin) {
-					ir.Write(IROp::FNeg, dregs[i], dregs[i]);
+				if (broadcastSine || !IsOverlapSafe(n, dregs, 1, sreg)) {
+					ir.Write(IROp::FMov, dregs[i], IRVTEMP_0);
+				} else {
+					ir.Write(IROp::FSin, dregs[i], sreg[0]);
+					if (negSin) {
+						ir.Write(IROp::FNeg, dregs[i], dregs[i]);
+					}
 				}
 				break;
 			case 'c':
-				ir.Write(IROp::FCos, dregs[i], sreg[0]);
+				if (IsOverlapSafe(n, dregs, 1, sreg))
+					ir.Write(IROp::FCos, dregs[i], sreg[0]);
+				else if (dregs[sineLane] == sreg[0])
+					ir.Write(IROp::FCos, dregs[i], IRVTEMP_0);
+				else
+					ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(1.0f));
 				break;
 			}
 		}
@@ -1882,7 +1929,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vsgn(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op)) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
 			DISABLE;
 		}
 
@@ -1978,7 +2025,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vbfy(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix() || (js.prefixS & VFPU_NEGATE(1, 1, 1, 1)) != 0) {
 			DISABLE;
 		}
 

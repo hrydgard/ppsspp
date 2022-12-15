@@ -136,7 +136,7 @@ private:
 class IRJit : public JitInterface {
 public:
 	IRJit(MIPSState *mipsState);
-	virtual ~IRJit();
+	~IRJit();
 
 	void DoState(PointerWrap &p) override;
 

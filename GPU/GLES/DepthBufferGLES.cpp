@@ -217,7 +217,7 @@ bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int
 
 		DepthUB ub{};
 
-		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+		if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
 			// Don't scale anything, since we're not using factors outside accurate mode.
 			ub.u_depthFactor[0] = 0.0f;
 			ub.u_depthFactor[1] = 1.0f;

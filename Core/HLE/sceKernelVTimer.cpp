@@ -71,7 +71,7 @@ KernelObject *__KernelVTimerObject() {
 	return new VTimer;
 }
 
-static u64 __getVTimerRunningTime(VTimer *vt) {
+static u64 __getVTimerRunningTime(const VTimer *vt) {
 	if (vt->nvt.active == 0)
 		return 0;
 

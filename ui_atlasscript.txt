@@ -60,3 +60,13 @@ image I_SQUARE_SHAPE source_assets/image/square_shape.png copy
 image I_SQUARE_SHAPE_LINE source_assets/image/square_shape_line.png copy
 image I_FOLDER_OPEN source_assets/image/folder_open_line.png copy
 image I_WARNING source_assets/image/warning.png copy
+image I_TRASHCAN source_assets/image/trashcan.png copy
+image I_PLUS source_assets/image/plus.png copy
+image I_ROTATE_LEFT source_assets/image/rotate_left.png copy
+image I_ROTATE_RIGHT source_assets/image/rotate_right.png copy
+image I_ARROW_LEFT source_assets/image/arrow_left.png copy
+image I_ARROW_RIGHT source_assets/image/arrow_right.png copy
+image I_ARROW_UP source_assets/image/arrow_up.png copy
+image I_ARROW_DOWN source_assets/image/arrow_down.png copy
+image I_SLIDERS source_assets/image/sliders.png copy
+image I_THREE_DOTS source_assets/image/three_dots.png copy

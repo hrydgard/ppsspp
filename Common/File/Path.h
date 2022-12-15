@@ -118,6 +118,9 @@ public:
 	bool operator <(const Path &other) const {
 		return path_ < other.path_;
 	}
+	bool operator >(const Path &other) const {
+		return path_ > other.path_;
+	}
 
 private:
 	// The internal representation is currently always the plain string.

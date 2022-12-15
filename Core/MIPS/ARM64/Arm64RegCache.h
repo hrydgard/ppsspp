@@ -18,7 +18,6 @@
 #pragma once
 
 #include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/MIPSAnalyst.h"
 #include "Common/Arm64Emitter.h"
 
 namespace Arm64JitConstants {
@@ -54,6 +53,10 @@ enum {
 };
 
 }  // namespace
+
+namespace MIPSAnalyst {
+struct AnalysisResults;
+};
 
 typedef int MIPSReg;
 

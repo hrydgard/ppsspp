@@ -38,8 +38,8 @@ void DoMap(PointerWrap &p, M &x, typename M::mapped_type &default_val) {
 			x[first] = second;
 			--number;
 		}
+		break;
 	}
-	break;
 	case PointerWrap::MODE_WRITE:
 	case PointerWrap::MODE_MEASURE:
 	case PointerWrap::MODE_VERIFY:
@@ -52,8 +52,10 @@ void DoMap(PointerWrap &p, M &x, typename M::mapped_type &default_val) {
 			--number;
 			++itr;
 		}
+		break;
 	}
-	break;
+	case PointerWrap::MODE_NOOP:
+		break;
 	}
 }
 
@@ -109,8 +111,8 @@ void DoMultimap(PointerWrap &p, M &x, typename M::mapped_type &default_val) {
 			x.insert(std::make_pair(first, second));
 			--number;
 		}
+		break;
 	}
-	break;
 	case PointerWrap::MODE_WRITE:
 	case PointerWrap::MODE_MEASURE:
 	case PointerWrap::MODE_VERIFY:
@@ -122,8 +124,10 @@ void DoMultimap(PointerWrap &p, M &x, typename M::mapped_type &default_val) {
 			--number;
 			++itr;
 		}
+		break;
 	}
-	break;
+	case PointerWrap::MODE_NOOP:
+		break;
 	}
 }
 

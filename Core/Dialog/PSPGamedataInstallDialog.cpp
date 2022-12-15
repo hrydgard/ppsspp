@@ -250,7 +250,7 @@ int PSPGamedataInstallDialog::Shutdown(bool force) {
 	return PSPDialog::Shutdown(force);
 }
 
-std::string PSPGamedataInstallDialog::GetGameDataInstallFileName(SceUtilityGamedataInstallParam *param, std::string filename){
+std::string PSPGamedataInstallDialog::GetGameDataInstallFileName(const SceUtilityGamedataInstallParam *param, std::string filename) {
 	if (!param)
 		return "";
 	std::string GameDataInstallPath = saveBasePath + param->gameName + param->dataName + "/";

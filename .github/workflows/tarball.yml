@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
 
@@ -40,7 +40,7 @@ jobs:
         sed -i "s;unknown;${VERSION};" $PKGNAME/git-version.cmake || true
         TARBALL=$PKGNAME.tar.xz
         tar cJf $TARBALL $PKGNAME
-        echo "::set-output name=tarball::$TARBALL"
+        echo "tarball=$TARBALL" >> $GITHUB_OUTPUT
 
     - name: upload tarball
       uses: softprops/action-gh-release@v1

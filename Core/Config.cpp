@@ -257,7 +257,7 @@ struct ConfigSetting {
 		return type_ != TYPE_TERMINATOR;
 	}
 
-	bool Get(Section *section) {
+	bool Get(const Section *section) {
 		switch (type_) {
 		case TYPE_BOOL:
 			if (cb_.b) {
@@ -516,6 +516,10 @@ static bool DefaultEnableStateUndo() {
 	return true;
 }
 
+static float DefaultUISaturation() {
+	return IsVREnabled() ? 1.5f : 1.0f;
+}
+
 struct ConfigSectionSettings {
 	const char *section;
 	ConfigSetting *settings;
@@ -597,7 +601,7 @@ static ConfigSetting generalSettings[] = {
 
 	ConfigSetting("BackgroundAnimation", &g_Config.iBackgroundAnimation, 1, true, false),
 	ConfigSetting("UITint", &g_Config.fUITint, 0.0, true, false),
-	ConfigSetting("UISaturation", &g_Config.fUISaturation, 1.0, true, false),
+	ConfigSetting("UISaturation", &g_Config.fUISaturation, &DefaultUISaturation, true, false),
 
 #if defined(USING_WIN_UI)
 	ConfigSetting("TopMost", &g_Config.bTopMost, false),
@@ -644,6 +648,9 @@ static int DefaultInternalResolution() {
 #if defined(USING_WIN_UI) || defined(USING_QT_UI)
 	return 0;
 #else
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR) {
+		return 4;
+	}
 	int longestDisplaySide = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES));
 	int scale = longestDisplaySide >= 1000 ? 2 : 1;
 	INFO_LOG(G3D, "Longest display side: %d pixels. Choosing scale %d", longestDisplaySide, scale);
@@ -657,10 +664,6 @@ static int DefaultFastForwardMode() {
 #else
 	return (int)FastForwardMode::CONTINUOUS;
 #endif
-}
-
-static int DefaultZoomType() {
-	return (int)SmallDisplayZoom::AUTO;
 }
 
 static int DefaultAndroidHwScale() {
@@ -697,7 +700,7 @@ const char * const vulkanDefaultBlacklist[] = {
 };
 
 static int DefaultGPUBackend() {
-	if (IsVRBuild()) {
+	if (IsVREnabled()) {
 		return (int)GPUBackend::OPENGL;
 	}
 
@@ -874,8 +877,8 @@ static ConfigSetting graphicsSettings[] = {
 #endif
 	ConfigSetting("CameraDevice", &g_Config.sCameraDevice, "", true, false),
 	ConfigSetting("VendorBugChecksEnabled", &g_Config.bVendorBugChecksEnabled, true, false, false),
-	ConfigSetting("UseGeometryShader", &g_Config.bUseGeometryShader, true, true, true),
-	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, 1, true, true),
+	ConfigSetting("UseGeometryShader", &g_Config.bUseGeometryShader, false, true, true),
+	ReportedConfigSetting("SkipBufferEffects", &g_Config.bSkipBufferEffects, false, true, true),
 	ConfigSetting("SoftwareRenderer", &g_Config.bSoftwareRendering, false, true, true),
 	ConfigSetting("SoftwareRendererJit", &g_Config.bSoftwareRenderingJit, true, true, true),
 	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true, true, true),
@@ -887,7 +890,9 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("HighQualityDepth", &g_Config.bHighQualityDepth, true, true, true),
 	ReportedConfigSetting("FrameSkip", &g_Config.iFrameSkip, 0, true, true),
 	ReportedConfigSetting("FrameSkipType", &g_Config.iFrameSkipType, 0, true, true),
-	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false, true, true),
+	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, IsVREnabled(), true, true),
+	ConfigSetting("StereoRendering", &g_Config.bStereoRendering, false, true, true),
+	ConfigSetting("StereoToMonoShader", &g_Config.sStereoToMonoShader, "RedBlue", true, true),
 	ConfigSetting("FrameRate", &g_Config.iFpsLimit1, 0, true, true),
 	ConfigSetting("FrameRate2", &g_Config.iFpsLimit2, -1, true, true),
 	ConfigSetting("AnalogFrameRate", &g_Config.iAnalogFpsLimit, 240, true, true),
@@ -899,10 +904,10 @@ static ConfigSetting graphicsSettings[] = {
 
 	// Most low-performance (and many high performance) mobile GPUs do not support aniso anyway so defaulting to 4 is fine.
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 4, true, true),
+	ConfigSetting("MultiSampleLevel", &g_Config.iMultiSampleLevel, 0, true, true),  // Number of samples is 1 << iMultiSampleLevel
 
 	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, false, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
-	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false, true, true),
 	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, false),
 
 #ifndef MOBILE_DEVICE
@@ -910,10 +915,12 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("FullScreenMulti", &g_Config.bFullScreenMulti, false),
 #endif
 
-	ConfigSetting("SmallDisplayZoomType", &g_Config.iSmallDisplayZoomType, &DefaultZoomType, true, true),
-	ConfigSetting("SmallDisplayOffsetX", &g_Config.fSmallDisplayOffsetX, 0.5f, true, true),
-	ConfigSetting("SmallDisplayOffsetY", &g_Config.fSmallDisplayOffsetY, 0.5f, true, true),
-	ConfigSetting("SmallDisplayZoomLevel", &g_Config.fSmallDisplayZoomLevel, 1.0f, true, true),
+	ConfigSetting("DisplayOffsetX", &g_Config.fDisplayOffsetX, 0.5f, true, true),
+	ConfigSetting("DisplayOffsetY", &g_Config.fDisplayOffsetY, 0.5f, true, true),
+	ConfigSetting("DisplayScale", &g_Config.fDisplayScale, 1.0f, true, true),
+	ConfigSetting("DisplayAspectRatio", &g_Config.fDisplayAspectRatio, 1.0f, true, true),
+	ConfigSetting("DisplayStretch", &g_Config.bDisplayStretch, false, true, true),
+
 	ConfigSetting("ImmersiveMode", &g_Config.bImmersiveMode, true, true, true),
 	ConfigSetting("SustainedPerformanceMode", &g_Config.bSustainedPerformanceMode, false, true, true),
 	ConfigSetting("IgnoreScreenInsets", &g_Config.bIgnoreScreenInsets, true, true, false),
@@ -936,7 +943,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("TextureShader", &g_Config.sTextureShaderName, "Off", true, true),
 	ConfigSetting("ShaderChainRequires60FPS", &g_Config.bShaderChainRequires60FPS, false, true, true),
 
-	ReportedConfigSetting("MemBlockTransferGPU", &g_Config.bBlockTransferGPU, true, true, true),
+	ReportedConfigSetting("SkipGPUReadbacks", &g_Config.bSkipGPUReadbacks, false, true, true),
 
 	ConfigSetting("GfxDebugOutput", &g_Config.bGfxDebugOutput, false, false, false),
 	ConfigSetting("LogFrameDrops", &g_Config.bLogFrameDrops, false, true, false),
@@ -1120,9 +1127,10 @@ static int DefaultSystemParamLanguage() {
 	int defaultLang = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 	if (g_Config.bFirstRun) {
 		// TODO: Be smart about same language, different country
-		auto langValuesMapping = GetLangValuesMapping();
-		if (langValuesMapping.find(g_Config.sLanguageIni) != langValuesMapping.end()) {
-			defaultLang = langValuesMapping[g_Config.sLanguageIni].second;
+		auto &langValuesMapping = g_Config.GetLangValuesMapping();
+		auto iter = langValuesMapping.find(g_Config.sLanguageIni);
+		if (iter != langValuesMapping.end()) {
+			defaultLang = iter->second.second;
 		}
 	}
 	return defaultLang;
@@ -1206,8 +1214,15 @@ static ConfigSetting vrSettings[] = {
 	ConfigSetting("VREnable", &g_Config.bEnableVR, true),
 	ConfigSetting("VREnable6DoF", &g_Config.bEnable6DoF, true),
 	ConfigSetting("VREnableStereo", &g_Config.bEnableStereo, false),
-	ConfigSetting("VRCanvasDistance", &g_Config.iCanvasDistance, 6),
-	ConfigSetting("VRFieldOfView", &g_Config.iFieldOfViewPercentage, 100),
+	ConfigSetting("VREnableMotions", &g_Config.bEnableMotions, true),
+	ConfigSetting("VRbForce72Hz", &g_Config.bForce72Hz, true),
+	ConfigSetting("VRCameraDistance", &g_Config.fCameraDistance, 0.0f),
+	ConfigSetting("VRCameraHeight", &g_Config.fCameraHeight, 0.0f),
+	ConfigSetting("VRCameraSide", &g_Config.fCameraSide, 0.0f),
+	ConfigSetting("VRCanvasDistance", &g_Config.fCanvasDistance, 12.0f),
+	ConfigSetting("VRFieldOfView", &g_Config.fFieldOfViewPercentage, 100.0f),
+	ConfigSetting("VRHeadUpDisplayScale", &g_Config.fHeadUpDisplayScale, 0.3f),
+	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f),
 
 	ConfigSetting(false),
 };
@@ -1262,13 +1277,11 @@ Config::~Config() {
 	delete private_;
 }
 
-std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
-	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
+void Config::LoadLangValuesMapping() {
 	IniFile mapping;
 	mapping.LoadFromVFS("langregion.ini");
 	std::vector<std::string> keys;
 	mapping.GetKeys("LangRegionNames", keys);
-
 
 	std::map<std::string, int> langCodeMapping;
 	langCodeMapping["JAPANESE"] = PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
@@ -1284,8 +1297,8 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 	langCodeMapping["CHINESE_TRADITIONAL"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL;
 	langCodeMapping["CHINESE_SIMPLIFIED"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
 
-	Section *langRegionNames = mapping.GetOrCreateSection("LangRegionNames");
-	Section *systemLanguage = mapping.GetOrCreateSection("SystemLanguage");
+	const Section *langRegionNames = mapping.GetOrCreateSection("LangRegionNames");
+	const Section *systemLanguage = mapping.GetOrCreateSection("SystemLanguage");
 
 	for (size_t i = 0; i < keys.size(); i++) {
 		std::string langName;
@@ -1295,9 +1308,15 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 		int iLangCode = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 		if (langCodeMapping.find(langCode) != langCodeMapping.end())
 			iLangCode = langCodeMapping[langCode];
-		langValuesMapping[keys[i]] = std::make_pair(langName, iLangCode);
+		langValuesMapping_[keys[i]] = std::make_pair(langName, iLangCode);
 	}
-	return langValuesMapping;
+}
+
+const std::map<std::string, std::pair<std::string, int>> &Config::GetLangValuesMapping() {
+	if (langValuesMapping_.empty()) {
+		LoadLangValuesMapping();
+	}
+	return langValuesMapping_;
 }
 
 void Config::Reload() {
@@ -1310,9 +1329,11 @@ void Config::Reload() {
 // really think of any other legit uses).
 void Config::UpdateIniLocation(const char *iniFileName, const char *controllerIniFilename) {
 	const bool useIniFilename = iniFileName != nullptr && strlen(iniFileName) > 0;
-	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : "ppsspp.ini");
+	const char *ppssppIniFilename = IsVREnabled() ? "ppssppvr.ini" : "ppsspp.ini";
+	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : ppssppIniFilename);
 	const bool useControllerIniFilename = controllerIniFilename != nullptr && strlen(controllerIniFilename) > 0;
-	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : "controls.ini");
+	const char *controlsIniFilename = IsVREnabled() ? "controlsvr.ini" : "controls.ini";
+	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : controlsIniFilename);
 }
 
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
@@ -1386,15 +1407,27 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		}
 	}
 
-	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
+	// Default values for post process shaders
+	bool postShadersInitialized = iniFile.HasSection("PostShaderList");
+	Section *postShaderChain = iniFile.GetOrCreateSection("PostShaderList");
+	Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
+	if (IsVREnabled() && !postShadersInitialized) {
+		postShaderChain->Set("PostShader1", "ColorCorrection");
+		postShaderSetting->Set("ColorCorrectionSettingCurrentValue1", 1.0f);
+		postShaderSetting->Set("ColorCorrectionSettingCurrentValue2", 1.5f);
+		postShaderSetting->Set("ColorCorrectionSettingCurrentValue3", 1.1f);
+		postShaderSetting->Set("ColorCorrectionSettingCurrentValue4", 1.0f);
+	}
+
+	// Load post process shader values
 	mPostShaderSetting.clear();
-	for (auto it : postShaderSetting) {
+	for (const auto& it : postShaderSetting->ToMap()) {
 		mPostShaderSetting[it.first] = std::stof(it.second);
 	}
 
-	auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
+	// Load post process shader names
 	vPostShaderNames.clear();
-	for (auto it : postShaderChain) {
+	for (const auto& it : postShaderChain->ToMap()) {
 		if (it.second != "Off")
 			vPostShaderNames.push_back(it.second);
 	}
@@ -1402,9 +1435,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// This caps the exponent 4 (so 16x.)
 	if (iAnisotropyLevel > 4) {
 		iAnisotropyLevel = 4;
-	}
-	if (iRenderingMode != FB_NON_BUFFERED_MODE && iRenderingMode != FB_BUFFERED_MODE) {
-		g_Config.iRenderingMode = FB_BUFFERED_MODE;
 	}
 
 	// Check for an old dpad setting
@@ -1456,14 +1486,14 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (sMACAddress.length() != 17)
 		sMACAddress = CreateRandMAC();
 
-	if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-		g_Config.iRenderingMode = FB_BUFFERED_MODE;
+	if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
+		g_Config.bSkipBufferEffects = false;
 	}
 
 	// Override ppsspp.ini JIT value to prevent crashing
 	if (DefaultCpuCore() != (int)CPUCore::JIT && g_Config.iCpuCore == (int)CPUCore::JIT) {
 		jitForcedOff = true;
-		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
+		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
 	}
 
 	// Automatically silence secondary instances. Could be an option I guess, but meh.
@@ -1585,11 +1615,8 @@ bool Config::Save(const char *saveReason) {
 	}
 	if (jitForcedOff) {
 		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
-#if PPSSPP_PLATFORM(IOS)
-		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
-#else
-		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
-#endif
+		if (g_Config.iCpuCore != (int)CPUCore::INTERPRETER)
+			g_Config.iCpuCore = (int)CPUCore::IR_JIT;
 	}
 	return true;
 }
@@ -1811,7 +1838,8 @@ bool Config::deleteGameConfig(const std::string& pGameId) {
 }
 
 Path Config::getGameConfigFile(const std::string &pGameId) {
-	std::string iniFileName = pGameId + "_ppsspp.ini";
+	const char *ppssppIniFilename = IsVREnabled() ? "_ppssppvr.ini" : "_ppsspp.ini";
+	std::string iniFileName = pGameId + ppssppIniFilename;
 	Path iniFileNameFull = FindConfigFile(iniFileName);
 
 	return iniFileNameFull;
@@ -1978,5 +2006,5 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 }
 
 bool Config::IsPortrait() const {
-	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && iRenderingMode != FB_NON_BUFFERED_MODE;
+	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && !bSkipBufferEffects;
 }

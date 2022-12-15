@@ -19,14 +19,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
         
       - name: Setup JDK
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v2
         with:
+          distribution: 'zulu'
           java-version: '11'
         
       #- name: Setup SDK
@@ -54,7 +55,7 @@ jobs:
           fi
 
       - name: Upload APK
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: android-${{ github.event.inputs.buildVariant }} build
           path: ppsspp/

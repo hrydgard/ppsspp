@@ -111,6 +111,10 @@ impl IniFile {
             }
         }
         // Reached the end for some reason? Add it.
+        // Also add an empty line to the previous section.
+        if let Some(last) = self.sections.last_mut() {
+            last.lines.push("".into());
+        }
         self.sections.push(section.clone());
         true
     }

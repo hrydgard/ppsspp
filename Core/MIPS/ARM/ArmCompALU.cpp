@@ -24,6 +24,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"

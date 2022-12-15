@@ -159,7 +159,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
 				if (fboTexBindState == FBO_TEX_COPY_BIND_TEX) {
-					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY, 0);
 					// No sampler required, we do a plain Load in the pixel shader.
 					fboTexBound_ = true;
 					fboTexBindState = FBO_TEX_NONE;
@@ -202,7 +202,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				dynState_.useBlendColor = false;
 			}
 
-			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
+			if (gstate_c.Use(GPU_USE_LOGIC_OP)) {
 				// Logic Ops
 				if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
 					keys_.blend.blendEnable = false;  // Can't have both blend & logic op - although I think the PSP can!
@@ -229,7 +229,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
 				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
 				// But the alternate is not clamping in either direction...
-				keys_.raster.depthClipEnable = !gstate.isDepthClampEnabled() || !gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP);
+				keys_.raster.depthClipEnable = !gstate.isDepthClampEnabled() || !gstate_c.Use(GPU_USE_DEPTH_CLAMP);
 			} else {
 				// We just want to clip in this case, the clamp would be clipped anyway.
 				keys_.raster.depthClipEnable = 1;
@@ -270,10 +270,11 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		} else {
 			keys_.depthStencil.value = 0;
 			// Depth Test
-			if (gstate.isDepthTestEnabled()) {
+			if (!IsDepthTestEffectivelyDisabled()) {
 				keys_.depthStencil.depthTestEnable = true;
 				keys_.depthStencil.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
 				keys_.depthStencil.depthWriteEnable = gstate.isDepthWriteEnabled();
+				UpdateEverUsedEqualDepth(gstate.getDepthTestFunction());
 			} else {
 				keys_.depthStencil.depthTestEnable = false;
 				keys_.depthStencil.depthWriteEnable = false;

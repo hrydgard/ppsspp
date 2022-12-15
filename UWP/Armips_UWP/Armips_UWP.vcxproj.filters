@@ -56,6 +56,24 @@
     <ClCompile Include="..\..\ext\armips\Archs\MIPS\PsxRelocator.cpp">
       <Filter>Archs\MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\SuperH\ShOpcodes.cpp">
+      <Filter>Archs\SuperH</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\SuperH\ShParser.cpp">
+      <Filter>Archs\SuperH</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\SuperH\SuperH.cpp">
+      <Filter>Archs\SuperH</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\SuperH\CShInstruction.cpp">
+      <Filter>Archs\SuperH</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\SuperH\ShElfRelocator.cpp">
+      <Filter>Archs\SuperH</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\SuperH\ShExpressionFunctions.cpp">
+      <Filter>Archs\SuperH</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\ext\armips\Archs\Architecture.cpp">
       <Filter>Archs</Filter>
     </ClCompile>
@@ -202,6 +220,24 @@
     <ClInclude Include="..\..\ext\armips\Archs\MIPS\PsxRelocator.h">
       <Filter>Archs\MIPS</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\SuperH\ShExpressionFunctions.h">
+      <Filter>Archs\SuperH</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\SuperH\ShOpcodes.h">
+      <Filter>Archs\SuperH</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\SuperH\ShParser.h">
+      <Filter>Archs\SuperH</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\SuperH\SuperH.h">
+      <Filter>Archs\SuperH</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\SuperH\CShInstruction.h">
+      <Filter>Archs\SuperH</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\SuperH\ShElfRelocator.h">
+      <Filter>Archs\SuperH</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\ext\armips\Archs\Architecture.h">
       <Filter>Archs</Filter>
     </ClInclude>
@@ -299,6 +335,9 @@
     </Filter>
     <Filter Include="Archs\MIPS">
       <UniqueIdentifier>{bef7b4a2-b049-4d00-810c-6d8d6605c2a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archs\SuperH">
+      <UniqueIdentifier>{bef7b4a2-b049-4d00-810c-6d8d6605c2a4}</UniqueIdentifier>
     </Filter>
     <Filter Include="Core">
       <UniqueIdentifier>{2ce1016b-f93c-48b9-abe5-d3fbbcd24780}</UniqueIdentifier>

@@ -34,6 +34,7 @@
 #include "Core/Reporting.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -280,7 +281,8 @@ void Jit::Compile(u32 em_address) {
 		return;
 	}
 
-	BeginWrite();
+	// Sometimes we compile fairly large blocks, although it's uncommon.
+	BeginWrite(JitBlockCache::MAX_BLOCK_INSTRUCTIONS * 16);
 
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
@@ -590,7 +592,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 	// Not sure about the cause.
 	Memory::Opcode origInstruction = Memory::Read_Instruction(GetCompilerPC(), true);
 	if (origInstruction.encoding == op.encoding) {
-		ERROR_LOG(HLE, "Replacement broken (savestate problem?): %08x", op.encoding);
+		ERROR_LOG(HLE, "Replacement broken (savestate problem?): %08x at %08x", op.encoding, GetCompilerPC());
 		return;
 	}
 
