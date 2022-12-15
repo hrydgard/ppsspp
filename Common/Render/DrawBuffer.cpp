@@ -14,6 +14,8 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 
+#include "Common/Math/math_util.h"
+
 DrawBuffer::DrawBuffer() {
 	verts_ = new Vertex[MAX_VERTS];
 	fontscalex = 1.0f;
@@ -85,7 +87,13 @@ void DrawBuffer::Flush(bool set_blend_state) {
 }
 
 void DrawBuffer::V(float x, float y, float z, uint32_t color, float u, float v) {
-	_assert_msg_(count_ < MAX_VERTS, "Overflowed the DrawBuffer");
+	_dbg_assert_msg_(count_ < MAX_VERTS, "Overflowed the DrawBuffer");
+
+#ifdef _DEBUG
+	if (my_isnanorinf(x) || my_isnanorinf(y) || my_isnanorinf(z)) {
+		_assert_(false);
+	}
+#endif
 
 	Vertex *vert = &verts_[count_++];
 	vert->x = x;
