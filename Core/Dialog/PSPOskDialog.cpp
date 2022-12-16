@@ -980,7 +980,7 @@ int PSPOskDialog::Update(int animSpeed) {
 	PPGeDrawImage(ImageID("I_SQUARE"), 365, 222, 16, 16, guideStyle);
 	PPGeDrawText(di->T("Space"), 390, 222, actionStyle);
 
-	if (GetConfirmButton() != PSP_SYSTEMPARAM_BUTTON_CIRCLE) {
+	if (GetConfirmButton() != CTRL_CIRCLE) {
 		PPGeDrawImage(ImageID("I_CROSS"), 45, 222, 16, 16, guideStyle);
 		PPGeDrawImage(ImageID("I_CIRCLE"), 45, 247, 16, 16, guideStyle);
 	} else {
