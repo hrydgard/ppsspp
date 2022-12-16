@@ -238,16 +238,6 @@ public:
 		compileMutex_.unlock();
 	}
 
-	// Mainly used to bind the frame-global desc set.
-	// Can be done before binding a pipeline, so not asserting on that.
-	void BindDescriptorSet(int setNumber, VkDescriptorSet set, VkPipelineLayout pipelineLayout) {
-		VkRenderData data{ VKRRenderCommand::BIND_DESCRIPTOR_SET };
-		data.bindDescSet.setNumber = setNumber;
-		data.bindDescSet.set = set;
-		data.bindDescSet.pipelineLayout = pipelineLayout;
-		curRenderStep_->commands.push_back(data);
-	}
-
 	void BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);

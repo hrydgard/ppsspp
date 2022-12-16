@@ -98,7 +98,7 @@ R"(#version 450
 )";
 
 static const char *vulkanUboDecl = R"(
-layout (std140, set = 1, binding = 0) uniform Data {
+layout (std140, set = 0, binding = 0) uniform Data {
 	vec2 u_texelDelta;
 	vec2 u_pixelDelta;
 	vec4 u_time;
@@ -187,11 +187,11 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 			continue;
 		} else if (line.find("uniform sampler2D") == 0) {
 			if (sscanf(line.c_str(), "uniform sampler2D sampler%d", &num) == 1)
-				line = StringFromFormat("layout(set = 1, binding = %d) ", num + 1) + line;
+				line = StringFromFormat("layout(set = 0, binding = %d) ", num + 1) + line;
 			else if (line.find("sampler0") != line.npos)
-				line = "layout(set = 1, binding = 1) " + line;
+				line = "layout(set = 0, binding = 1) " + line;
 			else
-				line = "layout(set = 1, binding = 2) " + line;
+				line = "layout(set = 0, binding = 2) " + line;
 		} else if (line.find("uniform ") != std::string::npos) {
 			continue;
 		} else if (2 == sscanf(line.c_str(), "varying vec%d v_texcoord%d;", &vecSize, &num)) {

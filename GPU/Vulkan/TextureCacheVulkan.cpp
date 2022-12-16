@@ -65,9 +65,9 @@ const char *uploadShader = R"(
 // hardware vendors.
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-uniform layout(set = 1, binding = 0, rgba8) writeonly image2D img;
+uniform layout(set = 0, binding = 0, rgba8) writeonly image2D img;
 
-layout(std430, set = 1, binding = 1) buffer Buf {
+layout(std430, set = 0, binding = 1) buffer Buf {
 	uint data[];
 } buf;
 

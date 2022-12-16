@@ -61,7 +61,7 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
-		WRITE(p, "layout (std140, set = 1, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
+		WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
 	} else if (compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
 	}

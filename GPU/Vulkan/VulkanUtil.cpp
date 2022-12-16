@@ -106,8 +106,7 @@ void VulkanComputeShaderManager::InitDeviceObjects(Draw::DrawContext *draw) {
 	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = &push;
 	pl.pushConstantRangeCount = 1;
-	VkDescriptorSetLayout frameDescSetLayout = (VkDescriptorSetLayout)draw->GetNativeObject(Draw::NativeObject::FRAME_DATA_DESC_SET_LAYOUT);
-	VkDescriptorSetLayout setLayouts[2] = { frameDescSetLayout, descriptorSetLayout_ };
+	VkDescriptorSetLayout setLayouts[1] = { descriptorSetLayout_ };
 	pl.setLayoutCount = ARRAY_SIZE(setLayouts);
 	pl.pSetLayouts = setLayouts;
 	pl.flags = 0;

@@ -524,7 +524,6 @@ private:
 	int curIBufferOffset_ = 0;
 
 	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
-	VkDescriptorSetLayout frameDescSetLayout_ = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 	AutoRef<VKFramebuffer> curFramebuffer_;
@@ -995,23 +994,12 @@ VKContext::VKContext(VulkanContext *vulkan)
 	VkResult res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descriptorSetLayout_);
 	_assert_(VK_SUCCESS == res);
 
-	VkDescriptorSetLayoutBinding frameBindings[1]{};
-	frameBindings[0].descriptorCount = 1;
-	frameBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	frameBindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	frameBindings[0].binding = 0;
-
-	dsl.bindingCount = ARRAY_SIZE(frameBindings);
-	dsl.pBindings = frameBindings;
-	res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &frameDescSetLayout_);
-	_dbg_assert_(VK_SUCCESS == res);
-
 	vulkan_->SetDebugName(descriptorSetLayout_, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, "thin3d_d_layout");
 
 	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
 	pl.pushConstantRangeCount = 0;
-	VkDescriptorSetLayout setLayouts[2] = { frameDescSetLayout_, descriptorSetLayout_ };
+	VkDescriptorSetLayout setLayouts[1] = { descriptorSetLayout_ };
 	pl.setLayoutCount = ARRAY_SIZE(setLayouts);
 	pl.pSetLayouts = setLayouts;
 	res = vkCreatePipelineLayout(device_, &pl, nullptr, &pipelineLayout_);
@@ -1033,7 +1021,6 @@ VKContext::~VKContext() {
 		delete frame_[i].pushBuffer;
 	}
 	vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
-	vulkan_->Delete().QueueDeleteDescriptorSetLayout(frameDescSetLayout_);
 	vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
 	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
 }
@@ -1772,8 +1759,6 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 		return (uint64_t)curFramebuffer_->GetFB()->color.texAllLayersView;
 	case NativeObject::BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW_RT:
 		return (uint64_t)curFramebuffer_->GetFB()->GetRTView();
-	case NativeObject::FRAME_DATA_DESC_SET_LAYOUT:
-		return (uint64_t)frameDescSetLayout_;
 	case NativeObject::THIN3D_PIPELINE_LAYOUT:
 		return (uint64_t)pipelineLayout_;
 
