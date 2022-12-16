@@ -176,8 +176,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	VkPipelineLayoutCreateInfo pl{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
 	pl.pushConstantRangeCount = 0;
-	VkDescriptorSetLayout frameDescSetLayout = (VkDescriptorSetLayout)draw_->GetNativeObject(Draw::NativeObject::FRAME_DATA_DESC_SET_LAYOUT);
-	VkDescriptorSetLayout layouts[2] = { frameDescSetLayout, descriptorSetLayout_};
+	VkDescriptorSetLayout layouts[1] = { descriptorSetLayout_};
 	pl.setLayoutCount = ARRAY_SIZE(layouts);
 	pl.pSetLayouts = layouts;
 	pl.flags = 0;
@@ -309,8 +308,6 @@ void DrawEngineVulkan::BeginFrame() {
 	frame->pushUBO->Begin(vulkan);
 	frame->pushVertex->Begin(vulkan);
 	frame->pushIndex->Begin(vulkan);
-
-	frame->frameDescSetUpdated = false;
 
 	tessDataTransferVulkan->SetPushBuffer(frame->pushUBO);
 
@@ -547,7 +544,8 @@ void MarkUnreliable(VertexArrayInfoVulkan *vai) {
 
 void DrawEngineVulkan::Invalidate(InvalidationCallbackFlags flags) {
 	if (flags & InvalidationCallbackFlags::COMMAND_BUFFER_STATE) {
-		GetCurFrame().frameDescSetUpdated = false;
+		// Nothing here anymore (removed the "frame descriptor set"
+		// If we add back "seldomly-changing" descriptors, we might use this again.
 	}
 	if (flags & InvalidationCallbackFlags::RENDER_PASS_STATE) {
 		// If have a new render pass, dirty our dynamic state so it gets re-set.
@@ -1007,32 +1005,6 @@ void DrawEngineVulkan::DoFlush() {
 }
 
 void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
-	if (!frame->frameDescSetUpdated) {
-		// Push frame global constants.
-		UB_Frame frameConstants{};
-		FrameUpdateUniforms(&frameConstants, framebufferManager_->UseBufferedRendering());
-
-		VkDescriptorBufferInfo frameConstantsBufInfo;
-		frame->pushUBO->PushUBOData(frameConstants, &frameConstantsBufInfo);
-
-		VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		VkDescriptorSetLayout frameDescSetLayout = (VkDescriptorSetLayout)draw_->GetNativeObject(Draw::NativeObject::FRAME_DATA_DESC_SET_LAYOUT);
-
-		VkDescriptorSet frameDescSet = frame->descPool.Allocate(1, &frameDescSetLayout, "frame_desc_set");
-
-		VkWriteDescriptorSet descWrite{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-		descWrite.descriptorCount = 1;
-		descWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descWrite.dstBinding = 0;
-		descWrite.dstSet = frameDescSet;
-		descWrite.pBufferInfo = &frameConstantsBufInfo;
-		vkUpdateDescriptorSets(vulkan->GetDevice(), 1, &descWrite, 0, nullptr);
-		renderManager->BindDescriptorSet(0, frameDescSet, pipelineLayout_);
-
-		frame->frameDescSetUpdated = true;
-	}
-
 	if ((dirtyUniforms_ & DIRTY_BASE_UNIFORMS) || baseBuf == VK_NULL_HANDLE) {
 		baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushUBO, &baseBuf);
 		dirtyUniforms_ &= ~DIRTY_BASE_UNIFORMS;
