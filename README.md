@@ -74,7 +74,7 @@ What's new in 1.14
   - Improve texture replacement memory usage ([#15884], [#16304], [#16314])
   - Texture upscaling speedup and fixes ([#15803], [#16125])
 * Other
-  - HLE/CPU accuracy improvements helping Brooktown High, Frontier Gate, Madoka Magicka, some language patches ([#16413], [#16070], [#16052], [#15930], [#15952], [#15957], more)
+  - HLE/CPU accuracy improvements helping Brooktown High, Frontier Gate, Madoka Magicka, some language patches ([#16413], [#16070], [#16052], [#15952], [#15957], more)
   - Many GE debugger improvements ([#15839], [#15851], [#15894], [#15925], [#15974], [#16007], [#16047], [#16096], [#16201])
   - Optional memory alignment validation in IR mode ([#15879], [#15880])
   - Fix netplay assertion in Cars ([#16089])
