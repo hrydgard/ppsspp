@@ -52,7 +52,8 @@ public:
 protected:
 	Path gamePath_;
 
-	bool darkenGameBackground_ = false;
+	bool forceTransparent_ = false;
+	bool darkenGameBackground_ = true;
 };
 
 class UIDialogScreenWithBackground : public UIDialogScreen {
@@ -73,6 +74,8 @@ public:
 	void sendMessage(const char *message, const char *value) override;
 protected:
 	Path gamePath_;
+
+	bool forceTransparent_ = false;
 	bool darkenGameBackground_ = true;
 };
 
