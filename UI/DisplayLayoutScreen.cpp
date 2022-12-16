@@ -120,6 +120,7 @@ private:
 DisplayLayoutScreen::DisplayLayoutScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {
 	// Show background at full brightness
 	darkenGameBackground_ = false;
+	forceTransparent_ = true;
 }
 
 void DisplayLayoutScreen::DrawBackground(UIContext &dc) {

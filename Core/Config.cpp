@@ -600,6 +600,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("InternalScreenRotation", &g_Config.iInternalScreenRotation, ROTATION_LOCKED_HORIZONTAL, true, true),
 
 	ConfigSetting("BackgroundAnimation", &g_Config.iBackgroundAnimation, 1, true, false),
+	ConfigSetting("TransparentBackground", &g_Config.bTransparentBackground, true, true, false),
 	ConfigSetting("UITint", &g_Config.fUITint, 0.0, true, false),
 	ConfigSetting("UISaturation", &g_Config.fUISaturation, &DefaultUISaturation, true, false),
 

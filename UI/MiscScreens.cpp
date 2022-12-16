@@ -358,11 +358,11 @@ uint32_t GetBackgroundColorWithAlpha(const UIContext &dc) {
 	return colorAlpha(colorBlend(dc.GetTheme().backgroundColor, 0, 0.5f), 0.65f);  // 0.65 = 166 = A6
 }
 
-void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z, bool darkenBackground) {
+void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z, bool transparent, bool darkenBackground) {
 	using namespace Draw;
 	using namespace UI;
 
-	if (PSP_IsInited() && !g_Config.bSkipBufferEffects) {
+	if (transparent && PSP_IsInited() && !g_Config.bSkipBufferEffects) {
 		gpu->CheckDisplayResized();
 		gpu->CheckConfigChanged();
 		gpu->CopyDisplayToOutput(true);
@@ -457,7 +457,7 @@ void UIScreenWithGameBackground::DrawBackground(UIContext &dc) {
 	float x, y, z;
 	screenManager()->getFocusPosition(x, y, z);
 	if (!gamePath_.empty()) {
-		DrawGameBackground(dc, gamePath_, x, y, z, darkenGameBackground_);
+		DrawGameBackground(dc, gamePath_, x, y, z, (g_Config.bTransparentBackground || forceTransparent_), darkenGameBackground_);
 	} else {
 		::DrawBackground(dc, 1.0f, x, y, z);
 		dc.Flush();
@@ -477,7 +477,12 @@ void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {
 	using namespace Draw;
 	float x, y, z;
 	screenManager()->getFocusPosition(x, y, z);
-	DrawGameBackground(dc, gamePath_, x, y, z, darkenGameBackground_);
+	if (!gamePath_.empty()) {
+		DrawGameBackground(dc, gamePath_, x, y, z, (g_Config.bTransparentBackground || forceTransparent_), darkenGameBackground_);
+	} else {
+		::DrawBackground(dc, 1.0f, x, y, z);
+		dc.Flush();
+	}
 }
 
 void UIDialogScreenWithGameBackground::sendMessage(const char *message, const char *value) {
