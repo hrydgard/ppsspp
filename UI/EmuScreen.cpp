@@ -263,6 +263,8 @@ void EmuScreen::bootGame(const Path &filename) {
 	if (!info || info->pending)
 		return;
 
+	SetExtraAssertInfo((info->id + " " + info->GetTitle()).c_str());
+
 	if (!info->id.empty()) {
 		g_Config.loadGameConfig(info->id, info->GetTitle());
 		// Reset views in case controls are in a different place.
