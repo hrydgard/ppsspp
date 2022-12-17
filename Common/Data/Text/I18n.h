@@ -92,7 +92,7 @@ public:
 	std::map<std::string, std::vector<std::string>> GetMissingKeys() const;
 
 private:
-	std::string GetIniPath(const std::string &languageID) const;
+	Path GetIniPath(const std::string &languageID) const;
 	void Clear();
 	I18NCategory *LoadSection(const Section *section, const char *name);
 	void SaveSection(IniFile &ini, Section *section, std::shared_ptr<I18NCategory> cat);

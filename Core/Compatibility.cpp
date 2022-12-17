@@ -47,7 +47,7 @@ void Compatibility::Load(const std::string &gameID) {
 		IniFile compat2;
 		// This one is user-editable. Need to load it after the system one.
 		Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compat.ini";
-		if (compat2.Load(path.ToString())) {
+		if (compat2.Load(path)) {
 			CheckSettings(compat2, gameID);
 		}
 	}
@@ -64,7 +64,7 @@ void Compatibility::Load(const std::string &gameID) {
 		IniFile compat2;
 		// This one is user-editable. Need to load it after the system one.
 		Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compatvr.ini";
-		if (compat2.Load(path.ToString())) {
+		if (compat2.Load(path)) {
 			CheckVRSettings(compat2, gameID);
 		}
 	}
