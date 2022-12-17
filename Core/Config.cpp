@@ -1433,11 +1433,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 			vPostShaderNames.push_back(it.second);
 	}
 
-	// This caps the exponent 4 (so 16x.)
-	if (iAnisotropyLevel > 4) {
-		iAnisotropyLevel = 4;
-	}
-
 	// Check for an old dpad setting
 	Section *control = iniFile.GetOrCreateSection("Control");
 	float f;
@@ -1482,24 +1477,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	CleanRecent();
-
-	// Set a default MAC, and correct if it's an old format.
-	if (sMACAddress.length() != 17)
-		sMACAddress = CreateRandMAC();
-
-	if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
-		g_Config.bSkipBufferEffects = false;
-	}
-
-	// Automatically silence secondary instances. Could be an option I guess, but meh.
-	if (PPSSPP_ID > 1) {
-		g_Config.iGlobalVolume = 0;
-	}
-
-	// Automatically switch away from deprecated setting value.
-	if (iTexScalingLevel <= 0) {
-		iTexScalingLevel = 1;
-	}
 
 #if PPSSPP_PLATFORM(ANDROID)
 	// The on path here is untested, since we don't expose it.
@@ -1619,6 +1596,29 @@ void Config::PostLoadCleanup(bool gameSpecific) {
 	if (DefaultCpuCore() != (int)CPUCore::JIT && g_Config.iCpuCore == (int)CPUCore::JIT) {
 		jitForcedOff = true;
 		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+	}
+
+	// This caps the exponent 4 (so 16x.)
+	if (iAnisotropyLevel > 4) {
+		iAnisotropyLevel = 4;
+	}
+
+	// Set a default MAC, and correct if it's an old format.
+	if (sMACAddress.length() != 17)
+		sMACAddress = CreateRandMAC();
+
+	if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
+		g_Config.bSkipBufferEffects = false;
+	}
+
+	// Automatically silence secondary instances. Could be an option I guess, but meh.
+	if (PPSSPP_ID > 1) {
+		g_Config.iGlobalVolume = 0;
+	}
+
+	// Automatically switch away from deprecated setting value.
+	if (iTexScalingLevel <= 0) {
+		iTexScalingLevel = 1;
 	}
 }
 
