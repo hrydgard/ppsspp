@@ -575,6 +575,10 @@ protected:
 	void LoadStandardControllerIni();
 	void LoadLangValuesMapping();
 
+	void PostLoadCleanup(bool gameSpecific);
+	void PreSaveCleanup(bool gameSpecific);
+	void PostSaveCleanup(bool gameSpecific);
+
 private:
 	bool reload_ = false;
 	std::string gameId_;
