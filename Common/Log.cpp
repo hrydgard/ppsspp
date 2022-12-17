@@ -36,11 +36,11 @@
 static bool hitAnyAsserts = false;
 
 std::mutex g_extraAssertInfoMutex;
-std::string g_extraAssertInfo = "no extra info set";
+std::string g_extraAssertInfo = "menu";
 
 void SetExtraAssertInfo(const char *info) {
 	std::lock_guard<std::mutex> guard(g_extraAssertInfoMutex);
-	g_extraAssertInfo = info;
+	g_extraAssertInfo = info ? info : "menu";
 }
 
 bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...) {

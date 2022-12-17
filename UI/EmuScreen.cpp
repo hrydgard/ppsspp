@@ -402,6 +402,9 @@ EmuScreen::~EmuScreen() {
 		// If we were invalid, it would already be shutdown.
 		PSP_Shutdown();
 	}
+
+	SetExtraAssertInfo(nullptr);
+
 #ifndef MOBILE_DEVICE
 	if (g_Config.bDumpFrames && startDumping)
 	{
