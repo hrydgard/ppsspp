@@ -166,10 +166,12 @@ struct ShaderID {
 		return d[word];
 	}
 
+	// Note: This is a binary copy to string-as-bytes, not a human-readable representation.
 	void ToString(std::string *dest) const {
 		dest->resize(sizeof(d));
 		memcpy(&(*dest)[0], d, sizeof(d));
 	}
+	// Note: This is a binary copy from string-as-bytes, not a human-readable representation.
 	void FromString(std::string src) {
 		memcpy(d, &(src)[0], sizeof(d));
 	}

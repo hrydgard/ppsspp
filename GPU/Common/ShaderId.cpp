@@ -410,6 +410,11 @@ std::string GeometryShaderDesc(const GShaderID &id) {
 
 void ComputeGeometryShaderID(GShaderID *id_out, const Draw::Bugs &bugs, int prim) {
 	GShaderID id;
+	// Early out.
+	if (!gstate_c.Use(GPU_USE_GS_CULLING)) {
+		*id_out = id;
+		return;
+	}
 
 	bool isModeThrough = gstate.isModeThrough();
 	bool isCurve = gstate_c.submitType != SubmitType::DRAW;
@@ -418,9 +423,8 @@ void ComputeGeometryShaderID(GShaderID *id_out, const Draw::Bugs &bugs, int prim
 	bool vertexRangeCulling = !isCurve;
 	bool clipClampedDepth = gstate_c.Use(GPU_USE_DEPTH_CLAMP) && !gstate_c.Use(GPU_USE_CLIP_DISTANCE);
 
-	// If we're not using GS culling, return a zero ID.
-	// Also, only use this for triangle primitives.
-	if ((!vertexRangeCulling && !clipClampedDepth) || isModeThrough || !isTriangle || !gstate_c.Use(GPU_USE_GS_CULLING)) {
+	// Only use this for triangle primitives, and if we actually need it.
+	if ((!vertexRangeCulling && !clipClampedDepth) || isModeThrough || !isTriangle) {
 		*id_out = id;
 		return;
 	}
