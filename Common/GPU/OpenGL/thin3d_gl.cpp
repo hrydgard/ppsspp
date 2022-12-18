@@ -281,8 +281,7 @@ private:
 
 class OpenGLPipeline : public Pipeline {
 public:
-	OpenGLPipeline(GLRenderManager *render) : render_(render) {
-	}
+	OpenGLPipeline(GLRenderManager *render) : render_(render) {}
 	~OpenGLPipeline() {
 		for (auto &iter : shaders) {
 			iter->Release();
@@ -1142,17 +1141,19 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const 
 			iter->AddRef();
 			pipeline->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
 		} else {
-			ERROR_LOG(G3D,  "ERROR: Tried to create graphics pipeline %s with a null shader module", tag);
+			ERROR_LOG(G3D,  "ERROR: Tried to create graphics pipeline %s with a null shader module", tag ? tag : "no tag");
 			delete pipeline;
 			return nullptr;
 		}
 	}
+
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniforms = *desc.uniformDesc;
 	}
 
 	pipeline->samplers_ = desc.samplers;
 	if (pipeline->LinkShaders(desc)) {
+		_assert_((u32)desc.prim < ARRAY_SIZE(primToGL));
 		// Build the rest of the virtual pipeline object.
 		pipeline->prim = primToGL[(int)desc.prim];
 		pipeline->depthStencil = (OpenGLDepthStencilState *)desc.depthStencil;
@@ -1161,7 +1162,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const 
 		pipeline->inputLayout = (OpenGLInputLayout *)desc.inputLayout;
 		return pipeline;
 	} else {
-		ERROR_LOG(G3D,  "Failed to create pipeline %s - shaders failed to link", tag);
+		ERROR_LOG(G3D,  "Failed to create pipeline %s - shaders failed to link", tag ? tag : "no tag");
 		delete pipeline;
 		return nullptr;
 	}
