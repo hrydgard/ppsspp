@@ -790,9 +790,13 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		DispatchFlush();
 	}
 
-	// TODO: Is this the right thing to do?
+	// This isn't exactly right, if we flushed, since prims can straddle previous calls.
+	// But it generally works for common usage.
 	if (prim == GE_PRIM_KEEP_PREVIOUS) {
-		prim = prevPrim_ != GE_PRIM_INVALID ? prevPrim_ : GE_PRIM_POINTS;
+		// Has to be set to something, let's assume POINTS (0) if no previous.
+		if (prevPrim_ == GE_PRIM_INVALID)
+			prevPrim_ = GE_PRIM_POINTS;
+		prim = prevPrim_;
 	} else {
 		prevPrim_ = prim;
 	}
