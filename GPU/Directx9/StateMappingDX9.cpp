@@ -204,7 +204,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 		// We use fixed-function user clipping on D3D9, where available, for negative Z clipping.
 		if (draw_->GetDeviceCaps().clipPlanesSupported >= 1) {
-			bool wantClip = !gstate.isModeThrough();
+			bool wantClip = !gstate.isModeThrough() && gstate_c.submitType == SubmitType::DRAW;
 			dxstate.clipPlaneEnable.set(wantClip ? 1 : 0);
 		}
 	}
