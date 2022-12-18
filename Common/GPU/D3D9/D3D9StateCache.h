@@ -361,6 +361,7 @@ public:
 
 	DxState1<D3DRS_CULLMODE, D3DCULL_NONE> cullMode;
 	DxState1<D3DRS_SHADEMODE, D3DSHADE_GOURAUD> shadeMode;
+	DxState1<D3DRS_CLIPPLANEENABLE, 0> clipPlaneEnable;
 
 	BoolState<D3DRS_ZENABLE, false> depthTest;
 

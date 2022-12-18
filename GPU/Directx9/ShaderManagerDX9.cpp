@@ -452,6 +452,12 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 
 		float data[4] = { viewZScale, viewZCenter, reverseTranslate, reverseScale };
 		VSSetFloatUniform4(CONST_VS_DEPTHRANGE, data);
+
+		if (draw_->GetDeviceCaps().clipPlanesSupported >= 1) {
+			float clip[4] = { 0.0f, 0.0f, reverseScale, 1.0f - reverseTranslate * reverseScale };
+			// Well, not a uniform, but we treat it as one like other backends.
+			device_->SetClipPlane(0, clip);
+		}
 	}
 	if (dirtyUniforms & DIRTY_CULLRANGE) {
 		float minValues[4], maxValues[4];

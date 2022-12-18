@@ -177,6 +177,8 @@ public:
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		dxstate.cullMode.set(cullMode);
 		dxstate.scissorTest.enable();
+		// Force user clipping off.
+		dxstate.clipPlaneEnable.set(0);
 	}
 };
 
@@ -765,6 +767,8 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.blendMinMaxSupported = true;
 	caps_.isTilingGPU = false;
 	caps_.multiSampleLevelsMask = 1;  // More could be supported with some work.
+
+	caps_.clipPlanesSupported = caps.MaxUserClipPlanes;
 
 	if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1) {
 		caps_.anisoSupported = true;
