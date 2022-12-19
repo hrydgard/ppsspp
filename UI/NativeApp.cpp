@@ -876,6 +876,8 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	Core_SetGraphicsContext(graphicsContext);
 	g_draw = graphicsContext->GetDrawContext();
 
+	_assert_(g_draw);
+
 	if (!CreateGlobalPipelines()) {
 		ERROR_LOG(G3D, "Failed to create global pipelines");
 		return false;

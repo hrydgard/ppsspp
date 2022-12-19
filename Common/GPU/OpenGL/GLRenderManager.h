@@ -796,7 +796,9 @@ public:
 	}
 
 	void SetBlendAndMask(int colorMask, bool blendEnabled, GLenum srcColor, GLenum dstColor, GLenum srcAlpha, GLenum dstAlpha, GLenum funcColor, GLenum funcAlpha) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		// Make this one only a non-debug _assert_, since it often comes first.
+		// Lets us collect info about this potential crash through assert extra data.
+		_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BLEND };
 		data.blend.mask = colorMask;
 		data.blend.enabled = blendEnabled;
