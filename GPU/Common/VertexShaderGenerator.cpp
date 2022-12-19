@@ -585,7 +585,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			*uniformMask |= DIRTY_MATAMBIENTALPHA;
 		}
 		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
-		*uniformMask |= DIRTY_FOGCOEF;
+		*uniformMask |= DIRTY_FOGCOEFENABLE;
 
 		if (!isModeThrough) {
 			WRITE(p, "uniform highp vec4 u_depthRange;\n");
@@ -1277,7 +1277,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		// Compute fogdepth
-		WRITE(p, "  %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
+		WRITE(p, "  if (u_fogcoef.x == -1.0 && u_fogcoef.y == -1.0) {\n");
+		WRITE(p, "    %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
+		WRITE(p, "  } else {\n");
+		WRITE(p, "    %sv_fogdepth = 1.0;\n", compat.vsOutPrefix);
+		WRITE(p, "  }\n");
 	}
 
 	if (clipClampedDepth) {
