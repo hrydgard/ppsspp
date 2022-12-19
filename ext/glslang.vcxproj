@@ -411,6 +411,7 @@
     <ClInclude Include="glslang\SPIRV\SPVRemapper.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="glslang-build\Android.mk" />
     <None Include="glslang\glslang\MachineIndependent\glslang.y" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

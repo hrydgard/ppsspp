@@ -334,5 +334,6 @@
     <None Include="glslang\glslang\MachineIndependent\glslang.y">
       <Filter>glslang</Filter>
     </None>
+    <None Include="glslang-build\Android.mk" />
   </ItemGroup>
 </Project>

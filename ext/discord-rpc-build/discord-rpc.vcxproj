@@ -45,6 +45,7 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\discord-rpc\src\CMakeLists.txt" />
+    <Text Include="CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\discord-rpc\src\connection_win.cpp" />
