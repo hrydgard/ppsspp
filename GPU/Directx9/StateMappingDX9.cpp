@@ -201,6 +201,12 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		} else {
 			dxstate.shadeMode.set(gstate.getShadeMode() == GE_SHADE_GOURAUD ? D3DSHADE_GOURAUD : D3DSHADE_FLAT);
 		}
+
+		// We use fixed-function user clipping on D3D9, where available, for negative Z clipping.
+		if (draw_->GetDeviceCaps().clipPlanesSupported >= 1) {
+			bool wantClip = !gstate.isModeThrough() && gstate_c.submitType == SubmitType::DRAW;
+			dxstate.clipPlaneEnable.set(wantClip ? 1 : 0);
+		}
 	}
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
