@@ -147,6 +147,7 @@ static int volatileUnlockEvent = -1;
 static HLEHelperThread *accessThread = nullptr;
 static bool accessThreadFinished = true;
 static const char *accessThreadState = "initial";
+static int lastSaveStateVersion = -1;
 
 static void CleanupDialogThreads(bool force = false) {
 	if (accessThread) {
@@ -280,6 +281,9 @@ void __UtilityDoState(PointerWrap &p) {
 
 	if (s >= 6) {
 		npSigninDialog->DoState(p);
+		lastSaveStateVersion = -1;
+	} else {
+		lastSaveStateVersion = s.Version();
 	}
 
 	if (!hasAccessThread && accessThread) {
@@ -305,6 +309,7 @@ void __UtilityShutdown() {
 		accessThreadState = "shutdown";
 	}
 	accessThreadFinished = true;
+	lastSaveStateVersion = -1;
 
 	delete saveDialog;
 	delete msgDialog;
@@ -411,7 +416,7 @@ static int UtilityFinishDialog(int type) {
 static int sceUtilitySavedataInitStart(u32 paramAddr) {
 	if (currentDialogActive && currentDialogType != UtilityDialogType::SAVEDATA) {
 		if (PSP_CoreParameter().compat.flags().YugiohSaveFix) {
-			WARN_LOG(SCEUTILITY, "Yugioh Savedata Correction");
+			WARN_LOG_REPORT(SCEUTILITY, "Yugioh Savedata Correction (state=%d)", lastSaveStateVersion);
 			if (accessThread) {
 				accessThread->Terminate();
 				delete accessThread;

@@ -63,8 +63,12 @@ public:
 	bool operator <  (const int &v) const { return ver_ < v; }
 	bool operator >  (const int &v) const { return ver_ > v; }
 
-	operator bool() const  {
+	operator bool() const {
 		return ver_ > 0;
+	}
+
+	int Version() const {
+		return ver_;
 	}
 
 private:
