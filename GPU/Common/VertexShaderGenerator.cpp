@@ -1152,9 +1152,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		if (enableLighting) {
+			WRITE(p, "  lightSum0 = clamp(lightSum0, 0.0, 1.0);\n");
 			// Sum up ambient, emissive here.
 			if (lmode) {
-				WRITE(p, "  %sv_color0 = clamp(lightSum0, 0.0, 1.0);\n", compat.vsOutPrefix);
+				WRITE(p, "  %sv_color0 = lightSum0;\n", compat.vsOutPrefix);
 				// v_color1 only exists when lmode = 1.
 				if (specularIsZero) {
 					WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
@@ -1163,9 +1164,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				}
 			} else {
 				if (specularIsZero) {
-					WRITE(p, "  %sv_color0 = clamp(lightSum0, 0.0, 1.0);\n", compat.vsOutPrefix);
+					WRITE(p, "  %sv_color0 = lightSum0;\n", compat.vsOutPrefix);
 				} else {
-					WRITE(p, "  %sv_color0 = clamp(clamp(lightSum0, 0.0, 1.0) + vec4(lightSum1, 0.0), 0.0, 1.0);\n", compat.vsOutPrefix);
+					WRITE(p, "  %sv_color0 = clamp(lightSum0 + vec4(lightSum1, 0.0), 0.0, 1.0);\n", compat.vsOutPrefix);
 				}
 				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 			}
