@@ -174,7 +174,7 @@ inline void CopyFloat3(float dest[3], const float src[3]) {
 	dest[2] = src[2];
 }
 
-inline void CopyFloat4(float dest[3], const float src[3]) {
+inline void CopyFloat4(float dest[4], const float src[4]) {
 #ifdef _M_SSE
 	_mm_storeu_ps(dest, _mm_loadu_ps(src));
 #else
