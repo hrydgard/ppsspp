@@ -1351,7 +1351,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	bShowFrameProfiler = true;
 
 	IniFile iniFile;
-	if (!iniFile.Load(iniFilename_.ToString())) {
+	if (!iniFile.Load(iniFilename_)) {
 		ERROR_LOG(LOADER, "Failed to read '%s'. Setting config to default.", iniFilename_.c_str());
 		// Continue anyway to initialize the config.
 	}
@@ -1433,11 +1433,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 			vPostShaderNames.push_back(it.second);
 	}
 
-	// This caps the exponent 4 (so 16x.)
-	if (iAnisotropyLevel > 4) {
-		iAnisotropyLevel = 4;
-	}
-
 	// Check for an old dpad setting
 	Section *control = iniFile.GetOrCreateSection("Control");
 	float f;
@@ -1483,34 +1478,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	CleanRecent();
 
-	// Set a default MAC, and correct if it's an old format.
-	if (sMACAddress.length() != 17)
-		sMACAddress = CreateRandMAC();
-
-	if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
-		g_Config.bSkipBufferEffects = false;
-	}
-
-	// Override ppsspp.ini JIT value to prevent crashing
-	if (DefaultCpuCore() != (int)CPUCore::JIT && g_Config.iCpuCore == (int)CPUCore::JIT) {
-		jitForcedOff = true;
-		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
-	}
-
-	// Automatically silence secondary instances. Could be an option I guess, but meh.
-	if (PPSSPP_ID > 1) {
-		g_Config.iGlobalVolume = 0;
-	}
-
-	// Automatically switch away from deprecated setting value.
-	if (iTexScalingLevel <= 0) {
-		iTexScalingLevel = 1;
-	}
-
 #if PPSSPP_PLATFORM(ANDROID)
 	// The on path here is untested, since we don't expose it.
 	g_Config.bVSync = false;
 #endif
+
+	PostLoadCleanup(false);
 
 	INFO_LOG(LOADER, "Config loaded: '%s'", iniFilename_.c_str());
 }
@@ -1525,12 +1498,10 @@ bool Config::Save(const char *saveReason) {
 		return true;
 	}
 
-	if (jitForcedOff) {
-		// if JIT has been forced off, we don't want to screw up the user's ppsspp.ini
-		g_Config.iCpuCore = (int)CPUCore::JIT;
-	}
 	if (!iniFilename_.empty() && g_Config.bSaveSettings) {
 		saveGameConfig(gameId_, gameIdTitle_);
+
+		PreSaveCleanup(false);
 
 		CleanRecent();
 		IniFile iniFile;
@@ -1611,15 +1582,59 @@ bool Config::Save(const char *saveReason) {
 			}
 			INFO_LOG(LOADER, "Controller config saved: %s", controllerIniFilename_.c_str());
 		}
+
+		PostSaveCleanup(false);
 	} else {
 		INFO_LOG(LOADER, "Not saving config");
 	}
+
+	return true;
+}
+
+void Config::PostLoadCleanup(bool gameSpecific) {
+	// Override ppsspp.ini JIT value to prevent crashing
+	if (DefaultCpuCore() != (int)CPUCore::JIT && g_Config.iCpuCore == (int)CPUCore::JIT) {
+		jitForcedOff = true;
+		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+	}
+
+	// This caps the exponent 4 (so 16x.)
+	if (iAnisotropyLevel > 4) {
+		iAnisotropyLevel = 4;
+	}
+
+	// Set a default MAC, and correct if it's an old format.
+	if (sMACAddress.length() != 17)
+		sMACAddress = CreateRandMAC();
+
+	if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
+		g_Config.bSkipBufferEffects = false;
+	}
+
+	// Automatically silence secondary instances. Could be an option I guess, but meh.
+	if (PPSSPP_ID > 1) {
+		g_Config.iGlobalVolume = 0;
+	}
+
+	// Automatically switch away from deprecated setting value.
+	if (iTexScalingLevel <= 0) {
+		iTexScalingLevel = 1;
+	}
+}
+
+void Config::PreSaveCleanup(bool gameSpecific) {
+	if (jitForcedOff) {
+		// if JIT has been forced off, we don't want to screw up the user's ppsspp.ini
+		g_Config.iCpuCore = (int)CPUCore::JIT;
+	}
+}
+
+void Config::PostSaveCleanup(bool gameSpecific) {
 	if (jitForcedOff) {
 		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
 		if (g_Config.iCpuCore != (int)CPUCore::INTERPRETER)
 			g_Config.iCpuCore = (int)CPUCore::IR_JIT;
 	}
-	return true;
 }
 
 // Use for debugging the version check without messing with the server
@@ -1858,6 +1873,8 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 	Section *top = iniFile.GetOrCreateSection("");
 	top->AddComment(StringFromFormat("Game config for %s - %s", pGameId.c_str(), title.c_str()));
 
+	PreSaveCleanup(true);
+
 	IterateSettings(iniFile, [](Section *section, ConfigSetting *setting) {
 		if (setting->perGame_) {
 			setting->Set(section);
@@ -1879,8 +1896,9 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 	}
 
 	KeyMap::SaveToIni(iniFile);
-	iniFile.Save(fullIniFilePath.ToString());
+	iniFile.Save(fullIniFilePath);
 
+	PostSaveCleanup(true);
 	return true;
 }
 
@@ -1894,7 +1912,7 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 
 	changeGameSpecific(pGameId, title);
 	IniFile iniFile;
-	iniFile.Load(iniFileNameFull.ToString());
+	iniFile.Load(iniFileNameFull);
 
 	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
 	mPostShaderSetting.clear();
@@ -1921,6 +1939,7 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 	});
 
 	KeyMap::LoadFromIni(iniFile);
+	PostLoadCleanup(true);
 	return true;
 }
 
@@ -1929,7 +1948,7 @@ void Config::unloadGameConfig() {
 		changeGameSpecific();
 
 		IniFile iniFile;
-		iniFile.Load(iniFilename_.ToString());
+		iniFile.Load(iniFilename_);
 
 		// Reload game specific settings back to standard.
 		IterateSettings(iniFile, [](Section *section, ConfigSetting *setting) {
@@ -1952,12 +1971,13 @@ void Config::unloadGameConfig() {
 		}
 
 		LoadStandardControllerIni();
+		PostLoadCleanup(true);
 	}
 }
 
 void Config::LoadStandardControllerIni() {
 	IniFile controllerIniFile;
-	if (!controllerIniFile.Load(controllerIniFilename_.ToString())) {
+	if (!controllerIniFile.Load(controllerIniFilename_)) {
 		ERROR_LOG(LOADER, "Failed to read %s. Setting controller config to default.", controllerIniFilename_.c_str());
 		KeyMap::RestoreDefault();
 	} else {
