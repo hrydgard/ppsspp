@@ -131,14 +131,14 @@ static inline void Core_StateProcessed() {
 }
 
 void Core_WaitInactive() {
-	while (Core_IsActive()) {
+	while (Core_IsActive() && !GPUStepping::IsStepping()) {
 		std::unique_lock<std::mutex> guard(m_hInactiveMutex);
 		m_InactiveCond.wait(guard);
 	}
 }
 
 void Core_WaitInactive(int milliseconds) {
-	if (Core_IsActive()) {
+	if (Core_IsActive() && !GPUStepping::IsStepping()) {
 		std::unique_lock<std::mutex> guard(m_hInactiveMutex);
 		m_InactiveCond.wait_for(guard, std::chrono::milliseconds(milliseconds));
 	}
