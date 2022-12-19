@@ -1406,13 +1406,11 @@
     <ClInclude Include="WebServer.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\android\jni\Android.mk" />
     <None Include="..\ext\cityhash\COPYING" />
     <None Include="..\ext\cityhash\README" />
     <None Include="..\ext\gason\LICENSE" />
     <None Include="..\ext\libzip\Android.mk" />
     <None Include="..\LICENSE.TXT" />
-    <None Include="CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
@@ -1432,6 +1430,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <Text Include="..\ext\CMakeLists.txt" />
     <Text Include="..\ext\libzip\CMakeLists.txt" />
     <Text Include="..\ext\sha1\CMakeLists.txt" />
   </ItemGroup>

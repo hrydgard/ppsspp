@@ -32,9 +32,6 @@
     <Filter Include="Other Platforms\Qt">
       <UniqueIdentifier>{45191b1f-33c8-405c-a410-35fe2344d1d1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Other Platforms\Qt\Debugger">
-      <UniqueIdentifier>{1d0cc0ee-fdbd-419e-b322-b35075d9d9db}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Other Platforms\SDL">
       <UniqueIdentifier>{5bfed059-8636-4b1e-a3cf-f948d645babb}</UniqueIdentifier>
     </Filter>
@@ -52,6 +49,15 @@
     </Filter>
     <Filter Include="Other Platforms\UWP">
       <UniqueIdentifier>{21c262bc-bc21-49d7-a332-2e2614e89217}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Build\Actions">
+      <UniqueIdentifier>{14abd855-ec8b-47a5-8b4c-eadcff122dc8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Other Platforms\iOS\iCade">
+      <UniqueIdentifier>{ce617e38-1bc8-4eab-a3cb-d3d664116c91}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Build\CMake">
+      <UniqueIdentifier>{8f39c005-9738-41c5-a8d8-cfc05bf178e8}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -250,13 +256,7 @@
     <ClCompile Include="..\UWP\App.cpp">
       <Filter>Other Platforms\UWP</Filter>
     </ClCompile>
-    <ClCompile Include="..\UWP\StorageFolderBrowser.cpp">
-      <Filter>Other Platforms\UWP</Filter>
-    </ClCompile>
     <ClCompile Include="..\UWP\XAudioSoundStream.cpp">
-      <Filter>Other Platforms\UWP</Filter>
-    </ClCompile>
-    <ClCompile Include="..\UWP\StorageFileLoader.cpp">
       <Filter>Other Platforms\UWP</Filter>
     </ClCompile>
     <ClCompile Include="..\UWP\pch.cpp">
@@ -270,6 +270,9 @@
     </ClCompile>
     <ClCompile Include="W32Util\ContextMenu.cpp">
       <Filter>Windows\W32Util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\libretro\LibretroGLCoreContext.cpp">
+      <Filter>Other Platforms\libretro</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -514,16 +517,10 @@
     <ClInclude Include="..\UWP\App.h">
       <Filter>Other Platforms\UWP</Filter>
     </ClInclude>
-    <ClInclude Include="..\UWP\StorageFolderBrowser.h">
-      <Filter>Other Platforms\UWP</Filter>
-    </ClInclude>
     <ClInclude Include="..\UWP\UWPUtil.h">
       <Filter>Other Platforms\UWP</Filter>
     </ClInclude>
     <ClInclude Include="..\UWP\XAudioSoundStream.h">
-      <Filter>Other Platforms\UWP</Filter>
-    </ClInclude>
-    <ClInclude Include="..\UWP\StorageFileLoader.h">
       <Filter>Other Platforms\UWP</Filter>
     </ClInclude>
     <ClInclude Include="..\UWP\pch.h">
@@ -541,6 +538,27 @@
     <ClInclude Include="W32Util\ContextMenu.h">
       <Filter>Windows\W32Util</Filter>
     </ClInclude>
+    <ClInclude Include="..\libretro\libretro_core_options.h">
+      <Filter>Other Platforms\libretro</Filter>
+    </ClInclude>
+    <ClInclude Include="..\libretro\libretro_core_options_intl.h">
+      <Filter>Other Platforms\libretro</Filter>
+    </ClInclude>
+    <ClInclude Include="..\libretro\LibretroGLCoreContext.h">
+      <Filter>Other Platforms\libretro</Filter>
+    </ClInclude>
+    <ClInclude Include="..\libretro\retro_inline.h">
+      <Filter>Other Platforms\libretro</Filter>
+    </ClInclude>
+    <ClInclude Include="mingw_defines.h">
+      <Filter>Other Platforms</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ios\iCade\iCadeState.h">
+      <Filter>Other Platforms\iOS\iCade</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ios\iCade\iCadeReaderView.h">
+      <Filter>Other Platforms\iOS\iCade</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">
@@ -553,7 +571,6 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="..\README.md" />
-    <None Include="git-version-gen.cmd" />
     <None Include="aboutbox.rc">
       <Filter>Resource Files</Filter>
     </None>
@@ -566,30 +583,6 @@
     <None Include="PPSSPP.manifest">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="..\Qt\Native.pro">
-      <Filter>Other Platforms\Qt</Filter>
-    </None>
-    <None Include="..\Qt\PPSSPP.pro">
-      <Filter>Other Platforms\Qt</Filter>
-    </None>
-    <None Include="..\Qt\PPSSPPQt.pro">
-      <Filter>Other Platforms\Qt</Filter>
-    </None>
-    <None Include="..\Qt\Settings.pri">
-      <Filter>Other Platforms\Qt</Filter>
-    </None>
-    <None Include="..\Qt\Common.pro">
-      <Filter>Other Platforms\Qt</Filter>
-    </None>
-    <None Include="..\Qt\Core.pro">
-      <Filter>Other Platforms\Qt</Filter>
-    </None>
-    <None Include="..\Qt\GPU.pro">
-      <Filter>Other Platforms\Qt</Filter>
-    </None>
-    <None Include="..\Qt\assets.qrc">
-      <Filter>Other Platforms\Qt</Filter>
-    </None>
     <None Include="..\assets\langregion.ini">
       <Filter>Resource Files</Filter>
     </None>
@@ -600,12 +593,6 @@
       <Filter>Other Platforms\Android</Filter>
     </None>
     <None Include="..\CMakeLists.txt">
-      <Filter>Build</Filter>
-    </None>
-    <None Include="..\.travis.sh">
-      <Filter>Build</Filter>
-    </None>
-    <None Include="..\.travis.yml">
       <Filter>Build</Filter>
     </None>
     <None Include="..\appveyor.yml">
@@ -675,9 +662,6 @@
     <None Include="..\ios\iOSCoreAudio.mm">
       <Filter>Other Platforms\iOS</Filter>
     </None>
-    <None Include="..\ios\macbundle.sh">
-      <Filter>Build</Filter>
-    </None>
     <None Include="..\ios\PPSSPP-Info.plist">
       <Filter>Other Platforms\iOS</Filter>
     </None>
@@ -708,11 +692,101 @@
     <None Include="..\SDL\SDLMain.mm">
       <Filter>Other Platforms\SDL</Filter>
     </None>
-    <None Include="..\SDL\buildassets.sh">
-      <Filter>Other Platforms\SDL</Filter>
-    </None>
     <None Include="..\assets\compatvr.ini">
       <Filter>Resource Files</Filter>
+    </None>
+    <None Include="git-version-gen.cmd">
+      <Filter>Build</Filter>
+    </None>
+    <None Include="zipup.cmd">
+      <Filter>Build</Filter>
+    </None>
+    <None Include="build-x64.cmd">
+      <Filter>Build</Filter>
+    </None>
+    <None Include="build-x86.cmd">
+      <Filter>Build</Filter>
+    </None>
+    <None Include="..\Dockerfile">
+      <Filter>Build</Filter>
+    </None>
+    <None Include="..\gradle.properties">
+      <Filter>Other Platforms\Android</Filter>
+    </None>
+    <None Include="..\.github\workflows\build.yml">
+      <Filter>Build\Actions</Filter>
+    </None>
+    <None Include="..\.github\workflows\manual_generate_apk.yml">
+      <Filter>Build\Actions</Filter>
+    </None>
+    <None Include="..\.github\workflows\tarball.yml">
+      <Filter>Build\Actions</Filter>
+    </None>
+    <None Include="..\.github\workflows\generateDockerLayer.yml">
+      <Filter>Build\Actions</Filter>
+    </None>
+    <None Include="..\android\buildassets.sh">
+      <Filter>Build</Filter>
+    </None>
+    <None Include="..\ios\Launch Screen.storyboard">
+      <Filter>Other Platforms\iOS</Filter>
+    </None>
+    <None Include="..\ios\macbundle.sh">
+      <Filter>Other Platforms\iOS</Filter>
+    </None>
+    <None Include="..\ios\README.md">
+      <Filter>Other Platforms\iOS</Filter>
+    </None>
+    <None Include="..\ios\iCade\iCadeReaderView.m">
+      <Filter>Other Platforms\iOS\iCade</Filter>
+    </None>
+    <None Include="..\cmake\Modules\FindMINIUPNPC.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\Modules\FindSnappy.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\Modules\FindWayland.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\Modules\FindZSTD.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\Modules\ccache.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\Modules\FindFFmpeg.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\Modules\FindLIBZIP.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\sdl\FindSDL2.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\Toolchains\raspberry.armv6.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\Toolchains\raspberry.armv7.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\Toolchains\raspberry.armv8.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\Toolchains\vero4k.armv8.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\Toolchains\beagleboard.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\Toolchains\generic.armv7.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\Toolchains\ios.cmake">
+      <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\cmake\Toolchains\nvidiajetsonsdl.armv8.cmake">
+      <Filter>Build\CMake</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -737,6 +811,19 @@
     </Text>
     <Text Include="..\libretro\README_WINDOWS.txt">
       <Filter>Other Platforms\libretro</Filter>
+    </Text>
+    <Text Include="debugger.txt" />
+    <Text Include="..\font_atlasscript.txt">
+      <Filter>Build</Filter>
+    </Text>
+    <Text Include="..\asciifont_atlasscript.txt">
+      <Filter>Build</Filter>
+    </Text>
+    <Text Include="..\ui_atlasscript.txt">
+      <Filter>Build</Filter>
+    </Text>
+    <Text Include="..\SDL\README.TXT">
+      <Filter>Other Platforms\SDL</Filter>
     </Text>
   </ItemGroup>
 </Project>

@@ -694,7 +694,6 @@
     <ClCompile Include="AVIDump.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="WaveFile.cpp" />
     <ClCompile Include="HLE\KUBridge.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -1189,6 +1188,9 @@
     </ClCompile>
     <ClCompile Include="HLE\sceNp2.cpp">
       <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="WaveFile.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1753,7 +1755,6 @@
     <ClInclude Include="AVIDump.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="WaveFile.h" />
     <ClInclude Include="HLE\KUBridge.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
@@ -1922,11 +1923,12 @@
     <ClInclude Include="HLE\sceNp2.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="WaveFile.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="CMakeLists.txt" />
     <None Include="..\LICENSE.TXT" />
-    <None Include="..\android\jni\Android.mk" />
     <None Include="..\ext\gason\LICENSE">
       <Filter>Ext\gason</Filter>
     </None>
@@ -1946,6 +1948,9 @@
     </Text>
     <Text Include="..\ext\libzip\CMakeLists.txt">
       <Filter>Ext\libzip</Filter>
+    </Text>
+    <Text Include="..\ext\CMakeLists.txt">
+      <Filter>Ext</Filter>
     </Text>
   </ItemGroup>
 </Project>

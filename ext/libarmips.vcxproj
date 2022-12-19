@@ -600,6 +600,9 @@
     <ClInclude Include="armips\Util\FileSystem.h" />
     <ClInclude Include="armips\Util\Util.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="cmake\armips\CMakeLists.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
