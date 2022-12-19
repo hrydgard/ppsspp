@@ -320,12 +320,10 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 		GSID = lastGSID_;
 	}
 
-	_dbg_assert_(FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
 	_dbg_assert_(FSID.Bit(FS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
 	_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
 
 	if (GSID.Bit(GS_BIT_ENABLED)) {
-		_dbg_assert_(GSID.Bit(GS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
 		_dbg_assert_(GSID.Bit(GS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
 	}
 

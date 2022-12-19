@@ -285,9 +285,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		WRITE(p, "layout (location = 1) %sout lowp vec4 v_color0;\n", shading);
-		if (lmode) {
-			WRITE(p, "layout (location = 2) %sout lowp vec3 v_color1;\n", shading);
-		}
+		WRITE(p, "layout (location = 2) %sout lowp vec3 v_color1;\n", shading);
 
 		if (doTexture) {
 			WRITE(p, "layout (location = 0) out highp vec3 v_texcoord;\n");
@@ -423,8 +421,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 		const char *colorInterpolation = doFlatShading && compat.shaderLanguage == HLSL_D3D11 ? "nointerpolation " : "";
 		WRITE(p, "  %svec4 v_color0    : COLOR0;\n", colorInterpolation);
-		if (lmode)
-			WRITE(p, "  vec3 v_color1    : COLOR1;\n");
+		WRITE(p, "  vec3 v_color1    : COLOR1;\n");
 
 		WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
 		if (compat.shaderLanguage == HLSL_D3D9) {
@@ -595,9 +592,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		WRITE(p, "%s%s lowp vec4 v_color0;\n", shading, compat.varying_vs);
-		if (lmode) {
-			WRITE(p, "%s%s lowp vec3 v_color1;\n", shading, compat.varying_vs);
-		}
+		WRITE(p, "%s%s lowp vec3 v_color1;\n", shading, compat.varying_vs);
 
 		if (doTexture) {
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_vs, highpTexcoord ? "highp" : "mediump");
@@ -838,10 +833,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  %sv_color0 = color0;\n", compat.vsOutPrefix);
 			if (lmode)
 				WRITE(p, "  %sv_color1 = color1;\n", compat.vsOutPrefix);
+			else
+				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 		} else {
 			WRITE(p, "  %sv_color0 = u_matambientalpha;\n", compat.vsOutPrefix);
-			if (lmode)
-				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
+			WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 		}
 		WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
 		if (isModeThrough)	{
@@ -1171,6 +1167,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				} else {
 					WRITE(p, "  %sv_color0 = clamp(clamp(lightSum0, 0.0, 1.0) + vec4(lightSum1, 0.0), 0.0, 1.0);\n", compat.vsOutPrefix);
 				}
+				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 			}
 		} else {
 			// Lighting doesn't affect color.
@@ -1185,8 +1182,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					WRITE(p, "  %sv_color0.r += 0.000001;\n", compat.vsOutPrefix);
 				}
 			}
-			if (lmode)
-				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
+			WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 		}
 
 		bool scaleUV = !isModeThrough && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
