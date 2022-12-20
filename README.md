@@ -25,6 +25,13 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.14.1
+====================
+* Fix black screen in Vulkan on some older Android devices (Android version 7) ([#16599])
+* Fix error message in Medal of Honor ([#16614])
+* Various minor bugfixes ([#16617], [#16609], [#16608], [#16615], [#16619])
+* Add an option to turn off the new transparent menu background ([#16595])
+
 What's new in 1.14
 ==================
 * Massive number of rendering fixes
@@ -340,7 +347,6 @@ Credit goes to:
 [#16413]: https://github.com/hrydgard/ppsspp/issues/16413 "Kernel: Respect partition param in heap funcs"
 [#16070]: https://github.com/hrydgard/ppsspp/issues/16070 "Kernel: Match index lookup behavior for tls"
 [#16052]: https://github.com/hrydgard/ppsspp/issues/16052 "HLE: sceKernelAllocPartitionMemory volatile memory support (partition 5)"
-[#15930]: https://github.com/hrydgard/ppsspp/issues/15930 "Fix sceKernelUnlockMutex timing"
 [#15952]: https://github.com/hrydgard/ppsspp/issues/15952 "interp: Handle jumps in branch delay slots better"
 [#15957]: https://github.com/hrydgard/ppsspp/issues/15957 "Handle branch/jump in branch delay slots more accurately"
 [#15839]: https://github.com/hrydgard/ppsspp/issues/15839 "GE debugger: Allow displaying two tabs at once, separate DL view"
@@ -357,3 +363,11 @@ Credit goes to:
 [#16089]: https://github.com/hrydgard/ppsspp/issues/16089 "[AdhocMatching] Fix assertion issue when playing Cars over public adhoc server."
 [#15990]: https://github.com/hrydgard/ppsspp/issues/15990 "Atrac3+: Allocate some extra"
 [#15889]: https://github.com/hrydgard/ppsspp/issues/15889 "Correct D3D viewport offset sign in sw transform"
+[#16599]: https://github.com/hrydgard/ppsspp/issues/16599 "Vulkan: Remove the new 0th descriptor set, move everything else back to desc set 0"
+[#16614]: https://github.com/hrydgard/ppsspp/issues/16614 "GPU: Keep prevPrim_ set on flush"
+[#16617]: https://github.com/hrydgard/ppsspp/issues/16617 "GE Debugger: Prevent double init"
+[#16609]: https://github.com/hrydgard/ppsspp/issues/16609 "OpenXR - Rendering fixes for a few games"
+[#16608]: https://github.com/hrydgard/ppsspp/issues/16608 "Cleanup value corrections in config load/save"
+[#16615]: https://github.com/hrydgard/ppsspp/issues/16615 "D3D9: Support old-style user clip planes"
+[#16619]: https://github.com/hrydgard/ppsspp/issues/16619 "Debugger: Don't hang memory dump if stepping in GE"
+[#16595]: https://github.com/hrydgard/ppsspp/issues/16595 "Transparent background option"
