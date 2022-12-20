@@ -252,13 +252,6 @@ std::string NativeQueryConfig(std::string query) {
 		int max_res = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 1;
 		snprintf(temp, sizeof(temp), "%d", std::min(scale, max_res));
 		return std::string(temp);
-	} else if (query == "androidJavaGL") {
-		// If we're using Vulkan, we say no... need C++ to use Vulkan.
-		if (GetGPUBackend() == GPUBackend::VULKAN) {
-			return "false";
-		}
-		// Otherwise, some devices prefer the Java init so play it safe.
-		return "true";
 	} else if (query == "sustainedPerformanceMode") {
 		return std::string(g_Config.bSustainedPerformanceMode ? "1" : "0");
 	} else {

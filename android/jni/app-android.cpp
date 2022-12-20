@@ -78,7 +78,6 @@ struct JNIEnv {};
 
 #include "AndroidGraphicsContext.h"
 #include "AndroidVulkanContext.h"
-#include "AndroidEGLContext.h"
 #include "AndroidJavaGLContext.h"
 
 #include "Core/Config.h"
@@ -736,21 +735,16 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	// No need to use EARLY_LOG anymore.
 
 retry:
-	// Now that we've loaded config, set javaGL.
-	javaGL = NativeQueryConfig("androidJavaGL") == "true";
-
 	switch (g_Config.iGPUBackend) {
 	case (int)GPUBackend::OPENGL:
+		javaGL = true;
 		useCPUThread = true;
-		if (javaGL) {
-			INFO_LOG(SYSTEM, "NativeApp.init() -- creating OpenGL context (JavaGL)");
-			graphicsContext = new AndroidJavaEGLGraphicsContext();
-		} else {
-			graphicsContext = new AndroidEGLGraphicsContext();
-		}
+		INFO_LOG(SYSTEM, "NativeApp.init() -- creating OpenGL context (JavaGL)");
+		graphicsContext = new AndroidJavaEGLGraphicsContext();
 		break;
 	case (int)GPUBackend::VULKAN:
 	{
+		javaGL = false;
 		INFO_LOG(SYSTEM, "NativeApp.init() -- creating Vulkan context");
 		useCPUThread = false;  // The Vulkan render manager manages its own thread.
 		// We create and destroy the Vulkan graphics context in the "EGL" thread.

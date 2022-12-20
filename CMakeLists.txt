@@ -1105,8 +1105,6 @@ if(ANDROID)
 
 	set(NativeAppSource ${NativeAppSource}
 		android/jni/app-android.cpp
-		android/jni/AndroidEGLContext.cpp
-		android/jni/AndroidEGLContext.h
 		android/jni/AndroidJavaGLContext.cpp
 		android/jni/AndroidJavaGLContext.h
 		android/jni/AndroidVulkanContext.cpp
