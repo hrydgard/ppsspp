@@ -1145,13 +1145,7 @@ UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	if (!blockCache)
 		return UI::EVENT_DONE;
-	std::vector<int> blockNum;
-	blockCache->GetBlockNumbersFromAddress(currentMIPS->pc, &blockNum);
-	if (blockNum.size() > 0) {
-		currentBlock_ = blockNum[0];
-	} else {
-		currentBlock_ = -1;
-	}
+	currentBlock_ = blockCache->GetBlockNumberFromAddress(currentMIPS->pc);
 	UpdateDisasm();
 	return UI::EVENT_DONE;
 }

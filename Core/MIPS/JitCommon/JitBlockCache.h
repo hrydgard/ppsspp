@@ -143,6 +143,8 @@ public:
 	// Returns a list of block numbers - only one block can start at a particular address, but they CAN overlap.
 	// This one is slow so should only be used for one-shots from the debugger UI, not for anything during runtime.
 	void GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers);
+	// Similar to above, but only the first matching address.
+	int GetBlockNumberFromAddress(u32 em_address);
 	int GetBlockNumberFromEmuHackOp(MIPSOpcode inst, bool ignoreBad = false) const;
 
 	u32 GetAddressFromBlockPtr(const u8 *ptr) const;

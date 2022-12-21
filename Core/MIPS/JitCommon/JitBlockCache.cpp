@@ -375,6 +375,15 @@ void JitBlockCache::GetBlockNumbersFromAddress(u32 em_address, std::vector<int> 
 			block_numbers->push_back(i);
 }
 
+int JitBlockCache::GetBlockNumberFromAddress(u32 em_address) {
+	for (int i = 0; i < num_blocks_; i++) {
+		if (blocks_[i].ContainsAddress(em_address))
+			return i;
+	}
+
+	return -1;
+}
+
 u32 JitBlockCache::GetAddressFromBlockPtr(const u8 *ptr) const {
 	if (!codeBlock_->IsInSpace(ptr))
 		return (u32)-1;
