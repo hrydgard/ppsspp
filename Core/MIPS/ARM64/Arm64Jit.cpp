@@ -427,12 +427,20 @@ bool Arm64Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		name = "loadStaticRegisters";
 	else {
 		u32 addr = blocks.GetAddressFromBlockPtr(ptr);
-		std::vector<int> numbers;
-		blocks.GetBlockNumbersFromAddress(addr, &numbers);
-		if (!numbers.empty()) {
-			const JitBlock *block = blocks.GetBlock(numbers[0]);
+		// Returns 0 when it's valid, but unknown.
+		if (addr == 0) {
+			name = "(unknown or deleted block)";
+			return true;
+		} else if (addr != (u32)-1) {
+			name = "(outside space)";
+			return true;
+		}
+
+		int number = blocks.GetBlockNumberFromAddress(addr);
+		if (number != -1) {
+			const JitBlock *block = blocks.GetBlock(number);
 			if (block) {
-				name = StringFromFormat("(block %d at %08x)", numbers[0], block->originalAddress);
+				name = StringFromFormat("(block %d at %08x)", number, block->originalAddress);
 				return true;
 			}
 		}
