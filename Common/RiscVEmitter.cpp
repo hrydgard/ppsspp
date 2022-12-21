@@ -628,7 +628,7 @@ void RiscVEmitter::FlushIcache() {
 
 void RiscVEmitter::FlushIcacheSection(const u8 *start, const u8 *end) {
 #if PPSSPP_ARCH(RISCV64)
-	__builtin___clear_cache((void *)start, (void *)end);
+	__builtin___clear_cache((char *)start, (char *)end);
 #endif
 }
 
