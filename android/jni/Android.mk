@@ -681,7 +681,6 @@ LOCAL_STATIC_LIBRARIES += ppsspp_common ppsspp_core libarmips libzstd
 LOCAL_MODULE := ppsspp_jni
 LOCAL_SRC_FILES := \
   $(SRC)/android/jni/app-android.cpp \
-  $(SRC)/android/jni/AndroidEGLContext.cpp \
   $(SRC)/android/jni/AndroidJavaGLContext.cpp \
   $(SRC)/android/jni/AndroidVulkanContext.cpp \
   $(SRC)/android/jni/AndroidAudio.cpp \

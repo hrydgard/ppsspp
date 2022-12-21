@@ -196,9 +196,6 @@
     <ClCompile Include="GPU\WindowsVulkanContext.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
-    <ClCompile Include="..\android\jni\AndroidEGLContext.cpp">
-      <Filter>Other Platforms\Android</Filter>
-    </ClCompile>
     <ClCompile Include="..\android\jni\AndroidJavaGLContext.cpp">
       <Filter>Other Platforms\Android</Filter>
     </ClCompile>
@@ -414,9 +411,6 @@
     </ClInclude>
     <ClInclude Include="GPU\WindowsVulkanContext.h">
       <Filter>Windows\System</Filter>
-    </ClInclude>
-    <ClInclude Include="..\android\jni\AndroidEGLContext.h">
-      <Filter>Other Platforms\Android</Filter>
     </ClInclude>
     <ClInclude Include="..\android\jni\AndroidGraphicsContext.h">
       <Filter>Other Platforms\Android</Filter>
