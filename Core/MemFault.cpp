@@ -44,6 +44,7 @@ namespace Memory {
 static int64_t g_numReportedBadAccesses = 0;
 const uint8_t *g_lastCrashAddress;
 MemoryExceptionType g_lastMemoryExceptionType;
+static bool inCrashHandler = false;
 
 std::unordered_set<const uint8_t *> g_ignoredAddresses;
 
@@ -88,6 +89,10 @@ static bool DisassembleNativeAt(const uint8_t *codePtr, int instructionSize, std
 }
 
 bool HandleFault(uintptr_t hostAddress, void *ctx) {
+	if (inCrashHandler)
+		return false;
+	inCrashHandler = true;
+
 	SContext *context = (SContext *)ctx;
 	const uint8_t *codePtr = (uint8_t *)(context->CTX_PC);
 
@@ -100,6 +105,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	bool inJitSpace = MIPSComp::jit && MIPSComp::jit->CodeInRange(codePtr);
 	if (!inJitSpace) {
 		// This is a crash in non-jitted code. Not something we want to handle here, ignore.
+		inCrashHandler = false;
 		return false;
 	}
 
@@ -114,8 +120,10 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	bool invalidHostAddress = hostAddress == (uintptr_t)0xFFFFFFFFFFFFFFFFULL;
 	if (hostAddress < baseAddress || hostAddress >= baseAddress + addressSpaceSize) {
 		// Host address outside - this was a different kind of crash.
-		if (!invalidHostAddress)
+		if (!invalidHostAddress) {
+			inCrashHandler = false;
 			return false;
+		}
 	}
 
 
@@ -182,6 +190,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		// Redirect execution to a crash handler that will switch to CoreState::CORE_RUNTIME_ERROR immediately.
 		context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
 		ERROR_LOG(MEMMAP, "Bad execution access detected, halting: %08x (last known pc %08x, host: %p)", targetAddr, currentMIPS->pc, (void *)hostAddress);
+		inCrashHandler = false;
 		return true;
 	} else if (success) {
 		if (info.isMemoryWrite) {
@@ -218,6 +227,8 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
 		ERROR_LOG(MEMMAP, "Bad memory access detected! %08x (%p) Stopping emulation. Info:\n%s", guestAddress, (void *)hostAddress, infoString.c_str());
 	}
+
+	inCrashHandler = false;
 	return true;
 }
 
