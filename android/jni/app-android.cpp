@@ -132,13 +132,6 @@ std::string g_extFilesDir;  // App private external dir.
 
 std::vector<std::string> g_additionalStorageDirs;
 
-static float left_joystick_x_async;
-static float left_joystick_y_async;
-static float right_joystick_x_async;
-static float right_joystick_y_async;
-static float hat_joystick_x_async;
-static float hat_joystick_y_async;
-
 static int optimalFramesPerBuffer = 0;
 static int optimalSampleRate = 0;
 static int sampleRate = 0;
@@ -173,7 +166,7 @@ static jmethodID getDebugString;
 
 static jobject nativeActivity;
 
-static volatile bool exitRenderLoop;
+static std::atomic<bool> exitRenderLoop;
 static bool renderLoopRunning;
 static bool renderer_inited = false;
 static std::mutex renderLock;
@@ -183,7 +176,6 @@ std::map<int, std::function<void(bool, const std::string &)>> inputBoxCallbacks;
 
 static bool sustainedPerfSupported = false;
 
-static std::string library_path;
 static std::map<SystemPermission, PermissionStatus> permissions;
 
 AndroidGraphicsContext *graphicsContext;
@@ -287,7 +279,7 @@ static void EmuThreadFunc() {
 			sleep_ms(20);
 		}
 	} else {
-		INFO_LOG(SYSTEM, "Runloop: Graphics context available! %p", graphicsContext);
+		INFO_LOG(SYSTEM, "Runloop: Graphics context available!");
 	}
 
 	if (!NativeInitGraphics(graphicsContext)) {
@@ -644,7 +636,7 @@ static void parse_args(std::vector<std::string> &args, const std::string value) 
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
-		jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
+		jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam,
 		jint jAndroidVersion, jstring jboard) {
 	SetCurrentThreadName("androidInit");
 
@@ -658,13 +650,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	renderer_inited = false;
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
-
-	left_joystick_x_async = 0;
-	left_joystick_y_async = 0;
-	right_joystick_x_async = 0;
-	right_joystick_y_async = 0;
-	hat_joystick_x_async = 0;
-	hat_joystick_y_async = 0;
 
 	std::string apkPath = GetJavaString(env, japkpath);
 	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
@@ -691,7 +676,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	std::string user_data_path = GetJavaString(env, jdataDir);
 	if (user_data_path.size() > 0)
 		user_data_path += "/";
-	library_path = GetJavaString(env, jlibraryDir) + "/";
 	std::string shortcut_param = GetJavaString(env, jshortcutParam);
 	std::string cacheDir = GetJavaString(env, jcacheDir);
 	std::string buildBoard = GetJavaString(env, jboard);
@@ -1136,26 +1120,6 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 		JNIEnv *env, jclass, jint deviceId, jint axisId, jfloat value) {
 	if (!renderer_inited)
 		return false;
-	switch (axisId) {
-	case JOYSTICK_AXIS_X:
-		left_joystick_x_async = value;
-		break;
-	case JOYSTICK_AXIS_Y:
-		left_joystick_y_async = -value;
-		break;
-	case JOYSTICK_AXIS_Z:
-		right_joystick_x_async = value;
-		break;
-	case JOYSTICK_AXIS_RZ:
-		right_joystick_y_async = -value;
-		break;
-	case JOYSTICK_AXIS_HAT_X:
-		hat_joystick_x_async = value;
-		break;
-	case JOYSTICK_AXIS_HAT_Y:
-		hat_joystick_y_async = -value;
-		break;
-	}
 
 	AxisInput axis;
 	axis.axisId = axisId;
