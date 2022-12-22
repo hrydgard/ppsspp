@@ -19,38 +19,38 @@
 #include <algorithm>
 #include <cstring>
 #include "Common/BitScan.h"
+#include "Common/CPUDetect.h"
 #include "Common/RiscVEmitter.h"
 
 namespace RiscVGen {
 
 static inline bool SupportsCompressed() {
-	// TODO
-	return true;
+	return cpu_info.RiscV_C;
 }
 
 static inline uint8_t BitsSupported() {
-	// TODO
-	return 64;
+	return cpu_info.OS64bit ? 64 : 32;
 }
 
 static inline uint8_t FloatBitsSupported() {
-	// TODO: 0 if not.
-	return 64;
+	if (cpu_info.RiscV_D)
+		return 64;
+	if (cpu_info.RiscV_F)
+		return 32;
+	return 0;
 }
 
 static inline bool SupportsMulDiv() {
-	// TODO
-	return true;
+	return cpu_info.RiscV_M;
 }
 
 static inline bool SupportsAtomic() {
-	// TODO
-	return true;
+	return cpu_info.RiscV_A;
 }
 
 static inline bool SupportsZicsr() {
 	// TODO
-	return true;
+	return false;
 }
 
 enum class Opcode32 {
@@ -628,7 +628,7 @@ void RiscVEmitter::FlushIcache() {
 
 void RiscVEmitter::FlushIcacheSection(const u8 *start, const u8 *end) {
 #if PPSSPP_ARCH(RISCV64)
-	__builtin___clear_cache((void *)start, (void *)end);
+	__builtin___clear_cache((char *)start, (char *)end);
 #endif
 }
 

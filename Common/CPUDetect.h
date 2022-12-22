@@ -97,6 +97,14 @@ struct CPUInfo {
 	bool bXBurst1;
 	bool bXBurst2;
 
+	// RiscV specific extension flags.
+	bool RiscV_M;
+	bool RiscV_A;
+	bool RiscV_F;
+	bool RiscV_D;
+	bool RiscV_C;
+	bool RiscV_V;
+
 	// Quirks
 	struct {
 		// Samsung Galaxy S7 devices (Exynos 8890) have a big.LITTLE configuration where the cacheline size differs between big and LITTLE.
