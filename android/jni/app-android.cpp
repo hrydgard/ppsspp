@@ -506,16 +506,19 @@ std::string Android_GetInputDeviceDebugString() {
 		return "(N/A)";
 	}
 	auto env = getEnv();
-	jstring param = env->NewStringUTF("InputDevice");
 
-	jstring str = (jstring)env->CallObjectMethod(nativeActivity, getDebugString, param);
-	if (!str) {
+	jstring jparam = env->NewStringUTF("InputDevice");
+	jstring jstr = (jstring)env->CallObjectMethod(nativeActivity, getDebugString, jparam);
+	if (!jstr) {
+		env->DeleteLocalRef(jparam);
 		return "(N/A)";
 	}
 
-	const char *charArray = env->GetStringUTFChars(str, 0);
+	const char *charArray = env->GetStringUTFChars(jstr, 0);
 	std::string retVal = charArray;
-	env->DeleteLocalRef(str);
+	env->ReleaseStringUTFChars(jstr, charArray);
+	env->DeleteLocalRef(jstr);
+	env->DeleteLocalRef(jparam);
 	return retVal;
 }
 
