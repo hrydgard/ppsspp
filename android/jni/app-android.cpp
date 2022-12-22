@@ -265,6 +265,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 	return JNI_VERSION_1_6;
 }
 
+// Only used in OpenGL mode.
 static void EmuThreadFunc() {
 	JNIEnv *env;
 	gJvm->AttachCurrentThread(&env, nullptr);
@@ -723,12 +724,15 @@ retry:
 		useCPUThread = true;
 		INFO_LOG(SYSTEM, "NativeApp.init() -- creating OpenGL context (JavaGL)");
 		graphicsContext = new AndroidJavaEGLGraphicsContext();
+		INFO_LOG(SYSTEM, "NativeApp.init() - launching emu thread");
+		EmuThreadStart();
 		break;
 	case (int)GPUBackend::VULKAN:
 	{
 		INFO_LOG(SYSTEM, "NativeApp.init() -- creating Vulkan context");
-		useCPUThread = false;  // The Vulkan render manager manages its own thread.
-		// We create and destroy the Vulkan graphics context in the "EGL" thread.
+		useCPUThread = false;
+		// The Vulkan render manager manages its own thread.
+		// We create and destroy the Vulkan graphics context in the app main thread though.
 		AndroidVulkanContext *ctx = new AndroidVulkanContext();
 		if (!ctx->InitAPI()) {
 			INFO_LOG(SYSTEM, "Failed to initialize Vulkan, switching to OpenGL");
@@ -744,11 +748,6 @@ retry:
 		ERROR_LOG(SYSTEM, "NativeApp.init(): iGPUBackend %d not supported. Switching to OpenGL.", (int)g_Config.iGPUBackend);
 		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 		goto retry;
-	}
-
-	if (useCPUThread) {
-		INFO_LOG(SYSTEM, "NativeApp.init() - launching emu thread");
-		EmuThreadStart();
 	}
 
 	if (IsVREnabled()) {
@@ -873,6 +872,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 // JavaEGL. This doesn't get called on the Vulkan path.
 extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
+	_assert_(useCPUThread);
+
 	INFO_LOG(G3D, "NativeApp.displayInit()");
 	bool firstStart = !renderer_inited;
 
@@ -881,19 +882,16 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 	if (renderer_inited) {
 		// Would be really nice if we could get something on the GL thread immediately when shutting down.
 		INFO_LOG(G3D, "NativeApp.displayInit() restoring");
-		if (useCPUThread) {
-			EmuThreadStop("displayInit");
-			graphicsContext->BeginAndroidShutdown();
-			INFO_LOG(G3D, "BeginAndroidShutdown. Looping until emu thread done...");
-			// Skipping GL calls here because the old context is lost.
-			while (graphicsContext->ThreadFrame()) {
-				continue;
-			}
-			INFO_LOG(G3D, "Joining emu thread");
-			EmuThreadJoin();
-		} else {
-			NativeShutdownGraphics();
+		EmuThreadStop("displayInit");
+		graphicsContext->BeginAndroidShutdown();
+		INFO_LOG(G3D, "BeginAndroidShutdown. Looping until emu thread done...");
+		// Skipping GL calls here because the old context is lost.
+		while (graphicsContext->ThreadFrame()) {
+			continue;
 		}
+		INFO_LOG(G3D, "Joining emu thread");
+		EmuThreadJoin();
+
 		graphicsContext->ThreadEnd();
 		graphicsContext->ShutdownFromRenderThread();
 
@@ -908,17 +906,10 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 			host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
 		}, nullptr);
 
-		if (useCPUThread) {
-			EmuThreadStart();
-		} else {
-			if (!NativeInitGraphics(graphicsContext)) {
-				// Gonna be in a weird state here, not good.
-				System_Toast("Failed to initialize graphics.");
-				return false;
-			}
-		}
+		EmuThreadStart();
 
 		graphicsContext->ThreadStart();
+
 		INFO_LOG(G3D, "Restored.");
 	} else {
 		INFO_LOG(G3D, "NativeApp.displayInit() first time");
@@ -940,7 +931,6 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 	if (IsVREnabled()) {
 		EnterVR(firstStart, graphicsContext->GetAPIContext());
 	}
-
 	return true;
 }
 
@@ -1034,6 +1024,7 @@ void UpdateRunLoopAndroid(JNIEnv *env) {
 
 	std::lock_guard<std::mutex> guard(frameCommandLock);
 	if (!nativeActivity) {
+		ERROR_LOG(SYSTEM, "No activity, clearing commands");
 		while (!frameCommands.empty())
 			frameCommands.pop();
 		return;
