@@ -181,9 +181,6 @@ static std::mutex renderLock;
 static int inputBoxSequence = 1;
 std::map<int, std::function<void(bool, const std::string &)>> inputBoxCallbacks;
 
-static float dp_xscale = 1.0f;
-static float dp_yscale = 1.0f;
-
 static bool sustainedPerfSupported = false;
 
 static std::string library_path;
@@ -967,17 +964,11 @@ static void recalculateDpi() {
 	dp_xres = display_xres * g_dpi_scale_x;
 	dp_yres = display_yres * g_dpi_scale_y;
 
-	// Touch scaling is from display pixels to dp pixels.
-	// Wait, doesn't even make sense... this is equal to g_dpi_scale_x. TODO: Figure out what's going on!
-	dp_xscale = (float)dp_xres / (float)display_xres;
-	dp_yscale = (float)dp_yres / (float)display_yres;
-
 	pixel_in_dps_x = (float)pixel_xres / dp_xres;
 	pixel_in_dps_y = (float)pixel_yres / dp_yres;
 
 	INFO_LOG(G3D, "RecalcDPI: display_xres=%d display_yres=%d", display_xres, display_yres);
 	INFO_LOG(G3D, "RecalcDPI: g_dpi=%f g_dpi_scale_x=%f g_dpi_scale_y=%f", g_dpi, g_dpi_scale_x, g_dpi_scale_y);
-	INFO_LOG(G3D, "RecalcDPI: dp_xscale=%f dp_yscale=%f", dp_xscale, dp_yscale);
 	INFO_LOG(G3D, "RecalcDPI: dp_xres=%d dp_yres=%d", dp_xres, dp_yres);
 	INFO_LOG(G3D, "RecalcDPI: pixel_xres=%d pixel_yres=%d", pixel_xres, pixel_yres);
 }
@@ -1080,7 +1071,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	}
 
 	if (IsVREnabled()) {
-		UpdateVRInput(g_Config.bHapticFeedback, dp_xscale, dp_yscale);
+		UpdateVRInput(g_Config.bHapticFeedback, g_dpi_scale_x, g_dpi_scale_y);
 		FinishVRRender();
 	}
 }
@@ -1104,8 +1095,8 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
 
-	float scaledX = x * dp_xscale;
-	float scaledY = y * dp_yscale;
+	float scaledX = x * g_dpi_scale_x;
+	float scaledY = y * g_dpi_scale_y;
 
 	TouchInput touch;
 	touch.id = pointerId;
