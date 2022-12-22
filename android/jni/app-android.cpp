@@ -860,15 +860,17 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		VFSShutdown();
 	}
 
-	std::lock_guard<std::mutex> guard(frameCommandLock);
-	while (frameCommands.size())
-		frameCommands.pop();
+	{
+		std::lock_guard<std::mutex> guard(frameCommandLock);
+		while (frameCommands.size())
+			frameCommands.pop();
+	}
 	INFO_LOG(SYSTEM, "NativeApp.shutdown() -- end");
 }
 
-// JavaEGL
+// JavaEGL. This doesn't get called on the Vulkan path.
 extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
-
+	INFO_LOG(G3D, "NativeApp.displayInit()");
 	bool firstStart = !renderer_inited;
 
 	// We should be running on the render thread here.
@@ -929,6 +931,7 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		graphicsContext->ThreadStart();
 		renderer_inited = true;
 	}
+
 	NativeMessageReceived("recreateviews", "");
 
 	if (IsVREnabled()) {
@@ -1047,9 +1050,10 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 		return;
 
 	if (useCPUThread) {
-		// This is the "GPU thread".
-		if (!graphicsContext || !graphicsContext->ThreadFrame())
+		// This is the "GPU thread". Call ThreadFrame.
+		if (!graphicsContext || !graphicsContext->ThreadFrame()) {
 			return;
+		}
 	} else {
 		UpdateRunLoopAndroid(env);
 	}
@@ -1374,41 +1378,26 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 	ANativeWindow *wnd = _surf ? ANativeWindow_fromSurface(env, _surf) : nullptr;
 
-	WARN_LOG(G3D, "runEGLRenderLoop. display_xres=%d display_yres=%d", display_xres, display_yres);
+	WARN_LOG(G3D, "runEGLRenderLoop. display_xres=%d display_yres=%d desiredBackbufferSizeX=%d desiredBackbufferSizeY=%d",
+		display_xres, display_yres, desiredBackbufferSizeX, desiredBackbufferSizeY);
 
-	if (wnd == nullptr) {
+	if (!wnd) {
 		ERROR_LOG(G3D, "Error: Surface is null.");
 		renderLoopRunning = false;
 		return false;
 	}
 
-	auto tryInit = [&]() {
-		if (graphicsContext->InitFromRenderThread(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
-			return true;
-		} else {
-			ERROR_LOG(G3D, "Failed to initialize graphics context.");
-			System_Toast("Failed to initialize graphics context.");
-			return false;
-		}
-	};
+	if (!graphicsContext->InitFromRenderThread(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
+		// On Android, if we get here, really no point in continuing.
+		// The UI is supposed to render on any device both on OpenGL and Vulkan. If either of those don't work
+		// on a device, we blacklist it.
+		ERROR_LOG(G3D, "Failed to initialize graphics context.");
+		System_Toast("Failed to initialize graphics context.");
 
-	bool initSuccess = tryInit();
-	if (!initSuccess) {
-		if (!exitRenderLoop && g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-			INFO_LOG(G3D, "Trying again, this time with OpenGL.");
-			SetGPUBackend(GPUBackend::OPENGL);
-			g_Config.iGPUBackend = (int)GetGPUBackend();
-
-			// If we were still supporting EGL for GL, we'd retry here:
-			//initSuccess = tryInit();
-		}
-
-		if (!initSuccess) {
-			delete graphicsContext;
-			graphicsContext = nullptr;
-			renderLoopRunning = false;
-			return false;
-		}
+		delete graphicsContext;
+		graphicsContext = nullptr;
+		renderLoopRunning = false;
+		return false;
 	}
 
 	if (!exitRenderLoop) {
@@ -1446,6 +1435,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	INFO_LOG(G3D, "Shutting down graphics context from render thread...");
 	graphicsContext->ShutdownFromRenderThread();
 	renderLoopRunning = false;
+
 	WARN_LOG(G3D, "Render loop function exited.");
 	return true;
 }
