@@ -122,15 +122,15 @@ struct FrameCommand {
 static std::mutex frameCommandLock;
 static std::queue<FrameCommand> frameCommands;
 
-std::string systemName;
-std::string langRegion;
-std::string mogaVersion;
-std::string boardName;
+static std::string systemName;
+static std::string langRegion;
+static std::string mogaVersion;
+static std::string boardName;
 
 std::string g_externalDir;  // Original external dir (root of Android storage).
 std::string g_extFilesDir;  // App private external dir.
 
-std::vector<std::string> g_additionalStorageDirs;
+static std::vector<std::string> g_additionalStorageDirs;
 
 static int optimalFramesPerBuffer = 0;
 static int optimalSampleRate = 0;
@@ -152,7 +152,7 @@ static int desiredBackbufferSizeX;
 static int desiredBackbufferSizeY;
 
 // Cache the class loader so we can use it from native threads. Required for TextAndroid.
-JavaVM* gJvm = nullptr;
+static JavaVM* gJvm = nullptr;
 static jobject gClassLoader;
 static jmethodID gFindClassMethod;
 
@@ -167,18 +167,18 @@ static jmethodID getDebugString;
 static jobject nativeActivity;
 
 static std::atomic<bool> exitRenderLoop;
-static bool renderLoopRunning;
+static std::atomic<bool> renderLoopRunning;
 static bool renderer_inited = false;
 static std::mutex renderLock;
 
 static int inputBoxSequence = 1;
-std::map<int, std::function<void(bool, const std::string &)>> inputBoxCallbacks;
+static std::map<int, std::function<void(bool, const std::string &)>> inputBoxCallbacks;
 
 static bool sustainedPerfSupported = false;
 
 static std::map<SystemPermission, PermissionStatus> permissions;
 
-AndroidGraphicsContext *graphicsContext;
+static AndroidGraphicsContext *graphicsContext;
 
 #ifndef LOG_APP_NAME
 #define LOG_APP_NAME "PPSSPP"
@@ -274,18 +274,23 @@ static void EmuThreadFunc() {
 	INFO_LOG(SYSTEM, "Entering emu thread");
 
 	// Wait for render loop to get started.
-	if (!graphicsContext || !graphicsContext->Initialized()) {
-		INFO_LOG(SYSTEM, "Runloop: Waiting for displayInit...");
-		while (!graphicsContext || !graphicsContext->Initialized()) {
-			sleep_ms(20);
-		}
-	} else {
-		INFO_LOG(SYSTEM, "Runloop: Graphics context available!");
+	INFO_LOG(SYSTEM, "Runloop: Waiting for displayInit...");
+	while (!graphicsContext || graphicsContext->GetState() == GraphicsContextState::PENDING) {
+		sleep_ms(20);
+	}
+
+	// Check the state of the graphics context before we try to feed it into NativeInitGraphics.
+	if (graphicsContext->GetState() != GraphicsContextState::INITIALIZED) {
+		ERROR_LOG(G3D, "Failed to initialize the graphics context! %d", (int)graphicsContext->GetState());
+		emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+		gJvm->DetachCurrentThread();
+		return;
 	}
 
 	if (!NativeInitGraphics(graphicsContext)) {
-		_assert_msg_(false, "Failed to initialize graphics, might as well bail");
+		_assert_msg_(false, "NativeInitGraphics failed, might as well bail");
 		emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+		gJvm->DetachCurrentThread();
 		return;
 	}
 
@@ -1186,7 +1191,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 	NativeMessageReceived(msg.c_str(), prm.c_str());
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_exitEGLRenderLoop(JNIEnv *env, jobject obj) {
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_requestExitVulkanRenderLoop(JNIEnv *env, jobject obj) {
 	if (!renderLoopRunning) {
 		ERROR_LOG(SYSTEM, "Render loop already exited");
 		return;
@@ -1347,11 +1352,11 @@ static void ProcessFrameCommands(JNIEnv *env) {
 }
 
 // This runs in Vulkan mode only.
-extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
+extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
 	_assert_(!useCPUThread);
 
 	if (!graphicsContext) {
-		ERROR_LOG(G3D, "runEGLRenderLoop: Tried to enter without a created graphics context.");
+		ERROR_LOG(G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
 		return false;
 	}
 
@@ -1361,7 +1366,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 	ANativeWindow *wnd = _surf ? ANativeWindow_fromSurface(env, _surf) : nullptr;
 
-	WARN_LOG(G3D, "runEGLRenderLoop. display_xres=%d display_yres=%d desiredBackbufferSizeX=%d desiredBackbufferSizeY=%d",
+	WARN_LOG(G3D, "runVulkanRenderLoop. display_xres=%d display_yres=%d desiredBackbufferSizeX=%d desiredBackbufferSizeY=%d",
 		display_xres, display_yres, desiredBackbufferSizeX, desiredBackbufferSizeY);
 
 	if (!wnd) {
@@ -1374,7 +1379,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	if (!graphicsContext->InitFromRenderThread(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
 		// On Android, if we get here, really no point in continuing.
 		// The UI is supposed to render on any device both on OpenGL and Vulkan. If either of those don't work
-		// on a device, we blacklist it.
+		// on a device, we blacklist it. Hopefully we should have already failed in InitAPI anyway and reverted to GL back then.
 		ERROR_LOG(G3D, "Failed to initialize graphics context.");
 		System_Toast("Failed to initialize graphics context.");
 

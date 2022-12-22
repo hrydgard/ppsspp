@@ -129,7 +129,9 @@ void ProcessGPUFeatures();
 extern std::string g_all_gl_extensions;
 extern std::string g_all_egl_extensions;
 
-void CheckGLExtensions();
+// If this returns false, we're not gonna be able to use a GL context.
+bool CheckGLExtensions();
+
 void SetGLCoreContext(bool flag);
 void ResetGLExtensions();
 

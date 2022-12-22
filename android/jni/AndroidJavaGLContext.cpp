@@ -12,19 +12,27 @@ AndroidJavaEGLGraphicsContext::AndroidJavaEGLGraphicsContext() {
 
 bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
 	INFO_LOG(G3D, "AndroidJavaEGLGraphicsContext::InitFromRenderThread");
-	CheckGLExtensions();
+	if (!CheckGLExtensions()) {
+		ERROR_LOG(G3D, "CheckGLExtensions failed - not gonna attempt starting up.");
+		state_ = GraphicsContextState::FAILED_INIT;
+		return false;
+	}
 
 	// OpenGL handles rotated rendering in the driver.
 	g_display_rotation = DisplayRotation::ROTATE_0;
 	g_display_rot_matrix.setIdentity();
+
 	draw_ = Draw::T3DCreateGLContext();  // Can't fail
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 
 	if (!draw_->CreatePresets()) {
+		// This can't really happen now that compilation is async - they're only really queued for compile here.
 		_assert_msg_(false, "Failed to compile preset shaders");
+		state_ = GraphicsContextState::FAILED_INIT;
 		return false;
 	}
+	state_ = GraphicsContextState::INITIALIZED;
 	return true;
 }
 
@@ -34,7 +42,5 @@ void AndroidJavaEGLGraphicsContext::ShutdownFromRenderThread() {
 	renderManager_ = nullptr;  // owned by draw_.
 	delete draw_;
 	draw_ = nullptr;
-}
-
-void AndroidJavaEGLGraphicsContext::Shutdown() {
+	state_ = GraphicsContextState::SHUTDOWN;
 }
