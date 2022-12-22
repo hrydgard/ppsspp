@@ -399,8 +399,6 @@ public abstract class NativeActivity extends Activity {
 
 		isXperiaPlay = IsXperiaPlay();
 
-		String libraryDir = getApplicationLibraryDir(appInfo);
-
 		String extStorageState = Environment.getExternalStorageState();
 		String extStorageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
 		File externalFiles = this.getExternalFilesDir(null);
@@ -446,7 +444,7 @@ public abstract class NativeActivity extends Activity {
 		overrideShortcutParam = null;
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, additionalStorageDirs, libraryDir, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, additionalStorageDirs, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
 
 		// Allow C++ to tell us to use JavaGL or not.
 		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
