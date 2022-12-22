@@ -172,20 +172,19 @@ static jmethodID postCommand;
 static jmethodID getDebugString;
 
 static jobject nativeActivity;
+
 static volatile bool exitRenderLoop;
 static bool renderLoopRunning;
+static bool renderer_inited = false;
+static std::mutex renderLock;
+
 static int inputBoxSequence = 1;
 std::map<int, std::function<void(bool, const std::string &)>> inputBoxCallbacks;
 
 static float dp_xscale = 1.0f;
 static float dp_yscale = 1.0f;
 
-static bool renderer_inited = false;
 static bool sustainedPerfSupported = false;
-static std::mutex renderLock;
-
-// See NativeQueryConfig("androidJavaGL") to change this value.
-static bool javaGL = true;
 
 static std::string library_path;
 static std::map<SystemPermission, PermissionStatus> permissions;
@@ -737,14 +736,12 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 retry:
 	switch (g_Config.iGPUBackend) {
 	case (int)GPUBackend::OPENGL:
-		javaGL = true;
 		useCPUThread = true;
 		INFO_LOG(SYSTEM, "NativeApp.init() -- creating OpenGL context (JavaGL)");
 		graphicsContext = new AndroidJavaEGLGraphicsContext();
 		break;
 	case (int)GPUBackend::VULKAN:
 	{
-		javaGL = false;
 		INFO_LOG(SYSTEM, "NativeApp.init() -- creating Vulkan context");
 		useCPUThread = false;  // The Vulkan render manager manages its own thread.
 		// We create and destroy the Vulkan graphics context in the "EGL" thread.
@@ -1353,7 +1350,7 @@ std::vector<std::string> __cameraGetDeviceList() {
 	jint arrayListObjectLen = getEnv()->CallIntMethod(deviceListObject, arrayListSize);
 	std::vector<std::string> deviceListVector;
 
-	for (int i=0; i < arrayListObjectLen; i++) {
+	for (int i = 0; i < arrayListObjectLen; i++) {
 		jstring dev = static_cast<jstring>(getEnv()->CallObjectMethod(deviceListObject, arrayListGet, i));
 		const char* cdev = getEnv()->GetStringUTFChars(dev, nullptr);
 		deviceListVector.push_back(cdev);
@@ -1407,13 +1404,14 @@ static void ProcessFrameCommands(JNIEnv *env) {
 	}
 }
 
+// This runs in Vulkan mode only.
 extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
+	_assert_(!useCPUThread);
+
 	if (!graphicsContext) {
 		ERROR_LOG(G3D, "runEGLRenderLoop: Tried to enter without a created graphics context.");
 		return false;
 	}
-
-	// Needed for Vulkan, even if we're not using the old EGL path.
 
 	exitRenderLoop = false;
 	// This is up here to prevent race conditions, in case we pause during init.
@@ -1459,11 +1457,9 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	}
 
 	if (!exitRenderLoop) {
-		if (!useCPUThread) {
-			if (!NativeInitGraphics(graphicsContext)) {
-				ERROR_LOG(G3D, "Failed to initialize graphics.");
-				// Gonna be in a weird state here..
-			}
+		if (!NativeInitGraphics(graphicsContext)) {
+			ERROR_LOG(G3D, "Failed to initialize graphics.");
+			// Gonna be in a weird state here..
 		}
 		graphicsContext->ThreadStart();
 		renderer_inited = true;
@@ -1477,33 +1473,17 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 		}
 	}
 
-	if (useCPUThread) {
-		ERROR_LOG(SYSTEM, "Running graphics loop");
-		while (!exitRenderLoop) {
-			// This is the "GPU thread".
-			graphicsContext->ThreadFrame();
-			graphicsContext->SwapBuffers();
-		}
-	} else {
-		while (!exitRenderLoop) {
-			LockedNativeUpdateRender();
-			graphicsContext->SwapBuffers();
+	while (!exitRenderLoop) {
+		LockedNativeUpdateRender();
+		graphicsContext->SwapBuffers();
 
-			ProcessFrameCommands(env);
-		}
+		ProcessFrameCommands(env);
 	}
 
 	INFO_LOG(G3D, "Leaving EGL/Vulkan render loop.");
 
-	if (useCPUThread) {
-		EmuThreadStop("exitrenderloop");
-		while (graphicsContext->ThreadFrame()) {
-			continue;
-		}
-		EmuThreadJoin();
-	} else {
-		NativeShutdownGraphics();
-	}
+	NativeShutdownGraphics();
+
 	renderer_inited = false;
 	graphicsContext->ThreadEnd();
 
