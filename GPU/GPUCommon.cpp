@@ -3523,7 +3523,7 @@ u32 GPUCommon::CheckGPUFeatures() const {
 	}
 
 	bool canClipOrCull = draw_->GetDeviceCaps().clipDistanceSupported || draw_->GetDeviceCaps().cullDistanceSupported;
-	bool canDiscardVertex = draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
+	bool canDiscardVertex = !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
 	if (canClipOrCull || canDiscardVertex) {
 		// We'll dynamically use the parts that are supported, to reduce artifacts as much as possible.
 		features |= GPU_USE_VS_RANGE_CULLING;
