@@ -46,7 +46,7 @@ private:
 
 	int lastNonDeadzoneDeviceID_[2]{};
 
-	float history[2][2] = {};
+	float history[2][2]{};
 
 	// Mappable auto-rotation. Useful for keyboard/dpad->analog in a few games.
 	bool autoRotatingAnalogCW_ = false;

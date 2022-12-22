@@ -298,11 +298,22 @@ public:
 	const VulkanPhysicalDeviceInfo &GetDeviceInfo() const { return deviceInfo_; }
 	const VkSurfaceCapabilitiesKHR &GetSurfaceCapabilities() const { return surfCapabilities_; }
 
-	bool IsInstanceExtensionAvailable(const char *name) const {
-		for (auto &iter : instance_extension_properties_) {
-			if (!strcmp(name, iter.extensionName))
+	bool IsInstanceExtensionAvailable(const char *extensionName) const {
+		for (const auto &iter : instance_extension_properties_) {
+			if (!strcmp(extensionName, iter.extensionName))
 				return true;
 		}
+
+		// Also search through the layers, one of them might carry the extension (especially DEBUG_utils)
+		for (const auto &iter : instance_layer_properties_) {
+			for (const auto &ext : iter.extensions) {
+				if (!strcmp(extensionName, ext.extensionName)) {
+					INFO_LOG(G3D, "%s found in layer extensions: %s", extensionName, iter.properties.layerName);
+					return true;
+				}
+			}
+		}
+
 		return false;
 	}
 

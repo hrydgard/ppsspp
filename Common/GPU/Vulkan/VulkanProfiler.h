@@ -47,6 +47,7 @@ private:
 	int numQueries_ = 0;
 	bool firstFrame_ = true;
 	bool *enabledPtr_ = nullptr;
+	int validBits_ = 0;
 
 	std::vector<size_t> scopeStack_;
 

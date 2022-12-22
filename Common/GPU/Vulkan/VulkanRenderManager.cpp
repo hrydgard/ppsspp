@@ -451,8 +451,10 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	}
 	vkResetFences(device, 1, &frameData.fence);
 
+	int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
+
 	// Can't set this until after the fence.
-	frameData.profilingEnabled_ = enableProfiling;
+	frameData.profilingEnabled_ = enableProfiling && validBits > 0;
 
 	uint64_t queryResults[MAX_TIMESTAMP_QUERIES];
 
@@ -466,7 +468,6 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 				VK_QUERY_RESULT_64_BIT);
 			if (res == VK_SUCCESS) {
 				double timestampConversionFactor = (double)vulkan_->GetPhysicalDeviceProperties().properties.limits.timestampPeriod * (1.0 / 1000000.0);
-				int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
 				uint64_t timestampDiffMask = validBits == 64 ? 0xFFFFFFFFFFFFFFFFULL : ((1ULL << validBits) - 1);
 				std::stringstream str;
 
