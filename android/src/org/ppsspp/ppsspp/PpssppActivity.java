@@ -107,7 +107,6 @@ public class PpssppActivity extends NativeActivity {
 		} else {
 			String param = getIntent().getStringExtra(SHORTCUT_EXTRA_KEY);
 			String args = getIntent().getStringExtra(ARGS_EXTRA_KEY);
-			Log.e(TAG, "Got ACTION_VIEW without a valid uri, trying param");
 			if (param != null) {
 				Log.i(TAG, "Found Shortcut Parameter in extra-data: " + param);
 				super.setShortcutParam("\"" + param.replace("\\", "\\\\").replace("\"", "\\\"") + "\"");
@@ -115,7 +114,6 @@ public class PpssppActivity extends NativeActivity {
 				Log.i(TAG, "Found args parameter in extra-data: " + args);
 				super.setShortcutParam(args);
 			} else {
-				Log.e(TAG, "Shortcut missing parameter!");
 				super.setShortcutParam("");
 			}
 		}
