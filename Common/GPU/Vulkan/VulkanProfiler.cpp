@@ -8,7 +8,14 @@ using namespace PPSSPP_VK;
 void VulkanProfiler::Init(VulkanContext *vulkan) {
 	vulkan_ = vulkan;
 
-	validBits_ = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
+	int graphicsQueueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
+	_assert_(graphicsQueueFamilyIndex >= 0);
+
+	if (queryPool_) {
+		vulkan->Delete().QueueDeleteQueryPool(queryPool_);
+	}
+
+	validBits_ = vulkan_->GetQueueFamilyProperties(graphicsQueueFamilyIndex).timestampValidBits;
 
 	if (validBits_) {
 		VkQueryPoolCreateInfo ci{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
@@ -20,7 +27,7 @@ void VulkanProfiler::Init(VulkanContext *vulkan) {
 
 void VulkanProfiler::Shutdown() {
 	if (queryPool_) {
-		vkDestroyQueryPool(vulkan_->GetDevice(), queryPool_, nullptr);
+		vulkan_->Delete().QueueDeleteQueryPool(queryPool_);
 	}
 }
 
