@@ -761,11 +761,6 @@ VkResult VulkanContext::CreateDevice() {
 		break;
 	}
 
-
-	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
-		frame_[i].profiler.Init(this);
-	}
-
 	return res;
 }
 
@@ -909,6 +904,10 @@ VkResult VulkanContext::ReinitSurface() {
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
+	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
+		frame_[i].profiler.Init(this);
+	}
+
 	return VK_SUCCESS;
 }
 
@@ -938,7 +937,7 @@ bool VulkanContext::ChooseQueue() {
 	}
 	if (presentQueueNodeIndex == UINT32_MAX) {
 		// If didn't find a queue that supports both graphics and present, then
-		// find a separate present queue.
+		// find a separate present queue. NOTE: We don't actually currently support this arrangement!
 		for (uint32_t i = 0; i < queue_count; ++i) {
 			if (supportsPresent[i] == VK_TRUE) {
 				presentQueueNodeIndex = i;
@@ -1236,12 +1235,12 @@ void VulkanContext::DestroyDevice() {
 		ERROR_LOG(G3D, "DestroyDevice: Surface should have been destroyed.");
 	}
 
-	INFO_LOG(G3D, "VulkanContext::DestroyDevice (performing deletes)");
-	PerformPendingDeletes();
-
 	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
 		frame_[i].profiler.Shutdown();
 	}
+
+	INFO_LOG(G3D, "VulkanContext::DestroyDevice (performing deletes)");
+	PerformPendingDeletes();
 
 	vmaDestroyAllocator(allocator_);
 	allocator_ = VK_NULL_HANDLE;
@@ -1515,6 +1514,10 @@ void VulkanDeleteList::PerformDeletes(VkDevice device, VmaAllocator allocator) {
 		vkDestroyDescriptorSetLayout(device, descSetLayout, nullptr);
 	}
 	descSetLayouts_.clear();
+	for (auto &queryPool : queryPools_) {
+		vkDestroyQueryPool(device, queryPool, nullptr);
+	}
+	queryPools_.clear();
 }
 
 void VulkanContext::GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation) {
