@@ -179,19 +179,6 @@ private:
 
 	int dontLogBlocks;
 	int logBlocks;
-
-public:
-	// Code pointers
-	const u8 *enterCode;
-
-	const u8 *outerLoop;
-	const u8 *outerLoopPCInR0;
-	const u8 *dispatcherCheckCoreState;
-	const u8 *dispatcherPCInR0;
-	const u8 *dispatcher;
-	const u8 *dispatcherNoCheck;
-
-	const u8 *breakpointBailout;
 };
 
 }	// namespace MIPSComp
