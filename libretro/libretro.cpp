@@ -1096,13 +1096,21 @@ static void check_variables(CoreParameter &coreParam)
    if (changeProAdhocServer == "IP address")
    {
       g_Config.proAdhocServer = "";
+      bool leadingZero = true;
       for (int i = 0; i < 12; i++)
       {
          if (i && i % 3 == 0)
+	 {
             g_Config.proAdhocServer += '.';
+	    leadingZero = true;
+	 }
 
          int addressPt = ppsspp_pro_ad_hoc_ipv4[i];
-         g_Config.proAdhocServer += static_cast<char>('0' + addressPt);
+	 if (addressPt || i % 3 == 2)
+	    leadingZero = false; // We are either non-zero or the last digit of a byte
+
+         if (! leadingZero)
+            g_Config.proAdhocServer += static_cast<char>('0' + addressPt);
       }
    }
    else
