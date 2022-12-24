@@ -120,7 +120,17 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
 	screen_ = CreateHiddenWindow();
+	if (!screen_) {
+		const char *err = SDL_GetError();
+		printf("Failed to create offscreen window: %s\n", err ? err : "(unknown error)");
+		return false;
+	}
 	glContext_ = SDL_GL_CreateContext(screen_);
+	if (!glContext_) {
+		const char *err = SDL_GetError();
+		printf("Failed to create GL context: %s\n", err ? err : "(unknown error)");
+		return false;
+	}
 
 	// Ensure that the swap interval is set after context creation (needed for kmsdrm)
 	SDL_GL_SetSwapInterval(0);
