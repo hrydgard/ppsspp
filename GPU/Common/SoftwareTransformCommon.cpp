@@ -816,8 +816,8 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 			const TransformedVertex &transVtxBL = (transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x) ? transVtxB : transVtxT;
 
 			// Okay, let's calculate the perpendicular.
-			float horizontal = transVtxTL.x - transVtxBL.x;
-			float vertical = transVtxTL.y - transVtxBL.y;
+			float horizontal = transVtxTL.x * transVtxTL.pos_w - transVtxBL.x * transVtxBL.pos_w;
+			float vertical = transVtxTL.y * transVtxTL.pos_w - transVtxBL.y * transVtxBL.pos_w;
 			Vec2f addWidth = Vec2f(-vertical, horizontal).Normalized();
 
 			// bottom right
