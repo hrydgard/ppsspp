@@ -529,8 +529,6 @@ private:
 	AutoRef<VKFramebuffer> curFramebuffer_;
 
 	VkDevice device_;
-	VkQueue queue_;
-	int queueFamilyIndex_;
 
 	enum {
 		MAX_FRAME_COMMAND_BUFFERS = 256,
@@ -944,13 +942,6 @@ VKContext::VKContext(VulkanContext *vulkan)
 
 	caps_.deviceID = deviceProps.deviceID;
 	device_ = vulkan->GetDevice();
-
-	queue_ = vulkan->GetGraphicsQueue();
-	queueFamilyIndex_ = vulkan->GetGraphicsQueueFamilyIndex();
-
-	VkCommandPoolCreateInfo p{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-	p.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-	p.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
 
 	std::vector<VkDescriptorPoolSize> dpTypes;
 	dpTypes.resize(2);
