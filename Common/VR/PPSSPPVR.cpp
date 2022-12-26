@@ -671,8 +671,9 @@ bool StartVRRender() {
 
 		// Decide if the scene is 3D or not
 		bool stereo = hasUnitScale && g_Config.bEnableStereo;
+		bool forceFlat = PSP_CoreParameter().compat.vrCompat().ForceFlatScreen;
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 480.0f / 272.0f);
-		if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && (appMode == VR_GAME_MODE) && (vr3DGeometryCount > 15)) {
+		if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && !forceFlat && (appMode == VR_GAME_MODE) && (vr3DGeometryCount > 15)) {
 			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 			vrFlatGame = false;
 		} else {
