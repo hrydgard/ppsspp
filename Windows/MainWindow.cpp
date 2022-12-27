@@ -968,8 +968,8 @@ namespace MainWindow
 			break;
 
 		case WM_CLOSE:
-			MainThread_Stop();
 			InputDevice::StopPolling();
+			MainThread_Stop();
 			WindowsRawInput::Shutdown();
 			return DefWindowProc(hWnd,message,wParam,lParam);
 
