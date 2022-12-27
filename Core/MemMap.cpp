@@ -44,7 +44,6 @@
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Common/Thread/ParallelLoop.h"
-#include "UI/OnScreenDisplay.h"
 
 namespace Memory {
 

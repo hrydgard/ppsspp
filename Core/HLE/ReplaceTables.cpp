@@ -1018,7 +1018,7 @@ static int Hook_kumonohatateni_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformReadbackToMemory(fb_address, 0x00088000);
 		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "kumonohatateni_download_frame");
-}
+	}
 	return 0;
 }
 
@@ -1027,7 +1027,7 @@ static int Hook_otomenoheihou_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformReadbackToMemory(fb_address, 0x00088000);
 		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "otomenoheihou_download_frame");
-}
+	}
 	return 0;
 }
 
@@ -1054,7 +1054,7 @@ static int Hook_toheart2_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformReadbackToMemory(fb_address, 0x00044000);
 		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "toheart2_download_frame");
-}
+	}
 	return 0;
 }
 

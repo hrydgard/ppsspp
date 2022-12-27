@@ -2173,7 +2173,7 @@ static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
 static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 	hleEatCycles(18000);
 
-	// TOOD: Use an internal method so as not to pollute the log?
+	// TODO: Use an internal method so as not to pollute the log?
 	// Intentionally does not work when interrupts disabled.
 	if (!__KernelIsDispatchEnabled())
 		sceKernelResumeDispatchThread(1);
