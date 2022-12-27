@@ -12,7 +12,6 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
 #include "Common/StringUtils.h"
-#include "Core/Config.h"
 
 #ifdef USE_CRT_DBG
 #undef new

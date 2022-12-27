@@ -87,7 +87,7 @@ public:
 		dataTimeout_ = t;
 	}
 
-	void SetUserAgent(const std::string &&value) {
+	void SetUserAgent(const std::string &value) {
 		userAgent_ = value;
 	}
 

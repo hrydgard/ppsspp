@@ -15,15 +15,12 @@
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 
-#include "Core/Config.h"
-#include "Core/System.h"
-
 #if PPSSPP_PLATFORM(ANDROID)
 #include "android/jni/app-android.h"
 #include "android/jni/AndroidContentURI.h"
 #endif
 
-bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInfo> &files) {
+bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *cancel, std::vector<File::FileInfo> &files) {
 	_dbg_assert_(url.Type() == PathType::HTTP);
 
 	http::Client http;
@@ -31,7 +28,7 @@ bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInf
 	int code = 500;
 	std::vector<std::string> responseHeaders;
 
-	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
+	http.SetUserAgent(userAgent);
 
 	Url baseURL(url.ToString());
 	if (!baseURL.Valid()) {
@@ -159,7 +156,7 @@ void PathBrowser::HandlePath() {
 			if (lastPath.Type() == PathType::HTTP) {
 				guard.unlock();
 				results.clear();
-				success = LoadRemoteFileList(lastPath, &pendingCancel_, results);
+				success = LoadRemoteFileList(lastPath, userAgent_, &pendingCancel_, results);
 				guard.lock();
 			} else if (lastPath.empty()) {
 				results.clear();
@@ -196,10 +193,8 @@ bool PathBrowser::IsListingReady() {
 std::string PathBrowser::GetFriendlyPath() const {
 	std::string str = GetPath().ToVisualString();
 	// Show relative to memstick root if there.
-	std::string root = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToVisualString();
-
-	if (startsWith(str, root)) {
-		return std::string("ms:") + str.substr(root.size());
+	if (startsWith(str, aliasMatch_)) {
+		return aliasDisplay_ + str.substr(aliasMatch_.size());
 	}
 
 #if PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC)

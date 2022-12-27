@@ -505,6 +505,8 @@ void DirButton::Draw(UIContext &dc) {
 GameBrowser::GameBrowser(const Path &path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams)
 	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), gridStyle_(gridStyle), browseFlags_(browseFlags), lastText_(lastText), lastLink_(lastLink), screenManager_(screenManager) {
 	using namespace UI;
+	path_.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
+	path_.SetRootAlias("ms:", GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToVisualString());
 	Refresh();
 }
 
