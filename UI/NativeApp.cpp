@@ -1138,6 +1138,8 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	ui_draw2d.PushDrawMatrix(ortho);
 	ui_draw2d_front.PushDrawMatrix(ortho);
 
+	screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
+
 	// All actual rendering happen in here.
 	screenManager->render();
 	if (screenManager->getUIContext()->Text()) {
