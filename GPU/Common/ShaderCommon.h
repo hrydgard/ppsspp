@@ -162,6 +162,3 @@ enum {
 
 	ATTR_COUNT,
 };
-
-struct TBuiltInResource;
-void init_resources(TBuiltInResource &Resources);

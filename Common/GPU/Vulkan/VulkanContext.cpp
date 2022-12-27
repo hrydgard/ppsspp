@@ -8,9 +8,9 @@
 #include "Common/System/System.h"
 #include "Common/System/Display.h"
 #include "Common/Log.h"
+#include "Common/GPU/Shader.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
-#include "GPU/Common/ShaderCommon.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 
@@ -1317,7 +1317,7 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, 
 	glslang::TProgram program;
 	const char *shaderStrings[1];
 	TBuiltInResource Resources{};
-	init_resources(Resources);
+	InitShaderResources(Resources);
 
 	int defaultVersion = 0;
 	EShMessages messages;

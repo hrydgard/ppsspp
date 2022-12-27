@@ -41,6 +41,7 @@
 #include "Common/GPU/ShaderTranslation.h"
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 #include "Common/GPU/thin3d.h"
+#include "Common/GPU/Shader.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "ext/SPIRV-Cross/spirv.hpp"
@@ -50,8 +51,6 @@
 #ifdef _WIN32
 #include "ext/SPIRV-Cross/spirv_hlsl.hpp"
 #endif
-
-extern void init_resources(TBuiltInResource &Resources);
 
 static EShLanguage GetShLanguageFromStage(const ShaderStage stage) {
 	switch (stage) {
@@ -241,7 +240,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLan
 	const char *shaderStrings[1]{};
 
 	TBuiltInResource Resources{};
-	init_resources(Resources);
+	InitShaderResources(Resources);
 
 	// Don't enable SPIR-V and Vulkan rules when parsing GLSL. Our postshaders are written in oldschool GLES 2.0.
 	EShMessages messages = EShMessages::EShMsgDefault;
