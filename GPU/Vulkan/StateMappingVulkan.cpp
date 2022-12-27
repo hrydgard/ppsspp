@@ -27,7 +27,6 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "Core/System.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"

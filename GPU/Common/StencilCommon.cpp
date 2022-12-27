@@ -19,7 +19,6 @@
 #include "Common/GPU/ShaderWriter.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"

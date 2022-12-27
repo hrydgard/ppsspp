@@ -9,11 +9,11 @@
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
+#include "Common/LogReporting.h"
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 
-#include "Core/Reporting.h"
 #include "GLQueueRunner.h"
 #include "GLRenderManager.h"
 #include "DataFormatGL.h"

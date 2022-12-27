@@ -22,7 +22,6 @@
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/Data/Convert/ColorConv.h"
-#include "Core/Reporting.h"
 #include "GPU/Common/Draw2D.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"

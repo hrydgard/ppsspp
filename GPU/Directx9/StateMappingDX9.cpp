@@ -21,7 +21,6 @@
 
 #include "Core/System.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"

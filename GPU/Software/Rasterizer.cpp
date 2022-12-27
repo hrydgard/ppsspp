@@ -27,7 +27,6 @@
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
 #include "GPU/GPUState.h"
 
 #include "GPU/Common/TextureDecoder.h"

@@ -28,7 +28,6 @@
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Reporting.h"
 #include "Core/System.h"
 
 #include "Common/GPU/D3D9/D3D9StateCache.h"

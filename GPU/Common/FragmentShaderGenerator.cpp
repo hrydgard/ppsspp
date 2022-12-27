@@ -24,7 +24,6 @@
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/GPU/thin3d.h"
 #include "Core/Compatibility.h"
-#include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "GPU/Common/GPUStateUtils.h"

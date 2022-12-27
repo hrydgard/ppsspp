@@ -30,7 +30,6 @@
 #include "Common/Log.h"
 #include "Common/CommonTypes.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"

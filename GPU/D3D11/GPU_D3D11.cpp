@@ -27,7 +27,6 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 #include "Core/System.h"
 
 #include "GPU/GPUState.h"

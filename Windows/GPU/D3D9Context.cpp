@@ -13,7 +13,6 @@
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Common/OSVersion.h"
 #include "Windows/GPU/D3D9Context.h"

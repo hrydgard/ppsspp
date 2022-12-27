@@ -21,7 +21,7 @@
 #include <emmintrin.h>
 #include "Common/x64Emitter.h"
 #include "Common/CPUDetect.h"
-#include "Core/Reporting.h"
+#include "Common/LogReporting.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/SoftGpu.h"

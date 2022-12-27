@@ -23,7 +23,7 @@
 #include "GPU/Common/ShaderCommon.h"
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
-#include "Core/Reporting.h"
+#include "Common/LogReporting.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 #include "GPU/Common/Draw2D.h"

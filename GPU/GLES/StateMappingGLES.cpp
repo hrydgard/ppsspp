@@ -31,7 +31,6 @@
 #include "GPU/ge_constants.h"
 #include "Core/System.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 #include "GPU/GLES/GPU_GLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"

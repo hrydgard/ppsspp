@@ -28,7 +28,6 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "Core/System.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"

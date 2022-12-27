@@ -23,12 +23,12 @@
 
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
+#include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
 #include "Common/System/NativeApp.h"
 #include "Core/Config.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/KeyMap.h"
-#include "Core/Reporting.h"
 #include "Windows/DinputDevice.h"
 #pragma comment(lib,"dinput8.lib")
 

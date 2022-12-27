@@ -24,9 +24,10 @@
 #include <map>
 
 #include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/GPU/OpenGL/GLDebugLog.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
-#include "Common/Data/Text/I18n.h"
+#include "Common/LogReporting.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Profiler/Profiler.h"
@@ -41,7 +42,6 @@
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
-#include "Core/Reporting.h"
 #include "Core/System.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
