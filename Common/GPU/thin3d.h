@@ -631,6 +631,13 @@ enum class TextureBindFlags {
 };
 ENUM_CLASS_BITOPS(TextureBindFlags);
 
+enum class DebugFlags {
+	NONE = 0,
+	PROFILE_TIMESTAMPS = 1,
+	PROFILE_SCOPES = 2,
+};
+ENUM_CLASS_BITOPS(DebugFlags);
+
 class DrawContext {
 public:
 	virtual ~DrawContext();
@@ -655,6 +662,7 @@ public:
 	virtual void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {}
 
 	virtual void DebugAnnotate(const char *annotation) {}
+	virtual void SetDebugFlags(DebugFlags flags) {}
 
 	// Partial pipeline state, used to create pipelines. (in practice, in d3d11 they'll use the native state objects directly).
 	// TODO: Possibly ditch these and just put the descs directly in PipelineDesc since only D3D11 benefits.

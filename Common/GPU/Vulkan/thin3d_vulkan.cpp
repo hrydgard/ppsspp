@@ -33,8 +33,6 @@
 #include "Common/GPU/Vulkan/VulkanMemory.h"
 #include "Common/Thread/Promise.h"
 
-#include "Core/Config.h"
-
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 
 // We support a frame-global descriptor set, which can be optionally used by other code,
@@ -385,6 +383,7 @@ public:
 	~VKContext();
 
 	void DebugAnnotate(const char *annotation) override;
+	void SetDebugFlags(DebugFlags flags) override;
 
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
@@ -529,6 +528,7 @@ private:
 	AutoRef<VKFramebuffer> curFramebuffer_;
 
 	VkDevice device_;
+	DebugFlags debugFlags_ = DebugFlags::NONE;
 
 	enum {
 		MAX_FRAME_COMMAND_BUFFERS = 256,
@@ -1018,7 +1018,7 @@ VKContext::~VKContext() {
 
 void VKContext::BeginFrame() {
 	// TODO: Bad dependency on g_Config here!
-	renderManager_.BeginFrame(g_Config.bShowGpuProfile, g_Config.bGpuLogProfiler);
+	renderManager_.BeginFrame(debugFlags_ & DebugFlags::PROFILE_TIMESTAMPS, debugFlags_ & DebugFlags::PROFILE_SCOPES);
 
 	FrameData &frame = frame_[vulkan_->GetCurFrame()];
 	push_ = frame.pushBuffer;
@@ -1761,6 +1761,10 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 
 void VKContext::DebugAnnotate(const char *annotation) {
 	renderManager_.DebugAnnotate(annotation);
+}
+
+void VKContext::SetDebugFlags(DebugFlags flags) {
+	debugFlags_ = flags;
 }
 
 }  // namespace Draw
