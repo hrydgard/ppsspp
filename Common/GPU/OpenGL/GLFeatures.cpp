@@ -135,7 +135,7 @@ bool CheckGLExtensions() {
 		return true;
 	}
 
-	memset(&gl_extensions, 0, sizeof(gl_extensions));
+	gl_extensions = {};
 	gl_extensions.IsCoreContext = useCoreContext;
 
 	const char *renderer = (const char *)glGetString(GL_RENDERER);

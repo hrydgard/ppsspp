@@ -655,7 +655,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	EARLY_LOG("NativeApp.init() -- begin");
 	PROFILE_INIT();
 
-	std::lock_guard<std::mutex> guard(renderLock);
+	std::lock_guard<std::mutex> guard(renderLock);  // Note: This is held for the rest of this function - intended?
 	renderer_inited = false;
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
@@ -875,6 +875,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 }
 
 // JavaEGL. This doesn't get called on the Vulkan path.
+// This gets called from onSurfaceCreated.
 extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
 	_assert_(useCPUThread);
 
@@ -884,7 +885,10 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 	// We should be running on the render thread here.
 	std::string errorMessage;
 	if (renderer_inited) {
-		// Would be really nice if we could get something on the GL thread immediately when shutting down.
+		// Would be really nice if we could get something on the GL thread immediately when shutting down,
+		// but the only mechanism for handling lost devices seems to be that onSurfaceCreated is called again,
+		// which ends up calling displayInit.
+
 		INFO_LOG(G3D, "NativeApp.displayInit() restoring");
 		EmuThreadStop("displayInit");
 		graphicsContext->BeginAndroidShutdown();

@@ -30,7 +30,7 @@ enum {
 // Extensions to look at using:
 // GL_NV_map_buffer_range (same as GL_ARB_map_buffer_range ?)
 
-// WARNING: This gets memset-d - so no strings please
+// WARNING: This gets memset-d - so no strings or other non-POD types please
 // TODO: Rename this GLFeatures or something.
 struct GLExtensions {
 	int ver[3];
