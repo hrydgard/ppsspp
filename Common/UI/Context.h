@@ -75,6 +75,8 @@ public:
 	// Utility methods
 	TextDrawer *Text() const { return textDrawer_; }
 
+	void SetTintSaturation(float tint, float sat);
+
 	void SetFontStyle(const UI::FontStyle &style);
 	const UI::FontStyle &GetFontStyle() { return *fontStyle_; }
 	void SetFontScale(float scaleX, float scaleY);

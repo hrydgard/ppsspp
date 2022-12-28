@@ -40,6 +40,7 @@
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Core/WebServer.h"
 #include "UI/RemoteISOScreen.h"
 
@@ -247,6 +248,8 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 static bool LoadGameList(const Path &url, std::vector<Path> &games) {
 	PathBrowser browser(url);
 	std::vector<File::FileInfo> files;
+	browser.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
+	browser.SetRootAlias("ms:", GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToVisualString());
 	browser.GetListing(files, "iso:cso:pbp:elf:prx:ppdmp:", &scanCancelled);
 	if (scanCancelled) {
 		return false;

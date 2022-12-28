@@ -19,6 +19,7 @@
 //#define SHADERLOG
 #endif
 
+#include "Common/LogReporting.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
@@ -33,7 +34,6 @@
 #include "Common/Log.h"
 #include "Common/CommonTypes.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"

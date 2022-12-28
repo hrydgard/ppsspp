@@ -20,7 +20,6 @@
 
 #include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 
 #include "GPU/GPUState.h"

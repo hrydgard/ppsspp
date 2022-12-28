@@ -24,7 +24,6 @@
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Color/RGBAUtil.h"
-#include "Common/File/PathBrowser.h"
 #include "Common/Math/curves.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"

@@ -610,7 +610,7 @@ void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitEndCallback<FPL, WAITTYPE_FPL, FplWaitingThread>(threadID, prevCallbackId, fplWaitTimer, __KernelUnlockFplForThread);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
-		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
+		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateFplCB: Resuming mbx wait from callback");
 }
 
 static bool __FplThreadSortPriority(FplWaitingThread thread1, FplWaitingThread thread2)
@@ -1452,7 +1452,7 @@ void __KernelVplEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitEndCallback<VPL, WAITTYPE_VPL, VplWaitingThread>(threadID, prevCallbackId, vplWaitTimer, __KernelUnlockVplForThread);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
-		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
+		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateVplCB: Resuming mbx wait from callback");
 }
 
 static bool __VplThreadSortPriority(VplWaitingThread thread1, VplWaitingThread thread2)

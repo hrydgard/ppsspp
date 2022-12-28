@@ -59,7 +59,6 @@
 #include "sceKernelMutex.h"
 #include "sceKernelMbx.h"
 #include "sceKernelMsgPipe.h"
-#include "sceKernelInterrupt.h"
 #include "sceKernelSemaphore.h"
 #include "sceKernelEventFlag.h"
 #include "sceKernelVTimer.h"

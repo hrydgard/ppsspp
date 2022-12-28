@@ -21,6 +21,7 @@
 #include "ext/xxhash.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/LogReporting.h"
 #include "Common/Math/math_util.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
@@ -32,7 +33,6 @@
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
 #include "Core/System.h"
 
 #include "Common/GPU/Vulkan/VulkanContext.h"

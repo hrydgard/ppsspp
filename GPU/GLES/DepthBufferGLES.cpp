@@ -18,8 +18,8 @@
 #include <algorithm>
 
 #include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/LogReporting.h"
 #include "Core/ConfigValues.h"
-#include "Core/Reporting.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"

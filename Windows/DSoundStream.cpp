@@ -14,7 +14,6 @@
 #include "Common/Log.h"
 #include "Common/OSVersion.h"
 #include "Core/ConfigValues.h"
-#include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
 #include "Windows/W32Util/Misc.h"
 

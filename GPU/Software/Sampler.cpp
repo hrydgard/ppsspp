@@ -20,9 +20,9 @@
 #include <mutex>
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
+#include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/BinManager.h"

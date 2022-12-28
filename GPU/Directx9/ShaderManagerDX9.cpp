@@ -33,11 +33,11 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
+#include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
 
 #include "Core/Config.h"
 #include "Core/Host.h"
-#include "Core/Reporting.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"

@@ -16,13 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/CommonTypes.h"
+#include "Common/LogReporting.h"
 
 #include "Core/Core.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Host.h"
-#include "Core/Reporting.h"
 
 #include "Core/MIPS/MIPS.h"
 

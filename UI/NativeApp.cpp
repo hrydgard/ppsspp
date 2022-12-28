@@ -1138,6 +1138,15 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	ui_draw2d.PushDrawMatrix(ortho);
 	ui_draw2d_front.PushDrawMatrix(ortho);
 
+	screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
+
+	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
+	if (g_Config.bShowGpuProfile)
+		debugFlags |= Draw::DebugFlags::PROFILE_TIMESTAMPS;
+	if (g_Config.bGpuLogProfiler)
+		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
+	screenManager->getDrawContext()->SetDebugFlags(debugFlags);
+
 	// All actual rendering happen in here.
 	screenManager->render();
 	if (screenManager->getUIContext()->Text()) {
