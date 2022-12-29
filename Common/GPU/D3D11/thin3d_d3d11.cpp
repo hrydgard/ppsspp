@@ -341,6 +341,8 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 }
 
 D3D11DrawContext::~D3D11DrawContext() {
+	DestroyPresets();
+
 	upBuffer_->Release();
 	packTexture_->Release();
 

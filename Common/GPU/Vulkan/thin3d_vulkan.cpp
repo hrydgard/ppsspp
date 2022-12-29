@@ -1004,6 +1004,8 @@ VKContext::VKContext(VulkanContext *vulkan)
 }
 
 VKContext::~VKContext() {
+	DestroyPresets();
+
 	delete nullTexture_;
 	// This also destroys all descriptor sets.
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
