@@ -449,9 +449,12 @@ void SDLGLGraphicsContext::Shutdown() {
 void SDLGLGraphicsContext::ShutdownFromRenderThread() {
 	delete draw_;
 	draw_ = nullptr;
+	renderManager_ = nullptr;
 
 #ifdef USING_EGL
 	EGL_Close();
 #endif
 	SDL_GL_DeleteContext(glContext);
+	glContext = nullptr;
+	window_ = nullptr;
 }

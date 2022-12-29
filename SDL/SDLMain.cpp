@@ -504,7 +504,7 @@ static void EmuThreadStart(GraphicsContext *context) {
 	emuThread = std::thread(&EmuThreadFunc, context);
 }
 
-static void EmuThreadStop() {
+static void EmuThreadStop(const char *reason) {
 	emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
 }
 
@@ -832,6 +832,9 @@ int main(int argc, char *argv[]) {
 	int mouseWheelMovedDownFrames = 0;
 	bool mouseCaptured = false;
 	bool windowHidden = false;
+
+	bool rebootEmuThread = false;
+
 	while (true) {
 		double startTime = time_now_d();
 
@@ -927,6 +930,12 @@ int main(int argc, char *argv[]) {
 					key.keyCode = mapped->second;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
+
+					if (k == SDLK_F7 && useEmuThread) {
+						printf("f7 pressed - rebooting emuthread\n");
+						rebootEmuThread = true;
+					}
+
 					break;
 				}
 			case SDL_KEYUP:
@@ -1205,8 +1214,38 @@ int main(int argc, char *argv[]) {
 				break;
 		}
 
-
 		graphicsContext->SwapBuffers();
+
+		if (rebootEmuThread) {
+			printf("rebooting emu thread");
+			rebootEmuThread = false;
+			EmuThreadStop("shutdown");
+			// Skipping GL calls, the old context is gone.
+			while (graphicsContext->ThreadFrame()) {
+				INFO_LOG(SYSTEM, "graphicsContext->ThreadFrame executed to clear buffers");
+			}
+			EmuThreadJoin();
+			graphicsContext->ThreadEnd();
+			graphicsContext->ShutdownFromRenderThread();
+
+			printf("OK, shutdown complete. starting up graphics again.\n");
+
+			if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+				SDLGLGraphicsContext *ctx  = (SDLGLGraphicsContext *)graphicsContext;
+				if (!ctx->Init(window, x, y, mode, &error_message)) {
+					printf("Failed to reinit graphics.\n");
+				}
+			}
+
+			if (!graphicsContext->InitFromRenderThread(&error_message)) {
+				System_Toast("Graphics initialization failed. Quitting.");
+				return 1;
+			}
+
+			EmuThreadStart(graphicsContext);
+			graphicsContext->ThreadStart();
+		}
+
 
 		ToggleFullScreenIfFlagSet(window);
 
@@ -1222,7 +1261,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (useEmuThread) {
-		EmuThreadStop();
+		EmuThreadStop("shutdown");
 		while (graphicsContext->ThreadFrame()) {
 			// Need to keep eating frames to allow the EmuThread to exit correctly.
 			continue;
