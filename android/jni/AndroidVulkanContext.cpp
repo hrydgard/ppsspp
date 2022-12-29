@@ -47,6 +47,7 @@ bool AndroidVulkanContext::InitAPI() {
 
 	if (!VulkanLoad()) {
 		ERROR_LOG(G3D, "Failed to load Vulkan driver library");
+		state_ = GraphicsContextState::FAILED_INIT;
 		return false;
 	}
 
@@ -65,6 +66,7 @@ bool AndroidVulkanContext::InitAPI() {
 		VulkanSetAvailable(false);
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
+		state_ = GraphicsContextState::FAILED_INIT;
 		return false;
 	}
 
@@ -74,6 +76,7 @@ bool AndroidVulkanContext::InitAPI() {
 		g_Vulkan->DestroyInstance();
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
+		state_ = GraphicsContextState::FAILED_INIT;
 		return false;
 	}
 
@@ -86,10 +89,12 @@ bool AndroidVulkanContext::InitAPI() {
 		g_Vulkan->DestroyInstance();
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
+		state_ = GraphicsContextState::FAILED_INIT;
 		return false;
 	}
 
 	INFO_LOG(G3D, "Vulkan device created!");
+	state_ = GraphicsContextState::INITIALIZED;
 	return true;
 }
 

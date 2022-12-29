@@ -201,7 +201,7 @@ static void VertexAttribSetup(D3D11_INPUT_ELEMENT_DESC * VertexElement, u8 fmt, 
 ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt) {
 	// TODO: Instead of one for each vshader, we can reduce it to one for each type of shader
 	// that reads TEXCOORD or not, etc. Not sure if worth it.
-	InputLayoutKey key{ vshader, decFmt.id };
+	const InputLayoutKey key{ vshader, decFmt.id };
 	ID3D11InputLayout *inputLayout = inputLayoutMap_.Get(key);
 	if (inputLayout) {
 		return inputLayout;

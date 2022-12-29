@@ -30,7 +30,7 @@ enum {
 // Extensions to look at using:
 // GL_NV_map_buffer_range (same as GL_ARB_map_buffer_range ?)
 
-// WARNING: This gets memset-d - so no strings please
+// WARNING: This gets memset-d - so no strings or other non-POD types please
 // TODO: Rename this GLFeatures or something.
 struct GLExtensions {
 	int ver[3];
@@ -129,7 +129,9 @@ void ProcessGPUFeatures();
 extern std::string g_all_gl_extensions;
 extern std::string g_all_egl_extensions;
 
-void CheckGLExtensions();
+// If this returns false, we're not gonna be able to use a GL context.
+bool CheckGLExtensions();
+
 void SetGLCoreContext(bool flag);
 void ResetGLExtensions();
 

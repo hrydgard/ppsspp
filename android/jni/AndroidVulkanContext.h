@@ -20,13 +20,7 @@ public:
 	void Resize() override;
 
 	void *GetAPIContext() override { return g_Vulkan; }
-
-	Draw::DrawContext *GetDrawContext() override {
-		return draw_;
-	}
-	bool Initialized() override {
-		return draw_ != nullptr;
-	}
+	Draw::DrawContext *GetDrawContext() override { return draw_; }
 
 private:
 	VulkanContext *g_Vulkan = nullptr;

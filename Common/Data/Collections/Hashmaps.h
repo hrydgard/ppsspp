@@ -69,7 +69,7 @@ public:
 			if (state[p] == BucketState::TAKEN) {
 				if (KeyEquals(key, map[p].key)) {
 					// Bad! We already got this one. Let's avoid this case.
-					_assert_msg_(false, "DenseHashMap: Duplicate key inserted");
+					_assert_msg_(false, "DenseHashMap: Duplicate key of size %d inserted", (int)sizeof(Key));
 					return false;
 				}
 				// continue looking....
