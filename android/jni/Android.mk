@@ -772,6 +772,7 @@ ifeq ($(UNITTEST),1)
       $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
       $(SRC)/Core/Util/DisArm64.cpp \
       $(SRC)/ext/disarm.cpp \
+      $(SRC)/ext/riscv-disas.cpp \
       $(SRC)/unittest/TestArmEmitter.cpp \
       $(SRC)/unittest/TestArm64Emitter.cpp \
       $(SRC)/unittest/TestRiscVEmitter.cpp \
