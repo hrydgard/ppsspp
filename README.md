@@ -25,6 +25,12 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.14.2
+====================
+* Fix Toca/DTM and others (culling) on Mali again ([#16645])
+* Fix line rendering bugs in the homebrew Tempest clone Webfest ([#16656])
+* Assorted cleanup and bugfixes ([#16673], [#16662], [#16655], [#16644], [#16636], [#16639] etc)
+
 What's new in 1.14.1
 ====================
 * Fix black screen in Vulkan on some older Android devices (Android version 7) ([#16599])
@@ -370,4 +376,11 @@ Credit goes to:
 [#16608]: https://github.com/hrydgard/ppsspp/issues/16608 "Cleanup value corrections in config load/save"
 [#16615]: https://github.com/hrydgard/ppsspp/issues/16615 "D3D9: Support old-style user clip planes"
 [#16619]: https://github.com/hrydgard/ppsspp/issues/16619 "Debugger: Don't hang memory dump if stepping in GE"
-[#16595]: https://github.com/hrydgard/ppsspp/issues/16595 "Transparent background option"
+[#16595]: https://github.com/hrydgard/ppsspp/issues/16595 "Transparent background option"[#16645]: https://github.com/hrydgard/ppsspp/issues/16645 "Fix vertex shader range culling - the driver bug check was wrong."
+[#16656]: https://github.com/hrydgard/ppsspp/issues/16656 "Fix rendering of lines with the same x/y but different z."
+[#16673]: https://github.com/hrydgard/ppsspp/issues/16673 "Show bluescreen properly on memory errors that we failed to ignore."
+[#16662]: https://github.com/hrydgard/ppsspp/issues/16662 "Correct some reversed dependencies, minor other cleanup"
+[#16655]: https://github.com/hrydgard/ppsspp/issues/16655 "OpenXR - Force flat mode for Madden NFL games"
+[#16644]: https://github.com/hrydgard/ppsspp/issues/16644 "Additional Android cleanup"
+[#16636]: https://github.com/hrydgard/ppsspp/issues/16636 "Crash: Ensure we never handle faults in faults"
+[#16639]: https://github.com/hrydgard/ppsspp/issues/16639 "Minor initialization cleanup, setup for Vulkan validation layers on Android"
