@@ -284,18 +284,23 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 		g_badAccessHandler = badAccessHandler;
 		return;
 	}
+	
+	size_t altStackSize = SIGSTKSZ;
 
-	INFO_LOG(SYSTEM, "Installed exception handler");
+	// Add some extra room.
+	altStackSize += 65536;
+
+	INFO_LOG(SYSTEM, "Installed exception handler. stack size: %d", (int)altStackSize);
 	g_badAccessHandler = badAccessHandler;
 
 	stack_t signal_stack{};
-	altStack = malloc(SIGSTKSZ);
+	altStack = malloc(altStackSize);
 #ifdef __FreeBSD__
 	signal_stack.ss_sp = (char*)altStack;
 #else
 	signal_stack.ss_sp = altStack;
 #endif
-	signal_stack.ss_size = SIGSTKSZ;
+	signal_stack.ss_size = altStackSize;
 	signal_stack.ss_flags = 0;
 	if (sigaltstack(&signal_stack, nullptr)) {
 		_assert_msg_(false, "sigaltstack failed");
