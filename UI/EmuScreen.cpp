@@ -1199,6 +1199,9 @@ static void DrawCrashDump(UIContext *ctx) {
 
 	ctx->PushScissor(Bounds(x, y, columnWidth, height));
 
+
+	INFO_LOG(SYSTEM, "DrawCrashDump (%d %d %d %d)", x, y, columnWidth, height);
+
 	snprintf(statbuf, sizeof(statbuf), R"(%s
 %s (%s)
 %s (%s)
@@ -1565,6 +1568,10 @@ void EmuScreen::renderUI() {
 		const ExceptionInfo &info = Core_GetExceptionInfo();
 		if (info.type != ExceptionType::NONE) {
 			DrawCrashDump(ctx);
+		} else {
+			// We're somehow in ERROR or STEPPING without a crash dump. This case is what lead
+			// to the bare "Resume" and "Reset" buttons without a crash dump before, in cases
+			// where we were unable to ignore memory errors.
 		}
 	}
 

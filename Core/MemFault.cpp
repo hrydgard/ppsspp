@@ -280,8 +280,9 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		}
 	} else {
 		// Either bIgnoreBadMemAccess is off, or we failed recovery analysis.
+		// We can't ignore this memory access.
 		uint32_t approximatePC = currentMIPS->pc;
-		Core_MemoryExceptionInfo(guestAddress, approximatePC, type, infoString);
+		Core_MemoryExceptionInfo(guestAddress, approximatePC, type, infoString, true);
 
 		// There's a small chance we can resume from this type of crash.
 		g_lastCrashAddress = codePtr;
