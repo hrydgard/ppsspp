@@ -455,7 +455,7 @@ void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type) {
 	}
 }
 
-void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std::string additionalInfo) {
+void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std::string additionalInfo, bool forceReport) {
 	const char *desc = MemoryExceptionTypeAsString(type);
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
 	if (g_Config.iCpuCore == (int)CPUCore::JIT && g_Config.bIgnoreBadMemAccess) {
@@ -464,7 +464,7 @@ void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std
 		WARN_LOG(MEMMAP, "%s: Invalid address %08x PC %08x LR %08x %s", desc, address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA], additionalInfo.c_str());
 	}
 
-	if (!g_Config.bIgnoreBadMemAccess) {
+	if (!g_Config.bIgnoreBadMemAccess || forceReport) {
 		ExceptionInfo &e = g_exceptionInfo;
 		e = {};
 		e.type = ExceptionType::MEMORY;
@@ -476,6 +476,7 @@ void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std
 	}
 }
 
+// Can't be ignored
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	const char *desc = ExecExceptionTypeAsString(type);
 	WARN_LOG(MEMMAP, "%s: Invalid destination %08x PC %08x LR %08x", desc, address, pc, currentMIPS->r[MIPS_REG_RA]);
