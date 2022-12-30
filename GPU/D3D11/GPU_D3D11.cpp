@@ -165,6 +165,9 @@ void GPU_D3D11::CopyDisplayToOutput(bool reallyDirty) {
 
 	float blendColor[4]{};
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], blendColor, 0xFFFFFFFF);
+	// Since we're forcing the blend state, clear Draw.
+	if (draw_)
+		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
 	framebufferManagerD3D11_->CopyDisplayToOutput(reallyDirty);
 
