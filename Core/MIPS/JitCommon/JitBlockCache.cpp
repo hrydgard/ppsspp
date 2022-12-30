@@ -639,6 +639,9 @@ int JitBlockCache::GetBlockExitSize() {
 #elif PPSSPP_ARCH(ARM64)
 	// Will depend on the sequence found to encode the destination address.
 	return 0;
+#elif PPSSPP_ARCH(RISCV64)
+	// Will depend on the sequence found to encode the destination address.
+	return 0;
 #else
 #warning GetBlockExitSize unimplemented
 	return 0;
