@@ -304,6 +304,8 @@ void GPU_GLES::CopyDisplayToOutput(bool reallyDirty) {
 	shaderManagerGL_->DirtyLastShader();
 
 	framebufferManagerGL_->CopyDisplayToOutput(reallyDirty);
+
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 void GPU_GLES::FinishDeferred() {
