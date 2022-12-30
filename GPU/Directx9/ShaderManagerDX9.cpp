@@ -389,7 +389,7 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 			VSSetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
 		} else {
 			// not very useful values, use as marker for disabled fog.
-			float fogcoef[2] = { -1.0f, -1.0f };
+			float fogcoef[2] = { -65536.0f, -65536.0f };
 			VSSetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
 		}
 	}

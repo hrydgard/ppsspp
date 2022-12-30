@@ -472,7 +472,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			}
 			render_->SetUniformF(&u_fogcoef, 2, fogcoef);
 		} else {
-			float fogcoef[2] = { -1.0f, -1.0f };
+			float fogcoef[2] = { -65536.0f, -65536.0f };
 			render_->SetUniformF(&u_fogcoef, 2, fogcoef);
 		}
 	}

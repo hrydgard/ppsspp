@@ -193,8 +193,8 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		} else {
 			// not very useful values, use as marker for disabled fog.
 			// could also burn one extra uniform.
-			ub->fogCoef[0] = -1.0f;
-			ub->fogCoef[1] = -1.0f;
+			ub->fogCoef[0] = -65536.0f;
+			ub->fogCoef[1] = -65536.0f;
 		}
 	}
 
