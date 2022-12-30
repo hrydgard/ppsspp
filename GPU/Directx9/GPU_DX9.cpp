@@ -158,14 +158,11 @@ void GPU_DX9::BeginFrame() {
 }
 
 void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
-	dxstate.depthWrite.set(true);
-	dxstate.colorMask.set(0xF);
-
 	drawEngine_.Flush();
 
-	framebufferManagerDX9_->CopyDisplayToOutput(reallyDirty);
+	shaderManager_->DirtyLastShader();
 
-	shaderManagerDX9_->DirtyLastShader();
+	framebufferManagerDX9_->CopyDisplayToOutput(reallyDirty);
 
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }

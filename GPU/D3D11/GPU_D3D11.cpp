@@ -163,15 +163,9 @@ void GPU_D3D11::CopyDisplayToOutput(bool reallyDirty) {
 	// Flush anything left over.
 	drawEngine_.Flush();
 
-	float blendColor[4]{};
-	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], blendColor, 0xFFFFFFFF);
-	// Since we're forcing the blend state, clear Draw.
-	if (draw_)
-		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+	shaderManager_->DirtyLastShader();
 
 	framebufferManagerD3D11_->CopyDisplayToOutput(reallyDirty);
-
-	shaderManagerD3D11_->DirtyLastShader();
 
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
