@@ -719,7 +719,9 @@ VkResult VulkanContext::CreateDevice() {
 	allocatorInfo.physicalDevice = physical_devices_[physical_device_];
 	allocatorInfo.device = device_;
 	allocatorInfo.instance = instance_;
-	vmaCreateAllocator(&allocatorInfo, &allocator_);
+	VkResult result = vmaCreateAllocator(&allocatorInfo, &allocator_);
+	_assert_(result == VK_SUCCESS);
+	_assert_(allocator_ != VK_NULL_HANDLE);
 
 	// Examine the physical device to figure out super rough performance grade.
 	// Basically all we want to do is to identify low performance mobile devices
