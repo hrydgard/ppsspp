@@ -236,9 +236,9 @@ void AndroidLogger::Log(const LogMessage &message) {
 JNIEnv* getEnv() {
 	JNIEnv *env;
 	int status = gJvm->GetEnv((void**)&env, JNI_VERSION_1_6);
-	if(status < 0) {
+	if (status < 0) {
 		status = gJvm->AttachCurrentThread(&env, NULL);
-		if(status < 0) {
+		if (status < 0) {
 			return nullptr;
 		}
 	}
@@ -268,9 +268,16 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 // Only used in OpenGL mode.
 static void EmuThreadFunc() {
 	JNIEnv *env;
-	gJvm->AttachCurrentThread(&env, nullptr);
 
-	SetCurrentThreadName("Emu");
+	SetCurrentThreadName("EmuThread");
+
+	// Name the thread in the JVM, because why not (might result in better debug output in Play Console).
+	// TODO: Do something clever with getEnv() and stored names from SetCurrentThreadName?
+	JavaVMAttachArgs args{};
+	args.version = JNI_VERSION_1_6;
+	args.name = "EmuThread";
+	gJvm->AttachCurrentThread(&env, &args);
+
 	INFO_LOG(SYSTEM, "Entering emu thread");
 
 	// Wait for render loop to get started.
@@ -921,7 +928,7 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		INFO_LOG(G3D, "Restored.");
 	} else {
 		INFO_LOG(G3D, "NativeApp.displayInit() first time");
-		if (!graphicsContext->InitFromRenderThread(nullptr, 0, 0, 0, 0)) {
+		if (!graphicsContext || !graphicsContext->InitFromRenderThread(nullptr, 0, 0, 0, 0)) {
 			System_Toast("Graphics initialization failed. Quitting.");
 			return false;
 		}
