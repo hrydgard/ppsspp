@@ -25,7 +25,7 @@ public:
 	void deviceLost() override;
 	void deviceRestored() override;
 
-	bool touch(const TouchInput &touch) override;
+	void touch(const TouchInput &touch) override;
 	bool key(const KeyInput &touch) override;
 	bool axis(const AxisInput &touch) override;
 
@@ -76,7 +76,7 @@ public:
 	virtual void CreatePopupContents(UI::ViewGroup *parent) = 0;
 	void CreateViews() override;
 	bool isTransparent() const override { return true; }
-	bool touch(const TouchInput &touch) override;
+	void touch(const TouchInput &touch) override;
 	bool key(const KeyInput &key) override;
 
 	void TriggerFinish(DialogResult result) override;

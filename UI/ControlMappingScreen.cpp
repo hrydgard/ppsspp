@@ -672,7 +672,7 @@ UI::EventReturn AnalogSetupScreen::OnResetToDefaults(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-bool TouchTestScreen::touch(const TouchInput &touch) {
+void TouchTestScreen::touch(const TouchInput &touch) {
 	UIDialogScreenWithGameBackground::touch(touch);
 	if (touch.flags & TOUCH_DOWN) {
 		bool found = false;
@@ -721,7 +721,6 @@ bool TouchTestScreen::touch(const TouchInput &touch) {
 			WARN_LOG(SYSTEM, "Touch release without touch down");
 		}
 	}
-	return true;
 }
 
 void TouchTestScreen::CreateViews() {

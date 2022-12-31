@@ -75,20 +75,18 @@ void ScreenManager::switchToNext() {
 	nextStack_.clear();
 }
 
-bool ScreenManager::touch(const TouchInput &touch) {
+void ScreenManager::touch(const TouchInput &touch) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	bool result = false;
 	// Send release all events to every screen layer.
 	if (touch.flags & TOUCH_RELEASE_ALL) {
 		for (auto &layer : stack_) {
 			Screen *screen = layer.screen;
-			result = layer.screen->touch(screen->transformTouch(touch));
+			layer.screen->touch(screen->transformTouch(touch));
 		}
 	} else if (!stack_.empty()) {
 		Screen *screen = stack_.back().screen;
-		result = stack_.back().screen->touch(screen->transformTouch(touch));
+		stack_.back().screen->touch(screen->transformTouch(touch));
 	}
-	return result;
 }
 
 bool ScreenManager::key(const KeyInput &key) {

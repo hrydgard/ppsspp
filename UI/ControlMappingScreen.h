@@ -140,7 +140,7 @@ public:
 		}
 	}
 
-	bool touch(const TouchInput &touch) override;
+	void touch(const TouchInput &touch) override;
 	void render() override;
 
 	bool key(const KeyInput &key) override;

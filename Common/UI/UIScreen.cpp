@@ -151,7 +151,7 @@ TouchInput UIScreen::transformTouch(const TouchInput &touch) {
 	return updated;
 }
 
-bool UIScreen::touch(const TouchInput &touch) {
+void UIScreen::touch(const TouchInput &touch) {
 	if (root_) {
 		if (ClickDebug && (touch.flags & TOUCH_DOWN)) {
 			INFO_LOG(SYSTEM, "Touch down!");
@@ -163,9 +163,7 @@ bool UIScreen::touch(const TouchInput &touch) {
 		}
 
 		UI::TouchEvent(touch, root_);
-		return true;
 	}
-	return false;
 }
 
 bool UIScreen::key(const KeyInput &key) {
@@ -235,16 +233,16 @@ PopupScreen::PopupScreen(std::string title, std::string button1, std::string but
 	alpha_ = 0.0f;
 }
 
-bool PopupScreen::touch(const TouchInput &touch) {
+void PopupScreen::touch(const TouchInput &touch) {
 	if (!box_ || (touch.flags & TOUCH_DOWN) == 0) {
-		return UIDialogScreen::touch(touch);
+		UIDialogScreen::touch(touch);
 	}
 
 	if (!box_->GetBounds().Contains(touch.x, touch.y)) {
 		TriggerFinish(DR_BACK);
 	}
 
-	return UIDialogScreen::touch(touch);
+	UIDialogScreen::touch(touch);
 }
 
 bool PopupScreen::key(const KeyInput &key) {
