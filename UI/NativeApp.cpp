@@ -985,7 +985,9 @@ bool CreateGlobalPipelines() {
 void NativeShutdownGraphics() {
 	INFO_LOG(SYSTEM, "NativeShutdownGraphics");
 
-	screenManager->deviceLost();
+	if (screenManager) {
+		screenManager->deviceLost();
+	}
 
 	if (gpu)
 		gpu->DeviceLost();

@@ -180,10 +180,24 @@ static std::string CutFromMain(std::string str) {
 static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, VkPipelineCache pipelineCache,
 	VkPipelineLayout layout, PipelineFlags pipelineFlags, VkSampleCountFlagBits sampleCount, const VulkanPipelineRasterStateKey &key,
 	const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, VulkanGeometryShader *gs, bool useHwTransform, u32 variantBitmask) {
+
+	if (!fs->GetModule()) {
+		ERROR_LOG(G3D, "Fragment shader missing in CreateVulkanPipeline");
+		return nullptr;
+	}
+	if (!vs->GetModule()) {
+		ERROR_LOG(G3D, "Vertex shader missing in CreateVulkanPipeline");
+		return nullptr;
+	}
+
 	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
 	vulkanPipeline->desc = new VKRGraphicsPipelineDesc();
 	VKRGraphicsPipelineDesc *desc = vulkanPipeline->desc;
 	desc->pipelineCache = pipelineCache;
+
+	desc->fragmentShader = fs->GetModule();
+	desc->vertexShader = vs->GetModule();
+	desc->geometryShader = gs ? gs->GetModule() : nullptr;
 
 	PROFILE_THIS_SCOPE("pipelinebuild");
 	bool useBlendConstant = false;
@@ -257,9 +271,6 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	rs.polygonMode = VK_POLYGON_MODE_FILL;
 	rs.depthClampEnable = key.depthClampEnable;
 
-	desc->fragmentShader = fs->GetModule();
-	desc->vertexShader = vs->GetModule();
-	desc->geometryShader = gs ? gs->GetModule() : nullptr;
 	desc->fragmentShaderSource = fs->GetShaderString(SHADER_STRING_SOURCE_CODE);
 	desc->vertexShaderSource = vs->GetShaderString(SHADER_STRING_SOURCE_CODE);
 	if (gs) {
@@ -360,6 +371,8 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		renderManager, pipelineCache_, layout, pipelineFlags, sampleCount,
 		rasterKey, decFmt, vs, fs, gs, useHwTransform, variantBitmask);
+
+	// If the above failed, we got a null pipeline. We still insert it to keep track.
 	pipelines_.Insert(key, pipeline);
 
 	// Don't return placeholder null pipelines.

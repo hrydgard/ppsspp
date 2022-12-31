@@ -119,7 +119,9 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 VulkanFragmentShader::~VulkanFragmentShader() {
 	if (module_) {
 		VkShaderModule shaderModule = module_->BlockUntilReady();
-		vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		if (shaderModule) {
+			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		}
 		vulkan_->Delete().QueueCallback([](void *m) {
 			auto module = (Promise<VkShaderModule> *)m;
 			delete module;
@@ -152,7 +154,9 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, Vert
 VulkanVertexShader::~VulkanVertexShader() {
 	if (module_) {
 		VkShaderModule shaderModule = module_->BlockUntilReady();
-		vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		if (shaderModule) {
+			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		}
 		vulkan_->Delete().QueueCallback([](void *m) {
 			auto module = (Promise<VkShaderModule> *)m;
 			delete module;
@@ -185,7 +189,9 @@ VulkanGeometryShader::VulkanGeometryShader(VulkanContext *vulkan, GShaderID id, 
 VulkanGeometryShader::~VulkanGeometryShader() {
 	if (module_) {
 		VkShaderModule shaderModule = module_->BlockUntilReady();
-		vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		if (shaderModule) {
+			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		}
 		vulkan_->Delete().QueueCallback([](void *m) {
 			auto module = (Promise<VkShaderModule> *)m;
 			delete module;

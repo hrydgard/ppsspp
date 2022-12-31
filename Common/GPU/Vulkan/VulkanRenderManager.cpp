@@ -37,6 +37,14 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		}
 	}
 
+	// Sanity check.
+	// Seen in crash reports from PowerVR GE8320, presumably we failed creating some shader modules.
+	if (!desc->vertexShader || !desc->fragmentShader) {
+		ERROR_LOG(G3D, "Failed creating graphics pipeline - missing vs/fs shader module pointers!");
+		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
+		return false;
+	}
+
 	// Fill in the last part of the desc since now it's time to block.
 	VkShaderModule vs = desc->vertexShader->BlockUntilReady();
 	VkShaderModule fs = desc->fragmentShader->BlockUntilReady();
@@ -44,13 +52,13 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 
 	if (!vs || !fs || (!gs && desc->geometryShader)) {
 		ERROR_LOG(G3D, "Failed creating graphics pipeline - missing shader modules");
-		// We're kinda screwed here?
+		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
 		return false;
 	}
 
 	if (!compatibleRenderPass) {
-		ERROR_LOG(G3D, "Failed creating graphics pipeline - compatible render pass was null");
-		// We're kinda screwed here?
+		ERROR_LOG(G3D, "Failed creating graphics pipeline - compatible render pass was nullptr");
+		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
 		return false;
 	}
 
@@ -527,8 +535,12 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 
 VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, const char *tag) {
 	VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline(pipelineFlags, tag);
-	_dbg_assert_(desc->vertexShader);
-	_dbg_assert_(desc->fragmentShader);
+
+	if (!desc->vertexShader || !desc->fragmentShader) {
+		ERROR_LOG(G3D, "Can't create graphics pipeline with missing vs/ps: %p %p", desc->vertexShader, desc->fragmentShader);
+		return nullptr;
+	}
+
 	pipeline->desc = desc;
 	pipeline->desc->AddRef();
 	if (curRenderStep_) {
@@ -634,6 +646,10 @@ void VulkanRenderManager::EndCurRenderStep() {
 	compileMutex_.lock();
 	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
+		if (!pipeline) {
+			// Not good, but let's try not to crash.
+			continue;
+		}
 		if (!pipeline->pipeline[(size_t)rpType]) {
 			pipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
 			_assert_(renderPass);
