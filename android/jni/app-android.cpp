@@ -1147,17 +1147,17 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyUp(JNIEnv *, jclass, jin
 	return NativeKey(keyInput);
 }
 
-extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 		JNIEnv *env, jclass, jint deviceId, jint axisId, jfloat value) {
 	if (!renderer_inited)
-		return false;
+		return;
 
 	AxisInput axis;
 	axis.axisId = axisId;
 	axis.deviceId = deviceId;
 	axis.value = value;
 
-	return NativeAxis(axis);
+	NativeAxis(axis);
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
@@ -1169,9 +1169,9 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 	return true;
 }
 
-extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
 	if (!renderer_inited)
-		return false;
+		return;
 
 	AxisInput axis;
 	axis.deviceId = DEVICE_ID_ACCELEROMETER;
@@ -1179,17 +1179,15 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEn
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
 	axis.value = x;
-	bool retvalX = NativeAxis(axis);
+	NativeAxis(axis);
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
 	axis.value = y;
-	bool retvalY = NativeAxis(axis);
+	NativeAxis(axis);
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
 	axis.value = z;
-	bool retvalZ = NativeAxis(axis);
-
-	return retvalX || retvalY || retvalZ;
+	NativeAxis(axis);
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {

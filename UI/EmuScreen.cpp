@@ -788,7 +788,7 @@ bool EmuScreen::key(const KeyInput &key) {
 	return controlMapper_.Key(key, &pauseTrigger_);
 }
 
-bool EmuScreen::axis(const AxisInput &axis) {
+void EmuScreen::axis(const AxisInput &axis) {
 	Core_NotifyActivity();
 
 	return controlMapper_.Axis(axis);

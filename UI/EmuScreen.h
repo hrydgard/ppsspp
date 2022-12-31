@@ -52,7 +52,7 @@ public:
 
 	void touch(const TouchInput &touch) override;
 	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+	void axis(const AxisInput &axis) override;
 
 private:
 	void CreateViews() override;

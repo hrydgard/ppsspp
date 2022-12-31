@@ -199,12 +199,10 @@ void UIDialogScreen::sendMessage(const char *msg, const char *value) {
 	}
 }
 
-bool UIScreen::axis(const AxisInput &axis) {
+void UIScreen::axis(const AxisInput &axis) {
 	if (root_) {
 		UI::AxisEvent(axis, root_);
-		return true;
 	}
-	return false;
 }
 
 UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {

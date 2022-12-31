@@ -58,7 +58,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
-bool TiltAnalogSettingsScreen::axis(const AxisInput &axis) {
+void TiltAnalogSettingsScreen::axis(const AxisInput &axis) {
 	if (axis.deviceId == DEVICE_ID_ACCELEROMETER) {
 		// Historically, we've had X and Y swapped, likely due to portrait vs landscape.
 		// TODO: We may want to configure this based on screen orientation.
@@ -69,7 +69,6 @@ bool TiltAnalogSettingsScreen::axis(const AxisInput &axis) {
 			currentTiltX_ = axis.value;
 		}
 	}
-	return false;
 }
 
 UI::EventReturn TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {

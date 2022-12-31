@@ -117,20 +117,16 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 	return pspKeys.size() > 0;
 }
 
-bool ControlMapper::Axis(const AxisInput &axis) {
+void ControlMapper::Axis(const AxisInput &axis) {
 	if (axis.value > 0) {
 		processAxis(axis, 1);
-		return true;
 	} else if (axis.value < 0) {
 		processAxis(axis, -1);
-		return true;
 	} else if (axis.value == 0) {
 		// Both directions! Prevents sticking for digital input devices that are axises (like HAT)
 		processAxis(axis, 1);
 		processAxis(axis, -1);
-		return true;
 	}
-	return false;
 }
 
 void ControlMapper::Update() {

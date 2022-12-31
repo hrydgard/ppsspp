@@ -48,7 +48,7 @@ public class NativeApp {
 	// Sensor/input data. These are asynchronous, beware!
 	public static native void touch(float x, float y, int data, int pointerId);
 
-	public static native boolean accelerometer(float x, float y, float z);
+	public static native void accelerometer(float x, float y, float z);
 
 	public static native void sendMessage(String msg, String arg);
 	public static native void sendInputBox(String seqID, boolean result, String value);

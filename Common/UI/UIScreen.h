@@ -27,7 +27,7 @@ public:
 
 	void touch(const TouchInput &touch) override;
 	bool key(const KeyInput &touch) override;
-	bool axis(const AxisInput &touch) override;
+	void axis(const AxisInput &touch) override;
 
 	TouchInput transformTouch(const TouchInput &touch) override;
 

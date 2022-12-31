@@ -92,7 +92,7 @@ void ScreenManager::touch(const TouchInput &touch) {
 bool ScreenManager::key(const KeyInput &key) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	bool result = false;
-	// Send key up to every screen layer.
+	// Send key up to every screen layer, to avoid stuck keys.
 	if (key.flags & KEY_UP) {
 		for (auto &layer : stack_) {
 			result = layer.screen->key(key);
@@ -103,7 +103,7 @@ bool ScreenManager::key(const KeyInput &key) {
 	return result;
 }
 
-bool ScreenManager::axis(const AxisInput &axis) {
+void ScreenManager::axis(const AxisInput &axis) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 
 	// Ignore duplicate values to prevent axis values overwriting each other.
@@ -112,20 +112,18 @@ bool ScreenManager::axis(const AxisInput &axis) {
 	// PSP games can't see higher resolution than this.
 	int value = 128 + ceilf(axis.value * 127.5f + 127.5f);
 	if (lastAxis_[key] == value) {
-		return false;
+		return;
 	}
 	lastAxis_[key] = value;
 
-	bool result = false;
 	// Send center axis to every screen layer.
 	if (axis.value == 0) {
 		for (auto &layer : stack_) {
-			result = layer.screen->axis(axis);
+			layer.screen->axis(axis);
 		}
 	} else if (!stack_.empty()) {
-		result = stack_.back().screen->axis(axis);
+		stack_.back().screen->axis(axis);
 	}
-	return result;
 }
 
 void ScreenManager::deviceLost() {
