@@ -46,9 +46,9 @@ static bool vrFlatGame = false;
 static float vrMatrix[VR_MATRIX_COUNT][16];
 static bool vrMirroring[VR_MIRRORING_COUNT];
 
-static bool(*NativeAxis)(const AxisInput &axis);
-static bool(*NativeKey)(const KeyInput &key);
-static bool(*NativeTouch)(const TouchInput &touch);
+static bool (*NativeAxis)(const AxisInput &axis);
+static bool (*NativeKey)(const KeyInput &key);
+static void (*NativeTouch)(const TouchInput &touch);
 
 /*
 ================================================================================
@@ -189,7 +189,7 @@ void GetVRResolutionPerEye(int* width, int* height) {
 	}
 }
 
-void SetVRCallbacks(bool(*axis)(const AxisInput &axis), bool(*key)(const KeyInput &key), bool(*touch)(const TouchInput &touch)) {
+void SetVRCallbacks(bool(*axis)(const AxisInput &axis), bool(*key)(const KeyInput &key), void (*touch)(const TouchInput &touch)) {
 	NativeAxis = axis;
 	NativeKey = key;
 	NativeTouch = touch;

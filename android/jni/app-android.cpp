@@ -1113,7 +1113,7 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 	}
 }
 
-extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
 
 	float scaledX = x * g_dpi_scale_x;
@@ -1125,8 +1125,7 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	touch.y = scaledY;
 	touch.flags = code;
 
-	bool retval = NativeTouch(touch);
-	return retval;
+	NativeTouch(touch);
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key, jboolean isRepeat) {

@@ -46,7 +46,7 @@ public class NativeApp {
 	public static native boolean mouseWheelEvent(float x, float y);
 
 	// Sensor/input data. These are asynchronous, beware!
-	public static native boolean touch(float x, float y, int data, int pointerId);
+	public static native void touch(float x, float y, int data, int pointerId);
 
 	public static native boolean accelerometer(float x, float y, float z);
 
