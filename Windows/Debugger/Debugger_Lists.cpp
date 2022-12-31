@@ -307,7 +307,6 @@ void CtrlBreakpointList::reloadBreakpoints()
 	// Update the items we're displaying from the debugger.
 	displayedBreakPoints_ = CBreakPoints::GetBreakpoints();
 	displayedMemChecks_= CBreakPoints::GetMemChecks();
-	Update();
 
 	for (int i = 0; i < GetRowCount(); i++)
 	{
@@ -321,6 +320,8 @@ void CtrlBreakpointList::reloadBreakpoints()
 		else
 			SetCheckState(i, displayedBreakPoints_[index].IsEnabled());
 	}
+
+	Update();
 }
 
 void CtrlBreakpointList::editBreakpoint(int itemIndex)
