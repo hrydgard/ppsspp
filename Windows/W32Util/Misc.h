@@ -105,4 +105,15 @@ private:
 	volatile bool inResizeColumns;
 	volatile bool updating;
 	bool updateScheduled_ = false;
+
+	enum class Action {
+		CHECK,
+		IMAGE,
+	};
+	struct PendingAction {
+		Action action;
+		int item;
+		int state;
+	};
+	std::vector<PendingAction> pendingActions_;
 };
