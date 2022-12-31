@@ -52,6 +52,13 @@ enum class ReplacedTextureHash {
 	XXH64,
 };
 
+struct ReplacerZipInfo {
+	zip *z = nullptr;
+	std::mutex lock;
+
+	void Close();
+};
+
 struct ReplacedTextureLevel {
 	int w;
 	int h;
@@ -59,7 +66,7 @@ struct ReplacedTextureLevel {
 	Path file;
 	// Can be ignored for hashing/equal, since file has all uniqueness.
 	// To be able to reload, we need to be able to reopen, unfortunate we can't use zip_file_t.
-	zip *z = nullptr;
+	ReplacerZipInfo *zinfo = nullptr;
 	int64_t zi = -1;
 
 	bool operator ==(const ReplacedTextureLevel &other) const {
@@ -289,7 +296,7 @@ protected:
 	std::string gameID_;
 	Path basePath_;
 	ReplacedTextureHash hash_ = ReplacedTextureHash::QUICK;
-	zip *zip_ = nullptr;
+	ReplacerZipInfo zip_;
 
 	typedef std::pair<int, int> WidthHeightPair;
 	std::unordered_map<u64, WidthHeightPair> hashranges_;
