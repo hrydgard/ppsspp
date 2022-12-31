@@ -35,6 +35,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/File/FileUtil.h"
+#include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Thread/Waitable.h"
@@ -1278,6 +1279,10 @@ bool ReplacedTexture::Load(int level, void *out, int rowPitch) {
 
 	if (data.empty())
 		return false;
+	if (rowPitch < info.w * 4) {
+		ERROR_LOG_REPORT(G3D, "Replacement rowPitch=%d, but w=%d (level=%d)", rowPitch, info.w * 4, level);
+		return false;
+	}
 	_assert_msg_(data.size() == info.w * info.h * 4, "Data has wrong size");
 
 	if (rowPitch == info.w * 4) {
