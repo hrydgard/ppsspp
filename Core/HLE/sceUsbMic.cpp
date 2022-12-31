@@ -232,7 +232,7 @@ void QueueBuf::resize(u32 newSize) {
 	u8 *oldbuf = buf_;
 
 	buf_ = new u8[newSize];
-	pop(buf_, availableSize);
+	pop(buf_, std::min(availableSize, newSize));
 	available = availableSize;
 	end = availableSize;
 	capacity = newSize;
