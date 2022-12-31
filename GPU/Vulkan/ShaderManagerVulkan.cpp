@@ -119,7 +119,9 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 VulkanFragmentShader::~VulkanFragmentShader() {
 	if (module_) {
 		VkShaderModule shaderModule = module_->BlockUntilReady();
-		vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		if (shaderModule) {
+			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		}
 		vulkan_->Delete().QueueCallback([](void *m) {
 			auto module = (Promise<VkShaderModule> *)m;
 			delete module;
