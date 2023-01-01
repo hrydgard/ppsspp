@@ -302,7 +302,11 @@ void VulkanRenderManager::StopThread() {
 
 	INFO_LOG(G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
 
-	compileCond_.notify_all();
+	if (compileThread_.joinable()) {
+		// Lock to avoid race conditions.
+		std::lock_guard<std::mutex> guard(compileMutex_);
+		compileCond_.notify_all();
+	}
 	compileThread_.join();
 	INFO_LOG(G3D, "Vulkan compiler thread joined.");
 
@@ -360,7 +364,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 		std::vector<CompileQueueEntry> toCompile;
 		{
 			std::unique_lock<std::mutex> lock(compileMutex_);
-			if (compileQueue_.empty()) {
+			if (compileQueue_.empty() && run_) {
 				compileCond_.wait(lock);
 			}
 			toCompile = std::move(compileQueue_);
