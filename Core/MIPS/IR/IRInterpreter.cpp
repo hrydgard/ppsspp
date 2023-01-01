@@ -82,7 +82,7 @@ u32 RunMemCheck(u32 pc, u32 addr) {
 template <uint32_t alignment>
 u32 RunValidateAddress(u32 pc, u32 addr, u32 isWrite) {
 	const auto toss = [&](MemoryExceptionType t) {
-		Core_MemoryException(addr, 4, pc, t);
+		Core_MemoryException(addr, alignment, pc, t);
 		return coreState != CORE_RUNNING ? 1 : 0;
 	};
 
