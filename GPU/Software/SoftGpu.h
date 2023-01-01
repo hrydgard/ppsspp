@@ -128,6 +128,7 @@ public:
 	~SoftGPU();
 
 	u32 CheckGPUFeatures() const override { return 0; }
+	bool IsStarted() override;
 	void InitClear() override {}
 	void ExecuteOp(u32 op, u32 diff) override;
 	void FinishDeferred() override;

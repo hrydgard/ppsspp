@@ -487,6 +487,14 @@ bool PSP_InitUpdate(std::string *error_string) {
 	if (pspIsInited) {
 		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
 		pspIsRebooting = false;
+
+		// If GPU init failed during IsReady checks, bail.
+		if (!GPU_IsStarted()) {
+			*error_string = "Unable to initialize rendering engine.";
+			pspIsRebooting = false;
+			PSP_Shutdown();
+			return true;
+		}
 	}
 	return pspIsInited;
 }

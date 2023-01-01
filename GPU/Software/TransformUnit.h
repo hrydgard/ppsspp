@@ -117,6 +117,8 @@ public:
 	TransformUnit();
 	~TransformUnit();
 
+	bool IsStarted();
+
 	static WorldCoords ModelToWorldNormal(const ModelCoords& coords);
 	static WorldCoords ModelToWorld(const ModelCoords& coords);
 	static ViewCoords WorldToView(const WorldCoords& coords);

@@ -433,11 +433,15 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	Rasterizer::Init();
 	Sampler::Init();
 	drawEngine_ = new SoftwareDrawEngine();
+	if (!drawEngine_)
+		return;
+
 	drawEngine_->Init();
 	drawEngineCommon_ = drawEngine_;
 
 	// Push the initial CLUT buffer in case it's all zero (we push only on change.)
-	drawEngine_->transformUnit.NotifyClutUpdate(clut);
+	if (drawEngine_->transformUnit.IsStarted())
+		drawEngine_->transformUnit.NotifyClutUpdate(clut);
 
 	// No need to flush for simple parameter changes.
 	flushOnParams_ = false;
@@ -760,6 +764,10 @@ void SoftGPU::FastRunLoop(DisplayList &list) {
 	}
 	downcount = 0;
 	dirtyFlags_ = dirty;
+}
+
+bool SoftGPU::IsStarted() {
+	return drawEngine_ && drawEngine_->transformUnit.IsStarted();
 }
 
 void SoftGPU::ExecuteOp(u32 op, u32 diff) {
