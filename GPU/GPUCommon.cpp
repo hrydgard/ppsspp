@@ -1300,11 +1300,6 @@ void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 	cyclesExecuted += 2 * executed;
 	cycleLastPC = newPC;
 
-	if (coreCollectDebugStats) {
-		gpuStats.otherGPUCycles += 2 * executed;
-		gpuStats.gpuCommandsAtCallLevel[std::min(currentList->stackptr, 3)] += executed;
-	}
-
 	// Exit the runloop and recalculate things.  This happens a lot in some games.
 	if (currentList)
 		downcount = currentList->stall == 0 ? 0x0FFFFFFF : (currentList->stall - newPC) / 4;
@@ -1398,6 +1393,10 @@ void GPUCommon::ProcessDLQueue() {
 	}
 
 	currentList = nullptr;
+
+	if (coreCollectDebugStats) {
+		gpuStats.otherGPUCycles += cyclesExecuted;
+	}
 
 	drawCompleteTicks = startingTicks + cyclesExecuted;
 	busyTicks = std::max(busyTicks, drawCompleteTicks);
@@ -3457,7 +3456,6 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"DL processing time: %0.2f ms\n"
 		"Draw calls: %d, flushes %d, clears %d (cached: %d)\n"
 		"Num Tracked Vertex Arrays: %d\n"
-		"Commands per call level: %i %i %i %i\n"
 		"Vertices: %d cached: %d uncached: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
@@ -3470,7 +3468,6 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numClears,
 		gpuStats.numCachedDrawCalls,
 		gpuStats.numTrackedVertexArrays,
-		gpuStats.gpuCommandsAtCallLevel[0], gpuStats.gpuCommandsAtCallLevel[1], gpuStats.gpuCommandsAtCallLevel[2], gpuStats.gpuCommandsAtCallLevel[3],
 		gpuStats.numVertsSubmitted,
 		gpuStats.numCachedVertsDrawn,
 		gpuStats.numUncachedVertsDrawn,
