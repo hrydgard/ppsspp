@@ -42,12 +42,18 @@
 
 TransformUnit::TransformUnit() {
 	decoded_ = (u8 *)AllocateMemoryPages(TRANSFORM_BUF_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	if (!decoded_)
+		return;
 	binner_ = new BinManager();
 }
 
 TransformUnit::~TransformUnit() {
 	FreeMemoryPages(decoded_, TRANSFORM_BUF_SIZE);
 	delete binner_;
+}
+
+bool TransformUnit::IsStarted() {
+	return binner_ && decoded_;
 }
 
 SoftwareDrawEngine::SoftwareDrawEngine() {
