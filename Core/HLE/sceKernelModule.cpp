@@ -1042,7 +1042,7 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 			strncpy(func.moduleName, modulename, KERNELOBJECT_MAX_NAME_LENGTH);
 			func.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 
-			u32_le *nidDataPtr = (u32_le *)Memory::GetPointer(entry->nidData);
+			u32_le *nidDataPtr = (u32_le *)Memory::GetPointerUnchecked(entry->nidData);
 			for (int i = 0; i < entry->numFuncs; ++i) {
 				// This is the id of the import.
 				func.nid = nidDataPtr[i];
@@ -1080,7 +1080,7 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 				}
 
 				WriteVarSymbolState state;
-				u32_le *varRef = (u32_le *)Memory::GetPointer(varRefsPtr);
+				u32_le *varRef = (u32_le *)Memory::GetPointerUnchecked(varRefsPtr);
 				for (; *varRef != 0; ++varRef) {
 					var.nid = nid;
 					var.stubAddr = (*varRef & 0x03FFFFFF) << 2;
@@ -1106,7 +1106,7 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 			char temp[512];
 			const char *modulename;
 			if (Memory::IsValidAddress(entry->name)) {
-				modulename = Memory::GetCharPointer(entry->name);
+				modulename = Memory::GetCharPointerUnchecked(entry->name);
 			} else {
 				modulename = "(invalidname)";
 			}
@@ -1316,7 +1316,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		return nullptr;
 	}
 
-	modinfo = (PspModuleInfo *)Memory::GetPointer(modinfoaddr);
+	modinfo = (PspModuleInfo *)Memory::GetPointerUnchecked(modinfoaddr);
 
 	module->nm.nsegment = reader.GetNumSegments();
 	module->nm.attribute = modinfo->moduleAttrs;
@@ -1498,7 +1498,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			continue;
 		}
 
-		u32_le *residentPtr = (u32_le *)Memory::GetPointer(ent->resident);
+		u32_le *residentPtr = (u32_le *)Memory::GetPointerUnchecked(ent->resident);
 		u32_le *exportPtr = residentPtr + ent->fcount + variableCount;
 
 		if (ent->size != 4 && ent->unknown1 != 0 && ent->unknown2 != 0) {

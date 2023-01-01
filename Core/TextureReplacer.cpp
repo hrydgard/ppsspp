@@ -402,7 +402,7 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 		}
 	}
 
-	const u8 *checkp = Memory::GetPointer(addr);
+	const u8 *checkp = Memory::GetPointerUnchecked(addr);
 	if (reduceHash_) {
 		reduceHashSize = LookupReduceHashRange(w, h);
 		// default to reduceHashGlobalValue which default is 0.5

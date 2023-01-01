@@ -728,7 +728,7 @@ static u32 sysclib_strcpy(u32 dst, u32 src) {
 static u32 sysclib_strlen(u32 src) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strlen(src=%08x)", src);
 	if (Memory::IsValidAddress(src)) {
-		return (u32)strlen(Memory::GetCharPointer(src));
+		return (u32)strlen(Memory::GetCharPointerUnchecked(src));
 	} else {
 		// What to do? Crash, probably.
 		return 0;
@@ -738,7 +738,7 @@ static u32 sysclib_strlen(u32 src) {
 static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_memcmp(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
-		return memcmp(Memory::GetCharPointer(dst), Memory::GetCharPointer(src), size);
+		return memcmp(Memory::GetCharPointerUnchecked(dst), Memory::GetCharPointerUnchecked(src), size);
 	} else {
 		// What to do? Crash, probably.
 		return 0;
@@ -749,7 +749,7 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 	ERROR_LOG(SCEKERNEL, "Unimpl sysclib_sprintf(dest=%08x, src=%08x)", dst, fmt);
 	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(fmt)) {
 		// TODO: Properly use the format string with more parameters.
-		return sprintf((char *)Memory::GetPointer(dst), "%s", Memory::GetCharPointer(fmt));
+		return sprintf((char *)Memory::GetPointerUnchecked(dst), "%s", Memory::GetCharPointerUnchecked(fmt));
 	} else {
 		// What to do? Crash, probably.
 		return 0;
@@ -768,8 +768,8 @@ static u32 sysclib_memset(u32 destAddr, int data, int size) {
 static int sysclib_strstr(u32 s1, u32 s2) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strstr(%08x, %08x)", s1, s2);
 	if (Memory::IsValidAddress(s1) && Memory::IsValidAddress(s2)) {
-		std::string str1 = Memory::GetCharPointer(s1);
-		std::string str2 = Memory::GetCharPointer(s2);
+		std::string str1 = Memory::GetCharPointerUnchecked(s1);
+		std::string str2 = Memory::GetCharPointerUnchecked(s2);
 		size_t index = str1.find(str2);
 		if (index == str1.npos) {
 			return 0;
@@ -782,8 +782,8 @@ static int sysclib_strstr(u32 s1, u32 s2) {
 static int sysclib_strncmp(u32 s1, u32 s2, u32 size) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strncmp(%08x, %08x, %08x)", s1, s2, size);
 	if (Memory::IsValidAddress(s1) && Memory::IsValidAddress(s2)) {
-		const char * str1 = Memory::GetCharPointer(s1);
-		const char * str2 = Memory::GetCharPointer(s2);
+		const char * str1 = Memory::GetCharPointerUnchecked(s1);
+		const char * str2 = Memory::GetCharPointerUnchecked(s2);
 		return strncmp(str1, str2, size);
 	}
 	return 0;
@@ -810,8 +810,8 @@ static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 	// This is just regular strncpy, but being explicit to avoid warnings/safety fixes on missing null.
 	u32 i = 0;
 	u32 srcSize = Memory::ValidSize(src, size);
-	const u8 *srcp = Memory::GetPointer(src);
-	u8 *destp = Memory::GetPointerWrite(dest);
+	const u8 *srcp = Memory::GetPointerUnchecked(src);
+	u8 *destp = Memory::GetPointerWriteUnchecked(dest);
 	for (i = 0; i < srcSize; ++i) {
 		u8 c = *srcp++;
 		if (c == 0)

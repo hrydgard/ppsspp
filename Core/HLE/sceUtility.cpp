@@ -816,15 +816,20 @@ static u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 	return 0;
 }
 
-static u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, int destSize)
+static u32 sceUtilityGetSystemParamString(u32 id, u32 destAddr, int destSize)
 {
-	DEBUG_LOG(SCEUTILITY, "sceUtilityGetSystemParamString(%i, %08x, %i)", id, destaddr, destSize);
-	char *buf = (char *)Memory::GetPointer(destaddr);
+	if (!Memory::IsValidRange(destAddr, destSize)) {
+		// TODO: What error code?
+		return -1;
+	}
+	DEBUG_LOG(SCEUTILITY, "sceUtilityGetSystemParamString(%i, %08x, %i)", id, destAddr, destSize);
+	char *buf = (char *)Memory::GetPointerWriteUnchecked(destAddr);
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_STRING_NICKNAME:
 		// If there's not enough space for the string and null terminator, fail.
 		if (destSize <= (int)g_Config.sNickName.length())
 			return PSP_SYSTEMPARAM_RETVAL_STRING_TOO_LONG;
+		// TODO: should we zero-pad the output as strncpy does? And what are the semantics for the terminating null if destSize == length?
 		strncpy(buf, g_Config.sNickName.c_str(), destSize);
 		break;
 
