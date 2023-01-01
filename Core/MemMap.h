@@ -246,6 +246,10 @@ inline void Write_Float(float f, u32 address)
 
 u8* GetPointerWrite(const u32 address);
 const u8* GetPointer(const u32 address);
+
+u8 *GetPointerWriteRange(const u32 address, const u32 size);
+const u8 *GetPointerRange(const u32 address, const u32 size);
+
 bool IsRAMAddress(const u32 address);
 inline bool IsVRAMAddress(const u32 address) {
 	return ((address & 0x3F800000) == 0x04000000);

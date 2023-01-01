@@ -62,6 +62,38 @@ const u8 *GetPointer(const u32 address) {
 	}
 }
 
+u8 *GetPointerWriteRange(const u32 address, const u32 size) {
+	u8 *ptr = GetPointerWrite(address);
+	if (ptr) {
+		if (ValidSize(address, size) != size) {
+			// That's a memory exception! TODO: Adjust reported address to the end of the range?
+			Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK);
+			return nullptr;
+		} else {
+			return ptr;
+		}
+	} else {
+		// Error was reported in GetPointerWrite already, if we're not ignoring errors.
+		return nullptr;
+	}
+}
+
+const u8 *GetPointerRange(const u32 address, const u32 size) {
+	const u8 *ptr = GetPointer(address);
+	if (ptr) {
+		if (ValidSize(address, size) != size) {
+			// That's a memory exception! TODO: Adjust reported address to the end of the range?
+			Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::READ_BLOCK);
+			return nullptr;
+		} else {
+			return ptr;
+		}
+	} else {
+		// Error was reported in GetPointer already, if we're not ignoring errors.
+		return nullptr;
+	}
+}
+
 template <typename T>
 inline void ReadFromHardware(T &var, const u32 address) {
 	// TODO: Figure out the fastest order of tests for both read and write (they are probably different).
