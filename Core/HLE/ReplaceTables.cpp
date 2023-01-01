@@ -137,19 +137,13 @@ static int Replace_memcpy() {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 		}
 	}
-
-	// Check valid ranges before trying to copy bytes.
-	if (!Memory::IsValidRange(destPtr, bytes) || !Memory::IsValidRange(srcPtr, bytes)) {
-		// Not sure what best to do here. We just don't copy the bytes.
-		RETURN(destPtr);
-		return 10 + bytes / 4;  // approximation
-	}
-
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWriteUnchecked(destPtr);
-		const u8 *src = Memory::GetPointerUnchecked(srcPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
+		const u8 *src = Memory::GetPointer(srcPtr);
 
-		if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
+		if (!dst || !src) {
+			// Already logged.
+		} else if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
 			// Overlap.  Star Ocean breaks if it's not handled in 16 bytes blocks.
 			const u32 blocks = bytes & ~0x0f;
 			for (u32 offset = 0; offset < blocks; offset += 0x10) {
@@ -274,7 +268,6 @@ static int Replace_memcpy_swizzled() {
 			gpu->PerformReadbackToMemory(srcPtr, pitch * h);
 		}
 	}
-
 	u8 *dstp = Memory::GetPointerWrite(destPtr);
 	const u8 *srcp = Memory::GetPointer(srcPtr);
 
@@ -319,18 +312,12 @@ static int Replace_memmove() {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 		}
 	}
-
-	// Check valid ranges before trying to copy bytes.
-	if (!Memory::IsValidRange(destPtr, bytes) || !Memory::IsValidRange(srcPtr, bytes)) {
-		// Not sure what best to do here. We just don't copy the bytes.
-		RETURN(destPtr);
-		return 10 + bytes / 4;  // approximation
-	}
-
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWriteUnchecked(destPtr);
-		const u8 *src = Memory::GetPointerUnchecked(srcPtr);
-		memmove(dst, src, bytes);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
+		const u8 *src = Memory::GetPointer(srcPtr);
+		if (dst && src) {
+			memmove(dst, src, bytes);
+		}
 	}
 	RETURN(destPtr);
 
@@ -347,20 +334,15 @@ static int Replace_memset() {
 	u32 destPtr = PARAM(0);
 	u8 value = PARAM(1);
 	u32 bytes = PARAM(2);
-
 	bool skip = false;
 	if (Memory::IsVRAMAddress(destPtr) && (skipGPUReplacements & (int)GPUReplacementSkip::MEMSET) == 0) {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
-
-	if (!Memory::IsValidRange(destPtr, bytes)) {
-		RETURN(destPtr);
-		return 10 + bytes / 4;  // approximation
-	}
-
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWriteUnchecked(destPtr);
-		memset(dst, value, bytes);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
+		if (dst) {
+			memset(dst, value, bytes);
+		}
 	}
 	RETURN(destPtr);
 
