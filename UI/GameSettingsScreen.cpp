@@ -1635,7 +1635,7 @@ UI::EventReturn GameSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnRemoteISO(UI::EventParams &e) {
-	screenManager()->push(new RemoteISOScreen());
+	screenManager()->push(new RemoteISOScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -1667,13 +1667,13 @@ UI::EventReturn GameSettingsScreen::OnTiltCustomize(UI::EventParams &e) {
 };
 
 UI::EventReturn GameSettingsScreen::OnSavedataManager(UI::EventParams &e) {
-	auto saveData = new SavedataScreen(Path());
+	auto saveData = new SavedataScreen(gamePath_);
 	screenManager()->push(saveData);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnSysInfo(UI::EventParams &e) {
-	screenManager()->push(new SystemInfoScreen());
+	screenManager()->push(new SystemInfoScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
