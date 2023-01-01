@@ -2762,6 +2762,13 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 		gstate_c.deferredVertTypeDirty |= uniformsToDirty;
 	}
 	gstate.FastLoadBoneMatrix(target);
+
+	cyclesExecuted += 2 * 14;  // one to reset the counter, 12 to load the matrix, and a return.
+
+	if (coreCollectDebugStats) {
+		gpuStats.otherGPUCycles += 2 * 14;
+		gpuStats.gpuCommandsAtCallLevel[std::min(currentList->stackptr, 3)] += 14;
+	}
 }
 
 struct DisplayList_v1 {
