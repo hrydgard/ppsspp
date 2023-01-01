@@ -386,7 +386,8 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 				boundTexture = tex->texture;
 			}
 			if (!step.texture_image.data && step.texture_image.allocType != GLRAllocType::NONE)
-				Crash();
+				_assert_msg_(false, "missing texture data");
+
 			// For things to show in RenderDoc, need to split into glTexImage2D(..., nullptr) and glTexSubImage.
 
 			GLenum internalFormat, format, type;
@@ -444,7 +445,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 		}
 		default:
 			CHECK_GL_ERROR_IF_DEBUG();
-			Crash();
+			_assert_msg_(false, "Bad GLRInitStepType: %d", (int)step.stepType);
 			break;
 		}
 	}
@@ -1348,7 +1349,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		default:
-			Crash();
+			_assert_msg_(false, "Bad GLRRenderCommand: %d", (int)c.cmd);
 			break;
 		}
 	}
