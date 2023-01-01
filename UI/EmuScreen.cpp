@@ -1219,11 +1219,12 @@ static void DrawCrashDump(UIContext *ctx) {
 
 	if (info.type == ExceptionType::MEMORY) {
 		snprintf(statbuf, sizeof(statbuf), R"(
-Access: %s at %08x
+Access: %s at %08x (sz: %d)
 PC: %08x
 %s)",
 			MemoryExceptionTypeAsString(info.memory_type),
 			info.address,
+			info.accessSize,
 			info.pc,
 			info.info.c_str());
 		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
