@@ -81,7 +81,6 @@ private:
 
 class LogScreen : public UIDialogScreenWithBackground {
 public:
-	LogScreen() : toBottom_(false) {}
 	void CreateViews() override;
 	void update() override;
 
@@ -90,10 +89,11 @@ public:
 private:
 	void UpdateLog();
 	UI::EventReturn OnSubmit(UI::EventParams &e);
-	UI::TextEdit *cmdLine_;
-	UI::LinearLayout *vert_;
-	UI::ScrollView *scroll_;
-	bool toBottom_;
+
+	UI::TextEdit *cmdLine_ = nullptr;
+	UI::LinearLayout *vert_ = nullptr;
+	UI::ScrollView *scroll_ = nullptr;
+	bool toBottom_ = false;
 };
 
 class LogLevelScreen : public ListPopupScreen {
