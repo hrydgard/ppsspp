@@ -106,8 +106,10 @@ private:
 	void OnCompleted(DialogResult result) override;
 };
 
-class SystemInfoScreen : public UIDialogScreenWithBackground {
+class SystemInfoScreen : public UIDialogScreenWithGameBackground {
 public:
+	SystemInfoScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {}
+
 	const char *tag() const override { return "SystemInfo"; }
 
 	void CreateViews() override;

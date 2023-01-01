@@ -263,11 +263,10 @@ static bool LoadGameList(const Path &url, std::vector<Path> &games) {
 	return !games.empty();
 }
 
-RemoteISOScreen::RemoteISOScreen() {
-}
+RemoteISOScreen::RemoteISOScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {}
 
 void RemoteISOScreen::update() {
-	UIScreenWithBackground::update();
+	UIDialogScreenWithBackground::update();
 
 	if (!WebServerStopped(WebServerFlags::DISCS)) {
 		auto result = IsServerAllowed(g_Config.iRemoteISOPort);
@@ -414,7 +413,7 @@ void RemoteISOConnectScreen::CreateViews() {
 void RemoteISOConnectScreen::update() {
 	auto ri = GetI18NCategory("RemoteISO");
 
-	UIScreenWithBackground::update();
+	UIDialogScreenWithBackground::update();
 
 	ScanStatus s = GetStatus();
 	switch (s) {
