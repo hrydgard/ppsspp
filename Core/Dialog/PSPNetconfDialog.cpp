@@ -260,10 +260,10 @@ int PSPNetconfDialog::Update(int animSpeed) {
 
 		if (!hideNotice) {
 			const float WRAP_WIDTH = 254.0f;
-			const ImageID confirmBtnImage = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? ImageID("I_CROSS") : ImageID("I_CIRCLE");
 			const int confirmBtn = GetConfirmButton();
-			const ImageID cancelBtnImage = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? ImageID("I_CIRCLE") : ImageID("I_CROSS");
 			const int cancelBtn = GetCancelButton();
+			const ImageID confirmBtnImage = confirmBtn == CTRL_CROSS ? ImageID("I_CROSS") : ImageID("I_CIRCLE");
+			const ImageID cancelBtnImage = cancelBtn == CTRL_CIRCLE ? ImageID("I_CIRCLE") : ImageID("I_CROSS");
 
 			PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_CENTER, 0.5f);
 			PPGeStyle buttonStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.5f);
