@@ -193,7 +193,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 			if (rgba_shift == 0 && mask == 0xFF) {
 				sprintf(lookupMethod, "index.%c", rgba[shift]);
 			} else {
-				sprintf(lookupMethod, "fmod(index.%c * %f, %d.0)", rgba[shift], 255.99f / (1 << rgba_shift), mask + 1);
+				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], 255.99f / (1 << rgba_shift), mask + 1);
 				index_multiplier = 1.0f / 256.0f;
 				// Format was OK if there weren't bits from another component.
 				formatOK = mask <= 255 - (1 << rgba_shift);
@@ -211,7 +211,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 				index_multiplier = 15.0f / 256.0f;
 			} else {
 				// Let's divide and mod to get the right bits.  A common case is shift=0, mask=01.
-				sprintf(lookupMethod, "fmod(index.%c * %f, %d.0)", rgba[shift], 15.99f / (1 << rgba_shift), mask + 1);
+				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], 15.99f / (1 << rgba_shift), mask + 1);
 				index_multiplier = 1.0f / 256.0f;
 				formatOK = mask <= 15 - (1 << rgba_shift);
 			}
@@ -231,7 +231,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 			} else {
 				// We just need to divide the right component by the right value, and then mod against the mask.
 				// A common case is shift=1, mask=0f.
-				sprintf(lookupMethod, "fmod(index.%c * %f, %d.0)", rgba[shift], ((float)multipliers[shift] + 0.99f) / (1 << rgba_shift), mask + 1);
+				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], ((float)multipliers[shift] + 0.99f) / (1 << rgba_shift), mask + 1);
 				index_multiplier = 1.0f / 256.0f;
 				formatOK = mask <= multipliers[shift] - (1 << rgba_shift);
 			}
@@ -251,7 +251,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 				index_multiplier = 1.0f / 256.0f;
 			} else {
 				// A isn't possible here.
-				sprintf(lookupMethod, "fmod(index.%c * %f, %d.0)", rgba[shift], 31.99f / (1 << rgba_shift), mask + 1);
+				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], 31.99f / (1 << rgba_shift), mask + 1);
 				index_multiplier = 1.0f / 256.0f;
 				formatOK = mask <= 31 - (1 << rgba_shift);
 			}
