@@ -34,58 +34,19 @@ enum CommonToggles {
 
 class CtrlMemView
 {
-	HWND wnd;
-	HFONT font;
-	HFONT underlineFont;
-	RECT rect;
-
-	unsigned int curAddress;
-	unsigned int windowStart;
-	int rowHeight;
-	int rowSize;
-	int offsetPositionY;
-
-	int addressStart;
-	int charWidth;
-	int hexStart;
-	int asciiStart;
-	bool asciiSelected;
-	int selectedNibble;
-
-	bool displayOffsetScale = false;
-
-	int visibleRows;
-	
-	std::string searchQuery;
-	
-
-	int matchAddress;
-	bool searching;
-
-	bool hasFocus;
-	static wchar_t szClassName[];
-	DebugInterface *debugger;
-
-	MemBlockFlags highlightFlags_ = MemBlockFlags::ALLOC;
-
-	void updateStatusBarText();
-	void search(bool continueSearch);
-	uint32_t pickTagColor(const std::string &tag);
 public:
 	CtrlMemView(HWND _wnd);
 	~CtrlMemView();
 	static void init();
 	static void deinit();
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-	static CtrlMemView * getFrom(HWND wnd);
+	static CtrlMemView *getFrom(HWND wnd);
 
-	void setDebugger(DebugInterface *deb)
-	{
-		debugger=deb;
+	void setDebugger(DebugInterface *deb) {
+		debugger_ = deb;
 	}
-	DebugInterface *getDebugger()
-	{
-		return debugger;
+	DebugInterface *getDebugger() {
+		return debugger_;
 	}
 	std::vector<u32> searchString(const std::string &searchQuery);
 	void onPaint(WPARAM wParam, LPARAM lParam);
@@ -104,11 +65,61 @@ public:
 
 	void drawOffsetScale(HDC hdc);
 	void toggleOffsetScale(CommonToggles toggle);
-	void toggleStringSearch(CommonToggles toggle);
 	void setHighlightType(MemBlockFlags flags);
 
 private:
 	bool ParseSearchString(const std::string &query, bool asHex, std::vector<uint8_t> &data);
+	void updateStatusBarText();
+	void search(bool continueSearch);
+	uint32_t pickTagColor(const std::string &tag);
+
+	static wchar_t szClassName[];
+	DebugInterface *debugger_ = nullptr;
+
+	HWND wnd;
+	HFONT font;
+	HFONT underlineFont;
 
 	bool redrawScheduled_ = false;
+	// Whether to draw things using focused styles.
+	bool hasFocus_ = false;
+	MemBlockFlags highlightFlags_ = MemBlockFlags::ALLOC;
+
+	// Current cursor position.
+	uint32_t curAddress_ = 0;
+	// Address of the first displayed byte.
+	uint32_t windowStart_ = 0;
+	// Number of bytes displayed per row.
+	int rowSize_ = 16;
+
+	// Width of one monospace character (to maintain grid.)
+	int charWidth_ = 0;
+	// Height of one row of bytes.
+	int rowHeight_ = 0;
+	// Y position of offset header (at top.)
+	int offsetPositionY_;
+	// X position of addresses (at left.)
+	int addressStartX_ = 0;
+	// X position of hex display.
+	int hexStartX_ = 0;
+	// X position of text display.
+	int asciiStartX_ = 0;
+	// Whether cursor is within text display or hex display.
+	bool asciiSelected_ = false;
+	// Which nibble is selected, if in hex display.  0 means leftmost, i.e. most significant.
+	int selectedNibble_ = 0;
+
+	bool displayOffsetScale_ = false;
+
+	// Number of rows visible as of last redraw.
+	int visibleRows_ = 0;
+	// Position and size as of last redraw.
+	RECT rect_;
+
+	// Last used search query, used when continuing a search.
+	std::string searchQuery_;
+	// Address of last match when continuing search.
+	uint32_t matchAddress_ = 0xFFFFFFFF;
+	// Whether a search is in progress.
+	bool searching_ = false;
 };
