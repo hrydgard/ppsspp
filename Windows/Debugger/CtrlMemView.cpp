@@ -118,9 +118,9 @@ LRESULT CALLBACK CtrlMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 		break;
 	case WM_MOUSEWHEEL:
 		if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) {
-			ccp->scrollWindow(-3);
+			ccp->ScrollWindow(-3, GotoModeFromModifiers());
 		} else if (GET_WHEEL_DELTA_WPARAM(wParam) < 0) {
-			ccp->scrollWindow(3);
+			ccp->ScrollWindow(3, GotoModeFromModifiers());
 		}
 		break;
 	case WM_ERASEBKGND:
@@ -344,16 +344,16 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 void CtrlMemView::onVScroll(WPARAM wParam, LPARAM lParam) {
 	switch (wParam & 0xFFFF) {
 	case SB_LINEDOWN:
-		scrollWindow(1);
+		ScrollWindow(1, GotoModeFromModifiers());
 		break;
 	case SB_LINEUP:
-		scrollWindow(-1);
+		ScrollWindow(-1, GotoModeFromModifiers());
 		break;
 	case SB_PAGEDOWN:
-		scrollWindow(visibleRows_);
+		ScrollWindow(visibleRows_, GotoModeFromModifiers());
 		break;
 	case SB_PAGEUP:
-		scrollWindow(-visibleRows_);
+		ScrollWindow(-visibleRows_, GotoModeFromModifiers());
 		break;
 	default:
 		return;
@@ -384,22 +384,22 @@ void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam) {
 
 	switch (wParam & 0xFFFF) {
 	case VK_DOWN:
-		scrollCursor(rowSize_);
+		ScrollCursor(rowSize_, GotoModeFromModifiers());
 		break;
 	case VK_UP:
-		scrollCursor(-rowSize_);
+		ScrollCursor(-rowSize_, GotoModeFromModifiers());
 		break;
 	case VK_LEFT:
-		scrollCursor(-1);
+		ScrollCursor(-1, GotoModeFromModifiers());
 		break;
 	case VK_RIGHT:
-		scrollCursor(1);
+		ScrollCursor(1, GotoModeFromModifiers());
 		break;
 	case VK_NEXT:
-		scrollWindow(visibleRows_);
+		ScrollWindow(visibleRows_, GotoModeFromModifiers());
 		break;
 	case VK_PRIOR:
-		scrollWindow(-visibleRows_);
+		ScrollWindow(-visibleRows_, GotoModeFromModifiers());
 		break;
 	case VK_TAB:
 		SendMessage(GetParent(wnd),WM_DEB_TABPRESSED,0,0);
@@ -418,7 +418,7 @@ void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam) {
 		return;
 
 	if (!Memory::IsValidAddress(curAddress_)) {
-		scrollCursor(1);
+		ScrollCursor(1, GotoMode::RESET);
 		return;
 	}
 
@@ -428,7 +428,7 @@ void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam) {
 
 	if (asciiSelected_) {
 		Memory::WriteUnchecked_U8((u8)wParam, curAddress_);
-		scrollCursor(1);
+		ScrollCursor(1, GotoMode::RESET);
 	} else {
 		wParam = tolower(wParam);
 		int inputValue = -1;
@@ -443,7 +443,7 @@ void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam) {
 			oldValue &= ~(0xF << shiftAmount);
 			u8 newValue = oldValue | (inputValue << shiftAmount);
 			Memory::WriteUnchecked_U8(newValue, curAddress_);
-			scrollCursor(1);
+			ScrollCursor(1, GotoMode::RESET);
 		}
 	}
 
@@ -608,6 +608,33 @@ void CtrlMemView::updateStatusBarText() {
 	SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM)text);
 }
 
+void CtrlMemView::UpdateSelectRange(uint32_t target, GotoMode mode) {
+	if (mode == GotoMode::FROM_CUR && lastSelectReset_ == 0) {
+		lastSelectReset_ = curAddress_;
+	}
+
+	switch (mode) {
+	case GotoMode::RESET:
+		selectRangeStart_ = target;
+		selectRangeEnd_ = target + 1;
+		lastSelectReset_ = target;
+		break;
+
+	case GotoMode::FROM_CUR:
+		selectRangeStart_ = lastSelectReset_ > target ? target : lastSelectReset_;
+		selectRangeEnd_ = selectRangeStart_ == lastSelectReset_ ? target + 1 : lastSelectReset_ + 1;
+		break;
+
+	case GotoMode::EXTEND:
+		if (target < selectRangeStart_)
+			selectRangeStart_ = target;
+		if (target > selectRangeEnd_)
+			selectRangeEnd_ = target;
+		break;
+	}
+	curAddress_ = target;
+}
+
 void CtrlMemView::GotoPoint(int x, int y, GotoMode mode) {
 	int line = y / rowHeight_;
 	int lineAddress = windowStart_ + line * rowSize_;
@@ -652,33 +679,7 @@ void CtrlMemView::GotoPoint(int x, int y, GotoMode mode) {
 	if (target != curAddress_ || targetNibble != selectedNibble_ || targetAscii != asciiSelected_) {
 		selectedNibble_ = targetNibble;
 		asciiSelected_ = targetAscii;
-
-		switch (mode) {
-		case GotoMode::RESET:
-			selectRangeStart_ = target;
-			selectRangeEnd_ = target + 1;
-			lastSelectReset_ = target;
-			break;
-
-		case GotoMode::FROM_CUR:
-			if (lastSelectReset_ == 0) {
-				selectRangeStart_ = target;
-				selectRangeEnd_ = target + 1;
-				lastSelectReset_ = target;
-			} else {
-				selectRangeStart_ = lastSelectReset_ > target ? target : lastSelectReset_;
-				selectRangeEnd_ = selectRangeStart_ == lastSelectReset_ ? target + 1 : lastSelectReset_ + 1;
-			}
-			break;
-
-		case GotoMode::EXTEND:
-			if (target < selectRangeStart_)
-				selectRangeStart_ = target;
-			if (target > selectRangeEnd_)
-				selectRangeEnd_ = target;
-			break;
-		}
-		curAddress_ = target;
+		UpdateSelectRange(target, mode);
 
 		updateStatusBarText();
 		redraw();
@@ -703,16 +704,16 @@ void CtrlMemView::gotoAddr(unsigned int addr) {
 	redraw();
 }
 
-void CtrlMemView::scrollWindow(int lines) {
+void CtrlMemView::ScrollWindow(int lines, GotoMode mode) {
 	windowStart_ += lines * rowSize_;
-	curAddress_ += lines * rowSize_;
-	selectRangeStart_ = curAddress_;
-	selectRangeEnd_ = curAddress_ + 1;
+
+	UpdateSelectRange(curAddress_ + lines * rowSize_, mode);
+
 	updateStatusBarText();
 	redraw();
 }
 
-void CtrlMemView::scrollCursor(int bytes) {
+void CtrlMemView::ScrollCursor(int bytes, GotoMode mode) {
 	if (!asciiSelected_ && bytes == 1) {
 		if (selectedNibble_ == 0) {
 			selectedNibble_ = 1;
@@ -729,9 +730,7 @@ void CtrlMemView::scrollCursor(int bytes) {
 		}
 	} 
 
-	curAddress_ += bytes;
-	selectRangeStart_ = curAddress_;
-	selectRangeEnd_ = curAddress_ + 1;
+	UpdateSelectRange(curAddress_ + bytes, mode);
 		
 	u32 windowEnd = windowStart_ + visibleRows_ * rowSize_;
 	if (curAddress_ < windowStart_) {

@@ -58,8 +58,6 @@ public:
 	void onMouseMove(WPARAM wParam, LPARAM lParam, int button);
 	void redraw();
 	void gotoAddr(unsigned int addr);
-	void scrollWindow(int lines);
-	void scrollCursor(int bytes);
 
 	void drawOffsetScale(HDC hdc);
 	void toggleOffsetScale(CommonToggles toggle);
@@ -76,8 +74,11 @@ private:
 		FROM_CUR,
 		EXTEND,
 	};
-	GotoMode GotoModeFromModifiers();
+	static GotoMode GotoModeFromModifiers();
+	void UpdateSelectRange(uint32_t target, GotoMode mode);
 	void GotoPoint(int x, int y, GotoMode mode);
+	void ScrollWindow(int lines, GotoMode mdoe);
+	void ScrollCursor(int bytes, GotoMode mdoe);
 
 	static wchar_t szClassName[];
 	DebugInterface *debugger_ = nullptr;
