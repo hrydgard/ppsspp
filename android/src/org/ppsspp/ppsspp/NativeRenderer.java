@@ -57,7 +57,6 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 
 		if (!displayInit()) {
 			Log.e(TAG, "Display init failed");
-			Toast.makeText(mActivity, "Failed to initialize rendering. Close the app and try again.", Toast.LENGTH_LONG);
 			failed = true;
 		}
 	}
