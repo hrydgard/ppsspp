@@ -118,9 +118,9 @@ LRESULT CALLBACK CtrlMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 		break;
 	case WM_MOUSEWHEEL:
 		if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) {
-			ccp->ScrollWindow(-3, GotoModeFromModifiers());
+			ccp->ScrollWindow(-3, GotoModeFromModifiers(false));
 		} else if (GET_WHEEL_DELTA_WPARAM(wParam) < 0) {
-			ccp->ScrollWindow(3, GotoModeFromModifiers());
+			ccp->ScrollWindow(3, GotoModeFromModifiers(false));
 		}
 		break;
 	case WM_ERASEBKGND:
@@ -344,16 +344,16 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 void CtrlMemView::onVScroll(WPARAM wParam, LPARAM lParam) {
 	switch (wParam & 0xFFFF) {
 	case SB_LINEDOWN:
-		ScrollWindow(1, GotoModeFromModifiers());
+		ScrollWindow(1, GotoModeFromModifiers(false));
 		break;
 	case SB_LINEUP:
-		ScrollWindow(-1, GotoModeFromModifiers());
+		ScrollWindow(-1, GotoModeFromModifiers(false));
 		break;
 	case SB_PAGEDOWN:
-		ScrollWindow(visibleRows_, GotoModeFromModifiers());
+		ScrollWindow(visibleRows_, GotoModeFromModifiers(false));
 		break;
 	case SB_PAGEUP:
-		ScrollWindow(-visibleRows_, GotoModeFromModifiers());
+		ScrollWindow(-visibleRows_, GotoModeFromModifiers(false));
 		break;
 	default:
 		return;
@@ -384,22 +384,22 @@ void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam) {
 
 	switch (wParam & 0xFFFF) {
 	case VK_DOWN:
-		ScrollCursor(rowSize_, GotoModeFromModifiers());
+		ScrollCursor(rowSize_, GotoModeFromModifiers(false));
 		break;
 	case VK_UP:
-		ScrollCursor(-rowSize_, GotoModeFromModifiers());
+		ScrollCursor(-rowSize_, GotoModeFromModifiers(false));
 		break;
 	case VK_LEFT:
-		ScrollCursor(-1, GotoModeFromModifiers());
+		ScrollCursor(-1, GotoModeFromModifiers(false));
 		break;
 	case VK_RIGHT:
-		ScrollCursor(1, GotoModeFromModifiers());
+		ScrollCursor(1, GotoModeFromModifiers(false));
 		break;
 	case VK_NEXT:
-		ScrollWindow(visibleRows_, GotoModeFromModifiers());
+		ScrollWindow(visibleRows_, GotoModeFromModifiers(false));
 		break;
 	case VK_PRIOR:
-		ScrollWindow(-visibleRows_, GotoModeFromModifiers());
+		ScrollWindow(-visibleRows_, GotoModeFromModifiers(false));
 		break;
 	case VK_TAB:
 		SendMessage(GetParent(wnd),WM_DEB_TABPRESSED,0,0);
@@ -467,9 +467,11 @@ void CtrlMemView::redraw() {
 	}
 }
 
-CtrlMemView::GotoMode CtrlMemView::GotoModeFromModifiers() {
+CtrlMemView::GotoMode CtrlMemView::GotoModeFromModifiers(bool isRightClick) {
 	GotoMode mode = GotoMode::RESET;
-	if (KeyDownAsync(VK_SHIFT)) {
+	if (isRightClick) {
+		mode = GotoMode::RESET_IF_OUTSIDE;
+	} else if (KeyDownAsync(VK_SHIFT)) {
 		if (KeyDownAsync(VK_CONTROL))
 			mode = GotoMode::EXTEND;
 		else
@@ -482,7 +484,7 @@ void CtrlMemView::onMouseDown(WPARAM wParam, LPARAM lParam, int button) {
 	int x = LOWORD(lParam); 
 	int y = HIWORD(lParam);
 
-	GotoPoint(x, y, GotoModeFromModifiers());
+	GotoPoint(x, y, GotoModeFromModifiers(button == 2));
 }
 
 void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
@@ -583,7 +585,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 	int x = LOWORD(lParam); 
 	int y = HIWORD(lParam);
 	ReleaseCapture();
-	GotoPoint(x, y, GotoModeFromModifiers());
+	GotoPoint(x, y, GotoModeFromModifiers(button == 2));
 }
 
 void CtrlMemView::onMouseMove(WPARAM wParam, LPARAM lParam, int button) {
@@ -591,7 +593,7 @@ void CtrlMemView::onMouseMove(WPARAM wParam, LPARAM lParam, int button) {
 	int y = HIWORD(lParam);
 
 	if (button & 1) {
-		GotoPoint(x, y, GotoModeFromModifiers());
+		GotoPoint(x, y, GotoModeFromModifiers(button == 2));
 	}
 }
 
@@ -618,6 +620,14 @@ void CtrlMemView::UpdateSelectRange(uint32_t target, GotoMode mode) {
 		selectRangeStart_ = target;
 		selectRangeEnd_ = target + 1;
 		lastSelectReset_ = target;
+		break;
+
+	case GotoMode::RESET_IF_OUTSIDE:
+		if (target < selectRangeStart_ || target >= selectRangeEnd_) {
+			selectRangeStart_ = target;
+			selectRangeEnd_ = target + 1;
+			lastSelectReset_ = target;
+		}
 		break;
 
 	case GotoMode::FROM_CUR:

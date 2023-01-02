@@ -71,10 +71,11 @@ private:
 
 	enum class GotoMode {
 		RESET,
+		RESET_IF_OUTSIDE,
 		FROM_CUR,
 		EXTEND,
 	};
-	static GotoMode GotoModeFromModifiers();
+	static GotoMode GotoModeFromModifiers(bool isRightClick);
 	void UpdateSelectRange(uint32_t target, GotoMode mode);
 	void GotoPoint(int x, int y, GotoMode mode);
 	void ScrollWindow(int lines, GotoMode mdoe);
