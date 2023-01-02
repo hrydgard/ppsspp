@@ -168,7 +168,8 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	if (gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float)
 		features |= GPU_USE_TEXTURE_FLOAT;
 
-	if (!draw_->GetShaderLanguageDesc().bitwiseOps) {
+	// Intel drivers have been seen rejecting fragment shader uint shifts used in the alpha test.
+	if (!draw_->GetShaderLanguageDesc().bitwiseOps || draw_->GetDeviceCaps().vendor == Draw::GPUVendor::VENDOR_INTEL) {
 		features |= GPU_USE_FRAGMENT_TEST_CACHE;
 	}
 
