@@ -488,13 +488,14 @@ void CtrlMemView::onMouseDown(WPARAM wParam, LPARAM lParam, int button) {
 }
 
 void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
-	if (button==2) {
-		bool enable16 = !asciiSelected_ && (curAddress_ % 2) == 0;
-		bool enable32 = !asciiSelected_ && (curAddress_ % 4) == 0;
+	if (button == 2) {
+		int32_t selectedSize = selectRangeEnd_ - selectRangeStart_;
+		bool enable16 = !asciiSelected_ && (selectedSize == 1 || (selectedSize & 1) == 0);
+		bool enable32 = !asciiSelected_ && (selectedSize == 1 || (selectedSize & 3) == 0);
 
 		HMENU menu = GetContextMenu(ContextMenuID::MEMVIEW);
-		EnableMenuItem(menu,ID_MEMVIEW_COPYVALUE_16,enable16 ? MF_ENABLED : MF_GRAYED);
-		EnableMenuItem(menu,ID_MEMVIEW_COPYVALUE_32,enable32 ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu, ID_MEMVIEW_COPYVALUE_16, enable16 ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu, ID_MEMVIEW_COPYVALUE_32, enable32 ? MF_ENABLED : MF_GRAYED);
 
 		switch (TriggerContextMenu(ContextMenuID::MEMVIEW, wnd, ContextPoint::FromEvent(lParam))) {
 		case ID_MEMVIEW_DUMP:
@@ -507,38 +508,72 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 		case ID_MEMVIEW_COPYVALUE_8:
 			{
 				auto memLock = Memory::Lock();
-				char temp[24];
+				size_t tempSize = 3 * selectedSize + 1;
+				char *temp = new char[tempSize];
+				memset(temp, 0, tempSize);
 
 				// it's admittedly not really useful like this
 				if (asciiSelected_) {
-					unsigned char c = Memory::IsValidAddress(curAddress_) ? Memory::Read_U8(curAddress_) : '.';
-					if (c < 32 || c >= 128)
-						c = '.';
-					sprintf(temp,"%c",c);
+					for (uint32_t p = selectRangeStart_; p != selectRangeEnd_; ++p) {
+						uint8_t c = Memory::IsValidAddress(p) ? Memory::ReadUnchecked_U8(p) : '.';
+						if (c < 32 || c >= 128)
+							c = '.';
+						temp[p - selectRangeStart_] = c;
+					}
 				} else {
-					sprintf(temp, "%02X", Memory::IsValidAddress(curAddress_) ? Memory::Read_U8(curAddress_) : 0xFF);
+					char *pos = temp;
+					for (uint32_t p = selectRangeStart_; p != selectRangeEnd_; ++p) {
+						uint8_t c = Memory::IsValidAddress(p) ? Memory::ReadUnchecked_U8(p) : 0xFF;
+						pos += snprintf(pos, tempSize - (pos - temp + 1), "%02X ", c);
+					}
+					// Clear the last space.
+					if (pos > temp)
+						*(pos - 1) = '\0';
 				}
-				W32Util::CopyTextToClipboard(wnd,temp);
+				W32Util::CopyTextToClipboard(wnd, temp);
+				delete[] temp;
 			}
 			break;
 			
 		case ID_MEMVIEW_COPYVALUE_16:
 			{
 				auto memLock = Memory::Lock();
-				char temp[24];
+				size_t tempSize = 5 * ((selectedSize + 1) / 2) + 1;
+				char *temp = new char[tempSize];
+				memset(temp, 0, tempSize);
 
-				sprintf(temp, "%04X", Memory::IsValidAddress(curAddress_) ? Memory::Read_U16(curAddress_) : 0xFFFF);
-				W32Util::CopyTextToClipboard(wnd,temp);
+				char *pos = temp;
+				for (uint32_t p = selectRangeStart_; p != selectRangeEnd_; p += 2) {
+					uint16_t c = Memory::IsValidRange(p, 2) ? Memory::ReadUnchecked_U16(p) : 0xFFFF;
+					pos += snprintf(pos, tempSize - (pos - temp + 1), "%04X ", c);
+				}
+				// Clear the last space.
+				if (pos > temp)
+					*(pos - 1) = '\0';
+
+				W32Util::CopyTextToClipboard(wnd, temp);
+				delete[] temp;
 			}
 			break;
 			
 		case ID_MEMVIEW_COPYVALUE_32:
 			{
 				auto memLock = Memory::Lock();
-				char temp[24];
+				size_t tempSize = 9 * ((selectedSize + 3) / 4) + 1;
+				char *temp = new char[tempSize];
+				memset(temp, 0, tempSize);
 
-				sprintf(temp, "%08X", Memory::IsValidAddress(curAddress_) ? Memory::Read_U32(curAddress_) : 0xFFFFFFFF);
-				W32Util::CopyTextToClipboard(wnd,temp);
+				char *pos = temp;
+				for (uint32_t p = selectRangeStart_; p != selectRangeEnd_; p += 4) {
+					uint32_t c = Memory::IsValidRange(p, 4) ? Memory::ReadUnchecked_U32(p) : 0xFFFFFFFF;
+					pos += snprintf(pos, tempSize - (pos - temp + 1), "%08X ", c);
+				}
+				// Clear the last space.
+				if (pos > temp)
+					*(pos - 1) = '\0';
+
+				W32Util::CopyTextToClipboard(wnd, temp);
+				delete[] temp;
 			}
 			break;
 
