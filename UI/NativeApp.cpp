@@ -870,6 +870,8 @@ bool CreateGlobalPipelines();
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(SYSTEM, "NativeInitGraphics");
 
+	_assert_(screenManager);
+
 	// We set this now so any resize during init is processed later.
 	resized = false;
 
