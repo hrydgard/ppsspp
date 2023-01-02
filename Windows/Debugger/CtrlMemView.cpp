@@ -47,6 +47,9 @@ CtrlMemView::CtrlMemView(HWND _wnd) {
 		L"Lucida Console");
 
 	windowStart_ = curAddress_;
+	selectRangeStart_ = curAddress_;
+	selectRangeEnd_ = curAddress_ + 1;
+	lastSelectReset_ = curAddress_;
 
 	addressStartX_ = charWidth_;
 	hexStartX_ = addressStartX_ + 9 * charWidth_;
@@ -270,7 +273,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 			COLORREF asciiTextCol = 0x000000;
 			int underline = -1;
 
-			if (address + j == curAddress_ && searching_ == false) {
+			if (address + j >= selectRangeStart_ && address + j < selectRangeEnd_ && !searching_) {
 				if (asciiSelected_) {
 					hexBGCol = 0xC0C0C0;
 					hexTextCol = 0x000000;
@@ -281,7 +284,8 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 					hexTextCol = hasFocus_ ? 0xFFFFFF : 0x000000;
 					asciiBGCol = 0xC0C0C0;
 					asciiTextCol = 0x000000;
-					underline = selectedNibble_;
+					if (address + j == curAddress_)
+						underline = selectedNibble_;
 				}
 				if (!tag.empty() && tagContinues) {
 					continueBGCol = pickTagColor(tag);
@@ -307,7 +311,13 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 					TextOutA(hdc, hexX + charWidth_ * 2, rowY, &temp[2], 1);
 				}
 			} else {
-				TextOutA(hdc, hexX, rowY, temp, hexLen);
+				if (continueBGCol != hexBGCol) {
+					TextOutA(hdc, hexX, rowY, temp, 2);
+					setTextColors(0x000000, continueBGCol);
+					TextOutA(hdc, hexX + charWidth_ * 2, rowY, &temp[2], 1);
+				} else {
+					TextOutA(hdc, hexX, rowY, temp, hexLen);
+				}
 			}
 
 			setTextColors(asciiTextCol, asciiBGCol);
@@ -457,11 +467,22 @@ void CtrlMemView::redraw() {
 	}
 }
 
+CtrlMemView::GotoMode CtrlMemView::GotoModeFromModifiers() {
+	GotoMode mode = GotoMode::RESET;
+	if (KeyDownAsync(VK_SHIFT)) {
+		if (KeyDownAsync(VK_CONTROL))
+			mode = GotoMode::EXTEND;
+		else
+			mode = GotoMode::FROM_CUR;
+	}
+	return mode;
+}
+
 void CtrlMemView::onMouseDown(WPARAM wParam, LPARAM lParam, int button) {
 	int x = LOWORD(lParam); 
 	int y = HIWORD(lParam);
 
-	gotoPoint(x,y);
+	GotoPoint(x, y, GotoModeFromModifiers());
 }
 
 void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
@@ -562,11 +583,17 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 	int x = LOWORD(lParam); 
 	int y = HIWORD(lParam);
 	ReleaseCapture();
-	gotoPoint(x,y);
+	GotoPoint(x, y, GotoModeFromModifiers());
 }
 
 void CtrlMemView::onMouseMove(WPARAM wParam, LPARAM lParam, int button) {
-}	
+	int x = LOWORD(lParam);
+	int y = HIWORD(lParam);
+
+	if (button & 1) {
+		GotoPoint(x, y, GotoModeFromModifiers());
+	}
+}
 
 void CtrlMemView::updateStatusBarText() {
 	std::vector<MemBlockInfo> memRangeInfo = FindMemInfoByFlag(highlightFlags_, curAddress_, 1);
@@ -581,7 +608,7 @@ void CtrlMemView::updateStatusBarText() {
 	SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM)text);
 }
 
-void CtrlMemView::gotoPoint(int x, int y) {
+void CtrlMemView::GotoPoint(int x, int y, GotoMode mode) {
 	int line = y / rowHeight_;
 	int lineAddress = windowStart_ + line * rowSize_;
 
@@ -596,29 +623,63 @@ void CtrlMemView::gotoPoint(int x, int y) {
 		lineAddress -= rowSize_ * offsetSpace;
 	}
 
+	uint32_t target = curAddress_;
+	uint32_t targetNibble = selectedNibble_;
+	bool targetAscii = asciiSelected_;
 	if (x >= asciiStartX_) {
 		int col = (x - asciiStartX_) / (charWidth_ + 2);
 		if (col >= rowSize_)
 			return;
 		
-		asciiSelected_ = true;
-		curAddress_ = lineAddress + col;
-		selectedNibble_ = 0;
-		updateStatusBarText();
-		redraw();
+		targetAscii = true;
+		target = lineAddress + col;
+		targetNibble = 0;
 	} else if (x >= hexStartX_) {
 		int col = (x - hexStartX_) / charWidth_;
 		if ((col/3) >= rowSize_)
 			return;
 
 		switch (col % 3) {
-		case 0: selectedNibble_ = 0; break;
-		case 1: selectedNibble_ = 1; break;
+		case 0: targetNibble = 0; break;
+		case 1: targetNibble = 1; break;
 		case 2: return;		// don't change position when clicking on the space
 		}
 
-		asciiSelected_ = false;
-		curAddress_ = lineAddress + col / 3;
+		targetAscii = false;
+		target = lineAddress + col / 3;
+	}
+
+	if (target != curAddress_ || targetNibble != selectedNibble_ || targetAscii != asciiSelected_) {
+		selectedNibble_ = targetNibble;
+		asciiSelected_ = targetAscii;
+
+		switch (mode) {
+		case GotoMode::RESET:
+			selectRangeStart_ = target;
+			selectRangeEnd_ = target + 1;
+			lastSelectReset_ = target;
+			break;
+
+		case GotoMode::FROM_CUR:
+			if (lastSelectReset_ == 0) {
+				selectRangeStart_ = target;
+				selectRangeEnd_ = target + 1;
+				lastSelectReset_ = target;
+			} else {
+				selectRangeStart_ = lastSelectReset_ > target ? target : lastSelectReset_;
+				selectRangeEnd_ = selectRangeStart_ == lastSelectReset_ ? target + 1 : lastSelectReset_ + 1;
+			}
+			break;
+
+		case GotoMode::EXTEND:
+			if (target < selectRangeStart_)
+				selectRangeStart_ = target;
+			if (target > selectRangeEnd_)
+				selectRangeEnd_ = target;
+			break;
+		}
+		curAddress_ = target;
+
 		updateStatusBarText();
 		redraw();
 	}
@@ -629,6 +690,9 @@ void CtrlMemView::gotoAddr(unsigned int addr) {
 	u32 windowEnd = windowStart_ + lines * rowSize_;
 
 	curAddress_ = addr;
+	lastSelectReset_ = curAddress_;
+	selectRangeStart_ = curAddress_;
+	selectRangeEnd_ = curAddress_ + 1;
 	selectedNibble_ = 0;
 
 	if (curAddress_ < windowStart_ || curAddress_ >= windowEnd) {
@@ -642,6 +706,8 @@ void CtrlMemView::gotoAddr(unsigned int addr) {
 void CtrlMemView::scrollWindow(int lines) {
 	windowStart_ += lines * rowSize_;
 	curAddress_ += lines * rowSize_;
+	selectRangeStart_ = curAddress_;
+	selectRangeEnd_ = curAddress_ + 1;
 	updateStatusBarText();
 	redraw();
 }
@@ -664,6 +730,8 @@ void CtrlMemView::scrollCursor(int bytes) {
 	} 
 
 	curAddress_ += bytes;
+	selectRangeStart_ = curAddress_;
+	selectRangeEnd_ = curAddress_ + 1;
 		
 	u32 windowEnd = windowStart_ + visibleRows_ * rowSize_;
 	if (curAddress_ < windowStart_) {

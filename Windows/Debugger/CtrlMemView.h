@@ -57,8 +57,6 @@ public:
 	void onMouseUp(WPARAM wParam, LPARAM lParam, int button);
 	void onMouseMove(WPARAM wParam, LPARAM lParam, int button);
 	void redraw();
-
-	void gotoPoint(int x, int y);
 	void gotoAddr(unsigned int addr);
 	void scrollWindow(int lines);
 	void scrollCursor(int bytes);
@@ -72,6 +70,14 @@ private:
 	void updateStatusBarText();
 	void search(bool continueSearch);
 	uint32_t pickTagColor(const std::string &tag);
+
+	enum class GotoMode {
+		RESET,
+		FROM_CUR,
+		EXTEND,
+	};
+	GotoMode GotoModeFromModifiers();
+	void GotoPoint(int x, int y, GotoMode mode);
 
 	static wchar_t szClassName[];
 	DebugInterface *debugger_ = nullptr;
@@ -87,6 +93,11 @@ private:
 
 	// Current cursor position.
 	uint32_t curAddress_ = 0;
+	// Selected range, which should always be around the cursor.
+	uint32_t selectRangeStart_ = 0;
+	uint32_t selectRangeEnd_ = 0;
+	// Last select reset position, for selecting ranges.
+	uint32_t lastSelectReset_ = 0;
 	// Address of the first displayed byte.
 	uint32_t windowStart_ = 0;
 	// Number of bytes displayed per row.
