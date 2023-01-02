@@ -487,15 +487,20 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 	}
 
+	const char *packSuffix = "";
+	if (!hasPackUnorm4x8) {
+		packSuffix = "R";
+	}
+
 	// Provide implementations of packUnorm4x8 and unpackUnorm4x8 if not available.
 	if ((colorWriteMask || replaceLogicOp) && !hasPackUnorm4x8) {
-		WRITE(p, "uint packUnorm4x8(%svec4 v) {\n", compat.shaderLanguage == GLSL_VULKAN ? "highp " : "");
+		WRITE(p, "uint packUnorm4x8%s(%svec4 v) {\n", packSuffix, compat.shaderLanguage == GLSL_VULKAN ? "highp " : "");
 		WRITE(p, "  highp vec4 f = clamp(v, 0.0, 1.0);\n");
 		WRITE(p, "  uvec4 u = uvec4(255.0 * f);\n");
 		WRITE(p, "  return u.x | (u.y << 8) | (u.z << 16) | (u.w << 24);\n");
 		WRITE(p, "}\n");
 
-		WRITE(p, "vec4 unpackUnorm4x8(highp uint x) {\n");
+		WRITE(p, "vec4 unpackUnorm4x8%s(highp uint x) {\n", packSuffix);
 		WRITE(p, "  highp uvec4 u = uvec4(x & 0xFFU, (x >> 8) & 0xFFU, (x >> 16) & 0xFFU, (x >> 24) & 0xFFU);\n");
 		WRITE(p, "  highp vec4 f = vec4(u);\n");
 		WRITE(p, "  return f * (1.0 / 255.0);\n");
@@ -1188,8 +1193,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	// Final color computed - apply logic ops and bitwise color write mask, through shader blending, if specified.
 	if (colorWriteMask || replaceLogicOp) {
-		WRITE(p, "  highp uint v32 = packUnorm4x8(%s);\n", compat.fragColor0);
-		WRITE(p, "  highp uint d32 = packUnorm4x8(destColor);\n");
+		WRITE(p, "  highp uint v32 = packUnorm4x8%s(%s);\n", packSuffix, compat.fragColor0);
+		WRITE(p, "  highp uint d32 = packUnorm4x8%s(destColor);\n", packSuffix);
 
 		// v32 is both the "s" to the logical operation, and the value that we'll merge to the destination with masking later.
 		// d32 is the "d" to the logical operation.
@@ -1220,7 +1225,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			else
 				WRITE(p, "  v32 = (v32 & u_colorWriteMask & 0x00FFFFFFu) | (d32 & (~u_colorWriteMask | 0xFF000000u));\n");
 		}
-		WRITE(p, "  %s = unpackUnorm4x8(v32);\n", compat.fragColor0);
+		WRITE(p, "  %s = unpackUnorm4x8%s(v32);\n", compat.fragColor0, packSuffix);
 	}
 
 	if (blueToAlpha) {
