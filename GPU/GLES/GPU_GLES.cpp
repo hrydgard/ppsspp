@@ -168,10 +168,13 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	if (gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float)
 		features |= GPU_USE_TEXTURE_FLOAT;
 
-	// Intel drivers have been seen rejecting fragment shader uint shifts used in the alpha test.
-	if (!draw_->GetShaderLanguageDesc().bitwiseOps || draw_->GetDeviceCaps().vendor == Draw::GPUVendor::VENDOR_INTEL) {
+	if (!draw_->GetShaderLanguageDesc().bitwiseOps) {
 		features |= GPU_USE_FRAGMENT_TEST_CACHE;
 	}
+
+	// Can't use switch-case in older glsl.
+	if ((gl_extensions.IsGLES && !gl_extensions.GLES3) || (!gl_extensions.IsGLES && !gl_extensions.VersionGEThan(1, 3)))
+		features &= ~GPU_USE_LIGHT_UBERSHADER;
 
 	if (IsVREnabled()) {
 		features |= GPU_USE_VIRTUAL_REALITY;

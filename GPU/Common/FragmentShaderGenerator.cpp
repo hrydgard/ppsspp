@@ -451,8 +451,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			if (enableColorTest && !colorTestAgainstZero) {
 				if (compat.bitwiseOps) {
-					WRITE(p, "uint roundAndScaleTo8x4(in vec3 x) { uvec3 u = uvec3(floor(x * 255.99)); return u.r | (u.g << 8) | (u.b << 16); }\n");
-					WRITE(p, "uint packFloatsTo8x4(in vec3 x) { uvec3 u = uvec3(x); return u.r | (u.g << 8) | (u.b << 16); }\n");
+					WRITE(p, "uint roundAndScaleTo8x4(in vec3 x) { uvec3 u = uvec3(floor(x * 255.99)); return u.r | (u.g << 0x8u) | (u.b << 0x10u); }\n");
+					WRITE(p, "uint packFloatsTo8x4(in vec3 x) { uvec3 u = uvec3(x); return u.r | (u.g << 0x8u) | (u.b << 0x10u); }\n");
 				} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 					WRITE(p, "vec3 roundTo255thv(in vec3 x) { vec3 y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 				} else {
@@ -497,11 +497,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "uint packUnorm4x8%s(%svec4 v) {\n", packSuffix, compat.shaderLanguage == GLSL_VULKAN ? "highp " : "");
 		WRITE(p, "  highp vec4 f = clamp(v, 0.0, 1.0);\n");
 		WRITE(p, "  uvec4 u = uvec4(255.0 * f);\n");
-		WRITE(p, "  return u.x | (u.y << 8) | (u.z << 16) | (u.w << 24);\n");
+		WRITE(p, "  return u.x | (u.y << 0x8u) | (u.z << 0x10u) | (u.w << 0x18u);\n");
 		WRITE(p, "}\n");
 
 		WRITE(p, "vec4 unpackUnorm4x8%s(highp uint x) {\n", packSuffix);
-		WRITE(p, "  highp uvec4 u = uvec4(x & 0xFFU, (x >> 8) & 0xFFU, (x >> 16) & 0xFFU, (x >> 24) & 0xFFU);\n");
+		WRITE(p, "  highp uvec4 u = uvec4(x & 0xFFu, (x >> 0x8u) & 0xFFu, (x >> 0x10u) & 0xFFu, (x >> 0x18u) & 0xFFu);\n");
 		WRITE(p, "  highp vec4 f = vec4(u);\n");
 		WRITE(p, "  return f * (1.0 / 255.0);\n");
 		WRITE(p, "}\n");
@@ -509,7 +509,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (compat.bitwiseOps && enableColorTest) {
 		p.C("uvec3 unpackUVec3(highp uint x) {\n");
-		p.C("  return uvec3(x & 0xFFU, (x >> 8) & 0xFFU, (x >> 16) & 0xFFU);\n");
+		p.C("  return uvec3(x & 0xFFu, (x >> 0x8u) & 0xFFu, (x >> 0x10u) & 0xFFu);\n");
 		p.C("}\n");
 	}
 
@@ -707,8 +707,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				// Also, since we know the CLUT is smooth, we do not need to do the bilinear filter manually, we can just
 				// lookup with the filtered value once.
 				p.F("  vec4 t = ").SampleTexture2D("tex", "uv").C(";\n");
-				p.C("  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFu;\n");
-				p.C("  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3u;\n");
+				p.C("  uint depalShift = (u_depal_mask_shift_off_fmt >> 0x8u) & 0xFFu;\n");
+				p.C("  uint depalFmt = (u_depal_mask_shift_off_fmt >> 0x18u) & 0x3u;\n");
 				p.C("  float index0 = t.r;\n");
 				p.C("  float factor = 31.0 / 256.0;\n");
 				p.C("  if (depalFmt == 0x0u) {\n");  // yes, different versions of Test Drive use different formats. Could do compile time by adding more compat flags but meh.
@@ -730,7 +730,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				}
 				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0).xy);\n");
 				WRITE(p, "  vec2 fraction;\n");
-				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 31) != 0x0u;\n");
+				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 0x2Fu) != 0x0u;\n");
 				WRITE(p, "  if (bilinear) {\n");
 				WRITE(p, "    uv_round = uv * tsize - vec2(0.5, 0.5);\n");
 				WRITE(p, "    fraction = fract(uv_round);\n");
@@ -743,57 +743,57 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				p.C("  highp vec4 t2 = ").SampleTexture2DOffset("tex", "uv_round", 0, 1).C(";\n");
 				p.C("  highp vec4 t3 = ").SampleTexture2DOffset("tex", "uv_round", 1, 1).C(";\n");
 				WRITE(p, "  uint depalMask = (u_depal_mask_shift_off_fmt & 0xFFu);\n");
-				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFu;\n");
-				WRITE(p, "  uint depalOffset = ((u_depal_mask_shift_off_fmt >> 16) & 0xFFu) << 4;\n");
-				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3u;\n");
+				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 0x8u) & 0xFFu;\n");
+				WRITE(p, "  uint depalOffset = ((u_depal_mask_shift_off_fmt >> 0x10u) & 0xFFu) << 0x4u;\n");
+				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 0x18u) & 0x3u;\n");
 				WRITE(p, "  uvec4 col; uint index0; uint index1; uint index2; uint index3;\n");
 				WRITE(p, "  switch (int(depalFmt)) {\n");  // We might want to include fmt in the shader ID if this is a performance issue.
 				WRITE(p, "  case 0:\n");  // 565
 				WRITE(p, "    col = uvec4(t.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "    index0 = (col.b << 11) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "    index0 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
 				WRITE(p, "      col = uvec4(t1.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "      index1 = (col.b << 11) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "      index1 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t2.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "      index2 = (col.b << 11) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "      index2 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t3.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "      index3 = (col.b << 11) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "      index3 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  case 1:\n");  // 5551
 				WRITE(p, "    col = uvec4(t.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "    index0 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "    index0 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
 				WRITE(p, "      col = uvec4(t1.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "      index1 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "      index1 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t2.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "      index2 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "      index2 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t3.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "      index3 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "      index3 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  case 2:\n");  // 4444
 				WRITE(p, "    col = uvec4(t.rgba * 15.99);\n");
-				WRITE(p, "    index0 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
+				WRITE(p, "    index0 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
 				WRITE(p, "      col = uvec4(t1.rgba * 15.99);\n");
-				WRITE(p, "      index1 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
+				WRITE(p, "      index1 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t2.rgba * 15.99);\n");
-				WRITE(p, "      index2 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
+				WRITE(p, "      index2 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t3.rgba * 15.99);\n");
-				WRITE(p, "      index3 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
+				WRITE(p, "      index3 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  case 3:\n");  // 8888
 				WRITE(p, "    col = uvec4(t.rgba * 255.99);\n");
-				WRITE(p, "    index0 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
+				WRITE(p, "    index0 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
 				WRITE(p, "      col = uvec4(t1.rgba * 255.99);\n");
-				WRITE(p, "      index1 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
+				WRITE(p, "      index1 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t2.rgba * 255.99);\n");
-				WRITE(p, "      index2 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
+				WRITE(p, "      index2 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t3.rgba * 255.99);\n");
-				WRITE(p, "      index3 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
+				WRITE(p, "      index3 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  };\n");
@@ -944,7 +944,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 					if (compat.bitwiseOps) {
-						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & int(u_alphacolormask >> 24)) %s int(u_alphacolorref >> 24)) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
+						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & int(u_alphacolormask >> 0x18u)) %s int(u_alphacolorref >> 0x18u)) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
 					} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 						// Work around bad PVR driver problem where equality check + discard just doesn't work.
 						if (alphaTestFunc != GE_COMP_NOTEQUAL) {
