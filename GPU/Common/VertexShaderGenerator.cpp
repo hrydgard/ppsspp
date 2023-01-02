@@ -967,10 +967,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		if (lightUberShader && hasColor) {
-			p.F("  vec4 ambientColor = ((u_lightControl & (1u << 20u)) != 0x0u) ? %s : u_matambientalpha;\n", srcCol);
+			p.F("  vec4 ambientColor = ((u_lightControl & (1u << 0x14u)) != 0x0u) ? %s : u_matambientalpha;\n", srcCol);
 			if (enableLighting) {
-				p.F("  vec3 diffuseColor = ((u_lightControl & (1u << 21u)) != 0x0u) ? %s.rgb : u_matdiffuse;\n", srcCol);
-				p.F("  vec3 specularColor = ((u_lightControl & (1u << 22u)) != 0x0u) ? %s.rgb : u_matspecular.rgb;\n", srcCol);
+				p.F("  vec3 diffuseColor = ((u_lightControl & (1u << 0x15u)) != 0x0u) ? %s.rgb : u_matdiffuse;\n", srcCol);
+				p.F("  vec3 specularColor = ((u_lightControl & (1u << 0x16u)) != 0x0u) ? %s.rgb : u_matspecular.rgb;\n", srcCol);
 			}
 		} else {
 			// This path also takes care of the lightUberShader && !hasColor path, because all comparisons fail.
@@ -1032,8 +1032,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// u_lightControl is computed in PackLightControlBits().
 			for (int i = 0; i < 4; i++) {
 				p.F("  if ((u_lightControl & %du) != 0x0u) { \n", 1 << i);
-				p.F("    uint comp = (u_lightControl >> %d) & 0x3u;\n", 4 + 4 * i);
-				p.F("    uint type = (u_lightControl >> %d) & 0x3u;\n", 4 + 4 * i + 2);
+				p.F("    uint comp = (u_lightControl >> 0x%02xu) & 0x3u;\n", 4 + 4 * i);
+				p.F("    uint type = (u_lightControl >> 0x%02xu) & 0x3u;\n", 4 + 4 * i + 2);
 				p.C("    if (type == 0x0u) {\n");  // GE_LIGHTTYPE_DIRECTIONAL
 				p.F("      toLight = u_lightpos%d;\n", i);
 				p.C("    } else {\n");
