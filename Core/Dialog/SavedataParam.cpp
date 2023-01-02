@@ -448,7 +448,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 			ERROR_LOG_REPORT(SCEUTILITY, "Savedata version with missing key on save: %d", param->secureVersion);
 			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
 		}
-		WARN_LOG_REPORT(SCEUTILITY, "Savedata version requested on save: %d", param->secureVersion);
+		WARN_LOG(SCEUTILITY, "Savedata version requested on save: %d", param->secureVersion);
 	}
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
