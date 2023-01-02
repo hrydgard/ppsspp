@@ -133,7 +133,7 @@ void SetExtraAssertInfo(const char *info);
 
 #define _dbg_assert_(_a_) \
 	if (!(_a_)) {\
-		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "*** Assertion ***\n")) Crash(); \
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assert!\n")) Crash(); \
 	}
 
 #define _dbg_assert_msg_(_a_, ...) \
@@ -152,7 +152,7 @@ void SetExtraAssertInfo(const char *info);
 
 #define _assert_(_a_) \
 	if (!(_a_)) {\
-		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "*** Assertion ***\n")) Crash(); \
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assert!\n")) Crash(); \
 	}
 
 #define _assert_msg_(_a_, ...) \

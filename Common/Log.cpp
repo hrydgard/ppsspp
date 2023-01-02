@@ -56,7 +56,7 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 	char formatted[LOG_BUF_SIZE + 128];
 	{
 		std::lock_guard<std::mutex> guard(g_extraAssertInfoMutex);
-		snprintf(formatted, sizeof(formatted), "(%s:%s:%d) %s: [%s] %s (%s)", file, function, line, caption, expression, text, g_extraAssertInfo.c_str());
+		snprintf(formatted, sizeof(formatted), "(%s:%s:%d): [%s] (%s) %s", file, function, line, expression, g_extraAssertInfo.c_str(), text);
 	}
 
 	// Normal logging (will also log to Android log)
