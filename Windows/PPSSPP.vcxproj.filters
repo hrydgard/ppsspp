@@ -277,6 +277,9 @@
     <ClCompile Include="W32Util\DarkMode.cpp">
       <Filter>Windows\W32Util</Filter>
     </ClCompile>
+    <ClCompile Include="W32Util\UAHMenuBar.cpp">
+      <Filter>Windows\W32Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -563,6 +566,9 @@
       <Filter>Windows\W32Util</Filter>
     </ClInclude>
     <ClInclude Include="W32Util\IatHook.h">
+      <Filter>Windows\W32Util</Filter>
+    </ClInclude>
+    <ClInclude Include="W32Util\UAHMenuBar.h">
       <Filter>Windows\W32Util</Filter>
     </ClInclude>
   </ItemGroup>

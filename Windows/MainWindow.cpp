@@ -57,6 +57,7 @@
 #include "Windows/GEDebugger/GEDebugger.h"
 #endif
 #include "Windows/W32Util/DarkMode.h"
+#include "Windows/W32Util/UAHMenuBar.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 
@@ -730,6 +731,11 @@ namespace MainWindow
 	}
 
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
+		LRESULT darkResult = 0;
+		if (UAHDarkModeWndProc(hWnd, message, wParam, lParam, &darkResult)) {
+			return darkResult;
+		}
+
 		switch (message) {
 		case WM_CREATE:
 			if (!DoesVersionMatchWindows(6, 0, 0, 0, true)) {
