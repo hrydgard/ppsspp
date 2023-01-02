@@ -707,16 +707,16 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				// Also, since we know the CLUT is smooth, we do not need to do the bilinear filter manually, we can just
 				// lookup with the filtered value once.
 				p.F("  vec4 t = ").SampleTexture2D("tex", "uv").C(";\n");
-				p.C("  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFU;\n");
-				p.C("  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3U;\n");
+				p.C("  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFu;\n");
+				p.C("  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3u;\n");
 				p.C("  float index0 = t.r;\n");
 				p.C("  float factor = 31.0 / 256.0;\n");
-				p.C("  if (depalFmt == 0u) {\n");  // yes, different versions of Test Drive use different formats. Could do compile time by adding more compat flags but meh.
-				p.C("    if (depalShift == 5u) { index0 = t.g; factor = 63.0 / 256.0; }\n");
-				p.C("    else if (depalShift == 11u) { index0 = t.b; }\n");
+				p.C("  if (depalFmt == 0x0u) {\n");  // yes, different versions of Test Drive use different formats. Could do compile time by adding more compat flags but meh.
+				p.C("    if (depalShift == 0x5u) { index0 = t.g; factor = 63.0 / 256.0; }\n");
+				p.C("    else if (depalShift == 0xBu) { index0 = t.b; }\n");
 				p.C("  } else {\n");
-				p.C("    if (depalShift == 5u) { index0 = t.g; }\n");
-				p.C("    else if (depalShift == 10u) { index0 = t.b; }\n");
+				p.C("    if (depalShift == 0x5u) { index0 = t.g; }\n");
+				p.C("    else if (depalShift == 0xAu) { index0 = t.b; }\n");
 				p.C("  }\n");
 				p.F("  t = ").SampleTexture2D("pal", "vec2(index0 * factor * 0.5, 0.0)").C(";\n");  // 0.5 for 512-entry CLUT.
 				break;
@@ -730,7 +730,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				}
 				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0).xy);\n");
 				WRITE(p, "  vec2 fraction;\n");
-				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 31) != 0U;\n");
+				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 31) != 0x0u;\n");
 				WRITE(p, "  if (bilinear) {\n");
 				WRITE(p, "    uv_round = uv * tsize - vec2(0.5, 0.5);\n");
 				WRITE(p, "    fraction = fract(uv_round);\n");
@@ -742,10 +742,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				p.C("  highp vec4 t1 = ").SampleTexture2DOffset("tex", "uv_round", 1, 0).C(";\n");
 				p.C("  highp vec4 t2 = ").SampleTexture2DOffset("tex", "uv_round", 0, 1).C(";\n");
 				p.C("  highp vec4 t3 = ").SampleTexture2DOffset("tex", "uv_round", 1, 1).C(";\n");
-				WRITE(p, "  uint depalMask = (u_depal_mask_shift_off_fmt & 0xFFU);\n");
-				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFU;\n");
-				WRITE(p, "  uint depalOffset = ((u_depal_mask_shift_off_fmt >> 16) & 0xFFU) << 4;\n");
-				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3U;\n");
+				WRITE(p, "  uint depalMask = (u_depal_mask_shift_off_fmt & 0xFFu);\n");
+				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFu;\n");
+				WRITE(p, "  uint depalOffset = ((u_depal_mask_shift_off_fmt >> 16) & 0xFFu) << 4;\n");
+				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3u;\n");
 				WRITE(p, "  uvec4 col; uint index0; uint index1; uint index2; uint index3;\n");
 				WRITE(p, "  switch (int(depalFmt)) {\n");  // We might want to include fmt in the shader ID if this is a performance issue.
 				WRITE(p, "  case 0:\n");  // 565

@@ -967,10 +967,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		if (lightUberShader && hasColor) {
-			p.F("  vec4 ambientColor = ((u_lightControl & (1u << 20u)) != 0u) ? %s : u_matambientalpha;\n", srcCol);
+			p.F("  vec4 ambientColor = ((u_lightControl & (1u << 20u)) != 0x0u) ? %s : u_matambientalpha;\n", srcCol);
 			if (enableLighting) {
-				p.F("  vec3 diffuseColor = ((u_lightControl & (1u << 21u)) != 0u) ? %s.rgb : u_matdiffuse;\n", srcCol);
-				p.F("  vec3 specularColor = ((u_lightControl & (1u << 22u)) != 0u) ? %s.rgb : u_matspecular.rgb;\n", srcCol);
+				p.F("  vec3 diffuseColor = ((u_lightControl & (1u << 21u)) != 0x0u) ? %s.rgb : u_matdiffuse;\n", srcCol);
+				p.F("  vec3 specularColor = ((u_lightControl & (1u << 22u)) != 0x0u) ? %s.rgb : u_matspecular.rgb;\n", srcCol);
 			}
 		} else {
 			// This path also takes care of the lightUberShader && !hasColor path, because all comparisons fail.
@@ -1031,10 +1031,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// Will need to change how the data is stored to loop efficiently.
 			// u_lightControl is computed in PackLightControlBits().
 			for (int i = 0; i < 4; i++) {
-				p.F("  if ((u_lightControl & %du) != 0u) { \n", 1 << i);
-				p.F("    uint comp = (u_lightControl >> %d) & 3u;\n", 4 + 4 * i);
-				p.F("    uint type = (u_lightControl >> %d) & 3u;\n", 4 + 4 * i + 2);
-				p.C("    if (type == 0u) {\n");  // GE_LIGHTTYPE_DIRECTIONAL
+				p.F("  if ((u_lightControl & %du) != 0x0u) { \n", 1 << i);
+				p.F("    uint comp = (u_lightControl >> %d) & 0x3u;\n", 4 + 4 * i);
+				p.F("    uint type = (u_lightControl >> %d) & 0x3u;\n", 4 + 4 * i + 2);
+				p.C("    if (type == 0x0u) {\n");  // GE_LIGHTTYPE_DIRECTIONAL
 				p.F("      toLight = u_lightpos%d;\n", i);
 				p.C("    } else {\n");
 				p.F("      toLight = u_lightpos%d - worldpos;\n", i);
@@ -1042,7 +1042,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.F("      toLight /= distance;\n", i);
 				p.C("    }\n");
 				p.C("    ldot = dot(toLight, worldnormal);\n");
-				p.C("    if (comp == 2u) {\n");  // GE_LIGHTCOMP_ONLYPOWDIFFUSE
+				p.C("    if (comp == 0x2u) {\n");  // GE_LIGHTCOMP_ONLYPOWDIFFUSE
 				p.C("      if (u_matspecular.a <= 0.0) {\n");
 				p.C("        ldot = 1.0;\n");
 				p.C("      } else {\n");
@@ -1066,7 +1066,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("      break;\n");
 				p.C("    }\n");
 				p.F("    diffuse = (u_lightdiffuse%i * diffuseColor) * max(ldot, 0.0);\n", i);
-				p.C("    if (comp == 1u) {\n");  // do specular
+				p.C("    if (comp == 0x1u) {\n");  // do specular
 				p.C("      if (ldot >= 0.0) {\n");
 				p.C("        ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
 				p.C("        if (u_matspecular.a <= 0.0) {\n");
