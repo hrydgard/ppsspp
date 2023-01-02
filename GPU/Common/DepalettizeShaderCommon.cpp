@@ -61,7 +61,8 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 		if (config.depthUpperBits == 0x2) {
 			writer.C(R"(
   int x = int((texcoord.x / scaleFactor) * texSize.x);
-  int temp = (x & 0xFFFFFE0F) | ((x >> 1) & 0xF0) | ((x << 4) & 0x100);
+  int xclear = x & 0x01F0;
+  int temp = (x - xclear) | ((x >> 1) & 0xF0) | ((x << 4) & 0x100);
   texcoord.x = (float(temp) / texSize.x) * scaleFactor;
 )");
 		}
