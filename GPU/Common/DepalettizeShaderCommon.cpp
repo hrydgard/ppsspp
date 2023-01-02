@@ -122,9 +122,9 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 			// Convert depth to 565, without going through a CLUT.
 			// TODO: Make "depal without a CLUT" a separate concept, to avoid redundantly creating a CLUT texture.
 			writer.C("  int idepth = int(clamp(depth, 0.0, 65535.0));\n");
-			writer.C("  float r = float(idepth & 31) / 31.0f;\n");
-			writer.C("  float g = float((idepth >> 5) & 63) / 63.0f;\n");
-			writer.C("  float b = float((idepth >> 11) & 31) / 31.0f;\n");
+			writer.C("  float r = float(idepth & 31) / 31.0;\n");
+			writer.C("  float g = float((idepth >> 5) & 63) / 63.0;\n");
+			writer.C("  float b = float((idepth >> 11) & 31) / 31.0;\n");
 			writer.C("  vec4 outColor = vec4(r, g, b, 1.0);\n");
 			return;
 		}
@@ -267,9 +267,9 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 			// Convert depth to 565, without going through a CLUT.
 			writer.C("  float depth = (index.x - z_offset) * z_scale;\n");
 			writer.C("  float idepth = floor(clamp(depth, 0.0, 65535.0));\n");
-			writer.C("  float r = mod(idepth, 32.0) / 31.0f;\n");
-			writer.C("  float g = mod(floor(idepth / 32.0), 64.0) / 63.0f;\n");
-			writer.C("  float b = mod(floor(idepth / 2048.0), 32.0) / 31.0f;\n");
+			writer.C("  float r = mod(idepth, 32.0) / 31.0;\n");
+			writer.C("  float g = mod(floor(idepth / 32.0), 64.0) / 63.0;\n");
+			writer.C("  float b = mod(floor(idepth / 2048.0), 32.0) / 31.0;\n");
 			writer.C("  vec4 outColor = vec4(r, g, b, 1.0);\n");
 			return;
 		}
