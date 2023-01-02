@@ -661,6 +661,9 @@ static bool TestPath() {
 	EXPECT_TRUE(Path("/").ComputePathTo(Path("/home/foo/bar"), computedPath));
 	EXPECT_EQ_STR(computedPath, std::string("home/foo/bar"));
 
+	EXPECT_TRUE(Path("/a/b").ComputePathTo(Path("/a/b"), computedPath));
+	EXPECT_EQ_STR(computedPath, std::string());
+
 	return true;
 }
 
