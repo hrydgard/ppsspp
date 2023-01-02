@@ -172,6 +172,10 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 		features |= GPU_USE_FRAGMENT_TEST_CACHE;
 	}
 
+	// Can't use switch-case in older glsl.
+	if ((gl_extensions.IsGLES && !gl_extensions.GLES3) || (!gl_extensions.IsGLES && !gl_extensions.VersionGEThan(1, 3)))
+		features &= ~GPU_USE_LIGHT_UBERSHADER;
+
 	if (IsVREnabled()) {
 		features |= GPU_USE_VIRTUAL_REALITY;
 	}
