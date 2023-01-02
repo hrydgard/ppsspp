@@ -1197,6 +1197,13 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 // Maybe should write this in ASM...
 void GPUCommon::FastRunLoop(DisplayList &list) {
 	PROFILE_THIS_SCOPE("gpuloop");
+
+	if (!Memory::IsValidAddress(list.pc)) {
+		// We're having some serious problems here, just bail and try to limp along and not crash the app.
+		downcount = 0;
+		return;
+	}
+
 	const CommandInfo *cmdInfo = cmdInfo_;
 	int dc = downcount;
 	for (; dc > 0; --dc) {
