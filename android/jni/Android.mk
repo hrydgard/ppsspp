@@ -32,6 +32,13 @@ ARCH_FILES := \
   $(SRC)/ext/libpng17/arm/filter_neon_intrinsics.c
 endif
 
+ANDROID_FILES :=\
+  $(SRC)/android/jni/app-android.cpp \
+  $(SRC)/android/jni/AndroidJavaGLContext.cpp \
+  $(SRC)/android/jni/AndroidVulkanContext.cpp \
+  $(SRC)/android/jni/AndroidAudio.cpp \
+  $(SRC)/android/jni/OpenSLContext.cpp \
+
 NATIVE_FILES :=\
   $(SRC)/Common/GPU/OpenGL/gl3stub.c \
   $(SRC)/Common/GPU/OpenGL/thin3d_gl.cpp \
@@ -130,6 +137,7 @@ EXEC_AND_LIB_FILES := \
   $(SPIRV_CROSS_FILES) \
   $(EXT_FILES) \
   $(NATIVE_FILES) \
+  $(ANDROID_FILES) \
   $(SRC)/Common/Buffer.cpp \
   $(SRC)/Common/Crypto/md5.cpp \
   $(SRC)/Common/Crypto/sha1.cpp \
@@ -680,11 +688,6 @@ LOCAL_STATIC_LIBRARIES += ppsspp_common ppsspp_core libarmips libzstd
 # These are the files just for ppsspp_jni
 LOCAL_MODULE := ppsspp_jni
 LOCAL_SRC_FILES := \
-  $(SRC)/android/jni/app-android.cpp \
-  $(SRC)/android/jni/AndroidJavaGLContext.cpp \
-  $(SRC)/android/jni/AndroidVulkanContext.cpp \
-  $(SRC)/android/jni/AndroidAudio.cpp \
-  $(SRC)/android/jni/OpenSLContext.cpp \
   $(SRC)/UI/BackgroundAudio.cpp \
   $(SRC)/UI/DiscordIntegration.cpp \
   $(SRC)/UI/ChatScreen.cpp \
