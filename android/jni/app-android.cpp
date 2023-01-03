@@ -236,17 +236,7 @@ void AndroidLogger::Log(const LogMessage &message) {
 JNIEnv* getEnv() {
 	JNIEnv *env;
 	int status = gJvm->GetEnv((void**)&env, JNI_VERSION_1_6);
-	if (status < 0) {
-		// TODO: We should have a version of getEnv that doesn't allow auto-attach.
-		INFO_LOG(SYSTEM, "Thread '%s' not attached to JVM, attaching.", GetCurrentThreadName());
-		JavaVMAttachArgs args{};
-		args.version = JNI_VERSION_1_6;
-		args.name = GetCurrentThreadName();
-		status = gJvm->AttachCurrentThread(&env, &args);
-		if (status < 0) {
-			return nullptr;
-		}
-	}
+	_assert_msg_(status >= 0, "'%s': Can only call getEnv if you've attached the thread already!", GetCurrentThreadName());
 	return env;
 }
 
@@ -270,9 +260,31 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 	return JNI_VERSION_1_6;
 }
 
+void Android_AttachThreadToJNI() {
+	JNIEnv *env;
+	int status = gJvm->GetEnv((void **)&env, JNI_VERSION_1_6);
+	if (status < 0) {
+		// TODO: We should have a version of getEnv that doesn't allow auto-attach.
+		INFO_LOG(SYSTEM, "Attaching thread '%s' (not already attached) to JNI.", GetCurrentThreadName());
+		JavaVMAttachArgs args{};
+		args.version = JNI_VERSION_1_6;
+		args.name = GetCurrentThreadName();
+		status = gJvm->AttachCurrentThread(&env, &args);
+
+		if (status < 0) {
+			// bad, but wh
+		}
+	} else {
+		WARN_LOG(SYSTEM, "Thread %s was already attached to JNI.", GetCurrentThreadName());
+	}
+}
+
 void Android_DetachThreadFromJNI() {
-	INFO_LOG(SYSTEM, "Detaching thread from JNI: '%s'", GetCurrentThreadName());
-	gJvm->DetachCurrentThread();
+	if (gJvm->DetachCurrentThread() == JNI_OK) {
+		INFO_LOG(SYSTEM, "Detached thread from JNI: '%s'", GetCurrentThreadName());
+	} else {
+		WARN_LOG(SYSTEM, "Failed to detach thread '%s' from JNI - never attached?", GetCurrentThreadName());
+	}
 }
 
 // Only used in OpenGL mode.

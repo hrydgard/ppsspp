@@ -133,6 +133,10 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 	}
 	SetCurrentThreadName(thread->name);
 
+	if (thread->type == TaskType::IO_BLOCKING) {
+		AttachThreadToJNI();
+	}
+
 	const bool isCompute = thread->type == TaskType::CPU_COMPUTE;
 	const auto global_queue_size = [isCompute, &global]() -> int {
 		return isCompute ? global->compute_queue_size.load() : global->io_queue_size.load();
@@ -187,7 +191,9 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 	}
 
 	// In case it got attached to JNI, detach it. Don't think this has any side effects if called redundantly.
-	DetachThreadFromJNI();
+	if (thread->type == TaskType::IO_BLOCKING) {
+		DetachThreadFromJNI();
+	}
 }
 
 void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {

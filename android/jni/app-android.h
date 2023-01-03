@@ -27,6 +27,7 @@ public:
 };
 #endif
 
+void Android_AttachThreadToJNI();
 void Android_DetachThreadFromJNI();
 
 #endif

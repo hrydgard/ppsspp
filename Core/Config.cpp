@@ -1736,6 +1736,9 @@ void Config::RemoveRecent(const std::string &file) {
 void Config::CleanRecent() {
 	private_->SetRecentIsosThread([this] {
 		SetCurrentThreadName("RecentISOs");
+
+		AndroidJNIThreadContext jniContext;  // destructor detaches
+
 		double startTime = time_now_d();
 
 		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
@@ -1766,8 +1769,6 @@ void Config::CleanRecent() {
 
 		INFO_LOG(SYSTEM, "CleanRecent took %0.2f", time_now_d() - startTime);
 		recentIsos = cleanedRecent;
-
-		DetachThreadFromJNI();
 	});
 }
 

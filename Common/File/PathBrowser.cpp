@@ -141,6 +141,8 @@ void PathBrowser::HandlePath() {
 	pendingThread_ = std::thread([&] {
 		SetCurrentThreadName("PathBrowser");
 
+		AndroidJNIThreadContext jniContext;  // destructor detaches
+
 		std::unique_lock<std::mutex> guard(pendingLock_);
 		std::vector<File::FileInfo> results;
 		Path lastPath("NONSENSE THAT WONT EQUAL A PATH");
@@ -177,8 +179,6 @@ void PathBrowser::HandlePath() {
 				ready_ = true;
 			}
 		}
-
-		DetachThreadFromJNI();
 	});
 }
 

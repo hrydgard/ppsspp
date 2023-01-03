@@ -67,6 +67,15 @@ static EXCEPTION_DISPOSITION NTAPI ignore_handler(EXCEPTION_RECORD *rec,
 }
 #endif
 
+void AttachThreadToJNI() {
+#if PPSSPP_PLATFORM(ANDROID)
+	Android_AttachThreadToJNI();
+#else
+	// Do nothing
+#endif
+}
+
+
 void DetachThreadFromJNI() {
 #if PPSSPP_PLATFORM(ANDROID)
 	Android_DetachThreadFromJNI();

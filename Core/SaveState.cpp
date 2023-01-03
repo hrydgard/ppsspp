@@ -164,6 +164,9 @@ namespace SaveState
 				compressThread_.join();
 			compressThread_ = std::thread([=]{
 				SetCurrentThreadName("SaveStateCompress");
+
+				AndroidJNIThreadContext jniContext;
+
 				Compress(*result, *state, *base);
 			});
 		}
