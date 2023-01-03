@@ -27,4 +27,7 @@ public:
 };
 #endif
 
+void Android_DetachThreadFromJNI();
+
 #endif
+

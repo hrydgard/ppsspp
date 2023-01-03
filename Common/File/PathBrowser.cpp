@@ -177,6 +177,8 @@ void PathBrowser::HandlePath() {
 				ready_ = true;
 			}
 		}
+
+		DetachThreadFromJNI();
 	});
 }
 

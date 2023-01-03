@@ -12,9 +12,14 @@
 
 #elif defined(__ANDROID__)
 
+#include "android/jni/app-android.h"
+
 #define TLS_SUPPORTED
 
 #endif
+
+// TODO: Many other platforms also support TLS, in fact probably nearly all that we support
+// these days.
 
 #include <cstring>
 #include <cstdint>
@@ -62,6 +67,13 @@ static EXCEPTION_DISPOSITION NTAPI ignore_handler(EXCEPTION_RECORD *rec,
 }
 #endif
 
+void DetachThreadFromJNI() {
+#if PPSSPP_PLATFORM(ANDROID)
+	Android_DetachThreadFromJNI();
+#else
+	// Do nothing
+#endif
+}
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 typedef HRESULT (WINAPI *TSetThreadDescription)(HANDLE, PCWSTR);
@@ -90,7 +102,15 @@ static void InitializeSetThreadDescription() {
 void SetCurrentThreadNameThroughException(const char *threadName);
 #endif
 
-void SetCurrentThreadName(const char* threadName) {
+const char *GetCurrentThreadName() {
+#ifdef TLS_SUPPORTED
+	return curThreadName;
+#else
+	return "";
+#endif
+}
+
+void SetCurrentThreadName(const char *threadName) {
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	InitializeSetThreadDescription();
 	if (g_pSetThreadDescription) {

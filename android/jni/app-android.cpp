@@ -237,7 +237,12 @@ JNIEnv* getEnv() {
 	JNIEnv *env;
 	int status = gJvm->GetEnv((void**)&env, JNI_VERSION_1_6);
 	if (status < 0) {
-		status = gJvm->AttachCurrentThread(&env, NULL);
+		// TODO: We should have a version of getEnv that doesn't allow auto-attach.
+		INFO_LOG(SYSTEM, "Thread '%s' not attached to JVM, attaching.", GetCurrentThreadName());
+		JavaVMAttachArgs args{};
+		args.version = JNI_VERSION_1_6;
+		args.name = GetCurrentThreadName();
+		status = gJvm->AttachCurrentThread(&env, &args);
 		if (status < 0) {
 			return nullptr;
 		}
@@ -263,6 +268,11 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 	gFindClassMethod = env->GetMethodID(classLoaderClass, "findClass",
 										"(Ljava/lang/String;)Ljava/lang/Class;");
 	return JNI_VERSION_1_6;
+}
+
+void Android_DetachThreadFromJNI() {
+	INFO_LOG(SYSTEM, "Detaching thread from JNI: '%s'", GetCurrentThreadName());
+	gJvm->DetachCurrentThread();
 }
 
 // Only used in OpenGL mode.
