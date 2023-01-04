@@ -18,6 +18,7 @@ INCFLAGS += \
 	-I$(CORE_DIR)/libretro \
 	-I$(EXTDIR)/openxr \
 	-I$(EXTDIR)/glslang \
+	-I$(EXTDIR)/glslang-build \
 	-I$(EXTDIR)/native \
 	-I$(EXTDIR)/zlib \
 	-I$(ZSTDDIR) \
@@ -417,6 +418,7 @@ SOURCES_CXX += \
 	$(EXTDIR)/glslang/glslang/MachineIndependent/parseConst.cpp \
 	$(EXTDIR)/glslang/glslang/MachineIndependent/propagateNoContraction.cpp \
 	$(EXTDIR)/glslang/glslang/MachineIndependent/reflection.cpp \
+	$(EXTDIR)/glslang/glslang/MachineIndependent/SpirvIntrinsics.cpp \
 	$(EXTDIR)/glslang/SPIRV/InReadableOrder.cpp \
 	$(EXTDIR)/glslang/SPIRV/GlslangToSpv.cpp \
 	$(EXTDIR)/glslang/SPIRV/Logger.cpp \
