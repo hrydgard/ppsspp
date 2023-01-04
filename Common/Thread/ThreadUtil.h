@@ -2,7 +2,7 @@
 
 #include <mutex>
 
-// Note that the string pointed to must be have a lifetime until the end of the thread,
+// Note that the string pointed to must have a lifetime until the end of the thread,
 // for AssertCurrentThreadName to work.
 void SetCurrentThreadName(const char *threadName);
 void AssertCurrentThreadName(const char *threadName);

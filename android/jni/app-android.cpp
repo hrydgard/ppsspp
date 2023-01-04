@@ -50,6 +50,9 @@ struct JNIEnv {};
 #define JNI_VERSION_1_6 16
 #endif
 
+#include "Common/Log.h"
+#include "Common/LogReporting.h"
+
 #include "Common/Net/Resolve.h"
 #include "android/jni/AndroidAudio.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
@@ -71,7 +74,6 @@ struct JNIEnv {};
 #include "Common/Data/Text/Parsers.h"
 #include "Common/VR/PPSSPPVR.h"
 
-#include "Common/Log.h"
 #include "Common/GraphicsContext.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
@@ -264,7 +266,6 @@ void Android_AttachThreadToJNI() {
 	JNIEnv *env;
 	int status = gJvm->GetEnv((void **)&env, JNI_VERSION_1_6);
 	if (status < 0) {
-		// TODO: We should have a version of getEnv that doesn't allow auto-attach.
 		INFO_LOG(SYSTEM, "Attaching thread '%s' (not already attached) to JNI.", GetCurrentThreadName());
 		JavaVMAttachArgs args{};
 		args.version = JNI_VERSION_1_6;
@@ -272,7 +273,8 @@ void Android_AttachThreadToJNI() {
 		status = gJvm->AttachCurrentThread(&env, &args);
 
 		if (status < 0) {
-			// bad, but wh
+			// bad, but what can we do other than report..
+			ERROR_LOG_REPORT_ONCE(threadAttachFail, SYSTEM, "Failed to attach thread %s to JNI.", GetCurrentThreadName());
 		}
 	} else {
 		WARN_LOG(SYSTEM, "Thread %s was already attached to JNI.", GetCurrentThreadName());

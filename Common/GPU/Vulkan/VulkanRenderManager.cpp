@@ -115,15 +115,17 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	pipe.basePipelineIndex = 0;
 	pipe.subpass = 0;
 
+	INFO_LOG(G3D, "Creating pipeline... rpType: %08x sampleBits: %d (%s)", (u32)rpType, (u32)sampleCount, tag_.c_str());
+
 	double start = time_now_d();
 	VkPipeline vkpipeline;
 	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &pipe, nullptr, &vkpipeline);
 	double taken_ms = (time_now_d() - start) * 1000.0;
 
 	if (taken_ms < 0.1) {
-		DEBUG_LOG(G3D, "Pipeline creation time: %0.2f ms (fast) rpType: %08x sampleBits: %d\n(%s)", taken_ms, (u32)rpType, (u32)sampleCount, tag_.c_str());
+		DEBUG_LOG(G3D, "Pipeline creation time: %0.2f ms (fast) rpType: %08x sampleBits: %d (%s)", taken_ms, (u32)rpType, (u32)sampleCount, tag_.c_str());
 	} else {
-		INFO_LOG(G3D, "Pipeline creation time: %0.2f ms  rpType: %08x sampleBits: %d\n(%s)", taken_ms, (u32)rpType, (u32)sampleCount, tag_.c_str());
+		INFO_LOG(G3D, "Pipeline creation time: %0.2f ms  rpType: %08x sampleBits: %d (%s)", taken_ms, (u32)rpType, (u32)sampleCount, tag_.c_str());
 	}
 
 	bool success = true;

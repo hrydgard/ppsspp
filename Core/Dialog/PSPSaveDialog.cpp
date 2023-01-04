@@ -1210,6 +1210,8 @@ void PSPSaveDialog::JoinIOThread() {
 
 static void DoExecuteIOAction(PSPSaveDialog *dialog) {
 	SetCurrentThreadName("SaveIO");
+
+	AndroidJNIThreadContext jniContext;
 	dialog->ExecuteIOAction();
 }
 

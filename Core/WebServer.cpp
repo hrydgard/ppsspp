@@ -212,6 +212,8 @@ static void DiscHandler(const http::Request &request, const Path &filename) {
 }
 
 static void HandleListing(const http::Request &request) {
+	AndroidJNIThreadContext jniContext;
+
 	request.WriteHttpResponseHeader("1.0", 200, -1, "text/plain");
 	request.Out()->Printf("/\n");
 	if (serverFlags & (int)WebServerFlags::DISCS) {
@@ -269,6 +271,8 @@ static void RedirectToDebugger(const http::Request &request) {
 }
 
 static void HandleFallback(const http::Request &request) {
+	AndroidJNIThreadContext jniContext;
+
 	if (serverFlags & (int)WebServerFlags::DISCS) {
 		Path filename = LocalFromRemotePath(request.resource());
 		if (!filename.empty()) {
@@ -293,6 +297,8 @@ static void HandleFallback(const http::Request &request) {
 }
 
 static void ForwardDebuggerRequest(const http::Request &request) {
+	AndroidJNIThreadContext jniContext;
+
 	if (serverFlags & (int)WebServerFlags::DEBUGGER) {
 		// Check if this is a websocket request...
 		std::string upgrade;
