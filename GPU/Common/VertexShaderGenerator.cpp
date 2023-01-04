@@ -186,7 +186,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
 	bool hasColor = id.Bit(VS_BIT_HAS_COLOR) || !useHWTransform;
 	bool hasNormal = id.Bit(VS_BIT_HAS_NORMAL) && useHWTransform;
-	bool hasTexcoord = id.Bit(VS_BIT_HAS_TEXCOORD) || !useHWTransform;
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
@@ -270,14 +269,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (!useHWTransform)
 			WRITE(p, "layout (location = %d) in float fog;\n", (int)PspAttributeLocation::NORMAL);
 
-		if (hasTexcoord) {
-			if (!useHWTransform && doTextureTransform && !isModeThrough) {
-				WRITE(p, "layout (location = %d) in vec3 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
-				texCoordInVec3 = true;
-			} else {
-				WRITE(p, "layout (location = %d) in vec2 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
-			}
+		if (!useHWTransform && doTextureTransform && !isModeThrough) {
+			WRITE(p, "layout (location = %d) in vec3 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
+			texCoordInVec3 = true;
+		} else {
+			WRITE(p, "layout (location = %d) in vec2 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
 		}
+
 		if (hasColor) {
 			WRITE(p, "layout (location = %d) in vec4 color0;\n", (int)PspAttributeLocation::COLOR0);
 			if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
@@ -379,9 +377,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (enableBones) {
 				WRITE(p, "  %s", boneWeightAttrDeclHLSL[numBoneWeights]);
 			}
-			if (hasTexcoord) {
-				WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
-			}
+			WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
 			if (hasColor) {
 				WRITE(p, "  vec4 color0 : COLOR0;\n");
 			}
@@ -393,13 +389,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		} else {
 			WRITE(p, "struct VS_IN {\n");
 			WRITE(p, "  vec4 position : POSITION;\n");
-			if (hasTexcoord) {
-				if (doTextureTransform && !isModeThrough) {
-					texCoordInVec3 = true;
-					WRITE(p, "  vec3 texcoord : TEXCOORD0;\n");
-				} else {
-					WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
-				}
+			if (doTextureTransform && !isModeThrough) {
+				texCoordInVec3 = true;
+				WRITE(p, "  vec3 texcoord : TEXCOORD0;\n");
+			} else {
+				WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
 			}
 			if (hasColor) {
 				WRITE(p, "  vec4 color0 : COLOR0;\n");
@@ -465,15 +459,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			*attrMask |= 1 << ATTR_NORMAL;
 		}
 
-		if (hasTexcoord) {
-			if (!useHWTransform && doTextureTransform && !isModeThrough) {
-				WRITE(p, "%s vec3 texcoord;\n", compat.attribute);
-				texCoordInVec3 = true;
-			} else {
-				WRITE(p, "%s vec2 texcoord;\n", compat.attribute);
-			}
-			*attrMask |= 1 << ATTR_TEXCOORD;
+		if (!useHWTransform && doTextureTransform && !isModeThrough) {
+			WRITE(p, "%s vec3 texcoord;\n", compat.attribute);
+			texCoordInVec3 = true;
+		} else {
+			WRITE(p, "%s vec2 texcoord;\n", compat.attribute);
 		}
+		*attrMask |= 1 << ATTR_TEXCOORD;
 
 		if (hasColor) {
 			WRITE(p, "%s lowp vec4 color0;\n", compat.attribute);
@@ -783,12 +775,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	} else if (compat.shaderLanguage == HLSL_D3D9 || compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "VS_OUT main(VS_IN In) {\n");
 		WRITE(p, "  VS_OUT Out;\n");
-		if (hasTexcoord) {
-			if (texCoordInVec3) {
-				WRITE(p, "  vec3 texcoord = In.texcoord;\n");
-			} else {
-				WRITE(p, "  vec2 texcoord = In.texcoord;\n");
-			}
+		if (texCoordInVec3) {
+			WRITE(p, "  vec3 texcoord = In.texcoord;\n");
+		} else {
+			WRITE(p, "  vec2 texcoord = In.texcoord;\n");
 		}
 		if (hasColor) {
 			WRITE(p, "  vec4 color0 = In.color0;\n");
@@ -1204,23 +1194,15 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			case GE_TEXMAP_TEXTURE_COORDS:  // Scale-offset. Easy.
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
 				if (scaleUV) {
-					if (hasTexcoord) {
-						if (doBezier || doSpline)
-							WRITE(p, "  %sv_texcoord = vec3(tess.tex.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
-						else
-							WRITE(p, "  %sv_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy, 0.0);\n", compat.vsOutPrefix);
-					} else {
-						WRITE(p, "  %sv_texcoord = splat3(0.0);\n", compat.vsOutPrefix);
-					}
+					if (doBezier || doSpline)
+						WRITE(p, "  %sv_texcoord = vec3(tess.tex.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
+					else
+						WRITE(p, "  %sv_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy, 0.0);\n", compat.vsOutPrefix);
 				} else {
-					if (hasTexcoord) {
-						if (doBezier || doSpline)
-							WRITE(p, "  %sv_texcoord = vec3(tess.tex.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
-						else
-							WRITE(p, "  %sv_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
-					} else {
-						WRITE(p, "  %sv_texcoord = vec3(u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
-					}
+					if (doBezier || doSpline)
+						WRITE(p, "  %sv_texcoord = vec3(tess.tex.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
+					else
+						WRITE(p, "  %sv_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
 				}
 				break;
 
@@ -1237,14 +1219,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{
 							// prescale is false here.
-							if (hasTexcoord) {
-								if (doBezier || doSpline)
-									temp_tc = "vec4(tess.tex.xy, 0.0, 1.0)";
-								else
-									temp_tc = "vec4(texcoord.xy, 0.0, 1.0)";
-							} else {
-								temp_tc = "vec4(0.0, 0.0, 0.0, 1.0)";
-							}
+							if (doBezier || doSpline)
+								temp_tc = "vec4(tess.tex.xy, 0.0, 1.0)";
+							else
+								temp_tc = "vec4(texcoord.xy, 0.0, 1.0)";
 						}
 						break;
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source

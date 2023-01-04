@@ -19,7 +19,6 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	if (id.Bit(VS_BIT_IS_THROUGH)) desc << "THR ";
 	if (id.Bit(VS_BIT_USE_HW_TRANSFORM)) desc << "HWX ";
 	if (id.Bit(VS_BIT_HAS_COLOR)) desc << "C ";
-	if (id.Bit(VS_BIT_HAS_TEXCOORD)) desc << "T ";
 	if (id.Bit(VS_BIT_HAS_NORMAL)) desc << "N ";
 	if (id.Bit(VS_BIT_LMODE)) desc << "LM ";
 	if (id.Bit(VS_BIT_NORM_REVERSE)) desc << "RevN ";
@@ -76,7 +75,6 @@ void ComputeVertexShaderID(VShaderID *id_out, VertexDecoder *vertexDecoder, bool
 
 	bool vtypeHasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool vtypeHasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
-	bool vtypeHasTexcoord = (vertType & GE_VTYPE_TC_MASK) != 0;
 
 	bool doBezier = gstate_c.submitType == SubmitType::HW_BEZIER;
 	bool doSpline = gstate_c.submitType == SubmitType::HW_SPLINE;
@@ -147,7 +145,6 @@ void ComputeVertexShaderID(VShaderID *id_out, VertexDecoder *vertexDecoder, bool
 		}
 
 		id.SetBit(VS_BIT_NORM_REVERSE, gstate.areNormalsReversed());
-		id.SetBit(VS_BIT_HAS_TEXCOORD, vtypeHasTexcoord);
 
 		if (useHWTessellation) {
 			id.SetBit(VS_BIT_BEZIER, doBezier);

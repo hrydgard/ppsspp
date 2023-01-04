@@ -40,6 +40,7 @@ static const ARM64Reg dstReg = X1;
 
 static const ARM64Reg counterReg = W2;
 static const ARM64Reg tempReg1 = W3;
+static const ARM64Reg tempReg1_64 = X3;
 static const ARM64Reg tempRegPtr = X3;
 static const ARM64Reg tempReg2 = W4;
 static const ARM64Reg tempReg3 = W5;
@@ -85,6 +86,8 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU8Skin, &VertexDecoderJitCache::Jit_WeightsU8Skin},
 	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
 	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
+
+	{&VertexDecoder::Step_TcDefault, &VertexDecoderJitCache::Jit_TcDefault},
 
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
 	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
@@ -590,6 +593,11 @@ void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 	fp.UXTL(16, neonScratchRegQ, neonScratchRegD); // Widen to 32-bit
 	fp.UCVTF(32, neonScratchRegD, neonScratchRegD);
 	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
+}
+
+void VertexDecoderJitCache::Jit_TcDefault() {
+	MOVI2R(tempReg1_64, 0);
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcFloatThrough() {

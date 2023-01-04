@@ -109,6 +109,8 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
 	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
 
+	{&VertexDecoder::Step_TcDefault, &VertexDecoderJitCache::Jit_TcDefault},
+
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
 	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
 	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
@@ -485,6 +487,12 @@ void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 		VLD1(F_32, neonWeightRegsD[0], srcReg, (dec_->nweights + 1) / 2);
 	}
 	Jit_ApplyWeights();
+}
+
+void VertexDecoderJitCache::Jit_TcDefault() {
+	MOVI(tempReg1, 0);
+	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
+	STR(tempReg1, dstReg, dec_->decFmt.uvoff + 4);
 }
 
 void VertexDecoderJitCache::Jit_TcFloat() {

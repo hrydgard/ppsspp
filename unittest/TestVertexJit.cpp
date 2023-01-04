@@ -32,8 +32,7 @@ class VertexDecoderTestHarness {
 	static const int ROUNDS = 200;
 
 public:
-	VertexDecoderTestHarness()
-		: dec_(nullptr), needsReset_(true), dstPos_(0), assertFailed_(false) {
+	VertexDecoderTestHarness() {
 		src_ = new u8[BUFFER_SIZE];
 		dst_ = new u8[BUFFER_SIZE];
 		cache_ = new VertexDecoderJitCache();
@@ -285,13 +284,13 @@ private:
 	u8 *dst_;
 	VertexDecoderJitCache *cache_;
 	VertexDecoderOptions options_;
-	VertexDecoder *dec_;
+	VertexDecoder *dec_ = nullptr;
 	int indexLowerBound_;
 	int indexUpperBound_;
-	bool needsReset_;
-	size_t srcPos_;
-	size_t dstPos_;
-	bool assertFailed_;
+	bool needsReset_ = true;
+	size_t srcPos_ = 0;
+	size_t dstPos_ = 0;
+	bool assertFailed_ = false;
 };
 
 static bool TestVertex8() {

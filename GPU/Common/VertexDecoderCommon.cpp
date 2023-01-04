@@ -270,9 +270,15 @@ void VertexDecoder::Step_WeightsFloatSkin() const {
 	ComputeSkinMatrix(wdata);
 }
 
+void VertexDecoder::Step_TcDefault() const
+{
+	uint64_t *uv = (uint64_t *)(decoded_ + decFmt.uvoff);
+	// Write two zero floats in one instruction.
+	*uv = 0;
+}
+
 void VertexDecoder::Step_TcU8ToFloat() const
 {
-	// u32 to write two bytes of zeroes for free.
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u8 *uvdata = (const u8*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * (1.0f / 128.0f);
@@ -1163,6 +1169,11 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 			decFmt.uvfmt = DEC_FLOAT_2;
 		}
 
+		decFmt.uvoff = decOff;
+		decOff += DecFmtSize(decFmt.uvfmt);
+	} else if (options.injectDummyUVIfMissing) {
+		steps_[numSteps_++] = &VertexDecoder::Step_TcDefault;
+		decFmt.uvfmt = DEC_FLOAT_2;
 		decFmt.uvoff = decOff;
 		decOff += DecFmtSize(decFmt.uvfmt);
 	}
