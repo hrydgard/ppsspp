@@ -246,22 +246,6 @@ jclass findClass(const char* name) {
 	return static_cast<jclass>(getEnv()->CallObjectMethod(gClassLoader, gFindClassMethod, getEnv()->NewStringUTF(name)));
 }
 
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
-	INFO_LOG(SYSTEM, "JNI_OnLoad");
-	gJvm = pjvm;  // cache the JavaVM pointer
-	auto env = getEnv();
-	//replace with one of your classes in the line below
-	auto randomClass = env->FindClass("org/ppsspp/ppsspp/NativeActivity");
-	jclass classClass = env->GetObjectClass(randomClass);
-	auto classLoaderClass = env->FindClass("java/lang/ClassLoader");
-	auto getClassLoaderMethod = env->GetMethodID(classClass, "getClassLoader",
-												 "()Ljava/lang/ClassLoader;");
-	gClassLoader = env->NewGlobalRef(env->CallObjectMethod(randomClass, getClassLoaderMethod));
-	gFindClassMethod = env->GetMethodID(classLoaderClass, "findClass",
-										"(Ljava/lang/String;)Ljava/lang/Class;");
-	return JNI_VERSION_1_6;
-}
-
 void Android_AttachThreadToJNI() {
 	JNIEnv *env;
 	int status = gJvm->GetEnv((void **)&env, JNI_VERSION_1_6);
@@ -287,6 +271,24 @@ void Android_DetachThreadFromJNI() {
 	} else {
 		WARN_LOG(SYSTEM, "Failed to detach thread '%s' from JNI - never attached?", GetCurrentThreadName());
 	}
+}
+
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
+	INFO_LOG(SYSTEM, "JNI_OnLoad");
+	gJvm = pjvm;  // cache the JavaVM pointer
+	auto env = getEnv();
+	//replace with one of your classes in the line below
+	auto randomClass = env->FindClass("org/ppsspp/ppsspp/NativeActivity");
+	jclass classClass = env->GetObjectClass(randomClass);
+	auto classLoaderClass = env->FindClass("java/lang/ClassLoader");
+	auto getClassLoaderMethod = env->GetMethodID(classClass, "getClassLoader",
+												 "()Ljava/lang/ClassLoader;");
+	gClassLoader = env->NewGlobalRef(env->CallObjectMethod(randomClass, getClassLoaderMethod));
+	gFindClassMethod = env->GetMethodID(classLoaderClass, "findClass",
+										"(Ljava/lang/String;)Ljava/lang/Class;");
+
+	RegisterAttachDetach(&Android_AttachThreadToJNI, &Android_DetachThreadFromJNI);
+	return JNI_VERSION_1_6;
 }
 
 // Only used in OpenGL mode.

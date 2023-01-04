@@ -14,6 +14,10 @@ const char *GetCurrentThreadName();
 // exactly what it is is badly specified and not useful for anything.
 int GetCurrentThreadIdForDebug();
 
+typedef void (*AttachDetachFunc)();
+
+void RegisterAttachDetach(AttachDetachFunc attach, AttachDetachFunc detach);
+
 // When you know that a thread potentially will make JNI calls, call this after setting its name.
 void AttachThreadToJNI();
 

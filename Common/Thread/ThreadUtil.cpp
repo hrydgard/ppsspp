@@ -28,6 +28,27 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 
+AttachDetachFunc g_attach;
+AttachDetachFunc g_detach;
+
+void AttachThreadToJNI() {
+	if (g_attach) {
+		g_attach();
+	}
+}
+
+
+void DetachThreadFromJNI() {
+	if (g_detach) {
+		g_detach();
+	}
+}
+
+void RegisterAttachDetach(AttachDetachFunc attach, AttachDetachFunc detach) {
+	g_attach = attach;
+	g_detach = detach;
+}
+
 #if (PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)) && !defined(_GNU_SOURCE)
 #define _GNU_SOURCE
 #endif
@@ -66,23 +87,6 @@ static EXCEPTION_DISPOSITION NTAPI ignore_handler(EXCEPTION_RECORD *rec,
 	return ExceptionContinueExecution;
 }
 #endif
-
-void AttachThreadToJNI() {
-#if PPSSPP_PLATFORM(ANDROID)
-	Android_AttachThreadToJNI();
-#else
-	// Do nothing
-#endif
-}
-
-
-void DetachThreadFromJNI() {
-#if PPSSPP_PLATFORM(ANDROID)
-	Android_DetachThreadFromJNI();
-#else
-	// Do nothing
-#endif
-}
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 typedef HRESULT (WINAPI *TSetThreadDescription)(HANDLE, PCWSTR);
