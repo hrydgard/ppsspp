@@ -938,7 +938,7 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 // as sometimes these features might have an effect on the ID bits.
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 17
+#define CACHE_VERSION 18
 struct CacheHeader {
 	uint32_t magic;
 	uint32_t version;
