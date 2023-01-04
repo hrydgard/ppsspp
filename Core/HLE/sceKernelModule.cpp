@@ -285,7 +285,7 @@ public:
 
 	void DoState(PointerWrap &p) override
 	{
-		auto s = p.Section("Module", 1, 5);
+		auto s = p.Section("Module", 1, 6);
 		if (!s)
 			return;
 
@@ -300,6 +300,9 @@ public:
 			pnm->modid = GetUID();
 			memcpy(((uint8_t *)pnm) + 0x30, ((uint8_t *)ptemp) + 0x2C, 0xC0 - 0x2C);
 		}
+
+		if (s >= 6)
+			Do(p, crc);
 
 		Do(p, memoryBlockAddr);
 		Do(p, memoryBlockSize);
@@ -458,6 +461,7 @@ public:
 
 	u32 memoryBlockAddr = 0;
 	u32 memoryBlockSize = 0;
+	u32 crc = 0;
 	PSPPointer<NativeModule> modulePtr;
 	bool isFake = false;
 };
@@ -1144,12 +1148,12 @@ static int gzipDecompress(u8 *OutBuffer, int OutBufferLength, u8 *InBuffer) {
 }
 
 static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, u32 &error) {
-	u32 crc = crc32(0, ptr, (uInt)elfSize);
 	PSPModule *module = new PSPModule();
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());
 	memset(&module->nm, 0, sizeof(module->nm));
 
+	module->crc = crc32(0, ptr, (uInt)elfSize);
 	module->nm.modid = module->GetUID();
 
 	bool reportedModule = false;
@@ -1173,14 +1177,14 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 		if (IsHLEVersionedModule(head->modname)) {
 			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
-			INFO_LOG(SCEMODULE, "Loading module %s with version %04x, devkit %08x, crc %x", head->modname, ver, head->devkitversion, crc);
+			INFO_LOG(SCEMODULE, "Loading module %s with version %04x, devkit %08x, crc %x", head->modname, ver, head->devkitversion, module->crc);
 			reportedModule = true;
 
 			if (!strcmp(head->modname, "sceMpeg_library")) {
-				__MpegLoadModule(ver, crc);
+				__MpegLoadModule(ver, module->crc);
 			}
 			if (!strcmp(head->modname, "scePsmfP_library") || !strcmp(head->modname, "scePsmfPlayer")) {
-				__PsmfPlayerLoadModule(head->devkitversion, crc);
+				__PsmfPlayerLoadModule(head->devkitversion, module->crc);
 			}
 		}
 
@@ -1614,10 +1618,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		INFO_LOG(SCEMODULE, "Loading module %s with version %04x, devkit %08x", modinfo->name, modinfo->moduleVersion, devkitVersion);
 
 		if (!strcmp(modinfo->name, "sceMpeg_library")) {
-			__MpegLoadModule(modinfo->moduleVersion, crc);
+			__MpegLoadModule(modinfo->moduleVersion, module->crc);
 		}
 		if (!strcmp(modinfo->name, "scePsmfP_library") || !strcmp(modinfo->name, "scePsmfPlayer")) {
-			__PsmfPlayerLoadModule(devkitVersion, crc);
+			__PsmfPlayerLoadModule(devkitVersion, module->crc);
 		}
 	}
 
@@ -1827,9 +1831,14 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	host->NotifySymbolMapUpdated();
 
+	char moduleName[29] = { 0 };
+	int moduleVersion = module->nm.version[0] | (module->nm.version[1] << 8);
+	truncate_cpy(moduleName, module->nm.name);
+	Reporting::NotifyExecModule(moduleName, moduleVersion, module->crc);
+
 	mipsr4k.pc = module->nm.entry_addr;
 
-	INFO_LOG(LOADER, "Module entry: %08x", mipsr4k.pc);
+	INFO_LOG(LOADER, "Module entry: %08x (%s %04x)", mipsr4k.pc, moduleName, moduleVersion);
 
 	SceKernelSMOption option;
 	option.size = sizeof(SceKernelSMOption);
