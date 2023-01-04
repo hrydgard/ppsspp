@@ -497,7 +497,7 @@ VulkanGeometryShader *ShaderManagerVulkan::GetGeometryShaderFromModule(VkShaderM
 // instantaneous.
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 33
+#define CACHE_VERSION 34
 struct VulkanCacheHeader {
 	uint32_t magic;
 	uint32_t version;
