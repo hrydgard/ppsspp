@@ -19,7 +19,6 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	if (id.Bit(VS_BIT_IS_THROUGH)) desc << "THR ";
 	if (id.Bit(VS_BIT_USE_HW_TRANSFORM)) desc << "HWX ";
 	if (id.Bit(VS_BIT_HAS_COLOR)) desc << "C ";
-	if (id.Bit(VS_BIT_HAS_NORMAL)) desc << "N ";
 	if (id.Bit(VS_BIT_LMODE)) desc << "LM ";
 	if (id.Bit(VS_BIT_NORM_REVERSE)) desc << "RevN ";
 	int uvgMode = id.Bits(VS_BIT_UVGEN_MODE, 2);
@@ -74,14 +73,9 @@ void ComputeVertexShaderID(VShaderID *id_out, VertexDecoder *vertexDecoder, bool
 	bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT && !gstate.isModeClear();
 
 	bool vtypeHasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
-	bool vtypeHasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
 
 	bool doBezier = gstate_c.submitType == SubmitType::HW_BEZIER;
 	bool doSpline = gstate_c.submitType == SubmitType::HW_SPLINE;
-
-	if (doBezier || doSpline) {
-		_assert_(vtypeHasNormal);
-	}
 
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough && !gstate.isModeClear();
 	bool vertexRangeCulling = gstate_c.Use(GPU_USE_VS_RANGE_CULLING) &&
@@ -103,7 +97,6 @@ void ComputeVertexShaderID(VShaderID *id_out, VertexDecoder *vertexDecoder, bool
 
 	if (useHWTransform) {
 		id.SetBit(VS_BIT_USE_HW_TRANSFORM);
-		id.SetBit(VS_BIT_HAS_NORMAL, vtypeHasNormal);
 
 		// The next bits are used differently depending on UVgen mode
 		if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {

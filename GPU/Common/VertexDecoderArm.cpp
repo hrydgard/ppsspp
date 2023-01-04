@@ -490,7 +490,7 @@ void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 }
 
 void VertexDecoderJitCache::Jit_TcDefault() {
-	MOVI(tempReg1, 0);
+	MOVI2R(tempReg1, 0);
 	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 	STR(tempReg1, dstReg, dec_->decFmt.uvoff + 4);
 }
@@ -846,6 +846,22 @@ void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 		MOV(fullAlphaReg, 0);
 		SetCC(CC_AL);
 	}
+}
+
+void VertexDecoderJitCache::Jit_NormalDefaultS8() {
+	// Directly write the immediate to where it goes.
+	MOVI2R(tempReg1, 0x007F0000);
+	STR(tempReg1, dstReg, dec_->decFmt.nrmoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalDefaultFloat() {
+	// Directly write the immediate to where it goes.
+	MOVI2R(tempReg1, 0x00000000);
+	MOVI2R(tempReg2, 0x3F800000);
+
+	STR(tempReg1, dstReg, dec_->decFmt.nrmoff);
+	STR(tempReg1, dstReg, dec_->decFmt.nrmoff + 4);
+	STR(tempReg2, dstReg, dec_->decFmt.nrmoff + 8);
 }
 
 void VertexDecoderJitCache::Jit_NormalS8() {

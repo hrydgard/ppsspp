@@ -603,6 +603,24 @@ void VertexDecoder::Step_Color8888Morph() const
 	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (int)col[3] >= 255;
 }
 
+// Writes in packed s8 format.
+void VertexDecoder::Step_NormalDefaultS8() const
+{
+	s8 *normal = (s8 *)(decoded_ + decFmt.nrmoff);
+	normal[0] = 0;
+	normal[1] = 0;
+	normal[2] = 127;
+	normal[3] = 0;
+}
+
+void VertexDecoder::Step_NormalDefaultFloat() const
+{
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	normal[0] = 0.0f;
+	normal[1] = 0.0f;
+	normal[2] = 1.0f;
+}
+
 void VertexDecoder::Step_NormalS8() const
 {
 	s8 *normal = (s8 *)(decoded_ + decFmt.nrmoff);
@@ -1234,6 +1252,11 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 				steps_[numSteps_++] = nrmstep_morph[nrm];
 			}
 		}
+		decFmt.nrmoff = decOff;
+		decOff += DecFmtSize(decFmt.nrmfmt);
+	} else if (options.injectDummyNormalIfMissing) {
+		steps_[numSteps_++] = options.expand8BitNormalsToFloat ? &VertexDecoder::Step_NormalDefaultFloat : &VertexDecoder::Step_NormalDefaultS8;
+		decFmt.nrmfmt = options.expand8BitNormalsToFloat ? DEC_FLOAT_3 : DEC_S8_3;
 		decFmt.nrmoff = decOff;
 		decOff += DecFmtSize(decFmt.nrmfmt);
 	}

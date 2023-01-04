@@ -713,6 +713,19 @@ void VertexDecoderJitCache::Jit_PosFloatThrough() {
 	fp.STUR(32, neonScratchRegD, dstReg, dec_->decFmt.posoff + 8);
 }
 
+void VertexDecoderJitCache::Jit_NormalDefaultS8() {
+	MOVI2R(tempReg1, 0x007F0000);
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.nrmoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalDefaultFloat() {
+	MOVI2R(tempReg1, 0x00000000);
+	MOVI2R(tempReg2, 0x3F800000);
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.nrmoff);
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.nrmoff + 4);
+	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.nrmoff + 8);
+}
+
 void VertexDecoderJitCache::Jit_NormalS8() {
 	LDURH(tempReg1, srcReg, dec_->nrmoff);
 	LDRB(INDEX_UNSIGNED, tempReg3, srcReg, dec_->nrmoff + 2);

@@ -325,6 +325,7 @@ struct VertexDecoderOptions {
 	bool expand8BitNormalsToFloat;
 	bool applySkinInDecode;
 	bool injectDummyUVIfMissing;
+	bool injectDummyNormalIfMissing;
 };
 
 class VertexDecoder {
@@ -389,6 +390,9 @@ public:
 	void Step_Color565Morph() const;
 	void Step_Color5551Morph() const;
 	void Step_Color8888Morph() const;
+
+	void Step_NormalDefaultS8() const;
+	void Step_NormalDefaultFloat() const;
 
 	void Step_NormalS8() const;
 	void Step_NormalS8ToFloat() const;
@@ -538,6 +542,9 @@ public:
 	void Jit_Color4444();
 	void Jit_Color565();
 	void Jit_Color5551();
+
+	void Jit_NormalDefaultS8();
+	void Jit_NormalDefaultFloat();
 
 	void Jit_NormalS8();
 	void Jit_NormalS8ToFloat();

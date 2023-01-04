@@ -40,6 +40,7 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(16) {
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	decOptions_.injectDummyUVIfMissing = true;
+	decOptions_.injectDummyNormalIfMissing = true;
 }
 
 DrawEngineCommon::~DrawEngineCommon() {

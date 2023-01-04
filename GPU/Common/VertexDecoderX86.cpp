@@ -123,6 +123,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcU16PrescaleMorph, &VertexDecoderJitCache::Jit_TcU16PrescaleMorph},
 	{&VertexDecoder::Step_TcFloatPrescaleMorph, &VertexDecoderJitCache::Jit_TcFloatPrescaleMorph},
 
+	{&VertexDecoder::Step_NormalDefaultFloat, &VertexDecoderJitCache::Jit_NormalDefaultFloat},
+	{&VertexDecoder::Step_NormalDefaultS8, &VertexDecoderJitCache::Jit_NormalDefaultS8},
+
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS8ToFloat, &VertexDecoderJitCache::Jit_NormalS8ToFloat},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
@@ -1278,6 +1281,18 @@ void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 	}
 
 	MOV(32, MDisp(dstReg, outOff), R(tempReg1));
+}
+
+void VertexDecoderJitCache::Jit_NormalDefaultS8() {
+	// Directly write the immediate to where it goes.
+	MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff), Imm32(0x007F0000));
+}
+
+void VertexDecoderJitCache::Jit_NormalDefaultFloat() {
+	// Directly write the immediate to where it goes.
+	MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff), Imm32(0));
+	MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff + 4), Imm32(0));
+	MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff + 8), Imm32(0x3F800000));  // 1.0
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.

@@ -185,7 +185,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
 	bool hasColor = id.Bit(VS_BIT_HAS_COLOR) || !useHWTransform;
-	bool hasNormal = id.Bit(VS_BIT_HAS_NORMAL) && useHWTransform;
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
@@ -203,7 +202,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool doBezier = id.Bit(VS_BIT_BEZIER) && !enableBones && useHWTransform;
 	bool doSpline = id.Bit(VS_BIT_SPLINE) && !enableBones && useHWTransform;
 	if (doBezier || doSpline) {
-		if (!hasNormal) {
+		if (!useHWTransform) {
 			// Bad usage.
 			*errorString = "Invalid flags - tess requires normal.";
 			return false;
@@ -264,7 +263,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		else
 			WRITE(p, "layout (location = %d) in vec4 position;\n", (int)PspAttributeLocation::POSITION);
 
-		if (useHWTransform && hasNormal)
+		if (useHWTransform)
 			WRITE(p, "layout (location = %d) in vec3 normal;\n", (int)PspAttributeLocation::NORMAL);
 		if (!useHWTransform)
 			WRITE(p, "layout (location = %d) in float fog;\n", (int)PspAttributeLocation::NORMAL);
@@ -381,9 +380,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (hasColor) {
 				WRITE(p, "  vec4 color0 : COLOR0;\n");
 			}
-			if (hasNormal) {
-				WRITE(p, "  vec3 normal : NORMAL;\n");
-			}
+			WRITE(p, "  vec3 normal : NORMAL;\n");
 			WRITE(p, "  vec3 position : POSITION;\n");
 			WRITE(p, "};\n");
 		} else {
@@ -450,7 +447,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "%s vec4 position;\n", compat.attribute);  // need to pass the fog coord in w
 		*attrMask |= 1 << ATTR_POSITION;
 
-		if (useHWTransform && hasNormal) {
+		if (useHWTransform) {
 			WRITE(p, "%s mediump vec3 normal;\n", compat.attribute);
 			*attrMask |= 1 << ATTR_NORMAL;
 		}
@@ -786,9 +783,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "  vec3 color1 = In.color1;\n");
 			}
 		}
-		if (hasNormal) {
-			WRITE(p, "  vec3 normal = In.normal;\n");
-		}
+		WRITE(p, "  vec3 normal = In.normal;\n");
 		if (useHWTransform) {
 			WRITE(p, "  vec3 position = In.position;\n");
 		} else {
@@ -865,10 +860,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			} else {
 				// No skinning, just standard T&L.
 				WRITE(p, "  vec3 worldpos = mul(vec4(position, 1.0), u_world).xyz;\n");
-				if (hasNormal)
-					WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(%snormal, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
-				else
-					WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(0.0, 0.0, %s1.0, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
+				WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(%snormal, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
 			}
 		} else {
 			static const char *rescale[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
@@ -902,11 +894,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec3 skinnedpos = mul(vec4(position, 1.0), skinMatrix).xyz%s;\n", factor);
 			WRITE(p, "  vec3 worldpos = mul(vec4(skinnedpos, 1.0), u_world).xyz;\n");
 
-			if (hasNormal) {
-				WRITE(p, "  mediump vec3 skinnednormal = mul(vec4(%snormal, 0.0), skinMatrix).xyz%s;\n", flipNormal ? "-" : "", factor);
-			} else {
-				WRITE(p, "  mediump vec3 skinnednormal = mul(vec4(0.0, 0.0, %s1.0, 0.0), skinMatrix).xyz%s;\n", flipNormal ? "-" : "", factor);
-			}
+			WRITE(p, "  mediump vec3 skinnednormal = mul(vec4(%snormal, 0.0), skinMatrix).xyz%s;\n", flipNormal ? "-" : "", factor);
 			WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(skinnednormal, 0.0), u_world).xyz);\n");
 		}
 
@@ -1228,18 +1216,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
 						if ((doBezier || doSpline) && hasNormalTess)
 							temp_tc = StringFromFormat("length(tess.nrm) == 0.0 ? vec4(0.0, 0.0, 0.0, 1.0) : vec4(normalize(%stess.nrm), 1.0)", flipNormalTess ? "-" : "");
-						else if (hasNormal)
-							temp_tc = StringFromFormat("length(normal) == 0.0 ? vec4(0.0, 0.0, 0.0, 1.0) : vec4(normalize(%snormal), 1.0)", flipNormal ? "-" : "");
 						else
-							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
+							temp_tc = StringFromFormat("length(normal) == 0.0 ? vec4(0.0, 0.0, 0.0, 1.0) : vec4(normalize(%snormal), 1.0)", flipNormal ? "-" : "");
 						break;
 					case GE_PROJMAP_NORMAL:  // Use non-normalized transformed normal as source
 						if ((doBezier || doSpline) && hasNormalTess)
 							temp_tc = flipNormalTess ? "vec4(-tess.nrm, 1.0)" : "vec4(tess.nrm, 1.0)";
-						else if (hasNormal)
-							temp_tc = flipNormal ? "vec4(-normal, 1.0)" : "vec4(normal, 1.0)";
 						else
-							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
+							temp_tc = flipNormal ? "vec4(-normal, 1.0)" : "vec4(normal, 1.0)";
 						break;
 					}
 					// Transform by texture matrix. XYZ as we are doing projection mapping.

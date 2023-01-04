@@ -18,7 +18,7 @@ enum VShaderBit : uint8_t {
 	VS_BIT_SIMPLE_STEREO = 6,
 	// 7 is free.
 	VS_BIT_USE_HW_TRANSFORM = 8,
-	VS_BIT_HAS_NORMAL = 9,  // conditioned on hw transform
+	// 9 is free
 	VS_BIT_NORM_REVERSE = 10,
 	VS_BIT_HAS_COLOR_TESS = 12,  // 1 bit
 	VS_BIT_HAS_TEXCOORD_TESS = 13,  // 1 bit
