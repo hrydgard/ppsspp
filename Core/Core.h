@@ -101,9 +101,9 @@ enum class ExecExceptionType {
 };
 
 // Separate one for without info, to avoid having to allocate a string
-void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type);
+void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type);
 
-void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std::string additionalInfo, bool forceReport);
+void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string additionalInfo, bool forceReport);
 
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type);
 void Core_Break(u32 pc);
@@ -125,6 +125,7 @@ struct ExceptionInfo {
 	MemoryExceptionType memory_type;
 	uint32_t pc;
 	uint32_t address;
+	uint32_t accessSize;
 	uint32_t ra = 0;
 
 	// Reuses pc and address from memory type, where address is the failed destination.
