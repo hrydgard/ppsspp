@@ -1271,9 +1271,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		// Compute fogdepth
 		WRITE(p, "  if (u_fogcoef.x <= -65535.0 && u_fogcoef.y <= -65535.0) {\n");
-		WRITE(p, "    %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
-		WRITE(p, "  } else {\n");
 		WRITE(p, "    %sv_fogdepth = 1.0;\n", compat.vsOutPrefix);
+		WRITE(p, "  } else {\n");
+		WRITE(p, "    %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
 		WRITE(p, "  }\n");
 	}
 
