@@ -223,6 +223,8 @@ void KeepScreenAwake() {
 }
 
 void Core_RunLoop(GraphicsContext *ctx) {
+	float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
+
 	graphicsContext = ctx;
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
 		// In case it was pending, we're not in game anymore.  We won't get to Core_Run().
@@ -232,7 +234,7 @@ void Core_RunLoop(GraphicsContext *ctx) {
 
 		// Simple throttling to not burn the GPU in the menu.
 		double diffTime = time_now_d() - startTime;
-		int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
+		int sleepTime = (int)(1000.0 / refreshRate) - (int)(diffTime * 1000.0);
 		if (sleepTime > 0)
 			sleep_ms(sleepTime);
 		if (!windowHidden) {

@@ -280,6 +280,19 @@ static int ScreenDPI() {
 #endif
 #endif
 
+static int ScreenRefreshRateHz() {
+	DEVMODE lpDevMode;
+	memset(&lpDevMode, 0, sizeof(DEVMODE));
+	lpDevMode.dmSize = sizeof(DEVMODE);
+	lpDevMode.dmDriverExtra = 0;
+
+	if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &lpDevMode) == 0) {
+		return 60;  // default value
+	} else {
+		return lpDevMode.dmDisplayFrequency > 15 ? lpDevMode.dmDisplayFrequency : 60;
+	}
+}
+
 int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
@@ -311,7 +324,7 @@ int System_GetPropertyInt(SystemProperty prop) {
 float System_GetPropertyFloat(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return 60.f;
+		return (float)ScreenRefreshRateHz();
 	case SYSPROP_DISPLAY_DPI:
 		return (float)ScreenDPI();
 	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
