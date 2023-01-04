@@ -84,6 +84,12 @@ static bool DisassembleNativeAt(const uint8_t *codePtr, int instructionSize, std
 		*dest = lines[0];
 		return true;
 	}
+#elif PPSSPP_ARCH(RISCV64)
+	auto lines = DisassembleRV64(codePtr, instructionSize);
+	if (!lines.empty()) {
+		*dest = lines[0];
+		return true;
+	}
 #endif
 	return false;
 }

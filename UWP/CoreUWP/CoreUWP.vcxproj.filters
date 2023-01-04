@@ -62,6 +62,9 @@
     <Filter Include="Ext\disarm">
       <UniqueIdentifier>{e0604f48-5522-43e8-ba22-6d08bc2ccacd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Ext\riscv-disas">
+      <UniqueIdentifier>{e0604f48-5522-43e8-ba22-6d08bc2ccaee}</UniqueIdentifier>
+    </Filter>
     <Filter Include="MIPS\IR">
       <UniqueIdentifier>{9c6552c2-9858-41da-a920-31ea5628d417}</UniqueIdentifier>
     </Filter>
@@ -607,6 +610,9 @@
     </ClCompile>
     <ClCompile Include="..\..\ext\disarm.cpp">
       <Filter>Ext\disarm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\riscv-disas.cpp">
+      <Filter>Ext\riscv-disas</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\xxhash.c">
       <Filter>Ext</Filter>
@@ -1637,6 +1643,9 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\disarm.h">
       <Filter>Ext\disarm</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\riscv-disas.h">
+      <Filter>Ext\riscv-disas</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\xxhash.h">
       <Filter>Ext</Filter>
