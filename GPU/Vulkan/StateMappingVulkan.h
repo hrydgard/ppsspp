@@ -53,7 +53,8 @@ struct VulkanPipelineRasterStateKey {
 	unsigned int stencilDepthFailOp : 4;  // VkStencilOp 
 
 	// We'll use dynamic state for writemask, reference and comparemask to start with,
-	// and viewport/scissor.
+	// and viewport/scissor. There are further extensions for dynamic state which we should
+	// use if available, but not widespread on mobile yet.
 
 	// Rasterizer
 	unsigned int cullMode : 2;  // VkCullModeFlagBits 

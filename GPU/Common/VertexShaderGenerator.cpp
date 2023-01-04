@@ -184,7 +184,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE) && !flatBug;
 
 	bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
-	bool hasColor = id.Bit(VS_BIT_HAS_COLOR) || !useHWTransform;
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
@@ -275,11 +274,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "layout (location = %d) in vec2 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
 		}
 
-		if (hasColor) {
-			WRITE(p, "layout (location = %d) in vec4 color0;\n", (int)PspAttributeLocation::COLOR0);
-			if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
-				WRITE(p, "layout (location = %d) in vec3 color1;\n", (int)PspAttributeLocation::COLOR1);
-		}
+		WRITE(p, "layout (location = %d) in vec4 color0;\n", (int)PspAttributeLocation::COLOR0);
+		if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
+			WRITE(p, "layout (location = %d) in vec3 color1;\n", (int)PspAttributeLocation::COLOR1);
 
 		WRITE(p, "layout (location = 1) %sout lowp vec4 v_color0;\n", shading);
 		WRITE(p, "layout (location = 2) %sout lowp vec3 v_color1;\n", shading);
@@ -305,10 +302,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "float u_rotation : register(c%i);\n", CONST_VS_ROTATION);
 			}
 
-			if (useHWTransform)
-				WRITE(p, "vec2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
-			if (useHWTransform || !hasColor)
-				WRITE(p, "vec4 u_matambientalpha : register(c%i);\n", CONST_VS_MATAMBIENTALPHA);  // matambient + matalpha
+			WRITE(p, "vec2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
+			WRITE(p, "vec4 u_matambientalpha : register(c%i);\n", CONST_VS_MATAMBIENTALPHA);  // matambient + matalpha
 
 			if (useHWTransform) {
 				WRITE(p, "mat3x4 u_world : register(c%i);\n", CONST_VS_WORLD);
@@ -352,8 +347,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				}
 				if (enableLighting) {
 					WRITE(p, "vec4 u_ambient : register(c%i);\n", CONST_VS_AMBIENT);
-					if ((matUpdate & 2) == 0 || !hasColor)
-						WRITE(p, "vec3 u_matdiffuse : register(c%i);\n", CONST_VS_MATDIFFUSE);
+					WRITE(p, "vec3 u_matdiffuse : register(c%i);\n", CONST_VS_MATDIFFUSE);
 					// if ((matUpdate & 4) == 0)
 					WRITE(p, "vec4 u_matspecular : register(c%i);\n", CONST_VS_MATSPECULAR);  // Specular coef is contained in alpha
 					WRITE(p, "vec3 u_matemissive : register(c%i);\n", CONST_VS_MATEMISSIVE);
@@ -377,9 +371,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "  %s", boneWeightAttrDeclHLSL[numBoneWeights]);
 			}
 			WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
-			if (hasColor) {
-				WRITE(p, "  vec4 color0 : COLOR0;\n");
-			}
+			WRITE(p, "  vec4 color0 : COLOR0;\n");
 			WRITE(p, "  vec3 normal : NORMAL;\n");
 			WRITE(p, "  vec3 position : POSITION;\n");
 			WRITE(p, "};\n");
@@ -392,9 +384,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			} else {
 				WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
 			}
-			if (hasColor) {
-				WRITE(p, "  vec4 color0 : COLOR0;\n");
-			}
+			WRITE(p, "  vec4 color0 : COLOR0;\n");
 			// only software transform supplies color1 as vertex data
 			if (lmode) {
 				WRITE(p, "  vec3 color1 : COLOR1;\n");
@@ -464,13 +454,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 		*attrMask |= 1 << ATTR_TEXCOORD;
 
-		if (hasColor) {
-			WRITE(p, "%s lowp vec4 color0;\n", compat.attribute);
-			*attrMask |= 1 << ATTR_COLOR0;
-			if (lmode && !useHWTransform) { // only software transform supplies color1 as vertex data
-				WRITE(p, "%s lowp vec3 color1;\n", compat.attribute);
-				*attrMask |= 1 << ATTR_COLOR1;
-			}
+		WRITE(p, "%s lowp vec4 color0;\n", compat.attribute);
+		*attrMask |= 1 << ATTR_COLOR0;
+		if (lmode && !useHWTransform) { // only software transform supplies color1 as vertex data
+			WRITE(p, "%s lowp vec3 color1;\n", compat.attribute);
+			*attrMask |= 1 << ATTR_COLOR1;
 		}
 
 		if (isModeThrough) {
@@ -544,10 +532,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (enableLighting) {
 				WRITE(p, "uniform lowp vec4 u_ambient;\n");
 				*uniformMask |= DIRTY_AMBIENT;
-				if (lightUberShader || (matUpdate & 2) == 0 || !hasColor) {
-					WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
-					*uniformMask |= DIRTY_MATDIFFUSE;
-				}
+				WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
+				*uniformMask |= DIRTY_MATDIFFUSE;
 				WRITE(p, "uniform lowp vec4 u_matspecular;\n");  // Specular coef is contained in alpha
 				WRITE(p, "uniform lowp vec3 u_matemissive;\n");
 				*uniformMask |= DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE;
@@ -561,14 +547,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform lowp float u_scaleY;\n");
 		}
 
-		if (useHWTransform || !hasColor) {
-			WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
-			*uniformMask |= DIRTY_MATAMBIENTALPHA;
-		}
-		if (useHWTransform) {
-			WRITE(p, "uniform highp vec2 u_fogcoef;\n");
-			*uniformMask |= DIRTY_FOGCOEFENABLE;
-		}
+		WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
+		*uniformMask |= DIRTY_MATAMBIENTALPHA;
+		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
+		*uniformMask |= DIRTY_FOGCOEFENABLE;
 
 		if (!isModeThrough) {
 			WRITE(p, "uniform highp vec4 u_depthRange;\n");
@@ -777,11 +759,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		} else {
 			WRITE(p, "  vec2 texcoord = In.texcoord;\n");
 		}
-		if (hasColor) {
-			WRITE(p, "  vec4 color0 = In.color0;\n");
-			if (lmode && !useHWTransform) {
-				WRITE(p, "  vec3 color1 = In.color1;\n");
-			}
+		WRITE(p, "  vec4 color0 = In.color0;\n");
+		if (lmode && !useHWTransform) {
+			WRITE(p, "  vec3 color1 = In.color1;\n");
 		}
 		WRITE(p, "  vec3 normal = In.normal;\n");
 		if (useHWTransform) {
@@ -804,16 +784,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		} else {
 			WRITE(p, "  %sv_texcoord = vec3(texcoord, 1.0);\n", compat.vsOutPrefix);
 		}
-		if (hasColor) {
-			WRITE(p, "  %sv_color0 = color0;\n", compat.vsOutPrefix);
-			if (lmode)
-				WRITE(p, "  %sv_color1 = color1;\n", compat.vsOutPrefix);
-			else
-				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
-		} else {
-			WRITE(p, "  %sv_color0 = u_matambientalpha;\n", compat.vsOutPrefix);
+		WRITE(p, "  %sv_color0 = color0;\n", compat.vsOutPrefix);
+		if (lmode)
+			WRITE(p, "  %sv_color1 = color1;\n", compat.vsOutPrefix);
+		else
 			WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
-		}
 		WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
 		if (isModeThrough)	{
 			// The proj_through matrix already has the rotation, if needed.
@@ -930,7 +905,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			srcCol = "tess.col";
 		}
 
-		if (lightUberShader && hasColor) {
+		if (lightUberShader) {
 			p.F("  vec4 ambientColor = ((u_lightControl & (1u << 0x14u)) != 0x0u) ? %s : u_matambientalpha;\n", srcCol);
 			if (enableLighting) {
 				p.F("  vec3 diffuseColor = ((u_lightControl & (1u << 0x15u)) != 0x0u) ? %s.rgb : u_matdiffuse;\n", srcCol);
@@ -938,10 +913,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 		} else {
 			// This path also takes care of the lightUberShader && !hasColor path, because all comparisons fail.
-			p.F("  vec4 ambientColor = %s;\n", (matUpdate & 1) && hasColor ? srcCol : "u_matambientalpha");
+			p.F("  vec4 ambientColor = %s;\n", (matUpdate & 1) ? srcCol : "u_matambientalpha");
 			if (enableLighting) {
-				p.F("  vec3 diffuseColor = %s.rgb;\n", (matUpdate & 2) && hasColor ? srcCol : "u_matdiffuse");
-				p.F("  vec3 specularColor = %s.rgb;\n", (matUpdate & 4) && hasColor ? srcCol : "u_matspecular");
+				p.F("  vec3 diffuseColor = %s.rgb;\n", (matUpdate & 2) ? srcCol : "u_matdiffuse");
+				p.F("  vec3 specularColor = %s.rgb;\n", (matUpdate & 4) ? srcCol : "u_matspecular");
 			}
 		}
 
@@ -1160,17 +1135,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 		} else {
 			// Lighting doesn't affect color.
-			if (hasColor) {
-				if (doBezier || doSpline)
-					WRITE(p, "  %sv_color0 = tess.col;\n", compat.vsOutPrefix);
-				else
-					WRITE(p, "  %sv_color0 = color0;\n", compat.vsOutPrefix);
-			} else {
-				WRITE(p, "  %sv_color0 = u_matambientalpha;\n", compat.vsOutPrefix);
-				if (bugs.Has(Draw::Bugs::MALI_CONSTANT_LOAD_BUG) && g_Config.bVendorBugChecksEnabled) {
-					WRITE(p, "  %sv_color0.r += 0.000001;\n", compat.vsOutPrefix);
-				}
-			}
+			if (doBezier || doSpline)
+				WRITE(p, "  %sv_color0 = tess.col;\n", compat.vsOutPrefix);
+			else
+				WRITE(p, "  %sv_color0 = color0;\n", compat.vsOutPrefix);
 			WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 		}
 

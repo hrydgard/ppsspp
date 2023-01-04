@@ -496,6 +496,13 @@ void VertexDecoder::Step_ColorInvalid() const
 	// Do nothing.  This is only here to prevent crashes.
 }
 
+void VertexDecoder::Step_ColorDefault() const
+{
+	u32 color = gstate.getMaterialAmbientRGBA();
+	u32 *c = (u32 *)(decoded_ + decFmt.c0off);
+	*c = color;
+}
+
 void VertexDecoder::Step_Color565() const
 {
 	u8 *c = decoded_ + decFmt.c0off;
@@ -1207,6 +1214,11 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 
 		// All color formats decode to DEC_U8_4 currently.
 		// They can become floats later during transform though.
+		decFmt.c0fmt = DEC_U8_4;
+		decFmt.c0off = decOff;
+		decOff += DecFmtSize(decFmt.c0fmt);
+	} else if (options.injectDummyColorIfMissing) {
+		steps_[numSteps_++] = &VertexDecoder::Step_ColorDefault;
 		decFmt.c0fmt = DEC_U8_4;
 		decFmt.c0off = decOff;
 		decOff += DecFmtSize(decFmt.c0fmt);

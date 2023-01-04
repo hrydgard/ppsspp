@@ -326,6 +326,7 @@ struct VertexDecoderOptions {
 	bool applySkinInDecode;
 	bool injectDummyUVIfMissing;
 	bool injectDummyNormalIfMissing;
+	bool injectDummyColorIfMissing;
 };
 
 class VertexDecoder {
@@ -381,6 +382,7 @@ public:
 	void Step_TcFloatPrescaleMorph() const;
 
 	void Step_ColorInvalid() const;
+	void Step_ColorDefault() const;
 	void Step_Color4444() const;
 	void Step_Color565() const;
 	void Step_Color5551() const;
@@ -537,6 +539,8 @@ public:
 
 	void Jit_TcU16ThroughToFloat();
 	void Jit_TcFloatThrough();
+
+	void Jit_ColorDefault();
 
 	void Jit_Color8888();
 	void Jit_Color4444();

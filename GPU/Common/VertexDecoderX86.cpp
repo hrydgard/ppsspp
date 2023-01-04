@@ -60,6 +60,7 @@ static const X64Reg tempReg3 = R10;
 static const X64Reg srcReg = RCX;
 static const X64Reg dstReg = RDX;
 static const X64Reg counterReg = R8;
+static const X64Reg ambientAlphaReg = R11;
 #else
 static const X64Reg tempReg1 = RAX;
 static const X64Reg tempReg2 = R9;
@@ -67,6 +68,7 @@ static const X64Reg tempReg3 = R10;
 static const X64Reg srcReg = RDI;
 static const X64Reg dstReg = RSI;
 static const X64Reg counterReg = RDX;
+static const X64Reg ambientAlphaReg = R11;
 #endif
 #else
 static const X64Reg tempReg1 = EAX;
@@ -75,6 +77,7 @@ static const X64Reg tempReg3 = EDX;
 static const X64Reg srcReg = ESI;
 static const X64Reg dstReg = EDI;
 static const X64Reg counterReg = ECX;
+static const X64Reg ambientAlphaReg = EBP;
 #endif
 
 // XMM0-XMM5 are volatile on Windows X64
@@ -134,6 +137,8 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_NormalS8Skin, &VertexDecoderJitCache::Jit_NormalS8Skin},
 	{&VertexDecoder::Step_NormalS16Skin, &VertexDecoderJitCache::Jit_NormalS16Skin},
 	{&VertexDecoder::Step_NormalFloatSkin, &VertexDecoderJitCache::Jit_NormalFloatSkin},
+
+	{&VertexDecoder::Step_ColorDefault, &VertexDecoderJitCache::Jit_ColorDefault},
 
 	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
 	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
@@ -259,6 +264,21 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			MULPS(fpScaleOffsetReg, MatR(tempReg2));
 		}
 	}
+
+	// Precompute ambient alpha color.
+	// NOTE: Don't always need to do this.
+	if (RipAccessible(&gstate.materialambient)) {
+		MOV(32, R(tempReg1), M(&gstate.materialambient));  // rip accessible
+		MOV(32, R(tempReg2), M(&gstate.materialalpha));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg2), ImmPtr(&gstate.materialambient));
+		MOV(32, R(tempReg1), MatR(tempReg2));
+		MOV(32, R(tempReg2), MDisp(tempReg2, 12));
+	}
+	SHL(32, R(tempReg2), Imm8(24));
+	AND(32, R(tempReg1), Imm32(0xFFFFFF));
+	OR(32, R(tempReg2), R(tempReg1));
+	MOV(32, R(ambientAlphaReg), R(tempReg2));
 
 	// Let's not bother with a proper stack frame. We just grab the arguments and go.
 	JumpTarget loopStart = GetCodePtr();
@@ -932,6 +952,11 @@ void VertexDecoderJitCache::Jit_TcFloatThrough() {
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff + 4), R(tempReg2));
 #endif
+}
+
+// TODO: put together the materialambientalpha color somewhere else.
+void VertexDecoderJitCache::Jit_ColorDefault() {
+	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(ambientAlphaReg));
 }
 
 void VertexDecoderJitCache::Jit_Color8888() {
