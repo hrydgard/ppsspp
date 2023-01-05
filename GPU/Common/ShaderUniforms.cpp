@@ -274,6 +274,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 }
 
+// For "light ubershader" bits.
 uint32_t PackLightControlBits() {
 	// Bit organization
 	// Bottom 4 bits are enable bits for each light.
@@ -292,8 +293,10 @@ uint32_t PackLightControlBits() {
 		lightControl |= type << (4 + i * 4 + 2);
 	}
 
+	// Material update is 3 bits.
 	lightControl |= gstate.getMaterialUpdate() << 20;
-
+	// LMODE is 1 bit.
+	lightControl |= gstate.isUsingSecondaryColor() << 23;
 	return lightControl;
 }
 
