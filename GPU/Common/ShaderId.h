@@ -82,7 +82,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_COLOR_AGAINST_ZERO = 20,
 	// 1 free bit
 	FS_BIT_DO_TEXTURE_PROJ = 22,
-	FS_BIT_COLOR_DOUBLE = 23,
+	// 1 free bit
 	FS_BIT_STENCIL_TO_ALPHA = 24,  // 2 bits
 	FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE = 26,  // 4 bits    (ReplaceAlphaType)
 	FS_BIT_SIMULATE_LOGIC_OP_TYPE = 30,  // 2 bits
