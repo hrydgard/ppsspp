@@ -543,7 +543,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 				memset(temp, 0, tempSize);
 
 				char *pos = temp;
-				for (uint32_t p = selectRangeStart_; p != selectRangeEnd_; p += 2) {
+				for (uint32_t p = selectRangeStart_; p < selectRangeEnd_; p += 2) {
 					uint16_t c = Memory::IsValidRange(p, 2) ? Memory::ReadUnchecked_U16(p) : 0xFFFF;
 					pos += snprintf(pos, tempSize - (pos - temp + 1), "%04X ", c);
 				}
@@ -564,7 +564,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 				memset(temp, 0, tempSize);
 
 				char *pos = temp;
-				for (uint32_t p = selectRangeStart_; p != selectRangeEnd_; p += 4) {
+				for (uint32_t p = selectRangeStart_; p < selectRangeEnd_; p += 4) {
 					uint32_t c = Memory::IsValidRange(p, 4) ? Memory::ReadUnchecked_U32(p) : 0xFFFFFFFF;
 					pos += snprintf(pos, tempSize - (pos - temp + 1), "%08X ", c);
 				}
