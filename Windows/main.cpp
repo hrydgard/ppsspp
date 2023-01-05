@@ -289,7 +289,11 @@ static int ScreenRefreshRateHz() {
 	if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &lpDevMode) == 0) {
 		return 60;  // default value
 	} else {
-		return lpDevMode.dmDisplayFrequency > 15 ? lpDevMode.dmDisplayFrequency : 60;
+		if (lpDevMode.dmFields & DM_DISPLAYFREQUENCY) {
+			return lpDevMode.dmDisplayFrequency > 15 ? lpDevMode.dmDisplayFrequency : 60;
+		} else {
+			return 60;
+		}
 	}
 }
 
