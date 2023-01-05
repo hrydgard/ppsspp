@@ -86,7 +86,9 @@ AutoDisabledReplacements::AutoDisabledReplacements(AutoDisabledReplacements &&ot
 	replacements = std::move(other.replacements);
 	emuhacks = std::move(emuhacks);
 	saved = other.saved;
+	other.saved = false;
 	wasStepping = other.wasStepping;
+	other.wasStepping = true;
 }
 
 AutoDisabledReplacements::~AutoDisabledReplacements() {
