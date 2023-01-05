@@ -582,6 +582,10 @@ void DrawEngineVulkan::DoFlush() {
 	uint32_t ibOffset;
 	uint32_t vbOffset;
 	
+	// The optimization to avoid indexing isn't really worth it on Vulkan since it means creating more pipelines.
+	// This could be avoided with the new dynamic state extensions, but not available enough on mobile.
+	const bool forceIndexed = true;
+
 	if (useHWTransform) {
 		int vertexCount = 0;
 		bool useElements = true;
@@ -668,13 +672,19 @@ void DrawEngineVulkan::DoFlush() {
 					DecodeVertsToPushBuffer(vertexCache_, &vai->vbOffset, &vai->vb);
 					_dbg_assert_msg_(gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 					vai->numVerts = indexGen.VertexCount();
-					vai->prim = indexGen.Prim();
 					vai->maxIndex = indexGen.MaxIndex();
 					vai->flags = gstate_c.vertexFullAlpha ? VAIVULKAN_FLAG_VERTEXFULLALPHA : 0;
-					useElements = !indexGen.SeenOnlyPurePrims();
-					if (!useElements && indexGen.PureCount()) {
-						vai->numVerts = indexGen.PureCount();
+					if (forceIndexed) {
+						vai->prim = indexGen.GeneralPrim();
+						useElements = true;
+					} else {
+						vai->prim = indexGen.Prim();
+						useElements = !indexGen.SeenOnlyPurePrims();
+						if (!useElements && indexGen.PureCount()) {
+							vai->numVerts = indexGen.PureCount();
+						}
 					}
+
 					if (useElements) {
 						u32 size = sizeof(uint16_t) * indexGen.VertexCount();
 						void *dest = vertexCache_->Push(size, &vai->ibOffset, &vai->ib);
@@ -743,12 +753,18 @@ void DrawEngineVulkan::DoFlush() {
 
 	rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-			useElements = !indexGen.SeenOnlyPurePrims();
+
 			vertexCount = indexGen.VertexCount();
-			if (!useElements && indexGen.PureCount()) {
-				vertexCount = indexGen.PureCount();
+			if (forceIndexed) {
+				useElements = true;
+				prim = indexGen.GeneralPrim();
+			} else {
+				useElements = !indexGen.SeenOnlyPurePrims();
+				if (!useElements && indexGen.PureCount()) {
+					vertexCount = indexGen.PureCount();
+				}
+				prim = indexGen.Prim();
 			}
-			prim = indexGen.Prim();
 		}
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
