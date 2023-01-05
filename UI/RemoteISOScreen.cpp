@@ -30,6 +30,7 @@
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/Resolve.h"
 #include "Common/Net/URL.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #include "Common/File/PathBrowser.h"
 #include "Common/Data/Format/JSONReader.h"
@@ -366,6 +367,7 @@ RemoteISOConnectScreen::RemoteISOConnectScreen() {
 	scanAborted = false;
 
 	scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
+		SetCurrentThreadName("RemoteISOScan");
 		thiz->ExecuteScan();
 	}, this);
 }

@@ -111,6 +111,8 @@ namespace Reporting
 	static int CalculateCRCThread() {
 		SetCurrentThreadName("ReportCRC");
 
+		AndroidJNIThreadContext jniContext;
+
 		FileLoader *fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename));
 		BlockDevice *blockDevice = constructBlockDevice(fileLoader);
 

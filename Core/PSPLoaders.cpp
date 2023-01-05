@@ -307,7 +307,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	//in case we didn't go through EmuScreen::boot
 	g_Config.loadGameConfig(id, g_paramSFO.GetValueString("TITLE"));
 	host->SendUIMessage("config_loaded", "");
-	INFO_LOG(LOADER,"Loading %s...", bootpath.c_str());
+	INFO_LOG(LOADER, "Loading %s...", bootpath.c_str());
 
 	PSPLoaders_Shutdown();
 	// Note: this thread reads the game binary, loads caches, and links HLE while UI spins.
@@ -318,6 +318,8 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		PSP_LoadingLock guard;
 		if (coreState != CORE_POWERUP)
 			return;
+
+		AndroidJNIThreadContext jniContext;
 
 		PSP_SetLoading("Loading executable...");
 		// TODO: We can't use the initial error_string pointer.
@@ -455,6 +457,8 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		if (coreState != CORE_POWERUP)
 			return;
 
+		AndroidJNIThreadContext jniContext;
+
 		bool success = __KernelLoadExec(finalName.c_str(), 0, &PSP_CoreParameter().errorString);
 		if (success && coreState == CORE_POWERUP) {
 			coreState = PSP_CoreParameter().startBreak ? CORE_STEPPING : CORE_RUNNING;
@@ -478,6 +482,8 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 		PSP_LoadingLock guard;
 		if (coreState != CORE_POWERUP)
 			return;
+
+		AndroidJNIThreadContext jniContext;
 
 		bool success = __KernelLoadGEDump("disc0:/data.ppdmp", &PSP_CoreParameter().errorString);
 		if (success && coreState == CORE_POWERUP) {

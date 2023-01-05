@@ -38,6 +38,7 @@
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "Core/ELF/ParamSFO.h"
@@ -278,10 +279,14 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 
 // Parameters need to be by value, since this is a thread func.
 bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
+	SetCurrentThreadName("InstallGame");
+
 	if (installInProgress_ || installDonePending_) {
 		ERROR_LOG(HLE, "Cannot have two installs in progress at the same time");
 		return false;
 	}
+
+	AndroidJNIThreadContext context;  // Destructor detaches.
 
 	if (!File::Exists(fileName)) {
 		ERROR_LOG(HLE, "Game file '%s' doesn't exist", fileName.c_str());
@@ -445,6 +450,7 @@ std::string GameManager::GetISOGameID(FileLoader *loader) const {
 	if (!bd) {
 		return "";
 	}
+
 	ISOFileSystem umd(&handles, bd);
 
 	PSPFileInfo info = umd.GetFileInfo("/PSP_GAME/PARAM.SFO");
