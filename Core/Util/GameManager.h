@@ -58,7 +58,7 @@ public:
 	void Update();
 
 	GameManagerState GetState() {
-		if (installInProgress_)
+		if (installInProgress_ || installDonePending_)
 			return GameManagerState::INSTALLING;
 		if (curDownload_)
 			return GameManagerState::DOWNLOADING;

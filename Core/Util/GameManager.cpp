@@ -278,7 +278,7 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 
 // Parameters need to be by value, since this is a thread func.
 bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
-	if (installInProgress_) {
+	if (installInProgress_ || installDonePending_) {
 		ERROR_LOG(HLE, "Cannot have two installs in progress at the same time");
 		return false;
 	}
@@ -708,7 +708,7 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 }
 
 bool GameManager::InstallGameOnThread(const Path &url, const Path &fileName, bool deleteAfter) {
-	if (installInProgress_) {
+	if (installInProgress_ || installDonePending_) {
 		return false;
 	}
 	installThread_.reset(new std::thread(std::bind(&GameManager::InstallGame, this, url, fileName, deleteAfter)));
