@@ -327,7 +327,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 					case JOYSTICK_AXIS_Z:
 						if (axis.second < -0.75f) g_Config.fHeadUpDisplayScale -= 0.01f;
 						if (axis.second > 0.75f) g_Config.fHeadUpDisplayScale += 0.01f;
-						g_Config.fHeadUpDisplayScale = clampFloat(g_Config.fHeadUpDisplayScale, 0.2f, 1.5f);
+						g_Config.fHeadUpDisplayScale = clampFloat(g_Config.fHeadUpDisplayScale, 0.1f, 1.5f);
 						break;
 					case JOYSTICK_AXIS_RZ:
 						if (axis.second > 0.75f) g_Config.fCameraDistance -= 0.1f;
