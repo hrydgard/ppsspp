@@ -334,8 +334,6 @@ void DrawEngineD3D11::Invalidate(InvalidationCallbackFlags flags) {
 
 // The inline wrapper in the header checks for numDrawCalls == 0
 void DrawEngineD3D11::DoFlush() {
-	gpuStats.numFlushes++;
-
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
@@ -722,6 +720,7 @@ rotateVBO:
 		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
+	gpuStats.numFlushes++;
 	gpuStats.numDrawCalls += numDrawCalls;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 

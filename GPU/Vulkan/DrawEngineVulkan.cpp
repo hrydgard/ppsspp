@@ -562,8 +562,6 @@ void DrawEngineVulkan::DoFlush() {
 	PROFILE_THIS_SCOPE("Flush");
 	FrameData &frameData = GetCurFrame();
 
-	gpuStats.numFlushes++;
-	
 	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
 
 	bool textureNeedsApply = false;
@@ -981,6 +979,7 @@ void DrawEngineVulkan::DoFlush() {
 		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
+	gpuStats.numFlushes++;
 	gpuStats.numDrawCalls += numDrawCalls;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
