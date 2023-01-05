@@ -115,8 +115,6 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	pipe.basePipelineIndex = 0;
 	pipe.subpass = 0;
 
-	INFO_LOG(G3D, "Creating pipeline... rpType: %08x sampleBits: %d (%s)", (u32)rpType, (u32)sampleCount, tag_.c_str());
-
 	double start = time_now_d();
 	VkPipeline vkpipeline;
 	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &pipe, nullptr, &vkpipeline);
