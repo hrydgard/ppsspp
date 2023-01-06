@@ -936,30 +936,48 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 // If things like GPU supported features have changed since the last time, we discard the cache
 // as sometimes these features might have an effect on the ID bits.
 
+enum class CacheDetectFlags {
+	EQUAL_DEPTH = 1,
+};
+
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 20
+#define CACHE_VERSION 21
 struct CacheHeader {
 	uint32_t magic;
 	uint32_t version;
 	uint32_t useFlags;
-	uint32_t reserved;
+	uint32_t detectFlags;
 	int numVertexShaders;
 	int numFragmentShaders;
 	int numLinkedPrograms;
 };
 
-void ShaderManagerGLES::Load(const Path &filename) {
-	File::IOFile f(filename, "rb");
-	u64 sz = f.GetSize();
-	if (!f.IsOpen()) {
-		return;
-	}
+bool ShaderManagerGLES::LoadCacheFlags(File::IOFile &f, DrawEngineGLES *drawEngine) {
 	CacheHeader header;
 	if (!f.ReadArray(&header, 1)) {
-		return;
+		return false;
 	}
-	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION || header.useFlags != gstate_c.GetUseFlags()) {
-		return;
+	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION) {
+		return false;
+	}
+
+	if ((header.detectFlags & (uint32_t)CacheDetectFlags::EQUAL_DEPTH) != 0) {
+		drawEngine->SetEverUsedExactEqualDepth(true);
+	}
+
+	return true;
+}
+
+bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
+	u64 sz = f.GetSize();
+	f.Seek(0, SEEK_SET);
+	CacheHeader header;
+	if (!f.ReadArray(&header, 1)) {
+		return false;
+	}
+	// We don't recheck the version, done in LoadCacheFlags().
+	if (header.useFlags != gstate_c.GetUseFlags()) {
+		return false;
 	}
 	diskCachePending_.start = time_now_d();
 	diskCachePending_.Clear();
@@ -967,7 +985,7 @@ void ShaderManagerGLES::Load(const Path &filename) {
 	// Sanity check the file contents
 	if (header.numFragmentShaders > 1000 || header.numVertexShaders > 1000 || header.numLinkedPrograms > 1000) {
 		ERROR_LOG(G3D, "Corrupt shader cache file header, aborting.");
-		return;
+		return false;
 	}
 
 	// Also make sure the size makes sense, in case there's corruption.
@@ -977,37 +995,37 @@ void ShaderManagerGLES::Load(const Path &filename) {
 	expectedSize += header.numLinkedPrograms * (sizeof(VShaderID) + sizeof(FShaderID));
 	if (sz != expectedSize) {
 		ERROR_LOG(G3D, "Shader cache file is wrong size: %lld instead of %lld", sz, expectedSize);
-		return;
+		return false;
 	}
 
 	diskCachePending_.vert.resize(header.numVertexShaders);
 	if (!f.ReadArray(&diskCachePending_.vert[0], header.numVertexShaders)) {
 		diskCachePending_.vert.clear();
-		return;
+		return false;
 	}
 
 	diskCachePending_.frag.resize(header.numFragmentShaders);
 	if (!f.ReadArray(&diskCachePending_.frag[0], header.numFragmentShaders)) {
 		diskCachePending_.vert.clear();
 		diskCachePending_.frag.clear();
-		return;
+		return false;
 	}
 
 	for (int i = 0; i < header.numLinkedPrograms; i++) {
 		VShaderID vsid;
 		FShaderID fsid;
 		if (!f.ReadArray(&vsid, 1)) {
-			return;
+			return false;
 		}
 		if (!f.ReadArray(&fsid, 1)) {
-			return;
+			return false;
 		}
 		diskCachePending_.link.emplace_back(vsid, fsid);
 	}
 
 	// Actual compilation happens in ContinuePrecompile(), called by GPU_GLES's IsReady.
-	NOTICE_LOG(G3D, "Precompiling the shader cache from '%s'", filename.c_str());
 	diskCacheDirty_ = false;
+	return true;
 }
 
 bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
@@ -1096,7 +1114,7 @@ void ShaderManagerGLES::CancelPrecompile() {
 	diskCachePending_.Clear();
 }
 
-void ShaderManagerGLES::Save(const Path &filename) {
+void ShaderManagerGLES::SaveCache(const Path &filename, DrawEngineGLES *drawEngine) {
 	if (!diskCacheDirty_) {
 		return;
 	}
@@ -1113,7 +1131,9 @@ void ShaderManagerGLES::Save(const Path &filename) {
 	CacheHeader header;
 	header.magic = CACHE_HEADER_MAGIC;
 	header.version = CACHE_VERSION;
-	header.reserved = 0;
+	header.detectFlags = 0;
+	if (drawEngine->EverUsedExactEqualDepth())
+		header.detectFlags |= (uint32_t)CacheDetectFlags::EQUAL_DEPTH;
 	header.useFlags = gstate_c.GetUseFlags();
 	header.numVertexShaders = GetNumVertexShaders();
 	header.numFragmentShaders = GetNumFragmentShaders();
