@@ -1100,6 +1100,9 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
 			gstate_c.SetNeedShaderTexclamp(true);
 		}
+		if (channel == RASTER_DEPTH) {
+			framebuffer->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
+		}
 
 		if (channel == RASTER_DEPTH && !gstate_c.Use(GPU_USE_DEPTH_TEXTURE)) {
 			WARN_LOG_ONCE(ndepthtex, G3D, "Depth textures not supported, not binding");
