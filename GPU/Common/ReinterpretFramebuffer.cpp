@@ -27,19 +27,19 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 		switch (from) {
 		case GE_FORMAT_4444:
 			writer.C("uint packColor(vec4 val) {\n");
-			writer.C("  return uint(val.r * 15.99) | (uint(val.g * 15.99) << 4u) | (uint(val.b * 15.99) << 8u) | (uint(val.a * 15.99) << 12u);\n");
+			writer.C("  return uint(val.r * 15.99) | (uint(val.g * 15.99) << 0x4u) | (uint(val.b * 15.99) << 0x8u) | (uint(val.a * 15.99) << 0xCu);\n");
 			writer.C("}\n");
 			break;
 		case GE_FORMAT_5551:
 			writer.C("uint packColor(vec4 val) {\n");
-			writer.C("  uint color = uint(val.r * 31.99) | (uint(val.g * 31.99) << 5u) | (uint(val.b * 31.99) << 10u);\n");
+			writer.C("  uint color = uint(val.r * 31.99) | (uint(val.g * 31.99) << 0x5u) | (uint(val.b * 31.99) << 0xAu);\n");
 			writer.C("  if (val.a >= 0.5) color |= 0x8000U;\n");
 			writer.C("  return color;\n");
 			writer.C("}\n");
 			break;
 		case GE_FORMAT_565:
 			writer.C("uint packColor(vec4 val) {\n");
-			writer.C("  return uint(val.r * 31.99) | (uint(val.g * 63.99) << 5u) | (uint(val.b * 31.99) << 11u);\n");
+			writer.C("  return uint(val.r * 31.99) | (uint(val.g * 63.99) << 0x5u) | (uint(val.b * 31.99) << 0xBu);\n");
 			writer.C("}\n");
 			break;
 		case GE_FORMAT_8888:
@@ -86,22 +86,22 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 		switch (to) {
 		case GE_FORMAT_4444:
 			writer.C("vec4 unpackColor(uint color) {\n");
-			writer.C("  vec4 outColor = vec4(float(color & 0xFU), float((color >> 4u) & 0xFU), float((color >> 8u) & 0xFU), float((color >> 12u) & 0xFU));\n");
+			writer.C("  vec4 outColor = vec4(float(color & 0xFu), float((color >> 0x4u) & 0xFu), float((color >> 0x8u) & 0xFu), float((color >> 0xCu) & 0xFu));\n");
 			writer.C("  outColor *= 1.0 / 15.0;\n");
 			writer.C("  return outColor;\n");
 			writer.C("}\n");
 			break;
 		case GE_FORMAT_5551:
 			writer.C("vec4 unpackColor(uint color) {\n");
-			writer.C("  vec4 outColor = vec4(float(color & 0x1FU), float((color >> 5u) & 0x1FU), float((color >> 10u) & 0x1FU), 0.0);\n");
+			writer.C("  vec4 outColor = vec4(float(color & 0x1Fu), float((color >> 0x5u) & 0x1Fu), float((color >> 0xAu) & 0x1Fu), 0.0);\n");
 			writer.C("  outColor.rgb *= 1.0 / 31.0;\n");
-			writer.C("  outColor.a = float(color >> 15);\n");
+			writer.C("  outColor.a = float(color >> 0xFu);\n");
 			writer.C("  return outColor;\n");
 			writer.C("}\n");
 			break;
 		case GE_FORMAT_565:
 			writer.C("vec4 unpackColor(uint color) {\n");
-			writer.C("  vec4 outColor = vec4(float(color & 0x1FU), float((color >> 5u) & 0x3FU), float((color >> 11u) & 0x1FU), 1.0);\n");
+			writer.C("  vec4 outColor = vec4(float(color & 0x1Fu), float((color >> 0x5u) & 0x3Fu), float((color >> 0xBu) & 0x1Fu), 1.0);\n");
 			writer.C("  outColor.rb *= 1.0 / 31.0;\n");
 			writer.C("  outColor.g *= 1.0 / 63.0;\n");
 			writer.C("  return outColor;\n");
@@ -109,8 +109,8 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 			break;
 		case GE_FORMAT_8888:
 			writer.C("vec4 unpackColor(uint colorLeft, uint colorRight) {\n");
-			writer.C("  vec4 outColor = vec4(float(colorLeft & 0xFFu),  float((colorLeft >> 8u)  & 0xFFu),\n");
-			writer.C("                       float(colorRight & 0xFFu), float((colorRight >> 8u) & 0xFFu));\n");
+			writer.C("  vec4 outColor = vec4(float(colorLeft & 0xFFu),  float((colorLeft >> 0x8u)  & 0xFFu),\n");
+			writer.C("                       float(colorRight & 0xFFu), float((colorRight >> 0x8u) & 0xFFu));\n");
 			writer.C("  outColor *= 1.0 / 255.0;\n");
 			writer.C("  return outColor;\n");
 			writer.C("}\n");

@@ -258,8 +258,6 @@ void DrawEngineGLES::DoFlush() {
 	PROFILE_THIS_SCOPE("flush");
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	
-	gpuStats.numFlushes++;
-
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
@@ -273,7 +271,7 @@ void DrawEngineGLES::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 
 	VShaderID vsid;
-	Shader *vshader = shaderManager_->ApplyVertexShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode || !CanUseHardwareTransform(prim), &vsid);
+	Shader *vshader = shaderManager_->ApplyVertexShader(CanUseHardwareTransform(prim), useHWTessellation_, dec_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode || !CanUseHardwareTransform(prim), &vsid);
 
 	GLRBuffer *vertexBuffer = nullptr;
 	GLRBuffer *indexBuffer = nullptr;
@@ -321,7 +319,7 @@ void DrawEngineGLES::DoFlush() {
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(false, 0);
 		
-		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, lastVType_, framebufferManager_->UseBufferedRendering());
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
 		render_->BindVertexBuffer(inputLayout, vertexBuffer, vertexBufferOffset);
 		if (useElements) {
@@ -421,7 +419,7 @@ void DrawEngineGLES::DoFlush() {
 
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
-		shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, lastVType_, framebufferManager_->UseBufferedRendering());
+		shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.drawIndexed) {
@@ -465,6 +463,7 @@ void DrawEngineGLES::DoFlush() {
 		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
+	gpuStats.numFlushes++;
 	gpuStats.numDrawCalls += numDrawCalls;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 

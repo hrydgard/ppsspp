@@ -74,14 +74,14 @@ enum FShaderBit : uint8_t {
 	FS_BIT_CLAMP_S = 8,
 	FS_BIT_CLAMP_T = 9,
 	FS_BIT_TEXTURE_AT_OFFSET = 10,
-	FS_BIT_LMODE = 11,
+	// 1 bit free
 	FS_BIT_ALPHA_TEST = 12,
 	FS_BIT_ALPHA_TEST_FUNC = 13,  // 3 bits
 	FS_BIT_ALPHA_AGAINST_ZERO = 16,
 	FS_BIT_COLOR_TEST = 17,
 	FS_BIT_COLOR_TEST_FUNC = 18,  // 2 bits
 	FS_BIT_COLOR_AGAINST_ZERO = 20,
-	FS_BIT_ENABLE_FOG = 21,
+	// 1 free bit
 	FS_BIT_DO_TEXTURE_PROJ = 22,
 	FS_BIT_COLOR_DOUBLE = 23,
 	FS_BIT_STENCIL_TO_ALPHA = 24,  // 2 bits
@@ -111,8 +111,7 @@ static inline FShaderBit operator +(FShaderBit bit, int i) {
 enum GShaderBit : uint8_t {
 	GS_BIT_ENABLED = 0,     // If not set, we don't use a geo shader.
 	GS_BIT_DO_TEXTURE = 1,  // presence of texcoords
-	GS_BIT_LMODE = 2,       // presence of specular color (regular color always present)
-	GS_BIT_CURVE = 3,       // curve, which means don't do range culling.
+	GS_BIT_CURVE = 2,       // curve, which means don't do range culling.
 };
 
 static inline GShaderBit operator +(GShaderBit bit, int i) {
@@ -278,7 +277,9 @@ namespace Draw {
 class Bugs;
 }
 
-void ComputeVertexShaderID(VShaderID *id, uint32_t vertexType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
+class VertexDecoder;
+
+void ComputeVertexShaderID(VShaderID *id, VertexDecoder *vertexDecoder, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
 // Generates a compact string that describes the shader. Useful in a list to get an overview
 // of the current flora of shaders.
 std::string VertexShaderDesc(const VShaderID &id);

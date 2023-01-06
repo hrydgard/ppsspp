@@ -317,7 +317,8 @@ public:
 
 		int numInternalFonts = (int)internalFonts.size();
 		Do(p, numInternalFonts);
-		if (numInternalFonts != (int)internalFonts.size()) {
+		// It's okay if numInternalFonts was zero and we've now loaded them.
+		if (numInternalFonts != (int)internalFonts.size() && numInternalFonts != 0) {
 			ERROR_LOG(SCEFONT, "Unable to load state: different internal font count.");
 			p.SetError(p.ERROR_FAILURE);
 			return;
@@ -329,6 +330,11 @@ public:
 		if (internalFont == -1) {
 			Do(p, font_);
 		} else if (p.mode == p.MODE_READ) {
+			if (internalFont < 0 || internalFont >= (int)internalFonts.size()) {
+				ERROR_LOG(SCEFONT, "Unable to load state: unexpected internal font index.");
+				p.SetError(p.ERROR_FAILURE);
+				return;
+			}
 			font_ = internalFonts[internalFont];
 		}
 		Do(p, handle_);
@@ -947,11 +953,18 @@ void __FontShutdown() {
 }
 
 void __FontDoState(PointerWrap &p) {
-	auto s = p.Section("sceFont", 1, 2);
+	auto s = p.Section("sceFont", 1, 3);
 	if (!s)
 		return;
 
-	__LoadInternalFonts();
+	bool needInternalFonts = true;
+	if (s >= 3) {
+		// If we loaded internal fonts, we need to load them when loading the state.
+		needInternalFonts = !internalFonts.empty();
+		Do(p, needInternalFonts);
+	}
+	if (needInternalFonts)
+		__LoadInternalFonts();
 
 	Do(p, fontLibList);
 	Do(p, fontLibMap);

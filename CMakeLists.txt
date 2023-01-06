@@ -472,6 +472,7 @@ set(CommonARM64
 	Common/Arm64Emitter.cpp
 	Common/ArmEmitter.h
 	Common/ArmEmitter.cpp
+	Core/Util/DisArm64.h
 	Core/Util/DisArm64.cpp
 )
 source_group(ARM64 FILES ${CommonARM64})
@@ -2032,6 +2033,9 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/PPGeDraw.h
 	${GPU_SOURCES}
 	ext/disarm.cpp
+	ext/disarm.h
+	ext/riscv-disas.cpp
+	ext/riscv-disas.h
 	${CMAKE_CURRENT_BINARY_DIR}/git-version.cpp
 )
 

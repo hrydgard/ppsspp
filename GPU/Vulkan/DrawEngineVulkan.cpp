@@ -562,8 +562,6 @@ void DrawEngineVulkan::DoFlush() {
 	PROFILE_THIS_SCOPE("Flush");
 	FrameData &frameData = GetCurFrame();
 
-	gpuStats.numFlushes++;
-	
 	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
 
 	bool textureNeedsApply = false;
@@ -778,7 +776,7 @@ void DrawEngineVulkan::DoFlush() {
 			VulkanFragmentShader *fshader = nullptr;
 			VulkanGeometryShader *gshader = nullptr;
 
-			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
+			shaderManager_->GetShaders(prim, dec_, &vshader, &fshader, &gshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
 			if (!vshader) {
 				// We're screwed.
 				return;
@@ -912,7 +910,7 @@ void DrawEngineVulkan::DoFlush() {
 				VulkanFragmentShader *fshader = nullptr;
 				VulkanGeometryShader *gshader = nullptr;
 
-				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
+				shaderManager_->GetShaders(prim, dec_, &vshader, &fshader, &gshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
 				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
 				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, false, 0, framebufferManager_->GetMSAALevel());
 				if (!pipeline || !pipeline->pipeline) {
@@ -981,6 +979,7 @@ void DrawEngineVulkan::DoFlush() {
 		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
+	gpuStats.numFlushes++;
 	gpuStats.numDrawCalls += numDrawCalls;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 

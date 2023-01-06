@@ -174,21 +174,28 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		ConvertMatrix4x3To3x4Transposed(ub->tex, gstate.tgenMatrix);
 	}
 
-	if (dirtyUniforms & DIRTY_FOGCOEF) {
-		float fogcoef[2] = {
-			getFloat24(gstate.fog1),
-			getFloat24(gstate.fog2),
-		};
-		// The PSP just ignores infnan here (ignoring IEEE), so take it down to a valid float.
-		// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
-		if (my_isnanorinf(fogcoef[0])) {
-			// Not really sure what a sensible value might be, but let's try 64k.
-			fogcoef[0] = std::signbit(fogcoef[0]) ? -65535.0f : 65535.0f;
+	if (dirtyUniforms & DIRTY_FOGCOEFENABLE) {
+		if (gstate.isFogEnabled() && !gstate.isModeThrough()) {
+			float fogcoef[2] = {
+				getFloat24(gstate.fog1),
+				getFloat24(gstate.fog2),
+			};
+			// The PSP just ignores infnan here (ignoring IEEE), so take it down to a valid float.
+			// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
+			if (my_isnanorinf(fogcoef[0])) {
+				// Not really sure what a sensible value might be, but let's try 64k.
+				fogcoef[0] = std::signbit(fogcoef[0]) ? -65535.0f : 65535.0f;
+			}
+			if (my_isnanorinf(fogcoef[1])) {
+				fogcoef[1] = std::signbit(fogcoef[1]) ? -65535.0f : 65535.0f;
+			}
+			CopyFloat2(ub->fogCoef, fogcoef);
+		} else {
+			// not very useful values, use as marker for disabled fog.
+			// could also burn one extra uniform.
+			ub->fogCoef[0] = -65536.0f;
+			ub->fogCoef[1] = -65536.0f;
 		}
-		if (my_isnanorinf(fogcoef[1])) {
-			fogcoef[1] = std::signbit(fogcoef[1]) ? -65535.0f : 65535.0f;
-		}
-		CopyFloat2(ub->fogCoef, fogcoef);
 	}
 
 	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {
@@ -267,6 +274,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 }
 
+// For "light ubershader" bits.
 uint32_t PackLightControlBits() {
 	// Bit organization
 	// Bottom 4 bits are enable bits for each light.
@@ -285,8 +293,10 @@ uint32_t PackLightControlBits() {
 		lightControl |= type << (4 + i * 4 + 2);
 	}
 
+	// Material update is 3 bits.
 	lightControl |= gstate.getMaterialUpdate() << 20;
-
+	// LMODE is 1 bit.
+	lightControl |= gstate.isUsingSecondaryColor() << 23;
 	return lightControl;
 }
 

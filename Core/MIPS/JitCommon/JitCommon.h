@@ -28,6 +28,7 @@
 std::vector<std::string> DisassembleArm2(const u8 *data, int size);
 std::vector<std::string> DisassembleArm64(const u8 *data, int size);
 std::vector<std::string> DisassembleX86(const u8 *data, int size);
+std::vector<std::string> DisassembleRV64(const u8 *data, int size);
 
 struct JitBlock;
 class JitBlockCache;

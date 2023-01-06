@@ -83,13 +83,13 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_ZBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE },
 
 	{ GE_CMD_FOGCOLOR, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOLOR },
-	{ GE_CMD_FOG1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEF },
-	{ GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEF },
+	{ GE_CMD_FOG1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEFENABLE },
+	{ GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEFENABLE },
 
 	// These affect the fragment shader so need flushing.
 	{ GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
 	{ GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
-	{ GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
+	{ GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEFENABLE },
 	{ GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 	// Raster state for Direct3D 9, uncommon.
@@ -113,8 +113,8 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_LIGHTTYPE3, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_LIGHT3 },
 	{ GE_CMD_MATERIALUPDATE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 
-	// These change both shaders so need flushing.
-	{ GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
+	// These change vertex shaders (in non uber shader mode) so need flushing.
+	{ GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 
 	{ GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE },
@@ -472,9 +472,11 @@ void GPUCommon::UpdateCmdInfo() {
 	if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {
 		cmdInfo_[GE_CMD_MATERIALUPDATE].RemoveDirty(DIRTY_VERTEXSHADER_STATE);
 		cmdInfo_[GE_CMD_MATERIALUPDATE].AddDirty(DIRTY_LIGHT_CONTROL);
+		cmdInfo_[GE_CMD_LIGHTMODE].AddDirty(DIRTY_LIGHT_CONTROL);
 	} else {
 		cmdInfo_[GE_CMD_MATERIALUPDATE].RemoveDirty(DIRTY_LIGHT_CONTROL);
 		cmdInfo_[GE_CMD_MATERIALUPDATE].AddDirty(DIRTY_VERTEXSHADER_STATE);
+		cmdInfo_[GE_CMD_LIGHTMODE].RemoveDirty(DIRTY_LIGHT_CONTROL);
 	}
 }
 
@@ -1300,11 +1302,6 @@ void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 	cyclesExecuted += 2 * executed;
 	cycleLastPC = newPC;
 
-	if (coreCollectDebugStats) {
-		gpuStats.otherGPUCycles += 2 * executed;
-		gpuStats.gpuCommandsAtCallLevel[std::min(currentList->stackptr, 3)] += executed;
-	}
-
 	// Exit the runloop and recalculate things.  This happens a lot in some games.
 	if (currentList)
 		downcount = currentList->stall == 0 ? 0x0FFFFFFF : (currentList->stall - newPC) / 4;
@@ -1398,6 +1395,10 @@ void GPUCommon::ProcessDLQueue() {
 	}
 
 	currentList = nullptr;
+
+	if (coreCollectDebugStats) {
+		gpuStats.otherGPUCycles += cyclesExecuted;
+	}
 
 	drawCompleteTicks = startingTicks + cyclesExecuted;
 	busyTicks = std::max(busyTicks, drawCompleteTicks);
@@ -1751,8 +1752,9 @@ void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
 		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+		// Switching between through and non-through, we need to invalidate a bunch of stuff.
 		if (diff & GE_VTYPE_THROUGH_MASK)
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
+			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE | DIRTY_FOGCOEFENABLE);
 	}
 }
 
@@ -1779,7 +1781,7 @@ void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	}
 	if (diff & GE_VTYPE_THROUGH_MASK)
-		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
+		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE | DIRTY_FOGCOEFENABLE);
 }
 
 void GPUCommon::CheckDepthUsage(VirtualFramebuffer *vfb) {
@@ -2769,6 +2771,12 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 		gstate_c.deferredVertTypeDirty |= uniformsToDirty;
 	}
 	gstate.FastLoadBoneMatrix(target);
+
+	cyclesExecuted += 2 * 14;  // one to reset the counter, 12 to load the matrix, and a return.
+
+	if (coreCollectDebugStats) {
+		gpuStats.otherGPUCycles += 2 * 14;
+	}
 }
 
 struct DisplayList_v1 {
@@ -3456,7 +3464,6 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"DL processing time: %0.2f ms\n"
 		"Draw calls: %d, flushes %d, clears %d (cached: %d)\n"
 		"Num Tracked Vertex Arrays: %d\n"
-		"Commands per call level: %i %i %i %i\n"
 		"Vertices: %d cached: %d uncached: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
@@ -3469,7 +3476,6 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numClears,
 		gpuStats.numCachedDrawCalls,
 		gpuStats.numTrackedVertexArrays,
-		gpuStats.gpuCommandsAtCallLevel[0], gpuStats.gpuCommandsAtCallLevel[1], gpuStats.gpuCommandsAtCallLevel[2], gpuStats.gpuCommandsAtCallLevel[3],
 		gpuStats.numVertsSubmitted,
 		gpuStats.numCachedVertsDrawn,
 		gpuStats.numUncachedVertsDrawn,

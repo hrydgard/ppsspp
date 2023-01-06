@@ -70,6 +70,10 @@ namespace Reporting
 	// The latest compatibility result from the server.
 	static std::vector<std::string> lastCompatResult;
 
+	static std::string lastModuleName;
+	static int lastModuleVersion;
+	static uint32_t lastModuleCrc;
+
 	static std::mutex pendingMessageLock;
 	static std::condition_variable pendingMessageCond;
 	static std::deque<int> pendingMessages;
@@ -106,6 +110,8 @@ namespace Reporting
 
 	static int CalculateCRCThread() {
 		SetCurrentThreadName("ReportCRC");
+
+		AndroidJNIThreadContext jniContext;
 
 		FileLoader *fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename));
 		BlockDevice *blockDevice = constructBlockDevice(fileLoader);
@@ -352,6 +358,10 @@ namespace Reporting
 		currentSupported = IsSupported();
 		pendingMessagesDone = false;
 		Reporting::SetupCallbacks(&MessageAllowed, &SendReportMessage);
+
+		lastModuleName.clear();
+		lastModuleVersion = 0;
+		lastModuleCrc = 0;
 	}
 
 	void Shutdown()
@@ -395,6 +405,12 @@ namespace Reporting
 		everUnsupported = true;
 	}
 
+	void NotifyExecModule(const char *name, int ver, uint32_t crc) {
+		lastModuleName = name;
+		lastModuleVersion = ver;
+		lastModuleCrc = crc;
+	}
+
 	std::string CurrentGameID()
 	{
 		// TODO: Maybe ParamSFOData shouldn't include nulls in std::strings?  Don't work to break savedata, though...
@@ -408,6 +424,9 @@ namespace Reporting
 		postdata.Add("game", CurrentGameID());
 		postdata.Add("game_title", StripTrailingNull(g_paramSFO.GetValueString("TITLE")));
 		postdata.Add("sdkver", sceKernelGetCompiledSdkVersion());
+		postdata.Add("module_name", lastModuleName);
+		postdata.Add("module_ver", lastModuleVersion);
+		postdata.Add("module_crc", lastModuleCrc);
 	}
 
 	void AddSystemInfo(UrlEncoder &postdata)

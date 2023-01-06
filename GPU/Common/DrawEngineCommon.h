@@ -110,6 +110,9 @@ public:
 	bool EverUsedExactEqualDepth() const {
 		return everUsedExactEqualDepth_;
 	}
+	void SetEverUsedExactEqualDepth(bool v) {
+		everUsedExactEqualDepth_ = v;
+	}
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
 		return decJitCache_->IsInSpace(ptr);
@@ -181,7 +184,7 @@ protected:
 	u16 *decIndex = nullptr;
 
 	// Cached vertex decoders
-	u32 lastVType_ = -1;
+	u32 lastVType_ = -1;  // corresponds to dec_.  Could really just pick it out of dec_...
 	DenseHashMap<u32, VertexDecoder *, nullptr> decoderMap_;
 	VertexDecoder *dec_ = nullptr;
 	VertexDecoderJitCache *decJitCache_ = nullptr;

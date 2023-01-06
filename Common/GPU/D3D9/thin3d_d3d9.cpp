@@ -1454,18 +1454,21 @@ bool D3D9Context::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits,
 
 	LPDIRECT3DSURFACE9 offscreen = nullptr;
 	HRESULT hr = E_UNEXPECTED;
-	_assert_(fb != nullptr);
 	if (channelBits == FB_COLOR_BIT) {
-		fb->tex->GetLevelDesc(0, &desc);
+		if (fb)
+			fb->tex->GetLevelDesc(0, &desc);
+		else
+			deviceRTsurf->GetDesc(&desc);
 
 		hr = device_->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, nullptr);
 		if (SUCCEEDED(hr)) {
-			hr = device_->GetRenderTargetData(fb->surf, offscreen);
+			hr = device_->GetRenderTargetData(fb ? fb->surf : deviceRTsurf, offscreen);
 			if (SUCCEEDED(hr)) {
 				hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 			}
 		}
 	} else {
+		_assert_(fb->depthstenciltex != nullptr);
 		fb->depthstenciltex->GetLevelDesc(0, &desc);
 		hr = fb->depthstenciltex->LockRect(0, &locked, &rect, D3DLOCK_READONLY);
 	}

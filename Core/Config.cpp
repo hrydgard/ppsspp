@@ -32,6 +32,7 @@
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Text/I18n.h"
@@ -43,6 +44,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/StringUtils.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Core/Config.h"
@@ -1733,6 +1735,10 @@ void Config::RemoveRecent(const std::string &file) {
 
 void Config::CleanRecent() {
 	private_->SetRecentIsosThread([this] {
+		SetCurrentThreadName("RecentISOs");
+
+		AndroidJNIThreadContext jniContext;  // destructor detaches
+
 		double startTime = time_now_d();
 
 		std::lock_guard<std::mutex> guard(private_->recentIsosLock);

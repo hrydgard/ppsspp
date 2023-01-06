@@ -866,6 +866,11 @@ bool ScrollView::Key(const KeyInput &input) {
 	}
 
 	if (input.flags & KEY_DOWN) {
+		if ((input.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN) &&
+			(input.flags & KEY_HASWHEELDELTA)) {
+			scrollSpeed = (float)(short)(input.flags >> 16) * 1.25f;  // Fudge factor
+		}
+
 		switch (input.keyCode) {
 		case NKCODE_EXT_MOUSEWHEEL_UP:
 			ScrollRelative(-scrollSpeed);

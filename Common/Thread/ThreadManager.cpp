@@ -44,6 +44,7 @@ struct ThreadContext {
 	std::atomic<bool> cancelled;
 	std::atomic<Task *> private_single;
 	std::deque<Task *> private_queue;
+	char name[16];
 };
 
 ThreadManager::ThreadManager() : global_(new GlobalThreadContext()) {
@@ -124,14 +125,17 @@ bool ThreadManager::TeardownTask(Task *task, bool enqueue) {
 }
 
 static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread) {
-	char threadName[16];
 	if (thread->type == TaskType::CPU_COMPUTE) {
-		snprintf(threadName, sizeof(threadName), "PoolWorker %d", thread->index);
+		snprintf(thread->name, sizeof(thread->name), "PoolWorker %d", thread->index);
 	} else {
 		_assert_(thread->type == TaskType::IO_BLOCKING);
-		snprintf(threadName, sizeof(threadName), "PoolWorkerIO %d", thread->index);
+		snprintf(thread->name, sizeof(thread->name), "PoolWorkerIO %d", thread->index);
 	}
-	SetCurrentThreadName(threadName);
+	SetCurrentThreadName(thread->name);
+
+	if (thread->type == TaskType::IO_BLOCKING) {
+		AttachThreadToJNI();
+	}
 
 	const bool isCompute = thread->type == TaskType::CPU_COMPUTE;
 	const auto global_queue_size = [isCompute, &global]() -> int {
@@ -184,6 +188,11 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 			// Reduce the queue size once complete.
 			thread->queue_size--;
 		}
+	}
+
+	// In case it got attached to JNI, detach it. Don't think this has any side effects if called redundantly.
+	if (thread->type == TaskType::IO_BLOCKING) {
+		DetachThreadFromJNI();
 	}
 }
 

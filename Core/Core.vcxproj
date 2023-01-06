@@ -526,6 +526,7 @@
     <ClCompile Include="..\ext\libzip\zip_unchange_archive.c" />
     <ClCompile Include="..\ext\libzip\zip_unchange_data.c" />
     <ClCompile Include="..\ext\libzip\zip_utf-8.c" />
+    <ClCompile Include="..\ext\riscv-disas.cpp" />
     <ClCompile Include="..\ext\sfmt19937\SFMT.c" />
     <ClCompile Include="..\ext\sha1\sha1.cpp" />
     <ClCompile Include="..\ext\snappy\snappy-c.cpp" />
@@ -1091,6 +1092,7 @@
     <ClInclude Include="..\ext\libzip\zip_source_file.h" />
     <ClInclude Include="..\ext\libzip\zip_source_file_stdio.h" />
     <ClInclude Include="..\ext\libzip\zip_source_file_win32.h" />
+    <ClInclude Include="..\ext\riscv-disas.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT-common.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT-params.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT-params19937.h" />
