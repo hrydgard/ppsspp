@@ -1158,7 +1158,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 			} else {
 				if (lightUberShader) {
-					p.C("  bool lmode = (u_lightControl & (0x1u << 0x17u)) != 0u;\n");
+					p.C("  bool lmode = (u_lightControl & (0x1u << 0x17u)) != 0x0u;\n");
 					p.C("  if (lmode) {");
 					p.F("    %sv_color0 = lightSum0;\n", compat.vsOutPrefix);
 					p.F("    %sv_color1 = clamp(lightSum1, 0.0, 1.0);\n", compat.vsOutPrefix);
