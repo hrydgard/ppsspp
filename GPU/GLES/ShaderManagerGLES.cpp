@@ -388,7 +388,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 
 	// Set HUD mode
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-		if (GuessVRDrawingHUD(is2D, flatScreen) && (g_Config.fHeadUpDisplayScale < 1.5f)) {
+		if (GuessVRDrawingHUD(is2D, flatScreen)) {
 			render_->SetUniformF1(&u_scaleX, g_Config.fHeadUpDisplayScale * 480.0f / 272.0f);
 			render_->SetUniformF1(&u_scaleY, g_Config.fHeadUpDisplayScale);
 		} else {
