@@ -2776,7 +2776,6 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 
 	if (coreCollectDebugStats) {
 		gpuStats.otherGPUCycles += 2 * 14;
-		gpuStats.gpuCommandsAtCallLevel[std::min(currentList->stackptr, 3)] += 14;
 	}
 }
 
