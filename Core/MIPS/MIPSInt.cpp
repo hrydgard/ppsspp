@@ -100,6 +100,9 @@ namespace MIPSInt
 		int addr = R(rs) + imm;
 		int func = (op >> 16) & 0x1F;
 
+		// Let's only report this once per run to be safe from impacting perf.
+		static bool reportedAlignment = false;
+
 		// It appears that a cache line is 0x40 (64) bytes, loops in games
 		// issue the cache instruction at that interval.
 
@@ -112,7 +115,12 @@ namespace MIPSInt
 			// Invalidate the instruction cache at this address.
 			// We assume the CPU won't be reset during this, so no locking.
 			if (MIPSComp::jit) {
-				MIPSComp::jit->InvalidateCacheAt(addr & ~0x3F, 0x40);
+				// Let's over invalidate to be super safe.
+				MIPSComp::jit->InvalidateCacheAt(addr & ~0x3F, 0x40 + (addr & 0x3F));
+				if (!reportedAlignment && (addr & 0x3F) != 0) {
+					WARN_LOG_REPORT(JIT, "Unaligned icache invalidation of %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
+					reportedAlignment = true;
+				}
 			}
 			break;
 
