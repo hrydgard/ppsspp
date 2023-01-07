@@ -310,7 +310,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "float u_rotation : register(c%i);\n", CONST_VS_ROTATION);
 			}
 
-			WRITE(p, "vec2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
+			if (useHWTransform)
+				WRITE(p, "vec2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
 			if (useHWTransform || !hasColor)
 				WRITE(p, "vec4 u_matambientalpha : register(c%i);\n", CONST_VS_MATAMBIENTALPHA);  // matambient + matalpha
 
@@ -581,8 +582,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
 			*uniformMask |= DIRTY_MATAMBIENTALPHA;
 		}
-		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
-		*uniformMask |= DIRTY_FOGCOEFENABLE;
+		if (useHWTransform) {
+			WRITE(p, "uniform highp vec2 u_fogcoef;\n");
+			*uniformMask |= DIRTY_FOGCOEFENABLE;
+		}
 
 		if (!isModeThrough) {
 			WRITE(p, "uniform highp vec4 u_depthRange;\n");
