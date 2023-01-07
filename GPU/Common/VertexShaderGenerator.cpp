@@ -1283,7 +1283,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 		}
 
-		// Compute fogdepth
+		// Compute fogdepth.  [branch] works around an apparent d3d9 shader compiler bug.
+		if (compat.shaderLanguage == HLSL_D3D9)
+			WRITE(p, "  [branch]\n");
 		WRITE(p, "  if (u_fogcoef.x <= -65535.0 && u_fogcoef.y <= -65535.0) {\n");
 		WRITE(p, "    %sv_fogdepth = 1.0;\n", compat.vsOutPrefix);
 		WRITE(p, "  } else {\n");
