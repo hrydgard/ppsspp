@@ -310,7 +310,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "float u_rotation : register(c%i);\n", CONST_VS_ROTATION);
 			}
 
-			WRITE(p, "vec2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
+			if (useHWTransform)
+				WRITE(p, "vec2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
 			if (useHWTransform || !hasColor)
 				WRITE(p, "vec4 u_matambientalpha : register(c%i);\n", CONST_VS_MATAMBIENTALPHA);  // matambient + matalpha
 
@@ -581,8 +582,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
 			*uniformMask |= DIRTY_MATAMBIENTALPHA;
 		}
-		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
-		*uniformMask |= DIRTY_FOGCOEFENABLE;
+		if (useHWTransform) {
+			WRITE(p, "uniform highp vec2 u_fogcoef;\n");
+			*uniformMask |= DIRTY_FOGCOEFENABLE;
+		}
 
 		if (!isModeThrough) {
 			WRITE(p, "uniform highp vec4 u_depthRange;\n");
@@ -1280,7 +1283,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 		}
 
-		// Compute fogdepth
+		// Compute fogdepth.  [branch] works around an apparent d3d9 shader compiler bug.
+		if (compat.shaderLanguage == HLSL_D3D9)
+			WRITE(p, "  [branch]\n");
 		WRITE(p, "  if (u_fogcoef.x <= -65535.0 && u_fogcoef.y <= -65535.0) {\n");
 		WRITE(p, "    %sv_fogdepth = 1.0;\n", compat.vsOutPrefix);
 		WRITE(p, "  } else {\n");
