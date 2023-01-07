@@ -117,38 +117,9 @@ static int getPixelFormatBytes(int pspFormat)
 	}
 }
 
-MediaEngine::MediaEngine(): m_pdata(0) {
-#ifdef USE_FFMPEG
-	m_pFormatCtx = 0;
-	m_pCodecCtxs.clear();
-	m_pFrame = 0;
-	m_pFrameRGB = 0;
-	m_pIOContext = 0;
-	m_sws_ctx = 0;
-#endif
-	m_sws_fmt = 0;
-	m_buffer = 0;
-
-	m_videoStream = -1;
-	m_audioStream = -1;
-
-	m_expectedVideoStreams = 0;
-
-	m_desWidth = 0;
-	m_desHeight = 0;
-	m_decodingsize = 0;
+MediaEngine::MediaEngine() {
 	m_bufSize = 0x2000;
-	m_pdata = 0;
-	m_demux = 0;
-	m_audioContext = 0;
-	m_audiopts = 0;
 
-	m_firstTimeStamp = 0;
-	m_lastTimeStamp = 0;
-	m_isVideoEnd = false;
-
-	m_ringbuffersize = 0;
-	m_mpegheaderReadPos = 0;
 	m_mpegheaderSize = sizeof(m_mpegheader);
 	m_audioType = PSP_CODEC_AT3PLUS; // in movie, we use only AT3+ audio
 }
@@ -163,8 +134,8 @@ void MediaEngine::closeMedia() {
 		delete m_pdata;
 	if (m_demux)
 		delete m_demux;
-	m_pdata = 0;
-	m_demux = 0;
+	m_pdata = nullptr;
+	m_demux = nullptr;
 	AudioClose(&m_audioContext);
 	m_isVideoEnd = false;
 }
@@ -196,12 +167,12 @@ void MediaEngine::DoState(PointerWrap &p) {
 
 	Do(p, m_ringbuffersize);
 
-	u32 hasloadStream = m_pdata != NULL;
+	u32 hasloadStream = m_pdata != nullptr;
 	Do(p, hasloadStream);
 	if (hasloadStream && p.mode == p.MODE_READ)
 		reloadStream();
 #ifdef USE_FFMPEG
-	u32 hasopencontext = m_pFormatCtx != NULL;
+	u32 hasopencontext = m_pFormatCtx != nullptr;
 #else
 	u32 hasopencontext = false;
 #endif
@@ -238,7 +209,7 @@ void MediaEngine::DoState(PointerWrap &p) {
 	}
 }
 
-static int MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size) {
+int MediaEngine::MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size) {
 	MediaEngine *mpeg = (MediaEngine *)opaque;
 
 	int size = buf_size;
@@ -388,10 +359,10 @@ void MediaEngine::closeContext()
 	if (m_pFormatCtx)
 		avformat_close_input(&m_pFormatCtx);
 	sws_freeContext(m_sws_ctx);
-	m_sws_ctx = NULL;
-	m_pIOContext = 0;
+	m_sws_ctx = nullptr;
+	m_pIOContext = nullptr;
 #endif
-	m_buffer = 0;
+	m_buffer = nullptr;
 }
 
 bool MediaEngine::loadStream(const u8 *buffer, int readSize, int RingbufferSize)
@@ -593,7 +564,7 @@ bool MediaEngine::setVideoDim(int width, int height)
 	}
 
 	sws_freeContext(m_sws_ctx);
-	m_sws_ctx = NULL;
+	m_sws_ctx = nullptr;
 	m_sws_fmt = -1;
 
 	if (m_desWidth == 0 || m_desHeight == 0) {
@@ -999,7 +970,7 @@ u8 *MediaEngine::getFrameImage() {
 #ifdef USE_FFMPEG
 	return m_pFrameRGB->data[0];
 #else
-	return NULL;
+	return nullptr;
 #endif
 }
 
@@ -1044,7 +1015,7 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 		return 0;
 	}
 
-	u8 *audioFrame = 0;
+	u8 *audioFrame = nullptr;
 	int headerCode1, headerCode2;
 	int frameSize = getNextAudioFrame(&audioFrame, &headerCode1, &headerCode2);
 	if (frameSize == 0) {
