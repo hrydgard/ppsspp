@@ -61,6 +61,8 @@ public:
 		glContext_ = nullptr;
 		SDL_DestroyWindow(screen_);
 		screen_ = nullptr;
+
+		SDL_Quit();
 	}
 
 	Draw::DrawContext *GetDrawContext() override {
