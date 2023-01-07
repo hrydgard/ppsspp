@@ -97,7 +97,7 @@ namespace MIPSInt
 	{
 		int imm = (s16)(op & 0xFFFF);
 		int rs = _RS;
-		int addr = R(rs) + imm;
+		uint32_t addr = R(rs) + imm;
 		int func = (op >> 16) & 0x1F;
 
 		// Let's only report this once per run to be safe from impacting perf.
@@ -116,10 +116,17 @@ namespace MIPSInt
 			// We assume the CPU won't be reset during this, so no locking.
 			if (MIPSComp::jit) {
 				// Let's over invalidate to be super safe.
-				MIPSComp::jit->InvalidateCacheAt(addr & ~0x3F, 0x40 + (addr & 0x3F));
+				uint32_t alignedAddr = addr & ~0x3F;
+				int size = 0x40 + (addr & 0x3F);
+				MIPSComp::jit->InvalidateCacheAt(alignedAddr, size);
+				// Using a bool to avoid locking/etc. in case it's slow.
 				if (!reportedAlignment && (addr & 0x3F) != 0) {
 					WARN_LOG_REPORT(JIT, "Unaligned icache invalidation of %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
 					reportedAlignment = true;
+				}
+				if (alignedAddr <= PC + 4 && alignedAddr + size < PC + 4) {
+					// This is probably rare so we don't use a static bool.
+					WARN_LOG_REPORT_ONCE(icacheInvalidatePC, JIT, "Invalidating address near PC: %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
 				}
 			}
 			break;
