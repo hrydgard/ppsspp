@@ -144,4 +144,9 @@ public:  // TODO: Very little of this below should be public.
 
 	// used for audio type 
 	int m_audioType;
+
+private:
+#ifdef USE_FFMPEG
+	std::vector<AVCodecContext *> m_codecsToClose;
+#endif
 };

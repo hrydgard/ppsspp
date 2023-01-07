@@ -380,6 +380,11 @@ void MediaEngine::closeContext()
 #endif
 	}
 	m_pCodecCtxs.clear();
+	// These are streams allocated from avformat_new_stream.
+	for (auto it : m_codecsToClose) {
+		avcodec_close(it);
+	}
+	m_codecsToClose.clear();
 	if (m_pFormatCtx)
 		avformat_close_input(&m_pFormatCtx);
 	sws_freeContext(m_sws_ctx);
@@ -439,6 +444,8 @@ bool MediaEngine::addVideoStream(int streamNum, int streamId) {
 			if (streamNum >= m_expectedVideoStreams) {
 				++m_expectedVideoStreams;
 			}
+
+			m_codecsToClose.push_back(stream->codec);
 			return true;
 		}
 	}
