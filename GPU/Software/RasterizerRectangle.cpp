@@ -1,5 +1,6 @@
 // See comment in header for the purpose of the code in this file.
 
+#include "ppsspp_config.h"
 #include <algorithm>
 #include <cmath>
 
@@ -23,6 +24,14 @@
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
+#endif
+
+#if PPSSPP_ARCH(ARM_NEON)
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
 #endif
 
 extern DSStretch g_DarkStalkerStretch;
@@ -57,6 +66,23 @@ static uint32_t StandardAlphaBlend(uint32_t source, uint32_t dst) {
 
 	const __m128i blended16 = _mm_adds_epi16(s, d);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(blended16, blended16));
+#elif PPSSPP_ARCH(ARM64_NEON)
+	uint16x4_t sf = vdup_n_u16((source >> 24) * 2 + 1);
+	uint16x4_t df = vdup_n_u16((255 - (source >> 24)) * 2 + 1);
+
+	// Convert both to 16-bit, double, and add the half before even going to 32 bit.
+	uint16x8_t sd_c16 = vmovl_u8(vcreate_u8((uint64_t)source | ((uint64_t)dst << 32)));
+	sd_c16 = vaddq_u16(vshlq_n_u16(sd_c16, 1), vdupq_n_u16(1));
+
+	uint16x4_t srgb = vget_low_u16(sd_c16);
+	uint16x4_t drgb = vget_high_u16(sd_c16);
+
+	uint16x4_t s = vshrn_n_u32(vmull_u16(srgb, sf), 10);
+	uint16x4_t d = vshrn_n_u32(vmull_u16(drgb, df), 10);
+
+	uint16x4_t blended = vset_lane_s16(0, vadd_u16(s, d), 3);
+	uint8x8_t blended8 = vqmovn_u16(vcombine_u16(blended, blended));
+	return vget_lane_u32(vreinterpret_u32_u8(blended8), 0);
 #else
 	Vec3<int> srcfactor = Vec3<int>::AssignToAll(source >> 24);
 	Vec3<int> dstfactor = Vec3<int>::AssignToAll(255 - (source >> 24));
@@ -185,6 +211,14 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 	}
 	const __m128i b = _mm_mulhi_epi16(pboost, t);
 	out.ivec = _mm_unpacklo_epi16(b, _mm_setzero_si128());
+#elif PPSSPP_ARCH(ARM64_NEON)
+	int32x4_t pboost = vaddq_s32(prim_color.ivec, vdupq_n_s32(1));
+	int32x4_t t = texcolor.ivec;
+	if (samplerID.useColorDoubling) {
+		static const int32_t rgbDouble[4] = {1, 1, 1, 0};
+		t = vshlq_s32(t, vld1q_s32(rgbDouble));
+	}
+	out.ivec = vshrq_n_s32(vmulq_s32(pboost, t), 8);
 #else
 	if (samplerID.useColorDoubling) {
 		Vec4<int> tex = texcolor * Vec4<int>(2, 2, 2, 1);
