@@ -290,9 +290,10 @@ struct BuildTexturePlan {
 	bool decodeToClut8;
 
 	void GetMipSize(int level, int *w, int *h) const {
-		if (replaceValid) {
-			replaced->GetSize(level, *w, *h);
-		} else if (depth == 1) {
+		if (replaceValid && replaced->GetSize(level, *w, *h)) {
+			return;
+		}
+		if (depth == 1) {
 			*w = createW >> level;
 			*h = createH >> level;
 		} else {
