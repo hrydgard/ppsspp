@@ -120,8 +120,8 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 		memset(outSamples, 0, numSamples * sizeof(s16));
 		return;
 	}
-	if (!Memory::IsValidAddress(read_)) {
-		WARN_LOG(SASMIX, "Bad VAG samples address?");
+	if (!Memory::IsValidRange(read_, numBlocks_ * 16)) {
+		WARN_LOG_REPORT(SASMIX, "Bad VAG samples address? %08x / %d", read_, numBlocks_);
 		return;
 	}
 	const u8 *readp = Memory::GetPointerUnchecked(read_);
@@ -577,9 +577,11 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	// Then mix the send buffer in with the rest.
 
 	// Alright, all voices mixed. Let's convert and clip, and at the same time, wipe mixBuffer for next time. Could also dither.
-	s16 *outp = (s16 *)Memory::GetPointer(outAddr);
-	const s16 *inp = inAddr ? (s16*)Memory::GetPointer(inAddr) : 0;
-	if (outputMode == PSP_SAS_OUTPUTMODE_MIXED) {
+	s16 *outp = (s16 *)Memory::GetPointerWriteRange(outAddr, 4 * grainSize);
+	const s16 *inp = inAddr ? (const s16 *)Memory::GetPointerRange(inAddr, 4 * grainSize) : 0;
+	if (!outp) {
+		WARN_LOG_REPORT(SCESAS, "Bad SAS Mix output address: %08x, grain=%d", outAddr, grainSize);
+	} else if (outputMode == PSP_SAS_OUTPUTMODE_MIXED) {
 		// Okay, apply effects processing to the Send buffer.
 		WriteMixedOutput(outp, inp, leftVol, rightVol);
 		if (MemBlockInfoDetailed()) {
@@ -605,7 +607,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	memset(sendBuffer, 0, grainSize * sizeof(int) * 2);
 
 #ifdef AUDIO_TO_FILE
-	fwrite(Memory::GetPointer(outAddr), 1, grainSize * 2 * 2, audioDump);
+	fwrite(Memory::GetPointer(outAddr, grainSize * 2 * 2), 1, grainSize * 2 * 2, audioDump);
 #endif
 }
 
