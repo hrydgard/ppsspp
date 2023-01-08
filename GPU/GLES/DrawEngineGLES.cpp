@@ -383,13 +383,13 @@ void DrawEngineGLES::DoFlush() {
 		int vertexCount = indexGen.VertexCount();
 
 		// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
-#if defined(MOBILE_DEVICE)
-		constexpr int vertexCountLimit = 0x10000 / 3;
-		if (vertexCount > vertexCountLimit) {
-			WARN_LOG_REPORT_ONCE(manyVerts, G3D, "Truncating vertex count from %d to %d", vertexCount, vertexCountLimit);
-			vertexCount = vertexCountLimit;
+		if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
+			constexpr int vertexCountLimit = 0x10000 / 3;
+			if (vertexCount > vertexCountLimit) {
+				WARN_LOG_REPORT_ONCE(manyVerts, G3D, "Truncating vertex count from %d to %d", vertexCount, vertexCountLimit);
+				vertexCount = vertexCountLimit;
+			}
 		}
-#endif
 
 		SoftwareTransform swTransform(params);
 
