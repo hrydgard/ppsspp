@@ -377,7 +377,7 @@ protected:
 	ReplacedTexture &FindReplacement(TexCacheEntry *entry, int &w, int &h, int &d);
 
 	// Return value is mapData normally, but could be another buffer allocated with AllocateAlignedMemory.
-	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, int mapRowPitch, ReplacedTexture &replaced, int srcLevel, int scaleFactor, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags);
+	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, int mapRowPitch, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags);
 
 	template <typename T>
 	inline const T *GetCurrentClut() {
