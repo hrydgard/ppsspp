@@ -34,6 +34,14 @@
 #include <emmintrin.h>
 #endif
 
+#if PPSSPP_ARCH(ARM_NEON)
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+#endif
+
 using namespace Math3D;
 using namespace Rasterizer;
 
@@ -504,6 +512,19 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 		} else {
 			out_a = prim_color.a();
 		}
+#elif PPSSPP_ARCH(ARM64_NEON)
+		int32x4_t pboost = vaddq_s32(prim_color.ivec, vdupq_n_s32(1));
+		int32x4_t t = texcolor.ivec;
+		if (samplerID.useColorDoubling) {
+			static const int32_t rgbDouble[4] = { 1, 1, 1, 0 };
+			t = vshlq_s32(t, vld1q_s32(rgbDouble));
+		}
+		out_rgb.ivec = vshrq_n_s32(vmulq_s32(pboost, t), 8);
+
+		if (rgba) {
+			return ToVec4IntResult(Vec4<int>(out_rgb.ivec));
+		}
+		out_a = prim_color.a();
 #else
 		if (samplerID.useColorDoubling) {
 			out_rgb = ((prim_color.rgb() + Vec3<int>::AssignToAll(1)) * texcolor.rgb() * 2) / 256;
@@ -610,13 +631,22 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuad(bool clamp, Vec4In
 		result.ivec = _mm_andnot_si128(negmask, result.ivec);
 
 		// Now the high bound.
-		__m128i bound = _mm_set1_epi32(width - 1);
+		__m128i bound = _mm_set1_epi32(width > 512 ? 511 : width - 1);
 		__m128i goodmask = _mm_cmpgt_epi32(bound, result.ivec);
 		// Clear the ones that were too high, then or in the high bound to those.
 		result.ivec = _mm_and_si128(goodmask, result.ivec);
 		result.ivec = _mm_or_si128(result.ivec, _mm_andnot_si128(goodmask, bound));
 	} else {
-		result.ivec = _mm_and_si128(result.ivec, _mm_set1_epi32(width - 1));
+		result.ivec = _mm_and_si128(result.ivec, _mm_set1_epi32((width - 1) & 511));
+	}
+#elif PPSSPP_ARCH(ARM64_NEON)
+	if (clamp) {
+		// Let's start by clamping to the maximum.
+		result.ivec = vminq_s32(result.ivec, vdupq_n_s32(width > 512 ? 511 : width - 1));
+		// And then to zero.
+		result.ivec = vmaxq_s32(result.ivec, vdupq_n_s32(0));
+	} else {
+		result.ivec = vandq_s32(result.ivec, vdupq_n_s32((width - 1) & 511));
 	}
 #else
 	if (clamp) {
@@ -637,6 +667,10 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadS(bool clamp, int u
 #ifdef _M_SSE
 	__m128i uvec = _mm_add_epi32(_mm_set1_epi32(u), _mm_set_epi32(1, 0, 1, 0));
 	return ApplyTexelClampQuad(clamp, uvec, width);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	static const int32_t u2[4] = { 0, 1, 0, 1 };
+	int32x4_t uvec = vaddq_s32(vdupq_n_s32(u), vld1q_s32(u2));
+	return ApplyTexelClampQuad(clamp, uvec, width);
 #else
 	Vec4<int> result = Vec4<int>::AssignToAll(u) + Vec4<int>(0, 1, 0, 1);
 	return ApplyTexelClampQuad(clamp, ToVec4IntArg(result), width);
@@ -646,6 +680,10 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadS(bool clamp, int u
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadT(bool clamp, int v, int height) {
 #ifdef _M_SSE
 	__m128i vvec = _mm_add_epi32(_mm_set1_epi32(v), _mm_set_epi32(1, 1, 0, 0));
+	return ApplyTexelClampQuad(clamp, vvec, height);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	static const int32_t v2[4] = { 0, 0, 1, 1 };
+	int32x4_t vvec = vaddq_s32(vdupq_n_s32(v), vld1q_s32(v2));
 	return ApplyTexelClampQuad(clamp, vvec, height);
 #else
 	Vec4<int> result = Vec4<int>::AssignToAll(v) + Vec4<int>(0, 0, 1, 1);

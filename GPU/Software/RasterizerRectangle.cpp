@@ -211,6 +211,14 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 	}
 	const __m128i b = _mm_mulhi_epi16(pboost, t);
 	out.ivec = _mm_unpacklo_epi16(b, _mm_setzero_si128());
+#elif PPSSPP_ARCH(ARM64_NEON)
+	int32x4_t pboost = vaddq_s32(prim_color.ivec, vdupq_n_s32(1));
+	int32x4_t t = texcolor.ivec;
+	if (samplerID.useColorDoubling) {
+		static const int32_t rgbDouble[4] = {1, 1, 1, 0};
+		t = vshlq_s32(t, vld1q_s32(rgbDouble));
+	}
+	out.ivec = vshrq_n_s32(vmulq_s32(pboost, t), 8);
 #else
 	if (samplerID.useColorDoubling) {
 		Vec4<int> tex = texcolor * Vec4<int>(2, 2, 2, 1);
