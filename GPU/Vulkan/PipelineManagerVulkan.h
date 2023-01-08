@@ -32,6 +32,12 @@
 
 struct VKRGraphicsPipeline;
 class VulkanRenderManager;
+class VulkanContext;
+class VulkanVertexShader;
+class VulkanFragmentShader;
+class VulkanGeometryShader;
+class ShaderManagerVulkan;
+class DrawEngineCommon;
 
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here
@@ -49,7 +55,10 @@ struct VulkanPipelineKey {
 	void FromString(const std::string &str) {
 		memcpy(this, &str[0], sizeof(*this));
 	}
-	std::string GetDescription(DebugShaderStringType stringType) const;
+	std::string GetDescription(DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager) const;
+
+private:
+	std::string GetRasterStateDesc(bool lineBreaks) const;
 };
 
 // Simply wraps a Vulkan pipeline, providing some metadata.
@@ -71,13 +80,6 @@ struct VulkanPipeline {
 	u32 GetVariantsBitmask() const;
 };
 
-class VulkanContext;
-class VulkanVertexShader;
-class VulkanFragmentShader;
-class VulkanGeometryShader;
-class ShaderManagerVulkan;
-class DrawEngineCommon;
-
 class PipelineManagerVulkan {
 public:
 	PipelineManagerVulkan(VulkanContext *ctx);
@@ -94,7 +96,7 @@ public:
 
 	void InvalidateMSAAPipelines();
 
-	std::string DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
+	std::string DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager);
 	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type) const;
 
 	// Saves data for faster creation next time.

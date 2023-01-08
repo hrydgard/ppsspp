@@ -581,7 +581,7 @@ std::string GPU_Vulkan::DebugGetShaderString(std::string id, DebugShaderType typ
 	if (type == SHADER_TYPE_VERTEXLOADER) {
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
 	} else if (type == SHADER_TYPE_PIPELINE) {
-		return pipelineManager_->DebugGetObjectString(id, type, stringType);
+		return pipelineManager_->DebugGetObjectString(id, type, stringType, shaderManagerVulkan_);
 	} else if (type == SHADER_TYPE_TEXTURE) {
 		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
 	} else if (type == SHADER_TYPE_SAMPLER) {

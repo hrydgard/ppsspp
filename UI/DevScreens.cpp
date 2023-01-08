@@ -1157,6 +1157,7 @@ int ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout *
 	for (const auto &id : shaderIds_) {
 		Choice *choice = view->Add(new Choice(gpu->DebugGetShaderString(id, shaderType, SHADER_STRING_SHORT_DESC)));
 		choice->SetTag(id);
+		choice->SetDrawTextFlags(FLAG_DYNAMIC_ASCII);
 		choice->OnClick.Handle(this, &ShaderListScreen::OnShaderClick);
 		count++;
 	}
