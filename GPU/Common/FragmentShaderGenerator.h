@@ -36,9 +36,10 @@ struct FShaderID;
 #define CONST_PS_TEXCLAMP 8
 #define CONST_PS_TEXCLAMPOFF 9
 #define CONST_PS_MIPBIAS 10
+#define CONST_PS_TEXALPHA 11
 
 // For stencil upload
-#define CONST_PS_STENCILVALUE 11
+#define CONST_PS_STENCILVALUE 12
 
 // Can technically be deduced from the fragment shader ID, but this is safer.
 enum class FragmentShaderFlags : u32 {

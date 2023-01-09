@@ -152,6 +152,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_uvscaleoffset, "u_uvscaleoffset" });
 	queries.push_back({ &u_texclamp, "u_texclamp" });
 	queries.push_back({ &u_texclampoff, "u_texclampoff" });
+	queries.push_back({ &u_texAlpha, "u_texAlpha" });
 	queries.push_back({ &u_lightControl, "u_lightControl" });
 
 	for (int i = 0; i < 4; i++) {
@@ -227,6 +228,10 @@ static inline void SetColorUniform3(GLRenderManager *render, GLint *uniform, u32
 	float f[4];
 	Uint8x4ToFloat4(f, color);
 	render->SetUniformF(uniform, 3, f);
+}
+
+static inline void SetBoolUniform(GLRenderManager *render, GLint *uniform, bool value) {
+	render->SetUniformB(uniform, value);
 }
 
 static void SetColorUniform3Alpha(GLRenderManager *render, GLint *uniform, u32 color, u8 alpha) {
@@ -439,6 +444,9 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 	}
 	if (dirty & DIRTY_TEXENV) {
 		SetColorUniform3(render_, &u_texenv, gstate.texenvcolor);
+	}
+	if (dirty & DIRTY_TEXALPHA) {
+		SetBoolUniform(render_, &u_texAlpha, gstate.isTextureAlphaUsed());
 	}
 	if (dirty & DIRTY_ALPHACOLORREF) {
 		if (shaderLanguage.bitwiseOps) {
@@ -945,7 +953,7 @@ enum class CacheDetectFlags {
 };
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 21
+#define CACHE_VERSION 22
 struct CacheHeader {
 	uint32_t magic;
 	uint32_t version;

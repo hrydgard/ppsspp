@@ -213,6 +213,11 @@ void ShaderManagerDX9::VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha) {
 	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
+void ShaderManagerDX9::PSSetBool(int creg, bool value) {
+	BOOL b = value ? 1 : 0;
+	HRESULT retval = device_->SetPixelShaderConstantB(creg, &b, 1);
+}
+
 void ShaderManagerDX9::VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
@@ -279,7 +284,9 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {
 		PSSetFloat(CONST_PS_STENCILREPLACE, (float)gstate.getStencilTestRef() * (1.0f / 255.0f));
 	}
-
+	if (dirtyUniforms & DIRTY_TEXALPHA) {
+		PSSetBool(CONST_PS_TEXALPHA, gstate.isTextureAlphaUsed());
+	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
 		PSSetColorUniform3(CONST_PS_BLENDFIXA, gstate.getFixA());
 		PSSetColorUniform3(CONST_PS_BLENDFIXB, gstate.getFixB());

@@ -198,8 +198,12 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		}
 	}
 
+	if (dirtyUniforms & DIRTY_TEXALPHA) {
+		ub->texAlpha = gstate.isTextureAlphaUsed() ? 1 : 0;
+	}
+
 	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {
-		ub->stencil = (float)gstate.getStencilTestRef() * (1.0 / 255.0);
+		ub->stencilReplaceValue = (float)gstate.getStencilTestRef() * (1.0 / 255.0);
 	}
 
 	// Note - this one is not in lighting but in transformCommon as it has uses beyond lighting
