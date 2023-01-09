@@ -74,6 +74,7 @@ struct VulkanPhysicalDeviceInfo {
 };
 
 class VulkanProfiler;
+class VulkanContext;
 
 // Extremely rough split of capabilities.
 enum class PerfClass {
@@ -93,11 +94,11 @@ class VulkanDeleteList {
 	};
 
 	struct Callback {
-		explicit Callback(void(*f)(void *userdata), void *u)
+		explicit Callback(void(*f)(VulkanContext *vulkan, void *userdata), void *u)
 			: func(f), userdata(u) {
 		}
 
-		void(*func)(void *userdata);
+		void (*func)(VulkanContext *vulkan, void *userdata);
 		void *userdata;
 	};
 
@@ -118,7 +119,7 @@ public:
 	void QueueDeletePipelineLayout(VkPipelineLayout &pipelineLayout) { _dbg_assert_(pipelineLayout != VK_NULL_HANDLE); pipelineLayouts_.push_back(pipelineLayout); pipelineLayout = VK_NULL_HANDLE; }
 	void QueueDeleteDescriptorSetLayout(VkDescriptorSetLayout &descSetLayout) { _dbg_assert_(descSetLayout != VK_NULL_HANDLE); descSetLayouts_.push_back(descSetLayout); descSetLayout = VK_NULL_HANDLE; }
 	void QueueDeleteQueryPool(VkQueryPool &queryPool) { _dbg_assert_(queryPool != VK_NULL_HANDLE); queryPools_.push_back(queryPool); queryPool = VK_NULL_HANDLE; }
-	void QueueCallback(void(*func)(void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
+	void QueueCallback(void (*func)(VulkanContext *vulkan, void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
 
 	void QueueDeleteBufferAllocation(VkBuffer &buffer, VmaAllocation &alloc) { 
 		_dbg_assert_(buffer != VK_NULL_HANDLE); 
@@ -134,7 +135,7 @@ public:
 	}
 
 	void Take(VulkanDeleteList &del);
-	void PerformDeletes(VkDevice device, VmaAllocator allocator);
+	void PerformDeletes(VulkanContext *vulkan, VmaAllocator allocator);
 
 private:
 	std::vector<VkCommandPool> cmdPools_;

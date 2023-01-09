@@ -301,7 +301,7 @@ void VulkanContext::DestroyInstance() {
 void VulkanContext::BeginFrame(VkCommandBuffer firstCommandBuffer) {
 	FrameData *frame = &frame_[curFrame_];
 	// Process pending deletes.
-	frame->deleteList.PerformDeletes(device_, allocator_);
+	frame->deleteList.PerformDeletes(this, allocator_);
 	// VK_NULL_HANDLE when profiler is disabled.
 	if (firstCommandBuffer) {
 		frame->profiler.BeginFrame(this, firstCommandBuffer);
@@ -1223,9 +1223,9 @@ VkFence VulkanContext::CreateFence(bool presignalled) {
 
 void VulkanContext::PerformPendingDeletes() {
 	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
-		frame_[i].deleteList.PerformDeletes(device_, allocator_);
+		frame_[i].deleteList.PerformDeletes(this, allocator_);
 	}
-	Delete().PerformDeletes(device_, allocator_);
+	Delete().PerformDeletes(this, allocator_);
 }
 
 void VulkanContext::DestroyDevice() {
@@ -1446,11 +1446,13 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	del.callbacks_.clear();
 }
 
-void VulkanDeleteList::PerformDeletes(VkDevice device, VmaAllocator allocator) {
+void VulkanDeleteList::PerformDeletes(VulkanContext *vulkan, VmaAllocator allocator) {
 	for (auto &callback : callbacks_) {
-		callback.func(callback.userdata);
+		callback.func(vulkan, callback.userdata);
 	}
 	callbacks_.clear();
+
+	VkDevice device = vulkan->GetDevice();
 	for (auto &cmdPool : cmdPools_) {
 		vkDestroyCommandPool(device, cmdPool, nullptr);
 	}

@@ -118,13 +118,7 @@ struct VKRComputePipelineDesc {
 // Wrapped pipeline. Doesn't own desc.
 struct VKRGraphicsPipeline {
 	VKRGraphicsPipeline(PipelineFlags flags, const char *tag) : flags_(flags), tag_(tag) {}
-	~VKRGraphicsPipeline() {
-		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
-			delete pipeline[i];
-		}
-		if (desc)
-			desc->Release();
-	}
+	~VKRGraphicsPipeline();
 
 	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
 
@@ -142,6 +136,8 @@ struct VKRGraphicsPipeline {
 
 	VkSampleCountFlagBits SampleCount() const { return sampleCount_; }
 private:
+	void DestroyVariantsInstant(VkDevice device);
+
 	std::string tag_;
 	PipelineFlags flags_;
 	VkSampleCountFlagBits sampleCount_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;

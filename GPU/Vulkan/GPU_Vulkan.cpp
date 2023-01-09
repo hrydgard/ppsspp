@@ -312,6 +312,7 @@ void GPU_Vulkan::BeginHostFrame() {
 		// This most likely means that saw equal depth changed.
 		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders");
 		shaderManagerVulkan_->ClearShaders();
+		pipelineManager_->Clear();
 		gstate_c.useFlagsChanged = false;
 	}
 
