@@ -568,6 +568,13 @@ bool CheckGLExtensions() {
 		}
 	}
 
+	// Force off clip for a cmomon buggy Samsung version.
+	if (!strcmp(versionStr, "OpenGL ES 3.2 ANGLE git hash: aa8f94c52952")) {
+		// Maybe could use bugs, but for now let's just force it back off.
+		// Seeing errors that gl_ClipDistance is undefined.
+		gl_extensions.EXT_clip_cull_distance = false;
+	}
+
 	ProcessGPUFeatures();
 
 	int error = glGetError();
