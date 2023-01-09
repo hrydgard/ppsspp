@@ -1029,10 +1029,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// TODO: Actually loop in the shader. For now, we write it all out.
 			// Will need to change how the data is stored to loop efficiently.
 			// u_lightControl is computed in PackLightControlBits().
+			p.F("  uint comp;");
+			p.F("  uint type;");
 			for (int i = 0; i < 4; i++) {
 				p.F("  if ((u_lightControl & %du) != 0x0u) { \n", 1 << i);
-				p.F("    uint comp = (u_lightControl >> 0x%02xu) & 0x3u;\n", 4 + 4 * i);
-				p.F("    uint type = (u_lightControl >> 0x%02xu) & 0x3u;\n", 4 + 4 * i + 2);
+				p.F("    comp = (u_lightControl >> 0x%02xu) & 0x3u;\n", 4 + 4 * i);
+				p.F("    type = (u_lightControl >> 0x%02xu) & 0x3u;\n", 4 + 4 * i + 2);
 				p.C("    if (type == 0x0u) {\n");  // GE_LIGHTTYPE_DIRECTIONAL
 				p.F("      toLight = u_lightpos%d;\n", i);
 				p.C("    } else {\n");
