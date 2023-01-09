@@ -260,7 +260,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				if (texFunc == GE_TEXFUNC_BLEND) {
 					WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
 				}
-				WRITE(p, "bool u_texAlpha : register(c%i);\n", CONST_PS_TEXALPHA);
+				WRITE(p, "bool u_texAlpha : register(b%i);\n", CONST_PS_TEXALPHA);  // NOTE! "b" register, not "c"!
 			}
 			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
 			if (texture3D) {

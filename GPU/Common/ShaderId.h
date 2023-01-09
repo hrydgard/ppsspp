@@ -6,9 +6,8 @@
 
 #include "Common/CommonFuncs.h"
 
-// TODO: There will be additional bits, indicating that groups of these will be
-// sent to the shader and processed there. This will cut down the number of shaders ("ubershader approach")
-// This is probably only really worth doing for lighting and bones.
+// VS_BIT_LIGHT_UBERSHADER indicates that some groups of these will be
+// sent to the shader and processed there. This cuts down the number of shaders ("ubershader approach").
 enum VShaderBit : uint8_t {
 	VS_BIT_LMODE = 0,
 	VS_BIT_IS_THROUGH = 1,

@@ -23,7 +23,7 @@
 
 struct FShaderID;
 
-// D3D9 constants
+// D3D9 float constants
 
 #define CONST_PS_TEXENV 0
 #define CONST_PS_ALPHACOLORREF 1
@@ -36,10 +36,13 @@ struct FShaderID;
 #define CONST_PS_TEXCLAMP 8
 #define CONST_PS_TEXCLAMPOFF 9
 #define CONST_PS_MIPBIAS 10
-#define CONST_PS_TEXALPHA 11
 
 // For stencil upload
-#define CONST_PS_STENCILVALUE 12
+#define BCONST_PS_STENCILVALUE 11
+
+// D3D9 bool constants, they have their own register space.
+#define CONST_PS_TEXALPHA 0
+
 
 // Can technically be deduced from the fragment shader ID, but this is safer.
 enum class FragmentShaderFlags : u32 {
