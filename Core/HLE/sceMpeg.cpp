@@ -1203,8 +1203,14 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 	// Flush structs back to memory
 	avcAu.write(auAddr);
 
-	// Save the current frame's status to initAddr 
-	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
+	if (mpegLibVersion >= 0x0105) {
+		//Killzone - Liberation expect , issue #16727
+		Memory::Write_U32(1, initAddr);
+	}
+	else {
+		// Save the current frame's status to initAddr 
+		Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
+	}
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
 	DEBUG_LOG(ME, "sceMpegAvcDecode(%08x, %08x, %i, %08x, %08x)", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
