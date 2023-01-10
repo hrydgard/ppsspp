@@ -103,7 +103,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool testForceToZero = id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO);
 	bool enableColorTest = id.Bit(FS_BIT_COLOR_TEST);
 	bool colorTestAgainstZero = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
-	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
 
 	if (texture3D && arrayTexture) {
@@ -261,6 +260,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
 				}
 				WRITE(p, "float u_texNoAlpha : register(c%i);\n", CONST_PS_TEX_NO_ALPHA);
+				WRITE(p, "float u_texMul : register(c%i);\n", CONST_PS_TEX_MUL);
 			}
 			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
 			if (texture3D) {
@@ -353,8 +353,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			} else {
 				WRITE(p, "uniform sampler2D tex;\n");
 			}
-			*uniformMask |= DIRTY_TEXALPHA;
+			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
 			WRITE(p, "uniform float u_texNoAlpha;\n");
+			WRITE(p, "uniform float u_texMul;\n");
 		}
 
 		if (readFramebufferTex) {
@@ -853,10 +854,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  vec4 v = p + s;\n"); break;
 				break;
 			}
-			if (enableColorDoubling) {
-				// This happens before fog is applied.
-				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
-			}
+
+			// This happens before fog is applied.
+			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
+			WRITE(p, "  v.rgb = clamp(v.rgb * u_texMul, 0.0, 1.0);\n");
 		} else {
 			// No texture mapping
 			WRITE(p, "  vec4 v = v_color0 + s;\n");

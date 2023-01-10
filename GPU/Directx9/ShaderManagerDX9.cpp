@@ -261,7 +261,7 @@ static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
-const uint64_t psUniforms = DIRTY_TEXENV | DIRTY_TEXALPHA | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK | DIRTY_FOGCOLOR | DIRTY_STENCILREPLACEVALUE | DIRTY_SHADERBLEND | DIRTY_TEXCLAMP | DIRTY_MIPBIAS;
+const uint64_t psUniforms = DIRTY_TEXENV | DIRTY_TEX_ALPHA_MUL | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK | DIRTY_FOGCOLOR | DIRTY_STENCILREPLACEVALUE | DIRTY_SHADERBLEND | DIRTY_TEXCLAMP | DIRTY_MIPBIAS;
 
 void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
@@ -279,9 +279,10 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {
 		PSSetFloat(CONST_PS_STENCILREPLACE, (float)gstate.getStencilTestRef() * (1.0f / 255.0f));
 	}
-	if (dirtyUniforms & DIRTY_TEXALPHA) {
+	if (dirtyUniforms & DIRTY_TEX_ALPHA_MUL) {
 		// NOTE: Reversed value, more efficient in shader.
 		PSSetFloat(CONST_PS_TEX_NO_ALPHA, gstate.isTextureAlphaUsed() ? 0.0f : 1.0f);
+		PSSetFloat(CONST_PS_TEX_MUL, gstate.isColorDoublingEnabled() ? 2.0f : 1.0f);
 	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
 		PSSetColorUniform3(CONST_PS_BLENDFIXA, gstate.getFixA());

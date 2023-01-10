@@ -37,9 +37,10 @@ struct FShaderID;
 #define CONST_PS_TEXCLAMPOFF 9
 #define CONST_PS_MIPBIAS 10
 #define CONST_PS_TEX_NO_ALPHA 11
+#define CONST_PS_TEX_MUL 12
 
 // For stencil upload
-#define BCONST_PS_STENCILVALUE 12
+#define BCONST_PS_STENCILVALUE 13
 
 // D3D9 bool constants, they have their own register space.
 
