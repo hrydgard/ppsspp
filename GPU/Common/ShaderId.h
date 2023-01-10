@@ -72,8 +72,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_SHADER_TEX_CLAMP = 7,
 	FS_BIT_CLAMP_S = 8,
 	FS_BIT_CLAMP_T = 9,
-	FS_BIT_TEXTURE_AT_OFFSET = 10,
-	// 1 bit free
+	// 2 bits free
 	FS_BIT_ALPHA_TEST = 12,
 	FS_BIT_ALPHA_TEST_FUNC = 13,  // 3 bits
 	FS_BIT_ALPHA_AGAINST_ZERO = 16,
