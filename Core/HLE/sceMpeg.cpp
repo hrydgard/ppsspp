@@ -2175,6 +2175,7 @@ static u32 convertABGRToYCbCr(u32 abgr) {
 	return (y << 16) | (cb << 8) | cr;
 }
 
+// bufferOutputAddr is checked in the caller.
 static int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int width, int height) {
 	u32 *imageBuffer = (u32*)data;
 	int sizeY = width * height;
