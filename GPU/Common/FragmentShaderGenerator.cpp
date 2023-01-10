@@ -133,7 +133,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool needShaderTexClamp = id.Bit(FS_BIT_SHADER_TEX_CLAMP);
 
 	GETexFunc texFunc = (GETexFunc)id.Bits(FS_BIT_TEXFUNC, 3);
-	bool textureAtOffset = id.Bit(FS_BIT_TEXTURE_AT_OFFSET);
 
 	ReplaceBlendType replaceBlend = static_cast<ReplaceBlendType>(id.Bits(FS_BIT_REPLACE_BLEND, 3));
 
@@ -243,9 +242,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			if (needShaderTexClamp && doTexture) {
 				WRITE(p, "vec4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
-				if (textureAtOffset) {
-					WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
-				}
+				WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
 			}
 
 			if (enableAlphaTest || enableColorTest) {
@@ -378,9 +375,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (needShaderTexClamp && doTexture) {
 			*uniformMask |= DIRTY_TEXCLAMP;
 			WRITE(p, "uniform vec4 u_texclamp;\n");
-			if (id.Bit(FS_BIT_TEXTURE_AT_OFFSET)) {
-				WRITE(p, "uniform vec2 u_texclampoff;\n");
-			}
+			WRITE(p, "uniform vec2 u_texclampoff;\n");
 		}
 
 		if (enableAlphaTest || enableColorTest) {
@@ -607,10 +602,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				} else {
 					vcoord = modulo + "(" + vcoord + ", u_texclamp.y)";
 				}
-				if (textureAtOffset) {
-					ucoord = "(" + ucoord + " + u_texclampoff.x)";
-					vcoord = "(" + vcoord + " + u_texclampoff.y)";
-				}
+				ucoord = "(" + ucoord + " + u_texclampoff.x)";
+				vcoord = "(" + vcoord + " + u_texclampoff.y)";
 
 				WRITE(p, "  vec2 fixedcoord = vec2(%s, %s);\n", ucoord.c_str(), vcoord.c_str());
 				truncate_cpy(texcoord, "fixedcoord");
