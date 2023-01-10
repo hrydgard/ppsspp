@@ -777,24 +777,6 @@ inline void writeVideoLineABGR4444(void *destp, const void *srcp, int width) {
 }
 
 int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMode) {
-	if (!Memory::IsValidAddress(bufferPtr) || frameWidth > 2048) {
-		// Clearly invalid values.  Let's just not.
-		ERROR_LOG_REPORT(ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
-		return 0;
-	}
-
-	u8 *buffer = Memory::GetPointerWrite(bufferPtr);
-
-#ifdef USE_FFMPEG
-	if (!m_pFrame || !m_pFrameRGB)
-		return 0;
-
-	// lock the image size
-	int height = m_desHeight;
-	int width = m_desWidth;
-	u8 *imgbuf = buffer;
-	const u8 *data = m_pFrameRGB->data[0];
-
 	int videoLineSize = 0;
 	switch (videoPixelMode) {
 	case GE_CMODE_32BIT_ABGR8888:
@@ -807,7 +789,25 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		break;
 	}
 
-	int videoImageSize = videoLineSize * height;
+	int videoImageSize = videoLineSize * m_desHeight;
+
+	if (!Memory::IsValidRange(bufferPtr, videoImageSize) || frameWidth > 2048) {
+		// Clearly invalid values.  Let's just not.
+		ERROR_LOG_REPORT(ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
+		return 0;
+	}
+
+	u8 *buffer = Memory::GetPointerWriteUnchecked(bufferPtr);
+
+#ifdef USE_FFMPEG
+	if (!m_pFrame || !m_pFrameRGB)
+		return 0;
+
+	// lock the image size
+	int height = m_desHeight;
+	int width = m_desWidth;
+	u8 *imgbuf = buffer;
+	const u8 *data = m_pFrameRGB->data[0];
 
 	bool swizzle = Memory::IsVRAMAddress(bufferPtr) && (bufferPtr & 0x00200000) == 0x00200000;
 	if (swizzle) {
@@ -867,22 +867,6 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 
 int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int videoPixelMode,
 	                             int xpos, int ypos, int width, int height) {
-	if (!Memory::IsValidAddress(bufferPtr) || frameWidth > 2048) {
-		// Clearly invalid values.  Let's just not.
-		ERROR_LOG_REPORT(ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
-		return 0;
-	}
-
-	u8 *buffer = Memory::GetPointerWrite(bufferPtr);
-
-#ifdef USE_FFMPEG
-	if (!m_pFrame || !m_pFrameRGB)
-		return 0;
-
-	// lock the image size
-	u8 *imgbuf = buffer;
-	const u8 *data = m_pFrameRGB->data[0];
-
 	int videoLineSize = 0;
 	switch (videoPixelMode) {
 	case GE_CMODE_32BIT_ABGR8888:
@@ -894,8 +878,24 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		videoLineSize = frameWidth * sizeof(u16);
 		break;
 	}
-
 	int videoImageSize = videoLineSize * height;
+
+	if (!Memory::IsValidRange(bufferPtr, videoImageSize) || frameWidth > 2048) {
+		// Clearly invalid values.  Let's just not.
+		ERROR_LOG_REPORT(ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
+		return 0;
+	}
+
+	u8 *buffer = Memory::GetPointerWriteUnchecked(bufferPtr);
+
+#ifdef USE_FFMPEG
+	if (!m_pFrame || !m_pFrameRGB)
+		return 0;
+
+	// lock the image size
+	u8 *imgbuf = buffer;
+	const u8 *data = m_pFrameRGB->data[0];
+
 	bool swizzle = Memory::IsVRAMAddress(bufferPtr) && (bufferPtr & 0x00200000) == 0x00200000;
 	if (swizzle) {
 		imgbuf = new u8[videoImageSize];
@@ -1006,11 +1006,10 @@ int MediaEngine::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2)
 }
 
 int MediaEngine::getAudioSamples(u32 bufferPtr) {
-	if (!Memory::IsValidAddress(bufferPtr)) {
+	u8 *buffer = Memory::GetPointerWriteRange(bufferPtr, 8192);
+	if (buffer == nullptr) {
 		ERROR_LOG_REPORT(ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);
 	}
-
-	u8 *buffer = Memory::GetPointerWrite(bufferPtr);
 	if (!m_demux) {
 		return 0;
 	}

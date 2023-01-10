@@ -22,6 +22,7 @@
 #endif
 #endif
 
+#include <algorithm>
 #include <ctime>
 #include <thread>
 
@@ -639,8 +640,9 @@ int PSPSaveDialog::Update(int animSpeed)
 	// The struct may have been updated by the game.  This happens in "Where Is My Heart?"
 	// Check if it has changed, reload it.
 	// TODO: Cut down on preloading?  This rebuilds the list from scratch.
-	int size = Memory::Read_U32(requestAddr);
-	if (memcmp(Memory::GetPointer(requestAddr), &originalRequest, size) != 0) {
+	int size = std::min((u32)sizeof(originalRequest), Memory::Read_U32(requestAddr));
+	const u8 *updatedRequest = Memory::GetPointerRange(requestAddr, size);
+	if (updatedRequest && memcmp(updatedRequest, &originalRequest, size) != 0) {
 		memset(&request, 0, sizeof(request));
 		Memory::Memcpy(&request, requestAddr, size);
 		Memory::Memcpy(&originalRequest, requestAddr, size);

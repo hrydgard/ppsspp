@@ -65,7 +65,7 @@ static uint64_t HashJitBlock(const JitBlock &b) {
 	PROFILE_THIS_SCOPE("jithash");
 	if (JIT_USE_COMPILEDHASH) {
 		// Includes the emuhack (or emuhacks) in memory.
-		return XXH3_64bits(Memory::GetPointer(b.originalAddress), b.originalSize * 4);
+		return XXH3_64bits(Memory::GetPointerRange(b.originalAddress, b.originalSize * 4), b.originalSize * 4);
 	}
 	return 0;
 }

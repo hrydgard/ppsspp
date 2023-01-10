@@ -511,9 +511,9 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 				ERROR_LOG(LOADER, "Segment %d pointer invalid - truncated?", i);
 				continue;
 			}
-			u8 *dst = Memory::GetPointerWrite(writeAddr);
 			u32 srcSize = p->p_filesz;
 			u32 dstSize = p->p_memsz;
+			u8 *dst = Memory::GetPointerWriteRange(writeAddr, dstSize);
 
 			if (srcSize < dstSize)
 			{
