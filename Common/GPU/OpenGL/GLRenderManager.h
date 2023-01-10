@@ -760,19 +760,6 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetUniformB(const GLint *loc, bool value) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-#ifdef _DEBUG
-		_dbg_assert_(curProgram_);
-#endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4I };
-		data.uniform4.loc = loc;
-		data.uniform4.count = 1;
-		u32 udata = value ? 1 : 0;
-		memcpy(data.uniform4.v, &udata, sizeof(u32));
-		curRenderStep_->commands.push_back(data);
-	}
-
 	void SetUniformM4x4(const GLint *loc, const float *udata) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG

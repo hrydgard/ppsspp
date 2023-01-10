@@ -230,10 +230,6 @@ static inline void SetColorUniform3(GLRenderManager *render, GLint *uniform, u32
 	render->SetUniformF(uniform, 3, f);
 }
 
-static inline void SetBoolUniform(GLRenderManager *render, GLint *uniform, bool value) {
-	render->SetUniformB(uniform, value);
-}
-
 static void SetColorUniform3Alpha(GLRenderManager *render, GLint *uniform, u32 color, u8 alpha) {
 	float f[4];
 	Uint8x3ToFloat4_AlphaUint8(f, color, alpha);
