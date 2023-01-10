@@ -199,7 +199,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 
 	if (dirtyUniforms & DIRTY_TEXALPHA) {
-		ub->texAlpha = gstate.isTextureAlphaUsed() ? 1 : 0;
+		ub->texNoAlpha = gstate.isTextureAlphaUsed() ? 0.0f : 1.0f;
 	}
 
 	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {

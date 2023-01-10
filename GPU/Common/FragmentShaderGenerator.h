@@ -36,12 +36,12 @@ struct FShaderID;
 #define CONST_PS_TEXCLAMP 8
 #define CONST_PS_TEXCLAMPOFF 9
 #define CONST_PS_MIPBIAS 10
+#define CONST_PS_TEX_NO_ALPHA 11
 
 // For stencil upload
-#define BCONST_PS_STENCILVALUE 11
+#define BCONST_PS_STENCILVALUE 12
 
 // D3D9 bool constants, they have their own register space.
-#define CONST_PS_TEXALPHA 0
 
 
 // Can technically be deduced from the fragment shader ID, but this is safer.

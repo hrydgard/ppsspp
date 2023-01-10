@@ -260,7 +260,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				if (texFunc == GE_TEXFUNC_BLEND) {
 					WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
 				}
-				WRITE(p, "bool u_texAlpha : register(b%i);\n", CONST_PS_TEXALPHA);  // NOTE! "b" register, not "c"!
+				WRITE(p, "float u_texNoAlpha : register(c%i);\n", CONST_PS_TEX_NO_ALPHA);
 			}
 			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
 			if (texture3D) {
@@ -354,7 +354,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "uniform sampler2D tex;\n");
 			}
 			*uniformMask |= DIRTY_TEXALPHA;
-			WRITE(p, "uniform bool u_texAlpha;\n");
+			WRITE(p, "uniform float u_texNoAlpha;\n");
 		}
 
 		if (readFramebufferTex) {
@@ -824,7 +824,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  vec4 p = v_color0;\n");
 
 			if (texFunc != GE_TEXFUNC_REPLACE) {
-				WRITE(p, "  if (!u_texAlpha) { t.a = 1.0; }\n");
+				WRITE(p, "  t.a = max(t.a, u_texNoAlpha);\n");
 			}
 
 			switch (texFunc) {
@@ -838,7 +838,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a) + s;\n");
 				break;
 			case GE_TEXFUNC_REPLACE:
-				WRITE(p, "  vec4 v = (u_texAlpha ? t : vec4(t.rgb, p.a)) + s;\n");
+				WRITE(p, "  vec4 r = t;\n");
+				WRITE(p, "  r.a = mix(r.a, p.a, u_texNoAlpha);\n");
+				WRITE(p, "  vec4 v = r + s;\n");
 				break;
 			case GE_TEXFUNC_ADD:
 			case GE_TEXFUNC_UNKNOWN1:

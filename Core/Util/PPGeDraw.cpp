@@ -1327,7 +1327,7 @@ bool PPGeImage::Load() {
 	unsigned char *textureData;
 	int success;
 	if (filename_.empty()) {
-		success = pngLoadPtr(Memory::GetPointerRange(png_, size_), size_, &width_, &height_, &textureData);
+		success = pngLoadPtr(Memory::GetPointerRange(png_, (u32)size_), size_, &width_, &height_, &textureData);
 	} else {
 		std::vector<u8> pngData;
 		if (pspFileSystem.ReadEntireFile(filename_, pngData) < 0) {

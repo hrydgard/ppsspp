@@ -285,7 +285,8 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 		PSSetFloat(CONST_PS_STENCILREPLACE, (float)gstate.getStencilTestRef() * (1.0f / 255.0f));
 	}
 	if (dirtyUniforms & DIRTY_TEXALPHA) {
-		PSSetBool(CONST_PS_TEXALPHA, gstate.isTextureAlphaUsed());
+		// NOTE: Reversed value, more efficient in shader.
+		PSSetFloat(CONST_PS_TEX_NO_ALPHA, gstate.isTextureAlphaUsed() ? 0.0f : 1.0f);
 	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
 		PSSetColorUniform3(CONST_PS_BLENDFIXA, gstate.getFixA());

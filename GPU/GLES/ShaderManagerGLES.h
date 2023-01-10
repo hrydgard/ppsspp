@@ -101,7 +101,7 @@ public:
 	int u_uvscaleoffset;
 	int u_texclamp;
 	int u_texclampoff;
-	int u_texAlpha;
+	int u_texNoAlpha;
 
 	// Lighting
 	int u_lightControl;
