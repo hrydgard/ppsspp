@@ -80,7 +80,7 @@ static uint32_t StandardAlphaBlend(uint32_t source, uint32_t dst) {
 	uint16x4_t s = vshrn_n_u32(vmull_u16(srgb, sf), 10);
 	uint16x4_t d = vshrn_n_u32(vmull_u16(drgb, df), 10);
 
-	uint16x4_t blended = vset_lane_s16(0, vadd_u16(s, d), 3);
+	uint16x4_t blended = vset_lane_u16(0, vadd_u16(s, d), 3);
 	uint8x8_t blended8 = vqmovn_u16(vcombine_u16(blended, blended));
 	return vget_lane_u32(vreinterpret_u32_u8(blended8), 0);
 #else
