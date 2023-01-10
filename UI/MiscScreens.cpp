@@ -744,12 +744,10 @@ bool LogoScreen::key(const KeyInput &key) {
 	return false;
 }
 
-bool LogoScreen::touch(const TouchInput &touch) {
+void LogoScreen::touch(const TouchInput &touch) {
 	if (touch.flags & TOUCH_DOWN) {
 		Next();
-		return true;
 	}
-	return false;
 }
 
 void LogoScreen::render() {

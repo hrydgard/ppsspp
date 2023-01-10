@@ -137,7 +137,7 @@ public:
 	LogoScreen(AfterLogoScreen afterLogoScreen = AfterLogoScreen::DEFAULT);
 
 	bool key(const KeyInput &key) override;
-	bool touch(const TouchInput &touch) override;
+	void touch(const TouchInput &touch) override;
 	void update() override;
 	void render() override;
 	void sendMessage(const char *message, const char *value) override;

@@ -62,7 +62,7 @@ public:
 	const char *tag() const override { return "KeyMappingNewKey"; }
 
 	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+	void axis(const AxisInput &axis) override;
 
 	void SetDelay(float t);
 
@@ -88,7 +88,7 @@ public:
 	const char *tag() const override { return "KeyMappingNewMouseKey"; }
 
 	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+	void axis(const AxisInput &axis) override;
 
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
@@ -110,7 +110,7 @@ public:
 	AnalogSetupScreen(const Path &gamePath);
 
 	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+	void axis(const AxisInput &axis) override;
 
 	void update() override;
 
@@ -140,11 +140,11 @@ public:
 		}
 	}
 
-	bool touch(const TouchInput &touch) override;
+	void touch(const TouchInput &touch) override;
 	void render() override;
 
 	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+	void axis(const AxisInput &axis) override;
 
 	const char *tag() const override { return "TouchTest"; }
 

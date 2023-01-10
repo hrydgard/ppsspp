@@ -560,14 +560,14 @@ inline float clamp1(float x) {
 	return x;
 }
 
-bool EmuScreen::touch(const TouchInput &touch) {
+void EmuScreen::touch(const TouchInput &touch) {
 	Core_NotifyActivity();
 
 	if (chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE) {
 		// Avoid pressing touch button behind the chat
 		if (chatMenu_->Contains(touch.x, touch.y)) {
 			chatMenu_->Touch(touch);
-			return true;
+			return;
 		} else if ((touch.flags & TOUCH_DOWN) != 0) {
 			chatMenu_->Close();
 			if (chatButton_)
@@ -578,9 +578,6 @@ bool EmuScreen::touch(const TouchInput &touch) {
 
 	if (root_) {
 		root_->Touch(touch);
-		return true;
-	} else {
-		return false;
 	}
 }
 
@@ -791,7 +788,7 @@ bool EmuScreen::key(const KeyInput &key) {
 	return controlMapper_.Key(key, &pauseTrigger_);
 }
 
-bool EmuScreen::axis(const AxisInput &axis) {
+void EmuScreen::axis(const AxisInput &axis) {
 	Core_NotifyActivity();
 
 	return controlMapper_.Axis(axis);

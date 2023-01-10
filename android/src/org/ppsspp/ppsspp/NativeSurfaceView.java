@@ -63,7 +63,6 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 	public boolean onTouchEvent(final MotionEvent ev) {
 		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
 
-		int numTouchesHandled = 0;
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
 			int code = 0;
@@ -95,10 +94,10 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 					code |= tool << 10; // We use the Android tool type codes
 				}
 				// Can't use || due to short circuit evaluation
-				numTouchesHandled += NativeApp.touch(ev.getX(i), ev.getY(i), code, pid) ? 1 : 0;
+				NativeApp.touch(ev.getX(i), ev.getY(i), code, pid);
 			}
 		}
-		return numTouchesHandled > 0;
+		return true;
 	}
 
 	// Sensor management
