@@ -108,7 +108,6 @@ struct Theme {
 	Style headerStyle;
 	Style infoStyle;
 
-	Style popupTitle;
 	Style popupStyle;
 
 	uint32_t backgroundColor;

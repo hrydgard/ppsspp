@@ -1104,7 +1104,7 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 	}
 
 	if (alpha >= 0.1f) {
-		UI::Style style = dc.theme->popupTitle;
+		UI::Style style = dc.theme->popupStyle;
 		style.background.color = colorAlpha(style.background.color, alpha - 0.1f);
 		dc.FillRect(style.background, bounds_);
 	}
