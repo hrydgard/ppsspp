@@ -9,7 +9,7 @@
 enum : uint64_t {
 	DIRTY_BASE_UNIFORMS =
 	DIRTY_WORLDMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
-	DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEFENABLE | DIRTY_TEXENV | DIRTY_STENCILREPLACEVALUE |
+	DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEFENABLE | DIRTY_TEXENV | DIRTY_TEXALPHA | DIRTY_STENCILREPLACEVALUE |
 	DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_COLORWRITEMASK | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_DEPTHRANGE | DIRTY_MATAMBIENTALPHA |
 	DIRTY_BEZIERSPLINE | DIRTY_DEPAL,
 	DIRTY_LIGHT_UNIFORMS =
@@ -17,7 +17,7 @@ enum : uint64_t {
 	DIRTY_MATDIFFUSE | DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE | DIRTY_AMBIENT,
 };
 
-// Currently 448 bytes.
+// Currently 496 bytes.
 // Every line here is a 4-float.
 struct alignas(16) UB_VS_FS_Base {
 	float proj[16];
@@ -35,10 +35,11 @@ struct alignas(16) UB_VS_FS_Base {
 	// Fragment data
 	float fogColor[3]; uint32_t alphaColorRef;
 	float texEnvColor[3]; uint32_t colorTestMask;
-	float blendFixA[3]; float stencil;
+	float blendFixA[3]; float stencilReplaceValue;
 	float blendFixB[3]; float rotation;
 	float texClamp[4];
 	float texClampOffset[2]; float fogCoef[2];
+	float texNoAlpha; float pad[3];
 	// VR stuff is to go here, later. For normal drawing, we can then get away
 	// with just uploading the first 448 bytes of the struct (up to and including fogCoef).
 };
@@ -65,6 +66,7 @@ R"(  mat4 u_proj;
   vec4 u_texclamp;
   vec2 u_texclampoff;
   vec2 u_fogcoef;
+  float u_texNoAlpha; float pad0; float pad1; float pad2;
 )";
 
 // 512 bytes. Would like to shrink more. Some colors only have 8-bit precision and we expand

@@ -105,7 +105,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool colorTestAgainstZero = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
 	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
-	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
 
 	if (texture3D && arrayTexture) {
 		*errorString = "Invalid combination of 3D texture and array texture, shouldn't happen";
@@ -257,8 +256,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
 				WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
 			}
-			if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
-				WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
+			if (doTexture) {
+				if (texFunc == GE_TEXFUNC_BLEND) {
+					WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
+				}
+				WRITE(p, "float u_texNoAlpha : register(c%i);\n", CONST_PS_TEX_NO_ALPHA);
 			}
 			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
 			if (texture3D) {
@@ -351,6 +353,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			} else {
 				WRITE(p, "uniform sampler2D tex;\n");
 			}
+			*uniformMask |= DIRTY_TEXALPHA;
+			WRITE(p, "uniform float u_texNoAlpha;\n");
 		}
 
 		if (readFramebufferTex) {
@@ -817,64 +821,38 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				break;
 			}
 
-			if (texFunc != GE_TEXFUNC_REPLACE || !doTextureAlpha)
-				WRITE(p, "  vec4 p = v_color0;\n");
+			WRITE(p, "  vec4 p = v_color0;\n");
 
-			if (doTextureAlpha) { // texfmt == RGBA
-				switch (texFunc) {
-				case GE_TEXFUNC_MODULATE:
-					WRITE(p, "  vec4 v = p * t + s\n;");
-					break;
-
-				case GE_TEXFUNC_DECAL:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, t.rgb, t.a), p.a) + s;\n"); 
-					break;
-
-				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a) + s;\n"); 
-					break;
-
-				case GE_TEXFUNC_REPLACE:
-					WRITE(p, "  vec4 v = t + s;\n"); 
-					break;
-
-				case GE_TEXFUNC_ADD:
-				case GE_TEXFUNC_UNKNOWN1:
-				case GE_TEXFUNC_UNKNOWN2:
-				case GE_TEXFUNC_UNKNOWN3:
-					WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a) + s;\n"); 
-					break;
-				default:
-					WRITE(p, "  vec4 v = p;\n"); break;
-				}
-			} else { // texfmt == RGB
-				switch (texFunc) {
-				case GE_TEXFUNC_MODULATE:
-					WRITE(p, "  vec4 v = vec4(t.rgb * p.rgb, p.a) + s;\n"); 
-					break;
-
-				case GE_TEXFUNC_DECAL:
-					WRITE(p, "  vec4 v = vec4(t.rgb, p.a) + s;\n"); 
-					break;
-
-				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a) + s;\n"); 
-					break;
-
-				case GE_TEXFUNC_REPLACE:
-					WRITE(p, "  vec4 v = vec4(t.rgb, p.a) + s;\n"); 
-					break;
-
-				case GE_TEXFUNC_ADD:
-				case GE_TEXFUNC_UNKNOWN1:
-				case GE_TEXFUNC_UNKNOWN2:
-				case GE_TEXFUNC_UNKNOWN3:
-					WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a) + s;\n"); break;
-				default:
-					WRITE(p, "  vec4 v = p;\n"); break;
-				}
+			if (texFunc != GE_TEXFUNC_REPLACE) {
+				WRITE(p, "  t.a = max(t.a, u_texNoAlpha);\n");
 			}
 
+			switch (texFunc) {
+			case GE_TEXFUNC_MODULATE:
+				WRITE(p, "  vec4 v = p * t + s;\n");
+				break;
+			case GE_TEXFUNC_DECAL:
+				WRITE(p, "  vec4 v = vec4(mix(p.rgb, t.rgb, t.a), p.a) + s;\n");
+				break;
+			case GE_TEXFUNC_BLEND:
+				WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a) + s;\n");
+				break;
+			case GE_TEXFUNC_REPLACE:
+				WRITE(p, "  vec4 r = t;\n");
+				WRITE(p, "  r.a = mix(r.a, p.a, u_texNoAlpha);\n");
+				WRITE(p, "  vec4 v = r + s;\n");
+				break;
+			case GE_TEXFUNC_ADD:
+			case GE_TEXFUNC_UNKNOWN1:
+			case GE_TEXFUNC_UNKNOWN2:
+			case GE_TEXFUNC_UNKNOWN3:
+				WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a) + s;\n");
+				break;
+			default:
+				// Doesn't happen
+				WRITE(p, "  vec4 v = p + s;\n"); break;
+				break;
+			}
 			if (enableColorDoubling) {
 				// This happens before fog is applied.
 				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
