@@ -98,7 +98,7 @@ protected:
 	void update() override;
 
 private:
-	UI::ViewGroup *box_;
+	UI::LinearLayout *box_;
 	UI::Button *defaultButton_;
 	std::string title_;
 	std::string button1_;

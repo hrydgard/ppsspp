@@ -664,8 +664,8 @@ void PopupHeader::Draw(UIContext &dc) {
 		dc.PushScissor(tb);
 	}
 
-	dc.DrawText(text_.c_str(), bounds_.x + tx, bounds_.centerY(), dc.theme->popupTitle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
-	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->popupTitle.fgColor);
+	dc.DrawText(text_.c_str(), bounds_.x + tx, bounds_.centerY(), dc.theme->itemStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->itemStyle.fgColor);
 
 	if (availableWidth < tw) {
 		dc.PopScissor();
@@ -1433,8 +1433,8 @@ void Slider::Clamp() {
 
 void Slider::Draw(UIContext &dc) {
 	bool focus = HasFocus();
-	uint32_t linecolor = dc.theme->popupTitle.fgColor;
-	Style knobStyle = (down_ || focus) ? dc.theme->popupTitle : dc.theme->popupStyle;
+	uint32_t linecolor = dc.theme->itemStyle.fgColor;
+	Style knobStyle = (down_ || focus) ? dc.theme->itemStyle : dc.theme->popupStyle;
 
 	float knobX = ((float)(*value_) - minValue_) / (maxValue_ - minValue_) * (bounds_.w - paddingLeft_ - paddingRight_) + (bounds_.x + paddingLeft_);
 	dc.FillRect(Drawable(linecolor), Bounds(bounds_.x + paddingLeft_, bounds_.centerY() - 2, knobX - (bounds_.x + paddingLeft_), 4));
@@ -1558,8 +1558,8 @@ void SliderFloat::Clamp() {
 
 void SliderFloat::Draw(UIContext &dc) {
 	bool focus = HasFocus();
-	uint32_t linecolor = dc.theme->popupTitle.fgColor;
-	Style knobStyle = (down_ || focus) ? dc.theme->popupTitle : dc.theme->popupStyle;
+	uint32_t linecolor = dc.theme->itemStyle.fgColor;
+	Style knobStyle = (down_ || focus) ? dc.theme->itemStyle : dc.theme->popupStyle;
 
 	float knobX = (*value_ - minValue_) / (maxValue_ - minValue_) * (bounds_.w - paddingLeft_ - paddingRight_) + (bounds_.x + paddingLeft_);
 	dc.FillRect(Drawable(linecolor), Bounds(bounds_.x + paddingLeft_, bounds_.centerY() - 2, knobX - (bounds_.x + paddingLeft_), 4));

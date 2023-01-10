@@ -337,6 +337,7 @@ void PopupScreen::CreateViews() {
 	box_->SetHasDropShadow(hasDropShadow_);
 	// Since we scale a bit, make the dropshadow bleed past the edges.
 	box_->SetDropShadowExpand(std::max(dp_xres, dp_yres));
+	box_->SetSpacing(0.0f);
 
 	View *title = new PopupHeader(title_);
 	if (HasTitleBar()) {
@@ -668,14 +669,14 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	sprintf(temp, "%d", sliderValue_);
 	edit_ = new TextEdit(temp, Title(), "", new LinearLayoutParams(10.0f));
 	edit_->SetMaxLen(16);
-	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
+	edit_->SetTextColor(dc.theme->itemStyle.fgColor);
 	edit_->SetTextAlign(FLAG_DYNAMIC_ASCII);
 	edit_->OnTextChange.Handle(this, &SliderPopupScreen::OnTextChange);
 	changing_ = false;
 	lin->Add(edit_);
 
 	if (!units_.empty())
-		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)))->SetTextColor(dc.theme->popupStyle.fgColor);
+		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)))->SetTextColor(dc.theme->itemStyle.fgColor);
 
 	if (!negativeLabel_.empty())
 		vert->Add(new CheckBox(&disabled_, negativeLabel_));
@@ -702,13 +703,13 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	sprintf(temp, "%0.3f", sliderValue_);
 	edit_ = new TextEdit(temp, Title(), "", new LinearLayoutParams(10.0f));
 	edit_->SetMaxLen(16);
-	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
+	edit_->SetTextColor(dc.theme->itemStyle.fgColor);
 	edit_->SetTextAlign(FLAG_DYNAMIC_ASCII);
 	edit_->OnTextChange.Handle(this, &SliderFloatPopupScreen::OnTextChange);
 	changing_ = false;
 	lin->Add(edit_);
 	if (!units_.empty())
-		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)))->SetTextColor(dc.theme->popupStyle.fgColor);
+		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)))->SetTextColor(dc.theme->itemStyle.fgColor);
 
 	// slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
 	if (IsFocusMovementEnabled())
