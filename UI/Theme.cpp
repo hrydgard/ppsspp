@@ -108,13 +108,12 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 
 			if (ini.LoadFromVFS(name.ToString()) || ini.Load(fileInfo[f].fullName)) {
 				success = true;
-				// vsh load. meh.
 			}
 
 			if (!success)
 				continue;
 
-			// Alright, let's loop through the sections and see if any is a themes.
+			// Alright, let's loop through the sections and see if any is a theme.
 			for (size_t i = 0; i < ini.Sections().size(); i++) {
 				Section &section = ini.Sections()[i];
 				ThemeInfo info;
