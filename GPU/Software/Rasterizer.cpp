@@ -777,7 +777,7 @@ void TriangleEdge<useSSE4>::NarrowMinMaxX(const Vec4<int> &w, int64_t minX, int6
 		wmax = std::max(std::max(w.x, w.y), std::max(w.z, w.w));
 	}
 #elif PPSSPP_ARCH(ARM64_NEON)
-	int32x2_t wmax_temp = vpmax_s32(vget_low_s32(w.vec), vget_high_s32(w.vec));
+	int32x2_t wmax_temp = vpmax_s32(vget_low_s32(w.ivec), vget_high_s32(w.ivec));
 	wmax = vget_lane_s32(vpmax_s32(wmax_temp, wmax_temp), 0);
 #else
 	wmax = std::max(std::max(w.x, w.y), std::max(w.z, w.w));
