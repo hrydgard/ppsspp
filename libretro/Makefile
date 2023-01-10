@@ -500,7 +500,7 @@ else
 endif
 
 clean:
-	rm -f $(OBJECTS) $(TARGET)
+	rm -f $(filter-out $(CORE_DIR)/ext/zstd/lib/decompress/huf_decompress_amd64.S,$(OBJECTS)) $(TARGET)
 
 .PHONY: clean
 
