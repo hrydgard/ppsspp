@@ -735,6 +735,10 @@ add_library(Common STATIC
 	Common/UI/View.h
 	Common/UI/ViewGroup.cpp
 	Common/UI/ViewGroup.h
+	Common/UI/ScrollView.cpp
+	Common/UI/ScrollView.h
+	Common/UI/PopupScreens.cpp
+	Common/UI/PopupScreens.h
 	Common/BitScan.h
 	Common/BitSet.h
 	Common/Buffer.h

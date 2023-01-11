@@ -299,6 +299,8 @@ SOURCES_CXX += \
 	$(COMMONDIR)/UI/Tween.cpp \
 	$(COMMONDIR)/UI/View.cpp \
 	$(COMMONDIR)/UI/ViewGroup.cpp \
+	$(COMMONDIR)/UI/ScrollView.cpp \
+	$(COMMONDIR)/UI/PopupScreens.cpp \
 	$(COMMONDIR)/System/Display.cpp \
 	$(COMMONDIR)/ArmCPUDetect.cpp \
 	$(COMMONDIR)/CPUDetect.cpp \
