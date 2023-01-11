@@ -110,6 +110,9 @@ public:
 class GLRProgram {
 public:
 	~GLRProgram() {
+		if (deleteCallback_) {
+			deleteCallback_(deleteParam_);
+		}
 		if (program) {
 			glDeleteProgram(program);
 		}
@@ -161,6 +164,15 @@ public:
 		}
 		return loc;
 	}
+
+	void SetDeleteCallback(void(*cb)(void *), void *p) {
+		deleteCallback_ = cb;
+		deleteParam_ = p;
+	}
+
+private:
+	void(*deleteCallback_)(void *) = nullptr;
+	void *deleteParam_ = nullptr;
 
 	std::unordered_map<std::string, UniformInfo> uniformCache_;
 };
