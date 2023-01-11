@@ -1012,22 +1012,35 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 		}
 
+		bool useIndexing = compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == GLSL_VULKAN;
+
+		char iStr[4];
+
 		if (lightUberShader) {
 			// TODO: Actually loop in the shader. For now, we write it all out.
 			// Will need to change how the data is stored to loop efficiently.
 			// u_lightControl is computed in PackLightControlBits().
-			p.F("  uint comp;");
-			p.F("  uint type;");
-			for (int i = 0; i < 4; i++) {
-				p.F("  if ((u_lightControl & %du) != 0x0u) { \n", 1 << i);
-				p.F("    comp = (u_lightControl >> 0x%02xu) & 0x3u;\n", 4 + 4 * i);
-				p.F("    type = (u_lightControl >> 0x%02xu) & 0x3u;\n", 4 + 4 * i + 2);
-				p.C("    if (type == 0x0u) {\n");  // GE_LIGHTTYPE_DIRECTIONAL
-				p.F("      toLight = u_lightpos%d;\n", i);
-				p.C("    } else {\n");
-				p.F("      toLight = u_lightpos%d - worldpos;\n", i);
-				p.F("      distance = length(toLight);\n", i);
-				p.F("      toLight /= distance;\n", i);
+			p.C("  uint comp; uint type;\n");
+			if (useIndexing) {
+				p.C("  for (uint i = 0; i < 4; i++) {\n");
+			}
+			int count = useIndexing ? 1 : 4;
+			for (int i = 0; i < count; i++) {
+				snprintf(iStr, sizeof(iStr), useIndexing ? "[i]" : "%d", i);
+				if (useIndexing) {
+					p.C("  if ((u_lightControl & (1u << i)) != 0x0u) { \n");
+					p.C("    comp = (u_lightControl >> uint(4u + 4u * i)) & 0x3u;\n");
+					p.C("    type = (u_lightControl >> uint(4u + 4u * i + 2u)) & 0x3u;\n");
+				} else {
+					p.F("  if ((u_lightControl & %du) != 0x0u) { \n", 1 << i);
+					p.F("    comp = (u_lightControl >> 0x%02xu) & 0x3u;\n", 4 + 4 * i);
+					p.F("    type = (u_lightControl >> 0x%02xu) & 0x3u;\n", 4 + 4 * i + 2);
+				}
+				p.F("    toLight = u_lightpos%s;\n", iStr);
+				p.C("    if (type != 0x0u) {\n");  // GE_LIGHTTYPE_DIRECTIONAL
+				p.F("      toLight -= worldpos;\n", iStr);
+				p.F("      distance = length(toLight);\n");
+				p.F("      toLight /= distance;\n");
 				p.C("    }\n");
 				p.C("    ldot = dot(toLight, worldnormal);\n");
 				p.C("    if (comp == 0x2u) {\n");  // GE_LIGHTCOMP_ONLYPOWDIFFUSE
@@ -1039,12 +1052,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("    }\n");
 				p.C("    switch (int(type)) {\n");  // Attenuation
 				p.C("    case 1:\n");  // GE_LIGHTTYPE_POINT
-				p.F("      lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
+				p.F("      lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", iStr);
 				p.C("      break;\n");
 				p.C("    case 2:\n");  // GE_LIGHTTYPE_SPOT
-				p.F("      angle = length(u_lightdir%i) == 0.0 ? 0.0 : dot(normalize(u_lightdir%i), toLight);\n", i, i);
-				p.F("      if (angle >= u_lightangle_spotCoef%i.x) {\n", i);
-				p.F("        lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%i.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%i.y));\n", i, i, i);
+				p.F("      angle = length(u_lightdir%s) == 0.0 ? 0.0 : dot(normalize(u_lightdir%s), toLight);\n", iStr, iStr);
+				p.F("      if (angle >= u_lightangle_spotCoef%s.x) {\n", iStr);
+				p.F("        lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
 				p.C("      } else {\n");
 				p.C("        lightScale = 0.0;\n");
 				p.C("      }\n");
@@ -1053,7 +1066,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("      lightScale = 1.0;\n");
 				p.C("      break;\n");
 				p.C("    }\n");
-				p.F("    diffuse = (u_lightdiffuse%i * diffuseColor) * max(ldot, 0.0);\n", i);
+				p.F("    diffuse = (u_lightdiffuse%s * diffuseColor) * max(ldot, 0.0);\n", iStr);
 				p.C("    if (comp == 0x1u) {\n");  // do specular
 				p.C("      if (ldot >= 0.0) {\n");
 				p.C("        ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
@@ -1063,11 +1076,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("          ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
 				p.C("        }\n");
 				p.C("        if (ldot > 0.0)\n");
-				p.F("          lightSum1 += u_lightspecular%i * specularColor * ldot * lightScale;\n", i);
+				p.F("          lightSum1 += u_lightspecular%s * specularColor * ldot * lightScale;\n", iStr);
 				p.C("      }\n");
 				p.C("    }\n");
-				p.F("    lightSum0.rgb += (u_lightambient%i * ambientColor.rgb + diffuse) * lightScale;\n", i);
+				p.F("    lightSum0.rgb += (u_lightambient%s * ambientColor.rgb + diffuse) * lightScale;\n", iStr);
 				p.C("  }\n");
+			}
+			if (useIndexing) {
+				p.F("  }");
 			}
 		} else {
 			// Calculate lights if needed. If shade mapping is enabled, lights may need to be
@@ -1076,14 +1092,16 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				if (doLight[i] != LIGHT_FULL)
 					continue;
 
+				snprintf(iStr, sizeof(iStr), useIndexing ? "[%d]" : "%d", i);
+
 				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
 				GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2));
 
 				if (type == GE_LIGHTTYPE_DIRECTIONAL) {
 					// We prenormalize light positions for directional lights.
-					p.F("  toLight = u_lightpos%i;\n", i);
+					p.F("  toLight = u_lightpos%s;\n", iStr);
 				} else {
-					p.F("  toLight = u_lightpos%i - worldpos;\n", i);
+					p.F("  toLight = u_lightpos%s - worldpos;\n", iStr);
 					p.C("  distance = length(toLight);\n");
 					p.C("  toLight /= distance;\n");
 				}
@@ -1110,13 +1128,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					timesLightScale = "";
 					break;
 				case GE_LIGHTTYPE_POINT:
-					p.F("  lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
+					p.F("  lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", iStr);
 					break;
 				case GE_LIGHTTYPE_SPOT:
 				case GE_LIGHTTYPE_UNKNOWN:
-					p.F("  angle = length(u_lightdir%i) == 0.0 ? 0.0 : dot(normalize(u_lightdir%i), toLight);\n", i, i);
-					p.F("  if (angle >= u_lightangle_spotCoef%i.x) {\n", i);
-					p.F("    lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%i.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%i.y));\n", i, i, i);
+					p.F("  angle = length(u_lightdir%s) == 0.0 ? 0.0 : dot(normalize(u_lightdir%s), toLight);\n", iStr, iStr);
+					p.F("  if (angle >= u_lightangle_spotCoef%s.x) {\n", iStr);
+					p.F("    lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
 					p.C("  } else {\n");
 					p.C("    lightScale = 0.0;\n");
 					p.C("  }\n");
@@ -1126,7 +1144,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					break;
 				}
 
-				p.F("  diffuse = (u_lightdiffuse%i * diffuseColor) * max(ldot, 0.0);\n", i);
+				p.F("  diffuse = (u_lightdiffuse%s * diffuseColor) * max(ldot, 0.0);\n", iStr);
 				if (doSpecular) {
 					p.C("  if (ldot >= 0.0) {\n");
 					p.C("    ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
@@ -1136,10 +1154,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					p.C("      ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
 					p.C("    }\n");
 					p.C("    if (ldot > 0.0)\n");
-					p.F("      lightSum1 += u_lightspecular%i * specularColor * ldot %s;\n", i, timesLightScale);
+					p.F("      lightSum1 += u_lightspecular%s * specularColor * ldot %s;\n", iStr, timesLightScale);
 					p.C("  }\n");
 				}
-				p.F("  lightSum0.rgb += (u_lightambient%i * ambientColor.rgb + diffuse)%s;\n", i, timesLightScale);
+				p.F("  lightSum0.rgb += (u_lightambient%s * ambientColor.rgb + diffuse)%s;\n", iStr, timesLightScale);
 			}
 		}
 
@@ -1260,8 +1278,17 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 			case GE_TEXMAP_ENVIRONMENT_MAP:  // Shade mapping - use dots from light sources.
 				{
-					std::string lightFactor0 = StringFromFormat("(length(u_lightpos%i) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos%i), worldnormal))", ls0, ls0);
-					std::string lightFactor1 = StringFromFormat("(length(u_lightpos%i) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos%i), worldnormal))", ls1, ls1);
+					char ls0Str[4];
+					char ls1Str[4];
+					if (useIndexing) {
+						snprintf(ls0Str, sizeof(ls0Str), "[%d]", ls0);
+						snprintf(ls1Str, sizeof(ls1Str), "[%d]", ls1);
+					} else {
+						snprintf(ls0Str, sizeof(ls0Str), "%d", ls0);
+						snprintf(ls1Str, sizeof(ls1Str), "%d", ls1);
+					}
+					std::string lightFactor0 = StringFromFormat("(length(u_lightpos%s) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos%s), worldnormal))", ls0Str, ls0Str);
+					std::string lightFactor1 = StringFromFormat("(length(u_lightpos%s) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos%s), worldnormal))", ls1Str, ls1Str);
 					WRITE(p, "  %sv_texcoord = vec3(u_uvscaleoffset.xy * vec2(1.0 + %s, 1.0 + %s) * 0.5, 1.0);\n", compat.vsOutPrefix, lightFactor0.c_str(), lightFactor1.c_str());
 				}
 				break;
