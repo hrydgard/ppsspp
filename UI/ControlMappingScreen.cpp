@@ -853,9 +853,6 @@ void RecreateActivity();
 
 UI::EventReturn TouchTestScreen::OnImmersiveModeChange(UI::EventParams &e) {
 	System_SendMessage("immersive", "");
-	if (g_Config.iAndroidHwScale != 0) {
-		RecreateActivity();
-	}
 	return UI::EVENT_DONE;
 }
 

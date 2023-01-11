@@ -325,18 +325,6 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 
-#if PPSSPP_PLATFORM(ANDROID)
-	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
-		static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
-		int max_res_temp = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 2;
-		if (max_res_temp == 3)
-			max_res_temp = 4;  // At least allow 2x
-		int max_res = std::min(max_res_temp, (int)ARRAY_SIZE(deviceResolutions));
-		UI::PopupMultiChoice *hwscale = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAndroidHwScale, gr->T("Display Resolution (HW scaler)"), deviceResolutions, 0, max_res, gr->GetName(), screenManager()));
-		hwscale->OnChoice.Handle(this, &GameSettingsScreen::OnHwScaleChange);  // To refresh the display mode
-	}
-#endif
-
 	if (deviceType != DEVICE_TYPE_VR) {
 #if !defined(MOBILE_DEVICE)
 		graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
@@ -1156,9 +1144,6 @@ UI::EventReturn GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
 	System_SendMessage("immersive", "");
-	if (g_Config.iAndroidHwScale != 0) {
-		RecreateActivity();
-	}
 	return UI::EVENT_DONE;
 }
 
@@ -1274,16 +1259,8 @@ UI::EventReturn GameSettingsScreen::OnFullscreenMultiChange(UI::EventParams &e) 
 }
 
 UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
-	if (g_Config.iAndroidHwScale == 1) {
-		RecreateActivity();
-	}
 	Reporting::UpdateConfig();
 	NativeMessageReceived("gpu_renderResized", "");
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnHwScaleChange(UI::EventParams &e) {
-	RecreateActivity();
 	return UI::EVENT_DONE;
 }
 
