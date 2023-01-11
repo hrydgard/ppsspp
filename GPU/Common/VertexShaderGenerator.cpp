@@ -1017,13 +1017,15 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		char iStr[4];
 
 		if (lightUberShader) {
-			// TODO: Actually loop in the shader. For now, we write it all out.
-			// Will need to change how the data is stored to loop efficiently.
-			// u_lightControl is computed in PackLightControlBits().
+			// We generate generic code that can calculate any combination of lights specified
+			// in u_lightControl. u_lightControl is computed in PackLightControlBits().
 			p.C("  uint comp; uint type;\n");
 			if (useIndexing) {
 				p.C("  for (uint i = 0; i < 4; i++) {\n");
 			}
+			// If we can use indexing, we actually loop in the shader now, using the loop emitted
+			// above. In that case, we only need to emit the code once, so the for loop here will
+			// only run for a single pass.
 			int count = useIndexing ? 1 : 4;
 			for (int i = 0; i < count; i++) {
 				snprintf(iStr, sizeof(iStr), useIndexing ? "[i]" : "%d", i);
@@ -1086,8 +1088,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.F("  }");
 			}
 		} else {
-			// Calculate lights if needed. If shade mapping is enabled, lights may need to be
-			// at least partially calculated.
+			// Generate specific code for calculating the enabled lights only.
 			for (int i = 0; i < 4; i++) {
 				if (doLight[i] != LIGHT_FULL)
 					continue;
