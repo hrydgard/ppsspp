@@ -47,7 +47,21 @@ public:
 	NeighborResult FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) override;
 
 private:
+	float HardClampedScrollPos(float pos) const;
+
+	// TODO: Don't adjust pull_ within this!
 	float ClampedScrollPos(float pos);
+
+	// The "bob" is the draggable thingy on a scroll bar. Don't know a better name for it.
+	struct Bob {
+		bool show;
+		float thickness;
+		float size;
+		float offset;
+		float scrollMax;
+	};
+
+	Bob ComputeBob() const;
 
 	GestureDetector gesture_;
 	Orientation orientation_;
@@ -62,6 +76,10 @@ private:
 	float lastViewSize_ = 0.0f;
 	float *rememberPos_ = nullptr;
 	bool alignOpposite_ = false;
+	bool draggingBob_ = false;
+
+	float barDragStart_ = 0.0f;
+	float barDragOffset_ = 0.0f;
 
 	static float lastScrollPosX;
 	static float lastScrollPosY;

@@ -1,6 +1,7 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/ScrollView.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Log.h"
 
 namespace UI {
 
@@ -134,7 +135,15 @@ const float friction = 0.92f;
 const float stop_threshold = 0.1f;
 
 bool ScrollView::Touch(const TouchInput &input) {
-	if ((input.flags & TOUCH_DOWN) && scrollTouchId_ == -1) {
+	if ((input.flags & TOUCH_DOWN) && scrollTouchId_ == -1 && bounds_.Contains(input.x, input.y)) {
+		if (orientation_ == ORIENT_VERTICAL) {
+			Bob bob = ComputeBob();
+			float internalY = input.y - bounds_.y;
+			draggingBob_ = internalY >= bob.offset && internalY <= bob.offset + bob.size && input.x >= bounds_.x2() - 20.0f;
+			barDragStart_ = bob.offset;
+			barDragOffset_ = internalY - bob.offset;
+		}
+
 		scrollStart_ = scrollPos_;
 		inertia_ = 0.0f;
 		scrollTouchId_ = input.id;
@@ -148,17 +157,35 @@ bool ScrollView::Touch(const TouchInput &input) {
 			inertia_ = info[1];
 		}
 		scrollTouchId_ = -1;
+		draggingBob_ = false;
 	}
 
 	TouchInput input2;
 	if (CanScroll()) {
-		input2 = gesture_.Update(input, bounds_);
-		float info[4];
-		if (input.id == scrollTouchId_ && gesture_.GetGestureInfo(gesture, input.id, info) && !(input.flags & TOUCH_DOWN)) {
-			float pos = scrollStart_ - info[0];
-			scrollPos_ = pos;
-			scrollTarget_ = pos;
+		if (draggingBob_) {
+			input2 = input;
+			// Skip the gesture, do calculations directly.
+			// Might switch to the gesture later.
+			Bob bob = ComputeBob();
+			float internalY = input.y - bounds_.y;
+
+			float bobPos = internalY - barDragOffset_;
+			float bobDragMax = bounds_.h - bob.size;
+
+			float newScrollPos = Clamp(bobPos / bobDragMax, 0.0f, 1.0f) * bob.scrollMax;
+
+			scrollPos_ = newScrollPos;
+			scrollTarget_ = newScrollPos;
 			scrollToTarget_ = false;
+		} else {
+			input2 = gesture_.Update(input, bounds_);
+			float info[4];
+			if (input.id == scrollTouchId_ && gesture_.GetGestureInfo(gesture, input.id, info) && !(input.flags & TOUCH_DOWN)) {
+				float pos = scrollStart_ - info[0];
+				scrollPos_ = pos;
+				scrollTarget_ = pos;
+				scrollToTarget_ = false;
+			}
 		}
 	} else {
 		input2 = input;
@@ -171,6 +198,22 @@ bool ScrollView::Touch(const TouchInput &input) {
 	} else {
 		return false;
 	}
+}
+
+ScrollView::Bob ScrollView::ComputeBob() const {
+	Bob bob{};
+	float childHeight = std::max(0.01f, views_[0]->GetBounds().h);
+	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
+	float ratio = bounds_.h / childHeight;
+
+	if (ratio < 1.0f && scrollMax > 0.0f) {
+		bob.show = true;
+		bob.thickness = draggingBob_ ? 15.0f : 5.0f;
+		bob.size = ratio * bounds_.h;
+		bob.offset = (HardClampedScrollPos(scrollPos_) / scrollMax) * (bounds_.h - bob.size);
+		bob.scrollMax = scrollMax;
+	}
+	return bob;
 }
 
 void ScrollView::Draw(UIContext &dc) {
@@ -187,18 +230,16 @@ void ScrollView::Draw(UIContext &dc) {
 	views_[0]->Draw(dc);
 	dc.PopScissor();
 
-	float childHeight = views_[0]->GetBounds().h;
-	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
+	// Vertical scroll bob. We don't support a horizontal yet.
+	if (orientation_ != ORIENT_VERTICAL) {
+		return;
+	}
 
-	float ratio = bounds_.h / std::max(0.01f, views_[0]->GetBounds().h);
+	Bob bob = ComputeBob();
 
-	float bobWidth = 5;
-	if (ratio < 1.0f && scrollMax > 0.0f) {
-		float bobHeight = ratio * bounds_.h;
-		float bobOffset = (ClampedScrollPos(scrollPos_) / scrollMax) * (bounds_.h - bobHeight);
-
-		Bounds bob(bounds_.x2() - bobWidth, bounds_.y + bobOffset, bobWidth, bobHeight);
-		dc.FillRect(Drawable(0x80FFFFFF), bob);
+	if (bob.show) {
+		Bounds bobBounds(bounds_.x2() - bob.thickness, bounds_.y + bob.offset, bob.thickness, bob.size);
+		dc.FillRect(Drawable(0x80FFFFFF), bobBounds);
 	}
 }
 
@@ -331,6 +372,16 @@ void ScrollView::ScrollRelative(float distance) {
 	scrollToTarget_ = true;
 }
 
+float ScrollView::HardClampedScrollPos(float pos) const {
+	if (!views_.size() || bounds_.h == 0.0f) {
+		return 0.0f;
+	}
+	float childSize = orientation_ == ORIENT_VERTICAL ? views_[0]->GetBounds().h : views_[0]->GetBounds().w;
+	float containerSize = (orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w);
+	float scrollMax = std::max(0.0f, childSize - containerSize);
+	return Clamp(pos, 0.0f, scrollMax);
+}
+
 float ScrollView::ClampedScrollPos(float pos) {
 	if (!views_.size() || bounds_.h == 0.0f) {
 		return 0.0f;
@@ -342,6 +393,7 @@ float ScrollView::ClampedScrollPos(float pos) {
 
 	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
 
+	// TODO: Not all of this is properly orientation independent.
 	if (scrollTouchId_ >= 0 && gesture_.IsGestureActive(gesture, scrollTouchId_) && bounds_.h > 0.0f) {
 		float maxPull = bounds_.h * 0.1f;
 		if (pos < 0.0f) {
