@@ -305,6 +305,25 @@ uint32_t PackLightControlBits() {
 	return lightControl;
 }
 
+// Note: If length is 0.0, it's gonna be left as 0.0 instead of normalized.
+void ExpandFloat24x3ToFloat4AndNormalize(float dest[4], const uint32_t src[3]) {
+	float temp[4];
+	ExpandFloat24x3ToFloat4(temp, src);
+	// TODO: Reuse code from NormalizedOr001 and optimize
+	float x = temp[0];
+	float y = temp[1];
+	float z = temp[2];
+	float len = sqrtf(x * x + y * y + z * z);
+	if (len == 0.0f)
+		return;
+
+	len = 1.0f / len;
+	dest[0] = x * len;
+	dest[1] = y * len;
+	dest[2] = z * len;
+	dest[3] = 0.0f;
+}
+
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 	// Lighting
 	if (dirtyUniforms & DIRTY_AMBIENT) {
@@ -327,20 +346,12 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
 			if (gstate.isDirectionalLight(i)) {
 				// Prenormalize
-				float x = getFloat24(gstate.lpos[i * 3 + 0]);
-				float y = getFloat24(gstate.lpos[i * 3 + 1]);
-				float z = getFloat24(gstate.lpos[i * 3 + 2]);
-				float len = sqrtf(x*x + y*y + z*z);
-				if (len == 0.0f)
-					len = 1.0f;
-				else
-					len = 1.0f / len;
-				float vec[3] = { x * len, y * len, z * len };
-				CopyFloat3To4(ub->lpos[i], vec);
+				ExpandFloat24x3ToFloat4AndNormalize(ub->lpos[i], &gstate.lpos[i * 3]);
 			} else {
 				ExpandFloat24x3ToFloat4(ub->lpos[i], &gstate.lpos[i * 3]);
 			}
-			ExpandFloat24x3ToFloat4(ub->ldir[i], &gstate.ldir[i * 3]);
+			// ldir is only used for spotlights. Prenormalize it.
+			ExpandFloat24x3ToFloat4AndNormalize(ub->ldir[i], &gstate.ldir[i * 3]);
 			ExpandFloat24x3ToFloat4(ub->latt[i], &gstate.latt[i * 3]);
 			float lightAngle_spotCoef[2] = { getFloat24(gstate.lcutoff[i]), getFloat24(gstate.lconv[i]) };
 			CopyFloat2To4(ub->lightAngle_SpotCoef[i], lightAngle_spotCoef);
