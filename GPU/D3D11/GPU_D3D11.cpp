@@ -163,6 +163,7 @@ void GPU_D3D11::BeginFrame() {
 		// This most likely means that saw equal depth changed.
 		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders");
 		shaderManagerD3D11_->ClearShaders();
+		drawEngine_.ClearInputLayoutMap();
 		gstate_c.useFlagsChanged = false;
 	}
 }
