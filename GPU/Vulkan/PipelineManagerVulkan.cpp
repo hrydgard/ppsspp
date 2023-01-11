@@ -287,7 +287,7 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 		attributeCount = SetupVertexAttribs(attrs, *decFmt);
 		vertexStride = decFmt->stride;
 	} else {
-		bool needsUV = vs->GetID().Bit(VS_BIT_DO_TEXTURE);
+		bool needsUV = true;
 		bool needsColor1 = vs->GetID().Bit(VS_BIT_LMODE);
 		attributeCount = SetupVertexAttribsPretransformed(attrs, needsUV, needsColor1, true);
 		vertexStride = (int)sizeof(TransformedVertex);

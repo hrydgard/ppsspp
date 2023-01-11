@@ -87,39 +87,39 @@ struct alignas(16) UB_VS_Lights {
 };
 
 static const char * const ub_vs_lightsStr =
-R"(	vec4 u_ambient;
-	vec3 u_matdiffuse;
-	vec4 u_matspecular;
-	vec3 u_matemissive;
-	uint u_lightControl;  // light ubershader
-	vec3 u_lightpos0;
-	vec3 u_lightpos1;
-	vec3 u_lightpos2;
-	vec3 u_lightpos3;
-	vec3 u_lightdir0;
-	vec3 u_lightdir1;
-	vec3 u_lightdir2;
-	vec3 u_lightdir3;
-	vec3 u_lightatt0;
-	vec3 u_lightatt1;
-	vec3 u_lightatt2;
-	vec3 u_lightatt3;
-	vec4 u_lightangle_spotCoef0;
-	vec4 u_lightangle_spotCoef1;
-	vec4 u_lightangle_spotCoef2;
-	vec4 u_lightangle_spotCoef3;
-	vec3 u_lightambient0;
-	vec3 u_lightambient1;
-	vec3 u_lightambient2;
-	vec3 u_lightambient3;
-	vec3 u_lightdiffuse0;
-	vec3 u_lightdiffuse1;
-	vec3 u_lightdiffuse2;
-	vec3 u_lightdiffuse3;
-	vec3 u_lightspecular0;
-	vec3 u_lightspecular1;
-	vec3 u_lightspecular2;
-	vec3 u_lightspecular3;
+R"(  vec4 u_ambient;
+  vec3 u_matdiffuse;
+  vec4 u_matspecular;
+  vec3 u_matemissive;
+  uint u_lightControl;  // light ubershader
+  vec3 u_lightpos0;
+  vec3 u_lightpos1;
+  vec3 u_lightpos2;
+  vec3 u_lightpos3;
+  vec3 u_lightdir0;
+  vec3 u_lightdir1;
+  vec3 u_lightdir2;
+  vec3 u_lightdir3;
+  vec3 u_lightatt0;
+  vec3 u_lightatt1;
+  vec3 u_lightatt2;
+  vec3 u_lightatt3;
+  vec4 u_lightangle_spotCoef0;
+  vec4 u_lightangle_spotCoef1;
+  vec4 u_lightangle_spotCoef2;
+  vec4 u_lightangle_spotCoef3;
+  vec3 u_lightambient0;
+  vec3 u_lightambient1;
+  vec3 u_lightambient2;
+  vec3 u_lightambient3;
+  vec3 u_lightdiffuse0;
+  vec3 u_lightdiffuse1;
+  vec3 u_lightdiffuse2;
+  vec3 u_lightdiffuse3;
+  vec3 u_lightspecular0;
+  vec3 u_lightspecular1;
+  vec3 u_lightspecular2;
+  vec3 u_lightspecular3;
 )";
 
 // With some cleverness, we could get away with uploading just half this when only the four or five first

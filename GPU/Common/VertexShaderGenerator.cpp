@@ -171,7 +171,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE);
-	bool doTexture = id.Bit(VS_BIT_DO_TEXTURE);
 
 	GETexMapMode uvGenMode = static_cast<GETexMapMode>(id.Bits(VS_BIT_UVGEN_MODE, 2));
 	bool doTextureTransform = uvGenMode == GE_TEXMAP_TEXTURE_MATRIX;
@@ -271,12 +270,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (!useHWTransform)
 			WRITE(p, "layout (location = %d) in float fog;\n", (int)PspAttributeLocation::NORMAL);
 
-		if (doTexture && hasTexcoord) {
+		if (hasTexcoord) {
 			if (!useHWTransform && doTextureTransform && !isModeThrough) {
 				WRITE(p, "layout (location = %d) in vec3 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
 				texCoordInVec3 = true;
-			} else
+			} else {
 				WRITE(p, "layout (location = %d) in vec2 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
+			}
 		}
 		if (hasColor) {
 			WRITE(p, "layout (location = %d) in vec4 color0;\n", (int)PspAttributeLocation::COLOR0);
@@ -287,9 +287,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "layout (location = 1) %sout lowp vec4 v_color0;\n", shading);
 		WRITE(p, "layout (location = 2) %sout lowp vec3 v_color1;\n", shading);
 
-		if (doTexture) {
-			WRITE(p, "layout (location = 0) out highp vec3 v_texcoord;\n");
-		}
+		WRITE(p, "layout (location = 0) out highp vec3 v_texcoord;\n");
 
 		WRITE(p, "layout (location = 3) out highp float v_fogdepth;\n");
 
@@ -316,7 +314,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "vec4 u_matambientalpha : register(c%i);\n", CONST_VS_MATAMBIENTALPHA);  // matambient + matalpha
 
 			if (useHWTransform) {
-				// When transforming by hardware, we need a great deal more uniforms...
 				WRITE(p, "mat3x4 u_world : register(c%i);\n", CONST_VS_WORLD);
 				WRITE(p, "mat3x4 u_view : register(c%i);\n", CONST_VS_VIEW);
 				if (doTextureTransform)
@@ -330,9 +327,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					}
 #endif
 				}
-				if (doTexture) {
-					WRITE(p, "vec4 u_uvscaleoffset : register(c%i);\n", CONST_VS_UVSCALEOFFSET);
-				}
+				WRITE(p, "vec4 u_uvscaleoffset : register(c%i);\n", CONST_VS_UVSCALEOFFSET);
 				// No need for light ubershader support here, D3D9 doesn't do it.
 				for (int i = 0; i < 4; i++) {
 					if (doLight[i] != LIGHT_OFF) {
@@ -384,7 +379,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (enableBones) {
 				WRITE(p, "  %s", boneWeightAttrDeclHLSL[numBoneWeights]);
 			}
-			if (doTexture && hasTexcoord) {
+			if (hasTexcoord) {
 				WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
 			}
 			if (hasColor) {
@@ -398,12 +393,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		} else {
 			WRITE(p, "struct VS_IN {\n");
 			WRITE(p, "  vec4 position : POSITION;\n");
-			if (doTexture && hasTexcoord) {
+			if (hasTexcoord) {
 				if (doTextureTransform && !isModeThrough) {
 					texCoordInVec3 = true;
 					WRITE(p, "  vec3 texcoord : TEXCOORD0;\n");
-				} else
+				} else {
 					WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
+				}
 			}
 			if (hasColor) {
 				WRITE(p, "  vec4 color0 : COLOR0;\n");
@@ -417,9 +413,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		WRITE(p, "struct VS_OUT {\n");
-		if (doTexture) {
-			WRITE(p, "  vec3 v_texcoord : TEXCOORD0;\n");
-		}
+		WRITE(p, "  vec3 v_texcoord : TEXCOORD0;\n");
 		const char *colorInterpolation = doFlatShading && compat.shaderLanguage == HLSL_D3D11 ? "nointerpolation " : "";
 		WRITE(p, "  %svec4 v_color0    : COLOR0;\n", colorInterpolation);
 		WRITE(p, "  vec3 v_color1    : COLOR1;\n");
@@ -471,7 +465,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			*attrMask |= 1 << ATTR_NORMAL;
 		}
 
-		if (doTexture && hasTexcoord) {
+		if (hasTexcoord) {
 			if (!useHWTransform && doTextureTransform && !isModeThrough) {
 				WRITE(p, "%s vec3 texcoord;\n", compat.attribute);
 				texCoordInVec3 = true;
@@ -480,6 +474,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 			*attrMask |= 1 << ATTR_TEXCOORD;
 		}
+
 		if (hasColor) {
 			WRITE(p, "%s lowp vec4 color0;\n", compat.attribute);
 			*attrMask |= 1 << ATTR_COLOR0;
@@ -524,10 +519,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					*uniformMask |= DIRTY_BONEMATRIX0 << i;
 				}
 			}
-			if (doTexture) {
-				WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
-				*uniformMask |= DIRTY_UVSCALEOFFSET;
-			}
+			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
+			*uniformMask |= DIRTY_UVSCALEOFFSET;
+
 			if (lightUberShader) {
 				p.C("uniform uint u_lightControl;\n");
 				*uniformMask |= DIRTY_LIGHT_CONTROL;
@@ -597,9 +591,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "%s%s lowp vec4 v_color0;\n", shading, compat.varying_vs);
 		WRITE(p, "%s%s lowp vec3 v_color1;\n", shading, compat.varying_vs);
 
-		if (doTexture) {
-			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_vs, highpTexcoord ? "highp" : "mediump");
-		}
+		WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_vs, highpTexcoord ? "highp" : "mediump");
 
 		// See the fragment shader generator
 		if (highpFog) {
@@ -695,8 +687,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		WRITE(p, "struct Tess {\n");
 		WRITE(p, "  vec3 pos;\n");
-		if (doTexture)
-			WRITE(p, "  vec2 tex;\n");
+		WRITE(p, "  vec2 tex;\n");
 		WRITE(p, "  vec4 col;\n");
 		if (hasNormalTess)
 			WRITE(p, "  vec3 nrm;\n");
@@ -722,7 +713,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				for (int j = 0; j < 4; j++) {
 					WRITE(p, "  index = (%i + point_pos.y) * int(u_spline_counts) + (%i + point_pos.x);\n", i, j);
 					WRITE(p, "  _pos[%i] = tess_data[index].pos.xyz;\n", i * 4 + j);
-					if (doTexture && hasTexcoordTess)
+					if (hasTexcoordTess)
 						WRITE(p, "  _tex[%i] = tess_data[index].tex.xy;\n", i * 4 + j);
 					if (hasColorTess)
 						WRITE(p, "  _col[%i] = tess_data[index].col;\n", i * 4 + j);
@@ -740,7 +731,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					WRITE(p, "  index_u = (%i + point_pos.x);\n", j);
 					WRITE(p, "  index_v = (%i + point_pos.y);\n", i);
 					WRITE(p, "  _pos[%i] = %s(u_tess_points, ivec2(index_u, index_v), 0).xyz;\n", i * 4 + j, compat.texelFetch);
-					if (doTexture && hasTexcoordTess)
+					if (hasTexcoordTess)
 						WRITE(p, "  _tex[%i] = %s(u_tess_points, ivec2(index_u + u_spline_counts, index_v), 0).xy;\n", i * 4 + j, compat.texelFetch);
 					if (hasColorTess)
 						WRITE(p, "  _col[%i] = %s(u_tess_points, ivec2(index_u + u_spline_counts * 2, index_v), 0).rgba;\n", i * 4 + j, compat.texelFetch);
@@ -755,12 +746,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		// Tessellate
 		WRITE(p, "  tess.pos = tess_sample(_pos, basis);\n");
-		if (doTexture) {
-			if (hasTexcoordTess)
-				WRITE(p, "  tess.tex = tess_sample(_tex, basis);\n");
-			else
-				WRITE(p, "  tess.tex = normal.xy;\n");
-		}
+		if (hasTexcoordTess)
+			WRITE(p, "  tess.tex = tess_sample(_tex, basis);\n");
+		else
+			WRITE(p, "  tess.tex = normal.xy;\n");
 		if (hasColorTess)
 			WRITE(p, "  tess.col = tess_sample(_col, basis);\n");
 		else
@@ -794,7 +783,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	} else if (compat.shaderLanguage == HLSL_D3D9 || compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "VS_OUT main(VS_IN In) {\n");
 		WRITE(p, "  VS_OUT Out;\n");
-		if (doTexture && hasTexcoord) {
+		if (hasTexcoord) {
 			if (texCoordInVec3) {
 				WRITE(p, "  vec3 texcoord = In.texcoord;\n");
 			} else {
@@ -825,12 +814,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
-		if (doTexture) {
-			if (texCoordInVec3) {
-				WRITE(p, "  %sv_texcoord = texcoord;\n", compat.vsOutPrefix);
-			} else {
-				WRITE(p, "  %sv_texcoord = vec3(texcoord, 1.0);\n", compat.vsOutPrefix);
-			}
+		if (texCoordInVec3) {
+			WRITE(p, "  %sv_texcoord = texcoord;\n", compat.vsOutPrefix);
+		} else {
+			WRITE(p, "  %sv_texcoord = vec3(texcoord, 1.0);\n", compat.vsOutPrefix);
 		}
 		if (hasColor) {
 			WRITE(p, "  %sv_color0 = color0;\n", compat.vsOutPrefix);
@@ -1201,7 +1188,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		bool scaleUV = !isModeThrough && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
 
 		// Step 3: UV generation
-		if (doTexture) {
+		{
 			switch (uvGenMode) {
 			case GE_TEXMAP_TEXTURE_COORDS:  // Scale-offset. Easy.
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
