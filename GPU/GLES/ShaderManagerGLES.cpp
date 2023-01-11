@@ -293,6 +293,12 @@ static void SetFloat24Uniform3(GLRenderManager *render, GLint *uniform, const ui
 	render->SetUniformF(uniform, 3, f);
 }
 
+static void SetFloat24Uniform3Normalized(GLRenderManager *render, GLint *uniform, const uint32_t data[3]) {
+	float f[4];
+	ExpandFloat24x3ToFloat4AndNormalize(f, data);
+	render->SetUniformF(uniform, 3, f);
+}
+
 static void SetFloatUniform4(GLRenderManager *render, GLint *uniform, float data[4]) {
 	render->SetUniformF(uniform, 4, data);
 }
@@ -650,21 +656,12 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 	for (int i = 0; i < 4; i++) {
 		if (dirty & (DIRTY_LIGHT0 << i)) {
 			if (gstate.isDirectionalLight(i)) {
-				// Prenormalize
-				float x = getFloat24(gstate.lpos[i * 3 + 0]);
-				float y = getFloat24(gstate.lpos[i * 3 + 1]);
-				float z = getFloat24(gstate.lpos[i * 3 + 2]);
-				float len = sqrtf(x*x + y*y + z*z);
-				if (len == 0.0f)
-					len = 1.0f;
-				else
-					len = 1.0f / len;
-				float vec[3] = { x * len, y * len, z * len };
-				render_->SetUniformF(&u_lightpos[i], 3, vec);
+				// Prenormalize for cheaper calculations in shader
+				SetFloat24Uniform3Normalized(render_, &u_lightpos[i], &gstate.lpos[i * 3]);
 			} else {
 				SetFloat24Uniform3(render_, &u_lightpos[i], &gstate.lpos[i * 3]);
 			}
-			if (u_lightdir[i] != -1) SetFloat24Uniform3(render_, &u_lightdir[i], &gstate.ldir[i * 3]);
+			if (u_lightdir[i] != -1) SetFloat24Uniform3Normalized(render_, &u_lightdir[i], &gstate.ldir[i * 3]);
 			if (u_lightatt[i] != -1) SetFloat24Uniform3(render_, &u_lightatt[i], &gstate.latt[i * 3]);
 			if (u_lightangle_spotCoef[i] != -1) {
 				float lightangle_spotCoef[2] = { getFloat24(gstate.lcutoff[i]), getFloat24(gstate.lconv[i]) };
