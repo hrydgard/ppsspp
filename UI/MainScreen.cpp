@@ -1119,13 +1119,11 @@ void MainScreen::CreateViews() {
 	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, -5.0f, NONE, NONE, false)));
 
 #if !defined(MOBILE_DEVICE)
-	if (!g_Config.UseFullScreen()) {
-		auto gr = GetI18NCategory("Graphics");
-		ImageID icon(g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN");
-		fullscreenButton_ = logos->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
-		fullscreenButton_->SetIgnoreText(true);
-		fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
-	}
+	auto gr = GetI18NCategory("Graphics");
+	ImageID icon(g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN");
+	fullscreenButton_ = logos->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
+	fullscreenButton_->SetIgnoreText(true);
+	fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
 #endif
 
 	rightColumnItems->Add(logos);
@@ -1133,28 +1131,40 @@ void MainScreen::CreateViews() {
 	ver->SetSmall(true);
 	ver->SetClip(false);
 
-	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		rightColumnItems->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+	LinearLayout *rightColumnChoices = rightColumnItems;
+	if (vertical) {
+		ScrollView *rightColumnScroll = new ScrollView(ORIENT_HORIZONTAL);
+		rightColumnChoices = new LinearLayout(ORIENT_HORIZONTAL);
+		rightColumnScroll->Add(rightColumnChoices);
+		rightColumnItems->Add(rightColumnScroll);
 	}
-	rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice(mm->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
-	rightColumnItems->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 
-	if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
-		Choice *gold = rightColumnItems->Add(new Choice(mm->T("Buy PPSSPP Gold")));
-		gold->OnClick.Handle(this, &MainScreen::OnSupport);
-		gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
+	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+		rightColumnChoices->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+	}
+	rightColumnChoices->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
+	rightColumnChoices->Add(new Choice(mm->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
+
+	if (!vertical) {
+		rightColumnChoices->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
+
+		if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
+			Choice *gold = rightColumnChoices->Add(new Choice(mm->T("Buy PPSSPP Gold")));
+			gold->OnClick.Handle(this, &MainScreen::OnSupport);
+			gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
+		}
 	}
 
 #if !PPSSPP_PLATFORM(UWP)
 	// Having an exit button is against UWP guidelines.
-	rightColumnItems->Add(new Spacer(25.0));
-	rightColumnItems->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
+	rightColumnChoices->Add(new Spacer(25.0));
+	rightColumnChoices->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 #endif
 
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
-		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.75));
+		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0f));
 		root_->Add(rightColumn);
 		root_->Add(leftColumn);
 	} else {
