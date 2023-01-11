@@ -104,6 +104,7 @@ private:
 	void VSSetFloat(int creg, float value);
 	void VSSetFloatArray(int creg, const float *value, int count);
 	void VSSetFloat24Uniform3(int creg, const u32 data[3]);
+	void VSSetFloat24Uniform3Normalized(int creg, const u32 data[3]);
 	void VSSetFloatUniform4(int creg, const float data[4]);
 
 	void Clear();

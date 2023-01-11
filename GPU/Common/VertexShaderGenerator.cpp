@@ -1019,7 +1019,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (lightUberShader) {
 			// We generate generic code that can calculate any combination of lights specified
 			// in u_lightControl. u_lightControl is computed in PackLightControlBits().
-			p.C("  uint comp; uint type;\n");
+			p.C("  uint comp; uint type; float attenuation;\n");
 			if (useIndexing) {
 				p.C("  for (uint i = 0; i < 4; i++) {\n");
 			}
@@ -1040,47 +1040,38 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				}
 				p.F("    toLight = u_lightpos%s;\n", iStr);
 				p.C("    if (type != 0x0u) {\n");  // GE_LIGHTTYPE_DIRECTIONAL
-				p.F("      toLight -= worldpos;\n", iStr);
+				p.F("      toLight -= worldpos;\n");
 				p.F("      distance = length(toLight);\n");
 				p.F("      toLight /= distance;\n");
+				p.F("      attenuation = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", iStr);
+				p.C("      if (type == 0x01u) {\n"); // GE_LIGHTTYPE_POINT
+				p.C("        lightScale = attenuation;\n");
+				p.C("      } else {\n");  // type must be 0x02 - GE_LIGHTTYPE_SPOT
+				p.F("        angle = dot(u_lightdir%s, toLight);\n", iStr);
+				p.F("        if (angle >= u_lightangle_spotCoef%s.x) {\n", iStr);
+				p.F("          lightScale = attenuation * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
+				p.C("        } else {\n");
+				p.C("          lightScale = 0.0;\n");
+				p.C("        }\n");
+				p.C("      }\n");
+				p.C("    } else {\n");
+				p.C("      lightScale = 1.0;\n");  // GE_LIGHTTYPE_DIRECTIONAL
 				p.C("    }\n");
 				p.C("    ldot = dot(toLight, worldnormal);\n");
 				p.C("    if (comp == 0x2u) {\n");  // GE_LIGHTCOMP_ONLYPOWDIFFUSE
-				p.C("      if (u_matspecular.a <= 0.0) {\n");
-				p.C("        ldot = 1.0;\n");
-				p.C("      } else {\n");
-				p.C("        ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
+				p.C("      ldot = u_matspecular.a > 0.0 ? pow(max(ldot, 0.0), u_matspecular.a) : 1.0;\n");
+				p.C("    } else if (comp == 0x1u) {\n");  // do specular
+				p.C("      if (ldot >= 0.0) {\n");
+				p.C("        if (u_matspecular.a > 0.0) {\n");
+				p.C("          ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
+				p.C("          ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
+				p.C("        } else {\n");
+				p.C("          ldot = 1.0;\n");
+				p.C("        }\n");
+				p.F("        lightSum1 += u_lightspecular%s * specularColor * ldot * lightScale;\n", iStr);
 				p.C("      }\n");
-				p.C("    }\n");
-				p.C("    switch (int(type)) {\n");  // Attenuation
-				p.C("    case 1:\n");  // GE_LIGHTTYPE_POINT
-				p.F("      lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", iStr);
-				p.C("      break;\n");
-				p.C("    case 2:\n");  // GE_LIGHTTYPE_SPOT
-				p.F("      angle = length(u_lightdir%s) == 0.0 ? 0.0 : dot(normalize(u_lightdir%s), toLight);\n", iStr, iStr);
-				p.F("      if (angle >= u_lightangle_spotCoef%s.x) {\n", iStr);
-				p.F("        lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
-				p.C("      } else {\n");
-				p.C("        lightScale = 0.0;\n");
-				p.C("      }\n");
-				p.C("      break;\n");
-				p.C("    default:\n");  // GE_LIGHTTYPE_DIRECTIONAL
-				p.C("      lightScale = 1.0;\n");
-				p.C("      break;\n");
 				p.C("    }\n");
 				p.F("    diffuse = (u_lightdiffuse%s * diffuseColor) * max(ldot, 0.0);\n", iStr);
-				p.C("    if (comp == 0x1u) {\n");  // do specular
-				p.C("      if (ldot >= 0.0) {\n");
-				p.C("        ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
-				p.C("        if (u_matspecular.a <= 0.0) {\n");
-				p.C("          ldot = 1.0;\n");
-				p.C("        } else {\n");
-				p.C("          ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
-				p.C("        }\n");
-				p.C("        if (ldot > 0.0)\n");
-				p.F("          lightSum1 += u_lightspecular%s * specularColor * ldot * lightScale;\n", iStr);
-				p.C("      }\n");
-				p.C("    }\n");
 				p.F("    lightSum0.rgb += (u_lightambient%s * ambientColor.rgb + diffuse) * lightScale;\n", iStr);
 				p.C("  }\n");
 			}
@@ -1114,10 +1105,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				if (poweredDiffuse) {
 					// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
 					// Seen in Tales of the World: Radiant Mythology (#2424.)
-					p.C("  if (u_matspecular.a <= 0.0) {\n");
-					p.C("    ldot = 1.0;\n");
-					p.C("  } else {\n");
+					p.C("  if (u_matspecular.a > 0.0) {\n");
 					p.C("    ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
+					p.C("  } else {\n");
+					p.C("    ldot = 1.0;\n");
 					p.C("  }\n");
 				}
 
@@ -1133,7 +1124,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					break;
 				case GE_LIGHTTYPE_SPOT:
 				case GE_LIGHTTYPE_UNKNOWN:
-					p.F("  angle = length(u_lightdir%s) == 0.0 ? 0.0 : dot(normalize(u_lightdir%s), toLight);\n", iStr, iStr);
+					p.F("  angle = dot(u_lightdir%s, toLight);\n", iStr, iStr);
 					p.F("  if (angle >= u_lightangle_spotCoef%s.x) {\n", iStr);
 					p.F("    lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
 					p.C("  } else {\n");
@@ -1149,10 +1140,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				if (doSpecular) {
 					p.C("  if (ldot >= 0.0) {\n");
 					p.C("    ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
-					p.C("    if (u_matspecular.a <= 0.0) {\n");
-					p.C("      ldot = 1.0;\n");
-					p.C("    } else {\n");
+					p.C("    if (u_matspecular.a > 0.0) {\n");
 					p.C("      ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
+					p.C("    } else {\n");
+					p.C("      ldot = 1.0;\n");
 					p.C("    }\n");
 					p.C("    if (ldot > 0.0)\n");
 					p.F("      lightSum1 += u_lightspecular%s * specularColor * ldot %s;\n", iStr, timesLightScale);
@@ -1170,10 +1161,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			} else {
 				if (lightUberShader) {
 					p.C("  bool lmode = (u_lightControl & (0x1u << 0x17u)) != 0x0u;\n");
-					p.C("  if (lmode) {");
+					p.C("  if (lmode) {\n");
 					p.F("    %sv_color0 = lightSum0;\n", compat.vsOutPrefix);
 					p.F("    %sv_color1 = clamp(lightSum1, 0.0, 1.0);\n", compat.vsOutPrefix);
-					p.C("  } else {");
+					p.C("  } else {\n");
 					p.F("    %sv_color0 = clamp(lightSum0 + vec4(lightSum1, 0.0), 0.0, 1.0);\n", compat.vsOutPrefix);
 					p.F("    %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 					p.C("  }");
