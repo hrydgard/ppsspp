@@ -1019,7 +1019,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (lightUberShader) {
 			// We generate generic code that can calculate any combination of lights specified
 			// in u_lightControl. u_lightControl is computed in PackLightControlBits().
-			p.C("  uint comp; uint type;\n");
+			p.C("  uint comp; uint type; float attenuation;\n");
 			if (useIndexing) {
 				p.C("  for (uint i = 0; i < 4; i++) {\n");
 			}
@@ -1043,6 +1043,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.F("      toLight -= worldpos;\n", iStr);
 				p.F("      distance = length(toLight);\n");
 				p.F("      toLight /= distance;\n");
+				p.F("      attenuation = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", iStr);
 				p.C("    }\n");
 				p.C("    ldot = dot(toLight, worldnormal);\n");
 				p.C("    if (comp == 0x2u) {\n");  // GE_LIGHTCOMP_ONLYPOWDIFFUSE
@@ -1054,12 +1055,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("    }\n");
 				p.C("    switch (int(type)) {\n");  // Attenuation
 				p.C("    case 1:\n");  // GE_LIGHTTYPE_POINT
-				p.F("      lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", iStr);
+				p.C("      lightScale = attenuation;\n");
 				p.C("      break;\n");
 				p.C("    case 2:\n");  // GE_LIGHTTYPE_SPOT
-				p.F("      angle = dot(u_lightdir%s, toLight);\n", iStr, iStr);
+				p.F("      angle = dot(u_lightdir%s, toLight);\n", iStr);
 				p.F("      if (angle >= u_lightangle_spotCoef%s.x) {\n", iStr);
-				p.F("        lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
+				p.F("        lightScale = attenuation * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
 				p.C("      } else {\n");
 				p.C("        lightScale = 0.0;\n");
 				p.C("      }\n");
@@ -1170,10 +1171,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			} else {
 				if (lightUberShader) {
 					p.C("  bool lmode = (u_lightControl & (0x1u << 0x17u)) != 0x0u;\n");
-					p.C("  if (lmode) {");
+					p.C("  if (lmode) {\n");
 					p.F("    %sv_color0 = lightSum0;\n", compat.vsOutPrefix);
 					p.F("    %sv_color1 = clamp(lightSum1, 0.0, 1.0);\n", compat.vsOutPrefix);
-					p.C("  } else {");
+					p.C("  } else {\n");
 					p.F("    %sv_color0 = clamp(lightSum0 + vec4(lightSum1, 0.0), 0.0, 1.0);\n", compat.vsOutPrefix);
 					p.F("    %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 					p.C("  }");

@@ -294,6 +294,7 @@ uint32_t PackLightControlBits() {
 
 		u32 computation = (u32)gstate.getLightComputation(i);  // 2 bits
 		u32 type = (u32)gstate.getLightType(i);  // 2 bits
+		if (type == 3) { type = 0; }  // Don't want to handle this degenerate case in the shader.
 		lightControl |= computation << (4 + i * 4);
 		lightControl |= type << (4 + i * 4 + 2);
 	}
