@@ -61,15 +61,6 @@ void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 	}
 }
 
-void FramebufferManagerGLES::DeviceLost() {
-	FramebufferManagerCommon::DeviceLost();
-	if (depthDownloadProgram_) {
-		GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		render->DeleteProgram(depthDownloadProgram_);
-		depthDownloadProgram_ = nullptr;
-	}
-}
-
 void FramebufferManagerGLES::NotifyDisplayResized() {
 	FramebufferManagerCommon::NotifyDisplayResized();
 
