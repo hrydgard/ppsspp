@@ -42,6 +42,7 @@ public:
 
 	void use(const ShaderID &VSID);
 	void UpdateUniforms(const ShaderID &VSID, bool useBufferedRendering, const ShaderLanguageDesc &shaderLanguage);
+	void Delete();
 
 	GLRenderManager *render_;
 	Shader *vs_;

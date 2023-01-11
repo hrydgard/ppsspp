@@ -212,8 +212,17 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	dirtyUniforms = DIRTY_ALL_UNIFORMS;
 }
 
-LinkedShader::~LinkedShader() {
+void LinkedShader::Delete() {
+	program->SetDeleteCallback([](void *thiz) {
+		LinkedShader *ls = (LinkedShader *)thiz;
+		delete ls;
+	}, this);
 	render_->DeleteProgram(program);
+	program = nullptr;
+}
+
+LinkedShader::~LinkedShader() {
+	_assert_(program == nullptr);
 }
 
 // Utility
@@ -691,7 +700,7 @@ ShaderManagerGLES::~ShaderManagerGLES() {
 void ShaderManagerGLES::Clear() {
 	DirtyLastShader();
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
-		delete iter->ls;
+		iter->ls->Delete();
 	}
 	fsCache_.Iterate([&](const FShaderID &key, Shader *shader) {
 		delete shader;
