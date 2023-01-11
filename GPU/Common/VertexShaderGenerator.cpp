@@ -1060,7 +1060,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("    ldot = dot(toLight, worldnormal);\n");
 				p.C("    if (comp == 0x2u) {\n");  // GE_LIGHTCOMP_ONLYPOWDIFFUSE
 				p.C("      ldot = u_matspecular.a > 0.0 ? pow(max(ldot, 0.0), u_matspecular.a) : 1.0;\n");
-				p.C("    } else if (comp == 0x1u) {\n");  // do specular
+				p.C("    }\n");
+				p.F("    diffuse = (u_lightdiffuse%s * diffuseColor) * max(ldot, 0.0);\n", iStr);
+				p.C("    if (comp == 0x1u) {\n");  // do specular
 				p.C("      if (ldot >= 0.0) {\n");
 				p.C("        if (u_matspecular.a > 0.0) {\n");
 				p.C("          ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
@@ -1071,7 +1073,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.F("        lightSum1 += u_lightspecular%s * specularColor * ldot * lightScale;\n", iStr);
 				p.C("      }\n");
 				p.C("    }\n");
-				p.F("    diffuse = (u_lightdiffuse%s * diffuseColor) * max(ldot, 0.0);\n", iStr);
 				p.F("    lightSum0.rgb += (u_lightambient%s * ambientColor.rgb + diffuse) * lightScale;\n", iStr);
 				p.C("  }\n");
 			}
@@ -1139,8 +1140,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.F("  diffuse = (u_lightdiffuse%s * diffuseColor) * max(ldot, 0.0);\n", iStr);
 				if (doSpecular) {
 					p.C("  if (ldot >= 0.0) {\n");
-					p.C("    ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
 					p.C("    if (u_matspecular.a > 0.0) {\n");
+					p.C("      ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
 					p.C("      ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
 					p.C("    } else {\n");
 					p.C("      ldot = 1.0;\n");
