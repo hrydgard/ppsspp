@@ -577,6 +577,8 @@ struct DeviceCaps {
 	bool isTilingGPU;  // This means that it benefits from correct store-ops, msaa without backing memory, etc.
 	bool sampleRateShadingSupported;
 
+	bool verySlowShaderCompiler;
+
 	// From the other backends, we can detect if D3D9 support is known bad (like on Xe) and disable it.
 	bool supportsD3D9;
 

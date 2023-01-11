@@ -584,7 +584,7 @@ void DrawEngineVulkan::DoFlush() {
 	
 	// The optimization to avoid indexing isn't really worth it on Vulkan since it means creating more pipelines.
 	// This could be avoided with the new dynamic state extensions, but not available enough on mobile.
-	const bool forceIndexed = true;
+	const bool forceIndexed = draw_->GetDeviceCaps().verySlowShaderCompiler;
 
 	if (useHWTransform) {
 		int vertexCount = 0;

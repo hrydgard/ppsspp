@@ -861,6 +861,11 @@ VKContext::VKContext(VulkanContext *vulkan)
 		break;
 	}
 
+	if (caps_.vendor == GPUVendor::VENDOR_IMGTEC) {
+		// Enable some things that cut down pipeline counts but may have other costs.
+		caps_.verySlowShaderCompiler = true;
+	}
+
 	// Hide D3D9 when we know it likely won't work well.
 #if PPSSPP_PLATFORM(WINDOWS)
 	caps_.supportsD3D9 = true;
