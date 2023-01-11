@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "Common/UI/UIScreen.h"
+#include "Common/UI/PopupScreens.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/Path.h"
 
@@ -100,7 +101,7 @@ private:
 	std::function<void(bool)> callback_;
 };
 
-class NewLanguageScreen : public ListPopupScreen {
+class NewLanguageScreen : public UI::ListPopupScreen {
 public:
 	NewLanguageScreen(const std::string &title);
 
@@ -112,7 +113,7 @@ private:
 	std::vector<File::FileInfo> langs_;
 };
 
-class TextureShaderScreen : public ListPopupScreen {
+class TextureShaderScreen : public UI::ListPopupScreen {
 public:
 	TextureShaderScreen(const std::string &title);
 

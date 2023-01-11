@@ -2,6 +2,7 @@
 #include "Common/Input/InputState.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/Screen.h"
+#include "Common/UI/ScrollView.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"

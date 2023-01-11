@@ -301,7 +301,7 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 		items.push_back(*s);
 	}
 	auto km = GetI18NCategory("KeyMapping");
-	ListPopupScreen *autoConfList = new ListPopupScreen(km->T("Autoconfigure for device"), items, -1);
+	UI::ListPopupScreen *autoConfList = new UI::ListPopupScreen(km->T("Autoconfigure for device"), items, -1);
 	if (params.v)
 		autoConfList->SetPopupOrigin(params.v);
 	screenManager()->push(autoConfList);
@@ -316,7 +316,7 @@ UI::EventReturn ControlMappingScreen::OnVisualizeMapping(UI::EventParams &params
 
 void ControlMappingScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DR_OK && std::string(dialog->tag()) == "listpopup") {
-		ListPopupScreen *popup = (ListPopupScreen *)dialog;
+		UI::ListPopupScreen *popup = (UI::ListPopupScreen *)dialog;
 		KeyMap::AutoConfForPad(popup->GetChoiceString());
 	}
 }

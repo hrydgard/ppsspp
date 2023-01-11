@@ -96,7 +96,7 @@ private:
 	bool toBottom_ = false;
 };
 
-class LogLevelScreen : public ListPopupScreen {
+class LogLevelScreen : public UI::ListPopupScreen {
 public:
 	LogLevelScreen(const std::string &title);
 
