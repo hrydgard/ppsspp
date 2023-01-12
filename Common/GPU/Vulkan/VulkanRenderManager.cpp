@@ -438,9 +438,10 @@ void VulkanRenderManager::CompileThreadFunc() {
 
 		double scheduleTime = time_now_d();
 
-		// TODO: Here we can sort pending graphics pipelines by vertex and fragment shaders,
-		// and split up further.
-		// Those with the same pairs of shaders should be on the same thread.
+		// Here we sort pending graphics pipelines by vertex and fragment shaders, and split up further.
+		// Those with the same pairs of shaders should be on the same thread, at least on NVIDIA.
+		// I don't think PowerVR cares though, it doesn't seem to reuse information between the compiles,
+		// so we might want a different splitting algorithm there.
 		for (auto &entry : toCompile) {
 			switch (entry.type) {
 			case CompileQueueEntry::Type::GRAPHICS:
