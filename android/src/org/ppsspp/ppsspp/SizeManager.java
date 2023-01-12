@@ -119,15 +119,10 @@ public class SizeManager implements SurfaceHolder.Callback {
 		}
 		displayUpdatePending = true;
 
-		final Runnable updater = new Runnable() {
-			public void run() {
-				Log.d(TAG, "checkDisplayMeasurements: checking now");
-				updateDisplayMeasurements();
-			}
-		};
-
-		final Handler handler = new Handler(Looper.getMainLooper());
-		handler.postDelayed(updater, 10);
+		activity.runOnUiThread(() -> {
+			Log.d(TAG, "checkDisplayMeasurements: checking now");
+			updateDisplayMeasurements();
+		});
 	}
 
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
