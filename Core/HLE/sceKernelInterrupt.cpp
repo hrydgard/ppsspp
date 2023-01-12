@@ -828,6 +828,9 @@ static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 }
 
 static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {	
+	if (!Memory::IsValidAddress(strPtr)) {
+		return hleLogError(SCEKERNEL, 0, "invalid address");
+	}
 	const char* str;
 	str = Memory::GetCharPointer(strPtr);	
 	char* end = nullptr;
@@ -839,6 +842,9 @@ static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {
 }
 
 static u32 sysclib_strchr(u32 src, int c) {
+	if (!Memory::IsValidAddress(src)) {
+		return hleLogError(SCEKERNEL, 0, "invalid address");
+	}
 	const std::string str = Memory::GetCharPointer(src);
 	ERROR_LOG(SCEKERNEL, "Untest sysclib_strchr(%c, %i)", str.c_str(),c);
 	int index = int(index = str.find(str,c));
@@ -849,6 +855,9 @@ static u32 sysclib_strchr(u32 src, int c) {
 }
 
 static u32 sysclib_strrchr(u32 src, int c) {
+	if (!Memory::IsValidAddress(src)) {
+		return hleLogError(SCEKERNEL, 0, "invalid address");
+	}
 	const std::string str = Memory::GetCharPointer(src);
 	ERROR_LOG(SCEKERNEL, "Untest sysclib_strchr(%c, %i)", str.c_str(), c);
 	int index = int(str.rfind(str, c));
