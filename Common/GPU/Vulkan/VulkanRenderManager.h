@@ -120,7 +120,7 @@ struct VKRGraphicsPipeline {
 	VKRGraphicsPipeline(PipelineFlags flags, const char *tag) : flags_(flags), tag_(tag) {}
 	~VKRGraphicsPipeline();
 
-	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
+	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount, double scheduleTime);
 
 	void DestroyVariants(VulkanContext *vulkan, bool msaaOnly);
 

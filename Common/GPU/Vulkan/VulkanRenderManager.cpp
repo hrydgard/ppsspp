@@ -28,7 +28,7 @@
 using namespace PPSSPP_VK;
 
 // renderPass is an example of the "compatibility class" or RenderPassType type.
-bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount) {
+bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount, double scheduleTime) {
 	bool multisample = RenderPassTypeHasMultisample(rpType);
 	if (multisample) {
 		if (sampleCount_ != VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM) {
@@ -119,12 +119,17 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	double start = time_now_d();
 	VkPipeline vkpipeline;
 	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &pipe, nullptr, &vkpipeline);
-	double taken_ms = (time_now_d() - start) * 1000.0;
+
+	double now = time_now_d();
+	double taken_ms_since_scheduling = (now - scheduleTime) * 1000.0;
+	double taken_ms = (now - start) * 1000.0;
 
 	if (taken_ms < 0.1) {
-		DEBUG_LOG(G3D, "Pipeline creation time: %0.2f ms (fast) rpType: %08x sampleBits: %d (%s)", taken_ms, (u32)rpType, (u32)sampleCount, tag_.c_str());
+		DEBUG_LOG(G3D, "Pipeline time on %s: %0.2f ms, %0.2f ms since scheduling (fast) rpType: %04x sampleBits: %d (%s)",
+			GetCurrentThreadName(), taken_ms, taken_ms_since_scheduling, (u32)rpType, (u32)sampleCount, tag_.c_str());
 	} else {
-		INFO_LOG(G3D, "Pipeline creation time: %0.2f ms  rpType: %08x sampleBits: %d (%s)", taken_ms, (u32)rpType, (u32)sampleCount, tag_.c_str());
+		INFO_LOG(G3D, "Pipeline time on %s: %0.2f ms, %0.2f ms since scheduling  rpType: %04x sampleBits: %d (%s)",
+			GetCurrentThreadName(), taken_ms, taken_ms_since_scheduling, (u32)rpType, (u32)sampleCount, tag_.c_str());
 	}
 
 	bool success = true;
@@ -385,6 +390,7 @@ struct SinglePipelineTask {
 	VkRenderPass compatibleRenderPass;
 	RenderPassType rpType;
 	VkSampleCountFlagBits sampleCount;
+	double scheduleTime;
 };
 
 class CreateMultiPipelinesTask : public Task {
@@ -398,7 +404,7 @@ public:
 
 	void Run() override {
 		for (auto &task : tasks_) {
-			task.pipeline->Create(vulkan_, task.compatibleRenderPass, task.rpType, task.sampleCount);
+			task.pipeline->Create(vulkan_, task.compatibleRenderPass, task.rpType, task.sampleCount, task.scheduleTime);
 		}
 	}
 
@@ -430,6 +436,8 @@ void VulkanRenderManager::CompileThreadFunc() {
 		// Here we sort the pending pipelines by vertex and fragment shaders,
 		std::map<std::pair<Promise<VkShaderModule> *, Promise<VkShaderModule> *>, std::vector<SinglePipelineTask>> map;
 
+		double scheduleTime = time_now_d();
+
 		// TODO: Here we can sort pending graphics pipelines by vertex and fragment shaders,
 		// and split up further.
 		// Those with the same pairs of shaders should be on the same thread.
@@ -442,6 +450,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 						entry.compatibleRenderPass,
 						entry.renderPassType,
 						entry.sampleCount,
+						scheduleTime,
 					}
 				);
 				break;
@@ -456,7 +465,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 			auto &shaders = iter.first;
 			auto &entries = iter.second;
 
-			NOTICE_LOG(G3D, "For this shader pair, we have %d pipelines to create", (int)entries.size());
+			// NOTICE_LOG(G3D, "For this shader pair, we have %d pipelines to create", (int)entries.size());
 
 			Task *task = new CreateMultiPipelinesTask(vulkan_, entries);
 			g_threadManager.EnqueueTask(task);
