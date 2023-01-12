@@ -79,6 +79,13 @@ const float AXIS_BIND_THRESHOLD_MOUSE = 0.01f;
 
 typedef std::map<int, std::vector<KeyDef>> KeyMapping;
 
+struct SingleKeyMap {
+	SingleKeyMap(int p, int d, int k) : pspKey(p), deviceId(d), keyCode(k) {}
+	int pspKey;
+	int deviceId;
+	int keyCode;
+};
+
 struct MappedAnalogAxis {
 	int axisId;
 	int direction;
@@ -126,7 +133,7 @@ namespace KeyMap {
 	// Use to translate KeyMap Keys to PSP
 	// buttons. You should have already translated
 	// your platform's keys to KeyMap keys.
-	bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys);
+	bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys, std::vector<SingleKeyMap> *combo_button);
 	bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys, bool ignoreMouse);
 
 	int TranslateKeyCodeToAxis(int keyCode, int &direction);
@@ -142,7 +149,7 @@ namespace KeyMap {
 	// Direction is negative or positive.
 	void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool replace);
 
-	bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *pspKeys);
+	bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *pspKeys, std::vector<SingleKeyMap> *combo_button);
 	bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction);
 	MappedAnalogAxes MappedAxesForDevice(int deviceId);
 

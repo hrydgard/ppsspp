@@ -110,7 +110,7 @@ void SingleControlMapper::Refresh() {
 	float itemH = 55.0f;
 
 	float leftColumnWidth = 200;
-	float rightColumnWidth = 250;  // TODO: Should be flexible somehow. Maybe we need to implement Measure.
+	float rightColumnWidth = 350;  // TODO: Should be flexible somehow. Maybe we need to implement Measure.
 
 	LinearLayout *root = Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	root->SetSpacing(3.0f);
@@ -140,14 +140,16 @@ void SingleControlMapper::Refresh() {
 
 	rows_.clear();
 	for (size_t i = 0; i < mappings.size(); i++) {
-		std::string deviceName = GetDeviceName(mappings[i].deviceId);
-		std::string keyName = KeyMap::GetKeyOrAxisName(mappings[i].keyCode);
+		std::string name = std::string(GetDeviceName(mappings[i].deviceId)) + "." + KeyMap::GetKeyOrAxisName(mappings[i].keyCode);
+		if (mappings[i].combo) {
+			name = name + " + " + GetDeviceName(mappings[i].deviceId2) + "." + KeyMap::GetKeyOrAxisName(mappings[i].keyCode2);
+		}
 
 		LinearLayout *row = rightColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		row->SetSpacing(2.0f);
 		rows_.push_back(row);
 
-		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(FILL_PARENT, itemH, 1.0f)));
+		Choice *c = row->Add(new Choice(name, new LinearLayoutParams(FILL_PARENT, itemH, 1.0f)));
 		c->SetTag(StringFromFormat("%d_Change%d", (int)i, pspKey_));
 		c->OnClick.Handle(this, &SingleControlMapper::OnReplace);
 
@@ -338,16 +340,28 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 	if (mapped_ || time_now_d() < delayUntil_)
 		return false;
-	if (key.flags & KEY_DOWN) {
-		if (key.keyCode == NKCODE_EXT_MOUSEBUTTON_1) {
-			return true;
-		}
-		// Only map analog values to this mapping.
-		if (pspBtn_ == VIRTKEY_SPEED_ANALOG && !UI::IsEscapeKey(key))
-			return true;
+	if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_EXT_MOUSEBUTTON_1)
+		return true;
+	if ((key.flags & KEY_DOWN) && pspBtn_ == VIRTKEY_SPEED_ANALOG && !UI::IsEscapeKey(key))
+		return true;
 
+	if (key.flags & KEY_DOWN) {
+		if (oneDown_) {
+			mapped_ = true;
+			KeyDef kdf(devId_, keyCode_, key.deviceId, key.keyCode);
+
+			TriggerFinish(DR_YES);
+			if (callback_)
+				callback_(kdf);
+		} else {
+			devId_ =  key.deviceId;
+			keyCode_ = key.keyCode;
+			oneDown_ = true;
+		}
+	} else if (key.flags & KEY_UP) {
 		mapped_ = true;
 		KeyDef kdf(key.deviceId, key.keyCode);
+
 		TriggerFinish(DR_YES);
 		if (callback_ && pspBtn_ != VIRTKEY_SPEED_ANALOG)
 			callback_(kdf);
@@ -408,17 +422,26 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (IgnoreAxisForMapping(axis.axisId))
 		return;
 
-	if (axis.value > AXIS_BIND_THRESHOLD) {
-		mapped_ = true;
-		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
-		TriggerFinish(DR_YES);
-		if (callback_)
-			callback_(kdf);
-	}
+	// Axis name get generated with value sign, check both because digital when released may instantly get 0 and missmatch
+	bool same = devId_ == axis.deviceId && (keyCode_ == KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1) || keyCode_ == KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
 
-	if (axis.value < -AXIS_BIND_THRESHOLD) {
+	if (abs(axis.value) > AXIS_BIND_THRESHOLD && !same) {
+		if (oneDown_) {
+			mapped_ = true;
+			KeyDef kdf(devId_, keyCode_, axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, axis.value));
+
+			TriggerFinish(DR_YES);
+			if (callback_)
+				callback_(kdf);
+		} else {
+			devId_ =  axis.deviceId;
+			keyCode_ = KeyMap::TranslateKeyCodeFromAxis(axis.axisId, axis.value);
+			oneDown_ = true;
+		}
+	} else if (abs(axis.value) < AXIS_BIND_THRESHOLD/2 && same) {
 		mapped_ = true;
-		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
+		KeyDef kdf(devId_, keyCode_);
+
 		TriggerFinish(DR_YES);
 		if (callback_)
 			callback_(kdf);
@@ -1085,7 +1108,8 @@ void VisualMappingScreen::CreateViews() {
 bool VisualMappingScreen::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
 		std::vector<int> pspKeys;
-		KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys);
+		std::vector<SingleKeyMap> combo;
+		KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys, &combo);
 		for (int pspKey : pspKeys) {
 			switch (pspKey) {
 			case VIRTKEY_AXIS_X_MIN:
@@ -1105,10 +1129,11 @@ bool VisualMappingScreen::key(const KeyInput &key) {
 
 void VisualMappingScreen::axis(const AxisInput &axis) {
 	std::vector<int> results;
+	std::vector<SingleKeyMap> combo;
 	if (axis.value >= g_Config.fAnalogDeadzone * 0.7f)
-		KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, 1, &results);
+		KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, 1, &results, &combo);
 	if (axis.value <= g_Config.fAnalogDeadzone * -0.7f)
-		KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -1, &results);
+		KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -1, &results, &combo);
 
 	for (int result : results) {
 		switch (result) {

@@ -156,9 +156,10 @@ public:
 
 	bool Key(const KeyInput &key) override {
 		std::vector<int> pspKeys;
+		std::vector<SingleKeyMap> comboButton;
 		bool showInfo = false;
 
-		if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys)) {
+		if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys, &comboButton)) {
 			for (auto it = pspKeys.begin(), end = pspKeys.end(); it != end; ++it) {
 				// If the button mapped to triangle, then show the info.
 				if (HasFocus() && (key.flags & KEY_UP) && *it == CTRL_TRIANGLE) {

@@ -25,6 +25,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/StringUtils.h"
 
 #include "Core/ControlMapper.h"
 
@@ -75,9 +76,12 @@ protected:
 
 private:
 	int pspBtn_;
+	int devId_ = -2;
+	int keyCode_ = -2;
 	std::function<void(KeyDef)> callback_;
-	bool mapped_ = false;  // Prevent double registrations
 	double delayUntil_ = 0.0f;
+	bool mapped_ = false;  // Prevent double registrations
+	bool oneDown_ = false; // We bind either on key up or when we get the second button down
 };
 
 class KeyMappingNewMouseKeyDialog : public PopupScreen {

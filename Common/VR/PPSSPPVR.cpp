@@ -466,8 +466,11 @@ bool UpdateVRKeys(const KeyInput &key) {
 	//store key value
 	std::vector<int> nativeKeys;
 	bool wasScreenKeyOn = pspKeys[CTRL_SCREEN];
+
+	std::vector<SingleKeyMap> comboButton;
+
 	bool wasCameraAdjustOn = pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
-	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
+	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys, &comboButton)) {
 		for (int& nativeKey : nativeKeys) {
 			pspKeys[nativeKey] = key.flags & KEY_DOWN;
 		}

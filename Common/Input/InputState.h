@@ -78,24 +78,46 @@ enum {
 #define MAX_KEYQUEUESIZE 20
 #endif
 
-// Represents a single bindable key
+// Represents a bindable key. Although it can be bound to two keys - you can bind key combinations as keys.
 class KeyDef {
 public:
-	KeyDef() : deviceId(0), keyCode(0) {}
-	KeyDef(int devId, int k) : deviceId(devId), keyCode(k) {}
+	KeyDef() : deviceId(0), keyCode(0), deviceId2(0), keyCode2(0), combo(false) {}
+	KeyDef(int devId, int k) : deviceId(devId), keyCode(k), deviceId2(0), keyCode2(0), combo(false) {}
+	KeyDef(int devId, int k, int devId2, int k2) : deviceId(devId), keyCode(k), deviceId2(devId2), keyCode2(k2), combo(true) {}
 	int deviceId;
 	int keyCode;
+
+	int deviceId2;
+	int keyCode2;
+	
+	bool combo;
 
 	// If you want to use std::find and match ANY, you need to perform an explicit search for that.
 	bool operator < (const KeyDef &other) const {
 		if (deviceId < other.deviceId) return true;
 		if (deviceId > other.deviceId) return false;
 		if (keyCode < other.keyCode) return true;
+		if (keyCode > other.keyCode) return false;
+		if (deviceId2 < other.deviceId2) return true;
+		if (deviceId2 > other.deviceId2) return false;
+		if (keyCode2 < other.keyCode2) return true;
 		return false;
 	}
 	bool operator == (const KeyDef &other) const {
 		if (deviceId != other.deviceId && deviceId != DEVICE_ID_ANY && other.deviceId != DEVICE_ID_ANY) return false;
 		if (keyCode != other.keyCode) return false;
+		if (deviceId2 != other.deviceId2 && deviceId2 != DEVICE_ID_ANY && other.deviceId2 != DEVICE_ID_ANY) return false;
+		if (keyCode2 != other.keyCode2) return false;
+		return true;
+	}
+	bool MatchFirst(int devId, int k) const {
+		if (deviceId != devId && deviceId != DEVICE_ID_ANY && devId != DEVICE_ID_ANY) return false;
+		if (keyCode != k) return false;
+		return true;
+	}
+	bool MatchSecond(int devId, int k) const {
+		if (deviceId2 != devId && deviceId2 != DEVICE_ID_ANY && devId != DEVICE_ID_ANY) return false;
+		if (keyCode2 != k) return false;
 		return true;
 	}
 };
@@ -146,6 +168,14 @@ struct KeyInput {
 	int deviceId;
 	int keyCode;  // Android keycodes are the canonical keycodes, everyone else map to them.
 	int flags;
+	bool operator < (const KeyInput &other) const {
+		if (deviceId < other.deviceId) return true;
+		if (deviceId > other.deviceId) return false;
+		if (keyCode < other.keyCode) return true;
+		if (keyCode > other.keyCode) return false;
+		if (flags < other.flags) return true;
+		return false;
+	}
 };
 
 struct AxisInput {
