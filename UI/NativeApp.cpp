@@ -1319,18 +1319,6 @@ bool NativeKey(const KeyInput &key) {
 	}
 
 	// INFO_LOG(SYSTEM, "Key code: %i flags: %i", key.keyCode, key.flags);
-#if !defined(MOBILE_DEVICE)
-	if (g_Config.bPauseExitsEmulator) {
-		static std::vector<int> pspKeys;
-		pspKeys.clear();
-		if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys)) {
-			if (std::find(pspKeys.begin(), pspKeys.end(), VIRTKEY_PAUSE) != pspKeys.end()) {
-				System_SendMessage("finish", "");
-				return true;
-			}
-		}
-	}
-#endif
 	bool retval = false;
 	if (screenManager)
 		retval = screenManager->key(key);

@@ -38,6 +38,8 @@ private:
 	void onVKeyDown(int deviceId, int vkey);
 	void onVKeyUp(int deviceId, int vkey);
 
+	bool keyPressed(int deviceId, int keyCode);
+
 	// To track mappable virtual keys. We can have as many as we want.
 	bool virtKeys[VIRTKEY_COUNT]{};
 
@@ -57,6 +59,7 @@ private:
 	std::function<void(int)> onVKeyUp_;
 	std::function<void(int, float, float)> setPSPAnalog_;
 	std::function<void(int, float, float)> setRawAnalog_;
+	std::map<KeyInput, bool> pressedKey_;
 };
 
 void ConvertAnalogStick(float &x, float &y);

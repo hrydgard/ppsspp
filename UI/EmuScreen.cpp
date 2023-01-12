@@ -1072,6 +1072,12 @@ void EmuScreen::update() {
 	controlMapper_.Update();
 
 	if (pauseTrigger_) {
+#if !defined(MOBILE_DEVICE)
+		if (g_Config.bPauseExitsEmulator) {
+			System_SendMessage("finish", "");
+			return;
+		}
+#endif
 		pauseTrigger_ = false;
 		screenManager()->push(new GamePauseScreen(gamePath_));
 	}

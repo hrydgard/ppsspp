@@ -92,9 +92,21 @@ void ControlMapper::SetPSPAxis(int device, char axis, float value, int stick) {
 	}
 }
 
+bool ControlMapper::keyPressed(int deviceId, int keyCode) {
+	return pressedKey_.find(KeyInput(deviceId, keyCode, 0)) != pressedKey_.end() &&
+			pressedKey_[KeyInput(deviceId, keyCode, 0)];
+}
+
 bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
+	if (key.flags & KEY_DOWN) {
+		pressedKey_[KeyInput(key.deviceId, key.keyCode, 0)] = true; // Have flags to 0 for the map
+	} else if (key.flags & KEY_UP) {
+		pressedKey_[KeyInput(key.deviceId, key.keyCode, 0)] = false;
+	}
+
 	std::vector<int> pspKeys;
-	KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys);
+	std::vector<SingleKeyMap> comboButton;
+	KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys, &comboButton);
 
 	if (pspKeys.size() && (key.flags & KEY_IS_REPEAT)) {
 		// Claim that we handled this. Prevents volume key repeats from popping up the volume control on Android.
@@ -103,6 +115,14 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 
 	for (size_t i = 0; i < pspKeys.size(); i++) {
 		pspKey(key.deviceId, pspKeys[i], key.flags);
+	}
+
+	for (size_t i = 0; i < comboButton.size(); i++) {
+		if (key.flags & KEY_UP) {
+			pspKey(key.deviceId, comboButton[i].pspKey, key.flags);
+		} else if ((key.flags & KEY_DOWN) && keyPressed(comboButton[i].deviceId, comboButton[i].keyCode)) {
+			pspKey(key.deviceId, comboButton[i].pspKey, key.flags);
+		}
 	}
 
 	DEBUG_LOG(SYSTEM, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
@@ -119,11 +139,17 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 
 void ControlMapper::Axis(const AxisInput &axis) {
 	if (axis.value > 0) {
+		pressedKey_[KeyInput(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1), 0)] = true;
+		pressedKey_[KeyInput(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1), 0)] = false;
 		processAxis(axis, 1);
 	} else if (axis.value < 0) {
+		pressedKey_[KeyInput(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1), 0)] = false;
+		pressedKey_[KeyInput(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1), 0)] = true;
 		processAxis(axis, -1);
 	} else if (axis.value == 0) {
 		// Both directions! Prevents sticking for digital input devices that are axises (like HAT)
+		pressedKey_[KeyInput(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1), 0)] = false;
+		pressedKey_[KeyInput(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1), 0)] = false;
 		processAxis(axis, 1);
 		processAxis(axis, -1);
 	}
@@ -316,6 +342,13 @@ void ControlMapper::onVKeyUp(int deviceId, int vkey) {
 	}
 }
 
+static bool findCombo(const std::vector<SingleKeyMap> &comboButton, int key) {
+	for (auto i : comboButton)
+		if (i.pspKey == key)
+			return true;
+	return false;
+};
+
 void ControlMapper::processAxis(const AxisInput &axis, int direction) {
 	// Sanity check
 	if (axis.axisId < 0 || axis.axisId >= JOYSTICK_AXIS_MAX) {
@@ -325,7 +358,8 @@ void ControlMapper::processAxis(const AxisInput &axis, int direction) {
 	const float scale = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
 
 	std::vector<int> results;
-	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction, &results);
+	std::vector<SingleKeyMap> comboButton;
+	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction, &results, &comboButton);
 
 	for (int result : results) {
 		float value = fabs(axis.value) * scale;
@@ -362,8 +396,42 @@ void ControlMapper::processAxis(const AxisInput &axis, int direction) {
 		}
 	}
 
+	for (auto &result : comboButton) {
+		if (keyPressed(result.deviceId, result.keyCode)) {
+			float value = fabs(axis.value) * scale;
+			switch (result.pspKey) {
+			case VIRTKEY_AXIS_X_MIN:
+				SetPSPAxis(axis.deviceId, 'X', -value, CTRL_STICK_LEFT);
+				break;
+			case VIRTKEY_AXIS_X_MAX:
+				SetPSPAxis(axis.deviceId, 'X', value, CTRL_STICK_LEFT);
+				break;
+			case VIRTKEY_AXIS_Y_MIN:
+				SetPSPAxis(axis.deviceId, 'Y', -value, CTRL_STICK_LEFT);
+				break;
+			case VIRTKEY_AXIS_Y_MAX:
+				SetPSPAxis(axis.deviceId, 'Y', value, CTRL_STICK_LEFT);
+				break;
+
+			case VIRTKEY_AXIS_RIGHT_X_MIN:
+				SetPSPAxis(axis.deviceId, 'X', -value, CTRL_STICK_RIGHT);
+				break;
+			case VIRTKEY_AXIS_RIGHT_X_MAX:
+				SetPSPAxis(axis.deviceId, 'X', value, CTRL_STICK_RIGHT);
+				break;
+			case VIRTKEY_AXIS_RIGHT_Y_MIN:
+				SetPSPAxis(axis.deviceId, 'Y', -value, CTRL_STICK_RIGHT);
+				break;
+			case VIRTKEY_AXIS_RIGHT_Y_MAX:
+				SetPSPAxis(axis.deviceId, 'Y', value, CTRL_STICK_RIGHT);
+				break;
+			}
+		}
+	}
+
 	std::vector<int> resultsOpposite;
-	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction, &resultsOpposite);
+	std::vector<SingleKeyMap> comboButtonOpposite;
+	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction, &resultsOpposite, &comboButtonOpposite);
 
 	for (int result : resultsOpposite) {
 		if (result == VIRTKEY_SPEED_ANALOG)
@@ -392,6 +460,16 @@ void ControlMapper::processAxis(const AxisInput &axis, int direction) {
 				if (!IsAnalogStickKey(resultsOpposite[i]) && std::find(results.begin(), results.end(), resultsOpposite[i]) == results.end())
 					pspKey(axis.deviceId, resultsOpposite[i], KEY_UP);
 			}
+
+			for (size_t i = 0; i < comboButton.size(); i++) {
+				if (!IsAnalogStickKey(comboButton[i].pspKey) && keyPressed(comboButton[i].deviceId, comboButton[i].keyCode))
+					pspKey(axis.deviceId, comboButton[i].pspKey, KEY_DOWN);
+			}
+			for (size_t i = 0; i < comboButtonOpposite.size(); i++) {
+				if (!IsAnalogStickKey(comboButtonOpposite[i].pspKey) && !findCombo(comboButton, comboButtonOpposite[i].pspKey))
+					pspKey(axis.deviceId, comboButtonOpposite[i].pspKey, KEY_UP);
+			}	
+
 		} else if (axisState == 0) {
 			// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
 			for (size_t i = 0; i < results.size(); i++) {
@@ -401,6 +479,14 @@ void ControlMapper::processAxis(const AxisInput &axis, int direction) {
 			for (size_t i = 0; i < resultsOpposite.size(); i++) {
 				if (!IsAnalogStickKey(resultsOpposite[i]))
 					pspKey(axis.deviceId, resultsOpposite[i], KEY_UP);
+			}
+			for (size_t i = 0; i < comboButton.size(); i++) {
+				if (!IsAnalogStickKey(comboButton[i].pspKey))
+					pspKey(axis.deviceId, comboButton[i].pspKey, KEY_UP);
+			}
+			for (size_t i = 0; i < comboButtonOpposite.size(); i++) {
+				if (!IsAnalogStickKey(comboButtonOpposite[i].pspKey))
+					pspKey(axis.deviceId, comboButtonOpposite[i].pspKey, KEY_UP);
 			}
 		}
 	}

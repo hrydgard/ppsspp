@@ -414,8 +414,10 @@ bool UpdateVRAxis(const AxisInput &axis) {
 bool UpdateVRKeys(const KeyInput &key) {
 	//store key value
 	std::vector<int> nativeKeys;
+	std::vector<SingleKeyMap> comboButton;
+
 	bool wasCameraAdjustOn = pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
-	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
+	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys, &comboButton)) {
 		for (int& nativeKey : nativeKeys) {
 			pspKeys[nativeKey] = key.flags & KEY_DOWN;
 		}

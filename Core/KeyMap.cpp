@@ -519,20 +519,26 @@ int CheckAxisSwap(int btn) {
 	return btn;
 }
 
-static bool FindKeyMapping(int deviceId, int key, std::vector<int> *psp_button) {
+static bool FindKeyMapping(int deviceId, int key, std::vector<int> *psp_button, std::vector<SingleKeyMap> *combo_button) {
 	// Brute force, let's optimize later
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
 			if (*iter2 == KeyDef(deviceId, key)) {
 				psp_button->push_back(CheckAxisSwap(iter->first));
+			} else if (iter2->combo) {
+				if (iter2->MatchFirst(deviceId, key)) {
+					combo_button->push_back(SingleKeyMap(CheckAxisSwap(iter->first), iter2->deviceId2, iter2->keyCode2));
+				} else if (iter2->MatchSecond(deviceId, key)) {
+					combo_button->push_back(SingleKeyMap(CheckAxisSwap(iter->first), iter2->deviceId, iter2->keyCode));
+				}
 			}
 		}
 	}
 	return psp_button->size() > 0;
 }
 
-bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys) {
-	return FindKeyMapping(deviceId, key, pspKeys);
+bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys, std::vector<SingleKeyMap> *combo_button) {
+	return FindKeyMapping(deviceId, key, pspKeys, combo_button);
 }
 
 // TODO: vector output
@@ -548,9 +554,9 @@ bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys, bool ignoreMouse) {
 	return keys->size() > 0;
 }
 
-bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *pspKeys) {
+bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *pspKeys, std::vector<SingleKeyMap> *combo_button) {
 	int key = TranslateKeyCodeFromAxis(axisId, direction);
-	return KeyToPspButton(deviceId, key, pspKeys);
+	return KeyToPspButton(deviceId, key, pspKeys, combo_button);
 }
 
 bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction) {
@@ -640,7 +646,7 @@ bool ReplaceSingleKeyMapping(int btn, int index, KeyDef key) {
 }
 
 void SetKeyMapping(int btn, KeyDef key, bool replace) {
-	if (key.keyCode < 0)
+	if (key.keyCode < 0 || key.keyCode2 < 0)
 		return;
 	if (replace) {
 		RemoveButtonMapping(btn);
@@ -656,6 +662,8 @@ void SetKeyMapping(int btn, KeyDef key, bool replace) {
 	g_controllerMapGeneration++;
 
 	g_seenDeviceIds.insert(key.deviceId);
+	if (key.combo)
+		g_seenDeviceIds.insert(key.deviceId2);
 	UpdateNativeMenuKeys();
 }
 
@@ -722,12 +730,26 @@ void LoadFromIni(IniFile &file) {
 		SplitString(value, ',', mappings);
 
 		for (size_t j = 0; j < mappings.size(); j++) {
+			std::vector<std::string> buttons;
+			SplitString(mappings[j], '+', buttons);
+
 			std::vector<std::string> parts;
-			SplitString(mappings[j], '-', parts);
+			SplitString(buttons[0], '-', parts);
 			int deviceId = atoi(parts[0].c_str());
 			int keyCode = atoi(parts[1].c_str());
 
-			SetKeyMapping(psp_button_names[i].key, KeyDef(deviceId, keyCode), false);
+			if (buttons.size() == 1) {
+				SetKeyMapping(psp_button_names[i].key, KeyDef(deviceId, keyCode), false);
+			} else if (buttons.size() == 2) {
+				std::vector<std::string> parts2;
+				SplitString(buttons[1], '-', parts2);
+				int deviceId2 = atoi(parts2[0].c_str());
+				int keyCode2 = atoi(parts2[1].c_str());
+				SetKeyMapping(psp_button_names[i].key, KeyDef(deviceId, keyCode, deviceId2, keyCode2), false);
+
+				g_seenDeviceIds.insert(deviceId2);
+			}
+				
 			g_seenDeviceIds.insert(deviceId);
 		}
 	}
@@ -745,7 +767,11 @@ void SaveToIni(IniFile &file) {
 		std::string value;
 		for (size_t j = 0; j < keys.size(); j++) {
 			char temp[128];
-			sprintf(temp, "%i-%i", keys[j].deviceId, keys[j].keyCode);
+			if (keys[j].combo) {
+				sprintf(temp, "%i-%i+%i-%i", keys[j].deviceId, keys[j].keyCode, keys[j].deviceId2, keys[j].keyCode2);
+			} else {
+				sprintf(temp, "%i-%i", keys[j].deviceId, keys[j].keyCode);
+			}
 			value += temp;
 			if (j != keys.size() - 1)
 				value += ",";
