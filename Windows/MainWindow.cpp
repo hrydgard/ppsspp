@@ -179,7 +179,7 @@ namespace MainWindow
 
 		WNDCLASSEX wcdisp;
 		memset(&wcdisp, 0, sizeof(wcdisp));
-		// Display Window
+		// Display Window (contained in main window)
 		wcdisp.cbSize = sizeof(WNDCLASSEX);
 		wcdisp.style = CS_HREDRAW | CS_VREDRAW;
 		wcdisp.lpfnWndProc = (WNDPROC)DisplayProc;
@@ -730,6 +730,37 @@ namespace MainWindow
 		return 0;
 	}
 
+	RECT MapRectFromClientToWndCoords(HWND hwnd, const RECT & r)
+	{
+		RECT wnd_coords = r;
+
+		// map to screen
+		MapWindowPoints(hwnd, NULL, reinterpret_cast<POINT *>(&wnd_coords), 2);
+
+		RECT scr_coords;
+		GetWindowRect(hwnd, &scr_coords);
+
+		// map to window coords by substracting the window coord origin in
+		// screen coords.
+		OffsetRect(&wnd_coords, -scr_coords.left, -scr_coords.top);
+
+		return wnd_coords;
+	}
+
+	RECT GetNonclientMenuBorderRect(HWND hwnd)
+	{
+		RECT r;
+		GetClientRect(hwnd, &r);
+		r = MapRectFromClientToWndCoords(hwnd, r);
+		int y = r.top - 1;
+		return {
+			r.left,
+			y,
+			r.right,
+			y + 1
+		};
+	}
+
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
 		LRESULT darkResult = 0;
 		if (UAHDarkModeWndProc(hWnd, message, wParam, lParam, &darkResult)) {
@@ -758,6 +789,26 @@ namespace MainWindow
 				return 0;
 			}
 			break;
+
+		// Hack to kill the white line underneath the menubar.
+		// From https://stackoverflow.com/questions/57177310/how-to-paint-over-white-line-between-menu-bar-and-client-area-of-window
+		case WM_NCPAINT:
+		case WM_NCACTIVATE:
+		{
+			if (!IsDarkModeEnabled() || IsIconic(hWnd)) {
+				return DefWindowProc(hWnd, message, wParam, lParam);
+			}
+
+			auto result = DefWindowProc(hWnd, message, wParam, lParam);
+			// Paint over the line with pure black. Could also try to figure out the dark theme color.
+			HDC hdc = GetWindowDC(hWnd);
+			RECT r = GetNonclientMenuBorderRect(hWnd);
+			HBRUSH red = CreateSolidBrush(RGB(0, 0, 0));
+			FillRect(hdc, &r, red);
+			DeleteObject(red);
+			ReleaseDC(hWnd, hdc);
+			return result;
+		}
 
 		case WM_GETMINMAXINFO:
 			{
@@ -814,7 +865,7 @@ namespace MainWindow
 
 		case WM_ERASEBKGND:
 			// This window is always covered by DisplayWindow. No reason to erase.
-			return 1;
+			return 0;
 
 		case WM_MOVE:
 			SavePosition();

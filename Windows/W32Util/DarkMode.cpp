@@ -158,6 +158,9 @@ LRESULT DarkModeDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
 	return FALSE;
 }
 
+bool IsDarkModeEnabled() {
+	return g_darkModeEnabled;
+}
 
 constexpr bool CheckBuildNumber(DWORD buildNumber)
 {
@@ -182,7 +185,6 @@ void InitDarkMode()
 			HMODULE hUxtheme = LoadLibraryExW(L"uxtheme.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
 			if (hUxtheme)
 			{
-
 				_OpenNcThemeData = reinterpret_cast<fnOpenNcThemeData>(GetProcAddress(hUxtheme, MAKEINTRESOURCEA(49)));
 				_RefreshImmersiveColorPolicyState = reinterpret_cast<fnRefreshImmersiveColorPolicyState>(GetProcAddress(hUxtheme, MAKEINTRESOURCEA(104)));
 				_GetIsImmersiveColorUsingHighContrast = reinterpret_cast<fnGetIsImmersiveColorUsingHighContrast>(GetProcAddress(hUxtheme, MAKEINTRESOURCEA(106)));

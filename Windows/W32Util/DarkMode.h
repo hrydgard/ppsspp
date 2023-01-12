@@ -104,6 +104,7 @@ void InitDarkMode();
 bool AllowDarkModeForWindow(HWND hWnd, bool allow);
 void RefreshTitleBarThemeColor(HWND hWnd);
 bool IsColorSchemeChangeMessage(LPARAM lParam);
+bool IsDarkModeEnabled();
 
 void DarkModeInitDialog(HWND hDlg);
 LRESULT DarkModeDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);

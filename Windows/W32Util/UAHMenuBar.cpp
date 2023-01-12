@@ -38,7 +38,6 @@ bool UAHDarkModeWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, L
 		}
 
 		DrawThemeBackground(g_menuTheme, pUDM->hdc, MENU_POPUPITEM, MPI_NORMAL, &rc, nullptr);
-
 		return true;
 	}
 	case WM_UAHDRAWMENUITEM:
