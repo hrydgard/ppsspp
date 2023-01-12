@@ -81,6 +81,9 @@ void AllowDarkModeForApp(bool allow)
 
 void FixDarkScrollBar()
 {
+	// Disable this, doesn't look good.
+	return;
+
 	HMODULE hComctl = LoadLibraryExW(L"comctl32.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
 	if (hComctl)
 	{

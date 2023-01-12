@@ -11,7 +11,7 @@
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_VFPUDlg.h"
 #include "Windows/Debugger/DebuggerShared.h"
-#include "Windows/W32Util/DarkMode.h"
+// #include "Windows/W32Util/DarkMode.h"
 
 #include "Windows/main.h"
 #include "Windows/Debugger/CtrlRegisterList.h"
@@ -349,7 +349,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	switch(message)
 	{
 	case WM_INITDIALOG:
-		DarkModeInitDialog(m_hDlg);
+		// DarkModeInitDialog(m_hDlg);
 		return TRUE;
 
 	case WM_NOTIFY:
@@ -689,7 +689,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	}
-	return DarkModeDlgProc(m_hDlg, message, wParam, lParam);
+	return 0; // DarkModeDlgProc(m_hDlg, message, wParam, lParam);
 }
 
 void CDisasm::updateThreadLabel(bool clear)
