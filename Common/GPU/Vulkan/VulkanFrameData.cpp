@@ -71,8 +71,10 @@ void FrameData::AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared)
 		WARN_LOG(G3D, "VK_SUBOPTIMAL_KHR returned - ignoring");
 		break;
 	case VK_ERROR_OUT_OF_DATE_KHR:
+	case VK_TIMEOUT:
+	case VK_NOT_READY:
 		// We do not set hasAcquired here!
-		WARN_LOG(G3D, "VK_ERROR_OUT_OF_DATE_KHR returned from AcquireNextImage - processing the frame, but not presenting");
+		WARN_LOG(G3D, "%s returned from AcquireNextImage - processing the frame, but not presenting", VulkanResultToString(res));
 		skipSwap = true;
 		break;
 	default:
