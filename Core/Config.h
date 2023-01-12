@@ -419,9 +419,6 @@ public:
 
 	bool bSystemControls;
 
-	// Use the hardware scaler to scale up the image to save fillrate. Similar to Windows' window size, really.
-	int iAndroidHwScale;  // 0 = device resolution. 1 = 480x272 (extended to correct aspect), 2 = 960x544 etc.
-
 	// Risky JIT optimizations
 	bool bDiscardRegsOnJRRA;
 
