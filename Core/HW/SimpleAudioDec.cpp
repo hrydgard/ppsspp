@@ -107,10 +107,12 @@ bool SimpleAudio::OpenCodec(int block_align) {
 		codecCtx_->block_align = block_align;
 	}
 
-	int retval = avcodec_open2(codecCtx_, codec_, nullptr);
+	AVDictionary *opts = 0;
+	int retval = avcodec_open2(codecCtx_, codec_, &opts);
 	if (retval < 0) {
 		ERROR_LOG(ME, "Failed to open codec: retval = %i", retval);
 	}
+	av_dict_free(&opts);
 	codecOpen_ = true;
 	return retval >= 0;
 #else

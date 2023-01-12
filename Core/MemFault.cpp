@@ -268,7 +268,6 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		}
 	} else {
 		type = MemoryExceptionType::UNKNOWN;
-
 	}
 
 	g_lastMemoryExceptionType = type;
