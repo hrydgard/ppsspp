@@ -25,6 +25,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
+#include "Core/Core.h"
 #include "SasAudio.h"
 
 // #define AUDIO_TO_FILE
@@ -894,7 +895,11 @@ inline void ADSREnvelope::Step() {
 			SetState(STATE_SUSTAIN);
 		break;
 	case STATE_SUSTAIN:
-		WalkCurve(sustainType, sustainRate);
+		if (PSP_CoreParameter().compat.flags().RockmanDash2SoundFix && sustainType == PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE) {
+			WalkCurve(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE, sustainRate);
+		} else {
+			WalkCurve(sustainType, sustainRate);
+		}
 		if (height_ <= 0) {
 			height_ = 0;
 			SetState(STATE_RELEASE);
