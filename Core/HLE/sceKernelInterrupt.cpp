@@ -827,6 +827,44 @@ static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 	return hleLogSuccessX(SCEKERNEL, dest);
 }
 
+static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {	
+	const char* str;
+	str = Memory::GetCharPointer(strPtr);	
+	char* end = nullptr;
+	int result = strtol(str, &end, base);
+	ERROR_LOG(SCEKERNEL, "Untest %d = sysclib_strtol(%c, %08x, %i)",result, str, endPtrPtr, base);
+	if (Memory::IsValidRange(endPtrPtr, 4))
+		Memory::WriteUnchecked_U32(strPtr + (end - str), endPtrPtr);
+	return result;
+}
+
+static u32 sysclib_strchr(u32 src, int c) {
+	const std::string str = Memory::GetCharPointer(src);
+	ERROR_LOG(SCEKERNEL, "Untest sysclib_strchr(%c, %i)", str.c_str(),c);
+	int index = int(index = str.find(str,c));
+	if (index < 0) {
+		return 0;
+	}
+	return src + index;
+}
+
+static u32 sysclib_strrchr(u32 src, int c) {
+	const std::string str = Memory::GetCharPointer(src);
+	ERROR_LOG(SCEKERNEL, "Untest sysclib_strchr(%c, %i)", str.c_str(), c);
+	int index = int(str.rfind(str, c));
+	if (index < 0) {
+		return 0;
+	}
+	return src + index;
+}
+
+static u32 sysclib_toupper(u32 c) {
+	ERROR_LOG(SCEKERNEL, "Untest sysclib_toupper(%i)",c);
+	int ctype = toupper(c);
+	return c;
+}
+
+
 const HLEFunction SysclibForKernel[] =
 {
 	{0xAB7592FF, &WrapU_UUU<sysclib_memcpy>,                   "memcpy",                              'x', "xxx",    HLE_KERNEL_SYSCALL },
@@ -841,6 +879,10 @@ const HLEFunction SysclibForKernel[] =
 	{0x7AB35214, &WrapI_UUU<sysclib_strncmp>,                  "strncmp",                             'i', "xxx",    HLE_KERNEL_SYSCALL },
 	{0xA48D2592, &WrapU_UUU<sysclib_memmove>,                  "memmove",                             'x', "xxx",    HLE_KERNEL_SYSCALL },
 	{0xB49A7697, &WrapU_UUU<sysclib_strncpy>,                  "strncpy",                             'x', "xxi",    HLE_KERNEL_SYSCALL },
+	{0x47DD934D, &WrapU_UUI<sysclib_strtol>,                   "strtol",                              'x', "xxi",    HLE_KERNEL_SYSCALL },
+	{0xB1DC2AE8, &WrapU_UI<sysclib_strchr>,                    "strchr",                              'x', "xx",    HLE_KERNEL_SYSCALL },
+	{0x4C0E0274, &WrapU_UI<sysclib_strrchr>,                   "strrchr",                             'x', "xx",    HLE_KERNEL_SYSCALL },
+	{0xCE2F7487, &WrapU_U<sysclib_toupper>,                    "toupper",                             'x', "x",     HLE_KERNEL_SYSCALL },
 };
 
 void Register_Kernel_Library()
