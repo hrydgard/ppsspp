@@ -834,8 +834,8 @@ static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {
 	const char* str;
 	str = Memory::GetCharPointer(strPtr);	
 	char* end = nullptr;
-	int result = strtol(str, &end, base);
-	ERROR_LOG(SCEKERNEL, "Untest %d = sysclib_strtol(%c, %08x, %i)",result, str, endPtrPtr, base);
+	int result = (int)strtol(str, &end, base);
+	ERROR_LOG(SCEKERNEL, "Untested %d = sysclib_strtol(%c, %08x, %d)",result, str, endPtrPtr, base);
 	if (Memory::IsValidRange(endPtrPtr, 4))
 		Memory::WriteUnchecked_U32(strPtr + (end - str), endPtrPtr);
 	return result;
@@ -846,8 +846,8 @@ static u32 sysclib_strchr(u32 src, int c) {
 		return hleLogError(SCEKERNEL, 0, "invalid address");
 	}
 	const std::string str = Memory::GetCharPointer(src);
-	ERROR_LOG(SCEKERNEL, "Untest sysclib_strchr(%c, %i)", str.c_str(),c);
-	int index = int(index = str.find(str,c));
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_strchr(%c, %d)", str.c_str(), c);
+	int index = (int)(str.find(str, c));
 	if (index < 0) {
 		return 0;
 	}
@@ -859,8 +859,8 @@ static u32 sysclib_strrchr(u32 src, int c) {
 		return hleLogError(SCEKERNEL, 0, "invalid address");
 	}
 	const std::string str = Memory::GetCharPointer(src);
-	ERROR_LOG(SCEKERNEL, "Untest sysclib_strchr(%c, %i)", str.c_str(), c);
-	int index = int(str.rfind(str, c));
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_strchr(%c, %d)", str.c_str(), c);
+	int index = (int)(str.rfind(str, c));
 	if (index < 0) {
 		return 0;
 	}
@@ -868,7 +868,7 @@ static u32 sysclib_strrchr(u32 src, int c) {
 }
 
 static u32 sysclib_toupper(u32 c) {
-	ERROR_LOG(SCEKERNEL, "Untest sysclib_toupper(%i)",c);
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_toupper(%d)",c);
 	int ctype = toupper(c);
 	return c;
 }
