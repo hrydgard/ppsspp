@@ -1310,6 +1310,29 @@ void Config::UpdateIniLocation(const char *iniFileName, const char *controllerIn
 	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : controlsIniFilename);
 }
 
+bool Config::LoadAppendedConfig() {
+	IniFile iniFile;
+	if (!iniFile.Load(appendedConfigFileName_)) {
+		ERROR_LOG(LOADER, "Failed to read appended config '%s'.", appendedConfigFileName_.c_str());
+		return false;
+	}
+
+	IterateSettings(iniFile, [&iniFile](Section *section, ConfigSetting *setting) {
+		if (iniFile.Exists(section->name().c_str(), setting->iniKey_))
+			setting->Get(section);
+	});
+
+	INFO_LOG(LOADER, "Loaded appended config '%s'.", appendedConfigFileName_.c_str());
+
+	Save("Loaded appended config"); // Let's prevent reset
+	return true;
+}
+
+void Config::SetAppendedConfigIni(const Path &path) {
+	appendedConfigFileName_ = path;
+}
+
+
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (!bUpdatedInstanceCounter) {
 		InitInstanceCounter();
@@ -1916,6 +1939,14 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 	});
 
 	KeyMap::LoadFromIni(iniFile);
+	
+	if (!appendedConfigFileName_.ToString().empty() && 
+		std::find(appendedConfigUpdatedGames_.begin(), appendedConfigUpdatedGames_.end(), pGameId) == appendedConfigUpdatedGames_.end()) {
+
+		LoadAppendedConfig();
+		appendedConfigUpdatedGames_.push_back(pGameId);
+	}
+
 	PostLoadCleanup(true);
 	return true;
 }
