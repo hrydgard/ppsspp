@@ -254,6 +254,9 @@ bool MemoryMap_Setup(u32 flags) {
 	{
 #if !PPSSPP_PLATFORM(UWP)
 		base = g_arena.Find4GBBase();
+		if (!base) {
+			return false;
+		}
 #endif
 	}
 
