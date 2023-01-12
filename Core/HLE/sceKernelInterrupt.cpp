@@ -657,9 +657,10 @@ static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 	}
 
 	if (MemBlockInfoDetailed(size)) {
-		const std::string tag = GetMemWriteTagAt("KernelMemcpy/", src, size);
-		NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tag.c_str(), tag.size());
+		char tagData[128];
+		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "KernelMemcpy/", src, size);
+		NotifyMemInfo(MemBlockFlags::READ, src, size, tagData, tagSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tagData, tagSize);
 	}
 
 	return dst;

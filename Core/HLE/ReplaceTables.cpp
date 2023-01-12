@@ -159,12 +159,13 @@ static int Replace_memcpy() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		const std::string tag = GetMemWriteTagAt("ReplaceMemcpy/", srcPtr, bytes);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
+		char tagData[128];
+		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "ReplaceMemcpy/", srcPtr, bytes);
+		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tagData, tagSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tagData, tagSize);
 
 		// It's pretty common that games will copy video data.
-		if (tag == "ReplaceMemcpy/VideoDecode" || tag == "ReplaceMemcpy/VideoDecodeRange") {
+		if (!strcmp(tagData, "ReplaceMemcpy/VideoDecode") || !strcmp(tagData, "ReplaceMemcpy/VideoDecodeRange")) {
 			if (bytes == 512 * 272 * 4) {
 				gpu->PerformWriteFormattedFromMemory(destPtr, bytes, 512, GE_FORMAT_8888);
 			}
@@ -211,12 +212,13 @@ static int Replace_memcpy_jak() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		const std::string tag = GetMemWriteTagAt("ReplaceMemcpy/", srcPtr, bytes);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
+		char tagData[128];
+		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "ReplaceMemcpy/", srcPtr, bytes);
+		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tagData, tagSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tagData, tagSize);
 
 		// It's pretty common that games will copy video data.
-		if (tag == "ReplaceMemcpy/VideoDecode" || tag == "ReplaceMemcpy/VideoDecodeRange") {
+		if (!strcmp(tagData, "ReplaceMemcpy/VideoDecode") || !strcmp(tagData, "ReplaceMemcpy/VideoDecodeRange")) {
 			if (bytes == 512 * 272 * 4) {
 				gpu->PerformWriteFormattedFromMemory(destPtr, bytes, 512, GE_FORMAT_8888);
 			}
@@ -250,9 +252,10 @@ static int Replace_memcpy16() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		const std::string tag = GetMemWriteTagAt("ReplaceMemcpy16/", srcPtr, bytes);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
+		char tagData[128];
+		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "ReplaceMemcpy16/", srcPtr, bytes);
+		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tagData, tagSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tagData, tagSize);
 	}
 
 	return 10 + bytes / 4;  // approximation
@@ -322,9 +325,10 @@ static int Replace_memmove() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		const std::string tag = GetMemWriteTagAt("ReplaceMemmove/", srcPtr, bytes);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
+		char tagData[128];
+		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "ReplaceMemmove/", srcPtr, bytes);
+		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tagData, tagSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tagData, tagSize);
 	}
 
 	return 10 + bytes / 4;  // approximation
