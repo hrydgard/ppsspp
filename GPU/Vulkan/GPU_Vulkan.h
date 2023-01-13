@@ -100,5 +100,5 @@ private:
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
 
 	Path shaderCachePath_;
-	bool shaderCacheLoaded_ = false;
+	std::atomic<bool> shaderCacheLoaded_{};
 };

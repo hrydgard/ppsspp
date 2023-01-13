@@ -558,7 +558,7 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	return frameData_[curFrame].GetInitCmd(vulkan_);
 }
 
-VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, const char *tag) {
+VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag) {
 	VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline(pipelineFlags, tag);
 
 	if (!desc->vertexShader || !desc->fragmentShader) {
@@ -568,8 +568,8 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 
 	pipeline->desc = desc;
 	pipeline->desc->AddRef();
-	if (curRenderStep_) {
-		// The common case
+	if (curRenderStep_ && !cacheLoad) {
+		// The common case during gameplay.
 		pipelinesToCheck_.push_back(pipeline);
 	} else {
 		if (!variantBitmask) {
