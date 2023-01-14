@@ -262,6 +262,16 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "Cross"
    },
    {
+      "ppsspp_analog_is_circular",
+      "Analog Circle vs Square Gate Compensation",
+      NULL,
+      NULL,
+      NULL,
+      "system",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
       "ppsspp_internal_resolution",
       "Internal Resolution (Restart)",
       NULL,
