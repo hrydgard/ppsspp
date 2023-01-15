@@ -156,23 +156,27 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 			auto queue = isCompute ? global->compute_queue : global->io_queue;
 			auto &queue_size = isCompute ? global->compute_queue_size : global->io_queue_size;
 
-			if (queue_size != 0) {
-				for (size_t p = 0; p < TASK_PRIORITY_COUNT; ++p) {
-					if (queue[p].empty())
-						continue;
-
+			for (size_t p = 0; p < TASK_PRIORITY_COUNT; ++p) {
+				if (!queue[p].empty()) {
 					task = queue[p].front();
 					queue[p].pop_front();
 					queue_size--;
 
 					// We are processing one now, so mark that.
 					thread->queue_size++;
-					break;
+				} else if (thread->queue_size != 0) {
+					// Check the thread, as we prefer a HIGH thread task to a global NORMAL task.
+					std::unique_lock<std::mutex> lock(thread->mutex);
+					if (!thread->private_queue[p].empty()) {
+						task = thread->private_queue[p].front();
+						thread->private_queue[p].pop_front();
+					}
 				}
 			}
 		}
 
 		if (!task) {
+			// We didn't have any global, do we have anything on the thread?
 			std::unique_lock<std::mutex> lock(thread->mutex);
 			for (size_t p = 0; p < TASK_PRIORITY_COUNT; ++p) {
 				if (thread->private_queue[p].empty())
