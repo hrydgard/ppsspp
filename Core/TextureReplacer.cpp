@@ -708,8 +708,8 @@ public:
 
 	TextureSaveTask(SimpleBuf<u32> _data) : data(std::move(_data)) {}
 
-	// Also I/O blocking but dominated by compute.
-	TaskType Type() const override { return TaskType::CPU_COMPUTE; }
+	// This must be IO blocking because of Android storage, despite being CPU heavy.
+	TaskType Type() const override { return TaskType::IO_BLOCKING; }
 
 	TaskPriority Priority() const override {
 		return TaskPriority::LOW;
