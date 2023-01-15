@@ -327,6 +327,10 @@ void ADSREnvelope::SetEnvelope(int flag, int a, int d, int s, int r) {
 		sustainType = s;
 	if ((flag & 0x8) != 0)
 		releaseType = r;
+
+	if (PSP_CoreParameter().compat.flags().RockmanDash2SoundFix && sustainType == PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE) {
+		sustainType = PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE;
+	}
 }
 
 void ADSREnvelope::SetRate(int flag, int a, int d, int s, int r) {
@@ -350,6 +354,10 @@ void ADSREnvelope::SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2) {
 	releaseRate 	= getReleaseRate(ADSREnv2);
 	releaseType 	= getReleaseType(ADSREnv2);
 	sustainLevel 	= getSustainLevel(ADSREnv1);
+
+	if (PSP_CoreParameter().compat.flags().RockmanDash2SoundFix && sustainType == PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE) {
+		sustainType = PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE;
+	}
 
 	if (attackRate < 0 || decayRate < 0 || sustainRate < 0 || releaseRate < 0) {
 		ERROR_LOG_REPORT(SASMIX, "Simple ADSR resulted in invalid rates: %04x, %04x", ADSREnv1, ADSREnv2);
@@ -917,11 +925,7 @@ inline void ADSREnvelope::Step() {
 			SetState(STATE_SUSTAIN);
 		break;
 	case STATE_SUSTAIN:
-		if (PSP_CoreParameter().compat.flags().RockmanDash2SoundFix && sustainType == PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE) {
-			WalkCurve(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE, sustainRate);
-		} else {
-			WalkCurve(sustainType, sustainRate);
-		}
+		WalkCurve(sustainType, sustainRate);
 		if (height_ <= 0) {
 			height_ = 0;
 			SetState(STATE_RELEASE);
