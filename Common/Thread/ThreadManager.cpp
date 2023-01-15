@@ -42,7 +42,6 @@ struct ThreadContext {
 	int index;
 	TaskType type;
 	std::atomic<bool> cancelled;
-	std::atomic<Task *> private_single;
 	std::deque<Task *> private_queue;
 	char name[16];
 };
@@ -87,9 +86,8 @@ void ThreadManager::Teardown() {
 	for (ThreadContext *&threadCtx : global_->threads_) {
 		threadCtx->thread.join();
 		// TODO: Is it better to just delete these?
-		TeardownTask(threadCtx->private_single, true);
 		for (Task *task : threadCtx->private_queue) {
-			TeardownTask(threadCtx->private_single, true);
+			TeardownTask(task, true);
 		}
 		delete threadCtx;
 	}
@@ -143,10 +141,10 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 	};
 
 	while (!thread->cancelled) {
-		Task *task = thread->private_single.exchange(nullptr);
+		Task *task = nullptr;
 
 		// Check the global queue first, then check the private queue and wait if there's nothing to do.
-		if (!task && global_queue_size() > 0) {
+		if (global_queue_size() > 0) {
 			// Grab one from the global queue if there is any.
 			std::unique_lock<std::mutex> lock(global->mutex);
 			auto &queue = isCompute ? global->compute_queue : global->io_queue;
@@ -170,7 +168,7 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 				task = thread->private_queue.front();
 				thread->private_queue.pop_front();
 				wait = false;
-			} else if (thread->private_single || thread->cancelled) {
+			} else if (thread->cancelled) {
 				wait = false;
 			} else {
 				wait = global_queue_size() == 0;
@@ -211,7 +209,6 @@ void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 	for (int i = 0; i < numThreads; i++) {
 		ThreadContext *thread = new ThreadContext();
 		thread->cancelled.store(false);
-		thread->private_single.store(nullptr);
 		thread->type = i < numComputeThreads_ ? TaskType::CPU_COMPUTE : TaskType::IO_BLOCKING;
 		thread->index = i;
 		thread->thread = std::thread(&WorkerThreadFunc, global_, thread);
@@ -272,24 +269,15 @@ void ThreadManager::EnqueueTask(Task *task) {
 	chosenThread->cond.notify_one();
 }
 
-void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task, bool enforceSequence) {
+void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task) {
 	_assert_msg_(threadNum >= 0 && threadNum < (int)global_->threads_.size(), "Bad threadnum or not initialized");
 	ThreadContext *thread = global_->threads_[threadNum];
 
-	// Try first atomically, as highest priority.
-	Task *expected = nullptr;
-	bool queued = !enforceSequence && thread->private_single.compare_exchange_weak(expected, task);
-	// Whether we got that or will have to wait, increase the queue counter.
 	thread->queue_size++;
 
-	if (queued) {
-		std::unique_lock<std::mutex> lock(thread->mutex);
-		thread->cond.notify_one();
-	} else {
-		std::unique_lock<std::mutex> lock(thread->mutex);
-		thread->private_queue.push_back(task);
-		thread->cond.notify_one();
-	}
+	std::unique_lock<std::mutex> lock(thread->mutex);
+	thread->private_queue.push_back(task);
+	thread->cond.notify_one();
 }
 
 int ThreadManager::GetNumLooperThreads() const {

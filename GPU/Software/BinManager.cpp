@@ -542,7 +542,7 @@ void BinManager::Drain(bool flushing) {
 
 			waitable_->Fill();
 			taskStatus_[i] = true;
-			g_threadManager.EnqueueTaskOnThread(i, taskLists_[i].Next(), true);
+			g_threadManager.EnqueueTaskOnThread(i, taskLists_[i].Next());
 			enqueues_++;
 		}
 

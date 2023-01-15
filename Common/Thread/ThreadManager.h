@@ -48,7 +48,7 @@ public:
 	void Init(int numCores, int numLogicalCoresPerCpu);
 	void EnqueueTask(Task *task);
 	// Use enforceSequence if this must run after all previously queued tasks.
-	void EnqueueTaskOnThread(int threadNum, Task *task, bool enforceSequence = false);
+	void EnqueueTaskOnThread(int threadNum, Task *task);
 	void Teardown();
 
 	bool IsInitialized() const;
