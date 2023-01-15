@@ -755,7 +755,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 			}
 
 			return new MoveResult{ true, "", failedFiles };
-		}, TaskType::IO_BLOCKING);
+		}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
 
 		RecreateViews();
 	} else {

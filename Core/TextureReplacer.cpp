@@ -708,7 +708,13 @@ public:
 
 	TextureSaveTask(SimpleBuf<u32> _data) : data(std::move(_data)) {}
 
-	TaskType Type() const override { return TaskType::CPU_COMPUTE; }  // Also I/O blocking but dominated by compute
+	// Also I/O blocking but dominated by compute.
+	TaskType Type() const override { return TaskType::CPU_COMPUTE; }
+
+	TaskPriority Priority() const override {
+		return TaskPriority::LOW;
+	}
+
 	void Run() override {
 		const Path filename = basePath / hashfile;
 		const Path saveFilename = basePath / NEW_TEXTURE_DIR / hashfile;
@@ -993,6 +999,10 @@ public:
 
 	TaskType Type() const override {
 		return TaskType::IO_BLOCKING;
+	}
+
+	TaskPriority Priority() const override {
+		return TaskPriority::NORMAL;
 	}
 
 	void Run() override {
