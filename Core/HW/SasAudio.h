@@ -151,6 +151,11 @@ class ADSREnvelope {
 public:
 	ADSREnvelope();
 	void SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2);
+	void SetEnvelope(int flag, int a, int d, int s, int r);
+	void SetRate(int flag, int a, int d, int s, int r);
+	void SetSustainLevel(int sl) {
+		sustainLevel = sl;
+	}
 
 	void WalkCurve(int type, int rate);
 
@@ -170,16 +175,6 @@ public:
 		return state_ == STATE_OFF;
 	}
 
-	int attackRate;
-	int decayRate;
-	int sustainRate;
-	int releaseRate;
-	int attackType;
-	int decayType;
-	int sustainType;
-	int sustainLevel;
-	int releaseType;
-
 	void DoState(PointerWrap &p);
 
 private:
@@ -196,6 +191,16 @@ private:
 		STATE_RELEASE = 3,
 	};
 	void SetState(ADSRState state);
+
+	int attackRate;
+	int decayRate;
+	int sustainRate;
+	int releaseRate;
+	int attackType;
+	int decayType;
+	int sustainType;
+	int sustainLevel;
+	int releaseType;
 
 	ADSRState state_;
 	s64 height_;  // s64 to avoid having to care about overflow when calculating. TODO: this should be fine as s32
