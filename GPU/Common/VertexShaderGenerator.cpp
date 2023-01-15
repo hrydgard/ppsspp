@@ -1030,11 +1030,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			for (int i = 0; i < count; i++) {
 				snprintf(iStr, sizeof(iStr), useIndexing ? "[i]" : "%d", i);
 				if (useIndexing) {
-					p.C("  if ((u_lightControl & (1u << i)) != 0x0u) { \n");
-					p.C("    comp = (u_lightControl >> uint(4u + 4u * i)) & 0x3u;\n");
-					p.C("    type = (u_lightControl >> uint(4u + 4u * i + 2u)) & 0x3u;\n");
+					p.C("  if ((u_lightControl & (0x1u << i)) != 0x0u) { \n");
+					p.C("    comp = (u_lightControl >> uint(0x4u + 0x4u * i)) & 0x3u;\n");
+					p.C("    type = (u_lightControl >> uint(0x4u + 0x4u * i + 0x2u)) & 0x3u;\n");
 				} else {
-					p.F("  if ((u_lightControl & %du) != 0x0u) { \n", 1 << i);
+					p.F("  if ((u_lightControl & 0x%xu) != 0x0u) { \n", 1 << i);
 					p.F("    comp = (u_lightControl >> 0x%02xu) & 0x3u;\n", 4 + 4 * i);
 					p.F("    type = (u_lightControl >> 0x%02xu) & 0x3u;\n", 4 + 4 * i + 2);
 				}
