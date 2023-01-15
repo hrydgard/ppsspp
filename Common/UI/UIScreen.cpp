@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "Common/System/Display.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"

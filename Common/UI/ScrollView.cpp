@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "Common/UI/Context.h"
 #include "Common/UI/ScrollView.h"
 #include "Common/Data/Text/I18n.h"
