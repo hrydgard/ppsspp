@@ -25,6 +25,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
+#include "Core/Core.h"
 #include "SasAudio.h"
 
 // #define AUDIO_TO_FILE
@@ -317,6 +318,32 @@ static int getSustainLevel(int bitfield1) {
 	return ((bitfield1 & 0x000F) + 1) << 26;
 }
 
+void ADSREnvelope::SetEnvelope(int flag, int a, int d, int s, int r) {
+	if ((flag & 0x1) != 0)
+		attackType = a;
+	if ((flag & 0x2) != 0)
+		decayType = d;
+	if ((flag & 0x4) != 0)
+		sustainType = s;
+	if ((flag & 0x8) != 0)
+		releaseType = r;
+
+	if (PSP_CoreParameter().compat.flags().RockmanDash2SoundFix && sustainType == PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE) {
+		sustainType = PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE;
+	}
+}
+
+void ADSREnvelope::SetRate(int flag, int a, int d, int s, int r) {
+	if ((flag & 0x1) != 0)
+		attackRate = a;
+	if ((flag & 0x2) != 0)
+		decayRate = d;
+	if ((flag & 0x4) != 0)
+		sustainRate = s;
+	if ((flag & 0x8) != 0)
+		releaseRate = r;
+}
+
 void ADSREnvelope::SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2) {
 	attackRate 		= getAttackRate(ADSREnv1);
 	attackType 		= getAttackType(ADSREnv1);
@@ -327,6 +354,10 @@ void ADSREnvelope::SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2) {
 	releaseRate 	= getReleaseRate(ADSREnv2);
 	releaseType 	= getReleaseType(ADSREnv2);
 	sustainLevel 	= getSustainLevel(ADSREnv1);
+
+	if (PSP_CoreParameter().compat.flags().RockmanDash2SoundFix && sustainType == PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE) {
+		sustainType = PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE;
+	}
 
 	if (attackRate < 0 || decayRate < 0 || sustainRate < 0 || releaseRate < 0) {
 		ERROR_LOG_REPORT(SASMIX, "Simple ADSR resulted in invalid rates: %04x, %04x", ADSREnv1, ADSREnv2);
