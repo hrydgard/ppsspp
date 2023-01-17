@@ -72,7 +72,7 @@ static void InitSDLAudioDevice() {
 	fmt.freq = 44100;
 	fmt.format = AUDIO_S16;
 	fmt.channels = 2;
-	fmt.samples = 1024;
+	fmt.samples = 256;
 	fmt.callback = &mixaudio;
 	fmt.userdata = nullptr;
 
