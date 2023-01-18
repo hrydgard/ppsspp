@@ -70,6 +70,7 @@ DrawEngineVulkan::DrawEngineVulkan(Draw::DrawContext *draw)
 	: draw_(draw), vai_(1024) {
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
+	decOptions_.alignOutputToWord = draw->GetDeviceCaps().vendor == Draw::GPUVendor::VENDOR_APPLE;
 
 	// Allocate nicely aligned memory. Maybe graphics drivers will appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
