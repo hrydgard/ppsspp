@@ -2135,16 +2135,20 @@ namespace MIPSComp
 	}
 
 	static double SinCos(float angle) {
-		union { struct { float sin; float cos; }; double out; } sincos;
+		double out;
+		struct { float sin; float cos; } sincos;
 		vfpu_sincos(angle, sincos.sin, sincos.cos);
-		return sincos.out;
+		memcpy(&out, &sincos, sizeof(double));
+		return out;
 	}
 
 	static double SinCosNegSin(float angle) {
-		union { struct { float sin; float cos; }; double out; } sincos;
+		double out;
+		struct { float sin; float cos; } sincos;
 		vfpu_sincos(angle, sincos.sin, sincos.cos);
 		sincos.sin = -sincos.sin;
-		return sincos.out;
+		memcpy(&out, &sincos, sizeof(double));
+		return out;
 	}
 
 	void ArmJit::CompVrotShuffle(u8 *dregs, int imm, VectorSize sz, bool negSin) {
@@ -2230,7 +2234,7 @@ namespace MIPSComp
 		// FlushBeforeCall saves R1.
 		QuickCallFunction(R1, negSin1 ? (void *)&SinCosNegSin : (void *)&SinCos);
 #if !defined(__ARM_PCS_VFP)
-		// Returns D0 on hardfp and R0,R1 on softfp due to union joining the two floats
+		// Returns D0 on hardfp and R0,R1 on softfp due to memcpy joining the two floats
 		VMOV(D0, R0, R1);
 #endif
 		CompVrotShuffle(dregs, imm, sz, false);

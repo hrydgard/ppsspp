@@ -1865,16 +1865,20 @@ namespace MIPSComp {
 	}
 
 	static double SinCos(float angle) {
-		union { struct { float sin; float cos; }; double out; } sincos;
+		double out;
+		struct { float sin; float cos; } sincos;
 		vfpu_sincos(angle, sincos.sin, sincos.cos);
-		return sincos.out;
+		memcpy(&out, &sincos, sizeof(double));
+		return out;
 	}
 
 	static double SinCosNegSin(float angle) {
-		union { struct { float sin; float cos; }; double out; } sincos;
+		double out;
+		struct { float sin; float cos; } sincos;
 		vfpu_sincos(angle, sincos.sin, sincos.cos);
 		sincos.sin = -sincos.sin;
-		return sincos.out;
+		memcpy(&out, &sincos, sizeof(double));
+		return out;
 	}
 
 	void Arm64Jit::CompVrotShuffle(u8 *dregs, int imm, VectorSize sz, bool negSin) {
