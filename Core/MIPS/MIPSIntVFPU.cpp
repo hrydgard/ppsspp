@@ -75,12 +75,6 @@
 static const bool USE_VFPU_DOT = false;
 static const bool USE_VFPU_SQRT = false;
 
-union FloatBits {
-	float f[4];
-	u32 u[4];
-	int i[4];
-};
-
 // Preserves NaN in first param, takes sign of equal second param.
 // Technically, std::max may do this but it's undefined.
 inline float nanmax(float f, float cst)
@@ -479,7 +473,7 @@ namespace MIPSInt
 		bool useAccurateDot = USE_VFPU_DOT || PSP_CoreParameter().compat.flags().MoreAccurateVMMUL;
 		for (int a = 0; a < n; a++) {
 			for (int b = 0; b < n; b++) {
-				union { float f; uint32_t u; } sum = { 0.0f };
+				float sum = 0.0f;
 				if (a == n - 1 && b == n - 1) {
 					// S and T prefixes work on the final (or maybe first, in reverse?) dot.
 					ApplySwizzleS(&s[b * 4], V_Quad);
@@ -487,25 +481,29 @@ namespace MIPSInt
 				}
 
 				if (useAccurateDot) {
-					sum.f = vfpu_dot(&s[b * 4], &t[a * 4]);
-					if (my_isnan(sum.f)) {
-						sum.u = 0x7f800001;
-					} else if ((sum.u & 0x7F800000) == 0) {
-						sum.u &= 0xFF800000;
+					sum = vfpu_dot(&s[b * 4], &t[a * 4]);
+					uint32_t sumu;
+					memcpy(&sumu, &sum, sizeof(uint32_t));
+					if (my_isnan(sum)) {
+						sumu = 0x7f800001;
+						memcpy(&sum, &sumu, sizeof(float));
+					} else if ((sumu & 0x7F800000) == 0) {
+						sumu &= 0xFF800000;
+						memcpy(&sum, &sumu, sizeof(float));
 					}
 				} else {
 					if (a == n - 1 && b == n - 1) {
 						for (int c = 0; c < 4; c++) {
-							sum.f += s[b * 4 + c] * t[a * 4 + c];
+							sum += s[b * 4 + c] * t[a * 4 + c];
 						}
 					} else {
 						for (int c = 0; c < n; c++) {
-							sum.f += s[b * 4 + c] * t[a * 4 + c];
+							sum += s[b * 4 + c] * t[a * 4 + c];
 						}
 					}
 				}
 
-				d[a * 4 + b] = sum.f;
+				d[a * 4 + b] = sum;
 			}
 		}
 
@@ -1150,7 +1148,7 @@ namespace MIPSInt
 
 	void Int_VDot(MIPSOpcode op) {
 		float s[4]{}, t[4]{};
-		union { float f; uint32_t u; } d;
+		float d;
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
@@ -1161,21 +1159,25 @@ namespace MIPSInt
 		ApplySwizzleT(t, V_Quad);
 
 		if (USE_VFPU_DOT) {
-			d.f = vfpu_dot(s, t);
-			if (my_isnan(d.f)) {
-				d.u = 0x7f800001;
-			} else if ((d.u & 0x7F800000) == 0) {
-				d.u &= 0xFF800000;
+			d = vfpu_dot(s, t);
+			uint32_t du;
+			memcpy(&du, &d, sizeof(uint32_t));
+			if (my_isnan(d)) {
+				du = 0x7f800001;
+				memcpy(&d, &du, sizeof(float));
+			} else if ((du & 0x7F800000) == 0) {
+				du &= 0xFF800000;
+				memcpy(&d, &du, sizeof(float));
 			}
 		} else {
-			d.f = 0.0f;
+			d = 0.0f;
 			for (int i = 0; i < 4; i++) {
-				d.f += s[i] * t[i];
+				d += s[i] * t[i];
 			}
 		}
 
-		ApplyPrefixD(&d.f, V_Single);
-		WriteVector(&d.f, V_Single, vd);
+		ApplyPrefixD(&d, V_Single);
+		WriteVector(&d, V_Single, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1548,16 +1550,16 @@ namespace MIPSInt
 	}
 
 	void Int_VrndX(MIPSOpcode op) {
-		FloatBits d;
+		uint32_t du[4];
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n; i++) {
 			// TODO: Make more accurate, use and update RCX regs?
 			switch ((op >> 16) & 0x1f) {
-			case 1: d.u[i] = currentMIPS->rng.R32(); break;  // vrndi
-			case 2: d.u[i] = 0x3F800000 | (currentMIPS->rng.R32() & 0x007FFFFF); break; // vrndf1 (>= 1, < 2)
-			case 3: d.u[i] = 0x40000000 | (currentMIPS->rng.R32() & 0x007FFFFF); break; // vrndf2 (>= 2, < 4)
+			case 1: du[i] = currentMIPS->rng.R32(); break;  // vrndi
+			case 2: du[i] = 0x3F800000 | (currentMIPS->rng.R32() & 0x007FFFFF); break; // vrndf1 (>= 1, < 2)
+			case 3: du[i] = 0x40000000 | (currentMIPS->rng.R32() & 0x007FFFFF); break; // vrndf2 (>= 2, < 4)
 			default: _dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			}
 		}
@@ -1565,8 +1567,10 @@ namespace MIPSInt
 		u32 lastmask = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << (n - 1);
 		u32 lastsat = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (n + n - 2);
 		currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;
-		ApplyPrefixD(d.f, sz);
-		WriteVector(d.f, sz, vd);
+		float df[4];
+		memcpy(df, du, sizeof(float) * 4);
+		ApplyPrefixD(df, sz);
+		WriteVector(df, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1641,7 +1645,7 @@ namespace MIPSInt
 
 	void Int_Vtfm(MIPSOpcode op) {
 		float s[16]{}, t[4]{};
-		FloatBits d;
+		float d[4];
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
@@ -1668,22 +1672,26 @@ namespace MIPSInt
 			}
 
 			for (int i = 0; i < ins; i++) {
-				d.f[i] = vfpu_dot(&s[i * 4], t2);
+				d[i] = vfpu_dot(&s[i * 4], t2);
+				uint32_t du;
+				memcpy(&du, &d[i], sizeof(uint32_t));
 
-				if (my_isnan(d.f[i])) {
-					d.u[i] = 0x7f800001;
-				} else if ((d.u[i] & 0x7F800000) == 0) {
-					d.u[i] &= 0xFF800000;
+				if (my_isnan(d[i])) {
+					du = 0x7f800001;
+					memcpy(&d[i], &du, sizeof(float));
+				} else if ((du & 0x7F800000) == 0) {
+					du &= 0xFF800000;
+					memcpy(&d[i], &du, sizeof(float));
 				}
 			}
 		} else {
 			for (int i = 0; i < ins; i++) {
-				d.f[i] = s[i * 4] * t[0];
+				d[i] = s[i * 4] * t[0];
 				for (int k = 1; k < tn; k++) {
-					d.f[i] += s[i * 4 + k] * t[k];
+					d[i] += s[i * 4 + k] * t[k];
 				}
 				if (ins >= n) {
-					d.f[i] += s[i * 4 + ins];
+					d[i] += s[i * 4 + ins];
 				}
 			}
 		}
@@ -1710,17 +1718,21 @@ namespace MIPSInt
 
 		// Really this is the operation all rows probably use (with constant wiring.)
 		if (USE_VFPU_DOT) {
-			d.f[ins] = vfpu_dot(&s[ins * 4], t);
+			d[ins] = vfpu_dot(&s[ins * 4], t);
+			uint32_t du;
+			memcpy(&du, &d[ins], sizeof(uint32_t));
 
-			if (my_isnan(d.f[ins])) {
-				d.u[ins] = 0x7f800001;
-			} else if ((d.u[ins] & 0x7F800000) == 0) {
-				d.u[ins] &= 0xFF800000;
+			if (my_isnan(d[ins])) {
+				du = 0x7f800001;
+				memcpy(&d[ins], &du, sizeof(float));
+			} else if ((du & 0x7F800000) == 0) {
+				du &= 0xFF800000;
+				memcpy(&d[ins], &du, sizeof(float));
 			}
 		} else {
-			d.f[ins] = s[ins * 4] * t[0];
+			d[ins] = s[ins * 4] * t[0];
 			for (int k = 1; k < 4; k++) {
-				d.f[ins] += s[ins * 4 + k] * t[k];
+				d[ins] += s[ins * 4 + k] * t[k];
 			}
 		}
 
@@ -1728,8 +1740,8 @@ namespace MIPSInt
 		u32 lastmask = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << ins;
 		u32 lastsat = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (ins + ins);
 		currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;
-		ApplyPrefixD(d.f, sz);
-		WriteVector(d.f, sz, vd);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1898,7 +1910,7 @@ namespace MIPSInt
 	}
 
 	void Int_Vminmax(MIPSOpcode op) {
-		FloatBits s, t, d;
+		float s[4], t[4], d[4];
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
@@ -1906,10 +1918,10 @@ namespace MIPSInt
 		VectorSize sz = GetVecSize(op);
 		int numElements = GetNumVectorElements(sz);
 
-		ReadVector(s.f, sz, vs);
-		ApplySwizzleS(s.f, sz);
-		ReadVector(t.f, sz, vt);
-		ApplySwizzleT(t.f, sz);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		ReadVector(t, sz, vt);
+		ApplySwizzleT(t, sz);
 
 		// If both are zero, take t's sign.
 		// Otherwise: -NAN < -INF < real < INF < NAN (higher mantissa is farther from 0.)
@@ -1917,31 +1929,38 @@ namespace MIPSInt
 		switch ((op >> 23) & 3) {
 		case 2: // vmin
 			for (int i = 0; i < numElements; i++) {
-				if (my_isnanorinf(s.f[i]) || my_isnanorinf(t.f[i])) {
+				if (my_isnanorinf(s[i]) || my_isnanorinf(t[i])) {
+					int32_t si, ti, di;
+					memcpy(&si, &s[i], sizeof(int32_t));
+					memcpy(&ti, &t[i], sizeof(int32_t));
 					// If both are negative, we flip the comparison (not two's compliment.)
-					if (s.i[i] < 0 && t.i[i] < 0) {
+					if (si < 0 && ti < 0) {
 						// If at least one side is NAN, we take the highest mantissa bits.
-						d.i[i] = std::max(t.i[i], s.i[i]);
+						di = std::max(ti, si);
 					} else {
 						// Otherwise, we take the lowest value (negative or lowest mantissa.)
-						d.i[i] = std::min(t.i[i], s.i[i]);
+						di = std::min(ti, si);
 					}
+					memcpy(&d[i], &d, sizeof(float));
 				} else {
-					d.f[i] = std::min(t.f[i], s.f[i]);
+					d[i] = std::min(t[i], s[i]);
 				}
 			}
 			break;
 		case 3: // vmax
 			for (int i = 0; i < numElements; i++) {
 				// This is the same logic as vmin, just reversed.
-				if (my_isnanorinf(s.f[i]) || my_isnanorinf(t.f[i])) {
-					if (s.i[i] < 0 && t.i[i] < 0) {
-						d.i[i] = std::min(t.i[i], s.i[i]);
+				if (my_isnanorinf(s[i]) || my_isnanorinf(t[i])) {
+					int32_t si, ti, di;
+					memcpy(&si, &s[i], sizeof(int32_t));
+					memcpy(&ti, &t[i], sizeof(int32_t));
+					if (si < 0 && ti < 0) {
+						di = std::min(ti, si);
 					} else {
-						d.i[i] = std::max(t.i[i], s.i[i]);
+						di = std::max(ti, si);
 					}
 				} else {
-					d.f[i] = std::max(t.f[i], s.f[i]);
+					d[i] = std::max(t[i], s[i]);
 				}
 			}
 			break;
@@ -1951,39 +1970,42 @@ namespace MIPSInt
 			EatPrefixes();
 			return;
 		}
-		RetainInvalidSwizzleST(d.f, sz);
-		ApplyPrefixD(d.f, sz);
-		WriteVector(d.f, sz, vd);
+		RetainInvalidSwizzleST(d, sz);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 	
 	void Int_Vscmp(MIPSOpcode op) {
-		FloatBits s, t, d;
+		float s[4], t[4], d[4];
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
-		ReadVector(s.f, sz, vs);
-		ApplySwizzleS(s.f, sz);
-		ReadVector(t.f, sz, vt);
-		ApplySwizzleT(t.f, sz);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		ReadVector(t, sz, vt);
+		ApplySwizzleT(t, sz);
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n ; i++) {
-			float a = s.f[i] - t.f[i];
+			float a = s[i] - t[i];
 			if (my_isnan(a)) {
+				int32_t si, ti;
+				memcpy(&si, &s[i], sizeof(int32_t));
+				memcpy(&ti, &t[i], sizeof(int32_t));
 				// NAN/INF are treated as just larger numbers, as in vmin/vmax.
-				int sMagnitude = s.u[i] & 0x7FFFFFFF;
-				int tMagnitude = t.u[i] & 0x7FFFFFFF;
-				int b = (s.i[i] < 0 ? -sMagnitude : sMagnitude) - (t.i[i] < 0 ? -tMagnitude : tMagnitude);
-				d.f[i] = (float)((0 < b) - (b < 0));
+				int sMagnitude = si & 0x7FFFFFFF;
+				int tMagnitude = ti & 0x7FFFFFFF;
+				int b = (si < 0 ? -sMagnitude : sMagnitude) - (ti < 0 ? -tMagnitude : tMagnitude);
+				d[i] = (float)((0 < b) - (b < 0));
 			} else {
-				d.f[i] = (float)((0.0f < a) - (a < 0.0f));
+				d[i] = (float)((0.0f < a) - (a < 0.0f));
 			}
 		}
-		RetainInvalidSwizzleST(d.f, sz);
-		ApplyPrefixD(d.f, sz);
-		WriteVector(d.f, sz, vd);
+		RetainInvalidSwizzleST(d, sz);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -2076,8 +2098,7 @@ namespace MIPSInt
 	}
 
 	void Int_VecDo3(MIPSOpcode op) {
-		float s[4], t[4];
-		FloatBits d;
+		float d[4], s[4], t[4];
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
@@ -2121,17 +2142,21 @@ namespace MIPSInt
 
 		for (int i = 0; i < n; i++) {
 			switch (optype) {
-			case 0: d.f[i] = s[i] + t[i]; break; //vadd
-			case 1: d.f[i] = s[i] - t[i]; break; //vsub
-			case 7: d.f[i] = s[i] / t[i]; break; //vdiv
-			case 8: d.f[i] = s[i] * t[i]; break; //vmul
+			case 0: d[i] = s[i] + t[i]; break; //vadd
+			case 1: d[i] = s[i] - t[i]; break; //vsub
+			case 7: d[i] = s[i] / t[i]; break; //vdiv
+			case 8: d[i] = s[i] * t[i]; break; //vmul
 			}
 
 			if (USE_VFPU_DOT) {
-				if (my_isnan(d.f[i])) {
-					d.u[i] = (d.u[i] & 0xff800001) | 1;
-				} else if ((d.u[i] & 0x7F800000) == 0) {
-					d.u[i] &= 0xFF800000;
+				uint32_t du;
+				memcpy(&du, &d[i], sizeof(uint32_t));
+				if (my_isnan(d[i])) {
+					du = (du & 0xff800001) | 1;
+					memcpy(&d[i], &du, sizeof(uint32_t));
+				} else if ((du & 0x7F800000) == 0) {
+					du &= 0xFF800000;
+					memcpy(&d[i], &du, sizeof(uint32_t));
 				}
 			}
 		}
@@ -2141,12 +2166,12 @@ namespace MIPSInt
 			u32 lastmask = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << (n - 1);
 			u32 lastsat = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (n + n - 2);
 			currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;
-			ApplyPrefixD(d.f, sz);
+			ApplyPrefixD(d, sz);
 		} else {
-			RetainInvalidSwizzleST(d.f, sz);
-			ApplyPrefixD(d.f, sz);
+			RetainInvalidSwizzleST(d, sz);
+			ApplyPrefixD(d, sz);
 		}
-		WriteVector(d.f, sz, vd);
+		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -2260,48 +2285,54 @@ namespace MIPSInt
 
 	void Int_Vlgb(MIPSOpcode op) {
 		// Vector log binary (extract exponent)
-		FloatBits d, s;
+		float d[4], s[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 
-		ReadVector(s.f, sz, vs);
-		ApplySwizzleS(s.f, sz);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
 
-		int exp = (s.u[0] & 0x7F800000) >> 23;
+		uint32_t su0;
+		memcpy(&su0, &s[0], sizeof(uint32_t));
+
+		int exp = (su0 & 0x7F800000) >> 23;
 		if (exp == 0xFF) {
-			d.f[0] = s.f[0];
+			d[0] = s[0];
 		} else if (exp == 0) {
-			d.f[0] = -INFINITY;
+			d[0] = -INFINITY;
 		} else {
-			d.f[0] = (float)(exp - 127);
+			d[0] = (float)(exp - 127);
 		}
 
 		// If sz is greater than V_Single, the rest are copied unchanged.
 		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
-			d.u[i] = s.u[i];
+			memcpy(&d[i], &s[i], sizeof(float));
 		}
 
-		RetainInvalidSwizzleST(d.f, sz);
-		ApplyPrefixD(d.f, sz);
-		WriteVector(d.f, sz, vd);
+		RetainInvalidSwizzleST(d, sz);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
 	void Int_Vwbn(MIPSOpcode op) {
-		FloatBits d, s;
+		float d[4], s[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		u8 exp = (u8)((op >> 16) & 0xFF);
 
-		ReadVector(s.f, sz, vs);
-		ApplySwizzleS(s.f, sz);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
 
-		u32 sigbit = s.u[0] & 0x80000000;
-		u32 prevExp = (s.u[0] & 0x7F800000) >> 23;
-		u32 mantissa = (s.u[0] & 0x007FFFFF) | 0x00800000;
+		uint32_t su0;
+		memcpy(&su0, &s[0], sizeof(uint32_t));
+
+		u32 sigbit = su0 & 0x80000000;
+		u32 prevExp = (su0 & 0x7F800000) >> 23;
+		u32 mantissa = (su0 & 0x007FFFFF) | 0x00800000;
 		if (prevExp != 0xFF && prevExp != 0) {
 			if (exp > prevExp) {
 				s8 shift = (exp - prevExp) & 0xF;
@@ -2310,80 +2341,91 @@ namespace MIPSInt
 				s8 shift = (prevExp - exp) & 0xF;
 				mantissa = mantissa << shift;
 			}
-			d.u[0] = sigbit | (mantissa & 0x007FFFFF) | (exp << 23);
+			uint32_t du = sigbit | (mantissa & 0x007FFFFF) | (exp << 23);
+			memcpy(&d[0], &du, sizeof(float));
 		} else {
-			d.u[0] = s.u[0] | (exp << 23);
+			uint32_t du = su0 | (exp << 23);
+			memcpy(&d[0], &du, sizeof(float));
 		}
 
 		// If sz is greater than V_Single, the rest are copied unchanged.
 		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
-			d.u[i] = s.u[i];
+			memcpy(&d[i], &s[i], sizeof(float));
 		}
 
-		RetainInvalidSwizzleST(d.f, sz);
-		ApplyPrefixD(d.f, sz);
-		WriteVector(d.f, sz, vd);
+		RetainInvalidSwizzleST(d, sz);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
 	void Int_Vsbn(MIPSOpcode op) {
-		FloatBits d, s, t;
+		float d[4], s[4], t[4];
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
 
-		ReadVector(s.f, sz, vs);
-		ApplySwizzleS(s.f, sz);
-		ReadVector(t.f, sz, vt);
-		ApplySwizzleT(t.f, sz);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		ReadVector(t, sz, vt);
+		ApplySwizzleT(t, sz);
+
 		// Swizzle does apply to the value read as an integer.
-		u8 exp = (u8)(127 + t.i[0]);
+		int32_t ti0;
+		memcpy(&ti0, &t[0], sizeof(int32_t));
+		u8 exp = (u8)(127 + ti0);
 
 		// Simply replace the exponent bits.
-		u32 prev = s.u[0] & 0x7F800000;
+		uint32_t su0;
+		memcpy(&su0, &s[0], sizeof(uint32_t));
+		u32 prev = su0 & 0x7F800000;
 		if (prev != 0 && prev != 0x7F800000) {
-			d.u[0] = (s.u[0] & ~0x7F800000) | (exp << 23);
+			uint32_t du = (su0 & ~0x7F800000) | (exp << 23);
+			memcpy(&d[0], &du, sizeof(float));
 		} else {
-			d.u[0] = s.u[0];
+			memcpy(&d[0], &s[0], sizeof(float));
 		}
 
 		// If sz is greater than V_Single, the rest are copied unchanged.
 		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
-			d.u[i] = s.u[i];
+			memcpy(&d[i], &s[i], sizeof(float));
 		}
 
-		ApplyPrefixD(d.f, sz);
-		WriteVector(d.f, sz, vd);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
 	void Int_Vsbz(MIPSOpcode op) {
 		// Vector scale by zero (set exp to 0 to extract mantissa)
-		FloatBits d, s;
+		float d[4], s[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 
-		ReadVector(s.f, sz, vs);
-		ApplySwizzleS(s.f, sz);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
 
 		// NAN and denormals pass through.
-		if (my_isnan(s.f[0]) || (s.u[0] & 0x7F800000) == 0) {
-			d.u[0] = s.u[0];
+		uint32_t su0;
+		memcpy(&su0, &s[0], sizeof(uint32_t));
+		if (my_isnan(s[0]) || (su0 & 0x7F800000) == 0) {
+			memcpy(&d[0], &s[0], sizeof(float));
 		} else {
-			d.u[0] = (127 << 23) | (s.u[0] & 0x007FFFFF);
+			uint32_t du = (127 << 23) | (su0 & 0x007FFFFF);
+			memcpy(&d[0], &du, sizeof(float));
 		}
 
 		// If sz is greater than V_Single, the rest are copied unchanged.
 		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
-			d.u[i] = s.u[i];
+			memcpy(&d[i], &s[i], sizeof(float));
 		}
 
-		ApplyPrefixD(d.f, sz);
-		WriteVector(d.f, sz, vd);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
