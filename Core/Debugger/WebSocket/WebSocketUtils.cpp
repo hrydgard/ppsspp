@@ -70,12 +70,9 @@ static bool U32FromString(const char *str, uint32_t *out, bool allowFloat) {
 
 	// We have to try float last because we use float bits, so 1.0 != 1.
 	if (allowFloat) {
-		union {
-			uint32_t u;
-			float f;
-		} bits;
-		if (TryParse(str, &bits.f)) {
-			*out = bits.u;
+		float parsedFloat;
+		if (TryParse(str, &parsedFloat)) {
+			memcpy(out, &parsedFloat, sizeof(uint32_t));
 			return true;
 		}
 
@@ -129,11 +126,8 @@ bool DebuggerRequest::ParamU32(const char *name, uint32_t *out, bool allowFloatB
 				Fail(StringFromFormat("Could not parse '%s' parameter: integer required", name));
 			return false;
 		} else if (!isInteger && allowFloatBits) {
-			union {
-				float f;
-				uint32_t u;
-			} bits = { (float)val };
-			*out = bits.u;
+			float valf = (float)val;
+			memcpy(out, &valf, sizeof(float));
 			return true;
 		}
 

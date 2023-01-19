@@ -33,9 +33,13 @@ public:
 	void SetPC(u32 _pc) override { ctx.pc = _pc; }
 
 	void PrintRegValue(int cat, int index, char *out) override {
+		float tempf;
 		switch (cat) {
 		case 0: sprintf(out, "%08X", ctx.r[index]); break;
-		case 1: sprintf(out, "%f", ctx.f[index]); break;
+		case 1:
+			memcpy(&tempf, &ctx.fi[index], sizeof(float));
+			sprintf(out, "%f", tempf);
+			break;
 		case 2: sprintf(out, "N/A"); break;
 		}
 	}

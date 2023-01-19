@@ -40,11 +40,9 @@ DebuggerSubscriber *WebSocketCPUCoreInit(DebuggerEventHandlerMap &map) {
 }
 
 static std::string RegValueAsFloat(uint32_t u) {
-	union {
-		uint32_t u;
-		float f;
-	} bits = { u };
-	return StringFromFormat("%f", bits.f);
+	float f;
+	memcpy(&f, &u, sizeof(float));
+	return StringFromFormat("%f", f);
 }
 
 static DebugInterface *CPUFromRequest(DebuggerRequest &req) {

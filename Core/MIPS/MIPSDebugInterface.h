@@ -89,15 +89,18 @@ public:
 	}
 
 	u32 GetRegValue(int cat, int index) override {
+		uint32_t temp;
 		switch (cat) {
 		case 0:
 			return cpu->r[index];
 
 		case 1:
-			return cpu->fi[index];
+			memcpy(&temp, &cpu->f[index], sizeof(uint32_t));
+			return temp;
 
 		case 2:
-			return cpu->vi[voffset[index]];
+			memcpy(&temp, &cpu->v[voffset[index]], sizeof(uint32_t));
+			return temp;
 
 		default:
 			return 0;
@@ -105,6 +108,7 @@ public:
 	}
 
 	void SetRegValue(int cat, int index, u32 value) override {
+		float valuef;
 		switch (cat) {
 		case 0:
 			if (index != 0)
@@ -112,11 +116,13 @@ public:
 			break;
 
 		case 1:
-			cpu->fi[index] = value;
+			memcpy(&valuef, &value, sizeof(float));
+			cpu->f[index] = valuef;
 			break;
 
 		case 2:
-			cpu->vi[voffset[index]] = value;
+			memcpy(&valuef, &value, sizeof(float));
+			cpu->v[voffset[index]] = valuef;
 			break;
 
 		default:

@@ -543,10 +543,10 @@ public:
 		{
 			// We must have been loading an old state if we're here.
 			// Reorder VFPU data to new order.
-			float temp[128];
-			memcpy(temp, context.v, 128 * sizeof(float));
+			u32 temp[128];
+			memcpy(temp, context.vi, 128 * sizeof(u32));
 			for (int i = 0; i < 128; i++) {
-				context.v[voffset[i]] = temp[i];
+				context.vi[voffset[i]] = temp[i];
 			}
 		}
 
@@ -1455,10 +1455,10 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 // Saves the current CPU context
 void __KernelSaveContext(PSPThreadContext *ctx, bool vfpuEnabled) {
 	// r and f are immediately next to each other and must be.
-	memcpy((void *)ctx->r, (void *)currentMIPS->r, sizeof(ctx->r) + sizeof(ctx->f));
+	memcpy((void *)ctx->r, (void *)currentMIPS->r, sizeof(ctx->r) + sizeof(ctx->fi));
 
 	if (vfpuEnabled) {
-		memcpy(ctx->v, currentMIPS->v, sizeof(ctx->v));
+		memcpy(ctx->vi, currentMIPS->v, sizeof(ctx->vi));
 		memcpy(ctx->vfpuCtrl, currentMIPS->vfpuCtrl, sizeof(ctx->vfpuCtrl));
 	}
 
@@ -1468,10 +1468,10 @@ void __KernelSaveContext(PSPThreadContext *ctx, bool vfpuEnabled) {
 // Loads a CPU context
 void __KernelLoadContext(const PSPThreadContext *ctx, bool vfpuEnabled) {
 	// r and f are immediately next to each other and must be.
-	memcpy((void *)currentMIPS->r, (void *)ctx->r, sizeof(ctx->r) + sizeof(ctx->f));
+	memcpy((void *)currentMIPS->r, (void *)ctx->r, sizeof(ctx->r) + sizeof(ctx->fi));
 
 	if (vfpuEnabled) {
-		memcpy(currentMIPS->v, ctx->v, sizeof(ctx->v));
+		memcpy(currentMIPS->v, ctx->vi, sizeof(ctx->vi));
 		memcpy(currentMIPS->vfpuCtrl, ctx->vfpuCtrl, sizeof(ctx->vfpuCtrl));
 	}
 

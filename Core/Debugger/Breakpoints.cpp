@@ -731,31 +731,29 @@ bool CBreakPoints::EvaluateLogFormat(DebugInterface *cpu, const std::string &fmt
 				return false;
 			}
 
-			union {
-				int i;
-				u32 u;
-				float f;
-			} expResult;
+			uint32_t expResult;
 			char resultString[256];
-			if (!cpu->parseExpression(exp, expResult.u)) {
+			if (!cpu->parseExpression(exp, expResult)) {
 				return false;
 			}
 
+			float expResultf;
 			switch (type) {
 			case 'd':
-				snprintf(resultString, sizeof(resultString), "%d", expResult.i);
+				snprintf(resultString, sizeof(resultString), "%d", (int)expResult);
 				break;
 			case 'f':
-				snprintf(resultString, sizeof(resultString), "%f", expResult.f);
+				memcpy(&expResultf, &expResult, sizeof(float));
+				snprintf(resultString, sizeof(resultString), "%f", expResultf);
 				break;
 			case 'p':
-				snprintf(resultString, sizeof(resultString), "%08x[%08x]", expResult.u, Memory::IsValidAddress(expResult.u) ? Memory::Read_U32(expResult.u) : 0);
+				snprintf(resultString, sizeof(resultString), "%08x[%08x]", expResult, Memory::IsValidRange(expResult, 4) ? Memory::ReadUnchecked_U32(expResult) : 0);
 				break;
 			case 's':
-				snprintf(resultString, sizeof(resultString) - 1, "%s", Memory::IsValidAddress(expResult.u) ? Memory::GetCharPointer(expResult.u) : "(invalid)");
+				snprintf(resultString, sizeof(resultString) - 1, "%s", Memory::IsValidAddress(expResult) ? Memory::GetCharPointer(expResult) : "(invalid)");
 				break;
 			case 'x':
-				snprintf(resultString, sizeof(resultString), "%08x", expResult.u);
+				snprintf(resultString, sizeof(resultString), "%08x", expResult);
 				break;
 			}
 			result += resultString;
