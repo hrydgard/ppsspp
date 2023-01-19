@@ -507,20 +507,16 @@ RasterizerState OptimizeFlatRasterizerState(const RasterizerState &origState, co
 }
 
 static inline u8 ClampFogDepth(float fogdepth) {
-	union FloatBits {
-		float f;
-		u32 u;
-	};
-	FloatBits f;
-	f.f = fogdepth;
+	uint32_t floatBits;
+	memcpy(&floatBits, &fogdepth, sizeof(uint32_t));
 
-	u32 exp = f.u >> 23;
-	if ((f.u & 0x80000000) != 0 || exp <= 126 - 8)
+	u32 exp = floatBits >> 23;
+	if ((floatBits & 0x80000000) != 0 || exp <= 126 - 8)
 		return 0;
 	if (exp > 126)
 		return 255;
 
-	u32 mantissa = (f.u & 0x007FFFFF) | 0x00800000;
+	u32 mantissa = (floatBits & 0x007FFFFF) | 0x00800000;
 	return mantissa >> (16 + 126 - exp);
 }
 
@@ -613,15 +609,11 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(float s, float t,
 
 // Produces a signed 1.27.4 value.
 static int TexLog2(float delta) {
-	union FloatBits {
-		float f;
-		u32 u;
-	};
-	FloatBits f;
-	f.f = delta;
+	uint32_t floatBits;
+	memcpy(&floatBits, &delta, sizeof(uint32_t));
 	// Use the exponent as the tex level, and the top mantissa bits for a frac.
 	// We can't support more than 4 bits of frac, so truncate.
-	int useful = (f.u >> 19) & 0x0FFF;
+	int useful = (floatBits >> 19) & 0x0FFF;
 	// Now offset so the exponent aligns with log2f (exp=127 is 0.)
 	return useful - 127 * 16;
 }

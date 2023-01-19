@@ -139,15 +139,11 @@ TextureCacheCommon::~TextureCacheCommon() {
 
 // Produces a signed 1.23.8 value.
 static int TexLog2(float delta) {
-	union FloatBits {
-		float f;
-		u32 u;
-	};
-	FloatBits f;
-	f.f = delta;
+	uint32_t floatBits;
+	memcpy(&floatBits, &delta, sizeof(uint32_t));
 	// Use the exponent as the tex level, and the top mantissa bits for a frac.
 	// We can't support more than 8 bits of frac, so truncate.
-	int useful = (f.u >> 15) & 0xFFFF;
+	int useful = (floatBits >> 15) & 0xFFFF;
 	// Now offset so the exponent aligns with log2f (exp=127 is 0.)
 	return useful - 127 * 256;
 }
