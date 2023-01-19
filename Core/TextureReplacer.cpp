@@ -1107,7 +1107,7 @@ void ReplacedTexture::PrepareData(int level) {
 	};
 
 	if (imageType == ReplacedImageType::ZIM) {
-		size_t zimSize;
+		size_t zimSize = 0;
 		if (fp) {
 			zimSize = File::GetFileSize(fp);
 		} else if (zf) {

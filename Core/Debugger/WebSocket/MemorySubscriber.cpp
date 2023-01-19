@@ -84,7 +84,7 @@ AutoDisabledReplacements::AutoDisabledReplacements(AutoDisabledReplacements &&ot
 	lock = other.lock;
 	other.lock = nullptr;
 	replacements = std::move(other.replacements);
-	emuhacks = std::move(emuhacks);
+	emuhacks = std::move(other.emuhacks);
 	saved = other.saved;
 	other.saved = false;
 	wasStepping = other.wasStepping;

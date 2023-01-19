@@ -127,8 +127,7 @@ static int sceKernelFreeHeapMemory(int heapId, u32 block) {
 		return hleLogSuccessInfoI(SCEKERNEL, 0, "sceKernelFreeHeapMemory(%d): heapId,0: block", heapId);
 	}
 	if (!heap->alloc.FreeExact(block)) {
-		ERROR_LOG(SCEKERNEL, "sceKernelFreeHeapMemory(%d): heapId, block Invalid pointer ", heapId, block);
-		return SCE_KERNEL_ERROR_INVALID_POINTER;
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid pointer %08x", block);
 	}
 	return hleLogSuccessInfoI(SCEKERNEL, 0, "sceKernelFreeHeapMemory(%d): heapId, block", heapId, block);
 
