@@ -1367,9 +1367,9 @@ void ArmJit::CompNEON_Vfim(MIPSOpcode op) {
 
 	FP16 half;
 	half.u = op & 0xFFFF;
-	FP32 fval = half_to_float_fast5(half);
+	float fval = half_to_float_fast5(half);
 	// TODO: Optimize for low registers.
-	MOVI2F(S0, (float)fval.f, R0);
+	MOVI2F(S0, fval, R0);
 	VMOV_neon(vt.rd, D0);
 
 	NEONApplyPrefixD(vt);

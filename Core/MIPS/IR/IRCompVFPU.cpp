@@ -1824,11 +1824,11 @@ namespace MIPSComp {
 
 		FP16 half;
 		half.u = op & 0xFFFF;
-		FP32 fval = half_to_float_fast5(half);
+		float fval = half_to_float_fast5(half);
 
 		u8 dreg;
 		GetVectorRegsPrefixD(&dreg, V_Single, _VT);
-		ir.Write(IROp::SetConstF, dreg, ir.AddConstantFloat(fval.f));
+		ir.Write(IROp::SetConstF, dreg, ir.AddConstantFloat(fval));
 		ApplyPrefixD(&dreg, V_Single);
 	}
 

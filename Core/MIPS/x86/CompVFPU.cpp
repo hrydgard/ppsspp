@@ -3466,9 +3466,10 @@ void Jit::Comp_Viim(MIPSOpcode op) {
 	fpr.SimpleRegsV(&dreg, V_Single, MAP_NOINIT | MAP_DIRTY);
 
 	s32 imm = SignExtend16ToS32(op);
-	FP32 fp;
-	fp.f = (float)imm;
-	MOV(32, R(TEMPREG), Imm32(fp.u));
+	float fp = (float)imm;
+	uint32_t fpu;
+	memcpy(&fpu, &fp, sizeof(uint32_t));
+	MOV(32, R(TEMPREG), Imm32(fpu));
 	fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
 	MOVD_xmm(fpr.VX(dreg), R(TEMPREG));
 
@@ -3490,8 +3491,10 @@ void Jit::Comp_Vfim(MIPSOpcode op) {
 
 	FP16 half;
 	half.u = op & 0xFFFF;
-	FP32 fval = half_to_float_fast5(half);
-	MOV(32, R(TEMPREG), Imm32(fval.u));
+	float fval = half_to_float_fast5(half);
+	uint32_t fvalu;
+	memcpy(&fvalu, &fval, sizeof(uint32_t));
+	MOV(32, R(TEMPREG), Imm32(fvalu));
 	fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
 	MOVD_xmm(fpr.VX(dreg), R(TEMPREG));
 

@@ -83,34 +83,28 @@ inline T Clamp(const T val, const T& min, const T& max)
 	return ret;
 }
 
-union FP32 {
-	uint32_t u;
-	float f;
-};
-
 struct FP16 {
 	uint16_t u;
 };
 
 inline bool my_isinf(float f) {
-	FP32 f2u;
-	f2u.f = f;
-	return f2u.u == 0x7f800000 ||
-		f2u.u == 0xff800000;
+	uint32_t u;
+	memcpy(&u, &f, sizeof(uint32_t));
+	return u == 0x7f800000 || u == 0xff800000;
 }
 
 inline bool my_isnan(float f) {
-	FP32 f2u;
-	f2u.f = f;
+	uint32_t u;
+	memcpy(&u, &f, sizeof(uint32_t));
 	// NaNs have non-zero mantissa
-	return ((f2u.u & 0x7F800000) == 0x7F800000) && (f2u.u & 0x7FFFFF);
+	return ((u & 0x7F800000) == 0x7F800000) && (u & 0x7FFFFF);
 }
 
 inline bool my_isnanorinf(float f) {
-	FP32 f2u;
-	f2u.f = f;
+	uint32_t u;
+	memcpy(&u, &f, sizeof(uint32_t));
 	// NaNs have non-zero mantissa, infs have zero mantissa. That is, we just ignore the mantissa here.
-	return ((f2u.u & 0x7F800000) == 0x7F800000);
+	return (u & 0x7F800000) == 0x7F800000;
 }
 
 inline int is_even(float d) {
@@ -134,29 +128,41 @@ inline double round_ieee_754(double d) {
 
 // magic code from ryg: http://fgiesen.wordpress.com/2012/03/28/half-to-float-done-quic/
 // See also SSE2 version: https://gist.github.com/rygorous/2144712
-inline FP32 half_to_float_fast5(FP16 h)
-{
+inline float half_to_float_fast5(FP16 h) {
+	// Should be safe for the constants.
+	union FP32 {
+		uint32_t u;
+		float f;
+	};
 	static const FP32 magic = { (127 + (127 - 15)) << 23 };
 	static const FP32 was_infnan = { (127 + 16) << 23 };
-	FP32 o;
-	o.u = (h.u & 0x7fff) << 13;     // exponent/mantissa bits
-	o.f *= magic.f;                 // exponent adjust
-	if (o.f >= was_infnan.f)        // make sure Inf/NaN survive (retain the low bits)
-		o.u = (255 << 23) | (h.u & 0x03ff);
-	o.u |= (h.u & 0x8000) << 16;    // sign bit
-	return o;
+
+	uint32_t ou;
+	float of;
+	ou = (h.u & 0x7fff) << 13;     // exponent/mantissa bits
+	memcpy(&of, &ou, sizeof(float));
+	of *= magic.f;                 // exponent adjust
+	memcpy(&ou, &of, sizeof(uint32_t));
+	if (of >= was_infnan.f)        // make sure Inf/NaN survive (retain the low bits)
+		ou = (255 << 23) | (h.u & 0x03ff);
+	ou |= (h.u & 0x8000) << 16;    // sign bit
+	memcpy(&of, &ou, sizeof(float));
+	return of;
 }
 
 inline float ExpandHalf(uint16_t half) {
 	FP16 fp16;
 	fp16.u = half;
-	FP32 fp = half_to_float_fast5(fp16);
-	return fp.f;
+	return half_to_float_fast5(fp16);
 }
 
 // More magic code: https://gist.github.com/rygorous/2156668
-inline FP16 float_to_half_fast3(FP32 f)
-{
+inline FP16 float_to_half_fast3(float f) {
+	// Should be safe for the constants.
+	union FP32 {
+		uint32_t u;
+		float f;
+	};
 	static const FP32 f32infty = { 255 << 23 };
 	static const FP32 f16infty = { 31 << 23 };
 	static const FP32 magic = { 15 << 23 };
@@ -164,19 +170,25 @@ inline FP16 float_to_half_fast3(FP32 f)
 	static const uint32_t round_mask = ~0xfffu;
 	FP16 o = { 0 };
 
-	uint32_t sign = f.u & sign_mask;
-	f.u ^= sign;
+	uint32_t fu;
+	memcpy(&fu, &f, sizeof(uint32_t));
 
-	if (f.u >= f32infty.u) // Inf or NaN (all exponent bits set)
-		o.u = (f.u > f32infty.u) ? (0x7e00 | (f.u & 0x3ff)) : 0x7c00; // NaN->qNaN and Inf->Inf
+	uint32_t sign = fu & sign_mask;
+	fu ^= sign;
+
+	if (fu >= f32infty.u) // Inf or NaN (all exponent bits set)
+		o.u = (fu > f32infty.u) ? (0x7e00 | (fu & 0x3ff)) : 0x7c00; // NaN->qNaN and Inf->Inf
 	else // (De)normalized number or zero
 	{
-		f.u &= round_mask;
-		f.f *= magic.f;
-		f.u -= round_mask;
-		if (f.u > f16infty.u) f.u = f16infty.u; // Clamp to signed infinity if overflowed
+		fu &= round_mask;
+		memcpy(&f, &fu, sizeof(float));
+		f *= magic.f;
+		memcpy(&fu, &f, sizeof(uint32_t));
+		fu -= round_mask;
+		if (fu > f16infty.u)
+			fu = f16infty.u; // Clamp to signed infinity if overflowed
 
-		o.u = f.u >> 13; // Take the bits!
+		o.u = fu >> 13; // Take the bits!
 	}
 
 	o.u |= sign >> 16;
@@ -184,9 +196,7 @@ inline FP16 float_to_half_fast3(FP32 f)
 }
 
 inline uint16_t ShrinkToHalf(float full) {
-	FP32 fp32;
-	fp32.f = full;
-	FP16 fp = float_to_half_fast3(fp32);
+	FP16 fp = float_to_half_fast3(full);
 	return fp.u;
 }
 

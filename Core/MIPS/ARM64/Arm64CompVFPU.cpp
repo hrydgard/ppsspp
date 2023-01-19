@@ -1831,9 +1831,9 @@ namespace MIPSComp {
 
 		FP16 half;
 		half.u = op & 0xFFFF;
-		FP32 fval = half_to_float_fast5(half);
+		float fval = half_to_float_fast5(half);
 		fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
-		fp.MOVI2F(fpr.V(dreg), fval.f, SCRATCH1);
+		fp.MOVI2F(fpr.V(dreg), fval, SCRATCH1);
 
 		ApplyPrefixD(&dreg, V_Single);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
