@@ -39,8 +39,6 @@
 
 #define R(i) (currentMIPS->r[i])
 #define F(i) (currentMIPS->f[i])
-#define FI(i) (currentMIPS->fi[i])
-#define FsI(i) (currentMIPS->fs[i])
 #define PC (currentMIPS->pc)
 
 #define _RS   ((op>>21) & 0x1F)
@@ -493,10 +491,17 @@ namespace MIPSInt
 		int rs = _RS;
 		u32 addr = R(rs) + offset;
 
+		uint32_t val;
 		switch(op >> 26)
 		{
-		case 49: FI(ft) = Memory::Read_U32(addr); break; //lwc1
-		case 57: Memory::Write_U32(FI(ft), addr); break; //swc1
+		case 49: //lwc1
+			val = Memory::Read_U32(addr);
+			memcpy(&F(ft), &val, sizeof(float));
+			break;
+		case 57: //swc1
+			memcpy(&val, &F(ft), sizeof(uint32_t));
+			Memory::Write_U32(val, addr);
+			break;
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret FPULS instruction that can't be interpreted");
 			break;
@@ -512,7 +517,7 @@ namespace MIPSInt
 		switch ((op>>21)&0x1f) {
 		case 0: //mfc1
 			if (rt != 0)
-				R(rt) = FI(fs);
+				memcpy(&R(rt), &F(fs), sizeof(uint32_t));
 			break;
 
 		case 2: //cfc1
@@ -530,7 +535,7 @@ namespace MIPSInt
 			}
 
 		case 4: //mtc1
-			FI(fs) = R(rt);
+			memcpy(&F(fs), &R(rt), sizeof(float));
 			break;
 
 		case 6: //ctc1
@@ -875,6 +880,7 @@ namespace MIPSInt
 		int fs = _FS;
 		int fd = _FD;
 
+		int32_t result;
 		switch (op & 0x3f)
 		{
 		case 4:	F(fd)	= sqrtf(F(fs)); break; //sqrt
@@ -887,43 +893,50 @@ namespace MIPSInt
 		case 15:
 			if (my_isnanorinf(F(fs)))
 			{
-				FsI(fd) = my_isinf(F(fs)) && F(fs) < 0.0f ? -2147483648LL : 2147483647LL;
+				result = my_isinf(F(fs)) && F(fs) < 0.0f ? -2147483648LL : 2147483647LL;
+				memcpy(&F(fd), &result, sizeof(float));
 				break;
 			}
 			switch (op & 0x3f)
 			{
-			case 12: FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
+			case 12: result = (int)floorf(F(fs)+0.5f); break; //round.w.s
 			case 13: //trunc.w.s
 				if (F(fs) >= 0.0f) {
-					FsI(fd) = (int)floorf(F(fs));
+					result = (int)floorf(F(fs));
 					// Overflow, but it was positive.
-					if (FsI(fd) == -2147483648LL) {
-						FsI(fd) = 2147483647LL;
+					if (result == -2147483648LL) {
+						result = 2147483647LL;
 					}
 				} else {
 					// Overflow happens to be the right value anyway.
-					FsI(fd) = (int)ceilf(F(fs));
+					result = (int)ceilf(F(fs));
 				}
 				break;
-			case 14: FsI(fd) = (int)ceilf (F(fs)); break; //ceil.w.s
-			case 15: FsI(fd) = (int)floorf(F(fs)); break; //floor.w.s
+			case 14: result = (int)ceilf (F(fs)); break; //ceil.w.s
+			case 15: result = (int)floorf(F(fs)); break; //floor.w.s
 			}
+			memcpy(&F(fd), &result, sizeof(float));
 			break;
-		case 32: F(fd) = (float)FsI(fs); break; //cvt.s.w
+		case 32: //cvt.s.w
+			memcpy(&result, &F(fs), sizeof(int32_t));
+			F(fd) = (float)result;
+			break;
 
 		case 36:
 			if (my_isnanorinf(F(fs)))
 			{
-				FsI(fd) = my_isinf(F(fs)) && F(fs) < 0.0f ? -2147483648LL : 2147483647LL;
+				result = my_isinf(F(fs)) && F(fs) < 0.0f ? -2147483648LL : 2147483647LL;
+				memcpy(&F(fd), &result, sizeof(float));
 				break;
 			}
 			switch (currentMIPS->fcr31 & 3)
 			{
-			case 0: FsI(fd) = (int)round_ieee_754(F(fs)); break;  // RINT_0
-			case 1: FsI(fd) = (int)F(fs); break;  // CAST_1
-			case 2: FsI(fd) = (int)ceilf(F(fs)); break;  // CEIL_2
-			case 3: FsI(fd) = (int)floorf(F(fs)); break;  // FLOOR_3
+			case 0: result = (int)round_ieee_754(F(fs)); break;  // RINT_0
+			case 1: result = (int)F(fs); break;  // CAST_1
+			case 2: result = (int)ceilf(F(fs)); break;  // CEIL_2
+			case 3: result = (int)floorf(F(fs)); break;  // FLOOR_3
 			}
+			memcpy(&F(fd), &result, sizeof(float));
 			break; //cvt.w.s
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret FPU2Op instruction that can't be interpreted");
@@ -1001,7 +1014,8 @@ namespace MIPSInt
 		case 2: // mul.s
 			if ((my_isinf(F(fs)) && F(ft) == 0.0f) || (my_isinf(F(ft)) && F(fs) == 0.0f)) {
 				// Must be positive NAN, see #12519.
-				FI(fd) = 0x7fc00000;
+				static const uint32_t INVALID_RESULT = 0x7fc00000;
+				memcpy(&F(fd), &INVALID_RESULT, sizeof(float));
 			} else {
 				F(fd) = F(fs) * F(ft);
 			}

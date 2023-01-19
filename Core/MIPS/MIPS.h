@@ -183,15 +183,8 @@ public:
 
 	// MUST start with r and be followed by f, v, and t!
 	u32 r[32];
-	union {
-		float f[32];
-		u32 fi[32];
-		int fs[32];
-	};
-	union {
-		float v[128];
-		u32 vi[128];
-	};
+	float f[32];
+	float v[128];
 
 	// Register-allocated JIT Temps don't get flushed so we don't reserve space for them.
 	// However, the IR interpreter needs some temps that can stick around between ops.

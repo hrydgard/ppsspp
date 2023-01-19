@@ -36,9 +36,6 @@
 
 #define R(i)   (currentMIPS->r[i])
 #define V(i)   (currentMIPS->v[voffset[i]])
-#define VI(i)  (currentMIPS->vi[voffset[i]])
-#define FI(i)  (currentMIPS->fi[i])
-#define FsI(i) (currentMIPS->fs[i])
 #define PC     (currentMIPS->pc)
 
 #define _RS   ((op>>21) & 0x1F)
@@ -1541,10 +1538,12 @@ namespace MIPSInt
 
 	void Int_Vrnds(MIPSOpcode op) {
 		int vd = _VD;
-		int seed = VI(vd);
+		float seed = V(vd);
 		// Swizzles apply a constant value, constants/abs/neg work to vary the seed.
-		ApplySwizzleS(reinterpret_cast<float *>(&seed), V_Single);
-		currentMIPS->rng.Init(seed);
+		ApplySwizzleS(&seed, V_Single);
+		int32_t seedi;
+		memcpy(&seedi, &seed, sizeof(int32_t));
+		currentMIPS->rng.Init(seedi);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1753,13 +1752,16 @@ namespace MIPSInt
 		int rs = _RS;
 		u32 addr = R(rs) + imm;
 
+		uint32_t val;
 		switch (op >> 26)
 		{
 		case 50: //lv.s
-			VI(vt) = Memory::Read_U32(addr);
+			val = Memory::Read_U32(addr);
+			memcpy(&V(vt), &val, sizeof(float));
 			break;
 		case 58: //sv.s
-			Memory::Write_U32(VI(vt), addr);
+			memcpy(&val, &V(vt), sizeof(uint32_t));
+			Memory::Write_U32(val, addr);
 			break;
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
@@ -1779,7 +1781,7 @@ namespace MIPSInt
 			// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 			if (rt != 0) {
 				if (imm < 128) {
-					R(rt) = VI(imm);
+					memcpy(&R(rt), &V(imm), sizeof(uint32_t));
 				} else if (imm < 128 + VFPU_CTRL_MAX) { //mfvc
 					R(rt) = currentMIPS->vfpuCtrl[imm - 128];
 				} else {
@@ -1791,7 +1793,7 @@ namespace MIPSInt
 
 		case 7: //mtv
 			if (imm < 128) {
-				VI(imm) = R(rt);
+				memcpy(&V(imm), &R(rt), sizeof(float));
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
 				u32 mask;
 				if (GetVFPUCtrlMask(imm - 128, &mask)) {
@@ -1814,9 +1816,9 @@ namespace MIPSInt
 		int vd = _VD;
 		int imm = (op >> 8) & 0x7F;
 		if (imm < VFPU_CTRL_MAX) {
-			VI(vd) = currentMIPS->vfpuCtrl[imm];
+			memcpy(&V(vd), &currentMIPS->vfpuCtrl[imm], sizeof(float));
 		} else {
-			VI(vd) = 0;
+			V(vd) = 0.0f;
 		}
 		PC += 4;
 	}
@@ -1827,7 +1829,9 @@ namespace MIPSInt
 		if (imm < VFPU_CTRL_MAX) {
 			u32 mask;
 			if (GetVFPUCtrlMask(imm, &mask)) {
-				currentMIPS->vfpuCtrl[imm] = VI(vs) & mask;
+				uint32_t val;
+				memcpy(&val, &V(vs), sizeof(uint32_t));
+				currentMIPS->vfpuCtrl[imm] = val & mask;
 			}
 		}
 		PC += 4;

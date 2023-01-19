@@ -659,13 +659,13 @@ namespace MIPSAnalyst {
 
 		if (IsSWC1Instr(op)) {
 			int ft = MIPS_GET_FT(op);
-			writeVal = currentMIPS->fi[ft];
+			memcpy(&writeVal, &currentMIPS->f[ft], sizeof(writeVal));
 			prevVal = Memory::Read_U32(addr);
 		}
 
 		if (IsSVSInstr(op)) {
 			int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
-			writeVal = currentMIPS->vi[voffset[vt]];
+			memcpy(&writeVal, &currentMIPS->v[voffset[vt]], sizeof(writeVal));
 			prevVal = Memory::Read_U32(addr);
 		}
 
