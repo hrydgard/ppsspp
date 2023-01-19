@@ -399,46 +399,66 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 
 		case IROp::Vec2Unpack16To31:
 		{
-			mips->fi[inst->dest] = (mips->fi[inst->src1] << 16) >> 1;
-			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] & 0xFFFF0000) >> 1;
+			uint32_t src0;
+			memcpy(&src0, &mips->f[inst->src1], sizeof(uint32_t));
+			uint32_t dest0 = (src0 << 16) >> 1;
+			uint32_t dest1 = (src0 & 0xFFFF0000) >> 1;
+			memcpy(&mips->f[inst->dest], &dest0, sizeof(float));
+			memcpy(&mips->f[inst->dest + 1], &dest1, sizeof(float));
 			break;
 		}
 
 		case IROp::Vec2Unpack16To32:
 		{
-			mips->fi[inst->dest] = (mips->fi[inst->src1] << 16);
-			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] & 0xFFFF0000);
+			uint32_t src0;
+			memcpy(&src0, &mips->f[inst->src1], sizeof(uint32_t));
+			uint32_t dest0 = src0 << 16;
+			uint32_t dest1 = src0 & 0xFFFF0000;
+			memcpy(&mips->f[inst->dest], &dest0, sizeof(float));
+			memcpy(&mips->f[inst->dest + 1], &dest1, sizeof(float));
 			break;
 		}
 
 		case IROp::Vec4Unpack8To32:
 		{
+			uint32_t src0;
+			memcpy(&src0, &mips->f[inst->src1], sizeof(uint32_t));
 #if defined(_M_SSE)
-			__m128i src = _mm_cvtsi32_si128(mips->fi[inst->src1]);
+			__m128i src = _mm_cvtsi32_si128(src0);
 			src = _mm_unpacklo_epi8(src, _mm_setzero_si128());
 			src = _mm_unpacklo_epi16(src, _mm_setzero_si128());
-			_mm_store_si128((__m128i *)&mips->fi[inst->dest], _mm_slli_epi32(src, 24));
+			_mm_store_si128((__m128i *)&mips->f[inst->dest], _mm_slli_epi32(src, 24));
 #else
-			mips->fi[inst->dest] = (mips->fi[inst->src1] << 24);
-			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] << 16) & 0xFF000000;
-			mips->fi[inst->dest + 2] = (mips->fi[inst->src1] << 8) & 0xFF000000;
-			mips->fi[inst->dest + 3] = (mips->fi[inst->src1]) & 0xFF000000;
+			uint32_t dest0 = (src0 << 24);
+			uint32_t dest1 = (src0 << 16) & 0xFF000000;
+			uint32_t dest2 = (src0 << 8) & 0xFF000000;
+			uint32_t dest3 = (src0) & 0xFF000000;
+			memcpy(&mips->f[inst->dest], &dest0, sizeof(float));
+			memcpy(&mips->f[inst->dest + 1], &dest1, sizeof(float));
+			memcpy(&mips->f[inst->dest + 2], &dest2, sizeof(float));
+			memcpy(&mips->f[inst->dest + 3], &dest3, sizeof(float));
 #endif
 			break;
 		}
 
 		case IROp::Vec2Pack32To16:
 		{
-			u32 val = mips->fi[inst->src1] >> 16;
-			mips->fi[inst->dest] = (mips->fi[inst->src1 + 1] & 0xFFFF0000) | val;
+			uint32_t src0, src1;
+			memcpy(&src0, &mips->f[inst->src1], sizeof(uint32_t));
+			memcpy(&src1, &mips->f[inst->src1 + 1], sizeof(uint32_t));
+			u32 val = (src1 & 0xFFFF0000) | src0 >> 16;
+			memcpy(&mips->f[inst->dest], &val, sizeof(float));
 			break;
 		}
 
 		case IROp::Vec2Pack31To16:
 		{
-			u32 val = (mips->fi[inst->src1] >> 15) & 0xFFFF;
-			val |= (mips->fi[inst->src1 + 1] << 1) & 0xFFFF0000;
-			mips->fi[inst->dest] = val;
+			uint32_t src0, src1;
+			memcpy(&src0, &mips->f[inst->src1], sizeof(uint32_t));
+			memcpy(&src1, &mips->f[inst->src1 + 1], sizeof(uint32_t));
+			u32 val = (src0 >> 15) & 0xFFFF;
+			val |= (src1 << 1) & 0xFFFF0000;
+			memcpy(&mips->f[inst->dest], &val, sizeof(float));
 			break;
 		}
 
@@ -446,11 +466,16 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		{
 			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
 			// pshufb or SSE4 instructions can be used instead.
-			u32 val = mips->fi[inst->src1] >> 24;
-			val |= (mips->fi[inst->src1 + 1] >> 16) & 0xFF00;
-			val |= (mips->fi[inst->src1 + 2] >> 8) & 0xFF0000;
-			val |= (mips->fi[inst->src1 + 3]) & 0xFF000000;
-			mips->fi[inst->dest] = val;
+			uint32_t src0, src1, src2, src3;
+			memcpy(&src0, &mips->f[inst->src1], sizeof(uint32_t));
+			memcpy(&src1, &mips->f[inst->src1 + 1], sizeof(uint32_t));
+			memcpy(&src2, &mips->f[inst->src1 + 2], sizeof(uint32_t));
+			memcpy(&src3, &mips->f[inst->src1 + 3], sizeof(uint32_t));
+			u32 val = src0 >> 24;
+			val |= (src1 >> 16) & 0xFF00;
+			val |= (src2 >> 8) & 0xFF0000;
+			val |= (src3) & 0xFF000000;
+			memcpy(&mips->f[inst->dest], &val, sizeof(float));
 			break;
 		}
 
@@ -458,19 +483,28 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		{
 			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
 			// pshufb or SSE4 instructions can be used instead.
-			u32 val = (mips->fi[inst->src1] >> 23) & 0xFF;
-			val |= (mips->fi[inst->src1 + 1] >> 15) & 0xFF00;
-			val |= (mips->fi[inst->src1 + 2] >> 7) & 0xFF0000;
-			val |= (mips->fi[inst->src1 + 3] << 1) & 0xFF000000;
-			mips->fi[inst->dest] = val;
+			uint32_t src0, src1, src2, src3;
+			memcpy(&src0, &mips->f[inst->src1], sizeof(uint32_t));
+			memcpy(&src1, &mips->f[inst->src1 + 1], sizeof(uint32_t));
+			memcpy(&src2, &mips->f[inst->src1 + 2], sizeof(uint32_t));
+			memcpy(&src3, &mips->f[inst->src1 + 3], sizeof(uint32_t));
+			u32 val = (src0 >> 23) & 0xFF;
+			val |= (src1 >> 15) & 0xFF00;
+			val |= (src2 >> 7) & 0xFF0000;
+			val |= (src3 << 1) & 0xFF000000;
+			memcpy(&mips->f[inst->dest], &val, sizeof(float));
 			break;
 		}
 
 		case IROp::Vec2ClampToZero:
 		{
+			int32_t val;
 			for (int i = 0; i < 2; i++) {
-				u32 val = mips->fi[inst->src1 + i];
-				mips->fi[inst->dest + i] = (int)val >= 0 ? val : 0;
+				memcpy(&val, &mips->f[inst->src1 + i], sizeof(int32_t));
+				if (val >= 0)
+					memcpy(&mips->f[inst->dest + i], &val, sizeof(float));
+				else
+					mips->f[inst->dest + i] = 0.0f;
 			}
 			break;
 		}
@@ -479,14 +513,18 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		{
 #if defined(_M_SSE)
 			// Trickery: Expand the sign bit, and use andnot to zero negative values.
-			__m128i val = _mm_load_si128((const __m128i *)&mips->fi[inst->src1]);
+			__m128i val = _mm_load_si128((const __m128i *)&mips->f[inst->src1]);
 			__m128i mask = _mm_srai_epi32(val, 31);
 			val = _mm_andnot_si128(mask, val);
-			_mm_store_si128((__m128i *)&mips->fi[inst->dest], val);
+			_mm_store_si128((__m128i *)&mips->f[inst->dest], val);
 #else
+			int32_t val;
 			for (int i = 0; i < 4; i++) {
-				u32 val = mips->fi[inst->src1 + i];
-				mips->fi[inst->dest + i] = (int)val >= 0 ? val : 0;
+				memcpy(&val, &mips->f[inst->src1 + i], sizeof(int32_t));
+				if (val >= 0)
+					memcpy(&mips->f[inst->dest + i], &val, sizeof(float));
+				else
+					mips->f[inst->dest + i] = 0.0f;
 			}
 #endif
 			break;
@@ -494,12 +532,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 
 		case IROp::Vec4DuplicateUpperBitsAndShift1:  // For vuc2i, the weird one.
 		{
+			uint32_t val;
 			for (int i = 0; i < 4; i++) {
-				u32 val = mips->fi[inst->src1 + i];
+				memcpy(&val, &mips->f[inst->src1 + i], sizeof(uint32_t));
 				val = val | (val >> 8);
 				val = val | (val >> 16);
 				val >>= 1;
-				mips->fi[inst->dest + i] = val;
+				memcpy(&mips->f[inst->dest + i], &val, sizeof(float));
 			}
 			break;
 		}
@@ -760,7 +799,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			break;
 		case IROp::FMul:
 			if ((my_isinf(mips->f[inst->src1]) && mips->f[inst->src2] == 0.0f) || (my_isinf(mips->f[inst->src2]) && mips->f[inst->src1] == 0.0f)) {
-				mips->fi[inst->dest] = 0x7fc00000;
+				static const uint32_t INVALID_RESULT = 0x7fc00000;
+				memcpy(&mips->f[inst->dest], &INVALID_RESULT, sizeof(float));
 			} else {
 				mips->f[inst->dest] = mips->f[inst->src1] * mips->f[inst->src2];
 			}
@@ -819,10 +859,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		{
 			float value = mips->f[inst->src1];
 			if (my_isnanorinf(value)) {
-				mips->fi[inst->dest] = my_isinf(value) && value < 0.0f ? -2147483648LL : 2147483647LL;
-				break;
+				uint32_t result = my_isinf(value) && value < 0.0f ? 0x80000000UL : 0x7FFFFFFFUL;
+				memcpy(&mips->f[inst->dest], &result, sizeof(float));
 			} else {
-				mips->fs[inst->dest] = (int)floorf(value + 0.5f);
+				int result = (int)floorf(value + 0.5f);
+				memcpy(&mips->f[inst->dest], &result, sizeof(float));
 			}
 			break;
 		}
@@ -830,30 +871,33 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		{
 			float value = mips->f[inst->src1];
 			if (my_isnanorinf(value)) {
-				mips->fi[inst->dest] = my_isinf(value) && value < 0.0f ? -2147483648LL : 2147483647LL;
-				break;
+				uint32_t result = my_isinf(value) && value < 0.0f ? 0x80000000UL : 0x7FFFFFFFUL;
+				memcpy(&mips->f[inst->dest], &result, sizeof(float));
 			} else {
+				int result;
 				if (value >= 0.0f) {
-					mips->fs[inst->dest] = (int)floorf(value);
+					result = (int)floorf(value);
 					// Overflow, but it was positive.
-					if (mips->fs[inst->dest] == -2147483648LL) {
-						mips->fs[inst->dest] = 2147483647LL;
+					if (result == -2147483648LL) {
+						result = 2147483647LL;
 					}
 				} else {
 					// Overflow happens to be the right value anyway.
-					mips->fs[inst->dest] = (int)ceilf(value);
+					result = (int)ceilf(value);
 				}
-				break;
+				memcpy(&mips->f[inst->dest], &result, sizeof(float));
 			}
+			break;
 		}
 		case IROp::FCeil:
 		{
 			float value = mips->f[inst->src1];
 			if (my_isnanorinf(value)) {
-				mips->fi[inst->dest] = my_isinf(value) && value < 0.0f ? -2147483648LL : 2147483647LL;
-				break;
+				uint32_t result = my_isinf(value) && value < 0.0f ? 0x80000000UL : 0x7FFFFFFFUL;
+				memcpy(&mips->f[inst->dest], &result, sizeof(float));
 			} else {
-				mips->fs[inst->dest] = (int)ceilf(value);
+				int result = (int)ceilf(value);
+				memcpy(&mips->f[inst->dest], &result, sizeof(float));
 			}
 			break;
 		}
@@ -861,10 +905,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		{
 			float value = mips->f[inst->src1];
 			if (my_isnanorinf(value)) {
-				mips->fi[inst->dest] = my_isinf(value) && value < 0.0f ? -2147483648LL : 2147483647LL;
-				break;
+				uint32_t result = my_isinf(value) && value < 0.0f ? 0x80000000UL : 0x7FFFFFFFUL;
+				memcpy(&mips->f[inst->dest], &result, sizeof(float));
 			} else {
-				mips->fs[inst->dest] = (int)floorf(value);
+				int result = (int)floorf(value);
+				memcpy(&mips->f[inst->dest], &result, sizeof(float));
 			}
 			break;
 		}
@@ -902,21 +947,28 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			break;
 
 		case IROp::FCvtSW:
-			mips->f[inst->dest] = (float)mips->fs[inst->src1];
+		{
+			int32_t value;
+			memcpy(&value, &mips->f[inst->src1], sizeof(int32_t));
+			mips->f[inst->dest] = (float)value;
 			break;
+		}
 		case IROp::FCvtWS:
 		{
 			float src = mips->f[inst->src1];
 			if (my_isnanorinf(src)) {
-				mips->fs[inst->dest] = my_isinf(src) && src < 0.0f ? -2147483648LL : 2147483647LL;
+				uint32_t result = my_isinf(src) && src < 0.0f ? 0x80000000UL : 0x7FFFFFFFUL;
+				memcpy(&mips->f[inst->dest], &result, sizeof(float));
 				break;
 			}
+			int result;
 			switch (mips->fcr31 & 3) {
-			case 0: mips->fs[inst->dest] = (int)round_ieee_754(src); break;  // RINT_0
-			case 1: mips->fs[inst->dest] = (int)src; break;  // CAST_1
-			case 2: mips->fs[inst->dest] = (int)ceilf(src); break;  // CEIL_2
-			case 3: mips->fs[inst->dest] = (int)floorf(src); break;  // FLOOR_3
+			case 0: result = (int)round_ieee_754(src); break;  // RINT_0
+			case 1: result = (int)src; break;  // CAST_1
+			case 2: result = (int)ceilf(src); break;  // CEIL_2
+			case 3: result = (int)floorf(src); break;  // FLOOR_3
 			}
+			memcpy(&mips->f[inst->dest], &result, sizeof(float));
 			break; //cvt.w.s
 		}
 
