@@ -488,14 +488,11 @@ struct CheatOperation {
 			uint8_t vibrRTime;
 		} vibrationValues;
 		struct {
-			union {
-				float f;
-				uint32_t u;
-			} value;
+			uint32_t value;
 			uint8_t shader;
 			uint8_t uniform;
 			uint8_t format;
-		} PostShaderUniform;
+		} postShaderUniform;
 	};
 };
 
@@ -644,18 +641,18 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 		case 0x2: // 0x2 sets postprocessing shader uniform
 			{
 				CheatOperation op = { CheatOp::PostShader };
-				op.PostShaderUniform.uniform = line1.part1 & 0x000000FF;
-				op.PostShaderUniform.shader = (line1.part1 >> 16) & 0x000000FF;
-				op.PostShaderUniform.value.u = line1.part2;
+				op.postShaderUniform.uniform = line1.part1 & 0x000000FF;
+				op.postShaderUniform.shader = (line1.part1 >> 16) & 0x000000FF;
+				op.postShaderUniform.value = line1.part2;
 				return op;
 			}
 		case 0x3: // 0x3 sets postprocessing shader uniform from memory
 			{
 				addr = line1.part2;
 				CheatOperation op = { CheatOp::PostShaderFromMemory, addr };
-				op.PostShaderUniform.uniform = line1.part1 & 0x000000FF;
-				op.PostShaderUniform.format = (line1.part1 >> 8) & 0x000000FF;
-				op.PostShaderUniform.shader = (line1.part1 >> 16) & 0x000000FF;
+				op.postShaderUniform.uniform = line1.part1 & 0x000000FF;
+				op.postShaderUniform.format = (line1.part1 >> 8) & 0x000000FF;
+				op.postShaderUniform.shader = (line1.part1 >> 16) & 0x000000FF;
 				return op;
 			}
 		// Place for other PPSSPP specific cheats
@@ -964,9 +961,11 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 	case CheatOp::PostShader:
 		{
 			auto shaderChain = GetFullPostShadersChain(g_Config.vPostShaderNames);
-			if (op.PostShaderUniform.shader < shaderChain.size()) {
-				std::string shaderName = shaderChain[op.PostShaderUniform.shader]->section;
-				g_Config.mPostShaderSetting[StringFromFormat("%sSettingCurrentValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = op.PostShaderUniform.value.f;
+			if (op.postShaderUniform.shader < shaderChain.size()) {
+				std::string shaderName = shaderChain[op.postShaderUniform.shader]->section;
+				float valuef;
+				memcpy(&valuef, &op.postShaderUniform.value, sizeof(float));
+				g_Config.mPostShaderSetting[StringFromFormat("%sSettingCurrentValue%d", shaderName.c_str(), op.postShaderUniform.uniform + 1)] = valuef;
 			}
 		}
 		break;
@@ -974,25 +973,23 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 	case CheatOp::PostShaderFromMemory:
 		{
 			auto shaderChain = GetFullPostShadersChain(g_Config.vPostShaderNames);
-			if (Memory::IsValidRange(op.addr, 4) && op.PostShaderUniform.shader < shaderChain.size()) {
-				union {
-					float f;
-					uint32_t u;
-				} value;
-				value.u = Memory::Read_U32(op.addr);
-				std::string shaderName = shaderChain[op.PostShaderUniform.shader]->section;
-				switch (op.PostShaderUniform.format) {
+			if (Memory::IsValidRange(op.addr, 4) && op.postShaderUniform.shader < shaderChain.size()) {
+				float valuef;
+				uint32_t value = Memory::Read_U32(op.addr);
+				std::string shaderName = shaderChain[op.postShaderUniform.shader]->section;
+				switch (op.postShaderUniform.format) {
 				case 0:
-					g_Config.mPostShaderSetting[StringFromFormat("%sSettingCurrentValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u & 0x000000FF;
+					g_Config.mPostShaderSetting[StringFromFormat("%sSettingCurrentValue%d", shaderName.c_str(), op.postShaderUniform.uniform + 1)] = value & 0x000000FF;
 					break;
 				case 1:
-					g_Config.mPostShaderSetting[StringFromFormat("%sSettingCurrentValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u & 0x0000FFFF;
+					g_Config.mPostShaderSetting[StringFromFormat("%sSettingCurrentValue%d", shaderName.c_str(), op.postShaderUniform.uniform + 1)] = value & 0x0000FFFF;
 					break;
 				case 2:
-					g_Config.mPostShaderSetting[StringFromFormat("%sSettingCurrentValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u;
+					g_Config.mPostShaderSetting[StringFromFormat("%sSettingCurrentValue%d", shaderName.c_str(), op.postShaderUniform.uniform + 1)] = value;
 					break;
 				case 3:
-					g_Config.mPostShaderSetting[StringFromFormat("%sSettingCurrentValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.f;
+					memcpy(&valuef, &value, sizeof(float));
+					g_Config.mPostShaderSetting[StringFromFormat("%sSettingCurrentValue%d", shaderName.c_str(), op.postShaderUniform.uniform + 1)] = valuef;
 					break;
 				}
 			}
