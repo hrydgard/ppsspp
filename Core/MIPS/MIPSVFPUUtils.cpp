@@ -29,11 +29,6 @@
 #define V(i)   (currentMIPS->v[voffset[i]])
 #define VI(i)  (currentMIPS->vi[voffset[i]])
 
-union float2int {
-	uint32_t i;
-	float f;
-};
-
 void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg) {
 	int mtx = (vectorReg >> 2) & 7;
 	int col = vectorReg & 3;
@@ -617,46 +612,35 @@ bool GetVFPUCtrlMask(int reg, u32 *mask) {
 	}
 }
 
-float Float16ToFloat32(unsigned short l)
-{
-	float2int f2i;
-
+float Float16ToFloat32(unsigned short l) {
 	unsigned short float16 = l;
 	unsigned int sign = (float16 >> VFPU_SH_FLOAT16_SIGN) & VFPU_MASK_FLOAT16_SIGN;
 	int exponent = (float16 >> VFPU_SH_FLOAT16_EXP) & VFPU_MASK_FLOAT16_EXP;
 	unsigned int fraction = float16 & VFPU_MASK_FLOAT16_FRAC;
 
 	float f;
-	if (exponent == VFPU_FLOAT16_EXP_MAX)
-	{
-		f2i.i = sign << 31;
-		f2i.i |= 255 << 23;
-		f2i.i |= fraction;
-		f = f2i.f;
-	}
-	else if (exponent == 0 && fraction == 0)
-	{
+	if (exponent == VFPU_FLOAT16_EXP_MAX) {
+		uint32_t i = sign << 31;
+		i |= 255 << 23;
+		i |= fraction;
+		memcpy(&f, &i, sizeof(float));
+	} else if (exponent == 0 && fraction == 0) {
 		f = sign == 1 ? -0.0f : 0.0f;
-	}
-	else
-	{
-		if (exponent == 0)
-		{
-			do
-			{
+	} else {
+		if (exponent == 0) {
+			do {
 				fraction <<= 1;
 				exponent--;
-			}
-			while (!(fraction & (VFPU_MASK_FLOAT16_FRAC + 1)));
+			} while (!(fraction & (VFPU_MASK_FLOAT16_FRAC + 1)));
 
 			fraction &= VFPU_MASK_FLOAT16_FRAC;
 		}
 
 		/* Convert to 32-bit single-precision IEEE754. */
-		f2i.i = sign << 31;
-		f2i.i |= (exponent + 112) << 23;
-		f2i.i |= fraction << 13;
-		f=f2i.f;
+		uint32_t i = sign << 31;
+		i |= (exponent + 112) << 23;
+		i |= fraction << 13;
+		memcpy(&f, &i, sizeof(float));
 	}
 	return f;
 }
@@ -680,8 +664,8 @@ static int32_t get_sign(uint32_t x) {
 
 float vfpu_dot(const float a[4], const float b[4]) {
 	static const int EXTRA_BITS = 2;
-	float2int result;
-	float2int src[2];
+	float result;
+	uint32_t src[2];
 
 	int32_t exps[4];
 	int32_t mants[4];
@@ -690,27 +674,29 @@ float vfpu_dot(const float a[4], const float b[4]) {
 	int32_t last_inf = -1;
 
 	for (int i = 0; i < 4; i++) {
-		src[0].f = a[i];
-		src[1].f = b[i];
+		memcpy(&src[0], &a[i], sizeof(uint32_t));
+		memcpy(&src[1], &b[i], sizeof(uint32_t));
 
-		int32_t aexp = get_uexp(src[0].i);
-		int32_t bexp = get_uexp(src[1].i);
-		int32_t amant = get_mant(src[0].i) << EXTRA_BITS;
-		int32_t bmant = get_mant(src[1].i) << EXTRA_BITS;
+		int32_t aexp = get_uexp(src[0]);
+		int32_t bexp = get_uexp(src[1]);
+		int32_t amant = get_mant(src[0]) << EXTRA_BITS;
+		int32_t bmant = get_mant(src[1]) << EXTRA_BITS;
 
 		exps[i] = aexp + bexp - 127;
 		if (aexp == 255) {
 			// INF * 0 = NAN
-			if ((src[0].i & 0x007FFFFF) != 0 || bexp == 0) {
-				result.i = 0x7F800001;
-				return result.f;
+			if ((src[0] & 0x007FFFFF) != 0 || bexp == 0) {
+				uint32_t i = 0x7F800001;
+				memcpy(&result, &i, sizeof(float));
+				return result;
 			}
 			mants[i] = get_mant(0) << EXTRA_BITS;
 			exps[i] = 255;
 		} else if (bexp == 255) {
-			if ((src[1].i & 0x007FFFFF) != 0 || aexp == 0) {
-				result.i = 0x7F800001;
-				return result.f;
+			if ((src[1] & 0x007FFFFF) != 0 || aexp == 0) {
+				uint32_t i = 0x7F800001;
+				memcpy(&result, &i, sizeof(float));
+				return result;
 			}
 			mants[i] = get_mant(0) << EXTRA_BITS;
 			exps[i] = 255;
@@ -719,7 +705,7 @@ float vfpu_dot(const float a[4], const float b[4]) {
 			uint64_t adjust = (uint64_t)amant * (uint64_t)bmant;
 			mants[i] = (adjust >> (23 + EXTRA_BITS)) & 0x7FFFFFFF;
 		}
-		signs[i] = get_sign(src[0].i) ^ get_sign(src[1].i);
+		signs[i] = get_sign(src[0]) ^ get_sign(src[1]);
 
 		if (exps[i] > max_exp) {
 			max_exp = exps[i];
@@ -727,8 +713,9 @@ float vfpu_dot(const float a[4], const float b[4]) {
 		if (exps[i] >= 255) {
 			// Infinity minus infinity is not a real number.
 			if (last_inf != -1 && signs[i] != last_inf) {
-				result.i = 0x7F800001;
-				return result.f;
+				uint32_t i = 0x7F800001;
+				memcpy(&result, &i, sizeof(float));
+				return result;
 			}
 			last_inf = signs[i];
 		}
@@ -787,33 +774,36 @@ float vfpu_dot(const float a[4], const float b[4]) {
 		return 0.0f;
 	}
 
-	result.i = sign_sum | (max_exp << 23) | (mant_sum & 0x007FFFFF);
-	return result.f;
+	uint32_t result_i = sign_sum | (max_exp << 23) | (mant_sum & 0x007FFFFF);
+	memcpy(&result, &result_i, sizeof(float));
+	return result;
 }
 
 // TODO: This is still not completely accurate compared to the PSP's vsqrt.
 float vfpu_sqrt(float a) {
-	float2int val;
-	val.f = a;
+	float result;
+	uint32_t val;
+	memcpy(&val, &a, sizeof(uint32_t));
 
-	if ((val.i & 0xff800000) == 0x7f800000) {
-		if ((val.i & 0x007fffff) != 0) {
-			val.i = 0x7f800001;
+	if ((val & 0xff800000) == 0x7f800000) {
+		if ((val & 0x007fffff) != 0) {
+			val = 0x7f800001;
 		}
-		return val.f;
+		memcpy(&result, &val, sizeof(float));
+		return result;
 	}
-	if ((val.i & 0x7f800000) == 0) {
+	if ((val & 0x7f800000) == 0) {
 		// Kill any sign.
-		val.i = 0;
-		return val.f;
+		return 0.0f;
 	}
-	if (val.i & 0x80000000) {
-		val.i = 0x7f800001;
-		return val.f;
+	if (val & 0x80000000) {
+		val = 0x7f800001;
+		memcpy(&result, &val, sizeof(float));
+		return result;
 	}
 
-	int k = get_exp(val.i);
-	uint32_t sp = get_mant(val.i);
+	int k = get_exp(val);
+	uint32_t sp = get_mant(val);
 	int less_bits = k & 1;
 	k >>= 1;
 
@@ -824,11 +814,12 @@ float vfpu_sqrt(float a) {
 		z = (z >> 1) + (uint32_t)(halfsp / z);
 	}
 
-	val.i = ((k + 127) << 23) | ((z << less_bits) & 0x007FFFFF);
+	val = ((k + 127) << 23) | ((z << less_bits) & 0x007FFFFF);
 	// The lower two bits never end up set on the PSP, it seems like.
-	val.i &= 0xFFFFFFFC;
+	val &= 0xFFFFFFFC;
 
-	return val.f;
+	memcpy(&result, &val, sizeof(float));
+	return result;
 }
 
 static inline uint32_t mant_mul(uint32_t a, uint32_t b) {
@@ -840,27 +831,31 @@ static inline uint32_t mant_mul(uint32_t a, uint32_t b) {
 }
 
 float vfpu_rsqrt(float a) {
-	float2int val;
-	val.f = a;
+	float result;
+	uint32_t val;
+	memcpy(&val, &a, sizeof(uint32_t));
 
-	if (val.i == 0x7f800000) {
+	if (val == 0x7f800000) {
 		return 0.0f;
 	}
-	if ((val.i & 0x7fffffff) > 0x7f800000) {
-		val.i = (val.i & 0x80000000) | 0x7f800001;
-		return val.f;
+	if ((val & 0x7fffffff) > 0x7f800000) {
+		val = (val & 0x80000000) | 0x7f800001;
+		memcpy(&result, &val, sizeof(float));
+		return result;
 	}
-	if ((val.i & 0x7f800000) == 0) {
-		val.i = (val.i & 0x80000000) | 0x7f800000;
-		return val.f;
+	if ((val & 0x7f800000) == 0) {
+		val = (val & 0x80000000) | 0x7f800000;
+		memcpy(&result, &val, sizeof(float));
+		return result;
 	}
-	if (val.i & 0x80000000) {
-		val.i = 0xff800001;
-		return val.f;
+	if (val & 0x80000000) {
+		val = 0xff800001;
+		memcpy(&result, &val, sizeof(float));
+		return result;
 	}
 
-	int k = get_exp(val.i);
-	uint32_t sp = get_mant(val.i);
+	int k = get_exp(val);
+	uint32_t sp = get_mant(val);
 	int less_bits = k & 1;
 	k = -(k >> 1);
 
@@ -883,29 +878,33 @@ float vfpu_rsqrt(float a) {
 
 	z >>= less_bits;
 
-	val.i = ((k + 127) << 23) | (z & 0x007FFFFF);
-	val.i &= 0xFFFFFFFC;
+	val = ((k + 127) << 23) | (z & 0x007FFFFF);
+	val &= 0xFFFFFFFC;
 
-	return val.f;
+	memcpy(&result, &val, sizeof(float));
+	return result;
 }
 
 float vfpu_sin(float a) {
-	float2int val;
-	val.f = a;
+	float result;
+	uint32_t val;
+	memcpy(&val, &a, sizeof(uint32_t));
 
-	int32_t k = get_uexp(val.i);
+	int32_t k = get_uexp(val);
 	if (k == 255) {
-		val.i = (val.i & 0xFF800001) | 1;
-		return val.f;
+		val = (val & 0xFF800001) | 1;
+		memcpy(&result, &val, sizeof(float));
+		return result;
 	}
 
 	if (k < 0x68) {
-		val.i &= 0x80000000;
-		return val.f;
+		val &= 0x80000000;
+		memcpy(&result, &val, sizeof(float));
+		return result;
 	}
 
 	// Okay, now modulus by 4 to begin with (identical wave every 4.)
-	int32_t mantissa = get_mant(val.i);
+	int32_t mantissa = get_mant(val);
 	if (k > 0x80) {
 		const uint8_t over = k & 0x1F;
 		mantissa = (mantissa << over) & 0x00FFFFFF;
@@ -913,7 +912,7 @@ float vfpu_sin(float a) {
 	}
 	// This subtracts off the 2.  If we do, flip sign to inverse the wave.
 	if (k == 0x80 && mantissa >= (1 << 23)) {
-		val.i ^= 0x80000000;
+		val ^= 0x80000000;
 		mantissa -= 1 << 23;
 	}
 
@@ -922,34 +921,41 @@ float vfpu_sin(float a) {
 	k -= norm_shift;
 
 	if (k <= 0 || mantissa == 0) {
-		val.i &= 0x80000000;
-		return val.f;
+		val &= 0x80000000;
+		memcpy(&result, &val, sizeof(float));
+		return result;
 	}
 
 	// This is the value with modulus applied.
-	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
-	val.f = (float)sin((double)val.f * M_PI_2);
-	val.i &= 0xFFFFFFFC;
-	return val.f;
+	val = (val & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
+	memcpy(&result, &val, sizeof(float));
+	result = (float)sin((double)result * M_PI_2);
+	memcpy(&val, &result, sizeof(uint32_t));
+	val &= 0xFFFFFFFC;
+
+	memcpy(&result, &val, sizeof(float));
+	return result;
 }
 
 float vfpu_cos(float a) {
-	float2int val;
-	val.f = a;
+	float result;
+	uint32_t val;
+	memcpy(&val, &a, sizeof(uint32_t));
 	bool negate = false;
 
-	int32_t k = get_uexp(val.i);
+	int32_t k = get_uexp(val);
 	if (k == 255) {
 		// Note: unlike sin, cos always returns +NAN.
-		val.i = (val.i & 0x7F800001) | 1;
-		return val.f;
+		val = (val & 0x7F800001) | 1;
+		memcpy(&result, &val, sizeof(float));
+		return result;
 	}
 
 	if (k < 0x68)
 		return 1.0f;
 
 	// Okay, now modulus by 4 to begin with (identical wave every 4.)
-	int32_t mantissa = get_mant(val.i);
+	int32_t mantissa = get_mant(val);
 	if (k > 0x80) {
 		const uint8_t over = k & 0x1F;
 		mantissa = (mantissa << over) & 0x00FFFFFF;
@@ -969,39 +975,42 @@ float vfpu_cos(float a) {
 		return negate ? -1.0f : 1.0f;
 
 	// This is the value with modulus applied.
-	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
-	if (val.f == 1.0f || val.f == -1.0f) {
+	val = (val & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
+	memcpy(&result, &val, sizeof(float));
+	if (result == 1.0f || result == -1.0f) {
 		return negate ? 0.0f : -0.0f;
 	}
-	val.f = (float)cos((double)val.f * M_PI_2);
-	val.i &= 0xFFFFFFFC;
-	return negate ? -val.f : val.f;
+	result = (float)cos((double)result * M_PI_2);
+	memcpy(&val, &result, sizeof(uint32_t));
+	val &= 0xFFFFFFFC;
+	memcpy(&result, &val, sizeof(float));
+	return negate ? -result : result;
 }
 
 void vfpu_sincos(float a, float &s, float &c) {
-	float2int val;
-	val.f = a;
+	uint32_t val;
+	memcpy(&val, &a, sizeof(uint32_t));
 	// For sin, negate the input, for cos negate the output.
 	bool negate = false;
 
-	int32_t k = get_uexp(val.i);
+	int32_t k = get_uexp(val);
 	if (k == 255) {
-		val.i = (val.i & 0xFF800001) | 1;
-		s = val.f;
-		val.i &= 0x7F800001;
-		c = val.f;
+		val = (val & 0xFF800001) | 1;
+		memcpy(&s, &val, sizeof(float));
+		val &= 0x7F800001;
+		memcpy(&c, &val, sizeof(float));
 		return;
 	}
 
 	if (k < 0x68) {
-		val.i &= 0x80000000;
-		s = val.f;
+		val &= 0x80000000;
+		memcpy(&s, &val, sizeof(float));
 		c = 1.0f;
 		return;
 	}
 
 	// Okay, now modulus by 4 to begin with (identical wave every 4.)
-	int32_t mantissa = get_mant(val.i);
+	int32_t mantissa = get_mant(val);
 	if (k > 0x80) {
 		const uint8_t over = k & 0x1F;
 		mantissa = (mantissa << over) & 0x00FFFFFF;
@@ -1018,45 +1027,50 @@ void vfpu_sincos(float a, float &s, float &c) {
 	k -= norm_shift;
 
 	if (k <= 0 || mantissa == 0) {
-		val.i &= 0x80000000;
+		val &= 0x80000000;
 		if (negate)
-			val.i ^= 0x80000000;
-		s = val.f;
+			val ^= 0x80000000;
+		memcpy(&s, &val, sizeof(float));
 		c = negate ? -1.0f : 1.0f;
 		return;
 	}
 
 	// This is the value with modulus applied.
-	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
-	float2int i_sine, i_cosine;
-	if (val.f == 1.0f) {
-		i_sine.f = negate ? -1.0f : 1.0f;
-		i_cosine.f = negate ? 0.0f : -0.0f;
-	} else if (val.f == -1.0f) {
-		i_sine.f = negate ? 1.0f : -1.0f;
-		i_cosine.f = negate ? 0.0f : -0.0f;
+	val = (val & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
+	float result;
+	memcpy(&result, &val, sizeof(float));
+	float f_sine, f_cosine;
+	if (result == 1.0f) {
+		f_sine = negate ? -1.0f : 1.0f;
+		f_cosine = negate ? 0.0f : -0.0f;
+	} else if (result == -1.0f) {
+		f_sine = negate ? 1.0f : -1.0f;
+		f_cosine = negate ? 0.0f : -0.0f;
 	} else if (negate) {
-		i_sine.f = (float)sin((double)-val.f * M_PI_2);
-		i_cosine.f = -(float)cos((double)val.f * M_PI_2);
+		f_sine = (float)sin((double)-result * M_PI_2);
+		f_cosine = -(float)cos((double)result * M_PI_2);
 	} else {
-		double angle = (double)val.f * M_PI_2;
+		double angle = (double)result * M_PI_2;
 #if defined(__linux__)
 		double d_sine;
 		double d_cosine;
 		sincos(angle, &d_sine, &d_cosine);
-		i_sine.f = (float)d_sine;
-		i_cosine.f = (float)d_cosine;
+		f_sine = (float)d_sine;
+		f_cosine = (float)d_cosine;
 #else
-		i_sine.f = (float)sin(angle);
-		i_cosine.f = (float)cos(angle);
+		f_sine = (float)sin(angle);
+		f_cosine = (float)cos(angle);
 #endif
 	}
 
-	i_sine.i &= 0xFFFFFFFC;
-	i_cosine.i &= 0xFFFFFFFC;
-	s = i_sine.f;
-	c = i_cosine.f;
-	return ;
+	uint32_t i_sine, i_cosine;
+	memcpy(&i_sine, &f_sine, sizeof(uint32_t));
+	memcpy(&i_cosine, &f_cosine, sizeof(uint32_t));
+	i_sine &= 0xFFFFFFFC;
+	i_cosine &= 0xFFFFFFFC;
+	memcpy(&s, &i_sine, sizeof(float));
+	memcpy(&c, &i_cosine, sizeof(float));
+	return;
 }
 
 void InitVFPUSinCos() {
