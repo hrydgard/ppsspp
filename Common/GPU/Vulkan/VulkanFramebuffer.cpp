@@ -96,7 +96,7 @@ VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPas
 	views[attachmentCount++] = color.rtView;  // 2D array texture if multilayered.
 	if (hasDepth) {
 		if (!depth.rtView) {
-			WARN_LOG(G3D, "depth render type to non-depth fb: %p %p fmt=%d (%s %dx%d)", depth.image, depth.texAllLayersView, depth.format, tag_.c_str(), width, height);
+			WARN_LOG(G3D, "depth render type to non-depth fb: %p %p fmt=%d (%s %dx%d)", (void *)depth.image, (void *)depth.texAllLayersView, depth.format, tag_.c_str(), width, height);
 			// Will probably crash, depending on driver.
 		}
 		views[attachmentCount++] = depth.rtView;
