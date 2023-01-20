@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <algorithm>
 #include <functional>
 
@@ -70,6 +71,9 @@ DrawEngineVulkan::DrawEngineVulkan(Draw::DrawContext *draw)
 	: draw_(draw), vai_(1024) {
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	decOptions_.alignOutputToWord = true;
+#endif
 
 	// Allocate nicely aligned memory. Maybe graphics drivers will appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.

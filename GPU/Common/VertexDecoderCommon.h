@@ -324,6 +324,7 @@ struct VertexDecoderOptions {
 	bool expandAllWeightsToFloat;
 	bool expand8BitNormalsToFloat;
 	bool applySkinInDecode;
+	bool alignOutputToWord;
 };
 
 class VertexDecoder {
