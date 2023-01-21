@@ -53,6 +53,10 @@ static inline bool SupportsZicsr() {
 	return false;
 }
 
+static inline bool SupportsVector() {
+	return cpu_info.RiscV_V;
+}
+
 enum class Opcode32 {
 	// Note: invalid, just used for FixupBranch.
 	ZERO = 0b0000000,
@@ -73,6 +77,7 @@ enum class Opcode32 {
 	FNMSUB = 0b1001011,
 	FNMADD = 0b1001111,
 	OP_FP = 0b1010011,
+	OP_V = 0b1010111,
 	BRANCH = 0b1100011,
 	JALR = 0b1100111,
 	JAL = 0b1101111,
@@ -147,6 +152,12 @@ enum class Funct3 {
 	CSRRWI = 0b101,
 	CSRRSI = 0b110,
 	CSRRCI = 0b111,
+
+	VSETVL = 0b111,
+	VLS_8 = 0b000,
+	VLS_16 = 0b101,
+	VLS_32 = 0b110,
+	VLS_64 = 0b111,
 
 	C_ADDI4SPN = 0b000,
 	C_FLD = 0b001,
@@ -257,9 +268,24 @@ enum class RiscCReg {
 	X8, X9, X10, X11, X12, X13, X14, X15,
 };
 
+enum class VLSUMop {
+	ELEMS = 0b00000,
+	REG = 0b01000,
+	MASK = 0b01011,
+	ELEMS_LOAD_FF = 0b10000,
+};
+
+enum class VMop {
+	UNIT = 0b00,
+	INDEXU = 0b01,
+	STRIDE = 0b10,
+	INDEXO = 0b11,
+};
+
 static inline RiscVReg DecodeReg(RiscVReg reg) { return (RiscVReg)(reg & 0x1F); }
-static inline bool IsGPR(RiscVReg reg) { return reg < 0x20; }
-static inline bool IsFPR(RiscVReg reg) { return (reg & 0x20) != 0 && (int)reg < 0x40; }
+static inline bool IsGPR(RiscVReg reg) { return (reg & ~0x1F) == 0; }
+static inline bool IsFPR(RiscVReg reg) { return (reg & ~0x1F) == 0x20; }
+static inline bool IsVPR(RiscVReg reg) { return (reg & ~0x1F) == 0x40; }
 
 static inline bool CanCompress(RiscVReg reg) {
 	return (DecodeReg(reg) & 0x18) == 0x08;
@@ -577,6 +603,35 @@ static inline int FConvToIntegerBits(FConv c) {
 		return 64;
 	}
 	return 0;
+}
+
+Funct3 VecBitsToFunct3(int bits) {
+	int bitsSupported = SupportsVector() ? 64 : 0;
+	_assert_msg_(bitsSupported >= bits, "Cannot use funct3 width %d, only have %d", bits, bitsSupported);
+	switch (bits) {
+	case 8:
+		return Funct3::VLS_8;
+	case 16:
+		return Funct3::VLS_16;
+	case 32:
+		return Funct3::VLS_32;
+	case 64:
+		return Funct3::VLS_64;
+	default:
+		_assert_msg_(false, "Invalid funct3 width %d", bits);
+		return Funct3::VLS_8;
+	}
+}
+
+static s32 VecLSToSimm12(RiscVReg vrs2, VUseMask vm, VMop mop, int bits, int nf) {
+	_assert_msg_(nf >= 1 && nf <= 8, "Cannot encode field count %d (must be <= 8)", nf);
+	int mew = bits >= 128 ? 1 : 0;
+	int nf3 = nf > 4 ? (0xFFFFFFF8 | (nf - 1)) : (nf - 1);
+	return (s32)DecodeReg(vrs2) | ((s32)vm << 5) | ((s32)mop << 6) | (mew << 8) | (nf3 << 9);
+}
+
+static s32 VecLSToSimm12(VLSUMop lsumop, VUseMask vm, VMop mop, int bits, int nf) {
+	return VecLSToSimm12((RiscVReg)(int)lsumop, vm, mop, bits, nf);
 }
 
 RiscVEmitter::RiscVEmitter(const u8 *ptr, u8 *writePtr) {
@@ -1762,6 +1817,154 @@ void RiscVEmitter::CSRRCI(RiscVReg rd, Csr csr, u8 uimm5) {
 	_assert_msg_((u32)csr <= 0x00000FFF, "%s with invalid CSR number", __func__);
 	_assert_msg_((u32)uimm5 <= 0x1F, "%s can only clear lowest 5 bits", __func__);
 	Write32(EncodeGI(Opcode32::SYSTEM, rd, Funct3::CSRRCI, (RiscVReg)uimm5, (Funct12)csr));
+}
+
+void RiscVEmitter::VSETVLI(RiscVReg rd, RiscVReg rs1, VType vtype) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_((vtype.value & ~0xFF) == 0, "%s with invalid vtype", __func__);
+	_assert_msg_(IsGPR(rd), "%s rd (VL) must be GPR", __func__);
+	_assert_msg_(IsGPR(rs1), "%s rs1 (AVL) must be GPR", __func__);
+	Write32(EncodeI(Opcode32::OP_V, rd, Funct3::VSETVL, rs1, (s32)vtype.value));
+}
+
+void RiscVEmitter::VSETIVLI(RiscVReg rd, u8 uimm5, VType vtype) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_((vtype.value & ~0xFF) == 0, "%s with invalid vtype", __func__);
+	_assert_msg_(IsGPR(rd), "%s rd (VL) must be GPR", __func__);
+	_assert_msg_((u32)uimm5 <= 0x1F, "%s (AVL) can only set up to 31", __func__);
+	s32 simm12 = 0xFFFFFC00 | vtype.value;
+	Write32(EncodeI(Opcode32::OP_V, rd, Funct3::VSETVL, (RiscVReg)uimm5, (s32)vtype.value));
+}
+
+void RiscVEmitter::VSETVL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_(IsGPR(rd), "%s rd (VL) must be GPR", __func__);
+	_assert_msg_(IsGPR(rs1), "%s rs1 (AVL) must be GPR", __func__);
+	_assert_msg_(IsGPR(rs2), "%s rs2 (vtype) must be GPR", __func__);
+	Write32(EncodeI(Opcode32::OP_V, rd, Funct3::VSETVL, rs1, rs2));
+}
+
+void RiscVEmitter::VLM_V(RiscVReg vd, RiscVReg rs1) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_(IsVPR(vd), "%s vd must be VPR", __func__);
+	s32 simm12 = VecLSToSimm12(VLSUMop::MASK, VUseMask::NONE, VMop::UNIT, 8, 1);
+	Write32(EncodeI(Opcode32::LOAD_FP, vd, Funct3::VLS_8, rs1, simm12));
+}
+
+void RiscVEmitter::VLSEGE_V(int fields, int dataBits, RiscVReg vd, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_(IsVPR(vd), "%s vd must be VPR", __func__);
+	_assert_msg_(IsGPR(rs1), "%s rs1 must be GPR", __func__);
+	// Of course, if LMUL > 1, it could still be wrong, but this is a good basic check.
+	_assert_msg_((int)DecodeReg(vd) + fields <= 32, "%s cannot access beyond V31", __func__);
+	s32 simm12 = VecLSToSimm12(VLSUMop::ELEMS, vm, VMop::UNIT, dataBits, fields);
+	Write32(EncodeI(Opcode32::LOAD_FP, vd, VecBitsToFunct3(dataBits), rs1, simm12));
+}
+
+void RiscVEmitter::VLSSEGE_V(int fields, int dataBits, RiscVReg vd, RiscVReg rs1, RiscVReg rs2, VUseMask vm) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_(IsVPR(vd), "%s vd must be VPR", __func__);
+	_assert_msg_(IsGPR(rs1), "%s rs1 (base) must be GPR", __func__);
+	_assert_msg_(IsGPR(rs2), "%s rs2 (stride) must be GPR", __func__);
+	_assert_msg_((int)DecodeReg(vd) + fields <= 32, "%s cannot access beyond V31", __func__);
+	s32 simm12 = VecLSToSimm12(rs2, vm, VMop::STRIDE, dataBits, fields);
+	Write32(EncodeI(Opcode32::LOAD_FP, vd, VecBitsToFunct3(dataBits), rs1, simm12));
+}
+
+void RiscVEmitter::VLUXSEGEI_V(int fields, int indexBits, RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_(IsVPR(vd), "%s vd must be VPR", __func__);
+	_assert_msg_(IsGPR(rs1), "%s rs1 (base) must be GPR", __func__);
+	_assert_msg_(IsVPR(vs2), "%s vs2 (stride) must be VPR", __func__);
+	_assert_msg_((int)DecodeReg(vd) + fields <= 32, "%s cannot access beyond V31", __func__);
+	s32 simm12 = VecLSToSimm12(vs2, vm, VMop::INDEXU, indexBits, fields);
+	Write32(EncodeI(Opcode32::LOAD_FP, vd, VecBitsToFunct3(indexBits), rs1, simm12));
+}
+
+void RiscVEmitter::VLOXSEGEI_V(int fields, int indexBits, RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_(IsVPR(vd), "%s vd must be VPR", __func__);
+	_assert_msg_(IsGPR(rs1), "%s rs1 (base) must be GPR", __func__);
+	_assert_msg_(IsVPR(vs2), "%s vs2 (stride) must be VPR", __func__);
+	_assert_msg_((int)DecodeReg(vd) + fields <= 32, "%s cannot access beyond V31", __func__);
+	s32 simm12 = VecLSToSimm12(vs2, vm, VMop::INDEXO, indexBits, fields);
+	Write32(EncodeI(Opcode32::LOAD_FP, vd, VecBitsToFunct3(indexBits), rs1, simm12));
+}
+
+void RiscVEmitter::VLSEGEFF_V(int fields, int dataBits, RiscVReg vd, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_(IsVPR(vd), "%s vd must be VPR", __func__);
+	_assert_msg_(IsGPR(rs1), "%s rs1 must be GPR", __func__);
+	s32 simm12 = VecLSToSimm12(VLSUMop::ELEMS_LOAD_FF, vm, VMop::UNIT, dataBits, fields);
+	Write32(EncodeI(Opcode32::LOAD_FP, vd, VecBitsToFunct3(dataBits), rs1, simm12));
+}
+
+void RiscVEmitter::VLR_V(int regs, int hintBits, RiscVReg vd, RiscVReg rs1) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_(IsVPR(vd), "%s vd must be VPR", __func__);
+	_assert_msg_(IsGPR(rs1), "%s rs1 must be GPR", __func__);
+	_assert_msg_(regs == 1 || regs == 2 || regs == 4 || regs == 8, "%s can only access count=1/2/4/8 at a time, not %d", __func__, regs);
+	_assert_msg_(((int)DecodeReg(vd) & (regs - 1)) == 0, "%s base reg must align to reg count", __func__);
+	_assert_msg_((int)DecodeReg(vd) + regs <= 32, "%s cannot access beyond V31", __func__);
+	s32 simm12 = VecLSToSimm12(VLSUMop::REG, VUseMask::NONE, VMop::UNIT, hintBits, regs);
+	Write32(EncodeI(Opcode32::LOAD_FP, vd, VecBitsToFunct3(hintBits), rs1, simm12));
+}
+
+void RiscVEmitter::VSM_V(RiscVReg vs3, RiscVReg rs1) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_(IsVPR(vs3), "%s vs3 must be VPR", __func__);
+	s32 simm12 = VecLSToSimm12(VLSUMop::MASK, VUseMask::NONE, VMop::UNIT, 8, 1);
+	Write32(EncodeI(Opcode32::STORE_FP, vs3, Funct3::VLS_8, rs1, simm12));
+}
+
+void RiscVEmitter::VSSEGE_V(int fields, int dataBits, RiscVReg vs3, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_(IsVPR(vs3), "%s vs3 must be VPR", __func__);
+	_assert_msg_(IsGPR(rs1), "%s rs1 must be GPR", __func__);
+	_assert_msg_((int)DecodeReg(vs3) + fields <= 32, "%s cannot access beyond V31", __func__);
+	s32 simm12 = VecLSToSimm12(VLSUMop::ELEMS, vm, VMop::UNIT, dataBits, fields);
+	Write32(EncodeI(Opcode32::STORE_FP, vs3, VecBitsToFunct3(dataBits), rs1, simm12));
+}
+
+void RiscVEmitter::VSSSEGE_V(int fields, int dataBits, RiscVReg vs3, RiscVReg rs1, RiscVReg rs2, VUseMask vm) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_(IsVPR(vs3), "%s vs3 must be VPR", __func__);
+	_assert_msg_(IsGPR(rs1), "%s rs1 (base) must be GPR", __func__);
+	_assert_msg_(IsGPR(rs2), "%s rs2 (stride) must be GPR", __func__);
+	_assert_msg_((int)DecodeReg(vs3) + fields <= 32, "%s cannot access beyond V31", __func__);
+	s32 simm12 = VecLSToSimm12(rs2, vm, VMop::STRIDE, dataBits, fields);
+	Write32(EncodeI(Opcode32::STORE_FP, vs3, VecBitsToFunct3(dataBits), rs1, simm12));
+}
+
+void RiscVEmitter::VSUXSEGEI_V(int fields, int indexBits, RiscVReg vs3, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_(IsVPR(vs3), "%s vs3 must be VPR", __func__);
+	_assert_msg_(IsGPR(rs1), "%s rs1 (base) must be GPR", __func__);
+	_assert_msg_(IsVPR(vs2), "%s vs2 (stride) must be VPR", __func__);
+	_assert_msg_((int)DecodeReg(vs3) + fields <= 32, "%s cannot access beyond V31", __func__);
+	s32 simm12 = VecLSToSimm12(vs2, vm, VMop::INDEXU, indexBits, fields);
+	Write32(EncodeI(Opcode32::STORE_FP, vs3, VecBitsToFunct3(indexBits), rs1, simm12));
+}
+
+void RiscVEmitter::VSOXSEGEI_V(int fields, int indexBits, RiscVReg vs3, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_(IsVPR(vs3), "%s vs3 must be VPR", __func__);
+	_assert_msg_(IsGPR(rs1), "%s rs1 (base) must be GPR", __func__);
+	_assert_msg_(IsVPR(vs2), "%s vs2 (stride) must be VPR", __func__);
+	_assert_msg_((int)DecodeReg(vs3) + fields <= 32, "%s cannot access beyond V31", __func__);
+	s32 simm12 = VecLSToSimm12(vs2, vm, VMop::INDEXO, indexBits, fields);
+	Write32(EncodeI(Opcode32::STORE_FP, vs3, VecBitsToFunct3(indexBits), rs1, simm12));
+}
+
+void RiscVEmitter::VSR_V(int regs, RiscVReg vs3, RiscVReg rs1) {
+	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
+	_assert_msg_(IsVPR(vs3), "%s vs3 must be VPR", __func__);
+	_assert_msg_(IsGPR(rs1), "%s rs1 must be GPR", __func__);
+	_assert_msg_(regs == 1 || regs == 2 || regs == 4 || regs == 8, "%s can only access count=1/2/4/8 at a time, not %d", __func__, regs);
+	_assert_msg_(((int)DecodeReg(vs3) & (regs - 1)) == 0, "%s base reg must align to reg count", __func__);
+	_assert_msg_((int)DecodeReg(vs3) + regs <= 32, "%s cannot access beyond V31", __func__);
+	s32 simm12 = VecLSToSimm12(VLSUMop::REG, VUseMask::NONE, VMop::UNIT, 8, regs);
+	Write32(EncodeI(Opcode32::STORE_FP, vs3, VecBitsToFunct3(8), rs1, simm12));
 }
 
 bool RiscVEmitter::AutoCompress() const {

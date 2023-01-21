@@ -42,6 +42,11 @@ enum RiscVReg {
 	F8, F9, F10, F11, F12, F13, F14, F15,
 	F16, F17, F18, F19, F20, F21, F22, F23,
 	F24, F25, F26, F27, F28, F29, F30, F31,
+
+	V0 = 0x40, V1, V2, V3, V4, V5, V6, V7,
+	V8, V9, V10, V11, V12, V13, V14, V15,
+	V16, V17, V18, V19, V20, V21, V22, V23,
+	V24, V25, V26, V27, V28, V29, V30, V31,
 };
 
 enum class FixupBranchType {
@@ -99,12 +104,75 @@ enum class Csr {
 	FRm = 0x002,
 	FCsr = 0x003,
 
+	VStart = 0x008,
+	VXSat = 0x009,
+	VXRm = 0x00A,
+	VCsr = 0x00F,
+	VL = 0xC20,
+	VType = 0xC21,
+	VLenB = 0xC22,
+
 	Cycle = 0xC00,
 	Time = 0xC01,
 	InstRet = 0xC02,
 	CycleH = 0xC80,
 	TimeH = 0xC81,
 	InstRetH = 0xC82,
+};
+
+enum class VLMul {
+	M1 = 0b000,
+	M2 = 0b001,
+	M4 = 0b010,
+	M8 = 0b011,
+	MF8 = 0b101,
+	MF4 = 0b110,
+	MF2 = 0b111,
+};
+
+enum class VSew {
+	E8 = 0b000,
+	E16 = 0b001,
+	E32 = 0b010,
+	E64 = 0b011,
+};
+
+enum class VTail {
+	U = 0,
+	A = 1,
+};
+
+enum class VMask {
+	U = 0,
+	A = 1,
+};
+
+struct VType {
+	constexpr VType(VSew sew, VTail vt, VMask vm)
+		: value(((uint32_t)sew << 3) | ((uint32_t)vt << 6) | ((uint32_t)vm << 7)) {
+	}
+	constexpr VType(VSew sew, VLMul lmul, VTail vt, VMask vm)
+		: value((uint32_t)lmul | ((uint32_t)sew << 3) | ((uint32_t)vt << 6) | ((uint32_t)vm << 7)) {
+	}
+
+	VType(int bits, VLMul lmul, VTail vt, VMask vm) {
+		VSew sew = VSew::E8;
+		switch (bits) {
+		case 8: sew = VSew::E8; break;
+		case 16: sew = VSew::E16; break;
+		case 32: sew = VSew::E32; break;
+		case 64: sew = VSew::E64; break;
+		default: _assert_msg_(false, "Invalid vtype width"); break;
+		}
+		value = (uint32_t)lmul | ((uint32_t)sew << 3) | ((uint32_t)vt << 6) | ((uint32_t)vm << 7);
+	}
+
+	uint32_t value;
+};
+
+enum class VUseMask {
+	V0_T = 0,
+	NONE = 1,
 };
 
 struct FixupBranch {
@@ -346,6 +414,61 @@ public:
 	void FSRMI(Round rm) {
 		FSRMI(R_ZERO, rm);
 	}
+
+	// Vector instructions.
+	void VSETVLI(RiscVReg rd, RiscVReg rs1, VType vtype);
+	void VSETIVLI(RiscVReg rd, u8 uimm5, VType vtype);
+	void VSETVL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+
+	// Load contiguous registers, unordered.
+	void VLE_V(int dataBits, RiscVReg vd, RiscVReg rs1, VUseMask vm = VUseMask::NONE) {
+		VLSEGE_V(1, dataBits, vd, rs1, vm);
+	}
+	// Load registers with stride (note: rs2/stride can be X0/zero to broadcast.)
+	void VLSE_V(int dataBits, RiscVReg vd, RiscVReg rs1, RiscVReg rs2, VUseMask vm = VUseMask::NONE) {
+		VLSSEGE_V(1, dataBits, vd, rs1, rs2, vm);
+	}
+	// Load indexed registers (gather), unordered.
+	void VLUXEI_V(int indexBits, RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE) {
+		VLUXSEGEI_V(1, indexBits, vd, rs1, vs2, vm);
+	}
+	// Load indexed registers (gather), ordered.
+	void VLOXEI_V(int indexBits, RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE) {
+		VLOXSEGEI_V(1, indexBits, vd, rs1, vs2, vm);
+	}
+	// Load mask (force 8 bit, EMUL=1, TA)
+	void VLM_V(RiscVReg vd, RiscVReg rs1);
+	// Load but ignore faults after first element.
+	void VLEFF_V(int dataBits, RiscVReg vd, RiscVReg rs1, VUseMask vm = VUseMask::NONE) {
+		VLSEGEFF_V(1, dataBits, vd, rs1, vm);
+	}
+	// Load fields into subsequent registers (destructure.)
+	void VLSEGE_V(int fields, int dataBits, RiscVReg vd, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VLSSEGE_V(int fields, int dataBits, RiscVReg vd, RiscVReg rs1, RiscVReg rs2, VUseMask vm = VUseMask::NONE);
+	void VLUXSEGEI_V(int fields, int indexBits, RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VLOXSEGEI_V(int fields, int indexBits, RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VLSEGEFF_V(int fields, int dataBits, RiscVReg vd, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	// Load entire registers (implementation dependent size.)
+	void VLR_V(int regs, int hintBits, RiscVReg vd, RiscVReg rs1);
+
+	void VSE_V(int dataBits, RiscVReg vs3, RiscVReg rs1, VUseMask vm = VUseMask::NONE) {
+		VSSEGE_V(1, dataBits, vs3, rs1, vm);
+	}
+	void VSSE_V(int dataBits, RiscVReg vs3, RiscVReg rs1, RiscVReg rs2, VUseMask vm = VUseMask::NONE) {
+		VSSSEGE_V(1, dataBits, vs3, rs1, rs2, vm);
+	}
+	void VSUXEI_V(int indexBits, RiscVReg vs3, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE) {
+		VSUXSEGEI_V(1, indexBits, vs3, rs1, vs2, vm);
+	}
+	void VSOXEI_V(int indexBits, RiscVReg vs3, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE) {
+		VSOXSEGEI_V(1, indexBits, vs3, rs1, vs2, vm);
+	}
+	void VSM_V(RiscVReg vs3, RiscVReg rs1);
+	void VSSEGE_V(int fields, int dataBits, RiscVReg vs3, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSSSEGE_V(int fields, int dataBits, RiscVReg vs3, RiscVReg rs1, RiscVReg rs2, VUseMask vm = VUseMask::NONE);
+	void VSUXSEGEI_V(int fields, int indexBits, RiscVReg vs3, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VSOXSEGEI_V(int fields, int indexBits, RiscVReg vs3, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VSR_V(int regs, RiscVReg vs3, RiscVReg rs1);
 
 	// Compressed instructions.
 	void C_ADDI4SPN(RiscVReg rd, u32 nzuimm10);
