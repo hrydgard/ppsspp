@@ -779,10 +779,14 @@ void UpdateVRParams(float* projMatrix, float* viewMatrix) {
 
 		switch (variant) {
 			case 0: //e.g. ATV
-			case 1: //untested
 				vrMirroring[VR_MIRRORING_PITCH] = false;
 				vrMirroring[VR_MIRRORING_YAW] = true;
 				vrMirroring[VR_MIRRORING_ROLL] = true;
+				break;
+			case 1: //e.g. Tales of the World
+				vrMirroring[VR_MIRRORING_PITCH] = false;
+				vrMirroring[VR_MIRRORING_YAW] = false;
+				vrMirroring[VR_MIRRORING_ROLL] = false;
 				break;
 			case 2: //e.g.PES 2014
 			case 3: //untested
