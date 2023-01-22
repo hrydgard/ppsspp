@@ -142,7 +142,7 @@
 #endif
 
 #if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
-#include "Common/DarwinMemoryStickManager.h"
+#include "UI/DarwinMemoryStickManager.h"
 #endif
 
 ScreenManager *screenManager;
