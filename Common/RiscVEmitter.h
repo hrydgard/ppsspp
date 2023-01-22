@@ -579,6 +579,56 @@ public:
 	void VMAX_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
 	void VMAX_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
 
+	void VMUL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMUL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMULH_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMULH_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMULHU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMULHU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	// Takes vs2 as signed, vs1 as unsigned.
+	void VMULHSU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMULHSU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VDIVU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VDIVU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VDIV_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VDIV_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VREMU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VREMU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VREM_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VREM_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VWMUL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWMUL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VWMULU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWMULU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VWMULSU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWMULSU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	// Multiply and add - vd += vs1 * vs2.
+	void VMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VMACC_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Multiply and sub - vd -= vs1 * vs2.
+	void VNMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VNMSAC_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Multiply and add - vd = vd * vs1 + vs2.
+	void VMADD_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VMADD_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Multiply and sub - vd = -(vd * vs1) + vs2.
+	void VNMSUB_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VNMSUB_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Widening multiply and add - vd(wide) += vs1 * vs2.
+	void VWMACCU_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VWMACCU_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Widening multiply and add - vd(wide) += vs1 * vs2.
+	void VWMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VWMACC_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Widening multiply and add - vd(wide) += S(vs1) * U(vs2).
+	void VWMACCSU_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VWMACCSU_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Widening multiply and add - vd(wide) += U(rs1) * S(vs2).
+	void VWMACCUS_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+
 	// Compressed instructions.
 	void C_ADDI4SPN(RiscVReg rd, u32 nzuimm10);
 	void C_FLD(RiscVReg rd, RiscVReg addr, u8 uimm8);
