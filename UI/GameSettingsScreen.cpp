@@ -74,6 +74,10 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#include "Common/DarwinMemoryStickManager.h"
+#endif
+
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 #pragma warning(disable:4091)  // workaround bug in VS2015 headers
 #include "Windows/MainWindow.h"
@@ -891,6 +895,10 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new Choice(sy->T("Show Memory Stick folder")))->OnClick.Handle(this, &GameSettingsScreen::OnOpenMemStick);
 #endif
 
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	systemSettings->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
+#endif
+
 #if PPSSPP_PLATFORM(ANDROID)
 	memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
 	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), (const char *)nullptr));
@@ -1158,7 +1166,16 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
+	#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	DarwinMemoryStickManager memoryStickManager;
+	DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
+        DarwinMemoryStickManager::setUserPreferredMemoryStickDirectory(thePathChosen);
+    };
+	
+	memoryStickManager.presentDirectoryPanel(callback);
+	#else
 	screenManager()->push(new MemStickScreen(false));
+	#endif
 	return UI::EVENT_DONE;
 }
 
