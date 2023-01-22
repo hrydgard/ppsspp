@@ -2358,6 +2358,219 @@ void RiscVEmitter::VMSBC_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1) {
 	Write32(EncodeIVX(vd, rs1, vs2, VUseMask::NONE, Funct6::VMSBC));
 }
 
+void RiscVEmitter::VAND_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VAND));
+}
+
+void RiscVEmitter::VAND_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VAND));
+}
+
+void RiscVEmitter::VAND_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
+	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VAND));
+}
+
+void RiscVEmitter::VOR_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VOR));
+}
+
+void RiscVEmitter::VOR_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VOR));
+}
+
+void RiscVEmitter::VOR_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
+	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VOR));
+}
+
+void RiscVEmitter::VXOR_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VXOR));
+}
+
+void RiscVEmitter::VXOR_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VXOR));
+}
+
+void RiscVEmitter::VXOR_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
+	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VXOR));
+}
+
+void RiscVEmitter::VSLL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VSLL));
+}
+
+void RiscVEmitter::VSLL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VSLL));
+}
+
+void RiscVEmitter::VSLL_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm) {
+	_assert_msg_((uimm5 & 0x1F) == uimm5, "%s shift must be <= 0x1F", __func__);
+	Write32(EncodeIVI(vd, SignReduce32(uimm5, 5), vs2, vm, Funct6::VSLL));
+}
+
+void RiscVEmitter::VSRL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VSRL));
+}
+
+void RiscVEmitter::VSRL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VSRL));
+}
+
+void RiscVEmitter::VSRL_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm) {
+	_assert_msg_((uimm5 & 0x1F) == uimm5, "%s shift must be <= 0x1F", __func__);
+	Write32(EncodeIVI(vd, SignReduce32(uimm5, 5), vs2, vm, Funct6::VSRL));
+}
+
+void RiscVEmitter::VSRA_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VSRA));
+}
+
+void RiscVEmitter::VSRA_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VSRA));
+}
+
+void RiscVEmitter::VSRA_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm) {
+	_assert_msg_((uimm5 & 0x1F) == uimm5, "%s shift must be <= 0x1F", __func__);
+	Write32(EncodeIVI(vd, SignReduce32(uimm5, 5), vs2, vm, Funct6::VSRA));
+}
+
+void RiscVEmitter::VNSRL_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VNSRL));
+}
+
+void RiscVEmitter::VNSRL_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VNSRL));
+}
+
+void RiscVEmitter::VNSRL_WI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm) {
+	_assert_msg_((uimm5 & 0x1F) == uimm5, "%s shift must be <= 0x1F", __func__);
+	Write32(EncodeIVI(vd, SignReduce32(uimm5, 5), vs2, vm, Funct6::VNSRL));
+}
+
+void RiscVEmitter::VNSRA_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VNSRA));
+}
+
+void RiscVEmitter::VNSRA_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VNSRA));
+}
+
+void RiscVEmitter::VNSRA_WI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm) {
+	_assert_msg_((uimm5 & 0x1F) == uimm5, "%s shift must be <= 0x1F", __func__);
+	Write32(EncodeIVI(vd, SignReduce32(uimm5, 5), vs2, vm, Funct6::VNSRA));
+}
+
+void RiscVEmitter::VMSEQ_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMSEQ));
+}
+
+void RiscVEmitter::VMSNE_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMSNE));
+}
+
+void RiscVEmitter::VMSLTU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMSLTU));
+}
+
+void RiscVEmitter::VMSLT_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMSLT));
+}
+
+void RiscVEmitter::VMSLEU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMSLEU));
+}
+
+void RiscVEmitter::VMSLE_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMSLE));
+}
+
+void RiscVEmitter::VMSEQ_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSEQ));
+}
+
+void RiscVEmitter::VMSNE_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSNE));
+}
+
+void RiscVEmitter::VMSLTU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSLTU));
+}
+
+void RiscVEmitter::VMSLT_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSLT));
+}
+
+void RiscVEmitter::VMSLEU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSLEU));
+}
+
+void RiscVEmitter::VMSLE_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSLE));
+}
+
+void RiscVEmitter::VMSGTU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSGTU));
+}
+
+void RiscVEmitter::VMSGT_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSGT));
+}
+
+void RiscVEmitter::VMSEQ_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
+	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VMSEQ));
+}
+
+void RiscVEmitter::VMSNE_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
+	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VMSNE));
+}
+
+void RiscVEmitter::VMSLEU_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
+	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VMSLEU));
+}
+
+void RiscVEmitter::VMSLE_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
+	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VMSLE));
+}
+
+void RiscVEmitter::VMSGTU_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
+	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VMSGTU));
+}
+
+void RiscVEmitter::VMSGT_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
+	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VMSGT));
+}
+
+void RiscVEmitter::VMINU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMINU));
+}
+
+void RiscVEmitter::VMINU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, rs1, vs2, vm, Funct6::VMINU));
+}
+
+void RiscVEmitter::VMIN_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMIN));
+}
+
+void RiscVEmitter::VMIN_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, rs1, vs2, vm, Funct6::VMIN));
+}
+
+void RiscVEmitter::VMAXU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMAXU));
+}
+
+void RiscVEmitter::VMAXU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, rs1, vs2, vm, Funct6::VMAXU));
+}
+
+void RiscVEmitter::VMAX_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMAX));
+}
+
+void RiscVEmitter::VMAX_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, rs1, vs2, vm, Funct6::VMAX));
+}
+
 bool RiscVEmitter::AutoCompress() const {
 	return SupportsCompressed() && autoCompress_;
 }
