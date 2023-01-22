@@ -845,6 +845,28 @@ public:
 	void VIOTA_M(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
 	void VID_M(RiscVReg vd, VUseMask vm = VUseMask::NONE);
 
+	void VMV_X_S(RiscVReg rd, RiscVReg vs2);
+	void VMV_S_X(RiscVReg vd, RiscVReg rs1);
+	void VFMV_F_S(RiscVReg rd, RiscVReg vs2);
+	void VFMV_S_F(RiscVReg vd, RiscVReg rs1);
+
+	void VSLIDEUP_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSLIDEUP_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm = VUseMask::NONE);
+	void VSLIDEDOWN_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSLIDEDOWN_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm = VUseMask::NONE);
+	void VSLIDE1UP_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFSLIDE1UP_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSLIDE1DOWN_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFSLIDE1DOWN_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VRGATHER_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VRGATHEREI16_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VRGATHER_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VRGATHER_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm = VUseMask::NONE);
+
+	void VCOMPRESS_VM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMVR_V(int regs, RiscVReg vd, RiscVReg vs2);
+
 	// Compressed instructions.
 	void C_ADDI4SPN(RiscVReg rd, u32 nzuimm10);
 	void C_FLD(RiscVReg rd, RiscVReg addr, u8 uimm8);

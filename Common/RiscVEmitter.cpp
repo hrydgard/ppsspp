@@ -383,7 +383,7 @@ enum class Funct6 {
 	VSSUBU = 0b100010,
 	VSSUB = 0b100011,
 	VSLL = 0b100101,
-	VSMUL = 0b100111,
+	VSMUL_VMVR = 0b100111,
 	VSRL = 0b101000,
 	VSRA = 0b101001,
 	VSSRL = 0b101010,
@@ -2203,7 +2203,7 @@ void RiscVEmitter::VLR_V(int regs, int hintBits, RiscVReg vd, RiscVReg rs1) {
 	_assert_msg_(IsVPR(vd), "%s vd must be VPR", __func__);
 	_assert_msg_(IsGPR(rs1), "%s rs1 must be GPR", __func__);
 	_assert_msg_(regs == 1 || regs == 2 || regs == 4 || regs == 8, "%s can only access count=1/2/4/8 at a time, not %d", __func__, regs);
-	_assert_msg_(((int)DecodeReg(vd) & (regs - 1)) == 0, "%s base reg must align to reg count", __func__);
+	_assert_msg_(regs == 1 || ((int)DecodeReg(vd) & (regs - 1)) == 0, "%s base reg must align to reg count", __func__);
 	_assert_msg_((int)DecodeReg(vd) + regs <= 32, "%s cannot access beyond V31", __func__);
 	s32 simm12 = VecLSToSimm12(VLSUMop::REG, VUseMask::NONE, VMop::UNIT, hintBits, regs);
 	Write32(EncodeI(Opcode32::LOAD_FP, vd, VecBitsToFunct3(hintBits), rs1, simm12));
@@ -2260,7 +2260,7 @@ void RiscVEmitter::VSR_V(int regs, RiscVReg vs3, RiscVReg rs1) {
 	_assert_msg_(IsVPR(vs3), "%s vs3 must be VPR", __func__);
 	_assert_msg_(IsGPR(rs1), "%s rs1 must be GPR", __func__);
 	_assert_msg_(regs == 1 || regs == 2 || regs == 4 || regs == 8, "%s can only access count=1/2/4/8 at a time, not %d", __func__, regs);
-	_assert_msg_(((int)DecodeReg(vs3) & (regs - 1)) == 0, "%s base reg must align to reg count", __func__);
+	_assert_msg_(regs == 1 || ((int)DecodeReg(vs3) & (regs - 1)) == 0, "%s base reg must align to reg count", __func__);
 	_assert_msg_((int)DecodeReg(vs3) + regs <= 32, "%s cannot access beyond V31", __func__);
 	s32 simm12 = VecLSToSimm12(VLSUMop::REG, VUseMask::NONE, VMop::UNIT, 8, regs);
 	Write32(EncodeI(Opcode32::STORE_FP, vs3, VecBitsToFunct3(8), rs1, simm12));
@@ -2902,11 +2902,11 @@ void RiscVEmitter::VASUB_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm
 }
 
 void RiscVEmitter::VSMUL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VSMUL));
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VSMUL_VMVR));
 }
 
 void RiscVEmitter::VSMUL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VSMUL));
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VSMUL_VMVR));
 }
 
 void RiscVEmitter::VSSRL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
@@ -3461,6 +3461,108 @@ void RiscVEmitter::VID_M(RiscVReg vd, VUseMask vm) {
 	// The spec doesn't say this, but it also says it's essentially viota.m with vs2=-1, so let's assume.
 	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
 	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VID, V0, vm, Funct6::VMUNARY0));
+}
+
+void RiscVEmitter::VMV_X_S(RiscVReg rd, RiscVReg vs2) {
+	_assert_msg_(IsGPR(rd), "%s instruction rd must be GPR", __func__);
+	Write32(EncodeV(rd, Funct3::OPMVV, (RiscVReg)Funct5::VMV_S, vs2, VUseMask::NONE, Funct6::VRWUNARY0));
+}
+
+void RiscVEmitter::VMV_S_X(RiscVReg vd, RiscVReg rs1) {
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(IsGPR(rs1), "%s instruction rs1 must be GPR", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, rs1, V0, VUseMask::NONE, Funct6::VRWUNARY0));
+}
+
+void RiscVEmitter::VFMV_F_S(RiscVReg rd, RiscVReg vs2) {
+	_assert_msg_(FloatBitsSupported() >= 32, "FVV instruction requires vector float support");
+	_assert_msg_(IsFPR(rd), "%s instruction rd must be FPR", __func__);
+	Write32(EncodeV(rd, Funct3::OPFVV, (RiscVReg)Funct5::VMV_S, vs2, VUseMask::NONE, Funct6::VRWUNARY0));
+}
+
+void RiscVEmitter::VFMV_S_F(RiscVReg vd, RiscVReg rs1) {
+	_assert_msg_(FloatBitsSupported() >= 32, "FVV instruction requires vector float support");
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(IsFPR(rs1), "%s instruction rs1 must be FPR", __func__);
+	Write32(EncodeV(vd, Funct3::OPFVV, rs1, V0, VUseMask::NONE, Funct6::VRWUNARY0));
+}
+
+void RiscVEmitter::VSLIDEUP_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(vd != vs2, "%s instruction vd cannot overlap vs2", __func__);
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VSLIDEUP));
+}
+
+void RiscVEmitter::VSLIDEUP_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm) {
+	_assert_msg_(vd != vs2, "%s instruction vd cannot overlap vs2", __func__);
+	_assert_msg_((uimm5 & 0x1F) == uimm5, "%s slide amount must be <= 0x1F", __func__);
+	Write32(EncodeIVI(vd, SignReduce32(uimm5, 5), vs2, vm, Funct6::VSLIDEUP));
+}
+
+void RiscVEmitter::VSLIDEDOWN_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(vd != vs2, "%s instruction vd cannot overlap vs2", __func__);
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VSLIDEDOWN));
+}
+
+void RiscVEmitter::VSLIDEDOWN_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm) {
+	_assert_msg_(vd != vs2, "%s instruction vd cannot overlap vs2", __func__);
+	_assert_msg_((uimm5 & 0x1F) == uimm5, "%s slide amount must be <= 0x1F", __func__);
+	Write32(EncodeIVI(vd, SignReduce32(uimm5, 5), vs2, vm, Funct6::VSLIDEDOWN));
+}
+
+void RiscVEmitter::VSLIDE1UP_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(vd != vs2, "%s instruction vd cannot overlap vs2", __func__);
+	Write32(EncodeMVX(vd, rs1, vs2, vm, Funct6::VSLIDEUP));
+}
+
+void RiscVEmitter::VFSLIDE1UP_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(vd != vs2, "%s instruction vd cannot overlap vs2", __func__);
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VSLIDEUP));
+}
+
+void RiscVEmitter::VSLIDE1DOWN_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(vd != vs2, "%s instruction vd cannot overlap vs2", __func__);
+	Write32(EncodeMVX(vd, rs1, vs2, vm, Funct6::VSLIDEDOWN));
+}
+
+void RiscVEmitter::VFSLIDE1DOWN_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(vd != vs2, "%s instruction vd cannot overlap vs2", __func__);
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VSLIDEDOWN));
+}
+
+void RiscVEmitter::VRGATHER_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	_assert_msg_(vd != vs1, "%s instruction vd cannot overlap vs1", __func__);
+	_assert_msg_(vd != vs2, "%s instruction vd cannot overlap vs2", __func__);
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VRGATHER));
+}
+
+void RiscVEmitter::VRGATHEREI16_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	_assert_msg_(vd != vs1, "%s instruction vd cannot overlap vs1", __func__);
+	_assert_msg_(vd != vs2, "%s instruction vd cannot overlap vs2", __func__);
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VRGATHEREI16));
+}
+
+void RiscVEmitter::VRGATHER_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(vd != vs2, "%s instruction vd cannot overlap vs2", __func__);
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VRGATHER));
+}
+
+void RiscVEmitter::VRGATHER_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm) {
+	_assert_msg_(vd != vs2, "%s instruction vd cannot overlap vs2", __func__);
+	_assert_msg_((uimm5 & 0x1F) == uimm5, "%s index must be <= 0x1F", __func__);
+	Write32(EncodeIVI(vd, SignReduce32(uimm5, 5), vs2, vm, Funct6::VRGATHER));
+}
+
+void RiscVEmitter::VCOMPRESS_VM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1) {
+	_assert_msg_(vd != vs1, "%s instruction vd cannot overlap vs1", __func__);
+	_assert_msg_(vd != vs2, "%s instruction vd cannot overlap vs2", __func__);
+	Write32(EncodeMVV(vd, vs1, vs2, VUseMask::NONE, Funct6::VCOMPRESS));
+}
+
+void RiscVEmitter::VMVR_V(int regs, RiscVReg vd, RiscVReg vs2) {
+	_assert_msg_(regs == 1 || regs == 2 || regs == 4 || regs == 8, "%s can only access count=1/2/4/8 at a time, not %d", __func__, regs);
+	_assert_msg_(regs == 1 || ((int)DecodeReg(vd) & (regs - 1)) == 0, "%s base reg must align to reg count", __func__);
+	_assert_msg_((int)DecodeReg(vd) + regs <= 32, "%s cannot access beyond V31", __func__);
+	Write32(EncodeIVI(vd, regs - 1, vs2, VUseMask::NONE, Funct6::VSMUL_VMVR));
 }
 
 bool RiscVEmitter::AutoCompress() const {
