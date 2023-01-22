@@ -1167,7 +1167,7 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 	#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-    DarwinMemoryStickManager memoryStickManager;
+	DarwinMemoryStickManager memoryStickManager;
 	DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
         DarwinMemoryStickManager::setUserPreferredMemoryStickDirectory(thePathChosen);
     };

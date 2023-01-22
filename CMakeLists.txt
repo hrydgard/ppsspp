@@ -1148,8 +1148,8 @@ elseif(IOS)
 		ios/iCade/iCadeReaderView.h
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h
-        Common/DarwinMemoryStickManager.mm
-        Common/DarwinMemoryStickManager.h
+		Common/DarwinMemoryStickManager.mm
+		Common/DarwinMemoryStickManager.h
 	)
     
 	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreVideo -framework CoreMedia -framework CoreServices" )
@@ -1169,7 +1169,7 @@ elseif(IOS)
 	set_source_files_properties(ios/main.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/CameraHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/LocationHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
-    set_source_files_properties(Common/DarwinMemoryStickManager.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(Common/DarwinMemoryStickManager.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	set(CMAKE_AUTOMOC ON)

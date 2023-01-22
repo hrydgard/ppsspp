@@ -542,11 +542,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 #elif PPSSPP_PLATFORM(IOS)
 	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory;
-    g_Config.memStickDirectory = DarwinMemoryStickManager::appropriateMemoryStickDirectoryToUse();
+	g_Config.memStickDirectory = DarwinMemoryStickManager::appropriateMemoryStickDirectoryToUse();
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(MAC)
 	g_Config.defaultCurrentDirectory = Path(getenv("HOME"));
-    g_Config.memStickDirectory = DarwinMemoryStickManager::appropriateMemoryStickDirectoryToUse();
+	g_Config.memStickDirectory = DarwinMemoryStickManager::appropriateMemoryStickDirectoryToUse();
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
 	g_Config.memStickDirectory = g_Config.internalDataDirectory / "config/ppsspp";
