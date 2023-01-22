@@ -2719,6 +2719,33 @@ void RiscVEmitter::VWMACCUS_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask
 	Write32(EncodeMVX(vd, rs1, vs2, vm, Funct6::VWMACCUS));
 }
 
+void RiscVEmitter::VMERGE_VVM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, RiscVReg vmask) {
+	_assert_msg_(vmask == V0, "vmask must be V0");
+	Write32(EncodeIVV(vd, vs1, vs2, VUseMask::V0_T, Funct6::VMV));
+}
+
+void RiscVEmitter::VMERGE_VXM(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, RiscVReg vmask) {
+	_assert_msg_(vmask == V0, "vmask must be V0");
+	Write32(EncodeIVX(vd, rs1, vs2, VUseMask::V0_T, Funct6::VMV));
+}
+
+void RiscVEmitter::VMERGE_VIM(RiscVReg vd, RiscVReg vs2, s8 simm5, RiscVReg vmask) {
+	_assert_msg_(vmask == V0, "vmask must be V0");
+	Write32(EncodeIVI(vd, simm5, vs2, VUseMask::V0_T, Funct6::VMV));
+}
+
+void RiscVEmitter::VMV_VV(RiscVReg vd, RiscVReg vs1) {
+	Write32(EncodeIVV(vd, vs1, V0, VUseMask::NONE, Funct6::VMV));
+}
+
+void RiscVEmitter::VMV_VX(RiscVReg vd, RiscVReg rs1) {
+	Write32(EncodeIVX(vd, rs1, V0, VUseMask::NONE, Funct6::VMV));
+}
+
+void RiscVEmitter::VMV_VI(RiscVReg vd, s8 simm5) {
+	Write32(EncodeIVI(vd, simm5, V0, VUseMask::NONE, Funct6::VMV));
+}
+
 bool RiscVEmitter::AutoCompress() const {
 	return SupportsCompressed() && autoCompress_;
 }

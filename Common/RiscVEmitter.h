@@ -629,6 +629,17 @@ public:
 	// Widening multiply and add - vd(wide) += U(rs1) * S(vs2).
 	void VWMACCUS_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
 
+	// Masked bits (1) take vs1/rs1/simm5, vmask must be V0.
+	void VMERGE_VVM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, RiscVReg vmask);
+	void VMERGE_VXM(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, RiscVReg vmask);
+	void VMERGE_VIM(RiscVReg vd, RiscVReg vs2, s8 simm5, RiscVReg vmask);
+
+	// Simple register copy, can be used as a hint to internally prepare size if vd == vs1.
+	void VMV_VV(RiscVReg vd, RiscVReg vs1);
+	// These broadcast a value to all lanes of vd.
+	void VMV_VX(RiscVReg vd, RiscVReg rs1);
+	void VMV_VI(RiscVReg vd, s8 simm5);
+
 	// Compressed instructions.
 	void C_ADDI4SPN(RiscVReg rd, u32 nzuimm10);
 	void C_FLD(RiscVReg rd, RiscVReg addr, u8 uimm8);
