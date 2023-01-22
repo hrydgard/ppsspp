@@ -3270,6 +3270,70 @@ void RiscVEmitter::VFNCVT_ROD_F_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
 	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_ROD_F_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
+void RiscVEmitter::VREDSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VREDSUM));
+}
+
+void RiscVEmitter::VREDMAXU_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VMAXU));
+}
+
+void RiscVEmitter::VREDMAX_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VMAX));
+}
+
+void RiscVEmitter::VREDMINU_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VMINU));
+}
+
+void RiscVEmitter::VREDMIN_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VMIN));
+}
+
+void RiscVEmitter::VREDAND_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VREDAND));
+}
+
+void RiscVEmitter::VREDOR_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VREDOR));
+}
+
+void RiscVEmitter::VREDXOR_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VREDXOR));
+}
+
+void RiscVEmitter::VWREDSUMU_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VWREDSUMU));
+}
+
+void RiscVEmitter::VWREDSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VWREDSUM));
+}
+
+void RiscVEmitter::VFREDOSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFREDOSUM));
+}
+
+void RiscVEmitter::VFREDUSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFREDUSUM));
+}
+
+void RiscVEmitter::VFREDMAX_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VMAX));
+}
+
+void RiscVEmitter::VFREDMIN_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VMIN));
+}
+
+void RiscVEmitter::VFWREDOSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFWREDOSUM));
+}
+
+void RiscVEmitter::VFWREDUSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFWREDUSUM));
+}
+
 bool RiscVEmitter::AutoCompress() const {
 	return SupportsCompressed() && autoCompress_;
 }
