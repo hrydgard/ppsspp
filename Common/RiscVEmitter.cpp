@@ -40,7 +40,8 @@ static inline uint8_t FloatBitsSupported() {
 	return 0;
 }
 
-static inline bool SupportsMulDiv() {
+static inline bool SupportsMulDiv(bool allowZmmul = false) {
+	// TODO allowZmmul?
 	return cpu_info.RiscV_M;
 }
 
@@ -55,6 +56,11 @@ static inline bool SupportsZicsr() {
 
 static inline bool SupportsVector() {
 	return cpu_info.RiscV_V;
+}
+
+static inline bool SupportsBitmanip(char zbx) {
+	// TODO: Allow and detect sub-support?
+	return cpu_info.RiscV_B;
 }
 
 enum class Opcode32 {
@@ -568,6 +574,14 @@ static inline u32 EncodeGI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg
 	_assert_msg_(IsGPR(rd), "I instruction rd must be GPR");
 	_assert_msg_(IsGPR(rs1), "I instruction rs1 must be GPR");
 	return EncodeI(opcode, rd, funct3, rs1, simm12);
+}
+
+static inline u32 EncodeGIShift(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, u32 shamt, Funct7 funct7) {
+	_assert_msg_(IsGPR(rd), "IShift instruction rd must be GPR");
+	_assert_msg_(IsGPR(rs1), "IShift instruction rs1 must be GPR");
+	_assert_msg_(shamt < BitsSupported(), "IShift instruction shift out of range %d", shamt);
+	// Low bits of funct7 must be 0 to allow for shift amounts.
+	return (u32)opcode | ((u32)DecodeReg(rd) << 7) | ((u32)funct3 << 12) | ((u32)DecodeReg(rs1) << 15) | ((u32)shamt << 20) | ((u32)funct7 << 25);
 }
 
 static inline u32 EncodeI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, Funct12 funct12) {
@@ -1452,12 +1466,12 @@ void RiscVEmitter::SLLI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	// Not sure if shamt=0 is legal or not, let's play it safe.
 	_assert_msg_(shamt > 0 && shamt < BitsSupported(), "Shift out of range");
 
-	if (AutoCompress() && rd == rs1 && shamt <= (u32)(BitsSupported() == 64 ? 63 : 31)) {
+	if (AutoCompress() && rd == rs1 && shamt != 0 && shamt <= (u32)(BitsSupported() == 64 ? 63 : 31)) {
 		C_SLLI(rd, (u8)shamt);
 		return;
 	}
 
-	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::SLL, rs1, shamt));
+	Write32(EncodeGIShift(Opcode32::OP_IMM, rd, Funct3::SLL, rs1, shamt, Funct7::ZERO));
 }
 
 void RiscVEmitter::SRLI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
@@ -1470,7 +1484,7 @@ void RiscVEmitter::SRLI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 		return;
 	}
 
-	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::SRL, rs1, shamt));
+	Write32(EncodeGIShift(Opcode32::OP_IMM, rd, Funct3::SRL, rs1, shamt, Funct7::ZERO));
 }
 
 void RiscVEmitter::SRAI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
@@ -1483,7 +1497,7 @@ void RiscVEmitter::SRAI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 		return;
 	}
 
-	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::SRL, rs1, shamt | (1 << 10)));
+	Write32(EncodeGIShift(Opcode32::OP_IMM, rd, Funct3::SRL, rs1, shamt, Funct7::SRA));
 }
 
 void RiscVEmitter::ADD(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
@@ -1665,7 +1679,7 @@ void RiscVEmitter::SLLIW(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 	// Not sure if shamt=0 is legal or not, let's play it safe.
 	_assert_msg_(shamt > 0 && shamt < 32, "Shift out of range");
-	Write32(EncodeGI(Opcode32::OP_IMM_32, rd, Funct3::SLL, rs1, shamt));
+	Write32(EncodeGIShift(Opcode32::OP_IMM_32, rd, Funct3::SLL, rs1, shamt, Funct7::ZERO));
 }
 
 void RiscVEmitter::SRLIW(RiscVReg rd, RiscVReg rs1, u32 shamt) {
@@ -1677,7 +1691,7 @@ void RiscVEmitter::SRLIW(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 	// Not sure if shamt=0 is legal or not, let's play it safe.
 	_assert_msg_(shamt > 0 && shamt < 32, "Shift out of range");
-	Write32(EncodeGI(Opcode32::OP_IMM_32, rd, Funct3::SRL, rs1, shamt));
+	Write32(EncodeGIShift(Opcode32::OP_IMM_32, rd, Funct3::SRL, rs1, shamt, Funct7::ZERO));
 }
 
 void RiscVEmitter::SRAIW(RiscVReg rd, RiscVReg rs1, u32 shamt) {
@@ -1689,7 +1703,7 @@ void RiscVEmitter::SRAIW(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 	// Not sure if shamt=0 is legal or not, let's play it safe.
 	_assert_msg_(shamt > 0 && shamt < 32, "Shift out of range");
-	Write32(EncodeGI(Opcode32::OP_IMM_32, rd, Funct3::SRL, rs1, shamt | (1 << 10)));
+	Write32(EncodeGIShift(Opcode32::OP_IMM_32, rd, Funct3::SRL, rs1, shamt, Funct7::SRA));
 }
 
 void RiscVEmitter::ADDW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
@@ -1753,63 +1767,63 @@ void RiscVEmitter::SRAW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 }
 
 void RiscVEmitter::MUL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
-	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	_assert_msg_(SupportsMulDiv(true), "%s instruction unsupported without M/Zmmul", __func__);
 	// Not explicitly a HINT, but seems sensible to restrict just in case.
 	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::MUL, rs1, rs2, Funct7::MULDIV));
 }
 
 void RiscVEmitter::MULH(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
-	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	_assert_msg_(SupportsMulDiv(true), "%s instruction unsupported without M/Zmmul", __func__);
 	// Not explicitly a HINT, but seems sensible to restrict just in case.
 	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::MULH, rs1, rs2, Funct7::MULDIV));
 }
 
 void RiscVEmitter::MULHSU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
-	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	_assert_msg_(SupportsMulDiv(true), "%s instruction unsupported without M/Zmmul", __func__);
 	// Not explicitly a HINT, but seems sensible to restrict just in case.
 	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::MULHSU, rs1, rs2, Funct7::MULDIV));
 }
 
 void RiscVEmitter::MULHU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
-	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	_assert_msg_(SupportsMulDiv(true), "%s instruction unsupported without M/Zmmul", __func__);
 	// Not explicitly a HINT, but seems sensible to restrict just in case.
 	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::MULHU, rs1, rs2, Funct7::MULDIV));
 }
 
 void RiscVEmitter::DIV(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
-	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	_assert_msg_(SupportsMulDiv(), "%s instruction unsupported without M", __func__);
 	// Not explicitly a HINT, but seems sensible to restrict just in case.
 	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::DIV, rs1, rs2, Funct7::MULDIV));
 }
 
 void RiscVEmitter::DIVU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
-	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	_assert_msg_(SupportsMulDiv(), "%s instruction unsupported without M", __func__);
 	// Not explicitly a HINT, but seems sensible to restrict just in case.
 	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::DIVU, rs1, rs2, Funct7::MULDIV));
 }
 
 void RiscVEmitter::REM(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
-	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	_assert_msg_(SupportsMulDiv(), "%s instruction unsupported without M", __func__);
 	// Not explicitly a HINT, but seems sensible to restrict just in case.
 	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::REM, rs1, rs2, Funct7::MULDIV));
 }
 
 void RiscVEmitter::REMU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
-	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	_assert_msg_(SupportsMulDiv(), "%s instruction unsupported without M", __func__);
 	// Not explicitly a HINT, but seems sensible to restrict just in case.
 	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::REMU, rs1, rs2, Funct7::MULDIV));
 }
 
 void RiscVEmitter::MULW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
-	_assert_msg_(BitsSupported() >= 64 && SupportsMulDiv(), "%s is only valid with R64M", __func__);
+	_assert_msg_(BitsSupported() >= 64 && SupportsMulDiv(true), "%s is only valid with R64M", __func__);
 	// Not explicitly a HINT, but seems sensible to restrict just in case.
 	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
 	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::MUL, rs1, rs2, Funct7::MULDIV));
@@ -3420,11 +3434,13 @@ void RiscVEmitter::VMXNOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1) {
 
 void RiscVEmitter::VCPOP_M(RiscVReg rd, RiscVReg vs2, VUseMask vm) {
 	_assert_msg_(IsGPR(rd), "%s instruction rd must be GPR", __func__);
+	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
 	Write32(EncodeV(rd, Funct3::OPMVV, (RiscVReg)Funct5::VPOPC, vs2, vm, Funct6::VRWUNARY0));
 }
 
 void RiscVEmitter::VFIRST_M(RiscVReg rd, RiscVReg vs2, VUseMask vm) {
 	_assert_msg_(IsGPR(rd), "%s instruction rd must be GPR", __func__);
+	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
 	Write32(EncodeV(rd, Funct3::OPMVV, (RiscVReg)Funct5::VFIRST, vs2, vm, Funct6::VRWUNARY0));
 }
 
@@ -3465,6 +3481,7 @@ void RiscVEmitter::VID_M(RiscVReg vd, VUseMask vm) {
 
 void RiscVEmitter::VMV_X_S(RiscVReg rd, RiscVReg vs2) {
 	_assert_msg_(IsGPR(rd), "%s instruction rd must be GPR", __func__);
+	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
 	Write32(EncodeV(rd, Funct3::OPMVV, (RiscVReg)Funct5::VMV_S, vs2, VUseMask::NONE, Funct6::VRWUNARY0));
 }
 

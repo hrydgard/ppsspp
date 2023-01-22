@@ -173,6 +173,7 @@ void CPUInfo::Detect()
 	RiscV_D = ExtensionSupported(hwcap, 'D');
 	RiscV_C = ExtensionSupported(hwcap, 'C');
 	RiscV_V = ExtensionSupported(hwcap, 'V');
+	RiscV_B = ExtensionSupported(hwcap, 'B');
 }
 
 // Turn the cpu info into a string we can show
