@@ -153,7 +153,15 @@ enum class Funct3 {
 	CSRRSI = 0b110,
 	CSRRCI = 0b111,
 
-	VSETVL = 0b111,
+	OPIVV = 0b000,
+	OPFVV = 0b001,
+	OPMVV = 0b010,
+	OPIVI = 0b011,
+	OPIVX = 0b100,
+	OPFVF = 0b101,
+	OPMVX = 0b110,
+	OPCFG = 0b111,
+
 	VLS_8 = 0b000,
 	VLS_16 = 0b101,
 	VLS_32 = 0b110,
@@ -245,6 +253,13 @@ enum class Funct5 {
 	FCVT_FROMX = 0b11010,
 	FMV_TOX = 0b11100,
 	FMV_FROMX = 0b11110,
+
+	VZEXT_VF8 = 0b00010,
+	VSEXT_VF8 = 0b00011,
+	VZEXT_VF4 = 0b00100,
+	VSEXT_VF4 = 0b00101,
+	VZEXT_VF2 = 0b00110,
+	VSEXT_VF2 = 0b00111,
 };
 
 enum class Funct4 {
@@ -257,6 +272,144 @@ enum class Funct4 {
 enum class Funct6 {
 	C_OP = 0b100011,
 	C_OP_32 = 0b100111,
+
+	VADD = 0b000000,
+	VSUB = 0b000010,
+	VRSUB = 0b000011,
+	VMINU = 0b000100,
+	VMIN = 0b000101,
+	VMAXU = 0b000110,
+	VMAX = 0b000111,
+	VAND = 0b001001,
+	VOR = 0b001010,
+	VXOR = 0b001011,
+	VRGATHER = 0b001100,
+	VSLIDEUP = 0b001110,
+	VRGATHEREI16 = 0b001110,
+	VSLIDEDOWN = 0b001111,
+
+	VREDSUM = 0b000000,
+	VREDAND = 0b000001,
+	VREDOR = 0b000010,
+	VREDXOR = 0b000011,
+	VAADDU = 0b001000,
+	VAADD = 0b001001,
+	VASUBU = 0b001010,
+	VASUB = 0b001011,
+
+	VFREDUSUM = 0b000001,
+	VFREDOSUM = 0b000011,
+	VFSGNJ = 0b001000,
+	VFSGNJN = 0b001001,
+	VFSGNJX = 0b001010,
+
+	VADC = 0b010000,
+	VMADC = 0b010001,
+	VSBC = 0b010010,
+	VMSBC = 0b010011,
+	VMV = 0b010111,
+	VMSEQ = 0b011000,
+	VMSNE = 0b011001,
+	VMSLTU = 0b011010,
+	VMSLT = 0b011011,
+	VMSLEU = 0b011100,
+	VMSLE = 0b011101,
+	VMSGTU = 0b011110,
+	VMSGT = 0b011111,
+
+	VMFEQ = 0b011000,
+	VMFLE = 0b011001,
+	VMFLT = 0b011011,
+	VMFNE = 0b011100,
+	VMFGT = 0b011101,
+	VMFGE = 0b011111,
+
+	VRWUNARY0 = 0b010000,
+	VFXUNARY0 = 0b010010,
+	VFXUNARY1 = 0b010011,
+	VMXUNARY0 = 0b010100,
+
+	VCOMPRESS = 0b010111,
+	VMANDNOT = 0b011000,
+	VMAND = 0b011001,
+	VMOR = 0b011010,
+	VMXOR = 0b011011,
+	VMORNOT = 0b011100,
+	VMNAND = 0b011101,
+	VMNOR = 0b011110,
+	VMXNOR = 0b011111,
+
+	VSADDU = 0b100000,
+	VSADD = 0b100001,
+	VSSUBU = 0b100010,
+	VSSUB = 0b100011,
+	VSLL = 0b100101,
+	VSMUL = 0b100111,
+	VSRL = 0b101000,
+	VSRA = 0b101001,
+	VSSRL = 0b101010,
+	VSSRA = 0b101011,
+	VNSRL = 0b101100,
+	VNSRA = 0b101101,
+	VNCLIPU = 0b101110,
+	VNCLIP = 0b101111,
+
+	VDIVU = 0b100000,
+	VDIV = 0b100001,
+	VREMU = 0b100010,
+	VREM = 0b100011,
+	VMULHU = 0b100100,
+	VMUL = 0b100101,
+	VMULHSU = 0b100110,
+	VMULH = 0b100111,
+	VMADD = 0b101001,
+	VMMSUB = 0b101011,
+	VMACC = 0b101101,
+	VMMSAC = 0b101111,
+
+	VFDIV = 0b100000,
+	VFRDIV = 0b100001,
+	VFMUL = 0b100100,
+	VFRSUB = 0b100111,
+	VFMADD = 0b101000,
+	VFNMADD = 0b101001,
+	VFMSUB = 0b101010,
+	VFNMSUB = 0b101011,
+	VFMACC = 0b101100,
+	VFNMACC = 0b101101,
+	VFMSAC = 0b101110,
+	VFNMSAC = 0b101111,
+
+	VWREDSUMU = 0b110000,
+	VWREDSUM = 0b110001,
+
+	VWADDU = 0b110000,
+	VWADD = 0b110001,
+	VWSUBU = 0b110010,
+	VWSUB = 0b110011,
+	VWADDU_W = 0b110100,
+	VWADD_W = 0b110101,
+	VWSUBU_W = 0b110110,
+	VWSUB_W = 0b110111,
+	VWMULU = 0b111000,
+	VWMULSU = 0b111010,
+	VWMUL = 0b111011,
+	VWMACCU = 0b111100,
+	VWMACC = 0b111101,
+	VWMACCUS = 0b111110,
+	VWMACCSU = 0b111111,
+
+	VFWADD = 0b110000,
+	VFWREDUSUM = 0b110001,
+	VFWSUB = 0b110010,
+	VFWREDOSUM = 0b110011,
+	VFWADD_W = 0b110100,
+	VFWSUB_W = 0b110110,
+	VFWMUL = 0b111000,
+	VFWMACC = 0b111100,
+	VFWNMACC = 0b111101,
+	VFWMSAC = 0b111110,
+	VFWNMSAC = 0b111111,
 };
 
 enum class Funct12 {
@@ -361,9 +514,9 @@ static inline u32 EncodeR(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg 
 }
 
 static inline u32 EncodeFR(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, Funct2 funct2, Funct5 funct5) {
-	_assert_msg_(IsFPR(rd), "R4 instruction rd must be FPR");
-	_assert_msg_(IsFPR(rs1), "R4 instruction rs1 must be FPR");
-	_assert_msg_(IsFPR(rs2), "R4 instruction rs2 must be FPR");
+	_assert_msg_(IsFPR(rd), "FR instruction rd must be FPR");
+	_assert_msg_(IsFPR(rs1), "FR instruction rs1 must be FPR");
+	_assert_msg_(IsFPR(rs2), "FR instruction rs2 must be FPR");
 	return EncodeR(opcode, rd, funct3, rs1, rs2, (Funct7)(((u32)funct5 << 2) | (u32)funct2));
 }
 
@@ -441,6 +594,54 @@ static inline u32 EncodeJ(Opcode32 opcode, RiscVReg rd, s32 simm21) {
 static inline u32 EncodeGJ(Opcode32 opcode, RiscVReg rd, s32 simm21) {
 	_assert_msg_(IsGPR(rd), "J instruction rd must be GPR");
 	return EncodeJ(opcode, rd, simm21);
+}
+
+static inline u32 EncodeV(RiscVReg vd, Funct3 funct3, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(SupportsVector(), "V instruction not supported");
+	_assert_msg_(IsVPR(vs2), "V instruction vs2 must be VPR");
+	return EncodeR(Opcode32::OP_V, vd, funct3, vs1, vs2, (Funct7)(((s32)funct6 << 1) | (s32)vm));
+}
+
+static inline u32 EncodeVV(RiscVReg vd, Funct3 funct3, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(IsVPR(vd), "VV instruction vd must be VPR");
+	_assert_msg_(IsVPR(vs1), "VV instruction vs1 must be VPR");
+	return EncodeV(vd, funct3, vs1, vs2, vm, funct6);
+}
+
+static inline u32 EncodeIVV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	return EncodeVV(vd, Funct3::OPIVV, vs1, vs2, vm, funct6);
+}
+
+static inline u32 EncodeMVV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	return EncodeVV(vd, Funct3::OPMVV, vs1, vs2, vm, funct6);
+}
+
+static inline u32 EncodeFVV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	return EncodeVV(vd, Funct3::OPFVV, vs1, vs2, vm, funct6);
+}
+
+static inline u32 EncodeIVI(RiscVReg vd, s8 simm5, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(IsVPR(vd), "IVI instruction vd must be VPR");
+	_assert_msg_(SignReduce32(simm5, 5) == simm5, "VI immediate must be signed 5-bit: %d", simm5);
+	return EncodeV(vd, Funct3::OPIVI, (RiscVReg)(simm5 & 0x1F), vs2, vm, funct6);
+}
+
+static inline u32 EncodeIVX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(IsVPR(vd), "IVX instruction vd must be VPR");
+	_assert_msg_(IsGPR(rs1), "IVX instruction rs1 must be GPR");
+	return EncodeV(vd, Funct3::OPIVX, rs1, vs2, vm, funct6);
+}
+
+static inline u32 EncodeMVX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(IsVPR(vd), "MVX instruction vd must be VPR");
+	_assert_msg_(IsGPR(rs1), "MVX instruction rs1 must be GPR");
+	return EncodeV(vd, Funct3::OPMVX, rs1, vs2, vm, funct6);
+}
+
+static inline u32 EncodeFVF(RiscVReg vd, RiscVReg fs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(IsVPR(vd), "FVF instruction vd must be VPR");
+	_assert_msg_(IsFPR(fs1), "FVF instruction fs1 must be FPR");
+	return EncodeV(vd, Funct3::OPFVF, fs1, vs2, vm, funct6);
 }
 
 static inline u16 EncodeCR(Opcode16 op, RiscVReg rs2, RiscVReg rd, Funct4 funct4) {
@@ -632,6 +833,21 @@ static s32 VecLSToSimm12(RiscVReg vrs2, VUseMask vm, VMop mop, int bits, int nf)
 
 static s32 VecLSToSimm12(VLSUMop lsumop, VUseMask vm, VMop mop, int bits, int nf) {
 	return VecLSToSimm12((RiscVReg)(int)lsumop, vm, mop, bits, nf);
+}
+
+static Funct5 VExtFracToFunct5(int frac, bool sign) {
+	_assert_msg_(SupportsVector(), "v%cext instruction not supported", sign ? 's' : 'z');
+	switch (frac) {
+	case 8:
+		return sign ? Funct5::VSEXT_VF8 : Funct5::VZEXT_VF8;
+	case 4:
+		return sign ? Funct5::VSEXT_VF4 : Funct5::VZEXT_VF4;
+	case 2:
+		return sign ? Funct5::VSEXT_VF2 : Funct5::VZEXT_VF2;
+	default:
+		_assert_msg_(false, "Invalid v%cext frac %d", sign ? 's' : 'z', frac);
+		return Funct5::VZEXT_VF8;
+	}
 }
 
 RiscVEmitter::RiscVEmitter(const u8 *ptr, u8 *writePtr) {
@@ -1824,7 +2040,7 @@ void RiscVEmitter::VSETVLI(RiscVReg rd, RiscVReg rs1, VType vtype) {
 	_assert_msg_((vtype.value & ~0xFF) == 0, "%s with invalid vtype", __func__);
 	_assert_msg_(IsGPR(rd), "%s rd (VL) must be GPR", __func__);
 	_assert_msg_(IsGPR(rs1), "%s rs1 (AVL) must be GPR", __func__);
-	Write32(EncodeI(Opcode32::OP_V, rd, Funct3::VSETVL, rs1, (s32)vtype.value));
+	Write32(EncodeI(Opcode32::OP_V, rd, Funct3::OPCFG, rs1, (s32)vtype.value));
 }
 
 void RiscVEmitter::VSETIVLI(RiscVReg rd, u8 uimm5, VType vtype) {
@@ -1833,7 +2049,7 @@ void RiscVEmitter::VSETIVLI(RiscVReg rd, u8 uimm5, VType vtype) {
 	_assert_msg_(IsGPR(rd), "%s rd (VL) must be GPR", __func__);
 	_assert_msg_((u32)uimm5 <= 0x1F, "%s (AVL) can only set up to 31", __func__);
 	s32 simm12 = 0xFFFFFC00 | vtype.value;
-	Write32(EncodeI(Opcode32::OP_V, rd, Funct3::VSETVL, (RiscVReg)uimm5, (s32)vtype.value));
+	Write32(EncodeI(Opcode32::OP_V, rd, Funct3::OPCFG, (RiscVReg)uimm5, (s32)vtype.value));
 }
 
 void RiscVEmitter::VSETVL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
@@ -1841,7 +2057,7 @@ void RiscVEmitter::VSETVL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(IsGPR(rd), "%s rd (VL) must be GPR", __func__);
 	_assert_msg_(IsGPR(rs1), "%s rs1 (AVL) must be GPR", __func__);
 	_assert_msg_(IsGPR(rs2), "%s rs2 (vtype) must be GPR", __func__);
-	Write32(EncodeI(Opcode32::OP_V, rd, Funct3::VSETVL, rs1, rs2));
+	Write32(EncodeI(Opcode32::OP_V, rd, Funct3::OPCFG, rs1, rs2));
 }
 
 void RiscVEmitter::VLM_V(RiscVReg vd, RiscVReg rs1) {
@@ -1965,6 +2181,181 @@ void RiscVEmitter::VSR_V(int regs, RiscVReg vs3, RiscVReg rs1) {
 	_assert_msg_((int)DecodeReg(vs3) + regs <= 32, "%s cannot access beyond V31", __func__);
 	s32 simm12 = VecLSToSimm12(VLSUMop::REG, VUseMask::NONE, VMop::UNIT, 8, regs);
 	Write32(EncodeI(Opcode32::STORE_FP, vs3, VecBitsToFunct3(8), rs1, simm12));
+}
+
+void RiscVEmitter::VADD_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VADD));
+}
+
+void RiscVEmitter::VADD_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VADD));
+}
+
+void RiscVEmitter::VADD_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
+	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VADD));
+}
+
+void RiscVEmitter::VSUB_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VSUB));
+}
+
+void RiscVEmitter::VSUB_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VSUB));
+}
+
+void RiscVEmitter::VRSUB_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VRSUB));
+}
+
+void RiscVEmitter::VRSUB_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
+	if (simm5 == 0) {
+		// Normalize, this is the preferred form.
+		VRSUB_VX(vd, vs2, X0, vm);
+		return;
+	}
+	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VRSUB));
+}
+
+void RiscVEmitter::VWADDU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VWADDU));
+}
+
+void RiscVEmitter::VWADDU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeMVX(vd, rs1, vs2, vm, Funct6::VWADDU));
+}
+
+void RiscVEmitter::VWSUBU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VWSUBU));
+}
+
+void RiscVEmitter::VWSUBU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeMVX(vd, rs1, vs2, vm, Funct6::VWSUBU));
+}
+
+void RiscVEmitter::VWADD_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VWADD));
+}
+
+void RiscVEmitter::VWADD_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeMVX(vd, rs1, vs2, vm, Funct6::VWADD));
+}
+
+void RiscVEmitter::VWSUB_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VWSUB));
+}
+
+void RiscVEmitter::VWSUB_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeMVX(vd, rs1, vs2, vm, Funct6::VWSUB));
+}
+
+void RiscVEmitter::VWADDU_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VWADDU_W));
+}
+
+void RiscVEmitter::VWADDU_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeMVX(vd, rs1, vs2, vm, Funct6::VWADDU_W));
+}
+
+void RiscVEmitter::VWSUBU_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VWSUBU_W));
+}
+
+void RiscVEmitter::VWSUBU_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeMVX(vd, rs1, vs2, vm, Funct6::VWSUBU_W));
+}
+
+void RiscVEmitter::VWADD_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VWADD_W));
+}
+
+void RiscVEmitter::VWADD_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeMVX(vd, rs1, vs2, vm, Funct6::VWADD_W));
+}
+
+void RiscVEmitter::VWSUB_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VWSUB_W));
+}
+
+void RiscVEmitter::VWSUB_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeMVX(vd, rs1, vs2, vm, Funct6::VWSUB_W));
+}
+
+void RiscVEmitter::VZEXT_V(int frac, RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeMVX(vd, (RiscVReg)VExtFracToFunct5(frac, false), vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VSEXT_V(int frac, RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeMVX(vd, (RiscVReg)VExtFracToFunct5(frac, true), vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VADC_VVM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, RiscVReg vmask) {
+	_assert_msg_(vmask == V0, "vmask must be V0");
+	Write32(EncodeIVV(vd, vs1, vs2, VUseMask::V0_T, Funct6::VADC));
+}
+
+void RiscVEmitter::VADC_VXM(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, RiscVReg vmask) {
+	_assert_msg_(vmask == V0, "vmask must be V0");
+	Write32(EncodeIVX(vd, rs1, vs2, VUseMask::V0_T, Funct6::VADC));
+}
+
+void RiscVEmitter::VADC_VIM(RiscVReg vd, RiscVReg vs2, s8 simm5, RiscVReg vmask) {
+	_assert_msg_(vmask == V0, "vmask must be V0");
+	Write32(EncodeIVI(vd, simm5, vs2, VUseMask::V0_T, Funct6::VADC));
+}
+
+void RiscVEmitter::VMADC_VVM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, RiscVReg vmask) {
+	_assert_msg_(vmask == V0, "vmask must be V0");
+	Write32(EncodeIVV(vd, vs1, vs2, VUseMask::V0_T, Funct6::VMADC));
+}
+
+void RiscVEmitter::VMADC_VXM(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, RiscVReg vmask) {
+	_assert_msg_(vmask == V0, "vmask must be V0");
+	Write32(EncodeIVX(vd, rs1, vs2, VUseMask::V0_T, Funct6::VMADC));
+}
+
+void RiscVEmitter::VMADC_VIM(RiscVReg vd, RiscVReg vs2, s8 simm5, RiscVReg vmask) {
+	_assert_msg_(vmask == V0, "vmask must be V0");
+	Write32(EncodeIVI(vd, simm5, vs2, VUseMask::V0_T, Funct6::VMADC));
+}
+
+void RiscVEmitter::VMADC_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1) {
+	Write32(EncodeIVV(vd, vs1, vs2, VUseMask::NONE, Funct6::VMADC));
+}
+
+void RiscVEmitter::VMADC_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1) {
+	Write32(EncodeIVX(vd, rs1, vs2, VUseMask::NONE, Funct6::VMADC));
+}
+
+void RiscVEmitter::VMADC_VI(RiscVReg vd, RiscVReg vs2, s8 simm5) {
+	Write32(EncodeIVI(vd, simm5, vs2, VUseMask::NONE, Funct6::VMADC));
+}
+
+void RiscVEmitter::VSBC_VVM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, RiscVReg vmask) {
+	_assert_msg_(vmask == V0, "vmask must be V0");
+	Write32(EncodeIVV(vd, vs1, vs2, VUseMask::V0_T, Funct6::VSBC));
+}
+
+void RiscVEmitter::VSBC_VXM(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, RiscVReg vmask) {
+	_assert_msg_(vmask == V0, "vmask must be V0");
+	Write32(EncodeIVX(vd, rs1, vs2, VUseMask::V0_T, Funct6::VSBC));
+}
+
+void RiscVEmitter::VMSBC_VVM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, RiscVReg vmask) {
+	_assert_msg_(vmask == V0, "vmask must be V0");
+	Write32(EncodeIVV(vd, vs1, vs2, VUseMask::V0_T, Funct6::VMSBC));
+}
+
+void RiscVEmitter::VMSBC_VXM(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, RiscVReg vmask) {
+	_assert_msg_(vmask == V0, "vmask must be V0");
+	Write32(EncodeIVX(vd, rs1, vs2, VUseMask::V0_T, Funct6::VMSBC));
+}
+
+void RiscVEmitter::VMSBC_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1) {
+	Write32(EncodeIVV(vd, vs1, vs2, VUseMask::NONE, Funct6::VMSBC));
+}
+
+void RiscVEmitter::VMSBC_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1) {
+	Write32(EncodeIVX(vd, rs1, vs2, VUseMask::NONE, Funct6::VMSBC));
 }
 
 bool RiscVEmitter::AutoCompress() const {
