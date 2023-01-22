@@ -867,6 +867,50 @@ public:
 	void VCOMPRESS_VM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
 	void VMVR_V(int regs, RiscVReg vd, RiscVReg vs2);
 
+	// Bitmanip instructions.
+	void ADD_UW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SH_ADD(int shift, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SH_ADD_UW(int shift, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SLLI_UW(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void ANDN(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void ORN(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void XNOR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void CLZ(RiscVReg rd, RiscVReg rs);
+	void CLZW(RiscVReg rd, RiscVReg rs);
+	void CTZ(RiscVReg rd, RiscVReg rs);
+	void CTZW(RiscVReg rd, RiscVReg rs);
+	void CPOP(RiscVReg rd, RiscVReg rs);
+	void CPOPW(RiscVReg rd, RiscVReg rs);
+	void MAX(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void MAXU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void MIN(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void MINU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SEXT_B(RiscVReg rd, RiscVReg rs);
+	void SEXT_H(RiscVReg rd, RiscVReg rs);
+	void ZEXT_H(RiscVReg rd, RiscVReg rs);
+	void ZEXT_W(RiscVReg rd, RiscVReg rs) {
+		ADD_UW(rd, rs, R_ZERO);
+	}
+	void ROL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void ROLW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void ROR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void RORW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void RORI(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void RORIW(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void ORC_B(RiscVReg rd, RiscVReg rs);
+	void REV8(RiscVReg rd, RiscVReg rs);
+	void CLMUL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void CLMULH(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void CLMULR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void BCLR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void BCLRI(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void BEXT(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void BEXTI(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void BINV(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void BINVI(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void BSET(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void BSETI(RiscVReg rd, RiscVReg rs1, u32 shamt);
+
 	// Compressed instructions.
 	void C_ADDI4SPN(RiscVReg rd, u32 nzuimm10);
 	void C_FLD(RiscVReg rd, RiscVReg addr, u8 uimm8);
