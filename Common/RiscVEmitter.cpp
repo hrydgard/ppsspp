@@ -617,6 +617,7 @@ static inline u32 EncodeMVV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm
 }
 
 static inline u32 EncodeFVV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(FloatBitsSupported() >= 32, "FVV instruction requires vector float support");
 	return EncodeVV(vd, Funct3::OPFVV, vs1, vs2, vm, funct6);
 }
 
@@ -638,10 +639,11 @@ static inline u32 EncodeMVX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm
 	return EncodeV(vd, Funct3::OPMVX, rs1, vs2, vm, funct6);
 }
 
-static inline u32 EncodeFVF(RiscVReg vd, RiscVReg fs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+static inline u32 EncodeFVF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(FloatBitsSupported() >= 32, "FVF instruction requires vector float support");
 	_assert_msg_(IsVPR(vd), "FVF instruction vd must be VPR");
-	_assert_msg_(IsFPR(fs1), "FVF instruction fs1 must be FPR");
-	return EncodeV(vd, Funct3::OPFVF, fs1, vs2, vm, funct6);
+	_assert_msg_(IsFPR(rs1), "FVF instruction rs1 must be FPR");
+	return EncodeV(vd, Funct3::OPFVF, rs1, vs2, vm, funct6);
 }
 
 static inline u16 EncodeCR(Opcode16 op, RiscVReg rs2, RiscVReg rd, Funct4 funct4) {
@@ -2872,6 +2874,182 @@ void RiscVEmitter::VNCLIP_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask v
 
 void RiscVEmitter::VNCLIP_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
 	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VNCLIP));
+}
+
+void RiscVEmitter::VFADD_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VADD));
+}
+
+void RiscVEmitter::VFADD_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VADD));
+}
+
+void RiscVEmitter::VFSUB_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VSUB));
+}
+
+void RiscVEmitter::VFSUB_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VSUB));
+}
+
+void RiscVEmitter::VFRSUB_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFRSUB));
+}
+
+void RiscVEmitter::VFWADD_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFWADD));
+}
+
+void RiscVEmitter::VFWADD_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFWADD));
+}
+
+void RiscVEmitter::VFWSUB_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFWSUB));
+}
+
+void RiscVEmitter::VFWSUB_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFWSUB));
+}
+
+void RiscVEmitter::VFWADD_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFWADD_W));
+}
+
+void RiscVEmitter::VFWADD_WF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFWADD_W));
+}
+
+void RiscVEmitter::VFWSUB_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFWSUB_W));
+}
+
+void RiscVEmitter::VFWSUB_WF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFWSUB_W));
+}
+
+void RiscVEmitter::VFMUL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFMUL));
+}
+
+void RiscVEmitter::VFMUL_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFMUL));
+}
+
+void RiscVEmitter::VFDIV_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFDIV));
+}
+
+void RiscVEmitter::VFDIV_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFDIV));
+}
+
+void RiscVEmitter::VFRDIV_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFRDIV));
+}
+
+void RiscVEmitter::VFWMUL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFWMUL));
+}
+
+void RiscVEmitter::VFWMUL_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFWMUL));
+}
+
+void RiscVEmitter::VFMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFMACC));
+}
+
+void RiscVEmitter::VFMACC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFMACC));
+}
+
+void RiscVEmitter::VFNMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFNMACC));
+}
+
+void RiscVEmitter::VFNMACC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFNMACC));
+}
+
+void RiscVEmitter::VFMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFMSAC));
+}
+
+void RiscVEmitter::VFMSAC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFMSAC));
+}
+
+void RiscVEmitter::VFNMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFNMSAC));
+}
+
+void RiscVEmitter::VFNMSAC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFNMSAC));
+}
+
+void RiscVEmitter::VFMADD_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFMADD));
+}
+
+void RiscVEmitter::VFMADD_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFMADD));
+}
+
+void RiscVEmitter::VFNMADD_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFNMADD));
+}
+
+void RiscVEmitter::VFNMADD_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFNMADD));
+}
+
+void RiscVEmitter::VFMSUB_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFMSUB));
+}
+
+void RiscVEmitter::VFMSUB_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFMSUB));
+}
+
+void RiscVEmitter::VFNMSUB_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFNMSUB));
+}
+
+void RiscVEmitter::VFNMSUB_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFNMSUB));
+}
+
+void RiscVEmitter::VFWMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFWMACC));
+}
+
+void RiscVEmitter::VFWMACC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFWMACC));
+}
+
+void RiscVEmitter::VFWNMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFWNMACC));
+}
+
+void RiscVEmitter::VFWNMACC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFWNMACC));
+}
+
+void RiscVEmitter::VFWMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFWMSAC));
+}
+
+void RiscVEmitter::VFWMSAC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFWMSAC));
+}
+
+void RiscVEmitter::VFWNMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFWNMSAC));
+}
+
+void RiscVEmitter::VFWNMSAC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFWNMSAC));
 }
 
 bool RiscVEmitter::AutoCompress() const {

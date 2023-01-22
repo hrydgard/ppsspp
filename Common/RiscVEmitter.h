@@ -678,6 +678,68 @@ public:
 	void VNCLIP_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
 	void VNCLIP_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
 
+	void VFADD_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFADD_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFSUB_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFSUB_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFRSUB_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VFWADD_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFWADD_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFWSUB_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFWSUB_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFWADD_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFWADD_WF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFWSUB_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFWSUB_WF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VFMUL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFMUL_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFDIV_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFDIV_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFRDIV_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VFWMUL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFWMUL_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	// Fused multiply and accumulate: vd = +vd + vs1 * vs2.
+	void VFMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFMACC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused multiply and accumulate, negated: vd = -vd - vs1 * vs2.
+	void VFNMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNMACC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused multiply and subtract accumuluator: vd = -vd + vs1 * vs2.
+	void VFMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFMSAC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused multiply and subtract accumuluator, negated: vd = +vd - vs1 * vs2.
+	void VFNMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNMSAC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused multiply and add: vd = +(vs1 * vd) + vs2.
+	void VFMADD_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFMADD_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused multiply and add, negated: vd = -(vs1 * vd) - vs2.
+	void VFNMADD_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNMADD_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused multiply and subtract: vd = +(vs1 * vd) - vs2.
+	void VFMSUB_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFMSUB_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused multiply and subtract, negated: vd = -(vs1 * vd) + vs2.
+	void VFNMSUB_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNMSUB_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+
+	// Fused widening multiply and accumulate: vd(wide) = +vd + vs1 * vs2.
+	void VFWMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFWMACC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused widening multiply and accumulate, negated: vd(wide) = -vd - vs1 * vs2.
+	void VFWNMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFWNMACC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused widening multiply and subtract accumulator: vd(wide) = -vd + vs1 * vs2.
+	void VFWMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFWMSAC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused widening multiply and subtract accumulator, negated: vd(wide) = +vd - vs1 * vs2.
+	void VFWNMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFWNMSAC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+
 	// Compressed instructions.
 	void C_ADDI4SPN(RiscVReg rd, u32 nzuimm10);
 	void C_FLD(RiscVReg rd, RiscVReg addr, u8 uimm8);
