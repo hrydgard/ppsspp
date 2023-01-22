@@ -1148,8 +1148,8 @@ elseif(IOS)
 		ios/iCade/iCadeReaderView.h
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h
-		Common/DarwinMemoryStickManager.mm
-		Common/DarwinMemoryStickManager.h
+		UI/DarwinMemoryStickManager.mm
+		UI/DarwinMemoryStickManager.h
 	)
     
 	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreVideo -framework CoreMedia -framework CoreServices" )
@@ -1169,7 +1169,7 @@ elseif(IOS)
 	set_source_files_properties(ios/main.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/CameraHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/LocationHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
-	set_source_files_properties(Common/DarwinMemoryStickManager.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(UI/DarwinMemoryStickManager.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	set(CMAKE_AUTOMOC ON)
@@ -1227,8 +1227,8 @@ elseif(TARGET SDL2::SDL2)
 	endif()
 	set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
 	if(APPLE)
-		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm SDL/SDLCocoaMetalLayer.h SDL/SDLCocoaMetalLayer.mm Common/DarwinMemoryStickManager.mm)
-        set_source_files_properties(Common/DarwinMemoryStickManager.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm SDL/SDLCocoaMetalLayer.h SDL/SDLCocoaMetalLayer.mm UI/DarwinMemoryStickManager.mm)
+        set_source_files_properties(UI/DarwinMemoryStickManager.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY})
 	elseif(USING_EGL)
 		set(nativeExtraLibs ${nativeExtraLibs} pthread)
