@@ -287,6 +287,16 @@ enum class Funct5 {
 	VFNCVT_ROD_F_F = 0b10101,
 	VFNCVT_RTZ_XU_F = 0b10110,
 	VFNCVT_RTZ_X_F = 0b10111,
+
+	VMV_S = 0b00000,
+	VPOPC = 0b10000,
+	VFIRST = 0b10001,
+
+	VMSBF = 0b00001,
+	VMSOF = 0b00010,
+	VMSIF = 0b00011,
+	VIOTA = 0b10000,
+	VID = 0b10001,
 };
 
 enum class Funct4 {
@@ -356,7 +366,7 @@ enum class Funct6 {
 	VRWUNARY0 = 0b010000,
 	VFXUNARY0 = 0b010010,
 	VFXUNARY1 = 0b010011,
-	VMXUNARY0 = 0b010100,
+	VMUNARY0 = 0b010100,
 
 	VCOMPRESS = 0b010111,
 	VMANDNOT = 0b011000,
@@ -637,29 +647,61 @@ static inline u32 EncodeVV(RiscVReg vd, Funct3 funct3, RiscVReg vs1, RiscVReg vs
 	return EncodeV(vd, funct3, vs1, vs2, vm, funct6);
 }
 
-static inline u32 EncodeIVV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+static inline u32 EncodeIVV_M(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
 	return EncodeVV(vd, Funct3::OPIVV, vs1, vs2, vm, funct6);
 }
 
-static inline u32 EncodeMVV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+static inline u32 EncodeIVV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "IVV instruction vd overlap with mask");
+	return EncodeIVV_M(vd, vs1, vs2, vm, funct6);
+}
+
+static inline u32 EncodeMVV_M(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
 	return EncodeVV(vd, Funct3::OPMVV, vs1, vs2, vm, funct6);
 }
 
-static inline u32 EncodeFVV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+static inline u32 EncodeMVV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "MVV instruction vd overlap with mask");
+	return EncodeMVV_M(vd, vs1, vs2, vm, funct6);
+}
+
+static inline u32 EncodeFVV_M(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
 	_assert_msg_(FloatBitsSupported() >= 32, "FVV instruction requires vector float support");
 	return EncodeVV(vd, Funct3::OPFVV, vs1, vs2, vm, funct6);
 }
 
-static inline u32 EncodeIVI(RiscVReg vd, s8 simm5, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+static inline u32 EncodeFVV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "FVV instruction vd overlap with mask");
+	return EncodeFVV_M(vd, vs1, vs2, vm, funct6);
+}
+
+static inline u32 EncodeFVV(RiscVReg vd, Funct5 funct5, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(FloatBitsSupported() >= 32, "FVV instruction requires vector float support");
+	_assert_msg_(IsVPR(vd), "VV instruction vd must be VPR");
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "FVV instruction vd overlap with mask");
+	return EncodeV(vd, Funct3::OPFVV, (RiscVReg)funct5, vs2, vm, funct6);
+}
+
+static inline u32 EncodeIVI_M(RiscVReg vd, s8 simm5, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
 	_assert_msg_(IsVPR(vd), "IVI instruction vd must be VPR");
 	_assert_msg_(SignReduce32(simm5, 5) == simm5, "VI immediate must be signed 5-bit: %d", simm5);
 	return EncodeV(vd, Funct3::OPIVI, (RiscVReg)(simm5 & 0x1F), vs2, vm, funct6);
 }
 
-static inline u32 EncodeIVX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+static inline u32 EncodeIVI(RiscVReg vd, s8 simm5, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "IVI instruction vd overlap with mask");
+	return EncodeIVI_M(vd, simm5, vs2, vm, funct6);
+}
+
+static inline u32 EncodeIVX_M(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
 	_assert_msg_(IsVPR(vd), "IVX instruction vd must be VPR");
 	_assert_msg_(IsGPR(rs1), "IVX instruction rs1 must be GPR");
 	return EncodeV(vd, Funct3::OPIVX, rs1, vs2, vm, funct6);
+}
+
+static inline u32 EncodeIVX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "IVX instruction vd overlap with mask");
+	return EncodeIVX_M(vd, rs1, vs2, vm, funct6);
 }
 
 static inline u32 EncodeMVX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
@@ -668,11 +710,16 @@ static inline u32 EncodeMVX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm
 	return EncodeV(vd, Funct3::OPMVX, rs1, vs2, vm, funct6);
 }
 
-static inline u32 EncodeFVF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+static inline u32 EncodeFVF_M(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
 	_assert_msg_(FloatBitsSupported() >= 32, "FVF instruction requires vector float support");
 	_assert_msg_(IsVPR(vd), "FVF instruction vd must be VPR");
 	_assert_msg_(IsFPR(rs1), "FVF instruction rs1 must be FPR");
 	return EncodeV(vd, Funct3::OPFVF, rs1, vs2, vm, funct6);
+}
+
+static inline u32 EncodeFVF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm, Funct6 funct6) {
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "FVF instruction vd overlap with mask");
+	return EncodeFVF_M(vd, rs1, vs2, vm, funct6);
 }
 
 static inline u16 EncodeCR(Opcode16 op, RiscVReg rs2, RiscVReg rd, Funct4 funct4) {
@@ -2101,6 +2148,7 @@ void RiscVEmitter::VLM_V(RiscVReg vd, RiscVReg rs1) {
 void RiscVEmitter::VLSEGE_V(int fields, int dataBits, RiscVReg vd, RiscVReg rs1, VUseMask vm) {
 	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
 	_assert_msg_(IsVPR(vd), "%s vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s vd cannot overlap mask", __func__);
 	_assert_msg_(IsGPR(rs1), "%s rs1 must be GPR", __func__);
 	// Of course, if LMUL > 1, it could still be wrong, but this is a good basic check.
 	_assert_msg_((int)DecodeReg(vd) + fields <= 32, "%s cannot access beyond V31", __func__);
@@ -2111,6 +2159,7 @@ void RiscVEmitter::VLSEGE_V(int fields, int dataBits, RiscVReg vd, RiscVReg rs1,
 void RiscVEmitter::VLSSEGE_V(int fields, int dataBits, RiscVReg vd, RiscVReg rs1, RiscVReg rs2, VUseMask vm) {
 	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
 	_assert_msg_(IsVPR(vd), "%s vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s vd cannot overlap mask", __func__);
 	_assert_msg_(IsGPR(rs1), "%s rs1 (base) must be GPR", __func__);
 	_assert_msg_(IsGPR(rs2), "%s rs2 (stride) must be GPR", __func__);
 	_assert_msg_((int)DecodeReg(vd) + fields <= 32, "%s cannot access beyond V31", __func__);
@@ -2121,6 +2170,7 @@ void RiscVEmitter::VLSSEGE_V(int fields, int dataBits, RiscVReg vd, RiscVReg rs1
 void RiscVEmitter::VLUXSEGEI_V(int fields, int indexBits, RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
 	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
 	_assert_msg_(IsVPR(vd), "%s vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s vd cannot overlap mask", __func__);
 	_assert_msg_(IsGPR(rs1), "%s rs1 (base) must be GPR", __func__);
 	_assert_msg_(IsVPR(vs2), "%s vs2 (stride) must be VPR", __func__);
 	_assert_msg_((int)DecodeReg(vd) + fields <= 32, "%s cannot access beyond V31", __func__);
@@ -2131,6 +2181,7 @@ void RiscVEmitter::VLUXSEGEI_V(int fields, int indexBits, RiscVReg vd, RiscVReg 
 void RiscVEmitter::VLOXSEGEI_V(int fields, int indexBits, RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
 	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
 	_assert_msg_(IsVPR(vd), "%s vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s vd cannot overlap mask", __func__);
 	_assert_msg_(IsGPR(rs1), "%s rs1 (base) must be GPR", __func__);
 	_assert_msg_(IsVPR(vs2), "%s vs2 (stride) must be VPR", __func__);
 	_assert_msg_((int)DecodeReg(vd) + fields <= 32, "%s cannot access beyond V31", __func__);
@@ -2141,6 +2192,7 @@ void RiscVEmitter::VLOXSEGEI_V(int fields, int indexBits, RiscVReg vd, RiscVReg 
 void RiscVEmitter::VLSEGEFF_V(int fields, int dataBits, RiscVReg vd, RiscVReg rs1, VUseMask vm) {
 	_assert_msg_(SupportsVector(), "%s instruction not supported", __func__);
 	_assert_msg_(IsVPR(vd), "%s vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s vd cannot overlap mask", __func__);
 	_assert_msg_(IsGPR(rs1), "%s rs1 must be GPR", __func__);
 	s32 simm12 = VecLSToSimm12(VLSUMop::ELEMS_LOAD_FF, vm, VMop::UNIT, dataBits, fields);
 	Write32(EncodeI(Opcode32::LOAD_FP, vd, VecBitsToFunct3(dataBits), rs1, simm12));
@@ -2491,83 +2543,83 @@ void RiscVEmitter::VNSRA_WI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm) {
 }
 
 void RiscVEmitter::VMSEQ_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMSEQ));
+	Write32(EncodeIVV_M(vd, vs1, vs2, vm, Funct6::VMSEQ));
 }
 
 void RiscVEmitter::VMSNE_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMSNE));
+	Write32(EncodeIVV_M(vd, vs1, vs2, vm, Funct6::VMSNE));
 }
 
 void RiscVEmitter::VMSLTU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMSLTU));
+	Write32(EncodeIVV_M(vd, vs1, vs2, vm, Funct6::VMSLTU));
 }
 
 void RiscVEmitter::VMSLT_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMSLT));
+	Write32(EncodeIVV_M(vd, vs1, vs2, vm, Funct6::VMSLT));
 }
 
 void RiscVEmitter::VMSLEU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMSLEU));
+	Write32(EncodeIVV_M(vd, vs1, vs2, vm, Funct6::VMSLEU));
 }
 
 void RiscVEmitter::VMSLE_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VMSLE));
+	Write32(EncodeIVV_M(vd, vs1, vs2, vm, Funct6::VMSLE));
 }
 
 void RiscVEmitter::VMSEQ_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSEQ));
+	Write32(EncodeIVX_M(vd, rs1, vs2, vm, Funct6::VMSEQ));
 }
 
 void RiscVEmitter::VMSNE_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSNE));
+	Write32(EncodeIVX_M(vd, rs1, vs2, vm, Funct6::VMSNE));
 }
 
 void RiscVEmitter::VMSLTU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSLTU));
+	Write32(EncodeIVX_M(vd, rs1, vs2, vm, Funct6::VMSLTU));
 }
 
 void RiscVEmitter::VMSLT_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSLT));
+	Write32(EncodeIVX_M(vd, rs1, vs2, vm, Funct6::VMSLT));
 }
 
 void RiscVEmitter::VMSLEU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSLEU));
+	Write32(EncodeIVX_M(vd, rs1, vs2, vm, Funct6::VMSLEU));
 }
 
 void RiscVEmitter::VMSLE_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSLE));
+	Write32(EncodeIVX_M(vd, rs1, vs2, vm, Funct6::VMSLE));
 }
 
 void RiscVEmitter::VMSGTU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSGTU));
+	Write32(EncodeIVX_M(vd, rs1, vs2, vm, Funct6::VMSGTU));
 }
 
 void RiscVEmitter::VMSGT_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMSGT));
+	Write32(EncodeIVX_M(vd, rs1, vs2, vm, Funct6::VMSGT));
 }
 
 void RiscVEmitter::VMSEQ_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
-	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VMSEQ));
+	Write32(EncodeIVI_M(vd, simm5, vs2, vm, Funct6::VMSEQ));
 }
 
 void RiscVEmitter::VMSNE_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
-	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VMSNE));
+	Write32(EncodeIVI_M(vd, simm5, vs2, vm, Funct6::VMSNE));
 }
 
 void RiscVEmitter::VMSLEU_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
-	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VMSLEU));
+	Write32(EncodeIVI_M(vd, simm5, vs2, vm, Funct6::VMSLEU));
 }
 
 void RiscVEmitter::VMSLE_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
-	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VMSLE));
+	Write32(EncodeIVI_M(vd, simm5, vs2, vm, Funct6::VMSLE));
 }
 
 void RiscVEmitter::VMSGTU_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
-	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VMSGTU));
+	Write32(EncodeIVI_M(vd, simm5, vs2, vm, Funct6::VMSGTU));
 }
 
 void RiscVEmitter::VMSGT_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm) {
-	Write32(EncodeIVI(vd, simm5, vs2, vm, Funct6::VMSGT));
+	Write32(EncodeIVI_M(vd, simm5, vs2, vm, Funct6::VMSGT));
 }
 
 void RiscVEmitter::VMINU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
@@ -3082,15 +3134,15 @@ void RiscVEmitter::VFWNMSAC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask
 }
 
 void RiscVEmitter::VFSQRT_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFSQRT, vs2, vm, Funct6::VFXUNARY1));
+	Write32(EncodeFVV(vd, Funct5::VFSQRT, vs2, vm, Funct6::VFXUNARY1));
 }
 
 void RiscVEmitter::VFRSQRT7_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFRSQRT7, vs2, vm, Funct6::VFXUNARY1));
+	Write32(EncodeFVV(vd, Funct5::VFRSQRT7, vs2, vm, Funct6::VFXUNARY1));
 }
 
 void RiscVEmitter::VFREC7_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFREC7, vs2, vm, Funct6::VFXUNARY1));
+	Write32(EncodeFVV(vd, Funct5::VFREC7, vs2, vm, Funct6::VFXUNARY1));
 }
 
 void RiscVEmitter::VFMIN_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
@@ -3134,47 +3186,47 @@ void RiscVEmitter::VFSGNJX_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask 
 }
 
 void RiscVEmitter::VMFEQ_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VMFEQ));
+	Write32(EncodeFVV_M(vd, vs1, vs2, vm, Funct6::VMFEQ));
 }
 
 void RiscVEmitter::VMFEQ_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VMFEQ));
+	Write32(EncodeFVF_M(vd, rs1, vs2, vm, Funct6::VMFEQ));
 }
 
 void RiscVEmitter::VMFNE_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VMFNE));
+	Write32(EncodeFVV_M(vd, vs1, vs2, vm, Funct6::VMFNE));
 }
 
 void RiscVEmitter::VMFNE_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VMFNE));
+	Write32(EncodeFVF_M(vd, rs1, vs2, vm, Funct6::VMFNE));
 }
 
 void RiscVEmitter::VMFLT_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VMFLT));
+	Write32(EncodeFVV_M(vd, vs1, vs2, vm, Funct6::VMFLT));
 }
 
 void RiscVEmitter::VMFLT_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VMFLT));
+	Write32(EncodeFVF_M(vd, rs1, vs2, vm, Funct6::VMFLT));
 }
 
 void RiscVEmitter::VMFLE_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VMFLE));
+	Write32(EncodeFVV_M(vd, vs1, vs2, vm, Funct6::VMFLE));
 }
 
 void RiscVEmitter::VMFLE_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VMFLE));
+	Write32(EncodeFVF_M(vd, rs1, vs2, vm, Funct6::VMFLE));
 }
 
 void RiscVEmitter::VMFGT_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VMFGT));
+	Write32(EncodeFVF_M(vd, rs1, vs2, vm, Funct6::VMFGT));
 }
 
 void RiscVEmitter::VMFGE_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VMFGE));
+	Write32(EncodeFVF_M(vd, rs1, vs2, vm, Funct6::VMFGE));
 }
 
 void RiscVEmitter::VFCLASS_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFCLASS, vs2, vm, Funct6::VFXUNARY1));
+	Write32(EncodeFVV(vd, Funct5::VFCLASS, vs2, vm, Funct6::VFXUNARY1));
 }
 
 void RiscVEmitter::VFMERGE_VFM(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, RiscVReg vmask) {
@@ -3187,151 +3239,228 @@ void RiscVEmitter::VFMV_VF(RiscVReg vd, RiscVReg rs1) {
 }
 
 void RiscVEmitter::VFCVT_XU_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFCVT_XU_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFCVT_XU_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFCVT_X_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFCVT_X_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFCVT_X_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFCVT_RTZ_XU_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFCVT_RTZ_XU_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFCVT_RTZ_XU_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFCVT_RTZ_X_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFCVT_RTZ_X_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFCVT_RTZ_X_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFCVT_F_XU_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFCVT_F_XU, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFCVT_F_XU, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFCVT_F_X_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFCVT_F_X, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFCVT_F_X, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFWCVT_XU_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFWCVT_XU_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFWCVT_XU_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFWCVT_X_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFWCVT_X_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFWCVT_X_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFWCVT_RTZ_XU_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFWCVT_RTZ_XU_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFWCVT_RTZ_XU_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFWCVT_RTZ_X_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFWCVT_RTZ_X_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFWCVT_RTZ_X_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFWCVT_F_XU_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFWCVT_F_XU, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFWCVT_F_XU, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFWCVT_F_X_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFWCVT_F_X, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFWCVT_F_X, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFWCVT_F_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFWCVT_F_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFWCVT_F_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFNCVT_XU_F_W(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_XU_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFNCVT_XU_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFNCVT_X_F_W(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_X_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFNCVT_X_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFNCVT_RTZ_XU_F_W(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_RTZ_XU_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFNCVT_RTZ_XU_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFNCVT_RTZ_X_F_W(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_RTZ_X_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFNCVT_RTZ_X_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFNCVT_F_XU_W(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_F_XU, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFNCVT_F_XU, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFNCVT_F_X_W(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_F_X, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFNCVT_F_X, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFNCVT_F_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_F_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFNCVT_F_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VFNCVT_ROD_F_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
-	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_ROD_F_F, vs2, vm, Funct6::VFXUNARY0));
+	Write32(EncodeFVV(vd, Funct5::VFNCVT_ROD_F_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 void RiscVEmitter::VREDSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VREDSUM));
+	Write32(EncodeMVV_M(vd, vs1, vs2, vm, Funct6::VREDSUM));
 }
 
 void RiscVEmitter::VREDMAXU_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VMAXU));
+	Write32(EncodeMVV_M(vd, vs1, vs2, vm, Funct6::VMAXU));
 }
 
 void RiscVEmitter::VREDMAX_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VMAX));
+	Write32(EncodeMVV_M(vd, vs1, vs2, vm, Funct6::VMAX));
 }
 
 void RiscVEmitter::VREDMINU_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VMINU));
+	Write32(EncodeMVV_M(vd, vs1, vs2, vm, Funct6::VMINU));
 }
 
 void RiscVEmitter::VREDMIN_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VMIN));
+	Write32(EncodeMVV_M(vd, vs1, vs2, vm, Funct6::VMIN));
 }
 
 void RiscVEmitter::VREDAND_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VREDAND));
+	Write32(EncodeMVV_M(vd, vs1, vs2, vm, Funct6::VREDAND));
 }
 
 void RiscVEmitter::VREDOR_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VREDOR));
+	Write32(EncodeMVV_M(vd, vs1, vs2, vm, Funct6::VREDOR));
 }
 
 void RiscVEmitter::VREDXOR_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeMVV(vd, vs1, vs2, vm, Funct6::VREDXOR));
+	Write32(EncodeMVV_M(vd, vs1, vs2, vm, Funct6::VREDXOR));
 }
 
 void RiscVEmitter::VWREDSUMU_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VWREDSUMU));
+	Write32(EncodeIVV_M(vd, vs1, vs2, vm, Funct6::VWREDSUMU));
 }
 
 void RiscVEmitter::VWREDSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VWREDSUM));
+	Write32(EncodeIVV_M(vd, vs1, vs2, vm, Funct6::VWREDSUM));
 }
 
 void RiscVEmitter::VFREDOSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFREDOSUM));
+	Write32(EncodeFVV_M(vd, vs1, vs2, vm, Funct6::VFREDOSUM));
 }
 
 void RiscVEmitter::VFREDUSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFREDUSUM));
+	Write32(EncodeFVV_M(vd, vs1, vs2, vm, Funct6::VFREDUSUM));
 }
 
 void RiscVEmitter::VFREDMAX_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VMAX));
+	Write32(EncodeFVV_M(vd, vs1, vs2, vm, Funct6::VMAX));
 }
 
 void RiscVEmitter::VFREDMIN_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VMIN));
+	Write32(EncodeFVV_M(vd, vs1, vs2, vm, Funct6::VMIN));
 }
 
 void RiscVEmitter::VFWREDOSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFWREDOSUM));
+	Write32(EncodeFVV_M(vd, vs1, vs2, vm, Funct6::VFWREDOSUM));
 }
 
 void RiscVEmitter::VFWREDUSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
-	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFWREDUSUM));
+	Write32(EncodeFVV_M(vd, vs1, vs2, vm, Funct6::VFWREDUSUM));
+}
+
+void RiscVEmitter::VMAND_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1) {
+	Write32(EncodeMVV_M(vd, vs1, vs2, VUseMask::NONE, Funct6::VMAND));
+}
+
+void RiscVEmitter::VMNAND_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1) {
+	Write32(EncodeMVV_M(vd, vs1, vs2, VUseMask::NONE, Funct6::VMNAND));
+}
+
+void RiscVEmitter::VMANDN_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1) {
+	Write32(EncodeMVV_M(vd, vs1, vs2, VUseMask::NONE, Funct6::VMANDNOT));
+}
+
+void RiscVEmitter::VMXOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1) {
+	Write32(EncodeMVV_M(vd, vs1, vs2, VUseMask::NONE, Funct6::VMXOR));
+}
+
+void RiscVEmitter::VMOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1) {
+	Write32(EncodeMVV_M(vd, vs1, vs2, VUseMask::NONE, Funct6::VMOR));
+}
+
+void RiscVEmitter::VMNOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1) {
+	Write32(EncodeMVV_M(vd, vs1, vs2, VUseMask::NONE, Funct6::VMNOR));
+}
+
+void RiscVEmitter::VMORN_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1) {
+	Write32(EncodeMVV_M(vd, vs1, vs2, VUseMask::NONE, Funct6::VMORNOT));
+}
+
+void RiscVEmitter::VMXNOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1) {
+	Write32(EncodeMVV_M(vd, vs1, vs2, VUseMask::NONE, Funct6::VMXNOR));
+}
+
+void RiscVEmitter::VCPOP_M(RiscVReg rd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(IsGPR(rd), "%s instruction rd must be GPR", __func__);
+	Write32(EncodeV(rd, Funct3::OPMVV, (RiscVReg)Funct5::VPOPC, vs2, vm, Funct6::VRWUNARY0));
+}
+
+void RiscVEmitter::VFIRST_M(RiscVReg rd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(IsGPR(rd), "%s instruction rd must be GPR", __func__);
+	Write32(EncodeV(rd, Funct3::OPMVV, (RiscVReg)Funct5::VFIRST, vs2, vm, Funct6::VRWUNARY0));
+}
+
+void RiscVEmitter::VMSBF_M(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	_assert_msg_(vd != vs2, "%s instruction vd overlap vs2", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VMSBF, vs2, vm, Funct6::VMUNARY0));
+}
+
+void RiscVEmitter::VMSIF_M(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	_assert_msg_(vd != vs2, "%s instruction vd overlap vs2", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VMSIF, vs2, vm, Funct6::VMUNARY0));
+}
+
+void RiscVEmitter::VMSOF_M(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	_assert_msg_(vd != vs2, "%s instruction vd overlap vs2", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VMSOF, vs2, vm, Funct6::VMUNARY0));
+}
+
+void RiscVEmitter::VIOTA_M(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	_assert_msg_(vd != vs2, "%s instruction vd overlap vs2", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VIOTA, vs2, vm, Funct6::VMUNARY0));
+}
+
+void RiscVEmitter::VID_M(RiscVReg vd, VUseMask vm) {
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	// The spec doesn't say this, but it also says it's essentially viota.m with vs2=-1, so let's assume.
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VID, V0, vm, Funct6::VMUNARY0));
 }
 
 bool RiscVEmitter::AutoCompress() const {

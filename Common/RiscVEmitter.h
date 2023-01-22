@@ -816,6 +816,35 @@ public:
 	void VFWREDOSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
 	void VFWREDUSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
 
+	void VMAND_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMNAND_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMANDN_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMXOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMNOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMORN_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMXNOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMMV_M(RiscVReg vd, RiscVReg vs1) {
+		VMAND_MM(vd, vs1, vs1);
+	}
+	void VMCLR_M(RiscVReg vd, RiscVReg vs1) {
+		VMXOR_MM(vd, vs1, vs1);
+	}
+	void VMSET_M(RiscVReg vd, RiscVReg vs1) {
+		VMXNOR_MM(vd, vs1, vs1);
+	}
+	void VMNOT_M(RiscVReg vd, RiscVReg vs1) {
+		VMNAND_MM(vd, vs1, vs1);
+	}
+
+	void VCPOP_M(RiscVReg rd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFIRST_M(RiscVReg rd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VMSBF_M(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VMSIF_M(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VMSOF_M(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VIOTA_M(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VID_M(RiscVReg vd, VUseMask vm = VUseMask::NONE);
+
 	// Compressed instructions.
 	void C_ADDI4SPN(RiscVReg rd, u32 nzuimm10);
 	void C_FLD(RiscVReg rd, RiscVReg addr, u8 uimm8);
