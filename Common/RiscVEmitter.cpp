@@ -260,6 +260,33 @@ enum class Funct5 {
 	VSEXT_VF4 = 0b00101,
 	VZEXT_VF2 = 0b00110,
 	VSEXT_VF2 = 0b00111,
+
+	VFSQRT = 0b00000,
+	VFRSQRT7 = 0b00100,
+	VFREC7 = 0b00101,
+	VFCLASS = 0b10000,
+
+	VFCVT_XU_F = 0b00000,
+	VFCVT_X_F = 0b00001,
+	VFCVT_F_XU = 0b00010,
+	VFCVT_F_X = 0b00011,
+	VFCVT_RTZ_XU_F = 0b00110,
+	VFCVT_RTZ_X_F = 0b00111,
+	VFWCVT_XU_F = 0b01000,
+	VFWCVT_X_F = 0b01001,
+	VFWCVT_F_XU = 0b01010,
+	VFWCVT_F_X = 0b01011,
+	VFWCVT_F_F = 0b01100,
+	VFWCVT_RTZ_XU_F = 0b01110,
+	VFWCVT_RTZ_X_F = 0b01111,
+	VFNCVT_XU_F = 0b10000,
+	VFNCVT_X_F = 0b10001,
+	VFNCVT_F_XU = 0b10010,
+	VFNCVT_F_X = 0b10011,
+	VFNCVT_F_F = 0b10100,
+	VFNCVT_ROD_F_F = 0b10101,
+	VFNCVT_RTZ_XU_F = 0b10110,
+	VFNCVT_RTZ_X_F = 0b10111,
 };
 
 enum class Funct4 {
@@ -299,6 +326,8 @@ enum class Funct6 {
 
 	VFREDUSUM = 0b000001,
 	VFREDOSUM = 0b000011,
+	VFMIN = 0b000100,
+	VFMAX = 0b000110,
 	VFSGNJ = 0b001000,
 	VFSGNJN = 0b001001,
 	VFSGNJX = 0b001010,
@@ -3050,6 +3079,195 @@ void RiscVEmitter::VFWNMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask
 
 void RiscVEmitter::VFWNMSAC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm) {
 	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFWNMSAC));
+}
+
+void RiscVEmitter::VFSQRT_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFSQRT, vs2, vm, Funct6::VFXUNARY1));
+}
+
+void RiscVEmitter::VFRSQRT7_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFRSQRT7, vs2, vm, Funct6::VFXUNARY1));
+}
+
+void RiscVEmitter::VFREC7_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFREC7, vs2, vm, Funct6::VFXUNARY1));
+}
+
+void RiscVEmitter::VFMIN_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFMIN));
+}
+
+void RiscVEmitter::VFMIN_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFMIN));
+}
+
+void RiscVEmitter::VFMAX_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFMAX));
+}
+
+void RiscVEmitter::VFMAX_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFMAX));
+}
+
+void RiscVEmitter::VFSGNJ_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFSGNJ));
+}
+
+void RiscVEmitter::VFSGNJ_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFSGNJ));
+}
+
+void RiscVEmitter::VFSGNJN_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFSGNJN));
+}
+
+void RiscVEmitter::VFSGNJN_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFSGNJN));
+}
+
+void RiscVEmitter::VFSGNJX_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VFSGNJX));
+}
+
+void RiscVEmitter::VFSGNJX_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VFSGNJX));
+}
+
+void RiscVEmitter::VMFEQ_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VMFEQ));
+}
+
+void RiscVEmitter::VMFEQ_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VMFEQ));
+}
+
+void RiscVEmitter::VMFNE_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VMFNE));
+}
+
+void RiscVEmitter::VMFNE_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VMFNE));
+}
+
+void RiscVEmitter::VMFLT_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VMFLT));
+}
+
+void RiscVEmitter::VMFLT_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VMFLT));
+}
+
+void RiscVEmitter::VMFLE_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	Write32(EncodeFVV(vd, vs1, vs2, vm, Funct6::VMFLE));
+}
+
+void RiscVEmitter::VMFLE_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VMFLE));
+}
+
+void RiscVEmitter::VMFGT_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VMFGT));
+}
+
+void RiscVEmitter::VMFGE_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	Write32(EncodeFVF(vd, rs1, vs2, vm, Funct6::VMFGE));
+}
+
+void RiscVEmitter::VFCLASS_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFCLASS, vs2, vm, Funct6::VFXUNARY1));
+}
+
+void RiscVEmitter::VFMERGE_VFM(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, RiscVReg vmask) {
+	_assert_msg_(vmask == V0, "vmask must be V0");
+	Write32(EncodeFVF(vd, rs1, vs2, VUseMask::V0_T, Funct6::VMV));
+}
+
+void RiscVEmitter::VFMV_VF(RiscVReg vd, RiscVReg rs1) {
+	Write32(EncodeFVF(vd, rs1, V0, VUseMask::NONE, Funct6::VMV));
+}
+
+void RiscVEmitter::VFCVT_XU_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFCVT_XU_F, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFCVT_X_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFCVT_X_F, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFCVT_RTZ_XU_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFCVT_RTZ_XU_F, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFCVT_RTZ_X_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFCVT_RTZ_X_F, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFCVT_F_XU_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFCVT_F_XU, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFCVT_F_X_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFCVT_F_X, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFWCVT_XU_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFWCVT_XU_F, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFWCVT_X_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFWCVT_X_F, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFWCVT_RTZ_XU_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFWCVT_RTZ_XU_F, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFWCVT_RTZ_X_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFWCVT_RTZ_X_F, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFWCVT_F_XU_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFWCVT_F_XU, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFWCVT_F_X_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFWCVT_F_X, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFWCVT_F_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFWCVT_F_F, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFNCVT_XU_F_W(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_XU_F, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFNCVT_X_F_W(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_X_F, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFNCVT_RTZ_XU_F_W(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_RTZ_XU_F, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFNCVT_RTZ_X_F_W(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_RTZ_X_F, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFNCVT_F_XU_W(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_F_XU, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFNCVT_F_X_W(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_F_X, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFNCVT_F_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_F_F, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VFNCVT_ROD_F_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	Write32(EncodeFVV(vd, (RiscVReg)Funct5::VFNCVT_ROD_F_F, vs2, vm, Funct6::VFXUNARY0));
 }
 
 bool RiscVEmitter::AutoCompress() const {
