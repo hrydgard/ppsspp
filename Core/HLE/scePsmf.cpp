@@ -740,8 +740,12 @@ void __PsmfPlayerDoState(PointerWrap &p) {
 void __PsmfShutdown() {
 	for (auto it = psmfMap.begin(), end = psmfMap.end(); it != end; ++it)
 		delete it->second;
-	for (auto it = psmfPlayerMap.begin(), end = psmfPlayerMap.end(); it != end; ++it)
+	for (auto it = psmfPlayerMap.begin(), end = psmfPlayerMap.end(); it != end; ++it) {
+		// Don't bother freeing, may already be freed.
+		if (it->second->finishThread)
+			it->second->finishThread->Forget();
 		delete it->second;
+	}
 	psmfMap.clear();
 	psmfPlayerMap.clear();
 }
