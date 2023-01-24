@@ -142,8 +142,7 @@ namespace Reporting
 		}
 
 		if (crcPending) {
-			// Already in process.
-			INFO_LOG(SYSTEM, "CRC already pending");
+			// Already in process. This is OK - on the crash screen we call this in a polling fashion.
 			return;
 		}
 
