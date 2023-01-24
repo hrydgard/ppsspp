@@ -1266,7 +1266,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	}
 
 	// DO NOT change to else if, see above.
-	if (*magicPtr != 0x464c457f) {
+	// 0x50535000 is for Fushigi no Dungeon - Fuurai no Shiren 4 Plus - Kami no Hitomi to Akuma no Heso (Japan) (v3.10)
+	if (*magicPtr != 0x464c457f && *magicPtr != 0x50535000) {
 		ERROR_LOG(SCEMODULE, "Wrong magic number %08x", *magicPtr);
 		*error_string = "File corrupt";
 		if (newptr)
