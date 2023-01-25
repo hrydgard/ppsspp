@@ -304,7 +304,8 @@ void CPUInfo::Detect()
 	bFP = false;
 	bASIMD = false;
 #else // PPSSPP_PLATFORM(LINUX)
-	truncate_cpy(cpu_string, GetCPUString().c_str());
+    // Samsung Exynos , Qualcomm Snapdragon , Mediatek , NVIDIA Tegra
+    truncate_cpy(cpu_string, GetCPUString().c_str());
 	truncate_cpy(brand_string, GetCPUBrandString().c_str());
 
 	bSwp = CheckCPUFeature("swp");
@@ -324,18 +325,86 @@ void CPUInfo::Detect()
 	unsigned short CPUPart = GetCPUPart();
 	if (GetCPUImplementer() == 0x51 && (CPUPart == 0x4D || CPUPart == 0x6F))
 		bIDIVa = bIDIVt = true;
-	// Vero4k supports NEON but doesn't report it. Check for Arm Cortex-A53.
-	if (GetCPUImplementer() == 0x41 && CPUPart == 0xd03)
-		bNEON = true;
-	// These two require ARMv8 or higher
+	// These require ARMv8 or higher , see the documentation link on below
+    // https://en.wikichip.org/wiki/arm/armv8
+    // https://en.wikipedia.org/wiki/AArch64
+    // https://sourceware.org/binutils/docs/as/AArch64-Extensions.html
+    // https://marcin.juszkiewicz.com.pl/ and https://marcin.juszkiewicz.com.pl/download/tables/arm-socs.html
+    // ARMv8.0
 	bFP = CheckCPUFeature("fp");
 	bASIMD = CheckCPUFeature("asimd");
+    bEVTSTRM = CheckCPUFeature("evtstrm");
+    bCPUID = CheckCPUFeature("cpuid");
+    bAESARM = CheckCPUFeature("aes");
+    // CRC32 is optional on ARMv8.0 , mandatory on ARMv8.1 later
+    // See https://en.wikichip.org/wiki/arm/armv8.1
+    bCRC32 = CheckCPUFeature("crc32");
+    bPMULL = CheckCPUFeature("pmull");
+    bSHA1 = CheckCPUFeature("sha1");
+    bSHA2 = CheckCPUFeature("sha2");
+    bSSBS = CheckCPUFeature("ssbs");
+    bSB = CheckCPUFeature("sb");
+    bDGH = CheckCPUFeature("dgh");
+    // These extension require of later version of ARMv8.0 ( Cortex A55 , A510, A710 , A715, A72 , A73 , A75 , A76 , A77 , A78 , X1 , X2 , X3)
+    // ARMv8.1
+    bASIMDRDM = CheckCPUFeature("asimdrdm");
+    bATOMICS = CheckCPUFeature("atomics");
+    // ARMv8.2
+    bFPHP = CheckCPUFeature("fphp");
+    bDCPOP = CheckCPUFeature("dcpop");
+    bSHA3 = CheckCPUFeature("sha3");
+    bSM3 = CheckCPUFeature("sm3");
+    bSM4 = CheckCPUFeature("sm4");
+    bASIMDDP = CheckCPUFeature("asimddp");
+    bSHA512 = CheckCPUFeature("sha512");
+    bASIMDHP = CheckCPUFeature("asimdhp");
+    bASIMDFHM = CheckCPUFeature("asimdfhm");
+    bUSCAT = CheckCPUFeature("uscat");
+    bFLAGM = CheckCPUFeature("flagm");
+    bDCPODP = CheckCPUFeature("dcpodp");
+    bI8MM = CheckCPUFeature("i8mm");
+    bBF16 = CheckCPUFeature("bf16");
+    bSVE = CheckCPUFeature("sve");
+    bSVEBF16 = CheckCPUFeature("svebf16");
+    bSVEF32MM = CheckCPUFeature("svef32mm");
+    bSVEF64MM = CheckCPUFeature("svef64mm");
+    bSVEI8MM = CheckCPUFeature("svei8mm");
+    // ARMv8.3
+    bJSCVT = CheckCPUFeature("jscvt");
+    bLRCPC = CheckCPUFeature("lrcpc");
+    bFCMA = CheckCPUFeature("fcma");
+    // ARMv8.4
+    bILRCPC = CheckCPUFeature("ilrcpc");
+    bDIT = CheckCPUFeature("dit");
+    bPACA = CheckCPUFeature("paca");
+    bPACG = CheckCPUFeature("pacg");
+    // ARMv8.5
+    bFLAGM2 = CheckCPUFeature("flagm2");
+    bFRINT = CheckCPUFeature("frint");
+    bBTI = CheckCPUFeature("bti");
+    bMTE = CheckCPUFeature("mte");
+    bMTE3 = CheckCPUFeature("mte3");
+    bRNG = CheckCPUFeature("rng");
+    // ARMv8.6
+    bECV = CheckCPUFeature("ecv");
+    // ARMv8.7
+    bAFP = CheckCPUFeature("afp");
+    bRPRES = CheckCPUFeature("rpres");
+    bWFXT = CheckCPUFeature("wfxt");
+    // ARMv9.0
+    bSVE2 = CheckCPUFeature("sve2");
+    bSVEAES = CheckCPUFeature("sveaes");
+    bSVEBITPERM = CheckCPUFeature("svebitperm");
+    bSVEPMULL = CheckCPUFeature("svepmull");
+    bSVESHA3 = CheckCPUFeature("svesha3");
+    bSVESM4 = CheckCPUFeature("svesm4");
 	num_cores = GetCoreCount();
 #endif
 #if PPSSPP_ARCH(ARM64)
-	// Whether the above detection failed or not, on ARM64 we do have ASIMD/NEON.
+	// Whether the above detection failed or not, on ARMv8.0 and later we do have basic crypto extension ASIMD/NEON,FP.
 	bNEON = true;
 	bASIMD = true;
+    bFP = true;
 #endif
 }
 
@@ -347,6 +416,7 @@ std::string CPUInfo::Summarize()
 		sum = StringFromFormat("%s, %d core", cpu_string, num_cores);
 	else
 		sum = StringFromFormat("%s, %d cores", cpu_string, num_cores);
+    // ARMv7 Extension
 	if (bSwp) sum += ", SWP";
 	if (bHalf) sum += ", Half";
 	if (bThumb) sum += ", Thumb";
@@ -360,6 +430,72 @@ std::string CPUInfo::Summarize()
 	if (bNEON) sum += ", NEON";
 	if (bIDIVa) sum += ", IDIVa";
 	if (bIDIVt) sum += ", IDIVt";
+    // ARM64 Extension
+    // ARMv8.0
+    if (bFP) sum += ", FP";
+    if (bASIMD) sum += ", ASIMD";
+    if (bEVTSTRM) sum += ", EVTSTRM";
+    if (bCPUID) sum += ", CPUID";
+    if (bAESARM) sum += ", AES";
+    if (bCRC32) sum += ", CRC32";
+    if (bPMULL) sum += ", PMULL";
+    if (bSHA1) sum += ", SHA1";
+    if (bSHA2) sum += ", SHA2";
+    if (bSSBS) sum += ", SSBS";
+    if (bSB) sum += ", SB";
+    if (bDGH) sum += ", DGH";
+    // ARMv8.1
+    if (bATOMICS) sum += ", ATOMICS";
+    if (bASIMDRDM) sum += ", ASIMDRDM";
+    // ARMv8.2
+    if (bFPHP) sum += ", FPHP";
+    if (bDCPOP) sum += ", DCPOP";
+    if (bSHA3) sum += ", SHA3";
+    if (bSM3) sum += ", SM3";
+    if (bSM4) sum += ", SM4";
+    if (bASIMDDP) sum += ", ASIMDDP";
+    if (bSHA512) sum += ", SHA512";
+    if (bASIMDHP) sum += ", ASIMDHP";
+    if (bASIMDFHM) sum += ", ASIMDFHM";
+    if (bUSCAT) sum += ", USCAT";
+    if (bFLAGM) sum += ", FLAGM";
+    if (bDCPODP) sum += ", DCPODP";
+    if (bI8MM) sum += ", I8MM";
+    if (bBF16) sum += ", BF16";
+    if (bSVE) sum += ", SVE";
+    if (bSVEBF16) sum += ", SVEBF16";
+    if (bSVEF32MM) sum += ", SVEF32MM";
+    if (bSVEF64MM) sum += ", SVEF64MM";
+    if (bSVEI8MM) sum += ", SVEI8MM";
+    // ARMv8.3
+    if (bJSCVT) sum += ", JSCVT";
+    if (bLRCPC) sum += ", LRCPC";
+    if (bFCMA) sum += ", FCMA";
+    // ARMv8.4
+    if (bILRCPC) sum += ", ILRCPC";
+    if (bDIT) sum += ", DIT";
+    if (bPACA) sum += ", PACA";
+    if (bPACG) sum += ", PACG";
+    // ARMv8.5
+    if (bFLAGM2) sum += ", FLAGM2";
+    if (bFRINT) sum += ", FRINT";
+    if (bBTI) sum += ", BTI";
+    if (bMTE) sum += ", MTE";
+    if (bMTE3) sum += ", MTE3";
+    if (bRNG) sum += ", RNG";
+    // ARMv8.6
+    if (bECV) sum += ", ECV";
+    // ARMv8.7
+    if (bAFP) sum += ", AFP";
+    if (bRPRES) sum += ", RPRES";
+    if (bWFXT) sum  += ", WFXT";
+    // ARMv9.0
+    if (bSVE2) sum += ", SVE2";
+    if (bSVEAES) sum += ", SVEAES";
+    if (bSVEBITPERM) sum += ", SVEBITPERM";
+    if (bSVEPMULL) sum += ", SVEPMULL";
+    if (bSVESHA3) sum += ", SVESHA3";
+    if (bSVESM4) sum += ", SVESM4";
 	if (CPU64bit) sum += ", 64-bit";
 
 	return sum;

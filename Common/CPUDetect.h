@@ -90,8 +90,71 @@ struct CPUInfo {
 	bool bIDIVt;
 
 	// ARMv8 specific
+    // ARMv8.0
 	bool bFP;
 	bool bASIMD;
+    bool bEVTSTRM;
+    bool bCPUID;
+    bool bAESARM;
+    bool bCRC32;
+    bool bPMULL;
+    bool bSHA1;
+    bool bSHA2;
+    bool bSSBS;
+    bool bSB;
+    bool bDGH;
+    // ARMv8.1
+    bool bATOMICS;
+    bool bASIMDRDM;
+    // ARMv8.2
+    bool bFPHP;
+    bool bDCPOP;
+    bool bSHA3;
+    bool bSM3;
+    bool bSM4;
+    bool bASIMDDP;
+    bool bSHA512;
+    bool bASIMDHP;
+    bool bASIMDFHM;
+    bool bUSCAT;
+    bool bFLAGM;
+    bool bDCPODP;
+    bool bI8MM;
+    bool bBF16;
+    bool bSVE;
+    bool bSVEBF16;
+    bool bSVEF32MM;
+    bool bSVEF64MM;
+    bool bSVEI8MM;
+    // ARMv8.3
+    bool bJSCVT;
+    bool bLRCPC;
+    bool bFCMA;
+    // ARMv8.4
+    bool bILRCPC;
+    bool bDIT;
+    bool bPACA;
+    bool bPACG;
+    // ARMv8.5
+    bool bFLAGM2;
+    bool bFRINT;
+    bool bBTI;
+    bool bMTE;
+    bool bMTE3;
+    bool bRNG;
+    //ARMv8.6
+    bool bECV;
+    //ARMv8.7
+    bool bAFP;
+    bool bRPRES;
+    bool bWFXT;
+    //ARMv9.0
+    bool bSVE2;
+    bool bSVEAES;
+    bool bSVEBITPERM;
+    bool bSVEPMULL;
+    bool bSVESHA3;
+    bool bSVESM4;
 
 	// MIPS specific
 	bool bXBurst1;
