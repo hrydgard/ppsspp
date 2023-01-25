@@ -1152,25 +1152,20 @@ static int sceFontClose(u32 fontHandle) {
 static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 	auto errorCode = PSPPointer<s32_le>::Create(errorCodePtr);
 	if (!errorCode.IsValid()) {
-		ERROR_LOG_REPORT(SCEFONT, "sceFontFindOptimumFont(%08x, %08x, %08x): invalid error address", libHandle, fontStylePtr, errorCodePtr);
-		return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
+		return hleReportError(SCEFONT, SCE_KERNEL_ERROR_INVALID_ARGUMENT, "invalid error address");
 	}
 
 	FontLib *fontLib = GetFontLib(libHandle);
 	if (!fontLib) {
-		ERROR_LOG_REPORT(SCEFONT, "sceFontFindOptimumFont(%08x, %08x, %08x): invalid font lib", libHandle, fontStylePtr, errorCodePtr);
 		*errorCode = ERROR_FONT_INVALID_LIBID;
-		return 0;
+		return hleReportError(SCEFONT, 0, "invalid font lib");
 	}
 
 	if (!Memory::IsValidAddress(fontStylePtr)) {
-		ERROR_LOG_REPORT(SCEFONT, "sceFontFindOptimumFont(%08x, %08x, %08x): invalid style address", libHandle, fontStylePtr, errorCodePtr);
 		// Yes, actually.  Must've been a typo in the library.
 		*errorCode = ERROR_FONT_INVALID_LIBID;
-		return 0;
+		return hleReportError(SCEFONT, 0, "invalid style address");
 	}
-
-	DEBUG_LOG(SCEFONT, "sceFontFindOptimumFont(%08x, %08x, %08x)", libHandle, fontStylePtr, errorCodePtr);
 
 	auto requestedStyle = PSPPointer<const PGFFontStyle>::Create(fontStylePtr);
 
@@ -1209,10 +1204,10 @@ static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCode
 	}
 	if (optimumFont) {
 		*errorCode = 0;
-		return GetInternalFontIndex(optimumFont);
+		return hleLogSuccessInfoX(SCEFONT, GetInternalFontIndex(optimumFont) ,"");
 	} else {
 		*errorCode = 0;
-		return 0;
+		return hleLogSuccessInfoX(SCEFONT, 0, "");
 	}
 }
 
