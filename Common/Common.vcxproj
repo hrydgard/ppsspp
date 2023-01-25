@@ -384,6 +384,7 @@
     <ClInclude Include="..\ext\libpng17\pnglibconf.h" />
     <ClInclude Include="..\ext\libpng17\pngpriv.h" />
     <ClInclude Include="..\ext\libpng17\pngstruct.h" />
+    <ClInclude Include="..\ext\nvda\x64\nvdaController.h" />
     <ClInclude Include="..\ext\vma\vk_mem_alloc.h" />
     <ClInclude Include="ABI.h" />
     <ClInclude Include="Arm64Emitter.h" />
@@ -552,6 +553,7 @@
     <ClInclude Include="Thread\ThreadUtil.h" />
     <ClInclude Include="Thunk.h" />
     <ClInclude Include="TimeUtil.h" />
+    <ClInclude Include="TTS\TTS.h" />
     <ClInclude Include="UI\AsyncImageFileView.h" />
     <ClInclude Include="UI\Context.h" />
     <ClInclude Include="UI\PopupScreens.h" />
@@ -996,6 +998,7 @@
     <ClCompile Include="Thread\ThreadUtil.cpp" />
     <ClCompile Include="Thunk.cpp" />
     <ClCompile Include="TimeUtil.cpp" />
+    <ClCompile Include="TTS\TTS.cpp" />
     <ClCompile Include="UI\AsyncImageFileView.cpp" />
     <ClCompile Include="UI\Context.cpp" />
     <ClCompile Include="UI\PopupScreens.cpp" />
