@@ -210,6 +210,7 @@ public:
 	int iForceFullScreen = -1; // -1 = nope, 0 = force off, 1 = force on (not saved.)
 	int iInternalResolution;  // 0 = Auto (native), 1 = 1x (480x272), 2 = 2x, 3 = 3x, 4 = 4x and so on.
 	int iAnisotropyLevel;  // 0 - 5, powers of 2: 0 = 1x = no aniso
+	int iMultiSampleLevel;
 	int bHighQualityDepth;
 	bool bReplaceTextures;
 	bool bSaveNewTextures;

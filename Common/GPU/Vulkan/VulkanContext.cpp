@@ -57,7 +57,7 @@ std::string VulkanVendorString(uint32_t vendorId) {
 	case VULKAN_VENDOR_ARM: return "ARM";
 	case VULKAN_VENDOR_QUALCOMM: return "Qualcomm";
 	case VULKAN_VENDOR_IMGTEC: return "Imagination";
-
+	case VULKAN_VENDOR_APPLE: return "Apple";
 	default:
 		return StringFromFormat("%08x", vendorId);
 	}
@@ -253,15 +253,21 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			VkPhysicalDeviceProperties2 props2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
 			VkPhysicalDevicePushDescriptorPropertiesKHR pushProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR};
 			VkPhysicalDeviceExternalMemoryHostPropertiesEXT extHostMemProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT};
+			VkPhysicalDeviceDepthStencilResolveProperties depthStencilResolveProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES};
+
 			props2.pNext = &pushProps;
 			pushProps.pNext = &extHostMemProps;
+			extHostMemProps.pNext = &depthStencilResolveProps;
 			vkGetPhysicalDeviceProperties2KHR(physical_devices_[i], &props2);
 			// Don't want bad pointers sitting around.
 			props2.pNext = nullptr;
 			pushProps.pNext = nullptr;
+			extHostMemProps.pNext = nullptr;
+			depthStencilResolveProps.pNext = nullptr;
 			physicalDeviceProperties_[i].properties = props2.properties;
 			physicalDeviceProperties_[i].pushDescriptorProperties = pushProps;
 			physicalDeviceProperties_[i].externalMemoryHostProperties = extHostMemProps;
+			physicalDeviceProperties_[i].depthStencilResolve = depthStencilResolveProps;
 		}
 	} else {
 		for (uint32_t i = 0; i < gpu_count; i++) {
@@ -329,7 +335,7 @@ bool VulkanContext::MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirem
 	for (uint32_t i = 0; i < 32; i++) {
 		if ((typeBits & 1) == 1) {
 			// Type is available, does it match user properties?
-			if ((memory_properties.memoryTypes[i].propertyFlags & requirements_mask) == requirements_mask) {
+			if ((memory_properties_.memoryTypes[i].propertyFlags & requirements_mask) == requirements_mask) {
 				*typeIndex = i;
 				return true;
 			}
@@ -569,17 +575,17 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	}
 
 	// This is as good a place as any to do this.
-	vkGetPhysicalDeviceMemoryProperties(physical_devices_[physical_device_], &memory_properties);
-	INFO_LOG(G3D, "Memory Types (%d):", memory_properties.memoryTypeCount);
-	for (int i = 0; i < (int)memory_properties.memoryTypeCount; i++) {
+	vkGetPhysicalDeviceMemoryProperties(physical_devices_[physical_device_], &memory_properties_);
+	INFO_LOG(G3D, "Memory Types (%d):", memory_properties_.memoryTypeCount);
+	for (int i = 0; i < (int)memory_properties_.memoryTypeCount; i++) {
 		// Don't bother printing dummy memory types.
-		if (!memory_properties.memoryTypes[i].propertyFlags)
+		if (!memory_properties_.memoryTypes[i].propertyFlags)
 			continue;
-		INFO_LOG(G3D, "  %d: Heap %d; Flags: %s%s%s%s  ", i, memory_properties.memoryTypes[i].heapIndex,
-			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) ? "DEVICE_LOCAL " : "",
-			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? "HOST_VISIBLE " : "",
-			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) ? "HOST_CACHED " : "",
-			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) ? "HOST_COHERENT " : "");
+		INFO_LOG(G3D, "  %d: Heap %d; Flags: %s%s%s%s  ", i, memory_properties_.memoryTypes[i].heapIndex,
+			(memory_properties_.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) ? "DEVICE_LOCAL " : "",
+			(memory_properties_.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? "HOST_VISIBLE " : "",
+			(memory_properties_.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) ? "HOST_CACHED " : "",
+			(memory_properties_.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) ? "HOST_COHERENT " : "");
 	}
 
 	// Optional features
@@ -606,6 +612,7 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	deviceFeatures_.enabled.standard.shaderClipDistance = deviceFeatures_.available.standard.shaderClipDistance;
 	deviceFeatures_.enabled.standard.shaderCullDistance = deviceFeatures_.available.standard.shaderCullDistance;
 	deviceFeatures_.enabled.standard.geometryShader = deviceFeatures_.available.standard.geometryShader;
+	deviceFeatures_.enabled.standard.sampleRateShading = deviceFeatures_.available.standard.sampleRateShading;
 
 	deviceFeatures_.enabled.multiview = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
 	deviceFeatures_.enabled.multiview.multiview = deviceFeatures_.available.multiview.multiview;

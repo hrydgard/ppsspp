@@ -123,6 +123,7 @@ public:
 
 	// These are not bounds, but distances from the container edges.
 	// Set to NONE to not attach this edge to the container.
+	// If two opposite edges are NONE, centering will happen.
 	float left, top, right, bottom;
 	bool center;  // If set, only two "sides" can be set, and they refer to the center, not the edge, of the view being layouted.
 

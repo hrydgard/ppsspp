@@ -1017,12 +1017,9 @@ bool TextureCacheCommon::MatchFramebuffer(
 		}
 
 		// Note the check for texHeight - we really don't care about a stride mismatch if texHeight == 1.
+		// This also takes care of the 4x1 texture check we used to have here for Burnout Dominator.
 		if (fb_stride_in_bytes != tex_stride_in_bytes && texHeight > 1) {
-			// Probably irrelevant. Although, as we shall see soon, there are exceptions.
-			// Burnout Dominator lens flare trick special case.
-			if (fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT8 && texWidth == 4 && texHeight == 1) {
-				return true;
-			}
+			// Probably irrelevant.
 			return false;
 		}
 
@@ -1197,7 +1194,6 @@ bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffe
 }
 
 void TextureCacheCommon::NotifyConfigChanged() {
-	clearCacheNextFrame_ = true;
 	int scaleFactor = g_Config.iTexScalingLevel;
 
 	if (!gstate_c.Use(GPU_USE_TEXTURE_NPOT)) {
@@ -1299,6 +1295,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 					desc.depth = 1;
 					desc.z_stencil = false;
 					desc.numLayers = 1;
+					desc.multiSampleLevel = 0;
 					desc.tag = "dynamic_clut";
 					dynamicClutFbo_ = draw_->CreateFramebuffer(desc);
 					desc.tag = "dynamic_clut_temp";
@@ -2577,6 +2574,10 @@ void TextureCacheCommon::InvalidateAll(GPUInvalidationType /*unused*/) {
 		}
 		iter->second->invalidHint++;
 	}
+}
+
+void TextureCacheCommon::ClearNextFrame() {
+	clearCacheNextFrame_ = true;
 }
 
 std::string AttachCandidate::ToString() const {

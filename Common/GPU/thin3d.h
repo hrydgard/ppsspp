@@ -300,6 +300,7 @@ struct FramebufferDesc {
 	int height;
 	int depth;
 	int numLayers;
+	int multiSampleLevel;  // 0 = 1xaa, 1 = 2xaa, and so on.
 	bool z_stencil;
 	const char *tag;  // For graphics debuggers
 };
@@ -436,10 +437,11 @@ public:
 	int Width() { return width_; }
 	int Height() { return height_; }
 	int Layers() { return layers_; }
+	int MultiSampleLevel() { return multiSampleLevel_; }
 
 	virtual void UpdateTag(const char *tag) {}
 protected:
-	int width_ = -1, height_ = -1, layers_ = 1;
+	int width_ = -1, height_ = -1, layers_ = 1, multiSampleLevel_ = 0;
 };
 
 class Buffer : public RefCountedObject {
@@ -576,7 +578,10 @@ struct DeviceCaps {
 	bool textureDepthSupported;
 	bool blendMinMaxSupported;
 	bool multiViewSupported;
+	bool isTilingGPU;  // This means that it benefits from correct store-ops, msaa without backing memory, etc.
+	bool sampleRateShadingSupported;
 
+	u32 multiSampleLevelsMask;  // Bit n is set if (1 << n) is a valid multisample level. Bit 0 is always set.
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
 

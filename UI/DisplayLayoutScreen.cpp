@@ -117,9 +117,6 @@ private:
 };
 
 DisplayLayoutScreen::DisplayLayoutScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {
-	// Ignore insets - just couldn't get the logic to work.
-	ignoreInsets_ = true;
-
 	// Show background at full brightness
 	darkenGameBackground_ = false;
 }
@@ -208,31 +205,31 @@ void DisplayLayoutScreen::CreateViews() {
 	rightScrollView->Add(rightColumn);
 	root_->Add(rightScrollView);
 
+	LinearLayout *bottomControls = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, NONE, NONE, 10.0f, false));
+	root_->Add(bottomControls);
 
 	if (!IsVREnabled()) {
 		auto stretch = new CheckBox(&g_Config.bDisplayStretch, gr->T("Stretch"));
-		leftColumn->Add(stretch);
+		rightColumn->Add(stretch);
 
 		PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, gr->T("Aspect Ratio"), screenManager());
-		leftColumn->Add(aspectRatio);
+		rightColumn->Add(aspectRatio);
 		aspectRatio->SetDisabledPtr(&g_Config.bDisplayStretch);
 		aspectRatio->SetHasDropShadow(false);
 		aspectRatio->SetLiveUpdate(true);
 
-		mode_ = new ChoiceStrip(ORIENT_VERTICAL);
+		mode_ = new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 		mode_->AddChoice(di->T("Move"));
 		mode_->AddChoice(di->T("Resize"));
 		mode_->SetSelection(0, false);
-		leftColumn->Add(mode_);
+		bottomControls->Add(mode_);
 
 		static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
 		auto rotation = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager());
 		rotation->SetEnabledFunc([] {
 			return !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 		});
-		leftColumn->Add(rotation);
-
-		leftColumn->Add(new Spacer(12.0f));
+		rightColumn->Add(rotation);
 
 		Choice *center = new Choice(di->T("Reset"));
 		center->OnClick.Add([&](UI::EventParams &) {
@@ -242,13 +239,19 @@ void DisplayLayoutScreen::CreateViews() {
 			g_Config.fDisplayOffsetY = 0.5f;
 			return UI::EVENT_DONE;
 		});
-		leftColumn->Add(center);
+		rightColumn->Add(center);
+
+		rightColumn->Add(new Spacer(12.0f));
 	}
 
-	static const char *bufFilters[] = { "Linear", "Nearest", };
-	rightColumn->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
+	Choice *back = new Choice(di->T("Back"), "", false);
+	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	rightColumn->Add(back);
 
-	rightColumn->Add(new ItemHeader(gr->T("Postprocessing effect")));
+	static const char *bufFilters[] = { "Linear", "Nearest", };
+	leftColumn->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
+
+	leftColumn->Add(new ItemHeader(gr->T("Postprocessing effect")));
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
@@ -262,11 +265,12 @@ void DisplayLayoutScreen::CreateViews() {
 	for (int i = 0; i < (int)g_Config.vPostShaderNames.size() + 1 && i < ARRAY_SIZE(shaderNames_); ++i) {
 		// Vector element pointer get invalidated on resize, cache name to have always a valid reference in the rendering thread
 		shaderNames_[i] = i == g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[i];
-		rightColumn->Add(new ItemHeader(StringFromFormat("%s #%d", gr->T("Postprocessing Shader"), i + 1)));
-		postProcChoice_ = rightColumn->Add(new ChoiceWithValueDisplay(&shaderNames_[i], "", &PostShaderTranslateName));
+		leftColumn->Add(new ItemHeader(StringFromFormat("%s #%d", gr->T("Postprocessing Shader"), i + 1)));
+		postProcChoice_ = leftColumn->Add(new ChoiceWithValueDisplay(&shaderNames_[i], "", &PostShaderTranslateName));
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory("Graphics");
 			auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"), i, false);
+			procScreen->SetHasDropShadow(false);
 			procScreen->OnChoice.Handle(this, &DisplayLayoutScreen::OnPostProcShaderChange);
 			if (e.v)
 				procScreen->SetPopupOrigin(e.v);
@@ -292,10 +296,10 @@ void DisplayLayoutScreen::CreateViews() {
 					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
 					if (duplicated) {
 						auto sliderName = StringFromFormat("%s %s", ps->T(setting.name), ps->T("(duplicated setting, previous slider will be used)"));
-						PopupSliderChoiceFloat *settingValue = rightColumn->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, sliderName, setting.step, screenManager()));
+						PopupSliderChoiceFloat *settingValue = leftColumn->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, sliderName, setting.step, screenManager()));
 						settingValue->SetEnabled(false);
 					} else {
-						PopupSliderChoiceFloat *settingValue = rightColumn->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+						PopupSliderChoiceFloat *settingValue = leftColumn->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
 						settingValue->SetLiveUpdate(true);
 						settingValue->SetHasDropShadow(false);
 						settingValue->SetEnabledFunc([=] {
@@ -306,10 +310,6 @@ void DisplayLayoutScreen::CreateViews() {
 			}
 		}
 	}
-
-	Choice *back = new Choice(di->T("Back"), "", false);
-	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	rightColumn->Add(back);
 
 	root_->Add(new DisplayLayoutBackground(mode_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, 0.0f, 0.0f, 0.0f, 0.0f)));
 }

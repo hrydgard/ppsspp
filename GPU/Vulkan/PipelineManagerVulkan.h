@@ -54,14 +54,19 @@ struct VulkanPipelineKey {
 
 // Simply wraps a Vulkan pipeline, providing some metadata.
 struct VulkanPipeline {
+	~VulkanPipeline() {
+		desc->Release();
+	}
+
 	VKRGraphicsPipeline *pipeline;
-	VKRGraphicsPipelineDesc desc;
+	VKRGraphicsPipelineDesc *desc;
 	PipelineFlags pipelineFlags;  // PipelineFlags enum above.
 
 	bool UsesBlendConstant() const { return (pipelineFlags & PipelineFlags::USES_BLEND_CONSTANT) != 0; }
 	bool UsesDepthStencil() const { return (pipelineFlags & PipelineFlags::USES_DEPTH_STENCIL) != 0; }
 	bool UsesInputAttachment() const { return (pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT) != 0; }
 	bool UsesGeometryShader() const { return (pipelineFlags & PipelineFlags::USES_GEOMETRY_SHADER) != 0; }
+	bool UsesDiscard() const { return (pipelineFlags & PipelineFlags::USES_DISCARD) != 0; }
 
 	u32 GetVariantsBitmask() const;
 };
@@ -86,6 +91,8 @@ public:
 
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);
+
+	void InvalidateMSAAPipelines();
 
 	std::string DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type);

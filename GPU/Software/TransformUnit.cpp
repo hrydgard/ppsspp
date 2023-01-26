@@ -295,17 +295,34 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		if (state->enableFog) {
 			float fogEnd = getFloat24(gstate.fog1);
 			float fogSlope = getFloat24(gstate.fog2);
-			// Same fixup as in ShaderManagerGLES.cpp
-			if (my_isnanorinf(fogEnd)) {
-				fogEnd = std::signbit(fogEnd) ? -INFINITY : INFINITY;
-			}
-			if (my_isnanorinf(fogSlope)) {
-				fogSlope = std::signbit(fogSlope) ? -INFINITY : INFINITY;
-			}
 
 			// We bake fog end and slope into the dot product.
 			state->posToFog = Vec4f(worldview[2], worldview[6], worldview[10], worldview[14] + fogEnd);
-			state->posToFog *= fogSlope;
+
+			// If either are NAN/INF, we simplify so there's no inf + -inf muddying things.
+			// This is required for Outrun to render proper skies, for example.
+			// The PSP treats these exponents as if they were valid.
+			if (my_isnanorinf(fogEnd)) {
+				bool sign = std::signbit(fogEnd);
+				// The multiply would reverse it if it wasn't infinity (doesn't matter if it's infnan.)
+				if (std::signbit(fogSlope))
+					sign = !sign;
+				// Also allow a multiply by zero (slope) to result in zero, regardless of sign.
+				// Act like it was negative and clamped to zero.
+				if (fogSlope == 0.0f)
+					sign = true;
+
+				// Since this is constant for the entire draw, we don't even use infinity.
+				float forced = sign ? 0.0f : 1.0f;
+				state->posToFog = Vec4f(0.0f, 0.0f, 0.0f, forced);
+			} else if (my_isnanorinf(fogSlope)) {
+				// We can't have signs differ with infinities, so we use a large value.
+				// Anything outside [0, 1] will clamp, so this essentially forces extremes.
+				fogSlope = std::signbit(fogSlope) ? -262144.0f : 262144.0f;
+				state->posToFog *= fogSlope;
+			} else {
+				state->posToFog *= fogSlope;
+			}
 		}
 
 		state->screenScale = Vec3f(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
@@ -552,10 +569,9 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		// Some games send rectangles as a series of regular triangles.
 		// We look for this, but only in throughmode.
 		ClipVertexData buf[6];
-		int buf_index = data_index_;
-		for (int i = 0; i < data_index_; ++i) {
-			buf[i] = data_[i];
-		}
+		// Could start at data_index_ and copy to buf, but there's little reason.
+		int buf_index = 0;
+		_assert_(data_index_ == 0);
 
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
 			buf[buf_index++] = vreader.Read(vtx);
