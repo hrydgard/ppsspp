@@ -276,6 +276,7 @@ public:
 	float fGameGridScale;
 	bool bShowOnScreenMessages;
 	int iBackgroundAnimation;  // enum BackgroundAnimation
+	bool bTransparentBackground;
 
 	std::string sThemeName;
 
@@ -417,9 +418,6 @@ public:
 	float fMouseSmoothing;
 
 	bool bSystemControls;
-
-	// Use the hardware scaler to scale up the image to save fillrate. Similar to Windows' window size, really.
-	int iAndroidHwScale;  // 0 = device resolution. 1 = 480x272 (extended to correct aspect), 2 = 960x544 etc.
 
 	// Risky JIT optimizations
 	bool bDiscardRegsOnJRRA;
@@ -568,21 +566,33 @@ public:
 	bool HasRecentIsos() const;
 	void ClearRecentIsos();
 
+	const std::map<std::string, std::pair<std::string, int>> &GetLangValuesMapping();
+	bool LoadAppendedConfig();
+	void SetAppendedConfigIni(const Path &path);
+
 protected:
 	void LoadStandardControllerIni();
+	void LoadLangValuesMapping();
+
+	void PostLoadCleanup(bool gameSpecific);
+	void PreSaveCleanup(bool gameSpecific);
+	void PostSaveCleanup(bool gameSpecific);
 
 private:
 	bool reload_ = false;
 	std::string gameId_;
 	std::string gameIdTitle_;
 	std::vector<std::string> recentIsos;
+	std::map<std::string, std::pair<std::string, int>> langValuesMapping_;
 	Path iniFilename_;
 	Path controllerIniFilename_;
 	Path searchPath_;
+	Path appendedConfigFileName_;
+	// A set make more sense, but won't have many entry, and I dont want to include the whole std::set header here
+	std::vector<std::string> appendedConfigUpdatedGames_;
 	ConfigPrivate *private_ = nullptr;
 };
 
-std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
 std::string CreateRandMAC();
 
 // TODO: Find a better place for this.

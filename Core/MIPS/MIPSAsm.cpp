@@ -1,12 +1,16 @@
 #include <cstdarg>
 #include <cstring>
 #include <memory>
+#ifndef NO_ARMIPS
 #include <string_view>
+#endif
 #include <vector>
 
 #include "Common/CommonTypes.h"
+#ifndef NO_ARMIPS
 #include "ext/armips/Core/Assembler.h"
 #include "ext/armips/Core/FileManager.h"
+#endif
 
 #include "Common/Data/Encoding/Utf8.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -23,6 +27,7 @@ std::string GetAssembleError()
 	return errorText;
 }
 
+#ifndef NO_ARMIPS
 class PspAssemblerFile: public AssemblerFile
 {
 public:
@@ -93,5 +98,11 @@ bool MipsAssembleOpcode(const char *line, DebugInterface *cpu, u32 address) {
 
 	return true;
 }
+#else
+bool MipsAssembleOpcode(const char *line, DebugInterface *cpu, u32 address) {
+	errorText = "Built without armips, cannot assemble";
+	return false;
+}
+#endif
 
 }  // namespace

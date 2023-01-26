@@ -74,6 +74,7 @@ struct VulkanPhysicalDeviceInfo {
 };
 
 class VulkanProfiler;
+class VulkanContext;
 
 // Extremely rough split of capabilities.
 enum class PerfClass {
@@ -93,11 +94,11 @@ class VulkanDeleteList {
 	};
 
 	struct Callback {
-		explicit Callback(void(*f)(void *userdata), void *u)
+		explicit Callback(void(*f)(VulkanContext *vulkan, void *userdata), void *u)
 			: func(f), userdata(u) {
 		}
 
-		void(*func)(void *userdata);
+		void (*func)(VulkanContext *vulkan, void *userdata);
 		void *userdata;
 	};
 
@@ -117,7 +118,8 @@ public:
 	void QueueDeleteFramebuffer(VkFramebuffer &framebuffer) { _dbg_assert_(framebuffer != VK_NULL_HANDLE); framebuffers_.push_back(framebuffer); framebuffer = VK_NULL_HANDLE; }
 	void QueueDeletePipelineLayout(VkPipelineLayout &pipelineLayout) { _dbg_assert_(pipelineLayout != VK_NULL_HANDLE); pipelineLayouts_.push_back(pipelineLayout); pipelineLayout = VK_NULL_HANDLE; }
 	void QueueDeleteDescriptorSetLayout(VkDescriptorSetLayout &descSetLayout) { _dbg_assert_(descSetLayout != VK_NULL_HANDLE); descSetLayouts_.push_back(descSetLayout); descSetLayout = VK_NULL_HANDLE; }
-	void QueueCallback(void(*func)(void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
+	void QueueDeleteQueryPool(VkQueryPool &queryPool) { _dbg_assert_(queryPool != VK_NULL_HANDLE); queryPools_.push_back(queryPool); queryPool = VK_NULL_HANDLE; }
+	void QueueCallback(void (*func)(VulkanContext *vulkan, void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
 
 	void QueueDeleteBufferAllocation(VkBuffer &buffer, VmaAllocation &alloc) { 
 		_dbg_assert_(buffer != VK_NULL_HANDLE); 
@@ -133,7 +135,7 @@ public:
 	}
 
 	void Take(VulkanDeleteList &del);
-	void PerformDeletes(VkDevice device, VmaAllocator allocator);
+	void PerformDeletes(VulkanContext *vulkan, VmaAllocator allocator);
 
 private:
 	std::vector<VkCommandPool> cmdPools_;
@@ -152,6 +154,7 @@ private:
 	std::vector<VkFramebuffer> framebuffers_;
 	std::vector<VkPipelineLayout> pipelineLayouts_;
 	std::vector<VkDescriptorSetLayout> descSetLayouts_;
+	std::vector<VkQueryPool> queryPools_;
 	std::vector<Callback> callbacks_;
 };
 
@@ -298,11 +301,22 @@ public:
 	const VulkanPhysicalDeviceInfo &GetDeviceInfo() const { return deviceInfo_; }
 	const VkSurfaceCapabilitiesKHR &GetSurfaceCapabilities() const { return surfCapabilities_; }
 
-	bool IsInstanceExtensionAvailable(const char *name) const {
-		for (auto &iter : instance_extension_properties_) {
-			if (!strcmp(name, iter.extensionName))
+	bool IsInstanceExtensionAvailable(const char *extensionName) const {
+		for (const auto &iter : instance_extension_properties_) {
+			if (!strcmp(extensionName, iter.extensionName))
 				return true;
 		}
+
+		// Also search through the layers, one of them might carry the extension (especially DEBUG_utils)
+		for (const auto &iter : instance_layer_properties_) {
+			for (const auto &ext : iter.extensions) {
+				if (!strcmp(extensionName, ext.extensionName)) {
+					INFO_LOG(G3D, "%s found in layer extensions: %s", extensionName, iter.properties.layerName);
+					return true;
+				}
+			}
+		}
+
 		return false;
 	}
 
@@ -375,10 +389,11 @@ private:
 	bool CheckLayers(const std::vector<LayerProperties> &layer_props, const std::vector<const char *> &layer_names) const;
 
 	WindowSystem winsys_;
+
 	// Don't use the real types here to avoid having to include platform-specific stuff
 	// that we really don't want in everything that uses VulkanContext.
-	void *winsysData1_;
-	void *winsysData2_;
+	void *winsysData1_ = nullptr;
+	void *winsysData2_ = nullptr;
 	std::function<VkExtent2D()> cbGetDrawSize_;
 
 	VkInstance instance_ = VK_NULL_HANDLE;

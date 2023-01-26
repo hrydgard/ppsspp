@@ -25,7 +25,6 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.PowerManager;
 import android.os.Vibrator;
-import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import androidx.documentfile.provider.DocumentFile;
 import android.text.InputType;
@@ -399,8 +398,6 @@ public abstract class NativeActivity extends Activity {
 
 		isXperiaPlay = IsXperiaPlay();
 
-		String libraryDir = getApplicationLibraryDir(appInfo);
-
 		String extStorageState = Environment.getExternalStorageState();
 		String extStorageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
 		File externalFiles = this.getExternalFilesDir(null);
@@ -446,7 +443,7 @@ public abstract class NativeActivity extends Activity {
 		overrideShortcutParam = null;
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, additionalStorageDirs, libraryDir, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, additionalStorageDirs, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
 
 		// Allow C++ to tell us to use JavaGL or not.
 		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
@@ -575,17 +572,17 @@ public abstract class NativeActivity extends Activity {
 		public void run() {
 			Log.i(TAG, "Starting the render loop: " + mSurface);
 			// Start emulation using the provided Surface.
-			if (!runEGLRenderLoop(mSurface)) {
+			if (!runVulkanRenderLoop(mSurface)) {
 				// Shouldn't happen.
-				Log.e(TAG, "Failed to start up OpenGL/Vulkan");
+				Log.e(TAG, "Failed to start up OpenGL/Vulkan - runVulkanRenderLoop returned false");
 			}
 			Log.i(TAG, "Left the render loop: " + mSurface);
 		}
 	};
 
-	public native boolean runEGLRenderLoop(Surface surface);
+	public native boolean runVulkanRenderLoop(Surface surface);
 	// Tells the render loop thread to exit, so we can restart it.
-	public native void exitEGLRenderLoop();
+	public native void requestExitVulkanRenderLoop();
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -690,17 +687,17 @@ public abstract class NativeActivity extends Activity {
 		updateSustainedPerformanceMode();
 	}
 
-	// Invariants: After this, mRenderLoopThread will be set, and the thread will be running.
+	// Invariants: After this, mRenderLoopThread will be set, and the thread will be running,
+	// if in Vulkan mode.
 	protected synchronized void ensureRenderLoop() {
 		if (javaGL) {
-			Log.e(TAG, "JavaGL - should not get into ensureRenderLoop.");
+			Log.e(TAG, "JavaGL mode - should not get into ensureRenderLoop.");
 			return;
 		}
 		if (mSurface == null) {
 			Log.w(TAG, "ensureRenderLoop - not starting thread, needs surface");
 			return;
 		}
-
 		if (mRenderLoopThread == null) {
 			Log.w(TAG, "ensureRenderLoop: Starting thread");
 			mRenderLoopThread = new Thread(mEmulationRunner);
@@ -717,8 +714,8 @@ public abstract class NativeActivity extends Activity {
 
 		if (mRenderLoopThread != null) {
 			// This will wait until the thread has exited.
-			Log.i(TAG, "exitEGLRenderLoop");
-			exitEGLRenderLoop();
+			Log.i(TAG, "requestExitVulkanRenderLoop");
+			requestExitVulkanRenderLoop();
 			try {
 				Log.i(TAG, "joining render loop thread...");
 				mRenderLoopThread.join();

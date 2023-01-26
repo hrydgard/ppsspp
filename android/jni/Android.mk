@@ -203,6 +203,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/UI/Tween.cpp \
   $(SRC)/Common/UI/View.cpp \
   $(SRC)/Common/UI/ViewGroup.cpp \
+  $(SRC)/Common/UI/ScrollView.cpp \
+  $(SRC)/Common/UI/PopupScreens.cpp \
   $(SRC)/Common/Serialize/Serializer.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
   $(SRC)/Common/CPUDetect.cpp \
@@ -681,7 +683,6 @@ LOCAL_STATIC_LIBRARIES += ppsspp_common ppsspp_core libarmips libzstd
 LOCAL_MODULE := ppsspp_jni
 LOCAL_SRC_FILES := \
   $(SRC)/android/jni/app-android.cpp \
-  $(SRC)/android/jni/AndroidEGLContext.cpp \
   $(SRC)/android/jni/AndroidJavaGLContext.cpp \
   $(SRC)/android/jni/AndroidVulkanContext.cpp \
   $(SRC)/android/jni/AndroidAudio.cpp \
@@ -773,6 +774,7 @@ ifeq ($(UNITTEST),1)
       $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
       $(SRC)/Core/Util/DisArm64.cpp \
       $(SRC)/ext/disarm.cpp \
+      $(SRC)/ext/riscv-disas.cpp \
       $(SRC)/unittest/TestArmEmitter.cpp \
       $(SRC)/unittest/TestArm64Emitter.cpp \
       $(SRC)/unittest/TestRiscVEmitter.cpp \

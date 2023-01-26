@@ -127,21 +127,27 @@ void ProcessGPUFeatures() {
 
 // http://stackoverflow.com/questions/16147700/opengl-es-using-tegra-specific-extensions-gl-ext-texture-array
 
-void CheckGLExtensions() {
-
+bool CheckGLExtensions() {
 #if PPSSPP_API(ANY_GL)
+	// Make sure to only do this once. It's okay to call CheckGLExtensions from wherever,
+	// as long as you're on the rendering thread (the one with the GL context).
+	if (extensionsDone) {
+		return true;
+	}
 
-	// Make sure to only do this once. It's okay to call CheckGLExtensions from wherever.
-	if (extensionsDone)
-		return;
-	extensionsDone = true;
-	memset(&gl_extensions, 0, sizeof(gl_extensions));
+	gl_extensions = {};
 	gl_extensions.IsCoreContext = useCoreContext;
 
 	const char *renderer = (const char *)glGetString(GL_RENDERER);
 	const char *versionStr = (const char *)glGetString(GL_VERSION);
 	const char *glslVersionStr = (const char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
 
+	if (!renderer || !versionStr || !glslVersionStr) {
+		// Something is very wrong! Bail.
+		return false;
+	}
+
+	extensionsDone = true;
 
 #ifdef USING_GLES2
 	gl_extensions.IsGLES = !useCoreContext;
@@ -269,12 +275,12 @@ void CheckGLExtensions() {
 
 		// If the above didn't give us a version, or gave us a crazy version, fallback.
 #ifdef USING_GLES2
-		if (gl_extensions.ver[0] < 3 || gl_extensions.ver[0] > 5) {
+		if (versionStr && (gl_extensions.ver[0] < 3 || gl_extensions.ver[0] > 5)) {
 			// Try to load GLES 3.0 only if "3.0" found in version
 			// This simple heuristic avoids issues on older devices where you can only call eglGetProcAddress a limited
 			// number of times. Make sure to check for 3.0 in the shader version too to avoid false positives, see #5584.
-			bool gl_3_0_in_string = strstr(versionStr, "3.0") && (glslVersionStr && strstr(glslVersionStr, "3.0"));
-			bool gl_3_1_in_string = strstr(versionStr, "3.1") && (glslVersionStr && strstr(glslVersionStr, "3.1"));  // intentionally left out .1
+			bool gl_3_0_in_string = versionStr && strstr(versionStr, "3.0") && glslVersionStr && strstr(glslVersionStr, "3.0");
+			bool gl_3_1_in_string = versionStr && strstr(versionStr, "3.1") && glslVersionStr && strstr(glslVersionStr, "3.1");  // intentionally left out .1
 			if ((gl_3_0_in_string || gl_3_1_in_string) && gl3stubInit()) {
 				gl_extensions.ver[0] = 3;
 				if (gl_3_1_in_string) {
@@ -562,6 +568,13 @@ void CheckGLExtensions() {
 		}
 	}
 
+	// Force off clip for a cmomon buggy Samsung version.
+	if (!strcmp(versionStr, "OpenGL ES 3.2 ANGLE git hash: aa8f94c52952")) {
+		// Maybe could use bugs, but for now let's just force it back off.
+		// Seeing errors that gl_ClipDistance is undefined.
+		gl_extensions.EXT_clip_cull_distance = false;
+	}
+
 	ProcessGPUFeatures();
 
 	int error = glGetError();
@@ -569,7 +582,7 @@ void CheckGLExtensions() {
 		ERROR_LOG(G3D, "GL error in init: %i", error);
 
 #endif
-
+	return true;
 }
 
 void SetGLCoreContext(bool flag) {

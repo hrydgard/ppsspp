@@ -38,8 +38,6 @@ public:
 		return tag_;
 	}
 
-	void Touch() {}
-
 	// Used in image copies, etc.
 	VkImage GetImage() const { return image_; }
 

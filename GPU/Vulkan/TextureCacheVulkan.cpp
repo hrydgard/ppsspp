@@ -21,6 +21,7 @@
 #include "ext/xxhash.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/LogReporting.h"
 #include "Common/Math/math_util.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
@@ -32,7 +33,6 @@
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
 #include "Core/System.h"
 
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -65,9 +65,9 @@ const char *uploadShader = R"(
 // hardware vendors.
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-uniform layout(set = 1, binding = 0, rgba8) writeonly image2D img;
+uniform layout(set = 0, binding = 0, rgba8) writeonly image2D img;
 
-layout(std430, set = 1, binding = 1) buffer Buf {
+layout(std430, set = 0, binding = 1) buffer Buf {
 	uint data[];
 } buf;
 
@@ -404,8 +404,6 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 		return;
 	}
 
-	entry->vkTex->Touch();
-
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
@@ -590,7 +588,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			} else {
 				data = drawEngine_->GetPushBufferForTextureData()->PushAligned(sz, &bufferOffset, &texBuf, pushAlignment);
 			}
-			LoadTextureLevel(*entry, (uint8_t *)data, lstride, srcLevel, lfactor, actualFmt);
+			LoadVulkanTextureLevel(*entry, (uint8_t *)data, lstride, srcLevel, lfactor, actualFmt);
 			if (plan.saveTexture)
 				bufferOffset = drawEngine_->GetPushBufferForTextureData()->PushAligned(&saveData[0], sz, pushAlignment, &texBuf);
 		};
@@ -625,7 +623,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 					"Compute Upload: %dx%d->%dx%d", mipUnscaledWidth, mipUnscaledHeight, mipWidth, mipHeight);
 				vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(uploadCS_));
-				vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 1, 1, &descSet, 0, nullptr);
+				vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
 				vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
 				vkCmdDispatch(cmdInit, (mipUnscaledWidth + 7) / 8, (mipUnscaledHeight + 7) / 8, 1);
 				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
@@ -708,7 +706,7 @@ VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteForm
 	}
 }
 
-void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch, int level, int scaleFactor, VkFormat dstFmt) {
+void TextureCacheVulkan::LoadVulkanTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch, int level, int scaleFactor, VkFormat dstFmt) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 

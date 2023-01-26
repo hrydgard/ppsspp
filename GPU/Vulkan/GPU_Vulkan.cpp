@@ -45,14 +45,9 @@
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
-#include "Core/MIPS/MIPS.h"
-#include "Core/HLE/sceKernelThread.h"
-#include "Core/HLE/sceKernelInterrupt.h"
-#include "Core/HLE/sceGe.h"
-
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw), drawEngine_(draw) {
-	gstate_c.useFlags = CheckGPUFeatures();
+	gstate_c.SetUseFlags(CheckGPUFeatures());
 	drawEngine_.InitDeviceObjects();
 
 	VulkanContext *vulkan = (VulkanContext *)gfxCtx->GetAPIContext();
@@ -76,7 +71,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerVulkan_->SetTextureCache(textureCacheVulkan_);
 	framebufferManagerVulkan_->SetDrawEngine(&drawEngine_);
 	framebufferManagerVulkan_->SetShaderManager(shaderManagerVulkan_);
-	framebufferManagerVulkan_->Init();
+	framebufferManagerVulkan_->Init(msaaLevel_);
 	textureCacheVulkan_->SetFramebufferManager(framebufferManagerVulkan_);
 	textureCacheVulkan_->SetShaderManager(shaderManagerVulkan_);
 	textureCacheVulkan_->SetDrawEngine(&drawEngine_);
@@ -121,7 +116,7 @@ void GPU_Vulkan::CancelReady() {
 
 void GPU_Vulkan::LoadCache(const Path &filename) {
 	if (!g_Config.bShaderCache) {
-		INFO_LOG(G3D, "Shader cache disabled. Not loading.");
+		WARN_LOG(G3D, "Shader cache disabled. Not loading.");
 		return;
 	}
 
@@ -134,12 +129,27 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 	// First compile shaders to SPIR-V, then load the pipeline cache and recreate the pipelines.
 	// It's when recreating the pipelines that the pipeline cache is useful - in the ideal case,
 	// it can just memcpy the finished shader binaries out of the pipeline cache file.
-	bool result = shaderManagerVulkan_->LoadCache(f);
+	bool result = shaderManagerVulkan_->LoadCacheFlags(f, &drawEngine_);
+	if (!result) {
+		WARN_LOG(G3D, "ShaderManagerVulkan failed to load cache header.");
+	}
 	if (result) {
-		// WARNING: See comment in LoadCache if you are tempted to flip the second parameter to true.
-		result = pipelineManager_->LoadCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout());
+		// Reload use flags in case LoadCacheFlags() changed them.
+		if (drawEngineCommon_->EverUsedExactEqualDepth()) {
+			sawExactEqualDepth_ = true;
+		}
+		gstate_c.SetUseFlags(CheckGPUFeatures());
+		result = shaderManagerVulkan_->LoadCache(f);
+		if (!result) {
+			WARN_LOG(G3D, "ShaderManagerVulkan failed to load cache.");
+		}
+	}
+	if (result) {
+		// WARNING: See comment in LoadPipelineCache if you are tempted to flip the second parameter to true.
+		result = pipelineManager_->LoadPipelineCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout(), msaaLevel_);
 	}
 	fclose(f);
+
 	if (!result) {
 		WARN_LOG(G3D, "Incompatible Vulkan pipeline cache - rebuilding.");
 		// Bad cache file for this GPU/Driver/etc. Delete it.
@@ -164,9 +174,9 @@ void GPU_Vulkan::SaveCache(const Path &filename) {
 	FILE *f = File::OpenCFile(filename, "wb");
 	if (!f)
 		return;
-	shaderManagerVulkan_->SaveCache(f);
+	shaderManagerVulkan_->SaveCache(f, &drawEngine_);
 	// WARNING: See comment in LoadCache if you are tempted to flip the second parameter to true.
-	pipelineManager_->SaveCache(f, false, shaderManagerVulkan_, draw_);
+	pipelineManager_->SavePipelineCache(f, false, shaderManagerVulkan_, draw_);
 	INFO_LOG(G3D, "Saved Vulkan pipeline cache");
 	fclose(f);
 }
@@ -271,7 +281,7 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 
 	// We need to turn off framebuffer fetch through input attachments if MSAA is on for now.
 	// This is fixable, just needs some shader generator work (subpassInputMS).
-	if (g_Config.iMultiSampleLevel != 0) {
+	if (msaaLevel_ != 0) {
 		features &= ~GPU_USE_FRAMEBUFFER_FETCH;
 	}
 
@@ -296,6 +306,15 @@ void GPU_Vulkan::BeginHostFrame() {
 
 	shaderManagerVulkan_->DirtyShader();
 	gstate_c.Dirty(DIRTY_ALL);
+
+	if (gstate_c.useFlagsChanged) {
+		// TODO: It'd be better to recompile them in the background, probably?
+		// This most likely means that saw equal depth changed.
+		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders");
+		shaderManagerVulkan_->ClearShaders();
+		pipelineManager_->Clear();
+		gstate_c.useFlagsChanged = false;
+	}
 
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
@@ -494,7 +513,7 @@ void GPU_Vulkan::DeviceRestore() {
 	GPUCommon::DeviceRestore();
 	InitDeviceObjects();
 
-	gstate_c.useFlags = CheckGPUFeatures();
+	gstate_c.SetUseFlags(CheckGPUFeatures());
 	BuildReportingInfo();
 	UpdateCmdInfo();
 
@@ -562,7 +581,7 @@ std::string GPU_Vulkan::DebugGetShaderString(std::string id, DebugShaderType typ
 	if (type == SHADER_TYPE_VERTEXLOADER) {
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
 	} else if (type == SHADER_TYPE_PIPELINE) {
-		return pipelineManager_->DebugGetObjectString(id, type, stringType);
+		return pipelineManager_->DebugGetObjectString(id, type, stringType, shaderManagerVulkan_);
 	} else if (type == SHADER_TYPE_TEXTURE) {
 		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
 	} else if (type == SHADER_TYPE_SAMPLER) {

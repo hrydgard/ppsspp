@@ -22,7 +22,6 @@
 #include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
-#include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 
@@ -320,8 +319,6 @@ void DrawEngineDX9::Invalidate(InvalidationCallbackFlags flags) {
 
 // The inline wrapper in the header checks for numDrawCalls == 0
 void DrawEngineDX9::DoFlush() {
-	gpuStats.numFlushes++;
-
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
@@ -522,7 +519,7 @@ rotateVBO:
 		ApplyDrawState(prim);
 		ApplyDrawStateLate();
 
-		VSShader *vshader = shaderManager_->ApplyShader(true, useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode, pipelineState_);
+		VSShader *vshader = shaderManager_->ApplyShader(true, useHWTessellation_, dec_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode, pipelineState_);
 		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
 
 		if (pHardwareVertexDecl) {
@@ -622,7 +619,7 @@ rotateVBO:
 
 		ApplyDrawStateLate();
 
-		VSShader *vshader = shaderManager_->ApplyShader(false, false, lastVType_, decOptions_.expandAllWeightsToFloat, true, pipelineState_);
+		VSShader *vshader = shaderManager_->ApplyShader(false, false, dec_, decOptions_.expandAllWeightsToFloat, true, pipelineState_);
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {
@@ -665,6 +662,7 @@ rotateVBO:
 		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
+	gpuStats.numFlushes++;
 	gpuStats.numDrawCalls += numDrawCalls;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
@@ -674,7 +672,6 @@ rotateVBO:
 	vertexCountInDrawCalls_ = 0;
 	decodeCounter_ = 0;
 	dcid_ = 0;
-	prevPrim_ = GE_PRIM_INVALID;
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 

@@ -21,7 +21,6 @@
 
 #include "Core/System.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -200,6 +199,12 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.shadeMode.set(D3DSHADE_GOURAUD);
 		} else {
 			dxstate.shadeMode.set(gstate.getShadeMode() == GE_SHADE_GOURAUD ? D3DSHADE_GOURAUD : D3DSHADE_FLAT);
+		}
+
+		// We use fixed-function user clipping on D3D9, where available, for negative Z clipping.
+		if (draw_->GetDeviceCaps().clipPlanesSupported >= 1) {
+			bool wantClip = !gstate.isModeThrough() && gstate_c.submitType == SubmitType::DRAW;
+			dxstate.clipPlaneEnable.set(wantClip ? 1 : 0);
 		}
 	}
 

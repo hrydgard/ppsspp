@@ -301,7 +301,7 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 		items.push_back(*s);
 	}
 	auto km = GetI18NCategory("KeyMapping");
-	ListPopupScreen *autoConfList = new ListPopupScreen(km->T("Autoconfigure for device"), items, -1);
+	UI::ListPopupScreen *autoConfList = new UI::ListPopupScreen(km->T("Autoconfigure for device"), items, -1);
 	if (params.v)
 		autoConfList->SetPopupOrigin(params.v);
 	screenManager()->push(autoConfList);
@@ -316,7 +316,7 @@ UI::EventReturn ControlMappingScreen::OnVisualizeMapping(UI::EventParams &params
 
 void ControlMappingScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DR_OK && std::string(dialog->tag()) == "listpopup") {
-		ListPopupScreen *popup = (ListPopupScreen *)dialog;
+		UI::ListPopupScreen *popup = (UI::ListPopupScreen *)dialog;
 		KeyMap::AutoConfForPad(popup->GetChoiceString());
 	}
 }
@@ -407,11 +407,11 @@ static bool IgnoreAxisForMapping(int axis) {
 }
 
 
-bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
+void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (mapped_ || time_now_d() < delayUntil_)
-		return false;
+		return;
 	if (IgnoreAxisForMapping(axis.axisId))
-		return false;
+		return;
 
 	if (axis.value > AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
@@ -428,14 +428,13 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 		if (callback_)
 			callback_(kdf);
 	}
-	return true;
 }
 
-bool KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
+void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	if (mapped_)
-		return false;
+		return;
 	if (IgnoreAxisForMapping(axis.axisId))
-		return false;
+		return;
 
 	if (axis.value > AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
@@ -452,7 +451,6 @@ bool KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 		if (callback_)
 			callback_(kdf);
 	}
-	return true;
 }
 
 enum class StickHistoryViewType {
@@ -619,12 +617,12 @@ bool AnalogSetupScreen::key(const KeyInput &key) {
 	return retval;
 }
 
-bool AnalogSetupScreen::axis(const AxisInput &axis) {
+void AnalogSetupScreen::axis(const AxisInput &axis) {
 	// We DON'T call UIScreen::Axis here! Otherwise it'll try to move the UI focus around.
 	// UIScreen::axis(axis);
 
 	// Instead we just send the input directly to the mapper, that we'll visualize.
-	return mapper_.Axis(axis);
+	mapper_.Axis(axis);
 }
 
 void AnalogSetupScreen::CreateViews() {
@@ -672,7 +670,7 @@ UI::EventReturn AnalogSetupScreen::OnResetToDefaults(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-bool TouchTestScreen::touch(const TouchInput &touch) {
+void TouchTestScreen::touch(const TouchInput &touch) {
 	UIDialogScreenWithGameBackground::touch(touch);
 	if (touch.flags & TOUCH_DOWN) {
 		bool found = false;
@@ -721,7 +719,6 @@ bool TouchTestScreen::touch(const TouchInput &touch) {
 			WARN_LOG(SYSTEM, "Touch release without touch down");
 		}
 	}
-	return true;
 }
 
 void TouchTestScreen::CreateViews() {
@@ -779,13 +776,12 @@ bool TouchTestScreen::key(const KeyInput &key) {
 	return true;
 }
 
-bool TouchTestScreen::axis(const AxisInput &axis) {
-
+void TouchTestScreen::axis(const AxisInput &axis) {
 	// This is mainly to catch axis events that would otherwise get translated
 	// into arrow keys, since seeing keyboard arrow key events appear when using
 	// a controller would be confusing for the user.
 	if (IgnoreAxisForMapping(axis.axisId))
-		return false;
+		return;
 
 	const float AXIS_LOG_THRESHOLD = AXIS_BIND_THRESHOLD * 0.5f;
 	if (axis.value > AXIS_LOG_THRESHOLD || axis.value < -AXIS_LOG_THRESHOLD) {
@@ -798,7 +794,6 @@ bool TouchTestScreen::axis(const AxisInput &axis) {
 			lastKeyEvent_->SetText(buf);
 		}
 	}
-	return true;
 }
 
 void TouchTestScreen::render() {
@@ -858,9 +853,6 @@ void RecreateActivity();
 
 UI::EventReturn TouchTestScreen::OnImmersiveModeChange(UI::EventParams &e) {
 	System_SendMessage("immersive", "");
-	if (g_Config.iAndroidHwScale != 0) {
-		RecreateActivity();
-	}
 	return UI::EVENT_DONE;
 }
 

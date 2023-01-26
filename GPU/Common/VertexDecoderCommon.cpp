@@ -24,11 +24,11 @@
 #include "Common/CPUDetect.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Log.h"
+#include "Common/LogReporting.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
-#include "Core/Reporting.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "GPU/Common/ShaderCommon.h"
@@ -149,7 +149,7 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 	*indexUpperBound = (u16)upperBound;
 }
 
-void PrintDecodedVertex(VertexReader &vtx) {
+void PrintDecodedVertex(const VertexReader &vtx) {
 	if (vtx.hasNormal()) {
 		float nrm[3];
 		vtx.ReadNrm(nrm);
@@ -1254,7 +1254,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		decOff += DecFmtSize(decFmt.posfmt);
 	}
 
-	decFmt.stride = decOff;
+	decFmt.stride = options.alignOutputToWord ? align(decOff, 4) : decOff;
 
 	decFmt.ComputeID();
 
@@ -1359,6 +1359,8 @@ std::string VertexDecoder::GetString(DebugShaderStringType stringType) {
 			lines = DisassembleArm2((const u8 *)jitted_, jittedSize_);
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 			lines = DisassembleX86((const u8 *)jitted_, jittedSize_);
+#elif PPSSPP_ARCH(RISCV64)
+			lines = DisassembleRV64((const u8 *)jitted_, jittedSize_);
 #else
 			// No disassembler defined
 #endif

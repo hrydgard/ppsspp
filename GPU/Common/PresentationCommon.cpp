@@ -172,6 +172,14 @@ void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettin
 	cardboardSettings->screenHeight = cardboardScreenHeight;
 }
 
+static float GetShaderSettingValue(const ShaderInfo *shaderInfo, int i, const char *nameSuffix) {
+	std::string key = shaderInfo->section + nameSuffix;
+	auto it = g_Config.mPostShaderSetting.find(key);
+	if (it != g_Config.mPostShaderSetting.end())
+		return it->second;
+	return shaderInfo->settings[i].value;
+}
+
 void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) const {
 	float u_delta = 1.0f / bufferWidth;
 	float v_delta = 1.0f / bufferHeight;
@@ -196,10 +204,10 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	uniforms->gl_HalfPixel[0] = u_pixel_delta * 0.5f;
 	uniforms->gl_HalfPixel[1] = v_pixel_delta * 0.5f;
 
-	uniforms->setting[0] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue1"];
-	uniforms->setting[1] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue2"];
-	uniforms->setting[2] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue3"];
-	uniforms->setting[3] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue4"];
+	uniforms->setting[0] = GetShaderSettingValue(shaderInfo, 0, "SettingCurrentValue1");
+	uniforms->setting[1] = GetShaderSettingValue(shaderInfo, 1, "SettingCurrentValue2");
+	uniforms->setting[2] = GetShaderSettingValue(shaderInfo, 2, "SettingCurrentValue3");
+	uniforms->setting[3] = GetShaderSettingValue(shaderInfo, 3, "SettingCurrentValue4");
 }
 
 static std::string ReadShaderSrc(const Path &filename) {
@@ -879,6 +887,8 @@ void PresentationCommon::CalculateRenderResolution(int *width, int *height, int 
 	std::vector<const ShaderInfo *> shaderInfo;
 	if (!g_Config.vPostShaderNames.empty()) {
 		ReloadAllPostShaderInfo(draw_);
+		RemoveUnknownPostShaders(&g_Config.vPostShaderNames);
+		FixPostShaderOrder(&g_Config.vPostShaderNames);
 		shaderInfo = GetFullPostShadersChain(g_Config.vPostShaderNames);
 	}
 
@@ -914,7 +924,10 @@ void PresentationCommon::CalculateRenderResolution(int *width, int *height, int 
 		}
 	}
 
-	if (g_Config.IsPortrait()) {
+	if (IsVREnabled()) {
+		*width = 480 * zoom;
+		*height = 480 * zoom;
+	} else if (g_Config.IsPortrait()) {
 		*width = 272 * zoom;
 		*height = 480 * zoom;
 	} else {

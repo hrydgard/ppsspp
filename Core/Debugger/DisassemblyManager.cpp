@@ -122,7 +122,7 @@ void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertS
 		// parse symbol
 		if (disasm == jumpAddress)
 		{
-			u32 branchTarget;
+			u32 branchTarget = 0;
 			sscanf(disasm+3,"%08x",&branchTarget);
 
 			const std::string addressSymbol = g_symbolMap->GetLabelString(branchTarget);

@@ -23,6 +23,7 @@
 #include "Common/Render/DrawBuffer.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
+#include "Common/UI/UIScreen.h"
 #include "Common/Math/math_util.h"
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
@@ -37,14 +38,14 @@
 #include "Core/System.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
-#include "GPU/Common/PostShader.h"
 
 static const int leftColumnWidth = 200;
 static const float orgRatio = 1.764706f;  // 480.0 / 272.0
 
 enum Mode {
-	MODE_MOVE,
-	MODE_RESIZE,
+	MODE_INACTIVE = 0,
+	MODE_MOVE = 1,
+	MODE_RESIZE = 2,
 };
 
 static Bounds FRectToBounds(FRect rc) {
@@ -60,7 +61,7 @@ class DisplayLayoutBackground : public UI::View {
 public:
 	DisplayLayoutBackground(UI::ChoiceStrip *mode, UI::LayoutParams *layoutParams) : UI::View(layoutParams), mode_(mode) {}
 
-	bool Touch(const TouchInput &touch) {
+	bool Touch(const TouchInput &touch) override {
 		int mode = mode_ ? mode_->GetSelection() : 0;
 
 		if ((touch.flags & TOUCH_MOVE) != 0 && dragging_) {
@@ -119,6 +120,7 @@ private:
 DisplayLayoutScreen::DisplayLayoutScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {
 	// Show background at full brightness
 	darkenGameBackground_ = false;
+	forceTransparent_ = true;
 }
 
 void DisplayLayoutScreen::DrawBackground(UIContext &dc) {
@@ -149,7 +151,9 @@ void DisplayLayoutScreen::dialogFinished(const Screen *dialog, DialogResult resu
 }
 
 UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) {
+	// Remove the virtual "Off" entry. TODO: Get rid of it generally.
 	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
+	FixPostShaderOrder(&g_Config.vPostShaderNames);
 
 	NativeMessageReceived("gpu_configChanged", "");
 	NativeMessageReceived("gpu_renderResized", "");  // To deal with shaders that can change render resolution like upscaling.
@@ -162,7 +166,13 @@ UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) 
 }
 
 static std::string PostShaderTranslateName(const char *value) {
+	auto gr = GetI18NCategory("Graphics");
 	auto ps = GetI18NCategory("PostShaders");
+	if (!strcmp(value, "Off")) {
+		// Off is a legacy fake item (gonna migrate off it later).
+		return gr->T("Add postprocessing shader");
+	}
+
 	const ShaderInfo *info = GetPostShaderInfo(value);
 	if (info) {
 		return ps->T(value, info ? info->name.c_str() : value);
@@ -191,22 +201,43 @@ void DisplayLayoutScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
+	bool vertical = bounds.h > bounds.w;
+
 	// Make it so that a touch can only affect one view. Makes manipulating the background through the buttons
 	// impossible.
 	root_->SetExclusiveTouch(true);
 
-	ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, 10.f, 10.f, NONE, 10.f, false));
-	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL);
-	leftScrollView->Add(leftColumn);
-	root_->Add(leftScrollView);
+	LinearLayout *leftColumn;
+	if (!vertical) {
+		ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(420.0f, FILL_PARENT, 0.f, 0.f, NONE, 0.f, false));
+		leftColumn = new LinearLayout(ORIENT_VERTICAL);
+		leftColumn->padding.SetAll(8.0f);
+		leftScrollView->Add(leftColumn);
+		leftScrollView->SetClickableBackground(true);
+		root_->Add(leftScrollView);
+	}
 
-	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 10.f, 10.f, 10.f, false));
-	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL);
+	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 0.f, 0.f, 0.f, false));
+	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL);
+	rightColumn->padding.SetAll(8.0f);
 	rightScrollView->Add(rightColumn);
+	rightScrollView->SetClickableBackground(true);
 	root_->Add(rightScrollView);
 
-	LinearLayout *bottomControls = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, NONE, NONE, 10.0f, false));
-	root_->Add(bottomControls);
+	LinearLayout *bottomControls;
+	if (vertical) {
+		bottomControls = new LinearLayout(ORIENT_HORIZONTAL);
+		rightColumn->Add(bottomControls);
+		leftColumn = rightColumn;
+	} else {
+		bottomControls = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, NONE, NONE, 10.0f, false));
+		root_->Add(bottomControls);
+	}
+
+	// Set backgrounds for readability
+	Drawable backgroundWithAlpha(GetBackgroundColorWithAlpha(*screenManager()->getUIContext()));
+	leftColumn->SetBG(backgroundWithAlpha);
+	rightColumn->SetBG(backgroundWithAlpha);
 
 	if (!IsVREnabled()) {
 		auto stretch = new CheckBox(&g_Config.bDisplayStretch, gr->T("Stretch"));
@@ -218,7 +249,19 @@ void DisplayLayoutScreen::CreateViews() {
 		aspectRatio->SetHasDropShadow(false);
 		aspectRatio->SetLiveUpdate(true);
 
+#if PPSSPP_PLATFORM(ANDROID)
+		// Hide insets option if no insets, or OS too old.
+		if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 28 &&
+			(System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) != 0.0f ||
+				System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) != 0.0f ||
+				System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) != 0.0f ||
+				System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) != 0.0f)) {
+			rightColumn->Add(new CheckBox(&g_Config.bIgnoreScreenInsets, gr->T("Ignore camera notch when centering")));
+		}
+#endif
+
 		mode_ = new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+		mode_->AddChoice(di->T("Inactive"));
 		mode_->AddChoice(di->T("Move"));
 		mode_->AddChoice(di->T("Resize"));
 		mode_->SetSelection(0, false);
@@ -248,10 +291,12 @@ void DisplayLayoutScreen::CreateViews() {
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	rightColumn->Add(back);
 
+	if (vertical) {
+		leftColumn->Add(new Spacer(24.0f));
+	}
+
 	static const char *bufFilters[] = { "Linear", "Nearest", };
 	leftColumn->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
-
-	leftColumn->Add(new ItemHeader(gr->T("Postprocessing effect")));
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
@@ -261,15 +306,39 @@ void DisplayLayoutScreen::CreateViews() {
 		return g_Config.bStereoRendering && multiViewSupported;
 	};
 
+	leftColumn->Add(new ItemHeader(gr->T("Postprocessing shaders")));
+
 	std::set<std::string> alreadyAddedShader;
+	// If there's a single post shader and we're just entering the dialog,
+	// auto-open the settings.
+	if (settingsVisible_.empty() && g_Config.vPostShaderNames.size() == 1) {
+		settingsVisible_.push_back(true);
+	} else if (settingsVisible_.size() < g_Config.vPostShaderNames.size()) {
+		settingsVisible_.resize(g_Config.vPostShaderNames.size());
+	}
+
+	static ContextMenuItem postShaderContextMenu[] = {
+		{ "Move Up", "I_ARROW_UP" },
+		{ "Move Down", "I_ARROW_DOWN" },
+		{ "Remove", "I_TRASHCAN" },
+	};
+
 	for (int i = 0; i < (int)g_Config.vPostShaderNames.size() + 1 && i < ARRAY_SIZE(shaderNames_); ++i) {
 		// Vector element pointer get invalidated on resize, cache name to have always a valid reference in the rendering thread
 		shaderNames_[i] = i == g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[i];
-		leftColumn->Add(new ItemHeader(StringFromFormat("%s #%d", gr->T("Postprocessing Shader"), i + 1)));
-		postProcChoice_ = leftColumn->Add(new ChoiceWithValueDisplay(&shaderNames_[i], "", &PostShaderTranslateName));
+
+		LinearLayout *shaderRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT));
+		shaderRow->SetSpacing(4.0f);
+		leftColumn->Add(shaderRow);
+
+		if (shaderNames_[i] != "Off") {
+			postProcChoice_ = shaderRow->Add(new ChoiceWithValueDisplay(&shaderNames_[i], "", &PostShaderTranslateName, new LinearLayoutParams(1.0f)));
+		} else {
+			postProcChoice_ = shaderRow->Add(new Choice(ImageID("I_PLUS")));
+		}
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory("Graphics");
-			auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"), i, false);
+			auto procScreen = new PostProcScreen(gr->T("Postprocessing shaders"), i, false);
 			procScreen->SetHasDropShadow(false);
 			procScreen->OnChoice.Handle(this, &DisplayLayoutScreen::OnPostProcShaderChange);
 			if (e.v)
@@ -281,25 +350,98 @@ void DisplayLayoutScreen::CreateViews() {
 			return !g_Config.bSkipBufferEffects && !enableStereo();
 		});
 
+		if (i < g_Config.vPostShaderNames.size()) {
+			bool hasSettings = false;
+			std::vector<const ShaderInfo *> shaderChain = GetPostShaderChain(g_Config.vPostShaderNames[i]);
+			for (auto shaderInfo : shaderChain) {
+				for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
+					auto &setting = shaderInfo->settings[i];
+					if (!setting.name.empty()) {
+						hasSettings = true;
+						break;
+					}
+				}
+			}
+			if (hasSettings) {
+				CheckBox *checkBox = new CheckBox(&settingsVisible_[i], ImageID("I_SLIDERS"), new LinearLayoutParams(0.0f));
+				auto settingsButton = shaderRow->Add(checkBox);
+				settingsButton->OnClick.Add([=](EventParams &e) {
+					RecreateViews();
+					return UI::EVENT_DONE;
+				});
+			}
+
+			auto removeButton = shaderRow->Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(0.0f)));
+			removeButton->OnClick.Add([=](EventParams &e) -> UI::EventReturn {
+				g_Config.vPostShaderNames.erase(g_Config.vPostShaderNames.begin() + i);
+				NativeMessageReceived("gpu_configChanged", "");
+				RecreateViews();
+				return UI::EVENT_DONE;
+			});
+
+			auto moreButton = shaderRow->Add(new Choice(ImageID("I_THREE_DOTS"), new LinearLayoutParams(0.0f)));
+			moreButton->OnClick.Add([=](EventParams &e) -> UI::EventReturn {
+				PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(postShaderContextMenu, ARRAY_SIZE(postShaderContextMenu), di.get(), moreButton);
+				screenManager()->push(contextMenu);
+				const ShaderInfo *info = GetPostShaderInfo(g_Config.vPostShaderNames[i]);
+				bool usesLastFrame = info ? info->usePreviousFrame : false;
+				contextMenu->SetEnabled(0, i > 0 && !usesLastFrame);
+				contextMenu->SetEnabled(1, i < g_Config.vPostShaderNames.size() - 1);
+				contextMenu->OnChoice.Add([=](EventParams &e) -> UI::EventReturn {
+					switch (e.a) {
+					case 0:  // Move up
+						std::swap(g_Config.vPostShaderNames[i - 1], g_Config.vPostShaderNames[i]);
+						break;
+					case 1:  // Move down
+						std::swap(g_Config.vPostShaderNames[i], g_Config.vPostShaderNames[i + 1]);
+						break;
+					case 2:  // Remove
+						g_Config.vPostShaderNames.erase(g_Config.vPostShaderNames.begin() + i);
+						break;
+					default:
+						return UI::EVENT_DONE;
+					}
+					FixPostShaderOrder(&g_Config.vPostShaderNames);
+					NativeMessageReceived("gpu_configChanged", "");
+					RecreateViews();
+					return UI::EVENT_DONE;
+				});
+				return UI::EVENT_DONE;
+			});
+		}
+
+
 		// No need for settings on the last one.
 		if (i == g_Config.vPostShaderNames.size())
 			continue;
 
-		auto shaderChain = GetPostShaderChain(g_Config.vPostShaderNames[i]);
+		if (!settingsVisible_[i])
+			continue;
+
+		std::vector<const ShaderInfo *> shaderChain = GetPostShaderChain(g_Config.vPostShaderNames[i]);
 		for (auto shaderInfo : shaderChain) {
 			// Disable duplicated shader slider
 			bool duplicated = alreadyAddedShader.find(shaderInfo->section) != alreadyAddedShader.end();
 			alreadyAddedShader.insert(shaderInfo->section);
+
+			LinearLayout *settingContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT, UI::Margins(24.0f, 0.0f, 0.0f, 0.0f)));
+			leftColumn->Add(settingContainer);
 			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
 				auto &setting = shaderInfo->settings[i];
 				if (!setting.name.empty()) {
-					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
+					// This map lookup will create the setting in the mPostShaderSetting map if it doesn't exist, with a default value of 0.0.
+					std::string key = StringFromFormat("%sSettingCurrentValue%d", shaderInfo->section.c_str(), i + 1);
+					bool keyExisted = g_Config.mPostShaderSetting.find(key) != g_Config.mPostShaderSetting.end();
+					auto &value = g_Config.mPostShaderSetting[key];
+					if (!keyExisted)
+						value = setting.value;
+
 					if (duplicated) {
 						auto sliderName = StringFromFormat("%s %s", ps->T(setting.name), ps->T("(duplicated setting, previous slider will be used)"));
-						PopupSliderChoiceFloat *settingValue = leftColumn->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, sliderName, setting.step, screenManager()));
+						PopupSliderChoiceFloat *settingValue = settingContainer->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, sliderName, setting.step, screenManager()));
 						settingValue->SetEnabled(false);
 					} else {
-						PopupSliderChoiceFloat *settingValue = leftColumn->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+						PopupSliderChoiceFloat *settingValue = settingContainer->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
 						settingValue->SetLiveUpdate(true);
 						settingValue->SetHasDropShadow(false);
 						settingValue->SetEnabledFunc([=] {
@@ -312,4 +454,50 @@ void DisplayLayoutScreen::CreateViews() {
 	}
 
 	root_->Add(new DisplayLayoutBackground(mode_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, 0.0f, 0.0f, 0.0f, 0.0f)));
+}
+
+void PostProcScreen::CreateViews() {
+	auto ps = GetI18NCategory("PostShaders");
+	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
+	shaders_ = GetAllPostShaderInfo();
+	std::vector<std::string> items;
+	int selected = -1;
+	const std::string selectedName = id_ >= (int)g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[id_];
+
+	for (int i = 0; i < (int)shaders_.size(); i++) {
+		if (!shaders_[i].visible)
+			continue;
+		if (shaders_[i].isStereo != showStereoShaders_)
+			continue;
+		if (shaders_[i].section == selectedName)
+			selected = (int)indexTranslation_.size();
+		items.push_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
+		indexTranslation_.push_back(i);
+	}
+	adaptor_ = UI::StringVectorListAdaptor(items, selected);
+	ListPopupScreen::CreateViews();
+}
+
+void PostProcScreen::OnCompleted(DialogResult result) {
+	if (result != DR_OK)
+		return;
+	const std::string &value = shaders_[indexTranslation_[listView_->GetSelected()]].section;
+	// I feel this logic belongs more in the caller, but eh...
+	if (showStereoShaders_) {
+		if (g_Config.sStereoToMonoShader != value) {
+			g_Config.sStereoToMonoShader = value;
+			NativeMessageReceived("gpu_configChanged", "");
+		}
+	} else {
+		if (id_ < (int)g_Config.vPostShaderNames.size()) {
+			if (g_Config.vPostShaderNames[id_] != value) {
+				g_Config.vPostShaderNames[id_] = value;
+				NativeMessageReceived("gpu_configChanged", "");
+			}
+		}
+		else {
+			g_Config.vPostShaderNames.push_back(value);
+			NativeMessageReceived("gpu_configChanged", "");
+		}
+	}
 }

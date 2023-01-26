@@ -445,7 +445,7 @@ struct GPUgstate {
 
 	void Reset();
 	void Save(u32_le *ptr);
-	void Restore(u32_le *ptr);
+	void Restore(const u32_le *ptr);
 };
 
 bool vertTypeIsSkinningEnabled(u32 vertType);
@@ -478,7 +478,7 @@ enum {
 	GPU_USE_VS_RANGE_CULLING = FLAG_BIT(3),
 	GPU_USE_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_USE_LOGIC_OP = FLAG_BIT(5),
-	GPU_USE_DEPTH_RANGE_HACK = FLAG_BIT(6),
+	// Bit 6 is free.
 	GPU_USE_TEXTURE_NPOT = FLAG_BIT(7),
 	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
@@ -524,8 +524,8 @@ enum class SubmitType {
 };
 
 struct GPUStateCache {
-	bool Use(u32 flags) { return (useFlags & flags) != 0; } // Return true if ANY of flags are true.
-	bool UseAll(u32 flags) { return (useFlags & flags) == flags; } // Return true if ALL flags are true.
+	bool Use(u32 flags) { return (useFlags_ & flags) != 0; } // Return true if ANY of flags are true.
+	bool UseAll(u32 flags) { return (useFlags_ & flags) == flags; } // Return true if ALL flags are true.
 
 	uint64_t GetDirtyUniforms() { return dirty & DIRTY_ALL_UNIFORMS; }
 	void Dirty(u64 what) {
@@ -578,9 +578,22 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
+	void SetUseFlags(u32 newFlags) {
+		if (newFlags != useFlags_) {
+			if (useFlags_ != 0)
+				useFlagsChanged = true;
+			useFlags_ = newFlags;
+		}
+	}
 
-	u32 useFlags;
+	// When checking for a single flag, use Use()/UseAll().
+	u32 GetUseFlags() const {
+		return useFlags_;
+	}
 
+private:
+	u32 useFlags_;
+public:
 	u32 vertexAddr;
 	u32 indexAddr;
 	u32 offsetAddr;
@@ -600,6 +613,7 @@ struct GPUStateCache {
 	bool bgraTexture;
 	bool needShaderTexClamp;
 	bool arrayTexture;
+	bool useFlagsChanged;
 
 	float morphWeights[8];
 	u32 deferredVertTypeDirty;

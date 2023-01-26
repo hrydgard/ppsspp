@@ -140,7 +140,7 @@ enum {
 class DrawEngineVulkan : public DrawEngineCommon {
 public:
 	DrawEngineVulkan(Draw::DrawContext *draw);
-	virtual ~DrawEngineVulkan();
+	~DrawEngineVulkan();
 
 	// We reference feature flags, so this is called after construction.
 	void InitDeviceObjects();
@@ -271,8 +271,6 @@ private:
 		VulkanPushBuffer *pushUBO = nullptr;
 		VulkanPushBuffer *pushVertex = nullptr;
 		VulkanPushBuffer *pushIndex = nullptr;
-
-		bool frameDescSetUpdated = false;
 
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
 		DenseHashMap<DescriptorSetKey, VkDescriptorSet, (VkDescriptorSet)VK_NULL_HANDLE> descSets;

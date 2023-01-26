@@ -67,13 +67,13 @@ std::shared_ptr<I18NCategory> I18NRepo::GetCategory(const char *category) {
 	}
 }
 
-std::string I18NRepo::GetIniPath(const std::string &languageID) const {
-	return "lang/" + languageID + ".ini";
+Path I18NRepo::GetIniPath(const std::string &languageID) const {
+	return Path("lang") / (languageID + ".ini");
 }
 
 bool I18NRepo::IniExists(const std::string &languageID) const {
 	File::FileInfo info;
-	if (!VFSGetFileInfo(GetIniPath(languageID).c_str(), &info))
+	if (!VFSGetFileInfo(GetIniPath(languageID).ToString().c_str(), &info))
 		return false;
 	if (!info.exists)
 		return false;
@@ -88,7 +88,7 @@ bool I18NRepo::LoadIni(const std::string &languageID, const Path &overridePath) 
 	if (!overridePath.empty()) {
 		iniPath = overridePath / (languageID + ".ini");
 	} else {
-		iniPath = Path(GetIniPath(languageID));
+		iniPath = GetIniPath(languageID);
 	}
 
 	if (!ini.LoadFromVFS(iniPath.ToString()))

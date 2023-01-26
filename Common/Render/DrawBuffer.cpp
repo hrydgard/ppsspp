@@ -14,6 +14,8 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 
+#include "Common/Math/math_util.h"
+
 DrawBuffer::DrawBuffer() {
 	verts_ = new Vertex[MAX_VERTS];
 	fontscalex = 1.0f;
@@ -85,7 +87,13 @@ void DrawBuffer::Flush(bool set_blend_state) {
 }
 
 void DrawBuffer::V(float x, float y, float z, uint32_t color, float u, float v) {
-	_assert_msg_(count_ < MAX_VERTS, "Overflowed the DrawBuffer");
+	_dbg_assert_msg_(count_ < MAX_VERTS, "Overflowed the DrawBuffer");
+
+#ifdef _DEBUG
+	if (my_isnanorinf(x) || my_isnanorinf(y) || my_isnanorinf(z)) {
+		_assert_(false);
+	}
+#endif
 
 	Vertex *vert = &verts_[count_++];
 	vert->x = x;
@@ -130,7 +138,7 @@ void DrawBuffer::RectOutline(float x, float y, float w, float h, uint32_t color,
 	vLine(x + w, y, y + h + pixel_in_dps_y, color);
 }
 
-void DrawBuffer::MultiVGradient(float x, float y, float w, float h, GradientStop *stops, int numStops) {
+void DrawBuffer::MultiVGradient(float x, float y, float w, float h, const GradientStop *stops, int numStops) {
 	for (int i = 0; i < numStops - 1; i++) {
 		float t0 = stops[i].t, t1 = stops[i+1].t;
 		uint32_t c0 = stops[i].color, c1 = stops[i+1].color;
@@ -285,7 +293,9 @@ void DrawBuffer::DrawImageRotated(ImageID atlas_image, float x, float y, float s
 		{u1, image->v2},
 	};
 	for (int i = 0; i < 6; i++) {
-		rot(v[i], angle, x, y);
+		if (angle != 0.0f) {
+			rot(v[i], angle, x, y);
+		}
 		V(v[i][0], v[i][1], 0, color, uv[i][0], uv[i][1]);
 	}
 }

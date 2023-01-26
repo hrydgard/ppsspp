@@ -63,7 +63,6 @@ enum class GLRRenderCommand : uint8_t {
 	GENMIPS,
 	DRAW,
 	DRAW_INDEXED,
-	PUSH_CONSTANTS,
 	TEXTURE_SUBIMAGE,
 };
 

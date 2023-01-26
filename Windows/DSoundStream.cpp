@@ -14,7 +14,6 @@
 #include "Common/Log.h"
 #include "Common/OSVersion.h"
 #include "Core/ConfigValues.h"
-#include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
 #include "Windows/W32Util/Misc.h"
 
@@ -183,6 +182,8 @@ bool DSoundAudioBackend::Init(HWND window, StreamCallback _callback, int sampleR
 	sampleRate_ = sampleRate;
 	threadData_ = 0;
 	hThread_ = (HANDLE)_beginthreadex(0, 0, soundThread, (void *)this, 0, 0);
+	if (!hThread_)
+		return false;
 	SetThreadPriority(hThread_, THREAD_PRIORITY_ABOVE_NORMAL);
 	return true;
 }

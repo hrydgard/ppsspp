@@ -85,11 +85,6 @@ public class SizeManager implements SurfaceHolder.Callback {
 
 		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString() + " or: " + requestedOr);
 		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int)densityDpi, refreshRate);
-		getDesiredBackbufferSize(desiredSize);
-
-		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
-		Log.d(TAG, "Setting fixed size " + desiredSize.x + " x " + desiredSize.y);
-		holder.setFixedSize(desiredSize.x, desiredSize.y);
 	}
 
 	@Override
@@ -124,15 +119,10 @@ public class SizeManager implements SurfaceHolder.Callback {
 		}
 		displayUpdatePending = true;
 
-		final Runnable updater = new Runnable() {
-			public void run() {
-				Log.d(TAG, "checkDisplayMeasurements: checking now");
-				updateDisplayMeasurements();
-			}
-		};
-
-		final Handler handler = new Handler(Looper.getMainLooper());
-		handler.postDelayed(updater, 10);
+		activity.runOnUiThread(() -> {
+			Log.d(TAG, "checkDisplayMeasurements: checking now");
+			updateDisplayMeasurements();
+		});
 	}
 
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)

@@ -17,11 +17,11 @@
 
 #include <algorithm>
 
+#include "Common/LogReporting.h"
 #include "Common/MemoryUtil.h"
 #include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
-#include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 
@@ -258,8 +258,6 @@ void DrawEngineGLES::DoFlush() {
 	PROFILE_THIS_SCOPE("flush");
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	
-	gpuStats.numFlushes++;
-
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
@@ -273,7 +271,7 @@ void DrawEngineGLES::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 
 	VShaderID vsid;
-	Shader *vshader = shaderManager_->ApplyVertexShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode || !CanUseHardwareTransform(prim), &vsid);
+	Shader *vshader = shaderManager_->ApplyVertexShader(CanUseHardwareTransform(prim), useHWTessellation_, dec_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode || !CanUseHardwareTransform(prim), &vsid);
 
 	GLRBuffer *vertexBuffer = nullptr;
 	GLRBuffer *indexBuffer = nullptr;
@@ -321,7 +319,7 @@ void DrawEngineGLES::DoFlush() {
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(false, 0);
 		
-		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, lastVType_, framebufferManager_->UseBufferedRendering());
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
 		render_->BindVertexBuffer(inputLayout, vertexBuffer, vertexBufferOffset);
 		if (useElements) {
@@ -385,13 +383,13 @@ void DrawEngineGLES::DoFlush() {
 		int vertexCount = indexGen.VertexCount();
 
 		// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
-#if defined(MOBILE_DEVICE)
-		constexpr int vertexCountLimit = 0x10000 / 3;
-		if (vertexCount > vertexCountLimit) {
-			WARN_LOG_REPORT_ONCE(manyVerts, G3D, "Truncating vertex count from %d to %d", vertexCount, vertexCountLimit);
-			vertexCount = vertexCountLimit;
+		if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
+			constexpr int vertexCountLimit = 0x10000 / 3;
+			if (vertexCount > vertexCountLimit) {
+				WARN_LOG_REPORT_ONCE(manyVerts, G3D, "Truncating vertex count from %d to %d", vertexCount, vertexCountLimit);
+				vertexCount = vertexCountLimit;
+			}
 		}
-#endif
 
 		SoftwareTransform swTransform(params);
 
@@ -421,7 +419,7 @@ void DrawEngineGLES::DoFlush() {
 
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
-		shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, lastVType_, framebufferManager_->UseBufferedRendering());
+		shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.drawIndexed) {
@@ -465,6 +463,7 @@ void DrawEngineGLES::DoFlush() {
 		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
+	gpuStats.numFlushes++;
 	gpuStats.numDrawCalls += numDrawCalls;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
@@ -474,7 +473,6 @@ void DrawEngineGLES::DoFlush() {
 	vertexCountInDrawCalls_ = 0;
 	decodeCounter_ = 0;
 	dcid_ = 0;
-	prevPrim_ = GE_PRIM_INVALID;
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
@@ -485,10 +483,6 @@ void DrawEngineGLES::DoFlush() {
 	gstate_c.vertBounds.maxV = 0;
 
 	GPUDebug::NotifyDraw();
-}
-
-bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
-	return decJitCache_->IsInSpace(ptr);
 }
 
 // TODO: Refactor this to a single USE flag.

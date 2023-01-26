@@ -261,6 +261,11 @@ bool OpenGLShaderModule::Compile(GLRenderManager *render, ShaderLanguage languag
 	return true;
 }
 
+struct PipelineLocData : GLRProgramLocData {
+	GLint samplerLocs_[MAX_TEXTURE_SLOTS]{};
+	std::vector<GLint> dynamicUniformLocs_;
+};
+
 class OpenGLInputLayout : public InputLayout {
 public:
 	OpenGLInputLayout(GLRenderManager *render) : render_(render) {}
@@ -276,8 +281,7 @@ private:
 
 class OpenGLPipeline : public Pipeline {
 public:
-	OpenGLPipeline(GLRenderManager *render) : render_(render) {
-	}
+	OpenGLPipeline(GLRenderManager *render) : render_(render) {}
 	~OpenGLPipeline() {
 		for (auto &iter : shaders) {
 			iter->Release();
@@ -285,9 +289,10 @@ public:
 		if (program_) {
 			render_->DeleteProgram(program_);
 		}
+		// DO NOT delete locs_ here, it's deleted by the render manager.
 	}
 
-	bool LinkShaders();
+	bool LinkShaders(const PipelineDesc &desc);
 
 	GLuint prim = 0;
 	std::vector<OpenGLShaderModule *> shaders;
@@ -296,11 +301,13 @@ public:
 	AutoRef<OpenGLBlendState> blend;
 	AutoRef<OpenGLRasterState> raster;
 
+	// Not owned!
+	PipelineLocData *locs_ = nullptr;
+
 	// TODO: Optimize by getting the locations first and putting in a custom struct
 	UniformBufferDesc dynamicUniforms;
-	GLint samplerLocs_[MAX_TEXTURE_SLOTS]{};
-	std::vector<GLint> dynamicUniformLocs_;
 	GLRProgram *program_ = nullptr;
+
 
 	// Allow using other sampler names than sampler0, sampler1 etc in shaders.
 	// If not set, will default to those, though.
@@ -316,7 +323,7 @@ class OpenGLTexture;
 class OpenGLContext : public DrawContext {
 public:
 	OpenGLContext();
-	virtual ~OpenGLContext();
+	~OpenGLContext();
 
 	void SetTargetSize(int w, int h) override {
 		DrawContext::SetTargetSize(w, h);
@@ -509,7 +516,7 @@ static constexpr int MakeIntelSimpleVer(int v1, int v2, int v3) {
 	return (v1 << 16) | (v2 << 8) | v3;
 }
 
-static bool HasIntelDualSrcBug(int versions[4]) {
+static bool HasIntelDualSrcBug(const int versions[4]) {
 	// Intel uses a confusing set of at least 3 version numbering schemes.  This is the one given to OpenGL.
 	switch (MakeIntelSimpleVer(versions[0], versions[1], versions[2])) {
 	case MakeIntelSimpleVer(9, 17, 10):
@@ -602,6 +609,14 @@ OpenGLContext::OpenGLContext() {
 		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 		break;
 	}
+
+	// Hide D3D9 when we know it likely won't work well.
+#if PPSSPP_PLATFORM(WINDOWS)
+	caps_.supportsD3D9 = true;
+	if (!strcmp(gl_extensions.model, "Intel(R) Iris(R) Xe Graphics")) {
+		caps_.supportsD3D9 = false;
+	}
+#endif
 
 	// Very rough heuristic!
 	caps_.isTilingGPU = gl_extensions.IsGLES && caps_.vendor != GPUVendor::VENDOR_NVIDIA && caps_.vendor != GPUVendor::VENDOR_INTEL;
@@ -750,6 +765,7 @@ OpenGLContext::OpenGLContext() {
 
 OpenGLContext::~OpenGLContext() {
 	DestroyPresets();
+
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
 		renderManager_.DeletePushBuffer(frameData_[i].push);
 	}
@@ -1076,7 +1092,7 @@ public:
 		buffer_ = render->CreateBuffer(target_, size, usage_);
 		totalSize_ = size;
 	}
-	~OpenGLBuffer() override {
+	~OpenGLBuffer() {
 		render_->DeleteBuffer(buffer_);
 	}
 
@@ -1126,17 +1142,19 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const 
 			iter->AddRef();
 			pipeline->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
 		} else {
-			ERROR_LOG(G3D,  "ERROR: Tried to create graphics pipeline %s with a null shader module", tag);
+			ERROR_LOG(G3D,  "ERROR: Tried to create graphics pipeline %s with a null shader module", tag ? tag : "no tag");
 			delete pipeline;
 			return nullptr;
 		}
 	}
+
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniforms = *desc.uniformDesc;
-		pipeline->dynamicUniformLocs_.resize(desc.uniformDesc->uniforms.size());
 	}
+
 	pipeline->samplers_ = desc.samplers;
-	if (pipeline->LinkShaders()) {
+	if (pipeline->LinkShaders(desc)) {
+		_assert_((u32)desc.prim < ARRAY_SIZE(primToGL));
 		// Build the rest of the virtual pipeline object.
 		pipeline->prim = primToGL[(int)desc.prim];
 		pipeline->depthStencil = (OpenGLDepthStencilState *)desc.depthStencil;
@@ -1145,7 +1163,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const 
 		pipeline->inputLayout = (OpenGLInputLayout *)desc.inputLayout;
 		return pipeline;
 	} else {
-		ERROR_LOG(G3D,  "Failed to create pipeline %s - shaders failed to link", tag);
+		ERROR_LOG(G3D,  "Failed to create pipeline %s - shaders failed to link", tag ? tag : "no tag");
 		delete pipeline;
 		return nullptr;
 	}
@@ -1206,7 +1224,7 @@ ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, ShaderLanguag
 	}
 }
 
-bool OpenGLPipeline::LinkShaders() {
+bool OpenGLPipeline::LinkShaders(const PipelineDesc &desc) {
 	std::vector<GLRShader *> linkShaders;
 	for (auto shaderModule : shaders) {
 		if (shaderModule) {
@@ -1237,32 +1255,38 @@ bool OpenGLPipeline::LinkShaders() {
 	semantics.push_back({ SEM_POSITION, "a_position" });
 	semantics.push_back({ SEM_TEXCOORD0, "a_texcoord0" });
 
+	locs_ = new PipelineLocData();
+	locs_->dynamicUniformLocs_.resize(desc.uniformDesc->uniforms.size());
+
 	std::vector<GLRProgram::UniformLocQuery> queries;
+	int samplersToCheck;
 	if (!samplers_.is_empty()) {
 		for (int i = 0; i < (int)std::min((const uint32_t)samplers_.size(), MAX_TEXTURE_SLOTS); i++) {
-			queries.push_back({ &samplerLocs_[i], samplers_[i].name, true });
+			queries.push_back({ &locs_->samplerLocs_[i], samplers_[i].name, true });
 		}
+		samplersToCheck = (int)samplers_.size();
 	} else {
-		queries.push_back({ &samplerLocs_[0], "sampler0" });
-		queries.push_back({ &samplerLocs_[1], "sampler1" });
-		queries.push_back({ &samplerLocs_[2], "sampler2" });
+		queries.push_back({ &locs_->samplerLocs_[0], "sampler0" });
+		queries.push_back({ &locs_->samplerLocs_[1], "sampler1" });
+		queries.push_back({ &locs_->samplerLocs_[2], "sampler2" });
+		samplersToCheck = 3;
 	}
 
 	_assert_(queries.size() <= MAX_TEXTURE_SLOTS);
 	for (size_t i = 0; i < dynamicUniforms.uniforms.size(); ++i) {
-		queries.push_back({ &dynamicUniformLocs_[i], dynamicUniforms.uniforms[i].name });
+		queries.push_back({ &locs_->dynamicUniformLocs_[i], dynamicUniforms.uniforms[i].name });
 	}
 	std::vector<GLRProgram::Initializer> initialize;
 	for (int i = 0; i < MAX_TEXTURE_SLOTS; ++i) {
-		if (i < (int)samplers_.size()) {
-			initialize.push_back({ &samplerLocs_[i], 0, i });
+		if (i < samplersToCheck) {
+			initialize.push_back({ &locs_->samplerLocs_[i], 0, i });
 		} else {
-			samplerLocs_[i] = -1;
+			locs_->samplerLocs_[i] = -1;
 		}
 	}
 
 	GLRProgramFlags flags{};
-	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, flags);
+	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, locs_, flags);
 	return true;
 }
 
@@ -1284,7 +1308,7 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 
 	for (size_t i = 0; i < curPipeline_->dynamicUniforms.uniforms.size(); ++i) {
 		const auto &uniform = curPipeline_->dynamicUniforms.uniforms[i];
-		const GLint &loc = curPipeline_->dynamicUniformLocs_[i];
+		const GLint &loc = curPipeline_->locs_->dynamicUniformLocs_[i];
 		const float *data = (const float *)((uint8_t *)ub + uniform.offset);
 		switch (uniform.type) {
 		case UniformType::FLOAT1:

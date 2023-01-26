@@ -47,7 +47,7 @@ void Compatibility::Load(const std::string &gameID) {
 		IniFile compat2;
 		// This one is user-editable. Need to load it after the system one.
 		Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compat.ini";
-		if (compat2.Load(path.ToString())) {
+		if (compat2.Load(path)) {
 			CheckSettings(compat2, gameID);
 		}
 	}
@@ -64,7 +64,7 @@ void Compatibility::Load(const std::string &gameID) {
 		IniFile compat2;
 		// This one is user-editable. Need to load it after the system one.
 		Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compatvr.ini";
-		if (compat2.Load(path.ToString())) {
+		if (compat2.Load(path)) {
 			CheckVRSettings(compat2, gameID);
 		}
 	}
@@ -123,9 +123,12 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "EnglishOrJapaneseOnly", &flags_.EnglishOrJapaneseOnly);
 	CheckSetting(iniFile, gameID, "OldAdrenoPixelDepthRoundingGL", &flags_.OldAdrenoPixelDepthRoundingGL);
 	CheckSetting(iniFile, gameID, "ForceCircleButtonConfirm", &flags_.ForceCircleButtonConfirm);
+	CheckSetting(iniFile, gameID, "DisallowFramebufferAtOffset", &flags_.DisallowFramebufferAtOffset);
+	CheckSetting(iniFile, gameID, "RockmanDash2SoundFix", &flags_.RockmanDash2SoundFix);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {
+	CheckSetting(iniFile, gameID, "ForceFlatScreen", &vrCompat_.ForceFlatScreen);
 	CheckSetting(iniFile, gameID, "IdentityViewHack", &vrCompat_.IdentityViewHack);
 	CheckSetting(iniFile, gameID, "Skyplane", &vrCompat_.Skyplane);
 	CheckSetting(iniFile, gameID, "UnitsPerMeter", &vrCompat_.UnitsPerMeter);

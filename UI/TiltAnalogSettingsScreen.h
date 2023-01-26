@@ -25,7 +25,7 @@ public:
 	TiltAnalogSettingsScreen() {}
 
 	void CreateViews() override;
-	bool axis(const AxisInput &axis) override;
+	void axis(const AxisInput &axis) override;
 
 	const char *tag() const override { return "TiltAnalogSettings"; }
 

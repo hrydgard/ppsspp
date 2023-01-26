@@ -16,6 +16,7 @@
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/Log.h"
 
 namespace UI {
 
@@ -24,7 +25,6 @@ static constexpr float MIN_TEXT_SCALE = 0.8f;
 static constexpr float MAX_ITEM_SIZE = 65535.0f;
 
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured) {
-	*measured = sz;
 	if (sz == WRAP_CONTENT) {
 		if (spec.type == UNSPECIFIED)
 			*measured = contentWidth;
@@ -40,6 +40,8 @@ void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measure
 			*measured = spec.size;
 	} else if (spec.type == EXACTLY || (spec.type == AT_MOST && *measured > spec.size)) {
 		*measured = spec.size;
+	} else {
+		*measured = sz;
 	}
 }
 
@@ -167,7 +169,7 @@ void View::PersistData(PersistStatus status, std::string anonId, PersistMap &sto
 	}
 }
 
-Point View::GetFocusPosition(FocusDirection dir) {
+Point View::GetFocusPosition(FocusDirection dir) const {
 	// The +2/-2 is some extra fudge factor to cover for views sitting right next to each other.
 	// Distance zero yields strange results otherwise.
 	switch (dir) {
@@ -413,6 +415,7 @@ void ClickableItem::GetContentDimensions(const UIContext &dc, float &w, float &h
 
 ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParams) {
 	if (!layoutParams) {
+		// The default LayoutParams assigned by View::View defaults to WRAP_CONTENT/WRAP_CONTENT.
 		if (layoutParams_->width == WRAP_CONTENT)
 			layoutParams_->width = FILL_PARENT;
 	}
@@ -472,7 +475,7 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 float Choice::CalculateTextScale(const UIContext &dc, float availWidth) const {
 	float actualWidth, actualHeight;
 	Bounds availBounds(0, 0, availWidth, bounds_.h);
-	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight);
+	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight, drawTextFlags_);
 	if (actualWidth > availWidth) {
 		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
 	}
@@ -497,6 +500,7 @@ void Choice::Draw(UIContext &dc) {
 
 		if (image_.isValid()) {
 			const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(image_);
+			_dbg_assert_(image);
 			paddingX += image->w + 6;
 			availWidth -= image->w + 6;
 			// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
@@ -507,14 +511,14 @@ void Choice::Draw(UIContext &dc) {
 
 		dc.SetFontScale(scale, scale);
 		if (centered_) {
-			dc.DrawTextRect(text_.c_str(), bounds_, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT);
+			dc.DrawTextRect(text_.c_str(), bounds_, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		} else {
 			if (rightIconImage_.isValid()) {
 				uint32_t col = rightIconKeepColor_ ? 0xffffffff : style.fgColor; // Don't apply theme to gold icon
 				dc.Draw()->DrawImageRotated(rightIconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
 			}
 			Bounds textBounds(bounds_.x + paddingX + textPadding_.left, bounds_.y, availWidth, bounds_.h);
-			dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+			dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		}
 		dc.SetFontScale(1.0f, 1.0f);
 	}
@@ -660,8 +664,8 @@ void PopupHeader::Draw(UIContext &dc) {
 		dc.PushScissor(tb);
 	}
 
-	dc.DrawText(text_.c_str(), bounds_.x + tx, bounds_.centerY(), dc.theme->popupTitle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
-	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->popupTitle.fgColor);
+	dc.DrawText(text_.c_str(), bounds_.x + tx, bounds_.centerY(), dc.theme->itemStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->itemStyle.fgColor);
 
 	if (availableWidth < tw) {
 		dc.PopScissor();
@@ -696,28 +700,55 @@ void CheckBox::Draw(UIContext &dc) {
 	if (!IsEnabled()) {
 		style = dc.theme->itemDisabledStyle;
 	}
-	if (HasFocus()) {
-		style = dc.theme->itemFocusedStyle;
+	ImageID image = Toggled() ? dc.theme->checkOn : dc.theme->checkOff;
+
+	// In image mode, light up instead of showing a checkbox.
+	if (imageID_.isValid()) {
+		image = imageID_;
+		if (Toggled()) {
+			if (HasFocus()) {
+				style = dc.theme->itemDownStyle;
+			} else {
+				style = dc.theme->itemFocusedStyle;
+			}
+		} else {
+			if (HasFocus()) {
+				style = dc.theme->itemDownStyle;
+			} else {
+				style = dc.theme->itemStyle;
+			}
+		}
+
+		if (down_) {
+			style.background.color = lightenColor(style.background.color);
+		}
+
+	} else {
+		if (HasFocus()) {
+			style = dc.theme->itemFocusedStyle;
+		}
+		if (down_) {
+			style = dc.theme->itemDownStyle;
+		}
 	}
-	if (down_) {
-		style = dc.theme->itemDownStyle;
-	}
+
 	dc.SetFontStyle(dc.theme->uiFont);
 
-	ClickableItem::Draw(dc);
+	DrawBG(dc, style);
 
-	ImageID image = Toggled() ? dc.theme->checkOn : dc.theme->checkOff;
 	float imageW, imageH;
 	dc.Draw()->MeasureImage(image, &imageW, &imageH);
 
 	const int paddingX = 12;
 	// Padding right of the checkbox image too.
 	const float availWidth = bounds_.w - paddingX * 2 - imageW - paddingX;
-	float scale = CalculateTextScale(dc, availWidth);
 
-	dc.SetFontScale(scale, scale);
-	Bounds textBounds(bounds_.x + paddingX, bounds_.y, availWidth, bounds_.h);
-	dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	if (!text_.empty()) {
+		float scale = CalculateTextScale(dc, availWidth);
+		dc.SetFontScale(scale, scale);
+		Bounds textBounds(bounds_.x + paddingX, bounds_.y, availWidth, bounds_.h);
+		dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	}
 	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 	dc.SetFontScale(1.0f, 1.0f);
 }
@@ -743,24 +774,41 @@ float CheckBox::CalculateTextScale(const UIContext &dc, float availWidth) const 
 
 void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	ImageID image = Toggled() ? dc.theme->checkOn : dc.theme->checkOff;
+	if (imageID_.isValid()) {
+		image = imageID_;
+	}
+
 	float imageW, imageH;
 	dc.Draw()->MeasureImage(image, &imageW, &imageH);
 
 	const int paddingX = 12;
+
+	if (imageID_.isValid()) {
+		w = imageW + paddingX * 2;
+		h = std::max(imageH, ITEM_HEIGHT);
+		return;
+	}
+
+	// The below code is kinda wacky, we shouldn't involve bounds_ here.
+
 	// Padding right of the checkbox image too.
 	float availWidth = bounds_.w - paddingX * 2 - imageW - paddingX;
 	if (availWidth < 0.0f) {
 		// Let it have as much space as it needs.
 		availWidth = MAX_ITEM_SIZE;
 	}
-	float scale = CalculateTextScale(dc, availWidth);
 
-	float actualWidth, actualHeight;
-	Bounds availBounds(0, 0, availWidth, bounds_.h);
-	dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	if (!text_.empty()) {
+		float scale = CalculateTextScale(dc, availWidth);
 
+		float actualWidth, actualHeight;
+		Bounds availBounds(0, 0, availWidth, bounds_.h);
+		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		h = std::max(actualHeight, ITEM_HEIGHT);
+	} else {
+		h = std::max(imageH, ITEM_HEIGHT);
+	}
 	w = bounds_.w;
-	h = std::max(actualHeight, ITEM_HEIGHT);
 }
 
 void BitCheckBox::Toggle() {
@@ -1385,8 +1433,8 @@ void Slider::Clamp() {
 
 void Slider::Draw(UIContext &dc) {
 	bool focus = HasFocus();
-	uint32_t linecolor = dc.theme->popupTitle.fgColor;
-	Style knobStyle = (down_ || focus) ? dc.theme->popupTitle : dc.theme->popupStyle;
+	uint32_t linecolor = dc.theme->itemStyle.fgColor;
+	Style knobStyle = (down_ || focus) ? dc.theme->itemStyle : dc.theme->popupStyle;
 
 	float knobX = ((float)(*value_) - minValue_) / (maxValue_ - minValue_) * (bounds_.w - paddingLeft_ - paddingRight_) + (bounds_.x + paddingLeft_);
 	dc.FillRect(Drawable(linecolor), Bounds(bounds_.x + paddingLeft_, bounds_.centerY() - 2, knobX - (bounds_.x + paddingLeft_), 4));
@@ -1510,8 +1558,8 @@ void SliderFloat::Clamp() {
 
 void SliderFloat::Draw(UIContext &dc) {
 	bool focus = HasFocus();
-	uint32_t linecolor = dc.theme->popupTitle.fgColor;
-	Style knobStyle = (down_ || focus) ? dc.theme->popupTitle : dc.theme->popupStyle;
+	uint32_t linecolor = dc.theme->itemStyle.fgColor;
+	Style knobStyle = (down_ || focus) ? dc.theme->itemStyle : dc.theme->popupStyle;
 
 	float knobX = (*value_ - minValue_) / (maxValue_ - minValue_) * (bounds_.w - paddingLeft_ - paddingRight_) + (bounds_.x + paddingLeft_);
 	dc.FillRect(Drawable(linecolor), Bounds(bounds_.x + paddingLeft_, bounds_.centerY() - 2, knobX - (bounds_.x + paddingLeft_), 4));

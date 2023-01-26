@@ -17,8 +17,12 @@
 
 #pragma once
 
+#include <deque>
+
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "GPU/Common/PostShader.h"
+
 #include "MiscScreens.h"
 
 class DisplayLayoutScreen : public UIDialogScreenWithGameBackground {
@@ -45,4 +49,23 @@ private:
 	UI::ChoiceStrip *mode_ = nullptr;
 	UI::Choice *postProcChoice_ = nullptr;
 	std::string shaderNames_[256];
+	std::deque<bool> settingsVisible_;  // vector<bool> is an insane bitpacked specialization!
+};
+
+class PostProcScreen : public UI::ListPopupScreen {
+public:
+	PostProcScreen(const std::string &title, int id, bool showStereoShaders) 
+		: ListPopupScreen(title), id_(id), showStereoShaders_(showStereoShaders) { }
+
+	void CreateViews() override;
+
+	const char *tag() const override { return "PostProc"; }
+
+private:
+	void OnCompleted(DialogResult result) override;
+	bool ShowButtons() const override { return true; }
+	std::vector<ShaderInfo> shaders_;
+	int id_;
+	bool showStereoShaders_;
+	std::vector<int> indexTranslation_;
 };

@@ -74,6 +74,10 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#include "UI/DarwinMemoryStickManager.h"
+#endif
+
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 #pragma warning(disable:4091)  // workaround bug in VS2015 headers
 #include "Windows/MainWindow.h"
@@ -92,13 +96,8 @@ extern AndroidAudioState *g_audioState;
 
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), editThenRestore_(editThenRestore) {
-	lastVertical_ = UseVerticalLayout();
 	prevInflightFrames_ = g_Config.iInflightFrames;
 	analogSpeedMapped_ = KeyMap::AxisFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, nullptr, nullptr);
-}
-
-bool GameSettingsScreen::UseVerticalLayout() const {
-	return dp_yres > dp_xres * 1.1f;
 }
 
 // This needs before run CheckGPUFeatures()
@@ -267,9 +266,14 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Rendering Mode")));
 
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+
 #if !PPSSPP_PLATFORM(UWP)
 	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan" };
 	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
+	if (g_Config.iGPUBackend != (int)GPUBackend::DIRECT3D9 && !draw->GetDeviceCaps().supportsD3D9) {
+		renderingBackendChoice->HideChoice(1);
+	}
 	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
 
 	if (!g_Config.IsBackendEnabled(GPUBackend::OPENGL))
@@ -286,8 +290,6 @@ void GameSettingsScreen::CreateViews() {
 		renderingBackendChoice->SetEnabled(false);
 	}
 #endif
-
-	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
 	// Backends that don't allow a device choice will only expose one device.
 	if (draw->GetDeviceList().size() > 1) {
@@ -327,18 +329,6 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 
-#if PPSSPP_PLATFORM(ANDROID)
-	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
-		static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
-		int max_res_temp = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 2;
-		if (max_res_temp == 3)
-			max_res_temp = 4;  // At least allow 2x
-		int max_res = std::min(max_res_temp, (int)ARRAY_SIZE(deviceResolutions));
-		UI::PopupMultiChoice *hwscale = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAndroidHwScale, gr->T("Display Resolution (HW scaler)"), deviceResolutions, 0, max_res, gr->GetName(), screenManager()));
-		hwscale->OnChoice.Handle(this, &GameSettingsScreen::OnHwScaleChange);  // To refresh the display mode
-	}
-#endif
-
 	if (deviceType != DEVICE_TYPE_VR) {
 #if !defined(MOBILE_DEVICE)
 		graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
@@ -360,15 +350,6 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 #if PPSSPP_PLATFORM(ANDROID)
-		// Hide insets option if no insets, or OS too old.
-		if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 28 &&
-			(System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) != 0.0f ||
-				System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) != 0.0f ||
-				System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) != 0.0f ||
-				System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) != 0.0f)) {
-			graphicsSettings->Add(new CheckBox(&g_Config.bIgnoreScreenInsets, gr->T("Ignore camera notch when centering")));
-		}
-
 		// Hide Immersive Mode on pre-kitkat Android
 		if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
 			// Let's reuse the Fullscreen translation string from desktop.
@@ -846,7 +827,30 @@ void GameSettingsScreen::CreateViews() {
 	LinearLayout *systemSettings = AddTab("GameSettingsSystem", ms->T("System"));
 
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
-	systemSettings->Add(new Choice(sy->T("Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
+
+	auto langCodeToName = [](const char *value) -> std::string {
+		auto &mapping = g_Config.GetLangValuesMapping();
+		auto iter = mapping.find(value);
+		if (iter != mapping.end()) {
+			return iter->second.first;
+		}
+		return value;
+	};
+
+	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sLanguageIni, sy->T("Language"), langCodeToName))->OnClick.Add([&](UI::EventParams &e) {
+		auto sy = GetI18NCategory("System");
+		auto langScreen = new NewLanguageScreen(sy->T("Language"));
+		langScreen->OnChoice.Add([&](UI::EventParams &e) {
+			screenManager()->RecreateAllViews();
+			if (host)
+				host->UpdateUI();
+			return UI::EVENT_DONE;
+		});
+		if (e.v)
+			langScreen->SetPopupOrigin(e.v);
+		screenManager()->push(langScreen);
+		return UI::EVENT_DONE;
+	});
 	systemSettings->Add(new CheckBox(&g_Config.bUISound, sy->T("UI Sound")));
 	const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
 	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
@@ -861,13 +865,14 @@ void GameSettingsScreen::CreateViews() {
 		backgroundChoice_->OnClick.Handle(this, &GameSettingsScreen::OnChangeBackground);
 	}
 
+	systemSettings->Add(new CheckBox(&g_Config.bTransparentBackground, sy->T("Transparent UI background")));
+
 	PopupMultiChoiceDynamic *theme = systemSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sThemeName, sy->T("Theme"), GetThemeInfoNames(), th->GetName(), screenManager()));
 	theme->OnChoice.Add([=](EventParams &e) {
 		UpdateTheme(screenManager()->getUIContext());
 
 		return UI::EVENT_CONTINUE;
 	});
-
 
 	if (!draw->GetBugs().Has(Draw::Bugs::RASPBERRY_SHADER_COMP_HANG)) {
 		// We use shaders without tint capability on hardware with this driver bug.
@@ -888,6 +893,10 @@ void GameSettingsScreen::CreateViews() {
 
 #if (defined(USING_QT_UI) || PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC)) && !PPSSPP_PLATFORM(UWP)
 	systemSettings->Add(new Choice(sy->T("Show Memory Stick folder")))->OnClick.Handle(this, &GameSettingsScreen::OnOpenMemStick);
+#endif
+
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	systemSettings->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
 #endif
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -1073,7 +1082,7 @@ void GameSettingsScreen::CreateViews() {
 		vrSettings->Add(new ItemHeader(vr->T("VR camera")));
 		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCanvasDistance, 1.0f, 15.0f, vr->T("Distance to 2D menus and scenes"), 1.0f, screenManager(), ""));
 		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fFieldOfViewPercentage, 100.0f, 200.0f, vr->T("Field of view scale"), 10.0f, screenManager(), vr->T("% of native FoV")));
-		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadUpDisplayScale, 0.2f, 1.0f, vr->T("Heads-up display scale"), 0.1f, screenManager(), ""));
+		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadUpDisplayScale, 0.0f, 1.5f, vr->T("Heads-up display scale"), 0.1f, screenManager(), ""));
 
 		vrSettings->Add(new ItemHeader(vr->T("VR controllers")));
 		vrSettings->Add(new CheckBox(&g_Config.bEnableMotions, vr->T("Map controller movements to keys")));
@@ -1143,9 +1152,6 @@ UI::EventReturn GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
 	System_SendMessage("immersive", "");
-	if (g_Config.iAndroidHwScale != 0) {
-		RecreateActivity();
-	}
 	return UI::EVENT_DONE;
 }
 
@@ -1160,7 +1166,16 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	DarwinMemoryStickManager memoryStickManager;
+	DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
+		DarwinMemoryStickManager::setUserPreferredMemoryStickDirectory(thePathChosen);
+    };
+	
+	memoryStickManager.presentDirectoryPanel(callback);
+#else
 	screenManager()->push(new MemStickScreen(false));
+#endif
 	return UI::EVENT_DONE;
 }
 
@@ -1261,27 +1276,9 @@ UI::EventReturn GameSettingsScreen::OnFullscreenMultiChange(UI::EventParams &e) 
 }
 
 UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
-	if (g_Config.iAndroidHwScale == 1) {
-		RecreateActivity();
-	}
 	Reporting::UpdateConfig();
 	NativeMessageReceived("gpu_renderResized", "");
 	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnHwScaleChange(UI::EventParams &e) {
-	RecreateActivity();
-	return UI::EVENT_DONE;
-}
-
-void GameSettingsScreen::update() {
-	UIScreen::update();
-
-	bool vertical = UseVerticalLayout();
-	if (vertical != lastVertical_) {
-		RecreateViews();
-		lastVertical_ = vertical;
-	}
 }
 
 void GameSettingsScreen::onFinish(DialogResult result) {
@@ -1609,25 +1606,6 @@ UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
-	auto sy = GetI18NCategory("System");
-	auto langScreen = new NewLanguageScreen(sy->T("Language"));
-	langScreen->OnChoice.Handle(this, &GameSettingsScreen::OnLanguageChange);
-	if (e.v)
-		langScreen->SetPopupOrigin(e.v);
-	screenManager()->push(langScreen);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
-	screenManager()->RecreateAllViews();
-
-	if (host) {
-		host->UpdateUI();
-	}
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn GameSettingsScreen::OnTextureShader(UI::EventParams &e) {
 	auto gr = GetI18NCategory("Graphics");
 	auto shaderScreen = new TextureShaderScreen(gr->T("Texture Shader"));
@@ -1651,7 +1629,7 @@ UI::EventReturn GameSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnRemoteISO(UI::EventParams &e) {
-	screenManager()->push(new RemoteISOScreen());
+	screenManager()->push(new RemoteISOScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -1683,13 +1661,13 @@ UI::EventReturn GameSettingsScreen::OnTiltCustomize(UI::EventParams &e) {
 };
 
 UI::EventReturn GameSettingsScreen::OnSavedataManager(UI::EventParams &e) {
-	auto saveData = new SavedataScreen(Path());
+	auto saveData = new SavedataScreen(gamePath_);
 	screenManager()->push(saveData);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnSysInfo(UI::EventParams &e) {
-	screenManager()->push(new SystemInfoScreen());
+	screenManager()->push(new SystemInfoScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -1825,7 +1803,12 @@ void DeveloperToolsScreen::CreateViews() {
 			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
 				auto &setting = shaderInfo->settings[i];
 				if (!setting.name.empty()) {
-					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
+					std::string key = StringFromFormat("%sSettingCurrentValue%d", shaderInfo->section.c_str(), i + 1);
+					bool keyExisted = g_Config.mPostShaderSetting.find(key) != g_Config.mPostShaderSetting.end();
+					auto &value = g_Config.mPostShaderSetting[key];
+					if (!keyExisted)
+						value = setting.value;
+
 					PopupSliderChoiceFloat *settingValue = list->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
 					settingValue->SetEnabledFunc([=] {
 						return !g_Config.bSkipBufferEffects && enableStereo();

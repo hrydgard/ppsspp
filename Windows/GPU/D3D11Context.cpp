@@ -11,7 +11,6 @@
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Windows/GPU/D3D11Context.h"
 #include "Windows/W32Util/Misc.h"

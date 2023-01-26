@@ -3,8 +3,8 @@
 #include "WindowsAudio.h"
 #include "WASAPIStream.h"
 #include "Common/Log.h"
+#include "Common/LogReporting.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
 #include "Common/Data/Encoding/Utf8.h"
 
@@ -38,7 +38,7 @@ public:
 	CMMNotificationClient() {
 	}
 
-	~CMMNotificationClient() {
+	virtual ~CMMNotificationClient() {
 		CoTaskMemFree(currentDevice_);
 		currentDevice_ = nullptr;
 		SAFE_RELEASE(_pEnumerator)
@@ -159,16 +159,13 @@ public:
 				__uuidof(IMMDeviceEnumerator),
 				(void**)&_pEnumerator);
 		}
-		if (hr == S_OK)
-		{
+		if (hr == S_OK && _pEnumerator) {
 			hr = _pEnumerator->GetDevice(pwstrId, &pDevice);
 		}
-		if (hr == S_OK)
-		{
+		if (hr == S_OK && pDevice) {
 			hr = pDevice->OpenPropertyStore(STGM_READ, &pProps);
 		}
-		if (hr == S_OK)
-		{
+		if (hr == S_OK && pProps) {
 			// Get the endpoint device's friendly-name property.
 			hr = pProps->GetValue(PKEY_Device_FriendlyName, &varString);
 		}
@@ -224,6 +221,8 @@ bool WASAPIAudioBackend::Init(HWND window, StreamCallback callback, int sampleRa
 	callback_ = callback;
 	sampleRate_ = sampleRate;
 	hThread_ = (HANDLE)_beginthreadex(0, 0, soundThread, (void *)this, 0, 0);
+	if (!hThread_)
+		return false;
 	SetThreadPriority(hThread_, THREAD_PRIORITY_ABOVE_NORMAL);
 	return true;
 }
@@ -333,7 +332,7 @@ void WASAPIAudioThread::ShutdownAudioDevice() {
 }
 
 bool WASAPIAudioThread::DetectFormat() {
-	if (!ValidateFormat(deviceFormat_)) {
+	if (deviceFormat_ && !ValidateFormat(deviceFormat_)) {
 		// Last chance, let's try to ask for one we support instead.
 		WAVEFORMATEXTENSIBLE fmt{};
 		fmt.Format.cbSize = sizeof(fmt);
@@ -356,7 +355,8 @@ bool WASAPIAudioThread::DetectFormat() {
 			CoTaskMemFree(closest);
 			CoTaskMemFree(deviceFormat_);
 			deviceFormat_ = (WAVEFORMATEXTENSIBLE *)CoTaskMemAlloc(sizeof(fmt));
-			memcpy(deviceFormat_, &fmt, sizeof(fmt));
+			if (deviceFormat_)
+				memcpy(deviceFormat_, &fmt, sizeof(fmt));
 
 			// In case something above gets out of date.
 			return ValidateFormat(deviceFormat_);
@@ -387,6 +387,8 @@ bool WASAPIAudioThread::ValidateFormat(const WAVEFORMATEXTENSIBLE *fmt) {
 	// Don't know if PCM16 ever shows up here, the documentation only talks about float... but let's blindly
 	// try to support it :P
 	format_ = Format::UNKNOWN;
+	if (!fmt)
+		return false;
 
 	if (fmt->Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
 		if (!memcmp(&fmt->SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(fmt->SubFormat))) {
@@ -572,7 +574,8 @@ void WASAPIAudioThread::Run() {
 }
 
 int WASAPIAudioBackend::RunThread() {
-	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	_dbg_assert_(SUCCEEDED(hr));
 	SetCurrentThreadName("WASAPI_audio");
 
 	if (threadData_ == 0) {

@@ -13,7 +13,7 @@ public class NativeApp {
 	public static final int DEVICE_TYPE_DESKTOP = 2;
 	public static final int DEVICE_TYPE_VR = 3;
 
-	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalStorageDir, String extFilesDir, String additionalStorageDirs, String libraryDir, String cacheDir, String shortcutParam, int androidVersion, String board);
+	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalStorageDir, String extFilesDir, String additionalStorageDirs, String cacheDir, String shortcutParam, int androidVersion, String board);
 	public static native void audioInit();
 	public static native void audioShutdown();
 	public static native void audioConfig(int optimalFramesPerBuffer, int optimalSampleRate);
@@ -41,16 +41,14 @@ public class NativeApp {
 	public static native boolean keyDown(int deviceId, int key, boolean isRepeat);
 	public static native boolean keyUp(int deviceId, int key);
 
-	public static native void beginJoystickEvent();
 	public static native void joystickAxis(int deviceId, int axis, float value);
-	public static native void endJoystickEvent();
 
 	public static native boolean mouseWheelEvent(float x, float y);
 
 	// Sensor/input data. These are asynchronous, beware!
-	public static native boolean touch(float x, float y, int data, int pointerId);
+	public static native void touch(float x, float y, int data, int pointerId);
 
-	public static native boolean accelerometer(float x, float y, float z);
+	public static native void accelerometer(float x, float y, float z);
 
 	public static native void sendMessage(String msg, String arg);
 	public static native void sendInputBox(String seqID, boolean result, String value);

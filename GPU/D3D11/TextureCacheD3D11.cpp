@@ -23,7 +23,6 @@
 
 #include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUStateUtils.h"
@@ -314,7 +313,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
 		levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
 
-		ID3D11Texture2D *tex;
+		ID3D11Texture2D *tex = nullptr;
 		D3D11_TEXTURE2D_DESC desc{};
 		desc.CPUAccessFlags = 0;
 		desc.Usage = D3D11_USAGE_DEFAULT;
@@ -329,7 +328,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &tex));
 		texture = tex;
 	} else {
-		ID3D11Texture3D *tex;
+		ID3D11Texture3D *tex = nullptr;
 		D3D11_TEXTURE3D_DESC desc{};
 		desc.CPUAccessFlags = 0;
 		desc.Usage = D3D11_USAGE_DEFAULT;
@@ -382,7 +381,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 			return;
 		}
 
-		LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, texFmt, TexDecodeFlags{});
+		LoadTextureLevel(*entry, data, stride, plan, srcLevel, texFmt, TexDecodeFlags{});
 		if (plan.depth == 1) {
 			context_->UpdateSubresource(texture, i, nullptr, data, stride, 0);
 		} else {
@@ -504,6 +503,8 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 
 	ID3D11Texture2D *stagingCopy = nullptr;
 	device_->CreateTexture2D(&desc, nullptr, &stagingCopy);
+	if (!stagingCopy)
+		return false;
 	context_->CopyResource(stagingCopy, texture);
 
 	D3D11_MAPPED_SUBRESOURCE map;

@@ -247,6 +247,13 @@ namespace CustomKey {
 		{ ImageID("I_ARROW"), 0.0f},
 		{ ImageID("I_ARROW"), 180.0f},
 		{ ImageID("I_GEAR"), 0.0f},
+		{ ImageID("I_ROTATE_LEFT"), 0.0f},
+		{ ImageID("I_ROTATE_RIGHT"), 0.0f},
+		{ ImageID("I_ARROW_LEFT"), 0.0f},
+		{ ImageID("I_ARROW_RIGHT"), 0.0f},
+		{ ImageID("I_ARROW_UP"), 0.0f},
+		{ ImageID("I_ARROW_DOWN"), 0.0f},
+		{ ImageID("I_THREE_DOTS"), 0.0f},
 	};
 
 	// Shape list

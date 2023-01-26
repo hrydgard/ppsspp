@@ -65,7 +65,12 @@ static uint64_t HashJitBlock(const JitBlock &b) {
 	PROFILE_THIS_SCOPE("jithash");
 	if (JIT_USE_COMPILEDHASH) {
 		// Includes the emuhack (or emuhacks) in memory.
-		return XXH3_64bits(Memory::GetPointer(b.originalAddress), b.originalSize * 4);
+		if (Memory::IsValidRange(b.originalAddress, b.originalSize * 4)) {
+			return XXH3_64bits(Memory::GetPointerUnchecked(b.originalAddress), b.originalSize * 4);
+		} else {
+			// Hm, this would be bad.
+			return 0;
+		}
 	}
 	return 0;
 }
@@ -304,7 +309,7 @@ bool JitBlockCache::RangeMayHaveEmuHacks(u32 start, u32 end) const {
 	return false;
 }
 
-static int binary_search(JitBlock blocks_[], const u8 *baseoff, int imin, int imax) {
+static int binary_search(const JitBlock blocks_[], const u8 *baseoff, int imin, int imax) {
 	while (imin < imax) {
 		int imid = (imin + imax) / 2;
 		if (blocks_[imid].normalEntry < baseoff)
@@ -373,6 +378,15 @@ void JitBlockCache::GetBlockNumbersFromAddress(u32 em_address, std::vector<int> 
 	for (int i = 0; i < num_blocks_; i++)
 		if (blocks_[i].ContainsAddress(em_address))
 			block_numbers->push_back(i);
+}
+
+int JitBlockCache::GetBlockNumberFromAddress(u32 em_address) {
+	for (int i = 0; i < num_blocks_; i++) {
+		if (blocks_[i].ContainsAddress(em_address))
+			return i;
+	}
+
+	return -1;
 }
 
 u32 JitBlockCache::GetAddressFromBlockPtr(const u8 *ptr) const {
@@ -630,6 +644,9 @@ int JitBlockCache::GetBlockExitSize() {
 #elif PPSSPP_ARCH(ARM64)
 	// Will depend on the sequence found to encode the destination address.
 	return 0;
+#elif PPSSPP_ARCH(RISCV64)
+	// Will depend on the sequence found to encode the destination address.
+	return 0;
 #else
 #warning GetBlockExitSize unimplemented
 	return 0;
@@ -681,6 +698,8 @@ JitBlockDebugInfo JitBlockCache::GetBlockDebugInfo(int blockNum) const {
 	debugInfo.targetDisasm = DisassembleArm64(block->normalEntry, block->codeSize);
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	debugInfo.targetDisasm = DisassembleX86(block->normalEntry, block->codeSize);
+#elif PPSSPP_ARCH(ARM64)
+	debugInfo.targetDisasm = DisassembleRV64(block->normalEntry, block->codeSize);
 #endif
 
 	return debugInfo;

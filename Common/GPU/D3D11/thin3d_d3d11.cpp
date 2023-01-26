@@ -170,7 +170,7 @@ public:
 private:
 	void ApplyCurrentState();
 
-	ID3D11DepthStencilState *GetCachedDepthStencilState(D3D11DepthStencilState *state, uint8_t stencilWriteMask, uint8_t stencilCompareMask);
+	ID3D11DepthStencilState *GetCachedDepthStencilState(const D3D11DepthStencilState *state, uint8_t stencilWriteMask, uint8_t stencilCompareMask);
 
 	HWND hWnd_;
 	ID3D11Device *device_;
@@ -312,6 +312,12 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 
 	caps_.isTilingGPU = false;
 
+	// Hide D3D9 when we know it likely won't work well.
+	caps_.supportsD3D9 = true;
+	if (!strcmp(adapterDesc_.c_str(), "Intel(R) Iris(R) Xe Graphics")) {
+		caps_.supportsD3D9 = false;
+	}
+
 	// Temp texture for read-back of small images. Custom textures are created on demand for larger ones.
 	// TODO: Should really benchmark if this extra complexity has any benefit.
 	D3D11_TEXTURE2D_DESC packDesc{};
@@ -335,6 +341,8 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 }
 
 D3D11DrawContext::~D3D11DrawContext() {
+	DestroyPresets();
+
 	upBuffer_->Release();
 	packTexture_->Release();
 
@@ -429,6 +437,8 @@ void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
 }
 
 void D3D11DrawContext::SetScissorRect(int left, int top, int width, int height) {
+	_assert_(width >= 0);
+	_assert_(height >= 0);
 	DisplayRect<float> frc{ (float)left, (float)top, (float)width, (float)height };
 	if (curRenderTargetView_ == bbRenderTargetView_)  // Only the backbuffer is actually rotated wrong!
 		RotateRectToDisplay(frc, curRTWidth_, curRTHeight_);
@@ -550,7 +560,7 @@ public:
 	float blendFactor[4];
 };
 
-ID3D11DepthStencilState *D3D11DrawContext::GetCachedDepthStencilState(D3D11DepthStencilState *state, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
+ID3D11DepthStencilState *D3D11DrawContext::GetCachedDepthStencilState(const D3D11DepthStencilState *state, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
 	D3D11DepthStencilKey key;
 	key.desc = state->desc;
 	key.writeMask = stencilWriteMask;
@@ -1476,6 +1486,7 @@ void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x
 		dstTex = dst->depthStencilTex;
 		break;
 	}
+	_assert_(srcTex && dstTex);
 
 	// TODO: Check for level too!
 	if (width == src->Width() && width == dst->Width() && height == src->Height() && height == dst->Height() && x == 0 && y == 0 && z == 0 && dstX == 0 && dstY == 0 && dstZ == 0) {
@@ -1534,7 +1545,7 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 
 	bool useGlobalPacktex = (bx + bw <= 512 && by + bh <= 512) && channelBits == FB_COLOR_BIT;
 
-	ID3D11Texture2D *packTex;
+	ID3D11Texture2D *packTex = nullptr;
 	if (!useGlobalPacktex) {
 		D3D11_TEXTURE2D_DESC packDesc{};
 		packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
@@ -1572,6 +1583,9 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 		}
 		packTex = packTexture_;
 	}
+
+	if (!packTex)
+		return false;
 
 	D3D11_BOX srcBox{ (UINT)bx, (UINT)by, 0, (UINT)(bx + bw), (UINT)(by + bh), 1 };
 	DataFormat srcFormat = DataFormat::UNDEFINED;
@@ -1666,6 +1680,10 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 		if (curRenderTargetView_ == fb->colorRTView && curDepthStencilView_ == fb->depthStencilRTView) {
 			// No need to switch, but let's fallthrough to clear!
 		} else {
+			// It's not uncommon that the first slot happens to have the new render target bound as a texture,
+			// so unbind to make the validation layers happy.
+			ID3D11ShaderResourceView *empty[1] = {};
+			context_->PSSetShaderResources(0, ARRAY_SIZE(empty), empty);
 			context_->OMSetRenderTargets(1, &fb->colorRTView, fb->depthStencilRTView);
 			curRenderTargetView_ = fb->colorRTView;
 			curDepthStencilView_ = fb->depthStencilRTView;

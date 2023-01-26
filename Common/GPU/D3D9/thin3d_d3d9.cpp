@@ -177,6 +177,8 @@ public:
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		dxstate.cullMode.set(cullMode);
 		dxstate.scissorTest.enable();
+		// Force user clipping off.
+		dxstate.clipPlaneEnable.set(0);
 	}
 };
 
@@ -291,7 +293,7 @@ public:
 	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, const TextureDesc &desc);
 	~D3D9Texture();
 	void SetToSampler(LPDIRECT3DDEVICE9 device, int sampler);
-	LPDIRECT3DBASETEXTURE9 Texture() const {
+	LPDIRECT3DBASETEXTURE9 TexturePtr() const {
 		// TODO: Cleanup
 		if (tex_) {
 			return tex_;
@@ -590,7 +592,7 @@ public:
 		case NativeObject::DEVICE_EX:
 			return (uint64_t)(uintptr_t)deviceEx_;
 		case NativeObject::TEXTURE_VIEW:
-			return (uint64_t)(((D3D9Texture *)srcObject)->Texture());
+			return (uint64_t)(((D3D9Texture *)srcObject)->TexturePtr());
 		default:
 			return 0;
 		}
@@ -766,11 +768,18 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.isTilingGPU = false;
 	caps_.multiSampleLevelsMask = 1;  // More could be supported with some work.
 
+	caps_.clipPlanesSupported = caps.MaxUserClipPlanes;
+
 	if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1) {
 		caps_.anisoSupported = true;
 	}
 	if ((caps.TextureCaps & (D3DPTEXTURECAPS_NONPOW2CONDITIONAL | D3DPTEXTURECAPS_POW2)) == 0) {
 		caps_.textureNPOTFullySupported = true;
+	}
+
+	caps_.supportsD3D9 = true;
+	if (!strcmp(identifier_.Description, "Intel(R) Iris(R) Xe Graphics")) {
+		caps_.supportsD3D9 = false;
 	}
 
 	// VS range culling (killing triangles in the vertex shader using NaN) causes problems on Intel.
@@ -806,6 +815,7 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 }
 
 D3D9Context::~D3D9Context() {
+	DestroyPresets();
 }
 
 ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const char *tag) {
@@ -1007,7 +1017,7 @@ public:
 			device->CreateVertexBuffer((UINT)size, usage, 0, D3DPOOL_DEFAULT, &vbuffer_, NULL);
 		}
 	}
-	virtual ~D3D9Buffer() override {
+	~D3D9Buffer() {
 		if (ibuffer_) {
 			ibuffer_->Release();
 		}
@@ -1072,16 +1082,16 @@ void D3D9Context::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offse
 		return;
 	}
 	if (buf->vbuffer_) {
-		void *ptr;
+		void *ptr = nullptr;
 		HRESULT res = buf->vbuffer_->Lock((UINT)offset, (UINT)size, &ptr, (flags & UPDATE_DISCARD) ? D3DLOCK_DISCARD : 0);
-		if (!FAILED(res)) {
+		if (!FAILED(res) && ptr) {
 			memcpy(ptr, data, size);
 			buf->vbuffer_->Unlock();
 		}
 	} else if (buf->ibuffer_) {
-		void *ptr;
+		void *ptr = nullptr;
 		HRESULT res = buf->ibuffer_->Lock((UINT)offset, (UINT)size, &ptr, (flags & UPDATE_DISCARD) ? D3DLOCK_DISCARD : 0);
-		if (!FAILED(res)) {
+		if (!FAILED(res) && ptr) {
 			memcpy(ptr, data, size);
 			buf->ibuffer_->Unlock();
 		}
@@ -1254,10 +1264,10 @@ Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 	D3D9Framebuffer *fbo = new D3D9Framebuffer(desc.width, desc.height);
 	fbo->depthstenciltex = nullptr;
 
-	HRESULT rtResult = device_->CreateTexture(desc.width, desc.height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, NULL);
+	HRESULT rtResult = device_->CreateTexture(desc.width, desc.height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, nullptr);
 	if (FAILED(rtResult)) {
 		ERROR_LOG(G3D,  "Failed to create render target");
-		delete fbo;
+		fbo->Release();
 		return NULL;
 	}
 	fbo->tex->GetSurfaceLevel(0, &fbo->surf);
@@ -1286,9 +1296,15 @@ Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 }
 
 D3D9Framebuffer::~D3D9Framebuffer() {
-	tex->Release();
-	surf->Release();
-	depthstencil->Release();
+	if (tex) {
+		tex->Release();
+	}
+	if (surf) {
+		surf->Release();
+	}
+	if (depthstencil) {
+		depthstencil->Release();
+	}
 	if (depthstenciltex) {
 		depthstenciltex->Release();
 	}
@@ -1439,16 +1455,20 @@ bool D3D9Context::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits,
 	LPDIRECT3DSURFACE9 offscreen = nullptr;
 	HRESULT hr = E_UNEXPECTED;
 	if (channelBits == FB_COLOR_BIT) {
-		fb->tex->GetLevelDesc(0, &desc);
+		if (fb)
+			fb->tex->GetLevelDesc(0, &desc);
+		else
+			deviceRTsurf->GetDesc(&desc);
 
 		hr = device_->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, nullptr);
 		if (SUCCEEDED(hr)) {
-			hr = device_->GetRenderTargetData(fb->surf, offscreen);
+			hr = device_->GetRenderTargetData(fb ? fb->surf : deviceRTsurf, offscreen);
 			if (SUCCEEDED(hr)) {
 				hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 			}
 		}
 	} else {
+		_assert_(fb->depthstenciltex != nullptr);
 		fb->depthstenciltex->GetLevelDesc(0, &desc);
 		hr = fb->depthstenciltex->LockRect(0, &locked, &rect, D3DLOCK_READONLY);
 	}

@@ -45,6 +45,7 @@ enum {
 	FB_USAGE_BLUE_TO_ALPHA = 64,
 	FB_USAGE_FIRST_FRAME_SAVED = 128,
 	FB_USAGE_RENDER_DEPTH = 256,
+	FB_USAGE_COLOR_MIXED_DEPTH = 512,
 };
 
 enum {
@@ -272,7 +273,7 @@ public:
 		drawEngine_ = td;
 	}
 
-	virtual void Init();
+	void Init(int msaaLevel);
 	virtual void BeginFrame();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 	void DestroyFramebuf(VirtualFramebuffer *v);
@@ -398,7 +399,7 @@ public:
 	}
 	void SetSafeSize(u16 w, u16 h);
 
-	void NotifyRenderResized();
+	void NotifyRenderResized(int msaaLevel);
 	virtual void NotifyDisplayResized();
 	void NotifyConfigChanged();
 
@@ -445,6 +446,10 @@ public:
 
 	void ReleasePipelines();
 
+	int GetMSAALevel() const {
+		return msaaLevel_;
+	}
+
 protected:
 	virtual void ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
 	// Used for when a shader is required, such as GLES.
@@ -457,7 +462,7 @@ protected:
 	void CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 	void CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 
-	bool UpdateRenderSize();
+	bool UpdateRenderSize(int msaaLevel);
 
 	void FlushBeforeCopy();
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra

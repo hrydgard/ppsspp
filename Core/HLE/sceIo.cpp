@@ -273,8 +273,9 @@ public:
 			if (p.mode == p.MODE_READ) {
 				pgdInfo = (PGD_DESC*) malloc(sizeof(PGD_DESC));
 			}
-			p.DoVoid(pgdInfo, sizeof(PGD_DESC));
-			if (p.mode == p.MODE_READ) {
+			if (pgdInfo)
+				p.DoVoid(pgdInfo, sizeof(PGD_DESC));
+			if (p.mode == p.MODE_READ && pgdInfo) {
 				pgdInfo->block_buf = (u8 *)malloc(pgdInfo->block_size * 2);
 			}
 		}
@@ -580,6 +581,7 @@ static void __IoAsyncEndCallback(SceUID threadID, SceUID prevCallbackId) {
 
 static void __IoManagerThread() {
 	SetCurrentThreadName("IO");
+	AndroidJNIThreadContext jniContext;
 	while (ioManagerThreadEnabled && coreState != CORE_BOOT_ERROR && coreState != CORE_RUNTIME_ERROR && coreState != CORE_POWERDOWN) {
 		ioManager.RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
 	}
@@ -798,7 +800,7 @@ void __IoShutdown() {
 	memStickFatCallbacks.clear();
 }
 
-static std::string IODetermineFilename(FileNode *f) {
+static std::string IODetermineFilename(const FileNode *f) {
 	uint64_t offset = pspFileSystem.GetSeekPos(f->handle);
 	if ((pspFileSystem.DevType(f->handle) & PSPDevType::BLOCK) != 0) {
 		return StringFromFormat("%s offset 0x%08llx", f->fullpath.c_str(), offset * 2048);
@@ -2178,7 +2180,7 @@ static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
 static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 	hleEatCycles(18000);
 
-	// TOOD: Use an internal method so as not to pollute the log?
+	// TODO: Use an internal method so as not to pollute the log?
 	// Intentionally does not work when interrupts disabled.
 	if (!__KernelIsDispatchEnabled())
 		sceKernelResumeDispatchThread(1);

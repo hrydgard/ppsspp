@@ -190,6 +190,7 @@ struct GPUDebugVertex {
 
 class GPUDebugInterface {
 public:
+	virtual ~GPUDebugInterface() {}
 	virtual bool GetCurrentDisplayList(DisplayList &list) = 0;
 	virtual std::vector<DisplayList> ActiveDisplayLists() = 0;
 	virtual void ResetListPC(int listID, u32 pc) = 0;

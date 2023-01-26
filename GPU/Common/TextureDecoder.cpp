@@ -421,9 +421,9 @@ class DXTDecoder {
 public:
 	inline void DecodeColors(const DXT1Block *src, bool ignore1bitAlpha);
 	inline void DecodeAlphaDXT5(const DXT5Block *src);
-	inline void WriteColorsDXT1(u32 *dst, const DXT1Block *src, int pitch, int height);
-	inline void WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int height);
-	inline void WriteColorsDXT5(u32 *dst, const DXT5Block *src, int pitch, int height);
+	inline void WriteColorsDXT1(u32 *dst, const DXT1Block *src, int pitch, int width, int height);
+	inline void WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int width, int height);
+	inline void WriteColorsDXT5(u32 *dst, const DXT5Block *src, int pitch, int width, int height);
 
 	bool AnyNonFullAlpha() const { return anyNonFullAlpha_; }
 
@@ -507,11 +507,11 @@ void DXTDecoder::DecodeAlphaDXT5(const DXT5Block *src) {
 	}
 }
 
-void DXTDecoder::WriteColorsDXT1(u32 *dst, const DXT1Block *src, int pitch, int height) {
+void DXTDecoder::WriteColorsDXT1(u32 *dst, const DXT1Block *src, int pitch, int width, int height) {
 	bool anyColor3 = false;
 	for (int y = 0; y < height; y++) {
 		int colordata = src->lines[y];
-		for (int x = 0; x < 4; x++) {
+		for (int x = 0; x < width; x++) {
 			int col = colordata & 3;
 			if (col == 3) {
 				anyColor3 = true;
@@ -527,11 +527,11 @@ void DXTDecoder::WriteColorsDXT1(u32 *dst, const DXT1Block *src, int pitch, int 
 	}
 }
 
-void DXTDecoder::WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int height) {
+void DXTDecoder::WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int width, int height) {
 	for (int y = 0; y < height; y++) {
 		int colordata = src->color.lines[y];
 		u32 alphadata = src->alphaLines[y];
-		for (int x = 0; x < 4; x++) {
+		for (int x = 0; x < width; x++) {
 			dst[x] = colors_[colordata & 3] | (alphadata << 28);
 			colordata >>= 2;
 			alphadata >>= 4;
@@ -540,13 +540,13 @@ void DXTDecoder::WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int 
 	}
 }
 
-void DXTDecoder::WriteColorsDXT5(u32 *dst, const DXT5Block *src, int pitch, int height) {
+void DXTDecoder::WriteColorsDXT5(u32 *dst, const DXT5Block *src, int pitch, int width, int height) {
 	// 48 bits, 3 bit index per pixel, 12 bits per line.
 	u64 alphadata = ((u64)(u16)src->alphadata1 << 32) | (u32)src->alphadata2;
 
 	for (int y = 0; y < height; y++) {
 		int colordata = src->color.lines[y];
-		for (int x = 0; x < 4; x++) {
+		for (int x = 0; x < width; x++) {
 			dst[x] = colors_[colordata & 3] | (alpha_[alphadata & 7] << 24);
 			colordata >>= 2;
 			alphadata >>= 3;
@@ -619,24 +619,24 @@ uint32_t GetDXT5Texel(const DXT5Block *src, int x, int y) {
 }
 
 // This could probably be done faster by decoding two or four blocks at a time with SSE/NEON.
-void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, u32 *alpha) {
+void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int width, int height, u32 *alpha) {
 	DXTDecoder dxt;
 	dxt.DecodeColors(src, false);
-	dxt.WriteColorsDXT1(dst, src, pitch, height);
+	dxt.WriteColorsDXT1(dst, src, pitch, width, height);
 	*alpha &= dxt.AnyNonFullAlpha() ? 0 : 1;
 }
 
-void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height) {
+void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int width,  int height) {
 	DXTDecoder dxt;
 	dxt.DecodeColors(&src->color, true);
-	dxt.WriteColorsDXT3(dst, src, pitch, height);
+	dxt.WriteColorsDXT3(dst, src, pitch, width, height);
 }
 
-void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height) {
+void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int width, int height) {
 	DXTDecoder dxt;
 	dxt.DecodeColors(&src->color, true);
 	dxt.DecodeAlphaDXT5(src);
-	dxt.WriteColorsDXT5(dst, src, pitch, height);
+	dxt.WriteColorsDXT5(dst, src, pitch, width, height);
 }
 
 #ifdef _M_SSE

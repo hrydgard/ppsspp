@@ -41,7 +41,7 @@ public:
 	JPEGFileStream(const Path &filename) {
 		fp_ = File::OpenCFile(filename, "wb");
 	}
-	~JPEGFileStream() override {
+	~JPEGFileStream() {
 		if (fp_ ) {
 			fclose(fp_);
 		}

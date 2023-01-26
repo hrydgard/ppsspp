@@ -25,7 +25,7 @@
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
-#include "Core/Reporting.h"
+#include "Common/LogReporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/GPUCommon.h"
@@ -301,7 +301,7 @@ private:
 	int vtype_;
 };
 // Debugging utilities
-void PrintDecodedVertex(VertexReader &vtx);
+void PrintDecodedVertex(const VertexReader &vtx);
 
 
 class VertexDecoder;
@@ -324,6 +324,7 @@ struct VertexDecoderOptions {
 	bool expandAllWeightsToFloat;
 	bool expand8BitNormalsToFloat;
 	bool applySkinInDecode;
+	bool alignOutputToWord;
 };
 
 class VertexDecoder {
@@ -337,8 +338,6 @@ public:
 
 	void DecodeVerts(u8 *decoded, const void *verts, int indexLowerBound, int indexUpperBound) const;
 
-	bool hasColor() const { return col != 0; }
-	bool hasTexcoord() const { return tc != 0; }
 	int VertexSize() const { return size; }  // PSP format size
 
 	std::string GetString(DebugShaderStringType stringType);
@@ -583,7 +582,7 @@ private:
 	void Jit_AnyS16Morph(int srcoff, int dstoff);
 	void Jit_AnyFloatMorph(int srcoff, int dstoff);
 
-	const VertexDecoder *dec_;
+	const VertexDecoder *dec_ = nullptr;
 #if PPSSPP_ARCH(ARM64)
 	Arm64Gen::ARM64FloatEmitter fp;
 #endif

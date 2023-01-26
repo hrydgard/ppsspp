@@ -23,7 +23,7 @@
 #include "GPU/Common/ShaderCommon.h"
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
-#include "Core/Reporting.h"
+#include "Common/LogReporting.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 #include "GPU/Common/Draw2D.h"
@@ -61,7 +61,8 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 		if (config.depthUpperBits == 0x2) {
 			writer.C(R"(
   int x = int((texcoord.x / scaleFactor) * texSize.x);
-  int temp = (x & 0xFFFFFE0F) | ((x >> 1) & 0xF0) | ((x << 4) & 0x100);
+  int xclear = x & 0x01F0;
+  int temp = (x - xclear) | ((x >> 1) & 0xF0) | ((x << 4) & 0x100);
   texcoord.x = (float(temp) / texSize.x) * scaleFactor;
 )");
 		}
@@ -122,9 +123,9 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 			// Convert depth to 565, without going through a CLUT.
 			// TODO: Make "depal without a CLUT" a separate concept, to avoid redundantly creating a CLUT texture.
 			writer.C("  int idepth = int(clamp(depth, 0.0, 65535.0));\n");
-			writer.C("  float r = float(idepth & 31) / 31.0f;\n");
-			writer.C("  float g = float((idepth >> 5) & 63) / 63.0f;\n");
-			writer.C("  float b = float((idepth >> 11) & 31) / 31.0f;\n");
+			writer.C("  float r = float(idepth & 31) / 31.0;\n");
+			writer.C("  float g = float((idepth >> 5) & 63) / 63.0;\n");
+			writer.C("  float b = float((idepth >> 11) & 31) / 31.0;\n");
 			writer.C("  vec4 outColor = vec4(r, g, b, 1.0);\n");
 			return;
 		}
@@ -192,7 +193,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 			if (rgba_shift == 0 && mask == 0xFF) {
 				sprintf(lookupMethod, "index.%c", rgba[shift]);
 			} else {
-				sprintf(lookupMethod, "fmod(index.%c * %f, %d.0)", rgba[shift], 255.99f / (1 << rgba_shift), mask + 1);
+				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], 255.99f / (1 << rgba_shift), mask + 1);
 				index_multiplier = 1.0f / 256.0f;
 				// Format was OK if there weren't bits from another component.
 				formatOK = mask <= 255 - (1 << rgba_shift);
@@ -210,7 +211,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 				index_multiplier = 15.0f / 256.0f;
 			} else {
 				// Let's divide and mod to get the right bits.  A common case is shift=0, mask=01.
-				sprintf(lookupMethod, "fmod(index.%c * %f, %d.0)", rgba[shift], 15.99f / (1 << rgba_shift), mask + 1);
+				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], 15.99f / (1 << rgba_shift), mask + 1);
 				index_multiplier = 1.0f / 256.0f;
 				formatOK = mask <= 15 - (1 << rgba_shift);
 			}
@@ -230,7 +231,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 			} else {
 				// We just need to divide the right component by the right value, and then mod against the mask.
 				// A common case is shift=1, mask=0f.
-				sprintf(lookupMethod, "fmod(index.%c * %f, %d.0)", rgba[shift], ((float)multipliers[shift] + 0.99f) / (1 << rgba_shift), mask + 1);
+				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], ((float)multipliers[shift] + 0.99f) / (1 << rgba_shift), mask + 1);
 				index_multiplier = 1.0f / 256.0f;
 				formatOK = mask <= multipliers[shift] - (1 << rgba_shift);
 			}
@@ -250,7 +251,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 				index_multiplier = 1.0f / 256.0f;
 			} else {
 				// A isn't possible here.
-				sprintf(lookupMethod, "fmod(index.%c * %f, %d.0)", rgba[shift], 31.99f / (1 << rgba_shift), mask + 1);
+				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], 31.99f / (1 << rgba_shift), mask + 1);
 				index_multiplier = 1.0f / 256.0f;
 				formatOK = mask <= 31 - (1 << rgba_shift);
 			}
@@ -267,9 +268,9 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 			// Convert depth to 565, without going through a CLUT.
 			writer.C("  float depth = (index.x - z_offset) * z_scale;\n");
 			writer.C("  float idepth = floor(clamp(depth, 0.0, 65535.0));\n");
-			writer.C("  float r = mod(idepth, 32.0) / 31.0f;\n");
-			writer.C("  float g = mod(floor(idepth / 32.0), 64.0) / 63.0f;\n");
-			writer.C("  float b = mod(floor(idepth / 2048.0), 32.0) / 31.0f;\n");
+			writer.C("  float r = mod(idepth, 32.0) / 31.0;\n");
+			writer.C("  float g = mod(floor(idepth / 32.0), 64.0) / 63.0;\n");
+			writer.C("  float b = mod(floor(idepth / 2048.0), 32.0) / 31.0;\n");
 			writer.C("  vec4 outColor = vec4(r, g, b, 1.0);\n");
 			return;
 		}

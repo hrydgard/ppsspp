@@ -174,6 +174,19 @@ std::string* Section::GetLine(const char* key, std::string* valueOut, std::strin
 	return 0;
 }
 
+const std::string* Section::GetLine(const char* key, std::string* valueOut, std::string* commentOut) const
+{
+	for (std::vector<std::string>::const_iterator iter = lines.begin(); iter != lines.end(); ++iter)
+	{
+		const std::string& line = *iter;
+		std::string lineKey;
+		ParseLine(line, &lineKey, valueOut, commentOut);
+		if (!strcasecmp(lineKey.c_str(), key))
+			return &line;
+	}
+	return 0;
+}
+
 void Section::Set(const char* key, uint32_t newValue) {
 	Set(key, StringFromFormat("0x%08x", newValue).c_str());
 }
@@ -218,7 +231,7 @@ void Section::Set(const char* key, const std::string& newValue, const std::strin
 		Delete(key);
 }
 
-bool Section::Get(const char* key, std::string* value, const char* defaultValue)
+bool Section::Get(const char* key, std::string* value, const char* defaultValue) const
 {
 	const std::string* line = GetLine(key, value, 0);
 	if (!line)
@@ -275,7 +288,7 @@ void Section::AddComment(const std::string &comment) {
 	lines.emplace_back("# " + comment);
 }
 
-bool Section::Get(const char* key, std::vector<std::string>& values) 
+bool Section::Get(const char* key, std::vector<std::string>& values) const
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
@@ -303,7 +316,7 @@ bool Section::Get(const char* key, std::vector<std::string>& values)
 	return true;
 }
 
-bool Section::Get(const char* key, int* value, int defaultValue)
+bool Section::Get(const char* key, int* value, int defaultValue) const
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
@@ -313,7 +326,7 @@ bool Section::Get(const char* key, int* value, int defaultValue)
 	return false;
 }
 
-bool Section::Get(const char* key, uint32_t* value, uint32_t defaultValue)
+bool Section::Get(const char* key, uint32_t* value, uint32_t defaultValue) const
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
@@ -323,7 +336,7 @@ bool Section::Get(const char* key, uint32_t* value, uint32_t defaultValue)
 	return false;
 }
 
-bool Section::Get(const char* key, uint64_t* value, uint64_t defaultValue)
+bool Section::Get(const char* key, uint64_t* value, uint64_t defaultValue) const
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
@@ -333,7 +346,7 @@ bool Section::Get(const char* key, uint64_t* value, uint64_t defaultValue)
 	return false;
 }
 
-bool Section::Get(const char* key, bool* value, bool defaultValue)
+bool Section::Get(const char* key, bool* value, bool defaultValue) const
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
@@ -343,7 +356,7 @@ bool Section::Get(const char* key, bool* value, bool defaultValue)
 	return false;
 }
 
-bool Section::Get(const char* key, float* value, float defaultValue)
+bool Section::Get(const char* key, float* value, float defaultValue) const
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
@@ -353,7 +366,7 @@ bool Section::Get(const char* key, float* value, float defaultValue)
 	return false;
 }
 
-bool Section::Get(const char* key, double* value, double defaultValue)
+bool Section::Get(const char* key, double* value, double defaultValue) const
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);

@@ -24,7 +24,6 @@
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/GPU/thin3d.h"
 #include "Core/Compatibility.h"
-#include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "GPU/Common/GPUStateUtils.h"
@@ -97,18 +96,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	p.ApplySamplerMetadata(arrayTexture ? samplersStereo : samplersMono);
 
-	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
-	bool enableFog = id.Bit(FS_BIT_ENABLE_FOG);
 	bool enableAlphaTest = id.Bit(FS_BIT_ALPHA_TEST);
 
 	bool alphaTestAgainstZero = id.Bit(FS_BIT_ALPHA_AGAINST_ZERO);
 	bool testForceToZero = id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO);
 	bool enableColorTest = id.Bit(FS_BIT_COLOR_TEST);
 	bool colorTestAgainstZero = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
-	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
-	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
 
 	if (texture3D && arrayTexture) {
 		*errorString = "Invalid combination of 3D texture and array texture, shouldn't happen";
@@ -138,7 +133,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool needShaderTexClamp = id.Bit(FS_BIT_SHADER_TEX_CLAMP);
 
 	GETexFunc texFunc = (GETexFunc)id.Bits(FS_BIT_TEXFUNC, 3);
-	bool textureAtOffset = id.Bit(FS_BIT_TEXTURE_AT_OFFSET);
 
 	ReplaceBlendType replaceBlend = static_cast<ReplaceBlendType>(id.Bits(FS_BIT_REPLACE_BLEND, 3));
 
@@ -191,27 +185,26 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
 		}
 
-		WRITE(p, "layout (std140, set = 1, binding = %d) uniform baseUBO {\n%s};\n", DRAW_BINDING_DYNUBO_BASE, ub_baseStr);
+		WRITE(p, "layout (std140, set = 0, binding = %d) uniform baseUBO {\n%s};\n", DRAW_BINDING_DYNUBO_BASE, ub_baseStr);
 		if (doTexture) {
-			WRITE(p, "layout (set = 1, binding = %d) uniform %s%s tex;\n", DRAW_BINDING_TEXTURE, texture3D ? "sampler3D" : "sampler2D", arrayTexture ? "Array" : "");
+			WRITE(p, "layout (set = 0, binding = %d) uniform %s%s tex;\n", DRAW_BINDING_TEXTURE, texture3D ? "sampler3D" : "sampler2D", arrayTexture ? "Array" : "");
 		}
 
 		if (readFramebufferTex) {
 			// The framebuffer texture is always bound as an array.
-			p.F("layout (set = 1, binding = %d) uniform sampler2DArray fbotex;\n", DRAW_BINDING_2ND_TEXTURE);
+			p.F("layout (set = 0, binding = %d) uniform sampler2DArray fbotex;\n", DRAW_BINDING_2ND_TEXTURE);
 		} else if (fetchFramebuffer) {
-			p.F("layout (input_attachment_index = 0, set = 1, binding = %d) uniform subpassInput inputColor;\n", DRAW_BINDING_INPUT_ATTACHMENT);
+			p.F("layout (input_attachment_index = 0, set = 0, binding = %d) uniform subpassInput inputColor;\n", DRAW_BINDING_INPUT_ATTACHMENT);
 			*fragmentShaderFlags |= FragmentShaderFlags::INPUT_ATTACHMENT;
 		}
 
 		if (shaderDepalMode != ShaderDepalMode::OFF) {
-			WRITE(p, "layout (set = 1, binding = %d) uniform sampler2D pal;\n", DRAW_BINDING_DEPAL_TEXTURE);
+			WRITE(p, "layout (set = 0, binding = %d) uniform sampler2D pal;\n", DRAW_BINDING_DEPAL_TEXTURE);
 		}
 
 		// Note: the precision qualifiers must match the vertex shader!
 		WRITE(p, "layout (location = 1) %s in lowp vec4 v_color0;\n", shading);
-		if (lmode)
-			WRITE(p, "layout (location = 2) %s in lowp vec3 v_color1;\n", shading);
+		WRITE(p, "layout (location = 2) %s in lowp vec3 v_color1;\n", shading);
 		WRITE(p, "layout (location = 3) in highp float v_fogdepth;\n");
 		if (doTexture) {
 			WRITE(p, "layout (location = 0) in highp vec3 v_texcoord;\n");
@@ -249,9 +242,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			if (needShaderTexClamp && doTexture) {
 				WRITE(p, "vec4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
-				if (textureAtOffset) {
-					WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
-				}
+				WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
 			}
 
 			if (enableAlphaTest || enableColorTest) {
@@ -261,12 +252,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
 				WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
 			}
-			if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
-				WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
+			if (doTexture) {
+				if (texFunc == GE_TEXFUNC_BLEND) {
+					WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
+				}
+				WRITE(p, "float u_texNoAlpha : register(c%i);\n", CONST_PS_TEX_NO_ALPHA);
+				WRITE(p, "float u_texMul : register(c%i);\n", CONST_PS_TEX_MUL);
 			}
-			if (enableFog) {
-				WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
-			}
+			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
 			if (texture3D) {
 				WRITE(p, "float u_mipBias : register(c%i);\n", CONST_PS_MIPBIAS);
 			}
@@ -309,14 +302,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		WRITE(p, "struct PS_IN {\n");
-		if (doTexture) {
+		if (doTexture || compat.shaderLanguage == HLSL_D3D11) {
+			// In D3D11, if we always have a texcoord in the VS, we always need it in the PS too for the structs to match.
 			WRITE(p, "  vec3 v_texcoord: TEXCOORD0;\n");
 		}
 		const char *colorInterpolation = doFlatShading && compat.shaderLanguage == HLSL_D3D11 ? "nointerpolation " : "";
 		WRITE(p, "  %svec4 v_color0: COLOR0;\n", colorInterpolation);
-		if (lmode) {
-			WRITE(p, "  vec3 v_color1: COLOR1;\n");
-		}
+		WRITE(p, "  vec3 v_color1: COLOR1;\n");
 		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 		if (needFragCoord) {
 			if (compat.shaderLanguage == HLSL_D3D11) {
@@ -359,6 +351,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			} else {
 				WRITE(p, "uniform sampler2D tex;\n");
 			}
+			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
+			WRITE(p, "uniform float u_texNoAlpha;\n");
+			WRITE(p, "uniform float u_texMul;\n");
 		}
 
 		if (readFramebufferTex) {
@@ -381,9 +376,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (needShaderTexClamp && doTexture) {
 			*uniformMask |= DIRTY_TEXCLAMP;
 			WRITE(p, "uniform vec4 u_texclamp;\n");
-			if (id.Bit(FS_BIT_TEXTURE_AT_OFFSET)) {
-				WRITE(p, "uniform vec2 u_texclampoff;\n");
-			}
+			WRITE(p, "uniform vec2 u_texclampoff;\n");
 		}
 
 		if (enableAlphaTest || enableColorTest) {
@@ -429,12 +422,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);
-		if (lmode)
-			WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
-		if (enableFog) {
-			*uniformMask |= DIRTY_FOGCOLOR;
-			WRITE(p, "uniform vec3 u_fogcolor;\n");
-		}
+		WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
+		*uniformMask |= DIRTY_FOGCOLOR;
+		WRITE(p, "uniform vec3 u_fogcolor;\n");
 		WRITE(p, "%s %s float v_fogdepth;\n", compat.varying_fs, highpFog ? "highp" : "mediump");
 		if (doTexture) {
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_fs, highpTexcoord ? "highp" : "mediump");
@@ -452,8 +442,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			if (enableColorTest && !colorTestAgainstZero) {
 				if (compat.bitwiseOps) {
-					WRITE(p, "uint roundAndScaleTo8x4(in vec3 x) { uvec3 u = uvec3(floor(x * 255.99)); return u.r | (u.g << 8) | (u.b << 16); }\n");
-					WRITE(p, "uint packFloatsTo8x4(in vec3 x) { uvec3 u = uvec3(x); return u.r | (u.g << 8) | (u.b << 16); }\n");
+					WRITE(p, "uint roundAndScaleTo8x4(in vec3 x) { uvec3 u = uvec3(floor(x * 255.99)); return u.r | (u.g << 0x8u) | (u.b << 0x10u); }\n");
+					WRITE(p, "uint packFloatsTo8x4(in vec3 x) { uvec3 u = uvec3(x); return u.r | (u.g << 0x8u) | (u.b << 0x10u); }\n");
 				} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 					WRITE(p, "vec3 roundTo255thv(in vec3 x) { vec3 y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 				} else {
@@ -488,16 +478,21 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 	}
 
+	const char *packSuffix = "";
+	if (!hasPackUnorm4x8) {
+		packSuffix = "R";
+	}
+
 	// Provide implementations of packUnorm4x8 and unpackUnorm4x8 if not available.
 	if ((colorWriteMask || replaceLogicOp) && !hasPackUnorm4x8) {
-		WRITE(p, "uint packUnorm4x8(%svec4 v) {\n", compat.shaderLanguage == GLSL_VULKAN ? "highp " : "");
+		WRITE(p, "uint packUnorm4x8%s(%svec4 v) {\n", packSuffix, compat.shaderLanguage == GLSL_VULKAN ? "highp " : "");
 		WRITE(p, "  highp vec4 f = clamp(v, 0.0, 1.0);\n");
 		WRITE(p, "  uvec4 u = uvec4(255.0 * f);\n");
-		WRITE(p, "  return u.x | (u.y << 8) | (u.z << 16) | (u.w << 24);\n");
+		WRITE(p, "  return u.x | (u.y << 0x8u) | (u.z << 0x10u) | (u.w << 0x18u);\n");
 		WRITE(p, "}\n");
 
-		WRITE(p, "vec4 unpackUnorm4x8(highp uint x) {\n");
-		WRITE(p, "  highp uvec4 u = uvec4(x & 0xFFU, (x >> 8) & 0xFFU, (x >> 16) & 0xFFU, (x >> 24) & 0xFFU);\n");
+		WRITE(p, "vec4 unpackUnorm4x8%s(highp uint x) {\n", packSuffix);
+		WRITE(p, "  highp uvec4 u = uvec4(x & 0xFFu, (x >> 0x8u) & 0xFFu, (x >> 0x10u) & 0xFFu, (x >> 0x18u) & 0xFFu);\n");
 		WRITE(p, "  highp vec4 f = vec4(u);\n");
 		WRITE(p, "  return f * (1.0 / 255.0);\n");
 		WRITE(p, "}\n");
@@ -505,7 +500,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (compat.bitwiseOps && enableColorTest) {
 		p.C("uvec3 unpackUVec3(highp uint x) {\n");
-		p.C("  return uvec3(x & 0xFFU, (x >> 8) & 0xFFU, (x >> 16) & 0xFFU);\n");
+		p.C("  return uvec3(x & 0xFFu, (x >> 0x8u) & 0xFFu, (x >> 0x10u) & 0xFFu);\n");
 		p.C("}\n");
 	}
 
@@ -535,11 +530,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "  vec4 v_color0 = In.v_color0;\n");
-		if (lmode)
-			WRITE(p, "  vec3 v_color1 = In.v_color1;\n");
-		if (enableFog) {
-			WRITE(p, "  float v_fogdepth = In.v_fogdepth;\n");
-		}
+		WRITE(p, "  vec3 v_color1 = In.v_color1;\n");
+		WRITE(p, "  float v_fogdepth = In.v_fogdepth;\n");
 		if (doTexture) {
 			WRITE(p, "  vec3 v_texcoord = In.v_texcoord;\n");
 		}
@@ -574,14 +566,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		// Clear mode does not allow any fancy shading.
 		WRITE(p, "  vec4 v = v_color0;\n");
 	} else {
-		const char *secondary = "";
 		// Secondary color for specular on top of texture
-		if (lmode) {
-			WRITE(p, "  vec4 s = vec4(v_color1, 0.0);\n");
-			secondary = " + s";
-		} else {
-			secondary = "";
-		}
+		WRITE(p, "  vec4 s = vec4(v_color1, 0.0);\n");
 
 		if (doTexture) {
 			char texcoord[64] = "v_texcoord";
@@ -617,10 +603,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				} else {
 					vcoord = modulo + "(" + vcoord + ", u_texclamp.y)";
 				}
-				if (textureAtOffset) {
-					ucoord = "(" + ucoord + " + u_texclampoff.x)";
-					vcoord = "(" + vcoord + " + u_texclampoff.y)";
-				}
+				ucoord = "(" + ucoord + " + u_texclampoff.x)";
+				vcoord = "(" + vcoord + " + u_texclampoff.y)";
 
 				WRITE(p, "  vec2 fixedcoord = vec2(%s, %s);\n", ucoord.c_str(), vcoord.c_str());
 				truncate_cpy(texcoord, "fixedcoord");
@@ -703,16 +687,16 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				// Also, since we know the CLUT is smooth, we do not need to do the bilinear filter manually, we can just
 				// lookup with the filtered value once.
 				p.F("  vec4 t = ").SampleTexture2D("tex", "uv").C(";\n");
-				p.C("  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFU;\n");
-				p.C("  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3U;\n");
+				p.C("  uint depalShift = (u_depal_mask_shift_off_fmt >> 0x8u) & 0xFFu;\n");
+				p.C("  uint depalFmt = (u_depal_mask_shift_off_fmt >> 0x18u) & 0x3u;\n");
 				p.C("  float index0 = t.r;\n");
 				p.C("  float factor = 31.0 / 256.0;\n");
-				p.C("  if (depalFmt == 0u) {\n");  // yes, different versions of Test Drive use different formats. Could do compile time by adding more compat flags but meh.
-				p.C("    if (depalShift == 5u) { index0 = t.g; factor = 63.0 / 256.0; }\n");
-				p.C("    else if (depalShift == 11u) { index0 = t.b; }\n");
+				p.C("  if (depalFmt == 0x0u) {\n");  // yes, different versions of Test Drive use different formats. Could do compile time by adding more compat flags but meh.
+				p.C("    if (depalShift == 0x5u) { index0 = t.g; factor = 63.0 / 256.0; }\n");
+				p.C("    else if (depalShift == 0xBu) { index0 = t.b; }\n");
 				p.C("  } else {\n");
-				p.C("    if (depalShift == 5u) { index0 = t.g; }\n");
-				p.C("    else if (depalShift == 10u) { index0 = t.b; }\n");
+				p.C("    if (depalShift == 0x5u) { index0 = t.g; }\n");
+				p.C("    else if (depalShift == 0xAu) { index0 = t.b; }\n");
 				p.C("  }\n");
 				p.F("  t = ").SampleTexture2D("pal", "vec2(index0 * factor * 0.5, 0.0)").C(";\n");  // 0.5 for 512-entry CLUT.
 				break;
@@ -726,7 +710,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				}
 				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0).xy);\n");
 				WRITE(p, "  vec2 fraction;\n");
-				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 31) != 0U;\n");
+				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 0x2Fu) != 0x0u;\n");
 				WRITE(p, "  if (bilinear) {\n");
 				WRITE(p, "    uv_round = uv * tsize - vec2(0.5, 0.5);\n");
 				WRITE(p, "    fraction = fract(uv_round);\n");
@@ -738,58 +722,58 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				p.C("  highp vec4 t1 = ").SampleTexture2DOffset("tex", "uv_round", 1, 0).C(";\n");
 				p.C("  highp vec4 t2 = ").SampleTexture2DOffset("tex", "uv_round", 0, 1).C(";\n");
 				p.C("  highp vec4 t3 = ").SampleTexture2DOffset("tex", "uv_round", 1, 1).C(";\n");
-				WRITE(p, "  uint depalMask = (u_depal_mask_shift_off_fmt & 0xFFU);\n");
-				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFU;\n");
-				WRITE(p, "  uint depalOffset = ((u_depal_mask_shift_off_fmt >> 16) & 0xFFU) << 4;\n");
-				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3U;\n");
+				WRITE(p, "  uint depalMask = (u_depal_mask_shift_off_fmt & 0xFFu);\n");
+				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 0x8u) & 0xFFu;\n");
+				WRITE(p, "  uint depalOffset = ((u_depal_mask_shift_off_fmt >> 0x10u) & 0xFFu) << 0x4u;\n");
+				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 0x18u) & 0x3u;\n");
 				WRITE(p, "  uvec4 col; uint index0; uint index1; uint index2; uint index3;\n");
 				WRITE(p, "  switch (int(depalFmt)) {\n");  // We might want to include fmt in the shader ID if this is a performance issue.
 				WRITE(p, "  case 0:\n");  // 565
 				WRITE(p, "    col = uvec4(t.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "    index0 = (col.b << 11) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "    index0 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
 				WRITE(p, "      col = uvec4(t1.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "      index1 = (col.b << 11) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "      index1 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t2.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "      index2 = (col.b << 11) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "      index2 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t3.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "      index3 = (col.b << 11) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "      index3 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  case 1:\n");  // 5551
 				WRITE(p, "    col = uvec4(t.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "    index0 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "    index0 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
 				WRITE(p, "      col = uvec4(t1.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "      index1 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "      index1 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t2.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "      index2 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "      index2 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t3.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "      index3 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
+				WRITE(p, "      index3 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  case 2:\n");  // 4444
 				WRITE(p, "    col = uvec4(t.rgba * 15.99);\n");
-				WRITE(p, "    index0 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
+				WRITE(p, "    index0 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
 				WRITE(p, "      col = uvec4(t1.rgba * 15.99);\n");
-				WRITE(p, "      index1 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
+				WRITE(p, "      index1 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t2.rgba * 15.99);\n");
-				WRITE(p, "      index2 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
+				WRITE(p, "      index2 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t3.rgba * 15.99);\n");
-				WRITE(p, "      index3 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
+				WRITE(p, "      index3 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  case 3:\n");  // 8888
 				WRITE(p, "    col = uvec4(t.rgba * 255.99);\n");
-				WRITE(p, "    index0 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
+				WRITE(p, "    index0 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
 				WRITE(p, "      col = uvec4(t1.rgba * 255.99);\n");
-				WRITE(p, "      index1 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
+				WRITE(p, "      index1 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t2.rgba * 255.99);\n");
-				WRITE(p, "      index2 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
+				WRITE(p, "      index2 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
 				WRITE(p, "      col = uvec4(t3.rgba * 255.99);\n");
-				WRITE(p, "      index3 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
+				WRITE(p, "      index3 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  };\n");
@@ -832,77 +816,49 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				break;
 			}
 
-			if (texFunc != GE_TEXFUNC_REPLACE || !doTextureAlpha)
-				WRITE(p, "  vec4 p = v_color0;\n");
+			WRITE(p, "  vec4 p = v_color0;\n");
 
-			if (doTextureAlpha) { // texfmt == RGBA
-				switch (texFunc) {
-				case GE_TEXFUNC_MODULATE:
-					WRITE(p, "  vec4 v = p * t%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_DECAL:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, t.rgb, t.a), p.a)%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_REPLACE:
-					WRITE(p, "  vec4 v = t%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_ADD:
-				case GE_TEXFUNC_UNKNOWN1:
-				case GE_TEXFUNC_UNKNOWN2:
-				case GE_TEXFUNC_UNKNOWN3:
-					WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a)%s;\n", secondary); 
-					break;
-				default:
-					WRITE(p, "  vec4 v = p;\n"); break;
-				}
-			} else { // texfmt == RGB
-				switch (texFunc) {
-				case GE_TEXFUNC_MODULATE:
-					WRITE(p, "  vec4 v = vec4(t.rgb * p.rgb, p.a)%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_DECAL:
-					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a)%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_REPLACE:
-					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_ADD:
-				case GE_TEXFUNC_UNKNOWN1:
-				case GE_TEXFUNC_UNKNOWN2:
-				case GE_TEXFUNC_UNKNOWN3:
-					WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a)%s;\n", secondary); break;
-				default:
-					WRITE(p, "  vec4 v = p;\n"); break;
-				}
+			if (texFunc != GE_TEXFUNC_REPLACE) {
+				WRITE(p, "  t.a = max(t.a, u_texNoAlpha);\n");
 			}
 
-			if (enableColorDoubling) {
-				// This happens before fog is applied.
-				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
+			switch (texFunc) {
+			case GE_TEXFUNC_MODULATE:
+				WRITE(p, "  vec4 v = p * t + s;\n");
+				break;
+			case GE_TEXFUNC_DECAL:
+				WRITE(p, "  vec4 v = vec4(mix(p.rgb, t.rgb, t.a), p.a) + s;\n");
+				break;
+			case GE_TEXFUNC_BLEND:
+				WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a) + s;\n");
+				break;
+			case GE_TEXFUNC_REPLACE:
+				WRITE(p, "  vec4 r = t;\n");
+				WRITE(p, "  r.a = mix(r.a, p.a, u_texNoAlpha);\n");
+				WRITE(p, "  vec4 v = r + s;\n");
+				break;
+			case GE_TEXFUNC_ADD:
+			case GE_TEXFUNC_UNKNOWN1:
+			case GE_TEXFUNC_UNKNOWN2:
+			case GE_TEXFUNC_UNKNOWN3:
+				WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a) + s;\n");
+				break;
+			default:
+				// Doesn't happen
+				WRITE(p, "  vec4 v = p + s;\n"); break;
+				break;
 			}
+
+			// This happens before fog is applied.
+			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
+			WRITE(p, "  v.rgb = clamp(v.rgb * u_texMul, 0.0, 1.0);\n");
 		} else {
 			// No texture mapping
-			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
+			WRITE(p, "  vec4 v = v_color0 + s;\n");
 		}
 
-		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
-		}
+		WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
+		WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 
 		// Texture access is at half texels [0.5/256, 255.5/256], but colors are normalized [0, 255].
 		// So we have to scale to account for the difference.
@@ -940,7 +896,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 					if (compat.bitwiseOps) {
-						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & int(u_alphacolormask >> 24)) %s int(u_alphacolorref >> 24)) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
+						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & int(u_alphacolormask >> 0x18u)) %s int(u_alphacolorref >> 0x18u)) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
 					} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 						// Work around bad PVR driver problem where equality check + discard just doesn't work.
 						if (alphaTestFunc != GE_COMP_NOTEQUAL) {
@@ -1189,8 +1145,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	// Final color computed - apply logic ops and bitwise color write mask, through shader blending, if specified.
 	if (colorWriteMask || replaceLogicOp) {
-		WRITE(p, "  highp uint v32 = packUnorm4x8(%s);\n", compat.fragColor0);
-		WRITE(p, "  highp uint d32 = packUnorm4x8(destColor);\n");
+		WRITE(p, "  highp uint v32 = packUnorm4x8%s(%s);\n", packSuffix, compat.fragColor0);
+		WRITE(p, "  highp uint d32 = packUnorm4x8%s(destColor);\n", packSuffix);
 
 		// v32 is both the "s" to the logical operation, and the value that we'll merge to the destination with masking later.
 		// d32 is the "d" to the logical operation.
@@ -1221,7 +1177,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			else
 				WRITE(p, "  v32 = (v32 & u_colorWriteMask & 0x00FFFFFFu) | (d32 & (~u_colorWriteMask | 0xFF000000u));\n");
 		}
-		WRITE(p, "  %s = unpackUnorm4x8(v32);\n", compat.fragColor0);
+		WRITE(p, "  %s = unpackUnorm4x8%s(v32);\n", compat.fragColor0, packSuffix);
 	}
 
 	if (blueToAlpha) {

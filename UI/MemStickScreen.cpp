@@ -507,15 +507,19 @@ static bool ListFileSuffixesRecursively(const Path &root, Path folder, std::vect
 		if (file.isDirectory) {
 			std::string dirSuffix;
 			if (root.ComputePathTo(file.fullName, dirSuffix)) {
-				dirSuffixes.push_back(dirSuffix);
-				ListFileSuffixesRecursively(root, folder / file.name, dirSuffixes, fileSuffixes);
+				if (!dirSuffix.empty()) {
+					dirSuffixes.push_back(dirSuffix);
+					ListFileSuffixesRecursively(root, folder / file.name, dirSuffixes, fileSuffixes);
+				}
 			} else {
 				ERROR_LOG_REPORT(SYSTEM, "Failed to compute PathTo from '%s' to '%s'", root.c_str(), folder.c_str());
 			}
 		} else {
 			std::string fileSuffix;
 			if (root.ComputePathTo(file.fullName, fileSuffix)) {
-				fileSuffixes.push_back(FileSuffix{ fileSuffix, file.size });
+				if (!fileSuffix.empty()) {
+					fileSuffixes.push_back(FileSuffix{ fileSuffix, file.size });
+				}
 			}
 		}
 	}

@@ -15,15 +15,12 @@
 #include "Windows/MainWindow.h"
 
 TouchInputHandler::TouchInputHandler() {
-	touchInfo = (getTouchInputProc) GetProcAddress(
-		GetModuleHandle(TEXT("User32.dll")),
-		"GetTouchInputInfo");
-	closeTouch = (closeTouchInputProc) GetProcAddress(
-		GetModuleHandle(TEXT("User32.dll")),
-		"CloseTouchInputHandle");
-	registerTouch = (registerTouchProc) GetProcAddress(
-		GetModuleHandle(TEXT("User32.dll")),
-		"RegisterTouchWindow");
+	HMODULE user32 = GetModuleHandle(TEXT("User32.dll"));
+	if (!user32)
+		return;
+	touchInfo = (getTouchInputProc)GetProcAddress(user32, "GetTouchInputInfo");
+	closeTouch = (closeTouchInputProc)GetProcAddress(user32, "CloseTouchInputHandle");
+	registerTouch = (registerTouchProc)GetProcAddress(user32, "RegisterTouchWindow");
 }
 
 int TouchInputHandler::ToTouchID(int windowsID, bool allowAllocate) {

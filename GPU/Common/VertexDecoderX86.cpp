@@ -22,7 +22,6 @@
 
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 

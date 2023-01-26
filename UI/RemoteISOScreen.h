@@ -25,9 +25,9 @@
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
 
-class RemoteISOScreen : public UIScreenWithBackground {
+class RemoteISOScreen : public UIDialogScreenWithGameBackground {
 public:
-	RemoteISOScreen();
+	RemoteISOScreen(const Path &filename);
 
 	const char *tag() const override { return "RemoteISO"; }
 
@@ -54,10 +54,10 @@ enum class ScanStatus {
 	LOADED,
 };
 
-class RemoteISOConnectScreen : public UIScreenWithBackground {
+class RemoteISOConnectScreen : public UIDialogScreenWithBackground {
 public:
 	RemoteISOConnectScreen();
-	~RemoteISOConnectScreen() override;
+	~RemoteISOConnectScreen();
 
 	const char *tag() const override { return "RemoteISOConnect"; }
 
@@ -70,7 +70,7 @@ protected:
 	void ExecuteLoad();
 	bool FindServer(std::string &resultHost, int &resultPort);
 
-	UI::TextView *statusView_;
+	UI::TextView *statusView_ = nullptr;
 
 	ScanStatus status_ = ScanStatus::SCANNING;
 	std::string statusMessage_;
@@ -78,7 +78,7 @@ protected:
 	std::thread *scanThread_;
 	std::mutex statusLock_;
 	std::string host_;
-	int port_;
+	int port_ = -1;
 	std::string url_;
 	std::vector<Path> games_;
 };

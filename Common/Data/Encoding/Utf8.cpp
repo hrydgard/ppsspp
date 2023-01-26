@@ -112,7 +112,7 @@ int u8_toucs(uint32_t *dest, int sz, const char *src, int srcsz)
    the NUL as well.
    the destination string will never be bigger than the source string.
 */
-int u8_toutf8(char *dest, int sz, uint32_t *src, int srcsz)
+int u8_toutf8(char *dest, int sz, const uint32_t *src, int srcsz)
 {
   uint32_t ch;
   int i = 0;
@@ -219,19 +219,14 @@ int u8_strlen(const char *s)
 }
 
 /* reads the next utf-8 sequence out of a string, updating an index */
-uint32_t u8_nextchar(const char *s, int *i)
-{
-  uint32_t ch = 0;
-  int sz = 0;
-
-  do {
-    ch <<= 6;
-    ch += (unsigned char)s[(*i)++];
-    sz++;
-  } while (s[*i] && !isutf(s[*i]));
-  ch -= offsetsFromUTF8[sz-1];
-
-  return ch;
+uint32_t u8_nextchar(const char *s, int *i) {
+	uint32_t ch = 0;
+	int sz = 0;
+	do {
+		ch = (ch << 6) + (unsigned char)s[(*i)++];
+		sz++;
+	} while (s[*i] && ((s[*i]) & 0xC0) == 0x80);
+	return ch - offsetsFromUTF8[sz - 1];
 }
 
 uint32_t u8_nextchar_unsafe(const char *s, int *i) {

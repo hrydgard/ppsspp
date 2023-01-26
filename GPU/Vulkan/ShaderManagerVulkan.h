@@ -19,6 +19,7 @@
 
 #include <cstdio>
 #include <cstdint>
+#include <mutex>
 
 #include "Common/Thread/Promise.h"
 #include "Common/Data/Collections/Hashmaps.h"
@@ -32,6 +33,7 @@
 #include "GPU/Common/ShaderUniforms.h"
 
 class VulkanContext;
+class DrawEngineVulkan;
 class VulkanPushBuffer;
 
 class VulkanFragmentShader {
@@ -115,7 +117,7 @@ public:
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
 
-	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
+	void GetShaders(int prim, VertexDecoder *decoder, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
 	void ClearShaders();
 	void DirtyShader();
 	void DirtyLastShader() override;
@@ -154,8 +156,9 @@ public:
 		return dest->PushAligned(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
 	}
 
+	bool LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine);
 	bool LoadCache(FILE *f);
-	void SaveCache(FILE *f);
+	void SaveCache(FILE *f, DrawEngineVulkan *drawEngine);
 
 private:
 	void Clear();
@@ -172,6 +175,7 @@ private:
 	GSCache gsCache_;
 
 	char *codeBuffer_;
+	std::mutex cacheLock_;
 
 	uint64_t uboAlignment_;
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.

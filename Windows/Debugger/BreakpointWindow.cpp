@@ -1,6 +1,7 @@
 #include <cstdio>
 
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/Math/expression_parser.h"
 
 #include "BreakpointWindow.h"
 #include "../resource.h"
@@ -132,14 +133,14 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 	GetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_ADDRESS),str,256);
 	if (cpu->initExpression(str,exp) == false)
 	{
-		snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\".",str);
+		snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", str, getExpressionError());
 		MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 		return false;
 	}
 
 	if (cpu->parseExpression(exp,address) == false)
 	{
-		snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\".",str);
+		snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", str, getExpressionError());
 		MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 		return false;
 	}
@@ -150,14 +151,14 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 		GetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_SIZE),str,256);
 		if (cpu->initExpression(str,exp) == false)
 		{
-			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\".",str);
+			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", str, getExpressionError());
 			MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 			return false;
 		}
 
 		if (cpu->parseExpression(exp,size) == false)
 		{
-			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\".",str);
+			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", str, getExpressionError());
 			MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 			return false;
 		}
@@ -172,7 +173,7 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 	{
 		if (cpu->initExpression(condition.c_str(), compiledCondition) == false)
 		{
-			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\".",str);
+			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", condition.c_str(), getExpressionError());
 			MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 			return false;
 		}

@@ -33,9 +33,7 @@ std::atomic<bool> hasDispatchQueue;
 std::deque<DispatchQueueItem> g_dispatchQueue;
 
 void EventTriggered(Event *e, EventParams params) {
-	DispatchQueueItem item;
-	item.e = e;
-	item.params = params;
+	DispatchQueueItem item{ e, params };
 
 	std::unique_lock<std::mutex> guard(eventMutex_);
 	// Set before adding so we lock and check the added value.

@@ -5,6 +5,7 @@
 #include <QApplication>
 #include <QDesktopServices>
 #include <QDesktopWidget>
+#include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>
 
@@ -26,7 +27,14 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	nextState(CORE_POWERDOWN),
 	lastUIState(UISTATE_MENU)
 {
+#if defined(ASSETS_DIR)
+	if (QFile::exists(ASSETS_DIR "icon_regular_72.png"))
+		setWindowIcon(QIcon(ASSETS_DIR "icon_regular_72.png"));
+	else
+		setWindowIcon(QIcon(qApp->applicationDirPath() + "/assets/icon_regular_72.png"));
+#else
 	setWindowIcon(QIcon(qApp->applicationDirPath() + "/assets/icon_regular_72.png"));
+#endif
 
 	SetGameTitle("");
 	emugl = new MainUI(this);

@@ -45,7 +45,7 @@ enum : uint64_t {
 	DIRTY_PROJMATRIX = 1ULL << 0,
 	DIRTY_PROJTHROUGHMATRIX = 1ULL << 1,
 	DIRTY_FOGCOLOR = 1ULL << 2,
-	DIRTY_FOGCOEF = 1ULL << 3,
+	DIRTY_FOGCOEFENABLE = 1ULL << 3,
 	DIRTY_TEXENV = 1ULL << 4,
 	DIRTY_ALPHACOLORREF = 1ULL << 5,
 
@@ -89,33 +89,34 @@ enum : uint64_t {
 
 	DIRTY_MIPBIAS = 1ULL << 37,
 	DIRTY_LIGHT_CONTROL = 1ULL << 38,
+	DIRTY_TEX_ALPHA_MUL = 1ULL << 39,
 
-	// space for 1 more uniform dirty flags. Remember to update DIRTY_ALL_UNIFORMS.
+	// Bits 40-43 are free for new uniforms. Then we're really out and need to start merging.
+	// Don't forget to update DIRTY_ALL_UNIFORMS when you start using them.
 
 	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
 
-	DIRTY_ALL_UNIFORMS = 0x7FFFFFFFFFULL,
-	DIRTY_ALL_LIGHTS = DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3,
+	DIRTY_ALL_UNIFORMS = 0x0FFFFFFFFFFULL,
 
-	// Other dirty elements that aren't uniforms!
-	DIRTY_FRAMEBUF = 1ULL << 40,
-	DIRTY_TEXTURE_IMAGE = 1ULL << 41,  // Means that the definition of the texture image has changed (address, stride etc), and we need to look up again.
-	DIRTY_TEXTURE_PARAMS = 1ULL << 42,
+	// Other dirty elements that aren't uniforms
+	DIRTY_FRAMEBUF = 1ULL << 44,
+	DIRTY_TEXTURE_IMAGE = 1ULL << 45,  // Means that the definition of the texture image has changed (address, stride etc), and we need to look up again.
+	DIRTY_TEXTURE_PARAMS = 1ULL << 46,
 
 	// Render State
-	DIRTY_BLEND_STATE = 1ULL << 43,
-	DIRTY_DEPTHSTENCIL_STATE = 1ULL << 44,
-	DIRTY_RASTER_STATE = 1ULL << 45,
-	DIRTY_VIEWPORTSCISSOR_STATE = 1ULL << 46,
-	DIRTY_VERTEXSHADER_STATE = 1ULL << 47,
-	DIRTY_FRAGMENTSHADER_STATE = 1ULL << 48,
-	DIRTY_GEOMETRYSHADER_STATE = 1ULL << 49,
+	DIRTY_BLEND_STATE = 1ULL << 47,
+	DIRTY_DEPTHSTENCIL_STATE = 1ULL << 48,
+	DIRTY_RASTER_STATE = 1ULL << 49,
+	DIRTY_VIEWPORTSCISSOR_STATE = 1ULL << 50,
+	DIRTY_VERTEXSHADER_STATE = 1ULL << 51,
+	DIRTY_FRAGMENTSHADER_STATE = 1ULL << 52,
+	DIRTY_GEOMETRYSHADER_STATE = 1ULL << 53,
+
+	// Note that the top 8 bits (54-63) cannot be dirtied through the commonCommandTable due to packing of other flags.
 
 	// Everything that's not uniforms. Use this after using thin3d.
 	// TODO: Should we also add DIRTY_FRAMEBUF here? It kinda generally takes care of itself.
 	DIRTY_ALL_RENDER_STATE = DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS,
-
-	// Note that the top 8 bits (54-63) cannot be dirtied through the commonCommandTable due to packing of other flags.
 
 	DIRTY_ALL = 0xFFFFFFFFFFFFFFFF
 };
@@ -162,6 +163,3 @@ enum {
 
 	ATTR_COUNT,
 };
-
-struct TBuiltInResource;
-void init_resources(TBuiltInResource &Resources);

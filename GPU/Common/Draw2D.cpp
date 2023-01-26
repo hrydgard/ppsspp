@@ -20,7 +20,6 @@
 #include "Common/GPU/thin3d.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Reporting.h"
 #include "GPU/Common/Draw2D.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -303,7 +302,7 @@ void Draw2D::Blit(Draw2DPipeline *pipeline, float srcX1, float srcY1, float srcX
 	DrawStrip2D(nullptr, vtx, 4, linear, pipeline, srcWidth, srcHeight, scaleFactor);
 }
 
-void Draw2D::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DPipeline *pipeline, float texW, float texH, int scaleFactor) {
+void Draw2D::DrawStrip2D(Draw::Texture *tex, const Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DPipeline *pipeline, float texW, float texH, int scaleFactor) {
 	using namespace Draw;
 
 	_dbg_assert_(pipeline);

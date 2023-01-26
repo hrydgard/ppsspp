@@ -105,13 +105,6 @@ enum IOTimingMethods {
 	IOTIMING_REALISTIC = 2,
 };
 
-enum class SmallDisplayZoom {
-	STRETCH = 0,
-	PARTIAL_STRETCH = 1,
-	AUTO = 2,
-	MANUAL = 3,
-};
-
 enum class AutoLoadSaveState {
 	OFF = 0,
 	OLDEST = 1,

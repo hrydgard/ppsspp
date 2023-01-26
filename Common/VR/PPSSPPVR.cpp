@@ -46,6 +46,10 @@ static bool vrFlatGame = false;
 static float vrMatrix[VR_MATRIX_COUNT][16];
 static bool vrMirroring[VR_MIRRORING_COUNT];
 
+static void (*NativeAxis)(const AxisInput &axis);
+static bool (*NativeKey)(const KeyInput &key);
+static void (*NativeTouch)(const TouchInput &touch);
+
 /*
 ================================================================================
 
@@ -141,7 +145,7 @@ void InitVROnAndroid(void* vm, void* activity, const char* system, int version, 
 	//Set platform flags
 	if (strcmp(vendor, "PICO") == 0) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_PICO, true);
-		VR_SetPlatformFLag(VR_PLATFORM_PICO_INIT, true);
+		VR_SetPlatformFLag(VR_PLATFORM_INSTANCE_EXT, true);
 	} else if ((strcmp(vendor, "META") == 0) || (strcmp(vendor, "OCULUS") == 0)) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
 		VR_SetPlatformFLag(VR_PLATFORM_PERFORMANCE_EXT, true);
@@ -185,6 +189,12 @@ void GetVRResolutionPerEye(int* width, int* height) {
 	}
 }
 
+void SetVRCallbacks(void (*axis)(const AxisInput &axis), bool(*key)(const KeyInput &key), void (*touch)(const TouchInput &touch)) {
+	NativeAxis = axis;
+	NativeKey = key;
+	NativeTouch = touch;
+}
+
 /*
 ================================================================================
 
@@ -197,8 +207,7 @@ void SetVRAppMode(VRAppMode mode) {
 	appMode = mode;
 }
 
-void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(const KeyInput &key),
-                   bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {
+void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 	//axis
 	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
 		AxisInput axis = {};
@@ -318,7 +327,7 @@ void UpdateVRInput(bool(*NativeAxis)(const AxisInput &axis), bool(*NativeKey)(co
 					case JOYSTICK_AXIS_Z:
 						if (axis.second < -0.75f) g_Config.fHeadUpDisplayScale -= 0.01f;
 						if (axis.second > 0.75f) g_Config.fHeadUpDisplayScale += 0.01f;
-						g_Config.fHeadUpDisplayScale = clampFloat(g_Config.fHeadUpDisplayScale, 0.2f, 1.0f);
+						g_Config.fHeadUpDisplayScale = clampFloat(g_Config.fHeadUpDisplayScale, 0.0f, 1.5f);
 						break;
 					case JOYSTICK_AXIS_RZ:
 						if (axis.second > 0.75f) g_Config.fCameraDistance -= 0.1f;
@@ -405,6 +414,7 @@ bool UpdateVRAxis(const AxisInput &axis) {
 bool UpdateVRKeys(const KeyInput &key) {
 	//store key value
 	std::vector<int> nativeKeys;
+	bool wasCameraAdjustOn = pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
 	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
 		for (int& nativeKey : nativeKeys) {
 			pspKeys[nativeKey] = key.flags & KEY_DOWN;
@@ -423,6 +433,22 @@ bool UpdateVRKeys(const KeyInput &key) {
 					return false;
 			}
 		}
+	}
+
+	// Release keys on enabling camera adjust
+	if (!wasCameraAdjustOn && pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
+		KeyInput keyUp;
+		keyUp.deviceId = key.deviceId;
+		keyUp.flags = KEY_UP;
+
+		pspKeys[VIRTKEY_VR_CAMERA_ADJUST] = false;
+		for (auto& pspKey : pspKeys) {
+			if (pspKey.second) {
+				keyUp.keyCode = pspKey.first;
+				NativeKey(keyUp);
+			}
+		}
+		pspKeys[VIRTKEY_VR_CAMERA_ADJUST] = true;
 	}
 
 	// Reset camera adjust
@@ -645,8 +671,9 @@ bool StartVRRender() {
 
 		// Decide if the scene is 3D or not
 		bool stereo = hasUnitScale && g_Config.bEnableStereo;
+		bool forceFlat = PSP_CoreParameter().compat.vrCompat().ForceFlatScreen;
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 480.0f / 272.0f);
-		if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && (appMode == VR_GAME_MODE) && (vr3DGeometryCount > 15)) {
+		if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && !forceFlat && (appMode == VR_GAME_MODE) && (vr3DGeometryCount > 15)) {
 			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 			vrFlatGame = false;
 		} else {
@@ -752,10 +779,14 @@ void UpdateVRParams(float* projMatrix, float* viewMatrix) {
 
 		switch (variant) {
 			case 0: //e.g. ATV
-			case 1: //untested
 				vrMirroring[VR_MIRRORING_PITCH] = false;
 				vrMirroring[VR_MIRRORING_YAW] = true;
 				vrMirroring[VR_MIRRORING_ROLL] = true;
+				break;
+			case 1: //e.g. Tales of the World
+				vrMirroring[VR_MIRRORING_PITCH] = false;
+				vrMirroring[VR_MIRRORING_YAW] = false;
+				vrMirroring[VR_MIRRORING_ROLL] = false;
 				break;
 			case 2: //e.g.PES 2014
 			case 3: //untested

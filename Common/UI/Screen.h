@@ -55,9 +55,9 @@ public:
 	virtual void postRender() {}
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
-	virtual bool touch(const TouchInput &touch) { return false;  }
+	virtual void touch(const TouchInput &touch) {}
 	virtual bool key(const KeyInput &key) { return false; }
-	virtual bool axis(const AxisInput &touch) { return false; }
+	virtual void axis(const AxisInput &touch) {}
 	virtual void sendMessage(const char *msg, const char *value) {}
 	virtual void deviceLost() {}
 	virtual void deviceRestored() {}
@@ -132,9 +132,9 @@ public:
 	Screen *dialogParent(const Screen *dialog) const;
 
 	// Instant touch, separate from the update() mechanism.
-	bool touch(const TouchInput &touch);
+	void touch(const TouchInput &touch);
 	bool key(const KeyInput &key);
-	bool axis(const AxisInput &touch);
+	void axis(const AxisInput &touch);
 
 	// Generic facility for gross hacks :P
 	void sendMessage(const char *msg, const char *value);

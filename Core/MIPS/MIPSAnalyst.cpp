@@ -673,7 +673,7 @@ namespace MIPSAnalyst {
 			int vt = (((op >> 16) & 0x1f)) | ((op & 1) << 5);
 			float rd[4];
 			ReadVector(rd, V_Quad, vt);
-			return memcmp(rd, Memory::GetPointer(addr), sizeof(float) * 4) != 0;
+			return memcmp(rd, Memory::GetPointerRange(addr, 16), sizeof(float) * 4) != 0;
 		}
 
 		// TODO: Technically, the break might be for 1 byte in the middle of a sw.

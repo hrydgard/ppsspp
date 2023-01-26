@@ -34,7 +34,7 @@ class SingleControlMapper;
 
 class ControlMappingScreen : public UIDialogScreenWithGameBackground {
 public:
-	ControlMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+	explicit ControlMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 	const char *tag() const override { return "ControlMapping"; }
 
 protected:
@@ -49,7 +49,7 @@ private:
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
-	UI::ScrollView *rightScroll_;
+	UI::ScrollView *rightScroll_ = nullptr;
 	std::vector<SingleControlMapper *> mappers_;
 	int keyMapGeneration_ = -1;
 };
@@ -57,14 +57,12 @@ private:
 class KeyMappingNewKeyDialog : public PopupScreen {
 public:
 	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
-		: PopupScreen(i18n->T("Map Key"), "Cancel", ""), callback_(callback) {
-		pspBtn_ = btn;
-	}
+		: PopupScreen(i18n->T("Map Key"), "Cancel", ""), pspBtn_(btn), callback_(callback) {}
 
 	const char *tag() const override { return "KeyMappingNewKey"; }
 
 	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+	void axis(const AxisInput &axis) override;
 
 	void SetDelay(float t);
 
@@ -85,14 +83,12 @@ private:
 class KeyMappingNewMouseKeyDialog : public PopupScreen {
 public:
 	KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
-		: PopupScreen(i18n->T("Map Mouse"), "", ""), callback_(callback), mapped_(false) {
-		pspBtn_ = btn;
-	}
+		: PopupScreen(i18n->T("Map Mouse"), "", ""), pspBtn_(btn), callback_(callback), mapped_(false) {}
 
 	const char *tag() const override { return "KeyMappingNewMouseKey"; }
 
 	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+	void axis(const AxisInput &axis) override;
 
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
@@ -114,7 +110,7 @@ public:
 	AnalogSetupScreen(const Path &gamePath);
 
 	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+	void axis(const AxisInput &axis) override;
 
 	void update() override;
 
@@ -144,11 +140,11 @@ public:
 		}
 	}
 
-	bool touch(const TouchInput &touch) override;
+	void touch(const TouchInput &touch) override;
 	void render() override;
 
 	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+	void axis(const AxisInput &axis) override;
 
 	const char *tag() const override { return "TouchTest"; }
 

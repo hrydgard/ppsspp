@@ -4,7 +4,7 @@
 
 // The new threadpool.
 
-// To help future smart scheduling.
+// To help smart scheduling.
 enum class TaskType {
 	CPU_COMPUTE,
 	IO_BLOCKING,
@@ -48,7 +48,7 @@ public:
 	void Init(int numCores, int numLogicalCoresPerCpu);
 	void EnqueueTask(Task *task);
 	// Use enforceSequence if this must run after all previously queued tasks.
-	void EnqueueTaskOnThread(int threadNum, Task *task, bool enforceSequence = false);
+	void EnqueueTaskOnThread(int threadNum, Task *task);
 	void Teardown();
 
 	bool IsInitialized() const;

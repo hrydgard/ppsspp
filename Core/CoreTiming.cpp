@@ -32,7 +32,6 @@
 #include "Core/Config.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/Reporting.h"
 
 static const int initialHz = 222000000;
 int CPU_HZ = 222000000;
@@ -606,7 +605,6 @@ void Advance() {
 
 	if (!first) {
 		// This should never happen in PPSSPP.
-		// WARN_LOG_REPORT(TIME, "WARNING - no events in queue. Setting currentMIPS->downcount to 10000");
 		if (slicelength < 10000) {
 			slicelength += 10000;
 			currentMIPS->downcount += 10000;

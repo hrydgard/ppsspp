@@ -1,5 +1,87 @@
 This is history moved out from README.md, which was getting a bit long.
 
+What's new in 1.12.3
+====================
+* Fix background music speed. A couple translation fixes.
+
+What's new in 1.12.2
+====================
+* Fix joystick detection bug on Android.
+
+What's new in 1.12.1
+====================
+* Bug fixes (control mapping fix, popup menus in the Windows debugger, a few crashfixes)
+
+What's new in 1.12
+==================
+
+Platform support:
+* Add support for Android 12 Scoped Storage restrictions ([#11997])
+* iOS: Fix multitouch tracking ([#5099])
+* Android: Fix screenshot orientation on Vulkan ([#14053])
+* Linux: Improve support for system FFmpeg 3.1+ ([#14176], [#14188], [#14199])
+* libretro: Always enable function hooks ([#14145])
+* AMD: Enable Vulkan rendering on a thread ([#13864])
+* Add iOS version detection, turn off JIT on bootup if >= 14.3. ([#14201])
+* iOS: Try a different JIT detection method, thanks Halo-Michael ([#14241])
+* Windows: Restore window size correctly ([#14317])
+
+Game fixes:
+* Fix NBA Live 08 loading ([#8288])
+* Display Open Season title screen correctly ([#13252])
+* Fix Metal Gear Solid Peace Walker Chinese Patched blue screen ([#14127])
+* Load Ape Academy 2 correctly ([#14271])
+* Many more...
+
+Graphics and Sound:
+* Add new texture filtering mode "Auto Max Quality" ([#14789])
+* Fix Princess Maker 5 Portable half screen in Vulkan ([#13741])
+* Fix Pro Yakyu Spirits 2010 (NPJH50234): Rendering errors with hardware transform off ([#14167])
+* Support texture replacement filtering overrides ([#14230])
+* Fix Yarudora Portable: Double Cast's FMVs artifacting ([#13759])
+* Fix Sims 2 Castaway/Pets EA Logo glitched out ([#13146])
+* Fix bad size & position on Japanese & Numbers & Alphabets ([#14209])
+* Implement basic depth texturing for OpenGL ([#14042])
+* Google Cardboard fixes ([#14966], [#14768])
+* Correct mini-map update in Z.H.P. ([#14069])
+* Fix crash in vertex jit on ARM32 ([#14879])
+* Add a setting for reverb volume ([#14711])
+* Option to switch to new devices or not, on Windows.
+
+UI:
+* Add a setting for choosing background animation in PPSSPP's menus ([#14313], [#14818], [#14810], [#14347])
+* Add CRC calculation on game info screen and feedback screen ([#14000], [#14041])
+* Add a Storage tab to System Information with some path info ([#14224], [#14238])
+* Track and show memory allocation / usage information in debugger ([#14056])
+* Allow searching within the savedata manager ([#14237])
+* Enable postshaders to access previous frame ([#14528])
+* Add missing Japanese keyboard symbol ([#14548])
+* Add Reset button on crash screen, allow load state and related ([#14708])
+* Implement save state load and save undo ([#14676], [#14679], [#14697])
+* A lot of minor debugger improvements
+
+Controls:
+* New analog stick calibration menu ([#14596])
+* Improved combo button and moved settings to Customize Touch Control -> Customize -> Custom button ([#13869])
+* Improved tilt control, allow to change axis ([#12530])
+* Add a visual means of control mapping ([#14769])
+* Add basic motion gesture support ([#13107])
+* Fix touch control DPAD not getting input when dragged over, and make touch analog drag not activate other buttons ([#14843])
+* Allow adjusting touch control analog stick head size ([#14480])
+
+Adhoc/Network:
+* Fix multiplayer issue on MGS:PW due to detecting an incorrect source port on incoming data ([#14140])
+* Always enable TCPNoDelay to improve response time ([#14235])
+* Fix Teenage Mutant Ninja Turtles multiplayer ([#14284])
+* Fix FlatOut Head On multiplayer ([#14290])
+* Prevent flooding Adhoc Server with connection attempts ([#14335])
+* Fix crashing issue when leaving a multiplayer game room (ie. GTA Vice City Stories) ([#14342])
+* Fix stuck issue when scanning AP to Recruit on MGS:PW ([#14345])
+* Fix possible crash issue on blocking socket implementation (ie. Kao Challengers) ([#14466])
+* Create GameMode's socket after Master and all Replicas have been created (ie. Fading Shadows) ([#14492])
+* Reduce HLE delays due to multiplayer performance regressions (ie. Ys vs. Sora no Kiseki) ([#14513])
+* Fix socket error 10014 on Windows when hosting a game of Vulcanus Seek and Destroy ([#14849])
+
 What's new in 1.11.3
 ====================
 * Fix for graphics glitches in the on-screen keyboard
@@ -783,3 +865,66 @@ go to see there http://forums.ppsspp.org/showthread.php?tid=3595&pid=59241#pid59
 [#14132]: https://github.com/hrydgard/ppsspp/issues/14132 "Io: Truncate reads/writes to valid memory"
 [#14134]: https://github.com/hrydgard/ppsspp/issues/14134 "Android: Ensure shutdown waits for render"
 [#14129]: https://github.com/hrydgard/ppsspp/issues/14129 "GPU: Force reinterpret off without copy image"
+[#11997]: https://github.com/hrydgard/ppsspp/issues/11997 "Android 12 scoped storage hell"
+[#5099]: https://github.com/hrydgard/ppsspp/issues/5099 "IOS touch controls problems."
+[#14053]: https://github.com/hrydgard/ppsspp/issues/14053 "Toggle screenshot minor issue."
+[#14176]: https://github.com/hrydgard/ppsspp/issues/14176 "Remove deprecated API calls for new FFmpeg 4.3.x"
+[#14188]: https://github.com/hrydgard/ppsspp/issues/14188 "Additional fixes for FFmpeg 3.1+"
+[#14199]: https://github.com/hrydgard/ppsspp/issues/14199 "Mpeg: Set low latency flag for video decode"
+[#14145]: https://github.com/hrydgard/ppsspp/issues/14145 "libretro: Remove \"Unsafe FuncReplacements\" option."
+[#13864]: https://github.com/hrydgard/ppsspp/issues/13864 "Vulkan: Remove #10097 hack for newer AMD drivers"
+[#14201]: https://github.com/hrydgard/ppsspp/issues/14201 "Add iOS version detection, turn off JIT on bootup if >= 14.3."
+[#14241]: https://github.com/hrydgard/ppsspp/issues/14241 "iOS: Try a different JIT detection method, thanks Halo-Michael."
+[#14317]: https://github.com/hrydgard/ppsspp/issues/14317 "Window size restarts on closing"
+[#8288]: https://github.com/hrydgard/ppsspp/issues/8288 "NBA live 08 Invalid address and hang"
+[#13252]: https://github.com/hrydgard/ppsspp/issues/13252 "Open Season Title Screen does not display"
+[#14127]: https://github.com/hrydgard/ppsspp/issues/14127 "Metal Gear Solid Peace Walker Chinese Patched blue screen"
+[#14271]: https://github.com/hrydgard/ppsspp/issues/14271 "Ape Academy 2 is broken on versions after 1.8.0(?) - tested on latest nightly and 1.11.3"
+[#14789]: https://github.com/hrydgard/ppsspp/issues/14789 "Add new texture filtering mode \"Auto Max Quality\""
+[#13741]: https://github.com/hrydgard/ppsspp/issues/13741 "Princess Maker 5 Portable half screen in Vulkan"
+[#14167]: https://github.com/hrydgard/ppsspp/issues/14167 "[Android] Pro Yakyu Spirits 2010 (NPJH50234): Rendering errors with hardware transform off"
+[#14230]: https://github.com/hrydgard/ppsspp/issues/14230 "Support texture replacement filtering overrides"
+[#13759]: https://github.com/hrydgard/ppsspp/issues/13759 "Yarudora Portable: Double Cast"
+[#13146]: https://github.com/hrydgard/ppsspp/issues/13146 "Sims 2 Castaway/Pets EA Logo glitched out - 1.10.2"
+[#14209]: https://github.com/hrydgard/ppsspp/issues/14209 "Fix Size & Position jpn0.pgf/ltn0.pgf/ltn2.pgf/ltn4.pgf/ltn6.pgf"
+[#14042]: https://github.com/hrydgard/ppsspp/issues/14042 "Implement basic depth texturing for OpenGL"
+[#14966]: https://github.com/hrydgard/ppsspp/issues/14966 "Config: Correct cardboard setting ini load"
+[#14768]: https://github.com/hrydgard/ppsspp/issues/14768 "Fix the math in cardboard VR mode for wide aspect ratios"
+[#14069]: https://github.com/hrydgard/ppsspp/issues/14069 "Mini-Map in Z.H.P. Updates Incorrectly Without Software Rendering"
+[#14879]: https://github.com/hrydgard/ppsspp/issues/14879 "vertexjit: Correct morph flag alpha check assert"
+[#14711]: https://github.com/hrydgard/ppsspp/issues/14711 "Sas: Add option to control reverb volume"
+[#14313]: https://github.com/hrydgard/ppsspp/issues/14313 "Add a setting for choosing background animation in PPSSPP's menus"
+[#14818]: https://github.com/hrydgard/ppsspp/issues/14818 "Focus based moving background"
+[#14810]: https://github.com/hrydgard/ppsspp/issues/14810 "Wave animation"
+[#14347]: https://github.com/hrydgard/ppsspp/issues/14347 "UI: Add BG animation for recent games"
+[#14000]: https://github.com/hrydgard/ppsspp/issues/14000 "Add CRC32 calc"
+[#14041]: https://github.com/hrydgard/ppsspp/issues/14041 "UI: Add button to show CRC on feedback screen"
+[#14224]: https://github.com/hrydgard/ppsspp/issues/14224 "Add a Storage tab to System Information with some path info"
+[#14238]: https://github.com/hrydgard/ppsspp/issues/14238 "UI: Wrap long info items and cleanup storage display"
+[#14056]: https://github.com/hrydgard/ppsspp/issues/14056 "Track memory allocations and writes for debug info"
+[#14237]: https://github.com/hrydgard/ppsspp/issues/14237 "Add initial search to savedata manager"
+[#14528]: https://github.com/hrydgard/ppsspp/issues/14528 "Postshader: Let shaders use the previous frame"
+[#14548]: https://github.com/hrydgard/ppsspp/issues/14548 "Add some PPSSPP's Japanese keyboard"
+[#14708]: https://github.com/hrydgard/ppsspp/issues/14708 "Add Reset button on crash screen, allow load state and related"
+[#14676]: https://github.com/hrydgard/ppsspp/issues/14676 "Add savestate undo UI"
+[#14679]: https://github.com/hrydgard/ppsspp/issues/14679 "Savestate load undo"
+[#14697]: https://github.com/hrydgard/ppsspp/issues/14697 "Add undo last save as well"
+[#14596]: https://github.com/hrydgard/ppsspp/issues/14596 "Replace the \"Test Analogs\" screen with a new screen that lets you directly try the settings."
+[#13869]: https://github.com/hrydgard/ppsspp/issues/13869 "Make combo button more generic"
+[#12530]: https://github.com/hrydgard/ppsspp/issues/12530 "Allow tilt input on Z instead of X"
+[#14769]: https://github.com/hrydgard/ppsspp/issues/14769 "Add a visual means of control mapping"
+[#13107]: https://github.com/hrydgard/ppsspp/issues/13107 "Basic mappable motion gesture"
+[#14843]: https://github.com/hrydgard/ppsspp/issues/14843 "DPad drag fixes"
+[#14480]: https://github.com/hrydgard/ppsspp/issues/14480 "Configurable analog head size"
+[#14140]: https://github.com/hrydgard/ppsspp/issues/14140 "[Adhoc] Fix multiplayer issue on MGS:PW due to detecting an incorrect source port on incoming data"
+[#14235]: https://github.com/hrydgard/ppsspp/issues/14235 "[Adhoc] Always enable TCPNoDelay to improve response time"
+[#14284]: https://github.com/hrydgard/ppsspp/issues/14284 "[Adhoc] Fix Teenage Mutant Ninja Turtles Multiplayer"
+[#14290]: https://github.com/hrydgard/ppsspp/issues/14290 "Fix FlatOut Head On multiplayer."
+[#14335]: https://github.com/hrydgard/ppsspp/issues/14335 "[Adhoc] Prevent flooding Adhoc Server with connection attempts"
+[#14342]: https://github.com/hrydgard/ppsspp/issues/14342 "[AdhocMatching] Fix crashing issue when leaving a multiplayer game room"
+[#14345]: https://github.com/hrydgard/ppsspp/issues/14345 "[APctl] Fix stuck issue when scanning AP to Recruit on MGS:PW"
+[#14466]: https://github.com/hrydgard/ppsspp/issues/14466 "[Adhoc] Fix possible crash issue on blocking socket implementation."
+[#14492]: https://github.com/hrydgard/ppsspp/issues/14492 "[AdhocGameMode] Create GameMode's socket after Master and all Replicas have been created"
+[#14513]: https://github.com/hrydgard/ppsspp/issues/14513 "[Adhoc] Reducing HLE delays due to Mutiplayer performance regressions"
+[#14849]: https://github.com/hrydgard/ppsspp/issues/14849 "[Adhoc] Fix Socket error 10014 on Windows when hosting a game of Vulcanus Seek and Destroy"
+[#11974]: https://github.com/hrydgard/ppsspp/issues/11974 "[Linux] [Vulkan] Toggle fullscreen doesn't update display properly"

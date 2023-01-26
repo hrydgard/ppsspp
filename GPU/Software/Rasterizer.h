@@ -30,6 +30,7 @@
 
 struct GPUDebugBuffer;
 struct BinCoords;
+class BinManager;
 
 namespace Rasterizer {
 
@@ -42,6 +43,7 @@ enum class RasterizerStateFlags {
 
 	CLUT_ALPHA_CHECKED = 0x0010,
 	CLUT_ALPHA_NON_FULL = 0x0020,
+	CLUT_ALPHA_NON_ZERO = 0x0040,
 
 	VERTEX_FLAT_RESET = VERTEX_NON_FULL_WHITE | VERTEX_ALPHA_NON_FULL | VERTEX_ALPHA_NON_ZERO | VERTEX_HAS_FOG,
 
@@ -53,9 +55,10 @@ enum class RasterizerStateFlags {
 	OPTIMIZED_FOG_OFF = 0x0020'0000,
 	OPTIMIZED_ALPHATEST_OFF_NE = 0x0040'0000,
 	OPTIMIZED_ALPHATEST_OFF_GT = 0x0080'0000,
+	OPTIMIZED_ALPHATEST_ON = 0x0100'0000,
 
 	// Anything that changes the actual pixel or sampler func.
-	OPTIMIZED_PIXELID = OPTIMIZED_BLEND_SRC | OPTIMIZED_BLEND_DST | OPTIMIZED_BLEND_OFF | OPTIMIZED_FOG_OFF | RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE | RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT,
+	OPTIMIZED_PIXELID = OPTIMIZED_BLEND_SRC | OPTIMIZED_BLEND_DST | OPTIMIZED_BLEND_OFF | OPTIMIZED_FOG_OFF | OPTIMIZED_ALPHATEST_OFF_NE | OPTIMIZED_ALPHATEST_OFF_GT | OPTIMIZED_ALPHATEST_ON,
 	OPTIMIZED_SAMPLERID = OPTIMIZED_TEXREPLACE,
 
 	INVALID = 0x7FFFFFFF,
@@ -98,7 +101,7 @@ struct RasterizerState {
 	}
 };
 
-void ComputeRasterizerState(RasterizerState *state, std::function<void()> flushForCompile);
+void ComputeRasterizerState(RasterizerState *state, BinManager *binner);
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0);
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, bool forceFlat);
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, const VertexData &v2);

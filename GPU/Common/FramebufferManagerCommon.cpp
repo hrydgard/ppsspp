@@ -24,6 +24,7 @@
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/LogReporting.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
 #include "Common/System/Display.h"
@@ -37,7 +38,6 @@
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Host.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/Reporting.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PostShader.h"
@@ -50,7 +50,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
-static size_t FormatFramebufferName(VirtualFramebuffer *vfb, char *tag, size_t len) {
+static size_t FormatFramebufferName(const VirtualFramebuffer *vfb, char *tag, size_t len) {
 	return snprintf(tag, len, "FB_%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, vfb->bufferWidth, vfb->bufferHeight, GeBufferFormatToString(vfb->fb_format));
 }
 
@@ -82,14 +82,14 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 	delete presentation_;
 }
 
-void FramebufferManagerCommon::Init() {
+void FramebufferManagerCommon::Init(int msaaLevel) {
 	// We may need to override the render size if the shader is upscaling or SSAA.
 	NotifyDisplayResized();
-	NotifyRenderResized();
+	NotifyRenderResized(msaaLevel);
 }
 
-bool FramebufferManagerCommon::UpdateRenderSize() {
-	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight || msaaLevel_ != g_Config.iMultiSampleLevel;
+bool FramebufferManagerCommon::UpdateRenderSize(int msaaLevel) {
+	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight || msaaLevel_ != msaaLevel;
 
 	int effectiveBloomHack = g_Config.iBloomHack;
 	if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn) {
@@ -104,7 +104,7 @@ bool FramebufferManagerCommon::UpdateRenderSize() {
 	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
 	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
 	renderScaleFactor_ = (float)PSP_CoreParameter().renderScaleFactor;
-	msaaLevel_ = g_Config.iMultiSampleLevel;
+	msaaLevel_ = msaaLevel;
 
 	bloomHack_ = effectiveBloomHack;
 	useBufferedRendering_ = newBuffered;
@@ -429,7 +429,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 				vfb->height = drawing_height;
 			}
 			break;
-		} else if (v->fb_stride == params.fb_stride && v->fb_format == params.fb_format && !PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
+		} else if (!PSP_CoreParameter().compat.flags().DisallowFramebufferAtOffset && v->fb_stride == params.fb_stride && v->fb_format == params.fb_format && !PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
 			u32 v_fb_first_line_end_ptr = v->fb_address + v->fb_stride * bpp;
 			u32 v_fb_end_ptr = v->fb_address + v->fb_stride * v->height * bpp;
 
@@ -453,10 +453,12 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 	}
 
 	if (vfb) {
+		bool resized = false;
 		if ((drawing_width != vfb->bufferWidth || drawing_height != vfb->bufferHeight)) {
 			// Even if it's not newly wrong, if this is larger we need to resize up.
 			if (vfb->width > vfb->bufferWidth || vfb->height > vfb->bufferHeight) {
 				ResizeFramebufFBO(vfb, vfb->width, vfb->height);
+				resized = true;
 			} else if (vfb->newWidth != drawing_width || vfb->newHeight != drawing_height) {
 				// If it's newly wrong, or changing every frame, just keep track.
 				vfb->newWidth = drawing_width;
@@ -470,6 +472,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 				needsRecreate = needsRecreate || vfb->newHeight > vfb->bufferHeight || vfb->newHeight * 2 < vfb->bufferHeight;
 				if (needsRecreate) {
 					ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
+					resized = true;
 					// Let's discard this information, might be wrong now.
 					vfb->safeWidth = 0;
 					vfb->safeHeight = 0;
@@ -482,6 +485,14 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		} else {
 			// It's not different, let's keep track of that too.
 			vfb->lastFrameNewSize = gpuStats.numFlips;
+		}
+
+		if (!resized && renderScaleFactor_ != 1 && vfb->renderScaleFactor == 1) {
+			// Might be time to change this framebuffer - have we used depth?
+			if (vfb->usageFlags & FB_USAGE_COLOR_MIXED_DEPTH) {
+				ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
+				_assert_(vfb->renderScaleFactor != 1);
+			}
 		}
 	}
 
@@ -692,6 +703,8 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 			}
 
 			gpuStats.numReinterpretCopies++;
+			src->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
+			dest->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
 
 			// Copying color to depth.
 			BlitUsingRaster(
@@ -1090,7 +1103,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {
 					// TODO: This doesn't seem quite right anymore.
 					fmt = displayFormat_;
 				}
-				DrawPixels(vfb, 0, 0, Memory::GetPointer(addr), fmt, vfb->fb_stride, vfb->width, vfb->height, RASTER_COLOR, "UpdateFromMemory_DrawPixels");
+				DrawPixels(vfb, 0, 0, Memory::GetPointerUnchecked(addr), fmt, vfb->fb_stride, vfb->width, vfb->height, RASTER_COLOR, "UpdateFromMemory_DrawPixels");
 				SetColorUpdated(vfb, gstate_c.skipDrawReason);
 			} else {
 				INFO_LOG(FRAMEBUF, "Invalidating FBO for %08x (%dx%d %s)", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format));
@@ -1140,6 +1153,8 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	if (channel == RASTER_DEPTH) {
 		_dbg_assert_(srcPixelFormat == GE_FORMAT_DEPTH16);
 		flags = flags | DRAWTEX_DEPTH;
+		if (vfb)
+			vfb->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
 	}
 
 	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
@@ -1147,7 +1162,10 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		draw_->BindTextures(0, 1, &pixelsTex, Draw::TextureBindFlags::VULKAN_BIND_ARRAY);
 
 		// TODO: Replace with draw2D_.Blit() directly.
-		DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
+		DrawActiveTexture(dstX, dstY, width, height,
+			vfb ? vfb->bufferWidth : pixel_xres,
+			vfb ? vfb->bufferHeight : pixel_yres,
+			u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 
 		gpuStats.numUploads++;
 		pixelsTex->Release();
@@ -1171,7 +1189,7 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 	// Currently rendering to this framebuffer. Need to make a copy.
 	if (!skipCopy && framebuffer == currentRenderVfb_) {
 		// Self-texturing, need a copy currently (some backends can potentially support it though).
-		WARN_LOG_REPORT_ONCE(selfTextureCopy, G3D, "Attempting to texture from current render target (src=%08x / target=%08x / flags=%d), making a copy", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
+		WARN_LOG_ONCE(selfTextureCopy, G3D, "Attempting to texture from current render target (src=%08x / target=%08x / flags=%d), making a copy", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
 		Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight);
 		if (renderCopy) {
@@ -1190,6 +1208,7 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, layer);
 		return true;
 	} else {
+		// Here it's an error because for some reason skipCopy is true. That shouldn't really happen.
 		ERROR_LOG_REPORT_ONCE(selfTextureFail, G3D, "Attempting to texture from target (src=%08x / target=%08x / flags=%d)", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
 		// To do this safely in Vulkan, we need to use input attachments.
 		// Actually if the texture region and render regions don't overlap, this is safe, but we need
@@ -1455,7 +1474,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		if (Memory::IsValidAddress(fbaddr)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			if (!vfb) {
-				DrawFramebufferToOutput(Memory::GetPointer(fbaddr), displayStride_, displayFormat_);
+				DrawFramebufferToOutput(Memory::GetPointerUnchecked(fbaddr), displayStride_, displayFormat_);
 				return;
 			}
 		} else {
@@ -1624,6 +1643,9 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		break;
 	}
 
+	if (vfb->usageFlags & FB_USAGE_COLOR_MIXED_DEPTH) {
+		force1x = false;
+	}
 	if (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000) {
 		force1x = true;
 	}
@@ -1667,9 +1689,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	char tag[128];
 	size_t len = FormatFramebufferName(vfb, tag, sizeof(tag));
 
-	int msaaLevel = g_Config.iMultiSampleLevel;
-
-	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), msaaLevel, true, tag });
+	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), msaaLevel_, true, tag });
 	if (Memory::IsVRAMAddress(vfb->fb_address) && vfb->fb_stride != 0) {
 		NotifyMemInfo(MemBlockFlags::ALLOC, vfb->fb_address, ColorBufferByteSize(vfb), tag, len);
 	}
@@ -1822,7 +1842,11 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	}
 	if (dstBuffer) {
 		dstBuffer->last_frame_used = gpuStats.numFlips;
+		if (channel == RASTER_DEPTH && !srcBuffer)
+			dstBuffer->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
 	}
+	if (srcBuffer && channel == RASTER_DEPTH && !dstBuffer)
+		srcBuffer->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
 
 	if (dstBuffer && srcBuffer) {
 		if (srcBuffer == dstBuffer) {
@@ -1996,7 +2020,7 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 		}
 	}
 
-	if (!candidates.empty()) {
+	if (best) {
 		*rect = *best;
 		return true;
 	} else {
@@ -2403,7 +2427,7 @@ void FramebufferManagerCommon::NotifyDisplayResized() {
 	updatePostShaders_ = true;
 }
 
-void FramebufferManagerCommon::NotifyRenderResized() {
+void FramebufferManagerCommon::NotifyRenderResized(int msaaLevel) {
 	gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
 
 	int w, h, scaleFactor;
@@ -2412,7 +2436,7 @@ void FramebufferManagerCommon::NotifyRenderResized() {
 	PSP_CoreParameter().renderHeight = h;
 	PSP_CoreParameter().renderScaleFactor = scaleFactor;
 
-	if (UpdateRenderSize()) {
+	if (UpdateRenderSize(msaaLevel)) {
 		DestroyAllFBOs();
 	}
 
@@ -2859,6 +2883,8 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 void FramebufferManagerCommon::RebindFramebuffer(const char *tag) {
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	shaderManager_->DirtyLastShader();
+	// Needed for D3D11 to run validation clean. I don't think it's actually an issue.
+	// textureCache_->ForgetLastTexture();
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
 		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, tag);
 	} else {

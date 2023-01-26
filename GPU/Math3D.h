@@ -145,7 +145,7 @@ public:
 	float Length() const;
 	void SetLength(const float l);
 	Vec2 WithLength(const float l) const;
-	float Distance2To(Vec2 &other);
+	float Distance2To(const Vec2 &other) const;
 	Vec2 Normalized() const;
 	float Normalize(); // returns the previous length, which is often useful
 
@@ -310,7 +310,7 @@ public:
 	float Length() const;
 	void SetLength(const float l);
 	Vec3 WithLength(const float l) const;
-	float Distance2To(Vec3 &other);
+	float Distance2To(const Vec3 &other) const;
 	Vec3 Normalized(bool useSSE4 = false) const;
 	Vec3 NormalizedOr001(bool useSSE4 = false) const;
 	float Normalize(); // returns the previous length, which is often useful
@@ -478,7 +478,7 @@ public:
 	float Length() const;
 	void SetLength(const float l);
 	Vec3Packed WithLength(const float l) const;
-	float Distance2To(Vec3Packed &other);
+	float Distance2To(const Vec3Packed &other) const;
 	Vec3Packed Normalized() const;
 	float Normalize(); // returns the previous length, which is often useful
 
@@ -674,7 +674,7 @@ public:
 	float Length() const;
 	void SetLength(const float l);
 	Vec4 WithLength(const float l) const;
-	float Distance2To(Vec4 &other);
+	float Distance2To(const Vec4 &other) const;
 	Vec4 Normalized() const;
 	float Normalize(); // returns the previous length, which is often useful
 
@@ -898,7 +898,8 @@ inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 	vecOut[1] = vectorGetByIndex<1>(sum);
 	vecOut[2] = vectorGetByIndex<2>(sum);
 #elif PPSSPP_ARCH(ARM64_NEON)
-	float32x4_t sum = Vec3ByMatrix43Internal(vld1q_f32(v), m);
+	float vecIn[4] = {v[0], v[1], v[2], 1.0f};
+	float32x4_t sum = Vec3ByMatrix43Internal(vld1q_f32(vecIn), m);
 	vecOut[0] = vgetq_lane_f32(sum, 0);
 	vecOut[1] = vgetq_lane_f32(sum, 1);
 	vecOut[2] = vgetq_lane_f32(sum, 2);
@@ -957,7 +958,8 @@ inline void Vec3ByMatrix44(float vecOut[4], const float v[3], const float m[16])
 	__m128 sum = Vec3ByMatrix44Internal(x, y, z, m);
 	_mm_storeu_ps(vecOut, sum);
 #elif PPSSPP_ARCH(ARM64_NEON)
-	float32x4_t sum = Vec3ByMatrix44Internal(vld1q_f32(v), m);
+	float vecIn[4] = {v[0], v[1], v[2], 1.0f};
+	float32x4_t sum = Vec3ByMatrix44Internal(vld1q_f32(vecIn), m);
 	vst1q_f32(vecOut, sum);
 #else
 	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
@@ -1159,6 +1161,10 @@ inline Vec3<float> Vec3<float>::FromRGB(unsigned int rgb)
 	__m128i c = _mm_cvtsi32_si128(rgb);
 	c = _mm_unpacklo_epi16(_mm_unpacklo_epi8(c, z), z);
 	return Vec3<float>(_mm_mul_ps(_mm_cvtepi32_ps(c), _mm_set_ps1(1.0f / 255.0f)));
+#elif PPSSPP_ARCH(ARM64_NEON)
+	uint8x8_t c = vreinterpret_u8_u32(vdup_n_u32(rgb));
+	uint32x4_t u = vmovl_u16(vget_low_u16(vmovl_u8(c)));
+	return Vec3<float>(vmulq_f32(vcvtq_f32_u32(u), vdupq_n_f32(1.0f / 255.0f)));
 #else
 	return Vec3((rgb & 0xFF) * (1.0f/255.0f),
 				((rgb >> 8) & 0xFF) * (1.0f/255.0f),
@@ -1174,6 +1180,10 @@ inline Vec3<int> Vec3<int>::FromRGB(unsigned int rgb)
 	__m128i c = _mm_cvtsi32_si128(rgb);
 	c = _mm_unpacklo_epi16(_mm_unpacklo_epi8(c, z), z);
 	return Vec3<int>(c);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	uint8x8_t c = vreinterpret_u8_u32(vdup_n_u32(rgb));
+	uint32x4_t u = vmovl_u16(vget_low_u16(vmovl_u8(c)));
+	return Vec3<int>(vreinterpretq_s32_u32(u));
 #else
 	return Vec3(rgb & 0xFF, (rgb >> 8) & 0xFF, (rgb >> 16) & 0xFF);
 #endif
@@ -1190,6 +1200,10 @@ __forceinline unsigned int Vec3<float>::ToRGB() const
 #endif
 	__m128i c16 = _mm_packs_epi32(c, c);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16)) & 0x00FFFFFF;
+#elif PPSSPP_ARCH(ARM64_NEON)
+	uint16x4_t c16 = vqmovun_s32(vcvtq_s32_f32(vmulq_f32(vsetq_lane_f32(0.0f, vec, 3), vdupq_n_f32(255.0f))));
+	uint8x8_t c8 = vqmovn_u16(vcombine_u16(c16, c16));
+	return vget_lane_u32(vreinterpret_u32_u8(c8), 0);
 #else
 	return (clamp_u8((int)(r() * 255.f)) << 0) |
 			(clamp_u8((int)(g() * 255.f)) << 8) |
@@ -1207,6 +1221,10 @@ __forceinline unsigned int Vec3<int>::ToRGB() const
 	__m128i c16 = _mm_packs_epi32(_mm_loadu_si128(&ivec), _mm_setzero_si128());
 #endif
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16)) & 0x00FFFFFF;
+#elif PPSSPP_ARCH(ARM64_NEON)
+	uint16x4_t c16 = vqmovun_s32(vsetq_lane_s32(0, ivec, 3));
+	uint8x8_t c8 = vqmovn_u16(vcombine_u16(c16, c16));
+	return vget_lane_u32(vreinterpret_u32_u8(c8), 0);
 #else
 	return clamp_u8(r()) | (clamp_u8(g()) << 8) | (clamp_u8(b()) << 16);
 #endif
@@ -1220,6 +1238,10 @@ inline Vec4<float> Vec4<float>::FromRGBA(unsigned int rgba)
 	__m128i c = _mm_cvtsi32_si128(rgba);
 	c = _mm_unpacklo_epi16(_mm_unpacklo_epi8(c, z), z);
 	return Vec4<float>(_mm_mul_ps(_mm_cvtepi32_ps(c), _mm_set_ps1(1.0f / 255.0f)));
+#elif PPSSPP_ARCH(ARM64_NEON)
+	uint8x8_t c = vreinterpret_u8_u32(vdup_n_u32(rgba));
+	uint32x4_t u = vmovl_u16(vget_low_u16(vmovl_u8(c)));
+	return Vec4<float>(vmulq_f32(vcvtq_f32_u32(u), vdupq_n_f32(1.0f / 255.0f)));
 #else
 	return Vec4((rgba & 0xFF) * (1.0f/255.0f),
 				((rgba >> 8) & 0xFF) * (1.0f/255.0f),
@@ -1242,6 +1264,10 @@ inline Vec4<int> Vec4<int>::FromRGBA(unsigned int rgba)
 	__m128i c = _mm_cvtsi32_si128(rgba);
 	c = _mm_unpacklo_epi16(_mm_unpacklo_epi8(c, z), z);
 	return Vec4<int>(c);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	uint8x8_t c = vreinterpret_u8_u32(vdup_n_u32(rgba));
+	uint32x4_t u = vmovl_u16(vget_low_u16(vmovl_u8(c)));
+	return Vec4<int>(vreinterpretq_s32_u32(u));
 #else
 	return Vec4(rgba & 0xFF, (rgba >> 8) & 0xFF, (rgba >> 16) & 0xFF, (rgba >> 24) & 0xFF);
 #endif
@@ -1258,6 +1284,10 @@ __forceinline unsigned int Vec4<float>::ToRGBA() const
 #endif
 	__m128i c16 = _mm_packs_epi32(c, c);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16));
+#elif PPSSPP_ARCH(ARM64_NEON)
+	uint16x4_t c16 = vqmovun_s32(vcvtq_s32_f32(vmulq_f32(vec, vdupq_n_f32(255.0f))));
+	uint8x8_t c8 = vqmovn_u16(vcombine_u16(c16, c16));
+	return vget_lane_u32(vreinterpret_u32_u8(c8), 0);
 #else
 	return (clamp_u8((int)(r() * 255.f)) << 0) |
 			(clamp_u8((int)(g() * 255.f)) << 8) |
@@ -1276,6 +1306,10 @@ __forceinline unsigned int Vec4<int>::ToRGBA() const
 	__m128i c16 = _mm_packs_epi32(_mm_loadu_si128(&ivec), _mm_setzero_si128());
 #endif
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16));
+#elif PPSSPP_ARCH(ARM64_NEON)
+	uint16x4_t c16 = vqmovun_s32(ivec);
+	uint8x8_t c8 = vqmovn_u16(vcombine_u16(c16, c16));
+	return vget_lane_u32(vreinterpret_u32_u8(c8), 0);
 #else
 	return clamp_u8(r()) | (clamp_u8(g()) << 8) | (clamp_u8(b()) << 16) | (clamp_u8(a()) << 24);
 #endif

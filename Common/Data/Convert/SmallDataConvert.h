@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <cmath>
 
 #include "Common/Common.h"
 #include "ppsspp_config.h"
@@ -174,7 +175,7 @@ inline void CopyFloat3(float dest[3], const float src[3]) {
 	dest[2] = src[2];
 }
 
-inline void CopyFloat4(float dest[3], const float src[3]) {
+inline void CopyFloat4(float dest[4], const float src[4]) {
 #ifdef _M_SSE
 	_mm_storeu_ps(dest, _mm_loadu_ps(src));
 #else
@@ -225,6 +226,23 @@ inline void ExpandFloat24x3ToFloat4(float dest[4], const uint32_t src[3]) {
 	uint32_t temp[4] = { src[0] << 8, src[1] << 8, src[2] << 8, 0 };
 	memcpy(dest, temp, sizeof(float) * 4);
 #endif
+}
+
+// Note: If length is 0.0, it's gonna be left as 0.0 instead of trying to normalize. This is important.
+inline void ExpandFloat24x3ToFloat4AndNormalize(float dest[4], const uint32_t src[3]) {
+	float temp[4];
+	ExpandFloat24x3ToFloat4(temp, src);
+	// TODO: Reuse code from NormalizedOr001 and optimize
+	float x = temp[0];
+	float y = temp[1];
+	float z = temp[2];
+	float len = sqrtf(x * x + y * y + z * z);
+	if (len != 0.0f)
+		len = 1.0f / len;
+	dest[0] = x * len;
+	dest[1] = y * len;
+	dest[2] = z * len;
+	dest[3] = 0.0f;
 }
 
 inline uint32_t BytesToUint32(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {

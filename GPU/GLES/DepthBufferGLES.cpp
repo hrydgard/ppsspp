@@ -18,8 +18,8 @@
 #include <algorithm>
 
 #include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/LogReporting.h"
 #include "Core/ConfigValues.h"
-#include "Core/Reporting.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
@@ -128,7 +128,7 @@ static bool SupportsDepthTexturing() {
 	if (gl_extensions.IsGLES) {
 		return gl_extensions.OES_packed_depth_stencil && (gl_extensions.OES_depth_texture || gl_extensions.GLES3);
 	}
-	return gl_extensions.VersionGEThan(3, 0);
+	return gl_extensions.ARB_texture_float;
 }
 
 static Draw::Pipeline *CreateReadbackPipeline(Draw::DrawContext *draw, const char *tag, const UniformBufferDesc *ubDesc, const char *fs, const char *fsTag, const char *vs, const char *vsTag) {

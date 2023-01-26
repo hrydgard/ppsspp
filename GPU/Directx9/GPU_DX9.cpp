@@ -28,7 +28,6 @@
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Reporting.h"
 #include "Core/System.h"
 
 #include "Common/GPU/D3D9/D3D9StateCache.h"
@@ -43,10 +42,6 @@
 #include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
-
-#include "Core/HLE/sceKernelThread.h"
-#include "Core/HLE/sceKernelInterrupt.h"
-#include "Core/HLE/sceGe.h"
 
 GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw),
@@ -69,7 +64,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerDX9_->SetTextureCache(textureCacheDX9_);
 	framebufferManagerDX9_->SetShaderManager(shaderManagerDX9_);
 	framebufferManagerDX9_->SetDrawEngine(&drawEngine_);
-	framebufferManagerDX9_->Init();
+	framebufferManagerDX9_->Init(msaaLevel_);
 	textureCacheDX9_->SetFramebufferManager(framebufferManagerDX9_);
 	textureCacheDX9_->SetShaderManager(shaderManagerDX9_);
 
@@ -81,7 +76,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
 	UpdateCmdInfo();
-	gstate_c.useFlags = CheckGPUFeatures();
+	gstate_c.SetUseFlags(CheckGPUFeatures());
 
 	BuildReportingInfo();
 
@@ -160,17 +155,22 @@ void GPU_DX9::BeginFrame() {
 	shaderManagerDX9_->DirtyShader();
 
 	framebufferManager_->BeginFrame();
+
+	if (gstate_c.useFlagsChanged) {
+		// TODO: It'd be better to recompile them in the background, probably?
+		// This most likely means that saw equal depth changed.
+		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders");
+		shaderManagerDX9_->ClearCache(true);
+		gstate_c.useFlagsChanged = false;
+	}
 }
 
 void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
-	dxstate.depthWrite.set(true);
-	dxstate.colorMask.set(0xF);
-
 	drawEngine_.Flush();
 
-	framebufferManagerDX9_->CopyDisplayToOutput(reallyDirty);
+	shaderManager_->DirtyLastShader();
 
-	shaderManagerDX9_->DirtyLastShader();
+	framebufferManagerDX9_->CopyDisplayToOutput(reallyDirty);
 
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }

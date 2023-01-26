@@ -348,8 +348,5 @@
     <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\pch.h">
       <Filter>glslang</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\glslang\glslang\build_info.h">
-      <Filter>glslang</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

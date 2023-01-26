@@ -47,7 +47,4 @@ private:
 	volatile bool resumeRequested;
 	HANDLE pauseEvent;
 	HANDLE resumeEvent;
-
-	int xres;
-	int yres;
 };

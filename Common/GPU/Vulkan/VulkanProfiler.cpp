@@ -8,17 +8,34 @@ using namespace PPSSPP_VK;
 void VulkanProfiler::Init(VulkanContext *vulkan) {
 	vulkan_ = vulkan;
 
-	VkQueryPoolCreateInfo ci{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
-	ci.queryCount = MAX_QUERY_COUNT;
-	ci.queryType = VK_QUERY_TYPE_TIMESTAMP;
-	vkCreateQueryPool(vulkan->GetDevice(), &ci, nullptr, &queryPool_);
+	int graphicsQueueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
+	_assert_(graphicsQueueFamilyIndex >= 0);
+
+	if (queryPool_) {
+		vulkan->Delete().QueueDeleteQueryPool(queryPool_);
+	}
+
+	validBits_ = vulkan_->GetQueueFamilyProperties(graphicsQueueFamilyIndex).timestampValidBits;
+
+	if (validBits_) {
+		VkQueryPoolCreateInfo ci{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
+		ci.queryCount = MAX_QUERY_COUNT;
+		ci.queryType = VK_QUERY_TYPE_TIMESTAMP;
+		vkCreateQueryPool(vulkan->GetDevice(), &ci, nullptr, &queryPool_);
+	}
 }
 
 void VulkanProfiler::Shutdown() {
-	vkDestroyQueryPool(vulkan_->GetDevice(), queryPool_, nullptr);
+	if (queryPool_) {
+		vulkan_->Delete().QueueDeleteQueryPool(queryPool_);
+	}
 }
 
 void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstCommandBuf) {
+	if (!validBits_) {
+		return;
+	}
+
 	vulkan_ = vulkan;
 
 	// Check for old queries belonging to this frame context that we can log out - these are now
@@ -28,8 +45,7 @@ void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstComm
 		vkGetQueryPoolResults(vulkan->GetDevice(), queryPool_, 0, numQueries_, sizeof(uint64_t) * numQueries_, results.data(), sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
 
 		double timestampConversionFactor = (double)vulkan_->GetPhysicalDeviceProperties().properties.limits.timestampPeriod * (1.0 / 1000000.0);
-		int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
-		uint64_t timestampDiffMask = validBits == 64 ? 0xFFFFFFFFFFFFFFFFULL : ((1ULL << validBits) - 1);
+		uint64_t timestampDiffMask = validBits_ == 64 ? 0xFFFFFFFFFFFFFFFFULL : ((1ULL << validBits_) - 1);
 
 		static const char * const indent[4] = { "", "  ", "    ", "      " };
 
@@ -69,7 +85,7 @@ void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstComm
 }
 
 void VulkanProfiler::Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stageFlags, const char *fmt, ...) {
-	if ((enabledPtr_ && !*enabledPtr_) || numQueries_ >= MAX_QUERY_COUNT - 1) {
+	if (!validBits_ || (enabledPtr_ && !*enabledPtr_) || numQueries_ >= MAX_QUERY_COUNT - 1) {
 		return;
 	}
 
@@ -90,7 +106,7 @@ void VulkanProfiler::Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage
 }
 
 void VulkanProfiler::End(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stageFlags) {
-	if ((enabledPtr_ && !*enabledPtr_) || numQueries_ >= MAX_QUERY_COUNT - 1) {
+	if (!validBits_ || (enabledPtr_ && !*enabledPtr_) || numQueries_ >= MAX_QUERY_COUNT - 1) {
 		return;
 	}
 

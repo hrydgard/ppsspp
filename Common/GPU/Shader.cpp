@@ -118,7 +118,7 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 	}
 }
 
-void init_resources(TBuiltInResource &Resources) {
+void InitShaderResources(TBuiltInResource &Resources) {
 	Resources.maxLights = 32;
 	Resources.maxClipPlanes = 6;
 	Resources.maxTextureUnits = 32;

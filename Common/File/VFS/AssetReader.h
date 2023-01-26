@@ -5,6 +5,8 @@
 #include <zip.h>
 #endif
 
+#include <mutex>
+#include <set>
 #include <string.h>
 #include <string>
 
@@ -30,15 +32,18 @@ public:
 	ZipAssetReader(const char *zip_file, const char *in_zip_path);
 	~ZipAssetReader();
 	// use delete[]
-	virtual uint8_t *ReadAsset(const char *path, size_t *size);
-	virtual bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter);
-	virtual bool GetFileInfo(const char *path, File::FileInfo *info);
-	virtual std::string toString() const {
+	uint8_t *ReadAsset(const char *path, size_t *size) override;
+	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter) override;
+	bool GetFileInfo(const char *path, File::FileInfo *info) override;
+	std::string toString() const override {
 		return in_zip_path_;
 	}
 
 private:
+	void GetZipListings(const char *path, std::set<std::string> &files, std::set<std::string> &directories);
+
 	zip *zip_file_;
+	std::mutex lock_;
 	char in_zip_path_[256];
 };
 #endif
@@ -47,10 +52,10 @@ class DirectoryAssetReader : public AssetReader {
 public:
 	explicit DirectoryAssetReader(const Path &path);
 	// use delete[]
-	virtual uint8_t *ReadAsset(const char *path, size_t *size);
-	virtual bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter);
-	virtual bool GetFileInfo(const char *path, File::FileInfo *info);
-	virtual std::string toString() const {
+	uint8_t *ReadAsset(const char *path, size_t *size) override;
+	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter) override;
+	bool GetFileInfo(const char *path, File::FileInfo *info) override;
+	std::string toString() const override {
 		return path_.ToString();
 	}
 

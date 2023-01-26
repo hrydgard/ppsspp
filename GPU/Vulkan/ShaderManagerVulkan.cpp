@@ -19,6 +19,7 @@
 //#define SHADERLOG
 #endif
 
+#include "Common/LogReporting.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
@@ -33,7 +34,6 @@
 #include "Common/Log.h"
 #include "Common/CommonTypes.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -119,8 +119,10 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 VulkanFragmentShader::~VulkanFragmentShader() {
 	if (module_) {
 		VkShaderModule shaderModule = module_->BlockUntilReady();
-		vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
-		vulkan_->Delete().QueueCallback([](void *m) {
+		if (shaderModule) {
+			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		}
+		vulkan_->Delete().QueueCallback([](VulkanContext *vulkan, void *m) {
 			auto module = (Promise<VkShaderModule> *)m;
 			delete module;
 		}, module_);
@@ -152,8 +154,10 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, Vert
 VulkanVertexShader::~VulkanVertexShader() {
 	if (module_) {
 		VkShaderModule shaderModule = module_->BlockUntilReady();
-		vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
-		vulkan_->Delete().QueueCallback([](void *m) {
+		if (shaderModule) {
+			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		}
+		vulkan_->Delete().QueueCallback([](VulkanContext *vulkan, void *m) {
 			auto module = (Promise<VkShaderModule> *)m;
 			delete module;
 		}, module_);
@@ -185,8 +189,10 @@ VulkanGeometryShader::VulkanGeometryShader(VulkanContext *vulkan, GShaderID id, 
 VulkanGeometryShader::~VulkanGeometryShader() {
 	if (module_) {
 		VkShaderModule shaderModule = module_->BlockUntilReady();
-		vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
-		vulkan_->Delete().QueueCallback([](void *m) {
+		if (shaderModule) {
+			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		}
+		vulkan_->Delete().QueueCallback([](VulkanContext *vulkan, void *m) {
 			auto module = (Promise<VkShaderModule> *)m;
 			delete module;
 		}, module_);
@@ -289,11 +295,11 @@ uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering) {
 	return dirty;
 }
 
-void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode) {
+void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode) {
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, vertType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
+		ComputeVertexShaderID(&VSID, decoder, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
 	} else {
 		VSID = lastVSID_;
 	}
@@ -314,14 +320,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		GSID = lastGSID_;
 	}
 
-	_dbg_assert_(FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
-	_dbg_assert_(FSID.Bit(FS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
 	_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
-
-	if (GSID.Bit(GS_BIT_ENABLED)) {
-		_dbg_assert_(GSID.Bit(GS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
-		_dbg_assert_(GSID.Bit(GS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
-	}
 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastVShader_ != nullptr && lastFShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_ && GSID == lastGSID_) {
@@ -344,8 +343,13 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		bool success = GenerateVertexShader(VSID, codeBuffer_, compat_, draw_->GetBugs(), &attributeMask, &uniformMask, &flags, &genErrorString);
 		_assert_msg_(success, "VS gen error: %s", genErrorString.c_str());
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
-		vs = new VulkanVertexShader(vulkan, VSID, flags, codeBuffer_, useHWTransform);
-		vsCache_.Insert(VSID, vs);
+
+		std::lock_guard<std::mutex> guard(cacheLock_);
+		vs = vsCache_.Get(VSID);
+		if (!vs) {
+			vs = new VulkanVertexShader(vulkan, VSID, flags, codeBuffer_, useHWTransform);
+			vsCache_.Insert(VSID, vs);
+		}
 	}
 
 	VulkanFragmentShader *fs = fsCache_.Get(FSID);
@@ -357,8 +361,13 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		bool success = GenerateFragmentShader(FSID, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &flags, &genErrorString);
 		_assert_msg_(success, "FS gen error: %s", genErrorString.c_str());
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
-		fs = new VulkanFragmentShader(vulkan, FSID, flags, codeBuffer_);
-		fsCache_.Insert(FSID, fs);
+
+		std::lock_guard<std::mutex> guard(cacheLock_);
+		fs = fsCache_.Get(FSID);
+		if (!fs) {
+			fs = new VulkanFragmentShader(vulkan, FSID, flags, codeBuffer_);
+			fsCache_.Insert(FSID, fs);
+		}
 	}
 
 	VulkanGeometryShader *gs;
@@ -370,8 +379,13 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 			bool success = GenerateGeometryShader(GSID, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString);
 			_assert_msg_(success, "GS gen error: %s", genErrorString.c_str());
 			_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
-			gs = new VulkanGeometryShader(vulkan, GSID, codeBuffer_);
-			gsCache_.Insert(GSID, gs);
+
+			std::lock_guard<std::mutex> guard(cacheLock_);
+			gs = gsCache_.Get(GSID);
+			if (!gs) {
+				gs = new VulkanGeometryShader(vulkan, GSID, codeBuffer_);
+				gsCache_.Insert(GSID, gs);
+			}
 		}
 	} else {
 		gs = nullptr;
@@ -492,34 +506,67 @@ VulkanGeometryShader *ShaderManagerVulkan::GetGeometryShaderFromModule(VkShaderM
 // pipelines compiled from SPIR-V matching these shaders, pipeline creation will be practically
 // instantaneous.
 
+enum class VulkanCacheDetectFlags {
+	EQUAL_DEPTH = 1,
+};
+
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 31
+#define CACHE_VERSION 41
+
 struct VulkanCacheHeader {
 	uint32_t magic;
 	uint32_t version;
 	uint32_t useFlags;
-	uint32_t reserved;
+	uint32_t detectFlags;
 	int numVertexShaders;
 	int numFragmentShaders;
 	int numGeometryShaders;
 };
 
+bool ShaderManagerVulkan::LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine) {
+	VulkanCacheHeader header{};
+	long pos = ftell(f);
+	bool success = fread(&header, sizeof(header), 1, f) == 1;
+	// We'll read it again later, this is just to check the flags.
+	success = success && fseek(f, pos, SEEK_SET) == 0;
+	if (!success || header.magic != CACHE_HEADER_MAGIC) {
+		WARN_LOG(G3D, "Shader cache magic mismatch");
+		return false;
+	}
+	if (header.version != CACHE_VERSION) {
+		WARN_LOG(G3D, "Shader cache version mismatch, %d, expected %d", header.version, CACHE_VERSION);
+		return false;
+	}
+
+	if ((header.detectFlags & (uint32_t)VulkanCacheDetectFlags::EQUAL_DEPTH) != 0) {
+		drawEngine->SetEverUsedExactEqualDepth(true);
+	}
+
+	return true;
+}
+
 bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	VulkanCacheHeader header{};
 	bool success = fread(&header, sizeof(header), 1, f) == 1;
-	if (!success || header.magic != CACHE_HEADER_MAGIC)
-		return false;
-	if (header.version != CACHE_VERSION)
-		return false;
-	if (header.useFlags != gstate_c.useFlags)
-		return false;
+	// We don't need to validate magic/version again, done in LoadCacheFlags().
+
+	if (header.useFlags != gstate_c.GetUseFlags()) {
+		// This can simply be a result of sawExactEqualDepth_ having been flipped to true in the previous run.
+		// Let's just keep going.
+		WARN_LOG(G3D, "Shader cache useFlags mismatch, %08x, expected %08x", header.useFlags, gstate_c.GetUseFlags());
+	} else {
+		// We're compiling shaders now, so they haven't changed anymore.
+		gstate_c.useFlagsChanged = false;
+	}
+
+	int failCount = 0;
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	for (int i = 0; i < header.numVertexShaders; i++) {
 		VShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {
-			ERROR_LOG(G3D, "Vulkan shader cache truncated");
-			break;
+			ERROR_LOG(G3D, "Vulkan shader cache truncated (in VertexShaders)");
+			return false;
 		}
 		bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
 		std::string genErrorString;
@@ -527,10 +574,20 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		uint64_t uniformMask = 0;
 		VertexShaderFlags flags;
 		if (!GenerateVertexShader(id, codeBuffer_, compat_, draw_->GetBugs(), &attributeMask, &uniformMask, &flags, &genErrorString)) {
-			return false;
+			WARN_LOG(G3D, "Failed to generate vertex shader during cache load");
+			// We just ignore this one and carry on.
+			failCount++;
+			continue;
 		}
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
 		VulkanVertexShader *vs = new VulkanVertexShader(vulkan, id, flags, codeBuffer_, useHWTransform);
+		// Remove first, just to be safe (we are loading on a background thread.)
+		std::lock_guard<std::mutex> guard(cacheLock_);
+		VulkanVertexShader *old = vsCache_.Get(id);
+		if (old) {
+			vsCache_.Remove(id);
+			delete old;
+		}
 		vsCache_.Insert(id, vs);
 	}
 	uint32_t vendorID = vulkan->GetPhysicalDeviceProperties().properties.vendorID;
@@ -538,45 +595,65 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	for (int i = 0; i < header.numFragmentShaders; i++) {
 		FShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {
-			ERROR_LOG(G3D, "Vulkan shader cache truncated");
-			break;
+			ERROR_LOG(G3D, "Vulkan shader cache truncated (in FragmentShaders)");
+			return false;
 		}
 		std::string genErrorString;
 		uint64_t uniformMask = 0;
 		FragmentShaderFlags flags;
 		if (!GenerateFragmentShader(id, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &flags, &genErrorString)) {
-			return false;
+			WARN_LOG(G3D, "Failed to generate fragment shader during cache load");
+			// We just ignore this one and carry on.
+			failCount++;
+			continue;
 		}
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
 		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan, id, flags, codeBuffer_);
+		std::lock_guard<std::mutex> guard(cacheLock_);
+		VulkanFragmentShader *old = fsCache_.Get(id);
+		if (old) {
+			fsCache_.Remove(id);
+			delete old;
+		}
 		fsCache_.Insert(id, fs);
 	}
 
 	for (int i = 0; i < header.numGeometryShaders; i++) {
 		GShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {
-			ERROR_LOG(G3D, "Vulkan shader cache truncated");
-			break;
+			ERROR_LOG(G3D, "Vulkan shader cache truncated (in GeometryShaders)");
+			return false;
 		}
 		std::string genErrorString;
 		if (!GenerateGeometryShader(id, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString)) {
-			return false;
+			WARN_LOG(G3D, "Failed to generate geometry shader during cache load");
+			// We just ignore this one and carry on.
+			failCount++;
+			continue;
 		}
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
 		VulkanGeometryShader *gs = new VulkanGeometryShader(vulkan, id, codeBuffer_);
+		std::lock_guard<std::mutex> guard(cacheLock_);
+		VulkanGeometryShader *old = gsCache_.Get(id);
+		if (old) {
+			gsCache_.Remove(id);
+			delete old;
+		}
 		gsCache_.Insert(id, gs);
 	}
 
-	NOTICE_LOG(G3D, "Loaded %d vertex and %d fragment shaders", header.numVertexShaders, header.numFragmentShaders);
+	NOTICE_LOG(G3D, "ShaderCache: Loaded %d vertex, %d fragment shaders and %d geometry shaders (failed %d)", header.numVertexShaders, header.numFragmentShaders, header.numGeometryShaders, failCount);
 	return true;
 }
 
-void ShaderManagerVulkan::SaveCache(FILE *f) {
+void ShaderManagerVulkan::SaveCache(FILE *f, DrawEngineVulkan *drawEngine) {
 	VulkanCacheHeader header{};
 	header.magic = CACHE_HEADER_MAGIC;
 	header.version = CACHE_VERSION;
-	header.useFlags = gstate_c.useFlags;
-	header.reserved = 0;
+	header.useFlags = gstate_c.GetUseFlags();
+	header.detectFlags = 0;
+	if (drawEngine->EverUsedExactEqualDepth())
+		header.detectFlags |= (uint32_t)VulkanCacheDetectFlags::EQUAL_DEPTH;
 	header.numVertexShaders = (int)vsCache_.size();
 	header.numFragmentShaders = (int)fsCache_.size();
 	header.numGeometryShaders = (int)gsCache_.size();

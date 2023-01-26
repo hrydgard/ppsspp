@@ -462,6 +462,7 @@ void BlockAllocator::DoState(PointerWrap &p)
 	}
 	else
 	{
+		_assert_(bottom_ != nullptr);
 		for (const Block *bp = bottom_; bp != NULL; bp = bp->next)
 			++count;
 		Do(p, count);

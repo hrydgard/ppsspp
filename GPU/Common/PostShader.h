@@ -19,10 +19,10 @@
 // Postprocessing shader manager
 // For FXAA, "Natural", bloom, B&W, cross processing and whatnot.
 
+#pragma once
+
 #include <string>
 #include <vector>
-
-#include "Common/Data/Format/IniFile.h"
 
 struct ShaderInfo {
 	Path iniFile;  // which ini file was this definition in? So we can write settings back later
@@ -114,3 +114,9 @@ const std::vector<ShaderInfo> &GetAllPostShaderInfo();
 
 const TextureShaderInfo *GetTextureShaderInfo(const std::string &name);
 const std::vector<TextureShaderInfo> &GetAllTextureShaderInfo();
+void RemoveUnknownPostShaders(std::vector<std::string> *names);
+
+// Call this any time you alter the postshader list. It makes sure
+// that "usePrevFrame" shaders are at the end, and that there's only one.
+// It'll also enforce any similar future rules.
+void FixPostShaderOrder(std::vector<std::string> *names);

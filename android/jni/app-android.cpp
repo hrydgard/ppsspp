@@ -50,6 +50,9 @@ struct JNIEnv {};
 #define JNI_VERSION_1_6 16
 #endif
 
+#include "Common/Log.h"
+#include "Common/LogReporting.h"
+
 #include "Common/Net/Resolve.h"
 #include "android/jni/AndroidAudio.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
@@ -71,14 +74,12 @@ struct JNIEnv {};
 #include "Common/Data/Text/Parsers.h"
 #include "Common/VR/PPSSPPVR.h"
 
-#include "Common/Log.h"
 #include "Common/GraphicsContext.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 
 #include "AndroidGraphicsContext.h"
 #include "AndroidVulkanContext.h"
-#include "AndroidEGLContext.h"
 #include "AndroidJavaGLContext.h"
 
 #include "Core/Config.h"
@@ -123,22 +124,15 @@ struct FrameCommand {
 static std::mutex frameCommandLock;
 static std::queue<FrameCommand> frameCommands;
 
-std::string systemName;
-std::string langRegion;
-std::string mogaVersion;
-std::string boardName;
+static std::string systemName;
+static std::string langRegion;
+static std::string mogaVersion;
+static std::string boardName;
 
 std::string g_externalDir;  // Original external dir (root of Android storage).
 std::string g_extFilesDir;  // App private external dir.
 
-std::vector<std::string> g_additionalStorageDirs;
-
-static float left_joystick_x_async;
-static float left_joystick_y_async;
-static float right_joystick_x_async;
-static float right_joystick_y_async;
-static float hat_joystick_x_async;
-static float hat_joystick_y_async;
+static std::vector<std::string> g_additionalStorageDirs;
 
 static int optimalFramesPerBuffer = 0;
 static int optimalSampleRate = 0;
@@ -160,7 +154,7 @@ static int desiredBackbufferSizeX;
 static int desiredBackbufferSizeY;
 
 // Cache the class loader so we can use it from native threads. Required for TextAndroid.
-JavaVM* gJvm = nullptr;
+static JavaVM* gJvm = nullptr;
 static jobject gClassLoader;
 static jmethodID gFindClassMethod;
 
@@ -173,31 +167,35 @@ static jmethodID postCommand;
 static jmethodID getDebugString;
 
 static jobject nativeActivity;
-static volatile bool exitRenderLoop;
-static bool renderLoopRunning;
-static int inputBoxSequence = 1;
-std::map<int, std::function<void(bool, const std::string &)>> inputBoxCallbacks;
 
-static float dp_xscale = 1.0f;
-static float dp_yscale = 1.0f;
-
+static std::atomic<bool> exitRenderLoop;
+static std::atomic<bool> renderLoopRunning;
 static bool renderer_inited = false;
-static bool sustainedPerfSupported = false;
 static std::mutex renderLock;
 
-// See NativeQueryConfig("androidJavaGL") to change this value.
-static bool javaGL = true;
+static int inputBoxSequence = 1;
+static std::map<int, std::function<void(bool, const std::string &)>> inputBoxCallbacks;
 
-static std::string library_path;
+static bool sustainedPerfSupported = false;
+
 static std::map<SystemPermission, PermissionStatus> permissions;
 
-AndroidGraphicsContext *graphicsContext;
+static AndroidGraphicsContext *graphicsContext;
 
 #ifndef LOG_APP_NAME
 #define LOG_APP_NAME "PPSSPP"
 #endif
 
 #define MessageBox(a, b, c, d) __android_log_print(ANDROID_LOG_INFO, APP_NAME, "%s %s", (b), (c));
+
+#if PPSSPP_ARCH(ARMV7)
+// Old Android workaround
+extern "C" {
+int utimensat(int fd, const char *path, const struct timespec times[2]) {
+	return -1;
+}
+}
+#endif
 
 void AndroidLogger::Log(const LogMessage &message) {
 	int mode;
@@ -240,17 +238,39 @@ void AndroidLogger::Log(const LogMessage &message) {
 JNIEnv* getEnv() {
 	JNIEnv *env;
 	int status = gJvm->GetEnv((void**)&env, JNI_VERSION_1_6);
-	if(status < 0) {
-		status = gJvm->AttachCurrentThread(&env, NULL);
-		if(status < 0) {
-			return nullptr;
-		}
-	}
+	_assert_msg_(status >= 0, "'%s': Can only call getEnv if you've attached the thread already!", GetCurrentThreadName());
 	return env;
 }
 
 jclass findClass(const char* name) {
 	return static_cast<jclass>(getEnv()->CallObjectMethod(gClassLoader, gFindClassMethod, getEnv()->NewStringUTF(name)));
+}
+
+void Android_AttachThreadToJNI() {
+	JNIEnv *env;
+	int status = gJvm->GetEnv((void **)&env, JNI_VERSION_1_6);
+	if (status < 0) {
+		INFO_LOG(SYSTEM, "Attaching thread '%s' (not already attached) to JNI.", GetCurrentThreadName());
+		JavaVMAttachArgs args{};
+		args.version = JNI_VERSION_1_6;
+		args.name = GetCurrentThreadName();
+		status = gJvm->AttachCurrentThread(&env, &args);
+
+		if (status < 0) {
+			// bad, but what can we do other than report..
+			ERROR_LOG_REPORT_ONCE(threadAttachFail, SYSTEM, "Failed to attach thread %s to JNI.", GetCurrentThreadName());
+		}
+	} else {
+		WARN_LOG(SYSTEM, "Thread %s was already attached to JNI.", GetCurrentThreadName());
+	}
+}
+
+void Android_DetachThreadFromJNI() {
+	if (gJvm->DetachCurrentThread() == JNI_OK) {
+		INFO_LOG(SYSTEM, "Detached thread from JNI: '%s'", GetCurrentThreadName());
+	} else {
+		WARN_LOG(SYSTEM, "Failed to detach thread '%s' from JNI - never attached?", GetCurrentThreadName());
+	}
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
@@ -266,29 +286,44 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 	gClassLoader = env->NewGlobalRef(env->CallObjectMethod(randomClass, getClassLoaderMethod));
 	gFindClassMethod = env->GetMethodID(classLoaderClass, "findClass",
 										"(Ljava/lang/String;)Ljava/lang/Class;");
+
+	RegisterAttachDetach(&Android_AttachThreadToJNI, &Android_DetachThreadFromJNI);
 	return JNI_VERSION_1_6;
 }
 
+// Only used in OpenGL mode.
 static void EmuThreadFunc() {
 	JNIEnv *env;
-	gJvm->AttachCurrentThread(&env, nullptr);
 
-	SetCurrentThreadName("Emu");
+	SetCurrentThreadName("EmuThread");
+
+	// Name the thread in the JVM, because why not (might result in better debug output in Play Console).
+	// TODO: Do something clever with getEnv() and stored names from SetCurrentThreadName?
+	JavaVMAttachArgs args{};
+	args.version = JNI_VERSION_1_6;
+	args.name = "EmuThread";
+	gJvm->AttachCurrentThread(&env, &args);
+
 	INFO_LOG(SYSTEM, "Entering emu thread");
 
 	// Wait for render loop to get started.
-	if (!graphicsContext || !graphicsContext->Initialized()) {
-		INFO_LOG(SYSTEM, "Runloop: Waiting for displayInit...");
-		while (!graphicsContext || !graphicsContext->Initialized()) {
-			sleep_ms(20);
-		}
-	} else {
-		INFO_LOG(SYSTEM, "Runloop: Graphics context available! %p", graphicsContext);
+	INFO_LOG(SYSTEM, "Runloop: Waiting for displayInit...");
+	while (!graphicsContext || graphicsContext->GetState() == GraphicsContextState::PENDING) {
+		sleep_ms(20);
+	}
+
+	// Check the state of the graphics context before we try to feed it into NativeInitGraphics.
+	if (graphicsContext->GetState() != GraphicsContextState::INITIALIZED) {
+		ERROR_LOG(G3D, "Failed to initialize the graphics context! %d", (int)graphicsContext->GetState());
+		emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+		gJvm->DetachCurrentThread();
+		return;
 	}
 
 	if (!NativeInitGraphics(graphicsContext)) {
-		_assert_msg_(false, "Failed to initialize graphics, might as well bail");
+		_assert_msg_(false, "NativeInitGraphics failed, might as well bail");
 		emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+		gJvm->DetachCurrentThread();
 		return;
 	}
 
@@ -510,16 +545,19 @@ std::string Android_GetInputDeviceDebugString() {
 		return "(N/A)";
 	}
 	auto env = getEnv();
-	jstring param = env->NewStringUTF("InputDevice");
 
-	jstring str = (jstring)env->CallObjectMethod(nativeActivity, getDebugString, param);
-	if (!str) {
+	jstring jparam = env->NewStringUTF("InputDevice");
+	jstring jstr = (jstring)env->CallObjectMethod(nativeActivity, getDebugString, jparam);
+	if (!jstr) {
+		env->DeleteLocalRef(jparam);
 		return "(N/A)";
 	}
 
-	const char *charArray = env->GetStringUTFChars(str, 0);
+	const char *charArray = env->GetStringUTFChars(jstr, 0);
 	std::string retVal = charArray;
-	env->DeleteLocalRef(str);
+	env->ReleaseStringUTFChars(jstr, charArray);
+	env->DeleteLocalRef(jstr);
+	env->DeleteLocalRef(jparam);
 	return retVal;
 }
 
@@ -640,7 +678,7 @@ static void parse_args(std::vector<std::string> &args, const std::string value) 
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
-		jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
+		jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam,
 		jint jAndroidVersion, jstring jboard) {
 	SetCurrentThreadName("androidInit");
 
@@ -650,17 +688,10 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	EARLY_LOG("NativeApp.init() -- begin");
 	PROFILE_INIT();
 
-	std::lock_guard<std::mutex> guard(renderLock);
+	std::lock_guard<std::mutex> guard(renderLock);  // Note: This is held for the rest of this function - intended?
 	renderer_inited = false;
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
-
-	left_joystick_x_async = 0;
-	left_joystick_y_async = 0;
-	right_joystick_x_async = 0;
-	right_joystick_y_async = 0;
-	hat_joystick_x_async = 0;
-	hat_joystick_y_async = 0;
 
 	std::string apkPath = GetJavaString(env, japkpath);
 	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
@@ -687,7 +718,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	std::string user_data_path = GetJavaString(env, jdataDir);
 	if (user_data_path.size() > 0)
 		user_data_path += "/";
-	library_path = GetJavaString(env, jlibraryDir) + "/";
 	std::string shortcut_param = GetJavaString(env, jshortcutParam);
 	std::string cacheDir = GetJavaString(env, jcacheDir);
 	std::string buildBoard = GetJavaString(env, jboard);
@@ -727,24 +757,20 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	// No need to use EARLY_LOG anymore.
 
 retry:
-	// Now that we've loaded config, set javaGL.
-	javaGL = NativeQueryConfig("androidJavaGL") == "true";
-
 	switch (g_Config.iGPUBackend) {
 	case (int)GPUBackend::OPENGL:
 		useCPUThread = true;
-		if (javaGL) {
-			INFO_LOG(SYSTEM, "NativeApp.init() -- creating OpenGL context (JavaGL)");
-			graphicsContext = new AndroidJavaEGLGraphicsContext();
-		} else {
-			graphicsContext = new AndroidEGLGraphicsContext();
-		}
+		INFO_LOG(SYSTEM, "NativeApp.init() -- creating OpenGL context (JavaGL)");
+		graphicsContext = new AndroidJavaEGLGraphicsContext();
+		INFO_LOG(SYSTEM, "NativeApp.init() - launching emu thread");
+		EmuThreadStart();
 		break;
 	case (int)GPUBackend::VULKAN:
 	{
 		INFO_LOG(SYSTEM, "NativeApp.init() -- creating Vulkan context");
-		useCPUThread = false;  // The Vulkan render manager manages its own thread.
-		// We create and destroy the Vulkan graphics context in the "EGL" thread.
+		useCPUThread = false;
+		// The Vulkan render manager manages its own thread.
+		// We create and destroy the Vulkan graphics context in the app main thread though.
 		AndroidVulkanContext *ctx = new AndroidVulkanContext();
 		if (!ctx->InitAPI()) {
 			INFO_LOG(SYSTEM, "Failed to initialize Vulkan, switching to OpenGL");
@@ -762,14 +788,10 @@ retry:
 		goto retry;
 	}
 
-	if (useCPUThread) {
-		INFO_LOG(SYSTEM, "NativeApp.init() - launching emu thread");
-		EmuThreadStart();
-	}
-
 	if (IsVREnabled()) {
 		Version gitVer(PPSSPP_GIT_VERSION);
 		InitVROnAndroid(gJvm, nativeActivity, systemName.c_str(), gitVer.ToInteger(), "PPSSPP");
+		SetVRCallbacks(NativeAxis, NativeKey, NativeTouch);
 	}
 }
 
@@ -862,7 +884,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	INFO_LOG(SYSTEM, "NativeApp.shutdown() -- begin");
 	if (renderer_inited) {
 		INFO_LOG(G3D, "Shutting down renderer");
-		// This will be from the wrong thread? :/
 		graphicsContext->Shutdown();
 		delete graphicsContext;
 		graphicsContext = nullptr;
@@ -878,35 +899,40 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		VFSShutdown();
 	}
 
-	std::lock_guard<std::mutex> guard(frameCommandLock);
-	while (frameCommands.size())
-		frameCommands.pop();
+	{
+		std::lock_guard<std::mutex> guard(frameCommandLock);
+		while (frameCommands.size())
+			frameCommands.pop();
+	}
 	INFO_LOG(SYSTEM, "NativeApp.shutdown() -- end");
 }
 
-// JavaEGL
+// JavaEGL. This doesn't get called on the Vulkan path.
+// This gets called from onSurfaceCreated.
 extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
+	_assert_(useCPUThread);
 
+	INFO_LOG(G3D, "NativeApp.displayInit()");
 	bool firstStart = !renderer_inited;
 
 	// We should be running on the render thread here.
 	std::string errorMessage;
 	if (renderer_inited) {
-		// Would be really nice if we could get something on the GL thread immediately when shutting down.
+		// Would be really nice if we could get something on the GL thread immediately when shutting down,
+		// but the only mechanism for handling lost devices seems to be that onSurfaceCreated is called again,
+		// which ends up calling displayInit.
+
 		INFO_LOG(G3D, "NativeApp.displayInit() restoring");
-		if (useCPUThread) {
-			EmuThreadStop("displayInit");
-			graphicsContext->BeginAndroidShutdown();
-			INFO_LOG(G3D, "BeginAndroidShutdown. Looping until emu thread done...");
-			// Skipping GL calls here because the old context is lost.
-			while (graphicsContext->ThreadFrame()) {
-				continue;
-			}
-			INFO_LOG(G3D, "Joining emu thread");
-			EmuThreadJoin();
-		} else {
-			NativeShutdownGraphics();
+		EmuThreadStop("displayInit");
+		graphicsContext->BeginAndroidShutdown();
+		INFO_LOG(G3D, "BeginAndroidShutdown. Looping until emu thread done...");
+		// Skipping GL calls here because the old context is lost.
+		while (graphicsContext->ThreadFrame()) {
+			continue;
 		}
+		INFO_LOG(G3D, "Joining emu thread");
+		EmuThreadJoin();
+
 		graphicsContext->ThreadEnd();
 		graphicsContext->ShutdownFromRenderThread();
 
@@ -921,21 +947,14 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 			host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
 		}, nullptr);
 
-		if (useCPUThread) {
-			EmuThreadStart();
-		} else {
-			if (!NativeInitGraphics(graphicsContext)) {
-				// Gonna be in a weird state here, not good.
-				System_Toast("Failed to initialize graphics.");
-				return false;
-			}
-		}
+		EmuThreadStart();
 
 		graphicsContext->ThreadStart();
+
 		INFO_LOG(G3D, "Restored.");
 	} else {
 		INFO_LOG(G3D, "NativeApp.displayInit() first time");
-		if (!graphicsContext->InitFromRenderThread(nullptr, 0, 0, 0, 0)) {
+		if (!graphicsContext || !graphicsContext->InitFromRenderThread(nullptr, 0, 0, 0, 0)) {
 			System_Toast("Graphics initialization failed. Quitting.");
 			return false;
 		}
@@ -947,12 +966,12 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		graphicsContext->ThreadStart();
 		renderer_inited = true;
 	}
+
 	NativeMessageReceived("recreateviews", "");
 
 	if (IsVREnabled()) {
 		EnterVR(firstStart, graphicsContext->GetAPIContext());
 	}
-
 	return true;
 }
 
@@ -966,19 +985,11 @@ static void recalculateDpi() {
 	dp_xres = display_xres * g_dpi_scale_x;
 	dp_yres = display_yres * g_dpi_scale_y;
 
-	// Touch scaling is from display pixels to dp pixels.
-	// Wait, doesn't even make sense... this is equal to g_dpi_scale_x. TODO: Figure out what's going on!
-	dp_xscale = (float)dp_xres / (float)display_xres;
-	dp_yscale = (float)dp_yres / (float)display_yres;
-
 	pixel_in_dps_x = (float)pixel_xres / dp_xres;
 	pixel_in_dps_y = (float)pixel_yres / dp_yres;
 
-	INFO_LOG(G3D, "RecalcDPI: display_xres=%d display_yres=%d", display_xres, display_yres);
-	INFO_LOG(G3D, "RecalcDPI: g_dpi=%f g_dpi_scale_x=%f g_dpi_scale_y=%f", g_dpi, g_dpi_scale_x, g_dpi_scale_y);
-	INFO_LOG(G3D, "RecalcDPI: dp_xscale=%f dp_yscale=%f", dp_xscale, dp_yscale);
-	INFO_LOG(G3D, "RecalcDPI: dp_xres=%d dp_yres=%d", dp_xres, dp_yres);
-	INFO_LOG(G3D, "RecalcDPI: pixel_xres=%d pixel_yres=%d", pixel_xres, pixel_yres);
+	INFO_LOG(G3D, "RecalcDPI: display_xres=%d display_yres=%d pixel_xres=%d pixel_yres=%d", display_xres, display_yres, pixel_xres, pixel_yres);
+	INFO_LOG(G3D, "RecalcDPI: g_dpi=%f g_dpi_scale_x=%f g_dpi_scale_y=%f dp_xres=%d dp_yres=%d", g_dpi, g_dpi_scale_x, g_dpi_scale_y, dp_xres, dp_yres);
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh, jint format) {
@@ -1052,6 +1063,7 @@ void UpdateRunLoopAndroid(JNIEnv *env) {
 
 	std::lock_guard<std::mutex> guard(frameCommandLock);
 	if (!nativeActivity) {
+		ERROR_LOG(SYSTEM, "No activity, clearing commands");
 		while (!frameCommands.empty())
 			frameCommands.pop();
 		return;
@@ -1071,15 +1083,16 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 		return;
 
 	if (useCPUThread) {
-		// This is the "GPU thread".
-		if (!graphicsContext || !graphicsContext->ThreadFrame())
+		// This is the "GPU thread". Call ThreadFrame.
+		if (!graphicsContext || !graphicsContext->ThreadFrame()) {
 			return;
+		}
 	} else {
 		UpdateRunLoopAndroid(env);
 	}
 
 	if (IsVREnabled()) {
-		UpdateVRInput(NativeAxis, NativeKey, NativeTouch, g_Config.bHapticFeedback, dp_xscale, dp_yscale);
+		UpdateVRInput(g_Config.bHapticFeedback, g_dpi_scale_x, g_dpi_scale_y);
 		FinishVRRender();
 	}
 }
@@ -1100,11 +1113,11 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 	}
 }
 
-extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
 
-	float scaledX = x * dp_xscale;
-	float scaledY = y * dp_yscale;
+	float scaledX = x * g_dpi_scale_x;
+	float scaledY = y * g_dpi_scale_y;
 
 	TouchInput touch;
 	touch.id = pointerId;
@@ -1112,8 +1125,7 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	touch.y = scaledY;
 	touch.flags = code;
 
-	bool retval = NativeTouch(touch);
-	return retval;
+	NativeTouch(touch);
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key, jboolean isRepeat) {
@@ -1135,59 +1147,31 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyUp(JNIEnv *, jclass, jin
 	return NativeKey(keyInput);
 }
 
-extern "C" void Java_org_ppsspp_ppsspp_NativeApp_beginJoystickEvent(
-	JNIEnv *env, jclass) {
-	// mutex lock?
-}
-
-extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 		JNIEnv *env, jclass, jint deviceId, jint axisId, jfloat value) {
 	if (!renderer_inited)
-		return false;
-	switch (axisId) {
-	case JOYSTICK_AXIS_X:
-		left_joystick_x_async = value;
-		break;
-	case JOYSTICK_AXIS_Y:
-		left_joystick_y_async = -value;
-		break;
-	case JOYSTICK_AXIS_Z:
-		right_joystick_x_async = value;
-		break;
-	case JOYSTICK_AXIS_RZ:
-		right_joystick_y_async = -value;
-		break;
-	case JOYSTICK_AXIS_HAT_X:
-		hat_joystick_x_async = value;
-		break;
-	case JOYSTICK_AXIS_HAT_Y:
-		hat_joystick_y_async = -value;
-		break;
-	}
+		return;
 
 	AxisInput axis;
 	axis.axisId = axisId;
 	axis.deviceId = deviceId;
 	axis.value = value;
 
-	return NativeAxis(axis);
+	NativeAxis(axis);
 }
-
-extern "C" void Java_org_ppsspp_ppsspp_NativeApp_endJoystickEvent(
-	JNIEnv *env, jclass) {
-	// mutex unlock?
-}
-
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 	JNIEnv *env, jclass, jint stick, jfloat x, jfloat y) {
+	if (!renderer_inited)
+		return false;
+
 	// TODO: Support mousewheel for android
 	return true;
 }
 
-extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
 	if (!renderer_inited)
-		return false;
+		return;
 
 	AxisInput axis;
 	axis.deviceId = DEVICE_ID_ACCELEROMETER;
@@ -1195,17 +1179,15 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEn
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
 	axis.value = x;
-	bool retvalX = NativeAxis(axis);
+	NativeAxis(axis);
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
 	axis.value = y;
-	bool retvalY = NativeAxis(axis);
+	NativeAxis(axis);
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
 	axis.value = z;
-	bool retvalZ = NativeAxis(axis);
-
-	return retvalX || retvalY || retvalZ;
+	NativeAxis(axis);
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {
@@ -1243,7 +1225,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 	NativeMessageReceived(msg.c_str(), prm.c_str());
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_exitEGLRenderLoop(JNIEnv *env, jobject obj) {
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_requestExitVulkanRenderLoop(JNIEnv *env, jobject obj) {
 	if (!renderLoopRunning) {
 		ERROR_LOG(SYSTEM, "Render loop already exited");
 		return;
@@ -1251,50 +1233,6 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_exitEGLRenderLoop(
 	exitRenderLoop = true;
 	while (renderLoopRunning) {
 		sleep_ms(10);
-	}
-}
-
-void correctRatio(int &sz_x, int &sz_y, float scale) {
-	float x = (float)sz_x;
-	float y = (float)sz_y;
-	float ratio = x / y;
-	INFO_LOG(G3D, "CorrectRatio: Considering size: %0.2f/%0.2f=%0.2f for scale %f", x, y, ratio, scale);
-	float targetRatio;
-
-	// Try to get the longest dimension to match scale*PSP resolution.
-	if (x >= y) {
-		targetRatio = 480.0f / 272.0f;
-		x = 480.f * scale;
-		y = 272.f * scale;
-	} else {
-		targetRatio = 272.0f / 480.0f;
-		x = 272.0f * scale;
-		y = 480.0f * scale;
-	}
-
-	float correction = targetRatio / ratio;
-	INFO_LOG(G3D, "Target ratio: %0.2f ratio: %0.2f correction: %0.2f", targetRatio, ratio, correction);
-	if (ratio < targetRatio) {
-		y *= correction;
-	} else {
-		x /= correction;
-	}
-
-	sz_x = x;
-	sz_y = y;
-	INFO_LOG(G3D, "Corrected ratio: %dx%d", sz_x, sz_y);
-}
-
-void getDesiredBackbufferSize(int &sz_x, int &sz_y) {
-	sz_x = display_xres;
-	sz_y = display_yres;
-	std::string config = NativeQueryConfig("hwScale");
-	int scale;
-	if (1 == sscanf(config.c_str(), "%d", &scale) && scale > 0) {
-		correctRatio(sz_x, sz_y, scale);
-	} else {
-		sz_x = 0;
-		sz_y = 0;
 	}
 }
 
@@ -1326,18 +1264,6 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 	}
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_computeDesiredBackbufferDimensions() {
-	getDesiredBackbufferSize(desiredBackbufferSizeX, desiredBackbufferSizeY);
-}
-
-extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferWidth(JNIEnv *, jclass) {
-	return desiredBackbufferSizeX;
-}
-
-extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferHeight(JNIEnv *, jclass) {
-	return desiredBackbufferSizeY;
-}
-
 std::vector<std::string> __cameraGetDeviceList() {
 	jclass cameraClass = findClass("org/ppsspp/ppsspp/CameraHelper");
 	jmethodID deviceListMethod = getEnv()->GetStaticMethodID(cameraClass, "getDeviceList", "()Ljava/util/ArrayList;");
@@ -1349,7 +1275,7 @@ std::vector<std::string> __cameraGetDeviceList() {
 	jint arrayListObjectLen = getEnv()->CallIntMethod(deviceListObject, arrayListSize);
 	std::vector<std::string> deviceListVector;
 
-	for (int i=0; i < arrayListObjectLen; i++) {
+	for (int i = 0; i < arrayListObjectLen; i++) {
 		jstring dev = static_cast<jstring>(getEnv()->CallObjectMethod(deviceListObject, arrayListGet, i));
 		const char* cdev = getEnv()->GetStringUTFChars(dev, nullptr);
 		deviceListVector.push_back(cdev);
@@ -1403,13 +1329,14 @@ static void ProcessFrameCommands(JNIEnv *env) {
 	}
 }
 
-extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
+// This runs in Vulkan mode only.
+extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
+	_assert_(!useCPUThread);
+
 	if (!graphicsContext) {
-		ERROR_LOG(G3D, "runEGLRenderLoop: Tried to enter without a created graphics context.");
+		ERROR_LOG(G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
 		return false;
 	}
-
-	// Needed for Vulkan, even if we're not using the old EGL path.
 
 	exitRenderLoop = false;
 	// This is up here to prevent race conditions, in case we pause during init.
@@ -1417,55 +1344,37 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 	ANativeWindow *wnd = _surf ? ANativeWindow_fromSurface(env, _surf) : nullptr;
 
-	WARN_LOG(G3D, "runEGLRenderLoop. display_xres=%d display_yres=%d", display_xres, display_yres);
+	WARN_LOG(G3D, "runVulkanRenderLoop. display_xres=%d display_yres=%d desiredBackbufferSizeX=%d desiredBackbufferSizeY=%d",
+		display_xres, display_yres, desiredBackbufferSizeX, desiredBackbufferSizeY);
 
-	if (wnd == nullptr) {
+	if (!wnd) {
+		// This shouldn't ever happen.
 		ERROR_LOG(G3D, "Error: Surface is null.");
 		renderLoopRunning = false;
 		return false;
 	}
 
-	auto tryInit = [&]() {
-		if (graphicsContext->InitFromRenderThread(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
-			return true;
-		} else {
-			ERROR_LOG(G3D, "Failed to initialize graphics context.");
-			System_Toast("Failed to initialize graphics context.");
-			return false;
-		}
-	};
+	if (!graphicsContext->InitFromRenderThread(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
+		// On Android, if we get here, really no point in continuing.
+		// The UI is supposed to render on any device both on OpenGL and Vulkan. If either of those don't work
+		// on a device, we blacklist it. Hopefully we should have already failed in InitAPI anyway and reverted to GL back then.
+		ERROR_LOG(G3D, "Failed to initialize graphics context.");
+		System_Toast("Failed to initialize graphics context.");
 
-	bool initSuccess = tryInit();
-	if (!initSuccess) {
-		if (!exitRenderLoop && g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-			INFO_LOG(G3D, "Trying again, this time with OpenGL.");
-			SetGPUBackend(GPUBackend::OPENGL);
-			g_Config.iGPUBackend = (int)GetGPUBackend();
-
-			// If we were still supporting EGL for GL, we'd retry here:
-			//initSuccess = tryInit();
-		}
-
-		if (!initSuccess) {
-			delete graphicsContext;
-			graphicsContext = nullptr;
-			renderLoopRunning = false;
-			return false;
-		}
+		delete graphicsContext;
+		graphicsContext = nullptr;
+		renderLoopRunning = false;
+		return false;
 	}
 
 	if (!exitRenderLoop) {
-		if (!useCPUThread) {
-			if (!NativeInitGraphics(graphicsContext)) {
-				ERROR_LOG(G3D, "Failed to initialize graphics.");
-				// Gonna be in a weird state here..
-			}
+		if (!NativeInitGraphics(graphicsContext)) {
+			ERROR_LOG(G3D, "Failed to initialize graphics.");
+			// Gonna be in a weird state here..
 		}
 		graphicsContext->ThreadStart();
 		renderer_inited = true;
-	}
 
-	if (!exitRenderLoop) {
 		static bool hasSetThreadName = false;
 		if (!hasSetThreadName) {
 			hasSetThreadName = true;
@@ -1473,33 +1382,17 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 		}
 	}
 
-	if (useCPUThread) {
-		ERROR_LOG(SYSTEM, "Running graphics loop");
-		while (!exitRenderLoop) {
-			// This is the "GPU thread".
-			graphicsContext->ThreadFrame();
-			graphicsContext->SwapBuffers();
-		}
-	} else {
-		while (!exitRenderLoop) {
-			LockedNativeUpdateRender();
-			graphicsContext->SwapBuffers();
+	while (!exitRenderLoop) {
+		LockedNativeUpdateRender();
+		graphicsContext->SwapBuffers();
 
-			ProcessFrameCommands(env);
-		}
+		ProcessFrameCommands(env);
 	}
 
 	INFO_LOG(G3D, "Leaving EGL/Vulkan render loop.");
 
-	if (useCPUThread) {
-		EmuThreadStop("exitrenderloop");
-		while (graphicsContext->ThreadFrame()) {
-			continue;
-		}
-		EmuThreadJoin();
-	} else {
-		NativeShutdownGraphics();
-	}
+	NativeShutdownGraphics();
+
 	renderer_inited = false;
 	graphicsContext->ThreadEnd();
 
@@ -1507,6 +1400,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	INFO_LOG(G3D, "Shutting down graphics context from render thread...");
 	graphicsContext->ShutdownFromRenderThread();
 	renderLoopRunning = false;
+
 	WARN_LOG(G3D, "Render loop function exited.");
 	return true;
 }

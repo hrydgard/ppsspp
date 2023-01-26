@@ -132,10 +132,10 @@ std::string DrawEngineCommon::DebugGetVertexLoaderString(std::string id, DebugSh
 struct Plane {
 	float x, y, z, w;
 	void Set(float _x, float _y, float _z, float _w) { x = _x; y = _y; z = _z; w = _w; }
-	float Test(float f[3]) const { return x * f[0] + y * f[1] + z * f[2] + w; }
+	float Test(const float f[3]) const { return x * f[0] + y * f[1] + z * f[2] + w; }
 };
 
-static void PlanesFromMatrix(float mtx[16], Plane planes[6]) {
+static void PlanesFromMatrix(const float mtx[16], Plane planes[6]) {
 	planes[0].Set(mtx[3]-mtx[0], mtx[7]-mtx[4], mtx[11]-mtx[8], mtx[15]-mtx[12]);  // Right
 	planes[1].Set(mtx[3]+mtx[0], mtx[7]+mtx[4], mtx[11]+mtx[8], mtx[15]+mtx[12]);  // Left
 	planes[2].Set(mtx[3]+mtx[1], mtx[7]+mtx[5], mtx[11]+mtx[9], mtx[15]+mtx[13]);  // Bottom
@@ -422,7 +422,7 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 	static std::vector<SimpleVertex> simpleVertices;
 	temp_buffer.resize(std::max((int)indexUpperBound, 8192) * 128 / sizeof(u32));
 	simpleVertices.resize(indexUpperBound + 1);
-	NormalizeVertices((u8 *)(&simpleVertices[0]), (u8 *)(&temp_buffer[0]), Memory::GetPointer(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, gstate.vertType);
+	NormalizeVertices((u8 *)(&simpleVertices[0]), (u8 *)(&temp_buffer[0]), Memory::GetPointerUnchecked(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, gstate.vertType);
 
 	float world[16];
 	float view[16];
@@ -790,9 +790,13 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		DispatchFlush();
 	}
 
-	// TODO: Is this the right thing to do?
+	// This isn't exactly right, if we flushed, since prims can straddle previous calls.
+	// But it generally works for common usage.
 	if (prim == GE_PRIM_KEEP_PREVIOUS) {
-		prim = prevPrim_ != GE_PRIM_INVALID ? prevPrim_ : GE_PRIM_POINTS;
+		// Has to be set to something, let's assume POINTS (0) if no previous.
+		if (prevPrim_ == GE_PRIM_INVALID)
+			prevPrim_ = GE_PRIM_POINTS;
+		prim = prevPrim_;
 	} else {
 		prevPrim_ = prim;
 	}

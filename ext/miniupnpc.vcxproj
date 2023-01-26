@@ -68,6 +68,7 @@
     <ClCompile Include="miniupnp\miniupnpc\upnpreplyparse.c" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="miniupnp-build\Android.mk" />
     <None Include="miniupnp\miniupnpc\msvc\genminiupnpcstrings.vbs">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </None>

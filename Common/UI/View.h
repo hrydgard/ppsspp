@@ -108,7 +108,6 @@ struct Theme {
 	Style headerStyle;
 	Style infoStyle;
 
-	Style popupTitle;
 	Style popupStyle;
 
 	uint32_t backgroundColor;
@@ -287,6 +286,13 @@ struct Margins {
 	int vert() const {
 		return top + bottom;
 	}
+	void SetAll(float f) {
+		int8_t i = (int)f;
+		top = i;
+		bottom = i;
+		left = i;
+		right = i;
+	}
 
 	int8_t top;
 	int8_t bottom;
@@ -365,7 +371,7 @@ class CallbackColorTween;
 
 class View {
 public:
-	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams), visibility_(V_VISIBLE), measuredWidth_(0), measuredHeight_(0), enabledPtr_(0), enabled_(true), enabledMeansDisabled_(false) {
+	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams) {
 		if (!layoutParams)
 			layoutParams_.reset(new LayoutParams());
 	}
@@ -461,7 +467,7 @@ public:
 	virtual bool IsViewGroup() const { return false; }
 	virtual bool ContainsSubview(const View *view) const { return false; }
 
-	Point GetFocusPosition(FocusDirection dir);
+	Point GetFocusPosition(FocusDirection dir) const;
 
 	template <class T>
 	T *AddTween(T *t) {
@@ -474,22 +480,22 @@ protected:
 	std::unique_ptr<LayoutParams> layoutParams_;
 
 	std::string tag_;
-	Visibility visibility_;
+	Visibility visibility_ = V_VISIBLE;
 
 	// Results of measure pass. Set these in Measure.
-	float measuredWidth_;
-	float measuredHeight_;
+	float measuredWidth_ = 0.0f;
+	float measuredHeight_ = 0.0f;
 
 	// Outputs of layout. X/Y are absolute screen coordinates, hierarchy is "gone" here.
-	Bounds bounds_;
+	Bounds bounds_{};
 
 	std::vector<Tween *> tweens_;
 
 private:
 	std::function<bool()> enabledFunc_;
-	bool *enabledPtr_;
-	bool enabled_;
-	bool enabledMeansDisabled_;
+	bool *enabledPtr_ = nullptr;
+	bool enabled_ = true;
+	bool enabledMeansDisabled_ = false;
 
 	DISALLOW_COPY_AND_ASSIGN(View);
 };
@@ -712,10 +718,13 @@ public:
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
-	virtual void SetCentered(bool c) {
+	void SetCentered(bool c) {
 		centered_ = c;
 	}
-	virtual void SetIcon(ImageID iconImage, float scale = 1.0f, float rot = 0.0f, bool flipH = false, bool keepColor = true) {
+	void SetDrawTextFlags(u32 flags) {
+		drawTextFlags_ = flags;
+	}
+	void SetIcon(ImageID iconImage, float scale = 1.0f, float rot = 0.0f, bool flipH = false, bool keepColor = true) {
 		rightIconKeepColor_ = keepColor;
 		rightIconScale_ = scale;
 		rightIconRot_ = rot;
@@ -741,6 +750,7 @@ protected:
 	float imgScale_ = 1.0f;
 	float imgRot_ = 0.0f;
 	bool imgFlipH_ = false;
+	u32 drawTextFlags_ = 0;
 
 private:
 	bool selected_ = false;
@@ -827,8 +837,14 @@ private:
 
 class CheckBox : public ClickableItem {
 public:
-	CheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
+	CheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), toggle_(toggle), text_(text), smallText_(smallText) {
+		OnClick.Handle(this, &CheckBox::OnClicked);
+	}
+
+	// Image-only "checkbox", lights up instead of showing a checkmark.
+	CheckBox(bool *toggle, ImageID imageID, LayoutParams *layoutParams = nullptr)
+		: ClickableItem(layoutParams), toggle_(toggle), imageID_(imageID) {
 		OnClick.Handle(this, &CheckBox::OnClicked);
 	}
 
@@ -846,6 +862,7 @@ private:
 	bool *toggle_;
 	std::string text_;
 	std::string smallText_;
+	ImageID imageID_;
 };
 
 class BitCheckBox : public CheckBox {

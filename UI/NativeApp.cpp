@@ -141,6 +141,10 @@
 #include <mach-o/dyld.h>
 #endif
 
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
+#include "UI/DarwinMemoryStickManager.h"
+#endif
+
 #include <Core/HLE/Plugins.h>
 
 ScreenManager *screenManager;
@@ -238,22 +242,8 @@ std::string NativeQueryConfig(std::string query) {
 		return std::string(temp);
 	} else if (query == "immersiveMode") {
 		return std::string(g_Config.bImmersiveMode ? "1" : "0");
-	} else if (query == "hwScale") {
-		int scale = g_Config.iAndroidHwScale;
-		// Override hw scale for TV type devices.
-		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV)
-			scale = 0;
-
-		if (scale == 1) {
-			// If g_Config.iInternalResolution is also set to Auto (1), we fall back to "Device resolution" (0). It works out.
-			scale = g_Config.iInternalResolution;
-		} else if (scale >= 2) {
-			scale -= 1;
-		}
-
-		int max_res = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 1;
-		snprintf(temp, sizeof(temp), "%d", std::min(scale, max_res));
-		return std::string(temp);
+	} else if (query == "sustainedPerformanceMode") {
+		return std::string(g_Config.bSustainedPerformanceMode ? "1" : "0");
 	} else if (query == "androidJavaGL") {
 		// If we're using Vulkan, we say no... need C++ to use Vulkan.
 		if (GetGPUBackend() == GPUBackend::VULKAN) {
@@ -261,8 +251,6 @@ std::string NativeQueryConfig(std::string query) {
 		}
 		// Otherwise, some devices prefer the Java init so play it safe.
 		return "true";
-	} else if (query == "sustainedPerformanceMode") {
-		return std::string(g_Config.bSustainedPerformanceMode ? "1" : "0");
 	} else {
 		return "";
 	}
@@ -556,11 +544,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 #elif PPSSPP_PLATFORM(IOS)
 	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory;
-	g_Config.memStickDirectory = Path(user_data_path);
+	g_Config.memStickDirectory = DarwinMemoryStickManager::appropriateMemoryStickDirectoryToUse();
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(MAC)
 	g_Config.defaultCurrentDirectory = Path(getenv("HOME"));
-	g_Config.memStickDirectory = g_Config.defaultCurrentDirectory / ".config/ppsspp";
+	g_Config.memStickDirectory = DarwinMemoryStickManager::appropriateMemoryStickDirectoryToUse();
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
 	g_Config.memStickDirectory = g_Config.internalDataDirectory / "config/ppsspp";
@@ -683,6 +671,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					gotoTouchScreenTest = true;
 				if (!strcmp(argv[i], "--gamesettings"))
 					gotoGameSettings = true;
+				if (!strncmp(argv[i], "--appendconfig=", strlen("--appendconfig=")) && strlen(argv[i]) > strlen("--appendconfig=")) {
+					g_Config.SetAppendedConfigIni(Path(std::string(argv[i] + strlen("--appendconfig="))));
+					g_Config.LoadAppendedConfig();
+				}
 				break;
 			}
 		} else {
@@ -872,11 +864,15 @@ bool CreateGlobalPipelines();
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(SYSTEM, "NativeInitGraphics");
 
+	_assert_(screenManager);
+
 	// We set this now so any resize during init is processed later.
 	resized = false;
 
 	Core_SetGraphicsContext(graphicsContext);
 	g_draw = graphicsContext->GetDrawContext();
+
+	_assert_(g_draw);
 
 	if (!CreateGlobalPipelines()) {
 		ERROR_LOG(G3D, "Failed to create global pipelines");
@@ -985,7 +981,9 @@ bool CreateGlobalPipelines() {
 void NativeShutdownGraphics() {
 	INFO_LOG(SYSTEM, "NativeShutdownGraphics");
 
-	screenManager->deviceLost();
+	if (screenManager) {
+		screenManager->deviceLost();
+	}
 
 	if (gpu)
 		gpu->DeviceLost();
@@ -1066,7 +1064,7 @@ void TakeScreenshot() {
 }
 
 void RenderOverlays(UIContext *dc, void *userdata) {
-	// Thin bar at the top of the screen like Chrome.
+	// Thin bar at the top of the screen.
 	std::vector<float> progress = g_DownloadManager.GetCurrentProgress();
 	if (!progress.empty()) {
 		static const uint32_t colors[4] = {
@@ -1093,8 +1091,8 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 }
 
 void NativeRender(GraphicsContext *graphicsContext) {
-	_assert_(graphicsContext != nullptr);
-	_assert_(screenManager != nullptr);
+	_dbg_assert_(graphicsContext != nullptr);
+	_dbg_assert_(screenManager != nullptr);
 
 	g_GameManager.Update();
 
@@ -1137,6 +1135,15 @@ void NativeRender(GraphicsContext *graphicsContext) {
 
 	ui_draw2d.PushDrawMatrix(ortho);
 	ui_draw2d_front.PushDrawMatrix(ortho);
+
+	screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
+
+	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
+	if (g_Config.bShowGpuProfile)
+		debugFlags |= Draw::DebugFlags::PROFILE_TIMESTAMPS;
+	if (g_Config.bGpuLogProfiler)
+		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
+	screenManager->getDrawContext()->SetDebugFlags(debugFlags);
 
 	// All actual rendering happen in here.
 	screenManager->render();
@@ -1302,17 +1309,17 @@ bool NativeIsAtTopLevel() {
 	}
 }
 
-bool NativeTouch(const TouchInput &touch) {
-	if (screenManager) {
-		// Brute force prevent NaNs from getting into the UI system
-		if (my_isnan(touch.x) || my_isnan(touch.y)) {
-			return false;
-		}
-		screenManager->touch(touch);
-		return true;
-	} else {
-		return false;
+void NativeTouch(const TouchInput &touch) {
+	if (!screenManager) {
+		return;
 	}
+
+	// Brute force prevent NaNs from getting into the UI system.
+	// Don't think this is actually necessary in practice.
+	if (my_isnan(touch.x) || my_isnan(touch.y)) {
+		return;
+	}
+	screenManager->touch(touch);
 }
 
 bool NativeKey(const KeyInput &key) {
@@ -1346,15 +1353,15 @@ bool NativeKey(const KeyInput &key) {
 	return retval;
 }
 
-bool NativeAxis(const AxisInput &axis) {
+void NativeAxis(const AxisInput &axis) {
 	// VR actions
 	if (IsVREnabled() && !UpdateVRAxis(axis)) {
-		return false;
+		return;
 	}
 
 	if (!screenManager) {
 		// Too early.
-		return false;
+		return;
 	}
 
 	using namespace TiltEventProcessor;
@@ -1362,6 +1369,8 @@ bool NativeAxis(const AxisInput &axis) {
 	// only handle tilt events if tilt is enabled.
 	if (g_Config.iTiltInputType == TILT_NULL) {
 		// if tilt events are disabled, then run it through the usual way.
+		screenManager->axis(axis);
+		return;
 		if (screenManager) {
 			HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
 			return screenManager->axis(axis);
@@ -1398,7 +1407,7 @@ bool NativeAxis(const AxisInput &axis) {
 				if (fabs(axis.value) < 0.8f && g_Config.iTiltOrientation == 2) // Auto tilt switch
 					verticalTilt = false;
 				else
-					return false; // Tilt on Z instead
+					return; // Tilt on Z instead
 			}
 			if (portrait) {
 				currentTilt.x_ = axis.value;
@@ -1420,7 +1429,7 @@ bool NativeAxis(const AxisInput &axis) {
 				if (fabs(axis.value) < 0.8f && g_Config.iTiltOrientation == 2) // Auto tilt switch
 					verticalTilt = true;
 				else
-					return false; // Tilt on X instead
+					return; // Tilt on X instead
 			}
 			if (portrait) {
 				currentTilt.x_ = -axis.value;
@@ -1436,12 +1445,13 @@ bool NativeAxis(const AxisInput &axis) {
 			//Don't know how to handle these. Someone should figure it out.
 			//Does the Ouya even have an accelerometer / gyro? I can't find any reference to these
 			//in the Ouya docs...
-			return false;
+			return;
 
 		default:
 			HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
 			// Don't take over completely!
-			return screenManager->axis(axis);
+			screenManager->axis(axis);
+			return;
 	}
 
 	//figure out the sensitivity of the tilt. (sensitivity is originally 0 - 100)
@@ -1456,7 +1466,6 @@ bool NativeAxis(const AxisInput &axis) {
 	Tilt trueTilt = GenTilt(baseTilt, currentTilt, g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius, xSensitivity, ySensitivity);
 
 	TranslateTiltToInput(trueTilt);
-	return true;
 }
 
 void NativeMessageReceived(const char *message, const char *value) {
@@ -1491,16 +1500,19 @@ bool NativeIsRestarting() {
 }
 
 void NativeShutdown() {
-	if (screenManager)
+	if (screenManager) {
 		screenManager->shutdown();
-	delete screenManager;
-	screenManager = nullptr;
+		delete screenManager;
+		screenManager = nullptr;
+	}
 
-	host->ShutdownGraphics();
+	if (host) {
+		host->ShutdownGraphics();
+		delete host;
+		host = nullptr;
+	}
 
 #if !PPSSPP_PLATFORM(UWP)
-	delete host;
-	host = nullptr;
 #endif
 	g_Config.Save("NativeShutdown");
 

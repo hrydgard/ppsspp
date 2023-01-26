@@ -131,14 +131,14 @@ static inline void Core_StateProcessed() {
 }
 
 void Core_WaitInactive() {
-	while (Core_IsActive()) {
+	while (Core_IsActive() && !GPUStepping::IsStepping()) {
 		std::unique_lock<std::mutex> guard(m_hInactiveMutex);
 		m_InactiveCond.wait(guard);
 	}
 }
 
 void Core_WaitInactive(int milliseconds) {
-	if (Core_IsActive()) {
+	if (Core_IsActive() && !GPUStepping::IsStepping()) {
 		std::unique_lock<std::mutex> guard(m_hInactiveMutex);
 		m_InactiveCond.wait_for(guard, std::chrono::milliseconds(milliseconds));
 	}
@@ -223,6 +223,8 @@ void KeepScreenAwake() {
 }
 
 void Core_RunLoop(GraphicsContext *ctx) {
+	float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
+
 	graphicsContext = ctx;
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
 		// In case it was pending, we're not in game anymore.  We won't get to Core_Run().
@@ -232,7 +234,7 @@ void Core_RunLoop(GraphicsContext *ctx) {
 
 		// Simple throttling to not burn the GPU in the menu.
 		double diffTime = time_now_d() - startTime;
-		int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
+		int sleepTime = (int)(1000.0 / refreshRate) - (int)(diffTime * 1000.0);
 		if (sleepTime > 0)
 			sleep_ms(sleepTime);
 		if (!windowHidden) {
@@ -434,13 +436,13 @@ const char *ExecExceptionTypeAsString(ExecExceptionType type) {
 	}
 }
 
-void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type) {
+void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type) {
 	const char *desc = MemoryExceptionTypeAsString(type);
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
 	if (g_Config.iCpuCore == (int)CPUCore::JIT && g_Config.bIgnoreBadMemAccess) {
-		WARN_LOG(MEMMAP, "%s: Invalid address %08x", desc, address);
+		WARN_LOG(MEMMAP, "%s: Invalid access at %08x (size %08x)", desc, address, accessSize);
 	} else {
-		WARN_LOG(MEMMAP, "%s: Invalid address %08x PC %08x LR %08x", desc, address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
+		WARN_LOG(MEMMAP, "%s: Invalid access at %08x (size %08x) PC %08x LR %08x", desc, address, accessSize, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 	}
 
 	if (!g_Config.bIgnoreBadMemAccess) {
@@ -450,21 +452,22 @@ void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type) {
 		e.info.clear();
 		e.memory_type = type;
 		e.address = address;
+		e.accessSize = accessSize;
 		e.pc = pc;
 		Core_EnableStepping(true, "memory.exception", address);
 	}
 }
 
-void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std::string additionalInfo) {
+void Core_MemoryExceptionInfo(u32 address, u32 pc, u32 accessSize, MemoryExceptionType type, std::string additionalInfo, bool forceReport) {
 	const char *desc = MemoryExceptionTypeAsString(type);
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
 	if (g_Config.iCpuCore == (int)CPUCore::JIT && g_Config.bIgnoreBadMemAccess) {
-		WARN_LOG(MEMMAP, "%s: Invalid address %08x. %s", desc, address, additionalInfo.c_str());
+		WARN_LOG(MEMMAP, "%s: Invalid access at %08x (size %08x). %s", desc, address, accessSize, additionalInfo.c_str());
 	} else {
-		WARN_LOG(MEMMAP, "%s: Invalid address %08x PC %08x LR %08x %s", desc, address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA], additionalInfo.c_str());
+		WARN_LOG(MEMMAP, "%s: Invalid access at %08x (size %08x) PC %08x LR %08x %s", desc, address, accessSize, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA], additionalInfo.c_str());
 	}
 
-	if (!g_Config.bIgnoreBadMemAccess) {
+	if (!g_Config.bIgnoreBadMemAccess || forceReport) {
 		ExceptionInfo &e = g_exceptionInfo;
 		e = {};
 		e.type = ExceptionType::MEMORY;
@@ -476,9 +479,10 @@ void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std
 	}
 }
 
+// Can't be ignored
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	const char *desc = ExecExceptionTypeAsString(type);
-	WARN_LOG(MEMMAP, "%s: Invalid destination %08x PC %08x LR %08x", desc, address, pc, currentMIPS->r[MIPS_REG_RA]);
+	WARN_LOG(MEMMAP, "%s: Invalid exec address %08x PC %08x LR %08x", desc, address, pc, currentMIPS->r[MIPS_REG_RA]);
 
 	ExceptionInfo &e = g_exceptionInfo;
 	e = {};
@@ -486,6 +490,7 @@ void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	e.info.clear();
 	e.exec_type = type;
 	e.address = address;
+	e.accessSize = 4;  // size of an instruction
 	e.pc = pc;
 	// This just records the closest value that could be useful as reference.
 	e.ra = currentMIPS->r[MIPS_REG_RA];

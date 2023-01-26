@@ -32,6 +32,12 @@
 
 struct VKRGraphicsPipeline;
 class VulkanRenderManager;
+class VulkanContext;
+class VulkanVertexShader;
+class VulkanFragmentShader;
+class VulkanGeometryShader;
+class ShaderManagerVulkan;
+class DrawEngineCommon;
 
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here
@@ -49,7 +55,10 @@ struct VulkanPipelineKey {
 	void FromString(const std::string &str) {
 		memcpy(this, &str[0], sizeof(*this));
 	}
-	std::string GetDescription(DebugShaderStringType stringType) const;
+	std::string GetDescription(DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager) const;
+
+private:
+	std::string GetRasterStateDesc(bool lineBreaks) const;
 };
 
 // Simply wraps a Vulkan pipeline, providing some metadata.
@@ -71,20 +80,13 @@ struct VulkanPipeline {
 	u32 GetVariantsBitmask() const;
 };
 
-class VulkanContext;
-class VulkanVertexShader;
-class VulkanFragmentShader;
-class VulkanGeometryShader;
-class ShaderManagerVulkan;
-class DrawEngineCommon;
-
 class PipelineManagerVulkan {
 public:
 	PipelineManagerVulkan(VulkanContext *ctx);
 	~PipelineManagerVulkan();
 
 	// variantMask is only used when loading pipelines from cache.
-	VulkanPipeline *GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, VulkanGeometryShader *gs, bool useHwTransform, u32 variantMask);
+	VulkanPipeline *GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, VulkanGeometryShader *gs, bool useHwTransform, u32 variantMask, int multiSampleLevel, bool cacheLoad);
 	int GetNumPipelines() const { return (int)pipelines_.size(); }
 
 	void Clear();
@@ -94,12 +96,12 @@ public:
 
 	void InvalidateMSAAPipelines();
 
-	std::string DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
-	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type);
+	std::string DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager);
+	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type) const;
 
 	// Saves data for faster creation next time.
-	void SaveCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext);
-	bool LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VkPipelineLayout layout);
+	void SavePipelineCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext);
+	bool LoadPipelineCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VkPipelineLayout layout, int multiSampleLevel);
 	void CancelCache();
 
 private:

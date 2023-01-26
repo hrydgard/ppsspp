@@ -165,6 +165,7 @@ option(USE_LIBNX "Set to ON to build for Switch(libnx)" OFF)
 option(USE_FFMPEG "Build with FFMPEG support" ON)
 option(USE_DISCORD "Build with Discord support" ON)
 option(USE_MINIUPNPC "Build with miniUPnPc support" ON)
+option(USE_ARMIPS "Build with armips support in API/debugger" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
@@ -471,6 +472,7 @@ set(CommonARM64
 	Common/Arm64Emitter.cpp
 	Common/ArmEmitter.h
 	Common/ArmEmitter.cpp
+	Core/Util/DisArm64.h
 	Core/Util/DisArm64.cpp
 )
 source_group(ARM64 FILES ${CommonARM64})
@@ -733,6 +735,10 @@ add_library(Common STATIC
 	Common/UI/View.h
 	Common/UI/ViewGroup.cpp
 	Common/UI/ViewGroup.h
+	Common/UI/ScrollView.cpp
+	Common/UI/ScrollView.h
+	Common/UI/PopupScreens.cpp
+	Common/UI/PopupScreens.h
 	Common/BitScan.h
 	Common/BitSet.h
 	Common/Buffer.h
@@ -1104,8 +1110,6 @@ if(ANDROID)
 
 	set(NativeAppSource ${NativeAppSource}
 		android/jni/app-android.cpp
-		android/jni/AndroidEGLContext.cpp
-		android/jni/AndroidEGLContext.h
 		android/jni/AndroidJavaGLContext.cpp
 		android/jni/AndroidJavaGLContext.h
 		android/jni/AndroidVulkanContext.cpp
@@ -1144,8 +1148,11 @@ elseif(IOS)
 		ios/iCade/iCadeReaderView.h
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h
+		UI/DarwinMemoryStickManager.mm
+		UI/DarwinMemoryStickManager.h
 	)
-	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreVideo -framework CoreMedia" )
+    
+	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreVideo -framework CoreMedia -framework CoreServices" )
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
 	endif()
@@ -1162,7 +1169,7 @@ elseif(IOS)
 	set_source_files_properties(ios/main.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/CameraHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/LocationHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
-
+	set_source_files_properties(UI/DarwinMemoryStickManager.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	set(CMAKE_AUTOMOC ON)
@@ -1220,7 +1227,8 @@ elseif(TARGET SDL2::SDL2)
 	endif()
 	set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
 	if(APPLE)
-		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm SDL/SDLCocoaMetalLayer.h SDL/SDLCocoaMetalLayer.mm)
+		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm SDL/SDLCocoaMetalLayer.h SDL/SDLCocoaMetalLayer.mm UI/DarwinMemoryStickManager.mm)
+        set_source_files_properties(UI/DarwinMemoryStickManager.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY})
 	elseif(USING_EGL)
 		set(nativeExtraLibs ${nativeExtraLibs} pthread)
@@ -1314,6 +1322,10 @@ if(ANDROID)
 	if (NOT LIBRETRO)
 		set(nativeExtra ${nativeExtra} ${NativeAppSource})
 	endif()
+endif()
+
+if (IOS)
+        set(nativeExtra ${nativeExtra} ${NativeAppSource})
 endif()
 
 add_library(native STATIC
@@ -1609,7 +1621,6 @@ set(GPU_SOURCES
 	GPU/Common/TextureScalerCommon.h
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
-	GPU/Common/SplineCommon.h
 	GPU/Debugger/Breakpoints.cpp
 	GPU/Debugger/Breakpoints.h
 	GPU/Debugger/Debugger.cpp
@@ -1658,7 +1669,6 @@ set(GPU_SOURCES
 	GPU/Software/SoftGpu.h
 	GPU/Software/TransformUnit.cpp
 	GPU/Software/TransformUnit.h
-	GPU/ge_constants.h
 )
 
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else
@@ -2031,6 +2041,9 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/PPGeDraw.h
 	${GPU_SOURCES}
 	ext/disarm.cpp
+	ext/disarm.h
+	ext/riscv-disas.cpp
+	ext/riscv-disas.h
 	${CMAKE_CURRENT_BINARY_DIR}/git-version.cpp
 )
 
@@ -2041,7 +2054,11 @@ if(ANDROID)
 	endif()
 endif()
 
-set(CoreExtraLibs ${CoreExtraLibs} armips)
+if(USE_ARMIPS)
+	set(CoreExtraLibs ${CoreExtraLibs} armips)
+else()
+	add_definitions(-DNO_ARMIPS=1)
+endif()
 
 # needed for VK_USE_PLATFORM_XCB_KHR only
 #if(VULKAN AND NOT WIN32)

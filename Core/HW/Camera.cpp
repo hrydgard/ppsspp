@@ -60,7 +60,11 @@ void convert_frame(int inw, int inh, unsigned char *inData, AVPixelFormat inForm
 
 void __cameraDummyImage(int width, int height, unsigned char** outData, int* outLen) {
 #ifdef USE_FFMPEG
-	unsigned char* rgbData = (unsigned char*)malloc(3 * width * height);
+	unsigned char *rgbData = (unsigned char *)malloc(3 * width * height);
+	if (!rgbData) {
+		*outData = nullptr;
+		return;
+	}
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			rgbData[3 * (y * width + x) + 0] = x*255/width;

@@ -23,6 +23,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/StringUtils.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -36,6 +37,8 @@
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/HW/Display.h"
+#include "Core/CwCheat.h"
+#include "Core/ELF/ParamSFO.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
@@ -597,6 +600,7 @@ static void check_variables(CoreParameter &coreParam)
    int iInternalResolution_prev;
    int iTexScalingType_prev;
    int iTexScalingLevel_prev;
+   int iMultiSampleLevel_prev;
 
    var.key = "ppsspp_language";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
@@ -718,6 +722,16 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CIRCLE;
    }
 
+   var.key = "ppsspp_analog_is_circular";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         g_Config.bAnalogIsCircular = false;
+      else
+         g_Config.bAnalogIsCircular = true;
+   }
+
+
    var.key = "ppsspp_internal_resolution";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
@@ -743,6 +757,21 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iInternalResolution = 9;
       else if (!strcmp(var.value, "4800x2720"))
          g_Config.iInternalResolution = 10;
+   }
+
+   var.key = "ppsspp_mulitsample_level";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      iMultiSampleLevel_prev = g_Config.iMultiSampleLevel;
+
+      if (!strcmp(var.value, "Disabled"))
+         g_Config.iMultiSampleLevel = 0;
+      else if (!strcmp(var.value, "x2"))
+         g_Config.iMultiSampleLevel = 1;
+      else if (!strcmp(var.value, "x4"))
+         g_Config.iMultiSampleLevel = 2;
+      else if (!strcmp(var.value, "x8"))
+         g_Config.iMultiSampleLevel = 3;
    }
 
    var.key = "ppsspp_skip_buffer_effects";
@@ -1077,13 +1106,21 @@ static void check_variables(CoreParameter &coreParam)
    if (changeProAdhocServer == "IP address")
    {
       g_Config.proAdhocServer = "";
+      bool leadingZero = true;
       for (int i = 0; i < 12; i++)
       {
          if (i && i % 3 == 0)
+         {
             g_Config.proAdhocServer += '.';
+            leadingZero = true;
+         }
 
          int addressPt = ppsspp_pro_ad_hoc_ipv4[i];
-         g_Config.proAdhocServer += static_cast<char>('0' + addressPt);
+         if (addressPt || i % 3 == 2)
+            leadingZero = false; // We are either non-zero or the last digit of a byte
+
+         if (! leadingZero)
+            g_Config.proAdhocServer += static_cast<char>('0' + addressPt);
       }
    }
    else
@@ -1131,6 +1168,14 @@ static void check_variables(CoreParameter &coreParam)
          environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &avInfo);
          updateAvInfo = false;
          gpu->NotifyDisplayResized();
+      }
+   }
+
+   if (g_Config.iMultiSampleLevel != iMultiSampleLevel_prev && PSP_IsInited())
+   {
+      if (gpu)
+      {
+         gpu->NotifyRenderResized();
       }
    }
 
@@ -1389,6 +1434,9 @@ bool retro_load_game(const struct retro_game_info *game)
 
    useEmuThread              = ctx->GetGPUCore() == GPUCORE_GLES;
 
+   // default to interpreter to allow startup in platforms w/o JIT capability
+   g_Config.iCpuCore         = (int)CPUCore::INTERPRETER;
+
    CoreParameter coreParam   = {};
    coreParam.enableSound     = true;
    coreParam.fileToStart     = Path(std::string(game->path));
@@ -1398,8 +1446,10 @@ bool retro_load_game(const struct retro_game_info *game)
    coreParam.headLess        = true;
    coreParam.graphicsContext = ctx;
    coreParam.gpuCore         = ctx->GetGPUCore();
-   coreParam.cpuCore         = (CPUCore)g_Config.iCpuCore;
    check_variables(coreParam);
+
+   // set cpuCore from libretro setting variable
+   coreParam.cpuCore         =  (CPUCore)g_Config.iCpuCore;
 
    std::string error_string;
    if (!PSP_InitStart(coreParam, &error_string))
@@ -1494,6 +1544,31 @@ static void retro_input(void)
    float y_left = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
    float x_right = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X) / 32767.0f;
    float y_right = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
+   
+   __CtrlSetAnalogXY(CTRL_STICK_LEFT, x_left, y_left);
+   __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
+   
+   // Analog circle vs square gate compensation
+   // copied from ControlMapper.cpp's ConvertAnalogStick function
+   const bool isCircular = g_Config.bAnalogIsCircular;
+   
+   float norm = std::max(fabsf(x_left), fabsf(y_left));
+
+   if (norm == 0.0f)
+      return;
+
+   if (isCircular) {
+      float newNorm = sqrtf(x_left * x_left + y_left * y_left);
+      float factor = newNorm / norm;
+      x_left *= factor;
+      y_left *= factor;
+      norm = newNorm;
+   }
+
+   float mappedNorm = norm;
+   x_left = std::clamp(x_left / norm * mappedNorm, -1.0f, 1.0f);
+   y_left = std::clamp(y_left / norm * mappedNorm, -1.0f, 1.0f);
+   
    __CtrlSetAnalogXY(CTRL_STICK_LEFT, x_left, y_left);
    __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
 }
@@ -1639,9 +1714,86 @@ size_t retro_get_memory_size(unsigned id)
 	return 0;
 }
 
-void retro_cheat_reset(void) {}
+void retro_cheat_reset(void) {
+   // Init Cheat Engine
+   CWCheatEngine *cheatEngine = new CWCheatEngine(g_paramSFO.GetDiscID());
+   Path file=cheatEngine->CheatFilename();
 
-void retro_cheat_set(unsigned index, bool enabled, const char *code) { }
+   // Output cheats to cheat file
+   std::ofstream outFile;
+   outFile.open(file.c_str());
+   outFile << "_S " << g_paramSFO.GetDiscID() << std::endl;
+   outFile.close();
+
+   g_Config.bReloadCheats = true;
+
+   // Parse and Run the Cheats
+   cheatEngine->ParseCheats();
+   if (cheatEngine->HasCheats()) {
+      cheatEngine->Run();
+   }
+
+}
+
+void retro_cheat_set(unsigned index, bool enabled, const char *code) {
+   // Initialize Cheat Engine
+   CWCheatEngine *cheatEngine = new CWCheatEngine(g_paramSFO.GetDiscID());
+   cheatEngine->CreateCheatFile();
+   Path file=cheatEngine->CheatFilename();
+
+   // Read cheats file
+   std::vector<std::string> cheats;
+   std::ifstream cheat_content(file.c_str());
+   std::stringstream buffer;
+   buffer << cheat_content.rdbuf();
+   std::string existing_cheats=ReplaceAll(buffer.str(), std::string("\n_C"), std::string("|"));
+   SplitString(existing_cheats, '|', cheats);
+
+   // Generate Cheat String
+   std::stringstream cheat("");
+   cheat << (enabled ? "1 " : "0 ") << index << std::endl;
+   std::string code_str(code);
+   std::vector<std::string> codes;
+   code_str=ReplaceAll(code_str, std::string(" "), std::string("+"));
+   SplitString(code_str, '+', codes);
+   int part=0;
+   for (int i=0; i < codes.size(); i++) {
+      if (codes[i].size() <= 2) {
+         // _L _M ..etc
+         // Assume _L
+      } else if (part == 0) {
+         cheat << "_L " << codes[i] << " ";
+         part++;
+      } else {
+         cheat << codes[i] << std::endl;
+         part=0;
+      }
+   }
+
+   // Add or Replace the Cheat
+   if (index + 1 < cheats.size()) {
+      cheats[index + 1]=cheat.str();
+   } else {
+      cheats.push_back(cheat.str());
+   }
+
+   // Output cheats to cheat file
+   std::ofstream outFile;
+   outFile.open(file.c_str());
+   outFile << "_S " << g_paramSFO.GetDiscID() << std::endl;
+   for (int i=1; i < cheats.size(); i++) {
+      outFile << "_C" << cheats[i] << std::endl;
+   }
+   outFile.close();
+
+   g_Config.bReloadCheats = true;
+
+   // Parse and Run the Cheats
+   cheatEngine->ParseCheats();
+   if (cheatEngine->HasCheats()) {
+      cheatEngine->Run();
+   }
+}
 
 int System_GetPropertyInt(SystemProperty prop)
 {

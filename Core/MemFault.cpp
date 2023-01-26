@@ -44,6 +44,7 @@ namespace Memory {
 static int64_t g_numReportedBadAccesses = 0;
 const uint8_t *g_lastCrashAddress;
 MemoryExceptionType g_lastMemoryExceptionType;
+static bool inCrashHandler = false;
 
 std::unordered_set<const uint8_t *> g_ignoredAddresses;
 
@@ -83,11 +84,21 @@ static bool DisassembleNativeAt(const uint8_t *codePtr, int instructionSize, std
 		*dest = lines[0];
 		return true;
 	}
+#elif PPSSPP_ARCH(RISCV64)
+	auto lines = DisassembleRV64(codePtr, instructionSize);
+	if (!lines.empty()) {
+		*dest = lines[0];
+		return true;
+	}
 #endif
 	return false;
 }
 
 bool HandleFault(uintptr_t hostAddress, void *ctx) {
+	if (inCrashHandler)
+		return false;
+	inCrashHandler = true;
+
 	SContext *context = (SContext *)ctx;
 	const uint8_t *codePtr = (uint8_t *)(context->CTX_PC);
 
@@ -100,6 +111,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	bool inJitSpace = MIPSComp::jit && MIPSComp::jit->CodeInRange(codePtr);
 	if (!inJitSpace) {
 		// This is a crash in non-jitted code. Not something we want to handle here, ignore.
+		inCrashHandler = false;
 		return false;
 	}
 
@@ -114,8 +126,10 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	bool invalidHostAddress = hostAddress == (uintptr_t)0xFFFFFFFFFFFFFFFFULL;
 	if (hostAddress < baseAddress || hostAddress >= baseAddress + addressSpaceSize) {
 		// Host address outside - this was a different kind of crash.
-		if (!invalidHostAddress)
+		if (!invalidHostAddress) {
+			inCrashHandler = false;
 			return false;
+		}
 	}
 
 
@@ -164,6 +178,68 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
 	ArmLSInstructionInfo info{};
 	success = ArmAnalyzeLoadStore((uint32_t)codePtr, word, &info);
+#elif PPSSPP_ARCH(RISCV64)
+	// TODO: Put in a disassembler.
+	struct RiscVLSInstructionInfo {
+		int instructionSize;
+		bool isIntegerLoadStore;
+		bool isFPLoadStore;
+		int size;
+		bool isMemoryWrite;
+	};
+
+	uint32_t word;
+	memcpy(&word, codePtr, 4);
+
+	RiscVLSInstructionInfo info{};
+	// Compressed instructions have low bits 00, 01, or 10.
+	info.instructionSize = (word & 3) == 3 ? 4 : 2;
+	instructionSize = info.instructionSize;
+
+	success = true;
+	switch (word & 0x7F) {
+	case 3:
+		info.isIntegerLoadStore = true;
+		info.size = 1 << ((word >> 12) & 3);
+		break;
+	case 7:
+		info.isFPLoadStore = true;
+		info.size = 1 << ((word >> 12) & 3);
+		break;
+	case 35:
+		info.isIntegerLoadStore = true;
+		info.isMemoryWrite = true;
+		info.size = 1 << ((word >> 12) & 3);
+		break;
+	case 39:
+		info.isFPLoadStore = true;
+		info.isMemoryWrite = true;
+		info.size = 1 << ((word >> 12) & 3);
+		break;
+	default:
+		// Compressed instruction.
+		switch (word & 0x6003) {
+		case 0x4000:
+		case 0x4002:
+		case 0x6000:
+		case 0x6002:
+			info.isIntegerLoadStore = true;
+			info.size = (word & 0x2000) != 0 ? 8 : 4;
+			info.isMemoryWrite = (word & 0x8000) != 0;
+			break;
+		case 0x2000:
+		case 0x2002:
+			info.isFPLoadStore = true;
+			info.size = 8;
+			info.isMemoryWrite = (word & 0x8000) != 0;
+			break;
+		default:
+			// Not a read or a write.
+			success = false;
+			break;
+		}
+		break;
+	}
 #endif
 
 	std::string disassembly;
@@ -182,6 +258,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		// Redirect execution to a crash handler that will switch to CoreState::CORE_RUNTIME_ERROR immediately.
 		context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
 		ERROR_LOG(MEMMAP, "Bad execution access detected, halting: %08x (last known pc %08x, host: %p)", targetAddr, currentMIPS->pc, (void *)hostAddress);
+		inCrashHandler = false;
 		return true;
 	} else if (success) {
 		if (info.isMemoryWrite) {
@@ -195,6 +272,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 	g_lastMemoryExceptionType = type;
 
+	bool handled = true;
 	if (success && (g_Config.bIgnoreBadMemAccess || g_ignoredAddresses.find(codePtr) != g_ignoredAddresses.end())) {
 		if (!info.isMemoryWrite) {
 			// It was a read. Fill the destination register with 0.
@@ -208,17 +286,25 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		}
 	} else {
 		// Either bIgnoreBadMemAccess is off, or we failed recovery analysis.
+		// We can't ignore this memory access.
 		uint32_t approximatePC = currentMIPS->pc;
-		Core_MemoryExceptionInfo(guestAddress, approximatePC, type, infoString);
+		// TODO: Determine access size from the disassembled native instruction. We have some partial info already,
+		// just need to clean it up.
+		Core_MemoryExceptionInfo(guestAddress, 0, approximatePC, type, infoString, true);
 
 		// There's a small chance we can resume from this type of crash.
 		g_lastCrashAddress = codePtr;
 
 		// Redirect execution to a crash handler that will switch to CoreState::CORE_RUNTIME_ERROR immediately.
-		context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
+		if (MIPSComp::jit)
+			context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
+		else
+			handled = false;
 		ERROR_LOG(MEMMAP, "Bad memory access detected! %08x (%p) Stopping emulation. Info:\n%s", guestAddress, (void *)hostAddress, infoString.c_str());
 	}
-	return true;
+
+	inCrashHandler = false;
+	return handled;
 }
 
 #else

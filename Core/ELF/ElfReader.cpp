@@ -128,7 +128,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 			if (log) {
 				DEBUG_LOG(LOADER, "rel at: %08x  info: %08x   type: %i", addr, info, type);
 			}
-			u32 relocateTo = segmentVAddr[relative];
+			u32 relocateTo = relative >= (int)ARRAY_SIZE(segmentVAddr) ? 0 : segmentVAddr[relative];
 
 			switch (type) {
 			case R_MIPS_32:
@@ -289,9 +289,9 @@ void ElfReader::LoadRelocations2(int rel_seg)
 			}
 		}else{
 			addr_seg = seg;
-			relocate_to = segmentVAddr[addr_seg];
+			relocate_to = addr_seg >= (int)ARRAY_SIZE(segmentVAddr) ? 0 : segmentVAddr[addr_seg];
 			if (!Memory::IsValidAddress(relocate_to)) {
-				ERROR_LOG(LOADER, "ELF: Bad address to relocate to: %08x", relocate_to);
+				ERROR_LOG(LOADER, "ELF: Bad address to relocate to: %08x (segment %d)", relocate_to, addr_seg);
 				continue;
 			}
 
@@ -511,9 +511,9 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 				ERROR_LOG(LOADER, "Segment %d pointer invalid - truncated?", i);
 				continue;
 			}
-			u8 *dst = Memory::GetPointerWrite(writeAddr);
 			u32 srcSize = p->p_filesz;
 			u32 dstSize = p->p_memsz;
+			u8 *dst = Memory::GetPointerWriteRange(writeAddr, dstSize);
 
 			if (srcSize < dstSize)
 			{

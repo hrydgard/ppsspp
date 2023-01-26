@@ -44,7 +44,6 @@
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Common/Thread/ParallelLoop.h"
-#include "UI/OnScreenDisplay.h"
 
 namespace Memory {
 
@@ -255,6 +254,9 @@ bool MemoryMap_Setup(u32 flags) {
 	{
 #if !PPSSPP_PLATFORM(UWP)
 		base = g_arena.Find4GBBase();
+		if (!base) {
+			return false;
+		}
 #endif
 	}
 

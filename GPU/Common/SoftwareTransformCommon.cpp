@@ -149,7 +149,7 @@ static int ColorIndexOffset(int prim, GEShadeMode shadeMode, bool clearMode) {
 	return 0;
 }
 
-void SoftwareTransform::SetProjMatrix(float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale) {
+void SoftwareTransform::SetProjMatrix(const float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale) {
 	memcpy(&projMatrix_.m, mtx, 16 * sizeof(float));
 
 	if (invertedY) {
@@ -241,9 +241,11 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 
 			// Ignore color1 and fog, never used in throughmode anyway.
 			// The w of uv is also never used (hardcoded to 1.0.)
+			vert.fog = 1.0;
 		}
 	} else {
 		const Vec4f materialAmbientRGBA = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
+		bool fogEnabled = gstate.isFogEnabled();
 		// Okay, need to actually perform the full transform.
 		for (int index = 0; index < maxIndex; index++) {
 			reader.Goto(index);
@@ -252,7 +254,6 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			Vec4f c0 = Vec4f(1, 1, 1, 1);
 			Vec4f c1 = Vec4f(0, 0, 0, 0);
 			float uv[3] = {0, 0, 1};
-			float fogCoef = 1.0f;
 
 			float out[3];
 			float pos[3];
@@ -414,11 +415,10 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 
 			// Transform the coord by the view matrix.
 			Vec3ByMatrix43(v, out, gstate.viewMatrix);
-			fogCoef = (v[2] + fog_end) * fog_slope;
 
 			// TODO: Write to a flexible buffer, we don't always need all four components.
 			Vec3ByMatrix44(transformed[index].pos, v, projMatrix_.m);
-			transformed[index].fog = fogCoef;
+			transformed[index].fog = fogEnabled ? (v[2] + fog_end) * fog_slope : 1.0f;
 			memcpy(&transformed[index].uv, uv, 3 * sizeof(float));
 			transformed[index].color0_32 = c0.ToRGBA();
 			transformed[index].color1_32 = c1.ToRGBA();
@@ -673,7 +673,7 @@ void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) {
 		std::swap(minZValue, maxZValue);
 }
 
-void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
@@ -734,7 +734,7 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 	inds = newInds;
 }
 
-void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	// Lines always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
@@ -768,8 +768,9 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 			const TransformedVertex &transVtx2 = transformed[indsIn[i + 1]];
 
 			// Okay, let's calculate the perpendicular.
-			float horizontal = transVtx2.x - transVtx1.x;
-			float vertical = transVtx2.y - transVtx1.y;
+			float horizontal = transVtx2.x * transVtx2.pos_w - transVtx1.x * transVtx1.pos_w;
+			float vertical = transVtx2.y * transVtx2.pos_w - transVtx1.y * transVtx1.pos_w;
+
 			Vec2f addWidth = Vec2f(-vertical, horizontal).Normalized();
 
 			float xoff = addWidth.x * dx;
@@ -815,8 +816,8 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 			const TransformedVertex &transVtxBL = (transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x) ? transVtxB : transVtxT;
 
 			// Okay, let's calculate the perpendicular.
-			float horizontal = transVtxTL.x - transVtxBL.x;
-			float vertical = transVtxTL.y - transVtxBL.y;
+			float horizontal = transVtxTL.x * transVtxTL.pos_w - transVtxBL.x * transVtxBL.pos_w;
+			float vertical = transVtxTL.y * transVtxTL.pos_w - transVtxBL.y * transVtxBL.pos_w;
 			Vec2f addWidth = Vec2f(-vertical, horizontal).Normalized();
 
 			// bottom right
@@ -857,7 +858,7 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 	inds = newInds;
 }
 
-void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	numTrans = 0;
 	TransformedVertex *trans = &transformedExpanded[0];
 

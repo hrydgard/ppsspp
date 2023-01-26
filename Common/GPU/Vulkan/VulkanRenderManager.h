@@ -75,6 +75,7 @@ struct BoundingRect {
 };
 
 // All the data needed to create a graphics pipeline.
+// TODO: Compress this down greatly.
 struct VKRGraphicsPipelineDesc : Draw::RefCountedObject {
 	VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 	VkPipelineColorBlendStateCreateInfo cbs{ VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
@@ -95,7 +96,7 @@ struct VKRGraphicsPipelineDesc : Draw::RefCountedObject {
 	std::string fragmentShaderSource;
 	std::string geometryShaderSource;
 
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
+	VkPrimitiveTopology topology;
 	VkVertexInputAttributeDescription attrs[8]{};
 	VkVertexInputBindingDescription ibd{};
 	VkPipelineVertexInputStateCreateInfo vis{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
@@ -117,13 +118,7 @@ struct VKRComputePipelineDesc {
 // Wrapped pipeline. Doesn't own desc.
 struct VKRGraphicsPipeline {
 	VKRGraphicsPipeline(PipelineFlags flags, const char *tag) : flags_(flags), tag_(tag) {}
-	~VKRGraphicsPipeline() {
-		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
-			delete pipeline[i];
-		}
-		if (desc)
-			desc->Release();
-	}
+	~VKRGraphicsPipeline();
 
 	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
 
@@ -140,7 +135,11 @@ struct VKRGraphicsPipeline {
 	Promise<VkPipeline> *pipeline[(size_t)RenderPassType::TYPE_COUNT]{};
 
 	VkSampleCountFlagBits SampleCount() const { return sampleCount_; }
+
+	const char *Tag() const { return tag_.c_str(); }
 private:
+	void DestroyVariantsInstant(VkDevice device);
+
 	std::string tag_;
 	PipelineFlags flags_;
 	VkSampleCountFlagBits sampleCount_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
@@ -163,7 +162,7 @@ struct VKRComputePipeline {
 struct CompileQueueEntry {
 	CompileQueueEntry(VKRGraphicsPipeline *p, VkRenderPass _compatibleRenderPass, RenderPassType _renderPassType, VkSampleCountFlagBits _sampleCount)
 		: type(Type::GRAPHICS), graphics(p), compatibleRenderPass(_compatibleRenderPass), renderPassType(_renderPassType), sampleCount(_sampleCount) {}
-	CompileQueueEntry(VKRComputePipeline *p) : type(Type::COMPUTE), compute(p), renderPassType(RenderPassType::HAS_DEPTH), sampleCount(VK_SAMPLE_COUNT_1_BIT) {}  // renderpasstype here shouldn't matter
+	CompileQueueEntry(VKRComputePipeline *p) : type(Type::COMPUTE), compute(p), renderPassType(RenderPassType::DEFAULT), sampleCount(VK_SAMPLE_COUNT_1_BIT), compatibleRenderPass(VK_NULL_HANDLE) {}  // renderpasstype here shouldn't matter
 	enum class Type {
 		GRAPHICS,
 		COMPUTE,
@@ -228,23 +227,13 @@ public:
 	// We delay creating pipelines until the end of the current render pass, so we can create the right type immediately.
 	// Unless a variantBitmask is passed in, in which case we can just go ahead.
 	// WARNING: desc must stick around during the lifetime of the pipeline! It's not enough to build it on the stack and drop it.
-	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, const char *tag);
+	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag);
 	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc);
 
 	void NudgeCompilerThread() {
 		compileMutex_.lock();
 		compileCond_.notify_one();
 		compileMutex_.unlock();
-	}
-
-	// Mainly used to bind the frame-global desc set.
-	// Can be done before binding a pipeline, so not asserting on that.
-	void BindDescriptorSet(int setNumber, VkDescriptorSet set, VkPipelineLayout pipelineLayout) {
-		VkRenderData data{ VKRRenderCommand::BIND_DESCRIPTOR_SET };
-		data.bindDescSet.setNumber = setNumber;
-		data.bindDescSet.set = set;
-		data.bindDescSet.pipelineLayout = pipelineLayout;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {

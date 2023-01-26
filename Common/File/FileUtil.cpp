@@ -141,7 +141,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 				return nullptr;
 			}
 			FILE *f = fdopen(descriptor, "wb");
-			if (!strcmp(mode, "at") || !strcmp(mode, "a")) {
+			if (f && (!strcmp(mode, "at") || !strcmp(mode, "a"))) {
 				// Append mode.
 				fseek(f, 0, SEEK_END);
 			}
@@ -250,7 +250,8 @@ static bool ResolvePathVista(const std::wstring &path, wchar_t *buf, DWORD bufSi
 #else
 	if (!getFinalPathNameByHandleW) {
 		HMODULE kernel32 = GetModuleHandle(L"kernel32.dll");
-		getFinalPathNameByHandleW = (getFinalPathNameByHandleW_f)GetProcAddress(kernel32, "GetFinalPathNameByHandleW");
+		if (kernel32)
+			getFinalPathNameByHandleW = (getFinalPathNameByHandleW_f)GetProcAddress(kernel32, "GetFinalPathNameByHandleW");
 	}
 #endif
 

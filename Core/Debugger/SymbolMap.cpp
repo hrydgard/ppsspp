@@ -31,7 +31,9 @@
 
 #include <algorithm>
 #include <memory>
+#ifndef NO_ARMIPS
 #include <string_view>
+#endif
 #include <unordered_map>
 
 #include "zlib.h"
@@ -44,7 +46,19 @@
 #include "Core/MemMap.h"
 #include "Core/Debugger/SymbolMap.h"
 
+#ifndef NO_ARMIPS
 #include "ext/armips/Core/Assembler.h"
+#else
+struct Identifier {
+	explicit Identifier() {}
+	explicit Identifier(const std::string &s) {}
+};
+
+struct LabelDefinition {
+	Identifier name;
+	int64_t value;
+};
+#endif
 
 SymbolMap *g_symbolMap;
 
@@ -127,9 +141,9 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 
 		if (!started) continue;
 
-		u32 address = -1, size, vaddress = -1;
+		u32 address = -1, size = 0, vaddress = -1;
 		int moduleIndex = 0;
-		int typeInt;
+		int typeInt = ST_NONE;
 		SymbolType type;
 		char name[128] = {0};
 
@@ -145,7 +159,9 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 			continue;
 		}
 
-		sscanf(line, "%08x %08x %x %i %127c", &address, &size, &vaddress, &typeInt, name);
+		int matched = sscanf(line, "%08x %08x %x %i %127c", &address, &size, &vaddress, &typeInt, name);
+		if (matched < 1)
+			continue;
 		type = (SymbolType) typeInt;
 		if (!hasModules) {
 			if (!Memory::IsValidAddress(vaddress)) {

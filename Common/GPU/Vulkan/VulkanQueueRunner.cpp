@@ -11,7 +11,7 @@ using namespace PPSSPP_VK;
 
 // Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP NativeGLView NativeRenderer NativeSurfaceView PowerSaveModeReceiver InputDeviceState
 
-static void MergeRenderAreaRectInto(VkRect2D *dest, VkRect2D &src) {
+static void MergeRenderAreaRectInto(VkRect2D *dest, const VkRect2D &src) {
 	if (dest->offset.x > src.offset.x) {
 		dest->extent.width += (dest->offset.x - src.offset.x);
 		dest->offset.x = src.offset.x;
@@ -1008,9 +1008,6 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 			case VKRRenderCommand::DEBUG_ANNOTATION:
 				INFO_LOG(G3D, "  DebugAnnotation(%s)", cmd.debugAnnotation.annotation);
 				break;
-			case VKRRenderCommand::BIND_DESCRIPTOR_SET:
-				INFO_LOG(G3D, "  BindDescSet(%d)", cmd.bindDescSet.setNumber);
-				break;
 
 			case VKRRenderCommand::NUM_RENDER_COMMANDS:
 				break;
@@ -1324,7 +1321,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		{
 			VKRGraphicsPipeline *graphicsPipeline = c.graphics_pipeline.pipeline;
 			if (graphicsPipeline != lastGraphicsPipeline) {
-				VkSampleCountFlagBits fbSampleCount = step.render.framebuffer ? step.render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT;
+				VkSampleCountFlagBits fbSampleCount = fb ? fb->sampleCount : VK_SAMPLE_COUNT_1_BIT;
 
 				if (RenderPassTypeHasMultisample(rpType) && fbSampleCount != graphicsPipeline->SampleCount()) {
 					// should have been invalidated.
@@ -1421,12 +1418,13 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		case VKRRenderCommand::SELF_DEPENDENCY_BARRIER:
 		{
 			_assert_(step.render.pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT);
+			_assert_(fb);
 			VulkanBarrier barrier;
-			if (step.render.framebuffer->sampleCount != VK_SAMPLE_COUNT_1_BIT) {
+			if (fb->sampleCount != VK_SAMPLE_COUNT_1_BIT) {
 				// Rendering is happening to the multisample buffer, not the color buffer.
-				SelfDependencyBarrier(step.render.framebuffer->msaaColor, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
+				SelfDependencyBarrier(fb->msaaColor, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
 			} else {
-				SelfDependencyBarrier(step.render.framebuffer->color, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
+				SelfDependencyBarrier(fb->color, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
 			}
 			barrier.Flush(cmd);
 			break;
@@ -1455,7 +1453,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::DRAW_INDEXED:
 			if (pipelineOK) {
-				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
 				vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, (VkIndexType)c.drawIndexed.indexType);
 				VkDeviceSize voffset = c.drawIndexed.voffset;
 				vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &voffset);
@@ -1465,7 +1463,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::DRAW:
 			if (pipelineOK) {
-				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
 				if (c.draw.vbuffer) {
 					vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
 				}
@@ -1513,10 +1511,6 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				labelInfo.pLabelName = c.debugAnnotation.annotation;
 				vkCmdInsertDebugUtilsLabelEXT(cmd, &labelInfo);
 			}
-			break;
-
-		case VKRRenderCommand::BIND_DESCRIPTOR_SET:
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.bindDescSet.pipelineLayout, c.bindDescSet.setNumber, 1, &c.bindDescSet.set, 0, nullptr);
 			break;
 
 		default:

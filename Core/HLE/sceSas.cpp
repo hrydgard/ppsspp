@@ -536,7 +536,7 @@ static u32 sceSasSetSL(u32 core, int voiceNum, int level) {
 	DEBUG_LOG(SCESAS, "sceSasSetSL(%08x, %i, %08x)", core, voiceNum, level);
 	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
-	v.envelope.sustainLevel = level;
+	v.envelope.SetSustainLevel(level);
 	return 0;
 }
 
@@ -556,10 +556,7 @@ static u32 sceSasSetADSR(u32 core, int voiceNum, int flag, int a, int d, int s, 
 
 	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
-	if ((flag & 0x1) != 0) v.envelope.attackRate  = a;
-	if ((flag & 0x2) != 0) v.envelope.decayRate   = d;
-	if ((flag & 0x4) != 0) v.envelope.sustainRate = s;
-	if ((flag & 0x8) != 0) v.envelope.releaseRate = r;
+	v.envelope.SetRate(flag, a, d, s, r);
 	return 0;
 }
 
@@ -602,10 +599,7 @@ static u32 sceSasSetADSRMode(u32 core, int voiceNum, int flag, int a, int d, int
 	DEBUG_LOG(SCESAS, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x)", core, voiceNum, flag, a, d, s, r);
 	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
-	if ((flag & 0x1) != 0) v.envelope.attackType  = a;
-	if ((flag & 0x2) != 0) v.envelope.decayType   = d;
-	if ((flag & 0x4) != 0) v.envelope.sustainType = s;
-	if ((flag & 0x8) != 0) v.envelope.releaseType = r;
+	v.envelope.SetEnvelope(flag, a, d, s, r);
 	return 0;
 }
 

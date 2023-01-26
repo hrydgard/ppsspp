@@ -213,7 +213,7 @@ void GPUgstate::FastLoadBoneMatrix(u32 addr) {
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 }
 
-void GPUgstate::Restore(u32_le *ptr) {
+void GPUgstate::Restore(const u32_le *ptr) {
 	// Not sure what the first 10 values are, exactly, but these seem right.
 	gstate_c.vertexAddr = ptr[5];
 	gstate_c.indexAddr = ptr[6];
@@ -375,7 +375,7 @@ static const char *const gpuUseFlagNames[32] = {
 	"GPU_USE_VS_RANGE_CULLING",
 	"GPU_USE_BLEND_MINMAX",
 	"GPU_USE_LOGIC_OP",
-	"GPU_USE_DEPTH_RANGE_HACK",
+	"N/A",
 	"GPU_USE_TEXTURE_NPOT",
 	"GPU_USE_ANISOTROPY",
 	"GPU_USE_CLEAR_RAM_HACK",
@@ -388,7 +388,7 @@ static const char *const gpuUseFlagNames[32] = {
 	"GPU_USE_DEPTH_TEXTURE",
 	"GPU_USE_ACCURATE_DEPTH",
 	"GPU_USE_GS_CULLING",
-	"GPU_USE_REVERSE_COLOR_ORDER",
+	"N/A",
 	"GPU_USE_FRAMEBUFFER_FETCH",
 	"GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT",
 	"GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT",

@@ -346,6 +346,11 @@ bool Path::IsAbsolute() const {
 }
 
 bool Path::ComputePathTo(const Path &other, std::string &path) const {
+	if (other == *this) {
+		path.clear();
+		return true;
+	}
+
 	if (!other.StartsWith(*this)) {
 		// Can't do this. Should return an error.
 		return false;

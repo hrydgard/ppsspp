@@ -334,7 +334,7 @@ public:
 		: gamePath_(gamePath), info_(info) {
 	}
 
-	~GameInfoWorkItem() override {
+	~GameInfoWorkItem() {
 		info_->pending.store(false);
 		info_->working.store(false);
 		info_->DisposeFileLoader();

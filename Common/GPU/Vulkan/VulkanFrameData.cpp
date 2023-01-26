@@ -71,8 +71,10 @@ void FrameData::AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared)
 		WARN_LOG(G3D, "VK_SUBOPTIMAL_KHR returned - ignoring");
 		break;
 	case VK_ERROR_OUT_OF_DATE_KHR:
+	case VK_TIMEOUT:
+	case VK_NOT_READY:
 		// We do not set hasAcquired here!
-		WARN_LOG(G3D, "VK_ERROR_OUT_OF_DATE_KHR returned from AcquireNextImage - processing the frame, but not presenting");
+		WARN_LOG(G3D, "%s returned from AcquireNextImage - processing the frame, but not presenting", VulkanResultToString(res));
 		skipSwap = true;
 		break;
 	default:
@@ -112,8 +114,10 @@ VkCommandBuffer FrameData::GetInitCmd(VulkanContext *vulkan) {
 		}
 
 		// Good spot to reset the query pool.
-		vkCmdResetQueryPool(initCmd, profile.queryPool, 0, MAX_TIMESTAMP_QUERIES);
-		vkCmdWriteTimestamp(initCmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, profile.queryPool, 0);
+		if (profilingEnabled_) {
+			vkCmdResetQueryPool(initCmd, profile.queryPool, 0, MAX_TIMESTAMP_QUERIES);
+			vkCmdWriteTimestamp(initCmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, profile.queryPool, 0);
+		}
 
 		hasInitCommands = true;
 	}

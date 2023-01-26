@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <algorithm>
 #include <functional>
 
@@ -27,7 +28,6 @@
 #include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
-#include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 
@@ -71,6 +71,9 @@ DrawEngineVulkan::DrawEngineVulkan(Draw::DrawContext *draw)
 	: draw_(draw), vai_(1024) {
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	decOptions_.alignOutputToWord = true;
+#endif
 
 	// Allocate nicely aligned memory. Maybe graphics drivers will appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
@@ -125,6 +128,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	bindings[8].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	bindings[8].binding = DRAW_BINDING_TESS_STORAGE_BUF_WV;
+	// Note: This binding is not included if !gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH), using bindingCount below.
 	bindings[9].descriptorCount = 1;
 	bindings[9].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 	bindings[9].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -134,7 +138,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	VkDevice device = vulkan->GetDevice();
 
 	VkDescriptorSetLayoutCreateInfo dsl{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-	dsl.bindingCount = ARRAY_SIZE(bindings);
+	dsl.bindingCount = gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH) ? ARRAY_SIZE(bindings) : ARRAY_SIZE(bindings) - 1;
 	dsl.pBindings = bindings;
 	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 	_dbg_assert_(VK_SUCCESS == res);
@@ -175,8 +179,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	VkPipelineLayoutCreateInfo pl{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
 	pl.pushConstantRangeCount = 0;
-	VkDescriptorSetLayout frameDescSetLayout = (VkDescriptorSetLayout)draw_->GetNativeObject(Draw::NativeObject::FRAME_DATA_DESC_SET_LAYOUT);
-	VkDescriptorSetLayout layouts[2] = { frameDescSetLayout, descriptorSetLayout_};
+	VkDescriptorSetLayout layouts[1] = { descriptorSetLayout_};
 	pl.setLayoutCount = ARRAY_SIZE(layouts);
 	pl.pSetLayouts = layouts;
 	pl.flags = 0;
@@ -308,8 +311,6 @@ void DrawEngineVulkan::BeginFrame() {
 	frame->pushUBO->Begin(vulkan);
 	frame->pushVertex->Begin(vulkan);
 	frame->pushIndex->Begin(vulkan);
-
-	frame->frameDescSetUpdated = false;
 
 	tessDataTransferVulkan->SetPushBuffer(frame->pushUBO);
 
@@ -546,7 +547,8 @@ void MarkUnreliable(VertexArrayInfoVulkan *vai) {
 
 void DrawEngineVulkan::Invalidate(InvalidationCallbackFlags flags) {
 	if (flags & InvalidationCallbackFlags::COMMAND_BUFFER_STATE) {
-		GetCurFrame().frameDescSetUpdated = false;
+		// Nothing here anymore (removed the "frame descriptor set"
+		// If we add back "seldomly-changing" descriptors, we might use this again.
 	}
 	if (flags & InvalidationCallbackFlags::RENDER_PASS_STATE) {
 		// If have a new render pass, dirty our dynamic state so it gets re-set.
@@ -564,8 +566,6 @@ void DrawEngineVulkan::DoFlush() {
 	PROFILE_THIS_SCOPE("Flush");
 	FrameData &frameData = GetCurFrame();
 
-	gpuStats.numFlushes++;
-	
 	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
 
 	bool textureNeedsApply = false;
@@ -586,6 +586,10 @@ void DrawEngineVulkan::DoFlush() {
 	uint32_t ibOffset;
 	uint32_t vbOffset;
 	
+	// The optimization to avoid indexing isn't really worth it on Vulkan since it means creating more pipelines.
+	// This could be avoided with the new dynamic state extensions, but not available enough on mobile.
+	const bool forceIndexed = draw_->GetDeviceCaps().verySlowShaderCompiler;
+
 	if (useHWTransform) {
 		int vertexCount = 0;
 		bool useElements = true;
@@ -672,13 +676,19 @@ void DrawEngineVulkan::DoFlush() {
 					DecodeVertsToPushBuffer(vertexCache_, &vai->vbOffset, &vai->vb);
 					_dbg_assert_msg_(gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 					vai->numVerts = indexGen.VertexCount();
-					vai->prim = indexGen.Prim();
 					vai->maxIndex = indexGen.MaxIndex();
 					vai->flags = gstate_c.vertexFullAlpha ? VAIVULKAN_FLAG_VERTEXFULLALPHA : 0;
-					useElements = !indexGen.SeenOnlyPurePrims();
-					if (!useElements && indexGen.PureCount()) {
-						vai->numVerts = indexGen.PureCount();
+					if (forceIndexed) {
+						vai->prim = indexGen.GeneralPrim();
+						useElements = true;
+					} else {
+						vai->prim = indexGen.Prim();
+						useElements = !indexGen.SeenOnlyPurePrims();
+						if (!useElements && indexGen.PureCount()) {
+							vai->numVerts = indexGen.PureCount();
+						}
 					}
+
 					if (useElements) {
 						u32 size = sizeof(uint16_t) * indexGen.VertexCount();
 						void *dest = vertexCache_->Push(size, &vai->ibOffset, &vai->ib);
@@ -747,12 +757,18 @@ void DrawEngineVulkan::DoFlush() {
 
 	rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-			useElements = !indexGen.SeenOnlyPurePrims();
+
 			vertexCount = indexGen.VertexCount();
-			if (!useElements && indexGen.PureCount()) {
-				vertexCount = indexGen.PureCount();
+			if (forceIndexed) {
+				useElements = true;
+				prim = indexGen.GeneralPrim();
+			} else {
+				useElements = !indexGen.SeenOnlyPurePrims();
+				if (!useElements && indexGen.PureCount()) {
+					vertexCount = indexGen.PureCount();
+				}
+				prim = indexGen.Prim();
 			}
-			prim = indexGen.Prim();
 		}
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
@@ -780,14 +796,14 @@ void DrawEngineVulkan::DoFlush() {
 			VulkanFragmentShader *fshader = nullptr;
 			VulkanGeometryShader *gshader = nullptr;
 
-			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
+			shaderManager_->GetShaders(prim, dec_, &vshader, &fshader, &gshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
 			if (!vshader) {
 				// We're screwed.
 				return;
 			}
 			_dbg_assert_msg_(vshader->UseHWTransform(), "Bad vshader");
 
-			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, true, 0);
+			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, true, 0, framebufferManager_->GetMSAALevel(), false);
 			if (!pipeline || !pipeline->pipeline) {
 				// Already logged, let's bail out.
 				return;
@@ -914,9 +930,9 @@ void DrawEngineVulkan::DoFlush() {
 				VulkanFragmentShader *fshader = nullptr;
 				VulkanGeometryShader *gshader = nullptr;
 
-				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, &gshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
+				shaderManager_->GetShaders(prim, dec_, &vshader, &fshader, &gshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
 				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
-				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, false, 0);
+				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, false, 0, framebufferManager_->GetMSAALevel(), false);
 				if (!pipeline || !pipeline->pipeline) {
 					// Already logged, let's bail out.
 					decodedVerts_ = 0;
@@ -983,6 +999,7 @@ void DrawEngineVulkan::DoFlush() {
 		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
+	gpuStats.numFlushes++;
 	gpuStats.numDrawCalls += numDrawCalls;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
@@ -992,7 +1009,6 @@ void DrawEngineVulkan::DoFlush() {
 	vertexCountInDrawCalls_ = 0;
 	decodeCounter_ = 0;
 	dcid_ = 0;
-	prevPrim_ = GE_PRIM_INVALID;
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
@@ -1006,32 +1022,6 @@ void DrawEngineVulkan::DoFlush() {
 }
 
 void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
-	if (!frame->frameDescSetUpdated) {
-		// Push frame global constants.
-		UB_Frame frameConstants{};
-		FrameUpdateUniforms(&frameConstants, framebufferManager_->UseBufferedRendering());
-
-		VkDescriptorBufferInfo frameConstantsBufInfo;
-		frame->pushUBO->PushUBOData(frameConstants, &frameConstantsBufInfo);
-
-		VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		VkDescriptorSetLayout frameDescSetLayout = (VkDescriptorSetLayout)draw_->GetNativeObject(Draw::NativeObject::FRAME_DATA_DESC_SET_LAYOUT);
-
-		VkDescriptorSet frameDescSet = frame->descPool.Allocate(1, &frameDescSetLayout, "frame_desc_set");
-
-		VkWriteDescriptorSet descWrite{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-		descWrite.descriptorCount = 1;
-		descWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descWrite.dstBinding = 0;
-		descWrite.dstSet = frameDescSet;
-		descWrite.pBufferInfo = &frameConstantsBufInfo;
-		vkUpdateDescriptorSets(vulkan->GetDevice(), 1, &descWrite, 0, nullptr);
-		renderManager->BindDescriptorSet(0, frameDescSet, pipelineLayout_);
-
-		frame->frameDescSetUpdated = true;
-	}
-
 	if ((dirtyUniforms_ & DIRTY_BASE_UNIFORMS) || baseBuf == VK_NULL_HANDLE) {
 		baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushUBO, &baseBuf);
 		dirtyUniforms_ &= ~DIRTY_BASE_UNIFORMS;

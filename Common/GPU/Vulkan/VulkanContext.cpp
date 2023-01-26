@@ -8,11 +8,10 @@
 #include "Common/System/System.h"
 #include "Common/System/Display.h"
 #include "Common/Log.h"
+#include "Common/GPU/Shader.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
-#include "GPU/Common/ShaderCommon.h"
 #include "Common/StringUtils.h"
-#include "Core/Config.h"
 
 #ifdef USE_CRT_DBG
 #undef new
@@ -302,7 +301,7 @@ void VulkanContext::DestroyInstance() {
 void VulkanContext::BeginFrame(VkCommandBuffer firstCommandBuffer) {
 	FrameData *frame = &frame_[curFrame_];
 	// Process pending deletes.
-	frame->deleteList.PerformDeletes(device_, allocator_);
+	frame->deleteList.PerformDeletes(this, allocator_);
 	// VK_NULL_HANDLE when profiler is disabled.
 	if (firstCommandBuffer) {
 		frame->profiler.BeginFrame(this, firstCommandBuffer);
@@ -720,7 +719,9 @@ VkResult VulkanContext::CreateDevice() {
 	allocatorInfo.physicalDevice = physical_devices_[physical_device_];
 	allocatorInfo.device = device_;
 	allocatorInfo.instance = instance_;
-	vmaCreateAllocator(&allocatorInfo, &allocator_);
+	VkResult result = vmaCreateAllocator(&allocatorInfo, &allocator_);
+	_assert_(result == VK_SUCCESS);
+	_assert_(allocator_ != VK_NULL_HANDLE);
 
 	// Examine the physical device to figure out super rough performance grade.
 	// Basically all we want to do is to identify low performance mobile devices
@@ -759,11 +760,6 @@ VkResult VulkanContext::CreateDevice() {
 	default:
 		devicePerfClass_ = PerfClass::SLOW;
 		break;
-	}
-
-
-	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
-		frame_[i].profiler.Init(this);
 	}
 
 	return res;
@@ -909,6 +905,10 @@ VkResult VulkanContext::ReinitSurface() {
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
+	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
+		frame_[i].profiler.Init(this);
+	}
+
 	return VK_SUCCESS;
 }
 
@@ -938,7 +938,7 @@ bool VulkanContext::ChooseQueue() {
 	}
 	if (presentQueueNodeIndex == UINT32_MAX) {
 		// If didn't find a queue that supports both graphics and present, then
-		// find a separate present queue.
+		// find a separate present queue. NOTE: We don't actually currently support this arrangement!
 		for (uint32_t i = 0; i < queue_count; ++i) {
 			if (supportsPresent[i] == VK_TRUE) {
 				presentQueueNodeIndex = i;
@@ -1109,9 +1109,14 @@ bool VulkanContext::InitSwapchain() {
 	std::string currentTransform = surface_transforms_to_string(surfCapabilities_.currentTransform);
 	g_display_rotation = DisplayRotation::ROTATE_0;
 	g_display_rot_matrix.setIdentity();
+
+	uint32_t allowedRotations = VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR;
+	// Hack: Don't allow 270 degrees pretransform (inverse landscape), it creates bizarre issues on some devices (see #15773).
+	allowedRotations &= ~VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR;
+
 	if (surfCapabilities_.currentTransform & (VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR | VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR)) {
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-	} else if (surfCapabilities_.currentTransform & (VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR)) {
+	} else if (surfCapabilities_.currentTransform & allowedRotations) {
 		// Normal, sensible rotations. Let's handle it.
 		preTransform = surfCapabilities_.currentTransform;
 		g_display_rot_matrix.setIdentity();
@@ -1134,12 +1139,11 @@ bool VulkanContext::InitSwapchain() {
 			_dbg_assert_(false);
 		}
 	} else {
-		// Let the OS rotate the image (potentially slow on many Android devices)
+		// Let the OS rotate the image (potentially slower on many Android devices)
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	}
 
 	std::string preTransformStr = surface_transforms_to_string(preTransform);
-
 	INFO_LOG(G3D, "Transform supported: %s current: %s chosen: %s", supportedTransforms.c_str(), currentTransform.c_str(), preTransformStr.c_str());
 
 	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
@@ -1219,9 +1223,9 @@ VkFence VulkanContext::CreateFence(bool presignalled) {
 
 void VulkanContext::PerformPendingDeletes() {
 	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
-		frame_[i].deleteList.PerformDeletes(device_, allocator_);
+		frame_[i].deleteList.PerformDeletes(this, allocator_);
 	}
-	Delete().PerformDeletes(device_, allocator_);
+	Delete().PerformDeletes(this, allocator_);
 }
 
 void VulkanContext::DestroyDevice() {
@@ -1232,12 +1236,12 @@ void VulkanContext::DestroyDevice() {
 		ERROR_LOG(G3D, "DestroyDevice: Surface should have been destroyed.");
 	}
 
-	INFO_LOG(G3D, "VulkanContext::DestroyDevice (performing deletes)");
-	PerformPendingDeletes();
-
 	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
 		frame_[i].profiler.Shutdown();
 	}
+
+	INFO_LOG(G3D, "VulkanContext::DestroyDevice (performing deletes)");
+	PerformPendingDeletes();
 
 	vmaDestroyAllocator(allocator_);
 	allocator_ = VK_NULL_HANDLE;
@@ -1314,7 +1318,7 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, 
 	glslang::TProgram program;
 	const char *shaderStrings[1];
 	TBuiltInResource Resources{};
-	init_resources(Resources);
+	InitShaderResources(Resources);
 
 	int defaultVersion = 0;
 	EShMessages messages;
@@ -1442,11 +1446,13 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	del.callbacks_.clear();
 }
 
-void VulkanDeleteList::PerformDeletes(VkDevice device, VmaAllocator allocator) {
+void VulkanDeleteList::PerformDeletes(VulkanContext *vulkan, VmaAllocator allocator) {
 	for (auto &callback : callbacks_) {
-		callback.func(callback.userdata);
+		callback.func(vulkan, callback.userdata);
 	}
 	callbacks_.clear();
+
+	VkDevice device = vulkan->GetDevice();
 	for (auto &cmdPool : cmdPools_) {
 		vkDestroyCommandPool(device, cmdPool, nullptr);
 	}
@@ -1511,6 +1517,10 @@ void VulkanDeleteList::PerformDeletes(VkDevice device, VmaAllocator allocator) {
 		vkDestroyDescriptorSetLayout(device, descSetLayout, nullptr);
 	}
 	descSetLayouts_.clear();
+	for (auto &queryPool : queryPools_) {
+		vkDestroyQueryPool(device, queryPool, nullptr);
+	}
+	queryPools_.clear();
 }
 
 void VulkanContext::GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation) {

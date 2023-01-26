@@ -172,9 +172,7 @@ void BinManager::UpdateState() {
 		creatingState_ = true;
 		stateIndex_ = (uint16_t)states_.Push(RasterizerState());
 		// When new funcs are compiled, we need to flush if WX exclusive.
-		ComputeRasterizerState(&states_[stateIndex_], [&]() {
-			Flush("compile");
-		});
+		ComputeRasterizerState(&states_[stateIndex_], this);
 		states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
 		creatingState_ = false;
 
@@ -335,7 +333,7 @@ void BinManager::MarkPendingWrites(const Rasterizer::RasterizerState &state) {
 		pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
 }
 
-inline void BinDirtyRange::Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, DrawingCoords &tl, DrawingCoords &br) {
+inline void BinDirtyRange::Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, const DrawingCoords &tl, const DrawingCoords &br) {
 	const uint32_t w = br.x - tl.x + 1;
 	const uint32_t h = br.y - tl.y + 1;
 
@@ -544,7 +542,7 @@ void BinManager::Drain(bool flushing) {
 
 			waitable_->Fill();
 			taskStatus_[i] = true;
-			g_threadManager.EnqueueTaskOnThread(i, taskLists_[i].Next(), true);
+			g_threadManager.EnqueueTaskOnThread(i, taskLists_[i].Next());
 			enqueues_++;
 		}
 

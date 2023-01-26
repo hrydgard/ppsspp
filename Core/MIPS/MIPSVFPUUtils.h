@@ -63,7 +63,7 @@ inline float vfpu_clamp(float v, float min, float max) {
 	return v >= max ? max : (v <= min ? min : v);
 }
 
-float vfpu_dot(float a[4], float b[4]);
+float vfpu_dot(const float a[4], const float b[4]);
 float vfpu_sqrt(float a);
 float vfpu_rsqrt(float a);
 

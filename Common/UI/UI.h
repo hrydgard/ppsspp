@@ -43,6 +43,7 @@ extern DrawBuffer ui_draw2d_front;	// for things that need to be on top of the r
 // Implement this interface to style your lists
 class UIListAdapter {
 public:
+	virtual ~UIListAdapter() {}
 	virtual size_t getCount() const = 0;
 	virtual void drawItem(int item, int x, int y, int w, int h, bool active) const = 0;
 	virtual float itemHeight(int itemIndex) const { return 64; }
@@ -52,8 +53,8 @@ public:
 class StringVectorListAdapter : public UIListAdapter {
 public:
 	StringVectorListAdapter(const std::vector<std::string> *items) : items_(items) {}
-	virtual size_t getCount() const { return items_->size(); }
-	virtual void drawItem(int item, int x, int y, int w, int h, bool active) const;
+	size_t getCount() const override { return items_->size(); }
+	void drawItem(int item, int x, int y, int w, int h, bool active) const override;
 
 private:
 	const std::vector<std::string> *items_;

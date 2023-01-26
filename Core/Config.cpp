@@ -32,6 +32,7 @@
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Text/I18n.h"
@@ -43,6 +44,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/StringUtils.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Core/Config.h"
@@ -257,7 +259,7 @@ struct ConfigSetting {
 		return type_ != TYPE_TERMINATOR;
 	}
 
-	bool Get(Section *section) {
+	bool Get(const Section *section) {
 		switch (type_) {
 		case TYPE_BOOL:
 			if (cb_.b) {
@@ -516,6 +518,10 @@ static bool DefaultEnableStateUndo() {
 	return true;
 }
 
+static float DefaultUISaturation() {
+	return IsVREnabled() ? 1.5f : 1.0f;
+}
+
 struct ConfigSectionSettings {
 	const char *section;
 	ConfigSetting *settings;
@@ -596,8 +602,9 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("InternalScreenRotation", &g_Config.iInternalScreenRotation, ROTATION_LOCKED_HORIZONTAL, true, true),
 
 	ConfigSetting("BackgroundAnimation", &g_Config.iBackgroundAnimation, 1, true, false),
+	ConfigSetting("TransparentBackground", &g_Config.bTransparentBackground, true, true, false),
 	ConfigSetting("UITint", &g_Config.fUITint, 0.0, true, false),
-	ConfigSetting("UISaturation", &g_Config.fUISaturation, 1.0, true, false),
+	ConfigSetting("UISaturation", &g_Config.fUISaturation, &DefaultUISaturation, true, false),
 
 #if defined(USING_WIN_UI)
 	ConfigSetting("TopMost", &g_Config.bTopMost, false),
@@ -644,6 +651,9 @@ static int DefaultInternalResolution() {
 #if defined(USING_WIN_UI) || defined(USING_QT_UI)
 	return 0;
 #else
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR) {
+		return 4;
+	}
 	int longestDisplaySide = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES));
 	int scale = longestDisplaySide >= 1000 ? 2 : 1;
 	INFO_LOG(G3D, "Longest display side: %d pixels. Choosing scale %d", longestDisplaySide, scale);
@@ -656,38 +666,6 @@ static int DefaultFastForwardMode() {
 	return (int)FastForwardMode::SKIP_FLIP;
 #else
 	return (int)FastForwardMode::CONTINUOUS;
-#endif
-}
-
-static int DefaultZoomType() {
-	return (int)SmallDisplayZoom::AUTO;
-}
-
-static int DefaultAndroidHwScale() {
-#ifdef __ANDROID__
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19 || System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
-		// Arbitrary cutoff at Kitkat - modern devices are usually powerful enough that hw scaling
-		// doesn't really help very much and mostly causes problems. See #11151
-		return 0;
-	}
-
-	// Get the real resolution as passed in during startup, not dp_xres and stuff
-	int xres = System_GetPropertyInt(SYSPROP_DISPLAY_XRES);
-	int yres = System_GetPropertyInt(SYSPROP_DISPLAY_YRES);
-
-	if (xres <= 960) {
-		// Smaller than the PSP*2, let's go native.
-		return 0;
-	} else if (xres <= 480 * 3) {  // 720p xres
-		// Small-ish screen, we should default to 2x
-		return 2 + 1;
-	} else {
-		// Large or very large screen. Default to 3x psp resolution.
-		return 3 + 1;
-	}
-	return 0;
-#else
-	return 1;
 #endif
 }
 
@@ -874,7 +852,7 @@ static ConfigSetting graphicsSettings[] = {
 #endif
 	ConfigSetting("CameraDevice", &g_Config.sCameraDevice, "", true, false),
 	ConfigSetting("VendorBugChecksEnabled", &g_Config.bVendorBugChecksEnabled, true, false, false),
-	ConfigSetting("UseGeometryShader", &g_Config.bUseGeometryShader, true, true, true),
+	ConfigSetting("UseGeometryShader", &g_Config.bUseGeometryShader, false, true, true),
 	ReportedConfigSetting("SkipBufferEffects", &g_Config.bSkipBufferEffects, false, true, true),
 	ConfigSetting("SoftwareRenderer", &g_Config.bSoftwareRendering, false, true, true),
 	ConfigSetting("SoftwareRendererJit", &g_Config.bSoftwareRenderingJit, true, true, true),
@@ -883,11 +861,10 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("TextureFiltering", &g_Config.iTexFiltering, 1, true, true),
 	ReportedConfigSetting("BufferFiltering", &g_Config.iBufFilter, SCALE_LINEAR, true, true),
 	ReportedConfigSetting("InternalResolution", &g_Config.iInternalResolution, &DefaultInternalResolution, true, true),
-	ReportedConfigSetting("AndroidHwScale", &g_Config.iAndroidHwScale, &DefaultAndroidHwScale),
 	ReportedConfigSetting("HighQualityDepth", &g_Config.bHighQualityDepth, true, true, true),
 	ReportedConfigSetting("FrameSkip", &g_Config.iFrameSkip, 0, true, true),
 	ReportedConfigSetting("FrameSkipType", &g_Config.iFrameSkipType, 0, true, true),
-	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false, true, true),
+	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, IsVREnabled(), true, true),
 	ConfigSetting("StereoRendering", &g_Config.bStereoRendering, false, true, true),
 	ConfigSetting("StereoToMonoShader", &g_Config.sStereoToMonoShader, "RedBlue", true, true),
 	ConfigSetting("FrameRate", &g_Config.iFpsLimit1, 0, true, true),
@@ -1124,9 +1101,10 @@ static int DefaultSystemParamLanguage() {
 	int defaultLang = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 	if (g_Config.bFirstRun) {
 		// TODO: Be smart about same language, different country
-		auto langValuesMapping = GetLangValuesMapping();
-		if (langValuesMapping.find(g_Config.sLanguageIni) != langValuesMapping.end()) {
-			defaultLang = langValuesMapping[g_Config.sLanguageIni].second;
+		auto &langValuesMapping = g_Config.GetLangValuesMapping();
+		auto iter = langValuesMapping.find(g_Config.sLanguageIni);
+		if (iter != langValuesMapping.end()) {
+			defaultLang = iter->second.second;
 		}
 	}
 	return defaultLang;
@@ -1215,7 +1193,7 @@ static ConfigSetting vrSettings[] = {
 	ConfigSetting("VRCameraDistance", &g_Config.fCameraDistance, 0.0f),
 	ConfigSetting("VRCameraHeight", &g_Config.fCameraHeight, 0.0f),
 	ConfigSetting("VRCameraSide", &g_Config.fCameraSide, 0.0f),
-	ConfigSetting("VRCanvasDistance", &g_Config.fCanvasDistance, 6.0f),
+	ConfigSetting("VRCanvasDistance", &g_Config.fCanvasDistance, 12.0f),
 	ConfigSetting("VRFieldOfView", &g_Config.fFieldOfViewPercentage, 100.0f),
 	ConfigSetting("VRHeadUpDisplayScale", &g_Config.fHeadUpDisplayScale, 0.3f),
 	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f),
@@ -1273,13 +1251,11 @@ Config::~Config() {
 	delete private_;
 }
 
-std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
-	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
+void Config::LoadLangValuesMapping() {
 	IniFile mapping;
 	mapping.LoadFromVFS("langregion.ini");
 	std::vector<std::string> keys;
 	mapping.GetKeys("LangRegionNames", keys);
-
 
 	std::map<std::string, int> langCodeMapping;
 	langCodeMapping["JAPANESE"] = PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
@@ -1295,8 +1271,8 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 	langCodeMapping["CHINESE_TRADITIONAL"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL;
 	langCodeMapping["CHINESE_SIMPLIFIED"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
 
-	Section *langRegionNames = mapping.GetOrCreateSection("LangRegionNames");
-	Section *systemLanguage = mapping.GetOrCreateSection("SystemLanguage");
+	const Section *langRegionNames = mapping.GetOrCreateSection("LangRegionNames");
+	const Section *systemLanguage = mapping.GetOrCreateSection("SystemLanguage");
 
 	for (size_t i = 0; i < keys.size(); i++) {
 		std::string langName;
@@ -1306,9 +1282,15 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 		int iLangCode = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 		if (langCodeMapping.find(langCode) != langCodeMapping.end())
 			iLangCode = langCodeMapping[langCode];
-		langValuesMapping[keys[i]] = std::make_pair(langName, iLangCode);
+		langValuesMapping_[keys[i]] = std::make_pair(langName, iLangCode);
 	}
-	return langValuesMapping;
+}
+
+const std::map<std::string, std::pair<std::string, int>> &Config::GetLangValuesMapping() {
+	if (langValuesMapping_.empty()) {
+		LoadLangValuesMapping();
+	}
+	return langValuesMapping_;
 }
 
 void Config::Reload() {
@@ -1321,10 +1303,35 @@ void Config::Reload() {
 // really think of any other legit uses).
 void Config::UpdateIniLocation(const char *iniFileName, const char *controllerIniFilename) {
 	const bool useIniFilename = iniFileName != nullptr && strlen(iniFileName) > 0;
-	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : "ppsspp.ini");
+	const char *ppssppIniFilename = IsVREnabled() ? "ppssppvr.ini" : "ppsspp.ini";
+	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : ppssppIniFilename);
 	const bool useControllerIniFilename = controllerIniFilename != nullptr && strlen(controllerIniFilename) > 0;
-	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : "controls.ini");
+	const char *controlsIniFilename = IsVREnabled() ? "controlsvr.ini" : "controls.ini";
+	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : controlsIniFilename);
 }
+
+bool Config::LoadAppendedConfig() {
+	IniFile iniFile;
+	if (!iniFile.Load(appendedConfigFileName_)) {
+		ERROR_LOG(LOADER, "Failed to read appended config '%s'.", appendedConfigFileName_.c_str());
+		return false;
+	}
+
+	IterateSettings(iniFile, [&iniFile](Section *section, ConfigSetting *setting) {
+		if (iniFile.Exists(section->name().c_str(), setting->iniKey_))
+			setting->Get(section);
+	});
+
+	INFO_LOG(LOADER, "Loaded appended config '%s'.", appendedConfigFileName_.c_str());
+
+	Save("Loaded appended config"); // Let's prevent reset
+	return true;
+}
+
+void Config::SetAppendedConfigIni(const Path &path) {
+	appendedConfigFileName_ = path;
+}
+
 
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (!bUpdatedInstanceCounter) {
@@ -1340,7 +1347,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	bShowFrameProfiler = true;
 
 	IniFile iniFile;
-	if (!iniFile.Load(iniFilename_.ToString())) {
+	if (!iniFile.Load(iniFilename_)) {
 		ERROR_LOG(LOADER, "Failed to read '%s'. Setting config to default.", iniFilename_.c_str());
 		// Continue anyway to initialize the config.
 	}
@@ -1397,22 +1404,29 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		}
 	}
 
-	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
+	// Default values for post process shaders
+	bool postShadersInitialized = iniFile.HasSection("PostShaderList");
+	Section *postShaderChain = iniFile.GetOrCreateSection("PostShaderList");
+	Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
+	if (IsVREnabled() && !postShadersInitialized) {
+		postShaderChain->Set("PostShader1", "ColorCorrection");
+		postShaderSetting->Set("ColorCorrectionSettingCurrentValue1", 1.0f);
+		postShaderSetting->Set("ColorCorrectionSettingCurrentValue2", 1.5f);
+		postShaderSetting->Set("ColorCorrectionSettingCurrentValue3", 1.1f);
+		postShaderSetting->Set("ColorCorrectionSettingCurrentValue4", 1.0f);
+	}
+
+	// Load post process shader values
 	mPostShaderSetting.clear();
-	for (auto it : postShaderSetting) {
+	for (const auto& it : postShaderSetting->ToMap()) {
 		mPostShaderSetting[it.first] = std::stof(it.second);
 	}
 
-	auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
+	// Load post process shader names
 	vPostShaderNames.clear();
-	for (auto it : postShaderChain) {
+	for (const auto& it : postShaderChain->ToMap()) {
 		if (it.second != "Off")
 			vPostShaderNames.push_back(it.second);
-	}
-
-	// This caps the exponent 4 (so 16x.)
-	if (iAnisotropyLevel > 4) {
-		iAnisotropyLevel = 4;
 	}
 
 	// Check for an old dpad setting
@@ -1460,34 +1474,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	CleanRecent();
 
-	// Set a default MAC, and correct if it's an old format.
-	if (sMACAddress.length() != 17)
-		sMACAddress = CreateRandMAC();
-
-	if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
-		g_Config.bSkipBufferEffects = false;
-	}
-
-	// Override ppsspp.ini JIT value to prevent crashing
-	if (DefaultCpuCore() != (int)CPUCore::JIT && g_Config.iCpuCore == (int)CPUCore::JIT) {
-		jitForcedOff = true;
-		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
-	}
-
-	// Automatically silence secondary instances. Could be an option I guess, but meh.
-	if (PPSSPP_ID > 1) {
-		g_Config.iGlobalVolume = 0;
-	}
-
-	// Automatically switch away from deprecated setting value.
-	if (iTexScalingLevel <= 0) {
-		iTexScalingLevel = 1;
-	}
-
 #if PPSSPP_PLATFORM(ANDROID)
 	// The on path here is untested, since we don't expose it.
 	g_Config.bVSync = false;
 #endif
+
+	PostLoadCleanup(false);
 
 	INFO_LOG(LOADER, "Config loaded: '%s'", iniFilename_.c_str());
 }
@@ -1502,12 +1494,10 @@ bool Config::Save(const char *saveReason) {
 		return true;
 	}
 
-	if (jitForcedOff) {
-		// if JIT has been forced off, we don't want to screw up the user's ppsspp.ini
-		g_Config.iCpuCore = (int)CPUCore::JIT;
-	}
 	if (!iniFilename_.empty() && g_Config.bSaveSettings) {
 		saveGameConfig(gameId_, gameIdTitle_);
+
+		PreSaveCleanup(false);
 
 		CleanRecent();
 		IniFile iniFile;
@@ -1588,15 +1578,59 @@ bool Config::Save(const char *saveReason) {
 			}
 			INFO_LOG(LOADER, "Controller config saved: %s", controllerIniFilename_.c_str());
 		}
+
+		PostSaveCleanup(false);
 	} else {
 		INFO_LOG(LOADER, "Not saving config");
 	}
+
+	return true;
+}
+
+void Config::PostLoadCleanup(bool gameSpecific) {
+	// Override ppsspp.ini JIT value to prevent crashing
+	if (DefaultCpuCore() != (int)CPUCore::JIT && g_Config.iCpuCore == (int)CPUCore::JIT) {
+		jitForcedOff = true;
+		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+	}
+
+	// This caps the exponent 4 (so 16x.)
+	if (iAnisotropyLevel > 4) {
+		iAnisotropyLevel = 4;
+	}
+
+	// Set a default MAC, and correct if it's an old format.
+	if (sMACAddress.length() != 17)
+		sMACAddress = CreateRandMAC();
+
+	if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
+		g_Config.bSkipBufferEffects = false;
+	}
+
+	// Automatically silence secondary instances. Could be an option I guess, but meh.
+	if (PPSSPP_ID > 1) {
+		g_Config.iGlobalVolume = 0;
+	}
+
+	// Automatically switch away from deprecated setting value.
+	if (iTexScalingLevel <= 0) {
+		iTexScalingLevel = 1;
+	}
+}
+
+void Config::PreSaveCleanup(bool gameSpecific) {
+	if (jitForcedOff) {
+		// if JIT has been forced off, we don't want to screw up the user's ppsspp.ini
+		g_Config.iCpuCore = (int)CPUCore::JIT;
+	}
+}
+
+void Config::PostSaveCleanup(bool gameSpecific) {
 	if (jitForcedOff) {
 		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
 		if (g_Config.iCpuCore != (int)CPUCore::INTERPRETER)
 			g_Config.iCpuCore = (int)CPUCore::IR_JIT;
 	}
-	return true;
 }
 
 // Use for debugging the version check without messing with the server
@@ -1695,6 +1729,10 @@ void Config::RemoveRecent(const std::string &file) {
 
 void Config::CleanRecent() {
 	private_->SetRecentIsosThread([this] {
+		SetCurrentThreadName("RecentISOs");
+
+		AndroidJNIThreadContext jniContext;  // destructor detaches
+
 		double startTime = time_now_d();
 
 		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
@@ -1816,7 +1854,8 @@ bool Config::deleteGameConfig(const std::string& pGameId) {
 }
 
 Path Config::getGameConfigFile(const std::string &pGameId) {
-	std::string iniFileName = pGameId + "_ppsspp.ini";
+	const char *ppssppIniFilename = IsVREnabled() ? "_ppssppvr.ini" : "_ppsspp.ini";
+	std::string iniFileName = pGameId + ppssppIniFilename;
 	Path iniFileNameFull = FindConfigFile(iniFileName);
 
 	return iniFileNameFull;
@@ -1833,6 +1872,8 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 
 	Section *top = iniFile.GetOrCreateSection("");
 	top->AddComment(StringFromFormat("Game config for %s - %s", pGameId.c_str(), title.c_str()));
+
+	PreSaveCleanup(true);
 
 	IterateSettings(iniFile, [](Section *section, ConfigSetting *setting) {
 		if (setting->perGame_) {
@@ -1855,8 +1896,9 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 	}
 
 	KeyMap::SaveToIni(iniFile);
-	iniFile.Save(fullIniFilePath.ToString());
+	iniFile.Save(fullIniFilePath);
 
+	PostSaveCleanup(true);
 	return true;
 }
 
@@ -1870,7 +1912,7 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 
 	changeGameSpecific(pGameId, title);
 	IniFile iniFile;
-	iniFile.Load(iniFileNameFull.ToString());
+	iniFile.Load(iniFileNameFull);
 
 	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
 	mPostShaderSetting.clear();
@@ -1897,6 +1939,15 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 	});
 
 	KeyMap::LoadFromIni(iniFile);
+	
+	if (!appendedConfigFileName_.ToString().empty() && 
+		std::find(appendedConfigUpdatedGames_.begin(), appendedConfigUpdatedGames_.end(), pGameId) == appendedConfigUpdatedGames_.end()) {
+
+		LoadAppendedConfig();
+		appendedConfigUpdatedGames_.push_back(pGameId);
+	}
+
+	PostLoadCleanup(true);
 	return true;
 }
 
@@ -1905,7 +1956,7 @@ void Config::unloadGameConfig() {
 		changeGameSpecific();
 
 		IniFile iniFile;
-		iniFile.Load(iniFilename_.ToString());
+		iniFile.Load(iniFilename_);
 
 		// Reload game specific settings back to standard.
 		IterateSettings(iniFile, [](Section *section, ConfigSetting *setting) {
@@ -1928,12 +1979,13 @@ void Config::unloadGameConfig() {
 		}
 
 		LoadStandardControllerIni();
+		PostLoadCleanup(true);
 	}
 }
 
 void Config::LoadStandardControllerIni() {
 	IniFile controllerIniFile;
-	if (!controllerIniFile.Load(controllerIniFilename_.ToString())) {
+	if (!controllerIniFile.Load(controllerIniFilename_)) {
 		ERROR_LOG(LOADER, "Failed to read %s. Setting controller config to default.", controllerIniFilename_.c_str());
 		KeyMap::RestoreDefault();
 	} else {

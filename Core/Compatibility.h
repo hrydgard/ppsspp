@@ -94,9 +94,12 @@ struct CompatFlags {
 	bool EnglishOrJapaneseOnly;
 	bool OldAdrenoPixelDepthRoundingGL;
 	bool ForceCircleButtonConfirm;
+	bool DisallowFramebufferAtOffset;
+	bool RockmanDash2SoundFix;
 };
 
 struct VRCompat {
+	bool ForceFlatScreen;
 	bool IdentityViewHack;
 	bool Skyplane;
 	float UnitsPerMeter;

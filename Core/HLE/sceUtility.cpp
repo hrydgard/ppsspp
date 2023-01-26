@@ -147,6 +147,7 @@ static int volatileUnlockEvent = -1;
 static HLEHelperThread *accessThread = nullptr;
 static bool accessThreadFinished = true;
 static const char *accessThreadState = "initial";
+static int lastSaveStateVersion = -1;
 
 static void CleanupDialogThreads(bool force = false) {
 	if (accessThread) {
@@ -280,6 +281,9 @@ void __UtilityDoState(PointerWrap &p) {
 
 	if (s >= 6) {
 		npSigninDialog->DoState(p);
+		lastSaveStateVersion = -1;
+	} else {
+		lastSaveStateVersion = s.Version();
 	}
 
 	if (!hasAccessThread && accessThread) {
@@ -305,6 +309,7 @@ void __UtilityShutdown() {
 		accessThreadState = "shutdown";
 	}
 	accessThreadFinished = true;
+	lastSaveStateVersion = -1;
 
 	delete saveDialog;
 	delete msgDialog;
@@ -411,7 +416,7 @@ static int UtilityFinishDialog(int type) {
 static int sceUtilitySavedataInitStart(u32 paramAddr) {
 	if (currentDialogActive && currentDialogType != UtilityDialogType::SAVEDATA) {
 		if (PSP_CoreParameter().compat.flags().YugiohSaveFix) {
-			WARN_LOG(SCEUTILITY, "Yugioh Savedata Correction");
+			WARN_LOG_REPORT(SCEUTILITY, "Yugioh Savedata Correction (state=%d)", lastSaveStateVersion);
 			if (accessThread) {
 				accessThread->Terminate();
 				delete accessThread;
@@ -811,15 +816,20 @@ static u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 	return 0;
 }
 
-static u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, int destSize)
+static u32 sceUtilityGetSystemParamString(u32 id, u32 destAddr, int destSize)
 {
-	DEBUG_LOG(SCEUTILITY, "sceUtilityGetSystemParamString(%i, %08x, %i)", id, destaddr, destSize);
-	char *buf = (char *)Memory::GetPointer(destaddr);
+	if (!Memory::IsValidRange(destAddr, destSize)) {
+		// TODO: What error code?
+		return -1;
+	}
+	DEBUG_LOG(SCEUTILITY, "sceUtilityGetSystemParamString(%i, %08x, %i)", id, destAddr, destSize);
+	char *buf = (char *)Memory::GetPointerWriteUnchecked(destAddr);
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_STRING_NICKNAME:
 		// If there's not enough space for the string and null terminator, fail.
 		if (destSize <= (int)g_Config.sNickName.length())
 			return PSP_SYSTEMPARAM_RETVAL_STRING_TOO_LONG;
+		// TODO: should we zero-pad the output as strncpy does? And what are the semantics for the terminating null if destSize == length?
 		strncpy(buf, g_Config.sNickName.c_str(), destSize);
 		break;
 

@@ -17,7 +17,7 @@ public:
 
 	bool Key(const KeyInput &key, bool *pauseTrigger);
 	void pspKey(int deviceId, int pspKeyCode, int flags);
-	bool Axis(const AxisInput &axis);
+	void Axis(const AxisInput &axis);
 
 	// Required callbacks
 	void SetCallbacks(
@@ -46,7 +46,7 @@ private:
 
 	int lastNonDeadzoneDeviceID_[2]{};
 
-	float history[2][2] = {};
+	float history[2][2]{};
 
 	// Mappable auto-rotation. Useful for keyboard/dpad->analog in a few games.
 	bool autoRotatingAnalogCW_ = false;

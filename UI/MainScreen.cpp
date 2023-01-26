@@ -434,7 +434,7 @@ public:
 	DirButton(const Path &path, const std::string &text, bool gridStyle, UI::LayoutParams *layoutParams = 0)
 		: UI::Button(text, layoutParams), path_(path), gridStyle_(gridStyle), absolute_(true) {}
 
-	virtual void Draw(UIContext &dc);
+	void Draw(UIContext &dc) override;
 
 	const Path &GetPath() const {
 		return path_;
@@ -505,6 +505,8 @@ void DirButton::Draw(UIContext &dc) {
 GameBrowser::GameBrowser(const Path &path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams)
 	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), gridStyle_(gridStyle), browseFlags_(browseFlags), lastText_(lastText), lastLink_(lastLink), screenManager_(screenManager) {
 	using namespace UI;
+	path_.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
+	path_.SetRootAlias("ms:", GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToVisualString());
 	Refresh();
 }
 
@@ -966,7 +968,6 @@ UI::EventReturn GameBrowser::OnHomebrewStore(UI::EventParams &e) {
 MainScreen::MainScreen() {
 	System_SendMessage("event", "mainscreen");
 	g_BackgroundAudio.SetGame(Path());
-	lastVertical_ = UseVerticalLayout();
 }
 
 MainScreen::~MainScreen() {
@@ -1118,13 +1119,11 @@ void MainScreen::CreateViews() {
 	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, -5.0f, NONE, NONE, false)));
 
 #if !defined(MOBILE_DEVICE)
-	if (!g_Config.UseFullScreen()) {
-		auto gr = GetI18NCategory("Graphics");
-		ImageID icon(g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN");
-		fullscreenButton_ = logos->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
-		fullscreenButton_->SetIgnoreText(true);
-		fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
-	}
+	auto gr = GetI18NCategory("Graphics");
+	ImageID icon(g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN");
+	fullscreenButton_ = logos->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
+	fullscreenButton_->SetIgnoreText(true);
+	fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
 #endif
 
 	rightColumnItems->Add(logos);
@@ -1132,28 +1131,40 @@ void MainScreen::CreateViews() {
 	ver->SetSmall(true);
 	ver->SetClip(false);
 
-	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		rightColumnItems->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+	LinearLayout *rightColumnChoices = rightColumnItems;
+	if (vertical) {
+		ScrollView *rightColumnScroll = new ScrollView(ORIENT_HORIZONTAL);
+		rightColumnChoices = new LinearLayout(ORIENT_HORIZONTAL);
+		rightColumnScroll->Add(rightColumnChoices);
+		rightColumnItems->Add(rightColumnScroll);
 	}
-	rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice(mm->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
-	rightColumnItems->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 
-	if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
-		Choice *gold = rightColumnItems->Add(new Choice(mm->T("Buy PPSSPP Gold")));
-		gold->OnClick.Handle(this, &MainScreen::OnSupport);
-		gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
+	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+		rightColumnChoices->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+	}
+	rightColumnChoices->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
+	rightColumnChoices->Add(new Choice(mm->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
+
+	if (!vertical) {
+		rightColumnChoices->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
+
+		if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
+			Choice *gold = rightColumnChoices->Add(new Choice(mm->T("Buy PPSSPP Gold")));
+			gold->OnClick.Handle(this, &MainScreen::OnSupport);
+			gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
+		}
 	}
 
 #if !PPSSPP_PLATFORM(UWP)
 	// Having an exit button is against UWP guidelines.
-	rightColumnItems->Add(new Spacer(25.0));
-	rightColumnItems->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
+	rightColumnChoices->Add(new Spacer(25.0));
+	rightColumnChoices->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 #endif
 
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
-		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.75));
+		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0f));
 		root_->Add(rightColumn);
 		root_->Add(leftColumn);
 	} else {
@@ -1255,15 +1266,6 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 void MainScreen::update() {
 	UIScreen::update();
 	UpdateUIState(UISTATE_MENU);
-	bool vertical = UseVerticalLayout();
-	if (vertical != lastVertical_) {
-		RecreateViews();
-		lastVertical_ = vertical;
-	}
-}
-
-bool MainScreen::UseVerticalLayout() const {
-	return dp_yres > dp_xres * 1.1f;
 }
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
@@ -1500,7 +1502,7 @@ void UmdReplaceScreen::CreateViews() {
 
 	tabAllGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
-	rightColumnItems->Add(new Choice(di->T("Cancel")))->OnClick.Handle(this, &UmdReplaceScreen::OnCancel);
+	rightColumnItems->Add(new Choice(di->T("Cancel")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
 
 	if (g_Config.HasRecentIsos()) {
@@ -1522,11 +1524,6 @@ void UmdReplaceScreen::update() {
 UI::EventReturn UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {
 	__UmdReplace(Path(e.s));
 	TriggerFinish(DR_OK);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn UmdReplaceScreen::OnCancel(UI::EventParams &e) {
-	TriggerFinish(DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 

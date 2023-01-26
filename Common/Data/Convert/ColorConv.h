@@ -101,6 +101,14 @@ inline u16 RGBA8888ToRGBA5551(u32 value) {
 	return (u16)(r | g | b | a);
 }
 
+// Used in fast sprite path.
+inline u16 RGBA8888ToRGBA555X(u32 value) {
+	u32 r = (value >> 3) & 0x1F;
+	u32 g = (value >> 6) & (0x1F << 5);
+	u32 b = (value >> 9) & (0x1F << 10);
+	return (u16)(r | g | b);
+}
+
 inline u16 RGBA8888ToRGBA4444(u32 value) {
 	const u32 c = value >> 4;
 	const u16 r = (c >> 0) & 0x000F;
@@ -110,14 +118,13 @@ inline u16 RGBA8888ToRGBA4444(u32 value) {
 	return r | g | b | a;
 }
 
-// convert image to 8888, parallelizable
-// TODO: Implement these in terms of the conversion functions below.
-void convert4444_gl(u16* data, u32* out, int width, int l, int u);
-void convert565_gl(u16* data, u32* out, int width, int l, int u);
-void convert5551_gl(u16* data, u32* out, int width, int l, int u);
-void convert4444_dx9(u16* data, u32* out, int width, int l, int u);
-void convert565_dx9(u16* data, u32* out, int width, int l, int u);
-void convert5551_dx9(u16* data, u32* out, int width, int l, int u);
+inline u16 RGBA8888ToRGBA444X(u32 value) {
+	const u32 c = value >> 4;
+	const u16 r = (c >> 0) & 0x000F;
+	const u16 g = (c >> 4) & 0x00F0;
+	const u16 b = (c >> 8) & 0x0F00;
+	return r | g | b;
+}
 
 // "Complete" set of color conversion functions between the usual formats.
 

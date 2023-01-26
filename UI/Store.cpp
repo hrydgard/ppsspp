@@ -198,7 +198,7 @@ public:
 	StoreEntry GetEntry() const { return entry_; }
 
 private:
-	const StoreEntry &entry_;
+	const StoreEntry entry_;
 };
 
 // This is a "details" view of a game. Lets you install it.
@@ -361,8 +361,6 @@ UI::EventReturn ProductView::OnLaunchClick(UI::EventParams &e) {
 }
 
 StoreScreen::StoreScreen() {
-	StoreFilter noFilter;
-	SetFilter(noFilter);
 	lang_ = g_Config.sLanguageIni;
 	loading_ = true;
 
@@ -403,19 +401,6 @@ void StoreScreen::update() {
 		// Forget the listing.
 		listing_.reset();
 	}
-
-	const char *storeName = "PPSSPP Homebrew Store";
-	switch (g_GameManager.GetState()) {
-	case GameManagerState::DOWNLOADING:
-		titleText_->SetText(std::string(storeName) + " - downloading");
-		break;
-	case GameManagerState::INSTALLING:
-		titleText_->SetText(std::string(storeName) + " - installing");
-		break;
-	default:
-		titleText_->SetText(storeName);
-		break;
-	}
 }
 
 void StoreScreen::ParseListing(std::string json) {
@@ -441,7 +426,7 @@ void StoreScreen::ParseListing(std::string json) {
 			e.size = game.getInt("size");
 			e.downloadURL = game.getString("download-url", "");
 			e.iconURL = game.getString("icon-url", "");
-			e.hidden = game.getBool("hidden", false);
+			e.hidden = false;  // NOTE: Handling of the "hidden" flag is broken in old versions of PPSSPP. Do not use.
 			const char *file = game.getString("file", nullptr);
 			if (!file)
 				continue;
@@ -458,11 +443,12 @@ void StoreScreen::CreateViews() {
 	
 	auto di = GetI18NCategory("Dialog");
 	auto st = GetI18NCategory("Store");
+	auto mm = GetI18NCategory("MainMenu");
 
 	// Top bar
 	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
 	topBar->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	titleText_ = new TextView("PPSSPP Homebrew Store");
+	titleText_ = new TextView(mm->T("PPSSPP Homebrew Store"));
 	topBar->Add(titleText_);
 	UI::Drawable solid(0xFFbd9939);
 	topBar->SetBG(solid);
@@ -471,7 +457,10 @@ void StoreScreen::CreateViews() {
 	if (connectionError_ || loading_) {
 		content = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 		content->Add(new TextView(loading_ ? std::string(st->T("Loading...")) : StringFromFormat("%s: %d", st->T("Connection Error"), resultCode_)));
-		content->Add(new Button(di->T("Retry")))->OnClick.Handle(this, &StoreScreen::OnRetry);
+		if (!loading_) {
+			content->Add(new Button(di->T("Retry")))->OnClick.Handle(this, &StoreScreen::OnRetry);
+
+		}
 		content->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 		scrollItemView_ = nullptr;
@@ -484,8 +473,7 @@ void StoreScreen::CreateViews() {
 		scrollItemView_ = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 		leftScroll->Add(scrollItemView_);
 
-		std::vector<StoreEntry> entries = FilterEntries();
-		for (size_t i = 0; i < entries.size(); i++) {
+		for (size_t i = 0; i < entries_.size(); i++) {
 			scrollItemView_->Add(new ProductItemView(entries_[i]))->OnClick.Handle(this, &StoreScreen::OnGameSelected);
 		}
 
@@ -506,16 +494,6 @@ void StoreScreen::CreateViews() {
 		}
 	}
 	root_->Add(content);
-}
-
-std::vector<StoreEntry> StoreScreen::FilterEntries() {
-	std::vector<StoreEntry> filtered;
-	for (size_t i = 0; i < entries_.size(); i++) {
-		// TODO: Actually filter by category etc.
-		if (!entries_[i].hidden)
-			filtered.push_back(entries_[i]);
-	}
-	return filtered;
 }
 
 ProductItemView *StoreScreen::GetSelectedItem() {
@@ -551,13 +529,8 @@ UI::EventReturn StoreScreen::OnGameLaunch(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void StoreScreen::SetFilter(const StoreFilter &filter) {
-	filter_ = filter;
-	RecreateViews();
-}
-
 UI::EventReturn StoreScreen::OnRetry(UI::EventParams &e) {
-	SetFilter(filter_);
+	RecreateViews();
 	return UI::EVENT_DONE;
 }
 

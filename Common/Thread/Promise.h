@@ -78,6 +78,7 @@ public:
 	}
 
 	// Returns T if the data is ready, nullptr if it's not.
+	// Obviously, can only be used if T is nullable, otherwise it won't compile.
 	T Poll() {
 		std::lock_guard<std::mutex> guard(readyMutex_);
 		if (ready_) {

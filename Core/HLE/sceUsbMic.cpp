@@ -232,7 +232,7 @@ void QueueBuf::resize(u32 newSize) {
 	u8 *oldbuf = buf_;
 
 	buf_ = new u8[newSize];
-	pop(buf_, availableSize);
+	pop(buf_, std::min(availableSize, newSize));
 	available = availableSize;
 	end = availableSize;
 	capacity = newSize;
@@ -376,18 +376,16 @@ u32 Microphone::getReadMicDataLength() {
 }
 
 int Microphone::addAudioData(u8 *buf, u32 size) {
-	if (audioBuf)
-		audioBuf->push(buf, size);
-	else
+	if (!audioBuf)
 		return 0;
-	if (Memory::IsValidAddress(curTargetAddr)) {
-		u32 addSize = std::min(audioBuf->getAvailableSize(), numNeedSamples() * 2 - getReadMicDataLength());
-		u8 *tempbuf8 = new u8[addSize];
-		getAudioData(tempbuf8, addSize);
-		Memory::Memcpy(curTargetAddr + readMicDataLength, tempbuf8, addSize);
-		delete[] tempbuf8;
-		readMicDataLength += addSize;
+	audioBuf->push(buf, size);
+
+	u32 addSize = std::min(audioBuf->getAvailableSize(), numNeedSamples() * 2 - getReadMicDataLength());
+	if (Memory::IsValidRange(curTargetAddr + readMicDataLength, addSize)) {
+		getAudioData(Memory::GetPointerWriteUnchecked(curTargetAddr + readMicDataLength), addSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, curTargetAddr + readMicDataLength, addSize, "MicAddAudioData");
 	}
+	readMicDataLength += addSize;
 
 	return size;
 }
@@ -442,10 +440,10 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool b
 
 	if (Microphone::availableAudioBufSize() > 0) {
 		u32 addSize = std::min(Microphone::availableAudioBufSize(), size);
-		u8 *tempbuf8 = new u8[addSize];
-		Microphone::getAudioData(tempbuf8, addSize);
-		Memory::Memcpy(curTargetAddr, tempbuf8, addSize);
-		delete[] tempbuf8;
+		if (Memory::IsValidRange(curTargetAddr, addSize)) {
+			Microphone::getAudioData(Memory::GetPointerWriteUnchecked(curTargetAddr), addSize);
+			NotifyMemInfo(MemBlockFlags::WRITE, curTargetAddr, addSize, "MicInput");
+		}
 		readMicDataLength += addSize;
 	}
 

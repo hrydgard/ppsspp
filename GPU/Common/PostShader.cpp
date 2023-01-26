@@ -174,12 +174,6 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 						section.Get(StringFromFormat("SettingMinValue%d", i + 1).c_str(), &setting.minValue, -1.0f);
 						section.Get(StringFromFormat("SettingMaxValue%d", i + 1).c_str(), &setting.maxValue, 1.0f);
 						section.Get(StringFromFormat("SettingStep%d", i + 1).c_str(), &setting.step, 0.01f);
-
-						// Populate the default setting value.
-						std::string section = StringFromFormat("%sSettingValue%d", info.section.c_str(), i + 1);
-						if (!setting.name.empty() && g_Config.mPostShaderSetting.find(section) == g_Config.mPostShaderSetting.end()) {
-							g_Config.mPostShaderSetting.emplace(section, setting.value);
-						}
 					}
 
 					// Let's ignore shaders we can't support. TODO: Not a very good check
@@ -250,6 +244,16 @@ void ReloadAllPostShaderInfo(Draw::DrawContext *draw) {
 	LoadPostShaderInfo(draw, directories);
 }
 
+void RemoveUnknownPostShaders(std::vector<std::string> *names) {
+	for (auto iter = names->begin(); iter != names->end(); ) {
+		if (GetPostShaderInfo(*iter) == nullptr) {
+			iter = names->erase(iter);
+		} else {
+			++iter;
+		}
+	}
+}
+
 const ShaderInfo *GetPostShaderInfo(const std::string &name) {
 	for (size_t i = 0; i < shaderInfo.size(); i++) {
 		if (shaderInfo[i].section == name)
@@ -313,4 +317,26 @@ const TextureShaderInfo *GetTextureShaderInfo(const std::string &name) {
 }
 const std::vector<TextureShaderInfo> &GetAllTextureShaderInfo() {
 	return textureShaderInfo;
+}
+
+void FixPostShaderOrder(std::vector<std::string> *names) {
+	// There's one rule only that we enforce - only one shader can use UsePreviousFrame,
+	// and it has to be the last one. So we simply remove any we find from the list,
+	// and then append it to the end if there is one.
+	std::string prevFrameShader;
+	for (auto iter = names->begin(); iter != names->end(); ) {
+		const ShaderInfo *info = GetPostShaderInfo(*iter);
+		if (info) {
+			if (info->usePreviousFrame) {
+				prevFrameShader = *iter;
+				iter = names->erase(iter++);
+				continue;
+			}
+		}
+		++iter;
+	}
+
+	if (!prevFrameShader.empty()) {
+		names->push_back(prevFrameShader);
+	}
 }

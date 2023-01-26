@@ -20,17 +20,26 @@
 #include <mutex>
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
+#include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUState.h"
+#include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRegCache.h"
 #include "GPU/Software/Sampler.h"
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
+#endif
+
+#if PPSSPP_ARCH(ARM_NEON)
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
 #endif
 
 using namespace Math3D;
@@ -67,9 +76,9 @@ bool DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return true;
 }
 
-NearestFunc GetNearestFunc(SamplerID id, std::function<void()> flushForCompile) {
+NearestFunc GetNearestFunc(SamplerID id, BinManager *binner) {
 	id.linear = false;
-	NearestFunc jitted = jitCache->GetNearest(id, flushForCompile);
+	NearestFunc jitted = jitCache->GetNearest(id, binner);
 	if (jitted) {
 		return jitted;
 	}
@@ -77,9 +86,9 @@ NearestFunc GetNearestFunc(SamplerID id, std::function<void()> flushForCompile) 
 	return &SampleNearest;
 }
 
-LinearFunc GetLinearFunc(SamplerID id, std::function<void()> flushForCompile) {
+LinearFunc GetLinearFunc(SamplerID id, BinManager *binner) {
 	id.linear = true;
-	LinearFunc jitted = jitCache->GetLinear(id, flushForCompile);
+	LinearFunc jitted = jitCache->GetLinear(id, binner);
 	if (jitted) {
 		return jitted;
 	}
@@ -87,9 +96,9 @@ LinearFunc GetLinearFunc(SamplerID id, std::function<void()> flushForCompile) {
 	return &SampleLinear;
 }
 
-FetchFunc GetFetchFunc(SamplerID id, std::function<void()> flushForCompile) {
+FetchFunc GetFetchFunc(SamplerID id, BinManager *binner) {
 	id.fetch = true;
-	FetchFunc jitted = jitCache->GetFetch(id, flushForCompile);
+	FetchFunc jitted = jitCache->GetFetch(id, binner);
 	if (jitted) {
 		return jitted;
 	}
@@ -97,11 +106,19 @@ FetchFunc GetFetchFunc(SamplerID id, std::function<void()> flushForCompile) {
 	return &SampleFetch;
 }
 
+thread_local SamplerJitCache::LastCache SamplerJitCache::lastFetch_;
+thread_local SamplerJitCache::LastCache SamplerJitCache::lastNearest_;
+thread_local SamplerJitCache::LastCache SamplerJitCache::lastLinear_;
+
 // 256k should be enough.
 SamplerJitCache::SamplerJitCache() : Rasterizer::CodeBlock(1024 * 64 * 4), cache_(64) {
+	lastFetch_.gen = -1;
+	lastNearest_.gen = -1;
+	lastLinear_.gen = -1;
 }
 
 void SamplerJitCache::Clear() {
+	clearGen_++;
 	CodeBlock::Clear();
 	cache_.Clear();
 	addresses_.clear();
@@ -153,25 +170,20 @@ void SamplerJitCache::Flush() {
 	compileQueue_.clear();
 }
 
-NearestFunc SamplerJitCache::GetByID(const SamplerID &id, std::function<void()> flushForCompile) {
-	if (!g_Config.bSoftwareRenderingJit)
-		return nullptr;
-
+NearestFunc SamplerJitCache::GetByID(const SamplerID &id, size_t key, BinManager *binner) {
 	std::unique_lock<std::mutex> guard(jitCacheLock);
-	const size_t key = std::hash<SamplerID>()(id);
-
 	auto it = cache_.Get(key);
 	if (it != nullptr)
 		return it;
 
-	if (!flushForCompile) {
+	if (!binner) {
 		// Can't compile, let's try to do it later when there's an opportunity.
 		compileQueue_.insert(id);
 		return nullptr;
 	}
 
 	guard.unlock();
-	flushForCompile();
+	binner->Flush("compile");
 	guard.lock();
 
 	for (const auto &queued : compileQueue_) {
@@ -189,16 +201,43 @@ NearestFunc SamplerJitCache::GetByID(const SamplerID &id, std::function<void()> 
 	return cache_.Get(key);
 }
 
-NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, std::function<void()> flushForCompile) {
-	return (NearestFunc)GetByID(id, flushForCompile);
+NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, BinManager *binner) {
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
+
+	const size_t key = std::hash<SamplerID>()(id);
+	if (lastNearest_.Match(key, clearGen_))
+		return (NearestFunc)lastNearest_.func;
+
+	auto func = GetByID(id, key, binner);
+	lastNearest_.Set(key, func, clearGen_);
+	return (NearestFunc)func;
 }
 
-LinearFunc SamplerJitCache::GetLinear(const SamplerID &id, std::function<void()> flushForCompile) {
-	return (LinearFunc)GetByID(id, flushForCompile);
+LinearFunc SamplerJitCache::GetLinear(const SamplerID &id, BinManager *binner) {
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
+
+	const size_t key = std::hash<SamplerID>()(id);
+	if (lastLinear_.Match(key, clearGen_))
+		return (LinearFunc)lastLinear_.func;
+
+	auto func = GetByID(id, key, binner);
+	lastLinear_.Set(key, func, clearGen_);
+	return (LinearFunc)func;
 }
 
-FetchFunc SamplerJitCache::GetFetch(const SamplerID &id, std::function<void()> flushForCompile) {
-	return (FetchFunc)GetByID(id, flushForCompile);
+FetchFunc SamplerJitCache::GetFetch(const SamplerID &id, BinManager *binner) {
+	if (!g_Config.bSoftwareRenderingJit)
+		return nullptr;
+
+	const size_t key = std::hash<SamplerID>()(id);
+	if (lastFetch_.Match(key, clearGen_))
+		return (FetchFunc)lastFetch_.func;
+
+	auto func = GetByID(id, key, binner);
+	lastFetch_.Set(key, func, clearGen_);
+	return (FetchFunc)func;
 }
 
 void SamplerJitCache::Compile(const SamplerID &id) {
@@ -473,6 +512,19 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 		} else {
 			out_a = prim_color.a();
 		}
+#elif PPSSPP_ARCH(ARM64_NEON)
+		int32x4_t pboost = vaddq_s32(prim_color.ivec, vdupq_n_s32(1));
+		int32x4_t t = texcolor.ivec;
+		if (samplerID.useColorDoubling) {
+			static const int32_t rgbDouble[4] = { 1, 1, 1, 0 };
+			t = vshlq_s32(t, vld1q_s32(rgbDouble));
+		}
+		out_rgb.ivec = vshrq_n_s32(vmulq_s32(pboost, t), 8);
+
+		if (rgba) {
+			return ToVec4IntResult(Vec4<int>(out_rgb.ivec));
+		}
+		out_a = prim_color.a();
 #else
 		if (samplerID.useColorDoubling) {
 			out_rgb = ((prim_color.rgb() + Vec3<int>::AssignToAll(1)) * texcolor.rgb() * 2) / 256;
@@ -579,13 +631,22 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuad(bool clamp, Vec4In
 		result.ivec = _mm_andnot_si128(negmask, result.ivec);
 
 		// Now the high bound.
-		__m128i bound = _mm_set1_epi32(width - 1);
+		__m128i bound = _mm_set1_epi32(width > 512 ? 511 : width - 1);
 		__m128i goodmask = _mm_cmpgt_epi32(bound, result.ivec);
 		// Clear the ones that were too high, then or in the high bound to those.
 		result.ivec = _mm_and_si128(goodmask, result.ivec);
 		result.ivec = _mm_or_si128(result.ivec, _mm_andnot_si128(goodmask, bound));
 	} else {
-		result.ivec = _mm_and_si128(result.ivec, _mm_set1_epi32(width - 1));
+		result.ivec = _mm_and_si128(result.ivec, _mm_set1_epi32((width - 1) & 511));
+	}
+#elif PPSSPP_ARCH(ARM64_NEON)
+	if (clamp) {
+		// Let's start by clamping to the maximum.
+		result.ivec = vminq_s32(result.ivec, vdupq_n_s32(width > 512 ? 511 : width - 1));
+		// And then to zero.
+		result.ivec = vmaxq_s32(result.ivec, vdupq_n_s32(0));
+	} else {
+		result.ivec = vandq_s32(result.ivec, vdupq_n_s32((width - 1) & 511));
 	}
 #else
 	if (clamp) {
@@ -606,6 +667,10 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadS(bool clamp, int u
 #ifdef _M_SSE
 	__m128i uvec = _mm_add_epi32(_mm_set1_epi32(u), _mm_set_epi32(1, 0, 1, 0));
 	return ApplyTexelClampQuad(clamp, uvec, width);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	static const int32_t u2[4] = { 0, 1, 0, 1 };
+	int32x4_t uvec = vaddq_s32(vdupq_n_s32(u), vld1q_s32(u2));
+	return ApplyTexelClampQuad(clamp, uvec, width);
 #else
 	Vec4<int> result = Vec4<int>::AssignToAll(u) + Vec4<int>(0, 1, 0, 1);
 	return ApplyTexelClampQuad(clamp, ToVec4IntArg(result), width);
@@ -615,6 +680,10 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadS(bool clamp, int u
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadT(bool clamp, int v, int height) {
 #ifdef _M_SSE
 	__m128i vvec = _mm_add_epi32(_mm_set1_epi32(v), _mm_set_epi32(1, 1, 0, 0));
+	return ApplyTexelClampQuad(clamp, vvec, height);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	static const int32_t v2[4] = { 0, 0, 1, 1 };
+	int32x4_t vvec = vaddq_s32(vdupq_n_s32(v), vld1q_s32(v2));
 	return ApplyTexelClampQuad(clamp, vvec, height);
 #else
 	Vec4<int> result = Vec4<int>::AssignToAll(v) + Vec4<int>(0, 0, 1, 1);

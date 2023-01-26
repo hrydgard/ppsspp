@@ -24,17 +24,24 @@
 
 namespace Lighting {
 
-static inline Vec3f GetLightVec(u32 lparams[12], int light) {
+static inline Vec3f GetLightVec(const u32 lparams[12], int light) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	__m128i values = _mm_loadu_si128((__m128i *)&lparams[3 * light]);
 	__m128i from24 = _mm_slli_epi32(values, 8);
 	return _mm_castsi128_ps(from24);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	uint32x4_t values = vld1q_u32((uint32_t *)&lparams[3 * light]);
+	uint32x4_t from24 = vshlq_n_u32(values, 8);
+	return vreinterpretq_f32_u32(from24);
 #else
 	return Vec3<float>(getFloat24(lparams[3 * light]), getFloat24(lparams[3 * light + 1]), getFloat24(lparams[3 * light + 2]));
 #endif
 }
 
 static inline float pspLightPow(float v, float e) {
+	if (e <= 0.0f) {
+		return 1.0f;
+	}
 	if (v > 0.0f) {
 		return pow(v, e);
 	}
@@ -45,6 +52,8 @@ static inline float pspLightPow(float v, float e) {
 static inline Vec4<int> LightColorFactor(const Vec4<int> &expanded, const Vec4<int> &ones) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	return _mm_add_epi32(_mm_slli_epi32(expanded.ivec, 1), ones.ivec);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	return vaddq_s32(vshlq_n_s32(expanded.ivec, 1), ones.ivec);
 #else
 	return expanded * 2 + ones;
 #endif
@@ -59,6 +68,10 @@ static inline bool IsLargerThanHalf(const Vec4<int> &v) {
 	__m128i add23 = _mm_add_epi32(v.ivec, _mm_shuffle_epi32(v.ivec, _MM_SHUFFLE(3, 2, 3, 2)));
 	__m128i add1 = _mm_add_epi32(add23, _mm_shuffle_epi32(add23, _MM_SHUFFLE(1, 1, 1, 1)));
 	return _mm_cvtsi128_si32(add1) > 4;
+#elif PPSSPP_ARCH(ARM64_NEON)
+	int32x2_t add02 = vpmax_s32(vget_low_s32(v.ivec), vget_high_s32(v.ivec));
+	int32x2_t add1 = vpmax_s32(add02, add02);
+	return vget_lane_s32(add1, 0) > 4;
 #else
 	bool larger = false;
 	for (int i = 0; i < 3; ++i)

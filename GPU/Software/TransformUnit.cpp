@@ -42,12 +42,18 @@
 
 TransformUnit::TransformUnit() {
 	decoded_ = (u8 *)AllocateMemoryPages(TRANSFORM_BUF_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	if (!decoded_)
+		return;
 	binner_ = new BinManager();
 }
 
 TransformUnit::~TransformUnit() {
 	FreeMemoryPages(decoded_, TRANSFORM_BUF_SIZE);
 	delete binner_;
+}
+
+bool TransformUnit::IsStarted() {
+	return binner_ && decoded_;
 }
 
 SoftwareDrawEngine::SoftwareDrawEngine() {
@@ -335,7 +341,7 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		state->roundToScreen = &ClipToScreenInternal<false, false>;
 }
 
-ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState &state) {
+ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState &state) {
 	PROFILE_THIS_SCOPE("read_vert");
 	// If we ever thread this, we'll have to change this.
 	ClipVertexData vertex;

@@ -262,6 +262,16 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "Cross"
    },
    {
+      "ppsspp_analog_is_circular",
+      "Analog Circle vs Square Gate Compensation",
+      NULL,
+      NULL,
+      NULL,
+      "system",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
       "ppsspp_internal_resolution",
       "Internal Resolution (Restart)",
       NULL,
@@ -282,6 +292,22 @@ struct retro_core_option_v2_definition option_defs_us[] = {
          { NULL, NULL },
       },
       "480x272"
+   },
+   {
+      "ppsspp_mulitsample_level",
+      "MSAA Antialiasing (Vulkan Only)",
+      NULL,
+      NULL,
+      NULL,
+      "video",
+      {
+         {"Disabled", NULL},
+         {"x2", NULL},
+         {"x4", NULL},
+         {"x8", NULL},
+         {NULL, NULL}
+      },
+      "Disabled"
    },
    {
       "ppsspp_skip_buffer_effects",

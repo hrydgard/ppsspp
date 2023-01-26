@@ -336,6 +336,9 @@
     <ClCompile Include="SPIRV-Cross\spirv_msl.cpp" />
     <ClCompile Include="SPIRV-Cross\spirv_parser.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="SPIRV-Cross-build\CMakeLists.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

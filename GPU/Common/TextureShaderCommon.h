@@ -44,7 +44,7 @@ public:
 	~TextureShaderCache();
 
 	Draw2DPipeline *GetDepalettizeShader(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat, bool smoothedDepal, u32 depthUpperBits);
-	ClutTexture GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
+	ClutTexture GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, const u32 *rawClut);
 
 	Draw::SamplerState *GetSampler(bool linearFilter);
 

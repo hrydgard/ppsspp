@@ -24,9 +24,10 @@
 #include <map>
 
 #include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/GPU/OpenGL/GLDebugLog.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
-#include "Common/Data/Text/I18n.h"
+#include "Common/LogReporting.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Profiler/Profiler.h"
@@ -41,7 +42,6 @@
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
-#include "Core/Reporting.h"
 #include "Core/System.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -152,6 +152,8 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_uvscaleoffset, "u_uvscaleoffset" });
 	queries.push_back({ &u_texclamp, "u_texclamp" });
 	queries.push_back({ &u_texclampoff, "u_texclampoff" });
+	queries.push_back({ &u_texNoAlpha, "u_texNoAlpha" });
+	queries.push_back({ &u_texMul, "u_texMul" });
 	queries.push_back({ &u_lightControl, "u_lightControl" });
 
 	for (int i = 0; i < 4; i++) {
@@ -195,7 +197,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	initialize.push_back({ &u_tess_weights_v, 0, TEX_SLOT_SPLINE_WEIGHTS_V });
 
 	GLRProgramFlags flags{};
-	flags.supportDualSource = (gstate_c.useFlags & GPU_USE_DUALSOURCE_BLEND) != 0;
+	flags.supportDualSource = gstate_c.Use(GPU_USE_DUALSOURCE_BLEND);
 	if (!VSID.Bit(VS_BIT_IS_THROUGH) && gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
 		flags.useClipDistance0 = true;
 		if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Use(GPU_USE_CLIP_DISTANCE))
@@ -204,14 +206,23 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 		flags.useClipDistance0 = true;
 	}
 
-	program = render->CreateProgram(shaders, semantics, queries, initialize, flags);
+	program = render->CreateProgram(shaders, semantics, queries, initialize, nullptr, flags);
 
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL_UNIFORMS;
 }
 
-LinkedShader::~LinkedShader() {
+void LinkedShader::Delete() {
+	program->SetDeleteCallback([](void *thiz) {
+		LinkedShader *ls = (LinkedShader *)thiz;
+		delete ls;
+	}, this);
 	render_->DeleteProgram(program);
+	program = nullptr;
+}
+
+LinkedShader::~LinkedShader() {
+	_assert_(program == nullptr);
 }
 
 // Utility
@@ -282,6 +293,12 @@ static void SetFloat24Uniform3(GLRenderManager *render, GLint *uniform, const ui
 	render->SetUniformF(uniform, 3, f);
 }
 
+static void SetFloat24Uniform3Normalized(GLRenderManager *render, GLint *uniform, const uint32_t data[3]) {
+	float f[4];
+	ExpandFloat24x3ToFloat4AndNormalize(f, data);
+	render->SetUniformF(uniform, 3, f);
+}
+
 static void SetFloatUniform4(GLRenderManager *render, GLint *uniform, float data[4]) {
 	render->SetUniformF(uniform, 4, data);
 }
@@ -319,38 +336,6 @@ static inline void FlipProjMatrix(Matrix4x4 &in, bool useBufferedRendering) {
 		in[8] = -in[8];
 		in[12] = -in[12];
 	}
-
-	// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
-	// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
-	if (gstate_c.Use(GPU_USE_DEPTH_RANGE_HACK)) {
-		float zScale = gstate.getViewportZScale() / 65535.0f;
-		float zCenter = gstate.getViewportZCenter() / 65535.0f;
-
-		// if far depth range < 0
-		if (zCenter + zScale < 0.0f) {
-			// if perspective projection
-			if (in[11] < 0.0f) {
-				float depthMax = gstate.getDepthRangeMax() / 65535.0f;
-				float depthMin = gstate.getDepthRangeMin() / 65535.0f;
-
-				float a = in[10];
-				float b = in[14];
-
-				float n = b / (a - 1.0f);
-				float f = b / (a + 1.0f);
-
-				f = (n * f) / (n + ((zCenter + zScale) * (n - f) / (depthMax - depthMin)));
-
-				a = (n + f) / (n - f);
-				b = (2.0f * n * f) / (n - f);
-
-				if (!my_isnan(a) && !my_isnan(b)) {
-					in[10] = a;
-					in[14] = b;
-				}
-			}
-		}
-	}
 }
 
 static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
@@ -368,12 +353,18 @@ static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
 	else if (gstate.isClearModeDepthMask()) hud = false;
 	//HUD texture has to contain alpha channel
 	else if (!gstate.isTextureAlphaUsed()) hud = false;
+	//HUD texture cannot be in CLUT16 format
+	else if (gstate.getTextureFormat() == GETextureFormat::GE_TFMT_CLUT16) hud = false;
+	//HUD texture cannot be in CLUT32 format
+	else if (gstate.getTextureFormat() == GETextureFormat::GE_TFMT_CLUT32) hud = false;
 	//HUD cannot have full texture alpha
 	else if (gstate_c.textureFullAlpha) hud = false;
 	//HUD must have full vertex alpha
 	else if (!gstate_c.vertexFullAlpha && gstate.getDepthTestFunction() == GE_COMP_NEVER) hud = false;
 	//HUD cannot render FB screenshot
-	else if (gstate_c.curTextureHeight % 136 <= 1) hud = false;
+	else if (gstate_c.curTextureHeight % 68 <= 1) hud = false;
+	//HUD cannot be rendered with add function
+	else if (gstate.getTextureFunction() == GETexFunc::GE_TEXFUNC_ADD) hud = false;
 	//HUD cannot be rendered with replace function
 	else if (gstate.getTextureFunction() == GETexFunc::GE_TEXFUNC_REPLACE) hud = false;
 	//HUD cannot be rendered with full clear color mask
@@ -387,7 +378,7 @@ void LinkedShader::use(const ShaderID &VSID) {
 	// Note that we no longer track attr masks here - we do it for the input layouts instead.
 }
 
-void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBufferedRendering, const ShaderLanguageDesc &shaderLanguage) {
+void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRendering, const ShaderLanguageDesc &shaderLanguage) {
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 
@@ -466,6 +457,10 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	if (dirty & DIRTY_TEXENV) {
 		SetColorUniform3(render_, &u_texenv, gstate.texenvcolor);
 	}
+	if (dirty & DIRTY_TEX_ALPHA_MUL) {
+		render_->SetUniformF1(&u_texNoAlpha, gstate.isTextureAlphaUsed() ? 0.0f : 1.0f);
+		render_->SetUniformF1(&u_texMul, gstate.isColorDoublingEnabled() ? 2.0f : 1.0f);
+	}
 	if (dirty & DIRTY_ALPHACOLORREF) {
 		if (shaderLanguage.bitwiseOps) {
 			render_->SetUniformUI1(&u_alphacolorref, gstate.getColorTestRef() | ((gstate.getAlphaTestRef() & gstate.getAlphaTestMask()) << 24));
@@ -485,21 +480,26 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			SetVRCompat(VR_COMPAT_FOG_COLOR, gstate.fogcolor);
 		}
 	}
-	if (dirty & DIRTY_FOGCOEF) {
-		float fogcoef[2] = {
-			getFloat24(gstate.fog1),
-			getFloat24(gstate.fog2),
-		};
-		// The PSP just ignores infnan here (ignoring IEEE), so take it down to a valid float.
-		// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
-		if (my_isnanorinf(fogcoef[0])) {
-			// Not really sure what a sensible value might be, but let's try 64k.
-			fogcoef[0] = std::signbit(fogcoef[0]) ? -65535.0f : 65535.0f;
+	if (dirty & DIRTY_FOGCOEFENABLE) {
+		if (gstate.isFogEnabled() && !gstate.isModeThrough()) {
+			float fogcoef[2] = {
+				getFloat24(gstate.fog1),
+				getFloat24(gstate.fog2),
+			};
+			// The PSP just ignores infnan here (ignoring IEEE), so take it down to a valid float.
+			// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
+			if (my_isnanorinf(fogcoef[0])) {
+				// Not really sure what a sensible value might be, but let's try 64k.
+				fogcoef[0] = std::signbit(fogcoef[0]) ? -65535.0f : 65535.0f;
+			}
+			if (my_isnanorinf(fogcoef[1])) {
+				fogcoef[1] = std::signbit(fogcoef[1]) ? -65535.0f : 65535.0f;
+			}
+			render_->SetUniformF(&u_fogcoef, 2, fogcoef);
+		} else {
+			float fogcoef[2] = { -65536.0f, -65536.0f };
+			render_->SetUniformF(&u_fogcoef, 2, fogcoef);
 		}
-		if (my_isnanorinf(fogcoef[1])) {
-			fogcoef[1] = std::signbit(fogcoef[1]) ? -65535.0f : 65535.0f;
-		}
-		render_->SetUniformF(&u_fogcoef, 2, fogcoef);
 	}
 	if (dirty & DIRTY_UVSCALEOFFSET) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
@@ -656,21 +656,12 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	for (int i = 0; i < 4; i++) {
 		if (dirty & (DIRTY_LIGHT0 << i)) {
 			if (gstate.isDirectionalLight(i)) {
-				// Prenormalize
-				float x = getFloat24(gstate.lpos[i * 3 + 0]);
-				float y = getFloat24(gstate.lpos[i * 3 + 1]);
-				float z = getFloat24(gstate.lpos[i * 3 + 2]);
-				float len = sqrtf(x*x + y*y + z*z);
-				if (len == 0.0f)
-					len = 1.0f;
-				else
-					len = 1.0f / len;
-				float vec[3] = { x * len, y * len, z * len };
-				render_->SetUniformF(&u_lightpos[i], 3, vec);
+				// Prenormalize for cheaper calculations in shader
+				SetFloat24Uniform3Normalized(render_, &u_lightpos[i], &gstate.lpos[i * 3]);
 			} else {
 				SetFloat24Uniform3(render_, &u_lightpos[i], &gstate.lpos[i * 3]);
 			}
-			if (u_lightdir[i] != -1) SetFloat24Uniform3(render_, &u_lightdir[i], &gstate.ldir[i * 3]);
+			if (u_lightdir[i] != -1) SetFloat24Uniform3Normalized(render_, &u_lightdir[i], &gstate.ldir[i * 3]);
 			if (u_lightatt[i] != -1) SetFloat24Uniform3(render_, &u_lightatt[i], &gstate.latt[i * 3]);
 			if (u_lightangle_spotCoef[i] != -1) {
 				float lightangle_spotCoef[2] = { getFloat24(gstate.lcutoff[i]), getFloat24(gstate.lconv[i]) };
@@ -706,7 +697,7 @@ ShaderManagerGLES::~ShaderManagerGLES() {
 void ShaderManagerGLES::Clear() {
 	DirtyLastShader();
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
-		delete iter->ls;
+		iter->ls->Delete();
 	}
 	fsCache_.Iterate([&](const FShaderID &key, Shader *shader) {
 		delete shader;
@@ -781,10 +772,10 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	return new Shader(render_, codeBuffer_, desc, params);
 }
 
-Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat, bool useSkinInDecode, VShaderID *VSID) {
+Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTessellation, VertexDecoder *decoder, bool weightsAsFloat, bool useSkinInDecode, VShaderID *VSID) {
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(VSID, vertType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
+		ComputeVertexShaderID(VSID, decoder, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
 	} else {
 		*VSID = lastVSID_;
 	}
@@ -815,7 +806,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 
 			// Can still work with software transform.
 			VShaderID vsidTemp;
-			ComputeVertexShaderID(&vsidTemp, vertType, false, false, weightsAsFloat, true);
+			ComputeVertexShaderID(&vsidTemp, decoder, false, false, weightsAsFloat, true);
 			vs = CompileVertexShader(vsidTemp);
 		}
 
@@ -825,7 +816,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 	return vs;
 }
 
-LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, u32 vertType, bool useBufferedRendering) {
+LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, bool useBufferedRendering) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty) {
 		if (lastShader_)
@@ -843,7 +834,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	}
 
 	if (lastVShaderSame_ && FSID == lastFSID_) {
-		lastShader_->UpdateUniforms(vertType, VSID, useBufferedRendering, draw_->GetShaderLanguageDesc());
+		lastShader_->UpdateUniforms(VSID, useBufferedRendering, draw_->GetShaderLanguageDesc());
 		return lastShader_;
 	}
 
@@ -874,8 +865,6 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	shaderSwitchDirtyUniforms_ = 0;
 
 	if (ls == nullptr) {
-		_dbg_assert_(FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
-		_dbg_assert_(FSID.Bit(FS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
 		_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
 
 		// Check if we can link these.
@@ -886,7 +875,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	} else {
 		ls->use(VSID);
 	}
-	ls->UpdateUniforms(vertType, VSID, useBufferedRendering, draw_->GetShaderLanguageDesc());
+	ls->UpdateUniforms(VSID, useBufferedRendering, draw_->GetShaderLanguageDesc());
 
 	lastShader_ = ls;
 	return ls;
@@ -962,30 +951,49 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 // If things like GPU supported features have changed since the last time, we discard the cache
 // as sometimes these features might have an effect on the ID bits.
 
+enum class CacheDetectFlags {
+	EQUAL_DEPTH = 1,
+};
+
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 16
+#define CACHE_VERSION 27
+
 struct CacheHeader {
 	uint32_t magic;
 	uint32_t version;
 	uint32_t useFlags;
-	uint32_t reserved;
+	uint32_t detectFlags;
 	int numVertexShaders;
 	int numFragmentShaders;
 	int numLinkedPrograms;
 };
 
-void ShaderManagerGLES::Load(const Path &filename) {
-	File::IOFile f(filename, "rb");
-	u64 sz = f.GetSize();
-	if (!f.IsOpen()) {
-		return;
-	}
+bool ShaderManagerGLES::LoadCacheFlags(File::IOFile &f, DrawEngineGLES *drawEngine) {
 	CacheHeader header;
 	if (!f.ReadArray(&header, 1)) {
-		return;
+		return false;
 	}
-	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION || header.useFlags != gstate_c.useFlags) {
-		return;
+	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION) {
+		return false;
+	}
+
+	if ((header.detectFlags & (uint32_t)CacheDetectFlags::EQUAL_DEPTH) != 0) {
+		drawEngine->SetEverUsedExactEqualDepth(true);
+	}
+
+	return true;
+}
+
+bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
+	u64 sz = f.GetSize();
+	f.Seek(0, SEEK_SET);
+	CacheHeader header;
+	if (!f.ReadArray(&header, 1)) {
+		return false;
+	}
+	// We don't recheck the version, done in LoadCacheFlags().
+	if (header.useFlags != gstate_c.GetUseFlags()) {
+		return false;
 	}
 	diskCachePending_.start = time_now_d();
 	diskCachePending_.Clear();
@@ -993,7 +1001,7 @@ void ShaderManagerGLES::Load(const Path &filename) {
 	// Sanity check the file contents
 	if (header.numFragmentShaders > 1000 || header.numVertexShaders > 1000 || header.numLinkedPrograms > 1000) {
 		ERROR_LOG(G3D, "Corrupt shader cache file header, aborting.");
-		return;
+		return false;
 	}
 
 	// Also make sure the size makes sense, in case there's corruption.
@@ -1003,37 +1011,37 @@ void ShaderManagerGLES::Load(const Path &filename) {
 	expectedSize += header.numLinkedPrograms * (sizeof(VShaderID) + sizeof(FShaderID));
 	if (sz != expectedSize) {
 		ERROR_LOG(G3D, "Shader cache file is wrong size: %lld instead of %lld", sz, expectedSize);
-		return;
+		return false;
 	}
 
 	diskCachePending_.vert.resize(header.numVertexShaders);
 	if (!f.ReadArray(&diskCachePending_.vert[0], header.numVertexShaders)) {
 		diskCachePending_.vert.clear();
-		return;
+		return false;
 	}
 
 	diskCachePending_.frag.resize(header.numFragmentShaders);
 	if (!f.ReadArray(&diskCachePending_.frag[0], header.numFragmentShaders)) {
 		diskCachePending_.vert.clear();
 		diskCachePending_.frag.clear();
-		return;
+		return false;
 	}
 
 	for (int i = 0; i < header.numLinkedPrograms; i++) {
 		VShaderID vsid;
 		FShaderID fsid;
 		if (!f.ReadArray(&vsid, 1)) {
-			return;
+			return false;
 		}
 		if (!f.ReadArray(&fsid, 1)) {
-			return;
+			return false;
 		}
 		diskCachePending_.link.emplace_back(vsid, fsid);
 	}
 
 	// Actual compilation happens in ContinuePrecompile(), called by GPU_GLES's IsReady.
-	NOTICE_LOG(G3D, "Precompiling the shader cache from '%s'", filename.c_str());
 	diskCacheDirty_ = false;
+	return true;
 }
 
 bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
@@ -1122,7 +1130,7 @@ void ShaderManagerGLES::CancelPrecompile() {
 	diskCachePending_.Clear();
 }
 
-void ShaderManagerGLES::Save(const Path &filename) {
+void ShaderManagerGLES::SaveCache(const Path &filename, DrawEngineGLES *drawEngine) {
 	if (!diskCacheDirty_) {
 		return;
 	}
@@ -1139,8 +1147,10 @@ void ShaderManagerGLES::Save(const Path &filename) {
 	CacheHeader header;
 	header.magic = CACHE_HEADER_MAGIC;
 	header.version = CACHE_VERSION;
-	header.reserved = 0;
-	header.useFlags = gstate_c.useFlags;
+	header.detectFlags = 0;
+	if (drawEngine->EverUsedExactEqualDepth())
+		header.detectFlags |= (uint32_t)CacheDetectFlags::EQUAL_DEPTH;
+	header.useFlags = gstate_c.GetUseFlags();
 	header.numVertexShaders = GetNumVertexShaders();
 	header.numFragmentShaders = GetNumFragmentShaders();
 	header.numLinkedPrograms = GetNumPrograms();

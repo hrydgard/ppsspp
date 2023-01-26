@@ -251,7 +251,6 @@ enum class NativeObject {
 	TEXTURE_VIEW,
 	NULL_IMAGEVIEW,
 	NULL_IMAGEVIEW_ARRAY,
-	FRAME_DATA_DESC_SET_LAYOUT,
 	THIN3D_PIPELINE_LAYOUT,
 };
 
@@ -483,10 +482,7 @@ public:
 	virtual ShaderStage GetStage() const = 0;
 };
 
-class Pipeline : public RefCountedObject {
-public:
-	virtual ~Pipeline() {}
-};
+class Pipeline : public RefCountedObject { };
 
 class RasterState : public RefCountedObject {};
 
@@ -581,6 +577,14 @@ struct DeviceCaps {
 	bool isTilingGPU;  // This means that it benefits from correct store-ops, msaa without backing memory, etc.
 	bool sampleRateShadingSupported;
 
+	bool verySlowShaderCompiler;
+
+	// From the other backends, we can detect if D3D9 support is known bad (like on Xe) and disable it.
+	bool supportsD3D9;
+
+	// Old style, for older GL or Direct3D 9.
+	u32 clipPlanesSupported;
+
 	u32 multiSampleLevelsMask;  // Bit n is set if (1 << n) is a valid multisample level. Bit 0 is always set.
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
@@ -629,6 +633,13 @@ enum class TextureBindFlags {
 };
 ENUM_CLASS_BITOPS(TextureBindFlags);
 
+enum class DebugFlags {
+	NONE = 0,
+	PROFILE_TIMESTAMPS = 1,
+	PROFILE_SCOPES = 2,
+};
+ENUM_CLASS_BITOPS(DebugFlags);
+
 class DrawContext {
 public:
 	virtual ~DrawContext();
@@ -653,6 +664,7 @@ public:
 	virtual void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {}
 
 	virtual void DebugAnnotate(const char *annotation) {}
+	virtual void SetDebugFlags(DebugFlags flags) {}
 
 	// Partial pipeline state, used to create pipelines. (in practice, in d3d11 they'll use the native state objects directly).
 	// TODO: Possibly ditch these and just put the descs directly in PipelineDesc since only D3D11 benefits.

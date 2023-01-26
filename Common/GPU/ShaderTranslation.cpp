@@ -41,6 +41,7 @@
 #include "Common/GPU/ShaderTranslation.h"
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 #include "Common/GPU/thin3d.h"
+#include "Common/GPU/Shader.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "ext/SPIRV-Cross/spirv.hpp"
@@ -50,8 +51,6 @@
 #ifdef _WIN32
 #include "ext/SPIRV-Cross/spirv_hlsl.hpp"
 #endif
-
-extern void init_resources(TBuiltInResource &Resources);
 
 static EShLanguage GetShLanguageFromStage(const ShaderStage stage) {
 	switch (stage) {
@@ -98,7 +97,7 @@ R"(#version 450
 )";
 
 static const char *vulkanUboDecl = R"(
-layout (std140, set = 1, binding = 0) uniform Data {
+layout (std140, set = 0, binding = 0) uniform Data {
 	vec2 u_texelDelta;
 	vec2 u_pixelDelta;
 	vec4 u_time;
@@ -187,11 +186,11 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 			continue;
 		} else if (line.find("uniform sampler2D") == 0) {
 			if (sscanf(line.c_str(), "uniform sampler2D sampler%d", &num) == 1)
-				line = StringFromFormat("layout(set = 1, binding = %d) ", num + 1) + line;
+				line = StringFromFormat("layout(set = 0, binding = %d) ", num + 1) + line;
 			else if (line.find("sampler0") != line.npos)
-				line = "layout(set = 1, binding = 1) " + line;
+				line = "layout(set = 0, binding = 1) " + line;
 			else
-				line = "layout(set = 1, binding = 2) " + line;
+				line = "layout(set = 0, binding = 2) " + line;
 		} else if (line.find("uniform ") != std::string::npos) {
 			continue;
 		} else if (2 == sscanf(line.c_str(), "varying vec%d v_texcoord%d;", &vecSize, &num)) {
@@ -241,7 +240,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLan
 	const char *shaderStrings[1]{};
 
 	TBuiltInResource Resources{};
-	init_resources(Resources);
+	InitShaderResources(Resources);
 
 	// Don't enable SPIR-V and Vulkan rules when parsing GLSL. Our postshaders are written in oldschool GLES 2.0.
 	EShMessages messages = EShMessages::EShMsgDefault;

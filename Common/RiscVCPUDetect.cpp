@@ -18,13 +18,16 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(RISCV64)
 
+#include <cstring>
+#include <set>
+#include <sstream>
+#include <sys/auxv.h>
+#include <vector>
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
 #include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include <cstring>
-#include <sstream>
 
 // Only Linux platforms have /proc/cpuinfo
 #if defined(__linux__)
@@ -32,30 +35,59 @@ const char procfile[] = "/proc/cpuinfo";
 // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-devices-system-cpu
 const char syscpupresentfile[] = "/sys/devices/system/cpu/present";
 
-std::string GetCPUString() {
-    //TODO
-	std::string cpu_string;
-	cpu_string = "Unknown";
-	return cpu_string;
+class RiscVCPUInfoParser {
+public:
+	RiscVCPUInfoParser();
+
+	int ProcessorCount();
+	int TotalLogicalCount();
+
+	std::string ISAString();
+
+private:
+	std::vector<std::vector<std::string>> cores_;
+};
+
+RiscVCPUInfoParser::RiscVCPUInfoParser() {
+	std::string procdata, line;
+	if (!File::ReadFileToString(true, Path(procfile), procdata))
+		return;
+
+	std::istringstream file(procdata);
+	int index = -1;
+	while (std::getline(file, line)) {
+		if (line.length() == 0) {
+			index = -1;
+		} else {
+			if (index == -1) {
+				index = (int)cores_.size();
+				cores_.push_back(std::vector<std::string>());
+			}
+			cores_[index].push_back(line);
+		}
+	}
 }
 
-std::string GetCPUBrandString() {
-    //TODO
-    std::string brand_string;
-    brand_string = "Unknown";
-    return brand_string;
+int RiscVCPUInfoParser::ProcessorCount() {
+	// Not using present as that counts the logical CPUs (aka harts.)
+	static const char *marker = "processor\t: ";
+	std::set<std::string> processors;
+	for (auto core : cores_) {
+		for (auto line : core) {
+			if (line.find(marker) != line.npos)
+				processors.insert(line);
+		}
+	}
+
+	return (int)processors.size();
 }
 
-int GetCoreCount()
-{
-	std::string line, marker = "processor\t: ";
-	int cores = 1;
-
-	std::string presentData;
+int RiscVCPUInfoParser::TotalLogicalCount() {
+	std::string presentData, line;
 	bool presentSuccess = File::ReadFileToString(true, Path(syscpupresentfile), presentData);
-	std::istringstream presentFile(presentData);
-
 	if (presentSuccess) {
+		std::istringstream presentFile(presentData);
+
 		int low, high, found;
 		std::getline(presentFile, line);
 		found = sscanf(line.c_str(), "%d-%d", &low, &high);
@@ -65,20 +97,35 @@ int GetCoreCount()
 			return high - low + 1;
 	}
 
-	std::string procdata;
-	if (!File::ReadFileToString(true, Path(procfile), procdata))
-		return 1;
-	std::istringstream file(procdata);
-	
-	while (std::getline(file, line))
-	{
-		if (line.find(marker) != std::string::npos)
-			++cores;
+	static const char *marker = "hart\t\t: ";
+	std::set<std::string> harts;
+	for (auto core : cores_) {
+		for (auto line : core) {
+			if (line.find(marker) != line.npos)
+				harts.insert(line);
+		}
 	}
-	
-	return cores;
+
+	return (int)harts.size();
+}
+
+std::string RiscVCPUInfoParser::ISAString() {
+	static const char *marker = "isa\t\t: ";
+	for (auto core : cores_) {
+		for (auto line : core) {
+			if (line.find(marker) != line.npos)
+				return line.substr(strlen(marker));
+		}
+	}
+
+	return "Unknown";
 }
 #endif
+
+static bool ExtensionSupported(unsigned long v, char c) {
+	unsigned long bit = (v >> (c - 'A')) & 1;
+	return bit == 1;
+}
 
 CPUInfo cpu_info;
 
@@ -101,16 +148,32 @@ void CPUInfo::Detect()
 	Mode64bit = false;
 #endif
 	vendor = VENDOR_OTHER;
-	logical_cpu_count = 1;
+
+	// Not sure how to get anything great here.
+	truncate_cpy(brand_string, "Unknown");
 	
-	// Get the information about the CPU 
 #if !defined(__linux__)
 	num_cores = 1;
+	logical_cpu_count = 1;
+	truncate_cpy(cpu_string, "Unknown");
 #else // __linux__
-	truncate_cpy(cpu_string, GetCPUString().c_str());
-	truncate_cpy(brand_string, GetCPUBrandString().c_str());
-	num_cores = GetCoreCount();
+	RiscVCPUInfoParser parser;
+	num_cores = parser.ProcessorCount();
+	logical_cpu_count = parser.TotalLogicalCount() / num_cores;
+	if (logical_cpu_count <= 0)
+		logical_cpu_count = 1;
+
+	truncate_cpy(cpu_string, parser.ISAString().c_str());
 #endif
+
+	unsigned long hwcap = getauxval(AT_HWCAP);
+	RiscV_M = ExtensionSupported(hwcap, 'M');
+	RiscV_A = ExtensionSupported(hwcap, 'A');
+	RiscV_F = ExtensionSupported(hwcap, 'F');
+	RiscV_D = ExtensionSupported(hwcap, 'D');
+	RiscV_C = ExtensionSupported(hwcap, 'C');
+	RiscV_V = ExtensionSupported(hwcap, 'V');
+	RiscV_B = ExtensionSupported(hwcap, 'B');
 }
 
 // Turn the cpu info into a string we can show

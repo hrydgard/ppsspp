@@ -37,6 +37,14 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		}
 	}
 
+	// Sanity check.
+	// Seen in crash reports from PowerVR GE8320, presumably we failed creating some shader modules.
+	if (!desc->vertexShader || !desc->fragmentShader) {
+		ERROR_LOG(G3D, "Failed creating graphics pipeline - missing vs/fs shader module pointers!");
+		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
+		return false;
+	}
+
 	// Fill in the last part of the desc since now it's time to block.
 	VkShaderModule vs = desc->vertexShader->BlockUntilReady();
 	VkShaderModule fs = desc->fragmentShader->BlockUntilReady();
@@ -44,7 +52,13 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 
 	if (!vs || !fs || (!gs && desc->geometryShader)) {
 		ERROR_LOG(G3D, "Failed creating graphics pipeline - missing shader modules");
-		// We're kinda screwed here?
+		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
+		return false;
+	}
+
+	if (!compatibleRenderPass) {
+		ERROR_LOG(G3D, "Failed creating graphics pipeline - compatible render pass was nullptr");
+		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
 		return false;
 	}
 
@@ -86,12 +100,15 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		ms.minSampleShading = 1.0f;
 	}
 
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
+	inputAssembly.topology = desc->topology;
+
 	// We will use dynamic viewport state.
 	pipe.pVertexInputState = &desc->vis;
 	pipe.pViewportState = &desc->views;
 	pipe.pTessellationState = nullptr;
 	pipe.pDynamicState = &desc->ds;
-	pipe.pInputAssemblyState = &desc->inputAssembly;
+	pipe.pInputAssemblyState = &inputAssembly;
 	pipe.pMultisampleState = &ms;
 	pipe.layout = desc->pipelineLayout;
 	pipe.basePipelineHandle = VK_NULL_HANDLE;
@@ -103,10 +120,11 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &pipe, nullptr, &vkpipeline);
 	double taken_ms = (time_now_d() - start) * 1000.0;
 
-	if (taken_ms < 0.1)
-		DEBUG_LOG(G3D, "Pipeline creation time: %0.2f ms (fast)", taken_ms);
-	else
-		INFO_LOG(G3D, "Pipeline creation time: %0.2f ms", taken_ms);
+	if (taken_ms < 0.1) {
+		DEBUG_LOG(G3D, "Pipeline creation time: %0.2f ms (fast) rpType: %08x sampleBits: %d (%s)", taken_ms, (u32)rpType, (u32)sampleCount, tag_.c_str());
+	} else {
+		INFO_LOG(G3D, "Pipeline creation time: %0.2f ms  rpType: %08x sampleBits: %d (%s)", taken_ms, (u32)rpType, (u32)sampleCount, tag_.c_str());
+	}
 
 	bool success = true;
 	if (result == VK_INCOMPLETE) {
@@ -151,10 +169,31 @@ void VKRGraphicsPipeline::DestroyVariants(VulkanContext *vulkan, bool msaaOnly) 
 	sampleCount_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
 }
 
+void VKRGraphicsPipeline::DestroyVariantsInstant(VkDevice device) {
+	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
+		if (pipeline[i]) {
+			vkDestroyPipeline(device, pipeline[i]->BlockUntilReady(), nullptr);
+			delete pipeline[i];
+			pipeline[i] = nullptr;
+		}
+	}
+}
+
+VKRGraphicsPipeline::~VKRGraphicsPipeline() {
+	// This is called from the callbacked queued in QueueForDeletion.
+	// Here we are free to directly delete stuff, don't need to queue.
+	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
+		_assert_(!pipeline[i]);
+	}
+	if (desc)
+		desc->Release();
+}
+
 void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
-	DestroyVariants(vulkan, false);
-	vulkan->Delete().QueueCallback([](void *p) {
+	// Can't destroy variants here, the pipeline still lives for a while.
+	vulkan->Delete().QueueCallback([](VulkanContext *vulkan, void *p) {
 		VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;
+		pipeline->DestroyVariantsInstant(vulkan->GetDevice());
 		delete pipeline;
 	}, this);
 }
@@ -284,7 +323,11 @@ void VulkanRenderManager::StopThread() {
 
 	INFO_LOG(G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
 
-	compileCond_.notify_all();
+	if (compileThread_.joinable()) {
+		// Lock to avoid race conditions.
+		std::lock_guard<std::mutex> guard(compileMutex_);
+		compileCond_.notify_all();
+	}
 	compileThread_.join();
 	INFO_LOG(G3D, "Vulkan compiler thread joined.");
 
@@ -342,7 +385,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 		std::vector<CompileQueueEntry> toCompile;
 		{
 			std::unique_lock<std::mutex> lock(compileMutex_);
-			if (compileQueue_.empty()) {
+			if (compileQueue_.empty() && run_) {
 				compileCond_.wait(lock);
 			}
 			toCompile = std::move(compileQueue_);
@@ -352,10 +395,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 			break;
 		}
 
-		if (!toCompile.empty()) {
-			INFO_LOG(G3D, "Compilation thread has %d pipelines to create", (int)toCompile.size());
-		}
-
+		double time = time_now_d();
 		// TODO: Here we can sort the pending pipelines by vertex and fragment shaders,
 		// and split up further.
 		// Those with the same pairs of shaders should be on the same thread.
@@ -369,6 +409,12 @@ void VulkanRenderManager::CompileThreadFunc() {
 				break;
 			}
 		}
+
+		double delta = time_now_d() - time;
+		if (delta > 0.005f) {
+			INFO_LOG(G3D, "CompileThreadFunc: Creating %d pipelines took %0.3f ms", (int)toCompile.size(), delta * 1000.0f);
+		}
+
 		queueRunner_.NotifyCompileDone();
 	}
 }
@@ -438,8 +484,10 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	}
 	vkResetFences(device, 1, &frameData.fence);
 
+	int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
+
 	// Can't set this until after the fence.
-	frameData.profilingEnabled_ = enableProfiling;
+	frameData.profilingEnabled_ = enableProfiling && validBits > 0;
 
 	uint64_t queryResults[MAX_TIMESTAMP_QUERIES];
 
@@ -453,7 +501,6 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 				VK_QUERY_RESULT_64_BIT);
 			if (res == VK_SUCCESS) {
 				double timestampConversionFactor = (double)vulkan_->GetPhysicalDeviceProperties().properties.limits.timestampPeriod * (1.0 / 1000000.0);
-				int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
 				uint64_t timestampDiffMask = validBits == 64 ? 0xFFFFFFFFFFFFFFFFULL : ((1ULL << validBits) - 1);
 				std::stringstream str;
 
@@ -511,14 +558,18 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	return frameData_[curFrame].GetInitCmd(vulkan_);
 }
 
-VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, const char *tag) {
+VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag) {
 	VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline(pipelineFlags, tag);
-	_dbg_assert_(desc->vertexShader);
-	_dbg_assert_(desc->fragmentShader);
+
+	if (!desc->vertexShader || !desc->fragmentShader) {
+		ERROR_LOG(G3D, "Can't create graphics pipeline with missing vs/ps: %p %p", desc->vertexShader, desc->fragmentShader);
+		return nullptr;
+	}
+
 	pipeline->desc = desc;
 	pipeline->desc->AddRef();
-	if (curRenderStep_) {
-		// The common case
+	if (curRenderStep_ && !cacheLoad) {
+		// The common case during gameplay.
 		pipelinesToCheck_.push_back(pipeline);
 	} else {
 		if (!variantBitmask) {
@@ -539,17 +590,18 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			RenderPassType rpType = (RenderPassType)i;
 
 			// Sanity check - don't compile incompatible types (could be caused by corrupt caches, changes in data structures, etc).
-			if (pipelineFlags & PipelineFlags::USES_DEPTH_STENCIL) {
-				if (!RenderPassTypeHasDepth(rpType)) {
-					WARN_LOG(G3D, "Not compiling pipeline that requires depth, for non depth renderpass type");
-					continue;
-				}
+			if ((pipelineFlags & PipelineFlags::USES_DEPTH_STENCIL) && !RenderPassTypeHasDepth(rpType)) {
+				WARN_LOG(G3D, "Not compiling pipeline that requires depth, for non depth renderpass type");
+				continue;
 			}
-			if (pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT) {
-				if (!RenderPassTypeHasInput(rpType)) {
-					WARN_LOG(G3D, "Not compiling pipeline that requires input attachment, for non input renderpass type");
-					continue;
-				}
+			if ((pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT) && !RenderPassTypeHasInput(rpType)) {
+				WARN_LOG(G3D, "Not compiling pipeline that requires input attachment, for non input renderpass type");
+				continue;
+			}
+			// Shouldn't hit this, these should have been filtered elsewhere. However, still a good check to do.
+			if (sampleCount == VK_SAMPLE_COUNT_1_BIT && RenderPassTypeHasMultisample(rpType)) {
+				WARN_LOG(G3D, "Not compiling single sample pipeline for a multisampled render pass type");
+				continue;
 			}
 
 			pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
@@ -619,8 +671,13 @@ void VulkanRenderManager::EndCurRenderStep() {
 	compileMutex_.lock();
 	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
+		if (!pipeline) {
+			// Not good, but let's try not to crash.
+			continue;
+		}
 		if (!pipeline->pipeline[(size_t)rpType]) {
 			pipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
+			_assert_(renderPass);
 			compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount));
 			needsCompile = true;
 		}

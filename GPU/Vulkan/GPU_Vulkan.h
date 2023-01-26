@@ -71,9 +71,6 @@ protected:
 	void CheckRenderResized() override;
 
 private:
-	void Flush() {
-		drawEngine_.Flush();
-	}
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo() override;
 	void InitClear() override;
@@ -103,5 +100,5 @@ private:
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
 
 	Path shaderCachePath_;
-	bool shaderCacheLoaded_ = false;
+	std::atomic<bool> shaderCacheLoaded_{};
 };

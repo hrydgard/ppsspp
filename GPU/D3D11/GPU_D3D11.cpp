@@ -27,7 +27,6 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 #include "Core/System.h"
 
 #include "GPU/GPUState.h"
@@ -41,10 +40,6 @@
 #include "GPU/D3D11/DrawEngineD3D11.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
-
-#include "Core/HLE/sceKernelThread.h"
-#include "Core/HLE/sceKernelInterrupt.h"
-#include "Core/HLE/sceGe.h"
 
 GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw), drawEngine_(draw,
@@ -70,7 +65,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerD3D11_->SetTextureCache(textureCacheD3D11_);
 	framebufferManagerD3D11_->SetShaderManager(shaderManagerD3D11_);
 	framebufferManagerD3D11_->SetDrawEngine(&drawEngine_);
-	framebufferManagerD3D11_->Init();
+	framebufferManagerD3D11_->Init(msaaLevel_);
 	textureCacheD3D11_->SetFramebufferManager(framebufferManagerD3D11_);
 	textureCacheD3D11_->SetShaderManager(shaderManagerD3D11_);
 
@@ -82,7 +77,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
 	UpdateCmdInfo();
-	gstate_c.useFlags = CheckGPUFeatures();
+	gstate_c.SetUseFlags(CheckGPUFeatures());
 
 	BuildReportingInfo();
 
@@ -162,18 +157,24 @@ void GPU_D3D11::BeginFrame() {
 
 	framebufferManagerD3D11_->BeginFrame();
 	gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
+
+	if (gstate_c.useFlagsChanged) {
+		// TODO: It'd be better to recompile them in the background, probably?
+		// This most likely means that saw equal depth changed.
+		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders");
+		shaderManagerD3D11_->ClearShaders();
+		drawEngine_.ClearInputLayoutMap();
+		gstate_c.useFlagsChanged = false;
+	}
 }
 
 void GPU_D3D11::CopyDisplayToOutput(bool reallyDirty) {
 	// Flush anything left over.
 	drawEngine_.Flush();
 
-	float blendColor[4]{};
-	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], blendColor, 0xFFFFFFFF);
+	shaderManager_->DirtyLastShader();
 
 	framebufferManagerD3D11_->CopyDisplayToOutput(reallyDirty);
-
-	shaderManagerD3D11_->DirtyLastShader();
 
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }

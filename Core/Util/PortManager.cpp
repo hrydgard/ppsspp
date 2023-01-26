@@ -127,7 +127,13 @@ bool PortManager::Initialize(const unsigned int timeout) {
 	m_leaseDuration = "43200"; // 12 hours
 	m_InitState = UPNP_INITSTATE_BUSY;
 	urls = (UPNPUrls*)malloc(sizeof(struct UPNPUrls));
+	if (!urls)
+		return false;
 	datas = (IGDdatas*)malloc(sizeof(struct IGDdatas));
+	if (!datas) {
+		free(urls);
+		return false;
+	}
 	memset(urls, 0, sizeof(struct UPNPUrls));
 	memset(datas, 0, sizeof(struct IGDdatas));
 

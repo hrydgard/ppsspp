@@ -30,7 +30,6 @@ class GameSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
 	GameSettingsScreen(const Path &gamePath, std::string gameID = "", bool editThenRestore = false);
 
-	void update() override;
 	void onFinish(DialogResult result) override;
 	const char *tag() const override { return "GameSettings"; }
 
@@ -42,7 +41,6 @@ protected:
 	void CallbackRenderingDevice(bool yes);
 	void CallbackInflightFrames(bool yes);
 	void CallbackMemstickFolder(bool yes);
-	bool UseVerticalLayout() const;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void RecreateViews() override;
 
@@ -52,7 +50,6 @@ private:
 	void TriggerRestart(const char *why);
 
 	std::string gameID_;
-	bool lastVertical_;
 	UI::CheckBox *enableReportsCheckbox_;
 	UI::Choice *layoutEditorChoice_;
 	UI::Choice *displayEditor_;
@@ -80,15 +77,11 @@ private:
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
 	UI::EventReturn OnCalibrateAnalogs(UI::EventParams &e);
 	UI::EventReturn OnTouchControlLayout(UI::EventParams &e);
-	UI::EventReturn OnDumpNextFrameToLog(UI::EventParams &e);
 	UI::EventReturn OnTiltTypeChange(UI::EventParams &e);
 	UI::EventReturn OnTiltCustomize(UI::EventParams &e);
 
 	// Global settings handlers
-	UI::EventReturn OnLanguage(UI::EventParams &e);
-	UI::EventReturn OnLanguageChange(UI::EventParams &e);
 	UI::EventReturn OnAutoFrameskip(UI::EventParams &e);
-	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
 	UI::EventReturn OnTextureShader(UI::EventParams &e);
 	UI::EventReturn OnTextureShaderChange(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
@@ -105,7 +98,6 @@ private:
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
 	UI::EventReturn OnFullscreenMultiChange(UI::EventParams &e);
 	UI::EventReturn OnResolutionChange(UI::EventParams &e);
-	UI::EventReturn OnHwScaleChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);

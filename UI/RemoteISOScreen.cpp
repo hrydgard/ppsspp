@@ -30,6 +30,7 @@
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/Resolve.h"
 #include "Common/Net/URL.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #include "Common/File/PathBrowser.h"
 #include "Common/Data/Format/JSONReader.h"
@@ -40,6 +41,7 @@
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Core/WebServer.h"
 #include "UI/RemoteISOScreen.h"
 
@@ -247,6 +249,8 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 static bool LoadGameList(const Path &url, std::vector<Path> &games) {
 	PathBrowser browser(url);
 	std::vector<File::FileInfo> files;
+	browser.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
+	browser.SetRootAlias("ms:", GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToVisualString());
 	browser.GetListing(files, "iso:cso:pbp:elf:prx:ppdmp:", &scanCancelled);
 	if (scanCancelled) {
 		return false;
@@ -260,11 +264,10 @@ static bool LoadGameList(const Path &url, std::vector<Path> &games) {
 	return !games.empty();
 }
 
-RemoteISOScreen::RemoteISOScreen() {
-}
+RemoteISOScreen::RemoteISOScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {}
 
 void RemoteISOScreen::update() {
-	UIScreenWithBackground::update();
+	UIDialogScreenWithBackground::update();
 
 	if (!WebServerStopped(WebServerFlags::DISCS)) {
 		auto result = IsServerAllowed(g_Config.iRemoteISOPort);
@@ -364,6 +367,7 @@ RemoteISOConnectScreen::RemoteISOConnectScreen() {
 	scanAborted = false;
 
 	scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
+		SetCurrentThreadName("RemoteISOScan");
 		thiz->ExecuteScan();
 	}, this);
 }
@@ -411,7 +415,7 @@ void RemoteISOConnectScreen::CreateViews() {
 void RemoteISOConnectScreen::update() {
 	auto ri = GetI18NCategory("RemoteISO");
 
-	UIScreenWithBackground::update();
+	UIDialogScreenWithBackground::update();
 
 	ScanStatus s = GetStatus();
 	switch (s) {
@@ -517,10 +521,10 @@ RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::string &url, const std::
 }
 
 void RemoteISOBrowseScreen::CreateViews() {
-	bool vertical = UseVerticalLayout();
-
 	auto di = GetI18NCategory("Dialog");
 	auto ri = GetI18NCategory("RemoteISO");
+
+	bool vertical = UseVerticalLayout();
 
 	Margins actionMenuMargins(0, 10, 10, 0);
 

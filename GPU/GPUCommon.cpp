@@ -19,11 +19,11 @@
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/GraphicsContext.h"
+#include "Common/LogReporting.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeList.h"
 #include "Common/TimeUtil.h"
-#include "Core/Reporting.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
@@ -83,18 +83,18 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_ZBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE },
 
 	{ GE_CMD_FOGCOLOR, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOLOR },
-	{ GE_CMD_FOG1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEF },
-	{ GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEF },
+	{ GE_CMD_FOG1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEFENABLE },
+	{ GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEFENABLE },
 
 	// These affect the fragment shader so need flushing.
 	{ GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
 	{ GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
-	{ GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
+	{ GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEFENABLE },
 	{ GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 	// Raster state for Direct3D 9, uncommon.
 	{ GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE },
-	{ GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
+	{ GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEX_ALPHA_MUL },
 	{ GE_CMD_COLORTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_ALPHATESTENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_COLORTESTENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
@@ -113,8 +113,8 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_LIGHTTYPE3, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_LIGHT3 },
 	{ GE_CMD_MATERIALUPDATE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 
-	// These change both shaders so need flushing.
-	{ GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
+	// These change vertex shaders (in non uber shader mode) so need flushing.
+	{ GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 
 	{ GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE },
@@ -428,6 +428,8 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	ResetMatrices();
 
 	PPGeSetDrawContext(draw);
+
+	UpdateMSAALevel(draw);
 }
 
 GPUCommon::~GPUCommon() {
@@ -470,9 +472,11 @@ void GPUCommon::UpdateCmdInfo() {
 	if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {
 		cmdInfo_[GE_CMD_MATERIALUPDATE].RemoveDirty(DIRTY_VERTEXSHADER_STATE);
 		cmdInfo_[GE_CMD_MATERIALUPDATE].AddDirty(DIRTY_LIGHT_CONTROL);
+		cmdInfo_[GE_CMD_LIGHTMODE].AddDirty(DIRTY_LIGHT_CONTROL);
 	} else {
 		cmdInfo_[GE_CMD_MATERIALUPDATE].RemoveDirty(DIRTY_LIGHT_CONTROL);
 		cmdInfo_[GE_CMD_MATERIALUPDATE].AddDirty(DIRTY_VERTEXSHADER_STATE);
+		cmdInfo_[GE_CMD_LIGHTMODE].RemoveDirty(DIRTY_LIGHT_CONTROL);
 	}
 }
 
@@ -484,6 +488,8 @@ void GPUCommon::BeginHostFrame() {
 	gstate_c.Dirty(DIRTY_ALL);
 
 	UpdateCmdInfo();
+
+	UpdateMSAALevel(draw_);
 	CheckConfigChanged();
 	CheckDisplayResized();
 	CheckRenderResized();
@@ -636,7 +642,7 @@ void GPUCommon::ClearCacheNextFrame() {
 void GPUCommon::CheckConfigChanged() {
 	if (configChanged_) {
 		ClearCacheNextFrame();
-		gstate_c.useFlags = CheckGPUFeatures();
+		gstate_c.SetUseFlags(CheckGPUFeatures());
 		drawEngineCommon_->NotifyConfigChanged();
 		textureCache_->NotifyConfigChanged();
 		framebufferManager_->NotifyConfigChanged();
@@ -659,7 +665,7 @@ void GPUCommon::CheckDisplayResized() {
 
 void GPUCommon::CheckRenderResized() {
 	if (renderResized_) {
-		framebufferManager_->NotifyRenderResized();
+		framebufferManager_->NotifyRenderResized(msaaLevel_);
 		renderResized_ = false;
 	}
 }
@@ -1193,6 +1199,13 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 // Maybe should write this in ASM...
 void GPUCommon::FastRunLoop(DisplayList &list) {
 	PROFILE_THIS_SCOPE("gpuloop");
+
+	if (!Memory::IsValidAddress(list.pc)) {
+		// We're having some serious problems here, just bail and try to limp along and not crash the app.
+		downcount = 0;
+		return;
+	}
+
 	const CommandInfo *cmdInfo = cmdInfo_;
 	int dc = downcount;
 	for (; dc > 0; --dc) {
@@ -1244,7 +1257,7 @@ void GPUCommon::BeginFrame() {
 
 	if (drawEngineCommon_->EverUsedExactEqualDepth() && !sawExactEqualDepth_) {
 		sawExactEqualDepth_ = true;
-		gstate_c.useFlags = CheckGPUFeatures();
+		gstate_c.SetUseFlags(CheckGPUFeatures());
 	}
 }
 
@@ -1288,11 +1301,6 @@ void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 	u32 executed = (currentPC - cycleLastPC) / 4;
 	cyclesExecuted += 2 * executed;
 	cycleLastPC = newPC;
-
-	if (coreCollectDebugStats) {
-		gpuStats.otherGPUCycles += 2 * executed;
-		gpuStats.gpuCommandsAtCallLevel[std::min(currentList->stackptr, 3)] += executed;
-	}
 
 	// Exit the runloop and recalculate things.  This happens a lot in some games.
 	if (currentList)
@@ -1388,6 +1396,10 @@ void GPUCommon::ProcessDLQueue() {
 
 	currentList = nullptr;
 
+	if (coreCollectDebugStats) {
+		gpuStats.otherGPUCycles += cyclesExecuted;
+	}
+
 	drawCompleteTicks = startingTicks + cyclesExecuted;
 	busyTicks = std::max(busyTicks, drawCompleteTicks);
 	__GeTriggerSync(GPU_SYNC_DRAW, 1, drawCompleteTicks);
@@ -1471,11 +1483,11 @@ void GPUCommon::DoExecuteCall(u32 target) {
 
 	// Bone matrix optimization - many games will CALL a bone matrix (!).
 	// We don't optimize during recording - so the matrix data gets recorded.
-	if (!debugRecording_ && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
+	if (!debugRecording_ && Memory::IsValidRange(target, 13 * 4) && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
 		// Check for the end
 		if ((Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
-				(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET &&
-				(gstate.boneMatrixNumber & 0x00FFFFFF) <= 96 - 12) {
+			(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET &&
+			(gstate.boneMatrixNumber & 0x00FFFFFF) <= 96 - 12) {
 			// Yep, pretty sure this is a bone matrix call.  Double check stall first.
 			if (target > currentList->stall || target + 12 * 4 < currentList->stall) {
 				FastLoadBoneMatrix(target);
@@ -1740,8 +1752,9 @@ void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
 		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+		// Switching between through and non-through, we need to invalidate a bunch of stuff.
 		if (diff & GE_VTYPE_THROUGH_MASK)
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
+			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE | DIRTY_FOGCOEFENABLE);
 	}
 }
 
@@ -1768,7 +1781,7 @@ void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	}
 	if (diff & GE_VTYPE_THROUGH_MASK)
-		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
+		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE | DIRTY_FOGCOEFENABLE);
 }
 
 void GPUCommon::CheckDepthUsage(VirtualFramebuffer *vfb) {
@@ -2111,7 +2124,7 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 
 	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(surface.primType));
 
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
+	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
 		gstate_c.submitType = SubmitType::HW_BEZIER;
 		if (gstate_c.spline_num_points_u != surface.num_points_u) {
@@ -2126,7 +2139,7 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
 
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
+	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 	gstate_c.submitType = SubmitType::DRAW;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
@@ -2186,7 +2199,7 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 
 	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(surface.primType));
 
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
 		gstate_c.submitType = SubmitType::HW_SPLINE;
 		if (gstate_c.spline_num_points_u != surface.num_points_u) {
@@ -2201,7 +2214,7 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
 
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
+	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 	gstate_c.submitType = SubmitType::DRAW;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
@@ -2758,6 +2771,12 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 		gstate_c.deferredVertTypeDirty |= uniformsToDirty;
 	}
 	gstate.FastLoadBoneMatrix(target);
+
+	cyclesExecuted += 2 * 14;  // one to reset the counter, 12 to load the matrix, and a return.
+
+	if (coreCollectDebugStats) {
+		gpuStats.otherGPUCycles += 2 * 14;
+	}
 }
 
 struct DisplayList_v1 {
@@ -3445,7 +3464,6 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"DL processing time: %0.2f ms\n"
 		"Draw calls: %d, flushes %d, clears %d (cached: %d)\n"
 		"Num Tracked Vertex Arrays: %d\n"
-		"Commands per call level: %i %i %i %i\n"
 		"Vertices: %d cached: %d uncached: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
@@ -3458,7 +3476,6 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numClears,
 		gpuStats.numCachedDrawCalls,
 		gpuStats.numTrackedVertexArrays,
-		gpuStats.gpuCommandsAtCallLevel[0], gpuStats.gpuCommandsAtCallLevel[1], gpuStats.gpuCommandsAtCallLevel[2], gpuStats.gpuCommandsAtCallLevel[3],
 		gpuStats.numVertsSubmitted,
 		gpuStats.numCachedVertsDrawn,
 		gpuStats.numUncachedVertsDrawn,
@@ -3519,7 +3536,7 @@ u32 GPUCommon::CheckGPUFeatures() const {
 	}
 
 	bool canClipOrCull = draw_->GetDeviceCaps().clipDistanceSupported || draw_->GetDeviceCaps().cullDistanceSupported;
-	bool canDiscardVertex = draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
+	bool canDiscardVertex = !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
 	if (canClipOrCull || canDiscardVertex) {
 		// We'll dynamically use the parts that are supported, to reduce artifacts as much as possible.
 		features |= GPU_USE_VS_RANGE_CULLING;
@@ -3535,6 +3552,11 @@ u32 GPUCommon::CheckGPUFeatures() const {
 
 	if (PSP_CoreParameter().compat.flags().ClearToRAM) {
 		features |= GPU_USE_CLEAR_RAM_HACK;
+	}
+
+	// Even without depth clamp, force accurate depth on for some games that break without it.
+	if (PSP_CoreParameter().compat.flags().DepthRangeHack) {
+		features |= GPU_USE_ACCURATE_DEPTH;
 	}
 
 	return features;
@@ -3569,4 +3591,14 @@ u32 GPUCommon::CheckGPUFeaturesLate(u32 features) const {
 	}
 
 	return features;
+}
+
+void GPUCommon::UpdateMSAALevel(Draw::DrawContext *draw) {
+	int level = g_Config.iMultiSampleLevel;
+	if (draw && draw->GetDeviceCaps().multiSampleLevelsMask & (1 << level)) {
+		msaaLevel_ = level;
+	} else {
+		// Didn't support the configured level, so revert to 0.
+		msaaLevel_ = 0;
+	}
 }

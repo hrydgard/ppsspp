@@ -161,7 +161,7 @@ static const std::vector<ShaderSource> fsTexCol = {
 	"layout(location = 0) in vec4 oColor0;\n"
 	"layout(location = 1) in vec2 oTexCoord0;\n"
 	"layout(location = 0) out vec4 fragColor0;\n"
-	"layout(set = 1, binding = 1) uniform sampler2D Sampler0;\n"
+	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
 	"void main() { fragColor0 = texture(Sampler0, oTexCoord0) * oColor0; }\n"
 	}
 };
@@ -205,7 +205,7 @@ static const std::vector<ShaderSource> fsTexColRBSwizzle = {
 	"layout(location = 0) in vec4 oColor0;\n"
 	"layout(location = 1) in vec2 oTexCoord0;\n"
 	"layout(location = 0) out vec4 fragColor0\n;"
-	"layout(set = 1, binding = 1) uniform sampler2D Sampler0;\n"
+	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
 	"void main() { fragColor0 = texture(Sampler0, oTexCoord0).bgra * oColor0; }\n"
 	}
 };
@@ -294,7 +294,7 @@ static const std::vector<ShaderSource> vsCol = {
 R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
-layout (std140, set = 1, binding = 0) uniform bufferVals {
+layout (std140, set = 0, binding = 0) uniform bufferVals {
 	mat4 WorldViewProj;
 	vec2 TintSaturation;
 } myBufferVals;
@@ -440,7 +440,7 @@ VS_OUTPUT main(VS_INPUT input) {
 	R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
-layout (std140, set = 1, binding = 0) uniform bufferVals {
+layout (std140, set = 0, binding = 0) uniform bufferVals {
 	mat4 WorldViewProj;
 	vec2 TintSaturation;
 } myBufferVals;
@@ -523,7 +523,7 @@ void DrawContext::DestroyPresets() {
 }
 
 DrawContext::~DrawContext() {
-	DestroyPresets();
+	// TODO: Can't call DestroyPresets here, too late.
 }
 
 void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {

@@ -350,7 +350,7 @@ else ifneq (,$(findstring windows_msvc2019,$(platform)))
 	fix_path = $(subst $(SPACE),\ ,$(subst \,/,$1))
 
 	VSCommand := bash VSWhere.sh -latest -property installationPath
-	VSInstallPathw := $(shell cmd /c "$(VSCommand)")
+	VSInstallPathw := $(shell cmd //c "$(VSCommand)")
 	VSInstallPath := $(shell cygpath "$(VSInstallPathw)")
 
 	WindowsSdkDir ?= $(call reg_query,InstallationFolder,HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\Microsoft SDKs\Windows\v10.0)
@@ -500,7 +500,7 @@ else
 endif
 
 clean:
-	rm -f $(OBJECTS) $(TARGET)
+	rm -f $(filter-out $(CORE_DIR)/ext/zstd/lib/decompress/huf_decompress_amd64.S,$(OBJECTS)) $(TARGET)
 
 .PHONY: clean
 

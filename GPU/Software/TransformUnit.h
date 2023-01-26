@@ -117,6 +117,8 @@ public:
 	TransformUnit();
 	~TransformUnit();
 
+	bool IsStarted();
+
 	static WorldCoords ModelToWorldNormal(const ModelCoords& coords);
 	static WorldCoords ModelToWorld(const ModelCoords& coords);
 	static ViewCoords WorldToView(const WorldCoords& coords);
@@ -149,7 +151,7 @@ public:
 	SoftDirty GetDirty();
 
 private:
-	ClipVertexData ReadVertex(VertexReader &vreader, const TransformState &state);
+	ClipVertexData ReadVertex(const VertexReader &vreader, const TransformState &state);
 	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2);
 
 	u8 *decoded_ = nullptr;

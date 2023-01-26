@@ -33,11 +33,11 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
+#include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
 
 #include "Core/Config.h"
 #include "Core/Host.h"
-#include "Core/Reporting.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -197,13 +197,19 @@ void ShaderManagerDX9::VSSetColorUniform3(int creg, u32 color) {
 	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
-void ShaderManagerDX9::VSSetFloatUniform4(int creg, float data[4]) {
+void ShaderManagerDX9::VSSetFloatUniform4(int creg, const float data[4]) {
 	device_->SetVertexShaderConstantF(creg, data, 1);
 }
 
 void ShaderManagerDX9::VSSetFloat24Uniform3(int creg, const u32 data[3]) {
 	float f[4];
 	ExpandFloat24x3ToFloat4(f, data);
+	device_->SetVertexShaderConstantF(creg, f, 1);
+}
+
+void ShaderManagerDX9::VSSetFloat24Uniform3Normalized(int creg, const u32 data[3]) {
+	float f[4];
+	ExpandFloat24x3ToFloat4AndNormalize(f, data);
 	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
@@ -261,7 +267,7 @@ static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
-const uint64_t psUniforms = DIRTY_TEXENV | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK | DIRTY_FOGCOLOR | DIRTY_STENCILREPLACEVALUE | DIRTY_SHADERBLEND | DIRTY_TEXCLAMP | DIRTY_MIPBIAS;
+const uint64_t psUniforms = DIRTY_TEXENV | DIRTY_TEX_ALPHA_MUL | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK | DIRTY_FOGCOLOR | DIRTY_STENCILREPLACEVALUE | DIRTY_SHADERBLEND | DIRTY_TEXCLAMP | DIRTY_MIPBIAS;
 
 void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
@@ -279,7 +285,11 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {
 		PSSetFloat(CONST_PS_STENCILREPLACE, (float)gstate.getStencilTestRef() * (1.0f / 255.0f));
 	}
-
+	if (dirtyUniforms & DIRTY_TEX_ALPHA_MUL) {
+		// NOTE: Reversed value, more efficient in shader.
+		PSSetFloat(CONST_PS_TEX_NO_ALPHA, gstate.isTextureAlphaUsed() ? 0.0f : 1.0f);
+		PSSetFloat(CONST_PS_TEX_MUL, gstate.isColorDoublingEnabled() ? 2.0f : 1.0f);
+	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
 		PSSetColorUniform3(CONST_PS_BLENDFIXA, gstate.getFixA());
 		PSSetColorUniform3(CONST_PS_BLENDFIXB, gstate.getFixB());
@@ -324,7 +334,7 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 }
 
 const uint64_t vsUniforms = DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX |
-DIRTY_FOGCOEF | DIRTY_BONE_UNIFORMS | DIRTY_UVSCALEOFFSET | DIRTY_DEPTHRANGE | DIRTY_CULLRANGE |
+DIRTY_FOGCOEFENABLE | DIRTY_BONE_UNIFORMS | DIRTY_UVSCALEOFFSET | DIRTY_DEPTHRANGE | DIRTY_CULLRANGE |
 DIRTY_AMBIENT | DIRTY_MATAMBIENTALPHA | DIRTY_MATSPECULAR | DIRTY_MATDIFFUSE | DIRTY_MATEMISSIVE | DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3;
 
 void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
@@ -371,21 +381,27 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXMATRIX) {
 		VSSetMatrix4x3_3(CONST_VS_TEXMTX, gstate.tgenMatrix);
 	}
-	if (dirtyUniforms & DIRTY_FOGCOEF) {
-		float fogcoef[2] = {
-			getFloat24(gstate.fog1),
-			getFloat24(gstate.fog2),
-		};
-		// The PSP just ignores infnan here (ignoring IEEE), so take it down to a valid float.
-		// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
-		if (my_isnanorinf(fogcoef[0])) {
-			// Not really sure what a sensible value might be, but let's try 64k.
-			fogcoef[0] = std::signbit(fogcoef[0]) ? -65535.0f : 65535.0f;
+	if (dirtyUniforms & DIRTY_FOGCOEFENABLE) {
+		if (gstate.isFogEnabled() && !gstate.isModeThrough()) {
+			float fogcoef[2] = {
+				getFloat24(gstate.fog1),
+				getFloat24(gstate.fog2),
+			};
+			// The PSP just ignores infnan here (ignoring IEEE), so take it down to a valid float.
+			// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
+			if (my_isnanorinf(fogcoef[0])) {
+				// Not really sure what a sensible value might be, but let's try 64k.
+				fogcoef[0] = std::signbit(fogcoef[0]) ? -65535.0f : 65535.0f;
+			}
+			if (my_isnanorinf(fogcoef[1])) {
+				fogcoef[1] = std::signbit(fogcoef[1]) ? -65535.0f : 65535.0f;
+			}
+			VSSetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
+		} else {
+			// not very useful values, use as marker for disabled fog.
+			float fogcoef[2] = { -65536.0f, -65536.0f };
+			VSSetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
 		}
-		if (my_isnanorinf(fogcoef[1])) {
-			fogcoef[1] = std::signbit(fogcoef[1]) ? -65535.0f : 65535.0f;
-		}
-		VSSetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
 	}
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
@@ -452,6 +468,12 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 
 		float data[4] = { viewZScale, viewZCenter, reverseTranslate, reverseScale };
 		VSSetFloatUniform4(CONST_VS_DEPTHRANGE, data);
+
+		if (draw_->GetDeviceCaps().clipPlanesSupported >= 1) {
+			float clip[4] = { 0.0f, 0.0f, reverseScale, 1.0f - reverseTranslate * reverseScale };
+			// Well, not a uniform, but we treat it as one like other backends.
+			device_->SetClipPlane(0, clip);
+		}
 	}
 	if (dirtyUniforms & DIRTY_CULLRANGE) {
 		float minValues[4], maxValues[4];
@@ -479,21 +501,11 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
 			if (gstate.isDirectionalLight(i)) {
-				// Prenormalize
-				float x = getFloat24(gstate.lpos[i * 3 + 0]);
-				float y = getFloat24(gstate.lpos[i * 3 + 1]);
-				float z = getFloat24(gstate.lpos[i * 3 + 2]);
-				float len = sqrtf(x*x + y*y + z*z);
-				if (len == 0.0f)
-					len = 1.0f;
-				else
-					len = 1.0f / len;
-				float vec[3] = { x * len, y * len, z * len };
-				VSSetFloatArray(CONST_VS_LIGHTPOS + i, vec, 3);
+				VSSetFloat24Uniform3Normalized(CONST_VS_LIGHTPOS + i, &gstate.lpos[i * 3]);
 			} else {
 				VSSetFloat24Uniform3(CONST_VS_LIGHTPOS + i, &gstate.lpos[i * 3]);
 			}
-			VSSetFloat24Uniform3(CONST_VS_LIGHTDIR + i, &gstate.ldir[i * 3]);
+			VSSetFloat24Uniform3Normalized(CONST_VS_LIGHTDIR + i, &gstate.ldir[i * 3]);
 			VSSetFloat24Uniform3(CONST_VS_LIGHTATT + i, &gstate.latt[i * 3]);
 			float angle_spotCoef[4] = { getFloat24(gstate.lcutoff[i]), getFloat24(gstate.lconv[i]) };
 			VSSetFloatUniform4(CONST_VS_LIGHTANGLE_SPOTCOEF + i, angle_spotCoef);
@@ -544,11 +556,11 @@ void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
 	lastPShader_ = nullptr;
 }
 
-VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat, bool useSkinInDecode, const ComputedPipelineState &pipelineState) {
+VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, VertexDecoder *decoder, bool weightsAsFloat, bool useSkinInDecode, const ComputedPipelineState &pipelineState) {
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, vertType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
+		ComputeVertexShaderID(&VSID, decoder, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
 	} else {
 		VSID = lastVSID_;
 	}
@@ -598,7 +610,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 			}
 			delete vs;
 
-			ComputeVertexShaderID(&VSID, vertType, false, false, weightsAsFloat, useSkinInDecode);
+			ComputeVertexShaderID(&VSID, decoder, false, false, weightsAsFloat, useSkinInDecode);
 
 			// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure
 			// that that shader ID is not used when computing the linked shader ID below, because then IDs won't match
