@@ -1344,10 +1344,7 @@ bool NativeKey(const KeyInput &key) {
 	bool retval = false;
 	if (screenManager)
 	{
-		if (key.deviceId == DEVICE_ID_KEYBOARD || key.deviceId == DEVICE_ID_MOUSE)
-		{
-			HLEPlugins::PluginDataKeys[key.keyCode] = (key.flags & KEY_DOWN) ? 1 : 0;
-		}
+		HLEPlugins::PluginDataKeys[key.keyCode] = (key.flags & KEY_DOWN) ? 1 : 0;
 		retval = screenManager->key(key);
 	}
 	return retval;
@@ -1369,14 +1366,9 @@ void NativeAxis(const AxisInput &axis) {
 	// only handle tilt events if tilt is enabled.
 	if (g_Config.iTiltInputType == TILT_NULL) {
 		// if tilt events are disabled, then run it through the usual way.
+		HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
 		screenManager->axis(axis);
 		return;
-		if (screenManager) {
-			HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
-			return screenManager->axis(axis);
-		} else {
-			return false;
-		}
 	}
 
 	// create the base coordinate tilt system from the calibration data.
