@@ -29,7 +29,7 @@ void _powerSourceRunLoopCallback(void * __unused ctx) {
 // You may ask,
 // "Why an entire class?
 // Why not just call the UIDevice/IOKitPowerSource functions every time getCurrentBatteryCapacity() is called?"
-// Well, calling the UIDevice/IOKitPowerSource very frequently is expensive
+// Well, calling the UIDevice/IOKitPowerSource functions very frequently (every second, it seems?) is expensive
 // So, instead, I made a class with a cached batteryLevel property
 // that only gets set when it needs to.
 @implementation AppleBatteryClient
