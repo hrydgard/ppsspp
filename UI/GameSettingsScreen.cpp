@@ -31,6 +31,7 @@
 
 #include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
 #include "Common/System/System.h"
+#include "Common/Battery/Battery.h"
 #include "Common/System/NativeApp.h"
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Math/curves.h"
@@ -563,8 +564,12 @@ void GameSettingsScreen::CreateViews() {
 	});
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
-	static const char *fpsChoices[] = { "None", "Speed", "FPS", "Both" };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gr->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gr->GetName(), screenManager()));
+	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowFPSCounter, SHOW_FPS_COUNTER, "Show FPS"));
+	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowFPSCounter, SHOW_SPEED_COUNTER, "Show Speed"));
+#ifdef CAN_DISPLAY_CURRENT_BATTERY_CAPACITY
+	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowFPSCounter, SHOW_BATTERY_PERCENT, "Show Battery"));
+#endif
+	
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
 	// Audio
