@@ -567,7 +567,7 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowFPSCounter, SHOW_FPS_COUNTER, "Show FPS"));
 	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowFPSCounter, SHOW_SPEED_COUNTER, "Show Speed"));
 #ifdef CAN_DISPLAY_CURRENT_BATTERY_CAPACITY
-	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowFPSCounter, SHOW_BATTERY_PERCENT, "Show Battery"));
+	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowFPSCounter, SHOW_BATTERY_PERCENT, "Show Battery %"));
 #endif
 	
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
