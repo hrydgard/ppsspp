@@ -564,10 +564,10 @@ void GameSettingsScreen::CreateViews() {
 	});
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
-	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowFPSCounter, SHOW_FPS_COUNTER, gr->T("Show FPS")));
-	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowFPSCounter, SHOW_SPEED_COUNTER, gr->T("Show Speed")));
+	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, STATUS_SHOW_FPS_COUNTER, gr->T("Show FPS Counter")));
+	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, STATUS_SHOW_SPEED_COUNTER, gr->T("Show Speed")));
 #ifdef CAN_DISPLAY_CURRENT_BATTERY_CAPACITY
-	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowFPSCounter, SHOW_BATTERY_PERCENT, gr->T("Show Battery %")));
+	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, STATUS_SHOW_BATTERY_PERCENT, gr->T("Show Battery %")));
 #endif
 	
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);

@@ -1296,16 +1296,16 @@ static void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 	float vps, fps, actual_fps;
 	__DisplayGetFPS(&vps, &fps, &actual_fps);
 	char fpsbuf[256] = {""};
-	if (g_Config.iShowFPSCounter & SHOW_FPS_COUNTER) {
+	if (g_Config.iShowStatusFlags & STATUS_SHOW_FPS_COUNTER) {
 		snprintf(fpsbuf, sizeof(fpsbuf), "%s FPS: %0.1f", fpsbuf, actual_fps);
 	}
 	
-	if (g_Config.iShowFPSCounter & SHOW_SPEED_COUNTER) {
+	if (g_Config.iShowStatusFlags & STATUS_SHOW_SPEED_COUNTER) {
 		snprintf(fpsbuf, sizeof(fpsbuf), "%s Speed: %0.1f%%", fpsbuf, vps / (59.94f / 100.0f));
 	}
 	
 #ifdef CAN_DISPLAY_CURRENT_BATTERY_CAPACITY
-	if (g_Config.iShowFPSCounter & SHOW_BATTERY_PERCENT) {
+	if (g_Config.iShowStatusFlags & STATUS_SHOW_BATTERY_PERCENT) {
 		snprintf(fpsbuf, sizeof(fpsbuf), "%s Battery: %d%%", fpsbuf, getCurrentBatteryCapacity());
 	}
 #endif
@@ -1494,7 +1494,7 @@ bool EmuScreen::hasVisibleUI() {
 	// Regular but uncommon UI.
 	if (saveStatePreview_->GetVisibility() != UI::V_GONE || loadingSpinner_->GetVisibility() == UI::V_VISIBLE)
 		return true;
-	if (!osm.IsEmpty() || g_Config.bShowTouchControls || g_Config.iShowFPSCounter != 0)
+	if (!osm.IsEmpty() || g_Config.bShowTouchControls || g_Config.iShowStatusFlags != 0)
 		return true;
 	if (g_Config.bEnableCardboardVR || g_Config.bEnableNetworkChat)
 		return true;
@@ -1541,7 +1541,7 @@ void EmuScreen::renderUI() {
 		DrawAudioDebugStats(ctx, ctx->GetLayoutBounds());
 	}
 
-	if (g_Config.iShowFPSCounter && !invalid_) {
+	if (g_Config.iShowStatusFlags && !invalid_) {
 		DrawFPS(ctx, ctx->GetLayoutBounds());
 	}
 
