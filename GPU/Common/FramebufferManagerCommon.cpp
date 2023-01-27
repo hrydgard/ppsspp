@@ -2446,7 +2446,7 @@ void FramebufferManagerCommon::NotifyRenderResized(int msaaLevel) {
 
 #ifdef _WIN32
 	// Seems related - if you're ok with numbers all the time, show some more :)
-	if (g_Config.iShowFPSCounter != 0) {
+	if (g_Config.iShowStatusFlags != 0) {
 		ShowScreenResolution();
 	}
 #endif

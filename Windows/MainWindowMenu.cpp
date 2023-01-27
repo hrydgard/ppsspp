@@ -278,7 +278,6 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_TEXTURESCALING_DEPOSTERIZE);
 		TranslateMenuItem(menu, ID_OPTIONS_HARDWARETRANSFORM);
 		TranslateMenuItem(menu, ID_OPTIONS_VERTEXCACHE);
-		TranslateMenuItem(menu, ID_OPTIONS_SHOWFPS);
 		TranslateMenuItem(menu, ID_EMULATION_SOUND);
 		TranslateMenuItem(menu, ID_EMULATION_CHEATS, g_Config.bSystemControls ? L"\tCtrl+T" : L"");
 		TranslateMenuItem(menu, ID_EMULATION_CHAT, g_Config.bSystemControls ? L"\tCtrl+C" : L"");
@@ -882,11 +881,6 @@ namespace MainWindow {
 		case ID_OPTIONS_VERTEXCACHE:
 			g_Config.bVertexCache = !g_Config.bVertexCache;
 			break;
-
-		case ID_OPTIONS_SHOWFPS:
-			g_Config.iShowFPSCounter = g_Config.iShowFPSCounter ? 0 : 3;  // 3 = both speed and FPS
-			break;
-
 		case ID_OPTIONS_TEXTUREFILTERING_AUTO:   setTexFiltering(TEX_FILTER_AUTO); break;
 		case ID_OPTIONS_NEARESTFILTERING:        setTexFiltering(TEX_FILTER_FORCE_NEAREST); break;
 		case ID_OPTIONS_LINEARFILTERING:         setTexFiltering(TEX_FILTER_FORCE_LINEAR); break;
@@ -984,7 +978,6 @@ namespace MainWindow {
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_DEBUG_BREAKONLOAD, !g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
-		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP_AUTO, g_Config.bAutoFrameSkip);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != FRAMESKIP_OFF);
 		CHECKITEM(ID_OPTIONS_FRAMESKIPTYPE_COUNT, g_Config.iFrameSkipType == FRAMESKIPTYPE_COUNT);

@@ -655,8 +655,6 @@ void MainWindow::createMenus()
 		->addEventChecked(&g_Config.bHardwareTransform);
 	gameSettingsMenu->add(new MenuAction(this, SLOT(vertexCacheAct()),   QT_TR_NOOP("&Vertex cache")))
 		->addEventChecked(&g_Config.bVertexCache);
-	gameSettingsMenu->add(new MenuAction(this, SLOT(showFPSAct()), QT_TR_NOOP("&Show FPS counter")))
-		->addEventChecked(&g_Config.iShowFPSCounter);
 	gameSettingsMenu->addSeparator();
 	gameSettingsMenu->add(new MenuAction(this, SLOT(audioAct()),   QT_TR_NOOP("Enable s&ound")))
 		->addEventChecked(&g_Config.bEnableSound);
