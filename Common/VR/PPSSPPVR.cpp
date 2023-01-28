@@ -606,6 +606,17 @@ bool StartVRRender() {
 					invView = XrPosef_Inverse(invView);
 				}
 
+				// disable specific rotations if requested
+				switch (g_Config.iHeadRotation) {
+					case 1: //horizontal
+						my = 0;
+						break;
+					case 2: //horizontal+vertical
+						mx = 0;
+						my = 0;
+						break;
+				}
+
 				// create updated quaternion
 				XrVector3f rotation = XrQuaternionf_ToEulerAngles(invView.orientation);
 				XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mx * ToRadians(rotation.x));
