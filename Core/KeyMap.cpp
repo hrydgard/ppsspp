@@ -310,6 +310,10 @@ static const KeyMap_IntStrPair key_names[] = {
 	{NKCODE_EXT_MOTION_LEFT, "MotionLeft"},
 	{NKCODE_EXT_MOTION_RIGHT, "MotionRight"},
 	{NKCODE_EXT_MOTION_FORWARD, "MotionFwd"},
+	{NKCODE_EXT_ROTATION_UP, "RotationUp"},
+	{NKCODE_EXT_ROTATION_DOWN, "RotationDown"},
+	{NKCODE_EXT_ROTATION_LEFT, "RotationLeft"},
+	{NKCODE_EXT_ROTATION_RIGHT, "RotationRight"},
 
 	{NKCODE_START_QUESTION, "¿"},
 	{NKCODE_LEFTBRACE, "{"},

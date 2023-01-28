@@ -103,6 +103,7 @@ static std::vector<ButtonMapping> controllerMapping[2] = {
 		rightControllerMapping
 };
 static bool controllerMotion[2][5] = {};
+static bool hmdMotion[4] = {};
 static int mouseController = 1;
 static bool mousePressed = false;
 
@@ -307,6 +308,47 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 			if (controllerMotion[j][4] != activate) NativeKey(keyInput);
 			controllerMotion[j][4] = activate;
 		}
+	}
+
+	// Head control in non-VR mode
+	if (g_Config.iHeadRotation && IsFlatVRScene()) {
+		float pitch = -VR_GetHMDAngles().x;
+		float yaw = -VR_GetHMDAngles().y;
+
+		bool activate;
+		float limit = 20;
+		keyInput.deviceId = DEVICE_ID_XR_HMD;
+
+		// vertical rotations
+		if (g_Config.iHeadRotation == 2) {
+			//up
+			activate = pitch > limit;
+			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_ROTATION_UP;
+			if (hmdMotion[0] != activate) NativeKey(keyInput);
+			hmdMotion[0] = activate;
+
+			//down
+			activate = pitch < -limit;
+			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_ROTATION_DOWN;
+			if (hmdMotion[1] != activate) NativeKey(keyInput);
+			hmdMotion[1] = activate;
+		}
+
+		//left
+		activate = yaw < -limit;
+		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+		keyInput.keyCode = NKCODE_EXT_ROTATION_LEFT;
+		if (hmdMotion[2] != activate) NativeKey(keyInput);
+		hmdMotion[2] = activate;
+
+		//right
+		activate = yaw > limit;
+		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+		keyInput.keyCode = NKCODE_EXT_ROTATION_RIGHT;
+		if (hmdMotion[3] != activate) NativeKey(keyInput);
+		hmdMotion[3] = activate;
 	}
 
 	// Camera adjust

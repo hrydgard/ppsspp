@@ -465,3 +465,7 @@ void* VR_BindFramebuffer(engine_t *engine) {
 XrView VR_GetView(int eye) {
 	return projections[eye];
 }
+
+XrVector3f VR_GetHMDAngles() {
+	return hmdorientation;
+}
