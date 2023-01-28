@@ -31,6 +31,12 @@ extern const char *PPSSPP_GIT_VERSION;
 
 extern bool jitForcedOff;
 
+// should this be here?!
+// for Config.iShowStatusFlags
+#define STATUS_SHOW_FPS_COUNTER (1 << 1)
+#define STATUS_SHOW_SPEED_COUNTER (1 << 2)
+#define STATUS_SHOW_BATTERY_PERCENT (1 << 3)
+
 enum ChatPositions {
 	BOTTOM_LEFT = 0,
 	BOTTOM_CENTER = 1,
@@ -270,7 +276,7 @@ public:
 
 	// UI
 	bool bShowDebuggerOnLoad;
-	int iShowFPSCounter;
+	int iShowStatusFlags; // Should we rename this now?
 	bool bShowRegionOnGameIcon;
 	bool bShowIDOnGameIcon;
 	float fGameGridScale;
