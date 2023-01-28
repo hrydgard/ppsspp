@@ -872,7 +872,6 @@ public:
 	}
     
     BitCheckBox(int *bitfield, int bit, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = nullptr) : BitCheckBox((uint32_t *)bitfield, (uint32_t)bit, text, smallText, layoutParams) {
-        
     }
     
 	void Toggle() override;
