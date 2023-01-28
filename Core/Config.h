@@ -475,6 +475,8 @@ public:
 	float fFieldOfViewPercentage;
 	float fHeadUpDisplayScale;
 	float fMotionLength;
+	float fHeadRotationScale;
+	int iHeadRotation;
 
 	// Debugger
 	int iDisasmWindowX;

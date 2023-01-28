@@ -1083,6 +1083,10 @@ void GameSettingsScreen::CreateViews() {
 		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCanvasDistance, 1.0f, 15.0f, vr->T("Distance to 2D menus and scenes"), 1.0f, screenManager(), ""));
 		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fFieldOfViewPercentage, 100.0f, 200.0f, vr->T("Field of view scale"), 10.0f, screenManager(), vr->T("% of native FoV")));
 		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadUpDisplayScale, 0.0f, 1.5f, vr->T("Heads-up display scale"), 0.1f, screenManager(), ""));
+		static const char *vrHeadRotations[] = { vr->T("Disabled"), vr->T("Horizontal only"), vr->T("Horizontal and vertical") };
+		vrSettings->Add(new PopupMultiChoice(&g_Config.iHeadRotation, vr->T("Map HMD rotations on keys instead of VR camera"), vrHeadRotations, 0, ARRAY_SIZE(vrHeadRotations), vr->GetName(), screenManager()));
+		PopupSliderChoiceFloat *vrHeadRotationScale = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadRotationScale, 0.3f, 1.0f, vr->T("Scale HMD rotations affects game camera"), 0.1f, screenManager(), ""));
+		vrHeadRotationScale->SetEnabledFunc([&] { return g_Config.iHeadRotation > 0; });
 
 		vrSettings->Add(new ItemHeader(vr->T("VR controllers")));
 		vrSettings->Add(new CheckBox(&g_Config.bEnableMotions, vr->T("Map controller movements to keys")));
