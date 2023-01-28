@@ -104,6 +104,8 @@ static std::vector<ButtonMapping> controllerMapping[2] = {
 };
 static bool controllerMotion[2][5] = {};
 static bool hmdMotion[4] = {};
+static float hmdMotionLast[2] = {};
+static float hmdMotionDiff[2] = {};
 static int mouseController = 1;
 static bool mousePressed = false;
 
@@ -348,6 +350,61 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
 		keyInput.keyCode = NKCODE_EXT_ROTATION_RIGHT;
 		if (hmdMotion[3] != activate) NativeKey(keyInput);
+		hmdMotion[3] = activate;
+	}
+
+	// Head control in VR mode
+	if (g_Config.iHeadRotation && !IsFlatVRScene()) {
+
+		// calculate delta angles of the rotation
+		float pitch = -VR_GetHMDAngles().x;
+		float yaw = -VR_GetHMDAngles().y;
+		float deltaPitch = pitch - hmdMotionLast[0];
+		float deltaYaw = yaw - hmdMotionLast[1];
+		while (deltaYaw >= 180) deltaYaw -= 360;
+		while (deltaYaw < -180) deltaYaw += 360;
+		hmdMotionLast[0] = pitch;
+		hmdMotionLast[1] = yaw;
+		hmdMotionDiff[0] += deltaPitch * g_Config.fHeadRotationScale;
+		hmdMotionDiff[1] += deltaYaw * g_Config.fHeadRotationScale;
+
+		bool activate;
+		float limit = 1;
+		keyInput.deviceId = DEVICE_ID_XR_HMD;
+
+		// vertical rotations
+		if (g_Config.iHeadRotation == 2) {
+			//up
+			activate = hmdMotionDiff[0] > limit;
+			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_ROTATION_UP;
+			if (hmdMotion[0] != activate) NativeKey(keyInput);
+			if (activate) hmdMotionDiff[0] -= limit;
+			hmdMotion[0] = activate;
+
+			//down
+			activate = hmdMotionDiff[0] < -limit;
+			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_ROTATION_DOWN;
+			if (hmdMotion[1] != activate) NativeKey(keyInput);
+			if (activate) hmdMotionDiff[0] += limit;
+			hmdMotion[1] = activate;
+		}
+
+		//left
+		activate = hmdMotionDiff[1] < -limit;
+		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+		keyInput.keyCode = NKCODE_EXT_ROTATION_LEFT;
+		if (hmdMotion[2] != activate) NativeKey(keyInput);
+		if (activate) hmdMotionDiff[1] += limit;
+		hmdMotion[2] = activate;
+
+		//right
+		activate = hmdMotionDiff[1] > limit;
+		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+		keyInput.keyCode = NKCODE_EXT_ROTATION_RIGHT;
+		if (hmdMotion[3] != activate) NativeKey(keyInput);
+		if (activate) hmdMotionDiff[1] -= limit;
 		hmdMotion[3] = activate;
 	}
 
