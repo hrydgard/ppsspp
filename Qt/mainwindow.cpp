@@ -423,7 +423,7 @@ void MainWindow::forumAct()
 
 void MainWindow::goldAct()
 {
-	QDesktopServices::openUrl(QUrl("https://central.ppsspp.org/buygold"));
+	QDesktopServices::openUrl(QUrl("https://www.ppsspp.org/buygold"));
 }
 
 void MainWindow::gitAct()

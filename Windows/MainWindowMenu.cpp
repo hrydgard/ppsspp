@@ -919,7 +919,7 @@ namespace MainWindow {
 			break;
 
 		case ID_HELP_BUYGOLD:
-			ShellExecute(NULL, L"open", L"https://central.ppsspp.org/buygold", NULL, NULL, SW_SHOWNORMAL);
+			ShellExecute(NULL, L"open", L"https://www.ppsspp.org/buygold", NULL, NULL, SW_SHOWNORMAL);
 			break;
 
 		case ID_HELP_OPENFORUM:

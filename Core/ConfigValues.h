@@ -22,6 +22,7 @@
 #ifndef _MSC_VER
 #include <strings.h>
 #endif
+#include "Common/Common.h"
 #include "Common/CommonFuncs.h"
 
 const int PSP_MODEL_FAT = 0;
@@ -128,4 +129,11 @@ enum class AnalogFpsMode {
 	AUTO = 0,
 	MAPPED_DIRECTION = 1,
 	MAPPED_DIR_TO_OPPOSITE_DIR = 2,
+};
+
+// for Config.iShowStatusFlags
+enum class ShowStatusFlags {
+	FPS_COUNTER = 1 << 1,
+	SPEED_COUNTER = 1 << 2,
+	BATTERY_PERCENT = 1 << 3,
 };

@@ -1024,10 +1024,10 @@ void MainScreen::CreateViews() {
 		scrollHomebrew->SetTag("MainScreenHomebrew");
 
 		GameBrowser *tabAllGames = new GameBrowser(Path(g_Config.currentDirectory), BrowseFlags::STANDARD, &g_Config.bGridView2, screenManager(),
-			mm->T("How to get games"), "https://www.ppsspp.org/getgames.html",
+			mm->T("How to get games"), "https://www.ppsspp.org/getgames",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		GameBrowser *tabHomebrew = new GameBrowser(GetSysDirectory(DIRECTORY_GAME), BrowseFlags::HOMEBREW_STORE, &g_Config.bGridView3, screenManager(),
-			mm->T("How to get homebrew & demos", "How to get homebrew && demos"), "https://www.ppsspp.org/gethomebrew.html",
+			mm->T("How to get homebrew & demos", "How to get homebrew && demos"), "https://www.ppsspp.org/gethomebrew",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
 		scrollAllGames_->Add(tabAllGames);
@@ -1221,7 +1221,7 @@ UI::EventReturn MainScreen::OnDownloadUpgrade(UI::EventParams &e) {
 		LaunchBrowser("market://details?id=org.ppsspp.ppsspp");
 	}
 #elif PPSSPP_PLATFORM(WINDOWS)
-	LaunchBrowser("https://www.ppsspp.org/downloads.html");
+	LaunchBrowser("https://www.ppsspp.org/download");
 #else
 	// Go directly to ppsspp.org and let the user sort it out
 	// (for details and in case downloads doesn't have their platform.)
@@ -1406,7 +1406,7 @@ UI::EventReturn MainScreen::OnSupport(UI::EventParams &e) {
 #ifdef __ANDROID__
 	LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
 #else
-	LaunchBrowser("https://central.ppsspp.org/buygold");
+	LaunchBrowser("https://www.ppsspp.org/buygold");
 #endif
 	return UI::EVENT_DONE;
 }
