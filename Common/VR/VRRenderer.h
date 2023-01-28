@@ -48,3 +48,4 @@ void VR_SetConfigFloat( VRConfigFloat config, float value );
 
 void* VR_BindFramebuffer(engine_t *engine);
 XrView VR_GetView(int eye);
+XrVector3f VR_GetHMDAngles();
