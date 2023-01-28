@@ -106,6 +106,7 @@ static bool controllerMotion[2][5] = {};
 static bool hmdMotion[4] = {};
 static float hmdMotionLast[2] = {};
 static float hmdMotionDiff[2] = {};
+static float hmdMotionDiffLast[2] = {};
 static int mouseController = 1;
 static bool mousePressed = false;
 
@@ -327,14 +328,16 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 			while (deltaYaw < -180) deltaYaw += 360;
 			hmdMotionLast[0] = pitch;
 			hmdMotionLast[1] = yaw;
-			hmdMotionDiff[0] += deltaPitch * g_Config.fHeadRotationScale;
-			hmdMotionDiff[1] += deltaYaw * g_Config.fHeadRotationScale;
+			hmdMotionDiffLast[0] = hmdMotionDiff[0];
+			hmdMotionDiffLast[1] = hmdMotionDiff[1];
+			hmdMotionDiff[0] += deltaPitch;
+			hmdMotionDiff[1] += deltaYaw;
 			pitch = hmdMotionDiff[0];
 			yaw = hmdMotionDiff[1];
 		}
 
 		bool activate;
-		float limit = isVR ? 1 : 20;
+		float limit = isVR ? g_Config.fHeadRotationScale : 20;
 		keyInput.deviceId = DEVICE_ID_XR_HMD;
 
 		// vertical rotations
@@ -670,22 +673,20 @@ bool StartVRRender() {
 					invView = XrPosef_Inverse(invView);
 				}
 
-				// disable specific rotations if requested
-				switch (g_Config.iHeadRotation) {
-					case 1: //horizontal
-						my = 0;
-						break;
-					case 2: //horizontal+vertical
-						mx = 0;
-						my = 0;
-						break;
-				}
+				// decompose rotation
+				XrVector3f rotation = XrQuaternionf_ToEulerAngles(invView.orientation);
+				float mPitch = mx * ToRadians(rotation.x);
+				float mYaw = my * ToRadians(rotation.y);
+				float mRoll = mz * ToRadians(rotation.z);
+
+				// use in-game camera interpolated rotation
+				if (g_Config.iHeadRotation >= 2) mPitch = -mx * ToRadians(hmdMotionDiffLast[0]); // vertical
+				if (g_Config.iHeadRotation >= 1) mYaw = -my * ToRadians(hmdMotionDiffLast[1]); // horizontal
 
 				// create updated quaternion
-				XrVector3f rotation = XrQuaternionf_ToEulerAngles(invView.orientation);
-				XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mx * ToRadians(rotation.x));
-				XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, my * ToRadians(rotation.y));
-				XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, mz * ToRadians(rotation.z));
+				XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mPitch);
+				XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, mYaw);
+				XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, mRoll);
 				invView.orientation = XrQuaternionf_Multiply(roll, XrQuaternionf_Multiply(pitch, yaw));
 
 				float M[16];
