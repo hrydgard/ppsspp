@@ -1198,6 +1198,7 @@ static ConfigSetting vrSettings[] = {
 	ConfigSetting("VRHeadUpDisplayScale", &g_Config.fHeadUpDisplayScale, 0.3f),
 	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f),
 	ConfigSetting("VRHeadRotationScale", &g_Config.fHeadRotationScale, 5.0f),
+	ConfigSetting("VRHeadRotationSmoothing", &g_Config.bHeadRotationSmoothing, false),
 	ConfigSetting("VRHeadRotation", &g_Config.iHeadRotation, 0),
 
 	ConfigSetting(false),

@@ -322,14 +322,15 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 
 		// calculate delta angles of the rotation
 		if (isVR) {
+			float f = g_Config.bHeadRotationSmoothing ? 0.5f : 1.0f;
 			float deltaPitch = pitch - hmdMotionLast[0];
 			float deltaYaw = yaw - hmdMotionLast[1];
 			while (deltaYaw >= 180) deltaYaw -= 360;
 			while (deltaYaw < -180) deltaYaw += 360;
 			hmdMotionLast[0] = pitch;
 			hmdMotionLast[1] = yaw;
-			hmdMotionDiffLast[0] = hmdMotionDiff[0];
-			hmdMotionDiffLast[1] = hmdMotionDiff[1];
+			hmdMotionDiffLast[0] = hmdMotionDiffLast[0] * (1-f) + hmdMotionDiff[0] * f;
+			hmdMotionDiffLast[1] = hmdMotionDiffLast[1] * (1-f) + hmdMotionDiff[1] * f;
 			hmdMotionDiff[0] += deltaPitch;
 			hmdMotionDiff[1] += deltaYaw;
 			pitch = hmdMotionDiff[0];

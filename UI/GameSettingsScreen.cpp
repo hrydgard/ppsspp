@@ -1089,6 +1089,8 @@ void GameSettingsScreen::CreateViews() {
 		vrSettings->Add(new PopupMultiChoice(&g_Config.iHeadRotation, vr->T("Map HMD rotations on keys instead of VR camera"), vrHeadRotations, 0, ARRAY_SIZE(vrHeadRotations), vr->GetName(), screenManager()));
 		PopupSliderChoiceFloat *vrHeadRotationScale = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadRotationScale, 0.1f, 10.0f, vr->T("Game camera rotation step per frame"), 0.1f, screenManager(), "°"));
 		vrHeadRotationScale->SetEnabledFunc([&] { return g_Config.iHeadRotation > 0; });
+		CheckBox *vrHeadRotationSmoothing = vrSettings->Add(new CheckBox(&g_Config.bHeadRotationSmoothing, vr->T("Game camera uses rotation smoothing")));
+		vrHeadRotationSmoothing->SetEnabledFunc([&] { return g_Config.iHeadRotation > 0; });
 		vrSettings->Add(new CheckBox(&g_Config.bEnableMotions, vr->T("Map controller movements to keys")));
 		PopupSliderChoiceFloat *vrMotions = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMotionLength, 0.3f, 1.0f, vr->T("Motion needed to generate action"), 0.1f, screenManager(), vr->T("m")));
 		vrMotions->SetEnabledPtr(&g_Config.bEnableMotions);
