@@ -316,6 +316,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 	if (g_Config.iHeadRotation) {
 		float pitch = -VR_GetHMDAngles().x;
 		float yaw = -VR_GetHMDAngles().y;
+		bool disable = pspKeys[CTRL_SCREEN] || appMode == VR_MENU_MODE;
 		bool isVR = !IsFlatVRScene();
 
 		// calculate delta angles of the rotation
@@ -339,7 +340,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		// vertical rotations
 		if (g_Config.iHeadRotation == 2) {
 			//up
-			activate = !pspKeys[CTRL_SCREEN] && pitch > limit;
+			activate = !disable && pitch > limit;
 			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
 			keyInput.keyCode = NKCODE_EXT_ROTATION_UP;
 			if (hmdMotion[0] != activate) NativeKey(keyInput);
@@ -347,7 +348,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 			hmdMotion[0] = activate;
 
 			//down
-			activate = !pspKeys[CTRL_SCREEN] && pitch < -limit;
+			activate = !disable && pitch < -limit;
 			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
 			keyInput.keyCode = NKCODE_EXT_ROTATION_DOWN;
 			if (hmdMotion[1] != activate) NativeKey(keyInput);
@@ -356,7 +357,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		}
 
 		//left
-		activate = !pspKeys[CTRL_SCREEN] && yaw < -limit;
+		activate = !disable && yaw < -limit;
 		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
 		keyInput.keyCode = NKCODE_EXT_ROTATION_LEFT;
 		if (hmdMotion[2] != activate) NativeKey(keyInput);
@@ -364,7 +365,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		hmdMotion[2] = activate;
 
 		//right
-		activate = !pspKeys[CTRL_SCREEN] && yaw > limit;
+		activate = !disable && yaw > limit;
 		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
 		keyInput.keyCode = NKCODE_EXT_ROTATION_RIGHT;
 		if (hmdMotion[3] != activate) NativeKey(keyInput);
