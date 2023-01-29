@@ -62,6 +62,11 @@ static inline bool SupportsBitmanip(char zbx) {
 	return cpu_info.RiscV_B;
 }
 
+static inline bool SupportsFloatHalf(bool allowMin = false) {
+	// TODO
+	return false;
+}
+
 enum class Opcode32 {
 	// Note: invalid, just used for FixupBranch.
 	ZERO = 0b0000000,
@@ -226,6 +231,7 @@ enum class Funct3 {
 enum class Funct2 {
 	S = 0b00,
 	D = 0b01,
+	H = 0b10,
 	Q = 0b11,
 
 	C_SRLI = 0b00,
@@ -874,10 +880,13 @@ static inline u16 EncodeCJ(Opcode16 op, s32 simm12, Funct3 funct3) {
 	return (u16)op | (imm11_4_9_8_10_6_7_3_2_1_5 << 2) | ((u16)funct3 << 13);
 }
 
-static inline Funct3 BitsToFunct3(int bits, bool useFloat = false) {
+static inline Funct3 BitsToFunct3(int bits, bool useFloat = false, bool allowHalfMin = false) {
 	int bitsSupported = useFloat ? FloatBitsSupported() : BitsSupported();
 	_assert_msg_(bitsSupported >= bits, "Cannot use funct3 width %d, only have %d", bits, bitsSupported);
 	switch (bits) {
+	case 16:
+		_assert_msg_(SupportsFloatHalf(allowHalfMin), "Cannot use width 16 without Zfh/Zfhmin");
+		return Funct3::LS_H;
 	case 32:
 		return Funct3::LS_W;
 	case 64:
@@ -888,9 +897,12 @@ static inline Funct3 BitsToFunct3(int bits, bool useFloat = false) {
 	}
 }
 
-static inline Funct2 BitsToFunct2(int bits) {
+static inline Funct2 BitsToFunct2(int bits, bool allowHalfMin = false) {
 	_assert_msg_(FloatBitsSupported() >= bits, "Cannot use funct2 width %d, only have %d", bits, FloatBitsSupported());
 	switch (bits) {
+	case 16:
+		_assert_msg_(SupportsFloatHalf(allowHalfMin), "Cannot use width 16 without Zfh/Zfhmin");
+		return Funct2::H;
 	case 32:
 		return Funct2::S;
 	case 64:
@@ -915,6 +927,9 @@ static inline int FConvToFloatBits(FConv c) {
 		return 32;
 	case FConv::D:
 		return 64;
+	case FConv::H:
+		_assert_msg_(SupportsFloatHalf(true), "Cannot use width 16 without Zfh/Zfhmin");
+		return 16;
 	case FConv::Q:
 		return 128;
 	}
@@ -925,6 +940,7 @@ static inline int FConvToIntegerBits(FConv c) {
 	switch (c) {
 	case FConv::S:
 	case FConv::D:
+	case FConv::H:
 	case FConv::Q:
 		break;
 
@@ -1975,7 +1991,7 @@ void RiscVEmitter::FL(int bits, RiscVReg rd, RiscVReg rs1, s32 simm12) {
 		}
 	}
 
-	Write32(EncodeI(Opcode32::LOAD_FP, rd, BitsToFunct3(bits, true), rs1, simm12));
+	Write32(EncodeI(Opcode32::LOAD_FP, rd, BitsToFunct3(bits, true, true), rs1, simm12));
 }
 
 void RiscVEmitter::FS(int bits, RiscVReg rs2, RiscVReg rs1, s32 simm12) {
@@ -1999,7 +2015,7 @@ void RiscVEmitter::FS(int bits, RiscVReg rs2, RiscVReg rs1, s32 simm12) {
 		}
 	}
 
-	Write32(EncodeS(Opcode32::STORE_FP, BitsToFunct3(bits, true), rs1, rs2, simm12));
+	Write32(EncodeS(Opcode32::STORE_FP, BitsToFunct3(bits, true, true), rs1, rs2, simm12));
 }
 
 void RiscVEmitter::FMADD(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, RiscVReg rs3, Round rm) {
@@ -2068,8 +2084,8 @@ void RiscVEmitter::FCVT(FConv to, FConv from, RiscVReg rd, RiscVReg rs1, Round r
 
 	if (integerBits == 0) {
 		// Convert between float widths.
-		Funct2 fromFmt = BitsToFunct2(FConvToFloatBits(from));
-		Funct2 toFmt = BitsToFunct2(FConvToFloatBits(to));
+		Funct2 fromFmt = BitsToFunct2(FConvToFloatBits(from), true);
+		Funct2 toFmt = BitsToFunct2(FConvToFloatBits(to), true);
 		if (FConvToFloatBits(to) > FConvToFloatBits(from)) {
 			_assert_msg_(rm == Round::DYNAMIC || rm == Round::NEAREST_EVEN, "Invalid rounding mode for widening FCVT");
 			rm = Round::NEAREST_EVEN;
@@ -2089,6 +2105,7 @@ void RiscVEmitter::FMV(FMv to, FMv from, RiscVReg rd, RiscVReg rs1) {
 	switch (to == FMv::X ? from : to) {
 	case FMv::D: bits = 64; break;
 	case FMv::W: bits = 32; break;
+	case FMv::H: bits = 16; break;
 	case FMv::X: bits = 0; break;
 	}
 
@@ -2098,7 +2115,7 @@ void RiscVEmitter::FMV(FMv to, FMv from, RiscVReg rd, RiscVReg rs1) {
 	_assert_msg_(from == FMv::X ? IsGPR(rs1) : IsFPR(rs1), "%s rs1 of wrong type", __func__);
 
 	Funct5 funct5 = to == FMv::X ? Funct5::FMV_TOX : Funct5::FMV_FROMX;
-	Write32(EncodeR(Opcode32::OP_FP, rd, Funct3::FMV, rs1, F0, BitsToFunct2(bits), funct5));
+	Write32(EncodeR(Opcode32::OP_FP, rd, Funct3::FMV, rs1, F0, BitsToFunct2(bits, true), funct5));
 }
 
 void RiscVEmitter::FEQ(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
