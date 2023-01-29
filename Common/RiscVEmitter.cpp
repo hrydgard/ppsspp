@@ -50,8 +50,7 @@ static inline bool SupportsAtomic() {
 }
 
 static inline bool SupportsZicsr() {
-	// TODO
-	return false;
+	return cpu_info.RiscV_Zicsr;
 }
 
 static inline bool SupportsVector() {
