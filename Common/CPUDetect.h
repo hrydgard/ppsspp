@@ -68,6 +68,7 @@ struct CPUInfo {
 	bool bSSE4A;
 	bool bAES;
 	bool bSHA;
+	bool bF16C;
 	// x86 : SIMD 256 bit
 	bool bAVX;
 	bool bAVX2;
