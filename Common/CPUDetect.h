@@ -94,6 +94,9 @@ struct CPUInfo {
 	// ARMv8 specific
 	bool bFP;
 	bool bASIMD;
+	bool bSVE;
+	bool bSVE2;
+	bool bFRINT;
 
 	// MIPS specific
 	bool bXBurst1;

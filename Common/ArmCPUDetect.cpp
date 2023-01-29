@@ -26,6 +26,20 @@
 
 #if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
 
+#if PPSSPP_ARCH(ARM)
+#include "ext/cpu_features/include/cpuinfo_arm.h"
+
+#if defined(CPU_FEATURES_OS_LINUX) || defined(CPU_FEATURES_OS_ANDROID)
+#define USE_CPU_FEATURES 1
+#endif
+#elif PPSSPP_ARCH(ARM64) && defined(__aarch64__)
+#include "ext/cpu_features/include/cpuinfo_aarch64.h"
+
+#if defined(CPU_FEATURES_OS_LINUX) || defined(CPU_FEATURES_OS_ANDROID)
+#define USE_CPU_FEATURES 1
+#endif
+#endif
+
 #include <ctype.h>
 
 #include "Common/CommonTypes.h"
@@ -337,6 +351,31 @@ void CPUInfo::Detect()
 	bNEON = true;
 	bASIMD = true;
 #endif
+
+#if PPSSPP_ARCH(ARM) && defined(USE_CPU_FEATURES)
+	cpu_features::ArmInfo info = cpu_features::GetArmInfo();
+	bSwp = info.features.swp;
+	bHalf = info.features.half;
+	bThumb = info.features.thumb;
+	bFastMult = info.features.fastmult;
+	bEDSP = info.features.edsp;
+	bThumbEE = info.features.thumbee;
+	bNEON = info.features.neon;
+	bTLS = info.features.tls;
+	bVFP = info.features.vfp;
+	bVFPv3 = info.features.vfpv3;
+	bVFPv4 = info.features.vfpv4;
+	bIDIVa = info.features.idiva;
+	bIDIVt = info.features.idivt;
+#endif
+#if PPSSPP_ARCH(ARM64) && defined(USE_CPU_FEATURES)
+	cpu_features::Aarch64Info info = cpu_features::GetAarch64Info();
+	bFP = info.features.fp;
+	bASIMD = info.features.asimd;
+	bSVE = info.features.sve;
+	bSVE2 = info.features.sve2;
+	bFRINT = info.features.frint;
+#endif
 }
 
 std::vector<std::string> CPUInfo::Features() {
@@ -360,6 +399,9 @@ std::vector<std::string> CPUInfo::Features() {
 		{ bNEON, "NEON" },
 		{ bIDIVa, "IDIVa" },
 		{ bIDIVt, "IDIVt" },
+		{ bFRINT, "FRINT" },
+		{ bSVE, "SVE" },
+		{ bSVE2, "SVE2" },
 		{ CPU64bit, "64-bit" },
 	};
 
