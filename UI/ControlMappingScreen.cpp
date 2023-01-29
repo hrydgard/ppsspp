@@ -970,6 +970,12 @@ public:
 		if (img_.isValid()) {
 			scales[0] *= scaleX_;
 			scales[1] *= scaleY_;
+			if (timeLastPressed_ >= 0.0) {
+				double sincePress = time_now_d() - timeLastPressed_;
+				if (sincePress < 1.0) {
+					c = colorBlend(c, dc.theme->itemDownStyle.background.color, (float)sincePress);
+				}
+			}
 			dc.Draw()->DrawImageRotatedStretch(img_, bounds_.Offset(offsetX_, offsetY_), scales, angle_, c);
 		}
 	}
@@ -1010,6 +1016,10 @@ public:
 		return button_;
 	}
 
+	void NotifyPressed() {
+		timeLastPressed_ = time_now_d();
+	}
+
 private:
 	int button_;
 	ImageID img_;
@@ -1021,6 +1031,7 @@ private:
 	float offsetY_ = 0.0f;
 	bool flipHBG_ = false;
 	int *selectedButton_ = nullptr;
+	double timeLastPressed_ = -1.0;
 };
 
 class MockPSP : public UI::AnchorLayout {
@@ -1030,6 +1041,7 @@ public:
 	MockPSP(UI::LayoutParams *layoutParams = nullptr);
 	void SelectButton(int btn);
 	void FocusButton(int btn);
+	void NotifyPressed(int btn);
 	float GetPopupOffset();
 
 	bool SubviewFocused(View *view) override;
@@ -1090,6 +1102,12 @@ void MockPSP::FocusButton(int btn) {
 	} else {
 		labelView_->SetVisibility(UI::V_GONE);
 	}
+}
+
+void MockPSP::NotifyPressed(int btn) {
+	MockButton *view = buttons_[btn];
+	if (view)
+		view->NotifyPressed();
 }
 
 bool MockPSP::SubviewFocused(View *view) {
@@ -1183,6 +1201,50 @@ void VisualMappingScreen::CreateViews() {
 
 	root_->Add(leftColumn);
 	root_->Add(rightColumn);
+}
+
+bool VisualMappingScreen::key(const KeyInput &key) {
+	if (key.flags & KEY_DOWN) {
+		std::vector<int> pspKeys;
+		KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys);
+		for (int pspKey : pspKeys) {
+			switch (pspKey) {
+			case VIRTKEY_AXIS_X_MIN:
+			case VIRTKEY_AXIS_Y_MIN:
+			case VIRTKEY_AXIS_X_MAX:
+			case VIRTKEY_AXIS_Y_MAX:
+				psp_->NotifyPressed(VIRTKEY_AXIS_Y_MAX);
+				break;
+			default:
+				psp_->NotifyPressed(pspKey);
+				break;
+			}
+		}
+	}
+	return UIDialogScreenWithGameBackground::key(key);
+}
+
+void VisualMappingScreen::axis(const AxisInput &axis) {
+	std::vector<int> results;
+	if (axis.value >= g_Config.fAnalogDeadzone * 0.7f)
+		KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, 1, &results);
+	if (axis.value <= g_Config.fAnalogDeadzone * -0.7f)
+		KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -1, &results);
+
+	for (int result : results) {
+		switch (result) {
+		case VIRTKEY_AXIS_X_MIN:
+		case VIRTKEY_AXIS_Y_MIN:
+		case VIRTKEY_AXIS_X_MAX:
+		case VIRTKEY_AXIS_Y_MAX:
+			psp_->NotifyPressed(VIRTKEY_AXIS_Y_MAX);
+			break;
+		default:
+			psp_->NotifyPressed(result);
+			break;
+		}
+	}
+	UIDialogScreenWithGameBackground::axis(axis);
 }
 
 void VisualMappingScreen::resized() {

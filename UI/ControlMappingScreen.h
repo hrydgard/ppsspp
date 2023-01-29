@@ -177,6 +177,9 @@ public:
 
 	const char *tag() const override { return "VisualMapping"; }
 
+	bool key(const KeyInput &key) override;
+	void axis(const AxisInput &axis) override;
+
 protected:
 	void CreateViews() override;
 
