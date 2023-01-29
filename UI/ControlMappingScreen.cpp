@@ -1032,6 +1032,8 @@ public:
 	void FocusButton(int btn);
 	float GetPopupOffset();
 
+	bool SubviewFocused(View *view) override;
+
 	UI::Event ButtonClick;
 
 private:
@@ -1042,6 +1044,7 @@ private:
 	UI::EventReturn OnSelectButton(UI::EventParams &e);
 
 	std::unordered_map<int, MockButton *> buttons_;
+	UI::TextView *labelView_ = nullptr;
 	int selectedButton_ = 0;
 };
 
@@ -1070,6 +1073,10 @@ MockPSP::MockPSP(UI::LayoutParams *layoutParams) : AnchorLayout(layoutParams) {
 	AddButton(CTRL_CIRCLE, ImageID("I_CIRCLE"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 446.0f, 74.0f))->SetScale(0.7f);
 	AddButton(CTRL_CROSS, ImageID("I_CROSS"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 419.0f, 102.0f))->SetScale(0.7f);
 	AddButton(CTRL_SQUARE, ImageID("I_SQUARE"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 392.0f, 74.0f))->SetScale(0.7f);
+
+	labelView_ = Add(new UI::TextView(""));
+	labelView_->SetShadow(true);
+	labelView_->SetVisibility(UI::V_GONE);
 }
 
 void MockPSP::SelectButton(int btn) {
@@ -1077,9 +1084,25 @@ void MockPSP::SelectButton(int btn) {
 }
 
 void MockPSP::FocusButton(int btn) {
-	MockButton *view = buttons_[selectedButton_];
-	if (view)
+	MockButton *view = buttons_[btn];
+	if (view) {
 		view->SetFocus();
+	} else {
+		labelView_->SetVisibility(UI::V_GONE);
+	}
+}
+
+bool MockPSP::SubviewFocused(View *view) {
+	for (auto it : buttons_) {
+		if (view == it.second) {
+			labelView_->SetVisibility(UI::V_VISIBLE);
+			labelView_->SetText(KeyMap::GetPspButtonName(it.first));
+
+			const Bounds &pos = view->GetBounds().Offset(-GetBounds().x, -GetBounds().y);
+			labelView_->ReplaceLayoutParams(new UI::AnchorLayoutParams(pos.centerX(), pos.y2() + 5, UI::NONE, UI::NONE));
+		}
+	}
+	return AnchorLayout::SubviewFocused(view);
 }
 
 float MockPSP::GetPopupOffset() {
