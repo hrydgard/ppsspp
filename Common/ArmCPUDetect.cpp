@@ -339,29 +339,51 @@ void CPUInfo::Detect()
 #endif
 }
 
+std::vector<std::string> CPUInfo::Features() {
+	std::vector<std::string> features;
+
+	struct Flag {
+		bool &flag;
+		const char *str;
+	};
+	const Flag list[] = {
+		{ bSwp, "SWP" },
+		{ bHalf, "Half" },
+		{ bThumb, "Thumb" },
+		{ bFastMult, "FastMult" },
+		{ bEDSP, "EDSP" },
+		{ bThumbEE, "ThumbEE" },
+		{ bTLS, "TLS" },
+		{ bVFP, "VFP" },
+		{ bVFPv3, "VFPv3" },
+		{ bVFPv4, "VFPv4" },
+		{ bNEON, "NEON" },
+		{ bIDIVa, "IDIVa" },
+		{ bIDIVt, "IDIVt" },
+		{ CPU64bit, "64-bit" },
+	};
+
+	for (auto &item : list) {
+		if (item.flag) {
+			features.push_back(item.str);
+		}
+	}
+
+	return features;
+}
+
 // Turn the cpu info into a string we can show
-std::string CPUInfo::Summarize()
-{
+std::string CPUInfo::Summarize() {
 	std::string sum;
 	if (num_cores == 1)
 		sum = StringFromFormat("%s, %d core", cpu_string, num_cores);
 	else
 		sum = StringFromFormat("%s, %d cores", cpu_string, num_cores);
-	if (bSwp) sum += ", SWP";
-	if (bHalf) sum += ", Half";
-	if (bThumb) sum += ", Thumb";
-	if (bFastMult) sum += ", FastMult";
-	if (bEDSP) sum += ", EDSP";
-	if (bThumbEE) sum += ", ThumbEE";
-	if (bTLS) sum += ", TLS";
-	if (bVFP) sum += ", VFP";
-	if (bVFPv3) sum += ", VFPv3";
-	if (bVFPv4) sum += ", VFPv4";
-	if (bNEON) sum += ", NEON";
-	if (bIDIVa) sum += ", IDIVa";
-	if (bIDIVt) sum += ", IDIVt";
-	if (CPU64bit) sum += ", 64-bit";
 
+	auto features = Features();
+	for (std::string &feature : features) {
+		sum += ", " + feature;
+	}
 	return sum;
 }
 

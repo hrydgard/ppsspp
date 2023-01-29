@@ -20,6 +20,7 @@
 
 #include "ppsspp_config.h"
 #include <string>
+#include <vector>
 
 enum CPUVendor {
 	VENDOR_INTEL = 0,
@@ -121,6 +122,7 @@ struct CPUInfo {
 	explicit CPUInfo();
 
 	// Turn the cpu info into a string we can show
+	std::vector<std::string> Features();
 	std::string Summarize();
 
 private:

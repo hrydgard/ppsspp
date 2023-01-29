@@ -176,18 +176,45 @@ void CPUInfo::Detect()
 	RiscV_B = ExtensionSupported(hwcap, 'B');
 }
 
+std::vector<std::string> CPUInfo::Features() {
+	std::vector<std::string> features;
+
+	struct Flag {
+		bool &flag;
+		const char *str;
+	};
+	const Flag list[] = {
+		{ RiscV_M, "Muldiv" },
+		{ RiscV_A, "Atomic" },
+		{ RiscV_F, "Float" },
+		{ RiscV_D, "Double" },
+		{ RiscV_C, "Compressed" },
+		{ RiscV_V, "Vector" },
+		{ RiscV_B, "Bitmanip" },
+		{ CPU64bit, "64-bit" },
+	};
+
+	for (auto &item : list) {
+		if (item.flag) {
+			features.push_back(item.str);
+		}
+	}
+
+	return features;
+}
+
 // Turn the cpu info into a string we can show
-std::string CPUInfo::Summarize()
-{
+std::string CPUInfo::Summarize() {
 	std::string sum;
 	if (num_cores == 1)
 		sum = StringFromFormat("%s, %i core", cpu_string, num_cores);
 	else
 		sum = StringFromFormat("%s, %i cores", cpu_string, num_cores);
-	if (CPU64bit) sum += ", 64-bit";
 
-	//TODO: parse "isa : rv64imafdc" from /proc/cpuinfo
-
+	auto features = Features();
+	for (std::string &feature : features) {
+		sum += ", " + feature;
+	}
 	return sum;
 }
 

@@ -481,39 +481,63 @@ void CPUInfo::Detect() {
 		logical_cpu_count = 1;
 }
 
-// Turn the cpu info into a string we can show
-std::string CPUInfo::Summarize()
-{
-	std::string sum;
-	if (num_cores == 1)
-		sum = StringFromFormat("%s, %d core", cpu_string, num_cores);
-	else
-	{
-		sum = StringFromFormat("%s, %d cores", cpu_string, num_cores);
-		if (HTT) sum += StringFromFormat(" (%i logical threads per physical core)", logical_cpu_count);
+std::vector<std::string> CPUInfo::Features() {
+	std::vector<std::string> features;
+
+	struct Flag {
+		bool &flag;
+		const char *str;
+	};
+	const Flag list[] = {
+		{ bSSE, "SSE" },
+		{ bSSE2, "SSE2" },
+		{ bSSE3, "SSE3" },
+		{ bSSSE3, "SSSE3" },
+		{ bSSE4_1, "SSE4.1" },
+		{ bSSE4_2, "SSE4.2" },
+		{ bSSE4A, "SSE4A" },
+		{ HTT, "HTT" },
+		{ bAVX, "AVX" },
+		{ bAVX2, "AVX2" },
+		{ bFMA3, "FMA3" },
+		{ bFMA4, "FMA4" },
+		{ bAES, "AES" },
+		{ bSHA, "SHA" },
+		{ bXOP, "XOP" },
+		{ bRTM, "TSX" },
+		{ bF16C, "F16C" },
+		{ bBMI1, "BMI1" },
+		{ bBMI2, "BMI2" },
+		{ bPOPCNT, "POPCNT" },
+		{ bMOVBE, "MOVBE" },
+		{ bLZCNT, "LZCNT" },
+		{ bLongMode, "64-bit support" },
+	};
+
+	for (auto &item : list) {
+		if (item.flag) {
+			features.push_back(item.str);
+		}
 	}
-	if (bSSE) sum += ", SSE";
-	if (bSSE2) sum += ", SSE2";
-	if (bSSE3) sum += ", SSE3";
-	if (bSSSE3) sum += ", SSSE3";
-	if (bSSE4_1) sum += ", SSE4.1";
-	if (bSSE4_2) sum += ", SSE4.2";
-	if (bSSE4A) sum += ", SSE4A";
-	if (HTT) sum += ", HTT";
-	if (bAVX) sum += ", AVX";
-	if (bAVX2) sum += ", AVX2";
-	if (bFMA3) sum += ", FMA3";
-	if (bFMA4) sum += ", FMA4";
-	if (bAES) sum += ", AES";
-	if (bSHA) sum += ", SHA";
-	if (bXOP) sum += ", XOP";
-	if (bRTM) sum += ", TSX";
-	if (bF16C) sum += ", F16C";
-	if (bBMI1) sum += ", BMI1";
-	if (bPOPCNT) sum += ", POPCNT";
-	if (bMOVBE) sum += ", MOVBE";
-	if (bLZCNT) sum += ", LZCNT";
-	if (bLongMode) sum += ", 64-bit support";
+
+	return features;
+}
+
+// Turn the cpu info into a string we can show
+std::string CPUInfo::Summarize() {
+	std::string sum;
+	if (num_cores == 1) {
+		sum = StringFromFormat("%s, %d core", cpu_string, num_cores);
+	} else {
+		sum = StringFromFormat("%s, %d cores", cpu_string, num_cores);
+		if (HTT)
+			sum += StringFromFormat(" (%i logical threads per physical core)", logical_cpu_count);
+	}
+
+	auto features = Features();
+	for (std::string &feature : features) {
+		sum += ", " + feature;
+	}
 	return sum;
 }
 
