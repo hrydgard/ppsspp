@@ -1309,13 +1309,17 @@ static void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
 	float vps, fps, actual_fps;
 	__DisplayGetFPS(&vps, &fps, &actual_fps);
-	char fpsbuf[256] = {""};
-	if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::FPS_COUNTER) {
-		snprintf(fpsbuf, sizeof(fpsbuf), "%s FPS: %0.1f", fpsbuf, actual_fps);
-	}
-	
-	if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::SPEED_COUNTER) {
-		snprintf(fpsbuf, sizeof(fpsbuf), "%s Speed: %0.1f%%", fpsbuf, vps / (59.94f / 100.0f));
+
+	char fpsbuf[256]{};
+	if (g_Config.iShowStatusFlags == ((int)ShowStatusFlags::FPS_COUNTER | (int)ShowStatusFlags::SPEED_COUNTER)) {
+		snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f));
+	} else {
+		if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::FPS_COUNTER) {
+			snprintf(fpsbuf, sizeof(fpsbuf), "%s FPS: %0.1f", fpsbuf, actual_fps);
+		}
+		if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::SPEED_COUNTER) {
+			snprintf(fpsbuf, sizeof(fpsbuf), "%s Speed: %0.1f%%", fpsbuf, vps / (59.94f / 100.0f));
+		}
 	}
 	
 #ifdef CAN_DISPLAY_CURRENT_BATTERY_CAPACITY
