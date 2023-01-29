@@ -782,7 +782,7 @@ add_library(Common STATIC
 include_directories(Common)
 setup_target_project(Common Common)
 
-target_link_libraries(Common Ext::Snappy)
+target_link_libraries(Common Ext::Snappy cpu_features)
 
 if(USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV))
 	find_package(X11)
