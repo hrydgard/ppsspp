@@ -1166,17 +1166,20 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				glBindBuffer(GL_ARRAY_BUFFER, buf);
 				curArrayBuffer = buf;
 			}
-			int enable = layout->semanticsMask_ & ~attrMask;
-			int disable = (~layout->semanticsMask_) & attrMask;
-			for (int i = 0; i < 7; i++) {  // SEM_MAX
-				if (enable & (1 << i)) {
-					glEnableVertexAttribArray(i);
+			if (attrMask != layout->semanticsMask_) {
+				int enable = layout->semanticsMask_ & ~attrMask;
+				int disable = (~layout->semanticsMask_) & attrMask;
+
+				for (int i = 0; i < 7; i++) {  // SEM_MAX
+					if (enable & (1 << i)) {
+						glEnableVertexAttribArray(i);
+					}
+					if (disable & (1 << i)) {
+						glDisableVertexAttribArray(i);
+					}
 				}
-				if (disable & (1 << i)) {
-					glDisableVertexAttribArray(i);
-				}
+				attrMask = layout->semanticsMask_;
 			}
-			attrMask = layout->semanticsMask_;
 			for (size_t i = 0; i < layout->entries.size(); i++) {
 				auto &entry = layout->entries[i];
 				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.bindVertexBuffer.offset + entry.offset));
