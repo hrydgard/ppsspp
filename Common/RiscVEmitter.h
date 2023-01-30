@@ -90,11 +90,13 @@ enum class FConv {
 
 	S = 0x1000,
 	D = 0x1001,
+	H = 0x1002,
 	Q = 0x1003,
 };
 
 enum class FMv {
 	X,
+	H,
 	W,
 	D,
 };

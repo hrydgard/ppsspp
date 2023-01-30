@@ -38,3 +38,6 @@
 	path = assets/debugger
 	url = https://github.com/unknownbrackets/ppsspp-debugger.git
 	branch = bundled
+[submodule "cpu_features"]
+	path = ext/cpu_features
+	url = https://github.com/google/cpu_features.git

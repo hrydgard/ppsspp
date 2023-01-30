@@ -512,59 +512,12 @@ void GLRenderManager::Finish() {
 	insideFrame_ = false;
 }
 
-void GLRenderManager::BeginSubmitFrame(int frame) {
+// Render thread
+void GLRenderManager::Run(int frame) {
 	FrameData &frameData = frameData_[frame];
 	if (!frameData.hasBegun) {
 		frameData.hasBegun = true;
 	}
-}
-
-// Render thread
-void GLRenderManager::Submit(int frame, bool triggerFence) {
-	FrameData &frameData = frameData_[frame];
-
-	// In GL, submission happens automatically in Run().
-
-	// When !triggerFence, we notify after syncing with Vulkan.
-
-	if (triggerFence) {
-		VLOG("PULL: Frame %d.readyForFence = true", frame);
-
-		std::unique_lock<std::mutex> lock(frameData.push_mutex);
-		_assert_(frameData.readyForSubmit);
-		frameData.readyForFence = true;
-		frameData.readyForSubmit = false;
-		frameData.push_condVar.notify_all();
-	}
-}
-
-// Render thread
-void GLRenderManager::EndSubmitFrame(int frame) {
-	FrameData &frameData = frameData_[frame];
-	frameData.hasBegun = false;
-
-	Submit(frame, true);
-
-	if (!frameData.skipSwap) {
-		if (swapIntervalChanged_) {
-			swapIntervalChanged_ = false;
-			if (swapIntervalFunction_) {
-				swapIntervalFunction_(swapInterval_);
-			}
-		}
-		if (swapFunction_) {
-			swapFunction_();
-		}
-	} else {
-		frameData.skipSwap = false;
-	}
-}
-
-// Render thread
-void GLRenderManager::Run(int frame) {
-	BeginSubmitFrame(frame);
-
-	FrameData &frameData = frameData_[frame];
 
 	auto &stepsOnThread = frameData_[frame].steps;
 	auto &initStepsOnThread = frameData_[frame].initSteps;
@@ -600,11 +553,42 @@ void GLRenderManager::Run(int frame) {
 
 	switch (frameData.type) {
 	case GLRRunType::END:
-		EndSubmitFrame(frame);
+		frameData.hasBegun = false;
+
+		VLOG("PULL: Frame %d.readyForFence = true", frame);
+
+		{
+			std::unique_lock<std::mutex> lock(frameData.push_mutex);
+			_assert_(frameData.readyForSubmit);
+			frameData.readyForFence = true;
+			frameData.readyForSubmit = false;
+			frameData.push_condVar.notify_all();
+		}
+
+		if (!frameData.skipSwap) {
+			if (swapIntervalChanged_) {
+				swapIntervalChanged_ = false;
+				if (swapIntervalFunction_) {
+					swapIntervalFunction_(swapInterval_);
+				}
+			}
+			if (swapFunction_) {
+				swapFunction_();
+			}
+		} else {
+			frameData.skipSwap = false;
+		}
 		break;
 
 	case GLRRunType::SYNC:
-		EndSyncFrame(frame);
+		// glFinish is not actually necessary here, and won't be unless we start using
+		// glBufferStorage. Then we need to use fences.
+		{
+			std::unique_lock<std::mutex> lock(frameData.push_mutex);
+			frameData.readyForFence = true;
+			frameData.readyForSubmit = true;
+			frameData.push_condVar.notify_all();
+		}
 		break;
 
 	default:
@@ -638,27 +622,6 @@ void GLRenderManager::FlushSync() {
 		}
 		frameData.readyForFence = false;
 		frameData.readyForSubmit = true;
-	}
-}
-
-// Render thread
-void GLRenderManager::EndSyncFrame(int frame) {
-	FrameData &frameData = frameData_[frame];
-	Submit(frame, false);
-
-	// glFinish is not actually necessary here, and won't be until we start using
-	// glBufferStorage. Then we need to use fences.
-	// glFinish();
-
-	// At this point we can resume filling the command buffers for the current frame since
-	// we know the device is idle - and thus all previously enqueued command buffers have been processed.
-	// No need to switch to the next frame number.
-
-	{
-		std::unique_lock<std::mutex> lock(frameData.push_mutex);
-		frameData.readyForFence = true;
-		frameData.readyForSubmit = true;
-		frameData.push_condVar.notify_all();
 	}
 }
 
