@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2022 LunarG, Inc.
+ * Copyright (c) 2021-2023 LunarG, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -52,8 +52,42 @@
     defined(VK_KHR_variable_pointers)
 #define VP_ANDROID_baseline_2021 1
 #define VP_ANDROID_BASELINE_2021_NAME "VP_ANDROID_baseline_2021"
-#define VP_ANDROID_BASELINE_2021_SPEC_VERSION 1
+#define VP_ANDROID_BASELINE_2021_SPEC_VERSION 2
 #define VP_ANDROID_BASELINE_2021_MIN_API_VERSION VK_MAKE_VERSION(1, 0, 68)
+#endif
+
+#if defined(VK_VERSION_1_1) && \
+    defined(VK_ANDROID_external_memory_android_hardware_buffer) && \
+    defined(VK_EXT_queue_family_foreign) && \
+    defined(VK_EXT_swapchain_colorspace) && \
+    defined(VK_GOOGLE_display_timing) && \
+    defined(VK_KHR_android_surface) && \
+    defined(VK_KHR_create_renderpass2) && \
+    defined(VK_KHR_dedicated_allocation) && \
+    defined(VK_KHR_descriptor_update_template) && \
+    defined(VK_KHR_driver_properties) && \
+    defined(VK_KHR_external_fence) && \
+    defined(VK_KHR_external_fence_capabilities) && \
+    defined(VK_KHR_external_fence_fd) && \
+    defined(VK_KHR_external_memory) && \
+    defined(VK_KHR_external_memory_capabilities) && \
+    defined(VK_KHR_external_semaphore) && \
+    defined(VK_KHR_external_semaphore_capabilities) && \
+    defined(VK_KHR_external_semaphore_fd) && \
+    defined(VK_KHR_get_memory_requirements2) && \
+    defined(VK_KHR_get_physical_device_properties2) && \
+    defined(VK_KHR_get_surface_capabilities2) && \
+    defined(VK_KHR_incremental_present) && \
+    defined(VK_KHR_maintenance1) && \
+    defined(VK_KHR_sampler_mirror_clamp_to_edge) && \
+    defined(VK_KHR_storage_buffer_storage_class) && \
+    defined(VK_KHR_surface) && \
+    defined(VK_KHR_swapchain) && \
+    defined(VK_KHR_variable_pointers)
+#define VP_ANDROID_baseline_2022 1
+#define VP_ANDROID_BASELINE_2022_NAME "VP_ANDROID_baseline_2022"
+#define VP_ANDROID_BASELINE_2022_SPEC_VERSION 1
+#define VP_ANDROID_BASELINE_2022_MIN_API_VERSION VK_MAKE_VERSION(1, 1, 106)
 #endif
 
 #if defined(VK_VERSION_1_3) && \
