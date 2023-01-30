@@ -213,7 +213,7 @@ public:
 	}
 
 private:
-	VulkanContext *vulkan_;
+	VulkanContext *vulkan_ = nullptr;
 	Promise<VkShaderModule> *module_ = nullptr;
 	VkShaderStageFlagBits vkstage_;
 	bool ok_ = false;

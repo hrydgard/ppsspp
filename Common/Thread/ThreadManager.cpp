@@ -217,6 +217,16 @@ void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 }
 
 void ThreadManager::EnqueueTask(Task *task) {
+	if (task->Type() == TaskType::DEDICATED_THREAD) {
+		std::thread th([=](Task *task) {
+			SetCurrentThreadName("DedicatedThreadTask");
+			task->Run();
+			task->Release();
+		}, task);
+		th.detach();
+		return;
+	}
+
 	_assert_msg_(IsInitialized(), "ThreadManager not initialized");
 
 	int minThread;
@@ -270,6 +280,8 @@ void ThreadManager::EnqueueTask(Task *task) {
 }
 
 void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task) {
+	_assert_msg_(task->Type() != TaskType::DEDICATED_THREAD, "Dedicated thread tasks can't be put on specific threads");
+
 	_assert_msg_(threadNum >= 0 && threadNum < (int)global_->threads_.size(), "Bad threadnum or not initialized");
 	ThreadContext *thread = global_->threads_[threadNum];
 
