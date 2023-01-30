@@ -515,6 +515,10 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 			if (swapFunction_) {
 				VLOG("  PULL: SwapFunction()");
 				swapFunction_();
+				if (!retainControl_) {
+					// get out of here.
+					swapRequest = true;
+				}
 			} else {
 				VLOG("  PULL: SwapRequested");
 				swapRequest = true;

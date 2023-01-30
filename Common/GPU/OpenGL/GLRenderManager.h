@@ -992,8 +992,9 @@ public:
 		_dbg_assert_(foundCount == 1);
 	}
 
-	void SetSwapFunction(std::function<void()> swapFunction) {
+	void SetSwapFunction(std::function<void()> swapFunction, bool retainControl) {
 		swapFunction_ = swapFunction;
+		retainControl_ = retainControl;
 	}
 
 	void SetSwapIntervalFunction(std::function<void(int)> swapIntervalFunction) {
@@ -1086,6 +1087,7 @@ private:
 
 	std::function<void()> swapFunction_;
 	std::function<void(int)> swapIntervalFunction_;
+	bool retainControl_ = false;
 	GLBufferStrategy bufferStrategy_ = GLBufferStrategy::SUBDATA;
 
 	int inflightFrames_ = MAX_INFLIGHT_FRAMES;
