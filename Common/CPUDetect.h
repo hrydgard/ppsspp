@@ -20,6 +20,7 @@
 
 #include "ppsspp_config.h"
 #include <string>
+#include <vector>
 
 enum CPUVendor {
 	VENDOR_INTEL = 0,
@@ -68,6 +69,7 @@ struct CPUInfo {
 	bool bSSE4A;
 	bool bAES;
 	bool bSHA;
+	bool bF16C;
 	// x86 : SIMD 256 bit
 	bool bAVX;
 	bool bAVX2;
@@ -92,6 +94,9 @@ struct CPUInfo {
 	// ARMv8 specific
 	bool bFP;
 	bool bASIMD;
+	bool bSVE;
+	bool bSVE2;
+	bool bFRINT;
 
 	// MIPS specific
 	bool bXBurst1;
@@ -105,6 +110,7 @@ struct CPUInfo {
 	bool RiscV_C;
 	bool RiscV_V;
 	bool RiscV_B;
+	bool RiscV_Zicsr;
 
 	// Quirks
 	struct {
@@ -120,6 +126,7 @@ struct CPUInfo {
 	explicit CPUInfo();
 
 	// Turn the cpu info into a string we can show
+	std::vector<std::string> Features();
 	std::string Summarize();
 
 private:

@@ -53,11 +53,20 @@ void CPUInfo::Detect()
 	logical_cpu_count = 2;
 }
 
+std::vector<std::string> CPUInfo::Features() {
+	std::vector<std::string> features;
+	return features;
+}
+
 // Turn the cpu info into a string we can show
-std::string CPUInfo::Summarize()
-{
+std::string CPUInfo::Summarize() {
 	std::string sum;
 	sum = StringFromFormat("%s, %i core", cpu_string, num_cores);
+
+	auto features = Features();
+	for (std::string &feature : features) {
+		sum += ", " + feature;
+	}
 	return sum;
 }
 #endif

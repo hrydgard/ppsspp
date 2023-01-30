@@ -662,6 +662,11 @@
     <None Include="..\..\Common\Math\fast\fast_matrix_neon.S" />
     <None Include="..\..\Common\Math\lin\matrix_neon.s" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\cpu_features_UWP\cpu_features_UWP.vcxproj">
+      <Project>{c249f016-7f82-45cf-bb6e-0642a988c4d3}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
