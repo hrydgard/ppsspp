@@ -343,7 +343,6 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	edit_->SetTextColor(dc.theme->itemStyle.fgColor);
 	edit_->SetTextAlign(FLAG_DYNAMIC_ASCII);
 	edit_->OnTextChange.Handle(this, &SliderFloatPopupScreen::OnTextChange);
-	changing_ = false;
 	lin->Add(edit_);
 	if (!units_.empty())
 		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)))->SetTextColor(dc.theme->itemStyle.fgColor);
