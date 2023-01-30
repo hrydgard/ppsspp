@@ -1764,7 +1764,10 @@ void Config::CleanRecent() {
 			}
 		}
 
-		INFO_LOG(SYSTEM, "CleanRecent took %0.2f", time_now_d() - startTime);
+		double recentTime = time_now_d() - startTime;
+		if (recentTime > 0.1) {
+			INFO_LOG(SYSTEM, "CleanRecent took %0.2f", recentTime);
+		}
 		recentIsos = cleanedRecent;
 	});
 }
