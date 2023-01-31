@@ -4,6 +4,7 @@
 #include <vsstyle.h>
 
 #include "Windows/W32Util/UAHMenuBar.h"
+#include "Windows/W32Util/DarkMode.h"
 
 static HTHEME g_menuTheme = nullptr;
 
@@ -11,6 +12,10 @@ static HTHEME g_menuTheme = nullptr;
 // return true if handled, false to continue with normal processing in your wndproc
 bool UAHDarkModeWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, LRESULT *lr)
 {
+	if (!IsDarkModeEnabled() && message != WM_THEMECHANGED) {
+		return false;
+	}
+
 	switch (message)
 	{
 	case WM_UAHDRAWMENU:
