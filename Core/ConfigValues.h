@@ -66,6 +66,13 @@ enum class GPUBackend {
 	VULKAN = 3,
 };
 
+enum class RestoreSettingsBits : int {
+	SETTINGS = 1,
+	CONTROLS = 2,
+	RECENT = 4,
+};
+ENUM_CLASS_BITOPS(RestoreSettingsBits);
+
 inline std::string GPUBackendToString(GPUBackend backend) {
 	switch (backend) {
 	case GPUBackend::OPENGL:

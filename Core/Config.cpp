@@ -1815,17 +1815,31 @@ const Path Config::FindConfigFile(const std::string &baseFilename) {
 	return filename;
 }
 
-void Config::RestoreDefaults() {
+void Config::RestoreDefaults(RestoreSettingsBits whatToRestore) {
 	if (bGameSpecific) {
 		deleteGameConfig(gameId_);
 		createGameConfig(gameId_);
+		Load();
 	} else {
-		if (File::Exists(iniFilename_))
-			File::Delete(iniFilename_);
-		ClearRecentIsos();
-		currentDirectory = defaultCurrentDirectory;
+		if (whatToRestore & RestoreSettingsBits::SETTINGS) {
+			if (File::Exists(iniFilename_))
+				File::Delete(iniFilename_);
+		}
+
+		if (whatToRestore & RestoreSettingsBits::CONTROLS) {
+			if (File::Exists(controllerIniFilename_))
+				File::Delete(controllerIniFilename_);
+		}
+
+		if (whatToRestore & RestoreSettingsBits::RECENT) {
+			ClearRecentIsos();
+			currentDirectory = defaultCurrentDirectory;
+		}
+
+		if (whatToRestore & (RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS)) {
+			Load();
+		}
 	}
-	Load();
 }
 
 bool Config::hasGameConfig(const std::string &pGameId) {
