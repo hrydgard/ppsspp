@@ -42,6 +42,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Net/Resolve.h"
+#include "W32Util/DarkMode.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -553,6 +554,8 @@ static void WinMainInit() {
 	// FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM (fixed in SP1). Just disable it.
 	_set_FMA3_enable(0);
 #endif
+
+	InitDarkMode();
 }
 
 static void WinMainCleanup() {
