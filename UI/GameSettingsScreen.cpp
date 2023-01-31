@@ -1063,6 +1063,8 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 
 #if PPSSPP_PLATFORM(ANDROID)
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+		auto co = GetI18NCategory("Controls");
+
 		static const char *screenRotation[] = { "Auto", "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed", "Landscape Auto" };
 		PopupMultiChoice *rot = systemSettings->Add(new PopupMultiChoice(&g_Config.iScreenRotation, co->T("Screen Rotation"), screenRotation, 0, ARRAY_SIZE(screenRotation), co->GetName(), screenManager()));
 		rot->OnChoice.Handle(this, &GameSettingsScreen::OnScreenRotation);
@@ -2269,7 +2271,8 @@ void RestoreSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		"RestoreDefaultSettings",
 		"Restore these settings back to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings.");
 
-	parent->Add(new TextView(text, FLAG_WRAP_TEXT, false));
+	TextView *textView = parent->Add(new TextView(text, FLAG_WRAP_TEXT, false));
+	textView->SetPadding(10.0f);
 
 	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::SETTINGS, ga->T("Game Settings")));
 	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::CONTROLS, ga->T("Controls")));
