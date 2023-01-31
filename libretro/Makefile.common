@@ -193,6 +193,11 @@ SOURCES_C += \
 	$(EXTDIR)/libpng17/pngwutil.c
 
 COREFLAGS += -DHAVE_STRONG_GETAUXVAL -DSTACK_LINE_READER_BUFFER_SIZE=1024
+ifneq (,$(findstring osx,$(platform)))
+ifneq (,$(findstring x86,$(TARGET_ARCH)))
+	COREFLAGS += -DHAVE_SYSCTLBYNAME
+endif
+endif
 SOURCES_C += \
 	$(EXTDIR)/cpu_features/src/filesystem.c \
 	$(EXTDIR)/cpu_features/src/impl_aarch64_linux_or_android.c \
