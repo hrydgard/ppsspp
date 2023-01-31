@@ -99,7 +99,7 @@ private:
 class SliderFloatPopupScreen : public PopupScreen {
 public:
 	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title, float step = 1.0f, const std::string &units = "", bool liveUpdate = false)
-		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), originalValue_(*value), minValue_(minValue), maxValue_(maxValue), step_(step), changing_(false), liveUpdate_(liveUpdate) {}
+		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), originalValue_(*value), minValue_(minValue), maxValue_(maxValue), step_(step), liveUpdate_(liveUpdate) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
 	const char *tag() const override { return "SliderFloatPopup"; }
@@ -115,13 +115,13 @@ private:
 	UI::SliderFloat *slider_ = nullptr;
 	UI::TextEdit *edit_ = nullptr;
 	std::string units_ = nullptr;
-	float sliderValue_;
-	float originalValue_;
+	float sliderValue_ = 0.0f;
+	float originalValue_ = 0.0f;
 	float *value_;
 	float minValue_;
 	float maxValue_;
 	float step_;
-	bool changing_;
+	bool changing_ = false;
 	bool liveUpdate_;
 };
 

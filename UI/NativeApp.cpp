@@ -1472,7 +1472,7 @@ void NativeInputBoxReceived(std::function<void(bool, const std::string &)> cb, b
 
 void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
-	INFO_LOG(G3D, "NativeResized - setting flag");
+	VERBOSE_LOG(G3D, "NativeResized - setting flag");
 	resized = true;
 }
 

@@ -22,7 +22,7 @@ if(ANDROID)
 endif()
 
 if(NOT MSVC)
-   if (IOS)
+   if (APPLE OR IOS)
    	target_link_libraries(ppsspp_libretro "-Wl")
    else()
    	target_link_libraries(ppsspp_libretro "-Wl,-Bsymbolic")
