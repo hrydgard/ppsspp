@@ -38,7 +38,11 @@ include:
 
   # MacOS 64-bit
   - project: 'libretro-infrastructure/ci-templates'
-    file: '/osx-x64.yml'
+    file: '/osx-cmake-x64.yml'
+
+  # MacOS arm64
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/osx-cmake-arm64.yml'
     
   ################################## CELLULAR ################################
   # Android  
@@ -92,7 +96,16 @@ libretro-build-osx-x64:
   tags:
     - macosx-packaging
   extends:
-    - .libretro-osx-x64-make-default
+    - .libretro-osx-cmake-x86_64
+    - .core-defs
+    - .make-defs
+
+# MacOS 64-bit
+libretro-build-osx-arm64:
+  tags:
+    - macosx-packaging
+  extends:
+    - .libretro-osx-cmake-arm64
     - .core-defs
     - .make-defs
 
