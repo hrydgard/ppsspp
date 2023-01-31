@@ -106,7 +106,7 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 	if (singleThreaded) {
 		return Promise<VkShaderModule>::AlreadyDone(compile());
 	} else {
-		return Promise<VkShaderModule>::Spawn(&g_threadManager, compile, TaskType::CPU_COMPUTE);
+		return Promise<VkShaderModule>::Spawn(&g_threadManager, compile, TaskType::DEDICATED_THREAD);
 	}
 }
 
