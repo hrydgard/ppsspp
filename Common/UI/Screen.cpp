@@ -202,7 +202,9 @@ void ScreenManager::sendMessage(const char *msg, const char *value) {
 	if (!strcmp(msg, "recreateviews"))
 		RecreateAllViews();
 	if (!strcmp(msg, "lost_focus")) {
-		TouchInput input;
+		TouchInput input{};
+		input.x = -50000.0f;
+		input.y = -50000.0f;
 		input.flags = TOUCH_RELEASE_ALL;
 		input.timestamp = time_now_d();
 		input.id = 0;
@@ -238,7 +240,9 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 
 	// Release touches and unfocus.
 	UI::SetFocusedView(nullptr);
-	TouchInput input;
+	TouchInput input{};
+	input.x = -50000.0f;
+	input.y = -50000.0f;
 	input.flags = TOUCH_RELEASE_ALL;
 	input.timestamp = time_now_d();
 	input.id = 0;
