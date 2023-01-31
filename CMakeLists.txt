@@ -1150,8 +1150,8 @@ elseif(IOS)
 		ios/iCade/iCadeReaderView.h
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h
-		UI/DarwinMemoryStickManager.mm
-		UI/DarwinMemoryStickManager.h
+		UI/DarwinFileSystemServices.mm
+		UI/DarwinFileSystemServices.h
 		Common/Battery/AppleBatteryClient.m
 	)
     
@@ -1172,7 +1172,7 @@ elseif(IOS)
 	set_source_files_properties(ios/main.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/CameraHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/LocationHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
-	set_source_files_properties(UI/DarwinMemoryStickManager.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(UI/DarwinFileSystemServices.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(Common/Battery/AppleBatteryClient.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
@@ -1231,8 +1231,8 @@ elseif(TARGET SDL2::SDL2)
 	endif()
 	set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
 	if(APPLE)
-		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm SDL/SDLCocoaMetalLayer.h SDL/SDLCocoaMetalLayer.mm UI/DarwinMemoryStickManager.mm Common/Battery/AppleBatteryClient.m)
-        set_source_files_properties(UI/DarwinMemoryStickManager.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm SDL/SDLCocoaMetalLayer.h SDL/SDLCocoaMetalLayer.mm UI/DarwinFileSystemServices.mm UI/DarwinFileSystemServices.h Common/Battery/AppleBatteryClient.m)
+        set_source_files_properties(UI/DarwinFileSystemServices.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		set_source_files_properties(Common/Battery/AppleBatteryClient.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY})
 	elseif(USING_EGL)
