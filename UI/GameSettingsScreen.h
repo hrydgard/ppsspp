@@ -45,6 +45,14 @@ protected:
 	void RecreateViews() override;
 
 private:
+	void CreateGraphicsSettings(UI::ViewGroup *graphicsSettings);
+	void CreateControlsSettings(UI::ViewGroup *tools);
+	void CreateAudioSettings(UI::ViewGroup *audioSettings);
+	void CreateNetworkingSettings(UI::ViewGroup *networkingSettings);
+	void CreateToolsSettings(UI::ViewGroup *tools);
+	void CreateSystemSettings(UI::ViewGroup *systemSettings);
+	void CreateVRSettings(UI::ViewGroup *vrSettings);
+
 	UI::LinearLayout *AddTab(const char *tag, const std::string &title, bool isSearch = false);
 	void ApplySearchFilter();
 	void TriggerRestart(const char *why);
