@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <set>
 #include <unordered_map>
 
 #include "Common/GPU/OpenGL/GLCommon.h"

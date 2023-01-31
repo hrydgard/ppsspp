@@ -1197,11 +1197,11 @@ void VulkanRenderManager::Finish() {
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 
+	VLOG("PUSH: Frame[%d]", curFrame);
+	VKRRenderThreadTask task;
+	task.frame = curFrame;
+	task.runType = VKRRunType::PRESENT;
 	{
-		VLOG("PUSH: Frame[%d]", curFrame);
-		VKRRenderThreadTask task;
-		task.frame = curFrame;
-		task.runType = VKRRunType::PRESENT;
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
 		renderThreadQueue_.back().steps = std::move(steps_);
@@ -1327,7 +1327,7 @@ void VulkanRenderManager::FlushSync() {
 		std::unique_lock<std::mutex> lock(syncMutex_);
 		// Wait for the flush to be hit, since we're syncing.
 		while (!frameData.syncDone) {
-			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (sync)", curFrame);
+			VLOG("PUSH: Waiting for frame[%d].syncDone = 1 (sync)", curFrame);
 			syncCondVar_.wait(lock);
 		}
 		frameData.syncDone = false;
