@@ -38,7 +38,7 @@ include:
 
   # MacOS 64-bit
   - project: 'libretro-infrastructure/ci-templates'
-    file: '/osx-cmake-x64.yml'
+    file: '/osx-cmake-x86.yml'
 
   # MacOS arm64
   - project: 'libretro-infrastructure/ci-templates'
