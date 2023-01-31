@@ -291,7 +291,7 @@ static int ScreenRefreshRateHz() {
 		return 60;  // default value
 	} else {
 		if (lpDevMode.dmFields & DM_DISPLAYFREQUENCY) {
-			return lpDevMode.dmDisplayFrequency > 15 ? lpDevMode.dmDisplayFrequency : 60;
+			return lpDevMode.dmDisplayFrequency > 60 ? lpDevMode.dmDisplayFrequency : 60;
 		} else {
 			return 60;
 		}
