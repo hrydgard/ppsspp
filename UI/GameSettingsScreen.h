@@ -21,7 +21,9 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+
 #include "Common/UI/UIScreen.h"
+#include "Core/ConfigValues.h"
 #include "UI/MiscScreens.h"
 
 // Per-game settings screen - enables you to configure graphic options, control options, etc
@@ -251,4 +253,15 @@ public:
 	void CreateViews() override;
 
 	const char *tag() const override { return "GestureMapping"; }
+};
+
+class RestoreSettingsScreen : public PopupScreen {
+public:
+	RestoreSettingsScreen(const char *title);
+	void CreatePopupContents(UI::ViewGroup *parent) override;
+
+	const char *tag() const override { return "RestoreSettingsScreen"; }
+private:
+	void OnCompleted(DialogResult result) override;
+	int restoreFlags_ = (int)(RestoreSettingsBits::SETTINGS);  // RestoreSettingsBits enum
 };

@@ -1894,27 +1894,24 @@ void DeveloperToolsScreen::onFinish(DialogResult result) {
 }
 
 void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
-	if (yes)
-		g_Config.RestoreDefaults();
+	if (yes) {
+		g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS);
+	}
 	host->UpdateUI();
 }
 
 UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
 	auto dev = GetI18NCategory("Developer");
 	auto di = GetI18NCategory("Dialog");
-	if (g_Config.bGameSpecific)
-	{
+	auto sy = GetI18NCategory("System");
+	if (g_Config.bGameSpecific) {
 		screenManager()->push(
 			new PromptScreen(gamePath_, dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), di->T("OK"), di->T("Cancel"),
 			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));
+	} else {
+		const char *title = sy->T("Restore Default Settings");
+		screenManager()->push(new RestoreSettingsScreen(title));
 	}
-	else
-	{
-		screenManager()->push(
-			new PromptScreen(gamePath_, dev->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), di->T("OK"), di->T("Cancel"),
-			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));
-	}
-
 	return UI::EVENT_DONE;
 }
 
@@ -2255,4 +2252,32 @@ void GestureMappingScreen::CreateViews() {
 
 	vert->Add(new ItemHeader(co->T("Double tap")));
 	vert->Add(new PopupMultiChoice(&g_Config.iDoubleTapGesture, mc->T("Double tap button"), gestureButton, 0, ARRAY_SIZE(gestureButton), mc->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
+}
+
+RestoreSettingsScreen::RestoreSettingsScreen(const char *title)
+	: PopupScreen(title, "OK", "Cancel") {}
+
+void RestoreSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+	// Carefully re-use various translations.
+	auto ga = GetI18NCategory("Game");
+	auto ms = GetI18NCategory("MainSettings");
+	auto mm = GetI18NCategory("MainMenu");
+	auto dev = GetI18NCategory("Developer");
+
+	const char *text = dev->T(
+		"RestoreDefaultSettings",
+		"Restore these settings back to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings.");
+
+	parent->Add(new TextView(text, FLAG_WRAP_TEXT, false));
+
+	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::SETTINGS, ga->T("Game Settings")));
+	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::CONTROLS, ga->T("Controls")));
+	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::RECENT, mm->T("Recent")));
+}
+
+void RestoreSettingsScreen::OnCompleted(DialogResult result) {
+	if (result == DialogResult::DR_OK) {
+		g_Config.RestoreDefaults((RestoreSettingsBits)restoreFlags_);
+	}
 }
