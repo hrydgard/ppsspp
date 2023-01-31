@@ -8,6 +8,7 @@
 enum class TaskType {
 	CPU_COMPUTE,
 	IO_BLOCKING,
+	DEDICATED_THREAD,  // These can never get stuck in queue behind others, but are more expensive to launch. Cannot use I/O.
 };
 
 // Implement this to make something that you can run on the thread manager.
