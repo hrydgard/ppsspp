@@ -781,6 +781,7 @@ void SystemInfoScreen::CreateTabs() {
 
 		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Extensions")));
 		std::vector<std::string> extensions = draw->GetExtensionList();
+		std::sort(extensions.begin(), extensions.end());
 		for (auto &extension : extensions) {
 			gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}

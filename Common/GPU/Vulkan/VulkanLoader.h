@@ -253,6 +253,9 @@ struct VulkanExtensions {
 	bool EXT_swapchain_colorspace;
 	bool ARM_rasterization_order_attachment_access;
 	bool EXT_fragment_shader_interlock;
+	bool KHR_present_id;  // Should probably check the feature flags instead.
+	bool KHR_present_wait;  // Same
+	bool GOOGLE_display_timing;
 	// bool EXT_depth_range_unrestricted;  // Allows depth outside [0.0, 1.0] in 32-bit float depth buffers.
 };
 
