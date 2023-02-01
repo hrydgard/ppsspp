@@ -231,8 +231,10 @@ void PopupScreen::touch(const TouchInput &touch) {
 		UIDialogScreen::touch(touch);
 	}
 
-	if (!box_->GetBounds().Contains(touch.x, touch.y)) {
-		TriggerFinish(DR_BACK);
+	// Extra bounds to avoid closing the dialog while trying to aim for something
+	// near the edge.
+	if (!box_->GetBounds().Expand(100.0f, 60.0f).Contains(touch.x, touch.y)) {
+		TriggerFinish(DR_CANCEL);
 	}
 
 	UIDialogScreen::touch(touch);

@@ -395,6 +395,7 @@
     <ClInclude Include="..\..\UI\GPUDriverTestScreen.h" />
     <ClInclude Include="..\..\UI\HostTypes.h" />
     <ClInclude Include="..\..\UI\InstallZipScreen.h" />
+    <ClInclude Include="..\..\UI\JoystickHistoryView.h" />
     <ClInclude Include="..\..\UI\Theme.h" />
     <ClInclude Include="..\..\UI\MainScreen.h" />
     <ClInclude Include="..\..\UI\MemStickScreen.h" />
@@ -407,7 +408,6 @@
     <ClInclude Include="..\..\UI\SavedataScreen.h" />
     <ClInclude Include="..\..\UI\Store.h" />
     <ClInclude Include="..\..\UI\TiltAnalogSettingsScreen.h" />
-    <ClInclude Include="..\..\UI\TiltEventProcessor.h" />
     <ClInclude Include="..\..\UI\TouchControlLayoutScreen.h" />
     <ClInclude Include="..\..\UI\TouchControlVisibilityScreen.h" />
     <ClInclude Include="pch.h" />
@@ -429,6 +429,7 @@
     <ClCompile Include="..\..\UI\GameSettingsScreen.cpp" />
     <ClCompile Include="..\..\UI\GPUDriverTestScreen.cpp" />
     <ClCompile Include="..\..\UI\InstallZipScreen.cpp" />
+    <ClCompile Include="..\..\UI\JoystickHistoryView.cpp" />
     <ClCompile Include="..\..\UI\Theme.cpp" />
     <ClCompile Include="..\..\UI\MainScreen.cpp" />
     <ClCompile Include="..\..\UI\MemStickScreen.cpp" />
@@ -442,7 +443,6 @@
     <ClCompile Include="..\..\UI\SavedataScreen.cpp" />
     <ClCompile Include="..\..\UI\Store.cpp" />
     <ClCompile Include="..\..\UI\TiltAnalogSettingsScreen.cpp" />
-    <ClCompile Include="..\..\UI\TiltEventProcessor.cpp" />
     <ClCompile Include="..\..\UI\TouchControlLayoutScreen.cpp" />
     <ClCompile Include="..\..\UI\TouchControlVisibilityScreen.cpp" />
     <ClCompile Include="pch.cpp">

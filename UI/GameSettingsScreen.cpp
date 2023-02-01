@@ -50,7 +50,6 @@
 #include "UI/TouchControlLayoutScreen.h"
 #include "UI/TouchControlVisibilityScreen.h"
 #include "UI/TiltAnalogSettingsScreen.h"
-#include "UI/TiltEventProcessor.h"
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/MemStickScreen.h"
 #include "UI/Theme.h"
@@ -63,6 +62,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/Host.h"
 #include "Core/KeyMap.h"
+#include "Core/TiltEventProcessor.h"
 #include "Core/Instance.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
@@ -1717,7 +1717,7 @@ UI::EventReturn GameSettingsScreen::OnTiltTypeChange(UI::EventParams &e) {
 };
 
 UI::EventReturn GameSettingsScreen::OnTiltCustomize(UI::EventParams &e) {
-	screenManager()->push(new TiltAnalogSettingsScreen());
+	screenManager()->push(new TiltAnalogSettingsScreen(gamePath_));
 	return UI::EVENT_DONE;
 };
 

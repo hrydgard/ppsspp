@@ -453,6 +453,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Screenshot.cpp \
   $(SRC)/Core/System.cpp \
   $(SRC)/Core/TextureReplacer.cpp \
+  $(SRC)/Core/TiltEventProcessor.cpp \
   $(SRC)/Core/ThreadPools.cpp \
   $(SRC)/Core/WebServer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \
@@ -720,13 +721,13 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/SavedataScreen.cpp \
   $(SRC)/UI/Store.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
+  $(SRC)/UI/JoystickHistoryView.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/UI/GameScreen.cpp \
   $(SRC)/UI/ControlMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \
   $(SRC)/UI/GPUDriverTestScreen.cpp \
   $(SRC)/UI/TiltAnalogSettingsScreen.cpp \
-  $(SRC)/UI/TiltEventProcessor.cpp \
   $(SRC)/UI/TouchControlLayoutScreen.cpp \
   $(SRC)/UI/TouchControlVisibilityScreen.cpp \
   $(SRC)/UI/CwCheatScreen.cpp \

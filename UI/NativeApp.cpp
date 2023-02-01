@@ -99,6 +99,7 @@
 #include "Core/Util/GameManager.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/WebServer.h"
+#include "Core/TiltEventProcessor.h"
 #include "Core/ThreadPools.h"
 
 #include "GPU/GPUInterface.h"
@@ -113,7 +114,6 @@
 #include "UI/MemStickScreen.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/RemoteISOScreen.h"
-#include "UI/TiltEventProcessor.h"
 #include "UI/Theme.h"
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
@@ -1439,15 +1439,6 @@ void NativeAxis(const AxisInput &axis) {
 			}
 			break;
 
-		case JOYSTICK_AXIS_OUYA_UNKNOWN1:
-		case JOYSTICK_AXIS_OUYA_UNKNOWN2:
-		case JOYSTICK_AXIS_OUYA_UNKNOWN3:
-		case JOYSTICK_AXIS_OUYA_UNKNOWN4:
-			//Don't know how to handle these. Someone should figure it out.
-			//Does the Ouya even have an accelerometer / gyro? I can't find any reference to these
-			//in the Ouya docs...
-			return;
-
 		default:
 			HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
 			// Don't take over completely!
@@ -1455,15 +1446,15 @@ void NativeAxis(const AxisInput &axis) {
 			return;
 	}
 
-	//figure out the sensitivity of the tilt. (sensitivity is originally 0 - 100)
-	//We divide by 50, so that the rest of the 50 units can be used to overshoot the
-	//target. If you want control, you'd keep the sensitivity ~50.
-	//For games that don't need much control but need fast reactions,
-	//then a value of 70-80 is the way to go.
+	// Figure out the sensitivity of the tilt. (sensitivity is originally 0 - 100)
+	// We divide by 50, so that the rest of the 50 units can be used to overshoot the
+	// target. If you want precise control, you'd keep the sensitivity ~50.
+	// For games that don't need much control but need fast reactions,
+	// then a value of 70-80 is the way to go.
 	float xSensitivity = g_Config.iTiltSensitivityX / 50.0;
 	float ySensitivity = g_Config.iTiltSensitivityY / 50.0;
 
-	//now transform out current tilt to the calibrated coordinate system
+	// now transform out current tilt to the calibrated coordinate system
 	Tilt trueTilt = GenTilt(baseTilt, currentTilt, g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius, xSensitivity, ySensitivity);
 
 	TranslateTiltToInput(trueTilt);

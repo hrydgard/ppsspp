@@ -1283,14 +1283,14 @@ list(APPEND NativeAppSource
 	UI/GPUDriverTestScreen.cpp
 	UI/TiltAnalogSettingsScreen.h
 	UI/TiltAnalogSettingsScreen.cpp
-	UI/TiltEventProcessor.h
-	UI/TiltEventProcessor.cpp
 	UI/TouchControlLayoutScreen.h
 	UI/TouchControlLayoutScreen.cpp
 	UI/TouchControlVisibilityScreen.h
 	UI/TouchControlVisibilityScreen.cpp
 	UI/GamepadEmu.h
 	UI/GamepadEmu.cpp
+	UI/JoystickHistoryView.h
+	UI/JoystickHistoryView.cpp
 	UI/OnScreenDisplay.h
 	UI/OnScreenDisplay.cpp
 	UI/ControlMappingScreen.h
@@ -1704,6 +1704,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/KeyMapDefaults.cpp
 	Core/KeyMapDefaults.h
 	Core/ThreadEventQueue.h
+	Core/TiltEventProcessor.h
+	Core/TiltEventProcessor.cpp
 	Core/WebServer.cpp
 	Core/WebServer.h
 	Core/Debugger/Breakpoints.cpp
