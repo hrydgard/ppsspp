@@ -538,23 +538,7 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::BrowseClick(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
-	DarwinDirectoryPanelCallback callback = [this] (Path thePathChosen) {
-		File::FileInfo info;
-		if (!File::GetFileInfo(thePathChosen, &info))
-			return;
-		
-		if (info.isDirectory)
-			SetPath(thePathChosen); // user selected a dir, go there
-		else
-			LaunchFile(screenManager_, thePathChosen); // it's a file, try open it
-	};
-	
-	DarwinFileSystemServices services;
-	services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
-#else
 	System_SendMessage("browse_folder", "");
-#endif
 	return UI::EVENT_DONE;
 }
 

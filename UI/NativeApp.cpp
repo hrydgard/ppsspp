@@ -1258,6 +1258,15 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	else if (msg == "app_resumed" || msg == "got_focus") {
 		// Assume that the user may have modified things.
 		MemoryStick_NotifyWrite();
+	} else if (msg == "browse_folder") {
+		Path thePath = Path(value);
+		File::FileInfo info;
+		if (!File::GetFileInfo(thePath, &info))
+			return;
+		if (info.isDirectory)
+			NativeMessageReceived("browse_folderSelect", thePath.c_str());
+		else
+			NativeMessageReceived("browse_fileSelect", thePath.c_str());
 	}
 }
 

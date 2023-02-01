@@ -5,8 +5,7 @@
 //  Created by Serena on 20/01/2023.
 //
 
-#ifndef DarwinFileSystemServices_h
-#define DarwinFileSystemServices_h
+#pragma once
 
 #include "ppsspp_config.h"
 #include "Common/File/Path.h"
@@ -33,5 +32,3 @@ private:
     void *__pickerDelegate = NULL;
 #endif // PPSSPP_PLATFORM(IOS)
 };
-
-#endif /* DarwinFileSystemServices_h */
