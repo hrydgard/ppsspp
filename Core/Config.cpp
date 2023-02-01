@@ -1797,8 +1797,7 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore) {
 		}
 
 		if (whatToRestore & RestoreSettingsBits::CONTROLS) {
-			if (File::Exists(controllerIniFilename_))
-				File::Delete(controllerIniFilename_);
+			KeyMap::RestoreDefault();
 		}
 
 		if (whatToRestore & RestoreSettingsBits::RECENT) {
