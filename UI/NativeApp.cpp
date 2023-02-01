@@ -145,6 +145,8 @@
 #include "UI/DarwinMemoryStickManager.h"
 #endif
 
+#include <Core/HLE/Plugins.h>
+
 ScreenManager *screenManager;
 std::string config_filename;
 
@@ -1341,7 +1343,10 @@ bool NativeKey(const KeyInput &key) {
 #endif
 	bool retval = false;
 	if (screenManager)
+	{
+		HLEPlugins::PluginDataKeys[key.keyCode] = (key.flags & KEY_DOWN) ? 1 : 0;
 		retval = screenManager->key(key);
+	}
 	return retval;
 }
 
@@ -1361,6 +1366,7 @@ void NativeAxis(const AxisInput &axis) {
 	// only handle tilt events if tilt is enabled.
 	if (g_Config.iTiltInputType == TILT_NULL) {
 		// if tilt events are disabled, then run it through the usual way.
+		HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
 		screenManager->axis(axis);
 		return;
 	}
@@ -1434,6 +1440,7 @@ void NativeAxis(const AxisInput &axis) {
 			return;
 
 		default:
+			HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
 			// Don't take over completely!
 			screenManager->axis(axis);
 			return;

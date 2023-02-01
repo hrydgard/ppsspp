@@ -71,7 +71,10 @@ extern "C" {
 // For headless screenshots.
 #include "Core/HLE/sceDisplay.h"
 // For EMULATOR_DEVCTL__GET_SCALE
-#include <System/Display.h>
+#include "System/Display.h"
+// For EMULATOR_DEVCTL__GET_AXIS/VKEY
+#include "Core/HLE/Plugins.h"
+#include "Input/KeyCodes.h"
 
 static const int ERROR_ERRNO_IO_ERROR                     = 0x80010005;
 static const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
@@ -1997,8 +2000,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			EMULATOR_DEVCTL__TOGGLE_FASTFORWARD = 0x30,
 			EMULATOR_DEVCTL__GET_ASPECT_RATIO,
 			EMULATOR_DEVCTL__GET_SCALE,
-			EMULATOR_DEVCTL__GET_LTRIGGER,
-			EMULATOR_DEVCTL__GET_RTRIGGER
+			EMULATOR_DEVCTL__GET_AXIS,
+			EMULATOR_DEVCTL__GET_VKEY,
 		};
 
 		switch (cmd) {
@@ -2067,11 +2070,15 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				Memory::Write_Float(scale, outPtr);
 			}
 			return 0;
-		case EMULATOR_DEVCTL__GET_LTRIGGER:
-			//To-do
+		case EMULATOR_DEVCTL__GET_AXIS:
+			if (Memory::IsValidAddress(outPtr) && (argAddr >= 0 && argAddr < JOYSTICK_AXIS_MAX)) {
+				Memory::Write_Float(HLEPlugins::PluginDataAxis[argAddr], outPtr);
+			}
 			return 0;
-		case EMULATOR_DEVCTL__GET_RTRIGGER:
-			//To-do
+		case EMULATOR_DEVCTL__GET_VKEY:
+			if (Memory::IsValidAddress(outPtr) && (argAddr >= 0 && argAddr < NKCODE_MAX)) {
+				Memory::Write_U8(HLEPlugins::PluginDataKeys[argAddr], outPtr);
+			}
 			return 0;
 		}
 

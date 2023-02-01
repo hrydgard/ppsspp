@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "Input/KeyCodes.h"
+
 class PointerWrap;
 
 namespace HLEPlugins {
@@ -31,4 +33,6 @@ void DoState(PointerWrap &p);
 
 bool HasEnabled();
 
+extern float PluginDataAxis[JOYSTICK_AXIS_MAX];
+extern std::map<int, uint8_t> PluginDataKeys;
 };
