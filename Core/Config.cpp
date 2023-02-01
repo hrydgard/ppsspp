@@ -259,6 +259,7 @@ struct ConfigSetting {
 		return type_ != TYPE_TERMINATOR;
 	}
 
+	// Should actually be called ReadFromIni or something.
 	bool Get(const Section *section) const {
 		switch (type_) {
 		case TYPE_BOOL:
@@ -320,9 +321,11 @@ struct ConfigSetting {
 	}
 
 	// Yes, this can be const because what's modified is not the ConfigSetting struct, but the value which is stored elsewhere.
+	// Should actually be called WriteToIni or something.
 	void Set(Section *section) const {
-		if (!save_)
+		if (!save_) {
 			return;
+		}
 
 		switch (type_) {
 		case TYPE_BOOL:
@@ -361,6 +364,22 @@ struct ConfigSetting {
 		default:
 			_dbg_assert_msg_(false, "Set(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
 			return;
+		}
+	}
+
+	void RestoreToDefault(Section *section) const {
+		switch (type_) {
+		case TYPE_BOOL:   *ptr_.b = cb_.b ? cb_.b() : default_.b; break;
+		case TYPE_INT:    *ptr_.i = cb_.i ? cb_.i() : default_.i; break;
+		case TYPE_UINT32: *ptr_.u = cb_.u ? cb_.u() : default_.u; break;
+		case TYPE_UINT64: *ptr_.lu = cb_.lu ? cb_.lu() : default_.lu; break;
+		case TYPE_FLOAT:  *ptr_.f = cb_.f ? cb_.f() : default_.f; break;
+		case TYPE_STRING: *ptr_.s = cb_.s ? cb_.s() : default_.s; break;
+		case TYPE_TOUCH_POS: *ptr_.touchPos = cb_.touchPos ? cb_.touchPos() : default_.touchPos; break;
+		case TYPE_PATH: *ptr_.p = Path(cb_.p ? cb_.p() : default_.p); break;
+		case TYPE_CUSTOM_BUTTON: *ptr_.customButton = cb_.customButton ? cb_.customButton() : default_.customButton; break;
+		default:
+			_dbg_assert_msg_(false, "RestoreToDefault(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
 		}
 	}
 
@@ -1205,7 +1224,7 @@ static void IterateSettings(IniFile &iniFile, std::function<void(Section *sectio
 	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
 		Section *section = iniFile.GetOrCreateSection(sections[i].section);
 		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
-			func(section, setting);
+			func(section, *setting);
 		}
 	}
 }
