@@ -6,7 +6,8 @@
 
 enum class StickHistoryViewType {
 	INPUT,
-	OUTPUT
+	OUTPUT,
+	OTHER,
 };
 
 class JoystickHistoryView : public UI::InertView {

@@ -1717,7 +1717,7 @@ UI::EventReturn GameSettingsScreen::OnTiltTypeChange(UI::EventParams &e) {
 };
 
 UI::EventReturn GameSettingsScreen::OnTiltCustomize(UI::EventParams &e) {
-	screenManager()->push(new TiltAnalogSettingsScreen());
+	screenManager()->push(new TiltAnalogSettingsScreen(gamePath_));
 	return UI::EVENT_DONE;
 };
 

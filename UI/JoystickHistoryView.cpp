@@ -81,8 +81,8 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 		}
 		// Emphasize the newest (higher) ones.
 		alpha = powf(alpha, 3.7f);
-		// Highlight the output.
-		if (alpha >= 1.0f && type_ == StickHistoryViewType::OUTPUT) {
+		// Highlight the output (and OTHER)
+		if (alpha >= 1.0f && type_ != StickHistoryViewType::INPUT) {
 			dc.Draw()->DrawImage(ImageID("I_CIRCLE"), x, y, 1.0f, colorAlpha(0xFFFFFF, 1.0), ALIGN_CENTER);
 		} else {
 			dc.Draw()->DrawImage(ImageID("I_CIRCLE"), x, y, 0.8f, colorAlpha(0xC0C0C0, alpha * 0.5f), ALIGN_CENTER);

@@ -15,10 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "TiltAnalogSettingsScreen.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "Core/TiltEventProcessor.h"
+
+#include "Common/Math/math_util.h"
+
 #include "Common/Data/Text/I18n.h"
+
+#include "UI/JoystickHistoryView.h"
+#include "UI/TiltAnalogSettingsScreen.h"
 
 void TiltAnalogSettingsScreen::CreateViews() {
 	using namespace UI;
@@ -26,8 +32,15 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	auto co = GetI18NCategory("Controls");
 	auto di = GetI18NCategory("Dialog");
 
-	root_ = new ScrollView(ORIENT_VERTICAL);
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 	root_->SetTag("TiltAnalogSettings");
+
+	ScrollView *menuRoot = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(650, FILL_PARENT));
+	root_->Add(menuRoot);
+
+	// AnchorLayout *rightSide = new AnchorLayout(new LinearLayoutParams(1.0));
+	tilt_ = new JoystickHistoryView(StickHistoryViewType::OTHER, "", new LinearLayoutParams(1.0f));
+	root_->Add(tilt_);
 
 	LinearLayout *settings = new LinearLayoutList(ORIENT_VERTICAL);
 
@@ -53,12 +66,15 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, co->T("Deadzone radius"), 0.01f, screenManager(),"/ 1.0"));
 	settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltDeadzoneSkip, 0.0, 1.0, co->T("Tilt Base Radius"), 0.01f, screenManager(),"/ 1.0"));
 
-	root_->Add(settings);
+	menuRoot->Add(settings);
+
 	settings->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));
 	settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
 void TiltAnalogSettingsScreen::axis(const AxisInput &axis) {
+	// TODO: This code should probably be moved to TiltEventProcessor.
+
 	if (axis.deviceId == DEVICE_ID_ACCELEROMETER) {
 		// Historically, we've had X and Y swapped, likely due to portrait vs landscape.
 		// TODO: We may want to configure this based on screen orientation.
@@ -78,3 +94,10 @@ UI::EventReturn TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+void TiltAnalogSettingsScreen::update() {
+	UIDialogScreenWithGameBackground::update();
+
+	tilt_->SetXY(
+		Clamp(TiltEventProcessor::rawTiltAnalogX, -1.0f, 1.0f),
+		Clamp(TiltEventProcessor::rawTiltAnalogY, -1.0f, 1.0f));
+}
