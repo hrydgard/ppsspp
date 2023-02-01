@@ -975,8 +975,7 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("InvertTiltY", &g_Config.bInvertTiltY, true, true, true),
 	ConfigSetting("TiltSensitivityX", &g_Config.iTiltSensitivityX, 50, true, true),
 	ConfigSetting("TiltSensitivityY", &g_Config.iTiltSensitivityY, 50, true, true),
-	ConfigSetting("DeadzoneRadius", &g_Config.fDeadzoneRadius, 0.05f, true, true),
-	ConfigSetting("TiltDeadzoneSkip", &g_Config.fTiltDeadzoneSkip, 0.0f, true, true),
+	ConfigSetting("DeadzoneRadius", &g_Config.fDeadzoneRadius, 0.0f, true, true),
 	ConfigSetting("TiltInputType", &g_Config.iTiltInputType, 0, true, true),
 #endif
 

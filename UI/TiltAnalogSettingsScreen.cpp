@@ -35,7 +35,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 	root_->SetTag("TiltAnalogSettings");
 
-	ScrollView *menuRoot = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(650, FILL_PARENT));
+	ScrollView *menuRoot = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(600, FILL_PARENT));
 	root_->Add(menuRoot);
 
 	// AnchorLayout *rightSide = new AnchorLayout(new LinearLayoutParams(1.0));
@@ -58,11 +58,9 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new CheckBox(&g_Config.bInvertTiltY, co->T("Invert Tilt along Y axis")));
 
 	settings->Add(new ItemHeader(co->T("Sensitivity")));
-	//TODO: allow values greater than 100? I'm not sure if that's needed.
-	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, co->T("Tilt Sensitivity along X axis"), screenManager(),"%"));
-	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, co->T("Tilt Sensitivity along Y axis"), screenManager(),"%"));
-	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, co->T("Deadzone radius"), 0.01f, screenManager(),"/ 1.0"));
-	settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltDeadzoneSkip, 0.0, 1.0, co->T("Tilt Base Radius"), 0.01f, screenManager(),"/ 1.0"));
+	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, co->T("Tilt Sensitivity along X axis"), screenManager(), "%"));
+	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, co->T("Tilt Sensitivity along Y axis"), screenManager(), "%"));
+	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"));
 
 	menuRoot->Add(settings);
 
@@ -85,7 +83,6 @@ void TiltAnalogSettingsScreen::axis(const AxisInput &axis) {
 UI::EventReturn TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {
 	Lin::Vec3 down = down_.normalized();
 	g_Config.fTiltBaseAngleY = atan2(down.z, down.x);
-	INFO_LOG(SCECTRL, "Setting base angle to %f from x=%f y=%f z=%f", g_Config.fTiltBaseAngleY, down.x, down.y, down.z);
 	return UI::EVENT_DONE;
 }
 

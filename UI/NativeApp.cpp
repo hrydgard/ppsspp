@@ -1390,13 +1390,7 @@ void NativeAxis(const AxisInput &axis) {
 	static float tiltY;
 	static float tiltZ;
 
-	// x and y are flipped if we are in landscape orientation. The events are
-	// sent with respect to the portrait coordinate system, while we
-	// take all events in landscape.
-	// see [http://developer.android.com/guide/topics/sensors/sensors_overview.html] for details
-	bool landscape = dp_yres < dp_xres;
 	switch (axis.axisId) {
-		//TODO: make this generic.
 		case JOYSTICK_AXIS_ACCELEROMETER_X: tiltX = axis.value; break;
 		case JOYSTICK_AXIS_ACCELEROMETER_Y: tiltY = axis.value; break;
 		case JOYSTICK_AXIS_ACCELEROMETER_Z: tiltZ = axis.value; break;
@@ -1411,6 +1405,11 @@ void NativeAxis(const AxisInput &axis) {
 	float xSensitivity = g_Config.iTiltSensitivityX / 50.0;
 	float ySensitivity = g_Config.iTiltSensitivityY / 50.0;
 
+	// x and y are flipped if we are in landscape orientation. The events are
+	// sent with respect to the portrait coordinate system, while we
+	// take all events in landscape.
+	// see [http://developer.android.com/guide/topics/sensors/sensors_overview.html] for details
+	bool landscape = dp_yres < dp_xres;
 	// now transform out current tilt to the calibrated coordinate system
 	Tilt trueTilt = GenTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
 		g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius,

@@ -24,21 +24,21 @@ void GenerateDPadEvent(const Tilt &tilt);
 void GenerateActionButtonEvent(const Tilt &tilt);
 void GenerateTriggerButtonEvent(const Tilt &tilt);
 
-//deadzone is normalized - 0 to 1
-//sensitivity controls how fast the deadzone reaches max value
+// deadzone is normalized - 0 to 1
+// sensitivity controls how fast the deadzone reaches max value
 inline float tiltInputCurve(float x, float deadzone, float sensitivity) {
 	const float factor = sensitivity * 1.0f / (1.0f - deadzone);
 
 	if (x > deadzone) {
-		return (x - deadzone) * factor * factor + g_Config.fTiltDeadzoneSkip;
+		return (x - deadzone) * factor + deadzone;
 	} else if (x < -deadzone) {
-		return (x + deadzone) * factor * factor - g_Config.fTiltDeadzoneSkip;
+		return (x + deadzone) * factor - deadzone;
 	} else {
 		return 0.0f;
 	}
 }
 
-//dampen the tilt according to the given deadzone amount.
+// dampen the tilt according to the given deadzone amount.
 inline Tilt dampTilt(const Tilt &tilt, float deadzone, float xSensitivity, float ySensitivity) {
 	//multiply sensitivity by 2 so that "overshoot" is possible. I personally prefer a
 	//sensitivity >1 for kingdom hearts and < 1 for Gods Eater. so yes, overshoot is nice
@@ -52,24 +52,6 @@ inline float clamp(float f) {
 	return f;
 }
 
-// Landscape liggande:
-// x = 0
-// y = 0
-// z = 1
-// Landscape stående:
-// x = 1
-// y = 0
-// z = 0
-// Landscape vänster kortsida:
-// x = 0
-// y = -1
-// z = 0
-// Landscape liggande upp och ner
-// x = 0
-// y = 0
-// z = -1
-
-
 Tilt GenTilt(bool landscape, float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float deadzone, float xSensitivity, float ySensitivity) {
 	if (landscape) {
 		std::swap(x, y);
@@ -82,7 +64,7 @@ Tilt GenTilt(bool landscape, float calibrationAngle, float x, float y, float z, 
 	float yAngle = angleAroundX - calibrationAngle;
 	float xAngle = asinf(down.x);
 
-	Tilt transformedTilt(xAngle, -yAngle);
+	Tilt transformedTilt(xAngle, yAngle);
 
 	// invert x and y axes if requested. Can probably remove this.
 	if (invertX) {
