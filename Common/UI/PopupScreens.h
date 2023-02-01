@@ -114,7 +114,7 @@ private:
 	void OnCompleted(DialogResult result) override;
 	UI::SliderFloat *slider_ = nullptr;
 	UI::TextEdit *edit_ = nullptr;
-	std::string units_ = nullptr;
+	std::string units_;
 	float sliderValue_ = 0.0f;
 	float originalValue_ = 0.0f;
 	float *value_;
@@ -361,7 +361,7 @@ private:
 	std::string placeHolder_;
 	std::string defaultText_;
 	int maxLen_;
-	bool restoreFocus_;
+	bool restoreFocus_ = false;
 };
 
 class ChoiceWithValueDisplay : public AbstractChoiceWithValueDisplay {
