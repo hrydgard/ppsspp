@@ -8,6 +8,7 @@
 #include "Common/Log.h"
 
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/TiltEventProcessor.h"
 
@@ -75,6 +76,10 @@ Tilt GenTilt(bool landscape, float calibrationAngle, float x, float y, float z, 
 		transformedTilt.y_ *= -1.0f;
 	}
 
+	// For the button mappings to work, we need a minimum deadzone.
+	// Analog stick though is better off with a zero one but any can work.
+	float actualDeadzone = g_Config.iTiltInputType == TILT_ANALOG ? deadzone : std::max(0.2f, deadzone);
+
 	// finally, dampen the tilt according to our curve.
 	return dampTilt(transformedTilt, deadzone, xSensitivity, ySensitivity);
 }
@@ -99,7 +104,7 @@ void TranslateTiltToInput(const Tilt &tilt) {
 		GenerateActionButtonEvent(tilt);
 		break;
 
-	case TILT_TRIGGER_BUTTON:
+	case TILT_TRIGGER_BUTTONS:
 		GenerateTriggerButtonEvent(tilt);
 		break;
 	}
@@ -127,7 +132,7 @@ void GenerateDPadEvent(const Tilt &tilt) {
 	}
 
 	int ctrlMask = 0;
-	int direction = (int)(floorf((atan2f(tilt.y_, tilt.x_) / (2.0f * (float)M_PI) * 8.0f) + 0.5f)) & 7;
+	int direction = (int)(floorf((atan2f(-tilt.y_, tilt.x_) / (2.0f * (float)M_PI) * 8.0f) + 0.5f)) & 7;
 	switch (direction) {
 	case 0: ctrlMask |= CTRL_RIGHT; break;
 	case 1: ctrlMask |= CTRL_RIGHT | CTRL_DOWN; break;
@@ -161,7 +166,7 @@ void GenerateActionButtonEvent(const Tilt &tilt) {
 		return;
 	}
 
-	int direction = (int)(floorf((atan2f(tilt.y_, tilt.x_) / (2.0f * (float)M_PI) * 4.0f) + 0.5f)) & 3;
+	int direction = (int)(floorf((atan2f(-tilt.y_, tilt.x_) / (2.0f * (float)M_PI) * 4.0f) + 0.5f)) & 3;
 	int downButtons = buttons[direction] & ~__CtrlPeekButtons();
 	__CtrlButtonDown(downButtons);
 	tiltButtonsDown |= downButtons;

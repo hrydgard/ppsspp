@@ -22,6 +22,7 @@
 #include "MiscScreens.h"
 
 class JoystickHistoryView;
+class GamepadView;
 
 class TiltAnalogSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
@@ -37,4 +38,5 @@ private:
 	
 	Lin::Vec3 down_{};
 	JoystickHistoryView *tilt_ = nullptr;
+	GamepadView *gpView_ = nullptr;
 };

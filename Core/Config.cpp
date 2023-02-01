@@ -971,10 +971,10 @@ static const ConfigSetting controlSettings[] = {
 
 #ifdef MOBILE_DEVICE
 	ConfigSetting("TiltBaseAngleY", &g_Config.fTiltBaseAngleY, 0.0f, true, true),
-	ConfigSetting("InvertTiltX", &g_Config.bInvertTiltX, false, true, true),
-	ConfigSetting("InvertTiltY", &g_Config.bInvertTiltY, true, true, true),
-	ConfigSetting("TiltSensitivityX", &g_Config.iTiltSensitivityX, 50, true, true),
-	ConfigSetting("TiltSensitivityY", &g_Config.iTiltSensitivityY, 50, true, true),
+	ConfigSetting("TiltInvertX", &g_Config.bInvertTiltX, false, true, true),
+	ConfigSetting("TiltInvertY", &g_Config.bInvertTiltY, false, true, true),
+	ConfigSetting("TiltSensitivityX", &g_Config.iTiltSensitivityX, 70, true, true),
+	ConfigSetting("TiltSensitivityY", &g_Config.iTiltSensitivityY, 70, true, true),
 	ConfigSetting("DeadzoneRadius", &g_Config.fDeadzoneRadius, 0.0f, true, true),
 	ConfigSetting("TiltInputType", &g_Config.iTiltInputType, 0, true, true),
 #endif

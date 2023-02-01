@@ -18,12 +18,14 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/TiltEventProcessor.h"
+#include "Core/ConfigValues.h"
 
 #include "Common/Math/math_util.h"
 #include "Common/Log.h"
 #include "Common/Data/Text/I18n.h"
 
 #include "UI/JoystickHistoryView.h"
+#include "UI/GamepadEmu.h"
 #include "UI/TiltAnalogSettingsScreen.h"
 
 void TiltAnalogSettingsScreen::CreateViews() {
@@ -38,16 +40,57 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	ScrollView *menuRoot = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(600, FILL_PARENT));
 	root_->Add(menuRoot);
 
-	// AnchorLayout *rightSide = new AnchorLayout(new LinearLayoutParams(1.0));
-	tilt_ = new JoystickHistoryView(StickHistoryViewType::OTHER, "", new LinearLayoutParams(1.0f));
-	root_->Add(tilt_);
+	if (g_Config.iTiltInputType == TILT_ANALOG) {
+		tilt_ = new JoystickHistoryView(StickHistoryViewType::OTHER, "", new LinearLayoutParams(1.0f));
+		root_->Add(tilt_);
+	} else {
+		AnchorLayout *rightSide = new AnchorLayout(new LinearLayoutParams(1.0));
+		root_->Add(rightSide);
+		switch (g_Config.iTiltInputType) {
+		case TILT_DPAD:
+		{
+			PSPDpad *pad = rightSide->Add(new PSPDpad(ImageID("I_DIR_LINE"), "D-pad", ImageID("I_DIR_LINE"), ImageID("I_ARROW"), 1.5f, 1.3f, new AnchorLayoutParams(NONE, NONE, NONE, NONE, true)));
+			pad->SetForceVisible(true);
+			break;
+		}
+		case TILT_ACTION_BUTTON:
+		{
+			PSPButton *circle = new PSPButton(CTRL_CIRCLE, "Circle button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_CIRCLE"), 1.5f, new AnchorLayoutParams(NONE, NONE, 100.0f, NONE, true));
+			PSPButton *cross= new PSPButton(CTRL_CROSS, "Cross button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_CROSS"), 1.5f, new AnchorLayoutParams(NONE, NONE, NONE, 100.0f, true));
+			PSPButton *triangle = new PSPButton(CTRL_TRIANGLE, "Triangle button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_TRIANGLE"), 1.5f, new AnchorLayoutParams(NONE, 100.0f, NONE, NONE, true));
+			PSPButton *square = new PSPButton(CTRL_SQUARE, "Square button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_SQUARE"), 1.5f, new AnchorLayoutParams(100.0f, NONE, NONE, NONE, true));
+			circle->SetForceVisible(true);
+			cross->SetForceVisible(true);
+			triangle->SetForceVisible(true);
+			square->SetForceVisible(true);
+			rightSide->Add(circle);
+			rightSide->Add(cross);
+			rightSide->Add(triangle);
+			rightSide->Add(square);
+			break;
+		}
+		case TILT_TRIGGER_BUTTONS:
+		{
+			PSPButton *lTrigger = new PSPButton(CTRL_LTRIGGER, "Left shoulder button", ImageID("I_SHOULDER_LINE"), ImageID("I_SHOULDER"), ImageID("I_L"), 1.5f, new AnchorLayoutParams(100.0f, NONE, NONE, NONE, true));
+			PSPButton *rTrigger = new PSPButton(CTRL_RTRIGGER, "Right shoulder button", ImageID("I_SHOULDER_LINE"), ImageID("I_SHOULDER"), ImageID("I_R"), 1.5f, new AnchorLayoutParams(NONE, NONE, 100.0f, NONE, true));
+			rTrigger->FlipImageH(true);
+			lTrigger->SetForceVisible(true);
+			rTrigger->SetForceVisible(true);
+			rightSide->Add(lTrigger);
+			rightSide->Add(rTrigger);
+			break;
+		}
+		}
+	}
 
 	LinearLayout *settings = new LinearLayoutList(ORIENT_VERTICAL);
 
 	settings->SetSpacing(0);
 
 	settings->Add(new ItemHeader(co->T("Calibration")));
-	InfoItem *calibrationInfo = new InfoItem(co->T("To Calibrate", "Keep device on a flat surface and press calibrate."), "");
+	TextView *calibrationInfo = new TextView(co->T("To Calibrate", "Hold device at your preferred angle and press Calibrate."));
+	calibrationInfo->SetSmall(true);
+	calibrationInfo->SetPadding(5);
 	settings->Add(calibrationInfo);
 	Choice *calibrate = new Choice(co->T("Calibrate"));
 	calibrate->OnClick.Handle(this, &TiltAnalogSettingsScreen::OnCalibrate);
@@ -88,7 +131,9 @@ UI::EventReturn TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {
 
 void TiltAnalogSettingsScreen::update() {
 	UIDialogScreenWithGameBackground::update();
-	tilt_->SetXY(
-		Clamp(TiltEventProcessor::rawTiltAnalogX, -1.0f, 1.0f),
-		Clamp(TiltEventProcessor::rawTiltAnalogY, -1.0f, 1.0f));
+	if (tilt_) {
+		tilt_->SetXY(
+			Clamp(TiltEventProcessor::rawTiltAnalogX, -1.0f, 1.0f),
+			Clamp(TiltEventProcessor::rawTiltAnalogY, -1.0f, 1.0f));
+	}
 }

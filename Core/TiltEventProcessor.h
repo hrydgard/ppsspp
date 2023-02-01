@@ -2,14 +2,6 @@
 
 namespace TiltEventProcessor {
 
-enum TiltTypes {
-	TILT_NULL = 0,
-	TILT_ANALOG,
-	TILT_DPAD,
-	TILT_ACTION_BUTTON,
-	TILT_TRIGGER_BUTTON,
-};
-
 // Represents a generic Tilt event
 struct Tilt {
 	Tilt() : x_(0), y_(0) {}
