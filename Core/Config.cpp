@@ -137,12 +137,6 @@ struct ConfigSetting {
 		CustomButtonDefaultCallback customButton;
 	};
 
-	ConfigSetting(bool v)
-		: iniKey_(""), type_(TYPE_TERMINATOR), report_(false), save_(false), perGame_(false) {
-		ptr_.b = nullptr;
-		cb_.b = nullptr;
-	}
-
 	ConfigSetting(const char *ini, bool *v, bool def, bool save = true, bool perGame = false)
 		: iniKey_(ini), type_(TYPE_BOOL), report_(false), save_(save), perGame_(perGame) {
 		ptr_.b = v;
@@ -253,10 +247,6 @@ struct ConfigSetting {
 		: iniKey_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), report_(false), save_(save), perGame_(perGame) {
 		ptr_.touchPos = v;
 		cb_.touchPos = def;
-	}
-
-	bool HasMore() const {
-		return type_ != TYPE_TERMINATOR;
 	}
 
 	// Should actually be called ReadFromIni or something.
@@ -420,10 +410,11 @@ struct ConfigSetting {
 	const char *ini4_ = nullptr;
 	const char *ini5_ = nullptr;
 
-	Type type_;
+	const Type type_;
+
 	bool report_;
-	bool save_;
-	bool perGame_;
+	const bool save_;
+	const bool perGame_;
 	SettingPtr ptr_;
 	DefaultValue default_{};
 	DefaultCallback cb_;
@@ -619,8 +610,6 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("EnablePlugins", &g_Config.bLoadPlugins, true, true, true),
 
 	ReportedConfigSetting("IgnoreCompatSettings", &g_Config.sIgnoreCompatSettings, "", true, true),
-
-	ConfigSetting(false),
 };
 
 static bool DefaultSasThread() {
@@ -638,8 +627,6 @@ static const ConfigSetting cpuSettings[] = {
 	ConfigSetting("PreloadFunctions", &g_Config.bPreloadFunctions, false, true, true),
 	ConfigSetting("JitDisableFlags", &g_Config.uJitDisableFlags, (uint32_t)0, true, true),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0, true, true),
-
-	ConfigSetting(false),
 };
 
 static int DefaultInternalResolution() {
@@ -923,8 +910,6 @@ static const ConfigSetting graphicsSettings[] = {
 
 	ConfigSetting("ShaderCache", &g_Config.bShaderCache, true, false, false),  // Doesn't save. Ini-only.
 	ConfigSetting("GpuLogProfiler", &g_Config.bGpuLogProfiler, false, true, false),
-
-	ConfigSetting(false),
 };
 
 static const ConfigSetting soundSettings[] = {
@@ -936,8 +921,6 @@ static const ConfigSetting soundSettings[] = {
 	ConfigSetting("AltSpeedVolume", &g_Config.iAltSpeedVolume, -1, true, true),
 	ConfigSetting("AudioDevice", &g_Config.sAudioDevice, "", true, false),
 	ConfigSetting("AutoAudioDevice", &g_Config.bAutoAudioDevice, true, true, false),
-
-	ConfigSetting(false),
 };
 
 static bool DefaultShowTouchControls() {
@@ -1066,8 +1049,6 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("MouseSmoothing", &g_Config.fMouseSmoothing, 0.9f, true, true),
 
 	ConfigSetting("SystemControls", &g_Config.bSystemControls, true, true, false),
-
-	ConfigSetting(false),
 };
 
 static const ConfigSetting networkSettings[] = {
@@ -1089,8 +1070,6 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("QuickChat3", &g_Config.sQuickChat2, "Quick Chat 3", true, true),
 	ConfigSetting("QuickChat4", &g_Config.sQuickChat3, "Quick Chat 4", true, true),
 	ConfigSetting("QuickChat5", &g_Config.sQuickChat4, "Quick Chat 5", true, true),
-
-	ConfigSetting(false),
 };
 
 static int DefaultSystemParamLanguage() {
@@ -1126,8 +1105,6 @@ static const ConfigSetting systemParamSettings[] = {
 	ReportedConfigSetting("EncryptSave", &g_Config.bEncryptSave, true, true, true),
 	ConfigSetting("SavedataUpgradeVersion", &g_Config.bSavedataUpgrade, true, true, false),
 	ConfigSetting("MemStickSize", &g_Config.iMemStickSizeGB, 16, true, false),
-
-	ConfigSetting(false),
 };
 
 static const ConfigSetting debuggerSettings[] = {
@@ -1155,28 +1132,20 @@ static const ConfigSetting debuggerSettings[] = {
 	ConfigSetting("FuncHashMap", &g_Config.bFuncHashMap, false),
 	ConfigSetting("MemInfoDetailed", &g_Config.bDebugMemInfoDetailed, false),
 	ConfigSetting("DrawFrameGraph", &g_Config.bDrawFrameGraph, false),
-
-	ConfigSetting(false),
 };
 
 static const ConfigSetting jitSettings[] = {
 	ReportedConfigSetting("DiscardRegsOnJRRA", &g_Config.bDiscardRegsOnJRRA, false, false),
-
-	ConfigSetting(false),
 };
 
 static const ConfigSetting upgradeSettings[] = {
 	ConfigSetting("UpgradeMessage", &g_Config.upgradeMessage, ""),
 	ConfigSetting("UpgradeVersion", &g_Config.upgradeVersion, ""),
 	ConfigSetting("DismissedVersion", &g_Config.dismissedVersion, ""),
-
-	ConfigSetting(false),
 };
 
 static const ConfigSetting themeSettings[] = {
 	ConfigSetting("ThemeName", &g_Config.sThemeName, "Default", true, false),
-
-	ConfigSetting(false),
 };
 
 
@@ -1196,35 +1165,34 @@ static const ConfigSetting vrSettings[] = {
 	ConfigSetting("VRHeadRotationScale", &g_Config.fHeadRotationScale, 5.0f),
 	ConfigSetting("VRHeadRotationSmoothing", &g_Config.bHeadRotationSmoothing, false),
 	ConfigSetting("VRHeadRotation", &g_Config.iHeadRotation, 0),
-
-	ConfigSetting(false),
 };
 
 struct ConfigSectionSettings {
 	const char *section;
 	const ConfigSetting *settings;
+	size_t settingsCount;
 };
 
 static const ConfigSectionSettings sections[] = {
-	{"General", generalSettings},
-	{"CPU", cpuSettings},
-	{"Graphics", graphicsSettings},
-	{"Sound", soundSettings},
-	{"Control", controlSettings},
-	{"Network", networkSettings},
-	{"SystemParam", systemParamSettings},
-	{"Debugger", debuggerSettings},
-	{"JIT", jitSettings},
-	{"Upgrade", upgradeSettings},
-	{"Theme", themeSettings},
-	{"VR", vrSettings},
+	{"General", generalSettings, ARRAY_SIZE(generalSettings)},
+	{"CPU", cpuSettings, ARRAY_SIZE(cpuSettings)},
+	{"Graphics", graphicsSettings, ARRAY_SIZE(graphicsSettings)},
+	{"Sound", soundSettings, ARRAY_SIZE(soundSettings)},
+	{"Control", controlSettings, ARRAY_SIZE(controlSettings)},
+	{"Network", networkSettings, ARRAY_SIZE(networkSettings)},
+	{"SystemParam", systemParamSettings, ARRAY_SIZE(systemParamSettings)},
+	{"Debugger", debuggerSettings, ARRAY_SIZE(debuggerSettings)},
+	{"JIT", jitSettings, ARRAY_SIZE(jitSettings)},
+	{"Upgrade", upgradeSettings, ARRAY_SIZE(upgradeSettings)},
+	{"Theme", themeSettings, ARRAY_SIZE(themeSettings)},
+	{"VR", vrSettings, ARRAY_SIZE(vrSettings)},
 };
 
 static void IterateSettings(IniFile &iniFile, std::function<void(Section *section, const ConfigSetting &setting)> func) {
 	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
 		Section *section = iniFile.GetOrCreateSection(sections[i].section);
-		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
-			func(section, *setting);
+		for (size_t j = 0; j < sections[i].settingsCount; j++) {
+			func(section, sections[i].settings[j]);
 		}
 	}
 }
@@ -2051,8 +2019,8 @@ void Config::ResetControlLayout() {
 void Config::GetReportingInfo(UrlEncoder &data) {
 	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
 		const std::string prefix = std::string("config.") + sections[i].section;
-		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
-			setting->Report(data, prefix);
+		for (size_t j = 0; j < sections[i].settingsCount; j++) {
+			sections[i].settings[j].Report(data, prefix);
 		}
 	}
 }
