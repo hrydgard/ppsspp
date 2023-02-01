@@ -4,7 +4,7 @@
 
 #include "Core/Config.h"
 #include "Core/HLE/sceCtrl.h"
-#include "UI/TiltEventProcessor.h"
+#include "Core/TiltEventProcessor.h"
 
 namespace TiltEventProcessor {
 

@@ -1124,6 +1124,7 @@
     <ClCompile Include="..\..\Core\HLE\sceNp2.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\TiltEventProcessor.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1776,6 +1777,7 @@
     <ClInclude Include="..\..\Core\HLE\sceNp2.h">
       <Filter>HLE</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Core\TiltEventProcessor.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE">

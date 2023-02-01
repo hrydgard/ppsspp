@@ -99,6 +99,7 @@
 #include "Core/Util/GameManager.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/WebServer.h"
+#include "Core/TiltEventProcessor.h"
 #include "Core/ThreadPools.h"
 
 #include "GPU/GPUInterface.h"
@@ -113,7 +114,6 @@
 #include "UI/MemStickScreen.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/RemoteISOScreen.h"
-#include "UI/TiltEventProcessor.h"
 #include "UI/Theme.h"
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)

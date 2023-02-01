@@ -1195,6 +1195,9 @@
     <ClCompile Include="..\ext\riscv-disas.cpp">
       <Filter>Ext</Filter>
     </ClCompile>
+    <ClCompile Include="TiltEventProcessor.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1931,6 +1934,9 @@
     </ClInclude>
     <ClInclude Include="..\ext\riscv-disas.h">
       <Filter>Ext</Filter>
+    </ClInclude>
+    <ClInclude Include="TiltEventProcessor.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
