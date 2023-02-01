@@ -20,7 +20,7 @@
 #include "Core/TiltEventProcessor.h"
 
 #include "Common/Math/math_util.h"
-
+#include "Common/Log.h"
 #include "Common/Data/Text/I18n.h"
 
 #include "UI/JoystickHistoryView.h"
@@ -56,8 +56,6 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new ItemHeader(co->T("Invert Axes")));
 	settings->Add(new CheckBox(&g_Config.bInvertTiltX, co->T("Invert Tilt along X axis")));
 	settings->Add(new CheckBox(&g_Config.bInvertTiltY, co->T("Invert Tilt along Y axis")));
-	static const char* tiltMode[] = { "Screen aligned to ground", "Screen at right angle to ground", "Auto-switch" };
-	settings->Add(new PopupMultiChoice(&g_Config.iTiltOrientation, co->T("Base tilt position"), tiltMode, 0, ARRAY_SIZE(tiltMode), co->GetName(), screenManager()));
 
 	settings->Add(new ItemHeader(co->T("Sensitivity")));
 	//TODO: allow values greater than 100? I'm not sure if that's needed.
@@ -73,30 +71,26 @@ void TiltAnalogSettingsScreen::CreateViews() {
 }
 
 void TiltAnalogSettingsScreen::axis(const AxisInput &axis) {
-	// TODO: This code should probably be moved to TiltEventProcessor.
+	UIDialogScreenWithGameBackground::axis(axis);
 
 	if (axis.deviceId == DEVICE_ID_ACCELEROMETER) {
-		// Historically, we've had X and Y swapped, likely due to portrait vs landscape.
-		// TODO: We may want to configure this based on screen orientation.
-		if (axis.axisId == JOYSTICK_AXIS_ACCELEROMETER_X) {
-			currentTiltY_ = axis.value;
-		}
-		if (axis.axisId == JOYSTICK_AXIS_ACCELEROMETER_Y) {
-			currentTiltX_ = axis.value;
+		switch (axis.axisId) {
+		case JOYSTICK_AXIS_ACCELEROMETER_X: down_.x = axis.value; break;
+		case JOYSTICK_AXIS_ACCELEROMETER_Y: down_.y = axis.value; break;
+		case JOYSTICK_AXIS_ACCELEROMETER_Z: down_.z = axis.value; break;
 		}
 	}
 }
 
 UI::EventReturn TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {
-	g_Config.fTiltBaseX = currentTiltX_;
-	g_Config.fTiltBaseY = currentTiltY_;
-
+	Lin::Vec3 down = down_.normalized();
+	g_Config.fTiltBaseAngleY = atan2(down.z, down.x);
+	INFO_LOG(SCECTRL, "Setting base angle to %f from x=%f y=%f z=%f", g_Config.fTiltBaseAngleY, down.x, down.y, down.z);
 	return UI::EVENT_DONE;
 }
 
 void TiltAnalogSettingsScreen::update() {
 	UIDialogScreenWithGameBackground::update();
-
 	tilt_->SetXY(
 		Clamp(TiltEventProcessor::rawTiltAnalogX, -1.0f, 1.0f),
 		Clamp(TiltEventProcessor::rawTiltAnalogY, -1.0f, 1.0f));

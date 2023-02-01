@@ -1372,78 +1372,35 @@ void NativeAxis(const AxisInput &axis) {
 
 	using namespace TiltEventProcessor;
 
-	// only handle tilt events if tilt is enabled.
+	// only do special handling of tilt events if tilt is enabled.
+	HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
+	screenManager->axis(axis);
+
 	if (g_Config.iTiltInputType == TILT_NULL) {
-		// if tilt events are disabled, then run it through the usual way.
-		HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
-		screenManager->axis(axis);
+		// if tilt events are disabled, don't do anything special.
 		return;
 	}
 
 	// create the base coordinate tilt system from the calibration data.
-	Tilt baseTilt;
-	baseTilt.x_ = g_Config.fTiltBaseX;
-	baseTilt.y_ = g_Config.fTiltBaseY;
+	float tiltBaseAngleY = g_Config.fTiltBaseAngleY;
 
 	// figure out what the current tilt orientation is by checking the axis event
 	// This is static, since we need to remember where we last were (in terms of orientation)
-	static Tilt currentTilt;
-
-	// tilt on x or y?
-	static bool verticalTilt;
-	if (g_Config.iTiltOrientation == 0)
-		verticalTilt = false;
-	else if (g_Config.iTiltOrientation == 1)
-		verticalTilt = true;
+	static float tiltX;
+	static float tiltY;
+	static float tiltZ;
 
 	// x and y are flipped if we are in landscape orientation. The events are
 	// sent with respect to the portrait coordinate system, while we
 	// take all events in landscape.
 	// see [http://developer.android.com/guide/topics/sensors/sensors_overview.html] for details
-	bool portrait = dp_yres > dp_xres;
+	bool landscape = dp_yres < dp_xres;
 	switch (axis.axisId) {
 		//TODO: make this generic.
-		case JOYSTICK_AXIS_ACCELEROMETER_X:
-			if (verticalTilt) {
-				if (fabs(axis.value) < 0.8f && g_Config.iTiltOrientation == 2) // Auto tilt switch
-					verticalTilt = false;
-				else
-					return; // Tilt on Z instead
-			}
-			if (portrait) {
-				currentTilt.x_ = axis.value;
-			} else {
-				currentTilt.y_ = axis.value;
-			}
-			break;
-
-		case JOYSTICK_AXIS_ACCELEROMETER_Y:
-			if (portrait) {
-				currentTilt.y_ = axis.value;
-			} else {
-				currentTilt.x_ = axis.value;
-			}
-			break;
-
-		case JOYSTICK_AXIS_ACCELEROMETER_Z:
-			if (!verticalTilt) {
-				if (fabs(axis.value) < 0.8f && g_Config.iTiltOrientation == 2) // Auto tilt switch
-					verticalTilt = true;
-				else
-					return; // Tilt on X instead
-			}
-			if (portrait) {
-				currentTilt.x_ = -axis.value;
-			} else {
-				currentTilt.y_ = -axis.value;
-			}
-			break;
-
-		default:
-			HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
-			// Don't take over completely!
-			screenManager->axis(axis);
-			return;
+		case JOYSTICK_AXIS_ACCELEROMETER_X: tiltX = axis.value; break;
+		case JOYSTICK_AXIS_ACCELEROMETER_Y: tiltY = axis.value; break;
+		case JOYSTICK_AXIS_ACCELEROMETER_Z: tiltZ = axis.value; break;
+		default: break;
 	}
 
 	// Figure out the sensitivity of the tilt. (sensitivity is originally 0 - 100)
@@ -1455,7 +1412,9 @@ void NativeAxis(const AxisInput &axis) {
 	float ySensitivity = g_Config.iTiltSensitivityY / 50.0;
 
 	// now transform out current tilt to the calibrated coordinate system
-	Tilt trueTilt = GenTilt(baseTilt, currentTilt, g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius, xSensitivity, ySensitivity);
+	Tilt trueTilt = GenTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
+		g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius,
+		xSensitivity, ySensitivity);
 
 	TranslateTiltToInput(trueTilt);
 }

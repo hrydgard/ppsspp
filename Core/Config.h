@@ -285,12 +285,11 @@ public:
 	bool bShowAudioDebug;
 	bool bShowGpuProfile;
 
-	//Analog stick tilting
-	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input
-	//considers this orientation to be equal to no movement of the analog stick.
-	float fTiltBaseX, fTiltBaseY;
-	int iTiltOrientation;
-	//whether the x axes and y axes should invert directions (left becomes right, top becomes bottom.)
+	// Analog stick tilting
+	// This is the held base angle, that we compute the tilt relative from.
+	float fTiltBaseAngleY;
+	// whether the x axes and y axes should invert directions (left becomes right, top becomes bottom.)
+	// TODO: Do we really need these?
 	bool bInvertTiltX, bInvertTiltY;
 	//the sensitivity of the tilt in the x direction
 	int iTiltSensitivityX;

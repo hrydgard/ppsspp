@@ -2,6 +2,11 @@
 
 #include <cmath>
 
+#include "Common/Math/math_util.h"
+#include "Common/Math/lin/vec3.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "Common/Log.h"
+
 #include "Core/Config.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/TiltEventProcessor.h"
@@ -11,6 +16,13 @@ namespace TiltEventProcessor {
 static u32 tiltButtonsDown = 0;
 float rawTiltAnalogX;
 float rawTiltAnalogY;
+
+// These functions generate tilt events given the current Tilt amount,
+// and the deadzone radius.
+void GenerateAnalogStickEvent(const Tilt &tilt);
+void GenerateDPadEvent(const Tilt &tilt);
+void GenerateActionButtonEvent(const Tilt &tilt);
+void GenerateTriggerButtonEvent(const Tilt &tilt);
 
 //deadzone is normalized - 0 to 1
 //sensitivity controls how fast the deadzone reaches max value
@@ -40,23 +52,39 @@ inline float clamp(float f) {
 	return f;
 }
 
-Tilt NormalizeTilt(const Tilt &tilt) {
-	// Normalise the accelerometer manually per-platform, to 'g'
-#if defined(__ANDROID__)
-	// Values are in metres per second. Divide by 9.8 to get 'g' value
-	float maxX = 9.8f, maxY = 9.8f;
-#else
-	float maxX = 1.0f, maxY = 1.0f;
-#endif
+// Landscape liggande:
+// x = 0
+// y = 0
+// z = 1
+// Landscape stående:
+// x = 1
+// y = 0
+// z = 0
+// Landscape vänster kortsida:
+// x = 0
+// y = -1
+// z = 0
+// Landscape liggande upp och ner
+// x = 0
+// y = 0
+// z = -1
 
-	return Tilt(tilt.x_ / maxX, tilt.y_ / maxY);
-}
 
-Tilt GenTilt(const Tilt &baseTilt, const Tilt &currentTilt, bool invertX, bool invertY, float deadzone, float xSensitivity, float ySensitivity) {
-	//first convert to the correct coordinate system
-	Tilt transformedTilt(currentTilt.x_ - baseTilt.x_, currentTilt.y_ - baseTilt.y_);
+Tilt GenTilt(bool landscape, float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float deadzone, float xSensitivity, float ySensitivity) {
+	if (landscape) {
+		std::swap(x, y);
+	}
 
-	//invert x and y axes if needed
+	Lin::Vec3 down(x, y, z);
+	down.normalize();
+
+	float angleAroundX = atan2(down.z, down.y);
+	float yAngle = angleAroundX - calibrationAngle;
+	float xAngle = asinf(down.x);
+
+	Tilt transformedTilt(xAngle, -yAngle);
+
+	// invert x and y axes if requested. Can probably remove this.
 	if (invertX) {
 		transformedTilt.x_ *= -1.0f;
 	}
@@ -65,10 +93,7 @@ Tilt GenTilt(const Tilt &baseTilt, const Tilt &currentTilt, bool invertX, bool i
 		transformedTilt.y_ *= -1.0f;
 	}
 
-	//next, normalize the tilt values
-	transformedTilt = NormalizeTilt(transformedTilt);
-
-	//finally, dampen the tilt according to our curve.
+	// finally, dampen the tilt according to our curve.
 	return dampTilt(transformedTilt, deadzone, xSensitivity, ySensitivity);
 }
 
