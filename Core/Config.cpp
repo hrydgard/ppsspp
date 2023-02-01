@@ -319,7 +319,8 @@ struct ConfigSetting {
 		}
 	}
 
-	void Set(Section *section) {
+	// Yes, this can be const because what's modified is not the ConfigSetting struct, but the value which is stored elsewhere.
+	void Set(Section *section) const {
 		if (!save_)
 			return;
 
@@ -363,7 +364,7 @@ struct ConfigSetting {
 		}
 	}
 
-	void Report(UrlEncoder &data, const std::string &prefix) {
+	void Report(UrlEncoder &data, const std::string &prefix) const {
 		if (!report_)
 			return;
 
@@ -503,12 +504,7 @@ static float DefaultUISaturation() {
 	return IsVREnabled() ? 1.5f : 1.0f;
 }
 
-struct ConfigSectionSettings {
-	const char *section;
-	ConfigSetting *settings;
-};
-
-static ConfigSetting generalSettings[] = {
+static const ConfigSetting generalSettings[] = {
 	ConfigSetting("FirstRun", &g_Config.bFirstRun, true),
 	ConfigSetting("RunCount", &g_Config.iRunCount, 0),
 	ConfigSetting("Enable Logging", &g_Config.bEnableLogging, true),
@@ -612,7 +608,7 @@ static bool DefaultSasThread() {
 	return cpu_info.num_cores > 1;
 }
 
-static ConfigSetting cpuSettings[] = {
+static const ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("CPUCore", &g_Config.iCpuCore, &DefaultCpuCore, true, true),
 	ReportedConfigSetting("SeparateSASThread", &g_Config.bSeparateSASThread, &DefaultSasThread, true, true),
 	ReportedConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_FAST, true, true),
@@ -818,7 +814,7 @@ std::string FastForwardModeToString(int v) {
 	return "CONTINUOUS";
 }
 
-static ConfigSetting graphicsSettings[] = {
+static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("EnableCardboardVR", &g_Config.bEnableCardboardVR, false, true, true),
 	ConfigSetting("CardboardScreenSize", &g_Config.iCardboardScreenSize, 50, true, true),
 	ConfigSetting("CardboardXShift", &g_Config.iCardboardXShift, 0, true, true),
@@ -912,7 +908,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting(false),
 };
 
-static ConfigSetting soundSettings[] = {
+static const ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", &g_Config.bEnableSound, true, true, true),
 	ConfigSetting("AudioBackend", &g_Config.iAudioBackend, 0, true, true),
 	ConfigSetting("ExtraAudioBuffering", &g_Config.bExtraAudioBuffering, false, true, false),
@@ -949,7 +945,7 @@ static const float defaultControlScale = 1.15f;
 static const ConfigTouchPos defaultTouchPosShow = { -1.0f, -1.0f, defaultControlScale, true };
 static const ConfigTouchPos defaultTouchPosHide = { -1.0f, -1.0f, defaultControlScale, false };
 
-static ConfigSetting controlSettings[] = {
+static const ConfigSetting controlSettings[] = {
 	ConfigSetting("HapticFeedback", &g_Config.bHapticFeedback, false, true, true),
 	ConfigSetting("ShowTouchCross", &g_Config.bShowTouchCross, true, true, true),
 	ConfigSetting("ShowTouchCircle", &g_Config.bShowTouchCircle, true, true, true),
@@ -1055,7 +1051,7 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting(false),
 };
 
-static ConfigSetting networkSettings[] = {
+static const ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableWlan", &g_Config.bEnableWlan, false, true, true),
 	ConfigSetting("EnableAdhocServer", &g_Config.bEnableAdhocServer, false, true, true),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "socom.cc", true, true),
@@ -1091,7 +1087,7 @@ static int DefaultSystemParamLanguage() {
 	return defaultLang;
 }
 
-static ConfigSetting systemParamSettings[] = {
+static const ConfigSetting systemParamSettings[] = {
 	ReportedConfigSetting("PSPModel", &g_Config.iPSPModel, PSP_MODEL_SLIM, true, true),
 	ReportedConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE, true, true),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP", true, true),
@@ -1115,7 +1111,7 @@ static ConfigSetting systemParamSettings[] = {
 	ConfigSetting(false),
 };
 
-static ConfigSetting debuggerSettings[] = {
+static const ConfigSetting debuggerSettings[] = {
 	ConfigSetting("DisasmWindowX", &g_Config.iDisasmWindowX, -1),
 	ConfigSetting("DisasmWindowY", &g_Config.iDisasmWindowY, -1),
 	ConfigSetting("DisasmWindowW", &g_Config.iDisasmWindowW, -1),
@@ -1144,13 +1140,13 @@ static ConfigSetting debuggerSettings[] = {
 	ConfigSetting(false),
 };
 
-static ConfigSetting jitSettings[] = {
+static const ConfigSetting jitSettings[] = {
 	ReportedConfigSetting("DiscardRegsOnJRRA", &g_Config.bDiscardRegsOnJRRA, false, false),
 
 	ConfigSetting(false),
 };
 
-static ConfigSetting upgradeSettings[] = {
+static const ConfigSetting upgradeSettings[] = {
 	ConfigSetting("UpgradeMessage", &g_Config.upgradeMessage, ""),
 	ConfigSetting("UpgradeVersion", &g_Config.upgradeVersion, ""),
 	ConfigSetting("DismissedVersion", &g_Config.dismissedVersion, ""),
@@ -1158,14 +1154,14 @@ static ConfigSetting upgradeSettings[] = {
 	ConfigSetting(false),
 };
 
-static ConfigSetting themeSettings[] = {
+static const ConfigSetting themeSettings[] = {
 	ConfigSetting("ThemeName", &g_Config.sThemeName, "Default", true, false),
 
 	ConfigSetting(false),
 };
 
 
-static ConfigSetting vrSettings[] = {
+static const ConfigSetting vrSettings[] = {
 	ConfigSetting("VREnable", &g_Config.bEnableVR, true),
 	ConfigSetting("VREnable6DoF", &g_Config.bEnable6DoF, true),
 	ConfigSetting("VREnableStereo", &g_Config.bEnableStereo, false),
@@ -1185,7 +1181,12 @@ static ConfigSetting vrSettings[] = {
 	ConfigSetting(false),
 };
 
-static ConfigSectionSettings sections[] = {
+struct ConfigSectionSettings {
+	const char *section;
+	const ConfigSetting *settings;
+};
+
+static const ConfigSectionSettings sections[] = {
 	{"General", generalSettings},
 	{"CPU", cpuSettings},
 	{"Graphics", graphicsSettings},
@@ -1200,7 +1201,7 @@ static ConfigSectionSettings sections[] = {
 	{"VR", vrSettings},
 };
 
-static void IterateSettings(IniFile &iniFile, std::function<void(Section *section, ConfigSetting *setting)> func) {
+static void IterateSettings(IniFile &iniFile, std::function<void(Section *section, const ConfigSetting &setting)> func) {
 	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
 		Section *section = iniFile.GetOrCreateSection(sections[i].section);
 		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
@@ -1301,9 +1302,9 @@ bool Config::LoadAppendedConfig() {
 		return false;
 	}
 
-	IterateSettings(iniFile, [&iniFile](Section *section, ConfigSetting *setting) {
-		if (iniFile.Exists(section->name().c_str(), setting->iniKey_))
-			setting->Get(section);
+	IterateSettings(iniFile, [&iniFile](Section *section, const ConfigSetting &setting) {
+		if (iniFile.Exists(section->name().c_str(), setting.iniKey_))
+			setting.Get(section);
 	});
 
 	INFO_LOG(LOADER, "Loaded appended config '%s'.", appendedConfigFileName_.c_str());
@@ -1336,8 +1337,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		// Continue anyway to initialize the config.
 	}
 
-	IterateSettings(iniFile, [](Section *section, ConfigSetting *setting) {
-		setting->Get(section);
+	IterateSettings(iniFile, [](Section *section, const ConfigSetting &setting) {
+		setting.Get(section);
 	});
 
 	iRunCount++;
@@ -1492,9 +1493,9 @@ bool Config::Save(const char *saveReason) {
 		// Need to do this somewhere...
 		bFirstRun = false;
 
-		IterateSettings(iniFile, [&](Section *section, ConfigSetting *setting) {
-			if (!bGameSpecific || !setting->perGame_) {
-				setting->Set(section);
+		IterateSettings(iniFile, [&](Section *section, const ConfigSetting &setting) {
+			if (!bGameSpecific || !setting.perGame_) {
+				setting.Set(section);
 			}
 		});
 
@@ -1878,9 +1879,9 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 
 	PreSaveCleanup(true);
 
-	IterateSettings(iniFile, [](Section *section, ConfigSetting *setting) {
-		if (setting->perGame_) {
-			setting->Set(section);
+	IterateSettings(iniFile, [](Section *section, const ConfigSetting &setting) {
+		if (setting.perGame_) {
+			setting.Set(section);
 		}
 	});
 
@@ -1935,9 +1936,9 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 			vPostShaderNames.push_back(it.second);
 	}
 
-	IterateSettings(iniFile, [](Section *section, ConfigSetting *setting) {
-		if (setting->perGame_) {
-			setting->Get(section);
+	IterateSettings(iniFile, [](Section *section, const ConfigSetting &setting) {
+		if (setting.perGame_) {
+			setting.Get(section);
 		}
 	});
 
@@ -1962,9 +1963,9 @@ void Config::unloadGameConfig() {
 		iniFile.Load(iniFilename_);
 
 		// Reload game specific settings back to standard.
-		IterateSettings(iniFile, [](Section *section, ConfigSetting *setting) {
-			if (setting->perGame_) {
-				setting->Get(section);
+		IterateSettings(iniFile, [](Section *section, const ConfigSetting &setting) {
+			if (setting.perGame_) {
+				setting.Get(section);
 			}
 		});
 
