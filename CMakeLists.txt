@@ -1145,8 +1145,6 @@ elseif(IOS)
 		ios/PPSSPPUIApplication.mm
 		ios/SmartKeyboardMap.cpp
 		ios/SmartKeyboardMap.hpp
-		ios/SubtleVolume.h
-		ios/SubtleVolume.mm
 		ios/iCade/iCadeReaderView.h
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h
