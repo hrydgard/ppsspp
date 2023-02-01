@@ -357,7 +357,7 @@ struct ConfigSetting {
 		}
 	}
 
-	void RestoreToDefault(Section *section) const {
+	void RestoreToDefault() const {
 		switch (type_) {
 		case TYPE_BOOL:   *ptr_.b = cb_.b ? cb_.b() : default_.b; break;
 		case TYPE_INT:    *ptr_.i = cb_.i ? cb_.i() : default_.i; break;
@@ -378,26 +378,15 @@ struct ConfigSetting {
 			return;
 
 		switch (type_) {
-		case TYPE_BOOL:
-			return data.Add(prefix + iniKey_, *ptr_.b);
-		case TYPE_INT:
-			return data.Add(prefix + iniKey_, *ptr_.i);
-		case TYPE_UINT32:
-			return data.Add(prefix + iniKey_, *ptr_.u);
-		case TYPE_UINT64:
-			return data.Add(prefix + iniKey_, *ptr_.lu);
-		case TYPE_FLOAT:
-			return data.Add(prefix + iniKey_, *ptr_.f);
-		case TYPE_STRING:
-			return data.Add(prefix + iniKey_, *ptr_.s);
-		case TYPE_PATH:
-			return data.Add(prefix + iniKey_, ptr_.p->ToString());
-		case TYPE_TOUCH_POS:
-			// Doesn't report.
-			return;
-		case TYPE_CUSTOM_BUTTON:
-			// Doesn't report.
-			return;
+		case TYPE_BOOL:   return data.Add(prefix + iniKey_, *ptr_.b);
+		case TYPE_INT:    return data.Add(prefix + iniKey_, *ptr_.i);
+		case TYPE_UINT32: return data.Add(prefix + iniKey_, *ptr_.u);
+		case TYPE_UINT64: return data.Add(prefix + iniKey_, *ptr_.lu);
+		case TYPE_FLOAT:  return data.Add(prefix + iniKey_, *ptr_.f);
+		case TYPE_STRING: return data.Add(prefix + iniKey_, *ptr_.s);
+		case TYPE_PATH:   return data.Add(prefix + iniKey_, ptr_.p->ToString());
+		case TYPE_TOUCH_POS: return;   // Doesn't report.
+		case TYPE_CUSTOM_BUTTON: return; // Doesn't report.
 		default:
 			_dbg_assert_msg_(false, "Report(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
 			return;
@@ -1197,6 +1186,14 @@ static void IterateSettings(IniFile &iniFile, std::function<void(Section *sectio
 	}
 }
 
+static void IterateSettings(std::function<void(const ConfigSetting &setting)> func) {
+	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
+		for (size_t j = 0; j < sections[i].settingsCount; j++) {
+			func(sections[i].settings[j]);
+		}
+	}
+}
+
 void ConfigPrivate::ResetRecentIsosThread() {
 	std::lock_guard<std::mutex> guard(recentIsosThreadLock);
 	if (recentIsosThreadPending && recentIsosThread.joinable())
@@ -1788,13 +1785,15 @@ const Path Config::FindConfigFile(const std::string &baseFilename) {
 
 void Config::RestoreDefaults(RestoreSettingsBits whatToRestore) {
 	if (bGameSpecific) {
+		// TODO: This should be possible to do in a cleaner way.
 		deleteGameConfig(gameId_);
 		createGameConfig(gameId_);
 		Load();
 	} else {
 		if (whatToRestore & RestoreSettingsBits::SETTINGS) {
-			if (File::Exists(iniFilename_))
-				File::Delete(iniFilename_);
+			IterateSettings([](const ConfigSetting &setting) {
+				setting.RestoreToDefault();
+			});
 		}
 
 		if (whatToRestore & RestoreSettingsBits::CONTROLS) {
@@ -1805,10 +1804,6 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore) {
 		if (whatToRestore & RestoreSettingsBits::RECENT) {
 			ClearRecentIsos();
 			currentDirectory = defaultCurrentDirectory;
-		}
-
-		if (whatToRestore & (RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS)) {
-			Load();
 		}
 	}
 }
