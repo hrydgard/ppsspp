@@ -6,14 +6,13 @@
 #include "Core/HLE/sceCtrl.h"
 #include "UI/TiltEventProcessor.h"
 
-using namespace TiltEventProcessor;
+namespace TiltEventProcessor {
 
 static u32 tiltButtonsDown = 0;
-static bool tiltAnalogSet = false;
 
 //deadzone is normalized - 0 to 1
 //sensitivity controls how fast the deadzone reaches max value
-inline float tiltInputCurve (float x, float deadzone, float sensitivity) {
+inline float tiltInputCurve(float x, float deadzone, float sensitivity) {
 	const float factor = sensitivity * 1.0f / (1.0f - deadzone);
 
 	if (x > deadzone) {
@@ -37,22 +36,21 @@ inline float clamp(float f) {
 	if (f > 1.0f) return 1.0f;
 	if (f < -1.0f) return -1.0f;
 	return f;
-} 
-
-Tilt TiltEventProcessor::NormalizeTilt(const Tilt &tilt){
-	// Normalise the accelerometer manually per-platform, to 'g'
-	#if defined(__ANDROID__)
-		// Values are in metres per second. Divide by 9.8 to get 'g' value
-		float maxX = 9.8f, maxY = 9.8f;
-	#else
-		float maxX = 1.0f, maxY = 1.0f;
-	#endif
-
-	return Tilt(tilt.x_ / maxX, tilt.y_ / maxY);
-
 }
 
-Tilt TiltEventProcessor::GenTilt(const Tilt &baseTilt, const Tilt &currentTilt, bool invertX, bool invertY, float deadzone, float xSensitivity, float ySensitivity) {
+Tilt NormalizeTilt(const Tilt &tilt) {
+	// Normalise the accelerometer manually per-platform, to 'g'
+#if defined(__ANDROID__)
+	// Values are in metres per second. Divide by 9.8 to get 'g' value
+	float maxX = 9.8f, maxY = 9.8f;
+#else
+	float maxX = 1.0f, maxY = 1.0f;
+#endif
+
+	return Tilt(tilt.x_ / maxX, tilt.y_ / maxY);
+}
+
+Tilt GenTilt(const Tilt &baseTilt, const Tilt &currentTilt, bool invertX, bool invertY, float deadzone, float xSensitivity, float ySensitivity) {
 	//first convert to the correct coordinate system
 	Tilt transformedTilt(currentTilt.x_ - baseTilt.x_, currentTilt.y_ - baseTilt.y_);
 
@@ -67,12 +65,12 @@ Tilt TiltEventProcessor::GenTilt(const Tilt &baseTilt, const Tilt &currentTilt, 
 
 	//next, normalize the tilt values
 	transformedTilt = NormalizeTilt(transformedTilt);
-	
+
 	//finally, dampen the tilt according to our curve.
 	return dampTilt(transformedTilt, deadzone, xSensitivity, ySensitivity);
 }
 
-void TiltEventProcessor::TranslateTiltToInput(const Tilt &tilt) {
+void TranslateTiltToInput(const Tilt &tilt) {
 	switch (g_Config.iTiltInputType) {
 	case TILT_NULL:
 		break;
@@ -95,13 +93,12 @@ void TiltEventProcessor::TranslateTiltToInput(const Tilt &tilt) {
 	}
 }
 
-void TiltEventProcessor::GenerateAnalogStickEvent(const Tilt &tilt) {
+void GenerateAnalogStickEvent(const Tilt &tilt) {
 	__CtrlSetAnalogXY(CTRL_STICK_LEFT, clamp(tilt.x_), clamp(tilt.y_));
-	tiltAnalogSet = true;
 }
 
-void TiltEventProcessor::GenerateDPadEvent(const Tilt &tilt) {
-	static const int dir[4] = {CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP};
+void GenerateDPadEvent(const Tilt &tilt) {
+	static const int dir[4] = { CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP };
 
 	if (tilt.x_ == 0) {
 		__CtrlButtonUp(tiltButtonsDown & (CTRL_RIGHT | CTRL_LEFT));
@@ -129,13 +126,14 @@ void TiltEventProcessor::GenerateDPadEvent(const Tilt &tilt) {
 	case 6: ctrlMask |= CTRL_UP; break;
 	case 7: ctrlMask |= CTRL_UP | CTRL_RIGHT; break;
 	}
+
 	ctrlMask &= ~__CtrlPeekButtons();
 	__CtrlButtonDown(ctrlMask);
 	tiltButtonsDown |= ctrlMask;
 }
 
-void TiltEventProcessor::GenerateActionButtonEvent(const Tilt &tilt) {
-	static const int buttons[4] = {CTRL_CIRCLE, CTRL_CROSS, CTRL_SQUARE, CTRL_TRIANGLE};
+void GenerateActionButtonEvent(const Tilt &tilt) {
+	static const int buttons[4] = { CTRL_CIRCLE, CTRL_CROSS, CTRL_SQUARE, CTRL_TRIANGLE };
 
 	if (tilt.x_ == 0) {
 		__CtrlButtonUp(tiltButtonsDown & (CTRL_SQUARE | CTRL_CIRCLE));
@@ -157,7 +155,7 @@ void TiltEventProcessor::GenerateActionButtonEvent(const Tilt &tilt) {
 	tiltButtonsDown |= downButtons;
 }
 
-void TiltEventProcessor::GenerateTriggerButtonEvent(const Tilt &tilt) {
+void GenerateTriggerButtonEvent(const Tilt &tilt) {
 	u32 upButtons = 0;
 	u32 downButtons = 0;
 	// Y axis for both
@@ -179,13 +177,11 @@ void TiltEventProcessor::GenerateTriggerButtonEvent(const Tilt &tilt) {
 	tiltButtonsDown = (tiltButtonsDown & ~upButtons) | downButtons;
 }
 
-void TiltEventProcessor::ResetTiltEvents() {
+void ResetTiltEvents() {
 	// Reset the buttons we have marked pressed.
 	__CtrlButtonUp(tiltButtonsDown);
 	tiltButtonsDown = 0;
-
-	if (tiltAnalogSet) {
-		__CtrlSetAnalogXY(CTRL_STICK_LEFT, 0.0f, 0.0f);
-		tiltAnalogSet = false;
-	}
+	__CtrlSetAnalogXY(CTRL_STICK_LEFT, 0.0f, 0.0f);
 }
+
+}  // namespace TiltEventProcessor

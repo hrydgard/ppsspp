@@ -394,13 +394,6 @@ static bool IgnoreAxisForMapping(int axis) {
 	case JOYSTICK_AXIS_ACCELEROMETER_Z:
 		return true;
 
-		// Also ignore some weird axis events we get on Ouya.
-	case JOYSTICK_AXIS_OUYA_UNKNOWN1:
-	case JOYSTICK_AXIS_OUYA_UNKNOWN2:
-	case JOYSTICK_AXIS_OUYA_UNKNOWN3:
-	case JOYSTICK_AXIS_OUYA_UNKNOWN4:
-		return true;
-
 	default:
 		return false;
 	}
