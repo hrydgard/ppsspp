@@ -121,11 +121,11 @@ struct ConfigSetting {
 	typedef uint64_t (*Uint64DefaultCallback)();
 	typedef float (*FloatDefaultCallback)();
 	typedef const char *(*StringDefaultCallback)();
-	typedef ConfigTouchPos(*TouchPosDefaultCallback)();
+	typedef ConfigTouchPos (*TouchPosDefaultCallback)();
 	typedef const char *(*PathDefaultCallback)();
 	typedef ConfigCustomButton (*CustomButtonDefaultCallback)();
 
-	union Callback {
+	union DefaultCallback {
 		BoolDefaultCallback b;
 		IntDefaultCallback i;
 		Uint32DefaultCallback u;
@@ -259,17 +259,12 @@ struct ConfigSetting {
 		return type_ != TYPE_TERMINATOR;
 	}
 
-	bool Get(const Section *section) {
+	bool Get(const Section *section) const {
 		switch (type_) {
 		case TYPE_BOOL:
-			if (cb_.b) {
-				default_.b = cb_.b();
-			}
-			return section->Get(iniKey_, ptr_.b, default_.b);
+			return section->Get(iniKey_, ptr_.b, cb_.b ? cb_.b() : default_.b);
+
 		case TYPE_INT:
-			if (cb_.i) {
-				default_.i = cb_.i();
-			}
 			if (translateFrom_) {
 				std::string value;
 				if (section->Get(iniKey_, &value, nullptr)) {
@@ -277,62 +272,47 @@ struct ConfigSetting {
 					return true;
 				}
 			}
-			return section->Get(iniKey_, ptr_.i, default_.i);
+			return section->Get(iniKey_, ptr_.i, cb_.i ? cb_.i() : default_.i);
 		case TYPE_UINT32:
-			if (cb_.u) {
-				default_.u = cb_.u();
-			}
-			return section->Get(iniKey_, ptr_.u, default_.u);
+			return section->Get(iniKey_, ptr_.u, cb_.u ? cb_.u() : default_.u);
 		case TYPE_UINT64:
-			if (cb_.lu) {
-				default_.lu = cb_.lu();
-			}
-			return section->Get(iniKey_, ptr_.lu, default_.lu);
+			return section->Get(iniKey_, ptr_.lu, cb_.lu ? cb_.lu() : default_.lu);
 		case TYPE_FLOAT:
-			if (cb_.f) {
-				default_.f = cb_.f();
-			}
-			return section->Get(iniKey_, ptr_.f, default_.f);
+			return section->Get(iniKey_, ptr_.f, cb_.f ? cb_.f() : default_.f);
 		case TYPE_STRING:
-			if (cb_.s) {
-				default_.s = cb_.s();
-			}
-			return section->Get(iniKey_, ptr_.s, default_.s);
+			return section->Get(iniKey_, ptr_.s, cb_.s ? cb_.s() : default_.s);
 		case TYPE_TOUCH_POS:
-			if (cb_.touchPos) {
-				default_.touchPos = cb_.touchPos();
-			}
-			section->Get(iniKey_, &ptr_.touchPos->x, default_.touchPos.x);
-			section->Get(ini2_, &ptr_.touchPos->y, default_.touchPos.y);
-			section->Get(ini3_, &ptr_.touchPos->scale, default_.touchPos.scale);
+		{
+			ConfigTouchPos defaultTouchPos = cb_.touchPos ? cb_.touchPos() : default_.touchPos;
+			section->Get(iniKey_, &ptr_.touchPos->x, defaultTouchPos.x);
+			section->Get(ini2_, &ptr_.touchPos->y, defaultTouchPos.y);
+			section->Get(ini3_, &ptr_.touchPos->scale, defaultTouchPos.scale);
 			if (ini4_) {
-				section->Get(ini4_, &ptr_.touchPos->show, default_.touchPos.show);
+				section->Get(ini4_, &ptr_.touchPos->show, defaultTouchPos.show);
 			} else {
-				ptr_.touchPos->show = default_.touchPos.show;
+				ptr_.touchPos->show = defaultTouchPos.show;
 			}
 			return true;
+		}
 		case TYPE_PATH:
 		{
 			std::string tmp;
-			if (cb_.p) {
-				default_.p = cb_.p();
-			}
-			bool result = section->Get(iniKey_, &tmp, default_.p);
+			bool result = section->Get(iniKey_, &tmp, cb_.p ? cb_.p() : default_.p);
 			if (result) {
 				*ptr_.p = Path(tmp);
 			}
 			return result;
 		}
 		case TYPE_CUSTOM_BUTTON:
-			if (cb_.customButton) {
-				default_.customButton = cb_.customButton();
-			}
-			section->Get(iniKey_, &ptr_.customButton->key, default_.customButton.key);
-			section->Get(ini2_, &ptr_.customButton->image, default_.customButton.image);
-			section->Get(ini3_, &ptr_.customButton->shape, default_.customButton.shape);
-			section->Get(ini4_, &ptr_.customButton->toggle, default_.customButton.toggle);
-			section->Get(ini5_, &ptr_.customButton->repeat, default_.customButton.repeat);
+		{
+			ConfigCustomButton defaultCustomButton = cb_.customButton ? cb_.customButton() : default_.customButton;
+			section->Get(iniKey_, &ptr_.customButton->key, defaultCustomButton.key);
+			section->Get(ini2_, &ptr_.customButton->image, defaultCustomButton.image);
+			section->Get(ini3_, &ptr_.customButton->shape, defaultCustomButton.shape);
+			section->Get(ini4_, &ptr_.customButton->toggle, defaultCustomButton.toggle);
+			section->Get(ini5_, &ptr_.customButton->repeat, defaultCustomButton.repeat);
 			return true;
+		}
 		default:
 			_dbg_assert_msg_(false, "Get(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
 			return false;
@@ -419,13 +399,14 @@ struct ConfigSetting {
 	const char *ini3_ = nullptr;
 	const char *ini4_ = nullptr;
 	const char *ini5_ = nullptr;
+
 	Type type_;
 	bool report_;
 	bool save_;
 	bool perGame_;
 	SettingPtr ptr_;
 	DefaultValue default_{};
-	Callback cb_;
+	DefaultCallback cb_;
 
 	// We only support transform for ints.
 	std::function<std::string(int)> translateTo_;
@@ -1776,10 +1757,12 @@ std::vector<std::string> Config::RecentIsos() const {
 	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 	return recentIsos;
 }
+
 bool Config::HasRecentIsos() const {
 	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 	return !recentIsos.empty();
 }
+
 void Config::ClearRecentIsos() {
 	private_->ResetRecentIsosThread();
 	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
