@@ -914,9 +914,8 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 			screenManager()->RecreateAllViews();
 			if (host)
 				host->UpdateUI();
-				return UI::EVENT_DONE;
-			}
-		);
+			return UI::EVENT_DONE;
+		});
 		if (e.v)
 			langScreen->SetPopupOrigin(e.v);
 		screenManager()->push(langScreen);
