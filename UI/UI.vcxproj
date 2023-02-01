@@ -49,6 +49,7 @@
     <ClCompile Include="GameScreen.cpp" />
     <ClCompile Include="GameSettingsScreen.cpp" />
     <ClCompile Include="GPUDriverTestScreen.cpp" />
+    <ClCompile Include="JoystickHistoryView.cpp" />
     <ClCompile Include="MainScreen.cpp" />
     <ClCompile Include="MemStickScreen.cpp" />
     <ClCompile Include="MiscScreens.cpp" />
@@ -83,6 +84,7 @@
     <ClInclude Include="CwCheatScreen.h" />
     <ClInclude Include="GPUDriverTestScreen.h" />
     <ClInclude Include="HostTypes.h" />
+    <ClInclude Include="JoystickHistoryView.h" />
     <ClInclude Include="MainScreen.h" />
     <ClInclude Include="MemStickScreen.h" />
     <ClInclude Include="MiscScreens.h" />

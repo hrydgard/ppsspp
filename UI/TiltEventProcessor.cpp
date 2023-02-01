@@ -9,6 +9,8 @@
 namespace TiltEventProcessor {
 
 static u32 tiltButtonsDown = 0;
+float rawTiltAnalogX;
+float rawTiltAnalogY;
 
 //deadzone is normalized - 0 to 1
 //sensitivity controls how fast the deadzone reaches max value
@@ -71,6 +73,9 @@ Tilt GenTilt(const Tilt &baseTilt, const Tilt &currentTilt, bool invertX, bool i
 }
 
 void TranslateTiltToInput(const Tilt &tilt) {
+	rawTiltAnalogX = tilt.x_;
+	rawTiltAnalogY = tilt.y_;
+
 	switch (g_Config.iTiltInputType) {
 	case TILT_NULL:
 		break;

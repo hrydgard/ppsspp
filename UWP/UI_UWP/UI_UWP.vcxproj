@@ -395,6 +395,7 @@
     <ClInclude Include="..\..\UI\GPUDriverTestScreen.h" />
     <ClInclude Include="..\..\UI\HostTypes.h" />
     <ClInclude Include="..\..\UI\InstallZipScreen.h" />
+    <ClInclude Include="..\..\UI\JoystickHistoryView.h" />
     <ClInclude Include="..\..\UI\Theme.h" />
     <ClInclude Include="..\..\UI\MainScreen.h" />
     <ClInclude Include="..\..\UI\MemStickScreen.h" />
@@ -429,6 +430,7 @@
     <ClCompile Include="..\..\UI\GameSettingsScreen.cpp" />
     <ClCompile Include="..\..\UI\GPUDriverTestScreen.cpp" />
     <ClCompile Include="..\..\UI\InstallZipScreen.cpp" />
+    <ClCompile Include="..\..\UI\JoystickHistoryView.cpp" />
     <ClCompile Include="..\..\UI\Theme.cpp" />
     <ClCompile Include="..\..\UI\MainScreen.cpp" />
     <ClCompile Include="..\..\UI\MemStickScreen.cpp" />

@@ -720,6 +720,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/SavedataScreen.cpp \
   $(SRC)/UI/Store.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
+  $(SRC)/UI/JoystickHistoryView.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/UI/GameScreen.cpp \
   $(SRC)/UI/ControlMappingScreen.cpp \

@@ -39,4 +39,8 @@ void GenerateTriggerButtonEvent(const Tilt &tilt);
 
 void ResetTiltEvents();
 
+// Lets you preview the amount of tilt in TiltAnalogSettingsScreen.
+extern float rawTiltAnalogX;
+extern float rawTiltAnalogY;
+
 }  // namespace

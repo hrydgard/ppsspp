@@ -1291,6 +1291,8 @@ list(APPEND NativeAppSource
 	UI/TouchControlVisibilityScreen.cpp
 	UI/GamepadEmu.h
 	UI/GamepadEmu.cpp
+	UI/JoystickHistoryView.h
+	UI/JoystickHistoryView.cpp
 	UI/OnScreenDisplay.h
 	UI/OnScreenDisplay.cpp
 	UI/ControlMappingScreen.h

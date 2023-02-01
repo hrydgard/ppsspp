@@ -33,6 +33,7 @@
     <ClCompile Include="..\..\UI\TouchControlVisibilityScreen.cpp" />
     <ClCompile Include="..\..\UI\ChatScreen.cpp" />
     <ClCompile Include="..\..\UI\Theme.cpp" />
+    <ClCompile Include="..\..\UI\JoystickHistoryView.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -68,5 +69,6 @@
     <ClInclude Include="..\..\UI\TouchControlVisibilityScreen.h" />
     <ClInclude Include="..\..\UI\ChatScreen.h" />
     <ClInclude Include="..\..\UI\Theme.h" />
+    <ClInclude Include="..\..\UI\JoystickHistoryView.h" />
   </ItemGroup>
 </Project>

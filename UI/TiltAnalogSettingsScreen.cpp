@@ -34,7 +34,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->SetSpacing(0);
 
 	settings->Add(new ItemHeader(co->T("Calibration")));
-	InfoItem *calibrationInfo = new InfoItem(co->T("To Calibrate", "To calibrate, keep device on a flat surface and press calibrate."), "");
+	InfoItem *calibrationInfo = new InfoItem(co->T("To Calibrate", "Keep device on a flat surface and press calibrate."), "");
 	settings->Add(calibrationInfo);
 	Choice *calibrate = new Choice(co->T("Calibrate"));
 	calibrate->OnClick.Handle(this, &TiltAnalogSettingsScreen::OnCalibrate);
@@ -52,7 +52,6 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, co->T("Tilt Sensitivity along Y axis"), screenManager(),"%"));
 	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, co->T("Deadzone radius"), 0.01f, screenManager(),"/ 1.0"));
 	settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltDeadzoneSkip, 0.0, 1.0, co->T("Tilt Base Radius"), 0.01f, screenManager(),"/ 1.0"));
-
 
 	root_->Add(settings);
 	settings->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));

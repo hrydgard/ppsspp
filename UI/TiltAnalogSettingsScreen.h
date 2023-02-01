@@ -22,8 +22,6 @@
 
 class TiltAnalogSettingsScreen : public UIDialogScreenWithBackground {
 public:
-	TiltAnalogSettingsScreen() {}
-
 	void CreateViews() override;
 	void axis(const AxisInput &axis) override;
 
@@ -34,4 +32,3 @@ private:
 	float currentTiltX_ = 0.0f;
 	float currentTiltY_ = 0.0f;
 };
-
