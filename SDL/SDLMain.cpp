@@ -1011,7 +1011,7 @@ int main(int argc, char *argv[]) {
 				case SDL_BUTTON_LEFT:
 					{
 						mouseDown = true;
-						TouchInput input;
+						TouchInput input{};
 						input.x = mx;
 						input.y = my;
 						input.flags = TOUCH_DOWN | TOUCH_MOUSE;
@@ -1065,7 +1065,7 @@ int main(int argc, char *argv[]) {
 				}
 			case SDL_MOUSEMOTION:
 				if (mouseDown) {
-					TouchInput input;
+					TouchInput input{};
 					input.x = mx;
 					input.y = my;
 					input.flags = TOUCH_MOVE | TOUCH_MOUSE;
@@ -1080,7 +1080,7 @@ int main(int argc, char *argv[]) {
 				case SDL_BUTTON_LEFT:
 					{
 						mouseDown = false;
-						TouchInput input;
+						TouchInput input{};
 						input.x = mx;
 						input.y = my;
 						input.flags = TOUCH_UP | TOUCH_MOUSE;

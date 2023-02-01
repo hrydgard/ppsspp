@@ -842,7 +842,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("CardboardScreenSize", &g_Config.iCardboardScreenSize, 50, true, true),
 	ConfigSetting("CardboardXShift", &g_Config.iCardboardXShift, 0, true, true),
 	ConfigSetting("CardboardYShift", &g_Config.iCardboardYShift, 0, true, true),
-	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
+	ConfigSetting("iShowStatusFlags", &g_Config.iShowStatusFlags, 0, true, true),
 	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, true, false),
 	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, ""),
 	ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, ""),
@@ -1197,6 +1197,9 @@ static ConfigSetting vrSettings[] = {
 	ConfigSetting("VRFieldOfView", &g_Config.fFieldOfViewPercentage, 100.0f),
 	ConfigSetting("VRHeadUpDisplayScale", &g_Config.fHeadUpDisplayScale, 0.3f),
 	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f),
+	ConfigSetting("VRHeadRotationScale", &g_Config.fHeadRotationScale, 5.0f),
+	ConfigSetting("VRHeadRotationSmoothing", &g_Config.bHeadRotationSmoothing, false),
+	ConfigSetting("VRHeadRotation", &g_Config.iHeadRotation, 0),
 
 	ConfigSetting(false),
 };
@@ -1761,7 +1764,10 @@ void Config::CleanRecent() {
 			}
 		}
 
-		INFO_LOG(SYSTEM, "CleanRecent took %0.2f", time_now_d() - startTime);
+		double recentTime = time_now_d() - startTime;
+		if (recentTime > 0.1) {
+			INFO_LOG(SYSTEM, "CleanRecent took %0.2f", recentTime);
+		}
 		recentIsos = cleanedRecent;
 	});
 }
@@ -1809,17 +1815,31 @@ const Path Config::FindConfigFile(const std::string &baseFilename) {
 	return filename;
 }
 
-void Config::RestoreDefaults() {
+void Config::RestoreDefaults(RestoreSettingsBits whatToRestore) {
 	if (bGameSpecific) {
 		deleteGameConfig(gameId_);
 		createGameConfig(gameId_);
+		Load();
 	} else {
-		if (File::Exists(iniFilename_))
-			File::Delete(iniFilename_);
-		ClearRecentIsos();
-		currentDirectory = defaultCurrentDirectory;
+		if (whatToRestore & RestoreSettingsBits::SETTINGS) {
+			if (File::Exists(iniFilename_))
+				File::Delete(iniFilename_);
+		}
+
+		if (whatToRestore & RestoreSettingsBits::CONTROLS) {
+			if (File::Exists(controllerIniFilename_))
+				File::Delete(controllerIniFilename_);
+		}
+
+		if (whatToRestore & RestoreSettingsBits::RECENT) {
+			ClearRecentIsos();
+			currentDirectory = defaultCurrentDirectory;
+		}
+
+		if (whatToRestore & (RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS)) {
+			Load();
+		}
 	}
-	Load();
 }
 
 bool Config::hasGameConfig(const std::string &pGameId) {

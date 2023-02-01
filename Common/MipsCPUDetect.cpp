@@ -197,6 +197,28 @@ void CPUInfo::Detect()
 #endif
 }
 
+std::vector<std::string> CPUInfo::Features() {
+	std::vector<std::string> features;
+
+	struct Flag {
+		bool &flag;
+		const char *str;
+	};
+	const Flag list[] = {
+		{ bXBurst1, "XBurst1" },
+		{ bXBurst2, "XBurst2" },
+		{ CPU64bit, "64-bit" },
+	};
+
+	for (auto &item : list) {
+		if (item.flag) {
+			features.push_back(item.str);
+		}
+	}
+
+	return features;
+}
+
 // Turn the cpu info into a string we can show
 std::string CPUInfo::Summarize()
 {
@@ -205,10 +227,11 @@ std::string CPUInfo::Summarize()
 		sum = StringFromFormat("%s, %i core", cpu_string, num_cores);
 	else
 		sum = StringFromFormat("%s, %i cores", cpu_string, num_cores);
-	if (bXBurst1) sum += ", XBurst1";
-	if (bXBurst2) sum += ", XBurst2";
-	if (CPU64bit) sum += ", 64-bit";
 
+	auto features = Features();
+	for (std::string &feature : features) {
+		sum += ", " + feature;
+	}
 	return sum;
 }
 

@@ -355,6 +355,9 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr_libretro(VkInstan
 #ifdef __ANDROID__
 		 || !strcmp(pName, "vkCreateAndroidSurfaceKHR")
 #endif
+#ifdef VK_USE_PLATFORM_METAL_EXT
+		 || !strcmp(pName, "vkCreateMetalSurfaceEXT")
+#endif
 #ifdef VK_USE_PLATFORM_XLIB_KHR
 		 || !strcmp(pName, "vkCreateXlibSurfaceKHR")
 #endif

@@ -198,7 +198,6 @@ public:
 	const std::string &GetSource() const { return source_; }
 	~VKShaderModule() {
 		if (module_) {
-			DEBUG_LOG(G3D, "Queueing %s (shmodule %p) for release", tag_.c_str(), module_);
 			VkShaderModule shaderModule = module_->BlockUntilReady();
 			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
 			vulkan_->Delete().QueueCallback([](VulkanContext *context, void *m) {
@@ -213,7 +212,7 @@ public:
 	}
 
 private:
-	VulkanContext *vulkan_;
+	VulkanContext *vulkan_ = nullptr;
 	Promise<VkShaderModule> *module_ = nullptr;
 	VkShaderStageFlagBits vkstage_;
 	bool ok_ = false;
@@ -268,7 +267,6 @@ public:
 		vkrDesc = new VKRGraphicsPipelineDesc();
 	}
 	~VKPipeline() {
-		DEBUG_LOG(G3D, "Queueing %s (pipeline) for release", tag_.c_str());
 		if (pipeline) {
 			pipeline->QueueForDeletion(vulkan_);
 		}

@@ -21,7 +21,9 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+
 #include "Common/UI/UIScreen.h"
+#include "Core/ConfigValues.h"
 #include "UI/MiscScreens.h"
 
 // Per-game settings screen - enables you to configure graphic options, control options, etc
@@ -45,31 +47,39 @@ protected:
 	void RecreateViews() override;
 
 private:
+	void CreateGraphicsSettings(UI::ViewGroup *graphicsSettings);
+	void CreateControlsSettings(UI::ViewGroup *tools);
+	void CreateAudioSettings(UI::ViewGroup *audioSettings);
+	void CreateNetworkingSettings(UI::ViewGroup *networkingSettings);
+	void CreateToolsSettings(UI::ViewGroup *tools);
+	void CreateSystemSettings(UI::ViewGroup *systemSettings);
+	void CreateVRSettings(UI::ViewGroup *vrSettings);
+
 	UI::LinearLayout *AddTab(const char *tag, const std::string &title, bool isSearch = false);
 	void ApplySearchFilter();
 	void TriggerRestart(const char *why);
 
 	std::string gameID_;
-	UI::CheckBox *enableReportsCheckbox_;
-	UI::Choice *layoutEditorChoice_;
-	UI::Choice *displayEditor_;
+	UI::CheckBox *enableReportsCheckbox_ = nullptr;
+	UI::Choice *layoutEditorChoice_ = nullptr;
+	UI::Choice *displayEditor_ = nullptr;
 	UI::Choice *backgroundChoice_ = nullptr;
-	UI::PopupMultiChoice *resolutionChoice_;
-	UI::CheckBox *frameSkipAuto_;
-	SettingInfoMessage *settingInfo_;
-	UI::Choice *clearSearchChoice_;
-	UI::TextView *noSearchResults_;
+	UI::PopupMultiChoice *resolutionChoice_ = nullptr;
+	UI::CheckBox *frameSkipAuto_ = nullptr;
+	SettingInfoMessage *settingInfo_ = nullptr;
+	UI::Choice *clearSearchChoice_ = nullptr;
+	UI::TextView *noSearchResults_ = nullptr;
 #ifdef _WIN32
-	UI::CheckBox *SavePathInMyDocumentChoice;
-	UI::CheckBox *SavePathInOtherChoice;
+	UI::CheckBox *SavePathInMyDocumentChoice = nullptr;
+	UI::CheckBox *SavePathInOtherChoice = nullptr;
 	// Used to enable/disable the above two options.
-	bool installed_;
-	bool otherinstalled_;
+	bool installed_ = false;
+	bool otherinstalled_ = false;
 #endif
 
 	std::string memstickDisplay_;
 
-	UI::TabHolder *tabHolder_;
+	UI::TabHolder *tabHolder_ = nullptr;
 	std::vector<UI::LinearLayout *> settingTabContents_;
 	std::vector<UI::TextView *> settingTabFilterNotices_;
 
@@ -125,18 +135,18 @@ private:
 	UI::EventReturn OnClearSearchFilter(UI::EventParams &e);
 
 	// Temporaries to convert setting types, cache enabled, etc.
-	int iAlternateSpeedPercent1_;
-	int iAlternateSpeedPercent2_;
-	int iAlternateSpeedPercentAnalog_;
-	int prevInflightFrames_;
+	int iAlternateSpeedPercent1_ = 0;
+	int iAlternateSpeedPercent2_ = 0;
+	int iAlternateSpeedPercentAnalog_ = 0;
+	int prevInflightFrames_ = -1;
 	bool enableReports_ = false;
 	bool enableReportsSet_ = false;
 	bool analogSpeedMapped_ = false;
 
 	std::string searchFilter_;
 
-	//edit the game-specific settings and restore the global settings after exiting
-	bool editThenRestore_;
+	// edit the game-specific settings and restore the global settings after exiting
+	bool editThenRestore_ = false;
 
 	// Android-only
 	std::string pendingMemstickFolder_;
@@ -205,6 +215,7 @@ protected:
 private:
 	void ResolverThread();
 	void SendEditKey(int keyCode, int flags = 0);
+
 	UI::EventReturn OnNumberClick(UI::EventParams &e);
 	UI::EventReturn OnPointClick(UI::EventParams &e);
 	UI::EventReturn OnDeleteClick(UI::EventParams &e);
@@ -243,4 +254,15 @@ public:
 	void CreateViews() override;
 
 	const char *tag() const override { return "GestureMapping"; }
+};
+
+class RestoreSettingsScreen : public PopupScreen {
+public:
+	RestoreSettingsScreen(const char *title);
+	void CreatePopupContents(UI::ViewGroup *parent) override;
+
+	const char *tag() const override { return "RestoreSettingsScreen"; }
+private:
+	void OnCompleted(DialogResult result) override;
+	int restoreFlags_ = (int)(RestoreSettingsBits::SETTINGS);  // RestoreSettingsBits enum
 };

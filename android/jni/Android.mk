@@ -4,6 +4,10 @@ SRC := ../..
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
+LOCAL_C_INCLUDES += \
+  $(LOCAL_PATH)/../../ext/cpu_features/include
+LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H
+
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
 
 ifeq ($(TARGET_ARCH_ABI),x86)
@@ -119,7 +123,21 @@ EXT_FILES := \
   $(SRC)/ext/udis86/syn-intel.c \
   $(SRC)/ext/udis86/syn.c \
   $(SRC)/ext/udis86/udis86.c \
-  $(SRC)/ext/xbrz/xbrz.cpp
+  $(SRC)/ext/xbrz/xbrz.cpp \
+  $(SRC)/ext/cpu_features/src/filesystem.c \
+  $(SRC)/ext/cpu_features/src/hwcaps.c \
+  $(SRC)/ext/cpu_features/src/impl_aarch64_linux_or_android.c \
+  $(SRC)/ext/cpu_features/src/impl_arm_linux_or_android.c \
+  $(SRC)/ext/cpu_features/src/impl_mips_linux_or_android.c \
+  $(SRC)/ext/cpu_features/src/impl_ppc_linux.c \
+  $(SRC)/ext/cpu_features/src/impl_riscv_linux.c \
+  $(SRC)/ext/cpu_features/src/impl_s390x_linux.c \
+  $(SRC)/ext/cpu_features/src/impl_x86_freebsd.c \
+  $(SRC)/ext/cpu_features/src/impl_x86_linux_or_android.c \
+  $(SRC)/ext/cpu_features/src/impl_x86_macos.c \
+  $(SRC)/ext/cpu_features/src/impl_x86_windows.c \
+  $(SRC)/ext/cpu_features/src/stack_line_reader.c \
+  $(SRC)/ext/cpu_features/src/string_view.c
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \

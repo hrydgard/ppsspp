@@ -184,7 +184,6 @@ private slots:
 		g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
 		NativeMessageReceived("clear jit", "");
 	}
-	void showFPSAct() { g_Config.iShowFPSCounter = g_Config.iShowFPSCounter ? 0 : 3; } // 3 = both speed and FPS
 
 	// Help
 	void websiteAct();

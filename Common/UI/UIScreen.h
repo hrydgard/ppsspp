@@ -97,8 +97,8 @@ protected:
 	void update() override;
 
 private:
-	UI::LinearLayout *box_;
-	UI::Button *defaultButton_;
+	UI::LinearLayout *box_ = nullptr;
+	UI::Button *defaultButton_ = nullptr;
 	std::string title_;
 	std::string button1_;
 	std::string button2_;
@@ -110,7 +110,7 @@ private:
 
 	int frames_ = 0;
 	int finishFrame_ = -1;
-	DialogResult finishResult_;
+	DialogResult finishResult_ = DR_CANCEL;
 	bool hasPopupOrigin_ = false;
 	Point popupOrigin_;
 	float offsetY_ = 0.0f;

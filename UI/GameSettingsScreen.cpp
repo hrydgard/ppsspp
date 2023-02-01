@@ -31,6 +31,7 @@
 
 #include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
 #include "Common/System/System.h"
+#include "Common/Battery/Battery.h"
 #include "Common/System/NativeApp.h"
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Math/curves.h"
@@ -211,22 +212,8 @@ void GameSettingsScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	auto di = GetI18NCategory("Dialog");
-	auto gr = GetI18NCategory("Graphics");
-	auto co = GetI18NCategory("Controls");
-	auto a = GetI18NCategory("Audio");
-	auto sa = GetI18NCategory("Savedata");
-	auto se = GetI18NCategory("Search");
-	auto sy = GetI18NCategory("System");
-	auto n = GetI18NCategory("Networking");
 	auto ms = GetI18NCategory("MainSettings");
-	auto dev = GetI18NCategory("Developer");
-	auto ri = GetI18NCategory("RemoteISO");
-	auto ps = GetI18NCategory("PostShaders");
-	auto th = GetI18NCategory("Themes");
-	auto vr = GetI18NCategory("VR");
-
-	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
+	auto di = GetI18NCategory("Dialog");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -259,10 +246,59 @@ void GameSettingsScreen::CreateViews() {
 		settingInfo_->Show(oldSettingInfo_, nullptr);
 	}
 
-	// TODO: These currently point to global settings, not game specific ones.
-
-	// Graphics
 	LinearLayout *graphicsSettings = AddTab("GameSettingsGraphics", ms->T("Graphics"));
+	CreateGraphicsSettings(graphicsSettings);
+
+	LinearLayout *controlsSettings = AddTab("GameSettingsControls", ms->T("Controls"));
+	CreateControlsSettings(controlsSettings);
+
+	LinearLayout *audioSettings = AddTab("GameSettingsAudio", ms->T("Audio"));
+	CreateAudioSettings(audioSettings);
+
+	LinearLayout *networkingSettings = AddTab("GameSettingsNetworking", ms->T("Networking"));
+	CreateNetworkingSettings(networkingSettings);
+
+	LinearLayout *tools = AddTab("GameSettingsTools", ms->T("Tools"));
+	CreateToolsSettings(tools);
+
+	LinearLayout *systemSettings = AddTab("GameSettingsSystem", ms->T("System"));
+	systemSettings->SetSpacing(0);
+	CreateSystemSettings(systemSettings);
+
+	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
+	if (deviceType == DEVICE_TYPE_VR) {
+		LinearLayout *vrSettings = AddTab("GameSettingsVR", ms->T("VR"));
+		CreateVRSettings(vrSettings);
+	}
+
+#if !defined(MOBILE_DEVICE) || PPSSPP_PLATFORM(ANDROID)
+	// Hide search if screen is too small.
+	if (dp_xres < dp_yres || dp_yres >= 500) {
+		auto se = GetI18NCategory("Search");
+		// Search
+		LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
+
+		searchSettings->Add(new ItemHeader(se->T("Find settings")));
+		if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
+			searchSettings->Add(new ChoiceWithValueDisplay(&searchFilter_, se->T("Filter"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
+		} else {
+			searchSettings->Add(new PopupTextInputChoice(&searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
+		}
+		clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
+		clearSearchChoice_->OnClick.Handle(this, &GameSettingsScreen::OnClearSearchFilter);
+		noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
+
+		ApplySearchFilter();
+	}
+#endif
+}
+
+// Graphics
+void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings) {
+	auto gr = GetI18NCategory("Graphics");
+	auto vr = GetI18NCategory("VR");
+
+	using namespace UI;
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Rendering Mode")));
 
@@ -306,6 +342,8 @@ void GameSettingsScreen::CreateViews() {
 	resolutionChoice_->SetEnabledFunc([] {
 		return !g_Config.bSoftwareRendering && !g_Config.bSkipBufferEffects;
 	});
+
+	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 
 	if (deviceType != DEVICE_TYPE_VR) {
 		CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
@@ -563,12 +601,20 @@ void GameSettingsScreen::CreateViews() {
 	});
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
-	static const char *fpsChoices[] = { "None", "Speed", "FPS", "Both" };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gr->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gr->GetName(), screenManager()));
-	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
+	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::FPS_COUNTER, gr->T("Show FPS Counter")));
+	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::SPEED_COUNTER, gr->T("Show Speed")));
+#ifdef CAN_DISPLAY_CURRENT_BATTERY_CAPACITY
+	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::BATTERY_PERCENT, gr->T("Show Battery %")));
+#endif
 
-	// Audio
-	LinearLayout *audioSettings = AddTab("GameSettingsAudio", ms->T("Audio"));
+	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
+}
+
+void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
+	using namespace UI;
+
+	auto a = GetI18NCategory("Audio");
+	auto ms = GetI18NCategory("MainSettings");
 
 	audioSettings->Add(new ItemHeader(ms->T("Audio")));
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
@@ -626,9 +672,15 @@ void GameSettingsScreen::CreateViews() {
 		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, nullptr, screenManager()));
 		MicChoice->OnChoice.Handle(this, &GameSettingsScreen::OnMicDeviceChange);
 	}
+}
 
-	// Control
-	LinearLayout *controlsSettings = AddTab("GameSettingsControls", ms->T("Controls"));
+void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings) {
+	using namespace UI;
+
+	auto co = GetI18NCategory("Controls");
+	auto ms = GetI18NCategory("MainSettings");
+
+	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 
 	controlsSettings->Add(new ItemHeader(ms->T("Controls")));
 	controlsSettings->Add(new Choice(co->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
@@ -718,7 +770,7 @@ void GameSettingsScreen::CreateViews() {
 		controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse settings")));
 		CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
 		mouseControl->OnClick.Add([=](EventParams &e) {
-			if(g_Config.bMouseControl)
+			if (g_Config.bMouseControl)
 				settingInfo_->Show(co->T("MouseControl Tip", "You can now map mouse in control mapping screen by pressing the 'M' icon."), e.v);
 			return UI::EVENT_CONTINUE;
 		});
@@ -727,8 +779,13 @@ void GameSettingsScreen::CreateViews() {
 		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
 #endif
 	}
+}
 
-	LinearLayout *networkingSettings = AddTab("GameSettingsNetworking", ms->T("Networking"));
+void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSettings) {
+	using namespace UI;
+
+	auto n = GetI18NCategory("Networking");
+	auto ms = GetI18NCategory("MainSettings");
 
 	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
@@ -813,8 +870,16 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, n->T("Port offset", "Port offset (0 = PSP compatibility)"), 100, screenManager()));
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 0, 15000, n->T("Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)"), 50, screenManager()));
 	networkingSettings->Add(new CheckBox(&g_Config.bForcedFirstConnect, n->T("Forced First Connect", "Forced First Connect (faster Connect)")));
+}
 
-	LinearLayout *tools = AddTab("GameSettingsTools", ms->T("Tools"));
+void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
+	using namespace UI;
+
+	auto sa = GetI18NCategory("Savedata");
+	auto sy = GetI18NCategory("System");
+	auto ms = GetI18NCategory("MainSettings");
+	auto dev = GetI18NCategory("Developer");
+	auto ri = GetI18NCategory("RemoteISO");
 
 	tools->Add(new ItemHeader(ms->T("Tools")));
 	// These were moved here so use the wrong translation objects, to avoid having to change all inis... This isn't a sustainable situation :P
@@ -822,9 +887,14 @@ void GameSettingsScreen::CreateViews() {
 	tools->Add(new Choice(dev->T("System Information")))->OnClick.Handle(this, &GameSettingsScreen::OnSysInfo);
 	tools->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
 	tools->Add(new Choice(ri->T("Remote disc streaming")))->OnClick.Handle(this, &GameSettingsScreen::OnRemoteISO);
+}
 
-	// System
-	LinearLayout *systemSettings = AddTab("GameSettingsSystem", ms->T("System"));
+void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
+	using namespace UI;
+
+	auto sy = GetI18NCategory("System");
+	auto vr = GetI18NCategory("VR");
+	auto th = GetI18NCategory("Themes");
 
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
 
@@ -870,9 +940,10 @@ void GameSettingsScreen::CreateViews() {
 	PopupMultiChoiceDynamic *theme = systemSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sThemeName, sy->T("Theme"), GetThemeInfoNames(), th->GetName(), screenManager()));
 	theme->OnChoice.Add([=](EventParams &e) {
 		UpdateTheme(screenManager()->getUIContext());
-
 		return UI::EVENT_CONTINUE;
 	});
+
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
 	if (!draw->GetBugs().Has(Draw::Bugs::RASPBERRY_SHADER_COMP_HANG)) {
 		// We use shaders without tint capability on hardware with this driver bug.
@@ -991,6 +1062,8 @@ void GameSettingsScreen::CreateViews() {
 
 #if PPSSPP_PLATFORM(ANDROID)
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+		auto co = GetI18NCategory("Controls");
+
 		static const char *screenRotation[] = { "Auto", "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed", "Landscape Auto" };
 		PopupMultiChoice *rot = systemSettings->Add(new PopupMultiChoice(&g_Config.iScreenRotation, co->T("Screen Rotation"), screenRotation, 0, ARRAY_SIZE(screenRotation), co->GetName(), screenManager()));
 		rot->OnChoice.Handle(this, &GameSettingsScreen::OnScreenRotation);
@@ -1000,7 +1073,6 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 #endif
-	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, sy->T("VersionCheck", "Check for new versions of PPSSPP")));
 
 	systemSettings->Add(new Choice(sy->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
 	systemSettings->Add(new CheckBox(&g_Config.bEnableStateUndo, sy->T("Savestate slot backups")));
@@ -1010,6 +1082,7 @@ void GameSettingsScreen::CreateViews() {
 		systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Use system native keyboard")));
 
 	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")))->SetEnabled(!PSP_IsInited());
+	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, sy->T("VersionCheck", "Check for new versions of PPSSPP")));
 
 	systemSettings->Add(new ItemHeader(sy->T("Cheats", "Cheats")));
 	CheckBox *enableCheats = systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, sy->T("Enable Cheats")));
@@ -1017,10 +1090,9 @@ void GameSettingsScreen::CreateViews() {
 		enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 		return UI::EVENT_CONTINUE;
 	});
-	systemSettings->SetSpacing(0);
 
 	systemSettings->Add(new ItemHeader(sy->T("PSP Settings")));
-	static const char *models[] = {"PSP-1000", "PSP-2000/3000"};
+	static const char *models[] = { "PSP-1000", "PSP-2000/3000" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, sy->T("PSP Model"), models, 0, ARRAY_SIZE(models), sy->GetName(), screenManager()))->SetEnabled(!PSP_IsInited());
 	// TODO: Come up with a way to display a keyboard for mobile users,
 	// so until then, this is Windows/Desktop only.
@@ -1043,52 +1115,41 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bSaveLoadResetsAVdumping, sy->T("Reset Recording on Save/Load State")));
 #endif
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, sy->T("Day Light Saving")));
-	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};
+	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, sy->T("Date Format"), dateFormat, 0, 3, sy->GetName(), screenManager()));
 	static const char *timeFormat[] = { "24HR", "12HR" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, sy->T("Time Format"), timeFormat, 0, 2, sy->GetName(), screenManager()));
 	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, sy->T("Confirmation Button"), buttonPref, 0, 2, sy->GetName(), screenManager()));
+}
 
-#if !defined(MOBILE_DEVICE) || PPSSPP_PLATFORM(ANDROID)
-	// Hide search if screen is too small.
-	if (dp_xres < dp_yres || dp_yres >= 500) {
-		// Search
-		LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
+void GameSettingsScreen::CreateVRSettings(UI::ViewGroup *vrSettings) {
+	using namespace UI;
 
-		searchSettings->Add(new ItemHeader(se->T("Find settings")));
-		if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
-			searchSettings->Add(new ChoiceWithValueDisplay(&searchFilter_, se->T("Filter"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
-		} else {
-			searchSettings->Add(new PopupTextInputChoice(&searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
-		}
-		clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
-		clearSearchChoice_->OnClick.Handle(this, &GameSettingsScreen::OnClearSearchFilter);
-		noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
+	auto vr = GetI18NCategory("VR");
 
-		ApplySearchFilter();
-	}
-#endif
+	vrSettings->Add(new ItemHeader(vr->T("Virtual reality")));
+	vrSettings->Add(new CheckBox(&g_Config.bEnableVR, vr->T("Virtual reality")));
+	CheckBox *vr6DoF = vrSettings->Add(new CheckBox(&g_Config.bEnable6DoF, vr->T("6DoF movement")));
+	vr6DoF->SetEnabledPtr(&g_Config.bEnableVR);
+	vrSettings->Add(new CheckBox(&g_Config.bEnableStereo, vr->T("Stereoscopic vision (Experimental)")));
+	vrSettings->Add(new CheckBox(&g_Config.bForce72Hz, vr->T("Force 72Hz update")));
 
-	if (deviceType == DEVICE_TYPE_VR) {
-		LinearLayout *vrSettings = AddTab("GameSettingsVR", ms->T("VR"));
-		vrSettings->Add(new ItemHeader(vr->T("Virtual reality")));
-		vrSettings->Add(new CheckBox(&g_Config.bEnableVR, vr->T("Virtual reality")));
-		CheckBox *vr6DoF = vrSettings->Add(new CheckBox(&g_Config.bEnable6DoF, vr->T("6DoF movement")));
-		vr6DoF->SetEnabledPtr(&g_Config.bEnableVR);
-		vrSettings->Add(new CheckBox(&g_Config.bEnableStereo, vr->T("Stereoscopic vision (Experimental)")));
-		vrSettings->Add(new CheckBox(&g_Config.bForce72Hz, vr->T("Force 72Hz update")));
+	vrSettings->Add(new ItemHeader(vr->T("VR camera")));
+	vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCanvasDistance, 1.0f, 15.0f, vr->T("Distance to 2D menus and scenes"), 1.0f, screenManager(), ""));
+	vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fFieldOfViewPercentage, 100.0f, 200.0f, vr->T("Field of view scale"), 10.0f, screenManager(), vr->T("% of native FoV")));
+	vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadUpDisplayScale, 0.0f, 1.5f, vr->T("Heads-up display scale"), 0.1f, screenManager(), ""));
 
-		vrSettings->Add(new ItemHeader(vr->T("VR camera")));
-		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCanvasDistance, 1.0f, 15.0f, vr->T("Distance to 2D menus and scenes"), 1.0f, screenManager(), ""));
-		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fFieldOfViewPercentage, 100.0f, 200.0f, vr->T("Field of view scale"), 10.0f, screenManager(), vr->T("% of native FoV")));
-		vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadUpDisplayScale, 0.0f, 1.5f, vr->T("Heads-up display scale"), 0.1f, screenManager(), ""));
-
-		vrSettings->Add(new ItemHeader(vr->T("VR controllers")));
-		vrSettings->Add(new CheckBox(&g_Config.bEnableMotions, vr->T("Map controller movements to keys")));
-		PopupSliderChoiceFloat *vrMotions = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMotionLength, 0.3f, 1.0f, vr->T("Motion needed to generate action"), 0.1f, screenManager(), vr->T("m")));
-		vrMotions->SetEnabledPtr(&g_Config.bEnableMotions);
-	}
+	vrSettings->Add(new ItemHeader(vr->T("Experts only")));
+	static const char *vrHeadRotations[] = { vr->T("Disabled"), vr->T("Horizontal only"), vr->T("Horizontal and vertical") };
+	vrSettings->Add(new PopupMultiChoice(&g_Config.iHeadRotation, vr->T("Map HMD rotations on keys instead of VR camera"), vrHeadRotations, 0, ARRAY_SIZE(vrHeadRotations), vr->GetName(), screenManager()));
+	PopupSliderChoiceFloat *vrHeadRotationScale = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadRotationScale, 0.1f, 10.0f, vr->T("Game camera rotation step per frame"), 0.1f, screenManager(), "°"));
+	vrHeadRotationScale->SetEnabledFunc([&] { return g_Config.iHeadRotation > 0; });
+	CheckBox *vrHeadRotationSmoothing = vrSettings->Add(new CheckBox(&g_Config.bHeadRotationSmoothing, vr->T("Game camera uses rotation smoothing")));
+	vrHeadRotationSmoothing->SetEnabledFunc([&] { return g_Config.iHeadRotation > 0; });
+	vrSettings->Add(new CheckBox(&g_Config.bEnableMotions, vr->T("Map controller movements to keys")));
+	PopupSliderChoiceFloat *vrMotions = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMotionLength, 0.3f, 1.0f, vr->T("Motion needed to generate action"), 0.1f, screenManager(), vr->T("m")));
+	vrMotions->SetEnabledPtr(&g_Config.bEnableMotions);
 }
 
 UI::LinearLayout *GameSettingsScreen::AddTab(const char *tag, const std::string &title, bool isSearch) {
@@ -1834,27 +1895,24 @@ void DeveloperToolsScreen::onFinish(DialogResult result) {
 }
 
 void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
-	if (yes)
-		g_Config.RestoreDefaults();
+	if (yes) {
+		g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS);
+	}
 	host->UpdateUI();
 }
 
 UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
 	auto dev = GetI18NCategory("Developer");
 	auto di = GetI18NCategory("Dialog");
-	if (g_Config.bGameSpecific)
-	{
+	auto sy = GetI18NCategory("System");
+	if (g_Config.bGameSpecific) {
 		screenManager()->push(
 			new PromptScreen(gamePath_, dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), di->T("OK"), di->T("Cancel"),
 			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));
+	} else {
+		const char *title = sy->T("Restore Default Settings");
+		screenManager()->push(new RestoreSettingsScreen(title));
 	}
-	else
-	{
-		screenManager()->push(
-			new PromptScreen(gamePath_, dev->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), di->T("OK"), di->T("Cancel"),
-			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));
-	}
-
 	return UI::EVENT_DONE;
 }
 
@@ -2195,4 +2253,33 @@ void GestureMappingScreen::CreateViews() {
 
 	vert->Add(new ItemHeader(co->T("Double tap")));
 	vert->Add(new PopupMultiChoice(&g_Config.iDoubleTapGesture, mc->T("Double tap button"), gestureButton, 0, ARRAY_SIZE(gestureButton), mc->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
+}
+
+RestoreSettingsScreen::RestoreSettingsScreen(const char *title)
+	: PopupScreen(title, "OK", "Cancel") {}
+
+void RestoreSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+	// Carefully re-use various translations.
+	auto ga = GetI18NCategory("Game");
+	auto ms = GetI18NCategory("MainSettings");
+	auto mm = GetI18NCategory("MainMenu");
+	auto dev = GetI18NCategory("Developer");
+
+	const char *text = dev->T(
+		"RestoreDefaultSettings",
+		"Restore these settings back to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings.");
+
+	TextView *textView = parent->Add(new TextView(text, FLAG_WRAP_TEXT, false));
+	textView->SetPadding(10.0f);
+
+	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::SETTINGS, ga->T("Game Settings")));
+	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::CONTROLS, ga->T("Controls")));
+	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::RECENT, mm->T("Recent")));
+}
+
+void RestoreSettingsScreen::OnCompleted(DialogResult result) {
+	if (result == DialogResult::DR_OK) {
+		g_Config.RestoreDefaults((RestoreSettingsBits)restoreFlags_);
+	}
 }

@@ -21,6 +21,7 @@ INCFLAGS += \
 	-I$(EXTDIR)/glslang-build \
 	-I$(EXTDIR)/native \
 	-I$(EXTDIR)/zlib \
+	-I$(EXTDIR)/cpu_features/include \
 	-I$(ZSTDDIR) \
 	-I$(EXTDIR)/snappy \
 	-I$(FFMPEGDIR) \
@@ -190,6 +191,32 @@ SOURCES_C += \
 	$(EXTDIR)/libpng17/pngwrite.c \
 	$(EXTDIR)/libpng17/pngwtran.c \
 	$(EXTDIR)/libpng17/pngwutil.c
+
+COREFLAGS += -DHAVE_STRONG_GETAUXVAL -DSTACK_LINE_READER_BUFFER_SIZE=1024
+ifneq (,$(findstring osx,$(platform)))
+ifneq (,$(findstring x86,$(TARGET_ARCH)))
+	COREFLAGS += -DHAVE_SYSCTLBYNAME
+endif
+endif
+SOURCES_C += \
+	$(EXTDIR)/cpu_features/src/filesystem.c \
+	$(EXTDIR)/cpu_features/src/impl_aarch64_linux_or_android.c \
+	$(EXTDIR)/cpu_features/src/impl_arm_linux_or_android.c \
+	$(EXTDIR)/cpu_features/src/impl_mips_linux_or_android.c \
+	$(EXTDIR)/cpu_features/src/impl_ppc_linux.c \
+	$(EXTDIR)/cpu_features/src/impl_riscv_linux.c \
+	$(EXTDIR)/cpu_features/src/impl_s390x_linux.c \
+	$(EXTDIR)/cpu_features/src/impl_x86_freebsd.c \
+	$(EXTDIR)/cpu_features/src/impl_x86_linux_or_android.c \
+	$(EXTDIR)/cpu_features/src/impl_x86_macos.c \
+	$(EXTDIR)/cpu_features/src/impl_x86_windows.c \
+	$(EXTDIR)/cpu_features/src/stack_line_reader.c \
+	$(EXTDIR)/cpu_features/src/string_view.c
+
+ifneq ($(PLATFORM_EXT), win32)
+SOURCES_C += \
+	$(EXTDIR)/cpu_features/src/hwcaps.c
+endif
 
 SOURCES_CXX += \
     $(EXTDIR)/vma/vk_mem_alloc.cpp

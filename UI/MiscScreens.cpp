@@ -842,7 +842,7 @@ UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
 #ifdef __ANDROID__
 	LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
 #else
-	LaunchBrowser("https://central.ppsspp.org/buygold");
+	LaunchBrowser("https://www.ppsspp.org/buygold");
 #endif
 	return UI::EVENT_DONE;
 }
@@ -862,7 +862,7 @@ UI::EventReturn CreditsScreen::OnPPSSPPOrg(UI::EventParams &e) {
 }
 
 UI::EventReturn CreditsScreen::OnPrivacy(UI::EventParams &e) {
-	LaunchBrowser("https://www.ppsspp.org/privacy.html");
+	LaunchBrowser("https://www.ppsspp.org/privacy");
 	return UI::EVENT_DONE;
 }
 

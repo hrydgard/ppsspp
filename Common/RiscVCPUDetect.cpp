@@ -18,6 +18,12 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(RISCV64)
 
+#include "ext/cpu_features/include/cpuinfo_riscv.h"
+
+#if defined(CPU_FEATURES_OS_LINUX)
+#define USE_CPU_FEATURES 1
+#endif
+
 #include <cstring>
 #include <set>
 #include <sstream>
@@ -174,20 +180,63 @@ void CPUInfo::Detect()
 	RiscV_C = ExtensionSupported(hwcap, 'C');
 	RiscV_V = ExtensionSupported(hwcap, 'V');
 	RiscV_B = ExtensionSupported(hwcap, 'B');
+	// Let's assume for now...
+	RiscV_Zicsr = RiscV_M && RiscV_A && RiscV_F && RiscV_D;
+
+#ifdef USE_CPU_FEATURES
+	cpu_features::RiscvInfo info = cpu_features::GetRiscvInfo();
+	CPU64bit = info.features.RV64I;
+	RiscV_M = info.features.M;
+	RiscV_A = info.features.A;
+	RiscV_F = info.features.F;
+	RiscV_D = info.features.D;
+	RiscV_C = info.features.C;
+	RiscV_Zicsr = info.features.Zicsr;
+
+	truncate_cpy(brand_string, info.uarch);
+#endif
+}
+
+std::vector<std::string> CPUInfo::Features() {
+	std::vector<std::string> features;
+
+	struct Flag {
+		bool &flag;
+		const char *str;
+	};
+	const Flag list[] = {
+		{ RiscV_M, "Muldiv" },
+		{ RiscV_A, "Atomic" },
+		{ RiscV_F, "Float" },
+		{ RiscV_D, "Double" },
+		{ RiscV_C, "Compressed" },
+		{ RiscV_V, "Vector" },
+		{ RiscV_B, "Bitmanip" },
+		{ RiscV_Zicsr, "Zicsr" },
+		{ CPU64bit, "64-bit" },
+	};
+
+	for (auto &item : list) {
+		if (item.flag) {
+			features.push_back(item.str);
+		}
+	}
+
+	return features;
 }
 
 // Turn the cpu info into a string we can show
-std::string CPUInfo::Summarize()
-{
+std::string CPUInfo::Summarize() {
 	std::string sum;
 	if (num_cores == 1)
 		sum = StringFromFormat("%s, %i core", cpu_string, num_cores);
 	else
 		sum = StringFromFormat("%s, %i cores", cpu_string, num_cores);
-	if (CPU64bit) sum += ", 64-bit";
 
-	//TODO: parse "isa : rv64imafdc" from /proc/cpuinfo
-
+	auto features = Features();
+	for (std::string &feature : features) {
+		sum += ", " + feature;
+	}
 	return sum;
 }
 
