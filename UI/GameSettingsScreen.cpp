@@ -76,7 +76,7 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-#include "UI/DarwinMemoryStickManager.h"
+#include "UI/DarwinFileSystemServices.h"
 #endif
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
@@ -1228,9 +1228,9 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-	DarwinMemoryStickManager memoryStickManager;
+	DarwinFileSystemServices memoryStickManager;
 	DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
-		DarwinMemoryStickManager::setUserPreferredMemoryStickDirectory(thePathChosen);
+		DarwinFileSystemServices::setUserPreferredMemoryStickDirectory(thePathChosen);
     };
 	
 	memoryStickManager.presentDirectoryPanel(callback);

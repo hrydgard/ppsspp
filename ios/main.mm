@@ -20,6 +20,7 @@
 #include "Common/System/System.h"
 #include "Common/StringUtils.h"
 #include "Common/Profiler/Profiler.h"
+#include "UI/DarwinFileSystemServices.h"
 
 static int (*csops)(pid_t pid, unsigned int ops, void * useraddr, size_t usersize);
 static boolean_t (*exc_server)(mach_msg_header_t *, mach_msg_header_t *);
@@ -201,6 +202,13 @@ void System_SendMessage(const char *command, const char *parameter) {
 			g_safeInsetTop = top;
 			g_safeInsetBottom = bottom;
 		}
+	} else if (!strcmp(command, "browse_folder")) {
+		DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
+				NativeMessageReceived("browse_folder", thePathChosen.c_str());
+		};
+		
+		DarwinFileSystemServices services;
+		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
 	}
 }
 

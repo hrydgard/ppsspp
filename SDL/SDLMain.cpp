@@ -58,6 +58,9 @@ SDLJoystick *joystick = NULL;
 #include "SDLGLGraphicsContext.h"
 #include "SDLVulkanGraphicsContext.h"
 
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#include "UI/DarwinFileSystemServices.h"
+#endif
 
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
@@ -185,7 +188,18 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "audio_resetDevice")) {
 		StopSDLAudioDevice();
 		InitSDLAudioDevice();
-	}
+    }
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+    else if (!strcmp(command, "browse_folder")) {
+        DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
+            NativeMessageReceived("browse_folder", thePathChosen.c_str());
+        };
+        
+        DarwinFileSystemServices services;
+        services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
+    }
+#endif
+    
 }
 
 void System_AskForPermission(SystemPermission permission) {}

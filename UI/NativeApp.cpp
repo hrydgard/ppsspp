@@ -142,7 +142,7 @@
 #endif
 
 #if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
-#include "UI/DarwinMemoryStickManager.h"
+#include "UI/DarwinFileSystemServices.h"
 #endif
 
 #include <Core/HLE/Plugins.h>
@@ -544,11 +544,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 #elif PPSSPP_PLATFORM(IOS)
 	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory;
-	g_Config.memStickDirectory = DarwinMemoryStickManager::appropriateMemoryStickDirectoryToUse();
+	g_Config.memStickDirectory = DarwinFileSystemServices::appropriateMemoryStickDirectoryToUse();
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(MAC)
 	g_Config.defaultCurrentDirectory = Path(getenv("HOME"));
-	g_Config.memStickDirectory = DarwinMemoryStickManager::appropriateMemoryStickDirectoryToUse();
+	g_Config.memStickDirectory = DarwinFileSystemServices::appropriateMemoryStickDirectoryToUse();
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
 	g_Config.memStickDirectory = g_Config.internalDataDirectory / "config/ppsspp";
@@ -1260,6 +1260,15 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	else if (msg == "app_resumed" || msg == "got_focus") {
 		// Assume that the user may have modified things.
 		MemoryStick_NotifyWrite();
+	} else if (msg == "browse_folder") {
+		Path thePath = Path(value);
+		File::FileInfo info;
+		if (!File::GetFileInfo(thePath, &info))
+			return;
+		if (info.isDirectory)
+			NativeMessageReceived("browse_folderSelect", thePath.c_str());
+		else
+			NativeMessageReceived("browse_fileSelect", thePath.c_str());
 	}
 }
 

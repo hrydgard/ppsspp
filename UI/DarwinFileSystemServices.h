@@ -1,12 +1,11 @@
 //
-//  DarwinMemoryStickManager.h
+//  DarwinFileSystemServices.h
 //  PPSSPP
 //
 //  Created by Serena on 20/01/2023.
 //
 
-#ifndef DarwinMemoryStickManager_h
-#define DarwinMemoryStickManager_h
+#pragma once
 
 #include "ppsspp_config.h"
 #include "Common/File/Path.h"
@@ -15,15 +14,14 @@
 
 typedef std::function<void (Path)> DarwinDirectoryPanelCallback;
 
-/// A Class to manage the memory stick on Darwin (macOS, iOS) platforms,
-/// consisting of meth(od)s to present the directory panel
-/// to choose the user preferred memory stick directory,
-/// to determine the appropriate memory stick directory,
-/// and to *set* the preferred memory stick directory.
-class DarwinMemoryStickManager {
+/// A Class providing help functions to work with the FileSystem
+/// on Darwin platforms.
+class DarwinFileSystemServices {
 public:
     /// Present a pannel to choose the directory as the memory stick manager.
-    void presentDirectoryPanel(DarwinDirectoryPanelCallback);
+	void presentDirectoryPanel(DarwinDirectoryPanelCallback,
+							   bool allowFiles = false,
+							   bool allowDirectories = true);
     
     static Path appropriateMemoryStickDirectoryToUse();
     static void setUserPreferredMemoryStickDirectory(Path);
@@ -34,5 +32,3 @@ private:
     void *__pickerDelegate = NULL;
 #endif // PPSSPP_PLATFORM(IOS)
 };
-
-#endif /* DarwinMemoryStickManager_h */
