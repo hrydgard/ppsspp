@@ -28,7 +28,7 @@
 using namespace PPSSPP_VK;
 
 // renderPass is an example of the "compatibility class" or RenderPassType type.
-bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount, double scheduleTime) {
+bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount, double scheduleTime, int countToCompile) {
 	bool multisample = RenderPassTypeHasMultisample(rpType);
 	if (multisample) {
 		if (sampleCount_ != VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM) {
@@ -125,11 +125,11 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	double taken_ms = (now - start) * 1000.0;
 
 	if (taken_ms < 0.1) {
-		DEBUG_LOG(G3D, "Pipeline time on %s: %0.2f ms, %0.2f ms since scheduling (fast) rpType: %04x sampleBits: %d (%s)",
-			GetCurrentThreadName(), taken_ms, taken_ms_since_scheduling, (u32)rpType, (u32)sampleCount, tag_.c_str());
+		DEBUG_LOG(G3D, "Pipeline (x/%d) time on %s: %0.2f ms, %0.2f ms since scheduling (fast) rpType: %04x sampleBits: %d (%s)",
+			countToCompile, GetCurrentThreadName(), taken_ms, taken_ms_since_scheduling, (u32)rpType, (u32)sampleCount, tag_.c_str());
 	} else {
-		INFO_LOG(G3D, "Pipeline time on %s: %0.2f ms, %0.2f ms since scheduling  rpType: %04x sampleBits: %d (%s)",
-			GetCurrentThreadName(), taken_ms, taken_ms_since_scheduling, (u32)rpType, (u32)sampleCount, tag_.c_str());
+		INFO_LOG(G3D, "Pipeline (x/%d) time on %s: %0.2f ms, %0.2f ms since scheduling  rpType: %04x sampleBits: %d (%s)",
+			countToCompile, GetCurrentThreadName(), taken_ms, taken_ms_since_scheduling, (u32)rpType, (u32)sampleCount, tag_.c_str());
 	}
 
 	bool success = true;
@@ -391,6 +391,7 @@ struct SinglePipelineTask {
 	RenderPassType rpType;
 	VkSampleCountFlagBits sampleCount;
 	double scheduleTime;
+	int countToCompile;
 };
 
 class CreateMultiPipelinesTask : public Task {
@@ -404,7 +405,7 @@ public:
 
 	void Run() override {
 		for (auto &task : tasks_) {
-			task.pipeline->Create(vulkan_, task.compatibleRenderPass, task.rpType, task.sampleCount, task.scheduleTime);
+			task.pipeline->Create(vulkan_, task.compatibleRenderPass, task.rpType, task.sampleCount, task.scheduleTime, task.countToCompile);
 		}
 	}
 
@@ -431,7 +432,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 			break;
 		}
 
-		NOTICE_LOG(G3D, "Compilation thread has %d pipelines to create", (int)toCompile.size());
+		int countToCompile = (int)toCompile.size();
 
 		// Here we sort the pending pipelines by vertex and fragment shaders,
 		std::map<std::pair<Promise<VkShaderModule> *, Promise<VkShaderModule> *>, std::vector<SinglePipelineTask>> map;
@@ -451,7 +452,8 @@ void VulkanRenderManager::CompileThreadFunc() {
 						entry.compatibleRenderPass,
 						entry.renderPassType,
 						entry.sampleCount,
-						scheduleTime,
+						scheduleTime,    // these two are for logging purposes.
+						countToCompile,
 					}
 				);
 				break;
