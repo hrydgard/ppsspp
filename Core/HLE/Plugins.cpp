@@ -29,7 +29,7 @@
 #include "Core/HLE/sceKernelModule.h"
 
 namespace HLEPlugins {
-std::map<int, float> PluginDataAxis;
+float PluginDataAxis[JOYSTICK_AXIS_MAX];
 std::map<int, uint8_t> PluginDataKeys;
 
 static bool anyEnabled = false;

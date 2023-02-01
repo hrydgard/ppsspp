@@ -269,6 +269,8 @@ typedef enum _keycode_t {
 	NKCODE_EXT_MOTION_LEFT = 1103,
 	NKCODE_EXT_MOTION_RIGHT = 1104,
 	NKCODE_EXT_MOTION_FORWARD = 1105,
+
+	NKCODE_MAX
 } keycode_t;
 
 enum AndroidJoystickAxis {
@@ -324,5 +326,6 @@ enum AndroidJoystickAxis {
 	JOYSTICK_AXIS_ACCELEROMETER_Y = 41,
 	JOYSTICK_AXIS_ACCELEROMETER_Z = 42,
 
+	// The numbers must NOT be changed, only additions are allowed
 	JOYSTICK_AXIS_MAX = 44
 };

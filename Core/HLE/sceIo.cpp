@@ -74,6 +74,7 @@ extern "C" {
 #include "System/Display.h"
 // For EMULATOR_DEVCTL__GET_AXIS/VKEY
 #include "Core/HLE/Plugins.h"
+#include "Input/KeyCodes.h"
 
 static const int ERROR_ERRNO_IO_ERROR                     = 0x80010005;
 static const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
@@ -2070,12 +2071,12 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			}
 			return 0;
 		case EMULATOR_DEVCTL__GET_AXIS:
-			if (Memory::IsValidAddress(outPtr)) {
+			if (Memory::IsValidAddress(outPtr) && (argAddr >= 0 && argAddr < JOYSTICK_AXIS_MAX)) {
 				Memory::Write_Float(HLEPlugins::PluginDataAxis[argAddr], outPtr);
 			}
 			return 0;
 		case EMULATOR_DEVCTL__GET_VKEY:
-			if (Memory::IsValidAddress(outPtr)) {
+			if (Memory::IsValidAddress(outPtr) && (argAddr >= 0 && argAddr < NKCODE_MAX)) {
 				Memory::Write_U8(HLEPlugins::PluginDataKeys[argAddr], outPtr);
 			}
 			return 0;
