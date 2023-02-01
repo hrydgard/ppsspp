@@ -23,7 +23,7 @@ endif()
 
 if(NOT MSVC)
    if (APPLE OR IOS)
-   	target_link_libraries(ppsspp_libretro "-Wl")
+   	target_link_libraries(ppsspp_libretro "-Wl,-exported_symbols_list,${CMAKE_CURRENT_SOURCE_DIR}/libretro.osx.def")
    else()
    	target_link_libraries(ppsspp_libretro "-Wl,-Bsymbolic")
    endif()
