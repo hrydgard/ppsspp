@@ -970,15 +970,12 @@ static const ConfigSetting controlSettings[] = {
 	// ConfigSetting("KeyMapping", &g_Config.iMappingMap, 0),
 
 #ifdef MOBILE_DEVICE
-	ConfigSetting("TiltBaseX", &g_Config.fTiltBaseX, 0.0f, true, true),
-	ConfigSetting("TiltBaseY", &g_Config.fTiltBaseY, 0.0f, true, true),
-	ConfigSetting("TiltOrientation", &g_Config.iTiltOrientation, 0, true, true),
-	ConfigSetting("InvertTiltX", &g_Config.bInvertTiltX, false, true, true),
-	ConfigSetting("InvertTiltY", &g_Config.bInvertTiltY, true, true, true),
-	ConfigSetting("TiltSensitivityX", &g_Config.iTiltSensitivityX, 50, true, true),
-	ConfigSetting("TiltSensitivityY", &g_Config.iTiltSensitivityY, 50, true, true),
-	ConfigSetting("DeadzoneRadius", &g_Config.fDeadzoneRadius, 0.05f, true, true),
-	ConfigSetting("TiltDeadzoneSkip", &g_Config.fTiltDeadzoneSkip, 0.0f, true, true),
+	ConfigSetting("TiltBaseAngleY", &g_Config.fTiltBaseAngleY, 0.9f, true, true),
+	ConfigSetting("TiltInvertX", &g_Config.bInvertTiltX, false, true, true),
+	ConfigSetting("TiltInvertY", &g_Config.bInvertTiltY, false, true, true),
+	ConfigSetting("TiltSensitivityX", &g_Config.iTiltSensitivityX, 70, true, true),
+	ConfigSetting("TiltSensitivityY", &g_Config.iTiltSensitivityY, 70, true, true),
+	ConfigSetting("DeadzoneRadius", &g_Config.fDeadzoneRadius, 0.0f, true, true),
 	ConfigSetting("TiltInputType", &g_Config.iTiltInputType, 0, true, true),
 #endif
 

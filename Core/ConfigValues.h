@@ -144,3 +144,12 @@ enum class ShowStatusFlags {
 	SPEED_COUNTER = 1 << 2,
 	BATTERY_PERCENT = 1 << 3,
 };
+
+// for iTiltInputType
+enum TiltTypes {
+	TILT_NULL = 0,
+	TILT_ANALOG,
+	TILT_DPAD,
+	TILT_ACTION_BUTTON,
+	TILT_TRIGGER_BUTTONS,
+};

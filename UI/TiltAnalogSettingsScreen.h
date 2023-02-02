@@ -17,10 +17,12 @@
 
 #pragma once
 
+#include "Common/Math/math_util.h"
 #include "Common/UI/View.h"
 #include "MiscScreens.h"
 
 class JoystickHistoryView;
+class GamepadView;
 
 class TiltAnalogSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
@@ -33,8 +35,8 @@ public:
 
 private:
 	UI::EventReturn OnCalibrate(UI::EventParams &e);
-	float currentTiltX_ = 0.0f;
-	float currentTiltY_ = 0.0f;
-
+	
+	Lin::Vec3 down_{};
 	JoystickHistoryView *tilt_ = nullptr;
+	GamepadView *gpView_ = nullptr;
 };
