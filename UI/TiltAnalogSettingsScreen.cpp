@@ -34,11 +34,21 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	auto co = GetI18NCategory("Controls");
 	auto di = GetI18NCategory("Dialog");
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	bool vertical = UseVerticalLayout();
+
+	root_ = new LinearLayout(vertical ? ORIENT_VERTICAL : ORIENT_HORIZONTAL);
 	root_->SetTag("TiltAnalogSettings");
 
-	ScrollView *menuRoot = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(600, FILL_PARENT));
-	root_->Add(menuRoot);
+	LinearLayout *settings = new LinearLayoutList(ORIENT_VERTICAL);
+
+	if (vertical) {
+		// Don't need a scrollview, probably..
+		root_->Add(settings);
+	} else {
+		ViewGroup *menuRoot = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(600, FILL_PARENT));
+		root_->Add(menuRoot);
+		menuRoot->Add(settings);
+	}
 
 	if (g_Config.iTiltInputType == TILT_ANALOG) {
 		tilt_ = new JoystickHistoryView(StickHistoryViewType::OTHER, "", new LinearLayoutParams(1.0f));
@@ -87,8 +97,6 @@ void TiltAnalogSettingsScreen::CreateViews() {
 		return g_Config.iTiltInputType != 0;
 	};
 
-	LinearLayout *settings = new LinearLayoutList(ORIENT_VERTICAL);
-
 	settings->SetSpacing(0);
 
 
@@ -120,8 +128,6 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, co->T("Tilt Sensitivity along X axis"), screenManager(), "%"))->SetEnabledFunc(enabledFunc);
 	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, co->T("Tilt Sensitivity along Y axis"), screenManager(), "%"))->SetEnabledFunc(enabledFunc);
 	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"))->SetEnabledFunc(enabledFunc);
-
-	menuRoot->Add(settings);
 
 	settings->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));
 	settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);

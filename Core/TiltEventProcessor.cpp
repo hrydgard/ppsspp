@@ -56,6 +56,8 @@ inline float clamp(float f) {
 Tilt GenTilt(bool landscape, float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float deadzone, float xSensitivity, float ySensitivity) {
 	if (landscape) {
 		std::swap(x, y);
+	} else {
+		x *= -1.0f;
 	}
 
 	Lin::Vec3 down(x, y, z);

@@ -1381,9 +1381,6 @@ void NativeAxis(const AxisInput &axis) {
 		return;
 	}
 
-	// create the base coordinate tilt system from the calibration data.
-	float tiltBaseAngleY = g_Config.fTiltBaseAngleY;
-
 	// figure out what the current tilt orientation is by checking the axis event
 	// This is static, since we need to remember where we last were (in terms of orientation)
 	static float tiltX;
@@ -1396,6 +1393,9 @@ void NativeAxis(const AxisInput &axis) {
 		case JOYSTICK_AXIS_ACCELEROMETER_Z: tiltZ = axis.value; break;
 		default: break;
 	}
+
+	// create the base coordinate tilt system from the calibration data.
+	float tiltBaseAngleY = g_Config.fTiltBaseAngleY;
 
 	// Figure out the sensitivity of the tilt. (sensitivity is originally 0 - 100)
 	// We divide by 50, so that the rest of the 50 units can be used to overshoot the
