@@ -970,7 +970,7 @@ static const ConfigSetting controlSettings[] = {
 	// ConfigSetting("KeyMapping", &g_Config.iMappingMap, 0),
 
 #ifdef MOBILE_DEVICE
-	ConfigSetting("TiltBaseAngleY", &g_Config.fTiltBaseAngleY, 0.0f, true, true),
+	ConfigSetting("TiltBaseAngleY", &g_Config.fTiltBaseAngleY, 0.9f, true, true),
 	ConfigSetting("TiltInvertX", &g_Config.bInvertTiltX, false, true, true),
 	ConfigSetting("TiltInvertY", &g_Config.bInvertTiltY, false, true, true),
 	ConfigSetting("TiltSensitivityX", &g_Config.iTiltSensitivityX, 70, true, true),
