@@ -152,6 +152,8 @@ float System_GetPropertyFloat(SystemProperty prop) {
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+		case SYSPROP_HAS_OPEN_DIRECTORY:
+			return false;
 		case SYSPROP_HAS_BACK_BUTTON:
 			return false;
 		case SYSPROP_APP_GOLD:
