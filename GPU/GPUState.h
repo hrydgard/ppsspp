@@ -549,7 +549,7 @@ struct GPUStateCache {
 	void SetTextureFullAlpha(bool fullAlpha) {
 		if (fullAlpha != textureFullAlpha) {
 			textureFullAlpha = fullAlpha;
-			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEX_ALPHA_MUL);
 		}
 	}
 	void SetNeedShaderTexclamp(bool need) {

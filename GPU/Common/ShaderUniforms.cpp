@@ -199,7 +199,11 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 
 	if (dirtyUniforms & DIRTY_TEX_ALPHA_MUL) {
-		ub->texNoAlpha = gstate.isTextureAlphaUsed() ? 0.0f : 1.0f;
+		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE) {
+			doTextureAlpha = false;
+		}
+		ub->texNoAlpha = doTextureAlpha ? 0.0f : 1.0f;
 		ub->texMul = gstate.isColorDoublingEnabled() ? 2.0f : 1.0f;
 	}
 
