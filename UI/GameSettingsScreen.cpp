@@ -694,7 +694,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
 		controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
 
-		Choice *customizeTilt = controlsSettings->Add(new Choice(co->T("Customize tilt")));
+		Choice *customizeTilt = controlsSettings->Add(new Choice(co->T("Tilt control setup")));
 		customizeTilt->OnClick.Handle(this, &GameSettingsScreen::OnTiltCustomize);
 		customizeTilt->SetEnabledFunc([] {
 			return g_Config.iTiltInputType != 0;

@@ -91,7 +91,9 @@ void TiltAnalogSettingsScreen::CreateViews() {
 
 	settings->SetSpacing(0);
 
+
 	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons" };
+	settings->Add(new ItemHeader(co->T("Tilt control setup")));
 	settings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), tiltTypes, 0, ARRAY_SIZE(tiltTypes), co->GetName(), screenManager()))->OnChoice.Add(
 		[=](UI::EventParams &p) {
 			//when the tilt event type is modified, we need to reset all tilt settings.
@@ -100,7 +102,6 @@ void TiltAnalogSettingsScreen::CreateViews() {
 			RecreateViews();
 			return UI::EVENT_DONE;
 		});
-
 	settings->Add(new ItemHeader(co->T("Calibration")));
 	TextView *calibrationInfo = new TextView(co->T("To Calibrate", "Hold device at your preferred angle and press Calibrate."));
 	calibrationInfo->SetSmall(true);
