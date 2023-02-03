@@ -25,53 +25,13 @@
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
+#include "Common/GPU/ShaderWriter.h"
 
-static const char *depth_dl_fs = R"(
-#ifdef GL_ES
-#ifdef GL_FRAGMENT_PRECISION_HIGH
-precision highp float;
-#else
-precision mediump float;
-#endif
-#endif
-#if __VERSION__ >= 130
-#define varying in
-#define texture2D texture
-#define gl_FragColor fragColor0
-out vec4 fragColor0;
-#endif
-varying vec2 v_texcoord;
-uniform vec4 u_depthFactor;
-uniform vec4 u_depthShift;
-uniform vec4 u_depthTo8;
-uniform sampler2D tex;
-void main() {
-  float depth = texture2D(tex, v_texcoord).r;
-  // At this point, clamped maps [0, 1] to [0, 65535].
-  float clamped = clamp((depth + u_depthFactor.x) * u_depthFactor.y, 0.0, 1.0);
 
-  vec4 enc = u_depthShift * clamped;
-  enc = floor(mod(enc, 256.0)) * u_depthTo8;
-  // Let's ignore the bits outside 16 bit precision.
-  gl_FragColor = enc.yzww;
-}
-)";
-
-static const char *depth_vs = R"(
-#ifdef GL_ES
-precision highp float;
-#endif
-#if __VERSION__ >= 130
-#define attribute in
-#define varying out
-#endif
-attribute vec2 a_position;
-varying vec2 v_texcoord;
-void main() {
-  v_texcoord = a_position * 2.0;
-  gl_Position = vec4(v_texcoord * 2.0 - vec2(1.0, 1.0), 0.0, 1.0);
-}
-)";
+static const InputDef inputs[2] = {
+	{ "vec2", "a_position", Draw::SEM_POSITION },
+	{ "vec2", "a_texcoord0", Draw::SEM_TEXCOORD0 },
+};
 
 struct DepthUB {
 	float u_depthFactor[4];
@@ -79,11 +39,44 @@ struct DepthUB {
 	float u_depthTo8[4];
 };
 
+const UniformDef depthUniforms[3] = {
+	{ "vec4", "u_depthFactor", 0 },
+	{ "vec4", "u_depthShift", 1},
+	{ "vec4", "u_depthTo8", 2},
+};
+
 const UniformBufferDesc depthUBDesc{ sizeof(DepthUB), {
 	{ "u_depthFactor", -1, -1, UniformType::FLOAT4, 0 },
 	{ "u_depthShift", -1, -1, UniformType::FLOAT4, 16 },
 	{ "u_depthTo8", -1, -1, UniformType::FLOAT4, 32 },
 } };
+
+static const SamplerDef samplers[1] = {
+	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN },
+};
+
+static const VaryingDef varyings[1] = {
+	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
+};
+
+void GenerateDepthDownloadFs(ShaderWriter &writer) {
+	writer.DeclareSamplers(samplers);
+	writer.BeginFSMain(depthUniforms, varyings);
+	writer.C("  float depth = texture2D(tex, v_texcoord).r;\n");
+	// At this point, clamped maps [0, 1] to [0, 65535].
+	writer.C("  float clamped = clamp((depth + u_depthFactor.x) * u_depthFactor.y, 0.0, 1.0);\n");
+	writer.C("  vec4 enc = u_depthShift * clamped;\n");
+	writer.C("  enc = floor(mod(enc, 256.0)) * u_depthTo8;\n");
+	writer.C("  vec4 outColor = enc.yzww;\n"); // Let's ignore the bits outside 16 bit precision.
+	writer.EndFSMain("outColor");
+}
+
+void GenerateDepthDownloadVs(ShaderWriter &writer) {
+	writer.BeginVSMain(inputs, Slice<UniformDef>::empty(), varyings);
+	writer.C("v_texcoord = a_position * 2.0;\n");
+	writer.C("gl_Position = vec4(v_texcoord * 2.0 - vec2(1.0, 1.0), 0.0, 1.0);");
+	writer.EndVSMain(varyings);
+}
 
 static const char *stencil_dl_fs = R"(
 #ifdef GL_ES
@@ -199,12 +192,16 @@ bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int
 	bool useColorPath = gl_extensions.IsGLES || scaleX != 1.0f || scaleY != 1.0f;
 	bool format16Bit = false;
 
-	// For testing. DO NOT merge.
-	useColorPath = true;
-
 	if (useColorPath) {
 		if (!depthReadbackPipeline_) {
-			depthReadbackPipeline_ = CreateReadbackPipeline(draw_, "depth_dl", &depthUBDesc, depth_dl_fs, "depth_dl_fs", depth_vs, "depth_vs");
+			const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
+			char depth_dl_fs[1024];
+			char depth_dl_vs[1024];
+			ShaderWriter fsWriter(depth_dl_fs, shaderLanguageDesc, ShaderStage::Fragment);
+			ShaderWriter vsWriter(depth_dl_vs, shaderLanguageDesc, ShaderStage::Vertex);
+			GenerateDepthDownloadFs(fsWriter);
+			GenerateDepthDownloadVs(vsWriter);
+			depthReadbackPipeline_ = CreateReadbackPipeline(draw_, "depth_dl", &depthUBDesc, depth_dl_fs, "depth_dl_fs", depth_dl_vs, "depth_dl_vs");
 			depthReadbackSampler_ = draw_->CreateSamplerState({});
 		}
 
