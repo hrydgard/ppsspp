@@ -441,6 +441,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\GPU\Common\DepthBufferCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\TextureShaderCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\DepalettizeShaderCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\Draw2D.cpp" />

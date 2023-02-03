@@ -21,10 +21,9 @@
 #include "Common/LogReporting.h"
 #include "Core/ConfigValues.h"
 #include "GPU/Common/GPUStateUtils.h"
-#include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/GLES/FramebufferManagerGLES.h"
-#include "GPU/GLES/ShaderManagerGLES.h"
-#include "GPU/GLES/TextureCacheGLES.h"
+#include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
+#include "GPU/Common/TextureCacheCommon.h"
 #include "Common/GPU/ShaderWriter.h"
 
 
@@ -123,7 +122,7 @@ static bool SupportsDepthTexturing() {
 	return gl_extensions.ARB_texture_float;
 }
 
-static Draw::Pipeline *CreateReadbackPipeline(Draw::DrawContext *draw, const char *tag, const UniformBufferDesc *ubDesc, const char *fs, const char *fsTag, const char *vs, const char *vsTag) {
+Draw::Pipeline *CreateReadbackPipeline(Draw::DrawContext *draw, const char *tag, const UniformBufferDesc *ubDesc, const char *fs, const char *fsTag, const char *vs, const char *vsTag) {
 	using namespace Draw;
 
 	const ShaderLanguageDesc &shaderLanguageDesc = draw->GetShaderLanguageDesc();
@@ -268,7 +267,7 @@ bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, i
 		// TODO: Apply this in the shader?  May have precision issues if it becomes important to match.
 		// We downloaded float values directly in this case.
 		uint16_t *dest = pixels;
-		const GLfloat *packedf = (GLfloat *)convBuf_;
+		const float *packedf = (float *)convBuf_;
 		DepthScaleFactors depthScale = GetDepthScaleFactors();
 		for (int yp = 0; yp < h; ++yp) {
 			for (int xp = 0; xp < w; ++xp) {
@@ -284,78 +283,6 @@ bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, i
 			dest += pixelsStride;
 			packedf += w;
 		}
-	}
-
-	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
-	return true;
-}
-
-// Well, this is not depth, but it's depth/stencil related.
-bool FramebufferManagerGLES::ReadbackStencilbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride) {
-	using namespace Draw;
-
-	if (!fbo) {
-		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "ReadbackStencilbufferSync: bad fbo");
-		return false;
-	}
-
-	const bool useColorPath = gl_extensions.IsGLES;
-	if (!useColorPath) {
-		return draw_->CopyFramebufferToMemorySync(fbo, FB_STENCIL_BIT, x, y, w, h, DataFormat::S8, pixels, pixelsStride, "ReadbackStencilbufferSync");
-	}
-
-	// Unsupported below GLES 3.1 or without ARB_stencil_texturing.
-	// OES_texture_stencil8 is related, but used to specify texture data.
-	if ((gl_extensions.IsGLES && !gl_extensions.VersionGEThan(3, 1)) && !gl_extensions.ARB_stencil_texturing)
-		return false;
-
-	// Pixel size always 4 here because we always request RGBA back.
-	const u32 bufSize = w * h * 4;
-	if (!convBuf_ || convBufSize_ < bufSize) {
-		delete[] convBuf_;
-		convBuf_ = new u8[bufSize];
-		convBufSize_ = bufSize;
-	}
-
-	if (!stencilReadbackPipeline_) {
-		stencilReadbackPipeline_ = CreateReadbackPipeline(draw_, "stencil_dl", &depthUBDesc, stencil_dl_fs, "stencil_dl_fs", stencil_vs, "stencil_vs");
-		stencilReadbackSampler_ = draw_->CreateSamplerState({});
-	}
-
-	shaderManager_->DirtyLastShader();
-	auto *blitFBO = GetTempFBO(TempFBO::COPY, fbo->Width(), fbo->Height());
-	draw_->BindFramebufferAsRenderTarget(blitFBO, { RPAction::DONT_CARE, RPAction::DONT_CARE, RPAction::DONT_CARE }, "ReadbackStencilbufferSync");
-	Draw::Viewport viewport = { 0.0f, 0.0f, (float)fbo->Width(), (float)fbo->Height(), 0.0f, 1.0f };
-	draw_->SetViewports(1, &viewport);
-
-	draw_->BindFramebufferAsTexture(fbo, TEX_SLOT_PSP_TEXTURE, FB_STENCIL_BIT, 0);
-	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &stencilReadbackSampler_);
-
-	// We must bind the program after starting the render pass.
-	draw_->SetScissorRect(0, 0, w, h);
-	draw_->BindPipeline(stencilReadbackPipeline_);
-
-	// Fullscreen triangle coordinates.
-	static const float positions[6] = {
-		0.0, 0.0,
-		1.0, 0.0,
-		0.0, 1.0,
-	};
-	draw_->DrawUP(positions, 3);
-
-	draw_->CopyFramebufferToMemorySync(blitFBO, FB_COLOR_BIT, x, y, w, h, DataFormat::R8G8B8A8_UNORM, convBuf_, w, "ReadbackStencilbufferSync");
-
-	textureCache_->ForgetLastTexture();
-
-	// TODO: Use 1/4 width to write all values directly and skip CPU conversion?
-	uint8_t *dest = pixels;
-	const u32_le *packed32 = (u32_le *)convBuf_;
-	for (int yp = 0; yp < h; ++yp) {
-		for (int xp = 0; xp < w; ++xp) {
-			dest[xp] = packed32[xp] & 0xFF;
-		}
-		dest += pixelsStride;
-		packed32 += w;
 	}
 
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);

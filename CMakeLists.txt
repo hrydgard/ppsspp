@@ -1499,7 +1499,7 @@ if(NOT MOBILE_DEVICE)
 endif()
 
 set(GPU_GLES
-	GPU/GLES/DepthBufferGLES.cpp
+	GPU/GLES/StencilBufferGLES.cpp
 	GPU/GLES/GPU_GLES.cpp
 	GPU/GLES/GPU_GLES.h
 	GPU/GLES/FragmentTestCacheGLES.cpp
@@ -1580,6 +1580,7 @@ set(GPU_SOURCES
 	${GPU_NEON}
 	GPU/Common/Draw2D.cpp
 	GPU/Common/Draw2D.h
+	GPU/Common/DepthBufferCommon.cpp
 	GPU/Common/TextureShaderCommon.cpp
 	GPU/Common/TextureShaderCommon.h
 	GPU/Common/DepalettizeShaderCommon.cpp
