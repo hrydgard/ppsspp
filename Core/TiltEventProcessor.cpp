@@ -1,5 +1,6 @@
 #define _USE_MATH_DEFINES
 
+#include <algorithm>
 #include <cmath>
 
 #include "Common/Math/math_util.h"

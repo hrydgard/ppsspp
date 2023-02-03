@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "UI/JoystickHistoryView.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/UI.h"
