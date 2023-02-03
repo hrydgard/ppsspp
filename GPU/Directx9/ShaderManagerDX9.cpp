@@ -286,8 +286,12 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 		PSSetFloat(CONST_PS_STENCILREPLACE, (float)gstate.getStencilTestRef() * (1.0f / 255.0f));
 	}
 	if (dirtyUniforms & DIRTY_TEX_ALPHA_MUL) {
+		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE) {
+			doTextureAlpha = false;
+		}
 		// NOTE: Reversed value, more efficient in shader.
-		PSSetFloat(CONST_PS_TEX_NO_ALPHA, gstate.isTextureAlphaUsed() ? 0.0f : 1.0f);
+		PSSetFloat(CONST_PS_TEX_NO_ALPHA, doTextureAlpha ? 0.0f : 1.0f);
 		PSSetFloat(CONST_PS_TEX_MUL, gstate.isColorDoublingEnabled() ? 2.0f : 1.0f);
 	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
