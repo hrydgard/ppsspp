@@ -207,6 +207,7 @@ namespace MIPSInt
 
 		u32 addr = R(rs) + imm;
 		float *f;
+		const float *cf;
 
 		switch (op >> 26)
 		{
@@ -245,9 +246,9 @@ namespace MIPSInt
 				_dbg_assert_msg_( 0, "Misaligned lv.q at %08x (pc = %08x)", addr, PC);
 			}
 #ifndef COMMON_BIG_ENDIAN
-			f = reinterpret_cast<float *>(Memory::GetPointerWrite(addr));
-			if (f)
-				WriteVector(f, V_Quad, vt);
+			cf = reinterpret_cast<const float *>(Memory::GetPointerRange(addr, 16));
+			if (cf)
+				WriteVector(cf, V_Quad, vt);
 #else
 			float lvqd[4];
 
@@ -294,7 +295,7 @@ namespace MIPSInt
 				_dbg_assert_msg_( 0, "Misaligned sv.q at %08x (pc = %08x)", addr, PC);
 			}
 #ifndef COMMON_BIG_ENDIAN
-			f = reinterpret_cast<float *>(Memory::GetPointerWrite(addr));
+			f = reinterpret_cast<float *>(Memory::GetPointerWriteRange(addr, 16));
 			if (f)
 				ReadVector(f, V_Quad, vt);
 #else

@@ -17,7 +17,7 @@ public:
 
 	bool Key(const KeyInput &key, bool *pauseTrigger);
 	void pspKey(int deviceId, int pspKeyCode, int flags);
-	bool Axis(const AxisInput &axis);
+	void Axis(const AxisInput &axis);
 
 	// Required callbacks
 	void SetCallbacks(

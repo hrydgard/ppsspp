@@ -49,6 +49,7 @@
     <ClCompile Include="GameScreen.cpp" />
     <ClCompile Include="GameSettingsScreen.cpp" />
     <ClCompile Include="GPUDriverTestScreen.cpp" />
+    <ClCompile Include="JoystickHistoryView.cpp" />
     <ClCompile Include="MainScreen.cpp" />
     <ClCompile Include="MemStickScreen.cpp" />
     <ClCompile Include="MiscScreens.cpp" />
@@ -61,7 +62,6 @@
     <ClCompile Include="SavedataScreen.cpp" />
     <ClCompile Include="Store.cpp" />
     <ClCompile Include="TiltAnalogSettingsScreen.cpp" />
-    <ClCompile Include="TiltEventProcessor.cpp" />
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
     <ClCompile Include="TouchControlVisibilityScreen.cpp" />
     <ClCompile Include="InstallZipScreen.cpp" />
@@ -83,6 +83,7 @@
     <ClInclude Include="CwCheatScreen.h" />
     <ClInclude Include="GPUDriverTestScreen.h" />
     <ClInclude Include="HostTypes.h" />
+    <ClInclude Include="JoystickHistoryView.h" />
     <ClInclude Include="MainScreen.h" />
     <ClInclude Include="MemStickScreen.h" />
     <ClInclude Include="MiscScreens.h" />
@@ -94,7 +95,6 @@
     <ClInclude Include="SavedataScreen.h" />
     <ClInclude Include="Store.h" />
     <ClInclude Include="TiltAnalogSettingsScreen.h" />
-    <ClInclude Include="TiltEventProcessor.h" />
     <ClInclude Include="TouchControlLayoutScreen.h" />
     <ClInclude Include="TouchControlVisibilityScreen.h" />
     <ClInclude Include="InstallZipScreen.h" />

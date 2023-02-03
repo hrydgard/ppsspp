@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstdint>
 
+#include <map>
 #include <sstream>
 
 #include "Common/Log.h"
@@ -27,7 +28,7 @@
 using namespace PPSSPP_VK;
 
 // renderPass is an example of the "compatibility class" or RenderPassType type.
-bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount) {
+bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount, double scheduleTime, int countToCompile) {
 	bool multisample = RenderPassTypeHasMultisample(rpType);
 	if (multisample) {
 		if (sampleCount_ != VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM) {
@@ -118,12 +119,17 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	double start = time_now_d();
 	VkPipeline vkpipeline;
 	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &pipe, nullptr, &vkpipeline);
-	double taken_ms = (time_now_d() - start) * 1000.0;
+
+	double now = time_now_d();
+	double taken_ms_since_scheduling = (now - scheduleTime) * 1000.0;
+	double taken_ms = (now - start) * 1000.0;
 
 	if (taken_ms < 0.1) {
-		DEBUG_LOG(G3D, "Pipeline creation time: %0.2f ms (fast) rpType: %08x sampleBits: %d\n(%s)", taken_ms, (u32)rpType, (u32)sampleCount, tag_.c_str());
+		DEBUG_LOG(G3D, "Pipeline (x/%d) time on %s: %0.2f ms, %0.2f ms since scheduling (fast) rpType: %04x sampleBits: %d (%s)",
+			countToCompile, GetCurrentThreadName(), taken_ms, taken_ms_since_scheduling, (u32)rpType, (u32)sampleCount, tag_.c_str());
 	} else {
-		INFO_LOG(G3D, "Pipeline creation time: %0.2f ms  rpType: %08x sampleBits: %d\n(%s)", taken_ms, (u32)rpType, (u32)sampleCount, tag_.c_str());
+		INFO_LOG(G3D, "Pipeline (x/%d) time on %s: %0.2f ms, %0.2f ms since scheduling  rpType: %04x sampleBits: %d (%s)",
+			countToCompile, GetCurrentThreadName(), taken_ms, taken_ms_since_scheduling, (u32)rpType, (u32)sampleCount, tag_.c_str());
 	}
 
 	bool success = true;
@@ -169,10 +175,31 @@ void VKRGraphicsPipeline::DestroyVariants(VulkanContext *vulkan, bool msaaOnly) 
 	sampleCount_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
 }
 
+void VKRGraphicsPipeline::DestroyVariantsInstant(VkDevice device) {
+	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
+		if (pipeline[i]) {
+			vkDestroyPipeline(device, pipeline[i]->BlockUntilReady(), nullptr);
+			delete pipeline[i];
+			pipeline[i] = nullptr;
+		}
+	}
+}
+
+VKRGraphicsPipeline::~VKRGraphicsPipeline() {
+	// This is called from the callbacked queued in QueueForDeletion.
+	// Here we are free to directly delete stuff, don't need to queue.
+	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
+		_assert_(!pipeline[i]);
+	}
+	if (desc)
+		desc->Release();
+}
+
 void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
-	DestroyVariants(vulkan, false);
-	vulkan->Delete().QueueCallback([](void *p) {
+	// Can't destroy variants here, the pipeline still lives for a while.
+	vulkan->Delete().QueueCallback([](VulkanContext *vulkan, void *p) {
 		VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;
+		pipeline->DestroyVariantsInstant(vulkan->GetDevice());
 		delete pipeline;
 	}, this);
 }
@@ -197,26 +224,27 @@ void VKRGraphicsPipeline::LogCreationFailure() const {
 	ERROR_LOG(G3D, "======== END OF PIPELINE ==========");
 }
 
-bool VKRComputePipeline::Create(VulkanContext *vulkan) {
+bool VKRComputePipeline::CreateAsync(VulkanContext *vulkan) {
 	if (!desc) {
 		// Already failed to create this one.
 		return false;
 	}
-	VkPipeline vkpipeline;
-	VkResult result = vkCreateComputePipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &vkpipeline);
+	pipeline->SpawnEmpty(&g_threadManager, [=] {
+		VkPipeline vkpipeline;
+		VkResult result = vkCreateComputePipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &vkpipeline);
 
-	bool success = true;
-	if (result != VK_SUCCESS) {
-		pipeline->Post(VK_NULL_HANDLE);
-		ERROR_LOG(G3D, "Failed creating compute pipeline! result='%s'", VulkanResultToString(result));
-		success = false;
-	} else {
-		pipeline->Post(vkpipeline);
-	}
-
-	delete desc;
+		bool success = true;
+		if (result == VK_SUCCESS) {
+			return vkpipeline;
+		} else {
+			ERROR_LOG(G3D, "Failed creating compute pipeline! result='%s'", VulkanResultToString(result));
+			success = false;
+			return (VkPipeline)VK_NULL_HANDLE;
+		}
+		delete desc;
+	}, TaskType::CPU_COMPUTE);
 	desc = nullptr;
-	return success;
+	return true;
 }
 
 VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan)
@@ -349,7 +377,6 @@ VulkanRenderManager::~VulkanRenderManager() {
 
 	vulkan_->WaitUntilQueueIdle();
 
-	DrainCompileQueue();
 	VkDevice device = vulkan_->GetDevice();
 	frameDataShared_.Destroy(vulkan_);
 	for (int i = 0; i < inflightFramesAtStart_; i++) {
@@ -358,12 +385,43 @@ VulkanRenderManager::~VulkanRenderManager() {
 	queueRunner_.DestroyDeviceObjects();
 }
 
+struct SinglePipelineTask {
+	VKRGraphicsPipeline *pipeline;
+	VkRenderPass compatibleRenderPass;
+	RenderPassType rpType;
+	VkSampleCountFlagBits sampleCount;
+	double scheduleTime;
+	int countToCompile;
+};
+
+class CreateMultiPipelinesTask : public Task {
+public:
+	CreateMultiPipelinesTask(VulkanContext *vulkan, std::vector<SinglePipelineTask> tasks) : vulkan_(vulkan), tasks_(tasks) {}
+	~CreateMultiPipelinesTask() {}
+
+	TaskType Type() const override {
+		return TaskType::CPU_COMPUTE;
+	}
+
+	void Run() override {
+		for (auto &task : tasks_) {
+			task.pipeline->Create(vulkan_, task.compatibleRenderPass, task.rpType, task.sampleCount, task.scheduleTime, task.countToCompile);
+		}
+	}
+
+	VulkanContext *vulkan_;
+	std::vector<SinglePipelineTask> tasks_;
+};
+
 void VulkanRenderManager::CompileThreadFunc() {
 	SetCurrentThreadName("ShaderCompile");
 	while (true) {
 		std::vector<CompileQueueEntry> toCompile;
 		{
 			std::unique_lock<std::mutex> lock(compileMutex_);
+			// TODO: Should this be while?
+			// It may be beneficial also to unlock and wait a little bit to see if we get some more shaders
+			// so we can do a better job of thread-sorting them.
 			if (compileQueue_.empty() && run_) {
 				compileCond_.wait(lock);
 			}
@@ -374,24 +432,46 @@ void VulkanRenderManager::CompileThreadFunc() {
 			break;
 		}
 
-		double time = time_now_d();
-		// TODO: Here we can sort the pending pipelines by vertex and fragment shaders,
-		// and split up further.
-		// Those with the same pairs of shaders should be on the same thread.
+		int countToCompile = (int)toCompile.size();
+
+		// Here we sort the pending pipelines by vertex and fragment shaders,
+		std::map<std::pair<Promise<VkShaderModule> *, Promise<VkShaderModule> *>, std::vector<SinglePipelineTask>> map;
+
+		double scheduleTime = time_now_d();
+
+		// Here we sort pending graphics pipelines by vertex and fragment shaders, and split up further.
+		// Those with the same pairs of shaders should be on the same thread, at least on NVIDIA.
+		// I don't think PowerVR cares though, it doesn't seem to reuse information between the compiles,
+		// so we might want a different splitting algorithm there.
 		for (auto &entry : toCompile) {
 			switch (entry.type) {
 			case CompileQueueEntry::Type::GRAPHICS:
-				entry.graphics->Create(vulkan_, entry.compatibleRenderPass, entry.renderPassType, entry.sampleCount);
+				map[std::pair< Promise<VkShaderModule> *, Promise<VkShaderModule> *>(entry.graphics->desc->vertexShader, entry.graphics->desc->fragmentShader)].push_back(
+					SinglePipelineTask{
+						entry.graphics,
+						entry.compatibleRenderPass,
+						entry.renderPassType,
+						entry.sampleCount,
+						scheduleTime,    // these two are for logging purposes.
+						countToCompile,
+					}
+				);
 				break;
 			case CompileQueueEntry::Type::COMPUTE:
-				entry.compute->Create(vulkan_);
+				// Queue up pending compute pipelines on separate tasks.
+				entry.compute->CreateAsync(vulkan_);
 				break;
 			}
 		}
 
-		double delta = time_now_d() - time;
-		if (delta > 0.005f) {
-			INFO_LOG(G3D, "CompileThreadFunc: Creating %d pipelines took %0.3f ms", (int)toCompile.size(), delta * 1000.0f);
+		for (auto iter : map) {
+			auto &shaders = iter.first;
+			auto &entries = iter.second;
+
+			// NOTICE_LOG(G3D, "For this shader pair, we have %d pipelines to create", (int)entries.size());
+
+			Task *task = new CreateMultiPipelinesTask(vulkan_, entries);
+			g_threadManager.EnqueueTask(task);
 		}
 
 		queueRunner_.NotifyCompileDone();
@@ -537,7 +617,7 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	return frameData_[curFrame].GetInitCmd(vulkan_);
 }
 
-VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, const char *tag) {
+VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag) {
 	VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline(pipelineFlags, tag);
 
 	if (!desc->vertexShader || !desc->fragmentShader) {
@@ -547,8 +627,8 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 
 	pipeline->desc = desc;
 	pipeline->desc->AddRef();
-	if (curRenderStep_) {
-		// The common case
+	if (curRenderStep_ && !cacheLoad) {
+		// The common case during gameplay.
 		pipelinesToCheck_.push_back(pipeline);
 	} else {
 		if (!variantBitmask) {
@@ -1176,11 +1256,11 @@ void VulkanRenderManager::Finish() {
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 
+	VLOG("PUSH: Frame[%d]", curFrame);
+	VKRRenderThreadTask task;
+	task.frame = curFrame;
+	task.runType = VKRRunType::PRESENT;
 	{
-		VLOG("PUSH: Frame[%d]", curFrame);
-		VKRRenderThreadTask task;
-		task.frame = curFrame;
-		task.runType = VKRRunType::PRESENT;
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
 		renderThreadQueue_.back().steps = std::move(steps_);
@@ -1306,7 +1386,7 @@ void VulkanRenderManager::FlushSync() {
 		std::unique_lock<std::mutex> lock(syncMutex_);
 		// Wait for the flush to be hit, since we're syncing.
 		while (!frameData.syncDone) {
-			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (sync)", curFrame);
+			VLOG("PUSH: Waiting for frame[%d].syncDone = 1 (sync)", curFrame);
 			syncCondVar_.wait(lock);
 		}
 		frameData.syncDone = false;

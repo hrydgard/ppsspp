@@ -270,7 +270,7 @@ public:
 
 	// UI
 	bool bShowDebuggerOnLoad;
-	int iShowFPSCounter;
+	int iShowStatusFlags;
 	bool bShowRegionOnGameIcon;
 	bool bShowIDOnGameIcon;
 	float fGameGridScale;
@@ -285,12 +285,11 @@ public:
 	bool bShowAudioDebug;
 	bool bShowGpuProfile;
 
-	//Analog stick tilting
-	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input
-	//considers this orientation to be equal to no movement of the analog stick.
-	float fTiltBaseX, fTiltBaseY;
-	int iTiltOrientation;
-	//whether the x axes and y axes should invert directions (left becomes right, top becomes bottom.)
+	// Analog stick tilting
+	// This is the held base angle, that we compute the tilt relative from.
+	float fTiltBaseAngleY;
+	// whether the x axes and y axes should invert directions (left becomes right, top becomes bottom.)
+	// TODO: Do we really need these?
 	bool bInvertTiltX, bInvertTiltY;
 	//the sensitivity of the tilt in the x direction
 	int iTiltSensitivityX;
@@ -298,8 +297,6 @@ public:
 	int iTiltSensitivityY;
 	//the deadzone radius of the tilt
 	float fDeadzoneRadius;
-	// deadzone skip
-	float fTiltDeadzoneSkip;
 	//type of tilt input currently selected: Defined in TiltEventProcessor.h
 	//0 - no tilt, 1 - analog stick, 2 - D-Pad, 3 - Action Buttons (Tri, Cross, Square, Circle)
 	int iTiltInputType;
@@ -419,9 +416,6 @@ public:
 
 	bool bSystemControls;
 
-	// Use the hardware scaler to scale up the image to save fillrate. Similar to Windows' window size, really.
-	int iAndroidHwScale;  // 0 = device resolution. 1 = 480x272 (extended to correct aspect), 2 = 960x544 etc.
-
 	// Risky JIT optimizations
 	bool bDiscardRegsOnJRRA;
 
@@ -478,6 +472,9 @@ public:
 	float fFieldOfViewPercentage;
 	float fHeadUpDisplayScale;
 	float fMotionLength;
+	float fHeadRotationScale;
+	bool bHeadRotationSmoothing;
+	int iHeadRotation;
 
 	// Debugger
 	int iDisasmWindowX;
@@ -526,7 +523,7 @@ public:
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	bool Save(const char *saveReason);
 	void Reload();
-	void RestoreDefaults();
+	void RestoreDefaults(RestoreSettingsBits whatToRestore);
 
 	//per game config managment, should maybe be in it's own class
 	void changeGameSpecific(const std::string &gameId = "", const std::string &title = "");
@@ -570,6 +567,8 @@ public:
 	void ClearRecentIsos();
 
 	const std::map<std::string, std::pair<std::string, int>> &GetLangValuesMapping();
+	bool LoadAppendedConfig();
+	void SetAppendedConfigIni(const Path &path);
 
 protected:
 	void LoadStandardControllerIni();
@@ -588,6 +587,9 @@ private:
 	Path iniFilename_;
 	Path controllerIniFilename_;
 	Path searchPath_;
+	Path appendedConfigFileName_;
+	// A set make more sense, but won't have many entry, and I dont want to include the whole std::set header here
+	std::vector<std::string> appendedConfigUpdatedGames_;
 	ConfigPrivate *private_ = nullptr;
 };
 

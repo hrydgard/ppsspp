@@ -263,12 +263,20 @@ typedef enum _keycode_t {
 	NKCODE_EXT_MOUSEWHEEL_UP = 1008,
 	NKCODE_EXT_MOUSEWHEEL_DOWN = 1009,
 
-	// Virtual reality controller motion
+	// Virtual reality motion
 	NKCODE_EXT_MOTION_UP = 1101,
 	NKCODE_EXT_MOTION_DOWN = 1102,
 	NKCODE_EXT_MOTION_LEFT = 1103,
 	NKCODE_EXT_MOTION_RIGHT = 1104,
 	NKCODE_EXT_MOTION_FORWARD = 1105,
+
+	// Virtual reality rotation
+	NKCODE_EXT_ROTATION_UP = 1111,
+	NKCODE_EXT_ROTATION_DOWN = 1112,
+	NKCODE_EXT_ROTATION_LEFT = 1113,
+	NKCODE_EXT_ROTATION_RIGHT = 1114,
+
+	NKCODE_MAX
 } keycode_t;
 
 enum AndroidJoystickAxis {
@@ -313,16 +321,11 @@ enum AndroidJoystickAxis {
 	JOYSTICK_AXIS_MOUSE_REL_X = 26,
 	JOYSTICK_AXIS_MOUSE_REL_Y = 27,
 
-	// Getting these on Ouya, no clue what they are.
-	JOYSTICK_AXIS_OUYA_UNKNOWN1 = 32,
-	JOYSTICK_AXIS_OUYA_UNKNOWN2 = 33,
-	JOYSTICK_AXIS_OUYA_UNKNOWN3 = 34,
-	JOYSTICK_AXIS_OUYA_UNKNOWN4 = 35,
-
 	// Mobile device accelerometer/gyro
 	JOYSTICK_AXIS_ACCELEROMETER_X = 40,
 	JOYSTICK_AXIS_ACCELEROMETER_Y = 41,
 	JOYSTICK_AXIS_ACCELEROMETER_Z = 42,
 
+	// The numbers must NOT be changed, only additions are allowed
 	JOYSTICK_AXIS_MAX = 44
 };

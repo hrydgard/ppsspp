@@ -65,7 +65,12 @@ static uint64_t HashJitBlock(const JitBlock &b) {
 	PROFILE_THIS_SCOPE("jithash");
 	if (JIT_USE_COMPILEDHASH) {
 		// Includes the emuhack (or emuhacks) in memory.
-		return XXH3_64bits(Memory::GetPointer(b.originalAddress), b.originalSize * 4);
+		if (Memory::IsValidRange(b.originalAddress, b.originalSize * 4)) {
+			return XXH3_64bits(Memory::GetPointerUnchecked(b.originalAddress), b.originalSize * 4);
+		} else {
+			// Hm, this would be bad.
+			return 0;
+		}
 	}
 	return 0;
 }
@@ -639,6 +644,9 @@ int JitBlockCache::GetBlockExitSize() {
 #elif PPSSPP_ARCH(ARM64)
 	// Will depend on the sequence found to encode the destination address.
 	return 0;
+#elif PPSSPP_ARCH(RISCV64)
+	// Will depend on the sequence found to encode the destination address.
+	return 0;
 #else
 #warning GetBlockExitSize unimplemented
 	return 0;
@@ -690,6 +698,8 @@ JitBlockDebugInfo JitBlockCache::GetBlockDebugInfo(int blockNum) const {
 	debugInfo.targetDisasm = DisassembleArm64(block->normalEntry, block->codeSize);
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	debugInfo.targetDisasm = DisassembleX86(block->normalEntry, block->codeSize);
+#elif PPSSPP_ARCH(ARM64)
+	debugInfo.targetDisasm = DisassembleRV64(block->normalEntry, block->codeSize);
 #endif
 
 	return debugInfo;

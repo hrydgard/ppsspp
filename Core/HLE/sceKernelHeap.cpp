@@ -73,29 +73,27 @@ static int sceKernelCreateHeap(int partitionId, int size, int flags, const char 
 static int sceKernelAllocHeapMemory(int heapId, int size) {
 	u32 error;
 	KernelHeap *heap = kernelObjects.Get<KernelHeap>(heapId, error);
-	if (heap) {
-		// There's 8 bytes at the end of every block, reserved.
-		u32 memSize = KERNEL_HEAP_BLOCK_HEADER_SIZE + size;
-		u32 addr = heap->alloc.Alloc(memSize, true);
-		return hleLogSuccessInfoX(SCEKERNEL, addr);
-	} else {
-		return hleLogError(SCEKERNEL, error, "invalid heapId");
-	}
+	if (!heap)
+		return hleLogError(SCEKERNEL, error, "sceKernelAllocHeapMemory(%d): invalid heapId", heapId);
+
+	// There's 8 bytes at the end of every block, reserved.
+	u32 memSize = KERNEL_HEAP_BLOCK_HEADER_SIZE + size;
+	u32 addr = heap->alloc.Alloc(memSize, true);
+	return hleLogSuccessInfoX(SCEKERNEL, addr);
 }
 
 static int sceKernelDeleteHeap(int heapId) {
 	u32 error;
 	KernelHeap *heap = kernelObjects.Get<KernelHeap>(heapId, error);
-	if (heap) {
-		// Not using heap->partitionId here for backwards compatibility with old save states.
-		BlockAllocator *allocator = BlockAllocatorFromAddr(heap->address);
-		if (allocator)
-			allocator->Free(heap->address);
-		kernelObjects.Destroy<KernelHeap>(heap->uid);
-		return hleLogSuccessInfoX(SCEKERNEL, 0);
-	} else {
-		return hleLogError(SCEKERNEL, error, "invalid heapId");
-	}
+	if (!heap)
+		return hleLogError(SCEKERNEL, error, "sceKernelDeleteHeap(%d): invalid heapId", heapId);
+
+	// Not using heap->partitionId here for backwards compatibility with old save states.
+	BlockAllocator *allocator = BlockAllocatorFromAddr(heap->address);
+	if (allocator)
+		allocator->Free(heap->address);
+	kernelObjects.Destroy<KernelHeap>(heap->uid);
+	return hleLogSuccessInfoX(SCEKERNEL, 0);
 }
 
 static u32 sceKernelPartitionTotalFreeMemSize(int partitionId) {
@@ -120,18 +118,56 @@ static u32 SysMemForKernel_536AD5E1()
 	return 0;
 }
 
+static int sceKernelFreeHeapMemory(int heapId, u32 block) {
+	u32 error;
+	KernelHeap* heap = kernelObjects.Get<KernelHeap>(heapId, error);
+	if (!heap)
+		return hleLogError(SCEKERNEL, error, "sceKernelFreeHeapMemory(%d): invalid heapId", heapId);
+	if (block == 0) {
+		return hleLogSuccessInfoI(SCEKERNEL, 0, "sceKernelFreeHeapMemory(%d): heapId,0: block", heapId);
+	}
+	if (!heap->alloc.FreeExact(block)) {
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid pointer %08x", block);
+	}
+	return hleLogSuccessInfoI(SCEKERNEL, 0, "sceKernelFreeHeapMemory(%d): heapId, block", heapId, block);
+
+}
+
+static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 paramsPtr) {
+	u32 error;
+	KernelHeap* heap = kernelObjects.Get<KernelHeap>(heapId, error);
+	if (!heap)
+		return hleLogError(SCEKERNEL, error, "sceKernelFreeHeapMemory(%d): invalid heapId", heapId);
+	u32 grain = 4;
+	// 0 is ignored.
+	if (paramsPtr != 0) {
+		u32 size = Memory::Read_U32(paramsPtr);
+		if (size < 8)
+			return hleLogError(SCEKERNEL, 0, "invalid param size");
+		if (size > 8)
+			WARN_LOG(HLE, "sceKernelAllocHeapMemoryWithOption(): unexpected param size %d", size);
+		grain = Memory::Read_U32(paramsPtr + 4);
+	}
+	INFO_LOG(HLE, "sceKernelAllocHeapMemoryWithOption(%08x, %08x, %08x)", heapId, memSize, paramsPtr);
+	// There's 8 bytes at the end of every block, reserved.
+	memSize += 8;
+	u32 addr = heap->alloc.AllocAligned(memSize, grain, grain, true);
+	return addr;
+}
 
 const HLEFunction SysMemForKernel[] = {
-	{ 0X636C953B, &WrapI_II<sceKernelAllocHeapMemory>, "sceKernelAllocHeapMemory", 'x', "ii",                                  HLE_KERNEL_SYSCALL },
-	{ 0XC9805775, &WrapI_I<sceKernelDeleteHeap>,       "sceKernelDeleteHeap",      'i', "i" ,                                  HLE_KERNEL_SYSCALL },
-	{ 0X1C1FBFE7, &WrapI_IIIC<sceKernelCreateHeap>,    "sceKernelCreateHeap",      'i', "iixs",                                HLE_KERNEL_SYSCALL },
-	{ 0X237DBD4F, &WrapI_ICIUU<sceKernelAllocPartitionMemory>,     "sceKernelAllocPartitionMemory",         'i', "isixx",      HLE_KERNEL_SYSCALL },
-	{ 0XB6D61D02, &WrapI_I<sceKernelFreePartitionMemory>,          "sceKernelFreePartitionMemory",          'i', "i",          HLE_KERNEL_SYSCALL },
-	{ 0X9D9A5BA1, &WrapU_I<sceKernelGetBlockHeadAddr>,             "sceKernelGetBlockHeadAddr",             'x', "i",          HLE_KERNEL_SYSCALL },
-	{ 0x9697CD32, &WrapU_I<sceKernelPartitionTotalFreeMemSize>,           "sceKernelPartitionTotalFreeMemSize",       'x', "i",HLE_KERNEL_SYSCALL },
-	{ 0xE6581468, &WrapU_I<sceKernelPartitionMaxFreeMemSize>,             "sceKernelPartitionMaxFreeMemSize",         'x', "i",HLE_KERNEL_SYSCALL },
-	{ 0X3FC9AE6A, &WrapU_V<sceKernelDevkitVersion>,                "sceKernelDevkitVersion",                'x', ""           ,HLE_KERNEL_SYSCALL },
-	{ 0x536AD5E1, &WrapU_V<SysMemForKernel_536AD5E1>,       "SysMemForKernel_536AD5E1",      'i', "i"                         ,HLE_KERNEL_SYSCALL },
+	{ 0X636C953B, &WrapI_II<sceKernelAllocHeapMemory>,             "sceKernelAllocHeapMemory",           'x', "ii",    HLE_KERNEL_SYSCALL },
+	{ 0XC9805775, &WrapI_I<sceKernelDeleteHeap>,                   "sceKernelDeleteHeap",                'i', "i" ,    HLE_KERNEL_SYSCALL },
+	{ 0X1C1FBFE7, &WrapI_IIIC<sceKernelCreateHeap>,                "sceKernelCreateHeap",                'i', "iixs",  HLE_KERNEL_SYSCALL },
+	{ 0X237DBD4F, &WrapI_ICIUU<sceKernelAllocPartitionMemory>,     "sceKernelAllocPartitionMemory",      'i', "isixx", HLE_KERNEL_SYSCALL },
+	{ 0XB6D61D02, &WrapI_I<sceKernelFreePartitionMemory>,          "sceKernelFreePartitionMemory",       'i', "i",     HLE_KERNEL_SYSCALL },
+	{ 0X9D9A5BA1, &WrapU_I<sceKernelGetBlockHeadAddr>,             "sceKernelGetBlockHeadAddr",          'x', "i",     HLE_KERNEL_SYSCALL },
+	{ 0x9697CD32, &WrapU_I<sceKernelPartitionTotalFreeMemSize>,    "sceKernelPartitionTotalFreeMemSize", 'x', "i" ,    HLE_KERNEL_SYSCALL },
+	{ 0xE6581468, &WrapU_I<sceKernelPartitionMaxFreeMemSize>,      "sceKernelPartitionMaxFreeMemSize",   'x', "i" ,    HLE_KERNEL_SYSCALL },
+	{ 0X3FC9AE6A, &WrapU_V<sceKernelDevkitVersion>,                "sceKernelDevkitVersion",             'x', "" ,     HLE_KERNEL_SYSCALL },
+	{ 0X536AD5E1, &WrapU_V<SysMemForKernel_536AD5E1>,              "SysMemForKernel_536AD5E1",           'i', "i" ,    HLE_KERNEL_SYSCALL },
+	{ 0X7B749390, &WrapI_IU<sceKernelFreeHeapMemory>,              "sceKernelFreeHeapMemory",            'i', "ix" ,   HLE_KERNEL_SYSCALL },
+	{ 0XEB7A74DB , &WrapI_IUU<sceKernelAllocHeapMemoryWithOption>, "sceKernelAllocHeapMemoryWithOption", 'i', "ixp" ,  HLE_KERNEL_SYSCALL },
 };
 
 void Register_SysMemForKernel() {

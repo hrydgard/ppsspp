@@ -32,7 +32,6 @@ public:
 	~FramebufferManagerGLES();
 
 	void NotifyDisplayResized() override;
-	void DeviceLost() override;
 
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 
@@ -44,10 +43,4 @@ protected:
 private:
 	u8 *convBuf_ = nullptr;
 	u32 convBufSize_ = 0;
-
-	GLRProgram *depthDownloadProgram_ = nullptr;
-	int u_depthDownloadTex = -1;
-	int u_depthDownloadFactor = -1;
-	int u_depthDownloadShift = -1;
-	int u_depthDownloadTo8 = -1;
 };

@@ -124,7 +124,7 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base) {
 	void *retval = mmap(base, size, PROT_READ | PROT_WRITE, MAP_SHARED | ((base == 0) ? 0 : MAP_FIXED), fd, offset);
 	if (retval == MAP_FAILED) {
 		NOTICE_LOG(MEMMAP, "mmap on ashmem (fd: %d) failed", (int)fd);
-		return 0;
+		return nullptr;
 	}
 	return retval;
 }
@@ -156,8 +156,13 @@ u8* MemArena::Find4GBBase() {
 	}
 #else
 	// Address masking is used in 32-bit mode, so we can get away with less memory.
-	void* base = mmap(0, 0x10000000, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
-	_assert_msg_(base != MAP_FAILED, "Failed to map 256 MB of memory space: %s", strerror(errno));
+	void *base = mmap(0, 0x10000000, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
+
+	if (base == MAP_FAILED) {
+		ERROR_LOG(SYSTEM, "Failed to map 256 MB of memory space: %s", strerror(errno));
+		return nullptr;
+	}
+
 	munmap(base, 0x10000000);
 	return static_cast<u8*>(base);
 #endif

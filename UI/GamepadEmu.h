@@ -36,12 +36,17 @@ public:
 	void Update() override;
 	std::string DescribeText() const override;
 
+	void SetForceVisible(bool visible) {
+		forceVisible_ = visible;
+	}
+
 protected:
 	virtual float GetButtonOpacity();
 
 	const char *key_;
 	double lastFrameTime_;
 	float secondsWithoutTouch_ = 0.0;
+	bool forceVisible_ = false;
 };
 
 class MultiTouchButton : public GamepadView {
@@ -319,6 +324,10 @@ namespace CustomKey {
 #ifndef MOBILE_DEVICE
 		{ ImageID::invalid(), VIRTKEY_RECORD },
 #endif
+		{ ImageID::invalid(), VIRTKEY_AXIS_X_MIN },
+		{ ImageID::invalid(), VIRTKEY_AXIS_Y_MIN },
+		{ ImageID::invalid(), VIRTKEY_AXIS_X_MAX },
+		{ ImageID::invalid(), VIRTKEY_AXIS_Y_MAX },
 	};
 	static_assert(ARRAY_SIZE(comboKeyList) <= 64, "Too many key for a uint64_t bit mask");
 };
@@ -357,5 +366,9 @@ namespace GestureKey {
 #ifndef MOBILE_DEVICE
 		VIRTKEY_RECORD,
 #endif
+		VIRTKEY_AXIS_X_MIN,
+		VIRTKEY_AXIS_Y_MIN,
+		VIRTKEY_AXIS_X_MAX,
+		VIRTKEY_AXIS_Y_MAX,
 	};
 }

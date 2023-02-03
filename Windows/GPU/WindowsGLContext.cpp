@@ -432,7 +432,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::OPENGL);
-	renderManager_->SetSwapFunction([&]() {::SwapBuffers(hDC); });
+	renderManager_->SetSwapFunction([&]() {::SwapBuffers(hDC); }, true);
 	if (wglSwapIntervalEXT) {
 		// glew loads wglSwapIntervalEXT if available
 		renderManager_->SetSwapIntervalFunction([&](int interval) {
@@ -500,6 +500,5 @@ void WindowsGLContext::ThreadEnd() {
 }
 
 void WindowsGLContext::StopThread() {
-	renderManager_->WaitUntilQueueIdle();
 	renderManager_->StopThread();
 }

@@ -58,6 +58,9 @@ SDLJoystick *joystick = NULL;
 #include "SDLGLGraphicsContext.h"
 #include "SDLVulkanGraphicsContext.h"
 
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#include "UI/DarwinFileSystemServices.h"
+#endif
 
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
@@ -99,7 +102,7 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 	fmt.freq = 44100;
 	fmt.format = AUDIO_S16;
 	fmt.channels = 2;
-	fmt.samples = 1024;
+	fmt.samples = 256;
 	fmt.callback = &sdl_mixaudio_callback;
 	fmt.userdata = nullptr;
 
@@ -185,7 +188,18 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "audio_resetDevice")) {
 		StopSDLAudioDevice();
 		InitSDLAudioDevice();
-	}
+    }
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+    else if (!strcmp(command, "browse_folder")) {
+        DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
+            NativeMessageReceived("browse_folder", thePathChosen.c_str());
+        };
+        
+        DarwinFileSystemServices services;
+        services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
+    }
+#endif
+    
 }
 
 void System_AskForPermission(SystemPermission permission) {}
@@ -1011,7 +1025,7 @@ int main(int argc, char *argv[]) {
 				case SDL_BUTTON_LEFT:
 					{
 						mouseDown = true;
-						TouchInput input;
+						TouchInput input{};
 						input.x = mx;
 						input.y = my;
 						input.flags = TOUCH_DOWN | TOUCH_MOUSE;
@@ -1065,7 +1079,7 @@ int main(int argc, char *argv[]) {
 				}
 			case SDL_MOUSEMOTION:
 				if (mouseDown) {
-					TouchInput input;
+					TouchInput input{};
 					input.x = mx;
 					input.y = my;
 					input.flags = TOUCH_MOVE | TOUCH_MOUSE;
@@ -1080,7 +1094,7 @@ int main(int argc, char *argv[]) {
 				case SDL_BUTTON_LEFT:
 					{
 						mouseDown = false;
-						TouchInput input;
+						TouchInput input{};
 						input.x = mx;
 						input.y = my;
 						input.flags = TOUCH_UP | TOUCH_MOUSE;

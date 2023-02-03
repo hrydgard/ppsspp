@@ -42,6 +42,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Net/Resolve.h"
+#include "W32Util/DarkMode.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -280,6 +281,23 @@ static int ScreenDPI() {
 #endif
 #endif
 
+static int ScreenRefreshRateHz() {
+	DEVMODE lpDevMode;
+	memset(&lpDevMode, 0, sizeof(DEVMODE));
+	lpDevMode.dmSize = sizeof(DEVMODE);
+	lpDevMode.dmDriverExtra = 0;
+
+	if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &lpDevMode) == 0) {
+		return 60;  // default value
+	} else {
+		if (lpDevMode.dmFields & DM_DISPLAYFREQUENCY) {
+			return lpDevMode.dmDisplayFrequency > 60 ? lpDevMode.dmDisplayFrequency : 60;
+		} else {
+			return 60;
+		}
+	}
+}
+
 int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
@@ -311,7 +329,7 @@ int System_GetPropertyInt(SystemProperty prop) {
 float System_GetPropertyFloat(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return 60.f;
+		return (float)ScreenRefreshRateHz();
 	case SYSPROP_DISPLAY_DPI:
 		return (float)ScreenDPI();
 	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
@@ -536,6 +554,8 @@ static void WinMainInit() {
 	// FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM (fixed in SP1). Just disable it.
 	_set_FMA3_enable(0);
 #endif
+
+	InitDarkMode();
 }
 
 static void WinMainCleanup() {

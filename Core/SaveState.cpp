@@ -164,6 +164,8 @@ namespace SaveState
 				compressThread_.join();
 			compressThread_ = std::thread([=]{
 				SetCurrentThreadName("SaveStateCompress");
+
+				// Should do no I/O, so no JNI thread context needed.
 				Compress(*result, *state, *base);
 			});
 		}

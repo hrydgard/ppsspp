@@ -22,6 +22,7 @@
 #ifndef _MSC_VER
 #include <strings.h>
 #endif
+#include "Common/Common.h"
 #include "Common/CommonFuncs.h"
 
 const int PSP_MODEL_FAT = 0;
@@ -64,6 +65,13 @@ enum class GPUBackend {
 	DIRECT3D11 = 2,
 	VULKAN = 3,
 };
+
+enum class RestoreSettingsBits : int {
+	SETTINGS = 1,
+	CONTROLS = 2,
+	RECENT = 4,
+};
+ENUM_CLASS_BITOPS(RestoreSettingsBits);
 
 inline std::string GPUBackendToString(GPUBackend backend) {
 	switch (backend) {
@@ -128,4 +136,20 @@ enum class AnalogFpsMode {
 	AUTO = 0,
 	MAPPED_DIRECTION = 1,
 	MAPPED_DIR_TO_OPPOSITE_DIR = 2,
+};
+
+// for Config.iShowStatusFlags
+enum class ShowStatusFlags {
+	FPS_COUNTER = 1 << 1,
+	SPEED_COUNTER = 1 << 2,
+	BATTERY_PERCENT = 1 << 3,
+};
+
+// for iTiltInputType
+enum TiltTypes {
+	TILT_NULL = 0,
+	TILT_ANALOG,
+	TILT_DPAD,
+	TILT_ACTION_BUTTON,
+	TILT_TRIGGER_BUTTONS,
 };

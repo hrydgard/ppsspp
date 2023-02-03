@@ -12,7 +12,7 @@
 	url = https://github.com/Kingcom/armips.git
 [submodule "ext/glslang"]
 	path = ext/glslang
-	url = https://github.com/hrydgard/glslang.git
+	url = https://github.com/KhronosGroup/glslang.git
 [submodule "ext/SPIRV-Cross"]
 	path = ext/SPIRV-Cross
 	url = https://github.com/KhronosGroup/SPIRV-Cross.git
@@ -38,3 +38,6 @@
 	path = assets/debugger
 	url = https://github.com/unknownbrackets/ppsspp-debugger.git
 	branch = bundled
+[submodule "cpu_features"]
+	path = ext/cpu_features
+	url = https://github.com/google/cpu_features.git

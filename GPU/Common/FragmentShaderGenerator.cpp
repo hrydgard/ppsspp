@@ -96,18 +96,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	p.ApplySamplerMetadata(arrayTexture ? samplersStereo : samplersMono);
 
-	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
-	bool enableFog = id.Bit(FS_BIT_ENABLE_FOG);
 	bool enableAlphaTest = id.Bit(FS_BIT_ALPHA_TEST);
 
 	bool alphaTestAgainstZero = id.Bit(FS_BIT_ALPHA_AGAINST_ZERO);
 	bool testForceToZero = id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO);
 	bool enableColorTest = id.Bit(FS_BIT_COLOR_TEST);
 	bool colorTestAgainstZero = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
-	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
-	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
 
 	if (texture3D && arrayTexture) {
 		*errorString = "Invalid combination of 3D texture and array texture, shouldn't happen";
@@ -137,7 +133,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool needShaderTexClamp = id.Bit(FS_BIT_SHADER_TEX_CLAMP);
 
 	GETexFunc texFunc = (GETexFunc)id.Bits(FS_BIT_TEXFUNC, 3);
-	bool textureAtOffset = id.Bit(FS_BIT_TEXTURE_AT_OFFSET);
 
 	ReplaceBlendType replaceBlend = static_cast<ReplaceBlendType>(id.Bits(FS_BIT_REPLACE_BLEND, 3));
 
@@ -209,8 +204,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		// Note: the precision qualifiers must match the vertex shader!
 		WRITE(p, "layout (location = 1) %s in lowp vec4 v_color0;\n", shading);
-		if (lmode)
-			WRITE(p, "layout (location = 2) %s in lowp vec3 v_color1;\n", shading);
+		WRITE(p, "layout (location = 2) %s in lowp vec3 v_color1;\n", shading);
 		WRITE(p, "layout (location = 3) in highp float v_fogdepth;\n");
 		if (doTexture) {
 			WRITE(p, "layout (location = 0) in highp vec3 v_texcoord;\n");
@@ -248,9 +242,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			if (needShaderTexClamp && doTexture) {
 				WRITE(p, "vec4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
-				if (textureAtOffset) {
-					WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
-				}
+				WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
 			}
 
 			if (enableAlphaTest || enableColorTest) {
@@ -260,12 +252,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
 				WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
 			}
-			if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
-				WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
+			if (doTexture) {
+				if (texFunc == GE_TEXFUNC_BLEND) {
+					WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
+				}
+				WRITE(p, "float u_texNoAlpha : register(c%i);\n", CONST_PS_TEX_NO_ALPHA);
+				WRITE(p, "float u_texMul : register(c%i);\n", CONST_PS_TEX_MUL);
 			}
-			if (enableFog) {
-				WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
-			}
+			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
 			if (texture3D) {
 				WRITE(p, "float u_mipBias : register(c%i);\n", CONST_PS_MIPBIAS);
 			}
@@ -308,14 +302,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		WRITE(p, "struct PS_IN {\n");
-		if (doTexture) {
+		if (doTexture || compat.shaderLanguage == HLSL_D3D11) {
+			// In D3D11, if we always have a texcoord in the VS, we always need it in the PS too for the structs to match.
 			WRITE(p, "  vec3 v_texcoord: TEXCOORD0;\n");
 		}
 		const char *colorInterpolation = doFlatShading && compat.shaderLanguage == HLSL_D3D11 ? "nointerpolation " : "";
 		WRITE(p, "  %svec4 v_color0: COLOR0;\n", colorInterpolation);
-		if (lmode) {
-			WRITE(p, "  vec3 v_color1: COLOR1;\n");
-		}
+		WRITE(p, "  vec3 v_color1: COLOR1;\n");
 		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 		if (needFragCoord) {
 			if (compat.shaderLanguage == HLSL_D3D11) {
@@ -358,6 +351,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			} else {
 				WRITE(p, "uniform sampler2D tex;\n");
 			}
+			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
+			WRITE(p, "uniform float u_texNoAlpha;\n");
+			WRITE(p, "uniform float u_texMul;\n");
 		}
 
 		if (readFramebufferTex) {
@@ -380,9 +376,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (needShaderTexClamp && doTexture) {
 			*uniformMask |= DIRTY_TEXCLAMP;
 			WRITE(p, "uniform vec4 u_texclamp;\n");
-			if (id.Bit(FS_BIT_TEXTURE_AT_OFFSET)) {
-				WRITE(p, "uniform vec2 u_texclampoff;\n");
-			}
+			WRITE(p, "uniform vec2 u_texclampoff;\n");
 		}
 
 		if (enableAlphaTest || enableColorTest) {
@@ -428,12 +422,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);
-		if (lmode)
-			WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
-		if (enableFog) {
-			*uniformMask |= DIRTY_FOGCOLOR;
-			WRITE(p, "uniform vec3 u_fogcolor;\n");
-		}
+		WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
+		*uniformMask |= DIRTY_FOGCOLOR;
+		WRITE(p, "uniform vec3 u_fogcolor;\n");
 		WRITE(p, "%s %s float v_fogdepth;\n", compat.varying_fs, highpFog ? "highp" : "mediump");
 		if (doTexture) {
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_fs, highpTexcoord ? "highp" : "mediump");
@@ -539,11 +530,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "  vec4 v_color0 = In.v_color0;\n");
-		if (lmode)
-			WRITE(p, "  vec3 v_color1 = In.v_color1;\n");
-		if (enableFog) {
-			WRITE(p, "  float v_fogdepth = In.v_fogdepth;\n");
-		}
+		WRITE(p, "  vec3 v_color1 = In.v_color1;\n");
+		WRITE(p, "  float v_fogdepth = In.v_fogdepth;\n");
 		if (doTexture) {
 			WRITE(p, "  vec3 v_texcoord = In.v_texcoord;\n");
 		}
@@ -578,14 +566,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		// Clear mode does not allow any fancy shading.
 		WRITE(p, "  vec4 v = v_color0;\n");
 	} else {
-		const char *secondary = "";
 		// Secondary color for specular on top of texture
-		if (lmode) {
-			WRITE(p, "  vec4 s = vec4(v_color1, 0.0);\n");
-			secondary = " + s";
-		} else {
-			secondary = "";
-		}
+		WRITE(p, "  vec4 s = vec4(v_color1, 0.0);\n");
 
 		if (doTexture) {
 			char texcoord[64] = "v_texcoord";
@@ -621,10 +603,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				} else {
 					vcoord = modulo + "(" + vcoord + ", u_texclamp.y)";
 				}
-				if (textureAtOffset) {
-					ucoord = "(" + ucoord + " + u_texclampoff.x)";
-					vcoord = "(" + vcoord + " + u_texclampoff.y)";
-				}
+				ucoord = "(" + ucoord + " + u_texclampoff.x)";
+				vcoord = "(" + vcoord + " + u_texclampoff.y)";
 
 				WRITE(p, "  vec2 fixedcoord = vec2(%s, %s);\n", ucoord.c_str(), vcoord.c_str());
 				truncate_cpy(texcoord, "fixedcoord");
@@ -836,77 +816,49 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				break;
 			}
 
-			if (texFunc != GE_TEXFUNC_REPLACE || !doTextureAlpha)
-				WRITE(p, "  vec4 p = v_color0;\n");
+			WRITE(p, "  vec4 p = v_color0;\n");
 
-			if (doTextureAlpha) { // texfmt == RGBA
-				switch (texFunc) {
-				case GE_TEXFUNC_MODULATE:
-					WRITE(p, "  vec4 v = p * t%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_DECAL:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, t.rgb, t.a), p.a)%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_REPLACE:
-					WRITE(p, "  vec4 v = t%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_ADD:
-				case GE_TEXFUNC_UNKNOWN1:
-				case GE_TEXFUNC_UNKNOWN2:
-				case GE_TEXFUNC_UNKNOWN3:
-					WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a)%s;\n", secondary); 
-					break;
-				default:
-					WRITE(p, "  vec4 v = p;\n"); break;
-				}
-			} else { // texfmt == RGB
-				switch (texFunc) {
-				case GE_TEXFUNC_MODULATE:
-					WRITE(p, "  vec4 v = vec4(t.rgb * p.rgb, p.a)%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_DECAL:
-					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a)%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_REPLACE:
-					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); 
-					break;
-
-				case GE_TEXFUNC_ADD:
-				case GE_TEXFUNC_UNKNOWN1:
-				case GE_TEXFUNC_UNKNOWN2:
-				case GE_TEXFUNC_UNKNOWN3:
-					WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a)%s;\n", secondary); break;
-				default:
-					WRITE(p, "  vec4 v = p;\n"); break;
-				}
+			if (texFunc != GE_TEXFUNC_REPLACE) {
+				WRITE(p, "  t.a = max(t.a, u_texNoAlpha);\n");
 			}
 
-			if (enableColorDoubling) {
-				// This happens before fog is applied.
-				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
+			switch (texFunc) {
+			case GE_TEXFUNC_MODULATE:
+				WRITE(p, "  vec4 v = p * t + s;\n");
+				break;
+			case GE_TEXFUNC_DECAL:
+				WRITE(p, "  vec4 v = vec4(mix(p.rgb, t.rgb, t.a), p.a) + s;\n");
+				break;
+			case GE_TEXFUNC_BLEND:
+				WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a) + s;\n");
+				break;
+			case GE_TEXFUNC_REPLACE:
+				WRITE(p, "  vec4 r = t;\n");
+				WRITE(p, "  r.a = mix(r.a, p.a, u_texNoAlpha);\n");
+				WRITE(p, "  vec4 v = r + s;\n");
+				break;
+			case GE_TEXFUNC_ADD:
+			case GE_TEXFUNC_UNKNOWN1:
+			case GE_TEXFUNC_UNKNOWN2:
+			case GE_TEXFUNC_UNKNOWN3:
+				WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a) + s;\n");
+				break;
+			default:
+				// Doesn't happen
+				WRITE(p, "  vec4 v = p + s;\n"); break;
+				break;
 			}
+
+			// This happens before fog is applied.
+			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
+			WRITE(p, "  v.rgb = clamp(v.rgb * u_texMul, 0.0, 1.0);\n");
 		} else {
 			// No texture mapping
-			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
+			WRITE(p, "  vec4 v = v_color0 + s;\n");
 		}
 
-		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
-		}
+		WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
+		WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 
 		// Texture access is at half texels [0.5/256, 255.5/256], but colors are normalized [0, 255].
 		// So we have to scale to account for the difference.

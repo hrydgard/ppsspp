@@ -45,6 +45,10 @@ DebuggerSubscriber *WebSocketMemoryInit(DebuggerEventHandlerMap &map) {
 }
 
 struct AutoDisabledReplacements {
+	AutoDisabledReplacements() {}
+	AutoDisabledReplacements(AutoDisabledReplacements &&other);
+	AutoDisabledReplacements(const AutoDisabledReplacements &) = delete;
+	AutoDisabledReplacements &operator =(const AutoDisabledReplacements &) = delete;
 	~AutoDisabledReplacements();
 
 	Memory::MemoryInitedLock *lock = nullptr;
@@ -74,6 +78,17 @@ static AutoDisabledReplacements LockMemoryAndCPU(uint32_t addr, bool keepReplace
 			result.emuhacks = MIPSComp::jit->SaveAndClearEmuHackOps();
 	}
 	return result;
+}
+
+AutoDisabledReplacements::AutoDisabledReplacements(AutoDisabledReplacements &&other) {
+	lock = other.lock;
+	other.lock = nullptr;
+	replacements = std::move(other.replacements);
+	emuhacks = std::move(other.emuhacks);
+	saved = other.saved;
+	other.saved = false;
+	wasStepping = other.wasStepping;
+	other.wasStepping = true;
 }
 
 AutoDisabledReplacements::~AutoDisabledReplacements() {

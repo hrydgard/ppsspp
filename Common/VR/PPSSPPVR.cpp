@@ -46,9 +46,9 @@ static bool vrFlatGame = false;
 static float vrMatrix[VR_MATRIX_COUNT][16];
 static bool vrMirroring[VR_MIRRORING_COUNT];
 
-static bool(*NativeAxis)(const AxisInput &axis);
-static bool(*NativeKey)(const KeyInput &key);
-static bool(*NativeTouch)(const TouchInput &touch);
+static void (*NativeAxis)(const AxisInput &axis);
+static bool (*NativeKey)(const KeyInput &key);
+static void (*NativeTouch)(const TouchInput &touch);
 
 /*
 ================================================================================
@@ -103,6 +103,10 @@ static std::vector<ButtonMapping> controllerMapping[2] = {
 		rightControllerMapping
 };
 static bool controllerMotion[2][5] = {};
+static bool hmdMotion[4] = {};
+static float hmdMotionLast[2] = {};
+static float hmdMotionDiff[2] = {};
+static float hmdMotionDiffLast[2] = {};
 static int mouseController = 1;
 static bool mousePressed = false;
 
@@ -189,7 +193,7 @@ void GetVRResolutionPerEye(int* width, int* height) {
 	}
 }
 
-void SetVRCallbacks(bool(*axis)(const AxisInput &axis), bool(*key)(const KeyInput &key), bool(*touch)(const TouchInput &touch)) {
+void SetVRCallbacks(void (*axis)(const AxisInput &axis), bool(*key)(const KeyInput &key), void (*touch)(const TouchInput &touch)) {
 	NativeAxis = axis;
 	NativeKey = key;
 	NativeTouch = touch;
@@ -309,6 +313,70 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		}
 	}
 
+	// Head control
+	if (g_Config.iHeadRotation) {
+		float pitch = -VR_GetHMDAngles().x;
+		float yaw = -VR_GetHMDAngles().y;
+		bool disable = pspKeys[CTRL_SCREEN] || appMode == VR_MENU_MODE;
+		bool isVR = !IsFlatVRScene();
+
+		// calculate delta angles of the rotation
+		if (isVR) {
+			float f = g_Config.bHeadRotationSmoothing ? 0.5f : 1.0f;
+			float deltaPitch = pitch - hmdMotionLast[0];
+			float deltaYaw = yaw - hmdMotionLast[1];
+			while (deltaYaw >= 180) deltaYaw -= 360;
+			while (deltaYaw < -180) deltaYaw += 360;
+			hmdMotionLast[0] = pitch;
+			hmdMotionLast[1] = yaw;
+			hmdMotionDiffLast[0] = hmdMotionDiffLast[0] * (1-f) + hmdMotionDiff[0] * f;
+			hmdMotionDiffLast[1] = hmdMotionDiffLast[1] * (1-f) + hmdMotionDiff[1] * f;
+			hmdMotionDiff[0] += deltaPitch;
+			hmdMotionDiff[1] += deltaYaw;
+			pitch = hmdMotionDiff[0];
+			yaw = hmdMotionDiff[1];
+		}
+
+		bool activate;
+		float limit = isVR ? g_Config.fHeadRotationScale : 20;
+		keyInput.deviceId = DEVICE_ID_XR_HMD;
+
+		// vertical rotations
+		if (g_Config.iHeadRotation == 2) {
+			//up
+			activate = !disable && pitch > limit;
+			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_ROTATION_UP;
+			if (hmdMotion[0] != activate) NativeKey(keyInput);
+			if (isVR && activate) hmdMotionDiff[0] -= limit;
+			hmdMotion[0] = activate;
+
+			//down
+			activate = !disable && pitch < -limit;
+			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = NKCODE_EXT_ROTATION_DOWN;
+			if (hmdMotion[1] != activate) NativeKey(keyInput);
+			if (isVR && activate) hmdMotionDiff[0] += limit;
+			hmdMotion[1] = activate;
+		}
+
+		//left
+		activate = !disable && yaw < -limit;
+		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+		keyInput.keyCode = NKCODE_EXT_ROTATION_LEFT;
+		if (hmdMotion[2] != activate) NativeKey(keyInput);
+		if (isVR && activate) hmdMotionDiff[1] += limit;
+		hmdMotion[2] = activate;
+
+		//right
+		activate = !disable && yaw > limit;
+		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
+		keyInput.keyCode = NKCODE_EXT_ROTATION_RIGHT;
+		if (hmdMotion[3] != activate) NativeKey(keyInput);
+		if (isVR && activate) hmdMotionDiff[1] -= limit;
+		hmdMotion[3] = activate;
+	}
+
 	// Camera adjust
 	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
 		for (auto& device : pspAxis) {
@@ -327,7 +395,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 					case JOYSTICK_AXIS_Z:
 						if (axis.second < -0.75f) g_Config.fHeadUpDisplayScale -= 0.01f;
 						if (axis.second > 0.75f) g_Config.fHeadUpDisplayScale += 0.01f;
-						g_Config.fHeadUpDisplayScale = clampFloat(g_Config.fHeadUpDisplayScale, 0.2f, 1.5f);
+						g_Config.fHeadUpDisplayScale = clampFloat(g_Config.fHeadUpDisplayScale, 0.0f, 1.5f);
 						break;
 					case JOYSTICK_AXIS_RZ:
 						if (axis.second > 0.75f) g_Config.fCameraDistance -= 0.1f;
@@ -606,11 +674,20 @@ bool StartVRRender() {
 					invView = XrPosef_Inverse(invView);
 				}
 
-				// create updated quaternion
+				// decompose rotation
 				XrVector3f rotation = XrQuaternionf_ToEulerAngles(invView.orientation);
-				XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mx * ToRadians(rotation.x));
-				XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, my * ToRadians(rotation.y));
-				XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, mz * ToRadians(rotation.z));
+				float mPitch = mx * ToRadians(rotation.x);
+				float mYaw = my * ToRadians(rotation.y);
+				float mRoll = mz * ToRadians(rotation.z);
+
+				// use in-game camera interpolated rotation
+				if (g_Config.iHeadRotation >= 2) mPitch = -mx * ToRadians(hmdMotionDiffLast[0]); // vertical
+				if (g_Config.iHeadRotation >= 1) mYaw = -my * ToRadians(hmdMotionDiffLast[1]); // horizontal
+
+				// create updated quaternion
+				XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mPitch);
+				XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, mYaw);
+				XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, mRoll);
 				invView.orientation = XrQuaternionf_Multiply(roll, XrQuaternionf_Multiply(pitch, yaw));
 
 				float M[16];
@@ -779,10 +856,14 @@ void UpdateVRParams(float* projMatrix, float* viewMatrix) {
 
 		switch (variant) {
 			case 0: //e.g. ATV
-			case 1: //untested
 				vrMirroring[VR_MIRRORING_PITCH] = false;
 				vrMirroring[VR_MIRRORING_YAW] = true;
 				vrMirroring[VR_MIRRORING_ROLL] = true;
+				break;
+			case 1: //e.g. Tales of the World
+				vrMirroring[VR_MIRRORING_PITCH] = false;
+				vrMirroring[VR_MIRRORING_YAW] = false;
+				vrMirroring[VR_MIRRORING_ROLL] = false;
 				break;
 			case 2: //e.g.PES 2014
 			case 3: //untested

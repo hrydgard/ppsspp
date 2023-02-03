@@ -78,7 +78,7 @@ public:
 	~ShaderManagerDX9();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
-	VSShader *ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat, bool useSkinInDecode, const ComputedPipelineState &pipelineState);
+	VSShader *ApplyShader(bool useHWTransform, bool useHWTessellation, VertexDecoder *decoder, bool weightsAsFloat, bool useSkinInDecode, const ComputedPipelineState &pipelineState);
 	void DirtyShader();
 	void DirtyLastShader() override;
 
@@ -104,6 +104,7 @@ private:
 	void VSSetFloat(int creg, float value);
 	void VSSetFloatArray(int creg, const float *value, int count);
 	void VSSetFloat24Uniform3(int creg, const u32 data[3]);
+	void VSSetFloat24Uniform3Normalized(int creg, const u32 data[3]);
 	void VSSetFloatUniform4(int creg, const float data[4]);
 
 	void Clear();

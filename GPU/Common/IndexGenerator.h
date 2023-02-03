@@ -47,6 +47,15 @@ public:
 	}
 
 	GEPrimitiveType Prim() const { return prim_; }
+	GEPrimitiveType GeneralPrim() const {
+		switch (prim_) {
+		case GE_PRIM_LINE_STRIP: return GE_PRIM_LINES; break;
+		case GE_PRIM_TRIANGLE_STRIP:
+		case GE_PRIM_TRIANGLE_FAN: return GE_PRIM_TRIANGLES; break;
+		default:
+			return prim_;
+		}
+	}
 
 	void AddPrim(int prim, int vertexCount, bool clockwise);
 	void TranslatePrim(int prim, int numInds, const u8 *inds, int indexOffset, bool clockwise);

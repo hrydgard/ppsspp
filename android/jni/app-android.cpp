@@ -50,6 +50,9 @@ struct JNIEnv {};
 #define JNI_VERSION_1_6 16
 #endif
 
+#include "Common/Log.h"
+#include "Common/LogReporting.h"
+
 #include "Common/Net/Resolve.h"
 #include "android/jni/AndroidAudio.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
@@ -71,7 +74,6 @@ struct JNIEnv {};
 #include "Common/Data/Text/Parsers.h"
 #include "Common/VR/PPSSPPVR.h"
 
-#include "Common/Log.h"
 #include "Common/GraphicsContext.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
@@ -236,17 +238,39 @@ void AndroidLogger::Log(const LogMessage &message) {
 JNIEnv* getEnv() {
 	JNIEnv *env;
 	int status = gJvm->GetEnv((void**)&env, JNI_VERSION_1_6);
-	if (status < 0) {
-		status = gJvm->AttachCurrentThread(&env, NULL);
-		if (status < 0) {
-			return nullptr;
-		}
-	}
+	_assert_msg_(status >= 0, "'%s': Can only call getEnv if you've attached the thread already!", GetCurrentThreadName());
 	return env;
 }
 
 jclass findClass(const char* name) {
 	return static_cast<jclass>(getEnv()->CallObjectMethod(gClassLoader, gFindClassMethod, getEnv()->NewStringUTF(name)));
+}
+
+void Android_AttachThreadToJNI() {
+	JNIEnv *env;
+	int status = gJvm->GetEnv((void **)&env, JNI_VERSION_1_6);
+	if (status < 0) {
+		INFO_LOG(SYSTEM, "Attaching thread '%s' (not already attached) to JNI.", GetCurrentThreadName());
+		JavaVMAttachArgs args{};
+		args.version = JNI_VERSION_1_6;
+		args.name = GetCurrentThreadName();
+		status = gJvm->AttachCurrentThread(&env, &args);
+
+		if (status < 0) {
+			// bad, but what can we do other than report..
+			ERROR_LOG_REPORT_ONCE(threadAttachFail, SYSTEM, "Failed to attach thread %s to JNI.", GetCurrentThreadName());
+		}
+	} else {
+		WARN_LOG(SYSTEM, "Thread %s was already attached to JNI.", GetCurrentThreadName());
+	}
+}
+
+void Android_DetachThreadFromJNI() {
+	if (gJvm->DetachCurrentThread() == JNI_OK) {
+		INFO_LOG(SYSTEM, "Detached thread from JNI: '%s'", GetCurrentThreadName());
+	} else {
+		WARN_LOG(SYSTEM, "Failed to detach thread '%s' from JNI - never attached?", GetCurrentThreadName());
+	}
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
@@ -262,6 +286,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 	gClassLoader = env->NewGlobalRef(env->CallObjectMethod(randomClass, getClassLoaderMethod));
 	gFindClassMethod = env->GetMethodID(classLoaderClass, "findClass",
 										"(Ljava/lang/String;)Ljava/lang/Class;");
+
+	RegisterAttachDetach(&Android_AttachThreadToJNI, &Android_DetachThreadFromJNI);
 	return JNI_VERSION_1_6;
 }
 
@@ -309,7 +335,7 @@ static void EmuThreadFunc() {
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
 		UpdateRunLoopAndroid(env);
 	}
-	INFO_LOG(SYSTEM, "QUIT_REQUESTED found, left loop. Setting state to STOPPED.");
+	INFO_LOG(SYSTEM, "QUIT_REQUESTED found, left EmuThreadFunc loop. Setting state to STOPPED.");
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
 	NativeShutdownGraphics();
@@ -842,17 +868,18 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		EmuThreadStop("shutdown");
 		INFO_LOG(SYSTEM, "BeginAndroidShutdown");
 		graphicsContext->BeginAndroidShutdown();
-		// Skipping GL calls, the old context is gone.
-		while (graphicsContext->ThreadFrame()) {
-			INFO_LOG(SYSTEM, "graphicsContext->ThreadFrame executed to clear buffers");
-		}
-		INFO_LOG(SYSTEM, "Joining emuthread");
-		EmuThreadJoin();
-		INFO_LOG(SYSTEM, "Joined emuthread");
-
+		// Now, it could be that we had some frames queued up. Get through them.
+		// We're on the render thread, so this is synchronous.
+		do {
+			INFO_LOG(SYSTEM, "Executing graphicsContext->ThreadFrame to clear buffers");
+		} while (graphicsContext->ThreadFrame());
 		graphicsContext->ThreadEnd();
+		INFO_LOG(SYSTEM, "ThreadEnd called.");
 		graphicsContext->ShutdownFromRenderThread();
 		INFO_LOG(SYSTEM, "Graphics context now shut down from NativeApp_shutdown");
+
+		INFO_LOG(SYSTEM, "Joining emuthread");
+		EmuThreadJoin();
 	}
 
 	INFO_LOG(SYSTEM, "NativeApp.shutdown() -- begin");
@@ -1087,7 +1114,7 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 	}
 }
 
-extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
 
 	float scaledX = x * g_dpi_scale_x;
@@ -1099,8 +1126,7 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	touch.y = scaledY;
 	touch.flags = code;
 
-	bool retval = NativeTouch(touch);
-	return retval;
+	NativeTouch(touch);
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key, jboolean isRepeat) {
@@ -1122,17 +1148,17 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyUp(JNIEnv *, jclass, jin
 	return NativeKey(keyInput);
 }
 
-extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 		JNIEnv *env, jclass, jint deviceId, jint axisId, jfloat value) {
 	if (!renderer_inited)
-		return false;
+		return;
 
 	AxisInput axis;
 	axis.axisId = axisId;
 	axis.deviceId = deviceId;
 	axis.value = value;
 
-	return NativeAxis(axis);
+	NativeAxis(axis);
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
@@ -1144,9 +1170,9 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 	return true;
 }
 
-extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
 	if (!renderer_inited)
-		return false;
+		return;
 
 	AxisInput axis;
 	axis.deviceId = DEVICE_ID_ACCELEROMETER;
@@ -1154,17 +1180,15 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEn
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
 	axis.value = x;
-	bool retvalX = NativeAxis(axis);
+	NativeAxis(axis);
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
 	axis.value = y;
-	bool retvalY = NativeAxis(axis);
+	NativeAxis(axis);
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
 	axis.value = z;
-	bool retvalZ = NativeAxis(axis);
-
-	return retvalX || retvalY || retvalZ;
+	NativeAxis(axis);
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {
@@ -1213,50 +1237,6 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_requestExitVulkanR
 	}
 }
 
-void correctRatio(int &sz_x, int &sz_y, float scale) {
-	float x = (float)sz_x;
-	float y = (float)sz_y;
-	float ratio = x / y;
-	INFO_LOG(G3D, "CorrectRatio: Considering size: %0.2f/%0.2f=%0.2f for scale %f", x, y, ratio, scale);
-	float targetRatio;
-
-	// Try to get the longest dimension to match scale*PSP resolution.
-	if (x >= y) {
-		targetRatio = 480.0f / 272.0f;
-		x = 480.f * scale;
-		y = 272.f * scale;
-	} else {
-		targetRatio = 272.0f / 480.0f;
-		x = 272.0f * scale;
-		y = 480.0f * scale;
-	}
-
-	float correction = targetRatio / ratio;
-	INFO_LOG(G3D, "Target ratio: %0.2f ratio: %0.2f correction: %0.2f", targetRatio, ratio, correction);
-	if (ratio < targetRatio) {
-		y *= correction;
-	} else {
-		x /= correction;
-	}
-
-	sz_x = x;
-	sz_y = y;
-	INFO_LOG(G3D, "Corrected ratio: %dx%d", sz_x, sz_y);
-}
-
-void getDesiredBackbufferSize(int &sz_x, int &sz_y) {
-	sz_x = display_xres;
-	sz_y = display_yres;
-	std::string config = NativeQueryConfig("hwScale");
-	int scale;
-	if (1 == sscanf(config.c_str(), "%d", &scale) && scale > 0) {
-		correctRatio(sz_x, sz_y, scale);
-	} else {
-		sz_x = 0;
-		sz_y = 0;
-	}
-}
-
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JNIEnv *, jclass, jint xres, jint yres, jint dpi, jfloat refreshRate) {
 	INFO_LOG(G3D, "NativeApp.setDisplayParameters(%d x %d, dpi=%d, refresh=%0.2f)", xres, yres, dpi, refreshRate);
 
@@ -1283,18 +1263,6 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 		recalculateDpi();
 		NativeResized();
 	}
-}
-
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_computeDesiredBackbufferDimensions() {
-	getDesiredBackbufferSize(desiredBackbufferSizeX, desiredBackbufferSizeY);
-}
-
-extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferWidth(JNIEnv *, jclass) {
-	return desiredBackbufferSizeX;
-}
-
-extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferHeight(JNIEnv *, jclass) {
-	return desiredBackbufferSizeY;
 }
 
 std::vector<std::string> __cameraGetDeviceList() {

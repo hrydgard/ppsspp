@@ -233,16 +233,14 @@ void Shutdown()
 	ClearPendingEvents();
 	UnregisterAllEvents();
 
-	while(eventPool)
-	{
+	while (eventPool) {
 		Event *ev = eventPool;
 		eventPool = ev->next;
 		delete ev;
 	}
 
 	std::lock_guard<std::mutex> lk(externalEventLock);
-	while(eventTsPool)
-	{
+	while (eventTsPool) {
 		Event *ev = eventTsPool;
 		eventTsPool = ev->next;
 		delete ev;
@@ -251,7 +249,12 @@ void Shutdown()
 
 u64 GetTicks()
 {
-	return (u64)globalTimer + slicelength - currentMIPS->downcount;
+	if (currentMIPS) {
+		return (u64)globalTimer + slicelength - currentMIPS->downcount;
+	} else {
+		// Reporting can actually end up here during weird task switching sequences on Android
+		return false;
+	}
 }
 
 u64 GetIdleTicks()

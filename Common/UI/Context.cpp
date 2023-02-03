@@ -172,13 +172,22 @@ void UIContext::ActivateTopScissor() {
 		int h = std::max(0.0f, ceilf(scale_y * bounds.h));
 		if (x < 0 || y < 0 || x + w > pixel_xres || y + h > pixel_yres) {
 			// This won't actually report outside a game, but we can try.
-			ERROR_LOG(G3D, "UI scissor out of bounds in %sScreen: %d,%d-%d,%d / %d,%d", screenTag_ ? screenTag_ : "N/A", x, y, w, h, pixel_xres, pixel_yres);
-			x = std::max(0, x);
-			y = std::max(0, y);
-			w = std::min(w, pixel_xres - x);
-			h = std::min(h, pixel_yres - y);
+			DEBUG_LOG(G3D, "UI scissor out of bounds in %sScreen: %d,%d-%d,%d / %d,%d", screenTag_ ? screenTag_ : "N/A", x, y, w, h, pixel_xres, pixel_yres);
+			if (x < 0) { w += x; x = 0; }
+			if (y < 0) { h += y; y = 0; }
+			if (x >= pixel_xres) { x = pixel_xres - 1; }
+			if (y >= pixel_yres) { y = pixel_yres - 1; }
+			if (x + w > pixel_xres) { w = std::min(w, pixel_xres - x); }
+			if (y + w > pixel_yres) { h = std::min(h, pixel_yres - y); }
+			if (w == 0) w = 1;
+			if (h == 0) h = 1;
+			draw_->SetScissorRect(x, y, w, h);
+		} else {
+			// Avoid invalid rects
+			if (w == 0) w = 1;
+			if (h == 0) h = 1;
+			draw_->SetScissorRect(x, y, w, h);
 		}
-		draw_->SetScissorRect(x, y, w, h);
 	} else {
 		// Avoid rounding errors
 		draw_->SetScissorRect(0, 0, pixel_xres, pixel_yres);

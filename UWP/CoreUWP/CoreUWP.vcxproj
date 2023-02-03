@@ -592,6 +592,7 @@
     <ClInclude Include="..\..\Core\TextureReplacer.h" />
     <ClInclude Include="..\..\Core\ThreadEventQueue.h" />
     <ClInclude Include="..\..\Core\ThreadPools.h" />
+    <ClInclude Include="..\..\Core\TiltEventProcessor.h" />
     <ClInclude Include="..\..\Core\Util\PortManager.h" />
     <ClInclude Include="..\..\Core\WebServer.h" />
     <ClInclude Include="..\..\Core\Util\AudioFormat.h" />
@@ -603,6 +604,7 @@
     <ClInclude Include="..\..\ext\cityhash\city.h" />
     <ClInclude Include="..\..\ext\cityhash\citycrc.h" />
     <ClInclude Include="..\..\ext\disarm.h" />
+    <ClInclude Include="..\..\ext\riscv-disas.h" />
     <ClInclude Include="..\..\ext\gason\gason.h" />
     <ClInclude Include="..\..\ext\jpge\jpgd.h" />
     <ClInclude Include="..\..\ext\jpge\jpge.h" />
@@ -878,6 +880,7 @@
     <ClCompile Include="..\..\Core\System.cpp" />
     <ClCompile Include="..\..\Core\TextureReplacer.cpp" />
     <ClCompile Include="..\..\Core\ThreadPools.cpp" />
+    <ClCompile Include="..\..\Core\TiltEventProcessor.cpp" />
     <ClCompile Include="..\..\Core\Util\PortManager.cpp" />
     <ClCompile Include="..\..\Core\WebServer.cpp" />
     <ClCompile Include="..\..\Core\Util\AudioFormat.cpp" />
@@ -888,6 +891,7 @@
     <ClCompile Include="..\..\Core\WaveFile.cpp" />
     <ClCompile Include="..\..\ext\cityhash\city.cpp" />
     <ClCompile Include="..\..\ext\disarm.cpp" />
+    <ClCompile Include="..\..\ext\riscv-disas.cpp" />
     <ClCompile Include="..\..\ext\gason\gason.cpp" />
     <ClCompile Include="..\..\ext\jpge\jpgd.cpp" />
     <ClCompile Include="..\..\ext\jpge\jpge.cpp" />

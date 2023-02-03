@@ -1254,7 +1254,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		decOff += DecFmtSize(decFmt.posfmt);
 	}
 
-	decFmt.stride = decOff;
+	decFmt.stride = options.alignOutputToWord ? align(decOff, 4) : decOff;
 
 	decFmt.ComputeID();
 
@@ -1359,6 +1359,8 @@ std::string VertexDecoder::GetString(DebugShaderStringType stringType) {
 			lines = DisassembleArm2((const u8 *)jitted_, jittedSize_);
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 			lines = DisassembleX86((const u8 *)jitted_, jittedSize_);
+#elif PPSSPP_ARCH(RISCV64)
+			lines = DisassembleRV64((const u8 *)jitted_, jittedSize_);
 #else
 			// No disassembler defined
 #endif

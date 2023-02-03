@@ -411,6 +411,12 @@
     <ClCompile Include="..\..\Common\Render\ManagedTexture.cpp">
       <Filter>Render</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\UI\PopupScreens.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\UI\ScrollView.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -759,6 +765,12 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\Render\ManagedTexture.h">
       <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\PopupScreens.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\ScrollView.h">
+      <Filter>UI</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -12,9 +12,14 @@
 
 #elif defined(__ANDROID__)
 
+#include "android/jni/app-android.h"
+
 #define TLS_SUPPORTED
 
 #endif
+
+// TODO: Many other platforms also support TLS, in fact probably nearly all that we support
+// these days.
 
 #include <cstring>
 #include <cstdint>
@@ -22,6 +27,27 @@
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
+
+AttachDetachFunc g_attach;
+AttachDetachFunc g_detach;
+
+void AttachThreadToJNI() {
+	if (g_attach) {
+		g_attach();
+	}
+}
+
+
+void DetachThreadFromJNI() {
+	if (g_detach) {
+		g_detach();
+	}
+}
+
+void RegisterAttachDetach(AttachDetachFunc attach, AttachDetachFunc detach) {
+	g_attach = attach;
+	g_detach = detach;
+}
 
 #if (PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)) && !defined(_GNU_SOURCE)
 #define _GNU_SOURCE
@@ -62,7 +88,6 @@ static EXCEPTION_DISPOSITION NTAPI ignore_handler(EXCEPTION_RECORD *rec,
 }
 #endif
 
-
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 typedef HRESULT (WINAPI *TSetThreadDescription)(HANDLE, PCWSTR);
 
@@ -90,7 +115,15 @@ static void InitializeSetThreadDescription() {
 void SetCurrentThreadNameThroughException(const char *threadName);
 #endif
 
-void SetCurrentThreadName(const char* threadName) {
+const char *GetCurrentThreadName() {
+#ifdef TLS_SUPPORTED
+	return curThreadName;
+#else
+	return "";
+#endif
+}
+
+void SetCurrentThreadName(const char *threadName) {
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	InitializeSetThreadDescription();
 	if (g_pSetThreadDescription) {

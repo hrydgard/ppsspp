@@ -549,7 +549,7 @@ struct GPUStateCache {
 	void SetTextureFullAlpha(bool fullAlpha) {
 		if (fullAlpha != textureFullAlpha) {
 			textureFullAlpha = fullAlpha;
-			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEX_ALPHA_MUL);
 		}
 	}
 	void SetNeedShaderTexclamp(bool need) {
@@ -580,8 +580,9 @@ struct GPUStateCache {
 	}
 	void SetUseFlags(u32 newFlags) {
 		if (newFlags != useFlags_) {
+			if (useFlags_ != 0)
+				useFlagsChanged = true;
 			useFlags_ = newFlags;
-			// Recompile shaders and stuff?
 		}
 	}
 
@@ -612,6 +613,7 @@ public:
 	bool bgraTexture;
 	bool needShaderTexClamp;
 	bool arrayTexture;
+	bool useFlagsChanged;
 
 	float morphWeights[8];
 	u32 deferredVertTypeDirty;

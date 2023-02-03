@@ -186,6 +186,8 @@ bool TestJit() {
 		std::vector<std::string> lines = DisassembleArm64(block->normalEntry, block->codeSize);
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 		std::vector<std::string> lines = DisassembleX86(block->normalEntry, block->codeSize);
+#elif PPSSPP_ARCH(RISCV64)
+		std::vector<std::string> lines = DisassembleRV64(block->normalEntry, block->codeSize);
 #else
 		std::vector<std::string> lines;
 #endif

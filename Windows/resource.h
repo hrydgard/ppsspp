@@ -158,7 +158,6 @@
 #define ID_DEBUG_BREAKONLOAD             40039
 #define ID_DEBUG_DUMPNEXTFRAME           40040
 #define ID_OPTIONS_VERTEXCACHE           40041
-#define ID_OPTIONS_SHOWFPS               40042
 #define ID_OPTIONS_FRAMESKIP             40044
 #define IDC_MEMCHECK                     40045
 #define ID_FILE_MEMSTICK                 40046

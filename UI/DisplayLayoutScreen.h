@@ -52,7 +52,7 @@ private:
 	std::deque<bool> settingsVisible_;  // vector<bool> is an insane bitpacked specialization!
 };
 
-class PostProcScreen : public ListPopupScreen {
+class PostProcScreen : public UI::ListPopupScreen {
 public:
 	PostProcScreen(const std::string &title, int id, bool showStereoShaders) 
 		: ListPopupScreen(title), id_(id), showStereoShaders_(showStereoShaders) { }

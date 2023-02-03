@@ -8,6 +8,7 @@
 enum class TaskType {
 	CPU_COMPUTE,
 	IO_BLOCKING,
+	DEDICATED_THREAD,  // These can never get stuck in queue behind others, but are more expensive to launch. Cannot use I/O.
 };
 
 // Implement this to make something that you can run on the thread manager.
@@ -48,7 +49,7 @@ public:
 	void Init(int numCores, int numLogicalCoresPerCpu);
 	void EnqueueTask(Task *task);
 	// Use enforceSequence if this must run after all previously queued tasks.
-	void EnqueueTaskOnThread(int threadNum, Task *task, bool enforceSequence = false);
+	void EnqueueTaskOnThread(int threadNum, Task *task);
 	void Teardown();
 
 	bool IsInitialized() const;

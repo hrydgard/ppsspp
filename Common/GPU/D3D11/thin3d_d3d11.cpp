@@ -437,6 +437,8 @@ void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
 }
 
 void D3D11DrawContext::SetScissorRect(int left, int top, int width, int height) {
+	_assert_(width >= 0);
+	_assert_(height >= 0);
 	DisplayRect<float> frc{ (float)left, (float)top, (float)width, (float)height };
 	if (curRenderTargetView_ == bbRenderTargetView_)  // Only the backbuffer is actually rotated wrong!
 		RotateRectToDisplay(frc, curRTWidth_, curRTHeight_);
@@ -1678,6 +1680,10 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 		if (curRenderTargetView_ == fb->colorRTView && curDepthStencilView_ == fb->depthStencilRTView) {
 			// No need to switch, but let's fallthrough to clear!
 		} else {
+			// It's not uncommon that the first slot happens to have the new render target bound as a texture,
+			// so unbind to make the validation layers happy.
+			ID3D11ShaderResourceView *empty[1] = {};
+			context_->PSSetShaderResources(0, ARRAY_SIZE(empty), empty);
 			context_->OMSetRenderTargets(1, &fb->colorRTView, fb->depthStencilRTView);
 			curRenderTargetView_ = fb->colorRTView;
 			curDepthStencilView_ = fb->depthStencilRTView;

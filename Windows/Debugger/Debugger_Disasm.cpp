@@ -1,5 +1,3 @@
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Windows/resource.h"
@@ -13,6 +11,7 @@
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_VFPUDlg.h"
 #include "Windows/Debugger/DebuggerShared.h"
+// #include "Windows/W32Util/DarkMode.h"
 
 #include "Windows/main.h"
 #include "Windows/Debugger/CtrlRegisterList.h"
@@ -350,10 +349,8 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	switch(message)
 	{
 	case WM_INITDIALOG:
-		{
-			return TRUE;
-		}
-		break;
+		// DarkModeInitDialog(m_hDlg);
+		return TRUE;
 
 	case WM_NOTIFY:
 		switch (wParam)
@@ -692,7 +689,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	}
-	return FALSE;
+	return 0; // DarkModeDlgProc(m_hDlg, message, wParam, lParam);
 }
 
 void CDisasm::updateThreadLabel(bool clear)

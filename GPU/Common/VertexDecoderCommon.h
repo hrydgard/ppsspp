@@ -324,6 +324,7 @@ struct VertexDecoderOptions {
 	bool expandAllWeightsToFloat;
 	bool expand8BitNormalsToFloat;
 	bool applySkinInDecode;
+	bool alignOutputToWord;
 };
 
 class VertexDecoder {
@@ -337,8 +338,6 @@ public:
 
 	void DecodeVerts(u8 *decoded, const void *verts, int indexLowerBound, int indexUpperBound) const;
 
-	bool hasColor() const { return col != 0; }
-	bool hasTexcoord() const { return tc != 0; }
 	int VertexSize() const { return size; }  // PSP format size
 
 	std::string GetString(DebugShaderStringType stringType);

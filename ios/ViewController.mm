@@ -8,7 +8,6 @@
 #import "AppDelegate.h"
 #import "ViewController.h"
 #import "DisplayManager.h"
-#import "SubtleVolume.h"
 #import <GLKit/GLKit.h>
 #include <cassert>
 
@@ -80,7 +79,6 @@ public:
 	}
 
 	void StopThread() override {
-		renderManager_->WaitUntilQueueIdle();
 		renderManager_->StopThread();
 	}
 
@@ -118,12 +116,6 @@ static LocationHelper *locationHelper;
 
 @end
 
-@interface ViewController () <SubtleVolumeDelegate> {
-	SubtleVolume *volume;
-}
-@end
-
-
 @implementation ViewController
 
 -(id) init {
@@ -156,11 +148,6 @@ static LocationHelper *locationHelper;
 #endif
 	}
 	return self;
-}
-
-- (void)subtleVolume:(SubtleVolume *)volumeView willChange:(CGFloat)value {
-}
-- (void)subtleVolume:(SubtleVolume *)volumeView didChange:(CGFloat)value {
 }
 
 - (void)shareText:(NSString *)text {
@@ -228,25 +215,6 @@ static LocationHelper *locationHelper;
 		}
 	}
 #endif
-	
-	CGFloat margin = 0;
-	CGFloat height = 16;
-	volume = [[SubtleVolume alloc]
-			  initWithStyle:SubtleVolumeStylePlain
-			  frame:CGRectMake(
-							   margin,   // X
-							   0,        // Y
-							   self.view.frame.size.width-(margin*2), // width
-							   height    // height
-							)];
-	
-	volume.padding = 7;
-	volume.barTintColor = [UIColor blackColor];
-	volume.barBackgroundColor = [UIColor whiteColor];
-	volume.animation = SubtleVolumeAnimationSlideDown;
-	volume.delegate = self;
-	[self.view addSubview:volume];
-	[self.view bringSubviewToFront:volume];
 
 	cameraHelper = [[CameraHelper alloc] init];
 	[cameraHelper setDelegate:self];
@@ -275,11 +243,6 @@ static LocationHelper *locationHelper;
 	});
 }
 
-- (void)didReceiveMemoryWarning
-{
-	[super didReceiveMemoryWarning];
-}
-
 - (void)appWillTerminate:(NSNotification *)notification
 {
 	[self shutdown];
@@ -289,11 +252,6 @@ static LocationHelper *locationHelper;
 {
 	if (sharedViewController == nil) {
 		return;
-	}
-	
-	if(volume) {
-		[volume removeFromSuperview];
-		volume = nil;
 	}
 
 	Audio_Shutdown();

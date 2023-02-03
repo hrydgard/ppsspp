@@ -20,6 +20,7 @@
 #include <mutex>
 
 #include "ext/disarm.h"
+#include "ext/riscv-disas.h"
 #include "ext/udis86/udis86.h"
 
 #include "Common/LogReporting.h"
@@ -305,4 +306,41 @@ std::vector<std::string> DisassembleX86(const u8 *data, int size) {
 	return lines;
 }
 
+#endif
+
+#if PPSSPP_ARCH(RISCV64) || defined(DISASM_ALL)
+std::vector<std::string> DisassembleRV64(const u8 *data, int size) {
+	std::vector<std::string> lines;
+
+	int invalid_count = 0;
+	auto invalid_flush = [&]() {
+		if (invalid_count != 0) {
+			lines.push_back(StringFromFormat("(%d invalid bytes)", invalid_count));
+			invalid_count = 0;
+		}
+	};
+
+	char temp[512];
+	rv_inst inst;
+	size_t len;
+	for (int i = 0; i < size; ) {
+		riscv_inst_fetch(data + i, &inst, &len);
+		if (len == 0) {
+			// Force align in case we're somehow unaligned.
+			len = 2 - ((uintptr_t)data & 1);
+			invalid_count += (int)len;
+			i +=(int) len;
+			continue;
+		}
+
+		invalid_flush();
+		riscv_disasm_inst(temp, sizeof(temp), rv64, i * 4, inst);
+		lines.push_back(ReplaceAll(temp, "\t", "  "));
+
+		i += (int)len;
+	}
+
+	invalid_flush();
+	return lines;
+}
 #endif

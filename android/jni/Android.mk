@@ -4,6 +4,10 @@ SRC := ../..
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
+LOCAL_C_INCLUDES += \
+  $(LOCAL_PATH)/../../ext/cpu_features/include
+LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H
+
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
 
 ifeq ($(TARGET_ARCH_ABI),x86)
@@ -119,7 +123,21 @@ EXT_FILES := \
   $(SRC)/ext/udis86/syn-intel.c \
   $(SRC)/ext/udis86/syn.c \
   $(SRC)/ext/udis86/udis86.c \
-  $(SRC)/ext/xbrz/xbrz.cpp
+  $(SRC)/ext/xbrz/xbrz.cpp \
+  $(SRC)/ext/cpu_features/src/filesystem.c \
+  $(SRC)/ext/cpu_features/src/hwcaps.c \
+  $(SRC)/ext/cpu_features/src/impl_aarch64_linux_or_android.c \
+  $(SRC)/ext/cpu_features/src/impl_arm_linux_or_android.c \
+  $(SRC)/ext/cpu_features/src/impl_mips_linux_or_android.c \
+  $(SRC)/ext/cpu_features/src/impl_ppc_linux.c \
+  $(SRC)/ext/cpu_features/src/impl_riscv_linux.c \
+  $(SRC)/ext/cpu_features/src/impl_s390x_linux.c \
+  $(SRC)/ext/cpu_features/src/impl_x86_freebsd.c \
+  $(SRC)/ext/cpu_features/src/impl_x86_linux_or_android.c \
+  $(SRC)/ext/cpu_features/src/impl_x86_macos.c \
+  $(SRC)/ext/cpu_features/src/impl_x86_windows.c \
+  $(SRC)/ext/cpu_features/src/stack_line_reader.c \
+  $(SRC)/ext/cpu_features/src/string_view.c
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
@@ -203,6 +221,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/UI/Tween.cpp \
   $(SRC)/Common/UI/View.cpp \
   $(SRC)/Common/UI/ViewGroup.cpp \
+  $(SRC)/Common/UI/ScrollView.cpp \
+  $(SRC)/Common/UI/PopupScreens.cpp \
   $(SRC)/Common/Serialize/Serializer.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
   $(SRC)/Common/CPUDetect.cpp \
@@ -433,6 +453,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Screenshot.cpp \
   $(SRC)/Core/System.cpp \
   $(SRC)/Core/TextureReplacer.cpp \
+  $(SRC)/Core/TiltEventProcessor.cpp \
   $(SRC)/Core/ThreadPools.cpp \
   $(SRC)/Core/WebServer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \
@@ -700,13 +721,13 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/SavedataScreen.cpp \
   $(SRC)/UI/Store.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
+  $(SRC)/UI/JoystickHistoryView.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/UI/GameScreen.cpp \
   $(SRC)/UI/ControlMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \
   $(SRC)/UI/GPUDriverTestScreen.cpp \
   $(SRC)/UI/TiltAnalogSettingsScreen.cpp \
-  $(SRC)/UI/TiltEventProcessor.cpp \
   $(SRC)/UI/TouchControlLayoutScreen.cpp \
   $(SRC)/UI/TouchControlVisibilityScreen.cpp \
   $(SRC)/UI/CwCheatScreen.cpp \
@@ -772,6 +793,7 @@ ifeq ($(UNITTEST),1)
       $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
       $(SRC)/Core/Util/DisArm64.cpp \
       $(SRC)/ext/disarm.cpp \
+      $(SRC)/ext/riscv-disas.cpp \
       $(SRC)/unittest/TestArmEmitter.cpp \
       $(SRC)/unittest/TestArm64Emitter.cpp \
       $(SRC)/unittest/TestRiscVEmitter.cpp \

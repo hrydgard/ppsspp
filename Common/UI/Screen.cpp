@@ -2,6 +2,7 @@
 #include "Common/Input/InputState.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/Screen.h"
+#include "Common/UI/ScrollView.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
@@ -75,26 +76,24 @@ void ScreenManager::switchToNext() {
 	nextStack_.clear();
 }
 
-bool ScreenManager::touch(const TouchInput &touch) {
+void ScreenManager::touch(const TouchInput &touch) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	bool result = false;
 	// Send release all events to every screen layer.
 	if (touch.flags & TOUCH_RELEASE_ALL) {
 		for (auto &layer : stack_) {
 			Screen *screen = layer.screen;
-			result = layer.screen->touch(screen->transformTouch(touch));
+			layer.screen->touch(screen->transformTouch(touch));
 		}
 	} else if (!stack_.empty()) {
 		Screen *screen = stack_.back().screen;
-		result = stack_.back().screen->touch(screen->transformTouch(touch));
+		stack_.back().screen->touch(screen->transformTouch(touch));
 	}
-	return result;
 }
 
 bool ScreenManager::key(const KeyInput &key) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	bool result = false;
-	// Send key up to every screen layer.
+	// Send key up to every screen layer, to avoid stuck keys.
 	if (key.flags & KEY_UP) {
 		for (auto &layer : stack_) {
 			result = layer.screen->key(key);
@@ -105,7 +104,7 @@ bool ScreenManager::key(const KeyInput &key) {
 	return result;
 }
 
-bool ScreenManager::axis(const AxisInput &axis) {
+void ScreenManager::axis(const AxisInput &axis) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 
 	// Ignore duplicate values to prevent axis values overwriting each other.
@@ -114,20 +113,18 @@ bool ScreenManager::axis(const AxisInput &axis) {
 	// PSP games can't see higher resolution than this.
 	int value = 128 + ceilf(axis.value * 127.5f + 127.5f);
 	if (lastAxis_[key] == value) {
-		return false;
+		return;
 	}
 	lastAxis_[key] = value;
 
-	bool result = false;
 	// Send center axis to every screen layer.
 	if (axis.value == 0) {
 		for (auto &layer : stack_) {
-			result = layer.screen->axis(axis);
+			layer.screen->axis(axis);
 		}
 	} else if (!stack_.empty()) {
-		result = stack_.back().screen->axis(axis);
+		stack_.back().screen->axis(axis);
 	}
-	return result;
 }
 
 void ScreenManager::deviceLost() {
@@ -205,7 +202,9 @@ void ScreenManager::sendMessage(const char *msg, const char *value) {
 	if (!strcmp(msg, "recreateviews"))
 		RecreateAllViews();
 	if (!strcmp(msg, "lost_focus")) {
-		TouchInput input;
+		TouchInput input{};
+		input.x = -50000.0f;
+		input.y = -50000.0f;
 		input.flags = TOUCH_RELEASE_ALL;
 		input.timestamp = time_now_d();
 		input.id = 0;
@@ -241,7 +240,9 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 
 	// Release touches and unfocus.
 	UI::SetFocusedView(nullptr);
-	TouchInput input;
+	TouchInput input{};
+	input.x = -50000.0f;
+	input.y = -50000.0f;
 	input.flags = TOUCH_RELEASE_ALL;
 	input.timestamp = time_now_d();
 	input.id = 0;

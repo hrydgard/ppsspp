@@ -1192,6 +1192,12 @@
     <ClCompile Include="WaveFile.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="..\ext\riscv-disas.cpp">
+      <Filter>Ext</Filter>
+    </ClCompile>
+    <ClCompile Include="TiltEventProcessor.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1924,6 +1930,12 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="WaveFile.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\riscv-disas.h">
+      <Filter>Ext</Filter>
+    </ClInclude>
+    <ClInclude Include="TiltEventProcessor.h">
       <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>

@@ -46,15 +46,26 @@ namespace Rasterizer {
 
 // Only OK on x64 where our stack is aligned
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-static inline __m128 Interpolate(const __m128 &c0, const __m128 &c1, const __m128 &c2, int w0, int w1, int w2, float wsum) {
+static inline __m128 InterpolateF(const __m128 &c0, const __m128 &c1, const __m128 &c2, int w0, int w1, int w2, float wsum) {
 	__m128 v = _mm_mul_ps(c0, _mm_cvtepi32_ps(_mm_set1_epi32(w0)));
 	v = _mm_add_ps(v, _mm_mul_ps(c1, _mm_cvtepi32_ps(_mm_set1_epi32(w1))));
 	v = _mm_add_ps(v, _mm_mul_ps(c2, _mm_cvtepi32_ps(_mm_set1_epi32(w2))));
 	return _mm_mul_ps(v, _mm_set_ps1(wsum));
 }
 
-static inline __m128i Interpolate(const __m128i &c0, const __m128i &c1, const __m128i &c2, int w0, int w1, int w2, float wsum) {
-	return _mm_cvtps_epi32(Interpolate(_mm_cvtepi32_ps(c0), _mm_cvtepi32_ps(c1), _mm_cvtepi32_ps(c2), w0, w1, w2, wsum));
+static inline __m128i InterpolateI(const __m128i &c0, const __m128i &c1, const __m128i &c2, int w0, int w1, int w2, float wsum) {
+	return _mm_cvtps_epi32(InterpolateF(_mm_cvtepi32_ps(c0), _mm_cvtepi32_ps(c1), _mm_cvtepi32_ps(c2), w0, w1, w2, wsum));
+}
+#elif PPSSPP_ARCH(ARM64_NEON)
+static inline float32x4_t InterpolateF(const float32x4_t &c0, const float32x4_t &c1, const float32x4_t &c2, int w0, int w1, int w2, float wsum) {
+	float32x4_t v = vmulq_f32(c0, vcvtq_f32_s32(vdupq_n_s32(w0)));
+	v = vaddq_f32(v, vmulq_f32(c1, vcvtq_f32_s32(vdupq_n_s32(w1))));
+	v = vaddq_f32(v, vmulq_f32(c2, vcvtq_f32_s32(vdupq_n_s32(w2))));
+	return vmulq_f32(v, vdupq_n_f32(wsum));
+}
+
+static inline int32x4_t InterpolateI(const int32x4_t &c0, const int32x4_t &c1, const int32x4_t &c2, int w0, int w1, int w2, float wsum) {
+	return vcvtq_s32_f32(InterpolateF(vcvtq_f32_s32(c0), vcvtq_f32_s32(c1), vcvtq_f32_s32(c2), w0, w1, w2, wsum));
 }
 #endif
 
@@ -62,16 +73,16 @@ static inline __m128i Interpolate(const __m128i &c0, const __m128i &c1, const __
 // Not sure if that should be regarded as a bug or if casting to float is a valid fix.
 
 static inline Vec4<int> Interpolate(const Vec4<int> &c0, const Vec4<int> &c1, const Vec4<int> &c2, int w0, int w1, int w2, float wsum) {
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	return Vec4<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
+#if (defined(_M_SSE) || PPSSPP_ARCH(ARM64_NEON)) && !PPSSPP_ARCH(X86)
+	return Vec4<int>(InterpolateI(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
 #else
 	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
 #endif
 }
 
 static inline Vec3<int> Interpolate(const Vec3<int> &c0, const Vec3<int> &c1, const Vec3<int> &c2, int w0, int w1, int w2, float wsum) {
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	return Vec3<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
+#if (defined(_M_SSE) || PPSSPP_ARCH(ARM64_NEON)) && !PPSSPP_ARCH(X86)
+	return Vec3<int>(InterpolateI(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
 #else
 	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
 #endif
@@ -83,6 +94,11 @@ static inline Vec4<float> Interpolate(const float &c0, const float &c1, const fl
 	v = _mm_add_ps(v, _mm_mul_ps(w1.vec, _mm_set1_ps(c1)));
 	v = _mm_add_ps(v, _mm_mul_ps(w2.vec, _mm_set1_ps(c2)));
 	return _mm_mul_ps(v, wsum_recip.vec);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	float32x4_t v = vmulq_f32(w0.vec, vdupq_n_f32(c0));
+	v = vaddq_f32(v, vmulq_f32(w1.vec, vdupq_n_f32(c1)));
+	v = vaddq_f32(v, vmulq_f32(w2.vec, vdupq_n_f32(c2)));
+	return vmulq_f32(v, wsum_recip.vec);
 #else
 	return (w0 * c0 + w1 * c1 + w2 * c2) * wsum_recip;
 #endif
@@ -722,6 +738,8 @@ template <bool useSSE4>
 inline Vec4<int> TriangleEdge<useSSE4>::StepX(const Vec4<int> &w) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	return _mm_add_epi32(w.ivec, stepX.ivec);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	return vaddq_s32(w.ivec, stepX.ivec);
 #else
 	return w + stepX;
 #endif
@@ -731,6 +749,8 @@ template <bool useSSE4>
 inline Vec4<int> TriangleEdge<useSSE4>::StepY(const Vec4<int> &w) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	return _mm_add_epi32(w.ivec, stepY.ivec);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	return vaddq_s32(w.ivec, stepY.ivec);
 #else
 	return w + stepY;
 #endif
@@ -756,6 +776,9 @@ void TriangleEdge<useSSE4>::NarrowMinMaxX(const Vec4<int> &w, int64_t minX, int6
 	} else {
 		wmax = std::max(std::max(w.x, w.y), std::max(w.z, w.w));
 	}
+#elif PPSSPP_ARCH(ARM64_NEON)
+	int32x2_t wmax_temp = vpmax_s32(vget_low_s32(w.ivec), vget_high_s32(w.ivec));
+	wmax = vget_lane_s32(vpmax_s32(wmax_temp, wmax_temp), 0);
 #else
 	wmax = std::max(std::max(w.x, w.y), std::max(w.z, w.w));
 #endif
@@ -788,6 +811,8 @@ inline Vec4<int> TriangleEdge<useSSE4>::StepXTimes(const Vec4<int> &w, int c) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	if (useSSE4)
 		return StepTimesSSE4(w.ivec, stepX.ivec, c);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	return vaddq_s32(w.ivec, vmulq_s32(vdupq_n_s32(c), stepX.ivec));
 #endif
 	return w + stepX * c;
 }
@@ -799,6 +824,12 @@ static inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const
 	__m128i biased2 = _mm_add_epi32(w2.ivec, bias2.ivec);
 
 	return _mm_or_si128(_mm_or_si128(biased0, _mm_or_si128(biased1, biased2)), scissor.ivec);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	int32x4_t biased0 = vaddq_s32(w0.ivec, bias0.ivec);
+	int32x4_t biased1 = vaddq_s32(w1.ivec, bias1.ivec);
+	int32x4_t biased2 = vaddq_s32(w2.ivec, bias2.ivec);
+
+	return vorrq_s32(vorrq_s32(biased0, vorrq_s32(biased1, biased2)), scissor.ivec);
 #else
 	return (w0 + bias0) | (w1 + bias1) | (w2 + bias2) | scissor;
 #endif
@@ -826,6 +857,9 @@ static inline bool AnyMask(const Vec4<int> &mask) {
 	__m128i low1 = _mm_and_si128(low2, _mm_shuffle_epi32(low2, _MM_SHUFFLE(1, 1, 1, 1)));
 	// Now we only need to check one sign bit.
 	return _mm_cvtsi128_si32(low1) >= 0;
+#elif PPSSPP_ARCH(ARM64_NEON)
+	int64x2_t sig = vreinterpretq_s64_s32(vshrq_n_s32(mask.ivec, 31));
+	return vgetq_lane_s64(sig, 0) != -1 || vgetq_lane_s64(sig, 1) != -1;
 #else
 	return mask.x >= 0 || mask.y >= 0 || mask.z >= 0 || mask.w >= 0;
 #endif
@@ -836,6 +870,9 @@ static inline Vec4<float> EdgeRecip(const Vec4<int> &w0, const Vec4<int> &w1, co
 	__m128i wsum = _mm_add_epi32(w0.ivec, _mm_add_epi32(w1.ivec, w2.ivec));
 	// _mm_rcp_ps loses too much precision.
 	return _mm_div_ps(_mm_set1_ps(1.0f), _mm_cvtepi32_ps(wsum));
+#elif PPSSPP_ARCH(ARM64_NEON)
+	int32x4_t wsum = vaddq_s32(w0.ivec, vaddq_s32(w1.ivec, w2.ivec));
+	return vdivq_f32(vdupq_n_f32(1.0f), vcvtq_f32_s32(wsum));
 #else
 	return (w0 + w1 + w2).Cast<float>().Reciprocal();
 #endif
@@ -1010,6 +1047,9 @@ void DrawTriangleSlice(
 						// TODO: Tried making Vec4 do this, but things got slower.
 						const __m128i sec = _mm_and_si128(sec_color[i].ivec, _mm_set_epi32(0, -1, -1, -1));
 						prim_color[i].ivec = _mm_add_epi32(prim_color[i].ivec, sec);
+#elif PPSSPP_ARCH(ARM64_NEON)
+						int32x4_t sec = vsetq_lane_s32(0, sec_color[i].ivec, 3);
+						prim_color[i].ivec = vaddq_s32(prim_color[i].ivec, sec);
 #else
 						prim_color[i] += Vec4<int>(sec_color[i], 0);
 #endif
@@ -1216,6 +1256,9 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 					// TODO: Tried making Vec4 do this, but things got slower.
 					const __m128i sec = _mm_and_si128(sec_color.ivec, _mm_set_epi32(0, -1, -1, -1));
 					prim_color[i].ivec = _mm_add_epi32(prim_color[i].ivec, sec);
+#elif PPSSPP_ARCH(ARM64_NEON)
+					int32x4_t sec = vsetq_lane_s32(0, sec_color.ivec, 3);
+					prim_color[i].ivec = vaddq_s32(prim_color[i].ivec, sec);
 #else
 					prim_color[i] += Vec4<int>(sec_color, 0);
 #endif

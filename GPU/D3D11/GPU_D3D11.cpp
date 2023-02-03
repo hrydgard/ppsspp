@@ -157,6 +157,15 @@ void GPU_D3D11::BeginFrame() {
 
 	framebufferManagerD3D11_->BeginFrame();
 	gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
+
+	if (gstate_c.useFlagsChanged) {
+		// TODO: It'd be better to recompile them in the background, probably?
+		// This most likely means that saw equal depth changed.
+		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders");
+		shaderManagerD3D11_->ClearShaders();
+		drawEngine_.ClearInputLayoutMap();
+		gstate_c.useFlagsChanged = false;
+	}
 }
 
 void GPU_D3D11::CopyDisplayToOutput(bool reallyDirty) {

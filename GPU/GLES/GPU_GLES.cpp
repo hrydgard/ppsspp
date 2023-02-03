@@ -98,7 +98,20 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 			File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 			shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) / (discID + ".glshadercache");
 			// Actually precompiled by IsReady() since we're single-threaded.
-			shaderManagerGL_->Load(shaderCachePath_);
+			File::IOFile f(shaderCachePath_, "rb");
+			if (f.IsOpen()) {
+				if (shaderManagerGL_->LoadCacheFlags(f, &drawEngine_)) {
+					if (drawEngineCommon_->EverUsedExactEqualDepth()) {
+						sawExactEqualDepth_ = true;
+					}
+					gstate_c.SetUseFlags(CheckGPUFeatures());
+					// We're compiling now, clear if they changed.
+					gstate_c.useFlagsChanged = false;
+
+					if (shaderManagerGL_->LoadCache(f))
+						NOTICE_LOG(G3D, "Precompiling the shader cache from '%s'", shaderCachePath_.c_str());
+				}
+			}
 		} else {
 			INFO_LOG(G3D, "Shader cache disabled. Not loading.");
 		}
@@ -115,17 +128,12 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 }
 
 GPU_GLES::~GPU_GLES() {
-	if (draw_) {
-		GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		render->Wipe();
-	}
-
 	// If we're here during app shutdown (exiting the Windows app in-game, for example)
 	// everything should already be cleared since DeviceLost has been run.
 
 	if (shaderCachePath_.Valid() && draw_) {
 		if (g_Config.bShaderCache) {
-			shaderManagerGL_->Save(shaderCachePath_);
+			shaderManagerGL_->SaveCache(shaderCachePath_, &drawEngine_);
 		} else {
 			INFO_LOG(G3D, "Shader cache disabled. Not saving.");
 		}
@@ -271,6 +279,14 @@ void GPU_GLES::InitClear() {
 void GPU_GLES::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	drawEngine_.BeginFrame();
+
+	if (gstate_c.useFlagsChanged) {
+		// TODO: It'd be better to recompile them in the background, probably?
+		// This most likely means that saw equal depth changed.
+		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders");
+		shaderManagerGL_->ClearCache(true);
+		gstate_c.useFlagsChanged = false;
+	}
 }
 
 void GPU_GLES::EndHostFrame() {
@@ -289,7 +305,7 @@ void GPU_GLES::BeginFrame() {
 
 	// Save the cache from time to time. TODO: How often? We save on exit, so shouldn't need to do this all that often.
 	if (shaderCachePath_.Valid() && (gpuStats.numFlips & 4095) == 0) {
-		shaderManagerGL_->Save(shaderCachePath_);
+		shaderManagerGL_->SaveCache(shaderCachePath_, &drawEngine_);
 	}
 
 	shaderManagerGL_->DirtyShader();

@@ -280,6 +280,10 @@ inline const char* GetCharPointer(const u32 address) {
 	}
 }
 
+inline const char *GetCharPointerUnchecked(const u32 address) {
+	return (const char *)GetPointerUnchecked(address);
+}
+
 inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len) {
 	memcpy(to_data, GetPointerUnchecked(from_address), len);
 }
@@ -289,7 +293,7 @@ inline void MemcpyUnchecked(const u32 to_address, const void *from_data, const u
 }
 
 inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const u32 len) {
-	MemcpyUnchecked(GetPointerWrite(to_address), from_address, len);
+	MemcpyUnchecked(GetPointerWriteUnchecked(to_address), from_address, len);
 }
 
 inline bool IsValidAddress(const u32 address) {

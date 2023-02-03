@@ -453,10 +453,12 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 	}
 
 	if (vfb) {
+		bool resized = false;
 		if ((drawing_width != vfb->bufferWidth || drawing_height != vfb->bufferHeight)) {
 			// Even if it's not newly wrong, if this is larger we need to resize up.
 			if (vfb->width > vfb->bufferWidth || vfb->height > vfb->bufferHeight) {
 				ResizeFramebufFBO(vfb, vfb->width, vfb->height);
+				resized = true;
 			} else if (vfb->newWidth != drawing_width || vfb->newHeight != drawing_height) {
 				// If it's newly wrong, or changing every frame, just keep track.
 				vfb->newWidth = drawing_width;
@@ -470,6 +472,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 				needsRecreate = needsRecreate || vfb->newHeight > vfb->bufferHeight || vfb->newHeight * 2 < vfb->bufferHeight;
 				if (needsRecreate) {
 					ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
+					resized = true;
 					// Let's discard this information, might be wrong now.
 					vfb->safeWidth = 0;
 					vfb->safeHeight = 0;
@@ -482,6 +485,14 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		} else {
 			// It's not different, let's keep track of that too.
 			vfb->lastFrameNewSize = gpuStats.numFlips;
+		}
+
+		if (!resized && renderScaleFactor_ != 1 && vfb->renderScaleFactor == 1) {
+			// Might be time to change this framebuffer - have we used depth?
+			if (vfb->usageFlags & FB_USAGE_COLOR_MIXED_DEPTH) {
+				ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
+				_assert_(vfb->renderScaleFactor != 1);
+			}
 		}
 	}
 
@@ -692,6 +703,8 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 			}
 
 			gpuStats.numReinterpretCopies++;
+			src->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
+			dest->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
 
 			// Copying color to depth.
 			BlitUsingRaster(
@@ -1090,7 +1103,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {
 					// TODO: This doesn't seem quite right anymore.
 					fmt = displayFormat_;
 				}
-				DrawPixels(vfb, 0, 0, Memory::GetPointer(addr), fmt, vfb->fb_stride, vfb->width, vfb->height, RASTER_COLOR, "UpdateFromMemory_DrawPixels");
+				DrawPixels(vfb, 0, 0, Memory::GetPointerUnchecked(addr), fmt, vfb->fb_stride, vfb->width, vfb->height, RASTER_COLOR, "UpdateFromMemory_DrawPixels");
 				SetColorUpdated(vfb, gstate_c.skipDrawReason);
 			} else {
 				INFO_LOG(FRAMEBUF, "Invalidating FBO for %08x (%dx%d %s)", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format));
@@ -1140,6 +1153,8 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	if (channel == RASTER_DEPTH) {
 		_dbg_assert_(srcPixelFormat == GE_FORMAT_DEPTH16);
 		flags = flags | DRAWTEX_DEPTH;
+		if (vfb)
+			vfb->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
 	}
 
 	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
@@ -1459,7 +1474,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		if (Memory::IsValidAddress(fbaddr)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			if (!vfb) {
-				DrawFramebufferToOutput(Memory::GetPointer(fbaddr), displayStride_, displayFormat_);
+				DrawFramebufferToOutput(Memory::GetPointerUnchecked(fbaddr), displayStride_, displayFormat_);
 				return;
 			}
 		} else {
@@ -1628,6 +1643,9 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		break;
 	}
 
+	if (vfb->usageFlags & FB_USAGE_COLOR_MIXED_DEPTH) {
+		force1x = false;
+	}
 	if (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000) {
 		force1x = true;
 	}
@@ -1824,7 +1842,11 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	}
 	if (dstBuffer) {
 		dstBuffer->last_frame_used = gpuStats.numFlips;
+		if (channel == RASTER_DEPTH && !srcBuffer)
+			dstBuffer->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
 	}
+	if (srcBuffer && channel == RASTER_DEPTH && !dstBuffer)
+		srcBuffer->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
 
 	if (dstBuffer && srcBuffer) {
 		if (srcBuffer == dstBuffer) {
@@ -2424,7 +2446,7 @@ void FramebufferManagerCommon::NotifyRenderResized(int msaaLevel) {
 
 #ifdef _WIN32
 	// Seems related - if you're ok with numbers all the time, show some more :)
-	if (g_Config.iShowFPSCounter != 0) {
+	if (g_Config.iShowStatusFlags != 0) {
 		ShowScreenResolution();
 	}
 #endif

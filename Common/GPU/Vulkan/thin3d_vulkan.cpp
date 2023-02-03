@@ -198,10 +198,9 @@ public:
 	const std::string &GetSource() const { return source_; }
 	~VKShaderModule() {
 		if (module_) {
-			DEBUG_LOG(G3D, "Queueing %s (shmodule %p) for release", tag_.c_str(), module_);
 			VkShaderModule shaderModule = module_->BlockUntilReady();
 			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
-			vulkan_->Delete().QueueCallback([](void *m) {
+			vulkan_->Delete().QueueCallback([](VulkanContext *context, void *m) {
 				auto module = (Promise<VkShaderModule> *)m;
 				delete module;
 			}, module_);
@@ -213,7 +212,7 @@ public:
 	}
 
 private:
-	VulkanContext *vulkan_;
+	VulkanContext *vulkan_ = nullptr;
 	Promise<VkShaderModule> *module_ = nullptr;
 	VkShaderStageFlagBits vkstage_;
 	bool ok_ = false;
@@ -268,7 +267,6 @@ public:
 		vkrDesc = new VKRGraphicsPipelineDesc();
 	}
 	~VKPipeline() {
-		DEBUG_LOG(G3D, "Queueing %s (pipeline) for release", tag_.c_str());
 		if (pipeline) {
 			pipeline->QueueForDeletion(vulkan_);
 		}
@@ -861,6 +859,11 @@ VKContext::VKContext(VulkanContext *vulkan)
 		break;
 	}
 
+	if (caps_.vendor == GPUVendor::VENDOR_IMGTEC) {
+		// Enable some things that cut down pipeline counts but may have other costs.
+		caps_.verySlowShaderCompiler = true;
+	}
+
 	// Hide D3D9 when we know it likely won't work well.
 #if PPSSPP_PLATFORM(WINDOWS)
 	caps_.supportsD3D9 = true;
@@ -1219,7 +1222,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	raster->ToVulkan(&gDesc.rs);
 
-	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << (size_t)RenderPassType::BACKBUFFER, VK_SAMPLE_COUNT_1_BIT, tag ? tag : "thin3d");
+	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << (size_t)RenderPassType::BACKBUFFER, VK_SAMPLE_COUNT_1_BIT, false, tag ? tag : "thin3d");
 
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;
@@ -1579,7 +1582,7 @@ public:
 	}
 	~VKFramebuffer() {
 		_assert_msg_(buf_, "Null buf_ in VKFramebuffer - double delete?");
-		buf_->Vulkan()->Delete().QueueCallback([](void *fb) {
+		buf_->Vulkan()->Delete().QueueCallback([](VulkanContext *vulkan, void *fb) {
 			VKRFramebuffer *vfb = static_cast<VKRFramebuffer *>(fb);
 			delete vfb;
 		}, buf_);
