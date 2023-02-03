@@ -605,4 +605,6 @@ protected:
 
 	Draw2D draw2D_;
 	// The fragment shaders are "owned" by the pipelines since they're 1:1.
+
+	const Draw::DataFormat colorFormat_ = Draw::DataFormat::R8G8B8A8_UNORM;
 };

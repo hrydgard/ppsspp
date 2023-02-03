@@ -517,7 +517,22 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 
 	// Color texture is same everywhere
 	glGenFramebuffers(1, &fbo->handle);
-	initFBOTexture(fbo->color_texture, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, true);
+
+	GLint colorInternalFormat;
+	GLint colorFormat;
+	GLint colorElementType;
+	switch (fbo->colorFormat) {
+	case Draw::DataFormat::R8G8B8A8_UNORM:
+		colorInternalFormat = GL_RGBA;
+		colorFormat = GL_RGBA;
+		colorElementType = GL_UNSIGNED_BYTE;
+		break;
+	default:
+		_assert_msg_(false, "Data format not supported");
+		return;
+	}
+
+	initFBOTexture(fbo->color_texture, colorInternalFormat, colorFormat, colorElementType, true);
 
 retry_depth:
 	if (!fbo->z_stencil_) {

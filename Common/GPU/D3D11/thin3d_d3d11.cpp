@@ -1325,7 +1325,17 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	// Texture arrays are supported but we don't have any other use cases yet.
 	_dbg_assert_(desc.numLayers == 1);
 
-	fb->colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+	DXGI_FORMAT colorFormat;
+	switch (desc.colorFormat) {
+	case DataFormat::R8G8B8A8_UNORM:
+		colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+		break;
+	default:
+		_assert_msg_(false, "Framebuffer format not supported");
+		return nullptr;
+	}
+
+	fb->colorFormat = colorFormat;
 	D3D11_TEXTURE2D_DESC descColor{};
 	descColor.Width = desc.width;
 	descColor.Height = desc.height;

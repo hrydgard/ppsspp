@@ -278,7 +278,7 @@ bool PresentationCommon::UpdatePostShader() {
 		previousIndex_ = 0;
 
 		for (int i = 0; i < FRAMES; ++i) {
-			previousFramebuffers_[i] = draw_->CreateFramebuffer({ w, h, 1, 1, 0, false, "inter_presentation" });
+			previousFramebuffers_[i] = draw_->CreateFramebuffer({ Draw::DataFormat::R8G8B8A8_UNORM, w, h, 1, 1, 0, false, "inter_presentation" });
 			if (!previousFramebuffers_[i]) {
 				DestroyPostShader();
 				return false;
@@ -394,7 +394,7 @@ bool PresentationCommon::AllocateFramebuffer(int w, int h) {
 	}
 
 	// No depth/stencil for post processing
-	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, 0, false, "presentation" });
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ Draw::DataFormat::R8G8B8A8_UNORM, w, h, 1, 1, 0, false, "presentation" });
 	if (!fbo) {
 		return false;
 	}

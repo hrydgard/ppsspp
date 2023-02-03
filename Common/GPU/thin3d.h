@@ -295,6 +295,7 @@ enum class Event {
 constexpr uint32_t MAX_TEXTURE_SLOTS = 3;
 
 struct FramebufferDesc {
+	DataFormat colorFormat;
 	int width;
 	int height;
 	int depth;
@@ -696,8 +697,12 @@ public:
 	virtual bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) {
 		return false;
 	}
-	virtual DataFormat PreferredFramebufferReadbackFormat(Framebuffer *src) {
+	virtual DataFormat PreferredColorReadbackFormat(Framebuffer *src) {
 		return DataFormat::R8G8B8A8_UNORM;
+	}
+	virtual DataFormat PreferredDepthReadbackFormat(Framebuffer *src) {
+		// We use a shader to read depth and write color, while scaling.
+		return DataFormat::R16_UNORM;
 	}
 
 	// These functions should be self explanatory.

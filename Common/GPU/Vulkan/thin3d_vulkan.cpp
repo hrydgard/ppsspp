@@ -415,7 +415,8 @@ public:
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
 	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) override;
-	DataFormat PreferredFramebufferReadbackFormat(Framebuffer *src) override;
+	DataFormat PreferredColorReadbackFormat(Framebuffer *src) override;
+	DataFormat PreferredDepthReadbackFormat(Framebuffer *src) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
@@ -1602,8 +1603,12 @@ Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	_assert_(desc.width > 0);
 	_assert_(desc.height > 0);
 
+	_assert_(desc.colorFormat == DataFormat::R8G8B8A8_UNORM || desc.colorFormat == DataFormat::R16_UNORM);
+
+	VkFormat colorFormat = DataFormatToVulkan(desc.colorFormat);
+
 	VkCommandBuffer cmd = renderManager_.GetInitCmd();
-	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.numLayers, desc.multiSampleLevel, desc.z_stencil, desc.tag);
+	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), colorFormat, desc.width, desc.height, desc.numLayers, desc.multiSampleLevel, desc.z_stencil, desc.tag);
 	return new VKFramebuffer(vkrfb, desc.multiSampleLevel);
 }
 
@@ -1643,15 +1648,19 @@ bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits,
 	return renderManager_.CopyFramebufferToMemorySync(src ? src->GetFB() : nullptr, aspectMask, x, y, w, h, format, (uint8_t *)pixels, pixelStride, tag);
 }
 
-DataFormat VKContext::PreferredFramebufferReadbackFormat(Framebuffer *src) {
+DataFormat VKContext::PreferredColorReadbackFormat(Framebuffer *src) {
 	if (src) {
-		return DrawContext::PreferredFramebufferReadbackFormat(src);
+		return DrawContext::PreferredColorReadbackFormat(src);
 	}
 
 	if (vulkan_->GetSwapchainFormat() == VK_FORMAT_B8G8R8A8_UNORM) {
 		return Draw::DataFormat::B8G8R8A8_UNORM;
 	}
-	return DrawContext::PreferredFramebufferReadbackFormat(src);
+	return DrawContext::PreferredColorReadbackFormat(src);
+}
+
+DataFormat VKContext::PreferredDepthReadbackFormat(Framebuffer *src) {
+	return Draw::DataFormat::R16_UNORM;
 }
 
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {

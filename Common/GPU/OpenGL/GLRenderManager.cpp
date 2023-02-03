@@ -106,6 +106,7 @@ void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
 			framebuffer->z_stencil_texture.texture = 0;
 			framebuffer->z_buffer = 0;
 			framebuffer->stencil_buffer = 0;
+			framebuffer->colorFormat = Draw::DataFormat::UNDEFINED;
 		}
 		delete framebuffer;
 	}

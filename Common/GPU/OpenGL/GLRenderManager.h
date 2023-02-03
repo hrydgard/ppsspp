@@ -51,10 +51,9 @@ public:
 
 class GLRFramebuffer {
 public:
-	GLRFramebuffer(const Draw::DeviceCaps &caps, int _width, int _height, bool z_stencil)
+	GLRFramebuffer(const Draw::DeviceCaps &caps, Draw::DataFormat _colorFormat, int _width, int _height, bool z_stencil)
 		: color_texture(caps, _width, _height, 1, 1), z_stencil_texture(caps, _width, _height, 1, 1),
-		width(_width), height(_height), z_stencil_(z_stencil) {
-	}
+		colorFormat(_colorFormat), width(_width), height(_height), z_stencil_(z_stencil) {}
 
 	~GLRFramebuffer();
 
@@ -65,6 +64,7 @@ public:
 	GLRTexture z_stencil_texture;
 	GLuint z_buffer = 0;
 	GLuint stencil_buffer = 0;
+	Draw::DataFormat colorFormat;
 
 	int width;
 	int height;
@@ -464,9 +464,9 @@ public:
 		return step.create_shader.shader;
 	}
 
-	GLRFramebuffer *CreateFramebuffer(int width, int height, bool z_stencil) {
+	GLRFramebuffer *CreateFramebuffer(Draw::DataFormat colorFormat, int width, int height, bool z_stencil) {
 		GLRInitStep step{ GLRInitStepType::CREATE_FRAMEBUFFER };
-		step.create_framebuffer.framebuffer = new GLRFramebuffer(caps_, width, height, z_stencil);
+		step.create_framebuffer.framebuffer = new GLRFramebuffer(caps_, colorFormat, width, height, z_stencil);
 		initSteps_.push_back(step);
 		return step.create_framebuffer.framebuffer;
 	}

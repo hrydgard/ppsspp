@@ -1264,7 +1264,18 @@ Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 	D3D9Framebuffer *fbo = new D3D9Framebuffer(desc.width, desc.height);
 	fbo->depthstenciltex = nullptr;
 
-	HRESULT rtResult = device_->CreateTexture(desc.width, desc.height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, nullptr);
+	D3DFORMAT colorFormat;
+	switch (desc.colorFormat) {
+	case DataFormat::R8G8B8A8_UNORM:
+		// We pretend to support this, although in reality we use the reverse format.
+		colorFormat = D3DFMT_A8R8G8B8;
+		break;
+	default:
+		_assert_msg_(false, "Framebuffer format not supported");
+		return nullptr;
+	}
+
+	HRESULT rtResult = device_->CreateTexture(desc.width, desc.height, 1, D3DUSAGE_RENDERTARGET, colorFormat, D3DPOOL_DEFAULT, &fbo->tex, nullptr);
 	if (FAILED(rtResult)) {
 		ERROR_LOG(G3D,  "Failed to create render target");
 		fbo->Release();
