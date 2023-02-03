@@ -152,6 +152,9 @@ struct VirtualFramebuffer {
 	inline int BufferWidthInBytes() const { return bufferWidth * BufferFormatBytesPerPixel(fb_format); }
 	inline int FbStrideInBytes() const { return fb_stride * BufferFormatBytesPerPixel(fb_format); }
 	inline int ZStrideInBytes() const { return z_stride * 2; }
+
+	inline u32 Address(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_address : z_address; }
+	inline int Stride(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_stride : z_stride; }
 };
 
 struct FramebufferHeuristicParams {
@@ -451,7 +454,8 @@ public:
 	}
 
 protected:
-	virtual void ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
+	void ReadbackFramebufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, RasterChannel channel, Draw::DataFormat destFormat, u32 fb_address, u32 stride);
+
 	// Used for when a shader is required, such as GLES.
 	virtual bool ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride);
 	virtual bool ReadbackStencilbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride);

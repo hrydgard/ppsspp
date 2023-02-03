@@ -2717,18 +2717,13 @@ bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 // (Except using the GPU might cause problems because of various implementations'
 // dithering behavior and games that expect exact colors like Danganronpa, so we
 // can't entirely be rid of the CPU path.) -- unknown
-void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel) {
+void FramebufferManagerCommon::ReadbackFramebufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, RasterChannel channel, Draw::DataFormat destFormat, u32 fb_address, u32 stride) {
 	if (w <= 0 || h <= 0) {
 		ERROR_LOG(G3D, "Bad inputs to ReadbackFramebufferSync: %d %d %d %d", x, y, w, h);
 		return;
 	}
 
-	const u32 fb_address = channel == RASTER_COLOR ? vfb->fb_address : vfb->z_address;
-
-	Draw::DataFormat destFormat = channel == RASTER_COLOR ? GEFormatToThin3D(vfb->fb_format) : GEFormatToThin3D(GE_FORMAT_DEPTH16);
 	const int dstBpp = (int)DataFormatSizeInBytes(destFormat);
-
-	int stride = channel == RASTER_COLOR ? vfb->fb_stride : vfb->z_stride;
 
 	const int dstByteOffset = (y * stride + x) * dstBpp;
 	// Leave the gap between the end of the last line and the full stride.
@@ -2747,14 +2742,14 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x, ptr=%p", fb_address, destPtr);
 
 	if (channel == RASTER_DEPTH) {
-		_assert_msg_(vfb && vfb->z_address != 0 && vfb->z_stride != 0, "Depth buffer invalid");
-		ReadbackDepthbufferSync(vfb->fbo, x, y, w, h, (uint16_t *)destPtr, stride);
+		// _assert_msg_(vfb && vfb->z_address != 0 && vfb->z_stride != 0, "Depth buffer invalid");
+		ReadbackDepthbufferSync(fbo, x, y, w, h, (uint16_t *)destPtr, stride);
 	} else {
-		draw_->CopyFramebufferToMemorySync(vfb->fbo, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, stride, "ReadbackFramebufferSync");
+		draw_->CopyFramebufferToMemorySync(fbo, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, stride, "ReadbackFramebufferSync");
 	}
 
 	char tag[128];
-	size_t len = snprintf(tag, sizeof(tag), "FramebufferPack/%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, w, h, GeBufferFormatToString(vfb->fb_format));
+	size_t len = snprintf(tag, sizeof(tag), "FramebufferPack/%08x_%dx%d", fb_address, w, h);
 	NotifyMemInfo(MemBlockFlags::WRITE, fb_address + dstByteOffset, dstSize, tag, len);
 
 	gpuStats.numReadbacks++;
@@ -2807,14 +2802,19 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 			}
 		}
 
+		u32 address = vfb->Address(channel);
+		int stride = vfb->Stride(channel);
+
+		Draw::DataFormat destFormat = channel == RASTER_COLOR ? GEFormatToThin3D(vfb->fb_format) : GEFormatToThin3D(GE_FORMAT_DEPTH16);
+
 		if (vfb->renderWidth == vfb->width && vfb->renderHeight == vfb->height) {
 			// No need to stretch-blit
-			ReadbackFramebufferSync(vfb, x, y, w, h, channel);
+			ReadbackFramebufferSync(vfb->fbo, x, y, w, h, channel, destFormat, address, stride);
 		} else {
 			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb, channel);
 			if (nvfb) {
 				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, channel, "Blit_ReadFramebufferToMemory");
-				ReadbackFramebufferSync(nvfb, x, y, w, h, channel);
+				ReadbackFramebufferSync(nvfb->fbo, x, y, w, h, channel, destFormat, address, stride);
 			}
 		}
 
@@ -2837,7 +2837,7 @@ void FramebufferManagerCommon::FlushBeforeCopy() {
 	}
 }
 
-// TODO: Replace with with depal, reading the palette from the texture on the GPU directly.
+// In practice, this has been replaced with depal, reading the palette from the texture on the GPU directly.
 void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
 	VirtualFramebuffer *vfb = GetVFBAt(fb_address);
 	if (vfb && vfb->fb_stride != 0) {
@@ -2871,7 +2871,7 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb, RASTER_COLOR);
 			if (nvfb) {
 				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, RASTER_COLOR, "Blit_DownloadFramebufferForClut");
-				ReadbackFramebufferSync(nvfb, x, y, w, h, RASTER_COLOR);
+				ReadbackFramebufferSync(nvfb->fbo, x, y, w, h, RASTER_COLOR, GEFormatToThin3D(nvfb->fb_format), nvfb->fb_address, nvfb->fb_stride);
 			}
 
 			textureCache_->ForgetLastTexture();
