@@ -2,8 +2,7 @@
 
 #if XR_USE_GRAPHICS_API_OPENGL_ES
 
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
+#include "Common/GPU/OpenGL/GLCommon.h"
 
 #endif
 
