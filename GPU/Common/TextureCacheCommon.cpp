@@ -1237,158 +1237,166 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 	clutTotalBytes_ = loadBytes;
 	clutRenderAddress_ = 0xFFFFFFFF;
 
-	if (Memory::IsValidAddress(clutAddr)) {
-		if (Memory::IsVRAMAddress(clutAddr)) {
-			// Clear the uncached and mirror bits, etc. to match framebuffers.
-			const u32 clutLoadAddr = clutAddr & 0x041FFFFF;
-			const u32 clutLoadEnd = clutLoadAddr + loadBytes;
-			static const u32 MAX_CLUT_OFFSET = 4096;
+	if (!Memory::IsValidAddress(clutAddr)) {
+		memset(clutBufRaw_, 0x00, loadBytes);
+		// Reload the clut next time.
+		clutLastFormat_ = 0xFFFFFFFF;
+		clutMaxBytes_ = std::max(clutMaxBytes_, loadBytes);
+		return;
+	}
 
-			clutRenderOffset_ = MAX_CLUT_OFFSET;
-			const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
+	// Check if it's trying to upload pixels from a framebuffer as a CLUT.
+	if (Memory::IsVRAMAddress(clutAddr)) {
+		// Clear the uncached and mirror bits, etc. to match framebuffers.
+		const u32 clutLoadAddr = clutAddr & 0x041FFFFF;
+		const u32 clutLoadEnd = clutLoadAddr + loadBytes;
+		static const u32 MAX_CLUT_OFFSET = 4096;
 
-			u32 bestClutAddress = 0xFFFFFFFF;
+		clutRenderOffset_ = MAX_CLUT_OFFSET;
+		const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 
-			VirtualFramebuffer *chosenFramebuffer = nullptr;
-			for (VirtualFramebuffer *framebuffer : framebuffers) {
-				// Let's not deal with divide by zero.
-				if (framebuffer->fb_stride == 0)
-					continue;
+		u32 bestClutAddress = 0xFFFFFFFF;
 
-				const u32 fb_address = framebuffer->fb_address;
-				const u32 fb_bpp = BufferFormatBytesPerPixel(framebuffer->fb_format);
-				int offset = clutLoadAddr - fb_address;
+		VirtualFramebuffer *chosenFramebuffer = nullptr;
+		for (VirtualFramebuffer *framebuffer : framebuffers) {
+			// Let's not deal with divide by zero.
+			if (framebuffer->fb_stride == 0)
+				continue;
 
-				// Is this inside the framebuffer at all? Note that we only check the first line here, this should
-				// be changed.
-				bool matchRange = offset >= 0 && offset < (int)(framebuffer->fb_stride * fb_bpp);
-				if (matchRange) {
-					// And is it inside the rendered area?  Sometimes games pack data in the margin between width and stride.
-					// If the framebuffer width was detected as 512, we're gonna assume it's really 480.
-					int fbMatchWidth = framebuffer->width;
-					if (fbMatchWidth == 512) {
-						fbMatchWidth = 480;
-					}
-					bool inMargin = ((offset / fb_bpp) % framebuffer->fb_stride) == fbMatchWidth;
+			const u32 fb_address = framebuffer->fb_address;
+			const u32 fb_bpp = BufferFormatBytesPerPixel(framebuffer->fb_format);
+			int offset = clutLoadAddr - fb_address;
 
-					// The offset check here means, in the context of the loop, that we'll pick
-					// the framebuffer with the smallest offset. This is yet another framebuffer matching
-					// loop with its own rules, eventually we'll probably want to do something
-					// more systematic.
-					if (matchRange && !inMargin && offset < (int)clutRenderOffset_) {
-						WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d", loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset);
-						framebuffer->last_frame_clut = gpuStats.numFlips;
-						// Also mark used so it's not decimated.
-						framebuffer->last_frame_used = gpuStats.numFlips;
-						framebuffer->usageFlags |= FB_USAGE_CLUT;
-						bestClutAddress = framebuffer->fb_address;
-						clutRenderOffset_ = (u32)offset;
-						chosenFramebuffer = framebuffer;
-						if (offset == 0) {
-							// Not gonna find a better match according to the smallest-offset rule, so we'll go with this one.
-							break;
-						}
+			// Is this inside the framebuffer at all? Note that we only check the first line here, this should
+			// be changed.
+			bool matchRange = offset >= 0 && offset < (int)(framebuffer->fb_stride * fb_bpp);
+			if (matchRange) {
+				// And is it inside the rendered area?  Sometimes games pack data in the margin between width and stride.
+				// If the framebuffer width was detected as 512, we're gonna assume it's really 480.
+				int fbMatchWidth = framebuffer->width;
+				if (fbMatchWidth == 512) {
+					fbMatchWidth = 480;
+				}
+				bool inMargin = ((offset / fb_bpp) % framebuffer->fb_stride) == fbMatchWidth;
+
+				// The offset check here means, in the context of the loop, that we'll pick
+				// the framebuffer with the smallest offset. This is yet another framebuffer matching
+				// loop with its own rules, eventually we'll probably want to do something
+				// more systematic.
+				if (matchRange && !inMargin && offset < (int)clutRenderOffset_) {
+					WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d", loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset);
+					framebuffer->last_frame_clut = gpuStats.numFlips;
+					// Also mark used so it's not decimated.
+					framebuffer->last_frame_used = gpuStats.numFlips;
+					framebuffer->usageFlags |= FB_USAGE_CLUT;
+					bestClutAddress = framebuffer->fb_address;
+					clutRenderOffset_ = (u32)offset;
+					chosenFramebuffer = framebuffer;
+					if (offset == 0) {
+						// Not gonna find a better match according to the smallest-offset rule, so we'll go with this one.
+						break;
 					}
 				}
 			}
-
-			// To turn off dynamic CLUT (for demonstration or testing purposes), add "false &&" to this check.
-			if (chosenFramebuffer && chosenFramebuffer->fbo) {
-				clutRenderAddress_ = bestClutAddress;
-
-				if (!dynamicClutTemp_) {
-					Draw::FramebufferDesc desc{};
-					desc.width = 512;
-					desc.height = 1;
-					desc.depth = 1;
-					desc.z_stencil = false;
-					desc.numLayers = 1;
-					desc.multiSampleLevel = 0;
-					desc.tag = "dynamic_clut";
-					dynamicClutFbo_ = draw_->CreateFramebuffer(desc);
-					desc.tag = "dynamic_clut_temp";
-					dynamicClutTemp_ = draw_->CreateFramebuffer(desc);
-				}
-
-				// We'll need to copy from the offset.
-				const u32 fb_bpp = BufferFormatBytesPerPixel(chosenFramebuffer->fb_format);
-				const int totalPixelsOffset = clutRenderOffset_ / fb_bpp;
-				const int clutYOffset = totalPixelsOffset / chosenFramebuffer->fb_stride;
-				const int clutXOffset = totalPixelsOffset % chosenFramebuffer->fb_stride;
-				const int scale = chosenFramebuffer->renderScaleFactor;
-
-				// Copy the pixels to our temp clut, scaling down if needed and wrapping.
-				framebufferManager_->BlitUsingRaster(
-					chosenFramebuffer->fbo, clutXOffset * scale, clutYOffset * scale, (clutXOffset + 512.0f) * scale, (clutYOffset + 1.0f) * scale,
-					dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, 
-					false, scale, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR_RECT2LIN), "copy_clut_to_temp");
-
-				framebufferManager_->RebindFramebuffer("after_copy_clut_to_temp");
-				clutRenderFormat_ = chosenFramebuffer->fb_format;
-			}
-			NotifyMemInfo(MemBlockFlags::ALLOC, clutAddr, loadBytes, "CLUT");
 		}
 
-		// It's possible for a game to load CLUT outside valid memory without crashing, should result in zeroes.
-		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
-		_assert_(bytes <= 2048);
-		bool performDownload = PSP_CoreParameter().compat.flags().AllowDownloadCLUT;
-		if (GPURecord::IsActive())
-			performDownload = true;
-		if (clutRenderAddress_ != 0xFFFFFFFF && performDownload) {
-			framebufferManager_->DownloadFramebufferForClut(clutRenderAddress_, clutRenderOffset_ + bytes);
-			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
-			if (bytes < loadBytes) {
-				memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
+		// To turn off dynamic CLUT (for demonstration or testing purposes), add "false &&" to this check.
+		if (chosenFramebuffer && chosenFramebuffer->fbo) {
+			clutRenderAddress_ = bestClutAddress;
+
+			if (!dynamicClutTemp_) {
+				Draw::FramebufferDesc desc{};
+				desc.width = 512;
+				desc.height = 1;
+				desc.depth = 1;
+				desc.z_stencil = false;
+				desc.numLayers = 1;
+				desc.multiSampleLevel = 0;
+				desc.tag = "dynamic_clut";
+				dynamicClutFbo_ = draw_->CreateFramebuffer(desc);
+				desc.tag = "dynamic_clut_temp";
+				dynamicClutTemp_ = draw_->CreateFramebuffer(desc);
 			}
-		} else {
-			// Here we could check for clutRenderAddress_ != 0xFFFFFFFF and zero the CLUT or something,
-			// but choosing not to for now. Though the results of loading the CLUT from RAM here is
-			// almost certainly going to be bogus.
-#ifdef _M_SSE
-			if (bytes == loadBytes) {
-				const __m128i *source = (const __m128i *)Memory::GetPointerUnchecked(clutAddr);
-				__m128i *dest = (__m128i *)clutBufRaw_;
-				int numBlocks = bytes / 32;
-				for (int i = 0; i < numBlocks; i++, source += 2, dest += 2) {
-					__m128i data1 = _mm_loadu_si128(source);
-					__m128i data2 = _mm_loadu_si128(source + 1);
-					_mm_store_si128(dest, data1);
-					_mm_store_si128(dest + 1, data2);
-				}
-			} else {
-				Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
-				if (bytes < loadBytes) {
-					memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
-				}
-			}
-#elif PPSSPP_ARCH(ARM_NEON)
-			if (bytes == loadBytes) {
-				const uint32_t *source = (const uint32_t *)Memory::GetPointerUnchecked(clutAddr);
-				uint32_t *dest = (uint32_t *)clutBufRaw_;
-				int numBlocks = bytes / 32;
-				for (int i = 0; i < numBlocks; i++, source += 8, dest += 8) {
-					uint32x4_t data1 = vld1q_u32(source);
-					uint32x4_t data2 = vld1q_u32(source + 4);
-					vst1q_u32(dest, data1);
-					vst1q_u32(dest + 4, data2);
-				}
-			} else {
-				Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
-				if (bytes < loadBytes) {
-					memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
-				}
-			}
-#else
-			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
-			if (bytes < loadBytes) {
-				memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
-			}
-#endif
+
+			// We'll need to copy from the offset.
+			const u32 fb_bpp = BufferFormatBytesPerPixel(chosenFramebuffer->fb_format);
+			const int totalPixelsOffset = clutRenderOffset_ / fb_bpp;
+			const int clutYOffset = totalPixelsOffset / chosenFramebuffer->fb_stride;
+			const int clutXOffset = totalPixelsOffset % chosenFramebuffer->fb_stride;
+			const int scale = chosenFramebuffer->renderScaleFactor;
+
+			// Copy the pixels to our temp clut, scaling down if needed and wrapping.
+			framebufferManager_->BlitUsingRaster(
+				chosenFramebuffer->fbo, clutXOffset * scale, clutYOffset * scale, (clutXOffset + 512.0f) * scale, (clutYOffset + 1.0f) * scale,
+				dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f,
+				false, scale, framebufferManager_->Get2DPipeline(DRAW2D_COPY_COLOR_RECT2LIN), "copy_clut_to_temp");
+
+			framebufferManager_->RebindFramebuffer("after_copy_clut_to_temp");
+			clutRenderFormat_ = chosenFramebuffer->fb_format;
+		}
+		NotifyMemInfo(MemBlockFlags::ALLOC, clutAddr, loadBytes, "CLUT");
+	}
+
+	// It's possible for a game to load CLUT outside valid memory without crashing, should result in zeroes.
+	u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
+	_assert_(bytes <= 2048);
+	bool performDownload = PSP_CoreParameter().compat.flags().AllowDownloadCLUT;
+	if (GPURecord::IsActive())
+		performDownload = true;
+	if (clutRenderAddress_ != 0xFFFFFFFF && performDownload) {
+		framebufferManager_->DownloadFramebufferForClut(clutRenderAddress_, clutRenderOffset_ + bytes);
+		Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
+		if (bytes < loadBytes) {
+			memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
 		}
 	} else {
-		memset(clutBufRaw_, 0x00, loadBytes);
+		// The common case.
+
+		// Here we could check for clutRenderAddress_ != 0xFFFFFFFF and zero the CLUT or something,
+		// but choosing not to for now. Though the results of loading the CLUT from RAM here is
+		// almost certainly going to be bogus.
+#ifdef _M_SSE
+		if (bytes == loadBytes) {
+			const __m128i *source = (const __m128i *)Memory::GetPointerUnchecked(clutAddr);
+			__m128i *dest = (__m128i *)clutBufRaw_;
+			int numBlocks = bytes / 32;
+			for (int i = 0; i < numBlocks; i++, source += 2, dest += 2) {
+				__m128i data1 = _mm_loadu_si128(source);
+				__m128i data2 = _mm_loadu_si128(source + 1);
+				_mm_store_si128(dest, data1);
+				_mm_store_si128(dest + 1, data2);
+			}
+		} else {
+			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
+			if (bytes < loadBytes) {
+				memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
+			}
+		}
+#elif PPSSPP_ARCH(ARM_NEON)
+		if (bytes == loadBytes) {
+			const uint32_t *source = (const uint32_t *)Memory::GetPointerUnchecked(clutAddr);
+			uint32_t *dest = (uint32_t *)clutBufRaw_;
+			int numBlocks = bytes / 32;
+			for (int i = 0; i < numBlocks; i++, source += 8, dest += 8) {
+				uint32x4_t data1 = vld1q_u32(source);
+				uint32x4_t data2 = vld1q_u32(source + 4);
+				vst1q_u32(dest, data1);
+				vst1q_u32(dest + 4, data2);
+			}
+		} else {
+			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
+			if (bytes < loadBytes) {
+				memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
+			}
+		}
+#else
+		Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
+		if (bytes < loadBytes) {
+			memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
+		}
+#endif
 	}
+
 	// Reload the clut next time.
 	clutLastFormat_ = 0xFFFFFFFF;
 	clutMaxBytes_ = std::max(clutMaxBytes_, loadBytes);
