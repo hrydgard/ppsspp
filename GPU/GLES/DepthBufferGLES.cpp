@@ -173,7 +173,7 @@ static Draw::Pipeline *CreateReadbackPipeline(Draw::DrawContext *draw, const cha
 	return pipeline;
 }
 
-bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) {
+bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH) {
 	using namespace Draw;
 
 	if (!fbo) {
@@ -186,15 +186,21 @@ bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int
 	}
 
 	// Pixel size always 4 here because we always request float or RGBA.
-	const u32 bufSize = w * h * 4;
+	const u32 bufSize = destW * destH * 4;
 	if (!convBuf_ || convBufSize_ < bufSize) {
 		delete[] convBuf_;
 		convBuf_ = new u8[bufSize];
 		convBufSize_ = bufSize;
 	}
 
-	const bool useColorPath = gl_extensions.IsGLES;
+	float scaleX = (float)destW / w;
+	float scaleY = (float)destH / h;
+
+	bool useColorPath = gl_extensions.IsGLES || scaleX != 1.0f || scaleY != 1.0f;
 	bool format16Bit = false;
+
+	// For testing. DO NOT merge.
+	useColorPath = true;
 
 	if (useColorPath) {
 		if (!depthReadbackPipeline_) {
@@ -205,14 +211,14 @@ bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int
 		shaderManager_->DirtyLastShader();
 		auto *blitFBO = GetTempFBO(TempFBO::COPY, fbo->Width(), fbo->Height());
 		draw_->BindFramebufferAsRenderTarget(blitFBO, { RPAction::DONT_CARE, RPAction::DONT_CARE, RPAction::DONT_CARE }, "ReadbackDepthbufferSync");
-		Draw::Viewport viewport = { 0.0f, 0.0f, (float)fbo->Width(), (float)fbo->Height(), 0.0f, 1.0f };
+		Draw::Viewport viewport = { 0.0f, 0.0f, (float)destW, (float)destH, 0.0f, 1.0f };
 		draw_->SetViewports(1, &viewport);
 
 		draw_->BindFramebufferAsTexture(fbo, TEX_SLOT_PSP_TEXTURE, FB_DEPTH_BIT, 0);
 		draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &depthReadbackSampler_);
 
 		// We must bind the program after starting the render pass.
-		draw_->SetScissorRect(0, 0, w, h);
+		draw_->SetScissorRect(0, 0, destW, destH);
 		draw_->BindPipeline(depthReadbackPipeline_);
 
 		DepthUB ub{};
@@ -241,7 +247,7 @@ bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int
 		};
 		draw_->DrawUP(positions, 3);
 
-		draw_->CopyFramebufferToMemorySync(blitFBO, FB_COLOR_BIT, x, y, w, h, DataFormat::R8G8B8A8_UNORM, convBuf_, w, "ReadbackDepthbufferSync");
+		draw_->CopyFramebufferToMemorySync(blitFBO, FB_COLOR_BIT, x * scaleX, y * scaleY, w * scaleX, h * scaleY, DataFormat::R8G8B8A8_UNORM, convBuf_, w, "ReadbackDepthbufferSync");
 
 		textureCache_->ForgetLastTexture();
 		// TODO: Use 4444 so we can copy lines directly (instead of 32 -> 16 on CPU)?

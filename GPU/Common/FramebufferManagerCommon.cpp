@@ -2640,17 +2640,26 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 	}
 
 	bool flipY = (GetGPUBackend() == GPUBackend::OPENGL && !useBufferedRendering_) ? true : false;
-	if (gstate_c.Use(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
-		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT_DIV_256, flipY);
-	} else {
-		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, flipY);
-	}
-	// No need to free on failure, that's the caller's job (it likely will reuse a buffer.)
-	bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, w, h, Draw::DataFormat::D32F, buffer.GetData(), w, "GetDepthBuffer");
-	if (!retval) {
-		// Try ReadbackDepthbufferSync, in case GLES.
+
+	bool retval;
+	if (true) {
+		// Always use ReadbackDepthbufferSync (while we debug it)
 		buffer.Allocate(w, h, GPU_DBG_FORMAT_16BIT, flipY);
-		retval = ReadbackDepthbufferSync(vfb->fbo, 0, 0, w, h, (uint16_t *)buffer.GetData(), w);
+		retval = ReadbackDepthbufferSync(vfb->fbo, 0, 0, w, h, (uint16_t *)buffer.GetData(), w, w, h);
+	} else {
+		// Old code
+		if (gstate_c.Use(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+			buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT_DIV_256, flipY);
+		} else {
+			buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, flipY);
+		}
+		// No need to free on failure, that's the caller's job (it likely will reuse a buffer.)
+		retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, w, h, Draw::DataFormat::D32F, buffer.GetData(), w, "GetDepthBuffer");
+		if (!retval) {
+			// Try ReadbackDepthbufferSync, in case GLES.
+			buffer.Allocate(w, h, GPU_DBG_FORMAT_16BIT, flipY);
+			retval = ReadbackDepthbufferSync(vfb->fbo, 0, 0, w, h, (uint16_t *)buffer.GetData(), w, w, h);
+		}
 	}
 
 	// After a readback we'll have flushed and started over, need to dirty a bunch of things to be safe.
@@ -2748,7 +2757,7 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 
 	if (channel == RASTER_DEPTH) {
 		_assert_msg_(vfb && vfb->z_address != 0 && vfb->z_stride != 0, "Depth buffer invalid");
-		ReadbackDepthbufferSync(vfb->fbo, x, y, w, h, (uint16_t *)destPtr, stride);
+		ReadbackDepthbufferSync(vfb->fbo, x, y, w, h, (uint16_t *)destPtr, stride, w, h);
 	} else {
 		draw_->CopyFramebufferToMemorySync(vfb->fbo, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, stride, "ReadbackFramebufferSync");
 	}
@@ -2760,8 +2769,14 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 	gpuStats.numReadbacks++;
 }
 
-bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) {
+bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH) {
 	Draw::DataFormat destFormat = GEFormatToThin3D(GE_FORMAT_DEPTH16);
+
+	if (w != destW || h != destH) {
+		// This path can't handle stretch blits. That's fine, this path is going away later.
+		return false;
+	}
+
 	// TODO: Apply depth scale factors if we don't have depth clamp.
 	return draw_->CopyFramebufferToMemorySync(fbo, Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, pixels, pixelsStride, "ReadbackDepthbufferSync");
 }

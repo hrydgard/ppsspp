@@ -38,5 +38,5 @@ public:
 	~FramebufferManagerDX9();
 
 protected:
-	bool ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) override;
+	bool ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH) override;
 };
