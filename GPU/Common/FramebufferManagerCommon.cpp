@@ -80,6 +80,7 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 	bvfbs_.clear();
 
 	delete presentation_;
+	delete[] convBuf_;
 }
 
 void FramebufferManagerCommon::Init(int msaaLevel) {
@@ -2767,18 +2768,6 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 	NotifyMemInfo(MemBlockFlags::WRITE, fb_address + dstByteOffset, dstSize, tag, len);
 
 	gpuStats.numReadbacks++;
-}
-
-bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH) {
-	Draw::DataFormat destFormat = GEFormatToThin3D(GE_FORMAT_DEPTH16);
-
-	if (w != destW || h != destH) {
-		// This path can't handle stretch blits. That's fine, this path is going away later.
-		return false;
-	}
-
-	// TODO: Apply depth scale factors if we don't have depth clamp.
-	return draw_->CopyFramebufferToMemorySync(fbo, Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, pixels, pixelsStride, "ReadbackDepthbufferSync");
 }
 
 bool FramebufferManagerCommon::ReadbackStencilbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride) {

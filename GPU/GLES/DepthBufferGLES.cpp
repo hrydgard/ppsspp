@@ -28,9 +28,8 @@
 #include "Common/GPU/ShaderWriter.h"
 
 
-static const InputDef inputs[2] = {
+static const InputDef vs_inputs[] = {
 	{ "vec2", "a_position", Draw::SEM_POSITION },
-	{ "vec2", "a_texcoord0", Draw::SEM_TEXCOORD0 },
 };
 
 struct DepthUB {
@@ -39,7 +38,7 @@ struct DepthUB {
 	float u_depthTo8[4];
 };
 
-const UniformDef depthUniforms[3] = {
+const UniformDef depthUniforms[] = {
 	{ "vec4", "u_depthFactor", 0 },
 	{ "vec4", "u_depthShift", 1},
 	{ "vec4", "u_depthTo8", 2},
@@ -51,18 +50,18 @@ const UniformBufferDesc depthUBDesc{ sizeof(DepthUB), {
 	{ "u_depthTo8", -1, -1, UniformType::FLOAT4, 32 },
 } };
 
-static const SamplerDef samplers[1] = {
-	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN },
+static const SamplerDef samplers[] = {
+	{ 0, "tex" },
 };
 
-static const VaryingDef varyings[1] = {
+static const VaryingDef varyings[] = {
 	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
 };
 
 void GenerateDepthDownloadFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(depthUniforms, varyings);
-	writer.C("  float depth = texture2D(tex, v_texcoord).r;\n");
+	writer.C("  float depth = ").SampleTexture2D("tex", "v_texcoord").C(".r; \n");
 	// At this point, clamped maps [0, 1] to [0, 65535].
 	writer.C("  float clamped = clamp((depth + u_depthFactor.x) * u_depthFactor.y, 0.0, 1.0);\n");
 	writer.C("  vec4 enc = u_depthShift * clamped;\n");
@@ -72,7 +71,7 @@ void GenerateDepthDownloadFs(ShaderWriter &writer) {
 }
 
 void GenerateDepthDownloadVs(ShaderWriter &writer) {
-	writer.BeginVSMain(inputs, Slice<UniformDef>::empty(), varyings);
+	writer.BeginVSMain(vs_inputs, Slice<UniformDef>::empty(), varyings);
 	writer.C("v_texcoord = a_position * 2.0;\n");
 	writer.C("gl_Position = vec4(v_texcoord * 2.0 - vec2(1.0, 1.0), 0.0, 1.0);");
 	writer.EndVSMain(varyings);
@@ -166,7 +165,7 @@ static Draw::Pipeline *CreateReadbackPipeline(Draw::DrawContext *draw, const cha
 	return pipeline;
 }
 
-bool FramebufferManagerGLES::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH) {
+bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH) {
 	using namespace Draw;
 
 	if (!fbo) {

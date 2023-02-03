@@ -601,4 +601,8 @@ protected:
 
 	Draw2D draw2D_;
 	// The fragment shaders are "owned" by the pipelines since they're 1:1.
+
+	// Depth readback helper state
+	u8 *convBuf_ = nullptr;
+	u32 convBufSize_ = 0;
 };

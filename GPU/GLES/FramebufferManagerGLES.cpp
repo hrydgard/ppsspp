@@ -45,10 +45,6 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
 	presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
 }
 
-FramebufferManagerGLES::~FramebufferManagerGLES() {
-	delete[] convBuf_;
-}
-
 void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 	_assert_msg_(nvfb->fbo, "Expecting a valid nvfb in UpdateDownloadTempBuffer");
 
