@@ -123,6 +123,8 @@ struct VirtualFramebuffer {
 
 	// Tracking for downloads-to-CLUT.
 	u16 clutUpdatedBytes;
+
+	// Means that the whole image has already been read back to memory - used when combining small readbacks (gameUsesSequentialCopies_).
 	bool memoryUpdated;
 
 	// TODO: Fold into usageFlags?

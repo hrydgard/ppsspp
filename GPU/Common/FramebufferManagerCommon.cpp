@@ -2720,8 +2720,7 @@ bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	return retval;
 }
 
-// This function takes an already correctly-sized framebuffer and reads it into emulated PSP VRAM.
-// Does not need to account for scaling.
+// This reads a channel of a framebuffer into emulated PSP VRAM, taking care of scaling down as needed.
 //
 // Color conversion is currently done on CPU but should theoretically be done on GPU.
 // (Except using the GPU might cause problems because of various implementations'
@@ -2731,6 +2730,16 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 	if (w <= 0 || h <= 0) {
 		ERROR_LOG(G3D, "Bad inputs to ReadbackFramebufferSync: %d %d %d %d", x, y, w, h);
 		return;
+	}
+
+	if (vfb->renderWidth == vfb->width && vfb->renderHeight == vfb->height) {
+		// No need to stretch-blit
+	} else {
+		VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb, channel);
+		if (nvfb) {
+			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, channel, "Blit_ReadFramebufferToMemory");
+			vfb = nvfb;
+		}
 	}
 
 	const u32 fb_address = channel == RASTER_COLOR ? vfb->fb_address : vfb->z_address;
@@ -2780,7 +2789,6 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 		w = vfb->bufferWidth - x;
 	}
 	if (vfb && vfb->fbo) {
-		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
 		if (gameUsesSequentialCopies_) {
 			// Ignore the x/y/etc., read the entire thing.  See below.
 			x = 0;
@@ -2811,16 +2819,8 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 			}
 		}
 
-		if (vfb->renderWidth == vfb->width && vfb->renderHeight == vfb->height) {
-			// No need to stretch-blit
-			ReadbackFramebufferSync(vfb, x, y, w, h, channel);
-		} else {
-			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb, channel);
-			if (nvfb) {
-				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, channel, "Blit_ReadFramebufferToMemory");
-				ReadbackFramebufferSync(nvfb, x, y, w, h, channel);
-			}
-		}
+		// This handles any required stretching internally.
+		ReadbackFramebufferSync(vfb, x, y, w, h, channel);
 
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 		textureCache_->ForgetLastTexture();
@@ -2871,12 +2871,8 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 			}
 			vfb->clutUpdatedBytes = loadBytes;
 
-			// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb, RASTER_COLOR);
-			if (nvfb) {
-				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, RASTER_COLOR, "Blit_DownloadFramebufferForClut");
-				ReadbackFramebufferSync(nvfb, x, y, w, h, RASTER_COLOR);
-			}
+			// This function now handles scaling down internally.
+			ReadbackFramebufferSync(vfb, x, y, w, h, RASTER_COLOR);
 
 			textureCache_->ForgetLastTexture();
 			RebindFramebuffer("RebindFramebuffer - DownloadFramebufferForClut");
