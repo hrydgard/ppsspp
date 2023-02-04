@@ -453,7 +453,7 @@ public:
 protected:
 	virtual void ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
 	// Used for when a shader is required, such as GLES.
-	virtual bool ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride);
+	virtual bool ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH);
 	virtual bool ReadbackStencilbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride);
 	void SetViewport2D(int x, int y, int w, int h);
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
@@ -601,4 +601,8 @@ protected:
 
 	Draw2D draw2D_;
 	// The fragment shaders are "owned" by the pipelines since they're 1:1.
+
+	// Depth readback helper state
+	u8 *convBuf_ = nullptr;
+	u32 convBufSize_ = 0;
 };

@@ -60,6 +60,7 @@
     <ClCompile Include="..\..\GPU\Common\ReinterpretFramebuffer.cpp" />
     <ClCompile Include="..\..\GPU\Common\Draw2D.cpp" />
     <ClCompile Include="..\..\GPU\Common\TextureShaderCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\DepthBufferCommon.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />

@@ -372,6 +372,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/GPUStateUtils.cpp.arm \
   $(SRC)/GPU/Common/SoftwareTransformCommon.cpp.arm \
   $(SRC)/GPU/Common/ReinterpretFramebuffer.cpp \
+  $(SRC)/GPU/Common/DepthBufferCommon.cpp \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureCacheCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureScalerCommon.cpp.arm \
@@ -392,7 +393,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Debugger/Record.cpp \
   $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/FramebufferManagerGLES.cpp \
-  $(SRC)/GPU/GLES/DepthBufferGLES.cpp \
+  $(SRC)/GPU/GLES/StencilBufferGLES.cpp \
   $(SRC)/GPU/GLES/GPU_GLES.cpp.arm \
   $(SRC)/GPU/GLES/TextureCacheGLES.cpp.arm \
   $(SRC)/GPU/GLES/DrawEngineGLES.cpp.arm \
