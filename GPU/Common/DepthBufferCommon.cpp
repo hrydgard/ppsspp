@@ -204,16 +204,16 @@ bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, i
 		}
 
 		shaderManager_->DirtyLastShader();
-		auto *blitFBO = GetTempFBO(TempFBO::COPY, fbo->Width(), fbo->Height());
+		auto *blitFBO = GetTempFBO(TempFBO::COPY, fbo->Width() * scaleX, fbo->Height() * scaleY);
 		draw_->BindFramebufferAsRenderTarget(blitFBO, { RPAction::DONT_CARE, RPAction::DONT_CARE, RPAction::DONT_CARE }, "ReadbackDepthbufferSync");
 		Draw::Viewport viewport = { 0.0f, 0.0f, (float)destW, (float)destH, 0.0f, 1.0f };
 		draw_->SetViewports(1, &viewport);
+		draw_->SetScissorRect(0, 0, fbo->Width() * scaleX, fbo->Height() * scaleY);
 
 		draw_->BindFramebufferAsTexture(fbo, TEX_SLOT_PSP_TEXTURE, FB_DEPTH_BIT, 0);
 		draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &depthReadbackSampler_);
 
 		// We must bind the program after starting the render pass.
-		draw_->SetScissorRect(0, 0, destW, destH);
 		draw_->BindPipeline(depthReadbackPipeline_);
 
 		DepthUB ub{};
@@ -242,10 +242,10 @@ bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, i
 		};
 		draw_->DrawUP(positions, 3);
 
-		draw_->CopyFramebufferToMemorySync(blitFBO, FB_COLOR_BIT, x * scaleX, y * scaleY, w * scaleX, h * scaleY, DataFormat::R8G8B8A8_UNORM, convBuf_, w, "ReadbackDepthbufferSync");
+		draw_->CopyFramebufferToMemorySync(blitFBO, FB_COLOR_BIT, x * scaleX, y * scaleY, w * scaleX, h * scaleY, DataFormat::R8G8B8A8_UNORM, convBuf_, destW, "ReadbackDepthbufferSync");
 
 		textureCache_->ForgetLastTexture();
-		// TODO: Use 4444 so we can copy lines directly (instead of 32 -> 16 on CPU)?
+		// TODO: Use 4444 (or better, R16_UNORM) so we can copy lines directly (instead of 32 -> 16 on CPU)?
 		format16Bit = true;
 	} else {
 		draw_->CopyFramebufferToMemorySync(fbo, FB_DEPTH_BIT, x, y, w, h, DataFormat::D32F, convBuf_, w, "ReadbackDepthbufferSync");
@@ -254,14 +254,15 @@ bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, i
 
 	if (format16Bit) {
 		// In this case, we used the shader to apply depth scale factors.
+		// This can be SSE'd or NEON'd very efficiently, though ideally we would avoid this conversion by using R16_UNORM for readback.
 		uint16_t *dest = pixels;
 		const u32_le *packed32 = (u32_le *)convBuf_;
-		for (int yp = 0; yp < h; ++yp) {
-			for (int xp = 0; xp < w; ++xp) {
+		for (int yp = 0; yp < destH; ++yp) {
+			for (int xp = 0; xp < destW; ++xp) {
 				dest[xp] = packed32[xp] & 0xFFFF;
 			}
 			dest += pixelsStride;
-			packed32 += w;
+			packed32 += destW;
 		}
 	} else {
 		// TODO: Apply this in the shader?  May have precision issues if it becomes important to match.
@@ -269,8 +270,8 @@ bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, i
 		uint16_t *dest = pixels;
 		const float *packedf = (float *)convBuf_;
 		DepthScaleFactors depthScale = GetDepthScaleFactors();
-		for (int yp = 0; yp < h; ++yp) {
-			for (int xp = 0; xp < w; ++xp) {
+		for (int yp = 0; yp < destH; ++yp) {
+			for (int xp = 0; xp < destW; ++xp) {
 				float scaled = depthScale.Apply(packedf[xp]);
 				if (scaled <= 0.0f) {
 					dest[xp] = 0;
@@ -281,7 +282,7 @@ bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, i
 				}
 			}
 			dest += pixelsStride;
-			packedf += w;
+			packedf += destW;
 		}
 	}
 

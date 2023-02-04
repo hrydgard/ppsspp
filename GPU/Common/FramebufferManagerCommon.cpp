@@ -206,11 +206,6 @@ u32 FramebufferManagerCommon::ColorBufferByteSize(const VirtualFramebuffer *vfb)
 	return vfb->fb_stride * vfb->height * (vfb->fb_format == GE_FORMAT_8888 ? 4 : 2);
 }
 
-bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const {
-	// Dangan Ronpa hack
-	return PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000;
-}
-
 // Heuristics to figure out the size of FBO to create.
 // TODO: Possibly differentiate on whether through mode is used (since in through mode, viewport is meaningless?)
 void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, int fb_stride, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int &drawing_width, int &drawing_height) {
@@ -1015,12 +1010,46 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 	}
 }
 
+void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb) {
+	if (vfb && vfb->safeWidth > 0 && vfb->safeHeight > 0 && !(vfb->usageFlags & FB_USAGE_FIRST_FRAME_SAVED) && !vfb->memoryUpdated) {
+		// Some games will draw to some memory once, and use it as a render-to-texture later.
+		// To support this, we save the first frame to memory when we have a safe w/h.
+		// Saving each frame would be slow.
+
+		// TODO: This type of download could be made async, for less stutter on framebuffer creation.
+		if (!g_Config.bSkipGPUReadbacks && !PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
+			ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight, RASTER_COLOR);
+			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
+			vfb->safeWidth = 0;
+			vfb->safeHeight = 0;
+		}
+	}
+}
+
+bool FramebufferManagerCommon::ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb) const {
+	// Dangan Ronpa hack
+	return PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000;
+}
+
+bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) const {
+	// Download depth buffer for Syphon Filter lens flares
+	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || g_Config.bSkipGPUReadbacks) {
+		return false;
+	}
+	return (vfb->usageFlags & FB_USAGE_RENDER_DEPTH) != 0 && vfb->width >= 480 && vfb->height >= 272;
+}
+
 void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
-	if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
+	// TODO: Isn't this wrong? Shouldn't we download the prevVfb if anything?
+	if (ShouldDownloadFramebufferColor(vfb) && !vfb->memoryUpdated) {
 		ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height, RASTER_COLOR);
 		vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 	} else {
 		DownloadFramebufferOnSwitch(prevVfb);
+	}
+
+	if (prevVfb && ShouldDownloadFramebufferDepth(prevVfb)) {
+		ReadFramebufferToMemory(prevVfb, 0, 0, prevVfb->width, prevVfb->height, RasterChannel::RASTER_DEPTH);
 	}
 
 	textureCache_->ForgetLastTexture();
@@ -1387,20 +1416,6 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, int 
 	currentRenderVfb_ = nullptr;
 }
 
-void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb) {
-	if (vfb && vfb->safeWidth > 0 && vfb->safeHeight > 0 && !(vfb->usageFlags & FB_USAGE_FIRST_FRAME_SAVED) && !vfb->memoryUpdated) {
-		// Some games will draw to some memory once, and use it as a render-to-texture later.
-		// To support this, we save the first frame to memory when we have a safe w/h.
-		// Saving each frame would be slow.
-		if (!g_Config.bSkipGPUReadbacks && !PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
-			ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight, RASTER_COLOR);
-			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
-			vfb->safeWidth = 0;
-			vfb->safeHeight = 0;
-		}
-	}
-}
-
 void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
 	Draw::Viewport vp{ (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f };
 	draw_->SetViewports(1, &vp);
@@ -1570,7 +1585,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-		if (ShouldDownloadFramebuffer(vfb) && age == 0 && !vfb->memoryUpdated) {
+		if (ShouldDownloadFramebufferColor(vfb) && age == 0 && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height, RASTER_COLOR);
 			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		}
@@ -2072,7 +2087,8 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	return vfb;
 }
 
-// 1:1 pixel sides buffers, we resize buffers to these before we read them back.
+// 1:1 pixel size buffers, we resize buffers to these before we read them back.
+// TODO: We shouldn't keep whole VirtualFramebuffer structs for these - the fbo and last_frame_render is enough.
 VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFramebuffer *vfb, RasterChannel channel) {
 	// For now we'll keep these on the same struct as the ones that can get displayed
 	// (and blatantly copy work already done above while at it).
@@ -2080,10 +2096,14 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 
 	// We maintain a separate vector of framebuffer objects for blitting.
 	for (VirtualFramebuffer *v : bvfbs_) {
-		if (v->fb_address == vfb->fb_address && v->fb_format == vfb->fb_format) {
+		if (v->Address(channel) == vfb->Address(channel) && v->Format(channel) == vfb->Format(channel)) {
 			if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
 				nvfb = v;
-				v->fb_stride = vfb->fb_stride;
+				if (channel == RASTER_COLOR) {
+					v->fb_stride = vfb->fb_stride;
+				} else {
+					v->z_stride = vfb->z_stride;
+				}
 				v->width = vfb->width;
 				v->height = vfb->height;
 				break;
@@ -2095,10 +2115,10 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 	if (!nvfb) {
 		nvfb = new VirtualFramebuffer{};
 		nvfb->fbo = nullptr;
-		nvfb->fb_address = vfb->fb_address;
-		nvfb->fb_stride = vfb->fb_stride;
-		nvfb->z_address = vfb->z_address;
-		nvfb->z_stride = vfb->z_stride;
+		nvfb->fb_address = channel == RASTER_COLOR ? vfb->fb_address : 0;
+		nvfb->fb_stride = channel == RASTER_COLOR ? vfb->fb_stride : 0;
+		nvfb->z_address = channel == RASTER_DEPTH ? vfb->z_address : 0;
+		nvfb->z_stride = channel == RASTER_DEPTH ? vfb->z_stride : 0;
 		nvfb->width = vfb->width;
 		nvfb->height = vfb->height;
 		nvfb->renderWidth = vfb->bufferWidth;
@@ -2111,10 +2131,10 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		nvfb->drawnHeight = vfb->drawnHeight;
 
 		char name[64];
-		snprintf(name, sizeof(name), "download_temp");
-		// TODO: We don't have a way to create a depth-only framebuffer yet.
-		// Also, at least on Vulkan we always create both depth and color, need to rework how we handle renderpasses.
-		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, 0, channel == RASTER_DEPTH ? true : false, name });
+		snprintf(name, sizeof(name), "download_temp_%08x_%s", vfb->Address(channel), RasterChannelToString(channel));
+
+		// We always create a color-only framebuffer here - readbacks of depth convert to color while translating the values.
+		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, 0, false, name });
 		if (!nvfb->fbo) {
 			ERROR_LOG(FRAMEBUF, "Error creating FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
 			delete nvfb;
@@ -2720,8 +2740,7 @@ bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	return retval;
 }
 
-// This function takes an already correctly-sized framebuffer and reads it into emulated PSP VRAM.
-// Does not need to account for scaling.
+// This reads a channel of a framebuffer into emulated PSP VRAM, taking care of scaling down as needed.
 //
 // Color conversion is currently done on CPU but should theoretically be done on GPU.
 // (Except using the GPU might cause problems because of various implementations'
@@ -2731,6 +2750,17 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 	if (w <= 0 || h <= 0) {
 		ERROR_LOG(G3D, "Bad inputs to ReadbackFramebufferSync: %d %d %d %d", x, y, w, h);
 		return;
+	}
+
+	// Note that ReadbackDepthBufferSync can stretch on its own while converting data format, so we don't need to downscale in that case.
+	if (vfb->renderScaleFactor == 1 || channel == RASTER_DEPTH) {
+		// No need to stretch-blit
+	} else {
+		VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb, channel);
+		if (nvfb) {
+			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, channel, "Blit_ReadFramebufferToMemory");
+			vfb = nvfb;
+		}
 	}
 
 	const u32 fb_address = channel == RASTER_COLOR ? vfb->fb_address : vfb->z_address;
@@ -2758,7 +2788,9 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 
 	if (channel == RASTER_DEPTH) {
 		_assert_msg_(vfb && vfb->z_address != 0 && vfb->z_stride != 0, "Depth buffer invalid");
-		ReadbackDepthbufferSync(vfb->fbo, x, y, w, h, (uint16_t *)destPtr, stride, w, h);
+		ReadbackDepthbufferSync(vfb->fbo,
+			x * vfb->renderScaleFactor, y * vfb->renderScaleFactor,
+			w * vfb->renderScaleFactor, h * vfb->renderScaleFactor, (uint16_t *)destPtr, stride, w, h);
 	} else {
 		draw_->CopyFramebufferToMemorySync(vfb->fbo, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, stride, "ReadbackFramebufferSync");
 	}
@@ -2780,7 +2812,6 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 		w = vfb->bufferWidth - x;
 	}
 	if (vfb && vfb->fbo) {
-		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
 		if (gameUsesSequentialCopies_) {
 			// Ignore the x/y/etc., read the entire thing.  See below.
 			x = 0;
@@ -2811,16 +2842,8 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 			}
 		}
 
-		if (vfb->renderWidth == vfb->width && vfb->renderHeight == vfb->height) {
-			// No need to stretch-blit
-			ReadbackFramebufferSync(vfb, x, y, w, h, channel);
-		} else {
-			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb, channel);
-			if (nvfb) {
-				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, channel, "Blit_ReadFramebufferToMemory");
-				ReadbackFramebufferSync(nvfb, x, y, w, h, channel);
-			}
-		}
+		// This handles any required stretching internally.
+		ReadbackFramebufferSync(vfb, x, y, w, h, channel);
 
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 		textureCache_->ForgetLastTexture();
@@ -2871,12 +2894,8 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 			}
 			vfb->clutUpdatedBytes = loadBytes;
 
-			// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb, RASTER_COLOR);
-			if (nvfb) {
-				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, RASTER_COLOR, "Blit_DownloadFramebufferForClut");
-				ReadbackFramebufferSync(nvfb, x, y, w, h, RASTER_COLOR);
-			}
+			// This function now handles scaling down internally.
+			ReadbackFramebufferSync(vfb, x, y, w, h, RASTER_COLOR);
 
 			textureCache_->ForgetLastTexture();
 			RebindFramebuffer("RebindFramebuffer - DownloadFramebufferForClut");
