@@ -206,11 +206,6 @@ u32 FramebufferManagerCommon::ColorBufferByteSize(const VirtualFramebuffer *vfb)
 	return vfb->fb_stride * vfb->height * (vfb->fb_format == GE_FORMAT_8888 ? 4 : 2);
 }
 
-bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const {
-	// Dangan Ronpa hack
-	return PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000;
-}
-
 // Heuristics to figure out the size of FBO to create.
 // TODO: Possibly differentiate on whether through mode is used (since in through mode, viewport is meaningless?)
 void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, int fb_stride, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int &drawing_width, int &drawing_height) {
@@ -1015,12 +1010,46 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 	}
 }
 
+void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb) {
+	if (vfb && vfb->safeWidth > 0 && vfb->safeHeight > 0 && !(vfb->usageFlags & FB_USAGE_FIRST_FRAME_SAVED) && !vfb->memoryUpdated) {
+		// Some games will draw to some memory once, and use it as a render-to-texture later.
+		// To support this, we save the first frame to memory when we have a safe w/h.
+		// Saving each frame would be slow.
+
+		// TODO: This type of download could be made async, for less stutter on framebuffer creation.
+		if (!g_Config.bSkipGPUReadbacks && !PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
+			ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight, RASTER_COLOR);
+			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
+			vfb->safeWidth = 0;
+			vfb->safeHeight = 0;
+		}
+	}
+}
+
+bool FramebufferManagerCommon::ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb) const {
+	// Dangan Ronpa hack
+	return PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000;
+}
+
+bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) const {
+	// Download depth buffer for Syphon Filter lens flares
+	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || g_Config.bSkipGPUReadbacks) {
+		return false;
+	}
+	return (vfb->usageFlags & FB_USAGE_RENDER_DEPTH) != 0 && vfb->width >= 480 && vfb->height >= 272;
+}
+
 void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
-	if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
+	// TODO: Isn't this wrong? Shouldn't we download the prevVfb if anything?
+	if (ShouldDownloadFramebufferColor(vfb) && !vfb->memoryUpdated) {
 		ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height, RASTER_COLOR);
 		vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 	} else {
 		DownloadFramebufferOnSwitch(prevVfb);
+	}
+
+	if (prevVfb && ShouldDownloadFramebufferDepth(prevVfb)) {
+		ReadFramebufferToMemory(prevVfb, 0, 0, prevVfb->width, prevVfb->height, RasterChannel::RASTER_DEPTH);
 	}
 
 	textureCache_->ForgetLastTexture();
@@ -1387,20 +1416,6 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, int 
 	currentRenderVfb_ = nullptr;
 }
 
-void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb) {
-	if (vfb && vfb->safeWidth > 0 && vfb->safeHeight > 0 && !(vfb->usageFlags & FB_USAGE_FIRST_FRAME_SAVED) && !vfb->memoryUpdated) {
-		// Some games will draw to some memory once, and use it as a render-to-texture later.
-		// To support this, we save the first frame to memory when we have a safe w/h.
-		// Saving each frame would be slow.
-		if (!g_Config.bSkipGPUReadbacks && !PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
-			ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight, RASTER_COLOR);
-			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
-			vfb->safeWidth = 0;
-			vfb->safeHeight = 0;
-		}
-	}
-}
-
 void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
 	Draw::Viewport vp{ (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f };
 	draw_->SetViewports(1, &vp);
@@ -1570,7 +1585,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-		if (ShouldDownloadFramebuffer(vfb) && age == 0 && !vfb->memoryUpdated) {
+		if (ShouldDownloadFramebufferColor(vfb) && age == 0 && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height, RASTER_COLOR);
 			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		}

@@ -490,7 +490,8 @@ protected:
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force = false, bool skipCopy = false);
 	void ShowScreenResolution();
 
-	bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
+	bool ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb) const;
+	bool ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) const;
 	void DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb);
 
 	bool FindTransferFramebuffer(u32 basePtr, int stride, int x, int y, int w, int h, int bpp, bool destination, BlockTransferRect *rect);
