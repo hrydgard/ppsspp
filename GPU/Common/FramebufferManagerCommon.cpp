@@ -2072,7 +2072,8 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	return vfb;
 }
 
-// 1:1 pixel sides buffers, we resize buffers to these before we read them back.
+// 1:1 pixel size buffers, we resize buffers to these before we read them back.
+// TODO: We shouldn't keep whole VirtualFramebuffer structs for these - the fbo and last_frame_render is enough.
 VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFramebuffer *vfb, RasterChannel channel) {
 	// For now we'll keep these on the same struct as the ones that can get displayed
 	// (and blatantly copy work already done above while at it).
@@ -2080,10 +2081,14 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 
 	// We maintain a separate vector of framebuffer objects for blitting.
 	for (VirtualFramebuffer *v : bvfbs_) {
-		if (v->fb_address == vfb->fb_address && v->fb_format == vfb->fb_format) {
+		if (v->Address(channel) == vfb->Address(channel) && v->Format(channel) == vfb->Format(channel)) {
 			if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
 				nvfb = v;
-				v->fb_stride = vfb->fb_stride;
+				if (channel == RASTER_COLOR) {
+					v->fb_stride = vfb->fb_stride;
+				} else {
+					v->z_stride = vfb->z_stride;
+				}
 				v->width = vfb->width;
 				v->height = vfb->height;
 				break;
@@ -2095,10 +2100,10 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 	if (!nvfb) {
 		nvfb = new VirtualFramebuffer{};
 		nvfb->fbo = nullptr;
-		nvfb->fb_address = vfb->fb_address;
-		nvfb->fb_stride = vfb->fb_stride;
-		nvfb->z_address = vfb->z_address;
-		nvfb->z_stride = vfb->z_stride;
+		nvfb->fb_address = channel == RASTER_COLOR ? vfb->fb_address : 0;
+		nvfb->fb_stride = channel == RASTER_COLOR ? vfb->fb_stride : 0;
+		nvfb->z_address = channel == RASTER_DEPTH ? vfb->z_address : 0;
+		nvfb->z_stride = channel == RASTER_DEPTH ? vfb->z_stride : 0;
 		nvfb->width = vfb->width;
 		nvfb->height = vfb->height;
 		nvfb->renderWidth = vfb->bufferWidth;
@@ -2111,10 +2116,10 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		nvfb->drawnHeight = vfb->drawnHeight;
 
 		char name[64];
-		snprintf(name, sizeof(name), "download_temp");
-		// TODO: We don't have a way to create a depth-only framebuffer yet.
-		// Also, at least on Vulkan we always create both depth and color, need to rework how we handle renderpasses.
-		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, 0, channel == RASTER_DEPTH ? true : false, name });
+		snprintf(name, sizeof(name), "download_temp_%08x_%s", vfb->Address(channel), RasterChannelToString(channel));
+
+		// We always create a color-only framebuffer here - readbacks of depth convert to color while translating the values.
+		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, 0, false, name });
 		if (!nvfb->fbo) {
 			ERROR_LOG(FRAMEBUF, "Error creating FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
 			delete nvfb;
@@ -2732,7 +2737,8 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 		return;
 	}
 
-	if (vfb->renderWidth == vfb->width && vfb->renderHeight == vfb->height) {
+	// Note that ReadbackDepthBufferSync can stretch on its own while converting data format, so we don't need to downscale in that case.
+	if (vfb->renderScaleFactor == 1 || channel == RASTER_DEPTH) {
 		// No need to stretch-blit
 	} else {
 		VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb, channel);
@@ -2767,7 +2773,9 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 
 	if (channel == RASTER_DEPTH) {
 		_assert_msg_(vfb && vfb->z_address != 0 && vfb->z_stride != 0, "Depth buffer invalid");
-		ReadbackDepthbufferSync(vfb->fbo, x, y, w, h, (uint16_t *)destPtr, stride, w, h);
+		ReadbackDepthbufferSync(vfb->fbo,
+			x * vfb->renderScaleFactor, y * vfb->renderScaleFactor,
+			w * vfb->renderScaleFactor, h * vfb->renderScaleFactor, (uint16_t *)destPtr, stride, w, h);
 	} else {
 		draw_->CopyFramebufferToMemorySync(vfb->fbo, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, stride, "ReadbackFramebufferSync");
 	}

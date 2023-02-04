@@ -1032,7 +1032,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 		// 3rd Birthday (and a bunch of other games) render to a 16 bit clut texture.
 		if (matchingClutFormat) {
 			if (!noOffset) {
-				WARN_LOG_ONCE(subareaClut, G3D, "Matching framebuffer (%s) using %s with offset at %08x +%dx%d", channel == RASTER_DEPTH ? "DEPTH" : "COLOR", GeTextureFormatToString(entry.format), fb_address, matchInfo->xOffset, matchInfo->yOffset);
+				WARN_LOG_ONCE(subareaClut, G3D, "Matching framebuffer (%s) using %s with offset at %08x +%dx%d", RasterChannelToString(channel), GeTextureFormatToString(entry.format), fb_address, matchInfo->xOffset, matchInfo->yOffset);
 			}
 			return true;
 		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
@@ -2596,7 +2596,7 @@ void TextureCacheCommon::ClearNextFrame() {
 
 std::string AttachCandidate::ToString() const {
 	return StringFromFormat("[%s seq:%d rel:%d C:%08x/%d(%s) Z:%08x/%d X:%d Y:%d reint: %s]",
-		this->channel == RASTER_COLOR ? "COLOR" : "DEPTH",
+		RasterChannelToString(this->channel),
 		this->channel == RASTER_COLOR ? this->fb->colorBindSeq : this->fb->depthBindSeq,
 		this->relevancy,
 		this->fb->fb_address, this->fb->fb_stride, GeBufferFormatToString(this->fb->fb_format),

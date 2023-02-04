@@ -154,6 +154,10 @@ struct VirtualFramebuffer {
 	inline int BufferWidthInBytes() const { return bufferWidth * BufferFormatBytesPerPixel(fb_format); }
 	inline int FbStrideInBytes() const { return fb_stride * BufferFormatBytesPerPixel(fb_format); }
 	inline int ZStrideInBytes() const { return z_stride * 2; }
+
+	inline int Stride(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_stride : z_stride; }
+	inline u32 Address(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_address : z_address; }
+	inline int Format(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_format : GE_FORMAT_DEPTH16; }
 };
 
 struct FramebufferHeuristicParams {

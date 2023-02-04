@@ -147,3 +147,5 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw);
 bool GPU_IsReady();
 bool GPU_IsStarted();
 void GPU_Shutdown();
+
+const char *RasterChannelToString(RasterChannel channel);

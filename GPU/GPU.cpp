@@ -136,3 +136,7 @@ void GPU_Shutdown() {
 	delete gpu;
 	gpu = nullptr;
 }
+
+const char *RasterChannelToString(RasterChannel channel) {
+	return channel == RASTER_COLOR ? "COLOR" : "DEPTH";
+}
