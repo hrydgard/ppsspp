@@ -1659,7 +1659,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		break;
 	}
 
-	if (vfb->usageFlags & FB_USAGE_COLOR_MIXED_DEPTH) {
+	if ((vfb->usageFlags & FB_USAGE_COLOR_MIXED_DEPTH) && !PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn) {
 		force1x = false;
 	}
 	if (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000) {
