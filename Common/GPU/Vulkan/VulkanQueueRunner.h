@@ -298,6 +298,7 @@ private:
 	void LogReadbackImage(const VKRStep &pass);
 
 	void ResizeReadbackBuffer(VkDeviceSize requiredSize);
+	void DestroyReadbackBuffer();
 
 	void ApplyMGSHack(std::vector<VKRStep *> &steps);
 	void ApplySonicHack(std::vector<VKRStep *> &steps);

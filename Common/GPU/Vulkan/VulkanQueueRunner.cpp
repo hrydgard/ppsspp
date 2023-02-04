@@ -67,39 +67,9 @@ void VulkanQueueRunner::CreateDeviceObjects() {
 #endif
 }
 
-void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
-	if (readbackBuffer_ && requiredSize <= readbackBufferSize_) {
-		return;
-	}
-	if (readbackBuffer_) {
-		vulkan_->Delete().QueueDeleteBufferAllocation(readbackBuffer_, readbackAllocation_);
-	}
-
-	readbackBufferSize_ = requiredSize;
-
-	VkDevice device = vulkan_->GetDevice();
-
-	VkBufferCreateInfo buf{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-	buf.size = readbackBufferSize_;
-	buf.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-	VmaAllocationCreateInfo allocCreateInfo{};
-	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
-	VmaAllocationInfo allocInfo{};
-
-	VkResult res = vmaCreateBuffer(vulkan_->Allocator(), &buf, &allocCreateInfo, &readbackBuffer_, &readbackAllocation_, &allocInfo);
-	_assert_(res == VK_SUCCESS);
-
-	const VkMemoryType &memoryType = vulkan_->GetMemoryProperties().memoryTypes[allocInfo.memoryType];
-	readbackBufferIsCoherent_ = (memoryType.propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
-}
-
 void VulkanQueueRunner::DestroyDeviceObjects() {
 	INFO_LOG(G3D, "VulkanQueueRunner::DestroyDeviceObjects");
-	if (readbackBuffer_) {
-		vulkan_->Delete().QueueDeleteBufferAllocation(readbackBuffer_, readbackAllocation_);
-	}
-	readbackBufferSize_ = 0;
+	DestroyReadbackBuffer();
 
 	renderPasses_.IterateMut([&](const RPKey &rpkey, VKRRenderPass *rp) {
 		_assert_(rp);
@@ -1972,6 +1942,40 @@ void VulkanQueueRunner::SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAs
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_PIPELINE_STAGE_TRANSFER_BIT
 	);
+}
+
+void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
+	if (readbackBuffer_ && requiredSize <= readbackBufferSize_) {
+		return;
+	}
+	if (readbackBuffer_) {
+		vulkan_->Delete().QueueDeleteBufferAllocation(readbackBuffer_, readbackAllocation_);
+	}
+
+	readbackBufferSize_ = requiredSize;
+
+	VkDevice device = vulkan_->GetDevice();
+
+	VkBufferCreateInfo buf{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+	buf.size = readbackBufferSize_;
+	buf.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+	VmaAllocationCreateInfo allocCreateInfo{};
+	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
+	VmaAllocationInfo allocInfo{};
+
+	VkResult res = vmaCreateBuffer(vulkan_->Allocator(), &buf, &allocCreateInfo, &readbackBuffer_, &readbackAllocation_, &allocInfo);
+	_assert_(res == VK_SUCCESS);
+
+	const VkMemoryType &memoryType = vulkan_->GetMemoryProperties().memoryTypes[allocInfo.memoryType];
+	readbackBufferIsCoherent_ = (memoryType.propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
+}
+
+void VulkanQueueRunner::DestroyReadbackBuffer() {
+	if (readbackBuffer_) {
+		vulkan_->Delete().QueueDeleteBufferAllocation(readbackBuffer_, readbackAllocation_);
+	}
+	readbackBufferSize_ = 0;
 }
 
 void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd) {
