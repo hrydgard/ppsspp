@@ -164,7 +164,7 @@ Draw::Pipeline *CreateReadbackPipeline(Draw::DrawContext *draw, const char *tag,
 	return pipeline;
 }
 
-bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH) {
+bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH, Draw::ReadbackMode mode) {
 	using namespace Draw;
 
 	if (!fbo) {

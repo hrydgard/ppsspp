@@ -373,7 +373,7 @@ public:
 		return (int)depth * 3 + (int)color;
 	}
 
-	void CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
+	void CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
 	void Resize(int width, int height) {
 		targetWidth_ = width;

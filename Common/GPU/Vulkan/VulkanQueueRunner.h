@@ -252,7 +252,8 @@ public:
 		return (int)depth * 3 + (int)color;
 	}
 
-	void CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
+	// src == 0 means to copy from the sync readback buffer.
+	void CopyReadbackBuffer(VKRFramebuffer *src, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
 	VKRRenderPass *GetRenderPass(const RPKey &key);
 

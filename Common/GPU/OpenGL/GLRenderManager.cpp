@@ -360,7 +360,7 @@ void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 	steps_.push_back(step);
 }
 
-bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
+bool GLRenderManager::CopyFramebufferToMemory(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag) {
 	_assert_(pixels);
 
 	GLRStep *step = new GLRStep{ GLRStepType::READBACK };
@@ -387,7 +387,7 @@ bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspec
 	} else {
 		return false;
 	}
-	queueRunner_.CopyReadbackBuffer(w, h, srcFormat, destFormat, pixelStride, pixels);
+	queueRunner_.CopyFromReadbackBuffer(src, w, h, srcFormat, destFormat, pixelStride, pixels);
 	return true;
 }
 
@@ -404,7 +404,7 @@ void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, i
 	curRenderStep_ = nullptr;
 	FlushSync();
 
-	queueRunner_.CopyReadbackBuffer(w, h, Draw::DataFormat::R8G8B8A8_UNORM, destFormat, pixelStride, pixels);
+	queueRunner_.CopyFromReadbackBuffer(nullptr, w, h, Draw::DataFormat::R8G8B8A8_UNORM, destFormat, pixelStride, pixels);
 }
 
 void GLRenderManager::BeginFrame() {

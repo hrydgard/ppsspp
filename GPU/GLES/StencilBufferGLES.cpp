@@ -98,7 +98,7 @@ void main() {
 Draw::Pipeline *CreateReadbackPipeline(Draw::DrawContext *draw, const char *tag, const UniformBufferDesc *ubDesc, const char *fs, const char *fsTag, const char *vs, const char *vsTag);
 
 // Well, this is not depth, but it's depth/stencil related.
-bool FramebufferManagerGLES::ReadbackStencilbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride) {
+bool FramebufferManagerGLES::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride, Draw::ReadbackMode mode) {
 	using namespace Draw;
 
 	if (!fbo) {
@@ -150,7 +150,7 @@ bool FramebufferManagerGLES::ReadbackStencilbufferSync(Draw::Framebuffer *fbo, i
 	};
 	draw_->DrawUP(positions, 3);
 
-	draw_->CopyFramebufferToMemory(blitFBO, FB_COLOR_BIT, x, y, w, h, DataFormat::R8G8B8A8_UNORM, convBuf_, w, ReadbackMode::BLOCK, "ReadbackStencilbufferSync");
+	draw_->CopyFramebufferToMemory(blitFBO, FB_COLOR_BIT, x, y, w, h, DataFormat::R8G8B8A8_UNORM, convBuf_, w, mode, "ReadbackStencilbufferSync");
 
 	textureCache_->ForgetLastTexture();
 

@@ -908,8 +908,9 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	}
 }
 
-bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
+bool VulkanRenderManager::CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag) {
 	_dbg_assert_(insideFrame_);
+
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
 			steps_[i]->render.numReads++;
@@ -967,7 +968,7 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkIma
 	}
 
 	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
-	queueRunner_.CopyReadbackBuffer(w, h, srcFormat, destFormat, pixelStride, pixels);
+	queueRunner_.CopyReadbackBuffer(src, w, h, srcFormat, destFormat, pixelStride, pixels);
 	return true;
 }
 
@@ -987,7 +988,7 @@ void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int
 	FlushSync();
 
 	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
-	queueRunner_.CopyReadbackBuffer(w, h, destFormat, destFormat, pixelStride, pixels);
+	queueRunner_.CopyReadbackBuffer(nullptr, w, h, destFormat, destFormat, pixelStride, pixels);
 }
 
 static void RemoveDrawCommands(std::vector<VkRenderData> *cmds) {

@@ -1640,7 +1640,7 @@ bool VKContext::CopyFramebufferToMemory(Framebuffer *srcfb, int channelBits, int
 	if (channelBits & FBChannel::FB_DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
-	return renderManager_.CopyFramebufferToMemorySync(src ? src->GetFB() : nullptr, aspectMask, x, y, w, h, format, (uint8_t *)pixels, pixelStride, tag);
+	return renderManager_.CopyFramebufferToMemory(src ? src->GetFB() : nullptr, aspectMask, x, y, w, h, format, (uint8_t *)pixels, pixelStride, mode, tag);
 }
 
 DataFormat VKContext::PreferredFramebufferReadbackFormat(Framebuffer *src) {

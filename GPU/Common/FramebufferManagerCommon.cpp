@@ -1018,7 +1018,7 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 
 		// TODO: This type of download could be made async, for less stutter on framebuffer creation.
 		if (!g_Config.bSkipGPUReadbacks && !PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
-			ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight, RASTER_COLOR);
+			ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
 			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			vfb->safeWidth = 0;
 			vfb->safeHeight = 0;
@@ -1042,14 +1042,15 @@ bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFrame
 void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
 	// TODO: Isn't this wrong? Shouldn't we download the prevVfb if anything?
 	if (ShouldDownloadFramebufferColor(vfb) && !vfb->memoryUpdated) {
-		ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height, RASTER_COLOR);
+		ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
 		vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 	} else {
 		DownloadFramebufferOnSwitch(prevVfb);
 	}
 
 	if (prevVfb && ShouldDownloadFramebufferDepth(prevVfb)) {
-		ReadFramebufferToMemory(prevVfb, 0, 0, prevVfb->width, prevVfb->height, RasterChannel::RASTER_DEPTH);
+		// Allow old data here to avoid blocking, if possible - no uses cases for this depend on data being super fresh.
+		ReadFramebufferToMemory(prevVfb, 0, 0, prevVfb->width, prevVfb->height, RasterChannel::RASTER_DEPTH, Draw::ReadbackMode::OLD_DATA_OK);
 	}
 
 	textureCache_->ForgetLastTexture();
@@ -1586,7 +1587,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 		int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
 		if (ShouldDownloadFramebufferColor(vfb) && age == 0 && !vfb->memoryUpdated) {
-			ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height, RASTER_COLOR);
+			ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
 			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		}
 
@@ -1895,7 +1896,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		if (srcH == 0 || srcY + srcH > srcBuffer->bufferHeight) {
 			WARN_LOG_ONCE(btdcpyheight, G3D, "Memcpy fbo download %08x -> %08x skipped, %d+%d is taller than %d", src, dst, srcY, srcH, srcBuffer->bufferHeight);
 		} else if (!g_Config.bSkipGPUReadbacks && (!srcBuffer->memoryUpdated || channel == RASTER_DEPTH)) {
-			ReadFramebufferToMemory(srcBuffer, 0, srcY, srcBuffer->width, srcH, channel);
+			ReadFramebufferToMemory(srcBuffer, 0, srcY, srcBuffer->width, srcH, channel, Draw::ReadbackMode::BLOCK);
 			srcBuffer->usageFlags = (srcBuffer->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		}
 		return false;
@@ -2365,7 +2366,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				if (tooTall) {
 					WARN_LOG_ONCE(btdheight, G3D, "Block transfer download %08x -> %08x dangerous, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcRect.y, srcRect.h, srcRect.vfb->bufferHeight);
 				}
-				ReadFramebufferToMemory(srcRect.vfb, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcRect.w_bytes * srcXFactor), srcRect.h, RASTER_COLOR);
+				ReadFramebufferToMemory(srcRect.vfb, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcRect.w_bytes * srcXFactor), srcRect.h, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
 				srcRect.vfb->usageFlags = (srcRect.vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			}
 		}
@@ -2663,7 +2664,7 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 	bool flipY = (GetGPUBackend() == GPUBackend::OPENGL && !useBufferedRendering_) ? true : false;
 
 	buffer.Allocate(w, h, GPU_DBG_FORMAT_16BIT, flipY);
-	bool retval = ReadbackDepthbufferSync(vfb->fbo, 0, 0, w, h, (uint16_t *)buffer.GetData(), w, w, h);
+	bool retval = ReadbackDepthbuffer(vfb->fbo, 0, 0, w, h, (uint16_t *)buffer.GetData(), w, w, h, Draw::ReadbackMode::BLOCK);
 
 	// After a readback we'll have flushed and started over, need to dirty a bunch of things to be safe.
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
@@ -2700,8 +2701,7 @@ bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	buffer.Allocate(w, h, GPU_DBG_FORMAT_8BIT, flipY);
 	bool retval = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::FB_STENCIL_BIT, 0, 0, w,h, Draw::DataFormat::S8, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetStencilbuffer");
 	if (!retval) {
-		// Try ReadbackStencilbufferSync, in case GLES.
-		retval = ReadbackStencilbufferSync(vfb->fbo, 0, 0, w, h, buffer.GetData(), w);
+		retval = ReadbackStencilbuffer(vfb->fbo, 0, 0, w, h, buffer.GetData(), w, Draw::ReadbackMode::BLOCK);
 	}
 	// That may have unbound the framebuffer, rebind to avoid crashes when debugging.
 	RebindFramebuffer("RebindFramebuffer - GetStencilbuffer");
@@ -2728,7 +2728,7 @@ bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 // (Except using the GPU might cause problems because of various implementations'
 // dithering behavior and games that expect exact colors like Danganronpa, so we
 // can't entirely be rid of the CPU path.) -- unknown
-void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel) {
+void FramebufferManagerCommon::ReadbackFramebuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode) {
 	if (w <= 0 || h <= 0) {
 		ERROR_LOG(G3D, "Bad inputs to ReadbackFramebufferSync: %d %d %d %d", x, y, w, h);
 		return;
@@ -2770,11 +2770,11 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 
 	if (channel == RASTER_DEPTH) {
 		_assert_msg_(vfb && vfb->z_address != 0 && vfb->z_stride != 0, "Depth buffer invalid");
-		ReadbackDepthbufferSync(vfb->fbo,
+		ReadbackDepthbuffer(vfb->fbo,
 			x * vfb->renderScaleFactor, y * vfb->renderScaleFactor,
-			w * vfb->renderScaleFactor, h * vfb->renderScaleFactor, (uint16_t *)destPtr, stride, w, h);
+			w * vfb->renderScaleFactor, h * vfb->renderScaleFactor, (uint16_t *)destPtr, stride, w, h, mode);
 	} else {
-		draw_->CopyFramebufferToMemory(vfb->fbo, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, stride, Draw::ReadbackMode::BLOCK, "ReadbackFramebufferSync");
+		draw_->CopyFramebufferToMemory(vfb->fbo, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, x, y, w, h, destFormat, destPtr, stride, mode, "ReadbackFramebufferSync");
 	}
 
 	char tag[128];
@@ -2784,11 +2784,11 @@ void FramebufferManagerCommon::ReadbackFramebufferSync(VirtualFramebuffer *vfb, 
 	gpuStats.numReadbacks++;
 }
 
-bool FramebufferManagerCommon::ReadbackStencilbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride) {
-	return draw_->CopyFramebufferToMemory(fbo, Draw::FB_DEPTH_BIT, x, y, w, h, Draw::DataFormat::S8, pixels, pixelsStride, Draw::ReadbackMode::BLOCK, "ReadbackStencilbufferSync");
+bool FramebufferManagerCommon::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride, Draw::ReadbackMode mode) {
+	return draw_->CopyFramebufferToMemory(fbo, Draw::FB_DEPTH_BIT, x, y, w, h, Draw::DataFormat::S8, pixels, pixelsStride, mode, "ReadbackStencilbufferSync");
 }
 
-void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel) {
+void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode) {
 	// Clamp to bufferWidth. Sometimes block transfers can cause this to hit.
 	if (x + w >= vfb->bufferWidth) {
 		w = vfb->bufferWidth - x;
@@ -2825,7 +2825,7 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 		}
 
 		// This handles any required stretching internally.
-		ReadbackFramebufferSync(vfb, x, y, w, h, channel);
+		ReadbackFramebuffer(vfb, x, y, w, h, channel, mode);
 
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 		textureCache_->ForgetLastTexture();
@@ -2877,7 +2877,7 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 			vfb->clutUpdatedBytes = loadBytes;
 
 			// This function now handles scaling down internally.
-			ReadbackFramebufferSync(vfb, x, y, w, h, RASTER_COLOR);
+			ReadbackFramebuffer(vfb, x, y, w, h, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
 
 			textureCache_->ForgetLastTexture();
 			RebindFramebuffer("RebindFramebuffer - DownloadFramebufferForClut");
