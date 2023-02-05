@@ -345,6 +345,18 @@ public:
 		return TaskType::IO_BLOCKING;
 	}
 
+	TaskPriority Priority() const override {
+		switch (gamePath_.Type()) {
+		case PathType::NATIVE:
+		case PathType::CONTENT_URI:
+			return TaskPriority::NORMAL;
+
+		default:
+			// Remote/network access.
+			return TaskPriority::LOW;
+		}
+	}
+
 	void Run() override {
 		// An early-return will result in the destructor running, where we can set
 		// flags like working and pending.

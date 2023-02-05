@@ -105,6 +105,11 @@ public:
 		return TaskType::CPU_COMPUTE;
 	}
 
+	TaskPriority Priority() const override {
+		// Let priority emulation tasks win over this.
+		return TaskPriority::NORMAL;
+	}
+
 	void Run() override {
 		ProcessItems();
 		status_ = false;

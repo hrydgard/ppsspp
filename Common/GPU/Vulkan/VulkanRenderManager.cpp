@@ -403,6 +403,10 @@ public:
 		return TaskType::CPU_COMPUTE;
 	}
 
+	TaskPriority Priority() const override {
+		return TaskPriority::HIGH;
+	}
+
 	void Run() override {
 		for (auto &task : tasks_) {
 			task.pipeline->Create(vulkan_, task.compatibleRenderPass, task.rpType, task.sampleCount, task.scheduleTime, task.countToCompile);

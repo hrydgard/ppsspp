@@ -100,7 +100,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 
 			relocOps[r] = Memory::ReadUnchecked_Instruction(addr, true).encoding;
 		}
-	}, 0, numRelocs, 128);
+	}, 0, numRelocs, 128, TaskPriority::HIGH);
 
 	ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
 		for (int r = l; r < h; r++) {
@@ -213,7 +213,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 			Memory::WriteUnchecked_U32(op, addr);
 			NotifyMemInfo(MemBlockFlags::WRITE, addr, 4, "Relocation");
 		}
-	}, 0, numRelocs, 128);
+	}, 0, numRelocs, 128, TaskPriority::HIGH);
 
 	if (numErrors) {
 		WARN_LOG(LOADER, "%i bad relocations found!!!", numErrors.load());

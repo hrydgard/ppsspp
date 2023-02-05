@@ -287,7 +287,7 @@ static const u8 *mymemmem(const u8 *haystack, size_t off, size_t hlen, const u8 
 			p++;
 			alignp();
 		}
-	}, 0, range, 128 * 1024);
+	}, 0, range, 128 * 1024, TaskPriority::LOW);
 
 	return result;
 }
