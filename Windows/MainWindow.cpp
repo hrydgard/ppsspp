@@ -781,10 +781,10 @@ namespace MainWindow
 		case WM_USER_GET_BASE_POINTER:
 			Reporting::NotifyDebugger();
 			switch (lParam) {
-			case 0:
-				return (u32)(u64)Memory::base;
-			case 1:
-				return (u32)((u64)Memory::base >> 32);
+			case 0: return (u32)(u64)Memory::base;
+			case 1: return (u32)((u64)Memory::base >> 32);
+			case 2: return (u32)(u64)(&Memory::base);
+			case 3: return (u32)((u64)(&Memory::base) >> 32);
 			default:
 				return 0;
 			}
