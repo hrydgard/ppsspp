@@ -244,13 +244,13 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 
 		draw_->CopyFramebufferToMemory(blitFBO, FB_COLOR_BIT,
 			x * scaleX, y * scaleY, w * scaleX, h * scaleY,
-			DataFormat::R8G8B8A8_UNORM, convBuf_, destW, ReadbackMode::BLOCK, "ReadbackDepthbufferSync");
+			DataFormat::R8G8B8A8_UNORM, convBuf_, destW, mode, "ReadbackDepthbufferSync");
 
 		textureCache_->ForgetLastTexture();
 		// TODO: Use 4444 (or better, R16_UNORM) so we can copy lines directly (instead of 32 -> 16 on CPU)?
 		format16Bit = true;
 	} else {
-		draw_->CopyFramebufferToMemory(fbo, FB_DEPTH_BIT, x, y, w, h, DataFormat::D32F, convBuf_, w, ReadbackMode::BLOCK, "ReadbackDepthbufferSync");
+		draw_->CopyFramebufferToMemory(fbo, FB_DEPTH_BIT, x, y, w, h, DataFormat::D32F, convBuf_, w, mode, "ReadbackDepthbufferSync");
 		format16Bit = false;
 	}
 
