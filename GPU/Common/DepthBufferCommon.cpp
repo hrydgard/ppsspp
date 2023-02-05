@@ -242,16 +242,19 @@ bool FramebufferManagerCommon::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, i
 		};
 		draw_->DrawUP(positions, 3);
 
-		draw_->CopyFramebufferToMemorySync(blitFBO, FB_COLOR_BIT, x * scaleX, y * scaleY, w * scaleX, h * scaleY, DataFormat::R8G8B8A8_UNORM, convBuf_, destW, "ReadbackDepthbufferSync");
+		draw_->CopyFramebufferToMemory(blitFBO, FB_COLOR_BIT,
+			x * scaleX, y * scaleY, w * scaleX, h * scaleY,
+			DataFormat::R8G8B8A8_UNORM, convBuf_, destW, ReadbackMode::BLOCK, "ReadbackDepthbufferSync");
 
 		textureCache_->ForgetLastTexture();
 		// TODO: Use 4444 (or better, R16_UNORM) so we can copy lines directly (instead of 32 -> 16 on CPU)?
 		format16Bit = true;
 	} else {
-		draw_->CopyFramebufferToMemorySync(fbo, FB_DEPTH_BIT, x, y, w, h, DataFormat::D32F, convBuf_, w, "ReadbackDepthbufferSync");
+		draw_->CopyFramebufferToMemory(fbo, FB_DEPTH_BIT, x, y, w, h, DataFormat::D32F, convBuf_, w, ReadbackMode::BLOCK, "ReadbackDepthbufferSync");
 		format16Bit = false;
 	}
 
+	// TODO: Move this conversion into the backends.
 	if (format16Bit) {
 		// In this case, we used the shader to apply depth scale factors.
 		// This can be SSE'd or NEON'd very efficiently, though ideally we would avoid this conversion by using R16_UNORM for readback.

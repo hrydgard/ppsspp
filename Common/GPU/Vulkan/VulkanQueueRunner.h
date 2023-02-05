@@ -298,6 +298,7 @@ private:
 	void LogReadbackImage(const VKRStep &pass);
 
 	void ResizeReadbackBuffer(VkDeviceSize requiredSize);
+	void DestroyReadbackBuffer();
 
 	void ApplyMGSHack(std::vector<VKRStep *> &steps);
 	void ApplySonicHack(std::vector<VKRStep *> &steps);
@@ -323,7 +324,7 @@ private:
 
 	// Readback buffer. Currently we only support synchronous readback, so we only really need one.
 	// We size it generously.
-	VkDeviceMemory readbackMemory_ = VK_NULL_HANDLE;
+	VmaAllocation readbackAllocation_ = VK_NULL_HANDLE;
 	VkBuffer readbackBuffer_ = VK_NULL_HANDLE;
 	VkDeviceSize readbackBufferSize_ = 0;
 	bool readbackBufferIsCoherent_ = false;

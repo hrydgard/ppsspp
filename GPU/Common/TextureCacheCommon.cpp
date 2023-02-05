@@ -28,6 +28,7 @@
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 #include "Common/Math/math_util.h"
+#include "Common/GPU/thin3d.h"
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/System.h"
@@ -1183,12 +1184,12 @@ bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffe
 		buffer.Allocate(desiredW, desiredH, GPU_DBG_FORMAT_FLOAT, false);
 		if (w < desiredW || h < desiredH)
 			buffer.ZeroBytes();
-		retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, x, y, w, h, Draw::DataFormat::D32F, buffer.GetData(), desiredW, "GetCurrentTextureDebug");
+		retval = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::FB_DEPTH_BIT, x, y, w, h, Draw::DataFormat::D32F, buffer.GetData(), desiredW, Draw::ReadbackMode::BLOCK, "GetCurrentTextureDebug");
 	} else {
 		buffer.Allocate(desiredW, desiredH, GPU_DBG_FORMAT_8888, false);
 		if (w < desiredW || h < desiredH)
 			buffer.ZeroBytes();
-		retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), desiredW, "GetCurrentTextureDebug");
+		retval = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), desiredW, Draw::ReadbackMode::BLOCK, "GetCurrentTextureDebug");
 	}
 
 	// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.

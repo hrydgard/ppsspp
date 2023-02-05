@@ -67,72 +67,9 @@ void VulkanQueueRunner::CreateDeviceObjects() {
 #endif
 }
 
-void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
-	if (readbackBuffer_ && requiredSize <= readbackBufferSize_) {
-		return;
-	}
-	if (readbackMemory_) {
-		vulkan_->Delete().QueueDeleteDeviceMemory(readbackMemory_);
-	}
-	if (readbackBuffer_) {
-		vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
-	}
-
-	readbackBufferSize_ = requiredSize;
-
-	VkDevice device = vulkan_->GetDevice();
-
-	VkBufferCreateInfo buf{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-	buf.size = readbackBufferSize_;
-	buf.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-	VkResult res = vkCreateBuffer(device, &buf, nullptr, &readbackBuffer_);
-	_assert_(res == VK_SUCCESS);
-
-	VkMemoryRequirements reqs{};
-	vkGetBufferMemoryRequirements(device, readbackBuffer_, &reqs);
-
-	VkMemoryAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-	allocInfo.allocationSize = reqs.size;
-
-	// For speedy readbacks, we want the CPU cache to be enabled. However on most hardware we then have to
-	// sacrifice coherency, which means manual flushing. But try to find such memory first! If no cached
-	// memory type is available we fall back to just coherent.
-	const VkFlags desiredTypes[] = {
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-	};
-	VkFlags successTypeReqs = 0;
-	for (VkFlags typeReqs : desiredTypes) {
-		if (vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, typeReqs, &allocInfo.memoryTypeIndex)) {
-			successTypeReqs = typeReqs;
-			break;
-		}
-	}
-	_assert_(successTypeReqs != 0);
-	readbackBufferIsCoherent_ = (successTypeReqs & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
-
-	res = vkAllocateMemory(device, &allocInfo, nullptr, &readbackMemory_);
-	if (res != VK_SUCCESS) {
-		readbackMemory_ = VK_NULL_HANDLE;
-		vkDestroyBuffer(device, readbackBuffer_, nullptr);
-		readbackBuffer_ = VK_NULL_HANDLE;
-		return;
-	}
-	uint32_t offset = 0;
-	vkBindBufferMemory(device, readbackBuffer_, readbackMemory_, offset);
-}
-
 void VulkanQueueRunner::DestroyDeviceObjects() {
 	INFO_LOG(G3D, "VulkanQueueRunner::DestroyDeviceObjects");
-	if (readbackMemory_) {
-		vulkan_->Delete().QueueDeleteDeviceMemory(readbackMemory_);
-	}
-	if (readbackBuffer_) {
-		vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
-	}
-	readbackBufferSize_ = 0;
+	DestroyReadbackBuffer();
 
 	renderPasses_.IterateMut([&](const RPKey &rpkey, VKRRenderPass *rp) {
 		_assert_(rp);
@@ -2007,6 +1944,40 @@ void VulkanQueueRunner::SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAs
 	);
 }
 
+void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
+	if (readbackBuffer_ && requiredSize <= readbackBufferSize_) {
+		return;
+	}
+	if (readbackBuffer_) {
+		vulkan_->Delete().QueueDeleteBufferAllocation(readbackBuffer_, readbackAllocation_);
+	}
+
+	readbackBufferSize_ = requiredSize;
+
+	VkDevice device = vulkan_->GetDevice();
+
+	VkBufferCreateInfo buf{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+	buf.size = readbackBufferSize_;
+	buf.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+	VmaAllocationCreateInfo allocCreateInfo{};
+	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
+	VmaAllocationInfo allocInfo{};
+
+	VkResult res = vmaCreateBuffer(vulkan_->Allocator(), &buf, &allocCreateInfo, &readbackBuffer_, &readbackAllocation_, &allocInfo);
+	_assert_(res == VK_SUCCESS);
+
+	const VkMemoryType &memoryType = vulkan_->GetMemoryProperties().memoryTypes[allocInfo.memoryType];
+	readbackBufferIsCoherent_ = (memoryType.propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
+}
+
+void VulkanQueueRunner::DestroyReadbackBuffer() {
+	if (readbackBuffer_) {
+		vulkan_->Delete().QueueDeleteBufferAllocation(readbackBuffer_, readbackAllocation_);
+	}
+	readbackBufferSize_ = 0;
+}
+
 void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd) {
 	ResizeReadbackBuffer(sizeof(uint32_t) * step.readback.srcRect.extent.width * step.readback.srcRect.extent.height);
 
@@ -2104,20 +2075,15 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 }
 
 void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
-	if (!readbackMemory_)
+	if (!readbackBuffer_)
 		return;  // Something has gone really wrong.
 
 	// Read back to the requested address in ram from buffer.
 	void *mappedData;
 	const size_t srcPixelSize = DataFormatSizeInBytes(srcFormat);
-
-	VkResult res = vkMapMemory(vulkan_->GetDevice(), readbackMemory_, 0, width * height * srcPixelSize, 0, &mappedData);
+	VkResult res = vmaMapMemory(vulkan_->Allocator(), readbackAllocation_, &mappedData);
 	if (!readbackBufferIsCoherent_) {
-		VkMappedMemoryRange range{};
-		range.memory = readbackMemory_;
-		range.offset = 0;
-		range.size = width * height * srcPixelSize;
-		vkInvalidateMappedMemoryRanges(vulkan_->GetDevice(), 1, &range);
+		vmaInvalidateAllocation(vulkan_->Allocator(), readbackAllocation_, 0, width * height * srcPixelSize);
 	}
 
 	if (res != VK_SUCCESS) {
@@ -2148,5 +2114,6 @@ void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataForm
 		ERROR_LOG(G3D, "CopyReadbackBuffer: Unknown format");
 		_assert_msg_(false, "CopyReadbackBuffer: Unknown src format %d", (int)srcFormat);
 	}
-	vkUnmapMemory(vulkan_->GetDevice(), readbackMemory_);
+
+	vmaUnmapMemory(vulkan_->Allocator(), readbackAllocation_);
 }

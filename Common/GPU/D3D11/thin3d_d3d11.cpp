@@ -91,7 +91,7 @@ public:
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
-	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) override;
+	bool CopyFramebufferToMemory(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
@@ -1525,7 +1525,7 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 	return false;
 }
 
-bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, const char *tag) {
+bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)src;
 
 	if (fb) {

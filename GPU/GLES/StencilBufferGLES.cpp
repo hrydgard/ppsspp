@@ -108,7 +108,7 @@ bool FramebufferManagerGLES::ReadbackStencilbufferSync(Draw::Framebuffer *fbo, i
 
 	const bool useColorPath = gl_extensions.IsGLES;
 	if (!useColorPath) {
-		return draw_->CopyFramebufferToMemorySync(fbo, FB_STENCIL_BIT, x, y, w, h, DataFormat::S8, pixels, pixelsStride, "ReadbackStencilbufferSync");
+		return draw_->CopyFramebufferToMemory(fbo, FB_STENCIL_BIT, x, y, w, h, DataFormat::S8, pixels, pixelsStride, ReadbackMode::BLOCK, "ReadbackStencilbufferSync");
 	}
 
 	// Unsupported below GLES 3.1 or without ARB_stencil_texturing.
@@ -150,7 +150,7 @@ bool FramebufferManagerGLES::ReadbackStencilbufferSync(Draw::Framebuffer *fbo, i
 	};
 	draw_->DrawUP(positions, 3);
 
-	draw_->CopyFramebufferToMemorySync(blitFBO, FB_COLOR_BIT, x, y, w, h, DataFormat::R8G8B8A8_UNORM, convBuf_, w, "ReadbackStencilbufferSync");
+	draw_->CopyFramebufferToMemory(blitFBO, FB_COLOR_BIT, x, y, w, h, DataFormat::R8G8B8A8_UNORM, convBuf_, w, ReadbackMode::BLOCK, "ReadbackStencilbufferSync");
 
 	textureCache_->ForgetLastTexture();
 

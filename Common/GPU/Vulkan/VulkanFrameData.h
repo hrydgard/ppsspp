@@ -30,6 +30,9 @@ struct FrameDataShared {
 	VkSemaphore acquireSemaphore = VK_NULL_HANDLE;
 	VkSemaphore renderingCompleteSemaphore = VK_NULL_HANDLE;
 
+	// For synchronous readbacks.
+	VkFence readbackFence = VK_NULL_HANDLE;
+
 	void Init(VulkanContext *vulkan);
 	void Destroy(VulkanContext *vulkan);
 };
@@ -49,7 +52,6 @@ struct FrameData {
 	bool readyForFence = true;
 
 	VkFence fence = VK_NULL_HANDLE;
-	VkFence readbackFence = VK_NULL_HANDLE;  // Strictly speaking we might only need one global of these.
 
 	// These are on different threads so need separate pools.
 	VkCommandPool cmdPoolInit = VK_NULL_HANDLE;  // Written to from main thread
