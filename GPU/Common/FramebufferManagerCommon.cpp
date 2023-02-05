@@ -2663,8 +2663,19 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 
 	bool flipY = (GetGPUBackend() == GPUBackend::OPENGL && !useBufferedRendering_) ? true : false;
 
-	buffer.Allocate(w, h, GPU_DBG_FORMAT_16BIT, flipY);
-	bool retval = ReadbackDepthbuffer(vfb->fbo, 0, 0, w, h, (uint16_t *)buffer.GetData(), w, w, h, Draw::ReadbackMode::BLOCK);
+	// Old code
+	if (gstate_c.Use(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT_DIV_256, flipY);
+	} else {
+		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, flipY);
+	}
+	// No need to free on failure, that's the caller's job (it likely will reuse a buffer.)
+	bool retval = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, w, h, Draw::DataFormat::D32F, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetDepthBuffer");
+	if (!retval) {
+		// Try ReadbackDepthbufferSync, in case GLES.
+		buffer.Allocate(w, h, GPU_DBG_FORMAT_16BIT, flipY);
+		retval = ReadbackDepthbuffer(vfb->fbo, 0, 0, w, h, (uint16_t *)buffer.GetData(), w, w, h, Draw::ReadbackMode::BLOCK);
+	}
 
 	// After a readback we'll have flushed and started over, need to dirty a bunch of things to be safe.
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
