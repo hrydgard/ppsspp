@@ -31,9 +31,8 @@ class ShaderManagerDX9;
 class FramebufferManagerDX9 : public FramebufferManagerCommon {
 public:
 	FramebufferManagerDX9(Draw::DrawContext *draw);
-	~FramebufferManagerDX9();
 
 protected:
 	// TODO: The non-color path of FramebufferManagerCommon::ReadbackDepthbufferSync seems to work just as well.
-	bool ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH) override;
+	bool ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH, Draw::ReadbackMode mode) override;
 };

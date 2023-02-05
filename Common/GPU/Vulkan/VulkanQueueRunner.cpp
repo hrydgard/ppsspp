@@ -2074,7 +2074,7 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 	// Doing that will also act like a heavyweight barrier ensuring that device writes are visible on the host.
 }
 
-void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
+void VulkanQueueRunner::CopyReadbackBuffer(VKRFramebuffer *src, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
 	if (!readbackBuffer_)
 		return;  // Something has gone really wrong.
 
@@ -2082,13 +2082,14 @@ void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataForm
 	void *mappedData;
 	const size_t srcPixelSize = DataFormatSizeInBytes(srcFormat);
 	VkResult res = vmaMapMemory(vulkan_->Allocator(), readbackAllocation_, &mappedData);
-	if (!readbackBufferIsCoherent_) {
-		vmaInvalidateAllocation(vulkan_->Allocator(), readbackAllocation_, 0, width * height * srcPixelSize);
-	}
 
 	if (res != VK_SUCCESS) {
 		ERROR_LOG(G3D, "CopyReadbackBuffer: vkMapMemory failed! result=%d", (int)res);
 		return;
+	}
+
+	if (!readbackBufferIsCoherent_) {
+		vmaInvalidateAllocation(vulkan_->Allocator(), readbackAllocation_, 0, width * height * srcPixelSize);
 	}
 
 	// TODO: Perform these conversions in a compute shader on the GPU.

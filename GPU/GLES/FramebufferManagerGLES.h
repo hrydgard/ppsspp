@@ -36,5 +36,5 @@ public:
 
 protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
-	bool ReadbackStencilbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride) override;
+	bool ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride, Draw::ReadbackMode mode) override;
 };
