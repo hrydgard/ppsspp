@@ -1621,7 +1621,8 @@ void GLQueueRunner::CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int widt
 
 	bool convert = internalFormat == GL_RGBA && destFormat != Draw::DataFormat::R8G8B8A8_UNORM;
 	if (convert) {
-		ConvertFromRGBA8888(pixels, readbackBuffer_, pixelStride, pixelStride, width, height, destFormat);
+		// srcStride is width because we read back "packed" (with no gaps) from GL.
+		ConvertFromRGBA8888(pixels, readbackBuffer_, pixelStride, width, width, height, destFormat);
 	} else {
 		for (int y = 0; y < height; y++) {
 			memcpy(pixels + y * pixelStride * bpp, readbackBuffer_ + y * width * bpp, width * bpp);
