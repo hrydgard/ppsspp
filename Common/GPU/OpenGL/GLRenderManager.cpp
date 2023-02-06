@@ -302,6 +302,7 @@ bool GLRenderManager::CopyFramebufferToMemory(GLRFramebuffer *src, int aspectBit
 	step->readback.srcRect = { x, y, w, h };
 	step->readback.aspectMask = aspectBits;
 	step->readback.dstFormat = destFormat;
+	step->readback.delayed = mode == Draw::ReadbackMode::OLD_DATA_OK;
 	step->dependencies.insert(src);
 	step->tag = tag;
 	steps_.push_back(step);
@@ -323,7 +324,9 @@ bool GLRenderManager::CopyFramebufferToMemory(GLRFramebuffer *src, int aspectBit
 		return false;
 	}
 
-	queueRunner_.CopyFromReadbackBuffer(mode == Draw::ReadbackMode::OLD_DATA_OK ? src : nullptr, w, h, srcFormat, destFormat, pixelStride, pixels);
+	// If non-blocking, we're really copying here from the images this frameData_ collected on the
+	// last time around the loop.
+	queueRunner_.CopyFromReadbackBuffer(frameData_[curFrame_], mode == Draw::ReadbackMode::OLD_DATA_OK ? src : nullptr, w, h, srcFormat, destFormat, pixelStride, pixels);
 	return true;
 }
 
@@ -342,7 +345,7 @@ void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, i
 
 	FlushSync();
 
-	queueRunner_.CopyFromReadbackBuffer(nullptr, w, h, Draw::DataFormat::R8G8B8A8_UNORM, destFormat, pixelStride, pixels);
+	queueRunner_.CopyFromReadbackBuffer(frameData_[curFrame_], nullptr, w, h, Draw::DataFormat::R8G8B8A8_UNORM, destFormat, pixelStride, pixels);
 }
 
 void GLRenderManager::BeginFrame() {
@@ -380,6 +383,7 @@ void GLRenderManager::Finish() {
 	VLOG("PUSH: Finish, pushing task. curFrame = %d", curFrame);
 	GLRRenderThreadTask task;
 	task.frame = curFrame;
+	task.nextFrame = (curFrame + 1) % inflightFrames_;
 	task.runType = GLRRunType::PRESENT;
 
 	{
@@ -411,7 +415,7 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 	}
 
 	// queueRunner_.LogSteps(stepsOnThread);
-	queueRunner_.RunInitSteps(task.initSteps, skipGLCalls_);
+	queueRunner_.RunInitSteps(task.initSteps, frameData, skipGLCalls_);
 
 	// Run this after RunInitSteps so any fresh GLRBuffers for the pushbuffers can get created.
 	if (!skipGLCalls_) {
@@ -425,11 +429,11 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {
 			PreVRFrameRender(i);
-			queueRunner_.RunSteps(task.steps, skipGLCalls_, i < passes - 1, true);
+			queueRunner_.RunSteps(task.steps, frameData, skipGLCalls_, i < passes - 1, true);
 			PostVRFrameRender();
 		}
 	} else {
-		queueRunner_.RunSteps(task.steps, skipGLCalls_, false, false);
+		queueRunner_.RunSteps(task.steps, frameData, skipGLCalls_, false, false);
 	}
 
 	if (!skipGLCalls_) {
@@ -461,6 +465,12 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 				VLOG("  PULL: SwapRequested");
 				swapRequest = true;
 			}
+
+			// End of the frame. Now we do the copies for readback for the upcoming frame,
+			// unfortunately there's no better place to do it since we have to do it
+			// on the OpenGL thread, and it has to happen before we start recording the next frame.
+			GLFrameData &nextFrameData = frameData_[task.nextFrame];
+			nextFrameData.PerformReadbacks();
 		} else {
 			frameData.skipSwap = false;
 		}
@@ -502,6 +512,7 @@ void GLRenderManager::FlushSync() {
 
 		GLRRenderThreadTask task;
 		task.frame = curFrame_;
+		task.nextFrame = (curFrame_ + 1) % inflightFrames_;
 		task.runType = GLRRunType::SYNC;
 
 		std::unique_lock<std::mutex> lock(pushMutex_);

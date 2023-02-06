@@ -381,6 +381,7 @@ struct GLRRenderThreadTask {
 	std::vector<GLRInitStep> initSteps;
 
 	int frame;
+	int nextFrame;
 	GLRRunType runType;
 };
 

@@ -122,7 +122,7 @@ std::string GLQueueRunner::GetStereoBufferLayout(const char *uniformName) {
 	else return "undefined";
 }
 
-void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls) {
+void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, GLFrameData &frameData, bool skipGLCalls) {
 	if (skipGLCalls) {
 		// Some bookkeeping still needs to be done.
 		for (size_t i = 0; i < steps.size(); i++) {
@@ -646,7 +646,7 @@ retry_depth:
 	currentReadHandle_ = fbo->handle;
 }
 
-void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps, bool useVR) {
+void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool skipGLCalls, bool keepSteps, bool useVR) {
 	if (skipGLCalls) {
 		if (keepSteps) {
 			return;
@@ -720,7 +720,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 			PerformBlit(step);
 			break;
 		case GLRStepType::READBACK:
-			PerformReadback(step);
+			PerformReadback(step, frameData);
 			break;
 		case GLRStepType::READBACK_IMAGE:
 			PerformReadbackImage(step);
@@ -1463,11 +1463,11 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-void GLQueueRunner::PerformReadback(const GLRStep &pass) {
+void GLQueueRunner::PerformReadback(const GLRStep &step, GLFrameData &frameData) {
 	using namespace Draw;
 	CHECK_GL_ERROR_IF_DEBUG();
 
-	GLRFramebuffer *fb = pass.readback.src;
+	GLRFramebuffer *fb = step.readback.src;
 
 	fbo_bind_fb_target(true, fb ? fb->handle : 0);
 
@@ -1483,20 +1483,20 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 	int srcAlignment = 4;
 
 #ifndef USING_GLES2
-	if (pass.readback.aspectMask & GL_DEPTH_BUFFER_BIT) {
+	if (step.readback.aspectMask & GL_DEPTH_BUFFER_BIT) {
 		format = GL_DEPTH_COMPONENT;
 		type = GL_FLOAT;
 		srcAlignment = 4;
-	} else if (pass.readback.aspectMask & GL_STENCIL_BUFFER_BIT) {
+	} else if (step.readback.aspectMask & GL_STENCIL_BUFFER_BIT) {
 		format = GL_STENCIL_INDEX;
 		type = GL_UNSIGNED_BYTE;
 		srcAlignment = 1;
 	}
 #endif
 
-	readbackAspectMask_ = pass.readback.aspectMask;
+	readbackAspectMask_ = step.readback.aspectMask;
 
-	int pixelStride = pass.readback.srcRect.w;
+	int pixelStride = step.readback.srcRect.w;
 	// Apply the correct alignment.
 	glPixelStorei(GL_PACK_ALIGNMENT, srcAlignment);
 	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
@@ -1504,21 +1504,64 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 		glPixelStorei(GL_PACK_ROW_LENGTH, pixelStride);
 	}
 
-	GLRect2D rect = pass.readback.srcRect;
-
+	GLRect2D rect = step.readback.srcRect;
 	int readbackSize = srcAlignment * rect.w * rect.h;
-	if (readbackSize > readbackBufferSize_) {
-		delete[] readbackBuffer_;
-		readbackBuffer_ = new uint8_t[readbackSize];
-		readbackBufferSize_ = readbackSize;
-	}
 
-	glReadPixels(rect.x, rect.y, rect.w, rect.h, format, type, readbackBuffer_);
-	#ifdef DEBUG_READ_PIXELS
+	uint8_t *readbackBuffer = nullptr;
+
+	if (step.readback.delayed) {
+		GLReadbackKey key;
+		key.framebuf = step.readback.src;
+		key.width = step.readback.srcRect.w;
+		key.height = step.readback.srcRect.h;
+		key.dstFormat = step.readback.dstFormat;
+
+		// See if there's already a buffer we can reuse
+		GLCachedReadback *cached;
+		{
+			std::lock_guard<std::mutex> lock(frameData.readbackMutex);
+			cached = frameData.readbacks_.Get(key);
+			if (!cached) {
+				cached = new GLCachedReadback();
+				cached->bufferSize = 0;
+				frameData.readbacks_.Insert(key, cached);
+			}
+		}
+
+		if (cached->bufferSize < readbackSize) {
+			cached->bufferSize = readbackSize;
+			if (cached->buffer) {
+				glDeleteBuffers(1, &cached->buffer);
+			}
+			glGenBuffers(1, &cached->buffer);
+			glBindBuffer(GL_PIXEL_PACK_BUFFER, cached->buffer);
+			glBufferData(GL_PIXEL_PACK_BUFFER, readbackSize, nullptr, GL_STREAM_READ);
+			_assert_(glGetError() == 0);
+		} else {
+			glBindBuffer(GL_PIXEL_PACK_BUFFER, cached->buffer);
+		}
+		cached->pending = true;
+	} else {
+		// Just do a plain blocking read without involving PBOs.
+		if (readbackSize > readbackBufferSize_) {
+			delete[] readbackBuffer_;
+			readbackBuffer_ = new uint8_t[readbackSize];
+			readbackBufferSize_ = readbackSize;
+		}
+		readbackBuffer = readbackBuffer_;
+	}
+	glReadPixels(rect.x, rect.y, rect.w, rect.h, format, type, readbackBuffer);
+	_assert_(glGetError() == 0);
+
+#ifdef DEBUG_READ_PIXELS
 	LogReadPixelsError(glGetError());
 	#endif
 	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
 		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	}
+
+	if (step.readback.delayed) {
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
 }
@@ -1599,15 +1642,8 @@ void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-void GLQueueRunner::CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
-	// TODO: Maybe move data format conversion here, and always read back 8888. Drivers
-	// don't usually provide very optimized conversion implementations, though some do.
-	// Just need to be careful about dithering, which may break Danganronpa.
+bool GLQueueRunner::CopyFromReadbackBuffer(GLFrameData &frameData, GLRFramebuffer *src, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
 	int bpp = (int)Draw::DataFormatSizeInBytes(destFormat);
-	if (!readbackBuffer_ || bpp <= 0 || !pixels) {
-		// Something went wrong during the read and no readback buffer was allocated, probably.
-		return;
-	}
 
 	// Always read back in 8888 format for the color aspect.
 	GLuint internalFormat = GL_RGBA;
@@ -1618,16 +1654,51 @@ void GLQueueRunner::CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int widt
 		internalFormat = GL_STENCIL_INDEX;
 	}
 #endif
-
 	bool convert = internalFormat == GL_RGBA && destFormat != Draw::DataFormat::R8G8B8A8_UNORM;
-	if (convert) {
-		// srcStride is width because we read back "packed" (with no gaps) from GL.
-		ConvertFromRGBA8888(pixels, readbackBuffer_, pixelStride, width, width, height, destFormat);
-	} else {
-		for (int y = 0; y < height; y++) {
-			memcpy(pixels + y * pixelStride * bpp, readbackBuffer_ + y * width * bpp, width * bpp);
+
+
+	if (!src) {
+		// This path is trivial and doesn't make use of PBOs or anything, since the full blocking read happened
+		// in PerformReadbackImage.
+
+		// TODO: Maybe move data format conversion here, and always read back 8888. Drivers
+		// don't usually provide very optimized conversion implementations, though some do.
+		// Just need to be careful about dithering, which may break Danganronpa.
+		if (!readbackBuffer_ || bpp <= 0 || !pixels) {
+			// Something went wrong during the read and no readback buffer was allocated, probably.
+			return false;
 		}
+		if (convert) {
+			ConvertFromRGBA8888(pixels, readbackBuffer_, pixelStride, width, width, height, destFormat);
+		} else {
+			for (int y = 0; y < height; y++) {
+				memcpy(pixels + y * pixelStride * bpp, readbackBuffer_ + y * width * bpp, width * bpp);
+			}
+		}
+		return true;
 	}
+
+	// OK, we're reading back from cache. Pretty simple.
+	GLReadbackKey key;
+	key.framebuf = src;
+	key.width = width;
+	key.height = height;
+	key.dstFormat = destFormat;
+	GLCachedReadback *cached = frameData.readbacks_.Get(key);
+	if (!cached) {
+		// Didn't have a cached image ready yet. Should we write black or white instead maybe?
+		return false;
+	}
+	if (cached->pending) {
+		INFO_LOG(G3D, "Trying to read back still pending image, ignoring");
+		return true;
+	}
+	// We already performed the actual readback at the beginning of the frame. Now time to do the copy.
+	// We delay it to here for safety, although it would probably be alright to perform the full thing at the start
+	// of the frame in most cases.
+	_assert_(cached->data);
+	memcpy(pixels, cached->data, width * height * bpp);
+	return true;
 }
 
 GLuint GLQueueRunner::AllocTextureName() {

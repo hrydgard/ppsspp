@@ -337,6 +337,7 @@ struct GLRStep {
 			GLRFramebuffer *src;
 			GLRect2D srcRect;
 			Draw::DataFormat dstFormat;
+			bool delayed;
 		} readback;
 		struct {
 			GLRTexture *texture;
@@ -362,9 +363,9 @@ public:
 	int GetStereoBufferIndex(const char *uniformName);
 	std::string GetStereoBufferLayout(const char *uniformName);
 
-	void RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls);
+	void RunInitSteps(const std::vector<GLRInitStep> &steps, GLFrameData &frameData, bool skipGLCalls);
 
-	void RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps, bool useVR);
+	void RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool skipGLCalls, bool keepSteps, bool useVR);
 	void LogSteps(const std::vector<GLRStep *> &steps);
 
 	void CreateDeviceObjects();
@@ -374,7 +375,7 @@ public:
 		return (int)depth * 3 + (int)color;
 	}
 
-	void CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
+	bool CopyFromReadbackBuffer(GLFrameData &frameData, GLRFramebuffer *framebuffer, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
 	void Resize(int width, int height) {
 		targetWidth_ = width;
@@ -397,7 +398,7 @@ private:
 	void PerformRenderPass(const GLRStep &pass, bool first, bool last);
 	void PerformCopy(const GLRStep &pass);
 	void PerformBlit(const GLRStep &pass);
-	void PerformReadback(const GLRStep &pass);
+	void PerformReadback(const GLRStep &pass, GLFrameData &frameData);
 	void PerformReadbackImage(const GLRStep &pass);
 
 	void fbo_ext_create(const GLRInitStep &step);

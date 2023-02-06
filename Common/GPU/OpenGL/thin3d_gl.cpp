@@ -568,9 +568,11 @@ OpenGLContext::OpenGLContext() {
 	if (gl_extensions.IsGLES) {
 		caps_.clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
 		caps_.cullDistanceSupported = gl_extensions.EXT_clip_cull_distance;
+		caps_.pboSupported = gl_extensions.GLES3;
 	} else {
 		caps_.clipDistanceSupported = gl_extensions.VersionGEThan(3, 0);
 		caps_.cullDistanceSupported = gl_extensions.ARB_cull_distance;
+		caps_.pboSupported = true;
 	}
 	caps_.textureNPOTFullySupported =
 		(!gl_extensions.IsGLES && gl_extensions.VersionGEThan(2, 0, 0)) ||

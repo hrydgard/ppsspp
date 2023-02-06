@@ -1,6 +1,7 @@
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLFrameData.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/GPU/DataFormat.h"
 #include "Common/Log.h"
 
 void GLCachedReadback::Destroy(bool skipGLCalls) {
@@ -10,11 +11,57 @@ void GLCachedReadback::Destroy(bool skipGLCalls) {
 	buffer = 0;
 }
 
+void GLFrameData::PerformReadbacks() {
+	// TODO: Shorten the lock by doing some queueing tricks here.
+	std::lock_guard<std::mutex> guard(readbackMutex);
+	readbacks_.IterateMut([=](const GLReadbackKey &key, GLCachedReadback *cached) {
+		if (!cached->pending) {
+			return;
+		}
+
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, cached->buffer);
+		GLubyte *ptr = (GLubyte *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+		if (!ptr) {
+			int error = glGetError();
+			ERROR_LOG(G3D, "mapbuffer error: error %d buffer %d (%dx%d)", error, cached->buffer, key.width, key.height);
+			cached->pending = false;
+			return;
+		}
+		int bpp = (int)Draw::DataFormatSizeInBytes(key.dstFormat);
+		int dataSize = key.width * key.height * bpp;
+		_dbg_assert_(dataSize != 0);
+		if (cached->dataSize < dataSize) {
+			delete[] cached->data;
+			cached->data = new uint8_t[dataSize];
+			cached->dataSize = dataSize;
+		}
+		int pixelStride = key.width;
+		if (cached->convert) {
+			Draw::ConvertFromRGBA8888(cached->data, ptr, pixelStride, pixelStride, key.width, key.height, key.dstFormat);
+		} else {
+			for (int y = 0; y < key.height; y++) {
+				memcpy(cached->data + y * pixelStride * bpp, ptr + y * key.width * bpp, key.width * bpp);
+			}
+		}
+		glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+		cached->pending = false;
+	});
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+}
+
+void GLFrameData::EndFrame() {
+	for (auto &rb : queuedReadbacks_) {
+		// What should we do here? cleanup?
+	}
+	queuedReadbacks_.clear();
+}
+
 void GLFrameData::Destroy(bool skipGLCalls) {
-	readbacks_.IterateMut([=](const GLReadbackKey &key, GLCachedReadback *value) {
-		value->Destroy(skipGLCalls);
-	delete value;
-		});
+	std::lock_guard<std::mutex> guard(readbackMutex);
+	readbacks_.IterateMut([=](const GLReadbackKey &key, GLCachedReadback *cached) {
+		cached->Destroy(skipGLCalls);
+		delete cached;
+	});
 	readbacks_.Clear();
 }
 
