@@ -5,7 +5,7 @@ ifneq ($(GIT_VERSION)," unknown")
 	COREFLAGS += -DGIT_VERSION=\"$(GIT_VERSION)\"
 endif
 
-COREFLAGS  :=
+COREFLAGS  := -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H
 CORE_DIR   := ../..
 FFMPEGDIR  := $(CORE_DIR)/ffmpeg
 FFMPEGLIBS += libavformat libavcodec libavutil libswresample libswscale
