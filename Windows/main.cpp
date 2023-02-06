@@ -55,6 +55,8 @@
 #include "Common/ConsoleListener.h"
 #include "Common/StringUtils.h"
 
+#include "Common/TTS/TTS.h"
+
 #include "Commctrl.h"
 
 #include "UI/GameInfoCache.h"
@@ -576,6 +578,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	WinMainInit();
 
+	TTS_Say("Welcome to PPSSPP");
+
 #ifndef _DEBUG
 	bool showLog = false;
 #else
@@ -803,6 +807,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	timeEndPeriod(1);
 
 	LogManager::Shutdown();
+
 	WinMainCleanup();
 
 	return 0;

@@ -40,6 +40,7 @@
 #include "Common/Input/KeyCodes.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/TTS/TTS.h"
 
 #include "Core/Core.h"
 #include "Core/Config.h"
@@ -473,6 +474,11 @@ namespace MainWindow
 	}
 
 	void UpdateWindowTitle() {
+		if (TTS_Active()) {
+			// Don't want to speak the whole version number in debug mode, etc...
+			SetWindowText(hwndMain, L"PPSSPP");
+			return;
+		}
 		// Seems to be fine to call now since we use a UNICODE build...
 		std::wstring title = windowTitle;
 		if (PPSSPP_ID >= 1 && GetInstancePeerCount() > 1) {

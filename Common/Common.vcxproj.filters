@@ -464,6 +464,12 @@
     <ClInclude Include="UI\PopupScreens.h">
       <Filter>UI</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\nvda\x64\nvdaController.h">
+      <Filter>ext\nvda</Filter>
+    </ClInclude>
+    <ClInclude Include="TTS\TTS.h">
+      <Filter>TTS</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -878,6 +884,9 @@
     <ClCompile Include="UI\PopupScreens.cpp">
       <Filter>UI</Filter>
     </ClCompile>
+    <ClCompile Include="TTS\TTS.cpp">
+      <Filter>TTS</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -984,6 +993,12 @@
     </Filter>
     <Filter Include="VR">
       <UniqueIdentifier>{9d1c29fd-8ac7-4475-8ea6-c8c759b695fe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TTS">
+      <UniqueIdentifier>{2f13e9d2-148c-4428-9954-c581d481742f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\nvda">
+      <UniqueIdentifier>{a66dfba3-5469-458f-a89a-6341080421c8}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
