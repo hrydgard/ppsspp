@@ -62,6 +62,10 @@ SDLJoystick *joystick = NULL;
 #include "UI/DarwinFileSystemServices.h"
 #endif
 
+#if PPSSPP_PLATFORM(MAC)
+#include "MacOSBarItems.h"
+#endif
+
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
 
@@ -846,6 +850,12 @@ int main(int argc, char *argv[]) {
 	int mouseWheelMovedDownFrames = 0;
 	bool mouseCaptured = false;
 	bool windowHidden = false;
+	
+#if PPSSPP_PLATFORM(MAC)
+		// setup menu items for macOS
+		initBarItemsForApp();
+#endif
+	
 	while (true) {
 		double startTime = time_now_d();
 
@@ -1144,6 +1154,7 @@ int main(int argc, char *argv[]) {
 					if (doAutoSwitch || g_Config.sAudioDevice == name) {
 						StopSDLAudioDevice();
 						InitSDLAudioDevice(name ? name : "");
+						PostDarwinNotificationIfPossible("AudioConfigurationHasChanged", "DeviceAddedOrChanged");
 					}
 				}
 				break;
@@ -1151,6 +1162,7 @@ int main(int argc, char *argv[]) {
 				if (event.adevice.iscapture == 0 && event.adevice.which == audioDev) {
 					StopSDLAudioDevice();
 					InitSDLAudioDevice();
+					PostDarwinNotificationIfPossible("AudioConfigurationHasChanged", "DeviceAddedOrChanged");
 				}
 				break;
 #endif

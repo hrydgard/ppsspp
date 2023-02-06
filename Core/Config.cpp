@@ -1301,6 +1301,15 @@ void Config::SetAppendedConfigIni(const Path &path) {
 	appendedConfigFileName_ = path;
 }
 
+void Config::updateAfterSettingAutoFrameSkip() {
+	if (bAutoFrameSkip && iFrameSkip == 0) {
+		iFrameSkip = 1;
+	}
+	
+	if (bAutoFrameSkip && bSkipBufferEffects) {
+		bSkipBufferEffects = false;
+	}
+}
 
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (!bUpdatedInstanceCounter) {

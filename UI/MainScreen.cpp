@@ -1260,12 +1260,10 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 		}
 		if (!strcmp(message, "browse_folderSelect")) {
 			std::string filename = value;
-			INFO_LOG(SYSTEM, "Got folder: '%s'", filename.c_str());
-			int tab = tabHolder_->GetCurrentTab();
-			// Don't allow browsing in the other tabs (I don't think it's possible to reach the option though)
-			if (tab == 1) {
-				gameBrowsers_[tab]->SetPath(Path(filename));
-			}
+			INFO_LOG(SYSTEM, "Got folder: '%s'", filename.c_str());;
+			// switch to the 'Games' tab which has the file browser
+			tabHolder_->SetCurrentTab(1);
+			gameBrowsers_[1]->SetPath(Path(filename));
 		}
 	}
 	if (!strcmp(message, "permission_granted") && !strcmp(value, "storage")) {
