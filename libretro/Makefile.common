@@ -279,6 +279,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/OpenGL/GLDebugLog.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLSLProgram.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLFeatures.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLFrameData.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLRenderManager.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLQueueRunner.cpp \
 	$(COMMONDIR)/GPU/OpenGL/DataFormatGL.cpp \

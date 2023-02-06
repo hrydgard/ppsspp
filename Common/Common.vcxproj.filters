@@ -464,6 +464,9 @@
     <ClInclude Include="UI\PopupScreens.h">
       <Filter>UI</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\OpenGL\GLFrameData.h">
+      <Filter>GPU\OpenGL</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -877,6 +880,9 @@
     </ClCompile>
     <ClCompile Include="UI\PopupScreens.cpp">
       <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\OpenGL\GLFrameData.cpp">
+      <Filter>GPU\OpenGL</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

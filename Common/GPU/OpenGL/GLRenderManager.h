@@ -10,11 +10,12 @@
 #include <queue>
 #include <condition_variable>
 
-#include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/MiscTypes.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
-#include "GLQueueRunner.h"
+#include "Common/GPU/OpenGL/GLQueueRunner.h"
+#include "Common/GPU/OpenGL/GLFrameData.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
 
 class GLRInputLayout;
 class GLPushBuffer;
@@ -372,25 +373,6 @@ enum class GLRRunType {
 
 class GLRenderManager;
 class GLPushBuffer;
-
-class GLDeleter {
-public:
-	void Perform(GLRenderManager *renderManager, bool skipGLCalls);
-
-	bool IsEmpty() const {
-		return shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty() && pushBuffers.empty();
-	}
-
-	void Take(GLDeleter &other);
-
-	std::vector<GLRShader *> shaders;
-	std::vector<GLRProgram *> programs;
-	std::vector<GLRBuffer *> buffers;
-	std::vector<GLRTexture *> textures;
-	std::vector<GLRInputLayout *> inputLayouts;
-	std::vector<GLRFramebuffer *> framebuffers;
-	std::vector<GLPushBuffer *> pushBuffers;
-};
 
 // These are enqueued from the main thread,
 // and the render thread pops them off
@@ -1035,23 +1017,7 @@ private:
 		frameData_[frame].activePushBuffers.insert(buffer);
 	}
 
-	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
-	struct FrameData {
-		bool skipSwap = false;
-
-		std::mutex fenceMutex;
-		std::condition_variable fenceCondVar;
-		bool readyForFence = true;
-
-		// Swapchain.
-		bool hasBegun = false;
-
-		GLDeleter deleter;
-		GLDeleter deleter_prev;
-		std::set<GLPushBuffer *> activePushBuffers;
-	};
-
-	FrameData frameData_[MAX_INFLIGHT_FRAMES];
+	GLFrameData frameData_[MAX_INFLIGHT_FRAMES];
 
 	// Submission time state
 	bool insideFrame_ = false;
