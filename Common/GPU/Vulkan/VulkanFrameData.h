@@ -28,6 +28,7 @@ struct QueueProfileContext {
 
 class VKRFramebuffer;
 
+// TODO: To be safe, should probably add some more stuff here, like format and even readback count, maybe.
 struct ReadbackKey {
 	const VKRFramebuffer *framebuf;
 	int width;

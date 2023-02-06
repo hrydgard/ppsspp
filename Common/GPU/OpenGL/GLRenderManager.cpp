@@ -47,7 +47,9 @@ GLRenderManager::~GLRenderManager() {
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 		_assert_(frameData_[i].deleter.IsEmpty());
 		_assert_(frameData_[i].deleter_prev.IsEmpty());
+		frameData_[i].Destroy(skipGLCalls_);
 	}
+
 	// Was anything deleted during shutdown?
 	deleter_.Perform(this, skipGLCalls_);
 	_assert_(deleter_.IsEmpty());
@@ -108,6 +110,7 @@ void GLRenderManager::ThreadEnd() {
 		// Since we're in shutdown, we should skip the GL calls on Android.
 		frameData_[i].deleter.Perform(this, skipGLCalls_);
 		frameData_[i].deleter_prev.Perform(this, skipGLCalls_);
+		frameData_[i].Destroy(skipGLCalls_);
 	}
 	deleter_.Perform(this, skipGLCalls_);
 	for (int i = 0; i < (int)steps_.size(); i++) {
@@ -292,6 +295,8 @@ void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 bool GLRenderManager::CopyFramebufferToMemory(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag) {
 	_assert_(pixels);
 
+	curRenderStep_ = nullptr;
+
 	GLRStep *step = new GLRStep{ GLRStepType::READBACK };
 	step->readback.src = src;
 	step->readback.srcRect = { x, y, w, h };
@@ -301,8 +306,9 @@ bool GLRenderManager::CopyFramebufferToMemory(GLRFramebuffer *src, int aspectBit
 	step->tag = tag;
 	steps_.push_back(step);
 
-	curRenderStep_ = nullptr;
-	FlushSync();
+	if (mode == Draw::ReadbackMode::BLOCK) {
+		FlushSync();
+	}
 
 	Draw::DataFormat srcFormat;
 	if (aspectBits & GL_COLOR_BUFFER_BIT) {
@@ -316,13 +322,17 @@ bool GLRenderManager::CopyFramebufferToMemory(GLRFramebuffer *src, int aspectBit
 	} else {
 		return false;
 	}
-	queueRunner_.CopyFromReadbackBuffer(src, w, h, srcFormat, destFormat, pixelStride, pixels);
+
+	queueRunner_.CopyFromReadbackBuffer(mode == Draw::ReadbackMode::OLD_DATA_OK ? src : nullptr, w, h, srcFormat, destFormat, pixelStride, pixels);
 	return true;
 }
 
 void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
 	_assert_(texture);
 	_assert_(pixels);
+
+	curRenderStep_ = nullptr;
+
 	GLRStep *step = new GLRStep{ GLRStepType::READBACK_IMAGE };
 	step->readback_image.texture = texture;
 	step->readback_image.mipLevel = mipLevel;
@@ -330,7 +340,6 @@ void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, i
 	step->tag = tag;
 	steps_.push_back(step);
 
-	curRenderStep_ = nullptr;
 	FlushSync();
 
 	queueRunner_.CopyFromReadbackBuffer(nullptr, w, h, Draw::DataFormat::R8G8B8A8_UNORM, destFormat, pixelStride, pixels);

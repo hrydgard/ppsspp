@@ -6,6 +6,7 @@
 #include <set>
 
 #include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/Data/Collections/Hashmaps.h"
 
 class GLRShader;
 class GLRBuffer;
@@ -35,8 +36,24 @@ public:
 	std::vector<GLPushBuffer *> pushBuffers;
 };
 
+// TODO: To be safe, should probably add some more stuff here, like format and even readback count, maybe.
+struct GLReadbackKey {
+	const GLRFramebuffer *framebuf;
+	int width;
+	int height;
+};
+
+struct GLCachedReadback {
+	GLuint buffer;  // PBO
+	size_t bufferSize;
+
+	void Destroy(bool skipGLCalls);
+};
+
 // Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 struct GLFrameData {
+	GLFrameData() : readbacks_(8) {}
+
 	bool skipSwap = false;
 
 	std::mutex fenceMutex;
@@ -49,4 +66,8 @@ struct GLFrameData {
 	GLDeleter deleter;
 	GLDeleter deleter_prev;
 	std::set<GLPushBuffer *> activePushBuffers;
+
+	DenseHashMap<GLReadbackKey, GLCachedReadback *, nullptr> readbacks_;
+
+	void Destroy(bool skipGLCalls);
 };

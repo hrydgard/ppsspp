@@ -3,6 +3,21 @@
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/Log.h"
 
+void GLCachedReadback::Destroy(bool skipGLCalls) {
+	if (buffer && !skipGLCalls) {
+		glDeleteBuffers(1, &buffer);
+	}
+	buffer = 0;
+}
+
+void GLFrameData::Destroy(bool skipGLCalls) {
+	readbacks_.IterateMut([=](const GLReadbackKey &key, GLCachedReadback *value) {
+		value->Destroy(skipGLCalls);
+	delete value;
+		});
+	readbacks_.Clear();
+}
+
 void GLDeleter::Take(GLDeleter &other) {
 	_assert_msg_(IsEmpty(), "Deleter already has stuff");
 	shaders = std::move(other.shaders);
