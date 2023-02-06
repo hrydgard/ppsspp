@@ -39,6 +39,4 @@ void PostDarwinNotification(const char *name, const char *value);
 // Currently, this is just macOS only
 // to update the top bar
 #define PostDarwinNotificationIfPossible(name, value) PostDarwinNotification(name, value)
-#else
-#define PostDarwinNotificationIfPossible(name, value)
 #endif

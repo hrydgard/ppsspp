@@ -60,6 +60,8 @@ SDLJoystick *joystick = NULL;
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 #include "UI/DarwinFileSystemServices.h"
+#else
+#define PostDarwinNotificationIfPossible(name, value)
 #endif
 
 #if PPSSPP_PLATFORM(MAC)

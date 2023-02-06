@@ -103,6 +103,7 @@ Target->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn { \
 });
 
 #else
+#define PostDarwinNotificationIfPossible(name, value)
 #define OnClickPostDarwinNotification
 #endif
 
