@@ -111,6 +111,15 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		break;
 #endif
 #endif
+#if defined(VK_USE_PLATFORM_DISPLAY_KHR)
+	case WINDOWSYSTEM_DISPLAY:
+		/*
+		There is no problem passing null for the next two arguments, and reinit will be called later
+		huangzihan china
+		*/
+		vulkan_->InitSurface(WINDOWSYSTEM_DISPLAY, nullptr, nullptr);
+		break;
+#endif
 	default:
 		fprintf(stderr, "Vulkan subsystem %d not supported\n", sys_info.subsystem);
 		exit(1);
