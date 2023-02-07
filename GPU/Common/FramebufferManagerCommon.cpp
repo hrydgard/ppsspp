@@ -1040,17 +1040,19 @@ bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFrame
 }
 
 void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
-	// TODO: Isn't this wrong? Shouldn't we download the prevVfb if anything?
-	if (ShouldDownloadFramebufferColor(vfb) && !vfb->memoryUpdated) {
-		ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
-		vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
-	} else {
-		DownloadFramebufferOnSwitch(prevVfb);
-	}
+	if (prevVfb) {
+		// TODO: Isn't this wrong? Shouldn't we download the prevVfb if anything?
+		if (ShouldDownloadFramebufferColor(prevVfb) && !prevVfb->memoryUpdated) {
+			ReadFramebufferToMemory(prevVfb, 0, 0, prevVfb->width, prevVfb->height, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
+			prevVfb->usageFlags = (prevVfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
+		} else {
+			DownloadFramebufferOnSwitch(prevVfb);
+		}
 
-	if (prevVfb && ShouldDownloadFramebufferDepth(prevVfb)) {
-		// Allow old data here to avoid blocking, if possible - no uses cases for this depend on data being super fresh.
-		ReadFramebufferToMemory(prevVfb, 0, 0, prevVfb->width, prevVfb->height, RasterChannel::RASTER_DEPTH, Draw::ReadbackMode::OLD_DATA_OK);
+		if (ShouldDownloadFramebufferDepth(prevVfb)) {
+			// Allow old data here to avoid blocking, if possible - no uses cases for this depend on data being super fresh.
+			ReadFramebufferToMemory(prevVfb, 0, 0, prevVfb->width, prevVfb->height, RasterChannel::RASTER_DEPTH, Draw::ReadbackMode::OLD_DATA_OK);
+		}
 	}
 
 	textureCache_->ForgetLastTexture();
