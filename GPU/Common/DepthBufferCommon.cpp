@@ -218,14 +218,18 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 
 		DepthUB ub{};
 
+		// Setting this to 0.95f eliminates flickering lights with delayed readback in Syphon Filter.
+		// That's pretty ugly though! But we'll need to do that if we're gonna enable delayed readback in those games.
+		const float fudgeFactor = 1.0f;
+
 		if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
 			// Don't scale anything, since we're not using factors outside accurate mode.
 			ub.u_depthFactor[0] = 0.0f;
-			ub.u_depthFactor[1] = 1.0f;
+			ub.u_depthFactor[1] = fudgeFactor;
 		} else {
 			const float factor = DepthSliceFactor();
 			ub.u_depthFactor[0] = -0.5f * (factor - 1.0f) * (1.0f / factor);
-			ub.u_depthFactor[1] = factor;
+			ub.u_depthFactor[1] = factor * fudgeFactor;
 		}
 		static constexpr float shifts[] = { 16777215.0f, 16777215.0f / 256.0f, 16777215.0f / 65536.0f, 16777215.0f / 16777216.0f };
 		memcpy(ub.u_depthShift, shifts, sizeof(shifts));
