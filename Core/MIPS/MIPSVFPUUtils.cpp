@@ -29,6 +29,13 @@
 #define V(i)   (currentMIPS->v[voffset[i]])
 #define VI(i)  (currentMIPS->vi[voffset[i]])
 
+// Flushes the angle to 0 if exponent smaller than this in vfpu_sin/vfpu_cos/vfpu_sincos.
+// Was measured to be around 0x68, but GTA on Mac is somehow super sensitive
+// to the shape of the sine curve which seem to be very slightly different.
+//
+// So setting a lower value.
+#define PRECISION_EXP_THRESHOLD 0x65
+
 union float2int {
 	uint32_t i;
 	float f;
@@ -899,7 +906,7 @@ float vfpu_sin(float a) {
 		return val.f;
 	}
 
-	if (k < 0x68) {
+	if (k < PRECISION_EXP_THRESHOLD) {
 		val.i &= 0x80000000;
 		return val.f;
 	}
@@ -945,7 +952,7 @@ float vfpu_cos(float a) {
 		return val.f;
 	}
 
-	if (k < 0x68)
+	if (k < PRECISION_EXP_THRESHOLD)
 		return 1.0f;
 
 	// Okay, now modulus by 4 to begin with (identical wave every 4.)
@@ -993,7 +1000,7 @@ void vfpu_sincos(float a, float &s, float &c) {
 		return;
 	}
 
-	if (k < 0x68) {
+	if (k < PRECISION_EXP_THRESHOLD) {
 		val.i &= 0x80000000;
 		s = val.f;
 		c = 1.0f;
