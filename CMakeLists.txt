@@ -632,6 +632,8 @@ add_library(Common STATIC
 	Common/GPU/OpenGL/gl3stub.h
 	Common/GPU/OpenGL/GLFeatures.cpp
 	Common/GPU/OpenGL/GLFeatures.h
+	Common/GPU/OpenGL/GLFrameData.cpp
+	Common/GPU/OpenGL/GLFrameData.h
 	Common/GPU/OpenGL/thin3d_gl.cpp
 	Common/GPU/OpenGL/GLRenderManager.cpp
 	Common/GPU/OpenGL/GLRenderManager.h

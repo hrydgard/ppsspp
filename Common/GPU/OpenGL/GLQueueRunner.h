@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLFrameData.h"
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
@@ -419,9 +420,7 @@ private:
 	// We size it generously.
 	uint8_t *readbackBuffer_ = nullptr;
 	int readbackBufferSize_ = 0;
-	// Temp buffer for color conversion
-	uint8_t *tempBuffer_ = nullptr;
-	int tempBufferSize_ = 0;
+	uint32_t readbackAspectMask_ = 0;
 
 	float maxAnisotropyLevel_ = 0.0f;
 

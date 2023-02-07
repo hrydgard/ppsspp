@@ -42,6 +42,7 @@ NATIVE_FILES :=\
   $(SRC)/Common/GPU/OpenGL/GLDebugLog.cpp \
   $(SRC)/Common/GPU/OpenGL/GLSLProgram.cpp \
   $(SRC)/Common/GPU/OpenGL/GLFeatures.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLFrameData.cpp \
   $(SRC)/Common/GPU/OpenGL/GLRenderManager.cpp \
   $(SRC)/Common/GPU/OpenGL/GLQueueRunner.cpp \
   $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp
