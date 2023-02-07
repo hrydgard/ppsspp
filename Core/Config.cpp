@@ -60,7 +60,7 @@ http::Downloader g_DownloadManager;
 
 Config g_Config;
 
-bool jitForcedOff;
+static bool jitForcedOff;
 
 // Not in Config.h because it's #included a lot.
 struct ConfigPrivate {
@@ -477,9 +477,11 @@ std::string CreateRandMAC() {
 
 static int DefaultCpuCore() {
 #if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
-	return (int)CPUCore::JIT;
+	if (System_GetPropertyBool(SYSPROP_CAN_JIT))
+		return (int)CPUCore::JIT;
+	return (int)CPUCore::IR_JIT;
 #else
-	return (int)CPUCore::INTERPRETER;
+	return (int)CPUCore::IR_JIT;
 #endif
 }
 

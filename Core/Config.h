@@ -29,8 +29,6 @@
 
 extern const char *PPSSPP_GIT_VERSION;
 
-extern bool jitForcedOff;
-
 enum ChatPositions {
 	BOTTOM_LEFT = 0,
 	BOTTOM_CENTER = 1,
