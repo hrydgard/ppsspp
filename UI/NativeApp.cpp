@@ -758,13 +758,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		}
 	}
 
-	if (System_GetPropertyBool(SYSPROP_CAN_JIT) == false && g_Config.iCpuCore == (int)CPUCore::JIT) {
-		// Just gonna force it to the IR interpreter on startup.
-		// We don't hide the option, but we make sure it's off on bootup. In case someone wants
-		// to experiment in future iOS versions or something...
-		jitForcedOff = true;
-	}
-
 	auto des = GetI18NCategory("DesktopUI");
 	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
 	// It's intended to be custom for every user.
