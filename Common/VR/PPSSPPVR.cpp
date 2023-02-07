@@ -42,6 +42,7 @@ static std::map<int, bool> pspKeys;
 
 static int vr3DGeometryCount = 0;
 static long vrCompat[VR_COMPAT_MAX];
+static bool vrFlatForced = false;
 static bool vrFlatGame = false;
 static float vrMatrix[VR_MATRIX_COUNT][16];
 static bool vrMirroring[VR_MIRRORING_COUNT];
@@ -317,7 +318,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 	if (g_Config.iHeadRotation) {
 		float pitch = -VR_GetHMDAngles().x;
 		float yaw = -VR_GetHMDAngles().y;
-		bool disable = pspKeys[CTRL_SCREEN] || appMode == VR_MENU_MODE;
+		bool disable = vrFlatForced || appMode == VR_MENU_MODE;
 		bool isVR = !IsFlatVRScene();
 
 		// calculate delta angles of the rotation
@@ -482,6 +483,7 @@ bool UpdateVRAxis(const AxisInput &axis) {
 bool UpdateVRKeys(const KeyInput &key) {
 	//store key value
 	std::vector<int> nativeKeys;
+	bool wasScreenKeyOn = pspKeys[CTRL_SCREEN];
 	bool wasCameraAdjustOn = pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
 	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
 		for (int& nativeKey : nativeKeys) {
@@ -501,6 +503,15 @@ bool UpdateVRKeys(const KeyInput &key) {
 					return false;
 			}
 		}
+	}
+
+	// Update force flat 2D mode
+	if (g_Config.bManualForceVR) {
+		if (!wasScreenKeyOn && pspKeys[CTRL_SCREEN]) {
+			vrFlatForced = !vrFlatForced;
+		}
+	} else {
+		vrFlatForced = pspKeys[CTRL_SCREEN];
 	}
 
 	// Release keys on enabling camera adjust
@@ -748,9 +759,10 @@ bool StartVRRender() {
 
 		// Decide if the scene is 3D or not
 		bool stereo = hasUnitScale && g_Config.bEnableStereo;
-		bool forceFlat = PSP_CoreParameter().compat.vrCompat().ForceFlatScreen;
+		bool vrIncompatibleGame = PSP_CoreParameter().compat.vrCompat().ForceFlatScreen;
+		bool vrScene = !vrFlatForced && (g_Config.bManualForceVR || (vr3DGeometryCount > 15));
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 480.0f / 272.0f);
-		if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && !forceFlat && (appMode == VR_GAME_MODE) && (vr3DGeometryCount > 15)) {
+		if (g_Config.bEnableVR && !vrIncompatibleGame && (appMode == VR_GAME_MODE) && vrScene) {
 			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 			vrFlatGame = false;
 		} else {
