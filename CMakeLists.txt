@@ -1130,7 +1130,7 @@ if(ANDROID)
 		set(nativeExtraLibs ${nativeExtraLibs} openxr)
 	endif()
 	# No target
-elseif(IOS)
+elseif(IOS AND NOT LIBRETRO)
 	set(nativeExtra ${nativeExtra}
 		ios/main.mm
 		ios/AppDelegate.mm
@@ -1177,6 +1177,8 @@ elseif(IOS)
 	set_source_files_properties(UI/DarwinFileSystemServices.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(Common/Battery/AppleBatteryClient.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set(TargetBin PPSSPP)
+elseif(IOS AND LIBRETRO)
+    set(nativeExtraLibs ${nativeExtraLibs} "-framework GLKit")
 elseif(USING_QT_UI)
 	set(CMAKE_AUTOMOC ON)
 	find_package(Qt5 COMPONENTS OpenGL Gui Core Multimedia)
@@ -2493,7 +2495,7 @@ if(NOT ANDROID)
 	file(INSTALL assets/flash0 DESTINATION assets)
 endif()
 # packaging and code signing
-if(IOS)
+if(IOS AND NOT LIBRETRO)
 	set(DEPLOYMENT_TARGET 11.0)
 	file(GLOB IOSAssets ios/assets/*.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
