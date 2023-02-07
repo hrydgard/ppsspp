@@ -1043,15 +1043,14 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	if (prevVfb) {
 		// TODO: Isn't this wrong? Shouldn't we download the prevVfb if anything?
 		if (ShouldDownloadFramebufferColor(prevVfb) && !prevVfb->memoryUpdated) {
-			ReadFramebufferToMemory(prevVfb, 0, 0, prevVfb->width, prevVfb->height, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
+			ReadFramebufferToMemory(prevVfb, 0, 0, prevVfb->width, prevVfb->height, RASTER_COLOR, Draw::ReadbackMode::OLD_DATA_OK);
 			prevVfb->usageFlags = (prevVfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		} else {
 			DownloadFramebufferOnSwitch(prevVfb);
 		}
 
 		if (ShouldDownloadFramebufferDepth(prevVfb)) {
-			// Allow old data here to avoid blocking, if possible - no uses cases for this depend on data being super fresh.
-			ReadFramebufferToMemory(prevVfb, 0, 0, prevVfb->width, prevVfb->height, RasterChannel::RASTER_DEPTH, Draw::ReadbackMode::OLD_DATA_OK);
+			ReadFramebufferToMemory(prevVfb, 0, 0, prevVfb->width, prevVfb->height, RasterChannel::RASTER_DEPTH, Draw::ReadbackMode::BLOCK);
 		}
 	}
 
