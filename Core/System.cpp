@@ -290,7 +290,8 @@ bool CPU_Init(std::string *errorString) {
 	// likely to collide with any commercial ones.
 	g_CoreParameter.compat.Load(g_paramSFO.GetDiscID());
 
-	InitVFPUSinCos(true);
+	// False used to be a compat setting
+	InitVFPUSinCos(false);
 
 	if (allowPlugins)
 		HLEPlugins::Init();
