@@ -53,6 +53,10 @@ include:
   - project: 'libretro-infrastructure/ci-templates'
     file: '/ios-cmake.yml'
 
+  # tvOS
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/tvos-cmake.yml'
+
   ################################## CONSOLES ################################
   
   #################################### MISC ##################################
@@ -146,3 +150,12 @@ libretro-build-ios-arm64:
     - .cmake-defs
   variables:
     CORE_ARGS: -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DLIBRETRO=ON
+
+# tvOS arm64
+libretro-build-tvos-arm64:
+  extends:
+    - .libretro-tvos-cmake-arm64
+    - .core-defs
+    - .cmake-defs
+  variables:
+    CORE_ARGS: -DIOS_PLATFORM=TVOS -DUSE_FFMPEG=NO -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DLIBRETRO=ON
