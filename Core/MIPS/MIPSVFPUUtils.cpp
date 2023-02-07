@@ -979,9 +979,7 @@ float vfpu_sin_mod2(float a) {
 
 	// This is the value with modulus applied.
 	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
-	val.f = (float)sin((double)val.f * M_PI_2);
-	val.i &= 0xFFFFFFFC;
-	return val.f;
+	return (float)sin((double)val.f * M_PI_2);
 }
 
 float vfpu_cos_mod2(float a) {
@@ -1022,7 +1020,6 @@ float vfpu_cos_mod2(float a) {
 	// This is the value with modulus applied.
 	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
 	val.f = (float)cos((double)val.f * M_PI_2);
-	val.i &= 0xFFFFFFFC;
 	return negate ? -val.f : val.f;
 }
 
@@ -1076,29 +1073,13 @@ void vfpu_sincos_mod2(float a, float &s, float &c) {
 
 	// This is the value with modulus applied.
 	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
-	float2int i_sine, i_cosine;
 	if (negate) {
-		i_sine.f = (float)sin((double)-val.f * M_PI_2);
-		i_cosine.f = -(float)cos((double)val.f * M_PI_2);
+		s = (float)sin((double)-val.f * M_PI_2);
+		c = -(float)cos((double)val.f * M_PI_2);
 	} else {
-		double angle = (double)val.f * M_PI_2;
-#if defined(__linux__)
-		double d_sine;
-		double d_cosine;
-		sincos(angle, &d_sine, &d_cosine);
-		i_sine.f = (float)d_sine;
-		i_cosine.f = (float)d_cosine;
-#else
-		i_sine.f = (float)sin(angle);
-		i_cosine.f = (float)cos(angle);
-#endif
+		s = (float)sin((double)val.f * M_PI_2);
+		c = (float)cos((double)val.f * M_PI_2);
 	}
-
-	i_sine.i &= 0xFFFFFFFC;
-	i_cosine.i &= 0xFFFFFFFC;
-	s = i_sine.f;
-	c = i_cosine.f;
-	return ;
 }
 
 float (*vfpu_sin)(float);
