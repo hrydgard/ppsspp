@@ -104,6 +104,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "ReportSmallMemstick", &flags_.ReportSmallMemstick);
 	CheckSetting(iniFile, gameID, "MemstickFixedFree", &flags_.MemstickFixedFree);
 	CheckSetting(iniFile, gameID, "DateLimited", &flags_.DateLimited);
+	CheckSetting(iniFile, gameID, "DoublePrecisionSinCos", &flags_.DoublePrecisionSinCos);
 	CheckSetting(iniFile, gameID, "ShaderColorBitmask", &flags_.ShaderColorBitmask);
 	CheckSetting(iniFile, gameID, "DisableFirstFrameReadback", &flags_.DisableFirstFrameReadback);
 	CheckSetting(iniFile, gameID, "MpegAvcWarmUp", &flags_.MpegAvcWarmUp);
