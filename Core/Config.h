@@ -463,6 +463,7 @@ public:
 	bool bEnableStereo;
 	bool bEnableMotions;
 	bool bForce72Hz;
+	bool bManualForceVR;
 	float fCameraDistance;
 	float fCameraHeight;
 	float fCameraSide;
