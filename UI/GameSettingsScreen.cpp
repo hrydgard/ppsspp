@@ -706,13 +706,32 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
 		layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
 
-		// Re-centers itself to the touch location on touch-down.
-		CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, co->T("Auto-centering analog stick")));
-		floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
+		Choice *gesture = controlsSettings->Add(new Choice(co->T("Gesture mapping")));
+		gesture->OnClick.Add([=](EventParams &e) {
+			screenManager()->push(new GestureMappingScreen(gamePath_));
+			return UI::EVENT_DONE;
+		});
+		gesture->SetEnabledPtr(&g_Config.bShowTouchControls);
+
+		static const char *touchControlStyles[] = { "Classic", "Thin borders", "Glowing borders" };
+		View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, co->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), co->GetName(), screenManager()));
+		style->SetEnabledPtr(&g_Config.bShowTouchControls);
+
+		PopupSliderChoice *opacity = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, co->T("Button Opacity"), screenManager(), "%"));
+		opacity->SetEnabledPtr(&g_Config.bShowTouchControls);
+		opacity->SetFormat("%i%%");
+		PopupSliderChoice *autoHide = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonHideSeconds, 0, 300, co->T("Auto-hide buttons after seconds"), screenManager(), co->T("seconds, 0 : off")));
+		autoHide->SetEnabledPtr(&g_Config.bShowTouchControls);
+		autoHide->SetFormat("%is");
+		autoHide->SetZeroLabel(co->T("Off"));
 
 		// Hide stick background, useful when increasing the size
 		CheckBox *hideStickBackground = controlsSettings->Add(new CheckBox(&g_Config.bHideStickBackground, co->T("Hide touch analog stick background circle")));
 		hideStickBackground->SetEnabledPtr(&g_Config.bShowTouchControls);
+
+		// Re-centers itself to the touch location on touch-down.
+		CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, co->T("Auto-centering analog stick")));
+		floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
 			controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
@@ -733,22 +752,6 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 
 		CheckBox *disableDiags = controlsSettings->Add(new CheckBox(&g_Config.bDisableDpadDiagonals, co->T("Disable D-Pad diagonals (4-way touch)")));
 		disableDiags->SetEnabledPtr(&g_Config.bShowTouchControls);
-		PopupSliderChoice *opacity = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, co->T("Button Opacity"), screenManager(), "%"));
-		opacity->SetEnabledPtr(&g_Config.bShowTouchControls);
-		opacity->SetFormat("%i%%");
-		PopupSliderChoice *autoHide = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonHideSeconds, 0, 300, co->T("Auto-hide buttons after seconds"), screenManager(), co->T("seconds, 0 : off")));
-		autoHide->SetEnabledPtr(&g_Config.bShowTouchControls);
-		autoHide->SetFormat("%is");
-		autoHide->SetZeroLabel(co->T("Off"));
-		static const char *touchControlStyles[] = {"Classic", "Thin borders", "Glowing borders"};
-		View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, co->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), co->GetName(), screenManager()));
-		style->SetEnabledPtr(&g_Config.bShowTouchControls);
-		Choice *gesture = controlsSettings->Add(new Choice(co->T("Gesture mapping")));
-		gesture->OnClick.Add([=](EventParams &e) {
-			screenManager()->push(new GestureMappingScreen(gamePath_));
-			return UI::EVENT_DONE;
-		});
-		gesture->SetEnabledPtr(&g_Config.bShowTouchControls);
 	}
 
 	if (deviceType != DEVICE_TYPE_VR) {
