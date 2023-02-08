@@ -34,6 +34,8 @@
 #include "Core/ControlMapper.h"
 #include "UI/GamepadEmu.h"
 
+const float TOUCH_SCALE_FACTOR = 1.5f;
+
 static uint32_t usedPointerMask = 0;
 static uint32_t analogPointerMask = 0;
 
@@ -134,7 +136,7 @@ void MultiTouchButton::Draw(UIContext &dc) {
 		if (g_Config.iTouchButtonStyle == 2) {
 			opacity *= 1.35f;
 		} else {
-			scale *= 2.0f;
+			scale *= TOUCH_SCALE_FACTOR;
 			opacity *= 1.15f;
 		}
 	}
@@ -384,8 +386,8 @@ void PSPDpad::Draw(UIContext &dc) {
 		float y = bounds_.centerY() + yoff[i] * r;
 		float x2 = bounds_.centerX() + xoff[i] * (r + 10.f * scale_);
 		float y2 = bounds_.centerY() + yoff[i] * (r + 10.f * scale_);
-		float angle = i * M_PI / 2;
-		float imgScale = isDown ? scale_ * 2 : scale_;
+		float angle = i * (M_PI / 2.0f);
+		float imgScale = isDown ? scale_ * TOUCH_SCALE_FACTOR : scale_;
 		float imgOpacity = opacity;
 
 		if (isDown && g_Config.iTouchButtonStyle == 2) {
