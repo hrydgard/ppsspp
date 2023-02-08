@@ -177,9 +177,9 @@ android {
 			'normalOptimized',	// for testing
 			'normalRelease',	// for Google Play releases
 			'goldRelease',		// for Google Play releases
-			'vrDebug',    		// for VR debugging on Pico
-			'vrOptimized',		// for VR testing on Pico
-			'vrRelease',  		// for VR releases on Pico
+			'vrDebug',    		// for VR debugging
+			'vrOptimized',		// for VR testing
+			'vrRelease',  		// for VR releases
 		]
 		variant.setIgnore(!needed)
 	}
