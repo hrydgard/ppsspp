@@ -7,6 +7,8 @@ OpenXR is an interface defined by Khronos Group. Implementation of the interface
 The used interface (headers in C language) is an older version because Pico doesn't support the latest one yet.
 The Implementations are taken from the vendor specific SDKs.
 
+`libopenxr_loader.so` in `stub` is there only to satisfy linker, it doesn't matter which variant is it.
+
 ### Links
 
 - Khronos OpenXR SDK: https://github.com/KhronosGroup/OpenXR-SDK/
