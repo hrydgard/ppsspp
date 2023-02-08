@@ -6,6 +6,7 @@
 #include <condition_variable>
 
 #include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/Data/Collections/Hashmaps.h"
 
 enum {
 	MAX_TIMESTAMP_QUERIES = 128,
@@ -23,6 +24,23 @@ struct QueueProfileContext {
 	std::string profileSummary;
 	double cpuStartTime;
 	double cpuEndTime;
+};
+
+class VKRFramebuffer;
+
+struct ReadbackKey {
+	const VKRFramebuffer *framebuf;
+	int width;
+	int height;
+};
+
+struct CachedReadback {
+	VkBuffer buffer;
+	VmaAllocation allocation;
+	VkDeviceSize bufferSize;
+	bool isCoherent;
+
+	void Destroy(VulkanContext *vulkan);
 };
 
 struct FrameDataShared {
@@ -77,6 +95,11 @@ struct FrameData {
 	QueueProfileContext profile;
 	bool profilingEnabled_ = false;
 
+	// Async readback cache.
+	DenseHashMap<ReadbackKey, CachedReadback*, nullptr> readbacks_;
+
+	FrameData() : readbacks_(8) {}
+
 	void Init(VulkanContext *vulkan, int index);
 	void Destroy(VulkanContext *vulkan);
 
@@ -91,5 +114,5 @@ struct FrameData {
 
 private:
 	// Metadata for logging etc
-	int index;
+	int index = -1;
 };

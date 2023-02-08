@@ -4,6 +4,13 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 
+void CachedReadback::Destroy(VulkanContext *vulkan) {
+	if (buffer) {
+		vulkan->Delete().QueueDeleteBufferAllocation(buffer, allocation);
+	}
+	bufferSize = 0;
+}
+
 void FrameData::Init(VulkanContext *vulkan, int index) {
 	this->index = index;
 	VkDevice device = vulkan->GetDevice();
@@ -48,6 +55,12 @@ void FrameData::Destroy(VulkanContext *vulkan) {
 	vkDestroyCommandPool(device, cmdPoolMain, nullptr);
 	vkDestroyFence(device, fence, nullptr);
 	vkDestroyQueryPool(device, profile.queryPool, nullptr);
+
+	readbacks_.IterateMut([=](const ReadbackKey &key, CachedReadback *value) {
+		value->Destroy(vulkan);
+		delete value;
+	});
+	readbacks_.Clear();
 }
 
 void FrameData::AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared) {
