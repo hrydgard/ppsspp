@@ -975,9 +975,8 @@ bool VulkanRenderManager::CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAs
 	}
 
 	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
-	queueRunner_.CopyReadbackBuffer(frameData_[vulkan_->GetCurFrame()],
+	return queueRunner_.CopyReadbackBuffer(frameData_[vulkan_->GetCurFrame()],
 		mode == Draw::ReadbackMode::OLD_DATA_OK ? src : nullptr, w, h, srcFormat, destFormat, pixelStride, pixels);
-	return true;
 }
 
 void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
