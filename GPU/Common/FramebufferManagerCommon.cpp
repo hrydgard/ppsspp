@@ -974,7 +974,7 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 
 	// Some GPUs can copy depth but only if stencil gets to come along for the ride. We only want to use this if there is no blit functionality.
 	if (useRaster) {
-		BlitUsingRaster(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, false, dst->renderScaleFactor, Get2DPipeline(Draw2DShader::DRAW2D_COPY_DEPTH), "BlitDepthRaster");
+		BlitUsingRaster(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, false, dst->renderScaleFactor, Get2DPipeline(Draw2DShader::DRAW2D_COPY_R16_TO_DEPTH), "BlitDepthRaster");
 	} else if (useCopy) {
 		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, w, h, 1, Draw::FB_DEPTH_BIT, "CopyFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
@@ -3036,7 +3036,7 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 	// Rearrange to strip form.
 	std::swap(coord[2], coord[3]);
 
-	draw2D_.DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, Get2DPipeline((flags & DRAWTEX_DEPTH) ? DRAW2D_COPY_DEPTH : DRAW2D_COPY_COLOR));
+	draw2D_.DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, Get2DPipeline((flags & DRAWTEX_DEPTH) ? DRAW2D_COPY_R16_TO_DEPTH : DRAW2D_COPY_COLOR));
 
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
@@ -3135,7 +3135,7 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2,
 			channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, tag);
 	} else {
-		Draw2DPipeline *pipeline = Get2DPipeline(channel == RASTER_COLOR ? DRAW2D_COPY_COLOR : DRAW2D_COPY_DEPTH);
+		Draw2DPipeline *pipeline = Get2DPipeline(channel == RASTER_COLOR ? DRAW2D_COPY_COLOR : DRAW2D_COPY_R16_TO_DEPTH);
 		Draw::Framebuffer *srcFBO = src->fbo;
 		if (src == dst) {
 			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::BLIT, src->renderWidth, src->renderHeight);

@@ -39,22 +39,27 @@ static const SamplerDef samplers[1] = {
 	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN },
 };
 
-const UniformDef g_draw2Duniforms[2] = {
+const UniformDef g_draw2Duniforms[4] = {
 	{ "vec2", "texSize", 0 },
 	{ "float", "scaleFactor", 1},
+	{ "float", "z_scale", 2 },
+	{ "float", "z_offset", 3 },
 };
 
 struct Draw2DUB {
 	float texSizeX;
 	float texSizeY;
 	float scaleFactor;
+	float zScale;
+	float zOffset;
 };
 
 const UniformBufferDesc draw2DUBDesc{ sizeof(Draw2DUB), {
 	{ "texSize", -1, 0, UniformType::FLOAT2, 0 },
 	{ "scaleFactor", -1, 1, UniformType::FLOAT1, 8 },
+	{ "z_scale", -1, 1, UniformType::FLOAT1, 12 },
+	{ "z_offset", -1, 1, UniformType::FLOAT1, 16 },
 } };
-
 
 Draw2DPipelineInfo GenerateDraw2DCopyColorFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
@@ -95,8 +100,8 @@ Draw2DPipelineInfo GenerateDraw2DCopyDepthFs(ShaderWriter &writer) {
 	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
-		"draw2d_copy_depth",
-		RASTER_DEPTH,
+		"draw2d_copy_r16_to_depth",
+		RASTER_DEPTH,  // Unused in this case, I think.
 		RASTER_DEPTH,
 	};
 }
@@ -319,6 +324,10 @@ void Draw2D::DrawStrip2D(Draw::Texture *tex, const Draw2DVertex *verts, int vert
 	ub.texSizeY = tex ? tex->Height() : texH;
 	ub.scaleFactor = (float)scaleFactor;
 
+	DepthScaleFactors zScaleFactors = GetDepthScaleFactors(gstate_c.UseFlags());
+	ub.zScale = zScaleFactors.Scale();
+	ub.zOffset = zScaleFactors.Offset();
+
 	draw_->BindPipeline(pipeline->pipeline);
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 
@@ -356,7 +365,7 @@ Draw2DPipeline *FramebufferManagerCommon::Get2DPipeline(Draw2DShader shader) {
 		pipeline = draw2DPipelineColorRect2Lin_;
 		break;
 
-	case DRAW2D_COPY_DEPTH:
+	case DRAW2D_COPY_R16_TO_DEPTH:
 		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
 			// Can't do it
 			return nullptr;

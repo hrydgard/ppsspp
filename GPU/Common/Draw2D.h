@@ -13,7 +13,7 @@ struct Draw2DVertex {
 
 enum Draw2DShader {
 	DRAW2D_COPY_COLOR,
-	DRAW2D_COPY_DEPTH,
+	DRAW2D_COPY_R16_TO_DEPTH,
 	DRAW2D_565_TO_DEPTH,
 	DRAW2D_565_TO_DEPTH_DESWIZZLE,
 	DRAW2D_COPY_COLOR_RECT2LIN,
@@ -21,7 +21,7 @@ enum Draw2DShader {
 
 inline RasterChannel Draw2DSourceChannel(Draw2DShader shader) {
 	switch (shader) {
-	case DRAW2D_COPY_DEPTH:
+	case DRAW2D_COPY_R16_TO_DEPTH:
 		return RASTER_DEPTH;
 	case DRAW2D_COPY_COLOR:
 	case DRAW2D_565_TO_DEPTH:
@@ -38,7 +38,7 @@ struct Draw2DPipelineInfo {
 	Slice<SamplerDef> samplers;
 };
 
-extern const UniformDef g_draw2Duniforms[2];
+extern const UniformDef g_draw2Duniforms[4];
 
 struct Draw2DPipeline {
 	Draw::Pipeline *pipeline;
