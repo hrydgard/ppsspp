@@ -294,9 +294,10 @@ static int Replace_memcpy_swizzled() {
 	RETURN(0);
 
 	if (MemBlockInfoDetailed(pitch * h)) {
-		const std::string tag = GetMemWriteTagAt("ReplaceMemcpySwizzle/", srcPtr, pitch * h);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, pitch * h, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, pitch * h, tag.c_str(), tag.size());
+		char tagData[128];
+		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "ReplaceMemcpySwizzle/", srcPtr, pitch * h);
+		NotifyMemInfo(MemBlockFlags::READ, srcPtr, pitch * h, tagData, tagSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, pitch * h, tagData, tagSize);
 	}
 
 	return 10 + (pitch * h) / 4;  // approximation
