@@ -29,8 +29,6 @@
 
 extern const char *PPSSPP_GIT_VERSION;
 
-extern bool jitForcedOff;
-
 enum ChatPositions {
 	BOTTOM_LEFT = 0,
 	BOTTOM_CENTER = 1,
@@ -285,12 +283,11 @@ public:
 	bool bShowAudioDebug;
 	bool bShowGpuProfile;
 
-	//Analog stick tilting
-	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input
-	//considers this orientation to be equal to no movement of the analog stick.
-	float fTiltBaseX, fTiltBaseY;
-	int iTiltOrientation;
-	//whether the x axes and y axes should invert directions (left becomes right, top becomes bottom.)
+	// Analog stick tilting
+	// This is the held base angle, that we compute the tilt relative from.
+	float fTiltBaseAngleY;
+	// whether the x axes and y axes should invert directions (left becomes right, top becomes bottom.)
+	// TODO: Do we really need these?
 	bool bInvertTiltX, bInvertTiltY;
 	//the sensitivity of the tilt in the x direction
 	int iTiltSensitivityX;
@@ -298,8 +295,6 @@ public:
 	int iTiltSensitivityY;
 	//the deadzone radius of the tilt
 	float fDeadzoneRadius;
-	// deadzone skip
-	float fTiltDeadzoneSkip;
 	//type of tilt input currently selected: Defined in TiltEventProcessor.h
 	//0 - no tilt, 1 - analog stick, 2 - D-Pad, 3 - Action Buttons (Tri, Cross, Square, Circle)
 	int iTiltInputType;
@@ -468,6 +463,7 @@ public:
 	bool bEnableStereo;
 	bool bEnableMotions;
 	bool bForce72Hz;
+	bool bManualForceVR;
 	float fCameraDistance;
 	float fCameraHeight;
 	float fCameraSide;
@@ -526,7 +522,7 @@ public:
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	bool Save(const char *saveReason);
 	void Reload();
-	void RestoreDefaults();
+	void RestoreDefaults(RestoreSettingsBits whatToRestore);
 
 	//per game config managment, should maybe be in it's own class
 	void changeGameSpecific(const std::string &gameId = "", const std::string &title = "");

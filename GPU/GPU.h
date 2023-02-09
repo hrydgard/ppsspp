@@ -74,6 +74,8 @@ struct GPUStatistics {
 
 	void ResetFrame() {
 		numDrawCalls = 0;
+		numDrawSyncs = 0;
+		numListSyncs = 0;
 		numCachedDrawCalls = 0;
 		numVertsSubmitted = 0;
 		numCachedVertsDrawn = 0;
@@ -88,6 +90,7 @@ struct GPUStatistics {
 		numFlushes = 0;
 		numTexturesDecoded = 0;
 		numFramebufferEvaluations = 0;
+		numBlockingReadbacks = 0;
 		numReadbacks = 0;
 		numUploads = 0;
 		numDepal = 0;
@@ -104,6 +107,8 @@ struct GPUStatistics {
 
 	// Per frame statistics
 	int numDrawCalls;
+	int numDrawSyncs;
+	int numListSyncs;
 	int numCachedDrawCalls;
 	int numFlushes;
 	int numVertsSubmitted;
@@ -118,6 +123,7 @@ struct GPUStatistics {
 	int numShaderSwitches;
 	int numTexturesDecoded;
 	int numFramebufferEvaluations;
+	int numBlockingReadbacks;
 	int numReadbacks;
 	int numUploads;
 	int numDepal;
@@ -147,3 +153,5 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw);
 bool GPU_IsReady();
 bool GPU_IsStarted();
 void GPU_Shutdown();
+
+const char *RasterChannelToString(RasterChannel channel);

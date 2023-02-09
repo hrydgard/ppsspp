@@ -193,6 +193,11 @@ SOURCES_C += \
 	$(EXTDIR)/libpng17/pngwutil.c
 
 COREFLAGS += -DHAVE_STRONG_GETAUXVAL -DSTACK_LINE_READER_BUFFER_SIZE=1024
+ifneq (,$(findstring osx,$(platform)))
+ifneq (,$(findstring x86,$(TARGET_ARCH)))
+	COREFLAGS += -DHAVE_SYSCTLBYNAME
+endif
+endif
 SOURCES_C += \
 	$(EXTDIR)/cpu_features/src/filesystem.c \
 	$(EXTDIR)/cpu_features/src/impl_aarch64_linux_or_android.c \
@@ -274,6 +279,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/OpenGL/GLDebugLog.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLSLProgram.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLFeatures.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLFrameData.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLRenderManager.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLQueueRunner.cpp \
 	$(COMMONDIR)/GPU/OpenGL/DataFormatGL.cpp \
@@ -386,6 +392,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Common/TextureCacheCommon.cpp \
 	$(GPUDIR)/Common/TextureScalerCommon.cpp \
 	$(GPUDIR)/Common/SoftwareTransformCommon.cpp \
+	$(GPUDIR)/Common/DepthBufferCommon.cpp \
 	$(GPUDIR)/Common/StencilCommon.cpp \
 	$(GPUDIR)/Software/TransformUnit.cpp \
 	$(GPUDIR)/Software/SoftGpu.cpp \
@@ -404,7 +411,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Software/Rasterizer.cpp \
 	$(GPUDIR)/Software/RasterizerRectangle.cpp \
 	$(GPUDIR)/Software/RasterizerRegCache.cpp \
-	$(GPUDIR)/GLES/DepthBufferGLES.cpp \
+	$(GPUDIR)/GLES/StencilBufferGLES.cpp \
 	$(GPUDIR)/GLES/DrawEngineGLES.cpp \
 	$(GPUDIR)/GLES/GPU_GLES.cpp \
 	$(GPUDIR)/GLES/FragmentTestCacheGLES.cpp \

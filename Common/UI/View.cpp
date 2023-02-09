@@ -551,7 +551,6 @@ void InfoItem::Draw(UIContext &dc) {
 		style = HasFocus() ? dc.theme->itemFocusedStyle : dc.theme->itemStyle;
 	}
 
-
 	if (style.background.type == DRAW_SOLID_COLOR) {
 		// For a smoother fade, using the same color with 0 alpha.
 		if ((style.background.color & 0xFF000000) == 0)
@@ -998,7 +997,8 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 		bounds.w -= bulletOffset;
 	}
 	dc.MeasureTextRect(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, textAlign_);
-
+	w += pad_ * 2.0f;
+	h += pad_ * 2.0f;
 	if (bullet_) {
 		w += bulletOffset;
 	}
@@ -1044,9 +1044,9 @@ void TextView::Draw(UIContext &dc) {
 
 	if (shadow_) {
 		uint32_t shadowColor = 0x80000000;
-		dc.DrawTextRect(text_.c_str(), textBounds.Offset(1.0f, 1.0f), shadowColor, textAlign_);
+		dc.DrawTextRect(text_.c_str(), textBounds.Offset(1.0f + pad_, 1.0f + pad_), shadowColor, textAlign_);
 	}
-	dc.DrawTextRect(text_.c_str(), textBounds, textColor, textAlign_);
+	dc.DrawTextRect(text_.c_str(), textBounds.Offset(pad_, pad_), textColor, textAlign_);
 	if (small_) {
 		// If we changed font style, reset it.
 		dc.SetFontStyle(dc.theme->uiFont);

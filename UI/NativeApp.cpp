@@ -99,6 +99,7 @@
 #include "Core/Util/GameManager.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/WebServer.h"
+#include "Core/TiltEventProcessor.h"
 #include "Core/ThreadPools.h"
 
 #include "GPU/GPUInterface.h"
@@ -113,7 +114,6 @@
 #include "UI/MemStickScreen.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/RemoteISOScreen.h"
-#include "UI/TiltEventProcessor.h"
 #include "UI/Theme.h"
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
@@ -142,8 +142,10 @@
 #endif
 
 #if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
-#include "UI/DarwinMemoryStickManager.h"
+#include "UI/DarwinFileSystemServices.h"
 #endif
+
+#include <Core/HLE/Plugins.h>
 
 ScreenManager *screenManager;
 std::string config_filename;
@@ -542,11 +544,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 #elif PPSSPP_PLATFORM(IOS)
 	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory;
-	g_Config.memStickDirectory = DarwinMemoryStickManager::appropriateMemoryStickDirectoryToUse();
+	g_Config.memStickDirectory = DarwinFileSystemServices::appropriateMemoryStickDirectoryToUse();
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(MAC)
 	g_Config.defaultCurrentDirectory = Path(getenv("HOME"));
-	g_Config.memStickDirectory = DarwinMemoryStickManager::appropriateMemoryStickDirectoryToUse();
+	g_Config.memStickDirectory = DarwinFileSystemServices::appropriateMemoryStickDirectoryToUse();
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
 	g_Config.memStickDirectory = g_Config.internalDataDirectory / "config/ppsspp";
@@ -754,13 +756,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		if (System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) != PERMISSION_STATUS_GRANTED) {
 			System_AskForPermission(SYSTEM_PERMISSION_STORAGE);
 		}
-	}
-
-	if (System_GetPropertyBool(SYSPROP_CAN_JIT) == false && g_Config.iCpuCore == (int)CPUCore::JIT) {
-		// Just gonna force it to the IR interpreter on startup.
-		// We don't hide the option, but we make sure it's off on bootup. In case someone wants
-		// to experiment in future iOS versions or something...
-		jitForcedOff = true;
 	}
 
 	auto des = GetI18NCategory("DesktopUI");
@@ -1258,6 +1253,15 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	else if (msg == "app_resumed" || msg == "got_focus") {
 		// Assume that the user may have modified things.
 		MemoryStick_NotifyWrite();
+	} else if (msg == "browse_folder") {
+		Path thePath = Path(value);
+		File::FileInfo info;
+		if (!File::GetFileInfo(thePath, &info))
+			return;
+		if (info.isDirectory)
+			NativeMessageReceived("browse_folderSelect", thePath.c_str());
+		else
+			NativeMessageReceived("browse_fileSelect", thePath.c_str());
 	}
 }
 
@@ -1341,7 +1345,10 @@ bool NativeKey(const KeyInput &key) {
 #endif
 	bool retval = false;
 	if (screenManager)
+	{
+		HLEPlugins::PluginDataKeys[key.keyCode] = (key.flags & KEY_DOWN) ? 1 : 0;
 		retval = screenManager->key(key);
+	}
 	return retval;
 }
 
@@ -1358,97 +1365,48 @@ void NativeAxis(const AxisInput &axis) {
 
 	using namespace TiltEventProcessor;
 
-	// only handle tilt events if tilt is enabled.
+	// only do special handling of tilt events if tilt is enabled.
+	HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
+	screenManager->axis(axis);
+
 	if (g_Config.iTiltInputType == TILT_NULL) {
-		// if tilt events are disabled, then run it through the usual way.
-		screenManager->axis(axis);
+		// if tilt events are disabled, don't do anything special.
 		return;
 	}
 
-	// create the base coordinate tilt system from the calibration data.
-	Tilt baseTilt;
-	baseTilt.x_ = g_Config.fTiltBaseX;
-	baseTilt.y_ = g_Config.fTiltBaseY;
-
 	// figure out what the current tilt orientation is by checking the axis event
 	// This is static, since we need to remember where we last were (in terms of orientation)
-	static Tilt currentTilt;
+	static float tiltX;
+	static float tiltY;
+	static float tiltZ;
 
-	// tilt on x or y?
-	static bool verticalTilt;
-	if (g_Config.iTiltOrientation == 0)
-		verticalTilt = false;
-	else if (g_Config.iTiltOrientation == 1)
-		verticalTilt = true;
+	switch (axis.axisId) {
+		case JOYSTICK_AXIS_ACCELEROMETER_X: tiltX = axis.value; break;
+		case JOYSTICK_AXIS_ACCELEROMETER_Y: tiltY = axis.value; break;
+		case JOYSTICK_AXIS_ACCELEROMETER_Z: tiltZ = axis.value; break;
+		default: break;
+	}
+
+	// create the base coordinate tilt system from the calibration data.
+	float tiltBaseAngleY = g_Config.fTiltBaseAngleY;
+
+	// Figure out the sensitivity of the tilt. (sensitivity is originally 0 - 100)
+	// We divide by 50, so that the rest of the 50 units can be used to overshoot the
+	// target. If you want precise control, you'd keep the sensitivity ~50.
+	// For games that don't need much control but need fast reactions,
+	// then a value of 70-80 is the way to go.
+	float xSensitivity = g_Config.iTiltSensitivityX / 50.0;
+	float ySensitivity = g_Config.iTiltSensitivityY / 50.0;
 
 	// x and y are flipped if we are in landscape orientation. The events are
 	// sent with respect to the portrait coordinate system, while we
 	// take all events in landscape.
 	// see [http://developer.android.com/guide/topics/sensors/sensors_overview.html] for details
-	bool portrait = dp_yres > dp_xres;
-	switch (axis.axisId) {
-		//TODO: make this generic.
-		case JOYSTICK_AXIS_ACCELEROMETER_X:
-			if (verticalTilt) {
-				if (fabs(axis.value) < 0.8f && g_Config.iTiltOrientation == 2) // Auto tilt switch
-					verticalTilt = false;
-				else
-					return; // Tilt on Z instead
-			}
-			if (portrait) {
-				currentTilt.x_ = axis.value;
-			} else {
-				currentTilt.y_ = axis.value;
-			}
-			break;
-
-		case JOYSTICK_AXIS_ACCELEROMETER_Y:
-			if (portrait) {
-				currentTilt.y_ = axis.value;
-			} else {
-				currentTilt.x_ = axis.value;
-			}
-			break;
-
-		case JOYSTICK_AXIS_ACCELEROMETER_Z:
-			if (!verticalTilt) {
-				if (fabs(axis.value) < 0.8f && g_Config.iTiltOrientation == 2) // Auto tilt switch
-					verticalTilt = true;
-				else
-					return; // Tilt on X instead
-			}
-			if (portrait) {
-				currentTilt.x_ = -axis.value;
-			} else {
-				currentTilt.y_ = -axis.value;
-			}
-			break;
-
-		case JOYSTICK_AXIS_OUYA_UNKNOWN1:
-		case JOYSTICK_AXIS_OUYA_UNKNOWN2:
-		case JOYSTICK_AXIS_OUYA_UNKNOWN3:
-		case JOYSTICK_AXIS_OUYA_UNKNOWN4:
-			//Don't know how to handle these. Someone should figure it out.
-			//Does the Ouya even have an accelerometer / gyro? I can't find any reference to these
-			//in the Ouya docs...
-			return;
-
-		default:
-			// Don't take over completely!
-			screenManager->axis(axis);
-			return;
-	}
-
-	//figure out the sensitivity of the tilt. (sensitivity is originally 0 - 100)
-	//We divide by 50, so that the rest of the 50 units can be used to overshoot the
-	//target. If you want control, you'd keep the sensitivity ~50.
-	//For games that don't need much control but need fast reactions,
-	//then a value of 70-80 is the way to go.
-	float xSensitivity = g_Config.iTiltSensitivityX / 50.0;
-	float ySensitivity = g_Config.iTiltSensitivityY / 50.0;
-
-	//now transform out current tilt to the calibrated coordinate system
-	Tilt trueTilt = GenTilt(baseTilt, currentTilt, g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius, xSensitivity, ySensitivity);
+	bool landscape = dp_yres < dp_xres;
+	// now transform out current tilt to the calibrated coordinate system
+	Tilt trueTilt = GenTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
+		g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius,
+		xSensitivity, ySensitivity);
 
 	TranslateTiltToInput(trueTilt);
 }

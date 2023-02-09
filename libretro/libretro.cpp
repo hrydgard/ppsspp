@@ -644,6 +644,13 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
    }
 
+   if (System_GetPropertyBool(SYSPROP_CAN_JIT) == false && g_Config.iCpuCore == (int)CPUCore::JIT) {
+       // Just gonna force it to the IR interpreter on startup.
+       // We don't hide the option, but we make sure it's off on bootup. In case someone wants
+       // to experiment in future iOS versions or something...
+       g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+   }
+
    var.key = "ppsspp_fast_memory";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
@@ -1844,7 +1851,11 @@ bool System_GetPropertyBool(SystemProperty prop)
    switch (prop)
    {
    case SYSPROP_CAN_JIT:
+#if PPSSPP_PLATFORM(IOS)
+      return false;
+#else
       return true;
+#endif
    default:
       return false;
    }

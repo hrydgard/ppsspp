@@ -125,6 +125,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "ForceCircleButtonConfirm", &flags_.ForceCircleButtonConfirm);
 	CheckSetting(iniFile, gameID, "DisallowFramebufferAtOffset", &flags_.DisallowFramebufferAtOffset);
 	CheckSetting(iniFile, gameID, "RockmanDash2SoundFix", &flags_.RockmanDash2SoundFix);
+	CheckSetting(iniFile, gameID, "ReadbackDepth", &flags_.ReadbackDepth);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {

@@ -934,6 +934,7 @@ public:
 	void SetFocusable(bool focusable) { focusable_ = focusable; }
 	void SetClip(bool clip) { clip_ = clip; }
 	void SetBullet(bool bullet) { bullet_ = bullet; }
+	void SetPadding(float pad) { pad_ = pad; }
 
 	bool CanBeFocused() const override { return focusable_; }
 
@@ -947,6 +948,7 @@ private:
 	bool focusable_;
 	bool clip_;
 	bool bullet_ = false;
+	float pad_ = 0.0f;
 };
 
 class TextEdit : public View {

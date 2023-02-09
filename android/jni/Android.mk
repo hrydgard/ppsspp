@@ -42,6 +42,7 @@ NATIVE_FILES :=\
   $(SRC)/Common/GPU/OpenGL/GLDebugLog.cpp \
   $(SRC)/Common/GPU/OpenGL/GLSLProgram.cpp \
   $(SRC)/Common/GPU/OpenGL/GLFeatures.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLFrameData.cpp \
   $(SRC)/Common/GPU/OpenGL/GLRenderManager.cpp \
   $(SRC)/Common/GPU/OpenGL/GLQueueRunner.cpp \
   $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp
@@ -372,6 +373,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/GPUStateUtils.cpp.arm \
   $(SRC)/GPU/Common/SoftwareTransformCommon.cpp.arm \
   $(SRC)/GPU/Common/ReinterpretFramebuffer.cpp \
+  $(SRC)/GPU/Common/DepthBufferCommon.cpp \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureCacheCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureScalerCommon.cpp.arm \
@@ -392,7 +394,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Debugger/Record.cpp \
   $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/FramebufferManagerGLES.cpp \
-  $(SRC)/GPU/GLES/DepthBufferGLES.cpp \
+  $(SRC)/GPU/GLES/StencilBufferGLES.cpp \
   $(SRC)/GPU/GLES/GPU_GLES.cpp.arm \
   $(SRC)/GPU/GLES/TextureCacheGLES.cpp.arm \
   $(SRC)/GPU/GLES/DrawEngineGLES.cpp.arm \
@@ -453,6 +455,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Screenshot.cpp \
   $(SRC)/Core/System.cpp \
   $(SRC)/Core/TextureReplacer.cpp \
+  $(SRC)/Core/TiltEventProcessor.cpp \
   $(SRC)/Core/ThreadPools.cpp \
   $(SRC)/Core/WebServer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \
@@ -720,13 +723,13 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/SavedataScreen.cpp \
   $(SRC)/UI/Store.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
+  $(SRC)/UI/JoystickHistoryView.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/UI/GameScreen.cpp \
   $(SRC)/UI/ControlMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \
   $(SRC)/UI/GPUDriverTestScreen.cpp \
   $(SRC)/UI/TiltAnalogSettingsScreen.cpp \
-  $(SRC)/UI/TiltEventProcessor.cpp \
   $(SRC)/UI/TouchControlLayoutScreen.cpp \
   $(SRC)/UI/TouchControlVisibilityScreen.cpp \
   $(SRC)/UI/CwCheatScreen.cpp \
@@ -761,14 +764,6 @@ endif
 
 ifeq ($(OPENXR),1)
   LOCAL_CFLAGS += -DOPENXR
-endif
-
-ifeq ($(OPENXR_PLATFORM_QUEST),1)
-  LOCAL_CFLAGS += -DOPENXR_PLATFORM_QUEST
-endif
-
-ifeq ($(OPENXR_PLATFORM_PICO),1)
-  LOCAL_CFLAGS += -DOPENXR_PLATFORM_PICO
 endif
 
 ifeq ($(UNITTEST),1)

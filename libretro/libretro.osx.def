@@ -1,0 +1,27 @@
+#LIBRARY "libretro"
+#EXPORTS
+_retro_set_environment
+_retro_set_video_refresh
+_retro_set_audio_sample
+_retro_set_audio_sample_batch
+_retro_set_input_poll
+_retro_set_input_state
+_retro_init
+_retro_deinit
+_retro_api_version
+_retro_get_system_info
+_retro_get_system_av_info
+_retro_set_controller_port_device
+_retro_reset
+_retro_run
+_retro_serialize_size
+_retro_serialize
+_retro_unserialize
+_retro_cheat_reset
+_retro_cheat_set
+_retro_load_game
+_retro_load_game_special
+_retro_unload_game
+_retro_get_region
+_retro_get_memory_data
+_retro_get_memory_size

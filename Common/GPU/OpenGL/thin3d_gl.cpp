@@ -212,7 +212,6 @@ GLuint ShaderStageToOpenGL(ShaderStage stage) {
 class OpenGLShaderModule : public ShaderModule {
 public:
 	OpenGLShaderModule(GLRenderManager *render, ShaderStage stage, const std::string &tag) : render_(render), stage_(stage), tag_(tag) {
-		DEBUG_LOG(G3D, "Shader module created (%p)", this);
 		glstage_ = ShaderStageToOpenGL(stage);
 	}
 
@@ -366,7 +365,7 @@ public:
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
-	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) override;
+	bool CopyFramebufferToMemory(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
@@ -989,7 +988,7 @@ static void LogReadPixelsError(GLenum error) {
 }
 #endif
 
-bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride, const char *tag) {
+bool OpenGLContext::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 	if (gl_extensions.IsGLES && (channelBits & FB_COLOR_BIT) == 0) {
 		// Can't readback depth or stencil on GLES.
 		return false;
@@ -1002,8 +1001,7 @@ bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBit
 		aspect |= GL_DEPTH_BUFFER_BIT;
 	if (channelBits & FB_STENCIL_BIT)
 		aspect |= GL_STENCIL_BUFFER_BIT;
-	renderManager_.CopyFramebufferToMemorySync(fb ? fb->framebuffer_ : nullptr, aspect, x, y, w, h, dataFormat, (uint8_t *)pixels, pixelStride, tag);
-	return true;
+	return renderManager_.CopyFramebufferToMemory(fb ? fb->framebuffer_ : nullptr, aspect, x, y, w, h, dataFormat, (uint8_t *)pixels, pixelStride, mode, tag);
 }
 
 

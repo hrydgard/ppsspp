@@ -123,6 +123,8 @@ struct VirtualFramebuffer {
 
 	// Tracking for downloads-to-CLUT.
 	u16 clutUpdatedBytes;
+
+	// Means that the whole image has already been read back to memory - used when combining small readbacks (gameUsesSequentialCopies_).
 	bool memoryUpdated;
 
 	// TODO: Fold into usageFlags?
@@ -152,6 +154,10 @@ struct VirtualFramebuffer {
 	inline int BufferWidthInBytes() const { return bufferWidth * BufferFormatBytesPerPixel(fb_format); }
 	inline int FbStrideInBytes() const { return fb_stride * BufferFormatBytesPerPixel(fb_format); }
 	inline int ZStrideInBytes() const { return z_stride * 2; }
+
+	inline int Stride(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_stride : z_stride; }
+	inline u32 Address(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_address : z_address; }
+	inline int Format(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_format : GE_FORMAT_DEPTH16; }
 };
 
 struct FramebufferHeuristicParams {
@@ -322,7 +328,7 @@ public:
 	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 
 	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags, int layer);
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);
 
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
 	void DrawFramebufferToOutput(const u8 *srcPixels, int srcStride, GEBufferFormat srcPixelFormat);
@@ -451,10 +457,10 @@ public:
 	}
 
 protected:
-	virtual void ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
+	virtual void ReadbackFramebuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);
 	// Used for when a shader is required, such as GLES.
-	virtual bool ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride);
-	virtual bool ReadbackStencilbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride);
+	virtual bool ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH, Draw::ReadbackMode mode);
+	virtual bool ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride, Draw::ReadbackMode mode);
 	void SetViewport2D(int x, int y, int w, int h);
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
@@ -484,7 +490,8 @@ protected:
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force = false, bool skipCopy = false);
 	void ShowScreenResolution();
 
-	bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
+	bool ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb) const;
+	bool ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) const;
 	void DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb);
 
 	bool FindTransferFramebuffer(u32 basePtr, int stride, int x, int y, int w, int h, int bpp, bool destination, BlockTransferRect *rect);
@@ -601,4 +608,8 @@ protected:
 
 	Draw2D draw2D_;
 	// The fragment shaders are "owned" by the pipelines since they're 1:1.
+
+	// Depth readback helper state
+	u8 *convBuf_ = nullptr;
+	u32 convBufSize_ = 0;
 };

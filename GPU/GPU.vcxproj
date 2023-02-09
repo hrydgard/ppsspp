@@ -454,6 +454,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
+    <ClCompile Include="Common\DepthBufferCommon.cpp" />
     <ClCompile Include="Common\TextureShaderCommon.cpp" />
     <ClCompile Include="Common\Draw2D.cpp" />
     <ClCompile Include="Common\GeometryShaderGenerator.cpp" />
@@ -525,12 +526,6 @@
     <ClCompile Include="Directx9\DrawEngineDX9.cpp" />
     <ClCompile Include="GeDisasm.cpp" />
     <ClCompile Include="GeConstants.cpp" />
-    <ClCompile Include="GLES\DepthBufferGLES.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="GLES\FragmentTestCacheGLES.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
@@ -561,6 +556,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="GLES\StencilBufferGLES.cpp" />
     <ClCompile Include="GLES\TextureCacheGLES.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>

@@ -65,6 +65,10 @@ std::string GamepadView::DescribeText() const {
 }
 
 float GamepadView::GetButtonOpacity() {
+	if (forceVisible_) {
+		return 1.0f;
+	}
+
 	if (coreState != CORE_RUNNING) {
 		return 0.0f;
 	}

@@ -88,9 +88,6 @@ void GLQueueRunner::DestroyDeviceObjects() {
 	delete[] readbackBuffer_;
 	readbackBuffer_ = nullptr;
 	readbackBufferSize_ = 0;
-	delete[] tempBuffer_;
-	tempBuffer_ = nullptr;
-	tempBufferSize_ = 0;
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
@@ -1481,25 +1478,23 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 	CHECK_GL_ERROR_IF_DEBUG();
 
 	// Always read back in 8888 format for the color aspect.
-	GLuint internalFormat = GL_RGBA;
 	GLuint format = GL_RGBA;
 	GLuint type = GL_UNSIGNED_BYTE;
 	int srcAlignment = 4;
-	int dstAlignment = (int)DataFormatSizeInBytes(pass.readback.dstFormat);
 
 #ifndef USING_GLES2
 	if (pass.readback.aspectMask & GL_DEPTH_BUFFER_BIT) {
-		internalFormat = GL_DEPTH_COMPONENT;
 		format = GL_DEPTH_COMPONENT;
 		type = GL_FLOAT;
 		srcAlignment = 4;
 	} else if (pass.readback.aspectMask & GL_STENCIL_BUFFER_BIT) {
-		internalFormat = GL_STENCIL_INDEX;
 		format = GL_STENCIL_INDEX;
 		type = GL_UNSIGNED_BYTE;
 		srcAlignment = 1;
 	}
 #endif
+
+	readbackAspectMask_ = pass.readback.aspectMask;
 
 	int pixelStride = pass.readback.srcRect.w;
 	// Apply the correct alignment.
@@ -1511,30 +1506,19 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 
 	GLRect2D rect = pass.readback.srcRect;
 
-	bool convert = internalFormat == GL_RGBA && pass.readback.dstFormat != DataFormat::R8G8B8A8_UNORM;
-
-	int tempSize = srcAlignment * rect.w * rect.h;
-	int readbackSize = dstAlignment * rect.w * rect.h;
-	if (convert && tempSize > tempBufferSize_) {
-		delete[] tempBuffer_;
-		tempBuffer_ = new uint8_t[tempSize];
-		tempBufferSize_ = tempSize;
-	}
+	int readbackSize = srcAlignment * rect.w * rect.h;
 	if (readbackSize > readbackBufferSize_) {
 		delete[] readbackBuffer_;
 		readbackBuffer_ = new uint8_t[readbackSize];
 		readbackBufferSize_ = readbackSize;
 	}
 
-	glReadPixels(rect.x, rect.y, rect.w, rect.h, format, type, convert ? tempBuffer_ : readbackBuffer_);
+	glReadPixels(rect.x, rect.y, rect.w, rect.h, format, type, readbackBuffer_);
 	#ifdef DEBUG_READ_PIXELS
 	LogReadPixelsError(glGetError());
 	#endif
 	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
 		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-	}
-	if (convert && tempBuffer_ && readbackBuffer_) {
-		ConvertFromRGBA8888(readbackBuffer_, tempBuffer_, pixelStride, pixelStride, rect.w, rect.h, pass.readback.dstFormat);
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
 }
@@ -1615,7 +1599,7 @@ void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-void GLQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
+void GLQueueRunner::CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
 	// TODO: Maybe move data format conversion here, and always read back 8888. Drivers
 	// don't usually provide very optimized conversion implementations, though some do.
 	// Just need to be careful about dithering, which may break Danganronpa.
@@ -1624,8 +1608,25 @@ void GLQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat s
 		// Something went wrong during the read and no readback buffer was allocated, probably.
 		return;
 	}
-	for (int y = 0; y < height; y++) {
-		memcpy(pixels + y * pixelStride * bpp, readbackBuffer_ + y * width * bpp, width * bpp);
+
+	// Always read back in 8888 format for the color aspect.
+	GLuint internalFormat = GL_RGBA;
+#ifndef USING_GLES2
+	if (readbackAspectMask_ & GL_DEPTH_BUFFER_BIT) {
+		internalFormat = GL_DEPTH_COMPONENT;
+	} else if (readbackAspectMask_ & GL_STENCIL_BUFFER_BIT) {
+		internalFormat = GL_STENCIL_INDEX;
+	}
+#endif
+
+	bool convert = internalFormat == GL_RGBA && destFormat != Draw::DataFormat::R8G8B8A8_UNORM;
+	if (convert) {
+		// srcStride is width because we read back "packed" (with no gaps) from GL.
+		ConvertFromRGBA8888(pixels, readbackBuffer_, pixelStride, width, width, height, destFormat);
+	} else {
+		for (int y = 0; y < height; y++) {
+			memcpy(pixels + y * pixelStride * bpp, readbackBuffer_ + y * width * bpp, width * bpp);
+		}
 	}
 }
 
@@ -1758,7 +1759,7 @@ void GLQueueRunner::fbo_unbind() {
 	glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
 #endif
 
-#if PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
 	bindDefaultFBO();
 #endif
 

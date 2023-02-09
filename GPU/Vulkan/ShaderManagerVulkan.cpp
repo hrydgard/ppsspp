@@ -98,12 +98,17 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 
 #if defined(_DEBUG)
 	// Don't parallelize in debug mode, pathological behavior due to mutex locks in allocator which is HEAVILY used by glslang.
-	return Promise<VkShaderModule>::AlreadyDone(compile());
+	bool singleThreaded = true;
 #else
-	return Promise<VkShaderModule>::Spawn(&g_threadManager, compile, TaskType::CPU_COMPUTE);
+	bool singleThreaded = false;
 #endif
-}
 
+	if (singleThreaded) {
+		return Promise<VkShaderModule>::AlreadyDone(compile());
+	} else {
+		return Promise<VkShaderModule>::Spawn(&g_threadManager, compile, TaskType::DEDICATED_THREAD);
+	}
+}
 
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, FragmentShaderFlags flags, const char *code)
 	: vulkan_(vulkan), id_(id), flags_(flags) {

@@ -66,6 +66,13 @@ enum class GPUBackend {
 	VULKAN = 3,
 };
 
+enum class RestoreSettingsBits : int {
+	SETTINGS = 1,
+	CONTROLS = 2,
+	RECENT = 4,
+};
+ENUM_CLASS_BITOPS(RestoreSettingsBits);
+
 inline std::string GPUBackendToString(GPUBackend backend) {
 	switch (backend) {
 	case GPUBackend::OPENGL:
@@ -136,4 +143,13 @@ enum class ShowStatusFlags {
 	FPS_COUNTER = 1 << 1,
 	SPEED_COUNTER = 1 << 2,
 	BATTERY_PERCENT = 1 << 3,
+};
+
+// for iTiltInputType
+enum TiltTypes {
+	TILT_NULL = 0,
+	TILT_ANALOG,
+	TILT_DPAD,
+	TILT_ACTION_BUTTON,
+	TILT_TRIGGER_BUTTONS,
 };

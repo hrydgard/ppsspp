@@ -58,6 +58,9 @@ SDLJoystick *joystick = NULL;
 #include "SDLGLGraphicsContext.h"
 #include "SDLVulkanGraphicsContext.h"
 
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#include "UI/DarwinFileSystemServices.h"
+#endif
 
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
@@ -185,7 +188,18 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "audio_resetDevice")) {
 		StopSDLAudioDevice();
 		InitSDLAudioDevice();
-	}
+    }
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+    else if (!strcmp(command, "browse_folder")) {
+        DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
+            NativeMessageReceived("browse_folder", thePathChosen.c_str());
+        };
+        
+        DarwinFileSystemServices services;
+        services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
+    }
+#endif
+    
 }
 
 void System_AskForPermission(SystemPermission permission) {}
@@ -754,7 +768,7 @@ int main(int argc, char *argv[]) {
 #if !PPSSPP_PLATFORM(SWITCH)
 	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 		SDLVulkanGraphicsContext *ctx = new SDLVulkanGraphicsContext();
-		if (!ctx->Init(window, x, y, mode, &error_message)) {
+		if (!ctx->Init(window, x, y, mode | SDL_WINDOW_VULKAN, &error_message)) {
 			printf("Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
 			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);

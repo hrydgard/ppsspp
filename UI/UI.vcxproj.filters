@@ -2,7 +2,6 @@
 <Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="GameInfoCache.cpp" />
-    <ClCompile Include="GamepadEmu.cpp" />
     <ClCompile Include="NativeApp.cpp" />
     <ClCompile Include="OnScreenDisplay.cpp" />
     <ClCompile Include="EmuScreen.cpp">
@@ -36,9 +35,6 @@
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="TiltAnalogSettingsScreen.cpp">
-      <Filter>Screens</Filter>
-    </ClCompile>
-    <ClCompile Include="TiltEventProcessor.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="InstallZipScreen.cpp">
@@ -80,10 +76,15 @@
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="Theme.cpp" />
+    <ClCompile Include="GamepadEmu.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="JoystickHistoryView.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
-    <ClInclude Include="GamepadEmu.h" />
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="EmuScreen.h">
       <Filter>Screens</Filter>
@@ -116,9 +117,6 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="TiltAnalogSettingsScreen.h">
-      <Filter>Screens</Filter>
-    </ClInclude>
-    <ClInclude Include="TiltEventProcessor.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="InstallZipScreen.h">
@@ -161,10 +159,19 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="Theme.h" />
+    <ClInclude Include="GamepadEmu.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="JoystickHistoryView.h">
+      <Filter>Views</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">
       <UniqueIdentifier>{faee5dce-633b-4ba6-b19d-ea70ee3c1c38}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Views">
+      <UniqueIdentifier>{071baa63-c681-4ad6-945b-e126645d1b55}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

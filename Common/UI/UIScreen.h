@@ -97,7 +97,7 @@ protected:
 	void update() override;
 
 private:
-	UI::LinearLayout *box_;
+	UI::LinearLayout *box_ = nullptr;
 	UI::Button *defaultButton_ = nullptr;
 	std::string title_;
 	std::string button1_;

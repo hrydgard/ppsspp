@@ -62,6 +62,10 @@
 #include "GPU/GPUInterface.h"
 #include "Common/Data/Text/I18n.h"
 
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
+#include "UI/DarwinFileSystemServices.h" // For the browser
+#endif
+
 #include "Core/HLE/sceUmd.h"
 
 bool MainScreen::showHomebrewTab = false;
@@ -691,9 +695,15 @@ void GameBrowser::Refresh() {
 			if (System_GetPropertyBool(SYSPROP_HAS_ADDITIONAL_STORAGE)) {
 				topBar->Add(new Choice(ImageID("I_SDCARD"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::StorageClick);
 			}
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
+			// on Darwin, we don't show the 'Browse' text alongside the image
+			// we show just the image, because we don't need to emphasize the button on Darwin
+			topBar->Add(new Choice(ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
+#else
 			if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
 				topBar->Add(new Choice(mm->T("Browse"), ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
 			}
+#endif
 		} else {
 			topBar->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
 		}

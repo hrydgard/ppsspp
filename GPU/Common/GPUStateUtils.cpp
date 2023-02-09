@@ -521,7 +521,7 @@ float ToScaledDepthFromIntegerScale(float z) {
 	const float depthSliceFactor = DepthSliceFactor();
 	if (gstate_c.Use(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
 		const double doffset = 0.5 * (depthSliceFactor - 1.0) * (1.0 / depthSliceFactor);
-		// Use one bit for each value, rather than 1.0 / (25535.0 * 256.0).
+		// Use one bit for each value, rather than 1.0 / (65535.0 * 256.0).
 		return (float)((double)z * (1.0 / 16777215.0) + doffset);
 	} else {
 		const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
@@ -730,6 +730,12 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			if (maxz == 65535) {
 				maxz += fullDepthRange;
 			}
+		} else if (maxz == 65535) {
+			// This means clamp isn't enabled, but we still want to allow values up to 65535.99.
+			// If DepthSliceFactor() is 1.0, though, this would make out.depthRangeMax exceed 1.
+			// Since that would clamp, it would make Z=1234 not match between draws when maxz changes.
+			if (DepthSliceFactor() > 1.0f)
+				maxz = 65535.99f;
 		}
 		// Okay.  So, in our shader, -1 will map to minz, and +1 will map to maxz.
 		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
@@ -748,6 +754,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		}
 
 		// OpenGL will clamp these for us anyway, and Direct3D will error if not clamped.
+		// Of course, if this happens we've skewed out.depthScale/out.zOffset and may get z-fighting.
 		out.depthRangeMin = std::max(out.depthRangeMin, 0.0f);
 		out.depthRangeMax = std::min(out.depthRangeMax, 1.0f);
 	}

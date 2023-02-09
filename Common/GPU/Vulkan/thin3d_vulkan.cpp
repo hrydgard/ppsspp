@@ -198,7 +198,6 @@ public:
 	const std::string &GetSource() const { return source_; }
 	~VKShaderModule() {
 		if (module_) {
-			DEBUG_LOG(G3D, "Queueing %s (shmodule %p) for release", tag_.c_str(), module_);
 			VkShaderModule shaderModule = module_->BlockUntilReady();
 			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
 			vulkan_->Delete().QueueCallback([](VulkanContext *context, void *m) {
@@ -213,7 +212,7 @@ public:
 	}
 
 private:
-	VulkanContext *vulkan_;
+	VulkanContext *vulkan_ = nullptr;
 	Promise<VkShaderModule> *module_ = nullptr;
 	VkShaderStageFlagBits vkstage_;
 	bool ok_ = false;
@@ -268,7 +267,6 @@ public:
 		vkrDesc = new VKRGraphicsPipelineDesc();
 	}
 	~VKPipeline() {
-		DEBUG_LOG(G3D, "Queueing %s (pipeline) for release", tag_.c_str());
 		if (pipeline) {
 			pipeline->QueueForDeletion(vulkan_);
 		}
@@ -416,7 +414,7 @@ public:
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
-	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) override;
+	bool CopyFramebufferToMemory(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
 	DataFormat PreferredFramebufferReadbackFormat(Framebuffer *src) override;
 
 	// These functions should be self explanatory.
@@ -1634,7 +1632,7 @@ bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int sr
 	return true;
 }
 
-bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) {
+bool VKContext::CopyFramebufferToMemory(Framebuffer *srcfb, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 
 	int aspectMask = 0;
@@ -1642,7 +1640,7 @@ bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits,
 	if (channelBits & FBChannel::FB_DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
-	return renderManager_.CopyFramebufferToMemorySync(src ? src->GetFB() : nullptr, aspectMask, x, y, w, h, format, (uint8_t *)pixels, pixelStride, tag);
+	return renderManager_.CopyFramebufferToMemory(src ? src->GetFB() : nullptr, aspectMask, x, y, w, h, format, (uint8_t *)pixels, pixelStride, mode, tag);
 }
 
 DataFormat VKContext::PreferredFramebufferReadbackFormat(Framebuffer *src) {

@@ -83,7 +83,6 @@ public:
 
 	void StopThread() override {
 		if (renderManager_) {
-			renderManager_->WaitUntilQueueIdle();
 			renderManager_->StopThread();
 		}
 	}
@@ -167,7 +166,7 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	_assert_(success);
 	renderManager_->SetSwapFunction([&]() {
 		SDL_GL_SwapWindow(screen_);
-	});
+	}, false);
 
 	return success;
 }

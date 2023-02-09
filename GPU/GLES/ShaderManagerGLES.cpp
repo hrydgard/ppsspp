@@ -358,7 +358,7 @@ static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
 	//HUD texture cannot be in CLUT32 format
 	else if (gstate.getTextureFormat() == GETextureFormat::GE_TFMT_CLUT32) hud = false;
 	//HUD cannot have full texture alpha
-	else if (gstate_c.textureFullAlpha) hud = false;
+	else if (gstate_c.textureFullAlpha && gstate.getTextureFormat() != GETextureFormat::GE_TFMT_CLUT4) hud = false;
 	//HUD must have full vertex alpha
 	else if (!gstate_c.vertexFullAlpha && gstate.getDepthTestFunction() == GE_COMP_NEVER) hud = false;
 	//HUD cannot render FB screenshot
@@ -458,7 +458,11 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 		SetColorUniform3(render_, &u_texenv, gstate.texenvcolor);
 	}
 	if (dirty & DIRTY_TEX_ALPHA_MUL) {
-		render_->SetUniformF1(&u_texNoAlpha, gstate.isTextureAlphaUsed() ? 0.0f : 1.0f);
+		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE) {
+			doTextureAlpha = false;
+		}
+		render_->SetUniformF1(&u_texNoAlpha, doTextureAlpha ? 0.0f : 1.0f);
 		render_->SetUniformF1(&u_texMul, gstate.isColorDoublingEnabled() ? 2.0f : 1.0f);
 	}
 	if (dirty & DIRTY_ALPHACOLORREF) {

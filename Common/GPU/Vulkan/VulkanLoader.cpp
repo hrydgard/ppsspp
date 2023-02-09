@@ -195,6 +195,11 @@ PFN_vkCreateWaylandSurfaceKHR vkCreateWaylandSurfaceKHR;
 #endif
 #if defined(VK_USE_PLATFORM_DISPLAY_KHR)
 PFN_vkCreateDisplayPlaneSurfaceKHR vkCreateDisplayPlaneSurfaceKHR;
+PFN_vkGetPhysicalDeviceDisplayPropertiesKHR vkGetPhysicalDeviceDisplayPropertiesKHR;
+PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR vkGetPhysicalDeviceDisplayPlanePropertiesKHR;
+PFN_vkGetDisplayModePropertiesKHR vkGetDisplayModePropertiesKHR;
+PFN_vkGetDisplayPlaneSupportedDisplaysKHR vkGetDisplayPlaneSupportedDisplaysKHR;
+PFN_vkGetDisplayPlaneCapabilitiesKHR vkGetDisplayPlaneCapabilitiesKHR;
 #endif
 
 PFN_vkDestroySurfaceKHR vkDestroySurfaceKHR;
@@ -564,6 +569,11 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &en
 #endif
 #if defined(VK_USE_PLATFORM_DISPLAY_KHR)
 	LOAD_INSTANCE_FUNC(instance, vkCreateDisplayPlaneSurfaceKHR);
+	LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceDisplayPropertiesKHR);
+	LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceDisplayPlanePropertiesKHR);
+	LOAD_INSTANCE_FUNC(instance, vkGetDisplayModePropertiesKHR);
+	LOAD_INSTANCE_FUNC(instance, vkGetDisplayPlaneSupportedDisplaysKHR);
+	LOAD_INSTANCE_FUNC(instance, vkGetDisplayPlaneCapabilitiesKHR);
 #endif
 
 	LOAD_INSTANCE_FUNC(instance, vkDestroySurfaceKHR);

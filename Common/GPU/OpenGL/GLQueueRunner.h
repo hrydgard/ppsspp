@@ -2,9 +2,11 @@
 
 #include <cstdint>
 #include <vector>
+#include <set>
 #include <unordered_map>
 
 #include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLFrameData.h"
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
@@ -372,7 +374,7 @@ public:
 		return (int)depth * 3 + (int)color;
 	}
 
-	void CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
+	void CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
 	void Resize(int width, int height) {
 		targetWidth_ = width;
@@ -418,9 +420,7 @@ private:
 	// We size it generously.
 	uint8_t *readbackBuffer_ = nullptr;
 	int readbackBufferSize_ = 0;
-	// Temp buffer for color conversion
-	uint8_t *tempBuffer_ = nullptr;
-	int tempBufferSize_ = 0;
+	uint32_t readbackAspectMask_ = 0;
 
 	float maxAnisotropyLevel_ = 0.0f;
 

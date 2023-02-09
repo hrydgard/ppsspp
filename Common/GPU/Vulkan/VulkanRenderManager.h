@@ -120,7 +120,7 @@ struct VKRGraphicsPipeline {
 	VKRGraphicsPipeline(PipelineFlags flags, const char *tag) : flags_(flags), tag_(tag) {}
 	~VKRGraphicsPipeline();
 
-	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
+	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount, double scheduleTime, int countToCompile);
 
 	void DestroyVariants(VulkanContext *vulkan, bool msaaOnly);
 
@@ -137,6 +137,7 @@ struct VKRGraphicsPipeline {
 	VkSampleCountFlagBits SampleCount() const { return sampleCount_; }
 
 	const char *Tag() const { return tag_.c_str(); }
+
 private:
 	void DestroyVariantsInstant(VkDevice device);
 
@@ -153,7 +154,7 @@ struct VKRComputePipeline {
 	VKRComputePipelineDesc *desc = nullptr;
 	Promise<VkPipeline> *pipeline = nullptr;
 
-	bool Create(VulkanContext *vulkan);
+	bool CreateAsync(VulkanContext *vulkan);
 	bool Pending() const {
 		return pipeline == VK_NULL_HANDLE && desc != nullptr;
 	}
@@ -216,7 +217,7 @@ public:
 
 	void BindCurrentFramebufferAsInputAttachment0(VkImageAspectFlags aspectBits);
 
-	bool CopyFramebufferToMemorySync(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
+	bool CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag);
 	void CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 
 	void CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, VkImageAspectFlags aspectMask, const char *tag);

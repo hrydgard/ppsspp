@@ -81,7 +81,7 @@ Request::~Request() {
 	}
 	delete in_;
 	if (!out_->Empty()) {
-		ERROR_LOG(IO, "Output not empty - connection abort?");
+		ERROR_LOG(IO, "Output not empty - connection abort? (%s)", this->header_.resource);
 	}
 	delete out_;
 }

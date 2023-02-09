@@ -383,6 +383,7 @@ static int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress) {
 // 0 : wait for completion. 1:check and return
 int sceGeListSync(u32 displayListID, u32 mode) {
 	DEBUG_LOG(SCEGE, "sceGeListSync(dlid=%08x, mode=%08x)", displayListID, mode);
+	hleEatCycles(220);  // Fudged without measuring, copying sceGeContinue.
 	return gpu->ListSync(LIST_ID_MAGIC ^ displayListID, mode);
 }
 

@@ -29,6 +29,8 @@
 #include "Core/HLE/sceKernelModule.h"
 
 namespace HLEPlugins {
+float PluginDataAxis[JOYSTICK_AXIS_MAX];
+std::map<int, uint8_t> PluginDataKeys;
 
 static bool anyEnabled = false;
 static std::vector<std::string> prxPlugins;

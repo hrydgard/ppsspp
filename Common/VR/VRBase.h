@@ -62,9 +62,8 @@ typedef struct {
 	uint32_t TextureSwapChainLength;
 	uint32_t TextureSwapChainIndex;
 	ovrSwapChain ColorSwapChain;
-	ovrSwapChain DepthSwapChain;
 	void* ColorSwapChainImage;
-	void* DepthSwapChainImage;
+	unsigned int* GLDepthBuffers;
 	unsigned int* GLFrameBuffers;
 	VkFramebuffer* VKFrameBuffers;
 	VkImageView* VKColorImages;

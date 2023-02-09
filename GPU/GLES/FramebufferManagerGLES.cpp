@@ -45,10 +45,6 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
 	presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
 }
 
-FramebufferManagerGLES::~FramebufferManagerGLES() {
-	delete[] convBuf_;
-}
-
 void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 	_assert_msg_(nvfb->fbo, "Expecting a valid nvfb in UpdateDownloadTempBuffer");
 
@@ -72,6 +68,6 @@ bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	int w, h;
 	draw_->GetFramebufferDimensions(nullptr, &w, &h);
 	buffer.Allocate(w, h, GPU_DBG_FORMAT_888_RGB, true);
-	draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData(), w, "GetOutputFramebuffer");
+	draw_->CopyFramebufferToMemory(nullptr, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetOutputFramebuffer");
 	return true;
 }

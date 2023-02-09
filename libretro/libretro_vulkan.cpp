@@ -98,7 +98,6 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice_libretro(VkPhysicalDevice p
 	for (unsigned i = 0; i < vk_init_info.num_required_device_extensions; i++)
 		add_name_unique(EnabledExtensionNames, vk_init_info.required_device_extensions[i]);
 
-	add_name_unique(EnabledExtensionNames, VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
 	for (unsigned i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); i++) {
 		if (((VkBool32 *)vk_init_info.required_features)[i])
 			((VkBool32 *)&EnabledFeatures)[i] = VK_TRUE;
@@ -354,6 +353,9 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr_libretro(VkInstan
 #endif
 #ifdef __ANDROID__
 		 || !strcmp(pName, "vkCreateAndroidSurfaceKHR")
+#endif
+#ifdef VK_USE_PLATFORM_METAL_EXT
+		 || !strcmp(pName, "vkCreateMetalSurfaceEXT")
 #endif
 #ifdef VK_USE_PLATFORM_XLIB_KHR
 		 || !strcmp(pName, "vkCreateXlibSurfaceKHR")

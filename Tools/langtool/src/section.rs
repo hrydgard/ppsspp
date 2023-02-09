@@ -82,6 +82,28 @@ impl Section {
         true
     }
 
+    pub fn rename_key(&mut self, old: &str, new: &str) {
+        let prefix = old.to_owned() + " =";
+        let mut found_index = None;
+        for (index, line) in self.lines.iter().enumerate() {
+            if line.starts_with(&prefix) {
+                found_index = Some(index);
+            }
+        }
+        if let Some(index) = found_index {
+            let line = self.lines.remove(index);
+            let line = new.to_owned() + " =" + line.strip_prefix(&prefix).unwrap();
+            self.insert_line_if_missing(&line);
+        } else {
+            let name = &self.name;
+            println!("didn't find a line starting with {prefix} in section {name}");
+        }
+    }
+
+    pub fn sort(&mut self) {
+        self.lines.sort();
+    }
+
     pub fn comment_out_lines_if_not_in(&mut self, other: &Section) {
         // Brute force (O(n^2)). Bad but not a problem.
 

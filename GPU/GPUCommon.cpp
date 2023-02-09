@@ -675,6 +675,8 @@ void GPUCommon::DumpNextFrame() {
 }
 
 u32 GPUCommon::DrawSync(int mode) {
+	gpuStats.numDrawSyncs++;
+
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
@@ -723,6 +725,8 @@ void GPUCommon::CheckDrawSync() {
 }
 
 int GPUCommon::ListSync(int listid, int mode) {
+	gpuStats.numListSyncs++;
+
 	if (listid < 0 || listid >= DisplayListMaxCount)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
@@ -3461,16 +3465,18 @@ void GPUCommon::UpdateUVScaleOffset() {
 size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
 	return snprintf(buffer, size,
-		"DL processing time: %0.2f ms\n"
+		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
 		"Draw calls: %d, flushes %d, clears %d (cached: %d)\n"
 		"Num Tracked Vertex Arrays: %d\n"
 		"Vertices: %d cached: %d uncached: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
-		"readbacks %d, uploads %d, depal %d\n"
+		"readbacks %d (%d non-block), uploads %d, depal %d\n"
 		"Copies: depth %d, color %d, reint %d, blend %d, selftex %d\n"
 		"GPU cycles executed: %d (%f per vertex)\n",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
+		gpuStats.numDrawSyncs,
+		gpuStats.numListSyncs,
 		gpuStats.numDrawCalls,
 		gpuStats.numFlushes,
 		gpuStats.numClears,
@@ -3485,6 +3491,7 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
 		gpuStats.numTextureDataBytesHashed / 1024,
+		gpuStats.numBlockingReadbacks,
 		gpuStats.numReadbacks,
 		gpuStats.numUploads,
 		gpuStats.numDepal,

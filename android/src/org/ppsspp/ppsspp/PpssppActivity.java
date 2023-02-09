@@ -20,6 +20,7 @@ import androidx.documentfile.provider.DocumentFile;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.UUID;
 import java.io.File;
 
@@ -58,6 +59,14 @@ public class PpssppActivity extends NativeActivity {
 	}
 
 	static {
+		if (isVRDevice()) {
+			String manufacturer = Build.MANUFACTURER.toLowerCase(Locale.ROOT);
+			if (manufacturer.contains("oculus")) // rename oculus to meta as this will probably happen in the future anyway
+				manufacturer = "meta";
+
+			//Load manufacturer specific loader
+			System.loadLibrary("openxr_" + manufacturer);
+		}
 		CheckABIAndLoadLibrary();
 	}
 

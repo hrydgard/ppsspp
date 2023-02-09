@@ -36,12 +36,17 @@ public:
 	void Update() override;
 	std::string DescribeText() const override;
 
+	void SetForceVisible(bool visible) {
+		forceVisible_ = visible;
+	}
+
 protected:
 	virtual float GetButtonOpacity();
 
 	const char *key_;
 	double lastFrameTime_;
 	float secondsWithoutTouch_ = 0.0;
+	bool forceVisible_ = false;
 };
 
 class MultiTouchButton : public GamepadView {

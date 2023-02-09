@@ -50,10 +50,12 @@ FramebufferManagerDX9::FramebufferManagerDX9(Draw::DrawContext *draw)
 	preferredPixelsFormat_ = Draw::DataFormat::B8G8R8A8_UNORM;
 }
 
-FramebufferManagerDX9::~FramebufferManagerDX9() {
-}
+bool FramebufferManagerDX9::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH, Draw::ReadbackMode mode) {
+	// Don't yet support stretched readbacks here.
+	if (destW != w || destH != h) {
+		return false;
+	}
 
-bool FramebufferManagerDX9::ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) {
 	// We always read the depth buffer in 24_8 format.
 	LPDIRECT3DTEXTURE9 tex = (LPDIRECT3DTEXTURE9)draw_->GetFramebufferAPITexture(fbo, Draw::FB_DEPTH_BIT, 0);
 	if (!tex)
