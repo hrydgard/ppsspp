@@ -73,12 +73,13 @@ static u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 	return 0;
 }
 
-static u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal)
-{
-	DEBUG_LOG(SCEUTILITY, "sceImposeSetLanguageMode(%08x, %08x)", languageVal, buttonVal);
+static u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal) {
 	language = languageVal;
 	buttonValue = buttonVal;
-	return 0;
+	if (language != g_Config.iLanguage) {
+		return hleLogWarning(SCEUTILITY, 0, "ignoring requested language");
+	}
+	return hleLogSuccessI(SCEUTILITY, 0);
 }
 
 static u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
@@ -116,7 +117,7 @@ static u32 sceImposeGetBacklightOffTime() {
 //OSD stuff? home button?
 const HLEFunction sceImpose[] =
 {
-	{0X36AA6E91, &WrapU_UU<sceImposeSetLanguageMode>,      "sceImposeSetLanguageMode",      'x', "xx"},  // Seen
+	{0X36AA6E91, &WrapU_UU<sceImposeSetLanguageMode>,      "sceImposeSetLanguageMode",      'i', "ii"},
 	{0X381BD9E7, nullptr,                                  "sceImposeHomeButton",           '?', ""  },
 	{0X0F341BE4, nullptr,                                  "sceImposeGetHomePopup",         '?', ""  },
 	{0X5595A71A, nullptr,                                  "sceImposeSetHomePopup",         '?', ""  },
