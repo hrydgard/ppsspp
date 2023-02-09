@@ -59,9 +59,10 @@ static int CommonDecompress(int windowBits, u32 OutBuffer, int OutBufferLength, 
 	}
 
 	if (MemBlockInfoDetailed(stream.total_in, stream.total_out)) {
-		const std::string tag = GetMemWriteTagAt("sceDeflt/", InBuffer, stream.total_in);
-		NotifyMemInfo(MemBlockFlags::READ, InBuffer, stream.total_in, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, OutBuffer, stream.total_out, tag.c_str(), tag.size());
+		char tagData[128];
+		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "sceDeflt/", InBuffer, stream.total_in);
+		NotifyMemInfo(MemBlockFlags::READ, InBuffer, stream.total_in, tagData, tagSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, OutBuffer, stream.total_out, tagData, tagSize);
 	}
 
 	return hleLogSuccessI(HLE, stream.total_out);
