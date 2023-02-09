@@ -310,9 +310,12 @@ void GPU_Vulkan::BeginHostFrame() {
 	if (gstate_c.useFlagsChanged) {
 		// TODO: It'd be better to recompile them in the background, probably?
 		// This most likely means that saw equal depth changed.
-		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders");
+		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
+		// TODO: Not all shaders need to be recompiled. In fact, quite few? Of course, depends on
+		// the use flag change.. This is a major frame rate hitch in the start of a race in Outrun.
 		shaderManagerVulkan_->ClearShaders();
 		pipelineManager_->Clear();
+		framebufferManager_->ClearAllDepthBuffers();
 		gstate_c.useFlagsChanged = false;
 	}
 

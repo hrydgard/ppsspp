@@ -159,8 +159,9 @@ void GPU_DX9::BeginFrame() {
 	if (gstate_c.useFlagsChanged) {
 		// TODO: It'd be better to recompile them in the background, probably?
 		// This most likely means that saw equal depth changed.
-		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders");
+		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
 		shaderManagerDX9_->ClearCache(true);
+		framebufferManager_->ClearAllDepthBuffers();
 		gstate_c.useFlagsChanged = false;
 	}
 }

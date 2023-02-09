@@ -46,6 +46,7 @@ enum {
 	FB_USAGE_FIRST_FRAME_SAVED = 128,
 	FB_USAGE_RENDER_DEPTH = 256,
 	FB_USAGE_COLOR_MIXED_DEPTH = 512,
+	FB_USAGE_INVALIDATE_DEPTH = 1024,  // used to clear depth buffers.
 };
 
 enum {
@@ -316,6 +317,10 @@ public:
 	void UpdateFromMemory(u32 addr, int size);
 	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
 	bool PerformWriteStencilFromMemory(u32 addr, int size, WriteStencil flags);
+
+	// We changed our depth mode, gotta start over.
+	// Ideally, we should convert depth buffers here, not just clear them.
+	void ClearAllDepthBuffers();
 
 	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
 	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless

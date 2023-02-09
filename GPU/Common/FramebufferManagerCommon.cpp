@@ -1059,7 +1059,14 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	if (useBufferedRendering_) {
 		if (vfb->fbo) {
 			shaderManager_->DirtyLastShader();
-			draw_->BindFramebufferAsRenderTarget(vfb->fbo, {Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP}, "FBSwitch");
+			Draw::RPAction depthAction = Draw::RPAction::KEEP;
+			float clearDepth = 0.0f;
+			if (vfb->usageFlags & FB_USAGE_INVALIDATE_DEPTH) {
+				depthAction = Draw::RPAction::CLEAR;
+				clearDepth = GetDepthScaleFactors().offset;
+				vfb->usageFlags &= ~FB_USAGE_INVALIDATE_DEPTH;
+			}
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo, {Draw::RPAction::KEEP, depthAction, Draw::RPAction::KEEP, 0, clearDepth}, "FBSwitch");
 		} else {
 			// This should only happen very briefly when toggling useBufferedRendering_.
 			ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
@@ -2571,6 +2578,12 @@ void FramebufferManagerCommon::ShowScreenResolution() {
 
 	host->NotifyUserMessage(messageStream.str(), 2.0f, 0xFFFFFF, "resize");
 	INFO_LOG(SYSTEM, "%s", messageStream.str().c_str());
+}
+
+void FramebufferManagerCommon::ClearAllDepthBuffers() {
+	for (auto vfb : vfbs_) {
+		vfb->usageFlags |= FB_USAGE_INVALIDATE_DEPTH;
+	}
 }
 
 // We might also want to implement an asynchronous callback-style version of this. Would probably
