@@ -140,6 +140,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	ChangeStatusInit(MSG_INIT_DELAY_US);
 
 	UpdateButtons();
+	InitCommon();
 	StartFade(true);
 	return 0;
 }
@@ -282,19 +283,8 @@ int PSPMsgDialog::Update(int animSpeed) {
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 	} else {
 		UpdateButtons();
+		UpdateCommon();
 		UpdateFade(animSpeed);
-
-		okButtonImg = ImageID("I_CIRCLE");
-		cancelButtonImg = ImageID("I_CROSS");
-		okButtonFlag = CTRL_CIRCLE;
-		cancelButtonFlag = CTRL_CROSS;
-		if (messageDialog.common.buttonSwap == 1)
-		{
-			okButtonImg = ImageID("I_CROSS");
-			cancelButtonImg = ImageID("I_CIRCLE");
-			okButtonFlag = CTRL_CROSS;
-			cancelButtonFlag = CTRL_CIRCLE;
-		}
 
 		StartDraw();
 		// white -> RGB(168,173,189), black -> RGB(129,134,150)

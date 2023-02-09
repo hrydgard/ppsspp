@@ -67,17 +67,7 @@ int PSPNpSigninDialog::Init(u32 paramAddr) {
 
 	// Eat any keys pressed before the dialog inited.
 	UpdateButtons();
-	okButtonImg = ImageID("I_CIRCLE");
-	cancelButtonImg = ImageID("I_CROSS");
-	okButtonFlag = CTRL_CIRCLE;
-	cancelButtonFlag = CTRL_CROSS;
-	if (request.common.buttonSwap == 1)
-	{
-		okButtonImg = ImageID("I_CROSS");
-		cancelButtonImg = ImageID("I_CIRCLE");
-		okButtonFlag = CTRL_CROSS;
-		cancelButtonFlag = CTRL_CIRCLE;
-	}
+	InitCommon();
 
 	//npSigninResult = -1;
 	startTime = (u64)(time_now_d() * 1000000.0);
@@ -244,6 +234,7 @@ int PSPNpSigninDialog::Update(int animSpeed) {
 	}
 
 	UpdateButtons();
+	UpdateCommon();
 	auto di = GetI18NCategory("Dialog");
 	auto err = GetI18NCategory("Error");
 	u64 now = (u64)(time_now_d() * 1000000.0);

@@ -89,6 +89,8 @@ public:
 	int FinishShutdown();
 
 protected:
+	void InitCommon();
+	void UpdateCommon();
 	PPGeStyle FadedStyle(PPGeAlign align, float scale);
 	PPGeImageStyle FadedImageStyle();
 	void UpdateButtons();
