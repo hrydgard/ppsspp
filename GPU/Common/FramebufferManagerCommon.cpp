@@ -485,7 +485,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 
 		if (!resized && renderScaleFactor_ != 1 && vfb->renderScaleFactor == 1) {
 			// Might be time to change this framebuffer - have we used depth?
-			if (vfb->usageFlags & FB_USAGE_COLOR_MIXED_DEPTH) {
+			if ((vfb->usageFlags & FB_USAGE_COLOR_MIXED_DEPTH) && !PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn) {
 				ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
 				_assert_(vfb->renderScaleFactor != 1);
 			}
