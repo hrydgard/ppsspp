@@ -84,11 +84,13 @@ int PSPScreenshotDialog::Init(u32 paramAddr) {
 
 	mode = params_->mode;
 	ChangeStatus(SCE_UTILITY_STATUS_INITIALIZE, 0);
+	InitCommon();
 
 	return 0;
 }
 
 int PSPScreenshotDialog::Update(int animSpeed) {
+	UpdateCommon();
 	if (UseAutoStatus()) {
 		if (ReadStatus() == SCE_UTILITY_STATUS_INITIALIZE) {
 			ChangeStatus(SCE_UTILITY_STATUS_RUNNING, 0);
