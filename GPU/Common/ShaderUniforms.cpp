@@ -255,7 +255,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
 		float viewZScale = halfActualZRange * 2.0f;
 		// Account for the half pixel offset.
-		float viewZCenter = minz + (DepthSliceFactor() / 256.0f) * 0.5f;
+		float viewZCenter = minz + (DepthSliceFactor(gstate_c.UseFlags()) / 256.0f) * 0.5f;
 
 		ub->depthRange[0] = viewZScale;
 		ub->depthRange[1] = viewZCenter;

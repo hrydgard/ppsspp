@@ -61,6 +61,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Common/GPUStateUtils.h"
 
 #include "android/jni/AndroidContentURI.h"
 
@@ -795,6 +796,44 @@ static bool TestSmallDataConvert() {
 	return true;
 }
 
+static bool TestDepthMath() {
+	// Flag combinations that can happen:
+	// 0
+	// GPU_USE_ACCURATE_DEPTH
+	// GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT
+	// What about GPU_USE_DEPTH_CLAMP? It basically overrides GPU_USE_ACCURATE_DEPTH?
+
+	// These are in normalized space.
+	static const float testValues[] = { 0.0f * 65535.0f, 0.1f * 65535.0f, 0.9f * 65535.0f, 1.0f * 65535.0f };
+
+	static const u32 useFlagsArray[] = {
+		0,
+		GPU_USE_ACCURATE_DEPTH,
+		GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT,
+	};
+	static const float expectedScale[] = { 65535.0f, 262140.0f, -1.0f };
+	static const float expectedOffset[] = { 0.0f, 0.375f, -2.0f };
+
+	for (int j = 0; j < ARRAY_SIZE(useFlagsArray); j++) {
+		u32 useFlags = useFlagsArray[j];
+		printf("j: %d useflags: %d\n", j, useFlags);
+		DepthScaleFactors factors = GetDepthScaleFactors(useFlags);
+
+		EXPECT_EQ_FLOAT(factors.ScaleU16(), expectedScale[j]);
+		EXPECT_EQ_FLOAT(factors.Offset(), expectedOffset[j]);
+		EXPECT_EQ_FLOAT(factors.ScaleU16(), DepthSliceFactor(useFlags) * 65535.0f);
+
+		for (int i = 0; i < ARRAY_SIZE(testValues); i++) {
+			float encoded = factors.EncodeFromU16(testValues[i]);
+			float decodedU16 = factors.DecodeToU16(encoded);
+			EXPECT_EQ_FLOAT(decodedU16, testValues[i]);
+			EXPECT_EQ_FLOAT(encoded, ToScaledDepthFromIntegerScale(useFlags, testValues[i]));
+		}
+	}
+
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -846,6 +885,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(WrapText),
 	TEST_ITEM(TinySet),
 	TEST_ITEM(SmallDataConvert),
+	TEST_ITEM(DepthMath),
 };
 
 int main(int argc, const char *argv[]) {

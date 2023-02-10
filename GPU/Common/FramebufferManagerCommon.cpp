@@ -1063,7 +1063,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 			float clearDepth = 0.0f;
 			if (vfb->usageFlags & FB_USAGE_INVALIDATE_DEPTH) {
 				depthAction = Draw::RPAction::CLEAR;
-				clearDepth = GetDepthScaleFactors().offset;
+				clearDepth = GetDepthScaleFactors(gstate_c.UseFlags()).Offset();
 				vfb->usageFlags &= ~FB_USAGE_INVALIDATE_DEPTH;
 			}
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, {Draw::RPAction::KEEP, depthAction, Draw::RPAction::KEEP, 0, clearDepth}, "FBSwitch");

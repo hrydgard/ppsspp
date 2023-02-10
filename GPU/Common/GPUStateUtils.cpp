@@ -502,25 +502,28 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 static const float DEPTH_SLICE_FACTOR_HIGH = 4.0f;
 static const float DEPTH_SLICE_FACTOR_16BIT = 256.0f;
 
-float DepthSliceFactor() {
-	if (gstate_c.Use(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+float DepthSliceFactor(u32 useFlags) {
+	if (!(useFlags & GPU_USE_ACCURATE_DEPTH)) {
+		return 1.0f;
+	}
+	if (useFlags & GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT) {
 		return DEPTH_SLICE_FACTOR_16BIT;
 	}
-	if (gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
+	if (useFlags & GPU_USE_DEPTH_CLAMP) {
 		return 1.0f;
 	}
 	return DEPTH_SLICE_FACTOR_HIGH;
 }
 
-// This is used for float values which might not be integers, but are in the integer scale of 65535.
-float ToScaledDepthFromIntegerScale(float z) {
-	if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
+// This is used for float values which might not be integers, but are in the integer scale of 0-65535.
+float ToScaledDepthFromIntegerScale(u32 useFlags, float z) {
+	if (!(useFlags & GPU_USE_ACCURATE_DEPTH)) {
 		return z * (1.0f / 65535.0f);
 	}
 
-	const float depthSliceFactor = DepthSliceFactor();
-	if (gstate_c.Use(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
-		const double doffset = 0.5 * (depthSliceFactor - 1.0) * (1.0 / depthSliceFactor);
+	const float depthSliceFactor = DepthSliceFactor(useFlags);
+	const double doffset = 0.5 * (depthSliceFactor - 1.0) * (1.0 / depthSliceFactor);
+	if (useFlags & GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT) {
 		// Use one bit for each value, rather than 1.0 / (65535.0 * 256.0).
 		return (float)((double)z * (1.0 / 16777215.0) + doffset);
 	} else {
@@ -529,20 +532,15 @@ float ToScaledDepthFromIntegerScale(float z) {
 	}
 }
 
-// See struct DepthScaleFactors for how to apply.
-DepthScaleFactors GetDepthScaleFactors() {
-	DepthScaleFactors factors;
-	if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
-		factors.offset = 0;
-		factors.scale = 65535.0f;
-		return factors;
+// See class DepthScaleFactors for how to apply.
+DepthScaleFactors GetDepthScaleFactors(u32 useFlags) {
+	if (!(useFlags & GPU_USE_ACCURATE_DEPTH)) {
+		return DepthScaleFactors(0.0f, 65535.0f);
 	}
 
-	const float depthSliceFactor = DepthSliceFactor();
+	const float depthSliceFactor = DepthSliceFactor(useFlags);
 	const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
-	factors.scale = depthSliceFactor * 65535.0f;
-	factors.offset = offset;
-	return factors;
+	return DepthScaleFactors(offset, depthSliceFactor * 65535.0f);
 }
 
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
@@ -608,8 +606,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		out.viewportY = renderY * renderHeightFactor + displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
 		out.viewportH = curRTHeight * renderHeightFactor;
-		out.depthRangeMin = ToScaledDepthFromIntegerScale(0);
-		out.depthRangeMax = ToScaledDepthFromIntegerScale(65536);
+		out.depthRangeMin = ToScaledDepthFromIntegerScale(gstate_c.UseFlags(), 0.0f);
+		out.depthRangeMax = ToScaledDepthFromIntegerScale(gstate_c.UseFlags(), 65536.0f);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXScale = gstate.getViewportXScale();
@@ -723,7 +721,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			// Here, we should "clamp."  But clamping per fragment would be slow.
 			// So, instead, we just increase the available range and hope.
 			// If depthSliceFactor is 4, it means (75% / 2) of the depth lies in each direction.
-			float fullDepthRange = 65535.0f * (DepthSliceFactor() - 1.0f) * (1.0f / 2.0f);
+			float fullDepthRange = 65535.0f * (DepthSliceFactor(gstate_c.UseFlags()) - 1.0f) * (1.0f / 2.0f);
 			if (minz == 0) {
 				minz -= fullDepthRange;
 			}
@@ -734,7 +732,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			// This means clamp isn't enabled, but we still want to allow values up to 65535.99.
 			// If DepthSliceFactor() is 1.0, though, this would make out.depthRangeMax exceed 1.
 			// Since that would clamp, it would make Z=1234 not match between draws when maxz changes.
-			if (DepthSliceFactor() > 1.0f)
+			if (DepthSliceFactor(gstate_c.UseFlags()) > 1.0f)
 				maxz = 65535.99f;
 		}
 		// Okay.  So, in our shader, -1 will map to minz, and +1 will map to maxz.
@@ -746,11 +744,11 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
 			out.depthScale = 1.0f;
 			out.zOffset = 0.0f;
-			out.depthRangeMin = ToScaledDepthFromIntegerScale(vpZCenter - vpZScale);
-			out.depthRangeMax = ToScaledDepthFromIntegerScale(vpZCenter + vpZScale);
+			out.depthRangeMin = ToScaledDepthFromIntegerScale(gstate_c.UseFlags(), vpZCenter - vpZScale);
+			out.depthRangeMax = ToScaledDepthFromIntegerScale(gstate_c.UseFlags(), vpZCenter + vpZScale);
 		} else {
-			out.depthRangeMin = ToScaledDepthFromIntegerScale(minz);
-			out.depthRangeMax = ToScaledDepthFromIntegerScale(maxz);
+			out.depthRangeMin = ToScaledDepthFromIntegerScale(gstate_c.UseFlags(), minz);
+			out.depthRangeMax = ToScaledDepthFromIntegerScale(gstate_c.UseFlags(), maxz);
 		}
 
 		// OpenGL will clamp these for us anyway, and Direct3D will error if not clamped.
