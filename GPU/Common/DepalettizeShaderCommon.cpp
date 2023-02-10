@@ -114,7 +114,7 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 		break;
 	case GE_FORMAT_DEPTH16:
 		// Decode depth buffer.
-		writer.C("  float depth = (color.x - z_offset) * z_scale;\n");
+		writer.C("  float depth = (color.x - z_offset) * z_scale * 65535.0f;\n");
 
 		if (config.bufferFormat == GE_FORMAT_DEPTH16 && config.textureFormat == GE_TFMT_5650) {
 			// Convert depth to 565, without going through a CLUT.

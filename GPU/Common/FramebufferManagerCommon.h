@@ -605,9 +605,10 @@ protected:
 	Draw::SamplerState *depthReadbackSampler_ = nullptr;
 
 	// Draw2D pipelines
-	Draw2DPipeline *draw2DPipelineColor_ = nullptr;
+	Draw2DPipeline *draw2DPipelineCopyColor_ = nullptr;
 	Draw2DPipeline *draw2DPipelineColorRect2Lin_ = nullptr;
-	Draw2DPipeline *draw2DPipelineDepth_ = nullptr;
+	Draw2DPipeline *draw2DPipelineCopyDepth_ = nullptr;
+	Draw2DPipeline *draw2DPipelineEncodeDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepthDeswizzle_ = nullptr;
 
