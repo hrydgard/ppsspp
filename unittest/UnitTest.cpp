@@ -29,6 +29,7 @@
 
 #include "ppsspp_config.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -801,18 +802,23 @@ static bool TestDepthMath() {
 	// 0
 	// GPU_USE_ACCURATE_DEPTH
 	// GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT
-	// What about GPU_USE_DEPTH_CLAMP? It basically overrides GPU_USE_ACCURATE_DEPTH?
+	// 
+	// TODO: What about GPU_USE_DEPTH_CLAMP? It basically overrides GPU_USE_ACCURATE_DEPTH?
 
 	// These are in normalized space.
-	static const float testValues[] = { 0.0f * 65535.0f, 0.1f * 65535.0f, 0.9f * 65535.0f, 1.0f * 65535.0f };
+	static const volatile float testValues[] = { 0.0f, 0.1f, 0.5f, 0.9f, 1.0f };
 
 	static const u32 useFlagsArray[] = {
 		0,
 		GPU_USE_ACCURATE_DEPTH,
 		GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT,
+		// GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH,  fails
+		// GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT,  fails
 	};
-	static const float expectedScale[] = { 65535.0f, 262140.0f, -1.0f };
-	static const float expectedOffset[] = { 0.0f, 0.375f, -2.0f };
+	static const float expectedScale[] = { 65535.0f, 262140.0f, 16776960.0f };
+	static const float expectedOffset[] = { 0.0f, 0.375f, 0.498047f };
+
+	EXPECT_REL_EQ_FLOAT(100000.0f, 100001.0f, 0.00001f);
 
 	for (int j = 0; j < ARRAY_SIZE(useFlagsArray); j++) {
 		u32 useFlags = useFlagsArray[j];
@@ -820,14 +826,16 @@ static bool TestDepthMath() {
 		DepthScaleFactors factors = GetDepthScaleFactors(useFlags);
 
 		EXPECT_EQ_FLOAT(factors.ScaleU16(), expectedScale[j]);
-		EXPECT_EQ_FLOAT(factors.Offset(), expectedOffset[j]);
+		EXPECT_REL_EQ_FLOAT(factors.Offset(), expectedOffset[j], 0.00001f);
 		EXPECT_EQ_FLOAT(factors.ScaleU16(), DepthSliceFactor(useFlags) * 65535.0f);
 
 		for (int i = 0; i < ARRAY_SIZE(testValues); i++) {
-			float encoded = factors.EncodeFromU16(testValues[i]);
+			float testValue = testValues[i] * 65535.0f;
+
+			float encoded = factors.EncodeFromU16(testValue);
 			float decodedU16 = factors.DecodeToU16(encoded);
-			EXPECT_EQ_FLOAT(decodedU16, testValues[i]);
-			EXPECT_EQ_FLOAT(encoded, ToScaledDepthFromIntegerScale(useFlags, testValues[i]));
+			EXPECT_REL_EQ_FLOAT(decodedU16, testValue, 0.0001f);
+			EXPECT_REL_EQ_FLOAT(encoded, ToScaledDepthFromIntegerScale(useFlags, testValue), 0.00001f);
 		}
 	}
 

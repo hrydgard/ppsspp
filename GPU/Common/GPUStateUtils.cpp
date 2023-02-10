@@ -522,13 +522,13 @@ float ToScaledDepthFromIntegerScale(u32 useFlags, float z) {
 	}
 
 	const float depthSliceFactor = DepthSliceFactor(useFlags);
-	const double doffset = 0.5 * (depthSliceFactor - 1.0) * (1.0 / depthSliceFactor);
 	if (useFlags & GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT) {
+		const double doffset = 0.5 * (depthSliceFactor - 1.0) / depthSliceFactor;
 		// Use one bit for each value, rather than 1.0 / (65535.0 * 256.0).
 		return (float)((double)z * (1.0 / 16777215.0) + doffset);
 	} else {
-		const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
-		return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + offset;
+		const float offset = 0.5f * (depthSliceFactor - 1.0f) / depthSliceFactor;
+		return z / depthSliceFactor * (1.0f / 65535.0f) + offset;
 	}
 }
 

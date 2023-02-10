@@ -93,7 +93,7 @@ void UpdateCachedViewportState(const ViewportAndScissor &vpAndScissor);
 class DepthScaleFactors {
 public:
 	// This should only be used from GetDepthScaleFactors.
-	DepthScaleFactors(float offset, float scale) : offset_(offset), scale_(scale) {}
+	DepthScaleFactors(double offset, double scale) : offset_(offset), scale_(scale) {}
 
 	// Decodes a value from a depth buffer to a value of range 0..65536
 	float DecodeToU16(float z) const {
@@ -106,13 +106,13 @@ public:
 		return (z_u16 / scale_) + offset_;
 	}
 
-	float Offset() const { return offset_; }
-	float ScaleU16() const { return scale_; }
+	float Offset() const { return (float)offset_; }
+	float ScaleU16() const { return (float)scale_; }
 	// float Scale() const { return scale_ / 65535.0f; }
 
 private:
-	float offset_;
-	float scale_;
+	double offset_;
+	double scale_;
 };
 
 DepthScaleFactors GetDepthScaleFactors(u32 useFlags);
