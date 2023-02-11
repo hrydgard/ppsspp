@@ -822,7 +822,7 @@ static bool TestDepthMath() {
 
 		EXPECT_EQ_FLOAT(factors.ScaleU16(), expectedScale[j]);
 		EXPECT_REL_EQ_FLOAT(factors.Offset(), expectedOffset[j], 0.00001f);
-		EXPECT_REL_EQ_FLOAT(factors.ScaleU16(), DepthSliceFactor(useFlags) * 65535.0f, 0.0001f);
+		EXPECT_REL_EQ_FLOAT(factors.Scale(), DepthSliceFactor(useFlags), 0.0001f);
 
 		for (int i = 0; i < ARRAY_SIZE(testValues); i++) {
 			float testValue = testValues[i] * 65535.0f;

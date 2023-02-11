@@ -747,7 +747,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			// Here, we should "clamp."  But clamping per fragment would be slow.
 			// So, instead, we just increase the available range and hope.
 			// If depthSliceFactor is 4, it means (75% / 2) of the depth lies in each direction.
-			float fullDepthRange = 65535.0f * (DepthSliceFactor(gstate_c.UseFlags()) - 1.0f) * (1.0f / 2.0f);
+			float fullDepthRange = 65535.0f * (depthScale.Scale() - 1.0f) * (1.0f / 2.0f);
 			if (minz == 0) {
 				minz -= fullDepthRange;
 			}
@@ -758,9 +758,10 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			// This means clamp isn't enabled, but we still want to allow values up to 65535.99.
 			// If DepthSliceFactor() is 1.0, though, this would make out.depthRangeMax exceed 1.
 			// Since that would clamp, it would make Z=1234 not match between draws when maxz changes.
-			if (DepthSliceFactor(gstate_c.UseFlags()) > 1.0f)
+			if (depthScale.Scale() > 1.0f)
 				maxz = 65535.99f;
 		}
+
 		// Okay.  So, in our shader, -1 will map to minz, and +1 will map to maxz.
 		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
 		out.depthScale = halfActualZRange < std::numeric_limits<float>::epsilon() ? 1.0f : vpZScale / halfActualZRange;

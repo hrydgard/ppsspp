@@ -108,8 +108,9 @@ public:
 	}
 
 	float Offset() const { return (float)offset_; }
+
 	float ScaleU16() const { return (float)scale_; }
-	// float Scale() const { return scale_ / 65535.0f; }
+	float Scale() const { return (float)(scale_ / 65535.0); }
 
 private:
 	// Doubles hardly cost anything these days, and precision matters here.
