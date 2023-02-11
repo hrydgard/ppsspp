@@ -108,8 +108,9 @@ public:
 	}
 
 	float Offset() const { return (float)offset_; }
+
 	float ScaleU16() const { return (float)scale_; }
-	// float Scale() const { return scale_ / 65535.0f; }
+	float Scale() const { return (float)(scale_ / 65535.0); }
 
 private:
 	// Doubles hardly cost anything these days, and precision matters here.
@@ -118,10 +119,6 @@ private:
 };
 
 DepthScaleFactors GetDepthScaleFactors(u32 useFlags);
-
-// These two will be replaced with just DepthScaleFactors.
-float ToScaledDepthFromIntegerScale(u32 useFlags, float z);
-float DepthSliceFactor(u32 useFlags);
 
 // These are common to all modern APIs and can be easily converted with a lookup table.
 enum class BlendFactor : uint8_t {

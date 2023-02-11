@@ -2964,9 +2964,10 @@ void FramebufferManagerCommon::ReleasePipelines() {
 	DoRelease(stencilReadbackPipeline_);
 	DoRelease(depthReadbackSampler_);
 	DoRelease(depthReadbackPipeline_);
-	DoRelease(draw2DPipelineColor_);
+	DoRelease(draw2DPipelineCopyColor_);
 	DoRelease(draw2DPipelineColorRect2Lin_);
-	DoRelease(draw2DPipelineDepth_);
+	DoRelease(draw2DPipelineCopyDepth_);
+	DoRelease(draw2DPipelineEncodeDepth_);
 	DoRelease(draw2DPipeline565ToDepth_);
 	DoRelease(draw2DPipeline565ToDepthDeswizzle_);
 }
@@ -3036,7 +3037,7 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 	// Rearrange to strip form.
 	std::swap(coord[2], coord[3]);
 
-	draw2D_.DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, Get2DPipeline((flags & DRAWTEX_DEPTH) ? DRAW2D_COPY_DEPTH : DRAW2D_COPY_COLOR));
+	draw2D_.DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, Get2DPipeline((flags & DRAWTEX_DEPTH) ? DRAW2D_ENCODE_R16_TO_DEPTH : DRAW2D_COPY_COLOR));
 
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }

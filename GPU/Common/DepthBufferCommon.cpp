@@ -62,7 +62,7 @@ void GenerateDepthDownloadFs(ShaderWriter &writer) {
 	writer.BeginFSMain(depthUniforms, varyings);
 	writer.C("  float depth = ").SampleTexture2D("tex", "v_texcoord").C(".r; \n");
 	// At this point, clamped maps [0, 1] to [0, 65535].
-	writer.C("  float clamped = clamp((depth + u_depthFactor.x) * u_depthFactor.y, 0.0, 1.0);\n");
+	writer.C("  float clamped = clamp((depth - u_depthFactor.x) * u_depthFactor.y, 0.0, 1.0);\n");
 	writer.C("  vec4 enc = u_depthShift * clamped;\n");
 	writer.C("  enc = floor(mod(enc, 256.0)) * u_depthTo8;\n");
 	writer.C("  vec4 outColor = enc.yzww;\n"); // Let's ignore the bits outside 16 bit precision.
@@ -221,16 +221,11 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 		// Setting this to 0.95f eliminates flickering lights with delayed readback in Syphon Filter.
 		// That's pretty ugly though! But we'll need to do that if we're gonna enable delayed readback in those games.
 		const float fudgeFactor = 1.0f;
+		DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
+		ub.u_depthFactor[0] = depthScale.Offset();
+		ub.u_depthFactor[1] = depthScale.Scale();
 
-		if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
-			// Don't scale anything, since we're not using factors outside accurate mode.
-			ub.u_depthFactor[0] = 0.0f;
-			ub.u_depthFactor[1] = fudgeFactor;
-		} else {
-			const float factor = DepthSliceFactor(gstate_c.UseFlags());
-			ub.u_depthFactor[0] = -0.5f * (factor - 1.0f) * (1.0f / factor);
-			ub.u_depthFactor[1] = factor * fudgeFactor;
-		}
+		// These are for packing a float in u8x4 colors. We should support more suitable readback formats on APIs that can do it.
 		static constexpr float shifts[] = { 16777215.0f, 16777215.0f / 256.0f, 16777215.0f / 65536.0f, 16777215.0f / 16777216.0f };
 		memcpy(ub.u_depthShift, shifts, sizeof(shifts));
 		static constexpr float to8[] = { 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f };
