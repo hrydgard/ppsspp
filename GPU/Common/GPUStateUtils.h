@@ -90,6 +90,7 @@ struct ViewportAndScissor {
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
 void UpdateCachedViewportState(const ViewportAndScissor &vpAndScissor);
 
+// NOTE: See the .cpp file for detailed comment about how the use flags are interpreted.
 class DepthScaleFactors {
 public:
 	// This should only be used from GetDepthScaleFactors.
@@ -97,13 +98,13 @@ public:
 
 	// Decodes a value from a depth buffer to a value of range 0..65536
 	float DecodeToU16(float z) const {
-		return (z - offset_) * scale_;
+		return (float)((z - offset_) * scale_);
 	}
 
 	// Encodes a value from the range 0..65536 to a normalized depth value (0-1), in the
 	// range that we write to the depth buffer.
 	float EncodeFromU16(float z_u16) const {
-		return (z_u16 / scale_) + offset_;
+		return (float)(((double)z_u16 / scale_) + offset_);
 	}
 
 	float Offset() const { return (float)offset_; }
@@ -111,11 +112,14 @@ public:
 	// float Scale() const { return scale_ / 65535.0f; }
 
 private:
+	// Doubles hardly cost anything these days, and precision matters here.
 	double offset_;
 	double scale_;
 };
 
 DepthScaleFactors GetDepthScaleFactors(u32 useFlags);
+
+// These two will be replaced with just DepthScaleFactors.
 float ToScaledDepthFromIntegerScale(u32 useFlags, float z);
 float DepthSliceFactor(u32 useFlags);
 

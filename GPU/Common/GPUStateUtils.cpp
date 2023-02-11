@@ -502,22 +502,55 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 static const float DEPTH_SLICE_FACTOR_HIGH = 4.0f;
 static const float DEPTH_SLICE_FACTOR_16BIT = 256.0f;
 
+// The supported flag combinations
+//
+// 0 - "Old"-style GL depth.
+//     Or "Non-accurate depth" : effectively ignore minz / maxz. Map Z values based on viewport, which clamps.
+//     This skews depth in many instances. Depth can be inverted in this mode if viewport says.
+//     This is completely wrong, but works in some cases (probably because some game devs assumed it was how it worked)
+//     and avoids some depth clamp issues.
+//
+// GPU_USE_ACCURATE_DEPTH:
+//     Accurate depth: Z in the framebuffer matches the range of Z used on the PSP linearly in some way. We choose
+//     a centered range, to simulate clamping by letting otherwise out-of-range pixels survive the 0 and 1 cutoffs.
+//     Clip depth based on minz/maxz, and viewport is just a means to scale and center the value, not clipping or mapping to stored values.
+//
+// GPU_USE_ACCURATE_DEPTH | GPU_USE_DEPTH_CLAMP:
+//     Variant of GPU_USE_ACCURATE_DEPTH, just the range is the nice and convenient 0-1 since we can use
+//     hardware depth clamp. only viable in accurate depth mode, clamps depth and therefore uses the full 0-1 range. Using the full 0-1 range is not what accurate means, it's implied by depth clamp (which also means we're clamping.)
+//
+// GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT:
+// GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT | GPU_USE_DEPTH_CLAMP:
+//     Only viable in accurate depth mode, means to use a range of the 24-bit depth values available
+//     from the GPU to represent the 16-bit values the PSP had, to try to make everything round and
+//     z-fight (close to) the same way as on hardware, cheaply (cheaper than rounding depth in fragment shader).
+//     We automatically switch to this if Z tests for equality are used.
+//     Depth clamp has no noticeable effect here if set.
+//
+// Any other combinations of these particular flags are bogus (like for example a lonely GPU_USE_DEPTH_CLAMP).
+
 float DepthSliceFactor(u32 useFlags) {
 	if (!(useFlags & GPU_USE_ACCURATE_DEPTH)) {
+		// Old style depth.
 		return 1.0f;
 	}
 	if (useFlags & GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT) {
+		// Accurate depth but 16-bit resolution, so squish.
 		return DEPTH_SLICE_FACTOR_16BIT;
 	}
 	if (useFlags & GPU_USE_DEPTH_CLAMP) {
+		// Accurate depth, but we can use the full range since clamping is available.
 		return 1.0f;
 	}
+
+	// Standard accurate depth.
 	return DEPTH_SLICE_FACTOR_HIGH;
 }
 
 // This is used for float values which might not be integers, but are in the integer scale of 0-65535.
 float ToScaledDepthFromIntegerScale(u32 useFlags, float z) {
 	if (!(useFlags & GPU_USE_ACCURATE_DEPTH)) {
+		// Old style depth, shortcut.
 		return z * (1.0f / 65535.0f);
 	}
 
@@ -538,9 +571,9 @@ DepthScaleFactors GetDepthScaleFactors(u32 useFlags) {
 		return DepthScaleFactors(0.0f, 65535.0f);
 	}
 
-	const float depthSliceFactor = DepthSliceFactor(useFlags);
-	const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
-	return DepthScaleFactors(offset, depthSliceFactor * 65535.0f);
+	const double depthSliceFactor = DepthSliceFactor(useFlags);
+	const double offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
+	return DepthScaleFactors(offset, (float)(depthSliceFactor * 65535.0));
 }
 
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
