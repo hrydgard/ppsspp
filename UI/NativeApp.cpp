@@ -1405,7 +1405,7 @@ void NativeAxis(const AxisInput &axis) {
 	bool landscape = dp_yres < dp_xres;
 	// now transform out current tilt to the calibrated coordinate system
 	Tilt trueTilt = GenTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
-		g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius,
+		g_Config.bInvertTiltX, g_Config.bInvertTiltY,
 		xSensitivity, ySensitivity);
 
 	TranslateTiltToInput(trueTilt);

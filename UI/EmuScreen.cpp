@@ -542,27 +542,6 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	}
 }
 
-//tiltInputCurve implements a smooth deadzone as described here:
-//http://www.gamasutra.com/blogs/JoshSutphin/20130416/190541/Doing_Thumbstick_Dead_Zones_Right.php
-inline float tiltInputCurve(float x) {
-	const float deadzone = g_Config.fDeadzoneRadius;
-	const float factor = 1.0f / (1.0f - deadzone);
-
-	if (x > deadzone) {
-		return (x - deadzone) * (x - deadzone) * factor;
-	} else if (x < -deadzone) {
-		return -(x + deadzone) * (x + deadzone) * factor;
-	} else {
-		return 0.0f;
-	}
-}
-
-inline float clamp1(float x) {
-	if (x > 1.0f) return 1.0f;
-	if (x < -1.0f) return -1.0f;
-	return x;
-}
-
 void EmuScreen::touch(const TouchInput &touch) {
 	Core_NotifyActivity();
 

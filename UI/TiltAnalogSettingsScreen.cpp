@@ -120,14 +120,18 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	calibrate->SetEnabledFunc(enabledFunc);
 	settings->Add(calibrate);
 
+	settings->Add(new ItemHeader(co->T("Sensitivity")));
+	if (g_Config.iTiltInputType > 1) {
+		settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltDigitalDeadzoneRadius, 0.05f, 0.5f, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"))->SetEnabledFunc(enabledFunc);
+	} else {
+		settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltAnalogDeadzoneRadius, 0.0f, 0.8f, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"))->SetEnabledFunc(enabledFunc);
+	}
+	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, co->T("Tilt Sensitivity along X axis"), screenManager(), "%"))->SetEnabledFunc(enabledFunc);
+	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, co->T("Tilt Sensitivity along Y axis"), screenManager(), "%"))->SetEnabledFunc(enabledFunc);
+
 	settings->Add(new ItemHeader(co->T("Invert Axes")));
 	settings->Add(new CheckBox(&g_Config.bInvertTiltX, co->T("Invert Tilt along X axis")))->SetEnabledFunc(enabledFunc);
 	settings->Add(new CheckBox(&g_Config.bInvertTiltY, co->T("Invert Tilt along Y axis")))->SetEnabledFunc(enabledFunc);
-
-	settings->Add(new ItemHeader(co->T("Sensitivity")));
-	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, co->T("Tilt Sensitivity along X axis"), screenManager(), "%"))->SetEnabledFunc(enabledFunc);
-	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, co->T("Tilt Sensitivity along Y axis"), screenManager(), "%"))->SetEnabledFunc(enabledFunc);
-	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"))->SetEnabledFunc(enabledFunc);
 
 	settings->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));
 	settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
