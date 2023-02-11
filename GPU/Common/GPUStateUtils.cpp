@@ -554,15 +554,16 @@ DepthScaleFactors GetDepthScaleFactors(u32 useFlags) {
 		return DepthScaleFactors(0.0f, 65535.0f);
 	}
 
-	const double depthSliceFactor = DepthSliceFactor(useFlags);
 	if (useFlags & GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT) {
-		const double offset = 0.5 * (depthSliceFactor - 1.0) / depthSliceFactor;
+		const double offset = 0.5 * (DEPTH_SLICE_FACTOR_16BIT - 1.0) / DEPTH_SLICE_FACTOR_16BIT;
 		// Use one bit for each value, rather than 1.0 / (65535.0 * 256.0).
 		const double scale = 16777215.0;
 		return DepthScaleFactors(offset, scale);
+	} else if (useFlags & GPU_USE_DEPTH_CLAMP) {
+		return DepthScaleFactors(0.0f, 65535.0f);
 	} else {
-		const double offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
-		return DepthScaleFactors(offset, (float)(depthSliceFactor * 65535.0));
+		const double offset = 0.5f * (DEPTH_SLICE_FACTOR_HIGH - 1.0f) * (1.0f / DEPTH_SLICE_FACTOR_HIGH);
+		return DepthScaleFactors(offset, (float)(DEPTH_SLICE_FACTOR_HIGH * 65535.0));
 	}
 }
 
