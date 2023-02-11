@@ -108,10 +108,10 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
 	// have to apply the scaling.
-	DepthScaleFactors factors = GetDepthScaleFactors();
+	DepthScaleFactors factors = GetDepthScaleFactors(gstate_c.UseFlags());
 	writer.C("  vec3 rgb = ").SampleTexture2D("tex", "v_texcoord.xy").C(".xyz;\n");
 	writer.F("  highp float depthValue = (floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0); \n");
-	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale, factors.offset);
+	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.ScaleU16(), factors.Offset());
 	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
@@ -128,7 +128,7 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
 	// have to apply the scaling.
-	DepthScaleFactors factors = GetDepthScaleFactors();
+	DepthScaleFactors factors = GetDepthScaleFactors(gstate_c.UseFlags());
 	writer.C("  vec2 tsize = texSize;\n");
 	writer.C("  vec2 coord = v_texcoord * tsize;\n");
 	writer.F("  float strip = 4.0 * scaleFactor;\n");
@@ -137,7 +137,7 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	writer.C("  coord /= tsize;\n");
 	writer.C("  vec3 rgb = ").SampleTexture2D("tex", "coord").C(".xyz;\n");
 	writer.F("  highp float depthValue = (floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0); \n");
-	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale, factors.offset);
+	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.ScaleU16(), factors.Offset());
 	writer.EndFSMain("outColor");
 	
 	return Draw2DPipelineInfo{

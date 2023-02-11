@@ -227,7 +227,7 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 			ub.u_depthFactor[0] = 0.0f;
 			ub.u_depthFactor[1] = fudgeFactor;
 		} else {
-			const float factor = DepthSliceFactor();
+			const float factor = DepthSliceFactor(gstate_c.UseFlags());
 			ub.u_depthFactor[0] = -0.5f * (factor - 1.0f) * (1.0f / factor);
 			ub.u_depthFactor[1] = factor * fudgeFactor;
 		}
@@ -276,10 +276,10 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 		// We downloaded float values directly in this case.
 		uint16_t *dest = pixels;
 		const float *packedf = (float *)convBuf_;
-		DepthScaleFactors depthScale = GetDepthScaleFactors();
+		DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
 		for (int yp = 0; yp < destH; ++yp) {
 			for (int xp = 0; xp < destW; ++xp) {
-				float scaled = depthScale.Apply(packedf[xp]);
+				float scaled = depthScale.DecodeToU16(packedf[xp]);
 				if (scaled <= 0.0f) {
 					dest[xp] = 0;
 				} else if (scaled >= 65535.0f) {

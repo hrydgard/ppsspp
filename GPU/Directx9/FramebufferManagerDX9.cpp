@@ -74,13 +74,13 @@ bool FramebufferManagerDX9::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x, i
 	const u32 *packed = (const u32 *)locked.pBits;
 	u16 *depth = (u16 *)pixels;
 
-	DepthScaleFactors depthScale = GetDepthScaleFactors();
+	DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
 	// TODO: Optimize.
 	for (int yp = 0; yp < h; ++yp) {
 		for (int xp = 0; xp < w; ++xp) {
 			const int offset = (yp + y) * pixelsStride + x + xp;
 
-			float scaled = depthScale.Apply((packed[offset] & 0x00FFFFFF) * (1.0f / 16777215.0f));
+			float scaled = depthScale.DecodeToU16((packed[offset] & 0x00FFFFFF) * (1.0f / 16777215.0f));
 			if (scaled <= 0.0f) {
 				depth[offset] = 0;
 			} else if (scaled >= 65535.0f) {
