@@ -797,6 +797,8 @@ static bool TestSmallDataConvert() {
 	return true;
 }
 
+float DepthSliceFactor(u32 useFlags);
+
 static bool TestDepthMath() {
 	// These are in normalized space.
 	static const volatile float testValues[] = { 0.0f, 0.1f, 0.5f, M_PI / 4.0f, 0.9f, 1.0f };
