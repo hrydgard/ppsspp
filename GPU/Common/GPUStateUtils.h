@@ -119,8 +119,7 @@ private:
 
 DepthScaleFactors GetDepthScaleFactors(u32 useFlags);
 
-// These two will be replaced with just DepthScaleFactors.
-float ToScaledDepthFromIntegerScale(u32 useFlags, float z);
+// This will be replaced with just DepthScaleFactors.
 float DepthSliceFactor(u32 useFlags);
 
 // These are common to all modern APIs and can be easily converted with a lookup table.

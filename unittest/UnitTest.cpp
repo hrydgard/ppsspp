@@ -830,7 +830,6 @@ static bool TestDepthMath() {
 			float encoded = factors.EncodeFromU16(testValue);
 			float decodedU16 = factors.DecodeToU16(encoded);
 			EXPECT_REL_EQ_FLOAT(decodedU16, testValue, 0.0001f);
-			EXPECT_REL_EQ_FLOAT(encoded, ToScaledDepthFromIntegerScale(useFlags, testValue), 0.000001f);
 		}
 	}
 

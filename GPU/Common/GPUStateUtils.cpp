@@ -548,24 +548,6 @@ float DepthSliceFactor(u32 useFlags) {
 	return DEPTH_SLICE_FACTOR_HIGH;
 }
 
-// This is used for float values which might not be integers, but are in the integer scale of 0-65535.
-float ToScaledDepthFromIntegerScale(u32 useFlags, float z) {
-	if (!(useFlags & GPU_USE_ACCURATE_DEPTH)) {
-		// Old style depth, shortcut.
-		return z * (1.0f / 65535.0f);
-	}
-
-	const float depthSliceFactor = DepthSliceFactor(useFlags);
-	if (useFlags & GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT) {
-		const double doffset = 0.5 * (depthSliceFactor - 1.0) / depthSliceFactor;
-		// Use one bit for each value, rather than 1.0 / (65535.0 * 256.0).
-		return (float)((double)z * (1.0 / 16777215.0) + doffset);
-	} else {
-		const float offset = 0.5f * (depthSliceFactor - 1.0f) / depthSliceFactor;
-		return z / depthSliceFactor * (1.0f / 65535.0f) + offset;
-	}
-}
-
 // See class DepthScaleFactors for how to apply.
 DepthScaleFactors GetDepthScaleFactors(u32 useFlags) {
 	if (!(useFlags & GPU_USE_ACCURATE_DEPTH)) {
