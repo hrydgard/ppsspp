@@ -575,6 +575,7 @@ DepthScaleFactors GetDepthScaleFactors(u32 useFlags) {
 	const double depthSliceFactor = DepthSliceFactor(useFlags);
 	if (useFlags & GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT) {
 		const double offset = 0.5 * (depthSliceFactor - 1.0) / depthSliceFactor;
+		// Use one bit for each value, rather than 1.0 / (65535.0 * 256.0).
 		const double scale = 16777215.0;
 		return DepthScaleFactors(offset, scale);
 	} else {
@@ -638,6 +639,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	float offsetX = gstate.getOffsetX();
 	float offsetY = gstate.getOffsetY();
 
+	DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
+
 	if (out.throughMode) {
 		// If renderX/renderY are offset to compensate for a split framebuffer,
 		// applying the offset to the viewport isn't enough, since the viewport clips.
@@ -646,8 +649,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		out.viewportY = renderY * renderHeightFactor + displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
 		out.viewportH = curRTHeight * renderHeightFactor;
-		out.depthRangeMin = ToScaledDepthFromIntegerScale(gstate_c.UseFlags(), 0.0f);
-		out.depthRangeMax = ToScaledDepthFromIntegerScale(gstate_c.UseFlags(), 65536.0f);
+		out.depthRangeMin = depthScale.EncodeFromU16(0.0f);
+		out.depthRangeMax = depthScale.EncodeFromU16(65536.0f);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXScale = gstate.getViewportXScale();
@@ -784,11 +787,11 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
 			out.depthScale = 1.0f;
 			out.zOffset = 0.0f;
-			out.depthRangeMin = ToScaledDepthFromIntegerScale(gstate_c.UseFlags(), vpZCenter - vpZScale);
-			out.depthRangeMax = ToScaledDepthFromIntegerScale(gstate_c.UseFlags(), vpZCenter + vpZScale);
+			out.depthRangeMin = depthScale.EncodeFromU16(vpZCenter - vpZScale);
+			out.depthRangeMax = depthScale.EncodeFromU16(vpZCenter + vpZScale);
 		} else {
-			out.depthRangeMin = ToScaledDepthFromIntegerScale(gstate_c.UseFlags(), minz);
-			out.depthRangeMax = ToScaledDepthFromIntegerScale(gstate_c.UseFlags(), maxz);
+			out.depthRangeMin = depthScale.EncodeFromU16(minz);
+			out.depthRangeMax = depthScale.EncodeFromU16(maxz);
 		}
 
 		// OpenGL will clamp these for us anyway, and Direct3D will error if not clamped.
