@@ -287,14 +287,15 @@ public:
 	// This is the held base angle, that we compute the tilt relative from.
 	float fTiltBaseAngleY;
 	// whether the x axes and y axes should invert directions (left becomes right, top becomes bottom.)
-	// TODO: Do we really need these?
-	bool bInvertTiltX, bInvertTiltY;
-	//the sensitivity of the tilt in the x direction
+	bool bInvertTiltX;
+	bool bInvertTiltY;
+	// The sensitivity of the tilt in the X and Y directions, separately.
 	int iTiltSensitivityX;
-	//the sensitivity of the tilt in the Y direction
 	int iTiltSensitivityY;
-	//the deadzone radius of the tilt
-	float fDeadzoneRadius;
+	// The deadzone radius of the tilt.
+	// Separate settings for analog vs digital since the usable ranges differ.
+	float fTiltAnalogDeadzoneRadius;
+	float fTiltDigitalDeadzoneRadius;
 	//type of tilt input currently selected: Defined in TiltEventProcessor.h
 	//0 - no tilt, 1 - analog stick, 2 - D-Pad, 3 - Action Buttons (Tri, Cross, Square, Circle)
 	int iTiltInputType;

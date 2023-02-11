@@ -28,7 +28,7 @@ void GenerateTriggerButtonEvent(const Tilt &tilt);
 
 // deadzone is normalized - 0 to 1
 // sensitivity controls how fast the deadzone reaches max value
-inline float tiltInputCurve(float x, float deadzone, float sensitivity) {
+inline float TiltInputCurve(float x, float deadzone, float sensitivity) {
 	const float factor = sensitivity * 1.0f / (1.0f - deadzone);
 
 	if (x > deadzone) {
@@ -41,28 +41,26 @@ inline float tiltInputCurve(float x, float deadzone, float sensitivity) {
 }
 
 // dampen the tilt according to the given deadzone amount.
-inline Tilt dampTilt(const Tilt &tilt, float deadzone, float xSensitivity, float ySensitivity) {
+inline Tilt DampenTilt(const Tilt &tilt, float deadzone, float xSensitivity, float ySensitivity) {
 	//multiply sensitivity by 2 so that "overshoot" is possible. I personally prefer a
 	//sensitivity >1 for kingdom hearts and < 1 for Gods Eater. so yes, overshoot is nice
 	//to have. 
-	return Tilt(tiltInputCurve(tilt.x_, deadzone, 2.0f * xSensitivity), tiltInputCurve(tilt.y_, deadzone, 2.0f * ySensitivity));
+	return Tilt(
+		TiltInputCurve(tilt.x_, deadzone, 2.0f * xSensitivity),
+		TiltInputCurve(tilt.y_, deadzone, 2.0f * ySensitivity)
+	);
 }
 
-inline float clamp(float f) {
-	if (f > 1.0f) return 1.0f;
-	if (f < -1.0f) return -1.0f;
-	return f;
-}
-
-Tilt GenTilt(bool landscape, float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float deadzone, float xSensitivity, float ySensitivity) {
+Tilt GenTilt(bool landscape, float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float xSensitivity, float ySensitivity) {
 	if (landscape) {
 		std::swap(x, y);
 	} else {
 		x *= -1.0f;
 	}
 
-	Lin::Vec3 down(x, y, z);
-	down.normalize();
+	float deadzone = g_Config.iTiltInputType > 1 ? g_Config.fTiltDigitalDeadzoneRadius : g_Config.fTiltAnalogDeadzoneRadius;
+
+	Lin::Vec3 down = Lin::Vec3(x, y, z).normalized();
 
 	float angleAroundX = atan2(down.z, down.y);
 	float yAngle = angleAroundX - calibrationAngle;
@@ -79,12 +77,8 @@ Tilt GenTilt(bool landscape, float calibrationAngle, float x, float y, float z, 
 		transformedTilt.y_ *= -1.0f;
 	}
 
-	// For the button mappings to work, we need a minimum deadzone.
-	// Analog stick though is better off with a zero one but any can work.
-	float actualDeadzone = g_Config.iTiltInputType == TILT_ANALOG ? deadzone : std::max(0.2f, deadzone);
-
 	// finally, dampen the tilt according to our curve.
-	return dampTilt(transformedTilt, deadzone, xSensitivity, ySensitivity);
+	return DampenTilt(transformedTilt, deadzone, xSensitivity, ySensitivity);
 }
 
 void TranslateTiltToInput(const Tilt &tilt) {
@@ -111,6 +105,12 @@ void TranslateTiltToInput(const Tilt &tilt) {
 		GenerateTriggerButtonEvent(tilt);
 		break;
 	}
+}
+
+inline float clamp(float f) {
+	if (f > 1.0f) return 1.0f;
+	if (f < -1.0f) return -1.0f;
+	return f;
 }
 
 void GenerateAnalogStickEvent(const Tilt &tilt) {

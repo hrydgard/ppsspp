@@ -11,7 +11,7 @@ struct Tilt {
 
 // generates a tilt in the correct coordinate system based on
 // calibration. x, y, z is the current accelerometer reading (with no conversion).
-Tilt GenTilt(bool landscape, const float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float deadzone, float xSensitivity, float ySensitivity);
+Tilt GenTilt(bool landscape, const float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float xSensitivity, float ySensitivity);
 
 void TranslateTiltToInput(const Tilt &tilt);
 void ResetTiltEvents();
