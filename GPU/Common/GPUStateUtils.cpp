@@ -502,7 +502,7 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 static const float DEPTH_SLICE_FACTOR_HIGH = 4.0f;
 static const float DEPTH_SLICE_FACTOR_16BIT = 256.0f;
 
-// The supported flag combinations
+// The supported flag combinations. TODO: Maybe they should be distilled down into an enum.
 //
 // 0 - "Old"-style GL depth.
 //     Or "Non-accurate depth" : effectively ignore minz / maxz. Map Z values based on viewport, which clamps.
@@ -525,7 +525,8 @@ static const float DEPTH_SLICE_FACTOR_16BIT = 256.0f;
 //     from the GPU to represent the 16-bit values the PSP had, to try to make everything round and
 //     z-fight (close to) the same way as on hardware, cheaply (cheaper than rounding depth in fragment shader).
 //     We automatically switch to this if Z tests for equality are used.
-//     Depth clamp has no noticeable effect here if set.
+//     Depth clamp has no effect on the depth scaling here if set, though will still be enabled
+//     and clamp wildly out of line values.
 //
 // Any other combinations of these particular flags are bogus (like for example a lonely GPU_USE_DEPTH_CLAMP).
 

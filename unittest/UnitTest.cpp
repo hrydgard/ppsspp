@@ -798,16 +798,11 @@ static bool TestSmallDataConvert() {
 }
 
 static bool TestDepthMath() {
-	// Flag combinations that can happen:
-	// 0
-	// GPU_USE_ACCURATE_DEPTH
-	// GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT
-	// 
-	// TODO: What about GPU_USE_DEPTH_CLAMP? It basically overrides GPU_USE_ACCURATE_DEPTH?
-
 	// These are in normalized space.
 	static const volatile float testValues[] = { 0.0f, 0.1f, 0.5f, M_PI / 4.0f, 0.9f, 1.0f };
 
+	// Flag combinations that can happen (any combination not included here is invalid, see comment
+	// over in GPUStateUtils.cpp):
 	static const u32 useFlagsArray[] = {
 		0,
 		GPU_USE_ACCURATE_DEPTH,
