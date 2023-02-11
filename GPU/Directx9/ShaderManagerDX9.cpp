@@ -465,8 +465,7 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		float halfActualZRange = gstate_c.vpDepthScale != 0.0f ? vpZScale / gstate_c.vpDepthScale : 0.0f;
 		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
 		float viewZScale = halfActualZRange * 2.0f;
-		// Account for the half pixel offset.
-		float viewZCenter = minz + (DepthSliceFactor(gstate_c.UseFlags()) / 256.0f) * 0.5f;
+		float viewZCenter = minz;
 		float reverseScale = 2.0f * (1.0f / gstate_c.vpDepthScale);
 		float reverseTranslate = gstate_c.vpZOffset * 0.5f + 0.5f;
 
