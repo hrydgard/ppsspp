@@ -810,7 +810,7 @@ static bool TestDepthMath() {
 		GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH,
 		GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT,  // Here, GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT should take precedence over USE_DEPTH_CLAMP.
 	};
-	static const float expectedScale[] = { 65535.0f, 262140.0f, 16776960.0f, 65535.0f, 16776960.0f, };
+	static const float expectedScale[] = { 65535.0f, 262140.0f, 16777215.0f, 65535.0f, 16777215.0f, };
 	static const float expectedOffset[] = { 0.0f, 0.375f, 0.498047f, 0.0f, 0.498047f, };
 
 	EXPECT_REL_EQ_FLOAT(100000.0f, 100001.0f, 0.00001f);
@@ -822,7 +822,7 @@ static bool TestDepthMath() {
 
 		EXPECT_EQ_FLOAT(factors.ScaleU16(), expectedScale[j]);
 		EXPECT_REL_EQ_FLOAT(factors.Offset(), expectedOffset[j], 0.00001f);
-		EXPECT_EQ_FLOAT(factors.ScaleU16(), DepthSliceFactor(useFlags) * 65535.0f);
+		EXPECT_REL_EQ_FLOAT(factors.ScaleU16(), DepthSliceFactor(useFlags) * 65535.0f, 0.0001f);
 
 		for (int i = 0; i < ARRAY_SIZE(testValues); i++) {
 			float testValue = testValues[i] * 65535.0f;

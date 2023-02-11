@@ -573,8 +573,14 @@ DepthScaleFactors GetDepthScaleFactors(u32 useFlags) {
 	}
 
 	const double depthSliceFactor = DepthSliceFactor(useFlags);
-	const double offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
-	return DepthScaleFactors(offset, (float)(depthSliceFactor * 65535.0));
+	if (useFlags & GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT) {
+		const double offset = 0.5 * (depthSliceFactor - 1.0) / depthSliceFactor;
+		const double scale = 16777215.0;
+		return DepthScaleFactors(offset, scale);
+	} else {
+		const double offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
+		return DepthScaleFactors(offset, (float)(depthSliceFactor * 65535.0));
+	}
 }
 
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
