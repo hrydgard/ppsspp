@@ -462,7 +462,7 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		float vpZCenter = gstate.getViewportZCenter();
 
 		// These are just the reverse of the formulas in GPUStateUtils.
-		float halfActualZRange = vpZScale / gstate_c.vpDepthScale;
+		float halfActualZRange = gstate_c.vpDepthScale != 0.0f ? vpZScale / gstate_c.vpDepthScale : 0.0f;
 		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
 		float viewZScale = halfActualZRange * 2.0f;
 		// Account for the half pixel offset.
