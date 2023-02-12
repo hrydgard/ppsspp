@@ -1830,8 +1830,6 @@ void DeveloperToolsScreen::CreateViews() {
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
 	// Experimental, will move to main graphics settings later.
-	list->Add(new ItemHeader(gr->T("Stereo rendering")));
-
 	bool multiViewSupported = draw->GetDeviceCaps().multiViewSupported;
 
 	auto enableStereo = [=]() -> bool {
@@ -1839,6 +1837,7 @@ void DeveloperToolsScreen::CreateViews() {
 	};
 
 	if (draw->GetDeviceCaps().multiViewSupported) {
+		list->Add(new ItemHeader(gr->T("Stereo rendering")));
 		list->Add(new CheckBox(&g_Config.bStereoRendering, gr->T("Stereo rendering")));
 		std::vector<std::string> stereoShaderNames;
 
