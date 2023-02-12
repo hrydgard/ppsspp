@@ -637,10 +637,8 @@ bool StartVRRender() {
 
 		// Get 6DoF scale
 		float scale = 1.0f;
-		bool hasUnitScale = false;
 		if (PSP_CoreParameter().compat.vrCompat().UnitsPerMeter > 0) {
 			scale = PSP_CoreParameter().compat.vrCompat().UnitsPerMeter;
-			hasUnitScale = true;
 		}
 
 		// Update matrices
@@ -739,7 +737,7 @@ bool StartVRRender() {
 					M[11] += side.z;
 				}
 				// Stereoscopy
-				if (hasUnitScale && (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
+				if (matrix == VR_VIEW_MATRIX_RIGHT_EYE) {
 					float dx = fabs(invViewTransform[1].position.x - invViewTransform[0].position.x);
 					float dy = fabs(invViewTransform[1].position.y - invViewTransform[0].position.y);
 					float dz = fabs(invViewTransform[1].position.z - invViewTransform[0].position.z);
@@ -758,15 +756,14 @@ bool StartVRRender() {
 		}
 
 		// Decide if the scene is 3D or not
-		bool stereo = hasUnitScale && g_Config.bEnableStereo;
 		bool vrIncompatibleGame = PSP_CoreParameter().compat.vrCompat().ForceFlatScreen;
 		bool vrScene = !vrFlatForced && (g_Config.bManualForceVR || (vr3DGeometryCount > 15));
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 480.0f / 272.0f);
 		if (g_Config.bEnableVR && !vrIncompatibleGame && (appMode == VR_GAME_MODE) && vrScene) {
-			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
+			VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 			vrFlatGame = false;
 		} else {
-			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
+			VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
 			if (IsGameVRScene()) {
 				vrFlatGame = true;
 			}
