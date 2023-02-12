@@ -129,3 +129,5 @@ CMakeFiles
 
 # Clangd 
 .cache/
+build
+libretro/obj/local
