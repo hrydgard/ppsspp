@@ -208,7 +208,7 @@ public:
 	}
 
 	template<class T>
-	static Error MeasureAndSavePtr(T &_class, u8 **saved, size_t *savedSize)
+	static Error MeasureAndSavePtr(T &_class, std::vector<u8> *saved)
 	{
 		u8 *ptr = nullptr;
 		PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
@@ -216,19 +216,15 @@ public:
 		_assert_(p.error == PointerWrap::ERROR_NONE);
 
 		size_t measuredSize = p.Offset();
-		u8 *data = (u8 *)malloc(measuredSize);
-		if (!data)
-			return ERROR_BAD_ALLOC;
+		saved->resize(measuredSize);
 
-		p.RewindForWrite(data);
+		p.RewindForWrite(&(*saved)[0]);
 		_class.DoState(p);
 
 		if (p.CheckAfterWrite()) {
-			*saved = data;
-			*savedSize = measuredSize;
 			return ERROR_NONE;
 		} else {
-			free(data);
+			saved->resize(0);
 			return ERROR_BROKEN_STATE;
 		}
 	}
@@ -257,13 +253,12 @@ public:
 	template<class T>
 	static Error Save(const Path &filename, const std::string &title, const char *gitVersion, T& _class)
 	{
-		u8 *buffer;
-		size_t sz;
-		Error error = MeasureAndSavePtr(_class, &buffer, &sz);
+		std::vector<u8> buffer;
+		Error error = MeasureAndSavePtr(_class, &buffer);
 
 		// SaveFile takes ownership of buffer (malloc/free)
 		if (error == ERROR_NONE)
-			error = SaveFile(filename, title, gitVersion, buffer, sz);
+			error = SaveFile(filename, title, gitVersion, buffer.data(), buffer.size());
 		return error;
 	}
 

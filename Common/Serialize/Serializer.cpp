@@ -409,14 +409,13 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 	return ERROR_NONE;
 }
 
-// Takes ownership of buffer.
+// Does not take ownership of buffer.
 CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const std::string &title, const char *gitVersion, u8 *buffer, size_t sz) {
 	INFO_LOG(SAVESTATE, "ChunkReader: Writing %s", filename.c_str());
 
 	File::IOFile pFile(filename, "wb");
 	if (!pFile) {
 		ERROR_LOG(SAVESTATE, "ChunkReader: Error opening file for write");
-		free(buffer);
 		return ERROR_BAD_FILE;
 	}
 
@@ -434,7 +433,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 		write_len = ZSTD_compressBound(sz);
 		break;
 	}
-	u8 *compressed_buffer = write_len == 0 ? nullptr : (u8 *)malloc(write_len);
+	u8 *compressed_buffer = write_len == 0 ? nullptr : new u8[write_len];
 	u8 *write_buffer = buffer;
 	if (!compressed_buffer) {
 		if (write_len != 0)
@@ -470,7 +469,6 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 		}
 
 		if (success) {
-			free(buffer);
 			write_buffer = compressed_buffer;
 		} else {
 			ERROR_LOG(SAVESTATE, "ChunkReader: Compression failed");
@@ -497,24 +495,23 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 	// Now let's start writing out the file...
 	if (!pFile.WriteArray(&header, 1)) {
 		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing header");
-		free(write_buffer);
+		delete[] compressed_buffer;
 		return ERROR_BAD_FILE;
 	}
 	if (!pFile.WriteArray(titleFixed, sizeof(titleFixed))) {
 		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing title");
-		free(write_buffer);
+		delete[] compressed_buffer;
 		return ERROR_BAD_FILE;
 	}
 
 	if (!pFile.WriteBytes(write_buffer, write_len)) {
 		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing compressed data");
-		free(write_buffer);
+		delete[] compressed_buffer;
 		return ERROR_BAD_FILE;
 	} else if (sz != write_len) {
 		INFO_LOG(SAVESTATE, "Savestate: Compressed %i bytes into %i", (int)sz, (int)write_len);
 	}
-	free(write_buffer);
-
+	delete[] compressed_buffer;
 	INFO_LOG(SAVESTATE, "ChunkReader: Done writing %s", filename.c_str());
 	return ERROR_NONE;
 }
