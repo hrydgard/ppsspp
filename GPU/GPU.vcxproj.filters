@@ -521,6 +521,9 @@
     <ClCompile Include="GLES\StencilBufferGLES.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
+    <ClCompile Include="Common\VertexDecoderRiscV.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\assets\shaders\tex_4xbrz.csh">
