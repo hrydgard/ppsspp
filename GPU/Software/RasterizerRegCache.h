@@ -44,6 +44,8 @@
 #include "Common/x64Emitter.h"
 #elif PPSSPP_ARCH(MIPS)
 #include "Common/MipsEmitter.h"
+#elif PPSSPP_ARCH(RISCV64)
+#include "Common/RiscVEmitter.h"
 #else
 #include "Common/FakeEmitter.h"
 #endif
@@ -60,6 +62,8 @@ typedef Arm64Gen::ARM64CodeBlock BaseCodeBlock;
 typedef Gen::XCodeBlock BaseCodeBlock;
 #elif PPSSPP_ARCH(MIPS)
 typedef MIPSGen::MIPSCodeBlock BaseCodeBlock;
+#elif PPSSPP_ARCH(RISCV64)
+typedef RiscVGen::RiscVCodeBlock BaseCodeBlock;
 #else
 typedef FakeGen::FakeXCodeBlock BaseCodeBlock;
 #endif
@@ -169,6 +173,9 @@ struct RegCache {
 #elif PPSSPP_ARCH(MIPS)
 	typedef MIPSGen::MIPSReg Reg;
 	static constexpr Reg REG_INVALID_VALUE = MIPSGen::INVALID_REG;
+#elif PPSSPP_ARCH(RISCV64)
+	typedef RiscVGen::RiscVReg Reg;
+	static constexpr Reg REG_INVALID_VALUE = RiscVGen::INVALID_REG;
 #else
 	typedef int Reg;
 	static constexpr Reg REG_INVALID_VALUE = -1;

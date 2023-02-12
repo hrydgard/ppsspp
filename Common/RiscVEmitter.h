@@ -47,6 +47,8 @@ enum RiscVReg {
 	V8, V9, V10, V11, V12, V13, V14, V15,
 	V16, V17, V18, V19, V20, V21, V22, V23,
 	V24, V25, V26, V27, V28, V29, V30, V31,
+
+	INVALID_REG = 0xFFFFFFFF,
 };
 
 enum class FixupBranchType {
@@ -1024,13 +1026,14 @@ private:
 		writable_ += 2;
 	}
 
+protected:
 	const u8 *code_ = nullptr;
 	u8 *writable_ = nullptr;
 	const u8 *lastCacheFlushEnd_ = nullptr;
 	bool autoCompress_ = false;
 };
 
-class MIPSCodeBlock : public CodeBlock<RiscVEmitter> {
+class RiscVCodeBlock : public CodeBlock<RiscVEmitter> {
 private:
 	void PoisonMemory(int offset) override;
 };

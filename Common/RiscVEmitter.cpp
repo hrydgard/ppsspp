@@ -4278,4 +4278,16 @@ void RiscVEmitter::C_SDSP(RiscVReg rs2, u32 uimm9) {
 	Write16(EncodeCSS(Opcode16::C2, rs2, imm5_4_3_8_7_6, Funct3::C_SDSP));
 }
 
+void RiscVCodeBlock::PoisonMemory(int offset) {
+	// So we can adjust region to writable space.  Might be zero.
+	ptrdiff_t writable = writable_ - code_;
+
+	u32 *ptr = (u32 *)(region + offset + writable);
+	u32 *maxptr = (u32 *)(region + region_size - offset + writable);
+	// This will only write an even multiple of u32, but not much else to do.
+	// RiscV: 0x00100073 = EBREAK
+	while (ptr < maxptr)
+		*ptr++ = 0x00100073;
+}
+
 };
