@@ -91,10 +91,7 @@ namespace SaveState
 
 	CChunkFileReader::Error SaveToRam(std::vector<u8> &data) {
 		SaveStart state;
-		size_t sz = CChunkFileReader::MeasurePtr(state);
-		if (data.size() < sz)
-			data.resize(sz);
-		return CChunkFileReader::SavePtr(&data[0], state, sz);
+		return CChunkFileReader::MeasureAndSavePtr(state, &data);
 	}
 
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &data, std::string *errorString) {
@@ -104,7 +101,7 @@ namespace SaveState
 
 	struct StateRingbuffer
 	{
-		StateRingbuffer(int size) : first_(0), next_(0), size_(size), base_(-1)
+		StateRingbuffer(int size) : size_(size)
 		{
 			states_.resize(size);
 			baseMapping_.resize(size);
@@ -238,8 +235,8 @@ namespace SaveState
 
 		typedef std::vector<u8> StateBuffer;
 
-		int first_;
-		int next_;
+		int first_ = 0;
+		int next_ = 0;
 		int size_;
 
 		std::vector<StateBuffer> states_;
@@ -248,8 +245,8 @@ namespace SaveState
 		std::mutex lock_;
 		std::thread compressThread_;
 
-		int base_;
-		int baseUsage_;
+		int base_ = -1;
+		int baseUsage_ = 0;
 	};
 
 	static bool needsProcess = false;
