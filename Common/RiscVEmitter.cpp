@@ -1021,8 +1021,12 @@ void RiscVEmitter::ReserveCodeSpace(u32 bytes) {
 	_assert_msg_((bytes & 3) == 0 || SupportsCompressed(), "Code space should be aligned (no compressed)");
 	for (u32 i = 0; i < bytes / 4; i++)
 		EBREAK();
-	if (bytes & 2)
-		Write16(0);
+	if (bytes & 2) {
+		if (SupportsCompressed())
+			C_EBREAK();
+		else
+			Write16(0);
+	}
 }
 
 const u8 *RiscVEmitter::AlignCode16() {
@@ -4285,9 +4289,11 @@ void RiscVCodeBlock::PoisonMemory(int offset) {
 	u32 *ptr = (u32 *)(region + offset + writable);
 	u32 *maxptr = (u32 *)(region + region_size - offset + writable);
 	// This will only write an even multiple of u32, but not much else to do.
-	// RiscV: 0x00100073 = EBREAK
-	while (ptr < maxptr)
+	// RiscV: 0x00100073 = EBREAK, 0x9002 = C.EBREAK
+	while (ptr + 1 <= maxptr)
 		*ptr++ = 0x00100073;
+	if (SupportsCompressed() && ptr < maxptr && (intptr_t)maxptr - (intptr_t)ptr >= 2)
+		*(u16 *)ptr = 0x9002;
 }
 
 };
