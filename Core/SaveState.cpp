@@ -106,9 +106,10 @@ namespace SaveState
 	// and 1 means that the following bytes are the next block. See Compress/LockedDecompress.
 	class StateRingbuffer {
 	public:
-		StateRingbuffer(int size) : size_(size) {
-			states_.resize(size);
-			baseMapping_.resize(size);
+		StateRingbuffer() {
+			size_ = REWIND_NUM_STATES;
+			states_.resize(size_);
+			baseMapping_.resize(size_);
 		}
 
 		~StateRingbuffer() {
@@ -119,6 +120,8 @@ namespace SaveState
 
 		CChunkFileReader::Error Save()
 		{
+			rewindLastTime = time_now_d();
+
 			std::lock_guard<std::mutex> guard(lock_);
 
 			int n = next_++ % size_;
@@ -162,7 +165,9 @@ namespace SaveState
 
 			static std::vector<u8> buffer;
 			LockedDecompress(buffer, states_[n], bases_[baseMapping_[n]]);
-			return LoadFromRam(buffer, errorString);
+			CChunkFileReader::Error error = LoadFromRam(buffer, errorString);
+			rewindLastTime = time_now_d();
+			return error;
 		}
 
 		void ScheduleCompress(std::vector<u8> *result, const std::vector<u8> *state, const std::vector<u8> *base)
@@ -244,8 +249,29 @@ namespace SaveState
 			return next_ == first_;
 		}
 
+		void Process() {
+			if (g_Config.iRewindSnapshotInterval <= 0) {
+				return;
+			}
+
+			// For fast-forwarding, otherwise they may be useless and too close.
+			double now = time_now_d();
+			double diff = now - rewindLastTime;
+			if (diff < g_Config.iRewindSnapshotInterval)
+				return;
+
+			DEBUG_LOG(SAVESTATE, "Saving rewind state");
+			Save();
+		}
+
+		void NotifyState() {
+			// Prevent saving snapshots immediately after loading or saving a state.
+			rewindLastTime = time_now_d();
+		}
+
 	private:
 		static const int BLOCK_SIZE = 8192;
+		static const int REWIND_NUM_STATES = 20;
 		// TODO: Instead, based on size of compressed state?
 		static const int BASE_USAGE_INTERVAL = 15;
 
@@ -264,6 +290,8 @@ namespace SaveState
 
 		int base_ = -1;
 		int baseUsage_ = 0;
+
+		double rewindLastTime = 0.0f;
 	};
 
 	static bool needsProcess = false;
@@ -281,12 +309,8 @@ namespace SaveState
 	static std::string saveStateInitialGitVersion = "";
 
 	// TODO: Should this be configurable?
-	static const int REWIND_NUM_STATES = 20;
 	static const int SCREENSHOT_FAILURE_RETRIES = 15;
-	static StateRingbuffer rewindStates(REWIND_NUM_STATES);
-	// TODO: Any reason for this to be configurable?
-	const static float rewindMaxWallFrequency = 1.0f;
-	static double rewindLastTime = 0.0f;
+	static StateRingbuffer rewindStates;
 
 	void SaveStart::DoState(PointerWrap &p)
 	{
@@ -357,6 +381,7 @@ namespace SaveState
 
 	void Load(const Path &filename, int slot, Callback callback, void *cbUserData)
 	{
+		rewindStates.NotifyState();
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
 			Core_EnableStepping(true, "savestate.load", 0);
 		Enqueue(Operation(SAVESTATE_LOAD, filename, slot, callback, cbUserData));
@@ -364,6 +389,7 @@ namespace SaveState
 
 	void Save(const Path &filename, int slot, Callback callback, void *cbUserData)
 	{
+		rewindStates.NotifyState();
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
 			Core_EnableStepping(true, "savestate.save", 0);
 		Enqueue(Operation(SAVESTATE_SAVE, filename, slot, callback, cbUserData));
@@ -778,22 +804,6 @@ namespace SaveState
 		return false;
 	}
 
-	static inline void CheckRewindState()
-	{
-		if (gpuStats.numFlips % g_Config.iRewindFlipFrequency != 0)
-			return;
-
-		// For fast-forwarding, otherwise they may be useless and too close.
-		double now = time_now_d();
-		float diff = now - rewindLastTime;
-		if (diff < rewindMaxWallFrequency)
-			return;
-
-		rewindLastTime = now;
-		DEBUG_LOG(BOOT, "Saving rewind state");
-		rewindStates.Save();
-	}
-
 	bool HasLoadedState() {
 		return hasLoadedState;
 	}
@@ -850,8 +860,7 @@ namespace SaveState
 
 	void Process()
 	{
-		if (g_Config.iRewindFlipFrequency != 0 && gpuStats.numFlips != 0)
-			CheckRewindState();
+		rewindStates.Process();
 
 		if (!needsProcess)
 			return;
