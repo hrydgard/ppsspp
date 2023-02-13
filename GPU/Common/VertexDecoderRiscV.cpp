@@ -52,6 +52,19 @@ static const RiscVReg fpScratchReg2 = F11;
 static const RiscVReg fpScratchReg3 = F12;
 static const RiscVReg fpSrc[3] = { F13, F14, F15 };
 
+struct UVScaleRegs {
+	struct {
+		RiscVReg u;
+		RiscVReg v;
+	} scale;
+	struct {
+		RiscVReg u;
+		RiscVReg v;
+	} offset;
+};
+
+static const UVScaleRegs prescaleRegs = { { F0, F1 }, { F2, F3 } };
+
 // TODO: Use vector, where supported.
 
 static const JitLookup jitLookup[] = {
@@ -61,6 +74,10 @@ static const JitLookup jitLookup[] = {
 
 	{&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
+
+	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
+	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
+	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
@@ -88,6 +105,40 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	SetAutoCompress(true);
 
 	bool log = false;
+	bool prescaleStep = false;
+
+	// Look for prescaled texcoord steps
+	for (int i = 0; i < dec.numSteps_; i++) {
+		if (dec.steps_[i] == &VertexDecoder::Step_TcU8Prescale ||
+			dec.steps_[i] == &VertexDecoder::Step_TcU16Prescale ||
+			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescale) {
+			prescaleStep = true;
+		}
+	}
+
+	// Keep the scale/offset in a few fp registers if we need it.
+	if (prescaleStep) {
+		LI(tempReg1, &gstate_c.uv);
+		FL(32, prescaleRegs.scale.u, tempReg1, 0);
+		FL(32, prescaleRegs.scale.v, tempReg1, 4);
+		FL(32, prescaleRegs.offset.u, tempReg1, 8);
+		FL(32, prescaleRegs.offset.v, tempReg1, 12);
+		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
+			LI(scratchReg, by128);
+			FMV(FMv::W, FMv::X, fpScratchReg1, scratchReg);
+			FMUL(32, prescaleRegs.scale.u, prescaleRegs.scale.u, fpScratchReg1);
+			FMUL(32, prescaleRegs.scale.v, prescaleRegs.scale.v, fpScratchReg1);
+			FMUL(32, prescaleRegs.offset.u, prescaleRegs.offset.u, fpScratchReg1);
+			FMUL(32, prescaleRegs.offset.v, prescaleRegs.offset.v, fpScratchReg1);
+		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
+			LI(scratchReg, by32768);
+			FMV(FMv::W, FMv::X, fpScratchReg1, scratchReg);
+			FMUL(32, prescaleRegs.scale.u, prescaleRegs.scale.u, fpScratchReg1);
+			FMUL(32, prescaleRegs.scale.v, prescaleRegs.scale.v, fpScratchReg1);
+			FMUL(32, prescaleRegs.offset.u, prescaleRegs.offset.u, fpScratchReg1);
+			FMUL(32, prescaleRegs.offset.v, prescaleRegs.offset.v, fpScratchReg1);
+		}
+	}
 
 	if (dec.col) {
 		// Or LDB and skip the conditional?  This is probably cheaper.
@@ -224,6 +275,37 @@ void VertexDecoderJitCache::Jit_TcFloatThrough() {
 	LW(tempReg2, srcReg, dec_->tcoff + 4);
 	SW(tempReg1, dstReg, dec_->decFmt.uvoff);
 	SW(tempReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU8Prescale() {
+	LBU(tempReg1, srcReg, dec_->tcoff + 0);
+	LBU(tempReg2, srcReg, dec_->tcoff + 1);
+	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
+	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
+	FMADD(32, fpSrc[0], fpSrc[0], prescaleRegs.scale.u, prescaleRegs.offset.u);
+	FMADD(32, fpSrc[1], fpSrc[1], prescaleRegs.scale.v, prescaleRegs.offset.v);
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.uvoff);
+	FS(32, fpSrc[1], dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU16Prescale() {
+	LHU(tempReg1, srcReg, dec_->tcoff + 0);
+	LHU(tempReg2, srcReg, dec_->tcoff + 2);
+	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
+	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
+	FMADD(32, fpSrc[0], fpSrc[0], prescaleRegs.scale.u, prescaleRegs.offset.u);
+	FMADD(32, fpSrc[1], fpSrc[1], prescaleRegs.scale.v, prescaleRegs.offset.v);
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.uvoff);
+	FS(32, fpSrc[1], dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcFloatPrescale() {
+	FL(32, fpSrc[0], srcReg, dec_->tcoff + 0);
+	FL(32, fpSrc[1], srcReg, dec_->tcoff + 4);
+	FMADD(32, fpSrc[0], fpSrc[0], prescaleRegs.scale.u, prescaleRegs.offset.u);
+	FMADD(32, fpSrc[1], fpSrc[1], prescaleRegs.scale.v, prescaleRegs.offset.v);
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.uvoff);
+	FS(32, fpSrc[1], dstReg, dec_->decFmt.uvoff + 4);
 }
 
 void VertexDecoderJitCache::Jit_NormalS8() {
