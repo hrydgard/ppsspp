@@ -158,7 +158,7 @@ struct VirtualFramebuffer {
 
 	inline int Stride(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_stride : z_stride; }
 	inline u32 Address(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_address : z_address; }
-	inline int Format(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_format : GE_FORMAT_DEPTH16; }
+	inline GEBufferFormat Format(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_format : GE_FORMAT_DEPTH16; }
 	inline int BindSeq(RasterChannel channel) const { return channel == RASTER_COLOR ? colorBindSeq : depthBindSeq; }
 
 	int BufferByteSize(RasterChannel channel) const {

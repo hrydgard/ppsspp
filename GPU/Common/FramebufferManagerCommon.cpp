@@ -2032,8 +2032,8 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 			if (candidate->channel == best->channel) {
 				better = candidate->vfb->BindSeq(candidate->channel) > best->vfb->BindSeq(candidate->channel);
 			} else {
-				// Prefer color over depth.
-				if (candidate->channel == RASTER_COLOR && best->channel == RASTER_DEPTH) {
+				// Prefer depth over color if the address match is perfect.
+				if (candidate->channel == RASTER_DEPTH && best->channel == RASTER_COLOR && candidate->vfb->z_address == basePtr) {
 					better = true;
 				}
 			}
@@ -2073,17 +2073,27 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAddress, int width, int height, int stride, GEBufferFormat format) {
 	INFO_LOG(G3D, "Creating RAM framebuffer at %08x (%dx%d, stride %d, fb_format %d)", fbAddress, width, height, stride, format);
 
+	RasterChannel channel = format == GE_FORMAT_DEPTH16 ? RASTER_DEPTH : RASTER_COLOR;
+
 	// A target for the destination is missing - so just create one!
 	// Make sure this one would be found by the algorithm above so we wouldn't
 	// create a new one each frame.
 	VirtualFramebuffer *vfb = new VirtualFramebuffer{};
 	vfb->fbo = nullptr;
 	uint32_t mask = Memory::IsVRAMAddress(fbAddress) ? 0x041FFFFF : 0x3FFFFFFF;
-	vfb->fb_address = fbAddress & mask;  // NOTE - not necessarily in VRAM!
-	vfb->fb_stride = stride;
-	vfb->z_address = 0;  // marks that if anyone tries to render to this framebuffer, it should be dropped and recreated.
-	vfb->z_stride = 0;
-	vfb->width = std::max(width, stride);
+	if (format == GE_FORMAT_DEPTH16) {
+		vfb->fb_address = 0xFFFFFFFF;  // Invalid address
+		vfb->fb_stride = 0;
+		vfb->z_address = fbAddress;  // marks that if anyone tries to render with depth to this framebuffer, it should be dropped and recreated.
+		vfb->z_stride = stride;
+		vfb->width = width;
+	} else {
+		vfb->fb_address = fbAddress & mask;  // NOTE - not necessarily in VRAM!
+		vfb->fb_stride = stride;
+		vfb->z_address = 0;
+		vfb->z_stride = 0;
+		vfb->width = std::max(width, stride);
+	}
 	vfb->height = height;
 	vfb->newWidth = vfb->width;
 	vfb->newHeight = vfb->height;
@@ -2093,16 +2103,19 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	vfb->renderHeight = (u16)(vfb->height * renderScaleFactor_);
 	vfb->bufferWidth = vfb->width;
 	vfb->bufferHeight = vfb->height;
-	vfb->fb_format = format;
-	vfb->usageFlags = FB_USAGE_RENDER_COLOR;
-	SetColorUpdated(vfb, 0);
+	vfb->fb_format = format == GE_FORMAT_DEPTH16 ? GE_FORMAT_8888 : format;
+	vfb->usageFlags = format == GE_FORMAT_DEPTH16 ? FB_USAGE_RENDER_DEPTH : FB_USAGE_RENDER_COLOR;
+	if (format != GE_FORMAT_DEPTH16) {
+		SetColorUpdated(vfb, 0);
+	}
 	char name[64];
-	snprintf(name, sizeof(name), "%08x_color_RAM", vfb->fb_address);
+	snprintf(name, sizeof(name), "%08x_%s_RAM", vfb->Address(channel), RasterChannelToString(channel));
 	textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_CREATED);
-	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), 0, false, name });
+	bool createDepthBuffer = format == GE_FORMAT_DEPTH16;
+	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), 0, createDepthBuffer, name });
 	vfbs_.push_back(vfb);
 
-	u32 byteSize = vfb->BufferByteSize(RASTER_COLOR);
+	u32 byteSize = vfb->BufferByteSize(channel);
 	if (fbAddress + byteSize > framebufRangeEnd_) {
 		framebufRangeEnd_ = fbAddress + byteSize;
 	}
@@ -2304,22 +2317,31 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 					// No info left - just fall back to something. But this is definitely split pixel tricks.
 					ramFormat = GE_FORMAT_5551;
 				}
-				dstBuffer = true;
 				dstRect.vfb = CreateRAMFramebuffer(dstBasePtr, width, height, dstStride, ramFormat);
 			} else {
 				dstRect.vfb = CreateRAMFramebuffer(dstBasePtr, width, height, dstStride, GE_FORMAT_DEPTH16);
+				dstRect.x_bytes = 0;
+				dstRect.w_bytes = 2 * width;
+				dstRect.y = 0;
+				dstRect.h = height;
+				dstRect.channel = RASTER_DEPTH;
 			}
+			dstBuffer = true;
 		}
 	}
 
 	if (dstBuffer) {
 		dstRect.vfb->last_frame_used = gpuStats.numFlips;
 		// Mark the destination as fresh.
-		dstRect.vfb->colorBindSeq = GetBindSeqCount();
+		if (dstRect.channel == RASTER_COLOR) {
+			dstRect.vfb->colorBindSeq = GetBindSeqCount();
+		} else {
+			dstRect.vfb->depthBindSeq = GetBindSeqCount();
+		}
 	}
 
 	if (dstBuffer && srcBuffer) {
-		if (srcRect.vfb == dstRect.vfb) {
+		if (srcRect.vfb && srcRect.vfb == dstRect.vfb && srcRect.channel == dstRect.channel) {
 			// Transfer within the same buffer.
 			// This is a simple case because there will be no format conversion or similar shenanigans needed.
 			// However, the BPP might still mismatch, but in such a case we can convert the coordinates.
@@ -2329,7 +2351,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				return true;
 			}
 
-			int buffer_bpp = BufferFormatBytesPerPixel(srcRect.vfb->fb_format);
+			int buffer_bpp = BufferFormatBytesPerPixel(srcRect.vfb->Format(srcRect.channel));
 
 			if (bpp != buffer_bpp) {
 				WARN_LOG_ONCE(intrabpp, G3D, "Mismatched transfer bpp in intra-buffer block transfer. Was %d, expected %d.", bpp, buffer_bpp);
@@ -2343,28 +2365,29 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				dstBasePtr, dstRect.x_bytes / bpp, dstRect.y, dstStride);
 			FlushBeforeCopy();
 			// Some backends can handle blitting within a framebuffer. Others will just have to deal with it or ignore it, apparently.
-			BlitFramebuffer(dstRect.vfb, dstX, dstY, srcRect.vfb, srcX, srcY, dstRect.w_bytes / bpp, dstRect.h / bpp, bpp, RASTER_COLOR, "Blit_IntraBufferBlockTransfer");
+			BlitFramebuffer(dstRect.vfb, dstX, dstY, srcRect.vfb, srcX, srcY, dstRect.w_bytes / bpp, dstRect.h / bpp, bpp, dstRect.channel, "Blit_IntraBufferBlockTransfer");
 			RebindFramebuffer("rebind after intra block transfer");
 			SetColorUpdated(dstRect.vfb, skipDrawReason);
 			return true;  // Skip the memory copy.
 		}
 
 		// Straightforward blit between two same-format framebuffers.
-		if (srcRect.vfb->fb_format == dstRect.vfb->fb_format) {
-			WARN_LOG_N_TIMES(dstnotsrc, 5, G3D, "Inter-buffer block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d %s) -> %08x (x:%d y:%d stride:%d %s)",
+		if (srcRect.vfb && srcRect.channel == dstRect.channel && srcRect.vfb->Format(srcRect.channel) == dstRect.vfb->Format(dstRect.channel)) {
+			WARN_LOG_N_TIMES(dstnotsrc, 5, G3D, "Inter-buffer %s block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d %s) -> %08x (x:%d y:%d stride:%d %s)",
+				RasterChannelToString(srcRect.channel),
 				width, height, bpp,
 				srcBasePtr, srcRect.x_bytes / bpp, srcRect.y, srcStride, GeBufferFormatToString(srcRect.vfb->fb_format),
 				dstBasePtr, dstRect.x_bytes / bpp, dstRect.y, dstStride, GeBufferFormatToString(dstRect.vfb->fb_format));
 
 			// Straight blit will do, but check the bpp, we might need to convert coordinates differently.
-			int buffer_bpp = BufferFormatBytesPerPixel(srcRect.vfb->fb_format);
+			int buffer_bpp = BufferFormatBytesPerPixel(srcRect.vfb->Format(srcRect.channel));
 			if (bpp != buffer_bpp) {
 				WARN_LOG_ONCE(intrabpp, G3D, "Mismatched transfer bpp in inter-buffer block transfer. Was %d, expected %d.", bpp, buffer_bpp);
 				// We just switch to using the buffer's bpp, since we've already converted the rectangle to byte offsets.
 				bpp = buffer_bpp;
 			}
 			FlushBeforeCopy();
-			BlitFramebuffer(dstRect.vfb, dstRect.x_bytes / bpp, dstRect.y, srcRect.vfb, srcRect.x_bytes / bpp, srcRect.y, srcRect.w_bytes / bpp, height, bpp, RASTER_COLOR, "Blit_InterBufferBlockTransfer");
+			BlitFramebuffer(dstRect.vfb, dstRect.x_bytes / bpp, dstRect.y, srcRect.vfb, srcRect.x_bytes / bpp, srcRect.y, srcRect.w_bytes / bpp, height, bpp, srcRect.channel, "Blit_InterBufferBlockTransfer");
 			RebindFramebuffer("RebindFramebuffer - Inter-buffer block transfer");
 			SetColorUpdated(dstRect.vfb, skipDrawReason);
 			return true;
@@ -2372,7 +2395,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 
 		// Getting to the more complex cases. Have not actually seen much of these yet.
 		WARN_LOG_N_TIMES(blockformat, 5, G3D, "Mismatched buffer formats in block transfer: %s->%s (%dx%d)",
-			GeBufferFormatToString(srcRect.vfb->fb_format), GeBufferFormatToString(dstRect.vfb->fb_format),
+			GeBufferFormatToString(srcRect.vfb->Format(srcRect.channel)), GeBufferFormatToString(dstRect.vfb->Format(dstRect.channel)),
 			width, height);
 
 		// TODO
@@ -3115,7 +3138,7 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 
 	float srcXFactor = src->renderScaleFactor;
 	float srcYFactor = src->renderScaleFactor;
-	const int srcBpp = BufferFormatBytesPerPixel(src->fb_format);
+	const int srcBpp = BufferFormatBytesPerPixel(src->Format(channel));
 	if (srcBpp != bpp && bpp != 0) {
 		// If we do this, we're kinda in nonsense territory since the actual formats won't match (unless intentionally blitting black or white).
 		srcXFactor = (srcXFactor * bpp) / srcBpp;
@@ -3127,7 +3150,7 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 
 	float dstXFactor = dst->renderScaleFactor;
 	float dstYFactor = dst->renderScaleFactor;
-	const int dstBpp = BufferFormatBytesPerPixel(dst->fb_format);
+	const int dstBpp = BufferFormatBytesPerPixel(dst->Format(channel));
 	if (dstBpp != bpp && bpp != 0) {
 		// If we do this, we're kinda in nonsense territory since the actual formats won't match (unless intentionally blitting black or white).
 		dstXFactor = (dstXFactor * bpp) / dstBpp;
