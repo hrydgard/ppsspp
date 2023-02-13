@@ -59,6 +59,7 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
 
+	{&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
@@ -74,6 +75,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosFloatThrough, &VertexDecoderJitCache::Jit_PosFloatThrough},
 
 	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
+	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
+	{&VertexDecoder::Step_Color565, &VertexDecoderJitCache::Jit_Color565},
+	{&VertexDecoder::Step_Color5551, &VertexDecoderJitCache::Jit_Color5551},
 };
 
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int32_t *jittedSize) {
@@ -186,6 +190,34 @@ void VertexDecoderJitCache::Jit_TcFloat() {
 	SW(tempReg2, dstReg, dec_->decFmt.uvoff + 4);
 }
 
+void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
+	LHU(tempReg1, srcReg, dec_->tcoff + 0);
+	LHU(tempReg2, srcReg, dec_->tcoff + 2);
+
+	if (cpu_info.RiscV_B) {
+		MINU(boundsMinUReg, boundsMinUReg, tempReg1);
+		MAXU(boundsMaxUReg, boundsMaxUReg, tempReg1);
+		MINU(boundsMinVReg, boundsMinVReg, tempReg2);
+		MAXU(boundsMaxVReg, boundsMaxVReg, tempReg2);
+	} else {
+		auto updateSide = [&](RiscVReg src, bool greater, RiscVReg dst) {
+			FixupBranch skip = BLT(greater ? dst : src, greater ? src : dst);
+			MV(dst, src);
+			SetJumpTarget(skip);
+		};
+
+		updateSide(tempReg1, false, boundsMinUReg);
+		updateSide(tempReg1, true, boundsMaxUReg);
+		updateSide(tempReg2, false, boundsMinVReg);
+		updateSide(tempReg2, true, boundsMaxVReg);
+	}
+
+	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
+	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.uvoff);
+	FS(32, fpSrc[1], dstReg, dec_->decFmt.uvoff + 4);
+}
+
 void VertexDecoderJitCache::Jit_TcFloatThrough() {
 	// Just copy 64 bits.  Might be nice if we could detect misaligned load perf.
 	LW(tempReg1, srcReg, dec_->tcoff);
@@ -295,8 +327,116 @@ void VertexDecoderJitCache::Jit_Color8888() {
 	SLTIU(tempReg2, tempReg2, 0xFF);
 	ADDI(tempReg2, tempReg2, -1);
 
-	// Now use that as a mask to set/clear fullAlpha.
+	// Now use that as a mask to clear fullAlpha.
 	AND(fullAlphaReg, fullAlphaReg, tempReg2);
+
+	SW(tempReg1, dstReg, dec_->decFmt.c0off);
+}
+
+void VertexDecoderJitCache::Jit_Color4444() {
+	LHU(tempReg1, srcReg, dec_->coloff);
+
+	// Red...
+	ANDI(tempReg2, tempReg1, 0x0F);
+	// Move green left to position 8.
+	ANDI(tempReg3, tempReg1, 0xF0);
+	SLLI(tempReg3, tempReg3, 4);
+	OR(tempReg2, tempReg2, tempReg3);
+	// For blue, we modify tempReg1 since immediates are sign extended after 11 bits.
+	SRLI(tempReg1, tempReg1, 8);
+	ANDI(tempReg3, tempReg1, 0x0F);
+	SLLI(tempReg3, tempReg3, 16);
+	OR(tempReg2, tempReg2, tempReg3);
+	// And now alpha, moves 20 to get to 24.
+	ANDI(tempReg3, tempReg1, 0xF0);
+	SLLI(tempReg3, tempReg3, 20);
+	OR(tempReg2, tempReg2, tempReg3);
+
+	// Now we swizzle.
+	SLLI(tempReg3, tempReg2, 4);
+	OR(tempReg2, tempReg2, tempReg3);
+
+	// Color is down, now let's say the fullAlphaReg flag from tempReg1 (still has alpha.)
+	// Set tempReg1=-1 if full alpha, 0 otherwise.
+	SLTIU(tempReg1, tempReg1, 0xF0);
+	ADDI(tempReg1, tempReg1, -1);
+
+	// Now use that as a mask to clear fullAlpha.
+	AND(fullAlphaReg, fullAlphaReg, tempReg1);
+
+	SW(tempReg2, dstReg, dec_->decFmt.c0off);
+}
+
+void VertexDecoderJitCache::Jit_Color565() {
+	LHU(tempReg1, srcReg, dec_->coloff);
+
+	// Start by extracting green.
+	SRLI(tempReg2, tempReg1, 5);
+	ANDI(tempReg2, tempReg2, 0x3F);
+	// And now swizzle 6 -> 8, using a wall to clear bits.
+	SRLI(tempReg3, tempReg2, 4);
+	SLLI(tempReg3, tempReg3, 8);
+	SLLI(tempReg2, tempReg2, 2 + 8);
+	OR(tempReg2, tempReg2, tempReg3);
+
+	// Now pull blue out using a wall to isolate it.
+	SRLI(tempReg3, tempReg1, 11);
+	// And now isolate red and combine them.
+	ANDI(tempReg1, tempReg1, 0x1F);
+	SLLI(tempReg3, tempReg3, 16);
+	OR(tempReg1, tempReg1, tempReg3);
+	// Now we swizzle them together.
+	SRLI(tempReg3, tempReg1, 2);
+	SLLI(tempReg1, tempReg1, 3);
+	OR(tempReg1, tempReg1, tempReg3);
+	// But we have to clear the bits now which is annoying.
+	LI(tempReg3, 0x00FF00FF);
+	AND(tempReg1, tempReg1, tempReg3);
+
+	// Now add green back in, and then make an alpha FF and add it too.
+	OR(tempReg1, tempReg1, tempReg2);
+	LI(tempReg3, (s32)0xFF000000);
+	OR(tempReg1, tempReg1, tempReg3);
+
+	SW(tempReg1, dstReg, dec_->decFmt.c0off);
+}
+
+void VertexDecoderJitCache::Jit_Color5551() {
+	LHU(tempReg1, srcReg, dec_->coloff);
+
+	// Separate each color.
+	SRLI(tempReg2, tempReg1, 5);
+	SRLI(tempReg3, tempReg1, 10);
+
+	// Set tempReg3 to -1 if the alpha bit is set.
+	SLLIW(scratchReg, tempReg1, 16);
+	SRAIW(scratchReg, scratchReg, 31);
+	// Now we can mask the flag.
+	AND(fullAlphaReg, fullAlphaReg, scratchReg);
+
+	// Let's move alpha into position.
+	SLLI(scratchReg, scratchReg, 24);
+
+	// Mask each.
+	ANDI(tempReg1, tempReg1, 0x1F);
+	ANDI(tempReg2, tempReg2, 0x1F);
+	ANDI(tempReg3, tempReg3, 0x1F);
+	// And shift into position.
+	SLLI(tempReg2, tempReg2, 8);
+	SLLI(tempReg3, tempReg3, 16);
+	// Combine RGB together.
+	OR(tempReg1, tempReg1, tempReg2);
+	OR(tempReg1, tempReg1, tempReg3);
+	// Swizzle our 5 -> 8
+	SRLI(tempReg2, tempReg1, 2);
+	SLLI(tempReg1, tempReg1, 3);
+	// Mask out the overflow in tempReg2 and combine.
+	LI(tempReg3, 0x00070707);
+	AND(tempReg2, tempReg2, tempReg3);
+	OR(tempReg1, tempReg1, tempReg2);
+
+	// Add in alpha and we're done.
+	OR(tempReg1, tempReg1, scratchReg);
 
 	SW(tempReg1, dstReg, dec_->decFmt.c0off);
 }

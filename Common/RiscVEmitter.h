@@ -304,7 +304,7 @@ public:
 	void ECALL();
 	void EBREAK();
 
-	// 64-bit instructions - oens ending in W sign extend result to 32 bits.
+	// 64-bit instructions - ones ending in W sign extend result to 32 bits.
 	void LWU(RiscVReg rd, RiscVReg addr, s32 simm12);
 	void LD(RiscVReg rd, RiscVReg addr, s32 simm12);
 	void SD(RiscVReg rs2, RiscVReg addr, s32 simm12);
