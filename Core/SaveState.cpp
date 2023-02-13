@@ -20,6 +20,8 @@
 #include <thread>
 #include <mutex>
 
+#include <zstd.h>
+
 #include "Common/Data/Text/I18n.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Text/Parsers.h"
@@ -99,6 +101,12 @@ double g_lastSaveTime = -1.0;
 		return CChunkFileReader::LoadPtr(&data[0], state, errorString);
 	}
 
+	struct StateBuffer {
+		std::vector<u8> zstd_compressed;
+		size_t decompressed_size;
+		size_t compressed_size;
+	};
+
 	// This ring buffer of states is for rewind save states, which are kept in RAM.
 	// Save states are compressed against one of two reference saves (bases_), and the reference
 	// is switched to a fresh save every N saves, where N is BASE_USAGE_INTERVAL.
@@ -150,7 +158,7 @@ double g_lastSaveTime = -1.0;
 			if (err == CChunkFileReader::ERROR_NONE)
 				ScheduleCompress(&states_[n], compressBuffer, &bases_[base_]);
 			else
-				states_[n].clear();
+				states_[n].zstd_compressed.clear();
 
 			baseMapping_[n] = base_;
 			return err;
@@ -165,7 +173,7 @@ double g_lastSaveTime = -1.0;
 				return CChunkFileReader::ERROR_BAD_FILE;
 
 			int n = (--next_ + size_) % size_;
-			if (states_[n].empty())
+			if (states_[n].zstd_compressed.empty())
 				return CChunkFileReader::ERROR_BAD_FILE;
 
 			static std::vector<u8> buffer;
@@ -175,7 +183,7 @@ double g_lastSaveTime = -1.0;
 			return error;
 		}
 
-		void ScheduleCompress(std::vector<u8> *result, const std::vector<u8> *state, const std::vector<u8> *base)
+		void ScheduleCompress(StateBuffer *result, std::vector<u8> *state, const std::vector<u8> *base)
 		{
 			if (compressThread_.joinable())
 				compressThread_.join();
@@ -183,11 +191,11 @@ double g_lastSaveTime = -1.0;
 				SetCurrentThreadName("SaveStateCompress");
 
 				// Should do no I/O, so no JNI thread context needed.
-				Compress(*result, *state, *base);
+				Compress(result, *state, *base);
 			});
 		}
 
-		void Compress(std::vector<u8> &result, const std::vector<u8> &state, const std::vector<u8> &base)
+		void Compress(StateBuffer *result, std::vector<u8> &state, const std::vector<u8> &base)
 		{
 			std::lock_guard<std::mutex> guard(lock_);
 			// Bail if we were cleared before locking.
@@ -195,29 +203,49 @@ double g_lastSaveTime = -1.0;
 				return;
 
 			double start_time = time_now_d();
-			result.clear();
-			result.reserve(512 * 1024);
+			std::vector<u8> compressed;
+			compressed.reserve(512 * 1024);
 			for (size_t i = 0; i < state.size(); i += BLOCK_SIZE)
 			{
 				int blockSize = std::min(BLOCK_SIZE, (int)(state.size() - i));
 				if (i + blockSize > base.size() || memcmp(&state[i], &base[i], blockSize) != 0)
 				{
-					result.push_back(1);
-					result.insert(result.end(), state.begin() + i, state.begin() + i + blockSize);
+					compressed.push_back(1);
+					compressed.insert(compressed.end(), state.begin() + i, state.begin() + i + blockSize);
 				}
 				else
-					result.push_back(0);
+					compressed.push_back(0);
 			}
 
 			double taken_s = time_now_d() - start_time;
-			DEBUG_LOG(Log::SaveState, "Rewind: Compressed save from %d bytes to %d in %0.2f ms.", (int)state.size(), (int)result.size(), taken_s * 1000.0);
+			DEBUG_LOG(Log::SaveState, "Rewind: Compressed save from %d bytes to %d in %0.2f ms.", (int)state.size(), (int)compressed.size(), taken_s * 1000.0);
+
+			// Temporarily allocate a buffer to do decompression in.
+			size_t compressCapacity = ZSTD_compressBound(compressed.size());
+			u8 *compress_buf = (u8 *)malloc(compressCapacity);
+
+			result->compressed_size = ZSTD_compress(compress_buf, compressCapacity, compressed.data(), compressed.size(), 0);
+			if (result->compressed_size) {
+				result->zstd_compressed = std::vector<u8>(result->compressed_size, 0);
+				memcpy(&result->zstd_compressed[0], compress_buf, result->compressed_size);
+				result->decompressed_size = compressed.size();
+			}
+			free(compress_buf);
+
+			double zstd_s = time_now_d() - start_time - taken_s;
+			DEBUG_LOG(Log::SaveState, "Rewind: ZSTD compressed to %d in %0.2f ms.", (int)result->compressed_size, zstd_s * 1000.0);
 		}
 
-		void LockedDecompress(std::vector<u8> &result, const std::vector<u8> &compressed, const std::vector<u8> &base)
+		void LockedDecompress(std::vector<u8> &result, const StateBuffer &buffer, const std::vector<u8> &base)
 		{
 			result.clear();
 			result.reserve(base.size());
 			auto basePos = base.begin();
+
+			// OK, zstd decompress first.
+			std::vector<u8> compressed = std::vector<u8>(buffer.decompressed_size, 0);
+			ZSTD_decompress(&compressed[0], compressed.size(), buffer.zstd_compressed.data(), buffer.zstd_compressed.size());
+
 			for (size_t i = 0; i < compressed.size(); )
 			{
 				if (compressed[i] == 0)
@@ -299,14 +327,12 @@ double g_lastSaveTime = -1.0;
 		// TODO: Instead, based on size of compressed state?
 		const int BASE_USAGE_INTERVAL = 15;
 
-		typedef std::vector<u8> StateBuffer;
-
 		int first_ = 0;
 		int next_ = 0;
 		int size_;
 
 		std::vector<StateBuffer> states_;
-		StateBuffer bases_[2];
+		std::vector<u8> bases_[2];
 		std::vector<int> baseMapping_;
 		std::mutex lock_;
 		std::thread compressThread_;
@@ -315,7 +341,7 @@ double g_lastSaveTime = -1.0;
 		int base_ = -1;
 		int baseUsage_ = 0;
 
-		double rewindLastTime_ = 0.0f;
+		double rewindLastTime_ = 0.0;
 	};
 
 	static bool needsProcess = false;
