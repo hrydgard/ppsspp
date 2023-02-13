@@ -91,10 +91,7 @@ namespace SaveState
 
 	CChunkFileReader::Error SaveToRam(std::vector<u8> &data) {
 		SaveStart state;
-		size_t sz = CChunkFileReader::MeasurePtr(state);
-		if (data.size() < sz)
-			data.resize(sz);
-		return CChunkFileReader::SavePtr(&data[0], state, sz);
+		return CChunkFileReader::MeasureAndSavePtr(state, &data);
 	}
 
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &data, std::string *errorString) {
@@ -102,12 +99,22 @@ namespace SaveState
 		return CChunkFileReader::LoadPtr(&data[0], state, errorString);
 	}
 
-	struct StateRingbuffer
-	{
-		StateRingbuffer(int size) : first_(0), next_(0), size_(size), base_(-1)
-		{
+	// This ring buffer of states is for rewind save states, which are kept in RAM.
+	// Save states are compressed against one of two reference saves (bases_), and the reference
+	// is switched to a fresh save every N saves, where N is BASE_USAGE_INTERVAL.
+	// The compression is a simple block based scheme where 0 means to copy a block from the base,
+	// and 1 means that the following bytes are the next block. See Compress/LockedDecompress.
+	class StateRingbuffer {
+	public:
+		StateRingbuffer(int size) : size_(size) {
 			states_.resize(size);
 			baseMapping_.resize(size);
+		}
+
+		~StateRingbuffer() {
+			if (compressThread_.joinable()) {
+				compressThread_.join();
+			}
 		}
 
 		CChunkFileReader::Error Save()
@@ -118,8 +125,7 @@ namespace SaveState
 			if ((next_ % size_) == first_)
 				++first_;
 
-			static std::vector<u8> buffer;
-			std::vector<u8> *compressBuffer = &buffer;
+			std::vector<u8> *compressBuffer = &buffer_;
 			CChunkFileReader::Error err;
 
 			if (base_ == -1 || ++baseUsage_ > BASE_USAGE_INTERVAL)
@@ -131,12 +137,13 @@ namespace SaveState
 				compressBuffer = &bases_[base_];
 			}
 			else
-				err = SaveToRam(buffer);
+				err = SaveToRam(buffer_);
 
 			if (err == CChunkFileReader::ERROR_NONE)
 				ScheduleCompress(&states_[n], compressBuffer, &bases_[base_]);
 			else
 				states_[n].clear();
+
 			baseMapping_[n] = base_;
 			return err;
 		}
@@ -177,18 +184,23 @@ namespace SaveState
 			if (first_ == 0 && next_ == 0)
 				return;
 
+			double start_time = time_now_d();
 			result.clear();
+			result.reserve(512 * 1024);
 			for (size_t i = 0; i < state.size(); i += BLOCK_SIZE)
 			{
 				int blockSize = std::min(BLOCK_SIZE, (int)(state.size() - i));
 				if (i + blockSize > base.size() || memcmp(&state[i], &base[i], blockSize) != 0)
 				{
 					result.push_back(1);
-					result.insert(result.end(), state.begin() + i, state.begin() +i + blockSize);
+					result.insert(result.end(), state.begin() + i, state.begin() + i + blockSize);
 				}
 				else
 					result.push_back(0);
 			}
+
+			double taken_s = time_now_d() - start_time;
+			DEBUG_LOG(SAVESTATE, "Rewind: Compressed save from %d bytes to %d in %0.2f ms.", (int)state.size(), (int)result.size(), taken_s * 1000.0);
 		}
 
 		void LockedDecompress(std::vector<u8> &result, const std::vector<u8> &compressed, const std::vector<u8> &base)
@@ -232,14 +244,15 @@ namespace SaveState
 			return next_ == first_;
 		}
 
-		static const int BLOCK_SIZE;
+	private:
+		static const int BLOCK_SIZE = 8192;
 		// TODO: Instead, based on size of compressed state?
-		static const int BASE_USAGE_INTERVAL;
+		static const int BASE_USAGE_INTERVAL = 15;
 
 		typedef std::vector<u8> StateBuffer;
 
-		int first_;
-		int next_;
+		int first_ = 0;
+		int next_ = 0;
 		int size_;
 
 		std::vector<StateBuffer> states_;
@@ -247,9 +260,10 @@ namespace SaveState
 		std::vector<int> baseMapping_;
 		std::mutex lock_;
 		std::thread compressThread_;
+		std::vector<u8> buffer_;
 
-		int base_;
-		int baseUsage_;
+		int base_ = -1;
+		int baseUsage_ = 0;
 	};
 
 	static bool needsProcess = false;
@@ -273,8 +287,6 @@ namespace SaveState
 	// TODO: Any reason for this to be configurable?
 	const static float rewindMaxWallFrequency = 1.0f;
 	static double rewindLastTime = 0.0f;
-	const int StateRingbuffer::BLOCK_SIZE = 8192;
-	const int StateRingbuffer::BASE_USAGE_INTERVAL = 15;
 
 	void SaveStart::DoState(PointerWrap &p)
 	{

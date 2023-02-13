@@ -192,21 +192,8 @@ public:
 		return (size_t)ptr;
 	}
 
-	// Expects ptr to have at least MeasurePtr bytes at ptr.
-	template<class T>
-	static Error SavePtr(u8 *ptr, T &_class, size_t expected_size)
-	{
-		const u8 *expected_end = ptr + expected_size;
-		PointerWrap p(&ptr, PointerWrap::MODE_WRITE);
-		_class.DoState(p);
-
-		if (p.error != PointerWrap::ERROR_FAILURE && (expected_end == ptr || expected_size == 0)) {
-			return ERROR_NONE;
-		} else {
-			return ERROR_BROKEN_STATE;
-		}
-	}
-
+	// If *saved is null, will allocate storage using malloc.
+	// If it's not null, it will be used, but only hope can save you from overruns at the end. For libretro.
 	template<class T>
 	static Error MeasureAndSavePtr(T &_class, u8 **saved, size_t *savedSize)
 	{
@@ -216,9 +203,14 @@ public:
 		_assert_(p.error == PointerWrap::ERROR_NONE);
 
 		size_t measuredSize = p.Offset();
-		u8 *data = (u8 *)malloc(measuredSize);
-		if (!data)
-			return ERROR_BAD_ALLOC;
+		u8 *data;
+		if (*saved) {
+			data = *saved;
+		} else {
+			data = (u8 *)malloc(measuredSize);
+			if (!data)
+				return ERROR_BAD_ALLOC;
+		}
 
 		p.RewindForWrite(data);
 		_class.DoState(p);
@@ -232,6 +224,30 @@ public:
 			return ERROR_BROKEN_STATE;
 		}
 	}
+
+	// Duplicate of the above but takes and modifies a vector. Less invasive
+	// than modifying the rewind manager to keep things in something else than vectors.
+	template<class T>
+	static Error MeasureAndSavePtr(T &_class, std::vector<u8> *saved)
+	{
+		u8 *ptr = nullptr;
+		PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
+		_class.DoState(p);
+		_assert_(p.error == PointerWrap::ERROR_NONE);
+
+		size_t measuredSize = p.Offset();
+		saved->resize(measuredSize);
+		u8 *data = saved->data();
+		p.RewindForWrite(data);
+		_class.DoState(p);
+		if (p.CheckAfterWrite()) {
+			return ERROR_NONE;
+		} else {
+			saved->clear();
+			return ERROR_BROKEN_STATE;
+		}
+	}
+
 
 	// Load file template
 	template<class T>
