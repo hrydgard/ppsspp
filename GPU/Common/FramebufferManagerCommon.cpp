@@ -1908,12 +1908,13 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 }
 
 std::string BlockTransferRect::ToString() const {
-	int bpp = BufferFormatBytesPerPixel(vfb->fb_format);
-	return StringFromFormat("%08x/%d/%s seq:%d  %d,%d %dx%d", vfb->fb_address, vfb->FbStrideInBytes(), GeBufferFormatToString(vfb->fb_format), vfb->colorBindSeq, x_bytes / bpp, y, w_bytes / bpp, h);
+	int bpp = BufferFormatBytesPerPixel(channel == RASTER_DEPTH ? GE_FORMAT_DEPTH16 : vfb->fb_format);
+	return StringFromFormat("%s %08x/%d/%s seq:%d  %d,%d %dx%d", RasterChannelToString(channel), vfb->fb_address, vfb->FbStrideInBytes(), GeBufferFormatToString(vfb->fb_format), vfb->colorBindSeq, x_bytes / bpp, y, w_bytes / bpp, h);
 }
 
-// Only looks for color buffers for now.
-// The only known game to block transfer depth buffers is Iron Man, see #16530.
+// This is used when looking for framebuffers for a block transfer.
+// The only known game to block transfer depth buffers is Iron Man, see #16530, so
+// we have a compat flag and pretty limited functionality for that.
 bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_pixels, int x_pixels, int y, int w_pixels, int h, int bpp, bool destination, BlockTransferRect *rect) {
 	basePtr &= 0x3FFFFFFF;
 	if (Memory::IsVRAMAddress(basePtr))
@@ -1938,11 +1939,20 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 	// We are only looking at color for now, have not found any block transfers of depth data (although it's plausible).
 
 	for (auto vfb : vfbs_) {
+		BlockTransferRect candidate{ vfb, RASTER_COLOR };
+
 		// Check for easily detected depth copies for logging purposes.
 		// Depth copies are not that useful though because you manually need to account for swizzle, so
-		// not sure if games will use them.
-		if (vfb->z_address == basePtr) {
+		// not sure if games will use them. Actually we do have a case, Iron Man in issue #16530.
+		if (vfb->z_address == basePtr && vfb->z_stride == stride_pixels && PSP_CoreParameter().compat.flags().BlockTransferDepth) {
 			WARN_LOG_N_TIMES(z_xfer, 5, G3D, "FindTransferFramebuffer: found matching depth buffer, %08x (dest=%d, bpp=%d)", basePtr, (int)destination, bpp);
+			candidate.channel = RASTER_DEPTH;
+			candidate.x_bytes = x_pixels * 2;
+			candidate.w_bytes = w_pixels * 2;
+			candidate.y = y;
+			candidate.h = h;
+			candidates.push_back(candidate);
+			continue;
 		}
 
 		const u32 vfb_address = vfb->fb_address;
@@ -1956,7 +1966,6 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 		const u32 vfb_byteStride = vfb->FbStrideInBytes();
 		const u32 vfb_byteWidth = vfb->WidthInBytes();
 
-		BlockTransferRect candidate{ vfb };
 		candidate.w_bytes = w_pixels * bpp;
 		candidate.h = h;
 
@@ -2018,7 +2027,18 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 	for (size_t i = 0; i < candidates.size(); i++) {
 		const BlockTransferRect *candidate = &candidates[i];
 
-		bool better = !best || candidate->vfb->colorBindSeq > best->vfb->colorBindSeq;
+		bool better = !best;
+		if (!better) {
+			if (candidate->channel == best->channel) {
+				better = candidate->vfb->BindSeq(candidate->channel) > best->vfb->BindSeq(candidate->channel);
+			} else {
+				// Prefer color over depth.
+				if (candidate->channel == RASTER_COLOR && best->channel == RASTER_DEPTH) {
+					better = true;
+				}
+			}
+		}
+
 		if ((candidate->vfb->usageFlags & FB_USAGE_CLUT) && candidate->x_bytes == 0 && candidate->y == 0 && destination) {
 			// Hack to prioritize copies to clut buffers.
 			best = candidate;
@@ -2258,6 +2278,13 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 	bool srcBuffer = FindTransferFramebuffer(srcBasePtr, srcStride, srcX, srcY, width, height, bpp, false, &srcRect);
 	bool dstBuffer = FindTransferFramebuffer(dstBasePtr, dstStride, dstX, dstY, width, height, bpp, true, &dstRect);
 
+	if (srcRect.channel == RASTER_DEPTH) {
+		// Ignore the found buffer if it's not 16-bit - we create a new more suitable one instead.
+		if (dstRect.channel == RASTER_COLOR && dstRect.vfb->fb_format == GE_FORMAT_8888) {
+			dstBuffer = false;
+		}
+	}
+
 	if (srcBuffer && !dstBuffer) {
 		// In here, we can't read from dstRect.
 		if (PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB ||
@@ -2265,19 +2292,23 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				Memory::IsVRAMAddress(srcRect.vfb->fb_address) && Memory::IsVRAMAddress(dstBasePtr))) {
 			GEBufferFormat ramFormat;
 			// Try to guess the appropriate format. We only know the bpp from the block transfer command (16 or 32 bit).
-			if (bpp == 4) {
-				// Only one possibility unless it's doing split pixel tricks (which we could detect through stride maybe).
-				ramFormat = GE_FORMAT_8888;
-			} else if (srcRect.vfb->fb_format != GE_FORMAT_8888) {
-				// We guess that the game will interpret the data the same as it was in the source of the copy.
-				// Seems like a likely good guess, and works in Test Drive Unlimited.
-				ramFormat = srcRect.vfb->fb_format;
+			if (srcRect.channel == RASTER_COLOR) {
+				if (bpp == 4) {
+					// Only one possibility unless it's doing split pixel tricks (which we could detect through stride maybe).
+					ramFormat = GE_FORMAT_8888;
+				} else if (srcRect.vfb->fb_format != GE_FORMAT_8888) {
+					// We guess that the game will interpret the data the same as it was in the source of the copy.
+					// Seems like a likely good guess, and works in Test Drive Unlimited.
+					ramFormat = srcRect.vfb->fb_format;
+				} else {
+					// No info left - just fall back to something. But this is definitely split pixel tricks.
+					ramFormat = GE_FORMAT_5551;
+				}
+				dstBuffer = true;
+				dstRect.vfb = CreateRAMFramebuffer(dstBasePtr, width, height, dstStride, ramFormat);
 			} else {
-				// No info left - just fall back to something. But this is definitely split pixel tricks.
-				ramFormat = GE_FORMAT_5551;
+				dstRect.vfb = CreateRAMFramebuffer(dstBasePtr, width, height, dstStride, GE_FORMAT_DEPTH16);
 			}
-			dstBuffer = true;
-			dstRect.vfb = CreateRAMFramebuffer(dstBasePtr, width, height, dstStride, ramFormat);
 		}
 	}
 

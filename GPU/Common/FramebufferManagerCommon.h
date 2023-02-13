@@ -159,6 +159,7 @@ struct VirtualFramebuffer {
 	inline int Stride(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_stride : z_stride; }
 	inline u32 Address(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_address : z_address; }
 	inline int Format(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_format : GE_FORMAT_DEPTH16; }
+	inline int BindSeq(RasterChannel channel) const { return channel == RASTER_COLOR ? colorBindSeq : depthBindSeq; }
 
 	int BufferByteSize(RasterChannel channel) const {
 		return channel == RASTER_COLOR ? fb_stride * height * (fb_format == GE_FORMAT_8888 ? 4 : 2) : z_stride * height * 2;
@@ -242,7 +243,7 @@ inline Draw::DataFormat GEFormatToThin3D(GEBufferFormat geFormat) {
 // Makes it easy to see if blits match etc.
 struct BlockTransferRect {
 	VirtualFramebuffer *vfb;
-	// RasterChannel channel;  // We currently only deal with color for block copies.
+	RasterChannel channel;  // We usually only deal with color, but we have limited depth block transfer support now.
 
 	int x_bytes;
 	int y;
