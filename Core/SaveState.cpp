@@ -228,7 +228,11 @@ namespace SaveState
 					int blockSize = std::min(BLOCK_SIZE, (int)(compressed.size() - i));
 					result.insert(result.end(), compressed.begin() + i, compressed.begin() + i + blockSize);
 					i += blockSize;
-					basePos += blockSize;
+					// This check is to avoid advancing basePos out of range, which MSVC catches.
+					// When this happens, we're at the end of decoding anyway.
+					if (base.end() - basePos >= blockSize) {
+						basePos += blockSize;
+					}
 				}
 			}
 		}
@@ -242,6 +246,18 @@ namespace SaveState
 			std::lock_guard<std::mutex> guard(lock_);
 			first_ = 0;
 			next_ = 0;
+			for (auto &b : bases_) {
+				b.clear();
+			}
+			baseMapping_.clear();
+			baseMapping_.resize(size_);
+			for (auto &s : states_) {
+				s.clear();
+			}
+			buffer_.clear();
+			base_ = -1;
+			baseUsage_ = 0;
+			rewindLastTime = time_now_d();
 		}
 
 		bool Empty() const
