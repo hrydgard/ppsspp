@@ -37,6 +37,8 @@
 #include "Common/Arm64Emitter.h"
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include "Common/x64Emitter.h"
+#elif PPSSPP_ARCH(RISCV64)
+#include "Common/RiscVEmitter.h"
 #else
 #include "Common/FakeEmitter.h"
 #endif
@@ -489,6 +491,8 @@ public:
 #define VERTEXDECODER_JIT_BACKEND Arm64Gen::ARM64CodeBlock
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #define VERTEXDECODER_JIT_BACKEND Gen::XCodeBlock
+#elif PPSSPP_ARCH(RISCV64)
+#define VERTEXDECODER_JIT_BACKEND RiscVGen::RiscVCodeBlock
 #endif
 
 

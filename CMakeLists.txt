@@ -1485,6 +1485,10 @@ list(APPEND CoreExtra
 	Core/MIPS/MIPS/MipsJit.h
 )
 
+list(APPEND CoreExtra
+	GPU/Common/VertexDecoderRiscV.cpp
+)
+
 if(NOT MOBILE_DEVICE)
 	set(CoreExtra ${CoreExtra}
 		Core/AVIDump.cpp

@@ -350,6 +350,7 @@ int PSPOskDialog::Init(u32 oskPtr) {
 
 	// Eat any keys pressed before the dialog inited.
 	UpdateButtons();
+	InitCommon();
 
 	std::lock_guard<std::mutex> guard(nativeMutex_);
 	nativeStatus_ = PSPOskNativeStatus::IDLE;
@@ -954,6 +955,7 @@ int PSPOskDialog::Update(int animSpeed) {
 	const int framesHeldRepeatRate = 5;
 
 	UpdateButtons();
+	UpdateCommon();
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedExtra = selectedChar % numKeyCols[currentKeyboard];
 
