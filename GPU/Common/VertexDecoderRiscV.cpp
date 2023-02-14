@@ -21,6 +21,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
 #include "Common/RiscVEmitter.h"
+#include "Core/HDRemaster.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -84,6 +85,8 @@ static const JitLookup jitLookup[] = {
 
 	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
 	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
+	// We use the same jit code whether doubling or not.
+	{&VertexDecoder::Step_TcU16DoublePrescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
@@ -119,6 +122,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (dec.steps_[i] == &VertexDecoder::Step_TcU8Prescale ||
 			dec.steps_[i] == &VertexDecoder::Step_TcU16Prescale ||
+			dec.steps_[i] == &VertexDecoder::Step_TcU16DoublePrescale ||
 			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescale) {
 			prescaleStep = true;
 		}
@@ -147,13 +151,13 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
 			FMUL(32, prescaleRegs.scale.u, prescaleRegs.scale.u, by128Reg);
 			FMUL(32, prescaleRegs.scale.v, prescaleRegs.scale.v, by128Reg);
-			FMUL(32, prescaleRegs.offset.u, prescaleRegs.offset.u, by128Reg);
-			FMUL(32, prescaleRegs.offset.v, prescaleRegs.offset.v, by128Reg);
 		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
-			FMUL(32, prescaleRegs.scale.u, prescaleRegs.scale.u, by32768Reg);
-			FMUL(32, prescaleRegs.scale.v, prescaleRegs.scale.v, by32768Reg);
-			FMUL(32, prescaleRegs.offset.u, prescaleRegs.offset.u, by32768Reg);
-			FMUL(32, prescaleRegs.offset.v, prescaleRegs.offset.v, by32768Reg);
+			RiscVReg multipler = g_DoubleTextureCoordinates ? fpScratchReg1 : by32768Reg;
+			if (g_DoubleTextureCoordinates) {
+				FADD(32, fpScratchReg1, by32768Reg, by32768Reg);
+			}
+			FMUL(32, prescaleRegs.scale.u, prescaleRegs.scale.u, multipler);
+			FMUL(32, prescaleRegs.scale.v, prescaleRegs.scale.v, multipler);
 		}
 	}
 
