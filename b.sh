@@ -51,10 +51,10 @@ do
 			CMAKE_ARGS="-DHEADLESS=ON ${CMAKE_ARGS}"
 			;;
 		--libretro) echo "Build Libretro core"
-			CMAKE_ARGS="-DLIBRETRO=ON -DHAVE_STRONG_GETAUXVAL ${CMAKE_ARGS}"
+			CMAKE_ARGS="-DLIBRETRO=ON -DHAVE_STRONG_GETAUXVAL=1 ${CMAKE_ARGS}"
 			;;
 		--libretro_android) echo "Build Libretro Android core"
-		        CMAKE_ARGS="-DLIBRETRO=ON -DHAVE_DLFCN_H -DCMAKE_TOOLCHAIN_FILE=${NDK}/build/cmake/android.toolchain.cmake -DANDROID_ABI=${APP_ABI} ${CMAKE_ARGS}"
+		        CMAKE_ARGS="-DLIBRETRO=ON -DHAVE_DLFCN_H=1 -DCMAKE_TOOLCHAIN_FILE=${NDK}/build/cmake/android.toolchain.cmake -DANDROID_ABI=${APP_ABI} ${CMAKE_ARGS}"
 			;;
 		--unittest) echo "Build unittest"
 			CMAKE_ARGS="-DUNITTEST=ON ${CMAKE_ARGS}"
