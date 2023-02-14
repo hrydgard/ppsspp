@@ -1652,8 +1652,8 @@ size_t retro_serialize_size(void)
    if (useEmuThread)
       EmuThreadPause();
 
-   return (CChunkFileReader::MeasurePtr(state) + 0x800000)
-      & ~0x7FFFFF; // We don't unpause intentionally
+   return (CChunkFileReader::MeasurePtr(state) + 0x800000) & ~0x7FFFFF;
+   // We don't unpause intentionally
 }
 
 bool retro_serialize(void *data, size_t size)
@@ -1668,9 +1668,8 @@ bool retro_serialize(void *data, size_t size)
    if (useEmuThread)
       EmuThreadPause(); // Does nothing if already paused
 
-   size_t measured = CChunkFileReader::MeasurePtr(state);
-   assert(measured <= size);
-   auto err = CChunkFileReader::SavePtr((u8 *)data, state, measured);
+   size_t measuredSize;
+   auto err = CChunkFileReader::MeasureAndSavePtr(state, (u8 **)&data, &measuredSize);
    retVal = err == CChunkFileReader::ERROR_NONE;
 
    if (useEmuThread)
