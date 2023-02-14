@@ -21,12 +21,12 @@
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
 #include "Common/RiscVEmitter.h"
+#include "Core/HDRemaster.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 static const float by128 = 1.0f / 128.0f;
-static const float by16384 = 1.0f / 16384.0f;
 static const float by32768 = 1.0f / 32768.0f;
 static const float const65535 = 65535.0f;
 
@@ -64,10 +64,18 @@ struct UVScaleRegs {
 };
 
 static const UVScaleRegs prescaleRegs = { { F0, F1 }, { F2, F3 } };
+static const RiscVReg by128Reg = F4;
+static const RiscVReg by32768Reg = F5;
+// Warning: usually not valid.
+static const RiscVReg const65535Reg = F6;
 
 // TODO: Use vector, where supported.
 
 static const JitLookup jitLookup[] = {
+	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
+	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
+	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
+
 	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
 	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
@@ -77,6 +85,8 @@ static const JitLookup jitLookup[] = {
 
 	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
 	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
+	// We use the same jit code whether doubling or not.
+	{&VertexDecoder::Step_TcU16DoublePrescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
@@ -106,14 +116,29 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	bool log = false;
 	bool prescaleStep = false;
+	bool posThroughStep = false;
 
 	// Look for prescaled texcoord steps
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (dec.steps_[i] == &VertexDecoder::Step_TcU8Prescale ||
 			dec.steps_[i] == &VertexDecoder::Step_TcU16Prescale ||
+			dec.steps_[i] == &VertexDecoder::Step_TcU16DoublePrescale ||
 			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescale) {
 			prescaleStep = true;
 		}
+		if (dec.steps_[i] == &VertexDecoder::Step_PosFloatThrough) {
+			posThroughStep = true;
+		}
+	}
+
+	// TODO: Only load these when needed?
+	LI(scratchReg, by128);
+	FMV(FMv::W, FMv::X, by128Reg, scratchReg);
+	LI(scratchReg, by32768);
+	FMV(FMv::W, FMv::X, by32768Reg, scratchReg);
+	if (posThroughStep) {
+		LI(scratchReg, const65535);
+		FMV(FMv::W, FMv::X, const65535Reg, scratchReg);
 	}
 
 	// Keep the scale/offset in a few fp registers if we need it.
@@ -124,24 +149,20 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		FL(32, prescaleRegs.offset.u, tempReg1, 8);
 		FL(32, prescaleRegs.offset.v, tempReg1, 12);
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
-			LI(scratchReg, by128);
-			FMV(FMv::W, FMv::X, fpScratchReg1, scratchReg);
-			FMUL(32, prescaleRegs.scale.u, prescaleRegs.scale.u, fpScratchReg1);
-			FMUL(32, prescaleRegs.scale.v, prescaleRegs.scale.v, fpScratchReg1);
-			FMUL(32, prescaleRegs.offset.u, prescaleRegs.offset.u, fpScratchReg1);
-			FMUL(32, prescaleRegs.offset.v, prescaleRegs.offset.v, fpScratchReg1);
+			FMUL(32, prescaleRegs.scale.u, prescaleRegs.scale.u, by128Reg);
+			FMUL(32, prescaleRegs.scale.v, prescaleRegs.scale.v, by128Reg);
 		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
-			LI(scratchReg, by32768);
-			FMV(FMv::W, FMv::X, fpScratchReg1, scratchReg);
-			FMUL(32, prescaleRegs.scale.u, prescaleRegs.scale.u, fpScratchReg1);
-			FMUL(32, prescaleRegs.scale.v, prescaleRegs.scale.v, fpScratchReg1);
-			FMUL(32, prescaleRegs.offset.u, prescaleRegs.offset.u, fpScratchReg1);
-			FMUL(32, prescaleRegs.offset.v, prescaleRegs.offset.v, fpScratchReg1);
+			RiscVReg multipler = g_DoubleTextureCoordinates ? fpScratchReg1 : by32768Reg;
+			if (g_DoubleTextureCoordinates) {
+				FADD(32, fpScratchReg1, by32768Reg, by32768Reg);
+			}
+			FMUL(32, prescaleRegs.scale.u, prescaleRegs.scale.u, multipler);
+			FMUL(32, prescaleRegs.scale.v, prescaleRegs.scale.v, multipler);
 		}
 	}
 
 	if (dec.col) {
-		// Or LDB and skip the conditional?  This is probably cheaper.
+		// Or LB and skip the conditional?  This is probably cheaper.
 		LI(fullAlphaReg, 0xFF);
 	}
 
@@ -154,7 +175,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		LH(boundsMaxVReg, tempReg1, offsetof(KnownVertexBounds, maxV));
 	}
 
-	// TODO: Skipping, prescale.
+	// TODO: Skinning.
 
 	const u8 *loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
@@ -219,6 +240,45 @@ bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
 		}
 	}
 	return false;
+}
+
+void VertexDecoderJitCache::Jit_WeightsU8() {
+	// Just copy a byte at a time.  Would be nice if we knew if misaligned access was fast.
+	// If it's not fast, it can crash or hit a software trap (100x slower.)
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		LB(tempReg1, srcReg, dec_->weightoff + j);
+		SB(tempReg1, dstReg, dec_->decFmt.w0off + j);
+	}
+	// We zero out any weights up to a multiple of 4.
+	while (j & 3) {
+		SB(R_ZERO, dstReg, dec_->decFmt.w0off + j);
+		j++;
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsU16() {
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		LH(tempReg1, srcReg, dec_->weightoff + j * 2);
+		SH(tempReg1, dstReg, dec_->decFmt.w0off + j * 2);
+	}
+	while (j & 3) {
+		SH(R_ZERO, dstReg, dec_->decFmt.w0off + j * 2);
+		j++;
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsFloat() {
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		LW(tempReg1, srcReg, dec_->weightoff + j * 4);
+		SW(tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
+	}
+	while (j & 3) {
+		SW(R_ZERO, dstReg, dec_->decFmt.w0off + j * 4);
+		j++;
+	}
 }
 
 void VertexDecoderJitCache::Jit_TcU8ToFloat() {
@@ -391,13 +451,10 @@ void VertexDecoderJitCache::Jit_PosFloatThrough() {
 	SW(tempReg1, dstReg, dec_->decFmt.posoff);
 	SW(tempReg2, dstReg, dec_->decFmt.posoff + 4);
 
-	// Load the constants to clamp.  Maybe could static alloc this constant in a reg.
-	LI(scratchReg, const65535);
+	// Load the constant zero and clamp.  Maybe could static alloc zero, but fairly cheap...
 	FMV(FMv::W, FMv::X, fpScratchReg1, R_ZERO);
-	FMV(FMv::W, FMv::X, fpScratchReg2, scratchReg);
-
 	FMAX(32, fpSrc[2], fpSrc[2], fpScratchReg1);
-	FMIN(32, fpSrc[2], fpSrc[2], fpScratchReg2);
+	FMIN(32, fpSrc[2], fpSrc[2], const65535Reg);
 	FS(32, fpSrc[2], dstReg, dec_->decFmt.posoff + 8);
 }
 
@@ -527,30 +584,24 @@ void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
 	LB(tempReg1, srcReg, srcoff + 0);
 	LB(tempReg2, srcReg, srcoff + 1);
 	LB(tempReg3, srcReg, srcoff + 2);
-	// TODO: Could maybe static alloc?
-	LI(scratchReg, by128);
-	FMV(FMv::W, FMv::X, fpScratchReg1, scratchReg);
 	FCVT(FConv::S, FConv::W, fpSrc[0], tempReg1, Round::TOZERO);
 	FCVT(FConv::S, FConv::W, fpSrc[1], tempReg2, Round::TOZERO);
 	FCVT(FConv::S, FConv::W, fpSrc[2], tempReg3, Round::TOZERO);
-	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg1);
-	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg1);
-	FMUL(32, fpSrc[2], fpSrc[2], fpScratchReg1);
+	FMUL(32, fpSrc[0], fpSrc[0], by128Reg);
+	FMUL(32, fpSrc[1], fpSrc[1], by128Reg);
+	FMUL(32, fpSrc[2], fpSrc[2], by128Reg);
 }
 
 void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
 	LH(tempReg1, srcReg, srcoff + 0);
 	LH(tempReg2, srcReg, srcoff + 2);
 	LH(tempReg3, srcReg, srcoff + 4);
-	// TODO: Could maybe static alloc?
-	LI(scratchReg, by32768);
-	FMV(FMv::W, FMv::X, fpScratchReg1, scratchReg);
 	FCVT(FConv::S, FConv::W, fpSrc[0], tempReg1, Round::TOZERO);
 	FCVT(FConv::S, FConv::W, fpSrc[1], tempReg2, Round::TOZERO);
 	FCVT(FConv::S, FConv::W, fpSrc[2], tempReg3, Round::TOZERO);
-	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg1);
-	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg1);
-	FMUL(32, fpSrc[2], fpSrc[2], fpScratchReg1);
+	FMUL(32, fpSrc[0], fpSrc[0], by32768Reg);
+	FMUL(32, fpSrc[1], fpSrc[1], by32768Reg);
+	FMUL(32, fpSrc[2], fpSrc[2], by32768Reg);
 }
 
 void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff, u32 bits) {
@@ -562,19 +613,16 @@ void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff, u32 bits) {
 		LBU(tempReg2, srcReg, srcoff + 1);
 	if (bits >= 24)
 		LBU(tempReg3, srcReg, srcoff + 2);
-	// TODO: Could maybe static alloc?
-	LI(scratchReg, by128);
-	FMV(FMv::W, FMv::X, fpScratchReg1, scratchReg);
 	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
 	if (bits >= 16)
 		FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
 	if (bits >= 24)
 		FCVT(FConv::S, FConv::WU, fpSrc[2], tempReg3, Round::TOZERO);
-	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg1);
+	FMUL(32, fpSrc[0], fpSrc[0], by128Reg);
 	if (bits >= 16)
-		FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg1);
+		FMUL(32, fpSrc[1], fpSrc[1], by128Reg);
 	if (bits >= 24)
-		FMUL(32, fpSrc[2], fpSrc[2], fpScratchReg1);
+		FMUL(32, fpSrc[2], fpSrc[2], by128Reg);
 }
 
 void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
@@ -586,19 +634,16 @@ void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
 		LHU(tempReg2, srcReg, srcoff + 2);
 	if (bits >= 48)
 		LHU(tempReg3, srcReg, srcoff + 4);
-	// TODO: Could maybe static alloc?
-	LI(scratchReg, by32768);
-	FMV(FMv::W, FMv::X, fpScratchReg1, scratchReg);
 	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
 	if (bits >= 32)
 		FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
 	if (bits >= 48)
 		FCVT(FConv::S, FConv::WU, fpSrc[2], tempReg3, Round::TOZERO);
-	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg1);
+	FMUL(32, fpSrc[0], fpSrc[0], by32768Reg);
 	if (bits >= 32)
-		FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg1);
+		FMUL(32, fpSrc[1], fpSrc[1], by32768Reg);
 	if (bits >= 48)
-		FMUL(32, fpSrc[2], fpSrc[2], fpScratchReg1);
+		FMUL(32, fpSrc[2], fpSrc[2], by32768Reg);
 }
 
 #endif // PPSSPP_ARCH(RISCV64)
