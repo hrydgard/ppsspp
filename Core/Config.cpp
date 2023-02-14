@@ -1301,7 +1301,7 @@ void Config::SetAppendedConfigIni(const Path &path) {
 	appendedConfigFileName_ = path;
 }
 
-void Config::updateAfterSettingAutoFrameSkip() {
+void Config::UpdateAfterSettingAutoFrameSkip() {
 	if (bAutoFrameSkip && iFrameSkip == 0) {
 		iFrameSkip = 1;
 	}

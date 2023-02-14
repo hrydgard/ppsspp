@@ -95,18 +95,6 @@ extern AndroidAudioState *g_audioState;
 
 #endif
 
-#if PPSSPP_PLATFORM(MAC)
-#define OnClickPostDarwinNotification(Target, NotifName, NotifValue) \
-Target->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn { \
-    PostDarwinNotificationIfPossible(NotifName, NotifValue); \
-    return UI::EVENT_DONE; \
-});
-
-#else
-#define PostDarwinNotificationIfPossible(name, value)
-#define OnClickPostDarwinNotification
-#endif
-
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), editThenRestore_(editThenRestore) {
 	prevInflightFrames_ = g_Config.iInflightFrames;
@@ -359,7 +347,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 
 	if (deviceType != DEVICE_TYPE_VR) {
 		CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
-        OnClickPostDarwinNotification(softwareGPU, "ConfigDidChange", "SoftwareRendering")
 		softwareGPU->SetEnabled(!PSP_IsInited());
 	}
 
@@ -394,7 +381,10 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 
 #if !(PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS))
 		CheckBox *vSync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
-        OnClickPostDarwinNotification(vSync, "ConfigDidChange", "VSync")
+		vSync->OnClick.Add([=](EventParams &e) {
+			NativeResized();
+			return UI::EVENT_CONTINUE;
+		});
 #endif
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -612,12 +602,9 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
 	BitCheckBox *showFPSCtr = graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::FPS_COUNTER, gr->T("Show FPS Counter")));
-    OnClickPostDarwinNotification(showFPSCtr, "ConfigDidChange", "ShowFPSCounter")
 	BitCheckBox *showSpeed = graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::SPEED_COUNTER, gr->T("Show Speed")));
-    OnClickPostDarwinNotification(showSpeed, "ConfigDidChange", "ShowSpeed")
 #ifdef CAN_DISPLAY_CURRENT_BATTERY_CAPACITY
 	BitCheckBox *showBattery = graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::BATTERY_PERCENT, gr->T("Show Battery %")));
-    OnClickPostDarwinNotification(showBattery, "ConfigDidChange", "BatteryPercent")
 #endif
 
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
@@ -631,7 +618,6 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 
 	audioSettings->Add(new ItemHeader(ms->T("Audio")));
 	CheckBox *enableSound = audioSettings->Add(new CheckBox(&g_Config.bEnableSound,a->T("Enable Sound")));
-	OnClickPostDarwinNotification(enableSound, "AudioConfChanged", "EnableSound")
 	
 	PopupSliderChoice *volume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGlobalVolume, VOLUME_OFF, VOLUME_FULL, a->T("Global volume"), screenManager()));
 	volume->SetEnabledPtr(&g_Config.bEnableSound);
@@ -1190,8 +1176,7 @@ UI::LinearLayout *GameSettingsScreen::AddTab(const char *tag, const std::string 
 }
 
 UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
-	g_Config.updateAfterSettingAutoFrameSkip();
-	PostDarwinNotificationIfPossible("ConfigChanged", "AutoFrameSkip");
+	g_Config.UpdateAfterSettingAutoFrameSkip();
 	return UI::EVENT_DONE;
 }
 
@@ -1336,14 +1321,12 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnFullscreenChange(UI::EventParams &e) {
-	PostDarwinNotificationIfPossible("ConfigDidChange", "FullScreen");
 	g_Config.iForceFullScreen = -1;
 	System_SendMessage("toggle_fullscreen", g_Config.UseFullScreen() ? "1" : "0");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnFullscreenMultiChange(UI::EventParams &e) {
-	PostDarwinNotificationIfPossible("ConfigDidChange", "FullScreen");
 	System_SendMessage("toggle_fullscreen", g_Config.UseFullScreen() ? "1" : "0");
 	return UI::EVENT_DONE;
 }
@@ -1575,7 +1558,6 @@ UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
 		g_Config.sAudioDevice.clear();
 	}
 	System_SendMessage("audio_resetDevice", "");
-	PostDarwinNotificationIfPossible("AudioConfigurationHasChanged", "CurrentDeviceWasChanged");
 	return UI::EVENT_DONE;
 }
 

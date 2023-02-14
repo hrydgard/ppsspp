@@ -573,9 +573,7 @@ public:
 	bool LoadAppendedConfig();
 	void SetAppendedConfigIni(const Path &path);
 	
-	
-	void updateAfterSettingAutoFrameSkip();
-	
+	void UpdateAfterSettingAutoFrameSkip();
 protected:
 	void LoadStandardControllerIni();
 	void LoadLangValuesMapping();
