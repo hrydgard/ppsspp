@@ -182,13 +182,22 @@ double g_lastSaveTime = -1.0;
 				return CChunkFileReader::ERROR_BAD_FILE;
 
 			static std::vector<u8> buffer;
-			LockedDecompress(buffer, states_[n], bases_[baseMapping_[n]]);
-			CChunkFileReader::Error error = LoadFromRam(buffer, errorString);
-			rewindLastTime_ = time_now_d();
-			return error;
+			if (LockedDecompress(buffer, states_[n], bases_[baseMapping_[n]])) {
+				CChunkFileReader::Error error = LoadFromRam(buffer, errorString);
+				if (error == CChunkFileReader::ERROR_NONE) {
+					INFO_LOG(Log::SaveState, "Rewinding to recent savestate snapshot (%d bytes compressed)", states_[n].zstd_compressed.size());
+					rewindLastTime_ = time_now_d();
+				}
+				return error;
+			} else {
+				WARN_LOG(Log::SaveState, "Failed to load rewind savestate");
+				// Unclear what CChunkFileReader error code we should pass in this case, which I'm not sure will
+				// happen in practice barring memory corruption.
+			}
+			return CChunkFileReader::ERROR_NONE;
 		}
 
-		void ScheduleCompress(StateBuffer *result, std::vector<u8> *state, const std::vector<u8> *base)
+		void ScheduleCompress(StateBuffer *result, const std::vector<u8> *state, const std::vector<u8> *base)
 		{
 			if (compressThread_.joinable())
 				compressThread_.join();
@@ -202,7 +211,7 @@ double g_lastSaveTime = -1.0;
 
 		const bool USE_XOR = false;
 
-		void Compress(StateBuffer *result, std::vector<u8> &state, const std::vector<u8> &base)
+		void Compress(StateBuffer *result, const std::vector<u8> &state, const std::vector<u8> &base)
 		{
 			std::lock_guard<std::mutex> guard(lock_);
 			// Bail if we were cleared before locking.
@@ -240,20 +249,18 @@ double g_lastSaveTime = -1.0;
 
 			// Temporarily allocate a buffer to do compression in.
 			size_t compressCapacity = ZSTD_compressBound(compressed.size());
-			u8 *compress_buf = (u8 *)malloc(compressCapacity);
-			result->compressed_size = ZSTD_compress(compress_buf, compressCapacity, compressed.data(), compressed.size(), 0);
+			result->zstd_compressed.resize(compressCapacity);
+			result->compressed_size = ZSTD_compress(&result->zstd_compressed[0], compressCapacity, compressed.data(), compressed.size(), 1);
 			if (result->compressed_size) {
-				result->zstd_compressed = std::vector<u8>(result->compressed_size, 0);
-				memcpy(&result->zstd_compressed[0], compress_buf, result->compressed_size);
+				result->zstd_compressed.resize(result->compressed_size);
 				result->decompressed_size = compressed.size();
 			}
-			free(compress_buf);
 
 			double zstd_s = time_now_d() - start_time - taken_s;
 			DEBUG_LOG(Log::SaveState, "Rewind: ZSTD compressed to %d in %0.2f ms.", (int)result->compressed_size, zstd_s * 1000.0);
 		}
 
-		void LockedDecompress(std::vector<u8> &result, const StateBuffer &buffer, const std::vector<u8> &base)
+		bool LockedDecompress(std::vector<u8> &result, const StateBuffer &buffer, const std::vector<u8> &base)
 		{
 			result.clear();
 			result.reserve(base.size());
@@ -261,7 +268,11 @@ double g_lastSaveTime = -1.0;
 
 			// OK, zstd decompress first.
 			std::vector<u8> compressed = std::vector<u8>(buffer.decompressed_size, 0);
-			ZSTD_decompress(&compressed[0], compressed.size(), buffer.zstd_compressed.data(), buffer.zstd_compressed.size());
+			size_t retval = ZSTD_decompress(&compressed[0], compressed.size(), buffer.zstd_compressed.data(), buffer.zstd_compressed.size());
+			if (ZSTD_isError(retval)) {
+				WARN_LOG(Log::SaveState, "Failed to decompress zstd-compressed rewind savestate");
+				return false;
+			}
 
 			if (USE_XOR) {
 				result.resize(compressed.size());
@@ -295,6 +306,7 @@ double g_lastSaveTime = -1.0;
 					}
 				}
 			}
+			return true;
 		}
 
 		void Clear()
@@ -1120,7 +1132,6 @@ double g_lastSaveTime = -1.0;
 			}
 
 			case SAVESTATE_REWIND:
-				INFO_LOG(Log::SaveState, "Rewinding to recent savestate snapshot");
 				result = rewindStates.Restore(&errorString);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Loaded State");
