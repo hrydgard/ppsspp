@@ -120,7 +120,12 @@ namespace SaveState
 
 		CChunkFileReader::Error Save()
 		{
-			rewindLastTime = time_now_d();
+			rewindLastTime_ = time_now_d();
+
+			// Make sure we're not processing a previous save. That'll cause a hitch though, but at least won't
+			// crash due to contention over buffer_.
+			if (compressThread_.joinable())
+				compressThread_.join();
 
 			std::lock_guard<std::mutex> guard(lock_);
 
@@ -166,7 +171,7 @@ namespace SaveState
 			static std::vector<u8> buffer;
 			LockedDecompress(buffer, states_[n], bases_[baseMapping_[n]]);
 			CChunkFileReader::Error error = LoadFromRam(buffer, errorString);
-			rewindLastTime = time_now_d();
+			rewindLastTime_ = time_now_d();
 			return error;
 		}
 
@@ -257,7 +262,7 @@ namespace SaveState
 			buffer_.clear();
 			base_ = -1;
 			baseUsage_ = 0;
-			rewindLastTime = time_now_d();
+			rewindLastTime_ = time_now_d();
 		}
 
 		bool Empty() const
@@ -272,7 +277,7 @@ namespace SaveState
 
 			// For fast-forwarding, otherwise they may be useless and too close.
 			double now = time_now_d();
-			double diff = now - rewindLastTime;
+			double diff = now - rewindLastTime_;
 			if (diff < g_Config.iRewindSnapshotInterval)
 				return;
 
@@ -282,7 +287,7 @@ namespace SaveState
 
 		void NotifyState() {
 			// Prevent saving snapshots immediately after loading or saving a state.
-			rewindLastTime = time_now_d();
+			rewindLastTime_ = time_now_d();
 		}
 
 	private:
@@ -307,7 +312,7 @@ namespace SaveState
 		int base_ = -1;
 		int baseUsage_ = 0;
 
-		double rewindLastTime = 0.0f;
+		double rewindLastTime_ = 0.0f;
 	};
 
 	static bool needsProcess = false;

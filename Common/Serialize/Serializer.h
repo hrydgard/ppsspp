@@ -220,7 +220,9 @@ public:
 			*savedSize = measuredSize;
 			return ERROR_NONE;
 		} else {
-			free(data);
+			if (!*saved) {
+				free(data);
+			}
 			return ERROR_BROKEN_STATE;
 		}
 	}
