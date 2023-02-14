@@ -275,8 +275,8 @@ public:
 	template<class T>
 	static Error Save(const Path &filename, const std::string &title, const char *gitVersion, T& _class)
 	{
-		u8 *buffer;
-		size_t sz;
+		u8 *buffer = nullptr;
+		size_t sz = 0;
 		Error error = MeasureAndSavePtr(_class, &buffer, &sz);
 
 		// SaveFile takes ownership of buffer (malloc/free)

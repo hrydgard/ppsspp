@@ -806,6 +806,8 @@ namespace SaveState
 
 	bool HandleLoadFailure()
 	{
+		WARN_LOG(SAVESTATE, "HandleLoadFailure - trying a rewind state.");
+
 		// Okay, first, let's give the rewind state a shot - maybe we can at least not reset entirely.
 		// Even if this was a rewind, maybe we can still load a previous one.
 		CChunkFileReader::Error result;
