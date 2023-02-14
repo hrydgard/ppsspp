@@ -71,6 +71,10 @@ static const RiscVReg const65535Reg = F6;
 // TODO: Use vector, where supported.
 
 static const JitLookup jitLookup[] = {
+	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
+	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
+	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
+
 	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
 	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
@@ -232,6 +236,45 @@ bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
 		}
 	}
 	return false;
+}
+
+void VertexDecoderJitCache::Jit_WeightsU8() {
+	// Just copy a byte at a time.  Would be nice if we knew if misaligned access was fast.
+	// If it's not fast, it can crash or hit a software trap (100x slower.)
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		LB(tempReg1, srcReg, dec_->weightoff + j);
+		SB(tempReg1, dstReg, dec_->decFmt.w0off + j);
+	}
+	// We zero out any weights up to a multiple of 4.
+	while (j & 3) {
+		SB(R_ZERO, dstReg, dec_->decFmt.w0off + j);
+		j++;
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsU16() {
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		LH(tempReg1, srcReg, dec_->weightoff + j * 2);
+		SH(tempReg1, dstReg, dec_->decFmt.w0off + j * 2);
+	}
+	while (j & 3) {
+		SH(R_ZERO, dstReg, dec_->decFmt.w0off + j * 2);
+		j++;
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsFloat() {
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		LW(tempReg1, srcReg, dec_->weightoff + j * 4);
+		SW(tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
+	}
+	while (j & 3) {
+		SW(R_ZERO, dstReg, dec_->decFmt.w0off + j * 4);
+		j++;
+	}
 }
 
 void VertexDecoderJitCache::Jit_TcU8ToFloat() {
