@@ -426,6 +426,14 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 			u32 v_fb_end_ptr = v->fb_address + v->fb_stride * v->height * bpp;
 
 			if (params.fb_address > v->fb_address && params.fb_address < v_fb_first_line_end_ptr) {
+				// If the framebuffer we can join to is currently bound as a texture, we likely have
+				// a situation like in #9324 and don't want to do this.
+				u32 curTextureAddress = gstate.getTextureAddress(0);
+				if (v->fb_address == curTextureAddress) {
+					// Don't try these joining shenanigans.
+					continue;
+				}
+
 				const int x_offset = (params.fb_address - v->fb_address) / bpp;
 				if (x_offset < params.fb_stride && v->height >= drawing_height) {
 					// Pretty certainly a pure render-to-X-offset.
