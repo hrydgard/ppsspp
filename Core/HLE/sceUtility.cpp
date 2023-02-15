@@ -641,6 +641,9 @@ static int sceUtilityOskUpdate(int animSpeed) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
+	// This is the vblank period, plus a little slack. Needed to fix timing bug in Ghost Recon: Predator.
+	// See issue #12044.
+	hleEatCycles(msToCycles(0.7315 + 0.1));
 	return hleLogSuccessX(SCEUTILITY, oskDialog->Update(animSpeed));
 }
 
