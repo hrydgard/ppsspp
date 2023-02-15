@@ -883,48 +883,7 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 		FMADD(32, fpSrc[3], fpScratchReg1, fpScratchReg4, fpSrc[3]);
 	}
 
-	if (cpu_info.RiscV_B) {
-		LI(scratchReg, 0xFF);
-		FCVT(FConv::WU, FConv::S, tempReg1, fpSrc[0], Round::TOZERO);
-		MAX(tempReg1, tempReg1, R_ZERO);
-		MIN(tempReg1, tempReg1, scratchReg);
-		for (int i = 1; i < 4; ++i) {
-			FCVT(FConv::WU, FConv::S, tempReg2, fpSrc[i], Round::TOZERO);
-			MAX(tempReg2, tempReg2, R_ZERO);
-			MIN(tempReg2, tempReg2, scratchReg);
-			// If it's alpha, set tempReg3 as a flag.
-			if (i == 3)
-				SLTIU(tempReg3, tempReg2, 0xFF);
-			SLLI(tempReg2, tempReg2, i * 8);
-			OR(tempReg1, tempReg1, tempReg2);
-		}
-	} else {
-		// Clamp to [0, 255] as floats, since we have FMIN/FMAX.  Better than branching, probably...
-		LI(scratchReg, 255.0f);
-		FMV(FMv::W, FMv::X, fpScratchReg1, R_ZERO);
-		FMV(FMv::W, FMv::X, fpScratchReg2, scratchReg);
-		for (int i = 0; i < 4; ++i) {
-			FMAX(32, fpSrc[i], fpSrc[i], fpScratchReg1);
-			FMIN(32, fpSrc[i], fpSrc[i], fpScratchReg2);
-		}
-
-		FCVT(FConv::WU, FConv::S, tempReg1, fpSrc[0], Round::TOZERO);
-		for (int i = 1; i < 4; ++i) {
-			FCVT(FConv::WU, FConv::S, tempReg2, fpSrc[i], Round::TOZERO);
-			// If it's alpha, set tempReg3 as a flag.
-			if (i == 3)
-				SLTIU(tempReg3, tempReg2, 0xFF);
-			SLLI(tempReg2, tempReg2, i * 8);
-			OR(tempReg1, tempReg1, tempReg2);
-		}
-	}
-
-	// Now use the flag we set earlier to update fullAlphaReg.
-	// We translate it to a mask, tempReg3=-1 if full alpha, 0 otherwise.
-	ADDI(tempReg3, tempReg3, -1);
-	AND(fullAlphaReg, fullAlphaReg, tempReg3);
-
-	SW(tempReg1, dstReg, dec_->decFmt.c0off);
+	Jit_WriteMorphColor(dec_->decFmt.c0off, true);
 }
 
 void VertexDecoderJitCache::Jit_Color4444Morph() {
@@ -952,48 +911,7 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 		FMADD(32, fpSrc[3], fpScratchReg1, fpScratchReg4, fpSrc[3]);
 	}
 
-	if (cpu_info.RiscV_B) {
-		LI(scratchReg, 0xFF);
-		FCVT(FConv::WU, FConv::S, tempReg1, fpSrc[0], Round::TOZERO);
-		MAX(tempReg1, tempReg1, R_ZERO);
-		MIN(tempReg1, tempReg1, scratchReg);
-		for (int i = 1; i < 4; ++i) {
-			FCVT(FConv::WU, FConv::S, tempReg2, fpSrc[i], Round::TOZERO);
-			MAX(tempReg2, tempReg2, R_ZERO);
-			MIN(tempReg2, tempReg2, scratchReg);
-			// If it's alpha, set tempReg3 as a flag.
-			if (i == 3)
-				SLTIU(tempReg3, tempReg2, 0xFF);
-			SLLI(tempReg2, tempReg2, i * 8);
-			OR(tempReg1, tempReg1, tempReg2);
-		}
-	} else {
-		// Clamp to [0, 255] as floats, since we have FMIN/FMAX.  Better than branching, probably...
-		LI(scratchReg, 255.0f);
-		FMV(FMv::W, FMv::X, fpScratchReg1, R_ZERO);
-		FMV(FMv::W, FMv::X, fpScratchReg2, scratchReg);
-		for (int i = 0; i < 4; ++i) {
-			FMAX(32, fpSrc[i], fpSrc[i], fpScratchReg1);
-			FMIN(32, fpSrc[i], fpSrc[i], fpScratchReg2);
-		}
-
-		FCVT(FConv::WU, FConv::S, tempReg1, fpSrc[0], Round::TOZERO);
-		for (int i = 1; i < 4; ++i) {
-			FCVT(FConv::WU, FConv::S, tempReg2, fpSrc[i], Round::TOZERO);
-			// If it's alpha, set tempReg3 as a flag.
-			if (i == 3)
-				SLTIU(tempReg3, tempReg2, 0xFF);
-			SLLI(tempReg2, tempReg2, i * 8);
-			OR(tempReg1, tempReg1, tempReg2);
-		}
-	}
-
-	// Now use the flag we set earlier to update fullAlphaReg.
-	// We translate it to a mask, tempReg3=-1 if full alpha, 0 otherwise.
-	ADDI(tempReg3, tempReg3, -1);
-	AND(fullAlphaReg, fullAlphaReg, tempReg3);
-
-	SW(tempReg1, dstReg, dec_->decFmt.c0off);
+	Jit_WriteMorphColor(dec_->decFmt.c0off, true);
 }
 
 void VertexDecoderJitCache::Jit_Color565Morph() {
@@ -1033,43 +951,7 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 		FMADD(32, fpSrc[2], fpScratchReg1, fpScratchReg3, fpSrc[2]);
 	}
 
-	if (cpu_info.RiscV_B) {
-		LI(scratchReg, 0xFF);
-		FCVT(FConv::WU, FConv::S, tempReg1, fpSrc[0], Round::TOZERO);
-		MAX(tempReg1, tempReg1, R_ZERO);
-		MIN(tempReg1, tempReg1, scratchReg);
-		for (int i = 1; i < 3; ++i) {
-			FCVT(FConv::WU, FConv::S, tempReg2, fpSrc[i], Round::TOZERO);
-			MAX(tempReg2, tempReg2, R_ZERO);
-			MIN(tempReg2, tempReg2, scratchReg);
-			SLLI(tempReg2, tempReg2, i * 8);
-			OR(tempReg1, tempReg1, tempReg2);
-		}
-
-		SLLI(scratchReg, scratchReg, 24);
-		OR(tempReg1, tempReg1, scratchReg);
-	} else {
-		// Clamp to [0, 255] as floats, since we have FMIN/FMAX.  Better than branching, probably...
-		LI(scratchReg, 255.0f);
-		FMV(FMv::W, FMv::X, fpScratchReg1, R_ZERO);
-		FMV(FMv::W, FMv::X, fpScratchReg2, scratchReg);
-		for (int i = 0; i < 3; ++i) {
-			FMAX(32, fpSrc[i], fpSrc[i], fpScratchReg1);
-			FMIN(32, fpSrc[i], fpSrc[i], fpScratchReg2);
-		}
-
-		FCVT(FConv::WU, FConv::S, tempReg1, fpSrc[0], Round::TOZERO);
-		for (int i = 1; i < 3; ++i) {
-			FCVT(FConv::WU, FConv::S, tempReg2, fpSrc[i], Round::TOZERO);
-			SLLI(tempReg2, tempReg2, i * 8);
-			OR(tempReg1, tempReg1, tempReg2);
-		}
-
-		LI(scratchReg, (s32)0xFF000000);
-		OR(tempReg1, tempReg1, scratchReg);
-	}
-
-	SW(tempReg1, dstReg, dec_->decFmt.c0off);
+	Jit_WriteMorphColor(dec_->decFmt.c0off, false);
 }
 
 void VertexDecoderJitCache::Jit_Color5551Morph() {
@@ -1105,12 +987,16 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 	FMV(FMv::W, FMv::X, fpScratchReg2, scratchReg);
 	FMUL(32, fpSrc[3], fpSrc[3], fpScratchReg2, Round::TOZERO);
 
+	Jit_WriteMorphColor(dec_->decFmt.c0off, true);
+}
+
+void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 	if (cpu_info.RiscV_B) {
 		LI(scratchReg, 0xFF);
 		FCVT(FConv::WU, FConv::S, tempReg1, fpSrc[0], Round::TOZERO);
 		MAX(tempReg1, tempReg1, R_ZERO);
 		MIN(tempReg1, tempReg1, scratchReg);
-		for (int i = 1; i < 4; ++i) {
+		for (int i = 1; i < (checkAlpha ? 4 : 3); ++i) {
 			FCVT(FConv::WU, FConv::S, tempReg2, fpSrc[i], Round::TOZERO);
 			MAX(tempReg2, tempReg2, R_ZERO);
 			MIN(tempReg2, tempReg2, scratchReg);
@@ -1120,17 +1006,24 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 			SLLI(tempReg2, tempReg2, i * 8);
 			OR(tempReg1, tempReg1, tempReg2);
 		}
+
+		if (!checkAlpha) {
+			// For 565 only, take our 0xFF constant above and slot it into alpha.
+			SLLI(scratchReg, scratchReg, 24);
+			OR(tempReg1, tempReg1, scratchReg);
+		}
 	} else {
 		// Clamp to [0, 255] as floats, since we have FMIN/FMAX.  Better than branching, probably...
-		// We still have 255.0f in fpScratchReg2.
+		LI(scratchReg, 255.0f);
 		FMV(FMv::W, FMv::X, fpScratchReg1, R_ZERO);
-		for (int i = 0; i < 4; ++i) {
+		FMV(FMv::W, FMv::X, fpScratchReg2, scratchReg);
+		for (int i = 0; i < (checkAlpha ? 4 : 3); ++i) {
 			FMAX(32, fpSrc[i], fpSrc[i], fpScratchReg1);
 			FMIN(32, fpSrc[i], fpSrc[i], fpScratchReg2);
 		}
 
 		FCVT(FConv::WU, FConv::S, tempReg1, fpSrc[0], Round::TOZERO);
-		for (int i = 1; i < 4; ++i) {
+		for (int i = 1; i < (checkAlpha ? 4 : 3); ++i) {
 			FCVT(FConv::WU, FConv::S, tempReg2, fpSrc[i], Round::TOZERO);
 			// If it's alpha, set tempReg3 as a flag.
 			if (i == 3)
@@ -1138,14 +1031,22 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 			SLLI(tempReg2, tempReg2, i * 8);
 			OR(tempReg1, tempReg1, tempReg2);
 		}
+
+		if (!checkAlpha) {
+			// For 565 only, we need to force alpha to 0xFF.
+			LI(scratchReg, (s32)0xFF000000);
+			OR(tempReg1, tempReg1, scratchReg);
+		}
 	}
 
-	// Now use the flag we set earlier to update fullAlphaReg.
-	// We translate it to a mask, tempReg3=-1 if full alpha, 0 otherwise.
-	ADDI(tempReg3, tempReg3, -1);
-	AND(fullAlphaReg, fullAlphaReg, tempReg3);
+	if (checkAlpha) {
+		// Now use the flag we set earlier to update fullAlphaReg.
+		// We translate it to a mask, tempReg3=-1 if full alpha, 0 otherwise.
+		ADDI(tempReg3, tempReg3, -1);
+		AND(fullAlphaReg, fullAlphaReg, tempReg3);
+	}
 
-	SW(tempReg1, dstReg, dec_->decFmt.c0off);
+	SW(tempReg1, dstReg, outOff);
 }
 
 void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
