@@ -335,7 +335,7 @@ namespace SaveState
 
 	void SaveStart::DoState(PointerWrap &p)
 	{
-		auto s = p.Section("SaveStart", 1, 2);
+		auto s = p.Section("SaveStart", 1, 3);
 		if (!s)
 			return;
 
@@ -357,8 +357,10 @@ namespace SaveState
 			saveDataGeneration = 0;
 		}
 
-		// Gotta do CoreTiming first since we'll restore into it.
-		CoreTiming::DoState(p);
+		// Gotta do CoreTiming before HLE, but from v3 we've moved it after the memory stuff.
+		if (s <= 2) {
+			CoreTiming::DoState(p);
+		}
 
 		// Memory is a bit tricky when jit is enabled, since there's emuhacks in it.
 		auto savedReplacements = SaveAndClearReplacements();
@@ -374,6 +376,10 @@ namespace SaveState
 			}
 		} else {
 			Memory::DoState(p);
+		}
+
+		if (s >= 3) {
+			CoreTiming::DoState(p);
 		}
 
 		// Don't bother restoring if reading, we'll deal with that in KernelModuleDoState.
