@@ -100,7 +100,7 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	}
 #endif
 
-	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_OPENGL) {
+	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_OPENGL || preferred == RETRO_HW_CONTEXT_OPENGLES3) {
 		ctx = new LibretroGLContext();
 
 		if (ctx->Init()) {

@@ -61,6 +61,10 @@
 #define DIR_SEP_CHRS "/"
 #endif
 
+#ifdef HAVE_LIBRETRO_VFS
+#include "streams/file_stream.h"
+#endif
+
 #define SAMPLERATE 44100
 
 #define AUDIO_RING_BUFFER_SIZE      (1 << 16)
@@ -516,6 +520,12 @@ void retro_set_environment(retro_environment_t cb)
    struct retro_core_options_update_display_callback update_display_cb;
    update_display_cb.callback = set_variable_visibility;
    environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK, &update_display_cb);
+
+   #ifdef HAVE_LIBRETRO_VFS
+      struct retro_vfs_interface_info vfs_iface_info { 1, nullptr };
+      if (cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs_iface_info))
+         filestream_vfs_init(&vfs_iface_info);
+   #endif
 }
 
 static int get_language_auto(void)

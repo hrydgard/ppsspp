@@ -7,6 +7,7 @@ GPUDIR			= $(CORE_DIR)/GPU
 EXTDIR			= $(CORE_DIR)/ext
 NATIVEDIR		= $(EXTDIR)/native
 ZSTDDIR                 = $(EXTDIR)/zstd/lib
+LIBRETROCOMMONDIR       = $(LIBRETRODIR)/libretro-common
 
 SOURCES_CXX   :=
 SOURCES_C     :=
@@ -880,6 +881,21 @@ SOURCES_C += \
 		$(EXTDIR)/zlib/trees.c \
 		$(EXTDIR)/zlib/uncompr.c \
 		$(EXTDIR)/zlib/zutil.c
+endif
+
+ifeq ($(HAVE_LIBRETRO_VFS), 1)
+DEFINES += -DHAVE_LIBRETRO_VFS
+INCFLAGS += -I$(LIBRETROCOMMONDIR)/include
+SOURCES_C += $(LIBRETROCOMMONDIR)/compat/compat_posix_string.c \
+             $(LIBRETROCOMMONDIR)/compat/fopen_utf8.c \
+             $(LIBRETROCOMMONDIR)/encodings/encoding_utf.c \
+             $(LIBRETROCOMMONDIR)/compat/compat_strl.c \
+             $(LIBRETROCOMMONDIR)/file/file_path.c \
+             $(LIBRETROCOMMONDIR)/streams/file_stream.c \
+             $(LIBRETROCOMMONDIR)/streams/file_stream_transforms.c \
+             $(LIBRETROCOMMONDIR)/string/stdstring.c \
+             $(LIBRETROCOMMONDIR)/time/rtime.c \
+             $(LIBRETROCOMMONDIR)/vfs/vfs_implementation.c
 endif
 
 GIT_VERSION_SRC = $(CORE_DIR)/git-version.cpp
