@@ -158,7 +158,12 @@ struct VirtualFramebuffer {
 
 	inline int Stride(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_stride : z_stride; }
 	inline u32 Address(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_address : z_address; }
-	inline int Format(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_format : GE_FORMAT_DEPTH16; }
+	inline GEBufferFormat Format(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_format : GE_FORMAT_DEPTH16; }
+	inline int BindSeq(RasterChannel channel) const { return channel == RASTER_COLOR ? colorBindSeq : depthBindSeq; }
+
+	int BufferByteSize(RasterChannel channel) const {
+		return channel == RASTER_COLOR ? fb_stride * height * (fb_format == GE_FORMAT_8888 ? 4 : 2) : z_stride * height * 2;
+	}
 };
 
 struct FramebufferHeuristicParams {
@@ -238,7 +243,7 @@ inline Draw::DataFormat GEFormatToThin3D(GEBufferFormat geFormat) {
 // Makes it easy to see if blits match etc.
 struct BlockTransferRect {
 	VirtualFramebuffer *vfb;
-	// RasterChannel channel;  // We currently only deal with color for block copies.
+	RasterChannel channel;  // We usually only deal with color, but we have limited depth block transfer support now.
 
 	int x_bytes;
 	int y;
@@ -484,7 +489,6 @@ protected:
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags, int layer);
 
 	void EstimateDrawingSize(u32 fb_address, int fb_stride, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int &drawing_width, int &drawing_height);
-	u32 ColorBufferByteSize(const VirtualFramebuffer *vfb) const;
 
 	void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb);
 	void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb);
