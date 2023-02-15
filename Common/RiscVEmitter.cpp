@@ -18,6 +18,9 @@
 #include "ppsspp_config.h"
 #include <algorithm>
 #include <cstring>
+#if PPSSPP_ARCH(RISCV64) && PPSSPP_PLATFORM(LINUX)
+#include <sys/cachectl.h>
+#endif
 #include "Common/BitScan.h"
 #include "Common/CPUDetect.h"
 #include "Common/RiscVEmitter.h"
@@ -1051,7 +1054,12 @@ void RiscVEmitter::FlushIcache() {
 
 void RiscVEmitter::FlushIcacheSection(const u8 *start, const u8 *end) {
 #if PPSSPP_ARCH(RISCV64)
+#if PPSSPP_PLATFORM(LINUX)
+	__riscv_flush_icache((char *)start, (char *)end, 0);
+#else
+	// TODO: This might only correspond to a local hart icache clear, which is no good.
 	__builtin___clear_cache((char *)start, (char *)end);
+#endif
 #endif
 }
 
@@ -1679,6 +1687,10 @@ void RiscVEmitter::EBREAK() {
 }
 
 void RiscVEmitter::LWU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	if (BitsSupported() == 32) {
+		LW(rd, rs1, simm12);
+		return;
+	}
 	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
 	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_WU, rs1, simm12));
 }

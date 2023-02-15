@@ -41,6 +41,8 @@ static const RiscVReg tempReg2 = X14;
 static const RiscVReg tempReg3 = X15;
 static const RiscVReg scratchReg = X16;
 
+static const RiscVReg morphBaseReg = X5;
+
 static const RiscVReg fullAlphaReg = X17;
 static const RiscVReg boundsMinUReg = X28;
 static const RiscVReg boundsMinVReg = X29;
@@ -50,7 +52,9 @@ static const RiscVReg boundsMaxVReg = X31;
 static const RiscVReg fpScratchReg1 = F10;
 static const RiscVReg fpScratchReg2 = F11;
 static const RiscVReg fpScratchReg3 = F12;
-static const RiscVReg fpSrc[3] = { F13, F14, F15 };
+// We want most of these within 8-15, to be compressible.
+static const RiscVReg fpSrc[4] = { F13, F14, F15, F16 };
+static const RiscVReg fpScratchReg4 = F17;
 
 struct UVScaleRegs {
 	struct {
@@ -68,6 +72,50 @@ static const RiscVReg by128Reg = F4;
 static const RiscVReg by32768Reg = F5;
 // Warning: usually not valid.
 static const RiscVReg const65535Reg = F6;
+
+struct MorphValues {
+	float by128[8];
+	float by32768[8];
+	float asFloat[8];
+	float color4[8];
+	float color5[8];
+	float color6[8];
+};
+enum class MorphValuesIndex {
+	BY_128 = 0,
+	BY_32768 = 1,
+	AS_FLOAT = 2,
+	COLOR_4 = 3,
+	COLOR_5 = 4,
+	COLOR_6 = 5,
+};
+static MorphValues morphValues;
+
+static uint32_t GetMorphValueUsage(uint32_t vtype) {
+	uint32_t morphFlags = 0;
+	switch (vtype & GE_VTYPE_TC_MASK) {
+	case GE_VTYPE_TC_8BIT: morphFlags |= 1 << (int)MorphValuesIndex::BY_128; break;
+	case GE_VTYPE_TC_16BIT: morphFlags |= 1 << (int)MorphValuesIndex::BY_32768; break;
+	case GE_VTYPE_TC_FLOAT: morphFlags |= 1 << (int)MorphValuesIndex::AS_FLOAT; break;
+	}
+	switch (vtype & GE_VTYPE_COL_MASK) {
+	case GE_VTYPE_COL_565: morphFlags |= (1 << (int)MorphValuesIndex::COLOR_5) | (1 << (int)MorphValuesIndex::COLOR_6); break;
+	case GE_VTYPE_COL_5551: morphFlags |= 1 << (int)MorphValuesIndex::COLOR_5; break;
+	case GE_VTYPE_COL_4444: morphFlags |= 1 << (int)MorphValuesIndex::COLOR_4; break;
+	case GE_VTYPE_COL_8888: morphFlags |= 1 << (int)MorphValuesIndex::AS_FLOAT; break;
+	}
+	switch (vtype & GE_VTYPE_NRM_MASK) {
+	case GE_VTYPE_NRM_8BIT: morphFlags |= 1 << (int)MorphValuesIndex::BY_128; break;
+	case GE_VTYPE_NRM_16BIT: morphFlags |= 1 << (int)MorphValuesIndex::BY_32768; break;
+	case GE_VTYPE_NRM_FLOAT: morphFlags |= 1 << (int)MorphValuesIndex::AS_FLOAT; break;
+	}
+	switch (vtype & GE_VTYPE_POS_MASK) {
+	case GE_VTYPE_POS_8BIT: morphFlags |= 1 << (int)MorphValuesIndex::BY_128; break;
+	case GE_VTYPE_POS_16BIT: morphFlags |= 1 << (int)MorphValuesIndex::BY_32768; break;
+	case GE_VTYPE_POS_FLOAT: morphFlags |= 1 << (int)MorphValuesIndex::AS_FLOAT; break;
+	}
+	return morphFlags;
+}
 
 // TODO: Use vector, where supported.
 
@@ -89,9 +137,21 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcU16DoublePrescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
+	{&VertexDecoder::Step_TcU8MorphToFloat, &VertexDecoderJitCache::Jit_TcU8MorphToFloat},
+	{&VertexDecoder::Step_TcU16MorphToFloat, &VertexDecoderJitCache::Jit_TcU16MorphToFloat},
+	{&VertexDecoder::Step_TcFloatMorph, &VertexDecoderJitCache::Jit_TcFloatMorph},
+	{&VertexDecoder::Step_TcU8PrescaleMorph, &VertexDecoderJitCache::Jit_TcU8PrescaleMorph},
+	{&VertexDecoder::Step_TcU16PrescaleMorph, &VertexDecoderJitCache::Jit_TcU16PrescaleMorph},
+	{&VertexDecoder::Step_TcU16DoublePrescaleMorph, &VertexDecoderJitCache::Jit_TcU16PrescaleMorph},
+	{&VertexDecoder::Step_TcFloatPrescaleMorph, &VertexDecoderJitCache::Jit_TcFloatPrescaleMorph},
+
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
 	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
+
+	{&VertexDecoder::Step_NormalS8Morph, &VertexDecoderJitCache::Jit_NormalS8Morph},
+	{&VertexDecoder::Step_NormalS16Morph, &VertexDecoderJitCache::Jit_NormalS16Morph},
+	{&VertexDecoder::Step_NormalFloatMorph, &VertexDecoderJitCache::Jit_NormalFloatMorph},
 
 	{&VertexDecoder::Step_PosS8, &VertexDecoderJitCache::Jit_PosS8},
 	{&VertexDecoder::Step_PosS16, &VertexDecoderJitCache::Jit_PosS16},
@@ -101,10 +161,19 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
 	{&VertexDecoder::Step_PosFloatThrough, &VertexDecoderJitCache::Jit_PosFloatThrough},
 
+	{&VertexDecoder::Step_PosS8Morph, &VertexDecoderJitCache::Jit_PosS8Morph},
+	{&VertexDecoder::Step_PosS16Morph, &VertexDecoderJitCache::Jit_PosS16Morph},
+	{&VertexDecoder::Step_PosFloatMorph, &VertexDecoderJitCache::Jit_PosFloatMorph},
+
 	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
 	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
 	{&VertexDecoder::Step_Color565, &VertexDecoderJitCache::Jit_Color565},
 	{&VertexDecoder::Step_Color5551, &VertexDecoderJitCache::Jit_Color5551},
+
+	{&VertexDecoder::Step_Color8888Morph, &VertexDecoderJitCache::Jit_Color8888Morph},
+	{&VertexDecoder::Step_Color4444Morph, &VertexDecoderJitCache::Jit_Color4444Morph},
+	{&VertexDecoder::Step_Color565Morph, &VertexDecoderJitCache::Jit_Color565Morph},
+	{&VertexDecoder::Step_Color5551Morph, &VertexDecoderJitCache::Jit_Color5551Morph},
 };
 
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int32_t *jittedSize) {
@@ -123,7 +192,11 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		if (dec.steps_[i] == &VertexDecoder::Step_TcU8Prescale ||
 			dec.steps_[i] == &VertexDecoder::Step_TcU16Prescale ||
 			dec.steps_[i] == &VertexDecoder::Step_TcU16DoublePrescale ||
-			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescale) {
+			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescale ||
+			dec.steps_[i] == &VertexDecoder::Step_TcU8PrescaleMorph ||
+			dec.steps_[i] == &VertexDecoder::Step_TcU16PrescaleMorph ||
+			dec.steps_[i] == &VertexDecoder::Step_TcU16DoublePrescaleMorph ||
+			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescaleMorph) {
 			prescaleStep = true;
 		}
 		if (dec.steps_[i] == &VertexDecoder::Step_PosFloatThrough) {
@@ -158,6 +231,49 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			}
 			FMUL(32, prescaleRegs.scale.u, prescaleRegs.scale.u, multipler);
 			FMUL(32, prescaleRegs.scale.v, prescaleRegs.scale.v, multipler);
+		}
+	}
+
+	if (dec_->morphcount > 1) {
+		uint32_t morphFlags = GetMorphValueUsage(dec.VertexType());
+
+		auto storePremultiply = [&](RiscVReg factorReg, MorphValuesIndex index, int n) {
+			FMUL(32, fpScratchReg2, fpScratchReg1, factorReg);
+			FS(32, fpScratchReg2, morphBaseReg, ((int)index * 8 + n) * 4);
+		};
+
+		LI(morphBaseReg, &morphValues);
+		LI(tempReg1, &gstate_c.morphWeights[0]);
+
+		if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_4)) != 0) {
+			LI(scratchReg, 255.0f / 15.0f);
+			FMV(FMv::W, FMv::X, fpScratchReg1, scratchReg);
+		}
+		if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_5)) != 0) {
+			LI(scratchReg, 255.0f / 31.0f);
+			FMV(FMv::W, FMv::X, fpScratchReg2, scratchReg);
+		}
+		if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_6)) != 0) {
+			LI(scratchReg, 255.0f / 63.0f);
+			FMV(FMv::W, FMv::X, fpScratchReg3, scratchReg);
+		}
+
+		// Premultiply the values we need and store them so we can reuse.
+		for (int n = 0; n < dec_->morphcount; n++) {
+			FL(32, fpScratchReg1, tempReg1, n * 4);
+
+			if ((morphFlags & (1 << (int)MorphValuesIndex::BY_128)) != 0)
+				storePremultiply(by128Reg, MorphValuesIndex::BY_128, n);
+			if ((morphFlags & (1 << (int)MorphValuesIndex::BY_32768)) != 0)
+				storePremultiply(by32768Reg, MorphValuesIndex::BY_32768, n);
+			if ((morphFlags & (1 << (int)MorphValuesIndex::AS_FLOAT)) != 0)
+				FS(32, fpScratchReg1, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
+			if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_4)) != 0)
+				storePremultiply(fpScratchReg1, MorphValuesIndex::COLOR_4, n);
+			if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_5)) != 0)
+				storePremultiply(fpScratchReg2, MorphValuesIndex::COLOR_5, n);
+			if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_6)) != 0)
+				storePremultiply(fpScratchReg3, MorphValuesIndex::COLOR_6, n);
 		}
 	}
 
@@ -368,21 +484,159 @@ void VertexDecoderJitCache::Jit_TcFloatPrescale() {
 	FS(32, fpSrc[1], dstReg, dec_->decFmt.uvoff + 4);
 }
 
+void VertexDecoderJitCache::Jit_TcU8MorphToFloat() {
+	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_128 * 8 + 0) * 4);
+	LBU(tempReg1, srcReg, dec_->tcoff + 0);
+	LBU(tempReg2, srcReg, dec_->tcoff + 1);
+	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
+	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
+	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
+	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+
+	for (int n = 1; n < dec_->morphcount; n++) {
+		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_128 * 8 + n) * 4);
+		LBU(tempReg1, srcReg, dec_->onesize_ * n + dec_->tcoff + 0);
+		LBU(tempReg2, srcReg, dec_->onesize_ * n + dec_->tcoff + 1);
+		FCVT(FConv::S, FConv::WU, fpScratchReg1, tempReg1, Round::TOZERO);
+		FCVT(FConv::S, FConv::WU, fpScratchReg2, tempReg2, Round::TOZERO);
+		FMADD(32, fpSrc[0], fpScratchReg1, fpScratchReg4, fpSrc[0]);
+		FMADD(32, fpSrc[1], fpScratchReg2, fpScratchReg4, fpSrc[1]);
+	}
+
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.uvoff);
+	FS(32, fpSrc[1], dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU16MorphToFloat() {
+	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_32768 * 8 + 0) * 4);
+	LHU(tempReg1, srcReg, dec_->tcoff + 0);
+	LHU(tempReg2, srcReg, dec_->tcoff + 2);
+	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
+	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
+	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
+	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+
+	for (int n = 1; n < dec_->morphcount; n++) {
+		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_32768 * 8 + n) * 4);
+		LHU(tempReg1, srcReg, dec_->onesize_ * n + dec_->tcoff + 0);
+		LHU(tempReg2, srcReg, dec_->onesize_ * n + dec_->tcoff + 2);
+		FCVT(FConv::S, FConv::WU, fpScratchReg1, tempReg1, Round::TOZERO);
+		FCVT(FConv::S, FConv::WU, fpScratchReg2, tempReg2, Round::TOZERO);
+		FMADD(32, fpSrc[0], fpScratchReg1, fpScratchReg4, fpSrc[0]);
+		FMADD(32, fpSrc[1], fpScratchReg2, fpScratchReg4, fpSrc[1]);
+	}
+
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.uvoff);
+	FS(32, fpSrc[1], dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcFloatMorph() {
+	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + 0) * 4);
+	FL(32, fpSrc[0], srcReg, dec_->tcoff + 0);
+	FL(32, fpSrc[1], srcReg, dec_->tcoff + 4);
+	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
+	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+
+	for (int n = 1; n < dec_->morphcount; n++) {
+		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
+		FL(32, fpScratchReg1, srcReg, dec_->onesize_ * n + dec_->tcoff + 0);
+		FL(32, fpScratchReg2, srcReg, dec_->onesize_ * n + dec_->tcoff + 4);
+		FMADD(32, fpSrc[0], fpScratchReg1, fpScratchReg4, fpSrc[0]);
+		FMADD(32, fpSrc[1], fpScratchReg2, fpScratchReg4, fpSrc[1]);
+	}
+
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.uvoff);
+	FS(32, fpSrc[1], dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU8PrescaleMorph() {
+	// We use AS_FLOAT since by128 is already baked into precale.
+	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + 0) * 4);
+	LBU(tempReg1, srcReg, dec_->tcoff + 0);
+	LBU(tempReg2, srcReg, dec_->tcoff + 1);
+	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
+	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
+	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
+	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+
+	for (int n = 1; n < dec_->morphcount; n++) {
+		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
+		LBU(tempReg1, srcReg, dec_->onesize_ * n + dec_->tcoff + 0);
+		LBU(tempReg2, srcReg, dec_->onesize_ * n + dec_->tcoff + 1);
+		FCVT(FConv::S, FConv::WU, fpScratchReg1, tempReg1, Round::TOZERO);
+		FCVT(FConv::S, FConv::WU, fpScratchReg2, tempReg2, Round::TOZERO);
+		FMADD(32, fpSrc[0], fpScratchReg1, fpScratchReg4, fpSrc[0]);
+		FMADD(32, fpSrc[1], fpScratchReg2, fpScratchReg4, fpSrc[1]);
+	}
+
+	FMADD(32, fpSrc[0], fpSrc[0], prescaleRegs.scale.u, prescaleRegs.offset.u);
+	FMADD(32, fpSrc[1], fpSrc[1], prescaleRegs.scale.v, prescaleRegs.offset.v);
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.uvoff);
+	FS(32, fpSrc[1], dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU16PrescaleMorph() {
+	// We use AS_FLOAT since by32768 is already baked into precale.
+	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + 0) * 4);
+	LHU(tempReg1, srcReg, dec_->tcoff + 0);
+	LHU(tempReg2, srcReg, dec_->tcoff + 2);
+	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
+	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
+	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
+	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+
+	for (int n = 1; n < dec_->morphcount; n++) {
+		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
+		LHU(tempReg1, srcReg, dec_->onesize_ * n + dec_->tcoff + 0);
+		LHU(tempReg2, srcReg, dec_->onesize_ * n + dec_->tcoff + 2);
+		FCVT(FConv::S, FConv::WU, fpScratchReg1, tempReg1, Round::TOZERO);
+		FCVT(FConv::S, FConv::WU, fpScratchReg2, tempReg2, Round::TOZERO);
+		FMADD(32, fpSrc[0], fpScratchReg1, fpScratchReg4, fpSrc[0]);
+		FMADD(32, fpSrc[1], fpScratchReg2, fpScratchReg4, fpSrc[1]);
+	}
+
+	FMADD(32, fpSrc[0], fpSrc[0], prescaleRegs.scale.u, prescaleRegs.offset.u);
+	FMADD(32, fpSrc[1], fpSrc[1], prescaleRegs.scale.v, prescaleRegs.offset.v);
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.uvoff);
+	FS(32, fpSrc[1], dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcFloatPrescaleMorph() {
+	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + 0) * 4);
+	FL(32, fpSrc[0], srcReg, dec_->tcoff + 0);
+	FL(32, fpSrc[1], srcReg, dec_->tcoff + 4);
+	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
+	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+
+	for (int n = 1; n < dec_->morphcount; n++) {
+		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
+		FL(32, fpScratchReg1, srcReg, dec_->onesize_ * n + dec_->tcoff + 0);
+		FL(32, fpScratchReg2, srcReg, dec_->onesize_ * n + dec_->tcoff + 4);
+		FMADD(32, fpSrc[0], fpScratchReg1, fpScratchReg4, fpSrc[0]);
+		FMADD(32, fpSrc[1], fpScratchReg2, fpScratchReg4, fpSrc[1]);
+	}
+
+	FMADD(32, fpSrc[0], fpSrc[0], prescaleRegs.scale.u, prescaleRegs.offset.u);
+	FMADD(32, fpSrc[1], fpSrc[1], prescaleRegs.scale.v, prescaleRegs.offset.v);
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.uvoff);
+	FS(32, fpSrc[1], dstReg, dec_->decFmt.uvoff + 4);
+}
+
 void VertexDecoderJitCache::Jit_NormalS8() {
-	LB(tempReg1, srcReg, dec_->nrmoff);
+	LB(tempReg1, srcReg, dec_->nrmoff + 0);
 	LB(tempReg2, srcReg, dec_->nrmoff + 1);
 	LB(tempReg3, srcReg, dec_->nrmoff + 2);
-	SB(tempReg1, dstReg, dec_->decFmt.nrmoff);
+	SB(tempReg1, dstReg, dec_->decFmt.nrmoff + 0);
 	SB(tempReg2, dstReg, dec_->decFmt.nrmoff + 1);
 	SB(tempReg3, dstReg, dec_->decFmt.nrmoff + 2);
 	SB(R_ZERO, dstReg, dec_->decFmt.nrmoff + 3);
 }
 
 void VertexDecoderJitCache::Jit_NormalS16() {
-	LH(tempReg1, srcReg, dec_->nrmoff);
+	LH(tempReg1, srcReg, dec_->nrmoff + 0);
 	LH(tempReg2, srcReg, dec_->nrmoff + 2);
 	LH(tempReg3, srcReg, dec_->nrmoff + 4);
-	SH(tempReg1, dstReg, dec_->decFmt.nrmoff);
+	SH(tempReg1, dstReg, dec_->decFmt.nrmoff + 0);
 	SH(tempReg2, dstReg, dec_->decFmt.nrmoff + 2);
 	SH(tempReg3, dstReg, dec_->decFmt.nrmoff + 4);
 	SH(R_ZERO, dstReg, dec_->decFmt.nrmoff + 6);
@@ -390,12 +644,24 @@ void VertexDecoderJitCache::Jit_NormalS16() {
 
 void VertexDecoderJitCache::Jit_NormalFloat() {
 	// Just copy 12 bytes, play with over read/write later.
-	LW(tempReg1, srcReg, dec_->nrmoff);
+	LW(tempReg1, srcReg, dec_->nrmoff + 0);
 	LW(tempReg2, srcReg, dec_->nrmoff + 4);
 	LW(tempReg3, srcReg, dec_->nrmoff + 8);
-	SW(tempReg1, dstReg, dec_->decFmt.nrmoff);
+	SW(tempReg1, dstReg, dec_->decFmt.nrmoff + 0);
 	SW(tempReg2, dstReg, dec_->decFmt.nrmoff + 4);
 	SW(tempReg3, dstReg, dec_->decFmt.nrmoff + 8);
+}
+
+void VertexDecoderJitCache::Jit_NormalS8Morph() {
+	Jit_AnyS8Morph(dec_->nrmoff, dec_->decFmt.nrmoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalS16Morph() {
+	Jit_AnyS16Morph(dec_->nrmoff, dec_->decFmt.nrmoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalFloatMorph() {
+	Jit_AnyFloatMorph(dec_->nrmoff, dec_->decFmt.nrmoff);
 }
 
 void VertexDecoderJitCache::Jit_PosS8() {
@@ -458,8 +724,20 @@ void VertexDecoderJitCache::Jit_PosFloatThrough() {
 	FS(32, fpSrc[2], dstReg, dec_->decFmt.posoff + 8);
 }
 
+void VertexDecoderJitCache::Jit_PosS8Morph() {
+	Jit_AnyS8Morph(dec_->posoff, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_PosS16Morph() {
+	Jit_AnyS16Morph(dec_->posoff, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_PosFloatMorph() {
+	Jit_AnyFloatMorph(dec_->posoff, dec_->decFmt.posoff);
+}
+
 void VertexDecoderJitCache::Jit_Color8888() {
-	LW(tempReg1, srcReg, dec_->coloff);
+	LWU(tempReg1, srcReg, dec_->coloff);
 
 	// Set tempReg2=-1 if full alpha, 0 otherwise.
 	SRLI(tempReg2, tempReg1, 24);
@@ -580,6 +858,197 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	SW(tempReg1, dstReg, dec_->decFmt.c0off);
 }
 
+void VertexDecoderJitCache::Jit_Color8888Morph() {
+	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + 0) * 4);
+	LWU(tempReg1, srcReg, dec_->coloff);
+	for (int i = 0; i < 3; ++i) {
+		ANDI(tempReg2, tempReg1, 0xFF);
+		FCVT(FConv::S, FConv::WU, fpSrc[i], tempReg2, Round::TOZERO);
+		SRLI(tempReg1, tempReg1, 8);
+		FMUL(32, fpSrc[i], fpSrc[i], fpScratchReg4);
+	}
+	FCVT(FConv::S, FConv::WU, fpSrc[3], tempReg1, Round::TOZERO);
+	FMUL(32, fpSrc[3], fpSrc[3], fpScratchReg4);
+
+	for (int n = 1; n < dec_->morphcount; n++) {
+		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
+		LWU(tempReg1, srcReg, dec_->onesize_ * n + dec_->coloff);
+		for (int i = 0; i < 3; ++i) {
+			ANDI(tempReg2, tempReg1, 0xFF);
+			FCVT(FConv::S, FConv::WU, fpScratchReg1, tempReg2, Round::TOZERO);
+			SRLI(tempReg1, tempReg1, 8);
+			FMADD(32, fpSrc[i], fpScratchReg1, fpScratchReg4, fpSrc[i]);
+		}
+		FCVT(FConv::S, FConv::WU, fpScratchReg1, tempReg1, Round::TOZERO);
+		FMADD(32, fpSrc[3], fpScratchReg1, fpScratchReg4, fpSrc[3]);
+	}
+
+	Jit_WriteMorphColor(dec_->decFmt.c0off, true);
+}
+
+void VertexDecoderJitCache::Jit_Color4444Morph() {
+	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::COLOR_4 * 8 + 0) * 4);
+	LHU(tempReg1, srcReg, dec_->coloff);
+	for (int i = 0; i < 3; ++i) {
+		ANDI(tempReg2, tempReg1, 0xF);
+		FCVT(FConv::S, FConv::WU, fpSrc[i], tempReg2, Round::TOZERO);
+		SRLI(tempReg1, tempReg1, 4);
+		FMUL(32, fpSrc[i], fpSrc[i], fpScratchReg4, Round::TOZERO);
+	}
+	FCVT(FConv::S, FConv::WU, fpSrc[3], tempReg1, Round::TOZERO);
+	FMUL(32, fpSrc[3], fpSrc[3], fpScratchReg4, Round::TOZERO);
+
+	for (int n = 1; n < dec_->morphcount; n++) {
+		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::COLOR_4 * 8 + n) * 4);
+		LHU(tempReg1, srcReg, dec_->onesize_ * n + dec_->coloff);
+		for (int i = 0; i < 3; ++i) {
+			ANDI(tempReg2, tempReg1, 0xF);
+			FCVT(FConv::S, FConv::WU, fpScratchReg1, tempReg2, Round::TOZERO);
+			SRLI(tempReg1, tempReg1, 4);
+			FMADD(32, fpSrc[i], fpScratchReg1, fpScratchReg4, fpSrc[i]);
+		}
+		FCVT(FConv::S, FConv::WU, fpScratchReg1, tempReg1, Round::TOZERO);
+		FMADD(32, fpSrc[3], fpScratchReg1, fpScratchReg4, fpSrc[3]);
+	}
+
+	Jit_WriteMorphColor(dec_->decFmt.c0off, true);
+}
+
+void VertexDecoderJitCache::Jit_Color565Morph() {
+	FL(32, fpScratchReg3, morphBaseReg, ((int)MorphValuesIndex::COLOR_5 * 8 + 0) * 4);
+	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::COLOR_6 * 8 + 0) * 4);
+	LHU(tempReg1, srcReg, dec_->coloff);
+
+	ANDI(tempReg2, tempReg1, 0x1F);
+	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg2, Round::TOZERO);
+	SRLI(tempReg1, tempReg1, 5);
+	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg3, Round::TOZERO);
+
+	ANDI(tempReg2, tempReg1, 0x3F);
+	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
+	SRLI(tempReg1, tempReg1, 6);
+	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+
+	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
+	FMUL(32, fpSrc[2], fpSrc[2], fpScratchReg3, Round::TOZERO);
+
+	for (int n = 1; n < dec_->morphcount; n++) {
+		FL(32, fpScratchReg3, morphBaseReg, ((int)MorphValuesIndex::COLOR_5 * 8 + n) * 4);
+		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::COLOR_6 * 8 + n) * 4);
+		LHU(tempReg1, srcReg, dec_->onesize_ * n + dec_->coloff);
+
+		ANDI(tempReg2, tempReg1, 0x1F);
+		FCVT(FConv::S, FConv::WU, fpScratchReg1, tempReg2, Round::TOZERO);
+		SRLI(tempReg1, tempReg1, 5);
+		FMADD(32, fpSrc[0], fpScratchReg1, fpScratchReg3, fpSrc[0]);
+
+		ANDI(tempReg2, tempReg1, 0x3F);
+		FCVT(FConv::S, FConv::WU, fpScratchReg1, tempReg2, Round::TOZERO);
+		SRLI(tempReg1, tempReg1, 6);
+		FMADD(32, fpSrc[1], fpScratchReg1, fpScratchReg4, fpSrc[1]);
+
+		FCVT(FConv::S, FConv::WU, fpScratchReg1, tempReg1, Round::TOZERO);
+		FMADD(32, fpSrc[2], fpScratchReg1, fpScratchReg3, fpSrc[2]);
+	}
+
+	Jit_WriteMorphColor(dec_->decFmt.c0off, false);
+}
+
+void VertexDecoderJitCache::Jit_Color5551Morph() {
+	FL(32, fpScratchReg3, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + 0) * 4);
+	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::COLOR_5 * 8 + 0) * 4);
+	LHU(tempReg1, srcReg, dec_->coloff);
+	for (int i = 0; i < 3; ++i) {
+		ANDI(tempReg2, tempReg1, 0x1F);
+		FCVT(FConv::S, FConv::WU, fpSrc[i], tempReg2, Round::TOZERO);
+		SRLI(tempReg1, tempReg1, 5);
+		FMUL(32, fpSrc[i], fpSrc[i], fpScratchReg4, Round::TOZERO);
+	}
+
+	// We accumulate alpha to [0, 1] and then scale up to 255 later.
+	FCVT(FConv::S, FConv::WU, fpSrc[3], tempReg1, Round::TOZERO);
+	FMUL(32, fpSrc[3], fpSrc[3], fpScratchReg3, Round::TOZERO);
+
+	for (int n = 1; n < dec_->morphcount; n++) {
+		FL(32, fpScratchReg3, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
+		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::COLOR_5 * 8 + n) * 4);
+		LHU(tempReg1, srcReg, dec_->onesize_ * n + dec_->coloff);
+		for (int i = 0; i < 3; ++i) {
+			ANDI(tempReg2, tempReg1, 0x1F);
+			FCVT(FConv::S, FConv::WU, fpScratchReg1, tempReg2, Round::TOZERO);
+			SRLI(tempReg1, tempReg1, 5);
+			FMADD(32, fpSrc[i], fpScratchReg1, fpScratchReg4, fpSrc[i]);
+		}
+		FCVT(FConv::S, FConv::WU, fpScratchReg1, tempReg1, Round::TOZERO);
+		FMADD(32, fpSrc[3], fpScratchReg1, fpScratchReg3, fpSrc[3]);
+	}
+
+	LI(scratchReg, 255.0f);
+	FMV(FMv::W, FMv::X, fpScratchReg2, scratchReg);
+	FMUL(32, fpSrc[3], fpSrc[3], fpScratchReg2, Round::TOZERO);
+
+	Jit_WriteMorphColor(dec_->decFmt.c0off, true);
+}
+
+void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
+	if (cpu_info.RiscV_B) {
+		LI(scratchReg, 0xFF);
+		FCVT(FConv::WU, FConv::S, tempReg1, fpSrc[0], Round::TOZERO);
+		MAX(tempReg1, tempReg1, R_ZERO);
+		MIN(tempReg1, tempReg1, scratchReg);
+		for (int i = 1; i < (checkAlpha ? 4 : 3); ++i) {
+			FCVT(FConv::WU, FConv::S, tempReg2, fpSrc[i], Round::TOZERO);
+			MAX(tempReg2, tempReg2, R_ZERO);
+			MIN(tempReg2, tempReg2, scratchReg);
+			// If it's alpha, set tempReg3 as a flag.
+			if (i == 3)
+				SLTIU(tempReg3, tempReg2, 0xFF);
+			SLLI(tempReg2, tempReg2, i * 8);
+			OR(tempReg1, tempReg1, tempReg2);
+		}
+
+		if (!checkAlpha) {
+			// For 565 only, take our 0xFF constant above and slot it into alpha.
+			SLLI(scratchReg, scratchReg, 24);
+			OR(tempReg1, tempReg1, scratchReg);
+		}
+	} else {
+		// Clamp to [0, 255] as floats, since we have FMIN/FMAX.  Better than branching, probably...
+		LI(scratchReg, 255.0f);
+		FMV(FMv::W, FMv::X, fpScratchReg1, R_ZERO);
+		FMV(FMv::W, FMv::X, fpScratchReg2, scratchReg);
+		for (int i = 0; i < (checkAlpha ? 4 : 3); ++i) {
+			FMAX(32, fpSrc[i], fpSrc[i], fpScratchReg1);
+			FMIN(32, fpSrc[i], fpSrc[i], fpScratchReg2);
+		}
+
+		FCVT(FConv::WU, FConv::S, tempReg1, fpSrc[0], Round::TOZERO);
+		for (int i = 1; i < (checkAlpha ? 4 : 3); ++i) {
+			FCVT(FConv::WU, FConv::S, tempReg2, fpSrc[i], Round::TOZERO);
+			// If it's alpha, set tempReg3 as a flag.
+			if (i == 3)
+				SLTIU(tempReg3, tempReg2, 0xFF);
+			SLLI(tempReg2, tempReg2, i * 8);
+			OR(tempReg1, tempReg1, tempReg2);
+		}
+
+		if (!checkAlpha) {
+			// For 565 only, we need to force alpha to 0xFF.
+			LI(scratchReg, (s32)0xFF000000);
+			OR(tempReg1, tempReg1, scratchReg);
+		}
+	}
+
+	if (checkAlpha) {
+		// Now use the flag we set earlier to update fullAlphaReg.
+		// We translate it to a mask, tempReg3=-1 if full alpha, 0 otherwise.
+		ADDI(tempReg3, tempReg3, -1);
+		AND(fullAlphaReg, fullAlphaReg, tempReg3);
+	}
+
+	SW(tempReg1, dstReg, outOff);
+}
+
 void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
 	LB(tempReg1, srcReg, srcoff + 0);
 	LB(tempReg2, srcReg, srcoff + 1);
@@ -644,6 +1113,90 @@ void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
 		FMUL(32, fpSrc[1], fpSrc[1], by32768Reg);
 	if (bits >= 48)
 		FMUL(32, fpSrc[2], fpSrc[2], by32768Reg);
+}
+
+void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
+	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_128 * 8 + 0) * 4);
+	LB(tempReg1, srcReg, srcoff + 0);
+	LB(tempReg2, srcReg, srcoff + 1);
+	LB(tempReg3, srcReg, srcoff + 2);
+	FCVT(FConv::S, FConv::W, fpSrc[0], tempReg1, Round::TOZERO);
+	FCVT(FConv::S, FConv::W, fpSrc[1], tempReg2, Round::TOZERO);
+	FCVT(FConv::S, FConv::W, fpSrc[2], tempReg3, Round::TOZERO);
+	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
+	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+	FMUL(32, fpSrc[2], fpSrc[2], fpScratchReg4, Round::TOZERO);
+
+	for (int n = 1; n < dec_->morphcount; n++) {
+		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_128 * 8 + n) * 4);
+		LB(tempReg1, srcReg, dec_->onesize_ * n + srcoff + 0);
+		LB(tempReg2, srcReg, dec_->onesize_ * n + srcoff + 1);
+		LB(tempReg3, srcReg, dec_->onesize_ * n + srcoff + 2);
+		FCVT(FConv::S, FConv::W, fpScratchReg1, tempReg1, Round::TOZERO);
+		FCVT(FConv::S, FConv::W, fpScratchReg2, tempReg2, Round::TOZERO);
+		FCVT(FConv::S, FConv::W, fpScratchReg3, tempReg3, Round::TOZERO);
+		FMADD(32, fpSrc[0], fpScratchReg1, fpScratchReg4, fpSrc[0]);
+		FMADD(32, fpSrc[1], fpScratchReg2, fpScratchReg4, fpSrc[1]);
+		FMADD(32, fpSrc[2], fpScratchReg3, fpScratchReg4, fpSrc[2]);
+	}
+
+	FS(32, fpSrc[0], dstReg, dstoff + 0);
+	FS(32, fpSrc[1], dstReg, dstoff + 4);
+	FS(32, fpSrc[2], dstReg, dstoff + 8);
+}
+
+void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
+	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_32768 * 8 + 0) * 4);
+	LH(tempReg1, srcReg, srcoff + 0);
+	LH(tempReg2, srcReg, srcoff + 2);
+	LH(tempReg3, srcReg, srcoff + 4);
+	FCVT(FConv::S, FConv::W, fpSrc[0], tempReg1, Round::TOZERO);
+	FCVT(FConv::S, FConv::W, fpSrc[1], tempReg2, Round::TOZERO);
+	FCVT(FConv::S, FConv::W, fpSrc[2], tempReg3, Round::TOZERO);
+	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
+	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+	FMUL(32, fpSrc[2], fpSrc[2], fpScratchReg4, Round::TOZERO);
+
+	for (int n = 1; n < dec_->morphcount; n++) {
+		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_32768 * 8 + n) * 4);
+		LH(tempReg1, srcReg, dec_->onesize_ * n + srcoff + 0);
+		LH(tempReg2, srcReg, dec_->onesize_ * n + srcoff + 2);
+		LH(tempReg3, srcReg, dec_->onesize_ * n + srcoff + 4);
+		FCVT(FConv::S, FConv::W, fpScratchReg1, tempReg1, Round::TOZERO);
+		FCVT(FConv::S, FConv::W, fpScratchReg2, tempReg2, Round::TOZERO);
+		FCVT(FConv::S, FConv::W, fpScratchReg3, tempReg3, Round::TOZERO);
+		FMADD(32, fpSrc[0], fpScratchReg1, fpScratchReg4, fpSrc[0]);
+		FMADD(32, fpSrc[1], fpScratchReg2, fpScratchReg4, fpSrc[1]);
+		FMADD(32, fpSrc[2], fpScratchReg3, fpScratchReg4, fpSrc[2]);
+	}
+
+	FS(32, fpSrc[0], dstReg, dstoff + 0);
+	FS(32, fpSrc[1], dstReg, dstoff + 4);
+	FS(32, fpSrc[2], dstReg, dstoff + 8);
+}
+
+void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
+	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + 0) * 4);
+	FL(32, fpSrc[0], srcReg, srcoff + 0);
+	FL(32, fpSrc[1], srcReg, srcoff + 4);
+	FL(32, fpSrc[2], srcReg, srcoff + 8);
+	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
+	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+	FMUL(32, fpSrc[2], fpSrc[2], fpScratchReg4, Round::TOZERO);
+
+	for (int n = 1; n < dec_->morphcount; n++) {
+		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
+		FL(32, fpScratchReg1, srcReg, dec_->onesize_ * n + srcoff + 0);
+		FL(32, fpScratchReg2, srcReg, dec_->onesize_ * n + srcoff + 4);
+		FL(32, fpScratchReg3, srcReg, dec_->onesize_ * n + srcoff + 8);
+		FMADD(32, fpSrc[0], fpScratchReg1, fpScratchReg4, fpSrc[0]);
+		FMADD(32, fpSrc[1], fpScratchReg2, fpScratchReg4, fpSrc[1]);
+		FMADD(32, fpSrc[2], fpScratchReg3, fpScratchReg4, fpSrc[2]);
+	}
+
+	FS(32, fpSrc[0], dstReg, dstoff + 0);
+	FS(32, fpSrc[1], dstReg, dstoff + 4);
+	FS(32, fpSrc[2], dstReg, dstoff + 8);
 }
 
 #endif // PPSSPP_ARCH(RISCV64)
