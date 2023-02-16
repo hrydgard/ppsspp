@@ -121,9 +121,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(calibrate);
 
 	settings->Add(new ItemHeader(co->T("Sensitivity")));
-	if (g_Config.iTiltInputType > 1) {
-		settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltDigitalDeadzoneRadius, 0.05f, 0.5f, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"))->SetEnabledFunc(enabledFunc);
-	} else {
+	if (g_Config.iTiltInputType == 1) {
 		settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltAnalogDeadzoneRadius, 0.0f, 0.8f, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"))->SetEnabledFunc(enabledFunc);
 	}
 	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, co->T("Tilt Sensitivity along X axis"), screenManager(), "%"))->SetEnabledFunc(enabledFunc);

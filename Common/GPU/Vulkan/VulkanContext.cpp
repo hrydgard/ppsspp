@@ -1663,6 +1663,7 @@ void VulkanDeleteList::PerformDeletes(VulkanContext *vulkan, VmaAllocator alloca
 	}
 	imagesWithAllocs_.clear();
 	for (auto &imageView : imageViews_) {
+		INFO_LOG(G3D, "deleting imageview %p", imageView);
 		vkDestroyImageView(device, imageView, nullptr);
 	}
 	imageViews_.clear();
