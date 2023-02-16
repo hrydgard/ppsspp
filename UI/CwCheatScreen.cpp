@@ -34,6 +34,10 @@
 
 static const int FILE_CHECK_FRAME_INTERVAL = 53;
 
+static Path GetGlobalCheatFile() {
+	return GetSysDirectory(DIRECTORY_CHEATS) / "cheat.db";
+}
+
 CwCheatScreen::CwCheatScreen(const Path &gamePath)
 	: UIDialogScreenWithGameBackground(gamePath) {
 }
@@ -53,7 +57,7 @@ void CwCheatScreen::LoadCheatInfo() {
 		gameID = g_paramSFO.GenerateFakeID(gamePath_.ToString());
 	}
 
-	if (engine_ == nullptr || gameID != gameID_) {
+	if (!engine_ || gameID != gameID_) {
 		gameID_ = gameID;
 		delete engine_;
 		engine_ = new CWCheatEngine(gameID_);
@@ -77,6 +81,7 @@ void CwCheatScreen::CreateViews() {
 	using namespace UI;
 	auto cw = GetI18NCategory("CwCheats");
 	auto di = GetI18NCategory("Dialog");
+	auto mm = GetI18NCategory("MainMenu");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -84,9 +89,15 @@ void CwCheatScreen::CreateViews() {
 	Margins actionMenuMargins(50, -15, 15, 0);
 
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(400, FILL_PARENT));
-	leftColumn->Add(new ItemHeader(cw->T("Options")));
 	//leftColumn->Add(new Choice(cw->T("Add Cheat")))->OnClick.Handle(this, &CwCheatScreen::OnAddCheat);
-	leftColumn->Add(new Choice(cw->T("Import Cheats")))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
+	leftColumn->Add(new ItemHeader(cw->T("Import Cheats")));
+
+	Path cheatPath = GetGlobalCheatFile();
+
+	leftColumn->Add(new Choice(cheatPath.ToVisualString()))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
+	leftColumn->Add(new Choice(mm->T("Browse"), ImageID("I_FOLDER_OPEN")))->OnClick.Handle(this, &CwCheatScreen::OnImportBrowse);
+
+	leftColumn->Add(new ItemHeader(cw->T("Options")));
 #if !defined(MOBILE_DEVICE)
 	leftColumn->Add(new Choice(cw->T("Edit Cheat File")))->OnClick.Handle(this, &CwCheatScreen::OnEditCheatFile);
 #endif
@@ -138,6 +149,21 @@ void CwCheatScreen::onFinish(DialogResult result) {
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (MIPSComp::jit) {
 		MIPSComp::jit->ClearCache();
+	}
+}
+
+void CwCheatScreen::sendMessage(const char *message, const char *value) {
+	// Always call the base class method first to handle the most common messages.
+	UIDialogScreenWithGameBackground::sendMessage(message, value);
+	if (!strcmp(message, "browse_fileSelect")) {
+		Path path(value);
+		INFO_LOG(SYSTEM, "Attempting to load cheats from: '%s'", path.ToVisualString().c_str());
+		if (ImportCheats(path)) {
+			g_Config.bReloadCheats = true;
+		} else {
+			// Show an error message?
+		}
+		RecreateViews();
 	}
 }
 
@@ -193,23 +219,38 @@ static char *GetLineNoNewline(char *temp, int sz, FILE *fp) {
 	return line;
 }
 
+UI::EventReturn CwCheatScreen::OnImportBrowse(UI::EventParams &params) {
+	System_SendMessage("browse_file", "");
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
-	if (gameID_.length() != 9 || !engine_) {
-		WARN_LOG(COMMON, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameID_.c_str());
+	if (!ImportCheats(GetGlobalCheatFile())) {
+		// Show an error message?
 		return UI::EVENT_DONE;
 	}
-	std::vector<std::string> title;
-	std::vector<std::string> newList;
 
-	Path cheatFile = GetSysDirectory(DIRECTORY_CHEATS) / "cheat.db";
+	g_Config.bReloadCheats = true;
+	RecreateViews();
+	return UI::EVENT_DONE;
+}
+
+bool CwCheatScreen::ImportCheats(const Path & cheatFile) {
+	if (gameID_.length() != 9 || !engine_) {
+		WARN_LOG(COMMON, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameID_.c_str());
+		return false;
+	}
+
 	std::string gameID = StringFromFormat("_S %s-%s", gameID_.substr(0, 4).c_str(), gameID_.substr(4).c_str());
 
 	FILE *in = File::OpenCFile(cheatFile, "rt");
-
 	if (!in) {
 		WARN_LOG(COMMON, "Unable to open %s\n", cheatFile.c_str());
-		return UI::EVENT_SKIPPED;
+		return false;
 	}
+
+	std::vector<std::string> title;
+	std::vector<std::string> newList;
 
 	char linebuf[2048]{};
 	bool parseGameEntry = false;
@@ -281,10 +322,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 		}
 	}
 	fclose(append);
-
-	g_Config.bReloadCheats = true;
-	RecreateViews();
-	return UI::EVENT_DONE;
+	return true;
 }
 
 UI::EventReturn CwCheatScreen::OnCheckBox(int index) {
