@@ -1404,11 +1404,9 @@ void NativeAxis(const AxisInput &axis) {
 	// see [http://developer.android.com/guide/topics/sensors/sensors_overview.html] for details
 	bool landscape = dp_yres < dp_xres;
 	// now transform out current tilt to the calibrated coordinate system
-	Tilt trueTilt = GenTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
+	ProcessTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
 		g_Config.bInvertTiltX, g_Config.bInvertTiltY,
 		xSensitivity, ySensitivity);
-
-	TranslateTiltToInput(trueTilt);
 }
 
 void NativeMessageReceived(const char *message, const char *value) {

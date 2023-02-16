@@ -19,6 +19,13 @@ static u32 tiltButtonsDown = 0;
 float rawTiltAnalogX;
 float rawTiltAnalogY;
 
+// Represents a generic Tilt event
+struct Tilt {
+	Tilt() : x_(0), y_(0) {}
+	Tilt(const float x, const float y) : x_(x), y_(y) {}
+	float x_, y_;
+};
+
 // These functions generate tilt events given the current Tilt amount,
 // and the deadzone radius.
 void GenerateAnalogStickEvent(const Tilt &tilt);
@@ -51,7 +58,7 @@ inline Tilt DampenTilt(const Tilt &tilt, float deadzone, float xSensitivity, flo
 	);
 }
 
-Tilt GenTilt(bool landscape, float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float xSensitivity, float ySensitivity) {
+void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float xSensitivity, float ySensitivity) {
 	if (landscape) {
 		std::swap(x, y);
 	} else {
@@ -78,18 +85,15 @@ Tilt GenTilt(bool landscape, float calibrationAngle, float x, float y, float z, 
 	}
 
 	// finally, dampen the tilt according to our curve.
-	return DampenTilt(transformedTilt, deadzone, xSensitivity, ySensitivity);
-}
-
-void TranslateTiltToInput(const Tilt &tilt) {
-	rawTiltAnalogX = tilt.x_;
-	rawTiltAnalogY = tilt.y_;
+	Tilt tilt = DampenTilt(transformedTilt, deadzone, xSensitivity, ySensitivity);
 
 	switch (g_Config.iTiltInputType) {
 	case TILT_NULL:
 		break;
 
 	case TILT_ANALOG:
+		rawTiltAnalogX = tilt.x_;
+		rawTiltAnalogY = tilt.y_;
 		GenerateAnalogStickEvent(tilt);
 		break;
 
