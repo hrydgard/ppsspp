@@ -35,8 +35,8 @@ void GenerateTriggerButtonEvent(const Tilt &tilt);
 
 // deadzone is normalized - 0 to 1
 // sensitivity controls how fast the deadzone reaches max value
-inline float TiltInputCurve(float x, float deadzone, float sensitivity) {
-	const float factor = sensitivity * 1.0f / (1.0f - deadzone);
+inline float ApplyDeadzone(float x, float deadzone) {
+	const float factor = 1.0f / (1.0f - deadzone);
 
 	if (x > deadzone) {
 		return (x - deadzone) * factor + deadzone;
@@ -53,8 +53,8 @@ inline Tilt DampenTilt(const Tilt &tilt, float deadzone, float xSensitivity, flo
 	//sensitivity >1 for kingdom hearts and < 1 for Gods Eater. so yes, overshoot is nice
 	//to have. 
 	return Tilt(
-		TiltInputCurve(tilt.x_, deadzone, 2.0f * xSensitivity),
-		TiltInputCurve(tilt.y_, deadzone, 2.0f * ySensitivity)
+		ApplyDeadzone(tilt.x_ * xSensitivity, deadzone),
+		ApplyDeadzone(tilt.y_ * ySensitivity, deadzone)
 	);
 }
 
@@ -85,7 +85,7 @@ void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float
 	}
 
 	// finally, dampen the tilt according to our curve.
-	Tilt tilt = DampenTilt(transformedTilt, deadzone, xSensitivity, ySensitivity);
+	Tilt tilt = DampenTilt(transformedTilt, deadzone, xSensitivity * 2.0f, ySensitivity * 2.0f);
 
 	switch (g_Config.iTiltInputType) {
 	case TILT_NULL:
