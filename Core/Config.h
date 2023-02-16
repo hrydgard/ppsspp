@@ -284,20 +284,18 @@ public:
 	bool bShowGpuProfile;
 
 	// Analog stick tilting
-	// This is the held base angle, that we compute the tilt relative from.
+	// This is the held base angle (from the horizon), that we compute the tilt relative from.
 	float fTiltBaseAngleY;
-	// whether the x axes and y axes should invert directions (left becomes right, top becomes bottom.)
+	// Inverts the direction of the x axes and y axes for the purposes of tilt input.
 	bool bInvertTiltX;
 	bool bInvertTiltY;
 	// The sensitivity of the tilt in the X and Y directions, separately.
 	int iTiltSensitivityX;
 	int iTiltSensitivityY;
-	// The deadzone radius of the tilt.
-	// Separate settings for analog vs digital since the usable ranges differ.
+	// The deadzone radius of the tilt. Only used in the analog mapping.
 	float fTiltAnalogDeadzoneRadius;
-	float fTiltDigitalDeadzoneRadius;
-	//type of tilt input currently selected: Defined in TiltEventProcessor.h
-	//0 - no tilt, 1 - analog stick, 2 - D-Pad, 3 - Action Buttons (Tri, Cross, Square, Circle)
+	// Type of tilt input currently selected: Defined in TiltEventProcessor.h
+	// 0 - no tilt, 1 - analog stick, 2 - D-Pad, 3 - Action Buttons (Tri, Cross, Square, Circle)
 	int iTiltInputType;
 
 	// The three tabs.
