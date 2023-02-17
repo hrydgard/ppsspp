@@ -549,7 +549,6 @@ public:
 	void Jit_NormalFloatSkin();
 
 	void Jit_PosS8();
-	void Jit_PosS8ToFloat();
 	void Jit_PosS16();
 	void Jit_PosFloat();
 	void Jit_PosS8Through();
@@ -564,9 +563,17 @@ public:
 	void Jit_NormalS16Morph();
 	void Jit_NormalFloatMorph();
 
+	void Jit_NormalS8MorphSkin();
+	void Jit_NormalS16MorphSkin();
+	void Jit_NormalFloatMorphSkin();
+
 	void Jit_PosS8Morph();
 	void Jit_PosS16Morph();
 	void Jit_PosFloatMorph();
+
+	void Jit_PosS8MorphSkin();
+	void Jit_PosS16MorphSkin();
+	void Jit_PosFloatMorphSkin();
 
 	void Jit_Color8888Morph();
 	void Jit_Color4444Morph();

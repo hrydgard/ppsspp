@@ -183,6 +183,12 @@ void CPUInfo::Detect()
 	// Let's assume for now...
 	RiscV_Zicsr = RiscV_M && RiscV_A && RiscV_F && RiscV_D;
 
+	// A number of CPUs support a limited set of B.
+	if (!strcmp(brand_string, "sifive,u74-mc")) {
+		RiscV_Zba = true;
+		RiscV_Zbb = true;
+	}
+
 #ifdef USE_CPU_FEATURES
 	cpu_features::RiscvInfo info = cpu_features::GetRiscvInfo();
 	CPU64bit = info.features.RV64I;
@@ -212,6 +218,10 @@ std::vector<std::string> CPUInfo::Features() {
 		{ RiscV_C, "Compressed" },
 		{ RiscV_V, "Vector" },
 		{ RiscV_B, "Bitmanip" },
+		{ RiscV_Zba, "Zba" },
+		{ RiscV_Zbb, "Zbb" },
+		{ RiscV_Zbc, "Zbc" },
+		{ RiscV_Zbs, "Zbs" },
 		{ RiscV_Zicsr, "Zicsr" },
 		{ CPU64bit, "64-bit" },
 	};

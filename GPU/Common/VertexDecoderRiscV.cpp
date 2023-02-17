@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(RISCV64)
 
+#include <utility>
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
 #include "Common/RiscVEmitter.h"
@@ -55,6 +56,7 @@ static const RiscVReg fpScratchReg3 = F12;
 // We want most of these within 8-15, to be compressible.
 static const RiscVReg fpSrc[4] = { F13, F14, F15, F16 };
 static const RiscVReg fpScratchReg4 = F17;
+static const RiscVReg fpExtra[4] = { F28, F29, F30, F31 };
 
 struct UVScaleRegs {
 	struct {
@@ -90,6 +92,7 @@ enum class MorphValuesIndex {
 	COLOR_6 = 5,
 };
 static MorphValues morphValues;
+static float skinMatrix[12];
 
 static uint32_t GetMorphValueUsage(uint32_t vtype) {
 	uint32_t morphFlags = 0;
@@ -123,6 +126,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
 	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
 	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
+	{&VertexDecoder::Step_WeightsU8Skin, &VertexDecoderJitCache::Jit_WeightsU8Skin},
+	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
+	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
 
 	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
 	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
@@ -148,14 +154,23 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
 	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
+	{&VertexDecoder::Step_NormalS8Skin, &VertexDecoderJitCache::Jit_NormalS8Skin},
+	{&VertexDecoder::Step_NormalS16Skin, &VertexDecoderJitCache::Jit_NormalS16Skin},
+	{&VertexDecoder::Step_NormalFloatSkin, &VertexDecoderJitCache::Jit_NormalFloatSkin},
 
 	{&VertexDecoder::Step_NormalS8Morph, &VertexDecoderJitCache::Jit_NormalS8Morph},
 	{&VertexDecoder::Step_NormalS16Morph, &VertexDecoderJitCache::Jit_NormalS16Morph},
 	{&VertexDecoder::Step_NormalFloatMorph, &VertexDecoderJitCache::Jit_NormalFloatMorph},
+	{&VertexDecoder::Step_NormalS8MorphSkin, &VertexDecoderJitCache::Jit_NormalS8MorphSkin},
+	{&VertexDecoder::Step_NormalS16MorphSkin, &VertexDecoderJitCache::Jit_NormalS16MorphSkin},
+	{&VertexDecoder::Step_NormalFloatMorphSkin, &VertexDecoderJitCache::Jit_NormalFloatMorphSkin},
 
 	{&VertexDecoder::Step_PosS8, &VertexDecoderJitCache::Jit_PosS8},
 	{&VertexDecoder::Step_PosS16, &VertexDecoderJitCache::Jit_PosS16},
 	{&VertexDecoder::Step_PosFloat, &VertexDecoderJitCache::Jit_PosFloat},
+	{&VertexDecoder::Step_PosS8Skin, &VertexDecoderJitCache::Jit_PosS8Skin},
+	{&VertexDecoder::Step_PosS16Skin, &VertexDecoderJitCache::Jit_PosS16Skin},
+	{&VertexDecoder::Step_PosFloatSkin, &VertexDecoderJitCache::Jit_PosFloatSkin},
 
 	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
 	{&VertexDecoder::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
@@ -164,6 +179,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosS8Morph, &VertexDecoderJitCache::Jit_PosS8Morph},
 	{&VertexDecoder::Step_PosS16Morph, &VertexDecoderJitCache::Jit_PosS16Morph},
 	{&VertexDecoder::Step_PosFloatMorph, &VertexDecoderJitCache::Jit_PosFloatMorph},
+	{&VertexDecoder::Step_PosS8MorphSkin, &VertexDecoderJitCache::Jit_PosS8MorphSkin},
+	{&VertexDecoder::Step_PosS16MorphSkin, &VertexDecoderJitCache::Jit_PosS16MorphSkin},
+	{&VertexDecoder::Step_PosFloatMorphSkin, &VertexDecoderJitCache::Jit_PosFloatMorphSkin},
 
 	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
 	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
@@ -275,6 +293,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_6)) != 0)
 				storePremultiply(fpScratchReg3, MorphValuesIndex::COLOR_6, n);
 		}
+	} else if (dec_->skinInDecode) {
+		LI(morphBaseReg, &skinMatrix[0]);
 	}
 
 	if (dec.col) {
@@ -290,8 +310,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		LH(boundsMinVReg, tempReg1, offsetof(KnownVertexBounds, minV));
 		LH(boundsMaxVReg, tempReg1, offsetof(KnownVertexBounds, maxV));
 	}
-
-	// TODO: Skinning.
 
 	const u8 *loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
@@ -395,6 +413,105 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 		SW(R_ZERO, dstReg, dec_->decFmt.w0off + j * 4);
 		j++;
 	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsU8Skin() {
+	Jit_ApplyWeights();
+}
+
+void VertexDecoderJitCache::Jit_WeightsU16Skin() {
+	Jit_ApplyWeights();
+}
+
+void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
+	Jit_ApplyWeights();
+}
+
+void VertexDecoderJitCache::Jit_ApplyWeights() {
+	int weightSize = 4;
+	switch (dec_->weighttype) {
+	case 1: weightSize = 1; break;
+	case 2: weightSize = 2; break;
+	case 3: weightSize = 4; break;
+	default:
+		_assert_(false);
+		break;
+	}
+
+	const RiscVReg boneMatrixReg = tempReg1;
+	// If we are doing morph + skin, we abuse morphBaseReg.
+	const RiscVReg skinMatrixReg = morphBaseReg;
+	const RiscVReg loopEndReg = tempReg3;
+
+	LI(boneMatrixReg, &gstate.boneMatrix[0]);
+	if (dec_->morphcount > 1)
+		LI(skinMatrixReg, &skinMatrix[0]);
+	if (weightSize == 4)
+		FMV(FMv::W, FMv::X, fpScratchReg3, R_ZERO);
+
+	for (int j = 0; j < 12; ++j) {
+		if (cpu_info.Mode64bit) {
+			SD(R_ZERO, skinMatrixReg, j * 4);
+			++j;
+		} else {
+			SW(R_ZERO, skinMatrixReg, j * 4);
+		}
+	}
+
+	// Now let's loop through each weight.  This is the end point.
+	ADDI(loopEndReg, srcReg, dec_->nweights * weightSize);
+	const u8 *weightLoop = GetCodePointer();
+
+	FixupBranch skipZero;
+
+	switch (weightSize) {
+	case 1:
+		LBU(scratchReg, srcReg, dec_->weightoff);
+		skipZero = std::move(BEQ(R_ZERO, scratchReg));
+		FCVT(FConv::S, FConv::WU, fpScratchReg4, scratchReg, Round::TOZERO);
+		FMUL(32, fpScratchReg4, fpScratchReg4, by128Reg);
+		break;
+	case 2:
+		LHU(scratchReg, srcReg, dec_->weightoff);
+		skipZero = std::move(BEQ(R_ZERO, scratchReg));
+		FCVT(FConv::S, FConv::WU, fpScratchReg4, scratchReg, Round::TOZERO);
+		FMUL(32, fpScratchReg4, fpScratchReg4, by32768Reg);
+		break;
+	case 4:
+		FL(32, fpScratchReg4, srcReg, dec_->weightoff);
+		FEQ(32, scratchReg, fpScratchReg3, fpScratchReg4);
+		skipZero = std::move(BNE(R_ZERO, scratchReg));
+		break;
+	default:
+		_assert_(false);
+		break;
+	}
+
+	// This is the loop where we add up the skinMatrix itself by the weight.
+	for (int j = 0; j < 12; j += 4) {
+		for (int i = 0; i < 4; ++i)
+			FL(32, fpSrc[i], boneMatrixReg, (j + i) * 4);
+		for (int i = 0; i < 4; ++i)
+			FL(32, fpExtra[i], skinMatrixReg, (j + i) * 4);
+		for (int i = 0; i < 4; ++i)
+			FMADD(32, fpExtra[i], fpSrc[i], fpScratchReg4, fpExtra[i]);
+		for (int i = 0; i < 4; ++i)
+			FS(32, fpExtra[i], skinMatrixReg, (j + i) * 4);
+	}
+
+	SetJumpTarget(skipZero);
+
+	// Okay, now return back for the next weight.
+	ADDI(boneMatrixReg, boneMatrixReg, 12 * 4);
+	ADDI(srcReg, srcReg, weightSize);
+	BLT(srcReg, loopEndReg, weightLoop);
+
+	// Undo the changes to srcReg.
+	ADDI(srcReg, srcReg, dec_->nweights * -weightSize);
+
+	// Restore if we abused this.
+	if (dec_->morphcount > 1)
+		LI(morphBaseReg, &morphValues);
 }
 
 void VertexDecoderJitCache::Jit_TcU8ToFloat() {
@@ -652,6 +769,23 @@ void VertexDecoderJitCache::Jit_NormalFloat() {
 	SW(tempReg3, dstReg, dec_->decFmt.nrmoff + 8);
 }
 
+void VertexDecoderJitCache::Jit_NormalS8Skin() {
+	Jit_AnyS8ToFloat(dec_->nrmoff);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
+void VertexDecoderJitCache::Jit_NormalS16Skin() {
+	Jit_AnyS16ToFloat(dec_->nrmoff);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
+void VertexDecoderJitCache::Jit_NormalFloatSkin() {
+	FL(32, fpSrc[0], srcReg, dec_->nrmoff + 0);
+	FL(32, fpSrc[1], srcReg, dec_->nrmoff + 4);
+	FL(32, fpSrc[2], srcReg, dec_->nrmoff + 8);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
 void VertexDecoderJitCache::Jit_NormalS8Morph() {
 	Jit_AnyS8Morph(dec_->nrmoff, dec_->decFmt.nrmoff);
 }
@@ -664,33 +798,65 @@ void VertexDecoderJitCache::Jit_NormalFloatMorph() {
 	Jit_AnyFloatMorph(dec_->nrmoff, dec_->decFmt.nrmoff);
 }
 
+void VertexDecoderJitCache::Jit_NormalS8MorphSkin() {
+	Jit_AnyS8Morph(dec_->nrmoff, -1);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
+void VertexDecoderJitCache::Jit_NormalS16MorphSkin() {
+	Jit_AnyS16Morph(dec_->nrmoff, -1);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
+void VertexDecoderJitCache::Jit_NormalFloatMorphSkin() {
+	Jit_AnyFloatMorph(dec_->nrmoff, -1);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
 void VertexDecoderJitCache::Jit_PosS8() {
 	Jit_AnyS8ToFloat(dec_->posoff);
-	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff);
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff + 0);
 	FS(32, fpSrc[1], dstReg, dec_->decFmt.posoff + 4);
 	FS(32, fpSrc[2], dstReg, dec_->decFmt.posoff + 8);
 }
 
 void VertexDecoderJitCache::Jit_PosS16() {
 	Jit_AnyS16ToFloat(dec_->posoff);
-	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff);
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff + 0);
 	FS(32, fpSrc[1], dstReg, dec_->decFmt.posoff + 4);
 	FS(32, fpSrc[2], dstReg, dec_->decFmt.posoff + 8);
 }
 
 void VertexDecoderJitCache::Jit_PosFloat() {
 	// Just copy 12 bytes, play with over read/write later.
-	LW(tempReg1, srcReg, dec_->posoff);
+	LW(tempReg1, srcReg, dec_->posoff + 0);
 	LW(tempReg2, srcReg, dec_->posoff + 4);
 	LW(tempReg3, srcReg, dec_->posoff + 8);
-	SW(tempReg1, dstReg, dec_->decFmt.posoff);
+	SW(tempReg1, dstReg, dec_->decFmt.posoff + 0);
 	SW(tempReg2, dstReg, dec_->decFmt.posoff + 4);
 	SW(tempReg3, dstReg, dec_->decFmt.posoff + 8);
 }
 
+void VertexDecoderJitCache::Jit_PosS8Skin() {
+	Jit_AnyS8ToFloat(dec_->nrmoff);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+}
+
+void VertexDecoderJitCache::Jit_PosS16Skin() {
+	Jit_AnyS16ToFloat(dec_->nrmoff);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+}
+
+void VertexDecoderJitCache::Jit_PosFloatSkin() {
+	FL(32, fpSrc[0], srcReg, dec_->nrmoff + 0);
+	FL(32, fpSrc[1], srcReg, dec_->nrmoff + 4);
+	FL(32, fpSrc[2], srcReg, dec_->nrmoff + 8);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+}
+
 void VertexDecoderJitCache::Jit_PosS8Through() {
 	// 8-bit positions in throughmode always decode to 0, depth included.
-	SW(R_ZERO, dstReg, dec_->decFmt.posoff);
+	SW(R_ZERO, dstReg, dec_->decFmt.posoff + 0);
 	SW(R_ZERO, dstReg, dec_->decFmt.posoff + 4);
 	SW(R_ZERO, dstReg, dec_->decFmt.posoff + 8);
 }
@@ -704,17 +870,17 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
 	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
 	FCVT(FConv::S, FConv::WU, fpSrc[2], tempReg3, Round::TOZERO);
-	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff);
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff + 0);
 	FS(32, fpSrc[1], dstReg, dec_->decFmt.posoff + 4);
 	FS(32, fpSrc[2], dstReg, dec_->decFmt.posoff + 8);
 }
 
 void VertexDecoderJitCache::Jit_PosFloatThrough() {
 	// Start by copying 8 bytes, then handle Z separately to clamp it.
-	LW(tempReg1, srcReg, dec_->posoff);
+	LW(tempReg1, srcReg, dec_->posoff + 0);
 	LW(tempReg2, srcReg, dec_->posoff + 4);
 	FL(32, fpSrc[2], srcReg, dec_->posoff + 8);
-	SW(tempReg1, dstReg, dec_->decFmt.posoff);
+	SW(tempReg1, dstReg, dec_->decFmt.posoff + 0);
 	SW(tempReg2, dstReg, dec_->decFmt.posoff + 4);
 
 	// Load the constant zero and clamp.  Maybe could static alloc zero, but fairly cheap...
@@ -734,6 +900,21 @@ void VertexDecoderJitCache::Jit_PosS16Morph() {
 
 void VertexDecoderJitCache::Jit_PosFloatMorph() {
 	Jit_AnyFloatMorph(dec_->posoff, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_PosS8MorphSkin() {
+	Jit_AnyS8Morph(dec_->posoff, -1);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+}
+
+void VertexDecoderJitCache::Jit_PosS16MorphSkin() {
+	Jit_AnyS16Morph(dec_->posoff, -1);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+}
+
+void VertexDecoderJitCache::Jit_PosFloatMorphSkin() {
+	Jit_AnyFloatMorph(dec_->posoff, -1);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
 }
 
 void VertexDecoderJitCache::Jit_Color8888() {
@@ -1140,9 +1321,11 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 		FMADD(32, fpSrc[2], fpScratchReg3, fpScratchReg4, fpSrc[2]);
 	}
 
-	FS(32, fpSrc[0], dstReg, dstoff + 0);
-	FS(32, fpSrc[1], dstReg, dstoff + 4);
-	FS(32, fpSrc[2], dstReg, dstoff + 8);
+	if (dstoff >= 0) {
+		FS(32, fpSrc[0], dstReg, dstoff + 0);
+		FS(32, fpSrc[1], dstReg, dstoff + 4);
+		FS(32, fpSrc[2], dstReg, dstoff + 8);
+	}
 }
 
 void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
@@ -1170,9 +1353,11 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 		FMADD(32, fpSrc[2], fpScratchReg3, fpScratchReg4, fpSrc[2]);
 	}
 
-	FS(32, fpSrc[0], dstReg, dstoff + 0);
-	FS(32, fpSrc[1], dstReg, dstoff + 4);
-	FS(32, fpSrc[2], dstReg, dstoff + 8);
+	if (dstoff >= 0) {
+		FS(32, fpSrc[0], dstReg, dstoff + 0);
+		FS(32, fpSrc[1], dstReg, dstoff + 4);
+		FS(32, fpSrc[2], dstReg, dstoff + 8);
+	}
 }
 
 void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
@@ -1194,9 +1379,37 @@ void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
 		FMADD(32, fpSrc[2], fpScratchReg3, fpScratchReg4, fpSrc[2]);
 	}
 
-	FS(32, fpSrc[0], dstReg, dstoff + 0);
-	FS(32, fpSrc[1], dstReg, dstoff + 4);
-	FS(32, fpSrc[2], dstReg, dstoff + 8);
+	if (dstoff >= 0) {
+		FS(32, fpSrc[0], dstReg, dstoff + 0);
+		FS(32, fpSrc[1], dstReg, dstoff + 4);
+		FS(32, fpSrc[2], dstReg, dstoff + 8);
+	}
+}
+
+void VertexDecoderJitCache::Jit_WriteMatrixMul(int dstoff, bool pos) {
+	const RiscVReg fpDst[3] = { fpScratchReg1, fpScratchReg2, fpScratchReg3 };
+
+	// First, take care of the 3x3 portion of the matrix.
+	for (int y = 0; y < 3; ++y) {
+		for (int x = 0; x < 3; ++x) {
+			FL(32, fpScratchReg4, morphBaseReg, (y * 3 + x) * 4);
+			if (y == 0)
+				FMUL(32, fpDst[x], fpSrc[x], fpScratchReg4);
+			else
+				FMADD(32, fpDst[x], fpSrc[x], fpScratchReg4, fpDst[x]);
+		}
+	}
+
+	// For normal, z is 0 so we skip.
+	if (pos) {
+		for (int x = 0; x < 3; ++x)
+			FL(32, fpSrc[x], morphBaseReg, (9 + x) * 4);
+		for (int x = 0; x < 3; ++x)
+			FADD(32, fpDst[x], fpDst[x], fpSrc[x]);
+	}
+
+	for (int x = 0; x < 3; ++x)
+		FS(32, fpDst[x], dstReg, dstoff + x * 4);
 }
 
 #endif // PPSSPP_ARCH(RISCV64)
