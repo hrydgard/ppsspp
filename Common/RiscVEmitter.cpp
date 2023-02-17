@@ -1068,8 +1068,21 @@ void RiscVEmitter::FlushIcacheSection(const u8 *start, const u8 *end) {
 #endif
 }
 
+FixupBranch::FixupBranch(FixupBranch &&other) {
+	ptr = other.ptr;
+	type = other.type;
+	other.ptr = nullptr;
+}
+
 FixupBranch::~FixupBranch() {
 	_assert_msg_(ptr == nullptr, "FixupBranch never set (left infinite loop)");
+}
+
+FixupBranch &FixupBranch::operator =(FixupBranch &&other) {
+	ptr = other.ptr;
+	type = other.type;
+	other.ptr = nullptr;
+	return *this;
 }
 
 void RiscVEmitter::SetJumpTarget(FixupBranch &branch) {

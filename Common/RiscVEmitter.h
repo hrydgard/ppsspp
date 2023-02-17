@@ -182,7 +182,12 @@ enum class VUseMask {
 struct FixupBranch {
 	FixupBranch() {}
 	FixupBranch(const u8 *p, FixupBranchType t) : ptr(p), type(t) {}
+	FixupBranch(FixupBranch &&other);
+	FixupBranch(const FixupBranch &) = delete;
 	~FixupBranch();
+
+	FixupBranch &operator =(FixupBranch &&other);
+	FixupBranch &operator =(const FixupBranch &other) = delete;
 
 	const u8 *ptr = nullptr;
 	FixupBranchType type = FixupBranchType::B;

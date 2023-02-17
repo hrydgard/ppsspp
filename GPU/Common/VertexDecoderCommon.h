@@ -549,7 +549,6 @@ public:
 	void Jit_NormalFloatSkin();
 
 	void Jit_PosS8();
-	void Jit_PosS8ToFloat();
 	void Jit_PosS16();
 	void Jit_PosFloat();
 	void Jit_PosS8Through();

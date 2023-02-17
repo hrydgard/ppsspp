@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(RISCV64)
 
+#include <utility>
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
 #include "Common/RiscVEmitter.h"
@@ -55,6 +56,7 @@ static const RiscVReg fpScratchReg3 = F12;
 // We want most of these within 8-15, to be compressible.
 static const RiscVReg fpSrc[4] = { F13, F14, F15, F16 };
 static const RiscVReg fpScratchReg4 = F17;
+static const RiscVReg fpExtra[4] = { F28, F29, F30, F31 };
 
 struct UVScaleRegs {
 	struct {
@@ -90,6 +92,7 @@ enum class MorphValuesIndex {
 	COLOR_6 = 5,
 };
 static MorphValues morphValues;
+static float skinMatrix[12];
 
 static uint32_t GetMorphValueUsage(uint32_t vtype) {
 	uint32_t morphFlags = 0;
@@ -123,6 +126,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
 	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
 	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
+	{&VertexDecoder::Step_WeightsU8Skin, &VertexDecoderJitCache::Jit_WeightsU8Skin},
+	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
+	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
 
 	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
 	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
@@ -275,6 +281,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_6)) != 0)
 				storePremultiply(fpScratchReg3, MorphValuesIndex::COLOR_6, n);
 		}
+	} else if (dec_->skinInDecode) {
+		LI(morphBaseReg, &skinMatrix[0]);
 	}
 
 	if (dec.col) {
@@ -290,8 +298,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		LH(boundsMinVReg, tempReg1, offsetof(KnownVertexBounds, minV));
 		LH(boundsMaxVReg, tempReg1, offsetof(KnownVertexBounds, maxV));
 	}
-
-	// TODO: Skinning.
 
 	const u8 *loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
@@ -395,6 +401,105 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 		SW(R_ZERO, dstReg, dec_->decFmt.w0off + j * 4);
 		j++;
 	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsU8Skin() {
+	Jit_ApplyWeights();
+}
+
+void VertexDecoderJitCache::Jit_WeightsU16Skin() {
+	Jit_ApplyWeights();
+}
+
+void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
+	Jit_ApplyWeights();
+}
+
+void VertexDecoderJitCache::Jit_ApplyWeights() {
+	int weightSize = 4;
+	switch (dec_->weighttype) {
+	case 1: weightSize = 1; break;
+	case 2: weightSize = 2; break;
+	case 3: weightSize = 4; break;
+	default:
+		_assert_(false);
+		break;
+	}
+
+	const RiscVReg boneMatrixReg = tempReg1;
+	// If we are doing morph + skin, we abuse morphBaseReg.
+	const RiscVReg skinMatrixReg = morphBaseReg;
+	const RiscVReg loopEndReg = tempReg3;
+
+	LI(boneMatrixReg, &gstate.boneMatrix[0]);
+	if (dec_->morphcount > 1)
+		LI(skinMatrixReg, &skinMatrix[0]);
+	if (weightSize == 4)
+		FMV(FMv::W, FMv::X, fpScratchReg3, R_ZERO);
+
+	for (int j = 0; j < 12; ++j) {
+		if (cpu_info.Mode64bit) {
+			SD(R_ZERO, skinMatrixReg, j * 4);
+			++j;
+		} else {
+			SW(R_ZERO, skinMatrixReg, j * 4);
+		}
+	}
+
+	// Now let's loop through each weight.  This is the end point.
+	ADDI(loopEndReg, srcReg, dec_->nweights * weightSize);
+	const u8 *weightLoop = GetCodePointer();
+
+	FixupBranch skipZero;
+
+	switch (weightSize) {
+	case 1:
+		LBU(scratchReg, srcReg, dec_->weightoff);
+		skipZero = std::move(BEQ(R_ZERO, scratchReg));
+		FCVT(FConv::S, FConv::WU, fpScratchReg4, scratchReg, Round::TOZERO);
+		FMUL(32, fpScratchReg4, fpScratchReg4, by128Reg);
+		break;
+	case 2:
+		LHU(scratchReg, srcReg, dec_->weightoff);
+		skipZero = std::move(BEQ(R_ZERO, scratchReg));
+		FCVT(FConv::S, FConv::WU, fpScratchReg4, scratchReg, Round::TOZERO);
+		FMUL(32, fpScratchReg4, fpScratchReg4, by32768Reg);
+		break;
+	case 4:
+		FL(32, fpScratchReg4, srcReg, dec_->weightoff);
+		FEQ(32, scratchReg, fpScratchReg3, fpScratchReg4);
+		skipZero = std::move(BNE(R_ZERO, scratchReg));
+		break;
+	default:
+		_assert_(false);
+		break;
+	}
+
+	// This is the loop where we add up the skinMatrix itself by the weight.
+	for (int j = 0; j < 12; j += 4) {
+		for (int i = 0; i < 4; ++i)
+			FL(32, fpSrc[i], boneMatrixReg, (j + i) * 4);
+		for (int i = 0; i < 4; ++i)
+			FL(32, fpExtra[i], skinMatrixReg, (j + i) * 4);
+		for (int i = 0; i < 4; ++i)
+			FMADD(32, fpExtra[i], fpSrc[i], fpScratchReg4, fpExtra[i]);
+		for (int i = 0; i < 4; ++i)
+			FS(32, fpExtra[i], skinMatrixReg, (j + i) * 4);
+	}
+
+	SetJumpTarget(skipZero);
+
+	// Okay, now return back for the next weight.
+	ADDI(boneMatrixReg, boneMatrixReg, 12 * 4);
+	ADDI(srcReg, srcReg, weightSize);
+	BLT(srcReg, loopEndReg, weightLoop);
+
+	// Undo the changes to srcReg.
+	ADDI(srcReg, srcReg, dec_->nweights * -weightSize);
+
+	// Restore if we abused this.
+	if (dec_->morphcount > 1)
+		LI(morphBaseReg, &morphValues);
 }
 
 void VertexDecoderJitCache::Jit_TcU8ToFloat() {
