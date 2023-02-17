@@ -154,6 +154,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
 	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
+	{&VertexDecoder::Step_NormalS8Skin, &VertexDecoderJitCache::Jit_NormalS8Skin},
+	{&VertexDecoder::Step_NormalS16Skin, &VertexDecoderJitCache::Jit_NormalS16Skin},
+	{&VertexDecoder::Step_NormalFloatSkin, &VertexDecoderJitCache::Jit_NormalFloatSkin},
 
 	{&VertexDecoder::Step_NormalS8Morph, &VertexDecoderJitCache::Jit_NormalS8Morph},
 	{&VertexDecoder::Step_NormalS16Morph, &VertexDecoderJitCache::Jit_NormalS16Morph},
@@ -162,6 +165,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosS8, &VertexDecoderJitCache::Jit_PosS8},
 	{&VertexDecoder::Step_PosS16, &VertexDecoderJitCache::Jit_PosS16},
 	{&VertexDecoder::Step_PosFloat, &VertexDecoderJitCache::Jit_PosFloat},
+	{&VertexDecoder::Step_PosS8Skin, &VertexDecoderJitCache::Jit_PosS8Skin},
+	{&VertexDecoder::Step_PosS16Skin, &VertexDecoderJitCache::Jit_PosS16Skin},
+	{&VertexDecoder::Step_PosFloatSkin, &VertexDecoderJitCache::Jit_PosFloatSkin},
 
 	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
 	{&VertexDecoder::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
@@ -757,6 +763,23 @@ void VertexDecoderJitCache::Jit_NormalFloat() {
 	SW(tempReg3, dstReg, dec_->decFmt.nrmoff + 8);
 }
 
+void VertexDecoderJitCache::Jit_NormalS8Skin() {
+	Jit_AnyS8ToFloat(dec_->nrmoff);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
+void VertexDecoderJitCache::Jit_NormalS16Skin() {
+	Jit_AnyS16ToFloat(dec_->nrmoff);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
+void VertexDecoderJitCache::Jit_NormalFloatSkin() {
+	FL(32, fpSrc[0], srcReg, dec_->nrmoff + 0);
+	FL(32, fpSrc[1], srcReg, dec_->nrmoff + 4);
+	FL(32, fpSrc[2], srcReg, dec_->nrmoff + 8);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
 void VertexDecoderJitCache::Jit_NormalS8Morph() {
 	Jit_AnyS8Morph(dec_->nrmoff, dec_->decFmt.nrmoff);
 }
@@ -771,31 +794,48 @@ void VertexDecoderJitCache::Jit_NormalFloatMorph() {
 
 void VertexDecoderJitCache::Jit_PosS8() {
 	Jit_AnyS8ToFloat(dec_->posoff);
-	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff);
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff + 0);
 	FS(32, fpSrc[1], dstReg, dec_->decFmt.posoff + 4);
 	FS(32, fpSrc[2], dstReg, dec_->decFmt.posoff + 8);
 }
 
 void VertexDecoderJitCache::Jit_PosS16() {
 	Jit_AnyS16ToFloat(dec_->posoff);
-	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff);
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff + 0);
 	FS(32, fpSrc[1], dstReg, dec_->decFmt.posoff + 4);
 	FS(32, fpSrc[2], dstReg, dec_->decFmt.posoff + 8);
 }
 
 void VertexDecoderJitCache::Jit_PosFloat() {
 	// Just copy 12 bytes, play with over read/write later.
-	LW(tempReg1, srcReg, dec_->posoff);
+	LW(tempReg1, srcReg, dec_->posoff + 0);
 	LW(tempReg2, srcReg, dec_->posoff + 4);
 	LW(tempReg3, srcReg, dec_->posoff + 8);
-	SW(tempReg1, dstReg, dec_->decFmt.posoff);
+	SW(tempReg1, dstReg, dec_->decFmt.posoff + 0);
 	SW(tempReg2, dstReg, dec_->decFmt.posoff + 4);
 	SW(tempReg3, dstReg, dec_->decFmt.posoff + 8);
 }
 
+void VertexDecoderJitCache::Jit_PosS8Skin() {
+	Jit_AnyS8ToFloat(dec_->nrmoff);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+}
+
+void VertexDecoderJitCache::Jit_PosS16Skin() {
+	Jit_AnyS16ToFloat(dec_->nrmoff);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+}
+
+void VertexDecoderJitCache::Jit_PosFloatSkin() {
+	FL(32, fpSrc[0], srcReg, dec_->nrmoff + 0);
+	FL(32, fpSrc[1], srcReg, dec_->nrmoff + 4);
+	FL(32, fpSrc[2], srcReg, dec_->nrmoff + 8);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+}
+
 void VertexDecoderJitCache::Jit_PosS8Through() {
 	// 8-bit positions in throughmode always decode to 0, depth included.
-	SW(R_ZERO, dstReg, dec_->decFmt.posoff);
+	SW(R_ZERO, dstReg, dec_->decFmt.posoff + 0);
 	SW(R_ZERO, dstReg, dec_->decFmt.posoff + 4);
 	SW(R_ZERO, dstReg, dec_->decFmt.posoff + 8);
 }
@@ -809,17 +849,17 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
 	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
 	FCVT(FConv::S, FConv::WU, fpSrc[2], tempReg3, Round::TOZERO);
-	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff);
+	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff + 0);
 	FS(32, fpSrc[1], dstReg, dec_->decFmt.posoff + 4);
 	FS(32, fpSrc[2], dstReg, dec_->decFmt.posoff + 8);
 }
 
 void VertexDecoderJitCache::Jit_PosFloatThrough() {
 	// Start by copying 8 bytes, then handle Z separately to clamp it.
-	LW(tempReg1, srcReg, dec_->posoff);
+	LW(tempReg1, srcReg, dec_->posoff + 0);
 	LW(tempReg2, srcReg, dec_->posoff + 4);
 	FL(32, fpSrc[2], srcReg, dec_->posoff + 8);
-	SW(tempReg1, dstReg, dec_->decFmt.posoff);
+	SW(tempReg1, dstReg, dec_->decFmt.posoff + 0);
 	SW(tempReg2, dstReg, dec_->decFmt.posoff + 4);
 
 	// Load the constant zero and clamp.  Maybe could static alloc zero, but fairly cheap...
@@ -1302,6 +1342,32 @@ void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
 	FS(32, fpSrc[0], dstReg, dstoff + 0);
 	FS(32, fpSrc[1], dstReg, dstoff + 4);
 	FS(32, fpSrc[2], dstReg, dstoff + 8);
+}
+
+void VertexDecoderJitCache::Jit_WriteMatrixMul(int dstoff, bool pos) {
+	const RiscVReg fpDst[3] = { fpScratchReg1, fpScratchReg2, fpScratchReg3 };
+
+	// First, take care of the 3x3 portion of the matrix.
+	for (int y = 0; y < 3; ++y) {
+		for (int x = 0; x < 3; ++x) {
+			FL(32, fpScratchReg4, morphBaseReg, (y * 3 + x) * 4);
+			if (y == 0)
+				FMUL(32, fpDst[x], fpSrc[x], fpScratchReg4);
+			else
+				FMADD(32, fpDst[x], fpSrc[x], fpScratchReg4, fpDst[x]);
+		}
+	}
+
+	// For normal, z is 0 so we skip.
+	if (pos) {
+		for (int x = 0; x < 3; ++x)
+			FL(32, fpSrc[x], morphBaseReg, (9 + x) * 4);
+		for (int x = 0; x < 3; ++x)
+			FADD(32, fpDst[x], fpDst[x], fpSrc[x]);
+	}
+
+	for (int x = 0; x < 3; ++x)
+		FS(32, fpDst[x], dstReg, dstoff + x * 4);
 }
 
 #endif // PPSSPP_ARCH(RISCV64)
