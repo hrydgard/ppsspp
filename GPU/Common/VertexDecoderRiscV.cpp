@@ -161,6 +161,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_NormalS8Morph, &VertexDecoderJitCache::Jit_NormalS8Morph},
 	{&VertexDecoder::Step_NormalS16Morph, &VertexDecoderJitCache::Jit_NormalS16Morph},
 	{&VertexDecoder::Step_NormalFloatMorph, &VertexDecoderJitCache::Jit_NormalFloatMorph},
+	{&VertexDecoder::Step_NormalS8MorphSkin, &VertexDecoderJitCache::Jit_NormalS8MorphSkin},
+	{&VertexDecoder::Step_NormalS16MorphSkin, &VertexDecoderJitCache::Jit_NormalS16MorphSkin},
+	{&VertexDecoder::Step_NormalFloatMorphSkin, &VertexDecoderJitCache::Jit_NormalFloatMorphSkin},
 
 	{&VertexDecoder::Step_PosS8, &VertexDecoderJitCache::Jit_PosS8},
 	{&VertexDecoder::Step_PosS16, &VertexDecoderJitCache::Jit_PosS16},
@@ -176,6 +179,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosS8Morph, &VertexDecoderJitCache::Jit_PosS8Morph},
 	{&VertexDecoder::Step_PosS16Morph, &VertexDecoderJitCache::Jit_PosS16Morph},
 	{&VertexDecoder::Step_PosFloatMorph, &VertexDecoderJitCache::Jit_PosFloatMorph},
+	{&VertexDecoder::Step_PosS8MorphSkin, &VertexDecoderJitCache::Jit_PosS8MorphSkin},
+	{&VertexDecoder::Step_PosS16MorphSkin, &VertexDecoderJitCache::Jit_PosS16MorphSkin},
+	{&VertexDecoder::Step_PosFloatMorphSkin, &VertexDecoderJitCache::Jit_PosFloatMorphSkin},
 
 	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
 	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
@@ -792,6 +798,21 @@ void VertexDecoderJitCache::Jit_NormalFloatMorph() {
 	Jit_AnyFloatMorph(dec_->nrmoff, dec_->decFmt.nrmoff);
 }
 
+void VertexDecoderJitCache::Jit_NormalS8MorphSkin() {
+	Jit_AnyS8Morph(dec_->nrmoff, -1);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
+void VertexDecoderJitCache::Jit_NormalS16MorphSkin() {
+	Jit_AnyS16Morph(dec_->nrmoff, -1);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
+void VertexDecoderJitCache::Jit_NormalFloatMorphSkin() {
+	Jit_AnyFloatMorph(dec_->nrmoff, -1);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
 void VertexDecoderJitCache::Jit_PosS8() {
 	Jit_AnyS8ToFloat(dec_->posoff);
 	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff + 0);
@@ -879,6 +900,21 @@ void VertexDecoderJitCache::Jit_PosS16Morph() {
 
 void VertexDecoderJitCache::Jit_PosFloatMorph() {
 	Jit_AnyFloatMorph(dec_->posoff, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_PosS8MorphSkin() {
+	Jit_AnyS8Morph(dec_->posoff, -1);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+}
+
+void VertexDecoderJitCache::Jit_PosS16MorphSkin() {
+	Jit_AnyS16Morph(dec_->posoff, -1);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+}
+
+void VertexDecoderJitCache::Jit_PosFloatMorphSkin() {
+	Jit_AnyFloatMorph(dec_->posoff, -1);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
 }
 
 void VertexDecoderJitCache::Jit_Color8888() {
@@ -1285,9 +1321,11 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 		FMADD(32, fpSrc[2], fpScratchReg3, fpScratchReg4, fpSrc[2]);
 	}
 
-	FS(32, fpSrc[0], dstReg, dstoff + 0);
-	FS(32, fpSrc[1], dstReg, dstoff + 4);
-	FS(32, fpSrc[2], dstReg, dstoff + 8);
+	if (dstoff >= 0) {
+		FS(32, fpSrc[0], dstReg, dstoff + 0);
+		FS(32, fpSrc[1], dstReg, dstoff + 4);
+		FS(32, fpSrc[2], dstReg, dstoff + 8);
+	}
 }
 
 void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
@@ -1315,9 +1353,11 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 		FMADD(32, fpSrc[2], fpScratchReg3, fpScratchReg4, fpSrc[2]);
 	}
 
-	FS(32, fpSrc[0], dstReg, dstoff + 0);
-	FS(32, fpSrc[1], dstReg, dstoff + 4);
-	FS(32, fpSrc[2], dstReg, dstoff + 8);
+	if (dstoff >= 0) {
+		FS(32, fpSrc[0], dstReg, dstoff + 0);
+		FS(32, fpSrc[1], dstReg, dstoff + 4);
+		FS(32, fpSrc[2], dstReg, dstoff + 8);
+	}
 }
 
 void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
@@ -1339,9 +1379,11 @@ void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
 		FMADD(32, fpSrc[2], fpScratchReg3, fpScratchReg4, fpSrc[2]);
 	}
 
-	FS(32, fpSrc[0], dstReg, dstoff + 0);
-	FS(32, fpSrc[1], dstReg, dstoff + 4);
-	FS(32, fpSrc[2], dstReg, dstoff + 8);
+	if (dstoff >= 0) {
+		FS(32, fpSrc[0], dstReg, dstoff + 0);
+		FS(32, fpSrc[1], dstReg, dstoff + 4);
+		FS(32, fpSrc[2], dstReg, dstoff + 8);
+	}
 }
 
 void VertexDecoderJitCache::Jit_WriteMatrixMul(int dstoff, bool pos) {
