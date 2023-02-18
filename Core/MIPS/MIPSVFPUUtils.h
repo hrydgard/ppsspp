@@ -35,18 +35,14 @@ inline int Xpose(int v) {
 #endif
 
 // The VFPU uses weird angles where 4.0 represents a full circle. This makes it possible to return
-// exact 1.0/-1.0 values at certain angles. We currently just scale, and special case the cardinal directions.
+// exact 1.0/-1.0 values at certain angles.
 //
-// Stepping down to [0, 2pi) helps, but we also check common exact-result values.
-// TODO: cos(1) and sin(2) should be -0.0, but doing that gives wrong results (possibly from floorf.)
-//
-// We also try an alternative solution, computing things in double precision, multiplying the input by pi/2.
-// This fixes #12900 (Hitman Reborn 2) but breaks #13705 (Cho Aniki Zero) and #13671 (Hajime no Ippo).
-// #2921 is still fine. So the alt solution (vfpu_sin_double etc) are behind a compat flag.
-//
-// A better solution would be to tailor some sine approximation for the 0..90 degrees range, compute
-// modulo manually and mirror that around the circle. Also correctly special casing for inf/nan inputs
-// and just trying to match it as closely as possible to the real PSP.
+// The current code attempts to match VFPU sin/cos exactly.
+// Possibly affected games:
+//     Final Fantasy III               (#2921 )
+//     Hitman Reborn 2                 (#12900)
+//     Cho Aniki Zero                  (#13705)
+//     Dissidia Duodecim Final Fantasy (#6710 )
 //
 // Messing around with the modulo functions? try https://www.desmos.com/calculator.
 

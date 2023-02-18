@@ -29,13 +29,6 @@
 #define V(i)   (currentMIPS->v[voffset[i]])
 #define VI(i)  (currentMIPS->vi[voffset[i]])
 
-// Flushes the angle to 0 if exponent smaller than this in vfpu_sin/vfpu_cos/vfpu_sincos.
-// Was measured to be around 0x68, but GTA on Mac is somehow super sensitive
-// to the shape of the sine curve which seem to be very slightly different.
-//
-// So setting a lower value.
-#define PRECISION_EXP_THRESHOLD 0x65
-
 union float2int {
 	uint32_t i;
 	float f;
@@ -896,175 +889,155 @@ float vfpu_rsqrt(float a) {
 	return val.f;
 }
 
-float vfpu_sin(float a) {
-	float2int val;
-	val.f = a;
+//==============================================================================
+// The code below attempts to exactly match the output of
+// PSP's sin and cos instructions. For the sake of
+// making lookup tables smaller (473KB) the code is
+// somewhat gnarly.
+// The key observation is that (ignoring range
+// reduction) PSP effectively converts input to 9.23
+// fixed-point, and that output is always representable
+// as 4.28 fixed-point (though that is probably not
+// what is going on internally).
+// The rest is mostly trying to obtain the same result
+// with smaller tables (pretty ad-hoc, and almost certainly
+// does not match what PSP does internally).
+// Lookup tables store deltas from (explicitly computable)
+// estimations, to allow to store them in smaller types:
+// int8 and int16.
+// See https://github.com/hrydgard/ppsspp/issues/16946 for details.
 
-	int32_t k = get_uexp(val.i);
-	if (k == 255) {
-		val.i = (val.i & 0xFF800001) | 1;
-		return val.f;
-	}
+#include "Core/MIPS/vfpu_sin_lut.h"
 
-	if (k < PRECISION_EXP_THRESHOLD) {
-		val.i &= 0x80000000;
-		return val.f;
-	}
-
-	// Okay, now modulus by 4 to begin with (identical wave every 4.)
-	int32_t mantissa = get_mant(val.i);
-	if (k > 0x80) {
-		const uint8_t over = k & 0x1F;
-		mantissa = (mantissa << over) & 0x00FFFFFF;
-		k = 0x80;
-	}
-	// This subtracts off the 2.  If we do, flip sign to inverse the wave.
-	if (k == 0x80 && mantissa >= (1 << 23)) {
-		val.i ^= 0x80000000;
-		mantissa -= 1 << 23;
-	}
-
-	int8_t norm_shift = mantissa == 0 ? 32 : (int8_t)clz32_nonzero(mantissa) - 8;
-	mantissa <<= norm_shift;
-	k -= norm_shift;
-
-	if (k <= 0 || mantissa == 0) {
-		val.i &= 0x80000000;
-		return val.f;
-	}
-
-	// This is the value with modulus applied.
-	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
-	val.f = (float)sin((double)val.f * M_PI_2);
-	val.i &= 0xFFFFFFFC;
-	return val.f;
+// Note: PSP sin/cos output only has 22 significant
+// binary digits.
+static inline uint32_t quantum(uint32_t x) {
+	return x < 1u << 22?
+		1u:
+		1u << (32 - 22 - clz32_nonzero(x));
 }
 
-float vfpu_cos(float a) {
-	float2int val;
-	val.f = a;
-	bool negate = false;
+static inline uint32_t truncate_bits(u32 x) {
+	return x & -quantum(x);
+}
 
-	int32_t k = get_uexp(val.i);
-	if (k == 255) {
-		// Note: unlike sin, cos always returns +NAN.
-		val.i = (val.i & 0x7F800001) | 1;
-		return val.f;
+static inline uint32_t vfpu_sin_fixed(uint32_t arg) {
+	// Handle endpoints.
+	if(arg == 0u) return 0u;
+	if(arg == 0x00800000) return 0x10000000;
+	// Get endpoints for 8192-wide interval.
+	uint32_t L = vfpu_sin_lut8192[(arg >> 13) + 0];
+	uint32_t H = vfpu_sin_lut8192[(arg >> 13) + 1];
+	// Approximate endpoints for 64-wide interval via lerp.
+	uint32_t A = L+(((H - L)*(((arg >> 6) & 127) + 0)) >> 7);
+	uint32_t B = L+(((H - L)*(((arg >> 6) & 127) + 1)) >> 7);
+	// Adjust endpoints from deltas, and increase working precision.
+	uint64_t a = (uint64_t(A) << 5) + uint64_t(vfpu_sin_lut_delta[arg >> 6][0]) * quantum(A);
+	uint64_t b = (uint64_t(B) << 5) + uint64_t(vfpu_sin_lut_delta[arg >> 6][1]) * quantum(B);
+	// Compute approximation via lerp. Is off by at most 1 quantum.
+	uint32_t v = uint32_t(((a * (64 - (arg & 63)) + b * (arg & 63)) >> 6) >> 5);
+	v=truncate_bits(v);
+	// Look up exceptions via binary search.
+	// Note: vfpu_sin_lut_interval_delta stores
+	// deltas from interval estimation.
+	uint32_t lo = ((169u * ((arg >> 7) + 0)) >> 7)+uint32_t(vfpu_sin_lut_interval_delta[(arg >> 7) + 0]) + 16384u;
+	uint32_t hi = ((169u * ((arg >> 7) + 1)) >> 7)+uint32_t(vfpu_sin_lut_interval_delta[(arg >> 7) + 1]) + 16384u;
+	while(lo < hi) {
+		uint32_t m = (lo + hi) / 2;
+		// Note: vfpu_sin_lut_exceptions stores
+		// index&127 (for each initial interval the
+		// upper bits of index are the same, namely
+		// arg&-128), plus direction (0 for +1, and
+		// 128 for -1).
+		uint32_t b = vfpu_sin_lut_exceptions[m];
+		uint32_t e = (arg & -128u)+(b & 127u);
+		if(e == arg) {
+			v += quantum(v) * (b >> 7 ? -1u : +1u);
+			break;
+		}
+		else if(e < arg) lo = m + 1;
+		else			 hi = m;
 	}
+	return v;
+}
 
-	if (k < PRECISION_EXP_THRESHOLD)
-		return 1.0f;
-
-	// Okay, now modulus by 4 to begin with (identical wave every 4.)
-	int32_t mantissa = get_mant(val.i);
-	if (k > 0x80) {
-		const uint8_t over = k & 0x1F;
-		mantissa = (mantissa << over) & 0x00FFFFFF;
-		k = 0x80;
+float vfpu_sin(float x) {
+	uint32_t bits;
+	memcpy(&bits, &x, sizeof(x));
+	uint32_t sign = bits & 0x80000000u;
+	uint32_t exponent = (bits >> 23) & 0xFFu;
+	uint32_t significand = (bits & 0x007FFFFFu) | 0x00800000u;
+	if(exponent == 0xFFu) {
+		// NOTE: this bitpattern is a signaling
+		// NaN on x86, so maybe just return
+		// a normal qNaN?
+		float y;
+		bits=sign ^ 0x7F800001u;
+		memcpy(&y, &bits, sizeof(y));
+		return y;
 	}
-	// This subtracts off the 2.  If we do, negate the result value.
-	if (k == 0x80 && mantissa >= (1 << 23)) {
-		mantissa -= 1 << 23;
-		negate = true;
+	if(exponent < 0x7Fu) {
+		if(exponent < 0x7Fu-23u) significand = 0u;
+		else significand >>= (0x7F - exponent);
 	}
-
-	int8_t norm_shift = mantissa == 0 ? 32 : (int8_t)clz32_nonzero(mantissa) - 8;
-	mantissa <<= norm_shift;
-	k -= norm_shift;
-
-	if (k <= 0 || mantissa == 0)
-		return negate ? -1.0f : 1.0f;
-
-	// This is the value with modulus applied.
-	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
-	if (val.f == 1.0f || val.f == -1.0f) {
-		return negate ? 0.0f : -0.0f;
+	else if(exponent > 0x7Fu) {
+		// There is weirdness for large exponents.
+		if(exponent - 0x7Fu >= 25u && exponent - 0x7Fu < 32u) significand = 0u;
+		else if((exponent & 0x9Fu) == 0x9Fu) significand = 0u;
+		else significand <<= (exponent - 0x7Fu);
 	}
-	val.f = (float)cos((double)val.f * M_PI_2);
-	val.i &= 0xFFFFFFFC;
-	return negate ? -val.f : val.f;
+	sign ^= ((significand << 7) & 0x80000000u);
+	significand &= 0x00FFFFFFu;
+	if(significand > 0x00800000u) significand = 0x01000000u - significand;
+	uint32_t ret = vfpu_sin_fixed(significand);
+	return (sign ? -1.0f : +1.0f) * float(int32_t(ret)) * 3.7252903e-09f; // 0x1p-28f
+}
+
+// WARNING: not tested.
+float vfpu_cos(float x) {
+	uint32_t bits;
+	memcpy(&bits, &x, sizeof(x));
+	bits &= 0x7FFFFFFFu;
+	uint32_t sign = 0u;
+	uint32_t exponent = (bits >> 23) & 0xFFu;
+	uint32_t significand = (bits & 0x007FFFFFu) | 0x00800000u;
+	if(exponent == 0xFFu) {
+		// NOTE: this bitpattern is a signaling
+		// NaN on x86, so maybe just return
+		// a normal qNaN?
+		float y;
+		bits = sign ^ 0x7F800001u;
+		memcpy(&y, &bits, sizeof(y));
+		return y;
+	}
+	if(exponent < 0x7Fu) {
+		if(exponent < 0x7Fu - 23u) significand = 0u;
+		else significand >>= (0x7F - exponent);
+	}
+	else if(exponent > 0x7Fu) {
+		// There is weirdness for large exponents.
+		if(exponent - 0x7Fu >= 25u && exponent - 0x7Fu < 32u) significand = 0u;
+		else if((exponent & 0x9Fu) == 0x9Fu) significand = 0u;
+		else significand <<= (exponent - 0x7Fu);
+	}
+	sign ^= ((significand << 7) & 0x80000000u);
+	significand &= 0x00FFFFFFu;
+	if(significand > 0x00800000u) {
+		significand = 0x01000000u - significand;
+		sign ^= 0x80000000u;
+	}
+	uint32_t ret = vfpu_sin_fixed(0x00800000u - significand);
+	return (sign ? -1.0f : +1.0f) * float(int32_t(ret)) * 3.7252903e-09f; // 0x1p-28f
 }
 
 void vfpu_sincos(float a, float &s, float &c) {
-	float2int val;
-	val.f = a;
-	// For sin, negate the input, for cos negate the output.
-	bool negate = false;
-
-	int32_t k = get_uexp(val.i);
-	if (k == 255) {
-		val.i = (val.i & 0xFF800001) | 1;
-		s = val.f;
-		val.i &= 0x7F800001;
-		c = val.f;
-		return;
-	}
-
-	if (k < PRECISION_EXP_THRESHOLD) {
-		val.i &= 0x80000000;
-		s = val.f;
-		c = 1.0f;
-		return;
-	}
-
-	// Okay, now modulus by 4 to begin with (identical wave every 4.)
-	int32_t mantissa = get_mant(val.i);
-	if (k > 0x80) {
-		const uint8_t over = k & 0x1F;
-		mantissa = (mantissa << over) & 0x00FFFFFF;
-		k = 0x80;
-	}
-	// This subtracts off the 2.  If we do, flip signs.
-	if (k == 0x80 && mantissa >= (1 << 23)) {
-		mantissa -= 1 << 23;
-		negate = true;
-	}
-
-	int8_t norm_shift = mantissa == 0 ? 32 : (int8_t)clz32_nonzero(mantissa) - 8;
-	mantissa <<= norm_shift;
-	k -= norm_shift;
-
-	if (k <= 0 || mantissa == 0) {
-		val.i &= 0x80000000;
-		if (negate)
-			val.i ^= 0x80000000;
-		s = val.f;
-		c = negate ? -1.0f : 1.0f;
-		return;
-	}
-
-	// This is the value with modulus applied.
-	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
-	float2int i_sine, i_cosine;
-	if (val.f == 1.0f) {
-		i_sine.f = negate ? -1.0f : 1.0f;
-		i_cosine.f = negate ? 0.0f : -0.0f;
-	} else if (val.f == -1.0f) {
-		i_sine.f = negate ? 1.0f : -1.0f;
-		i_cosine.f = negate ? 0.0f : -0.0f;
-	} else if (negate) {
-		i_sine.f = (float)sin((double)-val.f * M_PI_2);
-		i_cosine.f = -(float)cos((double)val.f * M_PI_2);
-	} else {
-		double angle = (double)val.f * M_PI_2;
-#if defined(__linux__)
-		double d_sine;
-		double d_cosine;
-		sincos(angle, &d_sine, &d_cosine);
-		i_sine.f = (float)d_sine;
-		i_cosine.f = (float)d_cosine;
-#else
-		i_sine.f = (float)sin(angle);
-		i_cosine.f = (float)cos(angle);
-#endif
-	}
-
-	i_sine.i &= 0xFFFFFFFC;
-	i_cosine.i &= 0xFFFFFFFC;
-	s = i_sine.f;
-	c = i_cosine.f;
-	return ;
+	// Just invoke both sin and cos.
+	// Suboptimal but whatever.
+	s = vfpu_sin(a);
+	c = vfpu_cos(a);
 }
+
+//==============================================================================
 
 void InitVFPUSinCos() {
 	// TODO: Could prepare a CORDIC table here.
