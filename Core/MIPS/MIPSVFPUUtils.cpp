@@ -993,7 +993,6 @@ float vfpu_sin(float x) {
 	return (sign ? -1.0f : +1.0f) * float(int32_t(ret)) * 3.7252903e-09f; // 0x1p-28f
 }
 
-// WARNING: not tested.
 float vfpu_cos(float x) {
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(x));
@@ -1022,7 +1021,7 @@ float vfpu_cos(float x) {
 	}
 	sign ^= ((significand << 7) & 0x80000000u);
 	significand &= 0x00FFFFFFu;
-	if(significand > 0x00800000u) {
+	if(significand >= 0x00800000u) {
 		significand = 0x01000000u - significand;
 		sign ^= 0x80000000u;
 	}
