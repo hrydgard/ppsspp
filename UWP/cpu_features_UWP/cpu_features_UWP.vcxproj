@@ -398,7 +398,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\..\ext\cpu_features\CMakeLists.txt" />
+    <None Include="..\..\ext\cpu_features\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\cpu_features\src\copy.inl" />
