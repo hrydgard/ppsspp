@@ -802,10 +802,12 @@ SingleFunc PixelJitCache::GenericSingle(const PixelFuncID &id) {
 }
 
 thread_local PixelJitCache::LastCache PixelJitCache::lastSingle_;
+int PixelJitCache::clearGen_ = 0;
 
 // 256k should be plenty of space for plenty of variations.
 PixelJitCache::PixelJitCache() : CodeBlock(1024 * 64 * 4), cache_(64) {
 	lastSingle_.gen = -1;
+	clearGen_++;
 }
 
 void PixelJitCache::Clear() {
