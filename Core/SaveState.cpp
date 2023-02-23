@@ -291,10 +291,10 @@ namespace SaveState
 		}
 
 	private:
-		static const int BLOCK_SIZE = 8192;
-		static const int REWIND_NUM_STATES = 20;
+		const int BLOCK_SIZE = 8192;
+		const int REWIND_NUM_STATES = 20;
 		// TODO: Instead, based on size of compressed state?
-		static const int BASE_USAGE_INTERVAL = 15;
+		const int BASE_USAGE_INTERVAL = 15;
 
 		typedef std::vector<u8> StateBuffer;
 
