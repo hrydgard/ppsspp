@@ -291,11 +291,10 @@ void CDisasm::stepOver()
 	UpdateDialog();
 }
 
-void CDisasm::stepOut()
-{
-	if (!PSP_IsInited()) {
+void CDisasm::stepOut() {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
 		return;
-	}
 
 	auto threads = GetThreadsInfo();
 
