@@ -537,6 +537,7 @@ BEGIN
         MENUITEM "GE Debugger...",                          ID_DEBUG_GEDEBUGGER
         MENUITEM "Extract File...",                         ID_DEBUG_EXTRACTFILE
         MENUITEM "Log Console",                             ID_DEBUG_LOG
+        MENUITEM "Copy PSP memory base pointer",             ID_DEBUG_MEMORYBASE
         MENUITEM "Memory View...",                          ID_DEBUG_MEMORYVIEW
     END
 
