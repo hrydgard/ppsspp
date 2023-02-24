@@ -91,6 +91,7 @@ namespace MainWindow {
 		EnableMenuItem(menu, ID_DEBUG_TAKESCREENSHOT, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS, menuInGameEnable);
 		EnableMenuItem(menu, ID_DEBUG_EXTRACTFILE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_MEMORYBASE, menuInGameEnable);
 
 		// While playing, this pop up doesn't work - and probably doesn't make sense.
 		EnableMenuItem(menu, ID_OPTIONS_LANGUAGE, state == UISTATE_INGAME ? MF_GRAYED : MF_ENABLED);
@@ -221,6 +222,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_DEBUG_GEDEBUGGER, g_Config.bSystemControls ? L"\tCtrl+G" : L"");
 		TranslateMenuItem(menu, ID_DEBUG_EXTRACTFILE);
 		TranslateMenuItem(menu, ID_DEBUG_LOG, g_Config.bSystemControls ? L"\tCtrl+L" : L"");
+		TranslateMenuItem(menu, ID_DEBUG_MEMORYBASE);
 		TranslateMenuItem(menu, ID_DEBUG_MEMORYVIEW, g_Config.bSystemControls ? L"\tCtrl+M" : L"");
 
 		// Options menu
@@ -821,6 +823,12 @@ namespace MainWindow {
 			if (memoryWindow)
 				memoryWindow->Show(true);
 			break;
+
+		case ID_DEBUG_MEMORYBASE:
+		{
+			W32Util::CopyTextToClipboard(hWnd, ConvertUTF8ToWString(StringFromFormat("%016llx", (uintptr_t)Memory::base)));
+			break;
+		}
 
 		case ID_DEBUG_EXTRACTFILE:
 		{
