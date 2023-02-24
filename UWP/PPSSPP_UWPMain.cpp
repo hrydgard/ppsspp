@@ -201,7 +201,7 @@ bool PPSSPP_UWPMain::Render() {
 	dp_xres = pixel_xres * g_dpi_scale_x;
 	dp_yres = pixel_yres * g_dpi_scale_y;
 
-	context->RSSetViewport(viewport);
+	context->RSSetViewports(1, &viewport);
 
 	NativeRender(ctx_.get());
 	return true;
