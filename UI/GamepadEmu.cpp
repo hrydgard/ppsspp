@@ -711,7 +711,7 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 	//select, start, throttle--------------------------------------------
 	//space between the bottom keys (space between select, start and un-throttle)
 	float bottom_key_spacing = 100;
-	if (dp_xres < 750) {
+	if (g_display.dp_xres < 750) {
 		bottom_key_spacing *= 0.8f;
 	}
 
@@ -956,8 +956,8 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 
 void GestureGamepad::Update() {
 	const float th = 1.0f;
-	float dx = deltaX_ * g_dpi_scale_x * g_Config.fSwipeSensitivity;
-	float dy = deltaY_ * g_dpi_scale_y * g_Config.fSwipeSensitivity;
+	float dx = deltaX_ * g_display.g_dpi_scale_x * g_Config.fSwipeSensitivity;
+	float dy = deltaY_ * g_display.g_dpi_scale_y * g_Config.fSwipeSensitivity;
 	if (g_Config.iSwipeRight != 0) {
 		if (dx > th) {
 			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_DOWN);

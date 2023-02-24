@@ -50,10 +50,10 @@ enum Mode {
 
 static Bounds FRectToBounds(FRect rc) {
 	Bounds b;
-	b.x = rc.x * g_dpi_scale_x;
-	b.y = rc.y * g_dpi_scale_y;
-	b.w = rc.w * g_dpi_scale_x;
-	b.h = rc.h * g_dpi_scale_y;
+	b.x = rc.x * g_display.g_dpi_scale_x;
+	b.y = rc.y * g_display.g_dpi_scale_y;
+	b.w = rc.w * g_display.g_dpi_scale_x;
+	b.h = rc.h * g_display.g_dpi_scale_y;
 	return b;
 }
 
@@ -132,7 +132,7 @@ void DisplayLayoutScreen::DrawBackground(UIContext &dc) {
 		// we have to draw a substitute ourselves.
 
 		// TODO: Clean this up a bit, this GetScreenFrame/CenterDisplay combo is too common.
-		FRect screenFrame = GetScreenFrame(pixel_xres, pixel_yres);
+		FRect screenFrame = GetScreenFrame(g_display.pixel_xres, g_display.pixel_yres);
 		FRect rc;
 		CenterDisplayOutputRect(&rc, 480.0f, 272.0f, screenFrame, g_Config.iInternalScreenRotation);
 

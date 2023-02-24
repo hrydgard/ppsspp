@@ -884,7 +884,8 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	} else {
 		curWidthRaw_ = vulkan_->GetBackbufferWidth();
 		curHeightRaw_ = vulkan_->GetBackbufferHeight();
-		if (g_display_rotation == DisplayRotation::ROTATE_90 || g_display_rotation == DisplayRotation::ROTATE_270) {
+		if (g_display.rotation == DisplayRotation::ROTATE_90 ||
+			g_display.rotation == DisplayRotation::ROTATE_270) {
 			curWidth_ = curHeightRaw_;
 			curHeight_ = curWidthRaw_;
 		} else {

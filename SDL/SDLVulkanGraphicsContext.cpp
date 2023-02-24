@@ -33,7 +33,7 @@ static uint32_t FlagsFromConfig() {
 }
 
 bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message) {
-	window = SDL_CreateWindow("Initializing Vulkan...", x, y, pixel_xres, pixel_yres, mode);
+	window = SDL_CreateWindow("Initializing Vulkan...", x, y, g_display.pixel_xres, g_display.pixel_yres, mode);
 	if (!window) {
 		fprintf(stderr, "Error creating SDL window: %s\n", SDL_GetError());
 		exit(1);

@@ -670,16 +670,16 @@ int main(int argc, char *argv[]) {
 #endif
 
 	if (mode & SDL_WINDOW_FULLSCREEN_DESKTOP) {
-		pixel_xres = g_DesktopWidth;
-		pixel_yres = g_DesktopHeight;
+		g_display.pixel_xres = g_DesktopWidth;
+		g_display.pixel_yres = g_DesktopHeight;
 		if (g_Config.iForceFullScreen == -1)
 			g_Config.bFullScreen = true;
 	} else {
 		// set a sensible default resolution (2x)
-		pixel_xres = 480 * 2 * set_scale;
-		pixel_yres = 272 * 2 * set_scale;
+		g_display.pixel_xres = 480 * 2 * set_scale;
+		g_display.pixel_yres = 272 * 2 * set_scale;
 		if (portrait) {
-			std::swap(pixel_xres, pixel_yres);
+			std::swap(g_display.pixel_xres, g_display.pixel_yres);
 		}
 		if (g_Config.iForceFullScreen == -1)
 			g_Config.bFullScreen = false;
@@ -688,26 +688,26 @@ int main(int argc, char *argv[]) {
 	set_dpi = 1.0f / set_dpi;
 
 	if (set_ipad) {
-		pixel_xres = 1024;
-		pixel_yres = 768;
+		g_display.pixel_xres = 1024;
+		g_display.pixel_yres = 768;
 	}
 	if (!landscape) {
-		std::swap(pixel_xres, pixel_yres);
+		std::swap(g_display.pixel_xres, g_display.pixel_yres);
 	}
 
 	if (set_xres > 0) {
-		pixel_xres = set_xres;
+		g_display.pixel_xres = set_xres;
 	}
 	if (set_yres > 0) {
-		pixel_yres = set_yres;
+		g_display.pixel_yres = set_yres;
 	}
 	float dpi_scale = 1.0f;
 	if (set_dpi > 0) {
 		dpi_scale = set_dpi;
 	}
 
-	dp_xres = (float)pixel_xres * dpi_scale;
-	dp_yres = (float)pixel_yres * dpi_scale;
+	g_display.dp_xres = (float)g_display.pixel_xres * dpi_scale;
+	g_display.dp_yres = (float)g_display.pixel_yres * dpi_scale;
 
 	// Mac / Linux
 	char path[2048];
@@ -745,15 +745,15 @@ int main(int argc, char *argv[]) {
 	int x = SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber());
 	int y = SDL_WINDOWPOS_UNDEFINED;
 
-	pixel_in_dps_x = (float)pixel_xres / dp_xres;
-	pixel_in_dps_y = (float)pixel_yres / dp_yres;
-	g_dpi_scale_x = dp_xres / (float)pixel_xres;
-	g_dpi_scale_y = dp_yres / (float)pixel_yres;
-	g_dpi_scale_real_x = g_dpi_scale_x;
-	g_dpi_scale_real_y = g_dpi_scale_y;
+	g_display.pixel_in_dps_x = (float)g_display.pixel_xres / g_display.dp_xres;
+	g_display.pixel_in_dps_y = (float)g_display.pixel_yres / g_display.dp_yres;
+	g_display.g_dpi_scale_x = g_display.dp_xres / (float)g_display.pixel_xres;
+	g_display.g_dpi_scale_y = g_display.dp_yres / (float)g_display.pixel_yres;
+	g_display.g_dpi_scale_real_x = g_display.g_dpi_scale_x;
+	g_display.g_dpi_scale_real_y = g_display.g_dpi_scale_y;
 
-	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
-	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
+	printf("Pixels: %i x %i\n", g_display.pixel_xres, g_display.pixel_yres);
+	printf("Virtual pixels: %i x %i\n", g_display.dp_xres, g_display.dp_yres);
 
 	GraphicsContext *graphicsContext = nullptr;
 	SDL_Window *window = nullptr;
@@ -873,8 +873,8 @@ int main(int argc, char *argv[]) {
 		}
 		SDL_Event event, touchEvent;
 		while (SDL_PollEvent(&event)) {
-			float mx = event.motion.x * g_dpi_scale_x;
-			float my = event.motion.y * g_dpi_scale_y;
+			float mx = event.motion.x * g_display.g_dpi_scale_x;
+			float my = event.motion.y * g_display.g_dpi_scale_y;
 
 			switch (event.type) {
 			case SDL_QUIT:
@@ -1182,8 +1182,8 @@ int main(int argc, char *argv[]) {
 
 		// Disabled by default, needs a workaround to map to psp keys.
 		if (g_Config.bMouseControl) {
-			float scaleFactor_x = g_dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
-			float scaleFactor_y = g_dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
+			float scaleFactor_x = g_display.g_dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
+			float scaleFactor_y = g_display.g_dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
 
 			AxisInput axisX, axisY;
 			axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;

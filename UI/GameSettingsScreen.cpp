@@ -237,8 +237,10 @@ void GameSettingsScreen::CreateViews() {
 	if (!vertical) {
 		leftSide += 200.0f;
 	}
-	settingInfo_ = new SettingInfoMessage(ALIGN_CENTER | FLAG_WRAP_TEXT, new AnchorLayoutParams(dp_xres - leftSide - 40.0f, WRAP_CONTENT, leftSide, dp_yres - 80.0f - 40.0f, NONE, NONE));
-	settingInfo_->SetBottomCutoff(dp_yres - 200.0f);
+	settingInfo_ = new SettingInfoMessage(ALIGN_CENTER | FLAG_WRAP_TEXT, new AnchorLayoutParams(
+		g_display.dp_xres - leftSide - 40.0f, WRAP_CONTENT,
+		leftSide, g_display.dp_yres - 80.0f - 40.0f, NONE, NONE));
+	settingInfo_->SetBottomCutoff(g_display.dp_yres - 200.0f);
 	root_->Add(settingInfo_);
 
 	// Show it again if we recreated the view
@@ -273,7 +275,7 @@ void GameSettingsScreen::CreateViews() {
 
 #if !defined(MOBILE_DEVICE) || PPSSPP_PLATFORM(ANDROID)
 	// Hide search if screen is too small.
-	if (dp_xres < dp_yres || dp_yres >= 500) {
+	if (g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) {
 		auto se = GetI18NCategory("Search");
 		// Search
 		LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);

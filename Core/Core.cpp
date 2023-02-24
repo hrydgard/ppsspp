@@ -154,8 +154,8 @@ bool Core_GetPowerSaving() {
 
 static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 	// Can't take this from config as it will not be set if windows is maximized.
-	int w = (int)(pixelWidth * g_dpi_scale_x);
-	int h = (int)(pixelHeight * g_dpi_scale_y);
+	int w = (int)(pixelWidth * g_display.g_dpi_scale_x);
+	int h = (int)(pixelHeight * g_display.g_dpi_scale_y);
 	return g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
 }
 
@@ -163,42 +163,42 @@ static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 bool UpdateScreenScale(int width, int height) {
 	bool smallWindow;
 #if defined(USING_QT_UI)
-	g_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
+	g_display.g_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
 	float g_logical_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_LOGICAL_DPI);
-	g_dpi_scale_x = g_logical_dpi / g_dpi;
-	g_dpi_scale_y = g_logical_dpi / g_dpi;
+	g_display.g_dpi_scale_x = g_logical_dpi / g_dpi;
+	g_display.g_dpi_scale_y = g_logical_dpi / g_dpi;
 #elif PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	g_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
-	g_dpi_scale_x = 96.0f / g_dpi;
-	g_dpi_scale_y = 96.0f / g_dpi;
+	g_display.g_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
+	g_display.g_dpi_scale_x = 96.0f / g_display.g_dpi;
+	g_display.g_dpi_scale_y = 96.0f / g_display.g_dpi;
 #else
-	g_dpi = 96.0f;
-	g_dpi_scale_x = 1.0f;
-	g_dpi_scale_y = 1.0f;
+	g_display.g_dpi = 96.0f;
+	g_display.g_dpi_scale_x = 1.0f;
+	g_display.g_dpi_scale_y = 1.0f;
 #endif
-	g_dpi_scale_real_x = g_dpi_scale_x;
-	g_dpi_scale_real_y = g_dpi_scale_y;
+	g_display.g_dpi_scale_real_x = g_display.g_dpi_scale_x;
+	g_display.g_dpi_scale_real_y = g_display.g_dpi_scale_y;
 
 	smallWindow = IsWindowSmall(width, height);
 	if (smallWindow) {
-		g_dpi /= 2.0f;
-		g_dpi_scale_x *= 2.0f;
-		g_dpi_scale_y *= 2.0f;
+		g_display.g_dpi /= 2.0f;
+		g_display.g_dpi_scale_x *= 2.0f;
+		g_display.g_dpi_scale_y *= 2.0f;
 	}
-	pixel_in_dps_x = 1.0f / g_dpi_scale_x;
-	pixel_in_dps_y = 1.0f / g_dpi_scale_y;
+	g_display.pixel_in_dps_x = 1.0f / g_display.g_dpi_scale_x;
+	g_display.pixel_in_dps_y = 1.0f / g_display.g_dpi_scale_y;
 
-	int new_dp_xres = (int)(width * g_dpi_scale_x);
-	int new_dp_yres = (int)(height * g_dpi_scale_y);
+	int new_dp_xres = (int)(width * g_display.g_dpi_scale_x);
+	int new_dp_yres = (int)(height * g_display.g_dpi_scale_y);
 
-	bool dp_changed = new_dp_xres != dp_xres || new_dp_yres != dp_yres;
-	bool px_changed = pixel_xres != width || pixel_yres != height;
+	bool dp_changed = new_dp_xres != g_display.dp_xres || new_dp_yres != g_display.dp_yres;
+	bool px_changed = g_display.pixel_xres != width || g_display.pixel_yres != height;
 
 	if (dp_changed || px_changed) {
-		dp_xres = new_dp_xres;
-		dp_yres = new_dp_yres;
-		pixel_xres = width;
-		pixel_yres = height;
+		g_display.dp_xres = new_dp_xres;
+		g_display.dp_yres = new_dp_yres;
+		g_display.pixel_xres = width;
+		g_display.pixel_yres = height;
 		NativeResized();
 		return true;
 	}
