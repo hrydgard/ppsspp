@@ -734,7 +734,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		int nextWidth, nextHeight;
 		draw_->GetFramebufferDimensions(postShaderFramebuffer, &nextWidth, &nextHeight);
 		Draw::Viewport viewport{ 0, 0, (float)nextWidth, (float)nextHeight, 0.0f, 1.0f };
-		draw_->SetViewports(1, &viewport);
+		draw_->SetViewport(viewport);
 		draw_->SetScissorRect(0, 0, nextWidth, nextHeight);
 
 		CalculatePostShaderUniforms(lastWidth, lastHeight, nextWidth, nextHeight, shaderInfo, &uniforms);
@@ -853,7 +853,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	auto setViewport = [&](float x, float y, float w, float h) {
 		Draw::Viewport viewport{ x, y, w, h, 0.0f, 1.0f };
-		draw_->SetViewports(1, &viewport);
+		draw_->SetViewport(viewport);
 	};
 
 	CardboardSettings cardboardSettings;

@@ -1429,8 +1429,8 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, int 
 }
 
 void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
-	Draw::Viewport vp{ (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f };
-	draw_->SetViewports(1, &vp);
+	Draw::Viewport viewport{ (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f };
+	draw_->SetViewport(viewport);
 }
 
 void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
@@ -3235,8 +3235,8 @@ void FramebufferManagerCommon::BlitUsingRaster(
 		draw_->InvalidateFramebuffer(Draw::FB_INVALIDATION_LOAD, pipeline->info.writeChannel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT);
 	}
 
-	Draw::Viewport vp{ 0.0f, 0.0f, (float)dest->Width(), (float)dest->Height(), 0.0f, 1.0f };
-	draw_->SetViewports(1, &vp);
+	Draw::Viewport viewport{ 0.0f, 0.0f, (float)dest->Width(), (float)dest->Height(), 0.0f, 1.0f };
+	draw_->SetViewport(viewport);
 	draw_->SetScissorRect(0, 0, (int)dest->Width(), (int)dest->Height());
 
 	draw2D_.Blit(pipeline, srcX1, srcY1, srcX2, srcY2, destX1, destY1, destX2, destY2, (float)srcW, (float)srcH, (float)destW, (float)destH, linearFilter, scaleFactor);

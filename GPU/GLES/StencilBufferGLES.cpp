@@ -133,7 +133,7 @@ bool FramebufferManagerGLES::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x
 	auto *blitFBO = GetTempFBO(TempFBO::COPY, fbo->Width(), fbo->Height());
 	draw_->BindFramebufferAsRenderTarget(blitFBO, { RPAction::DONT_CARE, RPAction::DONT_CARE, RPAction::DONT_CARE }, "ReadbackStencilbufferSync");
 	Draw::Viewport viewport = { 0.0f, 0.0f, (float)fbo->Width(), (float)fbo->Height(), 0.0f, 1.0f };
-	draw_->SetViewports(1, &viewport);
+	draw_->SetViewport(viewport);
 
 	draw_->BindFramebufferAsTexture(fbo, TEX_SLOT_PSP_TEXTURE, FB_STENCIL_BIT, 0);
 	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &stencilReadbackSampler_);

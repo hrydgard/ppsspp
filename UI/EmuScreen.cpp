@@ -1375,7 +1375,7 @@ void EmuScreen::preRender() {
 		viewport.Height = pixel_yres;
 		viewport.MaxDepth = 1.0;
 		viewport.MinDepth = 0.0;
-		draw->SetViewports(1, &viewport);
+		draw->SetViewport(viewport);
 	}
 	draw->SetTargetSize(pixel_xres, pixel_yres);
 }
@@ -1523,7 +1523,7 @@ void EmuScreen::renderUI() {
 	viewport.Height = pixel_yres;
 	viewport.MaxDepth = 1.0;
 	viewport.MinDepth = 0.0;
-	thin3d->SetViewports(1, &viewport);
+	thin3d->SetViewport(viewport);
 
 	if (root_) {
 		UI::LayoutViewHierarchy(*ctx, root_, false);

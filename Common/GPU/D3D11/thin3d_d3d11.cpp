@@ -112,7 +112,7 @@ public:
 
 	// Raster state
 	void SetScissorRect(int left, int top, int width, int height) override;
-	void SetViewports(int count, Viewport *viewports) override;
+	void SetViewport(const Viewport &viewport) override;
 	void SetBlendFactor(float color[4]) override {
 		if (memcmp(blendFactor_, color, sizeof(float) * 4)) {
 			memcpy(blendFactor_, color, sizeof(float) * 4);
@@ -420,20 +420,18 @@ void D3D11DrawContext::EndFrame() {
 	curPipeline_ = nullptr;
 }
 
-void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
-	D3D11_VIEWPORT vp[4];
-	for (int i = 0; i < count; i++) {
-		DisplayRect<float> rc{ viewports[i].TopLeftX , viewports[i].TopLeftY, viewports[i].Width, viewports[i].Height };
-		if (curRenderTargetView_ == bbRenderTargetView_)  // Only the backbuffer is actually rotated wrong!
-			RotateRectToDisplay(rc, curRTWidth_, curRTHeight_);
-		vp[i].TopLeftX = rc.x;
-		vp[i].TopLeftY = rc.y;
-		vp[i].Width = rc.w;
-		vp[i].Height = rc.h;
-		vp[i].MinDepth = viewports[i].MinDepth;
-		vp[i].MaxDepth = viewports[i].MaxDepth;
-	}
-	context_->RSSetViewports(count, vp);
+void D3D11DrawContext::SetViewport(const Viewport &viewport) {
+	DisplayRect<float> rc{ viewport.TopLeftX , viewport.TopLeftY, viewport.Width, viewport.Height };
+	if (curRenderTargetView_ == bbRenderTargetView_)  // Only the backbuffer is actually rotated wrong!
+		RotateRectToDisplay(rc, curRTWidth_, curRTHeight_);
+	D3D11_VIEWPORT vp;
+	vp.TopLeftX = rc.x;
+	vp.TopLeftY = rc.y;
+	vp.Width = rc.w;
+	vp.Height = rc.h;
+	vp.MinDepth = viewport.MinDepth;
+	vp.MaxDepth = viewport.MaxDepth;
+	context_->RSSetViewports(1, &vp);
 }
 
 void D3D11DrawContext::SetScissorRect(int left, int top, int width, int height) {
