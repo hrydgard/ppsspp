@@ -817,7 +817,7 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 	gpuStats.numTextureInvalidations++;
 	DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
 	if (doDelete) {
-		InvalidateLastTexture();
+		ForgetLastTexture();
 		ReleaseTexture(entry, true);
 		entry->status &= ~TexCacheEntry::STATUS_IS_SCALED;
 	}
@@ -1990,7 +1990,7 @@ void TextureCacheCommon::ApplyTexture() {
 	TexCacheEntry *entry = nextTexture_;
 	if (!entry) {
 		// Maybe we bound a framebuffer?
-		InvalidateLastTexture();
+		ForgetLastTexture();
 		if (failedTexture_) {
 			// Backends should handle this by binding a black texture with 0 alpha.
 			BindTexture(nullptr);
@@ -2050,7 +2050,7 @@ void TextureCacheCommon::ApplyTexture() {
 	if (nextNeedsRebuild_) {
 		_assert_(!entry->texturePtr);
 		BuildTexture(entry);
-		InvalidateLastTexture();
+		ForgetLastTexture();
 	}
 
 	if (entry->status & TexCacheEntry::STATUS_CLUT_GPU) {
@@ -2205,7 +2205,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
 
 			draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
-			InvalidateLastTexture();
+			ForgetLastTexture();
 			return;
 		}
 

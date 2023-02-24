@@ -51,9 +51,6 @@ public:
 	void ForgetLastTexture() override {
 		lastBoundTexture = nullptr;
 	}
-	void InvalidateLastTexture() override {
-		lastBoundTexture = nullptr;
-	}
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 

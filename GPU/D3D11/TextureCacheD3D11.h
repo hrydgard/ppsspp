@@ -51,7 +51,6 @@ public:
 	void SetFramebufferManager(FramebufferManagerD3D11 *fbManager);
 
 	void ForgetLastTexture() override;
-	void InvalidateLastTexture() override;
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 

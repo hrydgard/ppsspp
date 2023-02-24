@@ -329,7 +329,6 @@ static const VkFilter MagFiltVK[2] = {
 void TextureCacheVulkan::StartFrame() {
 	TextureCacheCommon::StartFrame();
 
-	InvalidateLastTexture();
 	textureShaderCache_->Decimate();
 
 	timesInvalidatedAllThisFrame_ = 0;
@@ -419,7 +418,6 @@ void TextureCacheVulkan::ApplySamplingParams(const SamplerCacheKey &key) {
 void TextureCacheVulkan::Unbind() {
 	imageView_ = VK_NULL_HANDLE;
 	curSampler_ = VK_NULL_HANDLE;
-	InvalidateLastTexture();
 }
 
 void TextureCacheVulkan::BindAsClutTexture(Draw::Texture *tex, bool smooth) {

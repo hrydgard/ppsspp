@@ -111,7 +111,7 @@ void TextureCacheDX9::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 	}
 }
 
-void TextureCacheDX9::InvalidateLastTexture() {
+void TextureCacheDX9::ForgetLastTexture() {
 	lastBoundTexture = INVALID_TEX;
 }
 
@@ -154,7 +154,7 @@ void TextureCacheDX9::ApplySamplingParams(const SamplerCacheKey &key) {
 void TextureCacheDX9::StartFrame() {
 	TextureCacheCommon::StartFrame();
 
-	InvalidateLastTexture();
+	lastBoundTexture = nullptr;
 	timesInvalidatedAllThisFrame_ = 0;
 	replacementTimeThisFrame_ = 0.0;
 
@@ -229,7 +229,7 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 
 void TextureCacheDX9::Unbind() {
 	device_->SetTexture(0, nullptr);
-	InvalidateLastTexture();
+	ForgetLastTexture();
 }
 
 void TextureCacheDX9::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
