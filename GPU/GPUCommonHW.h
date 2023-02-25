@@ -19,6 +19,13 @@ public:
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
 
+	void Execute_Prim(u32 op, u32 diff);
+	void Execute_Bezier(u32 op, u32 diff);
+	void Execute_Spline(u32 op, u32 diff);
+	void Execute_BlockTransferStart(u32 op, u32 diff);
+
+	typedef void (GPUCommonHW::*CmdFunc)(u32 op, u32 diff);
+
 protected:
 	void UpdateCmdInfo() override;
 
@@ -32,5 +39,7 @@ protected:
 	void CheckRenderResized() override;
 
 	int msaaLevel_ = 0;
-};
 
+private:
+	void CheckDepthUsage(VirtualFramebuffer *vfb);
+};

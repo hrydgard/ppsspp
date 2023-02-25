@@ -155,11 +155,7 @@ public:
 	void Execute_VertexType(u32 op, u32 diff);
 	void Execute_VertexTypeSkinning(u32 op, u32 diff);
 
-	void Execute_Prim(u32 op, u32 diff);
-	void Execute_Bezier(u32 op, u32 diff);
-	void Execute_Spline(u32 op, u32 diff);
 	void Execute_BoundingBox(u32 op, u32 diff);
-	void Execute_BlockTransferStart(u32 op, u32 diff);
 
 	void Execute_LoadClut(u32 op, u32 diff);
 
@@ -415,7 +411,6 @@ protected:
 	std::string reportingFullInfo_;
 
 private:
-	void CheckDepthUsage(VirtualFramebuffer *vfb);
 	void DoExecuteCall(u32 target);
 	void PopDLQueue();
 	void CheckDrawSync();
@@ -426,11 +421,4 @@ private:
 	double timeSpentStepping_;
 
 	int lastVsync_ = -1;
-};
-
-struct CommonCommandTableEntry {
-	uint8_t cmd;
-	uint8_t flags;
-	uint64_t dirty;
-	GPUCommon::CmdFunc func;
 };
