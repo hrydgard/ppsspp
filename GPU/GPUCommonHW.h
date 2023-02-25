@@ -23,5 +23,10 @@ protected:
 
 	// Needs to be called on GPU thread, not reporting thread.
 	void BuildReportingInfo() override;
+	void UpdateMSAALevel(Draw::DrawContext *draw) override;
+
+	void CheckRenderResized() override;
+
+	int msaaLevel_ = 0;
 };
 

@@ -79,8 +79,6 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	ResetMatrices();
 
 	PPGeSetDrawContext(draw);
-
-	UpdateMSAALevel(draw);
 }
 
 GPUCommon::~GPUCommon() {
@@ -264,13 +262,6 @@ void GPUCommon::CheckDisplayResized() {
 	if (displayResized_) {
 		framebufferManager_->NotifyDisplayResized();
 		displayResized_ = false;
-	}
-}
-
-void GPUCommon::CheckRenderResized() {
-	if (renderResized_) {
-		framebufferManager_->NotifyRenderResized(msaaLevel_);
-		renderResized_ = false;
 	}
 }
 
@@ -3102,16 +3093,6 @@ u32 GPUCommon::CheckGPUFeaturesLate(u32 features) const {
 	}
 
 	return features;
-}
-
-void GPUCommon::UpdateMSAALevel(Draw::DrawContext *draw) {
-	int level = g_Config.iMultiSampleLevel;
-	if (draw && draw->GetDeviceCaps().multiSampleLevelsMask & (1 << level)) {
-		msaaLevel_ = level;
-	} else {
-		// Didn't support the configured level, so revert to 0.
-		msaaLevel_ = 0;
-	}
 }
 
 void GPUCommon::CheckFlushOp(int cmd, u32 diff) {

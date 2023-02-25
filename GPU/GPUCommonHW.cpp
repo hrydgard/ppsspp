@@ -360,6 +360,7 @@ GPUCommonHW::GPUCommonHW(GraphicsContext *gfxCtx, Draw::DrawContext *draw) : GPU
 	}
 
 	UpdateCmdInfo();
+	UpdateMSAALevel(draw);
 }
 
 GPUCommonHW::~GPUCommonHW() {
@@ -372,6 +373,13 @@ GPUCommonHW::~GPUCommonHW() {
 	delete textureCache_;
 	shaderManager_->ClearShaders();
 	delete shaderManager_;
+}
+
+void GPUCommonHW::CheckRenderResized() {
+	if (renderResized_) {
+		framebufferManager_->NotifyRenderResized(msaaLevel_);
+		renderResized_ = false;
+	}
 }
 
 void GPUCommonHW::DeviceLost() {
@@ -527,4 +535,14 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 	}
 
 	return features;
+}
+
+void GPUCommonHW::UpdateMSAALevel(Draw::DrawContext *draw) {
+	int level = g_Config.iMultiSampleLevel;
+	if (draw && draw->GetDeviceCaps().multiSampleLevelsMask & (1 << level)) {
+		msaaLevel_ = level;
+	} else {
+		// Didn't support the configured level, so revert to 0.
+		msaaLevel_ = 0;
+	}
 }

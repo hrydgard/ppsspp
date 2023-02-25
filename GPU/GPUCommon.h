@@ -264,17 +264,13 @@ public:
 		fullInfo = reportingFullInfo_;
 	}
 
-	int MSAALevel() const {
-		return msaaLevel_;
-	}
-
 protected:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
 	void ClearCacheNextFrame() override {}
 
-	virtual void CheckRenderResized();
+	virtual void CheckRenderResized() {}
 
 	// Add additional common features dependent on other features, which may be backend-determined.
 	u32 CheckGPUFeaturesLate(u32 features) const;
@@ -328,7 +324,7 @@ protected:
 
 	virtual void BuildReportingInfo() = 0;
 
-	void UpdateMSAALevel(Draw::DrawContext *draw);
+	virtual void UpdateMSAALevel(Draw::DrawContext *draw) {}
 
 	DrawEngineCommon *drawEngineCommon_ = nullptr;
 
@@ -418,8 +414,6 @@ protected:
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
-
-	int msaaLevel_ = 0;
 
 private:
 	void CheckDepthUsage(VirtualFramebuffer *vfb);
