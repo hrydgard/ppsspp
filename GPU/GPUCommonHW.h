@@ -13,6 +13,8 @@ public:
 	void DoState(PointerWrap &p) override;
 	void DeviceLost() override;
 
+	u32 CheckGPUFeatures() const override;
+
 protected:
 	void PreExecuteOp(u32 op, u32 diff);
 	void ClearCacheNextFrame() override;

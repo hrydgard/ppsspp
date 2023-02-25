@@ -76,7 +76,7 @@ public:
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
-	virtual u32 CheckGPUFeatures() const;
+	virtual u32 CheckGPUFeatures() const = 0;
 
 	void CheckDisplayResized() override;
 	void CheckConfigChanged() override;
