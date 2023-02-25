@@ -166,16 +166,6 @@ void GPU_DX9::BeginFrame() {
 	}
 }
 
-void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
-	drawEngine_.Flush();
-
-	shaderManager_->DirtyLastShader();
-
-	framebufferManagerDX9_->CopyDisplayToOutput(reallyDirty);
-
-	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-}
-
 void GPU_DX9::FinishDeferred() {
 	// This finishes reading any vertex data that is pending.
 	drawEngine_.FinishDeferred();

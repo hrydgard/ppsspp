@@ -52,7 +52,6 @@ private:
 
 	void InitClear() override;
 	void BeginFrame() override;
-	void CopyDisplayToOutput(bool reallyDirty) override;
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;

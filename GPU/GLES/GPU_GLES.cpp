@@ -317,18 +317,6 @@ void GPU_GLES::BeginFrame() {
 	framebufferManagerGL_->BeginFrame();
 }
 
-void GPU_GLES::CopyDisplayToOutput(bool reallyDirty) {
-	// Flush anything left over.
-	framebufferManagerGL_->RebindFramebuffer("RebindFramebuffer - CopyDisplayToOutput");
-	drawEngine_.Flush();
-
-	shaderManagerGL_->DirtyLastShader();
-
-	framebufferManagerGL_->CopyDisplayToOutput(reallyDirty);
-
-	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-}
-
 void GPU_GLES::FinishDeferred() {
 	// This finishes reading any vertex data that is pending.
 	drawEngine_.FinishDeferred();

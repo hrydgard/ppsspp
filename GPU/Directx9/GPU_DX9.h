@@ -54,7 +54,6 @@ private:
 
 	void InitClear() override;
 	void BeginFrame() override;
-	void CopyDisplayToOutput(bool reallyDirty) override;
 
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;

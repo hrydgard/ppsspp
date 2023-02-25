@@ -401,17 +401,6 @@ void GPU_Vulkan::InitClear() {
 	}
 }
 
-void GPU_Vulkan::CopyDisplayToOutput(bool reallyDirty) {
-	// Flush anything left over.
-	drawEngine_.Flush();
-
-	shaderManagerVulkan_->DirtyLastShader();
-
-	framebufferManagerVulkan_->CopyDisplayToOutput(reallyDirty);
-
-	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-}
-
 void GPU_Vulkan::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }

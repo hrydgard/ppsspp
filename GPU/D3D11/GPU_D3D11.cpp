@@ -169,17 +169,6 @@ void GPU_D3D11::BeginFrame() {
 	}
 }
 
-void GPU_D3D11::CopyDisplayToOutput(bool reallyDirty) {
-	// Flush anything left over.
-	drawEngine_.Flush();
-
-	shaderManager_->DirtyLastShader();
-
-	framebufferManagerD3D11_->CopyDisplayToOutput(reallyDirty);
-
-	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-}
-
 void GPU_D3D11::FinishDeferred() {
 	// This finishes reading any vertex data that is pending.
 	drawEngine_.FinishDeferred();

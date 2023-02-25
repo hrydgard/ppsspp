@@ -68,7 +68,6 @@ protected:
 private:
 	void BuildReportingInfo() override;
 	void InitClear() override;
-	void CopyDisplayToOutput(bool reallyDirty) override;
 	void Reinitialize() override;
 
 	void InitDeviceObjects();

@@ -9,8 +9,9 @@ public:
 	GPUCommonHW(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPUCommonHW();
 
+	void CopyDisplayToOutput(bool reallyDirty) override;
+
 protected:
 	void PreExecuteOp(u32 op, u32 diff);
-
 };
 

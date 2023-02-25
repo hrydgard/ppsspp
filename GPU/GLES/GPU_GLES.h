@@ -64,7 +64,6 @@ private:
 
 	void InitClear() override;
 	void BeginFrame() override;
-	void CopyDisplayToOutput(bool reallyDirty) override;
 	void Reinitialize() override;
 
 	FramebufferManagerGLES *framebufferManagerGL_;
