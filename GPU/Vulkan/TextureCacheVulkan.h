@@ -58,7 +58,6 @@ public:
 	~TextureCacheVulkan();
 
 	void StartFrame() override;
-	void EndFrame();
 
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);

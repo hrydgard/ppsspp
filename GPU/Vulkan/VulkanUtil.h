@@ -61,7 +61,6 @@ public:
 	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout_; }
 
 	void BeginFrame();
-	void EndFrame();
 
 private:
 	void InitDeviceObjects(Draw::DrawContext *draw);

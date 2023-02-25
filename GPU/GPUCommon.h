@@ -76,12 +76,12 @@ public:
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
-	virtual u32 CheckGPUFeatures() const;
+	virtual u32 CheckGPUFeatures() const = 0;
 
 	void CheckDisplayResized() override;
 	void CheckConfigChanged() override;
 
-	void UpdateCmdInfo();
+	virtual void UpdateCmdInfo() = 0;
 
 	bool IsReady() override {
 		return true;
@@ -131,7 +131,6 @@ public:
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void CopyDisplayToOutput(bool reallyDirty) override = 0;
-	void InitClear() override = 0;
 	bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
 	bool PerformReadbackToMemory(u32 dest, int size) override;
@@ -264,17 +263,13 @@ public:
 		fullInfo = reportingFullInfo_;
 	}
 
-	int MSAALevel() const {
-		return msaaLevel_;
-	}
-
 protected:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
-	void ClearCacheNextFrame() override;
+	void ClearCacheNextFrame() override {}
 
-	virtual void CheckRenderResized();
+	virtual void CheckRenderResized() {}
 
 	// Add additional common features dependent on other features, which may be backend-determined.
 	u32 CheckGPUFeaturesLate(u32 features) const;
@@ -328,13 +323,15 @@ protected:
 
 	virtual void BuildReportingInfo() = 0;
 
-	void UpdateMSAALevel(Draw::DrawContext *draw);
+	virtual void UpdateMSAALevel(Draw::DrawContext *draw) {}
 
 	DrawEngineCommon *drawEngineCommon_ = nullptr;
 
+	// TODO: These should live in GPUCommonHW.
 	FramebufferManagerCommon *framebufferManager_ = nullptr;
 	TextureCacheCommon *textureCache_ = nullptr;
 	ShaderManagerCommon *shaderManager_ = nullptr;
+
 	bool flushOnParams_ = true;
 
 	GraphicsContext *gfxCtx_;
@@ -416,8 +413,6 @@ protected:
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
-
-	int msaaLevel_ = 0;
 
 private:
 	void CheckDepthUsage(VirtualFramebuffer *vfb);

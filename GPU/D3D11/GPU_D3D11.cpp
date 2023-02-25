@@ -87,16 +87,11 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 }
 
 GPU_D3D11::~GPU_D3D11() {
-	framebufferManagerD3D11_->DestroyAllFBOs();
-	delete framebufferManagerD3D11_;
-	shaderManagerD3D11_->ClearShaders();
-	delete shaderManagerD3D11_;
-	delete textureCacheD3D11_;
 	stockD3D11.Destroy();
 }
 
 u32 GPU_D3D11::CheckGPUFeatures() const {
-	u32 features = GPUCommon::CheckGPUFeatures();
+	u32 features = GPUCommonHW::CheckGPUFeatures();
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
@@ -116,53 +111,38 @@ u32 GPU_D3D11::CheckGPUFeatures() const {
 	return CheckGPUFeaturesLate(features);
 }
 
-// Needs to be called on GPU thread, not reporting thread.
-void GPU_D3D11::BuildReportingInfo() {
-	using namespace Draw;
-	DrawContext *thin3d = gfxCtx_->GetDrawContext();
-
-	reportingPrimaryInfo_ = thin3d->GetInfoString(InfoField::VENDORSTRING);
-	reportingFullInfo_ = reportingPrimaryInfo_ + " - " + System_GetProperty(SYSPROP_GPUDRIVER_VERSION) + " - " + thin3d->GetInfoString(InfoField::SHADELANGVERSION);
-}
-
 void GPU_D3D11::DeviceLost() {
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
-	shaderManagerD3D11_->ClearShaders();
+	shaderManager_->ClearShaders();
 	drawEngine_.ClearInputLayoutMap();
-	textureCacheD3D11_->Clear(false);
+	textureCache_->Clear(false);
 
-	GPUCommon::DeviceLost();
+	GPUCommonHW::DeviceLost();
 }
 
 void GPU_D3D11::DeviceRestore() {
-	GPUCommon::DeviceRestore();
+	GPUCommonHW::DeviceRestore();
 	// Nothing needed.
 }
 
-void GPU_D3D11::InitClear() {
-	if (!framebufferManager_->UseBufferedRendering()) {
-		// device_->Clear(0, NULL, D3DCLEAR_STENCIL | D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
-	}
-}
-
 void GPU_D3D11::BeginFrame() {
-	GPUCommon::BeginFrame();
+	GPUCommonHW::BeginFrame();
 
-	textureCacheD3D11_->StartFrame();
+	textureCache_->StartFrame();
 	drawEngine_.BeginFrame();
 
-	shaderManagerD3D11_->DirtyLastShader();
+	shaderManager_->DirtyLastShader();
 
-	framebufferManagerD3D11_->BeginFrame();
+	framebufferManager_->BeginFrame();
 	gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 
 	if (gstate_c.useFlagsChanged) {
 		// TODO: It'd be better to recompile them in the background, probably?
 		// This most likely means that saw equal depth changed.
 		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
-		shaderManagerD3D11_->ClearShaders();
+		shaderManager_->ClearShaders();
 		framebufferManager_->ClearAllDepthBuffers();
 		drawEngine_.ClearInputLayoutMap();
 		gstate_c.useFlagsChanged = false;
@@ -185,26 +165,4 @@ void GPU_D3D11::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerD3D11_->GetNumVertexShaders(),
 		shaderManagerD3D11_->GetNumFragmentShaders()
 	);
-}
-
-std::vector<std::string> GPU_D3D11::DebugGetShaderIDs(DebugShaderType type) {
-	switch (type) {
-	case SHADER_TYPE_VERTEXLOADER:
-		return drawEngine_.DebugGetVertexLoaderIDs();
-	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
-	default:
-		return shaderManagerD3D11_->DebugGetShaderIDs(type);
-	}
-}
-
-std::string GPU_D3D11::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
-	switch (type) {
-	case SHADER_TYPE_VERTEXLOADER:
-		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
-	default:
-		return shaderManagerD3D11_->DebugGetShaderString(id, type, stringType);
-	}
 }

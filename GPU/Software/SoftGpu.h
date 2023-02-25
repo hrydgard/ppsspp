@@ -129,11 +129,11 @@ public:
 
 	u32 CheckGPUFeatures() const override { return 0; }
 	bool IsStarted() override;
-	void InitClear() override {}
 	void ExecuteOp(u32 op, u32 diff) override;
 	void FinishDeferred() override;
 	int ListSync(int listid, int mode) override;
 	u32 DrawSync(int mode) override;
+	void UpdateCmdInfo() override {}
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void CopyDisplayToOutput(bool reallyDirty) override;
@@ -145,7 +145,6 @@ public:
 	bool PerformReadbackToMemory(u32 dest, int size) override;
 	bool PerformWriteColorFromMemory(u32 dest, int size) override;
 	bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) override;
-	void ClearCacheNextFrame() override {}
 
 	void DeviceLost() override;
 	void DeviceRestore() override;

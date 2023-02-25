@@ -138,6 +138,10 @@ TextureCacheCommon::~TextureCacheCommon() {
 	FreeAlignedMemory(expandClut_);
 }
 
+void TextureCacheCommon::StartFrame() {
+	textureShaderCache_->Decimate();
+}
+
 // Produces a signed 1.23.8 value.
 static int TexLog2(float delta) {
 	union FloatBits {
@@ -2905,8 +2909,4 @@ CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GE
 	default:
 		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);
 	}
-}
-
-void TextureCacheCommon::StartFrame() {
-	textureShaderCache_->Decimate();
 }

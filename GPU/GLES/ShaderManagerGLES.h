@@ -165,15 +165,15 @@ public:
 	ShaderManagerGLES(Draw::DrawContext *draw);
 	~ShaderManagerGLES();
 
-	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
+	void ClearShaders() override;
 
 	// This is the old ApplyShader split into two parts, because of annoying information dependencies.
 	// If you call ApplyVertexShader, you MUST call ApplyFragmentShader soon afterwards.
 	Shader *ApplyVertexShader(bool useHWTransform, bool useHWTessellation, VertexDecoder *vertexDecoder, bool weightsAsFloat, bool useSkinInDecode, VShaderID *VSID);
 	LinkedShader *ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, bool useBufferedRendering);
 
-	void DeviceLost();
-	void DeviceRestore(Draw::DrawContext *draw);
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	void DirtyShader();
 	void DirtyLastShader() override;

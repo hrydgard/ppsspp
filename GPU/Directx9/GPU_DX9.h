@@ -33,26 +33,16 @@ class TextureCacheDX9;
 class GPU_DX9 : public GPUCommonHW {
 public:
 	GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
-	~GPU_DX9();
 
 	u32 CheckGPUFeatures() const override;
 
 	void ReapplyGfxState() override;
 	void GetStats(char *buffer, size_t bufsize) override;
-	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
-	void DeviceRestore() override;
-
-	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
-	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
 
 protected:
 	void FinishDeferred() override;
 
 private:
-	void BuildReportingInfo() override;
-
-	void InitClear() override;
 	void BeginFrame() override;
 
 	LPDIRECT3DDEVICE9 device_;

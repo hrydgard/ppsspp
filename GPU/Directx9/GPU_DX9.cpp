@@ -94,7 +94,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 }
 
 u32 GPU_DX9::CheckGPUFeatures() const {
-	u32 features = GPUCommon::CheckGPUFeatures();
+	u32 features = GPUCommonHW::CheckGPUFeatures();
 	features |= GPU_USE_16BIT_FORMATS;
 	features |= GPU_USE_TEXTURE_LOD_CONTROL;
 
@@ -105,53 +105,16 @@ u32 GPU_DX9::CheckGPUFeatures() const {
 	return CheckGPUFeaturesLate(features);
 }
 
-GPU_DX9::~GPU_DX9() {
-	framebufferManagerDX9_->DestroyAllFBOs();
-	delete framebufferManagerDX9_;
-	delete textureCache_;
-	shaderManagerDX9_->ClearCache(true);
-	delete shaderManagerDX9_;
-}
-
-// Needs to be called on GPU thread, not reporting thread.
-void GPU_DX9::BuildReportingInfo() {
-	using namespace Draw;
-	DrawContext *thin3d = gfxCtx_->GetDrawContext();
-
-	reportingPrimaryInfo_ = thin3d->GetInfoString(InfoField::VENDORSTRING);
-	reportingFullInfo_ = reportingPrimaryInfo_ + " - " + System_GetProperty(SYSPROP_GPUDRIVER_VERSION) + " - " + thin3d->GetInfoString(InfoField::SHADELANGVERSION);
-}
-
-void GPU_DX9::DeviceLost() {
-	// Simply drop all caches and textures.
-	shaderManagerDX9_->ClearCache(false);
-	textureCacheDX9_->Clear(false);
-	GPUCommon::DeviceLost();
-}
-
-void GPU_DX9::DeviceRestore() {
-	GPUCommon::DeviceRestore();
-	// Nothing needed.
-}
-
-void GPU_DX9::InitClear() {
-	if (!framebufferManager_->UseBufferedRendering()) {
-		dxstate.depthWrite.set(true);
-		dxstate.colorMask.set(0xF);
-		device_->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
-	}
-}
-
 void GPU_DX9::ReapplyGfxState() {
 	dxstate.Restore();
-	GPUCommon::ReapplyGfxState();
+	GPUCommonHW::ReapplyGfxState();
 }
 
 void GPU_DX9::BeginFrame() {
-	textureCacheDX9_->StartFrame();
+	textureCache_->StartFrame();
 	drawEngine_.BeginFrame();
 
-	GPUCommon::BeginFrame();
+	GPUCommonHW::BeginFrame();
 	shaderManagerDX9_->DirtyShader();
 
 	framebufferManager_->BeginFrame();
@@ -160,7 +123,7 @@ void GPU_DX9::BeginFrame() {
 		// TODO: It'd be better to recompile them in the background, probably?
 		// This most likely means that saw equal depth changed.
 		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
-		shaderManagerDX9_->ClearCache(true);
+		shaderManager_->ClearShaders();
 		framebufferManager_->ClearAllDepthBuffers();
 		gstate_c.useFlagsChanged = false;
 	}
@@ -182,26 +145,4 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerDX9_->GetNumVertexShaders(),
 		shaderManagerDX9_->GetNumFragmentShaders()
 	);
-}
-
-std::vector<std::string> GPU_DX9::DebugGetShaderIDs(DebugShaderType type) {
-	switch (type) {
-	case SHADER_TYPE_VERTEXLOADER:
-		return drawEngine_.DebugGetVertexLoaderIDs();
-	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
-	default:
-		return shaderManagerDX9_->DebugGetShaderIDs(type);
-	}
-}
-
-std::string GPU_DX9::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
-	switch (type) {
-	case SHADER_TYPE_VERTEXLOADER:
-		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
-	default:
-		return shaderManagerDX9_->DebugGetShaderString(id, type, stringType);
-	}
 }

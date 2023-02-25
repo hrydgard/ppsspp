@@ -138,25 +138,14 @@ GPU_GLES::~GPU_GLES() {
 			INFO_LOG(G3D, "Shader cache disabled. Not saving.");
 		}
 	}
-
-	framebufferManagerGL_->DestroyAllFBOs();
-	shaderManagerGL_->ClearCache(true);
 	fragmentTestCache_.Clear();
-	
-	delete shaderManagerGL_;
-	shaderManagerGL_ = nullptr;
-	delete framebufferManagerGL_;
-	delete textureCacheGL_;
-
-	// Clear features so they're not visible in system info.
-	gstate_c.SetUseFlags(0);
 }
 
 // Take the raw GL extension and versioning data and turn into feature flags.
 // TODO: This should use DrawContext::GetDeviceCaps() more and more, and eventually
 // this can be shared between all the backends.
 u32 GPU_GLES::CheckGPUFeatures() const {
-	u32 features = GPUCommon::CheckGPUFeatures();
+	u32 features = GPUCommonHW::CheckGPUFeatures();
 
 	features |= GPU_USE_16BIT_FORMATS;
 
@@ -249,42 +238,33 @@ void GPU_GLES::DeviceLost() {
 	// FBOs appear to survive? Or no?
 	// TransformDraw has registered as a GfxResourceHolder.
 	CancelReady();
-	shaderManagerGL_->DeviceLost();
-	textureCacheGL_->DeviceLost();
 	fragmentTestCache_.DeviceLost();
 	drawEngine_.DeviceLost();
 
-	GPUCommon::DeviceLost();
+	GPUCommonHW::DeviceLost();
 }
 
 void GPU_GLES::DeviceRestore() {
-	GPUCommon::DeviceRestore();
+	GPUCommonHW::DeviceRestore();
 
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
 
-	shaderManagerGL_->DeviceRestore(draw_);
-	textureCacheGL_->DeviceRestore(draw_);
+	shaderManager_->DeviceRestore(draw_);
+	textureCache_->DeviceRestore(draw_);
 	drawEngine_.DeviceRestore(draw_);
 	fragmentTestCache_.DeviceRestore(draw_);
 }
 
-void GPU_GLES::Reinitialize() {
-	GPUCommon::Reinitialize();
-}
-
-void GPU_GLES::InitClear() {
-}
-
 void GPU_GLES::BeginHostFrame() {
-	GPUCommon::BeginHostFrame();
+	GPUCommonHW::BeginHostFrame();
 	drawEngine_.BeginFrame();
 
 	if (gstate_c.useFlagsChanged) {
 		// TODO: It'd be better to recompile them in the background, probably?
 		// This most likely means that saw equal depth changed.
 		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
-		shaderManagerGL_->ClearCache(true);
+		shaderManager_->ClearShaders();
 		framebufferManager_->ClearAllDepthBuffers();
 		gstate_c.useFlagsChanged = false;
 	}
@@ -294,27 +274,23 @@ void GPU_GLES::EndHostFrame() {
 	drawEngine_.EndFrame();
 }
 
-void GPU_GLES::ReapplyGfxState() {
-	GPUCommon::ReapplyGfxState();
-}
-
 void GPU_GLES::BeginFrame() {
-	textureCacheGL_->StartFrame();
-	fragmentTestCache_.Decimate();
+	GPUCommonHW::BeginFrame();
 
-	GPUCommon::BeginFrame();
+	textureCache_->StartFrame();
 
 	// Save the cache from time to time. TODO: How often? We save on exit, so shouldn't need to do this all that often.
 	if (shaderCachePath_.Valid() && (gpuStats.numFlips & 4095) == 0) {
 		shaderManagerGL_->SaveCache(shaderCachePath_, &drawEngine_);
 	}
-
 	shaderManagerGL_->DirtyShader();
 
 	// Not sure if this is really needed.
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
 
-	framebufferManagerGL_->BeginFrame();
+	framebufferManager_->BeginFrame();
+
+	fragmentTestCache_.Decimate();
 }
 
 void GPU_GLES::FinishDeferred() {
@@ -334,26 +310,4 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerGL_->GetNumFragmentShaders(),
 		shaderManagerGL_->GetNumPrograms()
 	);
-}
-
-std::vector<std::string> GPU_GLES::DebugGetShaderIDs(DebugShaderType type) {
-	switch (type) {
-	case SHADER_TYPE_VERTEXLOADER:
-		return drawEngine_.DebugGetVertexLoaderIDs();
-	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
-	default:
-		return shaderManagerGL_->DebugGetShaderIDs(type);
-	}
-}
-
-std::string GPU_GLES::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
-	switch (type) {
-	case SHADER_TYPE_VERTEXLOADER:
-		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
-	default:
-		return shaderManagerGL_->DebugGetShaderString(id, type, stringType);
-	}
 }
