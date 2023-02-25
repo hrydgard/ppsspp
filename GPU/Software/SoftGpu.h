@@ -134,6 +134,7 @@ public:
 	void FinishDeferred() override;
 	int ListSync(int listid, int mode) override;
 	u32 DrawSync(int mode) override;
+	void UpdateCmdInfo() override {}
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void CopyDisplayToOutput(bool reallyDirty) override;

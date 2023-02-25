@@ -81,7 +81,7 @@ public:
 	void CheckDisplayResized() override;
 	void CheckConfigChanged() override;
 
-	void UpdateCmdInfo();
+	virtual void UpdateCmdInfo() = 0;
 
 	bool IsReady() override {
 		return true;

@@ -16,6 +16,8 @@ public:
 	u32 CheckGPUFeatures() const override;
 
 protected:
+	void UpdateCmdInfo() override;
+
 	void PreExecuteOp(u32 op, u32 diff);
 	void ClearCacheNextFrame() override;
 
