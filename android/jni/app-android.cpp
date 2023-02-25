@@ -977,20 +977,20 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 }
 
 static void recalculateDpi() {
-	g_display.g_dpi = display_dpi_x;
-	g_display.g_dpi_scale_x = 240.0f / display_dpi_x;
-	g_display.g_dpi_scale_y = 240.0f / display_dpi_y;
-	g_display.g_dpi_scale_real_x = g_display.g_dpi_scale_x;
-	g_display.g_dpi_scale_real_y = g_display.g_dpi_scale_y;
+	g_display.dpi = display_dpi_x;
+	g_display.dpi_scale_x = 240.0f / display_dpi_x;
+	g_display.dpi_scale_y = 240.0f / display_dpi_y;
+	g_display.dpi_scale_real_x = g_display.dpi_scale_x;
+	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
 
-	g_display.dp_xres = display_xres * g_display.g_dpi_scale_x;
-	g_display.dp_yres = display_yres * g_display.g_dpi_scale_y;
+	g_display.dp_xres = display_xres * g_display.dpi_scale_x;
+	g_display.dp_yres = display_yres * g_display.dpi_scale_y;
 
 	g_display.pixel_in_dps_x = (float)g_display.pixel_xres / g_display.dp_xres;
 	g_display.pixel_in_dps_y = (float)g_display.pixel_yres / g_display.dp_yres;
 
 	INFO_LOG(G3D, "RecalcDPI: display_xres=%d display_yres=%d pixel_xres=%d pixel_yres=%d", display_xres, display_yres, g_display.pixel_xres, g_display.pixel_yres);
-	INFO_LOG(G3D, "RecalcDPI: g_dpi=%f g_dpi_scale_x=%f g_dpi_scale_y=%f dp_xres=%d dp_yres=%d", g_display.g_dpi, g_display.g_dpi_scale_x, g_display.g_dpi_scale_y, g_display.dp_xres, g_display.dp_yres);
+	INFO_LOG(G3D, "RecalcDPI: g_dpi=%f g_dpi_scale_x=%f g_dpi_scale_y=%f dp_xres=%d dp_yres=%d", g_display.dpi, g_display.dpi_scale_x, g_display.dpi_scale_y, g_display.dp_xres, g_display.dp_yres);
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh, jint format) {
@@ -1093,7 +1093,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	}
 
 	if (IsVREnabled()) {
-		UpdateVRInput(g_Config.bHapticFeedback, g_display.g_dpi_scale_x, g_display.g_dpi_scale_y);
+		UpdateVRInput(g_Config.bHapticFeedback, g_display.dpi_scale_x, g_display.dpi_scale_y);
 		FinishVRRender();
 	}
 }
@@ -1117,8 +1117,8 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
 
-	float scaledX = x * g_display.g_dpi_scale_x;
-	float scaledY = y * g_display.g_dpi_scale_y;
+	float scaledX = x * g_display.dpi_scale_x;
+	float scaledY = y * g_display.dpi_scale_y;
 
 	TouchInput touch;
 	touch.id = pointerId;
@@ -1215,10 +1215,10 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 		// We don't bother with supporting exact rectangular regions. Safe insets are good enough.
 		int left, right, top, bottom;
 		if (4 == sscanf(prm.c_str(), "%d:%d:%d:%d", &left, &right, &top, &bottom)) {
-			g_safeInsetLeft = (float)left * g_display.g_dpi_scale_x;
-			g_safeInsetRight = (float)right * g_display.g_dpi_scale_x;
-			g_safeInsetTop = (float)top * g_display.g_dpi_scale_y;
-			g_safeInsetBottom = (float)bottom * g_display.g_dpi_scale_y;
+			g_safeInsetLeft = (float)left * g_display.dpi_scale_x;
+			g_safeInsetRight = (float)right * g_display.dpi_scale_x;
+			g_safeInsetTop = (float)top * g_display.dpi_scale_y;
+			g_safeInsetBottom = (float)bottom * g_display.dpi_scale_y;
 		}
 	}
 

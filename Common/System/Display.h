@@ -20,13 +20,18 @@ struct DisplayProperties {
 	int pixel_xres;
 	int pixel_yres;
 
-	float g_dpi = 1.0f;  // will be overwritten with a value that makes sense.
-	float g_dpi_scale_x = 1.0f;
-	float g_dpi_scale_y = 1.0f;
-	float g_dpi_scale_real_x = 1.0f;
-	float g_dpi_scale_real_y = 1.0f;
+	float dpi = 1.0f;  // will be overwritten with a value that makes sense.
+	float dpi_scale_x = 1.0f;
+	float dpi_scale_y = 1.0f;
+
+	// pixel_xres/yres in dps
 	float pixel_in_dps_x = 1.0f;
 	float pixel_in_dps_y = 1.0f;
+
+	// If DPI is overridden (like in small window mode), these are still the original DPI.
+	float dpi_scale_real_x = 1.0f;
+	float dpi_scale_real_y = 1.0f;
+
 	float display_hz = 60.0f;
 
 	DisplayRotation rotation;

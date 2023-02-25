@@ -706,9 +706,9 @@ void TouchTestScreen::render() {
 #endif
 		g_display.dp_xres, g_display.dp_yres,
 		g_display.pixel_xres, g_display.pixel_yres,
-		g_display.g_dpi,
-		g_display.g_dpi_scale_x, g_display.g_dpi_scale_y,
-		g_display.g_dpi_scale_real_x, g_display.g_dpi_scale_real_y, extra_debug);
+		g_display.dpi,
+		g_display.dpi_scale_x, g_display.dpi_scale_y,
+		g_display.dpi_scale_real_x, g_display.dpi_scale_real_y, extra_debug);
 
 	// On Android, also add joystick debug data.
 

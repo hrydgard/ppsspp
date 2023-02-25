@@ -747,10 +747,10 @@ int main(int argc, char *argv[]) {
 
 	g_display.pixel_in_dps_x = (float)g_display.pixel_xres / g_display.dp_xres;
 	g_display.pixel_in_dps_y = (float)g_display.pixel_yres / g_display.dp_yres;
-	g_display.g_dpi_scale_x = g_display.dp_xres / (float)g_display.pixel_xres;
-	g_display.g_dpi_scale_y = g_display.dp_yres / (float)g_display.pixel_yres;
-	g_display.g_dpi_scale_real_x = g_display.g_dpi_scale_x;
-	g_display.g_dpi_scale_real_y = g_display.g_dpi_scale_y;
+	g_display.dpi_scale_x = g_display.dp_xres / (float)g_display.pixel_xres;
+	g_display.dpi_scale_y = g_display.dp_yres / (float)g_display.pixel_yres;
+	g_display.dpi_scale_real_x = g_display.dpi_scale_x;
+	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
 
 	printf("Pixels: %i x %i\n", g_display.pixel_xres, g_display.pixel_yres);
 	printf("Virtual pixels: %i x %i\n", g_display.dp_xres, g_display.dp_yres);
@@ -873,8 +873,8 @@ int main(int argc, char *argv[]) {
 		}
 		SDL_Event event, touchEvent;
 		while (SDL_PollEvent(&event)) {
-			float mx = event.motion.x * g_display.g_dpi_scale_x;
-			float my = event.motion.y * g_display.g_dpi_scale_y;
+			float mx = event.motion.x * g_display.dpi_scale_x;
+			float my = event.motion.y * g_display.dpi_scale_y;
 
 			switch (event.type) {
 			case SDL_QUIT:
@@ -1182,8 +1182,8 @@ int main(int argc, char *argv[]) {
 
 		// Disabled by default, needs a workaround to map to psp keys.
 		if (g_Config.bMouseControl) {
-			float scaleFactor_x = g_display.g_dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
-			float scaleFactor_y = g_display.g_dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
+			float scaleFactor_x = g_display.dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
+			float scaleFactor_y = g_display.dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
 
 			AxisInput axisX, axisY;
 			axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;

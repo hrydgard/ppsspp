@@ -588,7 +588,7 @@ void SystemInfoScreen::CreateViews() {
 		g_display.dp_xres,
 		g_display.dp_yres,
 		si->T("DPI"),
-		g_display.g_dpi)));
+		g_display.dpi)));
 #endif
 
 #if !PPSSPP_PLATFORM(WINDOWS)
