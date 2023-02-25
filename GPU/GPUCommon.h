@@ -330,9 +330,10 @@ protected:
 
 	void UpdateMSAALevel(Draw::DrawContext *draw);
 
+	DrawEngineCommon *drawEngineCommon_ = nullptr;
+
 	FramebufferManagerCommon *framebufferManager_ = nullptr;
 	TextureCacheCommon *textureCache_ = nullptr;
-	DrawEngineCommon *drawEngineCommon_ = nullptr;
 	ShaderManagerCommon *shaderManager_ = nullptr;
 	bool flushOnParams_ = true;
 
