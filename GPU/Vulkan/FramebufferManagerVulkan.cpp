@@ -26,22 +26,3 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw) :
 	FramebufferManagerCommon(draw) {
 	presentation_->SetLanguage(GLSL_VULKAN);
 }
-
-void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
-	int mask = 0;
-	// The Clear detection takes care of doing a regular draw instead if separate masking
-	// of color and alpha is needed, so we can just treat them as the same.
-	if (clearColor || clearAlpha)
-		mask |= Draw::FBChannel::FB_COLOR_BIT;
-	if (clearDepth)
-		mask |= Draw::FBChannel::FB_DEPTH_BIT;
-	if (clearAlpha)
-		mask |= Draw::FBChannel::FB_STENCIL_BIT;
-
-	// Note that since the alpha channel and the stencil channel are shared on the PSP,
-	// when we clear alpha, we also clear stencil to the same value.
-	draw_->Clear(mask, color, depth, color >> 24);
-	if (clearColor || clearAlpha) {
-		SetColorUpdated(gstate_c.skipDrawReason);
-	}
-}

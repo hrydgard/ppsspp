@@ -25,8 +25,4 @@
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
 	explicit FramebufferManagerVulkan(Draw::DrawContext *draw);
-
-	// If within a render pass, this will just issue a regular clear. If beginning a new render pass,
-	// do that.
-	void NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth);
 };
