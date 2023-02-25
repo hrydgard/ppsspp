@@ -287,7 +287,6 @@ protected:
 	// TODO: These should live in GPUCommonHW.
 	FramebufferManagerCommon *framebufferManager_ = nullptr;
 	TextureCacheCommon *textureCache_ = nullptr;
-	ShaderManagerCommon *shaderManager_ = nullptr;
 
 	bool flushOnParams_ = true;
 

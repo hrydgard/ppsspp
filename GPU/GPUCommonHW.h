@@ -63,6 +63,10 @@ public:
 	void FastRunLoop(DisplayList &list) override;
 	void ExecuteOp(u32 op, u32 diff) override;
 
+private:
+	void CheckDepthUsage(VirtualFramebuffer *vfb);
+	void CheckFlushOp(int cmd, u32 diff);
+
 protected:
 	void UpdateCmdInfo() override;
 
@@ -78,8 +82,5 @@ protected:
 
 	int msaaLevel_ = 0;
 	bool sawExactEqualDepth_ = false;
-
-private:
-	void CheckDepthUsage(VirtualFramebuffer *vfb);
-	void CheckFlushOp(int cmd, u32 diff);
+	ShaderManagerCommon *shaderManager_ = nullptr;
 };
