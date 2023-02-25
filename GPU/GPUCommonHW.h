@@ -14,6 +14,9 @@ public:
 
 protected:
 	void PreExecuteOp(u32 op, u32 diff);
+	void ClearCacheNextFrame() override;
 
+	// Needs to be called on GPU thread, not reporting thread.
+	void BuildReportingInfo() override;
 };
 

@@ -145,7 +145,6 @@ public:
 	bool PerformReadbackToMemory(u32 dest, int size) override;
 	bool PerformWriteColorFromMemory(u32 dest, int size) override;
 	bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) override;
-	void ClearCacheNextFrame() override {}
 
 	void DeviceLost() override;
 	void DeviceRestore() override;

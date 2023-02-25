@@ -1,5 +1,6 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/Serialize/Serializer.h"
+#include "Common/System/System.h"
 
 #include "Core/System.h"
 
@@ -38,4 +39,16 @@ void GPUCommonHW::DoState(PointerWrap &p) {
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		framebufferManager_->DestroyAllFBOs();
 	}
+}
+
+void GPUCommonHW::ClearCacheNextFrame() {
+	textureCache_->ClearNextFrame();
+}
+
+// Needs to be called on GPU thread, not reporting thread.
+void GPUCommonHW::BuildReportingInfo() {
+	using namespace Draw;
+
+	reportingPrimaryInfo_ = draw_->GetInfoString(InfoField::VENDORSTRING);
+	reportingFullInfo_ = reportingPrimaryInfo_ + " - " + System_GetProperty(SYSPROP_GPUDRIVER_VERSION) + " - " + draw_->GetInfoString(InfoField::SHADELANGVERSION);
 }

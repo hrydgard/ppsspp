@@ -272,7 +272,7 @@ protected:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
-	void ClearCacheNextFrame() override;
+	void ClearCacheNextFrame() override {}
 
 	virtual void CheckRenderResized();
 
@@ -332,9 +332,11 @@ protected:
 
 	DrawEngineCommon *drawEngineCommon_ = nullptr;
 
+	// TODO: These should live in GPUCommonHW.
 	FramebufferManagerCommon *framebufferManager_ = nullptr;
 	TextureCacheCommon *textureCache_ = nullptr;
 	ShaderManagerCommon *shaderManager_ = nullptr;
+
 	bool flushOnParams_ = true;
 
 	GraphicsContext *gfxCtx_;

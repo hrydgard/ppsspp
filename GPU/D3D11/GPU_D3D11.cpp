@@ -116,14 +116,6 @@ u32 GPU_D3D11::CheckGPUFeatures() const {
 	return CheckGPUFeaturesLate(features);
 }
 
-// Needs to be called on GPU thread, not reporting thread.
-void GPU_D3D11::BuildReportingInfo() {
-	using namespace Draw;
-
-	reportingPrimaryInfo_ = draw_->GetInfoString(InfoField::VENDORSTRING);
-	reportingFullInfo_ = reportingPrimaryInfo_ + " - " + System_GetProperty(SYSPROP_GPUDRIVER_VERSION) + " - " + draw_->GetInfoString(InfoField::SHADELANGVERSION);
-}
-
 void GPU_D3D11::DeviceLost() {
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	// Simply drop all caches and textures.

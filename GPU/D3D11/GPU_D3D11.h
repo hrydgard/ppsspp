@@ -48,8 +48,6 @@ protected:
 	void FinishDeferred() override;
 
 private:
-	void BuildReportingInfo() override;
-
 	void InitClear() override;
 	void BeginFrame() override;
 

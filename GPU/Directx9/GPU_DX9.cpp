@@ -113,13 +113,6 @@ GPU_DX9::~GPU_DX9() {
 	delete shaderManagerDX9_;
 }
 
-// Needs to be called on GPU thread, not reporting thread.
-void GPU_DX9::BuildReportingInfo() {
-	using namespace Draw;
-	reportingPrimaryInfo_ = draw_->GetInfoString(InfoField::VENDORSTRING);
-	reportingFullInfo_ = reportingPrimaryInfo_ + " - " + System_GetProperty(SYSPROP_GPUDRIVER_VERSION) + " - " + draw_->GetInfoString(InfoField::SHADELANGVERSION);
-}
-
 void GPU_DX9::DeviceLost() {
 	// Simply drop all caches and textures.
 	shaderManagerDX9_->ClearCache(false);

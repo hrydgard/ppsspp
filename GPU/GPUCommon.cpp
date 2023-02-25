@@ -633,10 +633,6 @@ void GPUCommon::NotifyDisplayResized() {
 	displayResized_ = true;
 }
 
-void GPUCommon::ClearCacheNextFrame() {
-	textureCache_->ClearNextFrame();
-}
-
 // Called once per frame. Might also get called during the pause screen
 // if "transparent".
 void GPUCommon::CheckConfigChanged() {
