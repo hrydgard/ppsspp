@@ -17,16 +17,8 @@
 
 #pragma once
 
-#include <unordered_map>
-
-#include <d3d9.h>
-
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-
-class TextureCacheDX9;
-class DrawEngineDX9;
-class ShaderManagerDX9;
 
 class FramebufferManagerDX9 : public FramebufferManagerCommon {
 public:

@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <set>
+#include <string>
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/GraphicsContext.h"
