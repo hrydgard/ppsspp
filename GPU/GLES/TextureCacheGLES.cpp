@@ -143,10 +143,6 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dst
 void TextureCacheGLES::StartFrame() {
 	TextureCacheCommon::StartFrame();
 
-	ForgetLastTexture();
-	timesInvalidatedAllThisFrame_ = 0;
-	replacementTimeThisFrame_ = 0.0;
-
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	if (!lowMemoryMode_ && renderManager->SawOutOfMemory()) {
 		lowMemoryMode_ = true;
@@ -158,17 +154,6 @@ void TextureCacheGLES::StartFrame() {
 		} else {
 			host->NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
 		}
-	}
-
-	if (texelsScaledThisFrame_) {
-		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
-	}
-	texelsScaledThisFrame_ = 0;
-	if (clearCacheNextFrame_) {
-		Clear(true);
-		clearCacheNextFrame_ = false;
-	} else {
-		Decimate();
 	}
 }
 

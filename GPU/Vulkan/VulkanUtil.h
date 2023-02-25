@@ -77,6 +77,7 @@ private:
 		}
 
 		VulkanDescSetPool descPool;
+		bool descPoolUsed = false;
 	};
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 

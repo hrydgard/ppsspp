@@ -327,27 +327,8 @@ static const VkFilter MagFiltVK[2] = {
 
 void TextureCacheVulkan::StartFrame() {
 	TextureCacheCommon::StartFrame();
-
-	textureShaderCache_->Decimate();
-
-	timesInvalidatedAllThisFrame_ = 0;
-	texelsScaledThisFrame_ = 0;
-	replacementTimeThisFrame_ = 0.0;
-
-	if (clearCacheNextFrame_) {
-		Clear(true);
-		clearCacheNextFrame_ = false;
-	} else {
-		int slabPressureLimit = TEXCACHE_SLAB_PRESSURE;
-		if (g_Config.iTexScalingLevel > 1) {
-			// Since textures are 2D maybe we should square this, but might get too non-aggressive.
-			slabPressureLimit *= g_Config.iTexScalingLevel;
-		}
-		// TODO: Use some indication from VMA.
-		// Maybe see https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/staying_within_budget.html#staying_within_budget_querying_for_budget .
-		Decimate(false);
-	}
-
+	// TODO: For low memory detection, maybe use some indication from VMA.
+	// Maybe see https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/staying_within_budget.html#staying_within_budget_querying_for_budget .
 	computeShaderManager_.BeginFrame();
 }
 

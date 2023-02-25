@@ -139,7 +139,22 @@ TextureCacheCommon::~TextureCacheCommon() {
 }
 
 void TextureCacheCommon::StartFrame() {
+	ForgetLastTexture();
 	textureShaderCache_->Decimate();
+	timesInvalidatedAllThisFrame_ = 0;
+	replacementTimeThisFrame_ = 0.0;
+
+	if (texelsScaledThisFrame_) {
+		VERBOSE_LOG(G3D, "Scaled %d texels", texelsScaledThisFrame_);
+	}
+	texelsScaledThisFrame_ = 0;
+
+	if (clearCacheNextFrame_) {
+		Clear(true);
+		clearCacheNextFrame_ = false;
+	} else {
+		Decimate(false);
+	}
 }
 
 // Produces a signed 1.23.8 value.

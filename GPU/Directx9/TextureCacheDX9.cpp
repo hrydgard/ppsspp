@@ -154,22 +154,8 @@ void TextureCacheDX9::ApplySamplingParams(const SamplerCacheKey &key) {
 void TextureCacheDX9::StartFrame() {
 	TextureCacheCommon::StartFrame();
 
-	lastBoundTexture = nullptr;
-	timesInvalidatedAllThisFrame_ = 0;
-	replacementTimeThisFrame_ = 0.0;
-
-	if (texelsScaledThisFrame_) {
-		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
-	}
-	texelsScaledThisFrame_ = 0;
-	if (clearCacheNextFrame_) {
-		Clear(true);
-		clearCacheNextFrame_ = false;
-	} else {
-		Decimate();
-	}
-
 	if (gstate_c.Use(GPU_USE_ANISOTROPY)) {
+		// Just take the opportunity to set the global aniso level here, once per frame.
 		DWORD aniso = 1 << g_Config.iAnisotropyLevel;
 		DWORD anisotropyLevel = aniso > maxAnisotropyLevel ? maxAnisotropyLevel : aniso;
 		device_->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel);
