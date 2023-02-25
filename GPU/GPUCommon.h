@@ -343,7 +343,6 @@ protected:
 	bool displayResized_ = false;
 	bool renderResized_ = false;
 	bool configChanged_ = false;
-	bool sawExactEqualDepth_ = false;
 	DrawType lastDraw_ = DRAW_UNKNOWN;
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
 
@@ -362,7 +361,7 @@ protected:
 
 	uint32_t edramTranslation_ = 0x400;
 
-	// Whe matrix data overflows, the CPU visible values wrap and bleed between matrices.
+	// When matrix data overflows, the CPU visible values wrap and bleed between matrices.
 	// But this doesn't actually change the values used by rendering.
 	// The CPU visible values affect the GPU when list contexts are restored.
 	// Note: not maintained by all backends, here for save stating.

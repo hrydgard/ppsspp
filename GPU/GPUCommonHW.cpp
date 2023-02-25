@@ -457,6 +457,15 @@ void GPUCommonHW::UpdateCmdInfo() {
 	}
 }
 
+void GPUCommonHW::BeginFrame() {
+	GPUCommon::BeginFrame();
+
+	if (drawEngineCommon_->EverUsedExactEqualDepth() && !sawExactEqualDepth_) {
+		sawExactEqualDepth_ = true;
+		gstate_c.SetUseFlags(CheckGPUFeatures());
+	}
+}
+
 void GPUCommonHW::CheckFlushOp(int cmd, u32 diff) {
 	const u8 cmdFlags = cmdInfo_[cmd].flags;
 	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {

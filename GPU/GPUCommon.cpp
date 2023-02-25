@@ -805,11 +805,6 @@ void GPUCommon::BeginFrame() {
 	}
 	GPUDebug::NotifyBeginFrame();
 	GPURecord::NotifyBeginFrame();
-
-	if (drawEngineCommon_->EverUsedExactEqualDepth() && !sawExactEqualDepth_) {
-		sawExactEqualDepth_ = true;
-		gstate_c.SetUseFlags(CheckGPUFeatures());
-	}
 }
 
 void GPUCommon::SlowRunLoop(DisplayList &list) {

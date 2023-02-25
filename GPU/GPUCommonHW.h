@@ -13,6 +13,8 @@ public:
 	void DoState(PointerWrap &p) override;
 	void DeviceLost() override;
 
+	void BeginFrame() override;
+
 	u32 CheckGPUFeatures() const override;
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
@@ -50,6 +52,7 @@ protected:
 	u32 CheckGPUFeaturesLate(u32 features) const;
 
 	int msaaLevel_ = 0;
+	bool sawExactEqualDepth_ = false;
 
 private:
 	void CheckDepthUsage(VirtualFramebuffer *vfb);
