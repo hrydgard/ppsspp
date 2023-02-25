@@ -1411,7 +1411,7 @@ void GPUCommon::ProcessDLQueue() {
 }
 
 void GPUCommon::PreExecuteOp(u32 op, u32 diff) {
-	// Nothing to do
+	CheckFlushOp(op >> 24, diff);
 }
 
 void GPUCommon::Execute_OffsetAddr(u32 op, u32 diff) {

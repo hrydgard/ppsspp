@@ -185,10 +185,6 @@ void GPU_D3D11::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }
 
-void GPU_D3D11::PreExecuteOp(u32 op, u32 diff) {
-	CheckFlushOp(op >> 24, diff);
-}
-
 void GPU_D3D11::ExecuteOp(u32 op, u32 diff) {
 	const u8 cmd = op >> 24;
 	const CommandInfo info = cmdInfo_[cmd];
