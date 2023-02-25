@@ -38,7 +38,6 @@ public:
 
 	void ReapplyGfxState() override;
 	void GetStats(char *buffer, size_t bufsize) override;
-	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;

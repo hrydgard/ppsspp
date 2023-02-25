@@ -274,10 +274,6 @@ void GPU_GLES::EndHostFrame() {
 	drawEngine_.EndFrame();
 }
 
-void GPU_GLES::ReapplyGfxState() {
-	GPUCommonHW::ReapplyGfxState();
-}
-
 void GPU_GLES::BeginFrame() {
 	GPUCommonHW::BeginFrame();
 

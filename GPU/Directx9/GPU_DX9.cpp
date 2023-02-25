@@ -105,11 +105,6 @@ u32 GPU_DX9::CheckGPUFeatures() const {
 	return CheckGPUFeaturesLate(features);
 }
 
-void GPU_DX9::DeviceLost() {
-	// Simply drop all caches and textures.
-	GPUCommonHW::DeviceLost();
-}
-
 void GPU_DX9::ReapplyGfxState() {
 	dxstate.Restore();
 	GPUCommonHW::ReapplyGfxState();
