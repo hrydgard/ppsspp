@@ -127,12 +127,6 @@ void GPU_D3D11::DeviceRestore() {
 	// Nothing needed.
 }
 
-void GPU_D3D11::InitClear() {
-	if (!framebufferManager_->UseBufferedRendering()) {
-		// device_->Clear(0, NULL, D3DCLEAR_STENCIL | D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
-	}
-}
-
 void GPU_D3D11::BeginFrame() {
 	GPUCommonHW::BeginFrame();
 

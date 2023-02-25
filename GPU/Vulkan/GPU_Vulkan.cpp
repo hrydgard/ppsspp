@@ -389,12 +389,6 @@ void GPU_Vulkan::BuildReportingInfo() {
 	Reporting::UpdateConfig();
 }
 
-void GPU_Vulkan::InitClear() {
-	if (!framebufferManager_->UseBufferedRendering()) {
-		// TODO?
-	}
-}
-
 void GPU_Vulkan::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }

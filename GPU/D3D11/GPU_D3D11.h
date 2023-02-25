@@ -48,7 +48,6 @@ protected:
 	void FinishDeferred() override;
 
 private:
-	void InitClear() override;
 	void BeginFrame() override;
 
 	ID3D11Device *device_;

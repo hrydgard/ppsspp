@@ -192,7 +192,6 @@ public:
 	virtual bool IsReady() = 0;
 	virtual void CancelReady() = 0;
 	virtual bool IsStarted() = 0;
-	virtual void InitClear() = 0;
 	virtual void Reinitialize() = 0;
 
 	// Frame managment

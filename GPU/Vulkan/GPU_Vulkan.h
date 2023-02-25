@@ -67,7 +67,6 @@ protected:
 
 private:
 	void BuildReportingInfo() override;
-	void InitClear() override;
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();

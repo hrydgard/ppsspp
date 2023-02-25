@@ -256,9 +256,6 @@ void GPU_GLES::DeviceRestore() {
 	fragmentTestCache_.DeviceRestore(draw_);
 }
 
-void GPU_GLES::InitClear() {
-}
-
 void GPU_GLES::BeginHostFrame() {
 	GPUCommonHW::BeginHostFrame();
 	drawEngine_.BeginFrame();

@@ -62,7 +62,6 @@ protected:
 private:
 	void BuildReportingInfo() override;
 
-	void InitClear() override;
 	void BeginFrame() override;
 
 	FramebufferManagerGLES *framebufferManagerGL_;

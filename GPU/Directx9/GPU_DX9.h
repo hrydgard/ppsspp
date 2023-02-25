@@ -48,7 +48,6 @@ protected:
 	void FinishDeferred() override;
 
 private:
-	void InitClear() override;
 	void BeginFrame() override;
 
 	LPDIRECT3DDEVICE9 device_;
