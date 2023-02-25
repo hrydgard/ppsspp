@@ -208,6 +208,3 @@ void VulkanComputeShaderManager::BeginFrame() {
 	FrameData &frame = frameData_[curFrame];
 	frame.descPool.Reset();
 }
-
-void VulkanComputeShaderManager::EndFrame() {
-}

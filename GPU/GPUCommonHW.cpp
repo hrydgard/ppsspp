@@ -10,7 +10,11 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 
 GPUCommonHW::GPUCommonHW(GraphicsContext *gfxCtx, Draw::DrawContext *draw) : GPUCommon(gfxCtx, draw) {}
-GPUCommonHW::~GPUCommonHW() {}
+
+GPUCommonHW::~GPUCommonHW() {
+	// Clear features so they're not visible in system info.
+	gstate_c.SetUseFlags(0);
+}
 
 void GPUCommonHW::PreExecuteOp(u32 op, u32 diff) {
 	CheckFlushOp(op >> 24, diff);

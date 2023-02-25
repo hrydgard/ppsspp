@@ -126,7 +126,11 @@ public:
 	ShaderManagerCommon(Draw::DrawContext *draw) : draw_(draw) {}
 	virtual ~ShaderManagerCommon() {}
 
+	virtual void ClearShaders() = 0;
 	virtual void DirtyLastShader() = 0;
+
+	virtual void DeviceLost() = 0;
+	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;   // must set draw_ to draw
 
 protected:
 	Draw::DrawContext *draw_ = nullptr;

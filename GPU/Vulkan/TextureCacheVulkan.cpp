@@ -352,14 +352,6 @@ void TextureCacheVulkan::StartFrame() {
 	computeShaderManager_.BeginFrame();
 }
 
-void TextureCacheVulkan::EndFrame() {
-	computeShaderManager_.EndFrame();
-
-	if (texelsScaledThisFrame_) {
-		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
-	}
-}
-
 void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
 	const u32 clutBaseBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutBase * sizeof(u32)) : (clutBase * sizeof(u16));
 	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.

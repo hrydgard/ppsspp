@@ -139,17 +139,14 @@ GPU_GLES::~GPU_GLES() {
 		}
 	}
 
-	framebufferManagerGL_->DestroyAllFBOs();
-	shaderManagerGL_->ClearCache(true);
+	framebufferManager_->DestroyAllFBOs();
+	shaderManager_->ClearShaders();
 	fragmentTestCache_.Clear();
 	
-	delete shaderManagerGL_;
-	shaderManagerGL_ = nullptr;
-	delete framebufferManagerGL_;
-	delete textureCacheGL_;
-
-	// Clear features so they're not visible in system info.
-	gstate_c.SetUseFlags(0);
+	delete shaderManager_;
+	shaderManager_ = nullptr;
+	delete framebufferManager_;
+	delete textureCache_;
 }
 
 // Take the raw GL extension and versioning data and turn into feature flags.
@@ -249,8 +246,8 @@ void GPU_GLES::DeviceLost() {
 	// FBOs appear to survive? Or no?
 	// TransformDraw has registered as a GfxResourceHolder.
 	CancelReady();
-	shaderManagerGL_->DeviceLost();
-	textureCacheGL_->DeviceLost();
+	shaderManager_->DeviceLost();
+	textureCache_->DeviceLost();
 	fragmentTestCache_.DeviceLost();
 	drawEngine_.DeviceLost();
 
@@ -263,8 +260,8 @@ void GPU_GLES::DeviceRestore() {
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
 
-	shaderManagerGL_->DeviceRestore(draw_);
-	textureCacheGL_->DeviceRestore(draw_);
+	shaderManager_->DeviceRestore(draw_);
+	textureCache_->DeviceRestore(draw_);
 	drawEngine_.DeviceRestore(draw_);
 	fragmentTestCache_.DeviceRestore(draw_);
 }
@@ -284,7 +281,7 @@ void GPU_GLES::BeginHostFrame() {
 		// TODO: It'd be better to recompile them in the background, probably?
 		// This most likely means that saw equal depth changed.
 		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
-		shaderManagerGL_->ClearCache(true);
+		shaderManager_->ClearShaders();
 		framebufferManager_->ClearAllDepthBuffers();
 		gstate_c.useFlagsChanged = false;
 	}
@@ -299,22 +296,22 @@ void GPU_GLES::ReapplyGfxState() {
 }
 
 void GPU_GLES::BeginFrame() {
-	textureCacheGL_->StartFrame();
-	fragmentTestCache_.Decimate();
-
 	GPUCommon::BeginFrame();
+
+	textureCache_->StartFrame();
 
 	// Save the cache from time to time. TODO: How often? We save on exit, so shouldn't need to do this all that often.
 	if (shaderCachePath_.Valid() && (gpuStats.numFlips & 4095) == 0) {
 		shaderManagerGL_->SaveCache(shaderCachePath_, &drawEngine_);
 	}
-
 	shaderManagerGL_->DirtyShader();
 
 	// Not sure if this is really needed.
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
 
-	framebufferManagerGL_->BeginFrame();
+	framebufferManager_->BeginFrame();
+
+	fragmentTestCache_.Decimate();
 }
 
 void GPU_GLES::FinishDeferred() {

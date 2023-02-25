@@ -715,7 +715,7 @@ void ShaderManagerGLES::Clear() {
 	DirtyShader();
 }
 
-void ShaderManagerGLES::ClearCache(bool deleteThem) {
+void ShaderManagerGLES::ClearShaders() {
 	// TODO: Recreate all from the diskcache when we come back.
 	Clear();
 }

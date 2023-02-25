@@ -540,10 +540,9 @@ void ShaderManagerDX9::Clear() {
 	DirtyShader();
 }
 
-void ShaderManagerDX9::ClearCache(bool deleteThem) {
+void ShaderManagerDX9::ClearShaders() {
 	Clear();
 }
-
 
 void ShaderManagerDX9::DirtyShader() {
 	// Forget the last shader ID
@@ -554,7 +553,7 @@ void ShaderManagerDX9::DirtyShader() {
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
-void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
+void ShaderManagerDX9::DirtyLastShader() {
 	lastVShader_ = nullptr;
 	lastPShader_ = nullptr;
 }

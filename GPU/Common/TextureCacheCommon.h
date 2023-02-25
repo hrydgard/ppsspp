@@ -350,6 +350,11 @@ public:
 	}
 	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) { return false; }
 
+	virtual void StartFrame();
+
+	virtual void DeviceLost() = 0;
+	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
+
 protected:
 	virtual void *GetNativeTextureView(const TexCacheEntry *entry) = 0;
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
@@ -402,8 +407,6 @@ protected:
 	bool GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer, bool *isFramebuffer);
 
 	virtual void BoundFramebufferTexture() {}
-
-	virtual void StartFrame();
 
 	void DecimateVideos();
 	bool IsVideo(u32 texaddr) const;

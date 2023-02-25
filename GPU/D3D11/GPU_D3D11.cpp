@@ -120,9 +120,9 @@ void GPU_D3D11::DeviceLost() {
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
-	shaderManagerD3D11_->ClearShaders();
+	shaderManager_->ClearShaders();
 	drawEngine_.ClearInputLayoutMap();
-	textureCacheD3D11_->Clear(false);
+	textureCache_->Clear(false);
 
 	GPUCommon::DeviceLost();
 }
@@ -141,19 +141,19 @@ void GPU_D3D11::InitClear() {
 void GPU_D3D11::BeginFrame() {
 	GPUCommon::BeginFrame();
 
-	textureCacheD3D11_->StartFrame();
+	textureCache_->StartFrame();
 	drawEngine_.BeginFrame();
 
-	shaderManagerD3D11_->DirtyLastShader();
+	shaderManager_->DirtyLastShader();
 
-	framebufferManagerD3D11_->BeginFrame();
+	framebufferManager_->BeginFrame();
 	gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 
 	if (gstate_c.useFlagsChanged) {
 		// TODO: It'd be better to recompile them in the background, probably?
 		// This most likely means that saw equal depth changed.
 		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
-		shaderManagerD3D11_->ClearShaders();
+		shaderManager_->ClearShaders();
 		framebufferManager_->ClearAllDepthBuffers();
 		drawEngine_.ClearInputLayoutMap();
 		gstate_c.useFlagsChanged = false;

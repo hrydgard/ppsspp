@@ -77,13 +77,16 @@ public:
 	ShaderManagerDX9(Draw::DrawContext *draw, LPDIRECT3DDEVICE9 device);
 	~ShaderManagerDX9();
 
-	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
+	void ClearShaders() override;
 	VSShader *ApplyShader(bool useHWTransform, bool useHWTessellation, VertexDecoder *decoder, bool weightsAsFloat, bool useSkinInDecode, const ComputedPipelineState &pipelineState);
 	void DirtyShader();
 	void DirtyLastShader() override;
 
 	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
 	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }
+
+	void DeviceLost() override {}
+	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
 
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);

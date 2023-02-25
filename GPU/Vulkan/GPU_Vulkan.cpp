@@ -187,10 +187,10 @@ GPU_Vulkan::~GPU_Vulkan() {
 	DestroyDeviceObjects();
 	framebufferManagerVulkan_->DestroyAllFBOs();
 	drawEngine_.DeviceLost();
-	delete textureCacheVulkan_;
+	delete textureCache_;
 	delete pipelineManager_;
-	delete shaderManagerVulkan_;
-	delete framebufferManagerVulkan_;
+	delete shaderManager_;
+	delete framebufferManager_;
 }
 
 u32 GPU_Vulkan::CheckGPUFeatures() const {
@@ -292,7 +292,7 @@ void GPU_Vulkan::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 
 	drawEngine_.BeginFrame();
-	textureCacheVulkan_->StartFrame();
+	textureCache_->StartFrame();
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	int curFrame = vulkan->GetCurFrame();
@@ -301,7 +301,7 @@ void GPU_Vulkan::BeginHostFrame() {
 	frame.push_->Reset();
 	frame.push_->Begin(vulkan);
 
-	framebufferManagerVulkan_->BeginFrame();
+	framebufferManager_->BeginFrame();
 	textureCacheVulkan_->SetPushBuffer(frameData_[curFrame].push_);
 
 	shaderManagerVulkan_->DirtyShader();
@@ -313,7 +313,7 @@ void GPU_Vulkan::BeginHostFrame() {
 		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
 		// TODO: Not all shaders need to be recompiled. In fact, quite few? Of course, depends on
 		// the use flag change.. This is a major frame rate hitch in the start of a race in Outrun.
-		shaderManagerVulkan_->ClearShaders();
+		shaderManager_->ClearShaders();
 		pipelineManager_->Clear();
 		framebufferManager_->ClearAllDepthBuffers();
 		gstate_c.useFlagsChanged = false;
@@ -335,7 +335,6 @@ void GPU_Vulkan::EndHostFrame() {
 	frame.push_->End();
 
 	drawEngine_.EndFrame();
-	textureCacheVulkan_->EndFrame();
 
 	GPUCommon::EndHostFrame();
 }
@@ -389,10 +388,6 @@ void GPU_Vulkan::BuildReportingInfo() {
 	reportingFullInfo_ = temp;
 
 	Reporting::UpdateConfig();
-}
-
-void GPU_Vulkan::Reinitialize() {
-	GPUCommon::Reinitialize();
 }
 
 void GPU_Vulkan::InitClear() {
@@ -450,8 +445,8 @@ void GPU_Vulkan::DestroyDeviceObjects() {
 }
 
 void GPU_Vulkan::CheckRenderResized() {
+	GPUCommon::CheckRenderResized();
 	if (renderResized_) {
-		GPUCommon::CheckRenderResized();
 		pipelineManager_->InvalidateMSAAPipelines();
 		framebufferManager_->ReleasePipelines();
 	}
@@ -471,11 +466,11 @@ void GPU_Vulkan::DeviceLost() {
 	textureCacheVulkan_->DeviceLost();
 	shaderManagerVulkan_->DeviceLost();
 
-	GPUCommon::DeviceLost();
+	GPUCommonHW::DeviceLost();
 }
 
 void GPU_Vulkan::DeviceRestore() {
-	GPUCommon::DeviceRestore();
+	GPUCommonHW::DeviceRestore();
 	InitDeviceObjects();
 
 	gstate_c.SetUseFlags(CheckGPUFeatures());

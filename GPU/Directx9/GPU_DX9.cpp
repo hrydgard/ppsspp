@@ -106,23 +106,18 @@ u32 GPU_DX9::CheckGPUFeatures() const {
 }
 
 GPU_DX9::~GPU_DX9() {
-	framebufferManagerDX9_->DestroyAllFBOs();
-	delete framebufferManagerDX9_;
+	framebufferManager_->DestroyAllFBOs();
+	delete framebufferManager_;
 	delete textureCache_;
-	shaderManagerDX9_->ClearCache(true);
-	delete shaderManagerDX9_;
+	shaderManager_->ClearShaders();
+	delete shaderManager_;
 }
 
 void GPU_DX9::DeviceLost() {
 	// Simply drop all caches and textures.
-	shaderManagerDX9_->ClearCache(false);
-	textureCacheDX9_->Clear(false);
+	shaderManager_->ClearShaders();
+	textureCache_->Clear(false);
 	GPUCommon::DeviceLost();
-}
-
-void GPU_DX9::DeviceRestore() {
-	GPUCommon::DeviceRestore();
-	// Nothing needed.
 }
 
 void GPU_DX9::InitClear() {
@@ -139,7 +134,7 @@ void GPU_DX9::ReapplyGfxState() {
 }
 
 void GPU_DX9::BeginFrame() {
-	textureCacheDX9_->StartFrame();
+	textureCache_->StartFrame();
 	drawEngine_.BeginFrame();
 
 	GPUCommon::BeginFrame();
@@ -151,7 +146,7 @@ void GPU_DX9::BeginFrame() {
 		// TODO: It'd be better to recompile them in the background, probably?
 		// This most likely means that saw equal depth changed.
 		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
-		shaderManagerDX9_->ClearCache(true);
+		shaderManager_->ClearShaders();
 		framebufferManager_->ClearAllDepthBuffers();
 		gstate_c.useFlagsChanged = false;
 	}
