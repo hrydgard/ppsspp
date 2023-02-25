@@ -2031,10 +2031,6 @@ void GPUCommon::SetCmdValue(u32 op) {
 	downcount = 0;
 }
 
-void GPUCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
-}
-
 void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	u32 srcBasePtr = gstate.getTransferSrcAddress();
 	u32 srcStride = gstate.getTransferSrcStride();

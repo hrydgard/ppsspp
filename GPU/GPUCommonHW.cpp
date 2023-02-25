@@ -466,6 +466,10 @@ void GPUCommonHW::BeginFrame() {
 	}
 }
 
+void GPUCommonHW::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
+	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
+}
+
 void GPUCommonHW::CheckFlushOp(int cmd, u32 diff) {
 	const u8 cmdFlags = cmdInfo_[cmd].flags;
 	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
