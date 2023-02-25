@@ -238,8 +238,8 @@ void WindowsHost::PollControllers() {
 
 	// Disabled by default, needs a workaround to map to psp keys.
 	if (g_Config.bMouseControl) {
-		float scaleFactor_x = g_dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
-		float scaleFactor_y = g_dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
+		float scaleFactor_x = g_display.dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
+		float scaleFactor_y = g_display.dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
 
 		float mx = std::max(-1.0f, std::min(1.0f, g_mouseDeltaX * scaleFactor_x));
 		float my = std::max(-1.0f, std::min(1.0f, g_mouseDeltaY * scaleFactor_y));

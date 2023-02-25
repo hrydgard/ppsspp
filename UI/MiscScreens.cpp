@@ -134,7 +134,7 @@ public:
 		dc.BeginNoTex();
 
 		// Be sure to not overflow our vertex buffer
-		const float step = ceil(24*bounds.w/pixel_in_dps_x) > MAX_VERTS ? 24*bounds.w/(MAX_VERTS-48) : pixel_in_dps_x;
+		const float step = ceilf(24*bounds.w/ g_display.pixel_in_dps_x) > MAX_VERTS ? 24*bounds.w/(MAX_VERTS-48) : g_display.pixel_in_dps_x;
 
 		t *= speed;
 		for (float x = 0; x < bounds.w; x += step) {
@@ -146,8 +146,8 @@ public:
 			dc.Draw()->RectVGradient(x, wave1*bounds.h, step, (1.0-wave1)*bounds.h, color, 0x00000000);
 
 			// Add some "antialiasing"
-			dc.Draw()->RectVGradient(x, wave0*bounds.h-3*pixel_in_dps_y, step, 3*pixel_in_dps_y, 0x00000000, color);
-			dc.Draw()->RectVGradient(x, wave1*bounds.h-3*pixel_in_dps_y, step, 3*pixel_in_dps_y, 0x00000000, color);
+			dc.Draw()->RectVGradient(x, wave0*bounds.h-3.0f * g_display.pixel_in_dps_y, step, 3.0f * g_display.pixel_in_dps_y, 0x00000000, color);
+			dc.Draw()->RectVGradient(x, wave1*bounds.h-3.0f * g_display.pixel_in_dps_y, step, 3.0f * g_display.pixel_in_dps_y, 0x00000000, color);
 		}
 
 		dc.Flush();
@@ -371,8 +371,8 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 		Viewport viewport;
 		viewport.TopLeftX = 0;
 		viewport.TopLeftY = 0;
-		viewport.Width = pixel_xres;
-		viewport.Height = pixel_yres;
+		viewport.Width = g_display.pixel_xres;
+		viewport.Height = g_display.pixel_yres;
 		viewport.MaxDepth = 1.0;
 		viewport.MinDepth = 0.0;
 		draw->SetViewport(viewport);
@@ -1080,7 +1080,7 @@ void SettingInfoMessage::Show(const std::string &text, const UI::View *refView) 
 		if (b.y >= cutOffY_) {
 			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
 		} else {
-			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
+			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, g_display.dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
 		}
 	}
 	text_->SetText(text);

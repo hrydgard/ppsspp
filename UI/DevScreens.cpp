@@ -585,10 +585,10 @@ void SystemInfoScreen::CreateViews() {
 		System_GetPropertyInt(SYSPROP_DISPLAY_XRES),
 		System_GetPropertyInt(SYSPROP_DISPLAY_YRES))));
 	deviceSpecs->Add(new InfoItem(si->T("UI Resolution"), StringFromFormat("%dx%d (%s: %0.2f)",
-		dp_xres,
-		dp_yres,
+		g_display.dp_xres,
+		g_display.dp_yres,
 		si->T("DPI"),
-		g_dpi)));
+		g_display.dpi)));
 #endif
 
 #if !PPSSPP_PLATFORM(WINDOWS)

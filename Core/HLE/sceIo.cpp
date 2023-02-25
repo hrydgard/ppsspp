@@ -2055,7 +2055,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				// I have a planned further refactoring.
 				float ar;
 				if (g_Config.bDisplayStretch) {
-					ar = (float)dp_xres / (float)dp_yres;
+					ar = (float)g_display.dp_xres / (float)g_display.dp_yres;
 				} else {
 					ar = g_Config.fDisplayAspectRatio * (480.0f / 272.0f);
 				}
@@ -2066,7 +2066,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			if (Memory::IsValidAddress(outPtr)) {
 				// TODO: Maybe do something more sophisticated taking the longest side and screen rotation
 				// into account, etc.
-				float scale = float(dp_xres) * g_Config.fDisplayScale / 480.0f;
+				float scale = (float)g_display.dp_xres * g_Config.fDisplayScale / 480.0f;
 				Memory::Write_Float(scale, outPtr);
 			}
 			return 0;

@@ -1205,8 +1205,8 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 
 		// TODO: Replace with draw2D_.Blit() directly.
 		DrawActiveTexture(dstX, dstY, width, height,
-			vfb ? vfb->bufferWidth : pixel_xres,
-			vfb ? vfb->bufferHeight : pixel_yres,
+			vfb ? vfb->bufferWidth : g_display.pixel_xres,
+			vfb ? vfb->bufferHeight : g_display.pixel_yres,
 			u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 
 		gpuStats.numUploads++;
@@ -3081,11 +3081,11 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 		coord[i].y = coord[i].y * invDestH - 1.0f;
 	}
 
-	if ((flags & DRAWTEX_TO_BACKBUFFER) && g_display_rotation != DisplayRotation::ROTATE_0) {
+	if ((flags & DRAWTEX_TO_BACKBUFFER) && g_display.rotation != DisplayRotation::ROTATE_0) {
 		for (int i = 0; i < 4; i++) {
 			// backwards notation, should fix that...
 			Lin::Vec3 pos = Lin::Vec3(coord[i].x, coord[i].y, 0.0);
-			pos = pos * g_display_rot_matrix;
+			pos = pos * g_display.rot_matrix;
 			coord[i].x = pos.x;
 			coord[i].y = pos.y;
 		}

@@ -55,10 +55,10 @@ FRect GetScreenFrame(float pixelWidth, float pixelHeight) {
 
 	if (applyInset) {
 		// Remove the DPI scale to get back to pixels.
-		float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_dpi_scale_x;
-		float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_dpi_scale_x;
-		float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_dpi_scale_y;
-		float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_dpi_scale_y;
+		float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_display.dpi_scale_x;
+		float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_display.dpi_scale_x;
+		float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_display.dpi_scale_y;
+		float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_display.dpi_scale_y;
 
 		// Adjust left edge to compensate for cutouts (notches) if any.
 		rc.x += left;
@@ -100,8 +100,8 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 	if (stretch) {
 		// Automatically set aspect ratio to match the display, IF the rotation matches the output display ratio! Otherwise, just
 		// sets standard aspect ratio because actually stretching will just look silly.
-		bool globalRotated = g_display_rotation == DisplayRotation::ROTATE_90 || g_display_rotation == DisplayRotation::ROTATE_270;
-		if (rotated == dp_yres > dp_xres) {
+		bool globalRotated = g_display.rotation == DisplayRotation::ROTATE_90 || g_display.rotation == DisplayRotation::ROTATE_270;
+		if (rotated == g_display.dp_yres > g_display.dp_xres) {
 			origRatio = frameRatio;
 		} else {
 			origRatio *= aspectRatioAdjust;
@@ -699,11 +699,11 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	if (isFinalAtOutputResolution || useStereo) {
 		// In this mode, we ignore the g_display_rot_matrix.  Apply manually.
-		if (g_display_rotation != DisplayRotation::ROTATE_0) {
+		if (g_display.rotation != DisplayRotation::ROTATE_0) {
 			for (int i = 0; i < 4; i++) {
 				Lin::Vec3 v(verts[i].x, verts[i].y, verts[i].z);
 				// Backwards notation, should fix that...
-				v = v * g_display_rot_matrix;
+				v = v * g_display.rot_matrix;
 				verts[i].x = v.x;
 				verts[i].y = v.y;
 			}
@@ -840,7 +840,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
 	} else {
 		Draw::VsTexColUB ub{};
-		memcpy(ub.WorldViewProj, g_display_rot_matrix.m, sizeof(float) * 16);
+		memcpy(ub.WorldViewProj, g_display.rot_matrix.m, sizeof(float) * 16);
 		draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 	}
 

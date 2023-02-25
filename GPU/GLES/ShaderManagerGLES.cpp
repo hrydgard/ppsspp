@@ -443,7 +443,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 		ScaleProjMatrix(flippedMatrix, useBufferedRendering);
 
 		render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
-		render_->SetUniformF1(&u_rotation, useBufferedRendering ? 0 : (float)g_display_rotation);
+		render_->SetUniformF1(&u_rotation, useBufferedRendering ? 0 : (float)g_display.rotation);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX) {
 		Matrix4x4 proj_through;

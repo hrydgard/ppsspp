@@ -15,7 +15,7 @@
 
 UIContext::UIContext() {
 	fontStyle_ = new UI::FontStyle();
-	bounds_ = Bounds(0, 0, dp_xres, dp_yres);
+	bounds_ = Bounds(0, 0, g_display.dp_xres, g_display.dp_yres);
 }
 
 UIContext::~UIContext() {
@@ -163,22 +163,22 @@ Bounds UIContext::GetLayoutBounds() const {
 void UIContext::ActivateTopScissor() {
 	Bounds bounds;
 	if (scissorStack_.size()) {
-		float scale_x = pixel_in_dps_x;
-		float scale_y = pixel_in_dps_y;
+		float scale_x = g_display.pixel_in_dps_x;
+		float scale_y = g_display.pixel_in_dps_y;
 		bounds = scissorStack_.back();
 		int x = floorf(scale_x * bounds.x);
 		int y = floorf(scale_y * bounds.y);
 		int w = std::max(0.0f, ceilf(scale_x * bounds.w));
 		int h = std::max(0.0f, ceilf(scale_y * bounds.h));
-		if (x < 0 || y < 0 || x + w > pixel_xres || y + h > pixel_yres) {
+		if (x < 0 || y < 0 || x + w > g_display.pixel_xres || y + h > g_display.pixel_yres) {
 			// This won't actually report outside a game, but we can try.
-			DEBUG_LOG(G3D, "UI scissor out of bounds in %sScreen: %d,%d-%d,%d / %d,%d", screenTag_ ? screenTag_ : "N/A", x, y, w, h, pixel_xres, pixel_yres);
+			DEBUG_LOG(G3D, "UI scissor out of bounds in %sScreen: %d,%d-%d,%d / %d,%d", screenTag_ ? screenTag_ : "N/A", x, y, w, h, g_display.pixel_xres, g_display.pixel_yres);
 			if (x < 0) { w += x; x = 0; }
 			if (y < 0) { h += y; y = 0; }
-			if (x >= pixel_xres) { x = pixel_xres - 1; }
-			if (y >= pixel_yres) { y = pixel_yres - 1; }
-			if (x + w > pixel_xres) { w = std::min(w, pixel_xres - x); }
-			if (y + w > pixel_yres) { h = std::min(h, pixel_yres - y); }
+			if (x >= g_display.pixel_xres) { x = g_display.pixel_xres - 1; }
+			if (y >= g_display.pixel_yres) { y = g_display.pixel_yres - 1; }
+			if (x + w > g_display.pixel_xres) { w = std::min(w, g_display.pixel_xres - x); }
+			if (y + w > g_display.pixel_yres) { h = std::min(h, g_display.pixel_yres - y); }
 			if (w == 0) w = 1;
 			if (h == 0) h = 1;
 			draw_->SetScissorRect(x, y, w, h);
@@ -190,7 +190,7 @@ void UIContext::ActivateTopScissor() {
 		}
 	} else {
 		// Avoid rounding errors
-		draw_->SetScissorRect(0, 0, pixel_xres, pixel_yres);
+		draw_->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 	}
 }
 
@@ -351,8 +351,8 @@ Bounds UIContext::TransformBounds(const Bounds &bounds) {
 		Bounds translated = bounds.Offset(t.translate.x, t.translate.y);
 
 		// Scale around the center as the origin.
-		float scaledX = (translated.x - dp_xres * 0.5f) * t.scale.x + dp_xres * 0.5f;
-		float scaledY = (translated.y - dp_yres * 0.5f) * t.scale.y + dp_yres * 0.5f;
+		float scaledX = (translated.x - g_display.dp_xres * 0.5f) * t.scale.x + g_display.dp_xres * 0.5f;
+		float scaledY = (translated.y - g_display.dp_yres * 0.5f) * t.scale.y + g_display.dp_yres * 0.5f;
 
 		return Bounds(scaledX, scaledY, translated.w * t.scale.x, translated.h * t.scale.y);
 	}
