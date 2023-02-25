@@ -165,8 +165,8 @@ bool UpdateScreenScale(int width, int height) {
 #if defined(USING_QT_UI)
 	g_display.dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
 	float g_logical_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_LOGICAL_DPI);
-	g_display.dpi_scale_x = g_logical_dpi / g_dpi;
-	g_display.dpi_scale_y = g_logical_dpi / g_dpi;
+	g_display.dpi_scale_x = g_logical_dpi / g_display.dpi;
+	g_display.dpi_scale_y = g_logical_dpi / g_display.dpi;
 #elif PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	g_display.dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
 	g_display.dpi_scale_x = 96.0f / g_display.dpi;
