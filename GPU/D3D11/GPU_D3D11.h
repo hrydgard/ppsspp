@@ -40,10 +40,6 @@ public:
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 	void DeviceRestore() override;
 
-	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
-	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
-
 protected:
 	void FinishDeferred() override;
 

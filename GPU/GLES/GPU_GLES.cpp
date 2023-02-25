@@ -311,25 +311,3 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerGL_->GetNumPrograms()
 	);
 }
-
-std::vector<std::string> GPU_GLES::DebugGetShaderIDs(DebugShaderType type) {
-	switch (type) {
-	case SHADER_TYPE_VERTEXLOADER:
-		return drawEngine_.DebugGetVertexLoaderIDs();
-	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
-	default:
-		return shaderManagerGL_->DebugGetShaderIDs(type);
-	}
-}
-
-std::string GPU_GLES::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
-	switch (type) {
-	case SHADER_TYPE_VERTEXLOADER:
-		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
-	default:
-		return shaderManagerGL_->DebugGetShaderString(id, type, stringType);
-	}
-}

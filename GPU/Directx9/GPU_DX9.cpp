@@ -146,25 +146,3 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerDX9_->GetNumFragmentShaders()
 	);
 }
-
-std::vector<std::string> GPU_DX9::DebugGetShaderIDs(DebugShaderType type) {
-	switch (type) {
-	case SHADER_TYPE_VERTEXLOADER:
-		return drawEngine_.DebugGetVertexLoaderIDs();
-	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
-	default:
-		return shaderManagerDX9_->DebugGetShaderIDs(type);
-	}
-}
-
-std::string GPU_DX9::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
-	switch (type) {
-	case SHADER_TYPE_VERTEXLOADER:
-		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
-	default:
-		return shaderManagerDX9_->DebugGetShaderString(id, type, stringType);
-	}
-}

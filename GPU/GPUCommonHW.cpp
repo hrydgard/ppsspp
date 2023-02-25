@@ -546,3 +546,25 @@ void GPUCommonHW::UpdateMSAALevel(Draw::DrawContext *draw) {
 		msaaLevel_ = 0;
 	}
 }
+
+std::vector<std::string> GPUCommonHW::DebugGetShaderIDs(DebugShaderType type) {
+	switch (type) {
+	case SHADER_TYPE_VERTEXLOADER:
+		return drawEngineCommon_->DebugGetVertexLoaderIDs();
+	case SHADER_TYPE_TEXTURE:
+		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
+	default:
+		return shaderManager_->DebugGetShaderIDs(type);
+	}
+}
+
+std::string GPUCommonHW::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
+	switch (type) {
+	case SHADER_TYPE_VERTEXLOADER:
+		return drawEngineCommon_->DebugGetVertexLoaderString(id, stringType);
+	case SHADER_TYPE_TEXTURE:
+		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
+	default:
+		return shaderManager_->DebugGetShaderString(id, type, stringType);
+	}
+}

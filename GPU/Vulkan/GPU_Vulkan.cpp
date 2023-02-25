@@ -499,34 +499,24 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 }
 
 std::vector<std::string> GPU_Vulkan::DebugGetShaderIDs(DebugShaderType type) {
-	if (type == SHADER_TYPE_VERTEXLOADER) {
-		return drawEngine_.DebugGetVertexLoaderIDs();
-	} else if (type == SHADER_TYPE_PIPELINE) {
+	switch (type) {
+	case SHADER_TYPE_PIPELINE:
 		return pipelineManager_->DebugGetObjectIDs(type);
-	} else if (type == SHADER_TYPE_TEXTURE) {
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
-	} else if (type == SHADER_TYPE_VERTEX || type == SHADER_TYPE_FRAGMENT || type == SHADER_TYPE_GEOMETRY) {
-		return shaderManagerVulkan_->DebugGetShaderIDs(type);
-	} else if (type == SHADER_TYPE_SAMPLER) {
+	case SHADER_TYPE_SAMPLER:
 		return textureCacheVulkan_->DebugGetSamplerIDs();
-	} else {
-		return std::vector<std::string>();
+	default:
+		return GPUCommonHW::DebugGetShaderIDs(type);
 	}
 }
 
 std::string GPU_Vulkan::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
-	if (type == SHADER_TYPE_VERTEXLOADER) {
-		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	} else if (type == SHADER_TYPE_PIPELINE) {
+	switch (type) {
+	case SHADER_TYPE_PIPELINE:
 		return pipelineManager_->DebugGetObjectString(id, type, stringType, shaderManagerVulkan_);
-	} else if (type == SHADER_TYPE_TEXTURE) {
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
-	} else if (type == SHADER_TYPE_SAMPLER) {
+	case SHADER_TYPE_SAMPLER:
 		return textureCacheVulkan_->DebugGetSamplerString(id, stringType);
-	} else if (type == SHADER_TYPE_VERTEX || type == SHADER_TYPE_FRAGMENT || type == SHADER_TYPE_GEOMETRY) {
-		return shaderManagerVulkan_->DebugGetShaderString(id, type, stringType);
-	} else {
-		return std::string();
+	default:
+		return GPUCommonHW::DebugGetShaderString(id, type, stringType);
 	}
 }
 

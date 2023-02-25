@@ -18,6 +18,8 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
+#include <string>
 
 namespace Draw {
 	class DrawContext;
@@ -131,6 +133,9 @@ public:
 
 	virtual void DeviceLost() = 0;
 	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;   // must set draw_ to draw
+
+	virtual std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) = 0;
+	virtual std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) = 0;
 
 protected:
 	Draw::DrawContext *draw_ = nullptr;
