@@ -796,6 +796,7 @@ int GPUCommon::GetStack(int index, u32 stackPtr) {
 }
 
 static void CopyMatrix24(u32_le *result, const float *mtx, u32 count, u32 cmdbits) {
+	// Screams out for simple SIMD, but probably not called often enough to be worth it.
 	for (u32 i = 0; i < count; ++i) {
 		result[i] = toFloat24(mtx[i]) | cmdbits;
 	}
