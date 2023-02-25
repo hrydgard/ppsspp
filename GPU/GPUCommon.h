@@ -133,7 +133,6 @@ public:
 	bool PerformReadbackToMemory(u32 dest, int size) override;
 	bool PerformWriteColorFromMemory(u32 dest, int size) override;
 
-	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
 	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format) override;
 	bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) override;
 
@@ -178,13 +177,7 @@ public:
 
 	// From GPUDebugInterface.
 	bool GetCurrentDisplayList(DisplayList &list) override;
-	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) override;
-	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
-	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
-	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
-	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
-	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override { return std::vector<std::string>(); };
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override {
@@ -226,11 +219,6 @@ public:
 		}
 		return -1;
 	}
-
-	bool FramebufferDirty() override;
-	bool FramebufferReallyDirty() override;
-
-	typedef void (GPUCommon::*CmdFunc)(u32 op, u32 diff);
 
 	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
 		primaryInfo = reportingPrimaryInfo_;

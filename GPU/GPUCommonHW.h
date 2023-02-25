@@ -17,11 +17,23 @@ public:
 
 	u32 CheckGPUFeatures() const override;
 
-	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
+	// From GPUDebugInterface.
+	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) override;
+	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
+	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
+	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
+	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
+	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
+
+	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
+	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
+
+	bool FramebufferDirty() override;
+	bool FramebufferReallyDirty() override;
 
 	void Execute_VertexType(u32 op, u32 diff);
 	void Execute_VertexTypeSkinning(u32 op, u32 diff);

@@ -42,7 +42,6 @@
 #include "Core/HW/Display.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Util/PPGeDraw.h"
-#include "GPU/GPUCommonHW.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/SplineCommon.h"
@@ -2011,21 +2010,6 @@ bool GPUCommon::PerformWriteColorFromMemory(u32 dest, int size) {
 	return false;
 }
 
-void GPUCommon::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
-	if (size > 0)
-		textureCache_->Invalidate(addr, size, type);
-	else
-		textureCache_->InvalidateAll(type);
-
-	if (type != GPU_INVALIDATE_ALL && framebufferManager_->MayIntersectFramebuffer(addr)) {
-		// Vempire invalidates (with writeback) after drawing, but before blitting.
-		// TODO: Investigate whether we can get this to work some other way.
-		if (type == GPU_INVALIDATE_SAFE) {
-			framebufferManager_->UpdateFromMemory(addr, size);
-		}
-	}
-}
-
 void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWidth, GEBufferFormat format) {
 	if (Memory::IsVRAMAddress(addr)) {
 		framebufferManager_->PerformWriteFormattedFromMemory(addr, size, frameWidth, format);
@@ -2042,36 +2026,6 @@ bool GPUCommon::PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil f
 	return false;
 }
 
-bool GPUCommon::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
-	u32 fb_address = type == GPU_DBG_FRAMEBUF_RENDER ? (gstate.getFrameBufRawAddress() | 0x04000000) : framebufferManager_->DisplayFramebufAddr();
-	int fb_stride = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufStride() : framebufferManager_->DisplayFramebufStride();
-	GEBufferFormat format = type == GPU_DBG_FRAMEBUF_RENDER ? gstate_c.framebufFormat : framebufferManager_->DisplayFramebufFormat();
-	return framebufferManager_->GetFramebuffer(fb_address, fb_stride, format, buffer, maxRes);
-}
-
-bool GPUCommon::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
-	u32 fb_address = gstate.getFrameBufRawAddress() | 0x04000000;
-	int fb_stride = gstate.FrameBufStride();
-
-	u32 z_address = gstate.getDepthBufRawAddress() | 0x04000000;
-	int z_stride = gstate.DepthBufStride();
-
-	return framebufferManager_->GetDepthbuffer(fb_address, fb_stride, z_address, z_stride, buffer);
-}
-
-bool GPUCommon::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
-	u32 fb_address = gstate.getFrameBufRawAddress() | 0x04000000;
-	int fb_stride = gstate.FrameBufStride();
-
-	return framebufferManager_->GetStencilbuffer(fb_address, fb_stride, buffer);
-}
-
-bool GPUCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-	// framebufferManager_ can be null here when taking screens in software rendering mode.
-	// TODO: Actually grab the framebuffer anyway.
-	return framebufferManager_ ? framebufferManager_->GetOutputFramebuffer(buffer) : false;
-}
-
 std::vector<FramebufferInfo> GPUCommon::GetFramebufferList() const {
 	return framebufferManager_->GetFramebufferList();
 }
@@ -2081,43 +2035,12 @@ bool GPUCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> 
 	return drawEngineCommon_->GetCurrentSimpleVertices(count, vertices, indices);
 }
 
-bool GPUCommon::GetCurrentClut(GPUDebugBuffer &buffer) {
-	return textureCache_->GetCurrentClutBuffer(buffer);
-}
-
-bool GPUCommon::GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
-	if (!gstate.isTextureMapEnabled()) {
-		return false;
-	}
-	return textureCache_->GetCurrentTextureDebug(buffer, level, isFramebuffer);
-}
-
 bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	if (drawEngineCommon_->IsCodePtrVertexDecoder(ptr)) {
 		name = "VertexDecoderJit";
 		return true;
 	}
 	return false;
-}
-
-bool GPUCommon::FramebufferDirty() {
-	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->dirtyAfterDisplay;
-		vfb->dirtyAfterDisplay = false;
-		return dirty;
-	}
-	return true;
-}
-
-bool GPUCommon::FramebufferReallyDirty() {
-	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->reallyDirtyAfterDisplay;
-		vfb->reallyDirtyAfterDisplay = false;
-		return dirty;
-	}
-	return true;
 }
 
 void GPUCommon::UpdateUVScaleOffset() {

@@ -648,6 +648,47 @@ std::string GPUCommonHW::DebugGetShaderString(std::string id, DebugShaderType ty
 	}
 }
 
+bool GPUCommonHW::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
+	u32 fb_address = type == GPU_DBG_FRAMEBUF_RENDER ? (gstate.getFrameBufRawAddress() | 0x04000000) : framebufferManager_->DisplayFramebufAddr();
+	int fb_stride = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufStride() : framebufferManager_->DisplayFramebufStride();
+	GEBufferFormat format = type == GPU_DBG_FRAMEBUF_RENDER ? gstate_c.framebufFormat : framebufferManager_->DisplayFramebufFormat();
+	return framebufferManager_->GetFramebuffer(fb_address, fb_stride, format, buffer, maxRes);
+}
+
+bool GPUCommonHW::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
+	u32 fb_address = gstate.getFrameBufRawAddress() | 0x04000000;
+	int fb_stride = gstate.FrameBufStride();
+
+	u32 z_address = gstate.getDepthBufRawAddress() | 0x04000000;
+	int z_stride = gstate.DepthBufStride();
+
+	return framebufferManager_->GetDepthbuffer(fb_address, fb_stride, z_address, z_stride, buffer);
+}
+
+bool GPUCommonHW::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
+	u32 fb_address = gstate.getFrameBufRawAddress() | 0x04000000;
+	int fb_stride = gstate.FrameBufStride();
+
+	return framebufferManager_->GetStencilbuffer(fb_address, fb_stride, buffer);
+}
+
+bool GPUCommonHW::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
+	// framebufferManager_ can be null here when taking screens in software rendering mode.
+	// TODO: Actually grab the framebuffer anyway.
+	return framebufferManager_ ? framebufferManager_->GetOutputFramebuffer(buffer) : false;
+}
+
+bool GPUCommonHW::GetCurrentClut(GPUDebugBuffer &buffer) {
+	return textureCache_->GetCurrentClutBuffer(buffer);
+}
+
+bool GPUCommonHW::GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
+	if (!gstate.isTextureMapEnabled()) {
+		return false;
+	}
+	return textureCache_->GetCurrentTextureDebug(buffer, level, isFramebuffer);
+}
+
 void GPUCommonHW::CheckDepthUsage(VirtualFramebuffer *vfb) {
 	if (!gstate_c.usingDepth) {
 		bool isReadingDepth = false;
@@ -671,6 +712,41 @@ void GPUCommonHW::CheckDepthUsage(VirtualFramebuffer *vfb) {
 			framebufferManager_->SetDepthFrameBuffer(isClearingDepth);
 		}
 	}
+}
+
+void GPUCommonHW::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
+	if (size > 0)
+		textureCache_->Invalidate(addr, size, type);
+	else
+		textureCache_->InvalidateAll(type);
+
+	if (type != GPU_INVALIDATE_ALL && framebufferManager_->MayIntersectFramebuffer(addr)) {
+		// Vempire invalidates (with writeback) after drawing, but before blitting.
+		// TODO: Investigate whether we can get this to work some other way.
+		if (type == GPU_INVALIDATE_SAFE) {
+			framebufferManager_->UpdateFromMemory(addr, size);
+		}
+	}
+}
+
+bool GPUCommonHW::FramebufferDirty() {
+	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
+	if (vfb) {
+		bool dirty = vfb->dirtyAfterDisplay;
+		vfb->dirtyAfterDisplay = false;
+		return dirty;
+	}
+	return true;
+}
+
+bool GPUCommonHW::FramebufferReallyDirty() {
+	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
+	if (vfb) {
+		bool dirty = vfb->reallyDirtyAfterDisplay;
+		vfb->reallyDirtyAfterDisplay = false;
+		return dirty;
+	}
+	return true;
 }
 
 void GPUCommonHW::ExecuteOp(u32 op, u32 diff) {
