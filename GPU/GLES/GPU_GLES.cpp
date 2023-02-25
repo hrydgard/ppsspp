@@ -334,16 +334,6 @@ void GPU_GLES::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }
 
-inline void GPU_GLES::CheckFlushOp(int cmd, u32 diff) {
-	const u8 cmdFlags = cmdInfo_[cmd].flags;
-	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
-		if (dumpThisFrame_) {
-			NOTICE_LOG(G3D, "================ FLUSH ================");
-		}
-		drawEngine_.Flush();
-	}
-}
-
 void GPU_GLES::PreExecuteOp(u32 op, u32 diff) {
 	CheckFlushOp(op >> 24, diff);
 }

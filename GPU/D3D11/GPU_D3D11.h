@@ -54,8 +54,6 @@ protected:
 	void FinishDeferred() override;
 
 private:
-	// void ApplyDrawState(int prim);
-	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo() override;
 
 	void InitClear() override;

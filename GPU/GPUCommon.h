@@ -313,6 +313,8 @@ protected:
 	// TODO: Unify this. The only backend that differs is Vulkan.
 	virtual void FinishDeferred() {}
 
+	void CheckFlushOp(int cmd, u32 diff);
+
 	void AdvanceVerts(u32 vertType, int count, int bytesRead) {
 		if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 			int indexShift = ((vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;

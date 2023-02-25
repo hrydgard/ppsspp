@@ -181,16 +181,6 @@ void GPU_DX9::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }
 
-inline void GPU_DX9::CheckFlushOp(int cmd, u32 diff) {
-	const u8 cmdFlags = cmdInfo_[cmd].flags;
-	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
-		if (dumpThisFrame_) {
-			NOTICE_LOG(G3D, "================ FLUSH ================");
-		}
-		drawEngine_.Flush();
-	}
-}
-
 void GPU_DX9::PreExecuteOp(u32 op, u32 diff) {
 	CheckFlushOp(op >> 24, diff);
 }

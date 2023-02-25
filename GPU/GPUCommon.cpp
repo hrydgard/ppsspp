@@ -3609,3 +3609,13 @@ void GPUCommon::UpdateMSAALevel(Draw::DrawContext *draw) {
 		msaaLevel_ = 0;
 	}
 }
+
+void GPUCommon::CheckFlushOp(int cmd, u32 diff) {
+	const u8 cmdFlags = cmdInfo_[cmd].flags;
+	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
+		if (dumpThisFrame_) {
+			NOTICE_LOG(G3D, "================ FLUSH ================");
+		}
+		drawEngineCommon_->DispatchFlush();
+	}
+}

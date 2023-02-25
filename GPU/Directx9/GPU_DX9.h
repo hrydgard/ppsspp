@@ -54,7 +54,6 @@ protected:
 	void FinishDeferred() override;
 
 private:
-	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo() override;
 
 	void InitClear() override;
