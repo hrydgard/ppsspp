@@ -36,7 +36,6 @@ public:
 	~GPU_DX9();
 
 	u32 CheckGPUFeatures() const override;
-	void ExecuteOp(u32 op, u32 diff) override;
 
 	void ReapplyGfxState() override;
 	void GetStats(char *buffer, size_t bufsize) override;

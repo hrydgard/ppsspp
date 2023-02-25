@@ -2706,6 +2706,19 @@ void GPUCommon::FlushImm() {
 	}
 }
 
+void GPUCommon::ExecuteOp(u32 op, u32 diff) {
+	const u8 cmd = op >> 24;
+	const CommandInfo info = cmdInfo_[cmd];
+	const u8 cmdFlags = info.flags;
+	if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
+		(this->*info.func)(op, diff);
+	} else if (diff) {
+		uint64_t dirty = info.flags >> 8;
+		if (dirty)
+			gstate_c.Dirty(dirty);
+	}
+}
+
 void GPUCommon::Execute_Unknown(u32 op, u32 diff) {
 	if ((op & 0xFFFFFF) != 0)
 		WARN_LOG_REPORT_ONCE(unknowncmd, G3D, "Unknown GE command : %08x ", op);

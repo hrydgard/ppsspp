@@ -47,8 +47,6 @@ public:
 	void BeginHostFrame() override;
 	void EndHostFrame() override;
 
-	void ExecuteOp(u32 op, u32 diff) override;
-
 	void GetStats(char *buffer, size_t bufsize) override;
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 	void DeviceRestore() override;

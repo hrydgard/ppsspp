@@ -416,19 +416,6 @@ void GPU_Vulkan::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }
 
-void GPU_Vulkan::ExecuteOp(u32 op, u32 diff) {
-	const u8 cmd = op >> 24;
-	const CommandInfo info = cmdInfo_[cmd];
-	const u8 cmdFlags = info.flags;
-	if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
-		(this->*info.func)(op, diff);
-	} else if (diff) {
-		uint64_t dirty = info.flags >> 8;
-		if (dirty)
-			gstate_c.Dirty(dirty);
-	}
-}
-
 void GPU_Vulkan::InitDeviceObjects() {
 	INFO_LOG(G3D, "GPU_Vulkan::InitDeviceObjects");
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);

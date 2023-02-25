@@ -334,19 +334,6 @@ void GPU_GLES::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }
 
-void GPU_GLES::ExecuteOp(u32 op, u32 diff) {
-	const u8 cmd = op >> 24;
-	const CommandInfo info = cmdInfo_[cmd];
-	const u8 cmdFlags = info.flags;
-	if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
-		(this->*info.func)(op, diff);
-	} else if (diff) {
-		uint64_t dirty = info.flags >> 8;
-		if (dirty)
-			gstate_c.Dirty(dirty);
-	}
-}
-
 void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 	size_t offset = FormatGPUStatsCommon(buffer, bufsize);
 	buffer += offset;
