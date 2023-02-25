@@ -18,13 +18,8 @@
 #pragma once
 
 #include "Common/GPU/thin3d.h"
-#include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-
-class TextureCacheGLES;
-class DrawEngineGLES;
-class ShaderManagerGLES;
-class GLRProgram;
+#include "GPU/Common/GPUDebugInterface.h"
 
 class FramebufferManagerGLES : public FramebufferManagerCommon {
 public:

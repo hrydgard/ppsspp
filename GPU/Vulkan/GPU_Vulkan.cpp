@@ -416,33 +416,6 @@ void GPU_Vulkan::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }
 
-inline void GPU_Vulkan::CheckFlushOp(int cmd, u32 diff) {
-	const u8 cmdFlags = cmdInfo_[cmd].flags;
-	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
-		if (dumpThisFrame_) {
-			NOTICE_LOG(G3D, "================ FLUSH ================");
-		}
-		drawEngine_.Flush();
-	}
-}
-
-void GPU_Vulkan::PreExecuteOp(u32 op, u32 diff) {
-	CheckFlushOp(op >> 24, diff);
-}
-
-void GPU_Vulkan::ExecuteOp(u32 op, u32 diff) {
-	const u8 cmd = op >> 24;
-	const CommandInfo info = cmdInfo_[cmd];
-	const u8 cmdFlags = info.flags;
-	if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
-		(this->*info.func)(op, diff);
-	} else if (diff) {
-		uint64_t dirty = info.flags >> 8;
-		if (dirty)
-			gstate_c.Dirty(dirty);
-	}
-}
-
 void GPU_Vulkan::InitDeviceObjects() {
 	INFO_LOG(G3D, "GPU_Vulkan::InitDeviceObjects");
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
@@ -548,20 +521,6 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		drawStats.pushIndexSpaceUsed,
 		texStats
 	);
-}
-
-void GPU_Vulkan::DoState(PointerWrap &p) {
-	GPUCommon::DoState(p);
-
-	// TODO: Some of these things may not be necessary.
-	// None of these are necessary when saving.
-	// In Freeze-Frame mode, we don't want to do any of this.
-	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
-		textureCache_->Clear(true);
-
-		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-		framebufferManager_->DestroyAllFBOs();
-	}
 }
 
 std::vector<std::string> GPU_Vulkan::DebugGetShaderIDs(DebugShaderType type) {

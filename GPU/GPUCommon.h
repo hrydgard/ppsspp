@@ -109,7 +109,7 @@ public:
 	void DumpNextFrame() override;
 
 	void ExecuteOp(u32 op, u32 diff) override;
-	void PreExecuteOp(u32 op, u32 diff) override;
+	virtual void PreExecuteOp(u32 op, u32 diff);
 
 	bool InterpretList(DisplayList &list);
 	void ProcessDLQueue();
@@ -310,8 +310,10 @@ protected:
 	void FlushImm();
 	void DoBlockTransfer(u32 skipDrawReason);
 
-	// TODO: Unify this.
+	// TODO: Unify this. The only backend that differs is Vulkan.
 	virtual void FinishDeferred() {}
+
+	void CheckFlushOp(int cmd, u32 diff);
 
 	void AdvanceVerts(u32 vertType, int count, int bytesRead) {
 		if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {

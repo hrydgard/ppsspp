@@ -1411,7 +1411,7 @@ void GPUCommon::ProcessDLQueue() {
 }
 
 void GPUCommon::PreExecuteOp(u32 op, u32 diff) {
-	// Nothing to do
+	CheckFlushOp(op >> 24, diff);
 }
 
 void GPUCommon::Execute_OffsetAddr(u32 op, u32 diff) {
@@ -2707,49 +2707,15 @@ void GPUCommon::FlushImm() {
 }
 
 void GPUCommon::ExecuteOp(u32 op, u32 diff) {
-	const u32 cmd = op >> 24;
-
-	// Handle control and drawing commands here directly. The others we delegate.
-	switch (cmd) {
-	case GE_CMD_NOP:
-		break;
-
-	case GE_CMD_OFFSETADDR:
-		Execute_OffsetAddr(op, diff);
-		break;
-
-	case GE_CMD_ORIGIN:
-		Execute_Origin(op, diff);
-		break;
-
-	case GE_CMD_JUMP:
-		Execute_Jump(op, diff);
-		break;
-
-	case GE_CMD_BJUMP:
-		Execute_BJump(op, diff);
-		break;
-
-	case GE_CMD_CALL:
-		Execute_Call(op, diff);
-		break;
-
-	case GE_CMD_RET:
-		Execute_Ret(op, diff);
-		break;
-
-	case GE_CMD_SIGNAL:
-	case GE_CMD_FINISH:
-		// Processed in GE_END.
-		break;
-
-	case GE_CMD_END:
-		Execute_End(op, diff);
-		break;
-
-	default:
-		DEBUG_LOG(G3D, "DL Unknown: %08x @ %08x", op, currentList == NULL ? 0 : currentList->pc);
-		break;
+	const u8 cmd = op >> 24;
+	const CommandInfo info = cmdInfo_[cmd];
+	const u8 cmdFlags = info.flags;
+	if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
+		(this->*info.func)(op, diff);
+	} else if (diff) {
+		uint64_t dirty = info.flags >> 8;
+		if (dirty)
+			gstate_c.Dirty(dirty);
 	}
 }
 
@@ -2904,6 +2870,17 @@ void GPUCommon::DoState(PointerWrap &p) {
 	}
 	if (s >= 6) {
 		Do(p, edramTranslation_);
+	}
+
+	// TODO: Some of these things may not be necessary.
+	// None of these are necessary when saving.
+	// The textureCache_ check avoids this getting called in SoftGPU.
+	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen && textureCache_) {
+		textureCache_->Clear(true);
+		drawEngineCommon_->ClearTrackedVertexArrays();
+
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
+		framebufferManager_->DestroyAllFBOs();
 	}
 }
 
@@ -3607,5 +3584,15 @@ void GPUCommon::UpdateMSAALevel(Draw::DrawContext *draw) {
 	} else {
 		// Didn't support the configured level, so revert to 0.
 		msaaLevel_ = 0;
+	}
+}
+
+void GPUCommon::CheckFlushOp(int cmd, u32 diff) {
+	const u8 cmdFlags = cmdInfo_[cmd].flags;
+	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
+		if (dumpThisFrame_) {
+			NOTICE_LOG(G3D, "================ FLUSH ================");
+		}
+		drawEngineCommon_->DispatchFlush();
 	}
 }

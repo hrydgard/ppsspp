@@ -221,7 +221,6 @@ public:
 	virtual void InterruptEnd(int listid) = 0;
 	virtual void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) = 0;
 
-	virtual void PreExecuteOp(u32 op, u32 diff) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
 
 	// Framebuffer management
