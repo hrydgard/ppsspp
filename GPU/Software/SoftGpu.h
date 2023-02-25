@@ -210,7 +210,6 @@ protected:
 	void ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, const uint16_t *overrideData = nullptr);
 
 	void BuildReportingInfo() override {}
-	void PreExecuteOp(u32 op, u32 diff) override {}
 
 private:
 	void MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value);

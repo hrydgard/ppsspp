@@ -48,7 +48,7 @@
 #endif
 
 GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-	: GPUCommon(gfxCtx, draw), drawEngine_(draw), fragmentTestCache_(draw) {
+	: GPUCommonHW(gfxCtx, draw), drawEngine_(draw), fragmentTestCache_(draw) {
 	UpdateVsyncInterval(true);
 	gstate_c.SetUseFlags(CheckGPUFeatures());
 
@@ -315,18 +315,6 @@ void GPU_GLES::BeginFrame() {
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
 
 	framebufferManagerGL_->BeginFrame();
-}
-
-void GPU_GLES::CopyDisplayToOutput(bool reallyDirty) {
-	// Flush anything left over.
-	framebufferManagerGL_->RebindFramebuffer("RebindFramebuffer - CopyDisplayToOutput");
-	drawEngine_.Flush();
-
-	shaderManagerGL_->DirtyLastShader();
-
-	framebufferManagerGL_->CopyDisplayToOutput(reallyDirty);
-
-	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 void GPU_GLES::FinishDeferred() {

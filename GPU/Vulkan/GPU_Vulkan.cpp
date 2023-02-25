@@ -46,7 +46,7 @@
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-	: GPUCommon(gfxCtx, draw), drawEngine_(draw) {
+	: GPUCommonHW(gfxCtx, draw), drawEngine_(draw) {
 	gstate_c.SetUseFlags(CheckGPUFeatures());
 	drawEngine_.InitDeviceObjects();
 
@@ -399,17 +399,6 @@ void GPU_Vulkan::InitClear() {
 	if (!framebufferManager_->UseBufferedRendering()) {
 		// TODO?
 	}
-}
-
-void GPU_Vulkan::CopyDisplayToOutput(bool reallyDirty) {
-	// Flush anything left over.
-	drawEngine_.Flush();
-
-	shaderManagerVulkan_->DirtyLastShader();
-
-	framebufferManagerVulkan_->CopyDisplayToOutput(reallyDirty);
-
-	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 void GPU_Vulkan::FinishDeferred() {

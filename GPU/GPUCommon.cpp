@@ -1410,10 +1410,6 @@ void GPUCommon::ProcessDLQueue() {
 	// Since the event is in CoreTiming, we're in sync.  Just set 0 now.
 }
 
-void GPUCommon::PreExecuteOp(u32 op, u32 diff) {
-	CheckFlushOp(op >> 24, diff);
-}
-
 void GPUCommon::Execute_OffsetAddr(u32 op, u32 diff) {
 	gstate_c.offsetAddr = op << 8;
 }
@@ -2870,17 +2866,6 @@ void GPUCommon::DoState(PointerWrap &p) {
 	}
 	if (s >= 6) {
 		Do(p, edramTranslation_);
-	}
-
-	// TODO: Some of these things may not be necessary.
-	// None of these are necessary when saving.
-	// The textureCache_ check avoids this getting called in SoftGPU.
-	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen && textureCache_) {
-		textureCache_->Clear(true);
-		drawEngineCommon_->ClearTrackedVertexArrays();
-
-		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-		framebufferManager_->DestroyAllFBOs();
 	}
 }
 

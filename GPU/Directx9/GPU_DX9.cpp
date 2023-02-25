@@ -44,7 +44,7 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 
 GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-	: GPUCommon(gfxCtx, draw),
+	: GPUCommonHW(gfxCtx, draw),
 	  drawEngine_(draw) {
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	deviceEx_ = (LPDIRECT3DDEVICE9EX)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
@@ -164,16 +164,6 @@ void GPU_DX9::BeginFrame() {
 		framebufferManager_->ClearAllDepthBuffers();
 		gstate_c.useFlagsChanged = false;
 	}
-}
-
-void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
-	drawEngine_.Flush();
-
-	shaderManager_->DirtyLastShader();
-
-	framebufferManagerDX9_->CopyDisplayToOutput(reallyDirty);
-
-	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 void GPU_DX9::FinishDeferred() {

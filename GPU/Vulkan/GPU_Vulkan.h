@@ -22,7 +22,7 @@
 
 #include "Common/File/Path.h"
 
-#include "GPU/GPUCommon.h"
+#include "GPU/GPUCommonHW.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Common/TextureShaderCommon.h"
@@ -32,7 +32,7 @@ class ShaderManagerVulkan;
 class LinkedShader;
 class TextureCacheVulkan;
 
-class GPU_Vulkan : public GPUCommon {
+class GPU_Vulkan : public GPUCommonHW {
 public:
 	GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_Vulkan();
@@ -68,7 +68,6 @@ protected:
 private:
 	void BuildReportingInfo() override;
 	void InitClear() override;
-	void CopyDisplayToOutput(bool reallyDirty) override;
 	void Reinitialize() override;
 
 	void InitDeviceObjects();

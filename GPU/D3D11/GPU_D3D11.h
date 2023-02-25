@@ -21,17 +21,15 @@
 #include <vector>
 #include <d3d11.h>
 
-#include "GPU/GPUCommon.h"
+#include "GPU/GPUCommonHW.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
-#include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 class FramebufferManagerD3D11;
 class ShaderManagerD3D11;
-class LinkedShaderD3D11;
 class TextureCacheD3D11;
 
-class GPU_D3D11 : public GPUCommon {
+class GPU_D3D11 : public GPUCommonHW {
 public:
 	GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_D3D11();
@@ -54,7 +52,6 @@ private:
 
 	void InitClear() override;
 	void BeginFrame() override;
-	void CopyDisplayToOutput(bool reallyDirty) override;
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;

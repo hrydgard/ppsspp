@@ -109,7 +109,7 @@ public:
 	void DumpNextFrame() override;
 
 	void ExecuteOp(u32 op, u32 diff) override;
-	virtual void PreExecuteOp(u32 op, u32 diff);
+	virtual void PreExecuteOp(u32 op, u32 diff) {}
 
 	bool InterpretList(DisplayList &list);
 	void ProcessDLQueue();
@@ -330,9 +330,10 @@ protected:
 
 	void UpdateMSAALevel(Draw::DrawContext *draw);
 
+	DrawEngineCommon *drawEngineCommon_ = nullptr;
+
 	FramebufferManagerCommon *framebufferManager_ = nullptr;
 	TextureCacheCommon *textureCache_ = nullptr;
-	DrawEngineCommon *drawEngineCommon_ = nullptr;
 	ShaderManagerCommon *shaderManager_ = nullptr;
 	bool flushOnParams_ = true;
 

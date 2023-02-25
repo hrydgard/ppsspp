@@ -42,7 +42,7 @@
 #include "GPU/D3D11/D3D11Util.h"
 
 GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-	: GPUCommon(gfxCtx, draw), drawEngine_(draw,
+	: GPUCommonHW(gfxCtx, draw), drawEngine_(draw,
 	(ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE),
 	(ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT)) {
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
@@ -167,17 +167,6 @@ void GPU_D3D11::BeginFrame() {
 		drawEngine_.ClearInputLayoutMap();
 		gstate_c.useFlagsChanged = false;
 	}
-}
-
-void GPU_D3D11::CopyDisplayToOutput(bool reallyDirty) {
-	// Flush anything left over.
-	drawEngine_.Flush();
-
-	shaderManager_->DirtyLastShader();
-
-	framebufferManagerD3D11_->CopyDisplayToOutput(reallyDirty);
-
-	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 void GPU_D3D11::FinishDeferred() {

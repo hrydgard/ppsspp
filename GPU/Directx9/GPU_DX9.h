@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "GPU/GPUCommon.h"
+#include "GPU/GPUCommonHW.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 #include "GPU/Common/TextureShaderCommon.h"
@@ -30,7 +30,7 @@ class ShaderManagerDX9;
 class LinkedShaderDX9;
 class TextureCacheDX9;
 
-class GPU_DX9 : public GPUCommon {
+class GPU_DX9 : public GPUCommonHW {
 public:
 	GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_DX9();
@@ -54,7 +54,6 @@ private:
 
 	void InitClear() override;
 	void BeginFrame() override;
-	void CopyDisplayToOutput(bool reallyDirty) override;
 
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;

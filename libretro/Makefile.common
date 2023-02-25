@@ -406,6 +406,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/GeConstants.cpp \
 	$(GPUDIR)/GeDisasm.cpp \
 	$(GPUDIR)/GPUCommon.cpp \
+	$(GPUDIR)/GPUCommonHW.cpp \
 	$(GPUDIR)/GPU.cpp \
 	$(GPUDIR)/GPUState.cpp \
 	$(GPUDIR)/Math3D.cpp \
