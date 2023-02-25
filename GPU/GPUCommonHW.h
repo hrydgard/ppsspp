@@ -19,17 +19,27 @@ public:
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
 
+	void Execute_VertexType(u32 op, u32 diff);
+	void Execute_VertexTypeSkinning(u32 op, u32 diff);
+
 	void Execute_Prim(u32 op, u32 diff);
 	void Execute_Bezier(u32 op, u32 diff);
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
 
+	void Execute_TexSize0(u32 op, u32 diff);
+	void Execute_TexLevel(u32 op, u32 diff);
+	void Execute_LoadClut(u32 op, u32 diff);
+
 	typedef void (GPUCommonHW::*CmdFunc)(u32 op, u32 diff);
+
+	void FastRunLoop(DisplayList &list) override;
+	void ExecuteOp(u32 op, u32 diff) override;
 
 protected:
 	void UpdateCmdInfo() override;
 
-	void PreExecuteOp(u32 op, u32 diff);
+	void PreExecuteOp(u32 op, u32 diff) override;
 	void ClearCacheNextFrame() override;
 
 	// Needs to be called on GPU thread, not reporting thread.
@@ -37,9 +47,11 @@ protected:
 	void UpdateMSAALevel(Draw::DrawContext *draw) override;
 
 	void CheckRenderResized() override;
+	u32 CheckGPUFeaturesLate(u32 features) const;
 
 	int msaaLevel_ = 0;
 
 private:
 	void CheckDepthUsage(VirtualFramebuffer *vfb);
+	void CheckFlushOp(int cmd, u32 diff);
 };

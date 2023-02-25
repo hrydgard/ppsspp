@@ -50,9 +50,6 @@
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 
-// TODO: Make class member?
-GPUCommonHW::CommandInfo GPUCommon::cmdInfo_[256];
-
 void GPUCommon::Flush() {
 	drawEngineCommon_->DispatchFlush();
 }
@@ -797,53 +794,6 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
 }
 
-// Maybe should write this in ASM...
-void GPUCommon::FastRunLoop(DisplayList &list) {
-	PROFILE_THIS_SCOPE("gpuloop");
-
-	if (!Memory::IsValidAddress(list.pc)) {
-		// We're having some serious problems here, just bail and try to limp along and not crash the app.
-		downcount = 0;
-		return;
-	}
-
-	const CommandInfo *cmdInfo = cmdInfo_;
-	int dc = downcount;
-	for (; dc > 0; --dc) {
-		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
-		const u32 op = *(const u32_le *)(Memory::base + list.pc);
-		const u32 cmd = op >> 24;
-		const CommandInfo &info = cmdInfo[cmd];
-		const u32 diff = op ^ gstate.cmdmem[cmd];
-		if (diff == 0) {
-			if (info.flags & FLAG_EXECUTE) {
-				downcount = dc;
-				(this->*info.func)(op, diff);
-				dc = downcount;
-			}
-		} else {
-			uint64_t flags = info.flags;
-			if (flags & FLAG_FLUSHBEFOREONCHANGE) {
-				if (drawEngineCommon_->GetNumDrawCalls()) {
-					drawEngineCommon_->DispatchFlush();
-				}
-			}
-			gstate.cmdmem[cmd] = op;
-			if (flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) {
-				downcount = dc;
-				(this->*info.func)(op, diff);
-				dc = downcount;
-			} else {
-				uint64_t dirty = flags >> 8;
-				if (dirty)
-					gstate_c.Dirty(dirty);
-			}
-		}
-		list.pc += 4;
-	}
-	downcount = 0;
-}
-
 void GPUCommon::BeginFrame() {
 	immCount_ = 0;
 	if (dumpNextFrame_) {
@@ -862,11 +812,9 @@ void GPUCommon::BeginFrame() {
 	}
 }
 
-void GPUCommon::SlowRunLoop(DisplayList &list)
-{
+void GPUCommon::SlowRunLoop(DisplayList &list) {
 	const bool dumpThisFrame = dumpThisFrame_;
-	while (downcount > 0)
-	{
+	while (downcount > 0) {
 		bool process = GPUDebug::NotifyCommand(list.pc);
 		if (process) {
 			GPURecord::NotifyCommand(list.pc);
@@ -1310,75 +1258,6 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 		DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
 		break;
 	}
-}
-
-void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
-	// TODO: If you change the rules here, don't forget to update the inner interpreter in Execute_Prim.
-	if (diff == 0xFFFFFFFF)
-		return;
-
-	gstate.texlevel ^= diff;
-
-	if (diff & 0xFF0000) {
-		// Piggyback on this flag for 3D textures.
-		gstate_c.Dirty(DIRTY_MIPBIAS);
-	}
-	if (gstate.getTexLevelMode() != GE_TEXLEVEL_MODE_AUTO && (0x00FF0000 & gstate.texlevel) != 0) {
-		Flush();
-	}
-
-	gstate.texlevel ^= diff;
-
-	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE);
-}
-
-void GPUCommon::Execute_TexSize0(u32 op, u32 diff) {
-	// Render to texture may have overridden the width/height.
-	// Don't reset it unless the size is different / the texture has changed.
-	if (diff || gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS)) {
-		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
-		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
-		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-		// We will need to reset the texture now.
-		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-	}
-}
-
-void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
-	if (diff)
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
-		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-		// Switching between through and non-through, we need to invalidate a bunch of stuff.
-		if (diff & GE_VTYPE_THROUGH_MASK)
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE | DIRTY_FOGCOEFENABLE);
-	}
-}
-
-void GPUCommon::Execute_LoadClut(u32 op, u32 diff) {
-	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
-}
-
-void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
-	// Don't flush when weight count changes.
-	if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
-		// Restore and flush
-		gstate.vertType ^= diff;
-		Flush();
-		gstate.vertType ^= diff;
-		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
-			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-		// In this case, we may be doing weights and morphs.
-		// Update any bone matrix uniforms so it uses them correctly.
-		if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			gstate_c.Dirty(gstate_c.deferredVertTypeDirty);
-			gstate_c.deferredVertTypeDirty = 0;
-		}
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-	}
-	if (diff & GE_VTYPE_THROUGH_MASK)
-		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE | DIRTY_FOGCOEFENABLE);
 }
 
 void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
@@ -1846,19 +1725,6 @@ void GPUCommon::FlushImm() {
 		gstate.fogEnable = (GE_CMD_FOGENABLE << 24) | (int)prevFog;
 		gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)prevDither;
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
-	}
-}
-
-void GPUCommon::ExecuteOp(u32 op, u32 diff) {
-	const u8 cmd = op >> 24;
-	const CommandInfo info = cmdInfo_[cmd];
-	const u8 cmdFlags = info.flags;
-	if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
-		(this->*info.func)(op, diff);
-	} else if (diff) {
-		uint64_t dirty = info.flags >> 8;
-		if (dirty)
-			gstate_c.Dirty(dirty);
 	}
 }
 
@@ -2612,46 +2478,4 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
 		vertexAverageCycles
 	);
-}
-
-
-u32 GPUCommon::CheckGPUFeaturesLate(u32 features) const {
-	// If we already have a 16-bit depth buffer, we don't need to round.
-	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
-	bool prefer16 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D16;
-	if (!prefer16) {
-		if (sawExactEqualDepth_ && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-			// Exact equal tests tend to have issues unless we use the PSP's depth range.
-			// We use 24-bit depth virtually everwhere, the fallback is just for safety.
-			if (prefer24)
-				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-			else
-				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-		} else if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-			if (prefer24 && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-				// Here we can simulate a 16 bit depth buffer by scaling.
-				// Note that the depth buffer is fixed point, not floating, so dividing by 256 is pretty good.
-				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-			} else {
-				// Use fragment rounding on where available otherwise.
-				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-			}
-		} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
-			features |= GPU_ROUND_DEPTH_TO_16BIT;
-		}
-	}
-
-	return features;
-}
-
-void GPUCommon::CheckFlushOp(int cmd, u32 diff) {
-	const u8 cmdFlags = cmdInfo_[cmd].flags;
-	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
-		if (dumpThisFrame_) {
-			NOTICE_LOG(G3D, "================ FLUSH ================");
-		}
-		drawEngineCommon_->DispatchFlush();
-	}
 }

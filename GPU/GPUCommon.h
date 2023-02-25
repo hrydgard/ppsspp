@@ -60,7 +60,6 @@ struct TransformedVertex {
 		u32 color1_32;
 	};
 
-
 	void CopyFromWithOffset(const TransformedVertex &other, float xoff, float yoff) {
 		this->x = other.x + xoff;
 		this->y = other.y + yoff;
@@ -108,7 +107,6 @@ public:
 
 	void DumpNextFrame() override;
 
-	void ExecuteOp(u32 op, u32 diff) override;
 	virtual void PreExecuteOp(u32 op, u32 diff) {}
 
 	bool InterpretList(DisplayList &list);
@@ -152,15 +150,7 @@ public:
 	void Execute_Ret(u32 op, u32 diff);
 	void Execute_End(u32 op, u32 diff);
 
-	void Execute_VertexType(u32 op, u32 diff);
-	void Execute_VertexTypeSkinning(u32 op, u32 diff);
-
 	void Execute_BoundingBox(u32 op, u32 diff);
-
-	void Execute_LoadClut(u32 op, u32 diff);
-
-	void Execute_TexSize0(u32 op, u32 diff);
-	void Execute_TexLevel(u32 op, u32 diff);
 
 	void Execute_WorldMtxNum(u32 op, u32 diff);
 	void Execute_WorldMtxData(u32 op, u32 diff);
@@ -267,9 +257,6 @@ protected:
 
 	virtual void CheckRenderResized() {}
 
-	// Add additional common features dependent on other features, which may be backend-determined.
-	u32 CheckGPUFeaturesLate(u32 features) const;
-
 	inline bool IsTrianglePrim(GEPrimitiveType prim) const {
 		return prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP;
 	}
@@ -292,7 +279,7 @@ protected:
 	void BeginFrame() override;
 	void UpdateVsyncInterval(bool force);
 
-	virtual void FastRunLoop(DisplayList &list);
+	virtual void FastRunLoop(DisplayList &list) = 0;
 
 	void SlowRunLoop(DisplayList &list);
 	void UpdatePC(u32 currentPC, u32 newPC);
@@ -303,8 +290,6 @@ protected:
 
 	// TODO: Unify this. The only backend that differs is Vulkan.
 	virtual void FinishDeferred() {}
-
-	void CheckFlushOp(int cmd, u32 diff);
 
 	void AdvanceVerts(u32 vertType, int count, int bytesRead) {
 		if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
@@ -332,21 +317,6 @@ protected:
 
 	GraphicsContext *gfxCtx_;
 	Draw::DrawContext *draw_;
-
-	struct CommandInfo {
-		uint64_t flags;
-		GPUCommon::CmdFunc func;
-
-		// Dirty flags are mashed into the regular flags by a left shift of 8.
-		void AddDirty(u64 dirty) {
-			flags |= dirty << 8;
-		}
-		void RemoveDirty(u64 dirty) {
-			flags &= ~(dirty << 8);
-		}
-	};
-
-	static CommandInfo cmdInfo_[256];
 
 	typedef std::list<int> DisplayListQueue;
 
