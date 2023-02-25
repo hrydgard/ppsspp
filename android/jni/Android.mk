@@ -358,6 +358,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GPU.cpp \
   $(SRC)/GPU/GPUCommon.cpp \
+  $(SRC)/GPU/GPUCommonHW.cpp \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeConstants.cpp \
   $(SRC)/GPU/GeDisasm.cpp \

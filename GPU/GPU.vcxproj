@@ -427,6 +427,7 @@
     </ClInclude>
     <ClInclude Include="GPU.h" />
     <ClInclude Include="GPUCommon.h" />
+    <ClInclude Include="GPUCommonHW.h" />
     <ClInclude Include="GPUInterface.h" />
     <ClInclude Include="GPUState.h" />
     <ClInclude Include="Math3D.h" />
@@ -572,6 +573,7 @@
     </ClCompile>
     <ClCompile Include="GPU.cpp" />
     <ClCompile Include="GPUCommon.cpp" />
+    <ClCompile Include="GPUCommonHW.cpp" />
     <ClCompile Include="GPUState.cpp" />
     <ClCompile Include="Math3D.cpp" />
     <ClCompile Include="Software\BinManager.cpp" />

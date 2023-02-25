@@ -22,7 +22,7 @@
 
 #include "Common/File/Path.h"
 
-#include "GPU/GPUCommon.h"
+#include "GPU/GPUCommonHW.h"
 #include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
@@ -32,7 +32,7 @@ class ShaderManagerGLES;
 class TextureCacheGLES;
 class LinkedShader;
 
-class GPU_GLES : public GPUCommon {
+class GPU_GLES : public GPUCommonHW {
 public:
 	GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_GLES();

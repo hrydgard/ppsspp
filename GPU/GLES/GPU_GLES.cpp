@@ -48,7 +48,7 @@
 #endif
 
 GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-	: GPUCommon(gfxCtx, draw), drawEngine_(draw), fragmentTestCache_(draw) {
+	: GPUCommonHW(gfxCtx, draw), drawEngine_(draw), fragmentTestCache_(draw) {
 	UpdateVsyncInterval(true);
 	gstate_c.SetUseFlags(CheckGPUFeatures());
 

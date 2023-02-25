@@ -1659,6 +1659,8 @@ set(GPU_SOURCES
 	GPU/GPU.h
 	GPU/GPUCommon.cpp
 	GPU/GPUCommon.h
+	GPU/GPUCommonHW.cpp
+	GPU/GPUCommonHW.h
 	GPU/GPUState.cpp
 	GPU/GPUState.h
 	GPU/Math3D.cpp

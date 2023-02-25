@@ -46,7 +46,7 @@
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-	: GPUCommon(gfxCtx, draw), drawEngine_(draw) {
+	: GPUCommonHW(gfxCtx, draw), drawEngine_(draw) {
 	gstate_c.SetUseFlags(CheckGPUFeatures());
 	drawEngine_.InitDeviceObjects();
 

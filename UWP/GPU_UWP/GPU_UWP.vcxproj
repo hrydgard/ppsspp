@@ -423,6 +423,7 @@
     <ClInclude Include="..\..\GPU\ge_constants.h" />
     <ClInclude Include="..\..\GPU\GPU.h" />
     <ClInclude Include="..\..\GPU\GPUCommon.h" />
+    <ClInclude Include="..\..\GPU\GPUCommonHW.h" />
     <ClInclude Include="..\..\GPU\GPUInterface.h" />
     <ClInclude Include="..\..\GPU\GPUState.h" />
     <ClInclude Include="..\..\GPU\Math3D.h" />
@@ -487,6 +488,7 @@
     <ClCompile Include="..\..\GPU\GeDisasm.cpp" />
     <ClCompile Include="..\..\GPU\GPU.cpp" />
     <ClCompile Include="..\..\GPU\GPUCommon.cpp" />
+    <ClCompile Include="..\..\GPU\GPUCommonHW.cpp" />
     <ClCompile Include="..\..\GPU\GPUState.cpp" />
     <ClCompile Include="..\..\GPU\Math3D.cpp" />
     <ClCompile Include="..\..\GPU\Software\BinManager.cpp" />

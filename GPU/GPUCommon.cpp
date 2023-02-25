@@ -1410,10 +1410,6 @@ void GPUCommon::ProcessDLQueue() {
 	// Since the event is in CoreTiming, we're in sync.  Just set 0 now.
 }
 
-void GPUCommon::PreExecuteOp(u32 op, u32 diff) {
-	CheckFlushOp(op >> 24, diff);
-}
-
 void GPUCommon::Execute_OffsetAddr(u32 op, u32 diff) {
 	gstate_c.offsetAddr = op << 8;
 }
