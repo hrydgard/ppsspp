@@ -123,9 +123,10 @@ public:
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
+	virtual void ClearTrackedVertexArrays() {}
+
 protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) { return enabled; }
-	virtual void ClearTrackedVertexArrays() {}
 
 	int ComputeNumVertsToDecode() const;
 	void DecodeVerts(u8 *dest);
