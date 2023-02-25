@@ -310,7 +310,7 @@ protected:
 	void FlushImm();
 	void DoBlockTransfer(u32 skipDrawReason);
 
-	// TODO: Unify this.
+	// TODO: Unify this. The only backend that differs is Vulkan.
 	virtual void FinishDeferred() {}
 
 	void AdvanceVerts(u32 vertType, int count, int bytesRead) {
