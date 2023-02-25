@@ -33,7 +33,6 @@ class TextureCacheDX9;
 class GPU_DX9 : public GPUCommonHW {
 public:
 	GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
-	~GPU_DX9();
 
 	u32 CheckGPUFeatures() const override;
 

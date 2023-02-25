@@ -217,7 +217,6 @@ void TextureCacheVulkan::DeviceLost() {
 	Clear(true);
 
 	samplerCache_.DeviceLost();
-
 	if (samplerNearest_)
 		vulkan->Delete().QueueDeleteSampler(samplerNearest_);
 

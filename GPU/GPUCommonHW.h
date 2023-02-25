@@ -11,6 +11,7 @@ public:
 
 	void CopyDisplayToOutput(bool reallyDirty) override;
 	void DoState(PointerWrap &p) override;
+	void DeviceLost() override;
 
 protected:
 	void PreExecuteOp(u32 op, u32 diff);

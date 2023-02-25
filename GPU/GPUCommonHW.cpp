@@ -14,6 +14,20 @@ GPUCommonHW::GPUCommonHW(GraphicsContext *gfxCtx, Draw::DrawContext *draw) : GPU
 GPUCommonHW::~GPUCommonHW() {
 	// Clear features so they're not visible in system info.
 	gstate_c.SetUseFlags(0);
+
+	// Delete the various common managers.
+	framebufferManager_->DestroyAllFBOs();
+	delete framebufferManager_;
+	delete textureCache_;
+	shaderManager_->ClearShaders();
+	delete shaderManager_;
+}
+
+void GPUCommonHW::DeviceLost() {
+	textureCache_->Clear(false);
+	framebufferManager_->DeviceLost();
+	textureCache_->DeviceLost();
+	shaderManager_->DeviceLost();
 }
 
 void GPUCommonHW::PreExecuteOp(u32 op, u32 diff) {

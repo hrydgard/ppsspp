@@ -87,16 +87,11 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 }
 
 GPU_D3D11::~GPU_D3D11() {
-	framebufferManagerD3D11_->DestroyAllFBOs();
-	delete framebufferManagerD3D11_;
-	shaderManagerD3D11_->ClearShaders();
-	delete shaderManagerD3D11_;
-	delete textureCacheD3D11_;
 	stockD3D11.Destroy();
 }
 
 u32 GPU_D3D11::CheckGPUFeatures() const {
-	u32 features = GPUCommon::CheckGPUFeatures();
+	u32 features = GPUCommonHW::CheckGPUFeatures();
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
@@ -124,11 +119,11 @@ void GPU_D3D11::DeviceLost() {
 	drawEngine_.ClearInputLayoutMap();
 	textureCache_->Clear(false);
 
-	GPUCommon::DeviceLost();
+	GPUCommonHW::DeviceLost();
 }
 
 void GPU_D3D11::DeviceRestore() {
-	GPUCommon::DeviceRestore();
+	GPUCommonHW::DeviceRestore();
 	// Nothing needed.
 }
 
@@ -139,7 +134,7 @@ void GPU_D3D11::InitClear() {
 }
 
 void GPU_D3D11::BeginFrame() {
-	GPUCommon::BeginFrame();
+	GPUCommonHW::BeginFrame();
 
 	textureCache_->StartFrame();
 	drawEngine_.BeginFrame();

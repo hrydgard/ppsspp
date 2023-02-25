@@ -94,7 +94,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 }
 
 u32 GPU_DX9::CheckGPUFeatures() const {
-	u32 features = GPUCommon::CheckGPUFeatures();
+	u32 features = GPUCommonHW::CheckGPUFeatures();
 	features |= GPU_USE_16BIT_FORMATS;
 	features |= GPU_USE_TEXTURE_LOD_CONTROL;
 
@@ -105,19 +105,9 @@ u32 GPU_DX9::CheckGPUFeatures() const {
 	return CheckGPUFeaturesLate(features);
 }
 
-GPU_DX9::~GPU_DX9() {
-	framebufferManager_->DestroyAllFBOs();
-	delete framebufferManager_;
-	delete textureCache_;
-	shaderManager_->ClearShaders();
-	delete shaderManager_;
-}
-
 void GPU_DX9::DeviceLost() {
 	// Simply drop all caches and textures.
-	shaderManager_->ClearShaders();
-	textureCache_->Clear(false);
-	GPUCommon::DeviceLost();
+	GPUCommonHW::DeviceLost();
 }
 
 void GPU_DX9::InitClear() {
@@ -130,14 +120,14 @@ void GPU_DX9::InitClear() {
 
 void GPU_DX9::ReapplyGfxState() {
 	dxstate.Restore();
-	GPUCommon::ReapplyGfxState();
+	GPUCommonHW::ReapplyGfxState();
 }
 
 void GPU_DX9::BeginFrame() {
 	textureCache_->StartFrame();
 	drawEngine_.BeginFrame();
 
-	GPUCommon::BeginFrame();
+	GPUCommonHW::BeginFrame();
 	shaderManagerDX9_->DirtyShader();
 
 	framebufferManager_->BeginFrame();

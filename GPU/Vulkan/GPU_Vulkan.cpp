@@ -185,16 +185,15 @@ GPU_Vulkan::~GPU_Vulkan() {
 	SaveCache(shaderCachePath_);
 	// Note: We save the cache in DeviceLost
 	DestroyDeviceObjects();
-	framebufferManagerVulkan_->DestroyAllFBOs();
 	drawEngine_.DeviceLost();
-	delete textureCache_;
+	shaderManager_->ClearShaders();
+
 	delete pipelineManager_;
-	delete shaderManager_;
-	delete framebufferManager_;
+	// other managers are deleted in ~GPUCommonHW.
 }
 
 u32 GPU_Vulkan::CheckGPUFeatures() const {
-	uint32_t features = GPUCommon::CheckGPUFeatures();
+	uint32_t features = GPUCommonHW::CheckGPUFeatures();
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	switch (vulkan->GetPhysicalDeviceProperties().properties.vendorID) {
@@ -289,7 +288,7 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 }
 
 void GPU_Vulkan::BeginHostFrame() {
-	GPUCommon::BeginHostFrame();
+	GPUCommonHW::BeginHostFrame();
 
 	drawEngine_.BeginFrame();
 	textureCache_->StartFrame();
@@ -336,7 +335,7 @@ void GPU_Vulkan::EndHostFrame() {
 
 	drawEngine_.EndFrame();
 
-	GPUCommon::EndHostFrame();
+	GPUCommonHW::EndHostFrame();
 }
 
 // Needs to be called on GPU thread, not reporting thread.
@@ -445,7 +444,7 @@ void GPU_Vulkan::DestroyDeviceObjects() {
 }
 
 void GPU_Vulkan::CheckRenderResized() {
-	GPUCommon::CheckRenderResized();
+	GPUCommonHW::CheckRenderResized();
 	if (renderResized_) {
 		pipelineManager_->InvalidateMSAAPipelines();
 		framebufferManager_->ReleasePipelines();
@@ -463,8 +462,6 @@ void GPU_Vulkan::DeviceLost() {
 	DestroyDeviceObjects();
 	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();
-	textureCacheVulkan_->DeviceLost();
-	shaderManagerVulkan_->DeviceLost();
 
 	GPUCommonHW::DeviceLost();
 }

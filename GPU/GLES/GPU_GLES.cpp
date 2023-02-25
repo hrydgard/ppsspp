@@ -138,22 +138,14 @@ GPU_GLES::~GPU_GLES() {
 			INFO_LOG(G3D, "Shader cache disabled. Not saving.");
 		}
 	}
-
-	framebufferManager_->DestroyAllFBOs();
-	shaderManager_->ClearShaders();
 	fragmentTestCache_.Clear();
-	
-	delete shaderManager_;
-	shaderManager_ = nullptr;
-	delete framebufferManager_;
-	delete textureCache_;
 }
 
 // Take the raw GL extension and versioning data and turn into feature flags.
 // TODO: This should use DrawContext::GetDeviceCaps() more and more, and eventually
 // this can be shared between all the backends.
 u32 GPU_GLES::CheckGPUFeatures() const {
-	u32 features = GPUCommon::CheckGPUFeatures();
+	u32 features = GPUCommonHW::CheckGPUFeatures();
 
 	features |= GPU_USE_16BIT_FORMATS;
 
@@ -246,16 +238,14 @@ void GPU_GLES::DeviceLost() {
 	// FBOs appear to survive? Or no?
 	// TransformDraw has registered as a GfxResourceHolder.
 	CancelReady();
-	shaderManager_->DeviceLost();
-	textureCache_->DeviceLost();
 	fragmentTestCache_.DeviceLost();
 	drawEngine_.DeviceLost();
 
-	GPUCommon::DeviceLost();
+	GPUCommonHW::DeviceLost();
 }
 
 void GPU_GLES::DeviceRestore() {
-	GPUCommon::DeviceRestore();
+	GPUCommonHW::DeviceRestore();
 
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
@@ -266,15 +256,11 @@ void GPU_GLES::DeviceRestore() {
 	fragmentTestCache_.DeviceRestore(draw_);
 }
 
-void GPU_GLES::Reinitialize() {
-	GPUCommon::Reinitialize();
-}
-
 void GPU_GLES::InitClear() {
 }
 
 void GPU_GLES::BeginHostFrame() {
-	GPUCommon::BeginHostFrame();
+	GPUCommonHW::BeginHostFrame();
 	drawEngine_.BeginFrame();
 
 	if (gstate_c.useFlagsChanged) {
@@ -292,11 +278,11 @@ void GPU_GLES::EndHostFrame() {
 }
 
 void GPU_GLES::ReapplyGfxState() {
-	GPUCommon::ReapplyGfxState();
+	GPUCommonHW::ReapplyGfxState();
 }
 
 void GPU_GLES::BeginFrame() {
-	GPUCommon::BeginFrame();
+	GPUCommonHW::BeginFrame();
 
 	textureCache_->StartFrame();
 
