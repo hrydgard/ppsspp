@@ -2706,53 +2706,6 @@ void GPUCommon::FlushImm() {
 	}
 }
 
-void GPUCommon::ExecuteOp(u32 op, u32 diff) {
-	const u32 cmd = op >> 24;
-
-	// Handle control and drawing commands here directly. The others we delegate.
-	switch (cmd) {
-	case GE_CMD_NOP:
-		break;
-
-	case GE_CMD_OFFSETADDR:
-		Execute_OffsetAddr(op, diff);
-		break;
-
-	case GE_CMD_ORIGIN:
-		Execute_Origin(op, diff);
-		break;
-
-	case GE_CMD_JUMP:
-		Execute_Jump(op, diff);
-		break;
-
-	case GE_CMD_BJUMP:
-		Execute_BJump(op, diff);
-		break;
-
-	case GE_CMD_CALL:
-		Execute_Call(op, diff);
-		break;
-
-	case GE_CMD_RET:
-		Execute_Ret(op, diff);
-		break;
-
-	case GE_CMD_SIGNAL:
-	case GE_CMD_FINISH:
-		// Processed in GE_END.
-		break;
-
-	case GE_CMD_END:
-		Execute_End(op, diff);
-		break;
-
-	default:
-		DEBUG_LOG(G3D, "DL Unknown: %08x @ %08x", op, currentList == NULL ? 0 : currentList->pc);
-		break;
-	}
-}
-
 void GPUCommon::Execute_Unknown(u32 op, u32 diff) {
 	if ((op & 0xFFFFFF) != 0)
 		WARN_LOG_REPORT_ONCE(unknowncmd, G3D, "Unknown GE command : %08x ", op);

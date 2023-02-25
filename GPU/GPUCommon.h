@@ -108,7 +108,6 @@ public:
 
 	void DumpNextFrame() override;
 
-	void ExecuteOp(u32 op, u32 diff) override;
 	virtual void PreExecuteOp(u32 op, u32 diff);
 
 	bool InterpretList(DisplayList &list);
