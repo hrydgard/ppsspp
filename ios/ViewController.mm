@@ -200,8 +200,8 @@ static LocationHelper *locationHelper;
 
 	graphicsContext->ThreadStart();
 
-	dp_xscale = (float)dp_xres / (float)pixel_xres;
-	dp_yscale = (float)dp_yres / (float)pixel_yres;
+	dp_xscale = (float)g_display.dp_xres / (float)g_display.pixel_xres;
+	dp_yscale = (float)g_display.dp_yres / (float)g_display.pixel_yres;
 	
 	/*self.iCadeView = [[iCadeReaderView alloc] init];
 	[self.view addSubview:self.iCadeView];
