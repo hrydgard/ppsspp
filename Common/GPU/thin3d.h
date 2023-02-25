@@ -733,7 +733,7 @@ public:
 
 	// Dynamic state
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
-	virtual void SetViewports(int count, Viewport *viewports) = 0;
+	virtual void SetViewport(const Viewport &viewport) = 0;
 	virtual void SetBlendFactor(float color[4]) = 0;
 	virtual void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) = 0;
 

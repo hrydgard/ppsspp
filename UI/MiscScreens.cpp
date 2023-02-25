@@ -375,7 +375,7 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 		viewport.Height = pixel_yres;
 		viewport.MaxDepth = 1.0;
 		viewport.MinDepth = 0.0;
-		draw->SetViewports(1, &viewport);
+		draw->SetViewport(viewport);
 		dc.BeginFrame();
 		dc.RebindTexture();
 		dc.Begin();

@@ -143,7 +143,7 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dst
 void TextureCacheGLES::StartFrame() {
 	TextureCacheCommon::StartFrame();
 
-	InvalidateLastTexture();
+	ForgetLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
 	replacementTimeThisFrame_ = 0.0;
 
@@ -234,7 +234,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 
 void TextureCacheGLES::Unbind() {
 	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, nullptr);
-	InvalidateLastTexture();
+	ForgetLastTexture();
 }
 
 void TextureCacheGLES::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
@@ -385,7 +385,7 @@ Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPalet
 }
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
-	InvalidateLastTexture();
+	ForgetLastTexture();
 	SetTexture();
 	if (!nextTexture_) {
 		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);

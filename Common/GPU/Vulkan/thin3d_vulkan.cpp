@@ -425,7 +425,7 @@ public:
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void SetScissorRect(int left, int top, int width, int height) override;
-	void SetViewports(int count, Viewport *viewports) override;
+	void SetViewport(const Viewport &viewport) override;
 	void SetBlendFactor(float color[4]) override;
 	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override;
 
@@ -1237,18 +1237,16 @@ void VKContext::SetScissorRect(int left, int top, int width, int height) {
 	renderManager_.SetScissor(left, top, width, height);
 }
 
-void VKContext::SetViewports(int count, Viewport *viewports) {
-	if (count > 0) {
-		// Ignore viewports more than the first.
-		VkViewport viewport;
-		viewport.x = viewports[0].TopLeftX;
-		viewport.y = viewports[0].TopLeftY;
-		viewport.width = viewports[0].Width;
-		viewport.height = viewports[0].Height;
-		viewport.minDepth = viewports[0].MinDepth;
-		viewport.maxDepth = viewports[0].MaxDepth;
-		renderManager_.SetViewport(viewport);
-	}
+void VKContext::SetViewport(const Viewport &viewport) {
+	// Ignore viewports more than the first.
+	VkViewport vkViewport;
+	vkViewport.x = viewport.TopLeftX;
+	vkViewport.y = viewport.TopLeftY;
+	vkViewport.width = viewport.Width;
+	vkViewport.height = viewport.Height;
+	vkViewport.minDepth = viewport.MinDepth;
+	vkViewport.maxDepth = viewport.MaxDepth;
+	renderManager_.SetViewport(vkViewport);
 }
 
 void VKContext::SetBlendFactor(float color[4]) {

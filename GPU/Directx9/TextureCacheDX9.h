@@ -38,10 +38,7 @@ public:
 
 	void SetFramebufferManager(FramebufferManagerDX9 *fbManager);
 
-	void ForgetLastTexture() override {
-		InvalidateLastTexture();
-	}
-	void InvalidateLastTexture() override;
+	void ForgetLastTexture() override;
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 

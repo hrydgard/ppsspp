@@ -329,7 +329,6 @@ public:
 	TextureShaderCache *GetTextureShaderCache() { return textureShaderCache_; }
 
 	virtual void ForgetLastTexture() = 0;
-	virtual void InvalidateLastTexture() = 0;
 	virtual void Clear(bool delete_them);
 	virtual void NotifyConfigChanged();
 	virtual void ApplySamplingParams(const SamplerCacheKey &key) = 0;

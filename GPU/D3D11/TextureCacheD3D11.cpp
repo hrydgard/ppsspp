@@ -179,20 +179,16 @@ void TextureCacheD3D11::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 }
 
 void TextureCacheD3D11::ForgetLastTexture() {
-	InvalidateLastTexture();
+	lastBoundTexture = INVALID_TEX;
 
 	ID3D11ShaderResourceView *nullTex[4]{};
 	context_->PSSetShaderResources(0, 4, nullTex);
 }
 
-void TextureCacheD3D11::InvalidateLastTexture() {
-	lastBoundTexture = INVALID_TEX;
-}
-
 void TextureCacheD3D11::StartFrame() {
 	TextureCacheCommon::StartFrame();
 
-	InvalidateLastTexture();
+	lastBoundTexture = INVALID_TEX;
 	timesInvalidatedAllThisFrame_ = 0;
 	replacementTimeThisFrame_ = 0.0;
 
@@ -268,9 +264,7 @@ void TextureCacheD3D11::ApplySamplingParams(const SamplerCacheKey &key) {
 }
 
 void TextureCacheD3D11::Unbind() {
-	ID3D11ShaderResourceView *nullView = nullptr;
-	context_->PSSetShaderResources(0, 1, &nullView);
-	InvalidateLastTexture();
+	ForgetLastTexture();
 }
 
 void TextureCacheD3D11::BindAsClutTexture(Draw::Texture *tex, bool smooth) {

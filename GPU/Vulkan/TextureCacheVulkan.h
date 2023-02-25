@@ -72,8 +72,6 @@ public:
 	}
 
 	void ForgetLastTexture() override {}
-	void InvalidateLastTexture() override {}
-
 	void NotifyConfigChanged() override;
 
 	void GetVulkanHandles(VkImageView &imageView, VkSampler &sampler) {
