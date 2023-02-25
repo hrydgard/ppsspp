@@ -678,6 +678,10 @@ bool GPUCommonHW::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	return framebufferManager_ ? framebufferManager_->GetOutputFramebuffer(buffer) : false;
 }
 
+std::vector<FramebufferInfo> GPUCommonHW::GetFramebufferList() const {
+	return framebufferManager_->GetFramebufferList();
+}
+
 bool GPUCommonHW::GetCurrentClut(GPUDebugBuffer &buffer) {
 	return textureCache_->GetCurrentClutBuffer(buffer);
 }

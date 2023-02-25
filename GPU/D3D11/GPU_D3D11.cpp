@@ -122,8 +122,8 @@ void GPU_D3D11::DeviceLost() {
 	GPUCommonHW::DeviceLost();
 }
 
-void GPU_D3D11::DeviceRestore() {
-	GPUCommonHW::DeviceRestore();
+void GPU_D3D11::DeviceRestore(Draw::DrawContext *draw) {
+	GPUCommonHW::DeviceRestore(draw);
 	// Nothing needed.
 }
 

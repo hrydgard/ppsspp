@@ -22,6 +22,7 @@ public:
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
+	std::vector<FramebufferInfo> GetFramebufferList() const override;
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
 

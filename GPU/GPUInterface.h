@@ -251,7 +251,7 @@ public:
 	virtual void EnableInterrupts(bool enable) = 0;
 
 	virtual void DeviceLost() = 0;
-	virtual void DeviceRestore() = 0;
+	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 	virtual void ReapplyGfxState() = 0;
 	virtual void DoState(PointerWrap &p) = 0;
 

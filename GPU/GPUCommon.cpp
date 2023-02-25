@@ -133,8 +133,8 @@ void GPUCommon::DeviceLost() {
 }
 
 // Call at the start of the GPU implementation's DeviceRestore
-void GPUCommon::DeviceRestore() {
-	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
+void GPUCommon::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
 	framebufferManager_->DeviceRestore(draw_);
 	PPGeSetDrawContext(draw_);
 }
@@ -2024,10 +2024,6 @@ bool GPUCommon::PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil f
 		return true;
 	}
 	return false;
-}
-
-std::vector<FramebufferInfo> GPUCommon::GetFramebufferList() const {
-	return framebufferManager_->GetFramebufferList();
 }
 
 bool GPUCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {

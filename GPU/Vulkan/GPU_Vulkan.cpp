@@ -460,8 +460,8 @@ void GPU_Vulkan::DeviceLost() {
 	GPUCommonHW::DeviceLost();
 }
 
-void GPU_Vulkan::DeviceRestore() {
-	GPUCommonHW::DeviceRestore();
+void GPU_Vulkan::DeviceRestore(Draw::DrawContext *draw) {
+	GPUCommonHW::DeviceRestore(draw);
 	InitDeviceObjects();
 
 	gstate_c.SetUseFlags(CheckGPUFeatures());

@@ -244,8 +244,8 @@ void GPU_GLES::DeviceLost() {
 	GPUCommonHW::DeviceLost();
 }
 
-void GPU_GLES::DeviceRestore() {
-	GPUCommonHW::DeviceRestore();
+void GPU_GLES::DeviceRestore(Draw::DrawContext *draw) {
+	GPUCommonHW::DeviceRestore(draw);
 
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);

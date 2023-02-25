@@ -211,7 +211,6 @@ public:
 	const std::list<int>& GetDisplayLists() override {
 		return dlQueue;
 	}
-	std::vector<FramebufferInfo> GetFramebufferList() const override;
 
 	s64 GetListTicks(int listid) const override {
 		if (listid >= 0 && listid < DisplayListMaxCount) {
@@ -227,7 +226,7 @@ public:
 
 protected:
 	void DeviceLost() override;
-	void DeviceRestore() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	void ClearCacheNextFrame() override {}
 
