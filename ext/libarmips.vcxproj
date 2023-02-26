@@ -395,7 +395,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>MinSpace</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -405,6 +405,8 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -416,7 +418,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>MinSpace</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -428,6 +430,7 @@
       <OmitFramePointers>false</OmitFramePointers>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -439,7 +442,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>MinSpace</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -451,6 +454,7 @@
       <OmitFramePointers>false</OmitFramePointers>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -462,7 +466,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>MinSpace</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -474,6 +478,7 @@
       <OmitFramePointers>false</OmitFramePointers>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

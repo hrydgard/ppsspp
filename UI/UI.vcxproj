@@ -302,6 +302,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

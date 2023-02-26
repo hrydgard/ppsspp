@@ -271,6 +271,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

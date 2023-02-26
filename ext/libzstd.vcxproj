@@ -313,6 +313,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <WholeProgramOptimization>false</WholeProgramOptimization>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
