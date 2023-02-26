@@ -12,12 +12,9 @@
 #endif
 
 #include <algorithm>
-#include <type_traits>
-#include <mutex>
 
 #include "Common/Profiler/Profiler.h"
 
-#include "Common/Data/Convert/ColorConv.h"
 #include "Common/GraphicsContext.h"
 #include "Common/LogReporting.h"
 #include "Common/Serialize/Serializer.h"
@@ -41,10 +38,8 @@
 #include "Core/HLE/sceGe.h"
 #include "Core/HW/Display.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Util/PPGeDraw.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
@@ -74,13 +69,6 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 
 	UpdateVsyncInterval(true);
 	ResetMatrices();
-
-	PPGeSetDrawContext(draw);
-}
-
-GPUCommon::~GPUCommon() {
-	// Probably not necessary.
-	PPGeSetDrawContext(nullptr);
 }
 
 void GPUCommon::BeginHostFrame() {
@@ -124,19 +112,6 @@ void GPUCommon::Reinitialize() {
 		textureCache_->Clear(true);
 	if (framebufferManager_)
 		framebufferManager_->DestroyAllFBOs();
-}
-
-// Call at the END of the GPU implementation's DeviceLost
-void GPUCommon::DeviceLost() {
-	framebufferManager_->DeviceLost();
-	draw_ = nullptr;
-}
-
-// Call at the start of the GPU implementation's DeviceRestore
-void GPUCommon::DeviceRestore(Draw::DrawContext *draw) {
-	draw_ = draw;
-	framebufferManager_->DeviceRestore(draw_);
-	PPGeSetDrawContext(draw_);
 }
 
 void GPUCommon::UpdateVsyncInterval(bool force) {
@@ -2052,47 +2027,4 @@ void GPUCommon::UpdateUVScaleOffset() {
 	gstate_c.uv.uOff = getFloat24(gstate.texoffsetu);
 	gstate_c.uv.vOff = getFloat24(gstate.texoffsetv);
 #endif
-}
-
-size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
-	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
-	return snprintf(buffer, size,
-		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
-		"Draw calls: %d, flushes %d, clears %d (cached: %d)\n"
-		"Num Tracked Vertex Arrays: %d\n"
-		"Vertices: %d cached: %d uncached: %d\n"
-		"FBOs active: %d (evaluations: %d)\n"
-		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
-		"readbacks %d (%d non-block), uploads %d, depal %d\n"
-		"Copies: depth %d, color %d, reint %d, blend %d, selftex %d\n"
-		"GPU cycles executed: %d (%f per vertex)\n",
-		gpuStats.msProcessingDisplayLists * 1000.0f,
-		gpuStats.numDrawSyncs,
-		gpuStats.numListSyncs,
-		gpuStats.numDrawCalls,
-		gpuStats.numFlushes,
-		gpuStats.numClears,
-		gpuStats.numCachedDrawCalls,
-		gpuStats.numTrackedVertexArrays,
-		gpuStats.numVertsSubmitted,
-		gpuStats.numCachedVertsDrawn,
-		gpuStats.numUncachedVertsDrawn,
-		(int)framebufferManager_->NumVFBs(),
-		gpuStats.numFramebufferEvaluations,
-		(int)textureCache_->NumLoadedTextures(),
-		gpuStats.numTexturesDecoded,
-		gpuStats.numTextureInvalidations,
-		gpuStats.numTextureDataBytesHashed / 1024,
-		gpuStats.numBlockingReadbacks,
-		gpuStats.numReadbacks,
-		gpuStats.numUploads,
-		gpuStats.numDepal,
-		gpuStats.numDepthCopies,
-		gpuStats.numColorCopies,
-		gpuStats.numReinterpretCopies,
-		gpuStats.numCopiesForShaderBlend,
-		gpuStats.numCopiesForSelfTex,
-		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
-		vertexAverageCycles
-	);
 }
