@@ -46,22 +46,20 @@ enum class DataFormat : uint8_t {
 	// Block compression formats.
 	// These are modern names for DXT and friends, now patent free.
 	// https://msdn.microsoft.com/en-us/library/bb694531.aspx
-	BC1_RGBA_UNORM_BLOCK,
-	BC1_RGBA_SRGB_BLOCK,
-	BC2_UNORM_BLOCK,  // 4-bit straight alpha + DXT1 color. Usually not worth using
-	BC2_SRGB_BLOCK,
-	BC3_UNORM_BLOCK,  // 3-bit alpha with 2 ref values (+ magic) + DXT1 color
-	BC3_SRGB_BLOCK,
-	BC4_UNORM_BLOCK,  // 1-channel, same storage as BC3 alpha
-	BC4_SNORM_BLOCK,
-	BC5_UNORM_BLOCK,  // 2-channel RG, each has same storage as BC3 alpha
-	BC5_SNORM_BLOCK,
-	BC6H_UFLOAT_BLOCK,  // TODO
-	BC6H_SFLOAT_BLOCK,
-	BC7_UNORM_BLOCK,    // Highly advanced, very expensive to compress, very good quality.
-	BC7_SRGB_BLOCK,
+	BC1_RGBA_UNORM_BLOCK,  // 64 bits per 4x4 block. Used by Basis, along with ETC2_R8G8B8_UNORM_BLOCK.
+	BC2_UNORM_BLOCK,  // 4-bit straight alpha + DXT1 color. 128 bits per block. Usually not worth using
+	BC3_UNORM_BLOCK,  // 3-bit alpha with 2 ref values (+ magic) + DXT1 color. 128 bits per block.
+	BC4_UNORM_BLOCK,  // 1-channel, same storage as BC3 alpha. 64 bits per block.
+	BC5_UNORM_BLOCK,  // 2-channel RG, each has same storage as BC3 alpha. 128 bits per block.
+	BC7_UNORM_BLOCK,  // Highly advanced RGBA, very expensive to compress, very good quality. 128 bits per block.
 
-	ETC1,
+	// Ericsson texture compression.
+	ETC2_R8G8B8_UNORM_BLOCK,  // Color-only, 64 bits per 4x4 block.
+	ETC2_R8G8B8A1_UNORM_BLOCK,  // Color + alpha, 128 bits per 4x4 block.
+	ETC2_R8G8B8A8_UNORM_BLOCK,  // Color + alpha, 128 bits per 4x4 block.
+
+	// This is the one ASTC format used by UASTC / basis Universal.
+	ASTC_4x4_UNORM_BLOCK,
 
 	S8,
 	D16,
@@ -76,6 +74,7 @@ bool DataFormatIsDepthStencil(DataFormat fmt);
 inline bool DataFormatIsColor(DataFormat fmt) {
 	return !DataFormatIsDepthStencil(fmt);
 }
+bool DataFormatIsBlockCompressed(DataFormat fmt, int *blockSize);
 
 // Limited format support for now.
 const char *DataFormatToString(DataFormat fmt);

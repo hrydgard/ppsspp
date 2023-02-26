@@ -44,6 +44,7 @@ enum class ReplacedTextureHash {
 enum class ReplacedImageType {
 	PNG,
 	ZIM,
+	DDS,
 	INVALID,
 };
 
@@ -59,8 +60,6 @@ struct ReplacedTextureLevel {
 	// TODO: This really belongs on the level in the cache, not in the individual ReplacedTextureLevel objects.
 	VFSFileReference *fileRef = nullptr;
 };
-
-ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::string *outMagic);
 
 enum class ReplacementState : uint32_t {
 	UNINITIALIZED,

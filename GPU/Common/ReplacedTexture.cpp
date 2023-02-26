@@ -31,6 +31,35 @@
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 
+#define MK_FOURCC(str) (str[0] | ((uint8_t)str[1] << 8) | ((uint8_t)str[2] << 16) | ((uint8_t)str[3] << 24))
+
+static ReplacedImageType IdentifyMagic(const uint8_t magic[4]) {
+	if (strncmp((const char *)magic, "ZIMG", 4) == 0)
+		return ReplacedImageType::ZIM;
+	if (magic[0] == 0x89 && strncmp((const char *)&magic[1], "PNG", 3) == 0)
+		return ReplacedImageType::PNG;
+	if (strncmp((const char *)magic, "DDS ", 4) == 0)
+		return ReplacedImageType::DDS;
+	return ReplacedImageType::INVALID;
+}
+
+static ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::string *outMagic) {
+	uint8_t magic[4];
+	if (vfs->Read(openFile, magic, 4) != 4) {
+		*outMagic = "FAIL";
+		return ReplacedImageType::INVALID;
+	}
+	// Turn the signature into a readable string that we can display in an error message.
+	*outMagic = std::string((const char *)magic, 4);
+	for (int i = 0; i < outMagic->size(); i++) {
+		if ((s8)(*outMagic)[i] < 32) {
+			(*outMagic)[i] = '_';
+		}
+	}
+	vfs->Rewind(openFile);
+	return IdentifyMagic(magic);
+}
+
 class ReplacedTextureTask : public Task {
 public:
 	ReplacedTextureTask(VFSBackend *vfs, ReplacedTexture &tex, LimitedWaitable *w) : vfs_(vfs), tex_(tex), waitable_(w) {}

@@ -491,7 +491,12 @@ static DXGI_FORMAT dataFormatToD3D11(DataFormat format) {
 	case DataFormat::D16: return DXGI_FORMAT_D16_UNORM;
 	case DataFormat::D32F: return DXGI_FORMAT_D32_FLOAT;
 	case DataFormat::D32F_S8: return DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
-	case DataFormat::ETC1:
+	case DataFormat::BC1_RGBA_UNORM_BLOCK: return DXGI_FORMAT_BC1_UNORM;
+	case DataFormat::BC2_UNORM_BLOCK: return DXGI_FORMAT_BC2_UNORM;
+	case DataFormat::BC3_UNORM_BLOCK: return DXGI_FORMAT_BC3_UNORM;
+	case DataFormat::BC4_UNORM_BLOCK: return DXGI_FORMAT_BC4_UNORM;
+	case DataFormat::BC5_UNORM_BLOCK: return DXGI_FORMAT_BC5_UNORM;
+	case DataFormat::BC7_UNORM_BLOCK: return DXGI_FORMAT_BC7_UNORM;
 	default:
 		return DXGI_FORMAT_UNKNOWN;
 	}

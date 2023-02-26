@@ -272,6 +272,7 @@
     <ClInclude Include="..\..\Common\BitScan.h" />
     <ClInclude Include="..\..\Common\BitSet.h" />
     <ClInclude Include="..\..\Common\Buffer.h" />
+    <ClInclude Include="..\..\Common\Data\Format\DDSLoad.h" />
     <ClInclude Include="..\..\Common\File\AndroidStorage.h" />
     <ClInclude Include="..\..\Common\GPU\Vulkan\VulkanLoader.h" />
     <ClInclude Include="..\..\Common\Math\Statistics.h" />
@@ -418,6 +419,7 @@
     <ClCompile Include="..\..\Common\ArmCPUDetect.cpp" />
     <ClCompile Include="..\..\Common\ArmEmitter.cpp" />
     <ClCompile Include="..\..\Common\Buffer.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\DDSLoad.cpp" />
     <ClCompile Include="..\..\Common\File\AndroidStorage.cpp" />
     <ClCompile Include="..\..\Common\GPU\Vulkan\VulkanLoader.cpp" />
     <ClCompile Include="..\..\Common\Math\Statistics.cpp" />

@@ -405,6 +405,7 @@
     <ClInclude Include="Data\Encoding\Shiftjis.h" />
     <ClInclude Include="Data\Encoding\Utf16.h" />
     <ClInclude Include="Data\Encoding\Utf8.h" />
+    <ClInclude Include="Data\Format\DDSLoad.h" />
     <ClInclude Include="Data\Format\IniFile.h" />
     <ClInclude Include="Data\Format\JSONReader.h" />
     <ClInclude Include="Data\Format\JSONWriter.h" />
@@ -844,6 +845,7 @@
     <ClCompile Include="Data\Encoding\Base64.cpp" />
     <ClCompile Include="Data\Encoding\Compression.cpp" />
     <ClCompile Include="Data\Encoding\Utf8.cpp" />
+    <ClCompile Include="Data\Format\DDSLoad.cpp" />
     <ClCompile Include="Data\Format\IniFile.cpp" />
     <ClCompile Include="Data\Format\JSONReader.cpp" />
     <ClCompile Include="Data\Format\JSONWriter.cpp" />
