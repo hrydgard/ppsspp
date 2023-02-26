@@ -58,7 +58,7 @@ void LibretroHWRenderContext::ContextReset() {
 	GotBackbuffer();
 
 	if (gpu) {
-		gpu->DeviceRestore();
+		gpu->DeviceRestore(draw_);
 	}
 }
 

@@ -46,15 +46,13 @@ public:
 	TextureCacheD3D11(Draw::DrawContext *draw, Draw2D *draw2D);
 	~TextureCacheD3D11();
 
-	void StartFrame() override;
-
 	void SetFramebufferManager(FramebufferManagerD3D11 *fbManager);
 
 	void ForgetLastTexture() override;
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 
-	void DeviceLost() override {}
+	void DeviceLost() override { draw_ = nullptr; }
 	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
 
 protected:

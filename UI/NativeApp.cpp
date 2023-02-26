@@ -914,7 +914,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	g_gameInfoCache = new GameInfoCache();
 
 	if (gpu) {
-		gpu->DeviceRestore();
+		gpu->DeviceRestore(g_draw);
 	}
 
 	INFO_LOG(SYSTEM, "NativeInitGraphics completed");

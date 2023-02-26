@@ -138,6 +138,7 @@ public:
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void CopyDisplayToOutput(bool reallyDirty) override;
 	void GetStats(char *buffer, size_t bufsize) override;
+	std::vector<FramebufferInfo> GetFramebufferList() const override { return std::vector<FramebufferInfo>(); }
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
 	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format) override;
 	bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) override;
@@ -147,7 +148,7 @@ public:
 	bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) override;
 
 	void DeviceLost() override;
-	void DeviceRestore() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	void NotifyRenderResized() override;
 	void NotifyDisplayResized() override;

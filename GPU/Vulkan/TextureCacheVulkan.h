@@ -59,8 +59,8 @@ public:
 
 	void StartFrame() override;
 
-	void DeviceLost();
-	void DeviceRestore(Draw::DrawContext *draw);
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	void SetFramebufferManager(FramebufferManagerVulkan *fbManager);
 	void SetDrawEngine(DrawEngineVulkan *td) {

@@ -36,6 +36,9 @@ public:
 
 	u32 CheckGPUFeatures() const override;
 
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
+
 	void ReapplyGfxState() override;
 	void GetStats(char *buffer, size_t bufsize) override;
 

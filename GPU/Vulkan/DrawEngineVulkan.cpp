@@ -287,7 +287,6 @@ void DrawEngineVulkan::DeviceLost() {
 
 void DrawEngineVulkan::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
-
 	InitDeviceObjects();
 }
 

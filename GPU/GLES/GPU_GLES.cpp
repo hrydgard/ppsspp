@@ -239,21 +239,15 @@ void GPU_GLES::DeviceLost() {
 	// TransformDraw has registered as a GfxResourceHolder.
 	CancelReady();
 	fragmentTestCache_.DeviceLost();
-	drawEngine_.DeviceLost();
 
 	GPUCommonHW::DeviceLost();
 }
 
-void GPU_GLES::DeviceRestore() {
-	GPUCommonHW::DeviceRestore();
+void GPU_GLES::DeviceRestore(Draw::DrawContext *draw) {
+	GPUCommonHW::DeviceRestore(draw);
 
-	UpdateCmdInfo();
-	UpdateVsyncInterval(true);
-
-	shaderManager_->DeviceRestore(draw_);
-	textureCache_->DeviceRestore(draw_);
-	drawEngine_.DeviceRestore(draw_);
 	fragmentTestCache_.DeviceRestore(draw_);
+	UpdateVsyncInterval(true);
 }
 
 void GPU_GLES::BeginHostFrame() {

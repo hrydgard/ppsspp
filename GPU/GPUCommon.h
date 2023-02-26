@@ -70,7 +70,6 @@ struct TransformedVertex {
 class GPUCommon : public GPUInterface, public GPUDebugInterface {
 public:
 	GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
-	~GPUCommon();
 
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
@@ -211,7 +210,6 @@ public:
 	const std::list<int>& GetDisplayLists() override {
 		return dlQueue;
 	}
-	std::vector<FramebufferInfo> GetFramebufferList() const override;
 
 	s64 GetListTicks(int listid) const override {
 		if (listid >= 0 && listid < DisplayListMaxCount) {
@@ -226,9 +224,6 @@ public:
 	}
 
 protected:
-	void DeviceLost() override;
-	void DeviceRestore() override;
-
 	void ClearCacheNextFrame() override {}
 
 	virtual void CheckRenderResized() {}
@@ -275,8 +270,6 @@ protected:
 			gstate_c.vertexAddr += bytesRead;
 		}
 	}
-
-	size_t FormatGPUStatsCommon(char *buf, size_t size);
 
 	virtual void BuildReportingInfo() = 0;
 

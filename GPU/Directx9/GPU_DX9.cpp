@@ -105,6 +105,14 @@ u32 GPU_DX9::CheckGPUFeatures() const {
 	return CheckGPUFeaturesLate(features);
 }
 
+void GPU_DX9::DeviceLost() {
+	GPUCommonHW::DeviceLost();
+}
+
+void GPU_DX9::DeviceRestore(Draw::DrawContext *draw) {
+	GPUCommonHW::DeviceRestore(draw);
+}
+
 void GPU_DX9::ReapplyGfxState() {
 	dxstate.Restore();
 	GPUCommonHW::ReapplyGfxState();

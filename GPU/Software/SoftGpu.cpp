@@ -454,6 +454,8 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	NotifyConfigChanged();
 	NotifyRenderResized();
 	NotifyDisplayResized();
+
+	PPGeSetDrawContext(draw);
 }
 
 void SoftGPU::DeviceLost() {
@@ -466,9 +468,8 @@ void SoftGPU::DeviceLost() {
 	}
 }
 
-void SoftGPU::DeviceRestore() {
-	if (PSP_CoreParameter().graphicsContext)
-		draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
+void SoftGPU::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
 	if (presentation_)
 		presentation_->DeviceRestore(draw_);
 	PPGeSetDrawContext(draw_);

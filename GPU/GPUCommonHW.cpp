@@ -6,6 +6,7 @@
 
 #include "Core/System.h"
 #include "Core/Config.h"
+#include "Core/Util/PPGeDraw.h"
 
 #include "GPU/GPUCommonHW.h"
 #include "GPU/Common/SplineCommon.h"
@@ -386,6 +387,8 @@ GPUCommonHW::GPUCommonHW(GraphicsContext *gfxCtx, Draw::DrawContext *draw) : GPU
 
 	UpdateCmdInfo();
 	UpdateMSAALevel(draw);
+
+	PPGeSetDrawContext(draw);
 }
 
 GPUCommonHW::~GPUCommonHW() {
@@ -407,11 +410,29 @@ void GPUCommonHW::CheckRenderResized() {
 	}
 }
 
+// Call at the END of the GPU implementation's DeviceLost
 void GPUCommonHW::DeviceLost() {
-	textureCache_->Clear(false);
 	framebufferManager_->DeviceLost();
+	draw_ = nullptr;
+	textureCache_->Clear(false);
 	textureCache_->DeviceLost();
 	shaderManager_->DeviceLost();
+	drawEngineCommon_->DeviceLost();
+}
+
+// Call at the start of the GPU implementation's DeviceRestore
+void GPUCommonHW::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
+	framebufferManager_->DeviceRestore(draw_);
+	textureCache_->DeviceRestore(draw_);
+	shaderManager_->DeviceRestore(draw_);
+	drawEngineCommon_->DeviceRestore(draw_);
+
+	PPGeSetDrawContext(draw_);
+
+	gstate_c.SetUseFlags(CheckGPUFeatures());
+	BuildReportingInfo();
+	UpdateCmdInfo();
 }
 
 void GPUCommonHW::UpdateCmdInfo() {
@@ -676,6 +697,10 @@ bool GPUCommonHW::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	// framebufferManager_ can be null here when taking screens in software rendering mode.
 	// TODO: Actually grab the framebuffer anyway.
 	return framebufferManager_ ? framebufferManager_->GetOutputFramebuffer(buffer) : false;
+}
+
+std::vector<FramebufferInfo> GPUCommonHW::GetFramebufferList() const {
+	return framebufferManager_->GetFramebufferList();
 }
 
 bool GPUCommonHW::GetCurrentClut(GPUDebugBuffer &buffer) {
@@ -1594,4 +1619,47 @@ void GPUCommonHW::Execute_BoneMtxData(u32 op, u32 diff) {
 	num++;
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 	gstate.boneMatrixData = GE_CMD_BONEMATRIXDATA << 24;
+}
+
+size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
+	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
+	return snprintf(buffer, size,
+		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
+		"Draw calls: %d, flushes %d, clears %d (cached: %d)\n"
+		"Num Tracked Vertex Arrays: %d\n"
+		"Vertices: %d cached: %d uncached: %d\n"
+		"FBOs active: %d (evaluations: %d)\n"
+		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
+		"readbacks %d (%d non-block), uploads %d, depal %d\n"
+		"Copies: depth %d, color %d, reint %d, blend %d, selftex %d\n"
+		"GPU cycles executed: %d (%f per vertex)\n",
+		gpuStats.msProcessingDisplayLists * 1000.0f,
+		gpuStats.numDrawSyncs,
+		gpuStats.numListSyncs,
+		gpuStats.numDrawCalls,
+		gpuStats.numFlushes,
+		gpuStats.numClears,
+		gpuStats.numCachedDrawCalls,
+		gpuStats.numTrackedVertexArrays,
+		gpuStats.numVertsSubmitted,
+		gpuStats.numCachedVertsDrawn,
+		gpuStats.numUncachedVertsDrawn,
+		(int)framebufferManager_->NumVFBs(),
+		gpuStats.numFramebufferEvaluations,
+		(int)textureCache_->NumLoadedTextures(),
+		gpuStats.numTexturesDecoded,
+		gpuStats.numTextureInvalidations,
+		gpuStats.numTextureDataBytesHashed / 1024,
+		gpuStats.numBlockingReadbacks,
+		gpuStats.numReadbacks,
+		gpuStats.numUploads,
+		gpuStats.numDepal,
+		gpuStats.numDepthCopies,
+		gpuStats.numColorCopies,
+		gpuStats.numReinterpretCopies,
+		gpuStats.numCopiesForShaderBlend,
+		gpuStats.numCopiesForSelfTex,
+		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
+		vertexAverageCycles
+	);
 }

@@ -46,7 +46,7 @@ public:
 	void GetStats(char *buffer, size_t bufsize) override;
 
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
-	void DeviceRestore() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	void BeginHostFrame() override;
 	void EndHostFrame() override;

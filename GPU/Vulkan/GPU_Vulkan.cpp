@@ -454,25 +454,18 @@ void GPU_Vulkan::DeviceLost() {
 		SaveCache(shaderCachePath_);
 	}
 	DestroyDeviceObjects();
-	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();
 
 	GPUCommonHW::DeviceLost();
 }
 
-void GPU_Vulkan::DeviceRestore() {
-	GPUCommonHW::DeviceRestore();
-	InitDeviceObjects();
-
-	gstate_c.SetUseFlags(CheckGPUFeatures());
-	BuildReportingInfo();
-	UpdateCmdInfo();
+void GPU_Vulkan::DeviceRestore(Draw::DrawContext *draw) {
+	GPUCommonHW::DeviceRestore(draw);
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-	drawEngine_.DeviceRestore(draw_);
 	pipelineManager_->DeviceRestore(vulkan);
-	textureCacheVulkan_->DeviceRestore(draw_);
-	shaderManagerVulkan_->DeviceRestore(draw_);
+
+	InitDeviceObjects();
 }
 
 void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {

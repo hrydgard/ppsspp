@@ -119,6 +119,9 @@ public:
 	DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context);
 	~DrawEngineD3D11();
 
+	void DeviceLost() override { draw_ = nullptr;  }
+	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
+
 	void SetShaderManager(ShaderManagerD3D11 *shaderManager) {
 		shaderManager_ = shaderManager;
 	}

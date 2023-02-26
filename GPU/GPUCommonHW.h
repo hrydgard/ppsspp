@@ -12,6 +12,7 @@ public:
 	void CopyDisplayToOutput(bool reallyDirty) override;
 	void DoState(PointerWrap &p) override;
 	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	void BeginFrame() override;
 
@@ -22,6 +23,7 @@ public:
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
+	std::vector<FramebufferInfo> GetFramebufferList() const override;
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
 
@@ -68,6 +70,7 @@ private:
 	void CheckFlushOp(int cmd, u32 diff);
 
 protected:
+	size_t FormatGPUStatsCommon(char *buf, size_t size);
 	void UpdateCmdInfo() override;
 
 	void PreExecuteOp(u32 op, u32 diff) override;
