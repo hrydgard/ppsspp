@@ -387,8 +387,6 @@ GPUCommonHW::GPUCommonHW(GraphicsContext *gfxCtx, Draw::DrawContext *draw) : GPU
 
 	UpdateCmdInfo();
 	UpdateMSAALevel(draw);
-
-	PPGeSetDrawContext(draw);
 }
 
 GPUCommonHW::~GPUCommonHW() {

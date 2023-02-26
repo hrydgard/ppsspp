@@ -438,8 +438,8 @@ void GPU_Vulkan::DestroyDeviceObjects() {
 }
 
 void GPU_Vulkan::CheckRenderResized() {
-	GPUCommonHW::CheckRenderResized();
 	if (renderResized_) {
+		GPUCommonHW::CheckRenderResized();
 		pipelineManager_->InvalidateMSAAPipelines();
 		framebufferManager_->ReleasePipelines();
 	}

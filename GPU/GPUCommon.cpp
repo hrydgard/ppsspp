@@ -37,6 +37,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceGe.h"
 #include "Core/HW/Display.h"
+#include "Core/Util/PPGeDraw.h"
 #include "Core/MemMapHelpers.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -68,6 +69,7 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	gpuStats.Reset();
 
 	UpdateVsyncInterval(true);
+	PPGeSetDrawContext(draw);
 	ResetMatrices();
 }
 

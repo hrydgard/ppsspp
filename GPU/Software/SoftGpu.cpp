@@ -454,8 +454,6 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	NotifyConfigChanged();
 	NotifyRenderResized();
 	NotifyDisplayResized();
-
-	PPGeSetDrawContext(draw);
 }
 
 void SoftGPU::DeviceLost() {
