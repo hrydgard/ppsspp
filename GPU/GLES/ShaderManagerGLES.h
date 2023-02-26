@@ -182,8 +182,8 @@ public:
 	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }
 	int GetNumPrograms() const { return (int)linkedShaderCache_.size(); }
 
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
-	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) override;
+	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) override;
 
 	bool LoadCacheFlags(File::IOFile &f, DrawEngineGLES *drawEngine);
 	bool LoadCache(File::IOFile &f);
