@@ -89,7 +89,7 @@ public:
 	void ClearShaders() override;
 	void DirtyLastShader() override;
 
-	void DeviceLost() override {}
+	void DeviceLost() override { draw_ = nullptr; }
 	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
 	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
 	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }

@@ -42,7 +42,7 @@ public:
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 
-	void DeviceLost() override {}
+	void DeviceLost() override { draw_ = nullptr; }
 	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
 
 protected:

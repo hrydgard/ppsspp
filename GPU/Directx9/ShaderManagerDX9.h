@@ -85,7 +85,7 @@ public:
 	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
 	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }
 
-	void DeviceLost() override {}
+	void DeviceLost() override { draw_ = nullptr; }
 	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
 
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);

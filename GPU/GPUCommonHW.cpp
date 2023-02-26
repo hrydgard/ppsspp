@@ -417,13 +417,22 @@ void GPUCommonHW::DeviceLost() {
 	textureCache_->Clear(false);
 	textureCache_->DeviceLost();
 	shaderManager_->DeviceLost();
+	drawEngineCommon_->DeviceLost();
 }
 
 // Call at the start of the GPU implementation's DeviceRestore
 void GPUCommonHW::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 	framebufferManager_->DeviceRestore(draw_);
+	textureCache_->DeviceRestore(draw_);
+	shaderManager_->DeviceRestore(draw_);
+	drawEngineCommon_->DeviceRestore(draw_);
+
 	PPGeSetDrawContext(draw_);
+
+	gstate_c.SetUseFlags(CheckGPUFeatures());
+	BuildReportingInfo();
+	UpdateCmdInfo();
 }
 
 void GPUCommonHW::UpdateCmdInfo() {
