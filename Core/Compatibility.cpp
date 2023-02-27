@@ -127,6 +127,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "RockmanDash2SoundFix", &flags_.RockmanDash2SoundFix);
 	CheckSetting(iniFile, gameID, "ReadbackDepth", &flags_.ReadbackDepth);
 	CheckSetting(iniFile, gameID, "BlockTransferDepth", &flags_.BlockTransferDepth);
+	CheckSetting(iniFile, gameID, "DaxterRotatedAnalogStick", &flags_.DaxterRotatedAnalogStick);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {
