@@ -1,3 +1,5 @@
+#include <cstdio>
+
 #include "Common/System/Display.h"
 #include "Common/Math/math_util.h"
 
@@ -45,4 +47,22 @@ void RotateRectToDisplay(DisplayRect<int> &rect, int curRTWidth, int curRTHeight
 
 void RotateRectToDisplay(DisplayRect<float> &rect, float curRTWidth, float curRTHeight) {
 	RotateRectToDisplayImpl<float>(rect, curRTWidth, curRTHeight);
+}
+
+DisplayProperties::DisplayProperties() {
+	rot_matrix.setIdentity();
+}
+
+void DisplayProperties::Print() {
+	printf("dp_xres/yres: %d, %d\n", dp_xres, dp_yres);
+	printf("pixel_xres/yres: %d, %d\n", pixel_xres, pixel_yres);
+
+	printf("dpi, x, y: %f, %f, %f\n", dpi, dpi_scale_x, dpi_scale_y);
+	printf("pixel_in_dps: %f, %f\n", pixel_in_dps_x, pixel_in_dps_y);
+
+	printf("dpi_real: %f, %f\n", dpi_scale_real_x, dpi_scale_real_y);
+	printf("display_hz: %f\n", display_hz);
+
+	printf("rotation: %d\n", rotation);
+	rot_matrix.print();
 }
