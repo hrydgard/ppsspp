@@ -33,6 +33,11 @@
 
 #include "ext/vulkan/vulkan.h"
 
+// Hacky X11 header workaround
+#ifdef Opposite
+#undef Opposite
+#endif
+
 namespace PPSSPP_VK {
 // Putting our own Vulkan function pointers in a namespace ensures that ppsspp_libretro.so doesn't collide with libvulkan.so.
 extern PFN_vkCreateInstance vkCreateInstance;
