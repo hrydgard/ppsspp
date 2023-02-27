@@ -118,7 +118,7 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	void GetShaders(int prim, VertexDecoder *decoder, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
-	void ClearShaders();
+	void ClearShaders() override;
 	void DirtyShader();
 	void DirtyLastShader() override;
 
@@ -134,8 +134,8 @@ public:
 	VulkanFragmentShader *GetFragmentShaderFromModule(VkShaderModule module);
 	VulkanGeometryShader *GetGeometryShaderFromModule(VkShaderModule module);
 
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
-	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) override;
+	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) override;
 
 	uint64_t UpdateUniforms(bool useBufferedRendering);
 

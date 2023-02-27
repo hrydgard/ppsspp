@@ -88,8 +88,8 @@ public:
 	void DeviceLost() override { draw_ = nullptr; }
 	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
 
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
-	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) override;
+	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) override;
 
 private:
 	void PSUpdateUniforms(u64 dirtyUniforms);
