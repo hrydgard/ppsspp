@@ -751,9 +751,7 @@ int main(int argc, char *argv[]) {
 	g_display.dpi_scale_y = g_display.dp_yres / (float)g_display.pixel_yres;
 	g_display.dpi_scale_real_x = g_display.dpi_scale_x;
 	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
-
-	printf("Pixels: %i x %i\n", g_display.pixel_xres, g_display.pixel_yres);
-	printf("Virtual pixels: %i x %i\n", g_display.dp_xres, g_display.dp_yres);
+	g_display.Print();
 
 	GraphicsContext *graphicsContext = nullptr;
 	SDL_Window *window = nullptr;

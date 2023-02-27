@@ -36,6 +36,9 @@ struct DisplayProperties {
 
 	DisplayRotation rotation;
 	Lin::Matrix4x4 rot_matrix;
+
+	DisplayProperties();
+	void Print();
 };
 
 extern DisplayProperties g_display;
