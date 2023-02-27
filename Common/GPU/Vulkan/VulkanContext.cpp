@@ -535,7 +535,7 @@ int VulkanContext::GetBestPhysicalDevice() {
 
 void VulkanContext::ChooseDevice(int physical_device) {
 	physical_device_ = physical_device;
-	INFO_LOG(G3D, "Chose physical device %d: %p", physical_device, physical_devices_[physical_device]);
+	INFO_LOG(G3D, "Chose physical device %d: %s", physical_device, physicalDeviceProperties_[physical_device].properties.deviceName);
 
 	GetDeviceLayerProperties();
 	if (!CheckLayers(device_layer_properties_, device_layer_names_)) {
@@ -711,7 +711,7 @@ VkResult VulkanContext::CreateDevice() {
 	} else {
 		VulkanLoadDeviceFunctions(device_, extensionsLookup_);
 	}
-	INFO_LOG(G3D, "Vulkan Device created");
+	INFO_LOG(G3D, "Vulkan Device created: %s", physicalDeviceProperties_[physical_device_].properties.deviceName);
 	VulkanSetAvailable(true);
 
 	VmaAllocatorCreateInfo allocatorInfo = {};

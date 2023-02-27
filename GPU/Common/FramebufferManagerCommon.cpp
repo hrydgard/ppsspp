@@ -1384,6 +1384,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 		1,
 		1,
 		false,
+		Draw::TextureSwizzle::DEFAULT,
 		"DrawPixels",
 		{ (uint8_t *)srcPixels },
 		generateTexture,

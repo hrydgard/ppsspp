@@ -470,6 +470,7 @@ bool VulkanMayBeAvailable() {
 		case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
 		case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
 			anyGood = true;
+			INFO_LOG(G3D, "VulkanMayBeAvailable: Eligible device found: '%s'", props.deviceName);
 			break;
 		default:
 			INFO_LOG(G3D, "VulkanMayBeAvailable: Ineligible device found and ignored: '%s'", props.deviceName);
