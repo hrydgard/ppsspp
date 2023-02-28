@@ -98,6 +98,7 @@ struct CompatFlags {
 	bool RockmanDash2SoundFix;
 	bool ReadbackDepth;
 	bool BlockTransferDepth;
+	bool DaxterRotatedAnalogStick;
 };
 
 struct VRCompat {
