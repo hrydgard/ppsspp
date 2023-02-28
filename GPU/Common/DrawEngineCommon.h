@@ -117,7 +117,9 @@ public:
 	}
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
-		return decJitCache_->IsInSpace(ptr);
+		if (decJitCache_)
+			return decJitCache_->IsInSpace(ptr);
+		return false;
 	}
 	int GetNumDrawCalls() const {
 		return numDrawCalls;

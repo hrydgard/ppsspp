@@ -38,9 +38,6 @@ public:
 		dst_ = new u8[BUFFER_SIZE];
 		cache_ = new VertexDecoderJitCache();
 
-		g_Config.bVertexDecoderJit = true;
-		// Required for jit to be enabled.
-		g_Config.iCpuCore = (int)CPUCore::JIT;
 		gstate_c.uv.uScale = 1.0f;
 		gstate_c.uv.vScale = 1.0f;
 	}
