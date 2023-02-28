@@ -598,18 +598,23 @@
     </None>
     <None Include="Content\debugger\static\css\*.css">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\debugger\static\css\%(Filename)%(Extension)</Link>
     </None>
     <None Include="Content\debugger\static\css\*.map">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\debugger\static\css\%(Filename)%(Extension)</Link>
     </None>
     <None Include="Content\debugger\static\js\*.js">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\debugger\static\js\%(Filename)%(Extension)</Link>
     </None>
     <None Include="Content\debugger\static\js\*.map">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\debugger\static\js\%(Filename)%(Extension)</Link>
     </None>
     <None Include="Content\debugger\static\media\*.svg">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\debugger\static\media\%(Filename)%(Extension)</Link>
     </None>
     <None Include="Content\ppge_atlas.meta">
       <DeploymentContent>true</DeploymentContent>
@@ -981,6 +986,7 @@
   <ItemGroup>
     <Text Include="Content\debugger\static\js\*.txt">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\debugger\static\js\%(Filename)%(Extension)</Link>
     </Text>
     <Text Include="Content\gamecontrollerdb.txt">
       <DeploymentContent>true</DeploymentContent>
