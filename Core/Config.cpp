@@ -1589,15 +1589,16 @@ void Config::PostLoadCleanup(bool gameSpecific) {
 
 void Config::PreSaveCleanup(bool gameSpecific) {
 	if (jitForcedOff) {
-		// if JIT has been forced off, we don't want to screw up the user's ppsspp.ini
-		g_Config.iCpuCore = (int)CPUCore::JIT;
+		// If we forced jit off and it's still set to IR, change it back to jit.
+		if (g_Config.iCpuCore == (int)CPUCore::IR_JIT)
+			g_Config.iCpuCore = (int)CPUCore::JIT;
 	}
 }
 
 void Config::PostSaveCleanup(bool gameSpecific) {
 	if (jitForcedOff) {
-		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
-		if (g_Config.iCpuCore != (int)CPUCore::INTERPRETER)
+		// Force JIT off again just in case Config::Save() is called without exiting PPSSPP.
+		if (g_Config.iCpuCore == (int)CPUCore::JIT)
 			g_Config.iCpuCore = (int)CPUCore::IR_JIT;
 	}
 }
