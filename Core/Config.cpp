@@ -1603,6 +1603,13 @@ void Config::PostSaveCleanup(bool gameSpecific) {
 	}
 }
 
+void Config::NotifyUpdatedCpuCore() {
+	if (jitForcedOff && g_Config.iCpuCore == (int)CPUCore::IR_JIT) {
+		// No longer forced off, the user set it to IR jit.
+		jitForcedOff = false;
+	}
+}
+
 // Use for debugging the version check without messing with the server
 #if 0
 #define PPSSPP_GIT_VERSION "v0.0.1-gaaaaaaaaa"
