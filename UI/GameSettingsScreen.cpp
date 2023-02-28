@@ -1774,6 +1774,10 @@ void DeveloperToolsScreen::CreateViews() {
 	static const char *cpuCores[] = {"Interpreter", "Dynarec (JIT)", "IR Interpreter"};
 	PopupMultiChoice *core = list->Add(new PopupMultiChoice(&g_Config.iCpuCore, gr->T("CPU Core"), cpuCores, 0, ARRAY_SIZE(cpuCores), sy->GetName(), screenManager()));
 	core->OnChoice.Handle(this, &DeveloperToolsScreen::OnJitAffectingSetting);
+	core->OnChoice.Add([](UI::EventParams &) {
+		g_Config.NotifyUpdatedCpuCore();
+		return UI::EVENT_DONE;
+	});
 	if (!canUseJit) {
 		core->HideChoice(1);
 	}

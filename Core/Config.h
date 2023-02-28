@@ -568,6 +568,8 @@ public:
 	bool LoadAppendedConfig();
 	void SetAppendedConfigIni(const Path &path);
 
+	void NotifyUpdatedCpuCore();
+
 protected:
 	void LoadStandardControllerIni();
 	void LoadLangValuesMapping();
