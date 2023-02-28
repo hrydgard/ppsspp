@@ -310,6 +310,7 @@ static void VulkanFreeLibrary(VulkanLibraryHandle &h) {
 }
 
 void VulkanSetAvailable(bool available) {
+	INFO_LOG(G3D, "Forcing Vulkan availability to true");
 	g_vulkanAvailabilityChecked = true;
 	g_vulkanMayBeAvailable = available;
 }
@@ -495,8 +496,9 @@ bail:
 	}
 	if (lib) {
 		VulkanFreeLibrary(lib);
-	} else {
-		ERROR_LOG(G3D, "Vulkan with working device not detected.");
+	}
+	if (!g_vulkanMayBeAvailable) {
+		WARN_LOG(G3D, "Vulkan with working device not detected.");
 	}
 	return g_vulkanMayBeAvailable;
 }
