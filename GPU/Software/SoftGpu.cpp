@@ -670,6 +670,9 @@ void SoftGPU::MarkDirty(uint32_t addr, uint32_t bytes, SoftGPUVRAMDirty value) {
 
 	uint32_t start = ((addr - PSP_GetVidMemBase()) & 0x001FFFFF) >> 10;
 	uint32_t end = start + ((bytes + 1023) >> 10);
+	if (end > sizeof(vramDirty_)) {
+		end = sizeof(vramDirty_);
+	}
 	if (value == SoftGPUVRAMDirty::CLEAR || value == (SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY)) {
 		memset(vramDirty_ + start, (uint8_t)value, end - start);
 	} else {
