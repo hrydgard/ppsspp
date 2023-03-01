@@ -1247,10 +1247,17 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
-			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags, layer);
+
+			bool partial = false;
+			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags, layer, &partial);
 			RebindFramebuffer("After BindFramebufferAsColorTexture");
 			draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, layer);
-			currentFramebufferCopy_ = renderCopy;
+
+			// Only cache the copy if it wasn't a partial copy.
+			// TODO: Improve on this.
+			if (!partial) {
+				currentFramebufferCopy_ = renderCopy;
+			}
 			gpuStats.numCopiesForSelfTex++;
 		} else {
 			// Failed to get temp FBO? Weird.
@@ -1273,14 +1280,17 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 	}
 }
 
-void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags, int layer) {
+void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags, int layer, bool *partial) {
 	int x = 0;
 	int y = 0;
 	int w = src->drawnWidth;
 	int h = src->drawnHeight;
 
+	*partial = false;
+
 	// If max is not > min, we probably could not detect it.  Skip.
 	// See the vertex decoder, where this is updated.
+	// TODO: We're currently not hitting this path in Dante. See #17032
 	if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) == BINDFBCOLOR_MAY_COPY_WITH_UV && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
 		x = std::max(gstate_c.vertBounds.minU, (u16)0);
 		y = std::max(gstate_c.vertBounds.minV, (u16)0);
@@ -1298,6 +1308,9 @@ void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer
 	}
 
 	if (x < src->drawnWidth && y < src->drawnHeight && w > 0 && h > 0) {
+		if (x != 0 || y != 0 || w < src->drawnWidth || h < src->drawnHeight) {
+			*partial = true;
+		}
 		BlitFramebuffer(dst, x, y, src, x, y, w, h, 0, RASTER_COLOR, "CopyFBForColorTexture");
 	}
 }
