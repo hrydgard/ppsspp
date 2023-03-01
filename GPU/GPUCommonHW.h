@@ -60,6 +60,8 @@ public:
 	void Execute_BoneMtxNum(u32 op, u32 diff);
 	void Execute_BoneMtxData(u32 op, u32 diff);
 
+	void Execute_TexFlush(u32 op, u32 diff);
+
 	typedef void (GPUCommonHW::*CmdFunc)(u32 op, u32 diff);
 
 	void FastRunLoop(DisplayList &list) override;

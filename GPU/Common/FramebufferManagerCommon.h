@@ -466,6 +466,10 @@ public:
 		return msaaLevel_;
 	}
 
+	void DiscardFramebufferCopy() {
+		currentFramebufferCopy_ = nullptr;
+	}
+
 protected:
 	virtual void ReadbackFramebuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);
 	// Used for when a shader is required, such as GLES.
@@ -551,6 +555,8 @@ protected:
 	int frameLastFramebufUsed_ = 0;
 
 	VirtualFramebuffer *currentRenderVfb_ = nullptr;
+
+	Draw::Framebuffer *currentFramebufferCopy_ = nullptr;
 
 	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
 	u32 framebufRangeEnd_ = 0;

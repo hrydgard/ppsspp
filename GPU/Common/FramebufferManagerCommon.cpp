@@ -546,6 +546,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 			// TODO: Is it worth trying to upload the depth buffer (only if it wasn't copied above..?)
 		}
 
+		DiscardFramebufferCopy();
+
 		// We already have it!
 	} else if (vfb != currentRenderVfb_) {
 		// Use it as a render target.
@@ -562,6 +564,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		NotifyRenderFramebufferSwitched(prev, vfb, params.isClearingDepth);
 		CopyToColorFromOverlappingFramebuffers(vfb);
 		gstate_c.usingDepth = false;  // reset depth buffer tracking
+
+		DiscardFramebufferCopy();
 	} else {
 		// Something changed, but we still got the same framebuffer we were already rendering to.
 		// Might not be a lot to do here, we check in NotifyRenderFramebufferUpdated
@@ -1233,6 +1237,12 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 		// Self-texturing, need a copy currently (some backends can potentially support it though).
 		WARN_LOG_ONCE(selfTextureCopy, G3D, "Attempting to texture from current render target (src=%08x / target=%08x / flags=%d), making a copy", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
+		if (currentFramebufferCopy_) {
+			// We have a copy already that hasn't been invalidated, let's keep using it.
+			draw_->BindFramebufferAsTexture(currentFramebufferCopy_, stage, Draw::FB_COLOR_BIT, layer);
+			return true;
+		}
+
 		Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight);
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;
@@ -1240,6 +1250,7 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags, layer);
 			RebindFramebuffer("After BindFramebufferAsColorTexture");
 			draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, layer);
+			currentFramebufferCopy_ = renderCopy;
 			gpuStats.numCopiesForSelfTex++;
 		} else {
 			// Failed to get temp FBO? Weird.
