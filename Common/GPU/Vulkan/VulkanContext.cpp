@@ -712,6 +712,8 @@ VkResult VulkanContext::CreateDevice() {
 		VulkanLoadDeviceFunctions(device_, extensionsLookup_);
 	}
 	INFO_LOG(G3D, "Vulkan Device created: %s", physicalDeviceProperties_[physical_device_].properties.deviceName);
+
+	// Since we successfully created a device (however we got here, might be interesting in debug), we force the choice to be visible in the menu.
 	VulkanSetAvailable(true);
 
 	VmaAllocatorCreateInfo allocatorInfo = {};

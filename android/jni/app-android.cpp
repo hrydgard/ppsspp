@@ -73,6 +73,7 @@ struct JNIEnv {};
 #include "Common/Math/math_util.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/VR/PPSSPPVR.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
 
 #include "Common/GraphicsContext.h"
 #include "Common/StringUtils.h"
@@ -677,9 +678,9 @@ static void parse_args(std::vector<std::string> &args, const std::string value) 
 #define EARLY_LOG(...)  __android_log_print(ANDROID_LOG_INFO, "PPSSPP", __VA_ARGS__)
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
-	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
-		jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam,
-		jint jAndroidVersion, jstring jboard) {
+(JNIEnv * env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
+	jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam,
+	jint jAndroidVersion, jstring jboard) {
 	SetCurrentThreadName("androidInit");
 
 	// Makes sure we get early permission grants.
@@ -753,6 +754,15 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	}
 
 	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
+
+	// In debug mode, don't allow creating software Vulkan devices (reject by VulkaMaybeAvailable).
+	// Needed for #16931.
+#ifdef NDEBUG
+	if (!VulkanMayBeAvailable()) {
+		// If VulkanLoader decided on no viable backend, let's force Vulkan off in release builds at least.
+		g_Config.iGPUBackend = 0;
+	}
+#endif
 
 	// No need to use EARLY_LOG anymore.
 
