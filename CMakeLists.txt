@@ -2364,10 +2364,11 @@ set(NativeAssets
 	assets/sfx_select.wav
 	assets/sfx_toggle_off.wav
 	assets/sfx_toggle_on.wav
-	source_assets/image/logo.png
-	source_assets/image/icon_regular_72.png
 )
 
+if(TARGET SDL2::SDL2 OR USING_QT_UI)
+	list(APPEND NativeAssets source_assets/image/icon_regular_72.png)
+endif()
 
 if(HEADLESS)
 	set(HeadlessSource
