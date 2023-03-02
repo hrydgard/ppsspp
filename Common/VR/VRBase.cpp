@@ -182,7 +182,7 @@ void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVu
 		graphicsBindingGL.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
 		graphicsBindingGL.next = NULL;
 		graphicsBindingGL.display = eglGetCurrentDisplay();
-		graphicsBindingGL.config = eglGetCurrentSurface(EGL_DRAW);
+		graphicsBindingGL.config = NULL;
 		graphicsBindingGL.context = eglGetCurrentContext();
 		sessionCreateInfo.next = &graphicsBindingGL;
 #else
