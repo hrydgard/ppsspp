@@ -22,7 +22,7 @@ dependencies {
 
 android {
 	flavorDimensions "variant"
-
+	namespace 'org.ppsspp.ppsspp'
 	signingConfigs {
 		debug {
 			storeFile file("debug.keystore")
@@ -51,11 +51,11 @@ android {
 		applicationId 'org.ppsspp.ppsspp'
 		if (androidGitVersion.name() != "unknown" && androidGitVersion.code() >= 14000000) {
 			// Start using automatic Android version numbers from version 1.4.
-			println "Overriding Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code();
+			println "Overriding Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code()
 			versionName androidGitVersion.name()
 			versionCode androidGitVersion.code()
 		} else {
-			println "(not using these:) Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code();
+			println "(not using these:) Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code()
 		}
 
 		new File("versionname.txt").write(androidGitVersion.name())
@@ -92,7 +92,9 @@ android {
 		}
 	}
 	packagingOptions {
-		exclude 'lib/arm64-v8a/libopenxr_loader.so'
+		jniLibs {
+			excludes += ['lib/arm64-v8a/libopenxr_loader.so']
+		}
 	}
 	sourceSets {
 		main {
