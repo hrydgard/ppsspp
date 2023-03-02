@@ -63,6 +63,6 @@ void DisplayProperties::Print() {
 	printf("dpi_real: %f, %f\n", dpi_scale_real_x, dpi_scale_real_y);
 	printf("display_hz: %f\n", display_hz);
 
-	printf("rotation: %d\n", rotation);
+	printf("rotation: %d\n", (int)rotation);
 	rot_matrix.print();
 }
