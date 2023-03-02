@@ -64,6 +64,12 @@ class CtrlDisAsmView
 	bool dontRedraw;
 	bool keyTaken;
 
+	enum class CopyInstructionsMode {
+		OPCODES,
+		DISASM,
+		ADDRESSES,
+	};
+
 	void assembleOpcode(u32 address, std::string defaultText);
 	std::string disassembleRange(u32 start, u32 size);
 	void disassembleToFile();
@@ -73,7 +79,7 @@ class CtrlDisAsmView
 	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData);
 	void updateStatusBarText();
 	void drawBranchLine(HDC hdc, std::map<u32, int> &addressPositions, const BranchLine &line);
-	void copyInstructions(u32 startAddr, u32 endAddr, bool withDisasm);
+	void CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructionsMode mode);
 	std::set<std::string> getSelectedLineArguments();
 	void drawArguments(HDC hdc, const DisassemblyLineInfo &line, int x, int y, int textColor, const std::set<std::string> &currentArguments);
 
