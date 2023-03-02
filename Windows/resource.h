@@ -334,6 +334,7 @@
 #define ID_GEDBG_COPY_IMAGE_ALPHA        40225
 #define ID_GEDBG_TRACK_PIXEL             40226
 #define ID_GEDBG_TRACK_PIXEL_STOP        40227
+#define ID_DISASM_NOPINSTRUCTION         40228
 
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.

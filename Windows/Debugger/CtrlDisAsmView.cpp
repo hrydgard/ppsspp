@@ -206,7 +206,7 @@ CtrlDisAsmView::~CtrlDisAsmView()
 	manager.clear();
 }
 
-COLORREF scaleColor(COLORREF color, float factor)
+static COLORREF scaleColor(COLORREF color, float factor)
 {
 	unsigned char r = color & 0xFF;
 	unsigned char g = (color >> 8) & 0xFF;
@@ -315,7 +315,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 		// try to assemble the input if it failed
 	}
 
-	result = MIPSAsm::MipsAssembleOpcode(op.c_str(),debugger,address);
+	result = MIPSAsm::MipsAssembleOpcode(op.c_str(), debugger, address);
 	Reporting::NotifyDebugger();
 	if (result == true)
 	{
@@ -330,7 +330,6 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 		MessageBox(wnd,error.c_str(),L"Error",MB_OK);
 	}
 }
-
 
 void CtrlDisAsmView::drawBranchLine(HDC hdc, std::map<u32,int> &addressPositions, const BranchLine &line) {
 	HPEN pen;
@@ -725,7 +724,7 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			break;
 		case 'c':
 		case VK_INSERT:
-			copyInstructions(selectRangeStart, selectRangeEnd, true);
+			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::DISASM);
 			break;
 		case 'x':
 			disassembleToFile();
@@ -906,10 +905,8 @@ void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 	redraw();
 }
 
-void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisasm)
-{
-	if (withDisasm == false)
-	{
+void CtrlDisAsmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructionsMode mode) {
+	if (mode != CopyInstructionsMode::DISASM) {
 		int instructionSize = debugger->getInstructionSize(0);
 		int count = (endAddr - startAddr) / instructionSize;
 		int space = count * 32;
@@ -918,7 +915,8 @@ void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisas
 		char *p = temp, *end = temp + space;
 		for (u32 pos = startAddr; pos < endAddr && p < end; pos += instructionSize)
 		{
-			p += snprintf(p, end - p, "%08X", debugger->readMemory(pos));
+			u32 data = mode == CopyInstructionsMode::OPCODES ? debugger->readMemory(pos) : pos;
+			p += snprintf(p, end - p, "%08X", data);
 
 			// Don't leave a trailing newline.
 			if (pos + instructionSize < endAddr && p < end)
@@ -926,10 +924,19 @@ void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisas
 		}
 		W32Util::CopyTextToClipboard(wnd, temp);
 		delete [] temp;
-	} else
-	{
+	} else {
 		std::string disassembly = disassembleRange(startAddr,endAddr-startAddr);
 		W32Util::CopyTextToClipboard(wnd, disassembly.c_str());
+	}
+}
+
+void CtrlDisAsmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
+	for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
+		Memory::Write_U32(0, addr);
+	}
+
+	if (currentMIPS) {
+		currentMIPS->InvalidateICache(selectRangeStart, selectRangeEnd - selectRangeStart);
 	}
 }
 
@@ -956,14 +963,17 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			assembleOpcode(curAddress,"");
 			break;
 		case ID_DISASM_COPYINSTRUCTIONDISASM:
-			copyInstructions(selectRangeStart, selectRangeEnd, true);
+			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::DISASM);
 			break;
 		case ID_DISASM_COPYADDRESS:
-			{
-				char temp[16];
-				sprintf(temp,"%08X",curAddress);
-				W32Util::CopyTextToClipboard(wnd, temp);
-			}
+			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::ADDRESSES);
+			break;
+		case ID_DISASM_COPYINSTRUCTIONHEX:
+			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::OPCODES);
+			break;
+		case ID_DISASM_NOPINSTRUCTION:
+			NopInstructions(selectRangeStart, selectRangeEnd);
+			redraw();
 			break;
 		case ID_DISASM_SETPCTOHERE:
 			debugger->setPC(curAddress);
@@ -971,9 +981,6 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_FOLLOWBRANCH:
 			followBranch();
-			break;
-		case ID_DISASM_COPYINSTRUCTIONHEX:
-			copyInstructions(selectRangeStart, selectRangeEnd, false);
 			break;
 		case ID_DISASM_RUNTOHERE:
 			{
