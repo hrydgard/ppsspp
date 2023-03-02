@@ -217,6 +217,8 @@ enum class TempFBO {
 	BLIT,
 	// For copies of framebuffers (e.g. shader blending.)
 	COPY,
+	// Used for copies when setting color to depth.
+	Z_COPY,
 	// Used to copy stencil data, means we need a stencil backing.
 	STENCIL,
 };

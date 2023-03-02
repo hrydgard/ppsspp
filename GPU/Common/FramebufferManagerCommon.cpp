@@ -932,6 +932,7 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 	}
 
 	// Wipe some pointers
+	DiscardFramebufferCopy();
 	if (currentRenderVfb_ == v)
 		currentRenderVfb_ = nullptr;
 	if (displayFramebuf_ == v)
@@ -1450,6 +1451,7 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, int 
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
 	gstate_c.Dirty(DIRTY_ALL);
 
+	DiscardFramebufferCopy();
 	currentRenderVfb_ = nullptr;
 }
 
@@ -1607,10 +1609,12 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	// This may get called mid-draw if the game uses an immediate flip.
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
 	gstate_c.Dirty(DIRTY_ALL);
+	DiscardFramebufferCopy();
 	currentRenderVfb_ = nullptr;
 }
 
 void FramebufferManagerCommon::DecimateFBOs() {
+	DiscardFramebufferCopy();
 	currentRenderVfb_ = nullptr;
 
 	for (auto iter : fbosToDelete_) {
@@ -1767,6 +1771,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	} else {
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 	}
+	DiscardFramebufferCopy();
 	currentRenderVfb_ = vfb;
 
 	if (!vfb->fbo) {
@@ -2568,6 +2573,7 @@ void FramebufferManagerCommon::NotifyConfigChanged() {
 }
 
 void FramebufferManagerCommon::DestroyAllFBOs() {
+	DiscardFramebufferCopy();
 	currentRenderVfb_ = nullptr;
 	displayFramebuf_ = nullptr;
 	prevDisplayFramebuf_ = nullptr;
