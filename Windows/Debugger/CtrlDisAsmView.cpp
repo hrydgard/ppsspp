@@ -206,7 +206,7 @@ CtrlDisAsmView::~CtrlDisAsmView()
 	manager.clear();
 }
 
-COLORREF scaleColor(COLORREF color, float factor)
+static COLORREF scaleColor(COLORREF color, float factor)
 {
 	unsigned char r = color & 0xFF;
 	unsigned char g = (color >> 8) & 0xFF;
@@ -315,7 +315,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 		// try to assemble the input if it failed
 	}
 
-	result = MIPSAsm::MipsAssembleOpcode(op.c_str(),debugger,address);
+	result = MIPSAsm::MipsAssembleOpcode(op.c_str(), debugger, address);
 	Reporting::NotifyDebugger();
 	if (result == true)
 	{
@@ -330,7 +330,6 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 		MessageBox(wnd,error.c_str(),L"Error",MB_OK);
 	}
 }
-
 
 void CtrlDisAsmView::drawBranchLine(HDC hdc, std::map<u32,int> &addressPositions, const BranchLine &line) {
 	HPEN pen;
@@ -725,7 +724,7 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			break;
 		case 'c':
 		case VK_INSERT:
-			copyInstructions(selectRangeStart, selectRangeEnd, true);
+			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::DISASM);
 			break;
 		case 'x':
 			disassembleToFile();
@@ -931,6 +930,16 @@ void CtrlDisAsmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructio
 	}
 }
 
+void CtrlDisAsmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
+	for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
+		Memory::Write_U32(0, addr);
+	}
+
+	if (currentMIPS) {
+		currentMIPS->InvalidateICache(selectRangeStart, selectRangeEnd - selectRangeStart);
+	}
+}
+
 void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 {
 	if (button == 1)
@@ -961,6 +970,10 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_COPYINSTRUCTIONHEX:
 			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::OPCODES);
+			break;
+		case ID_DISASM_NOPINSTRUCTION:
+			NopInstructions(selectRangeStart, selectRangeEnd);
+			redraw();
 			break;
 		case ID_DISASM_SETPCTOHERE:
 			debugger->setPC(curAddress);

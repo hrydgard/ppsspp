@@ -721,6 +721,7 @@ BEGIN
         MENUITEM "Rename Function...",         ID_DISASM_RENAMEFUNCTION
         MENUITEM "Remove Function",            ID_DISASM_REMOVEFUNCTION
         MENUITEM "Add Function Here",          ID_DISASM_ADDFUNCTION
+        MENUITEM "NOP instruction(s)",         ID_DISASM_NOPINSTRUCTION
     END
     POPUP "reglist"
     BEGIN
