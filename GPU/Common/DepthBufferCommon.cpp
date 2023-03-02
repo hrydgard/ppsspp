@@ -204,7 +204,7 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 		}
 
 		shaderManager_->DirtyLastShader();
-		auto *blitFBO = GetTempFBO(TempFBO::COPY, fbo->Width() * scaleX, fbo->Height() * scaleY);
+		auto *blitFBO = GetTempFBO(TempFBO::Z_COPY, fbo->Width() * scaleX, fbo->Height() * scaleY);
 		draw_->BindFramebufferAsRenderTarget(blitFBO, { RPAction::DONT_CARE, RPAction::DONT_CARE, RPAction::DONT_CARE }, "ReadbackDepthbufferSync");
 		Draw::Viewport viewport = { 0.0f, 0.0f, (float)destW, (float)destH, 0.0f, 1.0f };
 		draw_->SetViewport(viewport);
