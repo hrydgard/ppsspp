@@ -2,6 +2,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.28803.202
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PPSSPP_UWP", "UWP.vcxproj", "{01D7D581-09A3-4A26-94BD-A7C529B29329}"
+	ProjectSection(ProjectDependencies) = postProject
+		{D31FD4F0-53EB-477C-9DC7-149796F628E2} = {D31FD4F0-53EB-477C-9DC7-149796F628E2}
+	EndProjectSection
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CommonUWP", "CommonUWP\CommonUWP.vcxproj", "{ACB316CA-3ECB-48E5-BE0A-91E72D5B0F12}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CoreUWP", "CoreUWP\CoreUWP.vcxproj", "{40B76674-02DE-40EF-889B-FAD1489685E7}"
@@ -16,11 +21,6 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libkirk_UWP", "libkirk_UWP\libkirk_UWP.vcxproj", "{2F911C05-B341-4291-8BF5-09EDECBDD5F5}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zlib_UWP", "zlib_UWP\zlib_UWP.vcxproj", "{DDF90203-0AAE-4F38-B589-2E9637658CE6}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PPSSPP_UWP", "UWP.vcxproj", "{01D7D581-09A3-4A26-94BD-A7C529B29329}"
-	ProjectSection(ProjectDependencies) = postProject
-		{D31FD4F0-53EB-477C-9DC7-149796F628E2} = {D31FD4F0-53EB-477C-9DC7-149796F628E2}
-	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "glslang_UWP", "glslang_UWP\glslang_UWP.vcxproj", "{D326891E-ECE4-4B94-B5E7-8AA0A8E8ECBC}"
 EndProject
