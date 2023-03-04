@@ -541,8 +541,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		plan.GetMipSize(i, &mipWidth, &mipHeight);
 
 		int bpp = VkFormatBytesPerPixel(actualFmt);
-		int stride = (mipWidth * bpp + 15) & ~15;  // output stride
-		int uploadSize = stride * mipHeight;
+		int optimalStrideAlignment = std::max(4, (int)vulkan->GetPhysicalDeviceProperties().properties.limits.optimalBufferCopyRowPitchAlignment);
+		int byteStride = RoundUpToPowerOf2(mipWidth * bpp, optimalStrideAlignment);  // output stride
+		int pixelStride = byteStride / bpp;
+		int uploadSize = byteStride * mipHeight;
 
 		uint32_t bufferOffset;
 		VkBuffer texBuf;
@@ -568,17 +570,17 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			// Directly load the replaced image.
 			data = drawEngine_->GetPushBufferForTextureData()->PushAligned(uploadSize, &bufferOffset, &texBuf, pushAlignment);
 			double replaceStart = time_now_d();
-			plan.replaced->Load(plan.baseLevelSrc + i, data, stride);  // if it fails, it'll just be garbage data... OK for now.
+			plan.replaced->Load(plan.baseLevelSrc + i, data, byteStride);  // if it fails, it'll just be garbage data... OK for now.
 			replacementTimeThisFrame_ += time_now_d() - replaceStart;
 			VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
 				"Copy Upload (replaced): %dx%d", mipWidth, mipHeight);
-			entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, stride / bpp);
+			entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, pixelStride);
 			VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 		} else {
 			if (plan.depth != 1) {
 				// 3D texturing.
-				loadLevel(uploadSize, i, stride, plan.scaleFactor);
-				entry->vkTex->UploadMip(cmdInit, 0, mipWidth, mipHeight, i, texBuf, bufferOffset, stride / bpp);
+				loadLevel(uploadSize, i, byteStride, plan.scaleFactor);
+				entry->vkTex->UploadMip(cmdInit, 0, mipWidth, mipHeight, i, texBuf, bufferOffset, pixelStride);
 			} else if (computeUpload) {
 				int srcBpp = VkFormatBytesPerPixel(dstFmt);
 				int srcStride = mipUnscaledWidth * srcBpp;
@@ -599,10 +601,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 				vulkan->Delete().QueueDeleteImageView(view);
 			} else {
-				loadLevel(uploadSize, i == 0 ? plan.baseLevelSrc : i, stride, plan.scaleFactor);
+				loadLevel(uploadSize, i == 0 ? plan.baseLevelSrc : i, byteStride, plan.scaleFactor);
 				VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
 					"Copy Upload: %dx%d", mipWidth, mipHeight);
-				entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, stride / bpp);
+				entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, pixelStride);
 				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 			}
 			// Format might be wrong in lowMemoryMode_, so don't save.
@@ -620,7 +622,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				replacedInfo.scaleFactor = plan.scaleFactor;
 				replacedInfo.fmt = FromVulkanFormat(actualFmt);
 
-				replacer_.NotifyTextureDecoded(replacedInfo, data, stride, plan.baseLevelSrc + i, w, h);
+				replacer_.NotifyTextureDecoded(replacedInfo, data, byteStride, plan.baseLevelSrc + i, w, h);
 			}
 		}
 	}
