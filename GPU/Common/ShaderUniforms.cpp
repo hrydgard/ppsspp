@@ -252,6 +252,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 
 		// These are just the reverse of the formulas in GPUStateUtils.
 		float halfActualZRange = gstate_c.vpDepthScale != 0.0f ? vpZScale / gstate_c.vpDepthScale : 0.0f;
+		float inverseDepthScale = gstate_c.vpDepthScale != 0.0f ? 1.0f / gstate_c.vpDepthScale : 0.0f;
 		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
 		float viewZScale = halfActualZRange * 2.0f;
 		float viewZCenter = minz;
@@ -259,7 +260,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		ub->depthRange[0] = viewZScale;
 		ub->depthRange[1] = viewZCenter;
 		ub->depthRange[2] = gstate_c.vpZOffset * 0.5f + 0.5f;
-		ub->depthRange[3] = 2.0f * (1.0f / gstate_c.vpDepthScale);
+		ub->depthRange[3] = 2.0f * inverseDepthScale;
 	}
 
 	if (dirtyUniforms & DIRTY_CULLRANGE) {
