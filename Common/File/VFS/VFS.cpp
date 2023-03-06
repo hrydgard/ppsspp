@@ -6,17 +6,15 @@
 VFS g_VFS;
 
 void VFS::Register(const char *prefix, AssetReader *reader) {
-	entries_[numEntries_].prefix = prefix;
-	entries_[numEntries_].reader = reader;
+	entries_.push_back(VFSEntry{ prefix, reader });
 	DEBUG_LOG(IO, "Registered VFS for prefix %s: %s", prefix, reader->toString().c_str());
-	numEntries_++;
 }
 
 void VFS::Clear() {
-	for (int i = 0; i < numEntries_; i++) {
-		delete entries_[i].reader;
+	for (auto &entry : entries_) {
+		delete entry.reader;
 	}
-	numEntries_ = 0;
+	entries_.clear();
 }
 
 // TODO: Use Path more.
@@ -41,13 +39,13 @@ uint8_t *VFS::ReadFile(const char *filename, size_t *size) {
 
 	int fn_len = (int)strlen(filename);
 	bool fileSystemFound = false;
-	for (int i = 0; i < numEntries_; i++) {
-		int prefix_len = (int)strlen(entries_[i].prefix);
+	for (const auto &entry : entries_) {
+		int prefix_len = (int)strlen(entry.prefix);
 		if (prefix_len >= fn_len) continue;
-		if (0 == memcmp(filename, entries_[i].prefix, prefix_len)) {
+		if (0 == memcmp(filename, entry.prefix, prefix_len)) {
 			fileSystemFound = true;
 			// INFO_LOG(IO, "Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
-			uint8_t *data = entries_[i].reader->ReadAsset(filename + prefix_len, size);
+			uint8_t *data = entry.reader->ReadAsset(filename + prefix_len, size);
 			if (data)
 				return data;
 			else
@@ -71,12 +69,12 @@ bool VFS::GetFileListing(const char *path, std::vector<File::FileInfo> *listing,
 
 	int fn_len = (int)strlen(path);
 	bool fileSystemFound = false;
-	for (int i = 0; i < numEntries_; i++) {
-		int prefix_len = (int)strlen(entries_[i].prefix);
+	for (const auto &entry : entries_) {
+		int prefix_len = (int)strlen(entry.prefix);
 		if (prefix_len >= fn_len) continue;
-		if (0 == memcmp(path, entries_[i].prefix, prefix_len)) {
+		if (0 == memcmp(path, entry.prefix, prefix_len)) {
 			fileSystemFound = true;
-			if (entries_[i].reader->GetFileListing(path + prefix_len, listing, filter)) {
+			if (entry.reader->GetFileListing(path + prefix_len, listing, filter)) {
 				return true;
 			}
 		}
@@ -97,12 +95,12 @@ bool VFS::GetFileInfo(const char *path, File::FileInfo *info) {
 
 	bool fileSystemFound = false;
 	int fn_len = (int)strlen(path);
-	for (int i = 0; i < numEntries_; i++) {
-		int prefix_len = (int)strlen(entries_[i].prefix);
+	for (const auto &entry : entries_) {
+		int prefix_len = (int)strlen(entry.prefix);
 		if (prefix_len >= fn_len) continue;
-		if (0 == memcmp(path, entries_[i].prefix, prefix_len)) {
+		if (0 == memcmp(path, entry.prefix, prefix_len)) {
 			fileSystemFound = true;
-			if (entries_[i].reader->GetFileInfo(path + prefix_len, info))
+			if (entry.reader->GetFileInfo(path + prefix_len, info))
 				return true;
 			else
 				continue;
