@@ -217,6 +217,8 @@ enum class TempFBO {
 	BLIT,
 	// For copies of framebuffers (e.g. shader blending.)
 	COPY,
+	// Used for copies when setting color to depth.
+	Z_COPY,
 	// Used to copy stencil data, means we need a stencil backing.
 	STENCIL,
 };
@@ -466,6 +468,10 @@ public:
 		return msaaLevel_;
 	}
 
+	void DiscardFramebufferCopy() {
+		currentFramebufferCopy_ = nullptr;
+	}
+
 protected:
 	virtual void ReadbackFramebuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);
 	// Used for when a shader is required, such as GLES.
@@ -486,7 +492,7 @@ protected:
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, RasterChannel channel, const char *tag);
 
-	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags, int layer);
+	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags, int layer, bool *partial);
 
 	void EstimateDrawingSize(u32 fb_address, int fb_stride, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int &drawing_width, int &drawing_height);
 
@@ -551,6 +557,8 @@ protected:
 	int frameLastFramebufUsed_ = 0;
 
 	VirtualFramebuffer *currentRenderVfb_ = nullptr;
+
+	Draw::Framebuffer *currentFramebufferCopy_ = nullptr;
 
 	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
 	u32 framebufRangeEnd_ = 0;

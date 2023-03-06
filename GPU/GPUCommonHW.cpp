@@ -287,7 +287,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_LSC3, FLAG_FLUSHBEFOREONCHANGE, DIRTY_LIGHT3 },
 
 	// Ignored commands
-	{ GE_CMD_TEXFLUSH, 0 },
+	{ GE_CMD_TEXFLUSH, FLAG_EXECUTE, 0, &GPUCommonHW::Execute_TexFlush },
 	{ GE_CMD_TEXSYNC, 0 },
 
 	// These are just nop or part of other later commands.
@@ -1617,6 +1617,13 @@ void GPUCommonHW::Execute_BoneMtxData(u32 op, u32 diff) {
 	num++;
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 	gstate.boneMatrixData = GE_CMD_BONEMATRIXDATA << 24;
+}
+
+void GPUCommonHW::Execute_TexFlush(u32 op, u32 diff) {
+	// Games call this when they need the effect of drawing to be visible to texturing.
+	// And for a bunch of other reasons, but either way, this is what we need to do.
+	// It's possible we could also use this as a hint for the texture cache somehow.
+	framebufferManager_->DiscardFramebufferCopy();
 }
 
 size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {

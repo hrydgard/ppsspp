@@ -546,6 +546,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 			// TODO: Is it worth trying to upload the depth buffer (only if it wasn't copied above..?)
 		}
 
+		DiscardFramebufferCopy();
+
 		// We already have it!
 	} else if (vfb != currentRenderVfb_) {
 		// Use it as a render target.
@@ -562,6 +564,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		NotifyRenderFramebufferSwitched(prev, vfb, params.isClearingDepth);
 		CopyToColorFromOverlappingFramebuffers(vfb);
 		gstate_c.usingDepth = false;  // reset depth buffer tracking
+
+		DiscardFramebufferCopy();
 	} else {
 		// Something changed, but we still got the same framebuffer we were already rendering to.
 		// Might not be a lot to do here, we check in NotifyRenderFramebufferUpdated
@@ -928,6 +932,7 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 	}
 
 	// Wipe some pointers
+	DiscardFramebufferCopy();
 	if (currentRenderVfb_ == v)
 		currentRenderVfb_ = nullptr;
 	if (displayFramebuf_ == v)
@@ -1233,13 +1238,27 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 		// Self-texturing, need a copy currently (some backends can potentially support it though).
 		WARN_LOG_ONCE(selfTextureCopy, G3D, "Attempting to texture from current render target (src=%08x / target=%08x / flags=%d), making a copy", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
+		if (currentFramebufferCopy_) {
+			// We have a copy already that hasn't been invalidated, let's keep using it.
+			draw_->BindFramebufferAsTexture(currentFramebufferCopy_, stage, Draw::FB_COLOR_BIT, layer);
+			return true;
+		}
+
 		Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight);
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
-			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags, layer);
+
+			bool partial = false;
+			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags, layer, &partial);
 			RebindFramebuffer("After BindFramebufferAsColorTexture");
 			draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, layer);
+
+			// Only cache the copy if it wasn't a partial copy.
+			// TODO: Improve on this.
+			if (!partial) {
+				currentFramebufferCopy_ = renderCopy;
+			}
 			gpuStats.numCopiesForSelfTex++;
 		} else {
 			// Failed to get temp FBO? Weird.
@@ -1262,14 +1281,17 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 	}
 }
 
-void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags, int layer) {
+void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags, int layer, bool *partial) {
 	int x = 0;
 	int y = 0;
 	int w = src->drawnWidth;
 	int h = src->drawnHeight;
 
+	*partial = false;
+
 	// If max is not > min, we probably could not detect it.  Skip.
 	// See the vertex decoder, where this is updated.
+	// TODO: We're currently not hitting this path in Dante. See #17032
 	if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) == BINDFBCOLOR_MAY_COPY_WITH_UV && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
 		x = std::max(gstate_c.vertBounds.minU, (u16)0);
 		y = std::max(gstate_c.vertBounds.minV, (u16)0);
@@ -1287,6 +1309,9 @@ void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer
 	}
 
 	if (x < src->drawnWidth && y < src->drawnHeight && w > 0 && h > 0) {
+		if (x != 0 || y != 0 || w < src->drawnWidth || h < src->drawnHeight) {
+			*partial = true;
+		}
 		BlitFramebuffer(dst, x, y, src, x, y, w, h, 0, RASTER_COLOR, "CopyFBForColorTexture");
 	}
 }
@@ -1426,6 +1451,7 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, int 
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
 	gstate_c.Dirty(DIRTY_ALL);
 
+	DiscardFramebufferCopy();
 	currentRenderVfb_ = nullptr;
 }
 
@@ -1583,10 +1609,12 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	// This may get called mid-draw if the game uses an immediate flip.
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
 	gstate_c.Dirty(DIRTY_ALL);
+	DiscardFramebufferCopy();
 	currentRenderVfb_ = nullptr;
 }
 
 void FramebufferManagerCommon::DecimateFBOs() {
+	DiscardFramebufferCopy();
 	currentRenderVfb_ = nullptr;
 
 	for (auto iter : fbosToDelete_) {
@@ -1743,6 +1771,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	} else {
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 	}
+	DiscardFramebufferCopy();
 	currentRenderVfb_ = vfb;
 
 	if (!vfb->fbo) {
@@ -2544,6 +2573,7 @@ void FramebufferManagerCommon::NotifyConfigChanged() {
 }
 
 void FramebufferManagerCommon::DestroyAllFBOs() {
+	DiscardFramebufferCopy();
 	currentRenderVfb_ = nullptr;
 	displayFramebuf_ = nullptr;
 	prevDisplayFramebuf_ = nullptr;
