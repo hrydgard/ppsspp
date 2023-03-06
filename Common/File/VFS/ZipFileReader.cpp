@@ -164,3 +164,37 @@ bool ZipFileReader::GetFileInfo(const char *path, File::FileInfo *info) {
 	info->size = zstat.size;
 	return true;
 }
+
+class ZipFileReaderFileReference : public VFSFileReference {
+public:
+};
+
+class ZipFileReaderOpenFile : public VFSOpenFile {
+public:
+};
+
+VFSFileReference *ZipFileReader::GetFile(const char *path) {
+	return nullptr;
+}
+
+void ZipFileReader::ReleaseFile(VFSFileReference *reference) {
+	ZipFileReaderFileReference *file = (ZipFileReaderFileReference *)reference;
+}
+
+VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *reference) {
+	ZipFileReaderFileReference *file = (ZipFileReaderFileReference *)reference;
+	return nullptr;
+}
+
+void ZipFileReader::Rewind(VFSOpenFile *openFile) {
+	ZipFileReaderOpenFile *file = (ZipFileReaderOpenFile *)openFile;
+}
+
+size_t ZipFileReader::Read(VFSOpenFile *openFile, uint8_t *buffer, size_t length) {
+	ZipFileReaderOpenFile *file = (ZipFileReaderOpenFile *)openFile;
+	return 0;
+}
+
+void ZipFileReader::CloseFile(VFSOpenFile *openFile) {
+	ZipFileReaderOpenFile *file = (ZipFileReaderOpenFile *)openFile;
+}
