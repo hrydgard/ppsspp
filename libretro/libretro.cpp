@@ -1284,7 +1284,7 @@ void retro_init(void)
    g_Config.bEnableNetworkChat = false;
    g_Config.bDiscordPresence = false;
 
-   VFSRegister("", new DirectoryAssetReader(retro_base_dir));
+   g_VFS.Register("", new DirectoryAssetReader(retro_base_dir));
 
    host = new LibretroHost();
 }
@@ -1486,7 +1486,7 @@ void retro_unload_game(void)
 		Libretro::EmuThreadStop();
 
 	PSP_Shutdown();
-	VFSShutdown();
+	g_VFS.Clear();
 
 	delete ctx;
 	ctx = nullptr;

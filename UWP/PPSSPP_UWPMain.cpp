@@ -76,8 +76,8 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	ctx_.reset(new UWPGraphicsContext(deviceResources));
 
 	const Path &exePath = File::GetExeDirectory();
-	VFSRegister("", new DirectoryAssetReader(exePath / "Content"));
-	VFSRegister("", new DirectoryAssetReader(exePath));
+	g_VFS.Register("", new DirectoryAssetReader(exePath / "Content"));
+	g_VFS.Register("", new DirectoryAssetReader(exePath));
 
 	wchar_t lcCountry[256];
 
@@ -135,6 +135,7 @@ PPSSPP_UWPMain::~PPSSPP_UWPMain() {
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::LOST_BACKBUFFER, 0, 0, nullptr);
 	NativeShutdownGraphics();
 	NativeShutdown();
+	g_VFS.Clear();
 
 	// Deregister device notification
 	m_deviceResources->RegisterDeviceNotify(nullptr);

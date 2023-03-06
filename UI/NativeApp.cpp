@@ -467,27 +467,27 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// We want this to be FIRST.
 #if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 	// Packed assets are included in app
-	VFSRegister("", new DirectoryAssetReader(Path(external_dir)));
+	g_VFS.Register("", new DirectoryAssetReader(Path(external_dir)));
 #endif
 #if defined(ASSETS_DIR)
-	VFSRegister("", new DirectoryAssetReader(Path(ASSETS_DIR)));
+	g_VFS.Register("", new DirectoryAssetReader(Path(ASSETS_DIR)));
 #endif
 #if !defined(MOBILE_DEVICE) && !defined(_WIN32) && !PPSSPP_PLATFORM(SWITCH)
-	VFSRegister("", new DirectoryAssetReader(File::GetExeDirectory() / "assets"));
-	VFSRegister("", new DirectoryAssetReader(File::GetExeDirectory()));
-	VFSRegister("", new DirectoryAssetReader(Path("/usr/local/share/ppsspp/assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("/usr/local/share/games/ppsspp/assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/ppsspp/assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/games/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryAssetReader(File::GetExeDirectory() / "assets"));
+	g_VFS.Register("", new DirectoryAssetReader(File::GetExeDirectory()));
+	g_VFS.Register("", new DirectoryAssetReader(Path("/usr/local/share/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryAssetReader(Path("/usr/local/share/games/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryAssetReader(Path("/usr/share/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryAssetReader(Path("/usr/share/games/ppsspp/assets")));
 #endif
 
 #if PPSSPP_PLATFORM(SWITCH)
 	Path assetPath = Path(user_data_path) / "assets";
-	VFSRegister("", new DirectoryAssetReader(assetPath));
+	g_VFS.Register("", new DirectoryAssetReader(assetPath));
 #else
-	VFSRegister("", new DirectoryAssetReader(Path("assets")));
+	g_VFS.Register("", new DirectoryAssetReader(Path("assets")));
 #endif
-	VFSRegister("", new DirectoryAssetReader(Path(savegame_dir)));
+	g_VFS.Register("", new DirectoryAssetReader(Path(savegame_dir)));
 
 #if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(UWP)
 	if (host == nullptr) {
@@ -777,7 +777,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #elif defined(USING_QT_UI)
 	size_t fontSize = 0;
-	uint8_t *fontData = VFSReadFile("Roboto-Condensed.ttf", &fontSize);
+	uint8_t *fontData = g_VFS.ReadFile("Roboto-Condensed.ttf", &fontSize);
 	if (fontData) {
 		int fontID = QFontDatabase::addApplicationFontFromData(QByteArray((const char *)fontData, fontSize));
 		delete [] fontData;

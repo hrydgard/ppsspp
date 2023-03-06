@@ -148,7 +148,7 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType type, bool generateMips) {
 	generateMips_ = generateMips;
 	size_t fileSize;
-	uint8_t *buffer = VFSReadFile(filename.c_str(), &fileSize);
+	uint8_t *buffer = g_VFS.ReadFile(filename.c_str(), &fileSize);
 	if (!buffer) {
 		filename_.clear();
 		ERROR_LOG(IO, "Failed to read file '%s'", filename.c_str());

@@ -68,11 +68,11 @@ HWND CreateHiddenWindow() {
 
 void WindowsHeadlessHost::LoadNativeAssets()
 {
-	VFSRegister("", new DirectoryAssetReader(Path("assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("")));
-	VFSRegister("", new DirectoryAssetReader(Path("..")));
-	VFSRegister("", new DirectoryAssetReader(Path("../Windows/assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("../Windows")));
+	g_VFS.Register("", new DirectoryAssetReader(Path("assets")));
+	g_VFS.Register("", new DirectoryAssetReader(Path("")));
+	g_VFS.Register("", new DirectoryAssetReader(Path("..")));
+	g_VFS.Register("", new DirectoryAssetReader(Path("../Windows/assets")));
+	g_VFS.Register("", new DirectoryAssetReader(Path("../Windows")));
 }
 
 void WindowsHeadlessHost::SendDebugOutput(const std::string &output)

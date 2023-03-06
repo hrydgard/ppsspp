@@ -482,13 +482,13 @@ int main(int argc, const char* argv[])
 #if PPSSPP_PLATFORM(ANDROID)
 	// For some reason the debugger installs it with this name?
 	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp-2.apk"))) {
-		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp-2.apk", "assets/"));
+		g_VFS.Register("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp-2.apk", "assets/"));
 	}
 	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp.apk"))) {
-		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp.apk", "assets/"));
+		g_VFS.Register("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp.apk", "assets/"));
 	}
 #elif !PPSSPP_PLATFORM(WINDOWS)
-	VFSRegister("", new DirectoryAssetReader(g_Config.flash0Directory / ".."));
+	g_VFS.Register("", new DirectoryAssetReader(g_Config.flash0Directory / ".."));
 #endif
 
 	UpdateUIState(UISTATE_INGAME);
@@ -557,7 +557,7 @@ int main(int argc, const char* argv[])
 	host = nullptr;
 	headlessHost = nullptr;
 
-	VFSShutdown();
+	g_VFS.Clear();
 	LogManager::Shutdown();
 	delete printfLogger;
 

@@ -314,7 +314,7 @@ static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string 
 
 static bool ReadVFSToString(const char *filename, std::string *contents, std::mutex *mtx) {
 	size_t sz;
-	uint8_t *data = VFSReadFile(filename, &sz);
+	uint8_t *data = g_VFS.ReadFile(filename, &sz);
 	if (data) {
 		if (mtx) {
 			std::lock_guard<std::mutex> lock(*mtx);

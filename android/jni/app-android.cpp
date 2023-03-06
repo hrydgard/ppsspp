@@ -695,7 +695,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	deviceType = jdeviceType;
 
 	std::string apkPath = GetJavaString(env, japkpath);
-	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
+	g_VFS.Register("", new ZipAssetReader(apkPath.c_str(), "assets/"));
 
 	systemName = GetJavaString(env, jmodel);
 	langRegion = GetJavaString(env, jlangRegion);
@@ -907,7 +907,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		std::lock_guard<std::mutex> guard(renderLock);
 		inputBoxCallbacks.clear();
 		NativeShutdown();
-		VFSShutdown();
+		g_VFS.Clear();
 	}
 
 	{

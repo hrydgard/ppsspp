@@ -212,7 +212,7 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 
 static std::string ReadShaderSrc(const Path &filename) {
 	size_t sz = 0;
-	char *data = (char *)VFSReadFile(filename.c_str(), &sz);
+	char *data = (char *)g_VFS.ReadFile(filename.c_str(), &sz);
 	if (!data) {
 		return "";
 	}

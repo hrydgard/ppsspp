@@ -100,9 +100,9 @@ private:
 };
 
 void SDLHeadlessHost::LoadNativeAssets() {
-	VFSRegister("", new DirectoryAssetReader(Path("assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("")));
-	VFSRegister("", new DirectoryAssetReader(Path("..")));
+	g_VFS.Register("", new DirectoryAssetReader(Path("assets")));
+	g_VFS.Register("", new DirectoryAssetReader(Path("")));
+	g_VFS.Register("", new DirectoryAssetReader(Path("..")));
 }
 
 bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
