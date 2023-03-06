@@ -252,7 +252,10 @@
     <ClCompile Include="..\..\Common\Data\Format\RIFF.cpp">
       <Filter>Data\Format</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\File\VFS\AssetReader.cpp">
+    <ClCompile Include="..\..\Common\File\VFS\DirectoryReader.cpp">
+      <Filter>File\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\VFS\ZipFileReader.cpp">
       <Filter>File\VFS</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Common\File\VFS\VFS.cpp">
@@ -589,7 +592,10 @@
     <ClInclude Include="..\..\Common\Data\Format\RIFF.h">
       <Filter>Data\Format</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\File\VFS\AssetReader.h">
+    <ClInclude Include="..\..\Common\File\VFS\DirectoryReader.h">
+      <Filter>File\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\VFS\ZipFileReader.h">
       <Filter>File\VFS</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\File\VFS\VFS.h">

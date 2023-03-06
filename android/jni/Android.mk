@@ -175,7 +175,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Data/Text/WrapText.cpp \
   $(SRC)/Common/File/AndroidStorage.cpp \
   $(SRC)/Common/File/VFS/VFS.cpp \
-  $(SRC)/Common/File/VFS/AssetReader.cpp \
+  $(SRC)/Common/File/VFS/ZipFileReader.cpp \
+  $(SRC)/Common/File/VFS/DirectoryReader.cpp \
   $(SRC)/Common/File/DiskFree.cpp \
   $(SRC)/Common/File/Path.cpp \
   $(SRC)/Common/File/PathBrowser.cpp \

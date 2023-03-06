@@ -11,7 +11,7 @@
 #include "Common/Common.h"
 #include "Common/Input/InputState.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/DirectXHelper.h"
@@ -76,8 +76,8 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	ctx_.reset(new UWPGraphicsContext(deviceResources));
 
 	const Path &exePath = File::GetExeDirectory();
-	g_VFS.Register("", new DirectoryAssetReader(exePath / "Content"));
-	g_VFS.Register("", new DirectoryAssetReader(exePath));
+	g_VFS.Register("", new DirectoryReader(exePath / "Content"));
+	g_VFS.Register("", new DirectoryReader(exePath));
 
 	wchar_t lcCountry[256];
 

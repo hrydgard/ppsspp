@@ -14,11 +14,11 @@
 // on the system level, like loading assets, and maybe texture packs. Also, as mentioned,
 // this one is read-only, so a bit smaller and simpler.
 
-class AssetReader {
+class VFSBackend {
 public:
-	virtual ~AssetReader() {}
+	virtual ~VFSBackend() {}
 	// use delete[] to release the returned memory.
-	virtual uint8_t *ReadAsset(const char *path, size_t *size) = 0;
+	virtual uint8_t *ReadFile(const char *path, size_t *size) = 0;
 
 	// Filter support is optional but nice to have
 	virtual bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = 0) = 0;
@@ -29,7 +29,7 @@ public:
 class VFS {
 public:
 	~VFS() { Clear(); }
-	void Register(const char *prefix, AssetReader *reader);
+	void Register(const char *prefix, VFSBackend *reader);
 	void Clear();
 
 	// Use delete [] to release the returned memory.
@@ -42,7 +42,7 @@ public:
 private:
 	struct VFSEntry {
 		const char *prefix;
-		AssetReader *reader;
+		VFSBackend *reader;
 	};
 	std::vector<VFSEntry> entries_;
 };

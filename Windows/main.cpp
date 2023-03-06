@@ -36,7 +36,7 @@
 #include "Common/System/System.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ThreadUtil.h"
@@ -583,8 +583,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 #endif
 
 	const Path &exePath = File::GetExeDirectory();
-	g_VFS.Register("", new DirectoryAssetReader(exePath / "assets"));
-	g_VFS.Register("", new DirectoryAssetReader(exePath));
+	g_VFS.Register("", new DirectoryReader(exePath / "assets"));
+	g_VFS.Register("", new DirectoryReader(exePath));
 
 	langRegion = GetDefaultLangRegion();
 	osName = GetWindowsVersion() + " " + GetWindowsSystemArchitecture();

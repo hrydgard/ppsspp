@@ -1,11 +1,13 @@
+#include <cstring>
+
 #include "Common/Log.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/FileUtil.h"
 #include "Common/File/AndroidStorage.h"
 
 VFS g_VFS;
 
-void VFS::Register(const char *prefix, AssetReader *reader) {
+void VFS::Register(const char *prefix, VFSBackend *reader) {
 	entries_.push_back(VFSEntry{ prefix, reader });
 	DEBUG_LOG(IO, "Registered VFS for prefix %s: %s", prefix, reader->toString().c_str());
 }
@@ -45,7 +47,7 @@ uint8_t *VFS::ReadFile(const char *filename, size_t *size) {
 		if (0 == memcmp(filename, entry.prefix, prefix_len)) {
 			fileSystemFound = true;
 			// INFO_LOG(IO, "Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
-			uint8_t *data = entry.reader->ReadAsset(filename + prefix_len, size);
+			uint8_t *data = entry.reader->ReadFile(filename + prefix_len, size);
 			if (data)
 				return data;
 			else

@@ -67,7 +67,8 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/ZipFileReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/CPUDetect.h"
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
@@ -467,27 +468,27 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// We want this to be FIRST.
 #if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 	// Packed assets are included in app
-	g_VFS.Register("", new DirectoryAssetReader(Path(external_dir)));
+	g_VFS.Register("", new DirectoryReader(Path(external_dir)));
 #endif
 #if defined(ASSETS_DIR)
-	g_VFS.Register("", new DirectoryAssetReader(Path(ASSETS_DIR)));
+	g_VFS.Register("", new DirectoryReader(Path(ASSETS_DIR)));
 #endif
 #if !defined(MOBILE_DEVICE) && !defined(_WIN32) && !PPSSPP_PLATFORM(SWITCH)
-	g_VFS.Register("", new DirectoryAssetReader(File::GetExeDirectory() / "assets"));
-	g_VFS.Register("", new DirectoryAssetReader(File::GetExeDirectory()));
-	g_VFS.Register("", new DirectoryAssetReader(Path("/usr/local/share/ppsspp/assets")));
-	g_VFS.Register("", new DirectoryAssetReader(Path("/usr/local/share/games/ppsspp/assets")));
-	g_VFS.Register("", new DirectoryAssetReader(Path("/usr/share/ppsspp/assets")));
-	g_VFS.Register("", new DirectoryAssetReader(Path("/usr/share/games/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(File::GetExeDirectory() / "assets"));
+	g_VFS.Register("", new DirectoryReader(File::GetExeDirectory()));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/games/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/share/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/share/games/ppsspp/assets")));
 #endif
 
 #if PPSSPP_PLATFORM(SWITCH)
 	Path assetPath = Path(user_data_path) / "assets";
-	g_VFS.Register("", new DirectoryAssetReader(assetPath));
+	g_VFS.Register("", new DirectoryReader(assetPath));
 #else
-	g_VFS.Register("", new DirectoryAssetReader(Path("assets")));
+	g_VFS.Register("", new DirectoryReader(Path("assets")));
 #endif
-	g_VFS.Register("", new DirectoryAssetReader(Path(savegame_dir)));
+	g_VFS.Register("", new DirectoryReader(Path(savegame_dir)));
 
 #if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(UWP)
 	if (host == nullptr) {

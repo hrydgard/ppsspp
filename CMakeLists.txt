@@ -588,8 +588,10 @@ add_library(Common STATIC
 	Common/Data/Random/Rng.h
 	Common/File/VFS/VFS.h
 	Common/File/VFS/VFS.cpp
-	Common/File/VFS/AssetReader.cpp
-	Common/File/VFS/AssetReader.h
+	Common/File/VFS/ZipFileReader.cpp
+	Common/File/VFS/ZipFileReader.h
+	Common/File/VFS/DirectoryReader.cpp
+	Common/File/VFS/DirectoryReader.h
 	Common/File/AndroidStorage.h
 	Common/File/AndroidStorage.cpp
 	Common/File/DiskFree.h
@@ -1150,7 +1152,7 @@ elseif(IOS AND NOT LIBRETRO)
 		UI/DarwinFileSystemServices.h
 		Common/Battery/AppleBatteryClient.m
 	)
-    
+
 	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreVideo -framework CoreMedia -framework CoreServices" )
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")

@@ -26,7 +26,7 @@
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/GraphicsContext.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
@@ -100,9 +100,9 @@ private:
 };
 
 void SDLHeadlessHost::LoadNativeAssets() {
-	g_VFS.Register("", new DirectoryAssetReader(Path("assets")));
-	g_VFS.Register("", new DirectoryAssetReader(Path("")));
-	g_VFS.Register("", new DirectoryAssetReader(Path("..")));
+	g_VFS.Register("", new DirectoryReader(Path("assets")));
+	g_VFS.Register("", new DirectoryReader(Path("")));
+	g_VFS.Register("", new DirectoryReader(Path("..")));
 }
 
 bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {

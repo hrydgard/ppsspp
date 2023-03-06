@@ -306,7 +306,8 @@
     <ClInclude Include="..\..\Common\File\FileUtil.h" />
     <ClInclude Include="..\..\Common\File\Path.h" />
     <ClInclude Include="..\..\Common\File\PathBrowser.h" />
-    <ClInclude Include="..\..\Common\File\VFS\AssetReader.h" />
+    <ClInclude Include="..\..\Common\File\VFS\DirectoryReader.h" />
+    <ClInclude Include="..\..\Common\File\VFS\ZipFileReader.h" />
     <ClInclude Include="..\..\Common\File\VFS\VFS.h" />
     <ClInclude Include="..\..\Common\GPU\DataFormat.h" />
     <ClInclude Include="..\..\Common\GPU\OpenGL\GLFeatures.h" />
@@ -443,7 +444,8 @@
     <ClCompile Include="..\..\Common\File\FileUtil.cpp" />
     <ClCompile Include="..\..\Common\File\Path.cpp" />
     <ClCompile Include="..\..\Common\File\PathBrowser.cpp" />
-    <ClCompile Include="..\..\Common\File\VFS\AssetReader.cpp" />
+    <ClCompile Include="..\..\Common\File\VFS\DirectoryReader.cpp" />
+    <ClCompile Include="..\..\Common\File\VFS\ZipFileReader.cpp" />
     <ClCompile Include="..\..\Common\File\VFS\VFS.cpp" />
     <ClCompile Include="..\..\Common\GPU\D3D11\thin3d_d3d11.cpp" />
     <ClCompile Include="..\..\Common\GPU\OpenGL\GLFeatures.cpp" />
