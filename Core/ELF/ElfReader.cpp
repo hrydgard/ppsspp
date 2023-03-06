@@ -346,19 +346,16 @@ void ElfReader::LoadRelocations2(int rel_seg)
 
 			switch(type){
 			case 0:
-				continue;
+				break;
 			case 2: // R_MIPS_32
 				op += relocate_to;
 				break;
 			case 3: // R_MIPS_26
+				op = (op & 0xFC000000) | (((op & 0x03FFFFFF) + (relocate_to >> 2)) & 0x03FFFFFFF);
+				break;
 			case 6: // R_MIPS_J26
 			case 7: // R_MIPS_JAL26
-				op = (op&0xFC000000) | (((op&0x03FFFFFF)+(relocate_to>>2))&0x03FFFFFF);
-				// To be safe, let's force it to the specified jump.
-				if (type == 6)
-					op = (op & ~0xFC000000) | 0x08000000;
-				else if (type == 7)
-					op = (op & ~0xFC000000) | 0x0C000000;
+				op = (op << 26) | (((op & 0x03FFFFFF) + (relocate_to >> 2)) & 0x03FFFFFFF);
 				break;
 			case 4: // R_MIPS_HI16
 				addr = ((op<<16)+lo16)+relocate_to;
@@ -368,7 +365,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				break;
 			case 1:
 			case 5: // R_MIPS_LO16
-				op = (op&0xffff0000) | (((op&0xffff)+relocate_to)&0xffff);
+				op = (op & 0xffff0000) | ((static_cast<int>(short(op)) + relocate_to) & 0xffff);
 				break;
 			default:
 				ERROR_LOG_REPORT(LOADER, "Rel2: unexpected relocation type! %x", type);
