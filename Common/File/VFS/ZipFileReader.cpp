@@ -13,6 +13,7 @@
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/File/VFS/ZipFileReader.h"
+#include "Common/StringUtils.h"
 
 static uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
 	// Figure out the file size first.
@@ -33,21 +34,17 @@ static uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
 	return contents;
 }
 
-ZipFileReader::ZipFileReader(const char *zip_file, const char *in_zip_path) {
-	zip_file_ = zip_open(zip_file, 0, NULL);
-	strcpy(in_zip_path_, in_zip_path);
-	if (!zip_file_) {
-		ERROR_LOG(IO, "Failed to open %s as a zip file", zip_file);
+ZipFileReader::ZipFileReader(const Path &zipFile, const char *inZipPath) {
+	int error = 0;
+	if (zipFile.Type() == PathType::CONTENT_URI) {
+		int fd = File::OpenFD(zipFile, File::OPEN_READ);
+		zip_file_ = zip_fdopen(fd, 0, &error);
+	} else {
+		zip_file_ = zip_open(zipFile.c_str(), 0, &error);
 	}
-
-	std::vector<File::FileInfo> info;
-	GetFileListing("assets", &info, 0);
-	for (size_t i = 0; i < info.size(); i++) {
-		if (info[i].isDirectory) {
-			DEBUG_LOG(IO, "Directory: %s", info[i].name.c_str());
-		} else {
-			DEBUG_LOG(IO, "File: %s", info[i].name.c_str());
-		}
+	truncate_cpy(inZipPath_, inZipPath);
+	if (!zip_file_) {
+		ERROR_LOG(IO, "Failed to open %s as a zip file", zipFile.c_str());
 	}
 }
 
@@ -58,7 +55,7 @@ ZipFileReader::~ZipFileReader() {
 
 uint8_t *ZipFileReader::ReadFile(const char *path, size_t *size) {
 	char temp_path[2048];
-	snprintf(temp_path, sizeof(temp_path), "%s%s", in_zip_path_, path);
+	snprintf(temp_path, sizeof(temp_path), "%s%s", inZipPath_, path);
 
 	std::lock_guard<std::mutex> guard(lock_);
 	return ReadFromZip(zip_file_, temp_path, size);
@@ -66,7 +63,7 @@ uint8_t *ZipFileReader::ReadFile(const char *path, size_t *size) {
 
 bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::FileInfo> *listing, const char *filter = 0) {
 	char path[2048];
-	snprintf(path, sizeof(path), "%s%s", in_zip_path_, orig_path);
+	snprintf(path, sizeof(path), "%s%s", inZipPath_, orig_path);
 
 	std::set<std::string> filters;
 	std::string tmp;
@@ -94,7 +91,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 		info.name = *diter;
 
 		// Remove the "inzip" part of the fullname.
-		info.fullName = Path(std::string(path).substr(strlen(in_zip_path_))) / *diter;
+		info.fullName = Path(std::string(path).substr(strlen(inZipPath_))) / *diter;
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = true;
@@ -105,7 +102,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 		std::string fpath = path;
 		File::FileInfo info;
 		info.name = *fiter;
-		info.fullName = Path(std::string(path).substr(strlen(in_zip_path_))) / *fiter;
+		info.fullName = Path(std::string(path).substr(strlen(inZipPath_))) / *fiter;
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = false;
@@ -151,7 +148,7 @@ void ZipFileReader::GetZipListings(const char *path, std::set<std::string> &file
 bool ZipFileReader::GetFileInfo(const char *path, File::FileInfo *info) {
 	struct zip_stat zstat;
 	char temp_path[1024];
-	snprintf(temp_path, sizeof(temp_path), "%s%s", in_zip_path_, path);
+	snprintf(temp_path, sizeof(temp_path), "%s%s", inZipPath_, path);
 	if (0 != zip_stat(zip_file_, temp_path, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat)) {
 		// ZIP files do not have real directories, so we'll end up here if we
 		// try to stat one. For now that's fine.

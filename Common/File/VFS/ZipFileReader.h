@@ -16,14 +16,14 @@
 
 class ZipFileReader : public VFSBackend {
 public:
-	ZipFileReader(const char *zip_file, const char *in_zip_path);
+	ZipFileReader(const Path &zipFile, const char *inZipPath);
 	~ZipFileReader();
 	// use delete[] on the returned value.
 	uint8_t *ReadFile(const char *path, size_t *size) override;
 	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter) override;
 	bool GetFileInfo(const char *path, File::FileInfo *info) override;
 	std::string toString() const override {
-		return in_zip_path_;
+		return inZipPath_;
 	}
 
 private:
@@ -31,5 +31,5 @@ private:
 
 	zip *zip_file_;
 	std::mutex lock_;
-	char in_zip_path_[256];
+	char inZipPath_[256];
 };
