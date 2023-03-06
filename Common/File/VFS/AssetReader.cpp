@@ -3,15 +3,16 @@
 #include <set>
 #include <stdio.h>
 
-#ifdef __ANDROID__
+#ifdef SHARED_LIBZIP
 #include <zip.h>
+#else
+#include "ext/libzip/zip.h"
 #endif
 
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/File/VFS/AssetReader.h"
 
-#ifdef __ANDROID__
 uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
 	// Figure out the file size first.
 	struct zip_stat zstat;
@@ -30,10 +31,6 @@ uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
 	*size = zstat.size;
 	return contents;
 }
-
-#endif
-
-#ifdef __ANDROID__
 
 ZipAssetReader::ZipAssetReader(const char *zip_file, const char *in_zip_path) {
 	zip_file_ = zip_open(zip_file, 0, NULL);
@@ -155,9 +152,8 @@ void ZipAssetReader::GetZipListings(const char *path, std::set<std::string> &fil
 bool ZipAssetReader::GetFileInfo(const char *path, File::FileInfo *info) {
 	struct zip_stat zstat;
 	char temp_path[1024];
-	strcpy(temp_path, in_zip_path_);
-	strcat(temp_path, path);
-	if (0 != zip_stat(zip_file_, temp_path, ZIP_FL_NOCASE|ZIP_FL_UNCHANGED, &zstat)) {
+	snprintf(temp_path, sizeof(temp_path), "%s%s", in_zip_path_, path);
+	if (0 != zip_stat(zip_file_, temp_path, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat)) {
 		// ZIP files do not have real directories, so we'll end up here if we
 		// try to stat one. For now that's fine.
 		info->exists = false;
@@ -172,8 +168,6 @@ bool ZipAssetReader::GetFileInfo(const char *path, File::FileInfo *info) {
 	info->size = zstat.size;
 	return true;
 }
-
-#endif
 
 DirectoryAssetReader::DirectoryAssetReader(const Path &path) {
 	path_ = path;
