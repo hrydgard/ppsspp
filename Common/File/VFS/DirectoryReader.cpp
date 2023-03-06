@@ -41,27 +41,45 @@ public:
 };
 
 VFSFileReference *DirectoryReader::GetFile(const char *path) {
-	return nullptr;
+	DirectoryReaderFileReference *reference = new DirectoryReaderFileReference();
+	reference->path = path_ / path;
+	return reference;
 }
 
-void DirectoryReader::ReleaseFile(VFSFileReference *reference) {
-	DirectoryReaderFileReference *file = (DirectoryReaderFileReference *)reference;
+bool DirectoryReader::GetFileInfo(VFSFileReference *vfsReference, File::FileInfo *fileInfo) {
+	DirectoryReaderFileReference *reference = (DirectoryReaderFileReference *)vfsReference;
+	return File::GetFileInfo(reference->path, fileInfo);
 }
 
-VFSOpenFile *DirectoryReader::OpenFileForRead(VFSFileReference *reference) {
-	DirectoryReaderFileReference *file = (DirectoryReaderFileReference *)reference;
-	return nullptr;
+void DirectoryReader::ReleaseFile(VFSFileReference *vfsReference) {
+	DirectoryReaderFileReference *reference = (DirectoryReaderFileReference *)vfsReference;
+	delete reference;
 }
 
-void DirectoryReader::Rewind(VFSOpenFile *openFile) {
-	DirectoryReaderOpenFile *file = (DirectoryReaderOpenFile *)openFile;
+VFSOpenFile *DirectoryReader::OpenFileForRead(VFSFileReference *vfsReference) {
+	DirectoryReaderFileReference *reference = (DirectoryReaderFileReference *)vfsReference;
+	FILE *file = File::OpenCFile(reference->path, "rb");
+	if (!file) {
+		return nullptr;
+	}
+
+	DirectoryReaderOpenFile *openFile = new DirectoryReaderOpenFile();
+	openFile->file = file;
+	return openFile;
 }
 
-size_t DirectoryReader::Read(VFSOpenFile *openFile, uint8_t *buffer, size_t length) {
-	DirectoryReaderOpenFile *file = (DirectoryReaderOpenFile *)openFile;
-	return 0;
+void DirectoryReader::Rewind(VFSOpenFile *vfsOpenFile) {
+	DirectoryReaderOpenFile *openFile = (DirectoryReaderOpenFile *)vfsOpenFile;
+	fseek(openFile->file, 0, SEEK_SET);
 }
 
-void DirectoryReader::CloseFile(VFSOpenFile *openFile) {
-	DirectoryReaderOpenFile *file = (DirectoryReaderOpenFile *)openFile;
+size_t DirectoryReader::Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t length) {
+	DirectoryReaderOpenFile *openFile = (DirectoryReaderOpenFile *)vfsOpenFile;
+	return fread(buffer, 1, length, openFile->file);
+}
+
+void DirectoryReader::CloseFile(VFSOpenFile *vfsOpenFile) {
+	DirectoryReaderOpenFile *openFile = (DirectoryReaderOpenFile *)vfsOpenFile;
+	fclose(openFile->file);
+	delete openFile;
 }

@@ -16,18 +16,22 @@
 
 class ZipFileReader : public VFSBackend {
 public:
-	ZipFileReader(const Path &zipFile, const char *inZipPath);
+	static ZipFileReader *Create(const Path &zipFile, const char *inZipPath);
 	~ZipFileReader();
+
+	bool IsValid() const { return zip_file_ != nullptr; }
+
 	// use delete[] on the returned value.
 	uint8_t *ReadFile(const char *path, size_t *size) override;
 
 	VFSFileReference *GetFile(const char *path) override;
-	void ReleaseFile(VFSFileReference *reference) override;
+	bool GetFileInfo(VFSFileReference *vfsReference, File::FileInfo *fileInfo) override;
+	void ReleaseFile(VFSFileReference *vfsReference) override;
 
-	VFSOpenFile *OpenFileForRead(VFSFileReference *reference) override;
-	void Rewind(VFSOpenFile *openFile) override;
-	size_t Read(VFSOpenFile *openFile, uint8_t *buffer, size_t length) override;
-	void CloseFile(VFSOpenFile *openFile) override;
+	VFSOpenFile *OpenFileForRead(VFSFileReference *vfsReference) override;
+	void Rewind(VFSOpenFile *vfsOpenFile) override;
+	size_t Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t length) override;
+	void CloseFile(VFSOpenFile *vfsOpenFile) override;
 
 	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter) override;
 	bool GetFileInfo(const char *path, File::FileInfo *info) override;
@@ -38,7 +42,7 @@ public:
 private:
 	void GetZipListings(const char *path, std::set<std::string> &files, std::set<std::string> &directories);
 
-	zip *zip_file_;
+	zip *zip_file_ = nullptr;
 	std::mutex lock_;
 	char inZipPath_[256];
 };

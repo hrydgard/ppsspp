@@ -30,13 +30,14 @@ public:
 	virtual ~VFSOpenFile() {}
 };
 
-// Common inteface parts between VFSBackend and VFS.
+// Common interface parts between VFSBackend and VFS.
 // Sometimes you don't need the VFS multiplexing and only have a VFSBackend *, sometimes you do need it,
 // and it would be cool to be able to use the same interface, like when loading INI files.
 class VFSInterface {
 public:
 	virtual ~VFSInterface() {}
 	virtual uint8_t *ReadFile(const char *path, size_t *size) = 0;
+	virtual bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) = 0;
 };
 
 class VFSBackend : public VFSInterface {
@@ -44,15 +45,15 @@ public:
 	// use delete[] to release the returned memory.
 
 	virtual VFSFileReference *GetFile(const char *path) = 0;
-	virtual void ReleaseFile(VFSFileReference *file) = 0;
+	virtual bool GetFileInfo(VFSFileReference *vfsReference, File::FileInfo *fileInfo) = 0;
+	virtual void ReleaseFile(VFSFileReference *vfsReference) = 0;
 
-	virtual VFSOpenFile *OpenFileForRead(VFSFileReference *reference) = 0;
-	virtual void Rewind(VFSOpenFile *file) = 0;
-	virtual size_t Read(VFSOpenFile *file, uint8_t *buffer, size_t length) = 0;
-	virtual void CloseFile(VFSOpenFile *file) = 0;
+	virtual VFSOpenFile *OpenFileForRead(VFSFileReference *vfsReference) = 0;
+	virtual void Rewind(VFSOpenFile *vfsOpenFile) = 0;
+	virtual size_t Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t length) = 0;
+	virtual void CloseFile(VFSOpenFile *vfsOpenFile) = 0;
 
 	// Filter support is optional but nice to have
-	virtual bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = 0) = 0;
 	virtual bool GetFileInfo(const char *path, File::FileInfo *info) = 0;
 	virtual std::string toString() const = 0;
 };
@@ -67,8 +68,8 @@ public:
 	// Always allocates an extra zero byte at the end, so that it
 	// can be used for text like shader sources.
 	uint8_t *ReadFile(const char *filename, size_t *size) override;
-	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = 0);
 	bool GetFileInfo(const char *filename, File::FileInfo *fileInfo);
+	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) override;
 
 private:
 	struct VFSEntry {

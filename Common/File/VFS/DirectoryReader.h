@@ -10,13 +10,14 @@ public:
 	// use delete[] on the returned value.
 	uint8_t *ReadFile(const char *path, size_t *size) override;
 
-	virtual VFSFileReference *GetFile(const char *path) override;
-	virtual void ReleaseFile(VFSFileReference *reference) override;
+	VFSFileReference *GetFile(const char *path) override;
+	bool GetFileInfo(VFSFileReference *vfsReference, File::FileInfo *fileInfo) override;
+	void ReleaseFile(VFSFileReference *vfsReference) override;
 
-	virtual VFSOpenFile *OpenFileForRead(VFSFileReference *reference) override;
-	virtual void Rewind(VFSOpenFile *openFile) override;
-	virtual size_t Read(VFSOpenFile *openFile, uint8_t *buffer, size_t length) override;
-	virtual void CloseFile(VFSOpenFile *openFile) override;
+	VFSOpenFile *OpenFileForRead(VFSFileReference *vfsReference) override;
+	void Rewind(VFSOpenFile *vfsOpenFile) override;
+	size_t Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t length) override;
+	void CloseFile(VFSOpenFile *vfsOpenFile) override;
 
 	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter) override;
 	bool GetFileInfo(const char *path, File::FileInfo *info) override;
