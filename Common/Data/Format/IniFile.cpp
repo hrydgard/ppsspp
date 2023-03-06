@@ -582,10 +582,10 @@ bool IniFile::LoadFromVFS(VFSInterface &vfs, const std::string &filename) {
 bool IniFile::Load(std::istream &in) {
 	// Maximum number of letters in a line
 	static const int MAX_BYTES = 1024*32;
+	char *templine = new char[MAX_BYTES];  // avoid using up massive stack space
 
 	while (!(in.eof() || in.fail()))
 	{
-		char templine[MAX_BYTES];
 		in.getline(templine, MAX_BYTES);
 		std::string line = templine;
 
@@ -624,6 +624,7 @@ bool IniFile::Load(std::istream &in) {
 		}
 	}
 
+	delete[] templine;
 	return true;
 }
 
