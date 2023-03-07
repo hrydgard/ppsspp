@@ -27,6 +27,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/MemoryUtil.h"
 #include "Common/File/Path.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/GPU/DataFormat.h"
 
 #include "GPU/Common/TextureDecoder.h"
@@ -37,7 +38,7 @@ class TextureCacheCommon;
 class TextureReplacer;
 class ReplacedTextureTask;
 class LimitedWaitable;
-struct zip;
+class VFSBackend;
 
 // These must match the constants in TextureCacheCommon.
 enum class ReplacedTextureAlpha {
@@ -52,13 +53,6 @@ enum class ReplacedTextureHash {
 	XXH64,
 };
 
-struct ReplacerZipInfo {
-	zip *z = nullptr;
-	std::mutex lock;
-
-	void Close();
-};
-
 struct ReplacedTextureLevel {
 	int w;
 	int h;
@@ -66,9 +60,7 @@ struct ReplacedTextureLevel {
 	Path file;
 	// Can be ignored for hashing/equal, since file has all uniqueness.
 	// To be able to reload, we need to be able to reopen, unfortunate we can't use zip_file_t.
-	ReplacerZipInfo *zinfo = nullptr;
-	int64_t zi = -1;
-
+	VFSFileReference *fileRef;
 	bool operator ==(const ReplacedTextureLevel &other) const {
 		if (w != other.w || h != other.h || fmt != other.fmt)
 			return false;
@@ -206,7 +198,7 @@ struct ReplacedTexture {
 	bool Load(int level, void *out, int rowPitch);
 
 protected:
-	void Prepare();
+	void Prepare(VFSBackend *vfs);
 	void PrepareData(int level);
 	void PurgeIfOlder(double t);
 
@@ -216,9 +208,12 @@ protected:
 	double lastUsed_ = 0.0;
 	LimitedWaitable *threadWaitable_ = nullptr;
 	std::mutex mutex_;
+
 	bool cancelPrepare_ = false;
 	bool initDone_ = false;
 	bool prepareDone_ = false;
+
+	VFSBackend *vfs_ = nullptr;
 
 	friend TextureReplacer;
 	friend ReplacedTextureTask;
@@ -282,21 +277,22 @@ protected:
 	std::string LookupHashFile(u64 cachekey, u32 hash, int level);
 	std::string HashName(u64 cachekey, u32 hash, int level);
 	void PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h);
-	bool PopulateLevelFromPath(ReplacedTextureLevel &level, bool ignoreError);
-	bool PopulateLevelFromZip(ReplacedTextureLevel &level, bool ignoreError);
+	bool PopulateLevel(ReplacedTextureLevel &level, bool ignoreError);
 
 	bool enabled_ = false;
 	bool allowVideo_ = false;
 	bool ignoreAddress_ = false;
 	bool reduceHash_ = false;
-	float reduceHashSize = 1.0; // default value with reduceHash to false
-	float reduceHashGlobalValue = 0.5; // Global value for textures dump pngs of all sizes, 0.5 by default but can be set in textures.ini
+	float reduceHashSize = 1.0f; // default value with reduceHash to false
+	float reduceHashGlobalValue = 0.5f; // Global value for textures dump pngs of all sizes, 0.5 by default but can be set in textures.ini
+
 	double lastTextureCacheSizeGB_ = 0.0;
 	bool ignoreMipmap_ = false;
 	std::string gameID_;
 	Path basePath_;
 	ReplacedTextureHash hash_ = ReplacedTextureHash::QUICK;
-	ReplacerZipInfo zip_;
+
+	VFSBackend *vfs_ = nullptr;
 
 	typedef std::pair<int, int> WidthHeightPair;
 	std::unordered_map<u64, WidthHeightPair> hashranges_;
