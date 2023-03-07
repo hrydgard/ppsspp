@@ -569,7 +569,7 @@ bool IniFile::Load(const Path &path)
 
 bool IniFile::LoadFromVFS(const std::string &filename) {
 	size_t size;
-	uint8_t *data = VFSReadFile(filename.c_str(), &size);
+	uint8_t *data = g_VFS.ReadFile(filename.c_str(), &size);
 	if (!data)
 		return false;
 	std::string str((const char*)data, size);

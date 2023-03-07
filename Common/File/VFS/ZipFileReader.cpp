@@ -1,18 +1,21 @@
 #include <algorithm>
 #include <ctype.h>
 #include <set>
-#include <stdio.h>
+#include <cstdio>
+#include <cstring>
 
-#ifdef __ANDROID__
+#ifdef SHARED_LIBZIP
 #include <zip.h>
+#else
+#include "ext/libzip/zip.h"
 #endif
 
 #include "Common/Common.h"
 #include "Common/Log.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/ZipFileReader.h"
+#include "Common/StringUtils.h"
 
-#ifdef __ANDROID__
-uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
+static uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
 	// Figure out the file size first.
 	struct zip_stat zstat;
 	zip_file *file = zip_fopen(archive, filename, ZIP_FL_NOCASE|ZIP_FL_UNCHANGED);
@@ -31,46 +34,36 @@ uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
 	return contents;
 }
 
-#endif
-
-#ifdef __ANDROID__
-
-ZipAssetReader::ZipAssetReader(const char *zip_file, const char *in_zip_path) {
-	zip_file_ = zip_open(zip_file, 0, NULL);
-	strcpy(in_zip_path_, in_zip_path);
-	if (!zip_file_) {
-		ERROR_LOG(IO, "Failed to open %s as a zip file", zip_file);
+ZipFileReader::ZipFileReader(const Path &zipFile, const char *inZipPath) {
+	int error = 0;
+	if (zipFile.Type() == PathType::CONTENT_URI) {
+		int fd = File::OpenFD(zipFile, File::OPEN_READ);
+		zip_file_ = zip_fdopen(fd, 0, &error);
+	} else {
+		zip_file_ = zip_open(zipFile.c_str(), 0, &error);
 	}
-
-	std::vector<File::FileInfo> info;
-	GetFileListing("assets", &info, 0);
-	for (size_t i = 0; i < info.size(); i++) {
-		if (info[i].isDirectory) {
-			DEBUG_LOG(IO, "Directory: %s", info[i].name.c_str());
-		} else {
-			DEBUG_LOG(IO, "File: %s", info[i].name.c_str());
-		}
+	truncate_cpy(inZipPath_, inZipPath);
+	if (!zip_file_) {
+		ERROR_LOG(IO, "Failed to open %s as a zip file", zipFile.c_str());
 	}
 }
 
-ZipAssetReader::~ZipAssetReader() {
+ZipFileReader::~ZipFileReader() {
 	std::lock_guard<std::mutex> guard(lock_);
 	zip_close(zip_file_);
 }
 
-uint8_t *ZipAssetReader::ReadAsset(const char *path, size_t *size) {
-	char temp_path[1024];
-	strcpy(temp_path, in_zip_path_);
-	strcat(temp_path, path);
+uint8_t *ZipFileReader::ReadFile(const char *path, size_t *size) {
+	char temp_path[2048];
+	snprintf(temp_path, sizeof(temp_path), "%s%s", inZipPath_, path);
 
 	std::lock_guard<std::mutex> guard(lock_);
 	return ReadFromZip(zip_file_, temp_path, size);
 }
 
-bool ZipAssetReader::GetFileListing(const char *orig_path, std::vector<File::FileInfo> *listing, const char *filter = 0) {
-	char path[1024];
-	strcpy(path, in_zip_path_);
-	strcat(path, orig_path);
+bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::FileInfo> *listing, const char *filter = 0) {
+	char path[2048];
+	snprintf(path, sizeof(path), "%s%s", inZipPath_, orig_path);
 
 	std::set<std::string> filters;
 	std::string tmp;
@@ -98,7 +91,7 @@ bool ZipAssetReader::GetFileListing(const char *orig_path, std::vector<File::Fil
 		info.name = *diter;
 
 		// Remove the "inzip" part of the fullname.
-		info.fullName = Path(std::string(path).substr(strlen(in_zip_path_))) / *diter;
+		info.fullName = Path(std::string(path).substr(strlen(inZipPath_))) / *diter;
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = true;
@@ -109,7 +102,7 @@ bool ZipAssetReader::GetFileListing(const char *orig_path, std::vector<File::Fil
 		std::string fpath = path;
 		File::FileInfo info;
 		info.name = *fiter;
-		info.fullName = Path(std::string(path).substr(strlen(in_zip_path_))) / *fiter;
+		info.fullName = Path(std::string(path).substr(strlen(inZipPath_))) / *fiter;
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = false;
@@ -126,7 +119,7 @@ bool ZipAssetReader::GetFileListing(const char *orig_path, std::vector<File::Fil
 	return true;
 }
 
-void ZipAssetReader::GetZipListings(const char *path, std::set<std::string> &files, std::set<std::string> &directories) {
+void ZipFileReader::GetZipListings(const char *path, std::set<std::string> &files, std::set<std::string> &directories) {
 	size_t pathlen = strlen(path);
 	if (path[pathlen - 1] == '/')
 		pathlen--;
@@ -152,12 +145,11 @@ void ZipAssetReader::GetZipListings(const char *path, std::set<std::string> &fil
 	}
 }
 
-bool ZipAssetReader::GetFileInfo(const char *path, File::FileInfo *info) {
+bool ZipFileReader::GetFileInfo(const char *path, File::FileInfo *info) {
 	struct zip_stat zstat;
 	char temp_path[1024];
-	strcpy(temp_path, in_zip_path_);
-	strcat(temp_path, path);
-	if (0 != zip_stat(zip_file_, temp_path, ZIP_FL_NOCASE|ZIP_FL_UNCHANGED, &zstat)) {
+	snprintf(temp_path, sizeof(temp_path), "%s%s", inZipPath_, path);
+	if (0 != zip_stat(zip_file_, temp_path, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat)) {
 		// ZIP files do not have real directories, so we'll end up here if we
 		// try to stat one. For now that's fine.
 		info->exists = false;
@@ -171,34 +163,4 @@ bool ZipAssetReader::GetFileInfo(const char *path, File::FileInfo *info) {
 	info->isDirectory = false;    // TODO
 	info->size = zstat.size;
 	return true;
-}
-
-#endif
-
-DirectoryAssetReader::DirectoryAssetReader(const Path &path) {
-	path_ = path;
-}
-
-uint8_t *DirectoryAssetReader::ReadAsset(const char *path, size_t *size) {
-	Path new_path = Path(path).StartsWith(path_) ? Path(path) : path_ / path;
-	return File::ReadLocalFile(new_path, size);
-}
-
-bool DirectoryAssetReader::GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) {
-	Path new_path = Path(path).StartsWith(path_) ? Path(path) : path_ / path;
-
-	File::FileInfo info;
-	if (!File::GetFileInfo(new_path, &info))
-		return false;
-
-	if (info.isDirectory) {
-		File::GetFilesInDir(new_path, listing, filter);
-		return true;
-	}
-	return false;
-}
-
-bool DirectoryAssetReader::GetFileInfo(const char *path, File::FileInfo *info) {
-	Path new_path = Path(path).StartsWith(path_) ? Path(path) : path_ / path;
-	return File::GetFileInfo(new_path, info);
 }

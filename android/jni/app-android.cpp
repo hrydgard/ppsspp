@@ -65,7 +65,8 @@ struct JNIEnv {};
 #include "Common/File/Path.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
+#include "Common/File/VFS/ZipFileReader.h"
 #include "Common/File/AndroidStorage.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
@@ -694,8 +695,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
 
-	std::string apkPath = GetJavaString(env, japkpath);
-	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
+	Path apkPath(GetJavaString(env, japkpath));
+	g_VFS.Register("", new ZipFileReader(apkPath, "assets/"));
 
 	systemName = GetJavaString(env, jmodel);
 	langRegion = GetJavaString(env, jlangRegion);
@@ -907,7 +908,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		std::lock_guard<std::mutex> guard(renderLock);
 		inputBoxCallbacks.clear();
 		NativeShutdown();
-		VFSShutdown();
+		g_VFS.Clear();
 	}
 
 	{

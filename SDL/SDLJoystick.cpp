@@ -29,7 +29,7 @@ SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
 	cout << "loading control pad mappings from " << dbPath << ": ";
 
 	size_t size;
-	u8 *mappingData = VFSReadFile(dbPath, &size);
+	u8 *mappingData = g_VFS.ReadFile(dbPath, &size);
 	if (mappingData) {
 		SDL_RWops *rw = SDL_RWFromConstMem(mappingData, size);
 		// 1 to free the rw after use
@@ -191,7 +191,7 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 		NativeAxis(axis);
 		break;
 	case SDL_CONTROLLERDEVICEREMOVED:
-		// for removal events, "which" is the instance ID for SDL_CONTROLLERDEVICEREMOVED		
+		// for removal events, "which" is the instance ID for SDL_CONTROLLERDEVICEREMOVED
 		for (auto it = controllers.begin(); it != controllers.end(); ++it) {
 			if (SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(*it)) == event.cdevice.which) {
 				SDL_GameControllerClose(*it);
