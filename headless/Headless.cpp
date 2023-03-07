@@ -483,10 +483,10 @@ int main(int argc, const char* argv[])
 #if PPSSPP_PLATFORM(ANDROID)
 	// For some reason the debugger installs it with this name?
 	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp-2.apk"))) {
-		g_VFS.Register("", new ZipFileReader(Path("/data/app/org.ppsspp.ppsspp-2.apk"), "assets/"));
+		g_VFS.Register("", ZipFileReader::Create(Path("/data/app/org.ppsspp.ppsspp-2.apk"), "assets/"));
 	}
 	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp.apk"))) {
-		g_VFS.Register("", new ZipFileReader(Path("/data/app/org.ppsspp.ppsspp.apk"), "assets/"));
+		g_VFS.Register("", ZipFileReader::Create(Path("/data/app/org.ppsspp.ppsspp.apk"), "assets/"));
 	}
 #elif !PPSSPP_PLATFORM(WINDOWS)
 	g_VFS.Register("", new DirectoryReader(g_Config.flash0Directory / ".."));

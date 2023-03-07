@@ -8,8 +8,12 @@
 VFS g_VFS;
 
 void VFS::Register(const char *prefix, VFSBackend *reader) {
-	entries_.push_back(VFSEntry{ prefix, reader });
-	DEBUG_LOG(IO, "Registered VFS for prefix %s: %s", prefix, reader->toString().c_str());
+	if (reader) {
+		entries_.push_back(VFSEntry{ prefix, reader });
+		DEBUG_LOG(IO, "Registered VFS for prefix %s: %s", prefix, reader->toString().c_str());
+	} else {
+		ERROR_LOG(IO, "Trying to register null VFS backend for prefix %s", prefix);
+	}
 }
 
 void VFS::Clear() {
