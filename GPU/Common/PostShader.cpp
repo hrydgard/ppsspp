@@ -90,7 +90,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 			if (path.ToString().substr(0, 7) == "assets/")
 				path = Path(path.ToString().substr(7));
 
-			if (ini.LoadFromVFS(name.ToString()) || ini.Load(fileInfo[f].fullName)) {
+			if (ini.LoadFromVFS(g_VFS, name.ToString()) || ini.Load(fileInfo[f].fullName)) {
 				success = true;
 				// vsh load. meh.
 			}

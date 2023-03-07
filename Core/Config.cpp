@@ -39,6 +39,7 @@
 #include "Common/Data/Text/Parsers.h"
 #include "Common/CPUDetect.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/LogManager.h"
 #include "Common/OSVersion.h"
 #include "Common/System/Display.h"
@@ -436,7 +437,7 @@ const char *DefaultLangRegion() {
 	} else if (langRegion.length() >= 3) {
 		// Don't give up.  Let's try a fuzzy match - so nl_BE can match nl_NL.
 		IniFile mapping;
-		mapping.LoadFromVFS("langregion.ini");
+		mapping.LoadFromVFS(g_VFS, "langregion.ini");
 		std::vector<std::string> keys;
 		mapping.GetKeys("LangRegionNames", keys);
 
@@ -1222,7 +1223,7 @@ Config::~Config() {
 
 void Config::LoadLangValuesMapping() {
 	IniFile mapping;
-	mapping.LoadFromVFS("langregion.ini");
+	mapping.LoadFromVFS(g_VFS, "langregion.ini");
 	std::vector<std::string> keys;
 	mapping.GetKeys("LangRegionNames", keys);
 
@@ -1932,8 +1933,8 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 	});
 
 	KeyMap::LoadFromIni(iniFile);
-	
-	if (!appendedConfigFileName_.ToString().empty() && 
+
+	if (!appendedConfigFileName_.ToString().empty() &&
 		std::find(appendedConfigUpdatedGames_.begin(), appendedConfigUpdatedGames_.end(), pGameId) == appendedConfigUpdatedGames_.end()) {
 
 		LoadAppendedConfig();

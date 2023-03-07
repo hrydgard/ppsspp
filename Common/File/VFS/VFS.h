@@ -14,19 +14,51 @@
 // on the system level, like loading assets, and maybe texture packs. Also, as mentioned,
 // this one is read-only, so a bit smaller and simpler.
 
-class VFSBackend {
+// VFSBackend instances can be used on their own, without the VFS, to serve as an abstraction of
+// a single directory or ZIP file.
+
+// The VFSFileReference level of abstraction is there to hold things like zip file indices,
+// for fast re-open etc.
+
+class VFSFileReference {
 public:
-	virtual ~VFSBackend() {}
-	// use delete[] to release the returned memory.
+	virtual ~VFSFileReference() {}
+};
+
+class VFSOpenFile {
+public:
+	virtual ~VFSOpenFile() {}
+};
+
+// Common interface parts between VFSBackend and VFS.
+// Sometimes you don't need the VFS multiplexing and only have a VFSBackend *, sometimes you do need it,
+// and it would be cool to be able to use the same interface, like when loading INI files.
+class VFSInterface {
+public:
+	virtual ~VFSInterface() {}
 	virtual uint8_t *ReadFile(const char *path, size_t *size) = 0;
+	virtual bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) = 0;
+};
+
+class VFSBackend : public VFSInterface {
+public:
+	// use delete[] to release the returned memory.
+
+	virtual VFSFileReference *GetFile(const char *path) = 0;
+	virtual bool GetFileInfo(VFSFileReference *vfsReference, File::FileInfo *fileInfo) = 0;
+	virtual void ReleaseFile(VFSFileReference *vfsReference) = 0;
+
+	virtual VFSOpenFile *OpenFileForRead(VFSFileReference *vfsReference) = 0;
+	virtual void Rewind(VFSOpenFile *vfsOpenFile) = 0;
+	virtual size_t Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t length) = 0;
+	virtual void CloseFile(VFSOpenFile *vfsOpenFile) = 0;
 
 	// Filter support is optional but nice to have
-	virtual bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = 0) = 0;
 	virtual bool GetFileInfo(const char *path, File::FileInfo *info) = 0;
 	virtual std::string toString() const = 0;
 };
 
-class VFS {
+class VFS : public VFSInterface {
 public:
 	~VFS() { Clear(); }
 	void Register(const char *prefix, VFSBackend *reader);
@@ -35,9 +67,9 @@ public:
 	// Use delete [] to release the returned memory.
 	// Always allocates an extra zero byte at the end, so that it
 	// can be used for text like shader sources.
-	uint8_t *ReadFile(const char *filename, size_t *size);
-	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = 0);
+	uint8_t *ReadFile(const char *filename, size_t *size) override;
 	bool GetFileInfo(const char *filename, File::FileInfo *fileInfo);
+	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) override;
 
 private:
 	struct VFSEntry {

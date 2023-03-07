@@ -696,7 +696,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	deviceType = jdeviceType;
 
 	Path apkPath(GetJavaString(env, japkpath));
-	g_VFS.Register("", new ZipFileReader(apkPath, "assets/"));
+	g_VFS.Register("", ZipFileReader::Create(apkPath, "assets/"));
 
 	systemName = GetJavaString(env, jmodel);
 	langRegion = GetJavaString(env, jlangRegion);

@@ -29,3 +29,57 @@ bool DirectoryReader::GetFileInfo(const char *path, File::FileInfo *info) {
 	Path new_path = Path(path).StartsWith(path_) ? Path(path) : path_ / path;
 	return File::GetFileInfo(new_path, info);
 }
+
+class DirectoryReaderFileReference : public VFSFileReference {
+public:
+	Path path;
+};
+
+class DirectoryReaderOpenFile : public VFSOpenFile {
+public:
+	FILE *file;
+};
+
+VFSFileReference *DirectoryReader::GetFile(const char *path) {
+	DirectoryReaderFileReference *reference = new DirectoryReaderFileReference();
+	reference->path = path_ / path;
+	return reference;
+}
+
+bool DirectoryReader::GetFileInfo(VFSFileReference *vfsReference, File::FileInfo *fileInfo) {
+	DirectoryReaderFileReference *reference = (DirectoryReaderFileReference *)vfsReference;
+	return File::GetFileInfo(reference->path, fileInfo);
+}
+
+void DirectoryReader::ReleaseFile(VFSFileReference *vfsReference) {
+	DirectoryReaderFileReference *reference = (DirectoryReaderFileReference *)vfsReference;
+	delete reference;
+}
+
+VFSOpenFile *DirectoryReader::OpenFileForRead(VFSFileReference *vfsReference) {
+	DirectoryReaderFileReference *reference = (DirectoryReaderFileReference *)vfsReference;
+	FILE *file = File::OpenCFile(reference->path, "rb");
+	if (!file) {
+		return nullptr;
+	}
+
+	DirectoryReaderOpenFile *openFile = new DirectoryReaderOpenFile();
+	openFile->file = file;
+	return openFile;
+}
+
+void DirectoryReader::Rewind(VFSOpenFile *vfsOpenFile) {
+	DirectoryReaderOpenFile *openFile = (DirectoryReaderOpenFile *)vfsOpenFile;
+	fseek(openFile->file, 0, SEEK_SET);
+}
+
+size_t DirectoryReader::Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t length) {
+	DirectoryReaderOpenFile *openFile = (DirectoryReaderOpenFile *)vfsOpenFile;
+	return fread(buffer, 1, length, openFile->file);
+}
+
+void DirectoryReader::CloseFile(VFSOpenFile *vfsOpenFile) {
+	DirectoryReaderOpenFile *openFile = (DirectoryReaderOpenFile *)vfsOpenFile;
+	fclose(openFile->file);
+	delete openFile;
+}
