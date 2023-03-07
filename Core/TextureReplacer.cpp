@@ -453,6 +453,10 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		bool logError = hashfile != HashName(cachekey, hash, i) + ".png";
 
 		VFSFileReference *fileRef = vfs_->GetFile(hashfile.c_str());
+		if (!fileRef) {
+			// If the file doesn't exist, let's just bail immediately here.
+			break;
+		}
 
 		level.fileRef = fileRef;
 		good = PopulateLevel(level, !logError);
@@ -525,8 +529,11 @@ bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level, bool ignoreErro
 			ERROR_LOG(G3D, "Error opening replacement texture file '%s' in textures.zip", level.file.c_str());
 		return false;
 	}
+
 	File::FileInfo info;
-	vfs_->GetFileInfo(level.fileRef, &info);
+	if (!vfs_->GetFileInfo(level.fileRef, &info)) {
+		return false;
+	}
 	size_t zsize = info.size;
 
 	VFSOpenFile *file = vfs_->OpenFileForRead(level.fileRef);
