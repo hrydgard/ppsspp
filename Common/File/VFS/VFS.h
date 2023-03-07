@@ -14,11 +14,18 @@
 // on the system level, like loading assets, and maybe texture packs. Also, as mentioned,
 // this one is read-only, so a bit smaller and simpler.
 
-class VFSBackend {
+// Common inteface parts between VFSBackend and VFS.
+// Sometimes you don't need the VFS multiplexing and only have a VFSBackend *, sometimes you do need it,
+// and it would be cool to be able to use the same interface, like when loading INI files.
+class VFSInterface {
 public:
-	virtual ~VFSBackend() {}
-	// use delete[] to release the returned memory.
+	virtual ~VFSInterface() {}
 	virtual uint8_t *ReadFile(const char *path, size_t *size) = 0;
+};
+
+class VFSBackend : public VFSInterface {
+public:
+	// use delete[] to release the returned memory.
 
 	// Filter support is optional but nice to have
 	virtual bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = 0) = 0;
@@ -26,7 +33,7 @@ public:
 	virtual std::string toString() const = 0;
 };
 
-class VFS {
+class VFS : public VFSInterface {
 public:
 	~VFS() { Clear(); }
 	void Register(const char *prefix, VFSBackend *reader);
@@ -35,7 +42,7 @@ public:
 	// Use delete [] to release the returned memory.
 	// Always allocates an extra zero byte at the end, so that it
 	// can be used for text like shader sources.
-	uint8_t *ReadFile(const char *filename, size_t *size);
+	uint8_t *ReadFile(const char *filename, size_t *size) override;
 	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = 0);
 	bool GetFileInfo(const char *filename, File::FileInfo *fileInfo);
 

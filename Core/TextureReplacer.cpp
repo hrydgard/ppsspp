@@ -35,6 +35,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ParallelLoop.h"
@@ -179,7 +180,7 @@ bool TextureReplacer::LoadIni() {
 	}
 
 	if (!iniLoaded) {
-		iniLoaded = ini.LoadFromVFS((basePath_ / INI_FILENAME).ToString());
+		iniLoaded = ini.LoadFromVFS(g_VFS, (basePath_ / INI_FILENAME).ToString());
 	}
 
 	if (iniLoaded) {
@@ -196,7 +197,7 @@ bool TextureReplacer::LoadIni() {
 					std::lock_guard<std::mutex> guard(zip_.lock);
 					iniLoaded = LoadIniZip(overrideIni, zip_.z, overrideFilename);
 				} else {
-					iniLoaded = overrideIni.LoadFromVFS((basePath_ / overrideFilename).ToString());
+					iniLoaded = overrideIni.LoadFromVFS(g_VFS, (basePath_ / overrideFilename).ToString());
 				}
 				if (!iniLoaded) {
 					ERROR_LOG(G3D, "Failed to load extra texture ini: %s", overrideFilename.c_str());
@@ -298,7 +299,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 
 	if (ini.HasSection("reducehashranges")) {
 		auto reducehashranges = ini.GetOrCreateSection("reducehashranges")->ToMap();
-		// Format: w,h = reducehashvalues 
+		// Format: w,h = reducehashvalues
 		for (const auto& item : reducehashranges) {
 			ParseReduceHashRange(item.first, item.second);
 		}
@@ -390,7 +391,7 @@ void TextureReplacer::ParseReduceHashRange(const std::string& key, const std::st
 
 	const u64 reducerangeKey = ((u64)forW << 16) | forH;
 	reducehashranges_[reducerangeKey] = rhashvalue;
-} 
+}
 
 u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV) {
 	_dbg_assert_msg_(enabled_, "Replacement not enabled");

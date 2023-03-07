@@ -19,6 +19,7 @@
 
 #include "Common/Log.h"
 #include "Common/Data/Format/IniFile.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/StringUtils.h"
 #include "Core/Compatibility.h"
 #include "Core/Config.h"
@@ -38,7 +39,7 @@ void Compatibility::Load(const std::string &gameID) {
 	{
 		IniFile compat;
 		// This loads from assets.
-		if (compat.LoadFromVFS("compat.ini")) {
+		if (compat.LoadFromVFS(g_VFS, "compat.ini")) {
 			CheckSettings(compat, gameID);
 		}
 	}
@@ -55,7 +56,7 @@ void Compatibility::Load(const std::string &gameID) {
 	{
 		IniFile compat;
 		// This loads from assets.
-		if (compat.LoadFromVFS("compatvr.ini")) {
+		if (compat.LoadFromVFS(g_VFS, "compatvr.ini")) {
 			CheckVRSettings(compat, gameID);
 		}
 	}
