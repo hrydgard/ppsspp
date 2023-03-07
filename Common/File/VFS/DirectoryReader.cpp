@@ -44,8 +44,13 @@ public:
 };
 
 VFSFileReference *DirectoryReader::GetFile(const char *path) {
+	Path filePath = path_ / path;
+	if (!File::Exists(filePath)) {
+		return nullptr;
+	}
+
 	DirectoryReaderFileReference *reference = new DirectoryReaderFileReference();
-	reference->path = path_ / path;
+	reference->path = filePath;
 	return reference;
 }
 
