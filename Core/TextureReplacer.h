@@ -55,19 +55,13 @@ enum class ReplacedTextureHash {
 
 // Metadata about a given texture level.
 struct ReplacedTextureLevel {
-	ReplacedTextureLevel() {}
 	int w = 0;
 	int h = 0;
-	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
 	Path file;
-	// Can be ignored for hashing/equal, since file has all uniqueness.
+
 	// To be able to reload, we need to be able to reopen, unfortunate we can't use zip_file_t.
+	// TODO: This really belongs on the level in the cache, not in the individual ReplacedTextureLevel objects.
 	VFSFileReference *fileRef = nullptr;
-	bool operator ==(const ReplacedTextureLevel &other) const {
-		if (w != other.w || h != other.h || fmt != other.fmt)
-			return false;
-		return file == other.file;
-	}
 };
 
 struct ReplacedLevelsCache {
@@ -135,13 +129,13 @@ struct ReplacedTexture {
 		return (int)levels_.size();
 	}
 
-	Draw::DataFormat Format(int level) const {
+	Draw::DataFormat Format() const {
 		if (initDone_) {
-			if ((size_t)level < levels_.size()) {
-				return levels_[level].fmt;
-			}
+			return fmt;
+		} else {
+			// Shouldn't get here.
+			return Draw::DataFormat::UNDEFINED;
 		}
-		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 
 	u8 AlphaStatus() const {
@@ -164,6 +158,7 @@ protected:
 	double lastUsed_ = 0.0;
 	LimitedWaitable *threadWaitable_ = nullptr;
 	std::mutex mutex_;
+	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
 
 	bool cancelPrepare_ = false;
 	bool initDone_ = false;
@@ -171,8 +166,8 @@ protected:
 
 	VFSBackend *vfs_ = nullptr;
 
-	friend TextureReplacer;
-	friend ReplacedTextureTask;
+	friend class TextureReplacer;
+	friend class ReplacedTextureTask;
 };
 
 struct ReplacedTextureDecodeInfo {
@@ -193,7 +188,8 @@ enum class ReplacerDecimateMode {
 
 class TextureReplacer {
 public:
-	TextureReplacer();
+	// The draw context will be checked for supported texture formats.
+	TextureReplacer(Draw::DrawContext *draw);
 	~TextureReplacer();
 
 	void Init();

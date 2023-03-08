@@ -247,7 +247,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
-		dstFmt = plan.replaced->Format(plan.baseLevelSrc);
+		dstFmt = plan.replaced->Format();
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
 	} else if (plan.decodeToClut8) {
@@ -294,7 +294,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 			int bpp;
 
 			if (plan.replaceValid) {
-				bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
+				bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
 			} else {
 				if (plan.scaleFactor > 1) {
 					bpp = 4;

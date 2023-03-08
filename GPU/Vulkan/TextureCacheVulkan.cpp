@@ -443,7 +443,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	// Any texture scaling is gonna move away from the original 16-bit format, if any.
 	VkFormat actualFmt = plan.scaleFactor > 1 ? VULKAN_8888_FORMAT : dstFmt;
 	if (plan.replaceValid) {
-		actualFmt = ToVulkanFormat(plan.replaced->Format(plan.baseLevelSrc));
+		actualFmt = ToVulkanFormat(plan.replaced->Format());
 	}
 
 	bool computeUpload = false;

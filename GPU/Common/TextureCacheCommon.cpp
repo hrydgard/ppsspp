@@ -107,7 +107,7 @@ inline int dimHeight(u16 dim) {
 }
 
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
-	: draw_(draw), draw2D_(draw2D) {
+	: draw_(draw), draw2D_(draw2D), replacer_(draw) {
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
 	// It's only possible to have 1KB of palette entries, although we allow 2KB in a hack.

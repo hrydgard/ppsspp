@@ -87,7 +87,9 @@ static ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::s
 	return IdentifyMagic(magic);
 }
 
-TextureReplacer::TextureReplacer() {}
+TextureReplacer::TextureReplacer(Draw::DrawContext *draw) {
+	// TODO: Check draw for supported texture formats.
+}
 
 TextureReplacer::~TextureReplacer() {
 	for (auto &iter : cache_) {
@@ -274,7 +276,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 					alias += level.second + "|";
 					mipIndex++;
 				} else {
-					WARN_LOG(G3D, "Non-sequential mip index %d, breaking", level.first);
+					WARN_LOG(G3D, "Non-sequential mip index %d, breaking. filenames=%s", level.first, level.second.c_str());
 					break;
 				}
 			}
@@ -531,8 +533,11 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 		// TODO: Here, if we find a file with multiple built-in mipmap levels,
 		// we'll have to change a bit how things work...
 		ReplacedTextureLevel level;
-		level.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 		level.file = filename;
+
+		if (i == 0) {
+			texture->fmt = Draw::DataFormat::R8G8B8A8_UNORM;
+		}
 
 		bool good;
 
