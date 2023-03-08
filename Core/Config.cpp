@@ -1154,7 +1154,7 @@ static const ConfigSetting vrSettings[] = {
 	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f),
 	ConfigSetting("VRHeadRotationScale", &g_Config.fHeadRotationScale, 5.0f),
 	ConfigSetting("VRHeadRotationSmoothing", &g_Config.bHeadRotationSmoothing, false),
-	ConfigSetting("VRHeadRotation", &g_Config.iHeadRotation, 0),
+	ConfigSetting("VRHeadRotation", &g_Config.iHeadRotation, false),
 };
 
 struct ConfigSectionSettings {

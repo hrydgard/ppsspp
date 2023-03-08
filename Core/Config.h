@@ -472,7 +472,7 @@ public:
 	float fMotionLength;
 	float fHeadRotationScale;
 	bool bHeadRotationSmoothing;
-	int iHeadRotation;
+	bool iHeadRotation;
 
 	// Debugger
 	int iDisasmWindowX;

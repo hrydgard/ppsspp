@@ -1143,8 +1143,7 @@ void GameSettingsScreen::CreateVRSettings(UI::ViewGroup *vrSettings) {
 
 	vrSettings->Add(new ItemHeader(vr->T("Experts only")));
 	vrSettings->Add(new CheckBox(&g_Config.bManualForceVR, vr->T("Manual switching between flat screen and VR using SCREEN key")));
-	static const char *vrHeadRotations[] = { vr->T("Disabled"), vr->T("Horizontal only"), vr->T("Horizontal and vertical") };
-	vrSettings->Add(new PopupMultiChoice(&g_Config.iHeadRotation, vr->T("Map HMD rotations on keys instead of VR camera"), vrHeadRotations, 0, ARRAY_SIZE(vrHeadRotations), vr->GetName(), screenManager()));
+	vrSettings->Add(new CheckBox(&g_Config.iHeadRotation, vr->T("Map HMD rotations on keys instead of VR camera")));
 	PopupSliderChoiceFloat *vrHeadRotationScale = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadRotationScale, 0.1f, 10.0f, vr->T("Game camera rotation step per frame"), 0.1f, screenManager(), "°"));
 	vrHeadRotationScale->SetEnabledFunc([&] { return g_Config.iHeadRotation > 0; });
 	CheckBox *vrHeadRotationSmoothing = vrSettings->Add(new CheckBox(&g_Config.bHeadRotationSmoothing, vr->T("Game camera uses rotation smoothing")));
