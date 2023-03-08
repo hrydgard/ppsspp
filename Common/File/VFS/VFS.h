@@ -46,7 +46,9 @@ public:
 	virtual bool GetFileInfo(VFSFileReference *vfsReference, File::FileInfo *fileInfo) = 0;
 	virtual void ReleaseFile(VFSFileReference *vfsReference) = 0;
 
-	virtual VFSOpenFile *OpenFileForRead(VFSFileReference *vfsReference) = 0;
+	// Must write the size of the file to *size. Both backends can do this efficiently here,
+	// avoiding a call to GetFileInfo.
+	virtual VFSOpenFile *OpenFileForRead(VFSFileReference *vfsReference, size_t *size) = 0;
 	virtual void Rewind(VFSOpenFile *vfsOpenFile) = 0;
 	virtual size_t Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t length) = 0;
 	virtual void CloseFile(VFSOpenFile *vfsOpenFile) = 0;

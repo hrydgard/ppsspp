@@ -15,25 +15,6 @@
 #include "Common/File/VFS/ZipFileReader.h"
 #include "Common/StringUtils.h"
 
-static uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
-	// Figure out the file size first.
-	struct zip_stat zstat;
-	zip_file *file = zip_fopen(archive, filename, ZIP_FL_NOCASE|ZIP_FL_UNCHANGED);
-	if (!file) {
-		ERROR_LOG(IO, "Error opening %s from ZIP", filename);
-		return 0;
-	}
-	zip_stat(archive, filename, ZIP_FL_NOCASE|ZIP_FL_UNCHANGED, &zstat);
-
-	uint8_t *contents = new uint8_t[zstat.size + 1];
-	zip_fread(file, contents, zstat.size);
-	zip_fclose(file);
-	contents[zstat.size] = 0;
-
-	*size = zstat.size;
-	return contents;
-}
-
 ZipFileReader *ZipFileReader::Create(const Path &zipFile, const char *inZipPath) {
 	int error = 0;
 	zip *zip_file;
@@ -69,7 +50,21 @@ uint8_t *ZipFileReader::ReadFile(const char *path, size_t *size) {
 	snprintf(temp_path, sizeof(temp_path), "%s%s", inZipPath_, path);
 
 	std::lock_guard<std::mutex> guard(lock_);
-	return ReadFromZip(zip_file_, temp_path, size);
+	// Figure out the file size first.
+	struct zip_stat zstat;
+	zip_stat(zip_file_, temp_path, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat);
+	zip_file *file = zip_fopen(zip_file_, temp_path, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED);
+	if (!file) {
+		ERROR_LOG(IO, "Error opening %s from ZIP", temp_path);
+		return 0;
+	}
+	uint8_t *contents = new uint8_t[zstat.size + 1];
+	zip_fread(file, contents, zstat.size);
+	zip_fclose(file);
+	contents[zstat.size] = 0;
+
+	*size = zstat.size;
+	return contents;
 }
 
 bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::FileInfo> *listing, const char *filter = 0) {
@@ -238,21 +233,29 @@ void ZipFileReader::ReleaseFile(VFSFileReference *vfsReference) {
 	delete reference;
 }
 
-VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference) {
+VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference, size_t *size) {
 	ZipFileReaderFileReference *reference = (ZipFileReaderFileReference *)vfsReference;
 	ZipFileReaderOpenFile *openFile = new ZipFileReaderOpenFile();
 	openFile->reference = reference;
+	*size = 0;
 	// We only allow one file to be open for read concurrently. It's possible that this can be improved,
 	// especially if we only access by index like this.
 	lock_.lock();
-	openFile->zf = zip_fopen_index(zip_file_, reference->zi, 0);
+	zip_stat_t zstat;
+	if (zip_stat_index(zip_file_, reference->zi, 0, &zstat) != 0) {
+		lock_.unlock();
+		return nullptr;
+	}
 
+	openFile->zf = zip_fopen_index(zip_file_, reference->zi, 0);
 	if (!openFile->zf) {
 		WARN_LOG(G3D, "File with index %d not found in zip", reference->zi);
 		lock_.unlock();
 		return nullptr;
 	}
 
+	*size = zstat.size;
+	// Intentionally leaving the mutex locked, will be closed in CloseFile.
 	return openFile;
 }
 
