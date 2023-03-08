@@ -32,6 +32,7 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Data/Format/ZIMLoad.h"
+#include "Common/Data/Format/PNGLoad.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/File/FileUtil.h"
@@ -645,27 +646,16 @@ bool TextureReplacer::PopulateLevelFromZip(ReplacedTextureLevel &level, bool ign
 			good = (flags & ZIM_FORMAT_MASK) == ZIM_RGBA8888;
 		}
 	} else if (imageType == ReplacedImageType::PNG) {
-		png_image png = {};
-		png.version = PNG_IMAGE_VERSION;
-
-		// TODO: Use some way to stream data into libpng.  Better than the IO lookups on Android...
-		zip_uint64_t zsize = ZipFileSize(level.zinfo->z, level.zi);
-		std::string pngdata;
-		if (zsize != INVALID_ZIP_SIZE)
-			pngdata.resize(zsize);
-		if (!pngdata.empty()) {
-			pngdata.resize(zip_fread(zf, &pngdata[0], pngdata.size()));
-		}
-
-		if (png_image_begin_read_from_memory(&png, &pngdata[0], pngdata.size())) {
-			// We pad files that have been hashrange'd so they are the same texture size.
-			level.w = png.width;
-			level.h = png.height;
+		PNGHeaderPeek headerPeek;
+		good = zip_fread(zf, &headerPeek, sizeof(headerPeek)) == sizeof(headerPeek);
+		if (good && headerPeek.IsValidPNGHeader()) {
+			level.w = headerPeek.Width();
+			level.h = headerPeek.Height();
 			good = true;
 		} else {
-			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s (zip)", level.file.ToVisualString().c_str(), png.message);
+			ERROR_LOG(G3D, "Could not get PNG dimensions: %s (zip)", level.file.ToVisualString().c_str());
+			good = false;
 		}
-		png_image_free(&png);
 	} else {
 		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format (zip)", level.file.ToVisualString().c_str());
 	}
