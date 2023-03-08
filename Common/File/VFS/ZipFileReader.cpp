@@ -162,22 +162,31 @@ bool ZipFileReader::GetFileInfo(const char *path, File::FileInfo *info) {
 	char temp_path[1024];
 	snprintf(temp_path, sizeof(temp_path), "%s%s", inZipPath_, path);
 
+	// Clear some things to start.
+	info->isDirectory = false;
+	info->isWritable = false;
+	info->size = 0;
+
 	{
 		std::lock_guard<std::mutex> guard(lock_);
 		if (0 != zip_stat(zip_file_, temp_path, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat)) {
 			// ZIP files do not have real directories, so we'll end up here if we
 			// try to stat one. For now that's fine.
 			info->exists = false;
-			info->size = 0;
 			return false;
 		}
 	}
 
+	// Zips usually don't contain directory entries, but they may.
+	if ((zstat.valid & ZIP_STAT_NAME) != 0 && zstat.name) {
+		info->isDirectory = zstat.name[strlen(zstat.name) - 1] == '/';
+	}
+	if ((zstat.valid & ZIP_STAT_SIZE) != 0) {
+		info->size = zstat.size;
+	}
+
 	info->fullName = Path(path);
-	info->exists = true; // TODO
-	info->isWritable = false;
-	info->isDirectory = false;    // TODO
-	info->size = zstat.size;
+	info->exists = true;
 	return true;
 }
 
@@ -188,11 +197,13 @@ public:
 
 class ZipFileReaderOpenFile : public VFSOpenFile {
 public:
+	~ZipFileReaderOpenFile() {
+		// Needs to be closed properly and unlocked.
+		_dbg_assert_(zf == nullptr);
+	}
 	ZipFileReaderFileReference *reference;
-	zip_file_t *zf;
+	zip_file_t *zf = nullptr;
 };
-
-static constexpr zip_uint64_t INVALID_ZIP_SIZE = 0xFFFFFFFFFFFFFFFFULL;
 
 VFSFileReference *ZipFileReader::GetFile(const char *path) {
 	std::lock_guard<std::mutex> guard(lock_);
@@ -261,6 +272,7 @@ void ZipFileReader::CloseFile(VFSOpenFile *vfsOpenFile) {
 	ZipFileReaderOpenFile *file = (ZipFileReaderOpenFile *)vfsOpenFile;
 	_dbg_assert_(file->zf != nullptr);
 	zip_fclose(file->zf);
+	file->zf = nullptr;
 	lock_.unlock();
 	delete file;
 }
