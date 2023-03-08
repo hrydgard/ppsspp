@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
 #include <algorithm>
 #include <atomic>
 #include <cstring>
@@ -54,6 +55,37 @@ static const std::string NEW_TEXTURE_DIR = "new/";
 static const int VERSION = 1;
 static const int MAX_MIP_LEVELS = 12;  // 12 should be plenty, 8 is the max mip levels supported by the PSP.
 static const double MAX_CACHE_SIZE = 4.0;
+
+enum class ReplacedImageType {
+	PNG,
+	ZIM,
+	INVALID,
+};
+
+static inline ReplacedImageType IdentifyMagic(const uint8_t magic[4]) {
+	if (strncmp((const char *)magic, "ZIMG", 4) == 0)
+		return ReplacedImageType::ZIM;
+	if (magic[0] == 0x89 && strncmp((const char *)&magic[1], "PNG", 3) == 0)
+		return ReplacedImageType::PNG;
+	return ReplacedImageType::INVALID;
+}
+
+static ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::string *outMagic) {
+	uint8_t magic[4];
+	if (vfs->Read(openFile, magic, 4) != 4) {
+		*outMagic = "FAIL";
+		return ReplacedImageType::INVALID;
+	}
+	// Turn the signature into a readable string that we can display in an error message.
+	*outMagic = std::string((const char *)magic, 4);
+	for (int i = 0; i < outMagic->size(); i++) {
+		if ((s8)(*outMagic)[i] < 32) {
+			(*outMagic)[i] = '_';
+		}
+	}
+	vfs->Rewind(openFile);
+	return IdentifyMagic(magic);
+}
 
 TextureReplacer::TextureReplacer() {
 	none_.initDone_ = true;
@@ -501,37 +533,6 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 	}
 
 	result->prepareDone_ = true;
-}
-
-enum class ReplacedImageType {
-	PNG,
-	ZIM,
-	INVALID,
-};
-
-static inline ReplacedImageType IdentifyMagic(const uint8_t magic[4]) {
-	if (strncmp((const char *)magic, "ZIMG", 4) == 0)
-		return ReplacedImageType::ZIM;
-	if (magic[0] == 0x89 && strncmp((const char *)&magic[1], "PNG", 3) == 0)
-		return ReplacedImageType::PNG;
-	return ReplacedImageType::INVALID;
-}
-
-static ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::string *outMagic) {
-	uint8_t magic[4];
-	if (vfs->Read(openFile, magic, 4) != 4) {
-		*outMagic = "FAIL";
-		return ReplacedImageType::INVALID;
-	}
-	// Turn the signature into a readable string that we can display in an error message.
-	*outMagic = std::string((const char *)magic, 4);
-	for (int i = 0; i < outMagic->size(); i++) {
-		if ((s8)(*outMagic)[i] < 32) {
-			(*outMagic)[i] = '_';
-		}
-	}
-	vfs->Rewind(openFile);
-	return IdentifyMagic(magic);
 }
 
 bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level, bool ignoreError) {
