@@ -136,7 +136,8 @@ bool TextureReplacer::LoadIni() {
 				iniLoaded = overrideIni.LoadFromVFS(*dir, overrideFilename);
 				if (!iniLoaded) {
 					ERROR_LOG(G3D, "Failed to load extra texture ini: %s", overrideFilename.c_str());
-					// TODO: Should we just move on instead?
+					// Since this error is most likely to occure for texture pack creators, let's just bail here
+					// so that the creator is more likely to look in the logs for what happened.
 					delete dir;
 					return false;
 				}
@@ -523,7 +524,6 @@ static ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::s
 bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level, bool ignoreError) {
 	bool good = false;
 
-	// Everything in here is within a lock, so we don't need to relock.
 	if (!level.fileRef) {
 		if (!ignoreError)
 			ERROR_LOG(G3D, "Error opening replacement texture file '%s' in textures.zip", level.file.c_str());
@@ -553,6 +553,8 @@ bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level, bool ignoreErro
 			uint32_t flags;
 		} header;
 		good = vfs_->Read(file, &header, sizeof(header)) == sizeof(header);
+		level.w = header.w;
+		level.h = header.h;
 		good = (header.flags & ZIM_FORMAT_MASK) == ZIM_RGBA8888;
 	} else if (imageType == ReplacedImageType::PNG) {
 		PNGHeaderPeek headerPeek;
@@ -911,9 +913,9 @@ public:
 	}
 
 private:
+	VFSBackend *vfs_;
 	ReplacedTexture &tex_;
 	LimitedWaitable *waitable_;
-	VFSBackend *vfs_;
 };
 
 bool ReplacedTexture::IsReady(double budget) {
@@ -981,7 +983,7 @@ void ReplacedTexture::PrepareData(int level) {
 	// We must lock around access to levelData_ in case two textures try to load it at once.
 	std::lock_guard<std::mutex> guard(levelData_[level]->lock);
 
-	ReplacedTextureLevel &info = levels_[level];
+	const ReplacedTextureLevel &info = levels_[level];
 	std::vector<uint8_t> &out = levelData_[level]->data;
 
 	// Already populated from cache.
