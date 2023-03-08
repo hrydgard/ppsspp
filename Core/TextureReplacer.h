@@ -46,13 +46,14 @@ enum class ReplacedTextureAlpha {
 	FULL = 0x00,
 };
 
-// For forward comatibility, we specify the hash.
+// For forward compatibility, we specify the hash.
 enum class ReplacedTextureHash {
 	QUICK,
 	XXH32,
 	XXH64,
 };
 
+// Metadata about a given texture level.
 struct ReplacedTextureLevel {
 	ReplacedTextureLevel() {}
 	int w = 0;
@@ -69,25 +70,9 @@ struct ReplacedTextureLevel {
 	}
 };
 
-namespace std {
-	template <>
-	struct hash<ReplacedTextureLevel> {
-		std::size_t operator()(const ReplacedTextureLevel &k) const {
-#if PPSSPP_ARCH(64BIT)
-			uint64_t v = (uint64_t)k.w | ((uint64_t)k.h << 32);
-			v = __rotl64(v ^ (uint64_t)k.fmt, 13);
-#else
-			uint32_t v = k.w ^ (uint32_t)k.fmt;
-			v = __rotl(__rotl(v, 13) ^ k.h, 13);
-#endif
-			return v ^ hash<string>()(k.file.ToString());
-		}
-	};
-}
-
-struct ReplacedLevelCache {
+struct ReplacedLevelsCache {
 	std::mutex lock;
-	std::vector<uint8_t> data;
+	std::vector<std::vector<uint8_t>> data;
 	double lastUsed = 0.0;
 };
 
@@ -109,42 +94,11 @@ struct ReplacementCacheKey {
 	}
 };
 
-struct ReplacementAliasKey {
-	u64 cachekey;
-	union {
-		u64 hashAndLevel;
-		struct {
-			u32 level;
-			u32 hash;
-		};
-	};
-
-	ReplacementAliasKey(u64 c, u32 h, u32 l) : cachekey(c), level(l), hash(h) { }
-
-	bool operator ==(const ReplacementAliasKey &k) const {
-		return k.cachekey == cachekey && k.hashAndLevel == hashAndLevel;
-	}
-
-	bool operator <(const ReplacementAliasKey &k) const {
-		if (k.cachekey == cachekey) {
-			return k.hashAndLevel < hashAndLevel;
-		}
-		return k.cachekey < cachekey;
-	}
-};
-
 namespace std {
 	template <>
 	struct hash<ReplacementCacheKey> {
 		size_t operator()(const ReplacementCacheKey &k) const {
 			return std::hash<u64>()(k.cachekey ^ ((u64)k.hash << 32));
-		}
-	};
-
-	template <>
-	struct hash<ReplacementAliasKey> {
-		size_t operator()(const ReplacementAliasKey &k) const {
-			return std::hash<u64>()(k.cachekey ^ k.hashAndLevel);
 		}
 	};
 }
@@ -196,7 +150,7 @@ struct ReplacedTexture {
 
 	bool IsReady(double budget);
 
-	bool Load(int level, void *out, int rowPitch);
+	bool CopyLevelTo(int level, void *out, int rowPitch);
 
 protected:
 	void Prepare(VFSBackend *vfs);
@@ -204,7 +158,8 @@ protected:
 	void PurgeIfOlder(double t);
 
 	std::vector<ReplacedTextureLevel> levels_;
-	std::vector<ReplacedLevelCache *> levelData_;
+	ReplacedLevelsCache *levelData_;
+
 	ReplacedTextureAlpha alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 	double lastUsed_ = 0.0;
 	LimitedWaitable *threadWaitable_ = nullptr;
@@ -273,7 +228,7 @@ protected:
 	void ParseReduceHashRange(const std::string& key, const std::string& value);
 	bool LookupHashRange(u32 addr, int &w, int &h);
 	float LookupReduceHashRange(int& w, int& h);
-	std::string LookupHashFile(u64 cachekey, u32 hash, int level);
+	std::string LookupHashFile(u64 cachekey, u32 hash, bool *foundReplacement);
 	std::string HashName(u64 cachekey, u32 hash, int level);
 	void PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h);
 	bool PopulateLevel(ReplacedTextureLevel &level, bool ignoreError);
@@ -297,10 +252,12 @@ protected:
 	typedef std::pair<int, int> WidthHeightPair;
 	std::unordered_map<u64, WidthHeightPair> hashranges_;
 	std::unordered_map<u64, float> reducehashranges_;
-	std::unordered_map<ReplacementAliasKey, std::string> aliases_;
+	std::unordered_map<ReplacementCacheKey, std::string> aliases_;
 	std::unordered_map<ReplacementCacheKey, TextureFiltering> filtering_;
 
 	std::unordered_map<ReplacementCacheKey, ReplacedTexture *> cache_;
 	std::unordered_map<ReplacementCacheKey, std::pair<ReplacedTextureLevel, double>> savedCache_;
-	std::unordered_map<ReplacedTextureLevel, ReplacedLevelCache> levelCache_;
+
+	// the key is from aliases_. It's a |-separated sequence of texture filenames of the levels of a texture.
+	std::unordered_map<std::string, ReplacedLevelsCache> levelCache_;
 };

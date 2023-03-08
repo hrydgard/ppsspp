@@ -532,6 +532,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		levels = plan.levelsToLoad;
 	}
 
+	VulkanPushBuffer *pushBuffer = drawEngine_->GetPushBufferForTextureData();
+
 	for (int i = 0; i < levels; i++) {
 		int mipUnscaledWidth = gstate.getTextureWidth(i);
 		int mipUnscaledHeight = gstate.getTextureHeight(i);
@@ -553,24 +555,28 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		void *data;
 		std::vector<uint8_t> saveData;
 
+		// Simple wrapper to avoid reading back from VRAM (very, very expensive).
 		auto loadLevel = [&](int sz, int srcLevel, int lstride, int lfactor) {
 			if (plan.saveTexture) {
 				saveData.resize(sz);
 				data = &saveData[0];
 			} else {
-				data = drawEngine_->GetPushBufferForTextureData()->PushAligned(sz, &bufferOffset, &texBuf, pushAlignment);
+				data = pushBuffer->PushAligned(sz, &bufferOffset, &texBuf, pushAlignment);
 			}
 			LoadVulkanTextureLevel(*entry, (uint8_t *)data, lstride, srcLevel, lfactor, actualFmt);
 			if (plan.saveTexture)
-				bufferOffset = drawEngine_->GetPushBufferForTextureData()->PushAligned(&saveData[0], sz, pushAlignment, &texBuf);
+				bufferOffset = pushBuffer->PushAligned(&saveData[0], sz, pushAlignment, &texBuf);
 		};
 
 		bool dataScaled = true;
 		if (plan.replaceValid) {
 			// Directly load the replaced image.
-			data = drawEngine_->GetPushBufferForTextureData()->PushAligned(uploadSize, &bufferOffset, &texBuf, pushAlignment);
+			data = pushBuffer->PushAligned(uploadSize, &bufferOffset, &texBuf, pushAlignment);
 			double replaceStart = time_now_d();
-			plan.replaced->Load(plan.baseLevelSrc + i, data, byteStride);  // if it fails, it'll just be garbage data... OK for now.
+			if (!plan.replaced->CopyLevelTo(plan.baseLevelSrc + i, data, byteStride)) {  // If plan.replaceValid, this shouldn't fail.
+				WARN_LOG(G3D, "Failed to copy replaced texture level");
+				// TODO: Fill with some pattern?
+			}
 			replacementTimeThisFrame_ += time_now_d() - replaceStart;
 			VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
 				"Copy Upload (replaced): %dx%d", mipWidth, mipHeight);

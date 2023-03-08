@@ -2854,7 +2854,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 
 	if (plan.replaceValid && plan.replaced->GetSize(srcLevel, w, h)) {
 		double replaceStart = time_now_d();
-		plan.replaced->Load(srcLevel, data, stride);
+		plan.replaced->CopyLevelTo(srcLevel, data, stride);
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	} else {
 		GETextureFormat tfmt = (GETextureFormat)entry.format;
