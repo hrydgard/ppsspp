@@ -1,3 +1,5 @@
+#include <cstdio>
+
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/File/VFS/DirectoryReader.h"
@@ -64,13 +66,15 @@ void DirectoryReader::ReleaseFile(VFSFileReference *vfsReference) {
 	delete reference;
 }
 
-VFSOpenFile *DirectoryReader::OpenFileForRead(VFSFileReference *vfsReference) {
+VFSOpenFile *DirectoryReader::OpenFileForRead(VFSFileReference *vfsReference, size_t *size) {
 	DirectoryReaderFileReference *reference = (DirectoryReaderFileReference *)vfsReference;
 	FILE *file = File::OpenCFile(reference->path, "rb");
 	if (!file) {
 		return nullptr;
 	}
-
+	fseek(file, 0, SEEK_END);
+	*size = ftell(file);
+	fseek(file, 0, SEEK_SET);
 	DirectoryReaderOpenFile *openFile = new DirectoryReaderOpenFile();
 	openFile->file = file;
 	return openFile;

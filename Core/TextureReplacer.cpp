@@ -530,13 +530,8 @@ bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level, bool ignoreErro
 		return false;
 	}
 
-	File::FileInfo info;
-	if (!vfs_->GetFileInfo(level.fileRef, &info)) {
-		return false;
-	}
-	size_t zsize = info.size;
-
-	VFSOpenFile *file = vfs_->OpenFileForRead(level.fileRef);
+	size_t fileSize;
+	VFSOpenFile *file = vfs_->OpenFileForRead(level.fileRef, &fileSize);
 	if (!file) {
 		return false;
 	}
@@ -992,14 +987,9 @@ void ReplacedTexture::PrepareData(int level) {
 
 	ReplacedImageType imageType;
 
-	File::FileInfo fileInfo;
-	if (!vfs_->GetFileInfo(info.fileRef, &fileInfo)) {
-		ERROR_LOG(G3D, "Failed to get file info for level");
-		return;
-	}
-	size_t fileSize = fileInfo.size;
+	size_t fileSize;
+	VFSOpenFile *openFile = vfs_->OpenFileForRead(info.fileRef, &fileSize);
 
-	VFSOpenFile *openFile = vfs_->OpenFileForRead(info.fileRef);
 	std::string magic;
 	imageType = Identify(vfs_, openFile, &magic);
 
@@ -1051,7 +1041,7 @@ void ReplacedTexture::PrepareData(int level) {
 
 		std::string pngdata;
 		pngdata.resize(fileSize);
-		vfs_->Read(openFile, &pngdata[0], fileSize);
+		pngdata.resize(vfs_->Read(openFile, &pngdata[0], fileSize));
 		if (!png_image_begin_read_from_memory(&png, &pngdata[0], pngdata.size())) {
 			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s (zip)", info.file.c_str(), png.message);
 			cleanup();

@@ -238,21 +238,29 @@ void ZipFileReader::ReleaseFile(VFSFileReference *vfsReference) {
 	delete reference;
 }
 
-VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference) {
+VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference, size_t *size) {
 	ZipFileReaderFileReference *reference = (ZipFileReaderFileReference *)vfsReference;
 	ZipFileReaderOpenFile *openFile = new ZipFileReaderOpenFile();
 	openFile->reference = reference;
+	*size = 0;
 	// We only allow one file to be open for read concurrently. It's possible that this can be improved,
 	// especially if we only access by index like this.
 	lock_.lock();
-	openFile->zf = zip_fopen_index(zip_file_, reference->zi, 0);
+	zip_stat_t zstat;
+	if (zip_stat_index(zip_file_, reference->zi, 0, &zstat) != 0) {
+		lock_.unlock();
+		return false;
+	}
 
+	openFile->zf = zip_fopen_index(zip_file_, reference->zi, 0);
 	if (!openFile->zf) {
 		WARN_LOG(G3D, "File with index %d not found in zip", reference->zi);
 		lock_.unlock();
 		return nullptr;
 	}
 
+	*size = zstat.size;
+	// Intentionally leaving the mutex locked, will be closed in CloseFile.
 	return openFile;
 }
 

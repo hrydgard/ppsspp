@@ -28,7 +28,7 @@ public:
 	bool GetFileInfo(VFSFileReference *vfsReference, File::FileInfo *fileInfo) override;
 	void ReleaseFile(VFSFileReference *vfsReference) override;
 
-	VFSOpenFile *OpenFileForRead(VFSFileReference *vfsReference) override;
+	VFSOpenFile *OpenFileForRead(VFSFileReference *vfsReference, size_t *size) override;
 	void Rewind(VFSOpenFile *vfsOpenFile) override;
 	size_t Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t length) override;
 	void CloseFile(VFSOpenFile *vfsOpenFile) override;
