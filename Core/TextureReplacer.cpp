@@ -1169,6 +1169,11 @@ ReplacedTexture::~ReplacedTexture() {
 		threadWaitable_->WaitAndRelease();
 		threadWaitable_ = nullptr;
 	}
+
+	for (auto &level : levels_) {
+		vfs_->ReleaseFile(level.fileRef);
+		level.fileRef = nullptr;
+	}
 }
 
 bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {

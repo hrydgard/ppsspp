@@ -150,7 +150,6 @@ struct ReplacedTexture {
 	}
 
 	bool IsReady(double budget);
-
 	bool CopyLevelTo(int level, void *out, int rowPitch);
 
 protected:
