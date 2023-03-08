@@ -501,7 +501,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 
 		// Turn off texture replacement for this texture.
-		plan.replaced = &replacer_.FindNone();
+		plan.replaced = nullptr;
 
 		plan.createW /= plan.scaleFactor;
 		plan.createH /= plan.scaleFactor;

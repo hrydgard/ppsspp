@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
 #include <algorithm>
 #include <atomic>
 #include <cstring>
@@ -55,12 +56,44 @@ static const int VERSION = 1;
 static const int MAX_MIP_LEVELS = 12;  // 12 should be plenty, 8 is the max mip levels supported by the PSP.
 static const double MAX_CACHE_SIZE = 4.0;
 
-TextureReplacer::TextureReplacer() {
-	none_.initDone_ = true;
-	none_.prepareDone_ = true;
+enum class ReplacedImageType {
+	PNG,
+	ZIM,
+	INVALID,
+};
+
+static inline ReplacedImageType IdentifyMagic(const uint8_t magic[4]) {
+	if (strncmp((const char *)magic, "ZIMG", 4) == 0)
+		return ReplacedImageType::ZIM;
+	if (magic[0] == 0x89 && strncmp((const char *)&magic[1], "PNG", 3) == 0)
+		return ReplacedImageType::PNG;
+	return ReplacedImageType::INVALID;
 }
 
+static ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::string *outMagic) {
+	uint8_t magic[4];
+	if (vfs->Read(openFile, magic, 4) != 4) {
+		*outMagic = "FAIL";
+		return ReplacedImageType::INVALID;
+	}
+	// Turn the signature into a readable string that we can display in an error message.
+	*outMagic = std::string((const char *)magic, 4);
+	for (int i = 0; i < outMagic->size(); i++) {
+		if ((s8)(*outMagic)[i] < 32) {
+			(*outMagic)[i] = '_';
+		}
+	}
+	vfs->Rewind(openFile);
+	return IdentifyMagic(magic);
+}
+
+TextureReplacer::TextureReplacer() {}
+
 TextureReplacer::~TextureReplacer() {
+	for (auto &iter : cache_) {
+		delete iter.second;
+	}
+
 	delete vfs_;
 }
 
@@ -174,7 +207,6 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 	auto options = ini.GetOrCreateSection("options");
 	std::string hash;
 	options->Get("hash", &hash, "");
-	// TODO: crc32c.
 	if (strcasecmp(hash.c_str(), "quick") == 0) {
 		hash_ = ReplacedTextureHash::QUICK;
 	} else if (strcasecmp(hash.c_str(), "xxh32") == 0) {
@@ -416,27 +448,29 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 	}
 }
 
-ReplacedTexture &TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w, int h, double budget) {
+ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w, int h, double budget) {
 	// Only actually replace if we're replacing.  We might just be saving.
 	if (!Enabled() || !g_Config.bReplaceTextures) {
-		return none_;
+		return nullptr;
 	}
 
 	ReplacementCacheKey replacementKey(cachekey, hash);
 	auto it = cache_.find(replacementKey);
 	if (it != cache_.end()) {
-		if (!it->second.prepareDone_ && budget > 0.0) {
+		if (!it->second->prepareDone_ && budget > 0.0) {
 			// We don't do this on a thread, but we only do it while within budget.
-			PopulateReplacement(&it->second, cachekey, hash, w, h);
+			PopulateReplacement(it->second, cachekey, hash, w, h);
 		}
 		return it->second;
 	}
 
 	// Okay, let's construct the result.
-	ReplacedTexture &result = cache_[replacementKey];
-	result.vfs_ = this->vfs_;
+
+	ReplacedTexture *result = new ReplacedTexture();
+	cache_[replacementKey] = result;
+	result->vfs_ = this->vfs_;
 	if (!g_Config.bReplaceTexturesAllowLate || budget > 0.0) {
-		PopulateReplacement(&result, cachekey, hash, w, h);
+		PopulateReplacement(result, cachekey, hash, w, h);
 	}
 	return result;
 }
@@ -499,39 +533,8 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 	for (size_t i = 0; i < result->levels_.size(); ++i) {
 		result->levelData_[i] = &levelCache_[result->levels_[i]];
 	}
-
+	 
 	result->prepareDone_ = true;
-}
-
-enum class ReplacedImageType {
-	PNG,
-	ZIM,
-	INVALID,
-};
-
-static inline ReplacedImageType IdentifyMagic(const uint8_t magic[4]) {
-	if (strncmp((const char *)magic, "ZIMG", 4) == 0)
-		return ReplacedImageType::ZIM;
-	if (magic[0] == 0x89 && strncmp((const char *)&magic[1], "PNG", 3) == 0)
-		return ReplacedImageType::PNG;
-	return ReplacedImageType::INVALID;
-}
-
-static ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::string *outMagic) {
-	uint8_t magic[4];
-	if (vfs->Read(openFile, magic, 4) != 4) {
-		*outMagic = "FAIL";
-		return ReplacedImageType::INVALID;
-	}
-	// Turn the signature into a readable string that we can display in an error message.
-	*outMagic = std::string((const char *)magic, 4);
-	for (int i = 0; i < outMagic->size(); i++) {
-		if ((s8)(*outMagic)[i] < 32) {
-			(*outMagic)[i] = '_';
-		}
-	}
-	vfs->Rewind(openFile);
-	return IdentifyMagic(magic);
 }
 
 bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level, bool ignoreError) {
@@ -775,7 +778,8 @@ void TextureReplacer::Decimate(ReplacerDecimateMode mode) {
 
 	const double threshold = time_now_d() - age;
 	for (auto &item : cache_) {
-		item.second.PurgeIfOlder(threshold);
+		item.second->PurgeIfOlder(threshold);
+		// don't actually delete the items here, just clean out the data.
 	}
 
 	size_t totalSize = 0;
@@ -1188,31 +1192,33 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, Path &generatedFile
 
 	FILE *f = File::OpenCFile(generatedFilename, "wb");
 	if (f) {
+		// Unicode byte order mark
 		fwrite("\xEF\xBB\xBF", 1, 3, f);
 
 		// Let's also write some defaults.
-		fprintf(f, "# This file is optional and describes your textures.\n");
-		fprintf(f, "# Some information on syntax available here:\n");
-		fprintf(f, "# https://github.com/hrydgard/ppsspp/wiki/Texture-replacement-ini-syntax \n");
-		fprintf(f, "[options]\n");
-		fprintf(f, "version = 1\n");
-		fprintf(f, "hash = quick\n");
-		fprintf(f, "ignoreMipmap = false\n");
-		fprintf(f, "\n");
-		fprintf(f, "[games]\n");
-		fprintf(f, "# Used to make it easier to install, and override settings for other regions.\n");
-		fprintf(f, "# Files still have to be copied to each TEXTURES folder.");
-		fprintf(f, "%s = %s\n", gameID.c_str(), INI_FILENAME.c_str());
-		fprintf(f, "\n");
-		fprintf(f, "[hashes]\n");
-		fprintf(f, "# Use / for folders not \\, avoid special characters, and stick to lowercase.\n");
-		fprintf(f, "# See wiki for more info.\n");
-		fprintf(f, "\n");
-		fprintf(f, "[hashranges]\n");
-		fprintf(f, "\n");
-		fprintf(f, "[filtering]\n");
-		fprintf(f, "\n");
-		fprintf(f, "[reducehashranges]\n");
+		fprintf(f, R"(# This file is optional and describes your textures.
+# Some information on syntax available here:
+# https://github.com/hrydgard/ppsspp/wiki/Texture-replacement-ini-syntax
+[options]
+version = 1
+hash = quick
+ignoreMipmap = false
+
+[games]
+# Used to make it easier to install, and override settings for other regions.
+# Files still have to be copied to each TEXTURES folder.
+%s = %s
+
+[hashes]
+# Use / for folders not \\, avoid special characters, and stick to lowercase.
+# See wiki for more info.
+
+[hashranges]
+
+[filtering]
+
+[reducehashranges]
+)", gameID.c_str(), INI_FILENAME.c_str());
 		fclose(f);
 	}
 	return File::Exists(generatedFilename);

@@ -54,13 +54,14 @@ enum class ReplacedTextureHash {
 };
 
 struct ReplacedTextureLevel {
-	int w;
-	int h;
-	Draw::DataFormat fmt;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
+	ReplacedTextureLevel() {}
+	int w = 0;
+	int h = 0;
+	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
 	Path file;
 	// Can be ignored for hashing/equal, since file has all uniqueness.
 	// To be able to reload, we need to be able to reopen, unfortunate we can't use zip_file_t.
-	VFSFileReference *fileRef;
+	VFSFileReference *fileRef = nullptr;
 	bool operator ==(const ReplacedTextureLevel &other) const {
 		if (w != other.w || h != other.h || fmt != other.fmt)
 			return false;
@@ -249,11 +250,9 @@ public:
 
 	u32 ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV);
 
-	ReplacedTexture &FindReplacement(u64 cachekey, u32 hash, int w, int h, double budget);
+	// Returns nullptr if not found.
+	ReplacedTexture *FindReplacement(u64 cachekey, u32 hash, int w, int h, double budget);
 	bool FindFiltering(u64 cachekey, u32 hash, TextureFiltering *forceFiltering);
-	ReplacedTexture &FindNone() {
-		return none_;
-	}
 
 	// Check if a NotifyTextureDecoded for this texture is desired (used to avoid reads from write-combined memory.)
 	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo);
@@ -301,8 +300,7 @@ protected:
 	std::unordered_map<ReplacementAliasKey, std::string> aliases_;
 	std::unordered_map<ReplacementCacheKey, TextureFiltering> filtering_;
 
-	ReplacedTexture none_;
-	std::unordered_map<ReplacementCacheKey, ReplacedTexture> cache_;
+	std::unordered_map<ReplacementCacheKey, ReplacedTexture *> cache_;
 	std::unordered_map<ReplacementCacheKey, std::pair<ReplacedTextureLevel, double>> savedCache_;
 	std::unordered_map<ReplacedTextureLevel, ReplacedLevelCache> levelCache_;
 };

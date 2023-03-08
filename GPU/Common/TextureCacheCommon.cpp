@@ -528,8 +528,8 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			int w0 = gstate.getTextureWidth(0);
 			int h0 = gstate.getTextureHeight(0);
 			int d0 = 1;
-			ReplacedTexture &replaced = FindReplacement(entry, w0, h0, d0);
-			if (replaced.IsInvalid()) {
+			ReplacedTexture *replaced = FindReplacement(entry, w0, h0, d0);
+			if (replaced && replaced->IsInvalid()) {
 				entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
 				if (g_Config.bSaveNewTextures) {
 					// Load once more to actually save.
@@ -1482,17 +1482,17 @@ u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
 	return pixelSize << (dimW + dimH);
 }
 
-ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &w, int &h, int &d) {
+ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &w, int &h, int &d) {
 	if (d != 1) {
 		// We don't yet support replacing 3D textures.
-		return replacer_.FindNone();
+		return nullptr;
 	}
 
 	// Short circuit the non-enabled case.
 	// Otherwise, due to bReplaceTexturesAllowLate, we'll still spawn tasks looking for replacements
 	// that then won't be used.
 	if (!replacer_.Enabled()) {
-		return replacer_.FindNone();
+		return nullptr;
 	}
 
 	// Allow some delay to reduce pop-in.
@@ -1501,16 +1501,21 @@ ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 	double replaceStart = time_now_d();
 	double budget = std::min(MAX_BUDGET_PER_TEX, replacementFrameBudget_ - replacementTimeThisFrame_);
 	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
-	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h, budget);
-	if (replaced.IsReady(budget)) {
-		if (replaced.GetSize(0, w, h)) {
+	ReplacedTexture *replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h, budget);
+	if (!replaced) {
+		replacementTimeThisFrame_ += time_now_d() - replaceStart;
+		return nullptr;
+	}
+
+	if (replaced->IsReady(budget)) {
+		if (replaced->GetSize(0, w, h)) {
 			// Consider it already "scaled."
 			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
 		}
 
 		// Remove the flag, even if it was invalid.
 		entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
-	} else if (!replaced.IsInvalid()) {
+	} else if (!replaced->IsInvalid()) {
 		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
 	}
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
@@ -2778,10 +2783,10 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	}
 
 	if (canReplace) {
-		plan.replaced = &FindReplacement(entry, plan.w, plan.h, plan.depth);
+		plan.replaced = FindReplacement(entry, plan.w, plan.h, plan.depth);
 		plan.replaceValid = plan.replaced->Valid();
 	} else {
-		plan.replaced = &replacer_.FindNone();
+		plan.replaced = nullptr;
 		plan.replaceValid = false;
 	}
 
