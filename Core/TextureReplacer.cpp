@@ -116,7 +116,10 @@ bool TextureReplacer::LoadIni() {
 	// First, check for textures.zip, which is used to reduce IO.
 	VFSBackend *dir = ZipFileReader::Create(basePath_ / ZIP_FILENAME, "");
 	if (!dir) {
+		vfsIsZip_ = false;
 		dir = new DirectoryReader(basePath_);
+	} else {
+		vfsIsZip_ = true;
 	}
 
 	IniFile ini;
@@ -149,9 +152,19 @@ bool TextureReplacer::LoadIni() {
 				}
 			}
 		}
+	} else {
+		if (vfsIsZip_) {
+			// We don't accept zip files without inis.
+			ERROR_LOG(G3D, "Texture pack lacking ini file: %s", basePath_.c_str());
+			delete dir;
+			return false;
+		} else {
+			WARN_LOG(G3D, "Texture pack lacking ini file: %s", basePath_.c_str());
+		}
 	}
 
 	vfs_ = dir;
+	INFO_LOG(G3D, "Texture pack activated from '%s'", basePath_.c_str());
 
 	// The ini doesn't have to exist for the texture directory or zip to be valid.
 	return true;

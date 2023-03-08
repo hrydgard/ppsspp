@@ -293,6 +293,7 @@ protected:
 	ReplacedTextureHash hash_ = ReplacedTextureHash::QUICK;
 
 	VFSBackend *vfs_ = nullptr;
+	bool vfsIsZip_ = false;
 
 	typedef std::pair<int, int> WidthHeightPair;
 	std::unordered_map<u64, WidthHeightPair> hashranges_;
