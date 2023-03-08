@@ -1188,31 +1188,33 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, Path &generatedFile
 
 	FILE *f = File::OpenCFile(generatedFilename, "wb");
 	if (f) {
+		// Unicode byte order mark
 		fwrite("\xEF\xBB\xBF", 1, 3, f);
 
 		// Let's also write some defaults.
-		fprintf(f, "# This file is optional and describes your textures.\n");
-		fprintf(f, "# Some information on syntax available here:\n");
-		fprintf(f, "# https://github.com/hrydgard/ppsspp/wiki/Texture-replacement-ini-syntax \n");
-		fprintf(f, "[options]\n");
-		fprintf(f, "version = 1\n");
-		fprintf(f, "hash = quick\n");
-		fprintf(f, "ignoreMipmap = false\n");
-		fprintf(f, "\n");
-		fprintf(f, "[games]\n");
-		fprintf(f, "# Used to make it easier to install, and override settings for other regions.\n");
-		fprintf(f, "# Files still have to be copied to each TEXTURES folder.");
-		fprintf(f, "%s = %s\n", gameID.c_str(), INI_FILENAME.c_str());
-		fprintf(f, "\n");
-		fprintf(f, "[hashes]\n");
-		fprintf(f, "# Use / for folders not \\, avoid special characters, and stick to lowercase.\n");
-		fprintf(f, "# See wiki for more info.\n");
-		fprintf(f, "\n");
-		fprintf(f, "[hashranges]\n");
-		fprintf(f, "\n");
-		fprintf(f, "[filtering]\n");
-		fprintf(f, "\n");
-		fprintf(f, "[reducehashranges]\n");
+		fprintf(f, R"(# This file is optional and describes your textures.
+# Some information on syntax available here:
+# https://github.com/hrydgard/ppsspp/wiki/Texture-replacement-ini-syntax
+[options]
+version = 1
+hash = quick
+ignoreMipmap = false
+
+[games]
+# Used to make it easier to install, and override settings for other regions.
+# Files still have to be copied to each TEXTURES folder.
+%s = %s
+
+[hashes]
+# Use / for folders not \\, avoid special characters, and stick to lowercase.
+# See wiki for more info.
+
+[hashranges]
+
+[filtering]
+
+[reducehashranges]
+)", gameID.c_str(), INI_FILENAME.c_str());
 		fclose(f);
 	}
 	return File::Exists(generatedFilename);
