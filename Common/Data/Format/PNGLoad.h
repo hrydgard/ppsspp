@@ -15,6 +15,8 @@ int pngLoadPtr(const unsigned  char *input_ptr, size_t input_len, int *pwidth,
 // PNG peeker - just read the start of a PNG straight into this struct, in order to
 // look at basic parameters like width and height. Note that while PNG is a chunk-based
 // format, the IHDR chunk is REQUIRED to be the first one, so this will work.
+// Does not handle Apple's weirdo extension CgBI. http://iphonedevwiki.net/index.php/CgBI_file_format
+// That should not be an issue.
 struct PNGHeaderPeek {
 	uint32_t magic;
 	uint32_t ignore0;

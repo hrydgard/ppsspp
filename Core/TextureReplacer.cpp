@@ -648,12 +648,13 @@ bool TextureReplacer::PopulateLevelFromZip(ReplacedTextureLevel &level, bool ign
 	} else if (imageType == ReplacedImageType::PNG) {
 		PNGHeaderPeek headerPeek;
 		good = zip_fread(zf, &headerPeek, sizeof(headerPeek)) == sizeof(headerPeek);
-		if (headerPeek.IsValidPNGHeader()) {
+		if (good && headerPeek.IsValidPNGHeader()) {
 			level.w = headerPeek.Width();
 			level.h = headerPeek.Height();
 			good = true;
 		} else {
 			ERROR_LOG(G3D, "Could not get PNG dimensions: %s (zip)", level.file.ToVisualString().c_str());
+			good = false;
 		}
 	} else {
 		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format (zip)", level.file.ToVisualString().c_str());
