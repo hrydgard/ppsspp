@@ -249,7 +249,7 @@ VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference, size
 	zip_stat_t zstat;
 	if (zip_stat_index(zip_file_, reference->zi, 0, &zstat) != 0) {
 		lock_.unlock();
-		return false;
+		return nullptr;
 	}
 
 	openFile->zf = zip_fopen_index(zip_file_, reference->zi, 0);
