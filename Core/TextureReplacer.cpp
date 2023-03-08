@@ -87,12 +87,13 @@ static ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::s
 	return IdentifyMagic(magic);
 }
 
-TextureReplacer::TextureReplacer() {
-	none_.initDone_ = true;
-	none_.prepareDone_ = true;
-}
+TextureReplacer::TextureReplacer() {}
 
 TextureReplacer::~TextureReplacer() {
+	for (auto &iter : cache_) {
+		delete iter.second;
+	}
+
 	delete vfs_;
 }
 
@@ -206,7 +207,6 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 	auto options = ini.GetOrCreateSection("options");
 	std::string hash;
 	options->Get("hash", &hash, "");
-	// TODO: crc32c.
 	if (strcasecmp(hash.c_str(), "quick") == 0) {
 		hash_ = ReplacedTextureHash::QUICK;
 	} else if (strcasecmp(hash.c_str(), "xxh32") == 0) {
@@ -448,27 +448,29 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 	}
 }
 
-ReplacedTexture &TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w, int h, double budget) {
+ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w, int h, double budget) {
 	// Only actually replace if we're replacing.  We might just be saving.
 	if (!Enabled() || !g_Config.bReplaceTextures) {
-		return none_;
+		return nullptr;
 	}
 
 	ReplacementCacheKey replacementKey(cachekey, hash);
 	auto it = cache_.find(replacementKey);
 	if (it != cache_.end()) {
-		if (!it->second.prepareDone_ && budget > 0.0) {
+		if (!it->second->prepareDone_ && budget > 0.0) {
 			// We don't do this on a thread, but we only do it while within budget.
-			PopulateReplacement(&it->second, cachekey, hash, w, h);
+			PopulateReplacement(it->second, cachekey, hash, w, h);
 		}
 		return it->second;
 	}
 
 	// Okay, let's construct the result.
-	ReplacedTexture &result = cache_[replacementKey];
-	result.vfs_ = this->vfs_;
+
+	ReplacedTexture *result = new ReplacedTexture();
+	cache_[replacementKey] = result;
+	result->vfs_ = this->vfs_;
 	if (!g_Config.bReplaceTexturesAllowLate || budget > 0.0) {
-		PopulateReplacement(&result, cachekey, hash, w, h);
+		PopulateReplacement(result, cachekey, hash, w, h);
 	}
 	return result;
 }
@@ -531,7 +533,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 	for (size_t i = 0; i < result->levels_.size(); ++i) {
 		result->levelData_[i] = &levelCache_[result->levels_[i]];
 	}
-
+	 
 	result->prepareDone_ = true;
 }
 
@@ -776,7 +778,8 @@ void TextureReplacer::Decimate(ReplacerDecimateMode mode) {
 
 	const double threshold = time_now_d() - age;
 	for (auto &item : cache_) {
-		item.second.PurgeIfOlder(threshold);
+		item.second->PurgeIfOlder(threshold);
+		// don't actually delete the items here, just clean out the data.
 	}
 
 	size_t totalSize = 0;
