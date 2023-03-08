@@ -37,7 +37,10 @@ public:
 
 class DirectoryReaderOpenFile : public VFSOpenFile {
 public:
-	FILE *file;
+	~DirectoryReaderOpenFile() {
+		_dbg_assert_(file == nullptr);
+	}
+	FILE *file = nullptr;
 };
 
 VFSFileReference *DirectoryReader::GetFile(const char *path) {
@@ -80,6 +83,8 @@ size_t DirectoryReader::Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t leng
 
 void DirectoryReader::CloseFile(VFSOpenFile *vfsOpenFile) {
 	DirectoryReaderOpenFile *openFile = (DirectoryReaderOpenFile *)vfsOpenFile;
+	_dbg_assert_(openFile->file != nullptr);
 	fclose(openFile->file);
+	openFile->file = nullptr;
 	delete openFile;
 }

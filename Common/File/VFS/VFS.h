@@ -42,8 +42,6 @@ public:
 
 class VFSBackend : public VFSInterface {
 public:
-	// use delete[] to release the returned memory.
-
 	virtual VFSFileReference *GetFile(const char *path) = 0;
 	virtual bool GetFileInfo(VFSFileReference *vfsReference, File::FileInfo *fileInfo) = 0;
 	virtual void ReleaseFile(VFSFileReference *vfsReference) = 0;

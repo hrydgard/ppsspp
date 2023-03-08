@@ -197,8 +197,12 @@ public:
 
 class ZipFileReaderOpenFile : public VFSOpenFile {
 public:
+	~ZipFileReaderOpenFile() {
+		// Needs to be closed properly and unlocked.
+		_dbg_assert_(zf == nullptr);
+	}
 	ZipFileReaderFileReference *reference;
-	zip_file_t *zf;
+	zip_file_t *zf = nullptr;
 };
 
 static constexpr zip_uint64_t INVALID_ZIP_SIZE = 0xFFFFFFFFFFFFFFFFULL;
@@ -270,6 +274,7 @@ void ZipFileReader::CloseFile(VFSOpenFile *vfsOpenFile) {
 	ZipFileReaderOpenFile *file = (ZipFileReaderOpenFile *)vfsOpenFile;
 	_dbg_assert_(file->zf != nullptr);
 	zip_fclose(file->zf);
+	file->zf = nullptr;
 	lock_.unlock();
 	delete file;
 }
