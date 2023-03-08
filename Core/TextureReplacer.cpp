@@ -736,7 +736,6 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		cachekey = cachekey & 0xFFFFFFFFULL;
 	}
 
-	/*
 	bool found = false;
 	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, &found);
 	const Path filename = basePath_ / hashfile;
@@ -753,9 +752,10 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	double now = time_now_d();
 	if (it != savedCache_.end()) {
 		// We've already saved this texture.  Let's only save if it's bigger (e.g. scaled now.)
-		if (it->second.first.w >= w && it->second.first.h >= h) {
+		// TODO: Isn't this check backwards?
+		if (it->second.levelW[level] >= w && it->second.levelH[level] >= h) {
 			// If it's been more than 5 seconds, we'll check again.  Maybe they deleted.
-			double age = now - it->second.second;
+			double age = now - it->second.lastTimeSaved;
 			if (age < 5.0)
 				return;
 
@@ -794,13 +794,11 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 
 	// Remember that we've saved this for next time.
 	// Should be OK that the actual disk write may not be finished yet.
-	ReplacedTextureLevel saved;
-	saved.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
-	saved.file = filename;
-	saved.w = w;
-	saved.h = h;
-	savedCache_[replacementKey] = std::make_pair(saved, now);
-	*/
+	SavedTextureCacheData &saveData = savedCache_[replacementKey];
+	saveData.levelW[level] = w;
+	saveData.levelH[level] = h;
+	saveData.levelSaved[level] = true;
+	saveData.lastTimeSaved = now;
 }
 
 void TextureReplacer::Decimate(ReplacerDecimateMode mode) {

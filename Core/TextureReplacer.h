@@ -64,6 +64,13 @@ struct ReplacedTextureLevel {
 	VFSFileReference *fileRef = nullptr;
 };
 
+struct SavedTextureCacheData {
+	int levelW[8]{};
+	int levelH[8]{};
+	bool levelSaved[8]{};
+	double lastTimeSaved;
+};
+
 struct ReplacedLevelsCache {
 	std::mutex lock;
 	std::vector<std::vector<uint8_t>> data;
@@ -252,7 +259,7 @@ protected:
 	std::unordered_map<ReplacementCacheKey, TextureFiltering> filtering_;
 
 	std::unordered_map<ReplacementCacheKey, ReplacedTexture *> cache_;
-	std::unordered_map<ReplacementCacheKey, std::pair<ReplacedTextureLevel, double>> savedCache_;
+	std::unordered_map<ReplacementCacheKey, SavedTextureCacheData> savedCache_;
 
 	// the key is from aliases_. It's a |-separated sequence of texture filenames of the levels of a texture.
 	std::unordered_map<std::string, ReplacedLevelsCache> levelCache_;
