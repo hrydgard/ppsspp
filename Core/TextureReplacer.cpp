@@ -517,7 +517,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 		return;
 	}
 
-	INFO_LOG(G3D, "Found: %s", hashfiles.c_str());
+	// INFO_LOG(G3D, "Found: %s", hashfiles.c_str());
 
 	std::vector<std::string> filenames;
 	SplitString(hashfiles, '|', filenames);
@@ -1208,7 +1208,6 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 		}, 0, info.h, MIN_LINES_PER_THREAD);
 	}
 
-	INFO_LOG(G3D, "Successfully copied texture level");
 	return true;
 }
 
