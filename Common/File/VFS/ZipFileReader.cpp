@@ -205,8 +205,6 @@ public:
 	zip_file_t *zf = nullptr;
 };
 
-static constexpr zip_uint64_t INVALID_ZIP_SIZE = 0xFFFFFFFFFFFFFFFFULL;
-
 VFSFileReference *ZipFileReader::GetFile(const char *path) {
 	std::lock_guard<std::mutex> guard(lock_);
 	int zi = zip_name_locate(zip_file_, path, ZIP_FL_NOCASE);
