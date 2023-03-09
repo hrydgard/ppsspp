@@ -23,13 +23,13 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/MemoryUtil.h"
-#include "Core/TextureReplacer.h"
 #include "Core/System.h"
 #include "GPU/GPU.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Common/TextureShaderCommon.h"
+#include "GPU/Common/TextureReplacer.h"
 
 class Draw2D;
 

@@ -44,9 +44,9 @@
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/System.h"
-#include "Core/TextureReplacer.h"
 #include "Core/ThreadPools.h"
 #include "Core/ELF/ParamSFO.h"
+#include "GPU/Common/TextureReplacer.h"
 #include "GPU/Common/TextureDecoder.h"
 
 static const std::string INI_FILENAME = "textures.ini";

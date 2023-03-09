@@ -1639,6 +1639,10 @@ set(GPU_SOURCES
 	GPU/Common/TextureScalerCommon.h
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
+	GPU/Common/TextureReplacer.cpp
+	GPU/Common/TextureReplacer.h
+	GPU/Common/ReplacedTexture.cpp
+	GPU/Common/ReplacedTexture.h
 	GPU/Debugger/Breakpoints.cpp
 	GPU/Debugger/Breakpoints.h
 	GPU/Debugger/Debugger.cpp
@@ -2047,8 +2051,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Screenshot.h
 	Core/System.cpp
 	Core/System.h
-	Core/TextureReplacer.cpp
-	Core/TextureReplacer.h
 	Core/ThreadPools.cpp
 	Core/ThreadPools.h
 	Core/Util/AudioFormat.cpp

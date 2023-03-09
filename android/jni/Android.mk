@@ -389,6 +389,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/ShaderUniforms.cpp \
   $(SRC)/GPU/Common/VertexShaderGenerator.cpp \
   $(SRC)/GPU/Common/GeometryShaderGenerator.cpp \
+  $(SRC)/GPU/Common/TextureReplacer.cpp \
+  $(SRC)/GPU/Common/ReplacedTexture.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
   $(SRC)/GPU/Debugger/Debugger.cpp \
   $(SRC)/GPU/Debugger/GECommandTable.cpp \
@@ -456,7 +458,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/SaveState.cpp \
   $(SRC)/Core/Screenshot.cpp \
   $(SRC)/Core/System.cpp \
-  $(SRC)/Core/TextureReplacer.cpp \
   $(SRC)/Core/TiltEventProcessor.cpp \
   $(SRC)/Core/ThreadPools.cpp \
   $(SRC)/Core/WebServer.cpp \
