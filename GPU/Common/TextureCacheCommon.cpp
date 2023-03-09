@@ -107,7 +107,7 @@ inline int dimHeight(u16 dim) {
 }
 
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
-	: draw_(draw), draw2D_(draw2D) {
+	: draw_(draw), draw2D_(draw2D), replacer_(draw) {
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
 	// It's only possible to have 1KB of palette entries, although we allow 2KB in a hack.
@@ -2854,7 +2854,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 
 	if (plan.replaceValid && plan.replaced->GetSize(srcLevel, w, h)) {
 		double replaceStart = time_now_d();
-		plan.replaced->Load(srcLevel, data, stride);
+		plan.replaced->CopyLevelTo(srcLevel, data, stride);
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	} else {
 		GETextureFormat tfmt = (GETextureFormat)entry.format;
@@ -2901,7 +2901,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 			}
 		}
 
-		if (replacer_.Enabled() && plan.replaced->IsInvalid()) {
+		if (plan.saveTexture && !lowMemoryMode_) {
 			ReplacedTextureDecodeInfo replacedInfo;
 			replacedInfo.cachekey = entry.CacheKey();
 			replacedInfo.hash = entry.fullhash;

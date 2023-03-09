@@ -235,7 +235,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 
 	D3DFORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 	if (plan.replaceValid) {
-		dstFmt = ToD3D9Format(plan.replaced->Format(plan.baseLevelSrc));
+		dstFmt = ToD3D9Format(plan.replaced->Format());
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = D3DFMT_A8R8G8B8;
 	} else if (plan.decodeToClut8) {

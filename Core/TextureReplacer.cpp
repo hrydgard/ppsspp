@@ -87,7 +87,9 @@ static ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::s
 	return IdentifyMagic(magic);
 }
 
-TextureReplacer::TextureReplacer() {}
+TextureReplacer::TextureReplacer(Draw::DrawContext *draw) {
+	// TODO: Check draw for supported texture formats.
+}
 
 TextureReplacer::~TextureReplacer() {
 	for (auto &iter : cache_) {
@@ -242,16 +244,20 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 	if (ini.HasSection("hashes")) {
 		auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
 		// Format: hashname = filename.png
-		bool checkFilenames = g_Config.bSaveNewTextures && !g_Config.bIgnoreTextureFilenames;
+		bool checkFilenames = g_Config.bSaveNewTextures && !g_Config.bIgnoreTextureFilenames && !vfsIsZip_;
+
+		std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
+
 		for (const auto &item : hashes) {
-			ReplacementAliasKey key(0, 0, 0);
-			if (sscanf(item.first.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &key.level) >= 1) {
-				aliases_[key] = item.second;
+			ReplacementCacheKey key(0, 0);
+			int level = 0;  // sscanf might fail to pluck the level, but that's ok, we default to 0.
+			if (sscanf(item.first.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
+				filenameMap[key][level] = item.second;
 				if (checkFilenames) {
 #if PPSSPP_PLATFORM(WINDOWS)
 					// Uppercase probably means the filenames don't match.
 					// Avoiding an actual check of the filenames to avoid performance impact.
-					filenameWarning = filenameWarning || item.second.find_first_of("\\ABCDEFGHIJKLMNOPQRSTUVWXYZ") != std::string::npos;
+					filenameWarning = filenameWarning || item.second.find_first_of("\\ABCDEFGHIJKLMNOPQRSTUVWXYZ:<>|?*") != std::string::npos;
 #else
 					filenameWarning = filenameWarning || item.second.find_first_of("\\:<>|?*") != std::string::npos;
 #endif
@@ -260,11 +266,30 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 				ERROR_LOG(G3D, "Unsupported syntax under [hashes]: %s", item.first.c_str());
 			}
 		}
+
+		// Now, translate the filenameMap to the final aliasMap.
+		for (auto &pair : filenameMap) {
+			std::string alias;
+			int mipIndex = 0;
+			for (auto &level : pair.second) {
+				if (level.first == mipIndex) {
+					alias += level.second + "|";
+					mipIndex++;
+				} else {
+					WARN_LOG(G3D, "Non-sequential mip index %d, breaking. filenames=%s", level.first, level.second.c_str());
+					break;
+				}
+			}
+			if (alias == "|") {
+				alias = "";  // marker for no replacement
+			}
+			aliases_[pair.first] = alias;
+		}
 	}
 
 	if (filenameWarning) {
 		auto err = GetI18NCategory("Error");
-		host->NotifyUserMessage(err->T("textures.ini filenames may not be cross-platform"), 6.0f);
+		host->NotifyUserMessage(err->T("textures.ini filenames may not be cross-platform (banned characters)"), 6.0f);
 	}
 
 	if (ini.HasSection("hashranges")) {
@@ -475,7 +500,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 	return result;
 }
 
-void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h) {
+void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey, u32 hash, int w, int h) {
 	int newW = w;
 	int newH = h;
 	LookupHashRange(cachekey >> 32, newW, newH);
@@ -484,30 +509,47 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		cachekey = cachekey & 0xFFFFFFFFULL;
 	}
 
-	for (int i = 0; i < MAX_MIP_LEVELS; ++i) {
-		const std::string hashfile = LookupHashFile(cachekey, hash, i);
-		if (hashfile.empty()) {
+	bool foundReplacement = false;
+	bool ignored = false;
+	const std::string hashfiles = LookupHashFile(cachekey, hash, &foundReplacement, &ignored);
+
+	if (!foundReplacement || ignored) {
+		// nothing to do?
+		return;
+	}
+
+	// INFO_LOG(G3D, "Found: %s", hashfiles.c_str());
+
+	std::vector<std::string> filenames;
+	SplitString(hashfiles, '|', filenames);
+
+	for (int i = 0; i < std::min(MAX_MIP_LEVELS, (int)filenames.size()); ++i) {
+		if (filenames[i].empty()) {
 			// Out of valid mip levels.  Bail out.
 			break;
 		}
 
-		const Path filename = basePath_ / hashfile;
+		const Path filename = basePath_ / filenames[i];
 
+		// TODO: Here, if we find a file with multiple built-in mipmap levels,
+		// we'll have to change a bit how things work...
 		ReplacedTextureLevel level;
-		level.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 		level.file = filename;
 
-		bool good;
-		bool logError = hashfile != HashName(cachekey, hash, i) + ".png";
+		if (i == 0) {
+			texture->fmt = Draw::DataFormat::R8G8B8A8_UNORM;
+		}
 
-		VFSFileReference *fileRef = vfs_->GetFile(hashfile.c_str());
+		bool good;
+
+		VFSFileReference *fileRef = vfs_->GetFile(filenames[i].c_str());
 		if (!fileRef) {
 			// If the file doesn't exist, let's just bail immediately here.
 			break;
 		}
 
 		level.fileRef = fileRef;
-		good = PopulateLevel(level, !logError);
+		good = PopulateLevel(level, false);
 
 		// We pad files that have been hashrange'd so they are the same texture size.
 		level.w = (level.w * w) / newW;
@@ -515,26 +557,22 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 
 		if (good && i != 0) {
 			// Check that the mipmap size is correct.  Can't load mips of the wrong size.
-			if (level.w != (result->levels_[0].w >> i) || level.h != (result->levels_[0].h >> i)) {
-				 WARN_LOG(G3D, "Replacement mipmap invalid: size=%dx%d, expected=%dx%d (level %d, '%s')", level.w, level.h, result->levels_[0].w >> i, result->levels_[0].h >> i, i, filename.c_str());
+			if (level.w != (texture->levels_[0].w >> i) || level.h != (texture->levels_[0].h >> i)) {
+				 WARN_LOG(G3D, "Replacement mipmap invalid: size=%dx%d, expected=%dx%d (level %d, '%s')", level.w, level.h, texture->levels_[0].w >> i, texture->levels_[0].h >> i, i, filename.c_str());
 				 good = false;
 			}
 		}
 
 		if (good)
-			result->levels_.push_back(level);
+			texture->levels_.push_back(level);
 		// Otherwise, we're done loading mips (bad PNG or bad size, either way.)
 		else
 			break;
 	}
 
-	// Populate the level data pointers for each level.
-	result->levelData_.resize(result->levels_.size());
-	for (size_t i = 0; i < result->levels_.size(); ++i) {
-		result->levelData_[i] = &levelCache_[result->levels_[i]];
-	}
-	 
-	result->prepareDone_ = true;
+	// Populate the data pointer.
+	texture->levelData_ = &levelCache_[hashfiles];
+	texture->prepareDone_ = true;
 }
 
 bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level, bool ignoreError) {
@@ -604,10 +642,11 @@ static bool WriteTextureToPNG(png_imagep image, const Path &filename, int conver
 	}
 }
 
-class TextureSaveTask : public Task {
+// We save textures on threadpool tasks since it's a fire-and-forget task, and both I/O and png compression
+// can be pretty slow.
+class SaveTextureTask : public Task {
 public:
-	// Could probably just use a vector.
-	SimpleBuf<u32> data;
+	std::vector<u8> rgbaData;
 
 	int w = 0;
 	int h = 0;
@@ -615,13 +654,13 @@ public:
 
 	Path basePath;
 	std::string hashfile;
-	u32 replacedInfoHash;
+	u32 replacedInfoHash = 0;
 
 	bool skipIfExists = false;
 
-	TextureSaveTask(SimpleBuf<u32> _data) : data(std::move(_data)) {}
+	SaveTextureTask(std::vector<u8> &&_rgbaData) : rgbaData(std::move(_rgbaData)) {}
 
-	// This must be IO blocking because of Android storage, despite being CPU heavy.
+	// This must be set to I/O blocking because of Android storage (so we attach the thread to JNI), while being CPU heavy too.
 	TaskType Type() const override { return TaskType::IO_BLOCKING; }
 
 	TaskPriority Priority() const override {
@@ -633,9 +672,9 @@ public:
 		const Path saveFilename = basePath / NEW_TEXTURE_DIR / hashfile;
 
 		// Should we skip writing if the newly saved data already exists?
-		// We do this on the thread due to slow IO.
-		if (skipIfExists && File::Exists(saveFilename))
+		if (skipIfExists && File::Exists(saveFilename)) {
 			return;
+		}
 
 		// And we always skip if the replace file already exists.
 		if (File::Exists(filename))
@@ -661,12 +700,14 @@ public:
 		png.format = PNG_FORMAT_RGBA;
 		png.width = w;
 		png.height = h;
-		bool success = WriteTextureToPNG(&png, saveFilename, 0, data.data(), pitch, nullptr);
+		bool success = WriteTextureToPNG(&png, saveFilename, 0, rgbaData.data(), pitch, nullptr);
 		png_image_free(&png);
 		if (png.warning_or_error >= 2) {
-			ERROR_LOG(COMMON, "Saving screenshot to PNG produced errors.");
+			ERROR_LOG(G3D, "Saving screenshot to PNG produced errors.");
 		} else if (success) {
 			NOTICE_LOG(G3D, "Saving texture for replacement: %08x / %dx%d in '%s'", replacedInfoHash, w, h, saveFilename.ToVisualString().c_str());
+		} else {
+			ERROR_LOG(G3D, "Failed to write '%s'", saveFilename.c_str());
 		}
 	}
 };
@@ -699,14 +740,19 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		cachekey = cachekey & 0xFFFFFFFFULL;
 	}
 
-	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, level);
-	const Path filename = basePath_ / hashfile;
+	bool found = false, ignored = false;
+	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, &found, &ignored);
 
 	// If it's empty, it's an ignored hash, we intentionally don't save.
-	if (hashfile.empty()) {
+	if (found) {
 		// If it exists, must've been decoded and saved as a new texture already.
 		return;
 	}
+
+	// Generate a new filename.
+	hashfile = HashName(cachekey, replacedInfo.hash, level) + ".png";
+
+	const Path filename = basePath_ / hashfile;
 
 	ReplacementCacheKey replacementKey(cachekey, replacedInfo.hash);
 	auto it = savedCache_.find(replacementKey);
@@ -714,12 +760,12 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	double now = time_now_d();
 	if (it != savedCache_.end()) {
 		// We've already saved this texture.  Let's only save if it's bigger (e.g. scaled now.)
-		if (it->second.first.w >= w && it->second.first.h >= h) {
+		// This check isn't backwards, it's just to check if we should *skip* saving, a bit confusing.
+		if (it->second.levelW[level] >= w && it->second.levelH[level] >= h) {
 			// If it's been more than 5 seconds, we'll check again.  Maybe they deleted.
-			double age = now - it->second.second;
+			double age = now - it->second.lastTimeSaved;
 			if (age < 5.0)
 				return;
-
 			skipIfExists = true;
 		}
 	}
@@ -732,18 +778,17 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		h = lookupH * replacedInfo.scaleFactor;
 	}
 
-	SimpleBuf<u32> saveBuf;
+	std::vector<u8> saveBuf;
 
 	// Copy data to a buffer so we can send it to the thread. Might as well compact-away the pitch
 	// while we're at it.
-	saveBuf.resize(w * h);
+	saveBuf.resize(w * h * 4);
 	for (int y = 0; y < h; y++) {
 		memcpy((u8 *)saveBuf.data() + y * w * 4, (const u8 *)data + y * pitch, w * sizeof(u32));
 	}
 	pitch = w * 4;
 
-	TextureSaveTask *task = new TextureSaveTask(std::move(saveBuf));
-	// Should probably do a proper move constructor but this'll work.
+	SaveTextureTask *task = new SaveTextureTask(std::move(saveBuf));
 	task->w = w;
 	task->h = h;
 	task->pitch = pitch;
@@ -755,12 +800,11 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 
 	// Remember that we've saved this for next time.
 	// Should be OK that the actual disk write may not be finished yet.
-	ReplacedTextureLevel saved;
-	saved.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
-	saved.file = filename;
-	saved.w = w;
-	saved.h = h;
-	savedCache_[replacementKey] = std::make_pair(saved, now);
+	SavedTextureCacheData &saveData = savedCache_[replacementKey];
+	saveData.levelW[level] = w;
+	saveData.levelH[level] = h;
+	saveData.levelSaved[level] = true;
+	saveData.lastTimeSaved = now;
 }
 
 void TextureReplacer::Decimate(ReplacerDecimateMode mode) {
@@ -860,15 +904,18 @@ bool TextureReplacer::FindFiltering(u64 cachekey, u32 hash, TextureFiltering *fo
 	return false;
 }
 
-std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
-	ReplacementAliasKey key(cachekey, hash, level);
+std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, bool *foundReplacement, bool *ignored) {
+	ReplacementCacheKey key(cachekey, hash);
 	auto alias = LookupWildcard(aliases_, key, cachekey, hash, ignoreAddress_);
 	if (alias != aliases_.end()) {
 		// Note: this will be blank if explicitly ignored.
+		*foundReplacement = true;
+		*ignored = alias->second.empty();
 		return alias->second;
 	}
-
-	return HashName(cachekey, hash, level) + ".png";
+	*foundReplacement = false;
+	*ignored = false;
+	return "";
 }
 
 std::string TextureReplacer::HashName(u64 cachekey, u32 hash, int level) {
@@ -938,11 +985,12 @@ bool ReplacedTexture::IsReady(double budget) {
 	}
 
 	// Loaded already, or not yet on a thread?
-	if (initDone_ && !levelData_.empty()) {
-		for (auto &l : levelData_)
-			l->lastUsed = lastUsed_;
+	if (initDone_ && levelData_ && !levelData_->data.empty()) {
+		// TODO: lock?
+		levelData_->lastUsed = lastUsed_;
 		return true;
 	}
+
 	// Let's not even start a new texture if we're already behind.
 	if (budget < 0.0)
 		return false;
@@ -957,7 +1005,7 @@ bool ReplacedTexture::IsReady(double budget) {
 
 		if (threadWaitable_->WaitFor(budget)) {
 			// If we finished all the levels, we're done.
-			return initDone_ && !levelData_.empty();
+			return initDone_ && levelData_ != nullptr && !levelData_->data.empty();
 		}
 	} else {
 		Prepare(vfs_);
@@ -990,13 +1038,18 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 
 void ReplacedTexture::PrepareData(int level) {
 	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
-	_assert_msg_(levelData_[level] != nullptr, "Level cache not set for miplevel");
+	_assert_msg_(levelData_ != nullptr, "Level cache not set");
 
 	// We must lock around access to levelData_ in case two textures try to load it at once.
-	std::lock_guard<std::mutex> guard(levelData_[level]->lock);
+	std::lock_guard<std::mutex> guard(levelData_->lock);
 
 	const ReplacedTextureLevel &info = levels_[level];
-	std::vector<uint8_t> &out = levelData_[level]->data;
+
+	if (levelData_->data.size() <= level) {
+		levelData_->data.resize(level + 1);
+	}
+
+	std::vector<uint8_t> &out = levelData_->data[level];
 
 	// Already populated from cache.
 	if (!out.empty())
@@ -1107,14 +1160,12 @@ void ReplacedTexture::PurgeIfOlder(double t) {
 	if (lastUsed_ >= t)
 		return;
 
-	for (auto &l : levelData_) {
-		if (l->lastUsed < t) {
-			// We have to lock since multiple textures might reference this same data.
-			std::lock_guard<std::mutex> guard(l->lock);
-			l->data.clear();
-			// This means we have to reload.  If we never purge any, there's no need.
-			initDone_ = false;
-		}
+	if (levelData_->lastUsed < t) {
+		// We have to lock since multiple textures might reference this same data.
+		std::lock_guard<std::mutex> guard(levelData_->lock);
+		levelData_->data.clear();
+		// This means we have to reload.  If we never purge any, there's no need.
+		initDone_ = false;
 	}
 }
 
@@ -1126,30 +1177,35 @@ ReplacedTexture::~ReplacedTexture() {
 		threadWaitable_->WaitAndRelease();
 		threadWaitable_ = nullptr;
 	}
+
+	for (auto &level : levels_) {
+		vfs_->ReleaseFile(level.fileRef);
+		level.fileRef = nullptr;
+	}
 }
 
-bool ReplacedTexture::Load(int level, void *out, int rowPitch) {
+bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
 	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");
 
-	if (!initDone_)
+	if (!initDone_) {
+		WARN_LOG(G3D, "Init not done yet");
 		return false;
-	if (levelData_.empty())
-		return false;
-
-	_assert_msg_(levelData_[level] != nullptr, "Level cache not set for miplevel");
+	}
 
 	// We probably could avoid this lock, but better to play it safe.
-	std::lock_guard<std::mutex> guard(levelData_[level]->lock);
+	std::lock_guard<std::mutex> guard(levelData_->lock);
 
 	const ReplacedTextureLevel &info = levels_[level];
-	const std::vector<uint8_t> &data = levelData_[level]->data;
+	const std::vector<uint8_t> &data = levelData_->data[level];
 
-	if (data.empty())
+	if (data.empty()) {
+		WARN_LOG(G3D, "Level %d is empty", level);
 		return false;
+	}
 
 	if (rowPitch < info.w * 4) {
-		ERROR_LOG_REPORT(G3D, "Replacement rowPitch=%d, but w=%d (level=%d)", rowPitch, info.w * 4, level);
+		ERROR_LOG(G3D, "Replacement rowPitch=%d, but w=%d (level=%d)", rowPitch, info.w * 4, level);
 		return false;
 	}
 	_assert_msg_(data.size() == info.w * info.h * 4, "Data has wrong size");
