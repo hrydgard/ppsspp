@@ -471,8 +471,8 @@ public:
 	float fHeadUpDisplayScale;
 	float fMotionLength;
 	float fHeadRotationScale;
+	bool bHeadRotationEnabled;
 	bool bHeadRotationSmoothing;
-	bool iHeadRotation;
 
 	// Debugger
 	int iDisasmWindowX;
