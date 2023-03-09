@@ -267,6 +267,12 @@
     <ClInclude Include="GPUCommonHW.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\ReplacedTexture.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\TextureReplacer.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -528,6 +534,12 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="GPUCommonHW.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\ReplacedTexture.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\TextureReplacer.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>

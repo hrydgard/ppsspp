@@ -62,6 +62,8 @@
     <ClCompile Include="..\..\GPU\Common\TextureShaderCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\DepthBufferCommon.cpp" />
     <ClCompile Include="..\..\GPU\GPUCommonHW.cpp" />
+    <ClCompile Include="..\..\GPU\Common\ReplacedTexture.cpp" />
+    <ClCompile Include="..\..\GPU\Common\TextureReplacer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
@@ -125,5 +127,7 @@
     <ClInclude Include="..\..\GPU\Common\Draw2D.h" />
     <ClInclude Include="..\..\GPU\Common\TextureShaderCommon.h" />
     <ClInclude Include="..\..\GPU\GPUCommonHW.h" />
+    <ClInclude Include="..\..\GPU\Common\ReplacedTexture.h" />
+    <ClInclude Include="..\..\GPU\Common\TextureReplacer.h" />
   </ItemGroup>
 </Project>
