@@ -2784,7 +2784,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 	if (canReplace) {
 		plan.replaced = FindReplacement(entry, plan.w, plan.h, plan.depth);
-		plan.replaceValid = plan.replaced->Valid();
+		plan.replaceValid = plan.replaced ? plan.replaced->Valid() : plan.replaced;
 	} else {
 		plan.replaced = nullptr;
 		plan.replaceValid = false;
