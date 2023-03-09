@@ -494,7 +494,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 	ReplacedTexture *result = new ReplacedTexture();
 	cache_[replacementKey] = result;
 	result->vfs_ = this->vfs_;
-	if (!g_Config.bReplaceTexturesAllowLate || budget > 0.0) {
+	if (budget > 0.0) {
 		PopulateReplacement(result, cachekey, hash, w, h);
 	}
 	return result;
@@ -998,20 +998,13 @@ bool ReplacedTexture::IsReady(double budget) {
 	if (!prepareDone_)
 		return false;
 
-	if (g_Config.bReplaceTexturesAllowLate) {
-		if (threadWaitable_)
-			delete threadWaitable_;
-		threadWaitable_ = new LimitedWaitable();
-		g_threadManager.EnqueueTask(new ReplacedTextureTask(vfs_, *this, threadWaitable_));
-
-		if (threadWaitable_->WaitFor(budget)) {
-			// If we finished all the levels, we're done.
-			return initDone_ && levelData_ != nullptr && !levelData_->data.empty();
-		}
-	} else {
-		Prepare(vfs_);
-		_assert_(initDone_);
-		return true;
+	if (threadWaitable_)
+		delete threadWaitable_;
+	threadWaitable_ = new LimitedWaitable();
+	g_threadManager.EnqueueTask(new ReplacedTextureTask(vfs_, *this, threadWaitable_));
+	if (threadWaitable_->WaitFor(budget)) {
+		// If we finished all the levels, we're done.
+		return initDone_ && levelData_ != nullptr && !levelData_->data.empty();
 	}
 
 	// Still pending on thread.
