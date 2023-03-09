@@ -515,6 +515,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 
 	if (!foundReplacement || ignored) {
 		// nothing to do?
+		texture->prepareDone_ = true;
 		return;
 	}
 

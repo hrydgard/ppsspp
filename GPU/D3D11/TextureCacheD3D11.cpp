@@ -284,44 +284,15 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	if (th > 16384)
 		th = 16384;
 
+	// The PSP only supports 8 mip levels, but we support 12 in the texture replacer (4k textures down to 1).
+	D3D11_SUBRESOURCE_DATA subresData[12]{};
+
 	if (plan.depth == 1) {
 		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
 		levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
-
-		ID3D11Texture2D *tex = nullptr;
-		D3D11_TEXTURE2D_DESC desc{};
-		desc.CPUAccessFlags = 0;
-		desc.Usage = D3D11_USAGE_DEFAULT;
-		desc.ArraySize = 1;
-		desc.SampleDesc.Count = 1;
-		desc.Width = tw;
-		desc.Height = th;
-		desc.Format = dstFmt;
-		desc.MipLevels = levels;
-		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-
-		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &tex));
-		texture = tex;
 	} else {
-		ID3D11Texture3D *tex = nullptr;
-		D3D11_TEXTURE3D_DESC desc{};
-		desc.CPUAccessFlags = 0;
-		desc.Usage = D3D11_USAGE_DEFAULT;
-		desc.Width = tw;
-		desc.Height = th;
-		desc.Depth = plan.depth;
-		desc.Format = dstFmt;
-		desc.MipLevels = 1;
-		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-		ASSERT_SUCCESS(device_->CreateTexture3D(&desc, nullptr, &tex));
-		texture = tex;
-
 		levels = plan.depth;
 	}
-
-	ASSERT_SUCCESS(device_->CreateShaderResourceView(texture, nullptr, &view));
-	entry->texturePtr = texture;
-	entry->textureView = view;
 
 	Draw::DataFormat texFmt = FromD3D11Format(dstFmt);
 
@@ -349,7 +320,20 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		}
 
 		stride = std::max(mipWidth * bpp, 16);
-		data = (u8 *)AllocateAlignedMemory(stride * mipHeight, 16);
+
+		if (plan.depth == 1) {
+			data = (u8 *)AllocateAlignedMemory(stride * mipHeight, 16);
+			subresData[i].pSysMem = data;
+			subresData[i].SysMemPitch = stride;
+			subresData[i].SysMemSlicePitch = 0;
+		} else {
+			if (i == 0) {
+				subresData[0].pSysMem = AllocateAlignedMemory(stride * mipHeight * plan.depth, 16);
+				subresData[0].SysMemPitch = stride;
+				subresData[0].SysMemSlicePitch = stride * mipHeight;
+			}
+			data = (uint8_t *)subresData[0].pSysMem + stride * mipHeight * i;
+		}
 
 		if (!data) {
 			ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
@@ -357,17 +341,51 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		}
 
 		LoadTextureLevel(*entry, data, stride, plan, srcLevel, texFmt, TexDecodeFlags{});
-		if (plan.depth == 1) {
-			context_->UpdateSubresource(texture, i, nullptr, data, stride, 0);
-		} else {
-			D3D11_BOX box{};
-			box.front = i;
-			box.back = i + 1;
-			box.right = mipWidth;
-			box.bottom = mipHeight;
-			context_->UpdateSubresource(texture, 0, &box, data, stride, 0);
+	}
+
+	if (plan.depth == 1) {
+		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
+		levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
+
+		ID3D11Texture2D *tex = nullptr;
+		D3D11_TEXTURE2D_DESC desc{};
+		desc.CPUAccessFlags = 0;
+		desc.Usage = D3D11_USAGE_DEFAULT;
+		desc.ArraySize = 1;
+		desc.SampleDesc.Count = 1;
+		desc.Width = tw;
+		desc.Height = th;
+		desc.Format = dstFmt;
+		desc.MipLevels = levels;
+		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, subresData, &tex));
+		texture = tex;
+	} else {
+		ID3D11Texture3D *tex = nullptr;
+		D3D11_TEXTURE3D_DESC desc{};
+		desc.CPUAccessFlags = 0;
+		desc.Usage = D3D11_USAGE_DEFAULT;
+		desc.Width = tw;
+		desc.Height = th;
+		desc.Depth = plan.depth;
+		desc.Format = dstFmt;
+		desc.MipLevels = 1;
+		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		ASSERT_SUCCESS(device_->CreateTexture3D(&desc, subresData, &tex));
+		texture = tex;
+
+		levels = plan.depth;
+	}
+
+	ASSERT_SUCCESS(device_->CreateShaderResourceView(texture, nullptr, &view));
+	entry->texturePtr = texture;
+	entry->textureView = view;
+
+	for (int i = 0; i < 12; i++) {
+		if (subresData[i].pSysMem) {
+			FreeAlignedMemory((void *)subresData[i].pSysMem);
 		}
-		FreeAlignedMemory(data);
 	}
 
 	// Signal that we support depth textures so use it as one.
