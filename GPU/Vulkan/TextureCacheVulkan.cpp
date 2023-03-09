@@ -614,7 +614,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 			}
 			// Format might be wrong in lowMemoryMode_, so don't save.
-			if (replacer_.Enabled() && plan.replaced->IsInvalid() && !lowMemoryMode_) {
+			if (plan.saveTexture && !lowMemoryMode_) {
 				// When hardware texture scaling is enabled, this saves the original.
 				int w = dataScaled ? mipWidth : mipUnscaledWidth;
 				int h = dataScaled ? mipHeight : mipUnscaledHeight;

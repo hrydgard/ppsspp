@@ -244,7 +244,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 	if (ini.HasSection("hashes")) {
 		auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
 		// Format: hashname = filename.png
-		bool checkFilenames = g_Config.bSaveNewTextures && !g_Config.bIgnoreTextureFilenames;
+		bool checkFilenames = g_Config.bSaveNewTextures && !g_Config.bIgnoreTextureFilenames && !vfsIsZip_;
 
 		std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
 
@@ -257,7 +257,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 #if PPSSPP_PLATFORM(WINDOWS)
 					// Uppercase probably means the filenames don't match.
 					// Avoiding an actual check of the filenames to avoid performance impact.
-					filenameWarning = filenameWarning || item.second.find_first_of("\\ABCDEFGHIJKLMNOPQRSTUVWXYZ") != std::string::npos;
+					filenameWarning = filenameWarning || item.second.find_first_of("\\ABCDEFGHIJKLMNOPQRSTUVWXYZ:<>|?*") != std::string::npos;
 #else
 					filenameWarning = filenameWarning || item.second.find_first_of("\\:<>|?*") != std::string::npos;
 #endif
@@ -510,9 +510,10 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 	}
 
 	bool foundReplacement = false;
-	const std::string hashfiles = LookupHashFile(cachekey, hash, &foundReplacement);
+	bool ignored = false;
+	const std::string hashfiles = LookupHashFile(cachekey, hash, &foundReplacement, &ignored);
 
-	if (!foundReplacement) {
+	if (!foundReplacement || ignored) {
 		// nothing to do?
 		return;
 	}
@@ -641,9 +642,10 @@ static bool WriteTextureToPNG(png_imagep image, const Path &filename, int conver
 	}
 }
 
-class TextureSaveTask : public Task {
+// We save textures on threadpool tasks since it's a fire-and-forget task, and both I/O and png compression
+// can be pretty slow.
+class SaveTextureTask : public Task {
 public:
-	// Could probably just use a vector.
 	std::vector<u8> rgbaData;
 
 	int w = 0;
@@ -652,13 +654,13 @@ public:
 
 	Path basePath;
 	std::string hashfile;
-	u32 replacedInfoHash;
+	u32 replacedInfoHash = 0;
 
 	bool skipIfExists = false;
 
-	TextureSaveTask(std::vector<u8> _rgbaData) : rgbaData(std::move(_rgbaData)) {}
+	SaveTextureTask(std::vector<u8> &&_rgbaData) : rgbaData(std::move(_rgbaData)) {}
 
-	// This must be IO blocking because of Android storage, despite being CPU heavy.
+	// This must be set to I/O blocking because of Android storage (so we attach the thread to JNI), while being CPU heavy too.
 	TaskType Type() const override { return TaskType::IO_BLOCKING; }
 
 	TaskPriority Priority() const override {
@@ -670,9 +672,9 @@ public:
 		const Path saveFilename = basePath / NEW_TEXTURE_DIR / hashfile;
 
 		// Should we skip writing if the newly saved data already exists?
-		// We do this on the thread due to slow IO.
-		if (skipIfExists && File::Exists(saveFilename))
+		if (skipIfExists && File::Exists(saveFilename)) {
 			return;
+		}
 
 		// And we always skip if the replace file already exists.
 		if (File::Exists(filename))
@@ -701,9 +703,11 @@ public:
 		bool success = WriteTextureToPNG(&png, saveFilename, 0, rgbaData.data(), pitch, nullptr);
 		png_image_free(&png);
 		if (png.warning_or_error >= 2) {
-			ERROR_LOG(COMMON, "Saving screenshot to PNG produced errors.");
+			ERROR_LOG(G3D, "Saving screenshot to PNG produced errors.");
 		} else if (success) {
 			NOTICE_LOG(G3D, "Saving texture for replacement: %08x / %dx%d in '%s'", replacedInfoHash, w, h, saveFilename.ToVisualString().c_str());
+		} else {
+			ERROR_LOG(G3D, "Failed to write '%s'", saveFilename.c_str());
 		}
 	}
 };
@@ -736,15 +740,19 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		cachekey = cachekey & 0xFFFFFFFFULL;
 	}
 
-	bool found = false;
-	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, &found);
-	const Path filename = basePath_ / hashfile;
+	bool found = false, ignored = false;
+	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, &found, &ignored);
 
 	// If it's empty, it's an ignored hash, we intentionally don't save.
-	if (hashfile.empty()) {
+	if (found) {
 		// If it exists, must've been decoded and saved as a new texture already.
 		return;
 	}
+
+	// Generate a new filename.
+	hashfile = HashName(cachekey, replacedInfo.hash, level) + ".png";
+
+	const Path filename = basePath_ / hashfile;
 
 	ReplacementCacheKey replacementKey(cachekey, replacedInfo.hash);
 	auto it = savedCache_.find(replacementKey);
@@ -752,13 +760,12 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	double now = time_now_d();
 	if (it != savedCache_.end()) {
 		// We've already saved this texture.  Let's only save if it's bigger (e.g. scaled now.)
-		// TODO: Isn't this check backwards?
+		// This check isn't backwards, it's just to check if we should *skip* saving, a bit confusing.
 		if (it->second.levelW[level] >= w && it->second.levelH[level] >= h) {
 			// If it's been more than 5 seconds, we'll check again.  Maybe they deleted.
 			double age = now - it->second.lastTimeSaved;
 			if (age < 5.0)
 				return;
-
 			skipIfExists = true;
 		}
 	}
@@ -781,8 +788,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	}
 	pitch = w * 4;
 
-	TextureSaveTask *task = new TextureSaveTask(std::move(saveBuf));
-	// Should probably do a proper move constructor but this'll work.
+	SaveTextureTask *task = new SaveTextureTask(std::move(saveBuf));
 	task->w = w;
 	task->h = h;
 	task->pitch = pitch;
@@ -898,15 +904,17 @@ bool TextureReplacer::FindFiltering(u64 cachekey, u32 hash, TextureFiltering *fo
 	return false;
 }
 
-std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, bool *foundReplacement) {
+std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, bool *foundReplacement, bool *ignored) {
 	ReplacementCacheKey key(cachekey, hash);
 	auto alias = LookupWildcard(aliases_, key, cachekey, hash, ignoreAddress_);
 	if (alias != aliases_.end()) {
 		// Note: this will be blank if explicitly ignored.
-		*foundReplacement = alias->second.size() > 0;
+		*foundReplacement = true;
+		*ignored = alias->second.empty();
 		return alias->second;
 	}
 	*foundReplacement = false;
+	*ignored = false;
 	return "";
 }
 
