@@ -31,6 +31,7 @@
 #include "Common/GPU/DataFormat.h"
 
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Common/ReplacedTexture.h"
 #include "GPU/ge_constants.h"
 
 class IniFile;
@@ -39,30 +40,6 @@ class TextureReplacer;
 class ReplacedTextureTask;
 class LimitedWaitable;
 class VFSBackend;
-
-// These must match the constants in TextureCacheCommon.
-enum class ReplacedTextureAlpha {
-	UNKNOWN = 0x04,
-	FULL = 0x00,
-};
-
-// For forward compatibility, we specify the hash.
-enum class ReplacedTextureHash {
-	QUICK,
-	XXH32,
-	XXH64,
-};
-
-// Metadata about a given texture level.
-struct ReplacedTextureLevel {
-	int w = 0;
-	int h = 0;
-	Path file;
-
-	// To be able to reload, we need to be able to reopen, unfortunate we can't use zip_file_t.
-	// TODO: This really belongs on the level in the cache, not in the individual ReplacedTextureLevel objects.
-	VFSFileReference *fileRef = nullptr;
-};
 
 struct SavedTextureCacheData {
 	int levelW[8]{};
@@ -103,78 +80,6 @@ namespace std {
 		}
 	};
 }
-
-struct ReplacedTexture {
-	~ReplacedTexture();
-
-	inline bool Valid() const {
-		if (!initDone_)
-			return false;
-		return !levels_.empty();
-	}
-
-	inline bool IsInvalid() const {
-		if (!initDone_)
-			return false;
-		return levels_.empty();
-	}
-
-	bool GetSize(int level, int &w, int &h) const {
-		if (!initDone_)
-			return false;
-		if ((size_t)level < levels_.size()) {
-			w = levels_[level].w;
-			h = levels_[level].h;
-			return true;
-		}
-		return false;
-	}
-
-	int NumLevels() const {
-		if (!initDone_)
-			return 0;
-		return (int)levels_.size();
-	}
-
-	Draw::DataFormat Format() const {
-		if (initDone_) {
-			return fmt;
-		} else {
-			// Shouldn't get here.
-			return Draw::DataFormat::UNDEFINED;
-		}
-	}
-
-	u8 AlphaStatus() const {
-		return (u8)alphaStatus_;
-	}
-
-	bool IsReady(double budget);
-	bool CopyLevelTo(int level, void *out, int rowPitch);
-
-protected:
-	void Prepare(VFSBackend *vfs);
-	void PrepareData(int level);
-	void PurgeIfOlder(double t);
-
-	std::vector<ReplacedTextureLevel> levels_;
-	ReplacedLevelsCache *levelData_;
-
-	ReplacedTextureAlpha alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
-	double lastUsed_ = 0.0;
-	LimitedWaitable *threadWaitable_ = nullptr;
-	std::mutex mutex_;
-	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
-
-	bool cancelPrepare_ = false;
-	bool initDone_ = false;
-	bool prepareDone_ = false;
-
-	VFSBackend *vfs_ = nullptr;
-
-	friend class TextureReplacer;
-	friend class ReplacedTextureTask;
-};
 
 struct ReplacedTextureDecodeInfo {
 	u64 cachekey;
