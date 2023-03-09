@@ -150,10 +150,10 @@ void InitVROnAndroid(void* vm, void* activity, const char* system, int version, 
 	//Set platform flags
 	if (strcmp(vendor, "PICO") == 0) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_PICO, true);
-		VR_SetPlatformFLag(VR_PLATFORM_INSTANCE_EXT, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
 	} else if ((strcmp(vendor, "META") == 0) || (strcmp(vendor, "OCULUS") == 0)) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
-		VR_SetPlatformFLag(VR_PLATFORM_PERFORMANCE_EXT, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PERFORMANCE, true);
 	}
 	VR_SetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN, (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN);
 

@@ -456,7 +456,7 @@ void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 		app->SessionActive = (result == XR_SUCCESS);
 
 #ifdef ANDROID
-		if (app->SessionActive && VR_GetPlatformFlag(VR_PLATFORM_PERFORMANCE_EXT)) {
+		if (app->SessionActive && VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_PERFORMANCE)) {
 			XrPerfSettingsLevelEXT cpuPerfLevel = XR_PERF_SETTINGS_LEVEL_PERFORMANCE_MAX_EXT;
 			XrPerfSettingsLevelEXT gpuPerfLevel = XR_PERF_SETTINGS_LEVEL_PERFORMANCE_MAX_EXT;
 
