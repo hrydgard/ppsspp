@@ -529,16 +529,18 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			int h0 = gstate.getTextureHeight(0);
 			int d0 = 1;
 			ReplacedTexture *replaced = FindReplacement(entry, w0, h0, d0);
-			if (replaced && replaced->IsInvalid()) {
-				entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
-				if (g_Config.bSaveNewTextures) {
-					// Load once more to actually save.
+			if (replaced) {
+				if (replaced->IsInvalid()) {
+					entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+					if (g_Config.bSaveNewTextures) {
+						// Load once more to actually save.
+						match = false;
+						reason = "replacing";
+					}
+				} else {
 					match = false;
 					reason = "replacing";
 				}
-			} else {
-				match = false;
-				reason = "replacing";
 			}
 		}
 
@@ -2784,7 +2786,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 	if (canReplace) {
 		plan.replaced = FindReplacement(entry, plan.w, plan.h, plan.depth);
-		plan.replaceValid = plan.replaced ? plan.replaced->Valid() : plan.replaced;
+		plan.replaceValid = plan.replaced ? plan.replaced->Valid() : false;
 	} else {
 		plan.replaced = nullptr;
 		plan.replaceValid = false;
