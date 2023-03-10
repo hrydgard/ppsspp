@@ -149,10 +149,12 @@ struct TexCacheEntry {
 		STATUS_3D = 0x4000,
 
 		STATUS_CLUT_GPU = 0x8000,
+
+		STATUS_VIDEO = 0x10000,
 	};
 
-	// Status, but int so we can zero initialize.
-	int status;
+	// TexStatus enum flag combination.
+	u32 status;
 
 	u32 addr;
 	u32 minihash;
