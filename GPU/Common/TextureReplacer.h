@@ -127,6 +127,9 @@ public:
 	static bool GenerateIni(const std::string &gameID, Path &generatedFilename);
 	static bool IniExists(const std::string &gameID);
 
+	int GetNumTrackedTextures() const { return (int)cache_.size(); }
+	int GetNumCachedReplacedTextures() const { return (int)levelCache_.size(); }
+
 protected:
 	bool LoadIni();
 	bool LoadIniValues(IniFile &ini, bool isOverride = false);

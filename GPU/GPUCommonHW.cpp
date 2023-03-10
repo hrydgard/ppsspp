@@ -1636,6 +1636,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
 		"readbacks %d (%d non-block), uploads %d, depal %d\n"
+		"replacer: tracks %d textures, %d unique loaded\n"
 		"Copies: depth %d, color %d, reint %d, blend %d, selftex %d\n"
 		"GPU cycles executed: %d (%f per vertex)\n",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
@@ -1659,6 +1660,8 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numReadbacks,
 		gpuStats.numUploads,
 		gpuStats.numDepal,
+		gpuStats.numReplacerTrackedTex,
+		gpuStats.numCachedReplacedTextures,
 		gpuStats.numDepthCopies,
 		gpuStats.numColorCopies,
 		gpuStats.numReinterpretCopies,

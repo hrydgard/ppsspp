@@ -59,6 +59,8 @@ struct ReplacedTextureLevel {
 
 ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::string *outMagic);
 
+// These aren't actually all replaced, they can also represent a placeholder for a not-found
+// replacement.
 struct ReplacedTexture {
 	~ReplacedTexture();
 

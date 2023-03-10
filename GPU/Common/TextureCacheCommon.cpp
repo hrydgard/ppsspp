@@ -144,6 +144,11 @@ void TextureCacheCommon::StartFrame() {
 	timesInvalidatedAllThisFrame_ = 0;
 	replacementTimeThisFrame_ = 0.0;
 
+	if (g_Config.bShowDebugStats) {
+		gpuStats.numReplacerTrackedTex = replacer_.GetNumTrackedTextures();
+		gpuStats.numCachedReplacedTextures = replacer_.GetNumCachedReplacedTextures();
+	}
+
 	if (texelsScaledThisFrame_) {
 		VERBOSE_LOG(G3D, "Scaled %d texels", texelsScaledThisFrame_);
 	}
@@ -1497,6 +1502,10 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 		return nullptr;
 	}
 
+	if (entry->status & TexCacheEntry::STATUS_VIDEO) {
+		return nullptr;
+	}
+
 	// Allow some delay to reduce pop-in.
 	constexpr double MAX_BUDGET_PER_TEX = 0.25 / 60.0;
 
@@ -2039,7 +2048,7 @@ void TextureCacheCommon::ApplyTexture() {
 		// Regardless of hash fails or otherwise, if this is a video, mark it frequently changing.
 		// This prevents temporary scaling perf hits on the first second of video.
 		if (IsVideo(entry->addr)) {
-			entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+			entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT | TexCacheEntry::STATUS_VIDEO;
 		}
 
 		if (nextNeedsRehash_) {
