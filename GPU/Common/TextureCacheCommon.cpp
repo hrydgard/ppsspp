@@ -535,16 +535,27 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			int d0 = 1;
 			ReplacedTexture *replaced = FindReplacement(entry, w0, h0, d0);
 			if (replaced) {
-				if (replaced->IsInvalid()) {
+				// This texture is pending a replacement load.
+				// So check the replacer if it's reached a conclusion.
+				switch (replaced->State()) {
+				case ReplacementState::NOT_FOUND:
+					// Didn't find a replacement, so stop looking.
 					entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
 					if (g_Config.bSaveNewTextures) {
-						// Load once more to actually save.
+						// Load it once more to actually save it. Since we don't set STATUS_TO_REPLACE, we won't end up looping.
 						match = false;
 						reason = "replacing";
 					}
-				} else {
+					break;
+				case ReplacementState::ACTIVE:
+					// There is now replacement data available!
+					// Just reload the texture to process the replacement.
 					match = false;
 					reason = "replacing";
+					break;
+				default:
+					// We'll just wait for a result.
+					break;
 				}
 			}
 		}
@@ -1514,19 +1525,22 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
 	ReplacedTexture *replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h, budget);
 	if (!replaced) {
+		// TODO: Remove the flag here?
+		// entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
 		return nullptr;
 	}
 
 	if (replaced->IsReady(budget)) {
-		if (replaced->GetSize(0, w, h)) {
-			// Consider it already "scaled."
+		if (replaced->State() == ReplacementState::ACTIVE && replaced->GetSize(0, w, h)) {
+			// Consider it already "scaled.".
 			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
 		}
 
 		// Remove the flag, even if it was invalid.
 		entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
-	} else if (!replaced->IsInvalid()) {
+	} else if (replaced->State() == ReplacementState::PREPARED) {
+		// Make sure we keep polling.
 		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
 	}
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
@@ -2795,7 +2809,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 	if (canReplace) {
 		plan.replaced = FindReplacement(entry, plan.w, plan.h, plan.depth);
-		plan.replaceValid = plan.replaced ? plan.replaced->Valid() : false;
+		plan.replaceValid = plan.replaced ? plan.replaced->State() == ReplacementState::ACTIVE : false;
 	} else {
 		plan.replaced = nullptr;
 		plan.replaceValid = false;

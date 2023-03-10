@@ -235,6 +235,8 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 
 	bool filenameWarning = false;
 	if (ini.HasSection("hashes")) {
+		aliases_.clear();
+
 		auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
 		// Format: hashname = filename.png
 		bool checkFilenames = g_Config.bSaveNewTextures && !g_Config.bIgnoreTextureFilenames && !vfsIsZip_;
@@ -475,7 +477,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 	ReplacementCacheKey replacementKey(cachekey, hash);
 	auto it = cache_.find(replacementKey);
 	if (it != cache_.end()) {
-		if (!it->second->prepareDone_ && budget > 0.0) {
+		if (it->second->State() == ReplacementState::UNINITIALIZED && budget > 0.0) {
 			// We don't do this on a thread, but we only do it while within budget.
 			PopulateReplacement(it->second, cachekey, hash, w, h);
 		}
@@ -485,11 +487,12 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 	// Okay, let's construct the result.
 
 	ReplacedTexture *result = new ReplacedTexture();
-	cache_[replacementKey] = result;
 	result->vfs_ = this->vfs_;
 	if (budget > 0.0) {
+		_dbg_assert_(result->State() == ReplacementState::UNINITIALIZED);
 		PopulateReplacement(result, cachekey, hash, w, h);
 	}
+	cache_[replacementKey] = result;
 	return result;
 }
 
@@ -507,11 +510,13 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 	const std::string hashfiles = LookupHashFile(cachekey, hash, &foundReplacement, &ignored);
 
 	if (!foundReplacement || ignored) {
+		WARN_LOG(G3D, "Not found/ignored: %s (%d, %d)", hashfiles.c_str(), (int)foundReplacement, (int)ignored);
 		// nothing to do?
-		texture->prepareDone_ = true;
+		texture->SetState(ReplacementState::NOT_FOUND);
 		return;
 	}
 
+	texture->logId_ = hashfiles;
 	// INFO_LOG(G3D, "Found: %s", hashfiles.c_str());
 
 	std::vector<std::string> filenames;
@@ -564,9 +569,16 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 			break;
 	}
 
+	if (texture->levels_.empty()) {
+		// Bad.
+		texture->SetState(ReplacementState::NOT_FOUND);
+		texture->levelData_ = nullptr;
+		return;
+	}
+
 	// Populate the data pointer.
 	texture->levelData_ = &levelCache_[hashfiles];
-	texture->prepareDone_ = true;
+	texture->SetState(ReplacementState::PREPARED);
 }
 
 bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level, bool ignoreError) {
