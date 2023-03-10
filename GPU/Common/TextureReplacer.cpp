@@ -671,8 +671,11 @@ public:
 	int h = 0;
 	int pitch = 0;  // bytes
 
-	Path basePath;
-	std::string hashfile;
+	Path filename;
+	Path saveFilename;
+	bool createSaveDirectory;
+	Path saveDirectory;
+
 	u32 replacedInfoHash = 0;
 
 	bool skipIfExists = false;
@@ -687,9 +690,6 @@ public:
 	}
 
 	void Run() override {
-		const Path filename = basePath / hashfile;
-		const Path saveFilename = basePath / NEW_TEXTURE_DIR / hashfile;
-
 		// Should we skip writing if the newly saved data already exists?
 		if (skipIfExists && File::Exists(saveFilename)) {
 			return;
@@ -699,19 +699,9 @@ public:
 		if (File::Exists(filename))
 			return;
 
-		// Create subfolder as needed.
-#ifdef _WIN32
-		size_t slash = hashfile.find_last_of("/\\");
-#else
-		size_t slash = hashfile.find_last_of("/");
-#endif
-		if (slash != hashfile.npos) {
-			// Create any directory structure as needed.
-			const Path saveDirectory = basePath / NEW_TEXTURE_DIR / hashfile.substr(0, slash);
-			if (!File::Exists(saveDirectory)) {
-				File::CreateFullPath(saveDirectory);
-				File::CreateEmptyFile(saveDirectory / ".nomedia");
-			}
+		if (createSaveDirectory && !File::Exists(saveDirectory)) {
+			File::CreateFullPath(saveDirectory);
+			File::CreateEmptyFile(saveDirectory / ".nomedia");
 		}
 
 		png_image png{};
@@ -771,8 +761,6 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	// Generate a new PNG filename, complete with level.
 	hashfile = HashName(cachekey, replacedInfo.hash, level) + ".png";
 
-	const Path filename = newTextureDir_ / hashfile;
-
 	ReplacementCacheKey replacementKey(cachekey, replacedInfo.hash);
 	auto it = savedCache_.find(replacementKey);
 	bool skipIfExists = false;
@@ -808,11 +796,27 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	pitch = w * 4;
 
 	SaveTextureTask *task = new SaveTextureTask(std::move(saveBuf));
+
+	task->filename = basePath_ / hashfile;
+	task->saveFilename = newTextureDir_ / hashfile;
+	task->createSaveDirectory = false;
+
+	// Create subfolder as needed.
+#ifdef _WIN32
+	size_t slash = hashfile.find_last_of("/\\");
+#else
+	size_t slash = hashfile.find_last_of("/");
+#endif
+	if (slash != hashfile.npos) {
+		// Does this ever happen?
+		// Create any directory structure as needed.
+		task->saveDirectory = newTextureDir_ / hashfile.substr(0, slash);
+		task->createSaveDirectory = true;
+	}
+
 	task->w = w;
 	task->h = h;
 	task->pitch = pitch;
-	task->basePath = basePath_;
-	task->hashfile = hashfile;
 	task->replacedInfoHash = replacedInfo.hash;
 	task->skipIfExists = skipIfExists;
 	g_threadManager.EnqueueTask(task);  // We don't care about waiting for the task. It'll be fine.
@@ -923,16 +927,16 @@ bool TextureReplacer::FindFiltering(u64 cachekey, u32 hash, TextureFiltering *fo
 	return false;
 }
 
-std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, bool *foundReplacement, bool *ignored) {
+std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, bool *foundAlias, bool *ignored) {
 	ReplacementCacheKey key(cachekey, hash);
 	auto alias = LookupWildcard(aliases_, key, cachekey, hash, ignoreAddress_);
 	if (alias != aliases_.end()) {
 		// Note: this will be blank if explicitly ignored.
-		*foundReplacement = true;
+		*foundAlias = true;
 		*ignored = alias->second.empty();
 		return alias->second;
 	}
-	*foundReplacement = false;
+	*foundAlias = false;
 	*ignored = false;
 	return "";
 }
