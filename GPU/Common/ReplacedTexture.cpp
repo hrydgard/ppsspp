@@ -147,21 +147,14 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 			fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 		}
 
-		bool good;
-
 		level.fileRef = fileRef;
-		good = PopulateLevel(level, i, false);
 
-		if (good) {
-			if (PrepareData(level, i)) {
-				levels_.push_back(level);
-			} else {
-				break;
-			}
-		}
-		// Otherwise, we're done loading mips (bad PNG or bad size, either way.)
-		else
+		if (LoadLevelData(level, i)) {
+			levels_.push_back(level);
+		} else {
+			// Otherwise, we're done loading mips (bad PNG or bad size, either way.)
 			break;
+		}
 	}
 
 	delete desc_;
@@ -180,23 +173,17 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		threadWaitable_->Notify();
 }
 
-bool ReplacedTexture::PopulateLevel(ReplacedTextureLevel &level, int mipLevel, bool ignoreError) {
+bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel) {
 	bool good = false;
 
-	if (!level.fileRef) {
-		if (!ignoreError)
-			ERROR_LOG(G3D, "Error opening replacement texture file '%s' in textures.zip", level.file.c_str());
-		return false;
-	}
-
 	size_t fileSize;
-	VFSOpenFile *file = vfs_->OpenFileForRead(level.fileRef, &fileSize);
-	if (!file) {
+	VFSOpenFile *openFile = vfs_->OpenFileForRead(level.fileRef, &fileSize);
+	if (!openFile) {
 		return false;
 	}
 
 	std::string magic;
-	auto imageType = Identify(vfs_, file, &magic);
+	ReplacedImageType imageType = Identify(vfs_, openFile, &magic);
 
 	if (imageType == ReplacedImageType::ZIM) {
 		uint32_t ignore = 0;
@@ -206,13 +193,13 @@ bool ReplacedTexture::PopulateLevel(ReplacedTextureLevel &level, int mipLevel, b
 			uint32_t h;
 			uint32_t flags;
 		} header;
-		good = vfs_->Read(file, &header, sizeof(header)) == sizeof(header);
+		good = vfs_->Read(openFile, &header, sizeof(header)) == sizeof(header);
 		level.w = header.w;
 		level.h = header.h;
 		good = (header.flags & ZIM_FORMAT_MASK) == ZIM_RGBA8888;
 	} else if (imageType == ReplacedImageType::PNG) {
 		PNGHeaderPeek headerPeek;
-		good = vfs_->Read(file, &headerPeek, sizeof(headerPeek)) == sizeof(headerPeek);
+		good = vfs_->Read(openFile, &headerPeek, sizeof(headerPeek)) == sizeof(headerPeek);
 		if (good && headerPeek.IsValidPNGHeader()) {
 			level.w = headerPeek.Width();
 			level.h = headerPeek.Height();
@@ -224,9 +211,8 @@ bool ReplacedTexture::PopulateLevel(ReplacedTextureLevel &level, int mipLevel, b
 	} else {
 		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format %s", level.file.ToVisualString().c_str(), magic.c_str());
 	}
-	vfs_->CloseFile(file);
 
-	// We pad files that have been hashrange'd so they are the same texture size.
+	// Is this really the right place to do it?
 	level.w = (level.w * desc_->w) / desc_->newW;
 	level.h = (level.h * desc_->h) / desc_->newH;
 
@@ -239,10 +225,10 @@ bool ReplacedTexture::PopulateLevel(ReplacedTextureLevel &level, int mipLevel, b
 		}
 	}
 
-	return good;
-}
+	if (!good) {
+		return false;
+	}
 
-bool ReplacedTexture::PrepareData(const ReplacedTextureLevel &level, int mipLevel) {
 	if (levelData_->data.size() <= mipLevel) {
 		levelData_->data.resize(mipLevel + 1);
 	}
@@ -254,17 +240,11 @@ bool ReplacedTexture::PrepareData(const ReplacedTextureLevel &level, int mipLeve
 		return true;
 	}
 
-	ReplacedImageType imageType;
-
-	size_t fileSize;
-	VFSOpenFile *openFile = vfs_->OpenFileForRead(level.fileRef, &fileSize);
-
-	std::string magic;
-	imageType = Identify(vfs_, openFile, &magic);
-
 	auto cleanup = [&] {
 		vfs_->CloseFile(openFile);
 	};
+
+	vfs_->Rewind(openFile);
 
 	if (imageType == ReplacedImageType::ZIM) {
 		std::unique_ptr<uint8_t[]> zim(new uint8_t[fileSize]);

@@ -134,10 +134,8 @@ struct ReplacedTexture {
 
 private:
 	void Prepare(VFSBackend *vfs);
-	bool PrepareData(const ReplacedTextureLevel &info, int level);
+	bool LoadLevelData(ReplacedTextureLevel &info, int level);
 	void PurgeIfOlder(double t);
-
-	bool PopulateLevel(ReplacedTextureLevel &level, int mipLevel, bool ignoreError);
 
 	std::vector<ReplacedTextureLevel> levels_;
 	ReplacedLevelsCache *levelData_ = nullptr;
