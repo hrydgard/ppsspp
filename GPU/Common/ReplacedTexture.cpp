@@ -77,7 +77,7 @@ bool ReplacedTexture::IsReady(double budget) {
 	case ReplacementState::CANCEL_INIT:
 	case ReplacementState::PENDING:
 		return false;
-	case ReplacementState::PREPARED:
+	case ReplacementState::POPULATED:
 		// We're gonna need to spawn a task.
 		break;
 	}
@@ -99,6 +99,119 @@ bool ReplacedTexture::IsReady(double budget) {
 	SetState(ReplacementState::PENDING);
 	// Still pending on thread.
 	return false;
+}
+
+void ReplacedTexture::FinishPopulate(const ReplacementDesc &desc) {
+	logId_ = desc.logId;
+	levelData_ = desc.cache;
+
+	// TODO: The rest can be done on the thread.
+
+	for (int i = 0; i < std::min(MAX_REPLACEMENT_MIP_LEVELS, (int)desc.filenames.size()); ++i) {
+		if (desc.filenames[i].empty()) {
+			// Out of valid mip levels.  Bail out.
+			break;
+		}
+
+		const Path filename = desc.basePath / desc.filenames[i];
+
+		VFSFileReference *fileRef = vfs_->GetFile(desc.filenames[i].c_str());
+		if (!fileRef) {
+			// If the file doesn't exist, let's just bail immediately here.
+			break;
+		}
+
+		// TODO: Here, if we find a file with multiple built-in mipmap levels,
+		// we'll have to change a bit how things work...
+		ReplacedTextureLevel level;
+		level.file = filename;
+
+		if (i == 0) {
+			fmt = Draw::DataFormat::R8G8B8A8_UNORM;
+		}
+
+		bool good;
+
+		level.fileRef = fileRef;
+		good = PopulateLevel(level, false);
+
+		// We pad files that have been hashrange'd so they are the same texture size.
+		level.w = (level.w * desc.w) / desc.newW;
+		level.h = (level.h * desc.h) / desc.newH;
+
+		if (good && i != 0) {
+			// Check that the mipmap size is correct.  Can't load mips of the wrong size.
+			if (level.w != (levels_[0].w >> i) || level.h != (levels_[0].h >> i)) {
+				WARN_LOG(G3D, "Replacement mipmap invalid: size=%dx%d, expected=%dx%d (level %d, '%s')", level.w, level.h, levels_[0].w >> i, levels_[0].h >> i, i, filename.c_str());
+				good = false;
+			}
+		}
+
+		if (good)
+			levels_.push_back(level);
+		// Otherwise, we're done loading mips (bad PNG or bad size, either way.)
+		else
+			break;
+	}
+
+	if (levels_.empty()) {
+		// Bad.
+		SetState(ReplacementState::NOT_FOUND);
+		levelData_ = nullptr;
+		return;
+	}
+
+	// Populate the data pointer.
+	SetState(ReplacementState::POPULATED);
+}
+
+bool ReplacedTexture::PopulateLevel(ReplacedTextureLevel &level, bool ignoreError) {
+	bool good = false;
+
+	if (!level.fileRef) {
+		if (!ignoreError)
+			ERROR_LOG(G3D, "Error opening replacement texture file '%s' in textures.zip", level.file.c_str());
+		return false;
+	}
+
+	size_t fileSize;
+	VFSOpenFile *file = vfs_->OpenFileForRead(level.fileRef, &fileSize);
+	if (!file) {
+		return false;
+	}
+
+	std::string magic;
+	auto imageType = Identify(vfs_, file, &magic);
+
+	if (imageType == ReplacedImageType::ZIM) {
+		uint32_t ignore = 0;
+		struct ZimHeader {
+			uint32_t magic;
+			uint32_t w;
+			uint32_t h;
+			uint32_t flags;
+		} header;
+		good = vfs_->Read(file, &header, sizeof(header)) == sizeof(header);
+		level.w = header.w;
+		level.h = header.h;
+		good = (header.flags & ZIM_FORMAT_MASK) == ZIM_RGBA8888;
+	} else if (imageType == ReplacedImageType::PNG) {
+		PNGHeaderPeek headerPeek;
+		good = vfs_->Read(file, &headerPeek, sizeof(headerPeek)) == sizeof(headerPeek);
+		if (good && headerPeek.IsValidPNGHeader()) {
+			level.w = headerPeek.Width();
+			level.h = headerPeek.Height();
+			good = true;
+		} else {
+			ERROR_LOG(G3D, "Could not get PNG dimensions: %s (zip)", level.file.ToVisualString().c_str());
+			good = false;
+		}
+	} else {
+		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format %s", level.file.ToVisualString().c_str(), magic.c_str());
+	}
+	vfs_->CloseFile(file);
+
+	return good;
 }
 
 void ReplacedTexture::Prepare(VFSBackend *vfs) {
@@ -257,7 +370,7 @@ void ReplacedTexture::PurgeIfOlder(double t) {
 		std::lock_guard<std::mutex> guard(levelData_->lock);
 		levelData_->data.clear();
 		// This means we have to reload.  If we never purge any, there's no need.
-		SetState(ReplacementState::PREPARED);
+		SetState(ReplacementState::POPULATED);
 	}
 }
 
@@ -319,7 +432,7 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 const char *StateString(ReplacementState state) {
 	switch (state) {
 	case ReplacementState::UNINITIALIZED: return "UNINITIALIZED";
-	case ReplacementState::PREPARED: return "PREPARED";
+	case ReplacementState::POPULATED: return "PREPARED";
 	case ReplacementState::PENDING: return "PENDING";
 	case ReplacementState::NOT_FOUND: return "NOT_FOUND";
 	case ReplacementState::ACTIVE: return "ACTIVE";

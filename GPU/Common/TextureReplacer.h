@@ -129,6 +129,8 @@ public:
 	int GetNumTrackedTextures() const { return (int)cache_.size(); }
 	int GetNumCachedReplacedTextures() const { return (int)levelCache_.size(); }
 
+	static std::string HashName(u64 cachekey, u32 hash, int level);
+
 protected:
 	bool LoadIni();
 	bool LoadIniValues(IniFile &ini, bool isOverride = false);
@@ -138,9 +140,7 @@ protected:
 	bool LookupHashRange(u32 addr, int &w, int &h);
 	float LookupReduceHashRange(int& w, int& h);
 	std::string LookupHashFile(u64 cachekey, u32 hash, bool *foundAlias, bool *ignored);
-	std::string HashName(u64 cachekey, u32 hash, int level);
 	void PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h);
-	bool PopulateLevel(ReplacedTextureLevel &level, bool ignoreError);
 
 	bool enabled_ = false;
 	bool allowVideo_ = false;
