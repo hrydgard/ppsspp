@@ -110,55 +110,6 @@ void ReplacedTexture::FinishPopulate(ReplacementDesc *desc) {
 	// TODO: What used to be here is now done on the thread task.
 }
 
-bool ReplacedTexture::PopulateLevel(ReplacedTextureLevel &level, bool ignoreError) {
-	bool good = false;
-
-	if (!level.fileRef) {
-		if (!ignoreError)
-			ERROR_LOG(G3D, "Error opening replacement texture file '%s' in textures.zip", level.file.c_str());
-		return false;
-	}
-
-	size_t fileSize;
-	VFSOpenFile *file = vfs_->OpenFileForRead(level.fileRef, &fileSize);
-	if (!file) {
-		return false;
-	}
-
-	std::string magic;
-	auto imageType = Identify(vfs_, file, &magic);
-
-	if (imageType == ReplacedImageType::ZIM) {
-		uint32_t ignore = 0;
-		struct ZimHeader {
-			uint32_t magic;
-			uint32_t w;
-			uint32_t h;
-			uint32_t flags;
-		} header;
-		good = vfs_->Read(file, &header, sizeof(header)) == sizeof(header);
-		level.w = header.w;
-		level.h = header.h;
-		good = (header.flags & ZIM_FORMAT_MASK) == ZIM_RGBA8888;
-	} else if (imageType == ReplacedImageType::PNG) {
-		PNGHeaderPeek headerPeek;
-		good = vfs_->Read(file, &headerPeek, sizeof(headerPeek)) == sizeof(headerPeek);
-		if (good && headerPeek.IsValidPNGHeader()) {
-			level.w = headerPeek.Width();
-			level.h = headerPeek.Height();
-			good = true;
-		} else {
-			ERROR_LOG(G3D, "Could not get PNG dimensions: %s (zip)", level.file.ToVisualString().c_str());
-			good = false;
-		}
-	} else {
-		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format %s", level.file.ToVisualString().c_str(), magic.c_str());
-	}
-	vfs_->CloseFile(file);
-
-	return good;
-}
-
 void ReplacedTexture::Prepare(VFSBackend *vfs) {
 	this->vfs_ = vfs;
 
@@ -234,6 +185,55 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 
 	if (threadWaitable_)
 		threadWaitable_->Notify();
+}
+
+bool ReplacedTexture::PopulateLevel(ReplacedTextureLevel &level, bool ignoreError) {
+	bool good = false;
+
+	if (!level.fileRef) {
+		if (!ignoreError)
+			ERROR_LOG(G3D, "Error opening replacement texture file '%s' in textures.zip", level.file.c_str());
+		return false;
+	}
+
+	size_t fileSize;
+	VFSOpenFile *file = vfs_->OpenFileForRead(level.fileRef, &fileSize);
+	if (!file) {
+		return false;
+	}
+
+	std::string magic;
+	auto imageType = Identify(vfs_, file, &magic);
+
+	if (imageType == ReplacedImageType::ZIM) {
+		uint32_t ignore = 0;
+		struct ZimHeader {
+			uint32_t magic;
+			uint32_t w;
+			uint32_t h;
+			uint32_t flags;
+		} header;
+		good = vfs_->Read(file, &header, sizeof(header)) == sizeof(header);
+		level.w = header.w;
+		level.h = header.h;
+		good = (header.flags & ZIM_FORMAT_MASK) == ZIM_RGBA8888;
+	} else if (imageType == ReplacedImageType::PNG) {
+		PNGHeaderPeek headerPeek;
+		good = vfs_->Read(file, &headerPeek, sizeof(headerPeek)) == sizeof(headerPeek);
+		if (good && headerPeek.IsValidPNGHeader()) {
+			level.w = headerPeek.Width();
+			level.h = headerPeek.Height();
+			good = true;
+		} else {
+			ERROR_LOG(G3D, "Could not get PNG dimensions: %s (zip)", level.file.ToVisualString().c_str());
+			good = false;
+		}
+	} else {
+		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format %s", level.file.ToVisualString().c_str(), magic.c_str());
+	}
+	vfs_->CloseFile(file);
+
+	return good;
 }
 
 bool ReplacedTexture::PrepareData(const ReplacedTextureLevel &info, int level) {
