@@ -115,6 +115,11 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 
 	std::unique_lock<std::mutex> lock(mutex_);
 
+	_assert_msg_(levelData_ != nullptr, "Level cache not set");
+
+	// We must lock around access to levelData_ in case two textures try to load it at once.
+	std::lock_guard<std::mutex> guard(levelData_->lock);
+
 	for (int i = 0; i < std::min(MAX_REPLACEMENT_MIP_LEVELS, (int)desc_->filenames.size()); ++i) {
 		if (State() == ReplacementState::CANCEL_INIT) {
 			break;
@@ -145,19 +150,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		bool good;
 
 		level.fileRef = fileRef;
-		good = PopulateLevel(level, false);
-
-		// We pad files that have been hashrange'd so they are the same texture size.
-		level.w = (level.w * desc_->w) / desc_->newW;
-		level.h = (level.h * desc_->h) / desc_->newH;
-
-		if (good && i != 0) {
-			// Check that the mipmap size is correct.  Can't load mips of the wrong size.
-			if (level.w != (levels_[0].w >> i) || level.h != (levels_[0].h >> i)) {
-				WARN_LOG(G3D, "Replacement mipmap invalid: size=%dx%d, expected=%dx%d (level %d, '%s')", level.w, level.h, levels_[0].w >> i, levels_[0].h >> i, i, filename.c_str());
-				good = false;
-			}
-		}
+		good = PopulateLevel(level, i, false);
 
 		if (good) {
 			if (PrepareData(level, i)) {
@@ -187,7 +180,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		threadWaitable_->Notify();
 }
 
-bool ReplacedTexture::PopulateLevel(ReplacedTextureLevel &level, bool ignoreError) {
+bool ReplacedTexture::PopulateLevel(ReplacedTextureLevel &level, int mipLevel, bool ignoreError) {
 	bool good = false;
 
 	if (!level.fileRef) {
@@ -233,20 +226,28 @@ bool ReplacedTexture::PopulateLevel(ReplacedTextureLevel &level, bool ignoreErro
 	}
 	vfs_->CloseFile(file);
 
+	// We pad files that have been hashrange'd so they are the same texture size.
+	level.w = (level.w * desc_->w) / desc_->newW;
+	level.h = (level.h * desc_->h) / desc_->newH;
+
+	if (good && mipLevel != 0) {
+		// Check that the mipmap size is correct.  Can't load mips of the wrong size.
+		if (level.w != (levels_[0].w >> mipLevel) || level.h != (levels_[0].h >> mipLevel)) {
+			WARN_LOG(G3D, "Replacement mipmap invalid: size=%dx%d, expected=%dx%d (level %d)",
+				level.w, level.h, levels_[0].w >> mipLevel, levels_[0].h >> mipLevel, mipLevel);
+			good = false;
+		}
+	}
+
 	return good;
 }
 
-bool ReplacedTexture::PrepareData(const ReplacedTextureLevel &info, int level) {
-	_assert_msg_(levelData_ != nullptr, "Level cache not set");
-
-	// We must lock around access to levelData_ in case two textures try to load it at once.
-	std::lock_guard<std::mutex> guard(levelData_->lock);
-
-	if (levelData_->data.size() <= level) {
-		levelData_->data.resize(level + 1);
+bool ReplacedTexture::PrepareData(const ReplacedTextureLevel &level, int mipLevel) {
+	if (levelData_->data.size() <= mipLevel) {
+		levelData_->data.resize(mipLevel + 1);
 	}
 
-	std::vector<uint8_t> &out = levelData_->data[level];
+	std::vector<uint8_t> &out = levelData_->data[mipLevel];
 
 	// Already populated from cache.
 	if (!out.empty()) {
@@ -256,7 +257,7 @@ bool ReplacedTexture::PrepareData(const ReplacedTextureLevel &info, int level) {
 	ReplacedImageType imageType;
 
 	size_t fileSize;
-	VFSOpenFile *openFile = vfs_->OpenFileForRead(info.fileRef, &fileSize);
+	VFSOpenFile *openFile = vfs_->OpenFileForRead(level.fileRef, &fileSize);
 
 	std::string magic;
 	imageType = Identify(vfs_, openFile, &magic);
@@ -275,7 +276,7 @@ bool ReplacedTexture::PrepareData(const ReplacedTextureLevel &info, int level) {
 		}
 
 		if (vfs_->Read(openFile, &zim[0], fileSize) != fileSize) {
-			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", info.file.c_str());
+			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", level.file.c_str());
 			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
 			return false;
@@ -284,26 +285,26 @@ bool ReplacedTexture::PrepareData(const ReplacedTextureLevel &info, int level) {
 		int w, h, f;
 		uint8_t *image;
 		if (LoadZIMPtr(&zim[0], fileSize, &w, &h, &f, &image)) {
-			if (w > info.w || h > info.h) {
-				ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
+			if (w > level.w || h > level.h) {
+				ERROR_LOG(G3D, "Texture replacement changed since header read: %s", level.file.c_str());
 				SetState(ReplacementState::NOT_FOUND);
 				cleanup();
 				return false;
 			}
 
-			out.resize(info.w * info.h * 4);
-			if (w == info.w) {
-				memcpy(&out[0], image, info.w * 4 * info.h);
+			out.resize(level.w * level.h * 4);
+			if (w == level.w) {
+				memcpy(&out[0], image, level.w * 4 * level.h);
 			} else {
 				for (int y = 0; y < h; ++y) {
-					memcpy(&out[info.w * 4 * y], image + w * 4 * y, w * 4);
+					memcpy(&out[level.w * 4 * y], image + w * 4 * y, w * 4);
 				}
 			}
 			free(image);
 		}
 
-		CheckAlphaResult res = CheckAlpha32Rect((u32 *)&out[0], info.w, w, h, 0xFF000000);
-		if (res == CHECKALPHA_ANY || level == 0) {
+		CheckAlphaResult res = CheckAlpha32Rect((u32 *)&out[0], level.w, w, h, 0xFF000000);
+		if (res == CHECKALPHA_ANY || mipLevel == 0) {
 			alphaStatus_ = ReplacedTextureAlpha(res);
 		}
 	} else if (imageType == ReplacedImageType::PNG) {
@@ -314,13 +315,13 @@ bool ReplacedTexture::PrepareData(const ReplacedTextureLevel &info, int level) {
 		pngdata.resize(fileSize);
 		pngdata.resize(vfs_->Read(openFile, &pngdata[0], fileSize));
 		if (!png_image_begin_read_from_memory(&png, &pngdata[0], pngdata.size())) {
-			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s (zip)", info.file.c_str(), png.message);
+			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s (zip)", level.file.c_str(), png.message);
 			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
 			return false;
 		}
-		if (png.width > (uint32_t)info.w || png.height > (uint32_t)info.h) {
-			ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
+		if (png.width > (uint32_t)level.w || png.height > (uint32_t)level.h) {
+			ERROR_LOG(G3D, "Texture replacement changed since header read: %s", level.file.c_str());
 			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
 			return false;
@@ -329,16 +330,16 @@ bool ReplacedTexture::PrepareData(const ReplacedTextureLevel &info, int level) {
 		bool checkedAlpha = false;
 		if ((png.format & PNG_FORMAT_FLAG_ALPHA) == 0) {
 			// Well, we know for sure it doesn't have alpha.
-			if (level == 0) {
+			if (mipLevel == 0) {
 				alphaStatus_ = ReplacedTextureAlpha::FULL;
 			}
 			checkedAlpha = true;
 		}
 		png.format = PNG_FORMAT_RGBA;
 
-		out.resize(info.w * info.h * 4);
-		if (!png_image_finish_read(&png, nullptr, &out[0], info.w * 4, nullptr)) {
-			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", info.file.c_str(), png.message);
+		out.resize(level.w * level.h * 4);
+		if (!png_image_finish_read(&png, nullptr, &out[0], level.w * 4, nullptr)) {
+			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", level.file.c_str(), png.message);
 			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
 			out.resize(0);
@@ -348,8 +349,8 @@ bool ReplacedTexture::PrepareData(const ReplacedTextureLevel &info, int level) {
 
 		if (!checkedAlpha) {
 			// This will only check the hashed bits.
-			CheckAlphaResult res = CheckAlpha32Rect((u32 *)&out[0], info.w, png.width, png.height, 0xFF000000);
-			if (res == CHECKALPHA_ANY || level == 0) {
+			CheckAlphaResult res = CheckAlpha32Rect((u32 *)&out[0], level.w, png.width, png.height, 0xFF000000);
+			if (res == CHECKALPHA_ANY || mipLevel == 0) {
 				alphaStatus_ = ReplacedTextureAlpha(res);
 			}
 		}
