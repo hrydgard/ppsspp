@@ -368,6 +368,10 @@ if(NOT MSVC)
 	if(X86 OR X86_64)
 		# enable sse2 code generation
 		add_definitions(-msse2)
+		if(NOT X86_64 AND NOT CLANG)
+			add_definitions(-mfpmath=sse)
+			# add_definitions(-mstackrealign)
+		 endif()
 	endif()
 
 	if(IOS)
@@ -2355,6 +2359,7 @@ set(NativeAssets
 	assets/lang
 	assets/shaders
 	assets/themes
+	assets/vfpu
 	assets/Roboto-Condensed.ttf
 	assets/7z.png
 	assets/compat.ini
@@ -2465,6 +2470,7 @@ if(TargetBin)
 		file(GLOB_RECURSE SHADER_FILES assets/shaders/*)
 		file(GLOB_RECURSE THEME_FILE assets/themes/*)
 		file(GLOB_RECURSE DEBUGGER_FILES assets/debugger/*)
+                file(GLOB_RECURSE VFPU_FILES assets/vfpu/*)
 
 		if(NOT IOS)
 			set_source_files_properties(${BigFontAssets} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets")
@@ -2474,6 +2480,7 @@ if(TargetBin)
 			set_source_files_properties(${SHADER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/shaders")
 			set_source_files_properties(${THEME_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/themes")
 			set_source_files_properties(${DEBUGGER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/debugger")
+                        set_source_files_properties(${VFPU_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/vfpu")
 		endif()
 
 		if(IOS)
