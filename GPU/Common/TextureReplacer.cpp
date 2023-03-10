@@ -491,6 +491,8 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 	if (budget > 0.0) {
 		_dbg_assert_(result->State() == ReplacementState::UNINITIALIZED);
 		PopulateReplacement(result, cachekey, hash, w, h);
+	} else {
+		// WARN_LOG(G3D, "Postponing preparing texture (%dx%d)", w, h);
 	}
 	cache_[replacementKey] = result;
 	return result;
@@ -510,7 +512,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 	const std::string hashfiles = LookupHashFile(cachekey, hash, &foundReplacement, &ignored);
 
 	if (!foundReplacement || ignored) {
-		WARN_LOG(G3D, "Not found/ignored: %s (%d, %d)", hashfiles.c_str(), (int)foundReplacement, (int)ignored);
+		// WARN_LOG(G3D, "Not found/ignored: %s (%d, %d)", hashfiles.c_str(), (int)foundReplacement, (int)ignored);
 		// nothing to do?
 		texture->SetState(ReplacementState::NOT_FOUND);
 		return;

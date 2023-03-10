@@ -54,6 +54,7 @@ private:
 	LimitedWaitable *waitable_;
 };
 
+// This can only return true if ACTIVE or NOT_FOUND.
 bool ReplacedTexture::IsReady(double budget) {
 	_assert_(vfs_ != nullptr);
 

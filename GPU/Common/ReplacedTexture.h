@@ -83,19 +83,16 @@ struct ReplacedTexture {
 	void SetState(ReplacementState state) {
 		_dbg_assert_(state != state_);
 #ifdef _DEBUG
-		WARN_LOG(G3D, "Texture %s changed from %s to %s", logId_.c_str(), StateString(state_), StateString(state));
+		// WARN_LOG(G3D, "Texture %s changed state from %s to %s", logId_.c_str(), StateString(state_), StateString(state));
 #endif
 		state_ = state;
 	}
 
-	bool GetSize(int level, int &w, int &h) const {
+	void GetSize(int level, int *w, int *h) const {
 		_dbg_assert_(State() == ReplacementState::ACTIVE);
-		if ((size_t)level < levels_.size()) {
-			w = levels_[level].w;
-			h = levels_[level].h;
-			return true;
-		}
-		return false;
+		_dbg_assert_(level < levels_.size());
+		*w = levels_[level].w;
+		*h = levels_[level].h;
 	}
 
 	int NumLevels() const {

@@ -540,6 +540,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				switch (replaced->State()) {
 				case ReplacementState::NOT_FOUND:
 					// Didn't find a replacement, so stop looking.
+					WARN_LOG(G3D, "No replacement for texture %dx%d", w0, h0);
 					entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
 					if (g_Config.bSaveNewTextures) {
 						// Load it once more to actually save it. Since we don't set STATUS_TO_REPLACE, we won't end up looping.
@@ -1532,16 +1533,23 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 	}
 
 	if (replaced->IsReady(budget)) {
-		if (replaced->State() == ReplacementState::ACTIVE && replaced->GetSize(0, w, h)) {
+		if (replaced->State() == ReplacementState::ACTIVE) {
+			replaced->GetSize(0, &w, &h);
 			// Consider it already "scaled.".
 			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
 		}
 
 		// Remove the flag, even if it was invalid.
 		entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
-	} else if (replaced->State() == ReplacementState::PREPARED) {
+	}
+
+	switch (replaced->State()) {
+	case ReplacementState::PREPARED:
+	case ReplacementState::PENDING:
+	case ReplacementState::UNINITIALIZED:
 		// Make sure we keep polling.
 		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
+		break;
 	}
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	return replaced;
@@ -2825,7 +2833,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.levelsToCreate = std::min(plan.levelsToLoad, plan.levelsToCreate);
 		plan.badMipSizes = false;
 		// But, we still need to create the texture at a larger size.
-		plan.replaced->GetSize(0, plan.createW, plan.createH);
+		plan.replaced->GetSize(0, &plan.createW, &plan.createH);
 	} else {
 		if (replacer_.Enabled() && !plan.replaceValid && plan.depth == 1 && canReplace) {
 			ReplacedTextureDecodeInfo replacedInfo;
@@ -2833,7 +2841,6 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 			replacedInfo.cachekey = entry->CacheKey();
 			replacedInfo.hash = entry->fullhash;
 			replacedInfo.addr = entry->addr;
-			replacedInfo.isVideo = plan.isVideo;
 			replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
 			replacedInfo.scaleFactor = plan.scaleFactor;
 			replacedInfo.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
@@ -2877,7 +2884,8 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 
 	PROFILE_THIS_SCOPE("decodetex");
 
-	if (plan.replaceValid && plan.replaced->GetSize(srcLevel, w, h)) {
+	if (plan.replaceValid) {
+		plan.replaced->GetSize(srcLevel, &w, &h);
 		double replaceStart = time_now_d();
 		plan.replaced->CopyLevelTo(srcLevel, data, stride);
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
