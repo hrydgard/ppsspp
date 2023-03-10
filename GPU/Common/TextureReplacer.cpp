@@ -191,6 +191,13 @@ bool TextureReplacer::LoadIni() {
 	}
 
 	vfs_ = dir;
+
+	// If we have stuff loaded from before, need to update the vfs pointers to avoid
+	// crash on exit. The actual problem is that we tend to call LoadIni a little too much...
+	for (auto &repl : cache_) {
+		repl.second->vfs_ = vfs_;
+	}
+
 	INFO_LOG(G3D, "Texture pack activated from '%s'", basePath_.c_str());
 
 	// The ini doesn't have to exist for the texture directory or zip to be valid.

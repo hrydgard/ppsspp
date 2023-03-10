@@ -2829,8 +2829,9 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	if (plan.replaceValid) {
 		// We're replacing, so we won't scale.
 		plan.scaleFactor = 1;
+		// We're ignoring how many levels were specified - instead we just load all available from the replacer.
 		plan.levelsToLoad = plan.replaced->NumLevels();
-		plan.levelsToCreate = std::min(plan.levelsToLoad, plan.levelsToCreate);
+		plan.levelsToCreate = plan.levelsToLoad;  // Or more, if we wanted to generate.
 		plan.badMipSizes = false;
 		// But, we still need to create the texture at a larger size.
 		plan.replaced->GetSize(0, &plan.createW, &plan.createH);
