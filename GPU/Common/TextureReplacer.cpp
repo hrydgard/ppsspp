@@ -591,7 +591,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 
 	// Populate the data pointer.
 	texture->levelData_ = &levelCache_[hashfiles];
-	texture->SetState(ReplacementState::PREPARED);
+	texture->SetState(ReplacementState::POPULATED);
 }
 
 bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level, bool ignoreError) {

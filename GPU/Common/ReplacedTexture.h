@@ -62,7 +62,7 @@ ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::string *
 
 enum class ReplacementState : uint32_t {
 	UNINITIALIZED,
-	PREPARED,  // We located the texture files but have not started the thread.
+	POPULATED,  // We located the texture files but have not started the thread.
 	PENDING,
 	NOT_FOUND,  // Also used on error loading the images.
 	ACTIVE,

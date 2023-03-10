@@ -77,7 +77,7 @@ bool ReplacedTexture::IsReady(double budget) {
 	case ReplacementState::CANCEL_INIT:
 	case ReplacementState::PENDING:
 		return false;
-	case ReplacementState::PREPARED:
+	case ReplacementState::POPULATED:
 		// We're gonna need to spawn a task.
 		break;
 	}
@@ -257,7 +257,7 @@ void ReplacedTexture::PurgeIfOlder(double t) {
 		std::lock_guard<std::mutex> guard(levelData_->lock);
 		levelData_->data.clear();
 		// This means we have to reload.  If we never purge any, there's no need.
-		SetState(ReplacementState::PREPARED);
+		SetState(ReplacementState::POPULATED);
 	}
 }
 
@@ -319,7 +319,7 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 const char *StateString(ReplacementState state) {
 	switch (state) {
 	case ReplacementState::UNINITIALIZED: return "UNINITIALIZED";
-	case ReplacementState::PREPARED: return "PREPARED";
+	case ReplacementState::POPULATED: return "PREPARED";
 	case ReplacementState::PENDING: return "PENDING";
 	case ReplacementState::NOT_FOUND: return "NOT_FOUND";
 	case ReplacementState::ACTIVE: return "ACTIVE";
