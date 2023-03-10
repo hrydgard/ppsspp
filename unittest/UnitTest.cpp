@@ -352,7 +352,7 @@ bool TestTinySet() {
 
 bool TestVFPUSinCos() {
 	float sine, cosine;
-	InitVFPUSinCos();
+	InitVFPU();
 	vfpu_sincos(0.0f, sine, cosine);
 	EXPECT_EQ_FLOAT(sine, 0.0f);
 	EXPECT_EQ_FLOAT(cosine, 1.0f);

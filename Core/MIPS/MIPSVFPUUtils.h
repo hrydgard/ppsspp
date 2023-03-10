@@ -50,9 +50,12 @@ extern float vfpu_sin(float);
 extern float vfpu_cos(float);
 extern void vfpu_sincos(float, float&, float&);
 
+/*
 inline float vfpu_asin(float angle) {
 	return (float)(asinf(angle) / M_PI_2);
 }
+*/
+extern float vfpu_asin(float);
 
 inline float vfpu_clamp(float v, float min, float max) {
 	// Note: NAN is preserved, and -0.0 becomes +0.0 if min=+0.0.
@@ -62,6 +65,11 @@ inline float vfpu_clamp(float v, float min, float max) {
 float vfpu_dot(const float a[4], const float b[4]);
 float vfpu_sqrt(float a);
 float vfpu_rsqrt(float a);
+
+extern float vfpu_exp2(float);
+extern float vfpu_rexp2(float);
+extern float vfpu_log2(float);
+extern float vfpu_rcp(float);
 
 #define VFPU_FLOAT16_EXP_MAX    0x1f
 #define VFPU_SH_FLOAT16_SIGN    15
@@ -211,4 +219,4 @@ int GetVectorOverlap(int reg1, VectorSize size1, int reg2, VectorSize size2);
 bool GetVFPUCtrlMask(int reg, u32 *mask);
 
 float Float16ToFloat32(unsigned short l);
-void InitVFPUSinCos();
+void InitVFPU();

@@ -22,6 +22,7 @@
 
 #include "Common/BitScan.h"
 #include "Common/CommonFuncs.h"
+#include "Common/File/VFS/VFS.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
@@ -791,134 +792,47 @@ float vfpu_dot(const float a[4], const float b[4]) {
 	return result.f;
 }
 
-// TODO: This is still not completely accurate compared to the PSP's vsqrt.
-float vfpu_sqrt(float a) {
-	float2int val;
-	val.f = a;
-
-	if ((val.i & 0xff800000) == 0x7f800000) {
-		if ((val.i & 0x007fffff) != 0) {
-			val.i = 0x7f800001;
-		}
-		return val.f;
-	}
-	if ((val.i & 0x7f800000) == 0) {
-		// Kill any sign.
-		val.i = 0;
-		return val.f;
-	}
-	if (val.i & 0x80000000) {
-		val.i = 0x7f800001;
-		return val.f;
-	}
-
-	int k = get_exp(val.i);
-	uint32_t sp = get_mant(val.i);
-	int less_bits = k & 1;
-	k >>= 1;
-
-	uint32_t z = 0x00C00000 >> less_bits;
-	int64_t halfsp = sp >> 1;
-	halfsp <<= 23 - less_bits;
-	for (int i = 0; i < 6; ++i) {
-		z = (z >> 1) + (uint32_t)(halfsp / z);
-	}
-
-	val.i = ((k + 127) << 23) | ((z << less_bits) & 0x007FFFFF);
-	// The lower two bits never end up set on the PSP, it seems like.
-	val.i &= 0xFFFFFFFC;
-
-	return val.f;
-}
-
-static inline uint32_t mant_mul(uint32_t a, uint32_t b) {
-	uint64_t m = (uint64_t)a * (uint64_t)b;
-	if (m & 0x007FFFFF) {
-		m += 0x01437000;
-	}
-	return (uint32_t)(m >> 23);
-}
-
-float vfpu_rsqrt(float a) {
-	float2int val;
-	val.f = a;
-
-	if (val.i == 0x7f800000) {
-		return 0.0f;
-	}
-	if ((val.i & 0x7fffffff) > 0x7f800000) {
-		val.i = (val.i & 0x80000000) | 0x7f800001;
-		return val.f;
-	}
-	if ((val.i & 0x7f800000) == 0) {
-		val.i = (val.i & 0x80000000) | 0x7f800000;
-		return val.f;
-	}
-	if (val.i & 0x80000000) {
-		val.i = 0xff800001;
-		return val.f;
-	}
-
-	int k = get_exp(val.i);
-	uint32_t sp = get_mant(val.i);
-	int less_bits = k & 1;
-	k = -(k >> 1);
-
-	uint32_t z = 0x00800000 >> less_bits;
-	uint32_t halfsp = sp >> (1 + less_bits);
-	for (int i = 0; i < 6; ++i) {
-		uint32_t zsq = mant_mul(z, z);
-		uint32_t correction = 0x00C00000 - mant_mul(halfsp, zsq);
-		z = mant_mul(z, correction);
-	}
-
-	int8_t shift = (int8_t)clz32_nonzero(z) - 8 + less_bits;
-	if (shift < 1) {
-		z >>= -shift;
-		k += -shift;
-	} else if (shift > 0) {
-		z <<= shift;
-		k -= shift;
-	}
-
-	z >>= less_bits;
-
-	val.i = ((k + 127) << 23) | (z & 0x007FFFFF);
-	val.i &= 0xFFFFFFFC;
-
-	return val.f;
-}
-
 //==============================================================================
 // The code below attempts to exactly match the output of
-// PSP's sin and cos instructions. For the sake of
-// making lookup tables smaller (473KB) the code is
+// several PSP's VFPU functions. For the sake of
+// making lookup tables smaller the code is
 // somewhat gnarly.
-// The key observation is that (ignoring range
-// reduction) PSP effectively converts input to 9.23
-// fixed-point, and that output is always representable
-// as 4.28 fixed-point (though that is probably not
-// what is going on internally).
-// The rest is mostly trying to obtain the same result
-// with smaller tables (pretty ad-hoc, and almost certainly
-// does not match what PSP does internally).
-// Lookup tables store deltas from (explicitly computable)
-// estimations, to allow to store them in smaller types:
-// int8 and int16.
+// Lookup tables sometimes store deltas from (explicitly computable)
+// estimations, to allow to store them in smaller types.
 // See https://github.com/hrydgard/ppsspp/issues/16946 for details.
 
-#include "Core/MIPS/vfpu_sin_lut.h"
+static uint32_t (*vfpu_sin_lut8192)=nullptr;
+static  int8_t  (*vfpu_sin_lut_delta)[2]=nullptr;
+static  int16_t (*vfpu_sin_lut_interval_delta)=nullptr;
+static uint8_t  (*vfpu_sin_lut_exceptions)=nullptr;
+
+static  int8_t  (*vfpu_sqrt_lut)[2]=nullptr;
+
+static  int8_t  (*vfpu_rsqrt_lut)[2]=nullptr;
+
+static uint32_t (*vfpu_exp2_lut65536)=nullptr;
+static uint8_t  (*vfpu_exp2_lut)[2]=nullptr;
+
+static uint32_t (*vfpu_log2_lut65536)=nullptr;
+static uint32_t (*vfpu_log2_lut65536_quadratic)=nullptr;
+static uint8_t  (*vfpu_log2_lut)[131072][2]=nullptr;
+
+static  int32_t (*vfpu_asin_lut65536)[3]=nullptr;
+static uint64_t (*vfpu_asin_lut_deltas)=nullptr;
+static uint16_t (*vfpu_asin_lut_indices)=nullptr;
+
+static  int8_t  (*vfpu_rcp_lut)[2]=nullptr;
 
 // Note: PSP sin/cos output only has 22 significant
 // binary digits.
-static inline uint32_t quantum(uint32_t x) {
+static inline uint32_t vfpu_sin_quantum(uint32_t x) {
 	return x < 1u << 22?
 		1u:
 		1u << (32 - 22 - clz32_nonzero(x));
 }
 
-static inline uint32_t truncate_bits(u32 x) {
-	return x & -quantum(x);
+static inline uint32_t vfpu_sin_truncate_bits(u32 x) {
+	return x & -vfpu_sin_quantum(x);
 }
 
 static inline uint32_t vfpu_sin_fixed(uint32_t arg) {
@@ -932,11 +846,11 @@ static inline uint32_t vfpu_sin_fixed(uint32_t arg) {
 	uint32_t A = L+(((H - L)*(((arg >> 6) & 127) + 0)) >> 7);
 	uint32_t B = L+(((H - L)*(((arg >> 6) & 127) + 1)) >> 7);
 	// Adjust endpoints from deltas, and increase working precision.
-	uint64_t a = (uint64_t(A) << 5) + uint64_t(vfpu_sin_lut_delta[arg >> 6][0]) * quantum(A);
-	uint64_t b = (uint64_t(B) << 5) + uint64_t(vfpu_sin_lut_delta[arg >> 6][1]) * quantum(B);
+	uint64_t a = (uint64_t(A) << 5) + uint64_t(vfpu_sin_lut_delta[arg >> 6][0]) * vfpu_sin_quantum(A);
+	uint64_t b = (uint64_t(B) << 5) + uint64_t(vfpu_sin_lut_delta[arg >> 6][1]) * vfpu_sin_quantum(B);
 	// Compute approximation via lerp. Is off by at most 1 quantum.
 	uint32_t v = uint32_t(((a * (64 - (arg & 63)) + b * (arg & 63)) >> 6) >> 5);
-	v=truncate_bits(v);
+	v=vfpu_sin_truncate_bits(v);
 	// Look up exceptions via binary search.
 	// Note: vfpu_sin_lut_interval_delta stores
 	// deltas from interval estimation.
@@ -952,7 +866,7 @@ static inline uint32_t vfpu_sin_fixed(uint32_t arg) {
 		uint32_t b = vfpu_sin_lut_exceptions[m];
 		uint32_t e = (arg & -128u)+(b & 127u);
 		if(e == arg) {
-			v += quantum(v) * (b >> 7 ? -1u : +1u);
+			v += vfpu_sin_quantum(v) * (b >> 7 ? -1u : +1u);
 			break;
 		}
 		else if(e < arg) lo = m + 1;
@@ -1036,8 +950,399 @@ void vfpu_sincos(float a, float &s, float &c) {
 	c = vfpu_cos(a);
 }
 
+// Integer square root of 2^23*x (rounded to zero).
+// Input is in 2^23 <= x < 2^25, and representable in float.
+static inline uint32_t isqrt23(uint32_t x) {
+#if 0
+	// Reference version.
+	int dir=fesetround(FE_TOWARDZERO);
+	uint32_t ret=uint32_t(int32_t(sqrtf(float(int32_t(x)) * 8388608.0f)));
+	fesetround(dir);
+	return ret;
+#elif 1
+	// Double version.
+	// Verified to produce correct result for all valid inputs,
+	// in all rounding modes, both in double and double-extended (x87)
+	// precision.
+	// Requires correctly-rounded sqrt (which on any IEEE-754 system
+	// it should be).
+	return uint32_t(int32_t(sqrt(double(x) * 8388608.0)));
+#else
+	// Pure integer version, if you don't like floating point.
+	// Based on code from Hacker's Delight. See isqrt4 in
+	// https://github.com/hcs0/Hackers-Delight/blob/master/isqrt.c.txt
+	// Relatively slow.
+	uint64_t t=uint64_t(x) << 23, m, y, b;
+	m=0x4000000000000000ull;
+	y=0;
+	while(m != 0) // Do 32 times.
+	{
+		b=y | m;
+		y=y >> 1;
+		if(t >= b)
+		{
+			t = t - b;
+			y = y | m;
+		}
+		m = m >> 2;
+	}
+	return y;
+#endif
+}
+
+// Returns floating-point bitpattern.
+static inline uint32_t vfpu_sqrt_fixed(uint32_t x) {
+	// Endpoints of input.
+	uint32_t lo  =(x +  0u) & -64u;
+	uint32_t hi = (x + 64u) & -64u;
+	// Convert input to 9.23 fixed-point.
+	lo = (lo >= 0x00400000u ? 4u * lo : 0x00800000u + 2u * lo);
+	hi = (hi >= 0x00400000u ? 4u * hi : 0x00800000u + 2u * hi);
+	// Estimate endpoints of output.
+	uint32_t A = 0x3F000000u + isqrt23(lo);
+	uint32_t B = 0x3F000000u + isqrt23(hi);
+	// Apply deltas, and increase the working precision.
+	uint64_t a = (uint64_t(A) << 4) + uint64_t(vfpu_sqrt_lut[x >> 6][0]);
+	uint64_t b = (uint64_t(B) << 4) + uint64_t(vfpu_sqrt_lut[x >> 6][1]);
+	uint32_t ret = uint32_t((a + (((b - a) * (x & 63)) >> 6)) >> 4);
+	// Truncate lower 2 bits.
+	ret &= -4u;
+	return ret;
+}
+
+float vfpu_sqrt(float x) {
+	uint32_t bits;
+	memcpy(&bits, &x, sizeof(bits));
+	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
+		// Denormals (and zeroes) get +0, regardless
+		// of sign.
+		return +0.0f;
+	}
+	if(bits >> 31) {
+		// Other negatives get NaN.
+		bits = 0x7F800001u;
+		memcpy(&x, &bits, sizeof(x));
+		return x;
+	}
+	if((bits >> 23) == 255u) {
+		// Inf/NaN gets Inf/NaN.
+		bits = 0x7F800000u + ((bits & 0x007FFFFFu) != 0u);
+		memcpy(&x, &bits, sizeof(bits));
+		return x;
+	}
+	int32_t exponent = int32_t(bits >> 23) - 127;
+	// Bottom bit of exponent (inverted) + significand (except bottom bit).
+	uint32_t index = ((bits + 0x00800000u) >> 1) & 0x007FFFFFu;
+	bits = vfpu_sqrt_fixed(index);
+	bits += uint32_t(exponent >> 1) << 23;
+	memcpy(&x, &bits, sizeof(bits));
+	return x;
+}
+
+// Returns floor(2^33/sqrt(x)), for 2^22 <= x < 2^24.
+static inline uint32_t rsqrt_floor22(uint32_t x) {
+#if 1
+	// Verified correct in all rounding directions,
+	// by exhaustive search.
+	return uint32_t(8589934592.0 / sqrt(double(x))); // 0x1p33
+#else
+	// Pure integer version, if you don't like floating point.
+	// Based on code from Hacker's Delight. See isqrt4 in
+	// https://github.com/hcs0/Hackers-Delight/blob/master/isqrt.c.txt
+	// Relatively slow.
+	uint64_t t=uint64_t(x) << 22, m, y, b;
+	m = 0x4000000000000000ull;
+	y = 0;
+	while(m != 0) // Do 32 times.
+	{
+		b = y | m;
+		y = y >> 1;
+		if(t >= b)
+		{
+			t = t - b;
+			y = y | m;
+		}
+		m = m >> 2;
+	}
+	y = (1ull << 44) / y;
+	// Decrement if y > floor(2^33 / sqrt(x)).
+	// This hack works because exhaustive
+	// search (on [2^22;2^24]) says it does.
+	if((y * y >> 3) * x > (1ull << 63) - 3ull * (((y & 7) == 6) << 21)) --y;
+	return uint32_t(y);
+#endif
+}
+
+// Returns floating-point bitpattern.
+static inline uint32_t vfpu_rsqrt_fixed(uint32_t x) {
+	// Endpoints of input.
+	uint32_t lo = (x +  0u) & -64u;
+	uint32_t hi = (x + 64u) & -64u;
+	// Convert input to 10.22 fixed-point.
+	lo = (lo >= 0x00400000u ? 2u * lo : 0x00400000u + lo);
+	hi = (hi >= 0x00400000u ? 2u * hi : 0x00400000u + hi);
+	// Estimate endpoints of output.
+	uint32_t A = 0x3E800000u + 4u * rsqrt_floor22(lo);
+	uint32_t B = 0x3E800000u + 4u * rsqrt_floor22(hi);
+	// Apply deltas, and increase the working precision.
+	uint64_t a = (uint64_t(A) << 4) + uint64_t(vfpu_rsqrt_lut[x >> 6][0]);
+	uint64_t b = (uint64_t(B) << 4) + uint64_t(vfpu_rsqrt_lut[x >> 6][1]);
+	// Evaluate via lerp.
+	uint32_t ret = uint32_t((a + (((b - a) * (x & 63)) >> 6)) >> 4);
+	// Truncate lower 2 bits.
+	ret &= -4u;
+	return ret;
+}
+
+float vfpu_rsqrt(float x) {
+	uint32_t bits;
+	memcpy(&bits, &x, sizeof(bits));
+	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
+		// Denormals (and zeroes) get Inf of the same sign.
+		bits = 0x7F800000u | (bits & 0x80000000u);
+		memcpy(&x, &bits, sizeof(x));
+		return x;
+	}
+	if(bits >> 31) {
+		// Other negatives get negative NaN.
+		bits = 0xFF800001u;
+		memcpy(&x, &bits, sizeof(x));
+		return x;
+	}
+	if((bits >> 23) == 255u) {
+		// Inf gets 0, NaN gets NaN.
+		bits = ((bits & 0x007FFFFFu) ? 0x7F800001u : 0u);
+		memcpy(&x, &bits, sizeof(bits));
+		return x;
+	}
+	int32_t exponent = int32_t(bits >> 23) - 127;
+	// Bottom bit of exponent (inverted) + significand (except bottom bit).
+	uint32_t index = ((bits + 0x00800000u) >> 1) & 0x007FFFFFu;
+	bits = vfpu_rsqrt_fixed(index);
+	bits -= uint32_t(exponent >> 1) << 23;
+	memcpy(&x, &bits, sizeof(bits));
+	return x;
+}
+
+static inline uint32_t vfpu_asin_quantum(uint32_t x) {
+	return x<1u<<23?
+		1u:
+		1u<<(32-23-clz32_nonzero(x));
+}
+
+static inline uint32_t vfpu_asin_truncate_bits(uint32_t x) {
+	return x & -vfpu_asin_quantum(x);
+}
+
+// Input is fixed 9.23, output is fixed 2.30.
+static inline uint32_t vfpu_asin_approx(uint32_t x) {
+	const int32_t *C = vfpu_asin_lut65536[x >> 16];
+	x &= 0xFFFFu;
+	return vfpu_asin_truncate_bits(uint32_t((((((int64_t(C[2]) * x) >> 16) + int64_t(C[1])) * x) >> 16) + C[0]));
+}
+
+// Input is fixed 9.23, output is fixed 2.30.
+static uint32_t vfpu_asin_fixed(uint32_t x) {
+	if(x == 0u) return 0u;
+	if(x == 1u << 23) return 1u << 30;
+	uint32_t ret = vfpu_asin_approx(x);
+	uint32_t index = vfpu_asin_lut_indices[x / 21u];
+	uint64_t deltas = vfpu_asin_lut_deltas[index];
+	return ret + (3u - uint32_t((deltas >> (3u * (x % 21u))) & 7u)) * vfpu_asin_quantum(ret);
+}
+
+float vfpu_asin(float x) {
+	uint32_t bits;
+	memcpy(&bits, &x, sizeof(x));
+	uint32_t sign = bits & 0x80000000u;
+	bits = bits & 0x7FFFFFFFu;
+	if(bits > 0x3F800000u) {
+		bits = 0x7F800001u ^ sign;
+		memcpy(&x, &bits, sizeof(x));
+		return x;
+	}
+
+	bits = vfpu_asin_fixed(uint32_t(int32_t(fabsf(x) * 8388608.0f))); // 0x1p23
+	x=float(int32_t(bits)) * 9.31322574615478515625e-10f; // 0x1p-30
+	if(sign) x = -x;
+	return x;
+}
+
+static inline uint32_t vfpu_exp2_approx(uint32_t x) {
+	if(x == 0x00800000u) return 0x00800000u;
+	uint32_t a=vfpu_exp2_lut65536[x >> 16];
+	x &= 0x0000FFFFu;
+	uint32_t b = uint32_t(((2977151143ull * x) >> 23) + ((1032119999ull * (x * x)) >> 46));
+	return (a + uint32_t((uint64_t(a + (1u << 23)) * uint64_t(b)) >> 32)) & -4u;
+}
+
+static inline uint32_t vfpu_exp2_fixed(uint32_t x) {
+	if(x == 0u) return 0u;
+	if(x == 0x00800000u) return 0x00800000u;
+	uint32_t A = vfpu_exp2_approx((x     ) & -64u);
+	uint32_t B = vfpu_exp2_approx((x + 64) & -64u);
+	uint64_t a = (A<<4)+vfpu_exp2_lut[x >> 6][0]-64u;
+	uint64_t b = (B<<4)+vfpu_exp2_lut[x >> 6][1]-64u;
+	uint32_t y = uint32_t((a + (((b - a) * (x & 63)) >> 6)) >> 4);
+	y &= -4u;
+	return y;
+}
+
+float vfpu_exp2(float x) {
+	int32_t bits;
+	memcpy(&bits, &x, sizeof(bits));
+	if((bits & 0x7FFFFFFF) <= 0x007FFFFF) {
+		// Denormals are treated as 0.
+		return 1.0f;
+	}
+	if(x != x) {
+		// NaN gets NaN.
+		bits = 0x7F800001u;
+		memcpy(&x, &bits, sizeof(x));
+		return x;
+	}
+	if(x <= -126.0f) {
+		// Small numbers get 0 (exp2(-126) is smallest positive non-denormal).
+		// But yes, -126.0f produces +0.0f.
+		return 0.0f;
+	}
+	if(x >= +128.0f) {
+		// Large numbers get infinity.
+		bits = 0x7F800000u;
+		memcpy(&x, &bits, sizeof(x));
+		return x;
+	}
+	bits = int32_t(x * 0x1p23f);
+	if(x < 0.0f) --bits; // Yes, really.
+	bits = int32_t(0x3F800000) + (bits & int32_t(0xFF800000)) + int32_t(vfpu_exp2_fixed(bits & int32_t(0x007FFFFF)));
+	memcpy(&x, &bits, sizeof(bits));
+	return x;
+}
+
+float vfpu_rexp2(float x) {
+	return vfpu_exp2(-x);
+}
+
+// Input fixed 9.23, output fixed 10.22.
+// Returns log2(1+x).
+static inline uint32_t vfpu_log2_approx(uint32_t x) {
+	uint32_t a=vfpu_log2_lut65536[(x >> 16) + 0];
+	uint32_t b=vfpu_log2_lut65536[(x >> 16) + 1];
+	uint32_t c=vfpu_log2_lut65536_quadratic[x >> 16];
+	x &= 0xFFFFu;
+	uint64_t ret = uint64_t(a) * (0x10000u - x) + uint64_t(b) * x;
+	uint64_t d = (uint64_t(c) * x * (0x10000u-x)) >> 40;
+	ret += d;
+	return uint32_t(ret >> 16);
+}
+
+// Matches PSP output on all known values.
+float vfpu_log2(float x) {
+    uint32_t bits;
+    memcpy(&bits, &x, sizeof(bits));
+    if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
+        // Denormals (and zeroes) get -inf.
+        bits = 0xFF800000u;
+        memcpy(&x, &bits, sizeof(x));
+        return x;
+    }
+    if(bits & 0x80000000u) {
+        // Other negatives get NaN.
+        bits = 0x7F800001u;
+        memcpy(&x, &bits, sizeof(x));
+        return x;
+    }
+    if((bits >> 23) == 255u) {
+        // NaN gets NaN, +inf gets +inf.
+        bits = 0x7F800000u + ((bits & 0x007FFFFFu) != 0);
+        memcpy(&x, &bits, sizeof(x));
+        return x;
+    }
+    uint32_t e = (bits & 0x7F800000u) - 0x3F800000u;
+    uint32_t i = bits & 0x007FFFFFu;
+    if(e >> 31 && i >= 0x007FFE00u) {
+        // Process 1-2^{-14}<=x*2^n<1 (for n>0) separately,
+        // since the table doesn't give the right answer.
+        float c = float(int32_t(~e) >> 23);
+        // Note: if c is 0 the sign of -0 output is correct.
+        return i < 0x007FFEF7u ? // 1-265*2^{-24}
+            -3.05175781e-05f - c:
+            -0.0f - c;
+    }
+    int d = (e<0x01000000u ? 0 : 8 - clz32_nonzero(e) - int(e >> 31));
+    //assert(d>=0&&d<8);
+    uint32_t q = 1u << d;
+    uint32_t A = vfpu_log2_approx((i     ) & -64u) & -q;
+    uint32_t B = vfpu_log2_approx((i + 64) & -64u) & -q;
+    uint64_t a = (A << 6)+(uint64_t(vfpu_log2_lut[d][i >> 6][0]) - 80ull) * q;
+    uint64_t b = (B << 6)+(uint64_t(vfpu_log2_lut[d][i >> 6][1]) - 80ull) * q;
+    uint32_t v = uint32_t((a +(((b - a) * (i & 63)) >> 6)) >> 6);
+    v &= -q;
+    bits = e ^ (2u * v);
+    x = float(int32_t(bits)) * 1.1920928955e-7f; // 0x1p-23f
+    return x;
+}
+
+static inline uint32_t vfpu_rcp_approx(uint32_t i) {
+    return 0x3E800000u + (uint32_t((1ull << 47) / ((1ull << 23) + i)) & -4u);
+}
+
+float vfpu_rcp(float x) {
+	uint32_t bits;
+	memcpy(&bits, &x, sizeof(bits));
+	uint32_t s = bits & 0x80000000u;
+	uint32_t e = bits & 0x7F800000u;
+	uint32_t i = bits & 0x007FFFFFu;
+	if((bits & 0x7FFFFFFFu) > 0x7E800000u) {
+		bits = (e == 0x7F800000u && i ? s ^ 0x7F800001u : s);
+		memcpy(&x, &bits, sizeof(x));
+		return x;
+	}
+	if(e==0u) {
+		bits = s^0x7F800000u;
+		memcpy(&x, &bits, sizeof(x));
+		return x;
+	}
+	uint32_t A = vfpu_rcp_approx((i	 ) & -64u);
+	uint32_t B = vfpu_rcp_approx((i + 64) & -64u);
+	uint64_t a = (uint64_t(A) << 6) + uint64_t(vfpu_rcp_lut[i >> 6][0]) * 4u;
+	uint64_t b = (uint64_t(B) << 6) + uint64_t(vfpu_rcp_lut[i >> 6][1]) * 4u;
+	uint32_t v = uint32_t((a+(((b-a)*(i&63))>>6))>>6);
+	v &= -4u;
+	bits = s + (0x3F800000u - e) + v;
+	memcpy(&x, &bits, sizeof(x));
+	return x;
+}
+
 //==============================================================================
 
-void InitVFPUSinCos() {
-	// TODO: Could prepare a CORDIC table here.
+void InitVFPU() {
+// WARNING: this is not endian-safe!
+	size_t size=0;
+#define LOAD(expected,name)\
+	if(!name) {\
+		const char *filename = "vfpu/" #name ".dat";\
+		INFO_LOG(CPU, "Loading '%s'.\n", filename);\
+		name=reinterpret_cast<decltype(name)>(g_VFS.ReadFile(filename, &size));\
+		if(size!=(expected))\
+			ERROR_LOG(CPU, "Error loading '%s' (size=%u, expected: %u).\n", filename, (unsigned)size, (unsigned)(expected));\
+		else\
+			INFO_LOG(CPU, "Successfully loaded '%s'.\n", filename);\
+	}
+	LOAD(    1536, vfpu_asin_lut65536);
+	LOAD(  517448, vfpu_asin_lut_deltas);
+	LOAD(  798916, vfpu_asin_lut_indices);
+	LOAD(     512, vfpu_exp2_lut65536);
+	LOAD(  262144, vfpu_exp2_lut);
+	LOAD(     516, vfpu_log2_lut65536);
+	LOAD(     512, vfpu_log2_lut65536_quadratic);
+	LOAD( 2097152, vfpu_log2_lut);
+	LOAD(  262144, vfpu_rcp_lut);
+	LOAD(  262144, vfpu_rsqrt_lut);
+	LOAD(    4100, vfpu_sin_lut8192);
+	LOAD(  262144, vfpu_sin_lut_delta);
+	LOAD(   86938, vfpu_sin_lut_exceptions);
+	LOAD(  131074, vfpu_sin_lut_interval_delta);
+	LOAD(  262144, vfpu_sqrt_lut);
+#undef LOAD
 }
