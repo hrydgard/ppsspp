@@ -101,21 +101,21 @@ bool ReplacedTexture::IsReady(double budget) {
 	return false;
 }
 
-void ReplacedTexture::FinishPopulate(const ReplacementDesc &desc) {
-	logId_ = desc.logId;
-	levelData_ = desc.cache;
+void ReplacedTexture::FinishPopulate(ReplacementDesc *desc) {
+	logId_ = desc->logId;
+	levelData_ = desc->cache;
 
 	// TODO: The rest can be done on the thread.
 
-	for (int i = 0; i < std::min(MAX_REPLACEMENT_MIP_LEVELS, (int)desc.filenames.size()); ++i) {
-		if (desc.filenames[i].empty()) {
+	for (int i = 0; i < std::min(MAX_REPLACEMENT_MIP_LEVELS, (int)desc->filenames.size()); ++i) {
+		if (desc->filenames[i].empty()) {
 			// Out of valid mip levels.  Bail out.
 			break;
 		}
 
-		const Path filename = desc.basePath / desc.filenames[i];
+		const Path filename = desc->basePath / desc->filenames[i];
 
-		VFSFileReference *fileRef = vfs_->GetFile(desc.filenames[i].c_str());
+		VFSFileReference *fileRef = vfs_->GetFile(desc->filenames[i].c_str());
 		if (!fileRef) {
 			// If the file doesn't exist, let's just bail immediately here.
 			break;
@@ -136,8 +136,8 @@ void ReplacedTexture::FinishPopulate(const ReplacementDesc &desc) {
 		good = PopulateLevel(level, false);
 
 		// We pad files that have been hashrange'd so they are the same texture size.
-		level.w = (level.w * desc.w) / desc.newW;
-		level.h = (level.h * desc.h) / desc.newH;
+		level.w = (level.w * desc->w) / desc->newW;
+		level.h = (level.h * desc->h) / desc->newH;
 
 		if (good && i != 0) {
 			// Check that the mipmap size is correct.  Can't load mips of the wrong size.
@@ -153,6 +153,8 @@ void ReplacedTexture::FinishPopulate(const ReplacementDesc &desc) {
 		else
 			break;
 	}
+
+	delete desc;
 
 	if (levels_.empty()) {
 		// Bad.
