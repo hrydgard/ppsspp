@@ -134,7 +134,7 @@ struct ReplacedTexture {
 
 private:
 	void Prepare(VFSBackend *vfs);
-	void PrepareData(int level);
+	bool PrepareData(const ReplacedTextureLevel &info, int level);
 	void PurgeIfOlder(double t);
 
 	bool PopulateLevel(ReplacedTextureLevel & level, bool ignoreError);

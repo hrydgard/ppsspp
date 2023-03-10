@@ -162,7 +162,13 @@ bool ReplacedTexture::PopulateLevel(ReplacedTextureLevel &level, bool ignoreErro
 void ReplacedTexture::Prepare(VFSBackend *vfs) {
 	this->vfs_ = vfs;
 
+	std::unique_lock<std::mutex> lock(mutex_);
+
 	for (int i = 0; i < std::min(MAX_REPLACEMENT_MIP_LEVELS, (int)desc_->filenames.size()); ++i) {
+		if (State() == ReplacementState::CANCEL_INIT) {
+			break;
+		}
+
 		if (desc_->filenames[i].empty()) {
 			// Out of valid mip levels.  Bail out.
 			break;
@@ -202,8 +208,13 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 			}
 		}
 
-		if (good)
-			levels_.push_back(level);
+		if (good) {
+			if (PrepareData(level, i)) {
+				levels_.push_back(level);
+			} else {
+				break;
+			}
+		}
 		// Otherwise, we're done loading mips (bad PNG or bad size, either way.)
 		else
 			break;
@@ -219,32 +230,17 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		return;
 	}
 
-	// Populate the data pointer.
-
-	std::unique_lock<std::mutex> lock(mutex_);
-
-	if (State() == ReplacementState::CANCEL_INIT) {
-		return;
-	}
-
-	for (int i = 0; i < (int)levels_.size(); ++i) {
-		if (State() == ReplacementState::CANCEL_INIT)
-			break;
-		PrepareData(i);
-	}
+	SetState(ReplacementState::ACTIVE);
 
 	if (threadWaitable_)
 		threadWaitable_->Notify();
 }
 
-void ReplacedTexture::PrepareData(int level) {
-	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
+bool ReplacedTexture::PrepareData(const ReplacedTextureLevel &info, int level) {
 	_assert_msg_(levelData_ != nullptr, "Level cache not set");
 
 	// We must lock around access to levelData_ in case two textures try to load it at once.
 	std::lock_guard<std::mutex> guard(levelData_->lock);
-
-	const ReplacedTextureLevel &info = levels_[level];
 
 	if (levelData_->data.size() <= level) {
 		levelData_->data.resize(level + 1);
@@ -254,8 +250,7 @@ void ReplacedTexture::PrepareData(int level) {
 
 	// Already populated from cache.
 	if (!out.empty()) {
-		SetState(ReplacementState::ACTIVE);
-		return;
+		return true;
 	}
 
 	ReplacedImageType imageType;
@@ -276,14 +271,14 @@ void ReplacedTexture::PrepareData(int level) {
 			ERROR_LOG(G3D, "Failed to allocate memory for texture replacement");
 			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
-			return;
+			return false;
 		}
 
 		if (vfs_->Read(openFile, &zim[0], fileSize) != fileSize) {
 			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", info.file.c_str());
 			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
-			return;
+			return false;
 		}
 
 		int w, h, f;
@@ -293,7 +288,7 @@ void ReplacedTexture::PrepareData(int level) {
 				ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
 				SetState(ReplacementState::NOT_FOUND);
 				cleanup();
-				return;
+				return false;
 			}
 
 			out.resize(info.w * info.h * 4);
@@ -322,13 +317,13 @@ void ReplacedTexture::PrepareData(int level) {
 			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s (zip)", info.file.c_str(), png.message);
 			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
-			return;
+			return false;
 		}
 		if (png.width > (uint32_t)info.w || png.height > (uint32_t)info.h) {
 			ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
 			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
-			return;
+			return false;
 		}
 
 		bool checkedAlpha = false;
@@ -347,7 +342,7 @@ void ReplacedTexture::PrepareData(int level) {
 			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
 			out.resize(0);
-			return;
+			return false;
 		}
 		png_image_free(&png);
 
@@ -360,8 +355,8 @@ void ReplacedTexture::PrepareData(int level) {
 		}
 	}
 
-	SetState(ReplacementState::ACTIVE);
 	cleanup();
+	return true;
 }
 
 void ReplacedTexture::PurgeIfOlder(double t) {
