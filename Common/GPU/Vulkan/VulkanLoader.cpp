@@ -310,6 +310,7 @@ static void VulkanFreeLibrary(VulkanLibraryHandle &h) {
 }
 
 void VulkanSetAvailable(bool available) {
+	INFO_LOG(G3D, "Forcing Vulkan availability to true");
 	g_vulkanAvailabilityChecked = true;
 	g_vulkanMayBeAvailable = available;
 }
@@ -470,6 +471,7 @@ bool VulkanMayBeAvailable() {
 		case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
 		case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
 			anyGood = true;
+			INFO_LOG(G3D, "VulkanMayBeAvailable: Eligible device found: '%s'", props.deviceName);
 			break;
 		default:
 			INFO_LOG(G3D, "VulkanMayBeAvailable: Ineligible device found and ignored: '%s'", props.deviceName);
@@ -494,8 +496,9 @@ bail:
 	}
 	if (lib) {
 		VulkanFreeLibrary(lib);
-	} else {
-		ERROR_LOG(G3D, "Vulkan with working device not detected.");
+	}
+	if (!g_vulkanMayBeAvailable) {
+		WARN_LOG(G3D, "Vulkan with working device not detected.");
 	}
 	return g_vulkanMayBeAvailable;
 }

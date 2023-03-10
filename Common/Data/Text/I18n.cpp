@@ -73,7 +73,7 @@ Path I18NRepo::GetIniPath(const std::string &languageID) const {
 
 bool I18NRepo::IniExists(const std::string &languageID) const {
 	File::FileInfo info;
-	if (!VFSGetFileInfo(GetIniPath(languageID).ToString().c_str(), &info))
+	if (!g_VFS.GetFileInfo(GetIniPath(languageID).ToString().c_str(), &info))
 		return false;
 	if (!info.exists)
 		return false;
@@ -91,7 +91,7 @@ bool I18NRepo::LoadIni(const std::string &languageID, const Path &overridePath) 
 		iniPath = GetIniPath(languageID);
 	}
 
-	if (!ini.LoadFromVFS(iniPath.ToString()))
+	if (!ini.LoadFromVFS(g_VFS, iniPath.ToString()))
 		return false;
 
 	Clear();
@@ -127,7 +127,7 @@ I18NCategory *I18NRepo::LoadSection(const Section *section, const char *name) {
 	return cat;
 }
 
-// This is a very light touched save variant - it won't overwrite 
+// This is a very light touched save variant - it won't overwrite
 // anything, only create new entries.
 void I18NRepo::SaveIni(const std::string &languageID) {
 	IniFile ini;

@@ -344,11 +344,11 @@ bool TakeGameScreenshot(const Path &filename, ScreenshotFormat fmt, ScreenshotTy
 		// Only crop to the top left when using a render screenshot.
 		w = maxRes > 0 ? 480 * maxRes : PSP_CoreParameter().renderWidth;
 		h = maxRes > 0 ? 272 * maxRes : PSP_CoreParameter().renderHeight;
-	} else if (g_display_rotation != DisplayRotation::ROTATE_0) {
+	} else if (g_display.rotation != DisplayRotation::ROTATE_0) {
 		GPUDebugBuffer temp;
 		success = gpuDebug->GetOutputFramebuffer(temp);
 		if (success) {
-			buf = ApplyRotation(temp, g_display_rotation);
+			buf = ApplyRotation(temp, g_display.rotation);
 		}
 	} else {
 		success = gpuDebug->GetOutputFramebuffer(buf);

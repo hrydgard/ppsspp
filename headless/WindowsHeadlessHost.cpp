@@ -23,7 +23,7 @@
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 
 #include "Common/CommonWindows.h"
 #include "Common/Log.h"
@@ -68,11 +68,11 @@ HWND CreateHiddenWindow() {
 
 void WindowsHeadlessHost::LoadNativeAssets()
 {
-	VFSRegister("", new DirectoryAssetReader(Path("assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("")));
-	VFSRegister("", new DirectoryAssetReader(Path("..")));
-	VFSRegister("", new DirectoryAssetReader(Path("../Windows/assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("../Windows")));
+	g_VFS.Register("", new DirectoryReader(Path("assets")));
+	g_VFS.Register("", new DirectoryReader(Path("")));
+	g_VFS.Register("", new DirectoryReader(Path("..")));
+	g_VFS.Register("", new DirectoryReader(Path("../Windows/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("../Windows")));
 }
 
 void WindowsHeadlessHost::SendDebugOutput(const std::string &output)

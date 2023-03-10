@@ -101,8 +101,7 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Handle(this, &DevMenuScreen::OnJitCompare);
 	items->Add(new Choice(dev->T("Shader Viewer")))->OnClick.Handle(this, &DevMenuScreen::OnShaderView);
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-		// TODO: Make a new allocator visualizer for VMA.
-		// items->Add(new CheckBox(&g_Config.bShowAllocatorDebug, dev->T("Allocator Viewer")));
+		items->Add(new CheckBox(&g_Config.bShowAllocatorDebug, dev->T("Allocator Viewer")));
 		items->Add(new CheckBox(&g_Config.bShowGpuProfile, dev->T("GPU Profile")));
 	}
 	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenuScreen::OnFreezeFrame);
@@ -585,10 +584,10 @@ void SystemInfoScreen::CreateViews() {
 		System_GetPropertyInt(SYSPROP_DISPLAY_XRES),
 		System_GetPropertyInt(SYSPROP_DISPLAY_YRES))));
 	deviceSpecs->Add(new InfoItem(si->T("UI Resolution"), StringFromFormat("%dx%d (%s: %0.2f)",
-		dp_xres,
-		dp_yres,
+		g_display.dp_xres,
+		g_display.dp_yres,
 		si->T("DPI"),
-		g_dpi)));
+		g_display.dpi)));
 #endif
 
 #if !PPSSPP_PLATFORM(WINDOWS)

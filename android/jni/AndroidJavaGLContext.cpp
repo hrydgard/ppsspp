@@ -19,8 +19,8 @@ bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int
 	}
 
 	// OpenGL handles rotated rendering in the driver.
-	g_display_rotation = DisplayRotation::ROTATE_0;
-	g_display_rot_matrix.setIdentity();
+	g_display.rotation = DisplayRotation::ROTATE_0;
+	g_display.rot_matrix.setIdentity();
 
 	draw_ = Draw::T3DCreateGLContext();  // Can't fail
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);

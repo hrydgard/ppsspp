@@ -150,10 +150,11 @@ void InitVROnAndroid(void* vm, void* activity, const char* system, int version, 
 	//Set platform flags
 	if (strcmp(vendor, "PICO") == 0) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_PICO, true);
-		VR_SetPlatformFLag(VR_PLATFORM_INSTANCE_EXT, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
 	} else if ((strcmp(vendor, "META") == 0) || (strcmp(vendor, "OCULUS") == 0)) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
-		VR_SetPlatformFLag(VR_PLATFORM_PERFORMANCE_EXT, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_FOVEATION, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PERFORMANCE, true);
 	}
 	VR_SetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN, (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN);
 
@@ -315,7 +316,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 	}
 
 	// Head control
-	if (g_Config.iHeadRotation) {
+	if (g_Config.bHeadRotationEnabled) {
 		float pitch = -VR_GetHMDAngles().x;
 		float yaw = -VR_GetHMDAngles().y;
 		bool disable = vrFlatForced || appMode == VR_MENU_MODE;
@@ -341,25 +342,6 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		bool activate;
 		float limit = isVR ? g_Config.fHeadRotationScale : 20;
 		keyInput.deviceId = DEVICE_ID_XR_HMD;
-
-		// vertical rotations
-		if (g_Config.iHeadRotation == 2) {
-			//up
-			activate = !disable && pitch > limit;
-			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-			keyInput.keyCode = NKCODE_EXT_ROTATION_UP;
-			if (hmdMotion[0] != activate) NativeKey(keyInput);
-			if (isVR && activate) hmdMotionDiff[0] -= limit;
-			hmdMotion[0] = activate;
-
-			//down
-			activate = !disable && pitch < -limit;
-			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-			keyInput.keyCode = NKCODE_EXT_ROTATION_DOWN;
-			if (hmdMotion[1] != activate) NativeKey(keyInput);
-			if (isVR && activate) hmdMotionDiff[0] += limit;
-			hmdMotion[1] = activate;
-		}
 
 		//left
 		activate = !disable && yaw < -limit;
@@ -690,8 +672,7 @@ bool StartVRRender() {
 				float mRoll = mz * ToRadians(rotation.z);
 
 				// use in-game camera interpolated rotation
-				if (g_Config.iHeadRotation >= 2) mPitch = -mx * ToRadians(hmdMotionDiffLast[0]); // vertical
-				if (g_Config.iHeadRotation >= 1) mYaw = -my * ToRadians(hmdMotionDiffLast[1]); // horizontal
+				if (g_Config.bHeadRotationEnabled) mYaw = -my * ToRadians(hmdMotionDiffLast[1]); // horizontal
 
 				// create updated quaternion
 				XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mPitch);

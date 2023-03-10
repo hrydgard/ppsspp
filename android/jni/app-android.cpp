@@ -65,7 +65,8 @@ struct JNIEnv {};
 #include "Common/File/Path.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
+#include "Common/File/VFS/ZipFileReader.h"
 #include "Common/File/AndroidStorage.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
@@ -73,6 +74,7 @@ struct JNIEnv {};
 #include "Common/Math/math_util.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/VR/PPSSPPVR.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
 
 #include "Common/GraphicsContext.h"
 #include "Common/StringUtils.h"
@@ -461,7 +463,7 @@ int System_GetPropertyInt(SystemProperty prop) {
 float System_GetPropertyFloat(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return display_hz;
+		return g_display.display_hz;
 	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
 		return g_safeInsetLeft;
 	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
@@ -677,9 +679,9 @@ static void parse_args(std::vector<std::string> &args, const std::string value) 
 #define EARLY_LOG(...)  __android_log_print(ANDROID_LOG_INFO, "PPSSPP", __VA_ARGS__)
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
-	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
-		jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam,
-		jint jAndroidVersion, jstring jboard) {
+(JNIEnv * env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
+	jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam,
+	jint jAndroidVersion, jstring jboard) {
 	SetCurrentThreadName("androidInit");
 
 	// Makes sure we get early permission grants.
@@ -693,8 +695,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
 
-	std::string apkPath = GetJavaString(env, japkpath);
-	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
+	Path apkPath(GetJavaString(env, japkpath));
+	g_VFS.Register("", ZipFileReader::Create(apkPath, "assets/"));
 
 	systemName = GetJavaString(env, jmodel);
 	langRegion = GetJavaString(env, jlangRegion);
@@ -753,6 +755,15 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	}
 
 	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
+
+	// In debug mode, don't allow creating software Vulkan devices (reject by VulkaMaybeAvailable).
+	// Needed for #16931.
+#ifdef NDEBUG
+	if (!VulkanMayBeAvailable()) {
+		// If VulkanLoader decided on no viable backend, let's force Vulkan off in release builds at least.
+		g_Config.iGPUBackend = 0;
+	}
+#endif
 
 	// No need to use EARLY_LOG anymore.
 
@@ -897,7 +908,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		std::lock_guard<std::mutex> guard(renderLock);
 		inputBoxCallbacks.clear();
 		NativeShutdown();
-		VFSShutdown();
+		g_VFS.Clear();
 	}
 
 	{
@@ -977,35 +988,35 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 }
 
 static void recalculateDpi() {
-	g_dpi = display_dpi_x;
-	g_dpi_scale_x = 240.0f / display_dpi_x;
-	g_dpi_scale_y = 240.0f / display_dpi_y;
-	g_dpi_scale_real_x = g_dpi_scale_x;
-	g_dpi_scale_real_y = g_dpi_scale_y;
+	g_display.dpi = display_dpi_x;
+	g_display.dpi_scale_x = 240.0f / display_dpi_x;
+	g_display.dpi_scale_y = 240.0f / display_dpi_y;
+	g_display.dpi_scale_real_x = g_display.dpi_scale_x;
+	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
 
-	dp_xres = display_xres * g_dpi_scale_x;
-	dp_yres = display_yres * g_dpi_scale_y;
+	g_display.dp_xres = display_xres * g_display.dpi_scale_x;
+	g_display.dp_yres = display_yres * g_display.dpi_scale_y;
 
-	pixel_in_dps_x = (float)pixel_xres / dp_xres;
-	pixel_in_dps_y = (float)pixel_yres / dp_yres;
+	g_display.pixel_in_dps_x = (float)g_display.pixel_xres / g_display.dp_xres;
+	g_display.pixel_in_dps_y = (float)g_display.pixel_yres / g_display.dp_yres;
 
-	INFO_LOG(G3D, "RecalcDPI: display_xres=%d display_yres=%d pixel_xres=%d pixel_yres=%d", display_xres, display_yres, pixel_xres, pixel_yres);
-	INFO_LOG(G3D, "RecalcDPI: g_dpi=%f g_dpi_scale_x=%f g_dpi_scale_y=%f dp_xres=%d dp_yres=%d", g_dpi, g_dpi_scale_x, g_dpi_scale_y, dp_xres, dp_yres);
+	INFO_LOG(G3D, "RecalcDPI: display_xres=%d display_yres=%d pixel_xres=%d pixel_yres=%d", display_xres, display_yres, g_display.pixel_xres, g_display.pixel_yres);
+	INFO_LOG(G3D, "RecalcDPI: g_dpi=%f g_dpi_scale_x=%f g_dpi_scale_y=%f dp_xres=%d dp_yres=%d", g_display.dpi, g_display.dpi_scale_x, g_display.dpi_scale_y, g_display.dp_xres, g_display.dp_yres);
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh, jint format) {
 	INFO_LOG(SYSTEM, "NativeApp.backbufferResize(%d x %d)", bufw, bufh);
 
-	bool new_size = pixel_xres != bufw || pixel_yres != bufh;
-	int old_w = pixel_xres;
-	int old_h = pixel_yres;
+	bool new_size = g_display.pixel_xres != bufw || g_display.pixel_yres != bufh;
+	int old_w = g_display.pixel_xres;
+	int old_h = g_display.pixel_yres;
 	// pixel_*res is the backbuffer resolution.
-	pixel_xres = bufw;
-	pixel_yres = bufh;
+	g_display.pixel_xres = bufw;
+	g_display.pixel_yres = bufh;
 	backbuffer_format = format;
 
 	if (IsVREnabled()) {
-		GetVRResolutionPerEye(&pixel_xres, &pixel_yres);
+		GetVRResolutionPerEye(&g_display.pixel_xres, &g_display.pixel_yres);
 	}
 
 	recalculateDpi();
@@ -1093,7 +1104,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	}
 
 	if (IsVREnabled()) {
-		UpdateVRInput(g_Config.bHapticFeedback, g_dpi_scale_x, g_dpi_scale_y);
+		UpdateVRInput(g_Config.bHapticFeedback, g_display.dpi_scale_x, g_display.dpi_scale_y);
 		FinishVRRender();
 	}
 }
@@ -1117,8 +1128,8 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
 
-	float scaledX = x * g_dpi_scale_x;
-	float scaledY = y * g_dpi_scale_y;
+	float scaledX = x * g_display.dpi_scale_x;
+	float scaledY = y * g_display.dpi_scale_y;
 
 	TouchInput touch;
 	touch.id = pointerId;
@@ -1215,10 +1226,10 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 		// We don't bother with supporting exact rectangular regions. Safe insets are good enough.
 		int left, right, top, bottom;
 		if (4 == sscanf(prm.c_str(), "%d:%d:%d:%d", &left, &right, &top, &bottom)) {
-			g_safeInsetLeft = (float)left * g_dpi_scale_x;
-			g_safeInsetRight = (float)right * g_dpi_scale_x;
-			g_safeInsetTop = (float)top * g_dpi_scale_y;
-			g_safeInsetBottom = (float)bottom * g_dpi_scale_y;
+			g_safeInsetLeft = (float)left * g_display.dpi_scale_x;
+			g_safeInsetRight = (float)right * g_display.dpi_scale_x;
+			g_safeInsetTop = (float)top * g_display.dpi_scale_y;
+			g_safeInsetBottom = (float)bottom * g_display.dpi_scale_y;
 		}
 	}
 
@@ -1251,14 +1262,14 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 	bool changed = false;
 	changed = changed || display_xres != xres || display_yres != yres;
 	changed = changed || display_dpi_x != dpi || display_dpi_y != dpi;
-	changed = changed || display_hz != refreshRate;
+	changed = changed || g_display.display_hz != refreshRate;
 
 	if (changed) {
 		display_xres = xres;
 		display_yres = yres;
 		display_dpi_x = dpi;
 		display_dpi_y = dpi;
-		display_hz = refreshRate;
+		g_display.display_hz = refreshRate;
 
 		recalculateDpi();
 		NativeResized();

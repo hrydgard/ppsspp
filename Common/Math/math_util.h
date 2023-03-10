@@ -40,6 +40,10 @@ inline uint32_t RoundUpToPowerOf2(uint32_t v) {
 	return v;
 }
 
+inline uint32_t RoundUpToPowerOf2(uint32_t v, uint32_t power) {
+	return (v + power - 1) & ~(power - 1);
+}
+
 inline uint32_t log2i(uint32_t val) {
 	unsigned int ret = -1;
 	while (val != 0) {

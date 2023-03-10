@@ -573,7 +573,7 @@ public:
 
 	// Raster state
 	void SetScissorRect(int left, int top, int width, int height) override;
-	void SetViewports(int count, Viewport *viewports) override;
+	void SetViewport(const Viewport &viewport) override;
 	void SetBlendFactor(float color[4]) override;
 	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override;
 
@@ -1173,12 +1173,12 @@ void D3D9Context::SetScissorRect(int left, int top, int width, int height) {
 	dxstate.scissorTest.set(true);
 }
 
-void D3D9Context::SetViewports(int count, Viewport *viewports) {
-	int x = (int)viewports[0].TopLeftX;
-	int y = (int)viewports[0].TopLeftY;
-	int w = (int)viewports[0].Width;
-	int h = (int)viewports[0].Height;
-	dxstate.viewport.set(x, y, w, h, viewports[0].MinDepth, viewports[0].MaxDepth);
+void D3D9Context::SetViewport(const Viewport &viewport) {
+	int x = (int)viewport.TopLeftX;
+	int y = (int)viewport.TopLeftY;
+	int w = (int)viewport.Width;
+	int h = (int)viewport.Height;
+	dxstate.viewport.set(x, y, w, h, viewport.MinDepth, viewport.MaxDepth);
 }
 
 void D3D9Context::SetBlendFactor(float color[4]) {

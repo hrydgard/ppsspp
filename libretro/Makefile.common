@@ -269,7 +269,8 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Data/Text/Parsers.cpp \
 	$(COMMONDIR)/Data/Text/WrapText.cpp \
 	$(COMMONDIR)/File/VFS/VFS.cpp \
-	$(COMMONDIR)/File/VFS/AssetReader.cpp \
+	$(COMMONDIR)/File/VFS/DirectoryReader.cpp \
+	$(COMMONDIR)/File/VFS/ZipFileReader.cpp \
 	$(COMMONDIR)/File/AndroidStorage.cpp \
 	$(COMMONDIR)/File/DiskFree.cpp \
 	$(COMMONDIR)/File/Path.cpp \
@@ -385,6 +386,8 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/IndexGenerator.cpp \
 	$(GPUCOMMONDIR)/TextureDecoder.cpp \
 	$(GPUCOMMONDIR)/PostShader.cpp \
+	$(GPUCOMMONDIR)/TextureReplacer.cpp \
+	$(GPUCOMMONDIR)/ReplacedTexture.cpp \
 	$(COMMONDIR)/Data/Convert/ColorConv.cpp \
 	$(GPUDIR)/Debugger/Breakpoints.cpp \
 	$(GPUDIR)/Debugger/Debugger.cpp \
@@ -406,6 +409,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/GeConstants.cpp \
 	$(GPUDIR)/GeDisasm.cpp \
 	$(GPUDIR)/GPUCommon.cpp \
+	$(GPUDIR)/GPUCommonHW.cpp \
 	$(GPUDIR)/GPU.cpp \
 	$(GPUDIR)/GPUState.cpp \
 	$(GPUDIR)/Math3D.cpp \
@@ -493,7 +497,6 @@ SOURCES_CXX += \
 	       $(COREDIR)/AVIDump.cpp \
 	       $(COREDIR)/Config.cpp \
 	       $(COREDIR)/ControlMapper.cpp \
-	       $(COREDIR)/TextureReplacer.cpp \
 	       $(COREDIR)/Core.cpp \
 	       $(COREDIR)/WaveFile.cpp \
 	       $(COREDIR)/KeyMap.cpp \
@@ -817,7 +820,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/D3D9/thin3d_d3d9.cpp \
 	$(COMMONDIR)/GPU/D3D11/D3D11Loader.cpp \
 	$(COMMONDIR)/GPU/D3D11/thin3d_d3d11.cpp
-	
+
 INCFLAGS += -I$(CORE_DIR)/dx9sdk/Include -I$(CORE_DIR)/dx9sdk/Include/DX11
 
 endif

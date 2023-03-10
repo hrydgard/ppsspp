@@ -15,34 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/Common.h"
-#include "Common/Data/Convert/ColorConv.h"
-#include "Common/GPU/thin3d.h"
-#include "Common/Math/lin/matrix4x4.h"
-#include "Core/MemMap.h"
-#include "Core/Config.h"
-#include "Core/ConfigValues.h"
-#include "Core/System.h"
-#include "GPU/ge_constants.h"
-#include "GPU/GPUState.h"
-#include "GPU/Debugger/Stepping.h"
+#include <d3d9.h>
 
-#include "Common/GPU/D3D9/D3D9StateCache.h"
+#include "Common/Common.h"
+#include "Common/GPU/thin3d.h"
+
 #include "GPU/Common/FramebufferManagerCommon.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
-#include "GPU/Directx9/ShaderManagerDX9.h"
-#include "GPU/Directx9/TextureCacheDX9.h"
-#include "GPU/Directx9/DrawEngineDX9.h"
-
-#include "Common/GPU/thin3d.h"
-
-#include <algorithm>
-
-#ifdef _M_SSE
-#include <emmintrin.h>
-#endif
 
 FramebufferManagerDX9::FramebufferManagerDX9(Draw::DrawContext *draw)
 	: FramebufferManagerCommon(draw) {

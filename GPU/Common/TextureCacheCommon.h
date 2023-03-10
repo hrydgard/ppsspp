@@ -23,13 +23,13 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/MemoryUtil.h"
-#include "Core/TextureReplacer.h"
 #include "Core/System.h"
 #include "GPU/GPU.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Common/TextureShaderCommon.h"
+#include "GPU/Common/TextureReplacer.h"
 
 class Draw2D;
 
@@ -149,10 +149,12 @@ struct TexCacheEntry {
 		STATUS_3D = 0x4000,
 
 		STATUS_CLUT_GPU = 0x8000,
+
+		STATUS_VIDEO = 0x10000,
 	};
 
-	// Status, but int so we can zero initialize.
-	int status;
+	// TexStatus enum flag combination.
+	u32 status;
 
 	u32 addr;
 	u32 minihash;
@@ -290,7 +292,8 @@ struct BuildTexturePlan {
 	bool decodeToClut8;
 
 	void GetMipSize(int level, int *w, int *h) const {
-		if (replaceValid && replaced->GetSize(level, *w, *h)) {
+		if (replaceValid) {
+			replaced->GetSize(level, w, h);
 			return;
 		}
 		if (depth == 1) {
@@ -329,7 +332,6 @@ public:
 	TextureShaderCache *GetTextureShaderCache() { return textureShaderCache_; }
 
 	virtual void ForgetLastTexture() = 0;
-	virtual void InvalidateLastTexture() = 0;
 	virtual void Clear(bool delete_them);
 	virtual void NotifyConfigChanged();
 	virtual void ApplySamplingParams(const SamplerCacheKey &key) = 0;
@@ -350,6 +352,11 @@ public:
 		return !videos_.empty();
 	}
 	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) { return false; }
+
+	virtual void StartFrame();
+
+	virtual void DeviceLost() = 0;
+	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
 protected:
 	virtual void *GetNativeTextureView(const TexCacheEntry *entry) = 0;
@@ -374,7 +381,7 @@ protected:
 	CheckAlphaResult DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, TexDecodeFlags flags);
 	void UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
 	CheckAlphaResult ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit);
-	ReplacedTexture &FindReplacement(TexCacheEntry *entry, int &w, int &h, int &d);
+	ReplacedTexture *FindReplacement(TexCacheEntry *entry, int &w, int &h, int &d);
 
 	// Return value is mapData normally, but could be another buffer allocated with AllocateAlignedMemory.
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, int mapRowPitch, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags);
@@ -403,8 +410,6 @@ protected:
 	bool GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer, bool *isFramebuffer);
 
 	virtual void BoundFramebufferTexture() {}
-
-	virtual void StartFrame();
 
 	void DecimateVideos();
 	bool IsVideo(u32 texaddr) const;

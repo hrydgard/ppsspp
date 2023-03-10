@@ -287,7 +287,6 @@ void DrawEngineVulkan::DeviceLost() {
 
 void DrawEngineVulkan::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
-
 	InitDeviceObjects();
 }
 
@@ -983,11 +982,21 @@ void DrawEngineVulkan::DoFlush() {
 			}
 		} else if (result.action == SW_CLEAR) {
 			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.
-
-			// We let the framebuffer manager handle the clear. It can use renderpasses to optimize on tilers.
-			// If non-buffered though, it'll just do a plain clear.
-			framebufferManager_->NotifyClear(gstate.isClearModeColorMask(), gstate.isClearModeAlphaMask(), gstate.isClearModeDepthMask(), result.color, result.depth);
-
+			bool clearColor = gstate.isClearModeColorMask();
+			bool clearAlpha = gstate.isClearModeAlphaMask();  // and stencil
+			bool clearDepth = gstate.isClearModeDepthMask();
+			int mask = 0;
+			// The Clear detection takes care of doing a regular draw instead if separate masking
+			// of color and alpha is needed, so we can just treat them as the same.
+			if (clearColor || clearAlpha) mask |= Draw::FBChannel::FB_COLOR_BIT;
+			if (clearDepth) mask |= Draw::FBChannel::FB_DEPTH_BIT;
+			if (clearAlpha) mask |= Draw::FBChannel::FB_STENCIL_BIT;
+			// Note that since the alpha channel and the stencil channel are shared on the PSP,
+			// when we clear alpha, we also clear stencil to the same value.
+			draw_->Clear(mask, result.color, result.depth, result.color >> 24);
+			if (clearColor || clearAlpha) {
+				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
+			}
 			if (gstate_c.Use(GPU_USE_CLEAR_RAM_HACK) && gstate.isClearModeColorMask() && (gstate.isClearModeAlphaMask() || gstate.FrameBufFormat() == GE_FORMAT_565)) {
 				int scissorX1 = gstate.getScissorX1();
 				int scissorY1 = gstate.getScissorY1();

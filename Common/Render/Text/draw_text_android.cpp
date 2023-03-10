@@ -27,7 +27,10 @@ TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw)
 		ERROR_LOG(G3D, "Failed to find class: '%s'", textRendererClassName);
 	}
 	dpiScale_ = CalculateDPIScale();
-	INFO_LOG(G3D, "Initializing TextDrawerAndroid with DPI scale %f", dpiScale_);
+
+	use4444Format_ = (draw->GetDataFormatSupport(Draw::DataFormat::R4G4B4A4_UNORM_PACK16) & Draw::FMT_TEXTURE) != 0;
+
+	INFO_LOG(G3D, "Initializing TextDrawerAndroid with DPI scale %f, use4444=%d", dpiScale_, (int)use4444Format_);
 }
 
 TextDrawerAndroid::~TextDrawerAndroid() {
@@ -244,7 +247,8 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
 	} else {
-		DataFormat texFormat = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
+		// Actually, I don't know why we don't always use R8_UNORM..
+		DataFormat texFormat = use4444Format_ ? Draw::DataFormat::R4G4B4A4_UNORM_PACK16 : Draw::DataFormat::R8_UNORM;
 
 		entry = new TextStringEntry();
 
@@ -260,6 +264,7 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		desc.depth = 1;
 		desc.mipLevels = 1;
 		desc.generateMips = false;
+		desc.swizzle = use4444Format_ ? Draw::TextureSwizzle::DEFAULT : Draw::TextureSwizzle::R8_AS_ALPHA,
 		desc.tag = "TextDrawer";
 		entry->texture = draw_->CreateTexture(desc);
 		cache_[key] = std::unique_ptr<TextStringEntry>(entry);

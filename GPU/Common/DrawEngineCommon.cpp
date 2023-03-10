@@ -36,7 +36,9 @@ enum {
 };
 
 DrawEngineCommon::DrawEngineCommon() : decoderMap_(16) {
-	decJitCache_ = new VertexDecoderJitCache();
+	if (g_Config.bVertexDecoderJit && g_Config.iCpuCore == (int)CPUCore::JIT) {
+		decJitCache_ = new VertexDecoderJitCache();
+	}
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 }
@@ -169,7 +171,8 @@ static Vec3f ScreenToDrawing(const Vec3f& coords) {
 }
 
 void DrawEngineCommon::NotifyConfigChanged() {
-	decJitCache_->Clear();
+	if (decJitCache_)
+		decJitCache_->Clear();
 	lastVType_ = -1;
 	dec_ = nullptr;
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {

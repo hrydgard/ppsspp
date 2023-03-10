@@ -311,16 +311,16 @@ void EmuScreen::bootGame(const Path &filename) {
 	coreParam.headLess = false;
 
 	if (g_Config.iInternalResolution == 0) {
-		coreParam.renderWidth = pixel_xres;
-		coreParam.renderHeight = pixel_yres;
+		coreParam.renderWidth = g_display.pixel_xres;
+		coreParam.renderHeight = g_display.pixel_yres;
 	} else {
 		if (g_Config.iInternalResolution < 0)
 			g_Config.iInternalResolution = 1;
 		coreParam.renderWidth = 480 * g_Config.iInternalResolution;
 		coreParam.renderHeight = 272 * g_Config.iInternalResolution;
 	}
-	coreParam.pixelWidth = pixel_xres;
-	coreParam.pixelHeight = pixel_yres;
+	coreParam.pixelWidth = g_display.pixel_xres;
+	coreParam.pixelHeight = g_display.pixel_yres;
 
 	std::string error_string;
 	if (!PSP_InitStart(coreParam, &error_string)) {
@@ -1027,8 +1027,8 @@ void EmuScreen::update() {
 
 #ifndef _WIN32
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
-	PSP_CoreParameter().pixelWidth = pixel_xres * bounds.w / dp_xres;
-	PSP_CoreParameter().pixelHeight = pixel_yres * bounds.h / dp_yres;
+	PSP_CoreParameter().pixelWidth = g_display.pixel_xres * bounds.w / g_display.dp_xres;
+	PSP_CoreParameter().pixelHeight = g_display.pixel_yres * bounds.h / g_display.dp_yres;
 #endif
 
 	if (!invalid_) {
@@ -1371,13 +1371,13 @@ void EmuScreen::preRender() {
 		Viewport viewport;
 		viewport.TopLeftX = 0;
 		viewport.TopLeftY = 0;
-		viewport.Width = pixel_xres;
-		viewport.Height = pixel_yres;
+		viewport.Width = g_display.pixel_xres;
+		viewport.Height = g_display.pixel_yres;
 		viewport.MaxDepth = 1.0;
 		viewport.MinDepth = 0.0;
-		draw->SetViewports(1, &viewport);
+		draw->SetViewport(viewport);
 	}
-	draw->SetTargetSize(pixel_xres, pixel_yres);
+	draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
 }
 
 void EmuScreen::postRender() {
@@ -1519,11 +1519,11 @@ void EmuScreen::renderUI() {
 	Viewport viewport;
 	viewport.TopLeftX = 0;
 	viewport.TopLeftY = 0;
-	viewport.Width = pixel_xres;
-	viewport.Height = pixel_yres;
+	viewport.Width = g_display.pixel_xres;
+	viewport.Height = g_display.pixel_yres;
 	viewport.MaxDepth = 1.0;
 	viewport.MinDepth = 0.0;
-	thin3d->SetViewports(1, &viewport);
+	thin3d->SetViewport(viewport);
 
 	if (root_) {
 		UI::LayoutViewHierarchy(*ctx, root_, false);

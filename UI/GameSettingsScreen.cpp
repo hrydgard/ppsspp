@@ -66,10 +66,10 @@
 #include "Core/Instance.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
-#include "Core/TextureReplacer.h"
 #include "Core/WebServer.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbMic.h"
+#include "GPU/Common/TextureReplacer.h"
 #include "GPU/Common/PostShader.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
@@ -237,8 +237,10 @@ void GameSettingsScreen::CreateViews() {
 	if (!vertical) {
 		leftSide += 200.0f;
 	}
-	settingInfo_ = new SettingInfoMessage(ALIGN_CENTER | FLAG_WRAP_TEXT, new AnchorLayoutParams(dp_xres - leftSide - 40.0f, WRAP_CONTENT, leftSide, dp_yres - 80.0f - 40.0f, NONE, NONE));
-	settingInfo_->SetBottomCutoff(dp_yres - 200.0f);
+	settingInfo_ = new SettingInfoMessage(ALIGN_CENTER | FLAG_WRAP_TEXT, new AnchorLayoutParams(
+		g_display.dp_xres - leftSide - 40.0f, WRAP_CONTENT,
+		leftSide, g_display.dp_yres - 80.0f - 40.0f, NONE, NONE));
+	settingInfo_->SetBottomCutoff(g_display.dp_yres - 200.0f);
 	root_->Add(settingInfo_);
 
 	// Show it again if we recreated the view
@@ -273,7 +275,7 @@ void GameSettingsScreen::CreateViews() {
 
 #if !defined(MOBILE_DEVICE) || PPSSPP_PLATFORM(ANDROID)
 	// Hide search if screen is too small.
-	if (dp_xres < dp_yres || dp_yres >= 500) {
+	if (g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) {
 		auto se = GetI18NCategory("Search");
 		// Search
 		LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
@@ -1141,12 +1143,11 @@ void GameSettingsScreen::CreateVRSettings(UI::ViewGroup *vrSettings) {
 
 	vrSettings->Add(new ItemHeader(vr->T("Experts only")));
 	vrSettings->Add(new CheckBox(&g_Config.bManualForceVR, vr->T("Manual switching between flat screen and VR using SCREEN key")));
-	static const char *vrHeadRotations[] = { vr->T("Disabled"), vr->T("Horizontal only"), vr->T("Horizontal and vertical") };
-	vrSettings->Add(new PopupMultiChoice(&g_Config.iHeadRotation, vr->T("Map HMD rotations on keys instead of VR camera"), vrHeadRotations, 0, ARRAY_SIZE(vrHeadRotations), vr->GetName(), screenManager()));
+	vrSettings->Add(new CheckBox(&g_Config.bHeadRotationEnabled, vr->T("Map HMD rotations on keys instead of VR camera")));
 	PopupSliderChoiceFloat *vrHeadRotationScale = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadRotationScale, 0.1f, 10.0f, vr->T("Game camera rotation step per frame"), 0.1f, screenManager(), "°"));
-	vrHeadRotationScale->SetEnabledFunc([&] { return g_Config.iHeadRotation > 0; });
+	vrHeadRotationScale->SetEnabledPtr(&g_Config.bHeadRotationEnabled);
 	CheckBox *vrHeadRotationSmoothing = vrSettings->Add(new CheckBox(&g_Config.bHeadRotationSmoothing, vr->T("Game camera uses rotation smoothing")));
-	vrHeadRotationSmoothing->SetEnabledFunc([&] { return g_Config.iHeadRotation > 0; });
+	vrHeadRotationSmoothing->SetEnabledPtr(&g_Config.bHeadRotationEnabled);
 	vrSettings->Add(new CheckBox(&g_Config.bEnableMotions, vr->T("Map controller movements to keys")));
 	PopupSliderChoiceFloat *vrMotions = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMotionLength, 0.3f, 1.0f, vr->T("Motion needed to generate action"), 0.1f, screenManager(), vr->T("m")));
 	vrMotions->SetEnabledPtr(&g_Config.bEnableMotions);
@@ -1772,6 +1773,10 @@ void DeveloperToolsScreen::CreateViews() {
 	static const char *cpuCores[] = {"Interpreter", "Dynarec (JIT)", "IR Interpreter"};
 	PopupMultiChoice *core = list->Add(new PopupMultiChoice(&g_Config.iCpuCore, gr->T("CPU Core"), cpuCores, 0, ARRAY_SIZE(cpuCores), sy->GetName(), screenManager()));
 	core->OnChoice.Handle(this, &DeveloperToolsScreen::OnJitAffectingSetting);
+	core->OnChoice.Add([](UI::EventParams &) {
+		g_Config.NotifyUpdatedCpuCore();
+		return UI::EVENT_DONE;
+	});
 	if (!canUseJit) {
 		core->HideChoice(1);
 	}

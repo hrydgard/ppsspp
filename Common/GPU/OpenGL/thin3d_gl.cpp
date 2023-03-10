@@ -385,9 +385,9 @@ public:
 		renderManager_.SetScissor({ left, top, width, height });
 	}
 
-	void SetViewports(int count, Viewport *viewports) override {
+	void SetViewport(const Viewport &viewport) override {
 		// Same structure, different name.
-		renderManager_.SetViewport((GLRViewport &)*viewports);
+		renderManager_.SetViewport((GLRViewport &)viewport);
 	}
 
 	void SetBlendFactor(float color[4]) override {

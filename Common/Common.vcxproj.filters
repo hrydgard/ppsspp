@@ -176,9 +176,6 @@
     <ClInclude Include="File\VFS\VFS.h">
       <Filter>File\VFS</Filter>
     </ClInclude>
-    <ClInclude Include="File\VFS\AssetReader.h">
-      <Filter>File\VFS</Filter>
-    </ClInclude>
     <ClInclude Include="Data\Format\IniFile.h">
       <Filter>Data\Format</Filter>
     </ClInclude>
@@ -467,6 +464,12 @@
     <ClInclude Include="GPU\OpenGL\GLFrameData.h">
       <Filter>GPU\OpenGL</Filter>
     </ClInclude>
+    <ClInclude Include="File\VFS\DirectoryReader.h">
+      <Filter>File\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="File\VFS\ZipFileReader.h">
+      <Filter>File\VFS</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -626,9 +629,6 @@
       <Filter>File</Filter>
     </ClCompile>
     <ClCompile Include="File\VFS\VFS.cpp">
-      <Filter>File\VFS</Filter>
-    </ClCompile>
-    <ClCompile Include="File\VFS\AssetReader.cpp">
       <Filter>File\VFS</Filter>
     </ClCompile>
     <ClCompile Include="Data\Format\IniFile.cpp">
@@ -883,6 +883,12 @@
     </ClCompile>
     <ClCompile Include="GPU\OpenGL\GLFrameData.cpp">
       <Filter>GPU\OpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="File\VFS\DirectoryReader.cpp">
+      <Filter>File\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="File\VFS\ZipFileReader.cpp">
+      <Filter>File\VFS</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

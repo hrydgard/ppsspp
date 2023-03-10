@@ -18,6 +18,7 @@
 #define ID_DEBUG_DISASSEMBLY            119
 #define WHEEL_DELTA                     120
 #define ID_DEBUG_LOG                    121
+#define ID_DEBUG_MEMORYBASE             122
 #define ID_FILE_OPEN_NEW_INSTANCE       123
 #define ID_FILE_LOADSTATEFILE           126
 #define ID_FILE_SAVESTATEFILE           127
@@ -333,6 +334,7 @@
 #define ID_GEDBG_COPY_IMAGE_ALPHA        40225
 #define ID_GEDBG_TRACK_PIXEL             40226
 #define ID_GEDBG_TRACK_PIXEL_STOP        40227
+#define ID_DISASM_NOPINSTRUCTION         40228
 
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.

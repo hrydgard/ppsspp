@@ -67,7 +67,8 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/ZipFileReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/CPUDetect.h"
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
@@ -467,27 +468,27 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// We want this to be FIRST.
 #if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 	// Packed assets are included in app
-	VFSRegister("", new DirectoryAssetReader(Path(external_dir)));
+	g_VFS.Register("", new DirectoryReader(Path(external_dir)));
 #endif
 #if defined(ASSETS_DIR)
-	VFSRegister("", new DirectoryAssetReader(Path(ASSETS_DIR)));
+	g_VFS.Register("", new DirectoryReader(Path(ASSETS_DIR)));
 #endif
 #if !defined(MOBILE_DEVICE) && !defined(_WIN32) && !PPSSPP_PLATFORM(SWITCH)
-	VFSRegister("", new DirectoryAssetReader(File::GetExeDirectory() / "assets"));
-	VFSRegister("", new DirectoryAssetReader(File::GetExeDirectory()));
-	VFSRegister("", new DirectoryAssetReader(Path("/usr/local/share/ppsspp/assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("/usr/local/share/games/ppsspp/assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/ppsspp/assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/games/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(File::GetExeDirectory() / "assets"));
+	g_VFS.Register("", new DirectoryReader(File::GetExeDirectory()));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/games/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/share/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/share/games/ppsspp/assets")));
 #endif
 
 #if PPSSPP_PLATFORM(SWITCH)
 	Path assetPath = Path(user_data_path) / "assets";
-	VFSRegister("", new DirectoryAssetReader(assetPath));
+	g_VFS.Register("", new DirectoryReader(assetPath));
 #else
-	VFSRegister("", new DirectoryAssetReader(Path("assets")));
+	g_VFS.Register("", new DirectoryReader(Path("assets")));
 #endif
-	VFSRegister("", new DirectoryAssetReader(Path(savegame_dir)));
+	g_VFS.Register("", new DirectoryReader(Path(savegame_dir)));
 
 #if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(UWP)
 	if (host == nullptr) {
@@ -777,7 +778,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #elif defined(USING_QT_UI)
 	size_t fontSize = 0;
-	uint8_t *fontData = VFSReadFile("Roboto-Condensed.ttf", &fontSize);
+	uint8_t *fontData = g_VFS.ReadFile("Roboto-Condensed.ttf", &fontSize);
 	if (fontData) {
 		int fontID = QFontDatabase::addApplicationFontFromData(QByteArray((const char *)fontData, fontSize));
 		delete [] fontData;
@@ -914,7 +915,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	g_gameInfoCache = new GameInfoCache();
 
 	if (gpu) {
-		gpu->DeviceRestore();
+		gpu->DeviceRestore(g_draw);
 	}
 
 	INFO_LOG(SYSTEM, "NativeInitGraphics completed");
@@ -1095,8 +1096,8 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		g_BackgroundAudio.Update();
 	}
 
-	float xres = dp_xres;
-	float yres = dp_yres;
+	float xres = g_display.dp_xres;
+	float yres = g_display.dp_yres;
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	// TODO: This should be moved into the draw context...
@@ -1109,7 +1110,9 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 		Matrix4x4 translation;
 		// Account for the small window adjustment.
-		translation.setTranslation(Vec3(-0.5f * g_dpi_scale_x / g_dpi_scale_real_x, -0.5f * g_dpi_scale_y / g_dpi_scale_real_y, 0.0f));
+		translation.setTranslation(Vec3(
+			-0.5f * g_display.dpi_scale_x / g_display.dpi_scale_real_x,
+			-0.5f * g_display.dpi_scale_y / g_display.dpi_scale_real_y, 0.0f));
 		ortho = translation * ortho;
 		break;
 	case GPUBackend::DIRECT3D11:
@@ -1122,8 +1125,8 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	}
 
 	// Compensate for rotated display if needed.
-	if (g_display_rotation != DisplayRotation::ROTATE_0) {
-		ortho = ortho * g_display_rot_matrix;
+	if (g_display.rotation != DisplayRotation::ROTATE_0) {
+		ortho = ortho * g_display.rot_matrix;
 	}
 
 	ui_draw2d.PushDrawMatrix(ortho);
@@ -1151,13 +1154,13 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		if (uiContext) {
 			// Modifying the bounds here can be used to "inset" the whole image to gain borders for TV overscan etc.
 			// The UI now supports any offset but not the EmuScreen yet.
-			uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
+			uiContext->SetBounds(Bounds(0, 0, g_display.dp_xres, g_display.dp_yres));
 
 			// OSX 10.6 and SDL 1.2 bug.
 #if defined(__APPLE__) && !defined(USING_QT_UI)
-			static int dp_xres_old = dp_xres;
-			if (dp_xres != dp_xres_old) {
-				dp_xres_old = dp_xres;
+			static int dp_xres_old = g_display.dp_xres;
+			if (g_display.dp_xres != dp_xres_old) {
+				dp_xres_old = g_display.dp_xres;
 			}
 #endif
 		}
@@ -1167,8 +1170,8 @@ void NativeRender(GraphicsContext *graphicsContext) {
 
 		// TODO: Move this to the GraphicsContext objects for each backend.
 #if !PPSSPP_PLATFORM(WINDOWS) && !defined(ANDROID)
-		PSP_CoreParameter().pixelWidth = pixel_xres;
-		PSP_CoreParameter().pixelHeight = pixel_yres;
+		PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
+		PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
 		NativeMessageReceived("gpu_displayResized", "");
 #endif
 	} else {
@@ -1402,7 +1405,7 @@ void NativeAxis(const AxisInput &axis) {
 	// sent with respect to the portrait coordinate system, while we
 	// take all events in landscape.
 	// see [http://developer.android.com/guide/topics/sensors/sensors_overview.html] for details
-	bool landscape = dp_yres < dp_xres;
+	bool landscape = g_display.dp_yres < g_display.dp_xres;
 	// now transform out current tilt to the calibrated coordinate system
 	ProcessTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
 		g_Config.bInvertTiltX, g_Config.bInvertTiltY,

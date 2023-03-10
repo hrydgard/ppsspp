@@ -143,10 +143,6 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dst
 void TextureCacheGLES::StartFrame() {
 	TextureCacheCommon::StartFrame();
 
-	InvalidateLastTexture();
-	timesInvalidatedAllThisFrame_ = 0;
-	replacementTimeThisFrame_ = 0.0;
-
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	if (!lowMemoryMode_ && renderManager->SawOutOfMemory()) {
 		lowMemoryMode_ = true;
@@ -158,17 +154,6 @@ void TextureCacheGLES::StartFrame() {
 		} else {
 			host->NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
 		}
-	}
-
-	if (texelsScaledThisFrame_) {
-		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
-	}
-	texelsScaledThisFrame_ = 0;
-	if (clearCacheNextFrame_) {
-		Clear(true);
-		clearCacheNextFrame_ = false;
-	} else {
-		Decimate();
 	}
 }
 
@@ -234,7 +219,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 
 void TextureCacheGLES::Unbind() {
 	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, nullptr);
-	InvalidateLastTexture();
+	ForgetLastTexture();
 }
 
 void TextureCacheGLES::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
@@ -261,8 +246,9 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	int th = plan.createH;
 
 	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
-		dstFmt = plan.replaced->Format(plan.baseLevelSrc);
+	if (plan.replaceValid) {
+		plan.replaced->GetSize(plan.baseLevelSrc, &tw, &th);
+		dstFmt = plan.replaced->Format();
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
 	} else if (plan.decodeToClut8) {
@@ -309,7 +295,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 			int bpp;
 
 			if (plan.replaceValid) {
-				bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
+				bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
 			} else {
 				if (plan.scaleFactor > 1) {
 					bpp = 4;
@@ -385,7 +371,7 @@ Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPalet
 }
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
-	InvalidateLastTexture();
+	ForgetLastTexture();
 	SetTexture();
 	if (!nextTexture_) {
 		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);

@@ -416,8 +416,10 @@ public:
 	// These can be useful both when inspecting in RenderDoc, and when manually inspecting recorded commands
 	// in the debugger.
 	void DebugAnnotate(const char *annotation) {
+		_dbg_assert_(curRenderStep_);
 		VkRenderData data{ VKRRenderCommand::DEBUG_ANNOTATION };
 		data.debugAnnotation.annotation = annotation;
+		curRenderStep_->commands.push_back(data);
 	}
 
 	VkCommandBuffer GetInitCmd();

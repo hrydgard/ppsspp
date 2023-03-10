@@ -108,7 +108,6 @@
     <ClCompile Include="..\..\Core\SaveState.cpp" />
     <ClCompile Include="..\..\Core\Screenshot.cpp" />
     <ClCompile Include="..\..\Core\System.cpp" />
-    <ClCompile Include="..\..\Core\TextureReplacer.cpp" />
     <ClCompile Include="..\..\Core\WaveFile.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmAsm.cpp">
       <Filter>MIPS\ARM</Filter>
@@ -1150,7 +1149,6 @@
     <ClInclude Include="..\..\Core\SaveState.h" />
     <ClInclude Include="..\..\Core\Screenshot.h" />
     <ClInclude Include="..\..\Core\System.h" />
-    <ClInclude Include="..\..\Core\TextureReplacer.h" />
     <ClInclude Include="..\..\Core\ThreadEventQueue.h" />
     <ClInclude Include="..\..\Core\WaveFile.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmCompVFPUNEONUtil.h">

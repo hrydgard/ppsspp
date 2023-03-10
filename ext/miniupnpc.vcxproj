@@ -287,6 +287,7 @@ cd..\..\..</Command>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -320,6 +321,7 @@ cd..\..\..</Command>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <OmitFramePointers>false</OmitFramePointers>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -412,6 +414,7 @@ cd..\..\..</Command>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
     <Lib>
       <AdditionalDependencies>iphlpapi.lib</AdditionalDependencies>

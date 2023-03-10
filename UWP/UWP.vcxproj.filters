@@ -53,6 +53,21 @@
     <Filter Include="Content\themes">
       <UniqueIdentifier>{da2113a6-e616-4fc9-8be3-ff75b963664b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Content\debugger">
+      <UniqueIdentifier>{55147387-68fc-487e-abed-7a763f850ef1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\debugger\static">
+      <UniqueIdentifier>{e5d2759b-3511-4ab9-a9ca-070dd9715f3b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\debugger\static\css">
+      <UniqueIdentifier>{0fb972a9-20a9-4eba-be70-c408f9306939}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\debugger\static\js">
+      <UniqueIdentifier>{47d54a48-ca53-4d57-8bfd-9c86fd97d84b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\debugger\static\media">
+      <UniqueIdentifier>{83476056-57b8-409f-b729-754d6401e3d5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
@@ -101,6 +116,12 @@
     </Image>
     <Image Include="Content\asciifont_atlas.zim">
       <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\font_atlas.zim">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\debugger\favicon.ico">
+      <Filter>Content\debugger</Filter>
     </Image>
   </ItemGroup>
   <ItemGroup>
@@ -171,7 +192,13 @@
     <None Include="Content\lang\he_IL.ini">
       <Filter>Content\lang</Filter>
     </None>
+    <None Include="Content\lang\he_IL_invert.ini">
+      <Filter>Content\lang</Filter>
+    </None>
     <None Include="Content\lang\hu_HU.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\hr_HR.ini">
       <Filter>Content\lang</Filter>
     </None>
     <None Include="Content\lang\id_ID.ini">
@@ -246,19 +273,31 @@
     <None Include="Content\shaders\4xhqglsl.fsh">
       <Filter>Content\shaders</Filter>
     </None>
+    <None Include="Content\shaders\4xhqglsl.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
     <None Include="Content\shaders\5xBR.fsh">
       <Filter>Content\shaders</Filter>
     </None>
-    <None Include="Content\shaders\5xBR-lv2.fsh">
+    <None Include="Content\shaders\5xBR.vsh">
       <Filter>Content\shaders</Filter>
     </None>
     <None Include="Content\shaders\aacolor.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\aacolor.vsh">
       <Filter>Content\shaders</Filter>
     </None>
     <None Include="Content\shaders\bloom.fsh">
       <Filter>Content\shaders</Filter>
     </None>
     <None Include="Content\shaders\cartoon.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\cartoon.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\colorcorrection.fsh">
       <Filter>Content\shaders</Filter>
     </None>
     <None Include="Content\shaders\crt.fsh">
@@ -270,7 +309,70 @@
     <None Include="Content\shaders\fxaa.fsh">
       <Filter>Content\shaders</Filter>
     </None>
+    <None Include="Content\shaders\fxaa.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
     <None Include="Content\shaders\GaussianDownscale.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\natural.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\naturalA.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\naturalA.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\persistence.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\psp_color.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\scanlines.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\sharpen.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\stereo_red_blue.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\stereo_sbs.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\tex_2xbrz.csh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\tex_4xbrz.csh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\tex_mmpx.csh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\upscale_catmull_rom.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\upscale_catmull_rom.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\upscale_mitchell_netravali.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\upscale_mitchell_netravali.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\upscale_spline36.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\upscale_spline36.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\videoAA.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\vignette.fsh">
       <Filter>Content\shaders</Filter>
     </None>
     <None Include="Content\flash0\font\jpn0.pgf">
@@ -327,43 +429,76 @@
     <None Include="Content\flash0\font\ltn15.pgf">
       <Filter>Content\flash0\font</Filter>
     </None>
-    <None Include="Content\shaders\natural.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\naturalA.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\scanlines.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\sharpen.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\upscale_spline36.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\vignette.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\videoAA.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="..\assets\ppge_atlas.meta">
+    <None Include="Content\ppge_atlas.meta">
       <Filter>Content</Filter>
     </None>
-    <None Include="..\assets\ui_atlas.meta">
+    <None Include="Content\ui_atlas.meta">
       <Filter>Content</Filter>
     </None>
-    <None Include="..\assets\themes\defaultthemes.ini">
+    <None Include="Content\themes\defaultthemes.ini">
       <Filter>Content\themes</Filter>
     </None>
     <None Include="Content\asciifont_atlas.meta">
       <Filter>Content</Filter>
     </None>
+    <None Include="Content\font_atlas.meta">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\sfx_back.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\sfx_confirm.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\sfx_select.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\sfx_toggle_off.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\sfx_toggle_on.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\shaders\5xBR-lv2.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\natural.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\debugger\.nojekyll">
+      <Filter>Content\debugger</Filter>
+    </None>
+    <None Include="Content\debugger\asset-manifest.json">
+      <Filter>Content\debugger</Filter>
+    </None>
+    <None Include="Content\debugger\index.html">
+      <Filter>Content\debugger</Filter>
+    </None>
+    <None Include="Content\debugger\manifest.json">
+      <Filter>Content\debugger</Filter>
+    </None>
+    <None Include="Content\debugger\static\css\*.css">
+      <Filter>Content\debugger\static\css</Filter>
+    </None>
+    <None Include="Content\debugger\static\css\*.map">
+      <Filter>Content\debugger\static\css</Filter>
+    </None>
+    <None Include="Content\debugger\static\js\*.js">
+      <Filter>Content\debugger\static\js</Filter>
+    </None>
+    <None Include="Content\debugger\static\js\*.map">
+      <Filter>Content\debugger\static\js</Filter>
+    </None>
+    <None Include="Content\debugger\static\media\*.svg">
+      <Filter>Content\debugger\static\media</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Content\gamecontrollerdb.txt">
       <Filter>Content</Filter>
+    </Text>
+    <Text Include="Content\debugger\static\js\*.txt">
+      <Filter>Content\debugger\static\js</Filter>
     </Text>
   </ItemGroup>
   <ItemGroup>

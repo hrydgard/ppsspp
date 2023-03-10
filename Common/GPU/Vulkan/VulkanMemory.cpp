@@ -18,6 +18,9 @@
 // Additionally, Common/Vulkan/* , including this file, are also licensed
 // under the public domain.
 
+#include <set>
+#include <mutex>
+
 #include "Common/Math/math_util.h"
 
 #include "Common/Log.h"
@@ -26,15 +29,39 @@
 
 using namespace PPSSPP_VK;
 
+// Global push buffer tracker for vulkan memory profiling.
+// Don't want to manually dig up all the active push buffers.
+static std::mutex g_pushBufferListMutex;
+static std::set<VulkanPushBuffer *> g_pushBuffers;
+
 VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, const char *name, size_t size, VkBufferUsageFlags usage, PushBufferType type)
 		: vulkan_(vulkan), name_(name), size_(size), usage_(usage), type_(type) {
+	{
+		std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
+		g_pushBuffers.insert(this);
+	}
+
 	bool res = AddBuffer();
 	_assert_(res);
 }
 
 VulkanPushBuffer::~VulkanPushBuffer() {
+	{
+		std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
+		g_pushBuffers.erase(this);
+	}
+
 	_dbg_assert_(!writePtr_);
 	_assert_(buffers_.empty());
+}
+
+std::vector<VulkanPushBuffer *> VulkanPushBuffer::GetAllActive() {
+	std::vector<VulkanPushBuffer *> buffers;
+	std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
+	for (auto iter : g_pushBuffers) {
+		buffers.push_back(iter);
+	}
+	return buffers;
 }
 
 bool VulkanPushBuffer::AddBuffer() {
@@ -120,6 +147,10 @@ size_t VulkanPushBuffer::GetTotalSize() const {
 		sum += size_ * (buffers_.size() - 1);
 	sum += offset_;
 	return sum;
+}
+
+size_t VulkanPushBuffer::GetTotalCapacity() const {
+	return size_ * buffers_.size();
 }
 
 void VulkanPushBuffer::Map() {

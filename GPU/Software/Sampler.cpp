@@ -109,12 +109,14 @@ FetchFunc GetFetchFunc(SamplerID id, BinManager *binner) {
 thread_local SamplerJitCache::LastCache SamplerJitCache::lastFetch_;
 thread_local SamplerJitCache::LastCache SamplerJitCache::lastNearest_;
 thread_local SamplerJitCache::LastCache SamplerJitCache::lastLinear_;
+int SamplerJitCache::clearGen_ = 0;
 
 // 256k should be enough.
 SamplerJitCache::SamplerJitCache() : Rasterizer::CodeBlock(1024 * 64 * 4), cache_(64) {
 	lastFetch_.gen = -1;
 	lastNearest_.gen = -1;
 	lastLinear_.gen = -1;
+	clearGen_++;
 }
 
 void SamplerJitCache::Clear() {

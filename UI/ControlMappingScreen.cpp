@@ -684,7 +684,7 @@ void TouchTestScreen::render() {
 		if (touches_[i].id != -1) {
 			ui_context->Draw()->Circle(touches_[i].x, touches_[i].y, 100.0, 3.0, 80, 0.0f, 0xFFFFFFFF, 1.0);
 			snprintf(buffer, sizeof(buffer), "%0.1fx%0.1f", touches_[i].x, touches_[i].y);
-			ui_context->DrawText(buffer, touches_[i].x, touches_[i].y + (touches_[i].y > dp_yres - 100.0f ? -135.0f : 95.0f), 0xFFFFFFFF, ALIGN_HCENTER | FLAG_DYNAMIC_ASCII);
+			ui_context->DrawText(buffer, touches_[i].x, touches_[i].y + (touches_[i].y > g_display.dp_yres - 100.0f ? -135.0f : 95.0f), 0xFFFFFFFF, ALIGN_HCENTER | FLAG_DYNAMIC_ASCII);
 		}
 	}
 
@@ -704,11 +704,11 @@ void TouchTestScreen::render() {
 #if PPSSPP_PLATFORM(ANDROID)
 		display_xres, display_yres,
 #endif
-		dp_xres, dp_yres,
-		pixel_xres, pixel_yres,
-		g_dpi,
-		g_dpi_scale_x, g_dpi_scale_y,
-		g_dpi_scale_real_x, g_dpi_scale_real_y, extra_debug);
+		g_display.dp_xres, g_display.dp_yres,
+		g_display.pixel_xres, g_display.pixel_yres,
+		g_display.dpi,
+		g_display.dpi_scale_x, g_display.dpi_scale_y,
+		g_display.dpi_scale_real_x, g_display.dpi_scale_real_y, extra_debug);
 
 	// On Android, also add joystick debug data.
 

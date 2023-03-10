@@ -443,7 +443,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 		ScaleProjMatrix(flippedMatrix, useBufferedRendering);
 
 		render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
-		render_->SetUniformF1(&u_rotation, useBufferedRendering ? 0 : (float)g_display_rotation);
+		render_->SetUniformF1(&u_rotation, useBufferedRendering ? 0 : (float)g_display.rotation);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX) {
 		Matrix4x4 proj_through;
@@ -589,6 +589,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 
 		// These are just the reverse of the formulas in GPUStateUtils.
 		float halfActualZRange = gstate_c.vpDepthScale != 0.0f ? vpZScale / gstate_c.vpDepthScale : 0.0f;
+		float inverseDepthScale = gstate_c.vpDepthScale != 0.0f ? 1.0f / gstate_c.vpDepthScale : 0.0f;
 		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
 		float viewZScale = halfActualZRange;
 		float viewZCenter = minz + halfActualZRange;
@@ -598,7 +599,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 			viewZCenter = vpZCenter;
 		}
 
-		float data[4] = { viewZScale, viewZCenter, gstate_c.vpZOffset, 1.0f / gstate_c.vpDepthScale };
+		float data[4] = { viewZScale, viewZCenter, gstate_c.vpZOffset, inverseDepthScale };
 		SetFloatUniform4(render_, &u_depthRange, data);
 	}
 	if (dirty & DIRTY_CULLRANGE) {
@@ -715,7 +716,7 @@ void ShaderManagerGLES::Clear() {
 	DirtyShader();
 }
 
-void ShaderManagerGLES::ClearCache(bool deleteThem) {
+void ShaderManagerGLES::ClearShaders() {
 	// TODO: Recreate all from the diskcache when we come back.
 	Clear();
 }

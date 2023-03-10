@@ -537,6 +537,7 @@ BEGIN
         MENUITEM "GE Debugger...",                          ID_DEBUG_GEDEBUGGER
         MENUITEM "Extract File...",                         ID_DEBUG_EXTRACTFILE
         MENUITEM "Log Console",                             ID_DEBUG_LOG
+        MENUITEM "Copy PSP memory base pointer",             ID_DEBUG_MEMORYBASE
         MENUITEM "Memory View...",                          ID_DEBUG_MEMORYVIEW
     END
 
@@ -720,6 +721,7 @@ BEGIN
         MENUITEM "Rename Function...",         ID_DISASM_RENAMEFUNCTION
         MENUITEM "Remove Function",            ID_DISASM_REMOVEFUNCTION
         MENUITEM "Add Function Here",          ID_DISASM_ADDFUNCTION
+        MENUITEM "NOP instruction(s)",         ID_DISASM_NOPINSTRUCTION
     END
     POPUP "reglist"
     BEGIN

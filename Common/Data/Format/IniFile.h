@@ -11,6 +11,8 @@
 
 #include "Common/File/Path.h"
 
+class VFSInterface;
+
 class Section {
 	friend class IniFile;
 
@@ -86,7 +88,7 @@ public:
 	bool Load(const Path &path);
 	bool Load(const std::string &filename) { return Load(Path(filename)); }
 	bool Load(std::istream &istream);
-	bool LoadFromVFS(const std::string &filename);
+	bool LoadFromVFS(VFSInterface &vfs, const std::string &filename);
 
 	bool Save(const Path &path);
 	bool Save(const std::string &filename) { return Save(Path(filename)); }

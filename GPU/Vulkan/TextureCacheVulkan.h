@@ -58,10 +58,9 @@ public:
 	~TextureCacheVulkan();
 
 	void StartFrame() override;
-	void EndFrame();
 
-	void DeviceLost();
-	void DeviceRestore(Draw::DrawContext *draw);
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	void SetFramebufferManager(FramebufferManagerVulkan *fbManager);
 	void SetDrawEngine(DrawEngineVulkan *td) {
@@ -72,8 +71,6 @@ public:
 	}
 
 	void ForgetLastTexture() override {}
-	void InvalidateLastTexture() override {}
-
 	void NotifyConfigChanged() override;
 
 	void GetVulkanHandles(VkImageView &imageView, VkSampler &sampler) {

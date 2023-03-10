@@ -131,7 +131,10 @@ public:
 		info->range = sizeof(T);
 	}
 
-	size_t GetTotalSize() const;
+	size_t GetTotalSize() const;  // Used size
+	size_t GetTotalCapacity() const;
+
+	static std::vector<VulkanPushBuffer *> GetAllActive();
 
 private:
 	bool AddBuffer();
@@ -173,7 +176,7 @@ private:
 	const char *tag_;
 	VulkanContext *vulkan_ = nullptr;
 	VkDescriptorPool descPool_ = VK_NULL_HANDLE;
-	VkDescriptorPoolCreateInfo info_;
+	VkDescriptorPoolCreateInfo info_{};
 	std::vector<VkDescriptorPoolSize> sizes_;
 	std::function<void()> clear_;
 	uint32_t usage_ = 0;

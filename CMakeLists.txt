@@ -588,8 +588,10 @@ add_library(Common STATIC
 	Common/Data/Random/Rng.h
 	Common/File/VFS/VFS.h
 	Common/File/VFS/VFS.cpp
-	Common/File/VFS/AssetReader.cpp
-	Common/File/VFS/AssetReader.h
+	Common/File/VFS/ZipFileReader.cpp
+	Common/File/VFS/ZipFileReader.h
+	Common/File/VFS/DirectoryReader.cpp
+	Common/File/VFS/DirectoryReader.h
 	Common/File/AndroidStorage.h
 	Common/File/AndroidStorage.cpp
 	Common/File/DiskFree.h
@@ -1150,7 +1152,7 @@ elseif(IOS AND NOT LIBRETRO)
 		UI/DarwinFileSystemServices.h
 		Common/Battery/AppleBatteryClient.m
 	)
-    
+
 	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreVideo -framework CoreMedia -framework CoreServices" )
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
@@ -1188,7 +1190,15 @@ elseif(USING_QT_UI)
 	if(USING_GLES2)
 		add_definitions(-DQT_OPENGL_ES -DQT_OPENGL_ES_2)
 	endif()
-
+	if(APPLE)
+		list(APPEND NativeAppSource
+			UI/DarwinFileSystemServices.mm
+			UI/DarwinFileSystemServices.h
+			Common/Battery/AppleBatteryClient.m)
+		set_source_files_properties(Common/Battery/AppleBatteryClient.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set_source_files_properties(UI/DarwinFileSystemServices.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY})
+	endif()
 	include_directories(Qt)
 	include_directories(${CMAKE_CURRENT_BINARY_DIR})
 	set(nativeExtraLibs ${nativeExtraLibs} Qt5::OpenGL Qt5::Gui Qt5::Core Qt5::Multimedia)
@@ -1346,7 +1356,7 @@ if(LINUX AND NOT ANDROID)
 endif()
 
 set(ATOMIC_LIB)
-if(ANDROID OR (LINUX AND ARM_DEVICE))
+if(ANDROID OR (LINUX AND ARM_DEVICE) OR (LINUX AND RISCV64))
 	set(ATOMIC_LIB atomic)
 endif()
 
@@ -1629,6 +1639,10 @@ set(GPU_SOURCES
 	GPU/Common/TextureScalerCommon.h
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
+	GPU/Common/TextureReplacer.cpp
+	GPU/Common/TextureReplacer.h
+	GPU/Common/ReplacedTexture.cpp
+	GPU/Common/ReplacedTexture.h
 	GPU/Debugger/Breakpoints.cpp
 	GPU/Debugger/Breakpoints.h
 	GPU/Debugger/Debugger.cpp
@@ -1651,6 +1665,8 @@ set(GPU_SOURCES
 	GPU/GPU.h
 	GPU/GPUCommon.cpp
 	GPU/GPUCommon.h
+	GPU/GPUCommonHW.cpp
+	GPU/GPUCommonHW.h
 	GPU/GPUState.cpp
 	GPU/GPUState.h
 	GPU/Math3D.cpp
@@ -2035,8 +2051,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Screenshot.h
 	Core/System.cpp
 	Core/System.h
-	Core/TextureReplacer.cpp
-	Core/TextureReplacer.h
 	Core/ThreadPools.cpp
 	Core/ThreadPools.h
 	Core/Util/AudioFormat.cpp

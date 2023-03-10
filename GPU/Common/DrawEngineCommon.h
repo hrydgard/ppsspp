@@ -74,6 +74,8 @@ public:
 	virtual ~DrawEngineCommon();
 
 	void Init();
+	virtual void DeviceLost() = 0;
+	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
@@ -115,7 +117,9 @@ public:
 	}
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
-		return decJitCache_->IsInSpace(ptr);
+		if (decJitCache_)
+			return decJitCache_->IsInSpace(ptr);
+		return false;
 	}
 	int GetNumDrawCalls() const {
 		return numDrawCalls;
@@ -123,9 +127,10 @@ public:
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
+	virtual void ClearTrackedVertexArrays() {}
+
 protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) { return enabled; }
-	virtual void ClearTrackedVertexArrays() {}
 
 	int ComputeNumVertsToDecode() const;
 	void DecodeVerts(u8 *dest);

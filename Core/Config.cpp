@@ -39,6 +39,7 @@
 #include "Common/Data/Text/Parsers.h"
 #include "Common/CPUDetect.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/LogManager.h"
 #include "Common/OSVersion.h"
 #include "Common/System/Display.h"
@@ -436,7 +437,7 @@ const char *DefaultLangRegion() {
 	} else if (langRegion.length() >= 3) {
 		// Don't give up.  Let's try a fuzzy match - so nl_BE can match nl_NL.
 		IniFile mapping;
-		mapping.LoadFromVFS("langregion.ini");
+		mapping.LoadFromVFS(g_VFS, "langregion.ini");
 		std::vector<std::string> keys;
 		mapping.GetKeys("LangRegionNames", keys);
 
@@ -876,7 +877,6 @@ static const ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("ReplaceTextures", &g_Config.bReplaceTextures, true, true, true),
 	ReportedConfigSetting("SaveNewTextures", &g_Config.bSaveNewTextures, false, true, true),
 	ConfigSetting("IgnoreTextureFilenames", &g_Config.bIgnoreTextureFilenames, false, true, true),
-	ConfigSetting("ReplaceTexturesAllowLate", &g_Config.bReplaceTexturesAllowLate, true, true, true),
 
 	ReportedConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1, true, true),
 	ReportedConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, true, true),
@@ -1152,8 +1152,8 @@ static const ConfigSetting vrSettings[] = {
 	ConfigSetting("VRHeadUpDisplayScale", &g_Config.fHeadUpDisplayScale, 0.3f),
 	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f),
 	ConfigSetting("VRHeadRotationScale", &g_Config.fHeadRotationScale, 5.0f),
+	ConfigSetting("VRHeadRotationEnabled", &g_Config.bHeadRotationEnabled, false),
 	ConfigSetting("VRHeadRotationSmoothing", &g_Config.bHeadRotationSmoothing, false),
-	ConfigSetting("VRHeadRotation", &g_Config.iHeadRotation, 0),
 };
 
 struct ConfigSectionSettings {
@@ -1222,7 +1222,7 @@ Config::~Config() {
 
 void Config::LoadLangValuesMapping() {
 	IniFile mapping;
-	mapping.LoadFromVFS("langregion.ini");
+	mapping.LoadFromVFS(g_VFS, "langregion.ini");
 	std::vector<std::string> keys;
 	mapping.GetKeys("LangRegionNames", keys);
 
@@ -1558,8 +1558,8 @@ bool Config::Save(const char *saveReason) {
 
 void Config::PostLoadCleanup(bool gameSpecific) {
 	// Override ppsspp.ini JIT value to prevent crashing
-	if (DefaultCpuCore() != (int)CPUCore::JIT && g_Config.iCpuCore == (int)CPUCore::JIT) {
-		jitForcedOff = true;
+	jitForcedOff = DefaultCpuCore() != (int)CPUCore::JIT && g_Config.iCpuCore == (int)CPUCore::JIT;
+	if (jitForcedOff) {
 		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
 	}
 
@@ -1589,16 +1589,24 @@ void Config::PostLoadCleanup(bool gameSpecific) {
 
 void Config::PreSaveCleanup(bool gameSpecific) {
 	if (jitForcedOff) {
-		// if JIT has been forced off, we don't want to screw up the user's ppsspp.ini
-		g_Config.iCpuCore = (int)CPUCore::JIT;
+		// If we forced jit off and it's still set to IR, change it back to jit.
+		if (g_Config.iCpuCore == (int)CPUCore::IR_JIT)
+			g_Config.iCpuCore = (int)CPUCore::JIT;
 	}
 }
 
 void Config::PostSaveCleanup(bool gameSpecific) {
 	if (jitForcedOff) {
-		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
-		if (g_Config.iCpuCore != (int)CPUCore::INTERPRETER)
+		// Force JIT off again just in case Config::Save() is called without exiting PPSSPP.
+		if (g_Config.iCpuCore == (int)CPUCore::JIT)
 			g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+	}
+}
+
+void Config::NotifyUpdatedCpuCore() {
+	if (jitForcedOff && g_Config.iCpuCore == (int)CPUCore::IR_JIT) {
+		// No longer forced off, the user set it to IR jit.
+		jitForcedOff = false;
 	}
 }
 
@@ -1924,8 +1932,8 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 	});
 
 	KeyMap::LoadFromIni(iniFile);
-	
-	if (!appendedConfigFileName_.ToString().empty() && 
+
+	if (!appendedConfigFileName_.ToString().empty() &&
 		std::find(appendedConfigUpdatedGames_.begin(), appendedConfigUpdatedGames_.end(), pGameId) == appendedConfigUpdatedGames_.end()) {
 
 		LoadAppendedConfig();

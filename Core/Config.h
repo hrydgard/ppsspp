@@ -213,7 +213,6 @@ public:
 	bool bReplaceTextures;
 	bool bSaveNewTextures;
 	bool bIgnoreTextureFilenames;
-	bool bReplaceTexturesAllowLate;
 	int iTexScalingLevel; // 0 = auto, 1 = off, 2 = 2x, ..., 5 = 5x
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 	bool bTexDeposterize;
@@ -471,8 +470,8 @@ public:
 	float fHeadUpDisplayScale;
 	float fMotionLength;
 	float fHeadRotationScale;
+	bool bHeadRotationEnabled;
 	bool bHeadRotationSmoothing;
-	int iHeadRotation;
 
 	// Debugger
 	int iDisasmWindowX;
@@ -567,6 +566,8 @@ public:
 	const std::map<std::string, std::pair<std::string, int>> &GetLangValuesMapping();
 	bool LoadAppendedConfig();
 	void SetAppendedConfigIni(const Path &path);
+
+	void NotifyUpdatedCpuCore();
 
 protected:
 	void LoadStandardControllerIni();

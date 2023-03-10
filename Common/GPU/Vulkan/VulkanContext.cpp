@@ -535,7 +535,7 @@ int VulkanContext::GetBestPhysicalDevice() {
 
 void VulkanContext::ChooseDevice(int physical_device) {
 	physical_device_ = physical_device;
-	INFO_LOG(G3D, "Chose physical device %d: %p", physical_device, physical_devices_[physical_device]);
+	INFO_LOG(G3D, "Chose physical device %d: %s", physical_device, physicalDeviceProperties_[physical_device].properties.deviceName);
 
 	GetDeviceLayerProperties();
 	if (!CheckLayers(device_layer_properties_, device_layer_names_)) {
@@ -711,7 +711,9 @@ VkResult VulkanContext::CreateDevice() {
 	} else {
 		VulkanLoadDeviceFunctions(device_, extensionsLookup_);
 	}
-	INFO_LOG(G3D, "Vulkan Device created");
+	INFO_LOG(G3D, "Vulkan Device created: %s", physicalDeviceProperties_[physical_device_].properties.deviceName);
+
+	// Since we successfully created a device (however we got here, might be interesting in debug), we force the choice to be visible in the menu.
 	VulkanSetAvailable(true);
 
 	VmaAllocatorCreateInfo allocatorInfo = {};
@@ -1288,8 +1290,8 @@ bool VulkanContext::InitSwapchain() {
 	VkSurfaceTransformFlagBitsKHR preTransform;
 	std::string supportedTransforms = surface_transforms_to_string(surfCapabilities_.supportedTransforms);
 	std::string currentTransform = surface_transforms_to_string(surfCapabilities_.currentTransform);
-	g_display_rotation = DisplayRotation::ROTATE_0;
-	g_display_rot_matrix.setIdentity();
+	g_display.rotation = DisplayRotation::ROTATE_0;
+	g_display.rot_matrix.setIdentity();
 
 	uint32_t allowedRotations = VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR;
 	// Hack: Don't allow 270 degrees pretransform (inverse landscape), it creates bizarre issues on some devices (see #15773).
@@ -1300,20 +1302,20 @@ bool VulkanContext::InitSwapchain() {
 	} else if (surfCapabilities_.currentTransform & allowedRotations) {
 		// Normal, sensible rotations. Let's handle it.
 		preTransform = surfCapabilities_.currentTransform;
-		g_display_rot_matrix.setIdentity();
+		g_display.rot_matrix.setIdentity();
 		switch (surfCapabilities_.currentTransform) {
 		case VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR:
-			g_display_rotation = DisplayRotation::ROTATE_90;
-			g_display_rot_matrix.setRotationZ90();
+			g_display.rotation = DisplayRotation::ROTATE_90;
+			g_display.rot_matrix.setRotationZ90();
 			std::swap(swapChainExtent_.width, swapChainExtent_.height);
 			break;
 		case VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR:
-			g_display_rotation = DisplayRotation::ROTATE_180;
-			g_display_rot_matrix.setRotationZ180();
+			g_display.rotation = DisplayRotation::ROTATE_180;
+			g_display.rot_matrix.setRotationZ180();
 			break;
 		case VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR:
-			g_display_rotation = DisplayRotation::ROTATE_270;
-			g_display_rot_matrix.setRotationZ270();
+			g_display.rotation = DisplayRotation::ROTATE_270;
+			g_display.rot_matrix.setRotationZ270();
 			std::swap(swapChainExtent_.width, swapChainExtent_.height);
 			break;
 		default:

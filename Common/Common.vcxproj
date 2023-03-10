@@ -425,8 +425,9 @@
     <ClInclude Include="File\FileUtil.h" />
     <ClInclude Include="File\Path.h" />
     <ClInclude Include="File\PathBrowser.h" />
+    <ClInclude Include="File\VFS\DirectoryReader.h" />
     <ClInclude Include="File\VFS\VFS.h" />
-    <ClInclude Include="File\VFS\AssetReader.h" />
+    <ClInclude Include="File\VFS\ZipFileReader.h" />
     <ClInclude Include="GPU\D3D11\D3D11Loader.h" />
     <ClInclude Include="GPU\D3D9\D3DCompilerLoader.h" />
     <ClInclude Include="GPU\D3D9\D3D9ShaderCompiler.h" />
@@ -861,8 +862,9 @@
     <ClCompile Include="File\FileUtil.cpp" />
     <ClCompile Include="File\Path.cpp" />
     <ClCompile Include="File\PathBrowser.cpp" />
+    <ClCompile Include="File\VFS\DirectoryReader.cpp" />
     <ClCompile Include="File\VFS\VFS.cpp" />
-    <ClCompile Include="File\VFS\AssetReader.cpp" />
+    <ClCompile Include="File\VFS\ZipFileReader.cpp" />
     <ClCompile Include="GPU\D3D11\D3D11Loader.cpp" />
     <ClCompile Include="GPU\D3D11\thin3d_d3d11.cpp" />
     <ClCompile Include="GPU\D3D9\D3DCompilerLoader.cpp" />

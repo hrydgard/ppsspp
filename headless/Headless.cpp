@@ -24,7 +24,8 @@
 #endif
 #include "Common/CPUDetect.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/ZipFileReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Common/TimeUtil.h"
@@ -103,7 +104,7 @@ int System_GetPropertyInt(SystemProperty prop) {
 	return -1;
 }
 float System_GetPropertyFloat(SystemProperty prop) { return -1.0f; }
-bool System_GetPropertyBool(SystemProperty prop) { 
+bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_CAN_JIT:
 			return true;
@@ -482,13 +483,13 @@ int main(int argc, const char* argv[])
 #if PPSSPP_PLATFORM(ANDROID)
 	// For some reason the debugger installs it with this name?
 	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp-2.apk"))) {
-		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp-2.apk", "assets/"));
+		g_VFS.Register("", ZipFileReader::Create(Path("/data/app/org.ppsspp.ppsspp-2.apk"), "assets/"));
 	}
 	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp.apk"))) {
-		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp.apk", "assets/"));
+		g_VFS.Register("", ZipFileReader::Create(Path("/data/app/org.ppsspp.ppsspp.apk"), "assets/"));
 	}
 #elif !PPSSPP_PLATFORM(WINDOWS)
-	VFSRegister("", new DirectoryAssetReader(g_Config.flash0Directory / ".."));
+	g_VFS.Register("", new DirectoryReader(g_Config.flash0Directory / ".."));
 #endif
 
 	UpdateUIState(UISTATE_INGAME);
@@ -557,7 +558,7 @@ int main(int argc, const char* argv[])
 	host = nullptr;
 	headlessHost = nullptr;
 
-	VFSShutdown();
+	g_VFS.Clear();
 	LogManager::Shutdown();
 	delete printfLogger;
 

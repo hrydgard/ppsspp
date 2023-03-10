@@ -138,7 +138,7 @@ void ScreenManager::deviceRestored() {
 }
 
 void ScreenManager::resized() {
-	INFO_LOG(SYSTEM, "ScreenManager::resized(dp: %dx%d)", dp_xres, dp_yres);
+	INFO_LOG(SYSTEM, "ScreenManager::resized(dp: %dx%d)", g_display.dp_xres, g_display.dp_yres);
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	// Have to notify the whole stack, otherwise there will be problems when going back
 	// to non-top screens.

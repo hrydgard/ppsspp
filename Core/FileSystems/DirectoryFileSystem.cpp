@@ -980,7 +980,7 @@ int VFSFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 	VERBOSE_LOG(FILESYS, "VFSFileSystem actually opening %s (%s)", fullNameC, filename.c_str());
 
 	size_t size;
-	u8 *data = VFSReadFile(fullNameC, &size);
+	u8 *data = g_VFS.ReadFile(fullNameC, &size);
 	if (!data) {
 		ERROR_LOG(FILESYS, "VFSFileSystem failed to open %s", filename.c_str());
 		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
@@ -1001,7 +1001,7 @@ PSPFileInfo VFSFileSystem::GetFileInfo(std::string filename) {
 
 	std::string fullName = GetLocalPath(filename);
 	File::FileInfo fo;
-	if (VFSGetFileInfo(fullName.c_str(), &fo)) {
+	if (g_VFS.GetFileInfo(fullName.c_str(), &fo)) {
 		x.exists = fo.exists;
 		if (x.exists) {
 			x.size = fo.size;

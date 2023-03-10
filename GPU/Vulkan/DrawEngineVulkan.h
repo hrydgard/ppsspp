@@ -158,8 +158,8 @@ public:
 		framebufferManager_ = fbManager;
 	}
 
-	void DeviceLost();
-	void DeviceRestore(Draw::DrawContext *draw);
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	// So that this can be inlined
 	void Flush() {

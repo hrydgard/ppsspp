@@ -175,7 +175,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Data/Text/WrapText.cpp \
   $(SRC)/Common/File/AndroidStorage.cpp \
   $(SRC)/Common/File/VFS/VFS.cpp \
-  $(SRC)/Common/File/VFS/AssetReader.cpp \
+  $(SRC)/Common/File/VFS/ZipFileReader.cpp \
+  $(SRC)/Common/File/VFS/DirectoryReader.cpp \
   $(SRC)/Common/File/DiskFree.cpp \
   $(SRC)/Common/File/Path.cpp \
   $(SRC)/Common/File/PathBrowser.cpp \
@@ -358,6 +359,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GPU.cpp \
   $(SRC)/GPU/GPUCommon.cpp \
+  $(SRC)/GPU/GPUCommonHW.cpp \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeConstants.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
@@ -387,6 +389,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/ShaderUniforms.cpp \
   $(SRC)/GPU/Common/VertexShaderGenerator.cpp \
   $(SRC)/GPU/Common/GeometryShaderGenerator.cpp \
+  $(SRC)/GPU/Common/TextureReplacer.cpp \
+  $(SRC)/GPU/Common/ReplacedTexture.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
   $(SRC)/GPU/Debugger/Debugger.cpp \
   $(SRC)/GPU/Debugger/GECommandTable.cpp \
@@ -454,7 +458,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/SaveState.cpp \
   $(SRC)/Core/Screenshot.cpp \
   $(SRC)/Core/System.cpp \
-  $(SRC)/Core/TextureReplacer.cpp \
   $(SRC)/Core/TiltEventProcessor.cpp \
   $(SRC)/Core/ThreadPools.cpp \
   $(SRC)/Core/WebServer.cpp \

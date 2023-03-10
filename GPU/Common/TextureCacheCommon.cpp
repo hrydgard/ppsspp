@@ -107,7 +107,7 @@ inline int dimHeight(u16 dim) {
 }
 
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
-	: draw_(draw), draw2D_(draw2D) {
+	: draw_(draw), draw2D_(draw2D), replacer_(draw) {
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
 	// It's only possible to have 1KB of palette entries, although we allow 2KB in a hack.
@@ -136,6 +136,30 @@ TextureCacheCommon::~TextureCacheCommon() {
 	FreeAlignedMemory(clutBufConverted_);
 	FreeAlignedMemory(clutBufRaw_);
 	FreeAlignedMemory(expandClut_);
+}
+
+void TextureCacheCommon::StartFrame() {
+	ForgetLastTexture();
+	textureShaderCache_->Decimate();
+	timesInvalidatedAllThisFrame_ = 0;
+	replacementTimeThisFrame_ = 0.0;
+
+	if (g_Config.bShowDebugStats) {
+		gpuStats.numReplacerTrackedTex = replacer_.GetNumTrackedTextures();
+		gpuStats.numCachedReplacedTextures = replacer_.GetNumCachedReplacedTextures();
+	}
+
+	if (texelsScaledThisFrame_) {
+		VERBOSE_LOG(G3D, "Scaled %d texels", texelsScaledThisFrame_);
+	}
+	texelsScaledThisFrame_ = 0;
+
+	if (clearCacheNextFrame_) {
+		Clear(true);
+		clearCacheNextFrame_ = false;
+	} else {
+		Decimate(false);
+	}
 }
 
 // Produces a signed 1.23.8 value.
@@ -509,17 +533,31 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			int w0 = gstate.getTextureWidth(0);
 			int h0 = gstate.getTextureHeight(0);
 			int d0 = 1;
-			ReplacedTexture &replaced = FindReplacement(entry, w0, h0, d0);
-			if (replaced.IsInvalid()) {
-				entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
-				if (g_Config.bSaveNewTextures) {
-					// Load once more to actually save.
+			ReplacedTexture *replaced = FindReplacement(entry, w0, h0, d0);
+			if (replaced) {
+				// This texture is pending a replacement load.
+				// So check the replacer if it's reached a conclusion.
+				switch (replaced->State()) {
+				case ReplacementState::NOT_FOUND:
+					// Didn't find a replacement, so stop looking.
+					WARN_LOG(G3D, "No replacement for texture %dx%d", w0, h0);
+					entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+					if (g_Config.bSaveNewTextures) {
+						// Load it once more to actually save it. Since we don't set STATUS_TO_REPLACE, we won't end up looping.
+						match = false;
+						reason = "replacing";
+					}
+					break;
+				case ReplacementState::ACTIVE:
+					// There is now replacement data available!
+					// Just reload the texture to process the replacement.
 					match = false;
 					reason = "replacing";
+					break;
+				default:
+					// We'll just wait for a result.
+					break;
 				}
-			} else {
-				match = false;
-				reason = "replacing";
 			}
 		}
 
@@ -817,7 +855,7 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 	gpuStats.numTextureInvalidations++;
 	DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
 	if (doDelete) {
-		InvalidateLastTexture();
+		ForgetLastTexture();
 		ReleaseTexture(entry, true);
 		entry->status &= ~TexCacheEntry::STATUS_IS_SCALED;
 	}
@@ -1463,17 +1501,21 @@ u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
 	return pixelSize << (dimW + dimH);
 }
 
-ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &w, int &h, int &d) {
+ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &w, int &h, int &d) {
 	if (d != 1) {
 		// We don't yet support replacing 3D textures.
-		return replacer_.FindNone();
+		return nullptr;
 	}
 
 	// Short circuit the non-enabled case.
 	// Otherwise, due to bReplaceTexturesAllowLate, we'll still spawn tasks looking for replacements
 	// that then won't be used.
 	if (!replacer_.Enabled()) {
-		return replacer_.FindNone();
+		return nullptr;
+	}
+
+	if ((entry->status & TexCacheEntry::STATUS_VIDEO) && replacer_.AllowVideo()) {
+		return nullptr;
 	}
 
 	// Allow some delay to reduce pop-in.
@@ -1482,17 +1524,32 @@ ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 	double replaceStart = time_now_d();
 	double budget = std::min(MAX_BUDGET_PER_TEX, replacementFrameBudget_ - replacementTimeThisFrame_);
 	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
-	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h, budget);
-	if (replaced.IsReady(budget)) {
-		if (replaced.GetSize(0, w, h)) {
-			// Consider it already "scaled."
+	ReplacedTexture *replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h, budget);
+	if (!replaced) {
+		// TODO: Remove the flag here?
+		// entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+		replacementTimeThisFrame_ += time_now_d() - replaceStart;
+		return nullptr;
+	}
+
+	if (replaced->IsReady(budget)) {
+		if (replaced->State() == ReplacementState::ACTIVE) {
+			replaced->GetSize(0, &w, &h);
+			// Consider it already "scaled.".
 			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
 		}
 
 		// Remove the flag, even if it was invalid.
 		entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
-	} else if (!replaced.IsInvalid()) {
+	}
+
+	switch (replaced->State()) {
+	case ReplacementState::POPULATED:
+	case ReplacementState::PENDING:
+	case ReplacementState::UNINITIALIZED:
+		// Make sure we keep polling.
 		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
+		break;
 	}
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	return replaced;
@@ -1990,7 +2047,7 @@ void TextureCacheCommon::ApplyTexture() {
 	TexCacheEntry *entry = nextTexture_;
 	if (!entry) {
 		// Maybe we bound a framebuffer?
-		InvalidateLastTexture();
+		ForgetLastTexture();
 		if (failedTexture_) {
 			// Backends should handle this by binding a black texture with 0 alpha.
 			BindTexture(nullptr);
@@ -2013,7 +2070,7 @@ void TextureCacheCommon::ApplyTexture() {
 		// Regardless of hash fails or otherwise, if this is a video, mark it frequently changing.
 		// This prevents temporary scaling perf hits on the first second of video.
 		if (IsVideo(entry->addr)) {
-			entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+			entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT | TexCacheEntry::STATUS_VIDEO;
 		}
 
 		if (nextNeedsRehash_) {
@@ -2050,7 +2107,7 @@ void TextureCacheCommon::ApplyTexture() {
 	if (nextNeedsRebuild_) {
 		_assert_(!entry->texturePtr);
 		BuildTexture(entry);
-		InvalidateLastTexture();
+		ForgetLastTexture();
 	}
 
 	if (entry->status & TexCacheEntry::STATUS_CLUT_GPU) {
@@ -2205,7 +2262,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
 
 			draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
-			InvalidateLastTexture();
+			ForgetLastTexture();
 			return;
 		}
 
@@ -2247,8 +2304,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
 		draw_->InvalidateFramebuffer(Draw::FB_INVALIDATION_STORE, Draw::FB_DEPTH_BIT | Draw::FB_STENCIL_BIT);
 		draw_->SetScissorRect(u1, v1, u2 - u1, v2 - v1);
-		Draw::Viewport vp{ 0.0f, 0.0f, (float)depalWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
-		draw_->SetViewports(1, &vp);
+		Draw::Viewport viewport{ 0.0f, 0.0f, (float)depalWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
+		draw_->SetViewport(viewport);
 
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, Draw::ALL_LAYERS);
 		if (clutRenderAddress_ == 0xFFFFFFFF) {
@@ -2352,8 +2409,8 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
 	draw_->InvalidateFramebuffer(Draw::FB_INVALIDATION_STORE, Draw::FB_DEPTH_BIT | Draw::FB_STENCIL_BIT);
 	draw_->SetScissorRect(u1, v1, u2 - u1, v2 - v1);
-	Draw::Viewport vp{ 0.0f, 0.0f, (float)texWidth, (float)texHeight, 0.0f, 1.0f };
-	draw_->SetViewports(1, &vp);
+	Draw::Viewport viewport{ 0.0f, 0.0f, (float)texWidth, (float)texHeight, 0.0f, 1.0f };
+	draw_->SetViewport(viewport);
 
 	draw_->BindNativeTexture(0, GetNativeTextureView(entry));
 	draw_->BindFramebufferAsTexture(dynamicClutFbo_, 1, Draw::FB_COLOR_BIT, 0);
@@ -2759,10 +2816,10 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	}
 
 	if (canReplace) {
-		plan.replaced = &FindReplacement(entry, plan.w, plan.h, plan.depth);
-		plan.replaceValid = plan.replaced->Valid();
+		plan.replaced = FindReplacement(entry, plan.w, plan.h, plan.depth);
+		plan.replaceValid = plan.replaced ? plan.replaced->State() == ReplacementState::ACTIVE : false;
 	} else {
-		plan.replaced = &replacer_.FindNone();
+		plan.replaced = nullptr;
 		plan.replaceValid = false;
 	}
 
@@ -2776,7 +2833,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.levelsToCreate = std::min(plan.levelsToLoad, plan.levelsToCreate);
 		plan.badMipSizes = false;
 		// But, we still need to create the texture at a larger size.
-		plan.replaced->GetSize(0, plan.createW, plan.createH);
+		plan.replaced->GetSize(0, &plan.createW, &plan.createH);
 	} else {
 		if (replacer_.Enabled() && !plan.replaceValid && plan.depth == 1 && canReplace) {
 			ReplacedTextureDecodeInfo replacedInfo;
@@ -2784,9 +2841,9 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 			replacedInfo.cachekey = entry->CacheKey();
 			replacedInfo.hash = entry->fullhash;
 			replacedInfo.addr = entry->addr;
-			replacedInfo.isVideo = plan.isVideo;
 			replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
 			replacedInfo.scaleFactor = plan.scaleFactor;
+			replacedInfo.isVideo = plan.isVideo;
 			replacedInfo.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 			plan.saveTexture = replacer_.WillSave(replacedInfo);
 		}
@@ -2828,9 +2885,10 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 
 	PROFILE_THIS_SCOPE("decodetex");
 
-	if (plan.replaceValid && plan.replaced->GetSize(srcLevel, w, h)) {
+	if (plan.replaceValid) {
+		plan.replaced->GetSize(srcLevel, &w, &h);
 		double replaceStart = time_now_d();
-		plan.replaced->Load(srcLevel, data, stride);
+		plan.replaced->CopyLevelTo(srcLevel, data, stride);
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	} else {
 		GETextureFormat tfmt = (GETextureFormat)entry.format;
@@ -2877,7 +2935,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 			}
 		}
 
-		if (replacer_.Enabled() && plan.replaced->IsInvalid()) {
+		if (plan.saveTexture && !lowMemoryMode_) {
 			ReplacedTextureDecodeInfo replacedInfo;
 			replacedInfo.cachekey = entry.CacheKey();
 			replacedInfo.hash = entry.fullhash;
@@ -2905,8 +2963,4 @@ CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GE
 	default:
 		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);
 	}
-}
-
-void TextureCacheCommon::StartFrame() {
-	textureShaderCache_->Decimate();
 }

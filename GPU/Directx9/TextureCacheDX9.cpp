@@ -111,7 +111,7 @@ void TextureCacheDX9::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 	}
 }
 
-void TextureCacheDX9::InvalidateLastTexture() {
+void TextureCacheDX9::ForgetLastTexture() {
 	lastBoundTexture = INVALID_TEX;
 }
 
@@ -154,22 +154,8 @@ void TextureCacheDX9::ApplySamplingParams(const SamplerCacheKey &key) {
 void TextureCacheDX9::StartFrame() {
 	TextureCacheCommon::StartFrame();
 
-	InvalidateLastTexture();
-	timesInvalidatedAllThisFrame_ = 0;
-	replacementTimeThisFrame_ = 0.0;
-
-	if (texelsScaledThisFrame_) {
-		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
-	}
-	texelsScaledThisFrame_ = 0;
-	if (clearCacheNextFrame_) {
-		Clear(true);
-		clearCacheNextFrame_ = false;
-	} else {
-		Decimate();
-	}
-
 	if (gstate_c.Use(GPU_USE_ANISOTROPY)) {
+		// Just take the opportunity to set the global aniso level here, once per frame.
 		DWORD aniso = 1 << g_Config.iAnisotropyLevel;
 		DWORD anisotropyLevel = aniso > maxAnisotropyLevel ? maxAnisotropyLevel : aniso;
 		device_->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel);
@@ -229,7 +215,7 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 
 void TextureCacheDX9::Unbind() {
 	device_->SetTexture(0, nullptr);
-	InvalidateLastTexture();
+	ForgetLastTexture();
 }
 
 void TextureCacheDX9::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
@@ -249,7 +235,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 
 	D3DFORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 	if (plan.replaceValid) {
-		dstFmt = ToD3D9Format(plan.replaced->Format(plan.baseLevelSrc));
+		dstFmt = ToD3D9Format(plan.replaced->Format());
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = D3DFMT_A8R8G8B8;
 	} else if (plan.decodeToClut8) {
