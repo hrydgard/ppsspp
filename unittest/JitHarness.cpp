@@ -92,7 +92,7 @@ static void SetupJitHarness() {
 	Memory::Init();
 	mipsr4k.Reset();
 	CoreTiming::Init();
-	InitVFPUSinCos();
+	InitVFPU();
 }
 
 static void DestroyJitHarness() {
