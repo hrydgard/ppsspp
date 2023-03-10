@@ -106,9 +106,8 @@ public:
 	void Init();
 	void NotifyConfigChanged();
 
-	inline bool Enabled() {
-		return enabled_;
-	}
+	bool Enabled() const { return enabled_; }
+	bool AllowVideo() const { return allowVideo_; }
 
 	u32 ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV);
 
