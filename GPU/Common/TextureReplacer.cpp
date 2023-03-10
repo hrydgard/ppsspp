@@ -104,12 +104,12 @@ void TextureReplacer::NotifyConfigChanged() {
 	if (enabled_) {
 		basePath_ = GetSysDirectory(DIRECTORY_TEXTURES) / gameID_;
 
-		Path newTextureDir = basePath_ / NEW_TEXTURE_DIR;
+		newTextureDir_ = basePath_ / NEW_TEXTURE_DIR;
 
 		// If we're saving, auto-create the directory.
-		if (g_Config.bSaveNewTextures && !File::Exists(newTextureDir)) {
-			File::CreateFullPath(newTextureDir);
-			File::CreateEmptyFile(newTextureDir / ".nomedia");
+		if (g_Config.bSaveNewTextures && !File::Exists(newTextureDir_)) {
+			File::CreateFullPath(newTextureDir_);
+			File::CreateEmptyFile(newTextureDir_ / ".nomedia");
 		}
 
 		enabled_ = File::IsDirectory(basePath_);
@@ -235,6 +235,8 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 
 	bool filenameWarning = false;
 	if (ini.HasSection("hashes")) {
+		aliases_.clear();
+
 		auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
 		// Format: hashname = filename.png
 		bool checkFilenames = g_Config.bSaveNewTextures && !g_Config.bIgnoreTextureFilenames && !vfsIsZip_;
@@ -475,7 +477,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 	ReplacementCacheKey replacementKey(cachekey, hash);
 	auto it = cache_.find(replacementKey);
 	if (it != cache_.end()) {
-		if (!it->second->prepareDone_ && budget > 0.0) {
+		if (it->second->State() == ReplacementState::UNINITIALIZED && budget > 0.0) {
 			// We don't do this on a thread, but we only do it while within budget.
 			PopulateReplacement(it->second, cachekey, hash, w, h);
 		}
@@ -485,11 +487,14 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 	// Okay, let's construct the result.
 
 	ReplacedTexture *result = new ReplacedTexture();
-	cache_[replacementKey] = result;
 	result->vfs_ = this->vfs_;
 	if (budget > 0.0) {
+		_dbg_assert_(result->State() == ReplacementState::UNINITIALIZED);
 		PopulateReplacement(result, cachekey, hash, w, h);
+	} else {
+		// WARN_LOG(G3D, "Postponing preparing texture (%dx%d)", w, h);
 	}
+	cache_[replacementKey] = result;
 	return result;
 }
 
@@ -502,20 +507,33 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 		cachekey = cachekey & 0xFFFFFFFFULL;
 	}
 
-	bool foundReplacement = false;
+	bool foundAlias = false;
 	bool ignored = false;
-	const std::string hashfiles = LookupHashFile(cachekey, hash, &foundReplacement, &ignored);
+	std::string hashfiles = LookupHashFile(cachekey, hash, &foundAlias, &ignored);
 
-	if (!foundReplacement || ignored) {
+	if (ignored) {
+		// WARN_LOG(G3D, "Not found/ignored: %s (%d, %d)", hashfiles.c_str(), (int)foundReplacement, (int)ignored);
 		// nothing to do?
-		texture->prepareDone_ = true;
+		texture->SetState(ReplacementState::NOT_FOUND);
 		return;
 	}
 
-	// INFO_LOG(G3D, "Found: %s", hashfiles.c_str());
-
 	std::vector<std::string> filenames;
-	SplitString(hashfiles, '|', filenames);
+
+	if (!foundAlias) {
+		// We'll just need to generate the names for each level.
+		// By default, we look for png since that's also what's dumped.
+		// For other file formats, use the ini to create aliases.
+		filenames.resize(MAX_MIP_LEVELS);
+		for (int level = 0; level < filenames.size(); level++) {
+			filenames[level] = HashName(cachekey, hash, level) + ".png";
+		}
+		texture->logId_ = filenames[0];
+		hashfiles = filenames[0];  // This is used as the key in the data cache.
+	} else {
+		texture->logId_ = hashfiles;
+		SplitString(hashfiles, '|', filenames);
+	}
 
 	for (int i = 0; i < std::min(MAX_MIP_LEVELS, (int)filenames.size()); ++i) {
 		if (filenames[i].empty()) {
@@ -524,6 +542,12 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 		}
 
 		const Path filename = basePath_ / filenames[i];
+
+		VFSFileReference *fileRef = vfs_->GetFile(filenames[i].c_str());
+		if (!fileRef) {
+			// If the file doesn't exist, let's just bail immediately here.
+			break;
+		}
 
 		// TODO: Here, if we find a file with multiple built-in mipmap levels,
 		// we'll have to change a bit how things work...
@@ -535,12 +559,6 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 		}
 
 		bool good;
-
-		VFSFileReference *fileRef = vfs_->GetFile(filenames[i].c_str());
-		if (!fileRef) {
-			// If the file doesn't exist, let's just bail immediately here.
-			break;
-		}
 
 		level.fileRef = fileRef;
 		good = PopulateLevel(level, false);
@@ -564,9 +582,16 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 			break;
 	}
 
+	if (texture->levels_.empty()) {
+		// Bad.
+		texture->SetState(ReplacementState::NOT_FOUND);
+		texture->levelData_ = nullptr;
+		return;
+	}
+
 	// Populate the data pointer.
 	texture->levelData_ = &levelCache_[hashfiles];
-	texture->prepareDone_ = true;
+	texture->SetState(ReplacementState::PREPARED);
 }
 
 bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level, bool ignoreError) {
@@ -646,8 +671,11 @@ public:
 	int h = 0;
 	int pitch = 0;  // bytes
 
-	Path basePath;
-	std::string hashfile;
+	Path filename;
+	Path saveFilename;
+	bool createSaveDirectory;
+	Path saveDirectory;
+
 	u32 replacedInfoHash = 0;
 
 	bool skipIfExists = false;
@@ -662,9 +690,6 @@ public:
 	}
 
 	void Run() override {
-		const Path filename = basePath / hashfile;
-		const Path saveFilename = basePath / NEW_TEXTURE_DIR / hashfile;
-
 		// Should we skip writing if the newly saved data already exists?
 		if (skipIfExists && File::Exists(saveFilename)) {
 			return;
@@ -674,19 +699,9 @@ public:
 		if (File::Exists(filename))
 			return;
 
-		// Create subfolder as needed.
-#ifdef _WIN32
-		size_t slash = hashfile.find_last_of("/\\");
-#else
-		size_t slash = hashfile.find_last_of("/");
-#endif
-		if (slash != hashfile.npos) {
-			// Create any directory structure as needed.
-			const Path saveDirectory = basePath / NEW_TEXTURE_DIR / hashfile.substr(0, slash);
-			if (!File::Exists(saveDirectory)) {
-				File::CreateFullPath(saveDirectory);
-				File::CreateEmptyFile(saveDirectory / ".nomedia");
-			}
+		if (createSaveDirectory && !File::Exists(saveDirectory)) {
+			File::CreateFullPath(saveDirectory);
+			File::CreateEmptyFile(saveDirectory / ".nomedia");
 		}
 
 		png_image png{};
@@ -734,19 +749,17 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		cachekey = cachekey & 0xFFFFFFFFULL;
 	}
 
-	bool found = false, ignored = false;
-	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, &found, &ignored);
+	bool foundAlias = false, ignored = false;
+	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, &foundAlias, &ignored);
 
 	// If it's empty, it's an ignored hash, we intentionally don't save.
-	if (found) {
+	if (foundAlias || ignored) {
 		// If it exists, must've been decoded and saved as a new texture already.
 		return;
 	}
 
-	// Generate a new filename.
+	// Generate a new PNG filename, complete with level.
 	hashfile = HashName(cachekey, replacedInfo.hash, level) + ".png";
-
-	const Path filename = basePath_ / hashfile;
 
 	ReplacementCacheKey replacementKey(cachekey, replacedInfo.hash);
 	auto it = savedCache_.find(replacementKey);
@@ -783,11 +796,27 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	pitch = w * 4;
 
 	SaveTextureTask *task = new SaveTextureTask(std::move(saveBuf));
+
+	task->filename = basePath_ / hashfile;
+	task->saveFilename = newTextureDir_ / hashfile;
+	task->createSaveDirectory = false;
+
+	// Create subfolder as needed.
+#ifdef _WIN32
+	size_t slash = hashfile.find_last_of("/\\");
+#else
+	size_t slash = hashfile.find_last_of("/");
+#endif
+	if (slash != hashfile.npos) {
+		// Does this ever happen?
+		// Create any directory structure as needed.
+		task->saveDirectory = newTextureDir_ / hashfile.substr(0, slash);
+		task->createSaveDirectory = true;
+	}
+
 	task->w = w;
 	task->h = h;
 	task->pitch = pitch;
-	task->basePath = basePath_;
-	task->hashfile = hashfile;
 	task->replacedInfoHash = replacedInfo.hash;
 	task->skipIfExists = skipIfExists;
 	g_threadManager.EnqueueTask(task);  // We don't care about waiting for the task. It'll be fine.
@@ -898,16 +927,16 @@ bool TextureReplacer::FindFiltering(u64 cachekey, u32 hash, TextureFiltering *fo
 	return false;
 }
 
-std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, bool *foundReplacement, bool *ignored) {
+std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, bool *foundAlias, bool *ignored) {
 	ReplacementCacheKey key(cachekey, hash);
 	auto alias = LookupWildcard(aliases_, key, cachekey, hash, ignoreAddress_);
 	if (alias != aliases_.end()) {
 		// Note: this will be blank if explicitly ignored.
-		*foundReplacement = true;
+		*foundAlias = true;
 		*ignored = alias->second.empty();
 		return alias->second;
 	}
-	*foundReplacement = false;
+	*foundAlias = false;
 	*ignored = false;
 	return "";
 }

@@ -106,9 +106,8 @@ public:
 	void Init();
 	void NotifyConfigChanged();
 
-	inline bool Enabled() {
-		return enabled_;
-	}
+	bool Enabled() const { return enabled_; }
+	bool AllowVideo() const { return allowVideo_; }
 
 	u32 ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV);
 
@@ -138,7 +137,7 @@ protected:
 	void ParseReduceHashRange(const std::string& key, const std::string& value);
 	bool LookupHashRange(u32 addr, int &w, int &h);
 	float LookupReduceHashRange(int& w, int& h);
-	std::string LookupHashFile(u64 cachekey, u32 hash, bool *foundReplacement, bool *ignored);
+	std::string LookupHashFile(u64 cachekey, u32 hash, bool *foundAlias, bool *ignored);
 	std::string HashName(u64 cachekey, u32 hash, int level);
 	void PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h);
 	bool PopulateLevel(ReplacedTextureLevel &level, bool ignoreError);
@@ -154,6 +153,7 @@ protected:
 	bool ignoreMipmap_ = false;
 	std::string gameID_;
 	Path basePath_;
+	Path newTextureDir_;
 	ReplacedTextureHash hash_ = ReplacedTextureHash::QUICK;
 
 	VFSBackend *vfs_ = nullptr;

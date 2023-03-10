@@ -54,35 +54,49 @@ private:
 	LimitedWaitable *waitable_;
 };
 
+// This can only return true if ACTIVE or NOT_FOUND.
 bool ReplacedTexture::IsReady(double budget) {
 	_assert_(vfs_ != nullptr);
-	lastUsed_ = time_now_d();
-	if (threadWaitable_ && !threadWaitable_->WaitFor(budget)) {
+
+	switch (State()) {
+	case ReplacementState::ACTIVE:
+	case ReplacementState::NOT_FOUND:
+		if (threadWaitable_) {
+			if (!threadWaitable_->WaitFor(budget)) {
+				return false;
+			}
+			// Successfully waited! Can get rid of it.
+			threadWaitable_->WaitAndRelease();
+			threadWaitable_ = nullptr;
+		}
+		lastUsed_ = time_now_d();
+		return true;
+	case ReplacementState::UNINITIALIZED:
+		// _dbg_assert_(false);
 		return false;
+	case ReplacementState::CANCEL_INIT:
+	case ReplacementState::PENDING:
+		return false;
+	case ReplacementState::PREPARED:
+		// We're gonna need to spawn a task.
+		break;
 	}
 
-	// Loaded already, or not yet on a thread?
-	if (initDone_ && levelData_ && !levelData_->data.empty()) {
-		// TODO: lock?
-		levelData_->lastUsed = lastUsed_;
-		return true;
-	}
+	lastUsed_ = time_now_d();
 
 	// Let's not even start a new texture if we're already behind.
 	if (budget < 0.0)
 		return false;
-	if (!prepareDone_)
-		return false;
 
-	if (threadWaitable_)
-		delete threadWaitable_;
+	_assert_(!threadWaitable_);
 	threadWaitable_ = new LimitedWaitable();
 	g_threadManager.EnqueueTask(new ReplacedTextureTask(vfs_, *this, threadWaitable_));
 	if (threadWaitable_->WaitFor(budget)) {
-		// If we finished all the levels, we're done.
-		return initDone_ && levelData_ != nullptr && !levelData_->data.empty();
+		// If we successfully wait here, we're done. The thread will set state accordingly.
+		_assert_(State() == ReplacementState::ACTIVE || State() == ReplacementState::NOT_FOUND || State() == ReplacementState::CANCEL_INIT);
+		return true;
 	}
-
+	SetState(ReplacementState::PENDING);
 	// Still pending on thread.
 	return false;
 }
@@ -90,19 +104,18 @@ bool ReplacedTexture::IsReady(double budget) {
 void ReplacedTexture::Prepare(VFSBackend *vfs) {
 	std::unique_lock<std::mutex> lock(mutex_);
 	this->vfs_ = vfs;
-	if (cancelPrepare_) {
-		initDone_ = true;
+
+	if (State() == ReplacementState::CANCEL_INIT) {
 		return;
 	}
 
 	for (int i = 0; i < (int)levels_.size(); ++i) {
-		if (cancelPrepare_)
+		if (State() == ReplacementState::CANCEL_INIT)
 			break;
 		PrepareData(i);
 	}
 
-	initDone_ = true;
-	if (!cancelPrepare_ && threadWaitable_)
+	if (threadWaitable_)
 		threadWaitable_->Notify();
 }
 
@@ -122,8 +135,10 @@ void ReplacedTexture::PrepareData(int level) {
 	std::vector<uint8_t> &out = levelData_->data[level];
 
 	// Already populated from cache.
-	if (!out.empty())
+	if (!out.empty()) {
+		SetState(ReplacementState::ACTIVE);
 		return;
+	}
 
 	ReplacedImageType imageType;
 
@@ -141,12 +156,14 @@ void ReplacedTexture::PrepareData(int level) {
 		std::unique_ptr<uint8_t[]> zim(new uint8_t[fileSize]);
 		if (!zim) {
 			ERROR_LOG(G3D, "Failed to allocate memory for texture replacement");
+			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
 			return;
 		}
 
 		if (vfs_->Read(openFile, &zim[0], fileSize) != fileSize) {
 			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", info.file.c_str());
+			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
 			return;
 		}
@@ -156,6 +173,7 @@ void ReplacedTexture::PrepareData(int level) {
 		if (LoadZIMPtr(&zim[0], fileSize, &w, &h, &f, &image)) {
 			if (w > info.w || h > info.h) {
 				ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
+				SetState(ReplacementState::NOT_FOUND);
 				cleanup();
 				return;
 			}
@@ -184,11 +202,13 @@ void ReplacedTexture::PrepareData(int level) {
 		pngdata.resize(vfs_->Read(openFile, &pngdata[0], fileSize));
 		if (!png_image_begin_read_from_memory(&png, &pngdata[0], pngdata.size())) {
 			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s (zip)", info.file.c_str(), png.message);
+			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
 			return;
 		}
 		if (png.width > (uint32_t)info.w || png.height > (uint32_t)info.h) {
 			ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
+			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
 			return;
 		}
@@ -206,6 +226,7 @@ void ReplacedTexture::PrepareData(int level) {
 		out.resize(info.w * info.h * 4);
 		if (!png_image_finish_read(&png, nullptr, &out[0], info.w * 4, nullptr)) {
 			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", info.file.c_str(), png.message);
+			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
 			out.resize(0);
 			return;
@@ -221,6 +242,7 @@ void ReplacedTexture::PrepareData(int level) {
 		}
 	}
 
+	SetState(ReplacementState::ACTIVE);
 	cleanup();
 }
 
@@ -235,13 +257,13 @@ void ReplacedTexture::PurgeIfOlder(double t) {
 		std::lock_guard<std::mutex> guard(levelData_->lock);
 		levelData_->data.clear();
 		// This means we have to reload.  If we never purge any, there's no need.
-		initDone_ = false;
+		SetState(ReplacementState::PREPARED);
 	}
 }
 
 ReplacedTexture::~ReplacedTexture() {
 	if (threadWaitable_) {
-		cancelPrepare_ = true;
+		SetState(ReplacementState::CANCEL_INIT);
 
 		std::unique_lock<std::mutex> lock(mutex_);
 		threadWaitable_->WaitAndRelease();
@@ -258,7 +280,7 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
 	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");
 
-	if (!initDone_) {
+	if (State() != ReplacementState::ACTIVE) {
 		WARN_LOG(G3D, "Init not done yet");
 		return false;
 	}
@@ -292,4 +314,16 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 	}
 
 	return true;
+}
+
+const char *StateString(ReplacementState state) {
+	switch (state) {
+	case ReplacementState::UNINITIALIZED: return "UNINITIALIZED";
+	case ReplacementState::PREPARED: return "PREPARED";
+	case ReplacementState::PENDING: return "PENDING";
+	case ReplacementState::NOT_FOUND: return "NOT_FOUND";
+	case ReplacementState::ACTIVE: return "ACTIVE";
+	case ReplacementState::CANCEL_INIT: return "CANCEL_INIT";
+	default: return "N/A";
+	}
 }

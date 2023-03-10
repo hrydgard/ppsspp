@@ -246,7 +246,8 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	int th = plan.createH;
 
 	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	if (plan.replaced && plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
+	if (plan.replaceValid) {
+		plan.replaced->GetSize(plan.baseLevelSrc, &tw, &th);
 		dstFmt = plan.replaced->Format();
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;

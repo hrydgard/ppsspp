@@ -22,6 +22,7 @@
 
 #include "Common/File/VFS/VFS.h"
 #include "Common/GPU/thin3d.h"
+#include "Common/Log.h"
 
 struct ReplacedLevelsCache;
 class TextureReplacer;
@@ -59,47 +60,49 @@ struct ReplacedTextureLevel {
 
 ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::string *outMagic);
 
+enum class ReplacementState : uint32_t {
+	UNINITIALIZED,
+	PREPARED,  // We located the texture files but have not started the thread.
+	PENDING,
+	NOT_FOUND,  // Also used on error loading the images.
+	ACTIVE,
+	CANCEL_INIT,
+};
+
+const char *StateString(ReplacementState state);
+
 // These aren't actually all replaced, they can also represent a placeholder for a not-found
-// replacement.
+// replacement (state_ == NOT_FOUND).
 struct ReplacedTexture {
 	~ReplacedTexture();
 
-	inline bool Valid() const {
-		if (!initDone_)
-			return false;
-		return !levels_.empty();
+	inline ReplacementState State() const {
+		return state_;
 	}
 
-	inline bool IsInvalid() const {
-		if (!initDone_)
-			return false;
-		return levels_.empty();
+	void SetState(ReplacementState state) {
+		_dbg_assert_(state != state_);
+#ifdef _DEBUG
+		// WARN_LOG(G3D, "Texture %s changed state from %s to %s", logId_.c_str(), StateString(state_), StateString(state));
+#endif
+		state_ = state;
 	}
 
-	bool GetSize(int level, int &w, int &h) const {
-		if (!initDone_)
-			return false;
-		if ((size_t)level < levels_.size()) {
-			w = levels_[level].w;
-			h = levels_[level].h;
-			return true;
-		}
-		return false;
+	void GetSize(int level, int *w, int *h) const {
+		_dbg_assert_(State() == ReplacementState::ACTIVE);
+		_dbg_assert_(level < levels_.size());
+		*w = levels_[level].w;
+		*h = levels_[level].h;
 	}
 
 	int NumLevels() const {
-		if (!initDone_)
-			return 0;
+		_dbg_assert_(State() == ReplacementState::ACTIVE);
 		return (int)levels_.size();
 	}
 
 	Draw::DataFormat Format() const {
-		if (initDone_) {
-			return fmt;
-		} else {
-			// Shouldn't get here.
-			return Draw::DataFormat::UNDEFINED;
-		}
+		_dbg_assert_(State() == ReplacementState::ACTIVE);
+		return fmt;
 	}
 
 	u8 AlphaStatus() const {
@@ -114,8 +117,10 @@ protected:
 	void PrepareData(int level);
 	void PurgeIfOlder(double t);
 
+	std::string logId_;
+
 	std::vector<ReplacedTextureLevel> levels_;
-	ReplacedLevelsCache *levelData_;
+	ReplacedLevelsCache *levelData_ = nullptr;
 
 	ReplacedTextureAlpha alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 	double lastUsed_ = 0.0;
@@ -123,9 +128,7 @@ protected:
 	std::mutex mutex_;
 	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
 
-	bool cancelPrepare_ = false;
-	bool initDone_ = false;
-	bool prepareDone_ = false;
+	ReplacementState state_ = ReplacementState::UNINITIALIZED;
 
 	VFSBackend *vfs_ = nullptr;
 
