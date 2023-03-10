@@ -151,6 +151,7 @@ private:
 	std::atomic<ReplacementState> state_ = ReplacementState::UNINITIALIZED;
 
 	VFSBackend *vfs_ = nullptr;
+	ReplacementDesc *desc_ = nullptr;
 
 	friend class TextureReplacer;
 	friend class ReplacedTextureTask;

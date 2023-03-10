@@ -90,13 +90,13 @@ bool ReplacedTexture::IsReady(double budget) {
 
 	_assert_(!threadWaitable_);
 	threadWaitable_ = new LimitedWaitable();
+	SetState(ReplacementState::PENDING);
 	g_threadManager.EnqueueTask(new ReplacedTextureTask(vfs_, *this, threadWaitable_));
 	if (threadWaitable_->WaitFor(budget)) {
 		// If we successfully wait here, we're done. The thread will set state accordingly.
 		_assert_(State() == ReplacementState::ACTIVE || State() == ReplacementState::NOT_FOUND || State() == ReplacementState::CANCEL_INIT);
 		return true;
 	}
-	SetState(ReplacementState::PENDING);
 	// Still pending on thread.
 	return false;
 }
@@ -104,67 +104,10 @@ bool ReplacedTexture::IsReady(double budget) {
 void ReplacedTexture::FinishPopulate(ReplacementDesc *desc) {
 	logId_ = desc->logId;
 	levelData_ = desc->cache;
-
-	// TODO: The rest can be done on the thread.
-
-	for (int i = 0; i < std::min(MAX_REPLACEMENT_MIP_LEVELS, (int)desc->filenames.size()); ++i) {
-		if (desc->filenames[i].empty()) {
-			// Out of valid mip levels.  Bail out.
-			break;
-		}
-
-		const Path filename = desc->basePath / desc->filenames[i];
-
-		VFSFileReference *fileRef = vfs_->GetFile(desc->filenames[i].c_str());
-		if (!fileRef) {
-			// If the file doesn't exist, let's just bail immediately here.
-			break;
-		}
-
-		// TODO: Here, if we find a file with multiple built-in mipmap levels,
-		// we'll have to change a bit how things work...
-		ReplacedTextureLevel level;
-		level.file = filename;
-
-		if (i == 0) {
-			fmt = Draw::DataFormat::R8G8B8A8_UNORM;
-		}
-
-		bool good;
-
-		level.fileRef = fileRef;
-		good = PopulateLevel(level, false);
-
-		// We pad files that have been hashrange'd so they are the same texture size.
-		level.w = (level.w * desc->w) / desc->newW;
-		level.h = (level.h * desc->h) / desc->newH;
-
-		if (good && i != 0) {
-			// Check that the mipmap size is correct.  Can't load mips of the wrong size.
-			if (level.w != (levels_[0].w >> i) || level.h != (levels_[0].h >> i)) {
-				WARN_LOG(G3D, "Replacement mipmap invalid: size=%dx%d, expected=%dx%d (level %d, '%s')", level.w, level.h, levels_[0].w >> i, levels_[0].h >> i, i, filename.c_str());
-				good = false;
-			}
-		}
-
-		if (good)
-			levels_.push_back(level);
-		// Otherwise, we're done loading mips (bad PNG or bad size, either way.)
-		else
-			break;
-	}
-
-	delete desc;
-
-	if (levels_.empty()) {
-		// Bad.
-		SetState(ReplacementState::NOT_FOUND);
-		levelData_ = nullptr;
-		return;
-	}
-
-	// Populate the data pointer.
+	desc_ = desc;
 	SetState(ReplacementState::POPULATED);
+
+	// TODO: What used to be here is now done on the thread task.
 }
 
 bool ReplacedTexture::PopulateLevel(ReplacedTextureLevel &level, bool ignoreError) {
@@ -217,8 +160,68 @@ bool ReplacedTexture::PopulateLevel(ReplacedTextureLevel &level, bool ignoreErro
 }
 
 void ReplacedTexture::Prepare(VFSBackend *vfs) {
-	std::unique_lock<std::mutex> lock(mutex_);
 	this->vfs_ = vfs;
+
+	for (int i = 0; i < std::min(MAX_REPLACEMENT_MIP_LEVELS, (int)desc_->filenames.size()); ++i) {
+		if (desc_->filenames[i].empty()) {
+			// Out of valid mip levels.  Bail out.
+			break;
+		}
+
+		const Path filename = desc_->basePath / desc_->filenames[i];
+
+		VFSFileReference *fileRef = vfs_->GetFile(desc_->filenames[i].c_str());
+		if (!fileRef) {
+			// If the file doesn't exist, let's just bail immediately here.
+			break;
+		}
+
+		// TODO: Here, if we find a file with multiple built-in mipmap levels,
+		// we'll have to change a bit how things work...
+		ReplacedTextureLevel level;
+		level.file = filename;
+
+		if (i == 0) {
+			fmt = Draw::DataFormat::R8G8B8A8_UNORM;
+		}
+
+		bool good;
+
+		level.fileRef = fileRef;
+		good = PopulateLevel(level, false);
+
+		// We pad files that have been hashrange'd so they are the same texture size.
+		level.w = (level.w * desc_->w) / desc_->newW;
+		level.h = (level.h * desc_->h) / desc_->newH;
+
+		if (good && i != 0) {
+			// Check that the mipmap size is correct.  Can't load mips of the wrong size.
+			if (level.w != (levels_[0].w >> i) || level.h != (levels_[0].h >> i)) {
+				WARN_LOG(G3D, "Replacement mipmap invalid: size=%dx%d, expected=%dx%d (level %d, '%s')", level.w, level.h, levels_[0].w >> i, levels_[0].h >> i, i, filename.c_str());
+				good = false;
+			}
+		}
+
+		if (good)
+			levels_.push_back(level);
+		// Otherwise, we're done loading mips (bad PNG or bad size, either way.)
+		else
+			break;
+	}
+
+	delete desc_;
+	desc_ = nullptr;
+
+	if (levels_.empty()) {
+		// Bad.
+		SetState(ReplacementState::NOT_FOUND);
+		levelData_ = nullptr;
+		return;
+	}
+
+	// Populate the data pointer.
+
+	std::unique_lock<std::mutex> lock(mutex_);
 
 	if (State() == ReplacementState::CANCEL_INIT) {
 		return;
