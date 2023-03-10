@@ -801,6 +801,7 @@ float vfpu_dot(const float a[4], const float b[4]) {
 // estimations, to allow to store them in smaller types.
 // See https://github.com/hrydgard/ppsspp/issues/16946 for details.
 
+// Lookup tables.
 static uint32_t (*vfpu_sin_lut8192)=nullptr;
 static  int8_t  (*vfpu_sin_lut_delta)[2]=nullptr;
 static  int16_t (*vfpu_sin_lut_interval_delta)=nullptr;
@@ -1098,7 +1099,7 @@ float vfpu_rsqrt(float x) {
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
 	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
-		// Denormals (and zeroes) get Inf of the same sign.
+		// Denormals (and zeroes) get inf of the same sign.
 		bits = 0x7F800000u | (bits & 0x80000000u);
 		memcpy(&x, &bits, sizeof(x));
 		return x;
@@ -1110,7 +1111,7 @@ float vfpu_rsqrt(float x) {
 		return x;
 	}
 	if((bits >> 23) == 255u) {
-		// Inf gets 0, NaN gets NaN.
+		// inf gets 0, NaN gets NaN.
 		bits = ((bits & 0x007FFFFFu) ? 0x7F800001u : 0u);
 		memcpy(&x, &bits, sizeof(bits));
 		return x;
@@ -1238,53 +1239,53 @@ static inline uint32_t vfpu_log2_approx(uint32_t x) {
 
 // Matches PSP output on all known values.
 float vfpu_log2(float x) {
-    uint32_t bits;
-    memcpy(&bits, &x, sizeof(bits));
-    if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
-        // Denormals (and zeroes) get -inf.
-        bits = 0xFF800000u;
-        memcpy(&x, &bits, sizeof(x));
-        return x;
-    }
-    if(bits & 0x80000000u) {
-        // Other negatives get NaN.
-        bits = 0x7F800001u;
-        memcpy(&x, &bits, sizeof(x));
-        return x;
-    }
-    if((bits >> 23) == 255u) {
-        // NaN gets NaN, +inf gets +inf.
-        bits = 0x7F800000u + ((bits & 0x007FFFFFu) != 0);
-        memcpy(&x, &bits, sizeof(x));
-        return x;
-    }
-    uint32_t e = (bits & 0x7F800000u) - 0x3F800000u;
-    uint32_t i = bits & 0x007FFFFFu;
-    if(e >> 31 && i >= 0x007FFE00u) {
-        // Process 1-2^{-14}<=x*2^n<1 (for n>0) separately,
-        // since the table doesn't give the right answer.
-        float c = float(int32_t(~e) >> 23);
-        // Note: if c is 0 the sign of -0 output is correct.
-        return i < 0x007FFEF7u ? // 1-265*2^{-24}
-            -3.05175781e-05f - c:
-            -0.0f - c;
-    }
-    int d = (e<0x01000000u ? 0 : 8 - clz32_nonzero(e) - int(e >> 31));
-    //assert(d>=0&&d<8);
-    uint32_t q = 1u << d;
-    uint32_t A = vfpu_log2_approx((i     ) & -64u) & -q;
-    uint32_t B = vfpu_log2_approx((i + 64) & -64u) & -q;
-    uint64_t a = (A << 6)+(uint64_t(vfpu_log2_lut[d][i >> 6][0]) - 80ull) * q;
-    uint64_t b = (B << 6)+(uint64_t(vfpu_log2_lut[d][i >> 6][1]) - 80ull) * q;
-    uint32_t v = uint32_t((a +(((b - a) * (i & 63)) >> 6)) >> 6);
-    v &= -q;
-    bits = e ^ (2u * v);
-    x = float(int32_t(bits)) * 1.1920928955e-7f; // 0x1p-23f
-    return x;
+	uint32_t bits;
+	memcpy(&bits, &x, sizeof(bits));
+	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
+		// Denormals (and zeroes) get -inf.
+		bits = 0xFF800000u;
+		memcpy(&x, &bits, sizeof(x));
+		return x;
+	}
+	if(bits & 0x80000000u) {
+		// Other negatives get NaN.
+		bits = 0x7F800001u;
+		memcpy(&x, &bits, sizeof(x));
+		return x;
+	}
+	if((bits >> 23) == 255u) {
+		// NaN gets NaN, +inf gets +inf.
+		bits = 0x7F800000u + ((bits & 0x007FFFFFu) != 0);
+		memcpy(&x, &bits, sizeof(x));
+		return x;
+	}
+	uint32_t e = (bits & 0x7F800000u) - 0x3F800000u;
+	uint32_t i = bits & 0x007FFFFFu;
+	if(e >> 31 && i >= 0x007FFE00u) {
+		// Process 1-2^{-14}<=x*2^n<1 (for n>0) separately,
+		// since the table doesn't give the right answer.
+		float c = float(int32_t(~e) >> 23);
+		// Note: if c is 0 the sign of -0 output is correct.
+		return i < 0x007FFEF7u ? // 1-265*2^{-24}
+			-3.05175781e-05f - c:
+			-0.0f - c;
+	}
+	int d = (e < 0x01000000u ? 0 : 8 - clz32_nonzero(e) - int(e >> 31));
+	//assert(d >= 0 && d < 8);
+	uint32_t q = 1u << d;
+	uint32_t A = vfpu_log2_approx((i     ) & -64u) & -q;
+	uint32_t B = vfpu_log2_approx((i + 64) & -64u) & -q;
+	uint64_t a = (A << 6)+(uint64_t(vfpu_log2_lut[d][i >> 6][0]) - 80ull) * q;
+	uint64_t b = (B << 6)+(uint64_t(vfpu_log2_lut[d][i >> 6][1]) - 80ull) * q;
+	uint32_t v = uint32_t((a +(((b - a) * (i & 63)) >> 6)) >> 6);
+	v &= -q;
+	bits = e ^ (2u * v);
+	x = float(int32_t(bits)) * 1.1920928955e-7f; // 0x1p-23f
+	return x;
 }
 
 static inline uint32_t vfpu_rcp_approx(uint32_t i) {
-    return 0x3E800000u + (uint32_t((1ull << 47) / ((1ull << 23) + i)) & -4u);
+	return 0x3E800000u + (uint32_t((1ull << 47) / ((1ull << 23) + i)) & -4u);
 }
 
 float vfpu_rcp(float x) {
@@ -1317,17 +1318,20 @@ float vfpu_rcp(float x) {
 //==============================================================================
 
 void InitVFPU() {
-// WARNING: this is not endian-safe!
+#if COMMON_BIG_ENDIAN
+	// Tables are little-endian.
+#error Byteswap for VFPU tables not implemented
+#endif
 	size_t size=0;
 #define LOAD(expected,name)\
 	if(!name) {\
 		const char *filename = "vfpu/" #name ".dat";\
-		INFO_LOG(CPU, "Loading '%s'.\n", filename);\
+		INFO_LOG(CPU, "Loading '%s'...", filename);\
 		name=reinterpret_cast<decltype(name)>(g_VFS.ReadFile(filename, &size));\
 		if(size!=(expected))\
-			ERROR_LOG(CPU, "Error loading '%s' (size=%u, expected: %u).\n", filename, (unsigned)size, (unsigned)(expected));\
+			ERROR_LOG(CPU, "Error loading '%s' (size=%u, expected: %u)", filename, (unsigned)size, (unsigned)(expected));\
 		else\
-			INFO_LOG(CPU, "Successfully loaded '%s'.\n", filename);\
+			INFO_LOG(CPU, "Successfully loaded '%s'", filename);\
 	}
 	LOAD(    1536, vfpu_asin_lut65536);
 	LOAD(  517448, vfpu_asin_lut_deltas);
