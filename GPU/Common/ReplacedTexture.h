@@ -47,6 +47,8 @@ enum class ReplacedImageType {
 	INVALID,
 };
 
+static const int MAX_REPLACEMENT_MIP_LEVELS = 12;  // 12 should be plenty, 8 is the max mip levels supported by the PSP.
+
 // Metadata about a given texture level.
 struct ReplacedTextureLevel {
 	int w = 0;
@@ -71,7 +73,20 @@ enum class ReplacementState : uint32_t {
 
 const char *StateString(ReplacementState state);
 
-struct ReplacementDesc;
+struct ReplacementDesc {
+	int newW;
+	int newH;
+	uint64_t cachekey;
+	uint32_t hash;
+	int w;
+	int h;
+	std::string hashfiles;
+	Path basePath;
+	bool foundAlias;
+	std::vector<std::string> filenames;
+	std::string logId;
+	ReplacedLevelsCache *cache;
+};
 
 // These aren't actually all replaced, they can also represent a placeholder for a not-found
 // replacement (state_ == NOT_FOUND).

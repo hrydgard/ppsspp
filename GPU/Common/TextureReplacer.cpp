@@ -52,7 +52,6 @@ static const std::string INI_FILENAME = "textures.ini";
 static const std::string ZIP_FILENAME = "textures.zip";
 static const std::string NEW_TEXTURE_DIR = "new/";
 static const int VERSION = 1;
-static const int MAX_MIP_LEVELS = 12;  // 12 should be plenty, 8 is the max mip levels supported by the PSP.
 static const double MAX_CACHE_SIZE = 4.0;
 
 static inline ReplacedImageType IdentifyMagic(const uint8_t magic[4]) {
@@ -498,21 +497,6 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 	return result;
 }
 
-struct ReplacementDesc {
-	int newW;
-	int newH;
-	u64 cachekey;
-	u32 hash;
-	int w;
-	int h;
-	std::string hashfiles;
-	Path basePath;
-	bool foundAlias;
-	std::vector<std::string> filenames;
-	std::string logId;
-	ReplacedLevelsCache *cache;
-};
-
 void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey, u32 hash, int w, int h) {
 	ReplacementDesc desc;
 	desc.newW = w;
@@ -544,7 +528,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 		// We'll just need to generate the names for each level.
 		// By default, we look for png since that's also what's dumped.
 		// For other file formats, use the ini to create aliases.
-		desc.filenames.resize(MAX_MIP_LEVELS);
+		desc.filenames.resize(MAX_REPLACEMENT_MIP_LEVELS);
 		for (int level = 0; level < desc.filenames.size(); level++) {
 			desc.filenames[level] = TextureReplacer::HashName(desc.cachekey, desc.hash, level) + ".png";
 		}
@@ -558,70 +542,6 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 	desc.cache = &levelCache_[desc.hashfiles];
 
 	texture->FinishPopulate(desc);
-}
-
-void ReplacedTexture::FinishPopulate(const ReplacementDesc &desc) {
-	logId_ = desc.logId;
-	levelData_ = desc.cache;
-
-	// The rest can be done on the thread.
-
-	for (int i = 0; i < std::min(MAX_MIP_LEVELS, (int)desc.filenames.size()); ++i) {
-		if (desc.filenames[i].empty()) {
-			// Out of valid mip levels.  Bail out.
-			break;
-		}
-
-		const Path filename = desc.basePath / desc.filenames[i];
-
-		VFSFileReference *fileRef = vfs_->GetFile(desc.filenames[i].c_str());
-		if (!fileRef) {
-			// If the file doesn't exist, let's just bail immediately here.
-			break;
-		}
-
-		// TODO: Here, if we find a file with multiple built-in mipmap levels,
-		// we'll have to change a bit how things work...
-		ReplacedTextureLevel level;
-		level.file = filename;
-
-		if (i == 0) {
-			fmt = Draw::DataFormat::R8G8B8A8_UNORM;
-		}
-
-		bool good;
-
-		level.fileRef = fileRef;
-		good = PopulateLevel(level, false);
-
-		// We pad files that have been hashrange'd so they are the same texture size.
-		level.w = (level.w * desc.w) / desc.newW;
-		level.h = (level.h * desc.h) / desc.newH;
-
-		if (good && i != 0) {
-			// Check that the mipmap size is correct.  Can't load mips of the wrong size.
-			if (level.w != (levels_[0].w >> i) || level.h != (levels_[0].h >> i)) {
-				 WARN_LOG(G3D, "Replacement mipmap invalid: size=%dx%d, expected=%dx%d (level %d, '%s')", level.w, level.h, levels_[0].w >> i, levels_[0].h >> i, i, filename.c_str());
-				 good = false;
-			}
-		}
-
-		if (good)
-			levels_.push_back(level);
-		// Otherwise, we're done loading mips (bad PNG or bad size, either way.)
-		else
-			break;
-	}
-
-	if (levels_.empty()) {
-		// Bad.
-		SetState(ReplacementState::NOT_FOUND);
-		levelData_ = nullptr;
-		return;
-	}
-
-	// Populate the data pointer.
-	SetState(ReplacementState::POPULATED);
 }
 
 static bool WriteTextureToPNG(png_imagep image, const Path &filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
@@ -654,7 +574,7 @@ public:
 
 	Path filename;
 	Path saveFilename;
-	bool createSaveDirectory;
+	bool createSaveDirectory = false;
 	Path saveDirectory;
 
 	u32 replacedInfoHash = 0;
