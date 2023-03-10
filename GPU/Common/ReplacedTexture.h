@@ -71,6 +71,8 @@ enum class ReplacementState : uint32_t {
 
 const char *StateString(ReplacementState state);
 
+struct ReplacementDesc;
+
 // These aren't actually all replaced, they can also represent a placeholder for a not-found
 // replacement (state_ == NOT_FOUND).
 struct ReplacedTexture {
@@ -112,14 +114,15 @@ struct ReplacedTexture {
 	bool IsReady(double budget);
 	bool CopyLevelTo(int level, void *out, int rowPitch);
 
-	bool PopulateLevel(ReplacedTextureLevel &level, bool ignoreError);
+	void FinishPopulate(const ReplacementDesc &desc);
+	std::string logId_;
 
-protected:
+private:
 	void Prepare(VFSBackend *vfs);
 	void PrepareData(int level);
 	void PurgeIfOlder(double t);
 
-	std::string logId_;
+	bool PopulateLevel(ReplacedTextureLevel & level, bool ignoreError);
 
 	std::vector<ReplacedTextureLevel> levels_;
 	ReplacedLevelsCache *levelData_ = nullptr;
