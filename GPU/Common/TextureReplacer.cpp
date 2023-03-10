@@ -104,12 +104,12 @@ void TextureReplacer::NotifyConfigChanged() {
 	if (enabled_) {
 		basePath_ = GetSysDirectory(DIRECTORY_TEXTURES) / gameID_;
 
-		Path newTextureDir = basePath_ / NEW_TEXTURE_DIR;
+		newTextureDir_ = basePath_ / NEW_TEXTURE_DIR;
 
 		// If we're saving, auto-create the directory.
-		if (g_Config.bSaveNewTextures && !File::Exists(newTextureDir)) {
-			File::CreateFullPath(newTextureDir);
-			File::CreateEmptyFile(newTextureDir / ".nomedia");
+		if (g_Config.bSaveNewTextures && !File::Exists(newTextureDir_)) {
+			File::CreateFullPath(newTextureDir_);
+			File::CreateEmptyFile(newTextureDir_ / ".nomedia");
 		}
 
 		enabled_ = File::IsDirectory(basePath_);
@@ -507,22 +507,33 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 		cachekey = cachekey & 0xFFFFFFFFULL;
 	}
 
-	bool foundReplacement = false;
+	bool foundAlias = false;
 	bool ignored = false;
-	const std::string hashfiles = LookupHashFile(cachekey, hash, &foundReplacement, &ignored);
+	std::string hashfiles = LookupHashFile(cachekey, hash, &foundAlias, &ignored);
 
-	if (!foundReplacement || ignored) {
+	if (ignored) {
 		// WARN_LOG(G3D, "Not found/ignored: %s (%d, %d)", hashfiles.c_str(), (int)foundReplacement, (int)ignored);
 		// nothing to do?
 		texture->SetState(ReplacementState::NOT_FOUND);
 		return;
 	}
 
-	texture->logId_ = hashfiles;
-	// INFO_LOG(G3D, "Found: %s", hashfiles.c_str());
-
 	std::vector<std::string> filenames;
-	SplitString(hashfiles, '|', filenames);
+
+	if (!foundAlias) {
+		// We'll just need to generate the names for each level.
+		// By default, we look for png since that's also what's dumped.
+		// For other file formats, use the ini to create aliases.
+		filenames.resize(MAX_MIP_LEVELS);
+		for (int level = 0; level < filenames.size(); level++) {
+			filenames[level] = HashName(cachekey, hash, level) + ".png";
+		}
+		texture->logId_ = filenames[0];
+		hashfiles = filenames[0];  // This is used as the key in the data cache.
+	} else {
+		texture->logId_ = hashfiles;
+		SplitString(hashfiles, '|', filenames);
+	}
 
 	for (int i = 0; i < std::min(MAX_MIP_LEVELS, (int)filenames.size()); ++i) {
 		if (filenames[i].empty()) {
@@ -531,6 +542,12 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 		}
 
 		const Path filename = basePath_ / filenames[i];
+
+		VFSFileReference *fileRef = vfs_->GetFile(filenames[i].c_str());
+		if (!fileRef) {
+			// If the file doesn't exist, let's just bail immediately here.
+			break;
+		}
 
 		// TODO: Here, if we find a file with multiple built-in mipmap levels,
 		// we'll have to change a bit how things work...
@@ -542,12 +559,6 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 		}
 
 		bool good;
-
-		VFSFileReference *fileRef = vfs_->GetFile(filenames[i].c_str());
-		if (!fileRef) {
-			// If the file doesn't exist, let's just bail immediately here.
-			break;
-		}
 
 		level.fileRef = fileRef;
 		good = PopulateLevel(level, false);
@@ -748,19 +759,19 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		cachekey = cachekey & 0xFFFFFFFFULL;
 	}
 
-	bool found = false, ignored = false;
-	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, &found, &ignored);
+	bool foundAlias = false, ignored = false;
+	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, &foundAlias, &ignored);
 
 	// If it's empty, it's an ignored hash, we intentionally don't save.
-	if (found) {
+	if (foundAlias || ignored) {
 		// If it exists, must've been decoded and saved as a new texture already.
 		return;
 	}
 
-	// Generate a new filename.
+	// Generate a new PNG filename, complete with level.
 	hashfile = HashName(cachekey, replacedInfo.hash, level) + ".png";
 
-	const Path filename = basePath_ / hashfile;
+	const Path filename = newTextureDir_ / hashfile;
 
 	ReplacementCacheKey replacementKey(cachekey, replacedInfo.hash);
 	auto it = savedCache_.find(replacementKey);

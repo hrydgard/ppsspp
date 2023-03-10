@@ -93,7 +93,7 @@ bool ReplacedTexture::IsReady(double budget) {
 	g_threadManager.EnqueueTask(new ReplacedTextureTask(vfs_, *this, threadWaitable_));
 	if (threadWaitable_->WaitFor(budget)) {
 		// If we successfully wait here, we're done. The thread will set state accordingly.
-		_assert_(State() == ReplacementState::ACTIVE || State() == ReplacementState::NOT_FOUND);
+		_assert_(State() == ReplacementState::ACTIVE || State() == ReplacementState::NOT_FOUND || State() == ReplacementState::CANCEL_INIT);
 		return true;
 	}
 	SetState(ReplacementState::PENDING);
@@ -135,8 +135,10 @@ void ReplacedTexture::PrepareData(int level) {
 	std::vector<uint8_t> &out = levelData_->data[level];
 
 	// Already populated from cache.
-	if (!out.empty())
+	if (!out.empty()) {
+		SetState(ReplacementState::ACTIVE);
 		return;
+	}
 
 	ReplacedImageType imageType;
 

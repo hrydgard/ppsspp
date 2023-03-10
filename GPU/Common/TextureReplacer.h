@@ -153,6 +153,7 @@ protected:
 	bool ignoreMipmap_ = false;
 	std::string gameID_;
 	Path basePath_;
+	Path newTextureDir_;
 	ReplacedTextureHash hash_ = ReplacedTextureHash::QUICK;
 
 	VFSBackend *vfs_ = nullptr;
