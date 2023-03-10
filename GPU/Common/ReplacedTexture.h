@@ -112,6 +112,8 @@ struct ReplacedTexture {
 	bool IsReady(double budget);
 	bool CopyLevelTo(int level, void *out, int rowPitch);
 
+	bool PopulateLevel(ReplacedTextureLevel &level, bool ignoreError);
+
 protected:
 	void Prepare(VFSBackend *vfs);
 	void PrepareData(int level);
