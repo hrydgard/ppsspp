@@ -23,6 +23,7 @@
 #include "GPU/Common/TextureReplacer.h"
 
 #include "Common/Data/Format/IniFile.h"
+#include "Common/Data/Format/DDSLoad.h"
 #include "Common/Data/Format/ZIMLoad.h"
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Thread/ParallelLoop.h"
@@ -178,7 +179,16 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 
 		level.fileRef = fileRef;
 
-		if (LoadLevelData(level, i)) {
+		Draw::DataFormat pixelFormat;
+		if (LoadLevelData(level, i, &pixelFormat)) {
+			if (i == 0) {
+				fmt = pixelFormat;
+			} else {
+				if (fmt != pixelFormat) {
+					ERROR_LOG(G3D, "Replacement mipmap %d doesn't have the same pixel format as mipmap 0. Stopping.", i);
+					break;
+				}
+			}
 			levels_.push_back(level);
 		} else {
 			// Otherwise, we're done loading mips (bad PNG or bad size, either way.)
@@ -202,7 +212,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		threadWaitable_->Notify();
 }
 
-bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel) {
+bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, Draw::DataFormat *pixelFormat) {
 	bool good = false;
 
 	size_t fileSize;
@@ -214,7 +224,55 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel) {
 	std::string magic;
 	ReplacedImageType imageType = Identify(vfs_, openFile, &magic);
 
-	if (imageType == ReplacedImageType::ZIM) {
+	if (imageType == ReplacedImageType::DDS) {
+		DDSHeader header;
+		DDSHeaderDXT10 header10{};
+		good = vfs_->Read(openFile, &header, sizeof(header)) == sizeof(header);
+
+		*pixelFormat = Draw::DataFormat::UNDEFINED;
+		u32 format;
+		if (good && (header.ddspf.dwFlags & DDPF_FOURCC)) {
+			char *fcc = (char *)&header.ddspf.dwFourCC;
+			INFO_LOG(G3D, "DDS fourcc: %c%c%c%c", fcc[0], fcc[1], fcc[2], fcc[3]);
+			if (header.ddspf.dwFourCC == 'DX10') {
+				good = good && vfs_->Read(openFile, &header10, sizeof(header10)) == sizeof(header10);
+				format = header10.dxgiFormat;
+				switch (format) {
+				case 98: // DXGI_FORMAT_BC7_UNORM:
+				case 99: // DXGI_FORMAT_BC7_UNORM_SRGB:
+					*pixelFormat = Draw::DataFormat::BC7_UNORM_BLOCK;
+					break;
+				default:
+					ERROR_LOG(G3D, "DDS pixel format not supported.");
+					good = false;
+				}
+			} else {
+				format = header.ddspf.dwFourCC;
+				// OK, there are a number of possible formats we might have ended up with. We choose just a few
+				// to support for now.
+				switch (format) {
+				case MK_FOURCC("DXT1"):
+					*pixelFormat = Draw::DataFormat::BC1_RGBA_UNORM_BLOCK;
+					break;
+				case MK_FOURCC("DXT3"):
+					*pixelFormat = Draw::DataFormat::BC2_UNORM_BLOCK;
+					break;
+				case MK_FOURCC("DXT5"):
+					*pixelFormat = Draw::DataFormat::BC3_UNORM_BLOCK;
+					break;
+				default:
+					ERROR_LOG(G3D, "DDS pixel format not supported.");
+					good = false;
+				}
+			}
+		} else if (good) {
+			ERROR_LOG(G3D, "DDS non-fourCC format not supported.");
+			good = false;
+		}
+
+		level.w = header.dwWidth;
+		level.h = header.dwHeight;
+	} else if (imageType == ReplacedImageType::ZIM) {
 		uint32_t ignore = 0;
 		struct ZimHeader {
 			uint32_t magic;
@@ -225,7 +283,8 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel) {
 		good = vfs_->Read(openFile, &header, sizeof(header)) == sizeof(header);
 		level.w = header.w;
 		level.h = header.h;
-		good = (header.flags & ZIM_FORMAT_MASK) == ZIM_RGBA8888;
+		good = good && (header.flags & ZIM_FORMAT_MASK) == ZIM_RGBA8888;
+		*pixelFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 	} else if (imageType == ReplacedImageType::PNG) {
 		PNGHeaderPeek headerPeek;
 		good = vfs_->Read(openFile, &headerPeek, sizeof(headerPeek)) == sizeof(headerPeek);
@@ -237,6 +296,7 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel) {
 			ERROR_LOG(G3D, "Could not get PNG dimensions: %s (zip)", level.file.ToVisualString().c_str());
 			good = false;
 		}
+		*pixelFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 	} else {
 		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format %s", level.file.ToVisualString().c_str(), magic.c_str());
 	}
@@ -275,7 +335,18 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel) {
 
 	vfs_->Rewind(openFile);
 
-	if (imageType == ReplacedImageType::ZIM) {
+	if (imageType == ReplacedImageType::DDS) {
+		DDSHeader header;
+		DDSHeaderDXT10 header10{};
+		vfs_->Read(openFile, &header, sizeof(header));
+		// For compressed formats (we don't support uncompressed DDS files yet), this is supposed to be the linear size.
+		size_t bytes = header.dwPitchOrLinearSize;
+		out.resize(bytes);
+		size_t read_bytes = vfs_->Read(openFile, &out[0], bytes);
+		if (read_bytes != bytes) {
+			WARN_LOG(G3D, "DDS: Expected %d bytes, got %d", bytes, read_bytes);
+		}
+	} else if (imageType == ReplacedImageType::ZIM) {
 		std::unique_ptr<uint8_t[]> zim(new uint8_t[fileSize]);
 		if (!zim) {
 			ERROR_LOG(G3D, "Failed to allocate memory for texture replacement");
@@ -363,6 +434,8 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel) {
 				alphaStatus_ = ReplacedTextureAlpha(res);
 			}
 		}
+	} else {
+		WARN_LOG(G3D, "Don't know how to load this image type! %d", (int)imageType);
 	}
 
 	cleanup();
@@ -419,21 +492,28 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 		return false;
 	}
 
-	if (rowPitch < info.w * 4) {
-		ERROR_LOG(G3D, "Replacement rowPitch=%d, but w=%d (level=%d)", rowPitch, info.w * 4, level);
-		return false;
-	}
-	_assert_msg_(data.size() == info.w * info.h * 4, "Data has wrong size");
+	if (fmt == Draw::DataFormat::R8G8B8A8_UNORM) {
+		if (rowPitch < info.w * 4) {
+			ERROR_LOG(G3D, "Replacement rowPitch=%d, but w=%d (level=%d)", rowPitch, info.w * 4, level);
+			return false;
+		}
 
-	if (rowPitch == info.w * 4) {
-		ParallelMemcpy(&g_threadManager, out, &data[0], info.w * 4 * info.h);
+		_assert_msg_(data.size() == info.w * info.h * 4, "Data has wrong size");
+
+		if (rowPitch == info.w * 4) {
+			ParallelMemcpy(&g_threadManager, out, &data[0], info.w * 4 * info.h);
+		} else {
+			const int MIN_LINES_PER_THREAD = 4;
+			ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
+				for (int y = l; y < h; ++y) {
+					memcpy((uint8_t *)out + rowPitch * y, &data[0] + info.w * 4 * y, info.w * 4);
+				}
+				}, 0, info.h, MIN_LINES_PER_THREAD);
+		}
 	} else {
-		const int MIN_LINES_PER_THREAD = 4;
-		ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
-			for (int y = l; y < h; ++y) {
-				memcpy((uint8_t *)out + rowPitch * y, &data[0] + info.w * 4 * y, info.w * 4);
-			}
-			}, 0, info.h, MIN_LINES_PER_THREAD);
+		// TODO: Add sanity checks here for other formats?
+		// Just gonna do a memcpy, slightly scared of the parallel ones.
+		memcpy(out, data.data(), data.size());
 	}
 
 	return true;

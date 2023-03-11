@@ -87,6 +87,12 @@ struct ReplacementDesc {
 	ReplacedLevelsCache *cache;
 };
 
+struct ReplacedLevelsCache {
+	std::mutex lock;
+	std::vector<std::vector<uint8_t>> data;
+	double lastUsed = 0.0;
+};
+
 // These aren't actually all replaced, they can also represent a placeholder for a not-found
 // replacement (state_ == NOT_FOUND).
 struct ReplacedTexture {
@@ -111,6 +117,11 @@ struct ReplacedTexture {
 		*h = levels_[level].h;
 	}
 
+	int GetLevelDataSize(int level) const {
+		_dbg_assert_(State() == ReplacementState::ACTIVE);
+		return (int)levelData_->data[level].size();
+	}
+
 	int NumLevels() const {
 		_dbg_assert_(State() == ReplacementState::ACTIVE);
 		return (int)levels_.size();
@@ -133,7 +144,7 @@ struct ReplacedTexture {
 
 private:
 	void Prepare(VFSBackend *vfs);
-	bool LoadLevelData(ReplacedTextureLevel &info, int level);
+	bool LoadLevelData(ReplacedTextureLevel &info, int level, Draw::DataFormat *pixelFormat);
 	void PurgeIfOlder(double t);
 
 	std::vector<ReplacedTextureLevel> levels_;

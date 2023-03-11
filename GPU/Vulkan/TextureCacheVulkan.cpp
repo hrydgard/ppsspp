@@ -405,7 +405,14 @@ static Draw::DataFormat FromVulkanFormat(VkFormat fmt) {
 
 static VkFormat ToVulkanFormat(Draw::DataFormat fmt) {
 	switch (fmt) {
-	case Draw::DataFormat::R8G8B8A8_UNORM: default: return VULKAN_8888_FORMAT;
+	case Draw::DataFormat::BC1_RGBA_UNORM_BLOCK: return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+	case Draw::DataFormat::BC2_UNORM_BLOCK: return VK_FORMAT_BC2_UNORM_BLOCK;
+	case Draw::DataFormat::BC3_UNORM_BLOCK: return VK_FORMAT_BC3_UNORM_BLOCK;
+	case Draw::DataFormat::BC4_UNORM_BLOCK: return VK_FORMAT_BC4_UNORM_BLOCK;
+	case Draw::DataFormat::BC5_UNORM_BLOCK: return VK_FORMAT_BC5_UNORM_BLOCK;
+	case Draw::DataFormat::BC7_UNORM_BLOCK: return VK_FORMAT_BC7_UNORM_BLOCK;
+	case Draw::DataFormat::R8G8B8A8_UNORM: return VULKAN_8888_FORMAT;
+	default: _assert_msg_(false, "Bad texture pixel format"); return VULKAN_8888_FORMAT;
 	}
 }
 
@@ -442,8 +449,15 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	// Any texture scaling is gonna move away from the original 16-bit format, if any.
 	VkFormat actualFmt = plan.scaleFactor > 1 ? VULKAN_8888_FORMAT : dstFmt;
+	bool bcFormat = false;
+	int bcAlign = 0;
 	if (plan.replaceValid) {
-		actualFmt = ToVulkanFormat(plan.replaced->Format());
+		Draw::DataFormat fmt = plan.replaced->Format();
+		bcFormat = Draw::DataFormatIsBlockCompressed(fmt, &bcAlign);
+		actualFmt = ToVulkanFormat(fmt);
+		if (actualFmt != VULKAN_8888_FORMAT) {
+			actualFmt = actualFmt;
+		}
 	}
 
 	bool computeUpload = false;
@@ -570,6 +584,12 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 		bool dataScaled = true;
 		if (plan.replaceValid) {
+			int bufferRowLength = byteStride;
+			if (bcFormat) {
+				// For block compressed formats, we just set the upload size to the data size..
+				uploadSize = plan.replaced->GetLevelDataSize(plan.baseLevelSrc + i);
+				bufferRowLength = mipWidth;
+			}
 			// Directly load the replaced image.
 			data = pushBuffer->PushAligned(uploadSize, &bufferOffset, &texBuf, pushAlignment);
 			double replaceStart = time_now_d();
