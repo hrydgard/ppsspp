@@ -88,6 +88,7 @@ struct ReplacementDesc {
 };
 
 struct ReplacedLevelsCache {
+	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;
 	std::mutex lock;
 	std::vector<std::vector<uint8_t>> data;
 	double lastUsed = 0.0;

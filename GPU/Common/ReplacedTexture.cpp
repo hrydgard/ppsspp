@@ -206,14 +206,25 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		return;
 	}
 
+	levelData_->fmt = fmt;
 	SetState(ReplacementState::ACTIVE);
 
 	if (threadWaitable_)
 		threadWaitable_->Notify();
 }
 
+inline uint32_t RoundUpTo4(uint32_t value) {
+	return (value + 3) & ~3;
+}
+
 bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, Draw::DataFormat *pixelFormat) {
 	bool good = false;
+
+	if (levelData_->data.size() <= mipLevel) {
+		levelData_->data.resize(mipLevel + 1);
+	}
+
+	std::vector<uint8_t> &out = levelData_->data[mipLevel];
 
 	size_t fileSize;
 	VFSOpenFile *openFile = vfs_->OpenFileForRead(level.fileRef, &fileSize);
@@ -223,6 +234,10 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 
 	std::string magic;
 	ReplacedImageType imageType = Identify(vfs_, openFile, &magic);
+
+	int ddsBytesToRead = 0;  // Used by the DDS reader only.
+	bool ddsDX10 = false;
+	int numMips = 1;
 
 	if (imageType == ReplacedImageType::DDS) {
 		DDSHeader header;
@@ -234,19 +249,22 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 		if (good && (header.ddspf.dwFlags & DDPF_FOURCC)) {
 			char *fcc = (char *)&header.ddspf.dwFourCC;
 			INFO_LOG(G3D, "DDS fourcc: %c%c%c%c", fcc[0], fcc[1], fcc[2], fcc[3]);
-			if (header.ddspf.dwFourCC == 'DX10') {
+			if (header.ddspf.dwFourCC == MK_FOURCC("DX10")) {
+				ddsDX10 = true;
 				good = good && vfs_->Read(openFile, &header10, sizeof(header10)) == sizeof(header10);
 				format = header10.dxgiFormat;
 				switch (format) {
 				case 98: // DXGI_FORMAT_BC7_UNORM:
 				case 99: // DXGI_FORMAT_BC7_UNORM_SRGB:
+					ddsBytesToRead = RoundUpTo4(header.dwWidth) * RoundUpTo4(header.dwHeight);  // 1 byte per pixel so this should be right.
 					*pixelFormat = Draw::DataFormat::BC7_UNORM_BLOCK;
 					break;
 				default:
-					ERROR_LOG(G3D, "DDS pixel format not supported.");
+					ERROR_LOG(G3D, "DXGI pixel format %d not supported.", header10.dxgiFormat);
 					good = false;
 				}
 			} else {
+				ddsBytesToRead = header.dwPitchOrLinearSize;
 				format = header.ddspf.dwFourCC;
 				// OK, there are a number of possible formats we might have ended up with. We choose just a few
 				// to support for now.
@@ -272,6 +290,7 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 
 		level.w = header.dwWidth;
 		level.h = header.dwHeight;
+		numMips = header.dwMipMapCount;
 	} else if (imageType == ReplacedImageType::ZIM) {
 		uint32_t ignore = 0;
 		struct ZimHeader {
@@ -301,6 +320,16 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format %s", level.file.ToVisualString().c_str(), magic.c_str());
 	}
 
+	if (numMips > 1) {
+		WARN_LOG(G3D, "File contains more than one mip level. Ignoring for now.");
+	}
+
+	// Already populated from cache. TODO: Move this above the first read, and take level.w/h from the cache.
+	if (!out.empty()) {
+		*pixelFormat = levelData_->fmt;
+		return true;
+	}
+
 	// Is this really the right place to do it?
 	level.w = (level.w * desc_->w) / desc_->newW;
 	level.h = (level.h * desc_->h) / desc_->newH;
@@ -318,17 +347,6 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 		return false;
 	}
 
-	if (levelData_->data.size() <= mipLevel) {
-		levelData_->data.resize(mipLevel + 1);
-	}
-
-	std::vector<uint8_t> &out = levelData_->data[mipLevel];
-
-	// Already populated from cache.
-	if (!out.empty()) {
-		return true;
-	}
-
 	auto cleanup = [&] {
 		vfs_->CloseFile(openFile);
 	};
@@ -339,12 +357,14 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 		DDSHeader header;
 		DDSHeaderDXT10 header10{};
 		vfs_->Read(openFile, &header, sizeof(header));
+		if (ddsDX10) {
+			vfs_->Read(openFile, &header10, sizeof(header10));
+		}
 		// For compressed formats (we don't support uncompressed DDS files yet), this is supposed to be the linear size.
-		size_t bytes = header.dwPitchOrLinearSize;
-		out.resize(bytes);
-		size_t read_bytes = vfs_->Read(openFile, &out[0], bytes);
-		if (read_bytes != bytes) {
-			WARN_LOG(G3D, "DDS: Expected %d bytes, got %d", bytes, read_bytes);
+		out.resize(ddsBytesToRead);
+		size_t read_bytes = vfs_->Read(openFile, &out[0], ddsBytesToRead);
+		if (read_bytes != ddsBytesToRead) {
+			WARN_LOG(G3D, "DDS: Expected %d bytes, got %d", ddsBytesToRead, read_bytes);
 		}
 	} else if (imageType == ReplacedImageType::ZIM) {
 		std::unique_ptr<uint8_t[]> zim(new uint8_t[fileSize]);
