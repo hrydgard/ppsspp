@@ -168,7 +168,6 @@ TextureCacheD3D11::~TextureCacheD3D11() {
 }
 
 void TextureCacheD3D11::SetFramebufferManager(FramebufferManagerD3D11 *fbManager) {
-	framebufferManagerD3D11_ = fbManager;
 	framebufferManager_ = fbManager;
 }
 
@@ -312,24 +311,31 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 
 		u8 *data = nullptr;
 		int stride = 0;
-		int bpp = 0;
 
-		// For UpdateSubresource, we can't decode directly into the texture so we allocate a buffer :(
-		// NOTE: Could reuse it between levels or textures!
+		int dataSize;
 		if (plan.replaceValid) {
-			bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
+			int blockSize = 0;
+			if (Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), &blockSize)) {
+				stride = mipWidth * 4;  // This stride value doesn't quite make sense to me, but it works.
+				dataSize = plan.replaced->GetLevelDataSize(i);
+			} else {
+				int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
+				stride = std::max(mipWidth * bpp, 16);
+				dataSize = stride * mipHeight;
+			}
 		} else {
+			int bpp = 0;
 			if (plan.scaleFactor > 1) {
 				bpp = 4;
 			} else {
 				bpp = dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
 			}
+			stride = std::max(mipWidth * bpp, 16);
+			dataSize = stride * mipHeight;
 		}
 
-		stride = std::max(mipWidth * bpp, 16);
-
 		if (plan.depth == 1) {
-			data = (u8 *)AllocateAlignedMemory(stride * mipHeight, 16);
+			data = (u8 *)AllocateAlignedMemory(dataSize, 16);
 			subresData[i].pSysMem = data;
 			subresData[i].SysMemPitch = stride;
 			subresData[i].SysMemSlicePitch = 0;
