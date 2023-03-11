@@ -56,7 +56,7 @@ static const D3D11_INPUT_ELEMENT_DESC g_QuadVertexElements[] = {
 
 // NOTE: In the D3D backends, we flip R and B in the shaders, so while these look wrong, they're OK.
 
-Draw::DataFormat FromD3D11Format(u32 fmt) {
+static Draw::DataFormat FromD3D11Format(u32 fmt) {
 	switch (fmt) {
 	case DXGI_FORMAT_B4G4R4A4_UNORM:
 		return Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
@@ -72,9 +72,16 @@ Draw::DataFormat FromD3D11Format(u32 fmt) {
 	}
 }
 
-DXGI_FORMAT ToDXGIFormat(Draw::DataFormat fmt) {
+static DXGI_FORMAT ToDXGIFormat(Draw::DataFormat fmt) {
 	switch (fmt) {
-	case Draw::DataFormat::R8G8B8A8_UNORM: default: return DXGI_FORMAT_B8G8R8A8_UNORM;
+	case Draw::DataFormat::BC1_RGBA_UNORM_BLOCK: return DXGI_FORMAT_BC1_UNORM;
+	case Draw::DataFormat::BC2_UNORM_BLOCK: return DXGI_FORMAT_BC2_UNORM;
+	case Draw::DataFormat::BC3_UNORM_BLOCK: return DXGI_FORMAT_BC3_UNORM;
+	case Draw::DataFormat::BC4_UNORM_BLOCK: return DXGI_FORMAT_BC4_UNORM;
+	case Draw::DataFormat::BC5_UNORM_BLOCK: return DXGI_FORMAT_BC5_UNORM;
+	case Draw::DataFormat::BC7_UNORM_BLOCK: return DXGI_FORMAT_BC7_UNORM;
+	case Draw::DataFormat::R8G8B8A8_UNORM: return DXGI_FORMAT_B8G8R8A8_UNORM;
+	default: _dbg_assert_(false); return DXGI_FORMAT_UNKNOWN;
 	}
 }
 

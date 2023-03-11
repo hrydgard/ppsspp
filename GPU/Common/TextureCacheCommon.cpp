@@ -1550,6 +1550,8 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 		// Make sure we keep polling.
 		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
 		break;
+    default:
+        break;
 	}
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	return replaced;

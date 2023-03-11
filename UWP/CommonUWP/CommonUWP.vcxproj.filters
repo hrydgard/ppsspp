@@ -420,6 +420,9 @@
     <ClCompile Include="..\..\Common\UI\ScrollView.cpp">
       <Filter>UI</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\DDSLoad.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -777,6 +780,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\UI\ScrollView.h">
       <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\DDSLoad.h">
+      <Filter>Data\Format</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

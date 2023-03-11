@@ -470,6 +470,9 @@
     <ClInclude Include="File\VFS\ZipFileReader.h">
       <Filter>File\VFS</Filter>
     </ClInclude>
+    <ClInclude Include="Data\Format\DDSLoad.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -889,6 +892,9 @@
     </ClCompile>
     <ClCompile Include="File\VFS\ZipFileReader.cpp">
       <Filter>File\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Format\DDSLoad.cpp">
+      <Filter>Data\Format</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -163,6 +163,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Data/Format/IniFile.cpp \
   $(SRC)/Common/Data/Format/JSONReader.cpp \
   $(SRC)/Common/Data/Format/JSONWriter.cpp \
+  $(SRC)/Common/Data/Format/DDSLoad.cpp \
+  $(SRC)/Common/Data/Format/DDSLoad.h \
   $(SRC)/Common/Data/Format/PNGLoad.cpp \
   $(SRC)/Common/Data/Format/PNGLoad.h \
   $(SRC)/Common/Data/Format/ZIMLoad.cpp \

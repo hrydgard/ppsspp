@@ -560,6 +560,7 @@ private:
 	uint8_t stencilCompareMask_ = 0xFF;
 };
 
+// Bits per pixel, not bytes.
 static int GetBpp(VkFormat format) {
 	switch (format) {
 	case VK_FORMAT_R8G8B8A8_UNORM:
@@ -582,6 +583,21 @@ static int GetBpp(VkFormat format) {
 		return 32;
 	case VK_FORMAT_D16_UNORM:
 		return 16;
+	case VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK:
+		return 4;
+	case VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK:
+	case VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK:
+		return 8;
+	case VK_FORMAT_ASTC_4x4_UNORM_BLOCK:
+		return 8;
+	case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
+		return 4;
+	case VK_FORMAT_BC2_UNORM_BLOCK:
+	case VK_FORMAT_BC3_UNORM_BLOCK:
+	case VK_FORMAT_BC4_UNORM_BLOCK:
+	case VK_FORMAT_BC5_UNORM_BLOCK:
+	case VK_FORMAT_BC7_UNORM_BLOCK:
+		return 8;
 	default:
 		return 0;
 	}
@@ -625,13 +641,15 @@ static VkFormat DataFormatToVulkan(DataFormat format) {
 	case DataFormat::BC2_UNORM_BLOCK: return VK_FORMAT_BC2_UNORM_BLOCK;
 	case DataFormat::BC3_UNORM_BLOCK: return VK_FORMAT_BC3_UNORM_BLOCK;
 	case DataFormat::BC4_UNORM_BLOCK: return VK_FORMAT_BC4_UNORM_BLOCK;
-	case DataFormat::BC4_SNORM_BLOCK: return VK_FORMAT_BC4_SNORM_BLOCK;
 	case DataFormat::BC5_UNORM_BLOCK: return VK_FORMAT_BC5_UNORM_BLOCK;
-	case DataFormat::BC5_SNORM_BLOCK: return VK_FORMAT_BC5_SNORM_BLOCK;
-	case DataFormat::BC6H_SFLOAT_BLOCK: return VK_FORMAT_BC6H_SFLOAT_BLOCK;
-	case DataFormat::BC6H_UFLOAT_BLOCK: return VK_FORMAT_BC6H_UFLOAT_BLOCK;
 	case DataFormat::BC7_UNORM_BLOCK: return VK_FORMAT_BC7_UNORM_BLOCK;
-	case DataFormat::BC7_SRGB_BLOCK:  return VK_FORMAT_BC7_SRGB_BLOCK;
+
+	case DataFormat::ETC2_R8G8B8A1_UNORM_BLOCK: return VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK;
+	case DataFormat::ETC2_R8G8B8A8_UNORM_BLOCK: return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+	case DataFormat::ETC2_R8G8B8_UNORM_BLOCK: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+
+	case DataFormat::ASTC_4x4_UNORM_BLOCK: return VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
+
 	default:
 		return VK_FORMAT_UNDEFINED;
 	}

@@ -571,6 +571,8 @@ add_library(Common STATIC
 	Common/Data/Format/JSONReader.cpp
 	Common/Data/Format/JSONWriter.h
 	Common/Data/Format/JSONWriter.cpp
+	Common/Data/Format/DDSLoad.cpp
+	Common/Data/Format/DDSLoad.h
 	Common/Data/Format/PNGLoad.cpp
 	Common/Data/Format/PNGLoad.h
 	Common/Data/Format/ZIMLoad.cpp

@@ -48,12 +48,6 @@ struct SavedTextureCacheData {
 	double lastTimeSaved = 0.0;
 };
 
-struct ReplacedLevelsCache {
-	std::mutex lock;
-	std::vector<std::vector<uint8_t>> data;
-	double lastUsed = 0.0;
-};
-
 struct ReplacementCacheKey {
 	u64 cachekey;
 	u32 hash;

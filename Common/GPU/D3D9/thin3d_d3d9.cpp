@@ -125,6 +125,9 @@ D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
 	case DataFormat::A1R5G5B5_UNORM_PACK16: return D3DFMT_A1R5G5B5;
 	case DataFormat::D24_S8: return D3DFMT_D24S8;
 	case DataFormat::D16: return D3DFMT_D16;
+	case DataFormat::BC1_RGBA_UNORM_BLOCK: return D3DFMT_DXT1;
+	case DataFormat::BC2_UNORM_BLOCK: return D3DFMT_DXT3;  // DXT3 is indeed BC2.
+	case DataFormat::BC3_UNORM_BLOCK: return D3DFMT_DXT5;  // DXT5 is indeed BC3
 	default: return D3DFMT_UNKNOWN;
 	}
 }
