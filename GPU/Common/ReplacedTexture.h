@@ -129,15 +129,13 @@ struct ReplacedTexture {
 	bool IsReady(double budget);
 	bool CopyLevelTo(int level, void *out, int rowPitch);
 
-	void FinishPopulate(const ReplacementDesc &desc);
+	void FinishPopulate(ReplacementDesc *desc);
 	std::string logId_;
 
 private:
 	void Prepare(VFSBackend *vfs);
-	void PrepareData(int level);
+	bool LoadLevelData(ReplacedTextureLevel &info, int level);
 	void PurgeIfOlder(double t);
-
-	bool PopulateLevel(ReplacedTextureLevel & level, bool ignoreError);
 
 	std::vector<ReplacedTextureLevel> levels_;
 	ReplacedLevelsCache *levelData_ = nullptr;
@@ -148,9 +146,10 @@ private:
 	std::mutex mutex_;
 	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
 
-	ReplacementState state_ = ReplacementState::UNINITIALIZED;
+	std::atomic<ReplacementState> state_ = ReplacementState::UNINITIALIZED;
 
 	VFSBackend *vfs_ = nullptr;
+	ReplacementDesc *desc_ = nullptr;
 
 	friend class TextureReplacer;
 	friend class ReplacedTextureTask;

@@ -191,6 +191,13 @@ bool TextureReplacer::LoadIni() {
 	}
 
 	vfs_ = dir;
+
+	// If we have stuff loaded from before, need to update the vfs pointers to avoid
+	// crash on exit. The actual problem is that we tend to call LoadIni a little too much...
+	for (auto &repl : cache_) {
+		repl.second->vfs_ = vfs_;
+	}
+
 	INFO_LOG(G3D, "Texture pack activated from '%s'", basePath_.c_str());
 
 	// The ini doesn't have to exist for the texture directory or zip to be valid.
@@ -498,23 +505,24 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 }
 
 void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey, u32 hash, int w, int h) {
-	ReplacementDesc desc;
-	desc.newW = w;
-	desc.newH = h;
-	desc.w = w;
-	desc.h = h;
-	desc.cachekey = cachekey;
-	desc.hash = hash;
-	desc.basePath = basePath_;
-	LookupHashRange(cachekey >> 32, desc.newW, desc.newH);
+	// We pass this to a thread, so can't keep it on the stack.
+	ReplacementDesc *desc = new ReplacementDesc();
+	desc->newW = w;
+	desc->newH = h;
+	desc->w = w;
+	desc->h = h;
+	desc->cachekey = cachekey;
+	desc->hash = hash;
+	desc->basePath = basePath_;
+	LookupHashRange(cachekey >> 32, desc->newW, desc->newH);
 
 	if (ignoreAddress_) {
 		cachekey = cachekey & 0xFFFFFFFFULL;
 	}
 
-	desc.foundAlias = false;
+	desc->foundAlias = false;
 	bool ignored = false;
-	desc.hashfiles = LookupHashFile(cachekey, hash, &desc.foundAlias, &ignored);
+	desc->hashfiles = LookupHashFile(cachekey, hash, &desc->foundAlias, &ignored);
 
 	// Early-out for ignored textures, let's not bother even starting a thread task.
 	if (ignored) {
@@ -524,22 +532,22 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 		return;
 	}
 
-	if (!desc.foundAlias) {
+	if (!desc->foundAlias) {
 		// We'll just need to generate the names for each level.
 		// By default, we look for png since that's also what's dumped.
 		// For other file formats, use the ini to create aliases.
-		desc.filenames.resize(MAX_REPLACEMENT_MIP_LEVELS);
-		for (int level = 0; level < desc.filenames.size(); level++) {
-			desc.filenames[level] = TextureReplacer::HashName(desc.cachekey, desc.hash, level) + ".png";
+		desc->filenames.resize(MAX_REPLACEMENT_MIP_LEVELS);
+		for (int level = 0; level < desc->filenames.size(); level++) {
+			desc->filenames[level] = TextureReplacer::HashName(desc->cachekey, desc->hash, level) + ".png";
 		}
-		desc.logId = desc.filenames[0];
-		desc.hashfiles = desc.filenames[0];  // This is used as the key in the data cache.
+		desc->logId = desc->filenames[0];
+		desc->hashfiles = desc->filenames[0];  // This is used as the key in the data cache.
 	} else {
-		desc.logId = desc.hashfiles;
-		SplitString(desc.hashfiles, '|', desc.filenames);
+		desc->logId = desc->hashfiles;
+		SplitString(desc->hashfiles, '|', desc->filenames);
 	}
 
-	desc.cache = &levelCache_[desc.hashfiles];
+	desc->cache = &levelCache_[desc->hashfiles];
 
 	texture->FinishPopulate(desc);
 }
