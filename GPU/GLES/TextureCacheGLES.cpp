@@ -292,20 +292,33 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 			u8 *data = nullptr;
 			int stride = 0;
-			int bpp;
+			int dataSize;
+
+			bool bc = false;
 
 			if (plan.replaceValid) {
-				bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
+				int blockSize = 0;
+				if (Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), &blockSize)) {
+					stride = mipWidth * 4;
+					dataSize = plan.replaced->GetLevelDataSize(i);
+					bc = true;
+				} else {
+					int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
+					stride = std::max(mipWidth * bpp, 16);
+					dataSize = stride * mipHeight;
+				}
 			} else {
+				int bpp = 0;
 				if (plan.scaleFactor > 1) {
 					bpp = 4;
 				} else {
 					bpp = (int)Draw::DataFormatSizeInBytes(dstFmt);
 				}
+				stride = std::max(mipWidth * bpp, 16);
+				dataSize = stride * mipHeight;
 			}
 
-			stride = mipWidth * bpp;
-			data = (u8 *)AllocateAlignedMemory(stride * mipHeight, 16);
+			data = (u8 *)AllocateAlignedMemory(dataSize, 16);
 
 			if (!data) {
 				ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
