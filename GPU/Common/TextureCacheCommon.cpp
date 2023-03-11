@@ -1514,7 +1514,7 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 		return nullptr;
 	}
 
-	if ((entry->status & TexCacheEntry::STATUS_VIDEO) && replacer_.AllowVideo()) {
+	if ((entry->status & TexCacheEntry::STATUS_VIDEO) && !replacer_.AllowVideo()) {
 		return nullptr;
 	}
 

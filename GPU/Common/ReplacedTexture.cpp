@@ -88,18 +88,24 @@ private:
 bool ReplacedTexture::IsReady(double budget) {
 	_assert_(vfs_ != nullptr);
 
+	double now = time_now_d();
+
 	switch (State()) {
 	case ReplacementState::ACTIVE:
 	case ReplacementState::NOT_FOUND:
 		if (threadWaitable_) {
 			if (!threadWaitable_->WaitFor(budget)) {
+				lastUsed_ = now;
 				return false;
 			}
 			// Successfully waited! Can get rid of it.
 			threadWaitable_->WaitAndRelease();
 			threadWaitable_ = nullptr;
+			if (levelData_) {
+				levelData_->lastUsed = now;
+			}
 		}
-		lastUsed_ = time_now_d();
+		lastUsed_ = now;
 		return true;
 	case ReplacementState::UNINITIALIZED:
 		// _dbg_assert_(false);
@@ -112,7 +118,7 @@ bool ReplacedTexture::IsReady(double budget) {
 		break;
 	}
 
-	lastUsed_ = time_now_d();
+	lastUsed_ = now;
 
 	// Let's not even start a new texture if we're already behind.
 	if (budget < 0.0)

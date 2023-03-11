@@ -216,8 +216,6 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 
 	bool filenameWarning = false;
 	if (ini.HasSection("hashes")) {
-		aliases_.clear();
-
 		auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
 		// Format: hashname = filename.png
 		bool checkFilenames = g_Config.bSaveNewTextures && !g_Config.bIgnoreTextureFilenames && !vfsIsZip_;
@@ -693,6 +691,9 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 #endif
 	if (slash != hashfile.npos) {
 		// Does this ever happen?
+		// Answer: An alias could be used to save a texture in a subfolder of newTextureDir_
+		// (i.e. if you had the hash and purged out your pngs to redump them), although I guess this usage is probably uncommon.  - unknown
+
 		// Create any directory structure as needed.
 		task->saveDirectory = newTextureDir_ / hashfile.substr(0, slash);
 		task->createSaveDirectory = true;
