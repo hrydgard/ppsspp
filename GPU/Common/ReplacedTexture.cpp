@@ -196,27 +196,18 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 			break;
 		}
 
-		const Path filename = desc_->basePath / desc_->filenames[i];
-
 		VFSFileReference *fileRef = vfs_->GetFile(desc_->filenames[i].c_str());
 		if (!fileRef) {
 			// If the file doesn't exist, let's just bail immediately here.
 			break;
 		}
 
-		// TODO: Here, if we find a file with multiple built-in mipmap levels,
-		// we'll have to change a bit how things work...
-		ReplacedTextureLevel level;
-		level.file = filename;
-
 		if (i == 0) {
 			fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 		}
 
-		level.fileRef = fileRef;
-
 		Draw::DataFormat pixelFormat;
-		if (LoadLevelData(level, i, &pixelFormat)) {
+		if (LoadLevelData(fileRef, desc_->filenames[i], i, &pixelFormat)) {
 			if (i == 0) {
 				fmt = pixelFormat;
 			} else {
@@ -225,7 +216,6 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 					break;
 				}
 			}
-			levels_.push_back(level);
 		} else {
 			// Otherwise, we're done loading mips (bad PNG or bad size, either way.)
 			break;
@@ -253,7 +243,11 @@ inline uint32_t RoundUpTo4(uint32_t value) {
 	return (value + 3) & ~3;
 }
 
-bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, Draw::DataFormat *pixelFormat) {
+// Returns true if Prepare should keep calling this to load more levels.
+bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string &filename, int mipLevel, Draw::DataFormat *pixelFormat) {
+	ReplacedTextureLevel level;
+	level.fileRef = fileRef;
+
 	bool good = false;
 
 	if (levelData_->data.size() <= mipLevel) {
@@ -360,12 +354,12 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 			level.h = headerPeek.Height();
 			good = true;
 		} else {
-			ERROR_LOG(G3D, "Could not get PNG dimensions: %s (zip)", level.file.ToVisualString().c_str());
+			ERROR_LOG(G3D, "Could not get PNG dimensions: %s (zip)", filename.c_str());
 			good = false;
 		}
 		*pixelFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 	} else {
-		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format %s", level.file.ToVisualString().c_str(), magic.c_str());
+		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format %s", filename.c_str(), magic.c_str());
 	}
 
 	// Already populated from cache. TODO: Move this above the first read, and take level.w/h from the cache.
@@ -420,7 +414,7 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 		}
 
 		if (vfs_->Read(openFile, &zim[0], fileSize) != fileSize) {
-			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", level.file.c_str());
+			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", filename.c_str());
 			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
 			return false;
@@ -430,7 +424,7 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 		uint8_t *image;
 		if (LoadZIMPtr(&zim[0], fileSize, &w, &h, &f, &image)) {
 			if (w > level.w || h > level.h) {
-				ERROR_LOG(G3D, "Texture replacement changed since header read: %s", level.file.c_str());
+				ERROR_LOG(G3D, "Texture replacement changed since header read: %s", filename.c_str());
 				SetState(ReplacementState::NOT_FOUND);
 				cleanup();
 				return false;
@@ -459,13 +453,13 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 		pngdata.resize(fileSize);
 		pngdata.resize(vfs_->Read(openFile, &pngdata[0], fileSize));
 		if (!png_image_begin_read_from_memory(&png, &pngdata[0], pngdata.size())) {
-			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s (zip)", level.file.c_str(), png.message);
+			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s (zip)", filename.c_str(), png.message);
 			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
 			return false;
 		}
 		if (png.width > (uint32_t)level.w || png.height > (uint32_t)level.h) {
-			ERROR_LOG(G3D, "Texture replacement changed since header read: %s", level.file.c_str());
+			ERROR_LOG(G3D, "Texture replacement changed since header read: %s", filename.c_str());
 			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
 			return false;
@@ -483,7 +477,7 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 
 		out.resize(level.w * level.h * 4);
 		if (!png_image_finish_read(&png, nullptr, &out[0], level.w * 4, nullptr)) {
-			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", level.file.c_str(), png.message);
+			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", filename.c_str(), png.message);
 			SetState(ReplacementState::NOT_FOUND);
 			cleanup();
 			out.resize(0);
@@ -503,6 +497,9 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 	}
 
 	cleanup();
+
+	levels_.push_back(level);
+
 	return true;
 }
 
