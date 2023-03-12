@@ -93,7 +93,7 @@ enum class ReplacerDecimateMode {
 
 class TextureReplacer {
 public:
-	// The draw context will be checked for supported texture formats.
+	// The draw context is checked for supported texture formats.
 	TextureReplacer(Draw::DrawContext *draw);
 	~TextureReplacer();
 
@@ -152,6 +152,7 @@ protected:
 
 	VFSBackend *vfs_ = nullptr;
 	bool vfsIsZip_ = false;
+	GPUFormatSupport formatSupport_{};
 
 	typedef std::pair<int, int> WidthHeightPair;
 	std::unordered_map<u64, WidthHeightPair> hashranges_;

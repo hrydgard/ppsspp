@@ -72,6 +72,13 @@ enum class ReplacementState : uint32_t {
 
 const char *StateString(ReplacementState state);
 
+struct GPUFormatSupport {
+	bool bc123;
+	bool astc;
+	bool bc7;
+	bool etc2;
+};
+
 struct ReplacementDesc {
 	int newW;
 	int newH;
@@ -85,6 +92,7 @@ struct ReplacementDesc {
 	std::vector<std::string> filenames;
 	std::string logId;
 	ReplacedLevelsCache *cache;
+	GPUFormatSupport formatSupport;
 };
 
 struct ReplacedLevelsCache {

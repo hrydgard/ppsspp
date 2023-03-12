@@ -262,14 +262,22 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 				switch (format) {
 				case 98: // DXGI_FORMAT_BC7_UNORM:
 				case 99: // DXGI_FORMAT_BC7_UNORM_SRGB:
+					if (!desc_->formatSupport.bc7) {
+						WARN_LOG(G3D, "BC1-3 formats not supported, skipping texture");
+						good = false;
+					}
 					ddsBytesToRead = RoundUpTo4(header.dwWidth) * RoundUpTo4(header.dwHeight);  // 1 byte per pixel so this should be right.
 					*pixelFormat = Draw::DataFormat::BC7_UNORM_BLOCK;
 					break;
 				default:
-					ERROR_LOG(G3D, "DXGI pixel format %d not supported.", header10.dxgiFormat);
+					WARN_LOG(G3D, "DXGI pixel format %d not supported.", header10.dxgiFormat);
 					good = false;
 				}
 			} else {
+				if (!desc_->formatSupport.bc123) {
+					WARN_LOG(G3D, "BC1-3 formats not supported");
+					good = false;
+				}
 				ddsBytesToRead = header.dwPitchOrLinearSize;
 				format = header.ddspf.dwFourCC;
 				// OK, there are a number of possible formats we might have ended up with. We choose just a few
@@ -370,7 +378,7 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 		out.resize(ddsBytesToRead);
 		size_t read_bytes = vfs_->Read(openFile, &out[0], ddsBytesToRead);
 		if (read_bytes != ddsBytesToRead) {
-			WARN_LOG(G3D, "DDS: Expected %d bytes, got %d", ddsBytesToRead, read_bytes);
+			WARN_LOG(G3D, "DDS: Expected %d bytes, got %d", ddsBytesToRead, (int)read_bytes);
 		}
 	} else if (imageType == ReplacedImageType::ZIM) {
 		std::unique_ptr<uint8_t[]> zim(new uint8_t[fileSize]);

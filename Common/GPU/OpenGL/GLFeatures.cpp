@@ -593,8 +593,12 @@ bool CheckGLExtensions() {
 			switch (compressedFormats[i]) {
 			case GL_COMPRESSED_RGB8_ETC2: gl_extensions.supportsETC2 = true; break;
 			case GL_COMPRESSED_RGBA_ASTC_4x4_KHR: gl_extensions.supportsASTC = true; break;
+#if !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(MAC)
 			case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT: gl_extensions.supportsBC123 = true; break;
+#endif
+#if PPSSPP_PLATFORM(WINDOWS)
 			case GL_COMPRESSED_RGBA_BPTC_UNORM: gl_extensions.supportsBC7 = true; break;
+#endif
 			}
 		}
 	}
