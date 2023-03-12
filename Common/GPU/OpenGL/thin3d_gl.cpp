@@ -1556,7 +1556,23 @@ uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 	case DataFormat::BC1_RGBA_UNORM_BLOCK:
 	case DataFormat::BC2_UNORM_BLOCK:
 	case DataFormat::BC3_UNORM_BLOCK:
-		return FMT_TEXTURE;
+		return gl_extensions.supportsBC123 ? FMT_TEXTURE : 0;
+
+	case DataFormat::BC4_UNORM_BLOCK:
+	case DataFormat::BC5_UNORM_BLOCK:
+		return gl_extensions.supportsBC45 ? FMT_TEXTURE : 0;
+
+	case DataFormat::BC7_UNORM_BLOCK:
+		return gl_extensions.supportsBC7 ? FMT_TEXTURE : 0;
+
+	case DataFormat::ASTC_4x4_UNORM_BLOCK:
+		return gl_extensions.supportsASTC ? FMT_TEXTURE : 0;
+
+	case DataFormat::ETC2_R8G8B8_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8A1_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8A8_UNORM_BLOCK:
+		return gl_extensions.supportsETC2 ? FMT_TEXTURE : 0;
+
 	default:
 		return 0;
 	}
