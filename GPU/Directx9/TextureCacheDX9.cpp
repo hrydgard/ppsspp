@@ -40,23 +40,21 @@
 
 Draw::DataFormat FromD3D9Format(u32 fmt) {
 	switch (fmt) {
-	case D3DFMT_A4R4G4B4:
-		return Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
-	case D3DFMT_A1R5G5B5:
-		return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
-	case D3DFMT_R5G6B5:
-		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
-	case D3DFMT_A8:
-		return Draw::DataFormat::R8_UNORM;
-	case D3DFMT_A8R8G8B8:
-	default:
-		return Draw::DataFormat::R8G8B8A8_UNORM;
+	case D3DFMT_A4R4G4B4: return Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
+	case D3DFMT_A1R5G5B5: return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+	case D3DFMT_R5G6B5: return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case D3DFMT_A8: return Draw::DataFormat::R8_UNORM;
+	case D3DFMT_A8R8G8B8: default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
 D3DFORMAT ToD3D9Format(Draw::DataFormat fmt) {
 	switch (fmt) {
-	case Draw::DataFormat::R8G8B8A8_UNORM: default: return D3DFMT_A8R8G8B8;
+	case Draw::DataFormat::BC1_RGBA_UNORM_BLOCK: return D3DFMT_DXT1;
+	case Draw::DataFormat::BC2_UNORM_BLOCK: return D3DFMT_DXT3;
+	case Draw::DataFormat::BC3_UNORM_BLOCK: return D3DFMT_DXT5;
+	case Draw::DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
+	default: _dbg_assert_(false); return D3DFMT_A8R8G8B8;
 	}
 }
 

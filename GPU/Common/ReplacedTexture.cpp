@@ -297,6 +297,10 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 		level.w = header.dwWidth;
 		level.h = header.dwHeight;
 		numMips = header.dwMipMapCount;
+
+		if (numMips > 1) {
+			WARN_LOG(G3D, "DDS file contains more than one mip level. Ignoring for now.");
+		}
 	} else if (imageType == ReplacedImageType::ZIM) {
 		uint32_t ignore = 0;
 		struct ZimHeader {
@@ -324,10 +328,6 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 		*pixelFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 	} else {
 		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format %s", level.file.ToVisualString().c_str(), magic.c_str());
-	}
-
-	if (numMips > 1) {
-		WARN_LOG(G3D, "File contains more than one mip level. Ignoring for now.");
 	}
 
 	// Already populated from cache. TODO: Move this above the first read, and take level.w/h from the cache.

@@ -1592,6 +1592,7 @@ uint32_t D3D9Context::GetDataFormatSupport(DataFormat fmt) const {
 	case DataFormat::BC1_RGBA_UNORM_BLOCK:
 	case DataFormat::BC2_UNORM_BLOCK:
 	case DataFormat::BC3_UNORM_BLOCK:
+		// DXT1, DXT3, DXT5.
 		return FMT_TEXTURE;
 	default:
 		return 0;
