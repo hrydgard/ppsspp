@@ -2,6 +2,7 @@
 
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 
+#include "Common/CPUDetect.h"
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 #include "Core/MIPS/x86/Jit.h"
@@ -33,6 +34,9 @@ bool TestX64Emitter() {
 	u32 code[512];
 	XEmitter emitter((u8 *)code);
 
+	bool prevAVX = cpu_info.bAVX;
+	cpu_info.bAVX = true;
+
 	prevStart = emitter.GetCodePointer();
 	emitter.VADDSD(XMM0, XMM1, R(XMM7));
 	RET(CheckLast(emitter, "vaddsd xmm0, xmm1, xmm7"));
@@ -40,6 +44,8 @@ bool TestX64Emitter() {
 	prevStart = emitter.GetCodePointer();
 	emitter.VMULSD(XMM0, XMM1, R(XMM7));
 	RET(CheckLast(emitter, "vmulsd xmm0, xmm1, xmm7"));
+
+	cpu_info.bAVX = prevAVX;
 
 	// Just for checking.
 	PrintLast(emitter);
