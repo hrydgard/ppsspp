@@ -584,11 +584,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 		bool dataScaled = true;
 		if (plan.replaceValid) {
-			int bufferRowLength = byteStride;
+			int rowLength = pixelStride;
 			if (bcFormat) {
 				// For block compressed formats, we just set the upload size to the data size..
 				uploadSize = plan.replaced->GetLevelDataSize(plan.baseLevelSrc + i);
-				bufferRowLength = mipWidth;
+				rowLength = (mipWidth + 3) & ~3;
 			}
 			// Directly load the replaced image.
 			data = pushBuffer->PushAligned(uploadSize, &bufferOffset, &texBuf, pushAlignment);
@@ -600,7 +600,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			replacementTimeThisFrame_ += time_now_d() - replaceStart;
 			VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
 				"Copy Upload (replaced): %dx%d", mipWidth, mipHeight);
-			entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, pixelStride);
+			entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, rowLength);
 			VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 		} else {
 			if (plan.depth != 1) {
