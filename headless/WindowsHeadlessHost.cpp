@@ -71,6 +71,7 @@ void WindowsHeadlessHost::LoadNativeAssets()
 	g_VFS.Register("", new DirectoryReader(Path("assets")));
 	g_VFS.Register("", new DirectoryReader(Path("")));
 	g_VFS.Register("", new DirectoryReader(Path("..")));
+	g_VFS.Register("", new DirectoryReader(Path("../assets")));
 	g_VFS.Register("", new DirectoryReader(Path("../Windows/assets")));
 	g_VFS.Register("", new DirectoryReader(Path("../Windows")));
 }
