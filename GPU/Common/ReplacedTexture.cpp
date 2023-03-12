@@ -561,8 +561,7 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 		}
 	} else {
 		// TODO: Add sanity checks here for other formats?
-		// Just gonna do a memcpy, slightly scared of the parallel ones.
-		memcpy(out, data.data(), data.size());
+		ParallelMemcpy(&g_threadManager, out, data.data(), data.size());
 	}
 
 	return true;

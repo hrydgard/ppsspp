@@ -455,9 +455,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		Draw::DataFormat fmt = plan.replaced->Format();
 		bcFormat = Draw::DataFormatIsBlockCompressed(fmt, &bcAlign);
 		actualFmt = ToVulkanFormat(fmt);
-		if (actualFmt != VULKAN_8888_FORMAT) {
-			actualFmt = actualFmt;
-		}
 	}
 
 	bool computeUpload = false;
