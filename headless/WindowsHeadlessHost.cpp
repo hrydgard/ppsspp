@@ -66,16 +66,6 @@ HWND CreateHiddenWindow() {
 	return CreateWindowEx(0, L"PPSSPPHeadless", L"PPSSPPHeadless", style, CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, NULL, NULL, NULL);
 }
 
-void WindowsHeadlessHost::LoadNativeAssets()
-{
-	g_VFS.Register("", new DirectoryReader(Path("assets")));
-	g_VFS.Register("", new DirectoryReader(Path("")));
-	g_VFS.Register("", new DirectoryReader(Path("..")));
-	g_VFS.Register("", new DirectoryReader(Path("../assets")));
-	g_VFS.Register("", new DirectoryReader(Path("../Windows/assets")));
-	g_VFS.Register("", new DirectoryReader(Path("../Windows")));
-}
-
 void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
 {
 	fwrite(output.data(), sizeof(char), output.length(), stdout);
@@ -151,8 +141,6 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 		});
 		th.detach();
 	}
-
-	LoadNativeAssets();
 
 	if (needRenderThread) {
 		threadState_ = RenderThreadState::START_REQUESTED;

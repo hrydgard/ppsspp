@@ -474,21 +474,27 @@ int main(int argc, const char* argv[])
 	InitSysDirectories();
 #endif
 
+	Path executablePath = File::GetExeDirectory();
 #if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(WINDOWS)
 	g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
-	g_Config.flash0Directory = File::GetExeDirectory() / "assets/flash0";
+	g_Config.flash0Directory = executablePath / "assets/flash0";
 #endif
 
 	// Try to find the flash0 directory.  Often this is from a subdirectory.
-	for (int i = 0; i < 4 && !File::Exists(g_Config.flash0Directory); ++i) {
-		if (File::Exists(g_Config.flash0Directory / ".." / "assets/flash0"))
-			g_Config.flash0Directory = g_Config.flash0Directory / ".." / "assets/flash0";
-		else
-			g_Config.flash0Directory = g_Config.flash0Directory / ".." / ".." / "flash0";
+	Path nextPath = executablePath;
+	for (int i = 0; i < 5; ++i) {
+		if (File::Exists(nextPath / "assets/flash0")) {
+			g_Config.flash0Directory = nextPath / "assets/flash0";
+#if !PPSSPP_PLATFORM(ANDROID)
+			g_VFS.Register("", new DirectoryReader(nextPath / "assets"));
+#endif
+			break;
+		}
+
+		if (!nextPath.CanNavigateUp())
+			break;
+		nextPath = nextPath.NavigateUp();
 	}
-	// Or else, maybe in the executable's dir.
-	if (!File::Exists(g_Config.flash0Directory))
-		g_Config.flash0Directory = File::GetExeDirectory() / "assets/flash0";
 
 	if (screenshotFilename)
 		headlessHost->SetComparisonScreenshot(Path(std::string(screenshotFilename)), testOptions.maxScreenshotError);
@@ -502,8 +508,11 @@ int main(int argc, const char* argv[])
 	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp.apk"))) {
 		g_VFS.Register("", ZipFileReader::Create(Path("/data/app/org.ppsspp.ppsspp.apk"), "assets/"));
 	}
-#elif !PPSSPP_PLATFORM(WINDOWS)
-	g_VFS.Register("", new DirectoryReader(g_Config.flash0Directory / ".."));
+#elif PPSSPP_PLATFORM(LINUX)
+	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/games/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/share/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/share/games/ppsspp/assets")));
 #endif
 
 	UpdateUIState(UISTATE_INGAME);
