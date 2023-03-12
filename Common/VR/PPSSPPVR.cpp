@@ -366,14 +366,14 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 			for (auto& axis : device.second) {
 				switch(axis.first) {
 					case JOYSTICK_AXIS_X:
-						if (axis.second < -0.75f) g_Config.fCameraSide -= 0.05f;
-						if (axis.second > 0.75f) g_Config.fCameraSide += 0.05f;
-						g_Config.fCameraSide = clampFloat(g_Config.fCameraSide, -50.0f, 50.0f);
+						if (axis.second < -0.75f) g_Config.fCameraSide -= 0.1f;
+						if (axis.second > 0.75f) g_Config.fCameraSide += 0.1f;
+						g_Config.fCameraSide = clampFloat(g_Config.fCameraSide, -150.0f, 150.0f);
 						break;
 					case JOYSTICK_AXIS_Y:
-						if (axis.second > 0.75f) g_Config.fCameraHeight -= 0.05f;
-						if (axis.second < -0.75f) g_Config.fCameraHeight += 0.05f;
-						g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -50.0f, 50.0f);
+						if (axis.second > 0.75f) g_Config.fCameraHeight -= 0.1f;
+						if (axis.second < -0.75f) g_Config.fCameraHeight += 0.1f;
+						g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -150.0f, 150.0f);
 						break;
 					case JOYSTICK_AXIS_Z:
 						if (axis.second < -0.75f) g_Config.fHeadUpDisplayScale -= 0.01f;
@@ -383,7 +383,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 					case JOYSTICK_AXIS_RZ:
 						if (axis.second > 0.75f) g_Config.fCameraDistance -= 0.1f;
 						if (axis.second < -0.75f) g_Config.fCameraDistance += 0.1f;
-						g_Config.fCameraDistance = clampFloat(g_Config.fCameraDistance, -50.0f, 50.0f);
+						g_Config.fCameraDistance = clampFloat(g_Config.fCameraDistance, -150.0f, 150.0f);
 						break;
 				}
 			}
@@ -665,6 +665,21 @@ bool StartVRRender() {
 					invView = XrPosef_Inverse(invView);
 				}
 
+				// apply camera pitch offset
+				XrVector3f positionOffset = {g_Config.fCameraSide, g_Config.fCameraHeight, g_Config.fCameraDistance};
+				if (!flatScreen) {
+					float pitchOffset = 0;
+					if (g_Config.iCameraPitch == 1) {
+						pitchOffset = 90;
+						positionOffset = {positionOffset.x, positionOffset.z, -positionOffset.y};
+					} else if (g_Config.iCameraPitch == 2) {
+						pitchOffset = -90;
+						positionOffset = {positionOffset.x, -positionOffset.z, positionOffset.y};
+					}
+					XrQuaternionf rotationOffset = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, ToRadians(pitchOffset));
+					invView.orientation = XrQuaternionf_Multiply(rotationOffset, invView.orientation);
+				}
+
 				// decompose rotation
 				XrVector3f rotation = XrQuaternionf_ToEulerAngles(invView.orientation);
 				float mPitch = mx * ToRadians(rotation.x);
@@ -685,14 +700,14 @@ bool StartVRRender() {
 				memcpy(&M, M, sizeof(float) * 16);
 
 				// Apply 6Dof head movement
-				if (!flatScreen && g_Config.bEnable6DoF) {
+				if (!flatScreen && g_Config.bEnable6DoF && !g_Config.bHeadRotationEnabled && (g_Config.iCameraPitch == 0)) {
 					M[3] -= invViewTransform[0].position.x * (vrMirroring[VR_MIRRORING_AXIS_X] ? -1.0f : 1.0f) * scale;
 					M[7] -= invViewTransform[0].position.y * (vrMirroring[VR_MIRRORING_AXIS_Y] ? -1.0f : 1.0f) * scale;
 					M[11] -= invViewTransform[0].position.z * (vrMirroring[VR_MIRRORING_AXIS_Z] ? -1.0f : 1.0f) * scale;
 				}
 				// Camera adjust - distance
-				if (fabsf(g_Config.fCameraDistance) > 0.0f) {
-					XrVector3f forward = {0.0f, 0.0f, g_Config.fCameraDistance * scale};
+				if (fabsf(positionOffset.z) > 0.0f) {
+					XrVector3f forward = {0.0f, 0.0f, positionOffset.z * scale};
 					forward = XrQuaternionf_Rotate(invView.orientation, forward);
 					forward = XrVector3f_ScalarMultiply(forward, vrMirroring[VR_MIRRORING_AXIS_Z] ? -1.0f : 1.0f);
 					M[3] += forward.x;
@@ -700,8 +715,8 @@ bool StartVRRender() {
 					M[11] += forward.z;
 				}
 				// Camera adjust - height
-				if (fabsf(g_Config.fCameraHeight) > 0.0f) {
-					XrVector3f up = {0.0f, -g_Config.fCameraHeight * scale, 0.0f};
+				if (fabsf(positionOffset.y) > 0.0f) {
+					XrVector3f up = {0.0f, -positionOffset.y * scale, 0.0f};
 					up = XrQuaternionf_Rotate(invView.orientation, up);
 					up = XrVector3f_ScalarMultiply(up, vrMirroring[VR_MIRRORING_AXIS_Y] ? -1.0f : 1.0f);
 					M[3] += up.x;
@@ -709,8 +724,8 @@ bool StartVRRender() {
 					M[11] += up.z;
 				}
 				// Camera adjust - side
-				if (fabsf(g_Config.fCameraSide) > 0.0f) {
-					XrVector3f side = {-g_Config.fCameraSide * scale, 0.0f,  0.0f};
+				if (fabsf(positionOffset.x) > 0.0f) {
+					XrVector3f side = {-positionOffset.x * scale, 0.0f,  0.0f};
 					side = XrQuaternionf_Rotate(invView.orientation, side);
 					side = XrVector3f_ScalarMultiply(side, vrMirroring[VR_MIRRORING_AXIS_X] ? -1.0f : 1.0f);
 					M[3] += side.x;
