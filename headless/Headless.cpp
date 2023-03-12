@@ -264,6 +264,28 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	return passed;
 }
 
+std::vector<std::string> ReadFromListFile(const std::string &listFilename) {
+	std::vector<std::string> testFilenames;
+	char temp[2048]{};
+
+	if (listFilename == "-") {
+		while (scanf("%2047s", temp) == 1)
+			testFilenames.push_back(temp);
+	} else {
+		FILE *fp = File::OpenCFile(Path(listFilename), "rt");
+		if (!fp) {
+			fprintf(stderr, "Unable to open '%s' as a list file\n", listFilename.c_str());
+			return testFilenames;
+		}
+
+		while (fscanf(fp, "%2047s", temp) == 1)
+			testFilenames.push_back(temp);
+		fclose(fp);
+	}
+
+	return testFilenames;
+}
+
 int main(int argc, const char* argv[])
 {
 	PROFILE_INIT();
@@ -363,16 +385,8 @@ int main(int argc, const char* argv[])
 			testFilenames.push_back(argv[i]);
 	}
 
-	// TODO: Allow a filename here?
-	if (testFilenames.size() == 1 && testFilenames[0] == "@-")
-	{
-		testFilenames.clear();
-		char temp[2048];
-		temp[2047] = '\0';
-
-		while (scanf("%2047s", temp) == 1)
-			testFilenames.push_back(temp);
-	}
+	if (testFilenames.size() == 1 && testFilenames[0][0] == '@')
+		testFilenames = ReadFromListFile(testFilenames[0].substr(1));
 
 	if (testFilenames.empty())
 		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
