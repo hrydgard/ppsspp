@@ -55,7 +55,11 @@ static const int VERSION = 1;
 static const double MAX_CACHE_SIZE = 4.0;
 
 TextureReplacer::TextureReplacer(Draw::DrawContext *draw) {
-	// TODO: Check draw for supported texture formats.
+	// We don't want to keep the draw object around, so extract the info we need.
+	if (draw->GetDataFormatSupport(Draw::DataFormat::BC3_UNORM_BLOCK)) formatSupport_.bc123 = true;
+	if (draw->GetDataFormatSupport(Draw::DataFormat::ASTC_4x4_UNORM_BLOCK)) formatSupport_.astc = true;
+	if (draw->GetDataFormatSupport(Draw::DataFormat::BC7_UNORM_BLOCK)) formatSupport_.bc7 = true;
+	if (draw->GetDataFormatSupport(Draw::DataFormat::ETC2_R8G8B8_UNORM_BLOCK)) formatSupport_.etc2 = true;
 }
 
 TextureReplacer::~TextureReplacer() {
@@ -487,6 +491,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 	desc->cachekey = cachekey;
 	desc->hash = hash;
 	desc->basePath = basePath_;
+	desc->formatSupport = formatSupport_;
 	LookupHashRange(cachekey >> 32, desc->newW, desc->newH);
 
 	if (ignoreAddress_) {

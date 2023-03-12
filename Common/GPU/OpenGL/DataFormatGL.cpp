@@ -105,6 +105,18 @@ bool Thin3DFormatToGLFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuin
 		type = GL_FLOAT;
 		alignment = 16;
 		break;
+	case DataFormat::BC4_UNORM_BLOCK:
+		internalFormat = GL_COMPRESSED_RED_RGTC1;
+		format = GL_R;
+		type = GL_FLOAT;
+		alignment = 16;
+		break;
+	case DataFormat::BC5_UNORM_BLOCK:
+		internalFormat = GL_COMPRESSED_RG_RGTC2;
+		format = GL_RG;
+		type = GL_FLOAT;
+		alignment = 16;
+		break;
 	case DataFormat::BC7_UNORM_BLOCK:
 		internalFormat = GL_COMPRESSED_RGBA_BPTC_UNORM;
 		format = GL_RGBA;

@@ -54,7 +54,6 @@ static const int MAX_REPLACEMENT_MIP_LEVELS = 12;  // 12 should be plenty, 8 is 
 struct ReplacedTextureLevel {
 	int w = 0;
 	int h = 0;
-	Path file;
 
 	// To be able to reload, we need to be able to reopen, unfortunate we can't use zip_file_t.
 	// TODO: This really belongs on the level in the cache, not in the individual ReplacedTextureLevel objects.
@@ -72,6 +71,13 @@ enum class ReplacementState : uint32_t {
 
 const char *StateString(ReplacementState state);
 
+struct GPUFormatSupport {
+	bool bc123;
+	bool astc;
+	bool bc7;
+	bool etc2;
+};
+
 struct ReplacementDesc {
 	int newW;
 	int newH;
@@ -85,6 +91,7 @@ struct ReplacementDesc {
 	std::vector<std::string> filenames;
 	std::string logId;
 	ReplacedLevelsCache *cache;
+	GPUFormatSupport formatSupport;
 };
 
 struct ReplacedLevelsCache {
@@ -145,7 +152,7 @@ struct ReplacedTexture {
 
 private:
 	void Prepare(VFSBackend *vfs);
-	bool LoadLevelData(ReplacedTextureLevel &info, int level, Draw::DataFormat *pixelFormat);
+	bool LoadLevelData(VFSFileReference *fileRef, const std::string &filename, int level, Draw::DataFormat *pixelFormat);
 	void PurgeIfOlder(double t);
 
 	std::vector<ReplacedTextureLevel> levels_;

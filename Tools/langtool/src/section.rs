@@ -20,7 +20,7 @@ impl Section {
                 continue;
             };
 
-            if prefix.eq_ignore_ascii_case(&key) {
+            if prefix.eq_ignore_ascii_case(key) {
                 remove_index = Some(index);
                 break;
             }
@@ -140,11 +140,9 @@ impl Section {
             if prefix.starts_with("Font") || prefix.starts_with('#') {
                 return true;
             }
-            if !other.lines.iter().any(|line| line.starts_with(prefix)) {
-                false
-            } else {
-                true
-            }
+
+            // keeps the line if this expression returns true.
+            other.lines.iter().any(|line| line.starts_with(prefix))
         });
     }
 }

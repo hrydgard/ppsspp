@@ -113,7 +113,7 @@ static const D3DSTENCILOP stencilOpToD3D9[] = {
 	D3DSTENCILOP_DECR,
 };
 
-D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
+static D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
 	switch (fmt) {
 	case DataFormat::R16_UNORM: return D3DFMT_L16;  // closest match, should be a fine substitution if we ignore channels except R.
 	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
@@ -1592,6 +1592,7 @@ uint32_t D3D9Context::GetDataFormatSupport(DataFormat fmt) const {
 	case DataFormat::BC1_RGBA_UNORM_BLOCK:
 	case DataFormat::BC2_UNORM_BLOCK:
 	case DataFormat::BC3_UNORM_BLOCK:
+		// DXT1, DXT3, DXT5.
 		return FMT_TEXTURE;
 	default:
 		return 0;

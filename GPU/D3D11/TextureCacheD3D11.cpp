@@ -58,17 +58,11 @@ static const D3D11_INPUT_ELEMENT_DESC g_QuadVertexElements[] = {
 
 static Draw::DataFormat FromD3D11Format(u32 fmt) {
 	switch (fmt) {
-	case DXGI_FORMAT_B4G4R4A4_UNORM:
-		return Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
-	case DXGI_FORMAT_B5G5R5A1_UNORM:
-		return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
-	case DXGI_FORMAT_B5G6R5_UNORM:
-		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
-	case DXGI_FORMAT_R8_UNORM:
-		return Draw::DataFormat::R8_UNORM;
-	case DXGI_FORMAT_B8G8R8A8_UNORM:
-	default:
-		return Draw::DataFormat::R8G8B8A8_UNORM;
+	case DXGI_FORMAT_B4G4R4A4_UNORM: return Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
+	case DXGI_FORMAT_B5G5R5A1_UNORM: return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+	case DXGI_FORMAT_B5G6R5_UNORM: return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case DXGI_FORMAT_R8_UNORM: return Draw::DataFormat::R8_UNORM;
+	case DXGI_FORMAT_B8G8R8A8_UNORM: default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
@@ -281,14 +275,6 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	ID3D11Resource *texture = DxTex(entry);
 	_assert_(texture == nullptr);
 
-	int tw;
-	int th;
-	plan.GetMipSize(0, &tw, &th);
-	if (tw > 16384)
-		tw = 16384;
-	if (th > 16384)
-		th = 16384;
-
 	// The PSP only supports 8 mip levels, but we support 12 in the texture replacer (4k textures down to 1).
 	D3D11_SUBRESOURCE_DATA subresData[12]{};
 
@@ -354,6 +340,14 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 
 		LoadTextureLevel(*entry, data, stride, plan, srcLevel, texFmt, TexDecodeFlags{});
 	}
+
+	int tw;
+	int th;
+	plan.GetMipSize(0, &tw, &th);
+	if (tw > 16384)
+		tw = 16384;
+	if (th > 16384)
+		th = 16384;
 
 	if (plan.depth == 1) {
 		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
