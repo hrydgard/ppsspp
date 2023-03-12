@@ -42,6 +42,7 @@ inline int Xpose(int v) {
 //     Final Fantasy III               (#2921 )
 //     Hitman Reborn 2                 (#12900)
 //     Cho Aniki Zero                  (#13705)
+//     Hajime no Ippo                  (#13671) 
 //     Dissidia Duodecim Final Fantasy (#6710 )
 //
 // Messing around with the modulo functions? try https://www.desmos.com/calculator.
@@ -50,11 +51,6 @@ extern float vfpu_sin(float);
 extern float vfpu_cos(float);
 extern void vfpu_sincos(float, float&, float&);
 
-/*
-inline float vfpu_asin(float angle) {
-	return (float)(asinf(angle) / M_PI_2);
-}
-*/
 extern float vfpu_asin(float);
 
 inline float vfpu_clamp(float v, float min, float max) {

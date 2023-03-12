@@ -802,6 +802,7 @@ float vfpu_dot(const float a[4], const float b[4]) {
 // See https://github.com/hrydgard/ppsspp/issues/16946 for details.
 
 // Lookup tables.
+// Note: these are never unloaded, and stay till program termination.
 static uint32_t (*vfpu_sin_lut8192)=nullptr;
 static  int8_t  (*vfpu_sin_lut_delta)[2]=nullptr;
 static  int16_t (*vfpu_sin_lut_interval_delta)=nullptr;
@@ -823,6 +824,30 @@ static uint64_t (*vfpu_asin_lut_deltas)=nullptr;
 static uint16_t (*vfpu_asin_lut_indices)=nullptr;
 
 static  int8_t  (*vfpu_rcp_lut)[2]=nullptr;
+
+template<typename T>
+static inline bool load_vfpu_table(T *&ptr,const char *filename, size_t expected_size) {
+#if COMMON_BIG_ENDIAN
+	// Tables are little-endian.
+#error Byteswap for VFPU tables not implemented
+#endif
+	if(ptr) return true; // Already loaded.
+	size_t size = 0u;
+	INFO_LOG(CPU, "Loading '%s'...", filename);
+	ptr = reinterpret_cast<decltype(&*ptr)>(g_VFS.ReadFile(filename, &size));
+	if(!ptr || size != expected_size)
+	{
+		ERROR_LOG(CPU, "Error loading '%s' (size=%u, expected: %u)", filename, (unsigned)size, (unsigned)expected_size);
+		if(ptr) delete[] ptr;
+		ptr = nullptr;
+		return false;
+	}
+	INFO_LOG(CPU, "Successfully loaded '%s'", filename);
+	return true;
+}
+
+#define LOAD_TABLE(name, expected_size)\
+	load_vfpu_table(name,"vfpu/" #name ".dat",expected_size)
 
 // Note: PSP sin/cos output only has 22 significant
 // binary digits.
@@ -877,6 +902,11 @@ static inline uint32_t vfpu_sin_fixed(uint32_t arg) {
 }
 
 float vfpu_sin(float x) {
+	static bool loaded =
+		LOAD_TABLE(vfpu_sin_lut8192,              4100)&&
+		LOAD_TABLE(vfpu_sin_lut_delta,          262144)&&
+		LOAD_TABLE(vfpu_sin_lut_interval_delta, 131074)&&
+		LOAD_TABLE(vfpu_sin_lut_exceptions,      86938);
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(x));
 	uint32_t sign = bits & 0x80000000u;
@@ -909,6 +939,11 @@ float vfpu_sin(float x) {
 }
 
 float vfpu_cos(float x) {
+	static bool loaded =
+		LOAD_TABLE(vfpu_sin_lut8192,              4100)&&
+		LOAD_TABLE(vfpu_sin_lut_delta,          262144)&&
+		LOAD_TABLE(vfpu_sin_lut_interval_delta, 131074)&&
+		LOAD_TABLE(vfpu_sin_lut_exceptions,      86938);
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(x));
 	bits &= 0x7FFFFFFFu;
@@ -1012,6 +1047,8 @@ static inline uint32_t vfpu_sqrt_fixed(uint32_t x) {
 }
 
 float vfpu_sqrt(float x) {
+	static bool loaded =
+		LOAD_TABLE(vfpu_sqrt_lut, 262144);
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
 	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
@@ -1096,6 +1133,8 @@ static inline uint32_t vfpu_rsqrt_fixed(uint32_t x) {
 }
 
 float vfpu_rsqrt(float x) {
+	static bool loaded =
+		LOAD_TABLE(vfpu_rsqrt_lut, 262144);
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
 	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
@@ -1153,6 +1192,10 @@ static uint32_t vfpu_asin_fixed(uint32_t x) {
 }
 
 float vfpu_asin(float x) {
+	static bool loaded =
+		LOAD_TABLE(vfpu_asin_lut65536,      1536)&&
+		LOAD_TABLE(vfpu_asin_lut_indices, 798916)&&
+		LOAD_TABLE(vfpu_asin_lut_deltas,  517448);
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(x));
 	uint32_t sign = bits & 0x80000000u;
@@ -1190,6 +1233,9 @@ static inline uint32_t vfpu_exp2_fixed(uint32_t x) {
 }
 
 float vfpu_exp2(float x) {
+	static bool loaded =
+	        LOAD_TABLE(vfpu_exp2_lut65536,    512)&&
+		LOAD_TABLE(vfpu_exp2_lut,      262144);
 	int32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
 	if((bits & 0x7FFFFFFF) <= 0x007FFFFF) {
@@ -1239,6 +1285,10 @@ static inline uint32_t vfpu_log2_approx(uint32_t x) {
 
 // Matches PSP output on all known values.
 float vfpu_log2(float x) {
+	static bool loaded =
+		LOAD_TABLE(vfpu_log2_lut65536,               516)&&
+		LOAD_TABLE(vfpu_log2_lut65536_quadratic,     512)&&
+		LOAD_TABLE(vfpu_log2_lut,                2097152);
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
 	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
@@ -1289,6 +1339,8 @@ static inline uint32_t vfpu_rcp_approx(uint32_t i) {
 }
 
 float vfpu_rcp(float x) {
+	static bool loaded =
+		LOAD_TABLE(vfpu_rcp_lut, 262144);
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
 	uint32_t s = bits & 0x80000000u;
@@ -1318,35 +1370,22 @@ float vfpu_rcp(float x) {
 //==============================================================================
 
 void InitVFPU() {
-#if COMMON_BIG_ENDIAN
-	// Tables are little-endian.
-#error Byteswap for VFPU tables not implemented
+#if 0
+	// Load all in advance.
+	LOAD_TABLE(vfpu_asin_lut65536          ,    1536); 
+	LOAD_TABLE(vfpu_asin_lut_deltas        ,  517448); 
+	LOAD_TABLE(vfpu_asin_lut_indices       ,  798916); 
+	LOAD_TABLE(vfpu_exp2_lut65536          ,     512); 
+	LOAD_TABLE(vfpu_exp2_lut               ,  262144); 
+	LOAD_TABLE(vfpu_log2_lut65536          ,     516); 
+	LOAD_TABLE(vfpu_log2_lut65536_quadratic,     512); 
+	LOAD_TABLE(vfpu_log2_lut               , 2097152); 
+	LOAD_TABLE(vfpu_rcp_lut                ,  262144); 
+	LOAD_TABLE(vfpu_rsqrt_lut              ,  262144); 
+	LOAD_TABLE(vfpu_sin_lut8192            ,    4100); 
+	LOAD_TABLE(vfpu_sin_lut_delta          ,  262144); 
+	LOAD_TABLE(vfpu_sin_lut_exceptions     ,   86938); 
+	LOAD_TABLE(vfpu_sin_lut_interval_delta ,  131074); 
+	LOAD_TABLE(vfpu_sqrt_lut               ,  262144); 
 #endif
-	size_t size=0;
-#define LOAD(expected,name)\
-	if(!name) {\
-		const char *filename = "vfpu/" #name ".dat";\
-		INFO_LOG(CPU, "Loading '%s'...", filename);\
-		name=reinterpret_cast<decltype(name)>(g_VFS.ReadFile(filename, &size));\
-		if(size!=(expected))\
-			ERROR_LOG(CPU, "Error loading '%s' (size=%u, expected: %u)", filename, (unsigned)size, (unsigned)(expected));\
-		else\
-			INFO_LOG(CPU, "Successfully loaded '%s'", filename);\
-	}
-	LOAD(    1536, vfpu_asin_lut65536);
-	LOAD(  517448, vfpu_asin_lut_deltas);
-	LOAD(  798916, vfpu_asin_lut_indices);
-	LOAD(     512, vfpu_exp2_lut65536);
-	LOAD(  262144, vfpu_exp2_lut);
-	LOAD(     516, vfpu_log2_lut65536);
-	LOAD(     512, vfpu_log2_lut65536_quadratic);
-	LOAD( 2097152, vfpu_log2_lut);
-	LOAD(  262144, vfpu_rcp_lut);
-	LOAD(  262144, vfpu_rsqrt_lut);
-	LOAD(    4100, vfpu_sin_lut8192);
-	LOAD(  262144, vfpu_sin_lut_delta);
-	LOAD(   86938, vfpu_sin_lut_exceptions);
-	LOAD(  131074, vfpu_sin_lut_interval_delta);
-	LOAD(  262144, vfpu_sqrt_lut);
-#undef LOAD
 }
