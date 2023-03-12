@@ -151,6 +151,7 @@ struct TexCacheEntry {
 		STATUS_CLUT_GPU = 0x8000,
 
 		STATUS_VIDEO = 0x10000,
+		STATUS_BGRA = 0x20000,
 	};
 
 	// TexStatus enum flag combination.
@@ -510,8 +511,6 @@ protected:
 	bool nextNeedsRehash_;
 	bool nextNeedsChange_;
 	bool nextNeedsRebuild_;
-
-	bool isBgraBackend_ = false;
 
 	u32 *expandClut_;
 };

@@ -254,7 +254,7 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 		u32 format;
 		if (good && (header.ddspf.dwFlags & DDPF_FOURCC)) {
 			char *fcc = (char *)&header.ddspf.dwFourCC;
-			INFO_LOG(G3D, "DDS fourcc: %c%c%c%c", fcc[0], fcc[1], fcc[2], fcc[3]);
+			// INFO_LOG(G3D, "DDS fourcc: %c%c%c%c", fcc[0], fcc[1], fcc[2], fcc[3]);
 			if (header.ddspf.dwFourCC == MK_FOURCC("DX10")) {
 				ddsDX10 = true;
 				good = good && vfs_->Read(openFile, &header10, sizeof(header10)) == sizeof(header10);

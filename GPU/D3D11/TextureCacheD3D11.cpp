@@ -148,7 +148,6 @@ TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw, Draw2D *draw2D)
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 
-	isBgraBackend_ = true;
 	lastBoundTexture = INVALID_TEX;
 
 	D3D11_BUFFER_DESC desc{ sizeof(DepthPushConstants), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE };
@@ -414,6 +413,12 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 
 	if (plan.replaceValid) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
+
+		if (!Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), nullptr)) {
+			entry->status |= TexCacheEntry::STATUS_BGRA;
+		}
+	} else {
+		entry->status |= TexCacheEntry::STATUS_BGRA;
 	}
 }
 
