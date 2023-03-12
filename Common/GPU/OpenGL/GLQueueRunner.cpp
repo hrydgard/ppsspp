@@ -387,14 +387,23 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 
 			// For things to show in RenderDoc, need to split into glTexImage2D(..., nullptr) and glTexSubImage.
 
+			int blockSize = 0;
+			bool bc = Draw::DataFormatIsBlockCompressed(step.texture_image.format, &blockSize);
+
 			GLenum internalFormat, format, type;
 			int alignment;
 			Thin3DFormatToGLFormatAndType(step.texture_image.format, internalFormat, format, type, alignment);
 			if (step.texture_image.depth == 1) {
-				glTexImage2D(tex->target,
-					step.texture_image.level, internalFormat,
-					step.texture_image.width, step.texture_image.height, 0,
-					format, type, step.texture_image.data);
+				if (bc) {
+					int dataSize = ((step.texture_image.width + 3) & ~3) * ((step.texture_image.height + 3) & ~3) * blockSize / 16;
+					glCompressedTexImage2D(tex->target, step.texture_image.level, internalFormat,
+						step.texture_image.width, step.texture_image.height, 0, dataSize, step.texture_image.data);
+				} else {
+					glTexImage2D(tex->target,
+						step.texture_image.level, internalFormat,
+						step.texture_image.width, step.texture_image.height, 0,
+						format, type, step.texture_image.data);
+				}
 			} else {
 				glTexImage3D(tex->target,
 					step.texture_image.level, internalFormat,

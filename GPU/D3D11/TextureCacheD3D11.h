@@ -83,8 +83,6 @@ private:
 
 	ID3D11ShaderResourceView *lastBoundTexture;
 	ID3D11Buffer *depalConstants_;
-
-	FramebufferManagerD3D11 *framebufferManagerD3D11_;
 };
 
 DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format);
