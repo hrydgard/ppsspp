@@ -364,6 +364,7 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 
 	// Already populated from cache. TODO: Move this above the first read, and take level.w/h from the cache.
 	if (!out.empty()) {
+		vfs_->CloseFile(openFile);
 		*pixelFormat = levelData_->fmt;
 		return true;
 	}
@@ -382,6 +383,7 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 	}
 
 	if (!good) {
+		vfs_->CloseFile(openFile);
 		return false;
 	}
 
