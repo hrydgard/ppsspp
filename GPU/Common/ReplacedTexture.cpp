@@ -20,6 +20,8 @@
 
 #include <png.h>
 
+#include "ext/basis_universal/basisu_transcoder.h"
+
 #include "GPU/Common/ReplacedTexture.h"
 #include "GPU/Common/TextureReplacer.h"
 
