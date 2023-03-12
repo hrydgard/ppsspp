@@ -84,6 +84,36 @@ private:
 	LimitedWaitable *waitable_;
 };
 
+ReplacedTexture::~ReplacedTexture() {
+	if (threadWaitable_) {
+		SetState(ReplacementState::CANCEL_INIT);
+
+		std::unique_lock<std::mutex> lock(mutex_);
+		threadWaitable_->WaitAndRelease();
+		threadWaitable_ = nullptr;
+	}
+
+	for (auto &level : levels_) {
+		vfs_->ReleaseFile(level.fileRef);
+		level.fileRef = nullptr;
+	}
+}
+
+void ReplacedTexture::PurgeIfOlder(double t) {
+	if (threadWaitable_ && !threadWaitable_->WaitFor(0.0))
+		return;
+	if (lastUsed_ >= t)
+		return;
+
+	if (levelData_->lastUsed < t) {
+		// We have to lock since multiple textures might reference this same data.
+		std::lock_guard<std::mutex> guard(levelData_->lock);
+		levelData_->data.clear();
+		// This means we have to reload.  If we never purge any, there's no need.
+		SetState(ReplacementState::POPULATED);
+	}
+}
+
 // This can only return true if ACTIVE or NOT_FOUND.
 bool ReplacedTexture::IsReady(double budget) {
 	_assert_(vfs_ != nullptr);
@@ -474,36 +504,6 @@ bool ReplacedTexture::LoadLevelData(ReplacedTextureLevel &level, int mipLevel, D
 
 	cleanup();
 	return true;
-}
-
-void ReplacedTexture::PurgeIfOlder(double t) {
-	if (threadWaitable_ && !threadWaitable_->WaitFor(0.0))
-		return;
-	if (lastUsed_ >= t)
-		return;
-
-	if (levelData_->lastUsed < t) {
-		// We have to lock since multiple textures might reference this same data.
-		std::lock_guard<std::mutex> guard(levelData_->lock);
-		levelData_->data.clear();
-		// This means we have to reload.  If we never purge any, there's no need.
-		SetState(ReplacementState::POPULATED);
-	}
-}
-
-ReplacedTexture::~ReplacedTexture() {
-	if (threadWaitable_) {
-		SetState(ReplacementState::CANCEL_INIT);
-
-		std::unique_lock<std::mutex> lock(mutex_);
-		threadWaitable_->WaitAndRelease();
-		threadWaitable_ = nullptr;
-	}
-
-	for (auto &level : levels_) {
-		vfs_->ReleaseFile(level.fileRef);
-		level.fileRef = nullptr;
-	}
 }
 
 bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
