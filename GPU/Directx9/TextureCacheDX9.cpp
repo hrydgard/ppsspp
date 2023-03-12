@@ -71,8 +71,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D)
 	: TextureCacheCommon(draw, draw2D) {
 	lastBoundTexture = INVALID_TEX;
-	isBgraBackend_ = true;
-
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	deviceEx_ = (LPDIRECT3DDEVICE9EX)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
 	D3DCAPS9 pCaps;
@@ -322,6 +320,12 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 
 	if (plan.replaceValid) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
+
+		if (!Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), nullptr)) {
+			entry->status |= TexCacheEntry::STATUS_BGRA;
+		}
+	} else {
+		entry->status |= TexCacheEntry::STATUS_BGRA;
 	}
 }
 

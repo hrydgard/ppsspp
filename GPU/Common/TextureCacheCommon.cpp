@@ -447,11 +447,9 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	gstate_c.SetNeedShaderTexclamp(false);
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 
-	bool isBgraTexture = isBgraBackend_ && !hasClutGPU;
-	gstate_c.SetTextureIsBGRA(isBgraTexture);
-
 	if (entryIter != cache_.end()) {
 		entry = entryIter->second.get();
+
 		// Validate the texture still matches the cache entry.
 		bool match = entry->Matches(dim, texFormat, maxLevel);
 		const char *reason = "different params";
@@ -540,7 +538,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				switch (replaced->State()) {
 				case ReplacementState::NOT_FOUND:
 					// Didn't find a replacement, so stop looking.
-					WARN_LOG(G3D, "No replacement for texture %dx%d", w0, h0);
+					// DEBUG_LOG(G3D, "No replacement for texture %dx%d", w0, h0);
 					entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
 					if (g_Config.bSaveNewTextures) {
 						// Load it once more to actually save it. Since we don't set STATUS_TO_REPLACE, we won't end up looping.
@@ -567,6 +565,8 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			gstate_c.curTextureHeight = h;
 			gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 			gstate_c.SetTextureIsArray(false);
+			gstate_c.SetTextureIsBGRA((entry->status & TexCacheEntry::STATUS_BGRA) != 0);
+
 			if (rehash) {
 				// Update in case any of these changed.
 				entry->sizeInRAM = (textureBitsPerPixel[texFormat] * bufw * h / 2) / 8;
@@ -661,6 +661,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	entry->dim = dim;
 	entry->format = texFormat;
 	entry->maxLevel = maxLevel;
+	entry->status &= ~TexCacheEntry::STATUS_BGRA;
 
 	// This would overestimate the size in many case so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
@@ -2119,12 +2120,14 @@ void TextureCacheCommon::ApplyTexture() {
 		gstate_c.SetTextureFullAlpha(false);
 		gstate_c.SetTextureIs3D(false);
 		gstate_c.SetTextureIsArray(false);
+		gstate_c.SetTextureIsBGRA(false);
 	} else {
 		entry->lastFrame = gpuStats.numFlips;
 		BindTexture(entry);
 		gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
 		gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 		gstate_c.SetTextureIsArray(false);
+		gstate_c.SetTextureIsBGRA((entry->status & TexCacheEntry::STATUS_BGRA) != 0);
 	}
 }
 
