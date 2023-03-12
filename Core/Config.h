@@ -472,6 +472,7 @@ public:
 	float fHeadRotationScale;
 	bool bHeadRotationEnabled;
 	bool bHeadRotationSmoothing;
+	int iCameraPitch;
 
 	// Debugger
 	int iDisasmWindowX;
