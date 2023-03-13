@@ -67,3 +67,17 @@ struct DDSLoadInfo {
 };
 
 bool DetectDDSParams(const DDSHeader *header, DDSLoadInfo *info);
+
+// We use the Basis library for the actual reading, but before we do, we pre-scan using this, similarly to the png trick.
+struct KTXHeader {
+	uint8_t identifier[12];
+	uint32_t vkFormat;
+	uint32_t typeSize;
+	uint32_t pixelWidth;
+	uint32_t pixelHeight;
+	uint32_t pixelDepth;
+	uint32_t layerCount;
+	uint32_t faceCount;
+	uint32_t levelCount;
+	uint32_t supercompressionScheme;
+};

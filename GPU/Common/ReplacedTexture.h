@@ -45,7 +45,8 @@ enum class ReplacedImageType {
 	PNG,
 	ZIM,
 	DDS,
-	BASIS,
+	BASIS,  // TODO: Might not even do this, KTX2 is a better container.
+	KTX2,
 	INVALID,
 };
 
