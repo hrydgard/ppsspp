@@ -45,6 +45,7 @@ enum class ReplacedImageType {
 	PNG,
 	ZIM,
 	DDS,
+	BASIS,
 	INVALID,
 };
 

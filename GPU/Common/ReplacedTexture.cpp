@@ -16,11 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
 #include "ppsspp_config.h"
 
 #include <png.h>
 
 #include "ext/basis_universal/basisu_transcoder.h"
+#include "ext/basis_universal/basisu_file_headers.h"
 
 #include "GPU/Common/ReplacedTexture.h"
 #include "GPU/Common/TextureReplacer.h"
@@ -44,6 +46,12 @@ static ReplacedImageType IdentifyMagic(const uint8_t magic[4]) {
 		return ReplacedImageType::PNG;
 	if (strncmp((const char *)magic, "DDS ", 4) == 0)
 		return ReplacedImageType::DDS;
+	if (magic[0] == 's' && magic[1] == 'B') {
+		uint16_t ver = magic[2] | (magic[3] << 8);
+		if (ver >= 0x10) {
+			return ReplacedImageType::BASIS;
+		}
+	}
 	return ReplacedImageType::INVALID;
 }
 
@@ -68,13 +76,8 @@ class ReplacedTextureTask : public Task {
 public:
 	ReplacedTextureTask(VFSBackend *vfs, ReplacedTexture &tex, LimitedWaitable *w) : vfs_(vfs), tex_(tex), waitable_(w) {}
 
-	TaskType Type() const override {
-		return TaskType::IO_BLOCKING;
-	}
-
-	TaskPriority Priority() const override {
-		return TaskPriority::NORMAL;
-	}
+	TaskType Type() const override { return TaskType::IO_BLOCKING; }
+	TaskPriority Priority() const override { return TaskPriority::NORMAL; }
 
 	void Run() override {
 		tex_.Prepare(vfs_);
@@ -267,7 +270,38 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 	bool ddsDX10 = false;
 	int numMips = 1;
 
-	if (imageType == ReplacedImageType::DDS) {
+	if (imageType == ReplacedImageType::BASIS) {
+		// Peek into the file using the header struct.
+		basist::basis_file_header header;
+		good = vfs_->Read(openFile, &header, sizeof(header)) == sizeof(header);
+
+		if (header.m_tex_format == 0) {
+			// ETC1S texture data (transcodable to ETC2 or DXT1)
+			// Check what we should transcode to.
+			if (desc_->formatSupport.bc123) {
+				*pixelFormat = Draw::DataFormat::BC1_RGBA_UNORM_BLOCK;
+			} else if (desc_->formatSupport.etc2) {
+				*pixelFormat = Draw::DataFormat::ETC2_R8G8B8A1_UNORM_BLOCK;
+			} else {
+				// We're in trouble.
+				good = false;
+			}
+		} else {
+			// UASTC texture data (transcodable to ASTC or BC7).
+			if (desc_->formatSupport.bc7) {
+				*pixelFormat = Draw::DataFormat::BC7_UNORM_BLOCK;
+			} else if (desc_->formatSupport.astc) {
+				*pixelFormat = Draw::DataFormat::ASTC_4x4_UNORM_BLOCK;
+			} else {
+				good = false;
+			}
+		}
+
+		// TODO: Seek to the slice header array.
+		// vfs_->Seek(header.m_slice_desc_file_ofs);
+
+		good = false;
+	} else if (imageType == ReplacedImageType::DDS) {
 		DDSHeader header;
 		DDSHeaderDXT10 header10{};
 		good = vfs_->Read(openFile, &header, sizeof(header)) == sizeof(header);
