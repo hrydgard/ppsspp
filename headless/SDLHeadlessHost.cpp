@@ -99,12 +99,6 @@ private:
 	SDL_GLContext glContext_;
 };
 
-void SDLHeadlessHost::LoadNativeAssets() {
-	g_VFS.Register("", new DirectoryReader(Path("assets")));
-	g_VFS.Register("", new DirectoryReader(Path("")));
-	g_VFS.Register("", new DirectoryReader(Path("..")));
-}
-
 bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	SDL_Init(SDL_INIT_VIDEO);
 
@@ -202,8 +196,6 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 		threadState_ = RenderThreadState::STOPPED;
 	});
 	th.detach();
-
-	LoadNativeAssets();
 
 	threadState_ = RenderThreadState::START_REQUESTED;
 	while (threadState_ == RenderThreadState::START_REQUESTED || threadState_ == RenderThreadState::STARTING)

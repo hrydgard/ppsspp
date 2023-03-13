@@ -301,7 +301,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		if (plan.replaceValid) {
 			int blockSize = 0;
 			if (Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), &blockSize)) {
-				stride = mipWidth * 4;  // This stride value doesn't quite make sense to me, but it works.
+				stride = ((mipWidth + 3) & ~3) * 4;  // This stride value doesn't quite make sense to me, but it works.
 				dataSize = plan.replaced->GetLevelDataSize(i);
 			} else {
 				int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());

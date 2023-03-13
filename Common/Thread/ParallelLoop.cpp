@@ -111,8 +111,8 @@ void ParallelRangeLoop(ThreadManager *threadMan, const std::function<void(int, i
 
 // NOTE: Supports a max of 2GB.
 void ParallelMemcpy(ThreadManager *threadMan, void *dst, const void *src, size_t bytes, TaskPriority priority) {
-	// This threshold can probably be a lot bigger.
-	if (bytes < 512) {
+	// This threshold should be the same as the minimum split below, 128kb.
+	if (bytes < 128 * 1024) {
 		memcpy(dst, src, bytes);
 		return;
 	}
@@ -129,7 +129,7 @@ void ParallelMemcpy(ThreadManager *threadMan, void *dst, const void *src, size_t
 // NOTE: Supports a max of 2GB.
 void ParallelMemset(ThreadManager *threadMan, void *dst, uint8_t value, size_t bytes, TaskPriority priority) {
 	// This threshold can probably be a lot bigger.
-	if (bytes < 512) {
+	if (bytes < 128 * 1024) {
 		memset(dst, 0, bytes);
 		return;
 	}

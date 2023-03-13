@@ -37,8 +37,6 @@ public:
 	void SendDebugOutput(const std::string &output) override;
 
 protected:
-	void LoadNativeAssets();
-
 	enum class RenderThreadState {
 		IDLE,
 		START_REQUESTED,

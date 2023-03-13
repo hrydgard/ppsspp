@@ -36,8 +36,6 @@ public:
 	void SwapBuffers() override;
 
 protected:
-	void LoadNativeAssets();
-
 	enum class RenderThreadState {
 		IDLE,
 		START_REQUESTED,
