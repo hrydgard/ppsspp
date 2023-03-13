@@ -1099,6 +1099,28 @@ else()
 	include_directories(ext/libpng17)
 endif()
 
+add_library(basis_universal STATIC
+	ext/basis_universal/basisu.h
+	ext/basis_universal/basisu_containers.h
+	ext/basis_universal/basisu_containers_impl.h
+	ext/basis_universal/basisu_file_headers.h
+	ext/basis_universal/basisu_transcoder.cpp
+	ext/basis_universal/basisu_transcoder.h
+	ext/basis_universal/basisu_transcoder_internal.h
+	ext/basis_universal/basisu_transcoder_tables_astc.inc
+	ext/basis_universal/basisu_transcoder_tables_astc_0_255.inc
+	ext/basis_universal/basisu_transcoder_tables_atc_55.inc
+	ext/basis_universal/basisu_transcoder_tables_atc_56.inc
+	ext/basis_universal/basisu_transcoder_tables_bc7_m5_alpha.inc
+	ext/basis_universal/basisu_transcoder_tables_bc7_m5_color.inc
+	ext/basis_universal/basisu_transcoder_tables_dxt1_5.inc
+	ext/basis_universal/basisu_transcoder_tables_dxt1_6.inc
+	ext/basis_universal/basisu_transcoder_tables_pvrtc2_45.inc
+	ext/basis_universal/basisu_transcoder_tables_pvrtc2_alpha_33.inc
+	ext/basis_universal/basisu_transcoder_uastc.h
+)
+set(BASISU_LIBRARIES basis_universal)
+
 set(nativeExtra)
 set(nativeExtraLibs)
 
@@ -1362,7 +1384,7 @@ if(ANDROID OR (LINUX AND ARM_DEVICE) OR (LINUX AND RISCV64))
 	set(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARIES} ${ZLIB_LIBRARY} vma gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB} Common)
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARIES} ${BASISU_LIBRARIES} ${ZLIB_LIBRARY} vma gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB} Common)
 if(TARGET Ext::GLEW)
 	target_link_libraries(native Ext::GLEW)
 endif()

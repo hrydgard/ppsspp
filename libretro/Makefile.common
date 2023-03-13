@@ -244,6 +244,9 @@ SOURCES_CXX += \
 SOURCES_CXX += $(EXTDIR)/cityhash/city.cpp
 
 SOURCES_CXX += \
+	$(EXTDIR)/basis_universal/basisu_transcoder.cpp
+
+SOURCES_CXX += \
 	$(EXTDIR)/armips/Core/Types.cpp
 
 SOURCES_CXX += \
