@@ -153,8 +153,14 @@ struct ReplacedTexture {
 	std::string logId_;
 
 private:
+	enum class LoadLevelResult {
+		LOAD_ERROR = 0,
+		CONTINUE = 1,
+		DONE = 2,
+	};
+
 	void Prepare(VFSBackend *vfs);
-	bool LoadLevelData(VFSFileReference *fileRef, const std::string &filename, int level, Draw::DataFormat *pixelFormat);
+	LoadLevelResult LoadLevelData(VFSFileReference *fileRef, const std::string &filename, int level, Draw::DataFormat *pixelFormat);
 	void PurgeIfOlder(double t);
 
 	std::vector<ReplacedTextureLevel> levels_;

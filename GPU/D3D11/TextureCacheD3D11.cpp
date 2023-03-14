@@ -301,7 +301,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		if (plan.replaceValid) {
 			int blockSize = 0;
 			if (Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), &blockSize)) {
-				stride = ((mipWidth + 3) & ~3) * 4;  // This stride value doesn't quite make sense to me, but it works.
+				stride = ((mipWidth + 3) & ~3) * blockSize / 4;  // This stride value doesn't quite make sense to me, but it works?
 				dataSize = plan.replaced->GetLevelDataSize(i);
 			} else {
 				int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
@@ -364,7 +364,6 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		desc.Format = dstFmt;
 		desc.MipLevels = levels;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-
 		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, subresData, &tex));
 		texture = tex;
 	} else {
