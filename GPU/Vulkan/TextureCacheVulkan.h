@@ -66,9 +66,6 @@ public:
 	void SetDrawEngine(DrawEngineVulkan *td) {
 		drawEngine_ = td;
 	}
-	void SetPushBuffer(VulkanPushBuffer *push) {
-		push_ = push;
-	}
 
 	void ForgetLastTexture() override {}
 	void NotifyConfigChanged() override;
@@ -106,7 +103,6 @@ private:
 	void CompileScalingShader();
 
 	VulkanDeviceAllocator *allocator_ = nullptr;
-	VulkanPushBuffer *push_ = nullptr;
 
 	VulkanComputeShaderManager computeShaderManager_;
 
