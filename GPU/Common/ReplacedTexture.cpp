@@ -286,36 +286,9 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 		// Additional quick checks
 		good = good && header.layerCount <= 1;
 	} else if (imageType == ReplacedImageType::BASIS) {
-		// Peek into the file using the header struct.
-		basist::basis_file_header header;
-		good = vfs_->Read(openFile, &header, sizeof(header)) == sizeof(header);
+		WARN_LOG(G3D, "The basis texture format is not supported. Use KTX2 (basisu texture.png -uastc -ktx2 -mipmap)");
 
-		if (header.m_tex_format == 0) {
-			// ETC1S texture data (transcodable to ETC2 or DXT1)
-			// Check what we should transcode to.
-			if (desc_->formatSupport.bc123) {
-				*pixelFormat = Draw::DataFormat::BC1_RGBA_UNORM_BLOCK;
-			} else if (desc_->formatSupport.etc2) {
-				*pixelFormat = Draw::DataFormat::ETC2_R8G8B8A1_UNORM_BLOCK;
-			} else {
-				// We're in trouble.
-				good = false;
-			}
-		} else {
-			// UASTC texture data (transcodable to ASTC or BC7).
-			if (desc_->formatSupport.bc7) {
-				*pixelFormat = Draw::DataFormat::BC7_UNORM_BLOCK;
-			} else if (desc_->formatSupport.astc) {
-				*pixelFormat = Draw::DataFormat::ASTC_4x4_UNORM_BLOCK;
-			} else {
-				good = false;
-			}
-		}
-
-		// TODO: Seek to the slice header array.
-		// vfs_->Seek(header.m_slice_desc_file_ofs);
-
-		// We don't support basis files currently.
+		// We simply don't support basis files currently.
 		good = false;
 	} else if (imageType == ReplacedImageType::DDS) {
 		DDSHeader header;
