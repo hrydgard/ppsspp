@@ -22,6 +22,7 @@
 #include <memory>
 #include <png.h>
 
+#include "ext/basis_universal/basisu_transcoder.h"
 #include "ext/xxhash.h"
 
 #include "Common/Data/Convert/ColorConv.h"
@@ -53,8 +54,13 @@ static const std::string ZIP_FILENAME = "textures.zip";
 static const std::string NEW_TEXTURE_DIR = "new/";
 static const int VERSION = 1;
 static const double MAX_CACHE_SIZE = 4.0;
+static bool basisu_initialized = false;
 
 TextureReplacer::TextureReplacer(Draw::DrawContext *draw) {
+	if (!basisu_initialized) {
+		basist::basisu_transcoder_init();
+		basisu_initialized = true;
+	}
 	// We don't want to keep the draw object around, so extract the info we need.
 	if (draw->GetDataFormatSupport(Draw::DataFormat::BC3_UNORM_BLOCK)) formatSupport_.bc123 = true;
 	if (draw->GetDataFormatSupport(Draw::DataFormat::ASTC_4x4_UNORM_BLOCK)) formatSupport_.astc = true;

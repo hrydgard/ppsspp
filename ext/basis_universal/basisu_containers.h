@@ -315,6 +315,7 @@ namespace basisu
          {
             scalar_type<T>::destruct_array(m_p, m_size);
             free(m_p);
+			m_p = nullptr;
          }
       }
 
