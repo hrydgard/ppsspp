@@ -195,7 +195,13 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 	// We must lock around access to levelData_ in case two textures try to load it at once.
 	std::lock_guard<std::mutex> guard(levelData_->lock);
 
+	fmt = Draw::DataFormat::UNDEFINED;
+
 	Draw::DataFormat pixelFormat;
+	LoadLevelResult result = LoadLevelResult::LOAD_ERROR;
+	if (desc_->filenames.empty()) {
+		result = LoadLevelResult::DONE;
+	}
 	for (int i = 0; i < std::min(MAX_REPLACEMENT_MIP_LEVELS, (int)desc_->filenames.size()); ++i) {
 		if (State() == ReplacementState::CANCEL_INIT) {
 			break;
@@ -209,6 +215,8 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		VFSFileReference *fileRef = vfs_->GetFile(desc_->filenames[i].c_str());
 		if (!fileRef) {
 			// If the file doesn't exist, let's just bail immediately here.
+			// Mark as DONE, not error.
+			result = LoadLevelResult::DONE;
 			break;
 		}
 
@@ -216,7 +224,12 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 			fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 		}
 
-		if (LoadLevelData(fileRef, desc_->filenames[i], i, &pixelFormat)) {
+		result = LoadLevelData(fileRef, desc_->filenames[i], i, &pixelFormat);
+		if (result == LoadLevelResult::DONE) {
+			// Loaded all the levels we're gonna get.
+			fmt = pixelFormat;
+			break;
+		} else if (result == LoadLevelResult::CONTINUE) {
 			if (i == 0) {
 				fmt = pixelFormat;
 			} else {
@@ -226,8 +239,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 				}
 			}
 		} else {
-			fmt = pixelFormat;
-			// Otherwise, we're done loading mips (bad PNG or bad size, either way.)
+			// Error state.
 			break;
 		}
 	}
@@ -235,7 +247,9 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 	if (levels_.empty()) {
 		// No replacement found.
 		std::string name = TextureReplacer::HashName(desc_->cachekey, desc_->hash, 0);
-		INFO_LOG(G3D, "Failed to load replacement texture. %s", name.c_str());
+		if (result == LoadLevelResult::LOAD_ERROR) {
+			WARN_LOG(G3D, "Failed to load replacement texture '%s'", name.c_str());
+		}
 		SetState(ReplacementState::NOT_FOUND);
 		levelData_ = nullptr;
 		delete desc_;
@@ -258,7 +272,7 @@ inline uint32_t RoundUpTo4(uint32_t value) {
 }
 
 // Returns true if Prepare should keep calling this to load more levels.
-bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string &filename, int mipLevel, Draw::DataFormat *pixelFormat) {
+ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string &filename, int mipLevel, Draw::DataFormat *pixelFormat) {
 	bool good = false;
 
 	if (levelData_->data.size() <= mipLevel) {
@@ -269,7 +283,8 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 	size_t fileSize;
 	VFSOpenFile *openFile = vfs_->OpenFileForRead(fileRef, &fileSize);
 	if (!openFile) {
-		return false;
+		// File missing, no more levels. This is alright.
+		return LoadLevelResult::DONE;
 	}
 
 	std::string magic;
@@ -385,7 +400,7 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 	if (!levelData_->data[mipLevel].empty()) {
 		vfs_->CloseFile(openFile);
 		*pixelFormat = levelData_->fmt;
-		return true;
+		return LoadLevelResult::DONE;
 	}
 
 	// Is this really the right place to do it?
@@ -403,7 +418,7 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 
 	if (!good) {
 		vfs_->CloseFile(openFile);
-		return false;
+		return LoadLevelResult::LOAD_ERROR;
 	}
 
 	auto cleanup = [&] {
@@ -424,12 +439,14 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 		if (!transcoder.init(buffer.data(), (int)buffer.size())) {
 			WARN_LOG(G3D, "Error reading KTX file");
 			cleanup();
-			return false;
+			return LoadLevelResult::LOAD_ERROR;
 		}
 
 		// Figure out the target format.
 		basist::transcoder_texture_format transcoderFormat;
 		if (transcoder.is_etc1s()) {
+			// We only support opaque colors with this compression method.
+			alphaStatus_ = ReplacedTextureAlpha::FULL;
 			// Let's pick a suitable compatible format.
 			if (desc_->formatSupport.bc123) {
 				transcoderFormat = basist::transcoder_texture_format::cTFBC1;
@@ -440,9 +457,11 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 			} else {
 				// TODO: Transcode to RGBA8 instead as a fallback.
 				cleanup();
-				return false;
+				return LoadLevelResult::LOAD_ERROR;
 			}
 		} else if (transcoder.is_uastc()) {
+			// TODO: Try to recover some indication of alpha from the actual data blocks.
+			alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 			// Let's pick a suitable compatible format.
 			if (desc_->formatSupport.bc7) {
 				transcoderFormat = basist::transcoder_texture_format::cTFBC7_RGBA;
@@ -453,7 +472,7 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 			} else {
 				// TODO: Transcode to RGBA8 instead as a fallback.
 				cleanup();
-				return false;
+				return LoadLevelResult::LOAD_ERROR;
 			}
 		} else {
 			WARN_LOG(G3D, "PPSSPP currently only supports KTX for basis/UASTC textures. This may change in the future.");
@@ -486,8 +505,12 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 		}
 		transcoder.clear();
 		cleanup();
-		return false;  // don't read more levels
+
+		return LoadLevelResult::DONE;  // don't read more levels
 	} else if (imageType == ReplacedImageType::DDS) {
+		// TODO: Do better with alphaStatus, it's possible.
+		alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
+
 		DDSHeader header;
 		DDSHeaderDXT10 header10{};
 		vfs_->Read(openFile, &header, sizeof(header));
@@ -520,30 +543,31 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 				level.fileRef = nullptr;  // We only provide a fileref on level 0 if we have mipmaps.
 		}
 		cleanup();
-		return false;  // don't read more levels
+		return LoadLevelResult::DONE;  // don't read more levels
 	} else if (imageType == ReplacedImageType::ZIM) {
 
 		std::unique_ptr<uint8_t[]> zim(new uint8_t[fileSize]);
 		if (!zim) {
 			ERROR_LOG(G3D, "Failed to allocate memory for texture replacement");
 			cleanup();
-			return false;
+			return LoadLevelResult::LOAD_ERROR;
 		}
 
 		if (vfs_->Read(openFile, &zim[0], fileSize) != fileSize) {
 			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", filename.c_str());
 			cleanup();
-			return false;
+			return LoadLevelResult::LOAD_ERROR;
 		}
 
 		int w, h, f;
 		uint8_t *image;
 		std::vector<uint8_t> &out = levelData_->data[mipLevel];
+		// TODO: Zim files can actually hold mipmaps (although no tool has ever been made to create them :P)
 		if (LoadZIMPtr(&zim[0], fileSize, &w, &h, &f, &image)) {
 			if (w > level.w || h > level.h) {
 				ERROR_LOG(G3D, "Texture replacement changed since header read: %s", filename.c_str());
 				cleanup();
-				return false;
+				return LoadLevelResult::LOAD_ERROR;
 			}
 
 			out.resize(level.w * level.h * 4);
@@ -564,6 +588,10 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 		} else {
 			good = false;
 		}
+
+		cleanup();
+		return LoadLevelResult::CONTINUE;
+
 	} else if (imageType == ReplacedImageType::PNG) {
 		png_image png = {};
 		png.version = PNG_IMAGE_VERSION;
@@ -574,12 +602,12 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 		if (!png_image_begin_read_from_memory(&png, &pngdata[0], pngdata.size())) {
 			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s (zip)", filename.c_str(), png.message);
 			cleanup();
-			return false;
+			return LoadLevelResult::LOAD_ERROR;
 		}
 		if (png.width > (uint32_t)level.w || png.height > (uint32_t)level.h) {
 			ERROR_LOG(G3D, "Texture replacement changed since header read: %s", filename.c_str());
 			cleanup();
-			return false;
+			return LoadLevelResult::LOAD_ERROR;
 		}
 
 		bool checkedAlpha = false;
@@ -598,7 +626,7 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", filename.c_str(), png.message);
 			cleanup();
 			out.resize(0);
-			return false;
+			return LoadLevelResult::LOAD_ERROR;
 		}
 		png_image_free(&png);
 
@@ -611,13 +639,14 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 		}
 
 		levels_.push_back(level);
+
+		cleanup();
+		return LoadLevelResult::CONTINUE;
 	} else {
 		WARN_LOG(G3D, "Don't know how to load this image type! %d", (int)imageType);
+		cleanup();
 	}
-
-	cleanup();
-
-	return good;
+	return LoadLevelResult::LOAD_ERROR;
 }
 
 bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
