@@ -462,7 +462,7 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 				transcoderFormat = basist::transcoder_texture_format::cTFETC1_RGB;
 				*pixelFormat = Draw::DataFormat::ETC2_R8G8B8_UNORM_BLOCK;
 			} else {
-				// Bad.
+				// TODO: Transcode to RGBA8 instead as a fallback.
 				cleanup();
 				return false;
 			}
@@ -475,6 +475,7 @@ bool ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string
 				transcoderFormat = basist::transcoder_texture_format::cTFASTC_4x4_RGBA;
 				*pixelFormat = Draw::DataFormat::ASTC_4x4_UNORM_BLOCK;
 			} else {
+				// TODO: Transcode to RGBA8 instead as a fallback.
 				cleanup();
 				return false;
 			}
