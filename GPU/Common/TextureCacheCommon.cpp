@@ -2267,7 +2267,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
 
 			draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
-			ForgetLastTexture();
 			return;
 		}
 
