@@ -550,7 +550,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		levels = plan.levelsToLoad;
 	}
 
-	VulkanPushBuffer *pushBuffer = drawEngine_->GetPushBufferForTextureData();
+	VulkanPushPool *pushBuffer = drawEngine_->GetPushBufferForTextureData();
 
 	// Batch the copies.
 	TextureCopyBatch copyBatch;
@@ -583,11 +583,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				saveData.resize(sz);
 				data = &saveData[0];
 			} else {
-				data = pushBuffer->PushAligned(sz, &bufferOffset, &texBuf, pushAlignment);
+				data = pushBuffer->Allocate(sz, pushAlignment, &texBuf, &bufferOffset);
 			}
 			LoadVulkanTextureLevel(*entry, (uint8_t *)data, lstride, srcLevel, lfactor, actualFmt);
 			if (plan.saveTexture)
-				bufferOffset = pushBuffer->PushAligned(&saveData[0], sz, pushAlignment, &texBuf);
+				bufferOffset = pushBuffer->Push(&saveData[0], sz, pushAlignment, &texBuf);
 		};
 
 		bool dataScaled = true;
@@ -599,7 +599,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				rowLength = (mipWidth + 3) & ~3;
 			}
 			// Directly load the replaced image.
-			data = pushBuffer->PushAligned(uploadSize, &bufferOffset, &texBuf, pushAlignment);
+			data = pushBuffer->Allocate(uploadSize, pushAlignment, &texBuf, &bufferOffset);
 			double replaceStart = time_now_d();
 			if (!plan.replaced->CopyLevelTo(plan.baseLevelSrc + i, data, byteStride)) {  // If plan.replaceValid, this shouldn't fail.
 				WARN_LOG(G3D, "Failed to copy replaced texture level");

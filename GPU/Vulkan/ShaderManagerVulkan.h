@@ -34,7 +34,7 @@
 
 class VulkanContext;
 class DrawEngineVulkan;
-class VulkanPushBuffer;
+class VulkanPushPool;
 
 class VulkanFragmentShader {
 public:
@@ -145,15 +145,15 @@ public:
 	bool IsLightDirty() { return true; }
 	bool IsBoneDirty() { return true; }
 
-	uint32_t PushBaseBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
-		return dest->PushAligned(&ub_base, sizeof(ub_base), uboAlignment_, buf);
+	uint32_t PushBaseBuffer(VulkanPushPool *dest, VkBuffer *buf) {
+		return dest->Push(&ub_base, sizeof(ub_base), uboAlignment_, buf);
 	}
-	uint32_t PushLightBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
-		return dest->PushAligned(&ub_lights, sizeof(ub_lights), uboAlignment_, buf);
+	uint32_t PushLightBuffer(VulkanPushPool *dest, VkBuffer *buf) {
+		return dest->Push(&ub_lights, sizeof(ub_lights), uboAlignment_, buf);
 	}
 	// TODO: Only push half the bone buffer if we only have four bones.
-	uint32_t PushBoneBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
-		return dest->PushAligned(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
+	uint32_t PushBoneBuffer(VulkanPushPool *dest, VkBuffer *buf) {
+		return dest->Push(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
 	}
 
 	bool LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine);

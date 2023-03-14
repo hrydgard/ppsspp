@@ -113,13 +113,13 @@ class TessellationDataTransferVulkan : public TessellationDataTransfer  {
 public:
 	TessellationDataTransferVulkan(VulkanContext *vulkan) : vulkan_(vulkan) {}
 
-	void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
+	void SetPushPool(VulkanPushPool *push) { push_ = push; }
 	// Send spline/bezier's control points and weights to vertex shader through structured shader buffer.
 	void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) override;
 	const VkDescriptorBufferInfo *GetBufferInfo() { return bufInfo_; }
 private:
 	VulkanContext *vulkan_;
-	VulkanPushBuffer *push_;  // Updated each frame.
+	VulkanPushPool *push_;  // Updated each frame.
 	VkDescriptorBufferInfo bufInfo_[3]{};
 };
 
@@ -193,8 +193,8 @@ public:
 		lastPipeline_ = nullptr;
 	}
 
-	VulkanPushBuffer *GetPushBufferForTextureData() {
-		return GetCurFrame().pushUBO;
+	VulkanPushPool *GetPushBufferForTextureData() {
+		return pushUBO;
 	}
 
 	const DrawEngineVulkanStats &GetStats() const {
@@ -270,8 +270,6 @@ private:
 
 		VulkanDescSetPool descPool;
 
-		VulkanPushBuffer *pushUBO = nullptr;
-
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
 		DenseHashMap<DescriptorSetKey, VkDescriptorSet, (VkDescriptorSet)VK_NULL_HANDLE> descSets;
 
@@ -281,6 +279,7 @@ private:
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
 	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
+	VulkanPushPool *pushUBO = nullptr;
 	VulkanPushPool *pushVertex = nullptr;
 	VulkanPushPool *pushIndex = nullptr;
 

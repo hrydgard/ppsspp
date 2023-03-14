@@ -171,9 +171,9 @@ void DrawEngineVulkan::InitDeviceObjects() {
 
 		// Note that pushUBO is also used for tessellation data (search for SetPushBuffer), and to upload
 		// the null texture. This should be cleaned up...
-		frame_[i].pushUBO = new VulkanPushBuffer(vulkan, "pushUBO", 8 * 1024 * 1024, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, PushBufferType::CPU_TO_GPU);
 	}
 
+	pushUBO = new VulkanPushPool(vulkan, "pushUBO", 4 * 1024 * 1024, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 	pushVertex = new VulkanPushPool(vulkan, "pushVertex", 2 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 	pushIndex = new VulkanPushPool(vulkan, "pushIndex", 1 * 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
@@ -222,12 +222,6 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 
 void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
 	descPool.Destroy();
-
-	if (pushUBO) {
-		pushUBO->Destroy(vulkan);
-		delete pushUBO;
-		pushUBO = nullptr;
-	}
 }
 
 void DrawEngineVulkan::DestroyDeviceObjects() {
@@ -258,6 +252,12 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 		delete pushIndex;
 		pushIndex = nullptr;
 	}
+	if (pushUBO) {
+		pushUBO->Destroy();
+		delete pushUBO;
+		pushUBO = nullptr;
+	}
+
 	if (samplerSecondaryNearest_ != VK_NULL_HANDLE)
 		vulkan->Delete().QueueDeleteSampler(samplerSecondaryNearest_);
 	if (samplerSecondaryLinear_ != VK_NULL_HANDLE)
@@ -297,24 +297,21 @@ void DrawEngineVulkan::BeginFrame() {
 
 	lastPipeline_ = nullptr;
 
+	pushUBO->BeginFrame();
+	pushVertex->BeginFrame();
+	pushIndex->BeginFrame();
+
+	tessDataTransferVulkan->SetPushPool(pushUBO);
+
+	DirtyAllUBOs();
+
 	FrameData *frame = &GetCurFrame();
 
 	// First reset all buffers, then begin. This is so that Reset can free memory and Begin can allocate it,
 	// if growing the buffer is needed. Doing it this way will reduce fragmentation if more than one buffer
 	// needs to grow in the same frame. The state where many buffers are reset can also be used to 
 	// defragment memory.
-	frame->pushUBO->Reset();
-
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-
-	frame->pushUBO->Begin(vulkan);
-
-	pushVertex->BeginFrame();
-	pushIndex->BeginFrame();
-
-	tessDataTransferVulkan->SetPushBuffer(frame->pushUBO);
-
-	DirtyAllUBOs();
 
 	// Wipe the vertex cache if it's grown too large.
 	if (vertexCache_->GetTotalSize() > VERTEX_CACHE_SIZE) {
@@ -360,10 +357,9 @@ void DrawEngineVulkan::BeginFrame() {
 
 void DrawEngineVulkan::EndFrame() {
 	FrameData *frame = &GetCurFrame();
-	stats_.pushUBOSpaceUsed = (int)frame->pushUBO->GetOffset();
+	stats_.pushUBOSpaceUsed = 0; // (int)pushUBO->GetOffset();
 	stats_.pushVertexSpaceUsed = 0; // (int)frame->pushVertex->GetOffset();
 	stats_.pushIndexSpaceUsed = 0; // (int)frame->pushIndex->GetOffset();
-	frame->pushUBO->End();
 	vertexCache_->End();
 }
 
@@ -1042,15 +1038,15 @@ void DrawEngineVulkan::DoFlush() {
 
 void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 	if ((dirtyUniforms_ & DIRTY_BASE_UNIFORMS) || baseBuf == VK_NULL_HANDLE) {
-		baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushUBO, &baseBuf);
+		baseUBOOffset = shaderManager_->PushBaseBuffer(pushUBO, &baseBuf);
 		dirtyUniforms_ &= ~DIRTY_BASE_UNIFORMS;
 	}
 	if ((dirtyUniforms_ & DIRTY_LIGHT_UNIFORMS) || lightBuf == VK_NULL_HANDLE) {
-		lightUBOOffset = shaderManager_->PushLightBuffer(frame->pushUBO, &lightBuf);
+		lightUBOOffset = shaderManager_->PushLightBuffer(pushUBO, &lightBuf);
 		dirtyUniforms_ &= ~DIRTY_LIGHT_UNIFORMS;
 	}
 	if ((dirtyUniforms_ & DIRTY_BONE_UNIFORMS) || boneBuf == VK_NULL_HANDLE) {
-		boneUBOOffset = shaderManager_->PushBoneBuffer(frame->pushUBO, &boneBuf);
+		boneUBOOffset = shaderManager_->PushBoneBuffer(pushUBO, &boneBuf);
 		dirtyUniforms_ &= ~DIRTY_BONE_UNIFORMS;
 	}
 }
@@ -1072,7 +1068,7 @@ void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const 
 	int size = size_u * size_v;
 
 	int ssboAlignment = vulkan_->GetPhysicalDeviceProperties().properties.limits.minStorageBufferOffsetAlignment;
-	uint8_t *data = (uint8_t *)push_->PushAligned(size * sizeof(TessData), (uint32_t *)&bufInfo_[0].offset, &bufInfo_[0].buffer, ssboAlignment);
+	uint8_t *data = (uint8_t *)push_->Allocate(size * sizeof(TessData), ssboAlignment, &bufInfo_[0].buffer, (uint32_t *)&bufInfo_[0].offset);
 	bufInfo_[0].range = size * sizeof(TessData);
 
 	float *pos = (float *)(data);
@@ -1085,12 +1081,12 @@ void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const 
 	using Spline::Weight;
 
 	// Weights U
-	data = (uint8_t *)push_->PushAligned(weights.size_u * sizeof(Weight), (uint32_t *)&bufInfo_[1].offset, &bufInfo_[1].buffer, ssboAlignment);
+	data = (uint8_t *)push_->Allocate(weights.size_u * sizeof(Weight), ssboAlignment, &bufInfo_[1].buffer, (uint32_t *)&bufInfo_[1].offset);
 	memcpy(data, weights.u, weights.size_u * sizeof(Weight));
 	bufInfo_[1].range = weights.size_u * sizeof(Weight);
 
 	// Weights V
-	data = (uint8_t *)push_->PushAligned(weights.size_v * sizeof(Weight), (uint32_t *)&bufInfo_[2].offset, &bufInfo_[2].buffer, ssboAlignment);
+	data = (uint8_t *)push_->Allocate(weights.size_v * sizeof(Weight), ssboAlignment, &bufInfo_[2].buffer, (uint32_t *)&bufInfo_[2].offset);
 	memcpy(data, weights.v, weights.size_v * sizeof(Weight));
 	bufInfo_[2].range = weights.size_v * sizeof(Weight);
 }
