@@ -545,6 +545,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	VulkanPushBuffer *pushBuffer = drawEngine_->GetPushBufferForTextureData();
 
+	// Batch the copies.
+	TextureCopyBatch copyBatch;
+	copyBatch.reserve(levels);
+
 	for (int i = 0; i < levels; i++) {
 		int mipUnscaledWidth = gstate.getTextureWidth(i);
 		int mipUnscaledHeight = gstate.getTextureHeight(i);
@@ -595,15 +599,12 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				// TODO: Fill with some pattern?
 			}
 			replacementTimeThisFrame_ += time_now_d() - replaceStart;
-			VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
-				"Copy Upload (replaced): %dx%d", mipWidth, mipHeight);
-			entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, rowLength);
-			VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
+			entry->vkTex->CopyBufferToMipLevel(cmdInit, &copyBatch, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, rowLength);
 		} else {
 			if (plan.depth != 1) {
 				// 3D texturing.
 				loadLevel(uploadSize, i, byteStride, plan.scaleFactor);
-				entry->vkTex->UploadMip(cmdInit, 0, mipWidth, mipHeight, i, texBuf, bufferOffset, pixelStride);
+				entry->vkTex->CopyBufferToMipLevel(cmdInit, &copyBatch, 0, mipWidth, mipHeight, i, texBuf, bufferOffset, pixelStride);
 			} else if (computeUpload) {
 				int srcBpp = VkFormatBytesPerPixel(dstFmt);
 				int srcStride = mipUnscaledWidth * srcBpp;
@@ -625,10 +626,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				vulkan->Delete().QueueDeleteImageView(view);
 			} else {
 				loadLevel(uploadSize, i == 0 ? plan.baseLevelSrc : i, byteStride, plan.scaleFactor);
-				VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
-					"Copy Upload: %dx%d", mipWidth, mipHeight);
-				entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, pixelStride);
-				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
+				entry->vkTex->CopyBufferToMipLevel(cmdInit, &copyBatch, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, pixelStride);
 			}
 			// Format might be wrong in lowMemoryMode_, so don't save.
 			if (plan.saveTexture && !lowMemoryMode_) {
@@ -648,6 +646,13 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				replacer_.NotifyTextureDecoded(replacedInfo, data, byteStride, plan.baseLevelSrc + i, w, h);
 			}
 		}
+	}
+
+	if (!copyBatch.empty()) {
+		VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT, "Copy Upload");
+		// Submit the whole batch of mip uploads.
+		entry->vkTex->FinishCopyBatch(cmdInit, &copyBatch);
+		VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	}
 
 	VkImageLayout layout = computeUpload ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;

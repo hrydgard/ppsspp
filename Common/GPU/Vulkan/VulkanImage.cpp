@@ -142,8 +142,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 	return true;
 }
 
-// TODO: Batch these.
-void VulkanTexture::UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mipHeight, int depthLayer, VkBuffer buffer, uint32_t offset, size_t rowLength) {
+void VulkanTexture::CopyBufferToMipLevel(VkCommandBuffer cmd, TextureCopyBatch *copyBatch, int mip, int mipWidth, int mipHeight, int depthLayer, VkBuffer buffer, uint32_t offset, size_t rowLength) {
 	VkBufferImageCopy copy_region{};
 	copy_region.bufferOffset = offset;
 	copy_region.bufferRowLength = (uint32_t)rowLength;
@@ -157,7 +156,21 @@ void VulkanTexture::UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mi
 	copy_region.imageSubresource.baseArrayLayer = 0;
 	copy_region.imageSubresource.layerCount = 1;
 
-	vkCmdCopyBufferToImage(cmd, buffer, image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
+	if (!copyBatch->buffer) {
+		copyBatch->buffer = buffer;
+	} else if (copyBatch->buffer != buffer) {
+		// Need to flush the batch if this image isn't from the same buffer as the previous ones.
+		FinishCopyBatch(cmd, copyBatch);
+		copyBatch->buffer = buffer;
+	}
+	copyBatch->copies.push_back(copy_region);
+}
+
+void VulkanTexture::FinishCopyBatch(VkCommandBuffer cmd, TextureCopyBatch *copyBatch) {
+	if (!copyBatch->copies.empty()) {
+		vkCmdCopyBufferToImage(cmd, copyBatch->buffer, image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, (uint32_t)copyBatch->copies.size(), copyBatch->copies.data());
+		copyBatch->copies.clear();
+	}
 }
 
 void VulkanTexture::ClearMip(VkCommandBuffer cmd, int mip, uint32_t value) {
