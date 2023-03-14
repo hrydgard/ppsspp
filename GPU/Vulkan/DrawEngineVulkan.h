@@ -55,6 +55,7 @@ class FramebufferManagerVulkan;
 
 class VulkanContext;
 class VulkanPushBuffer;
+class VulkanPushPool;
 struct VulkanPipeline;
 
 struct DrawEngineVulkanStats {
@@ -218,6 +219,7 @@ private:
 
 	void DestroyDeviceObjects();
 
+	void DecodeVertsToPushPool(VulkanPushPool *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 	void DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 
 	void DoFlush();
@@ -269,8 +271,6 @@ private:
 		VulkanDescSetPool descPool;
 
 		VulkanPushBuffer *pushUBO = nullptr;
-		VulkanPushBuffer *pushVertex = nullptr;
-		VulkanPushBuffer *pushIndex = nullptr;
 
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
 		DenseHashMap<DescriptorSetKey, VkDescriptorSet, (VkDescriptorSet)VK_NULL_HANDLE> descSets;
@@ -280,6 +280,9 @@ private:
 
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
 	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES];
+
+	VulkanPushPool *pushVertex = nullptr;
+	VulkanPushPool *pushIndex = nullptr;
 
 	// Other
 	ShaderManagerVulkan *shaderManager_ = nullptr;

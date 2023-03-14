@@ -172,9 +172,10 @@ void DrawEngineVulkan::InitDeviceObjects() {
 		// Note that pushUBO is also used for tessellation data (search for SetPushBuffer), and to upload
 		// the null texture. This should be cleaned up...
 		frame_[i].pushUBO = new VulkanPushBuffer(vulkan, "pushUBO", 8 * 1024 * 1024, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, PushBufferType::CPU_TO_GPU);
-		frame_[i].pushVertex = new VulkanPushBuffer(vulkan, "pushVertex", 2 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
-		frame_[i].pushIndex = new VulkanPushBuffer(vulkan, "pushIndex", 1 * 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
 	}
+
+	pushVertex = new VulkanPushPool(vulkan, "pushVertex", 2 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	pushIndex = new VulkanPushPool(vulkan, "pushIndex", 1 * 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
 	VkPipelineLayoutCreateInfo pl{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
@@ -227,16 +228,6 @@ void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
 		delete pushUBO;
 		pushUBO = nullptr;
 	}
-	if (pushVertex) {
-		pushVertex->Destroy(vulkan);
-		delete pushVertex;
-		pushVertex = nullptr;
-	}
-	if (pushIndex) {
-		pushIndex->Destroy(vulkan);
-		delete pushIndex;
-		pushIndex = nullptr;
-	}
 }
 
 void DrawEngineVulkan::DestroyDeviceObjects() {
@@ -255,6 +246,17 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].Destroy(vulkan);
+	}
+
+	if (pushVertex) {
+		pushVertex->Destroy();
+		delete pushVertex;
+		pushVertex = nullptr;
+	}
+	if (pushIndex) {
+		pushIndex->Destroy();
+		delete pushIndex;
+		pushIndex = nullptr;
 	}
 	if (samplerSecondaryNearest_ != VK_NULL_HANDLE)
 		vulkan->Delete().QueueDeleteSampler(samplerSecondaryNearest_);
@@ -302,14 +304,13 @@ void DrawEngineVulkan::BeginFrame() {
 	// needs to grow in the same frame. The state where many buffers are reset can also be used to 
 	// defragment memory.
 	frame->pushUBO->Reset();
-	frame->pushVertex->Reset();
-	frame->pushIndex->Reset();
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 
 	frame->pushUBO->Begin(vulkan);
-	frame->pushVertex->Begin(vulkan);
-	frame->pushIndex->Begin(vulkan);
+
+	pushVertex->BeginFrame();
+	pushIndex->BeginFrame();
 
 	tessDataTransferVulkan->SetPushBuffer(frame->pushUBO);
 
@@ -360,11 +361,9 @@ void DrawEngineVulkan::BeginFrame() {
 void DrawEngineVulkan::EndFrame() {
 	FrameData *frame = &GetCurFrame();
 	stats_.pushUBOSpaceUsed = (int)frame->pushUBO->GetOffset();
-	stats_.pushVertexSpaceUsed = (int)frame->pushVertex->GetOffset();
-	stats_.pushIndexSpaceUsed = (int)frame->pushIndex->GetOffset();
+	stats_.pushVertexSpaceUsed = 0; // (int)frame->pushVertex->GetOffset();
+	stats_.pushIndexSpaceUsed = 0; // (int)frame->pushIndex->GetOffset();
 	frame->pushUBO->End();
-	frame->pushVertex->End();
-	frame->pushIndex->End();
 	vertexCache_->End();
 }
 
@@ -375,6 +374,17 @@ void DrawEngineVulkan::DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t 
 	if (push) {
 		int vertsToDecode = ComputeNumVertsToDecode();
 		dest = (u8 *)push->Push(vertsToDecode * dec_->GetDecVtxFmt().stride, bindOffset, vkbuf);
+	}
+	DecodeVerts(dest);
+}
+
+void DrawEngineVulkan::DecodeVertsToPushPool(VulkanPushPool *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
+	u8 *dest = decoded;
+
+	// Figure out how much pushbuffer space we need to allocate.
+	if (push) {
+		int vertsToDecode = ComputeNumVertsToDecode();
+		dest = push->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, vkbuf, bindOffset);
 	}
 	DecodeVerts(dest);
 }
@@ -620,7 +630,7 @@ void DrawEngineVulkan::DoFlush() {
 				vai->minihash = ComputeMiniHash();
 				vai->status = VertexArrayInfoVulkan::VAI_HASHING;
 				vai->drawsUntilNextFullHash = 0;
-				DecodeVertsToPushBuffer(frameData.pushVertex, &vbOffset, &vbuf);  // writes to indexGen
+				DecodeVertsToPushPool(pushVertex, &vbOffset, &vbuf);  // writes to indexGen
 				vai->numVerts = indexGen.VertexCount();
 				vai->prim = indexGen.Prim();
 				vai->maxIndex = indexGen.MaxIndex();
@@ -646,7 +656,7 @@ void DrawEngineVulkan::DoFlush() {
 					}
 					if (newMiniHash != vai->minihash || newHash != vai->hash) {
 						MarkUnreliable(vai);
-						DecodeVertsToPushBuffer(frameData.pushVertex, &vbOffset, &vbuf);
+						DecodeVertsToPushPool(pushVertex, &vbOffset, &vbuf);
 						goto rotateVBO;
 					}
 					if (vai->numVerts > 64) {
@@ -665,7 +675,7 @@ void DrawEngineVulkan::DoFlush() {
 					u32 newMiniHash = ComputeMiniHash();
 					if (newMiniHash != vai->minihash) {
 						MarkUnreliable(vai);
-						DecodeVertsToPushBuffer(frameData.pushVertex, &vbOffset, &vbuf);
+						DecodeVertsToPushPool(pushVertex, &vbOffset, &vbuf);
 						goto rotateVBO;
 					}
 				}
@@ -737,7 +747,7 @@ void DrawEngineVulkan::DoFlush() {
 				if (vai->lastFrame != gpuStats.numFlips) {
 					vai->numFrames++;
 				}
-				DecodeVertsToPushBuffer(frameData.pushVertex, &vbOffset, &vbuf);
+				DecodeVertsToPushPool(pushVertex, &vbOffset, &vbuf);
 				goto rotateVBO;
 			}
 			default:
@@ -747,11 +757,11 @@ void DrawEngineVulkan::DoFlush() {
 			if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 				// If software skinning, we've already predecoded into "decoded". So push that content.
 				VkDeviceSize size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
-				u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vbOffset, &vbuf);
+				u8 *dest = (u8 *)pushVertex->Allocate(size, 4, &vbuf, &vbOffset);
 				memcpy(dest, decoded, size);
 			} else {
 				// Decode directly into the pushbuffer
-				DecodeVertsToPushBuffer(frameData.pushVertex, &vbOffset, &vbuf);
+				DecodeVertsToPushPool(pushVertex, &vbOffset, &vbuf);
 			}
 
 	rotateVBO:
@@ -834,7 +844,7 @@ void DrawEngineVulkan::DoFlush() {
 		};
 		if (useElements) {
 			if (!ibuf) {
-				ibOffset = (uint32_t)frameData.pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &ibuf);
+				ibOffset = (uint32_t)pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), 4, &ibuf);
 			}
 			renderManager->DrawIndexed(ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1, VK_INDEX_TYPE_UINT16);
 		} else {
@@ -972,12 +982,12 @@ void DrawEngineVulkan::DoFlush() {
 
 			if (result.drawIndexed) {
 				VkBuffer vbuf, ibuf;
-				vbOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), &vbuf);
-				ibOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(short) * result.drawNumTrans, &ibuf);
+				vbOffset = (uint32_t)pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), 4, &vbuf);
+				ibOffset = (uint32_t)pushIndex->Push(inds, sizeof(short) * result.drawNumTrans, 4, &ibuf);
 				renderManager->DrawIndexed(ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1, VK_INDEX_TYPE_UINT16);
 			} else {
 				VkBuffer vbuf;
-				vbOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), &vbuf);
+				vbOffset = (uint32_t)pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), 4, &vbuf);
 				renderManager->Draw(ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, result.drawNumTrans);
 			}
 		} else if (result.action == SW_CLEAR) {
