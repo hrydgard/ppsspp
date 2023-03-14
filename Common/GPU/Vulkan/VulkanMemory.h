@@ -24,9 +24,8 @@ class VulkanMemoryManager {
 public:
 	virtual ~VulkanMemoryManager() {}
 
-	virtual size_t GetTotalSize() const = 0;
-	virtual size_t GetTotalCapacity() const = 0;
-	virtual const char *Name() const = 0;
+	virtual void GetDebugString(char *buffer, size_t bufSize) const = 0;
+	virtual const char *Name() const = 0;  // for sorting
 };
 
 // VulkanPushBuffer
@@ -52,6 +51,11 @@ public:
 	void Destroy(VulkanContext *vulkan);
 
 	void Reset() { offset_ = 0; }
+
+	void GetDebugString(char *buffer, size_t bufSize) const override;
+	const char *Name() const override {
+		return name_;
+	}
 
 	// Needs context in case of defragment.
 	void Begin(VulkanContext *vulkan) {
@@ -112,10 +116,6 @@ public:
 		return offset_;
 	}
 
-	const char *Name() const override {
-		return name_;
-	}
-
 	// "Zero-copy" variant - you can write the data directly as you compute it.
 	// Recommended.
 	void *Push(size_t size, uint32_t *bindOffset, VkBuffer *vkbuf) {
@@ -141,8 +141,7 @@ public:
 		info->range = sizeof(T);
 	}
 
-	size_t GetTotalSize() const override;  // Used size
-	size_t GetTotalCapacity() const override;
+	size_t GetTotalSize() const;
 
 private:
 	bool AddBuffer();
@@ -171,8 +170,10 @@ public:
 	void Destroy();
 	void BeginFrame();
 
-	size_t GetTotalSize() const override;  // Used size
-	size_t GetTotalCapacity() const override;
+	const char *Name() const override {
+		return name_;
+	}
+	void GetDebugString(char *buffer, size_t bufSize) const override;
 
 	// When using the returned memory, make sure to bind the returned vkbuf.
 	uint8_t *Allocate(VkDeviceSize numBytes, VkDeviceSize alignment, VkBuffer *vkbuf, uint32_t *bindOffset) {
@@ -200,10 +201,6 @@ public:
 		uint8_t *ptr = Allocate(numBytes, alignment, vkbuf, &bindOffset);
 		memcpy(ptr, data, numBytes);
 		return bindOffset;
-	}
-
-	const char *Name() const override {
-		return name_;
 	}
 
 private:

@@ -27,6 +27,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
+#include "Common/Data/Text/Parsers.h"
 
 using namespace PPSSPP_VK;
 
@@ -150,8 +151,13 @@ size_t VulkanPushBuffer::GetTotalSize() const {
 	return sum;
 }
 
-size_t VulkanPushBuffer::GetTotalCapacity() const {
-	return size_ * buffers_.size();
+void VulkanPushBuffer::GetDebugString(char *buffer, size_t bufSize) const {
+	size_t sum = 0;
+	if (buffers_.size() > 1)
+		sum += size_ * (buffers_.size() - 1);
+	sum += offset_;
+	size_t capacity = size_ * buffers_.size();
+	snprintf(buffer, bufSize, "Push %s: %s/%s", name_, NiceSizeFormat(capacity).c_str(), NiceSizeFormat(sum).c_str());
 }
 
 void VulkanPushBuffer::Map() {
@@ -367,18 +373,13 @@ void VulkanPushPool::NextBlock(VkDeviceSize allocationSize) {
 	// curBlockIndex_ is already set correctly here.
 }
 
-size_t VulkanPushPool::GetTotalSize() const {
-	size_t sz = 0;
+void VulkanPushPool::GetDebugString(char *buffer, size_t bufSize) const {
+	size_t used = 0;
+	size_t capacity = 0;
 	for (auto &block : blocks_) {
-		sz += block.used;
+		used += block.used;
+		capacity += block.size;
 	}
-	return sz;
-}
 
-size_t VulkanPushPool::GetTotalCapacity() const {
-	size_t sz = 0;
-	for (auto &block : blocks_) {
-		sz += block.size;
-	}
-	return sz;
+	snprintf(buffer, bufSize, "Pool %s: %s / %s (%d extra blocks)", name_, NiceSizeFormat(used).c_str(), NiceSizeFormat(capacity).c_str(), (int)blocks_.size() - 3);
 }

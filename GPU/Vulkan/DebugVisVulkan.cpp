@@ -78,10 +78,10 @@ void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu) {
 	auto managers = GetActiveVulkanMemoryManagers();
 	std::sort(managers.begin(), managers.end(), comparePushBufferNames);
 
+	char buffer[512];
 	for (auto manager : managers) {
-		str << "  " << manager->Name() << " "
-			<< NiceSizeFormat(manager->GetTotalCapacity()) << ", used: "
-			<< NiceSizeFormat(manager->GetTotalSize()) << std::endl;
+		manager->GetDebugString(buffer, sizeof(buffer));
+		str << "  " << buffer << std::endl;
 	}
 
 	const int padding = 10 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
