@@ -283,8 +283,8 @@ public:
 	}
 
 	// Returns the binding offset, and the VkBuffer to bind.
-	size_t PushUBO(VulkanPushBuffer *buf, VulkanContext *vulkan, VkBuffer *vkbuf) {
-		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment, vkbuf);
+	size_t PushUBO(VulkanPushPool *buf, VulkanContext *vulkan, VkBuffer *vkbuf) {
+		return buf->Push(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment, vkbuf);
 	}
 
 	int GetUBOSize() const {
@@ -334,9 +334,9 @@ struct DescriptorSetKey {
 
 class VKTexture : public Texture {
 public:
-	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc)
+	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const TextureDesc &desc)
 		: vulkan_(vulkan), mipLevels_(desc.mipLevels), format_(desc.format) {}
-	bool Create(VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc);
+	bool Create(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const TextureDesc &desc);
 
 	~VKTexture() {
 		Destroy();
@@ -536,12 +536,12 @@ private:
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
 	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES];
 
+	VulkanPushPool *push_ = nullptr;
+
 	struct FrameData {
 		FrameData() : descriptorPool("VKContext", false) {
 			descriptorPool.Setup([this] { descSets_.clear(); });
 		}
-
-		VulkanPushBuffer *pushBuffer = nullptr;
 		// Per-frame descriptor set cache. As it's per frame and reset every frame, we don't need to
 		// worry about invalidating descriptors pointing to deleted textures.
 		// However! ARM is not a fan of doing it this way.
@@ -550,8 +550,6 @@ private:
 	};
 
 	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES];
-
-	VulkanPushBuffer *push_ = nullptr;
 
 	DeviceCaps caps_{};
 
@@ -675,7 +673,7 @@ VulkanTexture *VKContext::GetNullTexture() {
 			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 		uint32_t bindOffset;
 		VkBuffer bindBuf;
-		uint32_t *data = (uint32_t *)push_->Push(w * h * 4, &bindOffset, &bindBuf);
+		uint32_t *data = (uint32_t *)push_->Allocate(w * h * 4, 4, &bindBuf, &bindOffset);
 		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < w; x++) {
 				// data[y*w + x] = ((x ^ y) & 1) ? 0xFF808080 : 0xFF000000;   // gray/black checkerboard
@@ -739,7 +737,7 @@ enum class TextureState {
 	PENDING_DESTRUCTION,
 };
 
-bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const TextureDesc &desc) {
+bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushPool *push, const TextureDesc &desc) {
 	// Zero-sized textures not allowed.
 	_assert_(desc.width * desc.height * desc.depth > 0);  // remember to set depth to 1!
 	if (desc.width * desc.height * desc.depth <= 0) {
@@ -779,12 +777,12 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 			VkBuffer buf;
 			size_t size = w * h * d * bytesPerPixel;
 			if (desc.initDataCallback) {
-				uint8_t *dest = (uint8_t *)push->PushAligned(size, &offset, &buf, 16);
+				uint8_t *dest = (uint8_t *)push->Allocate(size, 16, &buf, &offset);
 				if (!desc.initDataCallback(dest, desc.initData[i], w, h, d, w * bytesPerPixel, h * w * bytesPerPixel)) {
 					memcpy(dest, desc.initData[i], size);
 				}
 			} else {
-				offset = push->PushAligned((const void *)desc.initData[i], size, 16, &buf);
+				offset = push->Push((const void *)desc.initData[i], size, 16, &buf);
 			}
 			TextureCopyBatch batch;
 			vkTex_->CopyBufferToMipLevel(cmd, &batch, i, w, h, 0, buf, offset, w);
@@ -983,9 +981,10 @@ VKContext::VKContext(VulkanContext *vulkan)
 	// 200 textures per frame was not enough for the UI.
 	dp.maxSets = 4096;
 
+	VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+	push_ = new VulkanPushPool(vulkan_, "pushBuffer", 1024 * 1024, usage);
+
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, "pushBuffer", 1024 * 1024, usage, PushBufferType::CPU_TO_GPU);
 		frame_[i].descriptorPool.Create(vulkan_, dp, dpTypes);
 	}
 
@@ -1037,9 +1036,9 @@ VKContext::~VKContext() {
 	// This also destroys all descriptor sets.
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].descriptorPool.Destroy();
-		frame_[i].pushBuffer->Destroy(vulkan_);
-		delete frame_[i].pushBuffer;
 	}
+	push_->Destroy();
+	delete push_;
 	vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
 	vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
 	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
@@ -1050,22 +1049,14 @@ void VKContext::BeginFrame() {
 	renderManager_.BeginFrame(debugFlags_ & DebugFlags::PROFILE_TIMESTAMPS, debugFlags_ & DebugFlags::PROFILE_SCOPES);
 
 	FrameData &frame = frame_[vulkan_->GetCurFrame()];
-	push_ = frame.pushBuffer;
 
-	// OK, we now know that nothing is reading from this frame's data pushbuffer,
-	push_->Reset();
-	push_->Begin(vulkan_);
+	push_->BeginFrame();
 
 	frame.descriptorPool.Reset();
 }
 
 void VKContext::EndFrame() {
-	// Stop collecting data in the frame's data pushbuffer.
-	push_->End();
-
 	renderManager_.Finish();
-
-	push_ = nullptr;
 
 	// Unbind stuff, to avoid accidentally relying on it across frames (and provide some protection against forgotten unbinds of deleted things).
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
@@ -1452,7 +1443,7 @@ void VKContext::Draw(int vertexCount, int offset) {
 	VkBuffer vulkanVbuf;
 	VkBuffer vulkanUBObuf;
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
-	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanVbuf);
+	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), 4, &vulkanVbuf);
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 	if (descSet == VK_NULL_HANDLE) {
@@ -1471,8 +1462,8 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 
 	VkBuffer vulkanVbuf, vulkanIbuf, vulkanUBObuf;
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
-	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanVbuf);
-	size_t ibBindOffset = push_->Push(ibuf->GetData(), ibuf->GetSize(), &vulkanIbuf);
+	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), 4, &vulkanVbuf);
+	size_t ibBindOffset = push_->Push(ibuf->GetData(), ibuf->GetSize(), 4, &vulkanIbuf);
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 	if (descSet == VK_NULL_HANDLE) {
@@ -1487,7 +1478,7 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	VkBuffer vulkanVbuf, vulkanUBObuf;
-	size_t vbBindOffset = push_->Push(vdata, vertexCount * curPipeline_->stride[0], &vulkanVbuf);
+	size_t vbBindOffset = push_->Push(vdata, vertexCount * curPipeline_->stride[0], 4, &vulkanVbuf);
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
