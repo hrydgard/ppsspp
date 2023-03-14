@@ -232,19 +232,22 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		}
 	}
 
-	delete desc_;
-	desc_ = nullptr;
-
 	if (levels_.empty()) {
-		// Bad.
-		WARN_LOG(G3D, "Failed to load texture");
+		// No replacement found.
+		std::string name = TextureReplacer::HashName(desc_->cachekey, desc_->hash, 0);
+		INFO_LOG(G3D, "Failed to load replacement texture. %s", name.c_str());
 		SetState(ReplacementState::NOT_FOUND);
 		levelData_ = nullptr;
+		delete desc_;
+		desc_ = nullptr;
 		return;
 	}
 
 	levelData_->fmt = fmt;
 	SetState(ReplacementState::ACTIVE);
+
+	delete desc_;
+	desc_ = nullptr;
 
 	if (threadWaitable_)
 		threadWaitable_->Notify();

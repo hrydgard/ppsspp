@@ -135,7 +135,7 @@ bool TextureReplacer::LoadIni() {
 	}
 
 	IniFile ini;
-	bool iniLoaded = ini.LoadFromVFS(g_VFS, (basePath_ / INI_FILENAME).ToString());
+	bool iniLoaded = ini.LoadFromVFS(*dir, INI_FILENAME);
 
 	if (iniLoaded) {
 		if (!LoadIniValues(ini)) {
@@ -183,7 +183,11 @@ bool TextureReplacer::LoadIni() {
 		repl.second->vfs_ = vfs_;
 	}
 
-	INFO_LOG(G3D, "Texture pack activated from '%s'", basePath_.c_str());
+	if (vfsIsZip_) {
+		INFO_LOG(G3D, "Texture pack activated from '%s'", (basePath_ / ZIP_FILENAME).c_str());
+	} else {
+		INFO_LOG(G3D, "Texture pack activated from '%s'", basePath_.c_str());
+	}
 
 	// The ini doesn't have to exist for the texture directory or zip to be valid.
 	return true;
