@@ -682,7 +682,9 @@ VulkanTexture *VKContext::GetNullTexture() {
 				data[y*w + x] = 0;  // black
 			}
 		}
-		nullTexture_->UploadMip(cmdInit, 0, w, h, 0, bindBuf, bindOffset, w);
+		TextureCopyBatch batch;
+		nullTexture_->CopyBufferToMipLevel(cmdInit, &batch, 0, w, h, 0, bindBuf, bindOffset, w);
+		nullTexture_->FinishCopyBatch(cmdInit, &batch);
 		nullTexture_->EndCreate(cmdInit, false, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	}
 	return nullTexture_;
@@ -784,7 +786,9 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 			} else {
 				offset = push->PushAligned((const void *)desc.initData[i], size, 16, &buf);
 			}
-			vkTex_->UploadMip(cmd, i, w, h, 0, buf, offset, w);
+			TextureCopyBatch batch;
+			vkTex_->CopyBufferToMipLevel(cmd, &batch, i, w, h, 0, buf, offset, w);
+			vkTex_->FinishCopyBatch(cmd, &batch);
 			w = (w + 1) / 2;
 			h = (h + 1) / 2;
 			d = (d + 1) / 2;

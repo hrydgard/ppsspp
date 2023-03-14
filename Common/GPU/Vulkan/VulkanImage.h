@@ -7,6 +7,13 @@ class VulkanDeviceAllocator;
 
 VK_DEFINE_HANDLE(VmaAllocation);
 
+struct TextureCopyBatch {
+	std::vector<VkBufferImageCopy> copies;
+	VkBuffer buffer = VK_NULL_HANDLE;
+	void reserve(size_t mips) { copies.reserve(mips); }
+	bool empty() const { return copies.empty(); }
+};
+
 // Wrapper around what you need to use a texture.
 // ALWAYS use an allocator when calling CreateDirect.
 class VulkanTexture {
@@ -23,7 +30,9 @@ public:
 	void ClearMip(VkCommandBuffer cmd, int mip, uint32_t value);
 
 	// Can also be used to copy individual levels of a 3D texture.
-	void UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mipHeight, int depthLayer, VkBuffer buffer, uint32_t offset, size_t rowLength);  // rowLength is in pixels
+	// If possible, will just add to the batch instead of submitting a copy.
+	void CopyBufferToMipLevel(VkCommandBuffer cmd, TextureCopyBatch *copyBatch, int mip, int mipWidth, int mipHeight, int depthLayer, VkBuffer buffer, uint32_t offset, size_t rowLength);  // rowLength is in pixels
+	void FinishCopyBatch(VkCommandBuffer cmd, TextureCopyBatch *copyBatch);
 
 	void GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bool fromCompute);
 	void EndCreate(VkCommandBuffer cmd, bool vertexTexture, VkPipelineStageFlags prevStage, VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
