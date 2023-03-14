@@ -39,7 +39,7 @@
 
 #undef DrawText
 
-bool comparePushBufferNames(const VulkanPushBuffer *a, const VulkanPushBuffer *b) {
+bool comparePushBufferNames(const VulkanMemoryManager *a, const VulkanMemoryManager *b) {
 	return strcmp(a->Name(), b->Name()) < 0;
 }
 
@@ -75,13 +75,13 @@ void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu) {
 	str << "Push buffers:" << std::endl;
 
 	// Now list the various push buffers.
-	auto pushBuffers = VulkanPushBuffer::GetAllActive();
-	std::sort(pushBuffers.begin(), pushBuffers.end(), comparePushBufferNames);
+	auto managers = GetActiveVulkanMemoryManagers();
+	std::sort(managers.begin(), managers.end(), comparePushBufferNames);
 
-	for (auto push : pushBuffers) {
-		str << "  " << push->Name() << " "
-			<< NiceSizeFormat(push->GetTotalCapacity()) << ", used: "
-			<< NiceSizeFormat(push->GetTotalSize()) << std::endl;
+	for (auto manager : managers) {
+		str << "  " << manager->Name() << " "
+			<< NiceSizeFormat(manager->GetTotalCapacity()) << ", used: "
+			<< NiceSizeFormat(manager->GetTotalSize()) << std::endl;
 	}
 
 	const int padding = 10 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);

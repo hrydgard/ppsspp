@@ -19,6 +19,16 @@ enum class PushBufferType {
 	GPU_ONLY,
 };
 
+// Just an abstract thing to get debug information.
+class VulkanMemoryManager {
+public:
+	virtual ~VulkanMemoryManager() {}
+
+	virtual size_t GetTotalSize() const = 0;
+	virtual size_t GetTotalCapacity() const = 0;
+	virtual const char *Name() const = 0;
+};
+
 // VulkanPushBuffer
 // Simple incrementing allocator.
 // Use these to push vertex, index and uniform data. Generally you'll have two of these
@@ -26,7 +36,7 @@ enum class PushBufferType {
 // has completed.
 //
 // TODO: Make it possible to suballocate pushbuffers from a large DeviceMemory block.
-class VulkanPushBuffer {
+class VulkanPushBuffer : public VulkanMemoryManager {
 	struct BufInfo {
 		VkBuffer buffer;
 		VmaAllocation allocation;
@@ -102,7 +112,7 @@ public:
 		return offset_;
 	}
 
-	const char *Name() const {
+	const char *Name() const override {
 		return name_;
 	}
 
@@ -131,10 +141,8 @@ public:
 		info->range = sizeof(T);
 	}
 
-	size_t GetTotalSize() const;  // Used size
-	size_t GetTotalCapacity() const;
-
-	static std::vector<VulkanPushBuffer *> GetAllActive();
+	size_t GetTotalSize() const override;  // Used size
+	size_t GetTotalCapacity() const override;
 
 private:
 	bool AddBuffer();
@@ -150,6 +158,80 @@ private:
 	size_t size_ = 0;
 	uint8_t *writePtr_ = nullptr;
 	VkBufferUsageFlags usage_;
+	const char *name_;
+};
+
+// Simple memory pushbuffer pool that can share blocks between the "frames", to reduce the impact of push memory spikes -
+// a later frame can gobble up redundant buffers from an earlier frame even if they don't share frame index.
+class VulkanPushPool : public VulkanMemoryManager {
+public:
+	VulkanPushPool(VulkanContext *vulkan, const char *name, size_t originalBlockSize, VkBufferUsageFlags usage);
+	~VulkanPushPool();
+
+	void Destroy();
+	void BeginFrame();
+
+	size_t GetTotalSize() const override;  // Used size
+	size_t GetTotalCapacity() const override;
+
+	// When using the returned memory, make sure to bind the returned vkbuf.
+	uint8_t *Allocate(VkDeviceSize numBytes, VkDeviceSize alignment, VkBuffer *vkbuf, uint32_t *bindOffset) {
+		_dbg_assert_(curBlockIndex_ >= 0);
+		
+		Block &block = blocks_[curBlockIndex_];
+
+		VkDeviceSize offset = (block.used + (alignment - 1)) & ~(alignment - 1);
+		if (offset + numBytes <= block.size) {
+			block.used = offset + numBytes;
+			*vkbuf = block.buffer;
+			*bindOffset = (uint32_t)offset;
+			return block.writePtr + offset;
+		}
+
+		NextBlock(numBytes);
+
+		*vkbuf = blocks_[curBlockIndex_].buffer;
+		*bindOffset = 0;  // Newly allocated buffer will start at 0.
+		return blocks_[curBlockIndex_].writePtr;
+	}
+
+	VkDeviceSize Push(const void *data, VkDeviceSize numBytes, int alignment, VkBuffer *vkbuf) {
+		uint32_t bindOffset;
+		uint8_t *ptr = Allocate(numBytes, alignment, vkbuf, &bindOffset);
+		memcpy(ptr, data, numBytes);
+		return bindOffset;
+	}
+
+	const char *Name() const override {
+		return name_;
+	}
+
+private:
+	void NextBlock(VkDeviceSize allocationSize);
+
+	struct Block {
+		~Block();
+		VkBuffer buffer;
+		VmaAllocation allocation;
+
+		VkDeviceSize size;
+		VkDeviceSize used;
+
+		int frameIndex;
+		bool original;  // these blocks aren't garbage collected.
+
+		uint8_t *writePtr;
+
+		void Destroy(VulkanContext *vulkan);
+	};
+
+	Block CreateBlock(size_t sz);
+
+	VulkanContext *vulkan_;
+	VkDeviceSize originalBlockSize_;
+	std::vector<Block> blocks_;
+	VkBufferUsageFlags usage_;
+	int curBlockIndex_ = -1;
 	const char *name_;
 };
 
@@ -182,3 +264,6 @@ private:
 	uint32_t usage_ = 0;
 	bool grow_;
 };
+
+std::vector<VulkanMemoryManager *> GetActiveVulkanMemoryManagers();
+
