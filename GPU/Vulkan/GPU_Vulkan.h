@@ -84,12 +84,6 @@ private:
 	// Manages state and pipeline objects
 	PipelineManagerVulkan *pipelineManager_;
 
-	struct FrameData {
-		VulkanPushBuffer *push_;
-	};
-
-	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
-
 	Path shaderCachePath_;
 	std::atomic<bool> shaderCacheLoaded_{};
 };
