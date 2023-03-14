@@ -455,9 +455,10 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 				transcoderFormat = basist::transcoder_texture_format::cTFETC1_RGB;
 				*pixelFormat = Draw::DataFormat::ETC2_R8G8B8_UNORM_BLOCK;
 			} else {
-				// TODO: Transcode to RGBA8 instead as a fallback.
-				cleanup();
-				return LoadLevelResult::LOAD_ERROR;
+				// Transcode to RGBA8 instead as a fallback. A bit slow and takes a lot of memory, but better than nothing.
+				WARN_LOG(G3D, "Replacement texture format not supported - transcoding to RGBA8888");
+				transcoderFormat = basist::transcoder_texture_format::cTFRGBA32;
+				*pixelFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 			}
 		} else if (transcoder.is_uastc()) {
 			// TODO: Try to recover some indication of alpha from the actual data blocks.
@@ -470,17 +471,20 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 				transcoderFormat = basist::transcoder_texture_format::cTFASTC_4x4_RGBA;
 				*pixelFormat = Draw::DataFormat::ASTC_4x4_UNORM_BLOCK;
 			} else {
-				// TODO: Transcode to RGBA8 instead as a fallback.
-				cleanup();
-				return LoadLevelResult::LOAD_ERROR;
+				// Transcode to RGBA8 instead as a fallback. A bit slow and takes a lot of memory, but better than nothing.
+				WARN_LOG(G3D, "Replacement texture format not supported - transcoding to RGBA8888");
+				transcoderFormat = basist::transcoder_texture_format::cTFRGBA32;
+				*pixelFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 			}
 		} else {
 			WARN_LOG(G3D, "PPSSPP currently only supports KTX for basis/UASTC textures. This may change in the future.");
+			cleanup();
+			return LoadLevelResult::LOAD_ERROR;
 		}
 
 		int blockSize;
 		bool bc = Draw::DataFormatIsBlockCompressed(*pixelFormat, &blockSize);
-		_dbg_assert_(bc);
+		_dbg_assert_(bc || *pixelFormat == Draw::DataFormat::R8G8B8A8_UNORM);
 
 		levelData_->data.resize(numMips);
 
@@ -494,9 +498,18 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			bool result = transcoder.get_image_level_info(levelInfo, i, 0, 0);
 			_dbg_assert_(result);
 
-			levelData_->data[i].resize(levelInfo.m_total_blocks * blockSize);
+			size_t dataSizeBytes = levelInfo.m_total_blocks * blockSize;
+			size_t outputSize = levelInfo.m_total_blocks;
+			size_t outputPitch = levelInfo.m_num_blocks_x;
+			// Support transcoded-to-RGBA8888 images too.
+			if (!bc) {
+				dataSizeBytes = levelInfo.m_orig_width * levelInfo.m_orig_height * 4;
+				outputSize = levelInfo.m_orig_width * levelInfo.m_orig_height;
+				outputPitch = levelInfo.m_orig_width;
+			}
+			levelData_->data[i].resize(dataSizeBytes);
 
-			transcoder.transcode_image_level(i, 0, 0, &out[0], levelInfo.m_total_blocks, transcoderFormat, 0, levelInfo.m_num_blocks_x, level.h, -1, -1, &transcodeState);
+			transcoder.transcode_image_level(i, 0, 0, &out[0], outputSize, transcoderFormat, 0, outputPitch, level.h, -1, -1, &transcodeState);
 			level.w = levelInfo.m_orig_width;
 			level.h = levelInfo.m_orig_height;
 			if (i != 0)
