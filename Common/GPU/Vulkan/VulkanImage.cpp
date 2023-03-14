@@ -156,6 +156,8 @@ void VulkanTexture::CopyBufferToMipLevel(VkCommandBuffer cmd, TextureCopyBatch *
 	copy_region.imageSubresource.baseArrayLayer = 0;
 	copy_region.imageSubresource.layerCount = 1;
 
+	_dbg_assert_(mip < numMips_);
+
 	if (!copyBatch->buffer) {
 		copyBatch->buffer = buffer;
 	} else if (copyBatch->buffer != buffer) {

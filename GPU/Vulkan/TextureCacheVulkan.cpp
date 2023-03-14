@@ -430,6 +430,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
 	if (plan.scaleFactor > 1) {
+		_dbg_assert_(!plan.replaceValid);
 		// Whether hardware or software scaling, this is the dest format.
 		dstFmt = VULKAN_8888_FORMAT;
 	} else if (plan.decodeToClut8) {
@@ -438,9 +439,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	// We don't generate mipmaps for 512x512 textures because they're almost exclusively used for menu backgrounds
 	// and similar, which don't really need it.
-	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY && plan.w <= 256 && plan.h <= 256) {
+	// Also, if using replacements, check that we really can generate mips for this format - that's not possible for compressed ones.
+	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY && plan.w <= 256 && plan.h <= 256 && (!plan.replaceValid || plan.replaced->Format() == Draw::DataFormat::R8G8B8A8_UNORM)) {
 		// Boost the number of mipmaps.
-		if (plan.maxPossibleLevels > plan.levelsToCreate) {
+		if (plan.maxPossibleLevels > plan.levelsToCreate) { // TODO: Should check against levelsToLoad, no?
 			// We have to generate mips with a shader. This requires decoding to R8G8B8A8_UNORM format to avoid extra complications.
 			dstFmt = VULKAN_8888_FORMAT;
 		}
