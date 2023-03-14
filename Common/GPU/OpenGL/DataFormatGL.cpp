@@ -86,7 +86,7 @@ bool Thin3DFormatToGLFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuin
 		alignment = 16;
 		break;
 
-#if PPSSPP_PLATFORM(WINDOWS)
+#ifndef USING_GLES2
 	case DataFormat::BC1_RGBA_UNORM_BLOCK:
 		internalFormat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
 		format = GL_RGB;
