@@ -514,8 +514,8 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, tex.wrapS);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tex.wrapT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, tex.magFilter);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, tex.minFilter);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, tex.magFilter);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, tex.minFilter);
 		if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 		}
@@ -1199,14 +1199,14 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				Crash();
 			} else if (c.bind_buffer.target == GL_ELEMENT_ARRAY_BUFFER) {
 				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer_ : 0;
-				_dbg_assert_(!c.bind_buffer.buffer->Mapped());
+				_dbg_assert_(!(c.bind_buffer.buffer && c.bind_buffer.buffer->Mapped()));
 				if (buf != curElemArrayBuffer) {
 					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf);
 					curElemArrayBuffer = buf;
 				}
 			} else {
 				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer_ : 0;
-				_dbg_assert_(!c.bind_buffer.buffer->Mapped());
+				_dbg_assert_(!(c.bind_buffer.buffer && c.bind_buffer.buffer->Mapped()));
 				glBindBuffer(c.bind_buffer.target, buf);
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -1273,7 +1273,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		}
 		case GLRRenderCommand::TEXTURELOD:
 		{
-			GLint slot = c.textureSampler.slot;
+			GLint slot = c.textureLod.slot;
 			if (slot != activeSlot) {
 				glActiveTexture(GL_TEXTURE0 + slot);
 				activeSlot = slot;
@@ -1557,7 +1557,7 @@ void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
 		glGetTexLevelParameteriv(GL_TEXTURE_2D, pass.readback_image.mipLevel, GL_TEXTURE_WIDTH, &w);
 		glGetTexLevelParameteriv(GL_TEXTURE_2D, pass.readback_image.mipLevel, GL_TEXTURE_HEIGHT, &h);
 
-		int size = 4 * std::max((int)w, rect.x + rect.w) * std::max((int)h, rect.h);
+		int size = 4 * std::max((int)w, rect.x + rect.w) * std::max((int)h, rect.y + rect.h);
 		if (size > readbackBufferSize_) {
 			delete[] readbackBuffer_;
 			readbackBuffer_ = new uint8_t[size];
