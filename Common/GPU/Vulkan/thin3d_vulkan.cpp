@@ -981,7 +981,7 @@ VKContext::VKContext(VulkanContext *vulkan)
 	// 200 textures per frame was not enough for the UI.
 	dp.maxSets = 4096;
 
-	VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+	VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	push_ = new VulkanPushPool(vulkan_, "pushBuffer", 1024 * 1024, usage);
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
@@ -1770,7 +1770,8 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 		return (uint64_t)curFramebuffer_->GetFB()->GetRTView();
 	case NativeObject::THIN3D_PIPELINE_LAYOUT:
 		return (uint64_t)pipelineLayout_;
-
+	case NativeObject::PUSH_POOL:
+		return (uint64_t)push_;
 	default:
 		Crash();
 		return 0;

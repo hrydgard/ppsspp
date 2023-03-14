@@ -349,9 +349,11 @@ void VulkanPushPool::NextBlock(VkDeviceSize allocationSize) {
 	curBlockIndex_++;
 	while (curBlockIndex_ < blocks_.size()) {
 		Block &block = blocks_[curBlockIndex_];
-		if (block.frameIndex == curFrameIndex) {
+		// Grab the first matching block, or unused block (frameIndex == -1).
+		if ((block.frameIndex == curFrameIndex || block.frameIndex == -1) && block.size >= allocationSize) {
 			_assert_(block.used == 0);
 			block.used = allocationSize;
+			block.frameIndex = curFrameIndex;
 			return;
 		}
 		curBlockIndex_++;

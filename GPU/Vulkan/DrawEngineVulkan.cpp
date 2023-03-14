@@ -173,7 +173,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 		// the null texture. This should be cleaned up...
 	}
 
-	pushUBO = new VulkanPushPool(vulkan, "pushUBO", 4 * 1024 * 1024, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+	pushUBO = (VulkanPushPool *)draw_->GetNativeObject(Draw::NativeObject::PUSH_POOL);
 	pushVertex = new VulkanPushPool(vulkan, "pushVertex", 2 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 	pushIndex = new VulkanPushPool(vulkan, "pushIndex", 1 * 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
@@ -252,11 +252,6 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 		delete pushIndex;
 		pushIndex = nullptr;
 	}
-	if (pushUBO) {
-		pushUBO->Destroy();
-		delete pushUBO;
-		pushUBO = nullptr;
-	}
 
 	if (samplerSecondaryNearest_ != VK_NULL_HANDLE)
 		vulkan->Delete().QueueDeleteSampler(samplerSecondaryNearest_);
@@ -297,7 +292,7 @@ void DrawEngineVulkan::BeginFrame() {
 
 	lastPipeline_ = nullptr;
 
-	pushUBO->BeginFrame();
+	// pushUBO is the thin3d push pool, don't need to BeginFrame again.
 	pushVertex->BeginFrame();
 	pushIndex->BeginFrame();
 
