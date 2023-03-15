@@ -332,6 +332,7 @@ void VulkanPushPool::Block::Destroy(VulkanContext *vulkan) {
 }
 
 void VulkanPushPool::BeginFrame() {
+	double now = time_now_d();
 	curBlockIndex_ = -1;
 	for (auto &block : blocks_) {
 		if (block.frameIndex == vulkan_->GetCurFrame()) {
@@ -339,6 +340,7 @@ void VulkanPushPool::BeginFrame() {
 				// Pick a block associated with the current frame to start at.
 				// We always start with one block per frame index.
 				curBlockIndex_ = block.frameIndex;
+				block.lastUsed = now;
 			}
 			block.used = 0;
 			if (!block.original) {
@@ -347,6 +349,23 @@ void VulkanPushPool::BeginFrame() {
 			}
 		}
 		// TODO: Also garbage collect blocks that have been unused for many frames here.
+	}
+
+	// Do a single pass of bubblesort to move the bigger buffers earlier in the sequence.
+	for (size_t i = 3; i < blocks_.size() - 1; i++) {
+		if (blocks_[i].frameIndex == -1 && blocks_[i + 1].frameIndex == -1 && blocks_[i].size < blocks_[i + 1].size) {
+			std::swap(blocks_[i], blocks_[i + 1]);
+		}
+	}
+
+	// If we have lots of little buffers and the last one hasn't been used in a while, drop it.
+	// Still, let's keep around a few big ones.
+	if (blocks_.size() > 6 && blocks_.back().lastUsed < now - 10.0) {
+		double start = time_now_d();
+		size_t size = blocks_.back().size;
+		blocks_.back().Destroy(vulkan_);
+		blocks_.pop_back();
+		DEBUG_LOG(G3D, "%s: Garbage collected block of size %s in %0.2f ms", name_, NiceSizeFormat(size).c_str(), time_now_d() - start);
 	}
 }
 
@@ -359,18 +378,22 @@ void VulkanPushPool::NextBlock(VkDeviceSize allocationSize) {
 		if ((block.frameIndex == curFrameIndex || block.frameIndex == -1) && block.size >= allocationSize) {
 			_assert_(block.used == 0);
 			block.used = allocationSize;
+			block.lastUsed = time_now_d();
 			block.frameIndex = curFrameIndex;
 			return;
 		}
 		curBlockIndex_++;
 	}
 
-	VkDeviceSize newBlockSize = std::max(originalBlockSize_, (VkDeviceSize)RoundUpToPowerOf2((uint32_t)allocationSize));
+	double start = time_now_d();
+	VkDeviceSize newBlockSize = std::max(originalBlockSize_ * 2, (VkDeviceSize)RoundUpToPowerOf2((uint32_t)allocationSize));
 	// We're still here and ran off the end of blocks. Create a new one.
 	blocks_.push_back(CreateBlock(newBlockSize));
 	blocks_.back().frameIndex = curFrameIndex;
 	blocks_.back().used = allocationSize;
+	blocks_.back().lastUsed = time_now_d();
 	// curBlockIndex_ is already set correctly here.
+	DEBUG_LOG(G3D, "%s: Created new block of size %s in %0.2f ms", name_, NiceSizeFormat(newBlockSize).c_str(), 1000.0 * (time_now_d() - start));
 }
 
 void VulkanPushPool::GetDebugString(char *buffer, size_t bufSize) const {

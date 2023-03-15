@@ -982,7 +982,7 @@ VKContext::VKContext(VulkanContext *vulkan)
 	dp.maxSets = 4096;
 
 	VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-	push_ = new VulkanPushPool(vulkan_, "pushBuffer", 1024 * 1024, usage);
+	push_ = new VulkanPushPool(vulkan_, "pushBuffer", 4 * 1024 * 1024, usage);
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].descriptorPool.Create(vulkan_, dp, dpTypes);

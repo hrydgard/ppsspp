@@ -216,6 +216,7 @@ private:
 
 		int frameIndex;
 		bool original;  // these blocks aren't garbage collected.
+		double lastUsed;
 
 		uint8_t *writePtr;
 
