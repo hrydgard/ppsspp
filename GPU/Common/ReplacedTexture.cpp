@@ -186,6 +186,8 @@ bool ReplacedTexture::Poll(double budget) {
 	if (threadWaitable_->WaitFor(budget)) {
 		// If we successfully wait here, we're done. The thread will set state accordingly.
 		_assert_(State() == ReplacementState::ACTIVE || State() == ReplacementState::NOT_FOUND || State() == ReplacementState::CANCEL_INIT);
+		delete threadWaitable_;
+		threadWaitable_ = nullptr;
 		return true;
 	}
 	// Still pending on thread.
