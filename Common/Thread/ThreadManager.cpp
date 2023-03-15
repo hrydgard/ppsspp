@@ -164,12 +164,14 @@ static void WorkerThreadFunc(GlobalThreadContext *global, TaskThreadContext *thr
 
 					// We are processing one now, so mark that.
 					thread->queue_size++;
+					break;
 				} else if (thread->queue_size != 0) {
 					// Check the thread, as we prefer a HIGH thread task to a global NORMAL task.
 					std::unique_lock<std::mutex> lock(thread->mutex);
 					if (!thread->private_queue[p].empty()) {
 						task = thread->private_queue[p].front();
 						thread->private_queue[p].pop_front();
+						break;
 					}
 				}
 			}
@@ -198,9 +200,9 @@ static void WorkerThreadFunc(GlobalThreadContext *global, TaskThreadContext *thr
 		if (task) {
 			task->Run();
 			task->Release();
-
 			// Reduce the queue size once complete.
 			thread->queue_size--;
+			// _dbg_assert_(thread->queue_size == thread->private_queue[0].size() + thread->private_queue[1].size() + thread->private_queue[2].size());
 		}
 	}
 
