@@ -31,6 +31,9 @@
 
 using namespace PPSSPP_VK;
 
+// Always keep around push buffers at least this long (seconds).
+static const double PUSH_GARBAGE_COLLECTION_DELAY = 10.0;
+
 // Global push buffer tracker for vulkan memory profiling.
 // Don't want to manually dig up all the active push buffers.
 static std::mutex g_pushBufferListMutex;
@@ -314,10 +317,10 @@ VulkanPushPool::Block VulkanPushPool::CreateBlock(size_t size) {
 	VmaAllocationInfo allocInfo{};
 	
 	VkResult result = vmaCreateBuffer(vulkan_->Allocator(), &b, &allocCreateInfo, &block.buffer, &block.allocation, &allocInfo);
-	_dbg_assert_(result == VK_SUCCESS);
+	_assert_(result == VK_SUCCESS);
 
 	result = vmaMapMemory(vulkan_->Allocator(), block.allocation, (void **)(&block.writePtr));
-	_dbg_assert_(result == VK_SUCCESS);
+	_assert_(result == VK_SUCCESS);
 
 	return block;
 }
@@ -346,10 +349,10 @@ void VulkanPushPool::BeginFrame() {
 				block.frameIndex = -1;
 			}
 		}
-		// TODO: Also garbage collect blocks that have been unused for many frames here.
 	}
 
 	// Do a single pass of bubblesort to move the bigger buffers earlier in the sequence.
+	// Over multiple frames this will quickly converge to the right order.
 	for (size_t i = 3; i < blocks_.size() - 1; i++) {
 		if (blocks_[i].frameIndex == -1 && blocks_[i + 1].frameIndex == -1 && blocks_[i].size < blocks_[i + 1].size) {
 			std::swap(blocks_[i], blocks_[i + 1]);
@@ -357,8 +360,8 @@ void VulkanPushPool::BeginFrame() {
 	}
 
 	// If we have lots of little buffers and the last one hasn't been used in a while, drop it.
-	// Still, let's keep around a few big ones.
-	if (blocks_.size() > 6 && blocks_.back().lastUsed < now - 10.0) {
+	// Still, let's keep around a few big ones (6 - 3).
+	if (blocks_.size() > 6 && blocks_.back().lastUsed < now - PUSH_GARBAGE_COLLECTION_DELAY) {
 		double start = time_now_d();
 		size_t size = blocks_.back().size;
 		blocks_.back().Destroy(vulkan_);

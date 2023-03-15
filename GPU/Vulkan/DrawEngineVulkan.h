@@ -194,7 +194,7 @@ public:
 	}
 
 	VulkanPushPool *GetPushBufferForTextureData() {
-		return pushUBO;
+		return pushUBO_;
 	}
 
 	const DrawEngineVulkanStats &GetStats() const {
@@ -279,9 +279,11 @@ private:
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
 	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
-	VulkanPushPool *pushUBO = nullptr;
-	VulkanPushPool *pushVertex = nullptr;
-	VulkanPushPool *pushIndex = nullptr;
+	// This one's not accurately named, it's used for all kinds of stuff that's not vertices or indices.
+	VulkanPushPool *pushUBO_ = nullptr;
+
+	VulkanPushPool *pushVertex_ = nullptr;
+	VulkanPushPool *pushIndex_ = nullptr;
 
 	// Other
 	ShaderManagerVulkan *shaderManager_ = nullptr;
