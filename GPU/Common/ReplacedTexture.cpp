@@ -694,22 +694,22 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 
 		if (rowPitch == info.w * 4) {
 #ifdef PARALLEL_COPY
-			memcpy(out, data.data(), info.w * 4 * info.h);
-#else
 			ParallelMemcpy(&g_threadManager, out, &data[0], info.w * 4 * info.h);
+#else
+			memcpy(out, data.data(), info.w * 4 * info.h);
 #endif
 		} else {
 #ifdef PARALLEL_COPY
-			for (int y = 0; y < info.h; ++y) {
-				memcpy((uint8_t *)out + rowPitch * y, &data[0] + info.w * 4 * y, info.w * 4);
-			}
-#else
 			const int MIN_LINES_PER_THREAD = 4;
 			ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
 				for (int y = l; y < h; ++y) {
 					memcpy((uint8_t *)out + rowPitch * y, &data[0] + info.w * 4 * y, info.w * 4);
 				}
 				}, 0, info.h, MIN_LINES_PER_THREAD);
+#else
+			for (int y = 0; y < info.h; ++y) {
+				memcpy((uint8_t *)out + rowPitch * y, &data[0] + info.w * 4 * y, info.w * 4);
+			}
 #endif
 		}
 	} else {
