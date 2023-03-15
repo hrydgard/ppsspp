@@ -174,8 +174,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	}
 
 	pushUBO = (VulkanPushPool *)draw_->GetNativeObject(Draw::NativeObject::PUSH_POOL);
-	pushVertex = new VulkanPushPool(vulkan, "pushVertex", 2 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-	pushIndex = new VulkanPushPool(vulkan, "pushIndex", 1 * 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+	pushVertex = new VulkanPushPool(vulkan, "pushVertex", 4 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	pushIndex = new VulkanPushPool(vulkan, "pushIndex", 1 * 512 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
 	VkPipelineLayoutCreateInfo pl{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
