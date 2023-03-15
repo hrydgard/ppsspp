@@ -30,11 +30,9 @@ public:
 
 // VulkanPushBuffer
 // Simple incrementing allocator.
-// Use these to push vertex, index and uniform data. Generally you'll have two of these
+// Use these to push vertex, index and uniform data. Generally you'll have two or three of these
 // and alternate on each frame. Make sure not to reset until the fence from the last time you used it
 // has completed.
-//
-// TODO: Make it possible to suballocate pushbuffers from a large DeviceMemory block.
 class VulkanPushBuffer : public VulkanMemoryManager {
 	struct BufInfo {
 		VkBuffer buffer;
@@ -78,69 +76,29 @@ public:
 	}
 
 	void Map();
-
 	void Unmap();
 
 	// When using the returned memory, make sure to bind the returned vkbuf.
-	// This will later allow for handling overflow correctly.
-	size_t Allocate(size_t numBytes, VkBuffer *vkbuf) {
-		size_t out = offset_;
-		offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
-
-		if (offset_ >= size_) {
+	uint8_t *Allocate(VkDeviceSize numBytes, VkDeviceSize alignment, VkBuffer *vkbuf, uint32_t *bindOffset) {
+		size_t offset = (offset_ + alignment - 1) & ~(alignment - 1);
+		if (offset + numBytes > size_) {
 			NextBuffer(numBytes);
-			out = offset_;
-			offset_ += (numBytes + 3) & ~3;
+			offset = offset_;
 		}
+		offset_ = offset + numBytes;
+		*bindOffset = (uint32_t)offset;
 		*vkbuf = buffers_[buf_].buffer;
-		return out;
+		return writePtr_ + offset;
 	}
 
-	// Returns the offset that should be used when binding this buffer to get this data.
-	size_t Push(const void *data, size_t size, VkBuffer *vkbuf) {
-		_dbg_assert_(writePtr_);
-		size_t off = Allocate(size, vkbuf);
-		memcpy(writePtr_ + off, data, size);
-		return off;
-	}
-
-	uint32_t PushAligned(const void *data, size_t size, int align, VkBuffer *vkbuf) {
-		_dbg_assert_(writePtr_);
-		offset_ = (offset_ + align - 1) & ~(align - 1);
-		size_t off = Allocate(size, vkbuf);
-		memcpy(writePtr_ + off, data, size);
-		return (uint32_t)off;
-	}
-
-	size_t GetOffset() const {
-		return offset_;
-	}
-
-	// "Zero-copy" variant - you can write the data directly as you compute it.
-	// Recommended.
-	void *Push(size_t size, uint32_t *bindOffset, VkBuffer *vkbuf) {
-		_dbg_assert_(writePtr_);
-		size_t off = Allocate(size, vkbuf);
-		*bindOffset = (uint32_t)off;
-		return writePtr_ + off;
-	}
-	void *PushAligned(size_t size, uint32_t *bindOffset, VkBuffer *vkbuf, int align) {
-		_dbg_assert_(writePtr_);
-		offset_ = (offset_ + align - 1) & ~(align - 1);
-		size_t off = Allocate(size, vkbuf);
-		*bindOffset = (uint32_t)off;
-		return writePtr_ + off;
-	}
-
-	template<class T>
-	void PushUBOData(const T &data, VkDescriptorBufferInfo *info) {
+	VkDeviceSize Push(const void *data, VkDeviceSize numBytes, int alignment, VkBuffer *vkbuf) {
 		uint32_t bindOffset;
-		void *ptr = PushAligned(sizeof(T), &bindOffset, &info->buffer, vulkan_->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment);
-		memcpy(ptr, &data, sizeof(T));
-		info->offset = bindOffset;
-		info->range = sizeof(T);
+		uint8_t *ptr = Allocate(numBytes, alignment, vkbuf, &bindOffset);
+		memcpy(ptr, data, numBytes);
+		return bindOffset;
 	}
 
+	size_t GetOffset() const { return offset_; }
 	size_t GetTotalSize() const;
 
 private:

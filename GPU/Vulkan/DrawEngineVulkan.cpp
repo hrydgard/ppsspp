@@ -364,7 +364,7 @@ void DrawEngineVulkan::DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t 
 	// Figure out how much pushbuffer space we need to allocate.
 	if (push) {
 		int vertsToDecode = ComputeNumVertsToDecode();
-		dest = (u8 *)push->Push(vertsToDecode * dec_->GetDecVtxFmt().stride, bindOffset, vkbuf);
+		dest = (u8 *)push->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, vkbuf, bindOffset);
 	}
 	DecodeVerts(dest);
 }
@@ -691,7 +691,7 @@ void DrawEngineVulkan::DoFlush() {
 
 					if (useElements) {
 						u32 size = sizeof(uint16_t) * indexGen.VertexCount();
-						void *dest = vertexCache_->Push(size, &vai->ibOffset, &vai->ib);
+						void *dest = vertexCache_->Allocate(size, 4, &vai->ib, &vai->ibOffset);
 						memcpy(dest, decIndex, size);
 					} else {
 						vai->ib = VK_NULL_HANDLE;
