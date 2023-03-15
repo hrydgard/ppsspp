@@ -14,11 +14,6 @@ VK_DEFINE_HANDLE(VmaAllocation);
 //
 // Vulkan memory management utils.
 
-enum class PushBufferType {
-	CPU_TO_GPU,
-	GPU_ONLY,
-};
-
 // Just an abstract thing to get debug information.
 class VulkanMemoryManager {
 public:
@@ -33,6 +28,7 @@ public:
 // Use these to push vertex, index and uniform data. Generally you'll have two or three of these
 // and alternate on each frame. Make sure not to reset until the fence from the last time you used it
 // has completed.
+// NOTE: This has now been replaced with VulkanPushPool for all uses except the vertex cache.
 class VulkanPushBuffer : public VulkanMemoryManager {
 	struct BufInfo {
 		VkBuffer buffer;
@@ -43,7 +39,7 @@ public:
 	// NOTE: If you create a push buffer with PushBufferType::GPU_ONLY,
 	// then you can't use any of the push functions as pointers will not be reachable from the CPU.
 	// You must in this case use Allocate() only, and pass the returned offset and the VkBuffer to Vulkan APIs.
-	VulkanPushBuffer(VulkanContext *vulkan, const char *name, size_t size, VkBufferUsageFlags usage, PushBufferType type);
+	VulkanPushBuffer(VulkanContext *vulkan, const char *name, size_t size, VkBufferUsageFlags usage);
 	~VulkanPushBuffer();
 
 	void Destroy(VulkanContext *vulkan);
@@ -61,19 +57,11 @@ public:
 		offset_ = 0;
 		// Note: we must defrag because some buffers may be smaller than size_.
 		Defragment(vulkan);
-		if (type_ == PushBufferType::CPU_TO_GPU)
-			Map();
+		Map();
 	}
 
-	void BeginNoReset() {
-		if (type_ == PushBufferType::CPU_TO_GPU)
-			Map();
-	}
-
-	void End() {
-		if (type_ == PushBufferType::CPU_TO_GPU)
-			Unmap();
-	}
+	void BeginNoReset() { Map(); }
+	void End() { Unmap(); }
 
 	void Map();
 	void Unmap();
@@ -107,7 +95,6 @@ private:
 	void Defragment(VulkanContext *vulkan);
 
 	VulkanContext *vulkan_;
-	PushBufferType type_;
 
 	std::vector<BufInfo> buffers_;
 	size_t buf_ = 0;

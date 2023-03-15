@@ -45,8 +45,8 @@ std::vector<VulkanMemoryManager *> GetActiveVulkanMemoryManagers() {
 	return buffers;
 }
 
-VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, const char *name, size_t size, VkBufferUsageFlags usage, PushBufferType type)
-		: vulkan_(vulkan), name_(name), size_(size), usage_(usage), type_(type) {
+VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, const char *name, size_t size, VkBufferUsageFlags usage)
+		: vulkan_(vulkan), name_(name), size_(size), usage_(usage) {
 	{
 		std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
 		g_pushBuffers.insert(this);
@@ -79,7 +79,7 @@ bool VulkanPushBuffer::AddBuffer() {
 	b.pQueueFamilyIndices = nullptr;
 
 	VmaAllocationCreateInfo allocCreateInfo{};
-	allocCreateInfo.usage = type_ == PushBufferType::CPU_TO_GPU ? VMA_MEMORY_USAGE_CPU_TO_GPU : VMA_MEMORY_USAGE_GPU_ONLY;
+	allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
 	VmaAllocationInfo allocInfo{};
 
 	VkResult res = vmaCreateBuffer(vulkan_->Allocator(), &b, &allocCreateInfo, &info.buffer, &info.allocation, &allocInfo);
@@ -105,8 +105,7 @@ void VulkanPushBuffer::Destroy(VulkanContext *vulkan) {
 
 void VulkanPushBuffer::NextBuffer(size_t minSize) {
 	// First, unmap the current memory.
-	if (type_ == PushBufferType::CPU_TO_GPU)
-		Unmap();
+	Unmap();
 
 	buf_++;
 	if (buf_ >= buffers_.size() || minSize > size_) {
@@ -125,8 +124,7 @@ void VulkanPushBuffer::NextBuffer(size_t minSize) {
 
 	// Now, move to the next buffer and map it.
 	offset_ = 0;
-	if (type_ == PushBufferType::CPU_TO_GPU)
-		Map();
+	Map();
 }
 
 void VulkanPushBuffer::Defragment(VulkanContext *vulkan) {

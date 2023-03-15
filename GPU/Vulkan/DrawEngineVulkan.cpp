@@ -205,7 +205,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);
 	_dbg_assert_(VK_SUCCESS == res);
 
-	vertexCache_ = new VulkanPushBuffer(vulkan, "pushVertexCache", VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
+	vertexCache_ = new VulkanPushBuffer(vulkan, "pushVertexCache", VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
 	tessDataTransferVulkan = new TessellationDataTransferVulkan(vulkan);
 	tessDataTransfer = tessDataTransferVulkan;
@@ -312,7 +312,7 @@ void DrawEngineVulkan::BeginFrame() {
 	if (vertexCache_->GetTotalSize() > VERTEX_CACHE_SIZE) {
 		vertexCache_->Destroy(vulkan);
 		delete vertexCache_;  // orphans the buffers, they'll get deleted once no longer used by an in-flight frame.
-		vertexCache_ = new VulkanPushBuffer(vulkan, "vertexCacheR", VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
+		vertexCache_ = new VulkanPushBuffer(vulkan, "vertexCacheR", VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 		vai_.Iterate([&](uint32_t hash, VertexArrayInfoVulkan *vai) {
 			delete vai;
 		});
