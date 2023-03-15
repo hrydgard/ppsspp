@@ -397,6 +397,16 @@ void VulkanPushPool::NextBlock(VkDeviceSize allocationSize) {
 	DEBUG_LOG(G3D, "%s: Created new block of size %s in %0.2f ms", name_, NiceSizeFormat(newBlockSize).c_str(), 1000.0 * (time_now_d() - start));
 }
 
+size_t VulkanPushPool::GetUsedThisFrame() const {
+	size_t used = 0;
+	for (auto &block : blocks_) {
+		if (block.frameIndex == vulkan_->GetCurFrame()) {
+			used += block.used;
+		}
+	}
+	return used;
+}
+
 void VulkanPushPool::GetDebugString(char *buffer, size_t bufSize) const {
 	size_t used = 0;
 	size_t capacity = 0;

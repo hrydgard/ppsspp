@@ -354,9 +354,8 @@ void DrawEngineVulkan::BeginFrame() {
 
 void DrawEngineVulkan::EndFrame() {
 	FrameData *frame = &GetCurFrame();
-	stats_.pushUBOSpaceUsed = 0; // (int)pushUBO->GetOffset();
-	stats_.pushVertexSpaceUsed = 0; // (int)frame->pushVertex->GetOffset();
-	stats_.pushIndexSpaceUsed = 0; // (int)frame->pushIndex->GetOffset();
+	stats_.pushVertexSpaceUsed = (int)pushVertex_->GetUsedThisFrame();
+	stats_.pushIndexSpaceUsed = (int)pushIndex_->GetUsedThisFrame();
 	vertexCache_->End();
 }
 

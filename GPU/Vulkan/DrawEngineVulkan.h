@@ -59,7 +59,6 @@ class VulkanPushPool;
 struct VulkanPipeline;
 
 struct DrawEngineVulkanStats {
-	int pushUBOSpaceUsed;
 	int pushVertexSpaceUsed;
 	int pushIndexSpaceUsed;
 };

@@ -148,6 +148,8 @@ public:
 		return bindOffset;
 	}
 
+	size_t GetUsedThisFrame() const;
+
 private:
 	void NextBlock(VkDeviceSize allocationSize);
 

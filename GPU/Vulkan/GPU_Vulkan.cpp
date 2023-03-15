@@ -455,12 +455,11 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 	textureCacheVulkan_->GetStats(texStats, sizeof(texStats));
 	snprintf(buffer, bufsize,
 		"Vertex, Fragment, Pipelines loaded: %i, %i, %i\n"
-		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n"
+		"Pushbuffer space used: Vtx %d, Idx %d\n"
 		"%s\n",
 		shaderManagerVulkan_->GetNumVertexShaders(),
 		shaderManagerVulkan_->GetNumFragmentShaders(),
 		pipelineManager_->GetNumPipelines(),
-		drawStats.pushUBOSpaceUsed,
 		drawStats.pushVertexSpaceUsed,
 		drawStats.pushIndexSpaceUsed,
 		texStats
