@@ -330,6 +330,7 @@ public:
 	}
 
 	int GetInflightFrames() const {
+		// out of MAX_INFLIGHT_FRAMES.
 		return inflightFrames_;
 	}
 	// Don't call while a frame is in progress.

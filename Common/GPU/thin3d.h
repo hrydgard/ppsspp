@@ -252,6 +252,7 @@ enum class NativeObject {
 	NULL_IMAGEVIEW,
 	NULL_IMAGEVIEW_ARRAY,
 	THIN3D_PIPELINE_LAYOUT,
+	PUSH_POOL,
 };
 
 enum FBChannel {

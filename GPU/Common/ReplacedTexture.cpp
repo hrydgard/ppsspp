@@ -509,7 +509,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			}
 			levelData_->data[i].resize(dataSizeBytes);
 
-			transcoder.transcode_image_level(i, 0, 0, &out[0], outputSize, transcoderFormat, 0, outputPitch, level.h, -1, -1, &transcodeState);
+			transcoder.transcode_image_level(i, 0, 0, &out[0], (uint32_t)outputSize, transcoderFormat, 0, (uint32_t)outputPitch, level.h, -1, -1, &transcodeState);
 			level.w = levelInfo.m_orig_width;
 			level.h = levelInfo.m_orig_height;
 			if (i != 0)
