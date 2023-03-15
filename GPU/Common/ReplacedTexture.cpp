@@ -114,7 +114,7 @@ void ReplacedTexture::PurgeIfOlder(double t) {
 	if (lastUsed_ >= t)
 		return;
 
-	if (levelData_->lastUsed < t) {
+	if (levelData_ && levelData_->lastUsed < t) {
 		// We have to lock since multiple textures might reference this same data.
 		std::lock_guard<std::mutex> guard(levelData_->lock);
 		levelData_->data.clear();
