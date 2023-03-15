@@ -24,9 +24,7 @@ struct Mailbox {
 
 	T Wait() {
 		std::unique_lock<std::mutex> lock(mutex_);
-		while (!dataReceived_) {
-			condvar_.wait(lock);
-		}
+		condvar_.wait(lock, [&] {return dataReceived_;});
 		return data_;
 	}
 
