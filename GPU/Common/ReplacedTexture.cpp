@@ -682,6 +682,8 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 		return false;
 	}
 
+#define PARALLEL_COPY
+
 	if (fmt == Draw::DataFormat::R8G8B8A8_UNORM) {
 		if (rowPitch < info.w * 4) {
 			ERROR_LOG(G3D, "Replacement rowPitch=%d, but w=%d (level=%d)", rowPitch, info.w * 4, level);
@@ -691,18 +693,32 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 		_assert_msg_(data.size() == info.w * info.h * 4, "Data has wrong size");
 
 		if (rowPitch == info.w * 4) {
+#ifdef PARALLEL_COPY
+			memcpy(out, data.data(), info.w * 4 * info.h);
+#else
 			ParallelMemcpy(&g_threadManager, out, &data[0], info.w * 4 * info.h);
+#endif
 		} else {
+#ifdef PARALLEL_COPY
+			for (int y = 0; y < info.h; ++y) {
+				memcpy((uint8_t *)out + rowPitch * y, &data[0] + info.w * 4 * y, info.w * 4);
+			}
+#else
 			const int MIN_LINES_PER_THREAD = 4;
 			ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
 				for (int y = l; y < h; ++y) {
 					memcpy((uint8_t *)out + rowPitch * y, &data[0] + info.w * 4 * y, info.w * 4);
 				}
 				}, 0, info.h, MIN_LINES_PER_THREAD);
+#endif
 		}
 	} else {
+#ifdef PARALLEL_COPY
 		// TODO: Add sanity checks here for other formats?
 		ParallelMemcpy(&g_threadManager, out, data.data(), data.size());
+#else
+		memcpy(out, data.data(), data.size());
+#endif
 	}
 
 	return true;
