@@ -206,11 +206,12 @@ void *AllocateExecutableMemory(size_t size) {
 }
 
 void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
-	size = ppsspp_round_page(size);
 #ifdef _WIN32
 	if (sys_info.dwPageSize == 0)
 		GetSystemInfo(&sys_info);
 	uint32_t protect = ConvertProtFlagsWin32(memProtFlags);
+	// Make sure to do this after GetSystemInfo().
+	size = ppsspp_round_page(size);
 #if PPSSPP_PLATFORM(UWP)
 	void* ptr = VirtualAllocFromApp(0, size, MEM_COMMIT, protect);
 #else
@@ -221,6 +222,7 @@ void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
 		return nullptr;
 	}
 #else
+	size = ppsspp_round_page(size);
 	uint32_t protect = ConvertProtFlagsUnix(memProtFlags);
 	void *ptr = mmap(0, size, protect, MAP_ANON | MAP_PRIVATE, -1, 0);
 	if (ptr == MAP_FAILED) {
