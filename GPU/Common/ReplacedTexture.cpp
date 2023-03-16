@@ -480,7 +480,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			return LoadLevelResult::LOAD_ERROR;
 		}
 
-		int blockSize;
+		int blockSize = 0;
 		bool bc = Draw::DataFormatIsBlockCompressed(*pixelFormat, &blockSize);
 		_dbg_assert_(bc || *pixelFormat == Draw::DataFormat::R8G8B8A8_UNORM);
 
@@ -492,7 +492,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		for (int i = 0; i < numMips; i++) {
 			std::vector<uint8_t> &out = data_[mipLevel + i];
 
-			basist::ktx2_image_level_info levelInfo;
+			basist::ktx2_image_level_info levelInfo{};
 			bool result = transcoder.get_image_level_info(levelInfo, i, 0, 0);
 			_dbg_assert_(result);
 
@@ -507,6 +507,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			}
 			data_[i].resize(dataSizeBytes);
 
+			transcodeState.clear();
 			transcoder.transcode_image_level(i, 0, 0, &out[0], (uint32_t)outputSize, transcoderFormat, 0, (uint32_t)outputPitch, level.h, -1, -1, &transcodeState);
 			level.w = levelInfo.m_orig_width;
 			level.h = levelInfo.m_orig_height;
@@ -555,6 +556,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		}
 		cleanup();
 		return LoadLevelResult::DONE;  // don't read more levels
+
 	} else if (imageType == ReplacedImageType::ZIM) {
 
 		std::unique_ptr<uint8_t[]> zim(new uint8_t[fileSize]);
