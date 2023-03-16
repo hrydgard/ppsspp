@@ -259,7 +259,6 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		return;
 	}
 
-	fmt = fmt;
 	SetState(ReplacementState::ACTIVE);
 
 	if (threadWaitable_)
