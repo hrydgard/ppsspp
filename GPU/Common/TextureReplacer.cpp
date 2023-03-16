@@ -395,7 +395,7 @@ void TextureReplacer::ParseReduceHashRange(const std::string& key, const std::st
 u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV) {
 	_dbg_assert_msg_(enabled_, "Replacement not enabled");
 
-	if (!LookupHashRange(addr, w, h)) {
+	if (!LookupHashRange(addr, w, h, &w, &h)) {
 		// There wasn't any hash range, let's fall back to maxSeenV logic.
 		if (h == 512 && maxSeenV < 512 && maxSeenV != 0) {
 			h = (int)maxSeenV;
@@ -502,7 +502,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey
 	desc->hash = hash;
 	desc->basePath = basePath_;
 	desc->formatSupport = formatSupport_;
-	LookupHashRange(cachekey >> 32, desc->newW, desc->newH);
+	LookupHashRange(cachekey >> 32, w, h, &desc->newW, &desc->newH);
 
 	if (ignoreAddress_) {
 		cachekey = cachekey & 0xFFFFFFFFULL;
@@ -675,9 +675,9 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	}
 
 	// Only save the hashed portion of the PNG.
-	int lookupW = w / replacedInfo.scaleFactor;
-	int lookupH = h / replacedInfo.scaleFactor;
-	if (LookupHashRange(replacedInfo.addr, lookupW, lookupH)) {
+	int lookupW;
+	int lookupH;
+	if (LookupHashRange(replacedInfo.addr, w / replacedInfo.scaleFactor, h / replacedInfo.scaleFactor, &lookupW, &lookupH)) {
 		w = lookupW * replacedInfo.scaleFactor;
 		h = lookupH * replacedInfo.scaleFactor;
 	}
@@ -852,17 +852,19 @@ std::string TextureReplacer::HashName(u64 cachekey, u32 hash, int level) {
 	return hashname;
 }
 
-bool TextureReplacer::LookupHashRange(u32 addr, int &w, int &h) {
+bool TextureReplacer::LookupHashRange(u32 addr, int w, int h, int *newW, int *newH) {
 	const u64 rangeKey = ((u64)addr << 32) | ((u64)w << 16) | h;
 	auto range = hashranges_.find(rangeKey);
 	if (range != hashranges_.end()) {
 		const WidthHeightPair &wh = range->second;
-		w = wh.first;
-		h = wh.second;
+		*newW = wh.first;
+		*newH = wh.second;
 		return true;
+	} else {
+		*newW = w;
+		*newH = h;
+		return false;
 	}
-
-	return false;
 }
 
 float TextureReplacer::LookupReduceHashRange(int& w, int& h) {

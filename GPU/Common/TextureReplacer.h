@@ -131,7 +131,7 @@ protected:
 	void ParseHashRange(const std::string &key, const std::string &value);
 	void ParseFiltering(const std::string &key, const std::string &value);
 	void ParseReduceHashRange(const std::string& key, const std::string& value);
-	bool LookupHashRange(u32 addr, int &w, int &h);
+	bool LookupHashRange(u32 addr, int w, int h, int *newW, int *newH);
 	float LookupReduceHashRange(int& w, int& h);
 	std::string LookupHashFile(u64 cachekey, u32 hash, bool *foundAlias, bool *ignored);
 	void PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h);
@@ -157,12 +157,14 @@ protected:
 	typedef std::pair<int, int> WidthHeightPair;
 	std::unordered_map<u64, WidthHeightPair> hashranges_;
 	std::unordered_map<u64, float> reducehashranges_;
+
 	std::unordered_map<ReplacementCacheKey, std::string> aliases_;
 	std::unordered_map<ReplacementCacheKey, TextureFiltering> filtering_;
 
 	std::unordered_map<ReplacementCacheKey, ReplacedTexture *> cache_;
 	std::unordered_map<ReplacementCacheKey, SavedTextureCacheData> savedCache_;
 
-	// the key is from aliases_. It's a |-separated sequence of texture filenames of the levels of a texture.
+	// the key is either from aliases_, in which case it's a |-separated sequence of texture filenames of the levels of a texture.
+	// alternatively the key is from the generated texture filename.
 	std::unordered_map<std::string, ReplacedLevelsCache> levelCache_;
 };
