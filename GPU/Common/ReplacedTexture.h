@@ -52,8 +52,7 @@ enum class ReplacedImageType {
 static const int MAX_REPLACEMENT_MIP_LEVELS = 12;  // 12 should be plenty, 8 is the max mip levels supported by the PSP.
 
 enum class ReplacementState : uint32_t {
-	UNINITIALIZED,
-	POPULATED,  // We located the texture files but have not started the thread.
+	UNLOADED,
 	PENDING,
 	NOT_FOUND,  // Also used on error loading the images.
 	ACTIVE,
@@ -182,7 +181,7 @@ private:
 	ReplacedTextureAlpha alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 	double lastUsed = 0.0;
 
-	std::atomic<ReplacementState> state_ = ReplacementState::POPULATED;
+	std::atomic<ReplacementState> state_ = ReplacementState::UNLOADED;
 
 	VFSBackend *vfs_ = nullptr;
 	ReplacementDesc desc_;

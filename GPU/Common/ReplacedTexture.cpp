@@ -141,7 +141,7 @@ void ReplacedTexture::PurgeIfNotUsedSinceTime(double t) {
 	alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 
 	// This means we have to reload.  If we never purge any, there's no need.
-	SetState(ReplacementState::POPULATED);
+	SetState(ReplacementState::UNLOADED);
 }
 
 // This can only return true if ACTIVE or NOT_FOUND.
@@ -165,13 +165,10 @@ bool ReplacedTexture::IsReady(double budget) {
 		}
 		lastUsed_ = now;
 		return true;
-	case ReplacementState::UNINITIALIZED:
-		// _dbg_assert_(false);
-		return false;
 	case ReplacementState::CANCEL_INIT:
 	case ReplacementState::PENDING:
 		return false;
-	case ReplacementState::POPULATED:
+	case ReplacementState::UNLOADED:
 		// We're gonna need to spawn a task.
 		break;
 	}
@@ -726,8 +723,7 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 
 const char *StateString(ReplacementState state) {
 	switch (state) {
-	case ReplacementState::UNINITIALIZED: return "UNINITIALIZED";
-	case ReplacementState::POPULATED: return "PREPARED";
+	case ReplacementState::UNLOADED: return "PREPARED";
 	case ReplacementState::PENDING: return "PENDING";
 	case ReplacementState::NOT_FOUND: return "NOT_FOUND";
 	case ReplacementState::ACTIVE: return "ACTIVE";

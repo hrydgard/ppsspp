@@ -180,6 +180,7 @@ struct TexCacheEntry {
 	u32 fullhash;
 	u32 cluthash;
 	u16 maxSeenV;
+	ReplacedTexture *replacedTexture;
 
 	TexStatus GetHashStatus() {
 		return TexStatus(status & STATUS_MASK);

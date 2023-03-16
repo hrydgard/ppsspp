@@ -1545,9 +1545,8 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 	}
 
 	switch (replaced->State()) {
-	case ReplacementState::POPULATED:
+	case ReplacementState::UNLOADED:
 	case ReplacementState::PENDING:
-	case ReplacementState::UNINITIALIZED:
 		// Make sure we keep polling.
 		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
 		break;
