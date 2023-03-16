@@ -129,14 +129,12 @@ void ReplacedTexture::PurgeIfNotUsedSinceTime(double t) {
 		}
 	}
 
-	// "atomic-enough" to not lock?
+	// This is the only place except shutdown where a texture can transition
+	// from ACTIVE to anything else, so we don't actually need to lock here.
 	if (lastUsed_ >= t) {
 		return;
 	}
 
-	std::lock_guard<std::mutex> guard(lock_);
-
-	// We have to lock since multiple textures might reference this same data.
 	data_.clear();
 	levels_.clear();
 	fmt = Draw::DataFormat::UNDEFINED;
