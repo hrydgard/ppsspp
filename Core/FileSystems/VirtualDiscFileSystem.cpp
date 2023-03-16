@@ -340,7 +340,7 @@ int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 		return newHandle;
 	}
 
-	if (filename.compare(0,8,"/sce_lbn") == 0)
+	if (filename.compare(0, 8, "/sce_lbn") == 0)
 	{
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
 		parseLBN(filename, &sectorStart, &readSize);
@@ -365,11 +365,13 @@ int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 		bool success = entry.Open(basePath, fileList[entry.fileIndex].fileName, FILEACCESS_READ);
 
 		if (!success) {
+			if (!(access & FILEACCESS_PPSSPP_QUIET)) {
 #ifdef _WIN32
-			ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, %i", (int)GetLastError());
+				ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, %i", (int)GetLastError());
 #else
-			ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED");
+				ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED");
 #endif
+			}
 			return 0;
 		}
 
@@ -388,15 +390,16 @@ int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 	if (entry.fileIndex != (u32)-1 && fileList[entry.fileIndex].handler != NULL) {
 		entry.handler = fileList[entry.fileIndex].handler;
 	}
-	bool success = entry.Open(basePath, filename, access);
+	bool success = entry.Open(basePath, filename, (FileAccess)(access & FILEACCESS_PSP_FLAGS));
 
 	if (!success) {
+		if (!(access & FILEACCESS_PPSSPP_QUIET)) {
 #ifdef _WIN32
-		ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, %i - access = %i", (int)GetLastError(), (int)access);
+			ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, %i - access = %i", (int)GetLastError(), (int)access);
 #else
-		ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, access = %i", (int)access);
+			ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, access = %i", (int)access);
 #endif
-		//wwwwaaaaahh!!
+		}
 		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	} else {
 		u32 newHandle = hAlloc->GetNewHandle();
