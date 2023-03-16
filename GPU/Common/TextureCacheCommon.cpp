@@ -2924,7 +2924,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 
 		if (plan.scaleFactor > 1) {
 			// Note that this updates w and h!
-			scaler_.ScaleAlways((u32 *)data, pixelData, w, h, plan.scaleFactor);
+			scaler_.ScaleAlways((u32 *)data, pixelData, w, h, &w, &h, plan.scaleFactor);
 			pixelData = (u32 *)data;
 
 			decPitch = w * 4;
