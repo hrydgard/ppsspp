@@ -105,7 +105,7 @@ public:
 	u32 ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV);
 
 	// Returns nullptr if not found.
-	ReplacedTexture *FindReplacement(u64 cachekey, u32 hash, int w, int h, double budget);
+	ReplacedTexture *FindReplacement(u64 cachekey, u32 hash, int w, int h);
 	bool FindFiltering(u64 cachekey, u32 hash, TextureFiltering *forceFiltering);
 
 	// Check if a NotifyTextureDecoded for this texture is desired (used to avoid reads from write-combined memory.)
@@ -133,7 +133,6 @@ protected:
 	bool LookupHashRange(u32 addr, int w, int h, int *newW, int *newH);
 	float LookupReduceHashRange(int& w, int& h);
 	std::string LookupHashFile(u64 cachekey, u32 hash, bool *foundAlias, bool *ignored);
-	void PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h);
 
 	bool enabled_ = false;
 	bool allowVideo_ = false;
@@ -160,10 +159,10 @@ protected:
 	std::unordered_map<ReplacementCacheKey, std::string> aliases_;
 	std::unordered_map<ReplacementCacheKey, TextureFiltering> filtering_;
 
-	std::unordered_map<ReplacementCacheKey, ReplacedTexture *> cache_;
+	std::unordered_map<ReplacementCacheKey, ReplacedTextureRef> cache_;
 	std::unordered_map<ReplacementCacheKey, SavedTextureCacheData> savedCache_;
 
 	// the key is either from aliases_, in which case it's a |-separated sequence of texture filenames of the levels of a texture.
 	// alternatively the key is from the generated texture filename.
-	std::unordered_map<std::string, ReplacedLevelsCache> levelCache_;
+	std::unordered_map<std::string, ReplacedTexture *> levelCache_;
 };

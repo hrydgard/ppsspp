@@ -1523,9 +1523,8 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 	constexpr double MAX_BUDGET_PER_TEX = 0.25 / 60.0;
 
 	double replaceStart = time_now_d();
-	double budget = std::min(MAX_BUDGET_PER_TEX, replacementFrameBudget_ - replacementTimeThisFrame_);
 	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
-	ReplacedTexture *replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h, budget);
+	ReplacedTexture *replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
 	if (!replaced) {
 		// TODO: Remove the flag here?
 		// entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
@@ -1533,6 +1532,7 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 		return nullptr;
 	}
 
+	double budget = std::min(MAX_BUDGET_PER_TEX, replacementFrameBudget_ - replacementTimeThisFrame_);
 	if (replaced->IsReady(budget)) {
 		if (replaced->State() == ReplacementState::ACTIVE) {
 			replaced->GetSize(0, &w, &h);
