@@ -30,9 +30,9 @@ public:
 	TextureScalerCommon();
 	~TextureScalerCommon();
 
-	void ScaleAlways(u32 *out, u32 *src, int &width, int &height, int factor);
-	bool Scale(u32 *&data, int &width, int &height, int factor);
-	bool ScaleInto(u32 *out, u32 *src, int &width, int &height, int factor);
+	void ScaleAlways(u32 *out, u32 *src, int width, int height, int *scaledWidth, int *scaledHeight, int factor);
+	bool Scale(u32 *&data, int width, int height, int *scaledWidth, int *scaledHeight, int factor);
+	bool ScaleInto(u32 *out, u32 *src, int width, int height, int *scaledWidth, int *scaledHeight, int factor);
 
 	enum { XBRZ = 0, HYBRID = 1, BICUBIC = 2, HYBRID_BICUBIC = 3 };
 

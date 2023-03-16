@@ -159,7 +159,7 @@ void VulkanPushBuffer::GetDebugString(char *buffer, size_t bufSize) const {
 		sum += size_ * (buffers_.size() - 1);
 	sum += offset_;
 	size_t capacity = size_ * buffers_.size();
-	snprintf(buffer, bufSize, "Push %s: %s/%s", name_, NiceSizeFormat(capacity).c_str(), NiceSizeFormat(sum).c_str());
+	snprintf(buffer, bufSize, "Push %s: %s / %s", name_, NiceSizeFormat(sum).c_str(), NiceSizeFormat(capacity).c_str());
 }
 
 void VulkanPushBuffer::Map() {
