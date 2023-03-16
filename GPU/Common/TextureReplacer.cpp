@@ -746,7 +746,7 @@ void TextureReplacer::Decimate(ReplacerDecimateMode mode) {
 	size_t totalSize = 0;
 	for (auto &item : levelCache_) {
 		std::lock_guard<std::mutex> guard(item.second->lock_);
-		item.second->PurgeIfOlder(threshold);
+		item.second->PurgeIfNotUsedSinceTime(threshold);
 		totalSize += item.second->GetTotalDataSize();  // TODO: Make something better.
 		// don't actually delete the items here, just clean out the data.
 	}

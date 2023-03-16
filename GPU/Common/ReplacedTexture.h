@@ -170,19 +170,19 @@ private:
 
 	void Prepare(VFSBackend *vfs);
 	LoadLevelResult LoadLevelData(VFSFileReference *fileRef, const std::string &filename, int level, Draw::DataFormat *pixelFormat);
-	void PurgeIfOlder(double t);
+	void PurgeIfNotUsedSinceTime(double t);
 
 	std::vector<std::vector<uint8_t>> data_;
 	std::vector<ReplacedTextureLevel> levels_;
 
-	ReplacedTextureAlpha alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 	double lastUsed_ = 0.0;
 	LimitedWaitable *threadWaitable_ = nullptr;
 	std::mutex lock_;
 	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
+	ReplacedTextureAlpha alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 	double lastUsed = 0.0;
 
-	std::atomic<ReplacementState> state_ = ReplacementState::UNINITIALIZED;
+	std::atomic<ReplacementState> state_ = ReplacementState::POPULATED;
 
 	VFSBackend *vfs_ = nullptr;
 	ReplacementDesc desc_;

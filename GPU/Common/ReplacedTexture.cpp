@@ -95,9 +95,6 @@ private:
 
 ReplacedTexture::ReplacedTexture(VFSBackend *vfs, const ReplacementDesc &desc) : vfs_(vfs), desc_(desc) {
 	logId_ = desc.logId;
-	SetState(ReplacementState::POPULATED);
-
-	// TODO: What used to be here is now done on the thread task.
 }
 
 ReplacedTexture::~ReplacedTexture() {
@@ -115,19 +112,38 @@ ReplacedTexture::~ReplacedTexture() {
 	}
 }
 
-void ReplacedTexture::PurgeIfOlder(double t) {
-	if (threadWaitable_ && !threadWaitable_->WaitFor(0.0))
+void ReplacedTexture::PurgeIfNotUsedSinceTime(double t) {
+	if (State() != ReplacementState::ACTIVE) {
 		return;
-	if (lastUsed_ >= t)
+	}
+
+	// If there's some leftover threadWaitable, get rid of it.
+	if (threadWaitable_) {
+		if (threadWaitable_->WaitFor(0.0)) {
+			delete threadWaitable_;
+			threadWaitable_ = nullptr;
+			// Continue with purging.
+		} else {
+			// Try next time.
+			return;
+		}
+	}
+
+	// "atomic-enough" to not lock?
+	if (lastUsed_ >= t) {
 		return;
+	}
 
 	std::lock_guard<std::mutex> guard(lock_);
-	if (data_.size() && lastUsed < t) {
-		// We have to lock since multiple textures might reference this same data.
-		data_.clear();
-		// This means we have to reload.  If we never purge any, there's no need.
-		SetState(ReplacementState::POPULATED);
-	}
+
+	// We have to lock since multiple textures might reference this same data.
+	data_.clear();
+	levels_.clear();
+	fmt = Draw::DataFormat::UNDEFINED;
+	alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
+
+	// This means we have to reload.  If we never purge any, there's no need.
+	SetState(ReplacementState::POPULATED);
 }
 
 // This can only return true if ACTIVE or NOT_FOUND.
