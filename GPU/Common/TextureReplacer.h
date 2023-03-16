@@ -81,7 +81,6 @@ struct ReplacedTextureDecodeInfo {
 	u32 addr;
 	bool isVideo;
 	bool isFinal;
-	int scaleFactor;
 	Draw::DataFormat fmt;
 };
 
@@ -112,8 +111,8 @@ public:
 	// Check if a NotifyTextureDecoded for this texture is desired (used to avoid reads from write-combined memory.)
 	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo);
 
-	// Notify that a new texture was decoded.  May already be upscaled, saves the data passed.
-	void NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h);
+	// Notify that a new texture was decoded. May already be upscaled, saves the data passed.
+	void NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int origW, int origH, int scaledW, int scaledH);
 
 	void Decimate(ReplacerDecimateMode mode);
 

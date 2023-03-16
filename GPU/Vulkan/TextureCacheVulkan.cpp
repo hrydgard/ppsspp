@@ -647,10 +647,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				replacedInfo.addr = entry->addr;
 				replacedInfo.isVideo = IsVideo(entry->addr);
 				replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
-				replacedInfo.scaleFactor = plan.scaleFactor;
 				replacedInfo.fmt = FromVulkanFormat(actualFmt);
-
-				replacer_.NotifyTextureDecoded(replacedInfo, data, byteStride, plan.baseLevelSrc + i, w, h);
+				replacer_.NotifyTextureDecoded(replacedInfo, data, byteStride, plan.baseLevelSrc + i, mipUnscaledWidth, mipUnscaledHeight, w, h);
 			}
 		}
 	}

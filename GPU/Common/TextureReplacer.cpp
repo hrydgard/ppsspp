@@ -631,7 +631,7 @@ bool TextureReplacer::WillSave(const ReplacedTextureDecodeInfo &replacedInfo) {
 	return true;
 }
 
-void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h) {
+void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int origW, int origH, int scaledW, int scaledH) {
 	_assert_msg_(enabled_, "Replacement not enabled");
 	if (!WillSave(replacedInfo)) {
 		// Ignore.
@@ -663,23 +663,21 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	bool skipIfExists = false;
 	double now = time_now_d();
 	if (it != savedCache_.end()) {
-		// We've already saved this texture.  Let's only save if it's bigger (e.g. scaled now.)
-		// This check isn't backwards, it's just to check if we should *skip* saving, a bit confusing.
-		if (it->second.levelW[level] >= w && it->second.levelH[level] >= h) {
-			// If it's been more than 5 seconds, we'll check again.  Maybe they deleted.
-			double age = now - it->second.lastTimeSaved;
-			if (age < 5.0)
-				return;
-			skipIfExists = true;
-		}
+		// We've already saved this texture. Ignore it.
+		// We don't really care about changing the scale factor during runtime, only confusing.
+		return;
 	}
+
+	// Width/height of the image to save.
+	int w = scaledW;
+	int h = scaledH;
 
 	// Only save the hashed portion of the PNG.
 	int lookupW;
 	int lookupH;
-	if (LookupHashRange(replacedInfo.addr, w / replacedInfo.scaleFactor, h / replacedInfo.scaleFactor, &lookupW, &lookupH)) {
-		w = lookupW * replacedInfo.scaleFactor;
-		h = lookupH * replacedInfo.scaleFactor;
+	if (LookupHashRange(replacedInfo.addr, origW, origH, &lookupW, &lookupH)) {
+		w = lookupW * (scaledW / origW);
+		h = lookupH * (scaledH / origH);
 	}
 
 	std::vector<u8> saveBuf;
