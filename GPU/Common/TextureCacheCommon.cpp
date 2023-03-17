@@ -1545,9 +1545,8 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 	}
 
 	switch (replaced->State()) {
-	case ReplacementState::POPULATED:
+	case ReplacementState::UNLOADED:
 	case ReplacementState::PENDING:
-	case ReplacementState::UNINITIALIZED:
 		// Make sure we keep polling.
 		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
 		break;
@@ -2883,7 +2882,8 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	return true;
 }
 
-void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, int stride, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags) {
+// Passing 0 into dataSize will disable checking.
+void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, size_t dataSize, int stride, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags) {
 	int w = gstate.getTextureWidth(srcLevel);
 	int h = gstate.getTextureHeight(srcLevel);
 
@@ -2892,7 +2892,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 	if (plan.replaceValid) {
 		plan.replaced->GetSize(srcLevel, &w, &h);
 		double replaceStart = time_now_d();
-		plan.replaced->CopyLevelTo(srcLevel, data, stride);
+		plan.replaced->CopyLevelTo(srcLevel, data, dataSize, stride);
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	} else {
 		GETextureFormat tfmt = (GETextureFormat)entry.format;

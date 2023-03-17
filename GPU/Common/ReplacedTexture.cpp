@@ -141,7 +141,7 @@ void ReplacedTexture::PurgeIfNotUsedSinceTime(double t) {
 	alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 
 	// This means we have to reload.  If we never purge any, there's no need.
-	SetState(ReplacementState::POPULATED);
+	SetState(ReplacementState::UNLOADED);
 }
 
 // This can only return true if ACTIVE or NOT_FOUND.
@@ -165,13 +165,10 @@ bool ReplacedTexture::IsReady(double budget) {
 		}
 		lastUsed_ = now;
 		return true;
-	case ReplacementState::UNINITIALIZED:
-		// _dbg_assert_(false);
-		return false;
 	case ReplacementState::CANCEL_INIT:
 	case ReplacementState::PENDING:
 		return false;
-	case ReplacementState::POPULATED:
+	case ReplacementState::UNLOADED:
 		// We're gonna need to spawn a task.
 		break;
 	}
@@ -193,6 +190,10 @@ bool ReplacedTexture::IsReady(double budget) {
 	}
 	// Still pending on thread.
 	return false;
+}
+
+inline uint32_t RoundUpTo4(uint32_t value) {
+	return (value + 3) & ~3;
 }
 
 void ReplacedTexture::Prepare(VFSBackend *vfs) {
@@ -259,14 +260,24 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		return;
 	}
 
+	// Update the level dimensions.
+	for (auto &level : levels_) {
+		level.fullW = (level.w * desc_.w) / desc_.newW;
+		level.fullH = (level.h * desc_.h) / desc_.newH;
+
+		int blockSize;
+		bool bc = Draw::DataFormatIsBlockCompressed(fmt, &blockSize);
+		if (!bc) {
+			level.fullDataSize = level.fullW * level.fullH * 4;
+		} else {
+			level.fullDataSize = RoundUpTo4(level.fullW) * RoundUpTo4(level.fullH) * blockSize / 16;
+		}
+	}
+
 	SetState(ReplacementState::ACTIVE);
 
 	if (threadWaitable_)
 		threadWaitable_->Notify();
-}
-
-inline uint32_t RoundUpTo4(uint32_t value) {
-	return (value + 3) & ~3;
 }
 
 // Returns true if Prepare should keep calling this to load more levels.
@@ -393,7 +404,6 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format %s", filename.c_str(), magic.c_str());
 	}
 
-
 	// Already populated from cache. TODO: Move this above the first read, and take level.w/h from the cache.
 	if (!data_[mipLevel].empty()) {
 		vfs_->CloseFile(openFile);
@@ -401,13 +411,10 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		return LoadLevelResult::DONE;
 	}
 
-	// Is this really the right place to do it?
-	level.w = (level.w * desc_.w) / desc_.newW;
-	level.h = (level.h * desc_.h) / desc_.newH;
-
 	if (good && mipLevel != 0) {
-		// Check that the mipmap size is correct.  Can't load mips of the wrong size.
-		if (level.w != (levels_[0].w >> mipLevel) || level.h != (levels_[0].h >> mipLevel)) {
+		// If loading a low mip directly (through png most likely), check that the mipmap size is correct.
+		// Can't load mips of the wrong size.
+		if (level.w != std::max(1, (levels_[0].w >> mipLevel)) || level.h != std::max(1, (levels_[0].h >> mipLevel))) {
 			WARN_LOG(G3D, "Replacement mipmap invalid: size=%dx%d, expected=%dx%d (level %d)",
 				level.w, level.h, levels_[0].w >> mipLevel, levels_[0].h >> mipLevel, mipLevel);
 			good = false;
@@ -662,7 +669,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 	return LoadLevelResult::LOAD_ERROR;
 }
 
-bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
+bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, int rowPitch) {
 	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
 	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");
 
@@ -670,6 +677,13 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 		WARN_LOG(G3D, "Init not done yet");
 		return false;
 	}
+
+	// We pad the images right here during the copy.
+	// TODO: Add support for the texture cache to scale texture coordinates instead.
+	// It already supports this for render target textures that aren't powers of 2.
+
+	int outW = levels_[level].fullW;
+	int outH = levels_[level].fullH;
 
 	// We probably could avoid this lock, but better to play it safe.
 	std::lock_guard<std::mutex> guard(lock_);
@@ -684,9 +698,15 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 
 #define PARALLEL_COPY
 
-	if (fmt == Draw::DataFormat::R8G8B8A8_UNORM) {
+	int blockSize;
+	if (!Draw::DataFormatIsBlockCompressed(fmt, &blockSize)) {
+		if (fmt != Draw::DataFormat::R8G8B8A8_UNORM) {
+			ERROR_LOG(G3D, "Unexpected linear data format");
+			return false;
+		}
+
 		if (rowPitch < info.w * 4) {
-			ERROR_LOG(G3D, "Replacement rowPitch=%d, but w=%d (level=%d)", rowPitch, info.w * 4, level);
+			ERROR_LOG(G3D, "Replacement rowPitch=%d, but w=%d (level=%d) (too small)", rowPitch, info.w * 4, level);
 			return false;
 		}
 
@@ -702,8 +722,11 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 #ifdef PARALLEL_COPY
 			const int MIN_LINES_PER_THREAD = 4;
 			ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
+				int extraPixels = outW - info.w;
 				for (int y = l; y < h; ++y) {
 					memcpy((uint8_t *)out + rowPitch * y, data.data() + info.w * 4 * y, info.w * 4);
+					// Fill the rest of the line with black.
+					memset((uint8_t *)out + rowPitch * y + info.w * 4, 0, extraPixels * 4);
 				}
 				}, 0, info.h, MIN_LINES_PER_THREAD);
 #else
@@ -711,14 +734,42 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 				memcpy((uint8_t *)out + rowPitch * y, data.data() + info.w * 4 * y, info.w * 4);
 			}
 #endif
+			// Memset the rest of the padding to avoid leaky edge pixels. Guess we could parallelize this too, but meh.
+			for (int y = info.h; y < outH; y++) {
+				uint8_t *dest = (uint8_t *)out + rowPitch * y;
+				memset(dest, 0, outW * 4);
+			}
 		}
 	} else {
 #ifdef PARALLEL_COPY
-		// TODO: Add sanity checks here for other formats?
-		ParallelMemcpy(&g_threadManager, out, data.data(), data.size());
-#else
-		memcpy(out, data.data(), data.size());
+		// Only parallel copy in the simple case for now.
+		if (info.w == outW && info.h == outH) {
+			// TODO: Add sanity checks here for other formats?
+			ParallelMemcpy(&g_threadManager, out, data.data(), data.size());
+			return true;
+		}
 #endif
+		// Alright, so careful copying of blocks it is, padding with zero-blocks as needed.
+		int inBlocksW = (info.w + 3) / 4;
+		int inBlocksH = (info.h + 3) / 4;
+		int outBlocksW = (info.fullW + 3) / 4;
+		int outBlocksH = (info.fullH + 3) / 4;
+
+		int paddingBlocksX = outBlocksW - inBlocksW;
+
+		// Copy all the known blocks, and zero-fill out the lines.
+		for (int y = 0; y < inBlocksH; y++) {
+			const uint8_t *input = data.data() + y * inBlocksW * blockSize;
+			uint8_t *output = (uint8_t *)out + y * outBlocksW * blockSize;
+			memcpy(output, input, inBlocksW * blockSize);
+			memset(output + inBlocksW * blockSize, 0, paddingBlocksX * blockSize);
+		}
+
+		// Vertical zero-padding.
+		for (int y = inBlocksH; y < outBlocksH; y++) {
+			uint8_t *output = (uint8_t *)out + y * outBlocksW * blockSize;
+			memset(output, 0, outBlocksW * blockSize);
+		}
 	}
 
 	return true;
@@ -726,8 +777,7 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 
 const char *StateString(ReplacementState state) {
 	switch (state) {
-	case ReplacementState::UNINITIALIZED: return "UNINITIALIZED";
-	case ReplacementState::POPULATED: return "PREPARED";
+	case ReplacementState::UNLOADED: return "PREPARED";
 	case ReplacementState::PENDING: return "PENDING";
 	case ReplacementState::NOT_FOUND: return "NOT_FOUND";
 	case ReplacementState::ACTIVE: return "ACTIVE";

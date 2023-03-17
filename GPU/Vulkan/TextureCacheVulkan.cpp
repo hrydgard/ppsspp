@@ -595,13 +595,13 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			int rowLength = pixelStride;
 			if (bcFormat) {
 				// For block compressed formats, we just set the upload size to the data size..
-				uploadSize = plan.replaced->GetLevelDataSize(plan.baseLevelSrc + i);
+				uploadSize = plan.replaced->GetLevelDataSizeAfterCopy(plan.baseLevelSrc + i);
 				rowLength = (mipWidth + 3) & ~3;
 			}
 			// Directly load the replaced image.
 			data = pushBuffer->Allocate(uploadSize, pushAlignment, &texBuf, &bufferOffset);
 			double replaceStart = time_now_d();
-			if (!plan.replaced->CopyLevelTo(plan.baseLevelSrc + i, data, byteStride)) {  // If plan.replaceValid, this shouldn't fail.
+			if (!plan.replaced->CopyLevelTo(plan.baseLevelSrc + i, (uint8_t *)data, uploadSize, byteStride)) {  // If plan.replaceValid, this shouldn't fail.
 				WARN_LOG(G3D, "Failed to copy replaced texture level");
 				// TODO: Fill with some pattern?
 			}

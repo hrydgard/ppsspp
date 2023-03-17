@@ -79,7 +79,6 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 	size_t inLen = inPath.length();
 	if (inLen == 0)
 	{
-		WARN_LOG(FILESYS, "RealPath: inPath is empty");
 		outPath = currentDirectory;
 		return true;
 	}
