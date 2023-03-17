@@ -290,7 +290,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 			}
 			uint8_t *data = (uint8_t *)rect.pBits;
 			int stride = rect.Pitch;
-			LoadTextureLevel(*entry, data, stride, plan, (i == 0) ? plan.baseLevelSrc : i, FromD3D9Format(dstFmt), TexDecodeFlags{});
+			LoadTextureLevel(*entry, data, 0, stride, plan, (i == 0) ? plan.baseLevelSrc : i, FromD3D9Format(dstFmt), TexDecodeFlags{});
 			((LPDIRECT3DTEXTURE9)texture)->UnlockRect(dstLevel);
 		}
 	} else {
@@ -305,7 +305,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		uint8_t *data = (uint8_t *)box.pBits;
 		int stride = box.RowPitch;
 		for (int i = 0; i < plan.depth; i++) {
-			LoadTextureLevel(*entry, data, stride, plan, (i == 0) ? plan.baseLevelSrc : i, FromD3D9Format(dstFmt), TexDecodeFlags{});
+			LoadTextureLevel(*entry, data, 0, stride, plan, (i == 0) ? plan.baseLevelSrc : i, FromD3D9Format(dstFmt), TexDecodeFlags{});
 			data += box.SlicePitch;
 		}
 		((LPDIRECT3DVOLUMETEXTURE9)texture)->UnlockBox(0);

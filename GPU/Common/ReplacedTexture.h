@@ -100,6 +100,8 @@ struct ReplacedTextureLevel {
 	int fullW = 0;
 	int fullH = 0;
 
+	int fullDataSize = 0;
+
 	// To be able to reload, we need to be able to reopen, unfortunate we can't use zip_file_t.
 	// TODO: This really belongs on the level in the cache, not in the individual ReplacedTextureLevel objects.
 	VFSFileReference *fileRef = nullptr;
@@ -129,9 +131,9 @@ public:
 		*h = levels_[level].fullH;
 	}
 
-	int GetLevelDataSize(int level) const {
-		_dbg_assert_(State() == ReplacementState::ACTIVE);
-		return (int)data_[level].size();
+	int GetLevelDataSizeAfterCopy(int level) const {
+		// Includes padding etc.
+		return levels_[level].fullDataSize;
 	}
 
 	size_t GetTotalDataSize() const {
@@ -160,7 +162,7 @@ public:
 	}
 
 	bool IsReady(double budget);
-	bool CopyLevelTo(int level, void *out, int rowPitch);
+	bool CopyLevelTo(int level, uint8_t *out, size_t outDataSize, int rowPitch);
 
 	std::string logId_;
 

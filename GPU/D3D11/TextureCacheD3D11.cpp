@@ -301,8 +301,8 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		if (plan.replaceValid) {
 			int blockSize = 0;
 			if (Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), &blockSize)) {
-				stride = ((mipWidth + 3) & ~3) * blockSize / 4;  // This stride value doesn't quite make sense to me, but it works?
-				dataSize = plan.replaced->GetLevelDataSize(i);
+				stride = ((mipWidth + 3) & ~3) * blockSize / 4;  // Number of blocks * 4 * Size of a block / 4
+				dataSize = plan.replaced->GetLevelDataSizeAfterCopy(i);
 			} else {
 				int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
 				stride = std::max(mipWidth * bpp, 16);
@@ -338,7 +338,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 			return;
 		}
 
-		LoadTextureLevel(*entry, data, stride, plan, srcLevel, texFmt, TexDecodeFlags{});
+		LoadTextureLevel(*entry, data, 0, stride, plan, srcLevel, texFmt, TexDecodeFlags{});
 	}
 
 	int tw;

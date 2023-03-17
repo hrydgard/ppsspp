@@ -192,6 +192,10 @@ bool ReplacedTexture::IsReady(double budget) {
 	return false;
 }
 
+inline uint32_t RoundUpTo4(uint32_t value) {
+	return (value + 3) & ~3;
+}
+
 void ReplacedTexture::Prepare(VFSBackend *vfs) {
 	this->vfs_ = vfs;
 
@@ -260,16 +264,20 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 	for (auto &level : levels_) {
 		level.fullW = (level.w * desc_.w) / desc_.newW;
 		level.fullH = (level.h * desc_.h) / desc_.newH;
+
+		int blockSize;
+		bool bc = Draw::DataFormatIsBlockCompressed(fmt, &blockSize);
+		if (!bc) {
+			level.fullDataSize = level.fullW * level.fullH * 4;
+		} else {
+			level.fullDataSize = RoundUpTo4(level.fullW) * RoundUpTo4(level.fullH) * blockSize / 16;
+		}
 	}
 
 	SetState(ReplacementState::ACTIVE);
 
 	if (threadWaitable_)
 		threadWaitable_->Notify();
-}
-
-inline uint32_t RoundUpTo4(uint32_t value) {
-	return (value + 3) & ~3;
 }
 
 // Returns true if Prepare should keep calling this to load more levels.
@@ -661,7 +669,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 	return LoadLevelResult::LOAD_ERROR;
 }
 
-bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
+bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, int rowPitch) {
 	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
 	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");
 
@@ -690,7 +698,13 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 
 #define PARALLEL_COPY
 
-	if (fmt == Draw::DataFormat::R8G8B8A8_UNORM) {
+	int blockSize;
+	if (!Draw::DataFormatIsBlockCompressed(fmt, &blockSize)) {
+		if (fmt != Draw::DataFormat::R8G8B8A8_UNORM) {
+			ERROR_LOG(G3D, "Unexpected linear data format");
+			return false;
+		}
+
 		if (rowPitch < info.w * 4) {
 			ERROR_LOG(G3D, "Replacement rowPitch=%d, but w=%d (level=%d) (too small)", rowPitch, info.w * 4, level);
 			return false;
@@ -715,24 +729,47 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 					memset((uint8_t *)out + rowPitch * y + info.w * 4, 0, extraPixels * 4);
 				}
 				}, 0, info.h, MIN_LINES_PER_THREAD);
-			// Memset the rest of the padding.
-			for (int y = info.h; y < outH; y++) {
-				uint8_t *dest = (uint8_t *)out + rowPitch * y;
-				memset(dest, 0, outW * 4);
-			}
 #else
 			for (int y = 0; y < info.h; ++y) {
 				memcpy((uint8_t *)out + rowPitch * y, data.data() + info.w * 4 * y, info.w * 4);
 			}
 #endif
+			// Memset the rest of the padding to avoid leaky edge pixels. Guess we could parallelize this too, but meh.
+			for (int y = info.h; y < outH; y++) {
+				uint8_t *dest = (uint8_t *)out + rowPitch * y;
+				memset(dest, 0, outW * 4);
+			}
 		}
 	} else {
 #ifdef PARALLEL_COPY
-		// TODO: Add sanity checks here for other formats?
-		ParallelMemcpy(&g_threadManager, out, data.data(), data.size());
-#else
-		memcpy(out, data.data(), data.size());
+		// Only parallel copy in the simple case for now.
+		if (info.w == outW && info.h == outH) {
+			// TODO: Add sanity checks here for other formats?
+			ParallelMemcpy(&g_threadManager, out, data.data(), data.size());
+			return true;
+		}
 #endif
+		// Alright, so careful copying of blocks it is, padding with zero-blocks as needed.
+		int inBlocksW = (info.w + 3) / 4;
+		int inBlocksH = (info.h + 3) / 4;
+		int outBlocksW = (info.fullW + 3) / 4;
+		int outBlocksH = (info.fullH + 3) / 4;
+
+		int paddingBlocksX = outBlocksW - inBlocksW;
+
+		// Copy all the known blocks, and zero-fill out the lines.
+		for (int y = 0; y < inBlocksH; y++) {
+			const uint8_t *input = data.data() + y * inBlocksW * blockSize;
+			uint8_t *output = (uint8_t *)out + y * outBlocksW * blockSize;
+			memcpy(output, input, inBlocksW * blockSize);
+			memset(output + inBlocksW * blockSize, 0, paddingBlocksX * blockSize);
+		}
+
+		// Vertical zero-padding.
+		for (int y = inBlocksH; y < outBlocksH; y++) {
+			uint8_t *output = (uint8_t *)out + y * outBlocksW * blockSize;
+			memset(output, 0, outBlocksW * blockSize);
+		}
 	}
 
 	return true;
