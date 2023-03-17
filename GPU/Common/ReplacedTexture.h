@@ -93,8 +93,12 @@ struct ReplacedTextureRef {
 
 // Metadata about a given texture level.
 struct ReplacedTextureLevel {
+	// Data dimensions
 	int w = 0;
 	int h = 0;
+	// PSP texture dimensions
+	int fullW = 0;
+	int fullH = 0;
 
 	// To be able to reload, we need to be able to reopen, unfortunate we can't use zip_file_t.
 	// TODO: This really belongs on the level in the cache, not in the individual ReplacedTextureLevel objects.
@@ -121,8 +125,8 @@ public:
 	void GetSize(int level, int *w, int *h) const {
 		_dbg_assert_(State() == ReplacementState::ACTIVE);
 		_dbg_assert_(level < levels_.size());
-		*w = levels_[level].w;
-		*h = levels_[level].h;
+		*w = levels_[level].fullW;
+		*h = levels_[level].fullH;
 	}
 
 	int GetLevelDataSize(int level) const {

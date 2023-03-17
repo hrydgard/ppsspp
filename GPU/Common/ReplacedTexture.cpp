@@ -256,6 +256,12 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		return;
 	}
 
+	// Update the level dimensions.
+	for (auto &level : levels_) {
+		level.fullW = (level.w * desc_.w) / desc_.newW;
+		level.fullH = (level.h * desc_.h) / desc_.newH;
+	}
+
 	SetState(ReplacementState::ACTIVE);
 
 	if (threadWaitable_)
@@ -390,7 +396,6 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format %s", filename.c_str(), magic.c_str());
 	}
 
-
 	// Already populated from cache. TODO: Move this above the first read, and take level.w/h from the cache.
 	if (!data_[mipLevel].empty()) {
 		vfs_->CloseFile(openFile);
@@ -398,13 +403,10 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		return LoadLevelResult::DONE;
 	}
 
-	// Is this really the right place to do it?
-	level.w = (level.w * desc_.w) / desc_.newW;
-	level.h = (level.h * desc_.h) / desc_.newH;
-
 	if (good && mipLevel != 0) {
-		// Check that the mipmap size is correct.  Can't load mips of the wrong size.
-		if (level.w != (levels_[0].w >> mipLevel) || level.h != (levels_[0].h >> mipLevel)) {
+		// If loading a low mip directly (through png most likely), check that the mipmap size is correct.
+		// Can't load mips of the wrong size.
+		if (level.w != std::max(1, (levels_[0].w >> mipLevel)) || level.h != std::max(1, (levels_[0].h >> mipLevel))) {
 			WARN_LOG(G3D, "Replacement mipmap invalid: size=%dx%d, expected=%dx%d (level %d)",
 				level.w, level.h, levels_[0].w >> mipLevel, levels_[0].h >> mipLevel, mipLevel);
 			good = false;
@@ -668,6 +670,13 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 		return false;
 	}
 
+	// We pad the images right here during the copy.
+	// TODO: Add support for the texture cache to scale texture coordinates instead.
+	// It already supports this for render target textures that aren't powers of 2.
+
+	int outW = levels_[level].fullW;
+	int outH = levels_[level].fullH;
+
 	// We probably could avoid this lock, but better to play it safe.
 	std::lock_guard<std::mutex> guard(lock_);
 
@@ -683,7 +692,7 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 
 	if (fmt == Draw::DataFormat::R8G8B8A8_UNORM) {
 		if (rowPitch < info.w * 4) {
-			ERROR_LOG(G3D, "Replacement rowPitch=%d, but w=%d (level=%d)", rowPitch, info.w * 4, level);
+			ERROR_LOG(G3D, "Replacement rowPitch=%d, but w=%d (level=%d) (too small)", rowPitch, info.w * 4, level);
 			return false;
 		}
 
@@ -699,10 +708,18 @@ bool ReplacedTexture::CopyLevelTo(int level, void *out, int rowPitch) {
 #ifdef PARALLEL_COPY
 			const int MIN_LINES_PER_THREAD = 4;
 			ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
+				int extraPixels = outW - info.w;
 				for (int y = l; y < h; ++y) {
 					memcpy((uint8_t *)out + rowPitch * y, data.data() + info.w * 4 * y, info.w * 4);
+					// Fill the rest of the line with black.
+					memset((uint8_t *)out + rowPitch * y + info.w * 4, 0, extraPixels * 4);
 				}
 				}, 0, info.h, MIN_LINES_PER_THREAD);
+			// Memset the rest of the padding.
+			for (int y = info.h; y < outH; y++) {
+				uint8_t *dest = (uint8_t *)out + rowPitch * y;
+				memset(dest, 0, outW * 4);
+			}
 #else
 			for (int y = 0; y < info.h; ++y) {
 				memcpy((uint8_t *)out + rowPitch * y, data.data() + info.w * 4 * y, info.w * 4);
