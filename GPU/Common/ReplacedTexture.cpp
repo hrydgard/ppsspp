@@ -404,12 +404,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format %s", filename.c_str(), magic.c_str());
 	}
 
-	// Already populated from cache. TODO: Move this above the first read, and take level.w/h from the cache.
-	if (!data_[mipLevel].empty()) {
-		vfs_->CloseFile(openFile);
-		*pixelFormat = fmt;
-		return LoadLevelResult::DONE;
-	}
+	// TODO: We no longer really need to have a split in this function, the upper and lower parts can be merged now.
 
 	if (good && mipLevel != 0) {
 		// If loading a low mip directly (through png most likely), check that the mipmap size is correct.
@@ -426,10 +421,6 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		return LoadLevelResult::LOAD_ERROR;
 	}
 
-	auto cleanup = [&] {
-		vfs_->CloseFile(openFile);
-	};
-
 	vfs_->Rewind(openFile);
 
 	level.fileRef = fileRef;
@@ -443,7 +434,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		basist::ktx2_transcoder transcoder;
 		if (!transcoder.init(buffer.data(), (int)buffer.size())) {
 			WARN_LOG(G3D, "Error reading KTX file");
-			cleanup();
+			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
 
@@ -483,7 +474,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			}
 		} else {
 			WARN_LOG(G3D, "PPSSPP currently only supports KTX for basis/UASTC textures. This may change in the future.");
-			cleanup();
+			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
 
@@ -523,8 +514,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			levels_.push_back(level);
 		}
 		transcoder.clear();
-		cleanup();
-
+		vfs_->CloseFile(openFile);
 		return LoadLevelResult::DONE;  // don't read more levels
 	} else if (imageType == ReplacedImageType::DDS) {
 		// TODO: Do better with alphaStatus, it's possible.
@@ -561,7 +551,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			if (i != 0)
 				level.fileRef = nullptr;  // We only provide a fileref on level 0 if we have mipmaps.
 		}
-		cleanup();
+		vfs_->CloseFile(openFile);
 		return LoadLevelResult::DONE;  // don't read more levels
 
 	} else if (imageType == ReplacedImageType::ZIM) {
@@ -569,13 +559,13 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		std::unique_ptr<uint8_t[]> zim(new uint8_t[fileSize]);
 		if (!zim) {
 			ERROR_LOG(G3D, "Failed to allocate memory for texture replacement");
-			cleanup();
+			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
 
 		if (vfs_->Read(openFile, &zim[0], fileSize) != fileSize) {
 			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", filename.c_str());
-			cleanup();
+			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
 
@@ -586,7 +576,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		if (LoadZIMPtr(&zim[0], fileSize, &w, &h, &f, &image)) {
 			if (w > level.w || h > level.h) {
 				ERROR_LOG(G3D, "Texture replacement changed since header read: %s", filename.c_str());
-				cleanup();
+				vfs_->CloseFile(openFile);
 				return LoadLevelResult::LOAD_ERROR;
 			}
 
@@ -609,7 +599,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			good = false;
 		}
 
-		cleanup();
+		vfs_->CloseFile(openFile);
 		return LoadLevelResult::CONTINUE;
 
 	} else if (imageType == ReplacedImageType::PNG) {
@@ -621,12 +611,12 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		pngdata.resize(vfs_->Read(openFile, &pngdata[0], fileSize));
 		if (!png_image_begin_read_from_memory(&png, &pngdata[0], pngdata.size())) {
 			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s (zip)", filename.c_str(), png.message);
-			cleanup();
+			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
 		if (png.width > (uint32_t)level.w || png.height > (uint32_t)level.h) {
 			ERROR_LOG(G3D, "Texture replacement changed since header read: %s", filename.c_str());
-			cleanup();
+			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
 
@@ -644,7 +634,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		out.resize(level.w * level.h * 4);
 		if (!png_image_finish_read(&png, nullptr, &out[0], level.w * 4, nullptr)) {
 			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", filename.c_str(), png.message);
-			cleanup();
+			vfs_->CloseFile(openFile);
 			out.resize(0);
 			return LoadLevelResult::LOAD_ERROR;
 		}
@@ -660,11 +650,11 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 		levels_.push_back(level);
 
-		cleanup();
+		vfs_->CloseFile(openFile);
 		return LoadLevelResult::CONTINUE;
 	} else {
 		WARN_LOG(G3D, "Don't know how to load this image type! %d", (int)imageType);
-		cleanup();
+		vfs_->CloseFile(openFile);
 	}
 	return LoadLevelResult::LOAD_ERROR;
 }
@@ -777,7 +767,7 @@ bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, i
 
 const char *StateString(ReplacementState state) {
 	switch (state) {
-	case ReplacementState::UNLOADED: return "PREPARED";
+	case ReplacementState::UNLOADED: return "UNLOADED";
 	case ReplacementState::PENDING: return "PENDING";
 	case ReplacementState::NOT_FOUND: return "NOT_FOUND";
 	case ReplacementState::ACTIVE: return "ACTIVE";
