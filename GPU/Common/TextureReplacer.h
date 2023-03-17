@@ -138,11 +138,12 @@ protected:
 	bool allowVideo_ = false;
 	bool ignoreAddress_ = false;
 	bool reduceHash_ = false;
+	bool ignoreMipmap_ = false;
+
 	float reduceHashSize = 1.0f; // default value with reduceHash to false
 	float reduceHashGlobalValue = 0.5f; // Global value for textures dump pngs of all sizes, 0.5 by default but can be set in textures.ini
 
 	double lastTextureCacheSizeGB_ = 0.0;
-	bool ignoreMipmap_ = false;
 	std::string gameID_;
 	Path basePath_;
 	Path newTextureDir_;
@@ -150,6 +151,7 @@ protected:
 
 	VFSBackend *vfs_ = nullptr;
 	bool vfsIsZip_ = false;
+
 	GPUFormatSupport formatSupport_{};
 
 	typedef std::pair<int, int> WidthHeightPair;

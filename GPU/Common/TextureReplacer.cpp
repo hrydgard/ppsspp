@@ -904,12 +904,14 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, Path &generatedFile
 
 		// Let's also write some defaults.
 		fprintf(f, R"(# This file is optional and describes your textures.
-# Some information on syntax available here:
-# https://github.com/hrydgard/ppsspp/wiki/Texture-replacement-ini-syntax
+# Documentation about the options and syntax is available here:
+# https://www.ppsspp.org/docs/reference/texture-replacement
 [options]
 version = 1
 hash = quick
-ignoreMipmap = false
+ignoreMipmap = false  # Set to true to avoid dumping mipmaps. Instead use basisu to generate them, see docs.
+reduceHash = false  # Usually a good idea to use.
+allowVideo = false
 
 [games]
 # Used to make it easier to install, and override settings for other regions.
@@ -921,8 +923,11 @@ ignoreMipmap = false
 # See wiki for more info.
 
 [hashranges]
+# See the documentation.
+# Example: 08b31020,512,512 = 480,272
 
 [filtering]
+# You can enforce specific filtering modes with this. See the docs.
 
 [reducehashranges]
 )", gameID.c_str(), INI_FILENAME.c_str());
