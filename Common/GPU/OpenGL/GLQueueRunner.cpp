@@ -109,14 +109,14 @@ static std::string GetInfoLog(GLuint name, Getiv getiv, GetLog getLog) {
 	return infoLog;
 }
 
-int GLQueueRunner::GetStereoBufferIndex(const char *uniformName) {
+static int GetStereoBufferIndex(const char *uniformName) {
 	if (!uniformName) return -1;
 	else if (strcmp(uniformName, "u_view") == 0) return 0;
 	else if (strcmp(uniformName, "u_proj_lens") == 0) return 1;
 	else return -1;
 }
 
-std::string GLQueueRunner::GetStereoBufferLayout(const char *uniformName) {
+static std::string GetStereoBufferLayout(const char *uniformName) {
 	if (strcmp(uniformName, "u_view") == 0) return "ViewMatrices";
 	else if (strcmp(uniformName, "u_proj_lens") == 0) return "ProjectionMatrix";
 	else return "undefined";
@@ -753,11 +753,6 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-void GLQueueRunner::LogSteps(const std::vector<GLRStep *> &steps) {
-
-}
-
-
 void GLQueueRunner::PerformBlit(const GLRStep &step) {
 	CHECK_GL_ERROR_IF_DEBUG();
 	// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
@@ -854,7 +849,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					glDepthFunc(c.depth.func);
 					depthFunc = c.depth.func;
 				}
-			} else if (!c.depth.enabled && depthEnabled) {
+			} else if (/* !c.depth.enabled && */ depthEnabled) {
 				glDisable(GL_DEPTH_TEST);
 				depthEnabled = false;
 			}
@@ -866,7 +861,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					stencilEnabled = true;
 				}
 				glStencilFunc(c.stencilFunc.func, c.stencilFunc.ref, c.stencilFunc.compareMask);
-			} else if (stencilEnabled) {
+			} else if (/* !c.stencilFunc.enabled && */stencilEnabled) {
 				glDisable(GL_STENCIL_TEST);
 				stencilEnabled = false;
 			}
@@ -888,7 +883,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					blendEqAlpha = c.blend.funcAlpha;
 				}
 				glBlendFuncSeparate(c.blend.srcColor, c.blend.dstColor, c.blend.srcAlpha, c.blend.dstAlpha);
-			} else if (!c.blend.enabled && blendEnabled) {
+			} else if (/* !c.blend.enabled && */ blendEnabled) {
 				glDisable(GL_BLEND);
 				blendEnabled = false;
 			}
@@ -908,7 +903,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				if (logicOp != c.logic.logicOp) {
 					glLogicOp(c.logic.logicOp);
 				}
-			} else if (!c.logic.enabled && logicEnabled) {
+			} else if (/* !c.logic.enabled && */ logicEnabled) {
 				glDisable(GL_COLOR_LOGIC_OP);
 				logicEnabled = false;
 			}
@@ -989,24 +984,18 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		}
 		case GLRRenderCommand::UNIFORM4F:
 		{
+			_dbg_assert_(curProgram);
 			int loc = c.uniform4.loc ? *c.uniform4.loc : -1;
 			if (c.uniform4.name) {
 				loc = curProgram->GetUniformLoc(c.uniform4.name);
 			}
 			if (loc >= 0) {
+				_dbg_assert_(c.uniform4.count >=1 && c.uniform4.count <=4);
 				switch (c.uniform4.count) {
-				case 1:
-					glUniform1f(loc, c.uniform4.v[0]);
-					break;
-				case 2:
-					glUniform2fv(loc, 1, c.uniform4.v);
-					break;
-				case 3:
-					glUniform3fv(loc, 1, c.uniform4.v);
-					break;
-				case 4:
-					glUniform4fv(loc, 1, c.uniform4.v);
-					break;
+				case 1: glUniform1f(loc, c.uniform4.v[0]); break;
+				case 2: glUniform2fv(loc, 1, c.uniform4.v); break;
+				case 3: glUniform3fv(loc, 1, c.uniform4.v); break;
+				case 4: glUniform4fv(loc, 1, c.uniform4.v); break;
 				}
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -1020,6 +1009,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				loc = curProgram->GetUniformLoc(c.uniform4.name);
 			}
 			if (loc >= 0) {
+				_dbg_assert_(c.uniform4.count >=1 && c.uniform4.count <=4);
 				switch (c.uniform4.count) {
 				case 1: glUniform1uiv(loc, 1, (GLuint *)c.uniform4.v); break;
 				case 2: glUniform2uiv(loc, 1, (GLuint *)c.uniform4.v); break;
@@ -1038,6 +1028,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				loc = curProgram->GetUniformLoc(c.uniform4.name);
 			}
 			if (loc >= 0) {
+				_dbg_assert_(c.uniform4.count >=1 && c.uniform4.count <=4);
 				switch (c.uniform4.count) {
 				case 1: glUniform1iv(loc, 1, (GLint *)c.uniform4.v); break;
 				case 2: glUniform2iv(loc, 1, (GLint *)c.uniform4.v); break;
@@ -1331,7 +1322,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				}
 				glFrontFace(c.raster.frontFace);
 				glCullFace(c.raster.cullFace);
-			} else if (!c.raster.cullEnable && cullEnabled) {
+			} else if (/* !c.raster.cullEnable && */ cullEnabled) {
 				glDisable(GL_CULL_FACE);
 				cullEnabled = false;
 			}
@@ -1340,7 +1331,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					glEnable(GL_DITHER);
 					ditherEnabled = true;
 				}
-			} else if (!c.raster.ditherEnable && ditherEnabled) {
+			} else if (/* !c.raster.ditherEnable && */ ditherEnabled) {
 				glDisable(GL_DITHER);
 				ditherEnabled = false;
 			}
@@ -1350,7 +1341,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					glEnable(GL_DEPTH_CLAMP);
 					depthClampEnabled = true;
 				}
-			} else if (!c.raster.depthClampEnable && depthClampEnabled) {
+			} else if (/* !c.raster.depthClampEnable && */ depthClampEnabled) {
 				glDisable(GL_DEPTH_CLAMP);
 				depthClampEnabled = false;
 			}
