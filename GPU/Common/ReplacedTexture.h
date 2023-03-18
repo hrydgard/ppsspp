@@ -161,7 +161,7 @@ public:
 		return (u8)alphaStatus_;
 	}
 
-	bool IsReady(double budget);
+	bool Poll(double budget);
 	bool CopyLevelTo(int level, uint8_t *out, size_t outDataSize, int rowPitch);
 
 	std::string logId_;

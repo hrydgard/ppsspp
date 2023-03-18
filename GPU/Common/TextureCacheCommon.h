@@ -105,12 +105,18 @@ struct TextureDefinition {
 	GETextureFormat format;
 };
 
-// TODO: Shrink this struct. There is some fluff.
+// Texture replacement state machine:
+// Call FindReplacement during PrepareBuild.
+// If replacedTexture gets set: If not found, -> STATUS_TO_REPLACE, otherwise directly -> STATUS_IS_SCALED.
+// If replacedTexture is null, leave it at null.
+// If replacedTexture is set in SetTexture and STATUS_IS_SCALED is not set, query status. If ready rebuild texture, which will set STATUS_IS_SCALED.
 
 // NOTE: These only handle textures loaded directly from PSP memory contents.
 // Framebuffer textures do not have entries, we bind the framebuffers directly.
 // At one point we might merge the concepts of framebuffers and textures, but that
 // moment is far away.
+
+// TODO: Shrink this struct. There is some fluff.
 struct TexCacheEntry {
 	~TexCacheEntry() {
 		if (texturePtr || textureName || vkTex)

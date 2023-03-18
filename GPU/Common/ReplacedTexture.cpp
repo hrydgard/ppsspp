@@ -145,7 +145,7 @@ void ReplacedTexture::PurgeIfNotUsedSinceTime(double t) {
 }
 
 // This can only return true if ACTIVE or NOT_FOUND.
-bool ReplacedTexture::IsReady(double budget) {
+bool ReplacedTexture::Poll(double budget) {
 	_assert_(vfs_ != nullptr);
 
 	double now = time_now_d();

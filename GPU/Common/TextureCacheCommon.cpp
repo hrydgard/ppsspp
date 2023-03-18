@@ -531,7 +531,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			int w0 = gstate.getTextureWidth(0);
 			int h0 = gstate.getTextureHeight(0);
 			int d0 = 1;
-			ReplacedTexture *replaced = FindReplacement(entry, w0, h0, d0);
+			ReplacedTexture *replaced = FindReplacement(entry, &w0, &h0, &d0);
 			if (replaced) {
 				// This texture is pending a replacement load.
 				// So check the replacer if it's reached a conclusion.
@@ -1502,8 +1502,8 @@ u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
 	return pixelSize << (dimW + dimH);
 }
 
-ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &w, int &h, int &d) {
-	if (d != 1) {
+ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int *w, int *h, int *d) {
+	if (*d != 1) {
 		// We don't yet support replacing 3D textures.
 		return nullptr;
 	}
@@ -1519,23 +1519,30 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 		return nullptr;
 	}
 
-	// Allow some delay to reduce pop-in.
-	constexpr double MAX_BUDGET_PER_TEX = 0.25 / 60.0;
-
 	double replaceStart = time_now_d();
 	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
-	ReplacedTexture *replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
+	ReplacedTexture *replaced = replacer_.FindReplacement(cachekey, entry->fullhash, *w, *h);
+	replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	if (!replaced) {
 		// TODO: Remove the flag here?
 		// entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
-		replacementTimeThisFrame_ += time_now_d() - replaceStart;
 		return nullptr;
 	}
+	entry->replacedTexture = replaced;  // we know it's non-null here.
+	PollReplacement(entry, w, h, d);
+	return replaced;
+}
+
+void TextureCacheCommon::PollReplacement(TexCacheEntry *entry, int *w, int *h, int *d) {
+	// Allow some delay to reduce pop-in.
+	constexpr double MAX_BUDGET_PER_TEX = 0.25 / 60.0;
 
 	double budget = std::min(MAX_BUDGET_PER_TEX, replacementFrameBudget_ - replacementTimeThisFrame_);
-	if (replaced->IsReady(budget)) {
-		if (replaced->State() == ReplacementState::ACTIVE) {
-			replaced->GetSize(0, &w, &h);
+
+	double replaceStart = time_now_d();
+	if (entry->replacedTexture->Poll(budget)) {
+		if (entry->replacedTexture->State() == ReplacementState::ACTIVE) {
+			entry->replacedTexture->GetSize(0, w, h);
 			// Consider it already "scaled.".
 			entry->status |= TexCacheEntry::STATUS_IS_SCALED_OR_REPLACED;
 		}
@@ -1543,8 +1550,9 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 		// Remove the flag, even if it was invalid.
 		entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
 	}
+	replacementTimeThisFrame_ += time_now_d() - replaceStart;
 
-	switch (replaced->State()) {
+	switch (entry->replacedTexture->State()) {
 	case ReplacementState::UNLOADED:
 	case ReplacementState::PENDING:
 		// Make sure we keep polling.
@@ -1553,8 +1561,6 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 	default:
 		break;
 	}
-	replacementTimeThisFrame_ += time_now_d() - replaceStart;
-	return replaced;
 }
 
 // This is only used in the GLES backend, where we don't point these to video memory.
@@ -2822,7 +2828,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 	if (canReplace) {
 		// This is the "trigger point" for replacement.
-		plan.replaced = FindReplacement(entry, plan.w, plan.h, plan.depth);
+		plan.replaced = FindReplacement(entry, &plan.w, &plan.h, &plan.depth);
 		plan.doReplace = plan.replaced ? plan.replaced->State() == ReplacementState::ACTIVE : false;
 	} else {
 		plan.replaced = nullptr;
