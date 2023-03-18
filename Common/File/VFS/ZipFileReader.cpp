@@ -15,13 +15,15 @@
 #include "Common/File/VFS/ZipFileReader.h"
 #include "Common/StringUtils.h"
 
-ZipFileReader *ZipFileReader::Create(const Path &zipFile, const char *inZipPath) {
+ZipFileReader *ZipFileReader::Create(const Path &zipFile, const char *inZipPath, bool logErrors) {
 	int error = 0;
 	zip *zip_file;
 	if (zipFile.Type() == PathType::CONTENT_URI) {
 		int fd = File::OpenFD(zipFile, File::OPEN_READ);
 		if (!fd) {
-			ERROR_LOG(IO, "Failed to open FD for %s as zip file", zipFile.c_str());
+			if (logErrors) {
+				ERROR_LOG(IO, "Failed to open FD for '%s' as zip file", zipFile.c_str());
+			}
 			return nullptr;
 		}
 		zip_file = zip_fdopen(fd, 0, &error);
@@ -30,7 +32,9 @@ ZipFileReader *ZipFileReader::Create(const Path &zipFile, const char *inZipPath)
 	}
 
 	if (!zip_file) {
-		ERROR_LOG(IO, "Failed to open %s as a zip file", zipFile.c_str());
+		if (logErrors) {
+			ERROR_LOG(IO, "Failed to open %s as a zip file", zipFile.c_str());
+		}
 		return nullptr;
 	}
 

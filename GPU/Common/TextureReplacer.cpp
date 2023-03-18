@@ -124,9 +124,12 @@ bool TextureReplacer::LoadIni() {
 	delete vfs_;
 	vfs_ = nullptr;
 
+	Path zipPath = basePath_ / ZIP_FILENAME;
+
 	// First, check for textures.zip, which is used to reduce IO.
-	VFSBackend *dir = ZipFileReader::Create(basePath_ / ZIP_FILENAME, "");
+	VFSBackend *dir = ZipFileReader::Create(zipPath, "", false);
 	if (!dir) {
+		INFO_LOG(G3D, "%s wasn't a zip file - opening the directory %s instead.", zipPath.c_str(), basePath_.c_str());
 		vfsIsZip_ = false;
 		dir = new DirectoryReader(basePath_);
 	} else {
