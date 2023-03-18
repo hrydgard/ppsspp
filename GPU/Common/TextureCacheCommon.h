@@ -133,7 +133,7 @@ struct TexCacheEntry {
 		STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 6 frames in between.)
 		STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
 		STATUS_TO_SCALE = 0x80,        // Pending texture scaling in a later frame.
-		STATUS_IS_SCALED = 0x100,      // Has been scaled (can't be replaceImages'd.)
+		STATUS_IS_SCALED_OR_REPLACED = 0x100,  // Has been scaled already (ignored for replacement checks).
 		STATUS_TO_REPLACE = 0x0200,    // Pending texture replacement.
 		// When hashing large textures, we optimize 512x512 down to 512x272 by default, since this
 		// is commonly the only part accessed.  If access is made above 272, we hash the entire
@@ -287,14 +287,14 @@ struct BuildTexturePlan {
 	// The replacement for the texture.
 	ReplacedTexture *replaced;
 	// Need to only check once since it can change during the load!
-	bool replaceValid;
+	bool doReplace;
 	bool saveTexture;
 
 	// TODO: Expand32 should probably also be decided in PrepareBuildTexture.
 	bool decodeToClut8;
 
 	void GetMipSize(int level, int *w, int *h) const {
-		if (replaceValid) {
+		if (doReplace) {
 			replaced->GetSize(level, w, h);
 			return;
 		}
