@@ -320,6 +320,11 @@ void TextureReplacer::ParseHashRange(const std::string &key, const std::string &
 		return;
 	}
 
+	// Allow addr not starting with 0x, for consistency. TryParse requires 0x to parse as hex.
+	if (!startsWith(keyParts[0], "0x") && !startsWith(keyParts[0], "0X")) {
+		keyParts[0] = "0x" + keyParts[0];
+	}
+
 	u32 addr;
 	u32 fromW;
 	u32 fromH;
@@ -869,7 +874,7 @@ bool TextureReplacer::LookupHashRange(u32 addr, int w, int h, int *newW, int *ne
 	}
 }
 
-float TextureReplacer::LookupReduceHashRange(int& w, int& h) {
+float TextureReplacer::LookupReduceHashRange(int w, int h) {
 	const u64 reducerangeKey = ((u64)w << 16) | h;
 	auto range = reducehashranges_.find(reducerangeKey);
 	if (range != reducehashranges_.end()) {
@@ -915,10 +920,10 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, Path &generatedFile
 
 [options]
 version = 1
-hash = quick
-ignoreMipmap = true  # Set to true to avoid dumping mipmaps. Instead use basisu to generate them, see docs.
-reduceHash = false
-allowVideo = false
+hash = quick             # options available: "quick", xxh32 - more accurate, but much slower, xxh64 - more accurate and quite fast, but slower than xxh32 on 32 bit cpu's
+ignoreMipmap = true      # Usually, can just generate them with basisu, no need to dump.
+reduceHash = false       # Unsafe and can cause glitches in some cases, but allows to skip garbage data in some textures reducing endless duplicates as a side effect speeds up hashing as well, requires stronger hash like xxh32 or xxh64
+ignoreAddress = false    # Reduces duplicates at the cost of making hash less reliable, requires stronger hash like xxh32 or xxh64. Basically automatically sets the address to 0 in the dumped filenames.
 
 [games]
 # Used to make it easier to install, and override settings for other regions.
@@ -930,15 +935,19 @@ allowVideo = false
 # See wiki for more info.
 
 [hashranges]
-# See the documentation.
+# This is useful for images that very clearly have smaller dimensions, like 480x272 image. They'll need to be redumped, since the hash will change. See the documentation.
 # Example: 08b31020,512,512 = 480,272
+# Example: 0x08b31020,512,512 = 480,272
 
 [filtering]
-# You can enforce specific filtering modes with this. Available modes are linear/nearest/auto. See the docs.
-# Example: 08d3961000000909ba70b2af = linear
+# You can enforce specific filtering modes with this. Available modes are linear, nearest, auto. See the docs.
+# Example: 08d3961000000909ba70b2af = nearest
 
 [reducehashranges]
-# Lets you set regions of memory where reduced hashing applies. See the docs.
+# Lets you set texture sizes where the hash range is reduced by a factor. See the docs.
+# Example:
+512,512=0.5
+
 )", gameID.c_str(), INI_FILENAME.c_str());
 		fclose(f);
 	}
