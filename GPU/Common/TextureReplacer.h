@@ -106,7 +106,6 @@ public:
 
 	// Returns nullptr if not found.
 	ReplacedTexture *FindReplacement(u64 cachekey, u32 hash, int w, int h);
-	bool FindFiltering(u64 cachekey, u32 hash, TextureFiltering *forceFiltering);
 
 	// Check if a NotifyTextureDecoded for this texture is desired (used to avoid reads from write-combined memory.)
 	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo);
@@ -125,6 +124,8 @@ public:
 	static std::string HashName(u64 cachekey, u32 hash, int level);
 
 protected:
+	bool FindFiltering(u64 cachekey, u32 hash, TextureFiltering *forceFiltering);
+
 	bool LoadIni();
 	bool LoadIniValues(IniFile &ini, bool isOverride = false);
 	void ParseHashRange(const std::string &key, const std::string &value);

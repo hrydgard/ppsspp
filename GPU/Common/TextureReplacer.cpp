@@ -501,6 +501,9 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 		return nullptr;
 	}
 
+	desc.forceFiltering = (TextureFiltering)0;  // invalid value
+	FindFiltering(cachekey, hash, &desc.forceFiltering);
+
 	if (!foundAlias) {
 		// We'll just need to generate the names for each level.
 		// By default, we look for png since that's also what's dumped.
