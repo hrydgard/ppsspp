@@ -246,7 +246,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	int th = plan.createH;
 
 	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		plan.replaced->GetSize(plan.baseLevelSrc, &tw, &th);
 		dstFmt = plan.replaced->Format();
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
@@ -296,7 +296,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 			bool bc = false;
 
-			if (plan.replaceValid) {
+			if (plan.doReplace) {
 				int blockSize = 0;
 				if (Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), &blockSize)) {
 					stride = mipWidth * 4;
@@ -357,7 +357,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		render_->FinalizeTexture(entry->textureName, 1, false);
 	}
 
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}
 }

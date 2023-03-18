@@ -261,7 +261,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		dstFmt = ToDXGIFormat(plan.replaced->Format());
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -298,7 +298,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		int stride = 0;
 
 		int dataSize;
-		if (plan.replaceValid) {
+		if (plan.doReplace) {
 			int blockSize = 0;
 			if (Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), &blockSize)) {
 				stride = ((mipWidth + 3) & ~3) * blockSize / 4;  // Number of blocks * 4 * Size of a block / 4
@@ -404,7 +404,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
 	}
 
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 
 		if (!Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), nullptr)) {

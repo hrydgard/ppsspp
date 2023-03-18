@@ -23,6 +23,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Log.h"
+#include "Core/ConfigValues.h"
 
 class TextureReplacer;
 class LimitedWaitable;
@@ -75,6 +76,7 @@ struct ReplacementDesc {
 	uint32_t hash;
 	int w;
 	int h;
+	TextureFiltering forceFiltering;
 	std::string hashfiles;
 	Path basePath;
 	std::vector<std::string> filenames;
@@ -147,6 +149,15 @@ public:
 		return sz;
 	}
 
+	bool ForceFiltering(TextureFiltering *forceFiltering) const {
+		if (desc_.forceFiltering != (TextureFiltering)0) {
+			*forceFiltering = desc_.forceFiltering;
+			return true;
+		} else {
+			return false;
+		}
+	}
+
 	int NumLevels() const {
 		_dbg_assert_(State() == ReplacementState::ACTIVE);
 		return (int)levels_.size();
@@ -161,7 +172,7 @@ public:
 		return (u8)alphaStatus_;
 	}
 
-	bool IsReady(double budget);
+	bool Poll(double budget);
 	bool CopyLevelTo(int level, uint8_t *out, size_t outDataSize, int rowPitch);
 
 	std::string logId_;
