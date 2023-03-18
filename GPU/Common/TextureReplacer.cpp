@@ -909,14 +909,15 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, Path &generatedFile
 		fwrite("\xEF\xBB\xBF", 1, 3, f);
 
 		// Let's also write some defaults.
-		fprintf(f, R"(# This file is optional and describes your textures.
+		fprintf(f, R"(# This describes your textures and set up options for texture replacement.
 # Documentation about the options and syntax is available here:
 # https://www.ppsspp.org/docs/reference/texture-replacement
+
 [options]
 version = 1
 hash = quick
-ignoreMipmap = false  # Set to true to avoid dumping mipmaps. Instead use basisu to generate them, see docs.
-reduceHash = false  # Usually a good idea to use.
+ignoreMipmap = true  # Set to true to avoid dumping mipmaps. Instead use basisu to generate them, see docs.
+reduceHash = false
 allowVideo = false
 
 [games]
@@ -933,9 +934,11 @@ allowVideo = false
 # Example: 08b31020,512,512 = 480,272
 
 [filtering]
-# You can enforce specific filtering modes with this. See the docs.
+# You can enforce specific filtering modes with this. Available modes are linear/nearest/auto. See the docs.
+# Example: 08d3961000000909ba70b2af = linear
 
 [reducehashranges]
+# Lets you set regions of memory where reduced hashing applies. See the docs.
 )", gameID.c_str(), INI_FILENAME.c_str());
 		fclose(f);
 	}
