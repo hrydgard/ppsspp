@@ -531,11 +531,11 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			int w0 = gstate.getTextureWidth(0);
 			int h0 = gstate.getTextureHeight(0);
 			int d0 = 1;
-			ReplacedTexture *replaced = FindReplacement(entry, &w0, &h0, &d0);
-			if (replaced) {
+			if (entry->replacedTexture) {
+				PollReplacement(entry, &w0, &h0, &d0);
 				// This texture is pending a replacement load.
 				// So check the replacer if it's reached a conclusion.
-				switch (replaced->State()) {
+				switch (entry->replacedTexture->State()) {
 				case ReplacementState::NOT_FOUND:
 					// Didn't find a replacement, so stop looking.
 					// DEBUG_LOG(G3D, "No replacement for texture %dx%d", w0, h0);
