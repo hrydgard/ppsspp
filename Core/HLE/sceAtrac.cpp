@@ -1853,6 +1853,11 @@ int __AtracSetContext(Atrac *atrac) {
 		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "unknown codec type in set context");
 	}
 
+	if (atrac->codecCtx_) {
+		// Shouldn't happen, but just in case.
+		atrac->ReleaseFFMPEGContext();
+	}
+
 	const AVCodec *codec = avcodec_find_decoder(ff_codec);
 	atrac->codecCtx_ = avcodec_alloc_context3(codec);
 
