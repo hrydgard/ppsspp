@@ -132,7 +132,7 @@ protected:
 	void ParseFiltering(const std::string &key, const std::string &value);
 	void ParseReduceHashRange(const std::string& key, const std::string& value);
 	bool LookupHashRange(u32 addr, int w, int h, int *newW, int *newH);
-	float LookupReduceHashRange(int& w, int& h);
+	float LookupReduceHashRange(int w, int h);
 	std::string LookupHashFile(u64 cachekey, u32 hash, bool *foundAlias, bool *ignored);
 
 	bool enabled_ = false;
