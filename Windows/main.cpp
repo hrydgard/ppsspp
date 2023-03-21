@@ -417,6 +417,10 @@ void System_Notify(SystemNotification notification) {
 			g_symbolMap->SortSymbols();
 		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
 		break;
+
+	case SystemNotification::SWITCH_UMD_UPDATED:
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_SWITCHUMD_UPDATED, 0, 0);
+		break;
 	}
 }
 

@@ -511,7 +511,7 @@ static u32 sceUmdReplaceProhibit()
 	DEBUG_LOG(SCEIO,"sceUmdReplaceProhibit()");
 	if (UMDReplacePermit) {
 		UMDReplacePermit = false;
-		host->NotifySwitchUMDUpdated();
+		System_Notify(SystemNotification::SWITCH_UMD_UPDATED);
 	}
 	return 0;
 }
@@ -521,7 +521,7 @@ static u32 sceUmdReplacePermit()
 	DEBUG_LOG(SCEIO,"sceUmdReplacePermit()");
 	if (!UMDReplacePermit) {
 		UMDReplacePermit = true;
-		host->NotifySwitchUMDUpdated();
+		System_Notify(SystemNotification::SWITCH_UMD_UPDATED);
 	}
 	return 0;
 }

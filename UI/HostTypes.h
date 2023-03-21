@@ -43,6 +43,4 @@ public:
 	void SendUIMessage(const std::string &message, const std::string &value) override {
 		NativeMessageReceived(message.c_str(), value.c_str());
 	}
-
-	void NotifySwitchUMDUpdated() override {}
 };

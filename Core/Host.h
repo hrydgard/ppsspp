@@ -28,7 +28,6 @@ public:
 	virtual ~Host() {}
 
 	virtual void SetDebugMode(bool mode) { }
-	virtual void NotifySwitchUMDUpdated() {}
 
 	virtual bool InitGraphics(std::string *error_string, GraphicsContext **ctx) = 0;
 	virtual void ShutdownGraphics() = 0;

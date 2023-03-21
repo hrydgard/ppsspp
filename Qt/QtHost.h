@@ -65,8 +65,6 @@ public:
 		NativeMessageReceived(message.c_str(), value.c_str());
 	}
 
-	void NotifySwitchUMDUpdated() override {}
-
 private:
 	Path SymbolMapFilename(Path currentFilename);
 	MainWindow* mainWindow;
