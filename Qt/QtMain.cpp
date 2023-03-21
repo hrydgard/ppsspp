@@ -295,18 +295,18 @@ void System_InputBoxGetString(const std::string &title, const std::string &defau
 	}
 }
 
-void Vibrate(int length_ms) {
+void System_Vibrate(int length_ms) {
 	if (length_ms == -1 || length_ms == -3)
 		length_ms = 50;
 	else if (length_ms == -2)
 		length_ms = 25;
 }
 
-void OpenDirectory(const char *path) {
+void System_ShowFileInFolder(const char *path) {
 	QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromUtf8(path)));
 }
 
-void LaunchBrowser(const char *url)
+void System_LaunchUrl(LaunchUrlType urlType, const char *url)
 {
 	QDesktopServices::openUrl(QUrl(url));
 }

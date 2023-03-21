@@ -60,8 +60,8 @@ jclass findClass(const char *name) {
 	return nullptr;
 }
 
-bool audioRecording_Available() { return false; }
-bool audioRecording_State() { return false; }
+bool System_AudioRecordingIsAvailable() { return false; }
+bool System_AudioRecordingState() { return false; }
 #endif
 
 class PrintfLogger : public LogListener {

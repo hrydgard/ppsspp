@@ -304,7 +304,7 @@ void MemStickScreen::CreateViews() {
 UI::EventReturn MemStickScreen::OnHelp(UI::EventParams &params) {
 	// I'm letting the old redirect handle this one, as the target is within /docs on the website,
 	// and that structure may change a bit.
-	LaunchBrowser("https://www.ppsspp.org/guide_storage.html");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/guide_storage.html");
 
 	return UI::EVENT_DONE;
 }

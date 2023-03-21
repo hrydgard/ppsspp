@@ -110,7 +110,7 @@ int g_activeWindow = 0;
 static std::thread inputBoxThread;
 static bool inputBoxRunning = false;
 
-void OpenDirectory(const char *path) {
+void System_ShowFileInFolder(const char *path) {
 	// SHParseDisplayName can't handle relative paths, so normalize first.
 	std::string resolved = ReplaceAll(File::ResolvePath(path), "/", "\\");
 
@@ -125,11 +125,11 @@ void OpenDirectory(const char *path) {
 	}
 }
 
-void LaunchBrowser(const char *url) {
+void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
 }
 
-void Vibrate(int length_ms) {
+void System_Vibrate(int length_ms) {
 	// Ignore on PC
 }
 

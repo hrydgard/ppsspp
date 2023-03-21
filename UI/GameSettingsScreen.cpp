@@ -965,7 +965,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 
 	if (System_GetPropertyBool(SYSPROP_HAS_OPEN_DIRECTORY)) {
 		systemSettings->Add(new Choice(sy->T("Show Memory Stick folder")))->OnClick.Add([](UI::EventParams &p) {
-			OpenDirectory(File::ResolvePath(g_Config.memStickDirectory.ToString()).c_str());
+			System_ShowFileInFolder(File::ResolvePath(g_Config.memStickDirectory.ToString()).c_str());
 			return UI::EVENT_DONE;
 		});
 	}
@@ -1213,7 +1213,7 @@ void RecreateActivity() {
 
 UI::EventReturn GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
 	auto n = GetI18NCategory("Networking");
-	LaunchBrowser(n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
 	return UI::EVENT_DONE;
 }
 
@@ -1238,7 +1238,7 @@ UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 	DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
 		DarwinFileSystemServices::setUserPreferredMemoryStickDirectory(thePathChosen);
     };
-	
+
 	memoryStickManager.presentDirectoryPanel(callback);
 #else
 	screenManager()->push(new MemStickScreen(false));

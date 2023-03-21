@@ -400,7 +400,6 @@ class LibretroHost : public Host
          AudioBufferWrite(audio, samples);
       }
       void ShutdownSound() override {}
-      bool IsDebuggingEnabled() override { return false; }
       bool AttemptLoadSymbolMap() override { return false; }
 };
 
@@ -1881,9 +1880,9 @@ void NativeResized() {}
 void System_Toast(const char *str) {}
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-std::vector<std::string> __cameraGetDeviceList() { return std::vector<std::string>(); }
-bool audioRecording_Available() { return false; }
-bool audioRecording_State() { return false; }
+std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }
+bool System_AudioRecordingIsAvailable() { return false; }
+bool System_AudioRecordingState() { return false; }
 
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 #endif

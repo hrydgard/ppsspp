@@ -304,14 +304,6 @@ void WindowsHost::NotifySymbolMapUpdated() {
 	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
 }
 
-bool WindowsHost::IsDebuggingEnabled() {
-#ifdef _DEBUG
-	return true;
-#else
-	return false;
-#endif
-}
-
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
 HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathLink, LPCWSTR lpszDesc) { 
 	HRESULT hres; 

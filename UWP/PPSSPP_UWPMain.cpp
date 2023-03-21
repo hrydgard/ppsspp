@@ -476,17 +476,17 @@ void System_SendMessage(const char *command, const char *parameter) {
 	}
 }
 
-void OpenDirectory(const char *path) {
+void System_ShowFileInFolder(const char *path) {
 	// Unsupported
 }
 
-void LaunchBrowser(const char *url) {
+void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	auto uri = ref new Windows::Foundation::Uri(ToPlatformString(url));
 
 	create_task(Windows::System::Launcher::LaunchUriAsync(uri)).then([](bool b) {});
 }
 
-void Vibrate(int length_ms) {
+void System_Vibrate(int length_ms) {
 #if _M_ARM
 	if (length_ms == -1 || length_ms == -3)
 		length_ms = 50;

@@ -48,7 +48,6 @@ public:
 	void UpdateSound() override;
 	void ShutdownSound() override;
 
-	bool IsDebuggingEnabled() override;
 	void BootDone() override;
 	bool AttemptLoadSymbolMap() override;
 	void SaveSymbolMap() override;

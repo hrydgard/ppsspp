@@ -56,13 +56,6 @@ public:
 		mainWindow->Notify(MainWindowMsg::BOOT_DONE);
 	}
 
-	bool IsDebuggingEnabled() override {
-#ifdef _DEBUG
-		return true;
-#else
-		return false;
-#endif
-	}
 	bool AttemptLoadSymbolMap() override {
 		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
 		return g_symbolMap->LoadSymbolMap(fn);

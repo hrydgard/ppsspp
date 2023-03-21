@@ -148,10 +148,6 @@ void UWPHost::NotifySymbolMapUpdated() {
 	g_symbolMap->SortSymbols();
 }
 
-bool UWPHost::IsDebuggingEnabled() {
-	return false;
-}
-
 bool UWPHost::CanCreateShortcut() {
 	return false;  // Turn on when below function fixed
 }

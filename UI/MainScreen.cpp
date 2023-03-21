@@ -533,7 +533,7 @@ UI::EventReturn GameBrowser::LayoutChange(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
-	LaunchBrowser(lastLink_.c_str());
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, lastLink_.c_str());
 	return UI::EVENT_DONE;
 }
 
@@ -1226,16 +1226,16 @@ UI::EventReturn MainScreen::OnDownloadUpgrade(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(ANDROID)
 	// Go to app store
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
 	} else {
-		LaunchBrowser("market://details?id=org.ppsspp.ppsspp");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppsspp");
 	}
 #elif PPSSPP_PLATFORM(WINDOWS)
-	LaunchBrowser("https://www.ppsspp.org/download");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/download");
 #else
 	// Go directly to ppsspp.org and let the user sort it out
 	// (for details and in case downloads doesn't have their platform.)
-	LaunchBrowser("https://www.ppsspp.org/");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/");
 #endif
 	return UI::EVENT_DONE;
 }
@@ -1414,20 +1414,20 @@ UI::EventReturn MainScreen::OnCredits(UI::EventParams &e) {
 
 UI::EventReturn MainScreen::OnSupport(UI::EventParams &e) {
 #ifdef __ANDROID__
-	LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
 #else
-	LaunchBrowser("https://www.ppsspp.org/buygold");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
 #endif
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnPPSSPPOrg(UI::EventParams &e) {
-	LaunchBrowser("https://www.ppsspp.org");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnForums(UI::EventParams &e) {
-	LaunchBrowser("https://forums.ppsspp.org");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://forums.ppsspp.org");
 	return UI::EVENT_DONE;
 }
 
