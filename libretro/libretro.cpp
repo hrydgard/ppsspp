@@ -1872,6 +1872,13 @@ bool System_GetPropertyBool(SystemProperty prop)
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
 
+void System_Notify(SystemNotification notification) {
+   switch (notification) {
+   default:
+      break;
+   }
+}
+
 void System_SendMessage(const char *command, const char *parameter) {}
 void NativeUpdate() {}
 void NativeRender(GraphicsContext *graphicsContext) {}

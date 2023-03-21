@@ -87,6 +87,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return false;
 	}
 }
+void System_Notify(SystemNotification notification) {}
 
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {

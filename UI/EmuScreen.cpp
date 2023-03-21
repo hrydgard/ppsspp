@@ -354,7 +354,8 @@ void EmuScreen::bootGame(const Path &filename) {
 
 void EmuScreen::bootComplete() {
 	UpdateUIState(UISTATE_INGAME);
-	host->BootDone();
+	System_Notify(SystemNotification::BOOT_DONE);
+
 	host->UpdateDisassembly();
 
 	NOTICE_LOG(BOOT, "Loading %s...", PSP_CoreParameter().fileToStart.c_str());
@@ -1300,7 +1301,7 @@ static void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 			snprintf(fpsbuf, sizeof(fpsbuf), "%s Speed: %0.1f%%", fpsbuf, vps / (59.94f / 100.0f));
 		}
 	}
-	
+
 #ifdef CAN_DISPLAY_CURRENT_BATTERY_CAPACITY
 	if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT) {
 		snprintf(fpsbuf, sizeof(fpsbuf), "%s Battery: %d%%", fpsbuf, getCurrentBatteryCapacity());

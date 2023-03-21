@@ -254,6 +254,17 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 }
 
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	case SystemNotification::BOOT_DONE:
+		g_symbolMap->SortSymbols();
+		mainWindow->Notify(MainWindowMsg::BOOT_DONE);
+		break;
+	default:
+		break;
+	}
+}
+
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
 		qApp->exit(0);

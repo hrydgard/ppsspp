@@ -74,6 +74,7 @@
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/CtrlMemView.h"
 #include "Windows/Debugger/CtrlRegisterList.h"
+#include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/InputBox.h"
 
 #include "Windows/WindowsHost.h"
@@ -366,6 +367,24 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;  // FileUtil.cpp: OpenFileInEditor
 	default:
 		return false;
+	}
+}
+
+static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0) {
+	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
+}
+
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	case SystemNotification::BOOT_DONE:
+		if (g_symbolMap)
+			g_symbolMap->SortSymbols();
+		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
+
+		bool mode = !g_Config.bAutoRun;
+		if (disasmWindow)
+			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
+		break;
 	}
 }
 

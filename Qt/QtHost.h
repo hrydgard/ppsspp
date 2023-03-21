@@ -40,8 +40,7 @@ public:
 		mainWindow->updateMenus();
 	}
 
-	void SetDebugMode(bool mode) override {
-	}
+	void SetDebugMode(bool mode) override {}
 
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
 	void ShutdownGraphics() override {}
@@ -49,12 +48,6 @@ public:
 	void InitSound() override;
 	void UpdateSound() override {}
 	void ShutdownSound() override;
-
-	// this is sent from EMU thread! Make sure that Host handles it properly!
-	void BootDone() override {
-		g_symbolMap->SortSymbols();
-		mainWindow->Notify(MainWindowMsg::BOOT_DONE);
-	}
 
 	bool AttemptLoadSymbolMap() override {
 		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);

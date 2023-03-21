@@ -41,9 +41,6 @@ public:
 	void UpdateSound() override {}
 	void ShutdownSound() override {}
 
-	// this is sent from EMU thread! Make sure that Host handles it properly
-	void BootDone() override {}
-
 	bool AttemptLoadSymbolMap() override { g_symbolMap->Clear(); return false; }
 	void NotifySymbolMapUpdated() override {}
 

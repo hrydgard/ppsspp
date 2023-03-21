@@ -134,11 +134,23 @@ enum SystemProperty {
 	SYSPROP_KEYBOARD_LAYOUT,
 };
 
+enum class SystemNotification {
+	UI,
+	MEM_VIEW,
+	DISASSEMBLY,
+	DEBUG_MODE,
+	BOOT_DONE,  // this is sent from EMU thread! Make sure that Host handles it properly!
+	SYMBOL_MAP_UPDATED,
+	SWITCH_UMD_UPDATED,
+};
+
 std::string System_GetProperty(SystemProperty prop);
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop);
 int System_GetPropertyInt(SystemProperty prop);
 float System_GetPropertyFloat(SystemProperty prop);
 bool System_GetPropertyBool(SystemProperty prop);
+
+void System_Notify(SystemNotification notification);
 
 std::vector<std::string> System_GetCameraDeviceList();
 bool System_AudioRecordingIsAvailable();

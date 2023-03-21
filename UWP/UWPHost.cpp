@@ -85,8 +85,7 @@ void UWPHost::UpdateMemView() {
 void UWPHost::UpdateDisassembly() {
 }
 
-void UWPHost::SetDebugMode(bool mode) {
-}
+void UWPHost::SetDebugMode(bool mode) {}
 
 void UWPHost::PollControllers() {
 	for (const auto& device : this->input)
@@ -112,13 +111,6 @@ void UWPHost::PollControllers() {
 	axisY.deviceId = DEVICE_ID_MOUSE;
 	axisY.value = my;
 	*/
-}
-
-void UWPHost::BootDone() {
-	g_symbolMap->SortSymbols();
-
-	SetDebugMode(false);
-	Core_EnableStepping(false);
 }
 
 static Path SymbolMapFilename(const Path &currentFilename, const char *ext) {

@@ -264,14 +264,6 @@ void WindowsHost::PollControllers() {
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = g_mouseDeltaY;
 }
 
-void WindowsHost::BootDone() {
-	if (g_symbolMap)
-		g_symbolMap->SortSymbols();
-	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
-
-	SetDebugMode(!g_Config.bAutoRun);
-}
-
 static Path SymbolMapFilename(const Path &currentFilename, const char *ext) {
 	File::FileInfo info{};
 	// can't fail, definitely exists if it gets this far

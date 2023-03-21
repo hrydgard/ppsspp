@@ -170,6 +170,11 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 }
 
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	}
+}
+
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
 		exit(0);

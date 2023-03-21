@@ -112,7 +112,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 			return false;
 	}
 }
-
+void System_Notify(SystemNotification notification) {}
 void System_SendMessage(const char *command, const char *parameter) {}
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
@@ -201,7 +201,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		return false;
 	}
 
-	host->BootDone();
+	System_Notify(SystemNotification::BOOT_DONE);
 
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 

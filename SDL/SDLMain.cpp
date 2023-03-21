@@ -436,6 +436,13 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 }
 
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	default:
+		break;
+	}
+}
+
 // returns -1 on failure
 static int parseInt(const char *str) {
 	int val;

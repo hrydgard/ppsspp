@@ -26,12 +26,13 @@ class GraphicsContext;
 class Host {
 public:
 	virtual ~Host() {}
-	virtual void UpdateUI() {}
 
+	virtual void UpdateUI() {}
 	virtual void UpdateMemView() {}
 	virtual void UpdateDisassembly() {}
-
+	virtual void NotifySymbolMapUpdated() {}
 	virtual void SetDebugMode(bool mode) { }
+	virtual void NotifySwitchUMDUpdated() {}
 
 	virtual bool InitGraphics(std::string *error_string, GraphicsContext **ctx) = 0;
 	virtual void ShutdownGraphics() = 0;
@@ -42,20 +43,14 @@ public:
 	virtual void PollControllers() {}
 	virtual void ToggleDebugConsoleVisibility() {}
 
-	//this is sent from EMU thread! Make sure that Host handles it properly!
-	virtual void BootDone() {}
-
 	virtual bool AttemptLoadSymbolMap();
 	virtual void SaveSymbolMap() {}
-	virtual void NotifySymbolMapUpdated() {}
 	virtual void SetWindowTitle(const char *message) {}
 
 	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title) {return false;}
 
 	virtual void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) {}
 	virtual void SendUIMessage(const std::string &message, const std::string &value) {}
-
-	virtual void NotifySwitchUMDUpdated() {}
 
 	// Used for headless.
 	virtual bool ShouldSkipUI() { return false; }

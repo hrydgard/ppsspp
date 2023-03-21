@@ -540,6 +540,11 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 }
 
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	}
+}
+
 std::string Android_GetInputDeviceDebugString() {
 	if (!nativeActivity) {
 		return "(N/A)";
