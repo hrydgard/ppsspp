@@ -108,6 +108,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_CAN_JIT:
 			return true;
+		case SYSPROP_SKIP_UI:
+			return true;
 		default:
 			return false;
 	}

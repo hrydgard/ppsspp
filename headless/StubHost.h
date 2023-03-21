@@ -36,8 +36,6 @@ public:
 
 	bool AttemptLoadSymbolMap() override { g_symbolMap->Clear(); return false; }
 
-	bool ShouldSkipUI() override { return true; }
-
 	void SendDebugOutput(const std::string &output) override {
 		if (output.find('\n') != output.npos) {
 			DoFlushDebugOutput();

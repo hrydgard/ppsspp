@@ -132,6 +132,8 @@ enum SystemProperty {
 	SYSPROP_CAN_JIT,
 
 	SYSPROP_KEYBOARD_LAYOUT,
+
+	SYSPROP_SKIP_UI,
 };
 
 enum class SystemNotification {

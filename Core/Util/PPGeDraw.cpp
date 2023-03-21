@@ -18,6 +18,8 @@
 #include <algorithm>
 
 #include "ext/xxhash.h"
+
+#include "Common/System/System.h"
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Format/ZIMLoad.h"
@@ -237,7 +239,7 @@ void __PPGeSetupListArgs()
 
 void __PPGeInit() {
 	// PPGe isn't really important for headless, and LoadZIM takes a long time.
-	bool skipZIM = host->ShouldSkipUI();
+	bool skipZIM = System_GetPropertyBool(SYSPROP_SKIP_UI);
 
 	u8 *imageData[12]{};
 	int width[12]{};
