@@ -339,10 +339,6 @@ HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathL
 	return hres; 
 }
 
-bool WindowsHost::CanCreateShortcut() { 
-	return false;  // Turn on when below function fixed
-}
-
 bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string gameTitle) {
 	// TODO: not working correctly
 	return false;

@@ -148,15 +148,6 @@ void UWPHost::NotifySymbolMapUpdated() {
 	g_symbolMap->SortSymbols();
 }
 
-bool UWPHost::CanCreateShortcut() {
-	return false;  // Turn on when below function fixed
-}
-
-bool UWPHost::CreateDesktopShortcut(std::string argumentPath, std::string gameTitle) {
-	// TODO: not working correctly
-	return false;
-}
-
 void UWPHost::ToggleDebugConsoleVisibility() {
 	// N/A
 }

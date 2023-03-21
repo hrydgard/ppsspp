@@ -18,11 +18,11 @@
 #pragma once
 
 #include <string>
+
 #include "Common/CommonTypes.h"
 
 class GraphicsContext;
 
-// TODO: Whittle this down. Collecting a bunch of random stuff like this isn't good design :P
 class Host {
 public:
 	virtual ~Host() {}
@@ -50,7 +50,6 @@ public:
 	virtual void NotifySymbolMapUpdated() {}
 	virtual void SetWindowTitle(const char *message) {}
 
-	virtual bool CanCreateShortcut() {return false;}
 	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title) {return false;}
 
 	virtual void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) {}

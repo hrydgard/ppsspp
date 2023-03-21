@@ -165,7 +165,7 @@ void GameScreen::CreateViews() {
 	otherChoices_.clear();
 
 	rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Delete Game"))))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
-	if (host->CanCreateShortcut()) {
+	if (System_GetPropertyBool(SYSPROP_CAN_CREATE_SHORTCUT)) {
 		rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Create Shortcut"))))->OnClick.Handle(this, &GameScreen::OnCreateShortcut);
 	}
 	if (isRecentGame(gamePath_)) {
@@ -443,7 +443,10 @@ UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
 
 class SetBackgroundPopupScreen : public PopupScreen {
 public:
-	SetBackgroundPopupScreen(const std::string &title, const Path &gamePath);
+	SetBackgroundPopupScreen(const std::string &title, const Path &gamePath)
+		: PopupScreen(title), gamePath_(gamePath) {
+		timeStart_ = time_now_d();
+	}
 	const char *tag() const override { return "SetBackgroundPopup"; }
 
 protected:
@@ -464,11 +467,6 @@ private:
 	};
 	Status status_ = Status::PENDING;
 };
-
-SetBackgroundPopupScreen::SetBackgroundPopupScreen(const std::string &title, const Path &gamePath)
-	: PopupScreen(title), gamePath_(gamePath) {
-	timeStart_ = time_now_d();
-}
 
 void SetBackgroundPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto ga = GetI18NCategory("Game");
