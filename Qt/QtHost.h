@@ -20,8 +20,9 @@
 #include "Core/Host.h"
 #include "UI/OnScreenDisplay.h"
 
-#include "Core/Debugger/SymbolMap.h"
 #include "Qt/mainwindow.h"
+#include "Core/Debugger/SymbolMap.h"
+
 
 class QtHost : public Host {
 public:
@@ -30,45 +31,15 @@ public:
 		mainWindow = mainWindow_;
 	}
 
-	void UpdateUI() override {
-		mainWindow->updateMenus();
-	}
-
-	void UpdateMemView() override {
-	}
-	void UpdateDisassembly() override {
-		mainWindow->updateMenus();
-	}
-
-	void SetDebugMode(bool mode) override {
-	}
-
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
 	void ShutdownGraphics() override {}
 
-	void InitSound() override;
 	void UpdateSound() override {}
-	void ShutdownSound() override;
 
-	// this is sent from EMU thread! Make sure that Host handles it properly!
-	void BootDone() override {
-		g_symbolMap->SortSymbols();
-		mainWindow->Notify(MainWindowMsg::BOOT_DONE);
-	}
-
-	bool IsDebuggingEnabled() override {
-#ifdef _DEBUG
-		return true;
-#else
-		return false;
-#endif
-	}
 	bool AttemptLoadSymbolMap() override {
 		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
 		return g_symbolMap->LoadSymbolMap(fn);
 	}
-
-	void NotifySymbolMapUpdated() override { g_symbolMap->SortSymbols(); }
 
 	void PrepareShutdown() {
 		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
@@ -91,8 +62,6 @@ public:
 	void SendUIMessage(const std::string &message, const std::string &value) override {
 		NativeMessageReceived(message.c_str(), value.c_str());
 	}
-
-	void NotifySwitchUMDUpdated() override {}
 
 private:
 	Path SymbolMapFilename(Path currentFilename);

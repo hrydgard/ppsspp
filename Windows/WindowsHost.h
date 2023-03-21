@@ -34,36 +34,23 @@ public:
 		UpdateConsolePosition();
 	}
 
-	void UpdateMemView() override;
-	void UpdateDisassembly() override;
-	void UpdateUI() override;
-	void SetDebugMode(bool mode) override;
-
 	// If returns false, will return a null context
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override;
 	void PollControllers() override;
 	void ShutdownGraphics() override;
 
-	void InitSound() override;
 	void UpdateSound() override;
-	void ShutdownSound() override;
 
-	bool IsDebuggingEnabled() override;
-	void BootDone() override;
 	bool AttemptLoadSymbolMap() override;
 	void SaveSymbolMap() override;
-	void NotifySymbolMapUpdated() override;
 	void SetWindowTitle(const char *message) override;
 
 	void ToggleDebugConsoleVisibility() override;
 
-	bool CanCreateShortcut() override;
 	bool CreateDesktopShortcut(std::string argumentPath, std::string title) override;
 
 	void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) override;
 	void SendUIMessage(const std::string &message, const std::string &value) override;
-
-	void NotifySwitchUMDUpdated() override;
 
 	GraphicsContext *GetGraphicsContext() { return gfx_; }
 
@@ -77,7 +64,6 @@ private:
 	GraphicsContext *gfx_ = nullptr;
 	size_t numDinputDevices_ = 0;
 	std::wstring lastTitle_;
-	int lastNumInstances_ = 0;
 
 	std::list<std::unique_ptr<InputDevice>> input;
 };

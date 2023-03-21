@@ -913,8 +913,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 		auto langScreen = new NewLanguageScreen(sy->T("Language"));
 		langScreen->OnChoice.Add([&](UI::EventParams &e) {
 			screenManager()->RecreateAllViews();
-			if (host)
-				host->UpdateUI();
+			System_Notify(SystemNotification::UI);
 			return UI::EVENT_DONE;
 		});
 		if (e.v)
@@ -963,9 +962,12 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 
 	systemSettings->Add(new ItemHeader(sy->T("PSP Memory Stick")));
 
-#if (defined(USING_QT_UI) || PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC)) && !PPSSPP_PLATFORM(UWP)
-	systemSettings->Add(new Choice(sy->T("Show Memory Stick folder")))->OnClick.Handle(this, &GameSettingsScreen::OnOpenMemStick);
-#endif
+	if (System_GetPropertyBool(SYSPROP_HAS_OPEN_DIRECTORY)) {
+		systemSettings->Add(new Choice(sy->T("Show Memory Stick folder")))->OnClick.Add([](UI::EventParams &p) {
+			System_ShowFileInFolder(File::ResolvePath(g_Config.memStickDirectory.ToString()).c_str());
+			return UI::EVENT_DONE;
+		});
+	}
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	systemSettings->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
@@ -1210,7 +1212,7 @@ void RecreateActivity() {
 
 UI::EventReturn GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
 	auto n = GetI18NCategory("Networking");
-	LaunchBrowser(n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
 	return UI::EVENT_DONE;
 }
 
@@ -1235,16 +1237,11 @@ UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 	DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
 		DarwinFileSystemServices::setUserPreferredMemoryStickDirectory(thePathChosen);
     };
-	
+
 	memoryStickManager.presentDirectoryPanel(callback);
 #else
 	screenManager()->push(new MemStickScreen(false));
 #endif
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnOpenMemStick(UI::EventParams &e) {
-	OpenDirectory(File::ResolvePath(g_Config.memStickDirectory.ToString()).c_str());
 	return UI::EVENT_DONE;
 }
 
@@ -1346,11 +1343,6 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 }
 
 void GameSettingsScreen::onFinish(DialogResult result) {
-	if (g_Config.bEnableSound) {
-		if (PSP_IsInited() && !IsAudioInitialised())
-			Audio_Init();
-	}
-
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	Reporting::UpdateConfig();
 	if (!g_Config.Save("GameSettingsScreen::onFinish")) {
@@ -1364,7 +1356,7 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 		g_Config.unloadGameConfig();
 	}
 
-	host->UpdateUI();
+	System_Notify(SystemNotification::UI);
 
 	KeyMap::UpdateNativeMenuKeys();
 
@@ -1897,7 +1889,7 @@ void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 	if (yes) {
 		g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS);
 	}
-	host->UpdateUI();
+	System_Notify(SystemNotification::UI);
 }
 
 UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {

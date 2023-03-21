@@ -161,7 +161,7 @@ void MainThreadFunc() {
 		// Let's continue (and probably crash) just so they have a way to keep trying.
 	}
 
-	host->UpdateUI();
+	System_Notify(SystemNotification::UI);
 
 	std::string error_string;
 	bool success = host->InitGraphics(&error_string, &g_graphicsContext);
@@ -219,7 +219,7 @@ void MainThreadFunc() {
 		} else {
 			if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D9) {
 				// Allow the user to download the DX9 runtime.
-				LaunchBrowser("https://www.microsoft.com/en-us/download/details.aspx?id=34429");
+				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.microsoft.com/en-us/download/details.aspx?id=34429");
 			}
 		}
 

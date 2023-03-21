@@ -23,6 +23,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Common/System/System.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/Serialize/Serializer.h"
@@ -1078,8 +1079,8 @@ namespace SaveState
 				Core_Stop();
 				return;
 			}
-			host->BootDone();
-			host->UpdateDisassembly();
+			System_Notify(SystemNotification::BOOT_DONE);
+			System_Notify(SystemNotification::DISASSEMBLY);
 			needsRestart = false;
 		}
 	}

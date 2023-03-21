@@ -47,6 +47,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/SaveState.h"
+#include "Core/Instance.h"
 #include "Windows/EmuThread.h"
 #include "Windows/WindowsAudio.h"
 #include "ext/disarm.h"
@@ -74,6 +75,7 @@
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/CtrlMemView.h"
 #include "Windows/Debugger/CtrlRegisterList.h"
+#include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/InputBox.h"
 
 #include "Windows/WindowsHost.h"
@@ -109,8 +111,9 @@ int g_activeWindow = 0;
 
 static std::thread inputBoxThread;
 static bool inputBoxRunning = false;
+int g_lastNumInstances = 0;
 
-void OpenDirectory(const char *path) {
+void System_ShowFileInFolder(const char *path) {
 	// SHParseDisplayName can't handle relative paths, so normalize first.
 	std::string resolved = ReplaceAll(File::ResolvePath(path), "/", "\\");
 
@@ -125,11 +128,11 @@ void OpenDirectory(const char *path) {
 	}
 }
 
-void LaunchBrowser(const char *url) {
+void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
 }
 
-void Vibrate(int length_ms) {
+void System_Vibrate(int length_ms) {
 	// Ignore on PC
 }
 
@@ -346,6 +349,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_HAS_FILE_BROWSER:
 	case SYSPROP_HAS_FOLDER_BROWSER:
+	case SYSPROP_HAS_OPEN_DIRECTORY:
 		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
@@ -365,6 +369,62 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;  // FileUtil.cpp: OpenFileInEditor
 	default:
 		return false;
+	}
+}
+
+static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0) {
+	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
+}
+
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	case SystemNotification::BOOT_DONE:
+	{
+		if (g_symbolMap)
+			g_symbolMap->SortSymbols();
+		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
+
+		if (disasmWindow)
+			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
+		break;
+	}
+
+	case SystemNotification::UI:
+	{
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
+
+		int peers = GetInstancePeerCount();
+		if (PPSSPP_ID >= 1 && peers != g_lastNumInstances) {
+			g_lastNumInstances = peers;
+			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
+		}
+		break;
+	}
+
+	case SystemNotification::MEM_VIEW:
+		if (memoryWindow)
+			PostDialogMessage(memoryWindow, WM_DEB_UPDATE);
+		break;
+
+	case SystemNotification::DISASSEMBLY:
+		if (disasmWindow)
+			PostDialogMessage(disasmWindow, WM_DEB_UPDATE);
+		break;
+
+	case SystemNotification::SYMBOL_MAP_UPDATED:
+		if (g_symbolMap)
+			g_symbolMap->SortSymbols();
+		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
+		break;
+
+	case SystemNotification::SWITCH_UMD_UPDATED:
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_SWITCHUMD_UPDATED, 0, 0);
+		break;
+
+	case SystemNotification::DEBUG_MODE_CHANGE:
+		if (disasmWindow)
+			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
+		break;
 	}
 }
 

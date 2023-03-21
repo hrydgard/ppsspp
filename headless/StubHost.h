@@ -26,29 +26,13 @@
 // TODO: Get rid of this junk
 class HeadlessHost : public Host {
 public:
-	void UpdateUI() override {}
-
-	void UpdateMemView() override {}
-	void UpdateDisassembly() override {}
-
-	void SetDebugMode(bool mode) override { }
-
 	void SetGraphicsCore(GPUCore core) { gpuCore_ = core; }
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override {return false;}
 	void ShutdownGraphics() override {}
 
-	void InitSound() override {}
 	void UpdateSound() override {}
-	void ShutdownSound() override {}
 
-	// this is sent from EMU thread! Make sure that Host handles it properly
-	void BootDone() override {}
-
-	bool IsDebuggingEnabled() override { return false; }
 	bool AttemptLoadSymbolMap() override { g_symbolMap->Clear(); return false; }
-	void NotifySymbolMapUpdated() override {}
-
-	bool ShouldSkipUI() override { return true; }
 
 	void SendDebugOutput(const std::string &output) override {
 		if (output.find('\n') != output.npos) {
@@ -77,8 +61,6 @@ public:
 	}
 
 	void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) override;
-
-	void NotifySwitchUMDUpdated() override {}
 
 	// Unique for HeadlessHost
 	virtual void SwapBuffers() {}

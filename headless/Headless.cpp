@@ -60,8 +60,8 @@ jclass findClass(const char *name) {
 	return nullptr;
 }
 
-bool audioRecording_Available() { return false; }
-bool audioRecording_State() { return false; }
+bool System_AudioRecordingIsAvailable() { return false; }
+bool System_AudioRecordingState() { return false; }
 #endif
 
 class PrintfLogger : public LogListener {
@@ -108,11 +108,13 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_CAN_JIT:
 			return true;
+		case SYSPROP_SKIP_UI:
+			return true;
 		default:
 			return false;
 	}
 }
-
+void System_Notify(SystemNotification notification) {}
 void System_SendMessage(const char *command, const char *parameter) {}
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
@@ -201,7 +203,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		return false;
 	}
 
-	host->BootDone();
+	System_Notify(SystemNotification::BOOT_DONE);
 
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 

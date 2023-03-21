@@ -40,6 +40,8 @@
 #include "Common/Profiler/Profiler.h"
 
 #include "QtMain.h"
+#include "QtHost.h"
+#include "Qt/mainwindow.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -47,6 +49,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/Camera.h"
+#include "Core/Debugger/SymbolMap.h"
 
 #include <signal.h>
 #include <string.h>
@@ -56,6 +59,7 @@ static float refreshRate = 60.f;
 static int browseFileEvent = -1;
 static int browseFolderEvent = -1;
 QTCamera *qtcamera = nullptr;
+MainWindow *g_mainWindow;
 
 #ifdef SDL
 SDL_AudioSpec g_retFmt;
@@ -235,6 +239,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_HAS_FILE_BROWSER:
 	case SYSPROP_HAS_FOLDER_BROWSER:
+	case SYSPROP_HAS_OPEN_DIRECTORY:
 		return true;
 	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return true;  // FileUtil.cpp: OpenFileInEditor
@@ -250,6 +255,21 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	default:
 		return false;
+	}
+}
+
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	case SystemNotification::BOOT_DONE:
+		g_symbolMap->SortSymbols();
+		g_mainWindow->Notify(MainWindowMsg::BOOT_DONE);
+		break;
+	case SystemNotification::SYMBOL_MAP_UPDATED:
+		if (g_symbolMap)
+			g_symbolMap->SortSymbols();
+		break;
+	default:
+		break;
 	}
 }
 
@@ -294,18 +314,18 @@ void System_InputBoxGetString(const std::string &title, const std::string &defau
 	}
 }
 
-void Vibrate(int length_ms) {
+void System_Vibrate(int length_ms) {
 	if (length_ms == -1 || length_ms == -3)
 		length_ms = 50;
 	else if (length_ms == -2)
 		length_ms = 25;
 }
 
-void OpenDirectory(const char *path) {
+void System_ShowFileInFolder(const char *path) {
 	QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromUtf8(path)));
 }
 
-void LaunchBrowser(const char *url)
+void System_LaunchUrl(LaunchUrlType urlType, const char *url)
 {
 	QDesktopServices::openUrl(QUrl(url));
 }
@@ -764,6 +784,12 @@ int main(int argc, char *argv[])
 	external_dir += "/";
 
 	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), external_dir.c_str(), nullptr);
+
+	g_mainWindow = new MainWindow(nullptr, g_Config.UseFullScreen());
+	g_mainWindow->show();
+	if (host == nullptr) {
+		host = new QtHost(g_mainWindow);
+	}
 
 	// TODO: Support other backends than GL, like Vulkan, in the Qt backend.
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;

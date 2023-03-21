@@ -164,8 +164,6 @@ private slots:
 	// Sound
 	void audioAct() {
 		g_Config.bEnableSound = !g_Config.bEnableSound;
-		if (PSP_IsInited() && !IsAudioInitialised())
-			Audio_Init();
 	}
 
 	// Cheats

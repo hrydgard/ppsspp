@@ -381,30 +381,26 @@ void System_Toast(const char *text) {
 	PushCommand("toast", text);
 }
 
-void ShowKeyboard() {
+void System_ShowKeyboard() {
 	PushCommand("showKeyboard", "");
 }
 
-void Vibrate(int length_ms) {
+void System_Vibrate(int length_ms) {
 	char temp[32];
 	sprintf(temp, "%i", length_ms);
 	PushCommand("vibrate", temp);
 }
 
-void OpenDirectory(const char *path) {
+void System_ShowFileInFolder(const char *path) {
 	// Unsupported
 }
 
-void LaunchBrowser(const char *url) {
-	PushCommand("launchBrowser", url);
-}
-
-void LaunchMarket(const char *url) {
-	PushCommand("launchMarket", url);
-}
-
-void LaunchEmail(const char *email_address) {
-	PushCommand("launchEmail", email_address);
+void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
+	switch (urlType) {
+	case LaunchUrlType::BROWSER_URL: PushCommand("launchBrowser", url); break;
+	case LaunchUrlType::MARKET_URL: PushCommand("launchMarket", url); break;
+	case LaunchUrlType::EMAIL_ADDRESS: PushCommand("launchEmail", url); break;
+	}
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
@@ -491,6 +487,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		}
 	case SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE:
 		return sustainedPerfSupported;  // 7.0 introduced sustained performance mode as an optional feature.
+	case SYSPROP_HAS_OPEN_DIRECTORY:
+		return false;
 	case SYSPROP_HAS_ADDITIONAL_STORAGE:
 		return !g_additionalStorageDirs.empty();
 	case SYSPROP_HAS_BACK_BUTTON:
@@ -539,6 +537,11 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	default:
 		return false;
+	}
+}
+
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
 	}
 }
 
@@ -853,11 +856,11 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioRecording_1Stop(JNIEnv *, 
 	AndroidAudio_Recording_Stop(g_audioState);
 }
 
-bool audioRecording_Available() {
+bool System_AudioRecordingIsAvailable() {
 	return true;
 }
 
-bool audioRecording_State() {
+bool System_AudioRecordingState() {
 	return AndroidAudio_Recording_State(g_audioState);
 }
 
@@ -1276,7 +1279,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 	}
 }
 
-std::vector<std::string> __cameraGetDeviceList() {
+std::vector<std::string> System_GetCameraDeviceList() {
 	jclass cameraClass = findClass("org/ppsspp/ppsspp/CameraHelper");
 	jmethodID deviceListMethod = getEnv()->GetStaticMethodID(cameraClass, "getDeviceList", "()Ljava/util/ArrayList;");
 	jobject deviceListObject = getEnv()->CallStaticObjectMethod(cameraClass, deviceListMethod);

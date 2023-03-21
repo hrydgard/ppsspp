@@ -103,7 +103,7 @@ void __UsbMicInit() {
 	curChannels = 1;
 	curTargetAddr = 0;
 	readMicDataLength = 0;
-	micState = 0; 
+	micState = 0;
 	eventMicBlockingResume = CoreTiming::RegisterEvent("MicBlockingResume", &__MicBlockingResume);
 }
 
@@ -349,7 +349,7 @@ bool Microphone::isHaveDevice() {
 #ifdef HAVE_WIN32_MICROPHONE
 	return winMic->getDeviceCounts() >= 1;
 #elif PPSSPP_PLATFORM(ANDROID)
-	return audioRecording_Available();
+	return System_AudioRecordingIsAvailable();
 #endif
 	return false;
 }

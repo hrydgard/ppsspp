@@ -388,7 +388,6 @@ class LibretroHost : public Host
       LibretroHost() {}
       bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
       void ShutdownGraphics() override {}
-      void InitSound() override {}
       void UpdateSound() override
       {
          int hostAttemptBlockSize = __AudioGetHostAttemptBlockSize();
@@ -399,8 +398,6 @@ class LibretroHost : public Host
          int samples = __AudioMix(audio, hostAttemptBlockSize, SAMPLERATE);
          AudioBufferWrite(audio, samples);
       }
-      void ShutdownSound() override {}
-      bool IsDebuggingEnabled() override { return false; }
       bool AttemptLoadSymbolMap() override { return false; }
 };
 
@@ -1873,6 +1870,13 @@ bool System_GetPropertyBool(SystemProperty prop)
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
 
+void System_Notify(SystemNotification notification) {
+   switch (notification) {
+   default:
+      break;
+   }
+}
+
 void System_SendMessage(const char *command, const char *parameter) {}
 void NativeUpdate() {}
 void NativeRender(GraphicsContext *graphicsContext) {}
@@ -1881,9 +1885,9 @@ void NativeResized() {}
 void System_Toast(const char *str) {}
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-std::vector<std::string> __cameraGetDeviceList() { return std::vector<std::string>(); }
-bool audioRecording_Available() { return false; }
-bool audioRecording_State() { return false; }
+std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }
+bool System_AudioRecordingIsAvailable() { return false; }
+bool System_AudioRecordingState() { return false; }
 
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 #endif

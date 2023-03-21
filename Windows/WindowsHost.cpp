@@ -175,43 +175,12 @@ void WindowsHost::SetWindowTitle(const char *message) {
 	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 }
 
-void WindowsHost::InitSound() {
-}
-
 // UGLY!
 extern WindowsAudioBackend *winAudioBackend;
 
 void WindowsHost::UpdateSound() {
 	if (winAudioBackend)
 		winAudioBackend->Update();
-}
-
-void WindowsHost::ShutdownSound() {
-}
-
-void WindowsHost::UpdateUI() {
-	PostMessage(mainWindow_, MainWindow::WM_USER_UPDATE_UI, 0, 0);
-
-	int peers = GetInstancePeerCount();
-	if (PPSSPP_ID >= 1 && peers != lastNumInstances_) {
-		lastNumInstances_ = peers;
-		PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
-	}
-}
-
-void WindowsHost::UpdateMemView() {
-	if (memoryWindow)
-		PostDialogMessage(memoryWindow, WM_DEB_UPDATE);
-}
-
-void WindowsHost::UpdateDisassembly() {
-	if (disasmWindow)
-		PostDialogMessage(disasmWindow, WM_DEB_UPDATE);
-}
-
-void WindowsHost::SetDebugMode(bool mode) {
-	if (disasmWindow)
-		PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
 }
 
 void WindowsHost::PollControllers() {
@@ -264,14 +233,6 @@ void WindowsHost::PollControllers() {
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = g_mouseDeltaY;
 }
 
-void WindowsHost::BootDone() {
-	if (g_symbolMap)
-		g_symbolMap->SortSymbols();
-	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
-
-	SetDebugMode(!g_Config.bAutoRun);
-}
-
 static Path SymbolMapFilename(const Path &currentFilename, const char *ext) {
 	File::FileInfo info{};
 	// can't fail, definitely exists if it gets this far
@@ -296,20 +257,6 @@ bool WindowsHost::AttemptLoadSymbolMap() {
 void WindowsHost::SaveSymbolMap() {
 	if (g_symbolMap)
 		g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
-}
-
-void WindowsHost::NotifySymbolMapUpdated() {
-	if (g_symbolMap)
-		g_symbolMap->SortSymbols();
-	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
-}
-
-bool WindowsHost::IsDebuggingEnabled() {
-#ifdef _DEBUG
-	return true;
-#else
-	return false;
-#endif
 }
 
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
@@ -345,10 +292,6 @@ HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathL
 	CoUninitialize();
 
 	return hres; 
-}
-
-bool WindowsHost::CanCreateShortcut() { 
-	return false;  // Turn on when below function fixed
 }
 
 bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string gameTitle) {
@@ -400,8 +343,4 @@ void WindowsHost::NotifyUserMessage(const std::string &message, float duration, 
 
 void WindowsHost::SendUIMessage(const std::string &message, const std::string &value) {
 	NativeMessageReceived(message.c_str(), value.c_str());
-}
-
-void WindowsHost::NotifySwitchUMDUpdated() {
-	PostMessage(mainWindow_, MainWindow::WM_USER_SWITCHUMD_UPDATED, 0, 0);
 }

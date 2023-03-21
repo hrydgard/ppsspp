@@ -218,23 +218,6 @@ int Win32Mix(short *buffer, int numSamples, int bits, int rate) {
 static LogListener *logger = nullptr;
 Path boot_filename;
 
-void NativeHost::InitSound() {
-#if PPSSPP_PLATFORM(IOS)
-	iOSCoreAudioInit();
-#endif
-}
-
-void NativeHost::ShutdownSound() {
-#if PPSSPP_PLATFORM(IOS)
-	iOSCoreAudioShutdown();
-#endif
-}
-
-#if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-void QtHost::InitSound() { }
-void QtHost::ShutdownSound() { }
-#endif
-
 std::string NativeQueryConfig(std::string query) {
 	char temp[128];
 	if (query == "screenRotation") {
@@ -834,14 +817,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	isOuya = KeyMap::IsOuya(sysName);
 
-#if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-	MainWindow *mainWindow = new MainWindow(nullptr, g_Config.UseFullScreen());
-	mainWindow->show();
-	if (host == nullptr) {
-		host = new QtHost(mainWindow);
-	}
-#endif
-
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
 	CheckFailedGPUBackends();
@@ -919,6 +894,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	}
 
 	INFO_LOG(SYSTEM, "NativeInitGraphics completed");
+
 	return true;
 }
 

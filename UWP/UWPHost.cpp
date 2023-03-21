@@ -64,28 +64,9 @@ void UWPHost::ShutdownGraphics() {
 }
 
 void UWPHost::SetWindowTitle(const char *message) {
-	// Should really be done differently
-}
-
-void UWPHost::InitSound() {
 }
 
 void UWPHost::UpdateSound() {
-}
-
-void UWPHost::ShutdownSound() {
-}
-
-void UWPHost::UpdateUI() {
-}
-
-void UWPHost::UpdateMemView() {
-}
-
-void UWPHost::UpdateDisassembly() {
-}
-
-void UWPHost::SetDebugMode(bool mode) {
 }
 
 void UWPHost::PollControllers() {
@@ -114,13 +95,6 @@ void UWPHost::PollControllers() {
 	*/
 }
 
-void UWPHost::BootDone() {
-	g_symbolMap->SortSymbols();
-
-	SetDebugMode(false);
-	Core_EnableStepping(false);
-}
-
 static Path SymbolMapFilename(const Path &currentFilename, const char *ext) {
 	File::FileInfo info;
 	// can't fail, definitely exists if it gets this far
@@ -142,23 +116,6 @@ bool UWPHost::AttemptLoadSymbolMap() {
 
 void UWPHost::SaveSymbolMap() {
 	g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
-}
-
-void UWPHost::NotifySymbolMapUpdated() {
-	g_symbolMap->SortSymbols();
-}
-
-bool UWPHost::IsDebuggingEnabled() {
-	return false;
-}
-
-bool UWPHost::CanCreateShortcut() {
-	return false;  // Turn on when below function fixed
-}
-
-bool UWPHost::CreateDesktopShortcut(std::string argumentPath, std::string gameTitle) {
-	// TODO: not working correctly
-	return false;
 }
 
 void UWPHost::ToggleDebugConsoleVisibility() {
