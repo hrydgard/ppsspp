@@ -12,10 +12,7 @@ public:
 	UWPHost();
 	~UWPHost();
 
-	// If returns false, will return a null context
-	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override;
 	void PollControllers() override;
-	void ShutdownGraphics() override;
 
 	void UpdateSound() override;
 

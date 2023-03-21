@@ -72,8 +72,9 @@ void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
 	OutputDebugStringUTF8(output.c_str());
 }
 
-bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
+bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx, GPUCore core) {
 	hWnd = CreateHiddenWindow();
+	gpuCore_ = core;
 
 	if (WINDOW_VISIBLE) {
 		ShowWindow(hWnd, TRUE);

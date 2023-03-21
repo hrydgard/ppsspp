@@ -165,7 +165,7 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	return success;
 }
 
-bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
+bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx, GPUCore core) {
 	GraphicsContext *graphicsContext = new GLDummyGraphicsContext();
 	*ctx = graphicsContext;
 	gfx_ = graphicsContext;

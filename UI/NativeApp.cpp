@@ -1426,12 +1426,6 @@ void NativeShutdown() {
 		screenManager = nullptr;
 	}
 
-	if (host) {
-		host->ShutdownGraphics();
-		delete host;
-		host = nullptr;
-	}
-
 #if !PPSSPP_PLATFORM(UWP)
 #endif
 	g_Config.Save("NativeShutdown");
