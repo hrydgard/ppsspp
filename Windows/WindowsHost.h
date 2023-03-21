@@ -34,8 +34,6 @@ public:
 		UpdateConsolePosition();
 	}
 
-	void SetDebugMode(bool mode) override;
-
 	// If returns false, will return a null context
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override;
 	void PollControllers() override;

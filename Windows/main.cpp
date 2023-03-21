@@ -384,9 +384,8 @@ void System_Notify(SystemNotification notification) {
 			g_symbolMap->SortSymbols();
 		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
 
-		bool mode = !g_Config.bAutoRun;
 		if (disasmWindow)
-			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
+			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
 		break;
 	}
 
@@ -420,6 +419,11 @@ void System_Notify(SystemNotification notification) {
 
 	case SystemNotification::SWITCH_UMD_UPDATED:
 		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_SWITCHUMD_UPDATED, 0, 0);
+		break;
+
+	case SystemNotification::DEBUG_MODE_CHANGE:
+		if (disasmWindow)
+			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
 		break;
 	}
 }

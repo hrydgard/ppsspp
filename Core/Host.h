@@ -27,8 +27,6 @@ class Host {
 public:
 	virtual ~Host() {}
 
-	virtual void SetDebugMode(bool mode) { }
-
 	virtual bool InitGraphics(std::string *error_string, GraphicsContext **ctx) = 0;
 	virtual void ShutdownGraphics() = 0;
 

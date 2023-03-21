@@ -21,6 +21,8 @@
 #include "UI/OnScreenDisplay.h"
 
 #include "Qt/mainwindow.h"
+#include "Core/Debugger/SymbolMap.h"
+
 
 class QtHost : public Host {
 public:
@@ -28,8 +30,6 @@ public:
 	{
 		mainWindow = mainWindow_;
 	}
-
-	void SetDebugMode(bool mode) override {}
 
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
 	void ShutdownGraphics() override {}

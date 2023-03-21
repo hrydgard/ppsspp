@@ -189,11 +189,6 @@ void WindowsHost::UpdateSound() {
 void WindowsHost::ShutdownSound() {
 }
 
-void WindowsHost::SetDebugMode(bool mode) {
-	if (disasmWindow)
-		PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
-}
-
 void WindowsHost::PollControllers() {
 	static int checkCounter = 0;
 	static const int CHECK_FREQUENCY = 71;

@@ -834,14 +834,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	isOuya = KeyMap::IsOuya(sysName);
 
-#if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-	MainWindow *mainWindow = new MainWindow(nullptr, g_Config.UseFullScreen());
-	mainWindow->show();
-	if (host == nullptr) {
-		host = new QtHost(mainWindow);
-	}
-#endif
-
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
 	CheckFailedGPUBackends();

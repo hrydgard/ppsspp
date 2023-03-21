@@ -26,8 +26,6 @@
 // TODO: Get rid of this junk
 class HeadlessHost : public Host {
 public:
-	void SetDebugMode(bool mode) override { }
-
 	void SetGraphicsCore(GPUCore core) { gpuCore_ = core; }
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override {return false;}
 	void ShutdownGraphics() override {}

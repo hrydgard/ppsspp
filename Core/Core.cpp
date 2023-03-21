@@ -368,20 +368,19 @@ bool Core_Run(GraphicsContext *ctx) {
 
 void Core_EnableStepping(bool step, const char *reason, u32 relatedAddress) {
 	if (step) {
-		host->SetDebugMode(true);
 		Core_UpdateState(CORE_STEPPING);
 		steppingCounter++;
 		_assert_msg_(reason != nullptr, "No reason specified for break");
 		steppingReason = reason;
 		steppingAddress = relatedAddress;
 	} else {
-		host->SetDebugMode(false);
 		// Clear the exception if we resume.
 		Core_ResetException();
 		coreState = CORE_RUNNING;
 		coreStatePending = false;
 		m_StepCond.notify_all();
 	}
+	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
 }
 
 bool Core_NextFrame() {

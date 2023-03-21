@@ -75,8 +75,6 @@ void UWPHost::UpdateSound() {
 void UWPHost::ShutdownSound() {
 }
 
-void UWPHost::SetDebugMode(bool mode) {}
-
 void UWPHost::PollControllers() {
 	for (const auto& device : this->input)
 	{

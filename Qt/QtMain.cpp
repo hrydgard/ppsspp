@@ -40,6 +40,8 @@
 #include "Common/Profiler/Profiler.h"
 
 #include "QtMain.h"
+#include "QtHost.h"
+#include "Qt/mainwindow.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -57,6 +59,7 @@ static float refreshRate = 60.f;
 static int browseFileEvent = -1;
 static int browseFolderEvent = -1;
 QTCamera *qtcamera = nullptr;
+MainWindow *g_mainWindow;
 
 #ifdef SDL
 SDL_AudioSpec g_retFmt;
@@ -259,7 +262,7 @@ void System_Notify(SystemNotification notification) {
 	switch (notification) {
 	case SystemNotification::BOOT_DONE:
 		g_symbolMap->SortSymbols();
-		mainWindow->Notify(MainWindowMsg::BOOT_DONE);
+		g_mainWindow->Notify(MainWindowMsg::BOOT_DONE);
 		break;
 	case SystemNotification::SYMBOL_MAP_UPDATED:
 		if (g_symbolMap)
@@ -781,6 +784,12 @@ int main(int argc, char *argv[])
 	external_dir += "/";
 
 	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), external_dir.c_str(), nullptr);
+
+	g_mainWindow = new MainWindow(nullptr, g_Config.UseFullScreen());
+	g_mainWindow->show();
+	if (host == nullptr) {
+		host = new QtHost(g_mainWindow);
+	}
 
 	// TODO: Support other backends than GL, like Vulkan, in the Qt backend.
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
