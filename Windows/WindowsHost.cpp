@@ -270,12 +270,6 @@ void WindowsHost::SaveSymbolMap() {
 		g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
 }
 
-void WindowsHost::NotifySymbolMapUpdated() {
-	if (g_symbolMap)
-		g_symbolMap->SortSymbols();
-	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
-}
-
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
 HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathLink, LPCWSTR lpszDesc) { 
 	HRESULT hres; 

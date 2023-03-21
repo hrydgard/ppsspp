@@ -411,6 +411,12 @@ void System_Notify(SystemNotification notification) {
 		if (disasmWindow)
 			PostDialogMessage(disasmWindow, WM_DEB_UPDATE);
 		break;
+
+	case SystemNotification::SYMBOL_MAP_UPDATED:
+		if (g_symbolMap)
+			g_symbolMap->SortSymbols();
+		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
+		break;
 	}
 }
 

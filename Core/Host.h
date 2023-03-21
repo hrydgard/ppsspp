@@ -27,7 +27,6 @@ class Host {
 public:
 	virtual ~Host() {}
 
-	virtual void NotifySymbolMapUpdated() {}
 	virtual void SetDebugMode(bool mode) { }
 	virtual void NotifySwitchUMDUpdated() {}
 

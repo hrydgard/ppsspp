@@ -47,6 +47,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/Camera.h"
+#include "Core/Debugger/SymbolMap.h"
 
 #include <signal.h>
 #include <string.h>
@@ -259,6 +260,10 @@ void System_Notify(SystemNotification notification) {
 	case SystemNotification::BOOT_DONE:
 		g_symbolMap->SortSymbols();
 		mainWindow->Notify(MainWindowMsg::BOOT_DONE);
+		break;
+	case SystemNotification::SYMBOL_MAP_UPDATED:
+		if (g_symbolMap)
+			g_symbolMap->SortSymbols();
 		break;
 	default:
 		break;

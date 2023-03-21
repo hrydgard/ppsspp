@@ -37,7 +37,6 @@ public:
 	void ShutdownSound() override {}
 
 	bool AttemptLoadSymbolMap() override { g_symbolMap->Clear(); return false; }
-	void NotifySymbolMapUpdated() override {}
 
 	bool ShouldSkipUI() override { return true; }
 

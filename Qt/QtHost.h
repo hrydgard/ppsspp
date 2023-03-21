@@ -20,7 +20,6 @@
 #include "Core/Host.h"
 #include "UI/OnScreenDisplay.h"
 
-#include "Core/Debugger/SymbolMap.h"
 #include "Qt/mainwindow.h"
 
 class QtHost : public Host {
@@ -43,8 +42,6 @@ public:
 		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
 		return g_symbolMap->LoadSymbolMap(fn);
 	}
-
-	void NotifySymbolMapUpdated() override { g_symbolMap->SortSymbols(); }
 
 	void PrepareShutdown() {
 		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
