@@ -189,26 +189,6 @@ void WindowsHost::UpdateSound() {
 void WindowsHost::ShutdownSound() {
 }
 
-void WindowsHost::UpdateUI() {
-	PostMessage(mainWindow_, MainWindow::WM_USER_UPDATE_UI, 0, 0);
-
-	int peers = GetInstancePeerCount();
-	if (PPSSPP_ID >= 1 && peers != lastNumInstances_) {
-		lastNumInstances_ = peers;
-		PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
-	}
-}
-
-void WindowsHost::UpdateMemView() {
-	if (memoryWindow)
-		PostDialogMessage(memoryWindow, WM_DEB_UPDATE);
-}
-
-void WindowsHost::UpdateDisassembly() {
-	if (disasmWindow)
-		PostDialogMessage(disasmWindow, WM_DEB_UPDATE);
-}
-
 void WindowsHost::SetDebugMode(bool mode) {
 	if (disasmWindow)
 		PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);

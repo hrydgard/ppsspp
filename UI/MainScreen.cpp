@@ -964,9 +964,7 @@ UI::EventReturn GameBrowser::GridSettingsClick(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::OnRecentClear(UI::EventParams &e) {
 	screenManager_->RecreateAllViews();
-	if (host) {
-		host->UpdateUI();
-	}
+	System_Notify(SystemNotification::UI);
 	return UI::EVENT_DONE;
 }
 

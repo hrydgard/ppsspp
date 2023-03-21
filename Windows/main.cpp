@@ -47,6 +47,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/SaveState.h"
+#include "Core/Instance.h"
 #include "Windows/EmuThread.h"
 #include "Windows/WindowsAudio.h"
 #include "ext/disarm.h"
@@ -110,6 +111,7 @@ int g_activeWindow = 0;
 
 static std::thread inputBoxThread;
 static bool inputBoxRunning = false;
+int g_lastNumInstances = 0;
 
 void System_ShowFileInFolder(const char *path) {
 	// SHParseDisplayName can't handle relative paths, so normalize first.
@@ -377,6 +379,7 @@ static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, L
 void System_Notify(SystemNotification notification) {
 	switch (notification) {
 	case SystemNotification::BOOT_DONE:
+	{
 		if (g_symbolMap)
 			g_symbolMap->SortSymbols();
 		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
@@ -384,6 +387,29 @@ void System_Notify(SystemNotification notification) {
 		bool mode = !g_Config.bAutoRun;
 		if (disasmWindow)
 			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
+		break;
+	}
+
+	case SystemNotification::UI:
+	{
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
+
+		int peers = GetInstancePeerCount();
+		if (PPSSPP_ID >= 1 && peers != g_lastNumInstances) {
+			g_lastNumInstances = peers;
+			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
+		}
+		break;
+	}
+
+	case SystemNotification::MEM_VIEW:
+		if (memoryWindow)
+			PostDialogMessage(memoryWindow, WM_DEB_UPDATE);
+		break;
+
+	case SystemNotification::DISASSEMBLY:
+		if (disasmWindow)
+			PostDialogMessage(disasmWindow, WM_DEB_UPDATE);
 		break;
 	}
 }

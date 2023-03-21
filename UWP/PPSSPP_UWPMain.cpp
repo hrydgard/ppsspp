@@ -438,13 +438,6 @@ bool System_GetPropertyBool(SystemProperty prop) {
 
 void System_Notify(SystemNotification notification) {
 	switch (notification) {
-	case SystemNotification::BOOT_DONE:
-		g_symbolMap->SortSymbols();
-
-		SetDebugMode(false);
-		Core_EnableStepping(false);
-		break;
-
 	default:
 		break;
 	}

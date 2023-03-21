@@ -431,9 +431,7 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 		auto langScreen = new NewLanguageScreen(sy->T("Language"));
 		langScreen->OnChoice.Add([](UI::EventParams &) {
 			NativeMessageReceived("recreateviews", "");
-			if (host) {
-				host->UpdateUI();
-			}
+			System_Notify(SystemNotification::UI);
 			return UI::EVENT_DONE;
 		});
 		manager->push(langScreen);

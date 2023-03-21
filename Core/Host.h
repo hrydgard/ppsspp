@@ -27,9 +27,6 @@ class Host {
 public:
 	virtual ~Host() {}
 
-	virtual void UpdateUI() {}
-	virtual void UpdateMemView() {}
-	virtual void UpdateDisassembly() {}
 	virtual void NotifySymbolMapUpdated() {}
 	virtual void SetDebugMode(bool mode) { }
 	virtual void NotifySwitchUMDUpdated() {}

@@ -308,8 +308,8 @@ void Core_ProcessStepping() {
 	static int lastSteppingCounter = -1;
 	if (lastSteppingCounter != steppingCounter) {
 		CBreakPoints::ClearTemporaryBreakPoints();
-		host->UpdateDisassembly();
-		host->UpdateMemView();
+		System_Notify(SystemNotification::DISASSEMBLY);
+		System_Notify(SystemNotification::MEM_VIEW);
 		lastSteppingCounter = steppingCounter;
 	}
 
@@ -320,15 +320,15 @@ void Core_ProcessStepping() {
 	if (doStep && coreState == CORE_STEPPING) {
 		Core_SingleStep();
 		// Update disasm dialog.
-		host->UpdateDisassembly();
-		host->UpdateMemView();
+		System_Notify(SystemNotification::DISASSEMBLY);
+		System_Notify(SystemNotification::MEM_VIEW);
 	}
 }
 
 // Many platforms, like Android, do not call this function but handle things on their own.
 // Instead they simply call NativeRender and NativeUpdate directly.
 bool Core_Run(GraphicsContext *ctx) {
-	host->UpdateDisassembly();
+	System_Notify(SystemNotification::DISASSEMBLY);
 	while (true) {
 		if (GetUIState() != UISTATE_INGAME) {
 			Core_StateProcessed();

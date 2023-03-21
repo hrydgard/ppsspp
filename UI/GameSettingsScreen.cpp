@@ -913,8 +913,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 		auto langScreen = new NewLanguageScreen(sy->T("Language"));
 		langScreen->OnChoice.Add([&](UI::EventParams &e) {
 			screenManager()->RecreateAllViews();
-			if (host)
-				host->UpdateUI();
+			System_Notify(SystemNotification::UI);
 			return UI::EVENT_DONE;
 		});
 		if (e.v)
@@ -1362,7 +1361,7 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 		g_Config.unloadGameConfig();
 	}
 
-	host->UpdateUI();
+	System_Notify(SystemNotification::UI);
 
 	KeyMap::UpdateNativeMenuKeys();
 
@@ -1895,7 +1894,7 @@ void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 	if (yes) {
 		g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS);
 	}
-	host->UpdateUI();
+	System_Notify(SystemNotification::UI);
 }
 
 UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {

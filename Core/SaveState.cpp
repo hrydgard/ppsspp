@@ -1080,7 +1080,7 @@ namespace SaveState
 				return;
 			}
 			System_Notify(SystemNotification::BOOT_DONE);
-			host->UpdateDisassembly();
+			System_Notify(SystemNotification::DISASSEMBLY);
 			needsRestart = false;
 		}
 	}

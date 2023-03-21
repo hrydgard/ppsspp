@@ -30,16 +30,6 @@ public:
 		mainWindow = mainWindow_;
 	}
 
-	void UpdateUI() override {
-		mainWindow->updateMenus();
-	}
-
-	void UpdateMemView() override {
-	}
-	void UpdateDisassembly() override {
-		mainWindow->updateMenus();
-	}
-
 	void SetDebugMode(bool mode) override {}
 
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }

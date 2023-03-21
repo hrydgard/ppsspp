@@ -26,11 +26,6 @@
 // TODO: Get rid of this junk
 class HeadlessHost : public Host {
 public:
-	void UpdateUI() override {}
-
-	void UpdateMemView() override {}
-	void UpdateDisassembly() override {}
-
 	void SetDebugMode(bool mode) override { }
 
 	void SetGraphicsCore(GPUCore core) { gpuCore_ = core; }

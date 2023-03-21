@@ -24,11 +24,6 @@ class NativeHost : public Host {
 public:
 	NativeHost() {}
 
-	void UpdateUI() override {}
-
-	void UpdateMemView() override {}
-	void UpdateDisassembly() override {}
-
 	void SetDebugMode(bool mode) override { }
 
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }

@@ -161,7 +161,7 @@ void MainThreadFunc() {
 		// Let's continue (and probably crash) just so they have a way to keep trying.
 	}
 
-	host->UpdateUI();
+	System_Notify(SystemNotification::UI);
 
 	std::string error_string;
 	bool success = host->InitGraphics(&error_string, &g_graphicsContext);

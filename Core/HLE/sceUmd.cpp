@@ -17,6 +17,7 @@
 
 #include <vector>
 
+#include "Common/System/System.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
@@ -104,8 +105,9 @@ void __UmdDoState(PointerWrap &p)
 
 	if (s > 1) {
 		Do(p, UMDReplacePermit);
-		if (UMDReplacePermit)
-			host->UpdateUI();
+		if (UMDReplacePermit) {
+			System_Notify(SystemNotification::UI);
+		}
 	}
 	if (s > 2) {
 		Do(p, umdInsertChangeEvent);

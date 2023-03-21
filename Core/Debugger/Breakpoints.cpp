@@ -19,6 +19,7 @@
 #include <atomic>
 #include <mutex>
 
+#include "Common/System/System.h"
 #include "Common/Log.h"
 #include "Core/Core.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -674,7 +675,7 @@ void CBreakPoints::Update(u32 addr) {
 	}
 
 	// Redraw in order to show the breakpoint.
-	host->UpdateDisassembly();
+	System_Notify(SystemNotification::DISASSEMBLY);
 }
 
 bool CBreakPoints::ValidateLogFormat(DebugInterface *cpu, const std::string &fmt) {

@@ -12,9 +12,6 @@ public:
 	UWPHost();
 	~UWPHost();
 
-	void UpdateMemView() override;
-	void UpdateDisassembly() override;
-	void UpdateUI() override;
 	void SetDebugMode(bool mode) override;
 
 	// If returns false, will return a null context

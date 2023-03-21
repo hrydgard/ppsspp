@@ -64,7 +64,6 @@ void UWPHost::ShutdownGraphics() {
 }
 
 void UWPHost::SetWindowTitle(const char *message) {
-	// Should really be done differently
 }
 
 void UWPHost::InitSound() {
@@ -74,15 +73,6 @@ void UWPHost::UpdateSound() {
 }
 
 void UWPHost::ShutdownSound() {
-}
-
-void UWPHost::UpdateUI() {
-}
-
-void UWPHost::UpdateMemView() {
-}
-
-void UWPHost::UpdateDisassembly() {
 }
 
 void UWPHost::SetDebugMode(bool mode) {}

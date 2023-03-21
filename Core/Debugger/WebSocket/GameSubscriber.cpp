@@ -55,8 +55,9 @@ void WebSocketGameReset(DebuggerRequest &req) {
 		ERROR_LOG(BOOT, "Error resetting: %s", resetError.c_str());
 		return req.Fail("Could not reset");
 	}
+
 	System_Notify(SystemNotification::BOOT_DONE);
-	host->UpdateDisassembly();
+	System_Notify(SystemNotification::DISASSEMBLY);
 
 	req.Respond();
 }
