@@ -109,13 +109,6 @@ void WindowsHost::UpdateConsolePosition() {
 	}
 }
 
-bool WindowsHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
-	return true;
-}
-
-void WindowsHost::ShutdownGraphics() {
-}
-
 void WindowsHost::SetWindowTitle(const char *message) {
 #ifdef GOLD
 	const char *name = "PPSSPP Gold ";

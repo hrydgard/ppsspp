@@ -30,7 +30,7 @@ typedef void *SDL_GLContext;
 class SDLHeadlessHost : public HeadlessHost
 {
 public:
-	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override;
+	bool InitGraphics(std::string *error_message, GraphicsContext **ctx, GPUCore core) override;
 	void ShutdownGraphics() override;
 
 	void SwapBuffers() override;

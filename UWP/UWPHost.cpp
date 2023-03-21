@@ -54,15 +54,6 @@ void UWPHost::SetConsolePosition() {
 void UWPHost::UpdateConsolePosition() {
 }
 
-bool UWPHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
-	// Done elsewhere
-	return true;
-}
-
-void UWPHost::ShutdownGraphics() {
-	// Done elsewhere
-}
-
 void UWPHost::SetWindowTitle(const char *message) {
 }
 

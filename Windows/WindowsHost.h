@@ -32,10 +32,7 @@ public:
 		UpdateConsolePosition();
 	}
 
-	// If returns false, will return a null context
-	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override;
 	void PollControllers() override;
-	void ShutdownGraphics() override;
 
 	void UpdateSound() override;
 
@@ -49,8 +46,6 @@ public:
 
 	void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) override;
 	void SendUIMessage(const std::string &message, const std::string &value) override;
-
-	GraphicsContext *GetGraphicsContext() { return gfx_; }
 
 private:
 	void SetConsolePosition();

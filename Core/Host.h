@@ -27,9 +27,6 @@ class Host {
 public:
 	virtual ~Host() {}
 
-	virtual bool InitGraphics(std::string *error_string, GraphicsContext **ctx) = 0;
-	virtual void ShutdownGraphics() = 0;
-
 	virtual void UpdateSound() {}  // still needed for libretro, will need a proper effort.
 	virtual void PollControllers() {}
 	virtual void ToggleDebugConsoleVisibility() {}

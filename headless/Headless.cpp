@@ -409,12 +409,11 @@ int main(int argc, const char* argv[])
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
 	HeadlessHost *headlessHost = getHost(gpuCore);
-	headlessHost->SetGraphicsCore(gpuCore);
 	host = headlessHost;
 
 	std::string error_string;
 	GraphicsContext *graphicsContext = nullptr;
-	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
+	bool glWorking = ((HeadlessHost *)host)->InitGraphics(&error_string, &graphicsContext, gpuCore);
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = cpuCore;
@@ -578,7 +577,7 @@ int main(int argc, const char* argv[])
 		ShutdownWebServer();
 	}
 
-	host->ShutdownGraphics();
+	 ((HeadlessHost *)host)->ShutdownGraphics();
 	delete host;
 	host = nullptr;
 	headlessHost = nullptr;

@@ -24,9 +24,6 @@ class NativeHost : public Host {
 public:
 	NativeHost() {}
 
-	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
-	void ShutdownGraphics() override {}
-
 	void UpdateSound() override {}
 
 	bool AttemptLoadSymbolMap() override {return false;}

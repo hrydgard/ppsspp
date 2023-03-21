@@ -23,12 +23,10 @@
 #include "Core/Host.h"
 #include "Core/Debugger/SymbolMap.h"
 
-// TODO: Get rid of this junk
 class HeadlessHost : public Host {
 public:
-	void SetGraphicsCore(GPUCore core) { gpuCore_ = core; }
-	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override {return false;}
-	void ShutdownGraphics() override {}
+	virtual bool InitGraphics(std::string *error_message, GraphicsContext **ctx, GPUCore core) {return false;}
+	virtual void ShutdownGraphics() {}
 
 	void UpdateSound() override {}
 

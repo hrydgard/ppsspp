@@ -386,8 +386,6 @@ class LibretroHost : public Host
 {
    public:
       LibretroHost() {}
-      bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
-      void ShutdownGraphics() override {}
       void UpdateSound() override
       {
          int hostAttemptBlockSize = __AudioGetHostAttemptBlockSize();
