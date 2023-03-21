@@ -53,13 +53,6 @@
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
 
-#if PPSSPP_API(ANY_GL)
-#include "Windows/GPU/WindowsGLContext.h"
-#endif
-#include "Windows/GPU/WindowsVulkanContext.h"
-#include "Windows/GPU/D3D9Context.h"
-#include "Windows/GPU/D3D11Context.h"
-
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
@@ -117,42 +110,10 @@ void WindowsHost::UpdateConsolePosition() {
 }
 
 bool WindowsHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
-	WindowsGraphicsContext *graphicsContext = nullptr;
-	switch (g_Config.iGPUBackend) {
-#if PPSSPP_API(ANY_GL)
-	case (int)GPUBackend::OPENGL:
-		graphicsContext = new WindowsGLContext();
-		break;
-#endif
-	case (int)GPUBackend::DIRECT3D9:
-		graphicsContext = new D3D9Context();
-		break;
-	case (int)GPUBackend::DIRECT3D11:
-		graphicsContext = new D3D11Context();
-		break;
-	case (int)GPUBackend::VULKAN:
-		graphicsContext = new WindowsVulkanContext();
-		break;
-	default:
-		return false;
-	}
-
-	if (graphicsContext->Init(hInstance_, displayWindow_, error_message)) {
-		*ctx = graphicsContext;
-		gfx_ = graphicsContext;
-		return true;
-	} else {
-		delete graphicsContext;
-		*ctx = nullptr;
-		gfx_ = nullptr;
-		return false;
-	}
+	return true;
 }
 
 void WindowsHost::ShutdownGraphics() {
-	gfx_->Shutdown();
-	delete gfx_;
-	gfx_ = nullptr;
 }
 
 void WindowsHost::SetWindowTitle(const char *message) {

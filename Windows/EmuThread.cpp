@@ -26,6 +26,13 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 
+#if PPSSPP_API(ANY_GL)
+#include "Windows/GPU/WindowsGLContext.h"
+#endif
+#include "Windows/GPU/WindowsVulkanContext.h"
+#include "Windows/GPU/D3D9Context.h"
+#include "Windows/GPU/D3D11Context.h"
+
 enum class EmuThreadState {
 	DISABLED,
 	START_REQUESTED,
@@ -112,6 +119,37 @@ static void EmuThreadJoin() {
 	INFO_LOG(SYSTEM, "EmuThreadJoin - joined");
 }
 
+bool CreateGraphicsBackend(std::string *error_message, GraphicsContext **ctx) {
+	WindowsGraphicsContext *graphicsContext = nullptr;
+	switch (g_Config.iGPUBackend) {
+#if PPSSPP_API(ANY_GL)
+	case (int)GPUBackend::OPENGL:
+		graphicsContext = new WindowsGLContext();
+		break;
+#endif
+	case (int)GPUBackend::DIRECT3D9:
+		graphicsContext = new D3D9Context();
+		break;
+	case (int)GPUBackend::DIRECT3D11:
+		graphicsContext = new D3D11Context();
+		break;
+	case (int)GPUBackend::VULKAN:
+		graphicsContext = new WindowsVulkanContext();
+		break;
+	default:
+		return false;
+	}
+
+	if (graphicsContext->Init(MainWindow::GetHInstance(), MainWindow::GetDisplayHWND(), error_message)) {
+		*ctx = graphicsContext;
+		return true;
+	} else {
+		delete graphicsContext;
+		*ctx = nullptr;
+		return false;
+	}
+}
+
 void MainThreadFunc() {
 	if (useEmuThread) {
 		// We'll start up a separate thread we'll call Emu
@@ -164,7 +202,7 @@ void MainThreadFunc() {
 	System_Notify(SystemNotification::UI);
 
 	std::string error_string;
-	bool success = host->InitGraphics(&error_string, &g_graphicsContext);
+	bool success = CreateGraphicsBackend(&error_string, &g_graphicsContext);
 
 	if (success) {
 		// Main thread is the render thread.
@@ -299,7 +337,8 @@ shutdown:
 	g_graphicsContext->ThreadEnd();
 	g_graphicsContext->ShutdownFromRenderThread();
 
-	// NativeShutdown deletes the graphics context through host->ShutdownGraphics().
+	g_graphicsContext->Shutdown();
+
 	NativeShutdown();
 
 	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);

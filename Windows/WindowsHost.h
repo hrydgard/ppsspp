@@ -24,8 +24,6 @@
 extern float g_mouseDeltaX;
 extern float g_mouseDeltaY;
 
-class GraphicsContext;
-
 class WindowsHost : public Host {
 public:
 	WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindow);
@@ -61,7 +59,6 @@ private:
 	HINSTANCE hInstance_;
 	HWND displayWindow_;
 	HWND mainWindow_;
-	GraphicsContext *gfx_ = nullptr;
 	size_t numDinputDevices_ = 0;
 	std::wstring lastTitle_;
 
