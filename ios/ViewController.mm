@@ -8,6 +8,8 @@
 #import "AppDelegate.h"
 #import "ViewController.h"
 #import "DisplayManager.h"
+#import "iOSCoreAudio.h"
+
 #import <GLKit/GLKit.h>
 #include <cassert>
 
@@ -254,7 +256,7 @@ static LocationHelper *locationHelper;
 		return;
 	}
 
-	Audio_Shutdown();
+	iOSCoreAudioShutdown();
 
 	if (threadEnabled) {
 		threadEnabled = false;

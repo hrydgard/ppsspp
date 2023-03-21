@@ -1,5 +1,6 @@
 #import "AppDelegate.h"
 #import "ViewController.h"
+#import "iOSCoreAudio.h"
 #import "Common/System/System.h"
 #import "Common/System/NativeApp.h"
 #import "Core/System.h"
@@ -16,59 +17,59 @@
 // for AVAudioSessionInterruptionNotification
 -(void) handleAudioSessionInterruption:(NSNotification *)notification {
 	NSNumber *interruptionType = notification.userInfo[AVAudioSessionInterruptionTypeKey];
-	
+
 	// Sanity check in case it's somehow not an NSNumber
 	if (![interruptionType respondsToSelector:@selector(unsignedIntegerValue)]) {
 		return;  // Lets not crash
 	}
-	
+
 	switch ([interruptionType unsignedIntegerValue]) {
 		case AVAudioSessionInterruptionTypeBegan:
 			INFO_LOG(SYSTEM, "ios audio session interruption beginning");
 			if (g_Config.bEnableSound) {
-				Audio_Shutdown();
+				iOSCoreAudioShutdown();
 			}
 			break;
-			
+
 		case AVAudioSessionInterruptionTypeEnded:
 			INFO_LOG(SYSTEM, "ios audio session interruption ending");
 			if (g_Config.bEnableSound) {
-				/* 
+				/*
 				 * Only try to reinit audio if in the foreground, otherwise
 				 * it may fail. Instead, trust that applicationDidBecomeActive
 				 * will do it later.
 				 */
-				if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) { 
-					Audio_Init();
+				if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) {
+					iOSCoreAudioInit();
 				}
 			}
 			break;
-			
+
 		default:
 			break;
 	};
 }
 
-// This will be called when the iOS's shared media process was reset 
+// This will be called when the iOS's shared media process was reset
 // Registered in application:didFinishLaunchingWithOptions:
 // for AVAudioSessionMediaServicesWereResetNotification
 -(void) handleMediaServicesWereReset:(NSNotification *)notification {
 	INFO_LOG(SYSTEM, "ios media services were reset - reinitializing audio");
-	
+
 	/*
 	 When media services were reset, Apple recommends:
-	 1) Dispose of orphaned audio objects (such as players, recorders, 
+	 1) Dispose of orphaned audio objects (such as players, recorders,
 	    converters, or audio queues) and create new ones
-	 2) Reset any internal audio states being tracked, including all 
+	 2) Reset any internal audio states being tracked, including all
 	    properties of AVAudioSession
-	 3) When appropriate, reactivate the AVAudioSession instance using the 
+	 3) When appropriate, reactivate the AVAudioSession instance using the
 	    setActive:error: method
 	 We accomplish this by shutting down and reinitializing audio
 	 */
-	
+
 	if (g_Config.bEnableSound) {
-		Audio_Shutdown();
-		Audio_Init();
+		iOSCoreAudioShutdown();
+		iOSCoreAudioInit();
 	}
 }
 
@@ -91,14 +92,14 @@
 
 	self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
 	self.viewController = [[ViewController alloc] init];
-	
+
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
-	
+
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
-	
+
 	self.window.rootViewController = self.viewController;
 	[self.window makeKeyAndVisible];
-	
+
 	return YES;
 }
 
@@ -108,18 +109,18 @@
 
 -(void) applicationWillResignActive:(UIApplication *)application {
 	if (g_Config.bEnableSound) {
-		Audio_Shutdown();
+		iOSCoreAudioShutdown();
 	}
-	
-	NativeMessageReceived("lost_focus", "");	
+
+	NativeMessageReceived("lost_focus", "");
 }
 
 -(void) applicationDidBecomeActive:(UIApplication *)application {
 	if (g_Config.bEnableSound) {
-		Audio_Init();
+		iOSCoreAudioInit();
 	}
-	
-	NativeMessageReceived("got_focus", "");	
+
+	NativeMessageReceived("got_focus", "");
 }
 
 - (void)applicationWillTerminate:(UIApplication *)application {

@@ -218,23 +218,6 @@ int Win32Mix(short *buffer, int numSamples, int bits, int rate) {
 static LogListener *logger = nullptr;
 Path boot_filename;
 
-void NativeHost::InitSound() {
-#if PPSSPP_PLATFORM(IOS)
-	iOSCoreAudioInit();
-#endif
-}
-
-void NativeHost::ShutdownSound() {
-#if PPSSPP_PLATFORM(IOS)
-	iOSCoreAudioShutdown();
-#endif
-}
-
-#if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-void QtHost::InitSound() { }
-void QtHost::ShutdownSound() { }
-#endif
-
 std::string NativeQueryConfig(std::string query) {
 	char temp[128];
 	if (query == "screenRotation") {
@@ -911,6 +894,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	}
 
 	INFO_LOG(SYSTEM, "NativeInitGraphics completed");
+
 	return true;
 }
 

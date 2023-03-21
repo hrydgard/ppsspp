@@ -39,9 +39,7 @@ public:
 	void PollControllers() override;
 	void ShutdownGraphics() override;
 
-	void InitSound() override;
 	void UpdateSound() override;
-	void ShutdownSound() override;
 
 	bool AttemptLoadSymbolMap() override;
 	void SaveSymbolMap() override;

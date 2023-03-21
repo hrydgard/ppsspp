@@ -30,9 +30,7 @@ public:
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override {return false;}
 	void ShutdownGraphics() override {}
 
-	void InitSound() override {}
 	void UpdateSound() override {}
-	void ShutdownSound() override {}
 
 	bool AttemptLoadSymbolMap() override { g_symbolMap->Clear(); return false; }
 

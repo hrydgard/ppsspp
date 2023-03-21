@@ -175,18 +175,12 @@ void WindowsHost::SetWindowTitle(const char *message) {
 	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 }
 
-void WindowsHost::InitSound() {
-}
-
 // UGLY!
 extern WindowsAudioBackend *winAudioBackend;
 
 void WindowsHost::UpdateSound() {
 	if (winAudioBackend)
 		winAudioBackend->Update();
-}
-
-void WindowsHost::ShutdownSound() {
 }
 
 void WindowsHost::PollControllers() {

@@ -27,9 +27,7 @@ public:
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
 	void ShutdownGraphics() override {}
 
-	void InitSound() override;
 	void UpdateSound() override {}
-	void ShutdownSound() override;
 
 	bool AttemptLoadSymbolMap() override {return false;}
 	void SetWindowTitle(const char *message) override {}

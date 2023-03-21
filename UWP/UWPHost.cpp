@@ -66,13 +66,7 @@ void UWPHost::ShutdownGraphics() {
 void UWPHost::SetWindowTitle(const char *message) {
 }
 
-void UWPHost::InitSound() {
-}
-
 void UWPHost::UpdateSound() {
-}
-
-void UWPHost::ShutdownSound() {
 }
 
 void UWPHost::PollControllers() {

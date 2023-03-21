@@ -1343,11 +1343,6 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 }
 
 void GameSettingsScreen::onFinish(DialogResult result) {
-	if (g_Config.bEnableSound) {
-		if (PSP_IsInited() && !IsAudioInitialised())
-			Audio_Init();
-	}
-
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	Reporting::UpdateConfig();
 	if (!g_Config.Save("GameSettingsScreen::onFinish")) {

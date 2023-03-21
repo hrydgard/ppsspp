@@ -156,24 +156,6 @@ std::string GetGPUBackendDevice() {
 	return gpuBackendDevice;
 }
 
-bool IsAudioInitialised() {
-	return audioInitialized;
-}
-
-void Audio_Init() {
-	if (!audioInitialized) {
-		audioInitialized = true;
-		host->InitSound();
-	}
-}
-
-void Audio_Shutdown() {
-	if (audioInitialized) {
-		audioInitialized = false;
-		host->ShutdownSound();
-	}
-}
-
 bool CPU_IsReady() {
 	if (coreState == CORE_POWERUP)
 		return false;
@@ -302,10 +284,6 @@ bool CPU_Init(std::string *errorString) {
 
 	host->AttemptLoadSymbolMap();
 
-	if (g_CoreParameter.enableSound) {
-		Audio_Init();
-	}
-
 	CoreTiming::Init();
 
 	// Init all the HLE modules
@@ -353,9 +331,6 @@ void CPU_Shutdown() {
 	CoreTiming::Shutdown();
 	__KernelShutdown();
 	HLEShutdown();
-	if (g_CoreParameter.enableSound) {
-		Audio_Shutdown();
-	}
 
 	pspFileSystem.Shutdown();
 	mipsr4k.Shutdown();

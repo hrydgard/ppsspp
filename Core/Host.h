@@ -30,9 +30,7 @@ public:
 	virtual bool InitGraphics(std::string *error_string, GraphicsContext **ctx) = 0;
 	virtual void ShutdownGraphics() = 0;
 
-	virtual void InitSound() = 0;
 	virtual void UpdateSound() {}
-	virtual void ShutdownSound() = 0;
 	virtual void PollControllers() {}
 	virtual void ToggleDebugConsoleVisibility() {}
 
