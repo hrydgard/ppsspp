@@ -41,7 +41,6 @@ void NativeUpdate() { }
 void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
-void System_SendMessage(const char *command, const char *parameter) {}
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}

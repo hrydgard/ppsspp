@@ -89,10 +89,10 @@ void *exception_handler(void *argument) {
 	return NULL;
 }
 
-static float g_safeInsetLeft = 0.0;
-static float g_safeInsetRight = 0.0;
-static float g_safeInsetTop = 0.0;
-static float g_safeInsetBottom = 0.0;
+float g_safeInsetLeft = 0.0;
+float g_safeInsetRight = 0.0;
+float g_safeInsetTop = 0.0;
+float g_safeInsetBottom = 0.0;
 
 // We no longer need to judge if jit is usable or not by according to the ios version.
 /*
@@ -176,8 +176,6 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {}
-
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
 	case SystemRequestType::EXIT_APP:
@@ -227,7 +225,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::GPS_COMMAND:
 		if (param1 == "open") {
 			startLocation();
-		} else if (param1 == "close")) {
+		} else if (param1 == "close") {
 			stopLocation();
 		}
 		return true;

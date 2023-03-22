@@ -1210,7 +1210,7 @@ UI::EventReturn GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnSustainedPerformanceModeChange(UI::EventParams &e) {
-	System_SendMessage("sustainedPerfMode", "");
+	System_Notify(SystemNotification::SUSTAINED_PERF_CHANGE);
 	return UI::EVENT_DONE;
 }
 

@@ -160,6 +160,11 @@ static LocationHelper *locationHelper;
 	});
 }
 
+extern float g_safeInsetLeft;
+extern float g_safeInsetRight;
+extern float g_safeInsetTop;
+extern float g_safeInsetBottom;
+
 - (void)viewSafeAreaInsetsDidChange {
 	if (@available(iOS 11.0, *)) {
 		[super viewSafeAreaInsetsDidChange];

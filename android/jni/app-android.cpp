@@ -401,11 +401,6 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {
-	// TODO: Using sendmessage this way is deprecated.
-	PushCommand(command, parameter);
-}
-
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:
@@ -1036,6 +1031,9 @@ void System_Notify(SystemNotification notification) {
 	case SystemNotification::IMMERSIVE_MODE_CHANGE:
 		PushCommand("immersive", "");
 		break;
+	case SystemNotification::SUSTAINED_PERF_CHANGE:
+		PushCommand("sustainedPerfMode", "");
+		break;
 	}
 }
 
@@ -1074,6 +1072,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	case SystemRequestType::SHARE_TEXT:
 		PushCommand("share_text", param1);
+		return true;
+	case SystemRequestType::NOTIFY_UI_STATE:
+		PushCommand("uistate", param1);
 		return true;
 	default:
 		return false;

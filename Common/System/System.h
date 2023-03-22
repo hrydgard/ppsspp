@@ -73,6 +73,7 @@ enum class SystemRequestType {
 	MICROPHONE_COMMAND,
 
 	SHARE_TEXT,
+	NOTIFY_UI_STATE,  // Used on Android only. Not a SystemNotification since it takes a parameter.
 };
 
 // Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).
@@ -81,9 +82,6 @@ enum class SystemRequestType {
 // or ignore that cleanly.
 // Some requests don't use responses.
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3);
-
-// TODO: To be separated into requests, see Request.h, and a way to post "UI messages".
-void System_SendMessage(const char *command, const char *parameter);
 
 PermissionStatus System_GetPermissionStatus(SystemPermission permission);
 void System_AskForPermission(SystemPermission permission);
@@ -181,6 +179,7 @@ enum class SystemNotification {
 	FORCE_RECREATE_ACTIVITY,
 	IMMERSIVE_MODE_CHANGE,
 	AUDIO_RESET_DEVICE,
+	SUSTAINED_PERF_CHANGE,
 };
 
 std::string System_GetProperty(SystemProperty prop);

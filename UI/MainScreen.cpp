@@ -980,7 +980,6 @@ UI::EventReturn GameBrowser::OnHomebrewStore(UI::EventParams &e) {
 }
 
 MainScreen::MainScreen() {
-	System_SendMessage("event", "mainscreen");
 	g_BackgroundAudio.SetGame(Path());
 }
 

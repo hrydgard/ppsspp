@@ -116,3 +116,7 @@ inline void System_MicrophoneCommand(const std::string &command) {
 inline void System_ShareText(const std::string &text) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SHARE_TEXT, nullptr, text, "", 0);
 }
+
+inline void System_NotifyUIState(const std::string &state) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::NOTIFY_UI_STATE, nullptr, state, "", 0);
+}

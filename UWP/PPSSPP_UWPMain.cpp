@@ -507,8 +507,6 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {}
-
 void System_ShowFileInFolder(const char *path) {
 	// Unsupported
 }

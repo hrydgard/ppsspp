@@ -343,7 +343,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		qApp->exit(0);
 		return true;
 	case SystemRequestType::COPY_TO_CLIPBOARD:
-		QApplication::clipboard()->setText(parameter);
+		QApplication::clipboard()->setText(param1.c_str());
 		return true;
 	case SystemRequestType::INPUT_TEXT_MODAL:
 	{
@@ -371,11 +371,11 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFolderEvent));
 		return true;
 	case SystemRequestType::CAMERA_COMMAND:
-		if (!strncmp(parameter, "startVideo", 10)) {
+		if (!strncmp(param1.c_str(), "startVideo", 10)) {
 			int width = 0, height = 0;
-			sscanf(parameter, "startVideo_%dx%d", &width, &height);
+			sscanf(param1.c_str(), "startVideo_%dx%d", &width, &height);
 			emit(qtcamera->onStartCamera(width, height));
-		} else if (!strcmp(parameter, "stopVideo")) {
+		} else if (param1 == "stopVideo") {
 			emit(qtcamera->onStopCamera());
 		}
 		return true;
@@ -384,7 +384,6 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {}
 void System_Toast(const char *text) {}
 
 void System_AskForPermission(SystemPermission permission) {}
