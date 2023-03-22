@@ -30,7 +30,7 @@
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Battery/Battery.h"
 #include "Common/System/NativeApp.h"
 #include "Common/Data/Color/RGBAUtil.h"
@@ -913,8 +913,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 		auto langScreen = new NewLanguageScreen(sy->T("Language"));
 		langScreen->OnChoice.Add([&](UI::EventParams &e) {
 			screenManager()->RecreateAllViews();
-			if (host)
-				host->UpdateUI();
+			System_Notify(SystemNotification::UI);
 			return UI::EVENT_DONE;
 		});
 		if (e.v)
@@ -963,9 +962,12 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 
 	systemSettings->Add(new ItemHeader(sy->T("PSP Memory Stick")));
 
-#if (defined(USING_QT_UI) || PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC)) && !PPSSPP_PLATFORM(UWP)
-	systemSettings->Add(new Choice(sy->T("Show Memory Stick folder")))->OnClick.Handle(this, &GameSettingsScreen::OnOpenMemStick);
-#endif
+	if (System_GetPropertyBool(SYSPROP_HAS_OPEN_DIRECTORY)) {
+		systemSettings->Add(new Choice(sy->T("Show Memory Stick folder")))->OnClick.Add([](UI::EventParams &p) {
+			System_ShowFileInFolder(File::ResolvePath(g_Config.memStickDirectory.ToString()).c_str());
+			return UI::EVENT_DONE;
+		});
+	}
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	systemSettings->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
@@ -1210,7 +1212,7 @@ void RecreateActivity() {
 
 UI::EventReturn GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
 	auto n = GetI18NCategory("Networking");
-	LaunchBrowser(n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
 	return UI::EVENT_DONE;
 }
 
@@ -1235,16 +1237,11 @@ UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 	DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
 		DarwinFileSystemServices::setUserPreferredMemoryStickDirectory(thePathChosen);
     };
-	
+
 	memoryStickManager.presentDirectoryPanel(callback);
 #else
 	screenManager()->push(new MemStickScreen(false));
 #endif
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnOpenMemStick(UI::EventParams &e) {
-	OpenDirectory(File::ResolvePath(g_Config.memStickDirectory.ToString()).c_str());
 	return UI::EVENT_DONE;
 }
 
@@ -1315,12 +1312,17 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
 		File::Delete(bgPng);
 		File::Delete(bgJpg);
-
-		NativeMessageReceived("bgImage_updated", "");
+		UIBackgroundShutdown();
 	} else {
-		if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
-			System_SendMessage("bgImage_browse", "");
-		}
+		auto sy = GetI18NCategory("System");
+		System_BrowseForImage(sy->T("Set UI background..."), [](const std::string &value, int) {
+			if (!value.empty()) {
+				Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
+				File::Copy(Path(value), dest);
+			}
+			// It will init again automatically.  We can't init outside a frame on Vulkan.
+			UIBackgroundShutdown();
+		});
 	}
 
 	// Change to a browse or clear button.
@@ -1346,11 +1348,6 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 }
 
 void GameSettingsScreen::onFinish(DialogResult result) {
-	if (g_Config.bEnableSound) {
-		if (PSP_IsInited() && !IsAudioInitialised())
-			Audio_Init();
-	}
-
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	Reporting::UpdateConfig();
 	if (!g_Config.Save("GameSettingsScreen::onFinish")) {
@@ -1364,7 +1361,7 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 		g_Config.unloadGameConfig();
 	}
 
-	host->UpdateUI();
+	System_Notify(SystemNotification::UI);
 
 	KeyMap::UpdateNativeMenuKeys();
 
@@ -1572,10 +1569,8 @@ UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Enter Quick Chat 1"), g_Config.sQuickChat0, [](bool result, const std::string &value) {
-		if (result) {
-			g_Config.sQuickChat0 = value;
-		}
+	System_InputBoxGetString(n->T("Enter Quick Chat 1"), g_Config.sQuickChat0, [](const std::string &value, int) {
+		g_Config.sQuickChat0 = value;
 	});
 #endif
 	return UI::EVENT_DONE;
@@ -1584,10 +1579,8 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Enter Quick Chat 2"), g_Config.sQuickChat1, [](bool result, const std::string &value) {
-		if (result) {
-			g_Config.sQuickChat1 = value;
-		}
+	System_InputBoxGetString(n->T("Enter Quick Chat 2"), g_Config.sQuickChat1, [](const std::string &value, int) {
+		g_Config.sQuickChat1 = value;
 	});
 #endif
 	return UI::EVENT_DONE;
@@ -1596,10 +1589,8 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Enter Quick Chat 3"), g_Config.sQuickChat2, [](bool result, const std::string &value) {
-		if (result) {
-			g_Config.sQuickChat2 = value;
-		}
+	System_InputBoxGetString(n->T("Enter Quick Chat 3"), g_Config.sQuickChat2, [](const std::string &value, int) {
+		g_Config.sQuickChat2 = value;
 	});
 #endif
 	return UI::EVENT_DONE;
@@ -1608,10 +1599,8 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Enter Quick Chat 4"), g_Config.sQuickChat3, [](bool result, const std::string &value) {
-		if (result) {
-			g_Config.sQuickChat3 = value;
-		}
+	System_InputBoxGetString(n->T("Enter Quick Chat 4"), g_Config.sQuickChat3, [](const std::string &value, int) {
+		g_Config.sQuickChat3 = value;
 	});
 #endif
 	return UI::EVENT_DONE;
@@ -1620,10 +1609,8 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Enter Quick Chat 5"), g_Config.sQuickChat4, [](bool result, const std::string &value) {
-		if (result) {
-			g_Config.sQuickChat4 = value;
-		}
+	System_InputBoxGetString(n->T("Enter Quick Chat 5"), g_Config.sQuickChat4, [](const std::string &value, int) {
+		g_Config.sQuickChat4 = value;
 	});
 #endif
 	return UI::EVENT_DONE;
@@ -1632,10 +1619,8 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Enter a new PSP nickname"), g_Config.sNickName, [](bool result, const std::string &value) {
-		if (result) {
-			g_Config.sNickName = StripSpaces(value);
-		}
+	System_InputBoxGetString(n->T("Enter a new PSP nickname"), g_Config.sNickName, [](const std::string &value, int) {
+		g_Config.sNickName = StripSpaces(value);
 	});
 #endif
 	return UI::EVENT_DONE;
@@ -1731,10 +1716,8 @@ UI::EventReturn GameSettingsScreen::OnSysInfo(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeSearchFilter(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
 	auto se = GetI18NCategory("Search");
-	System_InputBoxGetString(se->T("Search term"), searchFilter_, [](bool result, const std::string &value) {
-		if (result) {
-			NativeMessageReceived("gameSettings_search", StripSpaces(value).c_str());
-		}
+	System_InputBoxGetString(se->T("Search term"), searchFilter_, [](const std::string &value, int) {
+		NativeMessageReceived("gameSettings_search", StripSpaces(value).c_str());
 	});
 #else
 	if (!System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
@@ -1897,7 +1880,7 @@ void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 	if (yes) {
 		g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS);
 	}
-	host->UpdateUI();
+	System_Notify(SystemNotification::UI);
 }
 
 UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
@@ -2106,10 +2089,8 @@ UI::EventReturn HostnameSelectScreen::OnDeleteAllClick(UI::EventParams &e) {
 UI::EventReturn HostnameSelectScreen::OnEditClick(UI::EventParams& e) {
 	auto n = GetI18NCategory("Networking");
 #if PPSSPP_PLATFORM(ANDROID)
-	System_InputBoxGetString(n->T("proAdhocServer Address:"), addrView_->GetText(), [this](bool result, const std::string& value) {
-		if (result) {
-		    addrView_->SetText(value);
-		}
+	System_InputBoxGetString(n->T("proAdhocServer Address:"), addrView_->GetText(), [this](const std::string& value, int) {
+	    addrView_->SetText(value);
 	});
 #endif
 	return UI::EVENT_DONE;

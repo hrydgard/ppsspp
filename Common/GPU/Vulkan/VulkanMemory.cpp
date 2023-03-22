@@ -18,6 +18,7 @@
 // Additionally, Common/Vulkan/* , including this file, are also licensed
 // under the public domain.
 
+#include <algorithm>
 #include <set>
 #include <mutex>
 
@@ -25,17 +26,31 @@
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Common/Math/math_util.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
+#include "Common/Data/Text/Parsers.h"
 
 using namespace PPSSPP_VK;
+
+// Always keep around push buffers at least this long (seconds).
+static const double PUSH_GARBAGE_COLLECTION_DELAY = 10.0;
 
 // Global push buffer tracker for vulkan memory profiling.
 // Don't want to manually dig up all the active push buffers.
 static std::mutex g_pushBufferListMutex;
-static std::set<VulkanPushBuffer *> g_pushBuffers;
+static std::set<VulkanMemoryManager *> g_pushBuffers;
 
-VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, const char *name, size_t size, VkBufferUsageFlags usage, PushBufferType type)
-		: vulkan_(vulkan), name_(name), size_(size), usage_(usage), type_(type) {
+std::vector<VulkanMemoryManager *> GetActiveVulkanMemoryManagers() {
+	std::vector<VulkanMemoryManager *> buffers;
+	std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
+	for (auto iter : g_pushBuffers) {
+		buffers.push_back(iter);
+	}
+	return buffers;
+}
+
+VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, const char *name, size_t size, VkBufferUsageFlags usage)
+		: vulkan_(vulkan), name_(name), size_(size), usage_(usage) {
 	{
 		std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
 		g_pushBuffers.insert(this);
@@ -55,15 +70,6 @@ VulkanPushBuffer::~VulkanPushBuffer() {
 	_assert_(buffers_.empty());
 }
 
-std::vector<VulkanPushBuffer *> VulkanPushBuffer::GetAllActive() {
-	std::vector<VulkanPushBuffer *> buffers;
-	std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
-	for (auto iter : g_pushBuffers) {
-		buffers.push_back(iter);
-	}
-	return buffers;
-}
-
 bool VulkanPushBuffer::AddBuffer() {
 	BufInfo info;
 	VkDevice device = vulkan_->GetDevice();
@@ -77,7 +83,7 @@ bool VulkanPushBuffer::AddBuffer() {
 	b.pQueueFamilyIndices = nullptr;
 
 	VmaAllocationCreateInfo allocCreateInfo{};
-	allocCreateInfo.usage = type_ == PushBufferType::CPU_TO_GPU ? VMA_MEMORY_USAGE_CPU_TO_GPU : VMA_MEMORY_USAGE_GPU_ONLY;
+	allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
 	VmaAllocationInfo allocInfo{};
 
 	VkResult res = vmaCreateBuffer(vulkan_->Allocator(), &b, &allocCreateInfo, &info.buffer, &info.allocation, &allocInfo);
@@ -103,8 +109,7 @@ void VulkanPushBuffer::Destroy(VulkanContext *vulkan) {
 
 void VulkanPushBuffer::NextBuffer(size_t minSize) {
 	// First, unmap the current memory.
-	if (type_ == PushBufferType::CPU_TO_GPU)
-		Unmap();
+	Unmap();
 
 	buf_++;
 	if (buf_ >= buffers_.size() || minSize > size_) {
@@ -123,8 +128,7 @@ void VulkanPushBuffer::NextBuffer(size_t minSize) {
 
 	// Now, move to the next buffer and map it.
 	offset_ = 0;
-	if (type_ == PushBufferType::CPU_TO_GPU)
-		Map();
+	Map();
 }
 
 void VulkanPushBuffer::Defragment(VulkanContext *vulkan) {
@@ -149,8 +153,13 @@ size_t VulkanPushBuffer::GetTotalSize() const {
 	return sum;
 }
 
-size_t VulkanPushBuffer::GetTotalCapacity() const {
-	return size_ * buffers_.size();
+void VulkanPushBuffer::GetDebugString(char *buffer, size_t bufSize) const {
+	size_t sum = 0;
+	if (buffers_.size() > 1)
+		sum += size_ * (buffers_.size() - 1);
+	sum += offset_;
+	size_t capacity = size_ * buffers_.size();
+	snprintf(buffer, bufSize, "Push %s: %s / %s", name_, NiceSizeFormat(sum).c_str(), NiceSizeFormat(capacity).c_str());
 }
 
 void VulkanPushBuffer::Map() {
@@ -263,4 +272,149 @@ VkResult VulkanDescSetPool::Recreate(bool grow) {
 		vulkan_->SetDebugName(descPool_, VK_OBJECT_TYPE_DESCRIPTOR_POOL, tag_);
 	}
 	return result;
+}
+
+VulkanPushPool::VulkanPushPool(VulkanContext *vulkan, const char *name, size_t originalBlockSize, VkBufferUsageFlags usage)
+	: vulkan_(vulkan), name_(name), originalBlockSize_(originalBlockSize), usage_(usage) {
+	{
+		std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
+		g_pushBuffers.insert(this);
+	}
+
+	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
+		blocks_.push_back(CreateBlock(originalBlockSize));
+		blocks_.back().original = true;
+		blocks_.back().frameIndex = i;
+	}
+}
+
+VulkanPushPool::~VulkanPushPool() {
+	{
+		std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
+		g_pushBuffers.erase(this);
+	}
+
+	_dbg_assert_(blocks_.empty());
+}
+
+void VulkanPushPool::Destroy() {
+	for (auto &block : blocks_) {
+		block.Destroy(vulkan_);
+	}
+	blocks_.clear();
+}
+
+VulkanPushPool::Block VulkanPushPool::CreateBlock(size_t size) {
+	Block block{};
+	block.size = size;
+	block.frameIndex = -1;
+
+	VkBufferCreateInfo b{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+	b.size = size;
+	b.usage = usage_;
+	b.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	VmaAllocationCreateInfo allocCreateInfo{};
+	allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+	VmaAllocationInfo allocInfo{};
+	
+	VkResult result = vmaCreateBuffer(vulkan_->Allocator(), &b, &allocCreateInfo, &block.buffer, &block.allocation, &allocInfo);
+	_assert_(result == VK_SUCCESS);
+
+	result = vmaMapMemory(vulkan_->Allocator(), block.allocation, (void **)(&block.writePtr));
+	_assert_(result == VK_SUCCESS);
+
+	return block;
+}
+
+VulkanPushPool::Block::~Block() {}
+
+void VulkanPushPool::Block::Destroy(VulkanContext *vulkan) {
+	vmaUnmapMemory(vulkan->Allocator(), allocation);
+	vulkan->Delete().QueueDeleteBufferAllocation(buffer, allocation);
+}
+
+void VulkanPushPool::BeginFrame() {
+	double now = time_now_d();
+	curBlockIndex_ = -1;
+	for (auto &block : blocks_) {
+		if (block.frameIndex == vulkan_->GetCurFrame()) {
+			if (curBlockIndex_ == -1) {
+				// Pick a block associated with the current frame to start at.
+				// We always start with one block per frame index.
+				curBlockIndex_ = block.frameIndex;
+				block.lastUsed = now;
+			}
+			block.used = 0;
+			if (!block.original) {
+				// Return block to the common pool
+				block.frameIndex = -1;
+			}
+		}
+	}
+
+	// Do a single pass of bubblesort to move the bigger buffers earlier in the sequence.
+	// Over multiple frames this will quickly converge to the right order.
+	for (size_t i = 3; i < blocks_.size() - 1; i++) {
+		if (blocks_[i].frameIndex == -1 && blocks_[i + 1].frameIndex == -1 && blocks_[i].size < blocks_[i + 1].size) {
+			std::swap(blocks_[i], blocks_[i + 1]);
+		}
+	}
+
+	// If we have lots of little buffers and the last one hasn't been used in a while, drop it.
+	// Still, let's keep around a few big ones (6 - 3).
+	if (blocks_.size() > 6 && blocks_.back().lastUsed < now - PUSH_GARBAGE_COLLECTION_DELAY) {
+		double start = time_now_d();
+		size_t size = blocks_.back().size;
+		blocks_.back().Destroy(vulkan_);
+		blocks_.pop_back();
+		DEBUG_LOG(G3D, "%s: Garbage collected block of size %s in %0.2f ms", name_, NiceSizeFormat(size).c_str(), time_now_d() - start);
+	}
+}
+
+void VulkanPushPool::NextBlock(VkDeviceSize allocationSize) {
+	int curFrameIndex = vulkan_->GetCurFrame();
+	curBlockIndex_++;
+	while (curBlockIndex_ < blocks_.size()) {
+		Block &block = blocks_[curBlockIndex_];
+		// Grab the first matching block, or unused block (frameIndex == -1).
+		if ((block.frameIndex == curFrameIndex || block.frameIndex == -1) && block.size >= allocationSize) {
+			_assert_(block.used == 0);
+			block.used = allocationSize;
+			block.lastUsed = time_now_d();
+			block.frameIndex = curFrameIndex;
+			return;
+		}
+		curBlockIndex_++;
+	}
+
+	double start = time_now_d();
+	VkDeviceSize newBlockSize = std::max(originalBlockSize_ * 2, (VkDeviceSize)RoundUpToPowerOf2((uint32_t)allocationSize));
+	// We're still here and ran off the end of blocks. Create a new one.
+	blocks_.push_back(CreateBlock(newBlockSize));
+	blocks_.back().frameIndex = curFrameIndex;
+	blocks_.back().used = allocationSize;
+	blocks_.back().lastUsed = time_now_d();
+	// curBlockIndex_ is already set correctly here.
+	DEBUG_LOG(G3D, "%s: Created new block of size %s in %0.2f ms", name_, NiceSizeFormat(newBlockSize).c_str(), 1000.0 * (time_now_d() - start));
+}
+
+size_t VulkanPushPool::GetUsedThisFrame() const {
+	size_t used = 0;
+	for (auto &block : blocks_) {
+		if (block.frameIndex == vulkan_->GetCurFrame()) {
+			used += block.used;
+		}
+	}
+	return used;
+}
+
+void VulkanPushPool::GetDebugString(char *buffer, size_t bufSize) const {
+	size_t used = 0;
+	size_t capacity = 0;
+	for (auto &block : blocks_) {
+		used += block.used;
+		capacity += block.size;
+	}
+
+	snprintf(buffer, bufSize, "Pool %s: %s / %s (%d extra blocks)", name_, NiceSizeFormat(used).c_str(), NiceSizeFormat(capacity).c_str(), (int)blocks_.size() - 3);
 }

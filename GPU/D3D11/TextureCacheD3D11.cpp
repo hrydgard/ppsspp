@@ -261,7 +261,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		dstFmt = ToDXGIFormat(plan.replaced->Format());
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -298,11 +298,11 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		int stride = 0;
 
 		int dataSize;
-		if (plan.replaceValid) {
+		if (plan.doReplace) {
 			int blockSize = 0;
 			if (Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), &blockSize)) {
-				stride = ((mipWidth + 3) & ~3) * 4;  // This stride value doesn't quite make sense to me, but it works.
-				dataSize = plan.replaced->GetLevelDataSize(i);
+				stride = ((mipWidth + 3) & ~3) * blockSize / 4;  // Number of blocks * 4 * Size of a block / 4
+				dataSize = plan.replaced->GetLevelDataSizeAfterCopy(i);
 			} else {
 				int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
 				stride = std::max(mipWidth * bpp, 16);
@@ -338,7 +338,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 			return;
 		}
 
-		LoadTextureLevel(*entry, data, stride, plan, srcLevel, texFmt, TexDecodeFlags{});
+		LoadTextureLevel(*entry, data, 0, stride, plan, srcLevel, texFmt, TexDecodeFlags{});
 	}
 
 	int tw;
@@ -364,7 +364,6 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		desc.Format = dstFmt;
 		desc.MipLevels = levels;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-
 		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, subresData, &tex));
 		texture = tex;
 	} else {
@@ -405,7 +404,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
 	}
 
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 
 		if (!Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), nullptr)) {

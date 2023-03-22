@@ -60,8 +60,8 @@ jclass findClass(const char *name) {
 	return nullptr;
 }
 
-bool audioRecording_Available() { return false; }
-bool audioRecording_State() { return false; }
+bool System_AudioRecordingIsAvailable() { return false; }
+bool System_AudioRecordingState() { return false; }
 #endif
 
 class PrintfLogger : public LogListener {
@@ -108,12 +108,15 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_CAN_JIT:
 			return true;
+		case SYSPROP_SKIP_UI:
+			return true;
 		default:
 			return false;
 	}
 }
-
+void System_Notify(SystemNotification notification) {}
 void System_SendMessage(const char *command, const char *parameter) {}
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) { return false; }
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
@@ -201,7 +204,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		return false;
 	}
 
-	host->BootDone();
+	System_Notify(SystemNotification::BOOT_DONE);
 
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
@@ -407,12 +410,11 @@ int main(int argc, const char* argv[])
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
 	HeadlessHost *headlessHost = getHost(gpuCore);
-	headlessHost->SetGraphicsCore(gpuCore);
 	host = headlessHost;
 
 	std::string error_string;
 	GraphicsContext *graphicsContext = nullptr;
-	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
+	bool glWorking = ((HeadlessHost *)host)->InitGraphics(&error_string, &graphicsContext, gpuCore);
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = cpuCore;
@@ -576,7 +578,7 @@ int main(int argc, const char* argv[])
 		ShutdownWebServer();
 	}
 
-	host->ShutdownGraphics();
+	 ((HeadlessHost *)host)->ShutdownGraphics();
 	delete host;
 	host = nullptr;
 	headlessHost = nullptr;

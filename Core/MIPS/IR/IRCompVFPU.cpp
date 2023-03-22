@@ -72,6 +72,10 @@ namespace MIPSComp {
 			     regs[3] == regs[2] + 1;
 	}
 
+	static bool IsVec2(VectorSize sz, const u8 regs[2]) {
+		return sz == V_Pair && IsConsecutive2(regs) && (regs[0] & 1) == 0;
+	}
+
 	static bool IsVec4(VectorSize sz, const u8 regs[4]) {
 		return sz == V_Quad && IsConsecutive4(regs) && (regs[0] & 3) == 0;
 	}
@@ -1534,10 +1538,10 @@ namespace MIPSComp {
 
 		int nOut = GetNumVectorElements(outsize);
 
-		// If src registers aren't contiguous, make them (mainly for bits == 8.)
-		if (sz == V_Quad && !IsVec4(sz, sregs)) {
+		// If src registers aren't contiguous, make them.
+		if (!IsVec2(sz, sregs) && !IsVec4(sz, sregs)) {
 			// T prefix is unused.
-			for (int i = 0; i < 4; i++) {
+			for (int i = 0; i < GetNumVectorElements(sz); i++) {
 				srcregs[i] = IRVTEMP_PFX_T + i;
 				ir.Write(IROp::FMov, srcregs[i], sregs[i]);
 			}

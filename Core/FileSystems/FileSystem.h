@@ -34,6 +34,11 @@ enum FileAccess {
 	FILEACCESS_CREATE   = 8,
 	FILEACCESS_TRUNCATE = 16,
 	FILEACCESS_EXCL     = 32,
+
+	FILEACCESS_PSP_FLAGS = 63,  // Sum of all the above.
+
+	// Non-PSP flags
+	FILEACCESS_PPSSPP_QUIET = 128,
 };
 
 enum FileMove {

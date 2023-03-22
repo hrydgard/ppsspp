@@ -14,7 +14,7 @@
 
 @implementation CameraHelper
 
-std::vector<std::string> __cameraGetDeviceList() {
+std::vector<std::string> System_GetCameraDeviceList() {
     std::vector<std::string> deviceList;
     for (AVCaptureDevice *device in [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo]) {
         deviceList.push_back([device.localizedName UTF8String]);

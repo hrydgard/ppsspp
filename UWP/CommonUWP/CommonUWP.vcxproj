@@ -376,6 +376,7 @@
     <ClInclude Include="..\..\Common\SysError.h" />
     <ClInclude Include="..\..\Common\System\Display.h" />
     <ClInclude Include="..\..\Common\System\NativeApp.h" />
+    <ClInclude Include="..\..\Common\System\Request.h" />
     <ClInclude Include="..\..\Common\System\System.h" />
     <ClInclude Include="..\..\Common\Thread\Channel.h" />
     <ClInclude Include="..\..\Common\Thread\Promise.h" />
@@ -404,6 +405,13 @@
     <ClInclude Include="..\..\Common\VR\VRRenderer.h" />
     <ClInclude Include="..\..\Common\x64Analyzer.h" />
     <ClInclude Include="..\..\Common\x64Emitter.h" />
+    <ClInclude Include="..\..\ext\basis_universal\basisu.h" />
+    <ClInclude Include="..\..\ext\basis_universal\basisu_containers.h" />
+    <ClInclude Include="..\..\ext\basis_universal\basisu_containers_impl.h" />
+    <ClInclude Include="..\..\ext\basis_universal\basisu_file_headers.h" />
+    <ClInclude Include="..\..\ext\basis_universal\basisu_transcoder.h" />
+    <ClInclude Include="..\..\ext\basis_universal\basisu_transcoder_internal.h" />
+    <ClInclude Include="..\..\ext\basis_universal\basisu_transcoder_uastc.h" />
     <ClInclude Include="..\..\ext\libpng17\png.h" />
     <ClInclude Include="..\..\ext\libpng17\pngconf.h" />
     <ClInclude Include="..\..\ext\libpng17\pngdebug.h" />
@@ -503,6 +511,7 @@
     <ClCompile Include="..\..\Common\OSVersion.cpp" />
     <ClCompile Include="..\..\Common\StringUtils.cpp" />
     <ClCompile Include="..\..\Common\System\Display.cpp" />
+    <ClCompile Include="..\..\Common\System\Request.cpp" />
     <ClCompile Include="..\..\Common\Thread\ThreadUtil.cpp" />
     <ClCompile Include="..\..\Common\Thread\ThreadManager.cpp" />
     <ClCompile Include="..\..\Common\Thread\ParallelLoop.cpp" />
@@ -528,6 +537,7 @@
     <ClCompile Include="..\..\Common\VR\VRRenderer.cpp" />
     <ClCompile Include="..\..\Common\x64Analyzer.cpp" />
     <ClCompile Include="..\..\Common\x64Emitter.cpp" />
+    <ClCompile Include="..\..\ext\basis_universal\basisu_transcoder.cpp" />
     <ClCompile Include="..\..\ext\libpng17\png.c" />
     <ClCompile Include="..\..\ext\libpng17\pngerror.c" />
     <ClCompile Include="..\..\ext\libpng17\pngget.c" />
@@ -546,6 +556,16 @@
     <ClCompile Include="..\..\ext\libpng17\pngwutil.c" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_astc.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_astc_0_255.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_atc_55.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_atc_56.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_bc7_m5_alpha.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_bc7_m5_color.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_dxt1_5.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_dxt1_6.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_45.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_alpha_33.inc" />
     <None Include="..\..\ext\libpng17\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>

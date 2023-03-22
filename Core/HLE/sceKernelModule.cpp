@@ -26,6 +26,8 @@
 #include "Common/Serialize/SerializeSet.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/System/System.h"
+
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/HLE/HLE.h"
@@ -1829,7 +1831,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		return false;
 	}
 
-	host->NotifySymbolMapUpdated();
+	System_Notify(SystemNotification::SYMBOL_MAP_UPDATED);
 
 	char moduleName[29] = { 0 };
 	int moduleVersion = module->nm.version[0] | (module->nm.version[1] << 8);

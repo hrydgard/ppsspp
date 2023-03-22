@@ -354,8 +354,8 @@ void EmuScreen::bootGame(const Path &filename) {
 
 void EmuScreen::bootComplete() {
 	UpdateUIState(UISTATE_INGAME);
-	host->BootDone();
-	host->UpdateDisassembly();
+	System_Notify(SystemNotification::BOOT_DONE);
+	System_Notify(SystemNotification::DISASSEMBLY);
 
 	NOTICE_LOG(BOOT, "Loading %s...", PSP_CoreParameter().fileToStart.c_str());
 	autoLoad();
@@ -447,7 +447,7 @@ static void AfterSaveStateAction(SaveState::Status status, const std::string &me
 static void AfterStateBoot(SaveState::Status status, const std::string &message, void *ignored) {
 	AfterSaveStateAction(status, message, ignored);
 	Core_EnableStepping(false);
-	host->UpdateDisassembly();
+	System_Notify(SystemNotification::DISASSEMBLY);
 }
 
 void EmuScreen::sendMessage(const char *message, const char *value) {
@@ -460,12 +460,12 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		bootPending_ = false;
 		stopRender_ = true;
 		invalid_ = true;
-		host->UpdateDisassembly();
+		System_Notify(SystemNotification::DISASSEMBLY);
 	} else if (!strcmp(message, "reset")) {
 		PSP_Shutdown();
 		bootPending_ = true;
 		invalid_ = true;
-		host->UpdateDisassembly();
+		System_Notify(SystemNotification::DISASSEMBLY);
 
 		std::string resetError;
 		if (!PSP_InitStart(PSP_CoreParameter(), &resetError)) {
@@ -1300,7 +1300,7 @@ static void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 			snprintf(fpsbuf, sizeof(fpsbuf), "%s Speed: %0.1f%%", fpsbuf, vps / (59.94f / 100.0f));
 		}
 	}
-	
+
 #ifdef CAN_DISPLAY_CURRENT_BATTERY_CAPACITY
 	if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT) {
 		snprintf(fpsbuf, sizeof(fpsbuf), "%s Battery: %d%%", fpsbuf, getCurrentBatteryCapacity());

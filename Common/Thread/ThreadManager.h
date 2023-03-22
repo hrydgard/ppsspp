@@ -44,7 +44,7 @@ public:
 	}
 };
 
-struct ThreadContext;
+struct TaskThreadContext;
 struct GlobalThreadContext;
 
 class ThreadManager {
@@ -81,7 +81,7 @@ private:
 	int numThreads_ = 0;
 	int numComputeThreads_ = 0;
 
-	friend struct ThreadContext;
+	friend struct TaskThreadContext;
 };
 
 extern ThreadManager g_threadManager;

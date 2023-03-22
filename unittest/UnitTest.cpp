@@ -87,6 +87,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return false;
 	}
 }
+void System_Notify(SystemNotification notification) {}
 
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
@@ -97,8 +98,8 @@ jclass findClass(const char *name) {
 	return nullptr;
 }
 
-bool audioRecording_Available() { return false; }
-bool audioRecording_State() { return false; }
+bool System_AudioRecordingIsAvailable() { return false; }
+bool System_AudioRecordingState() { return false; }
 #endif
 
 #ifndef M_PI_2
@@ -694,7 +695,7 @@ static bool TestAndroidContentURI() {
 	EXPECT_TRUE(fileTreeURI.CanNavigateUp());
 	fileTreeURI.NavigateUp();
 	EXPECT_FALSE(fileTreeURI.CanNavigateUp());
-	
+
 	EXPECT_EQ_STR(fileTreeURI.FilePath(), fileTreeURI.RootPath());
 
 	EXPECT_EQ_STR(fileTreeURI.ToString(), std::string(directoryURIString));

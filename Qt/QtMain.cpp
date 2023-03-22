@@ -34,12 +34,14 @@
 #endif
 
 #include "Common/System/NativeApp.h"
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Math/math_util.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "QtMain.h"
+#include "QtHost.h"
+#include "Qt/mainwindow.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -47,6 +49,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/Camera.h"
+#include "Core/Debugger/SymbolMap.h"
 
 #include <signal.h>
 #include <string.h>
@@ -55,7 +58,10 @@ MainUI *emugl = nullptr;
 static float refreshRate = 60.f;
 static int browseFileEvent = -1;
 static int browseFolderEvent = -1;
+static int inputBoxEvent = -1;
+
 QTCamera *qtcamera = nullptr;
+MainWindow *g_mainWindow;
 
 #ifdef SDL
 SDL_AudioSpec g_retFmt;
@@ -235,6 +241,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_HAS_FILE_BROWSER:
 	case SYSPROP_HAS_FOLDER_BROWSER:
+	case SYSPROP_HAS_OPEN_DIRECTORY:
 		return true;
 	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return true;  // FileUtil.cpp: OpenFileInEditor
@@ -248,6 +255,72 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_HAS_KEYBOARD:
 		return true;
+	default:
+		return false;
+	}
+}
+
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	case SystemNotification::BOOT_DONE:
+		g_symbolMap->SortSymbols();
+		g_mainWindow->Notify(MainWindowMsg::BOOT_DONE);
+		break;
+	case SystemNotification::SYMBOL_MAP_UPDATED:
+		if (g_symbolMap)
+			g_symbolMap->SortSymbols();
+		break;
+	default:
+		break;
+	}
+}
+
+// TODO: Find a better version to pass parameters to HandleCustomEvent.
+static std::string g_param1;
+static std::string g_param2;
+static int g_requestId;
+
+bool MainUI::HandleCustomEvent(QEvent *e) {
+	if (e->type() == browseFileEvent) {
+		QString fileName = QFileDialog::getOpenFileName(nullptr, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip *.ppdmp)");
+		if (QFile::exists(fileName)) {
+			QDir newPath;
+			g_Config.currentDirectory = Path(newPath.filePath(fileName).toStdString());
+			g_Config.Save("browseFileEvent");
+
+			NativeMessageReceived("boot", fileName.toStdString().c_str());
+		}
+	} else if (e->type() == browseFolderEvent) {
+		auto mm = GetI18NCategory("MainMenu");
+		QString fileName = QFileDialog::getExistingDirectory(nullptr, mm->T("Choose folder"), g_Config.currentDirectory.c_str());
+		if (QDir(fileName).exists()) {
+			NativeMessageReceived("browse_folderSelect", fileName.toStdString().c_str());
+		}
+	} else if (e->type() == inputBoxEvent) {
+	    QString title = QString::fromStdString(g_param1);
+	    QString defaultValue = QString::fromStdString(g_param2);
+	    QString text = emugl->InputBoxGetQString(title, defaultValue);
+	    if (text.isEmpty()) {
+	        g_requestManager.PostSystemFailure(g_requestId);
+	    } else {
+	        g_requestManager.PostSystemSuccess(g_requestId, text.toStdString().c_str());
+	    }
+	} else {
+		return false;
+	}
+	return true;
+}
+
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) {
+	switch (type) {
+	case SystemRequestType::INPUT_TEXT_MODAL:
+	{
+		g_requestId = requestId;
+		g_param1 = param1;
+		g_param2 = param2;
+		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)inputBoxEvent));
+		return true;
+	}
 	default:
 		return false;
 	}
@@ -285,27 +358,18 @@ void System_Toast(const char *text) {}
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
-	QString text = emugl->InputBoxGetQString(QString::fromStdString(title), QString::fromStdString(defaultValue));
-	if (text.isEmpty()) {
-		NativeInputBoxReceived(cb, false, "");
-	} else {
-		NativeInputBoxReceived(cb, true, text.toStdString());
-	}
-}
-
-void Vibrate(int length_ms) {
+void System_Vibrate(int length_ms) {
 	if (length_ms == -1 || length_ms == -3)
 		length_ms = 50;
 	else if (length_ms == -2)
 		length_ms = 25;
 }
 
-void OpenDirectory(const char *path) {
+void System_ShowFileInFolder(const char *path) {
 	QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromUtf8(path)));
 }
 
-void LaunchBrowser(const char *url)
+void System_LaunchUrl(LaunchUrlType urlType, const char *url)
 {
 	QDesktopServices::openUrl(QUrl(url));
 }
@@ -335,6 +399,7 @@ static int mainInternal(QApplication &a) {
 
 	browseFileEvent = QEvent::registerEventType();
 	browseFolderEvent = QEvent::registerEventType();
+	inputBoxEvent = QEvent::registerEventType();
 
 	int retval = a.exec();
 	delete emugl;
@@ -546,23 +611,8 @@ bool MainUI::event(QEvent *e) {
 		break;
 
 	default:
-		if (e->type() == browseFileEvent) {
-			QString fileName = QFileDialog::getOpenFileName(nullptr, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip *.ppdmp)");
-			if (QFile::exists(fileName)) {
-				QDir newPath;
-				g_Config.currentDirectory = Path(newPath.filePath(fileName).toStdString());
-				g_Config.Save("browseFileEvent");
-
-				NativeMessageReceived("boot", fileName.toStdString().c_str());
-			}
-			break;
-		} else if (e->type() == browseFolderEvent) {
-			auto mm = GetI18NCategory("MainMenu");
-			QString fileName = QFileDialog::getExistingDirectory(nullptr, mm->T("Choose folder"), g_Config.currentDirectory.c_str());
-			if (QDir(fileName).exists()) {
-				NativeMessageReceived("browse_folderSelect", fileName.toStdString().c_str());
-			}
-		} else {
+		// Can't switch on dynamic event types.
+		if (!HandleCustomEvent(e)) {
 			return QWidget::event(e);
 		}
 	}
@@ -764,6 +814,12 @@ int main(int argc, char *argv[])
 	external_dir += "/";
 
 	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), external_dir.c_str(), nullptr);
+
+	g_mainWindow = new MainWindow(nullptr, g_Config.UseFullScreen());
+	g_mainWindow->show();
+	if (host == nullptr) {
+		host = new QtHost(g_mainWindow);
+	}
 
 	// TODO: Support other backends than GL, like Vulkan, in the Qt backend.
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;

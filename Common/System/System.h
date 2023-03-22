@@ -4,6 +4,16 @@
 #include <vector>
 #include <functional>
 
+// Platform integration
+
+// To run the PPSSPP core, a platform needs to implement all the System_ functions in this file,
+// plus derive an object from Host (see Host.h). The latter will be phased out.
+// Failure to implement all of these will simply cause linker failures. There are a few that are
+// only implemented on specific platforms, but they're also only called on those platforms.
+
+// The platform then calls the entry points from NativeApp.h as appropriate. That's basically it,
+// disregarding build system complexities.
+
 enum SystemPermission {
 	SYSTEM_PERMISSION_STORAGE,
 };
@@ -18,7 +28,7 @@ enum PermissionStatus {
 // These APIs must be implemented by every port (for example app-android.cpp, SDLMain.cpp).
 // Ideally these should be safe to call from any thread.
 void System_Toast(const char *text);
-void ShowKeyboard();
+void System_ShowKeyboard();
 
 // Vibrate either takes a number of milliseconds to vibrate unconditionally,
 // or you can specify these constants for "standard" feedback. On Android,
@@ -30,13 +40,31 @@ enum {
 	HAPTIC_VIRTUAL_KEY = -2,
 	HAPTIC_LONG_PRESS_ACTIVATED = -3,
 };
-void Vibrate(int length_ms);
-void OpenDirectory(const char *path);
-void LaunchBrowser(const char *url);
-void LaunchMarket(const char *url);
-void LaunchEmail(const char *email_address);
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb);
+
+enum class LaunchUrlType {
+	BROWSER_URL,
+	MARKET_URL,
+	EMAIL_ADDRESS,
+};
+
+void System_Vibrate(int length_ms);
+void System_ShowFileInFolder(const char *path);
+void System_LaunchUrl(LaunchUrlType urlType, const char *url);
+
+enum class SystemRequestType {
+	INPUT_TEXT_MODAL,
+	BROWSE_FOR_IMAGE,
+};
+
+// Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).
+// This is not to be used directly by applications, instead use the g_RequestManager to make the requests.
+// This can return false if it's known that the platform doesn't support the request, the app is supposed to handle
+// or ignore that cleanly.
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2);
+
+// TODO: To be separated into requests, see Request.h, and a way to post "UI messages".
 void System_SendMessage(const char *command, const char *parameter);
+
 PermissionStatus System_GetPermissionStatus(SystemPermission permission);
 void System_AskForPermission(SystemPermission permission);
 
@@ -73,6 +101,9 @@ enum SystemProperty {
 	SYSPROP_HAS_IMAGE_BROWSER,
 	SYSPROP_HAS_BACK_BUTTON,
 	SYSPROP_HAS_KEYBOARD,
+	SYSPROP_HAS_OPEN_DIRECTORY,
+
+	SYSPROP_CAN_CREATE_SHORTCUT,
 
 	// Available as Int:
 	SYSPROP_SYSTEMVERSION,
@@ -114,6 +145,18 @@ enum SystemProperty {
 	SYSPROP_CAN_JIT,
 
 	SYSPROP_KEYBOARD_LAYOUT,
+
+	SYSPROP_SKIP_UI,
+};
+
+enum class SystemNotification {
+	UI,
+	MEM_VIEW,
+	DISASSEMBLY,
+	DEBUG_MODE_CHANGE,
+	BOOT_DONE,  // this is sent from EMU thread! Make sure that Host handles it properly!
+	SYMBOL_MAP_UPDATED,
+	SWITCH_UMD_UPDATED,
 };
 
 std::string System_GetProperty(SystemProperty prop);
@@ -122,6 +165,8 @@ int System_GetPropertyInt(SystemProperty prop);
 float System_GetPropertyFloat(SystemProperty prop);
 bool System_GetPropertyBool(SystemProperty prop);
 
-std::vector<std::string> __cameraGetDeviceList();
-bool audioRecording_Available();
-bool audioRecording_State();
+void System_Notify(SystemNotification notification);
+
+std::vector<std::string> System_GetCameraDeviceList();
+bool System_AudioRecordingIsAvailable();
+bool System_AudioRecordingState();

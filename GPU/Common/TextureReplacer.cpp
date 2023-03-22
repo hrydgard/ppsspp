@@ -22,6 +22,7 @@
 #include <memory>
 #include <png.h>
 
+#include "ext/basis_universal/basisu_transcoder.h"
 #include "ext/xxhash.h"
 
 #include "Common/Data/Convert/ColorConv.h"
@@ -53,8 +54,13 @@ static const std::string ZIP_FILENAME = "textures.zip";
 static const std::string NEW_TEXTURE_DIR = "new/";
 static const int VERSION = 1;
 static const double MAX_CACHE_SIZE = 4.0;
+static bool basisu_initialized = false;
 
 TextureReplacer::TextureReplacer(Draw::DrawContext *draw) {
+	if (!basisu_initialized) {
+		basist::basisu_transcoder_init();
+		basisu_initialized = true;
+	}
 	// We don't want to keep the draw object around, so extract the info we need.
 	if (draw->GetDataFormatSupport(Draw::DataFormat::BC3_UNORM_BLOCK)) formatSupport_.bc123 = true;
 	if (draw->GetDataFormatSupport(Draw::DataFormat::ASTC_4x4_UNORM_BLOCK)) formatSupport_.astc = true;
@@ -63,10 +69,9 @@ TextureReplacer::TextureReplacer(Draw::DrawContext *draw) {
 }
 
 TextureReplacer::~TextureReplacer() {
-	for (auto &iter : cache_) {
+	for (auto iter : levelCache_) {
 		delete iter.second;
 	}
-
 	delete vfs_;
 }
 
@@ -119,9 +124,12 @@ bool TextureReplacer::LoadIni() {
 	delete vfs_;
 	vfs_ = nullptr;
 
+	Path zipPath = basePath_ / ZIP_FILENAME;
+
 	// First, check for textures.zip, which is used to reduce IO.
-	VFSBackend *dir = ZipFileReader::Create(basePath_ / ZIP_FILENAME, "");
+	VFSBackend *dir = ZipFileReader::Create(zipPath, "", false);
 	if (!dir) {
+		INFO_LOG(G3D, "%s wasn't a zip file - opening the directory %s instead.", zipPath.c_str(), basePath_.c_str());
 		vfsIsZip_ = false;
 		dir = new DirectoryReader(basePath_);
 	} else {
@@ -129,7 +137,7 @@ bool TextureReplacer::LoadIni() {
 	}
 
 	IniFile ini;
-	bool iniLoaded = ini.LoadFromVFS(g_VFS, (basePath_ / INI_FILENAME).ToString());
+	bool iniLoaded = ini.LoadFromVFS(*dir, INI_FILENAME);
 
 	if (iniLoaded) {
 		if (!LoadIniValues(ini)) {
@@ -173,11 +181,15 @@ bool TextureReplacer::LoadIni() {
 
 	// If we have stuff loaded from before, need to update the vfs pointers to avoid
 	// crash on exit. The actual problem is that we tend to call LoadIni a little too much...
-	for (auto &repl : cache_) {
+	for (auto &repl : levelCache_) {
 		repl.second->vfs_ = vfs_;
 	}
 
-	INFO_LOG(G3D, "Texture pack activated from '%s'", basePath_.c_str());
+	if (vfsIsZip_) {
+		INFO_LOG(G3D, "Texture pack activated from '%s'", (basePath_ / ZIP_FILENAME).c_str());
+	} else {
+		INFO_LOG(G3D, "Texture pack activated from '%s'", basePath_.c_str());
+	}
 
 	// The ini doesn't have to exist for the texture directory or zip to be valid.
 	return true;
@@ -308,6 +320,11 @@ void TextureReplacer::ParseHashRange(const std::string &key, const std::string &
 		return;
 	}
 
+	// Allow addr not starting with 0x, for consistency. TryParse requires 0x to parse as hex.
+	if (!startsWith(keyParts[0], "0x") && !startsWith(keyParts[0], "0X")) {
+		keyParts[0] = "0x" + keyParts[0];
+	}
+
 	u32 addr;
 	u32 fromW;
 	u32 fromH;
@@ -385,7 +402,7 @@ void TextureReplacer::ParseReduceHashRange(const std::string& key, const std::st
 u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV) {
 	_dbg_assert_msg_(enabled_, "Replacement not enabled");
 
-	if (!LookupHashRange(addr, w, h)) {
+	if (!LookupHashRange(addr, w, h, &w, &h)) {
 		// There wasn't any hash range, let's fall back to maxSeenV logic.
 		if (h == 512 && maxSeenV < 512 && maxSeenV != 0) {
 			h = (int)maxSeenV;
@@ -451,7 +468,7 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 	}
 }
 
-ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w, int h, double budget) {
+ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w, int h) {
 	// Only actually replace if we're replacing.  We might just be saving.
 	if (!Enabled() || !g_Config.bReplaceTextures) {
 		return nullptr;
@@ -460,74 +477,79 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 	ReplacementCacheKey replacementKey(cachekey, hash);
 	auto it = cache_.find(replacementKey);
 	if (it != cache_.end()) {
-		if (it->second->State() == ReplacementState::UNINITIALIZED && budget > 0.0) {
-			// We don't do this on a thread, but we only do it while within budget.
-			PopulateReplacement(it->second, cachekey, hash, w, h);
-		}
-		return it->second;
+		return it->second.texture;
 	}
 
-	// Okay, let's construct the result.
-
-	ReplacedTexture *result = new ReplacedTexture();
-	result->vfs_ = this->vfs_;
-	if (budget > 0.0) {
-		_dbg_assert_(result->State() == ReplacementState::UNINITIALIZED);
-		PopulateReplacement(result, cachekey, hash, w, h);
-	} else {
-		// WARN_LOG(G3D, "Postponing preparing texture (%dx%d)", w, h);
-	}
-	cache_[replacementKey] = result;
-	return result;
-}
-
-void TextureReplacer::PopulateReplacement(ReplacedTexture *texture, u64 cachekey, u32 hash, int w, int h) {
-	// We pass this to a thread, so can't keep it on the stack.
-	ReplacementDesc *desc = new ReplacementDesc();
-	desc->newW = w;
-	desc->newH = h;
-	desc->w = w;
-	desc->h = h;
-	desc->cachekey = cachekey;
-	desc->hash = hash;
-	desc->basePath = basePath_;
-	desc->formatSupport = formatSupport_;
-	LookupHashRange(cachekey >> 32, desc->newW, desc->newH);
+	ReplacementDesc desc;
+	desc.newW = w;
+	desc.newH = h;
+	desc.w = w;
+	desc.h = h;
+	desc.cachekey = cachekey;
+	desc.hash = hash;
+	LookupHashRange(cachekey >> 32, w, h, &desc.newW, &desc.newH);
 
 	if (ignoreAddress_) {
 		cachekey = cachekey & 0xFFFFFFFFULL;
 	}
 
-	desc->foundAlias = false;
+	bool foundAlias = false;
 	bool ignored = false;
-	desc->hashfiles = LookupHashFile(cachekey, hash, &desc->foundAlias, &ignored);
+	std::string hashfiles = LookupHashFile(cachekey, hash, &foundAlias, &ignored);
 
 	// Early-out for ignored textures, let's not bother even starting a thread task.
 	if (ignored) {
 		// WARN_LOG(G3D, "Not found/ignored: %s (%d, %d)", hashfiles.c_str(), (int)foundReplacement, (int)ignored);
-		// nothing to do?
-		texture->SetState(ReplacementState::NOT_FOUND);
-		return;
+		// Insert an entry into the cache for faster lookup next time.
+		ReplacedTextureRef ref{};
+		cache_.emplace(std::make_pair(replacementKey, ref));
+		return nullptr;
 	}
 
-	if (!desc->foundAlias) {
+	desc.forceFiltering = (TextureFiltering)0;  // invalid value
+	FindFiltering(cachekey, hash, &desc.forceFiltering);
+
+	if (!foundAlias) {
 		// We'll just need to generate the names for each level.
 		// By default, we look for png since that's also what's dumped.
 		// For other file formats, use the ini to create aliases.
-		desc->filenames.resize(MAX_REPLACEMENT_MIP_LEVELS);
-		for (int level = 0; level < desc->filenames.size(); level++) {
-			desc->filenames[level] = TextureReplacer::HashName(desc->cachekey, desc->hash, level) + ".png";
+		desc.filenames.resize(MAX_REPLACEMENT_MIP_LEVELS);
+		for (int level = 0; level < desc.filenames.size(); level++) {
+			desc.filenames[level] = TextureReplacer::HashName(cachekey, hash, level) + ".png";
 		}
-		desc->logId = desc->filenames[0];
-		desc->hashfiles = desc->filenames[0];  // This is used as the key in the data cache.
+		desc.logId = desc.filenames[0];
+		desc.hashfiles = desc.filenames[0];  // The generated filename of the top level is used as the key in the data cache.
 	} else {
-		desc->logId = desc->hashfiles;
-		SplitString(desc->hashfiles, '|', desc->filenames);
+		desc.logId = hashfiles;
+		SplitString(hashfiles, '|', desc.filenames);
+		desc.hashfiles = hashfiles;
 	}
 
-	desc->cache = &levelCache_[desc->hashfiles];
+	// OK, we might already have a matching texture, we use hashfiles as a key. Look it up in the level cache.
+	auto iter = levelCache_.find(hashfiles);
+	if (iter != levelCache_.end()) {
+		// Insert an entry into the cache for faster lookup next time.
+		ReplacedTextureRef ref;
+		ref.hashfiles = hashfiles;
+		ref.texture = iter->second;
+		cache_.emplace(std::make_pair(replacementKey, ref));
+		return iter->second;
+	}
 
-	texture->FinishPopulate(desc);
+	// Final path - we actually need a new replacement texture, because we haven't seen "hashfiles" before.
+	desc.basePath = basePath_;
+	desc.formatSupport = formatSupport_;
+
+	ReplacedTexture *texture = new ReplacedTexture(vfs_, desc);
+
+	ReplacedTextureRef ref;
+	ref.hashfiles = hashfiles;
+	ref.texture = texture;
+	cache_.emplace(std::make_pair(replacementKey, ref));
+
+	// Also, insert the level in the level cache so we can look up by desc_->hashfiles again.
+	levelCache_.emplace(std::make_pair(hashfiles, texture));
+	return texture;
 }
 
 static bool WriteTextureToPNG(png_imagep image, const Path &filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
@@ -621,7 +643,7 @@ bool TextureReplacer::WillSave(const ReplacedTextureDecodeInfo &replacedInfo) {
 	return true;
 }
 
-void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h) {
+void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int origW, int origH, int scaledW, int scaledH) {
 	_assert_msg_(enabled_, "Replacement not enabled");
 	if (!WillSave(replacedInfo)) {
 		// Ignore.
@@ -653,23 +675,21 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	bool skipIfExists = false;
 	double now = time_now_d();
 	if (it != savedCache_.end()) {
-		// We've already saved this texture.  Let's only save if it's bigger (e.g. scaled now.)
-		// This check isn't backwards, it's just to check if we should *skip* saving, a bit confusing.
-		if (it->second.levelW[level] >= w && it->second.levelH[level] >= h) {
-			// If it's been more than 5 seconds, we'll check again.  Maybe they deleted.
-			double age = now - it->second.lastTimeSaved;
-			if (age < 5.0)
-				return;
-			skipIfExists = true;
-		}
+		// We've already saved this texture. Ignore it.
+		// We don't really care about changing the scale factor during runtime, only confusing.
+		return;
 	}
 
+	// Width/height of the image to save.
+	int w = scaledW;
+	int h = scaledH;
+
 	// Only save the hashed portion of the PNG.
-	int lookupW = w / replacedInfo.scaleFactor;
-	int lookupH = h / replacedInfo.scaleFactor;
-	if (LookupHashRange(replacedInfo.addr, lookupW, lookupH)) {
-		w = lookupW * replacedInfo.scaleFactor;
-		h = lookupH * replacedInfo.scaleFactor;
+	int lookupW;
+	int lookupH;
+	if (LookupHashRange(replacedInfo.addr, origW, origH, &lookupW, &lookupH)) {
+		w = lookupW * (scaledW / origW);
+		h = lookupH * (scaledH / origH);
 	}
 
 	std::vector<u8> saveBuf;
@@ -734,15 +754,12 @@ void TextureReplacer::Decimate(ReplacerDecimateMode mode) {
 	}
 
 	const double threshold = time_now_d() - age;
-	for (auto &item : cache_) {
-		item.second->PurgeIfOlder(threshold);
-		// don't actually delete the items here, just clean out the data.
-	}
-
 	size_t totalSize = 0;
 	for (auto &item : levelCache_) {
-		std::lock_guard<std::mutex> guard(item.second.lock);
-		totalSize += item.second.data.size();
+		std::lock_guard<std::mutex> guard(item.second->lock_);
+		item.second->PurgeIfNotUsedSinceTime(threshold);
+		totalSize += item.second->GetTotalDataSize();  // TODO: Make something better.
+		// don't actually delete the items here, just clean out the data.
 	}
 
 	double totalSizeGB = totalSize / (1024.0 * 1024.0 * 1024.0);
@@ -842,20 +859,22 @@ std::string TextureReplacer::HashName(u64 cachekey, u32 hash, int level) {
 	return hashname;
 }
 
-bool TextureReplacer::LookupHashRange(u32 addr, int &w, int &h) {
+bool TextureReplacer::LookupHashRange(u32 addr, int w, int h, int *newW, int *newH) {
 	const u64 rangeKey = ((u64)addr << 32) | ((u64)w << 16) | h;
 	auto range = hashranges_.find(rangeKey);
 	if (range != hashranges_.end()) {
 		const WidthHeightPair &wh = range->second;
-		w = wh.first;
-		h = wh.second;
+		*newW = wh.first;
+		*newH = wh.second;
 		return true;
+	} else {
+		*newW = w;
+		*newH = h;
+		return false;
 	}
-
-	return false;
 }
 
-float TextureReplacer::LookupReduceHashRange(int& w, int& h) {
+float TextureReplacer::LookupReduceHashRange(int w, int h) {
 	const u64 reducerangeKey = ((u64)w << 16) | h;
 	auto range = reducehashranges_.find(reducerangeKey);
 	if (range != reducehashranges_.end()) {
@@ -895,13 +914,16 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, Path &generatedFile
 		fwrite("\xEF\xBB\xBF", 1, 3, f);
 
 		// Let's also write some defaults.
-		fprintf(f, R"(# This file is optional and describes your textures.
-# Some information on syntax available here:
-# https://github.com/hrydgard/ppsspp/wiki/Texture-replacement-ini-syntax
+		fprintf(f, R"(# This describes your textures and set up options for texture replacement.
+# Documentation about the options and syntax is available here:
+# https://www.ppsspp.org/docs/reference/texture-replacement
+
 [options]
 version = 1
-hash = quick
-ignoreMipmap = false
+hash = quick             # options available: "quick", xxh32 - more accurate, but much slower, xxh64 - more accurate and quite fast, but slower than xxh32 on 32 bit cpu's
+ignoreMipmap = true      # Usually, can just generate them with basisu, no need to dump.
+reduceHash = false       # Unsafe and can cause glitches in some cases, but allows to skip garbage data in some textures reducing endless duplicates as a side effect speeds up hashing as well, requires stronger hash like xxh32 or xxh64
+ignoreAddress = false    # Reduces duplicates at the cost of making hash less reliable, requires stronger hash like xxh32 or xxh64. Basically automatically sets the address to 0 in the dumped filenames.
 
 [games]
 # Used to make it easier to install, and override settings for other regions.
@@ -913,10 +935,19 @@ ignoreMipmap = false
 # See wiki for more info.
 
 [hashranges]
+# This is useful for images that very clearly have smaller dimensions, like 480x272 image. They'll need to be redumped, since the hash will change. See the documentation.
+# Example: 08b31020,512,512 = 480,272
+# Example: 0x08b31020,512,512 = 480,272
 
 [filtering]
+# You can enforce specific filtering modes with this. Available modes are linear, nearest, auto. See the docs.
+# Example: 08d3961000000909ba70b2af = nearest
 
 [reducehashranges]
+# Lets you set texture sizes where the hash range is reduced by a factor. See the docs.
+# Example:
+512,512=0.5
+
 )", gameID.c_str(), INI_FILENAME.c_str());
 		fclose(f);
 	}

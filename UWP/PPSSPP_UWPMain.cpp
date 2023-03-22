@@ -411,6 +411,8 @@ void System_Toast(const char *str) {}
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+	case SYSPROP_HAS_OPEN_DIRECTORY:
+		return false;
 	case SYSPROP_HAS_FILE_BROWSER:
 		return true;
 	case SYSPROP_HAS_FOLDER_BROWSER:
@@ -433,6 +435,15 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return false;
 	}
 }
+
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	default:
+		break;
+	}
+}
+
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) { return false; }
 
 void System_SendMessage(const char *command, const char *parameter) {
 	using namespace concurrency;
@@ -474,17 +485,17 @@ void System_SendMessage(const char *command, const char *parameter) {
 	}
 }
 
-void OpenDirectory(const char *path) {
+void System_ShowFileInFolder(const char *path) {
 	// Unsupported
 }
 
-void LaunchBrowser(const char *url) {
+void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	auto uri = ref new Windows::Foundation::Uri(ToPlatformString(url));
 
 	create_task(Windows::System::Launcher::LaunchUriAsync(uri)).then([](bool b) {});
 }
 
-void Vibrate(int length_ms) {
+void System_Vibrate(int length_ms) {
 #if _M_ARM
 	if (length_ms == -1 || length_ms == -3)
 		length_ms = 50;

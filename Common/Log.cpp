@@ -24,6 +24,7 @@
 #include "Common/Log.h"
 #include "StringUtils.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 #include <android/log.h>
@@ -71,7 +72,7 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 	if (!getenv("CI")) {
 		int msgBoxStyle = MB_ICONINFORMATION | MB_YESNO;
 		std::wstring wtext = ConvertUTF8ToWString(formatted) + L"\n\nTry to continue?";
-		std::wstring wcaption = ConvertUTF8ToWString(caption);
+		std::wstring wcaption = ConvertUTF8ToWString(std::string(caption) + " " + GetCurrentThreadName());
 		OutputDebugString(wtext.c_str());
 		if (IDYES != MessageBox(0, wtext.c_str(), wcaption.c_str(), msgBoxStyle)) {
 			return false;

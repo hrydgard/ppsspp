@@ -180,7 +180,7 @@ bool PSPButton::Touch(const TouchInput &input) {
 	bool down = pointerDownMask_ != 0;
 	if (down && !lastDown) {
 		if (g_Config.bHapticFeedback) {
-			Vibrate(HAPTIC_VIRTUAL_KEY);
+			System_Vibrate(HAPTIC_VIRTUAL_KEY);
 		}
 		__CtrlButtonDown(pspButtonBit_);
 	} else if (lastDown && !down) {
@@ -210,7 +210,7 @@ bool ComboKey::Touch(const TouchInput &input) {
 
 	if (down && !lastDown) {
 		if (g_Config.bHapticFeedback)
-			Vibrate(HAPTIC_VIRTUAL_KEY);
+			System_Vibrate(HAPTIC_VIRTUAL_KEY);
 
 		if (!repeat_) {
 			for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++) {
@@ -359,7 +359,7 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 	for (int i = 0; i < 4; i++) {
 		if (pressed & dir[i]) {
 			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
+				System_Vibrate(HAPTIC_VIRTUAL_KEY);
 			}
 			__CtrlButtonDown(dir[i]);
 		}
@@ -829,8 +829,8 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	auto addComboKey = [=](const ConfigCustomButton& cfg, const char *key, const ConfigTouchPos &touch) -> ComboKey * {
 		using namespace CustomKey;
 		if (touch.show) {
-			auto aux = root->Add(new ComboKey(cfg.key, key, cfg.toggle, cfg.repeat, controllMapper, 
-					g_Config.iTouchButtonStyle == 0 ? comboKeyShapes[cfg.shape].i : comboKeyShapes[cfg.shape].l, comboKeyShapes[cfg.shape].i, 
+			auto aux = root->Add(new ComboKey(cfg.key, key, cfg.toggle, cfg.repeat, controllMapper,
+					g_Config.iTouchButtonStyle == 0 ? comboKeyShapes[cfg.shape].i : comboKeyShapes[cfg.shape].l, comboKeyShapes[cfg.shape].i,
 					comboKeyImages[cfg.image].i, touch.scale, comboKeyShapes[cfg.shape].d, buttonLayoutParams(touch)));
 			aux->SetAngle(comboKeyImages[cfg.image].r, comboKeyShapes[cfg.shape].r);
 			aux->FlipImageH(comboKeyShapes[cfg.shape].f);

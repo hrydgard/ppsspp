@@ -105,6 +105,8 @@ public abstract class NativeActivity extends Activity {
 	private static final int RESULT_OPEN_DOCUMENT = 2;
 	private static final int RESULT_OPEN_DOCUMENT_TREE = 3;
 
+	private int imageRequestId = -1;
+
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
 	private ArrayList<InputDeviceState> inputPlayers = new ArrayList<InputDeviceState>();
@@ -1130,15 +1132,16 @@ public abstract class NativeActivity extends Activity {
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
-		if (resultCode != RESULT_OK || data == null) {
-			return;
-		}
 		if (requestCode == RESULT_LOAD_IMAGE) {
+			if (resultCode != RESULT_OK || data == null) {
+				NativeApp.sendRequestResult(imageRequestId, false, "", 0);
+				return;
+			}
 			try {
 				Uri selectedImage = data.getData();
 				if (selectedImage != null) {
 					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-						NativeApp.sendMessage("bgImage_updated", selectedImage.toString());
+						NativeApp.sendRequestResult(imageRequestId, true, selectedImage.toString(), 0);
 					} else {
 						String[] filePathColumn = {MediaStore.Images.Media.DATA};
 						Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
@@ -1147,14 +1150,20 @@ public abstract class NativeActivity extends Activity {
 							int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
 							String picturePath = cursor.getString(columnIndex);
 							cursor.close();
-							NativeApp.sendMessage("bgImage_updated", picturePath);
+							NativeApp.sendRequestResult(imageRequestId, true, picturePath, 0);
 						}
 					}
+				} else {
+					NativeApp.sendRequestResult(imageRequestId, false, "", 0);
 				}
 			} catch (Exception e) {
 				Log.w(TAG, "Exception receiving image: " + e);
 			}
+			imageRequestId = -1;
 		} else if (requestCode == RESULT_OPEN_DOCUMENT) {
+			if (resultCode != RESULT_OK || data == null) {
+				return;
+			}
 			Uri selectedFile = data.getData();
 			if (selectedFile != null) {
 				try {
@@ -1171,6 +1180,9 @@ public abstract class NativeActivity extends Activity {
 				NativeApp.sendMessage("browse_fileSelect", selectedFile.toString());
 			}
 		} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
+			if (resultCode != RESULT_OK || data == null) {
+				return;
+			}
 			Uri selectedDirectoryUri = data.getData();
 			if (selectedDirectoryUri != null) {
 				String path = selectedDirectoryUri.toString();
@@ -1230,11 +1242,11 @@ public abstract class NativeActivity extends Activity {
 		return bld;
 	}
 
-	// The return value is sent to C++ via seqID.
-	public void inputBox(final String seqID, final String title, String defaultText, String defaultAction) {
+	// The return value is sent to C++ via requestID.
+	public void inputBox(final int requestId, final String title, String defaultText, String defaultAction) {
 		// Workaround for issue #13363 to fix Split/Second game start
 		if (isVRDevice()) {
-			NativeApp.sendInputBox(seqID, false, defaultText);
+			NativeApp.sendRequestResult(requestId, false, defaultText, 0);
 			return;
 		}
 
@@ -1269,14 +1281,14 @@ public abstract class NativeActivity extends Activity {
 			.setPositiveButton(defaultAction, new DialogInterface.OnClickListener() {
 				@Override
 				public void onClick(DialogInterface d, int which) {
-					NativeApp.sendInputBox(seqID, true, input.getText().toString());
+					NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
 					d.dismiss();
 				}
 			})
 			.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
 				@Override
 				public void onClick(DialogInterface d, int which) {
-					NativeApp.sendInputBox(seqID, false, "");
+					NativeApp.sendRequestResult(requestId, false, "", 0);
 					d.cancel();
 				}
 			});
@@ -1284,7 +1296,7 @@ public abstract class NativeActivity extends Activity {
 			builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
 				@Override
 				public void onDismiss(DialogInterface d) {
-					NativeApp.sendInputBox(seqID, false, "");
+					NativeApp.sendRequestResult(requestId, false, "", 0);
 					updateSystemUiVisibility();
 				}
 			});
@@ -1321,8 +1333,10 @@ public abstract class NativeActivity extends Activity {
 				Log.e(TAG, e.toString());
 				return false;
 			}
-		} else if (command.equals("bgImage_browse")) {
+		} else if (command.equals("browse_image")) {
 			try {
+				imageRequestId = Integer.parseInt(params);
+				Log.i(TAG, "image request ID: " + imageRequestId);
 				Intent i = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
 				startActivityForResult(i, RESULT_LOAD_IMAGE);
 				return true;
@@ -1419,13 +1433,13 @@ public abstract class NativeActivity extends Activity {
 			String title = "Input";
 			String defString = "";
 			String[] param = params.split(":@:", 3);
-			String seqID = param[0];
+			int requestID = Integer.parseInt(param[0]);
 			if (param.length > 1 && param[1].length() > 0)
 				title = param[1];
 			if (param.length > 2)
 				defString = param[2];
-			Log.i(TAG, "Launching inputbox: #" + seqID + " " + title + " " + defString);
-			inputBox(seqID, title, defString, "OK");
+			Log.i(TAG, "Launching inputbox: #" + requestID + " " + title + " " + defString);
+			inputBox(requestID, title, defString, "OK");
 			return true;
 		} else if (command.equals("vibrate")) {
 			int milliseconds = -1;

@@ -246,7 +246,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	int th = plan.createH;
 
 	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		plan.replaced->GetSize(plan.baseLevelSrc, &tw, &th);
 		dstFmt = plan.replaced->Format();
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
@@ -296,11 +296,11 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 			bool bc = false;
 
-			if (plan.replaceValid) {
+			if (plan.doReplace) {
 				int blockSize = 0;
 				if (Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), &blockSize)) {
 					stride = mipWidth * 4;
-					dataSize = plan.replaced->GetLevelDataSize(i);
+					dataSize = plan.replaced->GetLevelDataSizeAfterCopy(i);
 					bc = true;
 				} else {
 					int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
@@ -325,7 +325,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 				return;
 			}
 
-			LoadTextureLevel(*entry, data, stride, plan, srcLevel, dstFmt, TexDecodeFlags::REVERSE_COLORS);
+			LoadTextureLevel(*entry, data, dataSize, stride, plan, srcLevel, dstFmt, TexDecodeFlags::REVERSE_COLORS);
 
 			// NOTE: TextureImage takes ownership of data, so we don't free it afterwards.
 			render_->TextureImage(entry->textureName, i, mipWidth, mipHeight, 1, dstFmt, data, GLRAllocType::ALIGNED);
@@ -339,12 +339,13 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		int stride = bpp * (plan.w * plan.scaleFactor);
 		int levelStride = stride * (plan.h * plan.scaleFactor);
 
-		u8 *data = (u8 *)AllocateAlignedMemory(levelStride * plan.depth, 16);
+		size_t dataSize = levelStride * plan.depth;
+		u8 *data = (u8 *)AllocateAlignedMemory(dataSize, 16);
 		memset(data, 0, levelStride * plan.depth);
 		u8 *p = data;
 
 		for (int i = 0; i < plan.depth; i++) {
-			LoadTextureLevel(*entry, p, stride, plan, i, dstFmt, TexDecodeFlags::REVERSE_COLORS);
+			LoadTextureLevel(*entry, p, dataSize, stride, plan, i, dstFmt, TexDecodeFlags::REVERSE_COLORS);
 			p += levelStride;
 		}
 
@@ -356,7 +357,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		render_->FinalizeTexture(entry->textureName, 1, false);
 	}
 
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}
 }

@@ -230,7 +230,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	D3DFORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		dstFmt = ToD3D9Format(plan.replaced->Format());
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = D3DFMT_A8R8G8B8;
@@ -290,7 +290,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 			}
 			uint8_t *data = (uint8_t *)rect.pBits;
 			int stride = rect.Pitch;
-			LoadTextureLevel(*entry, data, stride, plan, (i == 0) ? plan.baseLevelSrc : i, FromD3D9Format(dstFmt), TexDecodeFlags{});
+			LoadTextureLevel(*entry, data, 0, stride, plan, (i == 0) ? plan.baseLevelSrc : i, FromD3D9Format(dstFmt), TexDecodeFlags{});
 			((LPDIRECT3DTEXTURE9)texture)->UnlockRect(dstLevel);
 		}
 	} else {
@@ -305,7 +305,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		uint8_t *data = (uint8_t *)box.pBits;
 		int stride = box.RowPitch;
 		for (int i = 0; i < plan.depth; i++) {
-			LoadTextureLevel(*entry, data, stride, plan, (i == 0) ? plan.baseLevelSrc : i, FromD3D9Format(dstFmt), TexDecodeFlags{});
+			LoadTextureLevel(*entry, data, 0, stride, plan, (i == 0) ? plan.baseLevelSrc : i, FromD3D9Format(dstFmt), TexDecodeFlags{});
 			data += box.SlicePitch;
 		}
 		((LPDIRECT3DVOLUMETEXTURE9)texture)->UnlockBox(0);
@@ -316,7 +316,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		entry->status |= TexCacheEntry::STATUS_3D;
 	}
 
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 
 		if (!Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), nullptr)) {

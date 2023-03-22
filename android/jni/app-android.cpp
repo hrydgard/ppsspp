@@ -61,6 +61,7 @@ struct JNIEnv {};
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/File/Path.h"
 #include "Common/File/DirListing.h"
@@ -174,9 +175,6 @@ static std::atomic<bool> exitRenderLoop;
 static std::atomic<bool> renderLoopRunning;
 static bool renderer_inited = false;
 static std::mutex renderLock;
-
-static int inputBoxSequence = 1;
-static std::map<int, std::function<void(bool, const std::string &)>> inputBoxCallbacks;
 
 static bool sustainedPerfSupported = false;
 
@@ -381,30 +379,26 @@ void System_Toast(const char *text) {
 	PushCommand("toast", text);
 }
 
-void ShowKeyboard() {
+void System_ShowKeyboard() {
 	PushCommand("showKeyboard", "");
 }
 
-void Vibrate(int length_ms) {
+void System_Vibrate(int length_ms) {
 	char temp[32];
 	sprintf(temp, "%i", length_ms);
 	PushCommand("vibrate", temp);
 }
 
-void OpenDirectory(const char *path) {
+void System_ShowFileInFolder(const char *path) {
 	// Unsupported
 }
 
-void LaunchBrowser(const char *url) {
-	PushCommand("launchBrowser", url);
-}
-
-void LaunchMarket(const char *url) {
-	PushCommand("launchMarket", url);
-}
-
-void LaunchEmail(const char *email_address) {
-	PushCommand("launchEmail", email_address);
+void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
+	switch (urlType) {
+	case LaunchUrlType::BROWSER_URL: PushCommand("launchBrowser", url); break;
+	case LaunchUrlType::MARKET_URL: PushCommand("launchMarket", url); break;
+	case LaunchUrlType::EMAIL_ADDRESS: PushCommand("launchEmail", url); break;
+	}
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
@@ -491,6 +485,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		}
 	case SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE:
 		return sustainedPerfSupported;  // 7.0 introduced sustained performance mode as an optional feature.
+	case SYSPROP_HAS_OPEN_DIRECTORY:
+		return false;
 	case SYSPROP_HAS_ADDITIONAL_STORAGE:
 		return !g_additionalStorageDirs.empty();
 	case SYSPROP_HAS_BACK_BUTTON:
@@ -540,6 +536,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	default:
 		return false;
 	}
+}
+
+void System_Notify(SystemNotification notification) {
 }
 
 std::string Android_GetInputDeviceDebugString() {
@@ -853,11 +852,11 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioRecording_1Stop(JNIEnv *, 
 	AndroidAudio_Recording_Stop(g_audioState);
 }
 
-bool audioRecording_Available() {
+bool System_AudioRecordingIsAvailable() {
 	return true;
 }
 
-bool audioRecording_State() {
+bool System_AudioRecordingState() {
 	return AndroidAudio_Recording_State(g_audioState);
 }
 
@@ -906,7 +905,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 	{
 		std::lock_guard<std::mutex> guard(renderLock);
-		inputBoxCallbacks.clear();
 		NativeShutdown();
 		g_VFS.Clear();
 	}
@@ -1029,39 +1027,38 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	}
 }
 
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
-	int seq = inputBoxSequence++;
-	inputBoxCallbacks[seq] = cb;
-
-	std::string serialized = StringFromFormat("%d:@:%s:@:%s", seq, title.c_str(), defaultValue.c_str());
-	System_SendMessage("inputbox", serialized.c_str());
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) {
+	switch (type) {
+	case SystemRequestType::INPUT_TEXT_MODAL:
+	{
+		std::string serialized = StringFromFormat("%d:@:%s:@:%s", requestId, param1.c_str(), param2.c_str());
+		PushCommand("inputbox", serialized.c_str());
+		return true;
+	}
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+		PushCommand("browse_image", StringFromFormat("%d", requestId));
+		return true;
+	default:
+		return false;
+	}
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendInputBox(JNIEnv *env, jclass, jstring jseqID, jboolean result, jstring jvalue) {
-	std::string seqID = GetJavaString(env, jseqID);
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEnv *env, jclass, jint jrequestID, jboolean result, jstring jvalue, jint jintValue) {
 	std::string value = GetJavaString(env, jvalue);
 
-	static std::string lastSeqID = "";
-	if (lastSeqID == seqID) {
+	static jint lastSeqID = -1;
+	if (lastSeqID == jrequestID) {
 		// We send this on dismiss, so twice in many cases.
-		DEBUG_LOG(SYSTEM, "Ignoring duplicate sendInputBox");
+		WARN_LOG(SYSTEM, "Ignoring duplicate sendInputBox");
 		return;
 	}
-	lastSeqID = seqID;
+	lastSeqID = jrequestID;
 
-	int seq = 0;
-	if (!TryParse(seqID, &seq)) {
-		ERROR_LOG(SYSTEM, "Invalid inputbox seqID value: %s", seqID.c_str());
-		return;
+	if (result) {
+		g_requestManager.PostSystemSuccess(jrequestID, value.c_str());
+	} else {
+		g_requestManager.PostSystemFailure(jrequestID);
 	}
-
-	auto entry = inputBoxCallbacks.find(seq);
-	if (entry == inputBoxCallbacks.end()) {
-		ERROR_LOG(SYSTEM, "Did not find inputbox callback for %s, shutdown?", seqID.c_str());
-		return;
-	}
-
-	NativeInputBoxReceived(entry->second, result, value);
 }
 
 void LockedNativeUpdateRender() {
@@ -1222,7 +1219,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 	} else if (msg == "sustained_perf_supported") {
 		sustainedPerfSupported = true;
 	} else if (msg == "safe_insets") {
-		INFO_LOG(SYSTEM, "Got insets: %s", prm.c_str());
+		// INFO_LOG(SYSTEM, "Got insets: %s", prm.c_str());
 		// We don't bother with supporting exact rectangular regions. Safe insets are good enough.
 		int left, right, top, bottom;
 		if (4 == sscanf(prm.c_str(), "%d:%d:%d:%d", &left, &right, &top, &bottom)) {
@@ -1276,7 +1273,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 	}
 }
 
-std::vector<std::string> __cameraGetDeviceList() {
+std::vector<std::string> System_GetCameraDeviceList() {
 	jclass cameraClass = findClass("org/ppsspp/ppsspp/CameraHelper");
 	jmethodID deviceListMethod = getEnv()->GetStaticMethodID(cameraClass, "getDeviceList", "()Ljava/util/ArrayList;");
 	jobject deviceListObject = getEnv()->CallStaticObjectMethod(cameraClass, deviceListMethod);
@@ -1313,9 +1310,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setSatInfoAndroid(JNIEn
 	GPS::setSatInfo(index, id, elevation, azimuth, snr, good);
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(JNIEnv *env, jclass,
-		jbyteArray image) {
-
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(JNIEnv *env, jclass, jbyteArray image) {
 	if (image != NULL) {
 		jlong size = env->GetArrayLength(image);
 		jbyte* buffer = env->GetByteArrayElements(image, NULL);

@@ -34,6 +34,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
@@ -43,10 +44,12 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Net/Resolve.h"
 #include "W32Util/DarkMode.h"
+#include "W32Util/ShellUtil.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/SaveState.h"
+#include "Core/Instance.h"
 #include "Windows/EmuThread.h"
 #include "Windows/WindowsAudio.h"
 #include "ext/disarm.h"
@@ -74,6 +77,7 @@
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/CtrlMemView.h"
 #include "Windows/Debugger/CtrlRegisterList.h"
+#include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/InputBox.h"
 
 #include "Windows/WindowsHost.h"
@@ -107,10 +111,13 @@ static std::string restartArgs;
 
 int g_activeWindow = 0;
 
-static std::thread inputBoxThread;
-static bool inputBoxRunning = false;
+// Used for all the system dialogs.
+static std::thread g_dialogThread;
+static bool g_dialogRunning = false;
 
-void OpenDirectory(const char *path) {
+int g_lastNumInstances = 0;
+
+void System_ShowFileInFolder(const char *path) {
 	// SHParseDisplayName can't handle relative paths, so normalize first.
 	std::string resolved = ReplaceAll(File::ResolvePath(path), "/", "\\");
 
@@ -125,11 +132,11 @@ void OpenDirectory(const char *path) {
 	}
 }
 
-void LaunchBrowser(const char *url) {
+void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
 }
 
-void Vibrate(int length_ms) {
+void System_Vibrate(int length_ms) {
 	// Ignore on PC
 }
 
@@ -346,6 +353,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_HAS_FILE_BROWSER:
 	case SYSPROP_HAS_FOLDER_BROWSER:
+	case SYSPROP_HAS_OPEN_DIRECTORY:
 		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
@@ -363,6 +371,109 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return true;  // FileUtil.cpp: OpenFileInEditor
+	default:
+		return false;
+	}
+}
+
+static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0) {
+	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
+}
+
+// This can come from any thread, so this mostly uses PostMessage. Can't access most data directly.
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	case SystemNotification::BOOT_DONE:
+	{
+		if (g_symbolMap)
+			g_symbolMap->SortSymbols();  // internal locking is performed here
+		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
+
+		if (disasmWindow)
+			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
+		break;
+	}
+
+	case SystemNotification::UI:
+	{
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
+
+		int peers = GetInstancePeerCount();
+		if (PPSSPP_ID >= 1 && peers != g_lastNumInstances) {
+			g_lastNumInstances = peers;
+			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
+		}
+		break;
+	}
+
+	case SystemNotification::MEM_VIEW:
+		if (memoryWindow)
+			PostDialogMessage(memoryWindow, WM_DEB_UPDATE);
+		break;
+
+	case SystemNotification::DISASSEMBLY:
+		if (disasmWindow)
+			PostDialogMessage(disasmWindow, WM_DEB_UPDATE);
+		break;
+
+	case SystemNotification::SYMBOL_MAP_UPDATED:
+		if (g_symbolMap)
+			g_symbolMap->SortSymbols();  // internal locking is performed here
+		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
+		break;
+
+	case SystemNotification::SWITCH_UMD_UPDATED:
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_SWITCHUMD_UPDATED, 0, 0);
+		break;
+
+	case SystemNotification::DEBUG_MODE_CHANGE:
+		if (disasmWindow)
+			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
+		break;
+	}
+}
+
+std::wstring MakeFilter(std::wstring filter) {
+	for (size_t i = 0; i < filter.length(); i++) {
+		if (filter[i] == '|')
+			filter[i] = '\0';
+	}
+	return filter;
+}
+
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) {
+	switch (type) {
+	case SystemRequestType::INPUT_TEXT_MODAL:
+		if (g_dialogRunning) {
+			g_dialogThread.join();
+		}
+
+		g_dialogRunning = true;
+		g_dialogThread = std::thread([=] {
+			std::string out;
+			if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), param2, out)) {
+				g_requestManager.PostSystemSuccess(requestId, out.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+			});
+		return true;
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+		if (g_dialogRunning) {
+			g_dialogThread.join();
+		}
+
+		g_dialogRunning = true;
+		g_dialogThread = std::thread([=] {
+			std::string out;
+			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr,
+				MakeFilter(L"All supported images (*.jpg *.jpeg *.png)|*.jpg;*.jpeg;*.png|All files (*.*)|*.*||").c_str(), L"jpg", out)) {
+				g_requestManager.PostSystemSuccess(requestId, out.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+			});
+		return true;
 	default:
 		return false;
 	}
@@ -399,8 +510,6 @@ void System_SendMessage(const char *command, const char *parameter) {
 		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), mm->T("Choose folder"));
 		if (folder.size())
 			NativeMessageReceived("browse_folderSelect", folder.c_str());
-	} else if (!strcmp(command, "bgImage_browse")) {
-		MainWindow::BrowseBackground();
 	} else if (!strcmp(command, "toggle_fullscreen")) {
 		bool flag = !MainWindow::IsFullscreen();
 		if (strcmp(parameter, "0") == 0) {
@@ -435,22 +544,6 @@ void EnableCrashingOnCrashes() {
 		}
 	}
 	FreeLibrary(kernel32);
-}
-
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
-	if (inputBoxRunning) {
-		inputBoxThread.join();
-	}
-
-	inputBoxRunning = true;
-	inputBoxThread = std::thread([=] {
-		std::string out;
-		if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
-			NativeInputBoxReceived(cb, true, out);
-		} else {
-			NativeInputBoxReceived(cb, false, "");
-		}
-	});
 }
 
 void System_Toast(const char *text) {
@@ -559,9 +652,9 @@ static void WinMainInit() {
 }
 
 static void WinMainCleanup() {
-	if (inputBoxRunning) {
-		inputBoxThread.join();
-		inputBoxRunning = false;
+	if (g_dialogRunning) {
+		g_dialogThread.join();
+		g_dialogRunning = false;
 	}
 	net::Shutdown();
 	CoUninitialize();

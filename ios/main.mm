@@ -152,6 +152,8 @@ float System_GetPropertyFloat(SystemProperty prop) {
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+		case SYSPROP_HAS_OPEN_DIRECTORY:
+			return false;
 		case SYSPROP_HAS_BACK_BUTTON:
 			return false;
 		case SYSPROP_APP_GOLD:
@@ -165,6 +167,11 @@ bool System_GetPropertyBool(SystemProperty prop) {
 
 		default:
 			return false;
+	}
+}
+
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
 	}
 }
 
@@ -206,10 +213,14 @@ void System_SendMessage(const char *command, const char *parameter) {
 		DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
 				NativeMessageReceived("browse_folder", thePathChosen.c_str());
 		};
-		
+
 		DarwinFileSystemServices services;
 		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
 	}
+}
+
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) {
+	return false;
 }
 
 void System_Toast(const char *text) {}
@@ -234,7 +245,7 @@ BOOL SupportsTaptic() {
 	return [val intValue] >= 2;
 }
 
-void Vibrate(int mode) {
+void System_Vibrate(int mode) {
 	if (SupportsTaptic()) {
 		PPSSPPUIApplication* app = (PPSSPPUIApplication*)[UIApplication sharedApplication];
 		if(app.feedbackGenerator == nil)

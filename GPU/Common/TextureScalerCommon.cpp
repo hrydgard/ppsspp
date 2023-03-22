@@ -605,29 +605,31 @@ bool TextureScalerCommon::IsEmptyOrFlat(const u32 *data, int pixels) const {
 	return true;
 }
 
-void TextureScalerCommon::ScaleAlways(u32 *out, u32 *src, int &width, int &height, int factor) {
+void TextureScalerCommon::ScaleAlways(u32 *out, u32 *src, int width, int height, int *scaledWidth, int *scaledHeight, int factor) {
 	if (IsEmptyOrFlat(src, width * height)) {
 		// This means it was a flat texture.  Vulkan wants the size up front, so we need to make it happen.
 		u32 pixel = *src;
 
-		width *= factor;
-		height *= factor;
+		*scaledWidth = width * factor;
+		*scaledHeight = height * factor;
+
+		size_t pixelCount = *scaledWidth * *scaledHeight;
 
 		// ABCD.  If A = D, and AB = CD, then they must all be equal (B = C, etc.)
 		if ((pixel & 0x000000FF) == (pixel >> 24) && (pixel & 0x0000FFFF) == (pixel >> 16)) {
-			memset(out, pixel & 0xFF, width * height * sizeof(u32));
+			memset(out, pixel & 0xFF, pixelCount * sizeof(u32));
 		} else {
 			// Let's hope this is vectorized.
-			for (int i = 0; i < width * height; ++i) {
+			for (int i = 0; i < pixelCount; ++i) {
 				out[i] = pixel;
 			}
 		}
 	} else {
-		ScaleInto(out, src, width, height, factor);
+		ScaleInto(out, src, width, height, scaledWidth, scaledHeight, factor);
 	}
 }
 
-bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, int &width, int &height, int factor) {
+bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, int width, int height, int *scaledWidth, int *scaledHeight, int factor) {
 #ifdef SCALING_MEASURE_TIME
 	double t_start = time_now_d();
 #endif
@@ -660,21 +662,21 @@ bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, int &width, int &h
 	}
 
 	// update values accordingly
-	width *= factor;
-	height *= factor;
+	*scaledWidth = width * factor;
+	*scaledHeight = height * factor;
 
 #ifdef SCALING_MEASURE_TIME
-	if (width*height > 64 * 64 * factor*factor) {
+	if (*scaledWidth* *scaledHeight > 64 * 64 * factor*factor) {
 		double t = time_now_d() - t_start;
 		NOTICE_LOG(G3D, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.2lf Mpixels/second)",
-			width*height, t, (width*height) / (t * 1000 * 1000));
+			*scaledWidth * *scaledHeight, t, (*scaledWidth * *scaledHeight) / (t * 1000 * 1000));
 	}
 #endif
 
 	return true;
 }
 
-bool TextureScalerCommon::Scale(u32* &data, int &width, int &height, int factor) {
+bool TextureScalerCommon::Scale(u32* &data, int width, int height, int *scaledWidth, int *scaledHeight, int factor) {
 	// prevent processing empty or flat textures (this happens a lot in some games)
 	// doesn't hurt the standard case, will be very quick for textures with actual texture
 	if (IsEmptyOrFlat(data, width*height)) {
@@ -685,7 +687,7 @@ bool TextureScalerCommon::Scale(u32* &data, int &width, int &height, int factor)
 	bufOutput.resize(width * height * (factor * factor)); // used to store the upscaled image
 	u32 *outputBuf = bufOutput.data();
 
-	if (ScaleInto(outputBuf, data, width, height, factor)) {
+	if (ScaleInto(outputBuf, data, width, height, scaledWidth, scaledHeight, factor)) {
 		data = outputBuf;
 		return true;
 	}

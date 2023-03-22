@@ -23,8 +23,8 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Log.h"
+#include "Core/ConfigValues.h"
 
-struct ReplacedLevelsCache;
 class TextureReplacer;
 class LimitedWaitable;
 
@@ -45,24 +45,15 @@ enum class ReplacedImageType {
 	PNG,
 	ZIM,
 	DDS,
+	BASIS,  // TODO: Might not even do this, KTX2 is a better container.
+	KTX2,
 	INVALID,
 };
 
 static const int MAX_REPLACEMENT_MIP_LEVELS = 12;  // 12 should be plenty, 8 is the max mip levels supported by the PSP.
 
-// Metadata about a given texture level.
-struct ReplacedTextureLevel {
-	int w = 0;
-	int h = 0;
-
-	// To be able to reload, we need to be able to reopen, unfortunate we can't use zip_file_t.
-	// TODO: This really belongs on the level in the cache, not in the individual ReplacedTextureLevel objects.
-	VFSFileReference *fileRef = nullptr;
-};
-
 enum class ReplacementState : uint32_t {
-	UNINITIALIZED,
-	POPULATED,  // We located the texture files but have not started the thread.
+	UNLOADED,
 	PENDING,
 	NOT_FOUND,  // Also used on error loading the images.
 	ACTIVE,
@@ -85,25 +76,42 @@ struct ReplacementDesc {
 	uint32_t hash;
 	int w;
 	int h;
+	TextureFiltering forceFiltering;
 	std::string hashfiles;
 	Path basePath;
-	bool foundAlias;
 	std::vector<std::string> filenames;
 	std::string logId;
-	ReplacedLevelsCache *cache;
 	GPUFormatSupport formatSupport;
 };
 
-struct ReplacedLevelsCache {
-	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;
-	std::mutex lock;
-	std::vector<std::vector<uint8_t>> data;
-	double lastUsed = 0.0;
-};
+class ReplacedTexture;
 
 // These aren't actually all replaced, they can also represent a placeholder for a not-found
-// replacement (state_ == NOT_FOUND).
-struct ReplacedTexture {
+// replacement (texture == nullptr).
+struct ReplacedTextureRef {
+	ReplacedTexture *texture;  // shortcut
+	std::string hashfiles;  // key into the cache
+};
+
+// Metadata about a given texture level.
+struct ReplacedTextureLevel {
+	// Data dimensions
+	int w = 0;
+	int h = 0;
+	// PSP texture dimensions
+	int fullW = 0;
+	int fullH = 0;
+
+	int fullDataSize = 0;
+
+	// To be able to reload, we need to be able to reopen, unfortunate we can't use zip_file_t.
+	// TODO: This really belongs on the level in the cache, not in the individual ReplacedTextureLevel objects.
+	VFSFileReference *fileRef = nullptr;
+};
+
+class ReplacedTexture {
+public:
+	ReplacedTexture(VFSBackend *vfs, const ReplacementDesc &desc);
 	~ReplacedTexture();
 
 	inline ReplacementState State() const {
@@ -121,13 +129,33 @@ struct ReplacedTexture {
 	void GetSize(int level, int *w, int *h) const {
 		_dbg_assert_(State() == ReplacementState::ACTIVE);
 		_dbg_assert_(level < levels_.size());
-		*w = levels_[level].w;
-		*h = levels_[level].h;
+		*w = levels_[level].fullW;
+		*h = levels_[level].fullH;
 	}
 
-	int GetLevelDataSize(int level) const {
-		_dbg_assert_(State() == ReplacementState::ACTIVE);
-		return (int)levelData_->data[level].size();
+	int GetLevelDataSizeAfterCopy(int level) const {
+		// Includes padding etc.
+		return levels_[level].fullDataSize;
+	}
+
+	size_t GetTotalDataSize() const {
+		if (State() != ReplacementState::ACTIVE) {
+			return 0;
+		}
+		size_t sz = 0;
+		for (auto &data : data_) {
+			sz += data.size();
+		}
+		return sz;
+	}
+
+	bool ForceFiltering(TextureFiltering *forceFiltering) const {
+		if (desc_.forceFiltering != (TextureFiltering)0) {
+			*forceFiltering = desc_.forceFiltering;
+			return true;
+		} else {
+			return false;
+		}
 	}
 
 	int NumLevels() const {
@@ -144,30 +172,36 @@ struct ReplacedTexture {
 		return (u8)alphaStatus_;
 	}
 
-	bool IsReady(double budget);
-	bool CopyLevelTo(int level, void *out, int rowPitch);
+	bool Poll(double budget);
+	bool CopyLevelTo(int level, uint8_t *out, size_t outDataSize, int rowPitch);
 
-	void FinishPopulate(ReplacementDesc *desc);
 	std::string logId_;
 
 private:
+	enum class LoadLevelResult {
+		LOAD_ERROR = 0,
+		CONTINUE = 1,
+		DONE = 2,
+	};
+
 	void Prepare(VFSBackend *vfs);
-	bool LoadLevelData(VFSFileReference *fileRef, const std::string &filename, int level, Draw::DataFormat *pixelFormat);
-	void PurgeIfOlder(double t);
+	LoadLevelResult LoadLevelData(VFSFileReference *fileRef, const std::string &filename, int level, Draw::DataFormat *pixelFormat);
+	void PurgeIfNotUsedSinceTime(double t);
 
+	std::vector<std::vector<uint8_t>> data_;
 	std::vector<ReplacedTextureLevel> levels_;
-	ReplacedLevelsCache *levelData_ = nullptr;
 
-	ReplacedTextureAlpha alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 	double lastUsed_ = 0.0;
 	LimitedWaitable *threadWaitable_ = nullptr;
-	std::mutex mutex_;
+	std::mutex lock_;
 	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
+	ReplacedTextureAlpha alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
+	double lastUsed = 0.0;
 
-	std::atomic<ReplacementState> state_ = ReplacementState::UNINITIALIZED;
+	std::atomic<ReplacementState> state_ = ReplacementState::UNLOADED;
 
 	VFSBackend *vfs_ = nullptr;
-	ReplacementDesc *desc_ = nullptr;
+	ReplacementDesc desc_;
 
 	friend class TextureReplacer;
 	friend class ReplacedTextureTask;

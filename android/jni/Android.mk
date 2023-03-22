@@ -103,6 +103,7 @@ EXT_FILES := \
   $(SRC)/ext/libpng17/pngwrite.c \
   $(SRC)/ext/libpng17/pngwtran.c \
   $(SRC)/ext/libpng17/pngwutil.c \
+  $(SRC)/ext/basis_universal/basisu_transcoder.cpp \
   $(SRC)/ext/jpge/jpgd.cpp \
   $(SRC)/ext/jpge/jpge.cpp \
   $(SRC)/ext/sha1/sha1.cpp \
@@ -213,6 +214,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Net/WebsocketServer.cpp \
   $(SRC)/Common/Profiler/Profiler.cpp \
   $(SRC)/Common/System/Display.cpp \
+  $(SRC)/Common/System/Request.cpp \
   $(SRC)/Common/Thread/ThreadUtil.cpp \
   $(SRC)/Common/Thread/ThreadManager.cpp \
   $(SRC)/Common/Thread/ParallelLoop.cpp \

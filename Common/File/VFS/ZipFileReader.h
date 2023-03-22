@@ -16,7 +16,7 @@
 
 class ZipFileReader : public VFSBackend {
 public:
-	static ZipFileReader *Create(const Path &zipFile, const char *inZipPath);
+	static ZipFileReader *Create(const Path &zipFile, const char *inZipPath, bool logErrors = true);
 	~ZipFileReader();
 
 	bool IsValid() const { return zip_file_ != nullptr; }

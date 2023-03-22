@@ -295,13 +295,8 @@ void GPU_Vulkan::BeginHostFrame() {
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	int curFrame = vulkan->GetCurFrame();
-	FrameData &frame = frameData_[curFrame];
-
-	frame.push_->Reset();
-	frame.push_->Begin(vulkan);
 
 	framebufferManager_->BeginFrame();
-	textureCacheVulkan_->SetPushBuffer(frameData_[curFrame].push_);
 
 	shaderManagerVulkan_->DirtyShader();
 	gstate_c.Dirty(DIRTY_ALL);
@@ -329,9 +324,6 @@ void GPU_Vulkan::BeginHostFrame() {
 
 void GPU_Vulkan::EndHostFrame() {
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-	int curFrame = vulkan->GetCurFrame();
-	FrameData &frame = frameData_[curFrame];
-	frame.push_->End();
 
 	drawEngine_.EndFrame();
 
@@ -395,15 +387,7 @@ void GPU_Vulkan::FinishDeferred() {
 
 void GPU_Vulkan::InitDeviceObjects() {
 	INFO_LOG(G3D, "GPU_Vulkan::InitDeviceObjects");
-	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-	// Initialize framedata
-	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		_assert_(!frameData_[i].push_);
-		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-		frameData_[i].push_ = new VulkanPushBuffer(vulkan, "gpuPush", 256 * 1024, usage, PushBufferType::CPU_TO_GPU);
-	}
 
-	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	uint32_t hacks = 0;
 	if (PSP_CoreParameter().compat.flags().MGS2AcidHack)
 		hacks |= QUEUE_HACK_MGS2_ACID;
@@ -414,21 +398,13 @@ void GPU_Vulkan::InitDeviceObjects() {
 	hacks |= QUEUE_HACK_RENDERPASS_MERGE;
 
 	if (hacks) {
+		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		rm->GetQueueRunner()->EnableHacks(hacks);
 	}
 }
 
 void GPU_Vulkan::DestroyDeviceObjects() {
 	INFO_LOG(G3D, "GPU_Vulkan::DestroyDeviceObjects");
-	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		if (frameData_[i].push_) {
-			VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-			frameData_[i].push_->Destroy(vulkan);
-			delete frameData_[i].push_;
-			frameData_[i].push_ = nullptr;
-		}
-	}
-
 	// Need to turn off hacks when shutting down the GPU. Don't want them running in the menu.
 	if (draw_) {
 		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
@@ -479,12 +455,11 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 	textureCacheVulkan_->GetStats(texStats, sizeof(texStats));
 	snprintf(buffer, bufsize,
 		"Vertex, Fragment, Pipelines loaded: %i, %i, %i\n"
-		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n"
+		"Pushbuffer space used: Vtx %d, Idx %d\n"
 		"%s\n",
 		shaderManagerVulkan_->GetNumVertexShaders(),
 		shaderManagerVulkan_->GetNumFragmentShaders(),
 		pipelineManager_->GetNumPipelines(),
-		drawStats.pushUBOSpaceUsed,
 		drawStats.pushVertexSpaceUsed,
 		drawStats.pushIndexSpaceUsed,
 		texStats

@@ -107,7 +107,6 @@ struct VerySleepy_AddrInfo {
 };
 
 static std::wstring windowTitle;
-extern ScreenManager *screenManager;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
@@ -473,7 +472,6 @@ namespace MainWindow
 	}
 
 	void UpdateWindowTitle() {
-		// Seems to be fine to call now since we use a UNICODE build...
 		std::wstring title = windowTitle;
 		if (PPSSPP_ID >= 1 && GetInstancePeerCount() > 1) {
 			title.append(ConvertUTF8ToWString(StringFromFormat(" (instance: %d)", (int)PPSSPP_ID)));
@@ -1064,10 +1062,6 @@ namespace MainWindow
 
 		case WM_USER_BROWSE_BOOT_DONE:
 			BrowseAndBootDone();
-			break;
-
-		case WM_USER_BROWSE_BG_DONE:
-			BrowseBackgroundDone();
 			break;
 
 		case WM_USER_RESTART_EMUTHREAD:

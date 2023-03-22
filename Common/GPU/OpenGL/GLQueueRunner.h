@@ -359,20 +359,12 @@ public:
 		caps_ = caps;
 	}
 
-	int GetStereoBufferIndex(const char *uniformName);
-	std::string GetStereoBufferLayout(const char *uniformName);
-
 	void RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls);
 
 	void RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps, bool useVR);
-	void LogSteps(const std::vector<GLRStep *> &steps);
 
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
-
-	inline int RPIndex(GLRRenderPassAction color, GLRRenderPassAction depth) {
-		return (int)depth * 3 + (int)color;
-	}
 
 	void CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 

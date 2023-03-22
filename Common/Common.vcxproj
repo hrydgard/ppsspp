@@ -377,6 +377,13 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\ext\basis_universal\basisu.h" />
+    <ClInclude Include="..\ext\basis_universal\basisu_containers.h" />
+    <ClInclude Include="..\ext\basis_universal\basisu_containers_impl.h" />
+    <ClInclude Include="..\ext\basis_universal\basisu_file_headers.h" />
+    <ClInclude Include="..\ext\basis_universal\basisu_transcoder.h" />
+    <ClInclude Include="..\ext\basis_universal\basisu_transcoder_internal.h" />
+    <ClInclude Include="..\ext\basis_universal\basisu_transcoder_uastc.h" />
     <ClInclude Include="..\ext\libpng17\png.h" />
     <ClInclude Include="..\ext\libpng17\pngconf.h" />
     <ClInclude Include="..\ext\libpng17\pngdebug.h" />
@@ -543,6 +550,7 @@
     <ClInclude Include="Swap.h" />
     <ClInclude Include="SysError.h" />
     <ClInclude Include="System\Display.h" />
+    <ClInclude Include="System\Request.h" />
     <ClInclude Include="System\NativeApp.h" />
     <ClInclude Include="System\System.h" />
     <ClInclude Include="Thread\Barrier.h" />
@@ -577,6 +585,7 @@
     <ClInclude Include="x64Emitter.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\ext\basis_universal\basisu_transcoder.cpp" />
     <ClCompile Include="..\ext\libpng17\png.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
@@ -997,6 +1006,7 @@
     <ClCompile Include="OSVersion.cpp" />
     <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="System\Display.cpp" />
+    <ClCompile Include="System\Request.cpp" />
     <ClCompile Include="Thread\ParallelLoop.cpp" />
     <ClCompile Include="Thread\ThreadManager.cpp" />
     <ClCompile Include="Thread\ThreadUtil.cpp" />
@@ -1033,6 +1043,18 @@
     <ProjectReference Include="..\ext\zlib\zlib.vcxproj">
       <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_astc.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_astc_0_255.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_atc_55.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_atc_56.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_bc7_m5_alpha.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_bc7_m5_color.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_dxt1_5.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_dxt1_6.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_45.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_alpha_33.inc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
