@@ -368,6 +368,10 @@ if(NOT MSVC)
 	if(X86 OR X86_64)
 		# enable sse2 code generation
 		add_definitions(-msse2)
+		if(NOT X86_64 AND NOT CLANG)
+			add_definitions(-mfpmath=sse)
+			# add_definitions(-mstackrealign)
+		 endif()
 	endif()
 
 	if(IOS)
