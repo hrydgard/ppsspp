@@ -271,6 +271,10 @@ void System_Notify(SystemNotification notification) {
 		if (g_symbolMap)
 			g_symbolMap->SortSymbols();
 		break;
+	case SystemNotification::AUDIO_RESET_DEVICE:
+		StopSDLAudioDevice();
+		InitSDLAudioDevice();
+		break;
 	default:
 		break;
 	}
@@ -380,14 +384,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {
-#if defined(SDL)
-	if (!strcmp(command, "audio_resetDevice")) {
-		StopSDLAudioDevice();
-		InitSDLAudioDevice();
-	}
-#endif
-}
+void System_SendMessage(const char *command, const char *parameter) {}
 void System_Toast(const char *text) {}
 
 void System_AskForPermission(SystemPermission permission) {}

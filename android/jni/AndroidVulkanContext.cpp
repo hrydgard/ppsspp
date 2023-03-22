@@ -85,7 +85,7 @@ bool AndroidVulkanContext::InitAPI() {
 	INFO_LOG(G3D, "Creating Vulkan device");
 	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
 		INFO_LOG(G3D, "Failed to create vulkan device: %s", g_Vulkan->InitError().c_str());
-		System_SendMessage("toast", "No Vulkan driver found. Using OpenGL instead.");
+		System_Toast("No Vulkan driver found. Using OpenGL instead.");
 		g_Vulkan->DestroyInstance();
 		delete g_Vulkan;
 		g_Vulkan = nullptr;

@@ -222,12 +222,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {
-	if (!strcmp(command, "audio_resetDevice")) {
-		StopSDLAudioDevice();
-		InitSDLAudioDevice();
-    }
-}
+void System_SendMessage(const char *command, const char *parameter) {}
 
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
@@ -469,6 +464,11 @@ bool System_GetPropertyBool(SystemProperty prop) {
 
 void System_Notify(SystemNotification notification) {
 	switch (notification) {
+	case SystemNotification::AUDIO_RESET_DEVICE:
+		StopSDLAudioDevice();
+		InitSDLAudioDevice();
+		break;
+
 	default:
 		break;
 	}

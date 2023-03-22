@@ -1205,7 +1205,7 @@ UI::EventReturn GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
-	System_SendMessage("immersive", "");
+	System_Notify(SystemNotification::IMMERSIVE_MODE_CHANGE);
 	return UI::EVENT_DONE;
 }
 
@@ -1547,7 +1547,7 @@ UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
 	if (g_Config.sAudioDevice == a->T("Auto")) {
 		g_Config.sAudioDevice.clear();
 	}
-	System_SendMessage("audio_resetDevice", "");
+	System_Notify(SystemNotification::AUDIO_RESET_DEVICE);
 	return UI::EVENT_DONE;
 }
 

@@ -179,6 +179,8 @@ enum class SystemNotification {
 	SWITCH_UMD_UPDATED,
 	ROTATE_UPDATED,
 	FORCE_RECREATE_ACTIVITY,
+	IMMERSIVE_MODE_CHANGE,
+	AUDIO_RESET_DEVICE,
 };
 
 std::string System_GetProperty(SystemProperty prop);

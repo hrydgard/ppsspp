@@ -731,7 +731,7 @@ void RecreateActivity() {
 }
 
 UI::EventReturn TouchTestScreen::OnImmersiveModeChange(UI::EventParams &e) {
-	System_SendMessage("immersive", "");
+	System_Notify(SystemNotification::IMMERSIVE_MODE_CHANGE);
 	return UI::EVENT_DONE;
 }
 

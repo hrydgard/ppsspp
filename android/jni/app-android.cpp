@@ -1033,6 +1033,9 @@ void System_Notify(SystemNotification notification) {
 	case SystemNotification::FORCE_RECREATE_ACTIVITY:
 		PushCommand("recreate", "");
 		break;
+	case SystemNotification::IMMERSIVE_MODE_CHANGE:
+		PushCommand("immersive", "");
+		break;
 	}
 }
 
@@ -1062,16 +1065,16 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 
 	case SystemRequestType::CAMERA_COMMAND:
 		PushCommand("camera_command", param1);
-		break;
+		return true;
 	case SystemRequestType::GPS_COMMAND:
 		PushCommand("gps_command", param1);
-		break;
+		return true;
 	case SystemRequestType::MICROPHONE_COMMAND:
 		PushCommand("microphone_command", param1);
-		break;
+		return true;
 	case SystemRequestType::SHARE_TEXT:
 		PushCommand("share_text", param1);
-		break;
+		return true;
 	default:
 		return false;
 	}
