@@ -1329,12 +1329,12 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnFullscreenChange(UI::EventParams &e) {
 	g_Config.iForceFullScreen = -1;
-	System_SendMessage("toggle_fullscreen", g_Config.UseFullScreen() ? "1" : "0");
+	System_ToggleFullscreenState(g_Config.UseFullScreen() ? "1" : "0");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnFullscreenMultiChange(UI::EventParams &e) {
-	System_SendMessage("toggle_fullscreen", g_Config.UseFullScreen() ? "1" : "0");
+	System_ToggleFullscreenState(g_Config.UseFullScreen() ? "1" : "0");
 	return UI::EVENT_DONE;
 }
 
@@ -1477,7 +1477,7 @@ void GameSettingsScreen::TriggerRestart(const char *why) {
 	}
 	// Make sure the new instance is considered the first.
 	ShutdownInstanceCounter();
-	System_SendMessage("graphics_restart", param.c_str());
+	System_RestartApp(param);
 }
 
 void GameSettingsScreen::CallbackRenderingBackend(bool yes) {

@@ -87,3 +87,16 @@ inline void System_CopyStringToClipboard(const std::string &string) {
 inline void System_ExitApp() {
 	g_requestManager.MakeSystemRequest(SystemRequestType::EXIT_APP, nullptr, "", "", 0);
 }
+
+inline void System_RestartApp(const std::string &params) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::RESTART_APP, nullptr, params, "", 0);
+}
+
+// The design is a little weird, just a holdover from the old message. Can either toggle or set to on or off.
+inline void System_ToggleFullscreenState(const std::string &param) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::TOGGLE_FULLSCREEN_STATE, nullptr, param, "", 0);
+}
+
+inline void System_GraphicsBackendFailedAlert(const std::string &param) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::GRAPHICS_BACKEND_FAILED_ALERT, nullptr, param, "", 0);
+}

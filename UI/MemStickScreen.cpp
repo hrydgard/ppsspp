@@ -771,7 +771,7 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 
 	if (!initialSetup_) {
 		// We restart the app here, to get the new settings.
-		System_SendMessage("graphics_restart", "");
+		System_RestartApp("");
 	} else {
 		// This is initial setup, we now switch to the main screen, if we were successful
 		// (which we better have been...)

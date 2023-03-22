@@ -62,7 +62,10 @@ enum class SystemRequestType {
 	BROWSE_FOR_FOLDER,
 
 	EXIT_APP,
+	RESTART_APP,  // For graphics backend changes
 	COPY_TO_CLIPBOARD,
+	TOGGLE_FULLSCREEN_STATE,
+	GRAPHICS_BACKEND_FAILED_ALERT,
 };
 
 // Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).

@@ -334,6 +334,10 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::EXIT_APP:
 		qApp->exit(0);
 		return true;
+	case SystemRequestType::RESTART_APP:
+		// Should find a way to properly restart the app.
+		qApp->exit(0);
+		return true;
 	case SystemRequestType::COPY_TO_CLIPBOARD:
 		QApplication::clipboard()->setText(parameter);
 		return true;
@@ -368,10 +372,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
-	if (!strcmp(command, "graphics_restart")) {
-		// Should find a way to properly restart the app.
-		qApp->exit(0);
-	} else if (!strcmp(command, "camera_command")) {
+	if (!strcmp(command, "camera_command")) {
 		if (!strncmp(parameter, "startVideo", 10)) {
 			int width = 0, height = 0;
 			sscanf(parameter, "startVideo_%dx%d", &width, &height);

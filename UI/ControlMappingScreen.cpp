@@ -37,6 +37,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/TimeUtil.h"
 #include "Core/KeyMap.h"
 #include "Core/Host.h"
@@ -726,7 +727,7 @@ UI::EventReturn TouchTestScreen::OnImmersiveModeChange(UI::EventParams &e) {
 
 UI::EventReturn TouchTestScreen::OnRenderingBackend(UI::EventParams &e) {
 	g_Config.Save("GameSettingsScreen::RenderingBackend");
-	System_SendMessage("graphics_restart", "--touchscreentest");
+	System_RestartApp("--touchscreentest");
 	return UI::EVENT_DONE;
 }
 

@@ -1287,7 +1287,7 @@ UI::EventReturn MainScreen::OnFullScreenToggle(UI::EventParams &e) {
 	}
 #if !defined(MOBILE_DEVICE)
 	g_Config.bFullScreen = !g_Config.bFullScreen;
-	System_SendMessage("toggle_fullscreen", "");
+	System_ToggleFullscreenState("");
 #endif
 	return UI::EVENT_DONE;
 }

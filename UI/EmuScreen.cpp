@@ -41,6 +41,7 @@ using namespace std::placeholders;
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
+#include "Common/System/Request.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Math/curves.h"
 #include "Common/TimeUtil.h"
@@ -676,7 +677,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		NativeMessageReceived("savestate_displayslot", "");
 		break;
 	case VIRTKEY_TOGGLE_FULLSCREEN:
-		System_SendMessage("toggle_fullscreen", "");
+		System_ToggleFullscreenState("");
 		break;
 
 	case VIRTKEY_SCREENSHOT:

@@ -1033,6 +1033,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::EXIT_APP:
 		PushCommand("finish", "");
 		return true;
+	case SystemRequestType::RESTART_APP:
+		PushCommand("graphics_restart", param1);
+		return true;
 	case SystemRequestType::INPUT_TEXT_MODAL:
 	{
 		std::string serialized = StringFromFormat("%d:@:%s:@:%s", requestId, param1.c_str(), param2.c_str());

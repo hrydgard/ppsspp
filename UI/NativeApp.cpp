@@ -387,7 +387,7 @@ static void CheckFailedGPUBackends() {
 	g_Config.iGPUBackend = g_Config.NextValidBackend();
 	if (lastBackend != g_Config.iGPUBackend) {
 		std::string param = GPUBackendToString((GPUBackend)lastBackend) + " -> " + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
-		System_SendMessage("graphics_failedBackend", param.c_str());
+		System_GraphicsBackendFailedAlert(param);
 		WARN_LOG(LOADER, "Failed graphics backend switched from %s (%d to %d)", param.c_str(), lastBackend, g_Config.iGPUBackend);
 	}
 	// And then let's - for now - add the current to the failed list.
@@ -640,11 +640,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					g_Config.bPauseMenuExitsEmulator = true;
 				if (!strcmp(argv[i], "--fullscreen")) {
 					g_Config.iForceFullScreen = 1;
-					System_SendMessage("toggle_fullscreen", "1");
+					System_ToggleFullscreenState("1");
 				}
 				if (!strcmp(argv[i], "--windowed")) {
 					g_Config.iForceFullScreen = 0;
-					System_SendMessage("toggle_fullscreen", "0");
+					System_ToggleFullscreenState("0");
 				}
 				if (!strcmp(argv[i], "--touchscreentest"))
 					gotoTouchScreenTest = true;

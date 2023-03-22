@@ -486,20 +486,13 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		});
 		return true;
 	}
-	}
-
-	return false;
-}
-
-void System_SendMessage(const char *command, const char *parameter) {
-	using namespace concurrency;
-
-	if (!strcmp(command, "toggle_fullscreen")) {
+	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
+	{
 		auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
 		bool flag = !view->IsFullScreenMode;
-		if (strcmp(parameter, "0") == 0) {
+		if (param1 == "0") {
 			flag = false;
-		} else if (strcmp(parameter, "1") == 0){
+		} else if (param1 == "1"){
 			flag = true;
 		}
 		if (flag) {
@@ -507,8 +500,14 @@ void System_SendMessage(const char *command, const char *parameter) {
 		} else {
 			view->ExitFullScreenMode();
 		}
+		return true;
+	}
+	default:
+		return false;
 	}
 }
+
+void System_SendMessage(const char *command, const char *parameter) {}
 
 void System_ShowFileInFolder(const char *path) {
 	// Unsupported
