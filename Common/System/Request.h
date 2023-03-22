@@ -75,3 +75,7 @@ enum class BrowseFileType {
 inline void System_BrowseForFile(const std::string &title, BrowseFileType type, RequestCallback callback) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_FILE, callback, title, "", (int)type);
 }
+
+inline void System_BrowseForFolder(const std::string &title, RequestCallback callback) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_FOLDER, callback, title, "", 0);
+}

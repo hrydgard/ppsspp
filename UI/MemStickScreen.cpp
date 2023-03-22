@@ -445,32 +445,24 @@ UI::EventReturn MemStickScreen::UseStorageRoot(UI::EventParams &params) {
 }
 
 UI::EventReturn MemStickScreen::Browse(UI::EventParams &params) {
-	System_SendMessage("browse_folder", "");
-	return UI::EVENT_DONE;
-}
+	auto mm = GetI18NCategory("MainMenu");
+	System_BrowseForFolder(mm->T("Choose folder"), [=](const std::string &value, int) {
+		std::string filename;
+		filename = value;
+		INFO_LOG(SYSTEM, "Got folder: '%s'", filename.c_str());
 
-void MemStickScreen::sendMessage(const char *message, const char *value) {
-	// Always call the base class method first to handle the most common messages.
-	UIDialogScreenWithBackground::sendMessage(message, value);
+		// Browse finished. Let's pop up the confirmation dialog.
+		Path pendingMemStickFolder = Path(filename);
 
-	if (screenManager()->topScreen() == this) {
-		if (!strcmp(message, "browse_folderSelect")) {
-			std::string filename;
-			filename = value;
-			INFO_LOG(SYSTEM, "Got folder: '%s'", filename.c_str());
-
-			// Browse finished. Let's pop up the confirmation dialog.
-			Path pendingMemStickFolder = Path(filename);
-
-			if (pendingMemStickFolder == g_Config.memStickDirectory) {
-				auto iz = GetI18NCategory("MemStick");
-				return;
-			}
-
-			bool existingFiles = FolderSeemsToBeUsed(pendingMemStickFolder);
-			screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, initialSetup_));
+		if (pendingMemStickFolder == g_Config.memStickDirectory) {
+			auto iz = GetI18NCategory("MemStick");
+			return;
 		}
-	}
+
+		bool existingFiles = FolderSeemsToBeUsed(pendingMemStickFolder);
+		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, initialSetup_));
+	});
+	return UI::EVENT_DONE;
 }
 
 void MemStickScreen::dialogFinished(const Screen *dialog, DialogResult result) {

@@ -8,6 +8,8 @@ const char *RequestTypeAsString(SystemRequestType type) {
 	switch (type) {
 	case SystemRequestType::INPUT_TEXT_MODAL: return "INPUT_TEXT_MODAL";
 	case SystemRequestType::BROWSE_FOR_IMAGE: return "BROWSE_FOR_IMAGE";
+	case SystemRequestType::BROWSE_FOR_FILE: return "BROWSE_FOR_FILE";
+	case SystemRequestType::BROWSE_FOR_FOLDER: return "BROWSE_FOR_FOLDER";
 	default: return "N/A";
 	}
 }
