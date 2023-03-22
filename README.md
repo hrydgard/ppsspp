@@ -7,11 +7,9 @@ Additional code by many contributors, see the Credits screen
 
 Originally released under the GPL 2.0 (and later) in November 2012
 
-Official website:
-https://www.ppsspp.org/
+Official website: https://www.ppsspp.org/
 
-Discord:
-https://discord.gg/5NJB6dD
+Discord: https://discord.gg/5NJB6dD
 
 No BIOS file required to play, PPSSPP is an "HLE" emulator.  Default settings balance good compatibility and speed.
 
@@ -19,9 +17,11 @@ To contribute, see [the development page](https://www.ppsspp.org/development.htm
 
 For the latest source code, see [our GitHub page](https://github.com/hrydgard/ppsspp).
 
+For documentation of all kinds (usage, reference, development), see the [documentation on the main website](https://www.ppsspp.org/docs)
+
 For build instructions and other development tutorials, see [the wiki](https://github.com/hrydgard/ppsspp/wiki).
 
-If you want to download regularly updated builds for Android, Windows x86 and x64, proceed to this [page](https://buildbot.orphis.net/ppsspp/)
+If you want to download regularly updated builds for Android, Windows x86 and x64, [visit Orphis' buildbot](https://buildbot.orphis.net/ppsspp/)
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
