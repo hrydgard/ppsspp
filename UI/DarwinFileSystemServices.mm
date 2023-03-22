@@ -35,7 +35,7 @@
     if (urls.count >= 1)
 		self.callback(true, Path(urls[0].path.UTF8String));
     else
-        self.callback)false, Path());
+        self.callback(false, Path());
 }
 
 @end
