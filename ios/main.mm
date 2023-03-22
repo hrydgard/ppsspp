@@ -215,19 +215,31 @@ void System_SendMessage(const char *command, const char *parameter) {
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
-	case SystemRequestType::BROWSE_FOR_FOLDER:
+	case SystemRequestType::BROWSE_FOR_FILE:
 	{
-		DarwinDirectoryPanelCallback callback = [] (bool success, Path thePathChosen) {
+		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
 			if (success) {
-				g_requestManager.PostSystemSuccess(requestId, thePathChosen.c_str());
+				g_requestManager.PostSystemSuccess(requestId, path.c_str());
 			} else {
 				g_requestManager.PostSystemFailure(requestId);
 			}
 		};
 		DarwinFileSystemServices services;
-		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ true);
+		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false);
+		return true;
 	}
-		break;
+	case SystemRequestType::BROWSE_FOR_FOLDER:
+	{
+		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
+			if (success) {
+				g_requestManager.PostSystemSuccess(requestId, path.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		};
+		DarwinFileSystemServices services;
+		services.presentDirectoryPanel(callback, /* allowFiles = */ false, /* allowDirectories = */ true);
+		return true;
 	}
 	}
 	return false;

@@ -59,7 +59,7 @@ void DarwinFileSystemServices::presentDirectoryPanel(DarwinDirectoryPanelCallbac
         NSModalResponse modalResponse = [panel runModal];
         if (modalResponse == NSModalResponseOK && panel.URLs.firstObject) {
             callback(true, Path(panel.URLs.firstObject.path.UTF8String));
-        } else if (modalResponse == NSModalReponseCancel) {
+        } else if (modalResponse == NSModalResponseCancel) {
             callback(false, Path());
         }
 #elif PPSSPP_PLATFORM(IOS)
