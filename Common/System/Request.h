@@ -112,3 +112,7 @@ inline void System_GPSCommand(const std::string &command) {
 inline void System_MicrophoneCommand(const std::string &command) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::MICROPHONE_COMMAND, nullptr, command, "", 0);
 }
+
+inline void System_ShareText(const std::string &text) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::SHARE_TEXT, nullptr, text, "", 0);
+}

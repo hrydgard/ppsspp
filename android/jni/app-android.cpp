@@ -539,9 +539,6 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 }
 
-void System_Notify(SystemNotification notification) {
-}
-
 std::string Android_GetInputDeviceDebugString() {
 	if (!nativeActivity) {
 		return "(N/A)";
@@ -1028,6 +1025,17 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	}
 }
 
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	case SystemNotification::ROTATE_UPDATED:
+		PushCommand("rotate", "");
+		break;
+	case SystemNotification::FORCE_RECREATE_ACTIVITY:
+		PushCommand("recreate", "");
+		break;
+	}
+}
+
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
 	case SystemRequestType::EXIT_APP:
@@ -1060,6 +1068,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		break;
 	case SystemRequestType::MICROPHONE_COMMAND:
 		PushCommand("microphone_command", param1);
+		break;
+	case SystemRequestType::SHARE_TEXT:
+		PushCommand("share_text", param1);
 		break;
 	default:
 		return false;
@@ -1226,7 +1237,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 	std::string msg = GetJavaString(env, message);
 	std::string prm = GetJavaString(env, param);
 
-	// Some messages are caught by app-android.
+	// Some messages are caught by app-android. TODO: Should be all.
 	if (msg == "moga") {
 		mogaVersion = prm;
 	} else if (msg == "permission_pending") {

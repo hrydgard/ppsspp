@@ -1403,18 +1403,7 @@ public abstract class NativeActivity extends Activity {
 				Log.e(TAG, e.toString());
 				return false;
 			}
-		} else if (command.equals("sharejpeg")) {
-			try {
-				Intent share = new Intent(Intent.ACTION_SEND);
-				share.setType("image/jpeg");
-				share.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + params));
-				startActivity(Intent.createChooser(share, "Share Picture"));
-				return true;
-			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
-				Log.e(TAG, e.toString());
-				return false;
-			}
-		} else if (command.equals("sharetext")) {
+		} else if (command.equals("share_text")) {
 			try {
 				Intent sendIntent = new Intent();
 				sendIntent.setType("text/plain");

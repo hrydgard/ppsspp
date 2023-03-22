@@ -176,20 +176,7 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {
-	if (!strcmp(command, "sharetext")) {
-		NSString *text = [NSString stringWithUTF8String:parameter];
-		[sharedViewController shareText:text];
-	} else if (!strcmp(command, "safe_insets")) {
-		float left, right, top, bottom;
-		if (4 == sscanf(parameter, "%f:%f:%f:%f", &left, &right, &top, &bottom)) {
-			g_safeInsetLeft = left;
-			g_safeInsetRight = right;
-			g_safeInsetTop = top;
-			g_safeInsetBottom = bottom;
-		}
-	}
-}
+void System_SendMessage(const char *command, const char *parameter) {}
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
@@ -244,6 +231,12 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			stopLocation();
 		}
 		return true;
+	case SystemRequestType::SHARE_TEXT:
+	{
+		NSString *text = [NSString stringWithUTF8String:param1.c_str()];
+		[sharedViewController shareText:text];
+		return true;
+	}
 	default:
 		return false;
 	}

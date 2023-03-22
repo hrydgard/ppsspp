@@ -1193,21 +1193,9 @@ UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnScreenRotation(UI::EventParams &e) {
 	INFO_LOG(SYSTEM, "New display rotation: %d", g_Config.iScreenRotation);
 	INFO_LOG(SYSTEM, "Sending rotate");
-	System_SendMessage("rotate", "");
+	System_Notify(SystemNotification::ROTATE_UPDATED);
 	INFO_LOG(SYSTEM, "Got back from rotate");
 	return UI::EVENT_DONE;
-}
-
-void RecreateActivity() {
-	const int SYSTEM_JELLYBEAN = 16;
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= SYSTEM_JELLYBEAN) {
-		INFO_LOG(SYSTEM, "Sending recreate");
-		System_SendMessage("recreate", "");
-		INFO_LOG(SYSTEM, "Got back from recreate");
-	} else {
-		auto gr = GetI18NCategory("Graphics");
-		System_SendMessage("toast", gr->T("Must Restart", "You must restart PPSSPP for this change to take effect"));
-	}
 }
 
 UI::EventReturn GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
@@ -1348,7 +1336,7 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	Reporting::UpdateConfig();
 	if (!g_Config.Save("GameSettingsScreen::onFinish")) {
-		System_SendMessage("toast", "Failed to save settings!\nCheck permissions, or try to restart the device.");
+		System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
 	}
 
 	if (editThenRestore_) {

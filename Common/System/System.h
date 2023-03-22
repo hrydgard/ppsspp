@@ -71,6 +71,8 @@ enum class SystemRequestType {
 	CAMERA_COMMAND,
 	GPS_COMMAND,
 	MICROPHONE_COMMAND,
+
+	SHARE_TEXT,
 };
 
 // Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).
@@ -175,6 +177,8 @@ enum class SystemNotification {
 	BOOT_DONE,  // this is sent from EMU thread! Make sure that Host handles it properly!
 	SYMBOL_MAP_UPDATED,
 	SWITCH_UMD_UPDATED,
+	ROTATE_UPDATED,
+	FORCE_RECREATE_ACTIVITY,
 };
 
 std::string System_GetProperty(SystemProperty prop);
