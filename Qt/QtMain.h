@@ -140,6 +140,7 @@ protected:
 	void EmuThreadJoin();
 
 private:
+	bool HandleCustomEvent(QEvent *e);
 	QtGLGraphicsContext *graphicsContext;
 
 	float xscale, yscale;
