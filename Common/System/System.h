@@ -50,8 +50,20 @@ enum class LaunchUrlType {
 void System_Vibrate(int length_ms);
 void System_ShowFileInFolder(const char *path);
 void System_LaunchUrl(LaunchUrlType urlType, const char *url);
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb);
+
+enum class SystemRequestType {
+	INPUT_TEXT_MODAL,
+};
+
+// Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).
+// This is not to be used directly by applications, instead use the g_RequestManager to make the requests.
+// This can return false if it's known that the platform doesn't support the request, the app is supposed to handle
+// or ignore that cleanly.
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2);
+
+// TODO: To be separated into requests, see Request.h, and a way to post "UI messages".
 void System_SendMessage(const char *command, const char *parameter);
+
 PermissionStatus System_GetPermissionStatus(SystemPermission permission);
 void System_AskForPermission(SystemPermission permission);
 

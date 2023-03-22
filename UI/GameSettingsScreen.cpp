@@ -30,7 +30,7 @@
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Battery/Battery.h"
 #include "Common/System/NativeApp.h"
 #include "Common/Data/Color/RGBAUtil.h"
@@ -1564,10 +1564,8 @@ UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Enter Quick Chat 1"), g_Config.sQuickChat0, [](bool result, const std::string &value) {
-		if (result) {
-			g_Config.sQuickChat0 = value;
-		}
+	System_InputBoxGetString(n->T("Enter Quick Chat 1"), g_Config.sQuickChat0, [](const std::string &value, int) {
+		g_Config.sQuickChat0 = value;
 	});
 #endif
 	return UI::EVENT_DONE;
@@ -1576,10 +1574,8 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Enter Quick Chat 2"), g_Config.sQuickChat1, [](bool result, const std::string &value) {
-		if (result) {
-			g_Config.sQuickChat1 = value;
-		}
+	System_InputBoxGetString(n->T("Enter Quick Chat 2"), g_Config.sQuickChat1, [](const std::string &value, int) {
+		g_Config.sQuickChat1 = value;
 	});
 #endif
 	return UI::EVENT_DONE;
@@ -1588,10 +1584,8 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Enter Quick Chat 3"), g_Config.sQuickChat2, [](bool result, const std::string &value) {
-		if (result) {
-			g_Config.sQuickChat2 = value;
-		}
+	System_InputBoxGetString(n->T("Enter Quick Chat 3"), g_Config.sQuickChat2, [](const std::string &value, int) {
+		g_Config.sQuickChat2 = value;
 	});
 #endif
 	return UI::EVENT_DONE;
@@ -1600,10 +1594,8 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Enter Quick Chat 4"), g_Config.sQuickChat3, [](bool result, const std::string &value) {
-		if (result) {
-			g_Config.sQuickChat3 = value;
-		}
+	System_InputBoxGetString(n->T("Enter Quick Chat 4"), g_Config.sQuickChat3, [](const std::string &value, int) {
+		g_Config.sQuickChat3 = value;
 	});
 #endif
 	return UI::EVENT_DONE;
@@ -1612,10 +1604,8 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Enter Quick Chat 5"), g_Config.sQuickChat4, [](bool result, const std::string &value) {
-		if (result) {
-			g_Config.sQuickChat4 = value;
-		}
+	System_InputBoxGetString(n->T("Enter Quick Chat 5"), g_Config.sQuickChat4, [](const std::string &value, int) {
+		g_Config.sQuickChat4 = value;
 	});
 #endif
 	return UI::EVENT_DONE;
@@ -1624,10 +1614,8 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Enter a new PSP nickname"), g_Config.sNickName, [](bool result, const std::string &value) {
-		if (result) {
-			g_Config.sNickName = StripSpaces(value);
-		}
+	System_InputBoxGetString(n->T("Enter a new PSP nickname"), g_Config.sNickName, [](const std::string &value, int) {
+		g_Config.sNickName = StripSpaces(value);
 	});
 #endif
 	return UI::EVENT_DONE;
@@ -1723,10 +1711,8 @@ UI::EventReturn GameSettingsScreen::OnSysInfo(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeSearchFilter(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
 	auto se = GetI18NCategory("Search");
-	System_InputBoxGetString(se->T("Search term"), searchFilter_, [](bool result, const std::string &value) {
-		if (result) {
-			NativeMessageReceived("gameSettings_search", StripSpaces(value).c_str());
-		}
+	System_InputBoxGetString(se->T("Search term"), searchFilter_, [](const std::string &value, int) {
+		NativeMessageReceived("gameSettings_search", StripSpaces(value).c_str());
 	});
 #else
 	if (!System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
@@ -2098,10 +2084,8 @@ UI::EventReturn HostnameSelectScreen::OnDeleteAllClick(UI::EventParams &e) {
 UI::EventReturn HostnameSelectScreen::OnEditClick(UI::EventParams& e) {
 	auto n = GetI18NCategory("Networking");
 #if PPSSPP_PLATFORM(ANDROID)
-	System_InputBoxGetString(n->T("proAdhocServer Address:"), addrView_->GetText(), [this](bool result, const std::string& value) {
-		if (result) {
-		    addrView_->SetText(value);
-		}
+	System_InputBoxGetString(n->T("proAdhocServer Address:"), addrView_->GetText(), [this](const std::string& value, int) {
+	    addrView_->SetText(value);
 	});
 #endif
 	return UI::EVENT_DONE;

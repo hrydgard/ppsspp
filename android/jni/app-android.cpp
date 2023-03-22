@@ -61,6 +61,7 @@ struct JNIEnv {};
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/File/Path.h"
 #include "Common/File/DirListing.h"
@@ -174,9 +175,6 @@ static std::atomic<bool> exitRenderLoop;
 static std::atomic<bool> renderLoopRunning;
 static bool renderer_inited = false;
 static std::mutex renderLock;
-
-static int inputBoxSequence = 1;
-static std::map<int, std::function<void(bool, const std::string &)>> inputBoxCallbacks;
 
 static bool sustainedPerfSupported = false;
 
@@ -909,7 +907,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 	{
 		std::lock_guard<std::mutex> guard(renderLock);
-		inputBoxCallbacks.clear();
 		NativeShutdown();
 		g_VFS.Clear();
 	}
@@ -1032,12 +1029,17 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	}
 }
 
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
-	int seq = inputBoxSequence++;
-	inputBoxCallbacks[seq] = cb;
-
-	std::string serialized = StringFromFormat("%d:@:%s:@:%s", seq, title.c_str(), defaultValue.c_str());
-	System_SendMessage("inputbox", serialized.c_str());
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) {
+	switch (type) {
+	case SystemRequestType::INPUT_TEXT_MODAL:
+	{
+		std::string serialized = StringFromFormat("%d:@:%s:@:%s", requestId, param1.c_str(), param2.c_str());
+		PushCommand("inputbox", serialized.c_str());
+		return true;
+	}
+	default:
+		return false;
+	}
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendInputBox(JNIEnv *env, jclass, jstring jseqID, jboolean result, jstring jvalue) {
@@ -1058,13 +1060,11 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendInputBox(JNIEnv *en
 		return;
 	}
 
-	auto entry = inputBoxCallbacks.find(seq);
-	if (entry == inputBoxCallbacks.end()) {
-		ERROR_LOG(SYSTEM, "Did not find inputbox callback for %s, shutdown?", seqID.c_str());
-		return;
+	if (result) {
+		g_requestManager.PostSystemSuccess(seq, value.c_str());
+	} else {
+		g_requestManager.PostSystemFailure(seq);
 	}
-
-	NativeInputBoxReceived(entry->second, result, value);
 }
 
 void LockedNativeUpdateRender() {

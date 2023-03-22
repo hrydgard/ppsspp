@@ -550,6 +550,7 @@
     <ClInclude Include="Swap.h" />
     <ClInclude Include="SysError.h" />
     <ClInclude Include="System\Display.h" />
+    <ClInclude Include="System\Request.h" />
     <ClInclude Include="System\NativeApp.h" />
     <ClInclude Include="System\System.h" />
     <ClInclude Include="Thread\Barrier.h" />
@@ -1005,6 +1006,7 @@
     <ClCompile Include="OSVersion.cpp" />
     <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="System\Display.cpp" />
+    <ClCompile Include="System\Request.cpp" />
     <ClCompile Include="Thread\ParallelLoop.cpp" />
     <ClCompile Include="Thread\ThreadManager.cpp" />
     <ClCompile Include="Thread\ThreadUtil.cpp" />

@@ -34,7 +34,7 @@
 #endif
 
 #include "Common/System/NativeApp.h"
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Math/math_util.h"
 #include "Common/Profiler/Profiler.h"
@@ -58,6 +58,8 @@ MainUI *emugl = nullptr;
 static float refreshRate = 60.f;
 static int browseFileEvent = -1;
 static int browseFolderEvent = -1;
+static int inputBoxEvent = -1;
+
 QTCamera *qtcamera = nullptr;
 MainWindow *g_mainWindow;
 
@@ -273,6 +275,57 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
+// TODO: Find a better version to pass parameters to HandleCustomEvent.
+static std::string g_param1;
+static std::string g_param2;
+static int g_requestId;
+
+bool MainUI::HandleCustomEvent(QEvent *e) {
+	if (e->type() == browseFileEvent) {
+		QString fileName = QFileDialog::getOpenFileName(nullptr, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip *.ppdmp)");
+		if (QFile::exists(fileName)) {
+			QDir newPath;
+			g_Config.currentDirectory = Path(newPath.filePath(fileName).toStdString());
+			g_Config.Save("browseFileEvent");
+
+			NativeMessageReceived("boot", fileName.toStdString().c_str());
+		}
+	} else if (e->type() == browseFolderEvent) {
+		auto mm = GetI18NCategory("MainMenu");
+		QString fileName = QFileDialog::getExistingDirectory(nullptr, mm->T("Choose folder"), g_Config.currentDirectory.c_str());
+		if (QDir(fileName).exists()) {
+			NativeMessageReceived("browse_folderSelect", fileName.toStdString().c_str());
+		}
+	} else if (e->type() == inputBoxEvent) {
+	    QString title = QString::fromStdString(g_param1);
+	    QString defaultValue = QString::fromStdString(g_param2);
+	    QString text = emugl->InputBoxGetQString(title, defaultValue);
+	    if (text.isEmpty()) {
+	        g_requestManager.PostSystemFailure(g_requestId);
+	    } else {
+	        g_requestManager.PostSystemSuccess(g_requestId, text.toStdString().c_str());
+	    }
+	} else {
+		return false;
+	}
+	return true;
+}
+
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) {
+	switch (type) {
+	case SystemRequestType::INPUT_TEXT_MODAL:
+	{
+		g_requestId = requestId;
+		g_param1 = param1;
+		g_param2 = param2;
+		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)inputBoxEvent));
+		return true;
+	}
+	default:
+		return false;
+	}
+}
+
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
 		qApp->exit(0);
@@ -304,15 +357,6 @@ void System_Toast(const char *text) {}
 
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
-
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
-	QString text = emugl->InputBoxGetQString(QString::fromStdString(title), QString::fromStdString(defaultValue));
-	if (text.isEmpty()) {
-		NativeInputBoxReceived(cb, false, "");
-	} else {
-		NativeInputBoxReceived(cb, true, text.toStdString());
-	}
-}
 
 void System_Vibrate(int length_ms) {
 	if (length_ms == -1 || length_ms == -3)
@@ -355,6 +399,7 @@ static int mainInternal(QApplication &a) {
 
 	browseFileEvent = QEvent::registerEventType();
 	browseFolderEvent = QEvent::registerEventType();
+	inputBoxEvent = QEvent::registerEventType();
 
 	int retval = a.exec();
 	delete emugl;
@@ -566,23 +611,8 @@ bool MainUI::event(QEvent *e) {
 		break;
 
 	default:
-		if (e->type() == browseFileEvent) {
-			QString fileName = QFileDialog::getOpenFileName(nullptr, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip *.ppdmp)");
-			if (QFile::exists(fileName)) {
-				QDir newPath;
-				g_Config.currentDirectory = Path(newPath.filePath(fileName).toStdString());
-				g_Config.Save("browseFileEvent");
-
-				NativeMessageReceived("boot", fileName.toStdString().c_str());
-			}
-			break;
-		} else if (e->type() == browseFolderEvent) {
-			auto mm = GetI18NCategory("MainMenu");
-			QString fileName = QFileDialog::getExistingDirectory(nullptr, mm->T("Choose folder"), g_Config.currentDirectory.c_str());
-			if (QDir(fileName).exists()) {
-				NativeMessageReceived("browse_folderSelect", fileName.toStdString().c_str());
-			}
-		} else {
+		// Can't switch on dynamic event types.
+		if (!HandleCustomEvent(e)) {
 			return QWidget::event(e);
 		}
 	}

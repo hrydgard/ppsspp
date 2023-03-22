@@ -58,8 +58,10 @@
 #include "android/jni/app-android.h"
 
 #include "Common/System/Display.h"
+#include "Common/System/Request.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
+
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
 #include "Common/Math/math_util.h"
@@ -148,7 +150,7 @@
 
 #include <Core/HLE/Plugins.h>
 
-ScreenManager *screenManager;
+ScreenManager *g_screenManager;
 std::string config_filename;
 
 // Really need to clean this mess of globals up... but instead I add more :P
@@ -164,15 +166,8 @@ struct PendingMessage {
 	std::string value;
 };
 
-struct PendingInputBox {
-	std::function<void(bool, const std::string &)> cb;
-	bool result;
-	std::string value;
-};
-
 static std::mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
-static std::vector<PendingInputBox> pendingInputBoxes;
 static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
 static Draw::Pipeline *texColorPipeline;
@@ -443,7 +438,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_dir;
 	pendingMessages.clear();
-	pendingInputBoxes.clear();
+	g_requestManager.Clear();
 
 	// external_dir has all kinds of meanings depending on platform.
 	// on iOS it's even the path to bundled app assets. It's a mess.
@@ -789,19 +784,19 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	DEBUG_LOG(SYSTEM, "ScreenManager!");
-	screenManager = new ScreenManager();
+	g_screenManager = new ScreenManager();
 	if (g_Config.memStickDirectory.empty()) {
 		INFO_LOG(SYSTEM, "No memstick directory! Asking for one to be configured.");
-		screenManager->switchScreen(new LogoScreen(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
+		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
 	} else if (gotoGameSettings) {
-		screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
+		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
 	} else if (gotoTouchScreenTest) {
-		screenManager->switchScreen(new MainScreen());
-		screenManager->push(new TouchTestScreen(Path()));
+		g_screenManager->switchScreen(new MainScreen());
+		g_screenManager->push(new TouchTestScreen(Path()));
 	} else if (skipLogo) {
-		screenManager->switchScreen(new EmuScreen(boot_filename));
+		g_screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
-		screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
+		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
 	}
 
 	// Easy testing
@@ -833,7 +828,7 @@ bool CreateGlobalPipelines();
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(SYSTEM, "NativeInitGraphics");
 
-	_assert_(screenManager);
+	_assert_(g_screenManager);
 
 	// We set this now so any resize during init is processed later.
 	resized = false;
@@ -864,10 +859,10 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	if (uiContext->Text())
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
 
-	screenManager->setUIContext(uiContext);
-	screenManager->setDrawContext(g_draw);
-	screenManager->setPostRenderCallback(&RenderOverlays, nullptr);
-	screenManager->deviceRestored();
+	g_screenManager->setUIContext(uiContext);
+	g_screenManager->setDrawContext(g_draw);
+	g_screenManager->setPostRenderCallback(&RenderOverlays, nullptr);
+	g_screenManager->deviceRestored();
 
 #ifdef _WIN32
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
@@ -951,8 +946,8 @@ bool CreateGlobalPipelines() {
 void NativeShutdownGraphics() {
 	INFO_LOG(SYSTEM, "NativeShutdownGraphics");
 
-	if (screenManager) {
-		screenManager->deviceLost();
+	if (g_screenManager) {
+		g_screenManager->deviceLost();
 	}
 
 	if (gpu)
@@ -1062,7 +1057,7 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 
 void NativeRender(GraphicsContext *graphicsContext) {
 	_dbg_assert_(graphicsContext != nullptr);
-	_dbg_assert_(screenManager != nullptr);
+	_dbg_assert_(g_screenManager != nullptr);
 
 	g_GameManager.Update();
 
@@ -1108,19 +1103,19 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	ui_draw2d.PushDrawMatrix(ortho);
 	ui_draw2d_front.PushDrawMatrix(ortho);
 
-	screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
+	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 
 	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
 	if (g_Config.bShowGpuProfile)
 		debugFlags |= Draw::DebugFlags::PROFILE_TIMESTAMPS;
 	if (g_Config.bGpuLogProfiler)
 		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
-	screenManager->getDrawContext()->SetDebugFlags(debugFlags);
+	g_screenManager->getDrawContext()->SetDebugFlags(debugFlags);
 
 	// All actual rendering happen in here.
-	screenManager->render();
-	if (screenManager->getUIContext()->Text()) {
-		screenManager->getUIContext()->Text()->OncePerFrame();
+	g_screenManager->render();
+	if (g_screenManager->getUIContext()->Text()) {
+		g_screenManager->getUIContext()->Text()->OncePerFrame();
 	}
 
 	if (resized) {
@@ -1142,7 +1137,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		}
 
 		graphicsContext->Resize();
-		screenManager->resized();
+		g_screenManager->resized();
 
 		// TODO: Move this to the GraphicsContext objects for each backend.
 #if !PPSSPP_PLATFORM(WINDOWS) && !defined(ANDROID)
@@ -1248,25 +1243,21 @@ void NativeUpdate() {
 	PROFILE_END_FRAME();
 
 	std::vector<PendingMessage> toProcess;
-	std::vector<PendingInputBox> inputToProcess;
 	{
 		std::lock_guard<std::mutex> lock(pendingMutex);
 		toProcess = std::move(pendingMessages);
-		inputToProcess = std::move(pendingInputBoxes);
 		pendingMessages.clear();
-		pendingInputBoxes.clear();
 	}
 
 	for (const auto &item : toProcess) {
 		HandleGlobalMessage(item.msg, item.value);
-		screenManager->sendMessage(item.msg.c_str(), item.value.c_str());
-	}
-	for (const auto &item : inputToProcess) {
-		item.cb(item.result, item.value);
+		g_screenManager->sendMessage(item.msg.c_str(), item.value.c_str());
 	}
 
+	g_requestManager.ProcessRequests();
+
 	g_DownloadManager.Update();
-	screenManager->update();
+	g_screenManager->update();
 
 	g_Discord.Update();
 
@@ -1275,11 +1266,11 @@ void NativeUpdate() {
 
 bool NativeIsAtTopLevel() {
 	// This might need some synchronization?
-	if (!screenManager) {
+	if (!g_screenManager) {
 		ERROR_LOG(SYSTEM, "No screen manager active");
 		return false;
 	}
-	Screen *currentScreen = screenManager->topScreen();
+	Screen *currentScreen = g_screenManager->topScreen();
 	if (currentScreen) {
 		bool top = currentScreen->isTopLevel();
 		INFO_LOG(SYSTEM, "Screen toplevel: %i", (int)top);
@@ -1291,7 +1282,7 @@ bool NativeIsAtTopLevel() {
 }
 
 void NativeTouch(const TouchInput &touch) {
-	if (!screenManager) {
+	if (!g_screenManager) {
 		return;
 	}
 
@@ -1300,7 +1291,7 @@ void NativeTouch(const TouchInput &touch) {
 	if (my_isnan(touch.x) || my_isnan(touch.y)) {
 		return;
 	}
-	screenManager->touch(touch);
+	g_screenManager->touch(touch);
 }
 
 bool NativeKey(const KeyInput &key) {
@@ -1323,10 +1314,10 @@ bool NativeKey(const KeyInput &key) {
 	}
 #endif
 	bool retval = false;
-	if (screenManager)
+	if (g_screenManager)
 	{
 		HLEPlugins::PluginDataKeys[key.keyCode] = (key.flags & KEY_DOWN) ? 1 : 0;
-		retval = screenManager->key(key);
+		retval = g_screenManager->key(key);
 	}
 	return retval;
 }
@@ -1337,7 +1328,7 @@ void NativeAxis(const AxisInput &axis) {
 		return;
 	}
 
-	if (!screenManager) {
+	if (!g_screenManager) {
 		// Too early.
 		return;
 	}
@@ -1346,7 +1337,7 @@ void NativeAxis(const AxisInput &axis) {
 
 	// only do special handling of tilt events if tilt is enabled.
 	HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
-	screenManager->axis(axis);
+	g_screenManager->axis(axis);
 
 	if (g_Config.iTiltInputType == TILT_NULL) {
 		// if tilt events are disabled, don't do anything special.
@@ -1396,15 +1387,6 @@ void NativeMessageReceived(const char *message, const char *value) {
 	pendingMessages.push_back(pendingMessage);
 }
 
-void NativeInputBoxReceived(std::function<void(bool, const std::string &)> cb, bool result, const std::string &value) {
-	std::lock_guard<std::mutex> lock(pendingMutex);
-	PendingInputBox pendingMessage;
-	pendingMessage.cb = cb;
-	pendingMessage.result = result;
-	pendingMessage.value = value;
-	pendingInputBoxes.push_back(pendingMessage);
-}
-
 void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
 	VERBOSE_LOG(G3D, "NativeResized - setting flag");
@@ -1420,10 +1402,10 @@ bool NativeIsRestarting() {
 }
 
 void NativeShutdown() {
-	if (screenManager) {
-		screenManager->shutdown();
-		delete screenManager;
-		screenManager = nullptr;
+	if (g_screenManager) {
+		g_screenManager->shutdown();
+		delete g_screenManager;
+		g_screenManager = nullptr;
 	}
 
 #if !PPSSPP_PLATFORM(UWP)
