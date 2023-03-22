@@ -24,10 +24,12 @@ SDLJoystick *joystick = NULL;
 
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Net/Resolve.h"
+#include "Common/File/FileUtil.h"
 #include "NKCodeFromSDL.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
@@ -166,7 +168,39 @@ void System_Vibrate(int length_ms) {
 	// Ignore on PC
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+	switch (type) {
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	case SystemRequestType::BROWSE_FOR_FILE:
+	{
+		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
+			if (success) {
+				g_requestManager.PostSystemSuccess(requestId, path.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		};
+		DarwinFileSystemServices services;
+		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false);
+		return true;
+	}
+	case SystemRequestType::BROWSE_FOR_FOLDER:
+	{
+		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
+			if (success) {
+				g_requestManager.PostSystemSuccess(requestId, path.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		};
+		DarwinFileSystemServices services;
+		services.presentDirectoryPanel(callback, /* allowFiles = */ false, /* allowDirectories = */ true);
+		return true;
+	}
+#endif
+	}
+	return false;
+}
 
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "toggle_fullscreen")) {
@@ -191,17 +225,6 @@ void System_SendMessage(const char *command, const char *parameter) {
 		StopSDLAudioDevice();
 		InitSDLAudioDevice();
     }
-#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-    else if (!strcmp(command, "browse_folder")) {
-        DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
-            NativeMessageReceived("browse_folder", thePathChosen.c_str());
-        };
-
-        DarwinFileSystemServices services;
-        services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
-    }
-#endif
-
 }
 
 void System_AskForPermission(SystemPermission permission) {}
@@ -432,7 +455,11 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return true;  // FileUtil.cpp: OpenFileInEditor
-
+#if PPSSPP_PLATFORM(MAC)
+	case SYSPROP_HAS_FOLDER_BROWSER:
+	case SYSPROP_HAS_FILE_BROWSER:
+		return true;
+#endif
 	default:
 		return false;
 	}

@@ -12,7 +12,7 @@
 
 #define PreferredMemoryStickUserDefaultsKey "UserPreferredMemoryStickDirectoryPath"
 
-typedef std::function<void (Path)> DarwinDirectoryPanelCallback;
+typedef std::function<void (bool, Path)> DarwinDirectoryPanelCallback;
 
 /// A Class providing help functions to work with the FileSystem
 /// on Darwin platforms.

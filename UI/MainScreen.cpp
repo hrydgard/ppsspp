@@ -540,7 +540,11 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::BrowseClick(UI::EventParams &e) {
-	System_SendMessage("browse_folder", "");
+	auto mm = GetI18NCategory("MainMenu");
+	System_BrowseForFolder(mm->T("Choose folder"), [this](const std::string &value, int) {
+		std::string filename = value;
+		this->SetPath(Path(filename));
+	});
 	return UI::EVENT_DONE;
 }
 
@@ -1253,15 +1257,6 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 	if (screenManager()->topScreen() == this) {
 		if (!strcmp(message, "boot")) {
 			LaunchFile(screenManager(), Path(std::string(value)));
-		}
-		if (!strcmp(message, "browse_folderSelect")) {
-			std::string filename = value;
-			INFO_LOG(SYSTEM, "Got folder: '%s'", filename.c_str());
-			int tab = tabHolder_->GetCurrentTab();
-			// Don't allow browsing in the other tabs (I don't think it's possible to reach the option though)
-			if (tab == 1) {
-				gameBrowsers_[tab]->SetPath(Path(filename));
-			}
 		}
 	}
 	if (!strcmp(message, "permission_granted") && !strcmp(value, "storage")) {

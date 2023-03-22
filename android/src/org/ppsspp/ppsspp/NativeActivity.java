@@ -108,6 +108,7 @@ public abstract class NativeActivity extends Activity {
 	// These can probably be merged, but conceptually nice to have them separate.
 	private int imageRequestId = -1;
 	private int fileRequestId = -1;
+	private int folderRequestId = -1;
 
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
@@ -1164,6 +1165,7 @@ public abstract class NativeActivity extends Activity {
 			imageRequestId = -1;
 		} else if (requestCode == RESULT_OPEN_DOCUMENT) {
 			if (resultCode != RESULT_OK || data == null) {
+				NativeApp.sendRequestResult(fileRequestId, false, "", 0);
 				return;
 			}
 			Uri selectedFile = data.getData();
@@ -1186,6 +1188,7 @@ public abstract class NativeActivity extends Activity {
 			fileRequestId = -1;
 		} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
 			if (resultCode != RESULT_OK || data == null) {
+				NativeApp.sendRequestResult(folderRequestId, false, "", 0);
 				return;
 			}
 			Uri selectedDirectoryUri = data.getData();
@@ -1208,8 +1211,9 @@ public abstract class NativeActivity extends Activity {
 					Log.i(TAG, "Child: " + child.getUri() + " " + child.getName());
 				}
 				*/
-				NativeApp.sendMessage("browse_folderSelect", documentFile.getUri().toString());
+				NativeApp.sendRequestResult(folderRequestId, true, documentFile.getUri().toString(), 0);
 			}
+			folderRequestId = -1;
 		}
 	}
 
@@ -1346,6 +1350,7 @@ public abstract class NativeActivity extends Activity {
 				startActivityForResult(i, RESULT_LOAD_IMAGE);
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
+				imageRequestId = -1;
 				Log.e(TAG, e.toString());
 				return false;
 			}
@@ -1362,11 +1367,13 @@ public abstract class NativeActivity extends Activity {
 				startActivityForResult(intent, RESULT_OPEN_DOCUMENT);
 				// intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
 			} catch (Exception e) {
+				fileRequestId = -1;
 				Log.e(TAG, e.toString());
 				return false;
 			}
 		} else if (command.equals("browse_folder")) {
 			try {
+				folderRequestId = Integer.parseInt(params);
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
 				intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 				intent.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
@@ -1375,6 +1382,7 @@ public abstract class NativeActivity extends Activity {
 				startActivityForResult(intent, RESULT_OPEN_DOCUMENT_TREE);
 				return true;
 			} catch (Exception e) {
+				folderRequestId = -1;
 				Log.e(TAG, e.toString());
 				return false;
 			}

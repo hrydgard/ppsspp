@@ -8,25 +8,30 @@ const char *RequestTypeAsString(SystemRequestType type) {
 	switch (type) {
 	case SystemRequestType::INPUT_TEXT_MODAL: return "INPUT_TEXT_MODAL";
 	case SystemRequestType::BROWSE_FOR_IMAGE: return "BROWSE_FOR_IMAGE";
+	case SystemRequestType::BROWSE_FOR_FILE: return "BROWSE_FOR_FILE";
+	case SystemRequestType::BROWSE_FOR_FOLDER: return "BROWSE_FOR_FOLDER";
 	default: return "N/A";
 	}
 }
 
 bool RequestManager::MakeSystemRequest(SystemRequestType type, RequestCallback callback, const std::string &param1, const std::string &param2, int param3) {
 	int requestId = idCounter_++;
+
+	// NOTE: We need to register immediately, in order to support synchronous implementations.
+	{
+		std::lock_guard<std::mutex> guard(callbackMutex_);
+		callbackMap_[requestId] = callback;
+	}
+
 	INFO_LOG(SYSTEM, "Making system request %s: id %d, callback_valid %d", RequestTypeAsString(type), requestId, callback != nullptr);
 	if (!System_MakeRequest(type, requestId, param1, param2, param3)) {
+		{
+			std::lock_guard<std::mutex> guard(callbackMutex_);
+			callbackMap_.erase(requestId);
+		}
 		return false;
 	}
 
-	if (!callback) {
-		// We don't expect a response, this is a one-directional request. We're thus done.
-		return true;
-	}
-
-	std::lock_guard<std::mutex> guard(callbackMutex_);
-	INFO_LOG(SYSTEM, "Registering pending callback %d", requestId);
-	callbackMap_[requestId] = callback;
 	return true;
 }
 

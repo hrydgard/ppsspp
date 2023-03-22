@@ -18,6 +18,7 @@
 #include "Common/MemoryUtil.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/StringUtils.h"
 #include "Common/Profiler/Profiler.h"
 #include "UI/DarwinFileSystemServices.h"
@@ -209,17 +210,38 @@ void System_SendMessage(const char *command, const char *parameter) {
 			g_safeInsetTop = top;
 			g_safeInsetBottom = bottom;
 		}
-	} else if (!strcmp(command, "browse_folder")) {
-		DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
-			NativeMessageReceived("browse_folderSelect", thePathChosen.c_str());
-		};
-
-		DarwinFileSystemServices services;
-		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
 	}
 }
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+	switch (type) {
+	case SystemRequestType::BROWSE_FOR_FILE:
+	{
+		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
+			if (success) {
+				g_requestManager.PostSystemSuccess(requestId, path.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		};
+		DarwinFileSystemServices services;
+		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false);
+		return true;
+	}
+	case SystemRequestType::BROWSE_FOR_FOLDER:
+	{
+		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
+			if (success) {
+				g_requestManager.PostSystemSuccess(requestId, path.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		};
+		DarwinFileSystemServices services;
+		services.presentDirectoryPanel(callback, /* allowFiles = */ false, /* allowDirectories = */ true);
+		return true;
+	}
+	}
 	return false;
 }
 

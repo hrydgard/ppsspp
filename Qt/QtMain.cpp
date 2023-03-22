@@ -307,10 +307,12 @@ bool MainUI::HandleCustomEvent(QEvent *e) {
 			g_requestManager.PostSystemFailure(g_requestId);
 		}
 	} else if (e->type() == browseFolderEvent) {
-		auto mm = GetI18NCategory("MainMenu");
-		QString fileName = QFileDialog::getExistingDirectory(nullptr, mm->T("Choose folder"), g_Config.currentDirectory.c_str());
+		QString title = QString::fromStdString(g_param1);
+		QString fileName = QFileDialog::getExistingDirectory(nullptr, title, g_Config.currentDirectory.c_str());
 		if (QDir(fileName).exists()) {
-			NativeMessageReceived("browse_folderSelect", fileName.toStdString().c_str());
+			g_requestManager.PostSystemSuccess(g_requestId, fileName.toStdString().c_str());
+		} else {
+			g_requestManager.PostSystemFailure(g_requestId);
 		}
 	} else if (e->type() == inputBoxEvent) {
 	    QString title = QString::fromStdString(g_param1);
@@ -348,6 +350,12 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		g_param3 = param3;
 		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFileEvent));
 		return true;
+	case SystemRequestType::BROWSE_FOR_FOLDER:
+		g_requestId = requestId;
+		g_param1 = param1;
+		g_param2 = param2;
+		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFolderEvent));
+		return true;
 	default:
 		return false;
 	}
@@ -356,8 +364,6 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
 		qApp->exit(0);
-	} else if (!strcmp(command, "browse_folder")) {
-		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFolderEvent));
 	} else if (!strcmp(command, "graphics_restart")) {
 		// Should find a way to properly restart the app.
 		qApp->exit(0);

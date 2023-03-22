@@ -55,6 +55,7 @@ enum class SystemRequestType {
 	INPUT_TEXT_MODAL,
 	BROWSE_FOR_IMAGE,
 	BROWSE_FOR_FILE,
+	BROWSE_FOR_FOLDER,
 };
 
 // Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).

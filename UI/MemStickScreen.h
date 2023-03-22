@@ -48,7 +48,6 @@ public:
 protected:
 	void CreateViews() override;
 
-	void sendMessage(const char *message, const char *value) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void update() override;
 	void render() override {
