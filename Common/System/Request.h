@@ -79,3 +79,11 @@ inline void System_BrowseForFile(const std::string &title, BrowseFileType type, 
 inline void System_BrowseForFolder(const std::string &title, RequestCallback callback) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_FOLDER, callback, title, "", 0);
 }
+
+inline void System_CopyStringToClipboard(const std::string &string) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::COPY_TO_CLIPBOARD, nullptr, string, "", 0);
+}
+
+inline void System_ExitApp() {
+	g_requestManager.MakeSystemRequest(SystemRequestType::EXIT_APP, nullptr, "", "", 0);
+}

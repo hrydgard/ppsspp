@@ -2107,8 +2107,8 @@ UI::EventReturn HostnameSelectScreen::OnIPClick(UI::EventParams& e) {
 	std::string text = e.v ? e.v->Tag() : "";
 	if (text.length() > 0) {
 		addrView_->SetText(text);
-		// TODO: Copy the IP to clipboard for the host to easily share their IP through chatting apps.
-		System_SendMessage("setclipboardtext", text.c_str()); // Doesn't seems to be working on windows (yet?)
+		// Copy the IP to clipboard for the host to easily share their IP through chatting apps.
+		System_CopyStringToClipboard(text);
 	}
 	return UI::EVENT_DONE;
 }

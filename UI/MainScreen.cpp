@@ -1432,7 +1432,7 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	}
 
 	// Request the framework to exit cleanly.
-	System_SendMessage("finish", "");
+	System_ExitApp();
 
 	UpdateUIState(UISTATE_EXIT);
 	return UI::EVENT_DONE;

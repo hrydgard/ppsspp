@@ -443,6 +443,17 @@ std::wstring MakeFilter(std::wstring filter) {
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
+	case SystemRequestType::EXIT_APP:
+		if (!NativeIsRestarting()) {
+			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+		}
+		return true;
+	case SystemRequestType::COPY_TO_CLIPBOARD:
+	{
+		std::wstring data = ConvertUTF8ToWString(param1);
+		W32Util::CopyTextToClipboard(MainWindow::GetDisplayHWND(), data);
+		return true;
+	}
 	case SystemRequestType::INPUT_TEXT_MODAL:
 		if (g_dialogRunning) {
 			g_dialogThread.join();
@@ -522,11 +533,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
-	if (!strcmp(command, "finish")) {
-		if (!NativeIsRestarting()) {
-			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
-		}
-	} else if (!strcmp(command, "graphics_restart")) {
+	if (!strcmp(command, "graphics_restart")) {
 		restartArgs = parameter == nullptr ? "" : parameter;
 		if (!restartArgs.empty())
 			AddDebugRestartArgs();
@@ -542,9 +549,6 @@ void System_SendMessage(const char *command, const char *parameter) {
 		std::wstring full_error = ConvertUTF8ToWString(StringFromFormat("%s %s", backendSwitchError, parameter));
 		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
 		MessageBox(MainWindow::GetHWND(), full_error.c_str(), title.c_str(), MB_OK);
-	} else if (!strcmp(command, "setclipboardtext")) {
-		std::wstring data = ConvertUTF8ToWString(parameter);
-		W32Util::CopyTextToClipboard(MainWindow::GetDisplayHWND(), data);
 	} else if (!strcmp(command, "toggle_fullscreen")) {
 		bool flag = !MainWindow::IsFullscreen();
 		if (strcmp(parameter, "0") == 0) {

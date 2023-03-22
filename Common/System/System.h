@@ -51,17 +51,25 @@ void System_Vibrate(int length_ms);
 void System_ShowFileInFolder(const char *path);
 void System_LaunchUrl(LaunchUrlType urlType, const char *url);
 
+// It's sometimes a little unclear what should be a request, and what should be a separate function.
+// Going forward, "optional" things (PPSSPP will still function alright without it) will be requests,
+// to make implementations simpler in the default case.
+
 enum class SystemRequestType {
 	INPUT_TEXT_MODAL,
 	BROWSE_FOR_IMAGE,
 	BROWSE_FOR_FILE,
 	BROWSE_FOR_FOLDER,
+
+	EXIT_APP,
+	COPY_TO_CLIPBOARD,
 };
 
 // Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).
 // This is not to be used directly by applications, instead use the g_RequestManager to make the requests.
 // This can return false if it's known that the platform doesn't support the request, the app is supposed to handle
 // or ignore that cleanly.
+// Some requests don't use responses.
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3);
 
 // TODO: To be separated into requests, see Request.h, and a way to post "UI messages".

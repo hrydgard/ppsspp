@@ -494,9 +494,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 void System_SendMessage(const char *command, const char *parameter) {
 	using namespace concurrency;
 
-	if (!strcmp(command, "finish")) {
-		// Not really supposed to support this under UWP.
-	} else if (!strcmp(command, "toggle_fullscreen")) {
+	if (!strcmp(command, "toggle_fullscreen")) {
 		auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
 		bool flag = !view->IsFullScreenMode;
 		if (strcmp(parameter, "0") == 0) {

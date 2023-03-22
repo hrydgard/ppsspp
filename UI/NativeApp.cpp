@@ -1289,7 +1289,7 @@ bool NativeKey(const KeyInput &key) {
 		pspKeys.clear();
 		if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys)) {
 			if (std::find(pspKeys.begin(), pspKeys.end(), VIRTKEY_PAUSE) != pspKeys.end()) {
-				System_SendMessage("finish", "");
+				System_ExitApp();
 				return true;
 			}
 		}
@@ -1390,8 +1390,6 @@ void NativeShutdown() {
 		g_screenManager = nullptr;
 	}
 
-#if !PPSSPP_PLATFORM(UWP)
-#endif
 	g_Config.Save("NativeShutdown");
 
 	INFO_LOG(SYSTEM, "NativeShutdown called");
@@ -1404,7 +1402,9 @@ void NativeShutdown() {
 
 	ShutdownWebServer();
 
-	System_SendMessage("finish", "");
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	System_ExitApp();
+#endif
 
 	net::Shutdown();
 
@@ -1422,6 +1422,10 @@ void NativeShutdown() {
 	}
 
 	g_threadManager.Teardown();
+
+#if !(PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS))
+	System_ExitApp();
+#endif
 
 	// Previously we did exit() here on Android but that makes it hard to do things like restart on backend change.
 	// I think we handle most globals correctly or correct-enough now.

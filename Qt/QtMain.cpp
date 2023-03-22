@@ -331,6 +331,12 @@ bool MainUI::HandleCustomEvent(QEvent *e) {
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
+	case SystemRequestType::EXIT_APP:
+		qApp->exit(0);
+		return true;
+	case SystemRequestType::COPY_TO_CLIPBOARD:
+		QApplication::clipboard()->setText(parameter);
+		return true;
 	case SystemRequestType::INPUT_TEXT_MODAL:
 	{
 		g_requestId = requestId;
@@ -362,9 +368,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
-	if (!strcmp(command, "finish")) {
-		qApp->exit(0);
-	} else if (!strcmp(command, "graphics_restart")) {
+	if (!strcmp(command, "graphics_restart")) {
 		// Should find a way to properly restart the app.
 		qApp->exit(0);
 	} else if (!strcmp(command, "camera_command")) {
@@ -375,8 +379,6 @@ void System_SendMessage(const char *command, const char *parameter) {
 		} else if (!strcmp(parameter, "stopVideo")) {
 			emit(qtcamera->onStopCamera());
 		}
-	} else if (!strcmp(command, "setclipboardtext")) {
-		QApplication::clipboard()->setText(parameter);
 #if defined(SDL)
 	} else if (!strcmp(command, "audio_resetDevice")) {
 		StopSDLAudioDevice();

@@ -170,6 +170,13 @@ void System_Vibrate(int length_ms) {
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
+	case SystemRequestType::EXIT_APP:
+		// Do a clean exit
+		g_QuitRequested = true;
+		break;
+	case SystemRequestType::COPY_TO_CLIPBOARD:
+		SDL_SetClipboardText(param1.c_str());
+		break;
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
@@ -213,14 +220,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 			// Just toggle.
 			g_ToggleFullScreenType = -1;
 		}
-	} else if (!strcmp(command, "finish")) {
-		// Do a clean exit
-		g_QuitRequested = true;
 	} else if (!strcmp(command, "graphics_restart")) {
 		// Not sure how we best do this, but do a clean exit, better than being stuck in a bad state.
 		g_QuitRequested = true;
-	} else if (!strcmp(command, "setclipboardtext")) {
-		SDL_SetClipboardText(parameter);
 	} else if (!strcmp(command, "audio_resetDevice")) {
 		StopSDLAudioDevice();
 		InitSDLAudioDevice();

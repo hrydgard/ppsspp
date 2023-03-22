@@ -177,14 +177,7 @@ void System_Notify(SystemNotification notification) {
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
-	if (!strcmp(command, "finish")) {
-		exit(0);
-		// The below seems right, but causes hangs. See #12140.
-		// dispatch_async(dispatch_get_main_queue(), ^{
-		// [sharedViewController shutdown];
-		//	exit(0);
-		// });
-	} else if (!strcmp(command, "sharetext")) {
+	if (!strcmp(command, "sharetext")) {
 		NSString *text = [NSString stringWithUTF8String:parameter];
 		[sharedViewController shareText:text];
 	} else if (!strcmp(command, "camera_command")) {
@@ -215,6 +208,14 @@ void System_SendMessage(const char *command, const char *parameter) {
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
+	case SystemRequestType::EXIT_APP:
+		exit(0);
+		// The below seems right, but causes hangs. See #12140.
+		// dispatch_async(dispatch_get_main_queue(), ^{
+		// [sharedViewController shutdown];
+		//	exit(0);
+		// });
+		break;
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
 		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {

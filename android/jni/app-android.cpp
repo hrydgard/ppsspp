@@ -402,6 +402,7 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
+	// TODO: Using sendmessage this way is deprecated.
 	PushCommand(command, parameter);
 }
 
@@ -1029,6 +1030,9 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
+	case SystemRequestType::EXIT_APP:
+		PushCommand("finish", "");
+		return true;
 	case SystemRequestType::INPUT_TEXT_MODAL:
 	{
 		std::string serialized = StringFromFormat("%d:@:%s:@:%s", requestId, param1.c_str(), param2.c_str());
