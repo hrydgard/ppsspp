@@ -21,6 +21,7 @@
 #include "ppsspp_config.h"
 
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
@@ -360,7 +361,7 @@ int Camera::startCapture() {
 	#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(USING_QT_UI)
 		char command[40] = {0};
 		snprintf(command, sizeof(command), "startVideo_%dx%d", width, height);
-		System_SendMessage("camera_command", command);
+		System_CameraCommand(command);
 	#elif PPSSPP_PLATFORM(LINUX)
 		__v4l_startCapture(width, height);
 	#else
@@ -376,7 +377,7 @@ int Camera::stopCapture() {
 			winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
 		}
 	#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(USING_QT_UI)
-		System_SendMessage("camera_command", "stopVideo");
+		System_CameraCommand("stopVideo");
 	#elif PPSSPP_PLATFORM(LINUX)
 		__v4l_stopCapture();
 	#else

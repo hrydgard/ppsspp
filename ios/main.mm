@@ -180,21 +180,6 @@ void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "sharetext")) {
 		NSString *text = [NSString stringWithUTF8String:parameter];
 		[sharedViewController shareText:text];
-	} else if (!strcmp(command, "camera_command")) {
-		if (!strncmp(parameter, "startVideo", 10)) {
-			int width = 0, height = 0;
-			sscanf(parameter, "startVideo_%dx%d", &width, &height);
-			setCameraSize(width, height);
-			startVideo();
-		} else if (!strcmp(parameter, "stopVideo")) {
-			stopVideo();
-		}
-	} else if (!strcmp(command, "gps_command")) {
-		if (!strcmp(parameter, "open")) {
-			startLocation();
-		} else if (!strcmp(parameter, "close")) {
-			stopLocation();
-		}
 	} else if (!strcmp(command, "safe_insets")) {
 		float left, right, top, bottom;
 		if (4 == sscanf(parameter, "%f:%f:%f:%f", &left, &right, &top, &bottom)) {
@@ -242,8 +227,26 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		services.presentDirectoryPanel(callback, /* allowFiles = */ false, /* allowDirectories = */ true);
 		return true;
 	}
+	case SystemRequestType::CAMERA_COMMAND:
+		if (!strncmp(param1.c_str(), "startVideo", 10)) {
+			int width = 0, height = 0;
+			sscanf(param1.c_str(), "startVideo_%dx%d", &width, &height);
+			setCameraSize(width, height);
+			startVideo();
+		} else if (!strcmp(param1.c_str(), "stopVideo")) {
+			stopVideo();
+		}
+		return true;
+	case SystemRequestType::GPS_COMMAND:
+		if (param1 == "open") {
+			startLocation();
+		} else if (param1 == "close")) {
+			stopLocation();
+		}
+		return true;
+	default:
+		return false;
 	}
-	return false;
 }
 
 void System_Toast(const char *text) {}

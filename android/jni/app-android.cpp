@@ -1051,6 +1051,16 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::BROWSE_FOR_FOLDER:
 		PushCommand("browse_folder", StringFromFormat("%d", requestId));
 		return true;
+
+	case SystemRequestType::CAMERA_COMMAND:
+		PushCommand("camera_command", param1);
+		break;
+	case SystemRequestType::GPS_COMMAND:
+		PushCommand("gps_command", param1);
+		break;
+	case SystemRequestType::MICROPHONE_COMMAND:
+		PushCommand("microphone_command", param1);
+		break;
 	default:
 		return false;
 	}

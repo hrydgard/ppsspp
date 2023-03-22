@@ -100,3 +100,15 @@ inline void System_ToggleFullscreenState(const std::string &param) {
 inline void System_GraphicsBackendFailedAlert(const std::string &param) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::GRAPHICS_BACKEND_FAILED_ALERT, nullptr, param, "", 0);
 }
+
+inline void System_CameraCommand(const std::string &command) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::CAMERA_COMMAND, nullptr, command, "", 0);
+}
+
+inline void System_GPSCommand(const std::string &command) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::GPS_COMMAND, nullptr, command, "", 0);
+}
+
+inline void System_MicrophoneCommand(const std::string &command) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::MICROPHONE_COMMAND, nullptr, command, "", 0);
+}

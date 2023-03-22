@@ -366,13 +366,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		g_param2 = param2;
 		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFolderEvent));
 		return true;
-	default:
-		return false;
-	}
-}
-
-void System_SendMessage(const char *command, const char *parameter) {
-	if (!strcmp(command, "camera_command")) {
+	case SystemRequestType::CAMERA_COMMAND:
 		if (!strncmp(parameter, "startVideo", 10)) {
 			int width = 0, height = 0;
 			sscanf(parameter, "startVideo_%dx%d", &width, &height);
@@ -380,12 +374,19 @@ void System_SendMessage(const char *command, const char *parameter) {
 		} else if (!strcmp(parameter, "stopVideo")) {
 			emit(qtcamera->onStopCamera());
 		}
+		return true;
+	default:
+		return false;
+	}
+}
+
+void System_SendMessage(const char *command, const char *parameter) {
 #if defined(SDL)
-	} else if (!strcmp(command, "audio_resetDevice")) {
+	if (!strcmp(command, "audio_resetDevice")) {
 		StopSDLAudioDevice();
 		InitSDLAudioDevice();
-#endif
 	}
+#endif
 }
 void System_Toast(const char *text) {}
 

@@ -21,6 +21,7 @@
 #include <ctime>
 
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
@@ -51,7 +52,7 @@ void __UsbGpsDoState(PointerWrap &p) {
 
 void __UsbGpsShutdown() {
     gpsStatus = GPS_STATE_OFF;
-    System_SendMessage("gps_command", "close");
+    System_GPSCommand("close");
 };
 
 static int sceUsbGpsGetInitDataLocation(u32 addr) {
@@ -69,14 +70,14 @@ static int sceUsbGpsOpen() {
 	ERROR_LOG(HLE, "UNIMPL sceUsbGpsOpen");
 	GPS::init();
 	gpsStatus = GPS_STATE_ON;
-	System_SendMessage("gps_command", "open");
+	System_GPSCommand("open");
 	return 0;
 }
 
 static int sceUsbGpsClose() {
 	ERROR_LOG(HLE, "UNIMPL sceUsbGpsClose");
 	gpsStatus = GPS_STATE_OFF;
-	System_SendMessage("gps_command", "close");
+	System_GPSCommand("close");
 	return 0;
 }
 

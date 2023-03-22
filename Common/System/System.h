@@ -66,6 +66,11 @@ enum class SystemRequestType {
 	COPY_TO_CLIPBOARD,
 	TOGGLE_FULLSCREEN_STATE,
 	GRAPHICS_BACKEND_FAILED_ALERT,
+
+	// High-level hardware control
+	CAMERA_COMMAND,
+	GPS_COMMAND,
+	MICROPHONE_COMMAND,
 };
 
 // Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).
