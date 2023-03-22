@@ -12,10 +12,10 @@ const char *RequestTypeAsString(SystemRequestType type) {
 	}
 }
 
-bool RequestManager::MakeSystemRequest(SystemRequestType type, RequestCallback callback, const std::string &param1, const std::string &param2) {
+bool RequestManager::MakeSystemRequest(SystemRequestType type, RequestCallback callback, const std::string &param1, const std::string &param2, int param3) {
 	int requestId = idCounter_++;
 	INFO_LOG(SYSTEM, "Making system request %s: id %d, callback_valid %d", RequestTypeAsString(type), requestId, callback != nullptr);
-	if (!System_MakeRequest(type, requestId, param1, param2)) {
+	if (!System_MakeRequest(type, requestId, param1, param2, param3)) {
 		return false;
 	}
 

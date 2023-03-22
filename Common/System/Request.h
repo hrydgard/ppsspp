@@ -16,7 +16,7 @@ class RequestManager {
 public:
 	// These requests are to be handled by platform implementations.
 	// The callback you pass in will be called on the main thread later.
-	bool MakeSystemRequest(SystemRequestType type, RequestCallback callback, const std::string &param1, const std::string &param2);
+	bool MakeSystemRequest(SystemRequestType type, RequestCallback callback, const std::string &param1, const std::string &param2, int param3);
 
 	// Called by the platform implementation, when it's finished with a request.
 	void PostSystemSuccess(int requestId, const char *responseString, int responseValue = 0);
@@ -56,9 +56,22 @@ extern RequestManager g_requestManager;
 // Wrappers for easy requests.
 // NOTE: Semantics have changed - this no longer calls the callback on cancellation.
 inline void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, RequestCallback callback) {
-	g_requestManager.MakeSystemRequest(SystemRequestType::INPUT_TEXT_MODAL, callback, title, defaultValue);
+	g_requestManager.MakeSystemRequest(SystemRequestType::INPUT_TEXT_MODAL, callback, title, defaultValue, 0);
 }
 
+// This one will pop up a special image brwoser if available. You can also pick
+// images with the file browser below.
 inline void System_BrowseForImage(const std::string &title, RequestCallback callback) {
-	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_IMAGE, callback, title, "");
+	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_IMAGE, callback, title, "", 0);
+}
+
+enum class BrowseFileType {
+	BOOTABLE,
+	IMAGE,
+	INI,
+	ANY,
+};
+
+inline void System_BrowseForFile(const std::string &title, BrowseFileType type, RequestCallback callback) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_FILE, callback, title, "", (int)type);
 }

@@ -105,7 +105,9 @@ public abstract class NativeActivity extends Activity {
 	private static final int RESULT_OPEN_DOCUMENT = 2;
 	private static final int RESULT_OPEN_DOCUMENT_TREE = 3;
 
+	// These can probably be merged, but conceptually nice to have them separate.
 	private int imageRequestId = -1;
+	private int fileRequestId = -1;
 
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
@@ -1173,12 +1175,15 @@ public abstract class NativeActivity extends Activity {
 					}
 				} catch (Exception e) {
 					Log.w(TAG, "Exception getting permissions for document: " + e.toString());
+					NativeApp.sendRequestResult(fileRequestId, false, "", 0);
+					return;
 				}
 				// Even if we got an exception getting permissions, try to pass along the file. Maybe this version of Android
 				// doesn't need it.
 				Log.i(TAG, "Browse file finished:" + selectedFile.toString());
-				NativeApp.sendMessage("browse_fileSelect", selectedFile.toString());
+				NativeApp.sendRequestResult(fileRequestId, true, selectedFile.toString(), 0);
 			}
+			fileRequestId = -1;
 		} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
 			if (resultCode != RESULT_OK || data == null) {
 				return;
@@ -1346,6 +1351,7 @@ public abstract class NativeActivity extends Activity {
 			}
 		} else if (command.equals("browse_file")) {
 			try {
+				fileRequestId = Integer.parseInt(params);
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 				intent.addCategory(Intent.CATEGORY_OPENABLE);
 				intent.setType("*/*");
