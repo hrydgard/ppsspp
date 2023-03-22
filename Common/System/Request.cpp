@@ -1,8 +1,8 @@
-#include "Common/System/Message.h"
+#include "Common/System/Request.h"
 #include "Common/System/System.h"
 #include "Common/Log.h"
 
-RequestManager g_RequestManager;
+RequestManager g_requestManager;
 
 const char *RequestTypeAsString(SystemRequestType type) {
 	switch (type) {
@@ -11,7 +11,7 @@ const char *RequestTypeAsString(SystemRequestType type) {
 	}
 }
 
-bool RequestManager::MakeSystemRequest(SystemRequestType type, RequestCallback callback, const char *param1, const char *param2) {
+bool RequestManager::MakeSystemRequest(SystemRequestType type, RequestCallback callback, const std::string &param1, const std::string &param2) {
 	int requestId = idCounter_++;
 	if (!System_MakeRequest(type, requestId, param1, param2)) {
 		return false;
@@ -27,12 +27,11 @@ bool RequestManager::MakeSystemRequest(SystemRequestType type, RequestCallback c
 	return true;
 }
 
-void RequestManager::PostSystemResponse(int requestId, const char *responseString, int responseValue) {
+void RequestManager::PostSystemSuccess(int requestId, const char *responseString, int responseValue) {
 	std::lock_guard<std::mutex> guard(callbackMutex_);
 	auto iter = callbackMap_.find(requestId);
 	if (iter == callbackMap_.end()) {
-		// Unexpected!
-		ERROR_LOG(SYSTEM, "PostSystemResponse: Unexpected request ID %d for %s (responseString=%s)", requestId, responseString);
+		ERROR_LOG(SYSTEM, "PostSystemSuccess: Unexpected request ID %d (responseString=%s)", requestId, responseString);
 		return;
 	}
 
@@ -44,6 +43,16 @@ void RequestManager::PostSystemResponse(int requestId, const char *responseStrin
 	pendingResponses_.push_back(response);
 }
 
+void RequestManager::PostSystemFailure(int requestId) {
+	std::lock_guard<std::mutex> guard(callbackMutex_);
+	auto iter = callbackMap_.find(requestId);
+	if (iter == callbackMap_.end()) {
+		ERROR_LOG(SYSTEM, "PostSystemFailure: Unexpected request ID %d", requestId);
+		return;
+	}
+	callbackMap_.erase(iter);
+}
+
 void RequestManager::ProcessRequests() {
 	std::lock_guard<std::mutex> guard(responseMutex_);
 	for (auto &iter : pendingResponses_) {
@@ -52,4 +61,12 @@ void RequestManager::ProcessRequests() {
 		}
 	}
 	pendingResponses_.clear();
+}
+
+void RequestManager::Clear() {
+	std::lock_guard<std::mutex> guard(callbackMutex_);
+	std::lock_guard<std::mutex> responseGuard(responseMutex_);
+
+	pendingResponses_.clear();
+	callbackMap_.clear();
 }

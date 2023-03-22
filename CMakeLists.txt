@@ -712,6 +712,10 @@ add_library(Common STATIC
 	Common/Render/Text/draw_text_uwp.h
 	Common/System/Display.cpp
 	Common/System/Display.h
+	Common/System/System.h
+	Common/System/NativeApp.h
+	Common/System/Request.cpp
+	Common/System/Request.h
 	Common/Thread/Channel.h
 	Common/Thread/ParallelLoop.cpp
 	Common/Thread/ParallelLoop.h

@@ -219,6 +219,10 @@ void System_SendMessage(const char *command, const char *parameter) {
 	}
 }
 
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) {
+	return false;
+}
+
 void System_Toast(const char *text) {}
 void System_AskForPermission(SystemPermission permission) {}
 

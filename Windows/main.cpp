@@ -34,6 +34,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
@@ -109,8 +110,8 @@ static std::string restartArgs;
 
 int g_activeWindow = 0;
 
-static std::thread inputBoxThread;
-static bool inputBoxRunning = false;
+static std::thread g_inputBoxThread;
+static bool g_inputBoxRunning = false;
 int g_lastNumInstances = 0;
 
 void System_ShowFileInFolder(const char *path) {
@@ -376,12 +377,13 @@ static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, L
 	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
 }
 
+// This can come from any thread, so this mostly uses PostMessage. Can't access most data directly.
 void System_Notify(SystemNotification notification) {
 	switch (notification) {
 	case SystemNotification::BOOT_DONE:
 	{
 		if (g_symbolMap)
-			g_symbolMap->SortSymbols();
+			g_symbolMap->SortSymbols();  // internal locking is performed here
 		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
 
 		if (disasmWindow)
@@ -413,7 +415,7 @@ void System_Notify(SystemNotification notification) {
 
 	case SystemNotification::SYMBOL_MAP_UPDATED:
 		if (g_symbolMap)
-			g_symbolMap->SortSymbols();
+			g_symbolMap->SortSymbols();  // internal locking is performed here
 		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
 		break;
 
@@ -425,6 +427,28 @@ void System_Notify(SystemNotification notification) {
 		if (disasmWindow)
 			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
 		break;
+	}
+}
+
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) {
+	switch (type) {
+	case SystemRequestType::INPUT_TEXT_MODAL:
+		if (g_inputBoxRunning) {
+			g_inputBoxThread.join();
+		}
+
+		g_inputBoxRunning = true;
+		g_inputBoxThread = std::thread([=] {
+			std::string out;
+			if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), param2, out)) {
+				g_requestManager.PostSystemSuccess(requestId, out.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+			});
+		return true;
+	default:
+		return false;
 	}
 }
 
@@ -496,42 +520,6 @@ void EnableCrashingOnCrashes() {
 	}
 	FreeLibrary(kernel32);
 }
-
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
-	if (inputBoxRunning) {
-		inputBoxThread.join();
-	}
-
-	inputBoxRunning = true;
-	inputBoxThread = std::thread([=] {
-		std::string out;
-		if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
-			NativeInputBoxReceived(cb, true, out);
-		} else {
-			NativeInputBoxReceived(cb, false, "");
-		}
-	});
-}
-
-bool System_PerformRequest(SystemRequestType type, int requestId, const char *param1, const char *param2) {
-	switch (type) {
-	case SystemRequestType::INPUT_TEXT_MODAL:
-		if (inputBoxRunning) {
-			inputBoxThread.join();
-		}
-
-		inputBoxRunning = true;
-		inputBoxThread = std::thread([=] {
-			std::string out;
-			if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
-				NativeInputBoxReceived(cb, true, out);
-			} else {
-				NativeInputBoxReceived(cb, false, "");
-			}
-		});
-	}
-}
-
 
 void System_Toast(const char *text) {
 	// Not-very-good implementation. Will normally not be used on Windows anyway.
@@ -639,9 +627,9 @@ static void WinMainInit() {
 }
 
 static void WinMainCleanup() {
-	if (inputBoxRunning) {
-		inputBoxThread.join();
-		inputBoxRunning = false;
+	if (g_inputBoxRunning) {
+		g_inputBoxThread.join();
+		g_inputBoxRunning = false;
 	}
 	net::Shutdown();
 	CoUninitialize();

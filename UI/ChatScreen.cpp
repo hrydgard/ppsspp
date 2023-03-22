@@ -10,7 +10,7 @@
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/HLE/proAdhoc.h"
@@ -97,7 +97,7 @@ UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
 	sendChat(chat);
 #elif PPSSPP_PLATFORM(ANDROID)
 	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Chat"), "", [](bool result, const std::string &value) {
+	System_InputBoxGetString(n->T("Chat"), "", [](const std::string &value, int) {
 		sendChat(value);
 	});
 #endif
@@ -181,10 +181,8 @@ void ChatMenu::Update() {
 #if defined(USING_WIN_UI)
 	// Could remove the fullscreen check here, it works now.
 	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.UseFullScreen()) {
-		System_InputBoxGetString(n->T("Chat"), n->T("Chat Here"), [](bool result, const std::string &value) {
-			if (result) {
-				sendChat(value);
-			}
+		System_InputBoxGetString(n->T("Chat"), n->T("Chat Here"), [](const std::string &value, int) {
+			sendChat(value);
 		});
 		promptInput_ = false;
 	}

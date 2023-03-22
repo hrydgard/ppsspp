@@ -273,6 +273,8 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) { return false; }
+
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
 		qApp->exit(0);

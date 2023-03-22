@@ -16,14 +16,18 @@ class RequestManager {
 public:
 	// These requests are to be handled by platform implementations.
 	// The callback you pass in will be called on the main thread later.
-	bool MakeSystemRequest(SystemRequestType type, RequestCallback callback, const char *param1, const char *param2);
+	bool MakeSystemRequest(SystemRequestType type, RequestCallback callback, const std::string &param1, const std::string &param2);
 
 	// Called by the platform implementation, when it's finished with a request.
-	void PostSystemResponse(int requestId, const char *responseString, int responseValue);
+	void PostSystemSuccess(int requestId, const char *responseString, int responseValue = 0);
+	void PostSystemFailure(int requestId);
 
 	// This must be called every frame from the beginning of NativeUpdate().
 	// This will call the callback of any finished requests.
 	void ProcessRequests();
+
+	// Unclear if we need this...
+	void Clear();
 
 private:
 	struct PendingRequest {
@@ -47,4 +51,10 @@ private:
 
 const char *RequestTypeAsString(SystemRequestType type);
 
-extern RequestManager g_RequestManager;
+extern RequestManager g_requestManager;
+
+// Wrappers for easy requests.
+// NOTE: Semantics have changed - this no longer calls the callback on cancellation.
+inline void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, RequestCallback callback) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::INPUT_TEXT_MODAL, callback, title, defaultValue);
+}

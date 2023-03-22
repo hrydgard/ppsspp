@@ -494,7 +494,7 @@
     <ClInclude Include="..\ext\basis_universal\basisu_transcoder_uastc.h">
       <Filter>ext\basis_universal</Filter>
     </ClInclude>
-    <ClInclude Include="System\Message.h">
+    <ClInclude Include="System\Request.h">
       <Filter>System</Filter>
     </ClInclude>
   </ItemGroup>
@@ -923,7 +923,7 @@
     <ClCompile Include="..\ext\basis_universal\basisu_transcoder.cpp">
       <Filter>ext\basis_universal</Filter>
     </ClCompile>
-    <ClCompile Include="System\Message.cpp">
+    <ClCompile Include="System\Request.cpp">
       <Filter>System</Filter>
     </ClCompile>
   </ItemGroup>

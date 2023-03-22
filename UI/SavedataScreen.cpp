@@ -24,7 +24,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/curves.h"
 #include "Common/System/NativeApp.h"
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
@@ -674,8 +674,8 @@ UI::EventReturn SavedataScreen::OnSortClick(UI::EventParams &e) {
 UI::EventReturn SavedataScreen::OnSearch(UI::EventParams &e) {
 	auto di = GetI18NCategory("Dialog");
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
-	System_InputBoxGetString(di->T("Filter"), searchFilter_, [](bool result, const std::string &value) {
-		if (result) {
+	System_InputBoxGetString(di->T("Filter"), searchFilter_, [](const std::string &value, int ivalue) {
+		if (ivalue) {
 			NativeMessageReceived("savedatascreen_search", value.c_str());
 		}
 	});

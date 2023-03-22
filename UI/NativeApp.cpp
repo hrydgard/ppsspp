@@ -58,8 +58,10 @@
 #include "android/jni/app-android.h"
 
 #include "Common/System/Display.h"
+#include "Common/System/Request.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
+
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
 #include "Common/Math/math_util.h"
@@ -164,15 +166,8 @@ struct PendingMessage {
 	std::string value;
 };
 
-struct PendingInputBox {
-	std::function<void(bool, const std::string &)> cb;
-	bool result;
-	std::string value;
-};
-
 static std::mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
-static std::vector<PendingInputBox> pendingInputBoxes;
 static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
 static Draw::Pipeline *texColorPipeline;
@@ -443,7 +438,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_dir;
 	pendingMessages.clear();
-	pendingInputBoxes.clear();
+	g_requestManager.Clear();
 
 	// external_dir has all kinds of meanings depending on platform.
 	// on iOS it's even the path to bundled app assets. It's a mess.
@@ -1248,22 +1243,18 @@ void NativeUpdate() {
 	PROFILE_END_FRAME();
 
 	std::vector<PendingMessage> toProcess;
-	std::vector<PendingInputBox> inputToProcess;
 	{
 		std::lock_guard<std::mutex> lock(pendingMutex);
 		toProcess = std::move(pendingMessages);
-		inputToProcess = std::move(pendingInputBoxes);
 		pendingMessages.clear();
-		pendingInputBoxes.clear();
 	}
 
 	for (const auto &item : toProcess) {
 		HandleGlobalMessage(item.msg, item.value);
 		g_screenManager->sendMessage(item.msg.c_str(), item.value.c_str());
 	}
-	for (const auto &item : inputToProcess) {
-		item.cb(item.result, item.value);
-	}
+
+	g_requestManager.ProcessRequests();
 
 	g_DownloadManager.Update();
 	g_screenManager->update();
@@ -1394,15 +1385,6 @@ void NativeMessageReceived(const char *message, const char *value) {
 	pendingMessage.msg = message;
 	pendingMessage.value = value;
 	pendingMessages.push_back(pendingMessage);
-}
-
-void NativeInputBoxReceived(std::function<void(bool, const std::string &)> cb, bool result, const std::string &value) {
-	std::lock_guard<std::mutex> lock(pendingMutex);
-	PendingInputBox pendingMessage;
-	pendingMessage.cb = cb;
-	pendingMessage.result = result;
-	pendingMessage.value = value;
-	pendingInputBoxes.push_back(pendingMessage);
 }
 
 void NativeResized() {
