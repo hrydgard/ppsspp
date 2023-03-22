@@ -490,7 +490,7 @@ void SetBackgroundPopupScreen::update() {
 			File::WriteStringToFile(false, pic->data, bgPng);
 		}
 
-		NativeMessageReceived("bgImage_updated", "");
+		UIBackgroundShutdown();
 
 		// It's worse if it flickers, stay open for at least 1s.
 		timeDone_ = timeStart_ + 1.0;

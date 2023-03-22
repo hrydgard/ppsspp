@@ -1064,10 +1064,6 @@ namespace MainWindow
 			BrowseAndBootDone();
 			break;
 
-		case WM_USER_BROWSE_BG_DONE:
-			BrowseBackgroundDone();
-			break;
-
 		case WM_USER_RESTART_EMUTHREAD:
 			NativeSetRestarting();
 			InputDevice::StopPolling();

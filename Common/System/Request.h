@@ -58,3 +58,7 @@ extern RequestManager g_requestManager;
 inline void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, RequestCallback callback) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::INPUT_TEXT_MODAL, callback, title, defaultValue);
 }
+
+inline void System_BrowseForImage(const std::string &title, RequestCallback callback) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_IMAGE, callback, title, "");
+}

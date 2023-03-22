@@ -539,8 +539,6 @@ bool System_GetPropertyBool(SystemProperty prop) {
 }
 
 void System_Notify(SystemNotification notification) {
-	switch (notification) {
-	}
 }
 
 std::string Android_GetInputDeviceDebugString() {
@@ -1037,33 +1035,29 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		PushCommand("inputbox", serialized.c_str());
 		return true;
 	}
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+		PushCommand("browse_image", StringFromFormat("%d", requestId));
+		return true;
 	default:
 		return false;
 	}
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendInputBox(JNIEnv *env, jclass, jstring jseqID, jboolean result, jstring jvalue) {
-	std::string seqID = GetJavaString(env, jseqID);
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEnv *env, jclass, jint jrequestID, jboolean result, jstring jvalue, jint jintValue) {
 	std::string value = GetJavaString(env, jvalue);
 
-	static std::string lastSeqID = "";
-	if (lastSeqID == seqID) {
+	static jint lastSeqID = -1;
+	if (lastSeqID == jrequestID) {
 		// We send this on dismiss, so twice in many cases.
-		DEBUG_LOG(SYSTEM, "Ignoring duplicate sendInputBox");
+		WARN_LOG(SYSTEM, "Ignoring duplicate sendInputBox");
 		return;
 	}
-	lastSeqID = seqID;
-
-	int seq = 0;
-	if (!TryParse(seqID, &seq)) {
-		ERROR_LOG(SYSTEM, "Invalid inputbox seqID value: %s", seqID.c_str());
-		return;
-	}
+	lastSeqID = jrequestID;
 
 	if (result) {
-		g_requestManager.PostSystemSuccess(seq, value.c_str());
+		g_requestManager.PostSystemSuccess(jrequestID, value.c_str());
 	} else {
-		g_requestManager.PostSystemFailure(seq);
+		g_requestManager.PostSystemFailure(jrequestID);
 	}
 }
 
@@ -1225,7 +1219,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 	} else if (msg == "sustained_perf_supported") {
 		sustainedPerfSupported = true;
 	} else if (msg == "safe_insets") {
-		INFO_LOG(SYSTEM, "Got insets: %s", prm.c_str());
+		// INFO_LOG(SYSTEM, "Got insets: %s", prm.c_str());
 		// We don't bother with supporting exact rectangular regions. Safe insets are good enough.
 		int left, right, top, bottom;
 		if (4 == sscanf(prm.c_str(), "%d:%d:%d:%d", &left, &right, &top, &bottom)) {
@@ -1316,9 +1310,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setSatInfoAndroid(JNIEn
 	GPS::setSatInfo(index, id, elevation, azimuth, snr, good);
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(JNIEnv *env, jclass,
-		jbyteArray image) {
-
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(JNIEnv *env, jclass, jbyteArray image) {
 	if (image != NULL) {
 		jlong size = env->GetArrayLength(image);
 		jbyte* buffer = env->GetByteArrayElements(image, NULL);

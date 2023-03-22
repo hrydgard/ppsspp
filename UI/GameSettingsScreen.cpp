@@ -1312,12 +1312,17 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
 		File::Delete(bgPng);
 		File::Delete(bgJpg);
-
-		NativeMessageReceived("bgImage_updated", "");
+		UIBackgroundShutdown();
 	} else {
-		if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
-			System_SendMessage("bgImage_browse", "");
-		}
+		auto sy = GetI18NCategory("System");
+		System_BrowseForImage(sy->T("Set UI background..."), [](const std::string &value, int) {
+			if (!value.empty()) {
+				Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
+				File::Copy(Path(value), dest);
+			}
+			// It will init again automatically.  We can't init outside a frame on Vulkan.
+			UIBackgroundShutdown();
+		});
 	}
 
 	// Change to a browse or clear button.
