@@ -146,6 +146,16 @@ enum class SystemNotification {
 	SWITCH_UMD_UPDATED,
 };
 
+enum class SystemRequestType {
+	INPUT_TEXT_MODAL,
+};
+
+// Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).
+// This is not to be used directly by applications, instead use the g_RequestManager to make the requests.
+// This can return false if it's known that the platform doesn't support the request, the app is supposed to handle
+// or ignore that cleanly.
+bool System_MakeRequest(SystemRequestType type, int requestId, const char *param1, const char *param2);
+
 std::string System_GetProperty(SystemProperty prop);
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop);
 int System_GetPropertyInt(SystemProperty prop);

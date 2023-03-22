@@ -513,6 +513,26 @@ void System_InputBoxGetString(const std::string &title, const std::string &defau
 	});
 }
 
+bool System_PerformRequest(SystemRequestType type, int requestId, const char *param1, const char *param2) {
+	switch (type) {
+	case SystemRequestType::INPUT_TEXT_MODAL:
+		if (inputBoxRunning) {
+			inputBoxThread.join();
+		}
+
+		inputBoxRunning = true;
+		inputBoxThread = std::thread([=] {
+			std::string out;
+			if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
+				NativeInputBoxReceived(cb, true, out);
+			} else {
+				NativeInputBoxReceived(cb, false, "");
+			}
+		});
+	}
+}
+
+
 void System_Toast(const char *text) {
 	// Not-very-good implementation. Will normally not be used on Windows anyway.
 	std::wstring str = ConvertUTF8ToWString(text);
