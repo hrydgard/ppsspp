@@ -1254,10 +1254,6 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 		if (!strcmp(message, "boot")) {
 			LaunchFile(screenManager(), Path(std::string(value)));
 		}
-		if (!strcmp(message, "browse_fileSelect")) {
-			INFO_LOG(SYSTEM, "Attempting to launch: '%s'", value);
-			LaunchFile(screenManager(), Path(std::string(value)));
-		}
 		if (!strcmp(message, "browse_folderSelect")) {
 			std::string filename = value;
 			INFO_LOG(SYSTEM, "Got folder: '%s'", filename.c_str());

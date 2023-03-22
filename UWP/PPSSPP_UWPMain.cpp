@@ -22,7 +22,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 
 #include "Core/System.h"
 #include "Core/Loaders.h"
@@ -418,7 +418,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_FOLDER_BROWSER:
 		return false;  // at least I don't know a usable one
 	case SYSPROP_HAS_IMAGE_BROWSER:
-		return false;
+		return true;  // we just use the file browser
 	case SYSPROP_HAS_BACK_BUTTON:
 		return true;
 	case SYSPROP_APP_GOLD:
@@ -443,32 +443,59 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+	switch (type) {
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+	case SystemRequestType::BROWSE_FOR_FILE:
+	{
+		auto picker = ref new Windows::Storage::Pickers::FileOpenPicker();
+		picker->ViewMode = Pickers::PickerViewMode::List;
+
+		if (type == SystemRequestType::BROWSE_FOR_IMAGE) {
+			picker->FileTypeFilter->Append(".jpg");
+			picker->FileTypeFilter->Append(".png");
+		} else {
+			switch ((BrowseFileType)param3) {
+			case BrowseFileType::BOOTABLE:
+				// These are single files that can be loaded directly using StorageFileLoader.
+				picker->FileTypeFilter->Append(".cso");
+				picker->FileTypeFilter->Append(".iso");
+
+				// Can't load these this way currently, they require mounting the underlying folder.
+				picker->FileTypeFilter->Append(".bin");
+				picker->FileTypeFilter->Append(".elf");
+				break;
+			case BrowseFileType::INI:
+				picker->FileTypeFilter->Append(".ini");
+				break;
+			case BrowseFileType::ANY:
+				picker->FileTypeFilter->Append("*");
+				break;
+			}
+		}
+
+		picker->SuggestedStartLocation = Pickers::PickerLocationId::DocumentsLibrary;
+
+		create_task(picker->PickSingleFileAsync()).then([requestId](StorageFile ^file) {
+			if (file) {
+				std::string path = FromPlatformString(file->Path);
+				g_requestManager.PostSystemSuccess(requestId, path.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		});
+		return true;
+	}
+	}
+
+	return false;
+}
 
 void System_SendMessage(const char *command, const char *parameter) {
 	using namespace concurrency;
 
 	if (!strcmp(command, "finish")) {
 		// Not really supposed to support this under UWP.
-	} else if (!strcmp(command, "browse_file")) {
-		auto picker = ref new Windows::Storage::Pickers::FileOpenPicker();
-		picker->ViewMode = Pickers::PickerViewMode::List;
-
-		// These are single files that can be loaded directly using StorageFileLoader.
-		picker->FileTypeFilter->Append(".cso");
-		picker->FileTypeFilter->Append(".iso");
-
-		// Can't load these this way currently, they require mounting the underlying folder.
-		picker->FileTypeFilter->Append(".bin");
-		picker->FileTypeFilter->Append(".elf");
-		picker->SuggestedStartLocation = Pickers::PickerLocationId::DocumentsLibrary;
-
-		create_task(picker->PickSingleFileAsync()).then([](StorageFile ^file){
-			if (file) {
-				std::string path = FromPlatformString(file->Path);
-				NativeMessageReceived("boot", path.c_str());
-			}
-		});
 	} else if (!strcmp(command, "toggle_fullscreen")) {
 		auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
 		bool flag = !view->IsFullScreenMode;
@@ -517,11 +544,6 @@ void System_AskForPermission(SystemPermission permission) {
 
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 	return PERMISSION_STATUS_GRANTED;
-}
-
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
-	// TODO
-	cb(false, "");
 }
 
 std::string GetCPUBrandString() {

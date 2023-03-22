@@ -1038,6 +1038,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::BROWSE_FOR_IMAGE:
 		PushCommand("browse_image", StringFromFormat("%d", requestId));
 		return true;
+	case SystemRequestType::BROWSE_FOR_FILE:
+		PushCommand("browse_file", StringFromFormat("%d", requestId));
+		return true;
 	default:
 		return false;
 	}
