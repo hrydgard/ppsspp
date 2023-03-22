@@ -1037,6 +1037,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		PushCommand("inputbox", serialized.c_str());
 		return true;
 	}
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+		return false;
 	default:
 		return false;
 	}
@@ -1316,9 +1318,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setSatInfoAndroid(JNIEn
 	GPS::setSatInfo(index, id, elevation, azimuth, snr, good);
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(JNIEnv *env, jclass,
-		jbyteArray image) {
-
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(JNIEnv *env, jclass, jbyteArray image) {
 	if (image != NULL) {
 		jlong size = env->GetArrayLength(image);
 		jbyte* buffer = env->GetByteArrayElements(image, NULL);

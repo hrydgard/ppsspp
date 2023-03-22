@@ -44,6 +44,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Net/Resolve.h"
 #include "W32Util/DarkMode.h"
+#include "W32Util/ShellUtil.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -110,8 +111,10 @@ static std::string restartArgs;
 
 int g_activeWindow = 0;
 
-static std::thread g_inputBoxThread;
-static bool g_inputBoxRunning = false;
+// Used for all the system dialogs.
+static std::thread g_dialogThread;
+static bool g_dialogRunning = false;
+
 int g_lastNumInstances = 0;
 
 void System_ShowFileInFolder(const char *path) {
@@ -430,17 +433,41 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
+std::wstring MakeFilter(std::wstring filter) {
+	for (size_t i = 0; i < filter.length(); i++) {
+		if (filter[i] == '|')
+			filter[i] = '\0';
+	}
+	return filter;
+}
+
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) {
 	switch (type) {
 	case SystemRequestType::INPUT_TEXT_MODAL:
-		if (g_inputBoxRunning) {
-			g_inputBoxThread.join();
+		if (g_dialogRunning) {
+			g_dialogThread.join();
 		}
 
-		g_inputBoxRunning = true;
-		g_inputBoxThread = std::thread([=] {
+		g_dialogRunning = true;
+		g_dialogThread = std::thread([=] {
 			std::string out;
 			if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), param2, out)) {
+				g_requestManager.PostSystemSuccess(requestId, out.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+			});
+		return true;
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+		if (g_dialogRunning) {
+			g_dialogThread.join();
+		}
+
+		g_dialogRunning = true;
+		g_dialogThread = std::thread([=] {
+			std::string out;
+			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr,
+				MakeFilter(L"All supported images (*.jpg *.jpeg *.png)|*.jpg;*.jpeg;*.png|All files (*.*)|*.*||").c_str(), L"jpg", out)) {
 				g_requestManager.PostSystemSuccess(requestId, out.c_str());
 			} else {
 				g_requestManager.PostSystemFailure(requestId);
@@ -483,8 +510,6 @@ void System_SendMessage(const char *command, const char *parameter) {
 		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), mm->T("Choose folder"));
 		if (folder.size())
 			NativeMessageReceived("browse_folderSelect", folder.c_str());
-	} else if (!strcmp(command, "bgImage_browse")) {
-		MainWindow::BrowseBackground();
 	} else if (!strcmp(command, "toggle_fullscreen")) {
 		bool flag = !MainWindow::IsFullscreen();
 		if (strcmp(parameter, "0") == 0) {
@@ -627,9 +652,9 @@ static void WinMainInit() {
 }
 
 static void WinMainCleanup() {
-	if (g_inputBoxRunning) {
-		g_inputBoxThread.join();
-		g_inputBoxRunning = false;
+	if (g_dialogRunning) {
+		g_dialogThread.join();
+		g_dialogRunning = false;
 	}
 	net::Shutdown();
 	CoUninitialize();

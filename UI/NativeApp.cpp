@@ -1167,14 +1167,6 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	else if (msg == "inputDeviceConnected") {
 		KeyMap::NotifyPadConnected(nextInputDeviceID, value);
 	}
-	else if (msg == "bgImage_updated") {
-		if (!value.empty()) {
-			Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
-			File::Copy(Path(value), dest);
-		}
-		UIBackgroundShutdown();
-		// It will init again automatically.  We can't init outside a frame on Vulkan.
-	}
 	else if (msg == "savestate_displayslot") {
 		auto sy = GetI18NCategory("System");
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);

@@ -53,6 +53,7 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url);
 
 enum class SystemRequestType {
 	INPUT_TEXT_MODAL,
+	BROWSE_FOR_IMAGE,
 };
 
 // Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).

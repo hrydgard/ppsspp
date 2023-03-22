@@ -347,38 +347,6 @@ namespace MainWindow {
 		browseDialog = 0;
 	}
 
-	void BrowseBackground() {
-		static std::wstring filter = L"All supported images (*.jpg *.jpeg *.png)|*.jpg;*.jpeg;*.png|All files (*.*)|*.*||";
-		for (size_t i = 0; i < filter.length(); i++) {
-			if (filter[i] == '|')
-				filter[i] = '\0';
-		}
-
-		W32Util::MakeTopMost(GetHWND(), false);
-		browseImageDialog = new W32Util::AsyncBrowseDialog(W32Util::AsyncBrowseDialog::OPEN, GetHWND(), WM_USER_BROWSE_BG_DONE, L"LoadFile", L"", filter, L"*.jpg;*.jpeg;*.png;");
-	}
-
-	void BrowseBackgroundDone() {
-		std::string filename;
-		if (browseImageDialog->GetResult(filename)) {
-			std::wstring src = ConvertUTF8ToWString(filename);
-			std::wstring dest;
-			if (filename.size() >= 5 && (filename.substr(filename.size() - 4) == ".jpg" || filename.substr(filename.size() - 5) == ".jpeg")) {
-				dest = (GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg").ToWString();
-			} else {
-				dest = (GetSysDirectory(DIRECTORY_SYSTEM) / "background.png").ToWString();
-			}
-
-			CopyFileW(src.c_str(), dest.c_str(), FALSE);
-			NativeMessageReceived("bgImage_updated", "");
-		}
-
-		W32Util::MakeTopMost(GetHWND(), g_Config.bTopMost);
-
-		delete browseImageDialog;
-		browseImageDialog = nullptr;
-	}
-
 	static void UmdSwitchAction() {
 		std::string fn;
 		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
