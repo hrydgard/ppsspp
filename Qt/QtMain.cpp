@@ -311,7 +311,7 @@ bool MainUI::HandleCustomEvent(QEvent *e) {
 	return true;
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) {
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
 	case SystemRequestType::INPUT_TEXT_MODAL:
 	{

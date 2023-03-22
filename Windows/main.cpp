@@ -441,7 +441,7 @@ std::wstring MakeFilter(std::wstring filter) {
 	return filter;
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) {
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
 	case SystemRequestType::INPUT_TEXT_MODAL:
 		if (g_dialogRunning) {
@@ -474,6 +474,38 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			}
 			});
 		return true;
+	case SystemRequestType::BROWSE_FOR_FILE:
+	{
+		BrowseFileType type = (BrowseFileType)param3;
+		std::wstring filter;
+		switch (type) {
+		case BrowseFileType::BOOTABLE:
+			filter = MakeFilter(L"All supported file types (*.iso *.cso *.pbp *.elf *.prx *.zip *.ppdmp)|*.pbp;*.elf;*.iso;*.cso;*.prx;*.zip;*.ppdmp|PSP ROMs (*.iso *.cso *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||");
+			break;
+		case BrowseFileType::INI:
+			filter = MakeFilter(L"Ini files (*.ini)|*.ini|All files (*.*)|*.*||");
+			break;
+		case BrowseFileType::ANY:
+			filter = MakeFilter(L"All files (*.*)|*.*||");
+			break;
+		default:
+			return false;
+		}
+		if (g_dialogRunning) {
+			g_dialogThread.join();
+		}
+
+		g_dialogRunning = true;
+		g_dialogThread = std::thread([=] {
+			std::string out;
+			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr, filter.c_str(), L"", out)) {
+				g_requestManager.PostSystemSuccess(requestId, out.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+			});
+		return true;
+	}
 	default:
 		return false;
 	}
@@ -503,8 +535,6 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "setclipboardtext")) {
 		std::wstring data = ConvertUTF8ToWString(parameter);
 		W32Util::CopyTextToClipboard(MainWindow::GetDisplayHWND(), data);
-	} else if (!strcmp(command, "browse_file")) {
-		MainWindow::BrowseAndBoot("");
 	} else if (!strcmp(command, "browse_folder")) {
 		auto mm = GetI18NCategory("MainMenu");
 		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), mm->T("Choose folder"));

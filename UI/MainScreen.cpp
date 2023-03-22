@@ -23,6 +23,8 @@
 
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
+#include "Common/System/NativeApp.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Render/DrawBuffer.h"
 #include "Common/UI/Root.h"
@@ -1278,7 +1280,10 @@ void MainScreen::update() {
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		System_SendMessage("browse_file", "");
+		auto mm = GetI18NCategory("MainMenu");
+		System_BrowseForFile(mm->T("Load"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
+			NativeMessageReceived("boot", value.c_str());
+		});
 	}
 	return UI::EVENT_DONE;
 }

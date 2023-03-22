@@ -443,7 +443,7 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) { return false; }
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
 
 void System_SendMessage(const char *command, const char *parameter) {
 	using namespace concurrency;
