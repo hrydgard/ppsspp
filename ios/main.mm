@@ -211,7 +211,7 @@ void System_SendMessage(const char *command, const char *parameter) {
 		}
 	} else if (!strcmp(command, "browse_folder")) {
 		DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
-				NativeMessageReceived("browse_folder", thePathChosen.c_str());
+			NativeMessageReceived("browse_folderSelect", thePathChosen.c_str());
 		};
 
 		DarwinFileSystemServices services;
