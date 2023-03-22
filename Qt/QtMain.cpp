@@ -364,8 +364,6 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
 		qApp->exit(0);
-	} else if (!strcmp(command, "browse_folder")) {
-		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFolderEvent));
 	} else if (!strcmp(command, "graphics_restart")) {
 		// Should find a way to properly restart the app.
 		qApp->exit(0);

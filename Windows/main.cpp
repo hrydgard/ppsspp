@@ -506,6 +506,16 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			});
 		return true;
 	}
+	case SystemRequestType::BROWSE_FOR_FOLDER:
+	{
+		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), param1.c_str());
+		if (folder.size()) {
+			g_requestManager.PostSystemSuccess(requestId, folder.c_str());
+		} else {
+			g_requestManager.PostSystemFailure(requestId);
+		}
+		return true;
+	}
 	default:
 		return false;
 	}
@@ -535,11 +545,6 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "setclipboardtext")) {
 		std::wstring data = ConvertUTF8ToWString(parameter);
 		W32Util::CopyTextToClipboard(MainWindow::GetDisplayHWND(), data);
-	} else if (!strcmp(command, "browse_folder")) {
-		auto mm = GetI18NCategory("MainMenu");
-		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), mm->T("Choose folder"));
-		if (folder.size())
-			NativeMessageReceived("browse_folderSelect", folder.c_str());
 	} else if (!strcmp(command, "toggle_fullscreen")) {
 		bool flag = !MainWindow::IsFullscreen();
 		if (strcmp(parameter, "0") == 0) {

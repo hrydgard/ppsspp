@@ -166,7 +166,26 @@ void System_Vibrate(int length_ms) {
 	// Ignore on PC
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+	switch (type) {
+	case SystemRequestType::BROWSE_FOR_FOLDER:
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+		DarwinDirectoryPanelCallback callback = [](bool success, Path thePathChosen) {
+			if (success) {
+				g_requestManager.PostSystemSuccess(requestId, thePathChosen.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		};
+		DarwinFileSystemServices services;
+		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ true);
+		return true;
+#else
+		return false;
+#endif
+	}
+	return false;
+}
 
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "toggle_fullscreen")) {
@@ -191,17 +210,6 @@ void System_SendMessage(const char *command, const char *parameter) {
 		StopSDLAudioDevice();
 		InitSDLAudioDevice();
     }
-#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-    else if (!strcmp(command, "browse_folder")) {
-        DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
-            NativeMessageReceived("browse_folder", thePathChosen.c_str());
-        };
-
-        DarwinFileSystemServices services;
-        services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
-    }
-#endif
-
 }
 
 void System_AskForPermission(SystemPermission permission) {}
