@@ -239,6 +239,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_HAS_BACK_BUTTON:
 		return true;
+	case SYSPROP_HAS_IMAGE_BROWSER:
 	case SYSPROP_HAS_FILE_BROWSER:
 	case SYSPROP_HAS_FOLDER_BROWSER:
 	case SYSPROP_HAS_OPEN_DIRECTORY:
@@ -278,17 +279,32 @@ void System_Notify(SystemNotification notification) {
 // TODO: Find a better version to pass parameters to HandleCustomEvent.
 static std::string g_param1;
 static std::string g_param2;
+static int g_param3;
 static int g_requestId;
 
 bool MainUI::HandleCustomEvent(QEvent *e) {
 	if (e->type() == browseFileEvent) {
-		QString fileName = QFileDialog::getOpenFileName(nullptr, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip *.ppdmp)");
-		if (QFile::exists(fileName)) {
-			QDir newPath;
-			g_Config.currentDirectory = Path(newPath.filePath(fileName).toStdString());
-			g_Config.Save("browseFileEvent");
+		BrowseFileType fileType = (BrowseFileType)g_param3;
+		const char *filter = "All files (*.*)";
+		switch (fileType) {
+		case BrowseFileType::BOOTABLE:
+			filter = "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip *.ppdmp)";
+			break;
+		case BrowseFileType::IMAGE:
+			filter = "Pictures (*.jpg *.png)";
+			break;
+		case BrowseFileType::INI:
+			filter = "INI files (*.ini)";
+			break;
+		case BrowseFileType::ANY:
+			break;
+		}
 
-			NativeMessageReceived("boot", fileName.toStdString().c_str());
+		QString fileName = QFileDialog::getOpenFileName(nullptr, g_param1.c_str(), g_Config.currentDirectory.c_str(), filter);
+		if (QFile::exists(fileName)) {
+			g_requestManager.PostSystemSuccess(g_requestId, fileName.toStdString().c_str());
+		} else {
+			g_requestManager.PostSystemFailure(g_requestId);
 		}
 	} else if (e->type() == browseFolderEvent) {
 		auto mm = GetI18NCategory("MainMenu");
@@ -318,9 +334,20 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		g_requestId = requestId;
 		g_param1 = param1;
 		g_param2 = param2;
+		g_param3 = param3;
 		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)inputBoxEvent));
 		return true;
 	}
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+		// Fall back to file browser.
+		return System_MakeRequest(SystemRequestType::BROWSE_FOR_FILE, requestId, param1, param2, (int)BrowseFileType::IMAGE);
+	case SystemRequestType::BROWSE_FOR_FILE:
+		g_requestId = requestId;
+		g_param1 = param1;
+		g_param2 = param2;
+		g_param3 = param3;
+		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFileEvent));
+		return true;
 	default:
 		return false;
 	}
@@ -329,8 +356,6 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
 		qApp->exit(0);
-	} else if (!strcmp(command, "browse_file")) {
-		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFileEvent));
 	} else if (!strcmp(command, "browse_folder")) {
 		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFolderEvent));
 	} else if (!strcmp(command, "graphics_restart")) {

@@ -59,12 +59,15 @@ inline void System_InputBoxGetString(const std::string &title, const std::string
 	g_requestManager.MakeSystemRequest(SystemRequestType::INPUT_TEXT_MODAL, callback, title, defaultValue, 0);
 }
 
+// This one will pop up a special image brwoser if available. You can also pick
+// images with the file browser below.
 inline void System_BrowseForImage(const std::string &title, RequestCallback callback) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_IMAGE, callback, title, "", 0);
 }
 
 enum class BrowseFileType {
 	BOOTABLE,
+	IMAGE,
 	INI,
 	ANY,
 };
