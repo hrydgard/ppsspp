@@ -220,73 +220,56 @@ static void __RtcPspTimeToTm(tm &val, const ScePspDateTime &pt)
 	val.tm_isdst = 0;
 }
 
+// Based on http://howardhinnant.github.io/date_algorithms.html
+static s64 days_from_civil(s64 y, u32 m, u32 d)
+{
+	y -= m <= 2;
+	const s64 era = (y >= 0 ? y : y-399) / 400;
+	const u32 yoe = static_cast<u32>(y - era * 400);      // [0, 399]
+	const u32 doy = (153*(m > 2 ? m-3 : m+9) + 2)/5 + d-1;// [0, 365]
+	const u32 doe = yoe * 365 + yoe/4 - yoe/100 + doy;    // [0, 146096]
+	return era * 146097 + static_cast<s64>(doe) - 719468;
+}
+
+static void civil_from_days(s64 z, s64 &out_y, u32 &out_m, u32 &out_d)
+{
+	z += 719468;
+	const s64 era = (z >= 0 ? z : z - 146096) / 146097;
+	const u32 doe = static_cast<u32>(z - era * 146097);              // [0, 146096]
+	const u32 yoe = (doe - doe/1460 + doe/36524 - doe/146096) / 365; // [0, 399]
+	const s64 y = static_cast<s64>(yoe) + era * 400;
+	const u32 doy = doe - (365*yoe + yoe/4 - yoe/100);               // [0, 365]
+	const u32 mp = (5*doy + 2)/153;                                  // [0, 11]
+	out_d = doy - (153*mp+2)/5 + 1;                                  // [1, 31]
+	out_m = mp < 10 ? mp+3 : mp-9;                                   // [1, 12]
+	out_y = y + (out_m <= 2);
+}
+
 static void __RtcTicksToPspTime(ScePspDateTime &t, u64 ticks)
 {
-	int numYearAdd = 0;
-	if (ticks < 1000000ULL)
-	{
-		t.year = 1;
-		t.month = 1;
-		t.day = 1;
-		t.hour = 0;
-		t.minute = 0;
-		t.second = 0;
-		t.microsecond = ticks % 1000000ULL;
-		return;
-	}
-	else if (ticks < rtcMagicOffset)
-	{
-		// Need to get a year past 1970 for gmtime
-		// Add enough 400 year to pass over 1970.
-		numYearAdd = (int) ((rtcMagicOffset - ticks) / rtc400YearTicks + 1);
-		ticks += rtc400YearTicks * numYearAdd;
-	}
-
-	while (ticks >= rtcMagicOffset + rtc400YearTicks)
-	{
-		ticks -= rtc400YearTicks;
-		--numYearAdd;
-	}
-
-	time_t time = (ticks - rtcMagicOffset) / 1000000ULL;
-	t.microsecond = ticks % 1000000ULL;
-
-	tm *local = gmtime(&time);
-	if (!local)
-	{
-		ERROR_LOG(SCERTC, "Date is too high/low to handle, pretending to work.");
-		return;
-	}
-
-	t.year = local->tm_year + 1900 - numYearAdd * 400;
-	t.month = local->tm_mon + 1;
-	t.day = local->tm_mday;
-	t.hour = local->tm_hour;
-	t.minute = local->tm_min;
-	t.second = local->tm_sec;
+	u64 Day = 24ull * 60ull * 60ull * 1000000ull;
+	t.microsecond = ticks % 1000000ull;
+	t.second = ticks / 1000000ull % 60ull;
+	t.minute = ticks / 1000000ull / 60ull % 60ull;
+	t.hour   = ticks / 1000000ull / 60ull / 60ull % 24ull;
+	s64 z = s64(ticks / Day) - s64(rtcMagicOffset / Day);
+        s64 y;
+	u32 m, d;
+	civil_from_days(z, y, m, d);
+	t.day   = d;
+	t.month = m;
+	t.year  = y;
 }
 
 static u64 __RtcPspTimeToTicks(const ScePspDateTime &pt)
 {
-	tm local;
-	__RtcPspTimeToTm(local, pt);
-
-	s64 tickOffset = 0;
-	while (local.tm_year < 70)
-	{
-		tickOffset -= rtc400YearTicks;
-		local.tm_year += 400;
-	}
-	while (local.tm_year >= 470)
-	{
-		tickOffset += rtc400YearTicks;
-		local.tm_year -= 400;
-	}
-
-	time_t seconds = rtc_timegm(&local);
-	u64 result = rtcMagicOffset + (u64) seconds * 1000000ULL;
-	result += pt.microsecond;
-	return result + tickOffset;
+	s64 z = days_from_civil(s64(pt.year), pt.month, pt.day);
+	return rtcMagicOffset +
+		pt.microsecond + 
+		1000000ull * (pt.second +
+		60ull * (pt.minute + 
+		60ull * (pt.hour + 
+		24ull * u64(z))));
 }
 
 static bool __RtcValidatePspTime(const ScePspDateTime &t)
@@ -413,24 +396,7 @@ static u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
 		month = 12;
 	}
 
-	while (year < 1900)
-		year += 400;
-	while (year > 2300)
-		year -= 400;
-
-	tm local;
-	local.tm_year = year - 1900;
-	local.tm_mon = month - 1;
-	local.tm_mday = day;
-	local.tm_wday = -1;
-	local.tm_yday = -1;
-	local.tm_hour = 0;
-	local.tm_min = 0;
-	local.tm_sec = 0;
-	local.tm_isdst = 0;
-
-	mktime(&local);
-	return local.tm_wday;
+	return ((days_from_civil(s64(year), month, day) % 7LL) + 11LL) % 7LL;
 }
 
 static bool __RtcIsLeapYear(u32 year)
