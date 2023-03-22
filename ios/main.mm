@@ -89,10 +89,10 @@ void *exception_handler(void *argument) {
 	return NULL;
 }
 
-static float g_safeInsetLeft = 0.0;
-static float g_safeInsetRight = 0.0;
-static float g_safeInsetTop = 0.0;
-static float g_safeInsetBottom = 0.0;
+float g_safeInsetLeft = 0.0;
+float g_safeInsetRight = 0.0;
+float g_safeInsetTop = 0.0;
+float g_safeInsetBottom = 0.0;
 
 // We no longer need to judge if jit is usable or not by according to the ios version.
 /*
@@ -176,45 +176,16 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {
-	if (!strcmp(command, "finish")) {
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+	switch (type) {
+	case SystemRequestType::EXIT_APP:
 		exit(0);
 		// The below seems right, but causes hangs. See #12140.
 		// dispatch_async(dispatch_get_main_queue(), ^{
 		// [sharedViewController shutdown];
 		//	exit(0);
 		// });
-	} else if (!strcmp(command, "sharetext")) {
-		NSString *text = [NSString stringWithUTF8String:parameter];
-		[sharedViewController shareText:text];
-	} else if (!strcmp(command, "camera_command")) {
-		if (!strncmp(parameter, "startVideo", 10)) {
-			int width = 0, height = 0;
-			sscanf(parameter, "startVideo_%dx%d", &width, &height);
-			setCameraSize(width, height);
-			startVideo();
-		} else if (!strcmp(parameter, "stopVideo")) {
-			stopVideo();
-		}
-	} else if (!strcmp(command, "gps_command")) {
-		if (!strcmp(parameter, "open")) {
-			startLocation();
-		} else if (!strcmp(parameter, "close")) {
-			stopLocation();
-		}
-	} else if (!strcmp(command, "safe_insets")) {
-		float left, right, top, bottom;
-		if (4 == sscanf(parameter, "%f:%f:%f:%f", &left, &right, &top, &bottom)) {
-			g_safeInsetLeft = left;
-			g_safeInsetRight = right;
-			g_safeInsetTop = top;
-			g_safeInsetBottom = bottom;
-		}
-	}
-}
-
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
-	switch (type) {
+		break;
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
 		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
@@ -241,8 +212,32 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		services.presentDirectoryPanel(callback, /* allowFiles = */ false, /* allowDirectories = */ true);
 		return true;
 	}
+	case SystemRequestType::CAMERA_COMMAND:
+		if (!strncmp(param1.c_str(), "startVideo", 10)) {
+			int width = 0, height = 0;
+			sscanf(param1.c_str(), "startVideo_%dx%d", &width, &height);
+			setCameraSize(width, height);
+			startVideo();
+		} else if (!strcmp(param1.c_str(), "stopVideo")) {
+			stopVideo();
+		}
+		return true;
+	case SystemRequestType::GPS_COMMAND:
+		if (param1 == "open") {
+			startLocation();
+		} else if (param1 == "close") {
+			stopLocation();
+		}
+		return true;
+	case SystemRequestType::SHARE_TEXT:
+	{
+		NSString *text = [NSString stringWithUTF8String:param1.c_str()];
+		[sharedViewController shareText:text];
+		return true;
 	}
-	return false;
+	default:
+		return false;
+	}
 }
 
 void System_Toast(const char *text) {}

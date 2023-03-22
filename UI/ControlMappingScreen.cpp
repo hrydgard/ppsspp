@@ -37,6 +37,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/TimeUtil.h"
 #include "Core/KeyMap.h"
 #include "Core/Host.h"
@@ -717,16 +718,26 @@ void TouchTestScreen::render() {
 	ui_context->Flush();
 }
 
-void RecreateActivity();
+void RecreateActivity() {
+	const int SYSTEM_JELLYBEAN = 16;
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= SYSTEM_JELLYBEAN) {
+		INFO_LOG(SYSTEM, "Sending recreate");
+		System_Notify(SystemNotification::FORCE_RECREATE_ACTIVITY);
+		INFO_LOG(SYSTEM, "Got back from recreate");
+	} else {
+		auto gr = GetI18NCategory("Graphics");
+		System_Toast(gr->T("Must Restart", "You must restart PPSSPP for this change to take effect"));
+	}
+}
 
 UI::EventReturn TouchTestScreen::OnImmersiveModeChange(UI::EventParams &e) {
-	System_SendMessage("immersive", "");
+	System_Notify(SystemNotification::IMMERSIVE_MODE_CHANGE);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn TouchTestScreen::OnRenderingBackend(UI::EventParams &e) {
 	g_Config.Save("GameSettingsScreen::RenderingBackend");
-	System_SendMessage("graphics_restart", "--touchscreentest");
+	System_RestartApp("--touchscreentest");
 	return UI::EVENT_DONE;
 }
 

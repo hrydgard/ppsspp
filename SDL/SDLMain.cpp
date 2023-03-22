@@ -170,6 +170,14 @@ void System_Vibrate(int length_ms) {
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
+	case SystemRequestType::EXIT_APP:
+	case SystemRequestType::RESTART_APP:  // Not sure how we best do this, but do a clean exit, better than being stuck in a bad state.
+		// Do a clean exit
+		g_QuitRequested = true;
+		return true;
+	case SystemRequestType::COPY_TO_CLIPBOARD:
+		SDL_SetClipboardText(param1.c_str());
+		return true;
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
@@ -198,33 +206,20 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 #endif
-	}
-	return false;
-}
-
-void System_SendMessage(const char *command, const char *parameter) {
-	if (!strcmp(command, "toggle_fullscreen")) {
+	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
 		g_ToggleFullScreenNextFrame = true;
-		if (strcmp(parameter, "1") == 0) {
+		if (param1 == "1") {
 			g_ToggleFullScreenType = 1;
-		} else if (strcmp(parameter, "0") == 0) {
+		} else if (param1 == "0") {
 			g_ToggleFullScreenType = 0;
 		} else {
 			// Just toggle.
 			g_ToggleFullScreenType = -1;
 		}
-	} else if (!strcmp(command, "finish")) {
-		// Do a clean exit
-		g_QuitRequested = true;
-	} else if (!strcmp(command, "graphics_restart")) {
-		// Not sure how we best do this, but do a clean exit, better than being stuck in a bad state.
-		g_QuitRequested = true;
-	} else if (!strcmp(command, "setclipboardtext")) {
-		SDL_SetClipboardText(parameter);
-	} else if (!strcmp(command, "audio_resetDevice")) {
-		StopSDLAudioDevice();
-		InitSDLAudioDevice();
-    }
+		return true;
+	default:
+		return false;
+	}
 }
 
 void System_AskForPermission(SystemPermission permission) {}
@@ -467,6 +462,11 @@ bool System_GetPropertyBool(SystemProperty prop) {
 
 void System_Notify(SystemNotification notification) {
 	switch (notification) {
+	case SystemNotification::AUDIO_RESET_DEVICE:
+		StopSDLAudioDevice();
+		InitSDLAudioDevice();
+		break;
+
 	default:
 		break;
 	}

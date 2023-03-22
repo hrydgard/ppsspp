@@ -271,6 +271,10 @@ void System_Notify(SystemNotification notification) {
 		if (g_symbolMap)
 			g_symbolMap->SortSymbols();
 		break;
+	case SystemNotification::AUDIO_RESET_DEVICE:
+		StopSDLAudioDevice();
+		InitSDLAudioDevice();
+		break;
 	default:
 		break;
 	}
@@ -331,6 +335,16 @@ bool MainUI::HandleCustomEvent(QEvent *e) {
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
+	case SystemRequestType::EXIT_APP:
+		qApp->exit(0);
+		return true;
+	case SystemRequestType::RESTART_APP:
+		// Should find a way to properly restart the app.
+		qApp->exit(0);
+		return true;
+	case SystemRequestType::COPY_TO_CLIPBOARD:
+		QApplication::clipboard()->setText(param1.c_str());
+		return true;
 	case SystemRequestType::INPUT_TEXT_MODAL:
 	{
 		g_requestId = requestId;
@@ -356,34 +370,20 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		g_param2 = param2;
 		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFolderEvent));
 		return true;
+	case SystemRequestType::CAMERA_COMMAND:
+		if (!strncmp(param1.c_str(), "startVideo", 10)) {
+			int width = 0, height = 0;
+			sscanf(param1.c_str(), "startVideo_%dx%d", &width, &height);
+			emit(qtcamera->onStartCamera(width, height));
+		} else if (param1 == "stopVideo") {
+			emit(qtcamera->onStopCamera());
+		}
+		return true;
 	default:
 		return false;
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {
-	if (!strcmp(command, "finish")) {
-		qApp->exit(0);
-	} else if (!strcmp(command, "graphics_restart")) {
-		// Should find a way to properly restart the app.
-		qApp->exit(0);
-	} else if (!strcmp(command, "camera_command")) {
-		if (!strncmp(parameter, "startVideo", 10)) {
-			int width = 0, height = 0;
-			sscanf(parameter, "startVideo_%dx%d", &width, &height);
-			emit(qtcamera->onStartCamera(width, height));
-		} else if (!strcmp(parameter, "stopVideo")) {
-			emit(qtcamera->onStopCamera());
-		}
-	} else if (!strcmp(command, "setclipboardtext")) {
-		QApplication::clipboard()->setText(parameter);
-#if defined(SDL)
-	} else if (!strcmp(command, "audio_resetDevice")) {
-		StopSDLAudioDevice();
-		InitSDLAudioDevice();
-#endif
-	}
-}
 void System_Toast(const char *text) {}
 
 void System_AskForPermission(SystemPermission permission) {}

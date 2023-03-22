@@ -401,10 +401,6 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {
-	PushCommand(command, parameter);
-}
-
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:
@@ -536,9 +532,6 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	default:
 		return false;
 	}
-}
-
-void System_Notify(SystemNotification notification) {
 }
 
 std::string Android_GetInputDeviceDebugString() {
@@ -1027,8 +1020,31 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	}
 }
 
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	case SystemNotification::ROTATE_UPDATED:
+		PushCommand("rotate", "");
+		break;
+	case SystemNotification::FORCE_RECREATE_ACTIVITY:
+		PushCommand("recreate", "");
+		break;
+	case SystemNotification::IMMERSIVE_MODE_CHANGE:
+		PushCommand("immersive", "");
+		break;
+	case SystemNotification::SUSTAINED_PERF_CHANGE:
+		PushCommand("sustainedPerfMode", "");
+		break;
+	}
+}
+
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
+	case SystemRequestType::EXIT_APP:
+		PushCommand("finish", "");
+		return true;
+	case SystemRequestType::RESTART_APP:
+		PushCommand("graphics_restart", param1);
+		return true;
 	case SystemRequestType::INPUT_TEXT_MODAL:
 	{
 		std::string serialized = StringFromFormat("%d:@:%s:@:%s", requestId, param1.c_str(), param2.c_str());
@@ -1043,6 +1059,22 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	case SystemRequestType::BROWSE_FOR_FOLDER:
 		PushCommand("browse_folder", StringFromFormat("%d", requestId));
+		return true;
+
+	case SystemRequestType::CAMERA_COMMAND:
+		PushCommand("camera_command", param1);
+		return true;
+	case SystemRequestType::GPS_COMMAND:
+		PushCommand("gps_command", param1);
+		return true;
+	case SystemRequestType::MICROPHONE_COMMAND:
+		PushCommand("microphone_command", param1);
+		return true;
+	case SystemRequestType::SHARE_TEXT:
+		PushCommand("share_text", param1);
+		return true;
+	case SystemRequestType::NOTIFY_UI_STATE:
+		PushCommand("uistate", param1);
 		return true;
 	default:
 		return false;
@@ -1209,7 +1241,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 	std::string msg = GetJavaString(env, message);
 	std::string prm = GetJavaString(env, param);
 
-	// Some messages are caught by app-android.
+	// Some messages are caught by app-android. TODO: Should be all.
 	if (msg == "moga") {
 		mogaVersion = prm;
 	} else if (msg == "permission_pending") {

@@ -33,6 +33,7 @@
 #include <condition_variable>
 
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/File/Path.h"
 #include "Common/Math/math_util.h"
 #include "Common/Thread/ThreadUtil.h"
@@ -134,7 +135,7 @@ void UpdateUIState(GlobalUIState newState) {
 		case UISTATE_EXCEPTION: state = "exception"; break;
 		}
 		if (state) {
-			System_SendMessage("uistate", state);
+			System_NotifyUIState(state);
 		}
 	}
 }

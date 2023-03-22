@@ -28,6 +28,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/UI/AsyncImageFileView.h"
 
@@ -392,7 +393,7 @@ UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 
 UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
 	if (g_Config.bPauseMenuExitsEmulator) {
-		System_SendMessage("finish", "");
+		System_ExitApp();
 	} else {
 		TriggerFinish(DR_OK);
 	}

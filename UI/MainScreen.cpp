@@ -980,7 +980,6 @@ UI::EventReturn GameBrowser::OnHomebrewStore(UI::EventParams &e) {
 }
 
 MainScreen::MainScreen() {
-	System_SendMessage("event", "mainscreen");
 	g_BackgroundAudio.SetGame(Path());
 }
 
@@ -1287,7 +1286,7 @@ UI::EventReturn MainScreen::OnFullScreenToggle(UI::EventParams &e) {
 	}
 #if !defined(MOBILE_DEVICE)
 	g_Config.bFullScreen = !g_Config.bFullScreen;
-	System_SendMessage("toggle_fullscreen", "");
+	System_ToggleFullscreenState("");
 #endif
 	return UI::EVENT_DONE;
 }
@@ -1428,11 +1427,11 @@ UI::EventReturn MainScreen::OnForums(UI::EventParams &e) {
 UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	// Let's make sure the config was saved, since it may not have been.
 	if (!g_Config.Save("MainScreen::OnExit")) {
-		System_SendMessage("toast", "Failed to save settings!\nCheck permissions, or try to restart the device.");
+		System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
 	}
 
 	// Request the framework to exit cleanly.
-	System_SendMessage("finish", "");
+	System_ExitApp();
 
 	UpdateUIState(UISTATE_EXIT);
 	return UI::EVENT_DONE;

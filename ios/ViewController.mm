@@ -160,15 +160,20 @@ static LocationHelper *locationHelper;
 	});
 }
 
+extern float g_safeInsetLeft;
+extern float g_safeInsetRight;
+extern float g_safeInsetTop;
+extern float g_safeInsetBottom;
+
 - (void)viewSafeAreaInsetsDidChange {
 	if (@available(iOS 11.0, *)) {
 		[super viewSafeAreaInsetsDidChange];
 		char safeArea[100];
 		// we use 0.0f instead of safeAreaInsets.bottom because the bottom overlay isn't disturbing (for now)
-		snprintf(safeArea, sizeof(safeArea), "%f:%f:%f:%f",
-				self.view.safeAreaInsets.left, self.view.safeAreaInsets.right,
-				self.view.safeAreaInsets.top, 0.0f);
-		System_SendMessage("safe_insets", safeArea);
+		g_safeInsetLeft = self.view.safeAreaInsets.left;
+		g_safeInsetRight = self.view.safeAreaInsets.right;
+		g_safeInsetTop = self.view.safeAreaInsets.top;
+		g_safeInsetBottom = 0.0f;
 	}
 }
 

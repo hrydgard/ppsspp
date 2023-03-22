@@ -1193,21 +1193,9 @@ UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnScreenRotation(UI::EventParams &e) {
 	INFO_LOG(SYSTEM, "New display rotation: %d", g_Config.iScreenRotation);
 	INFO_LOG(SYSTEM, "Sending rotate");
-	System_SendMessage("rotate", "");
+	System_Notify(SystemNotification::ROTATE_UPDATED);
 	INFO_LOG(SYSTEM, "Got back from rotate");
 	return UI::EVENT_DONE;
-}
-
-void RecreateActivity() {
-	const int SYSTEM_JELLYBEAN = 16;
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= SYSTEM_JELLYBEAN) {
-		INFO_LOG(SYSTEM, "Sending recreate");
-		System_SendMessage("recreate", "");
-		INFO_LOG(SYSTEM, "Got back from recreate");
-	} else {
-		auto gr = GetI18NCategory("Graphics");
-		System_SendMessage("toast", gr->T("Must Restart", "You must restart PPSSPP for this change to take effect"));
-	}
 }
 
 UI::EventReturn GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
@@ -1217,12 +1205,12 @@ UI::EventReturn GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
-	System_SendMessage("immersive", "");
+	System_Notify(SystemNotification::IMMERSIVE_MODE_CHANGE);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnSustainedPerformanceModeChange(UI::EventParams &e) {
-	System_SendMessage("sustainedPerfMode", "");
+	System_Notify(SystemNotification::SUSTAINED_PERF_CHANGE);
 	return UI::EVENT_DONE;
 }
 
@@ -1329,12 +1317,12 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnFullscreenChange(UI::EventParams &e) {
 	g_Config.iForceFullScreen = -1;
-	System_SendMessage("toggle_fullscreen", g_Config.UseFullScreen() ? "1" : "0");
+	System_ToggleFullscreenState(g_Config.UseFullScreen() ? "1" : "0");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnFullscreenMultiChange(UI::EventParams &e) {
-	System_SendMessage("toggle_fullscreen", g_Config.UseFullScreen() ? "1" : "0");
+	System_ToggleFullscreenState(g_Config.UseFullScreen() ? "1" : "0");
 	return UI::EVENT_DONE;
 }
 
@@ -1348,7 +1336,7 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	Reporting::UpdateConfig();
 	if (!g_Config.Save("GameSettingsScreen::onFinish")) {
-		System_SendMessage("toast", "Failed to save settings!\nCheck permissions, or try to restart the device.");
+		System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
 	}
 
 	if (editThenRestore_) {
@@ -1477,7 +1465,7 @@ void GameSettingsScreen::TriggerRestart(const char *why) {
 	}
 	// Make sure the new instance is considered the first.
 	ShutdownInstanceCounter();
-	System_SendMessage("graphics_restart", param.c_str());
+	System_RestartApp(param);
 }
 
 void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
@@ -1559,7 +1547,7 @@ UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
 	if (g_Config.sAudioDevice == a->T("Auto")) {
 		g_Config.sAudioDevice.clear();
 	}
-	System_SendMessage("audio_resetDevice", "");
+	System_Notify(SystemNotification::AUDIO_RESET_DEVICE);
 	return UI::EVENT_DONE;
 }
 
@@ -2107,8 +2095,8 @@ UI::EventReturn HostnameSelectScreen::OnIPClick(UI::EventParams& e) {
 	std::string text = e.v ? e.v->Tag() : "";
 	if (text.length() > 0) {
 		addrView_->SetText(text);
-		// TODO: Copy the IP to clipboard for the host to easily share their IP through chatting apps.
-		System_SendMessage("setclipboardtext", text.c_str()); // Doesn't seems to be working on windows (yet?)
+		// Copy the IP to clipboard for the host to easily share their IP through chatting apps.
+		System_CopyStringToClipboard(text);
 	}
 	return UI::EVENT_DONE;
 }

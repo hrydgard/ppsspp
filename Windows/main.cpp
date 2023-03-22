@@ -443,6 +443,30 @@ std::wstring MakeFilter(std::wstring filter) {
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
+	case SystemRequestType::EXIT_APP:
+		if (!NativeIsRestarting()) {
+			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+		}
+		return true;
+	case SystemRequestType::RESTART_APP:
+	{
+		restartArgs = param1;
+		if (!restartArgs.empty())
+			AddDebugRestartArgs();
+		if (IsDebuggerPresent()) {
+			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_RESTART_EMUTHREAD, 0, 0);
+		} else {
+			g_Config.bRestartRequired = true;
+			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+		}
+		return true;
+	}
+	case SystemRequestType::COPY_TO_CLIPBOARD:
+	{
+		std::wstring data = ConvertUTF8ToWString(param1);
+		W32Util::CopyTextToClipboard(MainWindow::GetDisplayHWND(), data);
+		return true;
+	}
 	case SystemRequestType::INPUT_TEXT_MODAL:
 		if (g_dialogRunning) {
 			g_dialogThread.join();
@@ -516,43 +540,28 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}
 		return true;
 	}
-	default:
-		return false;
-	}
-}
-
-void System_SendMessage(const char *command, const char *parameter) {
-	if (!strcmp(command, "finish")) {
-		if (!NativeIsRestarting()) {
-			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
-		}
-	} else if (!strcmp(command, "graphics_restart")) {
-		restartArgs = parameter == nullptr ? "" : parameter;
-		if (!restartArgs.empty())
-			AddDebugRestartArgs();
-		if (IsDebuggerPresent()) {
-			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_RESTART_EMUTHREAD, 0, 0);
-		} else {
-			g_Config.bRestartRequired = true;
-			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
-		}
-	} else if (!strcmp(command, "graphics_failedBackend")) {
-		auto err = GetI18NCategory("Error");
-		const char *backendSwitchError = err->T("GenericBackendSwitchCrash", "PPSSPP crashed while starting. This usually means a graphics driver problem. Try upgrading your graphics drivers.\n\nGraphics backend has been switched:");
-		std::wstring full_error = ConvertUTF8ToWString(StringFromFormat("%s %s", backendSwitchError, parameter));
-		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
-		MessageBox(MainWindow::GetHWND(), full_error.c_str(), title.c_str(), MB_OK);
-	} else if (!strcmp(command, "setclipboardtext")) {
-		std::wstring data = ConvertUTF8ToWString(parameter);
-		W32Util::CopyTextToClipboard(MainWindow::GetDisplayHWND(), data);
-	} else if (!strcmp(command, "toggle_fullscreen")) {
+	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
+	{
 		bool flag = !MainWindow::IsFullscreen();
-		if (strcmp(parameter, "0") == 0) {
+		if (param1 == "0") {
 			flag = false;
-		} else if (strcmp(parameter, "1") == 0) {
+		} else if (param1 == "1") {
 			flag = true;
 		}
 		MainWindow::SendToggleFullscreen(flag);
+		return true;
+	}
+	case SystemRequestType::GRAPHICS_BACKEND_FAILED_ALERT:
+	{
+		auto err = GetI18NCategory("Error");
+		const char *backendSwitchError = err->T("GenericBackendSwitchCrash", "PPSSPP crashed while starting. This usually means a graphics driver problem. Try upgrading your graphics drivers.\n\nGraphics backend has been switched:");
+		std::wstring full_error = ConvertUTF8ToWString(StringFromFormat("%s %s", backendSwitchError, param1.c_str()));
+		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
+		MessageBox(MainWindow::GetHWND(), full_error.c_str(), title.c_str(), MB_OK);
+		return true;
+	}
+	default:
+		return false;
 	}
 }
 

@@ -79,3 +79,44 @@ inline void System_BrowseForFile(const std::string &title, BrowseFileType type, 
 inline void System_BrowseForFolder(const std::string &title, RequestCallback callback) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_FOLDER, callback, title, "", 0);
 }
+
+inline void System_CopyStringToClipboard(const std::string &string) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::COPY_TO_CLIPBOARD, nullptr, string, "", 0);
+}
+
+inline void System_ExitApp() {
+	g_requestManager.MakeSystemRequest(SystemRequestType::EXIT_APP, nullptr, "", "", 0);
+}
+
+inline void System_RestartApp(const std::string &params) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::RESTART_APP, nullptr, params, "", 0);
+}
+
+// The design is a little weird, just a holdover from the old message. Can either toggle or set to on or off.
+inline void System_ToggleFullscreenState(const std::string &param) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::TOGGLE_FULLSCREEN_STATE, nullptr, param, "", 0);
+}
+
+inline void System_GraphicsBackendFailedAlert(const std::string &param) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::GRAPHICS_BACKEND_FAILED_ALERT, nullptr, param, "", 0);
+}
+
+inline void System_CameraCommand(const std::string &command) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::CAMERA_COMMAND, nullptr, command, "", 0);
+}
+
+inline void System_GPSCommand(const std::string &command) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::GPS_COMMAND, nullptr, command, "", 0);
+}
+
+inline void System_MicrophoneCommand(const std::string &command) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::MICROPHONE_COMMAND, nullptr, command, "", 0);
+}
+
+inline void System_ShareText(const std::string &text) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::SHARE_TEXT, nullptr, text, "", 0);
+}
+
+inline void System_NotifyUIState(const std::string &state) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::NOTIFY_UI_STATE, nullptr, state, "", 0);
+}

@@ -387,7 +387,7 @@ static void CheckFailedGPUBackends() {
 	g_Config.iGPUBackend = g_Config.NextValidBackend();
 	if (lastBackend != g_Config.iGPUBackend) {
 		std::string param = GPUBackendToString((GPUBackend)lastBackend) + " -> " + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
-		System_SendMessage("graphics_failedBackend", param.c_str());
+		System_GraphicsBackendFailedAlert(param);
 		WARN_LOG(LOADER, "Failed graphics backend switched from %s (%d to %d)", param.c_str(), lastBackend, g_Config.iGPUBackend);
 	}
 	// And then let's - for now - add the current to the failed list.
@@ -640,11 +640,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					g_Config.bPauseMenuExitsEmulator = true;
 				if (!strcmp(argv[i], "--fullscreen")) {
 					g_Config.iForceFullScreen = 1;
-					System_SendMessage("toggle_fullscreen", "1");
+					System_ToggleFullscreenState("1");
 				}
 				if (!strcmp(argv[i], "--windowed")) {
 					g_Config.iForceFullScreen = 0;
-					System_SendMessage("toggle_fullscreen", "0");
+					System_ToggleFullscreenState("0");
 				}
 				if (!strcmp(argv[i], "--touchscreentest"))
 					gotoTouchScreenTest = true;
@@ -1289,7 +1289,7 @@ bool NativeKey(const KeyInput &key) {
 		pspKeys.clear();
 		if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys)) {
 			if (std::find(pspKeys.begin(), pspKeys.end(), VIRTKEY_PAUSE) != pspKeys.end()) {
-				System_SendMessage("finish", "");
+				System_ExitApp();
 				return true;
 			}
 		}
@@ -1390,8 +1390,6 @@ void NativeShutdown() {
 		g_screenManager = nullptr;
 	}
 
-#if !PPSSPP_PLATFORM(UWP)
-#endif
 	g_Config.Save("NativeShutdown");
 
 	INFO_LOG(SYSTEM, "NativeShutdown called");
@@ -1404,7 +1402,9 @@ void NativeShutdown() {
 
 	ShutdownWebServer();
 
-	System_SendMessage("finish", "");
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	System_ExitApp();
+#endif
 
 	net::Shutdown();
 
@@ -1422,6 +1422,10 @@ void NativeShutdown() {
 	}
 
 	g_threadManager.Teardown();
+
+#if !(PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS))
+	System_ExitApp();
+#endif
 
 	// Previously we did exit() here on Android but that makes it hard to do things like restart on backend change.
 	// I think we handle most globals correctly or correct-enough now.

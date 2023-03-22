@@ -51,21 +51,37 @@ void System_Vibrate(int length_ms);
 void System_ShowFileInFolder(const char *path);
 void System_LaunchUrl(LaunchUrlType urlType, const char *url);
 
+// It's sometimes a little unclear what should be a request, and what should be a separate function.
+// Going forward, "optional" things (PPSSPP will still function alright without it) will be requests,
+// to make implementations simpler in the default case.
+
 enum class SystemRequestType {
 	INPUT_TEXT_MODAL,
 	BROWSE_FOR_IMAGE,
 	BROWSE_FOR_FILE,
 	BROWSE_FOR_FOLDER,
+
+	EXIT_APP,
+	RESTART_APP,  // For graphics backend changes
+	COPY_TO_CLIPBOARD,
+	TOGGLE_FULLSCREEN_STATE,
+	GRAPHICS_BACKEND_FAILED_ALERT,
+
+	// High-level hardware control
+	CAMERA_COMMAND,
+	GPS_COMMAND,
+	MICROPHONE_COMMAND,
+
+	SHARE_TEXT,
+	NOTIFY_UI_STATE,  // Used on Android only. Not a SystemNotification since it takes a parameter.
 };
 
 // Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).
 // This is not to be used directly by applications, instead use the g_RequestManager to make the requests.
 // This can return false if it's known that the platform doesn't support the request, the app is supposed to handle
 // or ignore that cleanly.
+// Some requests don't use responses.
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3);
-
-// TODO: To be separated into requests, see Request.h, and a way to post "UI messages".
-void System_SendMessage(const char *command, const char *parameter);
 
 PermissionStatus System_GetPermissionStatus(SystemPermission permission);
 void System_AskForPermission(SystemPermission permission);
@@ -159,6 +175,11 @@ enum class SystemNotification {
 	BOOT_DONE,  // this is sent from EMU thread! Make sure that Host handles it properly!
 	SYMBOL_MAP_UPDATED,
 	SWITCH_UMD_UPDATED,
+	ROTATE_UPDATED,
+	FORCE_RECREATE_ACTIVITY,
+	IMMERSIVE_MODE_CHANGE,
+	AUDIO_RESET_DEVICE,
+	SUSTAINED_PERF_CHANGE,
 };
 
 std::string System_GetProperty(SystemProperty prop);

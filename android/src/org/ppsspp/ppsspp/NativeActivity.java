@@ -1319,14 +1319,31 @@ public abstract class NativeActivity extends Activity {
 	public boolean processCommand(String command, String params) {
 		SurfaceView surfView = javaGL ? mGLSurfaceView : mSurfaceView;
 		if (command.equals("launchBrowser")) {
-			try {
-				Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));
-				startActivity(i);
-				return true;
-			} catch (Exception e) {
-				// No browser?
-				Log.e(TAG, e.toString());
-				return false;
+			// Special case for twitter
+			if (params.startsWith("https://twitter.com/#!/")) {
+				try {
+					String twitter_user_name = params.replaceFirst("https://twitter.com/#!/", "");
+					try {
+						Log.i(TAG, "Launching twitter directly: " + twitter_user_name);
+						startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("twitter://user?screen_name=" + twitter_user_name)));
+					} catch (Exception e) {
+						startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://twitter.com/#!/" + twitter_user_name)));
+					}
+					return true;
+				} catch (Exception e) { // For example, android.content.ActivityNotFoundException
+					Log.e(TAG, e.toString());
+					return false;
+				}
+			} else {
+				try {
+					Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));
+					startActivity(i);
+					return true;
+				} catch (Exception e) {
+					// No browser?
+					Log.e(TAG, e.toString());
+					return false;
+				}
 			}
 		} else if (command.equals("launchEmail")) {
 			try {
@@ -1386,18 +1403,7 @@ public abstract class NativeActivity extends Activity {
 				Log.e(TAG, e.toString());
 				return false;
 			}
-		} else if (command.equals("sharejpeg")) {
-			try {
-				Intent share = new Intent(Intent.ACTION_SEND);
-				share.setType("image/jpeg");
-				share.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + params));
-				startActivity(Intent.createChooser(share, "Share Picture"));
-				return true;
-			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
-				Log.e(TAG, e.toString());
-				return false;
-			}
-		} else if (command.equals("sharetext")) {
+		} else if (command.equals("share_text")) {
 			try {
 				Intent sendIntent = new Intent();
 				sendIntent.setType("text/plain");
@@ -1405,19 +1411,6 @@ public abstract class NativeActivity extends Activity {
 				sendIntent.setAction(Intent.ACTION_SEND);
 				Intent shareIntent = Intent.createChooser(sendIntent, null);
 				startActivity(shareIntent);
-				return true;
-			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
-				Log.e(TAG, e.toString());
-				return false;
-			}
-		} else if (command.equals("showTwitter")) {
-			try {
-				String twitter_user_name = params;
-				try {
-					startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("twitter://user?screen_name=" + twitter_user_name)));
-				} catch (Exception e) {
-					startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://twitter.com/#!/" + twitter_user_name)));
-				}
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
 				Log.e(TAG, e.toString());
