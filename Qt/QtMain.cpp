@@ -34,7 +34,7 @@
 #endif
 
 #include "Common/System/NativeApp.h"
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Math/math_util.h"
 #include "Common/Profiler/Profiler.h"
@@ -273,7 +273,24 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) { return false; }
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2) {
+	switch (type) {
+	case SystemRequestType::INPUT_TEXT_MODAL:
+	{
+		// NOTE: This doesn't actually work, we're on the wrong thread!
+		// Was broken even previously to the conversion to System_MakeRequest.
+		QString title = QString::fromStdString(param1);
+		QString defaultValue = QString::fromStdString(param2);
+		QString text = emugl->InputBoxGetQString(title, defaultValue);
+		if (text.isEmpty()) {
+			g_requestManager.PostSystemFailure(requestId);
+		} else {
+			g_requestManager.PostSystemSuccess(requestId, text.toStdString().c_str());
+		}
+		break;
+	}
+	}
+}
 
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
@@ -306,15 +323,6 @@ void System_Toast(const char *text) {}
 
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
-
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
-	QString text = emugl->InputBoxGetQString(QString::fromStdString(title), QString::fromStdString(defaultValue));
-	if (text.isEmpty()) {
-		NativeInputBoxReceived(cb, false, "");
-	} else {
-		NativeInputBoxReceived(cb, true, text.toStdString());
-	}
-}
 
 void System_Vibrate(int length_ms) {
 	if (length_ms == -1 || length_ms == -3)
