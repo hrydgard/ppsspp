@@ -7,12 +7,14 @@ RequestManager g_requestManager;
 const char *RequestTypeAsString(SystemRequestType type) {
 	switch (type) {
 	case SystemRequestType::INPUT_TEXT_MODAL: return "INPUT_TEXT_MODAL";
+	case SystemRequestType::BROWSE_FOR_IMAGE: return "BROWSE_FOR_IMAGE";
 	default: return "N/A";
 	}
 }
 
 bool RequestManager::MakeSystemRequest(SystemRequestType type, RequestCallback callback, const std::string &param1, const std::string &param2) {
 	int requestId = idCounter_++;
+	INFO_LOG(SYSTEM, "Making system request %s: id %d, callback_valid %d", RequestTypeAsString(type), requestId, callback != nullptr);
 	if (!System_MakeRequest(type, requestId, param1, param2)) {
 		return false;
 	}
@@ -23,6 +25,7 @@ bool RequestManager::MakeSystemRequest(SystemRequestType type, RequestCallback c
 	}
 
 	std::lock_guard<std::mutex> guard(callbackMutex_);
+	INFO_LOG(SYSTEM, "Registering pending callback %d", requestId);
 	callbackMap_[requestId] = callback;
 	return true;
 }
@@ -41,6 +44,7 @@ void RequestManager::PostSystemSuccess(int requestId, const char *responseString
 	response.responseString = responseString;
 	response.responseValue = responseValue;
 	pendingResponses_.push_back(response);
+	INFO_LOG(SYSTEM, "PostSystemSuccess: Request %d (%s, %d)", requestId, responseString, responseValue);
 }
 
 void RequestManager::PostSystemFailure(int requestId) {
@@ -50,6 +54,7 @@ void RequestManager::PostSystemFailure(int requestId) {
 		ERROR_LOG(SYSTEM, "PostSystemFailure: Unexpected request ID %d", requestId);
 		return;
 	}
+	INFO_LOG(SYSTEM, "PostSystemFailure: Request %d failed", requestId);
 	callbackMap_.erase(iter);
 }
 
