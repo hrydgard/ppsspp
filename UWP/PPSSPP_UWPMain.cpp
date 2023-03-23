@@ -468,6 +468,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			case BrowseFileType::INI:
 				picker->FileTypeFilter->Append(".ini");
 				break;
+			case BrowseFileType::DB:
+				picker->FileTypeFilter->Append(".db");
+				break;
 			case BrowseFileType::ANY:
 				picker->FileTypeFilter->Append("*");
 				break;

@@ -255,12 +255,34 @@ std::wstring Path::ToWString() const {
 }
 #endif
 
-std::string Path::ToVisualString() const {
+std::string Path::ToVisualString(const char *relativeRoot) const {
 	if (type_ == PathType::CONTENT_URI) {
 		return AndroidContentURI(path_).ToVisualString();
 #if PPSSPP_PLATFORM(WINDOWS)
 	} else if (type_ == PathType::NATIVE) {
-		return ReplaceAll(path_, "/", "\\");
+		// It can be useful to show the path as relative to the memstick
+		if (relativeRoot) {
+			std::string root = ReplaceAll(relativeRoot, "/", "\\");
+			std::string path = ReplaceAll(path_, "/", "\\");
+			if (startsWithNoCase(path, root)) {
+				return path.substr(root.size());
+			} else {
+				return path;
+			}
+		} else {
+			return ReplaceAll(path_, "/", "\\");
+		}
+#else
+		if (relativeRoot) {
+			std::string root = relativeRoot;
+			if (startsWithNoCase(path_, root)) {
+				return path_.substr(root.size());
+			} else {
+				return path_;
+			}
+		} else {
+			return path_;
+		}
 #endif
 	} else {
 		return path_;
