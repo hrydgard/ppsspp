@@ -39,8 +39,6 @@ public:
 	UI::EventReturn OnEditCheatFile(UI::EventParams &params);
 	UI::EventReturn OnEnableAll(UI::EventParams &params);
 
-	void sendMessage(const char *message, const char *value) override;
-
 	void update() override;
 	void onFinish(DialogResult result) override;
 

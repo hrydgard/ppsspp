@@ -300,6 +300,9 @@ bool MainUI::HandleCustomEvent(QEvent *e) {
 		case BrowseFileType::INI:
 			filter = "INI files (*.ini)";
 			break;
+		case BrowseFileType::DB:
+			filter = "DB files (*.db)";
+			break;
 		case BrowseFileType::ANY:
 			break;
 		}

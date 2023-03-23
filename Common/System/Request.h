@@ -69,6 +69,7 @@ enum class BrowseFileType {
 	BOOTABLE,
 	IMAGE,
 	INI,
+	DB,
 	ANY,
 };
 

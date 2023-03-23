@@ -24,6 +24,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
@@ -152,21 +153,6 @@ void CwCheatScreen::onFinish(DialogResult result) {
 	}
 }
 
-void CwCheatScreen::sendMessage(const char *message, const char *value) {
-	// Always call the base class method first to handle the most common messages.
-	UIDialogScreenWithGameBackground::sendMessage(message, value);
-	if (!strcmp(message, "browse_fileSelect")) {
-		Path path(value);
-		INFO_LOG(SYSTEM, "Attempting to load cheats from: '%s'", path.ToVisualString().c_str());
-		if (ImportCheats(path)) {
-			g_Config.bReloadCheats = true;
-		} else {
-			// Show an error message?
-		}
-		RecreateViews();
-	}
-}
-
 UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params) {
 	enableAllFlag_ = !enableAllFlag_;
 
@@ -220,7 +206,17 @@ static char *GetLineNoNewline(char *temp, int sz, FILE *fp) {
 }
 
 UI::EventReturn CwCheatScreen::OnImportBrowse(UI::EventParams &params) {
-	System_SendMessage("browse_file", "");
+	System_BrowseForFile("Open cheat DB file", BrowseFileType::DB, [&](const std::string &value, int) {
+		Path path(value);
+		INFO_LOG(SYSTEM, "Attempting to load cheats from: '%s'", path.ToVisualString().c_str());
+		if (ImportCheats(path)) {
+			g_Config.bReloadCheats = true;
+		} else {
+			// Show an error message?
+		}
+		RecreateViews();
+		// Chose a cheat file.
+	});
 	return UI::EVENT_DONE;
 }
 
