@@ -372,7 +372,7 @@ TOGGLE_METHOD(VSync, g_Config.bVSync)
 	int g = 0;
 	DarwinDirectoryPanelCallback callback = [g] (bool succ, Path thePathChosen) {
 		if (succ)
-			NativeMessageReceived("browse_folder", thePathChosen.c_str());
+			NativeMessageReceived("boot", thePathChosen.c_str());
 	};
 
 	DarwinFileSystemServices services;
