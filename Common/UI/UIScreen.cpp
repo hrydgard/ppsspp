@@ -228,12 +228,15 @@ PopupScreen::PopupScreen(std::string title, std::string button1, std::string but
 
 void PopupScreen::touch(const TouchInput &touch) {
 	if (!box_ || (touch.flags & TOUCH_DOWN) == 0) {
+		// Handle down-presses here.
 		UIDialogScreen::touch(touch);
+		return;
 	}
 
 	// Extra bounds to avoid closing the dialog while trying to aim for something
-	// near the edge.
-	if (!box_->GetBounds().Expand(100.0f, 60.0f).Contains(touch.x, touch.y)) {
+	// near the edge. Now that we only close on actual down-events, we can shrink
+	// this border a bit.
+	if (!box_->GetBounds().Expand(30.0f, 30.0f).Contains(touch.x, touch.y)) {
 		TriggerFinish(DR_CANCEL);
 	}
 
