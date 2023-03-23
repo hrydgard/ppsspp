@@ -92,7 +92,8 @@ public:
 	std::wstring ToWString() const;
 #endif
 
-	std::string ToVisualString() const;
+	// Pass in a relative root to turn the path into a relative path - if it is one!
+	std::string ToVisualString(const char *relativeRoot = nullptr) const;
 
 	bool CanNavigateUp() const;
 	Path NavigateUp() const;

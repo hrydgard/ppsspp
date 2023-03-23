@@ -37,7 +37,7 @@ public:
 	UI::EventReturn OnImportCheat(UI::EventParams &params);
 	UI::EventReturn OnImportBrowse(UI::EventParams &params);
 	UI::EventReturn OnEditCheatFile(UI::EventParams &params);
-	UI::EventReturn OnEnableAll(UI::EventParams &params);
+	UI::EventReturn OnDisableAll(UI::EventParams &params);
 
 	void update() override;
 	void onFinish(DialogResult result) override;

@@ -35,7 +35,7 @@
 
 static const int FILE_CHECK_FRAME_INTERVAL = 53;
 
-static Path GetGlobalCheatFile() {
+static Path GetGlobalCheatFilePath() {
 	return GetSysDirectory(DIRECTORY_CHEATS) / "cheat.db";
 }
 
@@ -93,16 +93,20 @@ void CwCheatScreen::CreateViews() {
 	//leftColumn->Add(new Choice(cw->T("Add Cheat")))->OnClick.Handle(this, &CwCheatScreen::OnAddCheat);
 	leftColumn->Add(new ItemHeader(cw->T("Import Cheats")));
 
-	Path cheatPath = GetGlobalCheatFile();
+	Path cheatPath = GetGlobalCheatFilePath();
 
-	leftColumn->Add(new Choice(cheatPath.ToVisualString()))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
+	std::string root = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToString();
+
+	leftColumn->Add(new Choice(cheatPath.ToVisualString(root.c_str())))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
 	leftColumn->Add(new Choice(mm->T("Browse"), ImageID("I_FOLDER_OPEN")))->OnClick.Handle(this, &CwCheatScreen::OnImportBrowse);
+	errorMessageView_ = leftColumn->Add(new TextView(di->T("LoadingFailed")));
+	errorMessageView_->SetVisibility(V_GONE);
 
-	leftColumn->Add(new ItemHeader(cw->T("Options")));
+	leftColumn->Add(new ItemHeader(di->T("Options")));
 #if !defined(MOBILE_DEVICE)
 	leftColumn->Add(new Choice(cw->T("Edit Cheat File")))->OnClick.Handle(this, &CwCheatScreen::OnEditCheatFile);
 #endif
-	leftColumn->Add(new Choice(cw->T("Enable/Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnEnableAll);
+	leftColumn->Add(new Choice(di->T("Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnDisableAll);
 	leftColumn->Add(new PopupSliderChoice(&g_Config.iCwCheatRefreshRate, 1, 1000, cw->T("Refresh Rate"), 1, screenManager()));
 
 	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 0.5f));
@@ -153,12 +157,10 @@ void CwCheatScreen::onFinish(DialogResult result) {
 	}
 }
 
-UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params) {
-	enableAllFlag_ = !enableAllFlag_;
-
-	// Flip all the switches.
+UI::EventReturn CwCheatScreen::OnDisableAll(UI::EventParams &params) {
+	// Disable all the switches.
 	for (auto &info : fileInfo_) {
-		info.enabled = enableAllFlag_;
+		info.enabled = false;
 	}
 
 	if (!RebuildCheatFile(INDEX_ALL)) {
@@ -215,14 +217,14 @@ UI::EventReturn CwCheatScreen::OnImportBrowse(UI::EventParams &params) {
 			// Show an error message?
 		}
 		RecreateViews();
-		// Chose a cheat file.
 	});
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
-	if (!ImportCheats(GetGlobalCheatFile())) {
+	if (!ImportCheats(GetGlobalCheatFilePath())) {
 		// Show an error message?
+		errorMessageView_->SetVisibility(UI::V_VISIBLE);
 		return UI::EVENT_DONE;
 	}
 
