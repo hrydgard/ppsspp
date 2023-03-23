@@ -669,12 +669,15 @@ bool StartVRRender() {
 				XrVector3f positionOffset = {g_Config.fCameraSide, g_Config.fCameraHeight, g_Config.fCameraDistance};
 				if (!flatScreen) {
 					float pitchOffset = 0;
-					if (g_Config.iCameraPitch == 1) {
-						pitchOffset = 90;
-						positionOffset = {positionOffset.x, positionOffset.z, -positionOffset.y};
-					} else if (g_Config.iCameraPitch == 2) {
-						pitchOffset = -90;
-						positionOffset = {positionOffset.x, -positionOffset.z, positionOffset.y};
+					switch (g_Config.iCameraPitch) {
+						case 1: //Top view -> First person
+							pitchOffset = 90;
+							positionOffset = {positionOffset.x, positionOffset.z, -positionOffset.y};
+							break;
+						case 2: //First person -> Top view
+							pitchOffset = -90;
+							positionOffset = {positionOffset.x, -positionOffset.z + 20, positionOffset.y};
+							break;
 					}
 					XrQuaternionf rotationOffset = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, ToRadians(pitchOffset));
 					invView.orientation = XrQuaternionf_Multiply(rotationOffset, invView.orientation);
