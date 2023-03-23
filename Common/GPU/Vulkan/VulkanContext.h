@@ -222,7 +222,8 @@ public:
 	// Simple workaround for the casting warning.
 	template <class T>
 	void SetDebugName(T handle, VkObjectType type, const char *name) {
-		if (extensionsLookup_.EXT_debug_utils) {
+		if (extensionsLookup_.EXT_debug_utils && handle != VK_NULL_HANDLE) {
+			_dbg_assert_(handle != VK_NULL_HANDLE);
 			SetDebugNameImpl((uint64_t)handle, type, name);
 		}
 	}
@@ -329,6 +330,7 @@ public:
 	}
 
 	int GetInflightFrames() const {
+		// out of MAX_INFLIGHT_FRAMES.
 		return inflightFrames_;
 	}
 	// Don't call while a frame is in progress.

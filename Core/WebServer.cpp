@@ -237,7 +237,7 @@ static bool ServeDebuggerFile(const http::Request &request) {
 		return false;
 
 	size_t size;
-	uint8_t *data = VFSReadFile(filename, &size);
+	uint8_t *data = g_VFS.ReadFile(filename, &size);
 	if (!data)
 		return false;
 

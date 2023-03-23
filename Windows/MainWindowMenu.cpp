@@ -56,7 +56,6 @@ namespace MainWindow {
 	extern HINSTANCE hInst;
 	extern bool noFocusPause;
 	static W32Util::AsyncBrowseDialog *browseDialog;
-	static W32Util::AsyncBrowseDialog *browseImageDialog;
 	static bool browsePauseAfter;
 
 	static std::unordered_map<int, std::string> initialMenuKeys;
@@ -91,6 +90,7 @@ namespace MainWindow {
 		EnableMenuItem(menu, ID_DEBUG_TAKESCREENSHOT, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS, menuInGameEnable);
 		EnableMenuItem(menu, ID_DEBUG_EXTRACTFILE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_MEMORYBASE, menuInGameEnable);
 
 		// While playing, this pop up doesn't work - and probably doesn't make sense.
 		EnableMenuItem(menu, ID_OPTIONS_LANGUAGE, state == UISTATE_INGAME ? MF_GRAYED : MF_ENABLED);
@@ -221,6 +221,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_DEBUG_GEDEBUGGER, g_Config.bSystemControls ? L"\tCtrl+G" : L"");
 		TranslateMenuItem(menu, ID_DEBUG_EXTRACTFILE);
 		TranslateMenuItem(menu, ID_DEBUG_LOG, g_Config.bSystemControls ? L"\tCtrl+L" : L"");
+		TranslateMenuItem(menu, ID_DEBUG_MEMORYBASE);
 		TranslateMenuItem(menu, ID_DEBUG_MEMORYVIEW, g_Config.bSystemControls ? L"\tCtrl+M" : L"");
 
 		// Options menu
@@ -345,38 +346,6 @@ namespace MainWindow {
 		browseDialog = 0;
 	}
 
-	void BrowseBackground() {
-		static std::wstring filter = L"All supported images (*.jpg *.jpeg *.png)|*.jpg;*.jpeg;*.png|All files (*.*)|*.*||";
-		for (size_t i = 0; i < filter.length(); i++) {
-			if (filter[i] == '|')
-				filter[i] = '\0';
-		}
-
-		W32Util::MakeTopMost(GetHWND(), false);
-		browseImageDialog = new W32Util::AsyncBrowseDialog(W32Util::AsyncBrowseDialog::OPEN, GetHWND(), WM_USER_BROWSE_BG_DONE, L"LoadFile", L"", filter, L"*.jpg;*.jpeg;*.png;");
-	}
-
-	void BrowseBackgroundDone() {
-		std::string filename;
-		if (browseImageDialog->GetResult(filename)) {
-			std::wstring src = ConvertUTF8ToWString(filename);
-			std::wstring dest;
-			if (filename.size() >= 5 && (filename.substr(filename.size() - 4) == ".jpg" || filename.substr(filename.size() - 5) == ".jpeg")) {
-				dest = (GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg").ToWString();
-			} else {
-				dest = (GetSysDirectory(DIRECTORY_SYSTEM) / "background.png").ToWString();
-			}
-
-			CopyFileW(src.c_str(), dest.c_str(), FALSE);
-			NativeMessageReceived("bgImage_updated", "");
-		}
-
-		W32Util::MakeTopMost(GetHWND(), g_Config.bTopMost);
-
-		delete browseImageDialog;
-		browseImageDialog = nullptr;
-	}
-
 	static void UmdSwitchAction() {
 		std::string fn;
 		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
@@ -391,10 +360,6 @@ namespace MainWindow {
 		}
 	}
 
-	static void setScreenRotation(int rotation) {
-		g_Config.iInternalScreenRotation = rotation;
-	}
-
 	static void SaveStateActionFinished(SaveState::Status status, const std::string &message, void *userdata) {
 		if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
 			osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
@@ -406,14 +371,6 @@ namespace MainWindow {
 	void setTexScalingMultiplier(int level) {
 		g_Config.iTexScalingLevel = level;
 		NativeMessageReceived("gpu_configChanged", "");
-	}
-
-	static void setTexFiltering(int type) {
-		g_Config.iTexFiltering = type;
-	}
-
-	static void setBufFilter(int type) {
-		g_Config.iBufFilter = type;
 	}
 
 	static void setTexScalingType(int type) {
@@ -547,10 +504,10 @@ namespace MainWindow {
 			UmdSwitchAction();
 			break;
 
-		case ID_EMULATION_ROTATION_H:                 setScreenRotation(ROTATION_LOCKED_HORIZONTAL); break;
-		case ID_EMULATION_ROTATION_V:                 setScreenRotation(ROTATION_LOCKED_VERTICAL); break;
-		case ID_EMULATION_ROTATION_H_R:               setScreenRotation(ROTATION_LOCKED_HORIZONTAL180); break;
-		case ID_EMULATION_ROTATION_V_R:               setScreenRotation(ROTATION_LOCKED_VERTICAL180); break;
+		case ID_EMULATION_ROTATION_H:   g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL; break;
+		case ID_EMULATION_ROTATION_V:   g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL; break;
+		case ID_EMULATION_ROTATION_H_R: g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180; break;
+		case ID_EMULATION_ROTATION_V_R: g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180; break;
 
 		case ID_EMULATION_CHEATS:
 			g_Config.bEnableCheats = !g_Config.bEnableCheats;
@@ -822,6 +779,12 @@ namespace MainWindow {
 				memoryWindow->Show(true);
 			break;
 
+		case ID_DEBUG_MEMORYBASE:
+		{
+			W32Util::CopyTextToClipboard(hWnd, ConvertUTF8ToWString(StringFromFormat("%016llx", (uintptr_t)Memory::base)));
+			break;
+		}
+
 		case ID_DEBUG_EXTRACTFILE:
 		{
 			std::string filename;
@@ -882,13 +845,13 @@ namespace MainWindow {
 		case ID_OPTIONS_VERTEXCACHE:
 			g_Config.bVertexCache = !g_Config.bVertexCache;
 			break;
-		case ID_OPTIONS_TEXTUREFILTERING_AUTO:   setTexFiltering(TEX_FILTER_AUTO); break;
-		case ID_OPTIONS_NEARESTFILTERING:        setTexFiltering(TEX_FILTER_FORCE_NEAREST); break;
-		case ID_OPTIONS_LINEARFILTERING:         setTexFiltering(TEX_FILTER_FORCE_LINEAR); break;
-		case ID_OPTIONS_AUTOMAXQUALITYFILTERING: setTexFiltering(TEX_FILTER_AUTO_MAX_QUALITY); break;
+		case ID_OPTIONS_TEXTUREFILTERING_AUTO:   g_Config.iTexFiltering = TEX_FILTER_AUTO; break;
+		case ID_OPTIONS_NEARESTFILTERING:        g_Config.iTexFiltering = TEX_FILTER_FORCE_NEAREST; break;
+		case ID_OPTIONS_LINEARFILTERING:         g_Config.iTexFiltering = TEX_FILTER_FORCE_LINEAR; break;
+		case ID_OPTIONS_AUTOMAXQUALITYFILTERING: g_Config.iTexFiltering = TEX_FILTER_AUTO_MAX_QUALITY; break;
 
-		case ID_OPTIONS_BUFLINEARFILTER:       setBufFilter(SCALE_LINEAR); break;
-		case ID_OPTIONS_BUFNEARESTFILTER:      setBufFilter(SCALE_NEAREST); break;
+		case ID_OPTIONS_BUFLINEARFILTER:  g_Config.iBufFilter = SCALE_LINEAR; break;
+		case ID_OPTIONS_BUFNEARESTFILTER: g_Config.iBufFilter = SCALE_NEAREST; break;
 
 		case ID_OPTIONS_TOPMOST:
 			g_Config.bTopMost = !g_Config.bTopMost;
@@ -909,10 +872,6 @@ namespace MainWindow {
 
 		case ID_EMULATION_SOUND:
 			g_Config.bEnableSound = !g_Config.bEnableSound;
-			if (g_Config.bEnableSound) {
-				if (PSP_IsInited() && !IsAudioInitialised())
-					Audio_Init();
-			}
 			break;
 
 		case ID_HELP_OPENWEBSITE:

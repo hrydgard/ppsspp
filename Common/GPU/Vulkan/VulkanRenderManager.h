@@ -217,7 +217,7 @@ public:
 
 	void BindCurrentFramebufferAsInputAttachment0(VkImageAspectFlags aspectBits);
 
-	bool CopyFramebufferToMemorySync(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
+	bool CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag);
 	void CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 
 	void CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, VkImageAspectFlags aspectMask, const char *tag);
@@ -416,8 +416,10 @@ public:
 	// These can be useful both when inspecting in RenderDoc, and when manually inspecting recorded commands
 	// in the debugger.
 	void DebugAnnotate(const char *annotation) {
+		_dbg_assert_(curRenderStep_);
 		VkRenderData data{ VKRRenderCommand::DEBUG_ANNOTATION };
 		data.debugAnnotation.annotation = annotation;
+		curRenderStep_->commands.push_back(data);
 	}
 
 	VkCommandBuffer GetInitCmd();

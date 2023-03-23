@@ -1,3 +1,5 @@
+#include <inttypes.h>
+
 #include "Common/File/AndroidStorage.h"
 #include "Common/StringUtils.h"
 #include "Common/Log.h"

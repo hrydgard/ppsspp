@@ -535,7 +535,7 @@ int VulkanContext::GetBestPhysicalDevice() {
 
 void VulkanContext::ChooseDevice(int physical_device) {
 	physical_device_ = physical_device;
-	INFO_LOG(G3D, "Chose physical device %d: %p", physical_device, physical_devices_[physical_device]);
+	INFO_LOG(G3D, "Chose physical device %d: %s", physical_device, physicalDeviceProperties_[physical_device].properties.deviceName);
 
 	GetDeviceLayerProperties();
 	if (!CheckLayers(device_layer_properties_, device_layer_names_)) {
@@ -711,7 +711,9 @@ VkResult VulkanContext::CreateDevice() {
 	} else {
 		VulkanLoadDeviceFunctions(device_, extensionsLookup_);
 	}
-	INFO_LOG(G3D, "Vulkan Device created");
+	INFO_LOG(G3D, "Vulkan Device created: %s", physicalDeviceProperties_[physical_device_].properties.deviceName);
+
+	// Since we successfully created a device (however we got here, might be interesting in debug), we force the choice to be visible in the menu.
 	VulkanSetAvailable(true);
 
 	VmaAllocatorCreateInfo allocatorInfo = {};
@@ -886,6 +888,187 @@ VkResult VulkanContext::ReinitSurface() {
 	case WINDOWSYSTEM_DISPLAY:
 	{
 		VkDisplaySurfaceCreateInfoKHR display{ VK_STRUCTURE_TYPE_DISPLAY_SURFACE_CREATE_INFO_KHR };
+#if !defined(__LIBRETRO__)
+		/*
+		And when not to use libretro need VkDisplaySurfaceCreateInfoKHR this extension,
+		then you need to use dlopen to read vulkan loader in VulkanLoader.cpp.
+		huangzihan China
+		*/
+
+		if(!vkGetPhysicalDeviceDisplayPropertiesKHR || 
+		   !vkGetPhysicalDeviceDisplayPlanePropertiesKHR || 
+		   !vkGetDisplayModePropertiesKHR || 
+		   !vkGetDisplayPlaneSupportedDisplaysKHR || 
+		   !vkGetDisplayPlaneCapabilitiesKHR ) {
+			_assert_msg_(false, "DISPLAY Vulkan cannot find any vulkan function symbols.");
+			return VK_ERROR_INITIALIZATION_FAILED;
+		}
+
+		//The following code is for reference:
+		// https://github.com/vanfanel/ppsspp
+		// When using the VK_KHR_display extension and not using LIBRETRO, a complete
+		// VkDisplaySurfaceCreateInfoKHR is needed.
+
+		uint32_t display_count;
+		uint32_t plane_count;
+
+		VkDisplayPropertiesKHR *display_props = NULL;
+		VkDisplayPlanePropertiesKHR *plane_props = NULL;
+		VkDisplayModePropertiesKHR* mode_props = NULL;
+
+		VkExtent2D image_size;
+		// This is the chosen physical_device, it has been chosen elsewhere.
+		VkPhysicalDevice phys_device = physical_devices_[physical_device_];
+		VkDisplayModeKHR display_mode = VK_NULL_HANDLE;
+		VkDisplayPlaneAlphaFlagBitsKHR alpha_mode = VK_DISPLAY_PLANE_ALPHA_OPAQUE_BIT_KHR;
+		uint32_t plane = UINT32_MAX;
+
+		// For now, use the first available (connected) display.
+		int display_index = 0;
+
+		VkResult result;
+		bool ret = false;
+		bool mode_found = false;
+
+		int i, j;
+
+		// 1 physical device can have N displays connected.
+		// Vulkan only counts the connected displays.
+
+		// Get a list of displays on the physical device.
+		display_count = 0;
+		vkGetPhysicalDeviceDisplayPropertiesKHR(phys_device, &display_count, NULL);
+		if (display_count == 0) {
+			_assert_msg_(false, "DISPLAY Vulkan couldn't find any displays.");
+			return VK_ERROR_INITIALIZATION_FAILED;
+		}
+		display_props = new VkDisplayPropertiesKHR[display_count];
+		vkGetPhysicalDeviceDisplayPropertiesKHR(phys_device, &display_count, display_props);
+
+		// Get a list of display planes on the physical device.
+		plane_count = 0;
+		vkGetPhysicalDeviceDisplayPlanePropertiesKHR(phys_device, &plane_count, NULL);
+		if (plane_count == 0) {
+			_assert_msg_(false, "DISPLAY Vulkan couldn't find any planes on the physical device");
+			return VK_ERROR_INITIALIZATION_FAILED;
+
+		}
+		plane_props = new VkDisplayPlanePropertiesKHR[plane_count];
+		vkGetPhysicalDeviceDisplayPlanePropertiesKHR(phys_device, &plane_count, plane_props);
+
+		// Get the Vulkan display we are going to use.	
+		VkDisplayKHR myDisplay = display_props[display_index].display;
+
+		// Get the list of display modes of the display
+		uint32_t mode_count = 0;
+		vkGetDisplayModePropertiesKHR(phys_device, myDisplay, &mode_count, NULL);
+		if (mode_count == 0) {
+			_assert_msg_(false, "DISPLAY Vulkan couldn't find any video modes on the display");
+			return VK_ERROR_INITIALIZATION_FAILED;
+		}
+		mode_props = new VkDisplayModePropertiesKHR[mode_count];
+		vkGetDisplayModePropertiesKHR(phys_device, myDisplay, &mode_count, mode_props);
+
+		// See if there's an appropiate mode available on the display 
+		display_mode = VK_NULL_HANDLE;
+		for (i = 0; i < mode_count; ++i)
+		{
+			const VkDisplayModePropertiesKHR* mode = &mode_props[i];
+
+			if (mode->parameters.visibleRegion.width == pixel_xres &&
+			    mode->parameters.visibleRegion.height == pixel_yres)
+			{
+				display_mode = mode->displayMode;
+				mode_found = true;
+				break;
+			}
+		}
+
+		// Free the mode list now.
+		delete [] mode_props;
+
+		// If there are no useable modes found on the display, error out
+		if (display_mode == VK_NULL_HANDLE)
+		{
+			_assert_msg_(false, "DISPLAY Vulkan couldn't find any video modes on the display");
+			return VK_ERROR_INITIALIZATION_FAILED;
+		}
+
+		/* Iterate on the list of planes of the physical device
+		   to find a plane that matches these criteria:
+		   -It must be compatible with the chosen display + mode.
+		   -It isn't currently bound to another display.
+		   -It supports per-pixel alpha, if possible. */
+		for (i = 0; i < plane_count; i++) {
+			uint32_t supported_displays_count = 0;
+			VkDisplayKHR* supported_displays;
+			VkDisplayPlaneCapabilitiesKHR plane_caps;
+
+			/* See if the plane is compatible with the current display. */
+			vkGetDisplayPlaneSupportedDisplaysKHR(phys_device, i, &supported_displays_count, NULL);
+			if (supported_displays_count == 0) {
+				/* This plane doesn't support any displays. Continue to the next plane. */
+				continue;
+			}
+
+			/* Get the list of displays supported by this plane. */
+			supported_displays = new VkDisplayKHR[supported_displays_count];
+			vkGetDisplayPlaneSupportedDisplaysKHR(phys_device, i,
+			    &supported_displays_count, supported_displays);
+
+			/* The plane must be bound to the chosen display, or not in use.
+			   If none of these is true, iterate to another plane. */
+			if ( !( (plane_props[i].currentDisplay == myDisplay) ||
+			        (plane_props[i].currentDisplay == VK_NULL_HANDLE))) 
+				continue;
+
+			/* Iterate the list of displays supported by this plane
+			   in order to find out if the chosen display is among them. */
+			bool plane_supports_display = false;
+			for (j = 0; j < supported_displays_count; j++) {
+				if (supported_displays[j] == myDisplay) {
+					plane_supports_display = true;
+					break;
+				}
+			}
+
+			/* Free the list of displays supported by this plane. */
+			delete [] supported_displays;
+
+			/* If the display is not supported by this plane, iterate to the next plane. */
+			if (!plane_supports_display)
+				continue;
+
+			/* Want a plane that supports the alpha mode we have chosen. */
+			vkGetDisplayPlaneCapabilitiesKHR(phys_device, display_mode, i, &plane_caps);
+			if (plane_caps.supportedAlpha & alpha_mode) {
+				/* Yep, this plane is alright. */
+				plane = i;
+				break;
+			}
+		}
+
+		/* If we couldn't find an appropiate plane, error out. */
+		if (plane == UINT32_MAX) {
+			_assert_msg_(false, "DISPLAY Vulkan couldn't find an appropiate plane");
+			return VK_ERROR_INITIALIZATION_FAILED;
+		}
+	
+		// Finally, create the vulkan surface.
+		image_size.width = pixel_xres;
+		image_size.height = pixel_yres;
+
+		display.displayMode = display_mode;
+		display.imageExtent = image_size;
+		display.transform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+		display.alphaMode = alpha_mode;
+		display.globalAlpha = 1.0f;
+		display.planeIndex = plane;
+		display.planeStackIndex = plane_props[plane].currentStackIndex;
+		display.pNext = nullptr;
+		delete [] display_props;
+		delete [] plane_props;
+#endif
 		display.flags = 0;
 		retval = vkCreateDisplayPlaneSurfaceKHR(instance_, &display, nullptr, &surface_);
 		break;
@@ -1107,8 +1290,8 @@ bool VulkanContext::InitSwapchain() {
 	VkSurfaceTransformFlagBitsKHR preTransform;
 	std::string supportedTransforms = surface_transforms_to_string(surfCapabilities_.supportedTransforms);
 	std::string currentTransform = surface_transforms_to_string(surfCapabilities_.currentTransform);
-	g_display_rotation = DisplayRotation::ROTATE_0;
-	g_display_rot_matrix.setIdentity();
+	g_display.rotation = DisplayRotation::ROTATE_0;
+	g_display.rot_matrix.setIdentity();
 
 	uint32_t allowedRotations = VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR;
 	// Hack: Don't allow 270 degrees pretransform (inverse landscape), it creates bizarre issues on some devices (see #15773).
@@ -1119,20 +1302,20 @@ bool VulkanContext::InitSwapchain() {
 	} else if (surfCapabilities_.currentTransform & allowedRotations) {
 		// Normal, sensible rotations. Let's handle it.
 		preTransform = surfCapabilities_.currentTransform;
-		g_display_rot_matrix.setIdentity();
+		g_display.rot_matrix.setIdentity();
 		switch (surfCapabilities_.currentTransform) {
 		case VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR:
-			g_display_rotation = DisplayRotation::ROTATE_90;
-			g_display_rot_matrix.setRotationZ90();
+			g_display.rotation = DisplayRotation::ROTATE_90;
+			g_display.rot_matrix.setRotationZ90();
 			std::swap(swapChainExtent_.width, swapChainExtent_.height);
 			break;
 		case VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR:
-			g_display_rotation = DisplayRotation::ROTATE_180;
-			g_display_rot_matrix.setRotationZ180();
+			g_display.rotation = DisplayRotation::ROTATE_180;
+			g_display.rot_matrix.setRotationZ180();
 			break;
 		case VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR:
-			g_display_rotation = DisplayRotation::ROTATE_270;
-			g_display_rot_matrix.setRotationZ270();
+			g_display.rotation = DisplayRotation::ROTATE_270;
+			g_display.rot_matrix.setRotationZ270();
 			std::swap(swapChainExtent_.width, swapChainExtent_.height);
 			break;
 		default:

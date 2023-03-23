@@ -91,6 +91,9 @@
     <Filter Include="GPU\Vulkan">
       <UniqueIdentifier>{096c3d00-fcfa-4877-8cf0-3b10d56b5d72}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext\basis_universal">
+      <UniqueIdentifier>{8b92cc15-8e3e-45b1-ba80-ad39b1a9cdc8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -252,7 +255,10 @@
     <ClCompile Include="..\..\Common\Data\Format\RIFF.cpp">
       <Filter>Data\Format</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\File\VFS\AssetReader.cpp">
+    <ClCompile Include="..\..\Common\File\VFS\DirectoryReader.cpp">
+      <Filter>File\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\VFS\ZipFileReader.cpp">
       <Filter>File\VFS</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Common\File\VFS\VFS.cpp">
@@ -416,6 +422,15 @@
     </ClCompile>
     <ClCompile Include="..\..\Common\UI\ScrollView.cpp">
       <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\DDSLoad.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\basis_universal\basisu_transcoder.cpp">
+      <Filter>ext\basis_universal</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\System\Request.cpp">
+      <Filter>System</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -589,7 +604,10 @@
     <ClInclude Include="..\..\Common\Data\Format\RIFF.h">
       <Filter>Data\Format</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\File\VFS\AssetReader.h">
+    <ClInclude Include="..\..\Common\File\VFS\DirectoryReader.h">
+      <Filter>File\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\VFS\ZipFileReader.h">
       <Filter>File\VFS</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\File\VFS\VFS.h">
@@ -772,6 +790,33 @@
     <ClInclude Include="..\..\Common\UI\ScrollView.h">
       <Filter>UI</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\DDSLoad.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\basis_universal\basisu.h">
+      <Filter>ext\basis_universal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\basis_universal\basisu_containers.h">
+      <Filter>ext\basis_universal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\basis_universal\basisu_containers_impl.h">
+      <Filter>ext\basis_universal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\basis_universal\basisu_file_headers.h">
+      <Filter>ext\basis_universal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\basis_universal\basisu_transcoder.h">
+      <Filter>ext\basis_universal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\basis_universal\basisu_transcoder_internal.h">
+      <Filter>ext\basis_universal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\basis_universal\basisu_transcoder_uastc.h">
+      <Filter>ext\basis_universal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\System\Request.h">
+      <Filter>System</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\Common\Math\fast\fast_matrix_neon.S">
@@ -781,5 +826,35 @@
       <Filter>Math\lin</Filter>
     </None>
     <None Include="..\..\ext\libpng17\CMakeLists.txt" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_astc.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_astc_0_255.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_atc_55.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_atc_56.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_bc7_m5_alpha.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_bc7_m5_color.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_dxt1_5.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_dxt1_6.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_45.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_alpha_33.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
   </ItemGroup>
 </Project>

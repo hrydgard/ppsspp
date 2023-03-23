@@ -35,8 +35,9 @@ public:
 
 	UI::EventReturn OnAddCheat(UI::EventParams &params);
 	UI::EventReturn OnImportCheat(UI::EventParams &params);
+	UI::EventReturn OnImportBrowse(UI::EventParams &params);
 	UI::EventReturn OnEditCheatFile(UI::EventParams &params);
-	UI::EventReturn OnEnableAll(UI::EventParams &params);
+	UI::EventReturn OnDisableAll(UI::EventParams &params);
 
 	void update() override;
 	void onFinish(DialogResult result) override;
@@ -48,16 +49,19 @@ protected:
 
 private:
 	UI::EventReturn OnCheckBox(int index);
+	bool ImportCheats(const Path &cheatFile);
 
 	enum { INDEX_ALL = -1 };
 	bool HasCheatWithName(const std::string &name);
 	bool RebuildCheatFile(int index);
 
 	UI::ScrollView *rightScroll_ = nullptr;
+	UI::TextView *errorMessageView_ = nullptr;
+
 	CWCheatEngine *engine_ = nullptr;
 	std::vector<CheatFileInfo> fileInfo_;
 	std::string gameID_;
 	int fileCheckCounter_ = 0;
-	uint64_t fileCheckHash_;
+	uint64_t fileCheckHash_ = 0;
 	bool enableAllFlag_ = false;
 };

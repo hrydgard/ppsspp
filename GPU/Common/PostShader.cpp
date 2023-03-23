@@ -70,7 +70,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 
 	for (size_t d = 0; d < directories.size(); d++) {
 		std::vector<File::FileInfo> fileInfo;
-		VFSGetFileListing(directories[d].c_str(), &fileInfo, "ini:");
+		g_VFS.GetFileListing(directories[d].c_str(), &fileInfo, "ini:");
 
 		if (fileInfo.empty()) {
 			File::GetFilesInDir(directories[d], &fileInfo, "ini:");
@@ -90,7 +90,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 			if (path.ToString().substr(0, 7) == "assets/")
 				path = Path(path.ToString().substr(7));
 
-			if (ini.LoadFromVFS(name.ToString()) || ini.Load(fileInfo[f].fullName)) {
+			if (ini.LoadFromVFS(g_VFS, name.ToString()) || ini.Load(fileInfo[f].fullName)) {
 				success = true;
 				// vsh load. meh.
 			}

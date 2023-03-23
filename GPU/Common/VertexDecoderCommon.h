@@ -37,6 +37,8 @@
 #include "Common/Arm64Emitter.h"
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include "Common/x64Emitter.h"
+#elif PPSSPP_ARCH(RISCV64)
+#include "Common/RiscVEmitter.h"
 #else
 #include "Common/FakeEmitter.h"
 #endif
@@ -489,6 +491,8 @@ public:
 #define VERTEXDECODER_JIT_BACKEND Arm64Gen::ARM64CodeBlock
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #define VERTEXDECODER_JIT_BACKEND Gen::XCodeBlock
+#elif PPSSPP_ARCH(RISCV64)
+#define VERTEXDECODER_JIT_BACKEND RiscVGen::RiscVCodeBlock
 #endif
 
 
@@ -545,7 +549,6 @@ public:
 	void Jit_NormalFloatSkin();
 
 	void Jit_PosS8();
-	void Jit_PosS8ToFloat();
 	void Jit_PosS16();
 	void Jit_PosFloat();
 	void Jit_PosS8Through();
@@ -560,9 +563,17 @@ public:
 	void Jit_NormalS16Morph();
 	void Jit_NormalFloatMorph();
 
+	void Jit_NormalS8MorphSkin();
+	void Jit_NormalS16MorphSkin();
+	void Jit_NormalFloatMorphSkin();
+
 	void Jit_PosS8Morph();
 	void Jit_PosS16Morph();
 	void Jit_PosFloatMorph();
+
+	void Jit_PosS8MorphSkin();
+	void Jit_PosS16MorphSkin();
+	void Jit_PosFloatMorphSkin();
 
 	void Jit_Color8888Morph();
 	void Jit_Color4444Morph();

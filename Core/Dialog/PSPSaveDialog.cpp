@@ -270,6 +270,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	}
 
 	param.ClearCaches();
+	InitCommon();
 	UpdateButtons();
 	StartFade(true);
 
@@ -654,16 +655,7 @@ int PSPSaveDialog::Update(int animSpeed)
 	UpdateButtons();
 	UpdateFade(animSpeed);
 
-	okButtonImg = ImageID("I_CIRCLE");
-	cancelButtonImg = ImageID("I_CROSS");
-	okButtonFlag = CTRL_CIRCLE;
-	cancelButtonFlag = CTRL_CROSS;
-	if (param.GetPspParam()->common.buttonSwap == 1) {
-		okButtonImg = ImageID("I_CROSS");
-		cancelButtonImg = ImageID("I_CIRCLE");
-		okButtonFlag = CTRL_CROSS;
-		cancelButtonFlag = CTRL_CIRCLE;
-	}
+	UpdateCommon();
 
 	auto di = GetI18NCategory("Dialog");
 

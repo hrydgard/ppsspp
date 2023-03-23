@@ -22,7 +22,7 @@ dependencies {
 
 android {
 	flavorDimensions "variant"
-
+	namespace 'org.ppsspp.ppsspp'
 	signingConfigs {
 		debug {
 			storeFile file("debug.keystore")
@@ -51,11 +51,11 @@ android {
 		applicationId 'org.ppsspp.ppsspp'
 		if (androidGitVersion.name() != "unknown" && androidGitVersion.code() >= 14000000) {
 			// Start using automatic Android version numbers from version 1.4.
-			println "Overriding Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code();
+			println "Overriding Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code()
 			versionName androidGitVersion.name()
 			versionCode androidGitVersion.code()
 		} else {
-			println "(not using these:) Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code();
+			println "(not using these:) Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code()
 		}
 
 		new File("versionname.txt").write(androidGitVersion.name())
@@ -91,6 +91,11 @@ android {
 			path '../CMakeLists.txt'
 		}
 	}
+	packagingOptions {
+		jniLibs {
+			excludes += ['lib/arm64-v8a/libopenxr_loader.so']
+		}
+	}
 	sourceSets {
 		main {
 			manifest.srcFile 'AndroidManifest.xml'
@@ -105,11 +110,9 @@ android {
 		gold {
 			res.srcDirs = ['gold/res']
 		}
-		vr_pico {
-			manifest.srcFile 'PicoManifest.xml'
-		}
-		vr_quest {
-			manifest.srcFile 'QuestManifest.xml'
+		vr {
+			jniLibs.srcDirs = ['../ext/openxr/android']
+			manifest.srcFile 'VRManifest.xml'
 		}
 	}
 	productFlavors {
@@ -150,7 +153,7 @@ android {
 				abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
 			}
 		}
-		vr_pico {
+		vr {
 			applicationId 'org.ppsspp.ppssppvr'
 			dimension "variant"
 			externalNativeBuild {
@@ -162,27 +165,6 @@ android {
 							'-DANDROID_CPP_FEATURES=',
 							'-DANDROID_STL=c++_static',
 							'-DANDROID_ARM_NEON=TRUE',
-							'-DOPENXR_PLATFORM_PICO=TRUE',
-							'-DOPENXR=TRUE'
-				}
-			}
-			ndk {
-				abiFilters 'arm64-v8a'
-			}
-		}
-		vr_quest {
-			applicationId 'org.ppsspp.ppssppvr'
-			dimension "variant"
-			externalNativeBuild {
-				cmake {
-					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
-					arguments '-DANDROID=true',
-							'-DANDROID_PLATFORM=android-16',
-							'-DANDROID_TOOLCHAIN=clang',
-							'-DANDROID_CPP_FEATURES=',
-							'-DANDROID_STL=c++_static',
-							'-DANDROID_ARM_NEON=TRUE',
-							'-DOPENXR_PLATFORM_QUEST=TRUE',
 							'-DOPENXR=TRUE'
 				}
 			}
@@ -197,12 +179,9 @@ android {
 			'normalOptimized',	// for testing
 			'normalRelease',	// for Google Play releases
 			'goldRelease',		// for Google Play releases
-			'vr_picoDebug',    	// for VR debugging on Pico
-			'vr_picoOptimized',	// for VR testing on Pico
-			'vr_picoRelease',  	// for VR releases on Pico
-			'vr_questDebug',    // for VR debugging on Quest
-			'vr_questOptimized',// for VR testing on Quest
-			'vr_questRelease',  // for VR releases on Quest
+			'vrDebug',    		// for VR debugging
+			'vrOptimized',		// for VR testing
+			'vrRelease',  		// for VR releases
 		]
 		variant.setIgnore(!needed)
 	}

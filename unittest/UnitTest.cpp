@@ -29,6 +29,7 @@
 
 #include "ppsspp_config.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -61,6 +62,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Common/GPUStateUtils.h"
 
 #include "android/jni/AndroidContentURI.h"
 
@@ -85,6 +87,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return false;
 	}
 }
+void System_Notify(SystemNotification notification) {}
 
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
@@ -95,8 +98,8 @@ jclass findClass(const char *name) {
 	return nullptr;
 }
 
-bool audioRecording_Available() { return false; }
-bool audioRecording_State() { return false; }
+bool System_AudioRecordingIsAvailable() { return false; }
+bool System_AudioRecordingState() { return false; }
 #endif
 
 #ifndef M_PI_2
@@ -692,7 +695,7 @@ static bool TestAndroidContentURI() {
 	EXPECT_TRUE(fileTreeURI.CanNavigateUp());
 	fileTreeURI.NavigateUp();
 	EXPECT_FALSE(fileTreeURI.CanNavigateUp());
-	
+
 	EXPECT_EQ_STR(fileTreeURI.FilePath(), fileTreeURI.RootPath());
 
 	EXPECT_EQ_STR(fileTreeURI.ToString(), std::string(directoryURIString));
@@ -795,6 +798,47 @@ static bool TestSmallDataConvert() {
 	return true;
 }
 
+float DepthSliceFactor(u32 useFlags);
+
+static bool TestDepthMath() {
+	// These are in normalized space.
+	static const volatile float testValues[] = { 0.0f, 0.1f, 0.5f, M_PI / 4.0f, 0.9f, 1.0f };
+
+	// Flag combinations that can happen (any combination not included here is invalid, see comment
+	// over in GPUStateUtils.cpp):
+	static const u32 useFlagsArray[] = {
+		0,
+		GPU_USE_ACCURATE_DEPTH,
+		GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT,
+		GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH,
+		GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT,  // Here, GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT should take precedence over USE_DEPTH_CLAMP.
+	};
+	static const float expectedScale[] = { 65535.0f, 262140.0f, 16777215.0f, 65535.0f, 16777215.0f, };
+	static const float expectedOffset[] = { 0.0f, 0.375f, 0.498047f, 0.0f, 0.498047f, };
+
+	EXPECT_REL_EQ_FLOAT(100000.0f, 100001.0f, 0.00001f);
+
+	for (int j = 0; j < ARRAY_SIZE(useFlagsArray); j++) {
+		u32 useFlags = useFlagsArray[j];
+		printf("j: %d useflags: %d\n", j, useFlags);
+		DepthScaleFactors factors = GetDepthScaleFactors(useFlags);
+
+		EXPECT_EQ_FLOAT(factors.ScaleU16(), expectedScale[j]);
+		EXPECT_REL_EQ_FLOAT(factors.Offset(), expectedOffset[j], 0.00001f);
+		EXPECT_REL_EQ_FLOAT(factors.Scale(), DepthSliceFactor(useFlags), 0.0001f);
+
+		for (int i = 0; i < ARRAY_SIZE(testValues); i++) {
+			float testValue = testValues[i] * 65535.0f;
+
+			float encoded = factors.EncodeFromU16(testValue);
+			float decodedU16 = factors.DecodeToU16(encoded);
+			EXPECT_REL_EQ_FLOAT(decodedU16, testValue, 0.0001f);
+		}
+	}
+
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -846,6 +890,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(WrapText),
 	TEST_ITEM(TinySet),
 	TEST_ITEM(SmallDataConvert),
+	TEST_ITEM(DepthMath),
 };
 
 int main(int argc, const char *argv[]) {

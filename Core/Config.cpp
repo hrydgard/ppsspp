@@ -39,6 +39,7 @@
 #include "Common/Data/Text/Parsers.h"
 #include "Common/CPUDetect.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/LogManager.h"
 #include "Common/OSVersion.h"
 #include "Common/System/Display.h"
@@ -60,7 +61,7 @@ http::Downloader g_DownloadManager;
 
 Config g_Config;
 
-bool jitForcedOff;
+static bool jitForcedOff;
 
 // Not in Config.h because it's #included a lot.
 struct ConfigPrivate {
@@ -436,7 +437,7 @@ const char *DefaultLangRegion() {
 	} else if (langRegion.length() >= 3) {
 		// Don't give up.  Let's try a fuzzy match - so nl_BE can match nl_NL.
 		IniFile mapping;
-		mapping.LoadFromVFS("langregion.ini");
+		mapping.LoadFromVFS(g_VFS, "langregion.ini");
 		std::vector<std::string> keys;
 		mapping.GetKeys("LangRegionNames", keys);
 
@@ -477,9 +478,11 @@ std::string CreateRandMAC() {
 
 static int DefaultCpuCore() {
 #if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
-	return (int)CPUCore::JIT;
+	if (System_GetPropertyBool(SYSPROP_CAN_JIT))
+		return (int)CPUCore::JIT;
+	return (int)CPUCore::IR_JIT;
 #else
-	return (int)CPUCore::INTERPRETER;
+	return (int)CPUCore::IR_JIT;
 #endif
 }
 
@@ -535,7 +538,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("StateLoadUndoGame", &g_Config.sStateLoadUndoGame, "NA", true, false),
 	ConfigSetting("StateUndoLastSaveGame", &g_Config.sStateUndoLastSaveGame, "NA", true, false),
 	ConfigSetting("StateUndoLastSaveSlot", &g_Config.iStateUndoLastSaveSlot, -5, true, false), // Start with an "invalid" value
-	ConfigSetting("RewindFlipFrequency", &g_Config.iRewindFlipFrequency, 0, true, true),
+	ConfigSetting("RewindSnapshotInterval", &g_Config.iRewindSnapshotInterval, 0, true, true),
 
 	ConfigSetting("ShowOnScreenMessage", &g_Config.bShowOnScreenMessages, true, true, false),
 	ConfigSetting("ShowRegionOnGameIcon", &g_Config.bShowRegionOnGameIcon, false),
@@ -874,7 +877,6 @@ static const ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("ReplaceTextures", &g_Config.bReplaceTextures, true, true, true),
 	ReportedConfigSetting("SaveNewTextures", &g_Config.bSaveNewTextures, false, true, true),
 	ConfigSetting("IgnoreTextureFilenames", &g_Config.bIgnoreTextureFilenames, false, true, true),
-	ConfigSetting("ReplaceTexturesAllowLate", &g_Config.bReplaceTexturesAllowLate, true, true, true),
 
 	ReportedConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1, true, true),
 	ReportedConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, true, true),
@@ -970,15 +972,12 @@ static const ConfigSetting controlSettings[] = {
 	// ConfigSetting("KeyMapping", &g_Config.iMappingMap, 0),
 
 #ifdef MOBILE_DEVICE
-	ConfigSetting("TiltBaseX", &g_Config.fTiltBaseX, 0.0f, true, true),
-	ConfigSetting("TiltBaseY", &g_Config.fTiltBaseY, 0.0f, true, true),
-	ConfigSetting("TiltOrientation", &g_Config.iTiltOrientation, 0, true, true),
-	ConfigSetting("InvertTiltX", &g_Config.bInvertTiltX, false, true, true),
-	ConfigSetting("InvertTiltY", &g_Config.bInvertTiltY, true, true, true),
-	ConfigSetting("TiltSensitivityX", &g_Config.iTiltSensitivityX, 50, true, true),
-	ConfigSetting("TiltSensitivityY", &g_Config.iTiltSensitivityY, 50, true, true),
-	ConfigSetting("DeadzoneRadius", &g_Config.fDeadzoneRadius, 0.05f, true, true),
-	ConfigSetting("TiltDeadzoneSkip", &g_Config.fTiltDeadzoneSkip, 0.0f, true, true),
+	ConfigSetting("TiltBaseAngleY", &g_Config.fTiltBaseAngleY, 0.9f, true, true),
+	ConfigSetting("TiltInvertX", &g_Config.bInvertTiltX, false, true, true),
+	ConfigSetting("TiltInvertY", &g_Config.bInvertTiltY, false, true, true),
+	ConfigSetting("TiltSensitivityX", &g_Config.iTiltSensitivityX, 60, true, true),
+	ConfigSetting("TiltSensitivityY", &g_Config.iTiltSensitivityY, 60, true, true),
+	ConfigSetting("TiltAnalogDeadzoneRadius", &g_Config.fTiltAnalogDeadzoneRadius, 0.0f, true, true),
 	ConfigSetting("TiltInputType", &g_Config.iTiltInputType, 0, true, true),
 #endif
 
@@ -1143,17 +1142,19 @@ static const ConfigSetting vrSettings[] = {
 	ConfigSetting("VREnable6DoF", &g_Config.bEnable6DoF, true),
 	ConfigSetting("VREnableStereo", &g_Config.bEnableStereo, false),
 	ConfigSetting("VREnableMotions", &g_Config.bEnableMotions, true),
-	ConfigSetting("VRbForce72Hz", &g_Config.bForce72Hz, true),
+	ConfigSetting("VRForce72Hz", &g_Config.bForce72Hz, true),
+	ConfigSetting("VRManualForceVR", &g_Config.bManualForceVR, false),
 	ConfigSetting("VRCameraDistance", &g_Config.fCameraDistance, 0.0f),
 	ConfigSetting("VRCameraHeight", &g_Config.fCameraHeight, 0.0f),
 	ConfigSetting("VRCameraSide", &g_Config.fCameraSide, 0.0f),
+	ConfigSetting("VRCameraPitch", &g_Config.iCameraPitch, 0),
 	ConfigSetting("VRCanvasDistance", &g_Config.fCanvasDistance, 12.0f),
 	ConfigSetting("VRFieldOfView", &g_Config.fFieldOfViewPercentage, 100.0f),
 	ConfigSetting("VRHeadUpDisplayScale", &g_Config.fHeadUpDisplayScale, 0.3f),
 	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f),
 	ConfigSetting("VRHeadRotationScale", &g_Config.fHeadRotationScale, 5.0f),
+	ConfigSetting("VRHeadRotationEnabled", &g_Config.bHeadRotationEnabled, false),
 	ConfigSetting("VRHeadRotationSmoothing", &g_Config.bHeadRotationSmoothing, false),
-	ConfigSetting("VRHeadRotation", &g_Config.iHeadRotation, 0),
 };
 
 struct ConfigSectionSettings {
@@ -1222,7 +1223,7 @@ Config::~Config() {
 
 void Config::LoadLangValuesMapping() {
 	IniFile mapping;
-	mapping.LoadFromVFS("langregion.ini");
+	mapping.LoadFromVFS(g_VFS, "langregion.ini");
 	std::vector<std::string> keys;
 	mapping.GetKeys("LangRegionNames", keys);
 
@@ -1567,8 +1568,8 @@ bool Config::Save(const char *saveReason) {
 
 void Config::PostLoadCleanup(bool gameSpecific) {
 	// Override ppsspp.ini JIT value to prevent crashing
-	if (DefaultCpuCore() != (int)CPUCore::JIT && g_Config.iCpuCore == (int)CPUCore::JIT) {
-		jitForcedOff = true;
+	jitForcedOff = DefaultCpuCore() != (int)CPUCore::JIT && g_Config.iCpuCore == (int)CPUCore::JIT;
+	if (jitForcedOff) {
 		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
 	}
 
@@ -1598,16 +1599,24 @@ void Config::PostLoadCleanup(bool gameSpecific) {
 
 void Config::PreSaveCleanup(bool gameSpecific) {
 	if (jitForcedOff) {
-		// if JIT has been forced off, we don't want to screw up the user's ppsspp.ini
-		g_Config.iCpuCore = (int)CPUCore::JIT;
+		// If we forced jit off and it's still set to IR, change it back to jit.
+		if (g_Config.iCpuCore == (int)CPUCore::IR_JIT)
+			g_Config.iCpuCore = (int)CPUCore::JIT;
 	}
 }
 
 void Config::PostSaveCleanup(bool gameSpecific) {
 	if (jitForcedOff) {
-		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
-		if (g_Config.iCpuCore != (int)CPUCore::INTERPRETER)
+		// Force JIT off again just in case Config::Save() is called without exiting PPSSPP.
+		if (g_Config.iCpuCore == (int)CPUCore::JIT)
 			g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+	}
+}
+
+void Config::NotifyUpdatedCpuCore() {
+	if (jitForcedOff && g_Config.iCpuCore == (int)CPUCore::IR_JIT) {
+		// No longer forced off, the user set it to IR jit.
+		jitForcedOff = false;
 	}
 }
 
@@ -1933,8 +1942,8 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 	});
 
 	KeyMap::LoadFromIni(iniFile);
-	
-	if (!appendedConfigFileName_.ToString().empty() && 
+
+	if (!appendedConfigFileName_.ToString().empty() &&
 		std::find(appendedConfigUpdatedGames_.begin(), appendedConfigUpdatedGames_.end(), pGameId) == appendedConfigUpdatedGames_.end()) {
 
 		LoadAppendedConfig();

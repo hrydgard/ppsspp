@@ -741,10 +741,10 @@ protected:
 	std::string smallText_;
 	ImageID image_;  // Centered if no text, on the left if text.
 	ImageID rightIconImage_ = ImageID::invalid();  // Shows in the right.
-	float rightIconScale_;
-	float rightIconRot_;
-	bool rightIconFlipH_;
-	bool rightIconKeepColor_;
+	float rightIconScale_ = 0.0f;
+	float rightIconRot_ = 0.0f;
+	bool rightIconFlipH_ = false;
+	bool rightIconKeepColor_ = false;
 	Padding textPadding_;
 	bool centered_ = false;
 	float imgScale_ = 1.0f;

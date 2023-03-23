@@ -561,7 +561,7 @@ int DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 	OpenFileEntry entry;
 	entry.hFile.fileSystemFlags_ = flags;
 	u32 err = 0;
-	bool success = entry.hFile.Open(basePath, filename, access, err);
+	bool success = entry.hFile.Open(basePath, filename, (FileAccess)(access & FILEACCESS_PSP_FLAGS), err);
 	if (err == 0 && !success) {
 		err = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	}
@@ -577,7 +577,9 @@ int DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 #else
 		logError = (int)errno;
 #endif
-		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile('%s'): FAILED, %d - access = %d '%s'", filename.c_str(), logError, (int)access, errorString.c_str());
+		if (!(access & FILEACCESS_PPSSPP_QUIET)) {
+			ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile('%s'): FAILED, %d - access = %d '%s'", filename.c_str(), logError, (int)(access & FILEACCESS_PSP_FLAGS), errorString.c_str());
+		}
 		return err;
 	} else {
 #ifdef _WIN32
@@ -589,7 +591,7 @@ int DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 		u32 newHandle = hAlloc->GetNewHandle();
 
 		entry.guestFilename = filename;
-		entry.access = access;
+		entry.access = (FileAccess)(access & FILEACCESS_PSP_FLAGS);
 
 		entries[newHandle] = entry;
 
@@ -980,7 +982,7 @@ int VFSFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 	VERBOSE_LOG(FILESYS, "VFSFileSystem actually opening %s (%s)", fullNameC, filename.c_str());
 
 	size_t size;
-	u8 *data = VFSReadFile(fullNameC, &size);
+	u8 *data = g_VFS.ReadFile(fullNameC, &size);
 	if (!data) {
 		ERROR_LOG(FILESYS, "VFSFileSystem failed to open %s", filename.c_str());
 		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
@@ -1001,7 +1003,7 @@ PSPFileInfo VFSFileSystem::GetFileInfo(std::string filename) {
 
 	std::string fullName = GetLocalPath(filename);
 	File::FileInfo fo;
-	if (VFSGetFileInfo(fullName.c_str(), &fo)) {
+	if (g_VFS.GetFileInfo(fullName.c_str(), &fo)) {
 		x.exists = fo.exists;
 		if (x.exists) {
 			x.size = fo.size;

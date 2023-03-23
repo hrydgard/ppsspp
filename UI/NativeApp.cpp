@@ -58,8 +58,10 @@
 #include "android/jni/app-android.h"
 
 #include "Common/System/Display.h"
+#include "Common/System/Request.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
+
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
 #include "Common/Math/math_util.h"
@@ -67,7 +69,8 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/ZipFileReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/CPUDetect.h"
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
@@ -147,7 +150,7 @@
 
 #include <Core/HLE/Plugins.h>
 
-ScreenManager *screenManager;
+ScreenManager *g_screenManager;
 std::string config_filename;
 
 // Really need to clean this mess of globals up... but instead I add more :P
@@ -163,15 +166,8 @@ struct PendingMessage {
 	std::string value;
 };
 
-struct PendingInputBox {
-	std::function<void(bool, const std::string &)> cb;
-	bool result;
-	std::string value;
-};
-
 static std::mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
-static std::vector<PendingInputBox> pendingInputBoxes;
 static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
 static Draw::Pipeline *texColorPipeline;
@@ -216,23 +212,6 @@ int Win32Mix(short *buffer, int numSamples, int bits, int rate) {
 // globals
 static LogListener *logger = nullptr;
 Path boot_filename;
-
-void NativeHost::InitSound() {
-#if PPSSPP_PLATFORM(IOS)
-	iOSCoreAudioInit();
-#endif
-}
-
-void NativeHost::ShutdownSound() {
-#if PPSSPP_PLATFORM(IOS)
-	iOSCoreAudioShutdown();
-#endif
-}
-
-#if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-void QtHost::InitSound() { }
-void QtHost::ShutdownSound() { }
-#endif
 
 std::string NativeQueryConfig(std::string query) {
 	char temp[128];
@@ -408,7 +387,7 @@ static void CheckFailedGPUBackends() {
 	g_Config.iGPUBackend = g_Config.NextValidBackend();
 	if (lastBackend != g_Config.iGPUBackend) {
 		std::string param = GPUBackendToString((GPUBackend)lastBackend) + " -> " + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
-		System_SendMessage("graphics_failedBackend", param.c_str());
+		System_GraphicsBackendFailedAlert(param);
 		WARN_LOG(LOADER, "Failed graphics backend switched from %s (%d to %d)", param.c_str(), lastBackend, g_Config.iGPUBackend);
 	}
 	// And then let's - for now - add the current to the failed list.
@@ -459,7 +438,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_dir;
 	pendingMessages.clear();
-	pendingInputBoxes.clear();
+	g_requestManager.Clear();
 
 	// external_dir has all kinds of meanings depending on platform.
 	// on iOS it's even the path to bundled app assets. It's a mess.
@@ -467,27 +446,27 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// We want this to be FIRST.
 #if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 	// Packed assets are included in app
-	VFSRegister("", new DirectoryAssetReader(Path(external_dir)));
+	g_VFS.Register("", new DirectoryReader(Path(external_dir)));
 #endif
 #if defined(ASSETS_DIR)
-	VFSRegister("", new DirectoryAssetReader(Path(ASSETS_DIR)));
+	g_VFS.Register("", new DirectoryReader(Path(ASSETS_DIR)));
 #endif
 #if !defined(MOBILE_DEVICE) && !defined(_WIN32) && !PPSSPP_PLATFORM(SWITCH)
-	VFSRegister("", new DirectoryAssetReader(File::GetExeDirectory() / "assets"));
-	VFSRegister("", new DirectoryAssetReader(File::GetExeDirectory()));
-	VFSRegister("", new DirectoryAssetReader(Path("/usr/local/share/ppsspp/assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("/usr/local/share/games/ppsspp/assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/ppsspp/assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/games/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(File::GetExeDirectory() / "assets"));
+	g_VFS.Register("", new DirectoryReader(File::GetExeDirectory()));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/games/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/share/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/share/games/ppsspp/assets")));
 #endif
 
 #if PPSSPP_PLATFORM(SWITCH)
 	Path assetPath = Path(user_data_path) / "assets";
-	VFSRegister("", new DirectoryAssetReader(assetPath));
+	g_VFS.Register("", new DirectoryReader(assetPath));
 #else
-	VFSRegister("", new DirectoryAssetReader(Path("assets")));
+	g_VFS.Register("", new DirectoryReader(Path("assets")));
 #endif
-	VFSRegister("", new DirectoryAssetReader(Path(savegame_dir)));
+	g_VFS.Register("", new DirectoryReader(Path(savegame_dir)));
 
 #if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(UWP)
 	if (host == nullptr) {
@@ -661,11 +640,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					g_Config.bPauseMenuExitsEmulator = true;
 				if (!strcmp(argv[i], "--fullscreen")) {
 					g_Config.iForceFullScreen = 1;
-					System_SendMessage("toggle_fullscreen", "1");
+					System_ToggleFullscreenState("1");
 				}
 				if (!strcmp(argv[i], "--windowed")) {
 					g_Config.iForceFullScreen = 0;
-					System_SendMessage("toggle_fullscreen", "0");
+					System_ToggleFullscreenState("0");
 				}
 				if (!strcmp(argv[i], "--touchscreentest"))
 					gotoTouchScreenTest = true;
@@ -758,13 +737,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		}
 	}
 
-	if (System_GetPropertyBool(SYSPROP_CAN_JIT) == false && g_Config.iCpuCore == (int)CPUCore::JIT) {
-		// Just gonna force it to the IR interpreter on startup.
-		// We don't hide the option, but we make sure it's off on bootup. In case someone wants
-		// to experiment in future iOS versions or something...
-		jitForcedOff = true;
-	}
-
 	auto des = GetI18NCategory("DesktopUI");
 	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
 	// It's intended to be custom for every user.
@@ -784,7 +756,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #elif defined(USING_QT_UI)
 	size_t fontSize = 0;
-	uint8_t *fontData = VFSReadFile("Roboto-Condensed.ttf", &fontSize);
+	uint8_t *fontData = g_VFS.ReadFile("Roboto-Condensed.ttf", &fontSize);
 	if (fontData) {
 		int fontID = QFontDatabase::addApplicationFontFromData(QByteArray((const char *)fontData, fontSize));
 		delete [] fontData;
@@ -812,19 +784,19 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	DEBUG_LOG(SYSTEM, "ScreenManager!");
-	screenManager = new ScreenManager();
+	g_screenManager = new ScreenManager();
 	if (g_Config.memStickDirectory.empty()) {
 		INFO_LOG(SYSTEM, "No memstick directory! Asking for one to be configured.");
-		screenManager->switchScreen(new LogoScreen(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
+		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
 	} else if (gotoGameSettings) {
-		screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
+		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
 	} else if (gotoTouchScreenTest) {
-		screenManager->switchScreen(new MainScreen());
-		screenManager->push(new TouchTestScreen(Path()));
+		g_screenManager->switchScreen(new MainScreen());
+		g_screenManager->push(new TouchTestScreen(Path()));
 	} else if (skipLogo) {
-		screenManager->switchScreen(new EmuScreen(boot_filename));
+		g_screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
-		screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
+		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
 	}
 
 	// Easy testing
@@ -839,14 +811,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	isOuya = KeyMap::IsOuya(sysName);
-
-#if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-	MainWindow *mainWindow = new MainWindow(nullptr, g_Config.UseFullScreen());
-	mainWindow->show();
-	if (host == nullptr) {
-		host = new QtHost(mainWindow);
-	}
-#endif
 
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
@@ -864,7 +828,7 @@ bool CreateGlobalPipelines();
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(SYSTEM, "NativeInitGraphics");
 
-	_assert_(screenManager);
+	_assert_(g_screenManager);
 
 	// We set this now so any resize during init is processed later.
 	resized = false;
@@ -895,10 +859,10 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	if (uiContext->Text())
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
 
-	screenManager->setUIContext(uiContext);
-	screenManager->setDrawContext(g_draw);
-	screenManager->setPostRenderCallback(&RenderOverlays, nullptr);
-	screenManager->deviceRestored();
+	g_screenManager->setUIContext(uiContext);
+	g_screenManager->setDrawContext(g_draw);
+	g_screenManager->setPostRenderCallback(&RenderOverlays, nullptr);
+	g_screenManager->deviceRestored();
 
 #ifdef _WIN32
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
@@ -921,10 +885,11 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	g_gameInfoCache = new GameInfoCache();
 
 	if (gpu) {
-		gpu->DeviceRestore();
+		gpu->DeviceRestore(g_draw);
 	}
 
 	INFO_LOG(SYSTEM, "NativeInitGraphics completed");
+
 	return true;
 }
 
@@ -981,8 +946,8 @@ bool CreateGlobalPipelines() {
 void NativeShutdownGraphics() {
 	INFO_LOG(SYSTEM, "NativeShutdownGraphics");
 
-	if (screenManager) {
-		screenManager->deviceLost();
+	if (g_screenManager) {
+		g_screenManager->deviceLost();
 	}
 
 	if (gpu)
@@ -1092,7 +1057,7 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 
 void NativeRender(GraphicsContext *graphicsContext) {
 	_dbg_assert_(graphicsContext != nullptr);
-	_dbg_assert_(screenManager != nullptr);
+	_dbg_assert_(g_screenManager != nullptr);
 
 	g_GameManager.Update();
 
@@ -1102,8 +1067,8 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		g_BackgroundAudio.Update();
 	}
 
-	float xres = dp_xres;
-	float yres = dp_yres;
+	float xres = g_display.dp_xres;
+	float yres = g_display.dp_yres;
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	// TODO: This should be moved into the draw context...
@@ -1116,7 +1081,9 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 		Matrix4x4 translation;
 		// Account for the small window adjustment.
-		translation.setTranslation(Vec3(-0.5f * g_dpi_scale_x / g_dpi_scale_real_x, -0.5f * g_dpi_scale_y / g_dpi_scale_real_y, 0.0f));
+		translation.setTranslation(Vec3(
+			-0.5f * g_display.dpi_scale_x / g_display.dpi_scale_real_x,
+			-0.5f * g_display.dpi_scale_y / g_display.dpi_scale_real_y, 0.0f));
 		ortho = translation * ortho;
 		break;
 	case GPUBackend::DIRECT3D11:
@@ -1129,26 +1096,26 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	}
 
 	// Compensate for rotated display if needed.
-	if (g_display_rotation != DisplayRotation::ROTATE_0) {
-		ortho = ortho * g_display_rot_matrix;
+	if (g_display.rotation != DisplayRotation::ROTATE_0) {
+		ortho = ortho * g_display.rot_matrix;
 	}
 
 	ui_draw2d.PushDrawMatrix(ortho);
 	ui_draw2d_front.PushDrawMatrix(ortho);
 
-	screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
+	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 
 	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
 	if (g_Config.bShowGpuProfile)
 		debugFlags |= Draw::DebugFlags::PROFILE_TIMESTAMPS;
 	if (g_Config.bGpuLogProfiler)
 		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
-	screenManager->getDrawContext()->SetDebugFlags(debugFlags);
+	g_screenManager->getDrawContext()->SetDebugFlags(debugFlags);
 
 	// All actual rendering happen in here.
-	screenManager->render();
-	if (screenManager->getUIContext()->Text()) {
-		screenManager->getUIContext()->Text()->OncePerFrame();
+	g_screenManager->render();
+	if (g_screenManager->getUIContext()->Text()) {
+		g_screenManager->getUIContext()->Text()->OncePerFrame();
 	}
 
 	if (resized) {
@@ -1158,24 +1125,24 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		if (uiContext) {
 			// Modifying the bounds here can be used to "inset" the whole image to gain borders for TV overscan etc.
 			// The UI now supports any offset but not the EmuScreen yet.
-			uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
+			uiContext->SetBounds(Bounds(0, 0, g_display.dp_xres, g_display.dp_yres));
 
 			// OSX 10.6 and SDL 1.2 bug.
 #if defined(__APPLE__) && !defined(USING_QT_UI)
-			static int dp_xres_old = dp_xres;
-			if (dp_xres != dp_xres_old) {
-				dp_xres_old = dp_xres;
+			static int dp_xres_old = g_display.dp_xres;
+			if (g_display.dp_xres != dp_xres_old) {
+				dp_xres_old = g_display.dp_xres;
 			}
 #endif
 		}
 
 		graphicsContext->Resize();
-		screenManager->resized();
+		g_screenManager->resized();
 
 		// TODO: Move this to the GraphicsContext objects for each backend.
 #if !PPSSPP_PLATFORM(WINDOWS) && !defined(ANDROID)
-		PSP_CoreParameter().pixelWidth = pixel_xres;
-		PSP_CoreParameter().pixelHeight = pixel_yres;
+		PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
+		PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
 		NativeMessageReceived("gpu_displayResized", "");
 #endif
 	} else {
@@ -1199,14 +1166,6 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	}
 	else if (msg == "inputDeviceConnected") {
 		KeyMap::NotifyPadConnected(nextInputDeviceID, value);
-	}
-	else if (msg == "bgImage_updated") {
-		if (!value.empty()) {
-			Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
-			File::Copy(Path(value), dest);
-		}
-		UIBackgroundShutdown();
-		// It will init again automatically.  We can't init outside a frame on Vulkan.
 	}
 	else if (msg == "savestate_displayslot") {
 		auto sy = GetI18NCategory("System");
@@ -1256,19 +1215,9 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		g_Config.Reload();
 		PostLoadConfig();
 		g_Config.iGPUBackend = gpuBackend;
-	}
-	else if (msg == "app_resumed" || msg == "got_focus") {
+	} else if (msg == "app_resumed" || msg == "got_focus") {
 		// Assume that the user may have modified things.
 		MemoryStick_NotifyWrite();
-	} else if (msg == "browse_folder") {
-		Path thePath = Path(value);
-		File::FileInfo info;
-		if (!File::GetFileInfo(thePath, &info))
-			return;
-		if (info.isDirectory)
-			NativeMessageReceived("browse_folderSelect", thePath.c_str());
-		else
-			NativeMessageReceived("browse_fileSelect", thePath.c_str());
 	}
 }
 
@@ -1276,25 +1225,21 @@ void NativeUpdate() {
 	PROFILE_END_FRAME();
 
 	std::vector<PendingMessage> toProcess;
-	std::vector<PendingInputBox> inputToProcess;
 	{
 		std::lock_guard<std::mutex> lock(pendingMutex);
 		toProcess = std::move(pendingMessages);
-		inputToProcess = std::move(pendingInputBoxes);
 		pendingMessages.clear();
-		pendingInputBoxes.clear();
 	}
 
 	for (const auto &item : toProcess) {
 		HandleGlobalMessage(item.msg, item.value);
-		screenManager->sendMessage(item.msg.c_str(), item.value.c_str());
-	}
-	for (const auto &item : inputToProcess) {
-		item.cb(item.result, item.value);
+		g_screenManager->sendMessage(item.msg.c_str(), item.value.c_str());
 	}
 
+	g_requestManager.ProcessRequests();
+
 	g_DownloadManager.Update();
-	screenManager->update();
+	g_screenManager->update();
 
 	g_Discord.Update();
 
@@ -1303,11 +1248,11 @@ void NativeUpdate() {
 
 bool NativeIsAtTopLevel() {
 	// This might need some synchronization?
-	if (!screenManager) {
+	if (!g_screenManager) {
 		ERROR_LOG(SYSTEM, "No screen manager active");
 		return false;
 	}
-	Screen *currentScreen = screenManager->topScreen();
+	Screen *currentScreen = g_screenManager->topScreen();
 	if (currentScreen) {
 		bool top = currentScreen->isTopLevel();
 		INFO_LOG(SYSTEM, "Screen toplevel: %i", (int)top);
@@ -1319,7 +1264,7 @@ bool NativeIsAtTopLevel() {
 }
 
 void NativeTouch(const TouchInput &touch) {
-	if (!screenManager) {
+	if (!g_screenManager) {
 		return;
 	}
 
@@ -1328,7 +1273,7 @@ void NativeTouch(const TouchInput &touch) {
 	if (my_isnan(touch.x) || my_isnan(touch.y)) {
 		return;
 	}
-	screenManager->touch(touch);
+	g_screenManager->touch(touch);
 }
 
 bool NativeKey(const KeyInput &key) {
@@ -1344,17 +1289,17 @@ bool NativeKey(const KeyInput &key) {
 		pspKeys.clear();
 		if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys)) {
 			if (std::find(pspKeys.begin(), pspKeys.end(), VIRTKEY_PAUSE) != pspKeys.end()) {
-				System_SendMessage("finish", "");
+				System_ExitApp();
 				return true;
 			}
 		}
 	}
 #endif
 	bool retval = false;
-	if (screenManager)
+	if (g_screenManager)
 	{
 		HLEPlugins::PluginDataKeys[key.keyCode] = (key.flags & KEY_DOWN) ? 1 : 0;
-		retval = screenManager->key(key);
+		retval = g_screenManager->key(key);
 	}
 	return retval;
 }
@@ -1365,86 +1310,37 @@ void NativeAxis(const AxisInput &axis) {
 		return;
 	}
 
-	if (!screenManager) {
+	if (!g_screenManager) {
 		// Too early.
 		return;
 	}
 
 	using namespace TiltEventProcessor;
 
-	// only handle tilt events if tilt is enabled.
+	// only do special handling of tilt events if tilt is enabled.
+	HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
+	g_screenManager->axis(axis);
+
 	if (g_Config.iTiltInputType == TILT_NULL) {
-		// if tilt events are disabled, then run it through the usual way.
-		HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
-		screenManager->axis(axis);
+		// if tilt events are disabled, don't do anything special.
 		return;
 	}
 
-	// create the base coordinate tilt system from the calibration data.
-	Tilt baseTilt;
-	baseTilt.x_ = g_Config.fTiltBaseX;
-	baseTilt.y_ = g_Config.fTiltBaseY;
-
 	// figure out what the current tilt orientation is by checking the axis event
 	// This is static, since we need to remember where we last were (in terms of orientation)
-	static Tilt currentTilt;
+	static float tiltX;
+	static float tiltY;
+	static float tiltZ;
 
-	// tilt on x or y?
-	static bool verticalTilt;
-	if (g_Config.iTiltOrientation == 0)
-		verticalTilt = false;
-	else if (g_Config.iTiltOrientation == 1)
-		verticalTilt = true;
-
-	// x and y are flipped if we are in landscape orientation. The events are
-	// sent with respect to the portrait coordinate system, while we
-	// take all events in landscape.
-	// see [http://developer.android.com/guide/topics/sensors/sensors_overview.html] for details
-	bool portrait = dp_yres > dp_xres;
 	switch (axis.axisId) {
-		//TODO: make this generic.
-		case JOYSTICK_AXIS_ACCELEROMETER_X:
-			if (verticalTilt) {
-				if (fabs(axis.value) < 0.8f && g_Config.iTiltOrientation == 2) // Auto tilt switch
-					verticalTilt = false;
-				else
-					return; // Tilt on Z instead
-			}
-			if (portrait) {
-				currentTilt.x_ = axis.value;
-			} else {
-				currentTilt.y_ = axis.value;
-			}
-			break;
-
-		case JOYSTICK_AXIS_ACCELEROMETER_Y:
-			if (portrait) {
-				currentTilt.y_ = axis.value;
-			} else {
-				currentTilt.x_ = axis.value;
-			}
-			break;
-
-		case JOYSTICK_AXIS_ACCELEROMETER_Z:
-			if (!verticalTilt) {
-				if (fabs(axis.value) < 0.8f && g_Config.iTiltOrientation == 2) // Auto tilt switch
-					verticalTilt = true;
-				else
-					return; // Tilt on X instead
-			}
-			if (portrait) {
-				currentTilt.x_ = -axis.value;
-			} else {
-				currentTilt.y_ = -axis.value;
-			}
-			break;
-
-		default:
-			HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
-			// Don't take over completely!
-			screenManager->axis(axis);
-			return;
+		case JOYSTICK_AXIS_ACCELEROMETER_X: tiltX = axis.value; break;
+		case JOYSTICK_AXIS_ACCELEROMETER_Y: tiltY = axis.value; break;
+		case JOYSTICK_AXIS_ACCELEROMETER_Z: tiltZ = axis.value; break;
+		default: break;
 	}
+
+	// create the base coordinate tilt system from the calibration data.
+	float tiltBaseAngleY = g_Config.fTiltBaseAngleY;
 
 	// Figure out the sensitivity of the tilt. (sensitivity is originally 0 - 100)
 	// We divide by 50, so that the rest of the 50 units can be used to overshoot the
@@ -1454,10 +1350,15 @@ void NativeAxis(const AxisInput &axis) {
 	float xSensitivity = g_Config.iTiltSensitivityX / 50.0;
 	float ySensitivity = g_Config.iTiltSensitivityY / 50.0;
 
+	// x and y are flipped if we are in landscape orientation. The events are
+	// sent with respect to the portrait coordinate system, while we
+	// take all events in landscape.
+	// see [http://developer.android.com/guide/topics/sensors/sensors_overview.html] for details
+	bool landscape = g_display.dp_yres < g_display.dp_xres;
 	// now transform out current tilt to the calibrated coordinate system
-	Tilt trueTilt = GenTilt(baseTilt, currentTilt, g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius, xSensitivity, ySensitivity);
-
-	TranslateTiltToInput(trueTilt);
+	ProcessTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
+		g_Config.bInvertTiltX, g_Config.bInvertTiltY,
+		xSensitivity, ySensitivity);
 }
 
 void NativeMessageReceived(const char *message, const char *value) {
@@ -1466,15 +1367,6 @@ void NativeMessageReceived(const char *message, const char *value) {
 	pendingMessage.msg = message;
 	pendingMessage.value = value;
 	pendingMessages.push_back(pendingMessage);
-}
-
-void NativeInputBoxReceived(std::function<void(bool, const std::string &)> cb, bool result, const std::string &value) {
-	std::lock_guard<std::mutex> lock(pendingMutex);
-	PendingInputBox pendingMessage;
-	pendingMessage.cb = cb;
-	pendingMessage.result = result;
-	pendingMessage.value = value;
-	pendingInputBoxes.push_back(pendingMessage);
 }
 
 void NativeResized() {
@@ -1492,20 +1384,12 @@ bool NativeIsRestarting() {
 }
 
 void NativeShutdown() {
-	if (screenManager) {
-		screenManager->shutdown();
-		delete screenManager;
-		screenManager = nullptr;
+	if (g_screenManager) {
+		g_screenManager->shutdown();
+		delete g_screenManager;
+		g_screenManager = nullptr;
 	}
 
-	if (host) {
-		host->ShutdownGraphics();
-		delete host;
-		host = nullptr;
-	}
-
-#if !PPSSPP_PLATFORM(UWP)
-#endif
 	g_Config.Save("NativeShutdown");
 
 	INFO_LOG(SYSTEM, "NativeShutdown called");
@@ -1518,7 +1402,9 @@ void NativeShutdown() {
 
 	ShutdownWebServer();
 
-	System_SendMessage("finish", "");
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	System_ExitApp();
+#endif
 
 	net::Shutdown();
 
@@ -1536,6 +1422,10 @@ void NativeShutdown() {
 	}
 
 	g_threadManager.Teardown();
+
+#if !(PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS))
+	System_ExitApp();
+#endif
 
 	// Previously we did exit() here on Android but that makes it hard to do things like restart on backend change.
 	// I think we handle most globals correctly or correct-enough now.

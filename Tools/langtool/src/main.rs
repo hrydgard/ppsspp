@@ -29,6 +29,14 @@ enum Command {
         new: String,
         key: String,
     },
+    RenameKey {
+        section: String,
+        old: String,
+        new: String,
+    },
+    SortSection {
+        section: String,
+    },
     RemoveKey {
         section: String,
         key: String,
@@ -92,7 +100,7 @@ fn move_key(target_ini: &mut IniFile, old: &str, new: &str, key: &str) -> io::Re
 
 fn remove_key(target_ini: &mut IniFile, section: &str, key: &str) -> io::Result<()> {
     if let Some(old_section) = target_ini.get_section_mut(section) {
-        let _ = old_section.remove_line(key);
+        old_section.remove_line(key);
     } else {
         println!("No section {}", section);
     }
@@ -101,12 +109,32 @@ fn remove_key(target_ini: &mut IniFile, section: &str, key: &str) -> io::Result<
 
 fn add_new_key(target_ini: &mut IniFile, section: &str, key: &str) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
-        let _ = section.insert_line_if_missing(&format!("{} = {}", key, key));
+        section.insert_line_if_missing(&format!("{} = {}", key, key));
     } else {
         println!("No section {}", section);
     }
     Ok(())
 }
+
+fn rename_key(target_ini: &mut IniFile, section: &str, old: &str, new: &str) -> io::Result<()> {
+    if let Some(section) = target_ini.get_section_mut(section) {
+        section.rename_key(old, new);
+    } else {
+        println!("No section {}", section);
+    }
+    Ok(())
+}
+
+fn sort_section(target_ini: &mut IniFile, section: &str) -> io::Result<()> {
+    if let Some(section) = target_ini.get_section_mut(section) {
+        section.sort();
+    } else {
+        println!("No section {}", section);
+    }
+    Ok(())
+}
+
+// TODO: Look into using https://github.com/Byron/google-apis-rs/tree/main/gen/translate2 for initial translations.
 
 fn main() {
     let opt = Opt::from_args();
@@ -150,14 +178,20 @@ fn main() {
 
         match opt.cmd {
             Command::CopyMissingLines {} => {
-                copy_missing_lines(&reference_ini, &mut target_ini).unwrap();
+                copy_missing_lines(reference_ini, &mut target_ini).unwrap();
             }
             Command::CommentUnknownLines {} => {
-                deal_with_unknown_lines(&reference_ini, &mut target_ini, false).unwrap();
+                deal_with_unknown_lines(reference_ini, &mut target_ini, false).unwrap();
             }
             Command::RemoveUnknownLines {} => {
-                deal_with_unknown_lines(&reference_ini, &mut target_ini, true).unwrap();
+                deal_with_unknown_lines(reference_ini, &mut target_ini, true).unwrap();
             }
+            Command::SortSection { ref section } => sort_section(&mut target_ini, section).unwrap(),
+            Command::RenameKey {
+                ref section,
+                ref old,
+                ref new,
+            } => rename_key(&mut target_ini, section, old, new).unwrap(),
             Command::AddNewKey {
                 ref section,
                 ref key,
@@ -192,6 +226,12 @@ fn main() {
         } => {
             add_new_key(&mut reference_ini, section, key).unwrap();
         }
+        Command::SortSection { ref section } => sort_section(&mut reference_ini, section).unwrap(),
+        Command::RenameKey {
+            ref section,
+            ref old,
+            ref new,
+        } => rename_key(&mut reference_ini, section, old, new).unwrap(),
         Command::MoveKey {
             ref old,
             ref new,

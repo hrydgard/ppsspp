@@ -102,7 +102,7 @@ bool glsl_recompile(GLSLProgram *program, std::string *error_message) {
 
 	if (!program->vshader_source && !vsh_src) {
 		size_t sz;
-		vsh_src.reset((char *)VFSReadFile(program->vshader_filename, &sz));
+		vsh_src.reset((char *)g_VFS.ReadFile(program->vshader_filename, &sz));
 	}
 	if (!program->vshader_source && !vsh_src) {
 		ERROR_LOG(G3D, "File missing: %s", program->vshader_filename);
@@ -113,7 +113,7 @@ bool glsl_recompile(GLSLProgram *program, std::string *error_message) {
 	}
 	if (!program->fshader_source && !fsh_src) {
 		size_t sz;
-		fsh_src.reset((char *)VFSReadFile(program->fshader_filename, &sz));
+		fsh_src.reset((char *)g_VFS.ReadFile(program->fshader_filename, &sz));
 	}
 	if (!program->fshader_source && !fsh_src) {
 		ERROR_LOG(G3D, "File missing: %s", program->fshader_filename);

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/System/System.h"
 #include "Core/Config.h"
 #include "Core/Debugger/WebSocket/GameSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
@@ -54,8 +55,9 @@ void WebSocketGameReset(DebuggerRequest &req) {
 		ERROR_LOG(BOOT, "Error resetting: %s", resetError.c_str());
 		return req.Fail("Could not reset");
 	}
-	host->BootDone();
-	host->UpdateDisassembly();
+
+	System_Notify(SystemNotification::BOOT_DONE);
+	System_Notify(SystemNotification::DISASSEMBLY);
 
 	req.Respond();
 }

@@ -29,6 +29,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Math/curves.h"
 #include "Common/File/VFS/VFS.h"
 
@@ -134,7 +135,7 @@ public:
 		dc.BeginNoTex();
 
 		// Be sure to not overflow our vertex buffer
-		const float step = ceil(24*bounds.w/pixel_in_dps_x) > MAX_VERTS ? 24*bounds.w/(MAX_VERTS-48) : pixel_in_dps_x;
+		const float step = ceilf(24*bounds.w/ g_display.pixel_in_dps_x) > MAX_VERTS ? 24*bounds.w/(MAX_VERTS-48) : g_display.pixel_in_dps_x;
 
 		t *= speed;
 		for (float x = 0; x < bounds.w; x += step) {
@@ -146,8 +147,8 @@ public:
 			dc.Draw()->RectVGradient(x, wave1*bounds.h, step, (1.0-wave1)*bounds.h, color, 0x00000000);
 
 			// Add some "antialiasing"
-			dc.Draw()->RectVGradient(x, wave0*bounds.h-3*pixel_in_dps_y, step, 3*pixel_in_dps_y, 0x00000000, color);
-			dc.Draw()->RectVGradient(x, wave1*bounds.h-3*pixel_in_dps_y, step, 3*pixel_in_dps_y, 0x00000000, color);
+			dc.Draw()->RectVGradient(x, wave0*bounds.h-3.0f * g_display.pixel_in_dps_y, step, 3.0f * g_display.pixel_in_dps_y, 0x00000000, color);
+			dc.Draw()->RectVGradient(x, wave1*bounds.h-3.0f * g_display.pixel_in_dps_y, step, 3.0f * g_display.pixel_in_dps_y, 0x00000000, color);
 		}
 
 		dc.Flush();
@@ -371,11 +372,11 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 		Viewport viewport;
 		viewport.TopLeftX = 0;
 		viewport.TopLeftY = 0;
-		viewport.Width = pixel_xres;
-		viewport.Height = pixel_yres;
+		viewport.Width = g_display.pixel_xres;
+		viewport.Height = g_display.pixel_yres;
 		viewport.MaxDepth = 1.0;
 		viewport.MinDepth = 0.0;
-		draw->SetViewports(1, &viewport);
+		draw->SetViewport(viewport);
 		dc.BeginFrame();
 		dc.RebindTexture();
 		dc.Begin();
@@ -431,9 +432,7 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 		auto langScreen = new NewLanguageScreen(sy->T("Language"));
 		langScreen->OnChoice.Add([](UI::EventParams &) {
 			NativeMessageReceived("recreateviews", "");
-			if (host) {
-				host->UpdateUI();
-			}
+			System_Notify(SystemNotification::UI);
 			return UI::EVENT_DONE;
 		});
 		manager->push(langScreen);
@@ -590,7 +589,7 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 	auto &langValuesMapping = g_Config.GetLangValuesMapping();
 
 	std::vector<File::FileInfo> tempLangs;
-	VFSGetFileListing("lang", &tempLangs, "ini");
+	g_VFS.GetFileListing("lang", &tempLangs, "ini");
 	std::vector<std::string> listing;
 	int selected = -1;
 	int counter = 0;
@@ -657,7 +656,7 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 	g_Config.sLanguageIni = code;
 
 	bool iniLoadedSuccessfully = false;
-	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
+	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to
 	// test new languages without recompiling the entire app, which is a hassle).
 	const Path langOverridePath = GetSysDirectory(DIRECTORY_SYSTEM) / "lang";
 
@@ -840,45 +839,41 @@ void CreditsScreen::CreateViews() {
 
 UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
 #ifdef __ANDROID__
-	LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
 #else
-	LaunchBrowser("https://www.ppsspp.org/buygold");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
 #endif
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnTwitter(UI::EventParams &e) {
-#ifdef __ANDROID__
-	System_SendMessage("showTwitter", "PPSSPP_emu");
-#else
-	LaunchBrowser("https://twitter.com/#!/PPSSPP_emu");
-#endif
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://twitter.com/#!/PPSSPP_emu");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnPPSSPPOrg(UI::EventParams &e) {
-	LaunchBrowser("https://www.ppsspp.org");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnPrivacy(UI::EventParams &e) {
-	LaunchBrowser("https://www.ppsspp.org/privacy");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/privacy");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnForums(UI::EventParams &e) {
-	LaunchBrowser("https://forums.ppsspp.org");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://forums.ppsspp.org");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnDiscord(UI::EventParams &e) {
-	LaunchBrowser("https://discord.gg/5NJB6dD");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://discord.gg/5NJB6dD");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnShare(UI::EventParams &e) {
 	auto cr = GetI18NCategory("PSPCredits");
-	System_SendMessage("sharetext", cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
+	System_ShareText(cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
 	return UI::EVENT_DONE;
 }
 
@@ -1080,7 +1075,7 @@ void SettingInfoMessage::Show(const std::string &text, const UI::View *refView) 
 		if (b.y >= cutOffY_) {
 			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
 		} else {
-			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
+			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, g_display.dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
 		}
 	}
 	text_->SetText(text);

@@ -31,6 +31,7 @@
 #include "Common/Net/Resolve.h"
 #include "Common/Net/URL.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/System/Request.h"
 
 #include "Common/File/PathBrowser.h"
 #include "Common/Data/Format/JSONReader.h"
@@ -38,7 +39,6 @@
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
-#include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -643,7 +643,7 @@ void RemoteISOSettingsScreen::CreateViews() {
 UI::EventReturn RemoteISOSettingsScreen::OnClickRemoteServer(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
 	auto ri = GetI18NCategory("RemoteISO");
-	System_InputBoxGetString(ri->T("Remote Server"), g_Config.sLastRemoteISOServer, [](bool result, const std::string &value) {
+	System_InputBoxGetString(ri->T("Remote Server"), g_Config.sLastRemoteISOServer, [](const std::string &value, int) {
 		g_Config.sLastRemoteISOServer = value;
 	});
 #endif
@@ -663,7 +663,7 @@ static void CleanupRemoteISOSubdir() {
 UI::EventReturn RemoteISOSettingsScreen::OnClickRemoteISOSubdir(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
 	auto ri = GetI18NCategory("RemoteISO");
-	System_InputBoxGetString(ri->T("Remote Subdirectory"), g_Config.sRemoteISOSubdir, [](bool result, const std::string &value) {
+	System_InputBoxGetString(ri->T("Remote Subdirectory"), g_Config.sRemoteISOSubdir, [](const std::string &value, int) {
 		g_Config.sRemoteISOSubdir = value;
 		// Apply the cleanup logic, too.
 		CleanupRemoteISOSubdir();

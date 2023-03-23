@@ -21,7 +21,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
 
@@ -59,6 +59,10 @@
 #define DIR_SEP_CHRS "/\\"
 #else
 #define DIR_SEP_CHRS "/"
+#endif
+
+#ifdef HAVE_LIBRETRO_VFS
+#include "streams/file_stream.h"
 #endif
 
 #define SAMPLERATE 44100
@@ -382,9 +386,6 @@ class LibretroHost : public Host
 {
    public:
       LibretroHost() {}
-      bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
-      void ShutdownGraphics() override {}
-      void InitSound() override {}
       void UpdateSound() override
       {
          int hostAttemptBlockSize = __AudioGetHostAttemptBlockSize();
@@ -395,8 +396,6 @@ class LibretroHost : public Host
          int samples = __AudioMix(audio, hostAttemptBlockSize, SAMPLERATE);
          AudioBufferWrite(audio, samples);
       }
-      void ShutdownSound() override {}
-      bool IsDebuggingEnabled() override { return false; }
       bool AttemptLoadSymbolMap() override { return false; }
 };
 
@@ -516,6 +515,12 @@ void retro_set_environment(retro_environment_t cb)
    struct retro_core_options_update_display_callback update_display_cb;
    update_display_cb.callback = set_variable_visibility;
    environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK, &update_display_cb);
+
+   #ifdef HAVE_LIBRETRO_VFS
+      struct retro_vfs_interface_info vfs_iface_info { 1, nullptr };
+      if (cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs_iface_info))
+         filestream_vfs_init(&vfs_iface_info);
+   #endif
 }
 
 static int get_language_auto(void)
@@ -642,6 +647,13 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iCpuCore = (int)CPUCore::IR_JIT;
       else if (!strcmp(var.value, "Interpreter"))
          g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
+   }
+
+   if (System_GetPropertyBool(SYSPROP_CAN_JIT) == false && g_Config.iCpuCore == (int)CPUCore::JIT) {
+       // Just gonna force it to the IR interpreter on startup.
+       // We don't hide the option, but we make sure it's off on bootup. In case someone wants
+       // to experiment in future iOS versions or something...
+       g_Config.iCpuCore = (int)CPUCore::IR_JIT;
    }
 
    var.key = "ppsspp_fast_memory";
@@ -1267,7 +1279,7 @@ void retro_init(void)
    g_Config.bEnableNetworkChat = false;
    g_Config.bDiscordPresence = false;
 
-   VFSRegister("", new DirectoryAssetReader(retro_base_dir));
+   g_VFS.Register("", new DirectoryReader(retro_base_dir));
 
    host = new LibretroHost();
 }
@@ -1469,7 +1481,7 @@ void retro_unload_game(void)
 		Libretro::EmuThreadStop();
 
 	PSP_Shutdown();
-	VFSShutdown();
+	g_VFS.Clear();
 
 	delete ctx;
 	ctx = nullptr;
@@ -1544,14 +1556,14 @@ static void retro_input(void)
    float y_left = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
    float x_right = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X) / 32767.0f;
    float y_right = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
-   
+
    __CtrlSetAnalogXY(CTRL_STICK_LEFT, x_left, y_left);
    __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
-   
+
    // Analog circle vs square gate compensation
    // copied from ControlMapper.cpp's ConvertAnalogStick function
    const bool isCircular = g_Config.bAnalogIsCircular;
-   
+
    float norm = std::max(fabsf(x_left), fabsf(y_left));
 
    if (norm == 0.0f)
@@ -1568,7 +1580,7 @@ static void retro_input(void)
    float mappedNorm = norm;
    x_left = std::clamp(x_left / norm * mappedNorm, -1.0f, 1.0f);
    y_left = std::clamp(y_left / norm * mappedNorm, -1.0f, 1.0f);
-   
+
    __CtrlSetAnalogXY(CTRL_STICK_LEFT, x_left, y_left);
    __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
 }
@@ -1645,8 +1657,8 @@ size_t retro_serialize_size(void)
    if (useEmuThread)
       EmuThreadPause();
 
-   return (CChunkFileReader::MeasurePtr(state) + 0x800000)
-      & ~0x7FFFFF; // We don't unpause intentionally
+   return (CChunkFileReader::MeasurePtr(state) + 0x800000) & ~0x7FFFFF;
+   // We don't unpause intentionally
 }
 
 bool retro_serialize(void *data, size_t size)
@@ -1661,9 +1673,8 @@ bool retro_serialize(void *data, size_t size)
    if (useEmuThread)
       EmuThreadPause(); // Does nothing if already paused
 
-   size_t measured = CChunkFileReader::MeasurePtr(state);
-   assert(measured <= size);
-   auto err = CChunkFileReader::SavePtr((u8 *)data, state, measured);
+   size_t measuredSize;
+   auto err = CChunkFileReader::MeasureAndSavePtr(state, (u8 **)&data, &measuredSize);
    retVal = err == CChunkFileReader::ERROR_NONE;
 
    if (useEmuThread)
@@ -1844,7 +1855,11 @@ bool System_GetPropertyBool(SystemProperty prop)
    switch (prop)
    {
    case SYSPROP_CAN_JIT:
+#if PPSSPP_PLATFORM(IOS)
+      return false;
+#else
       return true;
+#endif
    default:
       return false;
    }
@@ -1853,7 +1868,13 @@ bool System_GetPropertyBool(SystemProperty prop)
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
 
-void System_SendMessage(const char *command, const char *parameter) {}
+void System_Notify(SystemNotification notification) {
+   switch (notification) {
+   default:
+      break;
+   }
+}
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
 void NativeUpdate() {}
 void NativeRender(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
@@ -1861,9 +1882,9 @@ void NativeResized() {}
 void System_Toast(const char *str) {}
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-std::vector<std::string> __cameraGetDeviceList() { return std::vector<std::string>(); }
-bool audioRecording_Available() { return false; }
-bool audioRecording_State() { return false; }
+std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }
+bool System_AudioRecordingIsAvailable() { return false; }
+bool System_AudioRecordingState() { return false; }
 
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 #endif

@@ -22,6 +22,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -103,7 +104,7 @@ void __UsbMicInit() {
 	curChannels = 1;
 	curTargetAddr = 0;
 	readMicDataLength = 0;
-	micState = 0; 
+	micState = 0;
 	eventMicBlockingResume = CoreTiming::RegisterEvent("MicBlockingResume", &__MicBlockingResume);
 }
 
@@ -328,7 +329,7 @@ int Microphone::startMic(void *param) {
 	int sampleRate = micParam->at(0);
 	int channels = micParam->at(1);
 	INFO_LOG(HLE, "microphone_command : sr = %d", sampleRate);
-	System_SendMessage("microphone_command", ("startRecording:" + std::to_string(sampleRate)).c_str());
+	System_MicrophoneCommand("startRecording:" + std::to_string(sampleRate));
 #endif
 	micState = 1;
 	return 0;
@@ -339,7 +340,7 @@ int Microphone::stopMic() {
 	if (winMic)
 		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
 #elif PPSSPP_PLATFORM(ANDROID)
-	System_SendMessage("microphone_command", "stopRecording");
+	System_MicrophoneCommand("stopRecording");
 #endif
 	micState = 0;
 	return 0;
@@ -349,7 +350,7 @@ bool Microphone::isHaveDevice() {
 #ifdef HAVE_WIN32_MICROPHONE
 	return winMic->getDeviceCounts() >= 1;
 #elif PPSSPP_PLATFORM(ANDROID)
-	return audioRecording_Available();
+	return System_AudioRecordingIsAvailable();
 #endif
 	return false;
 }

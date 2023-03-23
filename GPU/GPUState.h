@@ -524,8 +524,10 @@ enum class SubmitType {
 };
 
 struct GPUStateCache {
-	bool Use(u32 flags) { return (useFlags_ & flags) != 0; } // Return true if ANY of flags are true.
-	bool UseAll(u32 flags) { return (useFlags_ & flags) == flags; } // Return true if ALL flags are true.
+	bool Use(u32 flags) const { return (useFlags_ & flags) != 0; } // Return true if ANY of flags are true.
+	bool UseAll(u32 flags) const { return (useFlags_ & flags) == flags; } // Return true if ALL flags are true.
+
+	u32 UseFlags() const { return useFlags_; }
 
 	uint64_t GetDirtyUniforms() { return dirty & DIRTY_ALL_UNIFORMS; }
 	void Dirty(u64 what) {
@@ -549,7 +551,7 @@ struct GPUStateCache {
 	void SetTextureFullAlpha(bool fullAlpha) {
 		if (fullAlpha != textureFullAlpha) {
 			textureFullAlpha = fullAlpha;
-			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEX_ALPHA_MUL);
 		}
 	}
 	void SetNeedShaderTexclamp(bool need) {

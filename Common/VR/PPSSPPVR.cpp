@@ -42,6 +42,7 @@ static std::map<int, bool> pspKeys;
 
 static int vr3DGeometryCount = 0;
 static long vrCompat[VR_COMPAT_MAX];
+static bool vrFlatForced = false;
 static bool vrFlatGame = false;
 static float vrMatrix[VR_MATRIX_COUNT][16];
 static bool vrMirroring[VR_MIRRORING_COUNT];
@@ -149,10 +150,11 @@ void InitVROnAndroid(void* vm, void* activity, const char* system, int version, 
 	//Set platform flags
 	if (strcmp(vendor, "PICO") == 0) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_PICO, true);
-		VR_SetPlatformFLag(VR_PLATFORM_INSTANCE_EXT, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
 	} else if ((strcmp(vendor, "META") == 0) || (strcmp(vendor, "OCULUS") == 0)) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
-		VR_SetPlatformFLag(VR_PLATFORM_PERFORMANCE_EXT, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_FOVEATION, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PERFORMANCE, true);
 	}
 	VR_SetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN, (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN);
 
@@ -314,10 +316,10 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 	}
 
 	// Head control
-	if (g_Config.iHeadRotation) {
+	if (g_Config.bHeadRotationEnabled) {
 		float pitch = -VR_GetHMDAngles().x;
 		float yaw = -VR_GetHMDAngles().y;
-		bool disable = pspKeys[CTRL_SCREEN] || appMode == VR_MENU_MODE;
+		bool disable = vrFlatForced || appMode == VR_MENU_MODE;
 		bool isVR = !IsFlatVRScene();
 
 		// calculate delta angles of the rotation
@@ -340,25 +342,6 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		bool activate;
 		float limit = isVR ? g_Config.fHeadRotationScale : 20;
 		keyInput.deviceId = DEVICE_ID_XR_HMD;
-
-		// vertical rotations
-		if (g_Config.iHeadRotation == 2) {
-			//up
-			activate = !disable && pitch > limit;
-			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-			keyInput.keyCode = NKCODE_EXT_ROTATION_UP;
-			if (hmdMotion[0] != activate) NativeKey(keyInput);
-			if (isVR && activate) hmdMotionDiff[0] -= limit;
-			hmdMotion[0] = activate;
-
-			//down
-			activate = !disable && pitch < -limit;
-			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-			keyInput.keyCode = NKCODE_EXT_ROTATION_DOWN;
-			if (hmdMotion[1] != activate) NativeKey(keyInput);
-			if (isVR && activate) hmdMotionDiff[0] += limit;
-			hmdMotion[1] = activate;
-		}
 
 		//left
 		activate = !disable && yaw < -limit;
@@ -383,14 +366,14 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 			for (auto& axis : device.second) {
 				switch(axis.first) {
 					case JOYSTICK_AXIS_X:
-						if (axis.second < -0.75f) g_Config.fCameraSide -= 0.05f;
-						if (axis.second > 0.75f) g_Config.fCameraSide += 0.05f;
-						g_Config.fCameraSide = clampFloat(g_Config.fCameraSide, -50.0f, 50.0f);
+						if (axis.second < -0.75f) g_Config.fCameraSide -= 0.1f;
+						if (axis.second > 0.75f) g_Config.fCameraSide += 0.1f;
+						g_Config.fCameraSide = clampFloat(g_Config.fCameraSide, -150.0f, 150.0f);
 						break;
 					case JOYSTICK_AXIS_Y:
-						if (axis.second > 0.75f) g_Config.fCameraHeight -= 0.05f;
-						if (axis.second < -0.75f) g_Config.fCameraHeight += 0.05f;
-						g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -50.0f, 50.0f);
+						if (axis.second > 0.75f) g_Config.fCameraHeight -= 0.1f;
+						if (axis.second < -0.75f) g_Config.fCameraHeight += 0.1f;
+						g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -150.0f, 150.0f);
 						break;
 					case JOYSTICK_AXIS_Z:
 						if (axis.second < -0.75f) g_Config.fHeadUpDisplayScale -= 0.01f;
@@ -400,7 +383,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 					case JOYSTICK_AXIS_RZ:
 						if (axis.second > 0.75f) g_Config.fCameraDistance -= 0.1f;
 						if (axis.second < -0.75f) g_Config.fCameraDistance += 0.1f;
-						g_Config.fCameraDistance = clampFloat(g_Config.fCameraDistance, -50.0f, 50.0f);
+						g_Config.fCameraDistance = clampFloat(g_Config.fCameraDistance, -150.0f, 150.0f);
 						break;
 				}
 			}
@@ -482,6 +465,7 @@ bool UpdateVRAxis(const AxisInput &axis) {
 bool UpdateVRKeys(const KeyInput &key) {
 	//store key value
 	std::vector<int> nativeKeys;
+	bool wasScreenKeyOn = pspKeys[CTRL_SCREEN];
 	bool wasCameraAdjustOn = pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
 	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
 		for (int& nativeKey : nativeKeys) {
@@ -501,6 +485,15 @@ bool UpdateVRKeys(const KeyInput &key) {
 					return false;
 			}
 		}
+	}
+
+	// Update force flat 2D mode
+	if (g_Config.bManualForceVR) {
+		if (!wasScreenKeyOn && pspKeys[CTRL_SCREEN]) {
+			vrFlatForced = !vrFlatForced;
+		}
+	} else {
+		vrFlatForced = pspKeys[CTRL_SCREEN];
 	}
 
 	// Release keys on enabling camera adjust
@@ -626,10 +619,8 @@ bool StartVRRender() {
 
 		// Get 6DoF scale
 		float scale = 1.0f;
-		bool hasUnitScale = false;
 		if (PSP_CoreParameter().compat.vrCompat().UnitsPerMeter > 0) {
 			scale = PSP_CoreParameter().compat.vrCompat().UnitsPerMeter;
-			hasUnitScale = true;
 		}
 
 		// Update matrices
@@ -674,6 +665,21 @@ bool StartVRRender() {
 					invView = XrPosef_Inverse(invView);
 				}
 
+				// apply camera pitch offset
+				XrVector3f positionOffset = {g_Config.fCameraSide, g_Config.fCameraHeight, g_Config.fCameraDistance};
+				if (!flatScreen) {
+					float pitchOffset = 0;
+					if (g_Config.iCameraPitch == 1) {
+						pitchOffset = 90;
+						positionOffset = {positionOffset.x, positionOffset.z, -positionOffset.y};
+					} else if (g_Config.iCameraPitch == 2) {
+						pitchOffset = -90;
+						positionOffset = {positionOffset.x, -positionOffset.z, positionOffset.y};
+					}
+					XrQuaternionf rotationOffset = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, ToRadians(pitchOffset));
+					invView.orientation = XrQuaternionf_Multiply(rotationOffset, invView.orientation);
+				}
+
 				// decompose rotation
 				XrVector3f rotation = XrQuaternionf_ToEulerAngles(invView.orientation);
 				float mPitch = mx * ToRadians(rotation.x);
@@ -681,8 +687,7 @@ bool StartVRRender() {
 				float mRoll = mz * ToRadians(rotation.z);
 
 				// use in-game camera interpolated rotation
-				if (g_Config.iHeadRotation >= 2) mPitch = -mx * ToRadians(hmdMotionDiffLast[0]); // vertical
-				if (g_Config.iHeadRotation >= 1) mYaw = -my * ToRadians(hmdMotionDiffLast[1]); // horizontal
+				if (g_Config.bHeadRotationEnabled) mYaw = -my * ToRadians(hmdMotionDiffLast[1]); // horizontal
 
 				// create updated quaternion
 				XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mPitch);
@@ -695,14 +700,14 @@ bool StartVRRender() {
 				memcpy(&M, M, sizeof(float) * 16);
 
 				// Apply 6Dof head movement
-				if (!flatScreen && g_Config.bEnable6DoF) {
+				if (!flatScreen && g_Config.bEnable6DoF && !g_Config.bHeadRotationEnabled && (g_Config.iCameraPitch == 0)) {
 					M[3] -= invViewTransform[0].position.x * (vrMirroring[VR_MIRRORING_AXIS_X] ? -1.0f : 1.0f) * scale;
 					M[7] -= invViewTransform[0].position.y * (vrMirroring[VR_MIRRORING_AXIS_Y] ? -1.0f : 1.0f) * scale;
 					M[11] -= invViewTransform[0].position.z * (vrMirroring[VR_MIRRORING_AXIS_Z] ? -1.0f : 1.0f) * scale;
 				}
 				// Camera adjust - distance
-				if (fabsf(g_Config.fCameraDistance) > 0.0f) {
-					XrVector3f forward = {0.0f, 0.0f, g_Config.fCameraDistance * scale};
+				if (fabsf(positionOffset.z) > 0.0f) {
+					XrVector3f forward = {0.0f, 0.0f, positionOffset.z * scale};
 					forward = XrQuaternionf_Rotate(invView.orientation, forward);
 					forward = XrVector3f_ScalarMultiply(forward, vrMirroring[VR_MIRRORING_AXIS_Z] ? -1.0f : 1.0f);
 					M[3] += forward.x;
@@ -710,8 +715,8 @@ bool StartVRRender() {
 					M[11] += forward.z;
 				}
 				// Camera adjust - height
-				if (fabsf(g_Config.fCameraHeight) > 0.0f) {
-					XrVector3f up = {0.0f, -g_Config.fCameraHeight * scale, 0.0f};
+				if (fabsf(positionOffset.y) > 0.0f) {
+					XrVector3f up = {0.0f, -positionOffset.y * scale, 0.0f};
 					up = XrQuaternionf_Rotate(invView.orientation, up);
 					up = XrVector3f_ScalarMultiply(up, vrMirroring[VR_MIRRORING_AXIS_Y] ? -1.0f : 1.0f);
 					M[3] += up.x;
@@ -719,8 +724,8 @@ bool StartVRRender() {
 					M[11] += up.z;
 				}
 				// Camera adjust - side
-				if (fabsf(g_Config.fCameraSide) > 0.0f) {
-					XrVector3f side = {-g_Config.fCameraSide * scale, 0.0f,  0.0f};
+				if (fabsf(positionOffset.x) > 0.0f) {
+					XrVector3f side = {-positionOffset.x * scale, 0.0f,  0.0f};
 					side = XrQuaternionf_Rotate(invView.orientation, side);
 					side = XrVector3f_ScalarMultiply(side, vrMirroring[VR_MIRRORING_AXIS_X] ? -1.0f : 1.0f);
 					M[3] += side.x;
@@ -728,7 +733,7 @@ bool StartVRRender() {
 					M[11] += side.z;
 				}
 				// Stereoscopy
-				if (hasUnitScale && (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
+				if (matrix == VR_VIEW_MATRIX_RIGHT_EYE) {
 					float dx = fabs(invViewTransform[1].position.x - invViewTransform[0].position.x);
 					float dy = fabs(invViewTransform[1].position.y - invViewTransform[0].position.y);
 					float dz = fabs(invViewTransform[1].position.z - invViewTransform[0].position.z);
@@ -747,14 +752,14 @@ bool StartVRRender() {
 		}
 
 		// Decide if the scene is 3D or not
-		bool stereo = hasUnitScale && g_Config.bEnableStereo;
-		bool forceFlat = PSP_CoreParameter().compat.vrCompat().ForceFlatScreen;
+		bool vrIncompatibleGame = PSP_CoreParameter().compat.vrCompat().ForceFlatScreen;
+		bool vrScene = !vrFlatForced && (g_Config.bManualForceVR || (vr3DGeometryCount > 15));
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 480.0f / 272.0f);
-		if (g_Config.bEnableVR && !pspKeys[CTRL_SCREEN] && !forceFlat && (appMode == VR_GAME_MODE) && (vr3DGeometryCount > 15)) {
-			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
+		if (g_Config.bEnableVR && !vrIncompatibleGame && (appMode == VR_GAME_MODE) && vrScene) {
+			VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 			vrFlatGame = false;
 		} else {
-			VR_SetConfig(VR_CONFIG_MODE, stereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
+			VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
 			if (IsGameVRScene()) {
 				vrFlatGame = true;
 			}

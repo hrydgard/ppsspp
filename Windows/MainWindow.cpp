@@ -107,7 +107,6 @@ struct VerySleepy_AddrInfo {
 };
 
 static std::wstring windowTitle;
-extern ScreenManager *screenManager;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
@@ -473,7 +472,6 @@ namespace MainWindow
 	}
 
 	void UpdateWindowTitle() {
-		// Seems to be fine to call now since we use a UNICODE build...
 		std::wstring title = windowTitle;
 		if (PPSSPP_ID >= 1 && GetInstancePeerCount() > 1) {
 			title.append(ConvertUTF8ToWString(StringFromFormat(" (instance: %d)", (int)PPSSPP_ID)));
@@ -643,8 +641,8 @@ namespace MainWindow
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = true;
 
-				float x = GET_X_LPARAM(lParam) * g_dpi_scale_x;
-				float y = GET_Y_LPARAM(lParam) * g_dpi_scale_y;
+				float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+				float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
 				WindowsRawInput::SetMousePos(x, y);
 
 				TouchInput touch;
@@ -684,8 +682,8 @@ namespace MainWindow
 				prevCursorX = cursorX;
 				prevCursorY = cursorY;
 
-				float x = (float)cursorX * g_dpi_scale_x;
-				float y = (float)cursorY * g_dpi_scale_y;
+				float x = (float)cursorX * g_display.dpi_scale_x;
+				float y = (float)cursorY * g_display.dpi_scale_y;
 				WindowsRawInput::SetMousePos(x, y);
 
 				if (wParam & MK_LBUTTON) {
@@ -706,8 +704,8 @@ namespace MainWindow
 				// Hack: Take the opportunity to hide the cursor.
 				mouseButtonDown = false;
 
-				float x = (float)GET_X_LPARAM(lParam) * g_dpi_scale_x;
-				float y = (float)GET_Y_LPARAM(lParam) * g_dpi_scale_y;
+				float x = (float)GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+				float y = (float)GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
 				WindowsRawInput::SetMousePos(x, y);
 
 				TouchInput touch;
@@ -781,10 +779,10 @@ namespace MainWindow
 		case WM_USER_GET_BASE_POINTER:
 			Reporting::NotifyDebugger();
 			switch (lParam) {
-			case 0:
-				return (u32)(u64)Memory::base;
-			case 1:
-				return (u32)((u64)Memory::base >> 32);
+			case 0: return (u32)(u64)Memory::base;
+			case 1: return (u32)((u64)Memory::base >> 32);
+			case 2: return (u32)(u64)(&Memory::base);
+			case 3: return (u32)((u64)(&Memory::base) >> 32);
 			default:
 				return 0;
 			}
@@ -1064,10 +1062,6 @@ namespace MainWindow
 
 		case WM_USER_BROWSE_BOOT_DONE:
 			BrowseAndBootDone();
-			break;
-
-		case WM_USER_BROWSE_BG_DONE:
-			BrowseBackgroundDone();
 			break;
 
 		case WM_USER_RESTART_EMUTHREAD:

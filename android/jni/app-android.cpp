@@ -61,11 +61,13 @@ struct JNIEnv {};
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/File/Path.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
+#include "Common/File/VFS/ZipFileReader.h"
 #include "Common/File/AndroidStorage.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
@@ -73,6 +75,7 @@ struct JNIEnv {};
 #include "Common/Math/math_util.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/VR/PPSSPPVR.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
 
 #include "Common/GraphicsContext.h"
 #include "Common/StringUtils.h"
@@ -172,9 +175,6 @@ static std::atomic<bool> exitRenderLoop;
 static std::atomic<bool> renderLoopRunning;
 static bool renderer_inited = false;
 static std::mutex renderLock;
-
-static int inputBoxSequence = 1;
-static std::map<int, std::function<void(bool, const std::string &)>> inputBoxCallbacks;
 
 static bool sustainedPerfSupported = false;
 
@@ -379,34 +379,26 @@ void System_Toast(const char *text) {
 	PushCommand("toast", text);
 }
 
-void ShowKeyboard() {
+void System_ShowKeyboard() {
 	PushCommand("showKeyboard", "");
 }
 
-void Vibrate(int length_ms) {
+void System_Vibrate(int length_ms) {
 	char temp[32];
 	sprintf(temp, "%i", length_ms);
 	PushCommand("vibrate", temp);
 }
 
-void OpenDirectory(const char *path) {
+void System_ShowFileInFolder(const char *path) {
 	// Unsupported
 }
 
-void LaunchBrowser(const char *url) {
-	PushCommand("launchBrowser", url);
-}
-
-void LaunchMarket(const char *url) {
-	PushCommand("launchMarket", url);
-}
-
-void LaunchEmail(const char *email_address) {
-	PushCommand("launchEmail", email_address);
-}
-
-void System_SendMessage(const char *command, const char *parameter) {
-	PushCommand(command, parameter);
+void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
+	switch (urlType) {
+	case LaunchUrlType::BROWSER_URL: PushCommand("launchBrowser", url); break;
+	case LaunchUrlType::MARKET_URL: PushCommand("launchMarket", url); break;
+	case LaunchUrlType::EMAIL_ADDRESS: PushCommand("launchEmail", url); break;
+	}
 }
 
 std::string System_GetProperty(SystemProperty prop) {
@@ -461,7 +453,7 @@ int System_GetPropertyInt(SystemProperty prop) {
 float System_GetPropertyFloat(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return display_hz;
+		return g_display.display_hz;
 	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
 		return g_safeInsetLeft;
 	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
@@ -489,6 +481,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		}
 	case SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE:
 		return sustainedPerfSupported;  // 7.0 introduced sustained performance mode as an optional feature.
+	case SYSPROP_HAS_OPEN_DIRECTORY:
+		return false;
 	case SYSPROP_HAS_ADDITIONAL_STORAGE:
 		return !g_additionalStorageDirs.empty();
 	case SYSPROP_HAS_BACK_BUTTON:
@@ -677,9 +671,9 @@ static void parse_args(std::vector<std::string> &args, const std::string value) 
 #define EARLY_LOG(...)  __android_log_print(ANDROID_LOG_INFO, "PPSSPP", __VA_ARGS__)
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
-	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
-		jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam,
-		jint jAndroidVersion, jstring jboard) {
+(JNIEnv * env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
+	jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam,
+	jint jAndroidVersion, jstring jboard) {
 	SetCurrentThreadName("androidInit");
 
 	// Makes sure we get early permission grants.
@@ -693,8 +687,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
 
-	std::string apkPath = GetJavaString(env, japkpath);
-	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
+	Path apkPath(GetJavaString(env, japkpath));
+	g_VFS.Register("", ZipFileReader::Create(apkPath, "assets/"));
 
 	systemName = GetJavaString(env, jmodel);
 	langRegion = GetJavaString(env, jlangRegion);
@@ -753,6 +747,15 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	}
 
 	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
+
+	// In debug mode, don't allow creating software Vulkan devices (reject by VulkaMaybeAvailable).
+	// Needed for #16931.
+#ifdef NDEBUG
+	if (!VulkanMayBeAvailable()) {
+		// If VulkanLoader decided on no viable backend, let's force Vulkan off in release builds at least.
+		g_Config.iGPUBackend = 0;
+	}
+#endif
 
 	// No need to use EARLY_LOG anymore.
 
@@ -842,11 +845,11 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioRecording_1Stop(JNIEnv *, 
 	AndroidAudio_Recording_Stop(g_audioState);
 }
 
-bool audioRecording_Available() {
+bool System_AudioRecordingIsAvailable() {
 	return true;
 }
 
-bool audioRecording_State() {
+bool System_AudioRecordingState() {
 	return AndroidAudio_Recording_State(g_audioState);
 }
 
@@ -895,9 +898,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 	{
 		std::lock_guard<std::mutex> guard(renderLock);
-		inputBoxCallbacks.clear();
 		NativeShutdown();
-		VFSShutdown();
+		g_VFS.Clear();
 	}
 
 	{
@@ -977,35 +979,35 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 }
 
 static void recalculateDpi() {
-	g_dpi = display_dpi_x;
-	g_dpi_scale_x = 240.0f / display_dpi_x;
-	g_dpi_scale_y = 240.0f / display_dpi_y;
-	g_dpi_scale_real_x = g_dpi_scale_x;
-	g_dpi_scale_real_y = g_dpi_scale_y;
+	g_display.dpi = display_dpi_x;
+	g_display.dpi_scale_x = 240.0f / display_dpi_x;
+	g_display.dpi_scale_y = 240.0f / display_dpi_y;
+	g_display.dpi_scale_real_x = g_display.dpi_scale_x;
+	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
 
-	dp_xres = display_xres * g_dpi_scale_x;
-	dp_yres = display_yres * g_dpi_scale_y;
+	g_display.dp_xres = display_xres * g_display.dpi_scale_x;
+	g_display.dp_yres = display_yres * g_display.dpi_scale_y;
 
-	pixel_in_dps_x = (float)pixel_xres / dp_xres;
-	pixel_in_dps_y = (float)pixel_yres / dp_yres;
+	g_display.pixel_in_dps_x = (float)g_display.pixel_xres / g_display.dp_xres;
+	g_display.pixel_in_dps_y = (float)g_display.pixel_yres / g_display.dp_yres;
 
-	INFO_LOG(G3D, "RecalcDPI: display_xres=%d display_yres=%d pixel_xres=%d pixel_yres=%d", display_xres, display_yres, pixel_xres, pixel_yres);
-	INFO_LOG(G3D, "RecalcDPI: g_dpi=%f g_dpi_scale_x=%f g_dpi_scale_y=%f dp_xres=%d dp_yres=%d", g_dpi, g_dpi_scale_x, g_dpi_scale_y, dp_xres, dp_yres);
+	INFO_LOG(G3D, "RecalcDPI: display_xres=%d display_yres=%d pixel_xres=%d pixel_yres=%d", display_xres, display_yres, g_display.pixel_xres, g_display.pixel_yres);
+	INFO_LOG(G3D, "RecalcDPI: g_dpi=%f g_dpi_scale_x=%f g_dpi_scale_y=%f dp_xres=%d dp_yres=%d", g_display.dpi, g_display.dpi_scale_x, g_display.dpi_scale_y, g_display.dp_xres, g_display.dp_yres);
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh, jint format) {
 	INFO_LOG(SYSTEM, "NativeApp.backbufferResize(%d x %d)", bufw, bufh);
 
-	bool new_size = pixel_xres != bufw || pixel_yres != bufh;
-	int old_w = pixel_xres;
-	int old_h = pixel_yres;
+	bool new_size = g_display.pixel_xres != bufw || g_display.pixel_yres != bufh;
+	int old_w = g_display.pixel_xres;
+	int old_h = g_display.pixel_yres;
 	// pixel_*res is the backbuffer resolution.
-	pixel_xres = bufw;
-	pixel_yres = bufh;
+	g_display.pixel_xres = bufw;
+	g_display.pixel_yres = bufh;
 	backbuffer_format = format;
 
 	if (IsVREnabled()) {
-		GetVRResolutionPerEye(&pixel_xres, &pixel_yres);
+		GetVRResolutionPerEye(&g_display.pixel_xres, &g_display.pixel_yres);
 	}
 
 	recalculateDpi();
@@ -1018,39 +1020,83 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	}
 }
 
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
-	int seq = inputBoxSequence++;
-	inputBoxCallbacks[seq] = cb;
-
-	std::string serialized = StringFromFormat("%d:@:%s:@:%s", seq, title.c_str(), defaultValue.c_str());
-	System_SendMessage("inputbox", serialized.c_str());
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	case SystemNotification::ROTATE_UPDATED:
+		PushCommand("rotate", "");
+		break;
+	case SystemNotification::FORCE_RECREATE_ACTIVITY:
+		PushCommand("recreate", "");
+		break;
+	case SystemNotification::IMMERSIVE_MODE_CHANGE:
+		PushCommand("immersive", "");
+		break;
+	case SystemNotification::SUSTAINED_PERF_CHANGE:
+		PushCommand("sustainedPerfMode", "");
+		break;
+	}
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendInputBox(JNIEnv *env, jclass, jstring jseqID, jboolean result, jstring jvalue) {
-	std::string seqID = GetJavaString(env, jseqID);
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+	switch (type) {
+	case SystemRequestType::EXIT_APP:
+		PushCommand("finish", "");
+		return true;
+	case SystemRequestType::RESTART_APP:
+		PushCommand("graphics_restart", param1);
+		return true;
+	case SystemRequestType::INPUT_TEXT_MODAL:
+	{
+		std::string serialized = StringFromFormat("%d:@:%s:@:%s", requestId, param1.c_str(), param2.c_str());
+		PushCommand("inputbox", serialized.c_str());
+		return true;
+	}
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+		PushCommand("browse_image", StringFromFormat("%d", requestId));
+		return true;
+	case SystemRequestType::BROWSE_FOR_FILE:
+		PushCommand("browse_file", StringFromFormat("%d", requestId));
+		return true;
+	case SystemRequestType::BROWSE_FOR_FOLDER:
+		PushCommand("browse_folder", StringFromFormat("%d", requestId));
+		return true;
+
+	case SystemRequestType::CAMERA_COMMAND:
+		PushCommand("camera_command", param1);
+		return true;
+	case SystemRequestType::GPS_COMMAND:
+		PushCommand("gps_command", param1);
+		return true;
+	case SystemRequestType::MICROPHONE_COMMAND:
+		PushCommand("microphone_command", param1);
+		return true;
+	case SystemRequestType::SHARE_TEXT:
+		PushCommand("share_text", param1);
+		return true;
+	case SystemRequestType::NOTIFY_UI_STATE:
+		PushCommand("uistate", param1);
+		return true;
+	default:
+		return false;
+	}
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEnv *env, jclass, jint jrequestID, jboolean result, jstring jvalue, jint jintValue) {
 	std::string value = GetJavaString(env, jvalue);
 
-	static std::string lastSeqID = "";
-	if (lastSeqID == seqID) {
+	static jint lastSeqID = -1;
+	if (lastSeqID == jrequestID) {
 		// We send this on dismiss, so twice in many cases.
-		DEBUG_LOG(SYSTEM, "Ignoring duplicate sendInputBox");
+		WARN_LOG(SYSTEM, "Ignoring duplicate sendInputBox");
 		return;
 	}
-	lastSeqID = seqID;
+	lastSeqID = jrequestID;
 
-	int seq = 0;
-	if (!TryParse(seqID, &seq)) {
-		ERROR_LOG(SYSTEM, "Invalid inputbox seqID value: %s", seqID.c_str());
-		return;
+	if (result) {
+		g_requestManager.PostSystemSuccess(jrequestID, value.c_str());
+	} else {
+		g_requestManager.PostSystemFailure(jrequestID);
 	}
-
-	auto entry = inputBoxCallbacks.find(seq);
-	if (entry == inputBoxCallbacks.end()) {
-		ERROR_LOG(SYSTEM, "Did not find inputbox callback for %s, shutdown?", seqID.c_str());
-		return;
-	}
-
-	NativeInputBoxReceived(entry->second, result, value);
 }
 
 void LockedNativeUpdateRender() {
@@ -1093,7 +1139,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	}
 
 	if (IsVREnabled()) {
-		UpdateVRInput(g_Config.bHapticFeedback, g_dpi_scale_x, g_dpi_scale_y);
+		UpdateVRInput(g_Config.bHapticFeedback, g_display.dpi_scale_x, g_display.dpi_scale_y);
 		FinishVRRender();
 	}
 }
@@ -1117,8 +1163,8 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
 
-	float scaledX = x * g_dpi_scale_x;
-	float scaledY = y * g_dpi_scale_y;
+	float scaledX = x * g_display.dpi_scale_x;
+	float scaledY = y * g_display.dpi_scale_y;
 
 	TouchInput touch;
 	touch.id = pointerId;
@@ -1195,7 +1241,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 	std::string msg = GetJavaString(env, message);
 	std::string prm = GetJavaString(env, param);
 
-	// Some messages are caught by app-android.
+	// Some messages are caught by app-android. TODO: Should be all.
 	if (msg == "moga") {
 		mogaVersion = prm;
 	} else if (msg == "permission_pending") {
@@ -1211,14 +1257,14 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 	} else if (msg == "sustained_perf_supported") {
 		sustainedPerfSupported = true;
 	} else if (msg == "safe_insets") {
-		INFO_LOG(SYSTEM, "Got insets: %s", prm.c_str());
+		// INFO_LOG(SYSTEM, "Got insets: %s", prm.c_str());
 		// We don't bother with supporting exact rectangular regions. Safe insets are good enough.
 		int left, right, top, bottom;
 		if (4 == sscanf(prm.c_str(), "%d:%d:%d:%d", &left, &right, &top, &bottom)) {
-			g_safeInsetLeft = (float)left * g_dpi_scale_x;
-			g_safeInsetRight = (float)right * g_dpi_scale_x;
-			g_safeInsetTop = (float)top * g_dpi_scale_y;
-			g_safeInsetBottom = (float)bottom * g_dpi_scale_y;
+			g_safeInsetLeft = (float)left * g_display.dpi_scale_x;
+			g_safeInsetRight = (float)right * g_display.dpi_scale_x;
+			g_safeInsetTop = (float)top * g_display.dpi_scale_y;
+			g_safeInsetBottom = (float)bottom * g_display.dpi_scale_y;
 		}
 	}
 
@@ -1251,21 +1297,21 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 	bool changed = false;
 	changed = changed || display_xres != xres || display_yres != yres;
 	changed = changed || display_dpi_x != dpi || display_dpi_y != dpi;
-	changed = changed || display_hz != refreshRate;
+	changed = changed || g_display.display_hz != refreshRate;
 
 	if (changed) {
 		display_xres = xres;
 		display_yres = yres;
 		display_dpi_x = dpi;
 		display_dpi_y = dpi;
-		display_hz = refreshRate;
+		g_display.display_hz = refreshRate;
 
 		recalculateDpi();
 		NativeResized();
 	}
 }
 
-std::vector<std::string> __cameraGetDeviceList() {
+std::vector<std::string> System_GetCameraDeviceList() {
 	jclass cameraClass = findClass("org/ppsspp/ppsspp/CameraHelper");
 	jmethodID deviceListMethod = getEnv()->GetStaticMethodID(cameraClass, "getDeviceList", "()Ljava/util/ArrayList;");
 	jobject deviceListObject = getEnv()->CallStaticObjectMethod(cameraClass, deviceListMethod);
@@ -1302,9 +1348,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setSatInfoAndroid(JNIEn
 	GPS::setSatInfo(index, id, elevation, azimuth, snr, good);
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(JNIEnv *env, jclass,
-		jbyteArray image) {
-
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(JNIEnv *env, jclass, jbyteArray image) {
 	if (image != NULL) {
 		jlong size = env->GetArrayLength(image);
 		jbyte* buffer = env->GetByteArrayElements(image, NULL);

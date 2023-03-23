@@ -51,13 +51,10 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 	writer.C("  vec2 texcoord = v_texcoord;\n");
 
 	// Implement the swizzle we need to simulate, if a game uses 8888 framebuffers and any other mode than "6" to access depth textures.
-	// This implements the "2" mode swizzle (it fixes up the Y direction but not X. See comments on issue #15898)
+	// This implements the "2" mode swizzle (it fixes up the Y direction but not X. See comments on issue #15898, Tantalus games)
 	// NOTE: This swizzle can be made to work with any power-of-2 resolution scaleFactor by shifting
 	// the bits around, but not sure how to handle 3x scaling. For now this is 1x-only (rough edges at higher resolutions).
 	if (config.bufferFormat == GE_FORMAT_DEPTH16) {
-		DepthScaleFactors factors = GetDepthScaleFactors();
-		writer.ConstFloat("z_scale", factors.scale);
-		writer.ConstFloat("z_offset", factors.offset);
 		if (config.depthUpperBits == 0x2) {
 			writer.C(R"(
   int x = int((texcoord.x / scaleFactor) * texSize.x);
@@ -116,8 +113,8 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 		writer.C("  int index = (a << 15) | (b << 10) | (g << 5) | (r);\n");
 		break;
 	case GE_FORMAT_DEPTH16:
-		// Remap depth buffer.
-		writer.C("  float depth = (color.x - z_offset) * z_scale;\n");
+		// Decode depth buffer.
+		writer.C("  float depth = (color.x - z_offset) * z_scale * 65535.0f;\n");
 
 		if (config.bufferFormat == GE_FORMAT_DEPTH16 && config.textureFormat == GE_TFMT_5650) {
 			// Convert depth to 565, without going through a CLUT.
@@ -161,9 +158,9 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 	const int mask = config.mask;
 
 	if (config.bufferFormat == GE_FORMAT_DEPTH16) {
-		DepthScaleFactors factors = GetDepthScaleFactors();
-		writer.ConstFloat("z_scale", factors.scale);
-		writer.ConstFloat("z_offset", factors.offset);
+		DepthScaleFactors factors = GetDepthScaleFactors(gstate_c.UseFlags());
+		writer.ConstFloat("z_scale", factors.ScaleU16());
+		writer.ConstFloat("z_offset", factors.Offset());
 	}
 
 	writer.C("  vec4 index = ").SampleTexture2D("tex", "v_texcoord").C(";\n");

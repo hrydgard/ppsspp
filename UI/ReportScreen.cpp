@@ -253,7 +253,7 @@ void ReportScreen::CreateViews() {
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
-	float leftColumnWidth = dp_xres - actionMenuMargins.horiz() - contentMargins.horiz() - 300.0f;
+	float leftColumnWidth = g_display.dp_xres - actionMenuMargins.horiz() - contentMargins.horiz() - 300.0f;
 	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f, contentMargins));
 	LinearLayout *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(WRAP_CONTENT, FILL_PARENT));
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -392,7 +392,7 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 
 EventReturn ReportScreen::HandleBrowser(EventParams &e) {
 	const std::string url = "https://" + Reporting::ServerHost() + "/";
-	LaunchBrowser(url.c_str());
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, url.c_str());
 	return EVENT_DONE;
 }
 
@@ -515,6 +515,6 @@ void ReportFinishScreen::ShowSuggestions() {
 
 UI::EventReturn ReportFinishScreen::HandleViewFeedback(UI::EventParams &e) {
 	const std::string url = "https://" + Reporting::ServerHost() + "/game/" + Reporting::CurrentGameID();
-	LaunchBrowser(url.c_str());
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, url.c_str());
 	return EVENT_DONE;
 }

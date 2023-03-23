@@ -53,13 +53,6 @@
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
 
-#if PPSSPP_API(ANY_GL)
-#include "Windows/GPU/WindowsGLContext.h"
-#endif
-#include "Windows/GPU/WindowsVulkanContext.h"
-#include "Windows/GPU/D3D9Context.h"
-#include "Windows/GPU/D3D11Context.h"
-
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
@@ -116,45 +109,6 @@ void WindowsHost::UpdateConsolePosition() {
 	}
 }
 
-bool WindowsHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
-	WindowsGraphicsContext *graphicsContext = nullptr;
-	switch (g_Config.iGPUBackend) {
-#if PPSSPP_API(ANY_GL)
-	case (int)GPUBackend::OPENGL:
-		graphicsContext = new WindowsGLContext();
-		break;
-#endif
-	case (int)GPUBackend::DIRECT3D9:
-		graphicsContext = new D3D9Context();
-		break;
-	case (int)GPUBackend::DIRECT3D11:
-		graphicsContext = new D3D11Context();
-		break;
-	case (int)GPUBackend::VULKAN:
-		graphicsContext = new WindowsVulkanContext();
-		break;
-	default:
-		return false;
-	}
-
-	if (graphicsContext->Init(hInstance_, displayWindow_, error_message)) {
-		*ctx = graphicsContext;
-		gfx_ = graphicsContext;
-		return true;
-	} else {
-		delete graphicsContext;
-		*ctx = nullptr;
-		gfx_ = nullptr;
-		return false;
-	}
-}
-
-void WindowsHost::ShutdownGraphics() {
-	gfx_->Shutdown();
-	delete gfx_;
-	gfx_ = nullptr;
-}
-
 void WindowsHost::SetWindowTitle(const char *message) {
 #ifdef GOLD
 	const char *name = "PPSSPP Gold ";
@@ -175,43 +129,12 @@ void WindowsHost::SetWindowTitle(const char *message) {
 	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 }
 
-void WindowsHost::InitSound() {
-}
-
 // UGLY!
 extern WindowsAudioBackend *winAudioBackend;
 
 void WindowsHost::UpdateSound() {
 	if (winAudioBackend)
 		winAudioBackend->Update();
-}
-
-void WindowsHost::ShutdownSound() {
-}
-
-void WindowsHost::UpdateUI() {
-	PostMessage(mainWindow_, MainWindow::WM_USER_UPDATE_UI, 0, 0);
-
-	int peers = GetInstancePeerCount();
-	if (PPSSPP_ID >= 1 && peers != lastNumInstances_) {
-		lastNumInstances_ = peers;
-		PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
-	}
-}
-
-void WindowsHost::UpdateMemView() {
-	if (memoryWindow)
-		PostDialogMessage(memoryWindow, WM_DEB_UPDATE);
-}
-
-void WindowsHost::UpdateDisassembly() {
-	if (disasmWindow)
-		PostDialogMessage(disasmWindow, WM_DEB_UPDATE);
-}
-
-void WindowsHost::SetDebugMode(bool mode) {
-	if (disasmWindow)
-		PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
 }
 
 void WindowsHost::PollControllers() {
@@ -238,8 +161,8 @@ void WindowsHost::PollControllers() {
 
 	// Disabled by default, needs a workaround to map to psp keys.
 	if (g_Config.bMouseControl) {
-		float scaleFactor_x = g_dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
-		float scaleFactor_y = g_dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
+		float scaleFactor_x = g_display.dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
+		float scaleFactor_y = g_display.dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
 
 		float mx = std::max(-1.0f, std::min(1.0f, g_mouseDeltaX * scaleFactor_x));
 		float my = std::max(-1.0f, std::min(1.0f, g_mouseDeltaY * scaleFactor_y));
@@ -262,14 +185,6 @@ void WindowsHost::PollControllers() {
 
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_X] = g_mouseDeltaX;
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = g_mouseDeltaY;
-}
-
-void WindowsHost::BootDone() {
-	if (g_symbolMap)
-		g_symbolMap->SortSymbols();
-	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
-
-	SetDebugMode(!g_Config.bAutoRun);
 }
 
 static Path SymbolMapFilename(const Path &currentFilename, const char *ext) {
@@ -296,20 +211,6 @@ bool WindowsHost::AttemptLoadSymbolMap() {
 void WindowsHost::SaveSymbolMap() {
 	if (g_symbolMap)
 		g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
-}
-
-void WindowsHost::NotifySymbolMapUpdated() {
-	if (g_symbolMap)
-		g_symbolMap->SortSymbols();
-	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
-}
-
-bool WindowsHost::IsDebuggingEnabled() {
-#ifdef _DEBUG
-	return true;
-#else
-	return false;
-#endif
 }
 
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
@@ -345,10 +246,6 @@ HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathL
 	CoUninitialize();
 
 	return hres; 
-}
-
-bool WindowsHost::CanCreateShortcut() { 
-	return false;  // Turn on when below function fixed
 }
 
 bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string gameTitle) {
@@ -400,8 +297,4 @@ void WindowsHost::NotifyUserMessage(const std::string &message, float duration, 
 
 void WindowsHost::SendUIMessage(const std::string &message, const std::string &value) {
 	NativeMessageReceived(message.c_str(), value.c_str());
-}
-
-void WindowsHost::NotifySwitchUMDUpdated() {
-	PostMessage(mainWindow_, MainWindow::WM_USER_SWITCHUMD_UPDATED, 0, 0);
 }

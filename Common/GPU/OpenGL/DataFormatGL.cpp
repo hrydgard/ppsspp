@@ -86,6 +86,73 @@ bool Thin3DFormatToGLFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuin
 		alignment = 16;
 		break;
 
+#ifndef USING_GLES2
+	case DataFormat::BC1_RGBA_UNORM_BLOCK:
+		internalFormat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+		format = GL_RGB;
+		type = GL_FLOAT;
+		alignment = 8;
+		break;
+	case DataFormat::BC2_UNORM_BLOCK:
+		internalFormat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
+		format = GL_RGBA;
+		type = GL_FLOAT;
+		alignment = 16;
+		break;
+	case DataFormat::BC3_UNORM_BLOCK:
+		internalFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+		format = GL_RGBA;
+		type = GL_FLOAT;
+		alignment = 16;
+		break;
+	case DataFormat::BC4_UNORM_BLOCK:
+		internalFormat = GL_COMPRESSED_RED_RGTC1;
+		format = GL_R;
+		type = GL_FLOAT;
+		alignment = 16;
+		break;
+	case DataFormat::BC5_UNORM_BLOCK:
+		internalFormat = GL_COMPRESSED_RG_RGTC2;
+		format = GL_RG;
+		type = GL_FLOAT;
+		alignment = 16;
+		break;
+	case DataFormat::BC7_UNORM_BLOCK:
+		internalFormat = GL_COMPRESSED_RGBA_BPTC_UNORM;
+		format = GL_RGBA;
+		type = GL_FLOAT;
+		alignment = 16;
+		break;
+#endif
+
+	case DataFormat::ETC2_R8G8B8_UNORM_BLOCK:
+		internalFormat = GL_COMPRESSED_RGB8_ETC2;
+		format = GL_RGB;
+		type = GL_FLOAT;
+		alignment = 8;
+		break;
+
+	case DataFormat::ETC2_R8G8B8A1_UNORM_BLOCK:
+		internalFormat = GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2;
+		format = GL_RGBA;
+		type = GL_FLOAT;
+		alignment = 16;
+		break;
+
+	case DataFormat::ETC2_R8G8B8A8_UNORM_BLOCK:
+		internalFormat = GL_COMPRESSED_RGBA8_ETC2_EAC;
+		format = GL_RGBA;
+		type = GL_FLOAT;
+		alignment = 16;
+		break;
+
+	case DataFormat::ASTC_4x4_UNORM_BLOCK:
+		internalFormat = GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
+		format = GL_RGBA;
+		type = GL_FLOAT;
+		alignment = 16;
+		break;
+
 	default:
 		return false;
 	}

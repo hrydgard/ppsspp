@@ -286,8 +286,12 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 		PSSetFloat(CONST_PS_STENCILREPLACE, (float)gstate.getStencilTestRef() * (1.0f / 255.0f));
 	}
 	if (dirtyUniforms & DIRTY_TEX_ALPHA_MUL) {
+		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE) {
+			doTextureAlpha = false;
+		}
 		// NOTE: Reversed value, more efficient in shader.
-		PSSetFloat(CONST_PS_TEX_NO_ALPHA, gstate.isTextureAlphaUsed() ? 0.0f : 1.0f);
+		PSSetFloat(CONST_PS_TEX_NO_ALPHA, doTextureAlpha ? 0.0f : 1.0f);
 		PSSetFloat(CONST_PS_TEX_MUL, gstate.isColorDoublingEnabled() ? 2.0f : 1.0f);
 	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
@@ -458,12 +462,11 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		float vpZCenter = gstate.getViewportZCenter();
 
 		// These are just the reverse of the formulas in GPUStateUtils.
-		float halfActualZRange = vpZScale / gstate_c.vpDepthScale;
+		float halfActualZRange = gstate_c.vpDepthScale != 0.0f ? vpZScale / gstate_c.vpDepthScale : 0.0f;
 		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
 		float viewZScale = halfActualZRange * 2.0f;
-		// Account for the half pixel offset.
-		float viewZCenter = minz + (DepthSliceFactor() / 256.0f) * 0.5f;
-		float reverseScale = 2.0f * (1.0f / gstate_c.vpDepthScale);
+		float viewZCenter = minz;
+		float reverseScale = gstate_c.vpDepthScale != 0.0f ? 2.0f * (1.0f / gstate_c.vpDepthScale) : 0.0f;
 		float reverseTranslate = gstate_c.vpZOffset * 0.5f + 0.5f;
 
 		float data[4] = { viewZScale, viewZCenter, reverseTranslate, reverseScale };
@@ -537,10 +540,9 @@ void ShaderManagerDX9::Clear() {
 	DirtyShader();
 }
 
-void ShaderManagerDX9::ClearCache(bool deleteThem) {
+void ShaderManagerDX9::ClearShaders() {
 	Clear();
 }
-
 
 void ShaderManagerDX9::DirtyShader() {
 	// Forget the last shader ID
@@ -551,7 +553,7 @@ void ShaderManagerDX9::DirtyShader() {
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
-void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
+void ShaderManagerDX9::DirtyLastShader() {
 	lastVShader_ = nullptr;
 	lastPShader_ = nullptr;
 }

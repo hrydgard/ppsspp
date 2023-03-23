@@ -722,7 +722,7 @@ void VertexDecoderJitCache::Jit_NormalS16() {
 
 void VertexDecoderJitCache::Jit_NormalFloat() {
 	// Only need to copy 12 bytes, but copying 16 should be okay (and is faster.)
-	if ((dec_->posoff & 7) == 0 && (dec_->decFmt.posoff & 7) == 0) {
+	if ((dec_->nrmoff & 7) == 0 && (dec_->decFmt.nrmoff & 7) == 0) {
 		LDP(INDEX_SIGNED, EncodeRegTo64(tempReg1), EncodeRegTo64(tempReg2), srcReg, dec_->nrmoff);
 		STP(INDEX_SIGNED, EncodeRegTo64(tempReg1), EncodeRegTo64(tempReg2), dstReg, dec_->decFmt.nrmoff);
 	} else {

@@ -652,9 +652,6 @@
     <ClCompile Include="FileLoaders\RamCachingFileLoader.cpp">
       <Filter>FileLoaders</Filter>
     </ClCompile>
-    <ClCompile Include="TextureReplacer.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="MIPS\IR\IRAsm.cpp">
       <Filter>MIPS\IR</Filter>
     </ClCompile>
@@ -1736,9 +1733,6 @@
     </ClInclude>
     <ClInclude Include="FileLoaders\RamCachingFileLoader.h">
       <Filter>FileLoaders</Filter>
-    </ClInclude>
-    <ClInclude Include="TextureReplacer.h">
-      <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\IR\IRJit.h">
       <Filter>MIPS\IR</Filter>

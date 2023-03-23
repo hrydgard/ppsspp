@@ -105,6 +105,11 @@ public abstract class NativeActivity extends Activity {
 	private static final int RESULT_OPEN_DOCUMENT = 2;
 	private static final int RESULT_OPEN_DOCUMENT_TREE = 3;
 
+	// These can probably be merged, but conceptually nice to have them separate.
+	private int imageRequestId = -1;
+	private int fileRequestId = -1;
+	private int folderRequestId = -1;
+
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
 	private ArrayList<InputDeviceState> inputPlayers = new ArrayList<InputDeviceState>();
@@ -1130,15 +1135,16 @@ public abstract class NativeActivity extends Activity {
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
-		if (resultCode != RESULT_OK || data == null) {
-			return;
-		}
 		if (requestCode == RESULT_LOAD_IMAGE) {
+			if (resultCode != RESULT_OK || data == null) {
+				NativeApp.sendRequestResult(imageRequestId, false, "", 0);
+				return;
+			}
 			try {
 				Uri selectedImage = data.getData();
 				if (selectedImage != null) {
 					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-						NativeApp.sendMessage("bgImage_updated", selectedImage.toString());
+						NativeApp.sendRequestResult(imageRequestId, true, selectedImage.toString(), 0);
 					} else {
 						String[] filePathColumn = {MediaStore.Images.Media.DATA};
 						Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
@@ -1147,14 +1153,21 @@ public abstract class NativeActivity extends Activity {
 							int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
 							String picturePath = cursor.getString(columnIndex);
 							cursor.close();
-							NativeApp.sendMessage("bgImage_updated", picturePath);
+							NativeApp.sendRequestResult(imageRequestId, true, picturePath, 0);
 						}
 					}
+				} else {
+					NativeApp.sendRequestResult(imageRequestId, false, "", 0);
 				}
 			} catch (Exception e) {
 				Log.w(TAG, "Exception receiving image: " + e);
 			}
+			imageRequestId = -1;
 		} else if (requestCode == RESULT_OPEN_DOCUMENT) {
+			if (resultCode != RESULT_OK || data == null) {
+				NativeApp.sendRequestResult(fileRequestId, false, "", 0);
+				return;
+			}
 			Uri selectedFile = data.getData();
 			if (selectedFile != null) {
 				try {
@@ -1164,13 +1177,20 @@ public abstract class NativeActivity extends Activity {
 					}
 				} catch (Exception e) {
 					Log.w(TAG, "Exception getting permissions for document: " + e.toString());
+					NativeApp.sendRequestResult(fileRequestId, false, "", 0);
+					return;
 				}
 				// Even if we got an exception getting permissions, try to pass along the file. Maybe this version of Android
 				// doesn't need it.
 				Log.i(TAG, "Browse file finished:" + selectedFile.toString());
-				NativeApp.sendMessage("browse_fileSelect", selectedFile.toString());
+				NativeApp.sendRequestResult(fileRequestId, true, selectedFile.toString(), 0);
 			}
+			fileRequestId = -1;
 		} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
+			if (resultCode != RESULT_OK || data == null) {
+				NativeApp.sendRequestResult(folderRequestId, false, "", 0);
+				return;
+			}
 			Uri selectedDirectoryUri = data.getData();
 			if (selectedDirectoryUri != null) {
 				String path = selectedDirectoryUri.toString();
@@ -1191,8 +1211,9 @@ public abstract class NativeActivity extends Activity {
 					Log.i(TAG, "Child: " + child.getUri() + " " + child.getName());
 				}
 				*/
-				NativeApp.sendMessage("browse_folderSelect", documentFile.getUri().toString());
+				NativeApp.sendRequestResult(folderRequestId, true, documentFile.getUri().toString(), 0);
 			}
+			folderRequestId = -1;
 		}
 	}
 
@@ -1230,11 +1251,11 @@ public abstract class NativeActivity extends Activity {
 		return bld;
 	}
 
-	// The return value is sent to C++ via seqID.
-	public void inputBox(final String seqID, final String title, String defaultText, String defaultAction) {
+	// The return value is sent to C++ via requestID.
+	public void inputBox(final int requestId, final String title, String defaultText, String defaultAction) {
 		// Workaround for issue #13363 to fix Split/Second game start
 		if (isVRDevice()) {
-			NativeApp.sendInputBox(seqID, false, defaultText);
+			NativeApp.sendRequestResult(requestId, false, defaultText, 0);
 			return;
 		}
 
@@ -1269,14 +1290,14 @@ public abstract class NativeActivity extends Activity {
 			.setPositiveButton(defaultAction, new DialogInterface.OnClickListener() {
 				@Override
 				public void onClick(DialogInterface d, int which) {
-					NativeApp.sendInputBox(seqID, true, input.getText().toString());
+					NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
 					d.dismiss();
 				}
 			})
 			.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
 				@Override
 				public void onClick(DialogInterface d, int which) {
-					NativeApp.sendInputBox(seqID, false, "");
+					NativeApp.sendRequestResult(requestId, false, "", 0);
 					d.cancel();
 				}
 			});
@@ -1284,7 +1305,7 @@ public abstract class NativeActivity extends Activity {
 			builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
 				@Override
 				public void onDismiss(DialogInterface d) {
-					NativeApp.sendInputBox(seqID, false, "");
+					NativeApp.sendRequestResult(requestId, false, "", 0);
 					updateSystemUiVisibility();
 				}
 			});
@@ -1298,14 +1319,31 @@ public abstract class NativeActivity extends Activity {
 	public boolean processCommand(String command, String params) {
 		SurfaceView surfView = javaGL ? mGLSurfaceView : mSurfaceView;
 		if (command.equals("launchBrowser")) {
-			try {
-				Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));
-				startActivity(i);
-				return true;
-			} catch (Exception e) {
-				// No browser?
-				Log.e(TAG, e.toString());
-				return false;
+			// Special case for twitter
+			if (params.startsWith("https://twitter.com/#!/")) {
+				try {
+					String twitter_user_name = params.replaceFirst("https://twitter.com/#!/", "");
+					try {
+						Log.i(TAG, "Launching twitter directly: " + twitter_user_name);
+						startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("twitter://user?screen_name=" + twitter_user_name)));
+					} catch (Exception e) {
+						startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://twitter.com/#!/" + twitter_user_name)));
+					}
+					return true;
+				} catch (Exception e) { // For example, android.content.ActivityNotFoundException
+					Log.e(TAG, e.toString());
+					return false;
+				}
+			} else {
+				try {
+					Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));
+					startActivity(i);
+					return true;
+				} catch (Exception e) {
+					// No browser?
+					Log.e(TAG, e.toString());
+					return false;
+				}
 			}
 		} else if (command.equals("launchEmail")) {
 			try {
@@ -1321,17 +1359,21 @@ public abstract class NativeActivity extends Activity {
 				Log.e(TAG, e.toString());
 				return false;
 			}
-		} else if (command.equals("bgImage_browse")) {
+		} else if (command.equals("browse_image")) {
 			try {
+				imageRequestId = Integer.parseInt(params);
+				Log.i(TAG, "image request ID: " + imageRequestId);
 				Intent i = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
 				startActivityForResult(i, RESULT_LOAD_IMAGE);
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
+				imageRequestId = -1;
 				Log.e(TAG, e.toString());
 				return false;
 			}
 		} else if (command.equals("browse_file")) {
 			try {
+				fileRequestId = Integer.parseInt(params);
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 				intent.addCategory(Intent.CATEGORY_OPENABLE);
 				intent.setType("*/*");
@@ -1342,11 +1384,13 @@ public abstract class NativeActivity extends Activity {
 				startActivityForResult(intent, RESULT_OPEN_DOCUMENT);
 				// intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
 			} catch (Exception e) {
+				fileRequestId = -1;
 				Log.e(TAG, e.toString());
 				return false;
 			}
 		} else if (command.equals("browse_folder")) {
 			try {
+				folderRequestId = Integer.parseInt(params);
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
 				intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 				intent.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
@@ -1355,21 +1399,11 @@ public abstract class NativeActivity extends Activity {
 				startActivityForResult(intent, RESULT_OPEN_DOCUMENT_TREE);
 				return true;
 			} catch (Exception e) {
+				folderRequestId = -1;
 				Log.e(TAG, e.toString());
 				return false;
 			}
-		} else if (command.equals("sharejpeg")) {
-			try {
-				Intent share = new Intent(Intent.ACTION_SEND);
-				share.setType("image/jpeg");
-				share.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + params));
-				startActivity(Intent.createChooser(share, "Share Picture"));
-				return true;
-			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
-				Log.e(TAG, e.toString());
-				return false;
-			}
-		} else if (command.equals("sharetext")) {
+		} else if (command.equals("share_text")) {
 			try {
 				Intent sendIntent = new Intent();
 				sendIntent.setType("text/plain");
@@ -1377,19 +1411,6 @@ public abstract class NativeActivity extends Activity {
 				sendIntent.setAction(Intent.ACTION_SEND);
 				Intent shareIntent = Intent.createChooser(sendIntent, null);
 				startActivity(shareIntent);
-				return true;
-			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
-				Log.e(TAG, e.toString());
-				return false;
-			}
-		} else if (command.equals("showTwitter")) {
-			try {
-				String twitter_user_name = params;
-				try {
-					startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("twitter://user?screen_name=" + twitter_user_name)));
-				} catch (Exception e) {
-					startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://twitter.com/#!/" + twitter_user_name)));
-				}
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
 				Log.e(TAG, e.toString());
@@ -1419,13 +1440,13 @@ public abstract class NativeActivity extends Activity {
 			String title = "Input";
 			String defString = "";
 			String[] param = params.split(":@:", 3);
-			String seqID = param[0];
+			int requestID = Integer.parseInt(param[0]);
 			if (param.length > 1 && param[1].length() > 0)
 				title = param[1];
 			if (param.length > 2)
 				defString = param[2];
-			Log.i(TAG, "Launching inputbox: #" + seqID + " " + title + " " + defString);
-			inputBox(seqID, title, defString, "OK");
+			Log.i(TAG, "Launching inputbox: #" + requestID + " " + title + " " + defString);
+			inputBox(requestID, title, defString, "OK");
 			return true;
 		} else if (command.equals("vibrate")) {
 			int milliseconds = -1;
@@ -1555,6 +1576,6 @@ public abstract class NativeActivity extends Activity {
 	}
 
 	public static boolean isVRDevice() {
-		return BuildConfig.FLAVOR.startsWith("vr_");
+		return BuildConfig.FLAVOR.startsWith("vr");
 	}
 }

@@ -96,6 +96,9 @@ struct CompatFlags {
 	bool ForceCircleButtonConfirm;
 	bool DisallowFramebufferAtOffset;
 	bool RockmanDash2SoundFix;
+	bool ReadbackDepth;
+	bool BlockTransferDepth;
+	bool DaxterRotatedAnalogStick;
 };
 
 struct VRCompat {

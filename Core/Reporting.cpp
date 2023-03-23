@@ -569,7 +569,7 @@ namespace Reporting
 			return false;
 #else
 		File::FileInfo fo;
-		if (!VFSGetFileInfo("flash0/font/jpn0.pgf", &fo))
+		if (!g_VFS.GetFileInfo("flash0/font/jpn0.pgf", &fo))
 			return false;
 #endif
 

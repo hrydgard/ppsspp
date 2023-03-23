@@ -61,7 +61,6 @@ public:
 	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout_; }
 
 	void BeginFrame();
-	void EndFrame();
 
 private:
 	void InitDeviceObjects(Draw::DrawContext *draw);
@@ -78,6 +77,7 @@ private:
 		}
 
 		VulkanDescSetPool descPool;
+		bool descPoolUsed = false;
 	};
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 

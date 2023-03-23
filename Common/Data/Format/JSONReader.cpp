@@ -8,7 +8,7 @@ namespace json {
 
 JsonReader::JsonReader(const std::string &filename) {
 	size_t buf_size;
-	buffer_ = (char *)VFSReadFile(filename.c_str(), &buf_size);
+	buffer_ = (char *)g_VFS.ReadFile(filename.c_str(), &buf_size);
 	if (buffer_) {
 		parse();
 	} else {

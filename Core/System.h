@@ -100,10 +100,6 @@ void Core_UpdateDebugStats(bool collectStats);
 // Increments or decrements an internal counter.  Intended to be used by debuggers.
 void Core_ForceDebugStats(bool enable);
 
-void Audio_Init();
-void Audio_Shutdown();
-bool IsAudioInitialised();
-
 void UpdateLoadedFile(FileLoader *fileLoader);
 
 // NOTE: These are almost all derived from g_Config.memStickDirectory directly -

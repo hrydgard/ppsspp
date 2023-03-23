@@ -91,7 +91,7 @@ public:
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
-	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) override;
+	bool CopyFramebufferToMemory(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
@@ -112,7 +112,7 @@ public:
 
 	// Raster state
 	void SetScissorRect(int left, int top, int width, int height) override;
-	void SetViewports(int count, Viewport *viewports) override;
+	void SetViewport(const Viewport &viewport) override;
 	void SetBlendFactor(float color[4]) override {
 		if (memcmp(blendFactor_, color, sizeof(float) * 4)) {
 			memcpy(blendFactor_, color, sizeof(float) * 4);
@@ -420,20 +420,18 @@ void D3D11DrawContext::EndFrame() {
 	curPipeline_ = nullptr;
 }
 
-void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
-	D3D11_VIEWPORT vp[4];
-	for (int i = 0; i < count; i++) {
-		DisplayRect<float> rc{ viewports[i].TopLeftX , viewports[i].TopLeftY, viewports[i].Width, viewports[i].Height };
-		if (curRenderTargetView_ == bbRenderTargetView_)  // Only the backbuffer is actually rotated wrong!
-			RotateRectToDisplay(rc, curRTWidth_, curRTHeight_);
-		vp[i].TopLeftX = rc.x;
-		vp[i].TopLeftY = rc.y;
-		vp[i].Width = rc.w;
-		vp[i].Height = rc.h;
-		vp[i].MinDepth = viewports[i].MinDepth;
-		vp[i].MaxDepth = viewports[i].MaxDepth;
-	}
-	context_->RSSetViewports(count, vp);
+void D3D11DrawContext::SetViewport(const Viewport &viewport) {
+	DisplayRect<float> rc{ viewport.TopLeftX , viewport.TopLeftY, viewport.Width, viewport.Height };
+	if (curRenderTargetView_ == bbRenderTargetView_)  // Only the backbuffer is actually rotated wrong!
+		RotateRectToDisplay(rc, curRTWidth_, curRTHeight_);
+	D3D11_VIEWPORT vp;
+	vp.TopLeftX = rc.x;
+	vp.TopLeftY = rc.y;
+	vp.Width = rc.w;
+	vp.Height = rc.h;
+	vp.MinDepth = viewport.MinDepth;
+	vp.MaxDepth = viewport.MaxDepth;
+	context_->RSSetViewports(1, &vp);
 }
 
 void D3D11DrawContext::SetScissorRect(int left, int top, int width, int height) {
@@ -493,7 +491,12 @@ static DXGI_FORMAT dataFormatToD3D11(DataFormat format) {
 	case DataFormat::D16: return DXGI_FORMAT_D16_UNORM;
 	case DataFormat::D32F: return DXGI_FORMAT_D32_FLOAT;
 	case DataFormat::D32F_S8: return DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
-	case DataFormat::ETC1:
+	case DataFormat::BC1_RGBA_UNORM_BLOCK: return DXGI_FORMAT_BC1_UNORM;
+	case DataFormat::BC2_UNORM_BLOCK: return DXGI_FORMAT_BC2_UNORM;
+	case DataFormat::BC3_UNORM_BLOCK: return DXGI_FORMAT_BC3_UNORM;
+	case DataFormat::BC4_UNORM_BLOCK: return DXGI_FORMAT_BC4_UNORM;
+	case DataFormat::BC5_UNORM_BLOCK: return DXGI_FORMAT_BC5_UNORM;
+	case DataFormat::BC7_UNORM_BLOCK: return DXGI_FORMAT_BC7_UNORM;
 	default:
 		return DXGI_FORMAT_UNKNOWN;
 	}
@@ -1525,7 +1528,7 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 	return false;
 }
 
-bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, const char *tag) {
+bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)src;
 
 	if (fb) {

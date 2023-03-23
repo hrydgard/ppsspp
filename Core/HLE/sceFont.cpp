@@ -891,12 +891,12 @@ static void __LoadInternalFonts() {
 		bool bufferRead = false;
 
 		std::string fontFilename = gameFontPath + entry.fileName;
-		bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer) >= 0;
+		bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer, true) >= 0;
 
 		if (!bufferRead) {
 			// No game font, let's try override path.
 			fontFilename = fontOverridePath + entry.fileName;
-			bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer) >= 0;
+			bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer, true) >= 0;
 		}
 
 		if (!bufferRead) {

@@ -18,6 +18,7 @@
 #include "Common/MemoryUtil.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/StringUtils.h"
 #include "Common/Profiler/Profiler.h"
 #include "UI/DarwinFileSystemServices.h"
@@ -88,10 +89,10 @@ void *exception_handler(void *argument) {
 	return NULL;
 }
 
-static float g_safeInsetLeft = 0.0;
-static float g_safeInsetRight = 0.0;
-static float g_safeInsetTop = 0.0;
-static float g_safeInsetBottom = 0.0;
+float g_safeInsetLeft = 0.0;
+float g_safeInsetRight = 0.0;
+float g_safeInsetTop = 0.0;
+float g_safeInsetBottom = 0.0;
 
 // We no longer need to judge if jit is usable or not by according to the ios version.
 /*
@@ -152,6 +153,8 @@ float System_GetPropertyFloat(SystemProperty prop) {
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+		case SYSPROP_HAS_OPEN_DIRECTORY:
+			return false;
 		case SYSPROP_HAS_BACK_BUTTON:
 			return false;
 		case SYSPROP_APP_GOLD:
@@ -168,47 +171,72 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {
-	if (!strcmp(command, "finish")) {
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	}
+}
+
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+	switch (type) {
+	case SystemRequestType::EXIT_APP:
 		exit(0);
 		// The below seems right, but causes hangs. See #12140.
 		// dispatch_async(dispatch_get_main_queue(), ^{
 		// [sharedViewController shutdown];
 		//	exit(0);
 		// });
-	} else if (!strcmp(command, "sharetext")) {
-		NSString *text = [NSString stringWithUTF8String:parameter];
-		[sharedViewController shareText:text];
-	} else if (!strcmp(command, "camera_command")) {
-		if (!strncmp(parameter, "startVideo", 10)) {
+		break;
+	case SystemRequestType::BROWSE_FOR_FILE:
+	{
+		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
+			if (success) {
+				g_requestManager.PostSystemSuccess(requestId, path.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		};
+		DarwinFileSystemServices services;
+		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false);
+		return true;
+	}
+	case SystemRequestType::BROWSE_FOR_FOLDER:
+	{
+		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
+			if (success) {
+				g_requestManager.PostSystemSuccess(requestId, path.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		};
+		DarwinFileSystemServices services;
+		services.presentDirectoryPanel(callback, /* allowFiles = */ false, /* allowDirectories = */ true);
+		return true;
+	}
+	case SystemRequestType::CAMERA_COMMAND:
+		if (!strncmp(param1.c_str(), "startVideo", 10)) {
 			int width = 0, height = 0;
-			sscanf(parameter, "startVideo_%dx%d", &width, &height);
+			sscanf(param1.c_str(), "startVideo_%dx%d", &width, &height);
 			setCameraSize(width, height);
 			startVideo();
-		} else if (!strcmp(parameter, "stopVideo")) {
+		} else if (!strcmp(param1.c_str(), "stopVideo")) {
 			stopVideo();
 		}
-	} else if (!strcmp(command, "gps_command")) {
-		if (!strcmp(parameter, "open")) {
+		return true;
+	case SystemRequestType::GPS_COMMAND:
+		if (param1 == "open") {
 			startLocation();
-		} else if (!strcmp(parameter, "close")) {
+		} else if (param1 == "close") {
 			stopLocation();
 		}
-	} else if (!strcmp(command, "safe_insets")) {
-		float left, right, top, bottom;
-		if (4 == sscanf(parameter, "%f:%f:%f:%f", &left, &right, &top, &bottom)) {
-			g_safeInsetLeft = left;
-			g_safeInsetRight = right;
-			g_safeInsetTop = top;
-			g_safeInsetBottom = bottom;
-		}
-	} else if (!strcmp(command, "browse_folder")) {
-		DarwinDirectoryPanelCallback callback = [] (Path thePathChosen) {
-				NativeMessageReceived("browse_folder", thePathChosen.c_str());
-		};
-		
-		DarwinFileSystemServices services;
-		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
+		return true;
+	case SystemRequestType::SHARE_TEXT:
+	{
+		NSString *text = [NSString stringWithUTF8String:param1.c_str()];
+		[sharedViewController shareText:text];
+		return true;
+	}
+	default:
+		return false;
 	}
 }
 
@@ -234,7 +262,7 @@ BOOL SupportsTaptic() {
 	return [val intValue] >= 2;
 }
 
-void Vibrate(int mode) {
+void System_Vibrate(int mode) {
 	if (SupportsTaptic()) {
 		PPSSPPUIApplication* app = (PPSSPPUIApplication*)[UIApplication sharedApplication];
 		if(app.feedbackGenerator == nil)

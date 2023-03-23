@@ -257,7 +257,7 @@ BackgroundAudio::~BackgroundAudio() {
 
 BackgroundAudio::Sample *BackgroundAudio::LoadSample(const std::string &path) {
 	size_t bytes;
-	uint8_t *data = VFSReadFile(path.c_str(), &bytes);
+	uint8_t *data = g_VFS.ReadFile(path.c_str(), &bytes);
 	if (!data) {
 		return nullptr;
 	}

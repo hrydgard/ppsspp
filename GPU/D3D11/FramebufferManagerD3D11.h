@@ -17,19 +17,12 @@
 
 #pragma once
 
-#include <d3d11.h>
-
 // Keeps track of allocated FBOs.
 // Also provides facilities for drawing and later converting raw
 // pixel data.
 
-#include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "Common/GPU/thin3d.h"
-
-class TextureCacheD3D11;
-class DrawEngineD3D11;
-class ShaderManagerD3D11;
 
 class FramebufferManagerD3D11 : public FramebufferManagerCommon {
 public:

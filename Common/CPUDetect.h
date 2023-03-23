@@ -111,6 +111,10 @@ struct CPUInfo {
 	bool RiscV_V;
 	bool RiscV_B;
 	bool RiscV_Zicsr;
+	bool RiscV_Zba;
+	bool RiscV_Zbb;
+	bool RiscV_Zbc;
+	bool RiscV_Zbs;
 
 	// Quirks
 	struct {

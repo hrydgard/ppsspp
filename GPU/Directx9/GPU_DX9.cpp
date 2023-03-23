@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <set>
+#include <string>
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/GraphicsContext.h"
@@ -44,7 +44,7 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 
 GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-	: GPUCommon(gfxCtx, draw),
+	: GPUCommonHW(gfxCtx, draw),
 	  drawEngine_(draw) {
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	deviceEx_ = (LPDIRECT3DDEVICE9EX)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
@@ -94,7 +94,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 }
 
 u32 GPU_DX9::CheckGPUFeatures() const {
-	u32 features = GPUCommon::CheckGPUFeatures();
+	u32 features = GPUCommonHW::CheckGPUFeatures();
 	features |= GPU_USE_16BIT_FORMATS;
 	features |= GPU_USE_TEXTURE_LOD_CONTROL;
 
@@ -105,53 +105,24 @@ u32 GPU_DX9::CheckGPUFeatures() const {
 	return CheckGPUFeaturesLate(features);
 }
 
-GPU_DX9::~GPU_DX9() {
-	framebufferManagerDX9_->DestroyAllFBOs();
-	delete framebufferManagerDX9_;
-	delete textureCache_;
-	shaderManagerDX9_->ClearCache(true);
-	delete shaderManagerDX9_;
-}
-
-// Needs to be called on GPU thread, not reporting thread.
-void GPU_DX9::BuildReportingInfo() {
-	using namespace Draw;
-	DrawContext *thin3d = gfxCtx_->GetDrawContext();
-
-	reportingPrimaryInfo_ = thin3d->GetInfoString(InfoField::VENDORSTRING);
-	reportingFullInfo_ = reportingPrimaryInfo_ + " - " + System_GetProperty(SYSPROP_GPUDRIVER_VERSION) + " - " + thin3d->GetInfoString(InfoField::SHADELANGVERSION);
-}
-
 void GPU_DX9::DeviceLost() {
-	// Simply drop all caches and textures.
-	shaderManagerDX9_->ClearCache(false);
-	textureCacheDX9_->Clear(false);
-	GPUCommon::DeviceLost();
+	GPUCommonHW::DeviceLost();
 }
 
-void GPU_DX9::DeviceRestore() {
-	GPUCommon::DeviceRestore();
-	// Nothing needed.
-}
-
-void GPU_DX9::InitClear() {
-	if (!framebufferManager_->UseBufferedRendering()) {
-		dxstate.depthWrite.set(true);
-		dxstate.colorMask.set(0xF);
-		device_->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
-	}
+void GPU_DX9::DeviceRestore(Draw::DrawContext *draw) {
+	GPUCommonHW::DeviceRestore(draw);
 }
 
 void GPU_DX9::ReapplyGfxState() {
 	dxstate.Restore();
-	GPUCommon::ReapplyGfxState();
+	GPUCommonHW::ReapplyGfxState();
 }
 
 void GPU_DX9::BeginFrame() {
-	textureCacheDX9_->StartFrame();
+	textureCache_->StartFrame();
 	drawEngine_.BeginFrame();
 
-	GPUCommon::BeginFrame();
+	GPUCommonHW::BeginFrame();
 	shaderManagerDX9_->DirtyShader();
 
 	framebufferManager_->BeginFrame();
@@ -159,52 +130,16 @@ void GPU_DX9::BeginFrame() {
 	if (gstate_c.useFlagsChanged) {
 		// TODO: It'd be better to recompile them in the background, probably?
 		// This most likely means that saw equal depth changed.
-		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders");
-		shaderManagerDX9_->ClearCache(true);
+		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
+		shaderManager_->ClearShaders();
+		framebufferManager_->ClearAllDepthBuffers();
 		gstate_c.useFlagsChanged = false;
 	}
-}
-
-void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
-	drawEngine_.Flush();
-
-	shaderManager_->DirtyLastShader();
-
-	framebufferManagerDX9_->CopyDisplayToOutput(reallyDirty);
-
-	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 void GPU_DX9::FinishDeferred() {
 	// This finishes reading any vertex data that is pending.
 	drawEngine_.FinishDeferred();
-}
-
-inline void GPU_DX9::CheckFlushOp(int cmd, u32 diff) {
-	const u8 cmdFlags = cmdInfo_[cmd].flags;
-	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
-		if (dumpThisFrame_) {
-			NOTICE_LOG(G3D, "================ FLUSH ================");
-		}
-		drawEngine_.Flush();
-	}
-}
-
-void GPU_DX9::PreExecuteOp(u32 op, u32 diff) {
-	CheckFlushOp(op >> 24, diff);
-}
-
-void GPU_DX9::ExecuteOp(u32 op, u32 diff) {
-	const u8 cmd = op >> 24;
-	const CommandInfo info = cmdInfo_[cmd];
-	const u8 cmdFlags = info.flags;
-	if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
-		(this->*info.func)(op, diff);
-	} else if (diff) {
-		uint64_t dirty = info.flags >> 8;
-		if (dirty)
-			gstate_c.Dirty(dirty);
-	}
 }
 
 void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
@@ -218,40 +153,4 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerDX9_->GetNumVertexShaders(),
 		shaderManagerDX9_->GetNumFragmentShaders()
 	);
-}
-
-void GPU_DX9::DoState(PointerWrap &p) {
-	GPUCommon::DoState(p);
-
-	// TODO: Some of these things may not be necessary.
-	// None of these are necessary when saving.
-	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
-		textureCache_->Clear(true);
-		drawEngine_.ClearTrackedVertexArrays();
-
-		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-		framebufferManager_->DestroyAllFBOs();
-	}
-}
-
-std::vector<std::string> GPU_DX9::DebugGetShaderIDs(DebugShaderType type) {
-	switch (type) {
-	case SHADER_TYPE_VERTEXLOADER:
-		return drawEngine_.DebugGetVertexLoaderIDs();
-	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
-	default:
-		return shaderManagerDX9_->DebugGetShaderIDs(type);
-	}
-}
-
-std::string GPU_DX9::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
-	switch (type) {
-	case SHADER_TYPE_VERTEXLOADER:
-		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
-	default:
-		return shaderManagerDX9_->DebugGetShaderString(id, type, stringType);
-	}
 }

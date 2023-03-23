@@ -358,7 +358,7 @@ static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
 	//HUD texture cannot be in CLUT32 format
 	else if (gstate.getTextureFormat() == GETextureFormat::GE_TFMT_CLUT32) hud = false;
 	//HUD cannot have full texture alpha
-	else if (gstate_c.textureFullAlpha) hud = false;
+	else if (gstate_c.textureFullAlpha && gstate.getTextureFormat() != GETextureFormat::GE_TFMT_CLUT4) hud = false;
 	//HUD must have full vertex alpha
 	else if (!gstate_c.vertexFullAlpha && gstate.getDepthTestFunction() == GE_COMP_NEVER) hud = false;
 	//HUD cannot render FB screenshot
@@ -443,7 +443,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 		ScaleProjMatrix(flippedMatrix, useBufferedRendering);
 
 		render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
-		render_->SetUniformF1(&u_rotation, useBufferedRendering ? 0 : (float)g_display_rotation);
+		render_->SetUniformF1(&u_rotation, useBufferedRendering ? 0 : (float)g_display.rotation);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX) {
 		Matrix4x4 proj_through;
@@ -458,7 +458,11 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 		SetColorUniform3(render_, &u_texenv, gstate.texenvcolor);
 	}
 	if (dirty & DIRTY_TEX_ALPHA_MUL) {
-		render_->SetUniformF1(&u_texNoAlpha, gstate.isTextureAlphaUsed() ? 0.0f : 1.0f);
+		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE) {
+			doTextureAlpha = false;
+		}
+		render_->SetUniformF1(&u_texNoAlpha, doTextureAlpha ? 0.0f : 1.0f);
 		render_->SetUniformF1(&u_texMul, gstate.isColorDoublingEnabled() ? 2.0f : 1.0f);
 	}
 	if (dirty & DIRTY_ALPHACOLORREF) {
@@ -584,7 +588,8 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 		float vpZCenter = gstate.getViewportZCenter();
 
 		// These are just the reverse of the formulas in GPUStateUtils.
-		float halfActualZRange = vpZScale / gstate_c.vpDepthScale;
+		float halfActualZRange = gstate_c.vpDepthScale != 0.0f ? vpZScale / gstate_c.vpDepthScale : 0.0f;
+		float inverseDepthScale = gstate_c.vpDepthScale != 0.0f ? 1.0f / gstate_c.vpDepthScale : 0.0f;
 		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
 		float viewZScale = halfActualZRange;
 		float viewZCenter = minz + halfActualZRange;
@@ -594,7 +599,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 			viewZCenter = vpZCenter;
 		}
 
-		float data[4] = { viewZScale, viewZCenter, gstate_c.vpZOffset, 1.0f / gstate_c.vpDepthScale };
+		float data[4] = { viewZScale, viewZCenter, gstate_c.vpZOffset, inverseDepthScale };
 		SetFloatUniform4(render_, &u_depthRange, data);
 	}
 	if (dirty & DIRTY_CULLRANGE) {
@@ -711,7 +716,7 @@ void ShaderManagerGLES::Clear() {
 	DirtyShader();
 }
 
-void ShaderManagerGLES::ClearCache(bool deleteThem) {
+void ShaderManagerGLES::ClearShaders() {
 	// TODO: Recreate all from the diskcache when we come back.
 	Clear();
 }

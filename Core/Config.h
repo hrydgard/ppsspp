@@ -29,8 +29,6 @@
 
 extern const char *PPSSPP_GIT_VERSION;
 
-extern bool jitForcedOff;
-
 enum ChatPositions {
 	BOTTOM_LEFT = 0,
 	BOTTOM_CENTER = 1,
@@ -215,7 +213,6 @@ public:
 	bool bReplaceTextures;
 	bool bSaveNewTextures;
 	bool bIgnoreTextureFilenames;
-	bool bReplaceTexturesAllowLate;
 	int iTexScalingLevel; // 0 = auto, 1 = off, 2 = 2x, ..., 5 = 5x
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 	bool bTexDeposterize;
@@ -226,7 +223,7 @@ public:
 	int iAnalogFpsMode; // 0 = auto, 1 = single direction, 2 = mapped to opposite
 	int iMaxRecent;
 	int iCurrentStateSlot;
-	int iRewindFlipFrequency;
+	int iRewindSnapshotInterval;
 	bool bUISound;
 	bool bEnableStateUndo;
 	std::string sStateLoadUndoGame;
@@ -285,23 +282,19 @@ public:
 	bool bShowAudioDebug;
 	bool bShowGpuProfile;
 
-	//Analog stick tilting
-	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input
-	//considers this orientation to be equal to no movement of the analog stick.
-	float fTiltBaseX, fTiltBaseY;
-	int iTiltOrientation;
-	//whether the x axes and y axes should invert directions (left becomes right, top becomes bottom.)
-	bool bInvertTiltX, bInvertTiltY;
-	//the sensitivity of the tilt in the x direction
+	// Analog stick tilting
+	// This is the held base angle (from the horizon), that we compute the tilt relative from.
+	float fTiltBaseAngleY;
+	// Inverts the direction of the x axes and y axes for the purposes of tilt input.
+	bool bInvertTiltX;
+	bool bInvertTiltY;
+	// The sensitivity of the tilt in the X and Y directions, separately.
 	int iTiltSensitivityX;
-	//the sensitivity of the tilt in the Y direction
 	int iTiltSensitivityY;
-	//the deadzone radius of the tilt
-	float fDeadzoneRadius;
-	// deadzone skip
-	float fTiltDeadzoneSkip;
-	//type of tilt input currently selected: Defined in TiltEventProcessor.h
-	//0 - no tilt, 1 - analog stick, 2 - D-Pad, 3 - Action Buttons (Tri, Cross, Square, Circle)
+	// The deadzone radius of the tilt. Only used in the analog mapping.
+	float fTiltAnalogDeadzoneRadius;
+	// Type of tilt input currently selected: Defined in TiltEventProcessor.h
+	// 0 - no tilt, 1 - analog stick, 2 - D-Pad, 3 - Action Buttons (Tri, Cross, Square, Circle)
 	int iTiltInputType;
 
 	// The three tabs.
@@ -468,6 +461,7 @@ public:
 	bool bEnableStereo;
 	bool bEnableMotions;
 	bool bForce72Hz;
+	bool bManualForceVR;
 	float fCameraDistance;
 	float fCameraHeight;
 	float fCameraSide;
@@ -476,8 +470,9 @@ public:
 	float fHeadUpDisplayScale;
 	float fMotionLength;
 	float fHeadRotationScale;
+	bool bHeadRotationEnabled;
 	bool bHeadRotationSmoothing;
-	int iHeadRotation;
+	int iCameraPitch;
 
 	// Debugger
 	int iDisasmWindowX;
@@ -572,8 +567,8 @@ public:
 	const std::map<std::string, std::pair<std::string, int>> &GetLangValuesMapping();
 	bool LoadAppendedConfig();
 	void SetAppendedConfigIni(const Path &path);
-	
 	void UpdateAfterSettingAutoFrameSkip();
+	void NotifyUpdatedCpuCore();
 protected:
 	void LoadStandardControllerIni();
 	void LoadLangValuesMapping();

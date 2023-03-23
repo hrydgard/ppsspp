@@ -79,7 +79,6 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 	size_t inLen = inPath.length();
 	if (inLen == 0)
 	{
-		WARN_LOG(FILESYS, "RealPath: inPath is empty");
 		outPath = currentDirectory;
 		return true;
 	}
@@ -581,8 +580,12 @@ size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 		return 0;
 }
 
-int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> &data) {
-	int handle = OpenFile(filename, FILEACCESS_READ);
+int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> &data, bool quiet) {
+	FileAccess access = FILEACCESS_READ;
+	if (quiet) {
+		access = (FileAccess)(access | FILEACCESS_PPSSPP_QUIET);
+	}
+	int handle = OpenFile(filename, access);
 	if (handle < 0)
 		return handle;
 

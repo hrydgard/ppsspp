@@ -22,7 +22,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Serialize/SerializeFuncs.h"
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Serialize/Serializer.h"
 
 #include "Core/Dialog/PSPOskDialog.h"
@@ -350,6 +350,7 @@ int PSPOskDialog::Init(u32 oskPtr) {
 
 	// Eat any keys pressed before the dialog inited.
 	UpdateButtons();
+	InitCommon();
 
 	std::lock_guard<std::mutex> guard(nativeMutex_);
 	nativeStatus_ = PSPOskNativeStatus::IDLE;
@@ -891,14 +892,14 @@ int PSPOskDialog::NativeKeyboard() {
 			defaultText.assign(u"VALUE");
 
 		// There's already ConvertUCS2ToUTF8 in this file. Should we use that instead of the global ones?
-		System_InputBoxGetString(::ConvertUCS2ToUTF8(titleText), ::ConvertUCS2ToUTF8(defaultText), [&](bool result, const std::string &value) {
+		System_InputBoxGetString(::ConvertUCS2ToUTF8(titleText), ::ConvertUCS2ToUTF8(defaultText), [&](const std::string &value, int iValue) {
 			std::lock_guard<std::mutex> guard(nativeMutex_);
 			if (nativeStatus_ != PSPOskNativeStatus::WAITING) {
 				return;
 			}
 
 			nativeValue_ = value;
-			nativeStatus_ = result ? PSPOskNativeStatus::SUCCESS : PSPOskNativeStatus::FAILURE;
+			nativeStatus_ = iValue ? PSPOskNativeStatus::SUCCESS : PSPOskNativeStatus::FAILURE;
 		});
 	} else if (nativeStatus_ == PSPOskNativeStatus::SUCCESS) {
 		inputChars = ConvertUTF8ToUCS2(nativeValue_);
@@ -954,6 +955,7 @@ int PSPOskDialog::Update(int animSpeed) {
 	const int framesHeldRepeatRate = 5;
 
 	UpdateButtons();
+	UpdateCommon();
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedExtra = selectedChar % numKeyCols[currentKeyboard];
 

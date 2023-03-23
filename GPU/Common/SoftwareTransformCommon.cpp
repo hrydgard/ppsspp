@@ -452,9 +452,10 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 		bool matchingComponents = params_.allowSeparateAlphaClear || (alphaMatchesColor && depthMatchesStencil);
 		bool stencilNotMasked = !gstate.isClearModeAlphaMask() || gstate.getStencilWriteMask() == 0x00;
 		if (matchingComponents && stencilNotMasked) {
+			DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
 			result->color = transformed[1].color0_32;
 			// Need to rescale from a [0, 1] float.  This is the final transformed value.
-			result->depth = ToScaledDepthFromIntegerScale((int)(transformed[1].z * 65535.0f));
+			result->depth = depthScale.EncodeFromU16((float)(int)(transformed[1].z * 65535.0f));
 			result->action = SW_CLEAR;
 			gpuStats.numClears++;
 			return;

@@ -18,6 +18,9 @@
 #include "ppsspp_config.h"
 #include <algorithm>
 #include <cstring>
+#if PPSSPP_ARCH(RISCV64) && PPSSPP_PLATFORM(LINUX)
+#include <sys/cachectl.h>
+#endif
 #include "Common/BitScan.h"
 #include "Common/CPUDetect.h"
 #include "Common/RiscVEmitter.h"
@@ -58,8 +61,13 @@ static inline bool SupportsVector() {
 }
 
 static inline bool SupportsBitmanip(char zbx) {
-	// TODO: Allow and detect sub-support?
-	return cpu_info.RiscV_B;
+	switch (zbx) {
+	case 'a': return cpu_info.RiscV_B || cpu_info.RiscV_Zba;
+	case 'b': return cpu_info.RiscV_B || cpu_info.RiscV_Zbb;
+	case 'c': return cpu_info.RiscV_B || cpu_info.RiscV_Zbc;
+	case 's': return cpu_info.RiscV_B || cpu_info.RiscV_Zbs;
+	default: return false;
+	}
 }
 
 static inline bool SupportsFloatHalf(bool allowMin = false) {
@@ -1021,8 +1029,12 @@ void RiscVEmitter::ReserveCodeSpace(u32 bytes) {
 	_assert_msg_((bytes & 3) == 0 || SupportsCompressed(), "Code space should be aligned (no compressed)");
 	for (u32 i = 0; i < bytes / 4; i++)
 		EBREAK();
-	if (bytes & 2)
-		Write16(0);
+	if (bytes & 2) {
+		if (SupportsCompressed())
+			C_EBREAK();
+		else
+			Write16(0);
+	}
 }
 
 const u8 *RiscVEmitter::AlignCode16() {
@@ -1047,12 +1059,30 @@ void RiscVEmitter::FlushIcache() {
 
 void RiscVEmitter::FlushIcacheSection(const u8 *start, const u8 *end) {
 #if PPSSPP_ARCH(RISCV64)
+#if PPSSPP_PLATFORM(LINUX)
+	__riscv_flush_icache((char *)start, (char *)end, 0);
+#else
+	// TODO: This might only correspond to a local hart icache clear, which is no good.
 	__builtin___clear_cache((char *)start, (char *)end);
 #endif
+#endif
+}
+
+FixupBranch::FixupBranch(FixupBranch &&other) {
+	ptr = other.ptr;
+	type = other.type;
+	other.ptr = nullptr;
 }
 
 FixupBranch::~FixupBranch() {
 	_assert_msg_(ptr == nullptr, "FixupBranch never set (left infinite loop)");
+}
+
+FixupBranch &FixupBranch::operator =(FixupBranch &&other) {
+	ptr = other.ptr;
+	type = other.type;
+	other.ptr = nullptr;
+	return *this;
 }
 
 void RiscVEmitter::SetJumpTarget(FixupBranch &branch) {
@@ -1675,6 +1705,10 @@ void RiscVEmitter::EBREAK() {
 }
 
 void RiscVEmitter::LWU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	if (BitsSupported() == 32) {
+		LW(rd, rs1, simm12);
+		return;
+	}
 	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
 	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_WU, rs1, simm12));
 }
@@ -3878,67 +3912,67 @@ void RiscVEmitter::REV8(RiscVReg rd, RiscVReg rs) {
 
 void RiscVEmitter::CLMUL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
-	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+	_assert_msg_(SupportsBitmanip('c'), "%s instruction unsupported without B", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::CLMUL, rs1, rs2, Funct7::MINMAX_CLMUL));
 }
 
 void RiscVEmitter::CLMULH(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
-	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+	_assert_msg_(SupportsBitmanip('c'), "%s instruction unsupported without B", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::CLMULH, rs1, rs2, Funct7::MINMAX_CLMUL));
 }
 
 void RiscVEmitter::CLMULR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
-	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+	_assert_msg_(SupportsBitmanip('c'), "%s instruction unsupported without B", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::CLMULR, rs1, rs2, Funct7::MINMAX_CLMUL));
 }
 
 void RiscVEmitter::BCLR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
-	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+	_assert_msg_(SupportsBitmanip('s'), "%s instruction unsupported without B", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::BSET, rs1, rs2, Funct7::BCLREXT));
 }
 
 void RiscVEmitter::BCLRI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
-	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+	_assert_msg_(SupportsBitmanip('s'), "%s instruction unsupported without B", __func__);
 	Write32(EncodeGIShift(Opcode32::OP_IMM, rd, Funct3::BSET, rs1, shamt, Funct7::BCLREXT));
 }
 
 void RiscVEmitter::BEXT(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
-	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+	_assert_msg_(SupportsBitmanip('s'), "%s instruction unsupported without B", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::BEXT, rs1, rs2, Funct7::BCLREXT));
 }
 
 void RiscVEmitter::BEXTI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
-	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+	_assert_msg_(SupportsBitmanip('s'), "%s instruction unsupported without B", __func__);
 	Write32(EncodeGIShift(Opcode32::OP_IMM, rd, Funct3::BEXT, rs1, shamt, Funct7::BCLREXT));
 }
 
 void RiscVEmitter::BINV(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
-	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+	_assert_msg_(SupportsBitmanip('s'), "%s instruction unsupported without B", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::BSET, rs1, rs2, Funct7::BINV_REV));
 }
 
 void RiscVEmitter::BINVI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
-	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+	_assert_msg_(SupportsBitmanip('s'), "%s instruction unsupported without B", __func__);
 	Write32(EncodeGIShift(Opcode32::OP_IMM, rd, Funct3::BSET, rs1, shamt, Funct7::BINV_REV));
 }
 
 void RiscVEmitter::BSET(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
-	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+	_assert_msg_(SupportsBitmanip('s'), "%s instruction unsupported without B", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::BSET, rs1, rs2, Funct7::BSET_ORC));
 }
 
 void RiscVEmitter::BSETI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
-	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+	_assert_msg_(SupportsBitmanip('s'), "%s instruction unsupported without B", __func__);
 	Write32(EncodeGIShift(Opcode32::OP_IMM, rd, Funct3::BSET, rs1, shamt, Funct7::BSET_ORC));
 }
 
@@ -4276,6 +4310,20 @@ void RiscVEmitter::C_SDSP(RiscVReg rs2, u32 uimm9) {
 	u8 imm5_4_3 = ImmBits8(uimm9, 3, 3);
 	u8 imm5_4_3_8_7_6 = (imm5_4_3 << 3) | imm8_7_6;
 	Write16(EncodeCSS(Opcode16::C2, rs2, imm5_4_3_8_7_6, Funct3::C_SDSP));
+}
+
+void RiscVCodeBlock::PoisonMemory(int offset) {
+	// So we can adjust region to writable space.  Might be zero.
+	ptrdiff_t writable = writable_ - code_;
+
+	u32 *ptr = (u32 *)(region + offset + writable);
+	u32 *maxptr = (u32 *)(region + region_size - offset + writable);
+	// This will only write an even multiple of u32, but not much else to do.
+	// RiscV: 0x00100073 = EBREAK, 0x9002 = C.EBREAK
+	while (ptr + 1 <= maxptr)
+		*ptr++ = 0x00100073;
+	if (SupportsCompressed() && ptr < maxptr && (intptr_t)maxptr - (intptr_t)ptr >= 2)
+		*(u16 *)ptr = 0x9002;
 }
 
 };

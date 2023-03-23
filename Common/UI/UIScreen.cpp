@@ -24,7 +24,7 @@ UIScreen::~UIScreen() {
 }
 
 bool UIScreen::UseVerticalLayout() const {
-	return dp_yres > dp_xres * 1.1f;
+	return g_display.dp_yres > g_display.dp_xres * 1.1f;
 }
 
 void UIScreen::DoRecreateViews() {
@@ -98,12 +98,12 @@ void UIScreen::preRender() {
 	Draw::Viewport viewport;
 	viewport.TopLeftX = 0;
 	viewport.TopLeftY = 0;
-	viewport.Width = pixel_xres;
-	viewport.Height = pixel_yres;
+	viewport.Width = g_display.pixel_xres;
+	viewport.Height = g_display.pixel_yres;
 	viewport.MaxDepth = 1.0;
 	viewport.MinDepth = 0.0;
-	draw->SetViewports(1, &viewport);
-	draw->SetTargetSize(pixel_xres, pixel_yres);
+	draw->SetViewport(viewport);
+	draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
 }
 
 void UIScreen::postRender() {
@@ -141,8 +141,8 @@ TouchInput UIScreen::transformTouch(const TouchInput &touch) {
 	float x = touch.x - translation_.x;
 	float y = touch.y - translation_.y;
 	// Scale around the center as the origin.
-	updated.x = (x - dp_xres * 0.5f) / scale_.x + dp_xres * 0.5f;
-	updated.y = (y - dp_yres * 0.5f) / scale_.y + dp_yres * 0.5f;
+	updated.x = (x - g_display.dp_xres * 0.5f) / scale_.x + g_display.dp_xres * 0.5f;
+	updated.y = (y - g_display.dp_yres * 0.5f) / scale_.y + g_display.dp_yres * 0.5f;
 
 	return updated;
 }
@@ -280,14 +280,14 @@ void PopupScreen::update() {
 		scale_.y =  0.9f + animatePos * 0.1f;
 
 		if (hasPopupOrigin_) {
-			float xoff = popupOrigin_.x - dp_xres / 2;
-			float yoff = popupOrigin_.y - dp_yres / 2;
+			float xoff = popupOrigin_.x - g_display.dp_xres / 2;
+			float yoff = popupOrigin_.y - g_display.dp_yres / 2;
 
 			// Pull toward the origin a bit.
 			translation_.x = xoff * (1.0f - animatePos) * 0.2f;
 			translation_.y = yoff * (1.0f - animatePos) * 0.2f;
 		} else {
-			translation_.y = -dp_yres * (1.0f - animatePos) * 0.2f;
+			translation_.y = -g_display.dp_yres * (1.0f - animatePos) * 0.2f;
 		}
 	} else {
 		alpha_ = 1.0f;
@@ -333,7 +333,7 @@ void PopupScreen::CreateViews() {
 	box_->SetBG(dc.theme->popupStyle.background);
 	box_->SetHasDropShadow(hasDropShadow_);
 	// Since we scale a bit, make the dropshadow bleed past the edges.
-	box_->SetDropShadowExpand(std::max(dp_xres, dp_yres));
+	box_->SetDropShadowExpand(std::max(g_display.dp_xres, g_display.dp_yres));
 	box_->SetSpacing(0.0f);
 
 	View *title = new PopupHeader(title_);

@@ -51,14 +51,11 @@ public:
 	void ForgetLastTexture() override {
 		lastBoundTexture = nullptr;
 	}
-	void InvalidateLastTexture() override {
-		lastBoundTexture = nullptr;
-	}
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 
-	void DeviceLost();
-	void DeviceRestore(Draw::DrawContext *draw);
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;

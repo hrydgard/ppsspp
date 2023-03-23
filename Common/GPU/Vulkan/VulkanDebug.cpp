@@ -62,6 +62,12 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		// See https://github.com/hrydgard/ppsspp/pull/16354
 		return false;
 	}
+	if (messageCode == -375211665) {
+		// VUID-vkAllocateMemory-pAllocateInfo-01713
+		// Can happen when VMA aggressively tries to allocate aperture memory for upload. It gracefully
+		// falls back to regular video memory, so we just ignore this. I'd argue this is a VMA bug, actually.
+		return false;
+	}
 
 	int count;
 	{

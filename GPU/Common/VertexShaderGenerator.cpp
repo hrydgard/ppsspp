@@ -1350,7 +1350,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 		if (gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
 			// Cull any triangle fully outside in the same direction when depth clamp enabled.
-			WRITE(p, "  if (u_cullRangeMin.w > 0.0) {\n");
+			// We check u_depthRange in case depthScale was zero - in that case we can't work out the cull distance.
+			WRITE(p, "  if (u_cullRangeMin.w > 0.0 && u_depthRange.w != 0.0f) {\n");
 			WRITE(p, "    %sgl_CullDistance%s = projPos.z - u_cullRangeMin.z;\n", compat.vsOutPrefix, cull0);
 			WRITE(p, "    %sgl_CullDistance%s = u_cullRangeMax.z - projPos.z;\n", compat.vsOutPrefix, cull1);
 			WRITE(p, "  } else {\n");

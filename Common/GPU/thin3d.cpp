@@ -93,6 +93,31 @@ bool DataFormatIsDepthStencil(DataFormat fmt) {
 	}
 }
 
+// We don't bother listing the formats that are irrelevant for PPSSPP, like BC6 (HDR format)
+// or weird-shaped ASTC formats. We only support 4x4 block size formats for now.
+// If you pass in a blockSize parameter, it receives byte count that a 4x4 block takes in this format.
+bool DataFormatIsBlockCompressed(DataFormat fmt, int *blockSize) {
+	switch (fmt) {
+	case DataFormat::BC1_RGBA_UNORM_BLOCK:
+	case DataFormat::BC4_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8_UNORM_BLOCK:
+		if (blockSize) *blockSize = 8;  // 64 bits
+		return true;
+	case DataFormat::BC2_UNORM_BLOCK:
+	case DataFormat::BC3_UNORM_BLOCK:
+	case DataFormat::BC5_UNORM_BLOCK:
+	case DataFormat::BC7_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8A1_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8A8_UNORM_BLOCK:
+	case DataFormat::ASTC_4x4_UNORM_BLOCK:
+		if (blockSize) *blockSize = 16;  // 128 bits
+		return true;
+	default:
+		if (blockSize) *blockSize = 0;
+		return false;
+	}
+}
+
 RefCountedObject::~RefCountedObject() {
 	_dbg_assert_(refcount_ == 0xDEDEDE);
 }

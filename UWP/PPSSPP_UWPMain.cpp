@@ -11,7 +11,7 @@
 #include "Common/Common.h"
 #include "Common/Input/InputState.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/DirectXHelper.h"
@@ -22,7 +22,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 
 #include "Core/System.h"
 #include "Core/Loaders.h"
@@ -76,8 +76,8 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	ctx_.reset(new UWPGraphicsContext(deviceResources));
 
 	const Path &exePath = File::GetExeDirectory();
-	VFSRegister("", new DirectoryAssetReader(exePath / "Content"));
-	VFSRegister("", new DirectoryAssetReader(exePath));
+	g_VFS.Register("", new DirectoryReader(exePath / "Content"));
+	g_VFS.Register("", new DirectoryReader(exePath));
 
 	wchar_t lcCountry[256];
 
@@ -135,6 +135,7 @@ PPSSPP_UWPMain::~PPSSPP_UWPMain() {
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::LOST_BACKBUFFER, 0, 0, nullptr);
 	NativeShutdownGraphics();
 	NativeShutdown();
+	g_VFS.Clear();
 
 	// Deregister device notification
 	m_deviceResources->RegisterDeviceNotify(nullptr);
@@ -167,39 +168,39 @@ bool PPSSPP_UWPMain::Render() {
 	auto context = m_deviceResources->GetD3DDeviceContext();
 
 	switch (m_deviceResources->ComputeDisplayRotation()) {
-	case DXGI_MODE_ROTATION_IDENTITY: g_display_rotation = DisplayRotation::ROTATE_0; break;
-	case DXGI_MODE_ROTATION_ROTATE90: g_display_rotation = DisplayRotation::ROTATE_90; break;
-	case DXGI_MODE_ROTATION_ROTATE180: g_display_rotation = DisplayRotation::ROTATE_180; break;
-	case DXGI_MODE_ROTATION_ROTATE270: g_display_rotation = DisplayRotation::ROTATE_270; break;
+	case DXGI_MODE_ROTATION_IDENTITY: g_display.rotation = DisplayRotation::ROTATE_0; break;
+	case DXGI_MODE_ROTATION_ROTATE90: g_display.rotation = DisplayRotation::ROTATE_90; break;
+	case DXGI_MODE_ROTATION_ROTATE180: g_display.rotation = DisplayRotation::ROTATE_180; break;
+	case DXGI_MODE_ROTATION_ROTATE270: g_display.rotation = DisplayRotation::ROTATE_270; break;
 	}
 	// Not super elegant but hey.
-	memcpy(&g_display_rot_matrix, &m_deviceResources->GetOrientationTransform3D(), sizeof(float) * 16);
+	memcpy(&g_display.rot_matrix, &m_deviceResources->GetOrientationTransform3D(), sizeof(float) * 16);
 
 	// Reset the viewport to target the whole screen.
 	auto viewport = m_deviceResources->GetScreenViewport();
 
-	pixel_xres = viewport.Width;
-	pixel_yres = viewport.Height;
+	g_display.pixel_xres = viewport.Width;
+	g_display.pixel_yres = viewport.Height;
 
-	if (g_display_rotation == DisplayRotation::ROTATE_90 || g_display_rotation == DisplayRotation::ROTATE_270) {
+	if (g_display.rotation == DisplayRotation::ROTATE_90 || g_display.rotation == DisplayRotation::ROTATE_270) {
 		// We need to swap our width/height.
-		std::swap(pixel_xres, pixel_yres);
+		std::swap(g_display.pixel_xres, g_display.pixel_yres);
 	}
 
-	g_dpi = m_deviceResources->GetActualDpi();
+	g_display.dpi = m_deviceResources->GetActualDpi();
 
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
 		// Boost DPI a bit to look better.
-		g_dpi *= 96.0f / 136.0f;
+		g_display.dpi *= 96.0f / 136.0f;
 	}
-	g_dpi_scale_x = 96.0f / g_dpi;
-	g_dpi_scale_y = 96.0f / g_dpi;
+	g_display.dpi_scale_x = 96.0f / g_display.dpi;
+	g_display.dpi_scale_y = 96.0f / g_display.dpi;
 
-	pixel_in_dps_x = 1.0f / g_dpi_scale_x;
-	pixel_in_dps_y = 1.0f / g_dpi_scale_y;
+	g_display.pixel_in_dps_x = 1.0f / g_display.dpi_scale_x;
+	g_display.pixel_in_dps_y = 1.0f / g_display.dpi_scale_y;
 
-	dp_xres = pixel_xres * g_dpi_scale_x;
-	dp_yres = pixel_yres * g_dpi_scale_y;
+	g_display.dp_xres = g_display.pixel_xres * g_display.dpi_scale_x;
+	g_display.dp_yres = g_display.pixel_yres * g_display.dpi_scale_y;
 
 	context->RSSetViewports(1, &viewport);
 
@@ -274,8 +275,8 @@ void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y,
 	// and then apply our own "dpi".
 	float dpiFactor_x = m_deviceResources->GetActualDpi() / 96.0f;
 	float dpiFactor_y = dpiFactor_x;
-	dpiFactor_x /= pixel_in_dps_x;
-	dpiFactor_y /= pixel_in_dps_y;
+	dpiFactor_x /= g_display.pixel_in_dps_x;
+	dpiFactor_y /= g_display.pixel_in_dps_y;
 
 	TouchInput input{};
 	input.id = touchId;
@@ -410,12 +411,14 @@ void System_Toast(const char *str) {}
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+	case SYSPROP_HAS_OPEN_DIRECTORY:
+		return false;
 	case SYSPROP_HAS_FILE_BROWSER:
 		return true;
 	case SYSPROP_HAS_FOLDER_BROWSER:
 		return false;  // at least I don't know a usable one
 	case SYSPROP_HAS_IMAGE_BROWSER:
-		return false;
+		return true;  // we just use the file browser
 	case SYSPROP_HAS_BACK_BUTTON:
 		return true;
 	case SYSPROP_APP_GOLD:
@@ -433,36 +436,66 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {
-	using namespace concurrency;
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	default:
+		break;
+	}
+}
 
-	if (!strcmp(command, "finish")) {
-		// Not really supposed to support this under UWP.
-	} else if (!strcmp(command, "browse_file")) {
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+	switch (type) {
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+	case SystemRequestType::BROWSE_FOR_FILE:
+	{
 		auto picker = ref new Windows::Storage::Pickers::FileOpenPicker();
 		picker->ViewMode = Pickers::PickerViewMode::List;
 
-		// These are single files that can be loaded directly using StorageFileLoader.
-		picker->FileTypeFilter->Append(".cso");
-		picker->FileTypeFilter->Append(".iso");
+		if (type == SystemRequestType::BROWSE_FOR_IMAGE) {
+			picker->FileTypeFilter->Append(".jpg");
+			picker->FileTypeFilter->Append(".png");
+		} else {
+			switch ((BrowseFileType)param3) {
+			case BrowseFileType::BOOTABLE:
+				// These are single files that can be loaded directly using StorageFileLoader.
+				picker->FileTypeFilter->Append(".cso");
+				picker->FileTypeFilter->Append(".iso");
 
-		// Can't load these this way currently, they require mounting the underlying folder.
-		picker->FileTypeFilter->Append(".bin");
-		picker->FileTypeFilter->Append(".elf");
+				// Can't load these this way currently, they require mounting the underlying folder.
+				picker->FileTypeFilter->Append(".bin");
+				picker->FileTypeFilter->Append(".elf");
+				break;
+			case BrowseFileType::INI:
+				picker->FileTypeFilter->Append(".ini");
+				break;
+			case BrowseFileType::DB:
+				picker->FileTypeFilter->Append(".db");
+				break;
+			case BrowseFileType::ANY:
+				picker->FileTypeFilter->Append("*");
+				break;
+			}
+		}
+
 		picker->SuggestedStartLocation = Pickers::PickerLocationId::DocumentsLibrary;
 
-		create_task(picker->PickSingleFileAsync()).then([](StorageFile ^file){
+		create_task(picker->PickSingleFileAsync()).then([requestId](StorageFile ^file) {
 			if (file) {
 				std::string path = FromPlatformString(file->Path);
-				NativeMessageReceived("boot", path.c_str());
+				g_requestManager.PostSystemSuccess(requestId, path.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
 			}
 		});
-	} else if (!strcmp(command, "toggle_fullscreen")) {
+		return true;
+	}
+	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
+	{
 		auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
 		bool flag = !view->IsFullScreenMode;
-		if (strcmp(parameter, "0") == 0) {
+		if (param1 == "0") {
 			flag = false;
-		} else if (strcmp(parameter, "1") == 0){
+		} else if (param1 == "1"){
 			flag = true;
 		}
 		if (flag) {
@@ -470,20 +503,24 @@ void System_SendMessage(const char *command, const char *parameter) {
 		} else {
 			view->ExitFullScreenMode();
 		}
+		return true;
+	}
+	default:
+		return false;
 	}
 }
 
-void OpenDirectory(const char *path) {
+void System_ShowFileInFolder(const char *path) {
 	// Unsupported
 }
 
-void LaunchBrowser(const char *url) {
+void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	auto uri = ref new Windows::Foundation::Uri(ToPlatformString(url));
 
 	create_task(Windows::System::Launcher::LaunchUriAsync(uri)).then([](bool b) {});
 }
 
-void Vibrate(int length_ms) {
+void System_Vibrate(int length_ms) {
 #if _M_ARM
 	if (length_ms == -1 || length_ms == -3)
 		length_ms = 50;
@@ -505,11 +542,6 @@ void System_AskForPermission(SystemPermission permission) {
 
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 	return PERMISSION_STATUS_GRANTED;
-}
-
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
-	// TODO
-	cb(false, "");
 }
 
 std::string GetCPUBrandString() {

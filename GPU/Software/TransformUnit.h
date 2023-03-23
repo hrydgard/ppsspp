@@ -173,6 +173,9 @@ public:
 	SoftwareDrawEngine();
 	~SoftwareDrawEngine();
 
+	void DeviceLost() override {}
+	void DeviceRestore(Draw::DrawContext *draw) override {}
+
 	void NotifyConfigChanged() override;
 	void DispatchFlush() override;
 	void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int cullMode, int *bytesRead) override;

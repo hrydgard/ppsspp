@@ -49,10 +49,19 @@ void VR_Init( void* system, const char* name, int version ) {
 	}
 	extensions.push_back(XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME);
 #ifdef ANDROID
-	if (VR_GetPlatformFlag(VR_PLATFORM_INSTANCE_EXT)) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_FOVEATION)) {
+		extensions.push_back(XR_FB_SWAPCHAIN_UPDATE_STATE_EXTENSION_NAME);
+		extensions.push_back(XR_FB_SWAPCHAIN_UPDATE_STATE_OPENGL_ES_EXTENSION_NAME);
+		extensions.push_back(XR_FB_FOVEATION_EXTENSION_NAME);
+		extensions.push_back(XR_FB_FOVEATION_CONFIGURATION_EXTENSION_NAME);
+		if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+			extensions.push_back(XR_FB_SWAPCHAIN_UPDATE_STATE_VULKAN_EXTENSION_NAME);
+		}
+	}
+	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_INSTANCE)) {
 		extensions.push_back(XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME);
 	}
-	if (VR_GetPlatformFlag(VR_PLATFORM_PERFORMANCE_EXT)) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_PERFORMANCE)) {
 		extensions.push_back(XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME);
 		extensions.push_back(XR_KHR_ANDROID_THREAD_SETTINGS_EXTENSION_NAME);
 	}
@@ -80,7 +89,7 @@ void VR_Init( void* system, const char* name, int version ) {
 
 #ifdef ANDROID
 	XrInstanceCreateInfoAndroidKHR instanceCreateInfoAndroid = {XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
-	if (VR_GetPlatformFlag(VR_PLATFORM_INSTANCE_EXT)) {
+	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_INSTANCE)) {
 		ovrJava* java = (ovrJava*)system;
 		instanceCreateInfoAndroid.applicationVM = java->Vm;
 		instanceCreateInfoAndroid.applicationActivity = java->ActivityObject;
@@ -182,7 +191,7 @@ void VR_EnterVR( engine_t* engine, XrGraphicsBindingVulkanKHR* graphicsBindingVu
 		graphicsBindingGL.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
 		graphicsBindingGL.next = NULL;
 		graphicsBindingGL.display = eglGetCurrentDisplay();
-		graphicsBindingGL.config = eglGetCurrentSurface(EGL_DRAW);
+		graphicsBindingGL.config = NULL;
 		graphicsBindingGL.context = eglGetCurrentContext();
 		sessionCreateInfo.next = &graphicsBindingGL;
 #else

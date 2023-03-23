@@ -33,7 +33,9 @@
 
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     if (urls.count >= 1)
-		self.callback(Path(urls[0].path.UTF8String));
+		self.callback(true, Path(urls[0].path.UTF8String));
+    else
+        self.callback(false, Path());
 }
 
 @end
@@ -55,8 +57,11 @@ void DarwinFileSystemServices::presentDirectoryPanel(DarwinDirectoryPanelCallbac
 //			panel.allowedFileTypes = @[(__bridge NSString *)kUTTypeFolder];
         
         NSModalResponse modalResponse = [panel runModal];
-        if (modalResponse == NSModalResponseOK && panel.URLs.firstObject)
-            callback(Path(panel.URLs.firstObject.path.UTF8String));
+        if (modalResponse == NSModalResponseOK && panel.URLs.firstObject) {
+            callback(true, Path(panel.URLs.firstObject.path.UTF8String));
+        } else if (modalResponse == NSModalResponseCancel) {
+            callback(false, Path());
+        }
 #elif PPSSPP_PLATFORM(IOS)
 		UIViewController *rootViewController = UIApplication.sharedApplication
 			.keyWindow

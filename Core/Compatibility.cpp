@@ -19,6 +19,7 @@
 
 #include "Common/Log.h"
 #include "Common/Data/Format/IniFile.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/StringUtils.h"
 #include "Core/Compatibility.h"
 #include "Core/Config.h"
@@ -38,7 +39,7 @@ void Compatibility::Load(const std::string &gameID) {
 	{
 		IniFile compat;
 		// This loads from assets.
-		if (compat.LoadFromVFS("compat.ini")) {
+		if (compat.LoadFromVFS(g_VFS, "compat.ini")) {
 			CheckSettings(compat, gameID);
 		}
 	}
@@ -55,7 +56,7 @@ void Compatibility::Load(const std::string &gameID) {
 	{
 		IniFile compat;
 		// This loads from assets.
-		if (compat.LoadFromVFS("compatvr.ini")) {
+		if (compat.LoadFromVFS(g_VFS, "compatvr.ini")) {
 			CheckVRSettings(compat, gameID);
 		}
 	}
@@ -125,6 +126,9 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "ForceCircleButtonConfirm", &flags_.ForceCircleButtonConfirm);
 	CheckSetting(iniFile, gameID, "DisallowFramebufferAtOffset", &flags_.DisallowFramebufferAtOffset);
 	CheckSetting(iniFile, gameID, "RockmanDash2SoundFix", &flags_.RockmanDash2SoundFix);
+	CheckSetting(iniFile, gameID, "ReadbackDepth", &flags_.ReadbackDepth);
+	CheckSetting(iniFile, gameID, "BlockTransferDepth", &flags_.BlockTransferDepth);
+	CheckSetting(iniFile, gameID, "DaxterRotatedAnalogStick", &flags_.DaxterRotatedAnalogStick);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {

@@ -700,8 +700,11 @@ void CtrlStackTraceView::OnDoubleClick(int itemIndex, int column)
 	SendMessage(GetParent(GetHandle()),WM_DEB_GOTOWPARAM,frames[itemIndex].pc,0);
 }
 
-void CtrlStackTraceView::loadStackTrace()
-{
+void CtrlStackTraceView::loadStackTrace() {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
 	auto threads = GetThreadsInfo();
 
 	u32 entry = 0, stackTop = 0;

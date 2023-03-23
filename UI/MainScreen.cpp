@@ -23,6 +23,8 @@
 
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
+#include "Common/System/NativeApp.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Render/DrawBuffer.h"
 #include "Common/UI/Root.h"
@@ -533,12 +535,16 @@ UI::EventReturn GameBrowser::LayoutChange(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
-	LaunchBrowser(lastLink_.c_str());
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, lastLink_.c_str());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameBrowser::BrowseClick(UI::EventParams &e) {
-	System_SendMessage("browse_folder", "");
+	auto mm = GetI18NCategory("MainMenu");
+	System_BrowseForFolder(mm->T("Choose folder"), [this](const std::string &value, int) {
+		std::string filename = value;
+		this->SetPath(Path(filename));
+	});
 	return UI::EVENT_DONE;
 }
 
@@ -964,9 +970,7 @@ UI::EventReturn GameBrowser::GridSettingsClick(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::OnRecentClear(UI::EventParams &e) {
 	screenManager_->RecreateAllViews();
-	if (host) {
-		host->UpdateUI();
-	}
+	System_Notify(SystemNotification::UI);
 	return UI::EVENT_DONE;
 }
 
@@ -976,7 +980,6 @@ UI::EventReturn GameBrowser::OnHomebrewStore(UI::EventParams &e) {
 }
 
 MainScreen::MainScreen() {
-	System_SendMessage("event", "mainscreen");
 	g_BackgroundAudio.SetGame(Path());
 }
 
@@ -1226,16 +1229,16 @@ UI::EventReturn MainScreen::OnDownloadUpgrade(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(ANDROID)
 	// Go to app store
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
 	} else {
-		LaunchBrowser("market://details?id=org.ppsspp.ppsspp");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppsspp");
 	}
 #elif PPSSPP_PLATFORM(WINDOWS)
-	LaunchBrowser("https://www.ppsspp.org/download");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/download");
 #else
 	// Go directly to ppsspp.org and let the user sort it out
 	// (for details and in case downloads doesn't have their platform.)
-	LaunchBrowser("https://www.ppsspp.org/");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/");
 #endif
 	return UI::EVENT_DONE;
 }
@@ -1278,7 +1281,10 @@ void MainScreen::update() {
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		System_SendMessage("browse_file", "");
+		auto mm = GetI18NCategory("MainMenu");
+		System_BrowseForFile(mm->T("Load"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
+			NativeMessageReceived("boot", value.c_str());
+		});
 	}
 	return UI::EVENT_DONE;
 }
@@ -1291,7 +1297,7 @@ UI::EventReturn MainScreen::OnFullScreenToggle(UI::EventParams &e) {
 	}
 #if !defined(MOBILE_DEVICE)
 	g_Config.bFullScreen = !g_Config.bFullScreen;
-	System_SendMessage("toggle_fullscreen", "");
+	System_ToggleFullscreenState("");
 #endif
 	return UI::EVENT_DONE;
 }
@@ -1412,31 +1418,31 @@ UI::EventReturn MainScreen::OnCredits(UI::EventParams &e) {
 
 UI::EventReturn MainScreen::OnSupport(UI::EventParams &e) {
 #ifdef __ANDROID__
-	LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
 #else
-	LaunchBrowser("https://www.ppsspp.org/buygold");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
 #endif
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnPPSSPPOrg(UI::EventParams &e) {
-	LaunchBrowser("https://www.ppsspp.org");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnForums(UI::EventParams &e) {
-	LaunchBrowser("https://forums.ppsspp.org");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://forums.ppsspp.org");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	// Let's make sure the config was saved, since it may not have been.
 	if (!g_Config.Save("MainScreen::OnExit")) {
-		System_SendMessage("toast", "Failed to save settings!\nCheck permissions, or try to restart the device.");
+		System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
 	}
 
 	// Request the framework to exit cleanly.
-	System_SendMessage("finish", "");
+	System_ExitApp();
 
 	UpdateUIState(UISTATE_EXIT);
 	return UI::EVENT_DONE;

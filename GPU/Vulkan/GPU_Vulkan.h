@@ -22,7 +22,7 @@
 
 #include "Common/File/Path.h"
 
-#include "GPU/GPUCommon.h"
+#include "GPU/GPUCommonHW.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Common/TextureShaderCommon.h"
@@ -32,7 +32,7 @@ class ShaderManagerVulkan;
 class LinkedShader;
 class TextureCacheVulkan;
 
-class GPU_Vulkan : public GPUCommon {
+class GPU_Vulkan : public GPUCommonHW {
 public:
 	GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_Vulkan();
@@ -47,14 +47,9 @@ public:
 	void BeginHostFrame() override;
 	void EndHostFrame() override;
 
-	void PreExecuteOp(u32 op, u32 diff) override;
-	void ExecuteOp(u32 op, u32 diff) override;
-
 	void GetStats(char *buffer, size_t bufsize) override;
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
-	void DeviceRestore() override;
-
-	void DoState(PointerWrap &p) override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
@@ -71,11 +66,7 @@ protected:
 	void CheckRenderResized() override;
 
 private:
-	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo() override;
-	void InitClear() override;
-	void CopyDisplayToOutput(bool reallyDirty) override;
-	void Reinitialize() override;
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
@@ -92,12 +83,6 @@ private:
 
 	// Manages state and pipeline objects
 	PipelineManagerVulkan *pipelineManager_;
-
-	struct FrameData {
-		VulkanPushBuffer *push_;
-	};
-
-	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
 
 	Path shaderCachePath_;
 	std::atomic<bool> shaderCacheLoaded_{};

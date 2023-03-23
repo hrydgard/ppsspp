@@ -145,6 +145,8 @@ void RegCache::SetupABI(const std::vector<Purpose> &args, bool forceRetain) {
 	for (Reg r : vecTemps)
 		Add(r, VEC_INVALID);
 #endif
+#elif PPSSPP_ARCH(RISCV64)
+	_assert_msg_(false, "Not yet implemented (no vector calling standard yet)");
 #elif PPSSPP_ARCH(MIPS)
 	_assert_msg_(false, "Not yet implemented");
 #else

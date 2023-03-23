@@ -33,6 +33,7 @@
 #include <condition_variable>
 
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/File/Path.h"
 #include "Common/Math/math_util.h"
 #include "Common/Thread/ThreadUtil.h"
@@ -124,8 +125,7 @@ void UpdateUIState(GlobalUIState newState) {
 	// Never leave the EXIT state.
 	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {
 		globalUIState = newState;
-		if (host)
-			host->UpdateDisassembly();
+		System_Notify(SystemNotification::DISASSEMBLY);
 		const char *state = nullptr;
 		switch (globalUIState) {
 		case UISTATE_EXIT: state = "exit";  break;
@@ -135,7 +135,7 @@ void UpdateUIState(GlobalUIState newState) {
 		case UISTATE_EXCEPTION: state = "exception"; break;
 		}
 		if (state) {
-			System_SendMessage("uistate", state);
+			System_NotifyUIState(state);
 		}
 	}
 }
@@ -155,24 +155,6 @@ GPUBackend GetGPUBackend() {
 
 std::string GetGPUBackendDevice() {
 	return gpuBackendDevice;
-}
-
-bool IsAudioInitialised() {
-	return audioInitialized;
-}
-
-void Audio_Init() {
-	if (!audioInitialized) {
-		audioInitialized = true;
-		host->InitSound();
-	}
-}
-
-void Audio_Shutdown() {
-	if (audioInitialized) {
-		audioInitialized = false;
-		host->ShutdownSound();
-	}
 }
 
 bool CPU_IsReady() {
@@ -303,10 +285,6 @@ bool CPU_Init(std::string *errorString) {
 
 	host->AttemptLoadSymbolMap();
 
-	if (g_CoreParameter.enableSound) {
-		Audio_Init();
-	}
-
 	CoreTiming::Init();
 
 	// Init all the HLE modules
@@ -354,9 +332,6 @@ void CPU_Shutdown() {
 	CoreTiming::Shutdown();
 	__KernelShutdown();
 	HLEShutdown();
-	if (g_CoreParameter.enableSound) {
-		Audio_Shutdown();
-	}
 
 	pspFileSystem.Shutdown();
 	mipsr4k.Shutdown();

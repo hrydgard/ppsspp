@@ -24,26 +24,9 @@ class NativeHost : public Host {
 public:
 	NativeHost() {}
 
-	void UpdateUI() override {}
-
-	void UpdateMemView() override {}
-	void UpdateDisassembly() override {}
-
-	void SetDebugMode(bool mode) override { }
-
-	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
-	void ShutdownGraphics() override {}
-
-	void InitSound() override;
 	void UpdateSound() override {}
-	void ShutdownSound() override;
 
-	// this is sent from EMU thread! Make sure that Host handles it properly!
-	void BootDone() override {}
-
-	bool IsDebuggingEnabled() override {return false;}
 	bool AttemptLoadSymbolMap() override {return false;}
-	void NotifySymbolMapUpdated() override {}
 	void SetWindowTitle(const char *message) override {}
 
 	void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) override {
@@ -53,6 +36,4 @@ public:
 	void SendUIMessage(const std::string &message, const std::string &value) override {
 		NativeMessageReceived(message.c_str(), value.c_str());
 	}
-
-	void NotifySwitchUMDUpdated() override {}
 };

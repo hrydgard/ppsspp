@@ -698,7 +698,7 @@ JitBlockDebugInfo JitBlockCache::GetBlockDebugInfo(int blockNum) const {
 	debugInfo.targetDisasm = DisassembleArm64(block->normalEntry, block->codeSize);
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	debugInfo.targetDisasm = DisassembleX86(block->normalEntry, block->codeSize);
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(RISCV64)
 	debugInfo.targetDisasm = DisassembleRV64(block->normalEntry, block->codeSize);
 #endif
 

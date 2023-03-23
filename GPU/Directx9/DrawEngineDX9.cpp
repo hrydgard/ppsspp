@@ -129,7 +129,9 @@ void DrawEngineDX9::InitDeviceObjects() {
 }
 
 void DrawEngineDX9::DestroyDeviceObjects() {
-	draw_->SetInvalidationCallback(InvalidationCallback());
+	if (draw_) {
+		draw_->SetInvalidationCallback(InvalidationCallback());
+	}
 	ClearTrackedVertexArrays();
 }
 

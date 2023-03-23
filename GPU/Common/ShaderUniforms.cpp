@@ -135,12 +135,12 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 			ConvertProjMatrixToVulkan(flippedMatrix);
 		}
 
-		if (!useBufferedRendering && g_display_rotation != DisplayRotation::ROTATE_0) {
-			flippedMatrix = flippedMatrix * g_display_rot_matrix;
+		if (!useBufferedRendering && g_display.rotation != DisplayRotation::ROTATE_0) {
+			flippedMatrix = flippedMatrix * g_display.rot_matrix;
 		}
 		CopyMatrix4x4(ub->proj, flippedMatrix.getReadPtr());
 
-		ub->rotation = useBufferedRendering ? 0 : (float)g_display_rotation;
+		ub->rotation = useBufferedRendering ? 0 : (float)g_display.rotation;
 	}
 
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
@@ -150,8 +150,8 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		} else {
 			proj_through.setOrthoVulkan(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
 		}
-		if (!useBufferedRendering && g_display_rotation != DisplayRotation::ROTATE_0) {
-			proj_through = proj_through * g_display_rot_matrix;
+		if (!useBufferedRendering && g_display.rotation != DisplayRotation::ROTATE_0) {
+			proj_through = proj_through * g_display.rot_matrix;
 		}
 
 		// Negative RT offsets come from split framebuffers (Killzone)
@@ -199,7 +199,11 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 
 	if (dirtyUniforms & DIRTY_TEX_ALPHA_MUL) {
-		ub->texNoAlpha = gstate.isTextureAlphaUsed() ? 0.0f : 1.0f;
+		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE) {
+			doTextureAlpha = false;
+		}
+		ub->texNoAlpha = doTextureAlpha ? 0.0f : 1.0f;
 		ub->texMul = gstate.isColorDoublingEnabled() ? 2.0f : 1.0f;
 	}
 
@@ -247,16 +251,16 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		float vpZCenter = gstate.getViewportZCenter();
 
 		// These are just the reverse of the formulas in GPUStateUtils.
-		float halfActualZRange = vpZScale / gstate_c.vpDepthScale;
+		float halfActualZRange = gstate_c.vpDepthScale != 0.0f ? vpZScale / gstate_c.vpDepthScale : 0.0f;
+		float inverseDepthScale = gstate_c.vpDepthScale != 0.0f ? 1.0f / gstate_c.vpDepthScale : 0.0f;
 		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
 		float viewZScale = halfActualZRange * 2.0f;
-		// Account for the half pixel offset.
-		float viewZCenter = minz + (DepthSliceFactor() / 256.0f) * 0.5f;
+		float viewZCenter = minz;
 
 		ub->depthRange[0] = viewZScale;
 		ub->depthRange[1] = viewZCenter;
 		ub->depthRange[2] = gstate_c.vpZOffset * 0.5f + 0.5f;
-		ub->depthRange[3] = 2.0f * (1.0f / gstate_c.vpDepthScale);
+		ub->depthRange[3] = 2.0f * inverseDepthScale;
 	}
 
 	if (dirtyUniforms & DIRTY_CULLRANGE) {

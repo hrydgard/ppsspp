@@ -51,8 +51,8 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	hWnd_ = wnd;
 
 	// D3D9 has no need for display rotation.
-	g_display_rotation = DisplayRotation::ROTATE_0;
-	g_display_rot_matrix.setIdentity();
+	g_display.rotation = DisplayRotation::ROTATE_0;
+	g_display.rot_matrix.setIdentity();
 
 	DIRECT3DCREATE9EX g_pfnCreate9ex;
 

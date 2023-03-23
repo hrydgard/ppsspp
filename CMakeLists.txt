@@ -119,16 +119,8 @@ add_definitions(-DASSETS_DIR="${CMAKE_INSTALL_FULL_DATADIR}/ppsspp/assets/")
 if(OPENXR)
 	add_definitions(-DOPENXR)
 	add_library(openxr SHARED IMPORTED)
-	if(OPENXR_PLATFORM_PICO)
-	  add_definitions(-DOPENXR_PLATFORM_PICO)
-	  set_property(TARGET openxr PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/ext/openxr/libs/pico/arm64-v8a/libopenxr_loader.so")
-	  message("OpenXR for Pico enabled")
-	endif()
-	if(OPENXR_PLATFORM_QUEST)
-	  add_definitions(-DOPENXR_PLATFORM_QUEST)
-	  set_property(TARGET openxr PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/ext/openxr/libs/quest/arm64-v8a/libopenxr_loader.so")
-	  message("OpenXR for Quest enabled")
-	endif()
+	set_property(TARGET openxr PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/ext/openxr/stub/arm64-v8a/libopenxr_loader.so")
+	message("OpenXR enabled")
 endif()
 
 if(GOLD)
@@ -376,12 +368,20 @@ if(NOT MSVC)
 	if(X86 OR X86_64)
 		# enable sse2 code generation
 		add_definitions(-msse2)
+		if(NOT X86_64 AND NOT CLANG)
+			add_definitions(-mfpmath=sse)
+			# add_definitions(-mstackrealign)
+		 endif()
 	endif()
 
 	if(IOS)
 		set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
+		if(LIBRETRO AND ARM64)
+			set(CMAKE_OSX_DEPLOYMENT_TARGET "10.14")
+		else()
+			set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
+		endif()
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	elseif(NOT ANDROID)
@@ -575,6 +575,8 @@ add_library(Common STATIC
 	Common/Data/Format/JSONReader.cpp
 	Common/Data/Format/JSONWriter.h
 	Common/Data/Format/JSONWriter.cpp
+	Common/Data/Format/DDSLoad.cpp
+	Common/Data/Format/DDSLoad.h
 	Common/Data/Format/PNGLoad.cpp
 	Common/Data/Format/PNGLoad.h
 	Common/Data/Format/ZIMLoad.cpp
@@ -592,8 +594,10 @@ add_library(Common STATIC
 	Common/Data/Random/Rng.h
 	Common/File/VFS/VFS.h
 	Common/File/VFS/VFS.cpp
-	Common/File/VFS/AssetReader.cpp
-	Common/File/VFS/AssetReader.h
+	Common/File/VFS/ZipFileReader.cpp
+	Common/File/VFS/ZipFileReader.h
+	Common/File/VFS/DirectoryReader.cpp
+	Common/File/VFS/DirectoryReader.h
 	Common/File/AndroidStorage.h
 	Common/File/AndroidStorage.cpp
 	Common/File/DiskFree.h
@@ -628,6 +632,8 @@ add_library(Common STATIC
 	Common/GPU/OpenGL/gl3stub.h
 	Common/GPU/OpenGL/GLFeatures.cpp
 	Common/GPU/OpenGL/GLFeatures.h
+	Common/GPU/OpenGL/GLFrameData.cpp
+	Common/GPU/OpenGL/GLFrameData.h
 	Common/GPU/OpenGL/thin3d_gl.cpp
 	Common/GPU/OpenGL/GLRenderManager.cpp
 	Common/GPU/OpenGL/GLRenderManager.h
@@ -710,6 +716,10 @@ add_library(Common STATIC
 	Common/Render/Text/draw_text_uwp.h
 	Common/System/Display.cpp
 	Common/System/Display.h
+	Common/System/System.h
+	Common/System/NativeApp.h
+	Common/System/Request.cpp
+	Common/System/Request.h
 	Common/Thread/Channel.h
 	Common/Thread/ParallelLoop.cpp
 	Common/Thread/ParallelLoop.h
@@ -1097,6 +1107,28 @@ else()
 	include_directories(ext/libpng17)
 endif()
 
+add_library(basis_universal STATIC
+	ext/basis_universal/basisu.h
+	ext/basis_universal/basisu_containers.h
+	ext/basis_universal/basisu_containers_impl.h
+	ext/basis_universal/basisu_file_headers.h
+	ext/basis_universal/basisu_transcoder.cpp
+	ext/basis_universal/basisu_transcoder.h
+	ext/basis_universal/basisu_transcoder_internal.h
+	ext/basis_universal/basisu_transcoder_tables_astc.inc
+	ext/basis_universal/basisu_transcoder_tables_astc_0_255.inc
+	ext/basis_universal/basisu_transcoder_tables_atc_55.inc
+	ext/basis_universal/basisu_transcoder_tables_atc_56.inc
+	ext/basis_universal/basisu_transcoder_tables_bc7_m5_alpha.inc
+	ext/basis_universal/basisu_transcoder_tables_bc7_m5_color.inc
+	ext/basis_universal/basisu_transcoder_tables_dxt1_5.inc
+	ext/basis_universal/basisu_transcoder_tables_dxt1_6.inc
+	ext/basis_universal/basisu_transcoder_tables_pvrtc2_45.inc
+	ext/basis_universal/basisu_transcoder_tables_pvrtc2_alpha_33.inc
+	ext/basis_universal/basisu_transcoder_uastc.h
+)
+set(BASISU_LIBRARIES basis_universal)
+
 set(nativeExtra)
 set(nativeExtraLibs)
 
@@ -1126,7 +1158,7 @@ if(ANDROID)
 		set(nativeExtraLibs ${nativeExtraLibs} openxr)
 	endif()
 	# No target
-elseif(IOS)
+elseif(IOS AND NOT LIBRETRO)
 	set(nativeExtra ${nativeExtra}
 		ios/main.mm
 		ios/AppDelegate.mm
@@ -1145,8 +1177,6 @@ elseif(IOS)
 		ios/PPSSPPUIApplication.mm
 		ios/SmartKeyboardMap.cpp
 		ios/SmartKeyboardMap.hpp
-		ios/SubtleVolume.h
-		ios/SubtleVolume.mm
 		ios/iCade/iCadeReaderView.h
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h
@@ -1154,7 +1184,7 @@ elseif(IOS)
 		UI/DarwinFileSystemServices.h
 		Common/Battery/AppleBatteryClient.m
 	)
-    
+
 	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreVideo -framework CoreMedia -framework CoreServices" )
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
@@ -1175,6 +1205,8 @@ elseif(IOS)
 	set_source_files_properties(UI/DarwinFileSystemServices.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(Common/Battery/AppleBatteryClient.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set(TargetBin PPSSPP)
+elseif(IOS AND LIBRETRO)
+    set(nativeExtraLibs ${nativeExtraLibs} "-framework GLKit")
 elseif(USING_QT_UI)
 	set(CMAKE_AUTOMOC ON)
 	find_package(Qt5 COMPONENTS OpenGL Gui Core Multimedia)
@@ -1190,7 +1222,15 @@ elseif(USING_QT_UI)
 	if(USING_GLES2)
 		add_definitions(-DQT_OPENGL_ES -DQT_OPENGL_ES_2)
 	endif()
-
+	if(APPLE)
+		list(APPEND NativeAppSource
+			UI/DarwinFileSystemServices.mm
+			UI/DarwinFileSystemServices.h
+			Common/Battery/AppleBatteryClient.m)
+		set_source_files_properties(Common/Battery/AppleBatteryClient.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set_source_files_properties(UI/DarwinFileSystemServices.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY})
+	endif()
 	include_directories(Qt)
 	include_directories(${CMAKE_CURRENT_BINARY_DIR})
 	set(nativeExtraLibs ${nativeExtraLibs} Qt5::OpenGL Qt5::Gui Qt5::Core Qt5::Multimedia)
@@ -1349,11 +1389,11 @@ if(LINUX AND NOT ANDROID)
 endif()
 
 set(ATOMIC_LIB)
-if(ANDROID OR (LINUX AND ARM_DEVICE))
+if(ANDROID OR (LINUX AND ARM_DEVICE) OR (LINUX AND RISCV64))
 	set(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARIES} ${ZLIB_LIBRARY} vma gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB} Common)
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARIES} ${BASISU_LIBRARIES} ${ZLIB_LIBRARY} vma gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB} Common)
 if(TARGET Ext::GLEW)
 	target_link_libraries(native Ext::GLEW)
 endif()
@@ -1488,6 +1528,10 @@ list(APPEND CoreExtra
 	Core/MIPS/MIPS/MipsJit.h
 )
 
+list(APPEND CoreExtra
+	GPU/Common/VertexDecoderRiscV.cpp
+)
+
 if(NOT MOBILE_DEVICE)
 	set(CoreExtra ${CoreExtra}
 		Core/AVIDump.cpp
@@ -1498,7 +1542,7 @@ if(NOT MOBILE_DEVICE)
 endif()
 
 set(GPU_GLES
-	GPU/GLES/DepthBufferGLES.cpp
+	GPU/GLES/StencilBufferGLES.cpp
 	GPU/GLES/GPU_GLES.cpp
 	GPU/GLES/GPU_GLES.h
 	GPU/GLES/FragmentTestCacheGLES.cpp
@@ -1579,6 +1623,7 @@ set(GPU_SOURCES
 	${GPU_NEON}
 	GPU/Common/Draw2D.cpp
 	GPU/Common/Draw2D.h
+	GPU/Common/DepthBufferCommon.cpp
 	GPU/Common/TextureShaderCommon.cpp
 	GPU/Common/TextureShaderCommon.h
 	GPU/Common/DepalettizeShaderCommon.cpp
@@ -1627,6 +1672,10 @@ set(GPU_SOURCES
 	GPU/Common/TextureScalerCommon.h
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
+	GPU/Common/TextureReplacer.cpp
+	GPU/Common/TextureReplacer.h
+	GPU/Common/ReplacedTexture.cpp
+	GPU/Common/ReplacedTexture.h
 	GPU/Debugger/Breakpoints.cpp
 	GPU/Debugger/Breakpoints.h
 	GPU/Debugger/Debugger.cpp
@@ -1649,6 +1698,8 @@ set(GPU_SOURCES
 	GPU/GPU.h
 	GPU/GPUCommon.cpp
 	GPU/GPUCommon.h
+	GPU/GPUCommonHW.cpp
+	GPU/GPUCommonHW.h
 	GPU/GPUState.cpp
 	GPU/GPUState.h
 	GPU/Math3D.cpp
@@ -2033,8 +2084,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Screenshot.h
 	Core/System.cpp
 	Core/System.h
-	Core/TextureReplacer.cpp
-	Core/TextureReplacer.h
 	Core/ThreadPools.cpp
 	Core/ThreadPools.h
 	Core/Util/AudioFormat.cpp
@@ -2491,7 +2540,7 @@ if(NOT ANDROID)
 	file(INSTALL assets/flash0 DESTINATION assets)
 endif()
 # packaging and code signing
-if(IOS)
+if(IOS AND NOT LIBRETRO)
 	set(DEPLOYMENT_TARGET 11.0)
 	file(GLOB IOSAssets ios/assets/*.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)

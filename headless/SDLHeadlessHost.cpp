@@ -26,7 +26,7 @@
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/GraphicsContext.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
@@ -99,12 +99,6 @@ private:
 	SDL_GLContext glContext_;
 };
 
-void SDLHeadlessHost::LoadNativeAssets() {
-	VFSRegister("", new DirectoryAssetReader(Path("assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("")));
-	VFSRegister("", new DirectoryAssetReader(Path("..")));
-}
-
 bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	SDL_Init(SDL_INIT_VIDEO);
 
@@ -171,7 +165,7 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	return success;
 }
 
-bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
+bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx, GPUCore core) {
 	GraphicsContext *graphicsContext = new GLDummyGraphicsContext();
 	*ctx = graphicsContext;
 	gfx_ = graphicsContext;
@@ -202,8 +196,6 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 		threadState_ = RenderThreadState::STOPPED;
 	});
 	th.detach();
-
-	LoadNativeAssets();
 
 	threadState_ = RenderThreadState::START_REQUESTED;
 	while (threadState_ == RenderThreadState::START_REQUESTED || threadState_ == RenderThreadState::STARTING)

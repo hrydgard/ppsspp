@@ -58,22 +58,16 @@ public:
 	~TextureCacheVulkan();
 
 	void StartFrame() override;
-	void EndFrame();
 
-	void DeviceLost();
-	void DeviceRestore(Draw::DrawContext *draw);
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	void SetFramebufferManager(FramebufferManagerVulkan *fbManager);
 	void SetDrawEngine(DrawEngineVulkan *td) {
 		drawEngine_ = td;
 	}
-	void SetPushBuffer(VulkanPushBuffer *push) {
-		push_ = push;
-	}
 
 	void ForgetLastTexture() override {}
-	void InvalidateLastTexture() override {}
-
 	void NotifyConfigChanged() override;
 
 	void GetVulkanHandles(VkImageView &imageView, VkSampler &sampler) {
@@ -109,7 +103,6 @@ private:
 	void CompileScalingShader();
 
 	VulkanDeviceAllocator *allocator_ = nullptr;
-	VulkanPushBuffer *push_ = nullptr;
 
 	VulkanComputeShaderManager computeShaderManager_;
 

@@ -403,6 +403,10 @@ public:
 		return TaskType::CPU_COMPUTE;
 	}
 
+	TaskPriority Priority() const override {
+		return TaskPriority::HIGH;
+	}
+
 	void Run() override {
 		for (auto &task : tasks_) {
 			task.pipeline->Create(vulkan_, task.compatibleRenderPass, task.rpType, task.sampleCount, task.scheduleTime, task.countToCompile);
@@ -880,7 +884,8 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	} else {
 		curWidthRaw_ = vulkan_->GetBackbufferWidth();
 		curHeightRaw_ = vulkan_->GetBackbufferHeight();
-		if (g_display_rotation == DisplayRotation::ROTATE_90 || g_display_rotation == DisplayRotation::ROTATE_270) {
+		if (g_display.rotation == DisplayRotation::ROTATE_90 ||
+			g_display.rotation == DisplayRotation::ROTATE_270) {
 			curWidth_ = curHeightRaw_;
 			curHeight_ = curWidthRaw_;
 		} else {
@@ -908,8 +913,9 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	}
 }
 
-bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
+bool VulkanRenderManager::CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag) {
 	_dbg_assert_(insideFrame_);
+
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
 			steps_[i]->render.numReads++;
@@ -924,11 +930,14 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkIma
 	step->readback.src = src;
 	step->readback.srcRect.offset = { x, y };
 	step->readback.srcRect.extent = { (uint32_t)w, (uint32_t)h };
+	step->readback.delayed = mode == Draw::ReadbackMode::OLD_DATA_OK;
 	step->dependencies.insert(src);
 	step->tag = tag;
 	steps_.push_back(step);
 
-	FlushSync();
+	if (mode == Draw::ReadbackMode::BLOCK) {
+		FlushSync();
+	}
 
 	Draw::DataFormat srcFormat = Draw::DataFormat::UNDEFINED;
 	if (aspectBits & VK_IMAGE_ASPECT_COLOR_BIT) {
@@ -967,8 +976,8 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkIma
 	}
 
 	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
-	queueRunner_.CopyReadbackBuffer(w, h, srcFormat, destFormat, pixelStride, pixels);
-	return true;
+	return queueRunner_.CopyReadbackBuffer(frameData_[vulkan_->GetCurFrame()],
+		mode == Draw::ReadbackMode::OLD_DATA_OK ? src : nullptr, w, h, srcFormat, destFormat, pixelStride, pixels);
 }
 
 void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
@@ -987,7 +996,7 @@ void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int
 	FlushSync();
 
 	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
-	queueRunner_.CopyReadbackBuffer(w, h, destFormat, destFormat, pixelStride, pixels);
+	queueRunner_.CopyReadbackBuffer(frameData_[vulkan_->GetCurFrame()], nullptr, w, h, destFormat, destFormat, pixelStride, pixels);
 }
 
 static void RemoveDrawCommands(std::vector<VkRenderData> *cmds) {

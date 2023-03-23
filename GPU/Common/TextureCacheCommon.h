@@ -1,4 +1,4 @@
-// Copyright (c) 2013- PPSSPP Project.
+ // Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -23,13 +23,13 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/MemoryUtil.h"
-#include "Core/TextureReplacer.h"
 #include "Core/System.h"
 #include "GPU/GPU.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Common/TextureShaderCommon.h"
+#include "GPU/Common/TextureReplacer.h"
 
 class Draw2D;
 
@@ -105,12 +105,18 @@ struct TextureDefinition {
 	GETextureFormat format;
 };
 
-// TODO: Shrink this struct. There is some fluff.
+// Texture replacement state machine:
+// Call FindReplacement during PrepareBuild.
+// If replacedTexture gets set: If not found, -> STATUS_TO_REPLACE, otherwise directly -> STATUS_IS_SCALED.
+// If replacedTexture is null, leave it at null.
+// If replacedTexture is set in SetTexture and STATUS_IS_SCALED is not set, query status. If ready rebuild texture, which will set STATUS_IS_SCALED.
 
 // NOTE: These only handle textures loaded directly from PSP memory contents.
 // Framebuffer textures do not have entries, we bind the framebuffers directly.
 // At one point we might merge the concepts of framebuffers and textures, but that
 // moment is far away.
+
+// TODO: Shrink this struct. There is some fluff.
 struct TexCacheEntry {
 	~TexCacheEntry() {
 		if (texturePtr || textureName || vkTex)
@@ -133,7 +139,7 @@ struct TexCacheEntry {
 		STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 6 frames in between.)
 		STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
 		STATUS_TO_SCALE = 0x80,        // Pending texture scaling in a later frame.
-		STATUS_IS_SCALED = 0x100,      // Has been scaled (can't be replaceImages'd.)
+		STATUS_IS_SCALED_OR_REPLACED = 0x100,  // Has been scaled already (ignored for replacement checks).
 		STATUS_TO_REPLACE = 0x0200,    // Pending texture replacement.
 		// When hashing large textures, we optimize 512x512 down to 512x272 by default, since this
 		// is commonly the only part accessed.  If access is made above 272, we hash the entire
@@ -149,10 +155,13 @@ struct TexCacheEntry {
 		STATUS_3D = 0x4000,
 
 		STATUS_CLUT_GPU = 0x8000,
+
+		STATUS_VIDEO = 0x10000,
+		STATUS_BGRA = 0x20000,
 	};
 
-	// Status, but int so we can zero initialize.
-	int status;
+	// TexStatus enum flag combination.
+	u32 status;
 
 	u32 addr;
 	u32 minihash;
@@ -177,6 +186,7 @@ struct TexCacheEntry {
 	u32 fullhash;
 	u32 cluthash;
 	u16 maxSeenV;
+	ReplacedTexture *replacedTexture;
 
 	TexStatus GetHashStatus() {
 		return TexStatus(status & STATUS_MASK);
@@ -283,14 +293,15 @@ struct BuildTexturePlan {
 	// The replacement for the texture.
 	ReplacedTexture *replaced;
 	// Need to only check once since it can change during the load!
-	bool replaceValid;
+	bool doReplace;
 	bool saveTexture;
 
 	// TODO: Expand32 should probably also be decided in PrepareBuildTexture.
 	bool decodeToClut8;
 
 	void GetMipSize(int level, int *w, int *h) const {
-		if (replaceValid && replaced->GetSize(level, *w, *h)) {
+		if (doReplace) {
+			replaced->GetSize(level, w, h);
 			return;
 		}
 		if (depth == 1) {
@@ -329,7 +340,6 @@ public:
 	TextureShaderCache *GetTextureShaderCache() { return textureShaderCache_; }
 
 	virtual void ForgetLastTexture() = 0;
-	virtual void InvalidateLastTexture() = 0;
 	virtual void Clear(bool delete_them);
 	virtual void NotifyConfigChanged();
 	virtual void ApplySamplingParams(const SamplerCacheKey &key) = 0;
@@ -350,6 +360,11 @@ public:
 		return !videos_.empty();
 	}
 	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) { return false; }
+
+	virtual void StartFrame();
+
+	virtual void DeviceLost() = 0;
+	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
 protected:
 	virtual void *GetNativeTextureView(const TexCacheEntry *entry) = 0;
@@ -374,10 +389,11 @@ protected:
 	CheckAlphaResult DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, TexDecodeFlags flags);
 	void UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
 	CheckAlphaResult ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit);
-	ReplacedTexture &FindReplacement(TexCacheEntry *entry, int &w, int &h, int &d);
+	ReplacedTexture *FindReplacement(TexCacheEntry *entry, int *w, int *h, int *d);
+	void PollReplacement(TexCacheEntry *entry, int *w, int *h, int *d);
 
 	// Return value is mapData normally, but could be another buffer allocated with AllocateAlignedMemory.
-	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, int mapRowPitch, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags);
+	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, size_t dataSize, int mapRowPitch, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags);
 
 	template <typename T>
 	inline const T *GetCurrentClut() {
@@ -403,8 +419,6 @@ protected:
 	bool GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer, bool *isFramebuffer);
 
 	virtual void BoundFramebufferTexture() {}
-
-	virtual void StartFrame();
 
 	void DecimateVideos();
 	bool IsVideo(u32 texaddr) const;
@@ -505,8 +519,6 @@ protected:
 	bool nextNeedsRehash_;
 	bool nextNeedsChange_;
 	bool nextNeedsRebuild_;
-
-	bool isBgraBackend_ = false;
 
 	u32 *expandClut_;
 };

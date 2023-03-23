@@ -283,8 +283,8 @@ public:
 	}
 
 	// Returns the binding offset, and the VkBuffer to bind.
-	size_t PushUBO(VulkanPushBuffer *buf, VulkanContext *vulkan, VkBuffer *vkbuf) {
-		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment, vkbuf);
+	size_t PushUBO(VulkanPushPool *buf, VulkanContext *vulkan, VkBuffer *vkbuf) {
+		return buf->Push(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment, vkbuf);
 	}
 
 	int GetUBOSize() const {
@@ -334,9 +334,9 @@ struct DescriptorSetKey {
 
 class VKTexture : public Texture {
 public:
-	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc)
+	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const TextureDesc &desc)
 		: vulkan_(vulkan), mipLevels_(desc.mipLevels), format_(desc.format) {}
-	bool Create(VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc);
+	bool Create(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const TextureDesc &desc);
 
 	~VKTexture() {
 		Destroy();
@@ -414,7 +414,7 @@ public:
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
-	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) override;
+	bool CopyFramebufferToMemory(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
 	DataFormat PreferredFramebufferReadbackFormat(Framebuffer *src) override;
 
 	// These functions should be self explanatory.
@@ -425,7 +425,7 @@ public:
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void SetScissorRect(int left, int top, int width, int height) override;
-	void SetViewports(int count, Viewport *viewports) override;
+	void SetViewport(const Viewport &viewport) override;
 	void SetBlendFactor(float color[4]) override;
 	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override;
 
@@ -536,12 +536,12 @@ private:
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
 	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES];
 
+	VulkanPushPool *push_ = nullptr;
+
 	struct FrameData {
 		FrameData() : descriptorPool("VKContext", false) {
 			descriptorPool.Setup([this] { descSets_.clear(); });
 		}
-
-		VulkanPushBuffer *pushBuffer = nullptr;
 		// Per-frame descriptor set cache. As it's per frame and reset every frame, we don't need to
 		// worry about invalidating descriptors pointing to deleted textures.
 		// However! ARM is not a fan of doing it this way.
@@ -551,8 +551,6 @@ private:
 
 	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
-	VulkanPushBuffer *push_ = nullptr;
-
 	DeviceCaps caps_{};
 
 	uint8_t stencilRef_ = 0;
@@ -560,6 +558,7 @@ private:
 	uint8_t stencilCompareMask_ = 0xFF;
 };
 
+// Bits per pixel, not bytes.
 static int GetBpp(VkFormat format) {
 	switch (format) {
 	case VK_FORMAT_R8G8B8A8_UNORM:
@@ -582,6 +581,21 @@ static int GetBpp(VkFormat format) {
 		return 32;
 	case VK_FORMAT_D16_UNORM:
 		return 16;
+	case VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK:
+		return 4;
+	case VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK:
+	case VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK:
+		return 8;
+	case VK_FORMAT_ASTC_4x4_UNORM_BLOCK:
+		return 8;
+	case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
+		return 4;
+	case VK_FORMAT_BC2_UNORM_BLOCK:
+	case VK_FORMAT_BC3_UNORM_BLOCK:
+	case VK_FORMAT_BC4_UNORM_BLOCK:
+	case VK_FORMAT_BC5_UNORM_BLOCK:
+	case VK_FORMAT_BC7_UNORM_BLOCK:
+		return 8;
 	default:
 		return 0;
 	}
@@ -625,13 +639,15 @@ static VkFormat DataFormatToVulkan(DataFormat format) {
 	case DataFormat::BC2_UNORM_BLOCK: return VK_FORMAT_BC2_UNORM_BLOCK;
 	case DataFormat::BC3_UNORM_BLOCK: return VK_FORMAT_BC3_UNORM_BLOCK;
 	case DataFormat::BC4_UNORM_BLOCK: return VK_FORMAT_BC4_UNORM_BLOCK;
-	case DataFormat::BC4_SNORM_BLOCK: return VK_FORMAT_BC4_SNORM_BLOCK;
 	case DataFormat::BC5_UNORM_BLOCK: return VK_FORMAT_BC5_UNORM_BLOCK;
-	case DataFormat::BC5_SNORM_BLOCK: return VK_FORMAT_BC5_SNORM_BLOCK;
-	case DataFormat::BC6H_SFLOAT_BLOCK: return VK_FORMAT_BC6H_SFLOAT_BLOCK;
-	case DataFormat::BC6H_UFLOAT_BLOCK: return VK_FORMAT_BC6H_UFLOAT_BLOCK;
 	case DataFormat::BC7_UNORM_BLOCK: return VK_FORMAT_BC7_UNORM_BLOCK;
-	case DataFormat::BC7_SRGB_BLOCK:  return VK_FORMAT_BC7_SRGB_BLOCK;
+
+	case DataFormat::ETC2_R8G8B8A1_UNORM_BLOCK: return VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK;
+	case DataFormat::ETC2_R8G8B8A8_UNORM_BLOCK: return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+	case DataFormat::ETC2_R8G8B8_UNORM_BLOCK: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+
+	case DataFormat::ASTC_4x4_UNORM_BLOCK: return VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
+
 	default:
 		return VK_FORMAT_UNDEFINED;
 	}
@@ -657,14 +673,16 @@ VulkanTexture *VKContext::GetNullTexture() {
 			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 		uint32_t bindOffset;
 		VkBuffer bindBuf;
-		uint32_t *data = (uint32_t *)push_->Push(w * h * 4, &bindOffset, &bindBuf);
+		uint32_t *data = (uint32_t *)push_->Allocate(w * h * 4, 4, &bindBuf, &bindOffset);
 		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < w; x++) {
 				// data[y*w + x] = ((x ^ y) & 1) ? 0xFF808080 : 0xFF000000;   // gray/black checkerboard
 				data[y*w + x] = 0;  // black
 			}
 		}
-		nullTexture_->UploadMip(cmdInit, 0, w, h, 0, bindBuf, bindOffset, w);
+		TextureCopyBatch batch;
+		nullTexture_->CopyBufferToMipLevel(cmdInit, &batch, 0, w, h, 0, bindBuf, bindOffset, w);
+		nullTexture_->FinishCopyBatch(cmdInit, &batch);
 		nullTexture_->EndCreate(cmdInit, false, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	}
 	return nullTexture_;
@@ -719,7 +737,7 @@ enum class TextureState {
 	PENDING_DESTRUCTION,
 };
 
-bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const TextureDesc &desc) {
+bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushPool *push, const TextureDesc &desc) {
 	// Zero-sized textures not allowed.
 	_assert_(desc.width * desc.height * desc.depth > 0);  // remember to set depth to 1!
 	if (desc.width * desc.height * desc.depth <= 0) {
@@ -742,7 +760,9 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 		usageBits |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
 
-	if (!vkTex_->CreateDirect(cmd, width_, height_, 1, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits)) {
+	VkComponentMapping r8AsAlpha[4] = { VK_COMPONENT_SWIZZLE_ONE, VK_COMPONENT_SWIZZLE_ONE, VK_COMPONENT_SWIZZLE_ONE, VK_COMPONENT_SWIZZLE_R };
+
+	if (!vkTex_->CreateDirect(cmd, width_, height_, 1, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits, desc.swizzle == TextureSwizzle::R8_AS_ALPHA ? r8AsAlpha : nullptr)) {
 		ERROR_LOG(G3D,  "Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
 		return false;
 	}
@@ -757,14 +777,16 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 			VkBuffer buf;
 			size_t size = w * h * d * bytesPerPixel;
 			if (desc.initDataCallback) {
-				uint8_t *dest = (uint8_t *)push->PushAligned(size, &offset, &buf, 16);
+				uint8_t *dest = (uint8_t *)push->Allocate(size, 16, &buf, &offset);
 				if (!desc.initDataCallback(dest, desc.initData[i], w, h, d, w * bytesPerPixel, h * w * bytesPerPixel)) {
 					memcpy(dest, desc.initData[i], size);
 				}
 			} else {
-				offset = push->PushAligned((const void *)desc.initData[i], size, 16, &buf);
+				offset = push->Push((const void *)desc.initData[i], size, 16, &buf);
 			}
-			vkTex_->UploadMip(cmd, i, w, h, 0, buf, offset, w);
+			TextureCopyBatch batch;
+			vkTex_->CopyBufferToMipLevel(cmd, &batch, i, w, h, 0, buf, offset, w);
+			vkTex_->FinishCopyBatch(cmd, &batch);
 			w = (w + 1) / 2;
 			h = (h + 1) / 2;
 			d = (d + 1) / 2;
@@ -959,9 +981,10 @@ VKContext::VKContext(VulkanContext *vulkan)
 	// 200 textures per frame was not enough for the UI.
 	dp.maxSets = 4096;
 
+	VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+	push_ = new VulkanPushPool(vulkan_, "pushBuffer", 4 * 1024 * 1024, usage);
+
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, "pushBuffer", 1024 * 1024, usage, PushBufferType::CPU_TO_GPU);
 		frame_[i].descriptorPool.Create(vulkan_, dp, dpTypes);
 	}
 
@@ -1013,9 +1036,9 @@ VKContext::~VKContext() {
 	// This also destroys all descriptor sets.
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].descriptorPool.Destroy();
-		frame_[i].pushBuffer->Destroy(vulkan_);
-		delete frame_[i].pushBuffer;
 	}
+	push_->Destroy();
+	delete push_;
 	vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
 	vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
 	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
@@ -1026,22 +1049,14 @@ void VKContext::BeginFrame() {
 	renderManager_.BeginFrame(debugFlags_ & DebugFlags::PROFILE_TIMESTAMPS, debugFlags_ & DebugFlags::PROFILE_SCOPES);
 
 	FrameData &frame = frame_[vulkan_->GetCurFrame()];
-	push_ = frame.pushBuffer;
 
-	// OK, we now know that nothing is reading from this frame's data pushbuffer,
-	push_->Reset();
-	push_->Begin(vulkan_);
+	push_->BeginFrame();
 
 	frame.descriptorPool.Reset();
 }
 
 void VKContext::EndFrame() {
-	// Stop collecting data in the frame's data pushbuffer.
-	push_->End();
-
 	renderManager_.Finish();
-
-	push_ = nullptr;
 
 	// Unbind stuff, to avoid accidentally relying on it across frames (and provide some protection against forgotten unbinds of deleted things).
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
@@ -1237,18 +1252,16 @@ void VKContext::SetScissorRect(int left, int top, int width, int height) {
 	renderManager_.SetScissor(left, top, width, height);
 }
 
-void VKContext::SetViewports(int count, Viewport *viewports) {
-	if (count > 0) {
-		// Ignore viewports more than the first.
-		VkViewport viewport;
-		viewport.x = viewports[0].TopLeftX;
-		viewport.y = viewports[0].TopLeftY;
-		viewport.width = viewports[0].Width;
-		viewport.height = viewports[0].Height;
-		viewport.minDepth = viewports[0].MinDepth;
-		viewport.maxDepth = viewports[0].MaxDepth;
-		renderManager_.SetViewport(viewport);
-	}
+void VKContext::SetViewport(const Viewport &viewport) {
+	// Ignore viewports more than the first.
+	VkViewport vkViewport;
+	vkViewport.x = viewport.TopLeftX;
+	vkViewport.y = viewport.TopLeftY;
+	vkViewport.width = viewport.Width;
+	vkViewport.height = viewport.Height;
+	vkViewport.minDepth = viewport.MinDepth;
+	vkViewport.maxDepth = viewport.MaxDepth;
+	renderManager_.SetViewport(vkViewport);
 }
 
 void VKContext::SetBlendFactor(float color[4]) {
@@ -1430,7 +1443,7 @@ void VKContext::Draw(int vertexCount, int offset) {
 	VkBuffer vulkanVbuf;
 	VkBuffer vulkanUBObuf;
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
-	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanVbuf);
+	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), 4, &vulkanVbuf);
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 	if (descSet == VK_NULL_HANDLE) {
@@ -1449,8 +1462,8 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 
 	VkBuffer vulkanVbuf, vulkanIbuf, vulkanUBObuf;
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
-	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanVbuf);
-	size_t ibBindOffset = push_->Push(ibuf->GetData(), ibuf->GetSize(), &vulkanIbuf);
+	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), 4, &vulkanVbuf);
+	size_t ibBindOffset = push_->Push(ibuf->GetData(), ibuf->GetSize(), 4, &vulkanIbuf);
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 	if (descSet == VK_NULL_HANDLE) {
@@ -1465,7 +1478,7 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	VkBuffer vulkanVbuf, vulkanUBObuf;
-	size_t vbBindOffset = push_->Push(vdata, vertexCount * curPipeline_->stride[0], &vulkanVbuf);
+	size_t vbBindOffset = push_->Push(vdata, vertexCount * curPipeline_->stride[0], 4, &vulkanVbuf);
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
@@ -1632,7 +1645,7 @@ bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int sr
 	return true;
 }
 
-bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) {
+bool VKContext::CopyFramebufferToMemory(Framebuffer *srcfb, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 
 	int aspectMask = 0;
@@ -1640,7 +1653,7 @@ bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits,
 	if (channelBits & FBChannel::FB_DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
-	return renderManager_.CopyFramebufferToMemorySync(src ? src->GetFB() : nullptr, aspectMask, x, y, w, h, format, (uint8_t *)pixels, pixelStride, tag);
+	return renderManager_.CopyFramebufferToMemory(src ? src->GetFB() : nullptr, aspectMask, x, y, w, h, format, (uint8_t *)pixels, pixelStride, mode, tag);
 }
 
 DataFormat VKContext::PreferredFramebufferReadbackFormat(Framebuffer *src) {
@@ -1757,7 +1770,8 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 		return (uint64_t)curFramebuffer_->GetFB()->GetRTView();
 	case NativeObject::THIN3D_PIPELINE_LAYOUT:
 		return (uint64_t)pipelineLayout_;
-
+	case NativeObject::PUSH_POOL:
+		return (uint64_t)push_;
 	default:
 		Crash();
 		return 0;

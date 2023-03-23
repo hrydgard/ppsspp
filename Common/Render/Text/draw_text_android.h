@@ -40,6 +40,7 @@ private:
 	jmethodID method_renderText;
 
 	uint32_t fontHash_;
+	bool use4444Format_ = false;
 
 	std::map<uint32_t, AndroidFontEntry> fontMap_;
 

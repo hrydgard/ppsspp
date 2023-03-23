@@ -107,6 +107,9 @@ public:
 	DrawEngineDX9(Draw::DrawContext *draw);
 	~DrawEngineDX9();
 
+	void DeviceLost() override { draw_ = nullptr; }
+	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
+
 	void SetShaderManager(ShaderManagerDX9 *shaderManager) {
 		shaderManager_ = shaderManager;
 	}

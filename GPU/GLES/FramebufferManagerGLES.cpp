@@ -15,38 +15,20 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
-
-#include "Common/Data/Convert/ColorConv.h"
-#include "Common/Profiler/Profiler.h"
-#include "Common/GPU/OpenGL/GLCommon.h"
-#include "Common/GPU/OpenGL/GLDebugLog.h"
-#include "Common/GPU/OpenGL/GLSLProgram.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/thin3d.h"
-#include "Core/MemMap.h"
-#include "Core/Config.h"
-#include "Core/ConfigValues.h"
 #include "Core/System.h"
-#include "Core/Reporting.h"
-#include "GPU/ge_constants.h"
-#include "GPU/GPUState.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/TextureDecoder.h"
-#include "GPU/Debugger/Stepping.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
-#include "GPU/GLES/TextureCacheGLES.h"
-#include "GPU/GLES/ShaderManagerGLES.h"
 
 FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
 	FramebufferManagerCommon(draw)
 {
 	needBackBufferYSwap_ = true;
 	presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
-}
-
-FramebufferManagerGLES::~FramebufferManagerGLES() {
-	delete[] convBuf_;
 }
 
 void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
@@ -72,6 +54,6 @@ bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	int w, h;
 	draw_->GetFramebufferDimensions(nullptr, &w, &h);
 	buffer.Allocate(w, h, GPU_DBG_FORMAT_888_RGB, true);
-	draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData(), w, "GetOutputFramebuffer");
+	draw_->CopyFramebufferToMemory(nullptr, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetOutputFramebuffer");
 	return true;
 }

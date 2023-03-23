@@ -13,6 +13,7 @@
 #include "Common/UI/Tween.h"
 #include "Common/UI/Root.h"
 #include "Common/GPU/thin3d.h"
+#include "Common/System/Request.h"
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
@@ -550,7 +551,6 @@ void InfoItem::Draw(UIContext &dc) {
 	if (choiceStyle_) {
 		style = HasFocus() ? dc.theme->itemFocusedStyle : dc.theme->itemStyle;
 	}
-
 
 	if (style.background.type == DRAW_SOLID_COLOR) {
 		// For a smoother fade, using the same color with 0 alpha.
@@ -1196,7 +1196,7 @@ bool TextEdit::Key(const KeyInput &input) {
 			switch (input.keyCode) {
 			case NKCODE_C:
 				// Just copy the entire text contents, until we get selection support.
-				System_SendMessage("setclipboardtext", text_.c_str());
+				System_CopyStringToClipboard(text_.c_str());
 				break;
 			case NKCODE_V:
 				{

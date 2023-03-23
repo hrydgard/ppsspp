@@ -86,14 +86,16 @@ public:
 	~ShaderManagerD3D11();
 
 	void GetShaders(int prim, VertexDecoder *decoder, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
-	void ClearShaders();
+	void ClearShaders() override;
 	void DirtyLastShader() override;
 
+	void DeviceLost() override { draw_ = nullptr; }
+	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
 	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
 	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }
 
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
-	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) override;
+	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) override;
 
 	uint64_t UpdateUniforms(bool useBufferedRendering);
 	void BindUniforms();

@@ -73,18 +73,8 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	ChangeStatusInit(NET_INIT_DELAY_US);
 
 	// Eat any keys pressed before the dialog inited.
+	InitCommon();
 	UpdateButtons();
-	okButtonImg = ImageID("I_CIRCLE");
-	cancelButtonImg = ImageID("I_CROSS");
-	okButtonFlag = CTRL_CIRCLE;
-	cancelButtonFlag = CTRL_CROSS;
-	if (request.common.buttonSwap == 1)
-	{
-		okButtonImg = ImageID("I_CROSS");
-		cancelButtonImg = ImageID("I_CIRCLE");
-		okButtonFlag = CTRL_CROSS;
-		cancelButtonFlag = CTRL_CIRCLE;
-	}
 
 	connResult = -1;
 	scanInfosAddr = 0;
@@ -247,6 +237,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 	}
 
 	UpdateButtons();
+	UpdateCommon();
 	auto di = GetI18NCategory("Dialog");
 	auto err = GetI18NCategory("Error");
 	u64 now = (u64)(time_now_d() * 1000000.0);

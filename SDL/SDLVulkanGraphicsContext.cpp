@@ -33,7 +33,7 @@ static uint32_t FlagsFromConfig() {
 }
 
 bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message) {
-	window = SDL_CreateWindow("Initializing Vulkan...", x, y, pixel_xres, pixel_yres, mode);
+	window = SDL_CreateWindow("Initializing Vulkan...", x, y, g_display.pixel_xres, g_display.pixel_yres, mode);
 	if (!window) {
 		fprintf(stderr, "Error creating SDL window: %s\n", SDL_GetError());
 		exit(1);
@@ -110,6 +110,15 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(sys_info.info.uikit.window), nullptr);
 		break;
 #endif
+#endif
+#if defined(VK_USE_PLATFORM_DISPLAY_KHR)
+	case WINDOWSYSTEM_DISPLAY:
+		/*
+		There is no problem passing null for the next two arguments, and reinit will be called later
+		huangzihan china
+		*/
+		vulkan_->InitSurface(WINDOWSYSTEM_DISPLAY, nullptr, nullptr);
+		break;
 #endif
 	default:
 		fprintf(stderr, "Vulkan subsystem %d not supported\n", sys_info.subsystem);

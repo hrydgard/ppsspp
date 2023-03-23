@@ -10,7 +10,8 @@
 template<class T>
 class PromiseTask : public Task {
 public:
-	PromiseTask(std::function<T ()> fun, Mailbox<T> *tx, TaskType t) : fun_(fun), tx_(tx), type_(t) {
+	PromiseTask(std::function<T ()> fun, Mailbox<T> *tx, TaskType t, TaskPriority p)
+		: fun_(fun), tx_(tx), type_(t), priority_(p) {
 		tx_->AddRef();
 	}
 	~PromiseTask() {
@@ -21,6 +22,10 @@ public:
 		return type_;
 	}
 
+	TaskPriority Priority() const override {
+		return priority_;
+	}
+
 	void Run() override {
 		T value = fun_();
 		tx_->Send(value);
@@ -28,7 +33,8 @@ public:
 
 	std::function<T ()> fun_;
 	Mailbox<T> *tx_;
-	TaskType type_;
+	const TaskType type_;
+	const TaskPriority priority_;
 };
 
 // Represents pending or actual data.
@@ -39,13 +45,13 @@ public:
 template<class T>
 class Promise {
 public:
-	static Promise<T> *Spawn(ThreadManager *threadman, std::function<T()> fun, TaskType taskType) {
+	static Promise<T> *Spawn(ThreadManager *threadman, std::function<T()> fun, TaskType taskType, TaskPriority taskPriority = TaskPriority::NORMAL) {
 		Mailbox<T> *mailbox = new Mailbox<T>();
 
 		Promise<T> *promise = new Promise<T>();
 		promise->rx_ = mailbox;
 
-		PromiseTask<T> *task = new PromiseTask<T>(fun, mailbox, taskType);
+		PromiseTask<T> *task = new PromiseTask<T>(fun, mailbox, taskType, taskPriority);
 		threadman->EnqueueTask(task);
 		return promise;
 	}
@@ -65,8 +71,8 @@ public:
 	}
 
 	// Allow an empty promise to spawn, too, in case we want to delay it.
-	void SpawnEmpty(ThreadManager *threadman, std::function<T()> fun, TaskType taskType) {
-		PromiseTask<T> *task = new PromiseTask<T>(fun, rx_, taskType);
+	void SpawnEmpty(ThreadManager *threadman, std::function<T()> fun, TaskType taskType, TaskPriority taskPriority = TaskPriority::NORMAL) {
+		PromiseTask<T> *task = new PromiseTask<T>(fun, rx_, taskType, taskPriority);
 		threadman->EnqueueTask(task);
 	}
 

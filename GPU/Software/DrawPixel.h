@@ -128,7 +128,7 @@ private:
 	DenseHashMap<size_t, SingleFunc, nullptr> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;
 	std::unordered_set<PixelFuncID> compileQueue_;
-	int clearGen_ = 0;
+	static int clearGen_;
 	static thread_local LastCache lastSingle_;
 
 	const u8 *constBlendHalf_11_4s_ = nullptr;

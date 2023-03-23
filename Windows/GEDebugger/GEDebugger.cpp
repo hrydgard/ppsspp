@@ -839,9 +839,9 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 
 	case GPU_DBG_FORMAT_24BIT_8X:
 	{
-		DepthScaleFactors depthScale = GetDepthScaleFactors();
+		DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
 		// These are only ever going to be depth values, so let's also show scaled to 16 bit.
-		snprintf(desc, 256, "%d,%d: %d / %f / %f", x, y, pix & 0x00FFFFFF, (pix & 0x00FFFFFF) * (1.0f / 16777215.0f), depthScale.Apply((pix & 0x00FFFFFF) * (1.0f / 16777215.0f)));
+		snprintf(desc, 256, "%d,%d: %d / %f / %f", x, y, pix & 0x00FFFFFF, (pix & 0x00FFFFFF) * (1.0f / 16777215.0f), depthScale.DecodeToU16((pix & 0x00FFFFFF) * (1.0f / 16777215.0f)));
 		break;
 	}
 
@@ -860,8 +860,8 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 
 	case GPU_DBG_FORMAT_FLOAT: {
 		float pixf = *(float *)&pix;
-		DepthScaleFactors depthScale = GetDepthScaleFactors();
-		snprintf(desc, 256, "%d,%d: %f / %f", x, y, pixf, depthScale.Apply(pixf));
+		DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
+		snprintf(desc, 256, "%d,%d: %f / %f", x, y, pixf, depthScale.DecodeToU16(pixf));
 		break;
 	}
 
@@ -870,11 +870,11 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 			double z = *(float *)&pix;
 			int z24 = (int)(z * 16777215.0);
 
-			DepthScaleFactors factors = GetDepthScaleFactors();
+			DepthScaleFactors factors = GetDepthScaleFactors(gstate_c.UseFlags());
 			// TODO: Use GetDepthScaleFactors here too, verify it's the same.
 			int z16 = z24 - 0x800000 + 0x8000;
 
-			int z16_2 = factors.Apply(z);
+			int z16_2 = factors.DecodeToU16(z);
 
 			snprintf(desc, 256, "%d,%d: %d / %f", x, y, z16, (z - 0.5 + (1.0 / 512.0)) * 256.0);
 		}
@@ -991,7 +991,7 @@ void CGEDebugger::UpdateSize(WORD width, WORD height) {
 		tabRect.right = tabRect.left + (width / 2 - tabRect.left * 2);
 	}
 	tabRect.bottom = tabRect.top + (height - tabRect.top - tabRect.left);
-	
+
 	RECT tabRectRight = tabRect;
 	if (tabs && tabsRight_ && tabs->Count() == 0 && tabsRight_->Count() != 0) {
 		tabRect.right = tabRect.left;
@@ -1005,7 +1005,7 @@ void CGEDebugger::UpdateSize(WORD width, WORD height) {
 	HWND frameWnd = GetDlgItem(m_hDlg, IDC_GEDBG_FRAME);
 	GetWindowRect(frameWnd, &frameRect);
 	MapWindowPoints(HWND_DESKTOP, m_hDlg, (LPPOINT)&frameRect, 2);
-	
+
 	RECT trRect = { frameRect.right + 10, frameRect.top, tabRectRight.right, tabRectRight.top };
 	if (tabsTR_ && tabsTR_->Count() == 0) {
 		trRect.right = trRect.left;
@@ -1045,7 +1045,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		UpdateSize(LOWORD(lParam), HIWORD(lParam));
 		SavePosition();
 		return TRUE;
-		
+
 	case WM_MOVE:
 		SavePosition();
 		return TRUE;
@@ -1213,7 +1213,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		case IDC_GEDBG_RECORD:
 			GPURecord::SetCallback([](const Path &path) {
 				// Opens a Windows Explorer window with the file.
-				OpenDirectory(path.c_str());
+				System_ShowFileInFolder(path.c_str());
 			});
 			GPURecord::Activate();
 			break;

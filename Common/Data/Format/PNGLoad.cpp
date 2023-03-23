@@ -59,3 +59,14 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 	png_image_finish_read(&png, NULL, *image_data_ptr, stride, NULL);
 	return 1;
 }
+
+bool PNGHeaderPeek::IsValidPNGHeader() const {
+	if (magic != 0x474e5089 || ihdrTag != 0x52444849) {
+		return false;
+	}
+	// Reject crazy sized images, too.
+	if (Width() > 32768 && Height() > 32768) {
+		return false;
+	}
+	return true;
+}

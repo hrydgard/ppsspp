@@ -81,9 +81,9 @@ public:
 	Path WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const;
 	Path WithReplacedExtension(const std::string &newExtension) const;
 
-	// Removes the last component.
 	std::string GetFilename() const;  // Really, GetLastComponent. Could be a file or directory. Includes the extension.
 	std::string GetFileExtension() const;  // Always lowercase return. Includes the dot.
+	// Removes the last component.
 	std::string GetDirectory() const;
 
 	const std::string &ToString() const;
@@ -92,7 +92,8 @@ public:
 	std::wstring ToWString() const;
 #endif
 
-	std::string ToVisualString() const;
+	// Pass in a relative root to turn the path into a relative path - if it is one!
+	std::string ToVisualString(const char *relativeRoot = nullptr) const;
 
 	bool CanNavigateUp() const;
 	Path NavigateUp() const;

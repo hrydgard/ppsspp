@@ -199,6 +199,7 @@ struct VKRStep {
 			int aspectMask;
 			VKRFramebuffer *src;
 			VkRect2D srcRect;
+			bool delayed;
 		} readback;
 		struct {
 			VkImage image;
@@ -252,7 +253,8 @@ public:
 		return (int)depth * 3 + (int)color;
 	}
 
-	void CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
+	// src == 0 means to copy from the sync readback buffer.
+	bool CopyReadbackBuffer(FrameData &frameData, VKRFramebuffer *src, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
 	VKRRenderPass *GetRenderPass(const RPKey &key);
 
@@ -288,7 +290,7 @@ private:
 	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformCopy(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformBlit(const VKRStep &pass, VkCommandBuffer cmd);
-	void PerformReadback(const VKRStep &pass, VkCommandBuffer cmd);
+	void PerformReadback(const VKRStep &pass, VkCommandBuffer cmd, FrameData &frameData);
 	void PerformReadbackImage(const VKRStep &pass, VkCommandBuffer cmd);
 
 	void LogRenderPass(const VKRStep &pass, bool verbose);
@@ -297,7 +299,7 @@ private:
 	void LogReadback(const VKRStep &pass);
 	void LogReadbackImage(const VKRStep &pass);
 
-	void ResizeReadbackBuffer(VkDeviceSize requiredSize);
+	void ResizeReadbackBuffer(CachedReadback *readback, VkDeviceSize requiredSize);
 
 	void ApplyMGSHack(std::vector<VKRStep *> &steps);
 	void ApplySonicHack(std::vector<VKRStep *> &steps);
@@ -323,10 +325,7 @@ private:
 
 	// Readback buffer. Currently we only support synchronous readback, so we only really need one.
 	// We size it generously.
-	VkDeviceMemory readbackMemory_ = VK_NULL_HANDLE;
-	VkBuffer readbackBuffer_ = VK_NULL_HANDLE;
-	VkDeviceSize readbackBufferSize_ = 0;
-	bool readbackBufferIsCoherent_ = false;
+	CachedReadback syncReadback_{};
 
 	// TODO: Enable based on compat.ini.
 	uint32_t hacksEnabled_ = 0;

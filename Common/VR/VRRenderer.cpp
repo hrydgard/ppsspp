@@ -216,6 +216,11 @@ void VR_InitRenderer( engine_t* engine, bool multiview ) {
 			engine->appState.ViewConfigurationView[0].recommendedImageRectWidth,
 			engine->appState.ViewConfigurationView[0].recommendedImageRectHeight,
 			multiview, vulkanContext);
+#ifdef ANDROID
+	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_FOVEATION)) {
+		ovrRenderer_SetFoveation(&engine->appState.Instance, &engine->appState.Session, &engine->appState.Renderer, XR_FOVEATION_LEVEL_HIGH_TOP_FB, 0, XR_FOVEATION_DYNAMIC_LEVEL_ENABLED_FB);
+	}
+#endif
 	initialized = true;
 }
 
@@ -250,9 +255,6 @@ bool VR_InitFrame( engine_t* engine ) {
 
 	OXR(xrWaitFrame(engine->appState.Session, &waitFrameInfo, &frameState));
 	engine->predictedDisplayTime = frameState.predictedDisplayTime;
-	if (!frameState.shouldRender) {
-		return false;
-	}
 
 	// Get the HMD pose, predicted for the middle of the time period during which
 	// the new eye images will be displayed. The number of frames predicted ahead

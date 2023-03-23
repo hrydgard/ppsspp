@@ -42,6 +42,7 @@ NATIVE_FILES :=\
   $(SRC)/Common/GPU/OpenGL/GLDebugLog.cpp \
   $(SRC)/Common/GPU/OpenGL/GLSLProgram.cpp \
   $(SRC)/Common/GPU/OpenGL/GLFeatures.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLFrameData.cpp \
   $(SRC)/Common/GPU/OpenGL/GLRenderManager.cpp \
   $(SRC)/Common/GPU/OpenGL/GLQueueRunner.cpp \
   $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp
@@ -102,6 +103,7 @@ EXT_FILES := \
   $(SRC)/ext/libpng17/pngwrite.c \
   $(SRC)/ext/libpng17/pngwtran.c \
   $(SRC)/ext/libpng17/pngwutil.c \
+  $(SRC)/ext/basis_universal/basisu_transcoder.cpp \
   $(SRC)/ext/jpge/jpgd.cpp \
   $(SRC)/ext/jpge/jpge.cpp \
   $(SRC)/ext/sha1/sha1.cpp \
@@ -162,6 +164,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Data/Format/IniFile.cpp \
   $(SRC)/Common/Data/Format/JSONReader.cpp \
   $(SRC)/Common/Data/Format/JSONWriter.cpp \
+  $(SRC)/Common/Data/Format/DDSLoad.cpp \
+  $(SRC)/Common/Data/Format/DDSLoad.h \
   $(SRC)/Common/Data/Format/PNGLoad.cpp \
   $(SRC)/Common/Data/Format/PNGLoad.h \
   $(SRC)/Common/Data/Format/ZIMLoad.cpp \
@@ -174,7 +178,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Data/Text/WrapText.cpp \
   $(SRC)/Common/File/AndroidStorage.cpp \
   $(SRC)/Common/File/VFS/VFS.cpp \
-  $(SRC)/Common/File/VFS/AssetReader.cpp \
+  $(SRC)/Common/File/VFS/ZipFileReader.cpp \
+  $(SRC)/Common/File/VFS/DirectoryReader.cpp \
   $(SRC)/Common/File/DiskFree.cpp \
   $(SRC)/Common/File/Path.cpp \
   $(SRC)/Common/File/PathBrowser.cpp \
@@ -209,6 +214,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Net/WebsocketServer.cpp \
   $(SRC)/Common/Profiler/Profiler.cpp \
   $(SRC)/Common/System/Display.cpp \
+  $(SRC)/Common/System/Request.cpp \
   $(SRC)/Common/Thread/ThreadUtil.cpp \
   $(SRC)/Common/Thread/ThreadManager.cpp \
   $(SRC)/Common/Thread/ParallelLoop.cpp \
@@ -357,6 +363,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GPU.cpp \
   $(SRC)/GPU/GPUCommon.cpp \
+  $(SRC)/GPU/GPUCommonHW.cpp \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeConstants.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
@@ -372,6 +379,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/GPUStateUtils.cpp.arm \
   $(SRC)/GPU/Common/SoftwareTransformCommon.cpp.arm \
   $(SRC)/GPU/Common/ReinterpretFramebuffer.cpp \
+  $(SRC)/GPU/Common/DepthBufferCommon.cpp \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureCacheCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureScalerCommon.cpp.arm \
@@ -385,6 +393,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/ShaderUniforms.cpp \
   $(SRC)/GPU/Common/VertexShaderGenerator.cpp \
   $(SRC)/GPU/Common/GeometryShaderGenerator.cpp \
+  $(SRC)/GPU/Common/TextureReplacer.cpp \
+  $(SRC)/GPU/Common/ReplacedTexture.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
   $(SRC)/GPU/Debugger/Debugger.cpp \
   $(SRC)/GPU/Debugger/GECommandTable.cpp \
@@ -392,7 +402,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Debugger/Record.cpp \
   $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/FramebufferManagerGLES.cpp \
-  $(SRC)/GPU/GLES/DepthBufferGLES.cpp \
+  $(SRC)/GPU/GLES/StencilBufferGLES.cpp \
   $(SRC)/GPU/GLES/GPU_GLES.cpp.arm \
   $(SRC)/GPU/GLES/TextureCacheGLES.cpp.arm \
   $(SRC)/GPU/GLES/DrawEngineGLES.cpp.arm \
@@ -452,7 +462,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/SaveState.cpp \
   $(SRC)/Core/Screenshot.cpp \
   $(SRC)/Core/System.cpp \
-  $(SRC)/Core/TextureReplacer.cpp \
   $(SRC)/Core/TiltEventProcessor.cpp \
   $(SRC)/Core/ThreadPools.cpp \
   $(SRC)/Core/WebServer.cpp \
@@ -762,14 +771,6 @@ endif
 
 ifeq ($(OPENXR),1)
   LOCAL_CFLAGS += -DOPENXR
-endif
-
-ifeq ($(OPENXR_PLATFORM_QUEST),1)
-  LOCAL_CFLAGS += -DOPENXR_PLATFORM_QUEST
-endif
-
-ifeq ($(OPENXR_PLATFORM_PICO),1)
-  LOCAL_CFLAGS += -DOPENXR_PLATFORM_PICO
 endif
 
 ifeq ($(UNITTEST),1)

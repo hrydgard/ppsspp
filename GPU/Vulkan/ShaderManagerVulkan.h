@@ -34,7 +34,7 @@
 
 class VulkanContext;
 class DrawEngineVulkan;
-class VulkanPushBuffer;
+class VulkanPushPool;
 
 class VulkanFragmentShader {
 public:
@@ -114,11 +114,11 @@ public:
 	ShaderManagerVulkan(Draw::DrawContext *draw);
 	~ShaderManagerVulkan();
 
-	void DeviceLost();
-	void DeviceRestore(Draw::DrawContext *draw);
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	void GetShaders(int prim, VertexDecoder *decoder, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
-	void ClearShaders();
+	void ClearShaders() override;
 	void DirtyShader();
 	void DirtyLastShader() override;
 
@@ -134,8 +134,8 @@ public:
 	VulkanFragmentShader *GetFragmentShaderFromModule(VkShaderModule module);
 	VulkanGeometryShader *GetGeometryShaderFromModule(VkShaderModule module);
 
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
-	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) override;
+	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) override;
 
 	uint64_t UpdateUniforms(bool useBufferedRendering);
 
@@ -145,15 +145,15 @@ public:
 	bool IsLightDirty() { return true; }
 	bool IsBoneDirty() { return true; }
 
-	uint32_t PushBaseBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
-		return dest->PushAligned(&ub_base, sizeof(ub_base), uboAlignment_, buf);
+	uint32_t PushBaseBuffer(VulkanPushPool *dest, VkBuffer *buf) {
+		return dest->Push(&ub_base, sizeof(ub_base), uboAlignment_, buf);
 	}
-	uint32_t PushLightBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
-		return dest->PushAligned(&ub_lights, sizeof(ub_lights), uboAlignment_, buf);
+	uint32_t PushLightBuffer(VulkanPushPool *dest, VkBuffer *buf) {
+		return dest->Push(&ub_lights, sizeof(ub_lights), uboAlignment_, buf);
 	}
 	// TODO: Only push half the bone buffer if we only have four bones.
-	uint32_t PushBoneBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
-		return dest->PushAligned(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
+	uint32_t PushBoneBuffer(VulkanPushPool *dest, VkBuffer *buf) {
+		return dest->Push(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
 	}
 
 	bool LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine);

@@ -10,8 +10,6 @@
 	<string>Your camera may be used to emulate Go!Cam, a camera accessory</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Your microphone may be used to emulate Go!Cam/Talkman, a microphone accessory</string>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>PPSSPP</string>
 	<key>CFBundleExecutable</key>
@@ -36,7 +34,7 @@
 	<false/>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UIStatusBarHidden</key>
 	<true/>

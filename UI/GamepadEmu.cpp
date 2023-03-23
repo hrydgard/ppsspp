@@ -34,6 +34,8 @@
 #include "Core/ControlMapper.h"
 #include "UI/GamepadEmu.h"
 
+const float TOUCH_SCALE_FACTOR = 1.5f;
+
 static uint32_t usedPointerMask = 0;
 static uint32_t analogPointerMask = 0;
 
@@ -65,6 +67,10 @@ std::string GamepadView::DescribeText() const {
 }
 
 float GamepadView::GetButtonOpacity() {
+	if (forceVisible_) {
+		return 1.0f;
+	}
+
 	if (coreState != CORE_RUNNING) {
 		return 0.0f;
 	}
@@ -130,7 +136,7 @@ void MultiTouchButton::Draw(UIContext &dc) {
 		if (g_Config.iTouchButtonStyle == 2) {
 			opacity *= 1.35f;
 		} else {
-			scale *= 2.0f;
+			scale *= TOUCH_SCALE_FACTOR;
 			opacity *= 1.15f;
 		}
 	}
@@ -174,7 +180,7 @@ bool PSPButton::Touch(const TouchInput &input) {
 	bool down = pointerDownMask_ != 0;
 	if (down && !lastDown) {
 		if (g_Config.bHapticFeedback) {
-			Vibrate(HAPTIC_VIRTUAL_KEY);
+			System_Vibrate(HAPTIC_VIRTUAL_KEY);
 		}
 		__CtrlButtonDown(pspButtonBit_);
 	} else if (lastDown && !down) {
@@ -204,7 +210,7 @@ bool ComboKey::Touch(const TouchInput &input) {
 
 	if (down && !lastDown) {
 		if (g_Config.bHapticFeedback)
-			Vibrate(HAPTIC_VIRTUAL_KEY);
+			System_Vibrate(HAPTIC_VIRTUAL_KEY);
 
 		if (!repeat_) {
 			for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++) {
@@ -353,7 +359,7 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 	for (int i = 0; i < 4; i++) {
 		if (pressed & dir[i]) {
 			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
+				System_Vibrate(HAPTIC_VIRTUAL_KEY);
 			}
 			__CtrlButtonDown(dir[i]);
 		}
@@ -380,8 +386,8 @@ void PSPDpad::Draw(UIContext &dc) {
 		float y = bounds_.centerY() + yoff[i] * r;
 		float x2 = bounds_.centerX() + xoff[i] * (r + 10.f * scale_);
 		float y2 = bounds_.centerY() + yoff[i] * (r + 10.f * scale_);
-		float angle = i * M_PI / 2;
-		float imgScale = isDown ? scale_ * 2 : scale_;
+		float angle = i * (M_PI / 2.0f);
+		float imgScale = isDown ? scale_ * TOUCH_SCALE_FACTOR : scale_;
 		float imgOpacity = opacity;
 
 		if (isDown && g_Config.iTouchButtonStyle == 2) {
@@ -705,7 +711,7 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 	//select, start, throttle--------------------------------------------
 	//space between the bottom keys (space between select, start and un-throttle)
 	float bottom_key_spacing = 100;
-	if (dp_xres < 750) {
+	if (g_display.dp_xres < 750) {
 		bottom_key_spacing *= 0.8f;
 	}
 
@@ -823,8 +829,8 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	auto addComboKey = [=](const ConfigCustomButton& cfg, const char *key, const ConfigTouchPos &touch) -> ComboKey * {
 		using namespace CustomKey;
 		if (touch.show) {
-			auto aux = root->Add(new ComboKey(cfg.key, key, cfg.toggle, cfg.repeat, controllMapper, 
-					g_Config.iTouchButtonStyle == 0 ? comboKeyShapes[cfg.shape].i : comboKeyShapes[cfg.shape].l, comboKeyShapes[cfg.shape].i, 
+			auto aux = root->Add(new ComboKey(cfg.key, key, cfg.toggle, cfg.repeat, controllMapper,
+					g_Config.iTouchButtonStyle == 0 ? comboKeyShapes[cfg.shape].i : comboKeyShapes[cfg.shape].l, comboKeyShapes[cfg.shape].i,
 					comboKeyImages[cfg.image].i, touch.scale, comboKeyShapes[cfg.shape].d, buttonLayoutParams(touch)));
 			aux->SetAngle(comboKeyImages[cfg.image].r, comboKeyShapes[cfg.shape].r);
 			aux->FlipImageH(comboKeyShapes[cfg.shape].f);
@@ -950,8 +956,8 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 
 void GestureGamepad::Update() {
 	const float th = 1.0f;
-	float dx = deltaX_ * g_dpi_scale_x * g_Config.fSwipeSensitivity;
-	float dy = deltaY_ * g_dpi_scale_y * g_Config.fSwipeSensitivity;
+	float dx = deltaX_ * g_display.dpi_scale_x * g_Config.fSwipeSensitivity;
+	float dy = deltaY_ * g_display.dpi_scale_y * g_Config.fSwipeSensitivity;
 	if (g_Config.iSwipeRight != 0) {
 		if (dx > th) {
 			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_DOWN);

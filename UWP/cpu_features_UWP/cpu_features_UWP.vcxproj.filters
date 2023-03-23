@@ -67,11 +67,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\..\ext\cpu_features\CMakeLists.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
     <None Include="..\..\ext\cpu_features\src\impl_x86__base_implementation.inl">
       <Filter>Source Files</Filter>
     </None>
@@ -87,6 +82,7 @@
     <None Include="..\..\ext\cpu_features\src\equals.inl">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="..\..\ext\cpu_features\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.c" />
