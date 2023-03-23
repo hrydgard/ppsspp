@@ -68,7 +68,7 @@ public:
 	void ExecuteOp(u32 op, u32 diff) override;
 
 private:
-	void CheckDepthUsage(VirtualFramebuffer *vfb);
+	void CheckDepthUsage(VirtualFramebuffer *vfb) override;
 	void CheckFlushOp(int cmd, u32 diff);
 
 protected:

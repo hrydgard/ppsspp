@@ -1350,14 +1350,18 @@ void GPUCommon::FlushImm() {
 		return;
 
 	SetDrawType(DRAW_PRIM, immPrim_);
+	VirtualFramebuffer *vfb = nullptr;
 	if (framebufferManager_)
-		framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+		vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// No idea how many cycles to skip, heh.
 		immCount_ = 0;
 		return;
 	}
 	UpdateUVScaleOffset();
+	if (vfb) {
+		CheckDepthUsage(vfb);
+	}
 
 	bool antialias = (immFlags_ & GE_IMM_ANTIALIAS) != 0;
 	bool prevAntialias = gstate.isAntiAliasEnabled();
