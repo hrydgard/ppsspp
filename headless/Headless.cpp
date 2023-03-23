@@ -413,7 +413,7 @@ int main(int argc, const char* argv[])
 
 	std::string error_string;
 	GraphicsContext *graphicsContext = nullptr;
-	bool glWorking = ((HeadlessHost *)host)->InitGraphics(&error_string, &graphicsContext, gpuCore);
+	bool glWorking = headlessHost->InitGraphics(&error_string, &graphicsContext, gpuCore);
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = cpuCore;
@@ -577,7 +577,7 @@ int main(int argc, const char* argv[])
 		ShutdownWebServer();
 	}
 
-	 ((HeadlessHost *)host)->ShutdownGraphics();
+	headlessHost->ShutdownGraphics();
 	delete host;
 	host = nullptr;
 	headlessHost = nullptr;
