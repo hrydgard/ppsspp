@@ -620,7 +620,6 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 
 	audioSettings->Add(new ItemHeader(ms->T("Audio")));
 	CheckBox *enableSound = audioSettings->Add(new CheckBox(&g_Config.bEnableSound,a->T("Enable Sound")));
-	
 	PopupSliderChoice *volume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGlobalVolume, VOLUME_OFF, VOLUME_FULL, a->T("Global volume"), screenManager()));
 	volume->SetEnabledPtr(&g_Config.bEnableSound);
 	volume->SetZeroLabel(a->T("Mute"));

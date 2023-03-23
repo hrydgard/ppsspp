@@ -115,6 +115,3 @@ void DarwinFileSystemServices::setUserPreferredMemoryStickDirectory(Path path) {
     g_Config.memStickDirectory = path;
 }
 
-void PostDarwinNotification(const char *name, const char *value) {
-	[[NSNotificationCenter defaultCenter] postNotificationName:@(name) object: @(value)];
-}

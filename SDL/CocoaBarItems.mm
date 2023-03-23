@@ -6,6 +6,8 @@
 //
 
 #import <Cocoa/Cocoa.h>
+#include "UI/DarwinFileSystemServices.h"
+#include "Common/File/Path.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
 #include "Core/Config.h"
@@ -30,7 +32,6 @@ void initBarItemsForApp() {
     [[BarItemsManager sharedInstance] setupAppBarItems];
 }
 
-// im soooooo sorry for whoever had to read this impl
 @implementation BarItemsManager
 + (instancetype)sharedInstance {
     static BarItemsManager *stub;
@@ -52,8 +53,25 @@ void initBarItemsForApp() {
     graphicsMenuItem.submenu = [self makeGraphicsMenu];
     graphicsMenuItem.submenu.delegate = self;
     
+	NSMenuItem *helpMenuItem = [[NSMenuItem alloc] init];
+	helpMenuItem.submenu = [self makeHelpMenu];
+	
     [NSApplication.sharedApplication.menu addItem:openMenuItem];
     [NSApplication.sharedApplication.menu addItem:graphicsMenuItem];
+	[NSApplication.sharedApplication.menu addItem:helpMenuItem];
+	
+	NSString *windowMenuItemTitle = @"Window";
+	// Rearrange 'Window' to be behind 'Help'
+	for (NSMenuItem *item in NSApplication.sharedApplication.menu.itemArray) {
+		if ([item.title isEqualToString:windowMenuItemTitle]) {
+			[NSApplication.sharedApplication.menu removeItem:item];
+			// 'Help' is the last item in the bar
+			// so we can just use `NSApplication.sharedApplication.menu.numberOfItems - 1`
+			// as it's index
+			[NSApplication.sharedApplication.menu insertItem:item atIndex:NSApplication.sharedApplication.menu.numberOfItems - 1];
+			break;
+		}
+	}
 }
 
 - (void)menuNeedsUpdate:(NSMenu *)menu {
@@ -90,6 +108,26 @@ void initBarItemsForApp() {
 
 -(NSString *)localizedString: (const char *)key category: (std::shared_ptr<I18NCategory>)cat {
     return @(self.mainSettingsLocalization->T(key));
+}
+
+-(NSMenu *)makeHelpMenu {
+	NSMenu *menu = [[NSMenu alloc] initWithTitle:@"Help"];
+	NSMenuItem *githubItem = [[NSMenuItem alloc] initWithTitle:@"Report an issue" action:@selector(reportAnIssue) keyEquivalent:@""];
+	githubItem.target = self;
+	[menu addItem:githubItem];
+	
+	NSMenuItem *discordItem = [[NSMenuItem alloc] initWithTitle:@"Join the Discord" action:@selector(joinTheDiscord) keyEquivalent:@""];
+	discordItem.target = self;
+	[menu addItem:discordItem];
+	return menu;
+}
+
+-(void)reportAnIssue {
+	[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://github.com/hrydgard/ppsspp/issues/new/choose"]];
+}
+
+-(void)joinTheDiscord {
+	[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://discord.gg/5NJB6dD"]];
 }
 
 -(NSMenu *)makeOpenSubmenu {
@@ -252,7 +290,7 @@ item.state = [self controlStateForBool: ConfigValueName]; \
 TOGGLE_METHOD(Sound, g_Config.bEnableSound)
 TOGGLE_METHOD(AutoFrameSkip, g_Config.bAutoFrameSkip, g_Config.UpdateAfterSettingAutoFrameSkip())
 TOGGLE_METHOD(SoftwareRendering, g_Config.bSoftwareRendering)
-TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_SendMessage("toggle_fullscreen", g_Config.UseFullScreen() ? "1" : "0"))
+TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequestType::TOGGLE_FULLSCREEN_STATE, 0, g_Config.UseFullScreen() ? "1" : "0", "", 3))
 TOGGLE_METHOD(VSync, g_Config.bVSync)
 #undef TOGGLE_METHOD
 
@@ -331,7 +369,14 @@ TOGGLE_METHOD(VSync, g_Config.bVSync)
 }
 
 -(void)openSystemFileBrowser {
-    System_SendMessage("browse_folder", "");
+	int g = 0;
+	DarwinDirectoryPanelCallback callback = [g] (bool succ, Path thePathChosen) {
+		if (succ)
+			NativeMessageReceived("browse_folder", thePathChosen.c_str());
+	};
+
+	DarwinFileSystemServices services;
+	services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
 }
 
 - (void)dealloc {

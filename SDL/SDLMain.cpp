@@ -877,8 +877,8 @@ int main(int argc, char *argv[]) {
 	bool windowHidden = false;
 	
 #if PPSSPP_PLATFORM(MAC)
-    // setup menu items for macOS
-    initBarItemsForApp();
+	// setup menu items for macOS
+	initBarItemsForApp();
 #endif
 	
 	while (true) {
