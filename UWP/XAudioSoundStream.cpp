@@ -19,8 +19,7 @@ public:
 	~XAudioBackend() override;
 
 	bool Init(HWND window, StreamCallback callback, int sampleRate) override;  // If fails, can safely delete the object
-	void Update() override;
-	int GetSampleRate() override { return sampleRate_; }
+	int GetSampleRate() const override { return sampleRate_; }
 
 private:
 	bool RunSound();
@@ -131,9 +130,6 @@ bool XAudioBackend::Init(HWND window, StreamCallback _callback, int sampleRate) 
 	callback_ = _callback;
 	sampleRate_ = sampleRate;
 	return RunSound();
-}
-
-void XAudioBackend::Update() {
 }
 
 void XAudioBackend::PollLoop() {
