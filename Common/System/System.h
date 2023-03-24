@@ -183,6 +183,7 @@ enum class SystemNotification {
 	IMMERSIVE_MODE_CHANGE,
 	AUDIO_RESET_DEVICE,
 	SUSTAINED_PERF_CHANGE,
+	POLL_CONTROLLERS,
 };
 
 std::string System_GetProperty(SystemProperty prop);

@@ -115,6 +115,8 @@ int g_activeWindow = 0;
 static std::thread g_dialogThread;
 static bool g_dialogRunning = false;
 
+WindowsInputManager g_inputManager;
+
 int g_lastNumInstances = 0;
 
 void System_ShowFileInFolder(const char *path) {
@@ -430,6 +432,9 @@ void System_Notify(SystemNotification notification) {
 	case SystemNotification::DEBUG_MODE_CHANGE:
 		if (disasmWindow)
 			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
+		break;
+	case SystemNotification::POLL_CONTROLLERS:
+		g_inputManager.PollControllers();
 		break;
 	}
 }
@@ -903,6 +908,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	if (minimized) {
 		MainWindow::Minimize();
 	}
+
+	g_inputManager.Init();
 
 	// Emu thread (and render thread, if any) is always running!
 	// Only OpenGL uses an externally managed render thread (due to GL's single-threaded context design). Vulkan

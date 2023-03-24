@@ -156,6 +156,7 @@ void MainThreadFunc() {
 	SetCurrentThreadName(useEmuThread ? "Render" : "Emu");
 
 	host = new WindowsHost();
+
 	System_SetWindowTitle("");
 
 	// We convert command line arguments to UTF-8 immediately.

@@ -2,6 +2,8 @@
 #include "PPSSPP_UWPMain.h"
 
 #include <mutex>
+#include <list>
+#include <memory>
 
 #include "Common/File/FileUtil.h"
 #include "Common/Net/HTTPClient.h"
@@ -28,6 +30,7 @@
 #include "Core/Loaders.h"
 #include "Core/Config.h"
 
+#include "Windows/InputDevice.h"
 #include "NKCodeFromWindowsSystem.h"
 #include "XAudioSoundStream.h"
 #include "UWPHost.h"
@@ -47,6 +50,9 @@ using namespace Concurrency;
 PPSSPP_UWPMain *g_main;
 extern WindowsAudioBackend *winAudioBackend;
 std::string langRegion;
+std::list<std::unique_ptr<InputDevice>> g_input;
+
+
 // TODO: Use Microsoft::WRL::ComPtr<> for D3D11 objects?
 // TODO: See https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/WindowsAudioSession for WASAPI with UWP
 // TODO: Low latency input: https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/LowLatencyInput/cpp
@@ -115,7 +121,6 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	const char *argv[2] = { "fake", nullptr };
 
-
 	std::string cacheFolder = ConvertWStringToUTF8(ApplicationData::Current->LocalFolder->Path->Data());
 
 	NativeInit(1, argv, "", "", cacheFolder.c_str());
@@ -127,6 +132,10 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	int height = m_deviceResources->GetScreenViewport().Height;
 
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, m_deviceResources->GetBackBufferRenderTargetView());
+
+	// add first XInput device to respond
+	g_input.push_back(std::make_unique<XinputDevice>());
+
 	InputDevice::BeginPolling();
 }
 
@@ -438,6 +447,15 @@ bool System_GetPropertyBool(SystemProperty prop) {
 
 void System_Notify(SystemNotification notification) {
 	switch (notification) {
+	case SystemNotification::POLL_CONTROLLERS:
+	{
+		for (const auto &device : g_input)
+		{
+			if (device->UpdateState() == InputDevice::UPDATESTATE_SKIP_PAD)
+				break;
+		}
+		break;
+	}
 	default:
 		break;
 	}

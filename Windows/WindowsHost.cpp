@@ -66,26 +66,11 @@
 
 #include "Windows/main.h"
 
-float g_mouseDeltaX = 0;
-float g_mouseDeltaY = 0;
-
 static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0) {
 	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
 }
 
 WindowsHost::WindowsHost() {
-	g_mouseDeltaX = 0;
-	g_mouseDeltaY = 0;
-
-	//add first XInput device to respond
-	input.push_back(std::make_unique<XinputDevice>());
-#ifndef _M_ARM
-	//find all connected DInput devices of class GamePad
-	numDinputDevices_ = DinputDevice::getNumPads();
-	for (size_t i = 0; i < numDinputDevices_; i++) {
-		input.push_back(std::make_unique<DinputDevice>(static_cast<int>(i)));
-	}
-#endif
 	SetConsolePosition();
 }
 
@@ -105,10 +90,24 @@ void WindowsHost::UpdateConsolePosition() {
 	}
 }
 
-void WindowsHost::PollControllers() {
-	static int checkCounter = 0;
+void WindowsInputManager::Init() {
+	mouseDeltaX_ = 0;
+	mouseDeltaY_ = 0;
+
+	//add first XInput device to respond
+	input.push_back(std::make_unique<XinputDevice>());
+#ifndef _M_ARM
+	//find all connected DInput devices of class GamePad
+	numDinputDevices_ = DinputDevice::getNumPads();
+	for (size_t i = 0; i < numDinputDevices_; i++) {
+		input.push_back(std::make_unique<DinputDevice>(static_cast<int>(i)));
+	}
+#endif
+}
+
+void WindowsInputManager::PollControllers() {
 	static const int CHECK_FREQUENCY = 71;
-	if (checkCounter++ > CHECK_FREQUENCY) {
+	if (checkCounter_++ > CHECK_FREQUENCY) {
 #ifndef _M_ARM
 		size_t newCount = DinputDevice::getNumPads();
 		if (newCount > numDinputDevices_) {
@@ -119,7 +118,7 @@ void WindowsHost::PollControllers() {
 			numDinputDevices_ = newCount;
 		}
 #endif
-		checkCounter = 0;
+		checkCounter_ = 0;
 	}
 
 	for (const auto &device : input) {
@@ -132,9 +131,9 @@ void WindowsHost::PollControllers() {
 		float scaleFactor_x = g_display.dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
 		float scaleFactor_y = g_display.dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
 
-		float mx = std::max(-1.0f, std::min(1.0f, g_mouseDeltaX * scaleFactor_x));
-		float my = std::max(-1.0f, std::min(1.0f, g_mouseDeltaY * scaleFactor_y));
-		AxisInput axisX, axisY;
+		float mx = std::max(-1.0f, std::min(1.0f, mouseDeltaX_ * scaleFactor_x));
+		float my = std::max(-1.0f, std::min(1.0f, mouseDeltaY_ * scaleFactor_y));
+		AxisInput axisX{}, axisY{};
 		axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
 		axisX.deviceId = DEVICE_ID_MOUSE;
 		axisX.value = mx;
@@ -148,11 +147,11 @@ void WindowsHost::PollControllers() {
 		}
 	}
 
-	g_mouseDeltaX *= g_Config.fMouseSmoothing;
-	g_mouseDeltaY *= g_Config.fMouseSmoothing;
+	mouseDeltaX_ *= g_Config.fMouseSmoothing;
+	mouseDeltaY_ *= g_Config.fMouseSmoothing;
 
-	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_X] = g_mouseDeltaX;
-	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = g_mouseDeltaY;
+	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_X] = mouseDeltaX_;
+	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = mouseDeltaY_;
 }
 
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
@@ -235,8 +234,4 @@ void WindowsHost::ToggleDebugConsoleVisibility() {
 
 void WindowsHost::NotifyUserMessage(const std::string &message, float duration, u32 color, const char *id) {
 	osm.Show(message, duration, color, -1, true, id);
-}
-
-void WindowsHost::SendUIMessage(const std::string &message, const std::string &value) {
-	NativeMessageReceived(message.c_str(), value.c_str());
 }
