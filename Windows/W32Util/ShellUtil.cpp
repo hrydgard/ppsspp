@@ -178,45 +178,6 @@ namespace W32Util
 		return result;
 	}
 
-	AsyncBrowseDialog::AsyncBrowseDialog(HWND parent, UINT completeMsg, std::wstring title)
-		: type_(DIR), parent_(parent), completeMsg_(completeMsg), title_(title), complete_(false), result_(false) {
-		thread_ = new std::thread(std::bind(&AsyncBrowseDialog::Execute, this));
-		thread_->detach();
-	}
-
-	AsyncBrowseDialog::AsyncBrowseDialog(Type type, HWND parent, UINT completeMsg, std::wstring title, std::wstring initialFolder, std::wstring filter, std::wstring extension)
-		: type_(type), parent_(parent), completeMsg_(completeMsg), title_(title), initialFolder_(initialFolder), filter_(filter), extension_(extension), complete_(false), result_(false) {
-		thread_ = new std::thread(std::bind(&AsyncBrowseDialog::Execute, this));
-		thread_->detach();
-	}
-
-	AsyncBrowseDialog::~AsyncBrowseDialog() {
-		delete thread_;
-	}
-
-	bool AsyncBrowseDialog::GetResult(std::string &filename) {
-		filename = filename_;
-		return result_;
-	}
-
-	void AsyncBrowseDialog::Execute() {
-		switch (type_) {
-		case DIR:
-			filename_ = BrowseForFolder(parent_, title_.c_str());
-			result_ = !filename_.empty();
-			complete_ = true;
-			break;
-
-		case OPEN:
-		case SAVE:
-			result_ = BrowseForFileName(type_ == OPEN, parent_, title_.c_str(), initialFolder_.size() ? initialFolder_.c_str() : 0, filter_.c_str(), extension_.c_str(), filename_);
-			complete_ = true;
-			break;
-		}
-
-		PostMessage(parent_, completeMsg_, 0, 0);
-	}
-
 
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
 HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathLink, LPCWSTR lpszDesc) {
