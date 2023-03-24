@@ -96,6 +96,7 @@ void SingleControlMapper::Refresh() {
 	auto mc = GetI18NCategory("MappableControls");
 
 	std::map<std::string, ImageID> keyImages;
+
 	keyImages["Circle"] = ImageID("I_CIRCLE");
 	keyImages["Cross"] = ImageID("I_CROSS");
 	keyImages["Square"] = ImageID("I_SQUARE");
@@ -141,7 +142,7 @@ void SingleControlMapper::Refresh() {
 	rows_.clear();
 	for (size_t i = 0; i < mappings.size(); i++) {
 		std::string name = std::string(GetDeviceName(mappings[i].deviceId)) + "." + KeyMap::GetKeyOrAxisName(mappings[i].keyCode);
-		if (mappings[i].combo) {
+		if (mappings[i].dual) {
 			name = name + " + " + GetDeviceName(mappings[i].deviceId2) + "." + KeyMap::GetKeyOrAxisName(mappings[i].keyCode2);
 		}
 
@@ -346,15 +347,16 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 		return true;
 
 	if (key.flags & KEY_DOWN) {
-		if (oneDown_) {
+		// Note: KEY_IS_REPEAT doesn't seem to be reliable on Windows with RAWINPUT.
+		// We'll check for inequality to the first key instead.
+		if (oneDown_ && !(key.flags & KEY_IS_REPEAT) && key.keyCode != keyCode_) {
 			mapped_ = true;
 			KeyDef kdf(devId_, keyCode_, key.deviceId, key.keyCode);
-
 			TriggerFinish(DR_YES);
 			if (callback_)
 				callback_(kdf);
 		} else {
-			devId_ =  key.deviceId;
+			devId_ = key.deviceId;
 			keyCode_ = key.keyCode;
 			oneDown_ = true;
 		}

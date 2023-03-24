@@ -530,7 +530,7 @@ static bool FindKeyMapping(int deviceId, int key, std::vector<int> *psp_button, 
 		for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
 			if (*iter2 == KeyDef(deviceId, key)) {
 				psp_button->push_back(CheckAxisSwap(iter->first));
-			} else if (iter2->combo && combo_button) {
+			} else if (iter2->dual && combo_button) {
 				if (iter2->MatchFirst(deviceId, key)) {
 					combo_button->push_back(SingleKeyMap(CheckAxisSwap(iter->first), iter2->deviceId2, iter2->keyCode2));
 				} else if (iter2->MatchSecond(deviceId, key)) {
@@ -667,7 +667,7 @@ void SetKeyMapping(int btn, KeyDef key, bool replace) {
 	g_controllerMapGeneration++;
 
 	g_seenDeviceIds.insert(key.deviceId);
-	if (key.combo)
+	if (key.dual)
 		g_seenDeviceIds.insert(key.deviceId2);
 	UpdateNativeMenuKeys();
 }
@@ -772,7 +772,7 @@ void SaveToIni(IniFile &file) {
 		std::string value;
 		for (size_t j = 0; j < keys.size(); j++) {
 			char temp[128];
-			if (keys[j].combo) {
+			if (keys[j].dual) {
 				sprintf(temp, "%i-%i+%i-%i", keys[j].deviceId, keys[j].keyCode, keys[j].deviceId2, keys[j].keyCode2);
 			} else {
 				sprintf(temp, "%i-%i", keys[j].deviceId, keys[j].keyCode);
