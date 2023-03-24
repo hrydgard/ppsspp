@@ -7,6 +7,8 @@
 
 #include "Common/System/System.h"
 
+class Path;
+
 typedef std::function<void(const char *responseString, int responseValue)> RequestCallback;
 
 // Platforms often have to process requests asynchronously, on wildly different threads.
@@ -125,3 +127,7 @@ inline void System_NotifyUIState(const std::string &state) {
 inline void System_SetWindowTitle(const std::string &param) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SET_WINDOW_TITLE, nullptr, param, "", 0);
 }
+
+// Non-inline to avoid including Path.h
+void System_CreateGameShortcut(const Path &path, const std::string &title);
+

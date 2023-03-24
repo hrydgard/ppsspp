@@ -68,6 +68,7 @@ enum class SystemRequestType {
 	SET_WINDOW_TITLE,
 	TOGGLE_FULLSCREEN_STATE,
 	GRAPHICS_BACKEND_FAILED_ALERT,
+	CREATE_GAME_SHORTCUT,
 
 	NOTIFY_UI_STATE,  // Used on Android only. Not a SystemNotification since it takes a parameter.
 
@@ -183,6 +184,8 @@ enum class SystemNotification {
 	IMMERSIVE_MODE_CHANGE,
 	AUDIO_RESET_DEVICE,
 	SUSTAINED_PERF_CHANGE,
+	POLL_CONTROLLERS,
+	TOGGLE_DEBUG_CONSOLE,  // TODO: Kinda weird, just ported forward.
 };
 
 std::string System_GetProperty(SystemProperty prop);
@@ -197,6 +200,9 @@ std::vector<std::string> System_GetCameraDeviceList();
 
 bool System_AudioRecordingIsAvailable();
 bool System_AudioRecordingState();
+
+// This will be changed to take an enum. Currently simply implemented by forwarding to NativeMessageReceived.
+void System_PostUIMessage(const std::string &message, const std::string &param);
 
 // For these functions, most platforms will use the implementation provided in UI/AudioCommon.cpp,
 // no need to implement separately.

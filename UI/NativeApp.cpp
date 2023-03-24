@@ -1354,6 +1354,10 @@ void NativeMessageReceived(const char *message, const char *value) {
 	pendingMessages.push_back(pendingMessage);
 }
 
+void System_PostUIMessage(const std::string &message, const std::string &value) {
+	NativeMessageReceived(message.c_str(), value.c_str());
+}
+
 void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
 	VERBOSE_LOG(G3D, "NativeResized - setting flag");

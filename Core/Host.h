@@ -28,13 +28,8 @@ public:
 	virtual ~Host() {}
 
 	virtual void UpdateSound() {}  // still needed for libretro, will need a proper effort.
-	virtual void PollControllers() {}
-	virtual void ToggleDebugConsoleVisibility() {}
-
-	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title) {return false;}
 
 	virtual void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) {}
-	virtual void SendUIMessage(const std::string &message, const std::string &value) {}
 
 	virtual void SendDebugOutput(const std::string &output) {}
 	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {}

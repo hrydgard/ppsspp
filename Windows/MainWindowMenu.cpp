@@ -15,6 +15,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
+#include "Common/System/Request.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/LogManager.h"
@@ -55,7 +56,6 @@ extern bool g_TakeScreenshot;
 namespace MainWindow {
 	extern HINSTANCE hInst;
 	extern bool noFocusPause;
-	static W32Util::AsyncBrowseDialog *browseDialog;
 	static bool browsePauseAfter;
 
 	static std::unordered_map<int, std::string> initialMenuKeys;
@@ -303,6 +303,8 @@ namespace MainWindow {
 		}
 	}
 
+	void BrowseAndBootDone(std::string filename);
+
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
 		static std::wstring filter = L"All supported file types (*.iso *.cso *.pbp *.elf *.prx *.zip *.ppdmp)|*.pbp;*.elf;*.iso;*.cso;*.prx;*.zip;*.ppdmp|PSP ROMs (*.iso *.cso *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||";
 		for (int i = 0; i < (int)filter.length(); i++) {
@@ -316,34 +318,28 @@ namespace MainWindow {
 			if (!browsePauseAfter)
 				Core_EnableStepping(true, "ui.boot", 0);
 		}
+		auto mm = GetI18NCategory("MainMenu");
 
 		W32Util::MakeTopMost(GetHWND(), false);
+
 		if (browseDirectory) {
-			browseDialog = new W32Util::AsyncBrowseDialog(GetHWND(), WM_USER_BROWSE_BOOT_DONE, L"Choose directory");
+			System_BrowseForFolder(mm->T("Load"), [](const std::string &value, int) {
+				BrowseAndBootDone(value);
+			});
 		} else {
-			browseDialog = new W32Util::AsyncBrowseDialog(W32Util::AsyncBrowseDialog::OPEN, GetHWND(), WM_USER_BROWSE_BOOT_DONE, L"LoadFile", ConvertUTF8ToWString(defaultPath), filter, L"*.pbp;*.elf;*.iso;*.cso;");
+			System_BrowseForFile(mm->T("Load"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
+				BrowseAndBootDone(value);
+			});
 		}
 	}
 
-	void BrowseAndBootDone() {
-		std::string filename;
-		if (!browseDialog->GetResult(filename)) {
-			if (!browsePauseAfter) {
-				Core_EnableStepping(false);
-			}
-		} else {
-			if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_EXCEPTION || GetUIState() == UISTATE_PAUSEMENU) {
-				Core_EnableStepping(false);
-			}
-
-			filename = ReplaceAll(filename, "\\", "/");
-			NativeMessageReceived("boot", filename.c_str());
+	void BrowseAndBootDone(std::string filename) {
+		if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_EXCEPTION || GetUIState() == UISTATE_PAUSEMENU) {
+			Core_EnableStepping(false);
 		}
-
+		filename = ReplaceAll(filename, "\\", "/");
+		NativeMessageReceived("boot", filename.c_str());
 		W32Util::MakeTopMost(GetHWND(), g_Config.bTopMost);
-
-		delete browseDialog;
-		browseDialog = 0;
 	}
 
 	static void UmdSwitchAction() {
@@ -442,7 +438,7 @@ namespace MainWindow {
 		// Parse the menu selections:
 		switch (wmId) {
 		case ID_FILE_LOAD:
-			BrowseAndBoot("");
+			BrowseAndBoot("", false);
 			break;
 
 		case ID_FILE_LOAD_DIR:

@@ -113,7 +113,8 @@ int g_activeWindow = 0;
 
 // Used for all the system dialogs.
 static std::thread g_dialogThread;
-static bool g_dialogRunning = false;
+
+WindowsInputManager g_inputManager;
 
 int g_lastNumInstances = 0;
 
@@ -431,6 +432,14 @@ void System_Notify(SystemNotification notification) {
 		if (disasmWindow)
 			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
 		break;
+
+	case SystemNotification::POLL_CONTROLLERS:
+		g_inputManager.PollControllers();
+		break;
+
+	case SystemNotification::TOGGLE_DEBUG_CONSOLE:
+		MainWindow::ToggleDebugConsoleVisibility();
+		break;
 	}
 }
 
@@ -487,11 +496,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 	case SystemRequestType::INPUT_TEXT_MODAL:
-		if (g_dialogRunning) {
+		if (g_dialogThread.joinable())
 			g_dialogThread.join();
-		}
 
-		g_dialogRunning = true;
 		g_dialogThread = std::thread([=] {
 			std::string out;
 			if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), param2, out)) {
@@ -500,13 +507,12 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 				g_requestManager.PostSystemFailure(requestId);
 			}
 			});
+		g_dialogThread.detach();
 		return true;
 	case SystemRequestType::BROWSE_FOR_IMAGE:
-		if (g_dialogRunning) {
+		if (g_dialogThread.joinable())
 			g_dialogThread.join();
-		}
 
-		g_dialogRunning = true;
 		g_dialogThread = std::thread([=] {
 			std::string out;
 			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr,
@@ -516,6 +522,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 				g_requestManager.PostSystemFailure(requestId);
 			}
 			});
+		g_dialogThread.detach();
 		return true;
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
@@ -537,11 +544,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		default:
 			return false;
 		}
-		if (g_dialogRunning) {
-			g_dialogThread.join();
-		}
 
-		g_dialogRunning = true;
 		g_dialogThread = std::thread([=] {
 			std::string out;
 			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr, filter.c_str(), L"", out)) {
@@ -550,16 +553,20 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 				g_requestManager.PostSystemFailure(requestId);
 			}
 			});
+		g_dialogThread.detach();
 		return true;
 	}
 	case SystemRequestType::BROWSE_FOR_FOLDER:
 	{
-		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), param1.c_str());
-		if (folder.size()) {
-			g_requestManager.PostSystemSuccess(requestId, folder.c_str());
-		} else {
-			g_requestManager.PostSystemFailure(requestId);
-		}
+		g_dialogThread = std::thread([=] {
+			std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), param1.c_str());
+			if (folder.size()) {
+				g_requestManager.PostSystemSuccess(requestId, folder.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		});
+		g_dialogThread.detach();
 		return true;
 	}
 	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
@@ -582,6 +589,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		MessageBox(MainWindow::GetHWND(), full_error.c_str(), title.c_str(), MB_OK);
 		return true;
 	}
+	case SystemRequestType::CREATE_GAME_SHORTCUT:
+		// This is not actually working, but ported it to the request framework anyway.
+		return W32Util::CreateDesktopShortcut(param1, param2);
 	default:
 		return false;
 	}
@@ -718,9 +728,8 @@ static void WinMainInit() {
 }
 
 static void WinMainCleanup() {
-	if (g_dialogRunning) {
+	if (g_dialogThread.joinable()) {
 		g_dialogThread.join();
-		g_dialogRunning = false;
 	}
 	net::Shutdown();
 	CoUninitialize();
@@ -903,6 +912,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	if (minimized) {
 		MainWindow::Minimize();
 	}
+
+	g_inputManager.Init();
 
 	// Emu thread (and render thread, if any) is always running!
 	// Only OpenGL uses an externally managed render thread (due to GL's single-threaded context design). Vulkan

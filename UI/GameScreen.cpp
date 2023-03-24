@@ -29,6 +29,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
@@ -417,7 +418,7 @@ void GameScreen::CallbackDeleteGame(bool yes) {
 UI::EventReturn GameScreen::OnCreateShortcut(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 	if (info) {
-		host->CreateDesktopShortcut(gamePath_.ToString(), info->GetTitle());
+		System_CreateGameShortcut(gamePath_, info->GetTitle());
 	}
 	return UI::EVENT_DONE;
 }

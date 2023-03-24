@@ -1060,10 +1060,6 @@ namespace MainWindow
 			UpdateWindowTitle();
 			break;
 
-		case WM_USER_BROWSE_BOOT_DONE:
-			BrowseAndBootDone();
-			break;
-
 		case WM_USER_RESTART_EMUTHREAD:
 			NativeSetRestarting();
 			InputDevice::StopPolling();
