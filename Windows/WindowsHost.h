@@ -34,8 +34,6 @@ public:
 
 	void PollControllers() override;
 
-	void UpdateSound() override;
-
 	bool AttemptLoadSymbolMap() override;
 	void SaveSymbolMap() override;
 	void SetWindowTitle(const char *message) override;

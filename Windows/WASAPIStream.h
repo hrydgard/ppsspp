@@ -11,8 +11,7 @@ public:
 	~WASAPIAudioBackend();
 
 	bool Init(HWND window, StreamCallback callback, int sampleRate) override;  // If fails, can safely delete the object
-	void Update() override {}
-	int GetSampleRate() override { return sampleRate_; }
+	int GetSampleRate() const override { return sampleRate_; }
 
 private:
 	int RunThread();

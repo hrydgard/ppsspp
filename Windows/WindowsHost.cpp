@@ -132,11 +132,6 @@ void WindowsHost::SetWindowTitle(const char *message) {
 // UGLY!
 extern WindowsAudioBackend *winAudioBackend;
 
-void WindowsHost::UpdateSound() {
-	if (winAudioBackend)
-		winAudioBackend->Update();
-}
-
 void WindowsHost::PollControllers() {
 	static int checkCounter = 0;
 	static const int CHECK_FREQUENCY = 71;

@@ -239,15 +239,8 @@ int NativeMix(short *audio, int num_samples) {
 	if (GetUIState() != UISTATE_INGAME) {
 		g_BackgroundAudio.Play();
 	}
-
 	int sample_rate = System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE);
-	num_samples = __AudioMix(audio, num_samples, sample_rate > 0 ? sample_rate : 44100);
-
-#ifdef _WIN32
-	winAudioBackend->Update();
-#endif
-
-	return num_samples;
+	return __AudioMix(audio, num_samples, sample_rate > 0 ? sample_rate : 44100);
 }
 
 // This is called before NativeInit so we do a little bit of initialization here.
