@@ -12,6 +12,7 @@
 #include "Common/Data/Collections/FixedSizeQueue.h"
 #include "Core/HW/SimpleAudioDec.h"
 #include "Core/HLE/__sceAudio.h"
+#include "Core/System.h"
 #include "GameInfoCache.h"
 #include "Core/Config.h"
 #include "UI/BackgroundAudio.h"
@@ -333,14 +334,18 @@ void BackgroundAudio::SetGame(const Path &path) {
 	bgGamePath_ = path;
 }
 
-int BackgroundAudio::Play() {
+bool BackgroundAudio::Play() {
+	if (GetUIState() == UISTATE_INGAME) {
+		return false;
+	}
+
 	std::lock_guard<std::mutex> lock(mutex_);
 
 	// Immediately stop the sound if it is turned off while playing.
 	if (!g_Config.bEnableSound) {
 		Clear(true);
 		__PushExternalAudio(0, 0);
-		return 0;
+		return true;
 	}
 
 	double now = time_now_d();
@@ -398,7 +403,7 @@ int BackgroundAudio::Play() {
 
 	lastPlaybackTime_ = now;
 
-	return 0;
+	return true;
 }
 
 void BackgroundAudio::Update() {

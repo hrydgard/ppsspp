@@ -236,9 +236,6 @@ std::string NativeQueryConfig(std::string query) {
 }
 
 int NativeMix(short *audio, int num_samples) {
-	if (GetUIState() != UISTATE_INGAME) {
-		g_BackgroundAudio.Play();
-	}
 	int sample_rate = System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE);
 	return __AudioMix(audio, num_samples, sample_rate > 0 ? sample_rate : 44100);
 }
@@ -1235,6 +1232,7 @@ void NativeUpdate() {
 	g_screenManager->update();
 
 	g_Discord.Update();
+	g_BackgroundAudio.Play();
 
 	UI::SetSoundEnabled(g_Config.bUISound);
 }
