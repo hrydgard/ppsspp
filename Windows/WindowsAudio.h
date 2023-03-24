@@ -3,8 +3,8 @@
 #include "Common/CommonWindows.h"
 #include "Core/ConfigValues.h"
 
-// Always 2 channels.
-typedef int(*StreamCallback)(short *buffer, int numSamples, int bits, int rate);
+// Always 2 channels, 16-bit audio.
+typedef int (*StreamCallback)(short *buffer, int numSamples, int rate);
 
 // Note that the backend may override the passed in sample rate. The actual sample rate
 // should be returned by GetSampleRate though.

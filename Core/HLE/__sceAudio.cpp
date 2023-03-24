@@ -49,6 +49,33 @@
 
 StereoResampler resampler;
 
+// numFrames is number of stereo frames.
+// This is called from *outside* the emulator thread.
+int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
+	return resampler.Mix(outstereo, numFrames, false, sampleRate);
+}
+
+void __AudioGetDebugStats(char *buf, size_t bufSize) {
+	resampler.GetAudioDebugStats(buf, bufSize);
+}
+
+void __AudioClear() {
+	resampler.Clear();
+}
+
+void __AudioPushSamples(const s32 *audio, int numSamples) {
+	if (audio) {
+		resampler.PushSamples(audio, numSamples);
+	} else {
+		resampler.Clear();
+	}
+}
+
+void __AudioResetStatCounters() {
+	resampler.ResetStatCounters();
+}
+
+
 // Should be used to lock anything related to the outAudioQueue.
 // atomic locks are used on the lock. TODO: make this lock-free
 std::atomic_flag atomicLock_;
@@ -109,7 +136,7 @@ static void __AudioCPUMHzChange() {
 
 
 void __AudioInit() {
-	resampler.ResetStatCounters();
+	__AudioResetStatCounters();
 	mixFrequency = 44100;
 	srcFrequency = 0;
 
@@ -132,7 +159,7 @@ void __AudioInit() {
 	clampedMixBuffer = new s16[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
-	resampler.Clear();
+	__AudioClear();
 	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
 }
 
@@ -155,15 +182,18 @@ void __AudioDoState(PointerWrap &p) {
 		mixFrequency = 44100;
 	}
 
-	// TODO: This never happens because maxVer=1.
 	if (s >= 2) {
-		resampler.DoState(p);
+		// TODO: Next time we bump, get rid of this. It's kinda useless.
+		StereoResampler::DoState(p);
+		if (p.mode == p.MODE_READ) {
+			__AudioClear();
+		}
 	} else {
 		// Only to preserve the previous file format. Might cause a slight audio glitch on upgrades?
 		FixedSizeQueue<s16, 512 * 16> outAudioQueue;
 		outAudioQueue.DoState(p);
 
-		resampler.Clear();
+		__AudioClear();
 	}
 
 	int chanCount = ARRAY_SIZE(chans);
@@ -333,9 +363,7 @@ void __AudioSetSRCFrequency(int freq) {
 	srcFrequency = freq;
 }
 
-// Mix samples from the various audio channels into a single sample queue.
-// This single sample queue is where __AudioMix should read from. If the sample queue is full, we should
-// just sleep the main emulator thread a little.
+// Mix samples from the various audio channels into a single sample queue, managed by the backend implementation.
 void __AudioUpdate(bool resetRecording) {
 	// Audio throttle doesn't really work on the PSP since the mixing intervals are so closely tied
 	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
@@ -427,7 +455,7 @@ void __AudioUpdate(bool resetRecording) {
 	}
 
 	if (g_Config.bEnableSound) {
-		resampler.PushSamples(mixBuffer, hwBlockSize);
+		__AudioPushSamples(mixBuffer, hwBlockSize);
 #ifndef MOBILE_DEVICE
 		if (g_Config.bSaveLoadResetsAVdumping && resetRecording) {
 			__StopLogAudio();
@@ -465,23 +493,6 @@ void __AudioUpdate(bool resetRecording) {
 	}
 }
 
-// numFrames is number of stereo frames.
-// This is called from *outside* the emulator thread.
-int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
-	return resampler.Mix(outstereo, numFrames, false, sampleRate);
-}
-
-void __AudioGetDebugStats(char *buf, size_t bufSize) {
-	resampler.GetAudioDebugStats(buf, bufSize);
-}
-
-void __PushExternalAudio(const s32 *audio, int numSamples) {
-	if (audio) {
-		resampler.PushSamples(audio, numSamples);
-	} else {
-		resampler.Clear();
-	}
-}
 #ifndef MOBILE_DEVICE
 void __StartLogAudio(const Path& filename) {
 	if (!m_logAudio) {

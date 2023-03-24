@@ -17,7 +17,7 @@ public:
 
 	void SetGame(const Path &path);
 	void Update();
-	int Play();
+	bool Play();
 
 	void LoadSamples();
 	void PlaySFX(UI::UISound sfx);

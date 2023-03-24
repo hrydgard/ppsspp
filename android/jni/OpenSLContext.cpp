@@ -50,7 +50,7 @@ void OpenSLContext::BqPlayerCallback(SLAndroidSimpleBufferQueueItf bq) {
 		return;
 	}
 
-	int renderedFrames = audioCallback(buffer[curBuffer], framesPerBuffer);
+	int renderedFrames = audioCallback(buffer[curBuffer], framesPerBuffer, SampleRate());
 
 	int sizeInBytes = framesPerBuffer * 2 * sizeof(short);
 	int byteCount = (framesPerBuffer - renderedFrames) * 4;
