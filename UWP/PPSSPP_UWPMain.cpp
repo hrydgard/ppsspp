@@ -31,6 +31,7 @@
 #include "Core/Config.h"
 
 #include "Windows/InputDevice.h"
+#include "Windows/XinputDevice.h"
 #include "NKCodeFromWindowsSystem.h"
 #include "XAudioSoundStream.h"
 #include "UWPHost.h"

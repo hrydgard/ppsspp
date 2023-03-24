@@ -19,23 +19,10 @@
 
 #include <algorithm>
 
-#include "Common/File/DirListing.h"
-#include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
-#include "Common/Input/InputState.h"
-
-#include "Common/StringUtils.h"
-#include "Core/Core.h"
-#include "Core/Config.h"
-#include "Core/CoreParameter.h"
-#include "Core/System.h"
-#include "Core/Debugger/SymbolMap.h"
 
 #include "UI/OnScreenDisplay.h"
 
-#include "Windows/XinputDevice.h"
-
-#include "UWP/XAudioSoundStream.h"
 #include "UWP/UWPHost.h"
 
 UWPHost::UWPHost() {
