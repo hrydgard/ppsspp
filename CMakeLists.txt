@@ -1304,8 +1304,6 @@ list(APPEND NativeAppSource
 	android/jni/TestRunner.cpp
 	UI/DiscordIntegration.cpp
 	UI/NativeApp.cpp
-	UI/AudioCommon.h
-	UI/AudioCommon.cpp
 	UI/BackgroundAudio.h
 	UI/BackgroundAudio.cpp
 	UI/ChatScreen.h
