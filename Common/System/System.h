@@ -185,6 +185,7 @@ enum class SystemNotification {
 	AUDIO_RESET_DEVICE,
 	SUSTAINED_PERF_CHANGE,
 	POLL_CONTROLLERS,
+	TOGGLE_DEBUG_CONSOLE,  // TODO: Kinda weird, just ported forward.
 };
 
 std::string System_GetProperty(SystemProperty prop);

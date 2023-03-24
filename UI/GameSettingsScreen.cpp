@@ -1884,7 +1884,7 @@ UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e)
 }
 
 UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
-	host->ToggleDebugConsoleVisibility();
+	System_Notify(SystemNotification::TOGGLE_DEBUG_CONSOLE);
 	return UI::EVENT_DONE;
 }
 

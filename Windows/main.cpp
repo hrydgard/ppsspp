@@ -432,8 +432,13 @@ void System_Notify(SystemNotification notification) {
 		if (disasmWindow)
 			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
 		break;
+
 	case SystemNotification::POLL_CONTROLLERS:
 		g_inputManager.PollControllers();
+		break;
+
+	case SystemNotification::TOGGLE_DEBUG_CONSOLE:
+		MainWindow::ToggleDebugConsoleVisibility();
 		break;
 	}
 }

@@ -154,10 +154,6 @@ void WindowsInputManager::PollControllers() {
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = mouseDeltaY_;
 }
 
-void WindowsHost::ToggleDebugConsoleVisibility() {
-	MainWindow::ToggleDebugConsoleVisibility();
-}
-
 void WindowsHost::NotifyUserMessage(const std::string &message, float duration, u32 color, const char *id) {
 	osm.Show(message, duration, color, -1, true, id);
 }

@@ -28,7 +28,6 @@ public:
 	virtual ~Host() {}
 
 	virtual void UpdateSound() {}  // still needed for libretro, will need a proper effort.
-	virtual void ToggleDebugConsoleVisibility() {}
 
 	virtual void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) {}
 
