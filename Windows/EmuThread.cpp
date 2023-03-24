@@ -4,6 +4,7 @@
 
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -160,7 +161,7 @@ void MainThreadFunc() {
 	}
 
 	host = new WindowsHost(MainWindow::GetHInstance(), MainWindow::GetHWND(), MainWindow::GetDisplayHWND());
-	host->SetWindowTitle(nullptr);
+	System_SetWindowTitle("");
 
 	// We convert command line arguments to UTF-8 immediately.
 	std::vector<std::wstring> wideArgs = GetWideCmdLine();

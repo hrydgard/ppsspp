@@ -121,3 +121,7 @@ inline void System_ShareText(const std::string &text) {
 inline void System_NotifyUIState(const std::string &state) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::NOTIFY_UI_STATE, nullptr, state, "", 0);
 }
+
+inline void System_SetWindowTitle(const std::string &param) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::SET_WINDOW_TITLE, nullptr, param, "", 0);
+}

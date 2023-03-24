@@ -33,7 +33,6 @@ public:
 
 	virtual bool AttemptLoadSymbolMap();
 	virtual void SaveSymbolMap() {}
-	virtual void SetWindowTitle(const char *message) {}
 
 	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title) {return false;}
 

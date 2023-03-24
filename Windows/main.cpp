@@ -467,6 +467,24 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		W32Util::CopyTextToClipboard(MainWindow::GetDisplayHWND(), data);
 		return true;
 	}
+	case SystemRequestType::SET_WINDOW_TITLE:
+	{
+#ifdef GOLD
+		const char *name = "PPSSPP Gold ";
+#else
+		const char *name = "PPSSPP ";
+#endif
+		std::wstring winTitle = ConvertUTF8ToWString(std::string(name) + PPSSPP_GIT_VERSION);
+		if (!param1.empty()) {
+			winTitle.append(ConvertUTF8ToWString(" - " + param1));
+		}
+#ifdef _DEBUG
+		winTitle.append(L" (debug)");
+#endif
+		MainWindow::SetWindowTitle(winTitle.c_str());
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
+		return true;
+	}
 	case SystemRequestType::INPUT_TEXT_MODAL:
 		if (g_dialogRunning) {
 			g_dialogThread.join();

@@ -109,26 +109,6 @@ void WindowsHost::UpdateConsolePosition() {
 	}
 }
 
-void WindowsHost::SetWindowTitle(const char *message) {
-#ifdef GOLD
-	const char *name = "PPSSPP Gold ";
-#else
-	const char *name = "PPSSPP ";
-#endif
-	std::wstring winTitle = ConvertUTF8ToWString(std::string(name) + PPSSPP_GIT_VERSION);
-	if (message != nullptr) {
-		winTitle.append(ConvertUTF8ToWString(" - "));
-		winTitle.append(ConvertUTF8ToWString(message));
-	}
-#ifdef _DEBUG
-	winTitle.append(L" (debug)");
-#endif
-	lastTitle_ = winTitle;
-
-	MainWindow::SetWindowTitle(winTitle.c_str());
-	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
-}
-
 // UGLY!
 extern WindowsAudioBackend *winAudioBackend;
 

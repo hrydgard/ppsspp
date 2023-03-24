@@ -54,9 +54,6 @@ void UWPHost::SetConsolePosition() {
 void UWPHost::UpdateConsolePosition() {
 }
 
-void UWPHost::SetWindowTitle(const char *message) {
-}
-
 void UWPHost::UpdateSound() {
 }
 

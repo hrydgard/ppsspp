@@ -36,7 +36,6 @@ public:
 
 	bool AttemptLoadSymbolMap() override;
 	void SaveSymbolMap() override;
-	void SetWindowTitle(const char *message) override;
 
 	void ToggleDebugConsoleVisibility() override;
 
@@ -53,7 +52,6 @@ private:
 	HWND displayWindow_;
 	HWND mainWindow_;
 	size_t numDinputDevices_ = 0;
-	std::wstring lastTitle_;
 
 	std::list<std::unique_ptr<InputDevice>> input;
 };
