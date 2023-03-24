@@ -101,7 +101,6 @@ static void __AudioCPUMHzChange() {
 	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * 512 / hwSampleRate);
 }
 
-
 void __AudioInit() {
 	System_AudioResetStatCounters();
 	mixFrequency = 44100;

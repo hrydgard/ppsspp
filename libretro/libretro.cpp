@@ -390,11 +390,8 @@ class LibretroHost : public Host
       LibretroHost() {}
       void UpdateSound() override
       {
-         int hostAttemptBlockSize = __AudioGetHostAttemptBlockSize();
-         const int blockSizeMax = 512;
-         static int16_t audio[blockSizeMax * 2];
-         assert(hostAttemptBlockSize <= blockSizeMax);
-
+         const int hostAttemptBlockSize = 512;
+         static int16_t audio[hostAttemptBlockSize * 2];
          int samples = __AudioMix(audio, hostAttemptBlockSize, SAMPLERATE);
          AudioBufferWrite(audio, samples);
       }
