@@ -482,6 +482,7 @@ void __PushExternalAudio(const s32 *audio, int numSamples) {
 		resampler.Clear();
 	}
 }
+
 #ifndef MOBILE_DEVICE
 void __StartLogAudio(const Path& filename) {
 	if (!m_logAudio) {

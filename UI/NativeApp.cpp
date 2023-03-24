@@ -203,12 +203,6 @@ public:
 	}
 };
 
-#ifdef _WIN32
-int Win32Mix(short *buffer, int numSamples, int bits, int rate) {
-	return NativeMix(buffer, numSamples);
-}
-#endif
-
 // globals
 static LogListener *logger = nullptr;
 Path boot_filename;
@@ -235,9 +229,8 @@ std::string NativeQueryConfig(std::string query) {
 	}
 }
 
-int NativeMix(short *audio, int num_samples) {
-	int sample_rate = System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE);
-	return __AudioMix(audio, num_samples, sample_rate > 0 ? sample_rate : 44100);
+int NativeMix(short *audio, int numSamples, int sampleRateHz) {
+	return __AudioMix(audio, numSamples, sampleRateHz);
 }
 
 // This is called before NativeInit so we do a little bit of initialization here.
@@ -859,7 +852,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 #if PPSSPP_PLATFORM(UWP)
 	winAudioBackend->Init(0, &Win32Mix, 44100);
 #else
-	winAudioBackend->Init(MainWindow::GetHWND(), &Win32Mix, 44100);
+	winAudioBackend->Init(MainWindow::GetHWND(), &NativeMix, 44100);
 #endif
 #endif
 

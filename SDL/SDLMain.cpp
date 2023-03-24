@@ -74,6 +74,7 @@ static int g_QuitRequested = 0;
 static int g_DesktopWidth = 0;
 static int g_DesktopHeight = 0;
 static float g_RefreshRate = 60.f;
+static int g_sampleRate = 44100;
 
 static SDL_AudioSpec g_retFmt;
 
@@ -92,7 +93,7 @@ int getDisplayNumber(void) {
 }
 
 void sdl_mixaudio_callback(void *userdata, Uint8 *stream, int len) {
-	NativeMix((short *)stream, len / (2 * 2));
+	NativeMix((short *)stream, len / (2 * 2), g_sampleRate);
 }
 
 static SDL_AudioDeviceID audioDev = 0;
@@ -101,7 +102,7 @@ static SDL_AudioDeviceID audioDev = 0;
 static void InitSDLAudioDevice(const std::string &name = "") {
 	SDL_AudioSpec fmt;
 	memset(&fmt, 0, sizeof(fmt));
-	fmt.freq = 44100;
+	fmt.freq = g_sampleRate;
 	fmt.format = AUDIO_S16;
 	fmt.channels = 2;
 	fmt.samples = 256;

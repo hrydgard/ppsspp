@@ -54,6 +54,13 @@
 #include <signal.h>
 #include <string.h>
 
+// Audio
+#define AUDIO_FREQ 44100
+#define AUDIO_CHANNELS 2
+#define AUDIO_SAMPLES 2048
+#define AUDIO_SAMPLESIZE 16
+#define AUDIO_BUFFERS 5
+
 MainUI *emugl = nullptr;
 static float refreshRate = 60.f;
 static int browseFileEvent = -1;
@@ -69,7 +76,7 @@ SDL_AudioSpec g_retFmt;
 static SDL_AudioDeviceID audioDev = 0;
 
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
-	NativeMix((short *)stream, len / 4);
+	NativeMix((short *)stream, len / 4, AUDIO_FREQ);
 }
 
 static void InitSDLAudioDevice() {
@@ -726,12 +733,6 @@ void MainUI::updateAccelerometer() {
 }
 
 #ifndef SDL
-// Audio
-#define AUDIO_FREQ 44100
-#define AUDIO_CHANNELS 2
-#define AUDIO_SAMPLES 2048
-#define AUDIO_SAMPLESIZE 16
-#define AUDIO_BUFFERS 5
 
 MainAudio::~MainAudio() {
 	if (feed != nullptr) {
@@ -770,7 +771,7 @@ void MainAudio::run() {
 
 void MainAudio::timerEvent(QTimerEvent *) {
 	memset(mixbuf, 0, mixlen);
-	size_t frames = NativeMix((short *)mixbuf, AUDIO_BUFFERS*AUDIO_SAMPLES);
+	size_t frames = NativeMix((short *)mixbuf, AUDIO_BUFFERS*AUDIO_SAMPLES, AUDIO_FREQ);
 	if (frames > 0)
 		feed->write(mixbuf, sizeof(short) * AUDIO_CHANNELS * frames);
 }

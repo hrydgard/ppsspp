@@ -19,7 +19,7 @@ static volatile BOOL done = 0;
 #define SAMPLE_SIZE 44100
 static short stream[SAMPLE_SIZE];
 
-int NativeMix(short *audio, int num_samples);
+int NativeMix(short *audio, int numSamples, int sampleRateHz);
 
 @interface AudioEngine ()
 
@@ -120,11 +120,12 @@ int NativeMix(short *audio, int num_samples);
 - (void)audioLoop
 {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void){
+        const int sampleRateHz = 44100;
         while (!done)
         {
             size_t frames_ready;
             if (![self playing])
-                frames_ready = NativeMix(stream, SAMPLE_SIZE / 2);
+                frames_ready = NativeMix(stream, SAMPLE_SIZE / 2, sampleRateHz);
             else
                 frames_ready = 0;
 
@@ -132,12 +133,12 @@ int NativeMix(short *audio, int num_samples);
             {
                 const size_t bytes_ready = frames_ready * sizeof(short) * 2;
                 alSourcei(source, AL_BUFFER, 0);
-                alBufferData(buffer, AL_FORMAT_STEREO16, stream, bytes_ready, 44100);
+                alBufferData(buffer, AL_FORMAT_STEREO16, stream, bytes_ready, sampleRateHz);
                 alSourcei(source, AL_BUFFER, buffer);
                 alSourcePlay(source);
 
                 // TODO: Maybe this could get behind?
-                usleep((1000000 * frames_ready) / 44100);
+                usleep((1000000 * frames_ready) / sampleRateHz);
             }
             else
                 usleep(100);

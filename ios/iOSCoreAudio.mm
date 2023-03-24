@@ -30,7 +30,7 @@
 
 AudioComponentInstance audioInstance = nil;
 
-int NativeMix(short *audio, int num_samples);
+int NativeMix(short *audio, int numSamples, int sampleRate);
 
 OSStatus iOSCoreAudioCallback(void *inRefCon,
 							  AudioUnitRenderActionFlags *ioActionFlags,
@@ -41,7 +41,7 @@ OSStatus iOSCoreAudioCallback(void *inRefCon,
 {
 	// see if we have any sound to play
 	short *output = (short *)ioData->mBuffers[0].mData;
-	UInt32 framesReady = NativeMix(output, inNumberFrames);
+	UInt32 framesReady = NativeMix(output, inNumberFrames, SAMPLE_RATE);
 	
 	if (framesReady == 0) {
 		// oops, we don't currently have any sound, so return silence
