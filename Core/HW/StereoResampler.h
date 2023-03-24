@@ -22,7 +22,6 @@
 #include <cstdint>
 #include <atomic>
 
-#include "Common/Serialize/Serializer.h"
 #include "Common/CommonTypes.h"
 
 struct AudioDebugStats;
@@ -40,9 +39,6 @@ public:
 	void PushSamples(const s32* samples, unsigned int num_samples);
 
 	void Clear();
-
-	// TODO: Get rid of this.
-	static void DoState(PointerWrap &p);
 
 	void GetAudioDebugStats(char *buf, size_t bufSize);
 	void ResetStatCounters();

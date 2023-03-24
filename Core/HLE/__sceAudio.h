@@ -46,21 +46,11 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking);
 void __AudioWakeThreads(AudioChannel &chan, int result, int step);
 void __AudioWakeThreads(AudioChannel &chan, int result);
 
-// Resampler API, to be extracted
-int __AudioMix(short *outstereo, int numSamples, int sampleRate);
-void __AudioGetDebugStats(char *buf, size_t bufSize);
-void __AudioClear();
-void __AudioPushSamples(const s32 *audio, int numSamples);  // Should not be used in-game, only at the menu!
-void __AudioResetStatCounters();
-
-int __AudioGetHostAttemptBlockSize();
-
 // Audio Dumping stuff
 void __StartLogAudio(const Path &filename);
 void __StopLogAudio();
 
-class WAVDump
-{
+class WAVDump {
 public:
 	static void Reset();
 };

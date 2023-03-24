@@ -1293,6 +1293,13 @@ if(WIN32)
 	target_link_libraries(Common winmm d3d9 dsound)
 endif()
 
+if(NOT LIBRETRO)
+	list(APPEND NativeAppSource
+		UI/AudioCommon.h
+		UI/AudioCommon.cpp
+	)
+endif()
+
 list(APPEND NativeAppSource
 	android/jni/TestRunner.cpp
 	UI/DiscordIntegration.cpp

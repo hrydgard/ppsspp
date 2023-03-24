@@ -265,6 +265,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\UI\AudioCommon.h" />
     <ClInclude Include="..\..\UI\BackgroundAudio.h" />
     <ClInclude Include="..\..\UI\ChatScreen.h" />
     <ClInclude Include="..\..\UI\ComboKeyMappingScreen.h" />
@@ -300,6 +301,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\UI\AudioCommon.cpp" />
     <ClCompile Include="..\..\UI\BackgroundAudio.cpp" />
     <ClCompile Include="..\..\UI\ChatScreen.cpp" />
     <ClCompile Include="..\..\UI\ComboKeyMappingScreen.cpp" />

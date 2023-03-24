@@ -106,6 +106,7 @@
 #include "Core/ThreadPools.h"
 
 #include "GPU/GPUInterface.h"
+#include "UI/AudioCommon.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/DiscordIntegration.h"
