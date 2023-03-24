@@ -1,6 +1,7 @@
 #include "Common/System/Request.h"
 #include "Common/System/System.h"
 #include "Common/Log.h"
+#include "Common/File/Path.h"
 
 RequestManager g_requestManager;
 
@@ -79,4 +80,8 @@ void RequestManager::Clear() {
 
 	pendingResponses_.clear();
 	callbackMap_.clear();
+}
+
+void System_CreateGameShortcut(const Path &path, const std::string &title) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::CREATE_GAME_SHORTCUT, nullptr, path.ToString(), title, 0);
 }

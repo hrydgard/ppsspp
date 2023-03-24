@@ -587,6 +587,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		MessageBox(MainWindow::GetHWND(), full_error.c_str(), title.c_str(), MB_OK);
 		return true;
 	}
+	case SystemRequestType::CREATE_GAME_SHORTCUT:
+		// This is not actually working, but ported it to the request framework anyway.
+		return W32Util::CreateDesktopShortcut(param1, param2);
 	default:
 		return false;
 	}

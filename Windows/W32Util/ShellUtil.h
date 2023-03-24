@@ -51,4 +51,6 @@ namespace W32Util
 		bool result_;
 		std::string filename_;
 	};
+
+	bool CreateDesktopShortcut(const std::string &argumentPath, std::string gameTitle);
 }

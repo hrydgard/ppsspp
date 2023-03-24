@@ -68,6 +68,7 @@ enum class SystemRequestType {
 	SET_WINDOW_TITLE,
 	TOGGLE_FULLSCREEN_STATE,
 	GRAPHICS_BACKEND_FAILED_ALERT,
+	CREATE_GAME_SHORTCUT,
 
 	NOTIFY_UI_STATE,  // Used on Android only. Not a SystemNotification since it takes a parameter.
 
