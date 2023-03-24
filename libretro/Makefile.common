@@ -666,7 +666,6 @@ SOURCES_CXX += \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
 	       $(COREDIR)/Util/PortManager.cpp \
-           $(CORE_DIR)/UI/AudioCommon.cpp \
            $(CORE_DIR)/UI/GameInfoCache.cpp
 
 SOURCES_CXX += $(COREDIR)/HLE/__sceAudio.cpp
