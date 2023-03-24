@@ -35,13 +35,14 @@
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
 #include "Common/File/Path.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
 #include "Common/Math/math_util.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
-
-#include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Common/GraphicsContext.h"
+
 #include "Core/MemFault.h"
 #include "Core/HDRemaster.h"
 #include "Core/MIPS/MIPS.h"
@@ -173,6 +174,40 @@ bool CPU_HasPendingAction() {
 
 void CPU_Shutdown();
 
+static Path SymbolMapFilename(const Path &currentFilename, const char *ext) {
+	File::FileInfo info{};
+	// can't fail, definitely exists if it gets this far
+	File::GetFileInfo(currentFilename, &info);
+	if (info.isDirectory) {
+		return currentFilename / (std::string(".ppsspp-symbols") + ext);
+	}
+	return currentFilename.WithReplacedExtension(ext);
+};
+
+static bool LoadSymbolsIfSupported() {
+	if (System_GetPropertyBool(SYSPROP_HAS_DEBUGGER)) {
+		if (!g_symbolMap)
+			return false;
+
+		bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
+		// Load the old-style map file.
+		if (!result1)
+			result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".map"));
+		bool result2 = g_symbolMap->LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".sym"));
+		return result1 || result2;
+	} else {
+		g_symbolMap->Clear();
+		return true;
+	}
+}
+
+static bool SaveSymbolMapIfSupported() {
+	if (g_symbolMap) {
+		return g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
+	}
+	return false;
+}
+
 bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string *id) {
 	using namespace GPURecord;
 
@@ -283,7 +318,7 @@ bool CPU_Init(std::string *errorString) {
 	}
 	mipsr4k.Reset();
 
-	host->AttemptLoadSymbolMap();
+	LoadSymbolsIfSupported();
 
 	CoreTiming::Init();
 
@@ -324,7 +359,7 @@ void CPU_Shutdown() {
 	PSPLoaders_Shutdown();
 
 	if (g_Config.bAutoSaveSymbolMap) {
-		host->SaveSymbolMap();
+		SaveSymbolMapIfSupported();
 	}
 
 	Replacement_Shutdown();

@@ -34,9 +34,6 @@ public:
 
 	void PollControllers() override;
 
-	bool AttemptLoadSymbolMap() override;
-	void SaveSymbolMap() override;
-
 	void ToggleDebugConsoleVisibility() override;
 
 	bool CreateDesktopShortcut(std::string argumentPath, std::string title) override;

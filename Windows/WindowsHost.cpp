@@ -155,32 +155,6 @@ void WindowsHost::PollControllers() {
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = g_mouseDeltaY;
 }
 
-static Path SymbolMapFilename(const Path &currentFilename, const char *ext) {
-	File::FileInfo info{};
-	// can't fail, definitely exists if it gets this far
-	File::GetFileInfo(currentFilename, &info);
-	if (info.isDirectory) {
-		return currentFilename / (std::string(".ppsspp-symbols") + ext);
-	}
-	return currentFilename.WithReplacedExtension(ext);
-}
-
-bool WindowsHost::AttemptLoadSymbolMap() {
-	if (!g_symbolMap)
-		return false;
-	bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
-	// Load the old-style map file.
-	if (!result1)
-		result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".map"));
-	bool result2 = g_symbolMap->LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".sym"));
-	return result1 || result2;
-}
-
-void WindowsHost::SaveSymbolMap() {
-	if (g_symbolMap)
-		g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
-}
-
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
 HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathLink, LPCWSTR lpszDesc) { 
 	HRESULT hres; 

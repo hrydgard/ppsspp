@@ -351,6 +351,7 @@ float System_GetPropertyFloat(SystemProperty prop) {
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+	case SYSPROP_HAS_DEBUGGER:
 	case SYSPROP_HAS_FILE_BROWSER:
 	case SYSPROP_HAS_FOLDER_BROWSER:
 	case SYSPROP_HAS_OPEN_DIRECTORY:

@@ -206,12 +206,12 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 	return started;
 }
 
-void SymbolMap::SaveSymbolMap(const Path &filename) const {
+bool SymbolMap::SaveSymbolMap(const Path &filename) const {
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 
 	// Don't bother writing a blank file.
 	if (!File::Exists(filename) && functions.empty() && data.empty()) {
-		return;
+		return true;
 	}
 
 	// TODO(scoped): Use gzdopen
@@ -222,7 +222,7 @@ void SymbolMap::SaveSymbolMap(const Path &filename) const {
 #endif
 
 	if (f == Z_NULL)
-		return;
+		return false;
 
 	gzprintf(f, ".text\n");
 
@@ -241,6 +241,7 @@ void SymbolMap::SaveSymbolMap(const Path &filename) const {
 		gzprintf(f, "%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_DATA, GetLabelNameRel(e.start, e.module));
 	}
 	gzclose(f);
+	return true;
 }
 
 bool SymbolMap::LoadNocashSym(const Path &filename) {

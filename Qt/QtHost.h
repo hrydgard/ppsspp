@@ -32,11 +32,6 @@ public:
 
 	void UpdateSound() override {}
 
-	bool AttemptLoadSymbolMap() override {
-		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
-		return g_symbolMap->LoadSymbolMap(fn);
-	}
-
 	void PrepareShutdown() {
 		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
 		g_symbolMap->SaveSymbolMap(fn);

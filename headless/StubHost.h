@@ -28,10 +28,6 @@ public:
 	virtual bool InitGraphics(std::string *error_message, GraphicsContext **ctx, GPUCore core) {return false;}
 	virtual void ShutdownGraphics() {}
 
-	void UpdateSound() override {}
-
-	bool AttemptLoadSymbolMap() override { g_symbolMap->Clear(); return false; }
-
 	void SendDebugOutput(const std::string &output) override {
 		if (output.find('\n') != output.npos) {
 			DoFlushDebugOutput();
