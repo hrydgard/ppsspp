@@ -4,6 +4,7 @@
 
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -151,16 +152,11 @@ bool CreateGraphicsBackend(std::string *error_message, GraphicsContext **ctx) {
 }
 
 void MainThreadFunc() {
-	if (useEmuThread) {
-		// We'll start up a separate thread we'll call Emu
-		SetCurrentThreadName("Render");
-	} else {
-		// This is both Emu and Render.
-		SetCurrentThreadName("Emu");
-	}
+	// We'll start up a separate thread we'll call Emu
+	SetCurrentThreadName(useEmuThread ? "Render" : "Emu");
 
-	host = new WindowsHost(MainWindow::GetHInstance(), MainWindow::GetHWND(), MainWindow::GetDisplayHWND());
-	host->SetWindowTitle(nullptr);
+	host = new WindowsHost();
+	System_SetWindowTitle("");
 
 	// We convert command line arguments to UTF-8 immediately.
 	std::vector<std::wstring> wideArgs = GetWideCmdLine();

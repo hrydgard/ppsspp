@@ -16,7 +16,3 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Qt/QtHost.h"
-
-Path QtHost::SymbolMapFilename(Path currentFilename) {
-	return currentFilename.WithReplacedExtension(".map");
-}

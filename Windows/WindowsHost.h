@@ -26,17 +26,13 @@ extern float g_mouseDeltaY;
 
 class WindowsHost : public Host {
 public:
-	WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindow);
+	WindowsHost();
 
 	~WindowsHost() {
 		UpdateConsolePosition();
 	}
 
 	void PollControllers() override;
-
-	bool AttemptLoadSymbolMap() override;
-	void SaveSymbolMap() override;
-	void SetWindowTitle(const char *message) override;
 
 	void ToggleDebugConsoleVisibility() override;
 
@@ -49,11 +45,7 @@ private:
 	void SetConsolePosition();
 	void UpdateConsolePosition();
 
-	HINSTANCE hInstance_;
-	HWND displayWindow_;
-	HWND mainWindow_;
 	size_t numDinputDevices_ = 0;
-	std::wstring lastTitle_;
 
 	std::list<std::unique_ptr<InputDevice>> input;
 };

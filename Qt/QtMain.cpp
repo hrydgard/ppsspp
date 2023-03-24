@@ -355,6 +355,17 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::COPY_TO_CLIPBOARD:
 		QApplication::clipboard()->setText(param1.c_str());
 		return true;
+	case SystemRequestType::SET_WINDOW_TITLE:
+	{
+		std::string title = std::string("PPSSPP ") + PPSSPP_GIT_VERSION;
+		if (!param1.empty())
+			title += std::string(" - ") + param1;
+#ifdef _DEBUG
+		title += " (debug)";
+#endif
+		g_mainWindow->SetWindowTitleAsync(title);
+		return true;
+	}
 	case SystemRequestType::INPUT_TEXT_MODAL:
 	{
 		g_requestId = requestId;

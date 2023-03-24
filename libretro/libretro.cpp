@@ -396,7 +396,6 @@ class LibretroHost : public Host
          int samples = __AudioMix(audio, hostAttemptBlockSize, SAMPLERATE);
          AudioBufferWrite(audio, samples);
       }
-      bool AttemptLoadSymbolMap() override { return false; }
 };
 
 class PrintfLogger : public LogListener

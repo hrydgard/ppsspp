@@ -15,14 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <cstring>
-
 #include "Core/Host.h"
-#include "Core/Debugger/SymbolMap.h"
 
 Host *host = nullptr;
-
-bool Host::AttemptLoadSymbolMap() {
-	g_symbolMap->Clear();
-	return false;
-}

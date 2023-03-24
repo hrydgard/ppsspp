@@ -23,7 +23,6 @@
 #include "Qt/mainwindow.h"
 #include "Core/Debugger/SymbolMap.h"
 
-
 class QtHost : public Host {
 public:
 	QtHost(MainWindow *mainWindow_)
@@ -33,23 +32,9 @@ public:
 
 	void UpdateSound() override {}
 
-	bool AttemptLoadSymbolMap() override {
-		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
-		return g_symbolMap->LoadSymbolMap(fn);
-	}
-
 	void PrepareShutdown() {
 		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
 		g_symbolMap->SaveSymbolMap(fn);
-	}
-	void SetWindowTitle(const char *message) override {
-		std::string title = std::string("PPSSPP ") + PPSSPP_GIT_VERSION;
-		if (message)
-			title += std::string(" - ") + message;
-#ifdef _DEBUG
-		title += " (debug)";
-#endif
-		mainWindow->SetWindowTitleAsync(title);
 	}
 
 	void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) override {

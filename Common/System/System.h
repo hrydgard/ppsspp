@@ -64,16 +64,17 @@ enum class SystemRequestType {
 	EXIT_APP,
 	RESTART_APP,  // For graphics backend changes
 	COPY_TO_CLIPBOARD,
+	SHARE_TEXT,
+	SET_WINDOW_TITLE,
 	TOGGLE_FULLSCREEN_STATE,
 	GRAPHICS_BACKEND_FAILED_ALERT,
+
+	NOTIFY_UI_STATE,  // Used on Android only. Not a SystemNotification since it takes a parameter.
 
 	// High-level hardware control
 	CAMERA_COMMAND,
 	GPS_COMMAND,
 	MICROPHONE_COMMAND,
-
-	SHARE_TEXT,
-	NOTIFY_UI_STATE,  // Used on Android only. Not a SystemNotification since it takes a parameter.
 };
 
 // Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).
@@ -161,6 +162,8 @@ enum SystemProperty {
 	SYSPROP_ANDROID_SCOPED_STORAGE,
 
 	SYSPROP_CAN_JIT,
+
+	SYSPROP_HAS_DEBUGGER,
 
 	SYSPROP_KEYBOARD_LAYOUT,
 

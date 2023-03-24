@@ -48,15 +48,6 @@ UWPHost::~UWPHost() {
 
 }
 
-void UWPHost::SetConsolePosition() {
-}
-
-void UWPHost::UpdateConsolePosition() {
-}
-
-void UWPHost::SetWindowTitle(const char *message) {
-}
-
 void UWPHost::UpdateSound() {
 }
 
@@ -84,29 +75,6 @@ void UWPHost::PollControllers() {
 	axisY.deviceId = DEVICE_ID_MOUSE;
 	axisY.value = my;
 	*/
-}
-
-static Path SymbolMapFilename(const Path &currentFilename, const char *ext) {
-	File::FileInfo info;
-	// can't fail, definitely exists if it gets this far
-	File::GetFileInfo(currentFilename, &info);
-	if (info.isDirectory) {
-		return currentFilename / (std::string(".ppsspp-symbols") + ext);
-	}
-	return currentFilename.WithReplacedExtension(ext);
-}
-
-bool UWPHost::AttemptLoadSymbolMap() {
-	bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
-	// Load the old-style map file.
-	if (!result1)
-		result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".map"));
-	bool result2 = g_symbolMap->LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".sym"));
-	return result1 || result2;
-}
-
-void UWPHost::SaveSymbolMap() {
-	g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
 }
 
 void UWPHost::ToggleDebugConsoleVisibility() {

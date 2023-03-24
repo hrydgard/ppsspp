@@ -31,10 +31,6 @@ public:
 	virtual void PollControllers() {}
 	virtual void ToggleDebugConsoleVisibility() {}
 
-	virtual bool AttemptLoadSymbolMap();
-	virtual void SaveSymbolMap() {}
-	virtual void SetWindowTitle(const char *message) {}
-
 	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title) {return false;}
 
 	virtual void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) {}

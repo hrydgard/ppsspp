@@ -44,12 +44,14 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/CoreParameter.h"
+#include "Core/HLE/Plugins.h"
 #include "Core/System.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Instance.h"
 
+#include "UI/OnScreenDisplay.h"
+
 #include "Windows/EmuThread.h"
-#include "Windows/WindowsAudio.h"
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
 
@@ -63,8 +65,6 @@
 #include "Windows/XinputDevice.h"
 
 #include "Windows/main.h"
-#include "UI/OnScreenDisplay.h"
-#include <Core/HLE/Plugins.h>
 
 float g_mouseDeltaX = 0;
 float g_mouseDeltaY = 0;
@@ -73,11 +73,7 @@ static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, L
 	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
 }
 
-WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindow)
-	: hInstance_(hInstance),
-		displayWindow_(displayWindow),
-		mainWindow_(mainWindow)
-{
+WindowsHost::WindowsHost() {
 	g_mouseDeltaX = 0;
 	g_mouseDeltaY = 0;
 
@@ -108,29 +104,6 @@ void WindowsHost::UpdateConsolePosition() {
 		g_Config.iConsoleWindowY = rc.top;
 	}
 }
-
-void WindowsHost::SetWindowTitle(const char *message) {
-#ifdef GOLD
-	const char *name = "PPSSPP Gold ";
-#else
-	const char *name = "PPSSPP ";
-#endif
-	std::wstring winTitle = ConvertUTF8ToWString(std::string(name) + PPSSPP_GIT_VERSION);
-	if (message != nullptr) {
-		winTitle.append(ConvertUTF8ToWString(" - "));
-		winTitle.append(ConvertUTF8ToWString(message));
-	}
-#ifdef _DEBUG
-	winTitle.append(L" (debug)");
-#endif
-	lastTitle_ = winTitle;
-
-	MainWindow::SetWindowTitle(winTitle.c_str());
-	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
-}
-
-// UGLY!
-extern WindowsAudioBackend *winAudioBackend;
 
 void WindowsHost::PollControllers() {
 	static int checkCounter = 0;
@@ -180,32 +153,6 @@ void WindowsHost::PollControllers() {
 
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_X] = g_mouseDeltaX;
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = g_mouseDeltaY;
-}
-
-static Path SymbolMapFilename(const Path &currentFilename, const char *ext) {
-	File::FileInfo info{};
-	// can't fail, definitely exists if it gets this far
-	File::GetFileInfo(currentFilename, &info);
-	if (info.isDirectory) {
-		return currentFilename / (std::string(".ppsspp-symbols") + ext);
-	}
-	return currentFilename.WithReplacedExtension(ext);
-}
-
-bool WindowsHost::AttemptLoadSymbolMap() {
-	if (!g_symbolMap)
-		return false;
-	bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
-	// Load the old-style map file.
-	if (!result1)
-		result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".map"));
-	bool result2 = g_symbolMap->LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".sym"));
-	return result1 || result2;
-}
-
-void WindowsHost::SaveSymbolMap() {
-	if (g_symbolMap)
-		g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
 }
 
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
