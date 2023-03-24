@@ -155,7 +155,7 @@ void XAudioBackend::PollLoop() {
 		// take ownership of the data. It needs to be big enough to fit the max number of buffers we check for
 		// above, which it is, easily.
 
-		int stereoSamplesRendered = (*callback_)((short*)&realtimeBuffer_[cursor_], readCount / 4, 16, sampleRate_);
+		int stereoSamplesRendered = (*callback_)((short*)&realtimeBuffer_[cursor_], readCount / 4, sampleRate_);
 		int numBytesRendered = 2 * sizeof(short) * stereoSamplesRendered;
 
 		XAUDIO2_BUFFER xaudioBuffer{};
