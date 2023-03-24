@@ -219,7 +219,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Thread/ThreadManager.cpp \
   $(SRC)/Common/Thread/ParallelLoop.cpp \
   $(SRC)/Common/UI/AsyncImageFileView.cpp \
-  $(SRC)/Common/UI/AudioCommon.cpp \
   $(SRC)/Common/UI/Root.cpp \
   $(SRC)/Common/UI/Screen.cpp \
   $(SRC)/Common/UI/UI.cpp \
@@ -716,6 +715,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/android/jni/AndroidVulkanContext.cpp \
   $(SRC)/android/jni/AndroidAudio.cpp \
   $(SRC)/android/jni/OpenSLContext.cpp \
+  $(SRC)/UI/AudioCommon.cpp \
   $(SRC)/UI/BackgroundAudio.cpp \
   $(SRC)/UI/DiscordIntegration.cpp \
   $(SRC)/UI/ChatScreen.cpp \
