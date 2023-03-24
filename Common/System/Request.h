@@ -130,3 +130,4 @@ inline void System_SetWindowTitle(const std::string &param) {
 
 // Non-inline to avoid including Path.h
 void System_CreateGameShortcut(const Path &path, const std::string &title);
+

@@ -31,7 +31,6 @@ public:
 	virtual void ToggleDebugConsoleVisibility() {}
 
 	virtual void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) {}
-	virtual void SendUIMessage(const std::string &message, const std::string &value) {}
 
 	virtual void SendDebugOutput(const std::string &output) {}
 	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {}

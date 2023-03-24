@@ -200,6 +200,9 @@ std::vector<std::string> System_GetCameraDeviceList();
 bool System_AudioRecordingIsAvailable();
 bool System_AudioRecordingState();
 
+// This will be changed to take an enum. Currently simply implemented by forwarding to NativeMessageReceived.
+void System_PostUIMessage(const std::string &message, const std::string &param);
+
 // For these functions, most platforms will use the implementation provided in UI/AudioCommon.cpp,
 // no need to implement separately.
 void System_AudioGetDebugStats(char *buf, size_t bufSize);

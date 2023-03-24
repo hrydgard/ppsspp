@@ -41,10 +41,6 @@ public:
 		osm.Show(message, duration, color, -1, true, id);
 	}
 
-	void SendUIMessage(const std::string &message, const std::string &value) override {
-		NativeMessageReceived(message.c_str(), value.c_str());
-	}
-
 private:
 	Path SymbolMapFilename(Path currentFilename);
 	MainWindow* mainWindow;
