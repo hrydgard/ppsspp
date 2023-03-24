@@ -41,7 +41,8 @@ public:
 
 	void Clear();
 
-	void DoState(PointerWrap &p);
+	// TODO: Get rid of this.
+	static void DoState(PointerWrap &p);
 
 	void GetAudioDebugStats(char *buf, size_t bufSize);
 	void ResetStatCounters();

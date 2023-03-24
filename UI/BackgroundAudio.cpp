@@ -344,7 +344,7 @@ bool BackgroundAudio::Play() {
 	// Immediately stop the sound if it is turned off while playing.
 	if (!g_Config.bEnableSound) {
 		Clear(true);
-		__PushExternalAudio(0, 0);
+		__AudioClear();
 		return true;
 	}
 
@@ -393,7 +393,7 @@ bool BackgroundAudio::Play() {
 		}
 	}
 
-	__PushExternalAudio(buffer, sz);
+	__AudioPushSamples(buffer, sz);
 
 	if (at3Reader_ && fadingOut_ && volume_ <= 0.0f) {
 		Clear(true);

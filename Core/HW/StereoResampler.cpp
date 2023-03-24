@@ -346,8 +346,4 @@ void StereoResampler::ResetStatCounters() {
 
 void StereoResampler::DoState(PointerWrap &p) {
 	auto s = p.Section("resampler", 1);
-	if (!s)
-		return;
-	if (p.mode == p.MODE_READ)
-		Clear();
 }

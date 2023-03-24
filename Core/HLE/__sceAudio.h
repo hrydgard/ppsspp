@@ -41,17 +41,17 @@ void __AudioShutdown();
 void __AudioSetOutputFrequency(int freq);
 void __AudioSetSRCFrequency(int freq);
 
-typedef void(*AudioUserCallback);
-void __AudioSetUserCallback(AudioUserCallback callback);
-
 // May return SCE_ERROR_AUDIO_CHANNEL_BUSY if buffer too large
 u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking);
 void __AudioWakeThreads(AudioChannel &chan, int result, int step);
 void __AudioWakeThreads(AudioChannel &chan, int result);
 
+// Resampler API, to be extracted
 int __AudioMix(short *outstereo, int numSamples, int sampleRate);
 void __AudioGetDebugStats(char *buf, size_t bufSize);
-void __PushExternalAudio(const s32 *audio, int numSamples);  // Should not be used in-game, only at the menu!
+void __AudioClear();
+void __AudioPushSamples(const s32 *audio, int numSamples);  // Should not be used in-game, only at the menu!
+void __AudioResetStatCounters();
 
 int __AudioGetHostAttemptBlockSize();
 
