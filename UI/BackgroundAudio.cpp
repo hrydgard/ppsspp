@@ -7,6 +7,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Data/Format/RIFF.h"
 #include "Common/Log.h"
+#include "Common/System/System.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/TimeUtil.h"
 #include "Common/Data/Collections/FixedSizeQueue.h"
@@ -344,7 +345,7 @@ bool BackgroundAudio::Play() {
 	// Immediately stop the sound if it is turned off while playing.
 	if (!g_Config.bEnableSound) {
 		Clear(true);
-		__AudioClear();
+		System_AudioClear();
 		return true;
 	}
 
@@ -393,7 +394,7 @@ bool BackgroundAudio::Play() {
 		}
 	}
 
-	__AudioPushSamples(buffer, sz);
+	System_AudioPushSamples(buffer, sz);
 
 	if (at3Reader_ && fadingOut_ && volume_ <= 0.0f) {
 		Clear(true);

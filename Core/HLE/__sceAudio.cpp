@@ -23,6 +23,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Data/Collections/FixedSizeQueue.h"
+#include "Common/System/System.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>
@@ -44,37 +45,7 @@
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
-#include "Core/HW/StereoResampler.h"
 #include "Core/Util/AudioFormat.h"
-
-StereoResampler resampler;
-
-// numFrames is number of stereo frames.
-// This is called from *outside* the emulator thread.
-int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
-	return resampler.Mix(outstereo, numFrames, false, sampleRate);
-}
-
-void __AudioGetDebugStats(char *buf, size_t bufSize) {
-	resampler.GetAudioDebugStats(buf, bufSize);
-}
-
-void __AudioClear() {
-	resampler.Clear();
-}
-
-void __AudioPushSamples(const s32 *audio, int numSamples) {
-	if (audio) {
-		resampler.PushSamples(audio, numSamples);
-	} else {
-		resampler.Clear();
-	}
-}
-
-void __AudioResetStatCounters() {
-	resampler.ResetStatCounters();
-}
-
 
 // Should be used to lock anything related to the outAudioQueue.
 // atomic locks are used on the lock. TODO: make this lock-free
@@ -92,7 +63,6 @@ int srcFrequency = 0;
 const int hwSampleRate = 44100;
 
 const int hwBlockSize = 64;
-const int hostAttemptBlockSize = 512;
 
 static int audioIntervalCycles;
 static int audioHostIntervalCycles;
@@ -108,11 +78,6 @@ static bool m_logAudio;
 // TODO: Tweak. Hm, there aren't actually even used currently...
 static int chanQueueMaxSizeFactor;
 static int chanQueueMinSizeFactor;
-
-// Accessor for libretro
-int __AudioGetHostAttemptBlockSize() {
-	return hostAttemptBlockSize;
-}
 
 static void hleAudioUpdate(u64 userdata, int cyclesLate) {
 	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
@@ -131,12 +96,14 @@ static void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
 
 static void __AudioCPUMHzChange() {
 	audioIntervalCycles = (int)(usToCycles(1000000ULL) * hwBlockSize / hwSampleRate);
-	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * hostAttemptBlockSize / hwSampleRate);
+
+	// Soon to be removed.
+	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * 512 / hwSampleRate);
 }
 
 
 void __AudioInit() {
-	__AudioResetStatCounters();
+	System_AudioResetStatCounters();
 	mixFrequency = 44100;
 	srcFrequency = 0;
 
@@ -159,7 +126,7 @@ void __AudioInit() {
 	clampedMixBuffer = new s16[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
-	__AudioClear();
+	System_AudioClear();
 	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
 }
 
@@ -184,16 +151,16 @@ void __AudioDoState(PointerWrap &p) {
 
 	if (s >= 2) {
 		// TODO: Next time we bump, get rid of this. It's kinda useless.
-		StereoResampler::DoState(p);
+		auto s = p.Section("resampler", 1);
 		if (p.mode == p.MODE_READ) {
-			__AudioClear();
+			System_AudioClear();
 		}
 	} else {
 		// Only to preserve the previous file format. Might cause a slight audio glitch on upgrades?
 		FixedSizeQueue<s16, 512 * 16> outAudioQueue;
 		outAudioQueue.DoState(p);
 
-		__AudioClear();
+		System_AudioClear();
 	}
 
 	int chanCount = ARRAY_SIZE(chans);
@@ -455,7 +422,7 @@ void __AudioUpdate(bool resetRecording) {
 	}
 
 	if (g_Config.bEnableSound) {
-		__AudioPushSamples(mixBuffer, hwBlockSize);
+		System_AudioPushSamples(mixBuffer, hwBlockSize);
 #ifndef MOBILE_DEVICE
 		if (g_Config.bSaveLoadResetsAVdumping && resetRecording) {
 			__StopLogAudio();

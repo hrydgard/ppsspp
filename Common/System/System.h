@@ -191,5 +191,17 @@ bool System_GetPropertyBool(SystemProperty prop);
 void System_Notify(SystemNotification notification);
 
 std::vector<std::string> System_GetCameraDeviceList();
+
 bool System_AudioRecordingIsAvailable();
 bool System_AudioRecordingState();
+
+// For these functions, most platforms will use the implementation provided in UI/AudioCommon.cpp,
+// no need to implement separately.
+void System_AudioGetDebugStats(char *buf, size_t bufSize);
+void System_AudioClear();
+// These samples really have 16 bits of value, but can be a little out of range.
+void System_AudioPushSamples(const int32_t *audio, int numSamples);
+
+inline void System_AudioResetStatCounters() {
+	return System_AudioGetDebugStats(nullptr, 0);
+}

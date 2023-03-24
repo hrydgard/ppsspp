@@ -88,6 +88,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 }
 void System_Notify(SystemNotification notification) {}
+void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
+void System_AudioClear() {}
+void System_AudioPushSamples(const s32 *audio, int numSamples) {}
 
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {

@@ -330,6 +330,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Thread/ParallelLoop.cpp \
 	$(COMMONDIR)/Thread/ThreadManager.cpp \
 	$(COMMONDIR)/UI/AsyncImageFileView.cpp \
+	$(COMMONDIR)/UI/AudioCommon.cpp \
 	$(COMMONDIR)/UI/Root.cpp \
 	$(COMMONDIR)/UI/Screen.cpp \
 	$(COMMONDIR)/UI/UI.cpp \

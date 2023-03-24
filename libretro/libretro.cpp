@@ -46,6 +46,8 @@
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
 
+#include "UI/AudioCommon.h"
+
 #include "libretro/libretro.h"
 #include "libretro/LibretroGraphicsContext.h"
 #include "libretro/libretro_core_options.h"

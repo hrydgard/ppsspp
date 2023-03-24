@@ -1266,7 +1266,7 @@ Invalid / Unknown (%d)
 static void DrawAudioDebugStats(UIContext *ctx, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
 	char statbuf[4096] = { 0 };
-	__AudioGetDebugStats(statbuf, sizeof(statbuf));
+	System_AudioGetDebugStats(statbuf, sizeof(statbuf));
 
 	ctx->Flush();
 	ctx->BindFontTexture();

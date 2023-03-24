@@ -82,6 +82,7 @@
     <ClCompile Include="JoystickHistoryView.cpp">
       <Filter>Views</Filter>
     </ClCompile>
+    <ClCompile Include="AudioCommon.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -165,6 +166,7 @@
     <ClInclude Include="JoystickHistoryView.h">
       <Filter>Views</Filter>
     </ClInclude>
+    <ClInclude Include="AudioCommon.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">

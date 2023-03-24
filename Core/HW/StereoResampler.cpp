@@ -343,7 +343,3 @@ void StereoResampler::ResetStatCounters() {
 	outputSampleCount_ = 0;
 	startTime_ = time_now_d();
 }
-
-void StereoResampler::DoState(PointerWrap &p) {
-	auto s = p.Section("resampler", 1);
-}

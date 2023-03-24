@@ -219,6 +219,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Thread/ThreadManager.cpp \
   $(SRC)/Common/Thread/ParallelLoop.cpp \
   $(SRC)/Common/UI/AsyncImageFileView.cpp \
+  $(SRC)/Common/UI/AudioCommon.cpp \
   $(SRC)/Common/UI/Root.cpp \
   $(SRC)/Common/UI/Screen.cpp \
   $(SRC)/Common/UI/UI.cpp \

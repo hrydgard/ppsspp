@@ -61,6 +61,7 @@
     <ClCompile Include="ReportScreen.cpp" />
     <ClCompile Include="SavedataScreen.cpp" />
     <ClCompile Include="Store.cpp" />
+    <ClCompile Include="AudioCommon.cpp" />
     <ClCompile Include="TiltAnalogSettingsScreen.cpp" />
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
     <ClCompile Include="TouchControlVisibilityScreen.cpp" />
@@ -68,6 +69,7 @@
     <ClCompile Include="Theme.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AudioCommon.h" />
     <ClInclude Include="BackgroundAudio.h" />
     <ClInclude Include="ChatScreen.h" />
     <ClInclude Include="ComboKeyMappingScreen.h" />
