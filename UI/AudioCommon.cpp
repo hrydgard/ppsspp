@@ -22,7 +22,7 @@ void System_AudioClear() {
 	g_resampler.Clear();
 }
 
-void System_AudioPushSamples(const s32 *audio, int numSamples) {
+void System_AudioPushSamples(const int32_t *audio, int numSamples) {
 	if (audio) {
 		g_resampler.PushSamples(audio, numSamples);
 	} else {
