@@ -44,12 +44,14 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/CoreParameter.h"
+#include "Core/HLE/Plugins.h"
 #include "Core/System.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Instance.h"
 
+#include "UI/OnScreenDisplay.h"
+
 #include "Windows/EmuThread.h"
-#include "Windows/WindowsAudio.h"
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
 
@@ -63,8 +65,6 @@
 #include "Windows/XinputDevice.h"
 
 #include "Windows/main.h"
-#include "UI/OnScreenDisplay.h"
-#include <Core/HLE/Plugins.h>
 
 float g_mouseDeltaX = 0;
 float g_mouseDeltaY = 0;
@@ -73,11 +73,7 @@ static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, L
 	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
 }
 
-WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindow)
-	: hInstance_(hInstance),
-		displayWindow_(displayWindow),
-		mainWindow_(mainWindow)
-{
+WindowsHost::WindowsHost() {
 	g_mouseDeltaX = 0;
 	g_mouseDeltaY = 0;
 
@@ -108,9 +104,6 @@ void WindowsHost::UpdateConsolePosition() {
 		g_Config.iConsoleWindowY = rc.top;
 	}
 }
-
-// UGLY!
-extern WindowsAudioBackend *winAudioBackend;
 
 void WindowsHost::PollControllers() {
 	static int checkCounter = 0;

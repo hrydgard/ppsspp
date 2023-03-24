@@ -152,15 +152,10 @@ bool CreateGraphicsBackend(std::string *error_message, GraphicsContext **ctx) {
 }
 
 void MainThreadFunc() {
-	if (useEmuThread) {
-		// We'll start up a separate thread we'll call Emu
-		SetCurrentThreadName("Render");
-	} else {
-		// This is both Emu and Render.
-		SetCurrentThreadName("Emu");
-	}
+	// We'll start up a separate thread we'll call Emu
+	SetCurrentThreadName(useEmuThread ? "Render" : "Emu");
 
-	host = new WindowsHost(MainWindow::GetHInstance(), MainWindow::GetHWND(), MainWindow::GetDisplayHWND());
+	host = new WindowsHost();
 	System_SetWindowTitle("");
 
 	// We convert command line arguments to UTF-8 immediately.

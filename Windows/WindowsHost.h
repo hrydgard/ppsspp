@@ -26,7 +26,7 @@ extern float g_mouseDeltaY;
 
 class WindowsHost : public Host {
 public:
-	WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindow);
+	WindowsHost();
 
 	~WindowsHost() {
 		UpdateConsolePosition();
@@ -48,9 +48,6 @@ private:
 	void SetConsolePosition();
 	void UpdateConsolePosition();
 
-	HINSTANCE hInstance_;
-	HWND displayWindow_;
-	HWND mainWindow_;
 	size_t numDinputDevices_ = 0;
 
 	std::list<std::unique_ptr<InputDevice>> input;
