@@ -2012,7 +2012,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		case EMULATOR_DEVCTL__SEND_OUTPUT:
 			{
 				std::string data(Memory::GetCharPointer(argAddr), argLen);
-				if (PSP_CoreParameter().printfEmuLog) {
+				if (PSP_CoreParameter().printfEmuLog && host) {
 					host->SendDebugOutput(data);
 				} else {
 					if (PSP_CoreParameter().collectEmuLog) {
@@ -2040,7 +2040,9 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 
 			__DisplayGetFramebuf(&topaddr, &linesize, nullptr, 0);
 			// TODO: Convert based on pixel format / mode / something?
-			host->SendDebugScreenshot(topaddr, linesize, 272);
+			if (host) {
+				host->SendDebugScreenshot(topaddr, linesize, 272);
+			}
 			return 0;
 		}
 		case EMULATOR_DEVCTL__TOGGLE_FASTFORWARD:

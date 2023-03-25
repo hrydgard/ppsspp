@@ -1934,7 +1934,9 @@ void __KernelGPUReplay() {
 		PSPPointer<u8> topaddr;
 		u32 linesize = 512;
 		__DisplayGetFramebuf(&topaddr, &linesize, nullptr, 0);
-		host->SendDebugScreenshot(topaddr, linesize, 272);
+		if (host) {
+			host->SendDebugScreenshot(topaddr, linesize, 272);
+		}
 		Core_Stop();
 	}
 }
