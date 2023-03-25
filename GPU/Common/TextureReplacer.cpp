@@ -37,12 +37,12 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
+#include "Common/System/System.h"
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Thread/Waitable.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/ThreadPools.h"
 #include "Core/ELF/ParamSFO.h"
@@ -279,7 +279,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 
 	if (filenameWarning) {
 		auto err = GetI18NCategory("Error");
-		host->NotifyUserMessage(err->T("textures.ini filenames may not be cross-platform (banned characters)"), 6.0f);
+		System_NotifyUserMessage(err->T("textures.ini filenames may not be cross-platform (banned characters)"), 6.0f);
 	}
 
 	if (ini.HasSection("hashranges")) {

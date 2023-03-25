@@ -155,7 +155,7 @@ void MainThreadFunc() {
 	// We'll start up a separate thread we'll call Emu
 	SetCurrentThreadName(useEmuThread ? "Render" : "Emu");
 
-	host = new WindowsHost();
+	SetConsolePosition();
 
 	System_SetWindowTitle("");
 

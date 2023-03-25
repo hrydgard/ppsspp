@@ -84,7 +84,6 @@
     <ClInclude Include="GameSettingsScreen.h" />
     <ClInclude Include="CwCheatScreen.h" />
     <ClInclude Include="GPUDriverTestScreen.h" />
-    <ClInclude Include="HostTypes.h" />
     <ClInclude Include="JoystickHistoryView.h" />
     <ClInclude Include="MainScreen.h" />
     <ClInclude Include="MemStickScreen.h" />

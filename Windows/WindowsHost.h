@@ -19,22 +19,10 @@
 #include <memory>
 
 #include "Common/CommonWindows.h"
-#include "Core/Host.h"
 #include "Windows/InputDevice.h"
 
-class WindowsHost : public Host {
-public:
-	WindowsHost();
-	~WindowsHost() {
-		UpdateConsolePosition();
-	}
-
-	void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) override;
-
-private:
-	void SetConsolePosition();
-	void UpdateConsolePosition();
-};
+void SetConsolePosition();
+void UpdateConsolePosition();
 
 class WindowsInputManager {
 public:

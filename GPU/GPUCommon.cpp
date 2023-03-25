@@ -29,7 +29,6 @@
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
-#include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernelMemory.h"

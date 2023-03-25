@@ -142,7 +142,6 @@
     <ClInclude Include="DisplayLayoutScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="HostTypes.h" />
     <ClInclude Include="RemoteISOScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>

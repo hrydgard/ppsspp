@@ -35,13 +35,13 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/System/Display.h"
+#include "Common/System/System.h"
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -801,7 +801,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 			auto gr = GetI18NCategory("Graphics");
 			ERROR_LOG(G3D, "Vertex shader generation failed, falling back to software transform");
 			if (!g_Config.bHideSlowWarnings) {
-				host->NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);
+				System_NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);
 			}
 			delete vs;
 

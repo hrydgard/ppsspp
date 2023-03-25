@@ -280,7 +280,6 @@
     <ClInclude Include="..\..\UI\GameScreen.h" />
     <ClInclude Include="..\..\UI\GameSettingsScreen.h" />
     <ClInclude Include="..\..\UI\GPUDriverTestScreen.h" />
-    <ClInclude Include="..\..\UI\HostTypes.h" />
     <ClInclude Include="..\..\UI\InstallZipScreen.h" />
     <ClInclude Include="..\..\UI\JoystickHistoryView.h" />
     <ClInclude Include="..\..\UI\Theme.h" />

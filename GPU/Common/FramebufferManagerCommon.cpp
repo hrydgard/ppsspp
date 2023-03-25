@@ -28,6 +28,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
 #include "Common/System/Display.h"
+#include "Common/System/System.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/CommonTypes.h"
 #include "Common/StringUtils.h"
@@ -36,7 +37,6 @@
 #include "Core/Core.h"
 #include "Core/CoreParameter.h"
 #include "Core/Debugger/MemBlockInfo.h"
-#include "Core/Host.h"
 #include "Core/MIPS/MIPS.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -2664,7 +2664,7 @@ void FramebufferManagerCommon::ShowScreenResolution() {
 	messageStream << gr->T("Window Size") << ": ";
 	messageStream << PSP_CoreParameter().pixelWidth << "x" << PSP_CoreParameter().pixelHeight;
 
-	host->NotifyUserMessage(messageStream.str(), 2.0f, 0xFFFFFF, "resize");
+	System_NotifyUserMessage(messageStream.str(), 2.0f, 0xFFFFFF, "resize");
 	INFO_LOG(SYSTEM, "%s", messageStream.str().c_str());
 }
 

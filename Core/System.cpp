@@ -49,7 +49,6 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/Debugger/SymbolMap.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/Plugins.h"

@@ -29,7 +29,6 @@
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/HW/Display.h"
 #include "GPU/Common/PostShader.h"
@@ -428,9 +427,9 @@ void PresentationCommon::ShowPostShaderError(const std::string &errorString) {
 		}
 	}
 	if (!firstLine.empty()) {
-		host->NotifyUserMessage("Post-shader error: " + firstLine + "...:\n" + errorString, 10.0f, 0xFF3090FF);
+		System_NotifyUserMessage("Post-shader error: " + firstLine + "...:\n" + errorString, 10.0f, 0xFF3090FF);
 	} else {
-		host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
+		System_NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
 	}
 }
 

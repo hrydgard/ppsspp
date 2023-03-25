@@ -89,6 +89,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 }
 void System_Notify(SystemNotification notification) {}
 void System_PostUIMessage(const std::string &message, const std::string &param) {}
+void System_NotifyUserMessage(const std::string &message, float duration, u32 color, const char *id) {}
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
 void System_AudioClear() {}
 void System_AudioPushSamples(const s32 *audio, int numSamples) {}

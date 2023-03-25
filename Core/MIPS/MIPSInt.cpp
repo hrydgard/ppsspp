@@ -25,7 +25,6 @@
 #include "Common/CommonTypes.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"

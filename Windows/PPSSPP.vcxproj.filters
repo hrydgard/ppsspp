@@ -184,9 +184,6 @@
     <ClCompile Include="GPU\D3D11Context.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
-    <ClCompile Include="..\Qt\QtHost.cpp">
-      <Filter>Other Platforms\Qt</Filter>
-    </ClCompile>
     <ClCompile Include="WindowsAudio.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
@@ -243,9 +240,6 @@
     </ClCompile>
     <ClCompile Include="..\SDL\SDLVulkanGraphicsContext.cpp">
       <Filter>Other Platforms\SDL</Filter>
-    </ClCompile>
-    <ClCompile Include="..\UWP\UWPHost.cpp">
-      <Filter>Other Platforms\UWP</Filter>
     </ClCompile>
     <ClCompile Include="..\UWP\NKCodeFromWindowsSystem.cpp">
       <Filter>Other Platforms\UWP</Filter>
@@ -402,9 +396,6 @@
     <ClInclude Include="GPU\D3D11Context.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
-    <ClInclude Include="..\Qt\QtHost.h">
-      <Filter>Other Platforms\Qt</Filter>
-    </ClInclude>
     <ClInclude Include="WindowsAudio.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
@@ -507,9 +498,6 @@
     </ClInclude>
     <ClInclude Include="..\SDL\SDLVulkanGraphicsContext.h">
       <Filter>Other Platforms\SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="..\UWP\UWPHost.h">
-      <Filter>Other Platforms\UWP</Filter>
     </ClInclude>
     <ClInclude Include="..\UWP\NKCodeFromWindowsSystem.h">
       <Filter>Other Platforms\UWP</Filter>

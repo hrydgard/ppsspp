@@ -2,16 +2,17 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdio>
+
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/System/System.h"
 #include "Common/File/FileUtil.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/CwCheat.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/ELF/ParamSFO.h"
@@ -377,7 +378,7 @@ void CWCheatEngine::CreateCheatFile() {
 		}
 		if (!File::Exists(filename_)) {
 			auto err = GetI18NCategory("Error");
-			host->NotifyUserMessage(err->T("Unable to create cheat file, disk may be full"));
+			System_NotifyUserMessage(err->T("Unable to create cheat file, disk may be full"));
 		}
 	}
 }

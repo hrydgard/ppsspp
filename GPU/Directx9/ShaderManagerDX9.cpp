@@ -29,6 +29,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/GPU/D3D9/D3D9ShaderCompiler.h"
 #include "Common/GPU/thin3d.h"
+#include "Common/System/System.h"
 #include "Common/System/Display.h"
 
 #include "Common/CommonTypes.h"
@@ -37,7 +38,6 @@
 #include "Common/StringUtils.h"
 
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -608,7 +608,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 				ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
 			}
 			if (!g_Config.bHideSlowWarnings) {
-				host->NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);
+				System_NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);
 			}
 			delete vs;
 

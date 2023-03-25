@@ -43,7 +43,6 @@
 #include "RegCache.h"
 #include "Jit.h"
 
-#include "Core/Host.h"
 #include "Core/Debugger/Breakpoints.h"
 
 namespace MIPSComp

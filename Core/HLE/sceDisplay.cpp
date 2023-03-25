@@ -37,7 +37,6 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
-#include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "Core/Core.h"
 #include "Core/System.h"
@@ -573,9 +572,9 @@ void __DisplayFlip(int cyclesLate) {
 #ifndef _DEBUG
 			auto err = GetI18NCategory("Error");
 			if (g_Config.bSoftwareRendering) {
-				host->NotifyUserMessage(err->T("Running slow: Try turning off Software Rendering"), 6.0f, 0xFF30D0D0);
+				System_NotifyUserMessage(err->T("Running slow: Try turning off Software Rendering"), 6.0f, 0xFF30D0D0);
 			} else {
-				host->NotifyUserMessage(err->T("Running slow: try frameskip, sound is choppy when slow"), 6.0f, 0xFF30D0D0);
+				System_NotifyUserMessage(err->T("Running slow: try frameskip, sound is choppy when slow"), 6.0f, 0xFF30D0D0);
 			}
 #endif
 			hasNotifiedSlow = true;

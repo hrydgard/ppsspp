@@ -34,7 +34,6 @@
 #include "Windows/XinputDevice.h"
 #include "NKCodeFromWindowsSystem.h"
 #include "XAudioSoundStream.h"
-#include "UWPHost.h"
 #include "UWPUtil.h"
 #include "App.h"
 
@@ -67,7 +66,6 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	net::Init();
 
-	host = new UWPHost();
 	// Register to be notified if the Device is lost or recreated
 	m_deviceResources->RegisterDeviceNotify(this);
 

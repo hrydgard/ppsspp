@@ -19,6 +19,7 @@
 #include <cstring>
 
 #include "ext/xxhash.h"
+
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/LogReporting.h"
@@ -26,18 +27,17 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
-
+#include "Common/System/System.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
-#include "Core/Config.h"
-#include "Core/Host.h"
-#include "Core/MemMap.h"
-#include "Core/System.h"
-
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanImage.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
+
+#include "Core/Config.h"
+#include "Core/MemMap.h"
+#include "Core/System.h"
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -513,9 +513,9 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 		auto err = GetI18NCategory("Error");
 		if (plan.scaleFactor > 1) {
-			host->NotifyUserMessage(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
+			System_NotifyUserMessage(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
 		} else {
-			host->NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
+			System_NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
 		}
 
 		// Turn off texture replacement for this texture.

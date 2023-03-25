@@ -20,7 +20,6 @@
 #include "Core/Debugger/WebSocket/GameSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/ELF/ParamSFO.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 
 DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map) {

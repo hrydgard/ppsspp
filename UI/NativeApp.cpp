@@ -113,16 +113,12 @@
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GPUDriverTestScreen.h"
-#include "UI/HostTypes.h"
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/Theme.h"
 
-#if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-#include "Qt/QtHost.h"
-#endif
 #if defined(USING_QT_UI)
 #include <QFontDatabase>
 #endif
@@ -451,12 +447,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_VFS.Register("", new DirectoryReader(Path("assets")));
 #endif
 	g_VFS.Register("", new DirectoryReader(Path(savegame_dir)));
-
-#if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(UWP)
-	if (host == nullptr) {
-		host = new NativeHost();
-	}
-#endif
 
 	g_Config.defaultCurrentDirectory = Path("/");
 	g_Config.internalDataDirectory = Path(savegame_dir);
@@ -1356,6 +1346,10 @@ void NativeMessageReceived(const char *message, const char *value) {
 
 void System_PostUIMessage(const std::string &message, const std::string &value) {
 	NativeMessageReceived(message.c_str(), value.c_str());
+}
+
+void System_NotifyUserMessage(const std::string &message, float duration_s, u32 color, const char *id) {
+	osm.Show(message, duration_s, color, -1, true, id);
 }
 
 void NativeResized() {

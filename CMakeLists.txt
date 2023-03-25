@@ -1213,8 +1213,6 @@ elseif(USING_QT_UI)
 	list(APPEND NativeAppSource
 		Qt/QtMain.cpp
 		Qt/QtMain.h
-		Qt/QtHost.cpp
-		Qt/QtHost.h
 		Qt/mainwindow.cpp
 		Qt/mainwindow.h
 	)
