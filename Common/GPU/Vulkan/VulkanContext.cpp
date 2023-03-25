@@ -672,11 +672,6 @@ VkResult VulkanContext::CreateDevice() {
 		extensionsLookup_.KHR_get_memory_requirements2 = true;
 		extensionsLookup_.KHR_dedicated_allocation = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
 	}
-	if (EnableDeviceExtension(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME)) {
-		if (EnableDeviceExtension(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME)) {
-			extensionsLookup_.EXT_external_memory_host = EnableDeviceExtension(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
-		}
-	}
 	if (EnableDeviceExtension(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME)) {
 		extensionsLookup_.KHR_create_renderpass2 = true;
 		extensionsLookup_.KHR_depth_stencil_resolve = EnableDeviceExtension(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME);

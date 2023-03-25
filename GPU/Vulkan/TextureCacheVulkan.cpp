@@ -144,7 +144,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 		samp.anisotropyEnable = false;
 	}
 	if (key.maxLevel == 9 * 256) {
-		// No max level needed.
+		// No max level needed. Better for performance on some archs like ARM Mali.
 		samp.maxLod = VK_LOD_CLAMP_NONE;
 	} else {
 		samp.maxLod = (float)(int32_t)key.maxLevel * (1.0f / 256.0f);

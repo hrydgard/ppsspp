@@ -609,7 +609,7 @@ u32 GPUCommonHW::CheckGPUFeaturesLate(u32 features) const {
 	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
 	bool prefer16 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D16;
 	if (!prefer16) {
-		if (sawExactEqualDepth_ && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
+		if (sawExactEqualDepth_ && (features & GPU_USE_ACCURATE_DEPTH) != 0 && !PSP_CoreParameter().compat.flags().ForceMaxDepthResolution) {
 			// Exact equal tests tend to have issues unless we use the PSP's depth range.
 			// We use 24-bit depth virtually everwhere, the fallback is just for safety.
 			if (prefer24)

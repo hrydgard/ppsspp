@@ -223,7 +223,6 @@ PFN_vkCmdInsertDebugUtilsLabelEXT	 vkCmdInsertDebugUtilsLabelEXT;
 PFN_vkSetDebugUtilsObjectNameEXT     vkSetDebugUtilsObjectNameEXT;
 PFN_vkSetDebugUtilsObjectTagEXT      vkSetDebugUtilsObjectTagEXT;
 
-PFN_vkGetMemoryHostPointerPropertiesEXT vkGetMemoryHostPointerPropertiesEXT;
 PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
 PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
 PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR;
@@ -727,9 +726,6 @@ void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledE
 	LOAD_DEVICE_FUNC(device, vkCmdEndRenderPass);
 	LOAD_DEVICE_FUNC(device, vkCmdExecuteCommands);
 
-	if (enabledExtensions.EXT_external_memory_host) {
-		LOAD_DEVICE_FUNC(device, vkGetMemoryHostPointerPropertiesEXT);
-	}
 	if (enabledExtensions.KHR_dedicated_allocation) {
 		LOAD_DEVICE_FUNC(device, vkGetBufferMemoryRequirements2KHR);
 		LOAD_DEVICE_FUNC(device, vkGetImageMemoryRequirements2KHR);
