@@ -56,12 +56,14 @@ std::atomic_flag atomicLock_;
 FixedSizeQueue<s16, 32768 * 8> chanSampleQueues[PSP_AUDIO_CHANNEL_MAX + 1];
 
 int eventAudioUpdate = -1;
+
+// TODO: This is now useless and should be removed. Just scared of breaking states.
 int eventHostAudioUpdate = -1;
+
 int mixFrequency = 44100;
 int srcFrequency = 0;
 
 const int hwSampleRate = 44100;
-
 const int hwBlockSize = 64;
 
 static int audioIntervalCycles;
@@ -88,10 +90,6 @@ static void hleAudioUpdate(u64 userdata, int cyclesLate) {
 
 static void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(audioHostIntervalCycles - cyclesLate, eventHostAudioUpdate, 0);
-
-	// Not all hosts need this call to poke their audio system once in a while, but those that don't
-	// can just ignore it.
-	host->UpdateSound();
 }
 
 static void __AudioCPUMHzChange() {

@@ -864,7 +864,7 @@ int main(int argc, char *argv[])
 	g_mainWindow = new MainWindow(nullptr, g_Config.UseFullScreen());
 	g_mainWindow->show();
 	if (host == nullptr) {
-		host = new QtHost(g_mainWindow);
+		host = new QtHost();
 	}
 
 	// TODO: Support other backends than GL, like Vulkan, in the Qt backend.
