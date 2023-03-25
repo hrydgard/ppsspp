@@ -31,7 +31,6 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 
 #include "ext/xxhash.h"
 #include "Common/Math/math_util.h"

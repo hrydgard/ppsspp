@@ -33,7 +33,6 @@
 #include "Core/Config.h"
 #include "Common/BitScan.h"
 #include "Core/HDRemaster.h"
-#include "Core/Host.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"

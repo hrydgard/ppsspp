@@ -28,7 +28,6 @@
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"

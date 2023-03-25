@@ -24,7 +24,6 @@
 #include "Core/Loaders.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
-#include "Core/Host.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"

@@ -26,7 +26,6 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
 
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Loaders.h"
 #include "Core/Config.h"
@@ -67,7 +66,6 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	net::Init();
 
-	host = new Host();
 	// Register to be notified if the Device is lost or recreated
 	m_deviceResources->RegisterDeviceNotify(this);
 

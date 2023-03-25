@@ -43,7 +43,6 @@
 #include "Common/Thread/ThreadManager.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/ThreadPools.h"
 #include "Core/ELF/ParamSFO.h"

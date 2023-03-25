@@ -448,12 +448,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 	g_VFS.Register("", new DirectoryReader(Path(savegame_dir)));
 
-#if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(UWP)
-	if (host == nullptr) {
-		host = new Host();
-	}
-#endif
-
 	g_Config.defaultCurrentDirectory = Path("/");
 	g_Config.internalDataDirectory = Path(savegame_dir);
 

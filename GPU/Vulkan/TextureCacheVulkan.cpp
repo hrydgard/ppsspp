@@ -36,7 +36,6 @@
 #include "Common/GPU/Vulkan/VulkanMemory.h"
 
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 

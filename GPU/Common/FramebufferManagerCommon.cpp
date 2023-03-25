@@ -37,7 +37,6 @@
 #include "Core/Core.h"
 #include "Core/CoreParameter.h"
 #include "Core/Debugger/MemBlockInfo.h"
-#include "Core/Host.h"
 #include "Core/MIPS/MIPS.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"

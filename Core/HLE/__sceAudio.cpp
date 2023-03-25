@@ -31,7 +31,6 @@
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
-#include "Core/Host.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"

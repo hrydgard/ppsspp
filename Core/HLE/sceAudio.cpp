@@ -19,7 +19,6 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Data/Collections/FixedSizeQueue.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/Host.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"

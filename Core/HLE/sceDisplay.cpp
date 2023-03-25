@@ -37,7 +37,6 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
-#include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "Core/Core.h"
 #include "Core/System.h"

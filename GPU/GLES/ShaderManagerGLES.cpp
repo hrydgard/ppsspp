@@ -42,7 +42,6 @@
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"

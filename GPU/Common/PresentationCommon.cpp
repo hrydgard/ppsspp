@@ -29,7 +29,6 @@
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/HW/Display.h"
 #include "GPU/Common/PostShader.h"

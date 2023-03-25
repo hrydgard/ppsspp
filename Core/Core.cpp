@@ -34,7 +34,6 @@
 #include "Common/Log.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"

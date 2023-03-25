@@ -64,7 +64,6 @@
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
-#include "Core/Host.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMemory.h"

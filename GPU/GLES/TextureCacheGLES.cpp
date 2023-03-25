@@ -29,7 +29,6 @@
 #include "Common/TimeUtil.h"
 
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"

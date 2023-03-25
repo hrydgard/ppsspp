@@ -38,7 +38,6 @@
 #include "Common/StringUtils.h"
 
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"

@@ -24,7 +24,6 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"

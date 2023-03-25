@@ -863,9 +863,6 @@ int main(int argc, char *argv[])
 
 	g_mainWindow = new MainWindow(nullptr, g_Config.UseFullScreen());
 	g_mainWindow->show();
-	if (!host) {
-		host = new Host();
-	}
 
 	// TODO: Support other backends than GL, like Vulkan, in the Qt backend.
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;

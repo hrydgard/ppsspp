@@ -35,7 +35,6 @@
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
-#include "Core/Host.h"
 #include "Core/Screenshot.h"
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
