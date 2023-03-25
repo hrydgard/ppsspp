@@ -24,6 +24,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/math_util.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/System/System.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/TimeUtil.h"
 
@@ -150,9 +151,9 @@ void TextureCacheGLES::StartFrame() {
 
 		auto err = GetI18NCategory("Error");
 		if (standardScaleFactor_ > 1) {
-			host->NotifyUserMessage(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
+			System_NotifyUserMessage(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
 		} else {
-			host->NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
+			System_NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
 		}
 	}
 }

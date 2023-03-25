@@ -18,12 +18,7 @@
 #pragma once
 
 #include "Core/Host.h"
-#include "Common/System/NativeApp.h"
-#include "UI/OnScreenDisplay.h"
 
 class NativeHost : public Host {
 public:
-	void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) override {
-		osm.Show(message, duration, color, -1, true, id);
-	}
 };

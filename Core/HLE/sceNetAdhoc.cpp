@@ -30,22 +30,24 @@
 #endif
 
 #include <mutex>
-#include "Common/Thread/ThreadUtil.h"
 // sceNetAdhoc
 
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
-#include "Core/Config.h"
-#include "Core/Core.h"
-#include "Core/Host.h"
-#include "Core/Reporting.h"
-#include "Core/MemMapHelpers.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
+#include "Common/System/System.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/TimeUtil.h"
+
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/Util/PortManager.h"
+#include "Core/Config.h"
+#include "Core/Core.h"
+#include "Core/Reporting.h"
+#include "Core/MemMapHelpers.h"
 
 #include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -58,7 +60,6 @@
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/proAdhocServer.h"
 #include "Core/HLE/KernelWaitHelpers.h"
-#include "Common/Data/Text/I18n.h"
 
 
 // shared in sceNetAdhoc.h since it need to be used from sceNet.cpp also
@@ -275,7 +276,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 						if (peer != NULL)
 							truncate_cpy(name, sizeof(name), (const char*)peer->nickname.data);
 						WARN_LOG(SCENET, "GameMode: Unknown Source Port from [%s][%s:%u -> %u] (Result=%i, Size=%i)", name, mac2str(&sendermac).c_str(), senderport, ADHOC_GAMEMODE_PORT, ret, bufsz);
-						host->NotifyUserMessage(std::string(n->T("GM: Data from Unknown Port")) + std::string(" [") + std::string(name) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(ADHOC_GAMEMODE_PORT) + std::string(" (") + std::to_string(portOffset) + std::string(")"), 2.0, 0x0080ff);
+						System_NotifyUserMessage(std::string(n->T("GM: Data from Unknown Port")) + std::string(" [") + std::string(name) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(ADHOC_GAMEMODE_PORT) + std::string(" (") + std::to_string(portOffset) + std::string(")"), 2.0, 0x0080ff);
 						peerlock.unlock();
 					}
 					// Keeping track of the source port for further communication, in case it was re-mapped by router or ISP for some reason.
@@ -1505,7 +1506,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 					if (iResult == SOCKET_ERROR) {
 						ERROR_LOG(SCENET, "Socket error (%i) when binding port %u", errno, ntohs(addr.sin_port));
 						auto n = GetI18NCategory("Networking");
-						host->NotifyUserMessage(std::string(n->T("Failed to Bind Port")) + " " + std::to_string(port + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 3.0, 0x0000ff);
+						System_NotifyUserMessage(std::string(n->T("Failed to Bind Port")) + " " + std::to_string(port + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 3.0, 0x0000ff);
 						
 						return hleLogDebug(SCENET, ERROR_NET_ADHOC_PORT_NOT_AVAIL, "port not available");
 					}
@@ -3522,7 +3523,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 					else {
 						ERROR_LOG(SCENET, "Socket error (%i) when binding port %u", errno, ntohs(addr.sin_port));
 						auto n = GetI18NCategory("Networking");
-						host->NotifyUserMessage(std::string(n->T("Failed to Bind Port")) + " " + std::to_string(sport + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 3.0, 0x0000ff);
+						System_NotifyUserMessage(std::string(n->T("Failed to Bind Port")) + " " + std::to_string(sport + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 3.0, 0x0000ff);
 					}
 
 					// Close Socket
@@ -4115,7 +4116,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 					}
 					else {
 						auto n = GetI18NCategory("Networking");
-						host->NotifyUserMessage(std::string(n->T("Failed to Bind Port")) + " " + std::to_string(sport + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 3.0, 0x0000ff);
+						System_NotifyUserMessage(std::string(n->T("Failed to Bind Port")) + " " + std::to_string(sport + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 3.0, 0x0000ff);
 					}
 
 					if (iResult == SOCKET_ERROR) {
@@ -7780,7 +7781,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 						if (peer != NULL)
 							truncate_cpy(name, sizeof(name), (const char*)peer->nickname.data);
 						WARN_LOG(SCENET, "InputLoop[%d]: Unknown Source Port from [%s][%s:%u -> %u] (Recved=%i, Length=%i)", matchingId, name, mac2str(&sendermac).c_str(), senderport, context->port, recvresult, rxbuflen);
-						host->NotifyUserMessage(std::string(n->T("AM: Data from Unknown Port")) + std::string(" [") + std::string(name) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(context->port) + std::string(" (") + std::to_string(portOffset) + std::string(")"), 2.0, 0x0080ff);
+						System_NotifyUserMessage(std::string(n->T("AM: Data from Unknown Port")) + std::string(" [") + std::string(name) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(context->port) + std::string(" (") + std::to_string(portOffset) + std::string(")"), 2.0, 0x0080ff);
 					}
 					// Keep tracks of re-mapped peer's ports for further communication. 
 					// Note: This will only works if this player were able to receives data on normal port from other players (ie. this player's port wasn't remapped)

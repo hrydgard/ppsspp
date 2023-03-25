@@ -116,6 +116,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 }
 void System_Notify(SystemNotification notification) {}
 void System_PostUIMessage(const std::string &message, const std::string &param) {}
+void System_NotifyUserMessage(const std::string &message, float duration, u32 color, const char *id) {}
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}

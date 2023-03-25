@@ -17,12 +17,6 @@
 
 #include "ppsspp_config.h"
 
-#include <algorithm>
-
-#include "Common/System/System.h"
-
-#include "UI/OnScreenDisplay.h"
-
 #include "UWP/UWPHost.h"
 
 UWPHost::UWPHost() {
@@ -30,8 +24,4 @@ UWPHost::UWPHost() {
 
 UWPHost::~UWPHost() {
 
-}
-
-void UWPHost::NotifyUserMessage(const std::string &message, float duration, u32 color, const char *id) {
-	osm.Show(message, duration, color, -1, true, id);
 }

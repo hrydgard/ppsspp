@@ -25,7 +25,6 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSDebugInterface.h"

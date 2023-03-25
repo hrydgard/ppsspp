@@ -23,9 +23,9 @@
 
 #include "ppsspp_config.h"
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
 #include <signal.h>
 
 #if defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
@@ -34,10 +34,6 @@
 // Missing include, *shrugs*
 extern "C" struct hostent *gethostbyname(const char *name);
 #endif // defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
-
-#if !defined(__APPLE__)
-#include <stdlib.h>
-#endif
 
 #include <sys/types.h>
 // Net stuff
@@ -61,13 +57,13 @@ extern "C" struct hostent *gethostbyname(const char *name);
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/System/System.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Core/Util/PortManager.h"
 #include "Core/Instance.h"
 #include "Core/Core.h"
-#include "Core/Host.h"
 #include "Core/HLE/proAdhocServer.h"
 
 // User Count
@@ -1862,7 +1858,7 @@ int create_listen_socket(uint16_t port)
 		else {
 			ERROR_LOG(SCENET, "AdhocServer: Bind returned %i (Socket error %d)", bindresult, errno);
 			auto n = GetI18NCategory("Networking");
-			host->NotifyUserMessage(std::string(n->T("AdhocServer Failed to Bind Port")) + " " + std::to_string(port), 3.0, 0x0000ff);
+			System_NotifyUserMessage(std::string(n->T("AdhocServer Failed to Bind Port")) + " " + std::to_string(port), 3.0, 0x0000ff);
 		}
 
 		// Close Socket

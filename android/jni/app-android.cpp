@@ -947,7 +947,7 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		}
 
 		graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
-			host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+			System_NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
 		}, nullptr);
 
 		EmuThreadStart();
@@ -963,7 +963,7 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		}
 
 		graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
-			host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+			System_NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
 		}, nullptr);
 
 		graphicsContext->ThreadStart();

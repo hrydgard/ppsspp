@@ -204,6 +204,10 @@ bool System_AudioRecordingState();
 // This will be changed to take an enum. Currently simply implemented by forwarding to NativeMessageReceived.
 void System_PostUIMessage(const std::string &message, const std::string &param);
 
+// Shows a visible message to the user.
+// The default implementation in NativeApp.cpp uses our "osm" system (on screen messaging).
+void System_NotifyUserMessage(const std::string &message, float duration = 1.0f, uint32_t color = 0x00FFFFFF, const char *id = nullptr);
+
 // For these functions, most platforms will use the implementation provided in UI/AudioCommon.cpp,
 // no need to implement separately.
 void System_AudioGetDebugStats(char *buf, size_t bufSize);

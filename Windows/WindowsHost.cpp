@@ -153,7 +153,3 @@ void WindowsInputManager::PollControllers() {
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_X] = mouseDeltaX_;
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = mouseDeltaY_;
 }
-
-void WindowsHost::NotifyUserMessage(const std::string &message, float duration, u32 color, const char *id) {
-	osm.Show(message, duration, color, -1, true, id);
-}

@@ -1358,6 +1358,10 @@ void System_PostUIMessage(const std::string &message, const std::string &value) 
 	NativeMessageReceived(message.c_str(), value.c_str());
 }
 
+void System_NotifyUserMessage(const std::string &message, float duration_s, u32 color, const char *id) {
+	osm.Show(message, duration_s, color, -1, true, id);
+}
+
 void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
 	VERBOSE_LOG(G3D, "NativeResized - setting flag");
