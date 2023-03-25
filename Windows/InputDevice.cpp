@@ -23,7 +23,6 @@
 #include "Common/System/System.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "Windows/InputDevice.h"
 
 static std::atomic_flag threadRunningFlag;
@@ -31,7 +30,7 @@ static std::thread inputThread;
 static std::atomic_bool focused = ATOMIC_VAR_INIT(true);
 
 inline static void ExecuteInputPoll() {
-	if (host && (focused.load(std::memory_order_relaxed) || !g_Config.bGamepadOnlyFocused)) {
+	if (focused.load(std::memory_order_relaxed) || !g_Config.bGamepadOnlyFocused) {
 		System_Notify(SystemNotification::POLL_CONTROLLERS);
 	}
 }
