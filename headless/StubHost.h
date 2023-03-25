@@ -21,7 +21,6 @@
 
 #include "Core/CoreParameter.h"
 #include "Core/Host.h"
-#include "Core/Debugger/SymbolMap.h"
 
 class HeadlessHost : public Host {
 public:

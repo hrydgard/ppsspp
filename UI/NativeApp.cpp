@@ -113,7 +113,6 @@
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GPUDriverTestScreen.h"
-#include "UI/HostTypes.h"
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"
 #include "UI/OnScreenDisplay.h"
@@ -454,7 +453,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 #if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(UWP)
 	if (host == nullptr) {
-		host = new NativeHost();
+		host = new Host();
 	}
 #endif
 
