@@ -24,7 +24,7 @@ bool RequestManager::MakeSystemRequest(SystemRequestType type, RequestCallback c
 		callbackMap_[requestId] = { callback, failedCallback };
 	}
 
-	INFO_LOG(SYSTEM, "Making system request %s: id %d", RequestTypeAsString(type), requestId);
+	DEBUG_LOG(SYSTEM, "Making system request %s: id %d", RequestTypeAsString(type), requestId);
 	if (!System_MakeRequest(type, requestId, param1, param2, param3)) {
 		if (callback || failedCallback) {
 			std::lock_guard<std::mutex> guard(callbackMutex_);
@@ -50,7 +50,7 @@ void RequestManager::PostSystemSuccess(int requestId, const char *responseString
 	response.responseString = responseString;
 	response.responseValue = responseValue;
 	pendingSuccesses_.push_back(response);
-	INFO_LOG(SYSTEM, "PostSystemSuccess: Request %d (%s, %d)", requestId, responseString, responseValue);
+	DEBUG_LOG(SYSTEM, "PostSystemSuccess: Request %d (%s, %d)", requestId, responseString, responseValue);
 	callbackMap_.erase(iter);
 }
 
@@ -62,7 +62,7 @@ void RequestManager::PostSystemFailure(int requestId) {
 		return;
 	}
 
-	INFO_LOG(SYSTEM, "PostSystemFailure: Request %d failed", requestId);
+	WARN_LOG(SYSTEM, "PostSystemFailure: Request %d failed", requestId);
 
 	std::lock_guard<std::mutex> responseGuard(responseMutex_);
 	PendingFailure response;
