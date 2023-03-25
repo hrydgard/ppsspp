@@ -247,7 +247,6 @@ struct VulkanExtensions {
 	bool KHR_get_memory_requirements2;
 	bool KHR_dedicated_allocation;
 	bool KHR_create_renderpass2;
-	bool EXT_external_memory_host;
 	bool KHR_get_physical_device_properties2;
 	bool KHR_depth_stencil_resolve;
 	bool EXT_shader_stencil_export;

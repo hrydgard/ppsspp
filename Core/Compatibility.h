@@ -99,6 +99,7 @@ struct CompatFlags {
 	bool ReadbackDepth;
 	bool BlockTransferDepth;
 	bool DaxterRotatedAnalogStick;
+	bool ForceMaxDepthResolution;
 };
 
 struct VRCompat {

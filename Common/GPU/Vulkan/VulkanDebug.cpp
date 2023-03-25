@@ -47,26 +47,37 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 	const char *pMessage = pCallbackData->pMessage;
 
 	int messageCode = pCallbackData->messageIdNumber;
-	if (messageCode == 101294395) {
+	switch (messageCode) {
+	case 101294395:
 		// UNASSIGNED-CoreValidation-Shader-OutputNotConsumed - benign perf warning
 		return false;
-	}
-	if (messageCode == 1303270965) {
+	case 1303270965:
 		// Benign perf warning, image blit using GENERAL layout.
 		// UNASSIGNED
 		return false;
-	}
-	if (messageCode == 606910136 || messageCode == -392708513 || messageCode == -384083808) {
+	case 606910136:
+	case -392708513:
+	case -384083808:
 		// VUID-vkCmdDraw-None-02686
 		// Kinda false positive, or at least very unnecessary, now that I solved the real issue.
 		// See https://github.com/hrydgard/ppsspp/pull/16354
 		return false;
-	}
-	if (messageCode == -375211665) {
+	case -375211665:
 		// VUID-vkAllocateMemory-pAllocateInfo-01713
 		// Can happen when VMA aggressively tries to allocate aperture memory for upload. It gracefully
 		// falls back to regular video memory, so we just ignore this. I'd argue this is a VMA bug, actually.
 		return false;
+	case 181611958:
+		// Extended validation.
+		// UNASSIGNED-BestPractices-vkCreateDevice-deprecated-extension
+		// Doing what this one says doesn't seem very reliable - if I rely strictly on the Vulkan version, I don't get some function pointers? Like createrenderpass2.
+		return false;
+	case 657182421:
+		// Extended validation (ARM best practices)
+		// Non-fifo validation not recommended
+		return false;
+	default:
+		break;
 	}
 
 	int count;
