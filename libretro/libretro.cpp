@@ -385,18 +385,7 @@ namespace Libretro
 
 using namespace Libretro;
 
-class LibretroHost : public Host
-{
-   public:
-      LibretroHost() {}
-      void UpdateSound() override
-      {
-         const int hostAttemptBlockSize = 512;
-         static int16_t audio[hostAttemptBlockSize * 2];
-         int samples = __AudioMix(audio, hostAttemptBlockSize, SAMPLERATE);
-         AudioBufferWrite(audio, samples);
-      }
-};
+class LibretroHost : public Host {};
 
 class PrintfLogger : public LogListener
 {
@@ -1881,37 +1870,28 @@ void NativeResized() {}
 
 void System_Toast(const char *str) {}
 
-
-// Temporary, to keep the old behavior before changing it.
-
-StereoResampler g_resampler;
-
-// numFrames is number of stereo frames.
-// This is called from *outside* the emulator thread.
-int __AudioMix(int16_t *outstereo, int numFrames, int sampleRate) {
-   return g_resampler.Mix(outstereo, numFrames, false, sampleRate);
-}
-
-void System_AudioGetDebugStats(char *buf, size_t bufSize) {
-   if (buf) {
-      g_resampler.GetAudioDebugStats(buf, bufSize);
-   } else {
-      g_resampler.ResetStatCounters();
-   }
-}
-
-void System_AudioClear() {
-   g_resampler.Clear();
+inline int16_t Clamp16(int32_t sample) {
+   if (sample < -32767) return -32767;
+   if (sample > 32767) return 32767;
+   return sample;
 }
 
 void System_AudioPushSamples(const int32_t *audio, int numSamples) {
-   if (audio) {
-      g_resampler.PushSamples(audio, numSamples);
-   } else {
-      g_resampler.Clear();
+   // Convert to 16-bit audio for further processing.
+   int16_t buffer[1024 * 2];
+   while (numSamples > 0) {
+      int blockSize = std::min(1024, numSamples);
+      for (int i = 0; i < blockSize; i++) {
+         buffer[i * 2] = Clamp16(audio[i * 2]);
+         buffer[i * 2 + 1] = Clamp16(audio[i * 2 + 1]);
+      }
+      AudioBufferWrite(buffer, blockSize);
+      numSamples -= blockSize;
    }
 }
 
+void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
+void System_AudioClear() {}
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }
