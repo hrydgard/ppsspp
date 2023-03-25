@@ -111,9 +111,6 @@ static std::string restartArgs;
 
 int g_activeWindow = 0;
 
-// Used for all the system dialogs.
-static std::thread g_dialogThread;
-
 WindowsInputManager g_inputManager;
 
 int g_lastNumInstances = 0;
@@ -496,24 +493,17 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 	case SystemRequestType::INPUT_TEXT_MODAL:
-		if (g_dialogThread.joinable())
-			g_dialogThread.join();
-
-		g_dialogThread = std::thread([=] {
+		std::thread([=] {
 			std::string out;
 			if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), param2, out)) {
 				g_requestManager.PostSystemSuccess(requestId, out.c_str());
 			} else {
 				g_requestManager.PostSystemFailure(requestId);
 			}
-			});
-		g_dialogThread.detach();
+		}).detach();
 		return true;
 	case SystemRequestType::BROWSE_FOR_IMAGE:
-		if (g_dialogThread.joinable())
-			g_dialogThread.join();
-
-		g_dialogThread = std::thread([=] {
+		std::thread([=] {
 			std::string out;
 			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr,
 				MakeFilter(L"All supported images (*.jpg *.jpeg *.png)|*.jpg;*.jpeg;*.png|All files (*.*)|*.*||").c_str(), L"jpg", out)) {
@@ -521,8 +511,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			} else {
 				g_requestManager.PostSystemFailure(requestId);
 			}
-			});
-		g_dialogThread.detach();
+		}).detach();
 		return true;
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
@@ -545,28 +534,26 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			return false;
 		}
 
-		g_dialogThread = std::thread([=] {
+		std::thread([=] {
 			std::string out;
 			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr, filter.c_str(), L"", out)) {
 				g_requestManager.PostSystemSuccess(requestId, out.c_str());
 			} else {
 				g_requestManager.PostSystemFailure(requestId);
 			}
-			});
-		g_dialogThread.detach();
+		}).detach();
 		return true;
 	}
 	case SystemRequestType::BROWSE_FOR_FOLDER:
 	{
-		g_dialogThread = std::thread([=] {
+		std::thread([=] {
 			std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), param1.c_str());
 			if (folder.size()) {
 				g_requestManager.PostSystemSuccess(requestId, folder.c_str());
 			} else {
 				g_requestManager.PostSystemFailure(requestId);
 			}
-		});
-		g_dialogThread.detach();
+		}).detach();
 		return true;
 	}
 	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
@@ -728,9 +715,8 @@ static void WinMainInit() {
 }
 
 static void WinMainCleanup() {
-	if (g_dialogThread.joinable()) {
-		g_dialogThread.join();
-	}
+	// This will ensure no further callbacks are called, which may prevent crashing.
+	g_requestManager.Clear();
 	net::Shutdown();
 	CoUninitialize();
 
