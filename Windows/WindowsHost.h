@@ -19,20 +19,10 @@
 #include <memory>
 
 #include "Common/CommonWindows.h"
-#include "Core/Host.h"
 #include "Windows/InputDevice.h"
 
-class WindowsHost : public Host {
-public:
-	WindowsHost();
-	~WindowsHost() {
-		UpdateConsolePosition();
-	}
-
-private:
-	void SetConsolePosition();
-	void UpdateConsolePosition();
-};
+void SetConsolePosition();
+void UpdateConsolePosition();
 
 class WindowsInputManager {
 public:

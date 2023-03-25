@@ -119,9 +119,6 @@
 #include "UI/RemoteISOScreen.h"
 #include "UI/Theme.h"
 
-#if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-#include "Qt/QtHost.h"
-#endif
 #if defined(USING_QT_UI)
 #include <QFontDatabase>
 #endif

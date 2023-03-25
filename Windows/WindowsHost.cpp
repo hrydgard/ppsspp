@@ -19,25 +19,11 @@
 
 #include <algorithm>
 
-// For shell links
-#include "Common/CommonWindows.h"
-#include "winnls.h"
-#include "shobjidl.h"
-#include "objbase.h"
-#include "objidl.h"
-#include "shlguid.h"
-#pragma warning(push)
-#pragma warning(disable:4091)  // workaround bug in VS2015 headers
-#include "shlobj.h"
-#pragma warning(pop)
-
 // native stuff
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
-#include "Common/Data/Encoding/Utf8.h"
-#include "Common/File/DirListing.h"
 #include "Common/StringUtils.h"
 
 #include "Core/Core.h"
@@ -55,10 +41,6 @@
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
 
-#include "Windows/Debugger/DebuggerShared.h"
-#include "Windows/Debugger/Debugger_Disasm.h"
-#include "Windows/Debugger/Debugger_MemoryDlg.h"
-
 #ifndef _M_ARM
 #include "Windows/DinputDevice.h"
 #endif
@@ -66,22 +48,14 @@
 
 #include "Windows/main.h"
 
-static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0) {
-	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
-}
-
-WindowsHost::WindowsHost() {
-	SetConsolePosition();
-}
-
-void WindowsHost::SetConsolePosition() {
+void SetConsolePosition() {
 	HWND console = GetConsoleWindow();
 	if (console != NULL && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1) {
 		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 	}
 }
 
-void WindowsHost::UpdateConsolePosition() {
+void UpdateConsolePosition() {
 	RECT rc;
 	HWND console = GetConsoleWindow();
 	if (console != NULL && GetWindowRect(console, &rc) && !IsIconic(console)) {
