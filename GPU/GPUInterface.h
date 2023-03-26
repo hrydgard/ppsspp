@@ -116,12 +116,13 @@ ENUM_CLASS_BITOPS(WriteStencil);
 
 enum class GPUCopyFlag {
 	NONE = 0,
-	FORCE_SRC_MEM = 1,
-	FORCE_DST_MEM = 2,
-	// Note: implies src == dst and FORCE_SRC_MEM.
+	FORCE_SRC_MATCH_MEM = 1,
+	FORCE_DST_MATCH_MEM = 2,
+	// Note: implies src == dst and FORCE_SRC_MATCH_MEM.
 	MEMSET = 4,
 	DEPTH_REQUESTED = 8,
 	DEBUG_NOTIFIED = 16,
+	DISALLOW_CREATE_VFB = 32,
 };
 ENUM_CLASS_BITOPS(GPUCopyFlag);
 
