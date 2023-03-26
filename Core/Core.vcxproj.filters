@@ -300,9 +300,6 @@
     <ClCompile Include="CoreTiming.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="Host.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="Loaders.cpp">
       <Filter>Core</Filter>
     </ClCompile>
@@ -1399,9 +1396,6 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="CoreTiming.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Host.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="Loaders.h">

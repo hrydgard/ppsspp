@@ -45,8 +45,6 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 
-#include "Host.h"
-
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"

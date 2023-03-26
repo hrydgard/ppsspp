@@ -6,8 +6,7 @@
 
 // Platform integration
 
-// To run the PPSSPP core, a platform needs to implement all the System_ functions in this file,
-// plus derive an object from Host (see Host.h). The latter will be phased out.
+// To run the PPSSPP core, a platform needs to implement all the System_ functions in this file.
 // Failure to implement all of these will simply cause linker failures. There are a few that are
 // only implemented on specific platforms, but they're also only called on those platforms.
 
