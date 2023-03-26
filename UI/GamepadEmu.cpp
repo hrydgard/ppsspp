@@ -215,7 +215,7 @@ bool CustomKey::Touch(const TouchInput &input) {
 		if (!repeat_) {
 			for (int i = 0; i < ARRAY_SIZE(customKeyList); i++) {
 				if (pspButtonBit_ & (1ULL << i)) {
-					controlMapper_->pspKey(DEVICE_ID_TOUCH, customKeyList[i].c, (on_ && toggle_) ? KEY_UP : KEY_DOWN);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, customKeyList[i].c, (on_ && toggle_) ? KEY_UP : KEY_DOWN);
 				}
 			}
 		}
@@ -224,7 +224,7 @@ bool CustomKey::Touch(const TouchInput &input) {
 		if (!repeat_) {
 			for (int i = 0; i < ARRAY_SIZE(customKeyList); i++) {
 				if (pspButtonBit_ & (1ULL << i)) {
-					controlMapper_->pspKey(DEVICE_ID_TOUCH, customKeyList[i].c, KEY_UP);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, customKeyList[i].c, KEY_UP);
 				}
 			}
 		}
@@ -246,13 +246,13 @@ void CustomKey::Update() {
 		} else if (pressedFrames_ == DOWN_FRAME) {
 			for (int i = 0; i < ARRAY_SIZE(customKeyList); i++) {
 				if (pspButtonBit_ & (1ULL << i)) {
-					controlMapper_->pspKey(DEVICE_ID_TOUCH, customKeyList[i].c, KEY_UP);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, customKeyList[i].c, KEY_UP);
 				}
 			}
 		} else if (on_ && pressedFrames_ == 0) {
 			for (int i = 0; i < ARRAY_SIZE(customKeyList); i++) {
 				if (pspButtonBit_ & (1ULL << i)) {
-					controlMapper_->pspKey(DEVICE_ID_TOUCH, customKeyList[i].c, KEY_DOWN);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, customKeyList[i].c, KEY_DOWN);
 				}
 			}
 			pressedFrames_ = 1;
@@ -923,7 +923,7 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			const float now = time_now_d();
 			if (now - lastTapRelease_ < 0.3f && !haveDoubleTapped_) {
 				if (g_Config.iDoubleTapGesture != 0 )
-					controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_DOWN);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_DOWN);
 				haveDoubleTapped_ = true;
 			}
 
@@ -946,7 +946,7 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 
 			if (haveDoubleTapped_) {
 				if (g_Config.iDoubleTapGesture != 0)
-					controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_UP);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_UP);
 				haveDoubleTapped_ = false;
 			}
 		}
@@ -960,37 +960,37 @@ void GestureGamepad::Update() {
 	float dy = deltaY_ * g_display.dpi_scale_y * g_Config.fSwipeSensitivity;
 	if (g_Config.iSwipeRight != 0) {
 		if (dx > th) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_DOWN);
 			swipeRightReleased_ = false;
 		} else if (!swipeRightReleased_) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_UP);
 			swipeRightReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeLeft != 0) {
 		if (dx < -th) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KEY_DOWN);
 			swipeLeftReleased_ = false;
 		} else if (!swipeLeftReleased_) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KEY_UP);
 			swipeLeftReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeUp != 0) {
 		if (dy < -th) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KEY_DOWN);
 			swipeUpReleased_ = false;
 		} else if (!swipeUpReleased_) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KEY_UP);
 			swipeUpReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeDown != 0) {
 		if (dy > th) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KEY_DOWN);
 			swipeDownReleased_ = false;
 		} else if (!swipeDownReleased_) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KEY_UP);
 			swipeDownReleased_ = true;
 		}
 	}

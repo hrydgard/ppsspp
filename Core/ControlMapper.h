@@ -15,8 +15,8 @@ class ControlMapper {
 public:
 	void Update();
 
+	// Inputs to the table-based mapping
 	bool Key(const KeyInput &key, bool *pauseTrigger);
-	void pspKey(int deviceId, int pspKeyCode, int flags);
 	void Axis(const AxisInput &axis);
 
 	// Required callbacks
@@ -26,13 +26,18 @@ public:
 		std::function<void(int, bool)> setPSPButtonState,
 		std::function<void(int, float, float)> setPSPAnalog);
 
+	// Inject raw PSP key input directly, such as from touch screen controls.
+	// Combined with the mapped input.
+	void PSPKey(int deviceId, int pspKeyCode, int flags);
+
 	// Optional callback, only used in config
 	void SetRawCallback(std::function<void(int, float, float)> setRawAnalog);
 
 private:
-	void processAxis(const AxisInput &axis, int direction);
-	void setVKeyAnalog(int deviceId, char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero = true);
+	void ProcessAxis(const AxisInput &axis, int direction);
+	void SetVKeyAnalog(int deviceId, char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero = true);
 
+	void SetPSPKey(int deviceId, int pspKeyCode, int flags);
 	void SetPSPAxis(int deviceId, char axis, float value, int stick);
 	void ProcessAnalogSpeed(const AxisInput &axis, bool opposite);
 
@@ -40,14 +45,14 @@ private:
 	void onVKeyUp(int deviceId, int vkey);
 
 	// To track mappable virtual keys. We can have as many as we want.
-	bool virtKeys[VIRTKEY_COUNT]{};
+	bool virtKeys_[VIRTKEY_COUNT]{};
 
 	// De-noise mapped axis updates
 	int axisState_[JOYSTICK_AXIS_MAX]{};
 
 	int lastNonDeadzoneDeviceID_[2]{};
 
-	float history[2][2]{};
+	float history_[2][2]{};
 
 	// Mappable auto-rotation. Useful for keyboard/dpad->analog in a few games.
 	bool autoRotatingAnalogCW_ = false;

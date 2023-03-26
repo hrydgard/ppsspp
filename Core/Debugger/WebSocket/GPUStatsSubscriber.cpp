@@ -124,11 +124,11 @@ void WebSocketGPUStatsState::FlipListener() {
 
 	int valid;
 	double *sleepHistory;
-	double *history = __DisplayGetFrameTimes(&valid, &stats.frameTimePos, &sleepHistory);
+	double *history_ = __DisplayGetFrameTimes(&valid, &stats.frameTimePos, &sleepHistory);
 
 	stats.frameTimes.resize(valid);
 	stats.sleepTimes.resize(valid);
-	memcpy(&stats.frameTimes[0], history, sizeof(double) * valid);
+	memcpy(&stats.frameTimes[0], history_, sizeof(double) * valid);
 	memcpy(&stats.sleepTimes[0], sleepHistory, sizeof(double) * valid);
 
 	sendNext_ = false;
