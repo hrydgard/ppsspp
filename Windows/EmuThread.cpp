@@ -336,6 +336,7 @@ shutdown:
 
 	g_graphicsContext->Shutdown();
 
+	UpdateConsolePosition();
 	NativeShutdown();
 
 	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
