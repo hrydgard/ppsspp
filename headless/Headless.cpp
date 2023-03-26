@@ -14,6 +14,7 @@
 
 #include "Common/Profiler/Profiler.h"
 #include "Common/System/NativeApp.h"
+#include "Common/System/Request.h"
 #include "Common/System/System.h"
 
 #include "Common/CommonWindows.h"
@@ -37,19 +38,20 @@
 #include "Core/System.h"
 #include "Core/WebServer.h"
 #include "Core/HLE/sceUtility.h"
-#include "Core/Host.h"
 #include "Core/SaveState.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "Log.h"
 #include "LogManager.h"
 
 #include "Compare.h"
-#include "StubHost.h"
+#include "HeadlessHost.h"
 #if defined(_WIN32)
 #include "WindowsHeadlessHost.h"
 #elif defined(SDL)
 #include "SDLHeadlessHost.h"
 #endif
+
+static HeadlessHost *g_headlessHost;
 
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
@@ -117,7 +119,23 @@ bool System_GetPropertyBool(SystemProperty prop) {
 void System_Notify(SystemNotification notification) {}
 void System_PostUIMessage(const std::string &message, const std::string &param) {}
 void System_NotifyUserMessage(const std::string &message, float duration, u32 color, const char *id) {}
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+	switch (type) {
+	case SystemRequestType::SEND_DEBUG_OUTPUT:
+		if (g_headlessHost) {
+			g_headlessHost->SendDebugOutput(param1);
+			return true;
+		}
+		return false;
+	case SystemRequestType::SEND_DEBUG_SCREENSHOT:
+		if (g_headlessHost) {
+			g_headlessHost->SendDebugScreenshot((const u8 *)param1.data(), (uint32_t)(param1.size() / param3), param3);
+			return true;
+		}
+		return false;
+	}
+	return false;
+}
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
@@ -238,7 +256,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 			if (!opt.bench) {
 				printf("%s", output.c_str());
 
-				host->SendDebugOutput("TIMEOUT\n");
+				System_SendDebugOutput("TIMEOUT\n");
 				TeamCityPrint("testFailed name='%s' message='Test timeout'", currentTestName.c_str());
 				GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
 			}
@@ -414,7 +432,7 @@ int main(int argc, const char* argv[])
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
 	HeadlessHost *headlessHost = getHost(gpuCore);
-	host = headlessHost;
+	g_headlessHost = headlessHost;
 
 	std::string error_string;
 	GraphicsContext *graphicsContext = nullptr;
@@ -583,9 +601,9 @@ int main(int argc, const char* argv[])
 	}
 
 	headlessHost->ShutdownGraphics();
-	delete host;
-	host = nullptr;
+	delete headlessHost;
 	headlessHost = nullptr;
+	g_headlessHost = nullptr;
 
 	g_VFS.Clear();
 	LogManager::Shutdown();

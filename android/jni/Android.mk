@@ -445,7 +445,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Instance.cpp \
   $(SRC)/Core/KeyMap.cpp \
   $(SRC)/Core/KeyMapDefaults.cpp \
-  $(SRC)/Core/Host.cpp \
   $(SRC)/Core/Loaders.cpp \
   $(SRC)/Core/PSPLoaders.cpp \
   $(SRC)/Core/FileLoaders/CachingFileLoader.cpp \
@@ -764,7 +763,7 @@ ifeq ($(HEADLESS),1)
   LOCAL_MODULE := ppsspp_headless
   LOCAL_SRC_FILES := \
     $(SRC)/headless/Headless.cpp \
-    $(SRC)/headless/StubHost.cpp \
+    $(SRC)/headless/HeadlessHost.cpp \
     $(SRC)/headless/Compare.cpp
 
   include $(BUILD_EXECUTABLE)

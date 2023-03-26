@@ -27,7 +27,6 @@
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
-#include "Core/Host.h"
 #include "Core/Loaders.h"
 
 #include "GPU/GPUState.h"

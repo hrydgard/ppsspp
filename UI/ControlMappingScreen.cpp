@@ -40,7 +40,6 @@
 #include "Common/System/Request.h"
 #include "Common/TimeUtil.h"
 #include "Core/KeyMap.h"
-#include "Core/Host.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/System.h"
 #include "Core/Config.h"

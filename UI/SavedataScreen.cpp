@@ -38,7 +38,6 @@
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
-#include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "Core/SaveState.h"

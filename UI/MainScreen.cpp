@@ -41,7 +41,6 @@
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/System.h"
-#include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/ParamSFO.h"
@@ -541,8 +540,7 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::BrowseClick(UI::EventParams &e) {
 	auto mm = GetI18NCategory("MainMenu");
-	System_BrowseForFolder(mm->T("Choose folder"), [this](const std::string &value, int) {
-		std::string filename = value;
+	System_BrowseForFolder(mm->T("Choose folder"), [this](const std::string &filename, int) {
 		this->SetPath(Path(filename));
 	});
 	return UI::EVENT_DONE;

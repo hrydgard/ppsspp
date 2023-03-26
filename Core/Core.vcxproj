@@ -711,7 +711,6 @@
     <ClCompile Include="HLE\sceUtility.cpp" />
     <ClCompile Include="HLE\sceVaudio.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
-    <ClCompile Include="Host.cpp" />
     <ClCompile Include="HW\MediaEngine.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
     <ClCompile Include="HW\MpegDemux.cpp" />
@@ -1265,7 +1264,6 @@
     <ClInclude Include="HLE\sceVaudio.h" />
     <ClInclude Include="HLE\ThreadQueueList.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
-    <ClInclude Include="Host.h" />
     <ClInclude Include="HW\BufferQueue.h" />
     <ClInclude Include="HW\MediaEngine.h" />
     <ClInclude Include="HW\MpegDemux.h" />

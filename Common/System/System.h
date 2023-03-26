@@ -6,8 +6,7 @@
 
 // Platform integration
 
-// To run the PPSSPP core, a platform needs to implement all the System_ functions in this file,
-// plus derive an object from Host (see Host.h). The latter will be phased out.
+// To run the PPSSPP core, a platform needs to implement all the System_ functions in this file.
 // Failure to implement all of these will simply cause linker failures. There are a few that are
 // only implemented on specific platforms, but they're also only called on those platforms.
 
@@ -69,6 +68,11 @@ enum class SystemRequestType {
 	TOGGLE_FULLSCREEN_STATE,
 	GRAPHICS_BACKEND_FAILED_ALERT,
 	CREATE_GAME_SHORTCUT,
+
+	// Commonly ignored, used when automated tests generate output.
+	SEND_DEBUG_OUTPUT,
+	// Note: height specified as param3, width based on param1.size() / param3.
+	SEND_DEBUG_SCREENSHOT,
 
 	NOTIFY_UI_STATE,  // Used on Android only. Not a SystemNotification since it takes a parameter.
 

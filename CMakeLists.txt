@@ -2030,8 +2030,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HW/SasReverb.h
 	Core/HW/StereoResampler.cpp
 	Core/HW/StereoResampler.h
-	Core/Host.cpp
-	Core/Host.h
 	Core/Loaders.cpp
 	Core/Loaders.h
 	Core/FileLoaders/CachingFileLoader.cpp
@@ -2413,8 +2411,8 @@ set(NativeAssets
 if(HEADLESS)
 	set(HeadlessSource
 		headless/Headless.cpp
-		headless/StubHost.cpp
-		headless/StubHost.h
+		headless/HeadlessHost.cpp
+		headless/HeadlessHost.h
 		headless/Compare.cpp
 		headless/Compare.h
 		headless/SDLHeadlessHost.cpp

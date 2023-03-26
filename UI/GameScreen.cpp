@@ -31,7 +31,6 @@
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
-#include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"

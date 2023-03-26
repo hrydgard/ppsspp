@@ -33,7 +33,6 @@
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/HW/StereoResampler.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
@@ -384,8 +383,6 @@ namespace Libretro
 } // namespace Libretro
 
 using namespace Libretro;
-
-class LibretroHost : public Host {};
 
 class PrintfLogger : public LogListener
 {
@@ -1268,8 +1265,6 @@ void retro_init(void)
    g_Config.bDiscordPresence = false;
 
    g_VFS.Register("", new DirectoryReader(retro_base_dir));
-
-   host = new LibretroHost();
 }
 
 void retro_deinit(void)
@@ -1279,9 +1274,6 @@ void retro_deinit(void)
 
    delete printfLogger;
    printfLogger = nullptr;
-
-   delete host;
-   host = nullptr;
 
    libretro_supports_bitmasks = false;
    libretro_supports_option_categories = false;

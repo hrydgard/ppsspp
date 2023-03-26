@@ -39,7 +39,6 @@
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/HLE/sceUtility.h"

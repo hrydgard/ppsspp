@@ -720,8 +720,10 @@ bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, i
 				}
 				}, 0, info.h, MIN_LINES_PER_THREAD);
 #else
+			int extraPixels = outW - info.w;
 			for (int y = 0; y < info.h; ++y) {
 				memcpy((uint8_t *)out + rowPitch * y, data.data() + info.w * 4 * y, info.w * 4);
+				memset((uint8_t *)out + rowPitch * y + info.w * 4, 0, extraPixels * 4);
 			}
 #endif
 			// Memset the rest of the padding to avoid leaky edge pixels. Guess we could parallelize this too, but meh.

@@ -36,7 +36,6 @@
 #include "Core/System.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
-#include "Core/Host.h"
 
 #include <sys/types.h>
 #include <sys/sysctl.h>

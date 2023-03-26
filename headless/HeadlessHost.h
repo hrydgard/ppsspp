@@ -17,17 +17,18 @@
 
 #pragma once
 
+#include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
 
 #include "Core/CoreParameter.h"
-#include "Core/Host.h"
 
-class HeadlessHost : public Host {
+class HeadlessHost {
 public:
+	virtual ~HeadlessHost() {}
 	virtual bool InitGraphics(std::string *error_message, GraphicsContext **ctx, GPUCore core) {return false;}
 	virtual void ShutdownGraphics() {}
 
-	void SendDebugOutput(const std::string &output) override {
+	virtual void SendDebugOutput(const std::string &output) {
 		if (output.find('\n') != output.npos) {
 			DoFlushDebugOutput();
 			fwrite(output.data(), sizeof(char), output.length(), stdout);
@@ -53,7 +54,7 @@ public:
 		writeFailureScreenshot_ = flag;
 	}
 
-	void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) override;
+	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h);
 
 	// Unique for HeadlessHost
 	virtual void SwapBuffers() {}

@@ -142,6 +142,14 @@ inline void System_SetWindowTitle(const std::string &param) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SET_WINDOW_TITLE, nullptr, nullptr, param, "", 0);
 }
 
+inline void System_SendDebugOutput(const std::string &string) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::SEND_DEBUG_OUTPUT, nullptr, nullptr, string, "", 0);
+}
+
+inline void System_SendDebugScreenshot(const std::string &data, int height) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::SEND_DEBUG_SCREENSHOT, nullptr, nullptr, data, "", height);
+}
+
 // Non-inline to avoid including Path.h
 void System_CreateGameShortcut(const Path &path, const std::string &title);
 

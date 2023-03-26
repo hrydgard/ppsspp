@@ -55,7 +55,6 @@ using namespace std::placeholders;
 #include "Core/CoreParameter.h"
 #include "Core/Core.h"
 #include "Core/CwCheat.h"
-#include "Core/Host.h"
 #include "Core/KeyMap.h"
 #include "Core/MemFault.h"
 #include "Core/Reporting.h"
