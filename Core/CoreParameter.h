@@ -61,7 +61,7 @@ struct CoreParameter {
 	std::string errorString;
 
 	bool startBreak;
-	std::string *collectEmuLog = nullptr;
+	std::string *collectDebugOutput = nullptr;
 	bool headLess;   // Try to avoid messageboxes etc
 
 	// Internal PSP rendering resolution and scale factor.

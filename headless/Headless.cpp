@@ -201,7 +201,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 
 	std::string output;
 	if (opt.compare || opt.bench)
-		coreParameter.collectEmuLog = &output;
+		coreParameter.collectDebugOutput = &output;
 
 	std::string error_string;
 	if (!PSP_InitStart(coreParameter, &error_string)) {

@@ -2014,8 +2014,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				std::string data(Memory::GetCharPointer(argAddr), argLen);
 				if (!System_SendDebugOutput(data))
 					DEBUG_LOG(SCEIO, "%s", data.c_str());
-				if (PSP_CoreParameter().collectEmuLog)
-					*PSP_CoreParameter().collectEmuLog += data;
+				if (PSP_CoreParameter().collectDebugOutput)
+					*PSP_CoreParameter().collectDebugOutput += data;
 				return 0;
 			}
 		case EMULATOR_DEVCTL__IS_EMULATOR:

@@ -100,7 +100,7 @@ bool RunTests() {
 	coreParam.renderHeight = 272;
 	coreParam.pixelWidth = 480;
 	coreParam.pixelHeight = 272;
-	coreParam.collectEmuLog = &output;
+	coreParam.collectDebugOutput = &output;
 	coreParam.fastForward = true;
 	coreParam.updateRecent = false;
 

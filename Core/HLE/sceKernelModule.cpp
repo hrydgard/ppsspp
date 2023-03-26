@@ -1208,6 +1208,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		ptr = newptr;
 		magicPtr = (u32_le *)ptr;
 		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
+		if (ret <= 0 && *(u32_le *)&ptr[0x150] == 0x464c457f) {
+			ret = head->psp_size - 0x150;
+			memcpy(newptr, in + 0x150, ret);
+		}
 		if (reportedModule) {
 			// This should happen for all "kernel" modules.
 			*error_string = "Missing key";
