@@ -76,14 +76,18 @@ private:
 
 		typedef bool (*InitFunc)(HandlerLogFunc logger, void *loggerArg);
 		typedef void (*ShutdownFunc)();
+		typedef void (*ShutdownV2Func)(void *loggerArg);
 		typedef HandlerHandle (*OpenFunc)(const char *basePath, const char *filename);
 		typedef HandlerOffset (*SeekFunc)(HandlerHandle handle, HandlerOffset offset, FileMove origin);
 		typedef HandlerOffset (*ReadFunc)(HandlerHandle handle, void *data, HandlerOffset size);
 		typedef void (*CloseFunc)(HandlerHandle handle);
+		typedef int (*VersionFunc)();
 
 		HandlerLibrary library;
+		VirtualDiscFileSystem *const sys_;
 		InitFunc Init;
 		ShutdownFunc Shutdown;
+		ShutdownV2Func ShutdownV2;
 		OpenFunc Open;
 		SeekFunc Seek;
 		ReadFunc Read;
