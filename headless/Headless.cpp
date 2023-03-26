@@ -14,6 +14,7 @@
 
 #include "Common/Profiler/Profiler.h"
 #include "Common/System/NativeApp.h"
+#include "Common/System/Request.h"
 #include "Common/System/System.h"
 
 #include "Common/CommonWindows.h"
@@ -117,7 +118,17 @@ bool System_GetPropertyBool(SystemProperty prop) {
 void System_Notify(SystemNotification notification) {}
 void System_PostUIMessage(const std::string &message, const std::string &param) {}
 void System_NotifyUserMessage(const std::string &message, float duration, u32 color, const char *id) {}
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+	switch (type) {
+	case SystemRequestType::SEND_DEBUG_OUTPUT:
+		host->SendDebugOutput(param1);
+		return true;
+	case SystemRequestType::SEND_DEBUG_SCREENSHOT:
+		host->SendDebugScreenshot((const u8 *)param1.data(), (uint32_t)(param1.size() / param3), param3);
+		return true;
+	}
+	return false;
+}
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
@@ -238,7 +249,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 			if (!opt.bench) {
 				printf("%s", output.c_str());
 
-				host->SendDebugOutput("TIMEOUT\n");
+				System_SendDebugOutput("TIMEOUT\n");
 				TeamCityPrint("testFailed name='%s' message='Test timeout'", currentTestName.c_str());
 				GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
 			}

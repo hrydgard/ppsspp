@@ -70,6 +70,11 @@ enum class SystemRequestType {
 	GRAPHICS_BACKEND_FAILED_ALERT,
 	CREATE_GAME_SHORTCUT,
 
+	// Commonly ignored, used when automated tests generate output.
+	SEND_DEBUG_OUTPUT,
+	// Note: height specified as param3, width based on param1.size() / param3.
+	SEND_DEBUG_SCREENSHOT,
+
 	NOTIFY_UI_STATE,  // Used on Android only. Not a SystemNotification since it takes a parameter.
 
 	// High-level hardware control

@@ -26,6 +26,7 @@
 #include "Common/Serialize/SerializeSet.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/System/Request.h"
 #include "Common/System/System.h"
 
 #include "Core/Config.h"
@@ -37,7 +38,6 @@
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Reporting.h"
-#include "Core/Host.h"
 #include "Core/Loaders.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -1934,9 +1934,7 @@ void __KernelGPUReplay() {
 		PSPPointer<u8> topaddr;
 		u32 linesize = 512;
 		__DisplayGetFramebuf(&topaddr, &linesize, nullptr, 0);
-		if (host) {
-			host->SendDebugScreenshot(topaddr, linesize, 272);
-		}
+		System_SendDebugScreenshot(std::string((const char *)&topaddr[0], linesize * 272), 272);
 		Core_Stop();
 	}
 }
