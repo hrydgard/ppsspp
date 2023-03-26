@@ -90,43 +90,43 @@ void TouchControlVisibilityScreen::CreateViews() {
 	}});
 	toggles_.push_back({ "Fast-forward", &g_Config.touchFastForwardKey.show, ImageID::invalid(), nullptr });
 	toggles_.push_back({ "Custom 1", &g_Config.touchCustom0.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new CustomKeyScreen(gamePath_, 0));
+		screenManager()->push(new CustomButtonMappingScreen(gamePath_, 0));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 2", &g_Config.touchCustom1.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new CustomKeyScreen(gamePath_, 1));
+		screenManager()->push(new CustomButtonMappingScreen(gamePath_, 1));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 3", &g_Config.touchCustom2.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new CustomKeyScreen(gamePath_, 2));
+		screenManager()->push(new CustomButtonMappingScreen(gamePath_, 2));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 4", &g_Config.touchCustom3.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new CustomKeyScreen(gamePath_, 3));
+		screenManager()->push(new CustomButtonMappingScreen(gamePath_, 3));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 5", &g_Config.touchCustom4.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new CustomKeyScreen(gamePath_, 4));
+		screenManager()->push(new CustomButtonMappingScreen(gamePath_, 4));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 6", &g_Config.touchCustom5.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new CustomKeyScreen(gamePath_, 5));
+		screenManager()->push(new CustomButtonMappingScreen(gamePath_, 5));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 7", &g_Config.touchCustom6.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new CustomKeyScreen(gamePath_, 6));
+		screenManager()->push(new CustomButtonMappingScreen(gamePath_, 6));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 8", &g_Config.touchCustom7.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new CustomKeyScreen(gamePath_, 7));
+		screenManager()->push(new CustomButtonMappingScreen(gamePath_, 7));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 9", &g_Config.touchCustom8.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new CustomKeyScreen(gamePath_, 8));
+		screenManager()->push(new CustomButtonMappingScreen(gamePath_, 8));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Custom 10", &g_Config.touchCustom9.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new CustomKeyScreen(gamePath_, 9));
+		screenManager()->push(new CustomButtonMappingScreen(gamePath_, 9));
 		return UI::EVENT_DONE;
 	}});
 

@@ -24,9 +24,9 @@ namespace UI {
 	class CheckBox;
 }
 
-class CustomKeyScreen : public UIDialogScreenWithGameBackground {
+class CustomButtonMappingScreen : public UIDialogScreenWithGameBackground {
 public:
-	CustomKeyScreen(const Path &gamePath, int id) : UIDialogScreenWithGameBackground(gamePath), id_(id) {}
+	CustomButtonMappingScreen(const Path &gamePath, int id) : UIDialogScreenWithGameBackground(gamePath), id_(id) {}
 
 	const char *tag() const override { return "CustomKey"; }
 

@@ -116,7 +116,7 @@ private:
 	ImageID img_;
 };
 
-void CustomKeyScreen::CreateViews() {
+void CustomButtonMappingScreen::CreateViews() {
 	using namespace UI;
 	using namespace CustomKeyData;
 	auto co = GetI18NCategory("Controls");
@@ -281,7 +281,7 @@ static uint64_t arrayToInt(const bool ary[ARRAY_SIZE(CustomKeyData::customKeyLis
 	return value;
 }
 
-void CustomKeyScreen::saveArray() {
+void CustomButtonMappingScreen::saveArray() {
 	switch (id_) {
 	case 0:
 		g_Config.CustomButton0.key = arrayToInt(array);
@@ -316,17 +316,17 @@ void CustomKeyScreen::saveArray() {
 	}
 }
 
-void CustomKeyScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+void CustomButtonMappingScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	saveArray();
 	RecreateViews();
 }
 
-void CustomKeyScreen::onFinish(DialogResult result) {
+void CustomButtonMappingScreen::onFinish(DialogResult result) {
 	saveArray();
-	g_Config.Save("ComboKeyScreen::onFinish");
+	g_Config.Save("CustomButtonMappingScreen::onFinish");
 }
 
-UI::EventReturn CustomKeyScreen::ChoiceEventHandler::onChoiceClick(UI::EventParams &e){
+UI::EventReturn CustomButtonMappingScreen::ChoiceEventHandler::onChoiceClick(UI::EventParams &e){
 	checkbox_->Toggle();
 	return UI::EVENT_DONE;
 };
