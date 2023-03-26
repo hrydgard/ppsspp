@@ -60,7 +60,6 @@
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Host.h"
 #include "Core/KeyMap.h"
 #include "Core/TiltEventProcessor.h"
 #include "Core/Instance.h"

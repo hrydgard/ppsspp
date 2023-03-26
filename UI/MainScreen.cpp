@@ -41,7 +41,6 @@
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/System.h"
-#include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/ParamSFO.h"

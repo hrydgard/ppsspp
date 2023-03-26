@@ -47,7 +47,6 @@
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Host.h"
 #include "Core/HW/Camera.h"
 #include "Core/Debugger/SymbolMap.h"
 
