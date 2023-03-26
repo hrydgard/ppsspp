@@ -2403,7 +2403,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				dstBasePtr, dstRect.x_bytes / bpp, dstRect.y, dstStride);
 			FlushBeforeCopy();
 			// Some backends can handle blitting within a framebuffer. Others will just have to deal with it or ignore it, apparently.
-			BlitFramebuffer(dstRect.vfb, dstX, dstY, srcRect.vfb, srcX, srcY, dstRect.w_bytes / bpp, dstRect.h / bpp, bpp, dstRect.channel, "Blit_IntraBufferBlockTransfer");
+			BlitFramebuffer(dstRect.vfb, dstX, dstY, srcRect.vfb, srcX, srcY, dstRect.w_bytes / bpp, dstRect.h, bpp, dstRect.channel, "Blit_IntraBufferBlockTransfer");
 			RebindFramebuffer("rebind after intra block transfer");
 			SetColorUpdated(dstRect.vfb, skipDrawReason);
 			return true;  // Skip the memory copy.
