@@ -177,7 +177,7 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 	const float SCREEN_BOUND = 4095.0f + (15.5f / 16.0f);
 
 	// This matches hardware tests - depth is clamped when this flag is on.
-	if (depthClamp) {
+	if constexpr (depthClamp) {
 		// Note: if the depth is clipped (z/w <= -1.0), the outside_range_flag should NOT be set, even for x and y.
 		if ((alwaysCheckRange || coords.z > -coords.w) && (scaled.x >= SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
 			*outside_range_flag = true;

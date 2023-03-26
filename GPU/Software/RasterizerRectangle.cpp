@@ -305,8 +305,9 @@ static inline void DrawSpriteTex(const DrawingCoords &pos0, const DrawingCoords 
 
 template <GEBufferFormat fmt, bool alphaBlend>
 static void DrawSpriteNoTex(const DrawingCoords &pos0, const DrawingCoords &pos1, u32 color0, const RasterizerState &state) {
-	if (alphaBlend && Vec4<int>::FromRGBA(color0).a() == 0)
-		return;
+	if constexpr (alphaBlend)
+        if (Vec4<int>::FromRGBA(color0).a() == 0)
+            return;
 
 	for (int y = pos0.y; y < pos1.y; y++) {
 		if (fmt == GE_FORMAT_8888) {

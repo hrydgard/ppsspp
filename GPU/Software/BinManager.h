@@ -65,7 +65,7 @@ struct BinQueue {
 	}
 
 	void Setup() {
-		items_ = (T *)AllocateAlignedMemory(sizeof(T) * N, 16);
+		items_ = (T *)AllocateAlignedMemory(sizeof_, 16);
 	}
 
 	void Reset() {
@@ -152,6 +152,7 @@ struct BinQueue {
 	std::atomic<size_t> head_;
 	std::atomic<size_t> tail_ ;
 	std::atomic<size_t> size_;
+	static constexpr size_t sizeof_ = sizeof(T) * N;
 };
 
 union BinClut {
