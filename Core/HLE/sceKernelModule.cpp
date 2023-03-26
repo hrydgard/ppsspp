@@ -1627,6 +1627,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		}
 	}
 
+	System_Notify(SystemNotification::SYMBOL_MAP_UPDATED);
+
 	u32 moduleSize = sizeof(module->nm);
 	char tag[32];
 	snprintf(tag, sizeof(tag), "SceModule-%d", module->nm.modid);
@@ -1830,8 +1832,6 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		delete[] param_key;
 		return false;
 	}
-
-	System_Notify(SystemNotification::SYMBOL_MAP_UPDATED);
 
 	char moduleName[29] = { 0 };
 	int moduleVersion = module->nm.version[0] | (module->nm.version[1] << 8);
