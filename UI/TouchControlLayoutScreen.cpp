@@ -454,7 +454,7 @@ void ControlLayoutView::Draw(UIContext& dc) {
 }
 
 void ControlLayoutView::CreateViews() {
-	using namespace CustomKey;
+	using namespace CustomKeyData;
 	const Bounds &bounds = GetBounds();
 	if (bounds.w == 0.0f || bounds.h == 0.0f) {
 		// Layout hasn't happened yet, return.
@@ -510,26 +510,26 @@ void ControlLayoutView::CreateViews() {
 		controls_.push_back(new PSPStickDragDrop(g_Config.touchRightAnalogStick, "Right analog stick", stickBg, stickImage, bounds, g_Config.fRightStickHeadScale));
 	}
 
-	auto addDragComboKey = [&](ConfigTouchPos &pos, const char *key, const ConfigCustomButton& cfg) {
+	auto addDragCustomKey = [&](ConfigTouchPos &pos, const char *key, const ConfigCustomButton& cfg) {
 		DragDropButton *b = nullptr;
 		if (pos.show) {
-			b = new DragDropButton(pos, key, g_Config.iTouchButtonStyle == 0 ? comboKeyShapes[cfg.shape].i : comboKeyShapes[cfg.shape].l, comboKeyImages[cfg.image].i, bounds);
-			b->FlipImageH(comboKeyShapes[cfg.shape].f);
-			b->SetAngle(comboKeyImages[cfg.image].r, comboKeyShapes[cfg.shape].r);
+			b = new DragDropButton(pos, key, g_Config.iTouchButtonStyle == 0 ? customKeyShapes[cfg.shape].i : customKeyShapes[cfg.shape].l, customKeyImages[cfg.image].i, bounds);
+			b->FlipImageH(customKeyShapes[cfg.shape].f);
+			b->SetAngle(customKeyImages[cfg.image].r, customKeyShapes[cfg.shape].r);
 			controls_.push_back(b);
 		}
 		return b;
 	};
-	addDragComboKey(g_Config.touchCombo0, "Custom 1 button", g_Config.CustomKey0);
-	addDragComboKey(g_Config.touchCombo1, "Custom 2 button", g_Config.CustomKey1);
-	addDragComboKey(g_Config.touchCombo2, "Custom 3 button", g_Config.CustomKey2);
-	addDragComboKey(g_Config.touchCombo3, "Custom 4 button", g_Config.CustomKey3);
-	addDragComboKey(g_Config.touchCombo4, "Custom 5 button", g_Config.CustomKey4);
-	addDragComboKey(g_Config.touchCombo5, "Custom 6 button", g_Config.CustomKey5);
-	addDragComboKey(g_Config.touchCombo6, "Custom 7 button", g_Config.CustomKey6);
-	addDragComboKey(g_Config.touchCombo7, "Custom 8 button", g_Config.CustomKey7);
-	addDragComboKey(g_Config.touchCombo8, "Custom 9 button", g_Config.CustomKey8);
-	addDragComboKey(g_Config.touchCombo9, "Custom 10 button", g_Config.CustomKey9);
+	addDragCustomKey(g_Config.touchCustom0, "Custom 1 button", g_Config.CustomKey0);
+	addDragCustomKey(g_Config.touchCustom1, "Custom 2 button", g_Config.CustomKey1);
+	addDragCustomKey(g_Config.touchCustom2, "Custom 3 button", g_Config.CustomKey2);
+	addDragCustomKey(g_Config.touchCustom3, "Custom 4 button", g_Config.CustomKey3);
+	addDragCustomKey(g_Config.touchCustom4, "Custom 5 button", g_Config.CustomKey4);
+	addDragCustomKey(g_Config.touchCustom5, "Custom 6 button", g_Config.CustomKey5);
+	addDragCustomKey(g_Config.touchCustom6, "Custom 7 button", g_Config.CustomKey6);
+	addDragCustomKey(g_Config.touchCustom7, "Custom 8 button", g_Config.CustomKey7);
+	addDragCustomKey(g_Config.touchCustom8, "Custom 9 button", g_Config.CustomKey8);
+	addDragCustomKey(g_Config.touchCustom9, "Custom 10 button", g_Config.CustomKey9);
 
 	for (size_t i = 0; i < controls_.size(); i++) {
 		Add(controls_[i]);

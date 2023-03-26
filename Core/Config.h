@@ -355,16 +355,16 @@ public:
 	ConfigTouchPos touchAnalogStick;
 	ConfigTouchPos touchRightAnalogStick;
 
-	ConfigTouchPos touchCombo0;
-	ConfigTouchPos touchCombo1;
-	ConfigTouchPos touchCombo2;
-	ConfigTouchPos touchCombo3;
-	ConfigTouchPos touchCombo4;
-	ConfigTouchPos touchCombo5;
-	ConfigTouchPos touchCombo6;
-	ConfigTouchPos touchCombo7;
-	ConfigTouchPos touchCombo8;
-	ConfigTouchPos touchCombo9;
+	ConfigTouchPos touchCustom0;
+	ConfigTouchPos touchCustom1;
+	ConfigTouchPos touchCustom2;
+	ConfigTouchPos touchCustom3;
+	ConfigTouchPos touchCustom4;
+	ConfigTouchPos touchCustom5;
+	ConfigTouchPos touchCustom6;
+	ConfigTouchPos touchCustom7;
+	ConfigTouchPos touchCustom8;
+	ConfigTouchPos touchCustom9;
 
 	float fLeftStickHeadScale;
 	float fRightStickHeadScale;

@@ -1008,16 +1008,17 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogStickX", "AnalogStickY", "AnalogStickScale", "ShowAnalogStick", &g_Config.touchAnalogStick, defaultTouchPosShow, true, true),
 	ConfigSetting("RightAnalogStickX", "RightAnalogStickY", "RightAnalogStickScale", "ShowRightAnalogStick", &g_Config.touchRightAnalogStick, defaultTouchPosHide, true, true),
 
-	ConfigSetting("fcombo0X", "fcombo0Y", "comboKeyScale0", "ShowComboKey0", &g_Config.touchCombo0, defaultTouchPosHide, true, true),
-	ConfigSetting("fcombo1X", "fcombo1Y", "comboKeyScale1", "ShowComboKey1", &g_Config.touchCombo1, defaultTouchPosHide, true, true),
-	ConfigSetting("fcombo2X", "fcombo2Y", "comboKeyScale2", "ShowComboKey2", &g_Config.touchCombo2, defaultTouchPosHide, true, true),
-	ConfigSetting("fcombo3X", "fcombo3Y", "comboKeyScale3", "ShowComboKey3", &g_Config.touchCombo3, defaultTouchPosHide, true, true),
-	ConfigSetting("fcombo4X", "fcombo4Y", "comboKeyScale4", "ShowComboKey4", &g_Config.touchCombo4, defaultTouchPosHide, true, true),
-	ConfigSetting("fcombo5X", "fcombo5Y", "comboKeyScale5", "ShowComboKey5", &g_Config.touchCombo5, defaultTouchPosHide, true, true),
-	ConfigSetting("fcombo6X", "fcombo6Y", "comboKeyScale6", "ShowComboKey6", &g_Config.touchCombo6, defaultTouchPosHide, true, true),
-	ConfigSetting("fcombo7X", "fcombo7Y", "comboKeyScale7", "ShowComboKey7", &g_Config.touchCombo7, defaultTouchPosHide, true, true),
-	ConfigSetting("fcombo8X", "fcombo8Y", "comboKeyScale8", "ShowComboKey8", &g_Config.touchCombo8, defaultTouchPosHide, true, true),
-	ConfigSetting("fcombo9X", "fcombo9Y", "comboKeyScale9", "ShowComboKey9", &g_Config.touchCombo9, defaultTouchPosHide, true, true),
+	// Combo keys are going to be something else, but I don't want to break the config.
+	ConfigSetting("fcombo0X", "fcombo0Y", "comboKeyScale0", "ShowComboKey0", &g_Config.touchCustom0, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo1X", "fcombo1Y", "comboKeyScale1", "ShowComboKey1", &g_Config.touchCustom1, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo2X", "fcombo2Y", "comboKeyScale2", "ShowComboKey2", &g_Config.touchCustom2, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo3X", "fcombo3Y", "comboKeyScale3", "ShowComboKey3", &g_Config.touchCustom3, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo4X", "fcombo4Y", "comboKeyScale4", "ShowComboKey4", &g_Config.touchCustom4, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo5X", "fcombo5Y", "comboKeyScale5", "ShowComboKey5", &g_Config.touchCustom5, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo6X", "fcombo6Y", "comboKeyScale6", "ShowComboKey6", &g_Config.touchCustom6, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo7X", "fcombo7Y", "comboKeyScale7", "ShowComboKey7", &g_Config.touchCustom7, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo8X", "fcombo8Y", "comboKeyScale8", "ShowComboKey8", &g_Config.touchCustom8, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo9X", "fcombo9Y", "comboKeyScale9", "ShowComboKey9", &g_Config.touchCustom9, defaultTouchPosHide, true, true),
 
 	ConfigSetting("AnalogDeadzone", &g_Config.fAnalogDeadzone, 0.15f, true, true),
 	ConfigSetting("AnalogInverseDeadzone", &g_Config.fAnalogInverseDeadzone, 0.0f, true, true),
@@ -2005,16 +2006,16 @@ void Config::ResetControlLayout() {
 	reset(g_Config.touchRKey);
 	reset(g_Config.touchAnalogStick);
 	reset(g_Config.touchRightAnalogStick);
-	reset(g_Config.touchCombo0);
-	reset(g_Config.touchCombo1);
-	reset(g_Config.touchCombo2);
-	reset(g_Config.touchCombo3);
-	reset(g_Config.touchCombo4);
-	reset(g_Config.touchCombo5);
-	reset(g_Config.touchCombo6);
-	reset(g_Config.touchCombo7);
-	reset(g_Config.touchCombo8);
-	reset(g_Config.touchCombo9);
+	reset(g_Config.touchCustom0);
+	reset(g_Config.touchCustom1);
+	reset(g_Config.touchCustom2);
+	reset(g_Config.touchCustom3);
+	reset(g_Config.touchCustom4);
+	reset(g_Config.touchCustom5);
+	reset(g_Config.touchCustom6);
+	reset(g_Config.touchCustom7);
+	reset(g_Config.touchCustom8);
+	reset(g_Config.touchCustom9);
 	g_Config.fLeftStickHeadScale = 1.0f;
 	g_Config.fRightStickHeadScale = 1.0f;
 }

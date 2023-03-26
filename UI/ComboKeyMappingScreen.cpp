@@ -37,13 +37,13 @@ public:
 
 	void CreatePopupContents(UI::ViewGroup *parent) override {
 		using namespace UI;
-		using namespace CustomKey;
+		using namespace CustomKeyData;
 
 		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 		LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
 
-		for (int i = 0; i < ARRAY_SIZE(comboKeyShapes); ++i) {
-			Choice *c = items->Add(new Choice(ImageID(comboKeyShapes[i].l), 0.6f, comboKeyShapes[i].r*PI/180, comboKeyShapes[i].f));
+		for (int i = 0; i < ARRAY_SIZE(customKeyShapes); ++i) {
+			Choice *c = items->Add(new Choice(ImageID(customKeyShapes[i].l), 0.6f, customKeyShapes[i].r*PI/180, customKeyShapes[i].f));
 			c->OnClick.Add([=](UI::EventParams &e) {
 				*setting_ = i;
 				TriggerFinish(DR_OK);
@@ -67,13 +67,13 @@ public:
 
 	void CreatePopupContents(UI::ViewGroup *parent) override {
 		using namespace UI;
-		using namespace CustomKey;
+		using namespace CustomKeyData;
 
 		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 		LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
 
-		for (int i = 0; i < ARRAY_SIZE(comboKeyImages); ++i) {
-			Choice *c = items->Add(new Choice(ImageID(comboKeyImages[i].i), 1.0f, comboKeyImages[i].r*PI/180));
+		for (int i = 0; i < ARRAY_SIZE(customKeyImages); ++i) {
+			Choice *c = items->Add(new Choice(ImageID(customKeyImages[i].i), 1.0f, customKeyImages[i].r*PI/180));
 			c->OnClick.Add([=](UI::EventParams &e) {
 				*setting_ = i;
 				TriggerFinish(DR_OK);
@@ -116,9 +116,9 @@ private:
 	ImageID img_;
 };
 
-void ComboKeyScreen::CreateViews() {
+void CustomKeyScreen::CreateViews() {
 	using namespace UI;
-	using namespace CustomKey;
+	using namespace CustomKeyData;
 	auto co = GetI18NCategory("Controls");
 	auto mc = GetI18NCategory("MappableControls");
 	root_ = new LinearLayout(ORIENT_VERTICAL);
@@ -134,73 +134,73 @@ void ComboKeyScreen::CreateViews() {
 	switch (id_) {
 	case 0: 
 		cfg = &g_Config.CustomKey0;
-		show = &g_Config.touchCombo0.show;
-		for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++)
+		show = &g_Config.touchCustom0.show;
+		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
 			array[i] = (0x01 == ((g_Config.CustomKey0.key >> i) & 0x01));
 		break;
 	case 1:
 		cfg = &g_Config.CustomKey1;
-		show = &g_Config.touchCombo1.show;
-		for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++)
+		show = &g_Config.touchCustom1.show;
+		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
 			array[i] = (0x01 == ((g_Config.CustomKey1.key >> i) & 0x01));
 		break;
 	case 2:
 		cfg = &g_Config.CustomKey2;
-		show = &g_Config.touchCombo2.show;
-		for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++)
+		show = &g_Config.touchCustom2.show;
+		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
 			array[i] = (0x01 == ((g_Config.CustomKey2.key >> i) & 0x01));
 		break;
 	case 3:
 		cfg = &g_Config.CustomKey3;
-		show = &g_Config.touchCombo3.show;
-		for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++)
+		show = &g_Config.touchCustom3.show;
+		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
 			array[i] = (0x01 == ((g_Config.CustomKey3.key >> i) & 0x01));
 		break;
 	case 4:
 		cfg = &g_Config.CustomKey4;
-		show = &g_Config.touchCombo4.show;
-		for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++)
+		show = &g_Config.touchCustom4.show;
+		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
 			array[i] = (0x01 == ((g_Config.CustomKey4.key >> i) & 0x01));
 		break;
 	case 5: 
 		cfg = &g_Config.CustomKey5;
-		show = &g_Config.touchCombo5.show;
-		for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++)
+		show = &g_Config.touchCustom5.show;
+		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
 			array[i] = (0x01 == ((g_Config.CustomKey5.key >> i) & 0x01));
 		break;
 	case 6:
 		cfg = &g_Config.CustomKey6;
-		show = &g_Config.touchCombo6.show;
-		for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++)
+		show = &g_Config.touchCustom6.show;
+		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
 			array[i] = (0x01 == ((g_Config.CustomKey6.key >> i) & 0x01));
 		break;
 	case 7:
 		cfg = &g_Config.CustomKey7;
-		show = &g_Config.touchCombo7.show;
-		for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++)
+		show = &g_Config.touchCustom7.show;
+		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
 			array[i] = (0x01 == ((g_Config.CustomKey7.key >> i) & 0x01));
 		break;
 	case 8:
 		cfg = &g_Config.CustomKey8;
-		show = &g_Config.touchCombo8.show;
-		for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++)
+		show = &g_Config.touchCustom8.show;
+		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
 			array[i] = (0x01 == ((g_Config.CustomKey8.key >> i) & 0x01));
 		break;
 	case 9:
 		cfg = &g_Config.CustomKey9;
-		show = &g_Config.touchCombo9.show;
-		for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++)
+		show = &g_Config.touchCustom9.show;
+		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
 			array[i] = (0x01 == ((g_Config.CustomKey9.key >> i) & 0x01));
 		break;
 	default:
 		// This shouldn't happen, let's just not crash.
 		cfg = &g_Config.CustomKey0;
-		show = &g_Config.touchCombo0.show;
+		show = &g_Config.touchCustom0.show;
 		break;
 	}
 
-	leftColumn->Add(new ButtonPreview(g_Config.iTouchButtonStyle == 0 ? comboKeyShapes[cfg->shape].i : comboKeyShapes[cfg->shape].l, 
-			comboKeyImages[cfg->image].i, comboKeyImages[cfg->image].r, comboKeyShapes[cfg->shape].f, comboKeyShapes[cfg->shape].r, 62, 82));
+	leftColumn->Add(new ButtonPreview(g_Config.iTouchButtonStyle == 0 ? customKeyShapes[cfg->shape].i : customKeyShapes[cfg->shape].l, 
+			customKeyImages[cfg->image].i, customKeyImages[cfg->image].r, customKeyShapes[cfg->shape].f, customKeyShapes[cfg->shape].r, 62, 82));
 
 	root__->Add(leftColumn);
 	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
@@ -215,7 +215,7 @@ void ComboKeyScreen::CreateViews() {
 	vertLayout->Add(new CheckBox(show, co->T("Visible")));
 
 	Choice *icon = vertLayout->Add(new Choice(co->T("Icon")));
-	icon->SetIcon(ImageID(comboKeyImages[cfg->image].i), 1.0f, comboKeyImages[cfg->image].r*PI/180, false, false); // Set right icon on the choice
+	icon->SetIcon(ImageID(customKeyImages[cfg->image].i), 1.0f, customKeyImages[cfg->image].r*PI/180, false, false); // Set right icon on the choice
 	icon->OnClick.Add([=](UI::EventParams &e) {
 		auto iconScreen = new ButtonIconScreen(co->T("Icon"), &(cfg->image));
 		if (e.v)
@@ -226,7 +226,7 @@ void ComboKeyScreen::CreateViews() {
 	});
 
 	Choice *shape = vertLayout->Add(new Choice(co->T("Shape")));
-	shape->SetIcon(ImageID(comboKeyShapes[cfg->shape].l), 0.6f, comboKeyShapes[cfg->shape].r*PI/180, comboKeyShapes[cfg->shape].f, false); // Set right icon on the choice
+	shape->SetIcon(ImageID(customKeyShapes[cfg->shape].l), 0.6f, customKeyShapes[cfg->shape].r*PI/180, customKeyShapes[cfg->shape].f, false); // Set right icon on the choice
 	shape->OnClick.Add([=](UI::EventParams &e) {
 		auto shape = new ButtonShapeScreen(co->T("Shape"), &(cfg->shape));
 		if (e.v)
@@ -246,7 +246,7 @@ void ComboKeyScreen::CreateViews() {
 	GridLayout *grid = vertLayout->Add(new GridLayout(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	// Button image and action are defined in GamepadEmu.h
-	for (int i = 0; i < ARRAY_SIZE(comboKeyList); ++i) {
+	for (int i = 0; i < ARRAY_SIZE(customKeyList); ++i) {
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		row->SetSpacing(0);
 
@@ -254,10 +254,10 @@ void ComboKeyScreen::CreateViews() {
 		row->Add(checkbox);
 
 		Choice *choice;
-		if (comboKeyList[i].i.isValid()) {
-			choice = new Choice(comboKeyList[i].i, new LinearLayoutParams(1.0f));
+		if (customKeyList[i].i.isValid()) {
+			choice = new Choice(customKeyList[i].i, new LinearLayoutParams(1.0f));
 		} else {
-			choice = new Choice(mc->T(KeyMap::GetPspButtonNameCharPointer(comboKeyList[i].c)), new LinearLayoutParams(1.0f));
+			choice = new Choice(mc->T(KeyMap::GetPspButtonNameCharPointer(customKeyList[i].c)), new LinearLayoutParams(1.0f));
 		}
 
 		ChoiceEventHandler *choiceEventHandler = new ChoiceEventHandler(checkbox);
@@ -270,9 +270,9 @@ void ComboKeyScreen::CreateViews() {
 	}
 }
 
-static uint64_t arrayToInt(const bool ary[ARRAY_SIZE(CustomKey::comboKeyList)]) {
+static uint64_t arrayToInt(const bool ary[ARRAY_SIZE(CustomKeyData::customKeyList)]) {
 	uint64_t value = 0;
-	for (int i = ARRAY_SIZE(CustomKey::comboKeyList)-1; i >= 0; i--) {
+	for (int i = ARRAY_SIZE(CustomKeyData::customKeyList)-1; i >= 0; i--) {
 		value |= ary[i] ? 1 : 0;
 		if (i > 0) {
 			value = value << 1;
@@ -281,7 +281,7 @@ static uint64_t arrayToInt(const bool ary[ARRAY_SIZE(CustomKey::comboKeyList)]) 
 	return value;
 }
 
-void ComboKeyScreen::saveArray() {
+void CustomKeyScreen::saveArray() {
 	switch (id_) {
 	case 0:
 		g_Config.CustomKey0.key = arrayToInt(array);
@@ -316,17 +316,17 @@ void ComboKeyScreen::saveArray() {
 	}
 }
 
-void ComboKeyScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+void CustomKeyScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	saveArray();
 	RecreateViews();
 }
 
-void ComboKeyScreen::onFinish(DialogResult result) {
+void CustomKeyScreen::onFinish(DialogResult result) {
 	saveArray();
 	g_Config.Save("ComboKeyScreen::onFinish");
 }
 
-UI::EventReturn ComboKeyScreen::ChoiceEventHandler::onChoiceClick(UI::EventParams &e){
+UI::EventReturn CustomKeyScreen::ChoiceEventHandler::onChoiceClick(UI::EventParams &e){
 	checkbox_->Toggle();
 	return UI::EVENT_DONE;
 };

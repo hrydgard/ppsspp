@@ -43,7 +43,7 @@ private:
 
 void TouchControlVisibilityScreen::CreateViews() {
 	using namespace UI;
-	using namespace CustomKey;
+	using namespace CustomKeyData;
 
 	auto di = GetI18NCategory("Dialog");
 	auto co = GetI18NCategory("Controls");
@@ -88,44 +88,44 @@ void TouchControlVisibilityScreen::CreateViews() {
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Fast-forward", &g_Config.touchFastForwardKey.show, ImageID::invalid(), nullptr });
-	toggles_.push_back({ "Custom 1", &g_Config.touchCombo0.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(gamePath_, 0));
+	toggles_.push_back({ "Custom 1", &g_Config.touchCustom0.show, ImageID::invalid(), [=](EventParams &e) {
+		screenManager()->push(new CustomKeyScreen(gamePath_, 0));
 		return UI::EVENT_DONE;
 	}});
-	toggles_.push_back({ "Custom 2", &g_Config.touchCombo1.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(gamePath_, 1));
+	toggles_.push_back({ "Custom 2", &g_Config.touchCustom1.show, ImageID::invalid(), [=](EventParams &e) {
+		screenManager()->push(new CustomKeyScreen(gamePath_, 1));
 		return UI::EVENT_DONE;
 	}});
-	toggles_.push_back({ "Custom 3", &g_Config.touchCombo2.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(gamePath_, 2));
+	toggles_.push_back({ "Custom 3", &g_Config.touchCustom2.show, ImageID::invalid(), [=](EventParams &e) {
+		screenManager()->push(new CustomKeyScreen(gamePath_, 2));
 		return UI::EVENT_DONE;
 	}});
-	toggles_.push_back({ "Custom 4", &g_Config.touchCombo3.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(gamePath_, 3));
+	toggles_.push_back({ "Custom 4", &g_Config.touchCustom3.show, ImageID::invalid(), [=](EventParams &e) {
+		screenManager()->push(new CustomKeyScreen(gamePath_, 3));
 		return UI::EVENT_DONE;
 	}});
-	toggles_.push_back({ "Custom 5", &g_Config.touchCombo4.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(gamePath_, 4));
+	toggles_.push_back({ "Custom 5", &g_Config.touchCustom4.show, ImageID::invalid(), [=](EventParams &e) {
+		screenManager()->push(new CustomKeyScreen(gamePath_, 4));
 		return UI::EVENT_DONE;
 	}});
-	toggles_.push_back({ "Custom 6", &g_Config.touchCombo5.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(gamePath_, 5));
+	toggles_.push_back({ "Custom 6", &g_Config.touchCustom5.show, ImageID::invalid(), [=](EventParams &e) {
+		screenManager()->push(new CustomKeyScreen(gamePath_, 5));
 		return UI::EVENT_DONE;
 	}});
-	toggles_.push_back({ "Custom 7", &g_Config.touchCombo6.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(gamePath_, 6));
+	toggles_.push_back({ "Custom 7", &g_Config.touchCustom6.show, ImageID::invalid(), [=](EventParams &e) {
+		screenManager()->push(new CustomKeyScreen(gamePath_, 6));
 		return UI::EVENT_DONE;
 	}});
-	toggles_.push_back({ "Custom 8", &g_Config.touchCombo7.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(gamePath_, 7));
+	toggles_.push_back({ "Custom 8", &g_Config.touchCustom7.show, ImageID::invalid(), [=](EventParams &e) {
+		screenManager()->push(new CustomKeyScreen(gamePath_, 7));
 		return UI::EVENT_DONE;
 	}});
-	toggles_.push_back({ "Custom 9", &g_Config.touchCombo8.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(gamePath_, 8));
+	toggles_.push_back({ "Custom 9", &g_Config.touchCustom8.show, ImageID::invalid(), [=](EventParams &e) {
+		screenManager()->push(new CustomKeyScreen(gamePath_, 8));
 		return UI::EVENT_DONE;
 	}});
-	toggles_.push_back({ "Custom 10", &g_Config.touchCombo9.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new ComboKeyScreen(gamePath_, 9));
+	toggles_.push_back({ "Custom 10", &g_Config.touchCustom9.show, ImageID::invalid(), [=](EventParams &e) {
+		screenManager()->push(new CustomKeyScreen(gamePath_, 9));
 		return UI::EVENT_DONE;
 	}});
 
