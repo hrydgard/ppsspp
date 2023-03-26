@@ -29,21 +29,24 @@ public:
 	virtual void ShutdownGraphics() {}
 
 	virtual void SendDebugOutput(const std::string &output) {
+		if (!writeDebugOutput_)
+			return;
 		if (output.find('\n') != output.npos) {
-			DoFlushDebugOutput();
+			FlushDebugOutput();
 			fwrite(output.data(), sizeof(char), output.length(), stdout);
 		} else {
 			debugOutputBuffer_ += output;
 		}
 	}
-	virtual void FlushDebugOutput() {
-		DoFlushDebugOutput();
-	}
-	inline void DoFlushDebugOutput() {
+	void FlushDebugOutput() {
 		if (!debugOutputBuffer_.empty()) {
 			fwrite(debugOutputBuffer_.data(), sizeof(char), debugOutputBuffer_.length(), stdout);
 			debugOutputBuffer_.clear();
 		}
+	}
+
+	void SetWriteDebugOutput(bool flag) {
+		writeDebugOutput_ = flag;
 	}
 
 	void SetComparisonScreenshot(const Path &filename, double maxError) {
@@ -54,18 +57,16 @@ public:
 		writeFailureScreenshot_ = flag;
 	}
 
-	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h);
+	void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h);
 
-	// Unique for HeadlessHost
 	virtual void SwapBuffers() {}
 
 protected:
-	void SendOrCollectDebugOutput(const std::string &output);
-
 	Path comparisonScreenshot_;
 	double maxScreenshotError_ = 0.0;
 	std::string debugOutputBuffer_;
 	GPUCore gpuCore_;
 	GraphicsContext *gfx_ = nullptr;
 	bool writeFailureScreenshot_ = true;
+	bool writeDebugOutput_ = true;
 };

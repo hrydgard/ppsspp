@@ -24,16 +24,6 @@
 #include "headless/Compare.h"
 #include "headless/HeadlessHost.h"
 
-void HeadlessHost::SendOrCollectDebugOutput(const std::string &data)
-{
-	if (PSP_CoreParameter().printfEmuLog)
-		SendDebugOutput(data);
-	else if (PSP_CoreParameter().collectEmuLog)
-		*PSP_CoreParameter().collectEmuLog += data;
-	else
-		DEBUG_LOG(COMMON, "%s", data.c_str());
-}
-
 void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
 	// Only if we're actually comparing.
 	if (comparisonScreenshot_.empty()) {
@@ -52,14 +42,14 @@ void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
 	ScreenshotComparer comparer(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);
 	double errors = comparer.Compare(comparisonScreenshot_);
 	if (errors < 0)
-		SendOrCollectDebugOutput(comparer.GetError() + "\n");
+		SendDebugOutput(comparer.GetError() + "\n");
 
 	if (errors > maxScreenshotError_)
-		SendOrCollectDebugOutput(StringFromFormat("Screenshot MSE: %f\n", errors));
+		SendDebugOutput(StringFromFormat("Screenshot MSE: %f\n", errors));
 
 	if (errors > maxScreenshotError_ && writeFailureScreenshot_) {
 		if (comparer.SaveActualBitmap(Path("__testfailure.bmp")))
-			SendOrCollectDebugOutput("Actual output written to: __testfailure.bmp\n");
+			SendDebugOutput("Actual output written to: __testfailure.bmp\n");
 		comparer.SaveVisualComparisonPNG(Path("__testcompare.png"));
 	}
 }

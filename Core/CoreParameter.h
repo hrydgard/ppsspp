@@ -61,7 +61,6 @@ struct CoreParameter {
 	std::string errorString;
 
 	bool startBreak;
-	bool printfEmuLog;  // writes "emulator:" logging to stdout
 	std::string *collectEmuLog = nullptr;
 	bool headLess;   // Try to avoid messageboxes etc
 

@@ -2012,15 +2012,10 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		case EMULATOR_DEVCTL__SEND_OUTPUT:
 			{
 				std::string data(Memory::GetCharPointer(argAddr), argLen);
-				if (PSP_CoreParameter().printfEmuLog) {
-					System_SendDebugOutput(data);
-				} else {
-					if (PSP_CoreParameter().collectEmuLog) {
-						*PSP_CoreParameter().collectEmuLog += data;
-					} else {
-						DEBUG_LOG(SCEIO, "%s", data.c_str());
-					}
-				}
+				if (!System_SendDebugOutput(data))
+					DEBUG_LOG(SCEIO, "%s", data.c_str());
+				if (PSP_CoreParameter().collectEmuLog)
+					*PSP_CoreParameter().collectEmuLog += data;
 				return 0;
 			}
 		case EMULATOR_DEVCTL__IS_EMULATOR:
