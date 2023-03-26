@@ -937,6 +937,8 @@ void EmuScreen::CreateViews() {
 		}
 		return EVENT_DONE;
 	});
+	// Will become visible along with the loadingView.
+	loadingBG->SetVisibility(V_INVISIBLE);
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
