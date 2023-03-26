@@ -1639,17 +1639,12 @@ static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t tex
 		int blockHeight = std::min(h - y, 4);
 		for (int x = 0; x < minw; x += 4) {
 			int blockWidth = std::min(minw - x, 4);
-			switch (n) {
-			case 1:
+			if constexpr (n == 1)
 				DecodeDXT1Block(dst + outPitch32 * y + x, (const DXT1Block *)src + blockIndex, outPitch32, blockWidth, blockHeight, &alphaSum);
-				break;
-			case 3:
+			else if constexpr (n == 3)
 				DecodeDXT3Block(dst + outPitch32 * y + x, (const DXT3Block *)src + blockIndex, outPitch32, blockWidth, blockHeight);
-				break;
-			case 5:
+			else if constexpr (n == 5)
 				DecodeDXT5Block(dst + outPitch32 * y + x, (const DXT5Block *)src + blockIndex, outPitch32, blockWidth, blockHeight);
-				break;
-			}
 			blockIndex++;
 		}
 	}
@@ -1658,7 +1653,7 @@ static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t tex
 		ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h);
 	}
 
-	if (n == 1) {
+	if constexpr (n == 1) {
 		return alphaSum == 1 ? CHECKALPHA_FULL : CHECKALPHA_ANY;
 	} else {
 		// Just report that we don't have full alpha, since these formats are made for that.

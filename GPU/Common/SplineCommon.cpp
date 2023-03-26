@@ -360,11 +360,11 @@ public:
 
 					// Pre-tessellate U lines
 					tess_pos.SampleU(wu.basis);
-					if (sampleCol)
+					if constexpr (sampleCol)
 						tess_col.SampleU(wu.basis);
-					if (sampleTex)
+					if constexpr (sampleTex)
 						tess_tex.SampleU(wu.basis);
-					if (sampleNrm)
+					if constexpr (sampleNrm)
 						tess_nrm.SampleU(wu.deriv);
 
 					for (int tile_v = start_v; tile_v <= surface.tess_v; ++tile_v) {
@@ -375,24 +375,24 @@ public:
 
 						// Tessellate
 						vert.pos = tess_pos.SampleV(wv.basis);
-						if (sampleCol) {
+						if constexpr (sampleCol) {
 							vert.color_32 = tess_col.SampleV(wv.basis).ToRGBA();
 						} else {
 							vert.color_32 = points.defcolor;
 						}
-						if (sampleTex) {
+						if constexpr (sampleTex) {
 							tess_tex.SampleV(wv.basis).Write(vert.uv);
 						} else {
 							// Generate texcoord
 							vert.uv[0] = patch_u + tile_u * inv_u;
 							vert.uv[1] = patch_v + tile_v * inv_v;
 						}
-						if (sampleNrm) {
+						if constexpr (sampleNrm) {
 							const Vec3f derivU = tess_nrm.SampleV(wv.basis);
 							const Vec3f derivV = tess_pos.SampleV(wv.deriv);
 
 							vert.nrm = Cross(derivU, derivV).Normalized(useSSE4);
-							if (patchFacing)
+							if constexpr (patchFacing)
 								vert.nrm *= -1.0f;
 						} else {
 							vert.nrm.SetZero();

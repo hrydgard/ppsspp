@@ -1,4 +1,4 @@
-// Copyright (c) 2013- PPSSPP Project.
+﻿// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -670,29 +670,33 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 		if (z < pixelID.cached.minz || z > pixelID.cached.maxz)
 			return;
 
-	if (pixelID.AlphaTestFunc() != GE_COMP_ALWAYS && !clearMode)
-		if (!AlphaTestPassed(pixelID, prim_color.a()))
-			return;
+	if constexpr (!clearMode)
+		if (pixelID.AlphaTestFunc() != GE_COMP_ALWAYS)
+			if (!AlphaTestPassed(pixelID, prim_color.a()))
+				return;
 
 	// Fog is applied prior to color test.
-	if (pixelID.applyFog && !clearMode) {
-		Vec3<int> fogColor = Vec3<int>::FromRGB(pixelID.cached.fogColor);
-		// This is very similar to the BLEND texfunc, and simply always rounds up.
-		static constexpr Vec3<int> roundup = Vec3<int>::AssignToAll(255);
-		fogColor = (prim_color.rgb() * fog + fogColor * (255 - fog) + roundup) / 256;
-		prim_color.r() = fogColor.r();
-		prim_color.g() = fogColor.g();
-		prim_color.b() = fogColor.b();
+	if constexpr (!clearMode) {
+		if (pixelID.applyFog) {
+			Vec3<int> fogColor = Vec3<int>::FromRGB(pixelID.cached.fogColor);
+			// This is very similar to the BLEND texfunc, and simply always rounds up.
+			static constexpr Vec3<int> roundup = Vec3<int>::AssignToAll(255);
+			fogColor = (prim_color.rgb() * fog + fogColor * (255 - fog) + roundup) / 256;
+			prim_color.r() = fogColor.r();
+			prim_color.g() = fogColor.g();
+			prim_color.b() = fogColor.b();
+		}
 	}
 
-	if (pixelID.colorTest && !clearMode)
-		if (!ColorTestPassed(pixelID, prim_color.rgb()))
-			return;
+	if constexpr (!clearMode)
+		if (pixelID.colorTest)
+			if (!ColorTestPassed(pixelID, prim_color.rgb()))
+				return;
 
 	// In clear mode, it uses the alpha color as stencil.
 	uint32_t targetWriteMask = pixelID.applyColorWriteMask ? pixelID.cached.colorWriteMask : 0;
 	u8 stencil = clearMode ? prim_color.a() : GetPixelStencil(fbFormat, pixelID.cached.framebufStride, x, y);
-	if (clearMode) {
+	if constexpr (clearMode) {
 		if (pixelID.DepthClear())
 			SetPixelDepth(x, y, pixelID.cached.depthbufStride, z);
 	} else if (pixelID.stencilTest) {
@@ -717,24 +721,27 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 		}
 	}
 
-	if (pixelID.depthWrite && !clearMode)
-		SetPixelDepth(x, y, pixelID.cached.depthbufStride, z);
+	if constexpr (!clearMode)
+		if (pixelID.depthWrite)
+			SetPixelDepth(x, y, pixelID.cached.depthbufStride, z);
 
 	const u32 old_color = GetPixelColor(fbFormat, pixelID.cached.framebufStride, x, y);
 	u32 new_color;
 
 	// Dithering happens before the logic op and regardless of framebuffer format or clear mode.
 	// We do it while alpha blending because it happens before clamping.
-	if (pixelID.alphaBlend && !clearMode) {
-		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
-		Vec3<int> blended = AlphaBlendingResult(pixelID, prim_color, dst);
-		if (pixelID.dithering) {
-			blended += Vec3<int>::AssignToAll(pixelID.cached.ditherMatrix[(y & 3) * 4 + (x & 3)]);
+	if (pixelID.alphaBlend) {
+		if constexpr (!clearMode) {
+			const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
+			Vec3<int> blended = AlphaBlendingResult(pixelID, prim_color, dst);
+			if (pixelID.dithering) {
+				blended += Vec3<int>::AssignToAll(pixelID.cached.ditherMatrix[(y & 3) * 4 + (x & 3)]);
+			}
+			
+			// ToRGB() always automatically clamps.
+			new_color = blended.ToRGB();
+			new_color |= stencil << 24;
 		}
-
-		// ToRGB() always automatically clamps.
-		new_color = blended.ToRGB();
-		new_color |= stencil << 24;
 	} else {
 		if (pixelID.dithering) {
 			// We'll discard alpha anyway.
@@ -750,12 +757,14 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	}
 
 	// Logic ops are applied after blending (if blending is enabled.)
-	if (pixelID.applyLogicOp && !clearMode) {
-		// Logic ops don't affect stencil, which happens inside ApplyLogicOp.
-		new_color = ApplyLogicOp(pixelID.cached.logicOp, old_color, new_color);
+	if (pixelID.applyLogicOp) {
+		if constexpr (!clearMode) {
+			// Logic ops don't affect stencil, which happens inside ApplyLogicOp.
+			new_color = ApplyLogicOp(pixelID.cached.logicOp, old_color, new_color);
+		}
 	}
 
-	if (clearMode) {
+	if constexpr (clearMode) {
 		if (!pixelID.ColorClear())
 			new_color = (new_color & 0xFF000000) | (old_color & 0x00FFFFFF);
 		if (!pixelID.StencilClear())

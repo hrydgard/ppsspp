@@ -244,7 +244,7 @@ static void DrawSpriteTex(const DrawingCoords &pos0, const DrawingCoords &pos1, 
 		u32 *pixel32 = fb.Get32Ptr(pos0.x, y, state.pixelID.cached.framebufStride);
 		for (int x = pos0.x; x < pos1.x; x++) {
 			Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0, state.samplerID);
-			if (isWhite) {
+			if constexpr (isWhite) {
 				if (!alphaBlend || tex_color.a() != 0) {
 					u32 tex_color32 = tex_color.ToRGBA();
 					if (fmt == GE_FORMAT_8888)
@@ -295,8 +295,9 @@ static void DrawSpriteTex(const DrawingCoords &pos0, const DrawingCoords &pos1, 
 
 template <GEBufferFormat fmt, bool alphaBlend>
 static void DrawSpriteNoTex(const DrawingCoords &pos0, const DrawingCoords &pos1, u32 color0, const RasterizerState &state) {
-	if (alphaBlend && Vec4<int>::FromRGBA(color0).a() == 0)
-		return;
+	if constexpr (alphaBlend)
+        if (Vec4<int>::FromRGBA(color0).a() == 0)
+            return;
 
 	for (int y = pos0.y; y < pos1.y; y++) {
 		if (fmt == GE_FORMAT_8888) {
