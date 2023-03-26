@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "headless/StubHost.h"
+#include "headless/HeadlessHost.h"
 #include <thread>
 
 #undef HEADLESSHOST_CLASS

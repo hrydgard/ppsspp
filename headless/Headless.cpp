@@ -44,7 +44,7 @@
 #include "LogManager.h"
 
 #include "Compare.h"
-#include "StubHost.h"
+#include "HeadlessHost.h"
 #if defined(_WIN32)
 #include "WindowsHeadlessHost.h"
 #elif defined(SDL)

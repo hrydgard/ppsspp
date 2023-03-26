@@ -19,7 +19,7 @@
 
 #ifdef SDL
 
-#include "headless/StubHost.h"
+#include "headless/HeadlessHost.h"
 
 #undef HEADLESSHOST_CLASS
 #define HEADLESSHOST_CLASS SDLHeadlessHost

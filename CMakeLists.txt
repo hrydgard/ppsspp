@@ -2411,8 +2411,8 @@ set(NativeAssets
 if(HEADLESS)
 	set(HeadlessSource
 		headless/Headless.cpp
-		headless/StubHost.cpp
-		headless/StubHost.h
+		headless/HeadlessHost.cpp
+		headless/HeadlessHost.h
 		headless/Compare.cpp
 		headless/Compare.h
 		headless/SDLHeadlessHost.cpp

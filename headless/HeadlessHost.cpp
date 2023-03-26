@@ -22,7 +22,7 @@
 #include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "headless/Compare.h"
-#include "headless/StubHost.h"
+#include "headless/HeadlessHost.h"
 
 void HeadlessHost::SendOrCollectDebugOutput(const std::string &data)
 {

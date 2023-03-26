@@ -763,7 +763,7 @@ ifeq ($(HEADLESS),1)
   LOCAL_MODULE := ppsspp_headless
   LOCAL_SRC_FILES := \
     $(SRC)/headless/Headless.cpp \
-    $(SRC)/headless/StubHost.cpp \
+    $(SRC)/headless/HeadlessHost.cpp \
     $(SRC)/headless/Compare.cpp
 
   include $(BUILD_EXECUTABLE)
