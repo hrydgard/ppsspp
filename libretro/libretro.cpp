@@ -1434,7 +1434,6 @@ bool retro_load_game(const struct retro_game_info *game)
    coreParam.fileToStart     = Path(std::string(game->path));
    coreParam.mountIso.clear();
    coreParam.startBreak      = false;
-   coreParam.printfEmuLog    = true;
    coreParam.headLess        = true;
    coreParam.graphicsContext = ctx;
    coreParam.gpuCore         = ctx->GetGPUCore();

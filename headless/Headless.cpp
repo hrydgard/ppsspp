@@ -201,7 +201,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 
 	std::string output;
 	if (opt.compare || opt.bench)
-		coreParameter.collectEmuLog = &output;
+		coreParameter.collectDebugOutput = &output;
 
 	std::string error_string;
 	if (!PSP_InitStart(coreParameter, &error_string)) {
@@ -446,7 +446,6 @@ int main(int argc, const char* argv[])
 	coreParameter.mountIso = mountIso ? Path(std::string(mountIso)) : Path();
 	coreParameter.mountRoot = mountRoot ? Path(std::string(mountRoot)) : Path();
 	coreParameter.startBreak = false;
-	coreParameter.printfEmuLog = !testOptions.compare;
 	coreParameter.headLess = true;
 	coreParameter.renderScaleFactor = 1;
 	coreParameter.renderWidth = 480;
@@ -523,6 +522,7 @@ int main(int argc, const char* argv[])
 	if (screenshotFilename)
 		headlessHost->SetComparisonScreenshot(Path(std::string(screenshotFilename)), testOptions.maxScreenshotError);
 	headlessHost->SetWriteFailureScreenshot(!teamCityMode && !getenv("GITHUB_ACTIONS") && !testOptions.bench);
+	headlessHost->SetWriteDebugOutput(!testOptions.compare && !testOptions.bench);
 
 #if PPSSPP_PLATFORM(ANDROID)
 	// For some reason the debugger installs it with this name?

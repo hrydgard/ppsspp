@@ -305,7 +305,6 @@ void EmuScreen::bootGame(const Path &filename) {
 	coreParam.mountIso.clear();
 	coreParam.mountRoot.clear();
 	coreParam.startBreak = !g_Config.bAutoRun;
-	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
 
 	if (g_Config.iInternalResolution == 0) {

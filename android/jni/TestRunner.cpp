@@ -95,13 +95,12 @@ bool RunTests() {
 	coreParam.mountIso.clear();
 	coreParam.mountRoot = baseDirectory / "pspautotests";
 	coreParam.startBreak = false;
-	coreParam.printfEmuLog = false;
 	coreParam.headLess = true;
 	coreParam.renderWidth = 480;
 	coreParam.renderHeight = 272;
 	coreParam.pixelWidth = 480;
 	coreParam.pixelHeight = 272;
-	coreParam.collectEmuLog = &output;
+	coreParam.collectDebugOutput = &output;
 	coreParam.fastForward = true;
 	coreParam.updateRecent = false;
 

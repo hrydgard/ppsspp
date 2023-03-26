@@ -66,9 +66,9 @@ HWND CreateHiddenWindow() {
 	return CreateWindowEx(0, L"PPSSPPHeadless", L"PPSSPPHeadless", style, CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, NULL, NULL, NULL);
 }
 
-void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
-{
-	fwrite(output.data(), sizeof(char), output.length(), stdout);
+void WindowsHeadlessHost::SendDebugOutput(const std::string &output) {
+	if (writeDebugOutput_)
+		fwrite(output.data(), sizeof(char), output.length(), stdout);
 	OutputDebugStringUTF8(output.c_str());
 }
 
