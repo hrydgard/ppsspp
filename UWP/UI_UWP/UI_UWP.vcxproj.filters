@@ -3,7 +3,6 @@
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="..\..\UI\BackgroundAudio.cpp" />
-    <ClCompile Include="..\..\UI\ComboKeyMappingScreen.cpp" />
     <ClCompile Include="..\..\UI\ControlMappingScreen.cpp" />
     <ClCompile Include="..\..\UI\CwCheatScreen.cpp" />
     <ClCompile Include="..\..\UI\DevScreens.cpp" />
@@ -34,12 +33,12 @@
     <ClCompile Include="..\..\UI\Theme.cpp" />
     <ClCompile Include="..\..\UI\JoystickHistoryView.cpp" />
     <ClCompile Include="..\..\UI\AudioCommon.cpp" />
+    <ClCompile Include="..\..\UI\CustomButtonMappingScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="..\..\UI\BackgroundAudio.h" />
-    <ClInclude Include="..\..\UI\ComboKeyMappingScreen.h" />
     <ClInclude Include="..\..\UI\ControlMappingScreen.h" />
     <ClInclude Include="..\..\UI\CwCheatScreen.h" />
     <ClInclude Include="..\..\UI\DevScreens.h" />
@@ -69,5 +68,6 @@
     <ClInclude Include="..\..\UI\Theme.h" />
     <ClInclude Include="..\..\UI\JoystickHistoryView.h" />
     <ClInclude Include="..\..\UI\AudioCommon.h" />
+    <ClInclude Include="..\..\UI\CustomButtonMappingScreen.h" />
   </ItemGroup>
 </Project>

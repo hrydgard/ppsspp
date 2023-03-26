@@ -1356,8 +1356,8 @@ list(APPEND NativeAppSource
 	UI/MemStickScreen.cpp
 	UI/ProfilerDraw.h
 	UI/ProfilerDraw.cpp
-	UI/ComboKeyMappingScreen.h
-	UI/ComboKeyMappingScreen.cpp
+	UI/CustomButtonMappingScreen.h
+	UI/CustomButtonMappingScreen.cpp
 	UI/Theme.h
 	UI/Theme.cpp
 )

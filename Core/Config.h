@@ -355,16 +355,16 @@ public:
 	ConfigTouchPos touchAnalogStick;
 	ConfigTouchPos touchRightAnalogStick;
 
-	ConfigTouchPos touchCombo0;
-	ConfigTouchPos touchCombo1;
-	ConfigTouchPos touchCombo2;
-	ConfigTouchPos touchCombo3;
-	ConfigTouchPos touchCombo4;
-	ConfigTouchPos touchCombo5;
-	ConfigTouchPos touchCombo6;
-	ConfigTouchPos touchCombo7;
-	ConfigTouchPos touchCombo8;
-	ConfigTouchPos touchCombo9;
+	ConfigTouchPos touchCustom0;
+	ConfigTouchPos touchCustom1;
+	ConfigTouchPos touchCustom2;
+	ConfigTouchPos touchCustom3;
+	ConfigTouchPos touchCustom4;
+	ConfigTouchPos touchCustom5;
+	ConfigTouchPos touchCustom6;
+	ConfigTouchPos touchCustom7;
+	ConfigTouchPos touchCustom8;
+	ConfigTouchPos touchCustom9;
 
 	float fLeftStickHeadScale;
 	float fRightStickHeadScale;
@@ -378,16 +378,16 @@ public:
 	bool bShowTouchTriangle;
 	bool bShowTouchSquare;
 
-	ConfigCustomButton CustomKey0;
-	ConfigCustomButton CustomKey1;
-	ConfigCustomButton CustomKey2;
-	ConfigCustomButton CustomKey3;
-	ConfigCustomButton CustomKey4;
-	ConfigCustomButton CustomKey5;
-	ConfigCustomButton CustomKey6;
-	ConfigCustomButton CustomKey7;
-	ConfigCustomButton CustomKey8;
-	ConfigCustomButton CustomKey9;	
+	ConfigCustomButton CustomButton0;
+	ConfigCustomButton CustomButton1;
+	ConfigCustomButton CustomButton2;
+	ConfigCustomButton CustomButton3;
+	ConfigCustomButton CustomButton4;
+	ConfigCustomButton CustomButton5;
+	ConfigCustomButton CustomButton6;
+	ConfigCustomButton CustomButton7;
+	ConfigCustomButton CustomButton8;
+	ConfigCustomButton CustomButton9;
 
 	// Ignored on iOS and other platforms that lack pause.
 	bool bShowTouchPause;
