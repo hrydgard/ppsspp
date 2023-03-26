@@ -1892,7 +1892,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	if (!dstBuffer && srcBuffer && channel != RASTER_DEPTH) {
 		// Note - if we're here, we're in a memcpy, not a block transfer. Not allowing IntraVRAMBlockTransferAllowCreateFB.
 		// Technically, that makes BlockTransferAllowCreateFB a bit of a misnomer.
-		if (PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB) {
+		if (PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB && !(flags & GPUCopyFlag::DISALLOW_CREATE_VFB)) {
 			dstBuffer = CreateRAMFramebuffer(dst, srcBuffer->width, srcBuffer->height, srcBuffer->fb_stride, srcBuffer->fb_format);
 			dstY = 0;
 		}
