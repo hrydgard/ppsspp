@@ -23,6 +23,7 @@ public:
 	void SetCallbacks(
 		std::function<void(int)> onVKeyDown,
 		std::function<void(int)> onVKeyUp,
+		std::function<void(int, bool)> setPSPButtonState,
 		std::function<void(int, float, float)> setPSPAnalog);
 
 	// Optional callback, only used in config
@@ -53,6 +54,7 @@ private:
 	bool autoRotatingAnalogCCW_ = false;
 
 	// Callbacks
+	std::function<void(int, bool)> setPSPButtonState_;
 	std::function<void(int)> onVKeyDown_;
 	std::function<void(int)> onVKeyUp_;
 	std::function<void(int, float, float)> setPSPAnalog_;

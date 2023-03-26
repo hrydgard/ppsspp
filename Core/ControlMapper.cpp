@@ -4,6 +4,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/Log.h"
 
+#include "Core/HLE/sceCtrl.h"
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
@@ -40,9 +41,10 @@ void ConvertAnalogStick(float &x, float &y) {
 	y = Clamp(y / norm * mappedNorm, -1.0f, 1.0f);
 }
 
-void ControlMapper::SetCallbacks(std::function<void(int)> onVKeyDown, std::function<void(int)> onVKeyUp, std::function<void(int, float, float)> setPSPAnalog) {
+void ControlMapper::SetCallbacks(std::function<void(int)> onVKeyDown, std::function<void(int)> onVKeyUp, std::function<void(int, bool)> setPSPButtonState, std::function<void(int, float, float)> setPSPAnalog) {
 	onVKeyDown_ = onVKeyDown;
 	onVKeyUp_ = onVKeyUp;
+	setPSPButtonState_ = setPSPButtonState;
 	setPSPAnalog_ = setPSPAnalog;
 }
 
@@ -71,7 +73,6 @@ void ControlMapper::SetPSPAxis(int device, char axis, float value, int stick) {
 	bool inDeadZone = fabsf(value) < g_Config.fAnalogDeadzone * 0.7f;
 
 	bool ignore = false;
-
 	if (inDeadZone && lastNonDeadzoneDeviceID_[stick] != device) {
 		// Ignore this event! See issue #15465
 		ignore = true;
@@ -221,9 +222,9 @@ void ControlMapper::pspKey(int deviceId, int pspKeyCode, int flags) {
 	} else {
 		// INFO_LOG(SYSTEM, "pspKey %i %i", pspKeyCode, flags);
 		if (flags & KEY_DOWN)
-			__CtrlButtonDown(pspKeyCode);
+			setPSPButtonState_(pspKeyCode, true);
 		if (flags & KEY_UP)
-			__CtrlButtonUp(pspKeyCode);
+			setPSPButtonState_(pspKeyCode, false);
 	}
 }
 
@@ -301,12 +302,12 @@ void ControlMapper::onVKeyUp(int deviceId, int vkey) {
 
 	case VIRTKEY_ANALOG_ROTATE_CW:
 		autoRotatingAnalogCW_ = false;
-		__CtrlSetAnalogXY(0, 0.0f, 0.0f);
+		setPSPAnalog_(0, 0.0f, 0.0f);
 		break;
 
 	case VIRTKEY_ANALOG_ROTATE_CCW:
 		autoRotatingAnalogCCW_ = false;
-		__CtrlSetAnalogXY(0, 0.0f, 0.0f);
+		setPSPAnalog_(0, 0.0f, 0.0f);
 		break;
 
 	default:

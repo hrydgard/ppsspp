@@ -14,6 +14,8 @@
 #include "Common/Math/lin/matrix4x4.h"
 
 #include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceCtrl.h"
+
 #include "Core/Config.h"
 #include "Core/KeyMap.h"
 #include "Core/System.h"

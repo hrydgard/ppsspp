@@ -19,6 +19,7 @@
 #pragma once
 
 #include <vector>
+
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 
