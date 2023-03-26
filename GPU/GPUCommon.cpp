@@ -1977,7 +1977,7 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 
 bool GPUCommon::PerformReadbackToMemory(u32 dest, int size) {
 	if (Memory::IsVRAMAddress(dest)) {
-		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_DST_MEM);
+		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_DST_MATCH_MEM);
 	}
 	return false;
 }
@@ -1985,7 +1985,7 @@ bool GPUCommon::PerformReadbackToMemory(u32 dest, int size) {
 bool GPUCommon::PerformWriteColorFromMemory(u32 dest, int size) {
 	if (Memory::IsVRAMAddress(dest)) {
 		GPURecord::NotifyUpload(dest, size);
-		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_SRC_MEM | GPUCopyFlag::DEBUG_NOTIFIED);
+		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_SRC_MATCH_MEM | GPUCopyFlag::DEBUG_NOTIFIED);
 	}
 	return false;
 }
