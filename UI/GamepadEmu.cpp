@@ -826,7 +826,7 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 		}
 		return nullptr;
 	};
-	auto addComboKey = [=](const ConfigCustomButton& cfg, const char *key, const ConfigTouchPos &touch) -> CustomKey * {
+	auto addCustomButton = [=](const ConfigCustomButton& cfg, const char *key, const ConfigTouchPos &touch) -> CustomKey * {
 		using namespace CustomKeyData;
 		if (touch.show) {
 			auto aux = root->Add(new CustomKey(cfg.key, key, cfg.toggle, cfg.repeat, controllMapper,
@@ -885,16 +885,16 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 			root->Add(new PSPStick(stickBg, "Right analog stick", stickImage, ImageID("I_STICK"), 1, g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
 	}
 
-	addComboKey(g_Config.CustomKey0, "Custom 1 button", g_Config.touchCustom0);
-	addComboKey(g_Config.CustomKey1, "Custom 2 button", g_Config.touchCustom1);
-	addComboKey(g_Config.CustomKey2, "Custom 3 button", g_Config.touchCustom2);
-	addComboKey(g_Config.CustomKey3, "Custom 4 button", g_Config.touchCustom3);
-	addComboKey(g_Config.CustomKey4, "Custom 5 button", g_Config.touchCustom4);
-	addComboKey(g_Config.CustomKey5, "Custom 6 button", g_Config.touchCustom5);
-	addComboKey(g_Config.CustomKey6, "Custom 7 button", g_Config.touchCustom6);
-	addComboKey(g_Config.CustomKey7, "Custom 8 button", g_Config.touchCustom7);
-	addComboKey(g_Config.CustomKey8, "Custom 9 button", g_Config.touchCustom8);
-	addComboKey(g_Config.CustomKey9, "Custom 10 button", g_Config.touchCustom9);
+	addCustomButton(g_Config.CustomButton0, "Custom 1 button", g_Config.touchCustom0);
+	addCustomButton(g_Config.CustomButton1, "Custom 2 button", g_Config.touchCustom1);
+	addCustomButton(g_Config.CustomButton2, "Custom 3 button", g_Config.touchCustom2);
+	addCustomButton(g_Config.CustomButton3, "Custom 4 button", g_Config.touchCustom3);
+	addCustomButton(g_Config.CustomButton4, "Custom 5 button", g_Config.touchCustom4);
+	addCustomButton(g_Config.CustomButton5, "Custom 6 button", g_Config.touchCustom5);
+	addCustomButton(g_Config.CustomButton6, "Custom 7 button", g_Config.touchCustom6);
+	addCustomButton(g_Config.CustomButton7, "Custom 8 button", g_Config.touchCustom7);
+	addCustomButton(g_Config.CustomButton8, "Custom 9 button", g_Config.touchCustom8);
+	addCustomButton(g_Config.CustomButton9, "Custom 10 button", g_Config.touchCustom9);
 
 	if (g_Config.bGestureControlEnabled)
 		root->Add(new GestureGamepad(controllMapper));

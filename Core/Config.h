@@ -378,16 +378,16 @@ public:
 	bool bShowTouchTriangle;
 	bool bShowTouchSquare;
 
-	ConfigCustomButton CustomKey0;
-	ConfigCustomButton CustomKey1;
-	ConfigCustomButton CustomKey2;
-	ConfigCustomButton CustomKey3;
-	ConfigCustomButton CustomKey4;
-	ConfigCustomButton CustomKey5;
-	ConfigCustomButton CustomKey6;
-	ConfigCustomButton CustomKey7;
-	ConfigCustomButton CustomKey8;
-	ConfigCustomButton CustomKey9;	
+	ConfigCustomButton CustomButton0;
+	ConfigCustomButton CustomButton1;
+	ConfigCustomButton CustomButton2;
+	ConfigCustomButton CustomButton3;
+	ConfigCustomButton CustomButton4;
+	ConfigCustomButton CustomButton5;
+	ConfigCustomButton CustomButton6;
+	ConfigCustomButton CustomButton7;
+	ConfigCustomButton CustomButton8;
+	ConfigCustomButton CustomButton9;
 
 	// Ignored on iOS and other platforms that lack pause.
 	bool bShowTouchPause;

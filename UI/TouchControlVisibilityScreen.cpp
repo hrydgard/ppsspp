@@ -16,11 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Render/TextureAtlas.h"
-
-#include "TouchControlVisibilityScreen.h"
-#include "Core/Config.h"
 #include "Common/Data/Text/I18n.h"
-#include "ComboKeyMappingScreen.h"
+
+#include "Core/Config.h"
+
+#include "UI/TouchControlVisibilityScreen.h"
+#include "UI/CustomButtonMappingScreen.h"
 
 static const int leftColumnWidth = 140;
 
