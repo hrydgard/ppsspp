@@ -111,7 +111,8 @@ public:
 	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo);
 
 	// Notify that a new texture was decoded. May already be upscaled, saves the data passed.
-	void NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int origW, int origH, int scaledW, int scaledH);
+	// If the replacer knows about this one already, texture will be passed in, otherwise nullptr.
+	void NotifyTextureDecoded(ReplacedTexture *texture, const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int origW, int origH, int scaledW, int scaledH);
 
 	void Decimate(ReplacerDecimateMode mode);
 
