@@ -29,6 +29,7 @@
 #include "Common/StringUtils.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/SysError.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
@@ -870,7 +871,7 @@ VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSys
 			library = NULL;
 		}
 	} else {
-		ERROR_LOG(FILESYS, "Unable to load handler: %s", filename);
+		ERROR_LOG(FILESYS, "Unable to load handler '%s': %s", filename, GetLastErrorMsg().c_str());
 	}
 #ifdef _WIN32
 #undef dlopen
