@@ -582,13 +582,10 @@ public:
 
 	Path filename;
 	Path saveFilename;
-	Path alreadyReplacedFilename;  // if the texture was already replaced
 	bool createSaveDirectory = false;
 	Path saveDirectory;
 
 	u32 replacedInfoHash = 0;
-
-	bool skipIfExists = false;
 
 	SaveTextureTask(std::vector<u8> &&_rgbaData) : rgbaData(std::move(_rgbaData)) {}
 
@@ -601,17 +598,12 @@ public:
 
 	void Run() override {
 		// Should we skip writing if the newly saved data already exists?
-		if (skipIfExists && File::Exists(saveFilename)) {
+		if (File::Exists(saveFilename)) {
 			return;
 		}
 
-		// And we always skip if the auto-hash-named replace file already exists.
+		// And we always skip if the replace file already exists.
 		if (File::Exists(filename)) {
-			return;
-		}
-
-		// Also, if a named replacement already exists, don't save.
-		if (File::Exists(alreadyReplacedFilename)) {
 			return;
 		}
 
@@ -619,6 +611,10 @@ public:
 			File::CreateFullPath(saveDirectory);
 			File::CreateEmptyFile(saveDirectory / ".nomedia");
 		}
+
+		// Now that we've passed the checks, we change the file extension of the path we're actually
+		// going to write to to .png.
+		saveFilename = saveFilename.WithReplacedExtension(".png");
 
 		png_image png{};
 		png.version = PNG_IMAGE_VERSION;
@@ -657,7 +653,9 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 		// Ignore.
 		return;
 	}
+
 	if (ignoreMipmap_ && level > 0) {
+		// Not saving higher mips.
 		return;
 	}
 
@@ -666,22 +664,25 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 		cachekey = cachekey & 0xFFFFFFFFULL;
 	}
 
-	bool foundAlias = false, ignored = false;
+	bool foundAlias = false;
+	bool ignored = false;
 	std::string replacedLevelNames = LookupHashFile(cachekey, replacedInfo.hash, &foundAlias, &ignored);
-	std::vector<std::string> names;
-	SplitString(replacedLevelNames, '|', names);
-	std::string replacedLevelName = names[std::min(level, (int)(names.size() - 1))];
-
 	if (ignored) {
-		// If it's empty, it's an ignored hash, we intentionally don't save.
+		// The ini file entry was set to empty string. We can early-out.
 		return;
 	}
 
-	// We do push other textures on a thread for saving.
-
-	// Generate a new PNG filename, complete with level.
-	// TODO: If we already have a filename but it's missing, should we use that filename or a generated one?
-	std::string hashfile = HashName(cachekey, replacedInfo.hash, level) + ".png";
+	// Alright, get the specified filename for the level.
+	std::string hashfile;
+	if (!replacedLevelNames.empty()) {
+		// If the user has specified a name before, we get it here.
+		std::vector<std::string> names;
+		SplitString(replacedLevelNames, '|', names);
+		hashfile = names[std::min(level, (int)(names.size() - 1))];
+	} else {
+		// Generate a new PNG filename, complete with level.
+		hashfile = HashName(cachekey, replacedInfo.hash, level) + ".png";
+	}
 
 	ReplacementCacheKey replacementKey(cachekey, replacedInfo.hash);
 	auto it = savedCache_.find(replacementKey);
@@ -718,7 +719,6 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 
 	task->filename = basePath_ / hashfile;
 	task->saveFilename = newTextureDir_ / hashfile;
-	task->alreadyReplacedFilename = basePath_ / replacedLevelName;
 	task->createSaveDirectory = false;
 
 	// Create subfolder as needed.
@@ -741,7 +741,6 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 	task->h = h;
 	task->pitch = pitch;
 	task->replacedInfoHash = replacedInfo.hash;
-	task->skipIfExists = true;  // if already in the "new" folder, don't bother writing.
 	g_threadManager.EnqueueTask(task);  // We don't care about waiting for the task. It'll be fine.
 
 	// Remember that we've saved this for next time.
