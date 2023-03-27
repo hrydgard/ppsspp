@@ -855,8 +855,8 @@ VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSys
 		Read = (ReadFunc)dlsym(library, "Read");
 		Close = (CloseFunc)dlsym(library, "Close");
 
-		VersionFunc Version = VersionFunc();
-		if (Version() >= 2) {
+		VersionFunc Version = (VersionFunc)dlsym(library, "Version");
+		if (Version && Version() >= 2) {
 			ShutdownV2 = (ShutdownV2Func)Shutdown;
 		}
 
