@@ -114,3 +114,4 @@ void DarwinFileSystemServices::setUserPreferredMemoryStickDirectory(Path path) {
                                               forKey:@(PreferredMemoryStickUserDefaultsKey)];
     g_Config.memStickDirectory = path;
 }
+

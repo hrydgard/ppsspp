@@ -602,10 +602,10 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	});
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
-	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::FPS_COUNTER, gr->T("Show FPS Counter")));
-	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::SPEED_COUNTER, gr->T("Show Speed")));
+	BitCheckBox *showFPSCtr = graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::FPS_COUNTER, gr->T("Show FPS Counter")));
+	BitCheckBox *showSpeed = graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::SPEED_COUNTER, gr->T("Show Speed")));
 #ifdef CAN_DISPLAY_CURRENT_BATTERY_CAPACITY
-	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::BATTERY_PERCENT, gr->T("Show Battery %")));
+	BitCheckBox *showBattery = graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::BATTERY_PERCENT, gr->T("Show Battery %")));
 #endif
 
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
@@ -618,8 +618,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	auto ms = GetI18NCategory("MainSettings");
 
 	audioSettings->Add(new ItemHeader(ms->T("Audio")));
-	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
-
+	CheckBox *enableSound = audioSettings->Add(new CheckBox(&g_Config.bEnableSound,a->T("Enable Sound")));
 	PopupSliderChoice *volume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGlobalVolume, VOLUME_OFF, VOLUME_FULL, a->T("Global volume"), screenManager()));
 	volume->SetEnabledPtr(&g_Config.bEnableSound);
 	volume->SetZeroLabel(a->T("Mute"));
@@ -1167,7 +1166,7 @@ UI::LinearLayout *GameSettingsScreen::AddTab(const char *tag, const std::string 
 	contents->SetSpacing(0);
 	scroll->Add(contents);
 	tabHolder_->AddTab(title, scroll);
-
+    
 	if (!isSearch) {
 		settingTabContents_.push_back(contents);
 
@@ -1180,12 +1179,7 @@ UI::LinearLayout *GameSettingsScreen::AddTab(const char *tag, const std::string 
 }
 
 UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
-	if (g_Config.bAutoFrameSkip && g_Config.iFrameSkip == 0) {
-		g_Config.iFrameSkip = 1;
-	}
-	if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
-		g_Config.bSkipBufferEffects = false;
-	}
+	g_Config.UpdateAfterSettingAutoFrameSkip();
 	return UI::EVENT_DONE;
 }
 

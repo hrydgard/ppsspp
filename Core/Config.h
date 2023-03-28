@@ -567,9 +567,8 @@ public:
 	const std::map<std::string, std::pair<std::string, int>> &GetLangValuesMapping();
 	bool LoadAppendedConfig();
 	void SetAppendedConfigIni(const Path &path);
-
+	void UpdateAfterSettingAutoFrameSkip();
 	void NotifyUpdatedCpuCore();
-
 protected:
 	void LoadStandardControllerIni();
 	void LoadLangValuesMapping();

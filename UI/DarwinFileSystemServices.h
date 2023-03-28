@@ -32,3 +32,4 @@ private:
     void *__pickerDelegate = NULL;
 #endif // PPSSPP_PLATFORM(IOS)
 };
+
