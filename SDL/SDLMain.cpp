@@ -67,8 +67,6 @@ SDLJoystick *joystick = NULL;
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
 
-static bool g_ToggleFullScreenNextFrame = false;
-static int g_ToggleFullScreenType;
 static int g_QuitRequested = 0;
 
 static int g_DesktopWidth = 0;
@@ -77,6 +75,16 @@ static float g_RefreshRate = 60.f;
 static int g_sampleRate = 44100;
 
 static SDL_AudioSpec g_retFmt;
+
+// Window state to be transferred to the main SDL thread.
+static std::mutex g_mutexWindow;
+struct WindowState {
+	std::string title;
+	bool toggleFullScreenNextFrame;
+	int toggleFullScreenType;
+	bool update;
+};
+static WindowState g_windowState;
 
 int getDisplayNumber(void) {
 	int displayNumber = 0;
@@ -177,6 +185,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		g_QuitRequested = true;
 		return true;
 	case SystemRequestType::COPY_TO_CLIPBOARD:
+		// Not sure if this is actually free threaded. Let's hope it is.
 		SDL_SetClipboardText(param1.c_str());
 		return true;
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
@@ -208,16 +217,27 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 #endif
 	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
-		g_ToggleFullScreenNextFrame = true;
+	{
+		std::lock_guard<std::mutex> guard(g_mutexWindow);
+		g_windowState.update = true;
+		g_windowState.toggleFullScreenNextFrame = true;
 		if (param1 == "1") {
-			g_ToggleFullScreenType = 1;
+			g_windowState.toggleFullScreenType = 1;
 		} else if (param1 == "0") {
-			g_ToggleFullScreenType = 0;
+			g_windowState.toggleFullScreenType = 0;
 		} else {
 			// Just toggle.
-			g_ToggleFullScreenType = -1;
+			g_windowState.toggleFullScreenType = -1;
 		}
 		return true;
+	}
+	case SystemRequestType::SET_WINDOW_TITLE:
+	{
+		std::lock_guard<std::mutex> guard(g_mutexWindow);
+		g_windowState.title = param1;
+		g_windowState.update = true;
+		return true;
+	}
 	default:
 		return false;
 	}
@@ -496,14 +516,15 @@ static float parseFloat(const char *str) {
 	}
 }
 
-void ToggleFullScreenIfFlagSet(SDL_Window *window) {
-	if (g_ToggleFullScreenNextFrame) {
-		g_ToggleFullScreenNextFrame = false;
+void UpdateWindowState(SDL_Window *window) {
+	SDL_SetWindowTitle(window, g_windowState.title.c_str());
+	if (g_windowState.toggleFullScreenNextFrame) {
+		g_windowState.toggleFullScreenNextFrame = false;
 
 		Uint32 window_flags = SDL_GetWindowFlags(window);
-		if (g_ToggleFullScreenType == -1) {
+		if (g_windowState.toggleFullScreenType == -1) {
 			window_flags ^= SDL_WINDOW_FULLSCREEN_DESKTOP;
-		} else if (g_ToggleFullScreenType == 1) {
+		} else if (g_windowState.toggleFullScreenType == 1) {
 			window_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 		} else {
 			window_flags &= ~SDL_WINDOW_FULLSCREEN_DESKTOP;
@@ -1248,7 +1269,13 @@ int main(int argc, char *argv[]) {
 
 		graphicsContext->SwapBuffers();
 
-		ToggleFullScreenIfFlagSet(window);
+
+		{
+			std::lock_guard<std::mutex> guard(g_mutexWindow);
+			if (g_windowState.update) {
+				UpdateWindowState(window);
+			}
+		}
 
 		// Simple throttling to not burn the GPU in the menu.
 		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited() || renderThreadPaused) {
