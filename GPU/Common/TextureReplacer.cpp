@@ -240,7 +240,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 
 		for (const auto &item : hashes) {
 			ReplacementCacheKey key(0, 0);
-			int level = 0;  // sscanf might fail to pluck the level, but that's ok, we default to 0.
+			int level = 0;  // sscanf might fail to pluck the level, but that's ok, we default to 0. sscanf doesn't write to non-matched outputs.
 			if (sscanf(item.first.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
 				filenameMap[key][level] = item.second;
 				if (checkFilenames) {
@@ -272,6 +272,12 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 			}
 			if (alias == "|") {
 				alias = "";  // marker for no replacement
+			}
+			// Replace any '\' with '/', to be safe and consistent. Since these are from the ini file, we do this on all platforms.
+			for (auto &c : alias) {
+				if (c == '\\') {
+					c = '/';
+				}
 			}
 			aliases_[pair.first] = alias;
 		}
@@ -582,8 +588,6 @@ public:
 
 	Path filename;
 	Path saveFilename;
-	bool createSaveDirectory = false;
-	Path saveDirectory;
 
 	u32 replacedInfoHash = 0;
 
@@ -607,9 +611,11 @@ public:
 			return;
 		}
 
-		if (createSaveDirectory && !File::Exists(saveDirectory)) {
+		Path saveDirectory = filename.NavigateUp();
+		if (!File::Exists(saveDirectory)) {
+			// Previously, we created a .nomedia file here. This is unnecessary as they have recursive behavior.
+			// When initializing (see NotifyConfigChange above) we create one in the "root" of the "new" folder.
 			File::CreateFullPath(saveDirectory);
-			File::CreateEmptyFile(saveDirectory / ".nomedia");
 		}
 
 		// Now that we've passed the checks, we change the file extension of the path we're actually
@@ -719,23 +725,6 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 
 	task->filename = basePath_ / hashfile;
 	task->saveFilename = newTextureDir_ / hashfile;
-	task->createSaveDirectory = false;
-
-	// Create subfolder as needed.
-#ifdef _WIN32
-	size_t slash = hashfile.find_last_of("/\\");
-#else
-	size_t slash = hashfile.find_last_of("/");
-#endif
-	if (slash != hashfile.npos) {
-		// Does this ever happen?
-		// Answer: An alias could be used to save a texture in a subfolder of newTextureDir_
-		// (i.e. if you had the hash and purged out your pngs to redump them), although I guess this usage is probably uncommon.  - unknown
-
-		// Create any directory structure as needed.
-		task->saveDirectory = newTextureDir_ / hashfile.substr(0, slash);
-		task->createSaveDirectory = true;
-	}
 
 	task->w = w;
 	task->h = h;
