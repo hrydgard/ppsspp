@@ -587,12 +587,16 @@ static const ConfigSetting generalSettings[] = {
 
 #if defined(USING_WIN_UI)
 	ConfigSetting("TopMost", &g_Config.bTopMost, false),
+	ConfigSetting("PauseOnLostFocus", &g_Config.bPauseOnLostFocus, false, true, true),
+#endif
+
+#if !defined(MOBILE_DEVICE)
 	ConfigSetting("WindowX", &g_Config.iWindowX, -1), // -1 tells us to center the window.
 	ConfigSetting("WindowY", &g_Config.iWindowY, -1),
 	ConfigSetting("WindowWidth", &g_Config.iWindowWidth, 0),   // 0 will be automatically reset later (need to do the AdjustWindowRect dance).
 	ConfigSetting("WindowHeight", &g_Config.iWindowHeight, 0),
-	ConfigSetting("PauseOnLostFocus", &g_Config.bPauseOnLostFocus, false, true, true),
 #endif
+
 	ConfigSetting("PauseWhenMinimized", &g_Config.bPauseWhenMinimized, false, true, true),
 	ConfigSetting("DumpDecryptedEboots", &g_Config.bDumpDecryptedEboot, false, true, true),
 	ConfigSetting("FullscreenOnDoubleclick", &g_Config.bFullscreenOnDoubleclick, true, false, false),

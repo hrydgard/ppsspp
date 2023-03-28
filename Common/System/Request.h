@@ -12,9 +12,11 @@ class Path;
 typedef std::function<void(const char *responseString, int responseValue)> RequestCallback;
 typedef std::function<void()> RequestFailedCallback;
 
-// Platforms often have to process requests asynchronously, on wildly different threads.
-// (Especially Android...)
+// Platforms often have to process requests asynchronously, on wildly different threads,
+// and then somehow pass a response back to the main thread (especially Android...)
 // This acts as bridge and buffer.
+// However - the actual request is performed on the current thread, it's the callbacks that are "made threadsafe"
+// by running them on the main thread. So beware in your implementations!
 class RequestManager {
 public:
 	// These requests are to be handled by platform implementations.
