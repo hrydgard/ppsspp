@@ -4,6 +4,7 @@
 #include <tchar.h>
 #include <math.h>
 #include <iomanip>
+#include <sstream>
 #include "ext/xxhash.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
@@ -496,6 +497,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 		HMENU menu = GetContextMenu(ContextMenuID::MEMVIEW);
 		EnableMenuItem(menu, ID_MEMVIEW_COPYVALUE_16, enable16 ? MF_ENABLED : MF_GRAYED);
 		EnableMenuItem(menu, ID_MEMVIEW_COPYVALUE_32, enable32 ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu, ID_MEMVIEW_COPYFLOAT_32, enable32 ? MF_ENABLED : MF_GRAYED);
 
 		switch (TriggerContextMenu(ContextMenuID::MEMVIEW, wnd, ContextPoint::FromEvent(lParam))) {
 		case ID_MEMVIEW_DUMP:
@@ -576,6 +578,15 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 				delete[] temp;
 			}
 			break;
+
+		case ID_MEMVIEW_COPYFLOAT_32:
+		{
+			auto memLock = Memory::Lock();
+			std::ostringstream stream;
+			stream << (Memory::IsValidAddress(curAddress_) ? Memory::Read_Float(curAddress_) : NAN);
+			W32Util::CopyTextToClipboard(wnd, stream.str().c_str());
+		}
+		break;
 
 		case ID_MEMVIEW_EXTENTBEGIN:
 		{
