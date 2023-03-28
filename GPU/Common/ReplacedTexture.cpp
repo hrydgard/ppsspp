@@ -186,6 +186,8 @@ bool ReplacedTexture::Poll(double budget) {
 	if (threadWaitable_->WaitFor(budget)) {
 		// If we successfully wait here, we're done. The thread will set state accordingly.
 		_assert_(State() == ReplacementState::ACTIVE || State() == ReplacementState::NOT_FOUND || State() == ReplacementState::CANCEL_INIT);
+		delete threadWaitable_;
+		threadWaitable_ = nullptr;
 		return true;
 	}
 	// Still pending on thread.
@@ -220,6 +222,12 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 
 		VFSFileReference *fileRef = vfs_->GetFile(desc_.filenames[i].c_str());
 		if (!fileRef) {
+			if (i == 0) {
+				WARN_LOG(G3D, "Texture replacement file '%s' not found", desc_.filenames[i].c_str());
+				// No file at all. Mark as NOT_FOUND.
+				SetState(ReplacementState::NOT_FOUND);
+				return;
+			}
 			// If the file doesn't exist, let's just bail immediately here.
 			// Mark as DONE, not error.
 			result = LoadLevelResult::DONE;
@@ -276,8 +284,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 
 	SetState(ReplacementState::ACTIVE);
 
-	if (threadWaitable_)
-		threadWaitable_->Notify();
+	// the caller calls threadWaitable->notify().
 }
 
 // Returns true if Prepare should keep calling this to load more levels.
