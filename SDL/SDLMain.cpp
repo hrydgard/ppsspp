@@ -82,6 +82,8 @@ struct WindowState {
 	std::string title;
 	bool toggleFullScreenNextFrame;
 	int toggleFullScreenType;
+	bool clipboardDataAvailable;
+	std::string clipboardString;
 	bool update;
 };
 static WindowState g_windowState;
@@ -184,10 +186,6 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		// Do a clean exit
 		g_QuitRequested = true;
 		return true;
-	case SystemRequestType::COPY_TO_CLIPBOARD:
-		// Not sure if this is actually free threaded. Let's hope it is.
-		SDL_SetClipboardText(param1.c_str());
-		return true;
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
@@ -234,7 +232,15 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::SET_WINDOW_TITLE:
 	{
 		std::lock_guard<std::mutex> guard(g_mutexWindow);
-		g_windowState.title = param1;
+		g_windowState.title = param1.empty() ? "PPSSPP " : param1;
+		g_windowState.update = true;
+		return true;
+	}
+	case SystemRequestType::COPY_TO_CLIPBOARD:
+	{
+		std::lock_guard<std::mutex> guard(g_mutexWindow);
+		g_windowState.clipboardString = param1;
+		g_windowState.clipboardDataAvailable = true;
 		g_windowState.update = true;
 		return true;
 	}
@@ -531,6 +537,12 @@ void UpdateWindowState(SDL_Window *window) {
 		}
 		SDL_SetWindowFullscreen(window, window_flags);
 	}
+	if (g_windowState.clipboardDataAvailable) {
+		SDL_SetClipboardText(g_windowState.clipboardString.c_str());
+		g_windowState.clipboardDataAvailable = false;
+		g_windowState.clipboardString.clear();
+	}
+	g_windowState.update = false;
 }
 
 enum class EmuThreadState {
