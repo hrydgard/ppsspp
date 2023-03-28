@@ -1016,33 +1016,33 @@ void DrawTriangleSlice(
 				}
 
 				if (state.enableTextures) {
-                    if constexpr (!clearMode) {
-                        Vec4<float> s, t;
-                        if (state.throughMode) {
-                            s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1,
-                                            w2, wsum_recip);
-                            t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1,
-                                            w2, wsum_recip);
+					if constexpr (!clearMode) {
+						Vec4<float> s, t;
+						if (state.throughMode) {
+							s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1,
+											w2, wsum_recip);
+							t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1,
+											w2, wsum_recip);
 
-                            // For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
-                            s *= 1.0f / (float) (1 << state.samplerID.width0Shift);
-                            t *= 1.0f / (float) (1 << state.samplerID.height0Shift);
-                        } else if (state.textureProj) {
-                            // Texture coordinate interpolation must definitely be perspective-correct.
-                            GetTextureCoordinatesProj(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
-                        } else {
-                            // Texture coordinate interpolation must definitely be perspective-correct.
-                            GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
-                        }
+							// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
+							s *= 1.0f / (float) (1 << state.samplerID.width0Shift);
+							t *= 1.0f / (float) (1 << state.samplerID.height0Shift);
+						} else if (state.textureProj) {
+							// Texture coordinate interpolation must definitely be perspective-correct.
+							GetTextureCoordinatesProj(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
+						} else {
+							// Texture coordinate interpolation must definitely be perspective-correct.
+							GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
+						}
 
-                        if (state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE) {
-                            // Not sure what's right, but we need one value for the slope.
-                            float clipw = (v0.clipw * w0.x + v1.clipw * w1.x + v2.clipw * w2.x) * wsum_recip.x;
-                            ApplyTexturing(state, prim_color, mask, s, t, clipw);
-                        } else {
-                            ApplyTexturing(state, prim_color, mask, s, t, 0.0f);
-                        }
-                    }
+						if (state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE) {
+							// Not sure what's right, but we need one value for the slope.
+							float clipw = (v0.clipw * w0.x + v1.clipw * w1.x + v2.clipw * w2.x) * wsum_recip.x;
+							ApplyTexturing(state, prim_color, mask, s, t, clipw);
+						} else {
+							ApplyTexturing(state, prim_color, mask, s, t, 0.0f);
+						}
+					}
 				}
 
 				if constexpr (!clearMode) {

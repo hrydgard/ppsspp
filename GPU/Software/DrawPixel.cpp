@@ -737,7 +737,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 			if (pixelID.dithering) {
 				blended += Vec3<int>::AssignToAll(pixelID.cached.ditherMatrix[(y & 3) * 4 + (x & 3)]);
 			}
-			
+
 			// ToRGB() always automatically clamps.
 			new_color = blended.ToRGB();
 			new_color |= stencil << 24;

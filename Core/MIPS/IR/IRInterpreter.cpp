@@ -92,8 +92,8 @@ u32 RunValidateAddress(u32 pc, u32 addr, u32 isWrite) {
 		return toss(t);
 	}
 	if constexpr (alignment > 1)
-        if ((addr & (alignment - 1)) != 0)
-            return toss(MemoryExceptionType::ALIGNMENT);
+		if ((addr & (alignment - 1)) != 0)
+			return toss(MemoryExceptionType::ALIGNMENT);
 	return 0;
 }
 
