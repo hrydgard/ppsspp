@@ -611,7 +611,7 @@ public:
 			return;
 		}
 
-		Path saveDirectory = filename.NavigateUp();
+		Path saveDirectory = saveFilename.NavigateUp();
 		if (!File::Exists(saveDirectory)) {
 			// Previously, we created a .nomedia file here. This is unnecessary as they have recursive behavior.
 			// When initializing (see NotifyConfigChange above) we create one in the "root" of the "new" folder.
