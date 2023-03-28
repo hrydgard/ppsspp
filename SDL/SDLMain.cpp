@@ -620,7 +620,6 @@ int main(int argc, char *argv[]) {
 	SDL_version linked;
 	int set_xres = -1;
 	int set_yres = -1;
-	int w = 0, h = 0;
 	bool portrait = false;
 	bool set_ipad = false;
 	float set_dpi = 1.0f;
@@ -793,6 +792,8 @@ int main(int argc, char *argv[]) {
 
 	int x = SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber());
 	int y = SDL_WINDOWPOS_UNDEFINED;
+	int w = g_display.pixel_xres;
+	int h = g_display.pixel_yres;
 
 	if (g_Config.iWindowX != -1)
 		x = g_Config.iWindowX;
@@ -813,20 +814,20 @@ int main(int argc, char *argv[]) {
 	std::string error_message;
 	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		SDLGLGraphicsContext *ctx = new SDLGLGraphicsContext();
-		if (ctx->Init(window, x, y, mode, &error_message) != 0) {
+		if (ctx->Init(window, x, y, w, h, mode, &error_message) != 0) {
 			printf("GL init error '%s'\n", error_message.c_str());
 		}
 		graphicsContext = ctx;
 #if !PPSSPP_PLATFORM(SWITCH)
 	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 		SDLVulkanGraphicsContext *ctx = new SDLVulkanGraphicsContext();
-		if (!ctx->Init(window, x, y, mode | SDL_WINDOW_VULKAN, &error_message)) {
+		if (!ctx->Init(window, x, y, w, h, mode | SDL_WINDOW_VULKAN, &error_message)) {
 			printf("Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
 			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
 			delete ctx;
 			SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
-			glctx->Init(window, x, y, mode, &error_message);
+			glctx->Init(window, x, y, w, h, mode, &error_message);
 			graphicsContext = glctx;
 		} else {
 			graphicsContext = ctx;

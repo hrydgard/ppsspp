@@ -16,7 +16,7 @@ public:
 		delete draw_;
 	}
 
-	bool Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message);
+	bool Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message);
 
 	void Shutdown() override;
 

@@ -7,11 +7,8 @@
 
 class SDLGLGraphicsContext : public GraphicsContext {
 public:
-	SDLGLGraphicsContext() {
-	}
-
 	// Returns 0 on success.
-	int Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message);
+	int Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message);
 
 	void Shutdown() override;
 	void ShutdownFromRenderThread() override;
