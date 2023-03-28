@@ -365,7 +365,7 @@ TOGGLE_METHOD(VSync, g_Config.bVSync)
 }
 
 -(void)openRecentItem: (NSMenuItem *)item {
-    NativeMessageReceived("browse_fileSelect", g_Config.RecentIsos()[item.tag].c_str());
+    NativeMessageReceived("boot", g_Config.RecentIsos()[item.tag].c_str());
 }
 
 -(void)openSystemFileBrowser {
