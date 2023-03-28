@@ -794,13 +794,18 @@ int main(int argc, char *argv[]) {
 	int x = SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber());
 	int y = SDL_WINDOWPOS_UNDEFINED;
 
+	if (g_Config.iWindowX != -1)
+		x = g_Config.iWindowX;
+	if (g_Config.iWindowY != -1)
+		y = g_Config.iWindowY;
+
 	g_display.pixel_in_dps_x = (float)g_display.pixel_xres / g_display.dp_xres;
 	g_display.pixel_in_dps_y = (float)g_display.pixel_yres / g_display.dp_yres;
 	g_display.dpi_scale_x = g_display.dp_xres / (float)g_display.pixel_xres;
 	g_display.dpi_scale_y = g_display.dp_yres / (float)g_display.pixel_yres;
 	g_display.dpi_scale_real_x = g_display.dpi_scale_x;
 	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
-	g_display.Print();
+	// g_display.Print();
 
 	GraphicsContext *graphicsContext = nullptr;
 	SDL_Window *window = nullptr;
@@ -956,6 +961,19 @@ int main(int argc, char *argv[]) {
 						SDL_ShowCursor(SDL_DISABLE);
 					} else if (lastUIState != UISTATE_INGAME || !fullscreen) {
 						SDL_ShowCursor(SDL_ENABLE);
+					}
+					break;
+				}
+
+				case SDL_WINDOWEVENT_MOVED:
+				{
+					int x = event.window.data1;
+					int y = event.window.data2;
+					Uint32 window_flags = SDL_GetWindowFlags(window);
+					bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
+					if (!fullscreen) {
+						g_Config.iWindowX = x;
+						g_Config.iWindowY = y;
 					}
 					break;
 				}
