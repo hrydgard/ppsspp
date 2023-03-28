@@ -178,6 +178,13 @@ EmuScreen::EmuScreen(const Path &filename)
 	controlMapper_.SetCallbacks(
 		std::bind(&EmuScreen::onVKeyDown, this, _1),
 		std::bind(&EmuScreen::onVKeyUp, this, _1),
+		[](int pspKey, bool down) {
+			if (down) {
+				__CtrlButtonDown(pspKey);
+			} else {
+				__CtrlButtonUp(pspKey);
+			}
+		},
 		&SetPSPAnalog);
 
 	// Make sure we don't leave it at powerdown after the last game.

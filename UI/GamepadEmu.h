@@ -23,6 +23,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Core/CoreParameter.h"
+#include "Core/HLE/sceCtrl.h"
 #include "UI/EmuScreen.h"
 
 class GamepadView : public UI::View {

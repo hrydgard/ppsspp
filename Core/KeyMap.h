@@ -24,7 +24,6 @@
 
 #include "Common/Input/InputState.h" // KeyDef
 #include "Common/Input/KeyCodes.h"     // keyboard keys
-#include "Core/HLE/sceCtrl.h"   // psp keys
 #include "Core/KeyMapDefaults.h"
 
 #define KEYMAP_ERROR_KEY_ALREADY_USED -1

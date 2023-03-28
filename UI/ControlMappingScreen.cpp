@@ -448,7 +448,11 @@ void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 }
 
 AnalogSetupScreen::AnalogSetupScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
-	mapper_.SetCallbacks([](int vkey) {}, [](int vkey) {}, [&](int stick, float x, float y) {
+	mapper_.SetCallbacks(
+		[](int vkey) {},
+		[](int vkey) {},
+		[&](int button, bool down) {},
+		[&](int stick, float x, float y) {
 		analogX_[stick] = x;
 		analogY_[stick] = y;
 	});

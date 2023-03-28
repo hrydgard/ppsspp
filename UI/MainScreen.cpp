@@ -42,6 +42,7 @@
 #include "Common/StringUtils.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
+#include "Core/HLE/sceCtrl.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Util/GameManager.h"

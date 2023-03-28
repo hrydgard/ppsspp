@@ -29,6 +29,7 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/HLE/sceCtrl.h"   // psp keys
 #include "Core/Config.h"
 #include "Core/KeyMap.h"
 #include "Core/KeyMapDefaults.h"
