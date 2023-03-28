@@ -700,6 +700,7 @@ BEGIN
         MENUITEM "Copy Value (8 bit)",         ID_MEMVIEW_COPYVALUE_8
         MENUITEM "Copy Value (16 bit)",        ID_MEMVIEW_COPYVALUE_16
         MENUITEM "Copy Value (32 bit)",        ID_MEMVIEW_COPYVALUE_32
+        MENUITEM "Copy Float (32 bit)",        ID_MEMVIEW_COPYFLOAT_32
         MENUITEM "Dump...",                    ID_MEMVIEW_DUMP
     END
     POPUP "disasm"
