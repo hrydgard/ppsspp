@@ -754,9 +754,6 @@ int main(int argc, char *argv[]) {
 		dpi_scale = set_dpi;
 	}
 
-	g_display.dp_xres = (float)g_display.pixel_xres * dpi_scale;
-	g_display.dp_yres = (float)g_display.pixel_yres * dpi_scale;
-
 	// Mac / Linux
 	char path[2048];
 #if PPSSPP_PLATFORM(SWITCH)
@@ -795,10 +792,20 @@ int main(int argc, char *argv[]) {
 	int w = g_display.pixel_xres;
 	int h = g_display.pixel_yres;
 
-	if (g_Config.iWindowX != -1)
-		x = g_Config.iWindowX;
-	if (g_Config.iWindowY != -1)
-		y = g_Config.iWindowY;
+	if (!g_Config.bFullScreen) {
+		if (g_Config.iWindowX != -1)
+			x = g_Config.iWindowX;
+		if (g_Config.iWindowY != -1)
+			y = g_Config.iWindowY;
+		if (g_Config.iWindowWidth > 0)
+			w = g_Config.iWindowWidth;
+		if (g_Config.iWindowHeight > 0)
+			h = g_Config.iWindowHeight;
+	}
+	g_display.pixel_xres = w;
+	g_display.pixel_yres = h;
+	g_display.dp_xres = (float)g_display.pixel_xres * dpi_scale;
+	g_display.dp_yres = (float)g_display.pixel_yres * dpi_scale;
 
 	g_display.pixel_in_dps_x = (float)g_display.pixel_xres / g_display.dp_xres;
 	g_display.pixel_in_dps_y = (float)g_display.pixel_yres / g_display.dp_yres;
@@ -957,6 +964,10 @@ int main(int argc, char *argv[]) {
 						g_Config.iForceFullScreen = -1;
 					}
 
+					if (!g_Config.bFullScreen) {
+						g_Config.iWindowWidth = new_width;
+						g_Config.iWindowHeight = new_height;
+					}
 					// Hide/Show cursor correctly toggling fullscreen
 					if (lastUIState == UISTATE_INGAME && fullscreen && !g_Config.bShowTouchControls) {
 						SDL_ShowCursor(SDL_DISABLE);
