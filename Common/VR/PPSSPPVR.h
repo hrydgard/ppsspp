@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Common/Input/InputState.h"
-#include "Common/Input/KeyCodes.h"
+struct AxisInput;
+struct TouchInput;
+struct KeyInput;
 
 enum VRCompatFlag {
 	//compatibility tweaks

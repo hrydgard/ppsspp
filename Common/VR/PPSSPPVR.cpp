@@ -13,6 +13,9 @@
 
 #include "Common/Math/lin/matrix4x4.h"
 
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
+
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceCtrl.h"
 

@@ -234,24 +234,6 @@ typedef enum _keycode_t {
 	NKCODE_LEFTBRACE = 221,
 	NKCODE_RIGHTBRACE = 222,
 
-	// Ouya buttons. Just here for reference, they map straight to regular android buttons
-	// and will be mapped the same way.
-	NKCODE_OUYA_BUTTON_A = 97,
-	NKCODE_OUYA_BUTTON_DPAD_DOWN = 20,
-	NKCODE_OUYA_BUTTON_DPAD_LEFT = 21,
-	NKCODE_OUYA_BUTTON_DPAD_RIGHT = 22,
-	NKCODE_OUYA_BUTTON_DPAD_UP = 19,
-	NKCODE_OUYA_BUTTON_L1 = 102,
-	NKCODE_OUYA_BUTTON_L2 = 104,
-	NKCODE_OUYA_BUTTON_L3 = 106,
-	NKCODE_OUYA_BUTTON_MENU = 82,
-	NKCODE_OUYA_BUTTON_O = 96,
-	NKCODE_OUYA_BUTTON_R1 = 103,
-	NKCODE_OUYA_BUTTON_R2 = 105,
-	NKCODE_OUYA_BUTTON_R3 = 107,
-	NKCODE_OUYA_BUTTON_U = 99,
-	NKCODE_OUYA_BUTTON_Y = 100,
-
 	// Extended keycodes, not available on Android
 	NKCODE_EXT_PIPE = 1001,  // The key next to Z on euro 102-key keyboards.
 
