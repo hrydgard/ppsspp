@@ -8,6 +8,7 @@
 
 #include "Common/Math/lin/vec3.h"
 #include "Common/Input/KeyCodes.h"
+#include "Common/Log.h"
 
 // Default device IDs
 
@@ -79,21 +80,51 @@ enum {
 #endif
 
 // Represents a single bindable key
-class KeyDef {
+static const int AXIS_BIND_NKCODE_START = 4000;
+
+inline int TranslateKeyCodeToAxis(int keyCode, int *direction) {
+	if (keyCode < AXIS_BIND_NKCODE_START)
+		return 0;
+	int k = keyCode - AXIS_BIND_NKCODE_START;
+	// Even/odd for direction.
+	*direction = k & 1 ? -1 : 1;
+	return k / 2;
+}
+
+class InputMapping {
+private:
+	inline int TranslateKeyCodeFromAxis(int axisId, int direction) {
+		return AXIS_BIND_NKCODE_START + axisId * 2 + (direction < 0 ? 1 : 0);
+	}
 public:
-	KeyDef() : deviceId(0), keyCode(0) {}
-	KeyDef(int devId, int k) : deviceId(devId), keyCode(k) {}
+	InputMapping() : deviceId(0), keyCode(0) {}
+	// From a key mapping
+	InputMapping(int _deviceId, int key) : deviceId(_deviceId), keyCode(key) {}
+	// From an axis
+	InputMapping(int _deviceId, int axis, int direction) : deviceId(_deviceId), keyCode(TranslateKeyCodeFromAxis(axis, direction)) {
+		_dbg_assert_(direction != 0);
+	}
+
 	int deviceId;
-	int keyCode;
+	int keyCode;  // Can also represent an axis with direction, if encoded properly.
+
+	bool IsAxis() const {
+		return keyCode >= AXIS_BIND_NKCODE_START;
+	}
+
+	int Axis(int *direction) const {
+		_dbg_assert_(IsAxis());
+		return TranslateKeyCodeToAxis(keyCode, direction);
+	}
 
 	// If you want to use std::find and match ANY, you need to perform an explicit search for that.
-	bool operator < (const KeyDef &other) const {
+	bool operator < (const InputMapping &other) const {
 		if (deviceId < other.deviceId) return true;
 		if (deviceId > other.deviceId) return false;
 		if (keyCode < other.keyCode) return true;
 		return false;
 	}
-	bool operator == (const KeyDef &other) const {
+	bool operator == (const InputMapping &other) const {
 		if (deviceId != other.deviceId && deviceId != DEVICE_ID_ANY && other.deviceId != DEVICE_ID_ANY) return false;
 		if (keyCode != other.keyCode) return false;
 		return true;
@@ -156,15 +187,15 @@ struct AxisInput {
 };
 
 // Is there a nicer place for this stuff? It's here to avoid dozens of linking errors in UnitTest..
-extern std::vector<KeyDef> dpadKeys;
-extern std::vector<KeyDef> confirmKeys;
-extern std::vector<KeyDef> cancelKeys;
-extern std::vector<KeyDef> tabLeftKeys;
-extern std::vector<KeyDef> tabRightKeys;
-void SetDPadKeys(const std::vector<KeyDef> &leftKey, const std::vector<KeyDef> &rightKey,
-		const std::vector<KeyDef> &upKey, const std::vector<KeyDef> &downKey);
-void SetConfirmCancelKeys(const std::vector<KeyDef> &confirm, const std::vector<KeyDef> &cancel);
-void SetTabLeftRightKeys(const std::vector<KeyDef> &tabLeft, const std::vector<KeyDef> &tabRight);
+extern std::vector<InputMapping> dpadKeys;
+extern std::vector<InputMapping> confirmKeys;
+extern std::vector<InputMapping> cancelKeys;
+extern std::vector<InputMapping> tabLeftKeys;
+extern std::vector<InputMapping> tabRightKeys;
+void SetDPadKeys(const std::vector<InputMapping> &leftKey, const std::vector<InputMapping> &rightKey,
+		const std::vector<InputMapping> &upKey, const std::vector<InputMapping> &downKey);
+void SetConfirmCancelKeys(const std::vector<InputMapping> &confirm, const std::vector<InputMapping> &cancel);
+void SetTabLeftRightKeys(const std::vector<InputMapping> &tabLeft, const std::vector<InputMapping> &tabRight);
 
 // 0 means unknown (attempt autodetect), -1 means flip, 1 means original direction.
 void SetAnalogFlipY(std::unordered_map<int, int> flipYByDeviceId);

@@ -36,8 +36,6 @@
 
 namespace KeyMap {
 
-KeyDef AxisDef(int deviceId, int axisId, int direction);
-
 KeyMapping g_controllerMap;
 // Incremented on modification, so we know when to update menus.
 int g_controllerMapGeneration = 0;
@@ -47,46 +45,40 @@ std::set<int> g_seenDeviceIds;
 
 bool g_swapped_keys = false;
 
-void KeyCodesFromPspButton(int btn, std::vector<keycode_t> *keycodes) {
-	for (auto i = g_controllerMap[btn].begin(), end = g_controllerMap[btn].end(); i != end; ++i) {
-		keycodes->push_back((keycode_t)i->keyCode);
-	}
-}
-
 // TODO: This is such a mess...
 void UpdateNativeMenuKeys() {
-	std::vector<KeyDef> confirmKeys, cancelKeys;
-	std::vector<KeyDef> tabLeft, tabRight;
-	std::vector<KeyDef> upKeys, downKeys, leftKeys, rightKeys;
+	std::vector<InputMapping> confirmKeys, cancelKeys;
+	std::vector<InputMapping> tabLeft, tabRight;
+	std::vector<InputMapping> upKeys, downKeys, leftKeys, rightKeys;
 
 	int confirmKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
 	int cancelKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
 
 	// Mouse mapping might be problematic in UI, so let's ignore mouse for UI
-	KeyFromPspButton(confirmKey, &confirmKeys, true);
-	KeyFromPspButton(cancelKey, &cancelKeys, true);
-	KeyFromPspButton(CTRL_LTRIGGER, &tabLeft, true);
-	KeyFromPspButton(CTRL_RTRIGGER, &tabRight, true);
-	KeyFromPspButton(CTRL_UP, &upKeys, true);
-	KeyFromPspButton(CTRL_DOWN, &downKeys, true);
-	KeyFromPspButton(CTRL_LEFT, &leftKeys, true);
-	KeyFromPspButton(CTRL_RIGHT, &rightKeys, true);
+	InputMappingsFromPspButton(confirmKey, &confirmKeys, true);
+	InputMappingsFromPspButton(cancelKey, &cancelKeys, true);
+	InputMappingsFromPspButton(CTRL_LTRIGGER, &tabLeft, true);
+	InputMappingsFromPspButton(CTRL_RTRIGGER, &tabRight, true);
+	InputMappingsFromPspButton(CTRL_UP, &upKeys, true);
+	InputMappingsFromPspButton(CTRL_DOWN, &downKeys, true);
+	InputMappingsFromPspButton(CTRL_LEFT, &leftKeys, true);
+	InputMappingsFromPspButton(CTRL_RIGHT, &rightKeys, true);
 
 #ifdef __ANDROID__
 	// Hardcode DPAD on Android
-	upKeys.push_back(KeyDef(DEVICE_ID_ANY, NKCODE_DPAD_UP));
-	downKeys.push_back(KeyDef(DEVICE_ID_ANY, NKCODE_DPAD_DOWN));
-	leftKeys.push_back(KeyDef(DEVICE_ID_ANY, NKCODE_DPAD_LEFT));
-	rightKeys.push_back(KeyDef(DEVICE_ID_ANY, NKCODE_DPAD_RIGHT));
+	upKeys.push_back(InputMapping(DEVICE_ID_ANY, NKCODE_DPAD_UP));
+	downKeys.push_back(InputMapping(DEVICE_ID_ANY, NKCODE_DPAD_DOWN));
+	leftKeys.push_back(InputMapping(DEVICE_ID_ANY, NKCODE_DPAD_LEFT));
+	rightKeys.push_back(InputMapping(DEVICE_ID_ANY, NKCODE_DPAD_RIGHT));
 #endif
 
 	// Push several hard-coded keys before submitting to native.
-	const KeyDef hardcodedConfirmKeys[] = {
-		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_SPACE),
-		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_ENTER),
-		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_NUMPAD_ENTER),
-		KeyDef(DEVICE_ID_ANY, NKCODE_BUTTON_A),
-		KeyDef(DEVICE_ID_PAD_0, NKCODE_DPAD_CENTER),  // A number of Android devices.
+	const InputMapping hardcodedConfirmKeys[] = {
+		InputMapping(DEVICE_ID_KEYBOARD, NKCODE_SPACE),
+		InputMapping(DEVICE_ID_KEYBOARD, NKCODE_ENTER),
+		InputMapping(DEVICE_ID_KEYBOARD, NKCODE_NUMPAD_ENTER),
+		InputMapping(DEVICE_ID_ANY, NKCODE_BUTTON_A),
+		InputMapping(DEVICE_ID_PAD_0, NKCODE_DPAD_CENTER),  // A number of Android devices.
 	};
 
 	// If they're not already bound, add them in.
@@ -95,11 +87,11 @@ void UpdateNativeMenuKeys() {
 			confirmKeys.push_back(hardcodedConfirmKeys[i]);
 	}
 
-	const KeyDef hardcodedCancelKeys[] = {
-		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE),
-		KeyDef(DEVICE_ID_ANY, NKCODE_BACK),
-		KeyDef(DEVICE_ID_ANY, NKCODE_BUTTON_B),
-		KeyDef(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4),
+	const InputMapping hardcodedCancelKeys[] = {
+		InputMapping(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE),
+		InputMapping(DEVICE_ID_ANY, NKCODE_BACK),
+		InputMapping(DEVICE_ID_ANY, NKCODE_BUTTON_B),
+		InputMapping(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4),
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(hardcodedCancelKeys); i++) {
@@ -431,8 +423,6 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{CTRL_NOTE, "Note"},
 };
 
-const int AXIS_BIND_NKCODE_START = 4000;
-
 static std::string FindName(int key, const KeyMap_IntStrPair list[], size_t size) {
 	for (size_t i = 0; i < size; i++)
 		if (list[i].key == key)
@@ -444,18 +434,19 @@ std::string GetKeyName(int keyCode) {
 	return FindName(keyCode, key_names, ARRAY_SIZE(key_names));
 }
 
-std::string GetKeyOrAxisName(int keyCode) {
-	if (keyCode >= AXIS_BIND_NKCODE_START) {
+std::string GetKeyOrAxisName(const InputMapping &mapping) {
+	if (mapping.IsAxis()) {
 		int direction;
-		int axis = TranslateKeyCodeToAxis(keyCode, direction);
+		int axis = mapping.Axis(&direction);
 		std::string temp = GetAxisName(axis);
 		if (direction == 1)
 			temp += "+";
 		else if (direction == -1)
 			temp += "-";
 		return temp;
+	} else {
+		return FindName(mapping.keyCode, key_names, ARRAY_SIZE(key_names));
 	}
-	return FindName(keyCode, key_names, ARRAY_SIZE(key_names));
 }
 
 std::string GetAxisName(int axisId) {
@@ -481,96 +472,50 @@ std::vector<KeyMap_IntStrPair> GetMappableKeys() {
 	return temp;
 }
 
-int TranslateKeyCodeToAxis(int keyCode, int &direction) {
-	if (keyCode < AXIS_BIND_NKCODE_START)
-		return 0;
-
-	int v = keyCode - AXIS_BIND_NKCODE_START;
-	// Even/odd for direction.
-	direction = v & 1 ? -1 : 1;
-	return v / 2;
-}
-
-int TranslateKeyCodeFromAxis(int axisId, int direction) {
-	direction = direction < 0 ? 1 : 0;
-	return AXIS_BIND_NKCODE_START + axisId * 2 + direction;
-}
-
-KeyDef AxisDef(int deviceId, int axisId, int direction) {
-	return KeyDef(deviceId, TranslateKeyCodeFromAxis(axisId, direction));
-}
-
 int CheckAxisSwap(int btn) {
 	if (g_swapped_keys) {
 		switch (btn) {
-			case CTRL_UP: btn = VIRTKEY_AXIS_Y_MAX;
-			break;
-			case VIRTKEY_AXIS_Y_MAX: btn = CTRL_UP;
-			break;
-			case CTRL_DOWN: btn = VIRTKEY_AXIS_Y_MIN;
-			break;
-			case VIRTKEY_AXIS_Y_MIN: btn = CTRL_DOWN;
-			break;
-			case CTRL_LEFT: btn = VIRTKEY_AXIS_X_MIN;
-			break;
-			case VIRTKEY_AXIS_X_MIN: btn = CTRL_LEFT;
-			break;
-			case CTRL_RIGHT: btn = VIRTKEY_AXIS_X_MAX;
-			break;
-			case VIRTKEY_AXIS_X_MAX: btn = CTRL_RIGHT;
-			break;
+			case CTRL_UP: btn = VIRTKEY_AXIS_Y_MAX; break;
+			case VIRTKEY_AXIS_Y_MAX: btn = CTRL_UP; break;
+			case CTRL_DOWN: btn = VIRTKEY_AXIS_Y_MIN; break;
+			case VIRTKEY_AXIS_Y_MIN: btn = CTRL_DOWN; break;
+			case CTRL_LEFT: btn = VIRTKEY_AXIS_X_MIN; break;
+			case VIRTKEY_AXIS_X_MIN: btn = CTRL_LEFT; break;
+			case CTRL_RIGHT: btn = VIRTKEY_AXIS_X_MAX; break;
+			case VIRTKEY_AXIS_X_MAX: btn = CTRL_RIGHT; break;
 		}
 	}
 	return btn;
 }
 
-static bool FindKeyMapping(int deviceId, int key, std::vector<int> *psp_button) {
-	// Brute force, let's optimize later
+static bool FindKeyMapping(const InputMapping &mapping, std::vector<int> *pspButtons) {
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
-			if (*iter2 == KeyDef(deviceId, key)) {
-				psp_button->push_back(CheckAxisSwap(iter->first));
+			if (*iter2 == mapping) {
+				pspButtons->push_back(CheckAxisSwap(iter->first));
 			}
 		}
 	}
-	return psp_button->size() > 0;
+	return pspButtons->size() > 0;
 }
 
-bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys) {
-	return FindKeyMapping(deviceId, key, pspKeys);
+bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspButtons) {
+	return FindKeyMapping(mapping, pspButtons);
 }
 
-// TODO: vector output
-bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys, bool ignoreMouse) {
+bool InputMappingsFromPspButton(int btn, std::vector<InputMapping> *mappings, bool ignoreMouse) {
+	bool mapped = false;
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		if (iter->first == btn) {
 			for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
-				if (!ignoreMouse || iter2->deviceId != DEVICE_ID_MOUSE)
-					keys->push_back(*iter2);
+				if (mappings && (!ignoreMouse || iter2->deviceId != DEVICE_ID_MOUSE)) {
+					mapped = true;
+					mappings->push_back(*iter2);
+				}
 			}
 		}
 	}
-	return keys->size() > 0;
-}
-
-bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *pspKeys) {
-	int key = TranslateKeyCodeFromAxis(axisId, direction);
-	return KeyToPspButton(deviceId, key, pspKeys);
-}
-
-bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction) {
-	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
-		for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
-			if (iter->first == btn && iter2->keyCode >= AXIS_BIND_NKCODE_START) {
-				if (deviceId)
-					*deviceId = iter2->deviceId;
-				if (axisId)
-					*axisId = TranslateKeyCodeToAxis(iter2->keyCode, *direction);
-				return true;
-			}
-		}
-	}
-	return false;
+	return mapped;
 }
 
 MappedAnalogAxes MappedAxesForDevice(int deviceId) {
@@ -581,7 +526,7 @@ MappedAnalogAxes MappedAxesForDevice(int deviceId) {
 		MappedAnalogAxis info{ -1 };
 		for (const auto &key : g_controllerMap[btn]) {
 			if (key.deviceId == deviceId) {
-				info.axisId = TranslateKeyCodeToAxis(key.keyCode, info.direction);
+				info.axisId = TranslateKeyCodeToAxis(key.keyCode, &info.direction);
 				return info;
 			}
 		}
@@ -617,7 +562,7 @@ void RemoveButtonMapping(int btn) {
 bool IsKeyMapped(int device, int key) {
 	for (auto &iter : g_controllerMap) {
 		for (auto &mappedKey : iter.second) {
-			if (mappedKey == KeyDef(device, key)) {
+			if (mappedKey == InputMapping(device, key)) {
 				return true;
 			}
 		}
@@ -625,7 +570,7 @@ bool IsKeyMapped(int device, int key) {
 	return false;
 }
 
-bool ReplaceSingleKeyMapping(int btn, int index, KeyDef key) {
+bool ReplaceSingleKeyMapping(int btn, int index, InputMapping key) {
 	// Check for duplicate
 	for (int i = 0; i < (int)g_controllerMap[btn].size(); ++i) {
 		if (i != index && g_controllerMap[btn][i] == key) {
@@ -644,7 +589,7 @@ bool ReplaceSingleKeyMapping(int btn, int index, KeyDef key) {
 	return true;
 }
 
-void SetKeyMapping(int btn, KeyDef key, bool replace) {
+void SetInputMapping(int btn, const InputMapping &key, bool replace) {
 	if (key.keyCode < 0)
 		return;
 	if (replace) {
@@ -662,11 +607,6 @@ void SetKeyMapping(int btn, KeyDef key, bool replace) {
 
 	g_seenDeviceIds.insert(key.deviceId);
 	UpdateNativeMenuKeys();
-}
-
-void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool replace) {
-	int key = TranslateKeyCodeFromAxis(axisId, direction);
-	SetKeyMapping(btn, KeyDef(deviceId, key), replace);
 }
 
 void RestoreDefault() {
@@ -732,7 +672,7 @@ void LoadFromIni(IniFile &file) {
 			int deviceId = atoi(parts[0].c_str());
 			int keyCode = atoi(parts[1].c_str());
 
-			SetKeyMapping(psp_button_names[i].key, KeyDef(deviceId, keyCode), false);
+			SetInputMapping(psp_button_names[i].key, InputMapping(deviceId, keyCode), false);
 			g_seenDeviceIds.insert(deviceId);
 		}
 	}
@@ -744,8 +684,8 @@ void SaveToIni(IniFile &file) {
 	Section *controls = file.GetOrCreateSection("ControlMapping");
 
 	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
-		std::vector<KeyDef> keys;
-		KeyFromPspButton(psp_button_names[i].key, &keys, false);
+		std::vector<InputMapping> keys;
+		InputMappingsFromPspButton(psp_button_names[i].key, &keys, false);
 
 		std::string value;
 		for (size_t j = 0; j < keys.size(); j++) {
@@ -816,8 +756,8 @@ void AutoConfForPad(const std::string &name) {
 #endif
 
 	// Add a couple of convenient keyboard mappings by default, too.
-	g_controllerMap[VIRTKEY_PAUSE].push_back(KeyDef(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE));
-	g_controllerMap[VIRTKEY_FASTFORWARD].push_back(KeyDef(DEVICE_ID_KEYBOARD, NKCODE_TAB));
+	g_controllerMap[VIRTKEY_PAUSE].push_back(InputMapping(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE));
+	g_controllerMap[VIRTKEY_FASTFORWARD].push_back(InputMapping(DEVICE_ID_KEYBOARD, NKCODE_TAB));
 	g_controllerMapGeneration++;
 }
 

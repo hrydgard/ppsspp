@@ -22,7 +22,7 @@
 #include <vector>
 #include <set>
 
-#include "Common/Input/InputState.h" // KeyDef
+#include "Common/Input/InputState.h" // InputMapping
 #include "Common/Input/KeyCodes.h"     // keyboard keys
 #include "Core/KeyMapDefaults.h"
 
@@ -76,7 +76,7 @@ enum {
 const float AXIS_BIND_THRESHOLD = 0.75f;
 const float AXIS_BIND_THRESHOLD_MOUSE = 0.01f;
 
-typedef std::map<int, std::vector<KeyDef>> KeyMapping;
+typedef std::map<int, std::vector<InputMapping>> KeyMapping;
 
 struct MappedAnalogAxis {
 	int axisId;
@@ -115,34 +115,24 @@ namespace KeyMap {
 
 	// Use if you need to display the textual name
 	std::string GetKeyName(int keyCode);
-	std::string GetKeyOrAxisName(int keyCode);
+	std::string GetKeyOrAxisName(const InputMapping &mapping);
 	std::string GetAxisName(int axisId);
 	std::string GetPspButtonName(int btn);
 	const char* GetPspButtonNameCharPointer(int btn);
 
 	std::vector<KeyMap_IntStrPair> GetMappableKeys();
 
-	// Use to translate KeyMap Keys to PSP
-	// buttons. You should have already translated
-	// your platform's keys to KeyMap keys.
-	bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys);
-	bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys, bool ignoreMouse);
+	// Use to translate input mappings to and from PSP buttons. You should have already translated
+	// your platform's keys to InputMapping keys.
+	bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspButtons);
+	bool InputMappingsFromPspButton(int btn, std::vector<InputMapping> *keys, bool ignoreMouse);
 
-	int TranslateKeyCodeToAxis(int keyCode, int &direction);
-	int TranslateKeyCodeFromAxis(int axisId, int direction);
-
-	// Configure the key mapping.
+	// Configure the key or axis mapping.
 	// Any configuration will be saved to the Core config.
-	void SetKeyMapping(int psp_key, KeyDef key, bool replace);
+	void SetInputMapping(int psp_key, const InputMapping &key, bool replace);
 	// Return false if bind was a duplicate and got removed
-	bool ReplaceSingleKeyMapping(int btn, int index, KeyDef key);
+	bool ReplaceSingleKeyMapping(int btn, int index, InputMapping key);
 
-	// Configure an axis mapping, saves the configuration.
-	// Direction is negative or positive.
-	void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool replace);
-
-	bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *pspKeys);
-	bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction);
 	MappedAnalogAxes MappedAxesForDevice(int deviceId);
 
 	void LoadFromIni(IniFile &iniFile);

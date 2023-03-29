@@ -97,7 +97,7 @@ extern AndroidAudioState *g_audioState;
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), editThenRestore_(editThenRestore) {
 	prevInflightFrames_ = g_Config.iInflightFrames;
-	analogSpeedMapped_ = KeyMap::AxisFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, nullptr, nullptr);
+	analogSpeedMapped_ = KeyMap::InputMappingsFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, true);
 }
 
 // This needs before run CheckGPUFeatures()
@@ -1405,7 +1405,7 @@ void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult resul
 		RecreateViews();
 	}
 
-	bool mapped = KeyMap::AxisFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, nullptr, nullptr);
+	bool mapped = KeyMap::InputMappingsFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, true);
 	if (mapped != analogSpeedMapped_) {
 		analogSpeedMapped_ = mapped;
 		RecreateViews();

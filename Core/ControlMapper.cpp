@@ -95,7 +95,7 @@ void ControlMapper::SetPSPAxis(int device, char axis, float value, int stick) {
 
 bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 	std::vector<int> pspKeys;
-	KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys);
+	KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), &pspKeys);
 
 	if (pspKeys.size() && (key.flags & KEY_IS_REPEAT)) {
 		// Claim that we handled this. Prevents volume key repeats from popping up the volume control on Android.
@@ -329,7 +329,7 @@ void ControlMapper::ProcessAxis(const AxisInput &axis, int direction) {
 	const float scale = virtKeys_[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
 
 	std::vector<int> results;
-	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction, &results);
+	KeyMap::InputMappingToPspButton(InputMapping(axis.deviceId, axis.axisId, direction), &results);
 
 	for (int result : results) {
 		float value = fabs(axis.value) * scale;
@@ -367,7 +367,7 @@ void ControlMapper::ProcessAxis(const AxisInput &axis, int direction) {
 	}
 
 	std::vector<int> resultsOpposite;
-	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction, &resultsOpposite);
+	KeyMap::InputMappingToPspButton(InputMapping(axis.deviceId, axis.axisId, -direction), &resultsOpposite);
 
 	for (int result : resultsOpposite) {
 		if (result == VIRTKEY_SPEED_ANALOG)

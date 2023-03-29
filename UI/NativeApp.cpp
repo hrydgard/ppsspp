@@ -1261,7 +1261,7 @@ bool NativeKey(const KeyInput &key) {
 	if (g_Config.bPauseExitsEmulator) {
 		static std::vector<int> pspKeys;
 		pspKeys.clear();
-		if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys)) {
+		if (KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), &pspKeys)) {
 			if (std::find(pspKeys.begin(), pspKeys.end(), VIRTKEY_PAUSE) != pspKeys.end()) {
 				System_ExitApp();
 				return true;
