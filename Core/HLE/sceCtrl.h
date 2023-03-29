@@ -70,7 +70,8 @@ void __CtrlShutdown();
 void __CtrlButtonDown(u32 buttonBit);
 // Call this whenever a button is released.  Similar to __CtrlButtonDown().
 void __CtrlButtonUp(u32 buttonBit);
-// To be used by the new mapping code.
+// Sets the full state. Used by the new control mapper. The above two functions
+// should go away over time.
 void __CtrlSetAllButtons(u32 bitsToSet, u32 bitsToClear);
 
 // Call this to set the position of an analog stick, ideally when it changes.

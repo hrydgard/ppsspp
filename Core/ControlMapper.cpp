@@ -20,6 +20,11 @@ static float MapAxisValue(float v) {
 	return sign * Clamp(invDeadzone + (abs(v) - deadzone) / (1.0f - deadzone) * (sensitivity - invDeadzone), 0.0f, 1.0f);
 }
 
+// TODO: Possibly make these configurable?
+float GetDeviceAxisThreshold(int device) {
+	return device == DEVICE_ID_MOUSE ? AXIS_BIND_THRESHOLD_MOUSE : AXIS_BIND_THRESHOLD;
+}
+
 void ConvertAnalogStick(float &x, float &y) {
 	const bool isCircular = g_Config.bAnalogIsCircular;
 
@@ -97,21 +102,89 @@ void ControlMapper::SetPSPAxis(int device, char axis, float value, int stick) {
 	}
 }
 
-bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
-	std::vector<int> pspKeys;
-	KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), &pspKeys);
+static int RotatePSPKeyCode(int x) {
+	switch (x) {
+	case CTRL_UP: return CTRL_RIGHT;
+	case CTRL_RIGHT: return CTRL_DOWN;
+	case CTRL_DOWN: return CTRL_LEFT;
+	case CTRL_LEFT: return CTRL_UP;
+	default:
+		return x;
+	}
+}
 
-	if (pspKeys.size() && (key.flags & KEY_IS_REPEAT)) {
+bool ControlMapper::UpdatePSPState() {
+	// Instead of taking an input key and finding what it outputs, we loop through the OUTPUTS and
+	// see if the input that corresponds to it has a value. That way we can easily implement all sorts
+	// of crazy input combos if needed.
+
+	// For the PSP's button inputs, we just go through and put the flags together.
+	uint32_t buttonMask = 0;
+
+	int rotations = 0;
+	switch (g_Config.iInternalScreenRotation) {
+	case ROTATION_LOCKED_HORIZONTAL180: rotations = 2; break;
+	case ROTATION_LOCKED_VERTICAL:      rotations = 1; break;
+	case ROTATION_LOCKED_VERTICAL180:   rotations = 3; break;
+	}
+
+	for (int i = 0; i < 32; i++) {
+		uint32_t mask = 1 << i;
+		if (!(mask & CTRL_MASK_USER)) {
+			// Not a mappable button bit
+			continue;
+		}
+
+		uint32_t mapping = mask;
+		for (int i = 0; i < rotations; i++) {
+			mapping = RotatePSPKeyCode(mapping);
+		}
+
+		std::vector<InputMapping> inputMappings;
+		// This is really "MappingsFromPspButtons".
+		if (!KeyMap::InputMappingsFromPspButton(mapping, &inputMappings, false))
+			continue;
+
+		for (int j = 0; j < inputMappings.size(); j++) {
+			auto iter = curInput_.find(inputMappings[j]) ;
+			if (iter != curInput_.end() && iter->second > 0.0f) {
+				buttonMask |= mask;
+			}
+		}
+	}
+
+	setAllPSPButtonStates_(buttonMask);
+
+	// OK, handle all the virtual keys next. For these we need to do deltas here and send events.
+
+	// Now let's look at the four axes.
+	for (int i = 0; i < 4; i++) {
+
+	}
+
+	// TODO: Here we need to diff pspState with prevPspState_ to generate
+	// any new PSP key events. Though for the actual PSP buttons themselves (not the sticks),
+	// we could just or them together and set them all at once.
+	return true;
+}
+
+bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
+	if (key.flags & KEY_IS_REPEAT) {
 		// Claim that we handled this. Prevents volume key repeats from popping up the volume control on Android.
 		return true;
 	}
 
-	for (size_t i = 0; i < pspKeys.size(); i++) {
-		SetPSPKey(key.deviceId, pspKeys[i], key.flags);
+	InputMapping mapping(key.deviceId, key.keyCode);
+
+	if (key.flags & KEY_DOWN) {
+		curInput_[mapping] = 1.0f;
+	} else if (key.flags & KEY_UP) {
+		curInput_.erase(mapping);
 	}
 
+	std::vector<int> pspKeys;
+	KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), &pspKeys);
 	DEBUG_LOG(SYSTEM, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
-
 	if (!pspKeys.size() || key.deviceId == DEVICE_ID_DEFAULT) {
 		if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
 			*pauseTrigger = true;
@@ -119,18 +192,22 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 		}
 	}
 
-	return pspKeys.size() > 0;
+	return UpdatePSPState();
 }
 
 void ControlMapper::Axis(const AxisInput &axis) {
 	if (axis.value > 0) {
-		ProcessAxis(axis, 1);
+		InputMapping mapping(axis.deviceId, axis.axisId, 1);
+		curInput_[mapping] = axis.value;
 	} else if (axis.value < 0) {
-		ProcessAxis(axis, -1);
-	} else if (axis.value == 0) {
+		InputMapping mapping(axis.deviceId, axis.axisId, -1);
+		curInput_[mapping] = axis.value;
+	} else if (axis.value == 0.0f) {  // Threshold?
 		// Both directions! Prevents sticking for digital input devices that are axises (like HAT)
-		ProcessAxis(axis, 1);
-		ProcessAxis(axis, -1);
+		InputMapping mappingPositive(axis.deviceId, axis.axisId, -1);
+		InputMapping mappingNegative(axis.deviceId, axis.axisId, -1);
+		curInput_[mappingPositive] = 0.0f;
+		curInput_[mappingNegative] = 0.0f;
 	}
 }
 
@@ -167,17 +244,6 @@ inline bool IsAnalogStickKey(int key) {
 	}
 }
 
-static int RotatePSPKeyCode(int x) {
-	switch (x) {
-	case CTRL_UP: return CTRL_RIGHT;
-	case CTRL_RIGHT: return CTRL_DOWN;
-	case CTRL_DOWN: return CTRL_LEFT;
-	case CTRL_LEFT: return CTRL_UP;
-	default:
-		return x;
-	}
-}
-
 void ControlMapper::SetVKeyAnalog(int deviceId, char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero) {
 	// The down events can repeat, so just trust the virtKeys_ array.
 	bool minDown = virtKeys_[virtualKeyMin - VIRTKEY_FIRST];
@@ -199,6 +265,7 @@ void ControlMapper::PSPKey(int deviceId, int pspKeyCode, int flags) {
 }
 
 void ControlMapper::SetPSPKey(int deviceId, int pspKeyCode, int flags) {
+	/*
 	if (pspKeyCode >= VIRTKEY_FIRST) {
 		int vk = pspKeyCode - VIRTKEY_FIRST;
 		if (flags & KEY_DOWN) {
@@ -210,29 +277,13 @@ void ControlMapper::SetPSPKey(int deviceId, int pspKeyCode, int flags) {
 			onVKey(deviceId, pspKeyCode, false);
 		}
 	} else {
-		int rotations = 0;
-		switch (g_Config.iInternalScreenRotation) {
-		case ROTATION_LOCKED_HORIZONTAL180:
-			rotations = 2;
-			break;
-		case ROTATION_LOCKED_VERTICAL:
-			rotations = 1;
-			break;
-		case ROTATION_LOCKED_VERTICAL180:
-			rotations = 3;
-			break;
-		}
-
-		for (int i = 0; i < rotations; i++) {
-			pspKeyCode = RotatePSPKeyCode(pspKeyCode);
-		}
-
 		// INFO_LOG(SYSTEM, "pspKey %d %d", pspKeyCode, flags);
 		if (flags & KEY_DOWN)
 			setPSPButtonState_(pspKeyCode, true);
 		if (flags & KEY_UP)
 			setPSPButtonState_(pspKeyCode, false);
 	}
+	*/
 }
 
 void ControlMapper::onVKey(int deviceId, int vkey, bool down) {
@@ -343,7 +394,7 @@ void ControlMapper::ProcessAxis(const AxisInput &axis, int direction) {
 	}
 
 	int axisState = 0;
-	float threshold = axis.deviceId == DEVICE_ID_MOUSE ? AXIS_BIND_THRESHOLD_MOUSE : AXIS_BIND_THRESHOLD;
+	float threshold = GetDeviceAxisThreshold(axis.deviceId);
 	if (direction == 1 && axis.value >= threshold) {
 		axisState = 1;
 	} else if (direction == -1 && axis.value <= -threshold) {

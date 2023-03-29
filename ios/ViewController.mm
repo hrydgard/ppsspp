@@ -460,7 +460,6 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 					break;
 			}
 			axis.deviceId = DEVICE_ID_PAD_0;
-			axis.flags = 0;
 			NativeAxis(axis);
 		} else {
 			KeyInput key;
@@ -530,7 +529,6 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 				break;
 		}
 		axis.deviceId = DEVICE_ID_PAD_0;
-		axis.flags = 0;
 		NativeAxis(axis);
 	} else {
 		KeyInput key;
@@ -687,7 +685,6 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 	extendedProfile.leftThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
 		AxisInput axisInput;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_X;
 		axisInput.value = value;
 		NativeAxis(axisInput);
@@ -696,7 +693,6 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 	extendedProfile.leftThumbstick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
 		AxisInput axisInput;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_Y;
 		axisInput.value = -value;
 		NativeAxis(axisInput);
@@ -706,7 +702,6 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 	extendedProfile.rightThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
 		AxisInput axisInput;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_Z;
 		axisInput.value = value;
 		NativeAxis(axisInput);
@@ -715,7 +710,6 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 	extendedProfile.rightThumbstick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
 		AxisInput axisInput;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_RZ;
 		axisInput.value = -value;
 		NativeAxis(axisInput);

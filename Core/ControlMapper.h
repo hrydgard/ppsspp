@@ -4,12 +4,24 @@
 #include "Core/KeyMap.h"
 
 #include <functional>
+#include <cstring>
 
 // Utilities for mapping input events to PSP inputs and virtual keys.
 // Main use is of course from EmuScreen.cpp, but also useful from control settings etc.
 
 // At some point I want to refactor this from using callbacks to simply providing lists of events.
 // Still it won't be able to be completely stateless due to the 2-D processing of analog sticks.
+
+// Unified representation. Might spread across the code base later.
+struct ControlInputKey {
+	int direction;  // 0 if key, 1 or -1 if axis.
+	int deviceId;
+	int controlId;  // key or axis.
+
+	bool operator < (const ControlInputKey &other) const {
+		return memcmp(this, &other, sizeof(*this)) < 0;
+	}
+};
 
 class ControlMapper {
 public:
@@ -34,6 +46,8 @@ public:
 	void SetRawCallback(std::function<void(int, float, float)> setRawAnalog);
 
 private:
+	bool UpdatePSPState();
+
 	void ProcessAxis(const AxisInput &axis, int direction);
 	void SetVKeyAnalog(int deviceId, char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero = true);
 
@@ -56,6 +70,8 @@ private:
 	// Mappable auto-rotation. Useful for keyboard/dpad->analog in a few games.
 	bool autoRotatingAnalogCW_ = false;
 	bool autoRotatingAnalogCCW_ = false;
+
+	std::map<InputMapping, float> curInput_;
 
 	// Callbacks
 	std::function<void(int, bool)> onVKey_;

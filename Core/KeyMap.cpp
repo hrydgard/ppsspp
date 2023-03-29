@@ -43,7 +43,7 @@ std::set<std::string> g_seenPads;
 std::map<int, std::string> g_padNames;
 std::set<int> g_seenDeviceIds;
 
-bool g_swapped_keys = false;
+bool g_swapDpadWithLStick = false;
 
 // TODO: This is such a mess...
 void UpdateNativeMenuKeys() {
@@ -472,8 +472,8 @@ std::vector<KeyMap_IntStrPair> GetMappableKeys() {
 	return temp;
 }
 
-int CheckAxisSwap(int btn) {
-	if (g_swapped_keys) {
+inline int CheckAxisSwap(int btn) {
+	if (g_swapDpadWithLStick) {
 		switch (btn) {
 			case CTRL_UP: btn = VIRTKEY_AXIS_Y_MAX; break;
 			case VIRTKEY_AXIS_Y_MAX: btn = CTRL_UP; break;
@@ -488,19 +488,18 @@ int CheckAxisSwap(int btn) {
 	return btn;
 }
 
-static bool FindKeyMapping(const InputMapping &mapping, std::vector<int> *pspButtons) {
+bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspButtons) {
+	bool found = false;
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
 			if (*iter2 == mapping) {
-				pspButtons->push_back(CheckAxisSwap(iter->first));
+				if (pspButtons)
+					pspButtons->push_back(CheckAxisSwap(iter->first));
+				found = true;
 			}
 		}
 	}
-	return pspButtons->size() > 0;
-}
-
-bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspButtons) {
-	return FindKeyMapping(mapping, pspButtons);
+	return found;
 }
 
 bool InputMappingsFromPspButton(int btn, std::vector<InputMapping> *mappings, bool ignoreMouse) {
@@ -774,7 +773,7 @@ std::string PadName(int deviceId) {
 
 // Swap direction buttons and left analog axis
 void SwapAxis() {
-	g_swapped_keys = !g_swapped_keys;
+	g_swapDpadWithLStick = !g_swapDpadWithLStick;
 }
 
 bool HasChanged(int &prevGeneration) {

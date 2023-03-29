@@ -129,6 +129,8 @@ inline float clamp(float f) {
 	return f;
 }
 
+// TODO: Instead of __Ctrl, route data into the ControlMapper.
+
 void GenerateAnalogStickEvent(float tiltX, float tiltY) {
 	__CtrlSetAnalogXY(CTRL_STICK_LEFT, clamp(tiltX), clamp(tiltY));
 }

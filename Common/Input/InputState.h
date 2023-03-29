@@ -183,7 +183,6 @@ struct AxisInput {
 	int deviceId;
 	int axisId;  // Android axis Ids are the canonical ones.
 	float value;
-	int flags;
 };
 
 // Is there a nicer place for this stuff? It's here to avoid dozens of linking errors in UnitTest..

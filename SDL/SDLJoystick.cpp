@@ -187,7 +187,6 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 		if (axis.value > 1.0f) axis.value = 1.0f;
 		if (axis.value < -1.0f) axis.value = -1.0f;
 		axis.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.caxis.which);
-		axis.flags = 0;
 		NativeAxis(axis);
 		break;
 	case SDL_CONTROLLERDEVICEREMOVED:

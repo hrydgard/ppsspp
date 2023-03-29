@@ -1221,7 +1221,6 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *,
 
 	AxisInput axis;
 	axis.deviceId = DEVICE_ID_ACCELEROMETER;
-	axis.flags = 0;
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
 	axis.value = x;
