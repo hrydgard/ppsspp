@@ -263,11 +263,11 @@ bool Clickable::Touch(const TouchInput &input) {
 	return contains;
 }
 
-static bool MatchesKeyDef(const std::vector<KeyDef> &defs, const KeyInput &key) {
+static bool MatchesKeyDef(const std::vector<InputMapping> &defs, const KeyInput &key) {
 	// In addition to the actual search, we need to do another search where we replace the device ID with "ANY".
 	return
-		std::find(defs.begin(), defs.end(), KeyDef(key.deviceId, key.keyCode)) != defs.end() ||
-		std::find(defs.begin(), defs.end(), KeyDef(DEVICE_ID_ANY, key.keyCode)) != defs.end();
+		std::find(defs.begin(), defs.end(), InputMapping(key.deviceId, key.keyCode)) != defs.end() ||
+		std::find(defs.begin(), defs.end(), InputMapping(DEVICE_ID_ANY, key.keyCode)) != defs.end();
 }
 
 // TODO: O/X confirm preference for xperia play?

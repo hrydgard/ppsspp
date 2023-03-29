@@ -56,7 +56,7 @@ private:
 
 class KeyMappingNewKeyDialog : public PopupScreen {
 public:
-	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
+	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(InputMapping)> callback, std::shared_ptr<I18NCategory> i18n)
 		: PopupScreen(i18n->T("Map Key"), "Cancel", ""), pspBtn_(btn), callback_(callback) {}
 
 	const char *tag() const override { return "KeyMappingNewKey"; }
@@ -75,14 +75,14 @@ protected:
 
 private:
 	int pspBtn_;
-	std::function<void(KeyDef)> callback_;
+	std::function<void(InputMapping)> callback_;
 	bool mapped_ = false;  // Prevent double registrations
 	double delayUntil_ = 0.0f;
 };
 
 class KeyMappingNewMouseKeyDialog : public PopupScreen {
 public:
-	KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
+	KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(InputMapping)> callback, std::shared_ptr<I18NCategory> i18n)
 		: PopupScreen(i18n->T("Map Mouse"), "", ""), pspBtn_(btn), callback_(callback), mapped_(false) {}
 
 	const char *tag() const override { return "KeyMappingNewMouseKey"; }
@@ -99,7 +99,7 @@ protected:
 
 private:
 	int pspBtn_;
-	std::function<void(KeyDef)> callback_;
+	std::function<void(InputMapping)> callback_;
 	bool mapped_;  // Prevent double registrations
 };
 
@@ -189,7 +189,7 @@ protected:
 private:
 	UI::EventReturn OnMapButton(UI::EventParams &e);
 	UI::EventReturn OnBindAll(UI::EventParams &e);
-	void HandleKeyMapping(KeyDef key);
+	void HandleKeyMapping(InputMapping key);
 	void MapNext(bool successive);
 
 	MockPSP *psp_ = nullptr;
