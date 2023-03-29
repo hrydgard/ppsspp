@@ -177,6 +177,7 @@ EmuScreen::EmuScreen(const Path &filename)
 	startDumping = false;
 	controlMapper_.SetCallbacks(
 		std::bind(&EmuScreen::onVKey, this, _1, _2),
+		[](int vkey, float analogValue) {},
 		[](uint32_t bitsToSet, uint32_t bitsToClear) {
 			__CtrlSetAllButtons(bitsToSet, bitsToClear);
 		},

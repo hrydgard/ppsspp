@@ -11,6 +11,27 @@
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
 
+// TODO: Possibly make these configurable?
+static float GetDeviceAxisThreshold(int device) {
+	return device == DEVICE_ID_MOUSE ? AXIS_BIND_THRESHOLD_MOUSE : AXIS_BIND_THRESHOLD;
+}
+
+static int GetOppositeVKey(int vkey) {
+	switch (vkey) {
+	case VIRTKEY_AXIS_X_MIN: return VIRTKEY_AXIS_X_MAX; break;
+	case VIRTKEY_AXIS_X_MAX: return VIRTKEY_AXIS_X_MIN; break;
+	case VIRTKEY_AXIS_Y_MIN: return VIRTKEY_AXIS_Y_MAX; break;
+	case VIRTKEY_AXIS_Y_MAX: return VIRTKEY_AXIS_Y_MIN; break;
+	case VIRTKEY_AXIS_RIGHT_X_MIN: return VIRTKEY_AXIS_RIGHT_X_MAX; break;
+	case VIRTKEY_AXIS_RIGHT_X_MAX: return VIRTKEY_AXIS_RIGHT_X_MIN; break;
+	case VIRTKEY_AXIS_RIGHT_Y_MIN: return VIRTKEY_AXIS_RIGHT_Y_MAX; break;
+	case VIRTKEY_AXIS_RIGHT_Y_MAX: return VIRTKEY_AXIS_RIGHT_Y_MIN; break;
+	default:
+		return 0;
+	}
+}
+
+// This is applied on the circular radius, not directly on the axes.
 static float MapAxisValue(float v) {
 	const float deadzone = g_Config.fAnalogDeadzone;
 	const float invDeadzone = g_Config.fAnalogInverseDeadzone;
@@ -18,11 +39,6 @@ static float MapAxisValue(float v) {
 	const float sign = v >= 0.0f ? 1.0f : -1.0f;
 
 	return sign * Clamp(invDeadzone + (abs(v) - deadzone) / (1.0f - deadzone) * (sensitivity - invDeadzone), 0.0f, 1.0f);
-}
-
-// TODO: Possibly make these configurable?
-float GetDeviceAxisThreshold(int device) {
-	return device == DEVICE_ID_MOUSE ? AXIS_BIND_THRESHOLD_MOUSE : AXIS_BIND_THRESHOLD;
 }
 
 void ConvertAnalogStick(float &x, float &y) {
@@ -48,10 +64,12 @@ void ConvertAnalogStick(float &x, float &y) {
 
 void ControlMapper::SetCallbacks(
 	std::function<void(int, bool)> onVKey,
+	std::function<void(int, float)> onVKeyAnalog,
 	std::function<void(uint32_t, uint32_t)> setAllPSPButtonStates,
 	std::function<void(int, bool)> setPSPButtonState,
 	std::function<void(int, float, float)> setPSPAnalog) {
 	onVKey_ = onVKey;
+	onVKeyAnalog_ = onVKey;
 	setAllPSPButtonStates_ = setAllPSPButtonStates;
 	setPSPButtonState_ = setPSPButtonState;
 	setPSPAnalog_ = setPSPAnalog;
@@ -61,7 +79,7 @@ void ControlMapper::SetRawCallback(std::function<void(int, float, float)> setRaw
 	setRawAnalog_ = setRawAnalog;
 }
 
-void ControlMapper::SetPSPAxis(int device, char axis, float value, int stick) {
+void ControlMapper::SetPSPAxis(int device, int stick, char axis, float value) {
 	int axisId = axis == 'X' ? 0 : 1;
 
 	float position[2];
@@ -113,7 +131,7 @@ static int RotatePSPKeyCode(int x) {
 	}
 }
 
-bool ControlMapper::UpdatePSPState() {
+bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 	// Instead of taking an input key and finding what it outputs, we loop through the OUTPUTS and
 	// see if the input that corresponds to it has a value. That way we can easily implement all sorts
 	// of crazy input combos if needed.
@@ -127,6 +145,7 @@ bool ControlMapper::UpdatePSPState() {
 
 	// For the PSP's button inputs, we just go through and put the flags together.
 	uint32_t buttonMask = 0;
+	uint32_t changedButtonMask = 0;
 	for (int i = 0; i < 32; i++) {
 		uint32_t mask = 1 << i;
 		if (!(mask & CTRL_MASK_USER)) {
@@ -134,25 +153,31 @@ bool ControlMapper::UpdatePSPState() {
 			continue;
 		}
 
-		uint32_t mapping = mask;
+		uint32_t mappingBit = mask;
 		for (int i = 0; i < rotations; i++) {
-			mapping = RotatePSPKeyCode(mapping);
+			mappingBit = RotatePSPKeyCode(mappingBit);
 		}
 
 		std::vector<InputMapping> inputMappings;
-		if (!KeyMap::InputMappingsFromPspButton(mapping, &inputMappings, false))
+		if (!KeyMap::InputMappingsFromPspButton(mappingBit, &inputMappings, false))
 			continue;
 
 		// If a mapping could consist of a combo, we could trivially check it here.
-		for (int j = 0; j < inputMappings.size(); j++) {
-			auto iter = curInput_.find(inputMappings[j]) ;
+		for (auto &mapping : inputMappings) {
+			// Check if the changed mapping was involved in this PSP key.
+			if (changedMapping == mapping) {
+				changedButtonMask |= mask;
+			}
+
+			auto iter = curInput_.find(mapping);
 			if (iter != curInput_.end() && iter->second > GetDeviceAxisThreshold(iter->first.deviceId)) {
 				buttonMask |= mask;
 			}
 		}
 	}
 
-	setAllPSPButtonStates_(buttonMask);
+	// We only request changing the buttons where the mapped input was involved.
+	setAllPSPButtonStates_(buttonMask & changedButtonMask, (~buttonMask) & changedButtonMask);
 
 	// OK, handle all the virtual keys next. For these we need to do deltas here and send events.
 	for (int i = 0; i < VIRTKEY_COUNT; i++) {
@@ -160,32 +185,50 @@ bool ControlMapper::UpdatePSPState() {
 		std::vector<InputMapping> inputMappings;
 		if (!KeyMap::InputMappingsFromPspButton(vkId, &inputMappings, false))
 			continue;
-		bool value = false;
+		float value = 0.0f;
 
 		// If a mapping could consist of a combo, we could trivially check it here.
-		for (int j = 0; j < inputMappings.size(); j++) {
-			auto iter = curInput_.find(inputMappings[j]);
-			if (iter != curInput_.end() && iter->second > GetDeviceAxisThreshold(iter->first.deviceId)) {
-				value = true;
+		// Save the first device ID so we can pass it into onVKeyDown, which in turn needs it for the analog
+		// mapping which gets a little hacky.
+		float threshold = 1.0f;
+		bool touchedByMapping = false;
+		for (auto &mapping : inputMappings) {
+			if (mapping == changedMapping) {
+				touchedByMapping = true;
+			}
+
+			auto iter = curInput_.find(mapping);
+			if (iter != curInput_.end()) {
+				if (mapping.IsAxis()) {
+					threshold = GetDeviceAxisThreshold(iter->first.deviceId);
+					value += iter->second;
+				} else {
+					value += iter->second;
+				}
 			}
 		}
 
-		if (!lastVirtKeys_[i] && value) {
-			onVKeyDown_(vkId);
-		} else if (lastVirtKeys_[i] && !value) {
-			onVKeyUp_(vkId);
+		if (!touchedByMapping) {
+			continue;
 		}
-		lastVirtKeys_[i] = value;
+
+		value = clamp_value(value, 0.0f, 1.0f);
+
+		// Derive bools from the floats using the device's threshold.
+		bool bPrevValue = virtKeys_[i] >= threshold;
+		bool bValue = value >= threshold;
+		if (virtKeys_[i] != value) {
+			// INFO_LOG(G3D, "vkeyanalog %s : %f", KeyMap::GetVirtKeyName(vkId), value);
+			onVKeyAnalog(changedMapping.deviceId, vkId, value);
+		}
+		virtKeys_[i] = value;
+		if (!bPrevValue && bValue) {
+			onVKey(vkId, true);
+		} else if (bPrevValue && !bValue) {
+			onVKey(vkId, false);
+		}
 	}
 
-	// Now let's look at the four axes.
-	// for (int i = 0; i < 4; i++) {
-
-	// }
-
-	// TODO: Here we need to diff pspState with prevPspState_ to generate
-	// any new PSP key events. Though for the actual PSP buttons themselves (not the sticks),
-	// we could just or them together and set them all at once.
 	return true;
 }
 
@@ -200,10 +243,10 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 	if (key.flags & KEY_DOWN) {
 		curInput_[mapping] = 1.0f;
 	} else if (key.flags & KEY_UP) {
-		curInput_.erase(mapping);
+		curInput_[mapping] = 0.0f;
 	}
 
-	bool mappingFound = KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), nullptr);
+	bool mappingFound = KeyMap::InputMappingToPspButton(mapping, nullptr);
 	DEBUG_LOG(SYSTEM, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
 	if (!mappingFound || key.deviceId == DEVICE_ID_DEFAULT) {
 		if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
@@ -212,22 +255,26 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 		}
 	}
 
-	return UpdatePSPState();
+	return UpdatePSPState(mapping);
 }
 
 void ControlMapper::Axis(const AxisInput &axis) {
 	if (axis.value > 0) {
 		InputMapping mapping(axis.deviceId, axis.axisId, 1);
 		curInput_[mapping] = axis.value;
+		UpdatePSPState(mapping);
 	} else if (axis.value < 0) {
 		InputMapping mapping(axis.deviceId, axis.axisId, -1);
-		curInput_[mapping] = axis.value;
+		curInput_[mapping] = -axis.value;
+		UpdatePSPState(mapping);
 	} else if (axis.value == 0.0f) {  // Threshold?
 		// Both directions! Prevents sticking for digital input devices that are axises (like HAT)
-		InputMapping mappingPositive(axis.deviceId, axis.axisId, -1);
+		InputMapping mappingPositive(axis.deviceId, axis.axisId, 1);
 		InputMapping mappingNegative(axis.deviceId, axis.axisId, -1);
 		curInput_[mappingPositive] = 0.0f;
 		curInput_[mappingNegative] = 0.0f;
+		UpdatePSPState(mappingPositive);
+		UpdatePSPState(mappingNegative);
 	}
 }
 
@@ -248,55 +295,16 @@ void ControlMapper::Update() {
 	}
 }
 
-inline bool IsAnalogStickKey(int key) {
-	switch (key) {
-	case VIRTKEY_AXIS_X_MIN:
-	case VIRTKEY_AXIS_X_MAX:
-	case VIRTKEY_AXIS_Y_MIN:
-	case VIRTKEY_AXIS_Y_MAX:
-	case VIRTKEY_AXIS_RIGHT_X_MIN:
-	case VIRTKEY_AXIS_RIGHT_X_MAX:
-	case VIRTKEY_AXIS_RIGHT_Y_MIN:
-	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		return true;
-	default:
-		return false;
-	}
-}
-
-void ControlMapper::SetVKeyAnalog(int deviceId, char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero) {
-	/*
-	// The down events can repeat, so just trust the virtKeys_ array.
-	bool minDown = virtKeys_[virtualKeyMin - VIRTKEY_FIRST];
-	bool maxDown = virtKeys_[virtualKeyMax - VIRTKEY_FIRST];
-
-	const float scale = virtKeys_[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
-	float value = 0.0f;
-	if (minDown)
-		value -= scale;
-	if (maxDown)
-		value += scale;
-	if (setZero || minDown || maxDown) {
-		SetPSPAxis(deviceId, axis, value, stick);
-	}
-	*/
-}
-
 void ControlMapper::PSPKey(int deviceId, int pspKeyCode, int flags) {
-	SetPSPKey(deviceId, pspKeyCode, flags);
-}
-
-void ControlMapper::SetPSPKey(int deviceId, int pspKeyCode, int flags) {
-	/*
 	if (pspKeyCode >= VIRTKEY_FIRST) {
 		int vk = pspKeyCode - VIRTKEY_FIRST;
 		if (flags & KEY_DOWN) {
-			virtKeys_[vk] = true;
-			onVKey(deviceId, pspKeyCode, true);
+			virtKeys_[vk] = 1.0f;
+			onVKey(pspKeyCode, true);
 		}
 		if (flags & KEY_UP) {
-			virtKeys_[vk] = false;
-			onVKey(deviceId, pspKeyCode, false);
+			virtKeys_[vk] = 0.0f;
+			onVKey(pspKeyCode, false);
 		}
 	} else {
 		// INFO_LOG(SYSTEM, "pspKey %d %d", pspKeyCode, flags);
@@ -305,36 +313,35 @@ void ControlMapper::SetPSPKey(int deviceId, int pspKeyCode, int flags) {
 		if (flags & KEY_UP)
 			setPSPButtonState_(pspKeyCode, false);
 	}
-	*/
 }
 
-void ControlMapper::onVKey(int deviceId, int vkey, bool down) {
+void ControlMapper::onVKeyAnalog(int deviceId, int vkey, float value) {
+	// Unfortunately, for digital->analog inputs to work sanely, we need to sum up
+	// with the opposite value too.
+	int stick = 0;
+	int axis = 'X';
+	int opposite = GetOppositeVKey(vkey);
+	float sign = 1.0f;
 	switch (vkey) {
-	case VIRTKEY_AXIS_X_MIN:
-	case VIRTKEY_AXIS_X_MAX:
-		SetVKeyAnalog(deviceId, 'X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
-		break;
-	case VIRTKEY_AXIS_Y_MIN:
-	case VIRTKEY_AXIS_Y_MAX:
-		SetVKeyAnalog(deviceId, 'Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
-		break;
+	case VIRTKEY_AXIS_X_MIN: sign = -1.0f; break;
+	case VIRTKEY_AXIS_X_MAX: break;
+	case VIRTKEY_AXIS_Y_MIN: axis = 'Y'; sign = -1.0f; break;
+	case VIRTKEY_AXIS_Y_MAX: axis = 'Y'; break;
+	case VIRTKEY_AXIS_RIGHT_X_MIN: stick = CTRL_STICK_RIGHT; sign = -1.0f; break;
+	case VIRTKEY_AXIS_RIGHT_X_MAX: stick = CTRL_STICK_RIGHT; break;
+	case VIRTKEY_AXIS_RIGHT_Y_MIN: stick = CTRL_STICK_RIGHT; axis = 'Y'; sign = -1.0f; break;
+	case VIRTKEY_AXIS_RIGHT_Y_MAX: stick = CTRL_STICK_RIGHT; axis = 'Y'; break;
+	default:
+		if (onVKeyAnalog_)
+			onVKeyAnalog_(vkey, value);
+		return;
+	}
+	value -= virtKeys_[opposite - VIRTKEY_FIRST];
+	SetPSPAxis(deviceId, stick, axis, sign * value);
+}
 
-	case VIRTKEY_AXIS_RIGHT_X_MIN:
-	case VIRTKEY_AXIS_RIGHT_X_MAX:
-		SetVKeyAnalog(deviceId, 'X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
-		break;
-	case VIRTKEY_AXIS_RIGHT_Y_MIN:
-	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		SetVKeyAnalog(deviceId, 'Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
-		break;
-
-	case VIRTKEY_ANALOG_LIGHTLY:
-		SetVKeyAnalog(deviceId, 'X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX, false);
-		SetVKeyAnalog(deviceId, 'Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX, false);
-		SetVKeyAnalog(deviceId, 'X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX, false);
-		SetVKeyAnalog(deviceId, 'Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX, false);
-		break;
-
+void ControlMapper::onVKey(int vkey, bool down) {
+	switch (vkey) {
 	case VIRTKEY_ANALOG_ROTATE_CW:
 		if (down) {
 			autoRotatingAnalogCW_ = true;
@@ -353,101 +360,10 @@ void ControlMapper::onVKey(int deviceId, int vkey, bool down) {
 			setPSPAnalog_(0, 0.0f, 0.0f);
 		}
 		break;
-
 	default:
 		if (onVKey_)
 			onVKey_(vkey, down);
 		break;
-	}
-}
-
-void ControlMapper::ProcessAxis(const AxisInput &axis, int direction) {
-	// Sanity check
-	if (axis.axisId < 0 || axis.axisId >= JOYSTICK_AXIS_MAX) {
-		return;
-	}
-
-	const float scale = lastVirtKeys_[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
-
-	std::vector<int> results;
-	KeyMap::InputMappingToPspButton(InputMapping(axis.deviceId, axis.axisId, direction), &results);
-
-	for (int result : results) {
-		float value = fabs(axis.value) * scale;
-		switch (result) {
-		case VIRTKEY_AXIS_X_MIN:
-			SetPSPAxis(axis.deviceId, 'X', -value, CTRL_STICK_LEFT);
-			break;
-		case VIRTKEY_AXIS_X_MAX:
-			SetPSPAxis(axis.deviceId, 'X', value, CTRL_STICK_LEFT);
-			break;
-		case VIRTKEY_AXIS_Y_MIN:
-			SetPSPAxis(axis.deviceId, 'Y', -value, CTRL_STICK_LEFT);
-			break;
-		case VIRTKEY_AXIS_Y_MAX:
-			SetPSPAxis(axis.deviceId, 'Y', value, CTRL_STICK_LEFT);
-			break;
-
-		case VIRTKEY_AXIS_RIGHT_X_MIN:
-			SetPSPAxis(axis.deviceId, 'X', -value, CTRL_STICK_RIGHT);
-			break;
-		case VIRTKEY_AXIS_RIGHT_X_MAX:
-			SetPSPAxis(axis.deviceId, 'X', value, CTRL_STICK_RIGHT);
-			break;
-		case VIRTKEY_AXIS_RIGHT_Y_MIN:
-			SetPSPAxis(axis.deviceId, 'Y', -value, CTRL_STICK_RIGHT);
-			break;
-		case VIRTKEY_AXIS_RIGHT_Y_MAX:
-			SetPSPAxis(axis.deviceId, 'Y', value, CTRL_STICK_RIGHT);
-			break;
-
-		case VIRTKEY_SPEED_ANALOG:
-			ProcessAnalogSpeed(axis, false);
-			break;
-		}
-	}
-
-	std::vector<int> resultsOpposite;
-	KeyMap::InputMappingToPspButton(InputMapping(axis.deviceId, axis.axisId, -direction), &resultsOpposite);
-
-	for (int result : resultsOpposite) {
-		if (result == VIRTKEY_SPEED_ANALOG)
-			ProcessAnalogSpeed(axis, true);
-	}
-
-	int axisState = 0;
-	float threshold = GetDeviceAxisThreshold(axis.deviceId);
-	if (direction == 1 && axis.value >= threshold) {
-		axisState = 1;
-	} else if (direction == -1 && axis.value <= -threshold) {
-		axisState = -1;
-	} else {
-		axisState = 0;
-	}
-
-	if (axisState != axisState_[axis.axisId]) {
-		axisState_[axis.axisId] = axisState;
-		if (axisState != 0) {
-			for (size_t i = 0; i < results.size(); i++) {
-				if (!IsAnalogStickKey(results[i]))
-					SetPSPKey(axis.deviceId, results[i], KEY_DOWN);
-			}
-			// Also unpress the other direction (unless both directions press the same key.)
-			for (size_t i = 0; i < resultsOpposite.size(); i++) {
-				if (!IsAnalogStickKey(resultsOpposite[i]) && std::find(results.begin(), results.end(), resultsOpposite[i]) == results.end())
-					SetPSPKey(axis.deviceId, resultsOpposite[i], KEY_UP);
-			}
-		} else if (axisState == 0) {
-			// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
-			for (size_t i = 0; i < results.size(); i++) {
-				if (!IsAnalogStickKey(results[i]))
-					SetPSPKey(axis.deviceId, results[i], KEY_UP);
-			}
-			for (size_t i = 0; i < resultsOpposite.size(); i++) {
-				if (!IsAnalogStickKey(resultsOpposite[i]))
-					SetPSPKey(axis.deviceId, resultsOpposite[i], KEY_UP);
-			}
-		}
 	}
 }
 
