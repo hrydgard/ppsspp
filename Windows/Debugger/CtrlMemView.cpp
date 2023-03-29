@@ -901,7 +901,7 @@ void CtrlMemView::search(bool continueSearch) {
 		segmentEnd = memoryAreas[i].second;
 
 		// better safe than sorry, I guess
-		if (Memory::IsValidAddress(segmentStart))
+		if (!Memory::IsValidAddress(segmentStart))
 			continue;
 		const u8 *dataPointer = Memory::GetPointerUnchecked(segmentStart);
 
