@@ -118,9 +118,6 @@ bool ControlMapper::UpdatePSPState() {
 	// see if the input that corresponds to it has a value. That way we can easily implement all sorts
 	// of crazy input combos if needed.
 
-	// For the PSP's button inputs, we just go through and put the flags together.
-	uint32_t buttonMask = 0;
-
 	int rotations = 0;
 	switch (g_Config.iInternalScreenRotation) {
 	case ROTATION_LOCKED_HORIZONTAL180: rotations = 2; break;
@@ -128,6 +125,8 @@ bool ControlMapper::UpdatePSPState() {
 	case ROTATION_LOCKED_VERTICAL180:   rotations = 3; break;
 	}
 
+	// For the PSP's button inputs, we just go through and put the flags together.
+	uint32_t buttonMask = 0;
 	for (int i = 0; i < 32; i++) {
 		uint32_t mask = 1 << i;
 		if (!(mask & CTRL_MASK_USER)) {
@@ -141,13 +140,13 @@ bool ControlMapper::UpdatePSPState() {
 		}
 
 		std::vector<InputMapping> inputMappings;
-		// This is really "MappingsFromPspButtons".
 		if (!KeyMap::InputMappingsFromPspButton(mapping, &inputMappings, false))
 			continue;
 
+		// If a mapping could consist of a combo, we could trivially check it here.
 		for (int j = 0; j < inputMappings.size(); j++) {
 			auto iter = curInput_.find(inputMappings[j]) ;
-			if (iter != curInput_.end() && iter->second > 0.0f) {
+			if (iter != curInput_.end() && iter->second > GetDeviceAxisThreshold(iter->first.deviceId)) {
 				buttonMask |= mask;
 			}
 		}
@@ -156,11 +155,33 @@ bool ControlMapper::UpdatePSPState() {
 	setAllPSPButtonStates_(buttonMask);
 
 	// OK, handle all the virtual keys next. For these we need to do deltas here and send events.
+	for (int i = 0; i < VIRTKEY_COUNT; i++) {
+		int vkId = i + VIRTKEY_FIRST;
+		std::vector<InputMapping> inputMappings;
+		if (!KeyMap::InputMappingsFromPspButton(vkId, &inputMappings, false))
+			continue;
+		bool value = false;
+
+		// If a mapping could consist of a combo, we could trivially check it here.
+		for (int j = 0; j < inputMappings.size(); j++) {
+			auto iter = curInput_.find(inputMappings[j]);
+			if (iter != curInput_.end() && iter->second > GetDeviceAxisThreshold(iter->first.deviceId)) {
+				value = true;
+			}
+		}
+
+		if (!lastVirtKeys_[i] && value) {
+			onVKeyDown_(vkId);
+		} else if (lastVirtKeys_[i] && !value) {
+			onVKeyUp_(vkId);
+		}
+		lastVirtKeys_[i] = value;
+	}
 
 	// Now let's look at the four axes.
-	for (int i = 0; i < 4; i++) {
+	// for (int i = 0; i < 4; i++) {
 
-	}
+	// }
 
 	// TODO: Here we need to diff pspState with prevPspState_ to generate
 	// any new PSP key events. Though for the actual PSP buttons themselves (not the sticks),
@@ -182,10 +203,9 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 		curInput_.erase(mapping);
 	}
 
-	std::vector<int> pspKeys;
-	KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), &pspKeys);
+	bool mappingFound = KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), nullptr);
 	DEBUG_LOG(SYSTEM, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
-	if (!pspKeys.size() || key.deviceId == DEVICE_ID_DEFAULT) {
+	if (!mappingFound || key.deviceId == DEVICE_ID_DEFAULT) {
 		if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
 			*pauseTrigger = true;
 			return true;
@@ -245,6 +265,7 @@ inline bool IsAnalogStickKey(int key) {
 }
 
 void ControlMapper::SetVKeyAnalog(int deviceId, char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero) {
+	/*
 	// The down events can repeat, so just trust the virtKeys_ array.
 	bool minDown = virtKeys_[virtualKeyMin - VIRTKEY_FIRST];
 	bool maxDown = virtKeys_[virtualKeyMax - VIRTKEY_FIRST];
@@ -258,6 +279,7 @@ void ControlMapper::SetVKeyAnalog(int deviceId, char axis, int stick, int virtua
 	if (setZero || minDown || maxDown) {
 		SetPSPAxis(deviceId, axis, value, stick);
 	}
+	*/
 }
 
 void ControlMapper::PSPKey(int deviceId, int pspKeyCode, int flags) {
@@ -345,7 +367,7 @@ void ControlMapper::ProcessAxis(const AxisInput &axis, int direction) {
 		return;
 	}
 
-	const float scale = virtKeys_[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
+	const float scale = lastVirtKeys_[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
 
 	std::vector<int> results;
 	KeyMap::InputMappingToPspButton(InputMapping(axis.deviceId, axis.axisId, direction), &results);

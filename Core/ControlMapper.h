@@ -58,7 +58,7 @@ private:
 	void onVKey(int deviceId, int vkey, bool down);
 
 	// To track mappable virtual keys. We can have as many as we want.
-	bool virtKeys_[VIRTKEY_COUNT]{};
+	bool lastVirtKeys_[VIRTKEY_COUNT]{};
 
 	// De-noise mapped axis updates
 	int axisState_[JOYSTICK_AXIS_MAX]{};
