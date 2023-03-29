@@ -21,8 +21,8 @@ public:
 
 	// Required callbacks
 	void SetCallbacks(
-		std::function<void(int)> onVKeyDown,
-		std::function<void(int)> onVKeyUp,
+		std::function<void(int, bool)> onVKey,
+		std::function<void(uint32_t)> setAllPSPButtonStates_,
 		std::function<void(int, bool)> setPSPButtonState,
 		std::function<void(int, float, float)> setPSPAnalog);
 
@@ -41,8 +41,7 @@ private:
 	void SetPSPAxis(int deviceId, char axis, float value, int stick);
 	void ProcessAnalogSpeed(const AxisInput &axis, bool opposite);
 
-	void onVKeyDown(int deviceId, int vkey);
-	void onVKeyUp(int deviceId, int vkey);
+	void onVKey(int deviceId, int vkey, bool down);
 
 	// To track mappable virtual keys. We can have as many as we want.
 	bool virtKeys_[VIRTKEY_COUNT]{};
@@ -59,9 +58,9 @@ private:
 	bool autoRotatingAnalogCCW_ = false;
 
 	// Callbacks
+	std::function<void(int, bool)> onVKey_;
+	std::function<void(uint32_t)> setAllPSPButtonStates_;
 	std::function<void(int, bool)> setPSPButtonState_;
-	std::function<void(int)> onVKeyDown_;
-	std::function<void(int)> onVKeyUp_;
 	std::function<void(int, float, float)> setPSPAnalog_;
 	std::function<void(int, float, float)> setRawAnalog_;
 };
