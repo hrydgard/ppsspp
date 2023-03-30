@@ -11,7 +11,7 @@
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
 
-// TODO: Possibly make these configurable?
+// TODO: Possibly make these thresholds configurable?
 static float GetDeviceAxisThreshold(int device) {
 	return device == DEVICE_ID_MOUSE ? AXIS_BIND_THRESHOLD_MOUSE : AXIS_BIND_THRESHOLD;
 }
@@ -190,6 +190,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 		// mapping which gets a little hacky.
 		float threshold = 1.0f;
 		bool touchedByMapping = false;
+		bool zeroOpposite = false;
 		float value = 0.0f;
 		for (auto &mapping : inputMappings) {
 			if (mapping == changedMapping) {
@@ -200,6 +201,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 			if (iter != curInput_.end()) {
 				if (mapping.IsAxis()) {
 					threshold = GetDeviceAxisThreshold(iter->first.deviceId);
+					zeroOpposite = true;
 				}
 				value += iter->second;
 			}
@@ -218,6 +220,14 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 			// INFO_LOG(G3D, "vkeyanalog %s : %f", KeyMap::GetVirtKeyName(vkId), value);
 			onVKeyAnalog(changedMapping.deviceId, vkId, value);
 			virtKeys_[i] = value;
+		}
+		if (zeroOpposite) {
+			// For analog stick events, always zero the "opposite" when we get a valid value.
+			// Otherwise, lingering small values can create strange offsets when summing up later.
+			int opposite = GetOppositeVKey(vkId);
+			if (opposite) {
+				virtKeys_[i] = 0.0f;
+			}
 		}
 		if (!bPrevValue && bValue) {
 			// INFO_LOG(G3D, "vkeyon %s", KeyMap::GetVirtKeyName(vkId));
