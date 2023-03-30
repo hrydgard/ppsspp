@@ -43,7 +43,7 @@ void ConvertAnalogStick(float &x, float &y) {
 
 void ControlMapper::SetCallbacks(
 	std::function<void(int, bool)> onVKey,
-	std::function<void(uint32_t)> setAllPSPButtonStates,
+	std::function<void(uint32_t, uint32_t)> setAllPSPButtonStates,
 	std::function<void(int, bool)> setPSPButtonState,
 	std::function<void(int, float, float)> setPSPAnalog) {
 	onVKey_ = onVKey;

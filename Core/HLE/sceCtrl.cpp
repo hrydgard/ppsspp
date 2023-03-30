@@ -204,10 +204,11 @@ void __CtrlButtonUp(u32 buttonBit)
 	ctrlCurrent.buttons &= ~buttonBit;
 }
 
-void __CtrlSetAllButtons(u32 buttonBits)
+void __CtrlSetAllButtons(u32 bitsToSet, u32 bitsToClear)
 {
 	std::lock_guard<std::mutex> guard(ctrlMutex);
-	ctrlCurrent.buttons = buttonBits & CTRL_MASK_USER;
+	ctrlCurrent.buttons &= ~(bitsToClear & CTRL_MASK_USER);
+	ctrlCurrent.buttons |= (bitsToSet & CTRL_MASK_USER);
 }
 
 void __CtrlSetAnalogXY(int stick, float x, float y)

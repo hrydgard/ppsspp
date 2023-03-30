@@ -71,7 +71,7 @@ void __CtrlButtonDown(u32 buttonBit);
 // Call this whenever a button is released.  Similar to __CtrlButtonDown().
 void __CtrlButtonUp(u32 buttonBit);
 // To be used by the new mapping code.
-void __CtrlSetAllButtons(u32 buttonBits);
+void __CtrlSetAllButtons(u32 bitsToSet, u32 bitsToClear);
 
 // Call this to set the position of an analog stick, ideally when it changes.
 // X and Y values should be from -1 to 1, inclusive, in a square (no need to force to a circle.)
