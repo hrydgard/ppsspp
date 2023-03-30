@@ -41,9 +41,13 @@ void ConvertAnalogStick(float &x, float &y) {
 	y = Clamp(y / norm * mappedNorm, -1.0f, 1.0f);
 }
 
-void ControlMapper::SetCallbacks(std::function<void(int)> onVKeyDown, std::function<void(int)> onVKeyUp, std::function<void(int, bool)> setPSPButtonState, std::function<void(int, float, float)> setPSPAnalog) {
-	onVKeyDown_ = onVKeyDown;
-	onVKeyUp_ = onVKeyUp;
+void ControlMapper::SetCallbacks(
+	std::function<void(int, bool)> onVKey,
+	std::function<void(uint32_t, uint32_t)> setAllPSPButtonStates,
+	std::function<void(int, bool)> setPSPButtonState,
+	std::function<void(int, float, float)> setPSPAnalog) {
+	onVKey_ = onVKey;
+	setAllPSPButtonStates_ = setAllPSPButtonStates;
 	setPSPButtonState_ = setPSPButtonState;
 	setPSPAnalog_ = setPSPAnalog;
 }
@@ -200,11 +204,11 @@ void ControlMapper::SetPSPKey(int deviceId, int pspKeyCode, int flags) {
 		int vk = pspKeyCode - VIRTKEY_FIRST;
 		if (flags & KEY_DOWN) {
 			virtKeys_[vk] = true;
-			onVKeyDown(deviceId, pspKeyCode);
+			onVKey(deviceId, pspKeyCode, true);
 		}
 		if (flags & KEY_UP) {
 			virtKeys_[vk] = false;
-			onVKeyUp(deviceId, pspKeyCode);
+			onVKey(deviceId, pspKeyCode, false);
 		}
 	} else {
 		int rotations = 0;
@@ -232,7 +236,7 @@ void ControlMapper::SetPSPKey(int deviceId, int pspKeyCode, int flags) {
 	}
 }
 
-void ControlMapper::onVKeyDown(int deviceId, int vkey) {
+void ControlMapper::onVKey(int deviceId, int vkey, bool down) {
 	switch (vkey) {
 	case VIRTKEY_AXIS_X_MIN:
 	case VIRTKEY_AXIS_X_MAX:
@@ -260,62 +264,27 @@ void ControlMapper::onVKeyDown(int deviceId, int vkey) {
 		break;
 
 	case VIRTKEY_ANALOG_ROTATE_CW:
-		autoRotatingAnalogCW_ = true;
-		autoRotatingAnalogCCW_ = false;
+		if (down) {
+			autoRotatingAnalogCW_ = true;
+			autoRotatingAnalogCCW_ = false;
+		} else {
+			autoRotatingAnalogCW_ = false;
+			setPSPAnalog_(0, 0.0f, 0.0f);
+		}
 		break;
 	case VIRTKEY_ANALOG_ROTATE_CCW:
-		autoRotatingAnalogCW_ = false;
-		autoRotatingAnalogCCW_ = true;
+		if (down) {
+			autoRotatingAnalogCW_ = false;
+			autoRotatingAnalogCCW_ = true;
+		} else {
+			autoRotatingAnalogCCW_ = false;
+			setPSPAnalog_(0, 0.0f, 0.0f);
+		}
 		break;
 
 	default:
-		if (onVKeyDown_)
-			onVKeyDown_(vkey);
-		break;
-	}
-}
-
-void ControlMapper::onVKeyUp(int deviceId, int vkey) {
-	switch (vkey) {
-
-	case VIRTKEY_AXIS_X_MIN:
-	case VIRTKEY_AXIS_X_MAX:
-		SetVKeyAnalog(deviceId, 'X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
-		break;
-	case VIRTKEY_AXIS_Y_MIN:
-	case VIRTKEY_AXIS_Y_MAX:
-		SetVKeyAnalog(deviceId, 'Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
-		break;
-
-	case VIRTKEY_AXIS_RIGHT_X_MIN:
-	case VIRTKEY_AXIS_RIGHT_X_MAX:
-		SetVKeyAnalog(deviceId, 'X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
-		break;
-	case VIRTKEY_AXIS_RIGHT_Y_MIN:
-	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		SetVKeyAnalog(deviceId, 'Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
-		break;
-
-	case VIRTKEY_ANALOG_LIGHTLY:
-		SetVKeyAnalog(deviceId, 'X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX, false);
-		SetVKeyAnalog(deviceId, 'Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX, false);
-		SetVKeyAnalog(deviceId, 'X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX, false);
-		SetVKeyAnalog(deviceId, 'Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX, false);
-		break;
-
-	case VIRTKEY_ANALOG_ROTATE_CW:
-		autoRotatingAnalogCW_ = false;
-		setPSPAnalog_(0, 0.0f, 0.0f);
-		break;
-
-	case VIRTKEY_ANALOG_ROTATE_CCW:
-		autoRotatingAnalogCCW_ = false;
-		setPSPAnalog_(0, 0.0f, 0.0f);
-		break;
-
-	default:
-		if (onVKeyUp_)
-			onVKeyUp_(vkey);
+		if (onVKey_)
+			onVKey_(vkey, down);
 		break;
 	}
 }

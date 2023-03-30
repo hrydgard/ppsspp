@@ -1,10 +1,11 @@
 #include <algorithm>
+
 #include "UI/JoystickHistoryView.h"
+
 #include "Common/UI/Context.h"
 #include "Common/UI/UI.h"
 
-// From ControlMapper.h
-void ConvertAnalogStick(float &x, float &y);
+#include "Core/ControlMapper.h"
 
 void JoystickHistoryView::Draw(UIContext &dc) {
 	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(ImageID("I_CROSS"));

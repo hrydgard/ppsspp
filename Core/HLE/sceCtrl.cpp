@@ -204,6 +204,13 @@ void __CtrlButtonUp(u32 buttonBit)
 	ctrlCurrent.buttons &= ~buttonBit;
 }
 
+void __CtrlSetAllButtons(u32 bitsToSet, u32 bitsToClear)
+{
+	std::lock_guard<std::mutex> guard(ctrlMutex);
+	ctrlCurrent.buttons &= ~(bitsToClear & CTRL_MASK_USER);
+	ctrlCurrent.buttons |= (bitsToSet & CTRL_MASK_USER);
+}
+
 void __CtrlSetAnalogXY(int stick, float x, float y)
 {
 	u8 scaledX = clamp_u8((int)ceilf(x * 127.5f + 127.5f));
