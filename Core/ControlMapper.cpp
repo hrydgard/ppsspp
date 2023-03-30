@@ -31,6 +31,24 @@ static int GetOppositeVKey(int vkey) {
 	}
 }
 
+static bool IsUnsignedMapping(int vkey) {
+	return vkey == VIRTKEY_SPEED_ANALOG;
+}
+
+static bool IsSignedAxis(int axis) {
+	switch (axis) {
+	case JOYSTICK_AXIS_X:
+	case JOYSTICK_AXIS_Y:
+	case JOYSTICK_AXIS_Z:
+	case JOYSTICK_AXIS_RX:
+	case JOYSTICK_AXIS_RY:
+	case JOYSTICK_AXIS_RZ:
+		return true;
+	default:
+		return false;
+	}
+}
+
 // This is applied on the circular radius, not directly on the axes.
 static float MapAxisValue(float v) {
 	const float deadzone = g_Config.fAnalogDeadzone;
@@ -202,9 +220,36 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 			if (iter != curInput_.end()) {
 				if (mapping.IsAxis()) {
 					threshold = GetDeviceAxisThreshold(iter->first.deviceId);
-					zeroOpposite = true;
+					if (IsUnsignedMapping(vkId)) {
+						// If a signed axis is mapped to an unsigned mapping,
+						// convert it. This happens when mapping DirectInput triggers to analog speed,
+						// for example.
+						int direction;
+						if (IsSignedAxis(mapping.Axis(&direction))) {
+							// The value has been split up into two curInput values, so we need to go fetch the other
+							// and put them back together again. Kind of awkward, but at least makes the regular case simple...
+							InputMapping other = mapping.FlipDirection();
+							if (other == changedMapping) {
+								touchedByMapping = true;
+							}
+							float valueOther = curInput_[other];
+							float signedValue = iter->second - valueOther;
+							float ranged = (signedValue + 1.0f) * 0.5f;
+							if (direction == -1) {
+								ranged = 1.0f - ranged;
+							}
+							// NOTICE_LOG(SYSTEM, "rawValue: %f other: %f signed: %f ranged: %f", iter->second, valueOther, signedValue, ranged);
+							value += ranged;
+						} else {
+							value += iter->second;
+						}
+					} else {
+						zeroOpposite = true;
+						value += iter->second;
+					}
+				} else {
+					value += iter->second;
 				}
-				value += iter->second;
 			}
 		}
 
@@ -215,13 +260,16 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 		value = clamp_value(value, 0.0f, 1.0f);
 
 		// Derive bools from the floats using the device's threshold.
+		// NOTE: This must be before the equality check below.
 		bool bPrevValue = virtKeys_[i] >= threshold;
 		bool bValue = value >= threshold;
+
 		if (virtKeys_[i] != value) {
 			// INFO_LOG(G3D, "vkeyanalog %s : %f", KeyMap::GetVirtKeyName(vkId), value);
 			onVKeyAnalog(changedMapping.deviceId, vkId, value);
 			virtKeys_[i] = value;
 		}
+
 		if (zeroOpposite) {
 			// For analog stick events, always zero the "opposite" when we get a valid value.
 			// Otherwise, lingering small values can create strange offsets when summing up later.
@@ -351,7 +399,9 @@ void ControlMapper::onVKeyAnalog(int deviceId, int vkey, float value) {
 			onVKeyAnalog_(vkey, value);
 		return;
 	}
-	value -= virtKeys_[opposite - VIRTKEY_FIRST];
+	if (opposite != 0) {
+		value -= virtKeys_[opposite - VIRTKEY_FIRST];
+	}
 	SetPSPAxis(deviceId, stick, axis, sign * value);
 }
 

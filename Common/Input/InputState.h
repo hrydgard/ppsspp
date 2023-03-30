@@ -117,6 +117,13 @@ public:
 		return TranslateKeyCodeToAxis(keyCode, direction);
 	}
 
+	InputMapping FlipDirection() const {
+		_dbg_assert_(IsAxis());
+		InputMapping other = *this;
+		other.keyCode ^= 1;
+		return other;
+	}
+
 	// If you want to use std::find and match ANY, you need to perform an explicit search for that.
 	bool operator < (const InputMapping &other) const {
 		if (deviceId < other.deviceId) return true;
