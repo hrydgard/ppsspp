@@ -132,12 +132,6 @@ enum class BackgroundAnimation {
 	MOVING_BACKGROUND = 4,
 };
 
-enum class AnalogFpsMode {
-	AUTO = 0,
-	MAPPED_DIRECTION = 1,
-	MAPPED_DIR_TO_OPPOSITE_DIR = 2,
-};
-
 // for Config.iShowStatusFlags
 enum class ShowStatusFlags {
 	FPS_COUNTER = 1 << 1,

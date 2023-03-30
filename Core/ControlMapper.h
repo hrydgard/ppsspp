@@ -36,8 +36,6 @@ private:
 
 	void SetPSPAxis(int deviceId, int stick, char axis, float value);
 
-	void ProcessAnalogSpeed(const AxisInput &axis, bool opposite);
-
 	void onVKey(int vkey, bool down);
 	void onVKeyAnalog(int deviceId, int vkey, float value);
 

@@ -220,7 +220,6 @@ public:
 	int iFpsLimit1;
 	int iFpsLimit2;
 	int iAnalogFpsLimit;
-	int iAnalogFpsMode; // 0 = auto, 1 = single direction, 2 = mapped to opposite
 	int iMaxRecent;
 	int iCurrentStateSlot;
 	int iRewindSnapshotInterval;

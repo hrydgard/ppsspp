@@ -764,7 +764,33 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 }
 
 void EmuScreen::onVKeyAnalog(int virtualKeyCode, float value) {
+	if (virtualKeyCode != VIRTKEY_SPEED_ANALOG) {
+		return;
+	}
 
+	// We only handle VIRTKEY_SPEED_ANALOG here.
+
+	static constexpr float DEADZONE_THRESHOLD = 0.15f;
+	static constexpr float DEADZONE_SCALE = 1.0f / (1.0f - DEADZONE_THRESHOLD);
+
+	FPSLimit &limitMode = PSP_CoreParameter().fpsLimit;
+	// If we're using an alternate speed already, let that win.
+	if (limitMode != FPSLimit::NORMAL && limitMode != FPSLimit::ANALOG)
+		return;
+	// Don't even try if the limit is invalid.
+	if (g_Config.iAnalogFpsLimit <= 0)
+		return;
+
+	// Apply a small deadzone (against the resting position.)
+	value = std::max(0.0f, (value - DEADZONE_THRESHOLD) * DEADZONE_SCALE);
+
+	// If target is above 60, value is how much to speed up over 60.  Otherwise, it's how much slower.
+	// So normalize the target.
+	int target = g_Config.iAnalogFpsLimit - 60;
+	PSP_CoreParameter().analogFpsLimit = 60 + (int)(target * value);
+
+	// If we've reset back to normal, turn it off.
+	limitMode = PSP_CoreParameter().analogFpsLimit == 60 ? FPSLimit::NORMAL : FPSLimit::ANALOG;
 }
 
 bool EmuScreen::key(const KeyInput &key) {
