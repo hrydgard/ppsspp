@@ -130,6 +130,7 @@ static int RotatePSPKeyCode(int x) {
 	}
 }
 
+// Can only be called from Key or Axis.
 bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 	// Instead of taking an input key and finding what it outputs, we loop through the OUTPUTS and
 	// see if the input that corresponds to it has a value. That way we can easily implement all sorts
@@ -247,6 +248,8 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 		return true;
 	}
 
+	std::lock_guard<std::mutex> guard(mutex_);
+
 	InputMapping mapping(key.deviceId, key.keyCode);
 
 	if (key.flags & KEY_DOWN) {
@@ -255,6 +258,7 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 		curInput_[mapping] = 0.0f;
 	}
 
+	// TODO: See if this can be simplified further somehow.
 	bool mappingFound = KeyMap::InputMappingToPspButton(mapping, nullptr);
 	DEBUG_LOG(SYSTEM, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
 	if (!mappingFound || key.deviceId == DEVICE_ID_DEFAULT) {
@@ -268,6 +272,7 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 }
 
 void ControlMapper::Axis(const AxisInput &axis) {
+	std::lock_guard<std::mutex> guard(mutex_);
 	if (axis.value > 0) {
 		InputMapping mapping(axis.deviceId, axis.axisId, 1);
 		curInput_[mapping] = axis.value;
@@ -305,6 +310,7 @@ void ControlMapper::Update() {
 }
 
 void ControlMapper::PSPKey(int deviceId, int pspKeyCode, int flags) {
+	std::lock_guard<std::mutex> guard(mutex_);
 	if (pspKeyCode >= VIRTKEY_FIRST) {
 		int vk = pspKeyCode - VIRTKEY_FIRST;
 		if (flags & KEY_DOWN) {

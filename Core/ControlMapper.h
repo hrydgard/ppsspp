@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <cstring>
+#include <mutex>
 
 // Utilities for mapping input events to PSP inputs and virtual keys.
 // Main use is of course from EmuScreen.cpp, but also useful from control settings etc.
@@ -13,6 +14,7 @@ public:
 	void Update();
 
 	// Inputs to the table-based mapping
+	// These functions are free-threaded.
 	bool Key(const KeyInput &key, bool *pauseTrigger);
 	void Axis(const AxisInput &axis);
 
@@ -49,6 +51,9 @@ private:
 	// Mappable auto-rotation. Useful for keyboard/dpad->analog in a few games.
 	bool autoRotatingAnalogCW_ = false;
 	bool autoRotatingAnalogCCW_ = false;
+
+	// Protects basically all the state.
+	std::mutex mutex_;
 
 	std::map<InputMapping, float> curInput_;
 
