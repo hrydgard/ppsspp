@@ -66,4 +66,4 @@ private:
 	std::function<void(int, float, float)> setRawAnalog_;
 };
 
-void ConvertAnalogStick(float &x, float &y);
+void ConvertAnalogStick(float x, float y, float *outX, float *outY);

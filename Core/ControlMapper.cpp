@@ -41,13 +41,15 @@ static float MapAxisValue(float v) {
 	return sign * Clamp(invDeadzone + (abs(v) - deadzone) / (1.0f - deadzone) * (sensitivity - invDeadzone), 0.0f, 1.0f);
 }
 
-void ConvertAnalogStick(float &x, float &y) {
+void ConvertAnalogStick(float x, float y, float *outX, float *outY) {
 	const bool isCircular = g_Config.bAnalogIsCircular;
 
 	float norm = std::max(fabsf(x), fabsf(y));
-
-	if (norm == 0.0f)
+	if (norm == 0.0f) {
+		*outX = x;
+		*outY = y;
 		return;
+	}
 
 	if (isCircular) {
 		float newNorm = sqrtf(x * x + y * y);
@@ -58,8 +60,8 @@ void ConvertAnalogStick(float &x, float &y) {
 	}
 
 	float mappedNorm = MapAxisValue(norm);
-	x = Clamp(x / norm * mappedNorm, -1.0f, 1.0f);
-	y = Clamp(y / norm * mappedNorm, -1.0f, 1.0f);
+	*outX = Clamp(x / norm * mappedNorm, -1.0f, 1.0f);
+	*outY = Clamp(y / norm * mappedNorm, -1.0f, 1.0f);
 }
 
 void ControlMapper::SetCallbacks(
@@ -102,7 +104,7 @@ void ControlMapper::SetPSPAxis(int device, int stick, char axis, float value) {
 	bool ignore = false;
 	if (inDeadZone && lastNonDeadzoneDeviceID_[stick] != device) {
 		// Ignore this event! See issue #15465
-		ignore = true;
+		 ignore = true;
 	}
 
 	if (!inDeadZone) {
@@ -114,9 +116,9 @@ void ControlMapper::SetPSPAxis(int device, int stick, char axis, float value) {
 
 		float x = history_[stick][0];
 		float y = history_[stick][1];
-
-		ConvertAnalogStick(x, y);
-		setPSPAnalog_(stick, x, y);
+		float convertedX, convertedY;
+		ConvertAnalogStick(x, y, &convertedX, &convertedY);
+		setPSPAnalog_(stick, convertedX, convertedY);
 	}
 }
 
