@@ -1262,6 +1262,14 @@ Invalid / Unknown (%d)
 
 	ctx->Draw()->DrawTextShadow(ubuntu24, kernelState.c_str(), x, y, 0xFFFFFFFF);
 
+	y += 40;
+
+	ctx->Draw()->SetFontScale(.5f, .5f);
+
+	ctx->Draw()->DrawTextShadow(ubuntu24, info.stackTrace.c_str(), x, y, 0xFFFFFFFF);
+
+	ctx->Draw()->SetFontScale(.7f, .7f);
+
 	ctx->PopScissor();
 
 	// Draw some additional stuff to the right.
