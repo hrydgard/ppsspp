@@ -71,7 +71,7 @@ void ControlMapper::SetCallbacks(
 	std::function<void(int, bool)> setPSPButtonState,
 	std::function<void(int, float, float)> setPSPAnalog) {
 	onVKey_ = onVKey;
-	onVKeyAnalog_ = onVKey;
+	onVKeyAnalog_ = onVKeyAnalog;
 	setAllPSPButtonStates_ = setAllPSPButtonStates;
 	setPSPButtonState_ = setPSPButtonState;
 	setPSPAnalog_ = setPSPAnalog;
@@ -113,12 +113,9 @@ void ControlMapper::SetPSPAxis(int device, int stick, char axis, float value) {
 
 	if (!ignore) {
 		history_[stick][axisId] = value;
-
-		float x = history_[stick][0];
-		float y = history_[stick][1];
-		float convertedX, convertedY;
-		ConvertAnalogStick(x, y, &convertedX, &convertedY);
-		setPSPAnalog_(stick, convertedX, convertedY);
+		float x, y;
+		ConvertAnalogStick(history_[stick][0], history_[stick][1], &x, &y);
+		setPSPAnalog_(stick, x, y);
 	}
 }
 
@@ -187,13 +184,13 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 		std::vector<InputMapping> inputMappings;
 		if (!KeyMap::InputMappingsFromPspButton(vkId, &inputMappings, false))
 			continue;
-		float value = 0.0f;
 
 		// If a mapping could consist of a combo, we could trivially check it here.
 		// Save the first device ID so we can pass it into onVKeyDown, which in turn needs it for the analog
 		// mapping which gets a little hacky.
 		float threshold = 1.0f;
 		bool touchedByMapping = false;
+		float value = 0.0f;
 		for (auto &mapping : inputMappings) {
 			if (mapping == changedMapping) {
 				touchedByMapping = true;
@@ -203,10 +200,8 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 			if (iter != curInput_.end()) {
 				if (mapping.IsAxis()) {
 					threshold = GetDeviceAxisThreshold(iter->first.deviceId);
-					value += iter->second;
-				} else {
-					value += iter->second;
 				}
+				value += iter->second;
 			}
 		}
 
@@ -222,11 +217,13 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 		if (virtKeys_[i] != value) {
 			// INFO_LOG(G3D, "vkeyanalog %s : %f", KeyMap::GetVirtKeyName(vkId), value);
 			onVKeyAnalog(changedMapping.deviceId, vkId, value);
+			virtKeys_[i] = value;
 		}
-		virtKeys_[i] = value;
 		if (!bPrevValue && bValue) {
+			// INFO_LOG(G3D, "vkeyon %s", KeyMap::GetVirtKeyName(vkId));
 			onVKey(vkId, true);
 		} else if (bPrevValue && !bValue) {
+			// INFO_LOG(G3D, "vkeyoff %s", KeyMap::GetVirtKeyName(vkId));
 			onVKey(vkId, false);
 		}
 	}

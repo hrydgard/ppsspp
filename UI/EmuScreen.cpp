@@ -177,7 +177,7 @@ EmuScreen::EmuScreen(const Path &filename)
 	startDumping = false;
 	controlMapper_.SetCallbacks(
 		std::bind(&EmuScreen::onVKey, this, _1, _2),
-		[](int vkey, float analogValue) {},
+		std::bind(&EmuScreen::onVKeyAnalog, this, _1, _2),
 		[](uint32_t bitsToSet, uint32_t bitsToClear) {
 			__CtrlSetAllButtons(bitsToSet, bitsToClear);
 		},
@@ -761,6 +761,10 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 			g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180;
 		break;
 	}
+}
+
+void EmuScreen::onVKeyAnalog(int virtualKeyCode, float value) {
+
 }
 
 bool EmuScreen::key(const KeyInput &key) {

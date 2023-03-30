@@ -44,9 +44,6 @@ private:
 	// To track mappable virtual keys. We can have as many as we want.
 	float virtKeys_[VIRTKEY_COUNT]{};
 
-	// De-noise mapped axis updates
-	int axisState_[JOYSTICK_AXIS_MAX]{};
-
 	int lastNonDeadzoneDeviceID_[2]{};
 
 	float history_[2][2]{};
