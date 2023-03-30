@@ -37,6 +37,7 @@
 #include "Core/MemMap.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/MemFault.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/Display.h"
 #include "Core/MIPS/MIPS.h"
@@ -443,6 +444,11 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 	}
 
 	if (!g_Config.bIgnoreBadMemAccess) {
+		// Try to fetch a call stack, to start with.
+		std::vector<MIPSStackWalk::StackFrame> stackFrames = WalkCurrentStack(-1);
+		std::string stackTrace = FormatStackTrace(stackFrames);
+		WARN_LOG(MEMMAP, "\n%s", stackTrace.c_str());
+
 		ExceptionInfo &e = g_exceptionInfo;
 		e = {};
 		e.type = ExceptionType::MEMORY;
@@ -450,6 +456,7 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 		e.memory_type = type;
 		e.address = address;
 		e.accessSize = accessSize;
+		e.stackTrace = stackTrace;
 		e.pc = pc;
 		Core_EnableStepping(true, "memory.exception", address);
 	}
@@ -465,12 +472,18 @@ void Core_MemoryExceptionInfo(u32 address, u32 pc, u32 accessSize, MemoryExcepti
 	}
 
 	if (!g_Config.bIgnoreBadMemAccess || forceReport) {
+		// Try to fetch a call stack, to start with.
+		std::vector<MIPSStackWalk::StackFrame> stackFrames = WalkCurrentStack(-1);
+		std::string stackTrace = FormatStackTrace(stackFrames);
+		WARN_LOG(MEMMAP, "\n%s", stackTrace.c_str());
+
 		ExceptionInfo &e = g_exceptionInfo;
 		e = {};
 		e.type = ExceptionType::MEMORY;
 		e.info = additionalInfo;
 		e.memory_type = type;
 		e.address = address;
+		e.stackTrace = stackTrace;
 		e.pc = pc;
 		Core_EnableStepping(true, "memory.exception", address);
 	}

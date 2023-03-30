@@ -1201,7 +1201,7 @@ static void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 
 	ctx->PushScissor(Bounds(x, y, columnWidth, height));
 
-	INFO_LOG(SYSTEM, "DrawCrashDump (%d %d %d %d)", x, y, columnWidth, height);
+	// INFO_LOG(SYSTEM, "DrawCrashDump (%d %d %d %d)", x, y, columnWidth, height);
 
 	snprintf(statbuf, sizeof(statbuf), R"(%s
 %s (%s)
