@@ -177,8 +177,8 @@ EmuScreen::EmuScreen(const Path &filename)
 	startDumping = false;
 	controlMapper_.SetCallbacks(
 		std::bind(&EmuScreen::onVKey, this, _1, _2),
-		[](uint32_t allPspButtons) {
-			__CtrlSetAllButtons(allPspButtons);
+		[](uint32_t bitsToSet, uint32_t bitsToClear) {
+			__CtrlSetAllButtons(bitsToSet, bitsToClear);
 		},
 		[](int pspButton, bool down) {
 			if (down) {
