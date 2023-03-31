@@ -134,3 +134,68 @@ private:
 	T fastLookup_[MaxFastSize];
 	std::vector<T> *slowLookup_ = nullptr;
 };
+
+template <class T, int MaxSize>
+struct FixedTinyVec {
+	~FixedTinyVec() {}
+	// WARNING: Can fail if you exceed MaxSize!
+	inline bool push_back(const T &t) {
+		if (count_ < MaxSize) {
+			data_[count_++] = t;
+			return true;
+		} else {
+			return false;
+		}
+	}
+	// WARNING: Can fail if you exceed MaxSize!
+	inline T *add_back() {
+		if (count_ < MaxSize) {
+			return &data_[count_++];
+		}
+		return nullptr;
+	}
+	// Invalid if empty().
+	void pop_back() { count_--;	}
+
+	// Unlike TinySet, we can trivially support begin/end as pointers.
+	T *begin() { return data_; }
+	T *end() { return data_ + count_; }
+	const T *begin() const { return data_; }
+	const T *end() const { return data_ + count_; }
+
+	size_t capacity() const { return MaxSize; }
+	void clear() { count_ = 0; }
+	bool empty() const { return count_ == 0; }
+	size_t size() const { return count_; }
+
+	bool contains(T t) const {
+		for (int i = 0; i < count_; i++) {
+			if (data_[i] == t)
+				return true;
+		}
+		return false;
+	}
+
+	// Out of bounds (past size() - 1) is undefined behavior.
+	T &operator[] (const size_t index) { return data_[index]; }
+	const T &operator[] (const size_t index) const { return data_[index]; }
+
+	// These two are invalid if empty().
+	const T &back() const { return (*this)[size() - 1]; }
+	const T &front() const { return (*this)[0]; }
+
+	bool operator == (const FixedTinyVec<T, MaxSize> &other) const {
+		if (count_ != other.count_)
+			return false;
+		for (size_t i = 0; i < count_; i++) {
+			if (!(data_[i] == other.data_[i])) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+private:
+	int count_ = 0;  // first in the struct just so it's more visible in the VS debugger.
+	T data_[MaxSize];
+};
