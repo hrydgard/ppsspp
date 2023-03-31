@@ -131,6 +131,15 @@ public:
 		if (keyCode < other.keyCode) return true;
 		return false;
 	}
+	// Needed for composition.
+	bool operator > (const InputMapping &other) const {
+		if (deviceId > other.deviceId) return true;
+		if (deviceId < other.deviceId) return false;
+		if (keyCode > other.keyCode) return true;
+		return false;
+	}
+
+	// This one is iffy with the != ANY checks. Should probably be a named method.
 	bool operator == (const InputMapping &other) const {
 		if (deviceId != other.deviceId && deviceId != DEVICE_ID_ANY && other.deviceId != DEVICE_ID_ANY) return false;
 		if (keyCode != other.keyCode) return false;

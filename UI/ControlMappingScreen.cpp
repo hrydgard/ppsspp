@@ -51,6 +51,8 @@
 #include "android/jni/app-android.h"
 #endif
 
+using KeyMap::MultiInputMapping;
+
 class SingleControlMapper : public UI::LinearLayout {
 public:
 	SingleControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = nullptr);
@@ -66,7 +68,7 @@ private:
 	UI::EventReturn OnReplace(UI::EventParams &params);
 	UI::EventReturn OnReplaceAll(UI::EventParams &params);
 
-	void MappedCallback(InputMapping key);
+	void MappedCallback(MultiInputMapping key);
 
 	enum Action {
 		NONE,
@@ -134,13 +136,17 @@ void SingleControlMapper::Refresh() {
 
 	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(rightColumnWidth, WRAP_CONTENT)));
 	rightColumn->SetSpacing(2.0f);
-	std::vector<InputMapping> mappings;
+	std::vector<MultiInputMapping> mappings;
 	KeyMap::InputMappingsFromPspButton(pspKey_, &mappings, false);
 
 	rows_.clear();
 	for (size_t i = 0; i < mappings.size(); i++) {
-		std::string deviceName = GetDeviceName(mappings[i].deviceId);
-		std::string keyName = KeyMap::GetKeyOrAxisName(mappings[i]);
+		// TODO: Correctly handle multis.
+
+		auto &mapping = mappings[i].mappings[0];
+
+		std::string deviceName = GetDeviceName(mapping.deviceId);
+		std::string keyName = KeyMap::GetKeyOrAxisName(mapping);
 
 		LinearLayout *row = rightColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		row->SetSpacing(2.0f);
@@ -162,7 +168,7 @@ void SingleControlMapper::Refresh() {
 	}
 }
 
-void SingleControlMapper::MappedCallback(InputMapping kdf) {
+void SingleControlMapper::MappedCallback(MultiInputMapping kdf) {
 	switch (action_) {
 	case ADD:
 		KeyMap::SetInputMapping(pspKey_, kdf, false);
@@ -346,7 +352,7 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 			return true;
 
 		mapped_ = true;
-		InputMapping kdf(key.deviceId, key.keyCode);
+		MultiInputMapping kdf(InputMapping(key.deviceId, key.keyCode));
 		TriggerFinish(DR_YES);
 		if (callback_ && pspBtn_ != VIRTKEY_SPEED_ANALOG)
 			callback_(kdf);
@@ -378,7 +384,7 @@ bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
 		}
 
 		mapped_ = true;
-		InputMapping kdf(key.deviceId, key.keyCode);
+		MultiInputMapping kdf(InputMapping(key.deviceId, key.keyCode));
 		TriggerFinish(DR_YES);
 		g_Config.bMapMouse = false;
 		if (callback_)
@@ -409,7 +415,7 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 
 	if (axis.value > AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
-		InputMapping kdf(axis.deviceId, axis.axisId, 1);
+		MultiInputMapping kdf(InputMapping(axis.deviceId, axis.axisId, 1));
 		TriggerFinish(DR_YES);
 		if (callback_)
 			callback_(kdf);
@@ -417,7 +423,7 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 
 	if (axis.value < -AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
-		InputMapping kdf(axis.deviceId, axis.axisId, -1);
+		MultiInputMapping kdf(InputMapping(axis.deviceId, axis.axisId, -1));
 		TriggerFinish(DR_YES);
 		if (callback_)
 			callback_(kdf);
@@ -432,7 +438,7 @@ void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 
 	if (axis.value > AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
-		InputMapping kdf(axis.deviceId, axis.axisId, 1);
+		MultiInputMapping kdf(InputMapping(axis.deviceId, axis.axisId, 1));
 		TriggerFinish(DR_YES);
 		if (callback_)
 			callback_(kdf);
@@ -440,7 +446,7 @@ void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 
 	if (axis.value < -AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
-		InputMapping kdf(axis.deviceId, axis.axisId, -1);
+		MultiInputMapping kdf(InputMapping(axis.deviceId, axis.axisId, -1));
 		TriggerFinish(DR_YES);
 		if (callback_)
 			callback_(kdf);
@@ -1147,7 +1153,7 @@ UI::EventReturn VisualMappingScreen::OnBindAll(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void VisualMappingScreen::HandleKeyMapping(InputMapping key) {
+void VisualMappingScreen::HandleKeyMapping(MultiInputMapping key) {
 	KeyMap::SetInputMapping(nextKey_, key, replace_);
 
 	if (bindAll_ < 0) {

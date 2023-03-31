@@ -13,6 +13,8 @@
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
 
+using KeyMap::MultiInputMapping;
+
 // TODO: Possibly make these thresholds configurable?
 static float GetDeviceAxisThreshold(int device) {
 	return device == DEVICE_ID_MOUSE ? AXIS_BIND_THRESHOLD_MOUSE : AXIS_BIND_THRESHOLD;
@@ -219,19 +221,27 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 			mappingBit = RotatePSPKeyCode(mappingBit);
 		}
 
-		std::vector<InputMapping> inputMappings;
+		std::vector<MultiInputMapping> inputMappings;
 		if (!KeyMap::InputMappingsFromPspButton(mappingBit, &inputMappings, false))
 			continue;
 
 		// If a mapping could consist of a combo, we could trivially check it here.
-		for (auto &mapping : inputMappings) {
+		for (auto &multiMapping : inputMappings) {
+			if (multiMapping.empty())
+				continue;
 			// Check if the changed mapping was involved in this PSP key.
-			if (changedMapping == mapping) {
+			if (multiMapping.mappings.contains(changedMapping)) {
 				changedButtonMask |= mask;
 			}
-
-			auto iter = curInput_.find(mapping);
-			if (iter != curInput_.end() && iter->second > GetDeviceAxisThreshold(iter->first.deviceId)) {
+			// Check if all inputs are "on".
+			bool all = true;
+			for (auto mapping : multiMapping.mappings) {
+				auto iter = curInput_.find(mapping);
+				bool down = iter != curInput_.end() && iter->second > GetDeviceAxisThreshold(iter->first.deviceId);
+				if (!down)
+					all = false;
+			}
+			if (all) {
 				buttonMask |= mask;
 			}
 		}
@@ -243,7 +253,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 	// OK, handle all the virtual keys next. For these we need to do deltas here and send events.
 	for (int i = 0; i < VIRTKEY_COUNT; i++) {
 		int vkId = i + VIRTKEY_FIRST;
-		std::vector<InputMapping> inputMappings;
+		std::vector<MultiInputMapping> inputMappings;
 		if (!KeyMap::InputMappingsFromPspButton(vkId, &inputMappings, false))
 			continue;
 
@@ -253,20 +263,27 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 		float threshold = 1.0f;
 		bool touchedByMapping = false;
 		float value = 0.0f;
-		for (auto &mapping : inputMappings) {
-			if (mapping == changedMapping) {
+		for (auto &multiMapping : inputMappings) {
+			if (multiMapping.mappings.contains(changedMapping)) {
 				touchedByMapping = true;
 			}
 
-			auto iter = curInput_.find(mapping);
-			if (iter != curInput_.end()) {
-				if (mapping.IsAxis()) {
-					threshold = GetDeviceAxisThreshold(iter->first.deviceId);
-					value += MapAxisValue(iter->second, vkId, mapping, changedMapping, &touchedByMapping);
+			float product = 1.0f;  // We multiply the various inputs in a combo mapping with each other.
+			for (auto mapping : multiMapping.mappings) {
+				auto iter = curInput_.find(mapping);
+				if (iter != curInput_.end()) {
+					if (mapping.IsAxis()) {
+						threshold = GetDeviceAxisThreshold(iter->first.deviceId);
+						product *= MapAxisValue(iter->second, vkId, mapping, changedMapping, &touchedByMapping);
+					} else {
+						product *= iter->second;
+					}
 				} else {
-					value += iter->second;
+					product = 0.0f;
 				}
 			}
+
+			value += product;
 		}
 
 		if (!touchedByMapping) {
@@ -280,8 +297,12 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 		// that still works, though a bit weaker. We could also zero here, but you never know who relies on such strange tricks..
 		// Note: This is an old problem, it didn't appear with the refactoring.
 		if (!changedMapping.IsAxis()) {
-			for (auto &mapping : inputMappings) {
-				if (mapping.IsAxis()) {
+			for (auto &multiMapping : inputMappings) {
+				bool anyAxis = false;
+				for (auto &mapping : multiMapping.mappings) {
+					if (mapping.IsAxis()) {
+						anyAxis = true;
+					}
 					curInput_[mapping] = ReduceMagnitude(curInput_[mapping]);
 				}
 			}
