@@ -1201,7 +1201,7 @@ static void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 
 	ctx->PushScissor(Bounds(x, y, columnWidth, height));
 
-	INFO_LOG(SYSTEM, "DrawCrashDump (%d %d %d %d)", x, y, columnWidth, height);
+	// INFO_LOG(SYSTEM, "DrawCrashDump (%d %d %d %d)", x, y, columnWidth, height);
 
 	snprintf(statbuf, sizeof(statbuf), R"(%s
 %s (%s)
@@ -1261,6 +1261,14 @@ Invalid / Unknown (%d)
 	std::string kernelState = __KernelStateSummary();
 
 	ctx->Draw()->DrawTextShadow(ubuntu24, kernelState.c_str(), x, y, 0xFFFFFFFF);
+
+	y += 40;
+
+	ctx->Draw()->SetFontScale(.5f, .5f);
+
+	ctx->Draw()->DrawTextShadow(ubuntu24, info.stackTrace.c_str(), x, y, 0xFFFFFFFF);
+
+	ctx->Draw()->SetFontScale(.7f, .7f);
 
 	ctx->PopScissor();
 

@@ -151,7 +151,6 @@ void ControlMapper::Update() {
 	}
 }
 
-
 inline bool IsAnalogStickKey(int key) {
 	switch (key) {
 	case VIRTKEY_AXIS_X_MIN:

@@ -20,7 +20,9 @@
 #include <cstdint>
 #include <unordered_set>
 #include <mutex>
+#include <sstream>
 
+#include "Common/StringUtils.h"
 #include "Common/MachineContext.h"
 
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -38,6 +40,12 @@
 #include "Core/MemFault.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/Debugger/SymbolMap.h"
+
+// Stack walking stuff
+#include "Core/MIPS/MIPSStackWalk.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/HLE/sceKernelThread.h"
 
 namespace Memory {
 
@@ -132,8 +140,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		}
 	}
 
-
-	// OK, a guest executable did a bad access. Take care of it.
+	// OK, a guest executable did a bad access. Let's handle it.
 
 	uint32_t guestAddress = invalidHostAddress ? 0xFFFFFFFFUL : (uint32_t)(hostAddress - baseAddress);
 
@@ -317,3 +324,31 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 #endif
 
 }  // namespace Memory
+
+std::vector<MIPSStackWalk::StackFrame> WalkCurrentStack(int threadID) {
+	DebugInterface *cpuDebug = currentDebugMIPS;
+
+	auto threads = GetThreadsInfo();
+	uint32_t entry = cpuDebug->GetPC();
+	uint32_t stackTop = 0;
+	for (const DebugThreadInfo &th : threads) {
+		if ((threadID == -1 && th.isCurrent) || th.id == threadID) {
+			entry = th.entrypoint;
+			stackTop = th.initialStack;
+			break;
+		}
+	}
+
+	uint32_t ra = cpuDebug->GetRegValue(0, MIPS_REG_RA);
+	uint32_t sp = cpuDebug->GetRegValue(0, MIPS_REG_SP);
+	return MIPSStackWalk::Walk(cpuDebug->GetPC(), ra, sp, entry, stackTop);
+}
+
+std::string FormatStackTrace(const std::vector<MIPSStackWalk::StackFrame> &frames) {
+	std::stringstream str;
+	for (const auto &frame : frames) {
+		std::string desc = g_symbolMap->GetDescription(frame.entry);
+		str << StringFromFormat("%s (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
+	}
+	return str.str();
+}

@@ -306,8 +306,7 @@ bool __KernelIsRunning() {
 }
 
 std::string __KernelStateSummary() {
-	std::string threadSummary = __KernelThreadingSummary();
-	return StringFromFormat("%s", threadSummary.c_str());
+	return __KernelThreadingSummary();
 }
 
 

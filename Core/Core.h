@@ -122,6 +122,7 @@ enum class ExceptionType {
 struct ExceptionInfo {
 	ExceptionType type;
 	std::string info;
+	std::string stackTrace;  // if available.
 
 	// Memory exception info
 	MemoryExceptionType memory_type;
