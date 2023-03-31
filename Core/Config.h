@@ -276,9 +276,11 @@ public:
 
 	std::string sThemeName;
 
+	// These aren't saved, just for instant debugging.
 	bool bLogFrameDrops;
 	bool bShowDebugStats;
 	bool bShowAudioDebug;
+	bool bShowControlDebug;
 	bool bShowGpuProfile;
 
 	// Analog stick tilting

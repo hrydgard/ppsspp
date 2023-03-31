@@ -1337,6 +1337,23 @@ static void DrawAudioDebugStats(UIContext *ctx, const Bounds &bounds) {
 	ctx->RebindTexture();
 }
 
+static void DrawControlDebug(UIContext *ctx, const ControlMapper &mapper, const Bounds &bounds) {
+	FontID ubuntu24("UBUNTU24");
+
+	char statbuf[4096] = { 0 };
+	mapper.GetDebugString(statbuf, sizeof(statbuf));
+	// System_AudioGetDebugStats(statbuf, sizeof(statbuf));
+
+	ctx->Flush();
+	ctx->BindFontTexture();
+	ctx->Draw()->SetFontScale(0.5f, 0.5f);
+	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	ctx->Flush();
+	ctx->RebindTexture();
+}
+
 static void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
 	float vps, fps, actual_fps;
@@ -1549,7 +1566,7 @@ bool EmuScreen::hasVisibleUI() {
 	if (g_Config.bEnableCardboardVR || g_Config.bEnableNetworkChat)
 		return true;
 	// Debug UI.
-	if (g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler)
+	if (g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler || g_Config.bShowControlDebug)
 		return true;
 
 	// Exception information.
@@ -1583,20 +1600,26 @@ void EmuScreen::renderUI() {
 		root_->Draw(*ctx);
 	}
 
-	if (g_Config.bShowDebugStats && !invalid_) {
-		DrawDebugStats(ctx, ctx->GetLayoutBounds());
-	}
+	if (!invalid_) {
+		if (g_Config.bShowDebugStats) {
+			DrawDebugStats(ctx, ctx->GetLayoutBounds());
+		}
 
-	if (g_Config.bShowAudioDebug && !invalid_) {
-		DrawAudioDebugStats(ctx, ctx->GetLayoutBounds());
-	}
+		if (g_Config.bShowAudioDebug) {
+			DrawAudioDebugStats(ctx, ctx->GetLayoutBounds());
+		}
 
-	if (g_Config.iShowStatusFlags && !invalid_) {
-		DrawFPS(ctx, ctx->GetLayoutBounds());
-	}
+		if (g_Config.iShowStatusFlags) {
+			DrawFPS(ctx, ctx->GetLayoutBounds());
+		}
 
-	if (g_Config.bDrawFrameGraph && !invalid_) {
-		DrawFrameTimes(ctx, ctx->GetLayoutBounds());
+		if (g_Config.bDrawFrameGraph) {
+			DrawFrameTimes(ctx, ctx->GetLayoutBounds());
+		}
+
+		if (g_Config.bShowControlDebug) {
+			DrawControlDebug(ctx, controlMapper_, ctx->GetLayoutBounds());
+		}
 	}
 
 #if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)

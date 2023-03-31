@@ -107,7 +107,14 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenuScreen::OnFreezeFrame);
 
 	items->Add(new Choice(dev->T("Dump next frame to log")))->OnClick.Handle(this, &DevMenuScreen::OnDumpFrame);
-	items->Add(new Choice(dev->T("Toggle Audio Debug")))->OnClick.Handle(this, &DevMenuScreen::OnToggleAudioDebug);
+	items->Add(new Choice(dev->T("Toggle Audio Debug")))->OnClick.Add([](UI::EventParams &) {
+		g_Config.bShowAudioDebug = !g_Config.bShowAudioDebug;
+		return UI::EVENT_DONE;
+	});
+	items->Add(new Choice(dev->T("Toggle Control Debug")))->OnClick.Add([](UI::EventParams &) {
+		g_Config.bShowControlDebug = !g_Config.bShowControlDebug;
+		return UI::EVENT_DONE;
+	});
 #ifdef USE_PROFILER
 	items->Add(new CheckBox(&g_Config.bShowFrameProfiler, dev->T("Frame Profiler"), ""));
 #endif
@@ -121,11 +128,6 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	if (ring) {
 		ring->SetEnabled(true);
 	}
-}
-
-UI::EventReturn DevMenuScreen::OnToggleAudioDebug(UI::EventParams &e) {
-	g_Config.bShowAudioDebug = !g_Config.bShowAudioDebug;
-	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenuScreen::OnResetLimitedLogging(UI::EventParams &e) {

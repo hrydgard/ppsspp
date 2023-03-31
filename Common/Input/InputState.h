@@ -136,6 +136,8 @@ public:
 		if (keyCode != other.keyCode) return false;
 		return true;
 	}
+
+	void FormatDebug(char *buffer, size_t bufSize) const;
 };
 
 enum {

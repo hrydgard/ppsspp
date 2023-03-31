@@ -45,7 +45,6 @@ protected:
 	UI::EventReturn OnFreezeFrame(UI::EventParams &e);
 	UI::EventReturn OnDumpFrame(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
-	UI::EventReturn OnToggleAudioDebug(UI::EventParams &e);
 	UI::EventReturn OnResetLimitedLogging(UI::EventParams &e);
 
 private:

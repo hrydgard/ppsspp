@@ -33,6 +33,8 @@ public:
 	// virtual key codes, though not analog mappings.
 	void PSPKey(int deviceId, int pspKeyCode, int flags);
 
+	void GetDebugString(char *buffer, size_t bufSize) const;
+
 private:
 	bool UpdatePSPState(const InputMapping &changedMapping);
 
@@ -47,6 +49,7 @@ private:
 	int lastNonDeadzoneDeviceID_[2]{};
 
 	float history_[2][2]{};
+	float converted_[2][2]{};  // for debug display
 
 	// Mappable auto-rotation. Useful for keyboard/dpad->analog in a few games.
 	bool autoRotatingAnalogCW_ = false;

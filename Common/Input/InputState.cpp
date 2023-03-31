@@ -76,3 +76,13 @@ int GetAnalogYDirection(int deviceId) {
 		return configured->second;
 	return 0;
 }
+
+void InputMapping::FormatDebug(char *buffer, size_t bufSize) const {
+	if (IsAxis()) {
+		int direction;
+		int axis = Axis(&direction);
+		snprintf(buffer, bufSize, "Device: %d Axis: %d (%d)", deviceId, axis, direction);
+	} else {
+		snprintf(buffer, bufSize, "Device: %d Key: %d", deviceId, keyCode);
+	}
+}

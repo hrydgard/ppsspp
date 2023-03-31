@@ -1,7 +1,9 @@
 #include <algorithm>
+#include <sstream>
 
 #include "Common/Math/math_util.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Common/Log.h"
 
 #include "Core/HLE/sceCtrl.h"
@@ -29,6 +31,11 @@ static int GetOppositeVKey(int vkey) {
 	default:
 		return 0;
 	}
+}
+
+static bool IsAxisVKey(int vkey) {
+	// Little hacky but works, of course.
+	return GetOppositeVKey(vkey) != 0;
 }
 
 static bool IsUnsignedMapping(int vkey) {
@@ -131,6 +138,8 @@ void ControlMapper::SetPSPAxis(int device, int stick, char axis, float value) {
 		history_[stick][axisId] = value;
 		float x, y;
 		ConvertAnalogStick(history_[stick][0], history_[stick][1], &x, &y);
+		converted_[stick][0] = x;
+		converted_[stick][1] = y;
 		setPSPAnalog_(stick, x, y);
 	}
 }
@@ -207,7 +216,6 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 		// mapping which gets a little hacky.
 		float threshold = 1.0f;
 		bool touchedByMapping = false;
-		bool zeroOpposite = false;
 		float value = 0.0f;
 		for (auto &mapping : inputMappings) {
 			if (mapping == changedMapping) {
@@ -242,7 +250,6 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 							value += iter->second;
 						}
 					} else {
-						zeroOpposite = true;
 						value += iter->second;
 					}
 				} else {
@@ -268,14 +275,6 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 			virtKeys_[i] = value;
 		}
 
-		if (zeroOpposite) {
-			// For analog stick events, always zero the "opposite" when we get a valid value.
-			// Otherwise, lingering small values can create strange offsets when summing up later.
-			int opposite = GetOppositeVKey(vkId);
-			if (opposite) {
-				virtKeys_[i] = 0.0f;
-			}
-		}
 		if (!bPrevValue && bValue) {
 			// INFO_LOG(G3D, "vkeyon %s", KeyMap::GetVirtKeyName(vkId));
 			onVKey(vkId, true);
@@ -319,22 +318,20 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 
 void ControlMapper::Axis(const AxisInput &axis) {
 	std::lock_guard<std::mutex> guard(mutex_);
-	if (axis.value > 0) {
+	if (axis.value >= 0.0f) {
 		InputMapping mapping(axis.deviceId, axis.axisId, 1);
+		InputMapping opposite(axis.deviceId, axis.axisId, -1);
 		curInput_[mapping] = axis.value;
+		curInput_[opposite] = 0.0f;
 		UpdatePSPState(mapping);
-	} else if (axis.value < 0) {
+		UpdatePSPState(opposite);
+	} else if (axis.value < 0.0f) {
 		InputMapping mapping(axis.deviceId, axis.axisId, -1);
+		InputMapping opposite(axis.deviceId, axis.axisId, 1);
 		curInput_[mapping] = -axis.value;
+		curInput_[opposite] = 0.0f;
 		UpdatePSPState(mapping);
-	} else if (axis.value == 0.0f) {  // Threshold?
-		// Both directions! Prevents sticking for digital input devices that are axises (like HAT)
-		InputMapping mappingPositive(axis.deviceId, axis.axisId, 1);
-		InputMapping mappingNegative(axis.deviceId, axis.axisId, -1);
-		curInput_[mappingPositive] = 0.0f;
-		curInput_[mappingNegative] = 0.0f;
-		UpdatePSPState(mappingPositive);
-		UpdatePSPState(mappingNegative);
+		UpdatePSPState(opposite);
 	}
 }
 
@@ -381,7 +378,7 @@ void ControlMapper::onVKeyAnalog(int deviceId, int vkey, float value) {
 	// with the opposite value too.
 	int stick = 0;
 	int axis = 'X';
-	int opposite = GetOppositeVKey(vkey);
+	int oppositeVKey = GetOppositeVKey(vkey);
 	float sign = 1.0f;
 	switch (vkey) {
 	case VIRTKEY_AXIS_X_MIN: sign = -1.0f; break;
@@ -397,8 +394,12 @@ void ControlMapper::onVKeyAnalog(int deviceId, int vkey, float value) {
 			onVKeyAnalog_(vkey, value);
 		return;
 	}
-	if (opposite != 0) {
-		value -= virtKeys_[opposite - VIRTKEY_FIRST];
+	if (oppositeVKey != 0) {
+		float oppVal = virtKeys_[oppositeVKey - VIRTKEY_FIRST];
+		if (oppVal != 0.0f) {
+			value -= oppVal;
+			// NOTICE_LOG(SCECTRL, "Reducing %f by %f (from %08x : %s)", value, oppVal, oppositeVKey, KeyMap::GetPspButtonName(oppositeVKey).c_str());
+		}
 	}
 	SetPSPAxis(deviceId, stick, axis, sign * value);
 }
@@ -428,4 +429,21 @@ void ControlMapper::onVKey(int vkey, bool down) {
 			onVKey_(vkey, down);
 		break;
 	}
+}
+
+void ControlMapper::GetDebugString(char *buffer, size_t bufSize) const {
+	std::stringstream str;
+	for (auto iter : curInput_) {
+		char temp[256];
+		iter.first.FormatDebug(temp, sizeof(temp));
+		str << temp << ": " << iter.second << std::endl;
+	}
+	for (int i = 0; i < ARRAY_SIZE(virtKeys_); i++) {
+		int vkId = VIRTKEY_FIRST + i;
+		if ((vkId >= VIRTKEY_AXIS_X_MIN && vkId <= VIRTKEY_AXIS_Y_MAX) || vkId == VIRTKEY_ANALOG_LIGHTLY) {
+			str << KeyMap::GetPspButtonName(vkId) << ": " << virtKeys_[i] << std::endl;
+		}
+	}
+	str << "Lstick: " << converted_[0][0] << ", " << converted_[0][1] << std::endl;
+	truncate_cpy(buffer, bufSize, str.str().c_str());
 }
