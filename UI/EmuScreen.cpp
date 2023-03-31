@@ -188,7 +188,8 @@ EmuScreen::EmuScreen(const Path &filename)
 				__CtrlButtonUp(pspButton);
 			}
 		},
-		&SetPSPAnalog);
+		&SetPSPAnalog,
+		nullptr);
 
 	// Make sure we don't leave it at powerdown after the last game.
 	// TODO: This really should be handled elsewhere if it isn't.

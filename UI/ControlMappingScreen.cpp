@@ -454,13 +454,13 @@ AnalogSetupScreen::AnalogSetupScreen(const Path &gamePath) : UIDialogScreenWithG
 		[&](uint32_t bitsToSet, uint32_t bitsToClear) {},
 		[&](int button, bool down) {},
 		[&](int stick, float x, float y) {
-		analogX_[stick] = x;
-		analogY_[stick] = y;
-	});
-	mapper_.SetRawCallback([&](int stick, float x, float y) {
-		rawX_[stick] = x;
-		rawY_[stick] = y;
-	});
+			analogX_[stick] = x;
+			analogY_[stick] = y;
+		},
+		[&](int stick, float x, float y) {
+			rawX_[stick] = x;
+			rawY_[stick] = y;
+		});
 }
 
 void AnalogSetupScreen::update() {

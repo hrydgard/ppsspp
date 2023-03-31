@@ -18,20 +18,20 @@ public:
 	bool Key(const KeyInput &key, bool *pauseTrigger);
 	void Axis(const AxisInput &axis);
 
-	// Required callbacks
+	// Required callbacks.
+	// TODO: These are so many now that a virtual interface might be more appropriate..
 	void SetCallbacks(
 		std::function<void(int, bool)> onVKey,
 		std::function<void(int, float)> onVKeyAnalog,
 		std::function<void(uint32_t, uint32_t)> setAllPSPButtonStates_,
 		std::function<void(int, bool)> setPSPButtonState,
-		std::function<void(int, float, float)> setPSPAnalog);
+		std::function<void(int, float, float)> setPSPAnalog,
+		std::function<void(int, float, float)> setRawAnalog);
 
 	// Inject raw PSP key input directly, such as from touch screen controls.
-	// Combined with the mapped input.
+	// Combined with the mapped input. Unlike __Ctrl APIs, this supports
+	// virtual key codes, though not analog mappings.
 	void PSPKey(int deviceId, int pspKeyCode, int flags);
-
-	// Optional callback, only used in config
-	void SetRawCallback(std::function<void(int, float, float)> setRawAnalog);
 
 private:
 	bool UpdatePSPState(const InputMapping &changedMapping);

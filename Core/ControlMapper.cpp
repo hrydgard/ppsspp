@@ -87,15 +87,13 @@ void ControlMapper::SetCallbacks(
 	std::function<void(int, float)> onVKeyAnalog,
 	std::function<void(uint32_t, uint32_t)> setAllPSPButtonStates,
 	std::function<void(int, bool)> setPSPButtonState,
-	std::function<void(int, float, float)> setPSPAnalog) {
+	std::function<void(int, float, float)> setPSPAnalog,
+	std::function<void(int, float, float)> setRawAnalog) {
 	onVKey_ = onVKey;
 	onVKeyAnalog_ = onVKeyAnalog;
 	setAllPSPButtonStates_ = setAllPSPButtonStates;
 	setPSPButtonState_ = setPSPButtonState;
 	setPSPAnalog_ = setPSPAnalog;
-}
-
-void ControlMapper::SetRawCallback(std::function<void(int, float, float)> setRawAnalog) {
 	setRawAnalog_ = setRawAnalog;
 }
 
