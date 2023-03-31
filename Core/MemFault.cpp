@@ -348,7 +348,7 @@ std::string FormatStackTrace(const std::vector<MIPSStackWalk::StackFrame> &frame
 	std::stringstream str;
 	for (const auto &frame : frames) {
 		std::string desc = g_symbolMap->GetDescription(frame.entry);
-		str << StringFromFormat("%s (%08x, pc = %08x sp = %08x)\n", desc.c_str(), frame.entry, frame.pc, frame.sp);
+		str << StringFromFormat("%s (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
 	}
 	return str.str();
 }
