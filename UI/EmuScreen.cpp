@@ -771,7 +771,9 @@ void EmuScreen::onVKeyAnalog(int virtualKeyCode, float value) {
 
 	// We only handle VIRTKEY_SPEED_ANALOG here.
 
-	static constexpr float DEADZONE_THRESHOLD = 0.15f;
+	// Xbox controllers need a pretty big deadzone here to not leave behind small values
+	// on occasion when releasing the trigger. Still feels right.
+	static constexpr float DEADZONE_THRESHOLD = 0.20f;
 	static constexpr float DEADZONE_SCALE = 1.0f / (1.0f - DEADZONE_THRESHOLD);
 
 	FPSLimit &limitMode = PSP_CoreParameter().fpsLimit;

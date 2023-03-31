@@ -155,6 +155,15 @@ static int RotatePSPKeyCode(int x) {
 	}
 }
 
+// Used to decay analog values when clashing with digital ones.
+static float ReduceMagnitude(float value) {
+	value *= 0.75f;
+	if ((value > 0.0f && value < 0.05f) || (value < 0.0f && value > -0.05f)) {
+		value = 0.0f;
+	}
+	return value;
+}
+
 // Can only be called from Key or Axis.
 bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 	// Instead of taking an input key and finding what it outputs, we loop through the OUTPUTS and
@@ -260,6 +269,20 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 
 		if (!touchedByMapping) {
 			continue;
+		}
+
+		// Small values from analog inputs like gamepad sticks can linger around, which is bad here because we sum
+		// up before applying deadzone etc. This means that it can be impossible to reach the min/max values with digital input!
+		// So if non-analog events clash with analog ones mapped to the same input, decay the analog input,
+		// which will quickly get things back to normal, while if it's intentional to use both at the same time for some reason,
+		// that still works, though a bit weaker. We could also zero here, but you never know who relies on such strange tricks..
+		// Note: This is an old problem, it didn't appear with the refactoring.
+		if (!changedMapping.IsAxis()) {
+			for (auto &mapping : inputMappings) {
+				if (mapping.IsAxis()) {
+					curInput_[mapping] = ReduceMagnitude(curInput_[mapping]);
+				}
+			}
 		}
 
 		value = clamp_value(value, 0.0f, 1.0f);
@@ -440,7 +463,7 @@ void ControlMapper::GetDebugString(char *buffer, size_t bufSize) const {
 	}
 	for (int i = 0; i < ARRAY_SIZE(virtKeys_); i++) {
 		int vkId = VIRTKEY_FIRST + i;
-		if ((vkId >= VIRTKEY_AXIS_X_MIN && vkId <= VIRTKEY_AXIS_Y_MAX) || vkId == VIRTKEY_ANALOG_LIGHTLY) {
+		if ((vkId >= VIRTKEY_AXIS_X_MIN && vkId <= VIRTKEY_AXIS_Y_MAX) || vkId == VIRTKEY_ANALOG_LIGHTLY || vkId == VIRTKEY_SPEED_ANALOG) {
 			str << KeyMap::GetPspButtonName(vkId) << ": " << virtKeys_[i] << std::endl;
 		}
 	}
