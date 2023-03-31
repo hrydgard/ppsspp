@@ -1,6 +1,8 @@
+#include <vector>
+#include <cstdio>
+
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
-#include <vector>
 
 const char *GetDeviceName(int deviceId) {
 	switch (deviceId) {
