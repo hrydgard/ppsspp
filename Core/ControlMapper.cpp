@@ -125,7 +125,7 @@ void ControlMapper::SetPSPAxis(int device, int stick, char axis, float value) {
 	bool ignore = false;
 	if (inDeadZone && lastNonDeadzoneDeviceID_[stick] != device) {
 		// Ignore this event! See issue #15465
-		 ignore = true;
+		ignore = true;
 	}
 
 	if (!inDeadZone) {
@@ -325,10 +325,10 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 	}
 
 	// TODO: See if this can be simplified further somehow.
-	bool mappingFound = KeyMap::InputMappingToPspButton(mapping, nullptr);
-	DEBUG_LOG(SYSTEM, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
-	if (!mappingFound || key.deviceId == DEVICE_ID_DEFAULT) {
-		if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
+	if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
+		bool mappingFound = KeyMap::InputMappingToPspButton(mapping, nullptr);
+		DEBUG_LOG(SYSTEM, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
+		if (!mappingFound || key.deviceId == DEVICE_ID_DEFAULT) {
 			*pauseTrigger = true;
 			return true;
 		}

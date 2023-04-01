@@ -1319,6 +1319,7 @@ Invalid / Unknown (%d)
 
 static void DrawAudioDebugStats(UIContext *ctx, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
+
 	char statbuf[4096] = { 0 };
 	System_AudioGetDebugStats(statbuf, sizeof(statbuf));
 
@@ -1337,7 +1338,6 @@ static void DrawControlDebug(UIContext *ctx, const ControlMapper &mapper, const 
 
 	char statbuf[4096] = { 0 };
 	mapper.GetDebugString(statbuf, sizeof(statbuf));
-	// System_AudioGetDebugStats(statbuf, sizeof(statbuf));
 
 	ctx->Flush();
 	ctx->BindFontTexture();

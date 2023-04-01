@@ -187,7 +187,6 @@ void WebSocketInputState::ButtonsPress(DebuggerRequest &req) {
 	}
 	press.button = info->second;
 
-	// TODO: Route into the control mapper's PSPKey function instead.
 	__CtrlUpdateButtons(press.button, 0);
 	pressTickets_.push_back(press);
 }
@@ -201,7 +200,6 @@ void WebSocketInputState::Broadcast(net::WebSocketServer *ws) {
 	for (PressInfo &press : pressTickets_) {
 		press.duration--;
 		if (press.duration == -1) {
-			// TODO: Route into the control mapper's PSPKey function instead.
 			__CtrlUpdateButtons(0, press.button);
 			ws->Send(press.Event());
 		}
