@@ -110,6 +110,12 @@ void UpdateNativeMenuKeys() {
 			cancelKeys.push_back(hardcodedCancelKeys[i]);
 	}
 
+	// For DInput controllers on Windows. Doesn't clash with XInput because that uses BUTTON_X etc.
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	confirmKeys.push_back(InputMapping(DEVICE_ID_PAD_0, NKCODE_BUTTON_2));
+	cancelKeys.push_back(InputMapping(DEVICE_ID_PAD_0, NKCODE_BUTTON_3));
+#endif
+
 	SetDPadKeys(upKeys, downKeys, leftKeys, rightKeys);
 	SetConfirmCancelKeys(confirmKeys, cancelKeys);
 	SetTabLeftRightKeys(tabLeft, tabRight);
