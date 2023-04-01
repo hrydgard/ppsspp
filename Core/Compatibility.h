@@ -103,6 +103,7 @@ struct CompatFlags {
 };
 
 struct VRCompat {
+	bool ForceMono;
 	bool ForceFlatScreen;
 	bool IdentityViewHack;
 	bool Skyplane;
