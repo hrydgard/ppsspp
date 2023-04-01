@@ -227,8 +227,6 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 
 		// If a mapping could consist of a combo, we could trivially check it here.
 		for (auto &multiMapping : inputMappings) {
-			if (multiMapping.empty())
-				continue;
 			// Check if the changed mapping was involved in this PSP key.
 			if (multiMapping.mappings.contains(changedMapping)) {
 				changedButtonMask |= mask;

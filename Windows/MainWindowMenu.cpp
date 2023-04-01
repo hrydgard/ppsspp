@@ -170,8 +170,8 @@ namespace MainWindow {
 	}
 
 	void DoTranslateMenus(HWND hWnd, HMENU menu) {
-		auto useDefHotkey = [](int virtkey) {
-			return KeyMap::g_controllerMap[virtkey].empty();
+		auto useDefHotkey = [](int virtKey) {
+			return !KeyMap::PspButtonHasMappings(virtKey);
 		};
 
 		TranslateMenuItem(menu, ID_FILE_MENU);
@@ -536,8 +536,7 @@ namespace MainWindow {
 
 		case ID_FILE_SAVESTATE_NEXT_SLOT_HC:
 		{
-			if (KeyMap::g_controllerMap[VIRTKEY_NEXT_SLOT].empty())
-			{
+			if (!KeyMap::PspButtonHasMappings(VIRTKEY_NEXT_SLOT)) {
 				SaveState::NextSlot();
 				NativeMessageReceived("savestate_displayslot", "");
 			}
@@ -559,7 +558,7 @@ namespace MainWindow {
 
 		case ID_FILE_QUICKLOADSTATE_HC:
 		{
-			if (KeyMap::g_controllerMap[VIRTKEY_LOAD_STATE].empty())
+			if (!KeyMap::PspButtonHasMappings(VIRTKEY_LOAD_STATE))
 			{
 				SetCursor(LoadCursor(0, IDC_WAIT));
 				SaveState::LoadSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
@@ -575,7 +574,7 @@ namespace MainWindow {
 
 		case ID_FILE_QUICKSAVESTATE_HC:
 		{
-			if (KeyMap::g_controllerMap[VIRTKEY_SAVE_STATE].empty())
+			if (!KeyMap::PspButtonHasMappings(VIRTKEY_SAVE_STATE))
 			{
 				SetCursor(LoadCursor(0, IDC_WAIT));
 				SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);

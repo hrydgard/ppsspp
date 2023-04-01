@@ -149,11 +149,11 @@ namespace KeyMap {
 		FixedTinyVec<InputMapping, 3> mappings;
 	};
 
-	// Once the multimappings are inserted here, they must not be empty.
-	// If one would be, delete the whole entry from the map instead.
 	typedef std::map<int, std::vector<MultiInputMapping>> KeyMapping;
 
-	extern KeyMapping g_controllerMap;
+	// Once the multimappings are inserted here, they must not be empty.
+	// If one would be, delete the whole entry from the map instead.
+	// This is automatically handled by SetInputMapping.
 	extern std::set<int> g_seenDeviceIds;
 	extern int g_controllerMapGeneration;
 	// Key & Button names
@@ -179,6 +179,9 @@ namespace KeyMap {
 	bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspButtons);
 	bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *keys, bool ignoreMouse);
 
+	// Simplified check.
+	bool PspButtonHasMappings(int btn);
+
 	// Configure the key or axis mapping.
 	// Any configuration will be saved to the Core config.
 	void SetInputMapping(int psp_key, const MultiInputMapping &key, bool replace);
@@ -189,6 +192,8 @@ namespace KeyMap {
 
 	void LoadFromIni(IniFile &iniFile);
 	void SaveToIni(IniFile &iniFile);
+	void ClearAllMappings();
+	void DeleteNthMapping(int key, int number);
 
 	void SetDefaultKeyMap(DefaultMaps dmap, bool replace);
 

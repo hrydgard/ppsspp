@@ -222,8 +222,7 @@ UI::EventReturn SingleControlMapper::OnAddMouse(UI::EventParams &params) {
 
 UI::EventReturn SingleControlMapper::OnDelete(UI::EventParams &params) {
 	int index = atoi(params.v->Tag().c_str());
-	KeyMap::g_controllerMap[pspKey_].erase(KeyMap::g_controllerMap[pspKey_].begin() + index);
-	KeyMap::g_controllerMapGeneration++;
+	KeyMap::DeleteNthMapping(pspKey_, index);
 
 	if (index + 1 < (int)rows_.size())
 		rows_[index]->SetFocus();
@@ -285,8 +284,7 @@ void ControlMappingScreen::update() {
 }
 
 UI::EventReturn ControlMappingScreen::OnClearMapping(UI::EventParams &params) {
-	KeyMap::g_controllerMap.clear();
-	KeyMap::g_controllerMapGeneration++;
+	KeyMap::ClearAllMappings();
 	return UI::EVENT_DONE;
 }
 

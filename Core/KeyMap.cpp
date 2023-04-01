@@ -515,18 +515,26 @@ bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspB
 }
 
 bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *mappings, bool ignoreMouse) {
+	auto iter = g_controllerMap.find(btn);
+	if (iter == g_controllerMap.end()) {
+		return false;
+	}
 	bool mapped = false;
-	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
-		if (iter->first == btn) {
-			for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
-				if (mappings && (!ignoreMouse || iter2->HasMouse())) {
-					mapped = true;
-					mappings->push_back(*iter2);
-				}
-			}
+	for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
+		if (mappings && (!ignoreMouse || iter2->HasMouse())) {
+			mapped = true;
+			mappings->push_back(*iter2);
 		}
 	}
 	return mapped;
+}
+
+bool PspButtonHasMappings(int btn) {
+	auto iter = g_controllerMap.find(btn);
+	if (iter == g_controllerMap.end()) {
+		return false;
+	}
+	return !iter->second.empty();
 }
 
 MappedAnalogAxes MappedAxesForDevice(int deviceId) {
@@ -603,6 +611,16 @@ bool ReplaceSingleKeyMapping(int btn, int index, MultiInputMapping key) {
 	}
 	UpdateNativeMenuKeys();
 	return true;
+}
+
+void DeleteNthMapping(int key, int number) {
+	auto iter = g_controllerMap.find(key);
+	if (iter != g_controllerMap.end()) {
+		if (number < iter->second.size()) {
+			iter->second.erase(iter->second.begin() + number);
+			g_controllerMapGeneration++;
+		}
+	}
 }
 
 void SetInputMapping(int btn, const MultiInputMapping &key, bool replace) {
@@ -715,6 +733,11 @@ void SaveToIni(IniFile &file) {
 
 		controls->Set(psp_button_names[i].name, value, "");
 	}
+}
+
+void ClearAllMappings() {
+	g_controllerMap.clear();
+	g_controllerMapGeneration++;
 }
 
 bool IsOuya(const std::string &name) {
