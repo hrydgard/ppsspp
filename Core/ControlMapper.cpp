@@ -92,14 +92,12 @@ void ConvertAnalogStick(float x, float y, float *outX, float *outY) {
 void ControlMapper::SetCallbacks(
 	std::function<void(int, bool)> onVKey,
 	std::function<void(int, float)> onVKeyAnalog,
-	std::function<void(uint32_t, uint32_t)> setAllPSPButtonStates,
-	std::function<void(int, bool)> setPSPButtonState,
+	std::function<void(uint32_t, uint32_t)> updatePSPButtons,
 	std::function<void(int, float, float)> setPSPAnalog,
 	std::function<void(int, float, float)> setRawAnalog) {
 	onVKey_ = onVKey;
 	onVKeyAnalog_ = onVKeyAnalog;
-	setAllPSPButtonStates_ = setAllPSPButtonStates;
-	setPSPButtonState_ = setPSPButtonState;
+	updatePSPButtons_ = updatePSPButtons;
 	setPSPAnalog_ = setPSPAnalog;
 	setRawAnalog_ = setRawAnalog;
 }
@@ -211,7 +209,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 	}
 
 	// We only request changing the buttons where the mapped input was involved.
-	setAllPSPButtonStates_(buttonMask & changedButtonMask, (~buttonMask) & changedButtonMask);
+	updatePSPButtons_(buttonMask & changedButtonMask, (~buttonMask) & changedButtonMask);
 
 	// OK, handle all the virtual keys next. For these we need to do deltas here and send events.
 	for (int i = 0; i < VIRTKEY_COUNT; i++) {
@@ -390,9 +388,9 @@ void ControlMapper::PSPKey(int deviceId, int pspKeyCode, int flags) {
 	} else {
 		// INFO_LOG(SYSTEM, "pspKey %d %d", pspKeyCode, flags);
 		if (flags & KEY_DOWN)
-			setPSPButtonState_(pspKeyCode, true);
+			updatePSPButtons_(pspKeyCode, 0);
 		if (flags & KEY_UP)
-			setPSPButtonState_(pspKeyCode, false);
+			updatePSPButtons_(0, pspKeyCode);
 	}
 }
 

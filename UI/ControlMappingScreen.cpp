@@ -452,7 +452,6 @@ AnalogSetupScreen::AnalogSetupScreen(const Path &gamePath) : UIDialogScreenWithG
 		[](int vkey, bool down) {},
 		[](int vkey, float analogValue) {},
 		[&](uint32_t bitsToSet, uint32_t bitsToClear) {},
-		[&](int button, bool down) {},
 		[&](int stick, float x, float y) {
 			analogX_[stick] = x;
 			analogY_[stick] = y;

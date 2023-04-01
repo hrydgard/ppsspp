@@ -181,13 +181,6 @@ EmuScreen::EmuScreen(const Path &filename)
 		[](uint32_t bitsToSet, uint32_t bitsToClear) {
 			__CtrlUpdateButtons(bitsToSet, bitsToClear);
 		},
-		[](int pspButton, bool down) {
-			if (down) {
-				__CtrlUpdateButtons(pspButton, 0);
-			} else {
-				__CtrlUpdateButtons(0, pspButton);
-			}
-		},
 		&SetPSPAnalog,
 		nullptr);
 

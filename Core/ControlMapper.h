@@ -23,8 +23,7 @@ public:
 	void SetCallbacks(
 		std::function<void(int, bool)> onVKey,
 		std::function<void(int, float)> onVKeyAnalog,
-		std::function<void(uint32_t, uint32_t)> setAllPSPButtonStates_,
-		std::function<void(int, bool)> setPSPButtonState,
+		std::function<void(uint32_t, uint32_t)> updatePSPButtons,
 		std::function<void(int, float, float)> setPSPAnalog,
 		std::function<void(int, float, float)> setRawAnalog);
 
@@ -63,8 +62,7 @@ private:
 	// Callbacks
 	std::function<void(int, bool)> onVKey_;
 	std::function<void(int, float)> onVKeyAnalog_;
-	std::function<void(uint32_t, uint32_t)> setAllPSPButtonStates_;
-	std::function<void(int, bool)> setPSPButtonState_;
+	std::function<void(uint32_t, uint32_t)> updatePSPButtons_;
 	std::function<void(int, float, float)> setPSPAnalog_;
 	std::function<void(int, float, float)> setRawAnalog_;
 };
