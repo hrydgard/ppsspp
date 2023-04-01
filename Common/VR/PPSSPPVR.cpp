@@ -613,6 +613,11 @@ bool StartVRRender() {
 
 	if (VR_InitFrame(VR_GetEngine())) {
 
+		// VR flags
+		bool vrIncompatibleGame = PSP_CoreParameter().compat.vrCompat().ForceFlatScreen;
+		bool vrScene = !vrFlatForced && (g_Config.bManualForceVR || (vr3DGeometryCount > 15));
+		bool vrStereo = !PSP_CoreParameter().compat.vrCompat().ForceMono && g_Config.bEnableStereo;
+
 		// Get OpenXR view and fov
 		XrFovf fov = {};
 		XrPosef invViewTransform[2];
@@ -743,7 +748,7 @@ bool StartVRRender() {
 					M[11] += side.z;
 				}
 				// Stereoscopy
-				if (g_Config.bEnableStereo) {
+				if (vrStereo) {
 					bool mirrored = vrMirroring[VR_MIRRORING_AXIS_Z] ^ (matrix == VR_VIEW_MATRIX_RIGHT_EYE);
 					float dx = fabs(invViewTransform[1].position.x - invViewTransform[0].position.x);
 					float dy = fabs(invViewTransform[1].position.y - invViewTransform[0].position.y);
@@ -764,14 +769,12 @@ bool StartVRRender() {
 		}
 
 		// Decide if the scene is 3D or not
-		bool vrIncompatibleGame = PSP_CoreParameter().compat.vrCompat().ForceFlatScreen;
-		bool vrScene = !vrFlatForced && (g_Config.bManualForceVR || (vr3DGeometryCount > 15));
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 480.0f / 272.0f);
 		if (g_Config.bEnableVR && !vrIncompatibleGame && (appMode == VR_GAME_MODE) && vrScene) {
-			VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
+			VR_SetConfig(VR_CONFIG_MODE, vrStereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 			vrFlatGame = false;
 		} else {
-			VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
+			VR_SetConfig(VR_CONFIG_MODE, vrStereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
 			if (IsGameVRScene()) {
 				vrFlatGame = true;
 			}
@@ -808,7 +811,8 @@ int GetVRFBOIndex() {
 }
 
 int GetVRPassesCount() {
-	if (!IsMultiviewSupported() && g_Config.bEnableStereo) {
+	bool vrStereo = !PSP_CoreParameter().compat.vrCompat().ForceMono && g_Config.bEnableStereo;
+	if (!IsMultiviewSupported() && vrStereo) {
 		return 2;
 	} else {
 		return 1;
