@@ -638,7 +638,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		}
 
 		if (hasClutGPU) {
-			WARN_LOG_REPORT_ONCE(clutUseRender, G3D, "Using texture with dynamic CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
+			WARN_LOG_N_TIMES(clutUseRender, 5, G3D, "Using texture with dynamic CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
 			entry->status |= TexCacheEntry::STATUS_CLUT_GPU;
 		}
 
@@ -671,7 +671,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	entry->maxLevel = maxLevel;
 	entry->status &= ~TexCacheEntry::STATUS_BGRA;
 
-	// This would overestimate the size in many case so we underestimate instead
+	// This would overestimate the size in many cases so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
 	entry->sizeInRAM = (textureBitsPerPixel[texFormat] * bufw * h / 2) / 8;
 	entry->bufw = bufw;
@@ -1324,14 +1324,16 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 				if (fbMatchWidth == 512) {
 					fbMatchWidth = 480;
 				}
-				bool inMargin = ((offset / fb_bpp) % framebuffer->fb_stride) == fbMatchWidth;
+				int pixelOffsetX = ((offset / fb_bpp) % framebuffer->fb_stride);
+				bool inMargin = pixelOffsetX >= fbMatchWidth && (pixelOffsetX + (loadBytes / fb_bpp) <= framebuffer->fb_stride);
 
 				// The offset check here means, in the context of the loop, that we'll pick
 				// the framebuffer with the smallest offset. This is yet another framebuffer matching
 				// loop with its own rules, eventually we'll probably want to do something
 				// more systematic.
 				if (matchRange && !inMargin && offset < (int)clutRenderOffset_) {
-					WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d", loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset);
+					WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d, pixel offset %d",
+						loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset, offset / fb_bpp);
 					framebuffer->last_frame_clut = gpuStats.numFlips;
 					// Also mark used so it's not decimated.
 					framebuffer->last_frame_used = gpuStats.numFlips;
@@ -2143,6 +2145,7 @@ void TextureCacheCommon::ApplyTexture() {
 		gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsBGRA((entry->status & TexCacheEntry::STATUS_BGRA) != 0);
+		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 	}
 }
 
