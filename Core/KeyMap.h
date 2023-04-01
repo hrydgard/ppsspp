@@ -76,6 +76,7 @@ enum {
 };
 
 const float AXIS_BIND_THRESHOLD = 0.75f;
+const float AXIS_BIND_RELEASE_THRESHOLD = 0.35f;  // Used during mapping only to detect a "key-up" reliably.
 const float AXIS_BIND_THRESHOLD_MOUSE = 0.01f;
 
 struct MappedAnalogAxis {

@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <memory>
+#include <set>
 #include <mutex>
 #include <vector>
 
@@ -76,7 +77,12 @@ protected:
 private:
 	int pspBtn_;
 	std::function<void(KeyMap::MultiInputMapping)> callback_;
-	bool mapped_ = false;  // Prevent double registrations
+
+	KeyMap::MultiInputMapping mapping_;
+
+	// We need to do our own detection for axis "keyup" here.
+	std::set<InputMapping> triggeredAxes_;
+
 	double delayUntil_ = 0.0f;
 };
 
