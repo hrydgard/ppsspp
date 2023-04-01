@@ -708,7 +708,6 @@ bool StartVRRender() {
 
 				float M[16];
 				XrQuaternionf_ToMatrix4f(&invView.orientation, M);
-				memcpy(&M, M, sizeof(float) * 16);
 
 				// Apply 6Dof head movement
 				if (!flatScreen && g_Config.bEnable6DoF && !g_Config.bHeadRotationEnabled && (g_Config.iCameraPitch == 0)) {
