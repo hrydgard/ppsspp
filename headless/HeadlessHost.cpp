@@ -42,14 +42,20 @@ void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
 	ScreenshotComparer comparer(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);
 	double errors = comparer.Compare(comparisonScreenshot_);
 	if (errors < 0)
-		SendDebugOutput(comparer.GetError() + "\n");
+		SendAndCollectOutput(comparer.GetError() + "\n");
 
 	if (errors > maxScreenshotError_)
-		SendDebugOutput(StringFromFormat("Screenshot MSE: %f\n", errors));
+		SendAndCollectOutput(StringFromFormat("Screenshot MSE: %f\n", errors));
 
 	if (errors > maxScreenshotError_ && writeFailureScreenshot_) {
 		if (comparer.SaveActualBitmap(Path("__testfailure.bmp")))
-			SendDebugOutput("Actual output written to: __testfailure.bmp\n");
+			SendAndCollectOutput("Actual output written to: __testfailure.bmp\n");
 		comparer.SaveVisualComparisonPNG(Path("__testcompare.png"));
 	}
+}
+
+void HeadlessHost::SendAndCollectOutput(const std::string &output) {
+	SendDebugOutput(output);
+	if (PSP_CoreParameter().collectDebugOutput)
+		*PSP_CoreParameter().collectDebugOutput += output;
 }
