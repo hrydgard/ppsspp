@@ -155,12 +155,7 @@ void WebSocketInputState::ButtonsSend(DebuggerRequest &req) {
 		}
 	}
 
-	if (downFlags) {
-		__CtrlButtonDown(downFlags);
-	}
-	if (upFlags) {
-		__CtrlButtonUp(upFlags);
-	}
+	__CtrlUpdateButtons(downFlags, upFlags);
 
 	req.Respond();
 }
@@ -193,7 +188,7 @@ void WebSocketInputState::ButtonsPress(DebuggerRequest &req) {
 	press.button = info->second;
 
 	// TODO: Route into the control mapper's PSPKey function instead.
-	__CtrlButtonDown(press.button);
+	__CtrlUpdateButtons(press.button, 0);
 	pressTickets_.push_back(press);
 }
 
@@ -207,7 +202,7 @@ void WebSocketInputState::Broadcast(net::WebSocketServer *ws) {
 		press.duration--;
 		if (press.duration == -1) {
 			// TODO: Route into the control mapper's PSPKey function instead.
-			__CtrlButtonUp(press.button);
+			__CtrlUpdateButtons(0, press.button);
 			ws->Send(press.Event());
 		}
 	}

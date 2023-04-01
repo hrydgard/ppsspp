@@ -179,13 +179,13 @@ EmuScreen::EmuScreen(const Path &filename)
 		std::bind(&EmuScreen::onVKey, this, _1, _2),
 		std::bind(&EmuScreen::onVKeyAnalog, this, _1, _2),
 		[](uint32_t bitsToSet, uint32_t bitsToClear) {
-			__CtrlSetAllButtons(bitsToSet, bitsToClear);
+			__CtrlUpdateButtons(bitsToSet, bitsToClear);
 		},
 		[](int pspButton, bool down) {
 			if (down) {
-				__CtrlButtonDown(pspButton);
+				__CtrlUpdateButtons(pspButton, 0);
 			} else {
-				__CtrlButtonUp(pspButton);
+				__CtrlUpdateButtons(0, pspButton);
 			}
 		},
 		&SetPSPAnalog,

@@ -182,9 +182,9 @@ bool PSPButton::Touch(const TouchInput &input) {
 		if (g_Config.bHapticFeedback) {
 			System_Vibrate(HAPTIC_VIRTUAL_KEY);
 		}
-		__CtrlButtonDown(pspButtonBit_);
+		__CtrlUpdateButtons(pspButtonBit_, 0);
 	} else if (lastDown && !down) {
-		__CtrlButtonUp(pspButtonBit_);
+		__CtrlUpdateButtons(0, pspButtonBit_);
 	}
 	return retval;
 }
@@ -361,10 +361,10 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 			if (g_Config.bHapticFeedback) {
 				System_Vibrate(HAPTIC_VIRTUAL_KEY);
 			}
-			__CtrlButtonDown(dir[i]);
+			__CtrlUpdateButtons(dir[i], 0);
 		}
 		if (released & dir[i]) {
-			__CtrlButtonUp(dir[i]);
+			__CtrlUpdateButtons(0, dir[i]);
 		}
 	}
 }
@@ -652,10 +652,9 @@ void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
 		posY_ = 0.0f;
 	}
 
-	if (release != 0)
-		__CtrlButtonUp(release);
-	if (press != 0)
-		__CtrlButtonDown(press);
+	if (release || press) {
+		__CtrlUpdateButtons(press, release);
+	}
 }
 
 void InitPadLayout(float xres, float yres, float globalScale) {

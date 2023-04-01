@@ -139,12 +139,12 @@ void GenerateDPadEvent(int digitalX, int digitalY) {
 	static const int dir[4] = { CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP };
 
 	if (digitalX == 0) {
-		__CtrlButtonUp(tiltButtonsDown & (CTRL_RIGHT | CTRL_LEFT));
+		__CtrlUpdateButtons(tiltButtonsDown & (CTRL_RIGHT | CTRL_LEFT), 0);
 		tiltButtonsDown &= ~(CTRL_LEFT | CTRL_RIGHT);
 	}
 
 	if (digitalY == 0) {
-		__CtrlButtonUp(tiltButtonsDown & (CTRL_UP | CTRL_DOWN));
+		__CtrlUpdateButtons(0, tiltButtonsDown & (CTRL_UP | CTRL_DOWN));
 		tiltButtonsDown &= ~(CTRL_UP | CTRL_DOWN);
 	}
 
@@ -159,7 +159,7 @@ void GenerateDPadEvent(int digitalX, int digitalY) {
 	if (digitalY == 1) ctrlMask |= CTRL_UP;
 
 	ctrlMask &= ~__CtrlPeekButtons();
-	__CtrlButtonDown(ctrlMask);
+	__CtrlUpdateButtons(ctrlMask, 0);
 	tiltButtonsDown |= ctrlMask;
 }
 
@@ -167,12 +167,12 @@ void GenerateActionButtonEvent(int digitalX, int digitalY) {
 	static const int buttons[4] = { CTRL_CIRCLE, CTRL_CROSS, CTRL_SQUARE, CTRL_TRIANGLE };
 
 	if (digitalX == 0) {
-		__CtrlButtonUp(tiltButtonsDown & (CTRL_SQUARE | CTRL_CIRCLE));
+		__CtrlUpdateButtons(0, tiltButtonsDown & (CTRL_SQUARE | CTRL_CIRCLE));
 		tiltButtonsDown &= ~(CTRL_SQUARE | CTRL_CIRCLE);
 	}
 
 	if (digitalY == 0) {
-		__CtrlButtonUp(tiltButtonsDown & (CTRL_TRIANGLE | CTRL_CROSS));
+		__CtrlUpdateButtons(0, tiltButtonsDown & (CTRL_TRIANGLE | CTRL_CROSS));
 		tiltButtonsDown &= ~(CTRL_TRIANGLE | CTRL_CROSS);
 	}
 
@@ -187,7 +187,7 @@ void GenerateActionButtonEvent(int digitalX, int digitalY) {
 	if (digitalY == 1) ctrlMask |= CTRL_TRIANGLE;
 
 	ctrlMask &= ~__CtrlPeekButtons();
-	__CtrlButtonDown(ctrlMask);
+	__CtrlUpdateButtons(ctrlMask, 0);
 	tiltButtonsDown |= ctrlMask;
 }
 
@@ -208,14 +208,13 @@ void GenerateTriggerButtonEvent(int digitalX, int digitalY) {
 	}
 
 	downButtons &= ~__CtrlPeekButtons();
-	__CtrlButtonUp(tiltButtonsDown & upButtons);
-	__CtrlButtonDown(downButtons);
+	__CtrlUpdateButtons(downButtons, tiltButtonsDown & upButtons);
 	tiltButtonsDown = (tiltButtonsDown & ~upButtons) | downButtons;
 }
 
 void ResetTiltEvents() {
 	// Reset the buttons we have marked pressed.
-	__CtrlButtonUp(tiltButtonsDown);
+	__CtrlUpdateButtons(0, tiltButtonsDown);
 	tiltButtonsDown = 0;
 	__CtrlSetAnalogXY(CTRL_STICK_LEFT, 0.0f, 0.0f);
 }
