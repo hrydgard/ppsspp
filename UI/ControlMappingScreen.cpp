@@ -188,6 +188,7 @@ void SingleControlMapper::MappedCallback(MultiInputMapping kdf) {
 		SetFocus();
 		break;
 	}
+	KeyMap::UpdateNativeMenuKeys();
 	g_Config.bMapMouse = false;
 }
 
@@ -1169,6 +1170,7 @@ UI::EventReturn VisualMappingScreen::OnBindAll(UI::EventParams &e) {
 
 void VisualMappingScreen::HandleKeyMapping(MultiInputMapping key) {
 	KeyMap::SetInputMapping(nextKey_, key, replace_);
+	KeyMap::UpdateNativeMenuKeys();
 
 	if (bindAll_ < 0) {
 		// For analog, we do each direction in a row.

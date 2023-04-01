@@ -110,12 +110,6 @@ void UpdateNativeMenuKeys() {
 			cancelKeys.push_back(hardcodedCancelKeys[i]);
 	}
 
-	// For DInput controllers on Windows. Doesn't clash with XInput because that uses BUTTON_X etc.
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	confirmKeys.push_back(InputMapping(DEVICE_ID_PAD_0, NKCODE_BUTTON_2));
-	cancelKeys.push_back(InputMapping(DEVICE_ID_PAD_0, NKCODE_BUTTON_3));
-#endif
-
 	SetDPadKeys(upKeys, downKeys, leftKeys, rightKeys);
 	SetConfirmCancelKeys(confirmKeys, cancelKeys);
 	SetTabLeftRightKeys(tabLeft, tabRight);
@@ -527,7 +521,8 @@ bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *mapping
 	}
 	bool mapped = false;
 	for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
-		if (mappings && (!ignoreMouse || iter2->HasMouse())) {
+		bool ignore = ignoreMouse && iter2->HasMouse();
+		if (mappings && !ignore) {
 			mapped = true;
 			mappings->push_back(*iter2);
 		}
@@ -650,7 +645,6 @@ void SetInputMapping(int btn, const MultiInputMapping &key, bool replace) {
 	for (auto &mapping : key.mappings) {
 		g_seenDeviceIds.insert(mapping.deviceId);
 	}
-	UpdateNativeMenuKeys();
 }
 
 void RestoreDefault() {
