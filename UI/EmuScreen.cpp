@@ -177,17 +177,12 @@ EmuScreen::EmuScreen(const Path &filename)
 	startDumping = false;
 	controlMapper_.SetCallbacks(
 		std::bind(&EmuScreen::onVKey, this, _1, _2),
+		std::bind(&EmuScreen::onVKeyAnalog, this, _1, _2),
 		[](uint32_t bitsToSet, uint32_t bitsToClear) {
-			__CtrlSetAllButtons(bitsToSet, bitsToClear);
+			__CtrlUpdateButtons(bitsToSet, bitsToClear);
 		},
-		[](int pspButton, bool down) {
-			if (down) {
-				__CtrlButtonDown(pspButton);
-			} else {
-				__CtrlButtonUp(pspButton);
-			}
-		},
-		&SetPSPAnalog);
+		&SetPSPAnalog,
+		nullptr);
 
 	// Make sure we don't leave it at powerdown after the last game.
 	// TODO: This really should be handled elsewhere if it isn't.
@@ -762,6 +757,38 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 	}
 }
 
+void EmuScreen::onVKeyAnalog(int virtualKeyCode, float value) {
+	if (virtualKeyCode != VIRTKEY_SPEED_ANALOG) {
+		return;
+	}
+
+	// We only handle VIRTKEY_SPEED_ANALOG here.
+
+	// Xbox controllers need a pretty big deadzone here to not leave behind small values
+	// on occasion when releasing the trigger. Still feels right.
+	static constexpr float DEADZONE_THRESHOLD = 0.20f;
+	static constexpr float DEADZONE_SCALE = 1.0f / (1.0f - DEADZONE_THRESHOLD);
+
+	FPSLimit &limitMode = PSP_CoreParameter().fpsLimit;
+	// If we're using an alternate speed already, let that win.
+	if (limitMode != FPSLimit::NORMAL && limitMode != FPSLimit::ANALOG)
+		return;
+	// Don't even try if the limit is invalid.
+	if (g_Config.iAnalogFpsLimit <= 0)
+		return;
+
+	// Apply a small deadzone (against the resting position.)
+	value = std::max(0.0f, (value - DEADZONE_THRESHOLD) * DEADZONE_SCALE);
+
+	// If target is above 60, value is how much to speed up over 60.  Otherwise, it's how much slower.
+	// So normalize the target.
+	int target = g_Config.iAnalogFpsLimit - 60;
+	PSP_CoreParameter().analogFpsLimit = 60 + (int)(target * value);
+
+	// If we've reset back to normal, turn it off.
+	limitMode = PSP_CoreParameter().analogFpsLimit == 60 ? FPSLimit::NORMAL : FPSLimit::ANALOG;
+}
+
 bool EmuScreen::key(const KeyInput &key) {
 	Core_NotifyActivity();
 
@@ -1292,6 +1319,7 @@ Invalid / Unknown (%d)
 
 static void DrawAudioDebugStats(UIContext *ctx, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
+
 	char statbuf[4096] = { 0 };
 	System_AudioGetDebugStats(statbuf, sizeof(statbuf));
 
@@ -1300,6 +1328,22 @@ static void DrawAudioDebugStats(UIContext *ctx, const Bounds &bounds) {
 	ctx->Draw()->SetFontScale(0.7f, 0.7f);
 	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
 	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
+	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	ctx->Flush();
+	ctx->RebindTexture();
+}
+
+static void DrawControlDebug(UIContext *ctx, const ControlMapper &mapper, const Bounds &bounds) {
+	FontID ubuntu24("UBUNTU24");
+
+	char statbuf[4096] = { 0 };
+	mapper.GetDebugString(statbuf, sizeof(statbuf));
+
+	ctx->Flush();
+	ctx->BindFontTexture();
+	ctx->Draw()->SetFontScale(0.5f, 0.5f);
+	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
 	ctx->RebindTexture();
@@ -1517,7 +1561,7 @@ bool EmuScreen::hasVisibleUI() {
 	if (g_Config.bEnableCardboardVR || g_Config.bEnableNetworkChat)
 		return true;
 	// Debug UI.
-	if (g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler)
+	if (g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler || g_Config.bShowControlDebug)
 		return true;
 
 	// Exception information.
@@ -1551,20 +1595,26 @@ void EmuScreen::renderUI() {
 		root_->Draw(*ctx);
 	}
 
-	if (g_Config.bShowDebugStats && !invalid_) {
-		DrawDebugStats(ctx, ctx->GetLayoutBounds());
-	}
+	if (!invalid_) {
+		if (g_Config.bShowDebugStats) {
+			DrawDebugStats(ctx, ctx->GetLayoutBounds());
+		}
 
-	if (g_Config.bShowAudioDebug && !invalid_) {
-		DrawAudioDebugStats(ctx, ctx->GetLayoutBounds());
-	}
+		if (g_Config.bShowAudioDebug) {
+			DrawAudioDebugStats(ctx, ctx->GetLayoutBounds());
+		}
 
-	if (g_Config.iShowStatusFlags && !invalid_) {
-		DrawFPS(ctx, ctx->GetLayoutBounds());
-	}
+		if (g_Config.iShowStatusFlags) {
+			DrawFPS(ctx, ctx->GetLayoutBounds());
+		}
 
-	if (g_Config.bDrawFrameGraph && !invalid_) {
-		DrawFrameTimes(ctx, ctx->GetLayoutBounds());
+		if (g_Config.bDrawFrameGraph) {
+			DrawFrameTimes(ctx, ctx->GetLayoutBounds());
+		}
+
+		if (g_Config.bShowControlDebug) {
+			DrawControlDebug(ctx, controlMapper_, ctx->GetLayoutBounds());
+		}
 	}
 
 #if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)

@@ -220,7 +220,6 @@ public:
 	int iFpsLimit1;
 	int iFpsLimit2;
 	int iAnalogFpsLimit;
-	int iAnalogFpsMode; // 0 = auto, 1 = single direction, 2 = mapped to opposite
 	int iMaxRecent;
 	int iCurrentStateSlot;
 	int iRewindSnapshotInterval;
@@ -277,9 +276,11 @@ public:
 
 	std::string sThemeName;
 
+	// These aren't saved, just for instant debugging.
 	bool bLogFrameDrops;
 	bool bShowDebugStats;
 	bool bShowAudioDebug;
+	bool bShowControlDebug;
 	bool bShowGpuProfile;
 
 	// Analog stick tilting

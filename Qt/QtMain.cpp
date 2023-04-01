@@ -725,7 +725,6 @@ void MainUI::updateAccelerometer() {
 	if (reading) {
 		AxisInput axis;
 		axis.deviceId = DEVICE_ID_ACCELEROMETER;
-		axis.flags = 0;
 
 		axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
 		axis.value = reading->x();

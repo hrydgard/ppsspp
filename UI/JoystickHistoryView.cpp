@@ -34,8 +34,8 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 			float by = (iy + 1) * dx;
 
 			if (type_ == StickHistoryViewType::OUTPUT) {
-				ConvertAnalogStick(ax, ay);
-				ConvertAnalogStick(bx, by);
+				ConvertAnalogStick(ax, ay, &ax, &ay);
+				ConvertAnalogStick(bx, by, &bx, &by);
 			}
 
 			ax = ax * minRadius + bounds_.centerX();
@@ -58,8 +58,8 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 			float by = fy;
 
 			if (type_ == StickHistoryViewType::OUTPUT) {
-				ConvertAnalogStick(ax, ay);
-				ConvertAnalogStick(bx, by);
+				ConvertAnalogStick(ax, ay, &ax, &ay);
+				ConvertAnalogStick(bx, by, &bx, &by);
 			}
 
 			ax = ax * minRadius + bounds_.centerX();

@@ -43,7 +43,7 @@ std::set<std::string> g_seenPads;
 std::map<int, std::string> g_padNames;
 std::set<int> g_seenDeviceIds;
 
-bool g_swapped_keys = false;
+bool g_swapDpadWithLStick = false;
 
 // TODO: This is such a mess...
 void UpdateNativeMenuKeys() {
@@ -424,9 +424,10 @@ const KeyMap_IntStrPair psp_button_names[] = {
 };
 
 static std::string FindName(int key, const KeyMap_IntStrPair list[], size_t size) {
-	for (size_t i = 0; i < size; i++)
+	for (size_t i = 0; i < size; i++) {
 		if (list[i].key == key)
 			return list[i].name;
+	}
 	return StringFromFormat("%02x?", key);
 }
 
@@ -472,8 +473,8 @@ std::vector<KeyMap_IntStrPair> GetMappableKeys() {
 	return temp;
 }
 
-int CheckAxisSwap(int btn) {
-	if (g_swapped_keys) {
+inline int CheckAxisSwap(int btn) {
+	if (g_swapDpadWithLStick) {
 		switch (btn) {
 			case CTRL_UP: btn = VIRTKEY_AXIS_Y_MAX; break;
 			case VIRTKEY_AXIS_Y_MAX: btn = CTRL_UP; break;
@@ -488,19 +489,18 @@ int CheckAxisSwap(int btn) {
 	return btn;
 }
 
-static bool FindKeyMapping(const InputMapping &mapping, std::vector<int> *pspButtons) {
+bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspButtons) {
+	bool found = false;
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
 			if (*iter2 == mapping) {
-				pspButtons->push_back(CheckAxisSwap(iter->first));
+				if (pspButtons)
+					pspButtons->push_back(CheckAxisSwap(iter->first));
+				found = true;
 			}
 		}
 	}
-	return pspButtons->size() > 0;
-}
-
-bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspButtons) {
-	return FindKeyMapping(mapping, pspButtons);
+	return found;
 }
 
 bool InputMappingsFromPspButton(int btn, std::vector<InputMapping> *mappings, bool ignoreMouse) {
@@ -774,7 +774,7 @@ std::string PadName(int deviceId) {
 
 // Swap direction buttons and left analog axis
 void SwapAxis() {
-	g_swapped_keys = !g_swapped_keys;
+	g_swapDpadWithLStick = !g_swapDpadWithLStick;
 }
 
 bool HasChanged(int &prevGeneration) {
@@ -783,6 +783,55 @@ bool HasChanged(int &prevGeneration) {
 		return true;
 	}
 	return false;
+}
+
+static const char *g_vKeyNames[] = {
+	"AXIS_X_MIN",
+	"AXIS_Y_MIN",
+	"AXIS_X_MAX",
+	"AXIS_Y_MAX",
+	"RAPID_FIRE",
+	"FASTFORWARD",
+	"PAUSE",
+	"SPEED_TOGGLE",
+	"AXIS_RIGHT_X_MIN",
+	"AXIS_RIGHT_Y_MIN",
+	"AXIS_RIGHT_X_MAX",
+	"AXIS_RIGHT_Y_MAX",
+	"REWIND",
+	"SAVE_STATE",
+	"LOAD_STATE",
+	"NEXT_SLOT",
+	"TOGGLE_FULLSCREEN",
+	"ANALOG_LIGHTLY",
+	"AXIS_SWAP",
+	"DEVMENU",
+	"FRAME_ADVANCE",
+	"RECORD",
+	"SPEED_CUSTOM1",
+	"SPEED_CUSTOM2",
+	"TEXTURE_DUMP",
+	"TEXTURE_REPLACE",
+	"SCREENSHOT",
+	"MUTE_TOGGLE",
+	"OPENCHAT",
+	"ANALOG_ROTATE_CW",
+	"ANALOG_ROTATE_CCW",
+	"SCREEN_ROTATION_VERTICAL",
+	"SCREEN_ROTATION_VERTICAL180",
+	"SCREEN_ROTATION_HORIZONTAL",
+	"SCREEN_ROTATION_HORIZONTAL180",
+	"SPEED_ANALOG",
+	"VR_CAMERA_ADJUST",
+	"VR_CAMERA_RESET",
+};
+
+const char *GetVirtKeyName(int vkey) {
+	int index = vkey - VIRTKEY_FIRST;
+	if (index < 0 || index >= ARRAY_SIZE(g_vKeyNames)) {
+		return "N/A";
+	}
+	return g_vKeyNames[index];
 }
 
 }  // KeyMap

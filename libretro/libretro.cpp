@@ -1523,11 +1523,11 @@ static void retro_input(void)
 
       if (pressed)
       {
-         __CtrlButtonDown(map[i].sceCtrl);
+         __CtrlUpdateButtons(map[i].sceCtrl, 0);
       }
       else
       {
-         __CtrlButtonUp(map[i].sceCtrl);
+         __CtrlUpdateButtons(0, map[i].sceCtrl);
       }
    }
 

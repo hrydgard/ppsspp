@@ -1,6 +1,8 @@
+#include <vector>
+#include <cstdio>
+
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
-#include <vector>
 
 const char *GetDeviceName(int deviceId) {
 	switch (deviceId) {
@@ -75,4 +77,14 @@ int GetAnalogYDirection(int deviceId) {
 	if (configured != uiFlipAnalogY.end())
 		return configured->second;
 	return 0;
+}
+
+void InputMapping::FormatDebug(char *buffer, size_t bufSize) const {
+	if (IsAxis()) {
+		int direction;
+		int axis = Axis(&direction);
+		snprintf(buffer, bufSize, "Device: %d Axis: %d (%d)", deviceId, axis, direction);
+	} else {
+		snprintf(buffer, bufSize, "Device: %d Key: %d", deviceId, keyCode);
+	}
 }

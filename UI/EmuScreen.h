@@ -69,6 +69,7 @@ private:
 	void renderUI();
 
 	void onVKey(int virtualKeyCode, bool down);
+	void onVKeyAnalog(int virtualKeyCode, float value);
 
 	void autoLoad();
 	void checkPowerDown();

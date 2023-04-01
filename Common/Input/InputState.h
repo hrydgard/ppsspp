@@ -117,6 +117,13 @@ public:
 		return TranslateKeyCodeToAxis(keyCode, direction);
 	}
 
+	InputMapping FlipDirection() const {
+		_dbg_assert_(IsAxis());
+		InputMapping other = *this;
+		other.keyCode ^= 1;
+		return other;
+	}
+
 	// If you want to use std::find and match ANY, you need to perform an explicit search for that.
 	bool operator < (const InputMapping &other) const {
 		if (deviceId < other.deviceId) return true;
@@ -129,6 +136,8 @@ public:
 		if (keyCode != other.keyCode) return false;
 		return true;
 	}
+
+	void FormatDebug(char *buffer, size_t bufSize) const;
 };
 
 enum {
@@ -183,7 +192,6 @@ struct AxisInput {
 	int deviceId;
 	int axisId;  // Android axis Ids are the canonical ones.
 	float value;
-	int flags;
 };
 
 // Is there a nicer place for this stuff? It's here to avoid dozens of linking errors in UnitTest..

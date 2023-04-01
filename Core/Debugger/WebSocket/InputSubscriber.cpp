@@ -155,12 +155,7 @@ void WebSocketInputState::ButtonsSend(DebuggerRequest &req) {
 		}
 	}
 
-	if (downFlags) {
-		__CtrlButtonDown(downFlags);
-	}
-	if (upFlags) {
-		__CtrlButtonUp(upFlags);
-	}
+	__CtrlUpdateButtons(downFlags, upFlags);
 
 	req.Respond();
 }
@@ -192,7 +187,7 @@ void WebSocketInputState::ButtonsPress(DebuggerRequest &req) {
 	}
 	press.button = info->second;
 
-	__CtrlButtonDown(press.button);
+	__CtrlUpdateButtons(press.button, 0);
 	pressTickets_.push_back(press);
 }
 
@@ -205,7 +200,7 @@ void WebSocketInputState::Broadcast(net::WebSocketServer *ws) {
 	for (PressInfo &press : pressTickets_) {
 		press.duration--;
 		if (press.duration == -1) {
-			__CtrlButtonUp(press.button);
+			__CtrlUpdateButtons(0, press.button);
 			ws->Send(press.Event());
 		}
 	}
@@ -254,6 +249,7 @@ void WebSocketInputState::AnalogSend(DebuggerRequest &req) {
 	if (!AnalogValue(req, &x, "x") || !AnalogValue(req, &y, "y"))
 		return;
 
+	// TODO: Route into the control mapper's PSPKey function or similar instead.
 	__CtrlSetAnalogXY(stick == "left" ? CTRL_STICK_LEFT : CTRL_STICK_RIGHT, x, y);
 
 	req.Respond();

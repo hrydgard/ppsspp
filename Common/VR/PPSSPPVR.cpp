@@ -9,6 +9,9 @@
 #include "Common/VR/VRMath.h"
 #include "Common/VR/VRRenderer.h"
 
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
+
 #include "Common/GPU/Vulkan/VulkanContext.h"
 
 #include "Common/Math/lin/matrix4x4.h"

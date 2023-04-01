@@ -29,6 +29,7 @@
 #define KEYMAP_ERROR_KEY_ALREADY_USED -1
 #define KEYMAP_ERROR_UNKNOWN_KEY 0
 
+// Don't change any of these - it'll break backwards compatibility with configs.
 enum {
 	VIRTKEY_FIRST = 0x40000001,
 	VIRTKEY_AXIS_X_MIN = 0x40000001,
@@ -118,7 +119,8 @@ namespace KeyMap {
 	std::string GetKeyOrAxisName(const InputMapping &mapping);
 	std::string GetAxisName(int axisId);
 	std::string GetPspButtonName(int btn);
-	const char* GetPspButtonNameCharPointer(int btn);
+	const char *GetVirtKeyName(int vkey);
+	const char *GetPspButtonNameCharPointer(int btn);
 
 	std::vector<KeyMap_IntStrPair> GetMappableKeys();
 
