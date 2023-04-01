@@ -36,6 +36,7 @@ public:
 
 private:
 	bool UpdatePSPState(const InputMapping &changedMapping);
+	float MapAxisValue(float value, int vkId, const InputMapping &mapping, const InputMapping &changedMapping, bool *oppositeTouched);
 
 	void SetPSPAxis(int deviceId, int stick, char axis, float value);
 

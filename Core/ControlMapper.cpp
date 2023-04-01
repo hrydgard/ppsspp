@@ -162,6 +162,35 @@ static float ReduceMagnitude(float value) {
 	return value;
 }
 
+float ControlMapper::MapAxisValue(float value, int vkId, const InputMapping &mapping, const InputMapping &changedMapping, bool *oppositeTouched) {
+	if (IsUnsignedMapping(vkId)) {
+		// If a signed axis is mapped to an unsigned mapping,
+		// convert it. This happens when mapping DirectInput triggers to analog speed,
+		// for example.
+		int direction;
+		if (IsSignedAxis(mapping.Axis(&direction))) {
+			// The value has been split up into two curInput values, so we need to go fetch the other
+			// and put them back together again. Kind of awkward, but at least makes the regular case simple...
+			InputMapping other = mapping.FlipDirection();
+			if (other == changedMapping) {
+				*oppositeTouched = true;
+			}
+			float valueOther = curInput_[other];
+			float signedValue = value - valueOther;
+			float ranged = (signedValue + 1.0f) * 0.5f;
+			if (direction == -1) {
+				ranged = 1.0f - ranged;
+			}
+			// NOTICE_LOG(SYSTEM, "rawValue: %f other: %f signed: %f ranged: %f", iter->second, valueOther, signedValue, ranged);
+			return ranged;
+		} else {
+			return value;
+		}
+	} else {
+		return value;
+	}
+}
+
 // Can only be called from Key or Axis.
 bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 	// Instead of taking an input key and finding what it outputs, we loop through the OUTPUTS and
@@ -233,32 +262,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 			if (iter != curInput_.end()) {
 				if (mapping.IsAxis()) {
 					threshold = GetDeviceAxisThreshold(iter->first.deviceId);
-					if (IsUnsignedMapping(vkId)) {
-						// If a signed axis is mapped to an unsigned mapping,
-						// convert it. This happens when mapping DirectInput triggers to analog speed,
-						// for example.
-						int direction;
-						if (IsSignedAxis(mapping.Axis(&direction))) {
-							// The value has been split up into two curInput values, so we need to go fetch the other
-							// and put them back together again. Kind of awkward, but at least makes the regular case simple...
-							InputMapping other = mapping.FlipDirection();
-							if (other == changedMapping) {
-								touchedByMapping = true;
-							}
-							float valueOther = curInput_[other];
-							float signedValue = iter->second - valueOther;
-							float ranged = (signedValue + 1.0f) * 0.5f;
-							if (direction == -1) {
-								ranged = 1.0f - ranged;
-							}
-							// NOTICE_LOG(SYSTEM, "rawValue: %f other: %f signed: %f ranged: %f", iter->second, valueOther, signedValue, ranged);
-							value += ranged;
-						} else {
-							value += iter->second;
-						}
-					} else {
-						value += iter->second;
-					}
+					value += MapAxisValue(iter->second, vkId, mapping, changedMapping, &touchedByMapping);
 				} else {
 					value += iter->second;
 				}
