@@ -62,6 +62,8 @@ public:
 	virtual void SwapBuffers() {}
 
 protected:
+	void SendAndCollectOutput(const std::string &output);
+
 	Path comparisonScreenshot_;
 	double maxScreenshotError_ = 0.0;
 	std::string debugOutputBuffer_;
