@@ -101,7 +101,6 @@ template <GEBufferFormat fmt, bool alphaBlend>
 static inline void DrawSinglePixel(u16 *pixel, const u32 color_in) {
 	u32 new_color;
 	// Because of this check, we only support src.a / 1-src.a blending.
-	// We take advantage of short circuiting by checking the constant (template) value first.
 	if (!alphaBlend || (color_in >> 24) == 255) {
 		new_color = color_in & 0xFFFFFF;
 	} else {
@@ -142,7 +141,7 @@ template <bool alphaBlend>
 static inline void DrawSinglePixel32(u32 *pixel, const u32 color_in) {
 	u32 new_color;
 	// Because of this check, we only support src.a / 1-src.a blending.
-	if ((color_in >> 24) == 255 || !alphaBlend) {
+	if (!alphaBlend || (color_in >> 24) == 255) {
 		new_color = color_in & 0xFFFFFF;
 	} else {
 		const u32 old_color = *pixel;
