@@ -565,7 +565,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 	if (dirty & DIRTY_WORLDMATRIX) {
 		SetMatrix4x3(render_, &u_world, gstate.worldMatrix);
 	}
-	if (dirty & DIRTY_VIEWMATRIX) {
+	if ((dirty & DIRTY_VIEWMATRIX) || IsVREnabled()) {
 		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 			float leftEyeView[16];
 			float rightEyeView[16];
