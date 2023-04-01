@@ -149,6 +149,8 @@ namespace KeyMap {
 		FixedTinyVec<InputMapping, 3> mappings;
 	};
 
+	// Once the multimappings are inserted here, they must not be empty.
+	// If one would be, delete the whole entry from the map instead.
 	typedef std::map<int, std::vector<MultiInputMapping>> KeyMapping;
 
 	extern KeyMapping g_controllerMap;

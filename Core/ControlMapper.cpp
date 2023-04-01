@@ -298,11 +298,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 		// Note: This is an old problem, it didn't appear with the refactoring.
 		if (!changedMapping.IsAxis()) {
 			for (auto &multiMapping : inputMappings) {
-				bool anyAxis = false;
 				for (auto &mapping : multiMapping.mappings) {
-					if (mapping.IsAxis()) {
-						anyAxis = true;
-					}
 					curInput_[mapping] = ReduceMagnitude(curInput_[mapping]);
 				}
 			}
