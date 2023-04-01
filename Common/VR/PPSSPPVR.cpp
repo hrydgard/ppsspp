@@ -743,18 +743,18 @@ bool StartVRRender() {
 					M[11] += side.z;
 				}
 				// Stereoscopy
-				if (matrix == VR_VIEW_MATRIX_RIGHT_EYE) {
-					float dx = fabs(invViewTransform[1].position.x - invViewTransform[0].position.x);
-					float dy = fabs(invViewTransform[1].position.y - invViewTransform[0].position.y);
-					float dz = fabs(invViewTransform[1].position.z - invViewTransform[0].position.z);
-					float ipd = sqrt(dx * dx + dy * dy + dz * dz);
-					XrVector3f separation = {ipd * scale, 0.0f, 0.0f};
-					separation = XrQuaternionf_Rotate(invView.orientation, separation);
-					separation = XrVector3f_ScalarMultiply(separation, vrMirroring[VR_MIRRORING_AXIS_Z] ? -1.0f : 1.0f);
-					M[3] -= separation.x;
-					M[7] -= separation.y;
-					M[11] -= separation.z;
-				}
+				bool mirrored = vrMirroring[VR_MIRRORING_AXIS_Z] ^ (matrix == VR_VIEW_MATRIX_LEFT_EYE);
+				float dx = fabs(invViewTransform[1].position.x - invViewTransform[0].position.x);
+				float dy = fabs(invViewTransform[1].position.y - invViewTransform[0].position.y);
+				float dz = fabs(invViewTransform[1].position.z - invViewTransform[0].position.z);
+				float ipd = sqrt(dx * dx + dy * dy + dz * dz);
+				XrVector3f separation = {ipd * scale * 0.5f, 0.0f, 0.0f};
+				separation = XrQuaternionf_Rotate(invView.orientation, separation);
+				separation = XrVector3f_ScalarMultiply(separation, mirrored ? -1.0f : 1.0f);
+				M[3] -= separation.x;
+				M[7] -= separation.y;
+				M[11] -= separation.z;
+
 				memcpy(vrMatrix[matrix], M, sizeof(float) * 16);
 			} else {
 				assert(false);
