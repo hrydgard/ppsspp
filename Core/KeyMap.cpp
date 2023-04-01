@@ -870,4 +870,18 @@ std::string MultiInputMapping::ToConfigString() const {
 	return out;
 }
 
+std::string MultiInputMapping::ToVisualString() const {
+	std::string out;
+	for (auto iter : mappings) {
+		out += std::string(GetDeviceName(iter.deviceId)) + "." + GetKeyOrAxisName(iter) + " + ";
+	}
+	if (!out.empty()) {
+		// remove the last ' + '
+		out.pop_back();
+		out.pop_back();
+		out.pop_back();
+	}
+	return out;
+}
+
 }  // KeyMap

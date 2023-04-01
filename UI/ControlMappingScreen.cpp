@@ -141,18 +141,12 @@ void SingleControlMapper::Refresh() {
 
 	rows_.clear();
 	for (size_t i = 0; i < mappings.size(); i++) {
-		// TODO: Correctly handle multis.
-
-		auto &mapping = mappings[i].mappings[0];
-
-		std::string deviceName = GetDeviceName(mapping.deviceId);
-		std::string keyName = KeyMap::GetKeyOrAxisName(mapping);
-
+		std::string multiMappingString = mappings[i].ToVisualString();
 		LinearLayout *row = rightColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		row->SetSpacing(2.0f);
 		rows_.push_back(row);
 
-		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(FILL_PARENT, itemH, 1.0f)));
+		Choice *c = row->Add(new Choice(multiMappingString, new LinearLayoutParams(FILL_PARENT, itemH, 1.0f)));
 		c->SetTag(StringFromFormat("%d_Change%d", (int)i, pspKey_));
 		c->OnClick.Handle(this, &SingleControlMapper::OnReplace);
 
