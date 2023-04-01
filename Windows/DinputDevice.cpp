@@ -244,8 +244,6 @@ int DinputDevice::UpdateState() {
 		AxisInput axis;
 		axis.deviceId = DEVICE_ID_PAD_0 + pDevNum;
 
-		auto axesToSquare = KeyMap::MappedAxesForDevice(axis.deviceId);
-
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lX, last_lX_, JOYSTICK_AXIS_X);
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lY, last_lY_, JOYSTICK_AXIS_Y);
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lZ, last_lZ_, JOYSTICK_AXIS_Z);

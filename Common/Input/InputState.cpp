@@ -3,6 +3,7 @@
 
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
+#include "Common/StringUtils.h"
 
 const char *GetDeviceName(int deviceId) {
 	switch (deviceId) {
@@ -77,6 +78,23 @@ int GetAnalogYDirection(int deviceId) {
 	if (configured != uiFlipAnalogY.end())
 		return configured->second;
 	return 0;
+}
+
+// NOTE: Changing the format of FromConfigString/ToConfigString breaks controls.ini backwards compatibility.
+InputMapping InputMapping::FromConfigString(const std::string &str) {
+	std::vector<std::string> parts;
+	SplitString(str, '-', parts);
+	int deviceId = atoi(parts[0].c_str());
+	int keyCode = atoi(parts[1].c_str());
+
+	InputMapping mapping;
+	mapping.deviceId = deviceId;
+	mapping.keyCode = keyCode;
+	return mapping;
+}
+
+std::string InputMapping::ToConfigString() const {
+	return StringFromFormat("%d-%d", deviceId, keyCode);
 }
 
 void InputMapping::FormatDebug(char *buffer, size_t bufSize) const {
