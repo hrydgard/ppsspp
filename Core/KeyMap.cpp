@@ -687,15 +687,12 @@ void LoadFromIni(IniFile &file) {
 		SplitString(value, ',', mappings);
 
 		for (size_t j = 0; j < mappings.size(); j++) {
-			// TODO: Properly parse multiple mappings.
+			MultiInputMapping input = MultiInputMapping::FromConfigString(mappings[j]);
+			SetInputMapping(psp_button_names[i].key, input, false);
 
-			std::vector<std::string> parts;
-			SplitString(mappings[j], '-', parts);
-			int deviceId = atoi(parts[0].c_str());
-			int keyCode = atoi(parts[1].c_str());
-
-			SetInputMapping(psp_button_names[i].key, MultiInputMapping(InputMapping(deviceId, keyCode)), false);
-			g_seenDeviceIds.insert(deviceId);
+			for (auto mapping : input.mappings) {
+				g_seenDeviceIds.insert(mapping.deviceId);
+			}
 		}
 	}
 
@@ -711,11 +708,7 @@ void SaveToIni(IniFile &file) {
 
 		std::string value;
 		for (size_t j = 0; j < keys.size(); j++) {
-			auto mapping = keys[j].mappings[0];
-
-			char temp[128];
-			sprintf(temp, "%i-%i", mapping.deviceId, mapping.keyCode);
-			value += temp;
+			value += keys[j].ToConfigString();
 			if (j != keys.size() - 1)
 				value += ",";
 		}
@@ -856,6 +849,25 @@ const char *GetVirtKeyName(int vkey) {
 		return "N/A";
 	}
 	return g_vKeyNames[index];
+}
+
+MultiInputMapping MultiInputMapping::FromConfigString(const std::string &str) {
+	MultiInputMapping out;
+	std::vector<std::string> parts;
+	SplitString(str, ':', parts);
+	for (auto iter : parts) {
+		out.mappings.push_back(InputMapping::FromConfigString(iter));
+	}
+	return out;
+}
+
+std::string MultiInputMapping::ToConfigString() const {
+	std::string out;
+	for (auto iter : mappings) {
+		out += iter.ToConfigString() + ":";
+	}
+	out.pop_back();  // remove the last ':'
+	return out;
 }
 
 }  // KeyMap

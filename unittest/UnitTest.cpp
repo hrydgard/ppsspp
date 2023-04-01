@@ -62,6 +62,7 @@
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
+#include "Core/KeyMap.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/GPUStateUtils.h"
@@ -849,6 +850,47 @@ static bool TestDepthMath() {
 	return true;
 }
 
+bool TestInputMapping() {
+	InputMapping mapping;
+	mapping.deviceId = 10;
+	mapping.keyCode = 20;
+	InputMapping mapping2;
+	mapping2.deviceId = 18;
+	mapping2.keyCode = 38;
+	std::string cfg = mapping.ToConfigString();
+
+	InputMapping parsedMapping = InputMapping::FromConfigString(cfg);
+	EXPECT_EQ_INT(parsedMapping.deviceId, mapping.deviceId);
+	EXPECT_EQ_INT(parsedMapping.keyCode, mapping.keyCode);
+
+	using KeyMap::MultiInputMapping;
+	MultiInputMapping multi(mapping);
+
+	EXPECT_EQ_STR(multi.ToConfigString(), mapping.ToConfigString());
+
+	multi.mappings.push_back(mapping2);
+	EXPECT_FALSE(multi.EqualsSingleMapping(mapping));
+	EXPECT_TRUE(multi.mappings.contains(mapping2));
+	EXPECT_TRUE(multi.mappings.contains(mapping));
+
+	std::string cfgMulti = multi.ToConfigString();
+
+	EXPECT_EQ_STR(cfgMulti, std::string("10-20:18-38"));
+
+	MultiInputMapping parsedMulti = MultiInputMapping::FromConfigString(cfgMulti);
+
+	EXPECT_EQ_INT((int)parsedMulti.mappings.size(), 2);
+
+	// OK, both single and multiple mappings parse. Let's now see if the old parsing can handle a multimapping.
+	// This is a requirement for the new format.
+
+	InputMapping parsedMultiSingle = InputMapping::FromConfigString(cfgMulti);  // yes this is an intentional mismatch
+	// We should get the first mapping.
+	EXPECT_TRUE(parsedMultiSingle == mapping);
+	return true;
+}
+
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -901,6 +943,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(TinySet),
 	TEST_ITEM(SmallDataConvert),
 	TEST_ITEM(DepthMath),
+	TEST_ITEM(InputMapping),
 };
 
 int main(int argc, const char *argv[]) {

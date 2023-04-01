@@ -109,6 +109,10 @@ namespace KeyMap {
 		explicit MultiInputMapping(const InputMapping &mapping) {
 			mappings.push_back(mapping);
 		}
+		
+		static MultiInputMapping FromConfigString(const std::string &str);
+		std::string ToConfigString() const;
+
 		bool operator <(const MultiInputMapping &other) {
 			for (size_t i = 0; i < mappings.capacity(); i++) {
 				// If one ran out of entries, the other wins.

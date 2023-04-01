@@ -5,8 +5,8 @@
 
 #include <unordered_map>
 #include <vector>
+#include <string>
 
-#include "Common/Math/lin/vec3.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Log.h"
 
@@ -104,6 +104,9 @@ public:
 	InputMapping(int _deviceId, int axis, int direction) : deviceId(_deviceId), keyCode(TranslateKeyCodeFromAxis(axis, direction)) {
 		_dbg_assert_(direction != 0);
 	}
+
+	static InputMapping FromConfigString(const std::string &str);
+	std::string ToConfigString() const;
 
 	int deviceId;
 	int keyCode;  // Can also represent an axis with direction, if encoded properly.
