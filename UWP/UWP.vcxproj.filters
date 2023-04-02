@@ -490,6 +490,17 @@
     <None Include="Content\debugger\static\media\*.svg">
       <Filter>Content\debugger\static\media</Filter>
     </None>
+    <None Include="Content\debugger\static\css\*.css" />
+    <None Include="Content\debugger\static\css\*.css" />
+    <None Include="Content\debugger\static\css\*.map" />
+    <None Include="Content\debugger\static\css\*.map" />
+    <None Include="Content\debugger\static\js\*.js" />
+    <None Include="Content\debugger\static\js\*.js" />
+    <None Include="Content\debugger\static\js\*.js" />
+    <None Include="Content\debugger\static\js\*.map" />
+    <None Include="Content\debugger\static\js\*.map" />
+    <None Include="Content\debugger\static\js\*.map" />
+    <None Include="Content\debugger\static\media\*.svg" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Content\gamecontrollerdb.txt">
@@ -498,6 +509,7 @@
     <Text Include="Content\debugger\static\js\*.txt">
       <Filter>Content\debugger\static\js</Filter>
     </Text>
+    <Text Include="Content\debugger\static\js\*.txt" />
   </ItemGroup>
   <ItemGroup>
     <Font Include="Content\Roboto-Condensed.ttf">
