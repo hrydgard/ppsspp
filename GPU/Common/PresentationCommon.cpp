@@ -123,7 +123,11 @@ void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect
 	}
 
 	if (g_Config.bDisplayIntegerScale) {
-		outW = std::max(1.0f, floorf(outW / 480.0f)) * 480.0f;
+		float wDim = 480.0f;
+		if (rotated) {
+			wDim = 272.0f;
+		}
+		outW = std::max(1.0f, floorf(outW / wDim)) * wDim;
 		outH = outW / origRatio;
 	}
 
