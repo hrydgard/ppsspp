@@ -280,7 +280,7 @@ static inline int GetPixelDataOffset(uint32_t row_pitch_pixels, uint32_t u, uint
 	const int tiles_in_block_horizontal = 4;
 	const int tiles_in_block_vertical = 8;
 
-	int texels_per_tile = tile_size_bits / texel_size_bits;
+	constexpr int texels_per_tile = tile_size_bits / texel_size_bits;
 	int tile_u = u / texels_per_tile;
 	int tile_idx = (v % tiles_in_block_vertical) * (tiles_in_block_horizontal) +
 	// TODO: not sure if the *texel_size_bits/8 factor is correct

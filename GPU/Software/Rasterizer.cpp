@@ -728,7 +728,7 @@ Vec4<int> TriangleEdge<useSSE4>::Start(const ScreenCoords &v0, const ScreenCoord
 	stepY = Vec4<int>::AssignToAll(yf * SCREEN_SCALE_FACTOR * 2);
 
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	if (useSSE4)
+	if constexpr (useSSE4)
 		return TriangleEdgeStartSSE4(initX.ivec, initY.ivec, xf, yf, c);
 #endif
 	return Vec4<int>::AssignToAll(xf) * initX + Vec4<int>::AssignToAll(yf) * initY + Vec4<int>::AssignToAll(c);
@@ -771,7 +771,7 @@ template <bool useSSE4>
 void TriangleEdge<useSSE4>::NarrowMinMaxX(const Vec4<int> &w, int64_t minX, int64_t &rowMinX, int64_t &rowMaxX) {
 	int wmax;
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	if (useSSE4) {
+	if constexpr (useSSE4) {
 		wmax = MaxWeightSSE4(w.ivec);
 	} else {
 		wmax = std::max(std::max(w.x, w.y), std::max(w.z, w.w));
@@ -809,7 +809,7 @@ static inline __m128i SOFTRAST_CALL StepTimesSSE4(__m128i w, __m128i step, int c
 template <bool useSSE4>
 inline Vec4<int> TriangleEdge<useSSE4>::StepXTimes(const Vec4<int> &w, int c) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	if (useSSE4)
+	if constexpr (useSSE4)
 		return StepTimesSSE4(w.ivec, stepX.ivec, c);
 #elif PPSSPP_ARCH(ARM64_NEON)
 	return vaddq_s32(w.ivec, vmulq_s32(vdupq_n_s32(c), stepX.ivec));
@@ -848,7 +848,7 @@ static inline bool SOFTRAST_CALL AnyMaskSSE4(__m128i mask) {
 template <bool useSSE4>
 static inline bool AnyMask(const Vec4<int> &mask) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	if (useSSE4) {
+	if constexpr (useSSE4) {
 		return AnyMaskSSE4(mask.ivec);
 	}
 
@@ -1015,33 +1015,37 @@ void DrawTriangleSlice(
 					}
 				}
 
-				if (state.enableTextures && !clearMode) {
-					Vec4<float> s, t;
-					if (state.throughMode) {
-						s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1, w2, wsum_recip);
-						t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1, w2, wsum_recip);
+				if (state.enableTextures) {
+					if constexpr (!clearMode) {
+						Vec4<float> s, t;
+						if (state.throughMode) {
+							s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1,
+											w2, wsum_recip);
+							t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1,
+											w2, wsum_recip);
 
-						// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
-						s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
-						t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
-					} else if (state.textureProj) {
-						// Texture coordinate interpolation must definitely be perspective-correct.
-						GetTextureCoordinatesProj(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
-					} else {
-						// Texture coordinate interpolation must definitely be perspective-correct.
-						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
-					}
+							// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
+							s *= 1.0f / (float) (1 << state.samplerID.width0Shift);
+							t *= 1.0f / (float) (1 << state.samplerID.height0Shift);
+						} else if (state.textureProj) {
+							// Texture coordinate interpolation must definitely be perspective-correct.
+							GetTextureCoordinatesProj(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
+						} else {
+							// Texture coordinate interpolation must definitely be perspective-correct.
+							GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
+						}
 
-					if (state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE) {
-						// Not sure what's right, but we need one value for the slope.
-						float clipw = (v0.clipw * w0.x + v1.clipw * w1.x + v2.clipw * w2.x) * wsum_recip.x;
-						ApplyTexturing(state, prim_color, mask, s, t, clipw);
-					} else {
-						ApplyTexturing(state, prim_color, mask, s, t, 0.0f);
+						if (state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE) {
+							// Not sure what's right, but we need one value for the slope.
+							float clipw = (v0.clipw * w0.x + v1.clipw * w1.x + v2.clipw * w2.x) * wsum_recip.x;
+							ApplyTexturing(state, prim_color, mask, s, t, clipw);
+						} else {
+							ApplyTexturing(state, prim_color, mask, s, t, 0.0f);
+						}
 					}
 				}
 
-				if (!clearMode) {
+				if constexpr (!clearMode) {
 					for (int i = 0; i < 4; ++i) {
 #if defined(_M_SSE)
 						// TODO: Tried making Vec4 do this, but things got slower.
