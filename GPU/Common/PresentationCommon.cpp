@@ -68,7 +68,7 @@ FRect GetScreenFrame(float pixelWidth, float pixelHeight) {
 	return rc;
 }
 
-void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &frame, int rotation) {
+void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &frame, int rotation) {
 	float outW;
 	float outH;
 
@@ -368,7 +368,7 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo * shaderInfo, const Sh
 			// If the current shader uses output res (not next), we will use output res for it.
 			FRect rc;
 			FRect frame = GetScreenFrame((float)pixelWidth_, (float)pixelHeight_);
-			CenterDisplayOutputRect(&rc, 480.0f, 272.0f, frame, g_Config.iInternalScreenRotation);
+			CalculateDisplayOutputRect(&rc, 480.0f, 272.0f, frame, g_Config.iInternalScreenRotation);
 			nextWidth = (int)rc.w;
 			nextHeight = (int)rc.h;
 		}
@@ -644,7 +644,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		pixelWidth /= 2;
 	}
 	FRect rc;
-	CenterDisplayOutputRect(&rc, 480.0f, 272.0f, frame, uvRotation);
+	CalculateDisplayOutputRect(&rc, 480.0f, 272.0f, frame, uvRotation);
 
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
 		rc.x -= 0.5f;

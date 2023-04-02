@@ -134,7 +134,7 @@ void DisplayLayoutScreen::DrawBackground(UIContext &dc) {
 		// TODO: Clean this up a bit, this GetScreenFrame/CenterDisplay combo is too common.
 		FRect screenFrame = GetScreenFrame(g_display.pixel_xres, g_display.pixel_yres);
 		FRect rc;
-		CenterDisplayOutputRect(&rc, 480.0f, 272.0f, screenFrame, g_Config.iInternalScreenRotation);
+		CalculateDisplayOutputRect(&rc, 480.0f, 272.0f, screenFrame, g_Config.iInternalScreenRotation);
 
 		dc.Flush();
 		ImageID bg = ImageID("I_PSP_DISPLAY");

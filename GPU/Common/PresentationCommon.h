@@ -48,7 +48,7 @@ struct FRect {
 };
 
 FRect GetScreenFrame(float pixelWidth, float pixelHeight);
-void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &frame, int rotation);
+void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &frame, int rotation);
 
 namespace Draw {
 class Buffer;
