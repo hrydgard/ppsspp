@@ -134,7 +134,7 @@ void DisplayLayoutScreen::DrawBackground(UIContext &dc) {
 		// TODO: Clean this up a bit, this GetScreenFrame/CenterDisplay combo is too common.
 		FRect screenFrame = GetScreenFrame(g_display.pixel_xres, g_display.pixel_yres);
 		FRect rc;
-		CenterDisplayOutputRect(&rc, 480.0f, 272.0f, screenFrame, g_Config.iInternalScreenRotation);
+		CalculateDisplayOutputRect(&rc, 480.0f, 272.0f, screenFrame, g_Config.iInternalScreenRotation);
 
 		dc.Flush();
 		ImageID bg = ImageID("I_PSP_DISPLAY");
@@ -241,13 +241,18 @@ void DisplayLayoutScreen::CreateViews() {
 
 	if (!IsVREnabled()) {
 		auto stretch = new CheckBox(&g_Config.bDisplayStretch, gr->T("Stretch"));
+		stretch->SetDisabledPtr(&g_Config.bDisplayIntegerScale);
 		rightColumn->Add(stretch);
 
 		PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, gr->T("Aspect Ratio"), screenManager());
 		rightColumn->Add(aspectRatio);
-		aspectRatio->SetDisabledPtr(&g_Config.bDisplayStretch);
+		aspectRatio->SetEnabledFunc([]() {
+			return !g_Config.bDisplayStretch && !g_Config.bDisplayIntegerScale;
+		});
 		aspectRatio->SetHasDropShadow(false);
 		aspectRatio->SetLiveUpdate(true);
+
+		rightColumn->Add(new CheckBox(&g_Config.bDisplayIntegerScale, gr->T("Integer scale factor")));
 
 #if PPSSPP_PLATFORM(ANDROID)
 		// Hide insets option if no insets, or OS too old.
@@ -295,8 +300,10 @@ void DisplayLayoutScreen::CreateViews() {
 		leftColumn->Add(new Spacer(24.0f));
 	}
 
-	static const char *bufFilters[] = { "Linear", "Nearest", };
-	leftColumn->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
+	if (!IsVREnabled()) {
+		static const char *bufFilters[] = { "Linear", "Nearest", };
+		leftColumn->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
+	}
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 

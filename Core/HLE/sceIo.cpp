@@ -2046,7 +2046,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			return 0;
 		case EMULATOR_DEVCTL__GET_ASPECT_RATIO:
 			if (Memory::IsValidAddress(outPtr)) {
-				// TODO: Share code with CenterDisplayOutputRect to take a few more things into account.
+				// TODO: Share code with CalculateDisplayOutputRect to take a few more things into account.
 				// I have a planned further refactoring.
 				float ar;
 				if (g_Config.bDisplayStretch) {

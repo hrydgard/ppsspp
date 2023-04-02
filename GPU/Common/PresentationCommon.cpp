@@ -68,13 +68,13 @@ FRect GetScreenFrame(float pixelWidth, float pixelHeight) {
 	return rc;
 }
 
-void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &frame, int rotation) {
+void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &frame, int rotation) {
 	float outW;
 	float outH;
 
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
-	bool stretch = g_Config.bDisplayStretch;
+	bool stretch = g_Config.bDisplayStretch && !g_Config.bDisplayIntegerScale;
 
 	float offsetX = g_Config.fDisplayOffsetX;
 	float offsetY = g_Config.fDisplayOffsetY;
@@ -87,7 +87,7 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 
 	// Ye olde 1080p hack, new version: If everything is setup to exactly cover the screen (defaults), and the screen display aspect ratio is 16:9,
 	// stretch the PSP's aspect ratio veeery slightly to fill it completely.
-	if (scale == 1.0f && offsetX == 0.5f && offsetY == 0.5f && aspectRatioAdjust == 1.0f) {
+	if (scale == 1.0f && offsetX == 0.5f && offsetY == 0.5f && aspectRatioAdjust == 1.0f && !g_Config.bDisplayIntegerScale) {
 		if (fabsf(frame.w / frame.h - 16.0f / 9.0f) < 0.0001f) {
 			aspectRatioAdjust = (frame.w / frame.h) / (480.0f / 272.0f);
 		}
@@ -120,6 +120,15 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 		// Image is taller than frame. Center horizontally.
 		outW = scaledHeight * origRatio;
 		outH = scaledHeight;
+	}
+
+	if (g_Config.bDisplayIntegerScale) {
+		float wDim = 480.0f;
+		if (rotated) {
+			wDim = 272.0f;
+		}
+		outW = std::max(1.0f, floorf(outW / wDim)) * wDim;
+		outH = outW / origRatio;
 	}
 
 	if (IsVREnabled()) {
@@ -363,7 +372,7 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo * shaderInfo, const Sh
 			// If the current shader uses output res (not next), we will use output res for it.
 			FRect rc;
 			FRect frame = GetScreenFrame((float)pixelWidth_, (float)pixelHeight_);
-			CenterDisplayOutputRect(&rc, 480.0f, 272.0f, frame, g_Config.iInternalScreenRotation);
+			CalculateDisplayOutputRect(&rc, 480.0f, 272.0f, frame, g_Config.iInternalScreenRotation);
 			nextWidth = (int)rc.w;
 			nextHeight = (int)rc.h;
 		}
@@ -639,7 +648,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		pixelWidth /= 2;
 	}
 	FRect rc;
-	CenterDisplayOutputRect(&rc, 480.0f, 272.0f, frame, uvRotation);
+	CalculateDisplayOutputRect(&rc, 480.0f, 272.0f, frame, uvRotation);
 
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
 		rc.x -= 0.5f;

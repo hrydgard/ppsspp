@@ -1192,7 +1192,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		flags = flags | DRAWTEX_TO_BACKBUFFER;
 		FRect frame = GetScreenFrame(pixelWidth_, pixelHeight_);
 		FRect rc;
-		CenterDisplayOutputRect(&rc, 480.0f, 272.0f, frame, ROTATION_LOCKED_HORIZONTAL);
+		CalculateDisplayOutputRect(&rc, 480.0f, 272.0f, frame, ROTATION_LOCKED_HORIZONTAL);
 		SetViewport2D(rc.x, rc.y, rc.w, rc.h);
 		draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 	}
