@@ -92,11 +92,17 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 	if (initialLayout != VK_IMAGE_LAYOUT_UNDEFINED && initialLayout != VK_IMAGE_LAYOUT_PREINITIALIZED) {
 		switch (initialLayout) {
 		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-		case VK_IMAGE_LAYOUT_GENERAL:
 			TransitionImageLayout2(cmd, image_, 0, numMips, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 				VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
-				VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 				0, VK_ACCESS_TRANSFER_WRITE_BIT);
+			break;
+		case VK_IMAGE_LAYOUT_GENERAL:
+			// We use this initial layout when we're about to write to the image using a compute shader, only.
+			TransitionImageLayout2(cmd, image_, 0, numMips, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				0, VK_ACCESS_SHADER_WRITE_BIT);
 			break;
 		default:
 			// If you planned to use UploadMip, you want VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL. After the
@@ -203,7 +209,7 @@ void VulkanTexture::GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bo
 		fromCompute ? VK_ACCESS_SHADER_WRITE_BIT : VK_ACCESS_TRANSFER_WRITE_BIT,
 		VK_ACCESS_TRANSFER_READ_BIT);
 
-	// Do the same with the uninitialized levels.
+	// Do the same with the uninitialized levels, transition from UNDEFINED.
 	TransitionImageLayout2(cmd, image_, firstMipToGenerate, numMips_ - firstMipToGenerate, 1,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_LAYOUT_UNDEFINED,
