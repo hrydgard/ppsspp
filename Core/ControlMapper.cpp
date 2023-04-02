@@ -248,6 +248,8 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 	// We only request changing the buttons where the mapped input was involved.
 	updatePSPButtons_(buttonMask & changedButtonMask, (~buttonMask) & changedButtonMask);
 
+	bool keyInputUsed = changedButtonMask != 0;
+
 	// OK, handle all the virtual keys next. For these we need to do deltas here and send events.
 	for (int i = 0; i < VIRTKEY_COUNT; i++) {
 		int vkId = i + VIRTKEY_FIRST;
@@ -288,6 +290,8 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 			continue;
 		}
 
+		keyInputUsed = true;
+
 		// Small values from analog inputs like gamepad sticks can linger around, which is bad here because we sum
 		// up before applying deadzone etc. This means that it can be impossible to reach the min/max values with digital input!
 		// So if non-analog events clash with analog ones mapped to the same input, decay the analog input,
@@ -324,7 +328,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 		}
 	}
 
-	return true;
+	return keyInputUsed;
 }
 
 bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {

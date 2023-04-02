@@ -633,7 +633,7 @@ namespace MainWindow
 			// Then never erase, let the OpenGL drawing take care of everything.
 			return 1;
 
-		// Poor man's touch - mouse input. We send the data  asynchronous touch events for minimal latency.
+		// Mouse input. We send asynchronous touch events for minimal latency.
 		case WM_LBUTTONDOWN:
 			if (!touchHandler.hasTouch() ||
 				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
