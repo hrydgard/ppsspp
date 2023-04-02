@@ -74,7 +74,7 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
-	bool stretch = g_Config.bDisplayStretch;
+	bool stretch = g_Config.bDisplayStretch && !g_Config.bDisplayIntegerScale;
 
 	float offsetX = g_Config.fDisplayOffsetX;
 	float offsetY = g_Config.fDisplayOffsetY;
@@ -87,7 +87,7 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 
 	// Ye olde 1080p hack, new version: If everything is setup to exactly cover the screen (defaults), and the screen display aspect ratio is 16:9,
 	// stretch the PSP's aspect ratio veeery slightly to fill it completely.
-	if (scale == 1.0f && offsetX == 0.5f && offsetY == 0.5f && aspectRatioAdjust == 1.0f) {
+	if (scale == 1.0f && offsetX == 0.5f && offsetY == 0.5f && aspectRatioAdjust == 1.0f && !g_Config.bDisplayIntegerScale) {
 		if (fabsf(frame.w / frame.h - 16.0f / 9.0f) < 0.0001f) {
 			aspectRatioAdjust = (frame.w / frame.h) / (480.0f / 272.0f);
 		}
@@ -120,6 +120,11 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 		// Image is taller than frame. Center horizontally.
 		outW = scaledHeight * origRatio;
 		outH = scaledHeight;
+	}
+
+	if (g_Config.bDisplayIntegerScale) {
+		outW = std::max(1.0f, floorf(outW / 480.0f)) * 480.0f;
+		outH = outW / origRatio;
 	}
 
 	if (IsVREnabled()) {

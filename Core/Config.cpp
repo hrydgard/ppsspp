@@ -870,6 +870,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("DisplayOffsetX", &g_Config.fDisplayOffsetX, 0.5f, true, true),
 	ConfigSetting("DisplayOffsetY", &g_Config.fDisplayOffsetY, 0.5f, true, true),
 	ConfigSetting("DisplayScale", &g_Config.fDisplayScale, 1.0f, true, true),
+	ConfigSetting("DisplayIntegerScale", &g_Config.bDisplayIntegerScale, false, true, true),
 	ConfigSetting("DisplayAspectRatio", &g_Config.fDisplayAspectRatio, 1.0f, true, true),
 	ConfigSetting("DisplayStretch", &g_Config.bDisplayStretch, false, true, true),
 
