@@ -906,20 +906,25 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 			Do(p, entry.guestFilename);
 			Do(p, entry.access);
 			u32 err;
+			bool brokenFile = false;
 			if (!entry.hFile.Open(basePath,entry.guestFilename,entry.access, err)) {
 				ERROR_LOG(FILESYS, "Failed to reopen file while loading state: %s", entry.guestFilename.c_str());
-				continue;
+				brokenFile = true;
 			}
 			u32 position;
 			Do(p, position);
 			if (position != entry.hFile.Seek(position, FILEMOVE_BEGIN)) {
 				ERROR_LOG(FILESYS, "Failed to restore seek position while loading state: %s", entry.guestFilename.c_str());
-				continue;
+				brokenFile = true;
 			}
 			if (s >= 2) {
 				Do(p, entry.hFile.needsTrunc_);
 			}
-			entries[key] = entry;
+			// Let's hope that things don't go that badly with the file mysteriously auto-closed.
+			// Better than not loading the save state at all, hopefully.
+			if (!brokenFile) {
+				entries[key] = entry;
+			}
 		}
 	} else {
 		for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
