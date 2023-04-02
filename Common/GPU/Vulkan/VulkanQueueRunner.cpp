@@ -385,12 +385,15 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frame
 			} else {
 				labelInfo.pLabelName = step.tag;
 			}
-			vkCmdBeginDebugUtilsLabelEXT(frameData.mainCmd, &labelInfo);
+			vkCmdBeginDebugUtilsLabelEXT(cmd, &labelInfo);
 		}
 
 		switch (step.stepType) {
 		case VKRStepType::RENDER:
 			if (!step.render.framebuffer) {
+				if (emitLabels) {
+					vkCmdEndDebugUtilsLabelEXT(cmd);
+				}
 				frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared);
 
 				// When stepping in the GE debugger, we can end up here multiple times in a "frame".
@@ -410,6 +413,11 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frame
 					frameData.hasPresentCommands = true;
 				}
 				cmd = frameData.presentCmd;
+				if (emitLabels) {
+					VkDebugUtilsLabelEXT labelInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+					labelInfo.pLabelName = "present";
+					vkCmdBeginDebugUtilsLabelEXT(cmd, &labelInfo);
+				}
 			}
 			PerformRenderPass(step, cmd);
 			break;
