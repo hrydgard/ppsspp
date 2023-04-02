@@ -27,6 +27,10 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 
+#ifdef _MSC_VER
+#pragma warning(disable: 4146)
+#endif
+
 #define V(i)   (currentMIPS->v[voffset[i]])
 #define VI(i)  (currentMIPS->vi[voffset[i]])
 
