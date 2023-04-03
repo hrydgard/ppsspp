@@ -69,13 +69,6 @@
 
 #define SAMPLERATE 44100
 
-#define AUDIO_RING_BUFFER_SIZE      (1 << 16)
-#define AUDIO_RING_BUFFER_SIZE_MASK (AUDIO_RING_BUFFER_SIZE - 1)
-// An alpha factor of 1/180 is *somewhat* equivalent
-// to calculating the average for the last 180
-// frames, or 3 seconds of runtime...
-#define AUDIO_FRAMES_MOVING_AVG_ALPHA (1.0f / 180.0f)
-
 // Calculated swap interval is 'stable' if the same
 // value is recorded for a number of retro_run()
 // calls equal to VSYNC_SWAP_INTERVAL_FRAMES
@@ -104,10 +97,7 @@ namespace Libretro
    static retro_audio_sample_batch_t audio_batch_cb;
    static retro_input_poll_t input_poll_cb;
    static retro_input_state_t input_state_cb;
-} // namespace Libretro
 
-namespace Libretro
-{
    static bool detectVsyncSwapInterval = false;
    static bool detectVsyncSwapIntervalOptShown = true;
 
@@ -236,149 +226,6 @@ namespace Libretro
          vsyncSwapIntervalCounter = 0;
 
       runTicksLast = runTicks;
-   }
-} // namespace Libretro
-
-namespace Libretro
-{
-   static std::mutex audioSampleLock_;
-   static int16_t audioRingBuffer[AUDIO_RING_BUFFER_SIZE] = {0};
-   static uint32_t audioRingBufferBase = 0;
-   static uint32_t audioRingBufferIndex = 0;
-
-   static int16_t *audioOutBuffer = NULL;
-   static uint32_t audioOutBufferSize = 0;
-   static float audioOutFramesAvg = 0.0f;
-   // Set this to an arbitrarily large value,
-   // it will be fine tuned in AudioUploadSamples()
-   static uint32_t audioBatchFramesMax = AUDIO_RING_BUFFER_SIZE >> 1;
-
-   static void AudioBufferFlush()
-   {
-      const std::lock_guard<std::mutex> lock(audioSampleLock_);
-      audioRingBufferBase = 0;
-      audioRingBufferIndex = 0;
-      audioOutFramesAvg = (float)SAMPLERATE / (60.0f / 1.001f);
-   }
-
-   static void AudioBufferInit()
-   {
-      audioOutFramesAvg = (float)SAMPLERATE / (60.0f / 1.001f);
-      audioOutBufferSize = ((uint32_t)audioOutFramesAvg + 1) * 2;
-      audioOutBuffer = (int16_t *)malloc(audioOutBufferSize * sizeof(int16_t));
-      audioBatchFramesMax = AUDIO_RING_BUFFER_SIZE >> 1;
-
-      AudioBufferFlush();
-   }
-
-   static void AudioBufferDeinit()
-   {
-      if (audioOutBuffer)
-         free(audioOutBuffer);
-      audioOutBuffer = NULL;
-      audioOutBufferSize = 0;
-      audioOutFramesAvg = 0.0f;
-      audioBatchFramesMax = AUDIO_RING_BUFFER_SIZE >> 1;
-
-      AudioBufferFlush();
-   }
-
-   static uint32_t AudioBufferOccupancy()
-   {
-      const std::lock_guard<std::mutex> lock(audioSampleLock_);
-      uint32_t occupancy = (audioRingBufferIndex - audioRingBufferBase) &
-            AUDIO_RING_BUFFER_SIZE_MASK;
-      return occupancy >> 1;
-   }
-
-   static void AudioBufferWrite(int16_t *audio, uint32_t frames)
-   {
-      const std::lock_guard<std::mutex> lock(audioSampleLock_);
-      uint32_t frameIndex;
-      uint32_t bufferIndex = audioRingBufferIndex;
-
-      for (frameIndex = 0; frameIndex < frames; frameIndex++)
-      {
-         audioRingBuffer[audioRingBufferIndex]     = *(audio++);
-         audioRingBuffer[audioRingBufferIndex + 1] = *(audio++);
-         audioRingBufferIndex = (audioRingBufferIndex + 2) % AUDIO_RING_BUFFER_SIZE;
-      }
-   }
-
-   static uint32_t AudioBufferRead(int16_t *audio, uint32_t frames)
-   {
-      const std::lock_guard<std::mutex> lock(audioSampleLock_);
-      uint32_t framesAvailable = ((audioRingBufferIndex - audioRingBufferBase) &
-            AUDIO_RING_BUFFER_SIZE_MASK) >> 1;
-      uint32_t frameIndex;
-
-      if (frames > framesAvailable)
-         frames = framesAvailable;
-
-      for(frameIndex = 0; frameIndex < frames; frameIndex++)
-      {
-         uint32_t bufferIndex = (audioRingBufferBase + (frameIndex << 1)) &
-               AUDIO_RING_BUFFER_SIZE_MASK;
-         *(audio++) = audioRingBuffer[bufferIndex];
-         *(audio++) = audioRingBuffer[bufferIndex + 1];
-      }
-
-      audioRingBufferBase += frames << 1;
-      audioRingBufferBase &= AUDIO_RING_BUFFER_SIZE_MASK;
-
-      return frames;
-   }
-
-   static void AudioUploadSamples()
-   {
-
-      // - If 'Detect Frame Rate Changes' is disabled, then
-      //   the  core specifies a fixed frame rate of (60.0f / 1.001f)
-      // - At the audio sample rate of 44100, this means the
-      //   frontend expects exactly 735.735 sample frames per call of
-      //   retro_run()
-      // - If g_Config.bRenderDuplicateFrames is enabled and
-      //   frameskip is disabled, the mean of the buffer occupancy
-      //   willapproximate to this value in most cases
-      uint32_t framesAvailable = AudioBufferOccupancy();
-
-      if (framesAvailable > 0)
-      {
-         // Update 'running average' of buffer occupancy.
-         // Note that this is not a true running
-         // average, but just a leaky-integrator/
-         // exponential moving average, used because
-         // it is simple and fast (i.e. requires no
-         // window of samples).
-         audioOutFramesAvg = (AUDIO_FRAMES_MOVING_AVG_ALPHA * (float)framesAvailable) +
-               ((1.0f - AUDIO_FRAMES_MOVING_AVG_ALPHA) * audioOutFramesAvg);
-         uint32_t frames = (uint32_t)audioOutFramesAvg;
-
-         if (audioOutBufferSize < (frames << 1))
-         {
-            audioOutBufferSize = (frames << 1);
-            audioOutBuffer     = (int16_t *)realloc(audioOutBuffer,
-                  audioOutBufferSize * sizeof(int16_t));
-         }
-
-         frames = AudioBufferRead(audioOutBuffer, frames);
-
-         int16_t *audioOutBufferPtr = audioOutBuffer;
-         while (frames > 0)
-         {
-            uint32_t framesToWrite = (frames > audioBatchFramesMax) ?
-                  audioBatchFramesMax : frames;
-            uint32_t framesWritten = audio_batch_cb(audioOutBufferPtr,
-                  framesToWrite);
-
-            if ((framesWritten < framesToWrite) &&
-                (framesWritten > 0))
-               audioBatchFramesMax = framesWritten;
-
-            frames -= framesToWrite;
-            audioOutBufferPtr += framesToWrite << 1;
-         }
-      }
    }
 } // namespace Libretro
 
@@ -1197,7 +1044,6 @@ void retro_set_input_state(retro_input_state_t cb) { input_state_cb = cb; }
 void retro_init(void)
 {
    VsyncSwapIntervalReset();
-   AudioBufferInit();
 
    g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
@@ -1279,7 +1125,6 @@ void retro_deinit(void)
    libretro_supports_option_categories = false;
 
    VsyncSwapIntervalReset();
-   AudioBufferDeinit();
 }
 
 void retro_set_controller_port_device(unsigned port, unsigned device)
@@ -1385,7 +1230,7 @@ namespace Libretro
 
       // Need to keep eating frames to allow the EmuThread to exit correctly.
       while (ctx->ThreadFrame())
-         AudioBufferFlush();
+         ;
 
       emuThread.join();
       emuThread = std::thread();
@@ -1400,7 +1245,6 @@ namespace Libretro
       emuThreadState = EmuThreadState::PAUSE_REQUESTED;
 
       ctx->ThreadFrame(); // Eat 1 frame
-      AudioBufferFlush();
 
       while (emuThreadState != EmuThreadState::PAUSED)
          sleep_ms(1);
@@ -1590,7 +1434,6 @@ void retro_run(void)
             emuThreadState == EmuThreadState::PAUSE_REQUESTED)
       {
          VsyncSwapIntervalDetect();
-         AudioUploadSamples();
          ctx->SwapBuffers();
          return;
       }
@@ -1601,7 +1444,6 @@ void retro_run(void)
       if (!ctx->ThreadFrame())
       {
          VsyncSwapIntervalDetect();
-         AudioUploadSamples();
          return;
       }
    }
@@ -1609,7 +1451,6 @@ void retro_run(void)
       EmuFrame();
 
    VsyncSwapIntervalDetect();
-   AudioUploadSamples();
    ctx->SwapBuffers();
 }
 
@@ -1646,15 +1487,14 @@ bool retro_serialize(void *data, size_t size)
       return false;
    }
 
-   bool retVal;
-   SaveState::SaveStart state;
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)
       EmuThreadPause(); // Does nothing if already paused
 
    size_t measuredSize;
+   SaveState::SaveStart state;
    auto err = CChunkFileReader::MeasureAndSavePtr(state, (u8 **)&data, &measuredSize);
-   retVal = err == CChunkFileReader::ERROR_NONE;
+   bool retVal = err == CChunkFileReader::ERROR_NONE;
 
    if (useEmuThread)
    {
@@ -1662,21 +1502,18 @@ bool retro_serialize(void *data, size_t size)
       sleep_ms(4);
    }
 
-   AudioBufferFlush();
-
    return retVal;
 }
 
 bool retro_unserialize(const void *data, size_t size)
 {
-   bool retVal;
-   SaveState::SaveStart state;
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)
       EmuThreadPause(); // Does nothing if already paused
 
    std::string errorString;
-   retVal = CChunkFileReader::LoadPtr((u8 *)data, state, &errorString)
+   SaveState::SaveStart state;
+   bool retVal = CChunkFileReader::LoadPtr((u8 *)data, state, &errorString)
       == CChunkFileReader::ERROR_NONE;
 
    if (useEmuThread)
@@ -1684,8 +1521,6 @@ bool retro_unserialize(const void *data, size_t size)
       EmuThreadStart();
       sleep_ms(4);
    }
-
-   AudioBufferFlush();
 
    return retVal;
 }
@@ -1877,7 +1712,13 @@ void System_AudioPushSamples(const int32_t *audio, int numSamples) {
          buffer[i * 2] = Clamp16(audio[i * 2]);
          buffer[i * 2 + 1] = Clamp16(audio[i * 2 + 1]);
       }
-      AudioBufferWrite(buffer, blockSize);
+
+      int framesToWrite = blockSize;
+      uint32_t framesWritten = audio_batch_cb(buffer, framesToWrite);
+      if (framesWritten != framesToWrite) {
+         // Let's just stop, and eat any left-over samples.
+         break;
+      }
       numSamples -= blockSize;
    }
 }
