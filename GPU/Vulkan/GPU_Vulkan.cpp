@@ -196,6 +196,8 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	uint32_t features = GPUCommonHW::CheckGPUFeatures();
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	
+	// Could simplify this, but it's good as documentation.
 	switch (vulkan->GetPhysicalDeviceProperties().properties.vendorID) {
 	case VULKAN_VENDOR_AMD:
 		// Accurate depth is required on AMD (due to reverse-Z driver bug) so we ignore the compat flag to disable it on those. See #9545
@@ -221,12 +223,13 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		}
 		break;
 	}
+	case VULKAN_VENDOR_IMGTEC:
+		// We ignore the disable flag on IMGTec. Another reverse-Z bug (plus, not really any reason to bother). See #17044
+		features |= GPU_USE_ACCURATE_DEPTH;
+		break;
 	default:
-		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
-			features |= GPU_USE_ACCURATE_DEPTH;
-		} else {
-			features &= ~GPU_USE_ACCURATE_DEPTH;
-		}
+		// On other GPUs we'll just assume we don't need inaccurate depth, leaving ARM Mali as the odd one out.
+		features |= GPU_USE_ACCURATE_DEPTH;
 		break;
 	}
 
