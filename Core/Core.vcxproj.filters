@@ -1192,6 +1192,9 @@
     <ClCompile Include="TiltEventProcessor.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\MIPSVFPUFallbacks.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1925,6 +1928,9 @@
     </ClInclude>
     <ClInclude Include="TiltEventProcessor.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\MIPSVFPUFallbacks.h">
+      <Filter>MIPS</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -26,6 +26,7 @@
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Core/MIPS/MIPSVFPUFallbacks.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable: 4146)
@@ -666,23 +667,6 @@ float Float16ToFloat32(unsigned short l)
 	return f;
 }
 
-static uint32_t get_uexp(uint32_t x) {
-	return (x >> 23) & 0xFF;
-}
-
-int32_t get_exp(uint32_t x) {
-	return get_uexp(x) - 127;
-}
-
-static int32_t get_mant(uint32_t x) {
-	// Note: this returns the hidden 1.
-	return (x & 0x007FFFFF) | 0x00800000;
-}
-
-static int32_t get_sign(uint32_t x) {
-	return x & 0x80000000;
-}
-
 float vfpu_dot(const float a[4], const float b[4]) {
 	static const int EXTRA_BITS = 2;
 	float2int result;
@@ -830,12 +814,12 @@ static uint16_t (*vfpu_asin_lut_indices)=nullptr;
 static  int8_t  (*vfpu_rcp_lut)[2]=nullptr;
 
 template<typename T>
-static inline bool load_vfpu_table(T *&ptr,const char *filename, size_t expected_size) {
+static inline bool load_vfpu_table(T *&ptr, const char *filename, size_t expected_size) {
 #if COMMON_BIG_ENDIAN
 	// Tables are little-endian.
 #error Byteswap for VFPU tables not implemented
 #endif
-	if(ptr) return true; // Already loaded.
+	if (ptr) return true; // Already loaded.
 	size_t size = 0u;
 	INFO_LOG(CPU, "Loading '%s'...", filename);
 	ptr = reinterpret_cast<decltype(&*ptr)>(g_VFS.ReadFile(filename, &size));
@@ -911,6 +895,8 @@ float vfpu_sin(float x) {
 		LOAD_TABLE(vfpu_sin_lut_delta,          262144)&&
 		LOAD_TABLE(vfpu_sin_lut_interval_delta, 131074)&&
 		LOAD_TABLE(vfpu_sin_lut_exceptions,      86938);
+	if (!loaded)
+		return vfpu_sin_fallback(x);
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(x));
 	uint32_t sign = bits & 0x80000000u;
@@ -948,6 +934,8 @@ float vfpu_cos(float x) {
 		LOAD_TABLE(vfpu_sin_lut_delta,          262144)&&
 		LOAD_TABLE(vfpu_sin_lut_interval_delta, 131074)&&
 		LOAD_TABLE(vfpu_sin_lut_exceptions,      86938);
+	if (!loaded)
+		return vfpu_cos_fallback(x);
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(x));
 	bits &= 0x7FFFFFFFu;
@@ -1053,6 +1041,8 @@ static inline uint32_t vfpu_sqrt_fixed(uint32_t x) {
 float vfpu_sqrt(float x) {
 	static bool loaded =
 		LOAD_TABLE(vfpu_sqrt_lut, 262144);
+	if (!loaded)
+		return vfpu_sqrt_fallback(x);
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
 	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
@@ -1139,6 +1129,8 @@ static inline uint32_t vfpu_rsqrt_fixed(uint32_t x) {
 float vfpu_rsqrt(float x) {
 	static bool loaded =
 		LOAD_TABLE(vfpu_rsqrt_lut, 262144);
+	if (!loaded)
+		return vfpu_rsqrt_fallback(x);
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
 	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
@@ -1200,6 +1192,9 @@ float vfpu_asin(float x) {
 		LOAD_TABLE(vfpu_asin_lut65536,      1536)&&
 		LOAD_TABLE(vfpu_asin_lut_indices, 798916)&&
 		LOAD_TABLE(vfpu_asin_lut_deltas,  517448);
+	if (!loaded)
+		return vfpu_asin_fallback(x);
+
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(x));
 	uint32_t sign = bits & 0x80000000u;
@@ -1238,8 +1233,10 @@ static inline uint32_t vfpu_exp2_fixed(uint32_t x) {
 
 float vfpu_exp2(float x) {
 	static bool loaded =
-	        LOAD_TABLE(vfpu_exp2_lut65536,    512)&&
+		LOAD_TABLE(vfpu_exp2_lut65536,    512)&&
 		LOAD_TABLE(vfpu_exp2_lut,      262144);
+	if (!loaded)
+		return vfpu_exp2_fallback(x);
 	int32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
 	if((bits & 0x7FFFFFFF) <= 0x007FFFFF) {
@@ -1277,9 +1274,9 @@ float vfpu_rexp2(float x) {
 // Input fixed 9.23, output fixed 10.22.
 // Returns log2(1+x).
 static inline uint32_t vfpu_log2_approx(uint32_t x) {
-	uint32_t a=vfpu_log2_lut65536[(x >> 16) + 0];
-	uint32_t b=vfpu_log2_lut65536[(x >> 16) + 1];
-	uint32_t c=vfpu_log2_lut65536_quadratic[x >> 16];
+	uint32_t a = vfpu_log2_lut65536[(x >> 16) + 0];
+	uint32_t b = vfpu_log2_lut65536[(x >> 16) + 1];
+	uint32_t c = vfpu_log2_lut65536_quadratic[x >> 16];
 	x &= 0xFFFFu;
 	uint64_t ret = uint64_t(a) * (0x10000u - x) + uint64_t(b) * x;
 	uint64_t d = (uint64_t(c) * x * (0x10000u-x)) >> 40;
@@ -1293,6 +1290,8 @@ float vfpu_log2(float x) {
 		LOAD_TABLE(vfpu_log2_lut65536,               516)&&
 		LOAD_TABLE(vfpu_log2_lut65536_quadratic,     512)&&
 		LOAD_TABLE(vfpu_log2_lut,                2097152);
+	if (!loaded)
+		return vfpu_log2_fallback(x);
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
 	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
@@ -1345,6 +1344,8 @@ static inline uint32_t vfpu_rcp_approx(uint32_t i) {
 float vfpu_rcp(float x) {
 	static bool loaded =
 		LOAD_TABLE(vfpu_rcp_lut, 262144);
+	if (!loaded)
+		return vfpu_rcp_fallback(x);
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
 	uint32_t s = bits & 0x80000000u;

@@ -67,6 +67,23 @@ extern float vfpu_rexp2(float);
 extern float vfpu_log2(float);
 extern float vfpu_rcp(float);
 
+inline uint32_t get_uexp(uint32_t x) {
+	return (x >> 23) & 0xFF;
+}
+
+inline int32_t get_exp(uint32_t x) {
+	return get_uexp(x) - 127;
+}
+
+inline int32_t get_mant(uint32_t x) {
+	// Note: this returns the hidden 1.
+	return (x & 0x007FFFFF) | 0x00800000;
+}
+
+inline int32_t get_sign(uint32_t x) {
+	return x & 0x80000000;
+}
+
 #define VFPU_FLOAT16_EXP_MAX    0x1f
 #define VFPU_SH_FLOAT16_SIGN    15
 #define VFPU_MASK_FLOAT16_SIGN  0x1
