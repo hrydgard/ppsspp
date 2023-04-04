@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <cstdint>
+
 #include "Common/Buffer.h"
 
 namespace net {

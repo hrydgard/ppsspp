@@ -19,6 +19,7 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
