@@ -5,6 +5,7 @@
 #pragma once
 
 #include <string>
+#include <cstdint>
 
 // TODO: Replace with thin3d's vendor enum.
 enum {
