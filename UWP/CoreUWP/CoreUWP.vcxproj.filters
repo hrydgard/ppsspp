@@ -1123,6 +1123,9 @@
       <Filter>HLE</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Core\TiltEventProcessor.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSVFPUFallbacks.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1774,6 +1777,9 @@
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\TiltEventProcessor.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSVFPUFallbacks.h">
+      <Filter>MIPS</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE">

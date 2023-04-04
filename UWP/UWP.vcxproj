@@ -494,6 +494,51 @@
       <DeploymentContent>true</DeploymentContent>
       <FileType>Document</FileType>
     </Image>
+    <None Include="Content\vfpu\vfpu_asin_lut65536.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\vfpu\vfpu_asin_lut_deltas.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\vfpu\vfpu_asin_lut_indices.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\vfpu\vfpu_exp2_lut.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\vfpu\vfpu_exp2_lut65536.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\vfpu\vfpu_log2_lut.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\vfpu\vfpu_log2_lut65536.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\vfpu\vfpu_log2_lut65536_quadratic.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\vfpu\vfpu_rcp_lut.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\vfpu\vfpu_rsqrt_lut.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\vfpu\vfpu_sin_lut8192.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\vfpu\vfpu_sin_lut_delta.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\vfpu\vfpu_sin_lut_exceptions.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\vfpu\vfpu_sin_lut_interval_delta.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\vfpu\vfpu_sqrt_lut.dat">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
     <None Include="Content\asciifont_atlas.meta">
       <DeploymentContent>true</DeploymentContent>
     </None>

@@ -68,6 +68,9 @@
     <Filter Include="Content\debugger\static\media">
       <UniqueIdentifier>{83476056-57b8-409f-b729-754d6401e3d5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Content\vfpu">
+      <UniqueIdentifier>{eebef4bc-52b6-460d-946d-c70c8a4ee337}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
@@ -490,17 +493,51 @@
     <None Include="Content\debugger\static\media\*.svg">
       <Filter>Content\debugger\static\media</Filter>
     </None>
-    <None Include="Content\debugger\static\css\*.css" />
-    <None Include="Content\debugger\static\css\*.css" />
-    <None Include="Content\debugger\static\css\*.map" />
-    <None Include="Content\debugger\static\css\*.map" />
-    <None Include="Content\debugger\static\js\*.js" />
-    <None Include="Content\debugger\static\js\*.js" />
-    <None Include="Content\debugger\static\js\*.js" />
-    <None Include="Content\debugger\static\js\*.map" />
-    <None Include="Content\debugger\static\js\*.map" />
-    <None Include="Content\debugger\static\js\*.map" />
-    <None Include="Content\debugger\static\media\*.svg" />
+    <None Include="Content\vfpu\vfpu_sqrt_lut.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_asin_lut_deltas.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_asin_lut_indices.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_asin_lut65536.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_exp2_lut.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_exp2_lut65536.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_log2_lut.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_log2_lut65536.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_log2_lut65536_quadratic.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_rcp_lut.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_rsqrt_lut.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_sin_lut_delta.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_sin_lut_exceptions.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_sin_lut_interval_delta.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_sin_lut8192.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Content\gamecontrollerdb.txt">
@@ -509,6 +546,7 @@
     <Text Include="Content\debugger\static\js\*.txt">
       <Filter>Content\debugger\static\js</Filter>
     </Text>
+    <Text Include="Content\debugger\static\js\*.txt" />
     <Text Include="Content\debugger\static\js\*.txt" />
   </ItemGroup>
   <ItemGroup>

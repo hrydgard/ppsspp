@@ -2067,6 +2067,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MIPS/MIPSTables.h
 	Core/MIPS/MIPSVFPUUtils.cpp
 	Core/MIPS/MIPSVFPUUtils.h
+	Core/MIPS/MIPSVFPUFallbacks.cpp
+	Core/MIPS/MIPSVFPUFallbacks.h
 	Core/MIPS/MIPSAsm.cpp
 	Core/MIPS/MIPSAsm.h
 	Core/MemFault.cpp
