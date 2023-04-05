@@ -845,8 +845,8 @@ namespace MainWindow {
 		case ID_OPTIONS_LINEARFILTERING:         g_Config.iTexFiltering = TEX_FILTER_FORCE_LINEAR; break;
 		case ID_OPTIONS_AUTOMAXQUALITYFILTERING: g_Config.iTexFiltering = TEX_FILTER_AUTO_MAX_QUALITY; break;
 
-		case ID_OPTIONS_BUFLINEARFILTER:  g_Config.iBufFilter = SCALE_LINEAR; break;
-		case ID_OPTIONS_BUFNEARESTFILTER: g_Config.iBufFilter = SCALE_NEAREST; break;
+		case ID_OPTIONS_BUFLINEARFILTER:  g_Config.iDisplayFilter = SCALE_LINEAR; break;
+		case ID_OPTIONS_BUFNEARESTFILTER: g_Config.iDisplayFilter = SCALE_NEAREST; break;
 
 		case ID_OPTIONS_TOPMOST:
 			g_Config.bTopMost = !g_Config.bTopMost;
@@ -1082,14 +1082,14 @@ namespace MainWindow {
 			ID_OPTIONS_BUFLINEARFILTER,
 			ID_OPTIONS_BUFNEARESTFILTER,
 		};
-		if (g_Config.iBufFilter < SCALE_LINEAR)
-			g_Config.iBufFilter = SCALE_LINEAR;
+		if (g_Config.iDisplayFilter < SCALE_LINEAR)
+			g_Config.iDisplayFilter = SCALE_LINEAR;
 
-		else if (g_Config.iBufFilter > SCALE_NEAREST)
-			g_Config.iBufFilter = SCALE_NEAREST;
+		else if (g_Config.iDisplayFilter > SCALE_NEAREST)
+			g_Config.iDisplayFilter = SCALE_NEAREST;
 
 		for (int i = 0; i < ARRAY_SIZE(bufferfilteritems); i++) {
-			CheckMenuItem(menu, bufferfilteritems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iBufFilter ? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(menu, bufferfilteritems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iDisplayFilter ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		static const int frameskipping[] = {
