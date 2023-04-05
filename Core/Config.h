@@ -48,22 +48,6 @@ namespace http {
 struct UrlEncoder;
 struct ConfigPrivate;
 
-struct ConfigTouchPos {
-	float x;
-	float y;
-	float scale;
-	// Note: Show is not used for all settings.
-	bool show;
-};
-
-struct ConfigCustomButton {
-	uint64_t key;
-	int image;
-	int shape;
-	bool toggle;
-	bool repeat;
-};
-
 struct Config {
 public:
 	Config();
