@@ -855,6 +855,22 @@ protected:
 	uint32_t color_ = 0xFFC0C0C0;
 };
 
+// TODO: Shouldn't actually need bounds for this, Anchor can center too.
+static UI::AnchorLayoutParams *AnchorInCorner(const Bounds &bounds, int corner, float xOffset, float yOffset) {
+	using namespace UI;
+	switch (g_Config.iChatButtonPosition) {
+	case 0:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, NONE, NONE, yOffset, true);
+	case 1:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), NONE, NONE, yOffset, true);
+	case 2:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, NONE, xOffset, yOffset, true);
+	case 3:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, yOffset, NONE, NONE, true);
+	case 4:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), yOffset, NONE, NONE, true);
+	case 5:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, yOffset, xOffset, NONE, true);
+	case 6:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, bounds.centerY(), NONE, NONE, true);
+	case 7:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, bounds.centerY(), xOffset, NONE, true);
+	default: return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, NONE, NONE, yOffset, true);
+	}
+}
+
 void EmuScreen::CreateViews() {
 	using namespace UI;
 
@@ -890,41 +906,13 @@ void EmuScreen::CreateViews() {
 	cardboardDisableButton_->SetVisibility(V_GONE);
 	cardboardDisableButton_->SetScale(0.65f);  // make it smaller - this button can be in the way otherwise.
 
-	if (g_Config.bEnableNetworkChat && g_Config.iChatButtonPosition != 8) {
-		AnchorLayoutParams *layoutParams = nullptr;
-		switch (g_Config.iChatButtonPosition) {
-		case 0:
-			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 80, NONE, NONE, 50, true);
-			break;
-		case 1:
-			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), NONE, NONE, 50, true);
-			break;
-		case 2:
-			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, NONE, 80, 50, true);
-			break;
-		case 3:
-			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 80, 50, NONE, NONE, true);
-			break;
-		case 4:
-			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), 50, NONE, NONE, true);
-			break;
-		case 5:
-			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, 50, 80, NONE, true);
-			break;
-		case 6:
-			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 80, bounds.centerY(), NONE, NONE, true);
-			break;
-		case 7:
-			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, bounds.centerY(), 80, NONE, true);
-			break;
-		default:
-			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 80, NONE, NONE, 50, true);
-			break;
+	if (g_Config.bEnableNetworkChat) {
+		if (g_Config.iChatButtonPosition != 8) {
+			AnchorLayoutParams *layoutParams = AnchorInCorner(bounds, g_Config.iChatButtonPosition, 80.0f, 50.0f);
+			ChoiceWithValueDisplay *btn = new ChoiceWithValueDisplay(&newChatMessages_, n->T("Chat"), layoutParams);
+			root_->Add(btn)->OnClick.Handle(this, &EmuScreen::OnChat);
+			chatButton_ = btn;
 		}
-
-		ChoiceWithValueDisplay *btn = new ChoiceWithValueDisplay(&newChatMessages_, n->T("Chat"), layoutParams);
-		root_->Add(btn)->OnClick.Handle(this, &EmuScreen::OnChat);
-		chatButton_ = btn;
 		chatMenu_ = root_->Add(new ChatMenu(screenManager()->getUIContext()->GetBounds(), new LayoutParams(FILL_PARENT, FILL_PARENT)));
 		chatMenu_->SetVisibility(UI::V_GONE);
 	} else {
