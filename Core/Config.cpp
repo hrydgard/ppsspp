@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
-#include <functional>
 #include <mutex>
 #include <set>
 #include <sstream>
@@ -152,7 +151,7 @@ struct ConfigSetting {
 		default_.i = def;
 	}
 
-	ConfigSetting(const char *ini, int *v, int def, std::function<std::string(int)> transTo, std::function<int(const std::string &)> transFrom, bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, int *v, int def, std::string (*transTo)(int), int (*transFrom)(const std::string &), bool save = true, bool perGame = false)
 		: iniKey_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame), translateTo_(transTo), translateFrom_(transFrom) {
 		ptr_.i = v;
 		cb_.i = nullptr;
@@ -220,7 +219,7 @@ struct ConfigSetting {
 		cb_.i = def;
 	}
 
-	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, std::function<std::string(int)> transTo, std::function<int(const std::string &)> transFrom, bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, std::string(*transTo)(int), int(*transFrom)(const std::string &), bool save = true, bool perGame = false)
 		: iniKey_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame), translateTo_(transTo), translateFrom_(transFrom) {
 		ptr_.i = v;
 		cb_.i = def;
@@ -410,8 +409,8 @@ struct ConfigSetting {
 	DefaultCallback cb_;
 
 	// We only support transform for ints.
-	std::function<std::string(int)> translateTo_;
-	std::function<int(const std::string &)> translateFrom_;
+	std::string (*translateTo_)(int) = nullptr;
+	int(*translateFrom_)(const std::string &) = nullptr;
 };
 
 struct ReportedConfigSetting : public ConfigSetting {
@@ -422,7 +421,7 @@ struct ReportedConfigSetting : public ConfigSetting {
 	}
 
 	template <typename T1, typename T2>
-	ReportedConfigSetting(const char *ini, T1 *v, T2 def, std::function<std::string(int)> transTo, std::function<int(const std::string &)> transFrom, bool save = true, bool perGame = false)
+	ReportedConfigSetting(const char *ini, T1 *v, T2 def, std::string(*transTo)(int), int(*transFrom)(const std::string &), bool save = true, bool perGame = false)
 		: ConfigSetting(ini, v, def, transTo, transFrom, save, perGame) {
 		report_ = true;
 	}
