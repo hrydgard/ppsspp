@@ -517,7 +517,7 @@ void ListView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert)
 }
 
 std::string ListView::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return DescribeListOrdered(u->T("List:"));
 }
 
@@ -552,4 +552,4 @@ bool StringVectorListAdaptor::AddEventCallback(View *view, std::function<EventRe
 	return EVENT_DONE;
 }
 
-}
+}  // namespace

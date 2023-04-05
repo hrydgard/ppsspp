@@ -87,8 +87,8 @@ static const char *logLevelList[] = {
 
 void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
-	auto dev = GetI18NCategory("Developer");
-	auto sy = GetI18NCategory("System");
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
@@ -219,7 +219,7 @@ void LogScreen::update() {
 
 void LogScreen::CreateViews() {
 	using namespace UI;
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	root_ = outer;
@@ -253,8 +253,8 @@ UI::EventReturn LogScreen::OnSubmit(UI::EventParams &e) {
 void LogConfigScreen::CreateViews() {
 	using namespace UI;
 
-	auto di = GetI18NCategory("Dialog");
-	auto dev = GetI18NCategory("Developer");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
@@ -286,7 +286,7 @@ void LogConfigScreen::CreateViews() {
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(cellSize - 50, WRAP_CONTENT));
 		row->SetSpacing(0);
 		row->Add(new CheckBox(&chan->enabled, "", "", new LinearLayoutParams(50, WRAP_CONTENT)));
-		row->Add(new PopupMultiChoice((int *)&chan->level, chan->m_shortName, logLevelList, 1, 6, 0, screenManager(), new LinearLayoutParams(1.0)));
+		row->Add(new PopupMultiChoice((int *)&chan->level, chan->m_shortName, logLevelList, 1, 6, I18NCat::NONE, screenManager(), new LinearLayoutParams(1.0)));
 		grid->Add(row);
 	}
 }
@@ -324,7 +324,7 @@ UI::EventReturn LogConfigScreen::OnLogLevelChange(UI::EventParams &e) {
 }
 
 UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
-	auto dev = GetI18NCategory("Developer");
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	auto logLevelScreen = new LogLevelScreen(dev->T("Log Level"));
 	logLevelScreen->OnChoice.Handle(this, &LogConfigScreen::OnLogLevelChange);
@@ -394,8 +394,8 @@ static const JitDisableFlag jitDisableFlags[] = {
 void JitDebugScreen::CreateViews() {
 	using namespace UI;
 
-	auto di = GetI18NCategory("Dialog");
-	auto dev = GetI18NCategory("Developer");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
@@ -459,9 +459,9 @@ void SystemInfoScreen::CreateViews() {
 	using namespace UI;
 
 	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
-	auto di = GetI18NCategory("Dialog");
-	auto si = GetI18NCategory("SysInfo");
-	auto gr = GetI18NCategory("Graphics");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
@@ -818,7 +818,7 @@ void SystemInfoScreen::CreateViews() {
 void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	auto dev = GetI18NCategory("Developer");
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	addrView_ = new TextView(dev->T("Enter address"), ALIGN_HCENTER, false);
 	parent->Add(addrView_);
@@ -872,7 +872,7 @@ void AddressPromptScreen::BackspaceDigit() {
 }
 
 void AddressPromptScreen::UpdatePreviewDigits() {
-	auto dev = GetI18NCategory("Developer");
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	if (addr_ != 0) {
 		char temp[32];
@@ -905,8 +905,8 @@ bool AddressPromptScreen::key(const KeyInput &key) {
 
 // Three panes: Block chooser, MIPS view, ARM/x86 view
 void JitCompareScreen::CreateViews() {
-	auto di = GetI18NCategory("Dialog");
-	auto dev = GetI18NCategory("Developer");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	using namespace UI;
 	
@@ -951,7 +951,7 @@ void JitCompareScreen::UpdateDisasm() {
 
 	using namespace UI;
 
-	auto dev = GetI18NCategory("Developer");
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
 
@@ -1044,7 +1044,7 @@ UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
 
 
 UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
-	auto dev = GetI18NCategory("Developer");
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	auto addressPrompt = new AddressPromptScreen(dev->T("Block address"));
 	addressPrompt->OnChoice.Handle(this, &JitCompareScreen::OnBlockAddress);
@@ -1187,7 +1187,7 @@ struct { DebugShaderType type; const char *name; } shaderTypes[] = {
 void ShaderListScreen::CreateViews() {
 	using namespace UI;
 
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
 	root_ = layout;
@@ -1216,7 +1216,7 @@ UI::EventReturn ShaderListScreen::OnShaderClick(UI::EventParams &e) {
 void ShaderViewScreen::CreateViews() {
 	using namespace UI;
 
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
 	root_ = layout;
@@ -1255,7 +1255,7 @@ void FrameDumpTestScreen::CreateViews() {
 	using namespace UI;
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	TabHolder *tabHolder;
 	tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));

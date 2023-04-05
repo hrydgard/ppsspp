@@ -1857,7 +1857,7 @@ int create_listen_socket(uint16_t port)
 		// Notify User
 		else {
 			ERROR_LOG(SCENET, "AdhocServer: Bind returned %i (Socket error %d)", bindresult, errno);
-			auto n = GetI18NCategory("Networking");
+			auto n = GetI18NCategory(I18NCat::NETWORKING);
 			System_NotifyUserMessage(std::string(n->T("AdhocServer Failed to Bind Port")) + " " + std::to_string(port), 3.0, 0x0000ff);
 		}
 

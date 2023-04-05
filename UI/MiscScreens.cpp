@@ -427,7 +427,7 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new GameSettingsScreen(Path()));
 	} else if (!strcmp(message, "language screen") && isActiveScreen) {
-		auto sy = GetI18NCategory("System");
+		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		auto langScreen = new NewLanguageScreen(sy->T("Language"));
 		langScreen->OnChoice.Add([](UI::EventParams &) {
 			NativeMessageReceived("recreateviews", "");
@@ -504,7 +504,7 @@ void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
 
 void UIDialogScreenWithBackground::AddStandardBack(UI::ViewGroup *parent) {
 	using namespace UI;
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	parent->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
@@ -514,7 +514,7 @@ void UIDialogScreenWithBackground::sendMessage(const char *message, const char *
 
 PromptScreen::PromptScreen(const Path &gamePath, std::string message, std::string yesButtonText, std::string noButtonText, std::function<void(bool)> callback)
 	: UIDialogScreenWithGameBackground(gamePath), message_(message), callback_(callback) {
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	yesButtonText_ = di->T(yesButtonText.c_str());
 	noButtonText_ = di->T(noButtonText.c_str());
 }
@@ -559,7 +559,7 @@ void PromptScreen::TriggerFinish(DialogResult result) {
 TextureShaderScreen::TextureShaderScreen(const std::string &title) : ListPopupScreen(title) {}
 
 void TextureShaderScreen::CreateViews() {
-	auto ps = GetI18NCategory("TextureShaders");
+	auto ps = GetI18NCategory(I18NCat::TEXTURESHADERS);
 	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
 	shaders_ = GetAllTextureShaderInfo();
 	std::vector<std::string> items;
@@ -772,8 +772,8 @@ void LogoScreen::render() {
 	screenManager()->getFocusPosition(x, y, z);
 	::DrawBackground(dc, alpha, x, y, z);
 
-	auto cr = GetI18NCategory("PSPCredits");
-	auto gr = GetI18NCategory("Graphics");
+	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	char temp[256];
 	// Manually formatting UTF-8 is fun.  \xXX doesn't work everywhere.
 	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T("created", "Created by"), 0xC3, 0xA5);
@@ -806,8 +806,8 @@ void LogoScreen::render() {
 
 void CreditsScreen::CreateViews() {
 	using namespace UI;
-	auto di = GetI18NCategory("Dialog");
-	auto cr = GetI18NCategory("PSPCredits");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	Button *back = root_->Add(new Button(di->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)));
@@ -871,7 +871,7 @@ UI::EventReturn CreditsScreen::OnDiscord(UI::EventParams &e) {
 }
 
 UI::EventReturn CreditsScreen::OnShare(UI::EventParams &e) {
-	auto cr = GetI18NCategory("PSPCredits");
+	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 	System_ShareText(cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
 	return UI::EVENT_DONE;
 }
@@ -888,7 +888,7 @@ void CreditsScreen::update() {
 void CreditsScreen::render() {
 	UIScreen::render();
 
-	auto cr = GetI18NCategory("PSPCredits");
+	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 
 	std::string specialthanksMaxim = "Maxim ";
 	specialthanksMaxim += cr->T("specialthanksMaxim", "for his amazing Atrac3+ decoder work");

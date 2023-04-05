@@ -600,7 +600,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 			vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
 		}
 		if (!vs || vs->Failed()) {
-			auto gr = GetI18NCategory("Graphics");
+			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 			if (!vs) {
 				// TODO: Report this?
 				ERROR_LOG(G3D, "Shader generation failed, falling back to software transform");

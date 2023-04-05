@@ -110,7 +110,7 @@ extern bool g_TakeScreenshot;
 
 static void __EmuScreenVblank()
 {
-	auto sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	if (frameStep_ && lastNumFlips != gpuStats.numFlips)
 	{
@@ -259,7 +259,7 @@ void EmuScreen::bootGame(const Path &filename) {
 	if (!bootAllowStorage(filename))
 		return;
 
-	auto sc = GetI18NCategory("Screen");
+	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
 	invalid_ = true;
 
@@ -332,17 +332,17 @@ void EmuScreen::bootGame(const Path &filename) {
 	}
 
 	if (PSP_CoreParameter().compat.flags().RequireBufferedRendering && g_Config.bSkipBufferEffects) {
-		auto gr = GetI18NCategory("Graphics");
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		System_NotifyUserMessage(gr->T("BufferedRenderingRequired", "Warning: This game requires Rendering Mode to be set to Buffered."), 15.0f);
 	}
 
 	if (PSP_CoreParameter().compat.flags().RequireBlockTransfer && g_Config.bSkipGPUReadbacks) {
-		auto gr = GetI18NCategory("Graphics");
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		System_NotifyUserMessage(gr->T("BlockTransferRequired", "Warning: This game requires Simulate Block Transfer Mode to be set to On."), 15.0f);
 	}
 
 	if (PSP_CoreParameter().compat.flags().RequireDefaultCPUClock && g_Config.iLockedCPUSpeed != 0) {
-		auto gr = GetI18NCategory("Graphics");
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		System_NotifyUserMessage(gr->T("DefaultCPUClockRequired", "Warning: This game requires the CPU clock to be set to default."), 15.0f);
 	}
 
@@ -360,7 +360,7 @@ void EmuScreen::bootComplete() {
 	NOTICE_LOG(BOOT, "Loading %s...", PSP_CoreParameter().fileToStart.c_str());
 	autoLoad();
 
-	auto sc = GetI18NCategory("Screen");
+	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bFirstRun) {
@@ -384,7 +384,7 @@ void EmuScreen::bootComplete() {
 #endif
 
 	if (Core_GetPowerSaving()) {
-		auto sy = GetI18NCategory("System");
+		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 #ifdef __ANDROID__
 		osm.Show(sy->T("WARNING: Android battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
 #else
@@ -560,7 +560,7 @@ void EmuScreen::touch(const TouchInput &touch) {
 }
 
 void EmuScreen::onVKey(int virtualKeyCode, bool down) {
-	auto sc = GetI18NCategory("Screen");
+	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
 	switch (virtualKeyCode) {
 	case VIRTKEY_FASTFORWARD:
@@ -874,9 +874,9 @@ static UI::AnchorLayoutParams *AnchorInCorner(const Bounds &bounds, int corner, 
 void EmuScreen::CreateViews() {
 	using namespace UI;
 
-	auto dev = GetI18NCategory("Developer");
-	auto n = GetI18NCategory("Networking");
-	auto sc = GetI18NCategory("Screen");
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
 	const Bounds &bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	InitPadLayout(bounds.w, bounds.h);
@@ -979,8 +979,7 @@ void EmuScreen::CreateViews() {
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
-	auto dev = GetI18NCategory("Developer");
-	DevMenuScreen *devMenu = new DevMenuScreen(gamePath_, dev);
+	DevMenuScreen *devMenu = new DevMenuScreen(gamePath_, I18NCat::DEVELOPER);
 	if (params.v)
 		devMenu->SetPopupOrigin(params.v);
 	screenManager()->push(devMenu);
@@ -1067,7 +1066,7 @@ void EmuScreen::update() {
 	}
 
 	if (errorMessage_.size()) {
-		auto err = GetI18NCategory("Error");
+		auto err = GetI18NCategory(I18NCat::ERRORS);
 		std::string errLoadingFile = gamePath_.ToVisualString() + "\n";
 		errLoadingFile.append(err->T("Error loading file", "Could not load game"));
 		errLoadingFile.append(" ");
@@ -1174,7 +1173,7 @@ static const char *CPUCoreAsString(int core) {
 static void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 	const ExceptionInfo &info = Core_GetExceptionInfo();
 
-	auto sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	FontID ubuntu24("UBUNTU24");
 
 	int x = 20 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);

@@ -60,7 +60,7 @@ static void AfterSaveStateAction(SaveState::Status status, const std::string &me
 
 class ScreenshotViewScreen : public PopupScreen {
 public:
-	ScreenshotViewScreen(const Path &filename, std::string title, int slot, std::shared_ptr<I18NCategory> i18n, Path gamePath)
+	ScreenshotViewScreen(const Path &filename, std::string title, int slot, Path gamePath)
 		: PopupScreen(title), filename_(filename), slot_(slot), gamePath_(gamePath) {}   // PopupScreen will translate Back on its own
 
 	int GetSlot() const {
@@ -76,8 +76,8 @@ protected:
 
 	void CreatePopupContents(UI::ViewGroup *parent) override {
 		using namespace UI;
-		auto pa = GetI18NCategory("Pause");
-		auto di = GetI18NCategory("Dialog");
+		auto pa = GetI18NCategory(I18NCat::PAUSE);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 
 		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
@@ -179,7 +179,7 @@ SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, bool vertical, UI
 	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, new UI::LayoutParams(82 * 2, 47 * 2)));
 	fv->SetOverlayText(StringFromFormat("%d", slot_ + 1));
 
-	auto pa = GetI18NCategory("Pause");
+	auto pa = GetI18NCategory(I18NCat::PAUSE);
 
 	LinearLayout *lines = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 	lines->SetSpacing(2.0f);
@@ -271,8 +271,8 @@ void GamePauseScreen::CreateViews() {
 
 	Margins scrollMargins(0, 20, 0, 0);
 	Margins actionMenuMargins(0, 20, 15, 0);
-	auto gr = GetI18NCategory("Graphics");
-	auto pa = GetI18NCategory("Pause");
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	auto pa = GetI18NCategory(I18NCat::PAUSE);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
@@ -345,12 +345,12 @@ void GamePauseScreen::CreateViews() {
 	// TODO, also might be nice to show overall compat rating here?
 	// Based on their platform or even cpu/gpu/config.  Would add an API for it.
 	if (Reporting::IsSupported() && g_paramSFO.GetValueString("DISC_ID").size()) {
-		auto rp = GetI18NCategory("Reporting");
+		auto rp = GetI18NCategory(I18NCat::REPORTING);
 		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
 	}
 	rightColumnItems->Add(new Spacer(25.0));
 	if (g_Config.bPauseMenuExitsEmulator) {
-		auto mm = GetI18NCategory("MainMenu");
+		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		rightColumnItems->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 	} else {
 		rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
@@ -384,8 +384,7 @@ UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 	if (SaveState::HasSaveInSlot(gamePath_, slot)) {
 		Path fn = v->GetScreenshotFilename();
 		std::string title = v->GetScreenshotTitle();
-		auto pa = GetI18NCategory("Pause");
-		Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), pa, gamePath_);
+		Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), gamePath_);
 		screenManager()->push(screen);
 	}
 	return UI::EVENT_DONE;
@@ -464,8 +463,8 @@ UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e)
 
 UI::EventReturn GamePauseScreen::OnDeleteConfig(UI::EventParams &e)
 {
-	auto di = GetI18NCategory("Dialog");
-	auto ga = GetI18NCategory("Game");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto ga = GetI18NCategory(I18NCat::GAME);
 	screenManager()->push(
 		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
 		std::bind(&GamePauseScreen::CallbackDeleteConfig, this, std::placeholders::_1)));

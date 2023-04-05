@@ -731,7 +731,7 @@ void LinearLayout::Layout() {
 }
 
 std::string LinearLayoutList::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return DescribeListOrdered(u->T("List:"));
 }
 
@@ -943,7 +943,7 @@ void GridLayout::Layout() {
 }
 
 std::string GridLayoutList::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return DescribeListOrdered(u->T("List:"));
 }
 
@@ -1168,7 +1168,7 @@ void ChoiceStrip::Draw(UIContext &dc) {
 }
 
 std::string ChoiceStrip::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return DescribeListUnordered(u->T("Choices:"));
 }
 

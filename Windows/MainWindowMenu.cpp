@@ -133,7 +133,7 @@ namespace MainWindow {
 	}
 
 	void CreateHelpMenu(HMENU menu) {
-		auto des = GetI18NCategory("DesktopUI");
+		auto des = GetI18NCategory(I18NCat::DESKTOPUI);
 
 		const std::wstring visitMainWebsite = ConvertUTF8ToWString(des->T("www.ppsspp.org"));
 		const std::wstring visitForum = ConvertUTF8ToWString(des->T("PPSSPP Forums"));
@@ -156,7 +156,7 @@ namespace MainWindow {
 	}
 
 	static void TranslateMenuItem(const HMENU hMenu, const int menuID, const std::wstring& accelerator = L"", const char *key = nullptr) {
-		auto des = GetI18NCategory("DesktopUI");
+		auto des = GetI18NCategory(I18NCat::DESKTOPUI);
 
 		std::wstring translated;
 		if (key == nullptr || !strcmp(key, "")) {
@@ -318,7 +318,7 @@ namespace MainWindow {
 			if (!browsePauseAfter)
 				Core_EnableStepping(true, "ui.boot", 0);
 		}
-		auto mm = GetI18NCategory("MainMenu");
+		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 		W32Util::MakeTopMost(GetHWND(), false);
 
@@ -387,7 +387,7 @@ namespace MainWindow {
 				g_Config.iFrameSkip = FRAMESKIP_OFF;
 		}
 
-		auto gr = GetI18NCategory("Graphics");
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
 		std::ostringstream messageStream;
 		messageStream << gr->T("Frame Skipping") << ":" << " ";
@@ -407,7 +407,7 @@ namespace MainWindow {
 			g_Config.iFrameSkipType = 0;
 		}
 
-		auto gr = GetI18NCategory("Graphics");
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
 		std::ostringstream messageStream;
 		messageStream << gr->T("Frame Skipping Type") << ":" << " ";
@@ -432,7 +432,7 @@ namespace MainWindow {
 	void MainWindowMenu_Process(HWND hWnd, WPARAM wParam) {
 		std::string fn;
 
-		auto gr = GetI18NCategory("Graphics");
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
 		int wmId = LOWORD(wParam);
 		// Parse the menu selections:

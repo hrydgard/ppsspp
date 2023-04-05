@@ -341,7 +341,7 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName() const
 
 void PSPSaveDialog::DisplayBanner(int which)
 {
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	PPGeDrawRect(0, 0, 480, 23, CalcFadedColor(0x65636358));
 
 	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
@@ -512,12 +512,12 @@ void PSPSaveDialog::DisplaySaveDataInfo1() {
 	PPGeStyle saveTitleStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.55f);
 
 	if (saveInfo.broken) {
-		auto di = GetI18NCategory("Dialog");
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
 		PPGeDrawText(di->T("Corrupted Data"), 180, 136, textStyle);
 		PPGeDrawText(saveInfo.title, 175, 159, saveTitleStyle);
 	} else if (saveInfo.size == 0) {
-		auto di = GetI18NCategory("Dialog");
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
 		PPGeDrawText(di->T("NEW DATA"), 180, 136, textStyle);
 	} else {
@@ -590,7 +590,7 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 	float h2 = h / 2.0f;
 	if (hasYesNo)
 	{
-		auto di = GetI18NCategory("Dialog");
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		const char *choiceText;
 		float x, w;
 		if (yesnoChoice == 1) {
@@ -657,7 +657,7 @@ int PSPSaveDialog::Update(int animSpeed)
 
 	UpdateCommon();
 
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	switch (display)
 	{

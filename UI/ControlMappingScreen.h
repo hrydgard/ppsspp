@@ -57,8 +57,8 @@ private:
 
 class KeyMappingNewKeyDialog : public PopupScreen {
 public:
-	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyMap::MultiInputMapping)> callback, std::shared_ptr<I18NCategory> i18n)
-		: PopupScreen(i18n->T("Map Key"), "Cancel", ""), pspBtn_(btn), callback_(callback) {}
+	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyMap::MultiInputMapping)> callback, I18NCat i18n)
+		: PopupScreen(T(i18n, "Map Key"), "Cancel", ""), pspBtn_(btn), callback_(callback) {}
 
 	const char *tag() const override { return "KeyMappingNewKey"; }
 
@@ -88,8 +88,8 @@ private:
 
 class KeyMappingNewMouseKeyDialog : public PopupScreen {
 public:
-	KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyMap::MultiInputMapping)> callback, std::shared_ptr<I18NCategory> i18n)
-		: PopupScreen(i18n->T("Map Mouse"), "", ""), pspBtn_(btn), callback_(callback), mapped_(false) {}
+	KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyMap::MultiInputMapping)> callback, I18NCat i18n)
+		: PopupScreen(T(i18n, "Map Mouse"), "", ""), pspBtn_(btn), callback_(callback), mapped_(false) {}
 
 	const char *tag() const override { return "KeyMappingNewMouseKey"; }
 

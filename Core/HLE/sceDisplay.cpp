@@ -570,7 +570,7 @@ void __DisplayFlip(int cyclesLate) {
 			PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL &&
 			DisplayIsRunningSlow()) {
 #ifndef _DEBUG
-			auto err = GetI18NCategory("Error");
+			auto err = GetI18NCategory(I18NCat::ERRORS);
 			if (g_Config.bSoftwareRendering) {
 				System_NotifyUserMessage(err->T("Running slow: Try turning off Software Rendering"), 6.0f, 0xFF30D0D0);
 			} else {

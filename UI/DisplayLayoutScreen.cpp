@@ -166,8 +166,8 @@ UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) 
 }
 
 static std::string PostShaderTranslateName(const char *value) {
-	auto gr = GetI18NCategory("Graphics");
-	auto ps = GetI18NCategory("PostShaders");
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
 	if (!strcmp(value, "Off")) {
 		// Off is a legacy fake item (gonna migrate off it later).
 		return gr->T("Add postprocessing shader");
@@ -194,10 +194,10 @@ void DisplayLayoutScreen::CreateViews() {
 
 	using namespace UI;
 
-	auto di = GetI18NCategory("Dialog");
-	auto gr = GetI18NCategory("Graphics");
-	auto co = GetI18NCategory("Controls");
-	auto ps = GetI18NCategory("PostShaders");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -273,7 +273,7 @@ void DisplayLayoutScreen::CreateViews() {
 		bottomControls->Add(mode_);
 
 		static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
-		auto rotation = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager());
+		auto rotation = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), I18NCat::CONTROLS, screenManager());
 		rotation->SetEnabledFunc([] {
 			return !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 		});
@@ -302,7 +302,7 @@ void DisplayLayoutScreen::CreateViews() {
 
 	if (!IsVREnabled()) {
 		static const char *bufFilters[] = { "Linear", "Nearest", };
-		leftColumn->Add(new PopupMultiChoice(&g_Config.iDisplayFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
+		leftColumn->Add(new PopupMultiChoice(&g_Config.iDisplayFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), I18NCat::GRAPHICS, screenManager()));
 	}
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
@@ -344,7 +344,7 @@ void DisplayLayoutScreen::CreateViews() {
 			postProcChoice_ = shaderRow->Add(new Choice(ImageID("I_PLUS")));
 		}
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
-			auto gr = GetI18NCategory("Graphics");
+			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 			auto procScreen = new PostProcScreen(gr->T("Postprocessing shaders"), i, false);
 			procScreen->SetHasDropShadow(false);
 			procScreen->OnChoice.Handle(this, &DisplayLayoutScreen::OnPostProcShaderChange);
@@ -388,7 +388,7 @@ void DisplayLayoutScreen::CreateViews() {
 
 			auto moreButton = shaderRow->Add(new Choice(ImageID("I_THREE_DOTS"), new LinearLayoutParams(0.0f)));
 			moreButton->OnClick.Add([=](EventParams &e) -> UI::EventReturn {
-				PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(postShaderContextMenu, ARRAY_SIZE(postShaderContextMenu), di.get(), moreButton);
+				PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(postShaderContextMenu, ARRAY_SIZE(postShaderContextMenu), I18NCat::DIALOG, moreButton);
 				screenManager()->push(contextMenu);
 				const ShaderInfo *info = GetPostShaderInfo(g_Config.vPostShaderNames[i]);
 				bool usesLastFrame = info ? info->usePreviousFrame : false;
@@ -464,7 +464,7 @@ void DisplayLayoutScreen::CreateViews() {
 }
 
 void PostProcScreen::CreateViews() {
-	auto ps = GetI18NCategory("PostShaders");
+	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
 	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
 	shaders_ = GetAllPostShaderInfo();
 	std::vector<std::string> items;

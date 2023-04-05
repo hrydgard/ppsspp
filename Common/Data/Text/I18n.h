@@ -9,7 +9,6 @@
 // As usual, everything is UTF-8. Nothing else allowed.
 
 #include <map>
-#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -22,6 +21,43 @@
 class I18NRepo;
 class IniFile;
 class Section;
+
+enum class I18NCat : uint8_t {
+	AUDIO = 0,
+	CONTROLS,
+	CWCHEATS,
+	DESKTOPUI,
+	DEVELOPER,
+	DIALOG,
+	ERRORS,  // Can't name it ERROR, clashes with many defines.
+	GAME,
+	GRAPHICS,
+	INSTALLZIP,
+	KEYMAPPING,
+	MAINMENU,
+	MAINSETTINGS,
+	MAPPABLECONTROLS,
+	NETWORKING,
+	PAUSE,
+	POSTSHADERS,
+	PSPCREDITS,
+	MEMSTICK,
+	REMOTEISO,
+	REPORTING,
+	SAVEDATA,
+	SCREEN,
+	SEARCH,
+	STORE,
+	SYSINFO,
+	SYSTEM,
+	TEXTURESHADERS,
+	THEMES,
+	UI_ELEMENTS,
+	UPGRADE,
+	VR,
+	CATEGORY_COUNT,
+	NONE = CATEGORY_COUNT,
+};
 
 struct I18NEntry {
 	I18NEntry(const std::string &t) : text(t), readFlag(false) {}
@@ -39,9 +75,10 @@ struct I18NCandidate {
 
 class I18NCategory {
 public:
+	I18NCategory() {}
 	// NOTE: Name must be a global constant string - it is not copied.
-	I18NCategory(const char *name) : name_(name) {}
-	const char *T(const char *key, const char *def = 0);
+	explicit I18NCategory(const char *name) : name_(name) {}
+	const char *T(const char *key, const char *def = nullptr);
 	const char *T(const std::string &key) {
 		return T(key.c_str(), nullptr);
 	}
@@ -54,10 +91,13 @@ public:
 	const std::map<std::string, I18NEntry> &GetMap() { return map_; }
 	void ClearMissed() { missedKeyLog_.clear(); }
 	const char *GetName() const { return name_.c_str(); }
+	void Clear();
 
 private:
 	I18NCategory(I18NRepo *repo, const char *name) : name_(name) {}
+	void SetName(const char *name) { name_ = name; }
 	void SetMap(const std::map<std::string, std::string> &m);
+	void LoadSection(const Section &section);
 
 	std::string name_;
 
@@ -67,62 +107,45 @@ private:
 
 	// Noone else can create these.
 	friend class I18NRepo;
-
-	DISALLOW_COPY_AND_ASSIGN(I18NCategory);
 };
 
 class I18NRepo {
 public:
-	I18NRepo() {}
+	I18NRepo();
 	~I18NRepo();
 
 	bool IniExists(const std::string &languageID) const;
 	bool LoadIni(const std::string &languageID, const Path &overridePath = Path()); // NOT the filename!
-	void SaveIni(const std::string &languageID);
 
 	std::string LanguageID();
 
-	std::shared_ptr<I18NCategory> GetCategory(const char *categoryName);
-	bool HasCategory(const char *categoryName) const {
-		std::lock_guard<std::mutex> guard(catsLock_);
-		return cats_.find(categoryName) != cats_.end();
-	}
-	const char *T(const char *category, const char *key, const char *def = 0);
+	I18NCategory *GetCategory(I18NCat category);
+	I18NCategory *GetCategoryByName(const char *name);
 
-	std::map<std::string, std::vector<std::string>> GetMissingKeys() const;
+	const char *T(I18NCat category, const char *key, const char *def = nullptr) {
+		return cats_[(size_t)category].T(key, def);
+	}
+
+	void LogMissingKeys() const;
 
 private:
 	Path GetIniPath(const std::string &languageID) const;
 	void Clear();
-	I18NCategory *LoadSection(const Section *section, const char *name);
-	void SaveSection(IniFile &ini, Section *section, std::shared_ptr<I18NCategory> cat);
 
 	mutable std::mutex catsLock_;
-	std::map<std::string, std::shared_ptr<I18NCategory>> cats_;
+	I18NCategory cats_[(size_t)I18NCat::CATEGORY_COUNT];
 	std::string languageID_;
-
-	DISALLOW_COPY_AND_ASSIGN(I18NRepo);
 };
 
 extern I18NRepo i18nrepo;
 
 // These are simply talking to the one global instance of I18NRepo.
 
-inline std::shared_ptr<I18NCategory> GetI18NCategory(const char *categoryName) {
-	if (!categoryName)
-		return nullptr;
-	return i18nrepo.GetCategory(categoryName);
+inline I18NCategory *GetI18NCategory(I18NCat cat) {
+	return i18nrepo.GetCategory(cat);
 }
 
-inline bool I18NCategoryLoaded(const char *categoryName) {
-	return i18nrepo.HasCategory(categoryName);
-}
-
-inline const char *T(const char *category, const char *key, const char *def = 0) {
+inline const char *T(I18NCat category, const char *key, const char *def = nullptr) {
 	return i18nrepo.T(category, key, def);
-}
-
-inline std::map<std::string, std::vector<std::string>> GetI18NMissingKeys() {
-	return i18nrepo.GetMissingKeys();
 }
 

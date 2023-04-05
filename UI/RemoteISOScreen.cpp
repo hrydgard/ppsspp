@@ -112,7 +112,7 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 
 	std::string subdir = RemoteSubdir();
 
-	auto ri = GetI18NCategory("RemoteISO");
+	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 	auto SetStatus = [&](const std::string &key, const std::string &host, int port) {
 		std::string formatted = ReplaceAll(ri->T(key), "[URL]", StringFromFormat("http://%s:%d/", host.c_str(), port));
 
@@ -290,8 +290,8 @@ void RemoteISOScreen::update() {
 }
 
 void RemoteISOScreen::CreateViews() {
-	auto di = GetI18NCategory("Dialog");
-	auto ri = GetI18NCategory("RemoteISO");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
@@ -389,8 +389,8 @@ RemoteISOConnectScreen::~RemoteISOConnectScreen() {
 }
 
 void RemoteISOConnectScreen::CreateViews() {
-	auto di = GetI18NCategory("Dialog");
-	auto ri = GetI18NCategory("RemoteISO");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
@@ -413,7 +413,7 @@ void RemoteISOConnectScreen::CreateViews() {
 }
 
 void RemoteISOConnectScreen::update() {
-	auto ri = GetI18NCategory("RemoteISO");
+	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
 	UIDialogScreenWithBackground::update();
 
@@ -521,8 +521,8 @@ RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::string &url, const std::
 }
 
 void RemoteISOBrowseScreen::CreateViews() {
-	auto di = GetI18NCategory("Dialog");
-	auto ri = GetI18NCategory("RemoteISO");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
 	bool vertical = UseVerticalLayout();
 
@@ -589,7 +589,7 @@ void RemoteISOSettingsScreen::update() {
 }
 
 void RemoteISOSettingsScreen::CreateViews() {
-	auto ri = GetI18NCategory("RemoteISO");
+	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
 	ViewGroup *remoteisoSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 	remoteisoSettingsScroll->SetTag("RemoteISOSettings");
@@ -642,7 +642,7 @@ void RemoteISOSettingsScreen::CreateViews() {
 
 UI::EventReturn RemoteISOSettingsScreen::OnClickRemoteServer(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
-	auto ri = GetI18NCategory("RemoteISO");
+	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 	System_InputBoxGetString(ri->T("Remote Server"), g_Config.sLastRemoteISOServer, [](const std::string &value, int) {
 		g_Config.sLastRemoteISOServer = value;
 	});
@@ -662,7 +662,7 @@ static void CleanupRemoteISOSubdir() {
 
 UI::EventReturn RemoteISOSettingsScreen::OnClickRemoteISOSubdir(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
-	auto ri = GetI18NCategory("RemoteISO");
+	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 	System_InputBoxGetString(ri->T("Remote Subdirectory"), g_Config.sRemoteISOSubdir, [](const std::string &value, int) {
 		g_Config.sRemoteISOSubdir = value;
 		// Apply the cleanup logic, too.

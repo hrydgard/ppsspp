@@ -284,7 +284,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 	}
 
 	if (filenameWarning) {
-		auto err = GetI18NCategory("Error");
+		auto err = GetI18NCategory(I18NCat::ERRORS);
 		System_NotifyUserMessage(err->T("textures.ini filenames may not be cross-platform (banned characters)"), 6.0f);
 	}
 

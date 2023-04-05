@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Common/Data/Text/I18N.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
@@ -159,7 +160,7 @@ struct ContextMenuItem {
 // Once a selection has been made,
 class PopupContextMenuScreen : public PopupScreen {
 public:
-	PopupContextMenuScreen(const ContextMenuItem *items, size_t itemCount, I18NCategory *category, UI::View *sourceView);
+	PopupContextMenuScreen(const ContextMenuItem *items, size_t itemCount, I18NCat category, UI::View *sourceView);
 	void CreatePopupContents(ViewGroup *parent) override;
 
 	const char *tag() const override { return "ContextMenuPopup"; }
@@ -176,7 +177,7 @@ protected:
 private:
 	const ContextMenuItem *items_;
 	size_t itemCount_;
-	I18NCategory *category_;
+	I18NCat category_;
 	UI::View *sourceView_;
 	std::vector<bool> enabled_;
 };
@@ -200,7 +201,7 @@ protected:
 class PopupMultiChoice : public AbstractChoiceWithValueDisplay {
 public:
 	PopupMultiChoice(int *value, const std::string &text, const char **choices, int minVal, int numChoices,
-		const char *category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr)
+		I18NCat category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr)
 		: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), choices_(choices), minVal_(minVal), numChoices_(numChoices),
 		category_(category), screenManager_(screenManager) {
 		if (*value >= numChoices + minVal)
@@ -234,7 +235,7 @@ private:
 	void ChoiceCallback(int num);
 	virtual void PostChoiceCallback(int num) {}
 
-	const char *category_;
+	I18NCat category_;
 	ScreenManager *screenManager_;
 	std::string valueText_;
 	bool restoreFocus_ = false;
@@ -245,7 +246,7 @@ private:
 class PopupMultiChoiceDynamic : public PopupMultiChoice {
 public:
 	PopupMultiChoiceDynamic(std::string *value, const std::string &text, std::vector<std::string> choices,
-		const char *category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr)
+		I18NCat category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr)
 		: UI::PopupMultiChoice(&valueInt_, text, nullptr, 0, (int)choices.size(), category, screenManager, layoutParams),
 		valueStr_(value) {
 		choices_ = new const char *[numChoices_];
@@ -378,7 +379,7 @@ public:
 	ChoiceWithValueDisplay(int *value, const std::string &text, LayoutParams *layoutParams = 0)
 		: AbstractChoiceWithValueDisplay(text, layoutParams), iValue_(value) {}
 
-	ChoiceWithValueDisplay(std::string *value, const std::string &text, const char *category, LayoutParams *layoutParams = 0)
+	ChoiceWithValueDisplay(std::string *value, const std::string &text, I18NCat category, LayoutParams *layoutParams = 0)
 		: AbstractChoiceWithValueDisplay(text, layoutParams), sValue_(value), category_(category) {}
 
 	ChoiceWithValueDisplay(std::string *value, const std::string &text, std::string(*translateCallback)(const char *value), LayoutParams *layoutParams = 0)
@@ -390,7 +391,7 @@ private:
 
 	std::string *sValue_ = nullptr;
 	int *iValue_ = nullptr;
-	const char *category_ = nullptr;
+	I18NCat category_ = I18NCat::CATEGORY_COUNT;
 	std::string(*translateCallback_)(const char *value) = nullptr;
 };
 

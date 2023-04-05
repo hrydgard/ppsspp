@@ -71,7 +71,7 @@ RatingChoice::RatingChoice(const char *captionKey, int *value, LayoutParams *lay
 		: LinearLayout(ORIENT_VERTICAL, layoutParams), value_(value) {
 	SetSpacing(0.0f);
 
-	auto rp = GetI18NCategory("Reporting");
+	auto rp = GetI18NCategory(I18NCat::REPORTING);
 	group_ = new LinearLayout(ORIENT_HORIZONTAL);
 	Add(new TextView(rp->T(captionKey), FLAG_WRAP_TEXT, false))->SetShadow(true);
 	Add(group_);
@@ -103,7 +103,7 @@ RatingChoice *RatingChoice::SetEnabledPtrs(bool *ptr) {
 }
 
 void RatingChoice::SetupChoices() {
-	auto rp = GetI18NCategory("Reporting");
+	auto rp = GetI18NCategory(I18NCat::REPORTING);
 	AddChoice(0, rp->T("Bad"));
 	AddChoice(1, rp->T("OK"));
 	AddChoice(2, rp->T("Great"));
@@ -151,7 +151,7 @@ CompatRatingChoice::CompatRatingChoice(const char *captionKey, int *value, Layou
 }
 
 void CompatRatingChoice::SetupChoices() {
-	auto rp = GetI18NCategory("Reporting");
+	auto rp = GetI18NCategory(I18NCat::REPORTING);
 	group_->Clear();
 	AddChoice(0, rp->T("Perfect"));
 	AddChoice(1, rp->T("Plays"));
@@ -247,9 +247,9 @@ EventReturn ReportScreen::HandleReportingChange(EventParams &e) {
 }
 
 void ReportScreen::CreateViews() {
-	auto rp = GetI18NCategory("Reporting");
-	auto di = GetI18NCategory("Dialog");
-	auto sy = GetI18NCategory("System");
+	auto rp = GetI18NCategory(I18NCat::REPORTING);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
@@ -333,7 +333,7 @@ void ReportScreen::UpdateSubmit() {
 }
 
 void ReportScreen::UpdateCRCInfo() {
-	auto rp = GetI18NCategory("Reporting");
+	auto rp = GetI18NCategory(I18NCat::REPORTING);
 	std::string updated;
 
 	if (Reporting::HasCRC(gamePath_)) {
@@ -351,7 +351,7 @@ void ReportScreen::UpdateCRCInfo() {
 }
 
 void ReportScreen::UpdateOverallDescription() {
-	auto rp = GetI18NCategory("Reporting");
+	auto rp = GetI18NCategory(I18NCat::REPORTING);
 	const char *desc;
 	uint32_t c = 0xFFFFFFFF;
 	switch (overall_) {
@@ -407,8 +407,8 @@ ReportFinishScreen::ReportFinishScreen(const Path &gamePath, ReportingOverallSco
 }
 
 void ReportFinishScreen::CreateViews() {
-	auto rp = GetI18NCategory("Reporting");
-	auto di = GetI18NCategory("Dialog");
+	auto rp = GetI18NCategory(I18NCat::REPORTING);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
@@ -442,7 +442,7 @@ void ReportFinishScreen::CreateViews() {
 }
 
 void ReportFinishScreen::update() {
-	auto rp = GetI18NCategory("Reporting");
+	auto rp = GetI18NCategory(I18NCat::REPORTING);
 
 	if (!setStatus_) {
 		Reporting::ReportStatus status = Reporting::GetStatus();
@@ -468,7 +468,7 @@ void ReportFinishScreen::update() {
 }
 
 void ReportFinishScreen::ShowSuggestions() {
-	auto rp = GetI18NCategory("Reporting");
+	auto rp = GetI18NCategory(I18NCat::REPORTING);
 
 	auto suggestions = Reporting::CompatibilitySuggestions();
 	if (score_ == ReportingOverallScore::PERFECT || score_ == ReportingOverallScore::PLAYABLE) {

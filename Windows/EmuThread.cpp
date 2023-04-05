@@ -186,7 +186,7 @@ void MainThreadFunc() {
 	if (g_Config.sFailedGPUBackends.find("ALL") != std::string::npos) {
 		Reporting::ReportMessage("Graphics init error: %s", "ALL");
 
-		auto err = GetI18NCategory("Error");
+		auto err = GetI18NCategory(I18NCat::ERRORS);
 		const char *defaultErrorAll = "PPSSPP failed to startup with any graphics backend. Try upgrading your graphics and other drivers.";
 		const char *genericError = err->T("GenericAllStartupError", defaultErrorAll);
 		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
@@ -214,7 +214,7 @@ void MainThreadFunc() {
 			W32Util::ExitAndRestart();
 		}
 
-		auto err = GetI18NCategory("Error");
+		auto err = GetI18NCategory(I18NCat::ERRORS);
 		Reporting::ReportMessage("Graphics init error: %s", error_string.c_str());
 
 		const char *defaultErrorVulkan = "Failed initializing graphics. Try upgrading your graphics drivers.\n\nWould you like to try switching to OpenGL?\n\nError message:";

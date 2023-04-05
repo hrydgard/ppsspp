@@ -87,7 +87,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	if (g_Config.bHardwareTessellation) {
 		// Disable hardware tessellation bacause DX9 is still unsupported.
 		ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
-		auto gr = GetI18NCategory("Graphics");
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		System_NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
 	}
 }
