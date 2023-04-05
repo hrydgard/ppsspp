@@ -127,6 +127,9 @@ void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect
 		if (rotated) {
 			wDim = 272.0f;
 		}
+		// If integer scaling, limit ourselves to even multiples of the rendered resolution,
+		// to make sure all the pixels are square.
+		wDim *= g_Config.iInternalResolution;
 		outW = std::max(1.0f, floorf(outW / wDim)) * wDim;
 		outH = outW / origRatio;
 	}
