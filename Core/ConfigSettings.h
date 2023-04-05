@@ -66,113 +66,113 @@ struct ConfigSetting {
 		CustomButtonDefaultCallback customButton;
 	};
 
-	ConfigSetting(const char *ini, bool *v, bool def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, bool *v, bool def, bool save, bool perGame)
 		: iniKey_(ini), type_(TYPE_BOOL), report_(false), save_(save), perGame_(perGame) {
 		ptr_.b = v;
 		cb_.b = nullptr;
 		default_.b = def;
 	}
 
-	ConfigSetting(const char *ini, int *v, int def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, int *v, int def, bool save, bool perGame)
 		: iniKey_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame) {
 		ptr_.i = v;
 		cb_.i = nullptr;
 		default_.i = def;
 	}
 
-	ConfigSetting(const char *ini, int *v, int def, std::string(*transTo)(int), int (*transFrom)(const std::string &), bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, int *v, int def, std::string(*transTo)(int), int (*transFrom)(const std::string &), bool save, bool perGame)
 		: iniKey_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame), translateTo_(transTo), translateFrom_(transFrom) {
 		ptr_.i = v;
 		cb_.i = nullptr;
 		default_.i = def;
 	}
 
-	ConfigSetting(const char *ini, uint32_t *v, uint32_t def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, uint32_t *v, uint32_t def, bool save, bool perGame)
 		: iniKey_(ini), type_(TYPE_UINT32), report_(false), save_(save), perGame_(perGame) {
 		ptr_.u = v;
 		cb_.u = nullptr;
 		default_.u = def;
 	}
 
-	ConfigSetting(const char *ini, uint64_t *v, uint64_t def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, uint64_t *v, uint64_t def, bool save, bool perGame)
 		: iniKey_(ini), type_(TYPE_UINT64), report_(false), save_(save), perGame_(perGame) {
 		ptr_.lu = v;
 		cb_.lu = nullptr;
 		default_.lu = def;
 	}
 
-	ConfigSetting(const char *ini, float *v, float def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, float *v, float def, bool save, bool perGame)
 		: iniKey_(ini), type_(TYPE_FLOAT), report_(false), save_(save), perGame_(perGame) {
 		ptr_.f = v;
 		cb_.f = nullptr;
 		default_.f = def;
 	}
 
-	ConfigSetting(const char *ini, std::string *v, const char *def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, std::string *v, const char *def, bool save, bool perGame)
 		: iniKey_(ini), type_(TYPE_STRING), report_(false), save_(save), perGame_(perGame) {
 		ptr_.s = v;
 		cb_.s = nullptr;
 		default_.s = def;
 	}
 
-	ConfigSetting(const char *ini, Path *p, const char *def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, Path *p, const char *def, bool save, bool perGame)
 		: iniKey_(ini), type_(TYPE_PATH), report_(false), save_(save), perGame_(perGame) {
 		ptr_.p = p;
 		cb_.p = nullptr;
 		default_.p = def;
 	}
 
-	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, ConfigTouchPos def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, ConfigTouchPos def, bool save, bool perGame)
 		: iniKey_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), report_(false), save_(save), perGame_(perGame) {
 		ptr_.touchPos = v;
 		cb_.touchPos = nullptr;
 		default_.touchPos = def;
 	}
 
-	ConfigSetting(const char *iniKey, const char *iniImage, const char *iniShape, const char *iniToggle, const char *iniRepeat, ConfigCustomButton *v, ConfigCustomButton def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *iniKey, const char *iniImage, const char *iniShape, const char *iniToggle, const char *iniRepeat, ConfigCustomButton *v, ConfigCustomButton def, bool save, bool perGame)
 		: iniKey_(iniKey), ini2_(iniImage), ini3_(iniShape), ini4_(iniToggle), ini5_(iniRepeat), type_(TYPE_CUSTOM_BUTTON), report_(false), save_(save), perGame_(perGame) {
 		ptr_.customButton = v;
 		cb_.customButton = nullptr;
 		default_.customButton = def;
 	}
 
-	ConfigSetting(const char *ini, bool *v, BoolDefaultCallback def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, bool *v, BoolDefaultCallback def, bool save, bool perGame)
 		: iniKey_(ini), type_(TYPE_BOOL), report_(false), save_(save), perGame_(perGame) {
 		ptr_.b = v;
 		cb_.b = def;
 	}
 
-	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, bool save, bool perGame)
 		: iniKey_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame) {
 		ptr_.i = v;
 		cb_.i = def;
 	}
 
-	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, std::string(*transTo)(int), int(*transFrom)(const std::string &), bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, std::string(*transTo)(int), int(*transFrom)(const std::string &), bool save, bool perGame)
 		: iniKey_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame), translateTo_(transTo), translateFrom_(transFrom) {
 		ptr_.i = v;
 		cb_.i = def;
 	}
 
-	ConfigSetting(const char *ini, uint32_t *v, Uint32DefaultCallback def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, uint32_t *v, Uint32DefaultCallback def, bool save, bool perGame)
 		: iniKey_(ini), type_(TYPE_UINT32), report_(false), save_(save), perGame_(perGame) {
 		ptr_.u = v;
 		cb_.u = def;
 	}
 
-	ConfigSetting(const char *ini, float *v, FloatDefaultCallback def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, float *v, FloatDefaultCallback def, bool save, bool perGame)
 		: iniKey_(ini), type_(TYPE_FLOAT), report_(false), save_(save), perGame_(perGame) {
 		ptr_.f = v;
 		cb_.f = def;
 	}
 
-	ConfigSetting(const char *ini, std::string *v, StringDefaultCallback def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *ini, std::string *v, StringDefaultCallback def, bool save, bool perGame)
 		: iniKey_(ini), type_(TYPE_STRING), report_(false), save_(save), perGame_(perGame) {
 		ptr_.s = v;
 		cb_.s = def;
 	}
 
-	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, TouchPosDefaultCallback def, bool save = true, bool perGame = false)
+	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, TouchPosDefaultCallback def, bool save, bool perGame)
 		: iniKey_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), report_(false), save_(save), perGame_(perGame) {
 		ptr_.touchPos = v;
 		cb_.touchPos = def;
@@ -211,13 +211,13 @@ struct ConfigSetting {
 
 struct ReportedConfigSetting : public ConfigSetting {
 	template <typename T1, typename T2>
-	ReportedConfigSetting(const char *ini, T1 *v, T2 def, bool save = true, bool perGame = false)
+	ReportedConfigSetting(const char *ini, T1 *v, T2 def, bool save, bool perGame)
 		: ConfigSetting(ini, v, def, save, perGame) {
 		report_ = true;
 	}
 
 	template <typename T1, typename T2>
-	ReportedConfigSetting(const char *ini, T1 *v, T2 def, std::string(*transTo)(int), int(*transFrom)(const std::string &), bool save = true, bool perGame = false)
+	ReportedConfigSetting(const char *ini, T1 *v, T2 def, std::string(*transTo)(int), int(*transFrom)(const std::string &), bool save, bool perGame)
 		: ConfigSetting(ini, v, def, transTo, transFrom, save, perGame) {
 		report_ = true;
 	}

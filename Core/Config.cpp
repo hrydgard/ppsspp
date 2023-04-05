@@ -159,16 +159,16 @@ static float DefaultUISaturation() {
 }
 
 static const ConfigSetting generalSettings[] = {
-	ConfigSetting("FirstRun", &g_Config.bFirstRun, true),
-	ConfigSetting("RunCount", &g_Config.iRunCount, 0),
-	ConfigSetting("Enable Logging", &g_Config.bEnableLogging, true),
-	ConfigSetting("AutoRun", &g_Config.bAutoRun, true),
-	ConfigSetting("Browse", &g_Config.bBrowse, false),
-	ConfigSetting("IgnoreBadMemAccess", &g_Config.bIgnoreBadMemAccess, true, true),
-	ConfigSetting("CurrentDirectory", &g_Config.currentDirectory, ""),
-	ConfigSetting("ShowDebuggerOnLoad", &g_Config.bShowDebuggerOnLoad, false),
-	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, true),
-	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion),
+	ConfigSetting("FirstRun", &g_Config.bFirstRun, true, true, false),
+	ConfigSetting("RunCount", &g_Config.iRunCount, 0, true, false),
+	ConfigSetting("Enable Logging", &g_Config.bEnableLogging, true, true, false),
+	ConfigSetting("AutoRun", &g_Config.bAutoRun, true, true, false),
+	ConfigSetting("Browse", &g_Config.bBrowse, false, true, false),
+	ConfigSetting("IgnoreBadMemAccess", &g_Config.bIgnoreBadMemAccess, true, true, false),
+	ConfigSetting("CurrentDirectory", &g_Config.currentDirectory, "", true, false),
+	ConfigSetting("ShowDebuggerOnLoad", &g_Config.bShowDebuggerOnLoad, false, true, false),
+	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, true, true, false),
+	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion, true, false),
 	ConfigSetting("ForceLagSync2", &g_Config.bForceLagSync, false, true, true),
 	ConfigSetting("DiscordPresence", &g_Config.bDiscordPresence, true, true, false),  // Or maybe it makes sense to have it per-game? Race conditions abound...
 	ConfigSetting("UISound", &g_Config.bUISound, false, true, false),
@@ -177,14 +177,14 @@ static const ConfigSetting generalSettings[] = {
 	ReportedConfigSetting("EnableCheats", &g_Config.bEnableCheats, false, true, true),
 	ConfigSetting("CwCheatRefreshRate", &g_Config.iCwCheatRefreshRate, 77, true, true),
 	ConfigSetting("CwCheatScrollPosition", &g_Config.fCwCheatScrollPosition, 0.0f, true, true),
-	ConfigSetting("GameListScrollPosition", &g_Config.fGameListScrollPosition, 0.0f),
+	ConfigSetting("GameListScrollPosition", &g_Config.fGameListScrollPosition, 0.0f, true, false),
 
 	ConfigSetting("ScreenshotsAsPNG", &g_Config.bScreenshotsAsPNG, false, true, true),
-	ConfigSetting("UseFFV1", &g_Config.bUseFFV1, false),
-	ConfigSetting("DumpFrames", &g_Config.bDumpFrames, false),
-	ConfigSetting("DumpVideoOutput", &g_Config.bDumpVideoOutput, false),
-	ConfigSetting("DumpAudio", &g_Config.bDumpAudio, false),
-	ConfigSetting("SaveLoadResetsAVdumping", &g_Config.bSaveLoadResetsAVdumping, false),
+	ConfigSetting("UseFFV1", &g_Config.bUseFFV1, false, true, false),
+	ConfigSetting("DumpFrames", &g_Config.bDumpFrames, false, true, false),
+	ConfigSetting("DumpVideoOutput", &g_Config.bDumpVideoOutput, false, true, false),
+	ConfigSetting("DumpAudio", &g_Config.bDumpAudio, false, true, false),
+	ConfigSetting("SaveLoadResetsAVdumping", &g_Config.bSaveLoadResetsAVdumping, false, true, false),
 	ConfigSetting("StateSlot", &g_Config.iCurrentStateSlot, 0, true, true),
 	ConfigSetting("EnableStateUndo", &g_Config.bEnableStateUndo, &DefaultEnableStateUndo, true, true),
 	ConfigSetting("StateLoadUndoGame", &g_Config.sStateLoadUndoGame, "NA", true, false),
@@ -193,12 +193,12 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("RewindSnapshotInterval", &g_Config.iRewindSnapshotInterval, 0, true, true),
 
 	ConfigSetting("ShowOnScreenMessage", &g_Config.bShowOnScreenMessages, true, true, false),
-	ConfigSetting("ShowRegionOnGameIcon", &g_Config.bShowRegionOnGameIcon, false),
-	ConfigSetting("ShowIDOnGameIcon", &g_Config.bShowIDOnGameIcon, false),
-	ConfigSetting("GameGridScale", &g_Config.fGameGridScale, 1.0),
-	ConfigSetting("GridView1", &g_Config.bGridView1, true),
-	ConfigSetting("GridView2", &g_Config.bGridView2, true),
-	ConfigSetting("GridView3", &g_Config.bGridView3, false),
+	ConfigSetting("ShowRegionOnGameIcon", &g_Config.bShowRegionOnGameIcon, false, true, false),
+	ConfigSetting("ShowIDOnGameIcon", &g_Config.bShowIDOnGameIcon, false, true, false),
+	ConfigSetting("GameGridScale", &g_Config.fGameGridScale, 1.0, true, false),
+	ConfigSetting("GridView1", &g_Config.bGridView1, true, true, false),
+	ConfigSetting("GridView2", &g_Config.bGridView2, true, true, false),
+	ConfigSetting("GridView3", &g_Config.bGridView3, false, true, false),
 	ConfigSetting("RightAnalogUp", &g_Config.iRightAnalogUp, 0, true, true),
 	ConfigSetting("RightAnalogDown", &g_Config.iRightAnalogDown, 0, true, true),
 	ConfigSetting("RightAnalogLeft", &g_Config.iRightAnalogLeft, 0, true, true),
@@ -216,16 +216,16 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("GestureControlEnabled", &g_Config.bGestureControlEnabled, false, true, true),
 
 	// "default" means let emulator decide, "" means disable.
-	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default"),
+	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default", true, false),
 	ConfigSetting("AutoSaveSymbolMap", &g_Config.bAutoSaveSymbolMap, false, true, true),
 	ConfigSetting("CacheFullIsoInRam", &g_Config.bCacheFullIsoInRam, false, true, true),
 	ConfigSetting("RemoteISOPort", &g_Config.iRemoteISOPort, 0, true, false),
-	ConfigSetting("LastRemoteISOServer", &g_Config.sLastRemoteISOServer, ""),
-	ConfigSetting("LastRemoteISOPort", &g_Config.iLastRemoteISOPort, 0),
-	ConfigSetting("RemoteISOManualConfig", &g_Config.bRemoteISOManual, false),
-	ConfigSetting("RemoteShareOnStartup", &g_Config.bRemoteShareOnStartup, false),
-	ConfigSetting("RemoteISOSubdir", &g_Config.sRemoteISOSubdir, "/"),
-	ConfigSetting("RemoteDebuggerOnStartup", &g_Config.bRemoteDebuggerOnStartup, false),
+	ConfigSetting("LastRemoteISOServer", &g_Config.sLastRemoteISOServer, "", true, false),
+	ConfigSetting("LastRemoteISOPort", &g_Config.iLastRemoteISOPort, 0, true, false),
+	ConfigSetting("RemoteISOManualConfig", &g_Config.bRemoteISOManual, false, true, false),
+	ConfigSetting("RemoteShareOnStartup", &g_Config.bRemoteShareOnStartup, false, true, false),
+	ConfigSetting("RemoteISOSubdir", &g_Config.sRemoteISOSubdir, "/", true, false),
+	ConfigSetting("RemoteDebuggerOnStartup", &g_Config.bRemoteDebuggerOnStartup, false, true, false),
 
 #ifdef __ANDROID__
 	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, ROTATION_AUTO_HORIZONTAL),
@@ -238,15 +238,15 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("UISaturation", &g_Config.fUISaturation, &DefaultUISaturation, true, false),
 
 #if defined(USING_WIN_UI)
-	ConfigSetting("TopMost", &g_Config.bTopMost, false),
+	ConfigSetting("TopMost", &g_Config.bTopMost, false, true, false),
 	ConfigSetting("PauseOnLostFocus", &g_Config.bPauseOnLostFocus, false, true, true),
 #endif
 
 #if !defined(MOBILE_DEVICE)
-	ConfigSetting("WindowX", &g_Config.iWindowX, -1), // -1 tells us to center the window.
-	ConfigSetting("WindowY", &g_Config.iWindowY, -1),
-	ConfigSetting("WindowWidth", &g_Config.iWindowWidth, 0),   // 0 will be automatically reset later (need to do the AdjustWindowRect dance).
-	ConfigSetting("WindowHeight", &g_Config.iWindowHeight, 0),
+	ConfigSetting("WindowX", &g_Config.iWindowX, -1, true, false), // -1 tells us to center the window.
+	ConfigSetting("WindowY", &g_Config.iWindowY, -1, true, false),
+	ConfigSetting("WindowWidth", &g_Config.iWindowWidth, 0, true, false),   // 0 will be automatically reset later (need to do the AdjustWindowRect dance).
+	ConfigSetting("WindowHeight", &g_Config.iWindowHeight, 0, true, false),
 #endif
 
 	ConfigSetting("PauseWhenMinimized", &g_Config.bPauseWhenMinimized, false, true, true),
@@ -475,8 +475,8 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("CardboardYShift", &g_Config.iCardboardYShift, 0, true, true),
 	ConfigSetting("iShowStatusFlags", &g_Config.iShowStatusFlags, 0, true, true),
 	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, true, false),
-	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, ""),
-	ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, ""),
+	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, "", true, false),
+	ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, "", true, false),
 	ConfigSetting("VulkanDevice", &g_Config.sVulkanDevice, "", true, false),
 #ifdef _WIN32
 	ConfigSetting("D3D11Device", &g_Config.sD3D11Device, "", true, false),
@@ -502,7 +502,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("AnalogFrameRate", &g_Config.iAnalogFpsLimit, 240, true, true),
 	ConfigSetting("UnthrottlingMode", &g_Config.iFastForwardMode, &DefaultFastForwardMode, &FastForwardModeToString, &FastForwardModeFromString, true, true),
 #if defined(USING_WIN_UI)
-	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
+	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false, false),
 #endif
 
 	// Most low-performance (and many high performance) mobile GPUs do not support aniso anyway so defaulting to 4 is fine.
@@ -511,11 +511,11 @@ static const ConfigSetting graphicsSettings[] = {
 
 	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, false, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
-	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, false),
+	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, false, false),
 
 #ifndef MOBILE_DEVICE
-	ConfigSetting("FullScreen", &g_Config.bFullScreen, false),
-	ConfigSetting("FullScreenMulti", &g_Config.bFullScreenMulti, false),
+	ConfigSetting("FullScreen", &g_Config.bFullScreen, false, true, false),
+	ConfigSetting("FullScreenMulti", &g_Config.bFullScreenMulti, false, true, false),
 #endif
 
 	ConfigSetting("BufferFiltering", &g_Config.iDisplayFilter, SCALE_LINEAR, true, true),
@@ -752,40 +752,40 @@ static const ConfigSetting systemParamSettings[] = {
 };
 
 static const ConfigSetting debuggerSettings[] = {
-	ConfigSetting("DisasmWindowX", &g_Config.iDisasmWindowX, -1),
-	ConfigSetting("DisasmWindowY", &g_Config.iDisasmWindowY, -1),
-	ConfigSetting("DisasmWindowW", &g_Config.iDisasmWindowW, -1),
-	ConfigSetting("DisasmWindowH", &g_Config.iDisasmWindowH, -1),
-	ConfigSetting("GEWindowX", &g_Config.iGEWindowX, -1),
-	ConfigSetting("GEWindowY", &g_Config.iGEWindowY, -1),
-	ConfigSetting("GEWindowW", &g_Config.iGEWindowW, -1),
-	ConfigSetting("GEWindowH", &g_Config.iGEWindowH, -1),
-	ConfigSetting("GEWindowTabsBL", &g_Config.uGETabsLeft, (uint32_t)0),
-	ConfigSetting("GEWindowTabsBR", &g_Config.uGETabsRight, (uint32_t)0),
-	ConfigSetting("GEWindowTabsTR", &g_Config.uGETabsTopRight, (uint32_t)0),
-	ConfigSetting("ConsoleWindowX", &g_Config.iConsoleWindowX, -1),
-	ConfigSetting("ConsoleWindowY", &g_Config.iConsoleWindowY, -1),
-	ConfigSetting("FontWidth", &g_Config.iFontWidth, 8),
-	ConfigSetting("FontHeight", &g_Config.iFontHeight, 12),
-	ConfigSetting("DisplayStatusBar", &g_Config.bDisplayStatusBar, true),
-	ConfigSetting("ShowBottomTabTitles",&g_Config.bShowBottomTabTitles, true),
-	ConfigSetting("ShowDeveloperMenu", &g_Config.bShowDeveloperMenu, false),
-	ConfigSetting("ShowAllocatorDebug", &g_Config.bShowAllocatorDebug, false, false),
-	ConfigSetting("ShowGpuProfile", &g_Config.bShowGpuProfile, false, false),
-	ConfigSetting("SkipDeadbeefFilling", &g_Config.bSkipDeadbeefFilling, false),
-	ConfigSetting("FuncHashMap", &g_Config.bFuncHashMap, false),
-	ConfigSetting("MemInfoDetailed", &g_Config.bDebugMemInfoDetailed, false),
-	ConfigSetting("DrawFrameGraph", &g_Config.bDrawFrameGraph, false),
+	ConfigSetting("DisasmWindowX", &g_Config.iDisasmWindowX, -1, true, false),
+	ConfigSetting("DisasmWindowY", &g_Config.iDisasmWindowY, -1, true, false),
+	ConfigSetting("DisasmWindowW", &g_Config.iDisasmWindowW, -1, true, false),
+	ConfigSetting("DisasmWindowH", &g_Config.iDisasmWindowH, -1, true, false),
+	ConfigSetting("GEWindowX", &g_Config.iGEWindowX, -1, true, false),
+	ConfigSetting("GEWindowY", &g_Config.iGEWindowY, -1, true, false),
+	ConfigSetting("GEWindowW", &g_Config.iGEWindowW, -1, true, false),
+	ConfigSetting("GEWindowH", &g_Config.iGEWindowH, -1, true, false),
+	ConfigSetting("GEWindowTabsBL", &g_Config.uGETabsLeft, (uint32_t)0, true, false),
+	ConfigSetting("GEWindowTabsBR", &g_Config.uGETabsRight, (uint32_t)0, true, false),
+	ConfigSetting("GEWindowTabsTR", &g_Config.uGETabsTopRight, (uint32_t)0, true, false),
+	ConfigSetting("ConsoleWindowX", &g_Config.iConsoleWindowX, -1, true, false),
+	ConfigSetting("ConsoleWindowY", &g_Config.iConsoleWindowY, -1, true, false),
+	ConfigSetting("FontWidth", &g_Config.iFontWidth, 8, true, false),
+	ConfigSetting("FontHeight", &g_Config.iFontHeight, 12, true, false),
+	ConfigSetting("DisplayStatusBar", &g_Config.bDisplayStatusBar, true, true, false),
+	ConfigSetting("ShowBottomTabTitles",&g_Config.bShowBottomTabTitles, true, true, false),
+	ConfigSetting("ShowDeveloperMenu", &g_Config.bShowDeveloperMenu, false, true, false),
+	ConfigSetting("ShowAllocatorDebug", &g_Config.bShowAllocatorDebug, false, false, false),
+	ConfigSetting("ShowGpuProfile", &g_Config.bShowGpuProfile, false, false, false),
+	ConfigSetting("SkipDeadbeefFilling", &g_Config.bSkipDeadbeefFilling, false, true, false),
+	ConfigSetting("FuncHashMap", &g_Config.bFuncHashMap, false, true, false),
+	ConfigSetting("MemInfoDetailed", &g_Config.bDebugMemInfoDetailed, false, true, false),
+	ConfigSetting("DrawFrameGraph", &g_Config.bDrawFrameGraph, false, true, false),
 };
 
 static const ConfigSetting jitSettings[] = {
-	ReportedConfigSetting("DiscardRegsOnJRRA", &g_Config.bDiscardRegsOnJRRA, false, false),
+	ReportedConfigSetting("DiscardRegsOnJRRA", &g_Config.bDiscardRegsOnJRRA, false, false, false),
 };
 
 static const ConfigSetting upgradeSettings[] = {
-	ConfigSetting("UpgradeMessage", &g_Config.upgradeMessage, ""),
-	ConfigSetting("UpgradeVersion", &g_Config.upgradeVersion, ""),
-	ConfigSetting("DismissedVersion", &g_Config.dismissedVersion, ""),
+	ConfigSetting("UpgradeMessage", &g_Config.upgradeMessage, "", true, false),
+	ConfigSetting("UpgradeVersion", &g_Config.upgradeVersion, "", true, false),
+	ConfigSetting("DismissedVersion", &g_Config.dismissedVersion, "", true, false),
 };
 
 static const ConfigSetting themeSettings[] = {
@@ -794,24 +794,24 @@ static const ConfigSetting themeSettings[] = {
 
 
 static const ConfigSetting vrSettings[] = {
-	ConfigSetting("VREnable", &g_Config.bEnableVR, true),
-	ConfigSetting("VREnable6DoF", &g_Config.bEnable6DoF, true),
-	ConfigSetting("VREnableStereo", &g_Config.bEnableStereo, false),
-	ConfigSetting("VREnableMotions", &g_Config.bEnableMotions, true),
-	ConfigSetting("VRForce72Hz", &g_Config.bForce72Hz, true),
-	ConfigSetting("VRManualForceVR", &g_Config.bManualForceVR, false),
-	ConfigSetting("VRRescaleHUD", &g_Config.bRescaleHUD, true),
-	ConfigSetting("VRCameraDistance", &g_Config.fCameraDistance, 0.0f),
-	ConfigSetting("VRCameraHeight", &g_Config.fCameraHeight, 0.0f),
-	ConfigSetting("VRCameraSide", &g_Config.fCameraSide, 0.0f),
-	ConfigSetting("VRCameraPitch", &g_Config.iCameraPitch, 0),
-	ConfigSetting("VRCanvasDistance", &g_Config.fCanvasDistance, 12.0f),
-	ConfigSetting("VRFieldOfView", &g_Config.fFieldOfViewPercentage, 100.0f),
-	ConfigSetting("VRHeadUpDisplayScale", &g_Config.fHeadUpDisplayScale, 0.3f),
-	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f),
-	ConfigSetting("VRHeadRotationScale", &g_Config.fHeadRotationScale, 5.0f),
-	ConfigSetting("VRHeadRotationEnabled", &g_Config.bHeadRotationEnabled, false),
-	ConfigSetting("VRHeadRotationSmoothing", &g_Config.bHeadRotationSmoothing, false),
+	ConfigSetting("VREnable", &g_Config.bEnableVR, true, true, false),
+	ConfigSetting("VREnable6DoF", &g_Config.bEnable6DoF, true, true, false),
+	ConfigSetting("VREnableStereo", &g_Config.bEnableStereo, false, true, false),
+	ConfigSetting("VREnableMotions", &g_Config.bEnableMotions, true, true, false),
+	ConfigSetting("VRForce72Hz", &g_Config.bForce72Hz, true, true, false),
+	ConfigSetting("VRManualForceVR", &g_Config.bManualForceVR, false, true, false),
+	ConfigSetting("VRRescaleHUD", &g_Config.bRescaleHUD, true, true, false),
+	ConfigSetting("VRCameraDistance", &g_Config.fCameraDistance, 0.0f, true, false),
+	ConfigSetting("VRCameraHeight", &g_Config.fCameraHeight, 0.0f, true, false),
+	ConfigSetting("VRCameraSide", &g_Config.fCameraSide, 0.0f, true, false),
+	ConfigSetting("VRCameraPitch", &g_Config.iCameraPitch, 0, true, false),
+	ConfigSetting("VRCanvasDistance", &g_Config.fCanvasDistance, 12.0f, true, false),
+	ConfigSetting("VRFieldOfView", &g_Config.fFieldOfViewPercentage, 100.0f, true, false),
+	ConfigSetting("VRHeadUpDisplayScale", &g_Config.fHeadUpDisplayScale, 0.3f, true, false),
+	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f, true, false),
+	ConfigSetting("VRHeadRotationScale", &g_Config.fHeadRotationScale, 5.0f, true, false),
+	ConfigSetting("VRHeadRotationEnabled", &g_Config.bHeadRotationEnabled, false, true, false),
+	ConfigSetting("VRHeadRotationSmoothing", &g_Config.bHeadRotationSmoothing, false, true, false),
 };
 
 static const ConfigSectionSettings sections[] = {
