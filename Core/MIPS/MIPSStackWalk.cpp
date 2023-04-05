@@ -94,6 +94,11 @@ namespace MIPSStackWalk {
 				stop = PSP_GetScratchpadMemoryBase();
 			}
 		}
+
+		if (!Memory::IsValidAddress(start)) {
+			return false;
+		}
+
 		if (stop < start - LONGEST_FUNCTION) {
 			stop = start - LONGEST_FUNCTION;
 		}
