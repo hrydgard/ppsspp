@@ -1148,6 +1148,7 @@ static const ConfigSetting vrSettings[] = {
 	ConfigSetting("VREnableMotions", &g_Config.bEnableMotions, true),
 	ConfigSetting("VRForce72Hz", &g_Config.bForce72Hz, true),
 	ConfigSetting("VRManualForceVR", &g_Config.bManualForceVR, false),
+	ConfigSetting("VRRescaleHUD", &g_Config.bRescaleHUD, true),
 	ConfigSetting("VRCameraDistance", &g_Config.fCameraDistance, 0.0f),
 	ConfigSetting("VRCameraHeight", &g_Config.fCameraHeight, 0.0f),
 	ConfigSetting("VRCameraSide", &g_Config.fCameraSide, 0.0f),
