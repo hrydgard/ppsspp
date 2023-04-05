@@ -8,6 +8,13 @@ class Path;
 class Section;  // ini file section
 struct UrlEncoder;
 
+enum class CfgFlag : u8 {
+	DEFAULT = 0,
+	DONT_SAVE = 1,  // normally don't like negative flags, but these are really not many.
+	PER_GAME = 2,
+};
+ENUM_CLASS_BITOPS(CfgFlag);
+
 struct ConfigSetting {
 	enum Type {
 		TYPE_TERMINATOR,
@@ -66,114 +73,114 @@ struct ConfigSetting {
 		CustomButtonDefaultCallback customButton;
 	};
 
-	ConfigSetting(const char *ini, bool *v, bool def, bool save, bool perGame)
-		: iniKey_(ini), type_(TYPE_BOOL), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *ini, bool *v, bool def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(ini), type_(TYPE_BOOL), flags_(flags) {
 		ptr_.b = v;
 		cb_.b = nullptr;
 		default_.b = def;
 	}
 
-	ConfigSetting(const char *ini, int *v, int def, bool save, bool perGame)
-		: iniKey_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *ini, int *v, int def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(ini), type_(TYPE_INT), flags_(flags) {
 		ptr_.i = v;
 		cb_.i = nullptr;
 		default_.i = def;
 	}
 
-	ConfigSetting(const char *ini, int *v, int def, std::string(*transTo)(int), int (*transFrom)(const std::string &), bool save, bool perGame)
-		: iniKey_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame), translateTo_(transTo), translateFrom_(transFrom) {
+	ConfigSetting(const char *ini, int *v, int def, std::string(*transTo)(int), int (*transFrom)(const std::string &), CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(ini), type_(TYPE_INT), flags_(flags), translateTo_(transTo), translateFrom_(transFrom) {
 		ptr_.i = v;
 		cb_.i = nullptr;
 		default_.i = def;
 	}
 
-	ConfigSetting(const char *ini, uint32_t *v, uint32_t def, bool save, bool perGame)
-		: iniKey_(ini), type_(TYPE_UINT32), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *ini, uint32_t *v, uint32_t def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(ini), type_(TYPE_UINT32), flags_(flags) {
 		ptr_.u = v;
 		cb_.u = nullptr;
 		default_.u = def;
 	}
 
-	ConfigSetting(const char *ini, uint64_t *v, uint64_t def, bool save, bool perGame)
-		: iniKey_(ini), type_(TYPE_UINT64), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *ini, uint64_t *v, uint64_t def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(ini), type_(TYPE_UINT64), flags_(flags) {
 		ptr_.lu = v;
 		cb_.lu = nullptr;
 		default_.lu = def;
 	}
 
-	ConfigSetting(const char *ini, float *v, float def, bool save, bool perGame)
-		: iniKey_(ini), type_(TYPE_FLOAT), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *ini, float *v, float def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(ini), type_(TYPE_FLOAT), flags_(flags) {
 		ptr_.f = v;
 		cb_.f = nullptr;
 		default_.f = def;
 	}
 
-	ConfigSetting(const char *ini, std::string *v, const char *def, bool save, bool perGame)
-		: iniKey_(ini), type_(TYPE_STRING), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *ini, std::string *v, const char *def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(ini), type_(TYPE_STRING), flags_(flags) {
 		ptr_.s = v;
 		cb_.s = nullptr;
 		default_.s = def;
 	}
 
-	ConfigSetting(const char *ini, Path *p, const char *def, bool save, bool perGame)
-		: iniKey_(ini), type_(TYPE_PATH), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *ini, Path *p, const char *def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(ini), type_(TYPE_PATH), flags_(flags) {
 		ptr_.p = p;
 		cb_.p = nullptr;
 		default_.p = def;
 	}
 
-	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, ConfigTouchPos def, bool save, bool perGame)
-		: iniKey_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, ConfigTouchPos def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), flags_(flags) {
 		ptr_.touchPos = v;
 		cb_.touchPos = nullptr;
 		default_.touchPos = def;
 	}
 
-	ConfigSetting(const char *iniKey, const char *iniImage, const char *iniShape, const char *iniToggle, const char *iniRepeat, ConfigCustomButton *v, ConfigCustomButton def, bool save, bool perGame)
-		: iniKey_(iniKey), ini2_(iniImage), ini3_(iniShape), ini4_(iniToggle), ini5_(iniRepeat), type_(TYPE_CUSTOM_BUTTON), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *iniKey, const char *iniImage, const char *iniShape, const char *iniToggle, const char *iniRepeat, ConfigCustomButton *v, ConfigCustomButton def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(iniKey), ini2_(iniImage), ini3_(iniShape), ini4_(iniToggle), ini5_(iniRepeat), type_(TYPE_CUSTOM_BUTTON), flags_(flags) {
 		ptr_.customButton = v;
 		cb_.customButton = nullptr;
 		default_.customButton = def;
 	}
 
-	ConfigSetting(const char *ini, bool *v, BoolDefaultCallback def, bool save, bool perGame)
-		: iniKey_(ini), type_(TYPE_BOOL), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *ini, bool *v, BoolDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(ini), type_(TYPE_BOOL), flags_(flags) {
 		ptr_.b = v;
 		cb_.b = def;
 	}
 
-	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, bool save, bool perGame)
-		: iniKey_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(ini), type_(TYPE_INT), flags_(flags) {
 		ptr_.i = v;
 		cb_.i = def;
 	}
 
-	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, std::string(*transTo)(int), int(*transFrom)(const std::string &), bool save, bool perGame)
-		: iniKey_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame), translateTo_(transTo), translateFrom_(transFrom) {
+	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, std::string(*transTo)(int), int(*transFrom)(const std::string &), CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(ini), type_(TYPE_INT), flags_(flags), translateTo_(transTo), translateFrom_(transFrom) {
 		ptr_.i = v;
 		cb_.i = def;
 	}
 
-	ConfigSetting(const char *ini, uint32_t *v, Uint32DefaultCallback def, bool save, bool perGame)
-		: iniKey_(ini), type_(TYPE_UINT32), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *ini, uint32_t *v, Uint32DefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(ini), type_(TYPE_UINT32), flags_(flags) {
 		ptr_.u = v;
 		cb_.u = def;
 	}
 
-	ConfigSetting(const char *ini, float *v, FloatDefaultCallback def, bool save, bool perGame)
-		: iniKey_(ini), type_(TYPE_FLOAT), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *ini, float *v, FloatDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(ini), type_(TYPE_FLOAT), flags_(flags) {
 		ptr_.f = v;
 		cb_.f = def;
 	}
 
-	ConfigSetting(const char *ini, std::string *v, StringDefaultCallback def, bool save, bool perGame)
-		: iniKey_(ini), type_(TYPE_STRING), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *ini, std::string *v, StringDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(ini), type_(TYPE_STRING), flags_(flags) {
 		ptr_.s = v;
 		cb_.s = def;
 	}
 
-	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, TouchPosDefaultCallback def, bool save, bool perGame)
-		: iniKey_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, TouchPosDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT)
+		: iniKey_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), flags_(flags) {
 		ptr_.touchPos = v;
 		cb_.touchPos = def;
 	}
@@ -189,6 +196,11 @@ struct ConfigSetting {
 
 	void Report(UrlEncoder &data, const std::string &prefix) const;
 
+	// Easy flag accessors.
+	bool PerGame() const { return flags_ & CfgFlag::PER_GAME; }
+	bool SaveSetting() const { return !(flags_ & CfgFlag::DONT_SAVE); }
+	bool Report() const { return report_; }
+
 	const char *iniKey_ = nullptr;
 	const char *ini2_ = nullptr;
 	const char *ini3_ = nullptr;
@@ -197,34 +209,39 @@ struct ConfigSetting {
 
 	const Type type_;
 
-	bool report_;
-	const bool save_;
-	const bool perGame_;
+protected:
+	bool report_ = false;
+
+private:
+	CfgFlag flags_;
 	SettingPtr ptr_;
 	DefaultValue default_{};
 	DefaultCallback cb_;
 
 	// We only support transform for ints.
-	std::string(*translateTo_)(int) = nullptr;
-	int(*translateFrom_)(const std::string &) = nullptr;
-};
-
-struct ReportedConfigSetting : public ConfigSetting {
-	template <typename T1, typename T2>
-	ReportedConfigSetting(const char *ini, T1 *v, T2 def, bool save, bool perGame)
-		: ConfigSetting(ini, v, def, save, perGame) {
-		report_ = true;
-	}
-
-	template <typename T1, typename T2>
-	ReportedConfigSetting(const char *ini, T1 *v, T2 def, std::string(*transTo)(int), int(*transFrom)(const std::string &), bool save, bool perGame)
-		: ConfigSetting(ini, v, def, transTo, transFrom, save, perGame) {
-		report_ = true;
-	}
+	std::string (*translateTo_)(int) = nullptr;
+	int (*translateFrom_)(const std::string &) = nullptr;
 };
 
 struct ConfigSectionSettings {
 	const char *section;
 	const ConfigSetting *settings;
 	size_t settingsCount;
+};
+
+struct ReportedConfigSetting : public ConfigSetting {
+	template <typename T1, typename T2>
+	ReportedConfigSetting(const char *ini, T1 *v, T2 def, CfgFlag flags = CfgFlag::DEFAULT)
+		: ConfigSetting(ini, v, def, flags) {
+		report_ = true;
+	}
+
+	template <typename T1, typename T2>
+	ReportedConfigSetting(const char *ini, T1 *v, T2 def, std::string (*transTo)(int), int (*transFrom)(const std::string &), CfgFlag flags = CfgFlag::DEFAULT)
+		: ConfigSetting(ini, v, def, transTo, transFrom, flags) {
+		report_ = true;
+	}
+
+	std::string(*translateTo_)(int) = nullptr;
+	int (*translateFrom_)(const std::string &) = nullptr;
 };

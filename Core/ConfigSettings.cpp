@@ -66,7 +66,7 @@ bool ConfigSetting::Get(const Section *section) const {
 }
 
 void ConfigSetting::Set(Section *section) const {
-	if (!save_) {
+	if (!SaveSetting()) {
 		return;
 	}
 
