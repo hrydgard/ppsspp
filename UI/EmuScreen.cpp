@@ -636,7 +636,10 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		break;
 
 	case VIRTKEY_OPENCHAT:
-		if (down && g_Config.bEnableNetworkChat) {
+		// If we react at "down", the control mapper will never receive the "up" since
+		// we pop up a dialog which takes over input.
+		// Could hack around it, but this seems more sensible, even if it might feel less snappy.
+		if (!down && g_Config.bEnableNetworkChat) {
 			UI::EventParams e{};
 			OnChatMenu.Trigger(e);
 		}
