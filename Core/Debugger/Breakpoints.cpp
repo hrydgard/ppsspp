@@ -489,9 +489,10 @@ bool CBreakPoints::GetMemCheck(u32 start, u32 end, MemCheck *check) {
 	return false;
 }
 
-static inline u32 NotCached(u32 val)
-{
-	// Remove the cached part of the address.
+static inline u32 NotCached(u32 val) {
+	// Remove the cached part of the address as well as any mirror.
+	if ((val & 0x3F800000) == 0x04000000)
+		return val & ~0x40600000;
 	return val & ~0x40000000;
 }
 
@@ -614,6 +615,26 @@ u32 CBreakPoints::CheckSkipFirst()
 	return 0;
 }
 
+static MemCheck NotCached(MemCheck mc) {
+	// Toggle the cached part of the address.
+	mc.start ^= 0x40000000;
+	if (mc.end != 0)
+		mc.end ^= 0x40000000;
+	return mc;
+}
+
+static MemCheck VRAMMirror(uint8_t mirror, MemCheck mc) {
+	mc.start &= ~0x00600000;
+	mc.start += 0x00200000 * mirror;
+	if (mc.end != 0) {
+		mc.end &= ~0x00600000;
+		mc.end += 0x00200000 * mirror;
+		if (mc.end < mc.start)
+			mc.end += 0x00200000;
+	}
+	return mc;
+}
+
 const std::vector<MemCheck> CBreakPoints::GetMemCheckRanges(bool write) {
 	std::lock_guard<std::mutex> guard(memCheckMutex_);
 	std::vector<MemCheck> ranges;
@@ -623,13 +644,16 @@ const std::vector<MemCheck> CBreakPoints::GetMemCheckRanges(bool write) {
 		if (!(check.cond & MEMCHECK_WRITE) && write)
 			continue;
 
-		MemCheck copy = check;
-		// Toggle the cached part of the address.
-		copy.start ^= 0x40000000;
-		if (copy.end != 0)
-			copy.end ^= 0x40000000;
-		ranges.push_back(check);
-		ranges.push_back(copy);
+		if (Memory::IsVRAMAddress(check.start) && (check.end == 0 || Memory::IsVRAMAddress(check.end))) {
+			for (uint8_t mirror = 0; mirror < 4; ++mirror) {
+				MemCheck copy = VRAMMirror(mirror, check);
+				ranges.push_back(copy);
+				ranges.push_back(NotCached(copy));
+			}
+		} else {
+			ranges.push_back(check);
+			ranges.push_back(NotCached(check));
+		}
 	}
 
 	return ranges;
