@@ -616,7 +616,7 @@ u32 CBreakPoints::CheckSkipFirst()
 
 const std::vector<MemCheck> CBreakPoints::GetMemCheckRanges(bool write) {
 	std::lock_guard<std::mutex> guard(memCheckMutex_);
-	std::vector<MemCheck> ranges = memChecks_;
+	std::vector<MemCheck> ranges;
 	for (const auto &check : memChecks_) {
 		if (!(check.cond & MEMCHECK_READ) && !write)
 			continue;
@@ -628,6 +628,7 @@ const std::vector<MemCheck> CBreakPoints::GetMemCheckRanges(bool write) {
 		copy.start ^= 0x40000000;
 		if (copy.end != 0)
 			copy.end ^= 0x40000000;
+		ranges.push_back(check);
 		ranges.push_back(copy);
 	}
 
