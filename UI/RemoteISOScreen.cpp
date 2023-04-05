@@ -612,7 +612,7 @@ void RemoteISOSettingsScreen::CreateViews() {
 	remoteisoSettings->Add(remoteServer);
 	remoteServer->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
-	PopupSliderChoice *remotePort = remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, ri->T("Remote Port", "Remote Port"), 100, screenManager()));
+	PopupSliderChoice *remotePort = remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, 0, ri->T("Remote Port", "Remote Port"), 100, screenManager()));
 	remotePort->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
 	UI::Choice *remoteSubdir;
@@ -630,7 +630,7 @@ void RemoteISOSettingsScreen::CreateViews() {
 	remoteisoSettings->Add(remoteSubdir);
 	remoteSubdir->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
-	PopupSliderChoice *portChoice = new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, ri->T("Local Server Port", "Local Server Port"), 100, screenManager());
+	PopupSliderChoice *portChoice = new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, 0, ri->T("Local Server Port", "Local Server Port"), 100, screenManager());
 	remoteisoSettings->Add(portChoice);
 	portChoice->SetDisabledPtr(&serverRunning_);
 	remoteisoSettings->Add(new Spacer(25.0));

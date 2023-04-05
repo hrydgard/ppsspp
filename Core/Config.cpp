@@ -1002,7 +1002,6 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("TouchButtonOpacity", &g_Config.iTouchButtonOpacity, 65, true, true),
 	ConfigSetting("TouchButtonHideSeconds", &g_Config.iTouchButtonHideSeconds, 20, true, true),
 	ConfigSetting("AutoCenterTouchAnalog", &g_Config.bAutoCenterTouchAnalog, false, true, true),
-	ConfigSetting("AnalogAutoRotSpeed", &g_Config.fAnalogAutoRotSpeed, 8.0f, true, true),
 
 	// Snap touch control position
 	ConfigSetting("TouchSnapToGrid", &g_Config.bTouchSnapToGrid, false, true, true),
@@ -1026,7 +1025,8 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogDeadzone", &g_Config.fAnalogDeadzone, 0.15f, true, true),
 	ConfigSetting("AnalogInverseDeadzone", &g_Config.fAnalogInverseDeadzone, 0.0f, true, true),
 	ConfigSetting("AnalogSensitivity", &g_Config.fAnalogSensitivity, 1.1f, true, true),
-	ConfigSetting("AnalogIsCircular", &g_Config.bAnalogIsCircular, false , true, true),
+	ConfigSetting("AnalogIsCircular", &g_Config.bAnalogIsCircular, false, true, true),
+	ConfigSetting("AnalogAutoRotSpeed", &g_Config.fAnalogAutoRotSpeed, 8.0f, true, true),
 
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f, true, true),
 

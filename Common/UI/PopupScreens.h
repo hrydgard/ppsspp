@@ -7,6 +7,9 @@
 
 namespace UI {
 
+static const float NO_DEFAULT_FLOAT = -1000000.0f;
+static const int NO_DEFAULT_INT = -1000000;
+
 class ListPopupScreen : public PopupScreen {
 public:
 	ListPopupScreen(std::string title) : PopupScreen(title) {}
@@ -64,8 +67,8 @@ private:
 
 class SliderPopupScreen : public PopupScreen {
 public:
-	SliderPopupScreen(int *value, int minValue, int maxValue, const std::string &title, int step = 1, const std::string &units = "")
-		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step) {}
+	SliderPopupScreen(int *value, int minValue, int maxValue, int defaultValue, const std::string &title, int step = 1, const std::string &units = "")
+		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step) {}
 	void CreatePopupContents(ViewGroup *parent) override;
 
 	void SetNegativeDisable(const std::string &str) {
@@ -83,6 +86,7 @@ private:
 	EventReturn OnTextChange(EventParams &params);
 	EventReturn OnSliderChange(EventParams &params);
 	void OnCompleted(DialogResult result) override;
+	void UpdateTextBox();
 	Slider *slider_ = nullptr;
 	UI::TextEdit *edit_ = nullptr;
 	std::string units_;
@@ -91,6 +95,7 @@ private:
 	int sliderValue_ = 0;
 	int minValue_;
 	int maxValue_;
+	int defaultValue_;
 	int step_;
 	bool changing_ = false;
 	bool disabled_ = false;
@@ -98,8 +103,8 @@ private:
 
 class SliderFloatPopupScreen : public PopupScreen {
 public:
-	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title, float step = 1.0f, const std::string &units = "", bool liveUpdate = false)
-		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), originalValue_(*value), minValue_(minValue), maxValue_(maxValue), step_(step), liveUpdate_(liveUpdate) {}
+	SliderFloatPopupScreen(float *value, float minValue, float maxValue, float defaultValue, const std::string &title, float step = 1.0f, const std::string &units = "", bool liveUpdate = false)
+		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), originalValue_(*value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step), liveUpdate_(liveUpdate) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
 	const char *tag() const override { return "SliderFloatPopup"; }
@@ -112,6 +117,7 @@ private:
 	EventReturn OnTextChange(EventParams &params);
 	EventReturn OnSliderChange(EventParams &params);
 	void OnCompleted(DialogResult result) override;
+	void UpdateTextBox();
 	UI::SliderFloat *slider_ = nullptr;
 	UI::TextEdit *edit_ = nullptr;
 	std::string units_;
@@ -120,6 +126,7 @@ private:
 	float *value_;
 	float minValue_;
 	float maxValue_;
+	float defaultValue_;
 	float step_;
 	bool changing_ = false;
 	bool liveUpdate_;
@@ -271,8 +278,8 @@ private:
 
 class PopupSliderChoice : public AbstractChoiceWithValueDisplay {
 public:
-	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
-	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
+	PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, const std::string &text, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
+	PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 
 	void SetFormat(const char *fmt) {
 		fmt_ = fmt;
@@ -296,6 +303,7 @@ private:
 	int *value_;
 	int minValue_;
 	int maxValue_;
+	int defaultValue_;
 	int step_;
 	const char *fmt_;
 	std::string zeroLabel_;
@@ -307,8 +315,8 @@ private:
 
 class PopupSliderChoiceFloat : public AbstractChoiceWithValueDisplay {
 public:
-	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
-	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, float step, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
+	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, float defaultValue, const std::string &text, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
+	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, float defaultValue, const std::string &text, float step, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 
 	void SetFormat(const char *fmt) {
 		fmt_ = fmt;
@@ -334,6 +342,7 @@ private:
 	float *value_;
 	float minValue_;
 	float maxValue_;
+	float defaultValue_;
 	float step_;
 	const char *fmt_;
 	std::string zeroLabel_;
