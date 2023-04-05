@@ -244,7 +244,7 @@ void DisplayLayoutScreen::CreateViews() {
 		stretch->SetDisabledPtr(&g_Config.bDisplayIntegerScale);
 		rightColumn->Add(stretch);
 
-		PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.5f, 2.0f, gr->T("Aspect Ratio"), screenManager());
+		PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&g_Config.fDisplayAspectRatio, 0.1f, 2.0f, 1.0f, gr->T("Aspect Ratio"), screenManager());
 		rightColumn->Add(aspectRatio);
 		aspectRatio->SetEnabledFunc([]() {
 			return !g_Config.bDisplayStretch && !g_Config.bDisplayIntegerScale;
@@ -445,10 +445,10 @@ void DisplayLayoutScreen::CreateViews() {
 
 					if (duplicated) {
 						auto sliderName = StringFromFormat("%s %s", ps->T(setting.name), ps->T("(duplicated setting, previous slider will be used)"));
-						PopupSliderChoiceFloat *settingValue = settingContainer->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, sliderName, setting.step, screenManager()));
+						PopupSliderChoiceFloat *settingValue = settingContainer->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, setting.value, sliderName, setting.step, screenManager()));
 						settingValue->SetEnabled(false);
 					} else {
-						PopupSliderChoiceFloat *settingValue = settingContainer->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+						PopupSliderChoiceFloat *settingValue = settingContainer->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, setting.value, ps->T(setting.name), setting.step, screenManager()));
 						settingValue->SetLiveUpdate(true);
 						settingValue->SetHasDropShadow(false);
 						settingValue->SetEnabledFunc([=] {

@@ -759,7 +759,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 #if defined(USING_WIN_UI)
 		controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, co->T("Ignore Windows Key")));
 #endif // #if defined(USING_WIN_UI)
-		auto analogLimiter = new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, co->T("Analog Limiter"), 0.10f, screenManager(), "/ 1.0");
+		auto analogLimiter = new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, 0.6f, co->T("Analog Limiter"), 0.10f, screenManager(), "/ 1.0");
 		controlsSettings->Add(analogLimiter);
 		analogLimiter->OnChange.Add([=](EventParams &e) {
 			settingInfo_->Show(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), e.v);
@@ -774,8 +774,8 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 			return UI::EVENT_CONTINUE;
 		});
 		controlsSettings->Add(new CheckBox(&g_Config.bMouseConfine, co->T("Confine Mouse", "Trap mouse within window/display area")))->SetEnabledPtr(&g_Config.bMouseControl);
-		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSensitivity, 0.01f, 1.0f, co->T("Mouse sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
-		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
+		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSensitivity, 0.01f, 1.0f, 0.1f, co->T("Mouse sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
+		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, 0.9f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
 #endif
 	}
 }
@@ -945,11 +945,11 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 
 	if (!draw->GetBugs().Has(Draw::Bugs::RASPBERRY_SHADER_COMP_HANG)) {
 		// We use shaders without tint capability on hardware with this driver bug.
-		PopupSliderChoiceFloat *tint = new PopupSliderChoiceFloat(&g_Config.fUITint, 0.0, 1.0, sy->T("Color Tint"), 0.01f, screenManager());
+		PopupSliderChoiceFloat *tint = new PopupSliderChoiceFloat(&g_Config.fUITint, 0.0f, 1.0f, 0.0f, sy->T("Color Tint"), 0.01f, screenManager());
 		tint->SetHasDropShadow(false);
 		tint->SetLiveUpdate(true);
 		systemSettings->Add(tint);
-		PopupSliderChoiceFloat *saturation = new PopupSliderChoiceFloat(&g_Config.fUISaturation, 0.0, 2.0, sy->T("Color Saturation"), 0.01f, screenManager());
+		PopupSliderChoiceFloat *saturation = new PopupSliderChoiceFloat(&g_Config.fUISaturation, 0.0f, 2.0f, 1.0f, sy->T("Color Saturation"), 0.01f, screenManager());
 		saturation->SetHasDropShadow(false);
 		saturation->SetLiveUpdate(true);
 		systemSettings->Add(saturation);
@@ -1137,19 +1137,19 @@ void GameSettingsScreen::CreateVRSettings(UI::ViewGroup *vrSettings) {
 	vrSettings->Add(new CheckBox(&g_Config.bForce72Hz, vr->T("Force 72Hz update")));
 
 	vrSettings->Add(new ItemHeader(vr->T("VR camera")));
-	vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCanvasDistance, 1.0f, 15.0f, vr->T("Distance to 2D menus and scenes"), 1.0f, screenManager(), ""));
-	vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fFieldOfViewPercentage, 100.0f, 200.0f, vr->T("Field of view scale"), 10.0f, screenManager(), vr->T("% of native FoV")));
-	vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadUpDisplayScale, 0.0f, 1.5f, vr->T("Heads-up display scale"), 0.1f, screenManager(), ""));
+	vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCanvasDistance, 1.0f, 15.0f, 12.0f, vr->T("Distance to 2D menus and scenes"), 1.0f, screenManager(), ""));
+	vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fFieldOfViewPercentage, 100.0f, 200.0f, 100.0f, vr->T("Field of view scale"), 10.0f, screenManager(), vr->T("% of native FoV")));
+	vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadUpDisplayScale, 0.0f, 1.5f, 0.3f, vr->T("Heads-up display scale"), 0.1f, screenManager(), ""));
 
 	vrSettings->Add(new ItemHeader(vr->T("Experts only")));
 	vrSettings->Add(new CheckBox(&g_Config.bManualForceVR, vr->T("Manual switching between flat screen and VR using SCREEN key")));
 	vrSettings->Add(new CheckBox(&g_Config.bHeadRotationEnabled, vr->T("Map HMD rotations on keys instead of VR camera")));
-	PopupSliderChoiceFloat *vrHeadRotationScale = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadRotationScale, 0.1f, 10.0f, vr->T("Game camera rotation step per frame"), 0.1f, screenManager(), "°"));
+	PopupSliderChoiceFloat *vrHeadRotationScale = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadRotationScale, 0.1f, 10.0f, 5.0f, vr->T("Game camera rotation step per frame"), 0.1f, screenManager(), "°"));
 	vrHeadRotationScale->SetEnabledPtr(&g_Config.bHeadRotationEnabled);
 	CheckBox *vrHeadRotationSmoothing = vrSettings->Add(new CheckBox(&g_Config.bHeadRotationSmoothing, vr->T("Game camera uses rotation smoothing")));
 	vrHeadRotationSmoothing->SetEnabledPtr(&g_Config.bHeadRotationEnabled);
 	vrSettings->Add(new CheckBox(&g_Config.bEnableMotions, vr->T("Map controller movements to keys")));
-	PopupSliderChoiceFloat *vrMotions = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMotionLength, 0.3f, 1.0f, vr->T("Motion needed to generate action"), 0.1f, screenManager(), vr->T("m")));
+	PopupSliderChoiceFloat *vrMotions = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMotionLength, 0.3f, 1.0f, 0.5f, vr->T("Motion needed to generate action"), 0.1f, screenManager(), vr->T("m")));
 	vrMotions->SetEnabledPtr(&g_Config.bEnableMotions);
 	static const char *cameraPitchModes[] = { "Disabled", "Top view -> First person", "First person -> Top view" };
 	vrSettings->Add(new PopupMultiChoice(&g_Config.iCameraPitch, vr->T("Modify camera type"), cameraPitchModes, 0, 3, "", screenManager()));
@@ -1830,7 +1830,7 @@ void DeveloperToolsScreen::CreateViews() {
 					if (!keyExisted)
 						value = setting.value;
 
-					PopupSliderChoiceFloat *settingValue = list->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+					PopupSliderChoiceFloat *settingValue = list->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, setting.value, ps->T(setting.name), setting.step, screenManager()));
 					settingValue->SetEnabledFunc([=] {
 						return !g_Config.bSkipBufferEffects && enableStereo();
 					});
@@ -2206,8 +2206,8 @@ void GestureMappingScreen::CreateViews() {
 	vert->Add(new PopupMultiChoice(&g_Config.iSwipeDown, mc->T("Swipe Down"), gestureButton, 0, ARRAY_SIZE(gestureButton), mc->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
 	vert->Add(new PopupMultiChoice(&g_Config.iSwipeLeft, mc->T("Swipe Left"), gestureButton, 0, ARRAY_SIZE(gestureButton), mc->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
 	vert->Add(new PopupMultiChoice(&g_Config.iSwipeRight, mc->T("Swipe Right"), gestureButton, 0, ARRAY_SIZE(gestureButton), mc->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
-	vert->Add(new PopupSliderChoiceFloat(&g_Config.fSwipeSensitivity, 0.01f, 1.0f, co->T("Swipe sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
-	vert->Add(new PopupSliderChoiceFloat(&g_Config.fSwipeSmoothing, 0.0f, 0.95f, co->T("Swipe smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
+	vert->Add(new PopupSliderChoiceFloat(&g_Config.fSwipeSensitivity, 0.01f, 1.0f, 1.0f, co->T("Swipe sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
+	vert->Add(new PopupSliderChoiceFloat(&g_Config.fSwipeSmoothing, 0.0f, 0.95f, 0.3f, co->T("Swipe smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
 
 	vert->Add(new ItemHeader(co->T("Double tap")));
 	vert->Add(new PopupMultiChoice(&g_Config.iDoubleTapGesture, mc->T("Double tap button"), gestureButton, 0, ARRAY_SIZE(gestureButton), mc->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
