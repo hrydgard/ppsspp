@@ -140,7 +140,7 @@ private slots:
 	void frameSkippingGroup_triggered(QAction *action) { g_Config.iFrameSkip = action->data().toInt(); }
 	void frameSkippingTypeGroup_triggered(QAction *action) { g_Config.iFrameSkipType = action->data().toInt(); }
 	void textureFilteringGroup_triggered(QAction *action) { g_Config.iTexFiltering = action->data().toInt(); }
-	void screenScalingFilterGroup_triggered(QAction *action) { g_Config.iBufFilter = action->data().toInt(); }
+	void screenScalingFilterGroup_triggered(QAction *action) { g_Config.iDisplayFilter = action->data().toInt(); }
 	void textureScalingLevelGroup_triggered(QAction *action) {
 		g_Config.iTexScalingLevel = action->data().toInt();
 		NativeMessageReceived("gpu_configChanged", "");

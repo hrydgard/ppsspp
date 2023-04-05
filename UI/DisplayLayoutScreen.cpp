@@ -302,7 +302,7 @@ void DisplayLayoutScreen::CreateViews() {
 
 	if (!IsVREnabled()) {
 		static const char *bufFilters[] = { "Linear", "Nearest", };
-		leftColumn->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
+		leftColumn->Add(new PopupMultiChoice(&g_Config.iDisplayFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
 	}
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();

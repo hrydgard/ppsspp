@@ -562,7 +562,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	desc.tag = "SoftGPU";
 	bool hasImage = true;
 
-	OutputFlags outputFlags = g_Config.iBufFilter == SCALE_NEAREST ? OutputFlags::NEAREST : OutputFlags::LINEAR;
+	OutputFlags outputFlags = g_Config.iDisplayFilter == SCALE_NEAREST ? OutputFlags::NEAREST : OutputFlags::LINEAR;
 	bool hasPostShader = presentation_ && presentation_->HasPostShader();
 
 	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch != DSStretch::Off) {

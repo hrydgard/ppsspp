@@ -168,9 +168,9 @@ public:
 	bool bSkipBufferEffects;
 
 	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality
-	int iBufFilter; // 1 = linear, 2 = nearest
 
 	bool bDisplayStretch;  // Automatically matches the aspect ratio of the window.
+	int iDisplayFilter;    // 1 = linear, 2 = nearest
 	float fDisplayOffsetX;
 	float fDisplayOffsetY;
 	float fDisplayScale;   // Relative to the most constraining axis (x or y).
