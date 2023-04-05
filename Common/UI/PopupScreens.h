@@ -8,6 +8,7 @@
 namespace UI {
 
 static const float NO_DEFAULT_FLOAT = -1000000.0f;
+static const int NO_DEFAULT_INT = -1000000;
 
 class ListPopupScreen : public PopupScreen {
 public:
@@ -66,8 +67,8 @@ private:
 
 class SliderPopupScreen : public PopupScreen {
 public:
-	SliderPopupScreen(int *value, int minValue, int maxValue, const std::string &title, int step = 1, const std::string &units = "")
-		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step) {}
+	SliderPopupScreen(int *value, int minValue, int maxValue, int defaultValue, const std::string &title, int step = 1, const std::string &units = "")
+		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step) {}
 	void CreatePopupContents(ViewGroup *parent) override;
 
 	void SetNegativeDisable(const std::string &str) {
@@ -85,6 +86,7 @@ private:
 	EventReturn OnTextChange(EventParams &params);
 	EventReturn OnSliderChange(EventParams &params);
 	void OnCompleted(DialogResult result) override;
+	void UpdateTextBox();
 	Slider *slider_ = nullptr;
 	UI::TextEdit *edit_ = nullptr;
 	std::string units_;
@@ -93,6 +95,7 @@ private:
 	int sliderValue_ = 0;
 	int minValue_;
 	int maxValue_;
+	int defaultValue_;
 	int step_;
 	bool changing_ = false;
 	bool disabled_ = false;
@@ -275,8 +278,8 @@ private:
 
 class PopupSliderChoice : public AbstractChoiceWithValueDisplay {
 public:
-	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
-	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
+	PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, const std::string &text, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
+	PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 
 	void SetFormat(const char *fmt) {
 		fmt_ = fmt;
@@ -300,6 +303,7 @@ private:
 	int *value_;
 	int minValue_;
 	int maxValue_;
+	int defaultValue_;
 	int step_;
 	const char *fmt_;
 	std::string zeroLabel_;

@@ -143,14 +143,14 @@ std::string PopupMultiChoice::ValueText() const {
 	return valueText_;
 }
 
-PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
-	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(1), units_(units), screenManager_(screenManager) {
+PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, const std::string &text, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
+	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(1), units_(units), screenManager_(screenManager) {
 	fmt_ = "%i";
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
-PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
-	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), units_(units), screenManager_(screenManager) {
+PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
+	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step), units_(units), screenManager_(screenManager) {
 	fmt_ = "%i";
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
@@ -170,7 +170,7 @@ PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, flo
 EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
-	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, ChopTitle(text_), step_, units_);
+	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, defaultValue_, ChopTitle(text_), step_, units_);
 	if (!negativeLabel_.empty())
 		popupScreen->SetNegativeDisable(negativeLabel_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoice::HandleChange);
@@ -244,9 +244,7 @@ EventReturn SliderPopupScreen::OnDecrease(EventParams &params) {
 	sliderValue_ -= step_;
 	slider_->Clamp();
 	changing_ = true;
-	char temp[64];
-	sprintf(temp, "%d", sliderValue_);
-	edit_->SetText(temp);
+	UpdateTextBox();
 	changing_ = false;
 	disabled_ = false;
 	return EVENT_DONE;
@@ -259,9 +257,7 @@ EventReturn SliderPopupScreen::OnIncrease(EventParams &params) {
 	sliderValue_ += step_;
 	slider_->Clamp();
 	changing_ = true;
-	char temp[64];
-	sprintf(temp, "%d", sliderValue_);
-	edit_->SetText(temp);
+	UpdateTextBox();
 	changing_ = false;
 	disabled_ = false;
 	return EVENT_DONE;
@@ -269,9 +265,7 @@ EventReturn SliderPopupScreen::OnIncrease(EventParams &params) {
 
 EventReturn SliderPopupScreen::OnSliderChange(EventParams &params) {
 	changing_ = true;
-	char temp[64];
-	sprintf(temp, "%d", sliderValue_);
-	edit_->SetText(temp);
+	UpdateTextBox();
 	changing_ = false;
 	disabled_ = false;
 	return EVENT_DONE;
@@ -286,9 +280,16 @@ EventReturn SliderPopupScreen::OnTextChange(EventParams &params) {
 	return EVENT_DONE;
 }
 
+void SliderPopupScreen::UpdateTextBox() {
+	char temp[64];
+	sprintf(temp, "%d", sliderValue_);
+	edit_->SetText(temp);
+}
+
 void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	UIContext &dc = *screenManager()->getUIContext();
+	auto di = GetI18NCategory("Dialog");
 
 	sliderValue_ = *value_;
 	if (disabled_ && sliderValue_ < 0)
@@ -302,18 +303,29 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
 	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
 
-	char temp[64];
-	sprintf(temp, "%d", sliderValue_);
-	edit_ = new TextEdit(temp, Title(), "", new LinearLayoutParams(10.0f));
+	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
 	edit_->SetTextColor(dc.theme->itemStyle.fgColor);
 	edit_->SetTextAlign(FLAG_DYNAMIC_ASCII);
 	edit_->OnTextChange.Handle(this, &SliderPopupScreen::OnTextChange);
+	changing_ = true;
+	UpdateTextBox();
 	changing_ = false;
 	lin->Add(edit_);
 
 	if (!units_.empty())
-		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)))->SetTextColor(dc.theme->itemStyle.fgColor);
+		lin->Add(new TextView(units_))->SetTextColor(dc.theme->itemStyle.fgColor);
+
+	if (defaultValue_ != NO_DEFAULT_FLOAT) {
+		//LinearLayout *lin2 = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
+		lin->Add(new Button(di->T("Reset")))->OnClick.Add([=](UI::EventParams &) {
+			sliderValue_ = defaultValue_;
+			changing_ = true;
+			UpdateTextBox();
+			changing_ = false;
+			return UI::EVENT_DONE;
+			});
+	}
 
 	if (!negativeLabel_.empty())
 		vert->Add(new CheckBox(&disabled_, negativeLabel_));
