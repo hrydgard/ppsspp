@@ -281,6 +281,7 @@
     <ClInclude Include="..\..\Core\AVIDump.h" />
     <ClInclude Include="..\..\Core\Compatibility.h" />
     <ClInclude Include="..\..\Core\Config.h" />
+    <ClInclude Include="..\..\Core\ConfigSettings.h" />
     <ClInclude Include="..\..\Core\ControlMapper.h" />
     <ClInclude Include="..\..\Core\Core.h" />
     <ClInclude Include="..\..\Core\CoreParameter.h" />
@@ -521,6 +522,7 @@
     <ClCompile Include="..\..\Core\AVIDump.cpp" />
     <ClCompile Include="..\..\Core\Compatibility.cpp" />
     <ClCompile Include="..\..\Core\Config.cpp" />
+    <ClCompile Include="..\..\Core\ConfigSettings.cpp" />
     <ClCompile Include="..\..\Core\ControlMapper.cpp" />
     <ClCompile Include="..\..\Core\Core.cpp" />
     <ClCompile Include="..\..\Core\CoreTiming.cpp" />

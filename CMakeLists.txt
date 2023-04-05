@@ -1740,6 +1740,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	${CommonJIT}
 	Core/Config.cpp
 	Core/Config.h
+	Core/ConfigSettings.cpp
+	Core/ConfigSettings.h
 	Core/ConfigValues.h
 	Core/ControlMapper.cpp
 	Core/ControlMapper.h

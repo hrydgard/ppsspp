@@ -1126,6 +1126,7 @@
     <ClCompile Include="..\..\Core\MIPS\MIPSVFPUFallbacks.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\ConfigSettings.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1780,6 +1781,7 @@
     <ClInclude Include="..\..\Core\MIPS\MIPSVFPUFallbacks.h">
       <Filter>MIPS</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Core\ConfigSettings.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE">
