@@ -814,12 +814,6 @@ static const ConfigSetting vrSettings[] = {
 	ConfigSetting("VRHeadRotationSmoothing", &g_Config.bHeadRotationSmoothing, false),
 };
 
-struct ConfigSectionSettings {
-	const char *section;
-	const ConfigSetting *settings;
-	size_t settingsCount;
-};
-
 static const ConfigSectionSettings sections[] = {
 	{"General", generalSettings, ARRAY_SIZE(generalSettings)},
 	{"CPU", cpuSettings, ARRAY_SIZE(cpuSettings)},
@@ -835,8 +829,10 @@ static const ConfigSectionSettings sections[] = {
 	{"VR", vrSettings, ARRAY_SIZE(vrSettings)},
 };
 
+const size_t numSections = ARRAY_SIZE(sections);
+
 static void IterateSettings(IniFile &iniFile, std::function<void(Section *section, const ConfigSetting &setting)> func) {
-	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
+	for (size_t i = 0; i < numSections; ++i) {
 		Section *section = iniFile.GetOrCreateSection(sections[i].section);
 		for (size_t j = 0; j < sections[i].settingsCount; j++) {
 			func(section, sections[i].settings[j]);
@@ -845,7 +841,7 @@ static void IterateSettings(IniFile &iniFile, std::function<void(Section *sectio
 }
 
 static void IterateSettings(std::function<void(const ConfigSetting &setting)> func) {
-	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
+	for (size_t i = 0; i < numSections; ++i) {
 		for (size_t j = 0; j < sections[i].settingsCount; j++) {
 			func(sections[i].settings[j]);
 		}
@@ -1686,7 +1682,7 @@ void Config::ResetControlLayout() {
 }
 
 void Config::GetReportingInfo(UrlEncoder &data) {
-	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
+	for (size_t i = 0; i < numSections; ++i) {
 		const std::string prefix = std::string("config.") + sections[i].section;
 		for (size_t j = 0; j < sections[i].settingsCount; j++) {
 			sections[i].settings[j].Report(data, prefix);

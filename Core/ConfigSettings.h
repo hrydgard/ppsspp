@@ -222,3 +222,9 @@ struct ReportedConfigSetting : public ConfigSetting {
 		report_ = true;
 	}
 };
+
+struct ConfigSectionSettings {
+	const char *section;
+	const ConfigSetting *settings;
+	size_t settingsCount;
+};
