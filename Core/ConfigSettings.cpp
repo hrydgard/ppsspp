@@ -126,8 +126,8 @@ void ConfigSetting::RestoreToDefault() const {
 	}
 }
 
-void ConfigSetting::Report(UrlEncoder &data, const std::string &prefix) const {
-	if (!report_)
+void ConfigSetting::ReportSetting(UrlEncoder &data, const std::string &prefix) const {
+	if (!Report())
 		return;
 
 	switch (type_) {

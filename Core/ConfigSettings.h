@@ -12,6 +12,7 @@ enum class CfgFlag : u8 {
 	DEFAULT = 0,
 	DONT_SAVE = 1,  // normally don't like negative flags, but these are really not many.
 	PER_GAME = 2,
+	REPORT = 4,
 };
 ENUM_CLASS_BITOPS(CfgFlag);
 
@@ -194,12 +195,12 @@ struct ConfigSetting {
 
 	void RestoreToDefault() const;
 
-	void Report(UrlEncoder &data, const std::string &prefix) const;
+	void ReportSetting(UrlEncoder &data, const std::string &prefix) const;
 
 	// Easy flag accessors.
 	bool PerGame() const { return flags_ & CfgFlag::PER_GAME; }
 	bool SaveSetting() const { return !(flags_ & CfgFlag::DONT_SAVE); }
-	bool Report() const { return report_; }
+	bool Report() const { return flags_ & CfgFlag::REPORT; }
 
 	const char *iniKey_ = nullptr;
 	const char *ini2_ = nullptr;
@@ -208,9 +209,6 @@ struct ConfigSetting {
 	const char *ini5_ = nullptr;
 
 	const Type type_;
-
-protected:
-	bool report_ = false;
 
 private:
 	CfgFlag flags_;
@@ -227,21 +225,4 @@ struct ConfigSectionSettings {
 	const char *section;
 	const ConfigSetting *settings;
 	size_t settingsCount;
-};
-
-struct ReportedConfigSetting : public ConfigSetting {
-	template <typename T1, typename T2>
-	ReportedConfigSetting(const char *ini, T1 *v, T2 def, CfgFlag flags = CfgFlag::DEFAULT)
-		: ConfigSetting(ini, v, def, flags) {
-		report_ = true;
-	}
-
-	template <typename T1, typename T2>
-	ReportedConfigSetting(const char *ini, T1 *v, T2 def, std::string (*transTo)(int), int (*transFrom)(const std::string &), CfgFlag flags = CfgFlag::DEFAULT)
-		: ConfigSetting(ini, v, def, transTo, transFrom, flags) {
-		report_ = true;
-	}
-
-	std::string(*translateTo_)(int) = nullptr;
-	int (*translateFrom_)(const std::string &) = nullptr;
 };

@@ -174,7 +174,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("UISound", &g_Config.bUISound, false, CfgFlag::DEFAULT),
 
 	ConfigSetting("AutoLoadSaveState", &g_Config.iAutoLoadSaveState, 0, CfgFlag::PER_GAME),
-	ReportedConfigSetting("EnableCheats", &g_Config.bEnableCheats, false, CfgFlag::PER_GAME),
+	ConfigSetting("EnableCheats", &g_Config.bEnableCheats, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("CwCheatRefreshRate", &g_Config.iCwCheatRefreshRate, 77, CfgFlag::PER_GAME),
 	ConfigSetting("CwCheatScrollPosition", &g_Config.fCwCheatScrollPosition, 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("GameListScrollPosition", &g_Config.fGameListScrollPosition, 0.0f, CfgFlag::DEFAULT),
@@ -254,10 +254,10 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("FullscreenOnDoubleclick", &g_Config.bFullscreenOnDoubleclick, true, CfgFlag::DONT_SAVE),
 	ConfigSetting("ShowMenuBar", &g_Config.bShowMenuBar, true, CfgFlag::DEFAULT),
 
-	ReportedConfigSetting("MemStickInserted", &g_Config.bMemStickInserted, true, CfgFlag::PER_GAME),
+	ConfigSetting("MemStickInserted", &g_Config.bMemStickInserted, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("EnablePlugins", &g_Config.bLoadPlugins, true, CfgFlag::PER_GAME),
 
-	ReportedConfigSetting("IgnoreCompatSettings", &g_Config.sIgnoreCompatSettings, "", CfgFlag::PER_GAME),
+	ConfigSetting("IgnoreCompatSettings", &g_Config.sIgnoreCompatSettings, "", CfgFlag::PER_GAME | CfgFlag::REPORT),
 };
 
 static bool DefaultSasThread() {
@@ -265,16 +265,16 @@ static bool DefaultSasThread() {
 }
 
 static const ConfigSetting cpuSettings[] = {
-	ReportedConfigSetting("CPUCore", &g_Config.iCpuCore, &DefaultCpuCore, CfgFlag::PER_GAME),
-	ReportedConfigSetting("SeparateSASThread", &g_Config.bSeparateSASThread, &DefaultSasThread, CfgFlag::PER_GAME),
-	ReportedConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_FAST, CfgFlag::PER_GAME),
+	ConfigSetting("CPUCore", &g_Config.iCpuCore, &DefaultCpuCore, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("SeparateSASThread", &g_Config.bSeparateSASThread, &DefaultSasThread, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_FAST, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true, CfgFlag::PER_GAME),
-	ReportedConfigSetting("FunctionReplacements", &g_Config.bFuncReplacements, true, CfgFlag::PER_GAME),
+	ConfigSetting("FunctionReplacements", &g_Config.bFuncReplacements, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("HideSlowWarnings", &g_Config.bHideSlowWarnings, false, CfgFlag::DEFAULT),
 	ConfigSetting("HideStateWarnings", &g_Config.bHideStateWarnings, false, CfgFlag::DEFAULT),
 	ConfigSetting("PreloadFunctions", &g_Config.bPreloadFunctions, false, CfgFlag::PER_GAME),
 	ConfigSetting("JitDisableFlags", &g_Config.uJitDisableFlags, (uint32_t)0, CfgFlag::PER_GAME),
-	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0, CfgFlag::PER_GAME),
+	ConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
 };
 
 static int DefaultInternalResolution() {
@@ -474,7 +474,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("CardboardXShift", &g_Config.iCardboardXShift, 0, CfgFlag::PER_GAME),
 	ConfigSetting("CardboardYShift", &g_Config.iCardboardYShift, 0, CfgFlag::PER_GAME),
 	ConfigSetting("iShowStatusFlags", &g_Config.iShowStatusFlags, 0, CfgFlag::PER_GAME),
-	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, CfgFlag::DEFAULT),
+	ConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, CfgFlag::DEFAULT | CfgFlag::REPORT),
 	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, "", CfgFlag::DEFAULT),
 	ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, "", CfgFlag::DEFAULT),
 	ConfigSetting("VulkanDevice", &g_Config.sVulkanDevice, "", CfgFlag::DEFAULT),
@@ -484,17 +484,17 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("CameraDevice", &g_Config.sCameraDevice, "", CfgFlag::DEFAULT),
 	ConfigSetting("VendorBugChecksEnabled", &g_Config.bVendorBugChecksEnabled, true, CfgFlag::DONT_SAVE),
 	ConfigSetting("UseGeometryShader", &g_Config.bUseGeometryShader, false, CfgFlag::PER_GAME),
-	ReportedConfigSetting("SkipBufferEffects", &g_Config.bSkipBufferEffects, false, CfgFlag::PER_GAME),
+	ConfigSetting("SkipBufferEffects", &g_Config.bSkipBufferEffects, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("SoftwareRenderer", &g_Config.bSoftwareRendering, false, CfgFlag::PER_GAME),
 	ConfigSetting("SoftwareRendererJit", &g_Config.bSoftwareRenderingJit, true, CfgFlag::PER_GAME),
-	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true, CfgFlag::PER_GAME),
-	ReportedConfigSetting("SoftwareSkinning", &g_Config.bSoftwareSkinning, true, CfgFlag::PER_GAME),
-	ReportedConfigSetting("TextureFiltering", &g_Config.iTexFiltering, 1, CfgFlag::PER_GAME),
-	ReportedConfigSetting("InternalResolution", &g_Config.iInternalResolution, &DefaultInternalResolution, CfgFlag::PER_GAME),
-	ReportedConfigSetting("HighQualityDepth", &g_Config.bHighQualityDepth, true, CfgFlag::PER_GAME),
-	ReportedConfigSetting("FrameSkip", &g_Config.iFrameSkip, 0, CfgFlag::PER_GAME),
-	ReportedConfigSetting("FrameSkipType", &g_Config.iFrameSkipType, 0, CfgFlag::PER_GAME),
-	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, IsVREnabled(), CfgFlag::PER_GAME),
+	ConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("SoftwareSkinning", &g_Config.bSoftwareSkinning, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("TextureFiltering", &g_Config.iTexFiltering, 1, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("InternalResolution", &g_Config.iInternalResolution, &DefaultInternalResolution, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("HighQualityDepth", &g_Config.bHighQualityDepth, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("FrameSkip", &g_Config.iFrameSkip, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("FrameSkipType", &g_Config.iFrameSkipType, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, IsVREnabled(), CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("StereoRendering", &g_Config.bStereoRendering, false, CfgFlag::PER_GAME),
 	ConfigSetting("StereoToMonoShader", &g_Config.sStereoToMonoShader, "RedBlue", CfgFlag::PER_GAME),
 	ConfigSetting("FrameRate", &g_Config.iFpsLimit1, 0, CfgFlag::PER_GAME),
@@ -509,9 +509,9 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 4, CfgFlag::PER_GAME),
 	ConfigSetting("MultiSampleLevel", &g_Config.iMultiSampleLevel, 0, CfgFlag::PER_GAME),  // Number of samples is 1 << iMultiSampleLevel
 
-	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, false, CfgFlag::PER_GAME),
-	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, CfgFlag::PER_GAME),
-	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, CfgFlag::DONT_SAVE),
+	ConfigSetting("VertexDecCache", &g_Config.bVertexCache, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, CfgFlag::DONT_SAVE | CfgFlag::REPORT),
 
 #ifndef MOBILE_DEVICE
 	ConfigSetting("FullScreen", &g_Config.bFullScreen, false, CfgFlag::DEFAULT),
@@ -530,24 +530,24 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("SustainedPerformanceMode", &g_Config.bSustainedPerformanceMode, false, CfgFlag::PER_GAME),
 	ConfigSetting("IgnoreScreenInsets", &g_Config.bIgnoreScreenInsets, true, CfgFlag::DEFAULT),
 
-	ReportedConfigSetting("ReplaceTextures", &g_Config.bReplaceTextures, true, CfgFlag::PER_GAME),
-	ReportedConfigSetting("SaveNewTextures", &g_Config.bSaveNewTextures, false, CfgFlag::PER_GAME),
+	ConfigSetting("ReplaceTextures", &g_Config.bReplaceTextures, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("SaveNewTextures", &g_Config.bSaveNewTextures, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("IgnoreTextureFilenames", &g_Config.bIgnoreTextureFilenames, false, CfgFlag::PER_GAME),
 
-	ReportedConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1, CfgFlag::PER_GAME),
-	ReportedConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, CfgFlag::PER_GAME),
-	ReportedConfigSetting("TexDeposterize", &g_Config.bTexDeposterize, false, CfgFlag::PER_GAME),
-	ReportedConfigSetting("TexHardwareScaling", &g_Config.bTexHardwareScaling, false, CfgFlag::PER_GAME),
+	ConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("TexDeposterize", &g_Config.bTexDeposterize, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("TexHardwareScaling", &g_Config.bTexHardwareScaling, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("VSyncInterval", &g_Config.bVSync, false, CfgFlag::PER_GAME),
-	ReportedConfigSetting("BloomHack", &g_Config.iBloomHack, 0, CfgFlag::PER_GAME),
+	ConfigSetting("BloomHack", &g_Config.iBloomHack, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
 
 	// Not really a graphics setting...
-	ReportedConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2, CfgFlag::PER_GAME),
-	ReportedConfigSetting("HardwareTessellation", &g_Config.bHardwareTessellation, false, CfgFlag::PER_GAME),
+	ConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("HardwareTessellation", &g_Config.bHardwareTessellation, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TextureShader", &g_Config.sTextureShaderName, "Off", CfgFlag::PER_GAME),
 	ConfigSetting("ShaderChainRequires60FPS", &g_Config.bShaderChainRequires60FPS, false, CfgFlag::PER_GAME),
 
-	ReportedConfigSetting("SkipGPUReadbacks", &g_Config.bSkipGPUReadbacks, false, CfgFlag::PER_GAME),
+	ConfigSetting("SkipGPUReadbacks", &g_Config.bSkipGPUReadbacks, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 
 	ConfigSetting("GfxDebugOutput", &g_Config.bGfxDebugOutput, false, CfgFlag::DONT_SAVE),
 	ConfigSetting("LogFrameDrops", &g_Config.bLogFrameDrops, false, CfgFlag::DEFAULT),
@@ -730,23 +730,23 @@ static int DefaultSystemParamLanguage() {
 }
 
 static const ConfigSetting systemParamSettings[] = {
-	ReportedConfigSetting("PSPModel", &g_Config.iPSPModel, PSP_MODEL_SLIM, CfgFlag::PER_GAME),
-	ReportedConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE, CfgFlag::PER_GAME),
+	ConfigSetting("PSPModel", &g_Config.iPSPModel, PSP_MODEL_SLIM, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP", CfgFlag::PER_GAME),
 	ConfigSetting("MacAddress", &g_Config.sMACAddress, "", CfgFlag::PER_GAME),
-	ReportedConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage, CfgFlag::PER_GAME),
+	ConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("ParamTimeFormat", &g_Config.iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR, CfgFlag::PER_GAME),
 	ConfigSetting("ParamDateFormat", &g_Config.iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD, CfgFlag::PER_GAME),
 	ConfigSetting("TimeZone", &g_Config.iTimeZone, 0, CfgFlag::PER_GAME),
 	ConfigSetting("DayLightSavings", &g_Config.bDayLightSavings, (bool) PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD, CfgFlag::PER_GAME),
-	ReportedConfigSetting("ButtonPreference", &g_Config.iButtonPreference, PSP_SYSTEMPARAM_BUTTON_CROSS, CfgFlag::PER_GAME),
+	ConfigSetting("ButtonPreference", &g_Config.iButtonPreference, PSP_SYSTEMPARAM_BUTTON_CROSS, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("LockParentalLevel", &g_Config.iLockParentalLevel, 0, CfgFlag::PER_GAME),
 	ConfigSetting("WlanAdhocChannel", &g_Config.iWlanAdhocChannel, PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC, CfgFlag::PER_GAME),
 #if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	ConfigSetting("BypassOSKWithKeyboard", &g_Config.bBypassOSKWithKeyboard, false, CfgFlag::PER_GAME),
 #endif
 	ConfigSetting("WlanPowerSave", &g_Config.bWlanPowerSave, (bool) PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF, CfgFlag::PER_GAME),
-	ReportedConfigSetting("EncryptSave", &g_Config.bEncryptSave, true, CfgFlag::PER_GAME),
+	ConfigSetting("EncryptSave", &g_Config.bEncryptSave, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("SavedataUpgradeVersion", &g_Config.bSavedataUpgrade, true, CfgFlag::DEFAULT),
 	ConfigSetting("MemStickSize", &g_Config.iMemStickSizeGB, 16, CfgFlag::DEFAULT),
 };
@@ -779,7 +779,7 @@ static const ConfigSetting debuggerSettings[] = {
 };
 
 static const ConfigSetting jitSettings[] = {
-	ReportedConfigSetting("DiscardRegsOnJRRA", &g_Config.bDiscardRegsOnJRRA, false, CfgFlag::DONT_SAVE),
+	ConfigSetting("DiscardRegsOnJRRA", &g_Config.bDiscardRegsOnJRRA, false, CfgFlag::DONT_SAVE | CfgFlag::REPORT),
 };
 
 static const ConfigSetting upgradeSettings[] = {
@@ -1685,7 +1685,7 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 	for (size_t i = 0; i < numSections; ++i) {
 		const std::string prefix = std::string("config.") + sections[i].section;
 		for (size_t j = 0; j < sections[i].settingsCount; j++) {
-			sections[i].settings[j].Report(data, prefix);
+			sections[i].settings[j].ReportSetting(data, prefix);
 		}
 	}
 }
