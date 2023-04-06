@@ -604,7 +604,7 @@ void RemoteISOSettingsScreen::CreateViews() {
 	UI::Choice *remoteServer;
 #if defined(MOBILE_DEVICE)
 	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
-		remoteServer = new ChoiceWithValueDisplay(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), (const char *)nullptr);
+		remoteServer = new ChoiceWithValueDisplay(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), I18NCat::NONE);
 		remoteServer->OnClick.Handle(this, &RemoteISOSettingsScreen::OnClickRemoteServer);
 	} else
 #endif
@@ -618,7 +618,7 @@ void RemoteISOSettingsScreen::CreateViews() {
 	UI::Choice *remoteSubdir;
 #if defined(MOBILE_DEVICE)
 	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
-		remoteSubdir = new ChoiceWithValueDisplay(&g_Config.sRemoteISOSubdir, ri->T("Remote Subdirectory"), (const char *)nullptr);
+		remoteSubdir = new ChoiceWithValueDisplay(&g_Config.sRemoteISOSubdir, ri->T("Remote Subdirectory"), I18NCat::NONE);
 		remoteSubdir->OnClick.Handle(this, &RemoteISOSettingsScreen::OnClickRemoteISOSubdir);
 	} else
 #endif
