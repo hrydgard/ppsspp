@@ -180,6 +180,7 @@ private:
 	// Finds exactly, not using a range check.
 	static size_t FindMemCheck(u32 start, u32 end);
 	static MemCheck *GetMemCheckLocked(u32 address, int size);
+	static void UpdateCachedMemCheckRanges();
 
 	static std::vector<BreakPoint> breakPoints_;
 	static u32 breakSkipFirstAt_;
@@ -187,6 +188,8 @@ private:
 
 	static std::vector<MemCheck> memChecks_;
 	static std::vector<MemCheck *> cleanupMemChecks_;
+	static std::vector<MemCheck> memCheckRangesRead_;
+	static std::vector<MemCheck> memCheckRangesWrite_;
 };
 
 

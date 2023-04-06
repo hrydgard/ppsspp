@@ -41,6 +41,8 @@ u64 CBreakPoints::breakSkipFirstTicks_ = 0;
 static std::mutex memCheckMutex_;
 std::vector<MemCheck> CBreakPoints::memChecks_;
 std::vector<MemCheck *> CBreakPoints::cleanupMemChecks_;
+std::vector<MemCheck> CBreakPoints::memCheckRangesRead_;
+std::vector<MemCheck> CBreakPoints::memCheckRangesWrite_;
 
 void MemCheck::Log(u32 addr, bool write, int size, u32 pc, const char *reason) {
 	if (result & BREAK_ACTION_LOG) {
@@ -635,28 +637,40 @@ static MemCheck VRAMMirror(uint8_t mirror, MemCheck mc) {
 	return mc;
 }
 
-const std::vector<MemCheck> CBreakPoints::GetMemCheckRanges(bool write) {
+void CBreakPoints::UpdateCachedMemCheckRanges() {
 	std::lock_guard<std::mutex> guard(memCheckMutex_);
-	std::vector<MemCheck> ranges;
+	memCheckRangesRead_.clear();
+	memCheckRangesWrite_.clear();
+
+	auto add = [&](bool read, bool write, const MemCheck &mc) {
+		if (read)
+			memCheckRangesRead_.push_back(mc);
+		if (write)
+			memCheckRangesWrite_.push_back(mc);
+	};
+
 	for (const auto &check : memChecks_) {
-		if (!(check.cond & MEMCHECK_READ) && !write)
-			continue;
-		if (!(check.cond & MEMCHECK_WRITE) && write)
-			continue;
+		bool read = (check.cond & MEMCHECK_READ) != 0;
+		bool write = (check.cond & MEMCHECK_WRITE) != 0;
 
 		if (Memory::IsVRAMAddress(check.start) && (check.end == 0 || Memory::IsVRAMAddress(check.end))) {
 			for (uint8_t mirror = 0; mirror < 4; ++mirror) {
 				MemCheck copy = VRAMMirror(mirror, check);
-				ranges.push_back(copy);
-				ranges.push_back(NotCached(copy));
+				add(read, write, copy);
+				add(read, write, NotCached(copy));
 			}
 		} else {
-			ranges.push_back(check);
-			ranges.push_back(NotCached(check));
+			add(read, write, check);
+			add(read, write, NotCached(check));
 		}
 	}
+}
 
-	return ranges;
+const std::vector<MemCheck> CBreakPoints::GetMemCheckRanges(bool write) {
+	std::lock_guard<std::mutex> guard(memCheckMutex_);
+	if (write)
+		return memCheckRangesWrite_;
+	return memCheckRangesRead_;
 }
 
 const std::vector<MemCheck> CBreakPoints::GetMemChecks()
@@ -697,6 +711,9 @@ void CBreakPoints::Update(u32 addr) {
 		if (resume)
 			Core_EnableStepping(false);
 	}
+
+	if (anyMemChecks_)
+		UpdateCachedMemCheckRanges();
 
 	// Redraw in order to show the breakpoint.
 	System_Notify(SystemNotification::DISASSEMBLY);
