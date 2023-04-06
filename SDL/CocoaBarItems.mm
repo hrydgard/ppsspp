@@ -24,8 +24,8 @@ extern "C" {
 +(instancetype)sharedInstance;
 -(void)setupAppBarItems;
 @property (assign) NSMenu *openMenu;
-@property (assign) std::shared_ptr<I18NCategory> mainSettingsLocalization;
-@property (assign) std::shared_ptr<I18NCategory> graphicsLocalization;
+@property (assign) I18NCategory *mainSettingsLocalization;
+@property (assign) I18NCategory *graphicsLocalization;
 @end
 
 void initBarItemsForApp() {
@@ -38,7 +38,7 @@ void initBarItemsForApp() {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         stub = [BarItemsManager new];
-        stub.mainSettingsLocalization = GetI18NCategory("MainSettings");
+        stub.mainSettingsLocalization = GetI18NCategory(I18NCat::MAINSETTINGS);
     });
     
     return stub;
@@ -106,7 +106,7 @@ void initBarItemsForApp() {
     }
 }
 
--(NSString *)localizedString: (const char *)key category: (std::shared_ptr<I18NCategory>)cat {
+-(NSString *)localizedString: (const char *)key category: (I18NCategory *)cat {
     return @(self.mainSettingsLocalization->T(key));
 }
 
@@ -147,7 +147,7 @@ void initBarItemsForApp() {
     NSMenu *parent = [[NSMenu alloc] initWithTitle:@(self.mainSettingsLocalization->T("Graphics"))];
     NSMenu *backendsMenu = [[NSMenu alloc] init];
     
-    self.graphicsLocalization = GetI18NCategory("Graphics");
+    self.graphicsLocalization = GetI18NCategory(I18NCat::GRAPHICS);
 #define GRAPHICS_LOCALIZED(key) @(self.graphicsLocalization->T(key))
     
     NSMenuItem *gpuBackendItem = [[NSMenuItem alloc] initWithTitle:GRAPHICS_LOCALIZED("Backend") action:nil keyEquivalent:@""];

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Common/Data/Text/I18N.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
