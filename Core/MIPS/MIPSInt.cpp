@@ -94,7 +94,7 @@ namespace MIPSInt
 {
 	void Int_Cache(MIPSOpcode op)
 	{
-		int imm = (s16)(op & 0xFFFF);
+		int imm = SignExtend16ToS32(op & 0xFFFF);
 		int rs = _RS;
 		uint32_t addr = R(rs) + imm;
 		int func = (op >> 16) & 0x1F;

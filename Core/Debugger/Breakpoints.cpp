@@ -41,6 +41,8 @@ u64 CBreakPoints::breakSkipFirstTicks_ = 0;
 static std::mutex memCheckMutex_;
 std::vector<MemCheck> CBreakPoints::memChecks_;
 std::vector<MemCheck *> CBreakPoints::cleanupMemChecks_;
+std::vector<MemCheck> CBreakPoints::memCheckRangesRead_;
+std::vector<MemCheck> CBreakPoints::memCheckRangesWrite_;
 
 void MemCheck::Log(u32 addr, bool write, int size, u32 pc, const char *reason) {
 	if (result & BREAK_ACTION_LOG) {
@@ -489,9 +491,10 @@ bool CBreakPoints::GetMemCheck(u32 start, u32 end, MemCheck *check) {
 	return false;
 }
 
-static inline u32 NotCached(u32 val)
-{
-	// Remove the cached part of the address.
+static inline u32 NotCached(u32 val) {
+	// Remove the cached part of the address as well as any mirror.
+	if ((val & 0x3F800000) == 0x04000000)
+		return val & ~0x40600000;
 	return val & ~0x40000000;
 }
 
@@ -614,24 +617,60 @@ u32 CBreakPoints::CheckSkipFirst()
 	return 0;
 }
 
+static MemCheck NotCached(MemCheck mc) {
+	// Toggle the cached part of the address.
+	mc.start ^= 0x40000000;
+	if (mc.end != 0)
+		mc.end ^= 0x40000000;
+	return mc;
+}
+
+static MemCheck VRAMMirror(uint8_t mirror, MemCheck mc) {
+	mc.start &= ~0x00600000;
+	mc.start += 0x00200000 * mirror;
+	if (mc.end != 0) {
+		mc.end &= ~0x00600000;
+		mc.end += 0x00200000 * mirror;
+		if (mc.end < mc.start)
+			mc.end += 0x00200000;
+	}
+	return mc;
+}
+
+void CBreakPoints::UpdateCachedMemCheckRanges() {
+	std::lock_guard<std::mutex> guard(memCheckMutex_);
+	memCheckRangesRead_.clear();
+	memCheckRangesWrite_.clear();
+
+	auto add = [&](bool read, bool write, const MemCheck &mc) {
+		if (read)
+			memCheckRangesRead_.push_back(mc);
+		if (write)
+			memCheckRangesWrite_.push_back(mc);
+	};
+
+	for (const auto &check : memChecks_) {
+		bool read = (check.cond & MEMCHECK_READ) != 0;
+		bool write = (check.cond & MEMCHECK_WRITE) != 0;
+
+		if (Memory::IsVRAMAddress(check.start) && (check.end == 0 || Memory::IsVRAMAddress(check.end))) {
+			for (uint8_t mirror = 0; mirror < 4; ++mirror) {
+				MemCheck copy = VRAMMirror(mirror, check);
+				add(read, write, copy);
+				add(read, write, NotCached(copy));
+			}
+		} else {
+			add(read, write, check);
+			add(read, write, NotCached(check));
+		}
+	}
+}
+
 const std::vector<MemCheck> CBreakPoints::GetMemCheckRanges(bool write) {
 	std::lock_guard<std::mutex> guard(memCheckMutex_);
-	std::vector<MemCheck> ranges = memChecks_;
-	for (const auto &check : memChecks_) {
-		if (!(check.cond & MEMCHECK_READ) && !write)
-			continue;
-		if (!(check.cond & MEMCHECK_WRITE) && write)
-			continue;
-
-		MemCheck copy = check;
-		// Toggle the cached part of the address.
-		copy.start ^= 0x40000000;
-		if (copy.end != 0)
-			copy.end ^= 0x40000000;
-		ranges.push_back(copy);
-	}
-
-	return ranges;
+	if (write)
+		return memCheckRangesWrite_;
+	return memCheckRangesRead_;
 }
 
 const std::vector<MemCheck> CBreakPoints::GetMemChecks()
@@ -672,6 +711,9 @@ void CBreakPoints::Update(u32 addr) {
 		if (resume)
 			Core_EnableStepping(false);
 	}
+
+	if (anyMemChecks_)
+		UpdateCachedMemCheckRanges();
 
 	// Redraw in order to show the breakpoint.
 	System_Notify(SystemNotification::DISASSEMBLY);

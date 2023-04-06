@@ -403,42 +403,42 @@ void JitSafeMem::MemCheckImm(MemoryOpType type) {
 	}
 }
 
-void JitSafeMem::MemCheckAsm(MemoryOpType type)
-{
+void JitSafeMem::MemCheckAsm(MemoryOpType type) {
 	const auto memchecks = CBreakPoints::GetMemCheckRanges(type == MEM_WRITE);
 	bool possible = !memchecks.empty();
-	for (auto it = memchecks.begin(), end = memchecks.end(); it != end; ++it)
-	{
-		FixupBranch skipNext, skipNextRange;
-		if (it->end != 0)
-		{
+	std::vector<FixupBranch> hitChecks;
+	for (auto it = memchecks.begin(), end = memchecks.end(); it != end; ++it) {
+		if (it->end != 0) {
 			jit_->CMP(32, R(xaddr_), Imm32(it->start - offset_ - size_));
-			skipNext = jit_->J_CC(CC_BE);
-			jit_->CMP(32, R(xaddr_), Imm32(it->end - offset_));
-			skipNextRange = jit_->J_CC(CC_AE);
-		}
-		else
-		{
-			jit_->CMP(32, R(xaddr_), Imm32(it->start - offset_));
-			skipNext = jit_->J_CC(CC_NE);
-		}
+			FixupBranch skipNext = jit_->J_CC(CC_BE);
 
-		// Keep the stack 16-byte aligned, just PUSH/POP 4 times.
-		for (int i = 0; i < 4; ++i)
-			jit_->PUSH(xaddr_);
+			jit_->CMP(32, R(xaddr_), Imm32(it->end - offset_));
+			hitChecks.push_back(jit_->J_CC(CC_B, true));
+
+			jit_->SetJumpTarget(skipNext);
+		} else {
+			jit_->CMP(32, R(xaddr_), Imm32(it->start - offset_));
+			hitChecks.push_back(jit_->J_CC(CC_E, true));
+		}
+	}
+
+	if (possible) {
+		FixupBranch noHits = jit_->J(true);
+
+		// Okay, now land any hit here.
+		for (auto &fixup : hitChecks)
+			jit_->SetJumpTarget(fixup);
+		hitChecks.clear();
+
+		jit_->PUSH(xaddr_);
+		// Keep the stack 16-byte aligned.
+		jit_->SUB(PTRBITS, R(SP), Imm32(16 - PTRBITS / 8));
 		jit_->MOV(32, MIPSSTATE_VAR(pc), Imm32(jit_->GetCompilerPC()));
 		jit_->ADD(32, R(xaddr_), Imm32(offset_));
 		jit_->CallProtectedFunction(&JitMemCheck, R(xaddr_), size_, type == MEM_WRITE ? 1 : 0);
-		for (int i = 0; i < 4; ++i)
-			jit_->POP(xaddr_);
+		jit_->ADD(PTRBITS, R(SP), Imm32(16 - PTRBITS / 8));
+		jit_->POP(xaddr_);
 
-		jit_->SetJumpTarget(skipNext);
-		if (it->end != 0)
-			jit_->SetJumpTarget(skipNextRange);
-	}
-
-	if (possible)
-	{
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
 		if (jit_->RipAccessible((const void *)&coreState)) {
 			jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
@@ -451,6 +451,8 @@ void JitSafeMem::MemCheckAsm(MemoryOpType type)
 		}
 		skipChecks_.push_back(jit_->J_CC(CC_G, true));
 		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE | JitState::AFTER_MEMCHECK_CLEANUP;
+
+		jit_->SetJumpTarget(noHits);
 	}
 }
 
