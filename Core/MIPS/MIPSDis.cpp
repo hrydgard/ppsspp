@@ -64,7 +64,7 @@ namespace MIPSDis
 
 	void Dis_Cache(MIPSOpcode op, char *out)
 	{
-		int imm = (s16)(op & 0xFFFF);
+		int imm = SignExtend16ToS32(op & 0xFFFF);
 		int rs = _RS;
 		int func = (op >> 16) & 0x1F;
 		sprintf(out, "%s\tfunc=%i, %s(%s)", MIPSGetName(op), func, RN(rs), SignedHex(imm));
