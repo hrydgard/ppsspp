@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/File/VFS/VFS.h"
