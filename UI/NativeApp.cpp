@@ -1275,6 +1275,13 @@ bool NativeKey(const KeyInput &key) {
 		HLEPlugins::PluginDataKeys[key.keyCode] = (key.flags & KEY_DOWN) ? 1 : 0;
 		retval = g_screenManager->key(key);
 	}
+
+	// The Mode key can have weird consequences on some devices, see #17245.
+	if (key.keyCode == NKCODE_BUTTON_MODE) {
+		// Tell the caller that we handled the key.
+		retval = true;
+	}
+
 	return retval;
 }
 
