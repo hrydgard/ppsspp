@@ -290,12 +290,6 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	features &= ~GPU_USE_FRAMEBUFFER_FETCH;
 	// }
 
-	// Check for Broadcom, disable ubershader. Should probably include a driver version check too...
-	// Attempt at fixing issue #16824
-	if (draw_->GetDeviceCaps().vendor == Draw::GPUVendor::VENDOR_BROADCOM) {
-		features &= ~GPU_USE_LIGHT_UBERSHADER;
-	}
-
 	return CheckGPUFeaturesLate(features);
 }
 
