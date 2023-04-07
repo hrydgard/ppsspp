@@ -104,6 +104,7 @@ protected:
 	void OnCompleted(DialogResult result) override {}
 
 private:
+	int pspBtn_;
 	std::function<void(KeyMap::MultiInputMapping)> callback_;
 	bool mapped_ = false;  // Prevent double registrations
 };
