@@ -24,8 +24,8 @@ extern "C" {
 +(instancetype)sharedInstance;
 -(void)setupAppBarItems;
 @property (assign) NSMenu *openMenu;
-@property (assign) I18NCategory *mainSettingsLocalization;
-@property (assign) I18NCategory *graphicsLocalization;
+@property (assign) std::shared_ptr<I18NCategory> mainSettingsLocalization;
+@property (assign) std::shared_ptr<I18NCategory> graphicsLocalization;
 @end
 
 void initBarItemsForApp() {
@@ -106,7 +106,7 @@ void initBarItemsForApp() {
     }
 }
 
--(NSString *)localizedString: (const char *)key category: (I18NCategory *)cat {
+-(NSString *)localizedString: (const char *)key category: (std::shared_ptr<I18NCategory>)cat {
     return @(self.mainSettingsLocalization->T(key));
 }
 
