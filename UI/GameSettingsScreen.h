@@ -265,3 +265,12 @@ private:
 	void OnCompleted(DialogResult result) override;
 	int restoreFlags_ = (int)(RestoreSettingsBits::SETTINGS);  // RestoreSettingsBits enum
 };
+
+class ControllerProfileScreen : public UIDialogScreenWithBackground {
+public:
+	void CreateViews() override;
+
+	const char *tag() const override { return "ControllerProfile"; }
+private:
+	SettingInfoMessage *settingInfo_;
+};

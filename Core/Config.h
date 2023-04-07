@@ -90,6 +90,7 @@ public:
 	bool bEnableLogging;
 	bool bDumpDecryptedEboot;
 	bool bFullscreenOnDoubleclick;
+	uint32_t uSettingsVersion;
 
 	// These four are Win UI only
 	bool bPauseOnLostFocus;
@@ -523,6 +524,9 @@ public:
 
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	bool Save(const char *saveReason);
+	bool SaveControllerProfile(uint32_t id);
+	bool LoadControllerProfile(uint32_t id);
+	bool ControllerProfileExist(uint32_t id);
 	void Reload();
 	void RestoreDefaults(RestoreSettingsBits whatToRestore);
 

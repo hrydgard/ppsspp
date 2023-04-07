@@ -686,6 +686,11 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	controlsSettings->Add(new Choice(co->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
 	controlsSettings->Add(new Choice(co->T("Calibrate Analog Stick")))->OnClick.Handle(this, &GameSettingsScreen::OnCalibrateAnalogs);
 
+	controlsSettings->Add(new Choice(co->T("Control Profiles")))->OnClick.Add([=](EventParams &e) {
+		screenManager()->push(new ControllerProfileScreen());
+		return UI::EVENT_DONE;
+	});
+
 #if defined(USING_WIN_UI)
 	controlsSettings->Add(new CheckBox(&g_Config.bSystemControls, co->T("Enable standard shortcut keys")));
 	controlsSettings->Add(new CheckBox(&g_Config.bGamepadOnlyFocused, co->T("Ignore gamepads when not focused")));
@@ -2243,3 +2248,55 @@ void RestoreSettingsScreen::OnCompleted(DialogResult result) {
 		g_Config.RestoreDefaults((RestoreSettingsBits)restoreFlags_);
 	}
 }
+void ControllerProfileScreen::CreateViews() {
+	using namespace UI;
+
+	auto co = GetI18NCategory("Controls");
+
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	AddStandardBack(root_);
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+	root_->Add(tabHolder);
+	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
+	tabHolder->AddTab(co->T("Profiles"), rightPanel);
+	LinearLayout *vert = rightPanel->Add(new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
+	vert->SetSpacing(0);
+
+	float leftSide = 40.0f;
+	if (g_display.dp_yres <= g_display.dp_xres * 1.1f) {
+		leftSide += 200.0f;
+	}
+	settingInfo_ = new SettingInfoMessage(ALIGN_CENTER | FLAG_WRAP_TEXT, new AnchorLayoutParams(g_display.dp_xres - leftSide - 40.0f, WRAP_CONTENT, leftSide, g_display.dp_yres - 80.0f - 40.0f, NONE, NONE));
+	settingInfo_->SetBottomCutoff(g_display.dp_yres - 200.0f);
+	root_->Add(settingInfo_);
+
+	static constexpr int MAX_PROFILE = 5; // Should we have 5 with binding for fast selection and unlimited just to have them?
+	for (int i = 1; i <= MAX_PROFILE; ++i) {
+		vert->Add(new ItemHeader(ReplaceAll(co->T("Profile %1"), "%1", std::to_string(i))));
+
+		Choice *save = new Choice(co->T("Save current control settings"));
+		Choice *load = new Choice(co->T("Load control profile"));
+
+		load->OnClick.Add([=](EventParams &e) {
+			if (g_Config.LoadControllerProfile(i))
+				settingInfo_->Show(co->T("Control profile loaded"), e.v);
+
+			return UI::EVENT_CONTINUE;
+		});
+
+		save->OnClick.Add([=](EventParams &e) {
+			if (g_Config.SaveControllerProfile(i)) {
+				settingInfo_->Show(co->T("Control profile saved"), e.v);
+				load->SetEnabled(true);
+			}
+
+			return UI::EVENT_CONTINUE;
+		});
+
+		// Not a func to avoid Android slow IO problems
+		load->SetEnabled(g_Config.ControllerProfileExist(i));
+		vert->Add(save);
+		vert->Add(load);
+	}
+}
+

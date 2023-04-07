@@ -71,6 +71,11 @@ enum {
 	VIRTKEY_SPEED_ANALOG = 0x40000024,
 	VIRTKEY_VR_CAMERA_ADJUST = 0x40000025,
 	VIRTKEY_VR_CAMERA_RESET = 0x40000026,
+	VIRTKEY_CONTROLLER_PROFILE_1 = 0x40000027,
+	VIRTKEY_CONTROLLER_PROFILE_2 = 0x40000028,
+	VIRTKEY_CONTROLLER_PROFILE_3 = 0x40000029,
+	VIRTKEY_CONTROLLER_PROFILE_4 = 0x4000002A,
+	VIRTKEY_CONTROLLER_PROFILE_5 = 0x4000002B,
 	VIRTKEY_LAST,
 	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
 };
@@ -190,8 +195,8 @@ namespace KeyMap {
 
 	MappedAnalogAxes MappedAxesForDevice(int deviceId);
 
-	void LoadFromIni(IniFile &iniFile);
-	void SaveToIni(IniFile &iniFile);
+	void LoadFromIni(IniFile &iniFile, const char *section = "ControlMapping");
+	void SaveToIni(IniFile &iniFile, const char *section = "ControlMapping");
 	void ClearAllMappings();
 	void DeleteNthMapping(int key, int number);
 

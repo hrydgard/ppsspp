@@ -126,6 +126,7 @@ public:
 	bool Get(const char* sectionName, const char* key, uint32_t* value, uint32_t defaultValue = 0);
 	bool Get(const char* sectionName, const char* key, uint64_t* value, uint64_t defaultValue = 0);
 	bool Get(const char* sectionName, const char* key, bool* value, bool defaultValue = false);
+	bool Get(const char* sectionName, const char* key, float* value, float defaultValue = 0.0f);
 	bool Get(const char* sectionName, const char* key, std::vector<std::string>& values);
 
 	template<typename T> bool GetIfExists(const char* sectionName, const char* key, T value)

@@ -329,6 +329,11 @@ namespace CustomKeyData {
 		{ ImageID::invalid(), VIRTKEY_AXIS_Y_MIN },
 		{ ImageID::invalid(), VIRTKEY_AXIS_X_MAX },
 		{ ImageID::invalid(), VIRTKEY_AXIS_Y_MAX },
+		{ ImageID::invalid(), VIRTKEY_CONTROLLER_PROFILE_1 },
+		{ ImageID::invalid(), VIRTKEY_CONTROLLER_PROFILE_2 },
+		{ ImageID::invalid(), VIRTKEY_CONTROLLER_PROFILE_3 },
+		{ ImageID::invalid(), VIRTKEY_CONTROLLER_PROFILE_4 },
+		{ ImageID::invalid(), VIRTKEY_CONTROLLER_PROFILE_5 },
 	};
 	static_assert(ARRAY_SIZE(customKeyList) <= 64, "Too many key for a uint64_t bit mask");
 };
@@ -371,5 +376,10 @@ namespace GestureKey {
 		VIRTKEY_AXIS_Y_MIN,
 		VIRTKEY_AXIS_X_MAX,
 		VIRTKEY_AXIS_Y_MAX,
+		VIRTKEY_CONTROLLER_PROFILE_1,
+		VIRTKEY_CONTROLLER_PROFILE_2,
+		VIRTKEY_CONTROLLER_PROFILE_3,
+		VIRTKEY_CONTROLLER_PROFILE_4,
+		VIRTKEY_CONTROLLER_PROFILE_5,
 	};
 }
