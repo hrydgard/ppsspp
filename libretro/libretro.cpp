@@ -983,7 +983,7 @@ static void check_variables(CoreParameter &coreParam)
       g_Config.iLanguage = get_language_auto();
 
    g_Config.sLanguageIni = map_psp_language_to_i18n_locale(g_Config.iLanguage);
-   i18nrepo.LoadIni(g_Config.sLanguageIni);
+   g_i18nrepo.LoadIni(g_Config.sLanguageIni);
 
    // Cannot detect refresh rate changes if:
    // > Frame skipping is enabled

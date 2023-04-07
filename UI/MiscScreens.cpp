@@ -661,9 +661,9 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 
 	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
 	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
-		iniLoadedSuccessfully = i18nrepo.LoadIni(g_Config.sLanguageIni);
+		iniLoadedSuccessfully = g_i18nrepo.LoadIni(g_Config.sLanguageIni);
 	else
-		iniLoadedSuccessfully = i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
+		iniLoadedSuccessfully = g_i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
 
 	if (iniLoadedSuccessfully) {
 		// Dunno what else to do here.

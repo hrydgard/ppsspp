@@ -7,57 +7,62 @@
 
 #include "Common/StringUtils.h"
 
-I18NRepo i18nrepo;
+static const char * const g_categoryNames[(size_t)I18NCat::CATEGORY_COUNT] = {
+	"Audio",
+	"Controls",
+	"CwCheats",
+	"DesktopUI",
+	"Developer",
+	"Dialog",
+	"Error",
+	"Game",
+	"Graphics",
+	"InstallZip",
+	"KeyMapping",
+	"MainMenu",
+	"MainSettings",
+	"MappableControls",
+	"Networking",
+	"Pause",
+	"PostShaders",
+	"PSPCredits",
+	"MemStick",
+	"RemoteISO",
+	"Reporting",
+	"Savedata",
+	"Screen",
+	"Search",
+	"Store",
+	"SysInfo",
+	"System",
+	"TextureShaders",
+	"Themes",
+	"UI Elements",
+	"Upgrade",
+	"VR",
+};
 
-I18NRepo::~I18NRepo() {
-	Clear();
-}
+I18NRepo g_i18nrepo;
 
 std::string I18NRepo::LanguageID() {
 	return languageID_;
 }
 
 I18NRepo::I18NRepo() {
-	cats_[(size_t)I18NCat::AUDIO].SetName("Audio");
-	cats_[(size_t)I18NCat::CONTROLS].SetName("Controls");
-	cats_[(size_t)I18NCat::SYSTEM].SetName("System");
-	cats_[(size_t)I18NCat::CWCHEATS].SetName("CwCheats");
-	cats_[(size_t)I18NCat::DESKTOPUI].SetName("DesktopUI");
-	cats_[(size_t)I18NCat::DEVELOPER].SetName("Developer");
-	cats_[(size_t)I18NCat::DIALOG].SetName("Dialog");
-	cats_[(size_t)I18NCat::ERRORS].SetName("Error");
-	cats_[(size_t)I18NCat::GAME].SetName("Game");
-	cats_[(size_t)I18NCat::GRAPHICS].SetName("Graphics");
-	cats_[(size_t)I18NCat::INSTALLZIP].SetName("InstallZip");
-	cats_[(size_t)I18NCat::KEYMAPPING].SetName("KeyMapping");
-	cats_[(size_t)I18NCat::MAINMENU].SetName("MainMenu");
-	cats_[(size_t)I18NCat::MAINSETTINGS].SetName("MainSettings");
-	cats_[(size_t)I18NCat::MAPPABLECONTROLS].SetName("MappableControls");
-	cats_[(size_t)I18NCat::NETWORKING].SetName("Networking");
-	cats_[(size_t)I18NCat::PAUSE].SetName("Pause");
-	cats_[(size_t)I18NCat::POSTSHADERS].SetName("PostShaders");
-	cats_[(size_t)I18NCat::PSPCREDITS].SetName("PSPCredits");
-	cats_[(size_t)I18NCat::MEMSTICK].SetName("MemStick");
-	cats_[(size_t)I18NCat::REMOTEISO].SetName("RemoteISO");
-	cats_[(size_t)I18NCat::REPORTING].SetName("Reporting");
-	cats_[(size_t)I18NCat::SAVEDATA].SetName("Savedata");
-	cats_[(size_t)I18NCat::SCREEN].SetName("Screen");
-	cats_[(size_t)I18NCat::SEARCH].SetName("Search");
-	cats_[(size_t)I18NCat::STORE].SetName("Store");
-	cats_[(size_t)I18NCat::SYSINFO].SetName("SysInfo");
-	cats_[(size_t)I18NCat::SYSTEM].SetName("System");
-	cats_[(size_t)I18NCat::TEXTURESHADERS].SetName("TextureShaders");
-	cats_[(size_t)I18NCat::THEMES].SetName("Themes");
-	cats_[(size_t)I18NCat::UI_ELEMENTS].SetName("UI Elements");
-	cats_[(size_t)I18NCat::UPGRADE].SetName("Upgrade");
-	cats_[(size_t)I18NCat::VR].SetName("VR");
+	Clear();
 }
 
 void I18NRepo::Clear() {
 	std::lock_guard<std::mutex> guard(catsLock_);
 	for (auto &iter : cats_) {
-		iter.Clear();
+		// Initialize with empty categories, so that early lookups don't crash.
+		iter = std::shared_ptr<I18NCategory>(new I18NCategory());
 	}
+}
+
+I18NCategory::I18NCategory(const Section &section) {
+	std::map<std::string, std::string> sectionMap = section.ToMap();
+	SetMap(sectionMap);
 }
 
 void I18NCategory::Clear() {
@@ -69,6 +74,7 @@ const char *I18NCategory::T(const char *key, const char *def) {
 	if (!key) {
 		return "ERROR";
 	}
+
 	// Replace the \n's with \\n's so that key values with newlines will be found correctly.
 	std::string modifiedKey = key;
 	modifiedKey = ReplaceAll(modifiedKey, "\n", "\\n");
@@ -95,21 +101,12 @@ void I18NCategory::SetMap(const std::map<std::string, std::string> &m) {
 	}
 }
 
-I18NCategory *I18NRepo::GetCategory(I18NCat category) {
+std::shared_ptr<I18NCategory> I18NRepo::GetCategory(I18NCat category) {
 	std::lock_guard<std::mutex> guard(catsLock_);
 	if (category != I18NCat::NONE)
-		return &cats_[(size_t)category];
+		return cats_[(size_t)category];
 	else
 		return nullptr;
-}
-
-I18NCategory *I18NRepo::GetCategoryByName(const char *name) {
-	for (auto &iter : cats_) {
-		if (!strcmp(iter.GetName(), name)) {
-			return &iter;
-		}
-	}
-	return nullptr;
 }
 
 Path I18NRepo::GetIniPath(const std::string &languageID) const {
@@ -144,10 +141,11 @@ bool I18NRepo::LoadIni(const std::string &languageID, const Path &overridePath) 
 	const std::vector<Section> &sections = ini.Sections();
 
 	std::lock_guard<std::mutex> guard(catsLock_);
-	for (auto &iter : sections) {
-		I18NCategory *cat = GetCategoryByName(iter.name().c_str());
-		if (cat) {
-			cat->LoadSection(iter);
+	for (auto &section : sections) {
+		for (size_t i = 0; i < (size_t)I18NCat::CATEGORY_COUNT; i++) {
+			if (!strcmp(section.name().c_str(), g_categoryNames[i])) {
+				cats_[i].reset(new I18NCategory(section));
+			}
 		}
 	}
 
@@ -157,14 +155,19 @@ bool I18NRepo::LoadIni(const std::string &languageID, const Path &overridePath) 
 
 void I18NRepo::LogMissingKeys() const {
 	std::lock_guard<std::mutex> guard(catsLock_);
-	for (auto &cat : cats_) {
-		for (auto &key : cat.Missed()) {
-			INFO_LOG(SYSTEM, "Missing translation [%s]: %s (%s)", cat.GetName(), key.first.c_str(), key.second.c_str());
+	for (size_t i = 0; i < (size_t)I18NCat::CATEGORY_COUNT; i++) {
+		auto &cat = cats_[i];
+		for (auto &key : cat->Missed()) {
+			INFO_LOG(SYSTEM, "Missing translation [%s]: %s (%s)", g_categoryNames[i], key.first.c_str(), key.second.c_str());
 		}
 	}
 }
 
-void I18NCategory::LoadSection(const Section &section) {
-	std::map<std::string, std::string> sectionMap = section.ToMap();
-	SetMap(sectionMap);
+std::shared_ptr<I18NCategory> GetI18NCategory(I18NCat category) {
+	if (category == I18NCat::NONE) {
+		return std::shared_ptr<I18NCategory>();
+	}
+	std::shared_ptr<I18NCategory> cat = g_i18nrepo.GetCategory(category);
+	_dbg_assert_(cat);
+	return cat;
 }

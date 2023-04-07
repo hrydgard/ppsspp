@@ -12,6 +12,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <memory>
 
 #include "Common/Common.h"
 #include "Common/File/Path.h"
@@ -76,8 +77,8 @@ struct I18NCandidate {
 class I18NCategory {
 public:
 	I18NCategory() {}
-	// NOTE: Name must be a global constant string - it is not copied.
-	explicit I18NCategory(const char *name) : name_(name) {}
+	explicit I18NCategory(const Section &section);
+
 	const char *T(const char *key, const char *def = nullptr);
 	const char *T(const std::string &key) {
 		return T(key.c_str(), nullptr);
@@ -90,16 +91,11 @@ public:
 
 	const std::map<std::string, I18NEntry> &GetMap() { return map_; }
 	void ClearMissed() { missedKeyLog_.clear(); }
-	const char *GetName() const { return name_.c_str(); }
 	void Clear();
 
 private:
-	I18NCategory(I18NRepo *repo, const char *name) : name_(name) {}
-	void SetName(const char *name) { name_ = name; }
+	I18NCategory(I18NRepo *repo, const char *name) {}
 	void SetMap(const std::map<std::string, std::string> &m);
-	void LoadSection(const Section &section);
-
-	std::string name_;
 
 	std::map<std::string, I18NEntry> map_;
 	mutable std::mutex missedKeyLock_;
@@ -112,18 +108,16 @@ private:
 class I18NRepo {
 public:
 	I18NRepo();
-	~I18NRepo();
-
 	bool IniExists(const std::string &languageID) const;
 	bool LoadIni(const std::string &languageID, const Path &overridePath = Path()); // NOT the filename!
 
 	std::string LanguageID();
 
-	I18NCategory *GetCategory(I18NCat category);
-	I18NCategory *GetCategoryByName(const char *name);
+	std::shared_ptr<I18NCategory> GetCategory(I18NCat category);
+	std::shared_ptr<I18NCategory> GetCategoryByName(const char *name);
 
 	const char *T(I18NCat category, const char *key, const char *def = nullptr) {
-		return cats_[(size_t)category].T(key, def);
+		return cats_[(size_t)category]->T(key, def);
 	}
 
 	void LogMissingKeys() const;
@@ -133,19 +127,17 @@ private:
 	void Clear();
 
 	mutable std::mutex catsLock_;
-	I18NCategory cats_[(size_t)I18NCat::CATEGORY_COUNT];
+	std::shared_ptr<I18NCategory> cats_[(size_t)I18NCat::CATEGORY_COUNT];
 	std::string languageID_;
 };
 
-extern I18NRepo i18nrepo;
+extern I18NRepo g_i18nrepo;
 
 // These are simply talking to the one global instance of I18NRepo.
 
-inline I18NCategory *GetI18NCategory(I18NCat cat) {
-	return i18nrepo.GetCategory(cat);
-}
+std::shared_ptr<I18NCategory> GetI18NCategory(I18NCat cat);
 
 inline const char *T(I18NCat category, const char *key, const char *def = nullptr) {
-	return i18nrepo.T(category, key, def);
+	return g_i18nrepo.T(category, key, def);
 }
 

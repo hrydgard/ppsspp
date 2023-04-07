@@ -282,9 +282,9 @@ void PostLoadConfig() {
 
 	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
 	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
-		i18nrepo.LoadIni(g_Config.sLanguageIni);
+		g_i18nrepo.LoadIni(g_Config.sLanguageIni);
 	else
-		i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
+		g_i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
 
 #if PPSSPP_PLATFORM(ANDROID)
 	CreateDirectoriesAndroid();
@@ -1381,7 +1381,7 @@ void NativeShutdown() {
 
 	INFO_LOG(SYSTEM, "NativeShutdown called");
 
-	i18nrepo.LogMissingKeys();
+	g_i18nrepo.LogMissingKeys();
 
 	ShutdownWebServer();
 
