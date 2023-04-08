@@ -1050,8 +1050,8 @@ VkResult VulkanContext::ReinitSurface() {
 		}
 	
 		// Finally, create the vulkan surface.
-		image_size.width = pixel_xres;
-		image_size.height = pixel_yres;
+		image_size.width = g_display.pixel_xres;
+		image_size.height = g_display.pixel_yres;
 
 		display.displayMode = display_mode;
 		display.imageExtent = image_size;

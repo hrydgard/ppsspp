@@ -428,7 +428,7 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url)
 static int mainInternal(QApplication &a) {
 #ifdef MOBILE_DEVICE
 	emugl = new MainUI();
-	emugl->resize(pixel_xres, pixel_yres);
+	emugl->resize(g_display.pixel_xres, g_display.pixel_yres);
 	emugl->showFullScreen();
 #endif
 	EnableFZ();
