@@ -483,7 +483,7 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 	BlendState *blendstateOff = draw_->CreateBlendState({ false, 0xF });
 	RasterState *rasterNoCull = draw_->CreateRasterState({});
 
-	PipelineDesc pipelineDesc{ Primitive::TRIANGLE_LIST, shaders, inputLayout, depth, blendstateOff, rasterNoCull, uniformDesc };
+	PipelineDesc pipelineDesc{ Primitive::TRIANGLE_STRIP, shaders, inputLayout, depth, blendstateOff, rasterNoCull, uniformDesc };
 	Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc, "presentation");
 
 	inputLayout->Release();
@@ -499,11 +499,6 @@ void PresentationCommon::CreateDeviceObjects() {
 	_assert_(vdata_ == nullptr);
 
 	vdata_ = draw_->CreateBuffer(sizeof(Vertex) * 8, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
-
-	// TODO: Use a triangle strip? Makes the UV rotation slightly more complex.
-	idata_ = draw_->CreateBuffer(sizeof(uint16_t) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
-	uint16_t indexes[] = { 0, 1, 2, 0, 2, 3 };
-	draw_->UpdateBuffer(idata_, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
 
 	samplerNearest_ = draw_->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST, 0.0f, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE });
 	samplerLinear_ = draw_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR, 0.0f, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE });
@@ -536,7 +531,6 @@ void PresentationCommon::DestroyDeviceObjects() {
 	DoRelease(samplerNearest_);
 	DoRelease(samplerLinear_);
 	DoRelease(vdata_);
-	DoRelease(idata_);
 	DoRelease(srcTexture_);
 	DoRelease(srcFramebuffer_);
 
@@ -667,9 +661,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	int postVertsOffset = (int)sizeof(Vertex) * 4;
 	Vertex verts[8] = {
 		{ rc.x, rc.y, 0, u0, v0, 0xFFFFFFFF }, // TL
+		{ rc.x + rc.w, rc.y, 0, u1, v0, 0xFFFFFFFF }, // TR
 		{ rc.x, rc.y + rc.h, 0, u0, v1, 0xFFFFFFFF }, // BL
 		{ rc.x + rc.w, rc.y + rc.h, 0, u1, v1, 0xFFFFFFFF }, // BR
-		{ rc.x + rc.w, rc.y, 0, u1, v0, 0xFFFFFFFF }, // TR
 	};
 
 	float invDestW = 2.0f / pixelWidth;
@@ -698,9 +692,12 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 				rotation ^= 2;
 		}
 
+		static int rotLookup[4] = { 0, 1, 3, 2 };
+
 		for (int i = 0; i < 4; i++) {
-			temp[i].u = verts[(i + rotation) & 3].u;
-			temp[i].v = verts[(i + rotation) & 3].v;
+			int otherI = rotLookup[(rotLookup[i] + rotation) & 3];
+			temp[i].u = verts[otherI].u;
+			temp[i].v = verts[otherI].v;
 		}
 		for (int i = 0; i < 4; i++) {
 			verts[i].u = temp[i].u;
@@ -760,9 +757,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 			draw_->BindSamplerStates(2, 1, &sampler);
 
 		draw_->BindVertexBuffers(0, 1, &vdata_, &postVertsOffset);
-		draw_->BindIndexBuffer(idata_, 0);
-		draw_->DrawIndexed(6, 0);
-		draw_->BindIndexBuffer(nullptr, 0);
+		draw_->Draw(4, 0);
 
 		postShaderOutput = postShaderFramebuffer;
 		lastWidth = nextWidth;
@@ -774,9 +769,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		float post_v0 = !flipped ? 1.0f : 0.0f;
 		float post_v1 = !flipped ? 0.0f : 1.0f;
 		verts[4] = { -1, -1, 0, 0, post_v1, 0xFFFFFFFF }; // TL
-		verts[5] = { -1,  1, 0, 0, post_v0, 0xFFFFFFFF }; // BL
-		verts[6] = {  1,  1, 0, 1, post_v0, 0xFFFFFFFF }; // BR
-		verts[7] = {  1, -1, 0, 1, post_v1, 0xFFFFFFFF }; // TR
+		verts[5] = {  1, -1, 0, 1, post_v1, 0xFFFFFFFF }; // TR
+		verts[6] = { -1,  1, 0, 0, post_v0, 0xFFFFFFFF }; // BL
+		verts[7] = {  1,  1, 0, 1, post_v0, 0xFFFFFFFF }; // BR
 		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
 
 		for (size_t i = 0; i < postShaderFramebuffers_.size(); ++i) {
@@ -856,7 +851,6 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	}
 
 	draw_->BindVertexBuffers(0, 1, &vdata_, nullptr);
-	draw_->BindIndexBuffer(idata_, 0);
 
 	Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
 	draw_->BindSamplerStates(0, 1, &sampler);
@@ -874,14 +868,14 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 		// This is what the left eye sees.
 		setViewport(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-		draw_->DrawIndexed(6, 0);
+		draw_->Draw(4, 0);
 
 		// And this is the right eye, unless they're a pirate.
 		setViewport(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-		draw_->DrawIndexed(6, 0);
+		draw_->Draw(4, 0);
 	} else {
 		setViewport(0.0f, 0.0f, (float)pixelWidth_, (float)pixelHeight_);
-		draw_->DrawIndexed(6, 0);
+		draw_->Draw(4, 0);
 	}
 
 	DoRelease(srcFramebuffer_);
