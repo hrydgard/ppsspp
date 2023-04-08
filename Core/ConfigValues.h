@@ -31,6 +31,22 @@ const int PSP_DEFAULT_FIRMWARE = 660;
 static const int8_t VOLUME_OFF = 0;
 static const int8_t VOLUME_FULL = 10;
 
+struct ConfigTouchPos {
+	float x;
+	float y;
+	float scale;
+	// Note: Show is not used for all settings.
+	bool show;
+};
+
+struct ConfigCustomButton {
+	uint64_t key;
+	int image;
+	int shape;
+	bool toggle;
+	bool repeat;
+};
+
 enum class CPUCore {
 	INTERPRETER = 0,
 	JIT = 1,
