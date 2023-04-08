@@ -432,7 +432,7 @@ const char *DefaultLangRegion() {
 	// Unfortunate default.  There's no need to use bFirstRun, since this is only a default.
 	static std::string defaultLangRegion = "en_US";
 	std::string langRegion = System_GetProperty(SYSPROP_LANGREGION);
-	if (i18nrepo.IniExists(langRegion)) {
+	if (g_i18nrepo.IniExists(langRegion)) {
 		defaultLangRegion = langRegion;
 	} else if (langRegion.length() >= 3) {
 		// Don't give up.  Let's try a fuzzy match - so nl_BE can match nl_NL.

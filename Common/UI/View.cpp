@@ -530,7 +530,7 @@ void Choice::Draw(UIContext &dc) {
 }
 
 std::string Choice::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return ReplaceAll(u->T("%1 choice"), "%1", text_);
 }
 
@@ -578,7 +578,7 @@ void InfoItem::Draw(UIContext &dc) {
 }
 
 std::string InfoItem::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return ReplaceAll(ReplaceAll(u->T("%1: %2"), "%1", text_), "%2", rightText_);
 }
 
@@ -608,7 +608,7 @@ void ItemHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec hor
 }
 
 std::string ItemHeader::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return ReplaceAll(u->T("%1 heading"), "%1", text_);
 }
 
@@ -673,7 +673,7 @@ void PopupHeader::Draw(UIContext &dc) {
 }
 
 std::string PopupHeader::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return ReplaceAll(u->T("%1 heading"), "%1", text_);
 }
 
@@ -754,7 +754,7 @@ void CheckBox::Draw(UIContext &dc) {
 }
 
 std::string CheckBox::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	std::string text = ReplaceAll(u->T("%1 checkbox"), "%1", text_);
 	if (!smallText_.empty()) {
 		text += "\n" + smallText_;
@@ -857,7 +857,7 @@ void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 }
 
 std::string Button::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return ReplaceAll(u->T("%1 button"), "%1", GetText());
 }
 
@@ -919,7 +919,7 @@ void RadioButton::GetContentDimensions(const UIContext &dc, float &w, float &h) 
 }
 
 std::string RadioButton::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return ReplaceAll(u->T("%1 radio button"), "%1", text_);
 }
 
@@ -1107,7 +1107,7 @@ void TextEdit::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 }
 
 std::string TextEdit::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return ReplaceAll(u->T("%1 text field"), "%1", GetText());
 }
 
@@ -1291,7 +1291,7 @@ void ProgressBar::Draw(UIContext &dc) {
 }
 
 std::string ProgressBar::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	float percent = progress_ * 100.0f;
 	return ReplaceAll(u->T("Progress: %1%"), "%1", StringFromInt((int)percent));
 }

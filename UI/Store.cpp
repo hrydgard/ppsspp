@@ -243,8 +243,8 @@ void ProductView::CreateViews() {
 	Add(new TextView(entry_.name));
 	Add(new TextView(entry_.author));
 
-	auto st = GetI18NCategory("Store");
-	auto di = GetI18NCategory("Dialog");
+	auto st = GetI18NCategory(I18NCat::STORE);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	wasInstalled_ = IsGameInstalled();
 	bool isDownloading = g_GameManager.IsDownloading(DownloadURL());
 	if (!wasInstalled_) {
@@ -441,9 +441,9 @@ void StoreScreen::CreateViews() {
 
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 	
-	auto di = GetI18NCategory("Dialog");
-	auto st = GetI18NCategory("Store");
-	auto mm = GetI18NCategory("MainMenu");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto st = GetI18NCategory(I18NCat::STORE);
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	// Top bar
 	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));

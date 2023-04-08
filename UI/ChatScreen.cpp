@@ -18,7 +18,7 @@
 
 void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 	using namespace UI;
-	auto n = GetI18NCategory("Networking");
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT,400));
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -47,7 +47,7 @@ void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 	using namespace UI;
 
-	auto n = GetI18NCategory("Networking");
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	float width = 550.0f;
 
 	switch (g_Config.iChatScreenPosition) {
@@ -96,7 +96,7 @@ UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
 	chatEdit_->SetFocus();
 	sendChat(chat);
 #elif PPSSPP_PLATFORM(ANDROID)
-	auto n = GetI18NCategory("Networking");
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	System_InputBoxGetString(n->T("Chat"), "", [](const std::string &value, int) {
 		sendChat(value);
 	});
@@ -165,7 +165,7 @@ void ChatMenu::UpdateChat() {
 }
 
 void ChatMenu::Update() {
-	auto n = GetI18NCategory("Networking");
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
 	AnchorLayout::Update();
 	if (scroll_ && toBottom_) {

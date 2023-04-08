@@ -94,7 +94,7 @@ SingleControlMapper::SingleControlMapper(int pspKey, std::string keyName, Screen
 
 void SingleControlMapper::Refresh() {
 	Clear();
-	auto mc = GetI18NCategory("MappableControls");
+	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
 	std::map<std::string, ImageID> keyImages;
 	keyImages["Circle"] = ImageID("I_CIRCLE");
@@ -195,29 +195,25 @@ void SingleControlMapper::MappedCallback(MultiInputMapping kdf) {
 UI::EventReturn SingleControlMapper::OnReplace(UI::EventParams &params) {
 	actionIndex_ = atoi(params.v->Tag().c_str());
 	action_ = REPLACEONE;
-	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn SingleControlMapper::OnReplaceAll(UI::EventParams &params) {
 	action_ = REPLACEALL;
-	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn SingleControlMapper::OnAdd(UI::EventParams &params) {
 	action_ = ADD;
-	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
 	return UI::EVENT_DONE;
 }
 UI::EventReturn SingleControlMapper::OnAddMouse(UI::EventParams &params) {
 	action_ = ADD;
 	g_Config.bMapMouse = true;
-	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
+	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
 	return UI::EVENT_DONE;
 }
 
@@ -236,7 +232,7 @@ void ControlMappingScreen::CreateViews() {
 	using namespace UI;
 	mappers_.clear();
 
-	auto km = GetI18NCategory("KeyMapping");
+	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
@@ -300,7 +296,7 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 	for (auto s = seenPads.begin(), end = seenPads.end(); s != end; ++s) {
 		items.push_back(*s);
 	}
-	auto km = GetI18NCategory("KeyMapping");
+	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 	UI::ListPopupScreen *autoConfList = new UI::ListPopupScreen(km->T("Autoconfigure for device"), items, -1);
 	if (params.v)
 		autoConfList->SetPopupOrigin(params.v);
@@ -324,8 +320,8 @@ void ControlMappingScreen::dialogFinished(const Screen *dialog, DialogResult res
 void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	auto km = GetI18NCategory("KeyMapping");
-	auto mc = GetI18NCategory("MappableControls");
+	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
+	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
 	std::string pspButtonName = KeyMap::GetPspButtonName(this->pspBtn_);
 
@@ -373,7 +369,7 @@ void KeyMappingNewKeyDialog::SetDelay(float t) {
 void KeyMappingNewMouseKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	auto km = GetI18NCategory("KeyMapping");
+	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 
 	parent->Add(new TextView(std::string(km->T("You can press ESC to cancel.")), new LinearLayoutParams(Margins(10, 0))));
 	SetVRAppMode(VRAppMode::VR_CONTROLLER_MAPPING_MODE);
@@ -521,14 +517,14 @@ void AnalogSetupScreen::axis(const AxisInput &axis) {
 void AnalogSetupScreen::CreateViews() {
 	using namespace UI;
 
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
 	LinearLayout *leftColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300.0f, FILL_PARENT)));
 	LinearLayout *rightColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 
-	auto co = GetI18NCategory("Controls");
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	ScrollView *scroll = leftColumn->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
 
 	LinearLayout *scrollContents = scroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300.0f, WRAP_CONTENT)));
@@ -617,8 +613,8 @@ void TouchTestScreen::touch(const TouchInput &touch) {
 void TouchTestScreen::CreateViews() {
 	using namespace UI;
 
-	auto di = GetI18NCategory("Dialog");
-	auto gr = GetI18NCategory("Graphics");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 	LinearLayout *theTwo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 
@@ -630,7 +626,7 @@ void TouchTestScreen::CreateViews() {
 
 #if !PPSSPP_PLATFORM(UWP)
 	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan" };
-	PopupMultiChoice *renderingBackendChoice = root_->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
+	PopupMultiChoice *renderingBackendChoice = root_->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), I18NCat::GRAPHICS, screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &TouchTestScreen::OnRenderingBackend);
 
 	if (!g_Config.IsBackendEnabled(GPUBackend::OPENGL))
@@ -749,7 +745,7 @@ void RecreateActivity() {
 		System_Notify(SystemNotification::FORCE_RECREATE_ACTIVITY);
 		INFO_LOG(SYSTEM, "Got back from recreate");
 	} else {
-		auto gr = GetI18NCategory("Graphics");
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		System_Toast(gr->T("Must Restart", "You must restart PPSSPP for this change to take effect"));
 	}
 }
@@ -1082,7 +1078,7 @@ static std::vector<int> bindAllOrder{
 void VisualMappingScreen::CreateViews() {
 	using namespace UI;
 
-	auto km = GetI18NCategory("KeyMapping");
+	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
@@ -1210,14 +1206,12 @@ void VisualMappingScreen::dialogFinished(const Screen *dialog, DialogResult resu
 }
 
 void VisualMappingScreen::MapNext(bool successive) {
-	auto km = GetI18NCategory("KeyMapping");
-
 	if (nextKey_ == VIRTKEY_AXIS_Y_MIN || nextKey_ == VIRTKEY_AXIS_X_MIN || nextKey_ == VIRTKEY_AXIS_X_MAX) {
 		psp_->SelectButton(VIRTKEY_AXIS_Y_MAX);
 	} else {
 		psp_->SelectButton(nextKey_);
 	}
-	auto dialog = new KeyMappingNewKeyDialog(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), km);
+	auto dialog = new KeyMappingNewKeyDialog(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), I18NCat::KEYMAPPING);
 
 	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	dialog->SetPopupOffset(psp_->GetPopupOffset() * bounds.h);

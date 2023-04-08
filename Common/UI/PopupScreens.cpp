@@ -47,7 +47,7 @@ UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-PopupContextMenuScreen::PopupContextMenuScreen(const ContextMenuItem *items, size_t itemCount, I18NCategory *category, UI::View *sourceView)
+PopupContextMenuScreen::PopupContextMenuScreen(const ContextMenuItem *items, size_t itemCount, I18NCat category, UI::View *sourceView)
 	: PopupScreen("", "", ""), items_(items), itemCount_(itemCount), category_(category), sourceView_(sourceView)
 {
 	enabled_.resize(itemCount, true);
@@ -55,9 +55,11 @@ PopupContextMenuScreen::PopupContextMenuScreen(const ContextMenuItem *items, siz
 }
 
 void PopupContextMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	auto category = GetI18NCategory(category_);
+
 	for (size_t i = 0; i < itemCount_; i++) {
 		if (items_[i].imageID) {
-			Choice *choice = new Choice(category_->T(items_[i].text), ImageID(items_[i].imageID));
+			Choice *choice = new Choice(category->T(items_[i].text), ImageID(items_[i].imageID));
 			parent->Add(choice);
 			if (enabled_[i]) {
 				choice->OnClick.Add([=](EventParams &p) {
@@ -90,7 +92,7 @@ std::string ChopTitle(const std::string &title) {
 UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 	restoreFocus_ = HasFocus();
 
-	auto category = category_ ? GetI18NCategory(category_) : nullptr;
+	auto category = GetI18NCategory(category_);
 
 	std::vector<std::string> choices;
 	for (int i = 0; i < numChoices_; i++) {
@@ -289,7 +291,7 @@ void SliderPopupScreen::UpdateTextBox() {
 void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	UIContext &dc = *screenManager()->getUIContext();
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	sliderValue_ = *value_;
 	if (disabled_ && sliderValue_ < 0)
@@ -337,7 +339,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	UIContext &dc = *screenManager()->getUIContext();
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	sliderValue_ = *value_;
 	LinearLayout *vert = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::Margins(10, 10))));

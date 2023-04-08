@@ -429,7 +429,7 @@ void GameButton::Draw(UIContext &dc) {
 
 std::string GameButton::DescribeText() const {
 	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
-	auto u = GetI18NCategory("UI Elements");
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return ReplaceAll(u->T("%1 button"), "%1", ginfo->GetTitle());
 }
 
@@ -540,7 +540,7 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::BrowseClick(UI::EventParams &e) {
-	auto mm = GetI18NCategory("MainMenu");
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 	System_BrowseForFolder(mm->T("Choose folder"), [this](const std::string &filename, int) {
 		this->SetPath(Path(filename));
 	});
@@ -688,7 +688,7 @@ void GameBrowser::Refresh() {
 	Clear();
 
 	Add(new Spacer(1.0f));
-	auto mm = GetI18NCategory("MainMenu");
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	// No topbar on recent screen
 	if (DisplayTopBar()) {
@@ -957,7 +957,7 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::GridSettingsClick(UI::EventParams &e) {
-	auto sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto gridSettings = new GridSettingsScreen(sy->T("Games list settings"));
 	gridSettings->OnRecentChanged.Handle(this, &GameBrowser::OnRecentClear);
 	if (e.v)
@@ -994,7 +994,7 @@ void MainScreen::CreateViews() {
 
 	bool vertical = UseVerticalLayout();
 
-	auto mm = GetI18NCategory("MainMenu");
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	Margins actionMenuMargins(0, 10, 10, 0);
 
@@ -1131,7 +1131,7 @@ void MainScreen::CreateViews() {
 	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, -5.0f, NONE, NONE, false)));
 
 #if !defined(MOBILE_DEVICE)
-	auto gr = GetI18NCategory("Graphics");
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	ImageID icon(g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN");
 	fullscreenButton_ = logos->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
 	fullscreenButton_->SetIgnoreText(true);
@@ -1192,7 +1192,7 @@ void MainScreen::CreateViews() {
 		root_->SetDefaultFocusView(tabHolder_);
 	}
 
-	auto u = GetI18NCategory("Upgrade");
+	auto u = GetI18NCategory(I18NCat::UPGRADE);
 
 	upgradeBar_ = 0;
 	if (!g_Config.upgradeMessage.empty()) {
@@ -1280,7 +1280,7 @@ void MainScreen::update() {
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		auto mm = GetI18NCategory("MainMenu");
+		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		System_BrowseForFile(mm->T("Load"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
 			NativeMessageReceived("boot", value.c_str());
 		});
@@ -1477,8 +1477,8 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 void UmdReplaceScreen::CreateViews() {
 	using namespace UI;
 	Margins actionMenuMargins(0, 100, 15, 0);
-	auto mm = GetI18NCategory("MainMenu");
-	auto di = GetI18NCategory("Dialog");
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 	leftColumn->SetTag("UmdReplace");
@@ -1554,8 +1554,8 @@ UI::EventReturn UmdReplaceScreen::OnGameSelectedInstant(UI::EventParams &e) {
 void GridSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	auto di = GetI18NCategory("Dialog");
-	auto sy = GetI18NCategory("System");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);

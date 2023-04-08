@@ -31,8 +31,8 @@
 void TiltAnalogSettingsScreen::CreateViews() {
 	using namespace UI;
 
-	auto co = GetI18NCategory("Controls");
-	auto di = GetI18NCategory("Dialog");
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	bool vertical = UseVerticalLayout();
 
@@ -102,7 +102,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 
 	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons" };
 	settings->Add(new ItemHeader(co->T("Tilt control setup")));
-	settings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), tiltTypes, 0, ARRAY_SIZE(tiltTypes), co->GetName(), screenManager()))->OnChoice.Add(
+	settings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), tiltTypes, 0, ARRAY_SIZE(tiltTypes), I18NCat::CONTROLS, screenManager()))->OnChoice.Add(
 		[=](UI::EventParams &p) {
 			//when the tilt event type is modified, we need to reset all tilt settings.
 			//refer to the ResetTiltEvents() function for a detailed explanation.

@@ -62,7 +62,7 @@ void GamepadView::Update() {
 }
 
 std::string GamepadView::DescribeText() const {
-	auto co = GetI18NCategory("Controls");
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	return co->T(key_);
 }
 

@@ -147,7 +147,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 
 
 void PSPMsgDialog::FormatErrorCode(uint32_t code) {
-	auto err = GetI18NCategory("Dialog");
+	auto err = GetI18NCategory(I18NCat::DIALOG);
 
 	switch (code) {
 	case SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN:
@@ -180,7 +180,7 @@ void PSPMsgDialog::FormatErrorCode(uint32_t code) {
 }
 
 void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK) {
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	PPGeStyle buttonStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);
 	PPGeStyle messageStyle = FadedStyle(PPGeAlign::BOX_HCENTER, FONT_SCALE);

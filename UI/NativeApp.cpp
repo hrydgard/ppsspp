@@ -282,9 +282,9 @@ void PostLoadConfig() {
 
 	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
 	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
-		i18nrepo.LoadIni(g_Config.sLanguageIni);
+		g_i18nrepo.LoadIni(g_Config.sLanguageIni);
 	else
-		i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
+		g_i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
 
 #if PPSSPP_PLATFORM(ANDROID)
 	CreateDirectoriesAndroid();
@@ -407,8 +407,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	ShaderTranslationInit();
 
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
-
-	g_Discord.SetPresenceMenu();
 
 	// Make sure UI state is MENU.
 	ResetUIState();
@@ -710,7 +708,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		}
 	}
 
-	auto des = GetI18NCategory("DesktopUI");
+	auto des = GetI18NCategory(I18NCat::DESKTOPUI);
 	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
 	// It's intended to be custom for every user.
 	// Only add it to your own personal copies of PPSSPP.
@@ -996,7 +994,7 @@ void TakeScreenshot() {
 	if (success) {
 		osm.Show(filename.ToVisualString());
 	} else {
-		auto err = GetI18NCategory("Error");
+		auto err = GetI18NCategory(I18NCat::ERRORS);
 		osm.Show(err->T("Could not save screenshot file"));
 	}
 }
@@ -1141,7 +1139,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		KeyMap::NotifyPadConnected(nextInputDeviceID, value);
 	}
 	else if (msg == "savestate_displayslot") {
-		auto sy = GetI18NCategory("System");
+		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
 		osm.Show(msg, 2.0f, 0xFFFFFF, -1, true, "savestate_slot");
@@ -1164,7 +1162,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	}
 	else if (msg == "core_powerSaving") {
 		if (value != "false") {
-			auto sy = GetI18NCategory("System");
+			auto sy = GetI18NCategory(I18NCat::SYSTEM);
 #if PPSSPP_PLATFORM(ANDROID)
 			osm.Show(sy->T("WARNING: Android battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
 #else
@@ -1383,11 +1381,7 @@ void NativeShutdown() {
 
 	INFO_LOG(SYSTEM, "NativeShutdown called");
 
-	for (auto &cat : GetI18NMissingKeys()) {
-		for (auto &key : cat.second) {
-			INFO_LOG(SYSTEM, "Missing translation [%s]: %s", cat.first.c_str(), key.c_str());
-		}
-	}
+	g_i18nrepo.LogMissingKeys();
 
 	ShutdownWebServer();
 

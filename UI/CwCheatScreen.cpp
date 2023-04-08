@@ -80,9 +80,9 @@ void CwCheatScreen::LoadCheatInfo() {
 
 void CwCheatScreen::CreateViews() {
 	using namespace UI;
-	auto cw = GetI18NCategory("CwCheats");
-	auto di = GetI18NCategory("Dialog");
-	auto mm = GetI18NCategory("MainMenu");
+	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 

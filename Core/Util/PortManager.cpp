@@ -189,7 +189,7 @@ bool PortManager::Initialize(const unsigned int timeout) {
 
 	ERROR_LOG(SCENET, "PortManager - upnpDiscover failed (error: %i) or No UPnP device detected", error);
 	if (g_Config.bEnableUPnP) {
-		auto n = GetI18NCategory("Networking");
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		System_NotifyUserMessage(n->T("Unable to find UPnP device"), 2.0f, 0x0000ff);
 	}
 	m_InitState = UPNP_INITSTATE_NONE;
@@ -206,7 +206,7 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 	char port_str[16];
 	char intport_str[16];
 	int r;
-	auto n = GetI18NCategory("Networking");
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	
 	if (intport == 0)
 		intport = port;
@@ -263,7 +263,7 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 bool PortManager::Remove(const char* protocol, unsigned short port) {
 #ifdef WITH_UPNP
 	char port_str[16];
-	auto n = GetI18NCategory("Networking");
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
 	INFO_LOG(SCENET, "PortManager::Remove(%s, %d)", protocol, port);
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')

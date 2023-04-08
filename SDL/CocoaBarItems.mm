@@ -38,7 +38,7 @@ void initBarItemsForApp() {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         stub = [BarItemsManager new];
-        stub.mainSettingsLocalization = GetI18NCategory("MainSettings");
+        stub.mainSettingsLocalization = GetI18NCategory(I18NCat::MAINSETTINGS);
     });
     
     return stub;
@@ -147,7 +147,7 @@ void initBarItemsForApp() {
     NSMenu *parent = [[NSMenu alloc] initWithTitle:@(self.mainSettingsLocalization->T("Graphics"))];
     NSMenu *backendsMenu = [[NSMenu alloc] init];
     
-    self.graphicsLocalization = GetI18NCategory("Graphics");
+    self.graphicsLocalization = GetI18NCategory(I18NCat::GRAPHICS);
 #define GRAPHICS_LOCALIZED(key) @(self.graphicsLocalization->T(key))
     
     NSMenuItem *gpuBackendItem = [[NSMenuItem alloc] initWithTitle:GRAPHICS_LOCALIZED("Backend") action:nil keyEquivalent:@""];

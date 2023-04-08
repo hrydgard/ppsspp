@@ -119,14 +119,14 @@ private:
 void CustomButtonMappingScreen::CreateViews() {
 	using namespace UI;
 	using namespace CustomKeyData;
-	auto co = GetI18NCategory("Controls");
-	auto mc = GetI18NCategory("MappableControls");
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 	root_->Add(new ItemHeader(co->T("Custom Key Setting")));
 	LinearLayout *root__ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0));
 	root_->Add(root__);
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(120, FILL_PARENT));
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	ConfigCustomButton* cfg = nullptr;
 	bool* show = nullptr;

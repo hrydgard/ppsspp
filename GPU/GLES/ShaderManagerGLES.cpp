@@ -800,7 +800,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 		// Vertex shader not in cache. Let's compile it.
 		vs = CompileVertexShader(*VSID);
 		if (!vs || vs->Failed()) {
-			auto gr = GetI18NCategory("Graphics");
+			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 			ERROR_LOG(G3D, "Vertex shader generation failed, falling back to software transform");
 			if (!g_Config.bHideSlowWarnings) {
 				System_NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);

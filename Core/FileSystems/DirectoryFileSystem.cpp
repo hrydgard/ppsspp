@@ -190,7 +190,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 
 		if (w32err == ERROR_DISK_FULL || w32err == ERROR_NOT_ENOUGH_QUOTA) {
 			// This is returned when the disk is full.
-			auto err = GetI18NCategory("Error");
+			auto err = GetI18NCategory(I18NCat::ERRORS);
 			System_NotifyUserMessage(err->T("Disk full while writing data"));
 			error = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
 		} else if (!success) {
@@ -288,7 +288,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 		}
 	} else if (errno == ENOSPC) {
 		// This is returned when the disk is full.
-		auto err = GetI18NCategory("Error");
+		auto err = GetI18NCategory(I18NCat::ERRORS);
 		System_NotifyUserMessage(err->T("Disk full while writing data"));
 		error = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
 	} else {
@@ -363,7 +363,7 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 
 	if (diskFull) {
 		ERROR_LOG(FILESYS, "Disk full");
-		auto err = GetI18NCategory("Error");
+		auto err = GetI18NCategory(I18NCat::ERRORS);
 		System_NotifyUserMessage(err->T("Disk full while writing data"));
 		// We only return an error when the disk is actually full.
 		// When writing this would cause the disk to be full, so it wasn't written, we return 0.
