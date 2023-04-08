@@ -496,7 +496,8 @@ void PresentationCommon::CreateDeviceObjects() {
 	using namespace Draw;
 	_assert_(vdata_ == nullptr);
 
-	vdata_ = draw_->CreateBuffer(sizeof(Vertex) * 8, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
+	// TODO: Could probably just switch to DrawUP, it's supported well by all backends now.
+	vdata_ = draw_->CreateBuffer(sizeof(Vertex) * 12, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 
 	samplerNearest_ = draw_->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST, 0.0f, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE });
 	samplerLinear_ = draw_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR, 0.0f, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE });
@@ -653,13 +654,29 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	// To make buffer updates easier, we use one array of verts.
 	int postVertsOffset = (int)sizeof(Vertex) * 4;
-	Vertex verts[8] = {
-		{ rc.x, rc.y, 0, u0, v0, 0xFFFFFFFF }, // TL
-		{ rc.x + rc.w, rc.y, 0, u1, v0, 0xFFFFFFFF }, // TR
-		{ rc.x, rc.y + rc.h, 0, u0, v1, 0xFFFFFFFF }, // BL
-		{ rc.x + rc.w, rc.y + rc.h, 0, u1, v1, 0xFFFFFFFF }, // BR
+
+	float finalU0 = u0, finalU1 = u1, finalV0 = v0, finalV1 = v1;
+
+	if (usePostShader) {
+		// The final blit will thus use the full texture.
+		finalU0 = 0.0f;
+		finalV0 = 0.0f;
+		finalU1 = 1.0f;
+		finalV1 = 1.0f;
+	}
+
+	// Our vertex buffer is split into three parts, with four vertices each:
+	// 0-3: The final blit vertices (needs to handle cropping the input ONLY if post-processing is not enabled)
+	// 4-7: Post-processing, other passes
+	// 8-11: Post-processing, first pass (needs to handle cropping the input image, if wrong dimensions)
+	Vertex verts[12] = {
+		{ rc.x, rc.y, 0, finalU0, finalV0, 0xFFFFFFFF }, // TL
+		{ rc.x + rc.w, rc.y, 0, finalU1, finalV0, 0xFFFFFFFF }, // TR
+		{ rc.x, rc.y + rc.h, 0, finalU0, finalV1, 0xFFFFFFFF }, // BL
+		{ rc.x + rc.w, rc.y + rc.h, 0, finalU1, finalV1, 0xFFFFFFFF }, // BR
 	};
 
+	// Rescale X, Y to normalized coordinate system.
 	float invDestW = 2.0f / pixelWidth;
 	float invDestH = 2.0f / pixelHeight;
 	for (int i = 0; i < 4; i++) {
@@ -730,7 +747,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	Draw::Framebuffer *previousFramebuffer = previousFramebuffers_.empty() ? nullptr : previousFramebuffers_[previousIndex_];
 
 	PostShaderUniforms uniforms;
-	const auto performShaderPass = [&](const ShaderInfo *shaderInfo, Draw::Framebuffer *postShaderFramebuffer, Draw::Pipeline *postShaderPipeline) {
+	const auto performShaderPass = [&](const ShaderInfo *shaderInfo, Draw::Framebuffer *postShaderFramebuffer, Draw::Pipeline *postShaderPipeline, int vertsOffset) {
 		if (postShaderOutput) {
 			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
 		} else {
@@ -757,7 +774,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		if (shaderInfo->usePreviousFrame)
 			draw_->BindSamplerStates(2, 1, &sampler);
 
-		draw_->BindVertexBuffers(0, 1, &vdata_, &postVertsOffset);
+		draw_->BindVertexBuffers(0, 1, &vdata_, &vertsOffset);
 		draw_->Draw(4, 0);
 
 		postShaderOutput = postShaderFramebuffer;
@@ -775,6 +792,13 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		verts[5] = {  1.0f, y0, 0.0f, 1.0f, 0.0f, 0xFFFFFFFF }; // TR
 		verts[6] = { -1.0f, y1, 0.0f, 0.0f, 1.0f, 0xFFFFFFFF }; // BL
 		verts[7] = {  1.0f, y1, 0.0f, 1.0f, 1.0f, 0xFFFFFFFF }; // BR
+
+		// Now, adjust for the desired input rectangle.
+		verts[8]  = { -1.0f, y0, 0.0f, u0, v0, 0xFFFFFFFF }; // TL
+		verts[9]  = {  1.0f, y0, 0.0f, u1, v0, 0xFFFFFFFF }; // TR
+		verts[10] = { -1.0f, y1, 0.0f, u0, v1, 0xFFFFFFFF }; // BL
+		verts[11] = {  1.0f, y1, 0.0f, u1, v1, 0xFFFFFFFF }; // BR
+
 		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
 
 		for (size_t i = 0; i < postShaderFramebuffers_.size(); ++i) {
@@ -791,12 +815,16 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 			}
 
 			draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "PostShader");
-			performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline);
+
+			// Pick vertices 8-11 for the first pass.
+			int vertOffset = i == 0 ? (int)sizeof(Vertex) * 8 : (int)sizeof(Vertex) * 4;
+			performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline, vertOffset);
 		}
 
 		if (isFinalAtOutputResolution && postShaderInfo_.back().isUpscalingFilter)
 			useNearest = true;
 	} else {
+		// Only need to update the first four verts, the rest are unused.
 		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, postVertsOffset, Draw::UPDATE_DISCARD);
 	}
 
@@ -812,7 +840,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		Draw::Framebuffer *postShaderFramebuffer = previousFramebuffers_[previousIndex_];
 
 		draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "InterFrameBlit");
-		performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline);
+		performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline, postVertsOffset);
 	}
 
 	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "FinalBlit");
