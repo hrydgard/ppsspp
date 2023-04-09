@@ -79,9 +79,6 @@ void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect
 
 	float offsetX = g_Config.fDisplayOffsetX;
 	float offsetY = g_Config.fDisplayOffsetY;
-	if (GetGPUBackend() != GPUBackend::VULKAN) {
-		offsetY = 1.0 - offsetY;
-	}
 
 	float scale = g_Config.fDisplayScale;
 	float aspectRatioAdjust = g_Config.fDisplayAspectRatio;
@@ -654,10 +651,6 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		rc.y += 0.5f;
 	}
 
-	if ((flags & OutputFlags::BACKBUFFER_FLIPPED) || (flags & OutputFlags::POSITION_FLIPPED)) {
-		std::swap(v0, v1);
-	}
-
 	// To make buffer updates easier, we use one array of verts.
 	int postVertsOffset = (int)sizeof(Vertex) * 4;
 	Vertex verts[8] = {
@@ -726,6 +719,13 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		}
 	}
 
+	// Finally, we compensate the y vertex positions for the backbuffer for any flipping.
+	if ((flags & OutputFlags::POSITION_FLIPPED) || (flags & OutputFlags::BACKBUFFER_FLIPPED)) {
+		for (int i = 0; i < 4; i++) {
+			verts[i].y = -verts[i].y;
+		}
+	}
+
 	// Grab the previous framebuffer early so we can change previousIndex_ when we want.
 	Draw::Framebuffer *previousFramebuffer = previousFramebuffers_.empty() ? nullptr : previousFramebuffers_[previousIndex_];
 
@@ -766,13 +766,15 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	};
 
 	if (usePostShader) {
+		// When we render to temp framebuffers during post, we switch position, not UV.
+		// The flipping here is only because D3D has a clip coordinate system that doesn't match their screen coordinate system.
 		bool flipped = flags & OutputFlags::POSITION_FLIPPED;
-		float post_v0 = !flipped ? 1.0f : 0.0f;
-		float post_v1 = !flipped ? 0.0f : 1.0f;
-		verts[4] = { -1, -1, 0, 0, post_v1, 0xFFFFFFFF }; // TL
-		verts[5] = {  1, -1, 0, 1, post_v1, 0xFFFFFFFF }; // TR
-		verts[6] = { -1,  1, 0, 0, post_v0, 0xFFFFFFFF }; // BL
-		verts[7] = {  1,  1, 0, 1, post_v0, 0xFFFFFFFF }; // BR
+		float y0 = flipped ? 1.0f : -1.0f;
+		float y1 = flipped ? -1.0f : 1.0f;
+		verts[4] = { -1.0f, y0, 0.0f, 0.0f, 0.0f, 0xFFFFFFFF }; // TL
+		verts[5] = {  1.0f, y0, 0.0f, 1.0f, 0.0f, 0xFFFFFFFF }; // TR
+		verts[6] = { -1.0f, y1, 0.0f, 0.0f, 1.0f, 0xFFFFFFFF }; // BL
+		verts[7] = {  1.0f, y1, 0.0f, 1.0f, 1.0f, 0xFFFFFFFF }; // BR
 		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
 
 		for (size_t i = 0; i < postShaderFramebuffers_.size(); ++i) {
