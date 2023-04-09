@@ -970,8 +970,8 @@ VkResult VulkanContext::ReinitSurface() {
 		{
 			const VkDisplayModePropertiesKHR* mode = &mode_props[i];
 
-			if (mode->parameters.visibleRegion.width == pixel_xres &&
-			    mode->parameters.visibleRegion.height == pixel_yres)
+			if (mode->parameters.visibleRegion.width == g_display.pixel_xres &&
+			    mode->parameters.visibleRegion.height == g_display.pixel_yres)
 			{
 				display_mode = mode->displayMode;
 				mode_found = true;
