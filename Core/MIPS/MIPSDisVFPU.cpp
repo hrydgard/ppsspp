@@ -98,13 +98,15 @@ inline const char *VSuff(MIPSOpcode op)
 
 namespace MIPSDis
 {
+	const char *SignedHex(int i);
+
 	void Dis_SV(MIPSOpcode op, char *out)
 	{
 		int offset = SignExtend16ToS32(op & 0xFFFC);
 		int vt = ((op>>16)&0x1f)|((op&3)<<5);
 		int rs = (op>>21) & 0x1f;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, %d(%s)",name,VN(vt, V_Single),offset,RN(rs));
+		sprintf(out, "%s\t%s, %s(%s)", name, VN(vt, V_Single), SignedHex(offset), RN(rs));
 	}
 
 	void Dis_SVQ(MIPSOpcode op, char *out)
@@ -113,7 +115,7 @@ namespace MIPSDis
 		int vt = (((op>>16)&0x1f))|((op&1)<<5);
 		int rs = (op>>21) & 0x1f;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, %d(%s)",name,VN(vt,V_Quad),offset,RN(rs));
+		sprintf(out, "%s\t%s, %s(%s)", name, VN(vt, V_Quad), SignedHex(offset), RN(rs));
 		if (op & 2)
 			strcat(out, ", wb");
 	}
@@ -125,7 +127,7 @@ namespace MIPSDis
 		int rs = (op>>21) & 0x1f;
 		int lr = (op>>1)&1;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s%s.q\t%s, %d(%s)",name,lr?"r":"l",VN(vt,V_Quad),offset,RN(rs));
+		sprintf(out, "%s%s.q\t%s, %s(%s)", name, lr ? "r" : "l", VN(vt, V_Quad), SignedHex(offset), RN(rs));
 	}
 
 	void Dis_Mftv(MIPSOpcode op, char *out)
