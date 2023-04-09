@@ -614,6 +614,9 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 				if (bpw.exec()) bpw.addBreakpoint();
 			}
 			break;
+		case ID_DISASM_DELETEBREAKPOINT:
+			removeBreakpoint(itemIndex);
+			break;
 		}
 	}
 }

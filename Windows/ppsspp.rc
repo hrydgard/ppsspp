@@ -735,6 +735,7 @@ BEGIN
     BEGIN
         MENUITEM "Enable",                     ID_DISASM_DISABLEBREAKPOINT
         MENUITEM "Edit",                       ID_DISASM_EDITBREAKPOINT
+        MENUITEM "Delete",                     ID_DISASM_DELETEBREAKPOINT
         MENUITEM SEPARATOR
         MENUITEM "Add New",                    ID_DISASM_ADDNEWBREAKPOINT
     END
