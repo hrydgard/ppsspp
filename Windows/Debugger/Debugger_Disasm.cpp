@@ -239,8 +239,6 @@ void CDisasm::stepInto()
 
 	ptr->gotoPC();
 	UpdateDialog();
-	if (vfpudlg)
-		vfpudlg->Update();
 
 	threadList->reloadThreads();
 	stackTraceView->loadStackTrace();
@@ -525,8 +523,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						Sleep(1); //let cpu catch up
 						ptr->gotoPC();
 						UpdateDialog();
-						if (vfpudlg)
-							vfpudlg->Update();
 					} else {					// go
 						lastTicks = CoreTiming::GetTicks();
 
@@ -885,6 +881,8 @@ void CDisasm::UpdateDialog() {
 	// Update memory window too.
 	if (memoryWindow)
 		memoryWindow->Update();
+	if (vfpudlg)
+		vfpudlg->Update();
 }
 
 void CDisasm::ProcessUpdateDialog() {

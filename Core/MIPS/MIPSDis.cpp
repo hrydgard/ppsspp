@@ -97,7 +97,7 @@ namespace MIPSDis
 
 	void Dis_FPULS(MIPSOpcode op, char *out)
 	{
-		int offset = (signed short)(op&0xFFFF);
+		int offset = SignExtend16ToS32(op & 0xFFFF);
 		int ft = _FT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
@@ -114,7 +114,7 @@ namespace MIPSDis
 	void Dis_FPUBranch(MIPSOpcode op, char *out)
 	{
 		u32 off = disPC;
-		int imm = (signed short)(op&0xFFFF)<<2;
+		int imm = SignExtend16ToS32(op & 0xFFFF) << 2;
 		off += imm + 4;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t->$%08x",name,off);
@@ -123,7 +123,7 @@ namespace MIPSDis
 	void Dis_RelBranch(MIPSOpcode op, char *out)
 	{
 		u32 off = disPC;
-		int imm = (signed short)(op&0xFFFF)<<2;
+		int imm = SignExtend16ToS32(op & 0xFFFF) << 2;
 		int rs = _RS;
 		off += imm + 4;
 
@@ -155,7 +155,7 @@ namespace MIPSDis
 	void Dis_RelBranch2(MIPSOpcode op, char *out)
 	{
 		u32 off = disPC;
-		int imm = (signed short)(op&0xFFFF)<<2;
+		int imm = SignExtend16ToS32(op & 0xFFFF) << 2;
 		int rt = _RT;
 		int rs = _RS;
 		off += imm + 4;
@@ -196,7 +196,7 @@ namespace MIPSDis
 	}
 	void Dis_ori(MIPSOpcode op, char *out)
 	{
-		u32 uimm = (u32)(u16)(op & 0xFFFF);
+		u32 uimm = op & 0xFFFF;
 		int rt = _RT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
@@ -208,7 +208,7 @@ namespace MIPSDis
 
 	void Dis_IType1(MIPSOpcode op, char *out)
 	{
-		u32 uimm = (u32)(u16)(op & 0xFFFF);
+		u32 uimm = op & 0xFFFF;
 		int rt = _RT;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s, 0x%X",name,RN(rt),uimm);
@@ -216,7 +216,7 @@ namespace MIPSDis
 
 	void Dis_addi(MIPSOpcode op, char *out)
 	{
-		int imm = (signed short)(op&0xFFFF);
+		int imm = SignExtend16ToS32(op & 0xFFFF);
 		int rt = _RT;
 		int rs = _RS;
 		if (rs == 0)
@@ -227,7 +227,7 @@ namespace MIPSDis
 
 	void Dis_ITypeMem(MIPSOpcode op, char *out)
 	{
-		int imm = (signed short)(op&0xFFFF);
+		int imm = SignExtend16ToS32(op & 0xFFFF);
 		int rt = _RT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);

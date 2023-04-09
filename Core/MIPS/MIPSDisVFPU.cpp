@@ -16,13 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstring>
-#include "Core/HLE/HLE.h"
-
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDis.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
-
 #include "Core/MIPS/MIPSVFPUUtils.h"
 
 #define _RS   ((op>>21) & 0x1F)
@@ -100,34 +98,36 @@ inline const char *VSuff(MIPSOpcode op)
 
 namespace MIPSDis
 {
+	const char *SignedHex(int i);
+
 	void Dis_SV(MIPSOpcode op, char *out)
 	{
-		int offset = (signed short)(op&0xFFFC);
+		int offset = SignExtend16ToS32(op & 0xFFFC);
 		int vt = ((op>>16)&0x1f)|((op&3)<<5);
 		int rs = (op>>21) & 0x1f;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, %d(%s)",name,VN(vt, V_Single),offset,RN(rs));
+		sprintf(out, "%s\t%s, %s(%s)", name, VN(vt, V_Single), SignedHex(offset), RN(rs));
 	}
 
 	void Dis_SVQ(MIPSOpcode op, char *out)
 	{
-		int offset = (signed short)(op&0xFFFC);
+		int offset = SignExtend16ToS32(op & 0xFFFC);
 		int vt = (((op>>16)&0x1f))|((op&1)<<5);
 		int rs = (op>>21) & 0x1f;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, %d(%s)",name,VN(vt,V_Quad),offset,RN(rs));
+		sprintf(out, "%s\t%s, %s(%s)", name, VN(vt, V_Quad), SignedHex(offset), RN(rs));
 		if (op & 2)
 			strcat(out, ", wb");
 	}
 
 	void Dis_SVLRQ(MIPSOpcode op, char *out)
 	{
-		int offset = (signed short)(op&0xFFFC);
+		int offset = SignExtend16ToS32(op & 0xFFFC);
 		int vt = (((op>>16)&0x1f))|((op&1)<<5);
 		int rs = (op>>21) & 0x1f;
 		int lr = (op>>1)&1;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s%s.q\t%s, %d(%s)",name,lr?"r":"l",VN(vt,V_Quad),offset,RN(rs));
+		sprintf(out, "%s%s.q\t%s, %s(%s)", name, lr ? "r" : "l", VN(vt, V_Quad), SignedHex(offset), RN(rs));
 	}
 
 	void Dis_Mftv(MIPSOpcode op, char *out)
@@ -215,8 +215,7 @@ namespace MIPSDis
 	void Dis_Viim(MIPSOpcode op, char *out)
 	{
 		int vt = _VT;
-		int imm = op&0xFFFF;
-		//V(vt) = (float)imm;
+		int imm = SignExtend16ToS32(op & 0xFFFF);
 		const char *name = MIPSGetName(op);
 
 		int type = (op >> 23) & 7;
@@ -603,7 +602,7 @@ namespace MIPSDis
 	void Dis_VBranch(MIPSOpcode op, char *out)
 	{
 		u32 off = disPC;
-		int imm = (signed short)(op&0xFFFF)<<2;
+		int imm = SignExtend16ToS32(op&0xFFFF) << 2;
 		int imm3 = (op>>18)&7;
 		off += imm + 4;
 		const char *name = MIPSGetName(op);

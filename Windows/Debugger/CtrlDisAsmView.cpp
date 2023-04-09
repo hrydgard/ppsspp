@@ -11,6 +11,7 @@
 
 #include "Core/MIPS/MIPSAsm.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/Config.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Reporting.h"
@@ -128,6 +129,8 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		break;
 	case WM_KILLFOCUS:
 		ccp->hasFocus=false;
+		lmbDown = false;
+		rmbDown = false;
 		ccp->redraw();
 		break;
 	case WM_GETDLGCODE:
@@ -1116,14 +1119,12 @@ void CtrlDisAsmView::updateStatusBarText()
 			snprintf(text, sizeof(text), "[%08X] = \"%s\"", line.info.relevantAddress, Memory::GetCharPointer(line.info.relevantAddress));
 		}
 
-		if (line.info.isDataAccess)
-		{
-			if (!Memory::IsValidAddress(line.info.dataAddress))
-			{
+		if (line.info.isDataAccess) {
+			if (!Memory::IsValidAddress(line.info.dataAddress)) {
 				snprintf(text, sizeof(text), "Invalid address %08X",line.info.dataAddress);
 			} else {
-				switch (line.info.dataSize)
-				{
+				bool isFloat = MIPSGetInfo(line.info.encodedOpcode) & (IS_FPU | IS_VFPU);
+				switch (line.info.dataSize) {
 				case 1:
 					snprintf(text, sizeof(text), "[%08X] = %02X",line.info.dataAddress,Memory::Read_U8(line.info.dataAddress));
 					break;
@@ -1131,21 +1132,37 @@ void CtrlDisAsmView::updateStatusBarText()
 					snprintf(text, sizeof(text), "[%08X] = %04X",line.info.dataAddress,Memory::Read_U16(line.info.dataAddress));
 					break;
 				case 4:
-					// TODO: Could also be a float...
 					{
-						u32 data = Memory::Read_U32(line.info.dataAddress);
-						const std::string addressSymbol = g_symbolMap->GetLabelString(data);
-						if (!addressSymbol.empty())
-						{
-							snprintf(text, sizeof(text), "[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol.c_str(),data);
+						u32 dataInt = Memory::Read_U32(line.info.dataAddress);
+						u32 dataFloat = Memory::Read_Float(line.info.dataAddress);
+						std::string dataString;
+						if (isFloat)
+							dataString = StringFromFormat("%08X / %f", dataInt, dataFloat);
+						else
+							dataString = StringFromFormat("%08X", dataInt);
+
+						const std::string addressSymbol = g_symbolMap->GetLabelString(dataInt);
+						if (!addressSymbol.empty()) {
+							snprintf(text, sizeof(text), "[%08X] = %s (%s)", line.info.dataAddress, addressSymbol.c_str(), dataString.c_str());
 						} else {
-							snprintf(text, sizeof(text), "[%08X] = %08X",line.info.dataAddress,data);
+							snprintf(text, sizeof(text), "[%08X] = %s", line.info.dataAddress, dataString.c_str());
 						}
 						break;
 					}
 				case 16:
-					// TODO: vector
-					break;
+					{
+						uint32_t dataInt[4];
+						float dataFloat[4];
+						for (int i = 0; i < 4; ++i) {
+							dataInt[i] = Memory::Read_U32(line.info.dataAddress + i * 4);
+							dataFloat[i] = Memory::Read_Float(line.info.dataAddress + i * 4);
+						}
+						std::string dataIntString = StringFromFormat("%08X,%08X,%08X,%08X", dataInt[0], dataInt[1], dataInt[2], dataInt[3]);
+						std::string dataFloatString = StringFromFormat("%f,%f,%f,%f", dataFloat[0], dataFloat[1], dataFloat[2], dataFloat[3]);
+
+						snprintf(text, sizeof(text), "[%08X] = %s / %s", line.info.dataAddress, dataIntString.c_str(), dataFloatString.c_str());
+						break;
+					}
 				}
 			}
 		}

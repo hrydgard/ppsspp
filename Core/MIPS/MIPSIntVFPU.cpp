@@ -21,6 +21,7 @@
 #include <limits>
 #include <algorithm>
 
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"
 
 #include "Core/Compatibility.h"
@@ -201,7 +202,7 @@ namespace MIPSInt
 
 	void Int_SVQ(MIPSOpcode op)
 	{
-		int imm = (signed short)(op&0xFFFC);
+		int imm = SignExtend16ToS32(op & 0xFFFC);
 		int rs = _RS;
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
 
@@ -419,7 +420,7 @@ namespace MIPSInt
 
 	void Int_Viim(MIPSOpcode op) {
 		int vt = _VT;
-		s32 imm = (s16)(op&0xFFFF);
+		s32 imm = SignExtend16ToS32(op & 0xFFFF);
 		u16 uimm16 = (op&0xFFFF);
 		float f[1];
 		int type = (op >> 23) & 7;
@@ -1736,7 +1737,7 @@ namespace MIPSInt
  
 	void Int_SV(MIPSOpcode op)
 	{
-		s32 imm = (signed short)(op&0xFFFC);
+		s32 imm = SignExtend16ToS32(op & 0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 		int rs = _RS;
 		u32 addr = R(rs) + imm;
