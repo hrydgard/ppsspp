@@ -823,7 +823,23 @@ CtrlWatchList::CtrlWatchList(HWND hwnd, DebugInterface *cpu)
 }
 
 void CtrlWatchList::RefreshValues() {
-	Update();
+	int steppingCounter = Core_GetSteppingCounter();
+	int changes = false;
+	for (auto &watch : watches_) {
+		if (watch.steppingCounter != steppingCounter) {
+			watch.lastValue = watch.currentValue;
+			watch.steppingCounter = steppingCounter;
+			changes = true;
+		}
+
+		uint32_t prevValue = watch.currentValue;
+		watch.evaluateFailed = !cpu_->parseExpression(watch.expression, watch.currentValue);
+		if (prevValue != watch.currentValue)
+			changes = true;
+	}
+
+	if (changes)
+		Update();
 }
 
 bool CtrlWatchList::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT &returnValue) {
@@ -902,6 +918,14 @@ void CtrlWatchList::OnRightClick(int itemIndex, int column, const POINT &pt) {
 	}
 }
 
+bool CtrlWatchList::OnRowPrePaint(int row, LPNMLVCUSTOMDRAW msg) {
+	if (row >= 0 && HasWatchChanged(row)) {
+		msg->clrText = RGB(255, 0, 0);
+		return true;
+	}
+	return false;
+}
+
 void CtrlWatchList::AddWatch() {
 	WatchItemWindow win(nullptr, GetHandle(), cpu_);
 	if (win.Exec()) {
@@ -910,7 +934,7 @@ void CtrlWatchList::AddWatch() {
 			info.name = win.GetName();
 			info.originalExpression = win.GetExpression();
 			watches_.push_back(info);
-			Update();
+			RefreshValues();
 		} else {
 			char errorMessage[512];
 			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", win.GetExpression().c_str(), getExpressionError());
@@ -926,7 +950,7 @@ void CtrlWatchList::EditWatch(int pos) {
 		if (cpu_->initExpression(win.GetExpression().c_str(), watches_[pos].expression)) {
 			watches_[pos].name = win.GetName();
 			watches_[pos].originalExpression = win.GetExpression();
-			Update();
+			RefreshValues();
 		} else {
 			char errorMessage[512];
 			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", win.GetExpression().c_str(), getExpressionError());
@@ -938,4 +962,8 @@ void CtrlWatchList::EditWatch(int pos) {
 void CtrlWatchList::DeleteWatch(int pos) {
 	watches_.erase(watches_.begin() + pos);
 	Update();
+}
+
+bool CtrlWatchList::HasWatchChanged(int pos) {
+	return watches_[pos].lastValue != watches_[pos].currentValue;
 }
