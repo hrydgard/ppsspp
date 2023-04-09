@@ -274,6 +274,9 @@
     <ClCompile Include="W32Util\UAHMenuBar.cpp">
       <Filter>Windows\W32Util</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\WatchItemWindow.cpp">
+      <Filter>Windows\Debugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -558,6 +561,9 @@
     </ClInclude>
     <ClInclude Include="W32Util\UAHMenuBar.h">
       <Filter>Windows\W32Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\WatchItemWindow.h">
+      <Filter>Windows\Debugger</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

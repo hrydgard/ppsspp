@@ -840,6 +840,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="CaptureDevice.cpp" />
+    <ClCompile Include="Debugger\WatchItemWindow.cpp" />
     <ClCompile Include="GPU\D3D11Context.cpp" />
     <ClCompile Include="GPU\D3D9Context.cpp" />
     <ClCompile Include="Debugger\BreakpointWindow.cpp" />
@@ -1393,6 +1394,7 @@
     </ClInclude>
     <ClInclude Include="BufferLock.h" />
     <ClInclude Include="CaptureDevice.h" />
+    <ClInclude Include="Debugger\WatchItemWindow.h" />
     <ClInclude Include="GPU\D3D11Context.h" />
     <ClInclude Include="GPU\D3D9Context.h" />
     <ClInclude Include="Debugger\BreakpointWindow.h" />

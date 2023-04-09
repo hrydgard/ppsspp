@@ -84,3 +84,35 @@ private:
 	std::vector<LoadedModuleInfo> modules;
 	DebugInterface* cpu;
 };
+
+class CtrlWatchList : public GenericListControl {
+public:
+	CtrlWatchList(HWND hwnd, DebugInterface *cpu);
+	void RefreshValues();
+
+protected:
+	bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT &returnValue) override;
+	void GetColumnText(wchar_t *dest, int row, int col) override;
+	int GetRowCount() override { return (int)watches_.size(); }
+	void OnRightClick(int itemIndex, int column, const POINT &point) override;
+	bool ListenRowPrePaint() override { return true; }
+	bool OnRowPrePaint(int row, LPNMLVCUSTOMDRAW msg) override;
+
+private:
+	void AddWatch();
+	void EditWatch(int pos);
+	void DeleteWatch(int pos);
+	bool HasWatchChanged(int pos);
+
+	struct WatchInfo {
+		std::string name;
+		std::string originalExpression;
+		PostfixExpression expression;
+		uint32_t currentValue = 0;
+		uint32_t lastValue = 0;
+		int steppingCounter = -1;
+		bool evaluateFailed = false;
+	};
+	std::vector<WatchInfo> watches_;
+	DebugInterface *cpu_;
+};

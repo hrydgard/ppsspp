@@ -25,6 +25,7 @@ private:
 	CtrlThreadList* threadList;
 	CtrlStackTraceView* stackTraceView;
 	CtrlModuleList* moduleList;
+	CtrlWatchList *watchList_;
 	TabControl* leftTabs;
 	TabControl* bottomTabs;
 	std::vector<BreakPoint> displayedBreakPoints_;
