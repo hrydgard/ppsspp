@@ -128,6 +128,8 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		break;
 	case WM_KILLFOCUS:
 		ccp->hasFocus=false;
+		lmbDown = false;
+		rmbDown = false;
 		ccp->redraw();
 		break;
 	case WM_GETDLGCODE:
