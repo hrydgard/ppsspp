@@ -816,10 +816,15 @@ void CtrlModuleList::loadModules()
 	Update();
 }
 
+// In case you modify things in the memory view.
+static constexpr UINT_PTR IDT_CHECK_REFRESH = 0xC0DE0044;
+
 CtrlWatchList::CtrlWatchList(HWND hwnd, DebugInterface *cpu)
 	: GenericListControl(hwnd, watchListDef), cpu_(cpu) {
 	SetSendInvalidRows(true);
 	Update();
+
+	SetTimer(GetHandle(), IDT_CHECK_REFRESH, 1000U, nullptr);
 }
 
 void CtrlWatchList::RefreshValues() {
@@ -868,6 +873,12 @@ bool CtrlWatchList::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESUL
 				returnValue = DLGC_WANTMESSAGE;
 				return true;
 			}
+		}
+		break;
+	case WM_TIMER:
+		if (wParam == IDT_CHECK_REFRESH) {
+			RefreshValues();
+			return true;
 		}
 		break;
 	}
