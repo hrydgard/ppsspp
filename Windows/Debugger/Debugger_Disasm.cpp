@@ -172,6 +172,9 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	moduleList->loadModules();
 	bottomTabs->AddTab(moduleList->GetHandle(),L"Modules");
 
+	watchList_ = new CtrlWatchList(GetDlgItem(m_hDlg, IDC_WATCHLIST), cpu);
+	bottomTabs->AddTab(watchList_->GetHandle(), L"Watch");
+
 	bottomTabs->SetShowTabTitles(g_Config.bShowBottomTabTitles);
 	bottomTabs->ShowTab(memHandle);
 	
@@ -368,6 +371,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			return TRUE;
 		case IDC_MODULELIST:
 			SetWindowLongPtr(m_hDlg, DWLP_MSGRESULT, moduleList->HandleNotify(lParam));
+			return TRUE;
+		case IDC_WATCHLIST:
+			SetWindowLongPtr(m_hDlg, DWLP_MSGRESULT, watchList_->HandleNotify(lParam));
 			return TRUE;
 		case IDC_DEBUG_BOTTOMTABS:
 			bottomTabs->HandleNotify(lParam);
@@ -795,6 +801,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 		threadList->reloadThreads();
 		stackTraceView->loadStackTrace();
 		moduleList->loadModules();
+		watchList_->RefreshValues();
 
 		EnableWindow(GetDlgItem(hDlg, IDC_STOPGO), TRUE);
 		EnableWindow(GetDlgItem(hDlg, IDC_STEP), TRUE);

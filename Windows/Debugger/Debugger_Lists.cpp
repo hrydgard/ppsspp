@@ -16,6 +16,7 @@ enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAIT
 enum { BPL_ENABLED, BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_CONDITION, BPL_HITS, BPL_COLUMNCOUNT };
 enum { SF_ENTRY, SF_ENTRYNAME, SF_CURPC, SF_CUROPCODE, SF_CURSP, SF_FRAMESIZE, SF_COLUMNCOUNT };
 enum { ML_NAME, ML_ADDRESS, ML_SIZE, ML_ACTIVE, ML_COLUMNCOUNT };
+enum { WL_NAME, WL_EXPRESSION, WL_VALUE, WL_COLUMNCOUNT };
 
 GenericListViewColumn threadColumns[TL_COLUMNCOUNT] = {
 	{ L"Name",			0.20f },
@@ -66,6 +67,16 @@ GenericListViewColumn moduleListColumns[ML_COLUMNCOUNT] = {
 
 GenericListViewDef moduleListDef = {
 	moduleListColumns,	ARRAY_SIZE(moduleListColumns),	NULL,	false
+};
+
+GenericListViewColumn watchListColumns[WL_COLUMNCOUNT] = {
+	{ L"Name",          0.25f },
+	{ L"Expression",    0.5f },
+	{ L"Value",         0.25f },
+};
+
+GenericListViewDef watchListDef = {
+	watchListColumns, ARRAY_SIZE(watchListColumns), nullptr, false,
 };
 
 //
@@ -802,4 +813,100 @@ void CtrlModuleList::loadModules()
 		modules.clear();
 	}
 	Update();
+}
+
+CtrlWatchList::CtrlWatchList(HWND hwnd, DebugInterface *cpu)
+	: GenericListControl(hwnd, watchListDef), cpu_(cpu) {
+	SetSendInvalidRows(true);
+	Update();
+}
+
+void CtrlWatchList::RefreshValues() {
+	Update();
+}
+
+bool CtrlWatchList::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT &returnValue) {
+	switch (msg) {
+	case WM_KEYDOWN:
+		switch (wParam) {
+		case VK_TAB:
+			returnValue = 0;
+			SendMessage(GetParent(GetHandle()), WM_DEB_TABPRESSED, 0, 0);
+			return true;
+		case VK_RETURN:
+			returnValue = 0;
+			EditWatch(GetSelectedIndex());
+			return true;
+		case VK_DELETE:
+			returnValue = 0;
+			DeleteWatch(GetSelectedIndex());
+			return true;
+		default:
+			break;
+		}
+		break;
+	case WM_GETDLGCODE:
+		if (lParam && ((MSG *)lParam)->message == WM_KEYDOWN) {
+			if (wParam == VK_TAB || wParam == VK_RETURN || wParam == VK_DELETE) {
+				returnValue = DLGC_WANTMESSAGE;
+				return true;
+			}
+		}
+		break;
+	}
+
+	return false;
+}
+
+void CtrlWatchList::GetColumnText(wchar_t *dest, int row, int col) {
+	uint32_t value = 0;
+	switch (col) {
+	case WL_NAME:
+		wcsncpy(dest, ConvertUTF8ToWString(watches_[row].name).c_str(), 255);
+		dest[255] = 0;
+		break;
+	case WL_EXPRESSION:
+		wcsncpy(dest, ConvertUTF8ToWString(watches_[row].originalExpression).c_str(), 255);
+		dest[255] = 0;
+		break;
+	case WL_VALUE:
+		if (cpu_->parseExpression(watches_[row].expression, value)) {
+			wsprintf(dest, L"0x%08x", value);
+		} else {
+			wcscpy(dest, L"(failed to evaluate)");
+		}
+		break;
+	}
+}
+
+void CtrlWatchList::OnRightClick(int itemIndex, int column, const POINT &pt) {
+	if (itemIndex == -1) {
+		switch (TriggerContextMenu(ContextMenuID::CPUADDWATCH, GetHandle(), ContextPoint::FromClient(pt))) {
+		case ID_DISASM_ADDNEWBREAKPOINT:
+			AddWatch();
+			break;
+		}
+	} else {
+		switch (TriggerContextMenu(ContextMenuID::CPUWATCHLIST, GetHandle(), ContextPoint::FromClient(pt))) {
+		case ID_DISASM_EDITBREAKPOINT:
+			EditWatch(itemIndex);
+			break;
+		case ID_DISASM_DELETEBREAKPOINT:
+			DeleteWatch(itemIndex);
+			break;
+		case ID_DISASM_ADDNEWBREAKPOINT:
+			AddWatch();
+			break;
+		}
+	}
+}
+
+void CtrlWatchList::AddWatch() {
+}
+
+void CtrlWatchList::EditWatch(int pos) {
+}
+
+void CtrlWatchList::DeleteWatch(int pos) {
+	watches_.erase(watches_.begin() + pos);
 }
