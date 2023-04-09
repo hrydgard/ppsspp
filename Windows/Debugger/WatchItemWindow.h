@@ -21,14 +21,16 @@
 #include "Common/CommonWindows.h"
 #include "Common/CommonTypes.h"
 #include "Core/Debugger/DebugInterface.h"
+#include "Windows/Debugger/Debugger_Lists.h"
 
 class WatchItemWindow {
 public:
 	WatchItemWindow(HINSTANCE inst, HWND parent, DebugInterface *cpu) : parentHwnd_(parent), cpu_(cpu) {}
 
-	void Init(const std::string &name, const std::string &expression) {
+	void Init(const std::string &name, const std::string &expression, WatchFormat fmt) {
 		name_ = name;
 		expression_ = expression;
+		format_ = fmt;
 	}
 
 	bool Exec();
@@ -38,6 +40,9 @@ public:
 	}
 	const std::string &GetExpression() const {
 		return expression_;
+	}
+	WatchFormat GetFormat() const {
+		return format_;
 	}
 
 private:
@@ -50,4 +55,5 @@ private:
 
 	std::string name_;
 	std::string expression_;
+	WatchFormat format_ = WatchFormat::HEX;
 };

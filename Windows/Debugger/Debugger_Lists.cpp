@@ -888,6 +888,7 @@ bool CtrlWatchList::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESUL
 
 void CtrlWatchList::GetColumnText(wchar_t *dest, int row, int col) {
 	uint32_t value = 0;
+	float valuef = 0.0f;
 	switch (col) {
 	case WL_NAME:
 		wcsncpy(dest, ConvertUTF8ToWString(watches_[row].name).c_str(), 255);
@@ -899,7 +900,24 @@ void CtrlWatchList::GetColumnText(wchar_t *dest, int row, int col) {
 		break;
 	case WL_VALUE:
 		if (cpu_->parseExpression(watches_[row].expression, value)) {
-			wsprintf(dest, L"0x%08x", value);
+			switch (watches_[row].format) {
+			case WatchFormat::HEX:
+				wsprintf(dest, L"0x%08X", value);
+				break;
+			case WatchFormat::INT:
+				wsprintf(dest, L"%d", (int32_t)value);
+				break;
+			case WatchFormat::FLOAT:
+				memcpy(&valuef, &value, sizeof(valuef));
+				swprintf_s(dest, 255, L"%f", valuef);
+				break;
+			case WatchFormat::STR:
+				if (Memory::IsValidAddress(value))
+					swprintf_s(dest, 255, L"%.255S", Memory::GetCharPointer(value));
+				else
+					wsprintf(dest, L"(0x%08X)", value);
+				break;
+			}
 		} else {
 			wcscpy(dest, L"(failed to evaluate)");
 		}
@@ -944,6 +962,7 @@ void CtrlWatchList::AddWatch() {
 		if (cpu_->initExpression(win.GetExpression().c_str(), info.expression)) {
 			info.name = win.GetName();
 			info.originalExpression = win.GetExpression();
+			info.format = win.GetFormat();
 			watches_.push_back(info);
 			RefreshValues();
 		} else {
@@ -955,12 +974,14 @@ void CtrlWatchList::AddWatch() {
 }
 
 void CtrlWatchList::EditWatch(int pos) {
+	auto &watch = watches_[pos];
 	WatchItemWindow win(nullptr, GetHandle(), cpu_);
-	win.Init(watches_[pos].name, watches_[pos].originalExpression);
+	win.Init(watch.name, watch.originalExpression, watch.format);
 	if (win.Exec()) {
-		if (cpu_->initExpression(win.GetExpression().c_str(), watches_[pos].expression)) {
-			watches_[pos].name = win.GetName();
-			watches_[pos].originalExpression = win.GetExpression();
+		if (cpu_->initExpression(win.GetExpression().c_str(), watch.expression)) {
+			watch.name = win.GetName();
+			watch.originalExpression = win.GetExpression();
+			watch.format = win.GetFormat();
 			RefreshValues();
 		} else {
 			char errorMessage[512];

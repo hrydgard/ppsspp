@@ -7,6 +7,13 @@
 #include "../../Core/MIPS/MIPSStackWalk.h"
 #include "Windows/W32Util/Misc.h"
 
+enum class WatchFormat {
+	HEX,
+	INT,
+	FLOAT,
+	STR,
+};
+
 class CtrlThreadList: public GenericListControl
 {
 public:
@@ -108,6 +115,7 @@ private:
 		std::string name;
 		std::string originalExpression;
 		PostfixExpression expression;
+		WatchFormat format = WatchFormat::HEX;
 		uint32_t currentValue = 0;
 		uint32_t lastValue = 0;
 		int steppingCounter = -1;
