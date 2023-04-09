@@ -18,6 +18,7 @@
 #include <cmath>
 #include <set>
 #include <cstdint>
+#include <algorithm>
 
 #include "Common/GPU/thin3d.h"
 
