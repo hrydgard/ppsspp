@@ -59,6 +59,7 @@
 #define IDD_GEDBG_TAB_VERTICES          254
 #define IDD_GEDBG_TAB_MATRICES          255
 #define IDD_GEDBG_STEPCOUNT             256
+#define IDD_CPUWATCH                    257
 
 #define IDC_STOPGO                      1001
 #define IDC_ADDRESS                     1002
@@ -349,7 +350,7 @@
 // Next default values for new objects
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        256
+#define _APS_NEXT_RESOURCE_VALUE        258
 #define _APS_NEXT_COMMAND_VALUE         40231
 #define _APS_NEXT_CONTROL_VALUE         1202
 #define _APS_NEXT_SYMED_VALUE           101

@@ -2302,7 +2302,8 @@ set(WindowsFiles
 	Windows/Debugger/Debugger_SymbolMap.h
 	Windows/Debugger/Debugger_VFPUDlg.cpp
 	Windows/Debugger/Debugger_VFPUDlg.h
-	Windows/Debugger/SimpleELF.h
+	Windows/Debugger/WatchItemWindow.cpp
+	Windows/Debugger/WatchItemWindow.h
 	Windows/GEDebugger/CtrlDisplayListView.cpp
 	Windows/GEDebugger/SimpleGLWindow.cpp
 	Windows/GEDebugger/TabState.cpp

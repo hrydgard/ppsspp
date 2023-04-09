@@ -3,8 +3,9 @@
 #include <windowsx.h>
 #include <commctrl.h>
 #include "Windows/Debugger/BreakpointWindow.h"
-#include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/CtrlDisAsmView.h"
+#include "Windows/Debugger/DebuggerShared.h"
+#include "Windows/Debugger/WatchItemWindow.h"
 #include "Windows/W32Util/ContextMenu.h"
 #include "Windows/MainWindow.h"
 #include "Windows/resource.h"
@@ -902,11 +903,39 @@ void CtrlWatchList::OnRightClick(int itemIndex, int column, const POINT &pt) {
 }
 
 void CtrlWatchList::AddWatch() {
+	WatchItemWindow win(nullptr, GetHandle(), cpu_);
+	if (win.Exec()) {
+		WatchInfo info;
+		if (cpu_->initExpression(win.GetExpression().c_str(), info.expression)) {
+			info.name = win.GetName();
+			info.originalExpression = win.GetExpression();
+			watches_.push_back(info);
+			Update();
+		} else {
+			char errorMessage[512];
+			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", win.GetExpression().c_str(), getExpressionError());
+			MessageBoxA(GetHandle(), errorMessage, "Error", MB_OK);
+		}
+	}
 }
 
 void CtrlWatchList::EditWatch(int pos) {
+	WatchItemWindow win(nullptr, GetHandle(), cpu_);
+	win.Init(watches_[pos].name, watches_[pos].originalExpression);
+	if (win.Exec()) {
+		if (cpu_->initExpression(win.GetExpression().c_str(), watches_[pos].expression)) {
+			watches_[pos].name = win.GetName();
+			watches_[pos].originalExpression = win.GetExpression();
+			Update();
+		} else {
+			char errorMessage[512];
+			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", win.GetExpression().c_str(), getExpressionError());
+			MessageBoxA(GetHandle(), errorMessage, "Error", MB_OK);
+		}
+	}
 }
 
 void CtrlWatchList::DeleteWatch(int pos) {
 	watches_.erase(watches_.begin() + pos);
+	Update();
 }
