@@ -16,13 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstring>
-#include "Core/HLE/HLE.h"
-
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDis.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
-
 #include "Core/MIPS/MIPSVFPUUtils.h"
 
 #define _RS   ((op>>21) & 0x1F)
@@ -102,7 +100,7 @@ namespace MIPSDis
 {
 	void Dis_SV(MIPSOpcode op, char *out)
 	{
-		int offset = (signed short)(op&0xFFFC);
+		int offset = SignExtend16ToS32(op & 0xFFFC);
 		int vt = ((op>>16)&0x1f)|((op&3)<<5);
 		int rs = (op>>21) & 0x1f;
 		const char *name = MIPSGetName(op);
@@ -111,7 +109,7 @@ namespace MIPSDis
 
 	void Dis_SVQ(MIPSOpcode op, char *out)
 	{
-		int offset = (signed short)(op&0xFFFC);
+		int offset = SignExtend16ToS32(op & 0xFFFC);
 		int vt = (((op>>16)&0x1f))|((op&1)<<5);
 		int rs = (op>>21) & 0x1f;
 		const char *name = MIPSGetName(op);
@@ -122,7 +120,7 @@ namespace MIPSDis
 
 	void Dis_SVLRQ(MIPSOpcode op, char *out)
 	{
-		int offset = (signed short)(op&0xFFFC);
+		int offset = SignExtend16ToS32(op & 0xFFFC);
 		int vt = (((op>>16)&0x1f))|((op&1)<<5);
 		int rs = (op>>21) & 0x1f;
 		int lr = (op>>1)&1;
@@ -603,7 +601,7 @@ namespace MIPSDis
 	void Dis_VBranch(MIPSOpcode op, char *out)
 	{
 		u32 off = disPC;
-		int imm = (signed short)(op&0xFFFF)<<2;
+		int imm = SignExtend16ToS32(op&0xFFFF) << 2;
 		int imm3 = (op>>18)&7;
 		off += imm + 4;
 		const char *name = MIPSGetName(op);
