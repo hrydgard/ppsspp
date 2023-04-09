@@ -213,8 +213,7 @@ namespace MIPSDis
 	void Dis_Viim(MIPSOpcode op, char *out)
 	{
 		int vt = _VT;
-		int imm = op&0xFFFF;
-		//V(vt) = (float)imm;
+		int imm = SignExtend16ToS32(op & 0xFFFF);
 		const char *name = MIPSGetName(op);
 
 		int type = (op >> 23) & 7;
