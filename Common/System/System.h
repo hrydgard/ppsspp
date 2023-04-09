@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <stdint.h>
 
 // Platform integration
 
