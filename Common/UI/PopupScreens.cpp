@@ -319,14 +319,13 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		lin->Add(new TextView(units_))->SetTextColor(dc.theme->itemStyle.fgColor);
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
-		//LinearLayout *lin2 = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
 		lin->Add(new Button(di->T("Reset")))->OnClick.Add([=](UI::EventParams &) {
 			sliderValue_ = defaultValue_;
 			changing_ = true;
 			UpdateTextBox();
 			changing_ = false;
 			return UI::EVENT_DONE;
-			});
+		});
 	}
 
 	if (!negativeLabel_.empty())
