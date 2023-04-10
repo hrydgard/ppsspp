@@ -337,8 +337,12 @@
 #define ID_GEDBG_TRACK_PIXEL             40226
 #define ID_GEDBG_TRACK_PIXEL_STOP        40227
 #define ID_DISASM_NOPINSTRUCTION         40228
-#define IDC_WATCHLIST                    40229
-#define ID_DISASM_DELETEBREAKPOINT       40230
+#define IDC_WATCHLIST                    40230
+#define ID_DISASM_DELETEBREAKPOINT       40231
+#define IDC_DISASM_FMT_HEX               40232
+#define IDC_DISASM_FMT_INT               40233
+#define IDC_DISASM_FMT_FLOAT             40234
+#define IDC_DISASM_FMT_STR               40235
 
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
@@ -352,7 +356,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        258
-#define _APS_NEXT_COMMAND_VALUE         40231
+#define _APS_NEXT_COMMAND_VALUE         40236
 #define _APS_NEXT_CONTROL_VALUE         1202
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

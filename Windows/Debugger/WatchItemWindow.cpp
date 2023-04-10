@@ -39,6 +39,16 @@ INT_PTR WatchItemWindow::DlgFunc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lPa
 	case WM_INITDIALOG:
 		SetWindowTextW(GetDlgItem(hWnd, IDC_BREAKPOINT_ADDRESS), ConvertUTF8ToWString(name_).c_str());
 		SetWindowTextW(GetDlgItem(hWnd, IDC_BREAKPOINT_CONDITION), ConvertUTF8ToWString(expression_).c_str());
+
+		// We only need to set one state on dialog init.
+		if (format_ == WatchFormat::HEX)
+			SendMessage(GetDlgItem(hWnd, IDC_DISASM_FMT_HEX), BM_SETCHECK, BST_CHECKED, 0);
+		else if (format_ == WatchFormat::INT)
+			SendMessage(GetDlgItem(hWnd, IDC_DISASM_FMT_INT), BM_SETCHECK, BST_CHECKED, 0);
+		else if (format_ == WatchFormat::FLOAT)
+			SendMessage(GetDlgItem(hWnd, IDC_DISASM_FMT_FLOAT), BM_SETCHECK, BST_CHECKED, 0);
+		else if (format_ == WatchFormat::STR)
+			SendMessage(GetDlgItem(hWnd, IDC_DISASM_FMT_STR), BM_SETCHECK, BST_CHECKED, 0);
 		return TRUE;
 
 	case WM_COMMAND:
@@ -83,6 +93,10 @@ bool WatchItemWindow::Exec() {
 	return DialogBoxParam(GetModuleHandle(0), MAKEINTRESOURCE(IDD_CPUWATCH), parentHwnd_, StaticDlgFunc, (LPARAM)this) != 0;
 }
 
+static bool IsControlChecked(HWND hWnd, int id) {
+	return SendMessage(GetDlgItem(hWnd, id), BM_GETCHECK, 0, 0) != 0;
+}
+
 bool WatchItemWindow::FetchDialogData(HWND hwnd) {
 	wchar_t textValue[512];
 
@@ -98,6 +112,15 @@ bool WatchItemWindow::FetchDialogData(HWND hwnd) {
 		MessageBoxA(hwnd, errorMessage, "Error", MB_OK);
 		return false;
 	}
+
+	if (IsControlChecked(hwnd, IDC_DISASM_FMT_HEX))
+		format_ = WatchFormat::HEX;
+	else if (IsControlChecked(hwnd, IDC_DISASM_FMT_INT))
+		format_ = WatchFormat::INT;
+	else if (IsControlChecked(hwnd, IDC_DISASM_FMT_FLOAT))
+		format_ = WatchFormat::FLOAT;
+	else if (IsControlChecked(hwnd, IDC_DISASM_FMT_STR))
+		format_ = WatchFormat::STR;
 
 	return true;
 }
