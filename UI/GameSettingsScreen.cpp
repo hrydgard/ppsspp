@@ -2237,7 +2237,7 @@ void RestoreSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	textView->SetPadding(10.0f);
 
 	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::SETTINGS, ga->T("Game Settings")));
-	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::CONTROLS, ga->T("Controls")));
+	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::CONTROLS, ms->T("Controls")));
 	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::RECENT, mm->T("Recent")));
 }
 
