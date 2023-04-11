@@ -931,8 +931,7 @@ void PresentationCommon::CalculateRenderResolution(int *width, int *height, int 
 	bool firstIsUpscalingFilter = shaderInfo.empty() ? false : shaderInfo.front()->isUpscalingFilter;
 	int firstSSAAFilterLevel = shaderInfo.empty() ? 0 : shaderInfo.front()->SSAAFilterLevel;
 
-	// Actually, auto mode should be more granular...
-	// Round up to a zoom factor for the render size.
+	// In auto mode (zoom == 0), round up to an integer zoom factor for the render size.
 	int zoom = g_Config.iInternalResolution;
 	if (zoom == 0 || firstSSAAFilterLevel >= 2) {
 		// auto mode, use the longest dimension
@@ -963,10 +962,9 @@ void PresentationCommon::CalculateRenderResolution(int *width, int *height, int 
 	if (IsVREnabled()) {
 		*width = 480 * zoom;
 		*height = 480 * zoom;
-	} else if (g_Config.IsPortrait()) {
-		*width = 272 * zoom;
-		*height = 480 * zoom;
 	} else {
+		// Note: We previously checked g_Config.IsPortrait (internal rotation) here but that was wrong -
+		// we still render at 480x272 * zoom.
 		*width = 480 * zoom;
 		*height = 272 * zoom;
 	}
