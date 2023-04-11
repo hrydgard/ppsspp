@@ -584,7 +584,8 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 			auto memLock = Memory::Lock();
 			std::ostringstream stream;
 			stream << (Memory::IsValidAddress(curAddress_) ? Memory::Read_Float(curAddress_) : NAN);
-			W32Util::CopyTextToClipboard(wnd, stream.str().c_str());
+			auto temp_string = stream.str();
+			W32Util::CopyTextToClipboard(wnd, temp_string.c_str());
 		}
 		break;
 

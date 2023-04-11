@@ -555,7 +555,7 @@ BEGIN
         MENUITEM "GE Debugger...",                          ID_DEBUG_GEDEBUGGER
         MENUITEM "Extract File...",                         ID_DEBUG_EXTRACTFILE
         MENUITEM "Log Console",                             ID_DEBUG_LOG
-        MENUITEM "Copy PSP memory base pointer",             ID_DEBUG_MEMORYBASE
+        MENUITEM "Copy PSP memory base address",            ID_DEBUG_MEMORYBASE
         MENUITEM "Memory View...",                          ID_DEBUG_MEMORYVIEW
     END
 
@@ -715,10 +715,11 @@ BEGIN
         MENUITEM "Go to Extent Begin",         ID_MEMVIEW_EXTENTBEGIN
         MENUITEM "Go to Extent End",           ID_MEMVIEW_EXTENTEND
         MENUITEM SEPARATOR
+        MENUITEM "Copy Float (32 bit)",        ID_MEMVIEW_COPYFLOAT_32
+        MENUITEM SEPARATOR
         MENUITEM "Copy Value (8 bit)",         ID_MEMVIEW_COPYVALUE_8
         MENUITEM "Copy Value (16 bit)",        ID_MEMVIEW_COPYVALUE_16
         MENUITEM "Copy Value (32 bit)",        ID_MEMVIEW_COPYVALUE_32
-        MENUITEM "Copy Float (32 bit)",        ID_MEMVIEW_COPYFLOAT_32
         MENUITEM "Dump...",                    ID_MEMVIEW_DUMP
     END
     POPUP "disasm"

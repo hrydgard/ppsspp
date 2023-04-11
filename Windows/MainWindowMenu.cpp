@@ -776,7 +776,7 @@ namespace MainWindow {
 
 		case ID_DEBUG_MEMORYBASE:
 		{
-			W32Util::CopyTextToClipboard(hWnd, ConvertUTF8ToWString(StringFromFormat("%016llx", (uintptr_t)Memory::base)));
+			W32Util::CopyTextToClipboard(hWnd, ConvertUTF8ToWString(StringFromFormat("%016llx", (uint64_t)(uintptr_t)Memory::base)));
 			break;
 		}
 
