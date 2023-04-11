@@ -678,6 +678,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	using namespace UI;
 
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
 	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
@@ -722,7 +723,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		opacity->SetFormat("%i%%");
 		PopupSliderChoice *autoHide = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonHideSeconds, 0, 300, 20, co->T("Auto-hide buttons after seconds"), screenManager(), co->T("seconds, 0 : off")));
 		autoHide->SetEnabledPtr(&g_Config.bShowTouchControls);
-		autoHide->SetFormat("%is");
+		autoHide->SetFormat(di->T("%d seconds"));
 		autoHide->SetZeroLabel(co->T("Off"));
 
 		// Hide stick background, useful when increasing the size
@@ -892,6 +893,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	using namespace UI;
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto vr = GetI18NCategory(I18NCat::VR);
 	auto th = GetI18NCategory(I18NCat::THEMES);
 
@@ -1057,6 +1059,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	});
 	lockedMhz->SetZeroLabel(sy->T("Auto"));
 	PopupSliderChoice *rewindInterval = systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindSnapshotInterval, 0, 60, 0, sy->T("Rewind Snapshot Interval"), screenManager(), sy->T("seconds, 0:off")));
+	rewindInterval->SetFormat(di->T("%d seconds"));
 	rewindInterval->SetZeroLabel(sy->T("Off"));
 
 	systemSettings->Add(new ItemHeader(sy->T("General")));
@@ -2234,7 +2237,7 @@ void RestoreSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	textView->SetPadding(10.0f);
 
 	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::SETTINGS, ga->T("Game Settings")));
-	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::CONTROLS, ga->T("Controls")));
+	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::CONTROLS, ms->T("Controls")));
 	parent->Add(new BitCheckBox(&restoreFlags_, (int)RestoreSettingsBits::RECENT, mm->T("Recent")));
 }
 
