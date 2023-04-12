@@ -364,7 +364,7 @@ u32 DisassemblyManager::getNthPreviousAddress(u32 address, int n)
 		analyze(address-127,128);
 	}
 	
-	return address-n*4;
+	return (address - n * 4) & ~3;
 }
 
 u32 DisassemblyManager::getNthNextAddress(u32 address, int n)
@@ -396,7 +396,7 @@ u32 DisassemblyManager::getNthNextAddress(u32 address, int n)
 		analyze(address);
 	}
 
-	return address+n*4;
+	return (address + n * 4) & ~3;
 }
 
 DisassemblyManager::~DisassemblyManager() {
