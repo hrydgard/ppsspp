@@ -887,20 +887,23 @@ bool CtrlWatchList::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESUL
 }
 
 void CtrlWatchList::GetColumnText(wchar_t *dest, int row, int col) {
-	uint32_t value = 0;
-	float valuef = 0.0f;
+	const auto &watch = watches_[row];
 	switch (col) {
 	case WL_NAME:
-		wcsncpy(dest, ConvertUTF8ToWString(watches_[row].name).c_str(), 255);
+		wcsncpy(dest, ConvertUTF8ToWString(watch.name).c_str(), 255);
 		dest[255] = 0;
 		break;
 	case WL_EXPRESSION:
-		wcsncpy(dest, ConvertUTF8ToWString(watches_[row].originalExpression).c_str(), 255);
+		wcsncpy(dest, ConvertUTF8ToWString(watch.originalExpression).c_str(), 255);
 		dest[255] = 0;
 		break;
 	case WL_VALUE:
-		if (cpu_->parseExpression(watches_[row].expression, value)) {
-			switch (watches_[row].format) {
+		if (watch.evaluateFailed) {
+			wcscpy(dest, L"(failed to evaluate)");
+		} else {
+			const uint32_t &value = watch.currentValue;
+			float valuef = 0.0f;
+			switch (watch.format) {
 			case WatchFormat::HEX:
 				wsprintf(dest, L"0x%08X", value);
 				break;
@@ -912,14 +915,14 @@ void CtrlWatchList::GetColumnText(wchar_t *dest, int row, int col) {
 				swprintf_s(dest, 255, L"%f", valuef);
 				break;
 			case WatchFormat::STR:
-				if (Memory::IsValidAddress(value))
-					swprintf_s(dest, 255, L"%.255S", Memory::GetCharPointer(value));
-				else
+				if (Memory::IsValidAddress(value)) {
+					uint32_t len = Memory::ValidSize(value, 255);
+					swprintf_s(dest, 255, L"%.*S", len, Memory::GetCharPointer(value));
+				} else {
 					wsprintf(dest, L"(0x%08X)", value);
+				}
 				break;
 			}
-		} else {
-			wcscpy(dest, L"(failed to evaluate)");
 		}
 		break;
 	}

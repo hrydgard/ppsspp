@@ -909,6 +909,8 @@ void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 }
 
 void CtrlDisAsmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructionsMode mode) {
+	_assert_msg_((startAddr & 3) == 0, "readMemory() can't handle unaligned reads");
+
 	if (mode != CopyInstructionsMode::DISASM) {
 		int instructionSize = debugger->getInstructionSize(0);
 		int count = (endAddr - startAddr) / instructionSize;
