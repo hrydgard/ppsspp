@@ -787,7 +787,7 @@ bool ArmJit::CheckMemoryBreakpoint(int instructionOffset) {
 		MOVI2R(R0, GetCompilerPC());
 		MovToPC(R0);
 		if (off != 0)
-			ADDI2R(R0, R0, off, SCRATCHREG2);
+			ADDI2R(R0, R0, off * 4, SCRATCHREG2);
 		QuickCallFunction(SCRATCHREG2, &JitMemCheck);
 
 		// If 0, the breakpoint wasn't tripped.

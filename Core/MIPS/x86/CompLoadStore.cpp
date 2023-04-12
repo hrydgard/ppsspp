@@ -286,12 +286,15 @@ namespace MIPSComp {
 	{
 		CONDITIONAL_DISABLE(LSU);
 		int offset = _IMM16;
+		MIPSGPReg rs = _RS;
 		MIPSGPReg rt = _RT;
 		int o = op>>26;
 		if (((op >> 29) & 1) == 0 && rt == MIPS_REG_ZERO) {
 			// Don't load anything into $zr
 			return;
 		}
+
+		CheckMemoryBreakpoint(0, rs, offset);
 
 		switch (o)
 		{
@@ -334,6 +337,7 @@ namespace MIPSComp {
 				u32 desiredOp = ((op & 0xFFFF0000) + (4 << 26)) + (offset - 3);
 				if (!js.inDelaySlot && nextOp == desiredOp && !jo.Disabled(JitDisable::LSU_UNALIGNED))
 				{
+					CheckMemoryBreakpoint(1, rs, offset - 3);
 					EatInstruction(nextOp);
 					// nextOp has the correct address.
 					CompITypeMemRead(nextOp, 32, &XEmitter::MOVZX, safeMemFuncs.readU32);
@@ -350,6 +354,7 @@ namespace MIPSComp {
 				u32 desiredOp = ((op & 0xFFFF0000) - (4 << 26)) + (offset + 3);
 				if (!js.inDelaySlot && nextOp == desiredOp && !jo.Disabled(JitDisable::LSU_UNALIGNED))
 				{
+					CheckMemoryBreakpoint(1, rs, offset + 3);
 					EatInstruction(nextOp);
 					// op has the correct address.
 					CompITypeMemRead(op, 32, &XEmitter::MOVZX, safeMemFuncs.readU32);
@@ -366,6 +371,7 @@ namespace MIPSComp {
 				u32 desiredOp = ((op & 0xFFFF0000) + (4 << 26)) + (offset - 3);
 				if (!js.inDelaySlot && nextOp == desiredOp && !jo.Disabled(JitDisable::LSU_UNALIGNED))
 				{
+					CheckMemoryBreakpoint(1, rs, offset - 3);
 					EatInstruction(nextOp);
 					// nextOp has the correct address.
 					CompITypeMemWrite(nextOp, 32, safeMemFuncs.writeU32);
@@ -382,6 +388,7 @@ namespace MIPSComp {
 				u32 desiredOp = ((op & 0xFFFF0000) - (4 << 26)) + (offset + 3);
 				if (!js.inDelaySlot && nextOp == desiredOp && !jo.Disabled(JitDisable::LSU_UNALIGNED))
 				{
+					CheckMemoryBreakpoint(1, rs, offset + 3);
 					EatInstruction(nextOp);
 					// op has the correct address.
 					CompITypeMemWrite(op, 32, safeMemFuncs.writeU32);

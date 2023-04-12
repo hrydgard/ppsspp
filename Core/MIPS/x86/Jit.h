@@ -204,6 +204,7 @@ private:
 //	void WriteRfiExitDestInEAX();
 	void WriteSyscallExit();
 	bool CheckJitBreakpoint(u32 addr, int downcountOffset);
+	void CheckMemoryBreakpoint(int instructionOffset, MIPSGPReg rs, int offset);
 
 	// Utility compilation functions
 	void BranchFPFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely);
@@ -242,8 +243,8 @@ private:
 
 	void CallProtectedFunction(const void *func, const Gen::OpArg &arg1);
 	void CallProtectedFunction(const void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2);
-	void CallProtectedFunction(const void *func, const u32 arg1, const u32 arg2, const u32 arg3);
-	void CallProtectedFunction(const void *func, const Gen::OpArg &arg1, const u32 arg2, const u32 arg3);
+	void CallProtectedFunction(const void *func, const Gen::OpArg &arg1, const u32 arg2);
+	void CallProtectedFunction(const void *func, const u32 arg1, const u32 arg2);
 
 	template <typename Tr, typename T1>
 	void CallProtectedFunction(Tr (*func)(T1), const Gen::OpArg &arg1) {
@@ -255,14 +256,14 @@ private:
 		CallProtectedFunction((const void *)func, arg1, arg2);
 	}
 
-	template <typename Tr, typename T1, typename T2, typename T3>
-	void CallProtectedFunction(Tr (*func)(T1, T2, T3), const u32 arg1, const u32 arg2, const u32 arg3) {
-		CallProtectedFunction((const void *)func, arg1, arg2, arg3);
+	template <typename Tr, typename T1, typename T2>
+	void CallProtectedFunction(Tr(*func)(T1, T2), const Gen::OpArg &arg1, const u32 arg2) {
+		CallProtectedFunction((const void *)func, arg1, arg2);
 	}
 
-	template <typename Tr, typename T1, typename T2, typename T3>
-	void CallProtectedFunction(Tr (*func)(T1, T2, T3), const Gen::OpArg &arg1, const u32 arg2, const u32 arg3) {
-		CallProtectedFunction((const void *)func, arg1, arg2, arg3);
+	template <typename Tr, typename T1, typename T2>
+	void CallProtectedFunction(Tr(*func)(T1, T2), const u32 arg1, const u32 arg2) {
+		CallProtectedFunction((const void *)func, arg1, arg2);
 	}
 
 	bool PredictTakeBranch(u32 targetAddr, bool likely);

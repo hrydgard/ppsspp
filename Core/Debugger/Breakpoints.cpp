@@ -40,7 +40,6 @@ u32 CBreakPoints::breakSkipFirstAt_ = 0;
 u64 CBreakPoints::breakSkipFirstTicks_ = 0;
 static std::mutex memCheckMutex_;
 std::vector<MemCheck> CBreakPoints::memChecks_;
-std::vector<MemCheck *> CBreakPoints::cleanupMemChecks_;
 std::vector<MemCheck> CBreakPoints::memCheckRangesRead_;
 std::vector<MemCheck> CBreakPoints::memCheckRangesWrite_;
 
@@ -60,6 +59,11 @@ void MemCheck::Log(u32 addr, bool write, int size, u32 pc, const char *reason) {
 BreakAction MemCheck::Apply(u32 addr, bool write, int size, u32 pc) {
 	int mask = write ? MEMCHECK_WRITE : MEMCHECK_READ;
 	if (cond & mask) {
+		if (hasCondition) {
+			if (!condition.Evaluate())
+				return BREAK_ACTION_IGNORE;
+		}
+
 		++numHits;
 		return result;
 	}
@@ -68,66 +72,13 @@ BreakAction MemCheck::Apply(u32 addr, bool write, int size, u32 pc) {
 }
 
 BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc, const char *reason) {
-	int mask = write ? MEMCHECK_WRITE : MEMCHECK_READ;
-	if (cond & mask) {
-		Log(addr, write, size, pc, reason);
-		if ((result & BREAK_ACTION_PAUSE) && coreState != CORE_POWERUP) {
-			Core_EnableStepping(true, "memory.breakpoint", start);
-		}
-
-		return result;
+	// Conditions have always already been checked if we get here.
+	Log(addr, write, size, pc, reason);
+	if ((result & BREAK_ACTION_PAUSE) && coreState != CORE_POWERUP) {
+		Core_EnableStepping(true, "memory.breakpoint", start);
 	}
 
-	return BREAK_ACTION_IGNORE;
-}
-
-void MemCheck::JitBeforeApply(u32 addr, bool write, int size, u32 pc) {
-	int mask = MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE;
-	if (write && (cond & mask) == mask) {
-		lastAddr = addr;
-		lastPC = pc;
-		lastSize = size;
-	} else {
-		lastAddr = 0;
-		Apply(addr, write, size, pc);
-	}
-}
-
-void MemCheck::JitBeforeAction(u32 addr, bool write, int size, u32 pc) {
-	if (lastAddr) {
-		// We have to break to find out if it changed.
-		Core_EnableStepping(true, "memory.breakpoint.check", start);
-	} else {
-		Action(addr, write, size, pc, "CPU");
-	}
-}
-
-bool MemCheck::JitApplyChanged() {
-	if (lastAddr == 0 || lastPC == 0)
-		return false;
-
-	// Here's the tricky part: would this have changed memory?
-	// Note that it did not actually get written.
-	bool changed = MIPSAnalyst::OpWouldChangeMemory(lastPC, lastAddr, lastSize);
-	if (changed)
-		++numHits;
-	return changed;
-}
-
-void MemCheck::JitCleanup(bool changed)
-{
-	if (lastAddr == 0 || lastPC == 0)
-		return;
-
-	if (changed)
-		Log(lastAddr, true, lastSize, lastPC, "CPU");
-
-	// Resume if it should not have gone to stepping, or if it did not change.
-	if ((!(result & BREAK_ACTION_PAUSE) || !changed) && coreState == CORE_STEPPING)
-	{
-		CBreakPoints::SetSkipFirst(lastPC);
-		Core_EnableStepping(false);
-	}
+	return result;
 }
 
 // Note: must lock while calling this.
@@ -392,8 +343,6 @@ BreakAction CBreakPoints::ExecBreakPoint(u32 addr) {
 void CBreakPoints::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result)
 {
 	std::unique_lock<std::mutex> guard(memCheckMutex_);
-	// This will ruin any pending memchecks.
-	cleanupMemChecks_.clear();
 
 	size_t mc = FindMemCheck(start, end);
 	if (mc == INVALID_MEMCHECK)
@@ -426,8 +375,6 @@ void CBreakPoints::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, Break
 void CBreakPoints::RemoveMemCheck(u32 start, u32 end)
 {
 	std::unique_lock<std::mutex> guard(memCheckMutex_);
-	// This will ruin any pending memchecks.
-	cleanupMemChecks_.clear();
 
 	size_t mc = FindMemCheck(start, end);
 	if (mc != INVALID_MEMCHECK)
@@ -457,8 +404,6 @@ void CBreakPoints::ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, Br
 void CBreakPoints::ClearAllMemChecks()
 {
 	std::unique_lock<std::mutex> guard(memCheckMutex_);
-	// This will ruin any pending memchecks.
-	cleanupMemChecks_.clear();
 
 	if (!memChecks_.empty())
 	{
@@ -469,6 +414,38 @@ void CBreakPoints::ClearAllMemChecks()
 		guard.unlock();
 		Update();
 	}
+}
+
+
+void CBreakPoints::ChangeMemCheckAddCond(u32 start, u32 end, const BreakPointCond &cond) {
+	std::unique_lock<std::mutex> guard(memCheckMutex_);
+	size_t mc = FindMemCheck(start, end);
+	if (mc != INVALID_MEMCHECK) {
+		memChecks_[mc].hasCondition = true;
+		memChecks_[mc].condition = cond;
+		guard.unlock();
+		// No need to update jit for a condition add/remove, they're not baked in.
+		Update(-1);
+	}
+}
+
+void CBreakPoints::ChangeMemCheckRemoveCond(u32 start, u32 end) {
+	std::unique_lock<std::mutex> guard(memCheckMutex_);
+	size_t mc = FindMemCheck(start, end);
+	if (mc != INVALID_MEMCHECK) {
+		memChecks_[mc].hasCondition = false;
+		guard.unlock();
+		// No need to update jit for a condition add/remove, they're not baked in.
+		Update(-1);
+	}
+}
+
+BreakPointCond *CBreakPoints::GetMemCheckCondition(u32 start, u32 end) {
+	std::unique_lock<std::mutex> guard(memCheckMutex_);
+	size_t mc = FindMemCheck(start, end);
+	if (mc != INVALID_MEMCHECK && memChecks_[mc].hasCondition)
+		return &memChecks_[mc].condition;
+	return nullptr;
 }
 
 void CBreakPoints::ChangeMemCheckLogFormat(u32 start, u32 end, const std::string &fmt) {
@@ -534,7 +511,10 @@ BreakAction CBreakPoints::ExecMemCheck(u32 address, bool write, int size, u32 pc
 	std::unique_lock<std::mutex> guard(memCheckMutex_);
 	auto check = GetMemCheckLocked(address, size);
 	if (check) {
-		check->Apply(address, write, size, pc);
+		BreakAction applyAction = check->Apply(address, write, size, pc);
+		if (applyAction == BREAK_ACTION_IGNORE)
+			return applyAction;
+
 		auto copy = *check;
 		guard.unlock();
 		return copy.Action(address, write, size, pc, reason);
@@ -567,41 +547,17 @@ BreakAction CBreakPoints::ExecOpMemCheck(u32 address, u32 pc)
 			apply = true;
 		}
 		if (apply) {
-			check->Apply(address, write, size, pc);
+			BreakAction applyAction = check->Apply(address, write, size, pc);
+			if (applyAction == BREAK_ACTION_IGNORE)
+				return applyAction;
+
+			// Make a copy so we can safely unlock.
 			auto copy = *check;
 			guard.unlock();
 			return copy.Action(address, write, size, pc, "CPU");
 		}
 	}
 	return BREAK_ACTION_IGNORE;
-}
-
-void CBreakPoints::ExecMemCheckJitBefore(u32 address, bool write, int size, u32 pc)
-{
-	std::unique_lock<std::mutex> guard(memCheckMutex_);
-	auto check = GetMemCheckLocked(address, size);
-	if (check) {
-		check->JitBeforeApply(address, write, size, pc);
-		auto copy = *check;
-		guard.unlock();
-		copy.JitBeforeAction(address, write, size, pc);
-		guard.lock();
-		cleanupMemChecks_.push_back(check);
-	}
-}
-
-void CBreakPoints::ExecMemCheckJitCleanup()
-{
-	std::unique_lock<std::mutex> guard(memCheckMutex_);
-	for (auto it = cleanupMemChecks_.begin(), end = cleanupMemChecks_.end(); it != end; ++it) {
-		auto check = *it;
-		bool changed = check->JitApplyChanged();
-		auto copy = *check;
-		guard.unlock();
-		copy.JitCleanup(changed);
-		guard.lock();
-	}
-	cleanupMemChecks_.clear();
 }
 
 void CBreakPoints::SetSkipFirst(u32 pc)
@@ -694,7 +650,7 @@ bool CBreakPoints::HasMemChecks() {
 }
 
 void CBreakPoints::Update(u32 addr) {
-	if (MIPSComp::jit) {
+	if (MIPSComp::jit && addr != -1) {
 		bool resume = false;
 		if (Core_IsStepping() == false) {
 			Core_EnableStepping(true, "cpu.breakpoint.update", addr);
@@ -712,7 +668,7 @@ void CBreakPoints::Update(u32 addr) {
 			Core_EnableStepping(false);
 	}
 
-	if (anyMemChecks_)
+	if (anyMemChecks_ && addr != -1)
 		UpdateCachedMemCheckRanges();
 
 	// Redraw in order to show the breakpoint.
