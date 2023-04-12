@@ -82,6 +82,8 @@ public:
 		pixelWidth_ = w;
 		pixelHeight_ = h;
 	}
+
+	// NOTE: Should be un-rotated width/height.
 	void UpdateRenderSize(int rw, int rh) {
 		renderWidth_ = rw;
 		renderHeight_ = rh;
