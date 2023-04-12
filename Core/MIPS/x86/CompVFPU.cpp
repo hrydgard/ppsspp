@@ -245,6 +245,8 @@ void Jit::Comp_SV(MIPSOpcode op) {
 	int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 	MIPSGPReg rs = _RS;
 
+	CheckMemoryBreakpoint(0, rs, imm);
+
 	switch (op >> 26) {
 	case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
 		{
@@ -299,6 +301,8 @@ void Jit::Comp_SVQ(MIPSOpcode op) {
 	int imm = (signed short)(op&0xFFFC);
 	int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
 	MIPSGPReg rs = _RS;
+
+	CheckMemoryBreakpoint(0, rs, imm);
 
 	switch (op >> 26) {
 	case 53: //lvl.q/lvr.q

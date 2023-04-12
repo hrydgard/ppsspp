@@ -97,10 +97,6 @@ struct MemCheck {
 	BreakAction Apply(u32 addr, bool write, int size, u32 pc);
 	// Called on a copy.
 	BreakAction Action(u32 addr, bool write, int size, u32 pc, const char *reason);
-	void JitBeforeApply(u32 addr, bool write, int size, u32 pc);
-	void JitBeforeAction(u32 addr, bool write, int size, u32 pc);
-	bool JitApplyChanged();
-	void JitCleanup(bool changed);
 
 	void Log(u32 addr, bool write, int size, u32 pc, const char *reason);
 
@@ -154,10 +150,6 @@ public:
 	static BreakAction ExecMemCheck(u32 address, bool write, int size, u32 pc, const char *reason);
 	static BreakAction ExecOpMemCheck(u32 address, u32 pc);
 
-	// Executes memchecks but used by the jit.  Cleanup finalizes after jit is done.
-	static void ExecMemCheckJitBefore(u32 address, bool write, int size, u32 pc);
-	static void ExecMemCheckJitCleanup();
-
 	static void SetSkipFirst(u32 pc);
 	static u32 CheckSkipFirst();
 
@@ -187,7 +179,6 @@ private:
 	static u64 breakSkipFirstTicks_;
 
 	static std::vector<MemCheck> memChecks_;
-	static std::vector<MemCheck *> cleanupMemChecks_;
 	static std::vector<MemCheck> memCheckRangesRead_;
 	static std::vector<MemCheck> memCheckRangesWrite_;
 };
