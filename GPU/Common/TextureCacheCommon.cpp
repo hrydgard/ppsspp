@@ -256,6 +256,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 	if (entry && replacer_.Enabled() && entry->replacedTexture && entry->replacedTexture->State() == ReplacementState::ACTIVE) {
 		// If replacement textures have multiple mip levels, enforce mip filtering.
 		if (entry->replacedTexture->NumLevels() > 1) {
+			key.mipEnable = true;
 			key.mipFilt = 1;
 			key.maxLevel = 9 * 256;
 		}
