@@ -119,7 +119,7 @@ impl Section {
             }
             if !other.lines.iter().any(|line| line.starts_with(prefix)) {
                 if !prefix.contains("URL") {
-                    println!("Commenting out: {}", line);
+                    println!("Commenting out from {}: {line}", other.name);
                     // Comment out the line.
                     *line = "#".to_owned() + line;
                 }
