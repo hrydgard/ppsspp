@@ -331,7 +331,7 @@ inline u32 ValidSize(const u32 address, const u32 requested_size) {
 }
 
 inline bool IsValidRange(const u32 address, const u32 size) {
-	return IsValidAddress(address) && ValidSize(address, size) == size;
+	return ValidSize(address, size) == size;
 }
 
 }  // namespace Memory

@@ -929,17 +929,20 @@ ExpressionType GEExpressionFunctions::getFieldType(GECmdFormat fmt, GECmdField f
 bool GEExpressionFunctions::getMemoryValue(uint32_t address, int size, uint32_t &dest, char *error) {
 	// We allow, but ignore, bad access.
 	// If we didn't, log/condition statements that reference registers couldn't be configured.
-	bool valid = Memory::IsValidRange(address, size);
+	uint32_t valid = Memory::ValidSize(address, size);
+	uint8_t buf[4]{};
+	if (valid != 0)
+		memcpy(buf, Memory::GetPointerUnchecked(address), valid);
 
 	switch (size) {
 	case 1:
-		dest = valid ? Memory::Read_U8(address) : 0;
+		dest = buf[0];
 		return true;
 	case 2:
-		dest = valid ? Memory::Read_U16(address) : 0;
+		dest = (buf[1] << 8) | buf[0];
 		return true;
 	case 4:
-		dest = valid ? Memory::Read_U32(address) : 0;
+		dest = (buf[3] << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
 		return true;
 	}
 

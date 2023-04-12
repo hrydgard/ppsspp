@@ -218,6 +218,8 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 		}
 	};
 
+	_assert_msg_(((windowStart_ | rowSize_) & 3) == 0, "readMemory() can't handle unaligned reads");
+
 	// draw one extra row that may be partially visible
 	for (int i = 0; i < visibleRows_ + 1; i++) {
 		int rowY = rowHeight_ * i;
@@ -236,8 +238,8 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 			uint32_t words[4];
 			uint8_t bytes[16];
 		} memory;
-		bool valid = debugger_ != nullptr && debugger_->isAlive() && Memory::IsValidAddress(address);
-		for (int i = 0; valid && i < 4; ++i) {
+		int valid = debugger_ != nullptr && debugger_->isAlive() ? Memory::ValidSize(address, 16) / 4 : 0;
+		for (int i = 0; i < valid; ++i) {
 			memory.words[i] = debugger_->readMemory(address + i * 4);
 		}
 
