@@ -243,11 +243,14 @@ struct WebSocketMemoryBreakpointParams {
 	bool hasEnabled = false;
 	bool hasLog = false;
 	bool hasCond = false;
+	bool hasCondition = false;
 	bool hasLogFormat = false;
 
 	bool enabled = true;
 	bool log = true;
 	MemCheckCondition cond = MEMCHECK_READWRITE;
+	std::string condition;
+	PostfixExpression compiledCondition;
 	std::string logFormat;
 
 	bool Parse(DebuggerRequest &req) {
@@ -279,11 +282,20 @@ struct WebSocketMemoryBreakpointParams {
 		}
 		hasCond = req.HasParam("read") || req.HasParam("write") || req.HasParam("change");
 		if (hasCond) {
-			bool read, write, change;
-			if (!req.ParamBool("read", &read) || !req.ParamBool("write", &write) || !req.ParamBool("change", &change))
+			bool read = false, write = false, change = false;
+			if (!req.ParamBool("read", &read, DebuggerParamType::OPTIONAL) || !req.ParamBool("write", &write, DebuggerParamType::OPTIONAL) || !req.ParamBool("change", &change, DebuggerParamType::OPTIONAL))
 				return false;
 			int bits = (read ? MEMCHECK_READ : 0) | (write ? MEMCHECK_WRITE : 0) | (change ? MEMCHECK_WRITE_ONCHANGE : 0);
 			cond = MemCheckCondition(bits);
+		}
+		hasCondition = req.HasParam("condition");
+		if (hasCondition) {
+			if (!req.ParamString("condition", &condition))
+				return false;
+			if (!currentDebugMIPS->initExpression(condition.c_str(), compiledCondition)) {
+				req.Fail(StringFromFormat("Could not parse expression syntax: %s", getExpressionError()));
+				return false;
+			}
 		}
 		hasLogFormat = req.HasParam("logFormat");
 		if (hasLogFormat) {
@@ -313,6 +325,15 @@ struct WebSocketMemoryBreakpointParams {
 	}
 
 	void Apply() {
+		if (hasCondition && !condition.empty()) {
+			BreakPointCond cond;
+			cond.debug = currentDebugMIPS;
+			cond.expressionString = condition;
+			cond.expression = compiledCondition;
+			CBreakPoints::ChangeMemCheckAddCond(address, end, cond);
+		} else if (hasCondition && condition.empty()) {
+			CBreakPoints::ChangeMemCheckRemoveCond(address, end);
+		}
 		if (hasLogFormat) {
 			CBreakPoints::ChangeMemCheckLogFormat(address, end, logFormat);
 		}
@@ -330,6 +351,7 @@ struct WebSocketMemoryBreakpointParams {
 //  - write: optional boolean, whether to trip on any write to this address.
 //  - change: optional boolean, whether to trip on a write to this address which modifies data
 //    (or any write that may modify data.)
+//  - condition: optional string expression to evaluate - breakpoint does not trip if false.
 //  - logFormat: optional string to log when breakpoint trips, may include {expression} parts.
 //
 // Response (same event name) with no extra data.
@@ -356,6 +378,7 @@ void WebSocketMemoryBreakpointAdd(DebuggerRequest &req) {
 //  - write: optional boolean, whether to trip on any write to this address.
 //  - change: optional boolean, whether to trip on a write to this address which modifies data
 //    (or any write that may modify data.)
+//  - condition: optional string expression to evaluate - breakpoint does not trip if false.
 //  - logFormat: optional string to log when breakpoint trips, may include {expression} parts.
 //
 // Response (same event name) with no extra data.
@@ -410,6 +433,7 @@ void WebSocketMemoryBreakpointRemove(DebuggerRequest &req) {
 //     - write: optional boolean, whether to trip on any write to this address.
 //     - change: optional boolean, whether to trip on a write to this address which modifies data
 //       (or any write that may modify data.)
+//     - condition: null, or string expression to evaluate - breakpoint does not trip if false.
 //     - logFormat: null, or string to log when breakpoint trips, may include {expression} parts.
 //     - symbol: null, or string label or symbol at breakpoint address.
 void WebSocketMemoryBreakpointList(DebuggerRequest &req) {
@@ -430,6 +454,10 @@ void WebSocketMemoryBreakpointList(DebuggerRequest &req) {
 		json.writeBool("write", (mc.cond & MEMCHECK_WRITE) != 0);
 		json.writeBool("change", (mc.cond & MEMCHECK_WRITE_ONCHANGE) != 0);
 		json.writeUint("hits", mc.numHits);
+		if (mc.hasCondition)
+			json.writeString("condition", mc.condition.expressionString);
+		else
+			json.writeNull("condition");
 		if (!mc.logFormat.empty())
 			json.writeString("logFormat", mc.logFormat);
 		else
