@@ -22,9 +22,11 @@ class BreakpointWindow
 	std::string logFormat;
 	PostfixExpression compiledCondition;
 
-	static BreakpointWindow* bp;
 	bool fetchDialogData(HWND hwnd);
 	bool GetCheckState(HWND hwnd, int dlgItem);
+
+	static INT_PTR CALLBACK StaticDlgFunc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
+	INT_PTR DlgFunc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
 
 public:
 	BreakpointWindow(HWND parent, DebugInterface* cpu): cpu(cpu)
@@ -38,8 +40,6 @@ public:
 		size = 1;
 	};
 
-
-	static INT_PTR CALLBACK dlgFunc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
 	bool exec();
 	bool isMemoryBreakpoint() { return memory; };
 
