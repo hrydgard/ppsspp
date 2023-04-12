@@ -87,6 +87,9 @@ struct MemCheck {
 	BreakAction result = BREAK_ACTION_IGNORE;
 	std::string logFormat;
 
+	bool hasCondition = false;
+	BreakPointCond condition;
+
 	u32 numHits = 0;
 
 	u32 lastPC = 0;
@@ -142,6 +145,10 @@ public:
 	static void RemoveMemCheck(u32 start, u32 end);
 	static void ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result);
 	static void ClearAllMemChecks();
+
+	static void ChangeMemCheckAddCond(u32 start, u32 end, const BreakPointCond &cond);
+	static void ChangeMemCheckRemoveCond(u32 start, u32 end);
+	static BreakPointCond *GetMemCheckCondition(u32 start, u32 end);
 
 	static void ChangeMemCheckLogFormat(u32 start, u32 end, const std::string &fmt);
 
