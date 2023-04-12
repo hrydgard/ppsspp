@@ -39,7 +39,6 @@ INT_PTR BreakpointWindow::DlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 		EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_WRITE), memory);
 		EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_ONCHANGE), memory);
 		EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_SIZE), memory);
-		EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_CONDITION), !memory);
 		EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_LOG_FORMAT), log);
 		
 		if (address != -1) {
@@ -65,7 +64,6 @@ INT_PTR BreakpointWindow::DlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 				EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_WRITE), memory);
 				EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_ONCHANGE), memory);
 				EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_SIZE), memory);
-				EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_CONDITION), !memory);
 				break;
 			}
 			break;
@@ -78,7 +76,6 @@ INT_PTR BreakpointWindow::DlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 				EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_WRITE), memory);
 				EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_ONCHANGE), memory);
 				EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_SIZE), memory);
-				EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_CONDITION), !memory);
 				break;
 			}
 			break;
@@ -204,16 +201,14 @@ bool BreakpointWindow::exec() {
 	return DialogBoxParam(GetModuleHandle(0), MAKEINTRESOURCE(IDD_BREAKPOINT), parentHwnd, StaticDlgFunc, (LPARAM)this) != 0;
 }
 
-void BreakpointWindow::addBreakpoint()
-{
+void BreakpointWindow::addBreakpoint() {
 	BreakAction result = BREAK_ACTION_IGNORE;
 	if (log)
 		result |= BREAK_ACTION_LOG;
 	if (enabled)
 		result |= BREAK_ACTION_PAUSE;
 
-	if (memory)
-	{
+	if (memory) {
 		// add memcheck
 		int cond = 0;
 		if (read)
@@ -224,13 +219,21 @@ void BreakpointWindow::addBreakpoint()
 			cond |= MEMCHECK_WRITE_ONCHANGE;
 
 		CBreakPoints::AddMemCheck(address, address + size, (MemCheckCondition)cond, result);
+
+		if (!condition.empty()) {
+			BreakPointCond cond;
+			cond.debug = cpu;
+			cond.expressionString = condition;
+			cond.expression = compiledCondition;
+			CBreakPoints::ChangeMemCheckAddCond(address, address + size, cond);
+		}
+
 		CBreakPoints::ChangeMemCheckLogFormat(address, address + size, logFormat);
 	} else {
 		// add breakpoint
 		CBreakPoints::AddBreakPoint(address,false);
 
-		if (!condition.empty())
-		{
+		if (!condition.empty()) {
 			BreakPointCond cond;
 			cond.debug = cpu;
 			cond.expressionString = condition;
@@ -243,8 +246,7 @@ void BreakpointWindow::addBreakpoint()
 	}
 }
 
-void BreakpointWindow::loadFromMemcheck(MemCheck& memcheck)
-{
+void BreakpointWindow::loadFromMemcheck(const MemCheck &memcheck) {
 	memory = true;
 
 	read = (memcheck.cond & MEMCHECK_READ) != 0;
@@ -257,11 +259,16 @@ void BreakpointWindow::loadFromMemcheck(MemCheck& memcheck)
 	address = memcheck.start;
 	size = memcheck.end-address;
 
+	if (memcheck.hasCondition) {
+		condition = memcheck.condition.expressionString;
+	} else {
+		condition.clear();
+	}
+
 	logFormat = memcheck.logFormat;
 }
 
-void BreakpointWindow::loadFromBreakpoint(BreakPoint& breakpoint)
-{
+void BreakpointWindow::loadFromBreakpoint(const BreakPoint& breakpoint) {
 	memory = false;
 
 	log = (breakpoint.result & BREAK_ACTION_LOG) != 0;
@@ -278,8 +285,7 @@ void BreakpointWindow::loadFromBreakpoint(BreakPoint& breakpoint)
 	logFormat = breakpoint.logFormat;
 }
 
-void BreakpointWindow::initBreakpoint(u32 _address)
-{
+void BreakpointWindow::initBreakpoint(u32 _address) {
 	memory = false;
 	enabled = true;
 	address = _address;

@@ -44,7 +44,7 @@ public:
 	bool isMemoryBreakpoint() { return memory; };
 
 	void addBreakpoint();
-	void loadFromMemcheck(MemCheck& memcheck);
-	void loadFromBreakpoint(BreakPoint& memcheck);
+	void loadFromMemcheck(const MemCheck &memcheck);
+	void loadFromBreakpoint(const BreakPoint &bp);
 	void initBreakpoint(u32 address);
 };
