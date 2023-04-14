@@ -721,7 +721,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		PopupSliderChoice *opacity = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, 65, co->T("Button Opacity"), screenManager(), "%"));
 		opacity->SetEnabledPtr(&g_Config.bShowTouchControls);
 		opacity->SetFormat("%i%%");
-		PopupSliderChoice *autoHide = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonHideSeconds, 0, 300, 20, co->T("Auto-hide buttons after seconds"), screenManager(), co->T("seconds, 0 : off")));
+		PopupSliderChoice *autoHide = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonHideSeconds, 0, 300, 20, co->T("Auto-hide buttons after delay"), screenManager(), di->T("seconds, 0:off")));
 		autoHide->SetEnabledPtr(&g_Config.bShowTouchControls);
 		autoHide->SetFormat(di->T("%d seconds"));
 		autoHide->SetZeroLabel(co->T("Off"));
@@ -1058,7 +1058,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 		return UI::EVENT_CONTINUE;
 	});
 	lockedMhz->SetZeroLabel(sy->T("Auto"));
-	PopupSliderChoice *rewindInterval = systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindSnapshotInterval, 0, 60, 0, sy->T("Rewind Snapshot Interval"), screenManager(), sy->T("seconds, 0:off")));
+	PopupSliderChoice *rewindInterval = systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindSnapshotInterval, 0, 60, 0, sy->T("Rewind Snapshot Interval"), screenManager(), di->T("seconds, 0:off")));
 	rewindInterval->SetFormat(di->T("%d seconds"));
 	rewindInterval->SetZeroLabel(sy->T("Off"));
 
@@ -1157,7 +1157,7 @@ void GameSettingsScreen::CreateVRSettings(UI::ViewGroup *vrSettings) {
 	PopupSliderChoiceFloat *vrMotions = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMotionLength, 0.3f, 1.0f, 0.5f, vr->T("Motion needed to generate action"), 0.1f, screenManager(), vr->T("m")));
 	vrMotions->SetEnabledPtr(&g_Config.bEnableMotions);
 	static const char *cameraPitchModes[] = { "Disabled", "Top view -> First person", "First person -> Top view" };
-	vrSettings->Add(new PopupMultiChoice(&g_Config.iCameraPitch, vr->T("Modify camera type"), cameraPitchModes, 0, 3, I18NCat::NONE, screenManager()));
+	vrSettings->Add(new PopupMultiChoice(&g_Config.iCameraPitch, vr->T("Camera type"), cameraPitchModes, 0, 3, I18NCat::NONE, screenManager()));
 }
 
 UI::LinearLayout *GameSettingsScreen::AddTab(const char *tag, const std::string &title, bool isSearch) {
