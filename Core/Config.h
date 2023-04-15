@@ -387,6 +387,7 @@ public:
 	// Auto rotation speed
 	float fAnalogAutoRotSpeed;
 
+	// Sets up how much the analog limiter button restricts digital->analog input.
 	float fAnalogLimiterDeadzone;
 
 	bool bMouseControl;
