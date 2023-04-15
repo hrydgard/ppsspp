@@ -387,8 +387,6 @@ public:
 	// Auto rotation speed
 	float fAnalogAutoRotSpeed;
 
-	float fAnalogLimiterDeadzone;
-
 	bool bMouseControl;
 	bool bMapMouse; // Workaround for mapping screen:|
 	bool bMouseConfine; // Trap inside the window.
