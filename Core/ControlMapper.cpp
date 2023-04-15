@@ -65,7 +65,7 @@ static float MapAxisValue(float v) {
 	const float sensitivity = g_Config.fAnalogSensitivity;
 	const float sign = v >= 0.0f ? 1.0f : -1.0f;
 
-	return sign * Clamp(invDeadzone + (abs(v) - deadzone) / (1.0f - deadzone) * (sensitivity - invDeadzone), 0.0f, 1.0f);
+	return sign * Clamp(invDeadzone + (fabsf(v) - deadzone) / (1.0f - deadzone) * (sensitivity - invDeadzone), 0.0f, 1.0f);
 }
 
 void ConvertAnalogStick(float x, float y, float *outX, float *outY) {
