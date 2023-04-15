@@ -136,12 +136,21 @@ void ControlMapper::SetPSPAxis(int device, int stick, char axis, float value) {
 
 	if (!ignore) {
 		history_[stick][axisId] = value;
-		float x, y;
-		ConvertAnalogStick(history_[stick][0], history_[stick][1], &x, &y);
-		converted_[stick][0] = x;
-		converted_[stick][1] = y;
-		setPSPAnalog_(stick, x, y);
+
+		UpdateAnalogOutput(stick);
 	}
+}
+
+void ControlMapper::UpdateAnalogOutput(int stick) {
+	float x, y;
+	ConvertAnalogStick(history_[stick][0], history_[stick][1], &x, &y);
+	if (virtKeyOn_[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST]) {
+		x *= g_Config.fAnalogLimiterDeadzone;
+		y *= g_Config.fAnalogLimiterDeadzone;
+	}
+	converted_[stick][0] = x;
+	converted_[stick][1] = y;
+	setPSPAnalog_(stick, x, y);
 }
 
 static int RotatePSPKeyCode(int x) {
@@ -249,6 +258,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 	updatePSPButtons_(buttonMask & changedButtonMask, (~buttonMask) & changedButtonMask);
 
 	bool keyInputUsed = changedButtonMask != 0;
+	bool updateAnalogSticks = false;
 
 	// OK, handle all the virtual keys next. For these we need to do deltas here and send events.
 	for (int i = 0; i < VIRTKEY_COUNT; i++) {
@@ -322,10 +332,26 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 		if (!bPrevValue && bValue) {
 			// INFO_LOG(G3D, "vkeyon %s", KeyMap::GetVirtKeyName(vkId));
 			onVKey(vkId, true);
+			virtKeyOn_[vkId - VIRTKEY_FIRST] = true;
+
+			if (vkId == VIRTKEY_ANALOG_LIGHTLY) {
+				updateAnalogSticks = true;
+			}
 		} else if (bPrevValue && !bValue) {
 			// INFO_LOG(G3D, "vkeyoff %s", KeyMap::GetVirtKeyName(vkId));
 			onVKey(vkId, false);
+			virtKeyOn_[vkId - VIRTKEY_FIRST] = false;
+
+			if (vkId == VIRTKEY_ANALOG_LIGHTLY) {
+				updateAnalogSticks = true;
+			}
 		}
+	}
+
+	if (updateAnalogSticks) {
+		// If "lightly" (analog limiter) was toggled, we need to update both computed stick outputs.
+		UpdateAnalogOutput(0);
+		UpdateAnalogOutput(1);
 	}
 
 	return keyInputUsed;

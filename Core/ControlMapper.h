@@ -39,12 +39,14 @@ private:
 	float MapAxisValue(float value, int vkId, const InputMapping &mapping, const InputMapping &changedMapping, bool *oppositeTouched);
 
 	void SetPSPAxis(int deviceId, int stick, char axis, float value);
+	void UpdateAnalogOutput(int stick);
 
 	void onVKey(int vkey, bool down);
 	void onVKeyAnalog(int deviceId, int vkey, float value);
 
 	// To track mappable virtual keys. We can have as many as we want.
 	float virtKeys_[VIRTKEY_COUNT]{};
+	bool virtKeyOn_[VIRTKEY_COUNT]{};  // Track boolean output separaately since thresholds may differ.
 
 	int lastNonDeadzoneDeviceID_[2]{};
 
