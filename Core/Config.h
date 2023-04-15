@@ -314,8 +314,6 @@ public:
 	int iTouchButtonStyle;
 	int iTouchButtonOpacity;
 	int iTouchButtonHideSeconds;
-	// Auto rotation speed
-	float fAnalogAutoRotSpeed;
 
 	// Snap touch control position
 	bool bTouchSnapToGrid;
@@ -386,7 +384,8 @@ public:
 	float fAnalogSensitivity;
 	// convert analog stick circle to square
 	bool bAnalogIsCircular;
-
+	// Auto rotation speed
+	float fAnalogAutoRotSpeed;
 
 	float fAnalogLimiterDeadzone;
 
