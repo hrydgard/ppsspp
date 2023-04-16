@@ -86,6 +86,7 @@ void ComputeState(State *state, bool hasColor0) {
 	bool anyAmbient = false;
 	bool anyDiffuse = false;
 	bool anySpecular = false;
+	bool anyDirectional = false;
 	for (int light = 0; light < 4; ++light) {
 		auto &lstate = state->lights[light];
 		lstate.enabled = gstate.isLightChanEnabled(light);
@@ -112,10 +113,12 @@ void ComputeState(State *state, bool hasColor0) {
 		}
 
 		lstate.pos = GetLightVec(gstate.lpos, light);
-		if (lstate.directional)
+		if (lstate.directional) {
 			lstate.pos.NormalizeOr001();
-		else
+			anyDirectional = true;
+		} else {
 			lstate.att = GetLightVec(gstate.latt, light);
+		}
 
 		if (lstate.spot) {
 			lstate.spotDir = GetLightVec(gstate.ldir, light);
@@ -174,6 +177,8 @@ void ComputeState(State *state, bool hasColor0) {
 	state->baseAmbientColorFactor = LightColorFactor(gstate.getAmbientRGBA(), ones);
 	state->setColor1 = gstate.isUsingSecondaryColor() && anySpecular;
 	state->addColor1 = !gstate.isUsingSecondaryColor() && anySpecular;
+	state->usesWorldPos = anyDirectional;
+	state->usesWorldNormal = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP || anyDiffuse || anySpecular;
 }
 
 static inline float GenerateLightCoord(VertexData &vertex, const WorldCoords &worldnormal, int light) {

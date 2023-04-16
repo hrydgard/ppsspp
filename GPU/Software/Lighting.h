@@ -60,6 +60,8 @@ struct State {
 		bool colorForSpecular : 1;
 		bool setColor1 : 1;
 		bool addColor1 : 1;
+		bool usesWorldPos : 1;
+		bool usesWorldNormal : 1;
 	};
 };
 
