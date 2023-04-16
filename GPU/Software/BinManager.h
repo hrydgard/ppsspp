@@ -117,11 +117,12 @@ struct BinQueue {
 		return items_[tail_];
 	}
 
-	void PushPeeked() {
+	size_t PushPeeked() {
 		size_t i = tail_++;
 		if (i + 1 == N)
 			tail_ -= N;
 		size_++;
+		return i;
 	}
 
 	size_t Size() const {

@@ -368,8 +368,9 @@ void BinManager::UpdateClut(const void *src) {
 	PROFILE_THIS_SCOPE("bin_clut");
 	if (cluts_.Full())
 		Flush("cluts");
-	clutIndex_ = (uint16_t)cluts_.Push(BinClut());
-	memcpy(cluts_[clutIndex_].readable, src, sizeof(BinClut));
+	BinClut &clut = cluts_.PeekPush();
+	memcpy(clut.readable, src, sizeof(BinClut));
+	clutIndex_ = (uint16_t)cluts_.PushPeeked();
 }
 
 void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
