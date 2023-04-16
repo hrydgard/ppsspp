@@ -206,6 +206,17 @@ static inline int LightCeilSSE4(float f) {
 	// This isn't terribly fast, but seems to be better than calling ceilf().
 	return _mm_cvt_ss2si(_mm_ceil_ss(v, v));
 }
+
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
+static inline __m128i LightColorScaleBy512SSE4(__m128i factor, __m128i color, __m128i scale) {
+	// We can use 16-bit multiply here (faster than 32-bit multiply) since our top bits are zero.
+	__m128i result18 = _mm_madd_epi16(factor, color);
+	// But now with 18 bits, we need a full multiply.
+	__m128i multiplied = _mm_mullo_epi32(result18, scale);
+	return _mm_srai_epi32(multiplied, 19);
+}
 #endif
 
 static inline int LightCeil(float f) {
@@ -214,6 +225,25 @@ static inline int LightCeil(float f) {
 		return LightCeilSSE4(f);
 #endif
 	return (int)ceilf(f);
+}
+
+static Vec4<int> LightColorScaleBy512(const Vec4<int> &factor, const Vec4<int> &color, int scale) {
+	// We multiply s9 * s9 * s9, resulting in s27, then shift off 19 to get 8-bit.
+	// The reason all factors are s9 is to account for rounding.
+	// Also note that all values are positive, so can be treated as unsigned.
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+	if (cpu_info.bSSE4_1)
+		return LightColorScaleBy512SSE4(factor.ivec, color.ivec, _mm_set1_epi32(scale));
+#endif
+	return (factor * color * scale) / (1024 * 512);
+}
+
+static inline void LightColorSum(Vec4<int> &sum, const Vec4<int> &src) {
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+	sum.ivec = _mm_add_epi32(sum.ivec, src.ivec);
+#else
+	sum += src;
+#endif
 }
 
 void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const State &state) {
@@ -272,8 +302,8 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 			int attspot = (int)LightCeil(256 * 2 * att * spot + 1);
 			if (attspot > 512)
 				attspot = 512;
-			Vec4<int> lambient = (mac * lstate.ambientColorFactor * attspot) / (1024 * 512);
-			final_color += lambient;
+			Vec4<int> lambient = LightColorScaleBy512(lstate.ambientColorFactor, mac, attspot);
+			LightColorSum(final_color, lambient);
 		}
 
 		// diffuse lighting
@@ -290,8 +320,8 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 			if (diffuse_attspot > 512)
 				diffuse_attspot = 512;
 			Vec4<int> mdc = state.colorForDiffuse ? colorFactor : state.material.diffuseColorFactor;
-			Vec4<int> ldiffuse = (lstate.diffuseColorFactor * mdc * diffuse_attspot) / (1024 * 512);
-			final_color += ldiffuse;
+			Vec4<int> ldiffuse = LightColorScaleBy512(lstate.diffuseColorFactor, mdc, diffuse_attspot);
+			LightColorSum(final_color, ldiffuse);
 		}
 
 		if (lstate.specular && diffuse_factor >= 0.0f) {
@@ -306,19 +336,20 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 					specular_attspot = 512;
 
 				Vec4<int> msc = state.colorForSpecular ? colorFactor : state.material.specularColorFactor;
-				Vec4<int> lspecular = (lstate.specularColorFactor * msc * specular_attspot) / (1024 * 512);
-				specular_color += lspecular;
+				Vec4<int> lspecular = LightColorScaleBy512(lstate.specularColorFactor, msc, specular_attspot);
+				LightColorSum(specular_color, lspecular);
 			}
 		}
 	}
 
+	// Note: these are all naturally clamped by ToRGBA/toRGB.
 	if (state.setColor1) {
-		vertex.color0 = final_color.Clamp(0, 255).ToRGBA();
-		vertex.color1 = specular_color.Clamp(0, 255).rgb().ToRGB();
+		vertex.color0 = final_color.ToRGBA();
+		vertex.color1 = specular_color.rgb().ToRGB();
 	} else if (state.addColor1) {
-		vertex.color0 = (final_color + specular_color).Clamp(0, 255).ToRGBA();
+		vertex.color0 = (final_color + specular_color).ToRGBA();
 	} else {
-		vertex.color0 = final_color.Clamp(0, 255).ToRGBA();
+		vertex.color0 = final_color.ToRGBA();
 	}
 }
 
