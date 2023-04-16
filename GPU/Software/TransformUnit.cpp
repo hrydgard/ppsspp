@@ -273,12 +273,9 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		bool canSkipWorldPos = true;
 		if (state->enableLighting) {
 			Lighting::ComputeState(&state->lightingState, vreader.hasColor0());
-			for (int i = 0; i < 4; ++i) {
-				if (!state->lightingState.lights[i].enabled)
-					continue;
-				if (!state->lightingState.lights[i].directional)
-					canSkipWorldPos = false;
-			}
+			canSkipWorldPos = !state->lightingState.usesWorldPos;
+		} else {
+			state->lightingState.usesWorldNormal = state->uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP;
 		}
 
 		float world[16];
@@ -412,7 +409,7 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 		vertex.v.clipw = vertex.clippos.w;
 
 		Vec3<float> worldnormal;
-		if (state.enableLighting || state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
+		if (state.lightingState.usesWorldNormal) {
 			worldnormal = TransformUnit::ModelToWorldNormal(normal);
 			worldnormal.NormalizeOr001();
 		}
