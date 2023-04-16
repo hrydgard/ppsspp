@@ -197,6 +197,25 @@ void GenerateLightST(VertexData &vertex, const WorldCoords &worldnormal) {
 	vertex.texturecoords.t() = GenerateLightCoord(vertex, worldnormal, gstate.getUVLS1());
 }
 
+#if defined(_M_SSE)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
+static inline int LightCeilSSE4(float f) {
+	__m128 v = _mm_set_ss(f);
+	// This isn't terribly fast, but seems to be better than calling ceilf().
+	return _mm_cvt_ss2si(_mm_ceil_ss(v, v));
+}
+#endif
+
+static inline int LightCeil(float f) {
+#if defined(_M_SSE)
+	if (cpu_info.bSSE4_1)
+		return LightCeilSSE4(f);
+#endif
+	return (int)ceilf(f);
+}
+
 void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const State &state) {
 	// Lighting blending rounds using the half offset method (like alpha blend.)
 	const Vec4<int> ones = Vec4<int>::AssignToAll(1);
@@ -250,7 +269,7 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 
 		// ambient lighting
 		if (lstate.ambient) {
-			int attspot = (int)ceilf(256 * 2 * att * spot + 1);
+			int attspot = (int)LightCeil(256 * 2 * att * spot + 1);
 			if (attspot > 512)
 				attspot = 512;
 			Vec4<int> lambient = (mac * lstate.ambientColorFactor * attspot) / (1024 * 512);
@@ -267,7 +286,7 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 		}
 
 		if (lstate.diffuse && diffuse_factor > 0.0f) {
-			int diffuse_attspot = (int)ceilf(256 * 2 * att * spot * diffuse_factor + 1);
+			int diffuse_attspot = (int)LightCeil(256 * 2 * att * spot * diffuse_factor + 1);
 			if (diffuse_attspot > 512)
 				diffuse_attspot = 512;
 			Vec4<int> mdc = state.colorForDiffuse ? colorFactor : state.material.diffuseColorFactor;
@@ -282,7 +301,7 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 			specular_factor = pspLightPow(specular_factor, state.specularExp);
 
 			if (specular_factor > 0.0f) {
-				int specular_attspot = (int)ceilf(256 * 2 * att * spot * specular_factor + 1);
+				int specular_attspot = (int)LightCeil(256 * 2 * att * spot * specular_factor + 1);
 				if (specular_attspot > 512)
 					specular_attspot = 512;
 
