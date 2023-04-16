@@ -224,19 +224,35 @@ class CameraHelper {
 				throw new Exception("Couldn't find a viable preview size");
 			}
 
-			Log.d(TAG, "setPreviewSize(" + mPreviewSize.width + ", " + mPreviewSize.height + ")");
+			Log.i(TAG, "setPreviewSize(" + mPreviewSize.width + ", " + mPreviewSize.height + ")");
 			param.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
 
 			// Set preview FPS
-			int[] fps;
 			List<int[]> previewFps = param.getSupportedPreviewFpsRange();
-			fps = previewFps.get(0);
+
+			int idealRate = 30000;
+
+			int bestIndex = -1;
+			int bestDistance = 0;  // bestIndex is -1 so irrelevant what the initial value is here.
+
 			for (int i = 0; i < previewFps.size(); i++) {
-				Log.d(TAG, "getSupportedPreviewFpsRange[" + i + "]: " + previewFps.get(i)[0] + " " + previewFps.get(i)[1]);
-				if (previewFps.get(i)[0] <= fps[0] && previewFps.get(i)[1] <= fps[1]) {
-					fps = previewFps.get(i);
+				int rangeStart = previewFps.get(i)[0];
+				int rangeEnd = previewFps.get(i)[1];
+				int distance = Integer.max(Math.abs(rangeStart - idealRate), Math.abs(rangeEnd - idealRate));
+
+				if (bestIndex == -1 || distance < bestDistance) {
+					bestDistance = distance;
+					bestIndex = i;
 				}
+				Log.d(TAG, "getSupportedPreviewFpsRange[" + i + "]: " + previewFps.get(i)[0] + " " + previewFps.get(i)[1]);
 			}
+
+			if (bestIndex == -1) {
+				// This is pretty much impossible.
+				throw new Exception("Couldn't find a viable preview FPS");
+			}
+
+			int[] fps = previewFps.get(bestIndex);
 			Log.d(TAG, "setPreviewFpsRange(" + fps[0] + ", " + fps[1] + ")");
 			param.setPreviewFpsRange(fps[0], fps[1]);
 
