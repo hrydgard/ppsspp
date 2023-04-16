@@ -223,6 +223,8 @@ static inline int LightCeil(float f) {
 #if defined(_M_SSE)
 	if (cpu_info.bSSE4_1)
 		return LightCeilSSE4(f);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	return vcvtps_s32_f32(f);
 #endif
 	return (int)ceilf(f);
 }
@@ -234,6 +236,9 @@ static Vec4<int> LightColorScaleBy512(const Vec4<int> &factor, const Vec4<int> &
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	if (cpu_info.bSSE4_1)
 		return LightColorScaleBy512SSE4(factor.ivec, color.ivec, _mm_set1_epi32(scale));
+#elif PPSSPP_ARCH(ARM64_NEON)
+	int32x4_t multiplied = vmulq_n_s32(vmulq_s32(factor.ivec, color.ivec), scale);
+	return vshrq_n_s32(multiplied, 19);
 #endif
 	return (factor * color * scale) / (1024 * 512);
 }
@@ -241,6 +246,8 @@ static Vec4<int> LightColorScaleBy512(const Vec4<int> &factor, const Vec4<int> &
 static inline void LightColorSum(Vec4<int> &sum, const Vec4<int> &src) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	sum.ivec = _mm_add_epi32(sum.ivec, src.ivec);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	sum.ivec = vaddq_s32(sum.ivec, src.ivec);
 #else
 	sum += src;
 #endif
