@@ -126,9 +126,9 @@ class CameraHelper {
 	private Camera.PreviewCallback mPreviewCallback = new Camera.PreviewCallback() {
 		@Override
 		public void onPreviewFrame(byte[] previewData, Camera camera) {
-			// throttle at 66 ms
+			// throttle at 16 ms
 			long currentTime = SystemClock.elapsedRealtime();
-			if (currentTime - mLastFrameTime < 66) {
+			if (currentTime - mLastFrameTime < 16) {
 				return;
 			}
 			mLastFrameTime = currentTime;
