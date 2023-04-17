@@ -1525,6 +1525,11 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		}
 	}
 
+	// Reject too-tiny framebuffers to display (Godfather, see issue #16915).
+	if (vfb && vfb->height < 64) {
+		vfb = nullptr;
+	}
+
 	if (!vfb) {
 		if (Memory::IsValidAddress(fbaddr)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
