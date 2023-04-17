@@ -462,7 +462,7 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 	}
 }
 
-void Core_MemoryExceptionInfo(u32 address, u32 pc, u32 accessSize, MemoryExceptionType type, std::string additionalInfo, bool forceReport) {
+void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string additionalInfo, bool forceReport) {
 	const char *desc = MemoryExceptionTypeAsString(type);
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
 	if (g_Config.iCpuCore == (int)CPUCore::JIT && g_Config.bIgnoreBadMemAccess) {
@@ -483,6 +483,7 @@ void Core_MemoryExceptionInfo(u32 address, u32 pc, u32 accessSize, MemoryExcepti
 		e.info = additionalInfo;
 		e.memory_type = type;
 		e.address = address;
+		e.accessSize = accessSize;
 		e.stackTrace = stackTrace;
 		e.pc = pc;
 		Core_EnableStepping(true, "memory.exception", address);

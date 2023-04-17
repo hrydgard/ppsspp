@@ -884,7 +884,7 @@ void PSPModule::Cleanup() {
 	}
 }
 
-static void __SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, const u32 length) {
+static void SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, const u32 length, const char *name) {
 	if (!decryptedEbootDataPtr) {
 		ERROR_LOG(SCEMODULE, "Error saving decrypted EBOOT.BIN: invalid pointer");
 		return;
@@ -895,7 +895,7 @@ static void __SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, 
 		return;
 	}
 
-	const std::string filenameToDumpTo = g_paramSFO.GetDiscID() + ".BIN";
+	const std::string filenameToDumpTo = StringFromFormat("%s_%s.BIN", g_paramSFO.GetDiscID().c_str(), name);
 	const Path dumpDirectory = GetSysDirectory(DIRECTORY_DUMP);
 	const Path fullPath = dumpDirectory / filenameToDumpTo;
 
@@ -1264,9 +1264,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 			// If we've made it this far, it should be safe to dump.
 			if (g_Config.bDumpDecryptedEboot) {
-				INFO_LOG(SCEMODULE, "Dumping decrypted EBOOT.BIN to file.");
-				const u32 dumpLength = ret;
-				__SaveDecryptedEbootToStorageMedia(ptr, dumpLength);
+				// Copy the name to ensure it's null terminated.
+				char name[32]{};
+				strncpy(name, head->modname, ARRAY_SIZE(head->modname));
+				SaveDecryptedEbootToStorageMedia(ptr, elfSize, name);
 			}
 		}
 	}
