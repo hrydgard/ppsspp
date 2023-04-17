@@ -390,7 +390,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b) {
 				CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
 			}
 			FixupBranch skipCheck = J_CC(CC_LE, true);
-			MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC() + 4));
+			// All cases of AFTER_CORE_STATE should update PC.  We don't update here.
 			RegCacheState state;
 			GetStateAndFlushAll(state);
 			WriteSyscallExit();
@@ -697,7 +697,7 @@ void Jit::WriteExit(u32 destination, int exit_num) {
 			CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
 		}
 		FixupBranch skipCheck = J_CC(CC_LE);
-		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
+		// All cases of AFTER_CORE_STATE should update PC.  We don't update here.
 		WriteSyscallExit();
 		SetJumpTarget(skipCheck);
 	}
@@ -753,7 +753,7 @@ void Jit::WriteExitDestInReg(X64Reg reg) {
 			CMP(32, MatR(temp), Imm32(CORE_NEXTFRAME));
 		}
 		FixupBranch skipCheck = J_CC(CC_LE);
-		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
+		// All cases of AFTER_CORE_STATE should update PC.  We don't update here.
 		WriteSyscallExit();
 		SetJumpTarget(skipCheck);
 	}
