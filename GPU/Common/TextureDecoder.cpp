@@ -48,6 +48,25 @@
 #define DO_NOT_VECTORIZE_LOOP
 #endif
 
+const u8 textureBitsPerPixel[16] = {
+	16,  //GE_TFMT_5650,
+	16,  //GE_TFMT_5551,
+	16,  //GE_TFMT_4444,
+	32,  //GE_TFMT_8888,
+	4,   //GE_TFMT_CLUT4,
+	8,   //GE_TFMT_CLUT8,
+	16,  //GE_TFMT_CLUT16,
+	32,  //GE_TFMT_CLUT32,
+	4,   //GE_TFMT_DXT1,
+	8,   //GE_TFMT_DXT3,
+	8,   //GE_TFMT_DXT5,
+	0,   // INVALID,
+	0,   // INVALID,
+	0,   // INVALID,
+	0,   // INVALID,
+	0,   // INVALID,
+};
+
 #ifdef _M_SSE
 
 static u32 QuickTexHashSSE2(const void *checkp, u32 size) {

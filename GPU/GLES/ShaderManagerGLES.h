@@ -209,7 +209,7 @@ private:
 	GLRenderManager *render_;
 	LinkedShaderCache linkedShaderCache_;
 
-	bool lastVShaderSame_;
+	bool lastVShaderSame_ = false;
 
 	FShaderID lastFSID_;
 	VShaderID lastVSID_;

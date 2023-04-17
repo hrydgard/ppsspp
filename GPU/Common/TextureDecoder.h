@@ -73,26 +73,15 @@ uint32_t GetDXT1Texel(const DXT1Block *src, int x, int y);
 uint32_t GetDXT3Texel(const DXT3Block *src, int x, int y);
 uint32_t GetDXT5Texel(const DXT5Block *src, int x, int y);
 
-static const u8 textureBitsPerPixel[16] = {
-	16,  //GE_TFMT_5650,
-	16,  //GE_TFMT_5551,
-	16,  //GE_TFMT_4444,
-	32,  //GE_TFMT_8888,
-	4,   //GE_TFMT_CLUT4,
-	8,   //GE_TFMT_CLUT8,
-	16,  //GE_TFMT_CLUT16,
-	32,  //GE_TFMT_CLUT32,
-	4,   //GE_TFMT_DXT1,
-	8,   //GE_TFMT_DXT3,
-	8,   //GE_TFMT_DXT5,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-};
+extern const u8 textureBitsPerPixel[16];
 
 u32 GetTextureBufw(int level, u32 texaddr, GETextureFormat format);
+
+// WARNING: Bits not bytes, this is needed due to the presence of 4 - bit formats.
+inline u32 TextureFormatBitsPerPixel(GETextureFormat format) {
+	u32 bits = textureBitsPerPixel[(int)format];
+	return bits != 0 ? bits : 1;  // Best to return 1 here to survive divisions in case of invalid data.
+}
 
 inline bool AlphaSumIsFull(u32 alphaSum, u32 fullAlphaMask) {
 	return fullAlphaMask != 0 && (alphaSum & fullAlphaMask) == fullAlphaMask;

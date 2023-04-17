@@ -100,6 +100,7 @@ struct CompatFlags {
 	bool BlockTransferDepth;
 	bool DaxterRotatedAnalogStick;
 	bool ForceMaxDepthResolution;
+	bool SOCOMClut8Replacement;
 };
 
 struct VRCompat {
