@@ -413,7 +413,6 @@ public:
 	void BeginFrame();
 	// Can run on a different thread!
 	void Finish(); 
-	bool Run(GLRRenderThreadTask &task);
 
 	// Creation commands. These were not needed in Vulkan since there we can do that on the main thread.
 	// We pass in width/height here even though it's not strictly needed until we support glTextureStorage
@@ -535,7 +534,7 @@ public:
 
 	// This starts a new step (like a "render pass" in Vulkan).
 	//
-	// After a "CopyFramebuffer" or the other functions that start "steps", you need to call this beforce
+	// After a "CopyFramebuffer" or the other functions that start "steps", you need to call this before
 	// making any new render state changes or draw calls.
 	//
 	// The following state needs to be reset by the caller after calling this (and will thus not safely carry over from
@@ -630,14 +629,6 @@ public:
 #ifdef _DEBUG
 		curProgram_ = program;
 #endif
-	}
-
-	void BindPixelPackBuffer(GLRBuffer *buffer) {  // Want to support an offset but can't in ES 2.0. We supply an offset when binding the buffers instead.
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BIND_BUFFER };
-		data.bind_buffer.buffer = buffer;
-		data.bind_buffer.target = GL_PIXEL_PACK_BUFFER;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void BindIndexBuffer(GLRBuffer *buffer) {  // Want to support an offset but can't in ES 2.0. We supply an offset when binding the buffers instead.
@@ -1008,6 +999,8 @@ public:
 	}
 
 private:
+	bool Run(GLRRenderThreadTask &task);
+
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
 

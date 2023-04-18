@@ -228,7 +228,6 @@ struct GLRInitStep {
 	union {
 		struct {
 			GLRTexture *texture;
-			GLenum target;
 		} create_texture;
 		struct {
 			GLRShader *shader;
@@ -420,10 +419,6 @@ private:
 	GLuint currentDrawHandle_ = 0;
 	GLuint currentReadHandle_ = 0;
 
-	GLuint AllocTextureName();
-
-	// Texture name cache. Ripped straight from TextureCacheGLES.
-	std::vector<GLuint> nameCache_;
 	std::unordered_map<int, std::string> glStrings_;
 
 	bool sawOutOfMemory_ = false;
