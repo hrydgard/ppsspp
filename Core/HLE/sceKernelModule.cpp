@@ -1267,7 +1267,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				// Copy the name to ensure it's null terminated.
 				char name[32]{};
 				strncpy(name, head->modname, ARRAY_SIZE(head->modname));
-				SaveDecryptedEbootToStorageMedia(ptr, elfSize, name);
+				SaveDecryptedEbootToStorageMedia(ptr, (u32)elfSize, name);
 			}
 		}
 	}
