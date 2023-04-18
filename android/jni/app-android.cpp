@@ -1033,6 +1033,8 @@ void System_Notify(SystemNotification notification) {
 	case SystemNotification::SUSTAINED_PERF_CHANGE:
 		PushCommand("sustainedPerfMode", "");
 		break;
+	default:
+		break;
 	}
 }
 
