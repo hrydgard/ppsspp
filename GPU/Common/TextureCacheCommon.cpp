@@ -1028,18 +1028,28 @@ bool TextureCacheCommon::MatchFramebuffer(
 		}
 
 		// Check works for D16 too.
+		// These are combinations that we have special-cased handling for. There are more
+		// ones possible, but rare - we'll add them as we find them used.
 		const bool matchingClutFormat =
 			(fb_format == GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_CLUT16) ||
 			(fb_format == GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_5650) ||
 			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
 			(fb_format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16) ||
-			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT8);
+			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT8) ||
+			(fb_format == GE_FORMAT_5551 && entry.format == GE_TFMT_CLUT8 && PSP_CoreParameter().compat.flags().SOCOMClut8Replacement);
 
-		const int texBitsPerPixel = std::max(1U, (u32)textureBitsPerPixel[entry.format]);
+		const int texBitsPerPixel = TextureFormatBitsPerPixel(entry.format);
 		const int byteOffset = texaddr - addr;
 		if (byteOffset > 0) {
+			int texbpp = texBitsPerPixel;
+			if (fb_format == GE_FORMAT_5551 && entry.format == GE_TFMT_CLUT8) {
+				// In this case we treat CLUT8 as if it were CLUT16, see issue #16210. So we need
+				// to compute the x offset appropriately.
+				texbpp = 16;
+			}
+
 			matchInfo->yOffset = byteOffset / fb_stride_in_bytes;
-			matchInfo->xOffset = 8 * (byteOffset % fb_stride_in_bytes) / texBitsPerPixel;
+			matchInfo->xOffset = 8 * (byteOffset % fb_stride_in_bytes) / texbpp;
 		} else if (byteOffset < 0) {
 			int texelOffset = 8 * byteOffset / texBitsPerPixel;
 			// We don't support negative Y offsets, and negative X offsets are only for the Killzone workaround.
@@ -1066,7 +1076,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 		// Trying to play it safe.  Below 0x04110000 is almost always framebuffers.
 		// TODO: Maybe we can reduce this check and find a better way above 0x04110000?
 		if (matchInfo->yOffset > MAX_SUBAREA_Y_OFFSET_SAFE && addr > 0x04110000 && !PSP_CoreParameter().compat.flags().AllowLargeFBTextureOffsets) {
-			WARN_LOG_REPORT_ONCE(subareaIgnored, G3D, "Ignoring possible texturing from framebuffer at %08x +%dx%d / %dx%d", fb_address, matchInfo->xOffset, matchInfo->yOffset, framebuffer->width, framebuffer->height);
+			WARN_LOG_ONCE(subareaIgnored, G3D, "Ignoring possible texturing from framebuffer at %08x +%dx%d / %dx%d", fb_address, matchInfo->xOffset, matchInfo->yOffset, framebuffer->width, framebuffer->height);
 			return false;
 		}
 
@@ -1132,6 +1142,11 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		// We need to force it, since we may have set it on a texture before attaching.
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
+
+		if (candidate.channel == RASTER_COLOR && gstate.getTextureFormat() == GE_TFMT_CLUT8 && framebuffer->fb_format == GE_FORMAT_5551 && PSP_CoreParameter().compat.flags().SOCOMClut8Replacement) {
+			// See #16210. UV must be adjusted as if the texture was twice the width.
+			gstate_c.curTextureWidth *= 2.0f;
+		}
 
 		if (needsDepthXSwizzle) {
 			gstate_c.curTextureWidth = RoundUpToPowerOf2(gstate_c.curTextureWidth);
@@ -2145,6 +2160,7 @@ void TextureCacheCommon::ApplyTexture() {
 	}
 }
 
+// Can we depalettize at all? This refers to both in-fragment-shader depal and "traditional" depal through a separate pass.
 static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
 	if (IsClutFormat(texFormat)) {
 		switch (bufferFormat) {
@@ -2153,6 +2169,10 @@ static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferForma
 		case GE_FORMAT_5551:
 		case GE_FORMAT_DEPTH16:
 			if (texFormat == GE_TFMT_CLUT16) {
+				return true;
+			}
+			if (texFormat == GE_TFMT_CLUT8 && bufferFormat == GE_FORMAT_5551 && PSP_CoreParameter().compat.flags().SOCOMClut8Replacement) {
+				// Wacky case from issue #16210 (SOCOM etc).
 				return true;
 			}
 			break;
@@ -2214,7 +2234,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer &&
 		!depth && clutRenderAddress_ == 0xFFFFFFFF &&
 		!gstate_c.curTextureIs3D &&
-		draw_->GetShaderLanguageDesc().bitwiseOps;
+		draw_->GetShaderLanguageDesc().bitwiseOps &&
+		!(texFormat == GE_TFMT_CLUT8 && framebuffer->fb_format == GE_FORMAT_5551);  // socom
 
 	switch (draw_->GetShaderLanguageDesc().shaderLanguage) {
 	case ShaderLanguage::HLSL_D3D9:

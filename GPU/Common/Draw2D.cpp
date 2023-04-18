@@ -261,7 +261,7 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 
 	ShaderModule *fs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), info.tag);
 
-	_assert_(fs);
+	_assert_msg_(fs, "Failed to create shader module!\n%s", fsCode);
 
 	// verts have positions in 2D clip coordinates.
 	static const InputLayoutDesc desc = {

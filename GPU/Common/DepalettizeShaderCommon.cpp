@@ -111,6 +111,13 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 		if (shiftedMask & 0x7C00) writer.C("  int b = int(color.b * 31.99);\n"); else writer.C("  int b = 0;\n");
 		if (shiftedMask & 0x8000) writer.C("  int a = int(color.a);\n"); else writer.C("  int a = 0;\n");
 		writer.C("  int index = (a << 15) | (b << 10) | (g << 5) | (r);\n");
+
+		if (config.textureFormat == GE_TFMT_CLUT8) {
+			// SOCOM case. #16210
+			// To debug the issue, remove this shift to see the texture (check for clamping etc).
+			writer.C("  index >>= 8;\n");
+		}
+
 		break;
 	case GE_FORMAT_DEPTH16:
 		// Decode depth buffer.
