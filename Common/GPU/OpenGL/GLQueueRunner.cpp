@@ -78,10 +78,6 @@ void GLQueueRunner::CreateDeviceObjects() {
 
 void GLQueueRunner::DestroyDeviceObjects() {
 	CHECK_GL_ERROR_IF_DEBUG();
-	if (!nameCache_.empty()) {
-		glDeleteTextures((GLsizei)nameCache_.size(), &nameCache_[0]);
-		nameCache_.clear();
-	}
 	if (gl_extensions.ARB_vertex_array_object) {
 		glDeleteVertexArrays(1, &globalVAO_);
 	}
@@ -327,8 +323,8 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			glCompileShader(shader);
 			GLint success = 0;
 			glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-			std::string infoLog = GetInfoLog(shader, glGetShaderiv, glGetShaderInfoLog);
 			if (!success) {
+				std::string infoLog = GetInfoLog(shader, glGetShaderiv, glGetShaderInfoLog);
 				std::string errorString = StringFromFormat(
 					"Error in shader compilation for: %s\n"
 					"Info log: %s\n"
@@ -799,10 +795,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			glDisable(GL_COLOR_LOGIC_OP);
 		}
 #endif
-	}
-
-	if (first && gl_extensions.ARB_vertex_array_object) {
-		glBindVertexArray(globalVAO_);
+		if (gl_extensions.ARB_vertex_array_object) {
+			glBindVertexArray(globalVAO_);
+		}
 	}
 
 	GLRProgram *curProgram = nullptr;
@@ -1628,17 +1623,6 @@ void GLQueueRunner::CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int widt
 			memcpy(pixels + y * pixelStride * bpp, readbackBuffer_ + y * width * bpp, width * bpp);
 		}
 	}
-}
-
-GLuint GLQueueRunner::AllocTextureName() {
-	if (nameCache_.empty()) {
-		nameCache_.resize(TEXCACHE_NAME_CACHE_SIZE);
-		glGenTextures(TEXCACHE_NAME_CACHE_SIZE, &nameCache_[0]);
-	}
-	u32 name = nameCache_.back();
-	nameCache_.pop_back();
-	CHECK_GL_ERROR_IF_DEBUG();
-	return name;
 }
 
 // On PC, we always use GL_DEPTH24_STENCIL8. 

@@ -110,7 +110,7 @@ struct AtlasFont {
 	char name[32];
 
 	// Returns 0 on no match.
-	const AtlasChar *getChar(int utf32) const ;
+	const AtlasChar *getChar(int utf32) const;
 };
 
 struct AtlasImage {

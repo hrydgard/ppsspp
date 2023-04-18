@@ -1262,7 +1262,7 @@ bool OpenGLPipeline::LinkShaders(const PipelineDesc &desc) {
 		for (int i = 0; i < (int)std::min((const uint32_t)samplers_.size(), MAX_TEXTURE_SLOTS); i++) {
 			queries.push_back({ &locs_->samplerLocs_[i], samplers_[i].name, true });
 		}
-		samplersToCheck = (int)samplers_.size();
+		samplersToCheck = (int)std::min((const uint32_t)samplers_.size(), MAX_TEXTURE_SLOTS);
 	} else {
 		queries.push_back({ &locs_->samplerLocs_[0], "sampler0" });
 		queries.push_back({ &locs_->samplerLocs_[1], "sampler1" });

@@ -44,7 +44,7 @@ public:
 
 private:
 	Draw::DrawContext *draw_ = nullptr;
-	SDL_Window *window_;
+	SDL_Window *window_ = nullptr;
 	SDL_GLContext glContext = nullptr;
 	GLRenderManager *renderManager_ = nullptr;
 };

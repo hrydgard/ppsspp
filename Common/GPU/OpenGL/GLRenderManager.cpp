@@ -189,7 +189,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 #endif
 
 	// Eliminate dupes.
-	if (steps_.size() && steps_.back()->render.framebuffer == fb && steps_.back()->stepType == GLRStepType::RENDER) {
+	if (steps_.size() && steps_.back()->stepType == GLRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
 		if (color != GLRRenderPassAction::CLEAR && depth != GLRRenderPassAction::CLEAR && stencil != GLRRenderPassAction::CLEAR) {
 			// We don't move to a new step, this bind was unnecessary and we can safely skip it.
 			curRenderStep_ = steps_.back();
@@ -197,7 +197,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 		}
 	}
 	if (curRenderStep_ && curRenderStep_->commands.size() == 0) {
-		VLOG("Empty render step. Usually happens after uploading pixels..");
+		VLOG("Empty render step. Usually happens after uploading pixels.");
 	}
 
 	GLRStep *step = new GLRStep{ GLRStepType::RENDER };
