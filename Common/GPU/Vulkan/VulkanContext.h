@@ -375,6 +375,14 @@ public:
 		return surfFormats_;
 	}
 
+	VkPresentModeKHR GetPresentMode() const {
+		return presentMode_;
+	}
+
+	std::vector<VkPresentModeKHR> GetAvailablePresentModes() const {
+		return availablePresentModes_;
+	}
+
 private:
 	bool ChooseQueue();
 
@@ -462,6 +470,9 @@ private:
 	VkSurfaceCapabilitiesKHR surfCapabilities_{};
 	std::vector<VkSurfaceFormatKHR> surfFormats_{};
 
+	VkPresentModeKHR presentMode_;
+	std::vector<VkPresentModeKHR> availablePresentModes_;
+
 	std::vector<VkCommandBuffer> cmdQueue_;
 
 	VmaAllocator allocator_ = VK_NULL_HANDLE;
@@ -487,6 +498,7 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, 
 
 const char *VulkanColorSpaceToString(VkColorSpaceKHR colorSpace);
 const char *VulkanFormatToString(VkFormat format);
+const char *VulkanPresentModeToString(VkPresentModeKHR presentMode);
 
 std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props);
 

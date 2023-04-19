@@ -62,7 +62,7 @@ std::string VulkanVendorString(uint32_t vendorId) {
 	}
 }
 
-const char *PresentModeString(VkPresentModeKHR presentMode) {
+const char *VulkanPresentModeToString(VkPresentModeKHR presentMode) {
 	switch (presentMode) {
 	case VK_PRESENT_MODE_IMMEDIATE_KHR: return "IMMEDIATE";
 	case VK_PRESENT_MODE_MAILBOX_KHR: return "MAILBOX";
@@ -1233,16 +1233,19 @@ bool VulkanContext::InitSwapchain() {
 		surfCapabilities_.maxImageExtent.width, surfCapabilities_.maxImageExtent.height,
 		swapChainExtent_.width, swapChainExtent_.height);
 
+	availablePresentModes_.clear();
 	// TODO: Find a better way to specify the prioritized present mode while being able
 	// to fall back in a sensible way.
 	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_MAX_ENUM_KHR;
 	std::string modes = "";
 	for (size_t i = 0; i < presentModeCount; i++) {
-		modes += PresentModeString(presentModes[i]);
+		modes += VulkanPresentModeToString(presentModes[i]);
 		if (i != presentModeCount - 1) {
 			modes += ", ";
 		}
+		availablePresentModes_.push_back(presentModes[i]);
 	}
+
 	INFO_LOG(G3D, "Supported present modes: %s", modes.c_str());
 	for (size_t i = 0; i < presentModeCount; i++) {
 		bool match = false;
@@ -1276,7 +1279,7 @@ bool VulkanContext::InitSwapchain() {
 	}
 
 	INFO_LOG(G3D, "Chosen present mode: %d (%s). numSwapChainImages: %d/%d",
-		swapchainPresentMode, PresentModeString(swapchainPresentMode),
+		swapchainPresentMode, VulkanPresentModeToString(swapchainPresentMode),
 		desiredNumberOfSwapChainImages, surfCapabilities_.maxImageCount);
 
 	// We mostly follow the practices from
@@ -1355,6 +1358,8 @@ bool VulkanContext::InitSwapchain() {
 	swap_chain_info.oldSwapchain = VK_NULL_HANDLE;
 	swap_chain_info.clipped = true;
 	swap_chain_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+	presentMode_ = swapchainPresentMode;
 
 	// Don't ask for TRANSFER_DST for the swapchain image, we don't use that.
 	// if (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)

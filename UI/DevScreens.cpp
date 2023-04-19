@@ -784,20 +784,29 @@ void SystemInfoScreen::CreateViews() {
 			}
 		}
 	} else if (GetGPUBackend() == GPUBackend::VULKAN) {
+#if !PPSSPP_PLATFORM(UWP)
+		// Vulkan specific code here, can't be bothered to abstract.
+		// OK because of above check.
+
 		tabHolder->AddTab(si->T("Vulkan Features"), gpuExtensionsScroll);
+		VulkanContext *vk = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 
 		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Features")));
 		std::vector<std::string> features = draw->GetFeatureList();
 		for (auto &feature : features) {
 			gpuExtensions->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
-		
-#if !PPSSPP_PLATFORM(UWP)
 
-		// Vulkan specific code here, can't be bothered to abstract.
-		// OK because of above check.
+		gpuExtensions->Add(new ItemHeader(si->T("Present Modes")));
+		for (auto mode : vk->GetAvailablePresentModes()) {
+			std::string str = VulkanPresentModeToString(mode);
+			if (mode == vk->GetPresentMode()) {
+				str += std::string(" (") + di->T("Current") + ")";
+			}
+			gpuExtensions->Add(new TextView(VulkanPresentModeToString(mode), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		}
+
 		gpuExtensions->Add(new ItemHeader(si->T("Display Color Formats")));
-		VulkanContext *vk = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 		if (vk) {
 			for (auto &format : vk->SurfaceFormats()) {
 				std::string line = StringFromFormat("%s : %s", VulkanFormatToString(format.format), VulkanColorSpaceToString(format.colorSpace));
