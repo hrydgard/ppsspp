@@ -476,11 +476,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::SET_WINDOW_TITLE:
 	{
-#ifdef GOLD
-		const char *name = "PPSSPP Gold ";
-#else
-		const char *name = "PPSSPP ";
-#endif
+		const char *name = System_GetPropertyBool(SYSPROP_APP_GOLD) ? "PPSSPP Gold " : "PPSSPP ";
 		std::wstring winTitle = ConvertUTF8ToWString(std::string(name) + PPSSPP_GIT_VERSION);
 		if (!param1.empty()) {
 			winTitle.append(ConvertUTF8ToWString(" - " + param1));
