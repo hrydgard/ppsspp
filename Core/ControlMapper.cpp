@@ -202,6 +202,37 @@ float ControlMapper::MapAxisValue(float value, int vkId, const InputMapping &map
 	}
 }
 
+static bool IsSwappableVKey(uint32_t vkey) {
+	switch (vkey) {
+	case CTRL_UP:
+	case CTRL_LEFT:
+	case CTRL_DOWN:
+	case CTRL_RIGHT:
+	case VIRTKEY_AXIS_X_MIN:
+	case VIRTKEY_AXIS_X_MAX:
+	case VIRTKEY_AXIS_Y_MIN:
+	case VIRTKEY_AXIS_Y_MAX:
+		return true;
+	default:
+		return false;
+	}
+}
+
+void ControlMapper::SwapMappingIfEnabled(uint32_t *vkey) {
+	if (swapAxes_) {
+		switch (*vkey) {
+		case CTRL_UP: *vkey = VIRTKEY_AXIS_Y_MAX; break;
+		case VIRTKEY_AXIS_Y_MAX: *vkey = CTRL_UP; break;
+		case CTRL_DOWN: *vkey = VIRTKEY_AXIS_Y_MIN; break;
+		case VIRTKEY_AXIS_Y_MIN: *vkey = CTRL_DOWN; break;
+		case CTRL_LEFT: *vkey = VIRTKEY_AXIS_X_MIN; break;
+		case VIRTKEY_AXIS_X_MIN: *vkey = CTRL_LEFT; break;
+		case CTRL_RIGHT: *vkey = VIRTKEY_AXIS_X_MAX; break;
+		case VIRTKEY_AXIS_X_MAX: *vkey = CTRL_RIGHT; break;
+		}
+	}
+}
+
 // Can only be called from Key or Axis.
 bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 	// Instead of taking an input key and finding what it outputs, we loop through the OUTPUTS and
@@ -229,6 +260,8 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 		for (int i = 0; i < rotations; i++) {
 			mappingBit = RotatePSPKeyCode(mappingBit);
 		}
+
+		SwapMappingIfEnabled(&mappingBit);
 
 		std::vector<MultiInputMapping> inputMappings;
 		if (!KeyMap::InputMappingsFromPspButton(mappingBit, &inputMappings, false))
@@ -264,7 +297,11 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 	for (int i = 0; i < VIRTKEY_COUNT; i++) {
 		int vkId = i + VIRTKEY_FIRST;
 		std::vector<MultiInputMapping> inputMappings;
-		if (!KeyMap::InputMappingsFromPspButton(vkId, &inputMappings, false))
+
+		uint32_t idForMapping = vkId;
+		SwapMappingIfEnabled(&idForMapping);
+
+		if (!KeyMap::InputMappingsFromPspButton(idForMapping, &inputMappings, false))
 			continue;
 
 		// If a mapping could consist of a combo, we could trivially check it here.
@@ -284,7 +321,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 				if (iter != curInput_.end()) {
 					if (mapping.IsAxis()) {
 						threshold = GetDeviceAxisThreshold(iter->first.deviceId);
-						product *= MapAxisValue(iter->second, vkId, mapping, changedMapping, &touchedByMapping);
+						product *= MapAxisValue(iter->second, idForMapping, mapping, changedMapping, &touchedByMapping);
 					} else {
 						product *= iter->second;
 					}
@@ -384,6 +421,36 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 	}
 
 	return UpdatePSPState(mapping);
+}
+
+void ControlMapper::ToggleSwapAxes() {
+	swapAxes_ = !swapAxes_;
+
+	// To avoid stuck keys, just reset it all.
+	for (auto &mapping : curInput_) {
+		mapping.second = 0.0f;
+	}
+
+	updatePSPButtons_(0, CTRL_LEFT | CTRL_RIGHT | CTRL_UP | CTRL_DOWN);
+
+	for (uint32_t vkey = VIRTKEY_FIRST; vkey < VIRTKEY_LAST; vkey++) {
+		if (IsSwappableVKey(vkey)) {
+			if (virtKeyOn_[vkey - VIRTKEY_FIRST]) {
+				onVKey_(vkey, false);
+				virtKeyOn_[vkey - VIRTKEY_FIRST] = false;
+			}
+			if (virtKeys_[vkey - VIRTKEY_FIRST] > 0.0f) {
+				onVKeyAnalog_(vkey, 0.0f);
+				virtKeys_[vkey - VIRTKEY_FIRST] = 0.0f;
+			}
+		}
+	}
+
+	history_[0][0] = 0.0f;
+	history_[0][1] = 0.0f;
+
+	UpdateAnalogOutput(0);
+	UpdateAnalogOutput(1);
 }
 
 void ControlMapper::Axis(const AxisInput &axis) {

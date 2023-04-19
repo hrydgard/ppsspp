@@ -32,11 +32,15 @@ public:
 	// virtual key codes, though not analog mappings.
 	void PSPKey(int deviceId, int pspKeyCode, int flags);
 
+	// Toggle swapping DPAD and Analog. Useful on some input devices with few buttons.
+	void ToggleSwapAxes();
+
 	void GetDebugString(char *buffer, size_t bufSize) const;
 
 private:
 	bool UpdatePSPState(const InputMapping &changedMapping);
 	float MapAxisValue(float value, int vkId, const InputMapping &mapping, const InputMapping &changedMapping, bool *oppositeTouched);
+	void SwapMappingIfEnabled(uint32_t *vkey);
 
 	void SetPSPAxis(int deviceId, int stick, char axis, float value);
 	void UpdateAnalogOutput(int stick);
@@ -56,6 +60,8 @@ private:
 	// Mappable auto-rotation. Useful for keyboard/dpad->analog in a few games.
 	bool autoRotatingAnalogCW_ = false;
 	bool autoRotatingAnalogCCW_ = false;
+
+	bool swapAxes_ = false;
 
 	// Protects basically all the state.
 	std::mutex mutex_;

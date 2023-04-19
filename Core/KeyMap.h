@@ -199,7 +199,6 @@ namespace KeyMap {
 
 	void RestoreDefault();
 
-	void SwapAxis();
 	void UpdateNativeMenuKeys();
 
 	void NotifyPadConnected(int deviceId, const std::string &name);
