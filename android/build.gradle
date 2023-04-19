@@ -185,6 +185,9 @@ android {
 		]
 		variant.setIgnore(!needed)
 	}
+	buildFeatures {
+		aidl true
+	}
 }
 afterEvaluate {
 	android.sourceSets.main.assets.getSrcDirs().each { println it }
