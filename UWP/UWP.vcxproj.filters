@@ -352,16 +352,10 @@
     <None Include="Content\shaders\tex_mmpx.csh">
       <Filter>Content\shaders</Filter>
     </None>
-    <None Include="Content\shaders\upscale_catmull_rom.fsh">
+    <None Include="Content\shaders\upscale_bicubic.fsh">
       <Filter>Content\shaders</Filter>
     </None>
-    <None Include="Content\shaders\upscale_catmull_rom.vsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\upscale_mitchell_netravali.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\upscale_mitchell_netravali.vsh">
+    <None Include="Content\shaders\upscale_bicubic.vsh">
       <Filter>Content\shaders</Filter>
     </None>
     <None Include="Content\shaders\upscale_spline36.fsh">
