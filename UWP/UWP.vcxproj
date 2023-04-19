@@ -883,16 +883,10 @@
     <None Include="Content\shaders\tex_mmpx.csh">
       <DeploymentContent>true</DeploymentContent>
     </None>
-    <None Include="Content\shaders\upscale_catmull_rom.fsh">
+    <None Include="Content\shaders\upscale_bicubic.fsh">
       <DeploymentContent>true</DeploymentContent>
     </None>
-    <None Include="Content\shaders\upscale_catmull_rom.vsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\upscale_mitchell_netravali.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\upscale_mitchell_netravali.vsh">
+    <None Include="Content\shaders\upscale_bicubic.vsh">
       <DeploymentContent>true</DeploymentContent>
     </None>
     <None Include="Content\shaders\upscale_spline36.fsh">
