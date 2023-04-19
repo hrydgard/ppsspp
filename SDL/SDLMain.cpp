@@ -236,7 +236,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::SET_WINDOW_TITLE:
 	{
 		std::lock_guard<std::mutex> guard(g_mutexWindow);
-		g_windowState.title = param1.empty() ? "PPSSPP " : param1;
+		const char *app_name = System_GetPropertyBool(SYSPROP_APP_GOLD) ? "PPSSPP Gold" : "PPSSPP";
+		g_windowState.title = param1.empty() ? app_name : param1;
 		g_windowState.update = true;
 		return true;
 	}

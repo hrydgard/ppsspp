@@ -912,8 +912,8 @@ void CreditsScreen::render() {
 	specialthankssolarmystic += cr->T("testing");
 	specialthankssolarmystic += ')';
 
-	const char * credits[] = {
-		"PPSSPP",
+	const char *credits[] = {
+		System_GetPropertyBool(SYSPROP_APP_GOLD) ? "PPSSPP Gold" : "PPSSPP",
 		"",
 		cr->T("title", "A fast and portable PSP emulator"),
 		"",
