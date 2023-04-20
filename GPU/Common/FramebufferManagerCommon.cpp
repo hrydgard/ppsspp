@@ -470,16 +470,18 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 				bool needsRecreate = vfb->bufferWidth > params.fb_stride;
 				needsRecreate = needsRecreate || vfb->newWidth > vfb->bufferWidth || vfb->newWidth * 2 < vfb->bufferWidth;
 				needsRecreate = needsRecreate || vfb->newHeight > vfb->bufferHeight || vfb->newHeight * 2 < vfb->bufferHeight;
+
+				// Whether we resize or not, change the size parameters so we stop detecting a resize.
+				// It might be larger if all drawing has been in throughmode.
+				vfb->width = drawing_width;
+				vfb->height = drawing_height;
+
 				if (needsRecreate) {
 					ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
 					resized = true;
 					// Let's discard this information, might be wrong now.
 					vfb->safeWidth = 0;
 					vfb->safeHeight = 0;
-				} else {
-					// Even though we won't resize it, let's at least change the size params.
-					vfb->width = drawing_width;
-					vfb->height = drawing_height;
 				}
 			}
 		} else {
