@@ -426,11 +426,6 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 void ControlMapper::ToggleSwapAxes() {
 	swapAxes_ = !swapAxes_;
 
-	// To avoid stuck keys, just reset it all.
-	for (auto &mapping : curInput_) {
-		mapping.second = 0.0f;
-	}
-
 	updatePSPButtons_(0, CTRL_LEFT | CTRL_RIGHT | CTRL_UP | CTRL_DOWN);
 
 	for (uint32_t vkey = VIRTKEY_FIRST; vkey < VIRTKEY_LAST; vkey++) {
