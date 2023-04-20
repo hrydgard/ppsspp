@@ -106,6 +106,10 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 		writer.C("  int index = (b << 11) | (g << 5) | (r);\n");
 		break;
 	case GE_FORMAT_5551:
+		if (config.textureFormat == GE_TFMT_CLUT8) {
+			// SOCOM case. We need to make sure the next few lines load the right bits, see below.
+			shiftedMask <<= 8;
+		}
 		if (shiftedMask & 0x1F) writer.C("  int r = int(color.r * 31.99);\n"); else writer.C("  int r = 0;\n");
 		if (shiftedMask & 0x3E0) writer.C("  int g = int(color.g * 31.99);\n"); else writer.C("  int g = 0;\n");
 		if (shiftedMask & 0x7C00) writer.C("  int b = int(color.b * 31.99);\n"); else writer.C("  int b = 0;\n");
@@ -245,7 +249,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 		break;
 	case GE_FORMAT_5551:
 		if (config.textureFormat == GE_TFMT_CLUT8 && mask == 0xFF && shift == 0) {
-			sprintf(lookupMethod, "index.b * 64.0 + index.g * 4.0");  // we just skip A.
+			sprintf(lookupMethod, "(index.a * 128.0 + index.b * 64.0 + index.g * 4.0)");  // we just skip A.
 			index_multiplier = 1.0f / 256.0f;
 			// SOCOM case. #16210
 		} else if ((mask & (mask + 1)) == 0 && shift < 16) {
@@ -318,10 +322,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 		// Seems to need a half-pixel offset fix?  Might mean it was rendered wrong...
 		texel_offset += 0.5f / texturePixels;
 	}
-	char offset[128] = "";
-	sprintf(offset, " + %f", texel_offset);
-
-	writer.F("  float coord = (%s * %f)%s;\n", lookupMethod, index_multiplier, offset);
+	writer.F("  float coord = (%s * %f) + %f;\n", lookupMethod, index_multiplier, texel_offset);
 	writer.C("  vec4 outColor = ").SampleTexture2D("pal", "vec2(coord, 0.0)").C(";\n");
 }
 
