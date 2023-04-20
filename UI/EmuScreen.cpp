@@ -561,6 +561,7 @@ void EmuScreen::touch(const TouchInput &touch) {
 
 void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
+	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
 	switch (virtualKeyCode) {
 	case VIRTKEY_FASTFORWARD:
@@ -647,7 +648,8 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 
 	case VIRTKEY_AXIS_SWAP:
 		if (down) {
-			KeyMap::SwapAxis();
+			controlMapper_.ToggleSwapAxes();
+			osm.Show(mc->T("AxisSwap"));  // best string we have.
 		}
 		break;
 

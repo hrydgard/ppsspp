@@ -43,8 +43,6 @@ std::set<std::string> g_seenPads;
 std::map<int, std::string> g_padNames;
 std::set<int> g_seenDeviceIds;
 
-bool g_swapDpadWithLStick = false;
-
 // Utility...
 void SingleInputMappingFromPspButton(int btn, std::vector<InputMapping> *mappings, bool ignoreMouse) {
 	std::vector<MultiInputMapping> multiMappings;
@@ -484,29 +482,13 @@ std::vector<KeyMap_IntStrPair> GetMappableKeys() {
 	return temp;
 }
 
-inline int CheckAxisSwap(int btn) {
-	if (g_swapDpadWithLStick) {
-		switch (btn) {
-			case CTRL_UP: btn = VIRTKEY_AXIS_Y_MAX; break;
-			case VIRTKEY_AXIS_Y_MAX: btn = CTRL_UP; break;
-			case CTRL_DOWN: btn = VIRTKEY_AXIS_Y_MIN; break;
-			case VIRTKEY_AXIS_Y_MIN: btn = CTRL_DOWN; break;
-			case CTRL_LEFT: btn = VIRTKEY_AXIS_X_MIN; break;
-			case VIRTKEY_AXIS_X_MIN: btn = CTRL_LEFT; break;
-			case CTRL_RIGHT: btn = VIRTKEY_AXIS_X_MAX; break;
-			case VIRTKEY_AXIS_X_MAX: btn = CTRL_RIGHT; break;
-		}
-	}
-	return btn;
-}
-
 bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspButtons) {
 	bool found = false;
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
 			if (iter2->EqualsSingleMapping(mapping)) {
 				if (pspButtons)
-					pspButtons->push_back(CheckAxisSwap(iter->first));
+					pspButtons->push_back(iter->first);
 				found = true;
 			}
 		}
@@ -810,11 +792,6 @@ std::string PadName(int deviceId) {
 	if (it != g_padNames.end())
 		return it->second;
 	return "";
-}
-
-// Swap direction buttons and left analog axis
-void SwapAxis() {
-	g_swapDpadWithLStick = !g_swapDpadWithLStick;
 }
 
 bool HasChanged(int &prevGeneration) {
