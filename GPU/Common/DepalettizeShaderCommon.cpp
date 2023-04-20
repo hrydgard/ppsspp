@@ -244,7 +244,11 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 		}
 		break;
 	case GE_FORMAT_5551:
-		if ((mask & (mask + 1)) == 0 && shift < 16) {
+		if (config.textureFormat == GE_TFMT_CLUT8 && mask == 0xFF && shift == 0) {
+			sprintf(lookupMethod, "index.b * 64.0 + index.g * 4.0");  // we just skip A.
+			index_multiplier = 1.0f / 256.0f;
+			// SOCOM case. #16210
+		} else if ((mask & (mask + 1)) == 0 && shift < 16) {
 			const char *rgba = "rrrrrgggggbbbbba";
 			const u8 rgba_shift = shift % 5;
 			if (rgba_shift == 0 && mask == 0x1F) {
