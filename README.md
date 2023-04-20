@@ -52,13 +52,13 @@ What's new in 1.15
   - Additional optimizations ([#17139], [#17088])
 
 * Optimizations
-  - SoftGPU fixes and performance ([#17295], [#17214], [#17028], [#16753], [#16706] #16690)
+  - Software renderer fixes and performance ([#17295], [#17214], [#17028], [#16753], [#16706], [#16690])
   - Vulkan texture upload optimizations ([#17052], [#17122], [#17121], [#17114], [#17011])
   - Depth readback added, fixing lens flares in Syphon Filter (at perf cost..) ([#16907], [#16905])
-  - Async readback supported in Vulkan. Currently only enabled in Dangan Ronpa. ([#16910], [#16916])
+  - Async readback supported in Vulkan - currently only enabled in Dangan Ronpa ([#16910], [#16916])
   - Lighting shader optimizations ([#16791], [#16787])
 
-* Control
+* Controls
   - Android tilt control has been overhauled and fixed ([#16889], [#16896])
   - You can now map combinations of buttons to single functions ([#17210], [#17215], [#17228], etc)
   - Combo buttons now support analog inputs ([#16855])
@@ -72,15 +72,15 @@ What's new in 1.15
 * Other
   - Windows Dark Mode support ([#16704])
   - GLSL shader compatibility fixes ([#16710], [#16709])
-  - GTA math issue on Mac fixed, playable again ([#16928])
+  - GTA math issue on macOS/iOS fixed, playable again ([#16928])
   - More accurate VFPU emulation has been added, though not all enabled yet ([#16984])
   - Debugger features and fixes ([#17270], [#17269], [#17263], [#17260], [#17203], [#17190], [#17042], [#16994], [#16988], [#16818] etc)
   - Rewind savestates no longer slows things down a lot ([#17291])
   - Chat window bugfixes ([#17241])
-  - IR Jit fixes ([#17129])
+  - IR Jit fixes - helps iOS when native jit is unavailable ([#17129])
   - Depth-related rendering fixes ([#17055], [#16880])
   - More RISCV support work ([#16976], [#16957], [#16962], [#16832], [#16829])
-  - MacOS native menu bar ([#16922])
+  - macOS native menu bar ([#16922])
   - Font fixes ([#16859])
   - Rockman 2 audio glitch fix ([#16810], [#16798])
   - UI fixes: Vertical use of space ([#16795]), scrollbars ([#16785]), touchpad scroll on Windows ([#16699])
