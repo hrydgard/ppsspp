@@ -46,8 +46,8 @@ const static int OSK_SHUTDOWN_DELAY_US = 40000;
 
 static std::map<std::string, std::pair<std::string, int>> languageMapping;
 
-const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
-const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 6, 6, 5, 4, 4, 4, 4};
+const uint8_t numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
+const uint8_t numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 6, 6, 5, 4, 4, 4, 4};
 
 // Japanese (Kana) diacritics
 static const wchar_t diacritics[2][103] =
@@ -63,16 +63,16 @@ static const wchar_t kor_cons[] = L"ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉ�
 static const wchar_t kor_vowel[] = L"ㅏㅐㅑㅒㅓㅔㅕㅖㅗ   ㅛㅜ   ㅠㅡ ㅣ";
 
 // Korean (Hangul) vowel Combination key
-const int kor_vowelCom[] = {0,8,9,1,8,10,20,8,11,4,13,14,5,13,15,20,13,16,20,18,19};
+const uint8_t kor_vowelCom[] = {0,8,9,1,8,10,20,8,11,4,13,14,5,13,15,20,13,16,20,18,19};
 
 // Korean (Hangul) last consonant(diacritics)
 static const wchar_t kor_lcons[] = L"ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ";
 
 // Korean (Hangul) last consonant Combination key
-const int kor_lconsCom[] = {18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7,10,18,7,11,24,7,12,25,7,13,26,7,14,18,16,17};
+const uint8_t kor_lconsCom[] = {18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7,10,18,7,11,24,7,12,25,7,13,26,7,14,18,16,17};
 
 // Korean (Hangul) last consonant Separation key
-const int kor_lconsSpr[] = {2,1,9,4,4,12,5,4,18,8,8,0,9,8,6,10,8,7,11,8,9,12,8,16,13,8,17,14,8,18,17,17,9};
+const uint8_t kor_lconsSpr[] = {2,1,9,4,4,12,5,4,18,8,8,0,9,8,6,10,8,7,11,8,9,12,8,16,13,8,17,14,8,18,17,17,9};
 
 static const char16_t oskKeys[OSK_KEYBOARD_COUNT][6][14] =
 {
@@ -147,7 +147,7 @@ static const char16_t oskKeys[OSK_KEYBOARD_COUNT][6][14] =
 };
 
 // This isn't a complete representation of these flags, it just helps ensure we show the right keyboards.
-int allowedInputFlagsMap[OSK_KEYBOARD_COUNT] = {
+static const int allowedInputFlagsMap[OSK_KEYBOARD_COUNT] = {
 	PSP_UTILITY_OSK_INPUTTYPE_LATIN_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL | PSP_UTILITY_OSK_INPUTTYPE_LATIN_DIGIT,
 	PSP_UTILITY_OSK_INPUTTYPE_LATIN_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL,
 	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_HIRAGANA,
@@ -158,7 +158,7 @@ int allowedInputFlagsMap[OSK_KEYBOARD_COUNT] = {
 	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_SYMBOL | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_DIGIT,
 	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_SYMBOL,
 };
-int defaultInputFlagsMap[OSK_KEYBOARD_COUNT] = {
+static const int defaultInputFlagsMap[OSK_KEYBOARD_COUNT] = {
 	PSP_UTILITY_OSK_INPUTTYPE_LATIN_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL | PSP_UTILITY_OSK_INPUTTYPE_LATIN_DIGIT,
 	PSP_UTILITY_OSK_INPUTTYPE_LATIN_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL,
 	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_HIRAGANA,
@@ -261,7 +261,7 @@ static void FindValidKeyboard(s32 inputType, int direction, OskKeyboardLanguage 
 		return;
 	}
 	// We use direction = 0 for default, but we actually move "forward".
-	int *matchMap = allowedInputFlagsMap;
+	const int *matchMap = allowedInputFlagsMap;
 	if (direction == 0) {
 		direction = 1;
 		matchMap = defaultInputFlagsMap;
@@ -368,7 +368,7 @@ std::u16string PSPOskDialog::CombinationKorean(bool isInput)
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedCol = selectedChar % numKeyCols[currentKeyboard];
 
-	if(inputChars.size() == 0) {
+	if (inputChars.size() == 0) {
 		wchar_t sw = oskKeys[currentKeyboard][selectedRow][selectedCol];
 
 		if (inputChars.size() < FieldMaxLength()) {
@@ -772,6 +772,11 @@ u32 PSPOskDialog::FieldMaxLength()
 
 void PSPOskDialog::RenderKeyboard()
 {
+	// Sanity check that a valid keyboard is selected.
+	if ((int)currentKeyboard < 0 || (int)currentKeyboard >= OSK_KEYBOARD_COUNT) {
+		return;
+	}
+
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedCol = selectedChar % numKeyCols[currentKeyboard];
 
@@ -1172,6 +1177,8 @@ void PSPOskDialog::DoState(PointerWrap &p)
 	auto s = p.Section("PSPOskDialog", 1, 2);
 	if (!s)
 		return;
+
+	// TODO: Should we save currentKeyboard/currentKeyboardLanguage?
 
 	Do(p, oskParams);
 	Do(p, oskDesc);
