@@ -34,14 +34,15 @@ What's new in 1.15
 * Rendering performance and fixes
   - Integer scaling added ([#17224])
   - Post-processing fixes ([#17262])
-  - SOCOM overlay glitch removed ([#17297])
+  - SOCOM overlay glitch removed, night vision fixed ([#17297], [#17317])
   - PowerVR compatibility fixes ([#17232])
   - CLUT fixes ([#17212])
   - ToP - Narikiri Dungeon X: Avoid GPU readback ([#17181], [#17191], [#17192])
   - DTM / Toca: Avoid GPU readback ([#16715])
   - Fixed Dante's Inferno performance regression ([#17032], [#17035])
   - Fix wrong device selection on Poco C40 phones, causing broken UI ([#17027], [#17022])
-  - Rainbow Six gpu perforamnce fix ([#16971])
+  - Rainbow Six GPU performance fix ([#16971])
+  - Subtitles fixed in The Godfather ([#17298], [#17314])
 
 * Texture replacement improvements
   - Less I/O on the main thread, leading to smoother framerates ([#17078], [#17091], [#17120], [#17134])
@@ -61,7 +62,7 @@ What's new in 1.15
 * Controls
   - Android tilt control has been overhauled and fixed ([#16889], [#16896])
   - You can now map combinations of buttons to single functions ([#17210], [#17215], [#17228], etc)
-  - Combo buttons now support analog inputs ([#16855])
+  - Custom buttons now support analog inputs ([#16855])
 
 * VR features
   - Top down camera: ([#17098])
