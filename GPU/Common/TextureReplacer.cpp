@@ -561,7 +561,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 static bool WriteTextureToPNG(png_imagep image, const Path &filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
 	FILE *fp = File::OpenCFile(filename, "wb");
 	if (!fp) {
-		ERROR_LOG(IO, "Unable to open texture file for writing.");
+		ERROR_LOG(IO, "Unable to open texture file '%s' for writing.", filename.c_str());
 		return false;
 	}
 
