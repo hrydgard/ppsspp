@@ -239,15 +239,15 @@ private:
 	u32 FieldMaxLength();
 	int GetIndex(const wchar_t* src, wchar_t ch);
 
-	PSPPointer<SceUtilityOskParams> oskParams;
+	PSPPointer<SceUtilityOskParams> oskParams{};
 	std::string oskDesc;
 	std::string oskIntext;
 	std::string oskOuttext;
 
 	int selectedChar = 0;
 	std::u16string inputChars;
-	OskKeyboardDisplay currentKeyboard;
-	OskKeyboardLanguage currentKeyboardLanguage;
+	OskKeyboardDisplay currentKeyboard = OSK_KEYBOARD_LATIN_LOWERCASE;
+	OskKeyboardLanguage currentKeyboardLanguage = OSK_LANGUAGE_ENGLISH;
 	bool isCombinated = false;
 
 	std::mutex nativeMutex_;
