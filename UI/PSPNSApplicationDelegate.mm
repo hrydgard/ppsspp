@@ -9,7 +9,7 @@
 #import "PSPNSApplicationDelegate.h"
 #include "Core/SaveState.h"
 #include "Common/System/NativeApp.h"
-#include <Core/Config.h>
+#include "Core/Config.h"
 
 @implementation PSPNSApplicationDelegate
 + (instancetype)sharedAppDelegate {
