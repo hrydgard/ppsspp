@@ -6,7 +6,12 @@
 //
 
 #import <Cocoa/Cocoa.h>
+
 #include "UI/DarwinFileSystemServices.h"
+#include "UI/PSPNSApplicationDelegate.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/MemMap.h"
+#include "GPU/GPUInterface.h"
 #include "Common/File/Path.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
@@ -14,9 +19,20 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
 
+void TakeScreenshot();
+/* including "Core/Core.h" results in a compilation error soo */
+bool Core_IsStepping();
+void Core_EnableStepping(bool step, const char *reason = nullptr, u32 relatedAddress = 0);
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define MENU_ITEM(variableName, localizedTitleName, SEL, ConfigurationValueName, Tag) \
+NSMenuItem *variableName = [[NSMenuItem alloc] initWithTitle:localizedTitleName action:SEL keyEquivalent:@""]; \
+variableName.target = self; \
+variableName.tag = Tag; \
+variableName.state = [self controlStateForBool: ConfigurationValueName];
 
 // NSMenuItem requires the use of an objective-c selector (aka the devil's greatest trick)
 // So we have to make this class
@@ -28,7 +44,8 @@ extern "C" {
 @property (assign) std::shared_ptr<I18NCategory> graphicsLocalization;
 @end
 
-void initBarItemsForApp() {
+void initializeOSXExtras() {
+    [NSApplication.sharedApplication setDelegate:[PSPNSApplicationDelegate sharedAppDelegate]];
     [[BarItemsManager sharedInstance] setupAppBarItems];
 }
 
@@ -45,6 +62,7 @@ void initBarItemsForApp() {
 }
 
 -(void)setupAppBarItems {
+    
     NSMenuItem *openMenuItem = [[NSMenuItem alloc] init];
     openMenuItem.submenu = [self makeOpenSubmenu];
     openMenuItem.submenu.delegate = self;
@@ -53,25 +71,40 @@ void initBarItemsForApp() {
     graphicsMenuItem.submenu = [self makeGraphicsMenu];
     graphicsMenuItem.submenu.delegate = self;
     
-	NSMenuItem *helpMenuItem = [[NSMenuItem alloc] init];
-	helpMenuItem.submenu = [self makeHelpMenu];
-	
+    NSMenuItem *debugMenuItem = [[NSMenuItem alloc] init];
+    debugMenuItem.submenu = [self makeDebugMenu];
+    debugMenuItem.submenu.delegate = self;
+    
+    NSMenuItem *helpMenuItem = [[NSMenuItem alloc] init];
+    helpMenuItem.submenu = [self makeHelpMenu];
+    
     [NSApplication.sharedApplication.menu addItem:openMenuItem];
     [NSApplication.sharedApplication.menu addItem:graphicsMenuItem];
-	[NSApplication.sharedApplication.menu addItem:helpMenuItem];
-	
-	NSString *windowMenuItemTitle = @"Window";
-	// Rearrange 'Window' to be behind 'Help'
-	for (NSMenuItem *item in NSApplication.sharedApplication.menu.itemArray) {
-		if ([item.title isEqualToString:windowMenuItemTitle]) {
-			[NSApplication.sharedApplication.menu removeItem:item];
-			// 'Help' is the last item in the bar
-			// so we can just use `NSApplication.sharedApplication.menu.numberOfItems - 1`
-			// as it's index
-			[NSApplication.sharedApplication.menu insertItem:item atIndex:NSApplication.sharedApplication.menu.numberOfItems - 1];
-			break;
-		}
-	}
+    [NSApplication.sharedApplication.menu addItem:debugMenuItem];
+    [NSApplication.sharedApplication.menu addItem:helpMenuItem];
+    
+    NSString *windowMenuItemTitle = @"Window";
+    // Rearrange 'Window' to be behind 'Help'
+    for (NSMenuItem *item in NSApplication.sharedApplication.menu.itemArray) {
+        if ([item.title isEqualToString:windowMenuItemTitle]) {
+            [NSApplication.sharedApplication.menu removeItem:item];
+            // 'Help' is the last item in the bar
+            // so we can just use `NSApplication.sharedApplication.menu.numberOfItems - 1`
+            // as it's index
+            [NSApplication.sharedApplication.menu insertItem:item atIndex:NSApplication.sharedApplication.menu.numberOfItems - 1];
+            break;
+        }
+    }
+    
+    /* IGNORE THE BELOW and eat some nice cherries :3
+    NSArray <NSMenuItem *> *firstSubmenu = NSApp.menu.itemArray.firstObject.submenu.itemArray;
+    for (NSMenuItem *item in firstSubmenu) {
+        // about item, set action
+        if ([item.title hasPrefix:@"About "]) {
+            break;
+        }
+    }
+     */
 }
 
 - (void)menuNeedsUpdate:(NSMenu *)menu {
@@ -90,14 +123,27 @@ void initBarItemsForApp() {
                 case 4:
                     item.state = [self controlStateForBool:g_Config.bAutoFrameSkip];
                     break;
-				case (int)ShowStatusFlags::FPS_COUNTER + 100:
+                case (int)ShowStatusFlags::FPS_COUNTER + 100:
                     item.state = [self controlStateForBool:g_Config.iShowStatusFlags & (int)ShowStatusFlags::FPS_COUNTER];
                     break;
-				case (int)ShowStatusFlags::SPEED_COUNTER + 100:
+                case (int)ShowStatusFlags::SPEED_COUNTER + 100:
                     item.state = [self controlStateForBool:g_Config.iShowStatusFlags & (int)ShowStatusFlags::SPEED_COUNTER];
                     break;
-				case (int)ShowStatusFlags::BATTERY_PERCENT + 100:
+                case (int)ShowStatusFlags::BATTERY_PERCENT + 100:
                     item.state = [self controlStateForBool:g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT];
+                    break;
+                default:
+                    break;
+            }
+        }
+    } else if ([menu.title isEqualToString: [self localizedString:"Debug" category: self.mainSettingsLocalization]]) {
+        for (NSMenuItem *item in menu.itemArray) {
+            switch ([item tag]) {
+                case 2:
+                    item.state = [self controlStateForBool:g_Config.bAutoRun];
+                    break;
+                case 3:
+                    item.state = [self controlStateForBool:g_Config.bIgnoreBadMemAccess];
                     break;
                 default:
                     break;
@@ -111,23 +157,23 @@ void initBarItemsForApp() {
 }
 
 -(NSMenu *)makeHelpMenu {
-	NSMenu *menu = [[NSMenu alloc] initWithTitle:@"Help"];
-	NSMenuItem *githubItem = [[NSMenuItem alloc] initWithTitle:@"Report an issue" action:@selector(reportAnIssue) keyEquivalent:@""];
-	githubItem.target = self;
-	[menu addItem:githubItem];
-	
-	NSMenuItem *discordItem = [[NSMenuItem alloc] initWithTitle:@"Join the Discord" action:@selector(joinTheDiscord) keyEquivalent:@""];
-	discordItem.target = self;
-	[menu addItem:discordItem];
-	return menu;
+    NSMenu *menu = [[NSMenu alloc] initWithTitle:@"Help"];
+    NSMenuItem *githubItem = [[NSMenuItem alloc] initWithTitle:@"Report an issue" action:@selector(reportAnIssue) keyEquivalent:@""];
+    githubItem.target = self;
+    [menu addItem:githubItem];
+    
+    NSMenuItem *discordItem = [[NSMenuItem alloc] initWithTitle:@"Join the Discord" action:@selector(joinTheDiscord) keyEquivalent:@""];
+    discordItem.target = self;
+    [menu addItem:discordItem];
+    return menu;
 }
 
 -(void)reportAnIssue {
-	[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://github.com/hrydgard/ppsspp/issues/new/choose"]];
+    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://github.com/hrydgard/ppsspp/issues/new/choose"]];
 }
 
 -(void)joinTheDiscord {
-	[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://discord.gg/5NJB6dD"]];
+    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://discord.gg/5NJB6dD"]];
 }
 
 -(NSMenu *)makeOpenSubmenu {
@@ -166,119 +212,183 @@ void initBarItemsForApp() {
     
     [parent addItem:[NSMenuItem separatorItem]];
     
-#define MENU_ITEM(variableName, localizedTitleName, SEL, ConfigurationValueName, Tag) \
-NSMenuItem *variableName = [[NSMenuItem alloc] initWithTitle:GRAPHICS_LOCALIZED(localizedTitleName) action:SEL keyEquivalent:@""]; \
-variableName.target = self; \
-variableName.tag = Tag; \
-variableName.state = [self controlStateForBool: ConfigurationValueName];
-    
-    MENU_ITEM(softwareRendering, "Software Rendering", @selector(toggleSoftwareRendering:), g_Config.bSoftwareRendering, 1)
+    MENU_ITEM(softwareRendering, GRAPHICS_LOCALIZED("Software Rendering"), @selector(toggleSoftwareRendering:), g_Config.bSoftwareRendering, 1)
     [parent addItem:softwareRendering];
     
-    MENU_ITEM(vsyncItem, "VSync", @selector(toggleVSync:), g_Config.bVSync, 2)
+    MENU_ITEM(vsyncItem, GRAPHICS_LOCALIZED("VSync"), @selector(toggleVSync:), g_Config.bVSync, 2)
     [parent addItem:vsyncItem];
     
-    MENU_ITEM(fullScreenItem, "Fullscreen", @selector(toggleFullScreen:), g_Config.bFullScreen, 3)
+    MENU_ITEM(fullScreenItem, GRAPHICS_LOCALIZED("Fullscreen"), @selector(toggleFullScreen:), g_Config.bFullScreen, 3)
     [parent addItem:fullScreenItem];
     
     [parent addItem:[NSMenuItem separatorItem]];
     
-    MENU_ITEM(autoFrameSkip, "Auto FrameSkip", @selector(toggleAutoFrameSkip:), g_Config.bAutoFrameSkip, 4)
+    MENU_ITEM(autoFrameSkip, GRAPHICS_LOCALIZED("Auto FrameSkip"), @selector(toggleAutoFrameSkip:), g_Config.bAutoFrameSkip, 4)
     [parent addItem:autoFrameSkip];
     
     [parent addItem:[NSMenuItem separatorItem]];
     
-    MENU_ITEM(fpsCounterItem, "Show FPS Counter", @selector(setToggleShowCounterItem:), g_Config.iShowStatusFlags & (int)ShowStatusFlags::FPS_COUNTER, 5)
+    MENU_ITEM(fpsCounterItem, GRAPHICS_LOCALIZED("Show FPS Counter"), @selector(setToggleShowCounterItem:), g_Config.iShowStatusFlags & (int)ShowStatusFlags::FPS_COUNTER, 5)
     fpsCounterItem.tag = (int)ShowStatusFlags::FPS_COUNTER + 100;
     
-    MENU_ITEM(speedCounterItem, "Show Speed", @selector(setToggleShowCounterItem:), g_Config.iShowStatusFlags & (int)ShowStatusFlags::SPEED_COUNTER, 6)
+    MENU_ITEM(speedCounterItem, GRAPHICS_LOCALIZED("Show Speed"), @selector(setToggleShowCounterItem:), g_Config.iShowStatusFlags & (int)ShowStatusFlags::SPEED_COUNTER, 6)
     speedCounterItem.tag = (int)ShowStatusFlags::SPEED_COUNTER + 100; // because of menuNeedsUpdate:
     
-    MENU_ITEM(batteryPercentItem, "Show battery %", @selector(setToggleShowCounterItem:), g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT, 7)
+    MENU_ITEM(batteryPercentItem, GRAPHICS_LOCALIZED("Show battery %"), @selector(setToggleShowCounterItem:), g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT, 7)
     batteryPercentItem.tag = (int)ShowStatusFlags::BATTERY_PERCENT + 100;
     
     [parent addItem:[NSMenuItem separatorItem]];
     [parent addItem:fpsCounterItem];
     [parent addItem:speedCounterItem];
     [parent addItem:batteryPercentItem];
-	
-#undef MENU_ITEM
+    
 #undef GRAPHICS_LOCALIZED
     return parent;
 }
 
-/*
--(NSMenu *)makeAudioMenu {
-    NSMenu *parent = [[NSMenu alloc] initWithTitle:@(self.mainSettingsLocalization->T("Audio"))];
-    auto audioLocalization = GetI18NCategory("Audio");
+-(NSMenu *)makeDebugMenu {
+    std::shared_ptr<I18NCategory> sysInfoLocalization = GetI18NCategory(I18NCat::SYSINFO);
+    std::shared_ptr<I18NCategory> desktopUILocalization = GetI18NCategory(I18NCat::DESKTOPUI);
+#define DESKTOPUI_LOCALIZED(key) @(desktopUILocalization->T(key))
     
-    NSMenuItem *enableSoundItem = [[NSMenuItem alloc] initWithTitle:@(audioLocalization->T("Enable Sound")) action:@selector(toggleSound:) keyEquivalent:@""];
-    enableSoundItem.target = self;
-    enableSoundItem.state = [self controlStateForBool: g_Config.bEnableSound];
-    [parent addItem:enableSoundItem];
+    NSMenu *parent = [[NSMenu alloc] initWithTitle:@(sysInfoLocalization->T("Debug"))];
     
-    NSMenuItem *deviceListItem = [[NSMenuItem alloc] initWithTitle:@(audioLocalization->T("Device")) action:nil keyEquivalent:@""];
-    deviceListItem.submenu = [self makeAudioListMenuWithItem:deviceListItem];
-    [parent addItem:deviceListItem];
+    NSMenuItem *breakAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Break") action:@selector(breakAction:) keyEquivalent:@""];
+    breakAction.tag = 1;
+    breakAction.target = self;
     
-    [[NSNotificationCenter defaultCenter] addObserverForName:@"AudioConfChanged" object:nil queue:nil usingBlock:^(NSNotification * _Nonnull note) {
-        NSString *value = [note object];
-        if ([value isEqualToString:@"EnableSound"]) {
-            enableSoundItem.state = [self controlStateForBool:g_Config.bEnableSound];
-        }
-    }];
+    MENU_ITEM(breakOnLoadAction, DESKTOPUI_LOCALIZED("Break on Load"), @selector(toggleBreakOnLoad:), g_Config.bAutoRun, 2)
+    MENU_ITEM(ignoreIllegalRWAction, DESKTOPUI_LOCALIZED("Ignore Illegal Reads/Writes"), @selector(toggleIgnoreIllegalRWs:), g_Config.bIgnoreBadMemAccess, 3)
     
+    [parent addItem:breakAction];
+    [parent addItem:[NSMenuItem separatorItem]];
+    
+    [parent addItem:breakOnLoadAction];
+    [parent addItem:ignoreIllegalRWAction];
+    [parent addItem:[NSMenuItem separatorItem]];
+    
+    NSMenuItem *loadSymbolMapAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Load Map file") action:@selector(loadMapFile) keyEquivalent:@""];
+    loadSymbolMapAction.target = self;
+    
+    NSMenuItem *saveMapFileAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Save Map file") action:@selector(saveMapFile) keyEquivalent:@""];
+    saveMapFileAction.target = self;
+    
+    NSMenuItem *loadSymFileAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Load .sym File...") action:@selector(loadSymbolsFile) keyEquivalent:@""];
+    loadSymFileAction.target = self;
+    
+    NSMenuItem *saveSymFileAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Save .sym File...") action:@selector(saveSymbolsfile) keyEquivalent:@""];
+    saveSymFileAction.target = self;
+    
+    NSMenuItem *resetSymbolTableAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Reset Symbol Table") action:@selector(resetSymbolTable) keyEquivalent:@""];
+    resetSymbolTableAction.target = self;
+    
+    NSMenuItem *takeScreenshotAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Take Screenshot") action:@selector(takeScreenshot) keyEquivalent:@""];
+    takeScreenshotAction.target = self;
+    
+    NSMenuItem *dumpNextFrameToLogAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Dump next frame to log") action:@selector(dumpNextFrameToLog) keyEquivalent:@""];
+    dumpNextFrameToLogAction.target = self;
+    
+    NSMenuItem *copyBaseAddr = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Copy PSP memory base address") action:@selector(copyAddr) keyEquivalent:@""];
+    copyBaseAddr.target = self;
+    
+    MENU_ITEM(showDebugStatsAction, DESKTOPUI_LOCALIZED("Show Debug Statistics"), @selector(toggleShowDebugStats:), g_Config.bShowDebugStats, 2)
+    
+    [parent addItem:loadSymbolMapAction];
+    [parent addItem:saveMapFileAction];
+    [parent addItem:[NSMenuItem separatorItem]];
+    
+    [parent addItem:loadSymFileAction];
+    [parent addItem:saveSymFileAction];
+    [parent addItem:[NSMenuItem separatorItem]];
+    
+    [parent addItem:resetSymbolTableAction];
+    [parent addItem:[NSMenuItem separatorItem]];
+    
+    [parent addItem:takeScreenshotAction];
+    [parent addItem:dumpNextFrameToLogAction];
+    [parent addItem:showDebugStatsAction];
+    
+    [parent addItem:[NSMenuItem separatorItem]];
+    [parent addItem:copyBaseAddr];
     return parent;
 }
 
--(NSMenu *)makeAudioListMenuWithItem: (NSMenuItem *)callerItem {
-    __block NSMenu *theMenu = [[NSMenu alloc] init];
-    std::vector<std::string> audioDeviceList;
-    SplitString(System_GetProperty(SYSPROP_AUDIO_DEVICE_LIST), '\0', audioDeviceList);
-    
-    for (int i = 0; i < audioDeviceList.size(); i++) {
-        std::string itemName = audioDeviceList[i];
-        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:@(itemName.c_str()) action:@selector(setAudioItem:) keyEquivalent:@""];
-        item.tag = i;
-        item.target = self;
-        item.state = [self controlStateForBool:g_Config.sAudioDevice == itemName];
-        [theMenu addItem:item];
+-(void)breakAction: (NSMenuItem *)item {
+    if (Core_IsStepping()) {
+        Core_EnableStepping(false, "ui.break");
+        item.title = @"Break";
+    } else {
+        Core_EnableStepping(true, "ui.break");
+        item.title = @"Resume";
     }
-    
-    [[NSNotificationCenter defaultCenter] addObserverForName:@"AudioConfigurationHasChanged" object:nil queue:nil usingBlock:^(NSNotification * _Nonnull note) {
-        NSString *value = [note object];
-        if ([value isEqualToString: @"DeviceAddedOrChanged"]) {
-            callerItem.submenu = [self makeAudioListMenuWithItem:callerItem];
-        } else if ([value isEqualToString:@"CurrentDeviceWasChanged"]) {
-            // set the new item to be the selected one
-            dispatch_async(dispatch_get_main_queue(), ^{
-                for (NSMenuItem *item in theMenu.itemArray)
-                    item.state = [self controlStateForBool:g_Config.sAudioDevice == audioDeviceList[item.tag]];
-            });
-        }
-    }];
-    
-    return theMenu;
 }
- */
 
-/*
--(void) setAudioItem: (NSMenuItem *)sender {
-    std::vector<std::string> audioDeviceList;
-    SplitString(System_GetProperty(SYSPROP_AUDIO_DEVICE_LIST), '\0', audioDeviceList);
-    
-    std::string theItemSelected = audioDeviceList[sender.tag];
-    if (theItemSelected == g_Config.sAudioDevice)
-        return; // device already selected
-    
-    g_Config.sAudioDevice = theItemSelected;
-    for (NSMenuItem *item in sender.menu.itemArray) {
-        item.state = [self controlStateForBool:g_Config.sAudioDevice == theItemSelected];
+-(void)copyAddr {
+    NSString *stringToCopy = [NSString stringWithFormat: @"%016llx", (uint64_t)(uintptr_t)Memory::base];
+    [NSPasteboard.generalPasteboard declareTypes:@[NSPasteboardTypeString] owner:nil];
+    [NSPasteboard.generalPasteboard setString:stringToCopy forType:NSPasteboardTypeString];
+}
+
+-(NSURL *)presentOpenPanelWithAllowedFileTypes: (NSArray<NSString *> *)allowedFileTypes {
+    NSOpenPanel *openPanel = [[NSOpenPanel alloc] init];
+    openPanel.allowedFileTypes = allowedFileTypes;
+    if ([openPanel runModal] == NSModalResponseOK) {
+        NSURL *urlWeWant = openPanel.URLs.firstObject;
+        
+        if (urlWeWant) {
+            return urlWeWant;
+        }
     }
     
-    System_SendMessage("audio_resetDevice", "");
+    return nil;
 }
- */
+
+-(NSURL *)presentSavePanelWithDefaultFilename: (NSString *)filename {
+    NSSavePanel *savePanel = [[NSSavePanel alloc] init];
+    savePanel.nameFieldStringValue = filename;
+    if ([savePanel runModal] == NSModalResponseOK && savePanel.URL) {
+        return savePanel.URL;
+    }
+    
+    return nil;
+}
+
+-(void)dumpNextFrameToLog {
+    gpu->DumpNextFrame();
+}
+
+-(void)takeScreenshot {
+    TakeScreenshot();
+}
+
+-(void)resetSymbolTable {
+    g_symbolMap->Clear();
+}
+
+-(void)saveSymbolsfile {
+    NSURL *url = [self presentSavePanelWithDefaultFilename:@"Symbols.sym"];
+    if (url)
+        g_symbolMap->SaveNocashSym(Path(url.fileSystemRepresentation));
+}
+
+-(void)loadSymbolsFile {
+    NSURL *url = [self presentOpenPanelWithAllowedFileTypes:@[@"sym"]];
+    if (url)
+        g_symbolMap->LoadNocashSym(Path(url.fileSystemRepresentation));
+}
+
+-(void)loadMapFile {
+    /* Using NSOpenPanel to filter by `allowedFileTypes` */
+    NSURL *url = [self presentOpenPanelWithAllowedFileTypes:@[@"map"]];
+    if (url)
+        g_symbolMap->LoadSymbolMap(Path(url.fileSystemRepresentation));
+}
+
+-(void)saveMapFile {
+    NSURL *symbolsMapFileURL = [self presentSavePanelWithDefaultFilename:@"Symbols.map"];
+    if (symbolsMapFileURL)
+        g_symbolMap->SaveSymbolMap(Path(symbolsMapFileURL.fileSystemRepresentation));
+}
 
 #define TOGGLE_METHOD(name, ConfigValueName, ...) \
 -(void)toggle##name: (NSMenuItem *)item { \
@@ -288,10 +398,13 @@ item.state = [self controlStateForBool: ConfigValueName]; \
 }
 
 TOGGLE_METHOD(Sound, g_Config.bEnableSound)
+TOGGLE_METHOD(BreakOnLoad, g_Config.bAutoRun)
+TOGGLE_METHOD(IgnoreIllegalRWs, g_Config.bIgnoreBadMemAccess)
 TOGGLE_METHOD(AutoFrameSkip, g_Config.bAutoFrameSkip, g_Config.UpdateAfterSettingAutoFrameSkip())
 TOGGLE_METHOD(SoftwareRendering, g_Config.bSoftwareRendering)
 TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequestType::TOGGLE_FULLSCREEN_STATE, 0, g_Config.UseFullScreen() ? "1" : "0", "", 3))
 TOGGLE_METHOD(VSync, g_Config.bVSync)
+TOGGLE_METHOD(ShowDebugStats, g_Config.bShowDebugStats, NativeMessageReceived("clear jit", ""))
 #undef TOGGLE_METHOD
 
 -(void)setToggleShowCounterItem: (NSMenuItem *)item {
@@ -369,14 +482,14 @@ TOGGLE_METHOD(VSync, g_Config.bVSync)
 }
 
 -(void)openSystemFileBrowser {
-	int g = 0;
-	DarwinDirectoryPanelCallback callback = [g] (bool succ, Path thePathChosen) {
-		if (succ)
-			NativeMessageReceived("boot", thePathChosen.c_str());
-	};
-
-	DarwinFileSystemServices services;
-	services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
+    int g = 0;
+    DarwinDirectoryPanelCallback callback = [g] (bool succ, Path thePathChosen) {
+        if (succ)
+            NativeMessageReceived("boot", thePathChosen.c_str());
+    };
+    
+    DarwinFileSystemServices services;
+    services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
 }
 
 - (void)dealloc {

@@ -11,7 +11,7 @@
 extern "C" {
 #endif
 
-void initBarItemsForApp();
+void initializeOSXExtras();
 
 #ifdef __cplusplus
 }
