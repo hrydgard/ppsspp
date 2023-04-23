@@ -1269,10 +1269,25 @@ elseif(TARGET SDL2::SDL2)
 	endif()
 	set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
 	if(APPLE)
-		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm SDL/SDLCocoaMetalLayer.h SDL/SDLCocoaMetalLayer.mm SDL/CocoaBarItems.mm SDL/CocoaBarItems.h UI/DarwinFileSystemServices.mm UI/DarwinFileSystemServices.h Common/Battery/AppleBatteryClient.m UI/PSPNSApplicationDelegate.mm UI/PSPNSApplicationDelegate.h)
+		set(nativeExtra ${nativeExtra} 
+		SDL/SDLMain.h 
+		SDL/SDLMain.mm 
+		SDL/SDLCocoaMetalLayer.h 
+		SDL/SDLCocoaMetalLayer.mm 
+		SDL/CocoaBarItems.mm
+		SDL/CocoaBarItems.h
+		SDL/PPSSPPAboutViewController.m
+		SDL/PPSSPPAboutViewController.h
+		UI/DarwinFileSystemServices.mm 
+		UI/DarwinFileSystemServices.h 
+		Common/Battery/AppleBatteryClient.m 
+		UI/PSPNSApplicationDelegate.mm 
+		UI/PSPNSApplicationDelegate.h)
+
         set_source_files_properties(UI/DarwinFileSystemServices.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		set_source_files_properties(UI/PSPNSApplicationDelegate.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		set_source_files_properties(SDL/CocoaBarItems.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set_source_files_properties(SDL/PPSSPPAboutViewController.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		set_source_files_properties(Common/Battery/AppleBatteryClient.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY})
 	elseif(USING_EGL)

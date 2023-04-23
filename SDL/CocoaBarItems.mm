@@ -6,9 +6,11 @@
 //
 
 #import <Cocoa/Cocoa.h>
+#import "PPSSPPAboutViewController.h"
 
 #include "UI/DarwinFileSystemServices.h"
 #include "UI/PSPNSApplicationDelegate.h"
+
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
 #include "GPU/GPUInterface.h"
@@ -96,15 +98,43 @@ void initializeOSXExtras() {
         }
     }
     
-    /* IGNORE THE BELOW and eat some nice cherries :3
     NSArray <NSMenuItem *> *firstSubmenu = NSApp.menu.itemArray.firstObject.submenu.itemArray;
     for (NSMenuItem *item in firstSubmenu) {
         // about item, set action
         if ([item.title hasPrefix:@"About "]) {
+            item.target = self;
+            item.action = @selector(presentAboutMenu);
             break;
         }
     }
-     */
+}
+
+-(void)presentAboutMenu {
+    NSWindow *window = [NSWindow windowWithContentViewController:[PPSSPPAboutViewController new]];
+    window.title = @"PPSSPP";
+    window.titleVisibility = NSWindowTitleHidden;
+    window.titlebarAppearsTransparent = YES;
+    window.styleMask &= ~NSWindowStyleMaskResizable;
+    [[window standardWindowButton:NSWindowMiniaturizeButton] setEnabled:NO];
+    
+    if (@available(macOS 10.15, *)) {
+        window.backgroundColor = [NSColor colorWithName:nil dynamicProvider:^NSColor * _Nonnull(NSAppearance * _Nonnull appearance) {
+            // check for dark/light mode (dark mode is OS X 10.14+ only)
+            /* no I can't use switch statements here it's an NSString pointer */
+            if (appearance.name == NSAppearanceNameDarkAqua ||
+                appearance.name == NSAppearanceNameAccessibilityHighContrastVibrantDark ||
+                appearance.name == NSAppearanceNameAccessibilityHighContrastDarkAqua ||
+                appearance.name == NSAppearanceNameVibrantDark)
+                return [NSColor colorWithRed:0.19 green:0.19 blue:0.19 alpha:1];
+            
+            // macOS pre 10.14 is always light mode
+            return [NSColor whiteColor];
+        }];
+    } else {
+        window.backgroundColor = [NSColor whiteColor];
+    }
+    
+    [[[NSWindowController alloc] initWithWindow:window] showWindow:nil];
 }
 
 - (void)menuNeedsUpdate:(NSMenu *)menu {
