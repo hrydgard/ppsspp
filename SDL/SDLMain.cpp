@@ -926,7 +926,7 @@ int main(int argc, char *argv[]) {
 	
 #if PPSSPP_PLATFORM(MAC)
 	// setup menu items for macOS
-	initBarItemsForApp();
+    initializeOSXExtras();
 #endif
 	
 	while (true) {
