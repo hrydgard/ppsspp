@@ -348,6 +348,7 @@ std::string UnescapeMenuString(const char *input, char *shortcutChar) {
 	std::string output;
 	output.reserve(len);
 	bool escaping = false;
+	bool escapeFound = false;
 	for (size_t i = 0; i < len; i++) {
 		if (input[i] == '&') {
 			if (escaping) {
@@ -358,8 +359,9 @@ std::string UnescapeMenuString(const char *input, char *shortcutChar) {
 			}
 		} else {
 			output.push_back(input[i]);
-			if (escaping && shortcutChar) {
+			if (escaping && shortcutChar && !escapeFound) {
 				*shortcutChar = input[i];
+				escapeFound = true;
 			}
 			escaping = false;
 		}

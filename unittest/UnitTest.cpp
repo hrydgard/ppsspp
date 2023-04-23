@@ -908,6 +908,9 @@ bool TestEscapeMenuString() {
 	EXPECT_EQ_STR(temp, std::string("Edit"));
 	temp = UnescapeMenuString("Cut && Paste", nullptr);
 	EXPECT_EQ_STR(temp, std::string("Cut & Paste"));
+	temp = UnescapeMenuString("&A&B", &c);
+	EXPECT_EQ_STR(temp, std::string("AB"));
+	EXPECT_EQ_INT((int)c, (int)'A');
 	return true;
 }
 
