@@ -740,7 +740,9 @@ OpenGLContext::OpenGLContext() {
 			// This too...
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
 			if (gl_extensions.EXT_gpu_shader4) {
-				shaderLanguageDesc_.bitwiseOps = true;
+				// Older macOS devices seem to have problems defining uint uniforms.
+				// Let's just assume OpenGL 3.0+ is required.
+				shaderLanguageDesc_.bitwiseOps = gl_extensions.VersionGEThan(3, 0, 0);
 				shaderLanguageDesc_.texelFetch = "texelFetch2D";
 			}
 		}
