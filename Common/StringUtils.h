@@ -76,6 +76,10 @@ void GetQuotedStrings(const std::string& str, std::vector<std::string>& output);
 
 std::string ReplaceAll(std::string input, const std::string& src, const std::string& dest);
 
+// Takes something like R&eplace and returns Replace, plus writes 'e' to *shortcutChar
+// if not nullptr. Useful for Windows menu strings.
+std::string UnescapeMenuString(const char *input, char *shortcutChar);
+
 void SkipSpace(const char **ptr);
 
 size_t truncate_cpy(char *dest, size_t destSize, const char *src);

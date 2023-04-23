@@ -131,6 +131,11 @@ Path Path::WithReplacedExtension(const std::string &oldExtension, const std::str
 }
 
 Path Path::WithReplacedExtension(const std::string &newExtension) const {
+	if (type_ == PathType::CONTENT_URI) {
+		AndroidContentURI uri(path_);
+		return Path(uri.WithReplacedExtension(newExtension).ToString());
+	}
+
 	_dbg_assert_(!newExtension.empty() && newExtension[0] == '.');
 	if (path_.empty()) {
 		return Path(*this);
