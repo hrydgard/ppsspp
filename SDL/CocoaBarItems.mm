@@ -249,7 +249,7 @@ void initializeOSXExtras() {
 -(NSMenu *)makeDebugMenu {
     std::shared_ptr<I18NCategory> sysInfoLocalization = GetI18NCategory(I18NCat::SYSINFO);
     std::shared_ptr<I18NCategory> desktopUILocalization = GetI18NCategory(I18NCat::DESKTOPUI);
-#define DESKTOPUI_LOCALIZED(key) @(desktopUILocalization->T(key))
+#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T(key), nil).c_str())
     
     NSMenu *parent = [[NSMenu alloc] initWithTitle:@(sysInfoLocalization->T("Debug"))];
     
