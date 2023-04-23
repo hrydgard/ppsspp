@@ -26,6 +26,11 @@
 //
 // To use, set command line parameter to one or more of the tests below, or "all".
 // Search for "availableTests".
+//
+// Example of how to run with CMake:
+//
+// ./b.sh --unittest
+// build/unittest EscapeMenuString
 
 #include "ppsspp_config.h"
 
@@ -57,6 +62,7 @@
 #include "Common/BitScan.h"
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
@@ -890,6 +896,23 @@ bool TestInputMapping() {
 	return true;
 }
 
+bool TestEscapeMenuString() {
+	char c;
+	std::string temp = UnescapeMenuString("&File", &c);
+	EXPECT_EQ_INT((int)c, (int)'F');
+	EXPECT_EQ_STR(temp, std::string("File"));
+	temp = UnescapeMenuString("U&til", &c);
+	EXPECT_EQ_INT((int)c, (int)'t');
+	EXPECT_EQ_STR(temp, std::string("Util"));
+	temp = UnescapeMenuString("Ed&it", nullptr);
+	EXPECT_EQ_STR(temp, std::string("Edit"));
+	temp = UnescapeMenuString("Cut && Paste", nullptr);
+	EXPECT_EQ_STR(temp, std::string("Cut & Paste"));
+	temp = UnescapeMenuString("&A&B", &c);
+	EXPECT_EQ_STR(temp, std::string("AB"));
+	EXPECT_EQ_INT((int)c, (int)'A');
+	return true;
+}
 
 typedef bool (*TestFunc)();
 struct TestItem {
@@ -944,6 +967,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(SmallDataConvert),
 	TEST_ITEM(DepthMath),
 	TEST_ITEM(InputMapping),
+	TEST_ITEM(EscapeMenuString),
 };
 
 int main(int argc, const char *argv[]) {
