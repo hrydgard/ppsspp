@@ -342,3 +342,27 @@ std::string ReplaceAll(std::string result, const std::string& src, const std::st
 	}
 	return result;
 }
+
+std::string UnescapeMenuString(const char *input, char *shortcutChar) {
+	size_t len = strlen(input);
+	std::string output;
+	output.reserve(len);
+	bool escaping = false;
+	for (size_t i = 0; i < len; i++) {
+		if (input[i] == '&') {
+			if (escaping) {
+				output.push_back(input[i]);
+				escaping = false;
+			} else {
+				escaping = true;
+			}
+		} else {
+			output.push_back(input[i]);
+			if (escaping && shortcutChar) {
+				*shortcutChar = input[i];
+			}
+			escaping = false;
+		}
+	}
+	return output;
+}
