@@ -275,6 +275,10 @@ void FreeMemoryPages(void *ptr, size_t size) {
 #endif
 }
 
+void FreeExecutableMemory(void *ptr, size_t size) {
+	FreeMemoryPages(ptr, size);
+}
+
 void FreeAlignedMemory(void* ptr) {
 	if (!ptr)
 		return;

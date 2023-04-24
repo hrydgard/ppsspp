@@ -136,7 +136,7 @@ public:
 	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
 	void FreeCodeSpace() {
 		ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE);
-		FreeMemoryPages(region, region_size);
+		FreeExecutableMemory(region, region_size);
 		region = nullptr;
 		writableRegion = nullptr;
 		region_size = 0;

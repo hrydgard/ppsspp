@@ -31,9 +31,11 @@ bool PlatformIsWXExclusive();
 
 // Note that some platforms go through special contortions to allocate executable memory. So for memory
 // that's intended for execution, allocate it first using AllocateExecutableMemory, then modify protection as desired.
-// AllocateMemoryPages is simpler and more generic. Note that on W^X platforms, this will return executable but not writable
-// memory!
+// AllocateMemoryPages is simpler and more generic.
+// Note that on W^X platforms, this will return writable memory that can later be changed to executable!
 void* AllocateExecutableMemory(size_t size);
+void FreeExecutableMemory(void *ptr, size_t size);
+
 void* AllocateMemoryPages(size_t size, uint32_t memProtFlags);
 // Note that on platforms returning PlatformIsWXExclusive, you cannot set a page to be both readable and writable at the same time.
 bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags);
