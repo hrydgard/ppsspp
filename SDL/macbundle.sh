@@ -3,39 +3,25 @@
 PPSSPP="${1}"
 PPSSPPSDL="${PPSSPP}/Contents/MacOS/PPSSPPSDL"
 
+ls ${PPSSPPSDL}
+
 if [ ! -f "${PPSSPPSDL}" ]; then
   echo "No such file: ${PPSSPPSDL}!"
   exit 0
 fi
 
-SDL=$(otool -L "${PPSSPPSDL}" | grep -v @executable_path | grep -Eo /.+libSDL.+dylib)
-if [ "${SDL}" != "" ]; then
-  if [ ! -f "${SDL}" ]; then
-    echo "Cannot locate SDL: ${SDL}!"
-    exit 0
-  fi
+# We only support using the local SDL framework.
+# All the old detection code has been eliminated.
+SDL=../SDL/macOS/SDL2.framework
 
-  echo "Installing SDL from ${SDL}..."
+echo "Copying SDL2.framework..."
 
-  SDLNAME=$(basename "${SDL}")
-  mkdir -p "${PPSSPP}/Contents/Frameworks" || exit 0
-  cp -r "$SDL" "${PPSSPP}/Contents/Frameworks" || exit 0
-  install_name_tool -change "${SDL}" "@executable_path/../Frameworks/${SDLNAME}" "${PPSSPPSDL}" || exit 0
-elif [ "$(otool -L "${PPSSPPSDL}" | grep @rpath/SDL)" != "" ]; then
-  cd "$(dirname "$0")"
-  RPATH="$(pwd)/macOS"
-  cd -
-  SDL="${RPATH}/SDL2.framework"
-  if [ ! -d "${SDL}" ]; then
-    echo "Cannot locate SDL.framework: ${SDL}!"
-    exit 0
-  fi
+mkdir -p "${PPSSPP}/Contents/Frameworks" || exit 0
+cp -r "$SDL" "${PPSSPP}/Contents/Frameworks" || exit 0
 
-  rm -rf "${PPSSPP}/Contents/Frameworks/SDL2.framework" || exit 0
-  mkdir -p "${PPSSPP}/Contents/Frameworks" || exit 0
-  cp -a "$SDL" "${PPSSPP}/Contents/Frameworks" || exit 0
-  install_name_tool -rpath "${RPATH}" "@executable_path/../Frameworks" "${PPSSPPSDL}" || echo "Already patched."
-fi
+install_name_tool -change "${SDL}" "@executable_path/../Frameworks/${SDLNAME}" "${PPSSPPSDL}" || exit 0
+
+echo "Done."
 
 GIT_VERSION_LINE=$(grep "PPSSPP_GIT_VERSION = " "$(dirname "${0}")/../git-version.cpp")
 echo "Setting version to '${GIT_VERSION_LINE}'..."
@@ -50,4 +36,5 @@ else
 fi
 
 # AdHoc codesign is required for Apple Silicon.
-codesign -fs - --deep "${PPSSPP}" || exit 1
+echo "Signing..."
+#codesign -fs - --deep "${PPSSPP}" || exit 1
