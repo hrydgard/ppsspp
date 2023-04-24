@@ -118,10 +118,11 @@ static void *SearchForFreeMem(size_t size) {
 }
 #endif
 
+#if PPSSPP_PLATFORM(WINDOWS)
+
 // This is purposely not a full wrapper for virtualalloc/mmap, but it
 // provides exactly the primitive operations that PPSSPP needs.
 void *AllocateExecutableMemory(size_t size) {
-#if defined(_WIN32)
 	void *ptr = nullptr;
 	DWORD prot = PAGE_EXECUTE_READWRITE;
 	if (PlatformIsWXExclusive())
@@ -157,11 +158,21 @@ void *AllocateExecutableMemory(size_t size) {
 		ptr = VirtualAlloc(0, size, MEM_RESERVE | MEM_COMMIT, prot);
 #endif
 	}
-#else
-	static char *map_hint = 0;
+	if (!ptr) {
+		ERROR_LOG(MEMMAP, "Failed to allocate executable memory (%d)", (int)size);
+	}
+	return ptr;
+}
+
+#else  // Non-Windows platforms
+
+void *AllocateExecutableMemory(size_t size) {
+	static char *map_hint = nullptr;
+
 #if PPSSPP_ARCH(AMD64)
 	// Try to request one that is close to our memory location if we're in high memory.
 	// We use a dummy global variable to give us a good location to start from.
+	// TODO: Should we also do this for ARM64?
 	if (!map_hint) {
 		if ((uintptr_t) &hint_location > 0xFFFFFFFFULL)
 			map_hint = (char*)ppsspp_round_page(&hint_location) - 0x20000000; // 0.5gb lower than our approximate location
@@ -177,20 +188,13 @@ void *AllocateExecutableMemory(size_t size) {
 		prot = PROT_READ | PROT_WRITE;  // POST_EXEC is added later in this case.
 
 	void* ptr = mmap(map_hint, size, prot, MAP_ANON | MAP_PRIVATE, -1, 0);
-#endif /* defined(_WIN32) */
 
-#if !defined(_WIN32)
-	static const void *failed_result = MAP_FAILED;
-#else
-	static const void *failed_result = nullptr;
-#endif
-
-	if (ptr == failed_result) {
+	if (ptr == MAP_FAILED) {
 		ptr = nullptr;
 		ERROR_LOG(MEMMAP, "Failed to allocate executable memory (%d) errno=%d", (int)size, errno);
 	}
 
-#if PPSSPP_ARCH(AMD64) && !defined(_WIN32)
+#if PPSSPP_ARCH(AMD64)
 	else if ((uintptr_t)map_hint <= 0xFFFFFFFF) {
 		// Round up if we're below 32-bit mark, probably allocating sequentially.
 		map_hint += ppsspp_round_page(size);
@@ -202,8 +206,11 @@ void *AllocateExecutableMemory(size_t size) {
 		}
 	}
 #endif
+
 	return ptr;
 }
+
+#endif  // non-windows
 
 void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
 #ifdef _WIN32
