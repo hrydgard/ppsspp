@@ -38,7 +38,7 @@ elif [ "$(otool -L "${PPSSPPSDL}" | grep @rpath/SDL)" != "" ]; then
 fi
 
 GIT_VERSION_LINE=$(grep "PPSSPP_GIT_VERSION = " "$(dirname "${0}")/../git-version.cpp")
-echo "Setting version to ${GIT_VERSION_LINE}..."
+echo "Setting version to '${GIT_VERSION_LINE}'..."
 SHORT_VERSION_MATCH='.*"v([0-9\.]+(-[0-9]+)?).*";'
 LONG_VERSION_MATCH='.*"v(.*)";'
 if [[ "${GIT_VERSION_LINE}" =~ ^${SHORT_VERSION_MATCH}$ ]]; then
