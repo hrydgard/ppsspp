@@ -91,11 +91,6 @@ DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) : draw_(draw), vai_(256), 
 	decOptions_.expand8BitNormalsToFloat = true;
 
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
-	// Allocate nicely aligned memory. Maybe graphics drivers will
-	// appreciate it.
-	// All this is a LOT of memory, need to see if we can cut down somehow.
-	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 
 	indexGen.Setup(decIndex);
 
@@ -113,8 +108,6 @@ DrawEngineDX9::~DrawEngineDX9() {
 	}
 
 	DestroyDeviceObjects();
-	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
-	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
 	vertexDeclMap_.Iterate([&](const uint32_t &key, IDirect3DVertexDeclaration9 *decl) {
 		if (decl) {
 			decl->Release();

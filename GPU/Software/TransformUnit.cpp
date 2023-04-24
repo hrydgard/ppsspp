@@ -41,14 +41,14 @@
 #define TRANSFORM_BUF_SIZE (65536 * 48)
 
 TransformUnit::TransformUnit() {
-	decoded_ = (u8 *)AllocateMemoryPages(TRANSFORM_BUF_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	decoded_ = (u8 *)AllocateAlignedMemory(TRANSFORM_BUF_SIZE, 16);
 	if (!decoded_)
 		return;
 	binner_ = new BinManager();
 }
 
 TransformUnit::~TransformUnit() {
-	FreeMemoryPages(decoded_, TRANSFORM_BUF_SIZE);
+	FreeAlignedMemory(decoded_);
 	delete binner_;
 }
 
@@ -57,16 +57,10 @@ bool TransformUnit::IsStarted() {
 }
 
 SoftwareDrawEngine::SoftwareDrawEngine() {
-	// All this is a LOT of memory, need to see if we can cut down somehow.  Used for splines.
-	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	flushOnParams_ = false;
 }
 
-SoftwareDrawEngine::~SoftwareDrawEngine() {
-	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
-	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
-}
+SoftwareDrawEngine::~SoftwareDrawEngine() {}
 
 void SoftwareDrawEngine::NotifyConfigChanged() {
 	DrawEngineCommon::NotifyConfigChanged();

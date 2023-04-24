@@ -482,8 +482,8 @@ protected:
 	};
 	std::vector<VideoInfo> videos_;
 
-	SimpleBuf<u32> tmpTexBuf32_;
-	SimpleBuf<u32> tmpTexBufRearrange_;
+	AlignedVector<u32, 16> tmpTexBuf32_;
+	AlignedVector<u32, 16> tmpTexBufRearrange_;
 
 	TexCacheEntry *nextTexture_ = nullptr;
 	bool failedTexture_ = false;
