@@ -67,12 +67,6 @@ DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : inputLayoutMap_(16), d
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
 
-	// Allocate nicely aligned memory. Maybe graphics drivers will
-	// appreciate it.
-	// All this is a LOT of memory, need to see if we can cut down somehow.
-	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-
 	indexGen.Setup(decIndex);
 
 	InitDeviceObjects();
@@ -83,8 +77,6 @@ DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : inputLayoutMap_(16), d
 
 DrawEngineGLES::~DrawEngineGLES() {
 	DestroyDeviceObjects();
-	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
-	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
 
 	delete tessDataTransferGLES;
 }
