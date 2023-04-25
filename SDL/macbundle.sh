@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "Hello"
+
 PPSSPP="${1}"
 PPSSPPSDL="${PPSSPP}/Contents/MacOS/PPSSPPSDL"
 
@@ -10,16 +12,25 @@ if [ ! -f "${PPSSPPSDL}" ]; then
   exit 0
 fi
 
-# We only support using the local SDL framework.
-# All the old detection code has been eliminated.
-SDL=../SDL/macOS/SDL2.framework
+echo pwd=`pwd`
+echo PPSSPP=$PPSSPP
+echo PPSSPPSDL=$PPSSPPSDL
 
-echo "Copying SDL2.framework..."
+cd "$(dirname "$0")"
+RPATH="$(pwd)/macOS"
+cd -
+echo RPATH=$RPATH
+SDL="${RPATH}/SDL2.framework"
+if [ ! -d "${SDL}" ]; then
+  echo "Cannot locate SDL.framework: ${SDL}!"
+  exit 0
+fi
 
+rm -rf "${PPSSPP}/Contents/Frameworks/SDL2.framework" || exit 0
 mkdir -p "${PPSSPP}/Contents/Frameworks" || exit 0
-cp -r "$SDL" "${PPSSPP}/Contents/Frameworks" || exit 0
-
-install_name_tool -change "${SDL}" "@executable_path/../Frameworks/${SDLNAME}" "${PPSSPPSDL}" || exit 0
+cp -a "$SDL" "${PPSSPP}/Contents/Frameworks" || exit 0
+echo install_name_tool -rpath "${RPATH}" "@executable_path/../Frameworks" "${PPSSPPSDL}" || echo "Already patched."
+install_name_tool -rpath "${RPATH}" "@executable_path/../Frameworks" "${PPSSPPSDL}" || echo "Already patched."
 
 echo "Done."
 
@@ -37,4 +48,5 @@ fi
 
 # AdHoc codesign is required for Apple Silicon.
 echo "Signing..."
-#codesign -fs - --deep "${PPSSPP}" || exit 1
+codesign -fs - --options runtime --entitlements ../macOS/Entitlements.plist --timestamp "${PPSSPPSDL}" || exit 1
+codesign -fs - --options runtime --entitlements ../macOS/Entitlements.plist --timestamp "${PPSSPP}" || exit 1
