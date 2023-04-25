@@ -1257,7 +1257,11 @@ elseif(WIN32)
 	endif()
 elseif(LIBRETRO)
 else()
-	set(TargetBin PPSSPPSDL)
+	if(GOLD)
+		set(TargetBin PPSSPPGold)
+	else()
+		set(TargetBin PPSSPPSDL)
+	endif()
 	# Require SDL
 	add_definitions(-DSDL)
 	set(nativeExtra ${nativeExtra}
@@ -2550,11 +2554,11 @@ if(TargetBin)
 			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
-			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPPSDL.app/Contents/Frameworks/")
+			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/${TargetBin}.app/Contents/Frameworks/")
 			if(USING_QT_UI)
 				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/Qt/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPQt.app")
 			else()
-				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPSDL.app")
+				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/${TargetBin}.app" "${TargetBin}")
 			endif()
 		endif()
 	elseif(WIN32)
@@ -2620,9 +2624,15 @@ if(IOS AND NOT LIBRETRO)
 endif()
 
 if(MACOSX)
-set_target_properties(${TargetBin} PROPERTIES
-		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macOS/Info.plist"
-	)
+	if(GOLD)
+		set_target_properties(${TargetBin} PROPERTIES
+			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macOS/InfoGold.plist"
+		)
+	else()
+		set_target_properties(${TargetBin} PROPERTIES
+			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macOS/Info.plist"
+		)
+	endif()
 endif()
 
 if(UNIX AND NOT ANDROID AND NOT APPLE)

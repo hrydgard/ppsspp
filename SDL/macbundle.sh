@@ -3,7 +3,8 @@
 echo "Hello"
 
 PPSSPP="${1}"
-PPSSPPSDL="${PPSSPP}/Contents/MacOS/PPSSPPSDL"
+PPSSPP_SHORTNAME="${2}"
+PPSSPPSDL="${PPSSPP}/Contents/MacOS/${PPSSPP_SHORTNAME}"
 
 ls ${PPSSPPSDL}
 
