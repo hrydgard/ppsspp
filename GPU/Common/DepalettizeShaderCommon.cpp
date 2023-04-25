@@ -249,7 +249,8 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 		break;
 	case GE_FORMAT_5551:
 		if (config.textureFormat == GE_TFMT_CLUT8 && mask == 0xFF && shift == 0) {
-			sprintf(lookupMethod, "(index.a * 128.0 + index.b * 64.0 + index.g * 4.0)");  // we just skip A.
+			// Follow the intent here, and ignore g (and let's not round unnecessarily).
+			sprintf(lookupMethod, "floor(floor(index.a) * 128.0 + index.b * 64.0)");  // we just skip A.
 			index_multiplier = 1.0f / 256.0f;
 			// SOCOM case. #16210
 		} else if ((mask & (mask + 1)) == 0 && shift < 16) {
@@ -373,7 +374,12 @@ void GenerateDepalFs(ShaderWriter &writer, const DepalConfig &config) {
 		case GLSL_VULKAN:
 		case GLSL_3xx:
 		case HLSL_D3D11:
-			GenerateDepalShader300(writer, config);
+			// Use the float shader for the SOCOM special.
+			if (config.bufferFormat == GE_FORMAT_5551 && config.textureFormat == GE_TFMT_CLUT8) {
+				GenerateDepalShaderFloat(writer, config);
+			} else {
+				GenerateDepalShader300(writer, config);
+			}
 			break;
 		default:
 			_assert_msg_(false, "Shader language not supported for depal: %d", (int)writer.Lang().shaderLanguage);
