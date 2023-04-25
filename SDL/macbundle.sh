@@ -53,5 +53,5 @@ fi
 
 # AdHoc codesign is required for Apple Silicon.
 echo "Signing..."
-codesign -fs - --options runtime --entitlements ../macOS/Entitlements.plist --timestamp "${PPSSPPSDL}" || exit 1
-codesign -fs - --options runtime --entitlements ../macOS/Entitlements.plist --timestamp "${PPSSPP}" || exit 1
+codesign -fs - --entitlements ../macOS/Entitlements.plist --timestamp "${PPSSPPSDL}" || echo "Failed signing"
+codesign -fs - --entitlements ../macOS/Entitlements.plist --timestamp "${PPSSPP}" || echo "Failed signing"
