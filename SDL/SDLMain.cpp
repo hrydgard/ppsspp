@@ -7,7 +7,13 @@
 #include <pwd.h>
 
 #include "ppsspp_config.h"
+#if PPSSPP_PLATFORM(MAC)
+#include "SDL2/SDL.h"
+#include "SDL2/SDL_syswm.h"
+#else
 #include "SDL.h"
+#include "SDL_syswm.h"
+#endif
 #include "SDL/SDLJoystick.h"
 SDLJoystick *joystick = NULL;
 
@@ -34,8 +40,6 @@ SDLJoystick *joystick = NULL;
 #include "Common/Math/math_util.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/Profiler/Profiler.h"
-
-#include "SDL_syswm.h"
 
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
 #include <X11/Xlib.h>

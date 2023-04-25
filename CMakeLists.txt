@@ -107,10 +107,6 @@ if(NOT IOS)
 	list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/sdl)
 endif()
 
-if(MACOSX AND NOT USE_SYSTEM_LIBSDL2)
-	set(SDL2_LIBRARY ${CMAKE_SOURCE_DIR}/SDL/macOS/SDL2.framework)
-endif()
-
 include(ccache)
 include(GNUInstallDirs)
 
@@ -161,7 +157,7 @@ option(USE_ARMIPS "Build with armips support in API/debugger" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
-option(USE_SYSTEM_LIBSDL2 "Dynamically link against system SDL2" ON)
+option(USE_SYSTEM_LIBSDL2 "Dynamically link against system SDL2" ON)  # Ignored on Mac
 option(USE_SYSTEM_LIBPNG "Dynamically link against system libpng" ON)
 option(USE_SYSTEM_ZSTD "Dynamically link against system zstd" ${USE_SYSTEM_ZSTD})
 option(USE_SYSTEM_MINIUPNPC "Dynamically link against system miniUPnPc" ${USE_SYSTEM_MINIUPNPC})
@@ -241,9 +237,16 @@ if(USING_EGL)
 	set(OPENGL_LIBRARIES ${OPENGL_LIBRARIES} ${EGL_LIBRARIES})
 endif()
 
-if(NOT LIBRETRO AND NOT IOS)
+if(NOT LIBRETRO AND NOT IOS AND NOT MACOSX)
 	find_package(SDL2)
 endif()
+
+if(MACOSX AND NOT IOS)
+	find_library(SDL2Fwk SDL2 REQUIRED PATHS SDL/macOS)
+	message(STATUS "found SDL2Fwk=${SDL2Fwk}")
+	add_definitions(-DHAVE_SYSCTLBYNAME)
+endif()
+
 include(FindThreads)
 
 if(APPLE)
@@ -1252,8 +1255,13 @@ elseif(WIN32)
 	else()
 		link_directories(dx9sdk/Lib/x86)
 	endif()
-elseif(TARGET SDL2::SDL2)
-	set(TargetBin PPSSPPSDL)
+elseif(LIBRETRO)
+else()
+	if(GOLD)
+		set(TargetBin PPSSPPGold)
+	else()
+		set(TargetBin PPSSPPSDL)
+	endif()
 	# Require SDL
 	add_definitions(-DSDL)
 	set(nativeExtra ${nativeExtra}
@@ -1267,7 +1275,6 @@ elseif(TARGET SDL2::SDL2)
 			SDL/SDLVulkanGraphicsContext.cpp
 		)
 	endif()
-	set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} 
 		SDL/SDLMain.h 
@@ -1290,11 +1297,12 @@ elseif(TARGET SDL2::SDL2)
 		set_source_files_properties(SDL/PPSSPPAboutViewController.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		set_source_files_properties(Common/Battery/AppleBatteryClient.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY})
+		set(nativeExtraLibs ${nativeExtraLibs} ${SDL2Fwk})
 	elseif(USING_EGL)
-		set(nativeExtraLibs ${nativeExtraLibs} pthread)
+		set(nativeExtraLibs ${nativeExtraLibs} pthread SDL2::SDL2)
+	else()
+		set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
 	endif()
-elseif(NOT LIBRETRO)
-	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
 
 if(WIN32)
@@ -2546,11 +2554,11 @@ if(TargetBin)
 			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
-			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPPSDL.app/Contents/Frameworks/")
-			if(TARGET SDL2::SDL2 AND NOT USING_QT_UI)
-				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPSDL.app")
-			elseif(USING_QT_UI)
+			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/${TargetBin}.app/Contents/Frameworks/")
+			if(USING_QT_UI)
 				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/Qt/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPQt.app")
+			else()
+				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/${TargetBin}.app" "${TargetBin}")
 			endif()
 		endif()
 	elseif(WIN32)
@@ -2616,9 +2624,15 @@ if(IOS AND NOT LIBRETRO)
 endif()
 
 if(MACOSX)
-set_target_properties(${TargetBin} PROPERTIES
-		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macOS/Info.plist"
-	)
+	if(GOLD)
+		set_target_properties(${TargetBin} PROPERTIES
+			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macOS/InfoGold.plist"
+		)
+	else()
+		set_target_properties(${TargetBin} PROPERTIES
+			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macOS/Info.plist"
+		)
+	endif()
 endif()
 
 if(UNIX AND NOT ANDROID AND NOT APPLE)

@@ -18,7 +18,13 @@
 #ifdef SDL
 
 #include <cstdio>
-#include <SDL.h>
+
+#include "ppsspp_config.h"
+#if PPSSPP_PLATFORM(MAC)
+#include "SDL2/SDL.h"
+#else
+#include "SDL.h"
+#endif
 
 #include "headless/SDLHeadlessHost.h"
 #include "Common/GPU/OpenGL/GLCommon.h"

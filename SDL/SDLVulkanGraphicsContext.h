@@ -1,5 +1,11 @@
+#include "ppsspp_config.h"
+#if PPSSPP_PLATFORM(MAC)
+#include "SDL2/SDL.h"
+#include "SDL2/SDL_syswm.h"
+#else
 #include "SDL.h"
 #include "SDL_syswm.h"
+#endif
 
 #include "Common/GraphicsContext.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"

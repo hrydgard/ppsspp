@@ -10,7 +10,11 @@
 #include "Common/Data/Text/Parsers.h"
 
 #include "Core/System.h"
+#if PPSSPP_PLATFORM(MAC)
+#include "SDL2/SDL_vulkan.h"
+#else
 #include "SDL_vulkan.h"
+#endif
 #include "SDLVulkanGraphicsContext.h"
 
 #if defined(VK_USE_PLATFORM_METAL_EXT)

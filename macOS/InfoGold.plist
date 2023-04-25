@@ -54,19 +54,19 @@
 		</dict>
 	</array>
 	<key>CFBundleExecutable</key>
-	<string>Contents/MacOS/PPSSPPSDL</string>
+	<string>Contents/MacOS/PPSSPPGold</string>
 	<key>CFBundleGetInfoString</key>
 	<string></string>
 	<key>CFBundleIconFile</key>
-	<string>ppsspp.icns</string>
+	<string>ppsspp_gold.icns</string>
 	<key>CFBundleIdentifier</key>
-	<string>org.ppsspp.ppsspp</string>
+	<string>org.ppsspp.ppssppgold</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleLongVersionString</key>
 	<string></string>
 	<key>CFBundleName</key>
-	<string>PPSSPP</string>
+	<string>PPSSPPGold</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

@@ -1,10 +1,12 @@
 #pragma once
 #ifdef _MSC_VER
 #include "SDL/SDL.h"
-#include "SDL/SDL_thread.h"
+#else
+#if PPSSPP_PLATFORM(MAC)
+#include "SDL2/SDL.h"
 #else
 #include "SDL.h"
-#include "SDL_thread.h"
+#endif
 #endif
 #include <map>
 
