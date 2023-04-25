@@ -2434,10 +2434,11 @@ set(NativeAssets
 	assets/sfx_select.wav
 	assets/sfx_toggle_off.wav
 	assets/sfx_toggle_on.wav
-	source_assets/image/logo.png
-	source_assets/image/icon_regular_72.png
 )
 
+if(TARGET SDL2::SDL2 OR USING_QT_UI)
+	list(APPEND NativeAssets source_assets/image/icon_regular_72.png)
+endif()
 
 if(HEADLESS)
 	set(HeadlessSource
@@ -2550,8 +2551,11 @@ if(TargetBin)
 		endif()
 
 		if(IOS)
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
-			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
+			if(CMAKE_GENERATOR STREQUAL "Xcode")
+				target_sources(${TargetBin} PRIVATE "ios/Launch Screen.storyboard")
+			endif()
+			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/${TargetBin}.app/Contents/Frameworks/")
@@ -2584,37 +2588,35 @@ endif()
 # packaging and code signing
 if(IOS AND NOT LIBRETRO)
 	set(DEPLOYMENT_TARGET 11.0)
-	file(GLOB IOSAssets ios/assets/*.png)
-	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
-	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)
+	file(GLOB IOSAssets ios/assets/Icon*.png)
 	file(INSTALL ${IOSAssets} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
-	file(GLOB IOSAssets ios/assets/Default-568h@*.png)
+	file(GLOB IOSAssets ios/assets/Default-568h@*.png source_assets/image/icon_regular_72.png source_assets/image/logo.png)
 	file(INSTALL ${IOSAssets} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+	file(INSTALL ios/Settings.bundle DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 	if(IOS_DEBUG)
 		file(INSTALL pspautotests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
 	endif()
-	set(RSRC_XIB_FILES assets/Icon@2x.png)
-	set(RSRC_XIB_FILES "Launch Screen.storyboard")
-	set_source_files_properties(${RSRC_XIB_FILES}
-		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
-	)
-	#This breaks in modern XCode. Not sure when it worked...
-	#if(CMAKE_GENERATOR STREQUAL "Xcode")
-	#	set(APP_DIR_NAME "$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)")
-	#else()
+	if(CMAKE_GENERATOR STREQUAL "Xcode")
+		set(APP_DIR_NAME "\${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME}")
+		set(RSRC_XIB_FILES "Launch Screen.storyboard")
+		set_source_files_properties(${RSRC_XIB_FILES}
+			PROPERTIES MACOSX_PACKAGE_LOCATION Resources
+		)
+	else()
 		set(APP_DIR_NAME "$<TARGET_FILE_DIR:PPSSPP>")
-	#endif()
+		add_custom_command(TARGET PPSSPP POST_BUILD
+			COMMAND ibtool --compile "\"${APP_DIR_NAME}\"/Launch Screen.storyboardc" "${CMAKE_SOURCE_DIR}/ios/Launch Screen.storyboard"
+		)
+	endif()
 	add_custom_command(TARGET PPSSPP POST_BUILD
 		COMMAND mkdir -p \"${APP_DIR_NAME}\"
-		COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
+		COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png Settings.bundle Frameworks | tar -x -C \"${APP_DIR_NAME}\"
 		COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
 	)
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
 	set_target_properties(${TargetBin} PROPERTIES
 		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
 		RESOURCE "ios/Launch Screen.storyboard"
-		RESOURCE "ios/Settings.bundle"
-		RESOURCE "ext/vulkan/iOS/Frameworks"
 		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
 		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
 		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
