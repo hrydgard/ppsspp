@@ -2315,9 +2315,9 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		bool needsDepthXSwizzle = depthUpperBits == 2;
 
 		int depalWidth = framebuffer->renderWidth;
-		int texWidth = framebuffer->width;
+		int texWidth = framebuffer->bufferWidth;
 		if (needsDepthXSwizzle) {
-			texWidth = RoundUpToPowerOf2(framebuffer->width);
+			texWidth = RoundUpToPowerOf2(framebuffer->bufferWidth);
 			depalWidth = texWidth * framebuffer->renderScaleFactor;
 			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		}
