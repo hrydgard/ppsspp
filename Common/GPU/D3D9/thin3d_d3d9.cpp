@@ -514,6 +514,10 @@ public:
 		return (uint32_t)ShaderLanguage::HLSL_D3D9;
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
+	PresentationMode GetPresentationMode() const override {
+		// TODO: Fix. Not yet used.
+		return PresentationMode::FIFO;
+	}
 
 	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) override;
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;

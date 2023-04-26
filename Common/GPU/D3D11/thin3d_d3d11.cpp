@@ -75,6 +75,10 @@ public:
 		return (uint32_t)ShaderLanguage::HLSL_D3D11;
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
+	PresentationMode GetPresentationMode() const override {
+		// TODO: Fix. Not yet used.
+		return PresentationMode::FIFO;
+	}
 
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;

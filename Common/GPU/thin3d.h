@@ -652,6 +652,13 @@ enum class DebugFlags {
 };
 ENUM_CLASS_BITOPS(DebugFlags);
 
+enum class PresentationMode {
+	FIFO,
+	FIFO_RELAXED,
+	IMMEDIATE,
+	MAILBOX,
+};
+
 class DrawContext {
 public:
 	virtual ~DrawContext();
@@ -665,6 +672,8 @@ public:
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetExtensionList() const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetDeviceList() const { return std::vector<std::string>(); }
+
+	virtual PresentationMode GetPresentationMode() const = 0;
 
 	// Describes the primary shader language that this implementation prefers.
 	const ShaderLanguageDesc &GetShaderLanguageDesc() {
