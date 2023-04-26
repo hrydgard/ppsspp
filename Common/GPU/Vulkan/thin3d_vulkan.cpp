@@ -398,6 +398,16 @@ public:
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
+	PresentationMode GetPresentationMode() const override {
+		switch (vulkan_->GetPresentMode()) {
+		case VK_PRESENT_MODE_FIFO_KHR: return PresentationMode::FIFO;
+		case VK_PRESENT_MODE_FIFO_RELAXED_KHR: return PresentationMode::FIFO_RELAXED;
+		case VK_PRESENT_MODE_IMMEDIATE_KHR: return PresentationMode::IMMEDIATE;
+		case VK_PRESENT_MODE_MAILBOX_KHR: return PresentationMode::MAILBOX;
+		default: return PresentationMode::FIFO;
+		}
+	}
+
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;

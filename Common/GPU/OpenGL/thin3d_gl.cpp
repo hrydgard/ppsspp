@@ -346,6 +346,11 @@ public:
 		renderManager_.SetErrorCallback(callback, userdata);
 	}
 
+	PresentationMode GetPresentationMode() const override {
+		// TODO: Fix. Not yet used.
+		return PresentationMode::FIFO;
+	}
+
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;

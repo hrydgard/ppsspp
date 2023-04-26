@@ -546,8 +546,12 @@ void __DisplayFlip(int cyclesLate) {
 	bool duplicateFrames = g_Config.bRenderDuplicateFrames && g_Config.iFrameSkip == 0;
 
 	bool fastForwardSkipFlip = g_Config.iFastForwardMode != (int)FastForwardMode::CONTINUOUS;
-	if (g_Config.bVSync && GetGPUBackend() == GPUBackend::VULKAN) {
+
+	bool fifo = gpu && gpu->GetDrawContext() && gpu->GetDrawContext()->GetPresentationMode() == Draw::PresentationMode::FIFO;
+
+	if (fifo && GetGPUBackend() == GPUBackend::VULKAN) {
 		// Vulkan doesn't support the interval setting, so we force skipping the flip.
+		// TODO: We'll clean this up in a more backend-independent way later.
 		fastForwardSkipFlip = true;
 	}
 
