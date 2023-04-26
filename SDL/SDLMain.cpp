@@ -1183,6 +1183,7 @@ int main(int argc, char *argv[]) {
 						NativeKey(key);
 						break;
 					}
+					// TODO: Should we even keep the "non-precise" events?
 					if (event.wheel.y > 0) {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 						mouseWheelMovedUpFrames = 5;

@@ -41,7 +41,7 @@ variableName.state = [self controlStateForBool: ConfigurationValueName];
 @interface BarItemsManager : NSObject <NSMenuDelegate>
 +(instancetype)sharedInstance;
 -(void)setupAppBarItems;
-@property (assign) NSMenu *openMenu;
+@property (assign) NSMenu *fileMenu;
 @property (assign) std::shared_ptr<I18NCategory> mainSettingsLocalization;
 @property (assign) std::shared_ptr<I18NCategory> graphicsLocalization;
 @end
@@ -65,10 +65,10 @@ void initializeOSXExtras() {
 
 -(void)setupAppBarItems {
     
-    NSMenuItem *openMenuItem = [[NSMenuItem alloc] init];
-    openMenuItem.submenu = [self makeOpenSubmenu];
-    openMenuItem.submenu.delegate = self;
-    
+    NSMenuItem *fileMenuItem = [[NSMenuItem alloc] init];
+    fileMenuItem.submenu = [self makeFileSubmenu];
+    fileMenuItem.submenu.delegate = self;
+
     NSMenuItem *graphicsMenuItem = [[NSMenuItem alloc] init];
     graphicsMenuItem.submenu = [self makeGraphicsMenu];
     graphicsMenuItem.submenu.delegate = self;
@@ -80,7 +80,7 @@ void initializeOSXExtras() {
     NSMenuItem *helpMenuItem = [[NSMenuItem alloc] init];
     helpMenuItem.submenu = [self makeHelpMenu];
     
-    [NSApplication.sharedApplication.menu addItem:openMenuItem];
+    [NSApplication.sharedApplication.menu addItem:fileMenuItem];
     [NSApplication.sharedApplication.menu addItem:graphicsMenuItem];
     [NSApplication.sharedApplication.menu addItem:debugMenuItem];
     [NSApplication.sharedApplication.menu addItem:helpMenuItem];
@@ -97,7 +97,7 @@ void initializeOSXExtras() {
             break;
         }
     }
-    
+
     NSArray <NSMenuItem *> *firstSubmenu = NSApp.menu.itemArray.firstObject.submenu.itemArray;
     for (NSMenuItem *item in firstSubmenu) {
         // about item, set action
@@ -206,16 +206,22 @@ void initializeOSXExtras() {
     [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://discord.gg/5NJB6dD"]];
 }
 
--(NSMenu *)makeOpenSubmenu {
+-(NSMenu *)makeFileSubmenu {
     NSMenu *menu = [[NSMenu alloc] initWithTitle:@"File"];
     NSMenuItem *openWithSystemFolderBrowserItem = [[NSMenuItem alloc] initWithTitle:@"Open..." action:@selector(openSystemFileBrowser) keyEquivalent:@"o"];
     openWithSystemFolderBrowserItem.keyEquivalentModifierMask = NSEventModifierFlagCommand;
     openWithSystemFolderBrowserItem.enabled = YES;
     openWithSystemFolderBrowserItem.target = self;
     [menu addItem:openWithSystemFolderBrowserItem];
-    self.openMenu = menu;
-    
+    self.fileMenu = menu;
     [self addOpenRecentlyItem];
+
+    [self.fileMenu addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *openMemstickFolderItem = [[NSMenuItem alloc] initWithTitle:@"Open Memory Stick" action:@selector(openMemstickFolder) keyEquivalent:@""];
+    openMemstickFolderItem.target = self;
+    [self.fileMenu addItem:openMemstickFolderItem];
+
     return menu;
 }
 
@@ -504,7 +510,7 @@ TOGGLE_METHOD(ShowDebugStats, g_Config.bShowDebugStats, NativeMessageReceived("c
     }
     
     openRecent.submenu = recentsMenu;
-    [self.openMenu addItem:openRecent];
+    [self.fileMenu addItem:openRecent];
 }
 
 -(void)openRecentItem: (NSMenuItem *)item {
@@ -520,6 +526,11 @@ TOGGLE_METHOD(ShowDebugStats, g_Config.bShowDebugStats, NativeMessageReceived("c
     
     DarwinFileSystemServices services;
     services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
+}
+
+-(void)openMemstickFolder {
+    NSURL *memstickURL = [NSURL fileURLWithPath:@(g_Config.memStickDirectory.c_str())];
+    [NSWorkspace.sharedWorkspace openURL:memstickURL];
 }
 
 - (void)dealloc {
