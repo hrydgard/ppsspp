@@ -2623,7 +2623,7 @@ if(IOS AND NOT LIBRETRO)
 	)
 endif()
 
-if(MACOSX)
+if(MACOSX AND NOT IOS)
 	if(GOLD)
 		set_target_properties(${TargetBin} PROPERTIES
 			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macOS/InfoGold.plist"
