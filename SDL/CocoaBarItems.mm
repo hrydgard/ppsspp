@@ -219,7 +219,6 @@ void initializeOSXExtras() {
     [self.fileMenu addItem:[NSMenuItem separatorItem]];
 
     NSMenuItem *openMemstickFolderItem = [[NSMenuItem alloc] initWithTitle:@"Open Memory Stick" action:@selector(openMemstickFolder) keyEquivalent:@""];
-    openMemstickFolderItem.enabled = YES;
     openMemstickFolderItem.target = self;
     [self.fileMenu addItem:openMemstickFolderItem];
 
@@ -530,9 +529,8 @@ TOGGLE_METHOD(ShowDebugStats, g_Config.bShowDebugStats, NativeMessageReceived("c
 }
 
 -(void)openMemstickFolder {
-    NSString *script = [NSString stringWithFormat:@"tell application \"Finder\"\nactivate\nopen folder (\"%s\" as POSIX file)\nend tell\n", g_Config.memStickDirectory.c_str()];
-    NSAppleScript *openScript = [[NSAppleScript alloc] initWithSource: script];
-    [openScript executeAndReturnError:nil];
+    NSURL *memstickURL = [NSURL fileURLWithPath:@(g_Config.memStickDirectory.c_str())];
+    [NSWorkspace.sharedWorkspace openURL:memstickURL];
 }
 
 - (void)dealloc {
