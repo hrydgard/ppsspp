@@ -250,7 +250,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 	case GE_FORMAT_5551:
 		if (config.textureFormat == GE_TFMT_CLUT8 && mask == 0xFF && shift == 0) {
 			// Follow the intent here, and ignore g (and let's not round unnecessarily).
-			sprintf(lookupMethod, "floor(floor(index.a) * 128.0 + index.b * 64.0)");  // we just skip A.
+			sprintf(lookupMethod, "floor(floor(index.a) * 128.0 + index.b * 64.0)");
 			index_multiplier = 1.0f / 256.0f;
 			// SOCOM case. #16210
 		} else if ((mask & (mask + 1)) == 0 && shift < 16) {

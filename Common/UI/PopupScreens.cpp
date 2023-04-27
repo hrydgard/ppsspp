@@ -115,12 +115,11 @@ void PopupMultiChoice::Update() {
 void PopupMultiChoice::UpdateText() {
 	if (!choices_)
 		return;
-	auto category = GetI18NCategory(category_);
-	// Clamp the value to be safe.
-	if (*value_ < minVal_ || *value_ > minVal_ + numChoices_ - 1) {
+	int index = *value_ - minVal_;
+	if (index < 0 || index >= numChoices_) {
 		valueText_ = "(invalid choice)";  // Shouldn't happen. Should be no need to translate this.
 	} else {
-		valueText_ = category ? category->T(choices_[*value_ - minVal_]) : choices_[*value_ - minVal_];
+		valueText_ = T(category_, choices_[index]);
 	}
 }
 
