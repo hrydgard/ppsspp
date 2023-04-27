@@ -204,10 +204,12 @@ public:
 		I18NCat category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr)
 		: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), choices_(choices), minVal_(minVal), numChoices_(numChoices),
 		category_(category), screenManager_(screenManager) {
-		if (*value >= numChoices + minVal)
-			*value = numChoices + minVal - 1;
-		if (*value < minVal)
-			*value = minVal;
+		if (choices) {
+			if (*value >= numChoices + minVal)
+				*value = numChoices + minVal - 1;
+			if (*value < minVal)
+				*value = minVal;
+		}
 		OnClick.Handle(this, &PopupMultiChoice::HandleClick);
 		UpdateText();
 	}
