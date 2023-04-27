@@ -268,7 +268,6 @@ void System_ShowFileInFolder(const char *path) {
 		CoTaskMemFree(pidl);
 	}
 #elif PPSSPP_PLATFORM(MAC)
-	printf("goober alert\n");
 	OSXShowInFinder(path);
 #elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
 	pid_t pid = fork();
