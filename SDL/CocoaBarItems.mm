@@ -49,6 +49,16 @@ void initializeOSXExtras() {
     [[BarItemsManager sharedInstance] setupAppBarItems];
 }
 
+void OSXShowInFinder(const char *path) {
+    NSURL *url = [NSURL fileURLWithPath:@(path)];
+    [NSWorkspace.sharedWorkspace activateFileViewerSelectingURLs:@[url]];
+}
+
+void OSXOpenURL(const char *url) {
+    NSURL *nsURL = [NSURL URLWithString:@(url)];
+    [NSWorkspace.sharedWorkspace openURL:nsURL];
+}
+
 @implementation BarItemsManager
 + (instancetype)sharedInstance {
     static BarItemsManager *stub;
