@@ -298,7 +298,7 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 		std::wstring wurl = ConvertUTF8ToWString(url);
 		ShellExecute(NULL, L"open", wurl.c_str(), NULL, NULL, SW_SHOWNORMAL);
 #elif defined(__APPLE__)
-        OSXOpenURL(url);
+		OSXOpenURL(url);
 #else
 		std::string command = std::string("xdg-open ") + url;
 		int err = system(command.c_str());
@@ -316,8 +316,8 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 		std::wstring mailto = std::wstring(L"mailto:") + ConvertUTF8ToWString(url);
 		ShellExecute(NULL, L"open", mailto.c_str(), NULL, NULL, SW_SHOWNORMAL);
 #elif defined(__APPLE__)
-        std::string mailToURL = std::string("mailto:") + url;
-        OSXOpenURL(mailToURL.c_str());
+		std::string mailToURL = std::string("mailto:") + url;
+		OSXOpenURL(mailToURL.c_str());
 #else
 		std::string command = std::string("xdg-email ") + url;
 		int err = system(command.c_str());
