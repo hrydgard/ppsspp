@@ -269,7 +269,7 @@ void System_ShowFileInFolder(const char *path) {
 	}
 #elif PPSSPP_PLATFORM(MAC)
 	OSXShowInFinder(path);
-#elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
+#elif (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
 	pid_t pid = fork();
 	if (pid < 0)
 		return;
