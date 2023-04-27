@@ -205,13 +205,14 @@ public:
 		: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), choices_(choices), minVal_(minVal), numChoices_(numChoices),
 		category_(category), screenManager_(screenManager) {
 		if (choices) {
+			// If choices is nullptr, we're being called from PopupMultiChoiceDynamic where value doesn't yet point to anything valid.
 			if (*value >= numChoices + minVal)
 				*value = numChoices + minVal - 1;
 			if (*value < minVal)
 				*value = minVal;
+			UpdateText();
 		}
 		OnClick.Handle(this, &PopupMultiChoice::HandleClick);
-		UpdateText();
 	}
 
 	void Update() override;
