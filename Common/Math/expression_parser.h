@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include <vector>
 
 typedef std::pair<uint32_t, uint32_t> ExpressionPair;
