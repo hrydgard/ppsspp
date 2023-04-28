@@ -1173,7 +1173,7 @@ static const char *CPUCoreAsString(int core) {
 }
 
 static void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
-	const ExceptionInfo &info = Core_GetExceptionInfo();
+	const MIPSExceptionInfo &info = Core_GetExceptionInfo();
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	FontID ubuntu24("UBUNTU24");
@@ -1239,7 +1239,7 @@ static void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 	y += 160;
 
-	if (info.type == ExceptionType::MEMORY) {
+	if (info.type == MIPSExceptionType::MEMORY) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 Access: %s at %08x (sz: %d)
 PC: %08x
@@ -1251,7 +1251,7 @@ PC: %08x
 			info.info.c_str());
 		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 180;
-	} else if (info.type == ExceptionType::BAD_EXEC_ADDR) {
+	} else if (info.type == MIPSExceptionType::BAD_EXEC_ADDR) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 Destination: %s to %08x
 PC: %08x
@@ -1262,7 +1262,7 @@ RA: %08x)",
 			info.ra);
 		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 180;
-	} else if (info.type == ExceptionType::BREAK) {
+	} else if (info.type == MIPSExceptionType::BREAK) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 BREAK
 PC: %08x
@@ -1495,8 +1495,8 @@ void EmuScreen::render() {
 	case CORE_RUNTIME_ERROR:
 	{
 		// If there's an exception, display information.
-		const ExceptionInfo &info = Core_GetExceptionInfo();
-		if (info.type != ExceptionType::NONE) {
+		const MIPSExceptionInfo &info = Core_GetExceptionInfo();
+		if (info.type != MIPSExceptionType::NONE) {
 			// Clear to blue background screen
 			bool dangerousSettings = !Reporting::IsSupported();
 			uint32_t color = dangerousSettings ? 0xFF900050 : 0xFF900000;
@@ -1627,8 +1627,8 @@ void EmuScreen::renderUI() {
 #endif
 
 	if (coreState == CORE_RUNTIME_ERROR || coreState == CORE_STEPPING) {
-		const ExceptionInfo &info = Core_GetExceptionInfo();
-		if (info.type != ExceptionType::NONE) {
+		const MIPSExceptionInfo &info = Core_GetExceptionInfo();
+		if (info.type != MIPSExceptionType::NONE) {
 			DrawCrashDump(ctx, gamePath_);
 		} else {
 			// We're somehow in ERROR or STEPPING without a crash dump. This case is what lead
