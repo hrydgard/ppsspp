@@ -268,9 +268,11 @@ void OSXOpenURL(const char *url) {
     MENU_ITEM(softwareRendering, GRAPHICS_LOCALIZED("Software Rendering"), @selector(toggleSoftwareRendering:), g_Config.bSoftwareRendering, 1)
     [parent addItem:softwareRendering];
     
+    /*
     MENU_ITEM(vsyncItem, GRAPHICS_LOCALIZED("VSync"), @selector(toggleVSync:), g_Config.bVSync, 2)
     [parent addItem:vsyncItem];
-    
+    */
+
     MENU_ITEM(fullScreenItem, DESKTOPUI_LOCALIZED("Fullscreen"), @selector(toggleFullScreen:), g_Config.bFullScreen, 3)
     [parent addItem:fullScreenItem];
     
@@ -456,7 +458,7 @@ TOGGLE_METHOD(IgnoreIllegalRWs, g_Config.bIgnoreBadMemAccess)
 TOGGLE_METHOD(AutoFrameSkip, g_Config.bAutoFrameSkip, g_Config.UpdateAfterSettingAutoFrameSkip())
 TOGGLE_METHOD(SoftwareRendering, g_Config.bSoftwareRendering)
 TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequestType::TOGGLE_FULLSCREEN_STATE, 0, g_Config.UseFullScreen() ? "1" : "0", "", 3))
-TOGGLE_METHOD(VSync, g_Config.bVSync)
+// TOGGLE_METHOD(VSync, g_Config.bVSync)
 TOGGLE_METHOD(ShowDebugStats, g_Config.bShowDebugStats, NativeMessageReceived("clear jit", ""))
 #undef TOGGLE_METHOD
 
