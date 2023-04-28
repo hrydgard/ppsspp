@@ -119,7 +119,10 @@ void ConsoleListener::Init(bool AutoOpen, int Width, int Height, const char *Tit
 	title_ = ConvertUTF8ToWString(Title);
 
 	if (AutoOpen)
+	{
 		Open();
+		bHidden = false;
+	}
 #endif
 }
 
