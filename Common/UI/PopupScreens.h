@@ -309,7 +309,7 @@ private:
 	int maxValue_;
 	int defaultValue_;
 	int step_;
-	const char *fmt_;
+	std::string fmt_;
 	std::string zeroLabel_;
 	std::string negativeLabel_;
 	std::string units_;
@@ -348,7 +348,7 @@ private:
 	float maxValue_;
 	float defaultValue_;
 	float step_;
-	const char *fmt_;
+	std::string fmt_;
 	std::string zeroLabel_;
 	std::string units_;
 	ScreenManager *screenManager_;
