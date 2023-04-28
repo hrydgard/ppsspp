@@ -20,7 +20,7 @@ public:
 	virtual bool parseSymbol(char* str, uint32_t& symbolValue) = 0;
 	virtual uint32_t getReferenceValue(uint32_t referenceIndex) = 0;
 	virtual ExpressionType getReferenceType(uint32_t referenceIndex) = 0;
-	virtual bool getMemoryValue(uint32_t address, int size, uint32_t& dest, char* error) = 0;
+	virtual bool getMemoryValue(uint32_t address, int size, uint32_t& dest, char *error, size_t errorBufSize) = 0;
 };
 
 bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, PostfixExpression& dest);

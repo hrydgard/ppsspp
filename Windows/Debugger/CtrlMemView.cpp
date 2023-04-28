@@ -1,11 +1,11 @@
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-
 #include <cctype>
 #include <tchar.h>
-#include <math.h>
+#include <cmath>
 #include <iomanip>
 #include <sstream>
+
 #include "ext/xxhash.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -229,7 +229,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 
 		char temp[32];
 		uint32_t address = windowStart_ + i * rowSize_;
-		sprintf(temp, "%08X", address);
+		snprintf(temp, sizeof(temp), "%08X", address);
 
 		setTextColors(0x600000, standardBG);
 		TextOutA(hdc, addressStartX_, rowY, temp, (int)strlen(temp));
@@ -260,12 +260,12 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 
 			char c;
 			if (valid) {
-				sprintf(temp, "%02X ", memory.bytes[j]);
+				snprintf(temp, sizeof(temp), "%02X ", memory.bytes[j]);
 				c = (char)memory.bytes[j];
 				if (memory.bytes[j] < 32 || memory.bytes[j] >= 128)
 					c = '.';
 			} else {
-				strcpy(temp, "??");
+				truncate_cpy(temp, "??");
 				c = '.';
 			}
 
@@ -616,7 +616,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 		case ID_MEMVIEW_COPYADDRESS:
 			{
 				char temp[24];
-				sprintf(temp, "0x%08X", curAddress_);
+				snprintf(temp, sizeof(temp), "0x%08X", curAddress_);
 				W32Util::CopyTextToClipboard(wnd, temp);
 			}
 			break;
@@ -959,7 +959,7 @@ void CtrlMemView::drawOffsetScale(HDC hdc) {
 	
 	char temp[64];
 	for (int i = 0; i < 16; i++) {
-		sprintf(temp, "%02X", i);
+		snprintf(temp, sizeof(temp), "%02X", i);
 		TextOutA(hdc, currentX, offsetPositionY_, temp, 2);
 		currentX += 3 * charWidth_; // hex and space
 	}

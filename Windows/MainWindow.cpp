@@ -18,12 +18,12 @@
 // TODO: Get rid of the internal window.
 // Tried before but Intel drivers screw up when minimizing, or something ?
 
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-// It's improving slowly, though. :)
 #include "stdafx.h"
+
+#include "ppsspp_config.h"
+
 #include "Common/CommonWindows.h"
 #include "Common/OSVersion.h"
-#include "ppsspp_config.h"
 
 #include <Windowsx.h>
 #include <shellapi.h>

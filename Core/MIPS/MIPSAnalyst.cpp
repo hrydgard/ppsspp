@@ -930,7 +930,7 @@ skip:
 	}
 
 	static const char *DefaultFunctionName(char buffer[256], u32 startAddr) {
-		sprintf(buffer, "z_un_%08x", startAddr);
+		snprintf(buffer, sizeof(buffer), "z_un_%08x", startAddr);
 		return buffer;
 	}
 
