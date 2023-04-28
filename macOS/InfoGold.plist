@@ -54,7 +54,7 @@
 		</dict>
 	</array>
 	<key>CFBundleExecutable</key>
-	<string>Contents/MacOS/PPSSPPGold</string>
+	<string>PPSSPPGold</string>
 	<key>CFBundleGetInfoString</key>
 	<string></string>
 	<key>CFBundleIconFile</key>
