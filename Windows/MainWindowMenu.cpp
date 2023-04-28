@@ -509,6 +509,7 @@ namespace MainWindow {
 			g_Config.bEnableCheats = !g_Config.bEnableCheats;
 			osm.ShowOnOff(gr->T("Cheats"), g_Config.bEnableCheats);
 			break;
+
 		case ID_EMULATION_CHAT:
 			if (GetUIState() == UISTATE_INGAME) {
 				NativeMessageReceived("chat screen", "");
