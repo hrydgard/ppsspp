@@ -1,5 +1,3 @@
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-
 #include "Common/CommonWindows.h"
 #include <windowsx.h>
 #include <commctrl.h>

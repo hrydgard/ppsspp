@@ -384,7 +384,7 @@ void System_ShowKeyboard() {
 
 void System_Vibrate(int length_ms) {
 	char temp[32];
-	sprintf(temp, "%i", length_ms);
+	snprintf(temp, sizeof(temp), "%", length_ms);
 	PushCommand("vibrate", temp);
 }
 

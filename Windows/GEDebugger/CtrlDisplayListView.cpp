@@ -228,7 +228,7 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 		GPUDebugOp op = i < (int)disasm.size() ? disasm[i] : GPUDebugOp();
 
 		char addressText[64];
-		sprintf(addressText,"%08X %08X",op.pc,op.op);
+		snprintf(addressText,sizeof(addressText),"%08X %08X",op.pc,op.op);
 		TextOutA(hdc,pixelPositions.addressStart,rowY1+2,addressText,(int)strlen(addressText));
 
 		if (address == list.pc)
@@ -344,7 +344,7 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_DISASM_COPYADDRESS:
 			{
 				char temp[16];
-				sprintf(temp,"%08X",curAddress);
+				snprintf(temp,sizeof(temp),"%08X",curAddress);
 				W32Util::CopyTextToClipboard(wnd, temp);
 			}
 			break;

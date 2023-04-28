@@ -32,11 +32,11 @@ public:
 	u32 GetLR() override { return ctx.r[MIPS_REG_RA]; }
 	void SetPC(u32 _pc) override { ctx.pc = _pc; }
 
-	void PrintRegValue(int cat, int index, char *out) override {
+	void PrintRegValue(int cat, int index, char *out, size_t outSize) override {
 		switch (cat) {
-		case 0: sprintf(out, "%08X", ctx.r[index]); break;
-		case 1: sprintf(out, "%f", ctx.f[index]); break;
-		case 2: sprintf(out, "N/A"); break;
+		case 0: snprintf(out, outSize, "%08X", ctx.r[index]); break;
+		case 1: snprintf(out, outSize, "%f", ctx.f[index]); break;
+		case 2: snprintf(out, outSize, "N/A"); break;
 		}
 	}
 

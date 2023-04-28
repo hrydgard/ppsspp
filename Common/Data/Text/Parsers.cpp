@@ -43,7 +43,7 @@ bool Version::ParseVersionString(std::string str) {
 
 std::string Version::ToString() const {
 	char temp[128];
-	sprintf(temp, "%i.%i.%i", major, minor, sub);
+	snprintf(temp, sizeof(temp), "%i.%i.%i", major, minor, sub);
 	return std::string(temp);
 }
 

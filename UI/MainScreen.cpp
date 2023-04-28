@@ -322,9 +322,9 @@ void GameButton::Draw(UIContext &dc) {
 
 	char discNumInfo[8];
 	if (ginfo->disc_total > 1)
-		sprintf(discNumInfo, "-DISC%d", ginfo->disc_number);
+		snprintf(discNumInfo, sizeof(discNumInfo), "-DISC%d", ginfo->disc_number);
 	else
-		strcpy(discNumInfo, "");
+		discNumInfo[0] = '\0';
 
 	dc.Draw()->Flush();
 	dc.RebindTexture();
@@ -1120,7 +1120,7 @@ void MainScreen::CreateViews() {
 	rightColumn->Add(rightColumnItems);
 
 	char versionString[256];
-	sprintf(versionString, "%s", PPSSPP_GIT_VERSION);
+	snprintf(versionString, sizeof(versionString), "%s", PPSSPP_GIT_VERSION);
 	rightColumnItems->SetSpacing(0.0f);
 	AnchorLayout *logos = new AnchorLayout(new AnchorLayoutParams(FILL_PARENT, 60.0f, false));
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {

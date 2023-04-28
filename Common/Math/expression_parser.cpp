@@ -386,13 +386,13 @@ bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, Postf
 		{
 		case EXCOMM_CONST:
 		case EXCOMM_CONST_FLOAT:
-			testPos += sprintf(&test[testPos],"0x%04X ",dest[i].second);
+			testPos += snprintf(&test[testPos], sizeof(test) - testPos, "0x%04X ", dest[i].second);
 			break;
 		case EXCOMM_REF:
-			testPos += sprintf(&test[testPos],"r%d ",dest[i].second);
+			testPos += snprintf(&test[testPos], sizeof(test) - testPos, "r%d ", dest[i].second);
 			break;
 		case EXCOMM_OP:
-			testPos += sprintf(&test[testPos],"%s ",ExpressionOpcodes[dest[i].second].Name);
+			testPos += snprintf(&test[testPos], sizeof(test) - testPos, "%s ", ExpressionOpcodes[dest[i].second].Name);
 			break;
 		};
 	}
@@ -451,7 +451,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 				}
 
 				uint32_t val;
-				if(funcs->getMemoryValue(arg[1],arg[0],val,expressionError) == false)
+				if(funcs->getMemoryValue(arg[1],arg[0],val,expressionError, sizeof(expressionError)) == false)
 				{
 					return false;
 				}
@@ -460,7 +460,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 			case EXOP_MEM:
 				{
 					uint32_t val;
-					if (funcs->getMemoryValue(arg[0],4,val,expressionError) == false)
+					if (funcs->getMemoryValue(arg[0],4,val,expressionError, sizeof(expressionError)) == false)
 					{
 						return false;
 					}
@@ -479,7 +479,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 				valueStack.push_back(~arg[0]);
 				break;
 			case EXOP_LOGNOT:			// !b
-				valueStack.push_back(!arg[0]);
+				valueStack.push_back(!(arg[0] != 0));
 				break;
 			case EXOP_MUL:			// a*b
 				if (useFloat)

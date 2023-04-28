@@ -1,6 +1,4 @@
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-
-#include <math.h>
+#include <cmath>
 #include <tchar.h>
 
 #include "Common/System/Display.h"
@@ -253,12 +251,12 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 		if (i<cpu->GetNumRegsInCategory(category))
 		{
 			char temp[256];
-			int temp_len = sprintf(temp,"%s",cpu->GetRegName(category,i));
+			int temp_len = snprintf(temp, sizeof(temp), "%s", cpu->GetRegName(category, i));
 			SetTextColor(hdc,0x600000);
 			TextOutA(hdc,17,rowY1,temp,temp_len);
 			SetTextColor(hdc,0x000000);
 
-			cpu->PrintRegValue(category,i,temp);
+			cpu->PrintRegValue(category, i, temp, sizeof(temp));
 			if (category == 0 && changedCat0Regs[i])
 				SetTextColor(hdc, 0x0000FF);
 			else
@@ -274,15 +272,15 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 			{
 			case REGISTER_PC:
 				value = cpu->GetPC();
-				len = sprintf(temp,"pc");
+				len = snprintf(temp, sizeof(temp), "pc");
 				break;
 			case REGISTER_HI:
 				value = cpu->GetHi();
-				len = sprintf(temp,"hi");
+				len = snprintf(temp, sizeof(temp), "hi");
 				break;
 			case REGISTER_LO:
 				value = cpu->GetLo();
-				len = sprintf(temp,"lo");
+				len = snprintf(temp, sizeof(temp), "lo");
 				break;
 			default:
 				temp[0] = '\0';
@@ -292,7 +290,7 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 
 			SetTextColor(hdc,0x600000);
 			TextOutA(hdc,17,rowY1,temp,len);
-			len = sprintf(temp,"%08X",value);
+			len = snprintf(temp, sizeof(temp), "%08X",value);
 			if (changedCat0Regs[i])
 				SetTextColor(hdc, 0x0000FF);
 			else
