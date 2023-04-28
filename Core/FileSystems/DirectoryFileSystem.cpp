@@ -52,6 +52,10 @@
 #include <sys/stat.h>
 #if PPSSPP_PLATFORM(UWP)
 #include <fileapifromapp.h>
+#if !defined(__LIBRETRO__)
+#include "UWP/UWPHelpers/StorageManager.h"
+#include "UWP/UWPHelpers/PPSSPPTypesHelpers.h"
+#endif
 #endif
 #undef FILE_OPEN
 #else
@@ -171,6 +175,13 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 	hFile = CreateFile(fullName.ToWString().c_str(), desired, sharemode, 0, openmode, 0, 0);
 #endif
 	bool success = hFile != INVALID_HANDLE_VALUE;
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+	if (!success) {
+		//Use UWP StorageManager to get handle
+		hFile = CreateFileUWP(fullName.ToString(), desired, sharemode, openmode);
+		success = hFile != INVALID_HANDLE_VALUE;
+	}
+#endif
 	if (!success) {
 		DWORD w32err = GetLastError();
 
@@ -183,6 +194,13 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 			hFile = CreateFile(fullName.ToWString().c_str(), desired, sharemode, 0, openmode, 0, 0);
 #endif
 			success = hFile != INVALID_HANDLE_VALUE;
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+			if (!success) {
+				//Use UWP StorageManager to get handle
+				hFile = CreateFileUWP(fullName.ToString(), desired, sharemode, openmode);
+				success = hFile != INVALID_HANDLE_VALUE;
+			}
+#endif
 			if (!success) {
 				w32err = GetLastError();
 			}

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <mutex>
 
@@ -36,6 +36,7 @@ public:
 	PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResources>& deviceResources);
 	~PPSSPP_UWPMain();
 	void CreateWindowSizeDependentResources();
+	void BootToLaunchFile();
 	bool Render();
 
 	// IDeviceNotify

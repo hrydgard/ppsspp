@@ -14,8 +14,12 @@
 
 #include <ppltasks.h>
 
-using namespace UWP;
+#include <UWPHelpers/StorageExtensions.h>
+#include <UWPHelpers/LaunchItem.h>
+#include <regex>
 
+using namespace UWP;
+ 
 using namespace concurrency;
 using namespace Windows::ApplicationModel;
 using namespace Windows::ApplicationModel::Core;
@@ -25,6 +29,7 @@ using namespace Windows::UI::Input;
 using namespace Windows::System;
 using namespace Windows::Foundation;
 using namespace Windows::Graphics::Display;
+using namespace Windows::Storage;
 
 // The main function is only used to initialize our IFrameworkView class.
 [Platform::MTAThread]
@@ -121,7 +126,8 @@ bool App::HasBackButton() {
 void App::App_BackRequested(Platform::Object^ sender, Windows::UI::Core::BackRequestedEventArgs^ e) {
 	if (m_isPhone) {
 		e->Handled = m_main->OnHardwareButton(HardwareButton::BACK);
-	} else {
+	}
+	else {
 		e->Handled = true;
 	}
 }
@@ -158,7 +164,7 @@ void App::OnPointerPressed(Windows::UI::Core::CoreWindow^ sender, Windows::UI::C
 	float X = args->CurrentPoint->Position.X;
 	float Y = args->CurrentPoint->Position.Y;
 	int64_t timestamp = args->CurrentPoint->Timestamp;
-	m_main->OnTouchEvent(TOUCH_DOWN|TOUCH_MOVE, pointerId, X, Y, (double)timestamp);
+	m_main->OnTouchEvent(TOUCH_DOWN | TOUCH_MOVE, pointerId, X, Y, (double)timestamp);
 	if (!m_isPhone) {
 		sender->SetPointerCapture();
 	}
@@ -171,7 +177,7 @@ void App::OnPointerReleased(Windows::UI::Core::CoreWindow^ sender, Windows::UI::
 	float X = args->CurrentPoint->Position.X;
 	float Y = args->CurrentPoint->Position.Y;
 	int64_t timestamp = args->CurrentPoint->Timestamp;
-	m_main->OnTouchEvent(TOUCH_UP|TOUCH_MOVE, pointerId, X, Y, (double)timestamp);
+	m_main->OnTouchEvent(TOUCH_UP | TOUCH_MOVE, pointerId, X, Y, (double)timestamp);
 	if (!m_isPhone) {
 		sender->ReleasePointerCapture();
 	}
@@ -201,7 +207,8 @@ void App::Run() {
 			if (m_main->Render()) {
 				m_deviceResources->Present();
 			}
-		} else {
+		}
+		else {
 			CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessOneAndAllPending);
 		}
 	}
@@ -214,7 +221,7 @@ void App::Uninitialize() {
 }
 
 // Application lifecycle event handlers.
-
+extern LaunchItem launchItem;
 void App::OnActivated(CoreApplicationView^ applicationView, IActivatedEventArgs^ args) {
 	// Run() won't start until the CoreWindow is activated.
 	CoreWindow::GetForCurrentThread()->Activate();
@@ -224,6 +231,17 @@ void App::OnActivated(CoreApplicationView^ applicationView, IActivatedEventArgs^
 
 	if (g_Config.UseFullScreen())
 		Windows::UI::ViewManagement::ApplicationView::GetForCurrentView()->TryEnterFullScreenMode();
+
+	if (args->Kind == ActivationKind::File) {
+		FileActivatedEventArgs^ protocolArgs = dynamic_cast<Windows::ApplicationModel::Activation::FileActivatedEventArgs^>(args);
+		launchItem = LaunchItem((StorageFile^)protocolArgs->Files->GetAt(0));
+	}
+	if (args->Kind == ActivationKind::Protocol)
+	{
+		unsigned i;
+		ProtocolActivatedEventArgs^ protocolArgs = dynamic_cast<Windows::ApplicationModel::Activation::ProtocolActivatedEventArgs^>(args);
+		launchItem = LaunchItem(protocolArgs);
+	}
 }
 
 void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
@@ -235,9 +253,10 @@ void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
 	auto app = this;
 
 	create_task([app, deferral]() {
+		g_Config.Save("App::OnSuspending");
 		app->m_deviceResources->Trim();
-		deferral->Complete();
-	});
+	    deferral->Complete();
+		});
 }
 
 void App::OnResuming(Platform::Object^ sender, Platform::Object^ args) {
@@ -277,7 +296,8 @@ void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ ar
 		// MainScreen::OnExit and even App::OnWindowClosed
 		// doesn't seem to be called when closing the window
 		// Try to save the config here
-		g_Config.Save("App::OnVisibilityChanged");
+		// OnSuspending should now do the job
+		//g_Config.Save("App::OnVisibilityChanged");
 	}
 	m_windowVisible = args->Visible;
 }

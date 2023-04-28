@@ -53,6 +53,9 @@
 #include <direct.h>		// getcwd
 #if PPSSPP_PLATFORM(UWP)
 #include <fileapifromapp.h>
+#if !defined(__LIBRETRO__)
+#include "UWP/UWPHelpers/StorageManager.h"
+#endif
 #endif
 #else
 #include <sys/param.h>
@@ -157,7 +160,18 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 	}
 
 #if defined(_WIN32) && defined(UNICODE)
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+	// We shouldn't use _wfopen specificly for custom memory stick location
+	FILE* file = GetFileStreamFromApp(path.ToString(), mode);
+
+	if (!file) {
+		// Call UWP storage helper
+		file = GetFileStream(path.ToString(), mode);
+	}
+	return file;
+#else
 	return _wfopen(path.ToWString().c_str(), ConvertUTF8ToWString(mode).c_str());
+#endif
 #else
 	return fopen(path.c_str(), mode);
 #endif
@@ -258,6 +272,10 @@ static bool ResolvePathVista(const std::wstring &path, wchar_t *buf, DWORD bufSi
 	if (getFinalPathNameByHandleW) {
 #if PPSSPP_PLATFORM(UWP)
 		HANDLE hFile = CreateFile2FromAppW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, nullptr);
+#if !defined(__LIBRETRO__)
+		//Use UWP StorageManager to get handle
+		hFile = CreateFileUWP(path, GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING);
+#endif
 #else
 		HANDLE hFile = CreateFile(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
 #endif
@@ -373,6 +391,11 @@ bool Exists(const Path &path) {
 	WIN32_FILE_ATTRIBUTE_DATA data{};
 #if PPSSPP_PLATFORM(UWP)
 	if (!GetFileAttributesExFromAppW(path.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+#if !defined(__LIBRETRO__)
+		if (IsExistsUWP(path.ToString())) {
+			return true;
+		}
+#endif
 		return false;
 	}
 #else
@@ -411,6 +434,11 @@ bool IsDirectory(const Path &filename) {
 	WIN32_FILE_ATTRIBUTE_DATA data{};
 #if PPSSPP_PLATFORM(UWP)
 	if (!GetFileAttributesExFromAppW(filename.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+#if !defined(__LIBRETRO__)
+		if (IsDirectoryUWP(filename.ToString())) {
+			return true;
+	    }
+#endif
 #else
 	if (!GetFileAttributesEx(filename.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
 #endif
@@ -464,6 +492,11 @@ bool Delete(const Path &filename) {
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
 	if (!DeleteFileFromAppW(filename.ToWString().c_str())) {
+#if !defined(__LIBRETRO__)
+		if (DeleteUWP(filename.ToString())) {
+			return true;
+		}
+#endif
 		WARN_LOG(COMMON, "Delete: DeleteFile failed on %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
@@ -518,8 +551,19 @@ bool CreateDir(const Path &path) {
 	DEBUG_LOG(COMMON, "CreateDir('%s')", path.c_str());
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
-	if (CreateDirectoryFromAppW(path.ToWString().c_str(), NULL))
+	if (CreateDirectoryFromAppW(path.ToWString().c_str(), NULL)) {
 		return true;
+	}
+	else {
+#if !defined(__LIBRETRO__)
+		if (File::Exists(path)) {
+			return true;
+		}
+		else {
+			CreateDirectoryUWP(path.ToString());
+		}
+#endif
+	}
 #else
 	if (::CreateDirectory(path.ToWString().c_str(), NULL))
 		return true;
@@ -613,8 +657,16 @@ bool DeleteDir(const Path &path) {
 
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
-	if (RemoveDirectoryFromAppW(path.ToWString().c_str()))
+	if (RemoveDirectoryFromAppW(path.ToWString().c_str())) {
 		return true;
+	}
+	else {
+#if !defined(__LIBRETRO__)
+		if (DeleteUWP(path.ToString())) {
+			return true;
+		}
+#endif
+	}
 #else
 	if (::RemoveDirectory(path.ToWString().c_str()))
 		return true;
@@ -662,6 +714,13 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 	std::wstring destw = destFilename.ToWString();
 	if (_wrename(srcw.c_str(), destw.c_str()) == 0)
 		return true;
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+	else {
+		if (RenameUWP(srcFilename.ToString(), destFilename.ToString())) {
+			return true;
+		}
+}
+#endif
 #else
 	if (rename(srcFilename.c_str(), destFilename.c_str()) == 0)
 		return true;
@@ -696,6 +755,13 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 #if PPSSPP_PLATFORM(UWP)
 	if (CopyFileFromAppW(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str(), FALSE))
 		return true;
+#if !defined(__LIBRETRO__)
+	else {
+		if (CopyUWP(srcFilename.ToString(), destFilename.ToString())) {
+			return true;
+		}
+	}
+#endif
 #else
 	if (CopyFile(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str(), FALSE))
 		return true;
@@ -780,6 +846,11 @@ bool Move(const Path &srcFilename, const Path &destFilename) {
 	} else if (Copy(srcFilename, destFilename)) {
 		return Delete(srcFilename);
 	} else {
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+		if (MoveUWP(srcFilename.ToString(), destFilename.ToString())) {
+			return true;
+		}
+#endif
 		return false;
 	}
 }
@@ -828,11 +899,15 @@ uint64_t GetFileSize(const Path &filename) {
 #if defined(_WIN32) && defined(UNICODE)
 	WIN32_FILE_ATTRIBUTE_DATA attr;
 #if PPSSPP_PLATFORM(UWP)
-	if (!GetFileAttributesExFromAppW(filename.ToWString().c_str(), GetFileExInfoStandard, &attr))
+	if (!GetFileAttributesExFromAppW(filename.ToWString().c_str(), GetFileExInfoStandard, &attr)) {
+#if !defined(__LIBRETRO__)
+		return (uint64_t)GetSizeUWP(filename.ToString());
+#endif
 #else
-	if (!GetFileAttributesEx(filename.ToWString().c_str(), GetFileExInfoStandard, &attr))
+	if (!GetFileAttributesEx(filename.ToWString().c_str(), GetFileExInfoStandard, &attr)){
 #endif
 		return 0;
+	}
 	if (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		return 0;
 	return ((uint64_t)attr.nFileSizeHigh << 32) | (uint64_t)attr.nFileSizeLow;
@@ -945,7 +1020,9 @@ bool OpenFileInEditor(const Path &fileName) {
 
 #if PPSSPP_PLATFORM(WINDOWS)
 #if PPSSPP_PLATFORM(UWP)
-	// Do nothing.
+#if !defined(__LIBRETRO__)
+	OpenFile(fileName.ToString());
+#endif
 #else
 	ShellExecuteW(nullptr, L"open", fileName.ToWString().c_str(), nullptr, nullptr, SW_SHOW);
 #endif

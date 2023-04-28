@@ -32,6 +32,9 @@
 */
 #ifdef MS_UWP
 #include <fileapifromapp.h>
+#if !defined(__LIBRETRO__)
+#include "UWP/UWPHelpers/UWP2C.h"
+#endif
 #endif
 
 #include "zip_source_file_win32.h"
@@ -41,6 +44,36 @@ static HANDLE __stdcall utf16_create_file(const char *name, DWORD access, DWORD 
 static void utf16_make_tempname(char *buf, size_t len, const char *name, zip_uint32_t i);
 static char *utf16_strdup(const char *string);
 
+#ifdef MS_UWP && !defined(__LIBRETRO__)
+static BOOL __stdcall GetFileAttr(const void* name, GET_FILEEX_INFO_LEVELS info_level, void* lpFileInformation) {
+	BOOL state = GetFileAttributesExFromAppW(name, info_level, lpFileInformation);
+	if (state == FALSE) {
+		// Ignore `info_level` not in use for now
+		state = GetFileAttributesUWP(name, lpFileInformation);
+	}
+	return state;
+}
+
+static BOOL __stdcall DelFile(const void* name) {
+	BOOL state = DeleteFileFromAppW(name);
+	if (state == FALSE) {
+		state = DeleteFileUWP(name);
+	}
+	return state;
+}
+
+zip_win32_file_operations_t ops_utf16 = {
+	utf16_allocate_tempname,
+	utf16_create_file, // Will invoke UWP Storage manager (If needed)
+	DelFile, // Will invoke UWP Storage manager
+	GetFileAttributesW,
+	GetFileAttr, // Will invoke UWP Storage manager
+	utf16_make_tempname,
+	MoveFileExW,
+	SetFileAttributesW,
+	utf16_strdup
+};
+#else
 zip_win32_file_operations_t ops_utf16 = {
     utf16_allocate_tempname,
     utf16_create_file,
@@ -52,6 +85,7 @@ zip_win32_file_operations_t ops_utf16 = {
     SetFileAttributesW,
     utf16_strdup
 };
+#endif
 
 ZIP_EXTERN zip_source_t *
 zip_source_win32w(zip_t *za, const wchar_t *fname, zip_uint64_t start, zip_int64_t len) {
@@ -95,7 +129,13 @@ utf16_create_file(const char *name, DWORD access, DWORD share_mode, PSECURITY_AT
 
     return CreateFile2((const wchar_t *)name, access, share_mode, creation_disposition, &extParams);
 #else
-    return CreateFile2FromAppW((const wchar_t *)name, access, share_mode, creation_disposition, NULL);
+    HANDLE h = CreateFile2FromAppW((const wchar_t *)name, access, share_mode, creation_disposition, NULL);
+#if !defined(__LIBRETRO__)
+	if (h == INVALID_HANDLE_VALUE) {
+		h = CreateFileUWP(name, (int)access, (int)share_mode, (int)creation_disposition);
+	}
+#endif
+	return h;
 #endif
 #else
     return CreateFileW((const wchar_t *)name, access, share_mode, security_attributes, creation_disposition, file_attributes, template_file);

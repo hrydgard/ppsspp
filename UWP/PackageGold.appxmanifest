@@ -27,6 +27,21 @@
           <uap:Rotation Preference="landscape" />
         </uap:InitialRotationPreference>
       </uap:VisualElements>
+	  <Extensions>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="psprom">
+            <uap:SupportedFileTypes>
+              <uap:FileType>.cso</uap:FileType>
+              <uap:FileType>.bin</uap:FileType>
+              <uap:FileType>.iso</uap:FileType>
+              <uap:FileType>.elf</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+		<uap:Extension Category="windows.protocol">
+             <uap:Protocol Name="ppsspp"/>
+        </uap:Extension>
+      </Extensions>
     </Application>
   </Applications>
   <Capabilities>
@@ -36,5 +51,7 @@
     <rescap:Capability Name="runFullTrust"/>
     <rescap:Capability Name="broadFileSystemAccess" />
     <rescap:Capability Name="expandedResources" />
+	<Capability Name="internetClientServer"/>
+    <Capability Name="privateNetworkClientServer"/> <!-- For features like remote disk streaming -->
   </Capabilities>
 </Package>

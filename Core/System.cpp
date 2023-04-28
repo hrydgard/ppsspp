@@ -767,6 +767,9 @@ void InitSysDirectories() {
 	File::CreateDir(GetSysDirectory(DIRECTORY_SAVEDATA));
 	File::CreateDir(GetSysDirectory(DIRECTORY_SAVESTATE));
 	File::CreateDir(GetSysDirectory(DIRECTORY_SYSTEM));
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+	File::CreateDir(GetSysDirectory(DIRECTORY_TEXTURES));
+#endif
 
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);

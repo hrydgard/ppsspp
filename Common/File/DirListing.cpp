@@ -6,6 +6,10 @@
 #include <direct.h>
 #if PPSSPP_PLATFORM(UWP)
 #include <fileapifromapp.h>
+#if !defined(__LIBRETRO__)
+#include "UWP/UWPHelpers/StorageManager.h"
+#include "UWP/UWPHelpers/PPSSPPTypesHelpers.h"
+#endif
 #endif
 #else
 #include <strings.h>
@@ -67,6 +71,11 @@ bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 	WIN32_FILE_ATTRIBUTE_DATA attrs;
 #if PPSSPP_PLATFORM(UWP)
 	if (!GetFileAttributesExFromAppW(path.ToWString().c_str(), GetFileExInfoStandard, &attrs)) {
+#if !defined(__LIBRETRO__)
+	if (GetFileInfoUWP(path.ToString(), fileInfo)) {
+			return true;
+	}
+#endif
 #else
 	if (!GetFileAttributesExW(path.ToWString().c_str(), GetFileExInfoStandard, &attrs)) {
 #endif
@@ -220,6 +229,15 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 	HANDLE hFind = FindFirstFileEx((directory.ToWString() + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
 #endif
 	if (hFind == INVALID_HANDLE_VALUE) {
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+		// Getting folder contents need extra work
+		// request must be done within StorageManager
+		auto contents = GetFolderContents(directory.ToString());
+		if (ItemsInfoUWPToFilesInfo(contents, files, filter, filters)) {
+			std::sort(files->begin(), files->end());
+			return true;
+		}
+#endif
 		return false;
 	}
 	do {
@@ -319,7 +337,13 @@ std::vector<std::string> GetWindowsDrives()
 		{
 			CHAR driveName[] = { (CHAR)(TEXT('A') + i), TEXT(':'), TEXT('\\'), TEXT('\0') };
 			std::string str(driveName);
+#if !defined(__LIBRETRO__)
+			if (CheckDriveAccess(driveName, true)) {
+				drives.push_back(driveName);
+			}
+#else
 			drives.push_back(driveName);
+#endif
 		}
 	}
 	return drives;

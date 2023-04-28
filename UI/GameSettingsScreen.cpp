@@ -94,6 +94,10 @@ extern AndroidAudioState *g_audioState;
 
 #endif
 
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+#include "UWP/UWPHelpers/StorageManager.h"
+#endif
+
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), editThenRestore_(editThenRestore) {
 	prevInflightFrames_ = g_Config.iInflightFrames;
@@ -988,6 +992,11 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 		}
 		systemSettings->Add(new InfoItem(sy->T("USB"), usbPath))->SetChoiceStyle(true);
 	}
+#elif PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+	memstickDisplay_ = GetPreviewPath(g_Config.memStickDirectory.ToString());
+	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), I18NCat::NONE));
+	memstickPath->SetEnabled(!PSP_IsInited());
+	memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
 #elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Save path in My Documents", "Save path in My Documents")));
 	SavePathInMyDocumentChoice->SetEnabled(!PSP_IsInited());
