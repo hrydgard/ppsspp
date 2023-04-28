@@ -155,6 +155,7 @@ public:
 	std::string sD3D11Device;  // Windows only
 	std::string sCameraDevice;
 	std::string sMicDevice;
+	int iDisplayFramerateMode;  // enum DisplayFramerateMode. Android-only.
 
 	bool bSoftwareRendering;
 	bool bSoftwareRenderingJit;

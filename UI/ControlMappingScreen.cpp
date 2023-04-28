@@ -716,6 +716,10 @@ void TouchTestScreen::axis(const AxisInput &axis) {
 void TouchTestScreen::DrawForeground(UIContext &dc) {
 	Bounds bounds = dc.GetLayoutBounds();
 
+	double now = time_now_d();
+	double delta = now - lastFrameTime_;
+	lastFrameTime_ = now;
+
 	dc.BeginNoTex();
 	for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 		if (touches_[i].id != -1) {
@@ -747,18 +751,18 @@ void TouchTestScreen::DrawForeground(UIContext &dc) {
 #endif
 		"dp_res: %dx%d pixel_res: %dx%d\n"
 		"g_dpi: %0.3f g_dpi_scale: %0.3fx%0.3f\n"
-		"g_dpi_scale_real: %0.3fx%0.3f\n%s",
+		"g_dpi_scale_real: %0.3fx%0.3f\n"
+		"delta: %0.2f ms fps: %0.3f\n%s",
 #if PPSSPP_PLATFORM(ANDROID)
 		System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES),
 #endif
-		g_display.dp_xres, g_display.dp_yres,
-		g_display.pixel_xres, g_display.pixel_yres,
-		g_display.dpi,
-		g_display.dpi_scale_x, g_display.dpi_scale_y,
-		g_display.dpi_scale_real_x, g_display.dpi_scale_real_y, extra_debug);
+		g_display.dp_xres, g_display.dp_yres, g_display.pixel_xres, g_display.pixel_yres,
+		g_display.dpi, g_display.dpi_scale_x, g_display.dpi_scale_y,
+		g_display.dpi_scale_real_x, g_display.dpi_scale_real_y,
+		delta * 1000.0, 1.0 / delta,
+		extra_debug);
 
 	// On Android, also add joystick debug data.
-
 
 	dc.DrawTextShadow(buffer, bounds.centerX(), bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	dc.Flush();

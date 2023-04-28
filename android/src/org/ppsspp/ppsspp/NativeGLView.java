@@ -18,6 +18,8 @@ import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.Surface;
+import android.view.SurfaceControl;
 
 import com.bda.controller.Controller;
 import com.bda.controller.ControllerListener;
@@ -43,6 +45,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
 		mController = Controller.getInstance(activity);
+
 		try {
 			MogaHack.init(mController, activity);
 			Log.i(TAG, "MOGA initialized");

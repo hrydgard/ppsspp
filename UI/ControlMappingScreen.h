@@ -169,6 +169,8 @@ protected:
 
 	UI::TextView *lastKeyEvents_ = nullptr;
 
+	double lastFrameTime_ = 0.0;
+
 	void CreateViews() override;
 	void UpdateLogView();
 

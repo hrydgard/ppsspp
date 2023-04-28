@@ -598,6 +598,10 @@ void __DisplayFlip(int cyclesLate) {
 		postEffectRequiresFlip = duplicateFrames || g_Config.bShaderChainRequires60FPS;
 	}
 
+	if (!FrameTimingThrottled()) {
+		NOTICE_LOG(SYSTEM, "Throttle: %d %d", (int)fastForwardSkipFlip, (int)postEffectRequiresFlip);
+	}
+
 	const bool fbDirty = gpu->FramebufferDirty();
 
 	bool needFlip = fbDirty || noRecentFlip || postEffectRequiresFlip;

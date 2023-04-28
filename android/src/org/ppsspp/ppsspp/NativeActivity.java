@@ -636,6 +636,7 @@ public abstract class NativeActivity extends Activity {
 					// mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
 				// }
 			}
+
 			mGLSurfaceView.setRenderer(nativeRenderer);
 			setContentView(mGLSurfaceView);
 		} else {
@@ -661,6 +662,37 @@ public abstract class NativeActivity extends Activity {
 		}
 	}
 
+	private void applyFrameRate(Surface surface, float frameRateHz) {
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R)
+			return;
+		if (mSurface != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+			try {
+				int method = NativeApp.getDisplayFramerateMode();
+				if (method > 0) {
+					Log.i(TAG, "Setting desired framerate to " + frameRateHz + " Hz method=" + method);
+					switch (method) {
+						case 1:
+							mSurface.setFrameRate(frameRateHz, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT);
+							break;
+						case 2:
+							mSurface.setFrameRate(frameRateHz, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
+							break;
+						case 3:
+							if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+								mSurface.setFrameRate(frameRateHz, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE, Surface.CHANGE_FRAME_RATE_ALWAYS);
+							}
+							break;
+						default:
+							break;
+					}
+
+				}
+			} catch (Exception e) {
+				Log.e(TAG, "Failed to set framerate: " + e.toString());
+			}
+		}
+	}
+
 	public void notifySurface(Surface surface) {
 		mSurface = surface;
 
@@ -676,6 +708,8 @@ public abstract class NativeActivity extends Activity {
 			} else {
 				startRenderLoopThread();
 			}
+		} else if (mSurface != null) {
+			applyFrameRate(mSurface, 60.0f);
 		}
 		updateSustainedPerformanceMode();
 	}
@@ -692,6 +726,8 @@ public abstract class NativeActivity extends Activity {
 		}
 
 		Log.w(TAG, "startRenderLoopThread: Starting thread");
+
+		applyFrameRate(mSurface, 60.0f);
 		runVulkanRenderLoop(mSurface);
 	}
 
