@@ -892,18 +892,22 @@ GridLayout::GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams)
 void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	MeasureSpecType measureType = settings_.fillCells ? EXACTLY : AT_MOST;
 
+	int numItems = 0;
 	for (size_t i = 0; i < views_.size(); i++) {
-		views_[i]->Measure(dc, MeasureSpec(measureType, settings_.columnWidth), MeasureSpec(measureType, settings_.rowHeight));
+		if (views_[i]->GetVisibility() != V_GONE) {
+			views_[i]->Measure(dc, MeasureSpec(measureType, settings_.columnWidth), MeasureSpec(measureType, settings_.rowHeight));
+			numItems++;
+		}
 	}
 
 	// Use the max possible width so AT_MOST gives us the full size.
-	float maxWidth = (settings_.columnWidth + settings_.spacing) * views_.size() + settings_.spacing;
+	float maxWidth = (settings_.columnWidth + settings_.spacing) * numItems + settings_.spacing;
 	MeasureBySpec(layoutParams_->width, maxWidth, horiz, &measuredWidth_);
 
 	// Okay, got the width we are supposed to adjust to. Now we can calculate the number of columns.
 	numColumns_ = (measuredWidth_ - settings_.spacing) / (settings_.columnWidth + settings_.spacing);
 	if (!numColumns_) numColumns_ = 1;
-	int numRows = (int)(views_.size() + (numColumns_ - 1)) / numColumns_;
+	int numRows = (numItems + (numColumns_ - 1)) / numColumns_;
 
 	float estimatedHeight = (settings_.rowHeight + settings_.spacing) * numRows;
 
@@ -915,6 +919,9 @@ void GridLayout::Layout() {
 	int x = 0;
 	int count = 0;
 	for (size_t i = 0; i < views_.size(); i++) {
+		if (views_[i]->GetVisibility() == V_GONE)
+			continue;
+
 		const GridLayoutParams *lp = views_[i]->GetLayoutParams()->As<GridLayoutParams>();
 		Bounds itemBounds, innerBounds;
 		Gravity grav = lp ? lp->gravity : G_CENTER;
