@@ -1119,8 +1119,8 @@ int MIPSGetMemoryAccessSize(MIPSOpcode op) {
 	return 0;
 }
 
-const char *MIPSDisasmAt(u32 compilerPC) {
-	static char temp[256];
+std::string MIPSDisasmAt(u32 compilerPC) {
+	char temp[512];
 	MIPSDisAsm(Memory::Read_Instruction(compilerPC), 0, temp, sizeof(temp));
 	return temp;
 }

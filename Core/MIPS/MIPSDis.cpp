@@ -40,10 +40,8 @@
 
 namespace MIPSDis
 {
-	// One shot, not re-entrant.
-	const char *SignedHex(int i)
-	{
-		static char temp[32];
+	std::string SignedHex(int i) {
+		char temp[32];
 		int offset = 0;
 		if (i < 0)
 		{
@@ -64,7 +62,7 @@ namespace MIPSDis
 		int imm = SignExtend16ToS32(op & 0xFFFF);
 		int rs = _RS;
 		int func = (op >> 16) & 0x1F;
-		snprintf(out, outSize, "%s\tfunc=%i, %s(%s)", MIPSGetName(op), func, RN(rs), SignedHex(imm));
+		snprintf(out, outSize, "%s\tfunc=%i, %s(%s)", MIPSGetName(op), func, RN(rs), SignedHex(imm).c_str());
 	}
 
 	void Dis_mxc1(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
@@ -94,7 +92,7 @@ namespace MIPSDis
 		int ft = _FT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
-		snprintf(out, outSize, "%s\t%s, %s(%s)", name, FN(ft), SignedHex(offset), RN(rs));
+		snprintf(out, outSize, "%s\t%s, %s(%s)", name, FN(ft), SignedHex(offset).c_str(), RN(rs));
 	}
 
 	void Dis_FPUComp(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
@@ -170,7 +168,7 @@ namespace MIPSDis
 		case 8: //addi
 		case 9: //addiu
 		case 10: //slti
-			snprintf(out, outSize, "%s\t%s, %s, %s", name, RN(rt), RN(rs), SignedHex(simm));
+			snprintf(out, outSize, "%s\t%s, %s, %s", name, RN(rt), RN(rs), SignedHex(simm).c_str());
 			break;
 		case 11: //sltiu
 			snprintf(out, outSize, "%s\t%s, %s, 0x%X", name, RN(rt), RN(rs), suimm);
@@ -203,7 +201,7 @@ namespace MIPSDis
 		int rt = _RT;
 		int rs = _RS;
 		if (rs == 0)
-			snprintf(out, outSize, "li\t%s, %s", RN(rt), SignedHex(imm));
+			snprintf(out, outSize, "li\t%s, %s", RN(rt), SignedHex(imm).c_str());
 		else
 			Dis_IType(op, pc, out, outSize);
 	}
@@ -213,7 +211,7 @@ namespace MIPSDis
 		int rt = _RT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
-		snprintf(out, outSize, "%s\t%s, %s(%s)", name, RN(rt), SignedHex(imm), RN(rs));
+		snprintf(out, outSize, "%s\t%s, %s(%s)", name, RN(rt), SignedHex(imm).c_str(), RN(rs));
 	}
 
 	void Dis_RType2(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {

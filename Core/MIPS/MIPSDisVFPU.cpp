@@ -100,14 +100,14 @@ inline const char *VSuff(MIPSOpcode op)
 
 namespace MIPSDis
 {
-	const char *SignedHex(int i);
+	std::string SignedHex(int i);
 
 	void Dis_SV(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
 		int offset = SignExtend16ToS32(op & 0xFFFC);
 		int vt = ((op>>16)&0x1f)|((op&3)<<5);
 		int rs = (op>>21) & 0x1f;
 		const char *name = MIPSGetName(op);
-		snprintf(out, outSize, "%s\t%s, %s(%s)", name, VN(vt, V_Single), SignedHex(offset), RN(rs));
+		snprintf(out, outSize, "%s\t%s, %s(%s)", name, VN(vt, V_Single), SignedHex(offset).c_str(), RN(rs));
 	}
 
 	void Dis_SVQ(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
@@ -116,7 +116,7 @@ namespace MIPSDis
 		int rs = (op>>21) & 0x1f;
 		const char *name = MIPSGetName(op);
 		size_t outpos = 0;
-		outpos += snprintf(out, outSize, "%s\t%s, %s(%s)", name, VN(vt, V_Quad), SignedHex(offset), RN(rs));
+		outpos += snprintf(out, outSize, "%s\t%s, %s(%s)", name, VN(vt, V_Quad), SignedHex(offset).c_str(), RN(rs));
 		if ((op & 2) && outpos < outSize)
 			truncate_cpy(out + outpos, outSize - outpos, ", wb");
 	}
@@ -127,7 +127,7 @@ namespace MIPSDis
 		int rs = (op>>21) & 0x1f;
 		int lr = (op>>1)&1;
 		const char *name = MIPSGetName(op);
-		snprintf(out, outSize, "%s%s.q\t%s, %s(%s)", name, lr ? "r" : "l", VN(vt, V_Quad), SignedHex(offset), RN(rs));
+		snprintf(out, outSize, "%s%s.q\t%s, %s(%s)", name, lr ? "r" : "l", VN(vt, V_Quad), SignedHex(offset).c_str(), RN(rs));
 	}
 
 	void Dis_Mftv(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {

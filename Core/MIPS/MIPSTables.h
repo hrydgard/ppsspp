@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <string>
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
@@ -132,4 +133,4 @@ MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op);
 int MIPSGetInstructionCycleEstimate(MIPSOpcode op);
 int MIPSGetMemoryAccessSize(MIPSOpcode op);
 const char *MIPSGetName(MIPSOpcode op);
-const char *MIPSDisasmAt(u32 compilerPC);
+std::string MIPSDisasmAt(u32 compilerPC);
