@@ -61,7 +61,7 @@ public:
 	virtual int GetNumCategories() {return 0;}
 	virtual int GetNumRegsInCategory(int cat) {return 0;}
 	virtual const char *GetCategoryName(int cat) {return 0;}
-	virtual const char *GetRegName(int cat, int index) {return 0;}
+	virtual std::string GetRegName(int cat, int index) { return ""; }
 	virtual void PrintRegValue(int cat, int index, char *out, size_t outSize) {
 		snprintf(out, outSize, "%08X", GetGPR32Value(index));
 	}

@@ -34,9 +34,9 @@
 #define _SIZE ((op>>11) & 0x1F)
 
 
-#define RN(i) currentDebugMIPS->GetRegName(0,i)
-#define FN(i) currentDebugMIPS->GetRegName(1,i)
-//#define VN(i) currentDebugMIPS->GetRegName(2,i)
+#define RN(i) (currentDebugMIPS->GetRegName(0, i).c_str())
+#define FN(i) (currentDebugMIPS->GetRegName(1, i).c_str())
+//#define VN(i) (currentDebugMIPS->GetRegName(2, i).c_str())
 
 
 #define S_not(a,b,c) (a<<2)|(b)|(c<<5)
@@ -48,8 +48,7 @@
 #define VertOff 1
 #define MtxOff 4
 
-inline const char *VN(int v, VectorSize size)
-{
+inline std::string VNStr(int v, VectorSize size) {
 	static const char *vfpuCtrlNames[VFPU_CTRL_MAX] = {
 		"SPFX",
 		"TPFX",
@@ -77,10 +76,12 @@ inline const char *VN(int v, VectorSize size)
 	return GetVectorNotation(v, size);
 }
 
-inline const char *MN(int v, MatrixSize size)
-{
+inline std::string MNStr(int v, MatrixSize size) {
 	return GetMatrixNotation(v, size);
 }
+
+#define VN(v, s) (VNStr(v, s).c_str())
+#define MN(v, s) (MNStr(v, s).c_str())
 
 inline const char *VSuff(MIPSOpcode op)
 {

@@ -208,7 +208,7 @@ int IRWriter::AddConstantFloat(float value) {
 	return AddConstant(val);
 }
 
-const char *GetGPRName(int r) {
+static std::string GetGPRName(int r) {
 	if (r < 32) {
 		return currentDebugMIPS->GetRegName(0, r);
 	}
@@ -259,7 +259,7 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 
 	switch (type) {
 	case 'G':
-		snprintf(buf, bufSize, "%s", GetGPRName(param));
+		snprintf(buf, bufSize, "%s", GetGPRName(param).c_str());
 		break;
 	case 'F':
 		if (param >= 32) {

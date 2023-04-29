@@ -62,7 +62,7 @@ public:
 		static int r[3] = { 32, 32, 128 };
 		return r[cat];
 	}
-	const char *GetRegName(int cat, int index) override;
+	std::string GetRegName(int cat, int index) override;
 
 	void PrintRegValue(int cat, int index, char *out, size_t outSize) override {
 		switch (cat) {

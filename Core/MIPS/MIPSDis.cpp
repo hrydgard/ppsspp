@@ -34,9 +34,9 @@
 #define _POS  ((op>>6 ) & 0x1F)
 #define _SIZE ((op>>11) & 0x1F)
 
-#define RN(i) currentDebugMIPS->GetRegName(0,i)
-#define FN(i) currentDebugMIPS->GetRegName(1,i)
-//#define VN(i) currentMIPS->GetRegName(2,i)
+#define RN(i) (currentDebugMIPS->GetRegName(0, i).c_str())
+#define FN(i) (currentDebugMIPS->GetRegName(1, i).c_str())
+//#define VN(i) (currentDebugMIPS->GetRegName(2, i).c_str())
 
 namespace MIPSDis
 {

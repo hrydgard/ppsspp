@@ -847,9 +847,9 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo &dest, bool 
 		
 		addressSymbol = g_symbolMap->GetLabelString(immediate);
 		if (!addressSymbol.empty() && insertSymbols) {
-			snprintf(buffer, sizeof(buffer), "%s,%s", cpuDebug->GetRegName(0, rt), addressSymbol.c_str());
+			snprintf(buffer, sizeof(buffer), "%s,%s", cpuDebug->GetRegName(0, rt).c_str(), addressSymbol.c_str());
 		} else {
-			snprintf(buffer, sizeof(buffer), "%s,0x%08X", cpuDebug->GetRegName(0, rt), immediate);
+			snprintf(buffer, sizeof(buffer), "%s,0x%08X", cpuDebug->GetRegName(0, rt).c_str(), immediate);
 		}
 
 		dest.params = buffer;
@@ -862,9 +862,9 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo &dest, bool 
 
 		addressSymbol = g_symbolMap->GetLabelString(immediate);
 		if (!addressSymbol.empty() && insertSymbols) {
-			snprintf(buffer, sizeof(buffer), "%s,%s", cpuDebug->GetRegName(0, rt), addressSymbol.c_str());
+			snprintf(buffer, sizeof(buffer), "%s,%s", cpuDebug->GetRegName(0, rt).c_str(), addressSymbol.c_str());
 		} else {
-			snprintf(buffer, sizeof(buffer), "%s,0x%08X", cpuDebug->GetRegName(0, rt), immediate);
+			snprintf(buffer, sizeof(buffer), "%s,0x%08X", cpuDebug->GetRegName(0, rt).c_str(), immediate);
 		}
 
 		dest.params = buffer;

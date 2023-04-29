@@ -27,6 +27,7 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -60,12 +61,12 @@ public:
 			char reg[8];
 			snprintf(reg, sizeof(reg), "r%d", i);
 
-			if (strcasecmp(str, reg) == 0 || strcasecmp(str, cpu->GetRegName(0, i)) == 0)
+			if (strcasecmp(str, reg) == 0 || strcasecmp(str, cpu->GetRegName(0, i).c_str()) == 0)
 			{
 				referenceIndex = i;
 				return true;
 			}
-			else if (strcasecmp(str, cpu->GetRegName(1, i)) == 0)
+			else if (strcasecmp(str, cpu->GetRegName(1, i).c_str()) == 0)
 			{
 				referenceIndex = REF_INDEX_FPU | i;
 				return true;
@@ -81,7 +82,7 @@ public:
 
 		for (int i = 0; i < 128; i++)
 		{
-			if (strcasecmp(str, cpu->GetRegName(2, i)) == 0)
+			if (strcasecmp(str, cpu->GetRegName(2, i).c_str()) == 0)
 			{
 				referenceIndex = REF_INDEX_VFPU | i;
 				return true;
@@ -261,9 +262,7 @@ const char *MIPSDebugInterface::GetName()
 	return ("R4");
 }
 
-// NOT threadsafe.
-const char *MIPSDebugInterface::GetRegName(int cat, int index)
-{
+std::string MIPSDebugInterface::GetRegName(int cat, int index) {
 	static const char *regName[32] = {
 		"zero",  "at",    "v0",    "v1",
 		"a0",    "a1",    "a2",    "a3",
@@ -274,23 +273,20 @@ const char *MIPSDebugInterface::GetRegName(int cat, int index)
 		"t8",    "t9",    "k0",    "k1",
 		"gp",    "sp",    "fp",    "ra"
 	};
+	static const char *fpRegName[32] = {
+		"f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7",
+		"f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15",
+		"f16", "f16", "f18", "f19", "f20", "f21", "f22", "f23",
+		"f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",
+	};
 
-	// really nasty hack so that this function can be called several times on one line of c++.
-	static int access = 0;
-	access++;
-	access &= 3;
-	static char temp[4][16];
-
-	if (cat == 0) {
+	if (cat == 0 && (unsigned)index < sizeof(regName)) {
 		return regName[index];
-	} else if (cat == 1) {
-		snprintf(temp[access], sizeof(temp[access]), "f%d", index);
-		return temp[access];
+	} else if (cat == 1 && (unsigned)index < sizeof(fpRegName)) {
+		return fpRegName[index];
 	} else if (cat == 2) {
-		snprintf(temp[access], sizeof(temp[access]), "v%03x", index);
-		return temp[access];
-	} else {
-		return "???";
+		return GetVectorNotation(index, V_Single);
 	}
+	return "???";
 }
 
