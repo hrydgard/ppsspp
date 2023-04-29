@@ -1171,6 +1171,7 @@ int main(int argc, char *argv[]) {
 					KeyInput key;
 					key.deviceId = DEVICE_ID_MOUSE;
 					key.flags = KEY_DOWN;
+#if SDL_VERSION_ATLEAST(2, 0, 18)
 					if (event.wheel.preciseY != 0.0f) {
 						// Should the scale be DPI-driven?
 						const float scale = 30.0f;
@@ -1184,6 +1185,7 @@ int main(int argc, char *argv[]) {
 						NativeKey(key);
 						break;
 					}
+#endif
 					// TODO: Should we even keep the "non-precise" events?
 					if (event.wheel.y > 0) {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
