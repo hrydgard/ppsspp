@@ -351,8 +351,6 @@ static void CustomApplicationMain (int argc, char **argv)
 
 @end
 
-
-
 #ifdef main
 #  undef main
 #endif

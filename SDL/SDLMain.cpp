@@ -75,7 +75,8 @@ SDLJoystick *joystick = NULL;
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
 
-static int g_QuitRequested = 0;
+static bool g_QuitRequested = false;
+static bool g_RestartRequested = false;
 
 static int g_DesktopWidth = 0;
 static int g_DesktopHeight = 0;
@@ -189,8 +190,10 @@ void System_Vibrate(int length_ms) {
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
+	case SystemRequestType::RESTART_APP:
+		g_RestartRequested = true;
+		return true;
 	case SystemRequestType::EXIT_APP:
-	case SystemRequestType::RESTART_APP:  // Not sure how we best do this, but do a clean exit, better than being stuck in a bad state.
 		// Do a clean exit
 		g_QuitRequested = true;
 		return true;
@@ -1277,14 +1280,15 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 		}
-		if (g_QuitRequested)
+		if (g_QuitRequested || g_RestartRequested)
 			break;
 		const uint8_t *keys = SDL_GetKeyboardState(NULL);
 		if (emuThreadState == (int)EmuThreadState::DISABLED) {
 			UpdateRunLoop();
 		}
-		if (g_QuitRequested)
+		if (g_QuitRequested || g_RestartRequested)
 			break;
+
 #if !defined(MOBILE_DEVICE)
 		if (lastUIState != GetUIState()) {
 			lastUIState = GetUIState();
@@ -1334,9 +1338,7 @@ int main(int argc, char *argv[]) {
 				break;
 		}
 
-
 		graphicsContext->SwapBuffers();
-
 
 		{
 			std::lock_guard<std::mutex> guard(g_mutexWindow);
@@ -1393,5 +1395,12 @@ int main(int argc, char *argv[]) {
 #ifdef HAVE_LIBNX
 	socketExit();
 #endif
+
+	// If a restart was requested (and supported on this platform), respawn the executable.
+	if (g_RestartRequested) {
+#if PPSSPP_PLATFORM(MAC)
+		RestartMacApp();
+#endif
+	}
 	return 0;
 }
