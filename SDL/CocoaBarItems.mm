@@ -18,6 +18,7 @@
 #include "GPU/GPUInterface.h"
 #include "Common/File/Path.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
 #include "Core/Config.h"
 #include "Common/Data/Text/I18n.h"
@@ -551,6 +552,10 @@ TOGGLE_METHOD(ShowDebugStats, g_Config.bShowDebugStats, NativeMessageReceived("c
             break;
         }
     }
+
+    // TODO: Use same command line params as the previous startup?
+    // Note that this does a clean shutdown, so the config will be saved automatically.
+    System_RestartApp("");
 }
 
 -(NSControlStateValue) controlStateForBool: (BOOL)boolValue {
