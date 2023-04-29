@@ -484,6 +484,7 @@ public:
 	// Double edged sword: much easier debugging, but not accurate.
 	bool bSkipDeadbeefFilling;
 	bool bFuncHashMap;
+	std::string sSkipFuncHashMap;
 	bool bDebugMemInfoDetailed;
 	bool bDrawFrameGraph;
 
