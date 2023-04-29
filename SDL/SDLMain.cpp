@@ -192,6 +192,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	switch (type) {
 	case SystemRequestType::RESTART_APP:
 		g_RestartRequested = true;
+		// TODO: Also save param1 and then split it into an argv.
 		return true;
 	case SystemRequestType::EXIT_APP:
 		// Do a clean exit
@@ -1400,6 +1401,10 @@ int main(int argc, char *argv[]) {
 	if (g_RestartRequested) {
 #if PPSSPP_PLATFORM(MAC)
 		RestartMacApp();
+#elif PPSSPP_PLATFORM(LINUX)
+		// Hackery from https://unix.stackexchange.com/questions/207935/how-to-restart-or-reset-a-running-process-in-linux,
+		char *exec_argv[] = { argv[0], nullptr };
+		execv("/proc/self/exe", exec_argv);
 #endif
 	}
 	return 0;
