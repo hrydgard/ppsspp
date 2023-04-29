@@ -44,8 +44,10 @@ android {
 			}
 		}
 	}
-	compileSdkVersion 32
+
+	compileSdkVersion 33
 	ndkVersion "21.4.7075529"
+
 
 	defaultConfig {
 		applicationId 'org.ppsspp.ppsspp'
