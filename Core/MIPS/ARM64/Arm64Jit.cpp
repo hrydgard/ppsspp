@@ -372,7 +372,7 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		INFO_LOG(JIT, "=============== mips %d ===============", blocks.GetNumBlocks());
 		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
-			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, true);
+			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, sizeof(temp), true);
 			INFO_LOG(JIT, "M: %08x   %s", cpc, temp);
 		}
 	}

@@ -204,7 +204,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 			default:
 			{
 				char temp[256];
-				MIPSDisAsm(MIPSOpcode(op), 0, temp);
+				MIPSDisAsm(MIPSOpcode(op), 0, temp, sizeof(temp));
 				ERROR_LOG_REPORT(LOADER, "ARGH IT'S AN UNKNOWN RELOCATION!!!!!!!! %08x, type=%d : %s", addr, type, temp);
 			}
 			break;

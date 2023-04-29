@@ -283,7 +283,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 		NOTICE_LOG(JIT, "=============== mips %08x ===============", em_address);
 		for (u32 cpc = em_address; cpc != GetCompilerPC(); cpc += 4) {
 			temp2[0] = 0;
-			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp2, true);
+			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp2, sizeof(temp2), true);
 			NOTICE_LOG(JIT, "M: %08x   %s", cpc, temp2);
 		}
 	}

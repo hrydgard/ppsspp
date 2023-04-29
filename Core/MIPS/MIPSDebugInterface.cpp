@@ -22,11 +22,11 @@
 #include <strings.h>
 #endif
 
+#include "Common/StringUtils.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
-
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -189,14 +189,11 @@ private:
 
 
 
-const char *MIPSDebugInterface::disasm(unsigned int address, unsigned int align)
-{
-	static char mojs[256];
-	if (Memory::IsValidAddress(address))
-		MIPSDisAsm(Memory::Read_Opcode_JIT(address), address, mojs);
+void MIPSDebugInterface::DisAsm(u32 pc, char *out, size_t outSize) {
+	if (Memory::IsValidAddress(pc))
+		MIPSDisAsm(Memory::Read_Opcode_JIT(pc), pc, out, outSize);
 	else
-		strcpy(mojs, "-");
-	return mojs;
+		truncate_cpy(out, outSize, "-");
 }
 
 unsigned int MIPSDebugInterface::readMemory(unsigned int address) {

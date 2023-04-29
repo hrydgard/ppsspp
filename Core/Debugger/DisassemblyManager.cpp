@@ -766,7 +766,8 @@ bool DisassemblyOpcode::disassemble(u32 address, DisassemblyLineInfo &dest, bool
 		cpuDebug = DisassemblyManager::getCpu();
 
 	char opcode[64],arguments[256];
-	const char *dizz = cpuDebug->disasm(address, 4);
+	char dizz[512];
+	cpuDebug->DisAsm(address, dizz, sizeof(dizz));
 	parseDisasm(dizz,opcode,arguments,insertSymbols);
 	dest.type = DISTYPE_OPCODE;
 	dest.name = opcode;
