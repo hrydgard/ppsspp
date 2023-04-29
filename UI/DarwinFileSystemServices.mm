@@ -115,3 +115,13 @@ void DarwinFileSystemServices::setUserPreferredMemoryStickDirectory(Path path) {
     g_Config.memStickDirectory = path;
 }
 
+void RestartMacApp() {
+#if PPSSPP_PLATFORM(MAC)
+    NSURL *bundleURL = NSBundle.mainBundle.bundleURL;
+    NSTask *task = [[NSTask alloc] init];
+    task.executableURL = [NSURL fileURLWithPath:@"/usr/bin/open"];
+    task.arguments = @[@"-n", bundleURL.path];
+    [task launch];
+    exit(0);
+#endif
+}
