@@ -511,7 +511,7 @@ ItemInfoUWP GetFakeFolderInfo(std::string folder) {
 	info.changeTime = 1000;
 	info.creationTime = 1000;
 
-	info.attributes = 438;
+	info.attributes = FILE_ATTRIBUTE_DIRECTORY;
 
 	return info;
 }

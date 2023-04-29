@@ -1892,6 +1892,12 @@ UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e)
 
 UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
 	System_Notify(SystemNotification::TOGGLE_DEBUG_CONSOLE);
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+	if (g_Config.bEnableLogging) {
+		// Create log file incase log was off, to avoid restart
+		LogManager::GetInstance()->ChangeFileLog(GetLogFile().c_str());
+	}
+#endif
 	return UI::EVENT_DONE;
 }
 
