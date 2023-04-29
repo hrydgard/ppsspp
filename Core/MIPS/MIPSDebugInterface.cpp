@@ -159,7 +159,7 @@ public:
 		return EXPR_TYPE_UINT;
 	}
 	
-	bool getMemoryValue(uint32_t address, int size, uint32_t& dest, char* error, size_t errorBufSize) override {
+	bool getMemoryValue(uint32_t address, int size, uint32_t& dest, std::string *error) override {
 		// We allow, but ignore, bad access.
 		// If we didn't, log/condition statements that reference registers couldn't be configured.
 		uint32_t valid = Memory::ValidSize(address, size);
@@ -179,7 +179,7 @@ public:
 			return true;
 		}
 
-		snprintf(error, errorBufSize, "Unexpected memory access size %d", size);
+		*error = StringFromFormat("Unexpected memory access size %d", size);
 		return false;
 	}
 
