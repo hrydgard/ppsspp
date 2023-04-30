@@ -196,6 +196,17 @@ void __DisplayGetDebugStats(char *stats, size_t bufsize) {
 		statbuf);
 }
 
+// On like 90hz, 144hz, etc, we return 60.0f as the framerate target. We only target other
+// framerates if they're close to 60.
+static float FramerateTarget() {
+	float target = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
+	if (target < 57.0 || target > 63.0f) {
+		return 60.0f;
+	} else {
+		return target;
+	}
+}
+
 bool DisplayIsRunningSlow() {
 	// Allow for some startup turbulence for 8 seconds before assuming things are bad.
 	if (fpsHistoryValid >= 8) {
@@ -209,7 +220,7 @@ bool DisplayIsRunningSlow() {
 			best = std::max(fpsHistory[index], best);
 		}
 
-		return best < System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE) * 0.97;
+		return best < FramerateTarget() * 0.97;
 	}
 
 	return false;
