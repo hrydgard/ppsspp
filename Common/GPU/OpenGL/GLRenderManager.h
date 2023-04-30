@@ -612,6 +612,11 @@ public:
 	}
 
 	void BindTexture(int slot, GLRTexture *tex) {
+		if (!curRenderStep_ && !tex) {
+			// Likely a pre-emptive bindtexture for D3D11 to avoid hazards. Not necessary.
+			// This can happen in BlitUsingRaster.
+			return;
+		}
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		_dbg_assert_(slot < MAX_GL_TEXTURE_SLOTS);
 		GLRRenderData data{ GLRRenderCommand::BINDTEXTURE };
