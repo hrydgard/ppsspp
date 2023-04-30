@@ -125,9 +125,20 @@ void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect
 		if (rotated) {
 			wDim = 272.0f;
 		}
+
+		int zoom = g_Config.iInternalResolution;
+		if (zoom == 0) {
+			// Auto (1:1) mode, not super meaningful with integer scaling, but let's do something that makes
+			// some sense. use the longest dimension, just to have something. round down.
+			if (!g_Config.IsPortrait()) {
+				zoom = (PSP_CoreParameter().pixelWidth) / 480;
+			} else {
+				zoom = (PSP_CoreParameter().pixelHeight) / 480;
+			}
+		}
 		// If integer scaling, limit ourselves to even multiples of the rendered resolution,
 		// to make sure all the pixels are square.
-		wDim *= g_Config.iInternalResolution;
+		wDim *= zoom;
 		outW = std::max(1.0f, floorf(outW / wDim)) * wDim;
 		outH = outW / origRatio;
 	}
