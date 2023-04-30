@@ -3,10 +3,6 @@
 // Email: bashar@astifan.online
 // Telegram: @basharastifan
 
-// Functions:
-// ChooseFolder()
-// ChooseFile(std::vector<std::string> exts)
-
 #pragma once
 
 #include <ppl.h>

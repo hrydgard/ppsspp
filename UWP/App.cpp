@@ -14,7 +14,6 @@
 
 #include <ppltasks.h>
 
-#include <UWPHelpers/StorageExtensions.h>
 #include <UWPHelpers/LaunchItem.h>
 #include <regex>
 

@@ -4,19 +4,12 @@
 // Telegram: @basharastifan
 // GitHub: https://github.com/basharast/UWP2Win32
 
-// Functions:
-// GetDataFromLocalSettings(std::string key)
-// AddDataToLocalSettings(std::string key, std::string data, bool replace)
-// 
-// FillLookupList()
-
 #pragma once
 
+#include <list>
 #include <string>
 
 // Local settings
 std::string GetDataFromLocalSettings(std::string key);
 bool AddDataToLocalSettings(std::string key, std::string data, bool replace);
-
-// Lookup list
-void FillLookupList();
+std::list<std::string> GetFutureAccessList();

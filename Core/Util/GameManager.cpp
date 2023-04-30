@@ -48,10 +48,6 @@
 #include "Core/Util/GameManager.h"
 #include "Common/Data/Text/I18n.h"
 
-#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-#include "UWP/UWPHelpers/StorageManager.h"
-#endif
-
 GameManager g_GameManager;
 
 static struct zip *ZipOpenPath(Path fileName) {
@@ -79,12 +75,6 @@ GameManager::GameManager() {
 
 Path GameManager::GetTempFilename() const {
 #ifdef _WIN32
-#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-	std::string tmpFile = GetTempFile("PSP.tmp");
-	if (!tmpFile.empty()) {
-		return Path(tmpFile);
-	}
-#endif
 	wchar_t tempPath[MAX_PATH];
 	GetTempPath(MAX_PATH, tempPath);
 	wchar_t buffer[MAX_PATH];

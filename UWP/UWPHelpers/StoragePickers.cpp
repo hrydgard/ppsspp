@@ -3,14 +3,8 @@
 // Email: bashar@astifan.online
 // Telegram: @basharastifan
 
-// Functions:
-// ChooseFolder()
-// ChooseFile(std::vector<std::string> exts)
-
 #include "pch.h"
 
-#include "StorageLog.h"
-#include "StorageExtensions.h"
 #include "StorageAsync.h"
 #include "StorageAccess.h"
 
@@ -47,7 +41,7 @@ concurrency::task<Platform::String^> PickSingleFile(std::vector<std::string> ext
 
 	if (exts.size() > 0) {
 		for each (auto ext in exts) {
-			filePicker->FileTypeFilter->Append(convert(ext));
+			filePicker->FileTypeFilter->Append(ToPlatformString(ext));
 		}
 	}
 	else
@@ -68,13 +62,13 @@ concurrency::task<Platform::String^> PickSingleFile(std::vector<std::string> ext
 
 concurrency::task<std::string> ChooseFile(std::vector<std::string> exts) {
 	return PickSingleFile(exts).then([](Platform::String^ filePath) {
-		return convert(filePath);
+		return FromPlatformString(filePath);
 	});
 }
 
 concurrency::task<std::string> ChooseFolder() {
 	return PickSingleFolder().then([](Platform::String^ folderPath) {
-		return convert(folderPath);
+		return FromPlatformString(folderPath);
 	});
 
 }

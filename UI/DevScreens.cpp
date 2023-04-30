@@ -67,7 +67,7 @@
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 
-#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+#if PPSSPP_PLATFORM(UWP)
 #include "UWP/UWPHelpers/StorageManager.h"
 #endif
 

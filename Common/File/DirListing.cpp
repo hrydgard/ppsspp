@@ -6,10 +6,7 @@
 #include <direct.h>
 #if PPSSPP_PLATFORM(UWP)
 #include <fileapifromapp.h>
-#if !defined(__LIBRETRO__)
-#include "UWP/UWPHelpers/StorageManager.h"
-#include "UWP/UWPHelpers/PPSSPPTypesHelpers.h"
-#endif
+#include <UWP/UWPHelpers/StorageManager.h>
 #endif
 #else
 #include <strings.h>
@@ -71,11 +68,6 @@ bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 	WIN32_FILE_ATTRIBUTE_DATA attrs;
 #if PPSSPP_PLATFORM(UWP)
 	if (!GetFileAttributesExFromAppW(path.ToWString().c_str(), GetFileExInfoStandard, &attrs)) {
-#if !defined(__LIBRETRO__)
-	if (GetFileInfoUWP(path.ToString(), fileInfo)) {
-			return true;
-	}
-#endif
 #else
 	if (!GetFileAttributesExW(path.ToWString().c_str(), GetFileExInfoStandard, &attrs)) {
 #endif
@@ -230,11 +222,9 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 #endif
 	if (hFind == INVALID_HANDLE_VALUE) {
 #if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-		// Getting folder contents need extra work
-		// request must be done within StorageManager
-		auto contents = GetFolderContents(directory.ToString());
-		if (ItemsInfoUWPToFilesInfo(contents, files, filter, filters)) {
-			std::sort(files->begin(), files->end());
+		// This step just to avoid empty results by adding fake folders
+		// It will help also to navigate back between selected folder
+		if(GetFakeFolders(directory, files, filter, filters)){
 			return true;
 		}
 #endif
@@ -337,13 +327,7 @@ std::vector<std::string> GetWindowsDrives()
 		{
 			CHAR driveName[] = { (CHAR)(TEXT('A') + i), TEXT(':'), TEXT('\\'), TEXT('\0') };
 			std::string str(driveName);
-#if !defined(__LIBRETRO__)
-			if (CheckDriveAccess(driveName, true)) {
-				drives.push_back(driveName);
-			}
-#else
 			drives.push_back(driveName);
-#endif
 		}
 	}
 	return drives;

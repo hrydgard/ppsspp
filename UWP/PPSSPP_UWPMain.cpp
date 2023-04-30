@@ -134,8 +134,6 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	// Set log file location
 	if (g_Config.bEnableLogging) {
-		// Do cleanup first
-		CleanupLogs();
 		LogManager::GetInstance()->ChangeFileLog(GetLogFile().c_str());
 	}
 
@@ -590,7 +588,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	{
 		auto dataPackage = ref new DataPackage();
 		dataPackage->RequestedOperation = DataPackageOperation::Copy;
-		dataPackage->SetText(convert(param1));
+		dataPackage->SetText(ToPlatformString(param1));
 		Clipboard::SetContent(dataPackage);
 		return true;
 	}

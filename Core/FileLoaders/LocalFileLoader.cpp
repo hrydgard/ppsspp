@@ -33,9 +33,6 @@
 #include "Common/CommonWindows.h"
 #if PPSSPP_PLATFORM(UWP)
 #include <fileapifromapp.h>
-#if !defined(__LIBRETRO__)
-#include "UWP/UWPHelpers/StorageManager.h"
-#endif
 #endif
 #else
 #include <fcntl.h>
@@ -111,15 +108,7 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 	handle_ = CreateFile(filename.ToWString().c_str(), access, share, nullptr, mode, flags, nullptr);
 #endif
 	if (handle_ == INVALID_HANDLE_VALUE) {
-#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-		//Use UWP StorageManager to get handle
-		handle_ = CreateFileUWP(filename_.ToString(), access, share, mode);
-		if (handle_ == INVALID_HANDLE_VALUE) {
-			return;
-		}
-#else
 		return;
-#endif
 	}
 	LARGE_INTEGER end_offset;
 	const LARGE_INTEGER zero{};
@@ -170,11 +159,7 @@ bool LocalFileLoader::Exists() {
 	if (File::GetFileInfo(filename_, &info)) {
 		return info.exists;
 	} else {
-#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-		return IsExistsUWP(filename_.ToString());
-#else
 		return false;
-#endif
 	}
 }
 
@@ -183,11 +168,7 @@ bool LocalFileLoader::IsDirectory() {
 	if (File::GetFileInfo(filename_, &info)) {
 		return info.exists && info.isDirectory;
 	}
-#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-	return IsDirectoryUWP(filename_.ToString());
-#else
 	return false;
-#endif
 }
 
 s64 LocalFileLoader::FileSize() {

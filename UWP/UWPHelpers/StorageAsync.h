@@ -7,11 +7,6 @@
 // Thanks to RetroArch/Libretro team for this idea 
 // This is improved version of the original idea
 
-// Functions:
-// ExecuteTask(out, task) [for IAsyncOperation]
-// ExecuteTask(out, task, def) [for IAsyncOperation]
-// ExecuteTask(action) [for IAsyncAction such as 'Delete']
-
 #pragma once
 
 #include "pch.h"
@@ -20,8 +15,8 @@
 #include <wrl.h>
 #include <wrl/implements.h>
 
-#include "StorageLog.h"
-#include "StorageExtensions.h"
+#include "Common/Log.h"
+#include "UWPUtil.h"
 
 using namespace Windows::UI::Core;
 
@@ -38,11 +33,11 @@ T TaskHandler(std::function<concurrency::task<T>()> wtask, T def)
 	wtask().then([&](concurrency::task<T> t) {
 		try
 	    {
-		result = t.get();
+		    result = t.get();
 	    }
 	    catch (Platform::Exception^ exception_)
 	    {
-			UWP_ERROR_LOG(UWPSMT, convertToChar(exception_->Message));
+			ERROR_LOG(FILESYS, FromPlatformString(exception_->Message).c_str());
 	    }
 		done = true;
 	});
@@ -86,7 +81,12 @@ bool ActionPass(Windows::Foundation::IAsyncAction^ action);
 template<typename T>
 void ExecuteTask(T& out, Windows::Foundation::IAsyncOperation<T>^ task)
 {
-	out = TaskPass<T>(task, T());
+	try {
+		out = TaskPass<T>(task, T());
+	}
+	catch (...) {
+		out = T();
+	}
 };
 
 // For specific return default value
@@ -96,7 +96,12 @@ void ExecuteTask(T& out, Windows::Foundation::IAsyncOperation<T>^ task)
 template<typename T>
 void ExecuteTask(T& out, Windows::Foundation::IAsyncOperation<T>^ task, T def)
 {
-	out = TaskPass<T>(task, def);
+	try{
+	    out = TaskPass<T>(task, def);
+	}
+	catch (...) {
+		out = def;
+	}
 };
 
 

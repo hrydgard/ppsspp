@@ -32,9 +32,6 @@
 */
 #ifdef MS_UWP
 #include <fileapifromapp.h>
-#if !defined(__LIBRETRO__)
-#include "UWP/UWPHelpers/UWP2C.h"
-#endif
 #endif
 
 #include "zip_source_file_win32.h"
@@ -47,18 +44,11 @@ static char *utf16_strdup(const char *string);
 #ifdef MS_UWP && !defined(__LIBRETRO__)
 static BOOL __stdcall GetFileAttr(const void* name, GET_FILEEX_INFO_LEVELS info_level, void* lpFileInformation) {
 	BOOL state = GetFileAttributesExFromAppW(name, info_level, lpFileInformation);
-	if (state == FALSE) {
-		// Ignore `info_level` not in use for now
-		state = GetFileAttributesUWP(name, lpFileInformation);
-	}
 	return state;
 }
 
 static BOOL __stdcall DelFile(const void* name) {
 	BOOL state = DeleteFileFromAppW(name);
-	if (state == FALSE) {
-		state = DeleteFileUWP(name);
-	}
 	return state;
 }
 
@@ -130,11 +120,6 @@ utf16_create_file(const char *name, DWORD access, DWORD share_mode, PSECURITY_AT
     return CreateFile2((const wchar_t *)name, access, share_mode, creation_disposition, &extParams);
 #else
     HANDLE h = CreateFile2FromAppW((const wchar_t *)name, access, share_mode, creation_disposition, NULL);
-#if !defined(__LIBRETRO__)
-	if (h == INVALID_HANDLE_VALUE) {
-		h = CreateFileUWP(name, (int)access, (int)share_mode, (int)creation_disposition);
-	}
-#endif
 	return h;
 #endif
 #else

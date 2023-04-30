@@ -7,20 +7,20 @@
 // Thanks to RetroArch/Libretro team for this idea 
 // This is improved version of the original idea
 
-// Functions:
-// ExecuteTask(out, task) [for IAsyncOperation]
-// ExecuteTask(out, task, def) [for IAsyncOperation]
-// ExecuteTask(action) [for IAsyncAction such as 'Delete']
-
 #include "StorageAsync.h"
 
 bool ActionPass(Windows::Foundation::IAsyncAction^ action)
 {
-	return TaskHandler<bool>([&]() {
-		return concurrency::create_task(action).then([]() {
-			return true;
-			});
-		}, false);
+	try {
+		return TaskHandler<bool>([&]() {
+			return concurrency::create_task(action).then([]() {
+				return true;
+				});
+			}, false);
+	}
+	catch (...) {
+		return false;
+	}
 }
 
 // Async action such as 'Delete' file

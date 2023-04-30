@@ -8,7 +8,7 @@
 #include <fcntl.h>
 
 #include "Common/Log.h"
-#include "StorageExtensions.h"
+#include "UWPUtil.h"
 #include <regex>
 
 
@@ -41,7 +41,7 @@ public:
 
 				if (arg->Name == "cmd")
 				{
-					auto command = convert(arg->Value);
+					auto command = FromPlatformString(arg->Value);
 					DEBUG_LOG(FILESYS, "Launch command %s", command.c_str());
 
 					std::regex rgx("\"(.+\[^\/]+)\"");
@@ -59,7 +59,7 @@ public:
 					}
 				}
 				else if (arg->Name == "launchOnExit") {
-					launchOnExit = convert(arg->Value);
+					launchOnExit = FromPlatformString(arg->Value);
 					DEBUG_LOG(FILESYS, "On exit URI %s", launchOnExit.c_str());
 				}
 			}
@@ -89,7 +89,7 @@ public:
 	std::string GetFilePath() {
 		std::string path = launchPath;
 		if (storageFile != nullptr) {
-			path = convert(storageFile->Path);
+			path = FromPlatformString(storageFile->Path);
 		}
 		return path;
 	}
@@ -101,7 +101,7 @@ public:
 
 		if (!launchOnExit.empty()) {
 			DEBUG_LOG(FILESYS, "Calling back %s", launchOnExit.c_str());
-			auto uri = ref new Windows::Foundation::Uri(convert(launchOnExit));
+			auto uri = ref new Windows::Foundation::Uri(ToPlatformString(launchOnExit));
 			Windows::System::Launcher::LaunchUriAsync(uri);
 		}
 		launchOnExit = std::string();

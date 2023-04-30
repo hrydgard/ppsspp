@@ -89,12 +89,14 @@
     <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
     <AppxBundle>Never</AppxBundle>
-    <PackageCertificateThumbprint>C8DEB388B9BC89D1DC61324E4E9D9FE6A796B7AA</PackageCertificateThumbprint>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
-    <AppInstallerUpdateFrequency>1</AppInstallerUpdateFrequency>
+    <AppInstallerUpdateFrequency>0</AppInstallerUpdateFrequency>
     <AppInstallerCheckForUpdateFrequency>OnApplicationRun</AppInstallerCheckForUpdateFrequency>
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <PackageCertificateKeyFile>PPSSPP_UWP_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <GenerateTestArtifacts>True</GenerateTestArtifacts>
+    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
@@ -458,21 +460,10 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="UWPUtil.h" />
     <ClInclude Include="XAudioSoundStream.h" />
-    <ClInclude Include="UWPHelpers\PPSSPPTypesHelpers.h" />
     <ClInclude Include="UWPHelpers\StorageAccess.h" />
     <ClInclude Include="UWPHelpers\StorageAsync.h" />
-    <ClInclude Include="UWPHelpers\StorageConfig.h" />
-    <ClInclude Include="UWPHelpers\StorageExtensions.h" />
-    <ClInclude Include="UWPHelpers\StorageFileW.h" />
-    <ClInclude Include="UWPHelpers\StorageFolderW.h" />
-    <ClInclude Include="UWPHelpers\StorageHandler.h" />
-    <ClInclude Include="UWPHelpers\StorageInfo.h" />
-    <ClInclude Include="UWPHelpers\StorageItemW.h" />
-    <ClInclude Include="UWPHelpers\StorageLog.h" />
     <ClInclude Include="UWPHelpers\StorageManager.h" />
-    <ClInclude Include="UWPHelpers\StoragePath.h" />
     <ClInclude Include="UWPHelpers\StoragePickers.h" />
-    <ClInclude Include="UWPHelpers\UWP2C.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\git-version.cpp">
@@ -485,15 +476,10 @@
     <ClCompile Include="NKCodeFromWindowsSystem.cpp" />
     <ClCompile Include="PPSSPP_UWPMain.cpp" />
     <ClCompile Include="UWPHelpers\LaunchItem.h" />
-    <ClCompile Include="UWPHelpers\PPSSPPTypesHelpers.cpp" />
     <ClCompile Include="UWPHelpers\StorageAccess.cpp" />
     <ClCompile Include="UWPHelpers\StorageAsync.cpp" />
-    <ClCompile Include="UWPHelpers\StorageExtensions.cpp" />
-    <ClCompile Include="UWPHelpers\StorageHandler.cpp" />
     <ClCompile Include="UWPHelpers\StorageManager.cpp" />
-    <ClCompile Include="UWPHelpers\StoragePath.cpp" />
     <ClCompile Include="UWPHelpers\StoragePickers.cpp" />
-    <ClCompile Include="UWPHelpers\UWP2C.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>

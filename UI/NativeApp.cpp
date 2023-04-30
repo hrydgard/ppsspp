@@ -522,7 +522,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	else {
 		INFO_LOG(SYSTEM, "No memstick directory file found (tried to open '%s')", pathResolved.c_str());
 	}
-	SetWorkingFolder(g_Config.memStickDirectory.ToString());
 #elif PPSSPP_PLATFORM(IOS)
 	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory;
 	g_Config.memStickDirectory = DarwinFileSystemServices::appropriateMemoryStickDirectoryToUse();
@@ -788,7 +787,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	DEBUG_LOG(SYSTEM, "ScreenManager!");
 	g_screenManager = new ScreenManager();
 #if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-	if (g_Config.memStickDirectory.empty() || (IsFirstStart() && isLocalState(g_Config.memStickDirectory.ToString()))) {
+	if (g_Config.memStickDirectory.empty() || (g_Config.bFirstRun && isLocalState(g_Config.memStickDirectory.ToString()))) {
 #else
 	if (g_Config.memStickDirectory.empty()) {
 #endif
