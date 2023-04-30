@@ -197,11 +197,16 @@ static bool IsValidNumberFormatString(const std::string &s) {
 	size_t percentCount = 0;
 	for (int i = 0; i < (int)s.size(); i++) {
 		if (s[i] == '%') {
-			percentCount++;
 			if (i < s.size() - 1) {
-				if (s[i] == 's')
+				if (s[i + 1] == 's')
 					return false;
+				if (s[i + 1] == '%') {
+					// Next is another % sign, so it's an escape to emit a % sign, which is fine.
+					i++;
+					continue;
+				}
 			}
+			percentCount++;
 		}
 	}
 	return percentCount == 1;
