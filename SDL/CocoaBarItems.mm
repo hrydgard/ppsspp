@@ -160,7 +160,6 @@ void OSXOpenURL(const char *url) {
 - (void)menuNeedsUpdate:(NSMenu *)menu {
     if ([menu.title isEqualToString: [self localizedMenuString:"Emulation"]]) {
         menu.autoenablesItems = NO;
-        printf("ASD\n");
         // Enable/disable the various items.
         for (NSMenuItem *item in menu.itemArray) {
             switch (item.tag) {
@@ -207,15 +206,21 @@ void OSXOpenURL(const char *url) {
             }
         }
     } else if ([menu.title isEqualToString: [self localizedMenuString:"Debug"]]) {
+        menu.autoenablesItems = NO;
+        GlobalUIState state = GetUIState();
         for (NSMenuItem *item in menu.itemArray) {
             switch ([item tag]) {
                 case 2:
-                    item.state = [self controlStateForBool:g_Config.bAutoRun];
+                    item.state = [self controlStateForBool:!g_Config.bAutoRun];
                     break;
                 case 3:
                     item.state = [self controlStateForBool:g_Config.bIgnoreBadMemAccess];
                     break;
+                case 12:
+                    item.state = [self controlStateForBool:g_Config.bShowDebugStats];
+                    break;
                 default:
+                    item.enabled = state == UISTATE_INGAME ? YES : NO;
                     break;
             }
         }
@@ -366,31 +371,41 @@ void OSXOpenURL(const char *url) {
     [parent addItem:ignoreIllegalRWAction];
     [parent addItem:[NSMenuItem separatorItem]];
 
+    // Tags 1, 2, and 3 are taken above.
+
     NSMenuItem *loadSymbolMapAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Load Map File...") action:@selector(loadMapFile) keyEquivalent:@""];
     loadSymbolMapAction.target = self;
+    loadSymbolMapAction.tag = 4;
 
     NSMenuItem *saveMapFileAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Save Map file...") action:@selector(saveMapFile) keyEquivalent:@""];
     saveMapFileAction.target = self;
+    saveMapFileAction.tag = 5;
 
     NSMenuItem *loadSymFileAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Load .sym File...") action:@selector(loadSymbolsFile) keyEquivalent:@""];
     loadSymFileAction.target = self;
+    loadSymFileAction.tag = 6;
 
     NSMenuItem *saveSymFileAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Save .sym File...") action:@selector(saveSymbolsfile) keyEquivalent:@""];
     saveSymFileAction.target = self;
+    saveSymFileAction.tag = 7;
 
     NSMenuItem *resetSymbolTableAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Reset Symbol Table") action:@selector(resetSymbolTable) keyEquivalent:@""];
     resetSymbolTableAction.target = self;
+    resetSymbolTableAction.tag = 8;
 
     NSMenuItem *takeScreenshotAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Take Screenshot") action:@selector(takeScreenshot) keyEquivalent:@""];
     takeScreenshotAction.target = self;
+    takeScreenshotAction.tag = 9;
 
     NSMenuItem *dumpNextFrameToLogAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Dump Next Frame to Log") action:@selector(dumpNextFrameToLog) keyEquivalent:@""];
     dumpNextFrameToLogAction.target = self;
+    dumpNextFrameToLogAction.tag = 10;
 
     NSMenuItem *copyBaseAddr = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Copy PSP memory base address") action:@selector(copyAddr) keyEquivalent:@""];
     copyBaseAddr.target = self;
+    copyBaseAddr.tag = 11;
 
-    MENU_ITEM(showDebugStatsAction, DESKTOPUI_LOCALIZED("Show Debug Statistics"), @selector(toggleShowDebugStats:), g_Config.bShowDebugStats, 2)
+    MENU_ITEM(showDebugStatsAction, DESKTOPUI_LOCALIZED("Show Debug Statistics"), @selector(toggleShowDebugStats:), g_Config.bShowDebugStats, 12)
 
     [parent addItem:loadSymbolMapAction];
     [parent addItem:saveMapFileAction];
@@ -512,8 +527,15 @@ __VA_ARGS__; /* for any additional updates */ \
 item.state = [self controlStateForBool: ConfigValueName]; \
 }
 
+#define TOGGLE_METHOD_INVERSE(name, ConfigValueName, ...) \
+-(void)toggle##name: (NSMenuItem *)item { \
+ConfigValueName = !ConfigValueName; \
+__VA_ARGS__; /* for any additional updates */ \
+item.state = [self controlStateForBool: !ConfigValueName]; \
+}
+
 TOGGLE_METHOD(Sound, g_Config.bEnableSound)
-TOGGLE_METHOD(BreakOnLoad, g_Config.bAutoRun)
+TOGGLE_METHOD_INVERSE(BreakOnLoad, g_Config.bAutoRun)
 TOGGLE_METHOD(IgnoreIllegalRWs, g_Config.bIgnoreBadMemAccess)
 TOGGLE_METHOD(AutoFrameSkip, g_Config.bAutoFrameSkip, g_Config.UpdateAfterSettingAutoFrameSkip())
 TOGGLE_METHOD(SoftwareRendering, g_Config.bSoftwareRendering)
