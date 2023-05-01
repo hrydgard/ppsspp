@@ -140,7 +140,7 @@ bool TextureReplacer::LoadIni() {
 	bool iniLoaded = ini.LoadFromVFS(*dir, INI_FILENAME);
 
 	if (iniLoaded) {
-		if (!LoadIniValues(ini)) {
+		if (!LoadIniValues(ini, dir)) {
 			delete dir;
 			return false;
 		}
@@ -160,7 +160,7 @@ bool TextureReplacer::LoadIni() {
 				}
 
 				INFO_LOG(G3D, "Loading extra texture ini: %s", overrideFilename.c_str());
-				if (!LoadIniValues(overrideIni, true)) {
+				if (!LoadIniValues(overrideIni, dir, true)) {
 					delete dir;
 					return false;
 				}
@@ -195,7 +195,7 @@ bool TextureReplacer::LoadIni() {
 	return true;
 }
 
-bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
+bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverride) {
 	auto options = ini.GetOrCreateSection("options");
 	std::string hash;
 	options->Get("hash", &hash, "");
@@ -231,12 +231,13 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 	}
 
 	bool filenameWarning = false;
+
+	std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
+
 	if (ini.HasSection("hashes")) {
 		auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
 		// Format: hashname = filename.png
 		bool checkFilenames = g_Config.bSaveNewTextures && !g_Config.bIgnoreTextureFilenames && !vfsIsZip_;
-
-		std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
 
 		for (const auto &item : hashes) {
 			ReplacementCacheKey key(0, 0);
@@ -256,31 +257,57 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 				ERROR_LOG(G3D, "Unsupported syntax under [hashes]: %s", item.first.c_str());
 			}
 		}
+	}
 
-		// Now, translate the filenameMap to the final aliasMap.
-		for (auto &pair : filenameMap) {
-			std::string alias;
-			int mipIndex = 0;
-			for (auto &level : pair.second) {
-				if (level.first == mipIndex) {
-					alias += level.second + "|";
-					mipIndex++;
-				} else {
-					WARN_LOG(G3D, "Non-sequential mip index %d, breaking. filenames=%s", level.first, level.second.c_str());
-					break;
-				}
-			}
-			if (alias == "|") {
-				alias = "";  // marker for no replacement
-			}
-			// Replace any '\' with '/', to be safe and consistent. Since these are from the ini file, we do this on all platforms.
-			for (auto &c : alias) {
-				if (c == '\\') {
-					c = '/';
-				}
-			}
-			aliases_[pair.first] = alias;
+	// Scan the root of the texture folder/zip and preinitialize the hash map.
+	std::vector<File::FileInfo> filesInRoot;
+	dir->GetFileListing("/", &filesInRoot, nullptr);
+	for (auto file : filesInRoot) {
+		if (file.isDirectory)
+			continue;
+		if (file.name.empty() || file.name[0] == '.')
+			continue;
+		Path path(file.name);
+		std::string ext = path.GetFileExtension();
+
+		std::string hash = file.name.substr(0, file.name.size() - ext.size());
+		if (!((hash.size() >= 26 && hash.size() <= 27 && hash[24] == '_') || hash.size() == 24)) {
+			continue;
 		}
+		// OK, it's hash-like enough to try to parse it into the map.
+		if (equalsNoCase(ext, ".ktx2") || equalsNoCase(ext, ".png") || equalsNoCase(ext, ".dds")) {
+			ReplacementCacheKey key(0, 0);
+			int level = 0;  // sscanf might fail to pluck the level, but that's ok, we default to 0. sscanf doesn't write to non-matched outputs.
+			if (sscanf(hash.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
+				INFO_LOG(G3D, "hash-like file in root, adding: %s", file.name.c_str());
+				filenameMap[key][level] = file.name;
+			}
+		}
+	}
+
+	// Now, translate the filenameMap to the final aliasMap.
+	for (auto &pair : filenameMap) {
+		std::string alias;
+		int mipIndex = 0;
+		for (auto &level : pair.second) {
+			if (level.first == mipIndex) {
+				alias += level.second + "|";
+				mipIndex++;
+			} else {
+				WARN_LOG(G3D, "Non-sequential mip index %d, breaking. filenames=%s", level.first, level.second.c_str());
+				break;
+			}
+		}
+		if (alias == "|") {
+			alias = "";  // marker for no replacement
+		}
+		// Replace any '\' with '/', to be safe and consistent. Since these are from the ini file, we do this on all platforms.
+		for (auto &c : alias) {
+			if (c == '\\') {
+				c = '/';
+			}
+		}
+		aliases_[pair.first] = alias;
 	}
 
 	if (filenameWarning) {
