@@ -250,6 +250,9 @@ void DrawEngineGLES::DoFlush() {
 	PROFILE_THIS_SCOPE("flush");
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	
+	// Attempt to gather some information (asserts now upload the game name).
+	_assert_(render_->IsInRenderPass());
+
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();

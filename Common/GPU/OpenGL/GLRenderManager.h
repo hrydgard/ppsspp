@@ -532,6 +532,10 @@ public:
 		pushbuffer->End();
 	}
 
+	bool IsInRenderPass() const {
+		return curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER;
+	}
+
 	// This starts a new step (like a "render pass" in Vulkan).
 	//
 	// After a "CopyFramebuffer" or the other functions that start "steps", you need to call this before
