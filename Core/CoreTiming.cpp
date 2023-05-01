@@ -246,7 +246,7 @@ void Shutdown()
 		delete ev;
 	}
 }
-
+ 
 u64 GetTicks()
 {
 	if (currentMIPS) {
