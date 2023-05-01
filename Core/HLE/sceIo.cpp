@@ -2072,7 +2072,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			return 0;
 		case EMULATOR_DEVCTL__GET_VKEY:
 			if (Memory::IsValidAddress(outPtr) && (argAddr >= 0 && argAddr < NKCODE_MAX)) {
-				Memory::Write_U8(HLEPlugins::PluginDataKeys[argAddr], outPtr);
+				Memory::Write_U8(HLEPlugins::GetKey(argAddr), outPtr);
 			}
 			return 0;
 		}
