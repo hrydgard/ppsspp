@@ -25,6 +25,12 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.15.1
+====================
+- Assorted minor crash fixes ([#17374], [#17370], [#17392], [#17394])
+- Fix for non-png texture replacements when not listed in textures.ini ([#17380])
+- Fix for broken tilt d-pad controls ([#17393])
+
 What's new in 1.15
 ==================
 * Stutter caused by shader compilation has been reduced drastically ([#16873])
