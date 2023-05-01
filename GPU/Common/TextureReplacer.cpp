@@ -75,10 +75,6 @@ TextureReplacer::~TextureReplacer() {
 	delete vfs_;
 }
 
-void TextureReplacer::Init() {
-	NotifyConfigChanged();
-}
-
 void TextureReplacer::NotifyConfigChanged() {
 	gameID_ = g_paramSFO.GetDiscID();
 

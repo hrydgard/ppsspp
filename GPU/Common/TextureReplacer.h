@@ -96,7 +96,6 @@ public:
 	TextureReplacer(Draw::DrawContext *draw);
 	~TextureReplacer();
 
-	void Init();
 	void NotifyConfigChanged();
 
 	bool Enabled() const { return enabled_; }
