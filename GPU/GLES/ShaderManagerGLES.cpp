@@ -76,12 +76,14 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 		: render_(render), useHWTransform_(useHWTransform) {
 	PROFILE_THIS_SCOPE("shaderlink");
 
+	_assert_(vs);
+	_assert_(fs);
+
 	vs_ = vs;
 
 	std::vector<GLRShader *> shaders;
 	shaders.push_back(vs->shader);
 	shaders.push_back(fs->shader);
-
 
 	std::vector<GLRProgram::Semantic> semantics;
 	semantics.reserve(7);
@@ -873,6 +875,11 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 
 	if (ls == nullptr) {
 		_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
+
+		if (vs == nullptr || fs == nullptr) {
+			// Can't draw. This shouldn't really happen.
+			return nullptr;
+		}
 
 		// Check if we can link these.
 		ls = new LinkedShader(render_, VSID, vs, FSID, fs, vs->UseHWTransform());
