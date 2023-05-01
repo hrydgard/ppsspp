@@ -19,13 +19,25 @@
 #include <cinttypes>
 
 #include "Common/Log.h"
+#include "Core/Config.h"
 #include "Common/File/Path.h"
 #include "Common/File/AndroidStorage.h"
 #include "Common/Data/Encoding/Utf8.h"
 
+#if PPSSPP_PLATFORM(UWP)
+#include <UWP/UWPHelpers/StorageManager.h>
+#endif
+
 bool free_disk_space(const Path &path, int64_t &space) {
 #ifdef _WIN32
 	ULARGE_INTEGER free;
+#if PPSSPP_PLATFORM(UWP)
+	if (path == g_Config.internalDataDirectory) {
+		space = GetLocalFreeSpace();
+	}
+	else
+#endif
+	// Is 'GetDiskFreeSpaceExW' returning wrong values in UWP?
 	if (GetDiskFreeSpaceExW(path.ToWString().c_str(), &free, nullptr, nullptr)) {
 		space = free.QuadPart;
 		return true;

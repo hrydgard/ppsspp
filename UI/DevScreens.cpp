@@ -656,19 +656,11 @@ void SystemInfoScreen::CreateViews() {
 
 	storage->Add(new ItemHeader(si->T("Directories")));
 	// Intentionally non-translated
-#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-	// If location set to local folder the path will be too long to view
-	// it's better to show simplified text like 'LocalState' using 'GetPreviewPath'
-	storage->Add(new InfoItem("MemStickDirectory", GetPreviewPath(g_Config.memStickDirectory.ToVisualString())));
-	storage->Add(new InfoItem("InternalDataDirectory", GetPreviewPath(g_Config.internalDataDirectory.ToVisualString())));
-	storage->Add(new InfoItem("AppCacheDir", GetPreviewPath(g_Config.appCacheDirectory.ToVisualString())));
-	storage->Add(new InfoItem("DefaultCurrentDir", GetPreviewPath(g_Config.defaultCurrentDirectory.ToVisualString())));
-#else
-	storage->Add(new InfoItem("MemStickDirectory", g_Config.memStickDirectory.ToVisualString()));
-	storage->Add(new InfoItem("InternalDataDirectory", g_Config.internalDataDirectory.ToVisualString()));
-	storage->Add(new InfoItem("AppCacheDir", g_Config.appCacheDirectory.ToVisualString()));
-	storage->Add(new InfoItem("DefaultCurrentDir", g_Config.defaultCurrentDirectory.ToVisualString()));
-#endif
+	storage->Add(new InfoItem("MemStickDirectory", g_Config.memStickDirectory.ToShortFriendlyPath()));
+	storage->Add(new InfoItem("InternalDataDirectory", g_Config.internalDataDirectory.ToShortFriendlyPath()));
+	storage->Add(new InfoItem("AppCacheDir", g_Config.appCacheDirectory.ToShortFriendlyPath()));
+	storage->Add(new InfoItem("DefaultCurrentDir", g_Config.defaultCurrentDirectory.ToShortFriendlyPath()));
+
 #if PPSSPP_PLATFORM(ANDROID)
 	storage->Add(new InfoItem("ExtFilesDir", g_extFilesDir));
 	bool scoped = System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE);

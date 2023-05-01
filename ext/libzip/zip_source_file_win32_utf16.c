@@ -41,7 +41,7 @@ static HANDLE __stdcall utf16_create_file(const char *name, DWORD access, DWORD 
 static void utf16_make_tempname(char *buf, size_t len, const char *name, zip_uint32_t i);
 static char *utf16_strdup(const char *string);
 
-#ifdef MS_UWP && !defined(__LIBRETRO__)
+#ifdef MS_UWP
 static BOOL __stdcall GetFileAttr(const void* name, GET_FILEEX_INFO_LEVELS info_level, void* lpFileInformation) {
 	BOOL state = GetFileAttributesExFromAppW(name, info_level, lpFileInformation);
 	return state;
@@ -54,10 +54,10 @@ static BOOL __stdcall DelFile(const void* name) {
 
 zip_win32_file_operations_t ops_utf16 = {
 	utf16_allocate_tempname,
-	utf16_create_file, // Will invoke UWP Storage manager (If needed)
-	DelFile, // Will invoke UWP Storage manager
+	utf16_create_file,
+	DelFile,
 	GetFileAttributesW,
-	GetFileAttr, // Will invoke UWP Storage manager
+	GetFileAttr,
 	utf16_make_tempname,
 	MoveFileExW,
 	SetFileAttributesW,
@@ -119,8 +119,7 @@ utf16_create_file(const char *name, DWORD access, DWORD share_mode, PSECURITY_AT
 
     return CreateFile2((const wchar_t *)name, access, share_mode, creation_disposition, &extParams);
 #else
-    HANDLE h = CreateFile2FromAppW((const wchar_t *)name, access, share_mode, creation_disposition, NULL);
-	return h;
+    return CreateFile2FromAppW((const wchar_t *)name, access, share_mode, creation_disposition, NULL);
 #endif
 #else
     return CreateFileW((const wchar_t *)name, access, share_mode, security_attributes, creation_disposition, file_attributes, template_file);

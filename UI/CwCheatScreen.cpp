@@ -188,16 +188,7 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 		MIPSComp::jit->ClearCache();
 	}
 	if (engine_) {
-#if PPSSPP_PLATFORM(UWP)
-#if !defined(__LIBRETRO__)
-		// UWP storage manager will attempt to launch the file
 		File::OpenFileInEditor(engine_->CheatFilename());
-#else
-		System_LaunchUrl(LaunchUrlType::BROWSER_URL, engine_->CheatFilename().c_str());
-#endif
-#else
-		File::OpenFileInEditor(engine_->CheatFilename());
-#endif
 	}
 	return UI::EVENT_DONE;
 }

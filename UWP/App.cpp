@@ -14,7 +14,7 @@
 
 #include <ppltasks.h>
 
-#include <UWPHelpers/LaunchItem.h>
+#include "UWPHelpers/LaunchItem.h"
 #include <regex>
 
 using namespace UWP;
@@ -237,7 +237,6 @@ void App::OnActivated(CoreApplicationView^ applicationView, IActivatedEventArgs^
 	}
 	if (args->Kind == ActivationKind::Protocol)
 	{
-		unsigned i;
 		ProtocolActivatedEventArgs^ protocolArgs = dynamic_cast<Windows::ApplicationModel::Activation::ProtocolActivatedEventArgs^>(args);
 		launchItem = LaunchItem(protocolArgs);
 	}
@@ -255,7 +254,7 @@ void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
 		g_Config.Save("App::OnSuspending");
 		app->m_deviceResources->Trim();
 	    deferral->Complete();
-		});
+	});
 }
 
 void App::OnResuming(Platform::Object^ sender, Platform::Object^ args) {
@@ -290,14 +289,6 @@ void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ ar
 }
 
 void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args) {
-
-	if (args->Visible == false) {
-		// MainScreen::OnExit and even App::OnWindowClosed
-		// doesn't seem to be called when closing the window
-		// Try to save the config here
-		// OnSuspending should now do the job
-		//g_Config.Save("App::OnVisibilityChanged");
-	}
 	m_windowVisible = args->Visible;
 }
 

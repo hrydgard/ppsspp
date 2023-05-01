@@ -94,7 +94,7 @@ extern AndroidAudioState *g_audioState;
 
 #endif
 
-#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+#if PPSSPP_PLATFORM(UWP)
 #include "UWP/UWPHelpers/StorageManager.h"
 #endif
 
@@ -977,12 +977,13 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
 #endif
 
-#if PPSSPP_PLATFORM(ANDROID)
-	memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(UWP)
+	memstickDisplay_ = g_Config.memStickDirectory.ToShortFriendlyPath();
 	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), I18NCat::NONE));
 	memstickPath->SetEnabled(!PSP_IsInited());
 	memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
 
+#if PPSSPP_PLATFORM(ANDROID)
 	// Display USB path for convenience.
 	std::string usbPath;
 	if (PathToVisualUsbPath(g_Config.memStickDirectory, usbPath)) {
@@ -992,11 +993,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 		}
 		systemSettings->Add(new InfoItem(sy->T("USB"), usbPath))->SetChoiceStyle(true);
 	}
-#elif PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-	memstickDisplay_ = GetPreviewPath(g_Config.memStickDirectory.ToString());
-	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), I18NCat::NONE));
-	memstickPath->SetEnabled(!PSP_IsInited());
-	memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
+#endif
 #elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Save path in My Documents", "Save path in My Documents")));
 	SavePathInMyDocumentChoice->SetEnabled(!PSP_IsInited());
@@ -1892,12 +1889,6 @@ UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e)
 
 UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
 	System_Notify(SystemNotification::TOGGLE_DEBUG_CONSOLE);
-#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-	if (g_Config.bEnableLogging) {
-		// Create log file incase log was off, to avoid restart
-		LogManager::GetInstance()->ChangeFileLog(GetLogFile().c_str());
-	}
-#endif
 	return UI::EVENT_DONE;
 }
 

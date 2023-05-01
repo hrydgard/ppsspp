@@ -146,10 +146,6 @@
 
 #include <Core/HLE/Plugins.h>
 
-#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-#include "UWP/UWPHelpers/StorageManager.h"
-#endif
-
 ScreenManager *g_screenManager;
 std::string config_filename;
 
@@ -450,7 +446,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_VFS.Register("", new DirectoryReader(Path(savegame_dir)));
 
 	g_Config.defaultCurrentDirectory = Path("/");
+#if !PPSSPP_PLATFORM(UWP)
 	g_Config.internalDataDirectory = Path(savegame_dir);
+#endif
 
 #if PPSSPP_PLATFORM(ANDROID)
 	// In Android 12 with scoped storage, due to the above, the external directory
@@ -497,30 +495,24 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #elif PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
 	Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
-	auto pathResolved = Path(ResolvePathUWP(memstickDirFile.ToString()));
-	if (File::Exists(pathResolved)) {
-		INFO_LOG(SYSTEM, "Reading '%s' to find memstick dir.", pathResolved.c_str());
+	if (File::Exists(memstickDirFile)) {
+		INFO_LOG(SYSTEM, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
 		std::string memstickDir;
-		if (File::ReadFileToString(true, pathResolved, memstickDir)) {
+		if (File::ReadFileToString(true, memstickDirFile, memstickDir)) {
 			Path memstickPath(memstickDir);
 			if (!memstickPath.empty() && File::Exists(memstickPath)) {
 				g_Config.memStickDirectory = memstickPath;
 				g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 				g_Config.Reload();
 				INFO_LOG(SYSTEM, "Memstick Directory from memstick_dir.txt: '%s'", g_Config.memStickDirectory.c_str());
-            }
-			else {
+			} else {
 				ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
-				if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
-					// Ask the user to configure a memstick directory.
-					INFO_LOG(SYSTEM, "Asking the user.");
-					g_Config.memStickDirectory.clear();
-				}
+				g_Config.memStickDirectory.clear();
 			}
 		}
 	}
 	else {
-		INFO_LOG(SYSTEM, "No memstick directory file found (tried to open '%s')", pathResolved.c_str());
+		INFO_LOG(SYSTEM, "No memstick directory file found (tried to open '%s')", memstickDirFile.c_str());
 	}
 #elif PPSSPP_PLATFORM(IOS)
 	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory;
@@ -786,11 +778,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	DEBUG_LOG(SYSTEM, "ScreenManager!");
 	g_screenManager = new ScreenManager();
-#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-	if (g_Config.memStickDirectory.empty() || (g_Config.bFirstRun && isLocalState(g_Config.memStickDirectory.ToString()))) {
-#else
 	if (g_Config.memStickDirectory.empty()) {
-#endif
 		INFO_LOG(SYSTEM, "No memstick directory! Asking for one to be configured.");
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
 	} else if (gotoGameSettings) {

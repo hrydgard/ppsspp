@@ -193,7 +193,7 @@ bool PathBrowser::IsListingReady() {
 }
 
 std::string PathBrowser::GetFriendlyPath() const {
-	std::string str = GetPath().ToVisualString();
+	std::string str = GetPath().ToShortFriendlyPath();
 	// Show relative to memstick root if there.
 	if (startsWith(str, aliasMatch_)) {
 		return aliasDisplay_ + str.substr(aliasMatch_.size());

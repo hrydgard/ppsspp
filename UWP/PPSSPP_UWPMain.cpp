@@ -40,7 +40,7 @@
 // UWP Storage helper includes
 #include "UWPHelpers/StorageManager.h"
 #include "UWPHelpers/StorageAsync.h"
-#include <UWPHelpers/LaunchItem.h>
+#include "UWPHelpers/LaunchItem.h"
 
 
 using namespace UWP;
@@ -104,8 +104,9 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 		langRegion = "en_US";
 	}
 
-	std::wstring memstickFolderW = ApplicationData::Current->LocalFolder->Path->Data();
-	g_Config.memStickDirectory = Path(memstickFolderW);
+	std::wstring internalDataFolderW = ApplicationData::Current->LocalFolder->Path->Data();
+	g_Config.internalDataDirectory = Path(internalDataFolderW);
+	g_Config.memStickDirectory = g_Config.internalDataDirectory;
 
 	// On Win32 it makes more sense to initialize the system directories here
 	// because the next place it was called was in the EmuThread, and it's too late by then.
@@ -117,6 +118,10 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	// if it's not loaded here first.
 	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	g_Config.Load();
+
+	if (g_Config.bFirstRun) {
+		g_Config.memStickDirectory.clear();
+	}
 
 	bool debugLogLevel = false;
  
@@ -391,16 +396,6 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 		// Need to resize off the null terminator either way.
 		tempPath.resize(sz);
 		result.push_back(ConvertWStringToUTF8(tempPath));
-
-		// As per below 'getenv' isn't supported
-		// https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/getenv-wgetenv?view=msvc-170
-		/*if (getenv("TMPDIR") && strlen(getenv("TMPDIR")) != 0)
-			result.push_back(getenv("TMPDIR"));
-		if (getenv("TMP") && strlen(getenv("TMP")) != 0)
-			result.push_back(getenv("TMP"));
-		if (getenv("TEMP") && strlen(getenv("TEMP")) != 0)
-			result.push_back(getenv("TEMP"));*/
-
 		return result;
 	}
 
@@ -459,7 +454,10 @@ void System_Toast(const char *str) {}
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_HAS_OPEN_DIRECTORY:
-		return true;
+	{
+		auto ver = Windows::System::Profile::AnalyticsInfo::VersionInfo;
+		return ver->DeviceFamily != "Windows.Xbox";
+	}
 	case SYSPROP_HAS_FILE_BROWSER:
 		return true;
 	case SYSPROP_HAS_FOLDER_BROWSER:
@@ -538,7 +536,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
-		std::vector<std::string> supportedExtensions = { ".cso", ".bin", ".iso", ".elf", ".zip" };
+		std::vector<std::string> supportedExtensions = { ".cso", ".bin", ".iso", ".elf", ".pbp", ".zip"};
 		switch ((BrowseFileType)param3) {
 		case BrowseFileType::INI:
 			supportedExtensions = { ".ini" };
@@ -549,6 +547,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		case BrowseFileType::ANY:
 			supportedExtensions = {};
 			break;
+		default:
+			ERROR_LOG(FILESYS, "Unexpected BrowseFileType: %d", param3);
+			return false;
 		}
 
 		//Call file picker
@@ -614,13 +615,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 }
 
 void System_ShowFileInFolder(const char *path) {
-	auto ver = Windows::System::Profile::AnalyticsInfo::VersionInfo;
-	if (ver->DeviceFamily == "Windows.Xbox") {
-		// Unsupported
-	}
-	else {
-		OpenFolder(std::string(path));
-	}
+	OpenFolder(std::string(path));
 }
 
 void System_LaunchUrl(LaunchUrlType urlType, const char *url) {

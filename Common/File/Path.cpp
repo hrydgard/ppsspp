@@ -12,6 +12,10 @@
 #include "android/jni/app-android.h"
 #include "android/jni/AndroidContentURI.h"
 
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+#include "UWP/UWPHelpers/StorageManager.h"
+#endif
+
 #if HOST_IS_CASE_SENSITIVE
 #include <dirent.h>
 #include <unistd.h>
@@ -292,6 +296,14 @@ std::string Path::ToVisualString(const char *relativeRoot) const {
 	} else {
 		return path_;
 	}
+}
+
+std::string Path::ToShortFriendlyPath() const {
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+	return GetPreviewPath(path_);
+#else
+	return path_.ToVisualString();
+#endif
 }
 
 bool Path::CanNavigateUp() const {
