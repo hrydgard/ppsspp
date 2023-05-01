@@ -1257,7 +1257,7 @@ bool NativeKey(const KeyInput &key) {
 	// INFO_LOG(SYSTEM, "Key code: %i flags: %i", key.keyCode, key.flags);
 #if !defined(MOBILE_DEVICE)
 	if (g_Config.bPauseExitsEmulator) {
-		static std::vector<int> pspKeys;
+		std::vector<int> pspKeys;
 		pspKeys.clear();
 		if (KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), &pspKeys)) {
 			if (std::find(pspKeys.begin(), pspKeys.end(), VIRTKEY_PAUSE) != pspKeys.end()) {
@@ -1267,10 +1267,10 @@ bool NativeKey(const KeyInput &key) {
 		}
 	}
 #endif
+
 	bool retval = false;
-	if (g_screenManager)
-	{
-		HLEPlugins::PluginDataKeys[key.keyCode] = (key.flags & KEY_DOWN) ? 1 : 0;
+	if (g_screenManager) {
+		HLEPlugins::SetKey(key.keyCode, (key.flags & KEY_DOWN) ? 1 : 0);
 		retval = g_screenManager->key(key);
 	}
 

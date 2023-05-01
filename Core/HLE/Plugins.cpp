@@ -29,6 +29,7 @@
 #include "Core/HLE/sceKernelModule.h"
 
 namespace HLEPlugins {
+
 float PluginDataAxis[JOYSTICK_AXIS_MAX];
 std::map<int, uint8_t> PluginDataKeys;
 
@@ -214,4 +215,10 @@ bool HasEnabled() {
 	return anyEnabled;
 }
 
-};
+void SetKey(int key, uint8_t value) {
+	if (anyEnabled) {
+		PluginDataKeys[key] = value;
+	}
+}
+
+}  // namespace
