@@ -633,18 +633,16 @@ void ConfirmMemstickMoveScreen::update() {
 }
 
 UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	auto iz = GetI18NCategory(I18NCat::MEMSTICK);
-
 	// Transfer all the files in /PSP from the original directory.
 	// Should probably be done on a background thread so we can show some UI.
 	// So we probably need another screen for this with a progress bar..
 	// If the directory itself is called PSP, don't go below.
 
 	if (moveData_) {
-		progressReporter_.Set(iz->T("Starting move..."));
+		progressReporter_.Set(T(I18NCat::MEMSTICK, "Starting move..."));
 
 		moveDataTask_ = Promise<MoveResult *>::Spawn(&g_threadManager, [&]() -> MoveResult * {
+			auto ms = GetI18NCategory(I18NCat::MEMSTICK);
 			Path moveSrc = g_Config.memStickDirectory;
 			Path moveDest = newMemstickFolder_;
 			if (moveSrc.GetFilename() != "PSP") {
@@ -666,7 +664,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 				// TODO: Handle failure listing files.
 				std::string error = "Failed to read old directory";
 				INFO_LOG(SYSTEM, "%s", error.c_str());
-				progressReporter_.Set(iz->T(error.c_str()));
+				progressReporter_.Set(ms->T(error.c_str()));
 				return new MoveResult{ false, error };
 			}
 
@@ -757,12 +755,12 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 }
 
 void ConfirmMemstickMoveScreen::FinishFolderMove() {
-	auto iz = GetI18NCategory(I18NCat::MEMSTICK);
+	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
 
 	// Successful so far, switch the memstick folder.
 	if (!SwitchMemstickFolderTo(newMemstickFolder_)) {
 		// TODO: More precise errors.
-		error_ = iz->T("That folder doesn't work as a memstick folder.");
+		error_ = ms->T("That folder doesn't work as a memstick folder.");
 		return;
 	}
 
@@ -779,7 +777,7 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 			// TriggerFinish(DialogResult::DR_OK);
 			screenManager()->switchScreen(new MainScreen());
 		} else {
-			error_ = iz->T("Failed to save config");
+			error_ = ms->T("Failed to save config");
 			RecreateViews();
 		}
 	}
