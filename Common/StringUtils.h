@@ -61,6 +61,10 @@ inline bool endsWithNoCase(const std::string &str, const std::string &what) {
 	return strncasecmp(str.c_str() + offset, what.c_str(), what.size()) == 0;
 }
 
+inline bool equalsNoCase(const std::string &str, const char *what) {
+	return strcasecmp(str.c_str(), what) == 0;
+}
+
 void DataToHexString(const uint8_t *data, size_t size, std::string *output);
 void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t size, std::string* output);
 

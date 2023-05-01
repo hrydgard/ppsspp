@@ -132,26 +132,29 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 
 void ZipFileReader::GetZipListings(const char *path, std::set<std::string> &files, std::set<std::string> &directories) {
 	size_t pathlen = strlen(path);
-	if (path[pathlen - 1] == '/')
-		pathlen--;
+	if (pathlen == 1 && path[0] == '/') {
+		// Root. We simply use a zero length string.
+		pathlen = 0;
+	}
 
 	std::lock_guard<std::mutex> guard(lock_);
 	int numFiles = zip_get_num_files(zip_file_);
 	for (int i = 0; i < numFiles; i++) {
 		const char* name = zip_get_name(zip_file_, i, 0);
 		if (!name)
-			continue;
+			continue;  // shouldn't happen, I think
 		if (!memcmp(name, path, pathlen)) {
-			// The prefix is right. Let's see if this is a file or path.
 			const char *slashPos = strchr(name + pathlen + 1, '/');
 			if (slashPos != 0) {
-				// A directory.
-				std::string dirName = std::string(name + pathlen + 1, slashPos - (name + pathlen + 1));
+				// A directory. Let's pick off the only part we care about.
+				int offset = pathlen;
+				std::string dirName = std::string(name + offset, slashPos - (name + offset));
 				directories.insert(dirName);
-			} else if (name[pathlen] == '/') {
-				const char *fn = name + pathlen + 1;
+			} else {
+				// It's a file.
+				const char *fn = name + pathlen;
 				files.insert(std::string(fn));
-			}  // else, it was a file with the same prefix as the path. like langregion.ini next to lang/.
+			}
 		}
 	}
 }
