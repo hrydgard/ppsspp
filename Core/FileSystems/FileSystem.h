@@ -20,6 +20,7 @@
 #include <vector>
 #include <string>
 #include <cstring>
+#include <cstdint>
 #include <ctime>
 
 #include "Common.h"
