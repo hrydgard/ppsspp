@@ -1487,6 +1487,11 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 }
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
+	_dbg_assert_(vertexCount >= 0);
+	if (vertexCount <= 0) {
+		return;
+	}
+
 	VkBuffer vulkanVbuf, vulkanUBObuf;
 	size_t vbBindOffset = push_->Push(vdata, vertexCount * curPipeline_->stride[0], 4, &vulkanVbuf);
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);

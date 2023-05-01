@@ -121,6 +121,7 @@ public:
 	void GetDebugString(char *buffer, size_t bufSize) const override;
 
 	// When using the returned memory, make sure to bind the returned vkbuf.
+	// It is okay to allocate 0 bytes.
 	uint8_t *Allocate(VkDeviceSize numBytes, VkDeviceSize alignment, VkBuffer *vkbuf, uint32_t *bindOffset) {
 		_dbg_assert_(curBlockIndex_ >= 0);
 		

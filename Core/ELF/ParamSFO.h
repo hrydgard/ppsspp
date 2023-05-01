@@ -29,14 +29,14 @@ class ParamSFOData
 public:
 	void SetValue(std::string key, unsigned int value, int max_size);
 	void SetValue(std::string key, std::string value, int max_size);
-	void SetValue(std::string key, const u8* value, unsigned int size, int max_size);
+	void SetValue(std::string key, const u8 *value, unsigned int size, int max_size);
 
-	int GetValueInt(std::string key);
-	std::string GetValueString(std::string key);
-	u8* GetValueData(std::string key, unsigned int *size);
+	int GetValueInt(std::string key) const;
+	std::string GetValueString(std::string key) const;
+	const u8 *GetValueData(std::string key, unsigned int *size) const;
 
-	std::vector<std::string> GetKeys();
-	std::string GenerateFakeID(std::string filename = "");
+	std::vector<std::string> GetKeys() const;
+	std::string GenerateFakeID(std::string filename = "") const;
 
 	std::string GetDiscID() {
 		const std::string discID = GetValueString("DISC_ID");
@@ -53,7 +53,7 @@ public:
 	}
 
 	bool ReadSFO(const u8 *paramsfo, size_t size);
-	bool WriteSFO(u8 **paramsfo, size_t *size);
+	bool WriteSFO(u8 **paramsfo, size_t *size) const;
 
 	bool ReadSFO(const std::vector<u8> &paramsfo) {
 		if (!paramsfo.empty()) {

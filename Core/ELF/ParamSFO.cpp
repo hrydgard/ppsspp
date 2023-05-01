@@ -54,26 +54,28 @@ void ParamSFOData::SetValue(std::string key, std::string value, int max_size) {
 	values[key].max_size = max_size;
 }
 
-void ParamSFOData::SetValue(std::string key, const u8* value, unsigned int size, int max_size) {
+void ParamSFOData::SetValue(std::string key, const u8 *value, unsigned int size, int max_size) {
 	values[key].type = VT_UTF8_SPE;
-	values[key].SetData(value,size);
+	values[key].SetData(value, size);
 	values[key].max_size = max_size;
 }
 
-int ParamSFOData::GetValueInt(std::string key) {
-	std::map<std::string,ValueData>::iterator it = values.find(key);
+int ParamSFOData::GetValueInt(std::string key) const {
+	std::map<std::string,ValueData>::const_iterator it = values.find(key);
 	if(it == values.end() || it->second.type != VT_INT)
 		return 0;
 	return it->second.i_value;
 }
-std::string ParamSFOData::GetValueString(std::string key) {
-	std::map<std::string,ValueData>::iterator it = values.find(key);
+
+std::string ParamSFOData::GetValueString(std::string key) const {
+	std::map<std::string,ValueData>::const_iterator it = values.find(key);
 	if(it == values.end() || (it->second.type != VT_UTF8))
 		return "";
 	return it->second.s_value;
 }
-u8* ParamSFOData::GetValueData(std::string key, unsigned int *size) {
-	std::map<std::string,ValueData>::iterator it = values.find(key);
+
+const u8 *ParamSFOData::GetValueData(std::string key, unsigned int *size) const {
+	std::map<std::string,ValueData>::const_iterator it = values.find(key);
 	if(it == values.end() || (it->second.type != VT_UTF8_SPE))
 		return 0;
 	if(size)
@@ -83,7 +85,7 @@ u8* ParamSFOData::GetValueData(std::string key, unsigned int *size) {
 	return it->second.u_value;
 }
 
-std::vector<std::string> ParamSFOData::GetKeys() {
+std::vector<std::string> ParamSFOData::GetKeys() const {
 	std::vector<std::string> result;
 	for (const auto &pair : values) {
 		result.push_back(pair.first);
@@ -109,42 +111,69 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 
 	const u8 *data_start = paramsfo + header->data_table_start;
 
+	auto readStringCapped = [paramsfo, size](size_t offset, size_t maxLen) -> std::string {
+		std::string str;
+		while (offset < size) {
+			char c = (char)(paramsfo[offset]);
+			if (c) {
+				str.push_back(c);
+			} else {
+				break;
+			}
+			offset++;
+			if (maxLen != 0 && str.size() == maxLen)
+				break;
+		}
+		return str;
+	};
+
 	for (u32 i = 0; i < header->index_table_entries; i++)
 	{
 		size_t key_offset = header->key_table_start + indexTables[i].key_table_offset;
 		if (key_offset >= size) {
 			return false;
 		}
+
 		size_t data_offset = header->data_table_start + indexTables[i].data_table_offset;
 		if (data_offset >= size) {
 			return false;
 		}
 
-		const char *key = (const char *)(paramsfo + key_offset);
+		std::string key = readStringCapped(key_offset, 0);
+		if (key.empty())
+			continue;  // Likely ran into a truncated PARAMSFO.
+
 		switch (indexTables[i].param_fmt) {
 		case 0x0404:
 			{
+				if (data_offset + 4 > size)
+					continue;
 				// Unsigned int
 				const u32_le *data = (const u32_le *)(paramsfo + data_offset);
 				SetValue(key, *data, indexTables[i].param_max_len);
-				VERBOSE_LOG(LOADER, "%s %08x", key, *data);
+				VERBOSE_LOG(LOADER, "%s %08x", key.c_str(), *data);
 			}
 			break;
 		case 0x0004:
 			// Special format UTF-8
 			{
+				if (data_offset + indexTables[i].param_len > size)
+					continue;
 				const u8 *utfdata = (const u8 *)(paramsfo + data_offset);
-				VERBOSE_LOG(LOADER, "%s %s", key, utfdata);
+				VERBOSE_LOG(LOADER, "%s %s", key.c_str(), utfdata);
 				SetValue(key, utfdata, indexTables[i].param_len, indexTables[i].param_max_len);
 			}
 			break;
 		case 0x0204:
 			// Regular UTF-8
 			{
-				const char *utfdata = (const char *)(paramsfo + data_offset);
-				VERBOSE_LOG(LOADER, "%s %s", key, utfdata);
-				SetValue(key, std::string(utfdata /*, indexTables[i].param_len*/), indexTables[i].param_max_len);
+				// TODO: Likely should use param_len here, but there's gotta be a reason we avoided it before.
+				std::string str = readStringCapped(data_offset, indexTables[i].param_max_len);
+				VERBOSE_LOG(LOADER, "%s %s", key.c_str(), str.c_str());
+				SetValue(key, str, indexTables[i].param_max_len);
 			}
+			break;
+		default:
 			break;
 		}
 	}
@@ -176,7 +205,7 @@ int ParamSFOData::GetDataOffset(const u8 *paramsfo, std::string dataName) {
 	return -1;
 }
 
-bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) {
+bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
 	size_t total_size = 0;
 	size_t key_size = 0;
 	size_t data_size = 0;
@@ -198,7 +227,7 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) {
 	}
 
 	// Padding
-	while((key_size%4)) key_size++;
+	while ((key_size % 4) != 0) key_size++;
 
 	header.key_table_start = sizeof(Header) + header.index_table_entries * sizeof(IndexTable);
 	header.data_table_start = header.key_table_start + (u32)key_size;
@@ -266,20 +295,18 @@ void ParamSFOData::Clear() {
 }
 
 void ParamSFOData::ValueData::SetData(const u8* data, int size) {
-	if(u_value)
-	{
+	if (u_value) {
 		delete[] u_value;
 		u_value = 0;
 	}
-	if(size > 0)
-	{
+	if (size > 0) {
 		u_value = new u8[size];
 		memcpy(u_value, data, size);
 	}
 	u_size = size;
 }
 
-std::string ParamSFOData::GenerateFakeID(std::string filename) {
+std::string ParamSFOData::GenerateFakeID(std::string filename) const {
 	// Generates fake gameID for homebrew based on it's folder name.
 	// Should probably not be a part of ParamSFO, but it'll be called in same places.
 	std::string file = PSP_CoreParameter().fileToStart.ToString();

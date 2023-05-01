@@ -171,6 +171,7 @@ public:
 			int n = i & 3;
 			ui_draw2d.DrawImageRotated(symbols[n], x, y, 1.0f, angle, colorAlpha(colors[n], alpha * 0.1f));
 		}
+		dc.Flush();
 	}
 
 private:
