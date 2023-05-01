@@ -1,6 +1,8 @@
 #pragma once
 
-#include <set>
+#include <mutex>
+#include <string>
+#include <deque>
 
 #include "Common/Math/lin/vec3.h"
 #include "Common/UI/Screen.h"
@@ -12,6 +14,21 @@ class I18NCategory;
 namespace Draw {
 	class DrawContext;
 }
+
+enum class QueuedEventType : u8 {
+	KEY,
+	AXIS,
+	TOUCH,
+};
+
+struct QueuedEvent {
+	QueuedEventType type;
+	union {
+		TouchInput touch;
+		KeyInput key;
+		AxisInput axis;
+	};
+};
 
 class UIScreen : public Screen {
 public:
@@ -57,6 +74,9 @@ private:
 
 	bool recreateViews_ = true;
 	bool lastVertical_;
+
+	std::mutex eventQueueLock_;
+	std::deque<QueuedEvent> eventQueue_;
 };
 
 class UIDialogScreen : public UIScreen {

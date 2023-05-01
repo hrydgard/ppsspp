@@ -60,6 +60,41 @@ void UIScreen::DoRecreateViews() {
 	}
 }
 
+void UIScreen::touch(const TouchInput &touch) {
+	if (root_) {
+		if (ClickDebug && (touch.flags & TOUCH_DOWN)) {
+			INFO_LOG(SYSTEM, "Touch down!");
+			std::vector<UI::View *> views;
+			root_->Query(touch.x, touch.y, views);
+			for (auto view : views) {
+				INFO_LOG(SYSTEM, "%s", view->DescribeLog().c_str());
+			}
+		}
+	}
+
+	std::lock_guard<std::mutex> guard(eventQueueLock_);
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::TOUCH;
+	ev.touch = touch;
+	eventQueue_.push_back(ev);
+}
+
+void UIScreen::axis(const AxisInput &axis) {
+	std::lock_guard<std::mutex> guard(eventQueueLock_);
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::AXIS;
+	ev.axis = axis;
+	eventQueue_.push_back(ev);
+}
+
+bool UIScreen::key(const KeyInput &key) {
+	if (root_ && !ignoreInput_) {
+		// TODO: Make key events async too. The return value is troublesome, though.
+		return UI::KeyEvent(key, root_);
+	}
+	return false;
+}
+
 void UIScreen::update() {
 	bool vertical = UseVerticalLayout();
 	if (vertical != lastVertical_) {
@@ -71,6 +106,39 @@ void UIScreen::update() {
 
 	if (root_) {
 		UpdateViewHierarchy(root_);
+		while (true) {
+			QueuedEvent ev{};
+			{
+				std::lock_guard<std::mutex> guard(eventQueueLock_);
+				if (!eventQueue_.empty()) {
+					ev = eventQueue_.front();
+					eventQueue_.pop_front();
+				} else {
+					break;
+				}
+			}
+			if (ignoreInput_) {
+				continue;
+			}
+			switch (ev.type) {
+			case QueuedEventType::KEY:
+				break;
+			case QueuedEventType::TOUCH:
+				if (ClickDebug && (ev.touch.flags & TOUCH_DOWN)) {
+					INFO_LOG(SYSTEM, "Touch down!");
+					std::vector<UI::View *> views;
+					root_->Query(ev.touch.x, ev.touch.y, views);
+					for (auto view : views) {
+						INFO_LOG(SYSTEM, "%s", view->DescribeLog().c_str());
+					}
+				}
+				UI::TouchEvent(ev.touch, root_);
+				break;
+			case QueuedEventType::AXIS:
+				UI::AxisEvent(ev.axis, root_);
+				break;
+			}
+		}
 	}
 }
 
@@ -146,34 +214,6 @@ TouchInput UIScreen::transformTouch(const TouchInput &touch) {
 	updated.y = (y - g_display.dp_yres * 0.5f) / scale_.y + g_display.dp_yres * 0.5f;
 
 	return updated;
-}
-
-void UIScreen::touch(const TouchInput &touch) {
-	if (root_ && !ignoreInput_) {
-		if (ClickDebug && (touch.flags & TOUCH_DOWN)) {
-			INFO_LOG(SYSTEM, "Touch down!");
-			std::vector<UI::View *> views;
-			root_->Query(touch.x, touch.y, views);
-			for (auto view : views) {
-				INFO_LOG(SYSTEM, "%s", view->DescribeLog().c_str());
-			}
-		}
-
-		UI::TouchEvent(touch, root_);
-	}
-}
-
-bool UIScreen::key(const KeyInput &key) {
-	if (root_ && !ignoreInput_) {
-		return UI::KeyEvent(key, root_);
-	}
-	return false;
-}
-
-void UIScreen::axis(const AxisInput &axis) {
-	if (root_ && !ignoreInput_) {
-		UI::AxisEvent(axis, root_);
-	}
 }
 
 void UIScreen::TriggerFinish(DialogResult result) {
