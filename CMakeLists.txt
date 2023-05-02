@@ -1812,8 +1812,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/WebSocket/GameBroadcaster.h
 	Core/Debugger/WebSocket/GameSubscriber.cpp
 	Core/Debugger/WebSocket/GameSubscriber.h
-	Core/Debugger/WebSocket/ClientConfigSubscriber.cpp.cpp
-	Core/Debugger/WebSocket/ClientConfigSubscriber.cpp.h
+	Core/Debugger/WebSocket/ClientConfigSubscriber.cpp
+	Core/Debugger/WebSocket/ClientConfigSubscriber.h
 	Core/Debugger/WebSocket/GPUBufferSubscriber.cpp
 	Core/Debugger/WebSocket/GPUBufferSubscriber.h
 	Core/Debugger/WebSocket/GPURecordSubscriber.cpp
