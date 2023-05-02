@@ -79,7 +79,7 @@ static const std::vector<SubscriberInit> subscribers({
 	&WebSocketMemoryInit,
 	&WebSocketReplayInit,
 	&WebSocketSteppingInit,
-	&WebSocketClientConfigInit
+	&WebSocketClientConfigInit,
 });
 
 // To handle webserver restart, keep track of how many running.
