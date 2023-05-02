@@ -139,7 +139,7 @@ void GenerateDPadEvent(int digitalX, int digitalY) {
 	static const int dir[4] = { CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP };
 
 	if (digitalX == 0) {
-		__CtrlUpdateButtons(tiltButtonsDown & (CTRL_RIGHT | CTRL_LEFT), 0);
+		__CtrlUpdateButtons(0, tiltButtonsDown & (CTRL_RIGHT | CTRL_LEFT));
 		tiltButtonsDown &= ~(CTRL_LEFT | CTRL_RIGHT);
 	}
 
