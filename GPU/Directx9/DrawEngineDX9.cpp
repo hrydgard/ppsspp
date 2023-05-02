@@ -609,7 +609,7 @@ rotateVBO:
 
 		int indsOffset = 0;
 		if (result.action == SW_NOT_READY)
-			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, indsOffset, maxIndex, &result);
+			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, indsOffset, DECODED_INDEX_BUFFER_SIZE / sizeof(uint16_t), maxIndex, &result);
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
@@ -630,7 +630,7 @@ rotateVBO:
 			device_->SetVertexDeclaration(transformedVertexDecl_);
 			if (result.drawIndexed) {
 				device_->DrawIndexedPrimitiveUP(d3d_prim[prim], 0, maxIndex, D3DPrimCount(d3d_prim[prim], result.drawNumTrans), inds + indsOffset, D3DFMT_INDEX16, result.drawBuffer, sizeof(TransformedVertex));
-			} else {
+			} else if (result.drawNumTrans > 0) {
 				device_->DrawPrimitiveUP(d3d_prim[prim], D3DPrimCount(d3d_prim[prim], result.drawNumTrans), result.drawBuffer, sizeof(TransformedVertex));
 			}
 		} else if (result.action == SW_CLEAR) {
