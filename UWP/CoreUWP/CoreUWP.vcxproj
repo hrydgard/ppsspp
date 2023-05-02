@@ -535,7 +535,7 @@
     <ClCompile Include="..\..\Core\Debugger\WebSocket.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\BreakpointSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\CPUCoreSubscriber.cpp" />
-    <ClInclude Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\DisasmSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\GameBroadcaster.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\GameSubscriber.cpp" />
