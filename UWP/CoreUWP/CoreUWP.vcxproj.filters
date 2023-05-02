@@ -1692,6 +1692,9 @@
     <ClInclude Include="..\..\Core\Debugger\WebSocket\CPUCoreSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
     <ClInclude Include="..\..\Core\Debugger\WebSocket\DisasmSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
