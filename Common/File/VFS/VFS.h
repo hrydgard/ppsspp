@@ -37,6 +37,7 @@ class VFSInterface {
 public:
 	virtual ~VFSInterface() {}
 	virtual uint8_t *ReadFile(const char *path, size_t *size) = 0;
+	// If listing already contains files, it'll be cleared.
 	virtual bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) = 0;
 };
 

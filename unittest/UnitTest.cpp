@@ -930,6 +930,7 @@ bool TestShaderGenerators();
 bool TestSoftwareGPUJit();
 bool TestIRPassSimplify();
 bool TestThreadManager();
+bool TestVFS();
 
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -968,6 +969,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(DepthMath),
 	TEST_ITEM(InputMapping),
 	TEST_ITEM(EscapeMenuString),
+	TEST_ITEM(VFS),
 };
 
 int main(int argc, const char *argv[]) {

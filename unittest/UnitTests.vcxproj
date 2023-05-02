@@ -397,6 +397,7 @@
     <ClCompile Include="TestSoftwareGPUJit.cpp" />
     <ClCompile Include="TestThreadManager.cpp" />
     <ClCompile Include="TestVertexJit.cpp" />
+    <ClCompile Include="TestVFS.cpp" />
     <ClCompile Include="UnitTest.cpp" />
     <ClCompile Include="TestArmEmitter.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>

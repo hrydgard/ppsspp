@@ -811,6 +811,7 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/TestSoftwareGPUJit.cpp \
     $(SRC)/unittest/TestThreadManager.cpp \
     $(SRC)/unittest/TestVertexJit.cpp \
+    $(SRC)/unittest/TestVFS.cpp \
     $(TESTARMEMITTER_FILE) \
     $(SRC)/unittest/UnitTest.cpp
 

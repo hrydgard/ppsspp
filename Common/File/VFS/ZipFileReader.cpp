@@ -38,10 +38,13 @@ ZipFileReader *ZipFileReader::Create(const Path &zipFile, const char *inZipPath,
 		return nullptr;
 	}
 
-	ZipFileReader *reader = new ZipFileReader();
-	reader->zip_file_ = zip_file;
-	truncate_cpy(reader->inZipPath_, inZipPath);
-	return reader;
+	// The inZipPath is supposed to be a folder, and internally in this class, we suffix
+	// folder paths with '/', matching how the zip library works.
+	std::string path = inZipPath;
+	if (!path.empty() && path.back() != '/') {
+		path.push_back('/');
+	}
+	return new ZipFileReader(zip_file, path);
 }
 
 ZipFileReader::~ZipFileReader() {
@@ -50,16 +53,15 @@ ZipFileReader::~ZipFileReader() {
 }
 
 uint8_t *ZipFileReader::ReadFile(const char *path, size_t *size) {
-	char temp_path[2048];
-	snprintf(temp_path, sizeof(temp_path), "%s%s", inZipPath_, path);
+	std::string temp_path = inZipPath_ + path;
 
 	std::lock_guard<std::mutex> guard(lock_);
 	// Figure out the file size first.
 	struct zip_stat zstat;
-	zip_stat(zip_file_, temp_path, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat);
-	zip_file *file = zip_fopen(zip_file_, temp_path, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED);
+	zip_stat(zip_file_, temp_path.c_str(), ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat);
+	zip_file *file = zip_fopen(zip_file_, temp_path.c_str(), ZIP_FL_NOCASE | ZIP_FL_UNCHANGED);
 	if (!file) {
-		ERROR_LOG(IO, "Error opening %s from ZIP", temp_path);
+		ERROR_LOG(IO, "Error opening %s from ZIP", temp_path.c_str());
 		return 0;
 	}
 	uint8_t *contents = new uint8_t[zstat.size + 1];
@@ -72,8 +74,10 @@ uint8_t *ZipFileReader::ReadFile(const char *path, size_t *size) {
 }
 
 bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::FileInfo> *listing, const char *filter = 0) {
-	char path[2048];
-	snprintf(path, sizeof(path), "%s%s", inZipPath_, orig_path);
+	std::string path = std::string(inZipPath_) + orig_path;
+	if (!path.empty() && path.back() != '/') {
+		path.push_back('/');
+	}
 
 	std::set<std::string> filters;
 	std::string tmp;
@@ -95,17 +99,27 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 	// We just loop through the whole ZIP file and deduce what files are in this directory, and what subdirectories there are.
 	std::set<std::string> files;
 	std::set<std::string> directories;
-	GetZipListings(path, files, directories);
+	bool success = GetZipListings(path, files, directories);
+	if (!success) {
+		// This means that no file prefix matched the path.
+		return false;
+	}
+
+	listing->clear();
+
+	INFO_LOG(SYSTEM, "Listing %s", orig_path);
 
 	for (auto diter = directories.begin(); diter != directories.end(); ++diter) {
 		File::FileInfo info;
 		info.name = *diter;
 
 		// Remove the "inzip" part of the fullname.
-		info.fullName = Path(std::string(path).substr(strlen(inZipPath_))) / *diter;
+		std::string relativePath = std::string(path).substr(inZipPath_.size());
+		info.fullName = Path(relativePath + *diter);
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = true;
+		// INFO_LOG(SYSTEM, "Found file: %s (%s)", info.name.c_str(), info.fullName.c_str());
 		listing->push_back(info);
 	}
 
@@ -113,7 +127,8 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 		std::string fpath = path;
 		File::FileInfo info;
 		info.name = *fiter;
-		info.fullName = Path(std::string(path).substr(strlen(inZipPath_))) / *fiter;
+		std::string relativePath = std::string(path).substr(inZipPath_.size());
+		info.fullName = Path(relativePath + *fiter);
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = false;
@@ -123,6 +138,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 				continue;
 			}
 		}
+		// INFO_LOG(SYSTEM, "Found dir: %s (%s)", info.name.c_str(), info.fullName.c_str());
 		listing->push_back(info);
 	}
 
@@ -130,36 +146,44 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 	return true;
 }
 
-void ZipFileReader::GetZipListings(const char *path, std::set<std::string> &files, std::set<std::string> &directories) {
-	size_t pathlen = strlen(path);
-	if (path[pathlen - 1] == '/')
-		pathlen--;
+// path here is from the root, so inZipPath needs to already be added.
+bool ZipFileReader::GetZipListings(const std::string &path, std::set<std::string> &files, std::set<std::string> &directories) {
+	_dbg_assert_(path.empty() || path.back() == '/');
 
 	std::lock_guard<std::mutex> guard(lock_);
 	int numFiles = zip_get_num_files(zip_file_);
+	bool anyPrefixMatched = false;
 	for (int i = 0; i < numFiles; i++) {
 		const char* name = zip_get_name(zip_file_, i, 0);
 		if (!name)
-			continue;
-		if (!memcmp(name, path, pathlen)) {
-			// The prefix is right. Let's see if this is a file or path.
-			const char *slashPos = strchr(name + pathlen + 1, '/');
+			continue;  // shouldn't happen, I think
+		if (startsWith(name, path)) {
+			if (strlen(name) == path.size()) {
+				// Don't want to return the same folder.
+				continue;
+			}
+			const char *slashPos = strchr(name + path.size(), '/');
 			if (slashPos != 0) {
-				// A directory.
-				std::string dirName = std::string(name + pathlen + 1, slashPos - (name + pathlen + 1));
+				anyPrefixMatched = true;
+				// A directory. Let's pick off the only part we care about.
+				size_t offset = path.size();
+				std::string dirName = std::string(name + offset, slashPos - (name + offset));
+				// We might get a lot of these if the tree is deep. The std::set deduplicates.
 				directories.insert(dirName);
-			} else if (name[pathlen] == '/') {
-				const char *fn = name + pathlen + 1;
+			} else {
+				anyPrefixMatched = true;
+				// It's a file.
+				const char *fn = name + path.size();
 				files.insert(std::string(fn));
-			}  // else, it was a file with the same prefix as the path. like langregion.ini next to lang/.
+			}
 		}
 	}
+	return anyPrefixMatched;
 }
 
 bool ZipFileReader::GetFileInfo(const char *path, File::FileInfo *info) {
 	struct zip_stat zstat;
-	char temp_path[1024];
-	snprintf(temp_path, sizeof(temp_path), "%s%s", inZipPath_, path);
+	std::string temp_path = inZipPath_ + path;
 
 	// Clear some things to start.
 	info->isDirectory = false;
@@ -168,7 +192,7 @@ bool ZipFileReader::GetFileInfo(const char *path, File::FileInfo *info) {
 
 	{
 		std::lock_guard<std::mutex> guard(lock_);
-		if (0 != zip_stat(zip_file_, temp_path, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat)) {
+		if (0 != zip_stat(zip_file_, temp_path.c_str(), ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat)) {
 			// ZIP files do not have real directories, so we'll end up here if we
 			// try to stat one. For now that's fine.
 			info->exists = false;
