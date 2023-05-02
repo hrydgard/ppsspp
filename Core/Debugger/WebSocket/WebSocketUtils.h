@@ -33,6 +33,18 @@
 
 using namespace json;
 
+struct WebSocketClientInfo {
+	WebSocketClientInfo(): name(), version(), allowed() {
+		allowed.emplace("logger", true);
+		allowed.emplace("game", true);
+		allowed.emplace("stepping", true);
+		allowed.emplace("input", true);
+	}
+	std::string name;
+	std::string version;
+	std::map <std::string, bool> allowed;
+};
+
 struct DebuggerErrorEvent {
 	DebuggerErrorEvent(const std::string m, LogTypes::LOG_LEVELS l, const JsonGet data = JsonValue(JSON_NULL))
 		: message(m), level(l) {
@@ -70,13 +82,14 @@ enum class DebuggerParamType {
 };
 
 struct DebuggerRequest {
-	DebuggerRequest(const char *n, net::WebSocketServer *w, const JsonGet &d)
-		: name(n), ws(w), data(d) {
+	DebuggerRequest(const char *n, net::WebSocketServer *w, const JsonGet &d, WebSocketClientInfo *client_info)
+		: name(n), ws(w), data(d), client(client_info) {
 	}
 
 	const char *name;
 	net::WebSocketServer *ws;
 	const JsonGet data;
+	WebSocketClientInfo *client;
 
 	void Fail(const std::string &message) {
 		ws->Send(DebuggerErrorEvent(message, LogTypes::LERROR, data));
