@@ -158,12 +158,8 @@ void ControlMapper::ForceReleaseVKey(int vkey) {
 	if (KeyMap::InputMappingsFromPspButton(vkey, &multiMappings, true)) {
 		for (const auto &entry : multiMappings) {
 			for (const auto &mapping : entry.mappings) {
-				int direction = 0;
-				if (mapping.IsAxis() && IsSignedAxis(mapping.Axis(&direction))) {
-					curInput_[mapping] = direction == -1 ? -1 : 1;
-				} else {
-					curInput_[mapping] = 0.0f;
-				}
+				curInput_[mapping] = 0.0f;
+				// Different logic for signed axes?
 				UpdatePSPState(mapping);
 			}
 		}
