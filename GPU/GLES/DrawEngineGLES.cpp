@@ -409,7 +409,7 @@ void DrawEngineGLES::DoFlush() {
 
 		int indsOffset = 0;
 		if (result.action == SW_NOT_READY)
-			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, indsOffset, maxIndex, &result);
+			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, indsOffset, DECODED_INDEX_BUFFER_SIZE / sizeof(uint16_t), maxIndex, &result);
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
@@ -428,7 +428,7 @@ void DrawEngineGLES::DoFlush() {
 				render_->BindVertexBuffer(softwareInputLayout_, vertexBuffer, vertexBufferOffset);
 				render_->BindIndexBuffer(indexBuffer);
 				render_->DrawIndexed(glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT, (void *)(intptr_t)indexBufferOffset);
-			} else {
+			} else if (result.drawNumTrans > 0) {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), &vertexBuffer);
 				render_->BindVertexBuffer(softwareInputLayout_, vertexBuffer, vertexBufferOffset);
 				render_->Draw(glprim[prim], 0, result.drawNumTrans);

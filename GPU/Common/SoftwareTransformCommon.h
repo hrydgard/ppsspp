@@ -67,13 +67,13 @@ public:
 	void SetProjMatrix(const float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale);
 	void Decode(int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result);
 	void DetectOffsetTexture(int maxIndex);
-	void BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *inds, int &indsOffset, int &maxIndex, SoftwareTransformResult *result);
+	void BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *inds, int &indsOffset, int indexBufferSize, int &maxIndex, SoftwareTransformResult *result);
 
 protected:
 	void CalcCullParams(float &minZValue, float &maxZValue);
-	void ExpandRectangles(int vertexCount, int &maxIndex, u16 *inds, int &indsOffset, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
-	void ExpandLines(int vertexCount, int &maxIndex, u16 *inds, int &indsOffset, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
-	void ExpandPoints(int vertexCount, int &maxIndex, u16 *inds, int &indsOffset, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
+	bool ExpandRectangles(int vertexCount, int &maxIndex, u16 *inds, int &indsOffset, int indexBufferSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
+	bool ExpandLines(int vertexCount, int &maxIndex, u16 *inds, int &indsOffset, int indexBufferSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
+	bool ExpandPoints(int vertexCount, int &maxIndex, u16 *inds, int &indsOffset, int indexBufferSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
 
 	const SoftwareTransformParams &params_;
 	Lin::Matrix4x4 projMatrix_;

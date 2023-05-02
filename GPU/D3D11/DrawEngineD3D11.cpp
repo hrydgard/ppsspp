@@ -643,7 +643,7 @@ rotateVBO:
 
 		int indsOffset = 0;
 		if (result.action == SW_NOT_READY)
-			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, indsOffset, maxIndex, &result);
+			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, indsOffset, DECODED_INDEX_BUFFER_SIZE / sizeof(uint16_t), maxIndex, &result);
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
@@ -681,11 +681,11 @@ rotateVBO:
 				UINT iOffset;
 				int iSize = sizeof(uint16_t) * result.drawNumTrans;
 				uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
-				memcpy(iptr, inds, iSize);
+				memcpy(iptr, inds + indsOffset, iSize);
 				pushInds_->EndPush(context_);
 				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
 				context_->DrawIndexed(result.drawNumTrans, 0, 0);
-			} else {
+			} else if (result.drawNumTrans > 0) {
 				context_->Draw(result.drawNumTrans, 0);
 			}
 		} else if (result.action == SW_CLEAR) {

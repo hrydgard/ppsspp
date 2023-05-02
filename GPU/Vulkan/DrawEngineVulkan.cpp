@@ -898,7 +898,7 @@ void DrawEngineVulkan::DoFlush() {
 		int indsOffset = 0;
 		if (result.action == SW_NOT_READY) {
 			swTransform.DetectOffsetTexture(maxIndex);
-			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, indsOffset, maxIndex, &result);
+			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, indsOffset, DECODED_INDEX_BUFFER_SIZE / sizeof(uint16_t), maxIndex, &result);
 		}
 
 		if (result.setSafeSize)
@@ -970,7 +970,7 @@ void DrawEngineVulkan::DoFlush() {
 				vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), 4, &vbuf);
 				ibOffset = (uint32_t)pushIndex_->Push(inds + indsOffset, sizeof(short) * result.drawNumTrans, 4, &ibuf);
 				renderManager->DrawIndexed(ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1, VK_INDEX_TYPE_UINT16);
-			} else {
+			} else if (result.drawNumTrans > 0) {
 				VkBuffer vbuf;
 				vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), 4, &vbuf);
 				renderManager->Draw(ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, result.drawNumTrans);
