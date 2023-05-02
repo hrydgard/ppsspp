@@ -35,6 +35,11 @@ public:
 	// Toggle swapping DPAD and Analog. Useful on some input devices with few buttons.
 	void ToggleSwapAxes();
 
+	// Call this when a Vkey press triggers leaving the screen you're using the controlmapper on. This can cause
+	// the loss of key-up events, which will confuse things later when you're back.
+	// Might replace this later by allowing through "key-up" and similar events to lower screens.
+	void ForceReleaseVKey(int vkey);
+
 	void GetDebugString(char *buffer, size_t bufSize) const;
 
 private:

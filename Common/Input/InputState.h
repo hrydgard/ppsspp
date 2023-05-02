@@ -87,7 +87,8 @@ inline int TranslateKeyCodeToAxis(int keyCode, int *direction) {
 		return 0;
 	int k = keyCode - AXIS_BIND_NKCODE_START;
 	// Even/odd for direction.
-	*direction = k & 1 ? -1 : 1;
+	if (direction)
+		*direction = k & 1 ? -1 : 1;
 	return k / 2;
 }
 
