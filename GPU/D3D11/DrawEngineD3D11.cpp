@@ -595,7 +595,7 @@ rotateVBO:
 			prim = GE_PRIM_TRIANGLES;
 		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
-		u16 *inds = decIndex;
+		u16 * const inds = decIndex;
 		SoftwareTransformResult result{};
 		SoftwareTransformParams params{};
 		params.decoded = decoded;
@@ -641,8 +641,9 @@ rotateVBO:
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
 		ApplyDrawState(prim);
 
+		int indsOffset = 0;
 		if (result.action == SW_NOT_READY)
-			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, maxIndex, &result);
+			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, indsOffset, maxIndex, &result);
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 

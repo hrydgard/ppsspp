@@ -855,7 +855,7 @@ void DrawEngineVulkan::DoFlush() {
 		if (prim == GE_PRIM_TRIANGLE_STRIP)
 			prim = GE_PRIM_TRIANGLES;
 
-		u16 *inds = decIndex;
+		u16 * const inds = decIndex;
 		SoftwareTransformResult result{};
 		SoftwareTransformParams params{};
 		params.decoded = decoded;
@@ -895,9 +895,10 @@ void DrawEngineVulkan::DoFlush() {
 		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
 		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
 			result.action = SW_NOT_READY;
+		int indsOffset = 0;
 		if (result.action == SW_NOT_READY) {
 			swTransform.DetectOffsetTexture(maxIndex);
-			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, maxIndex, &result);
+			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, indsOffset, maxIndex, &result);
 		}
 
 		if (result.setSafeSize)
@@ -967,7 +968,7 @@ void DrawEngineVulkan::DoFlush() {
 			if (result.drawIndexed) {
 				VkBuffer vbuf, ibuf;
 				vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), 4, &vbuf);
-				ibOffset = (uint32_t)pushIndex_->Push(inds, sizeof(short) * result.drawNumTrans, 4, &ibuf);
+				ibOffset = (uint32_t)pushIndex_->Push(inds + indsOffset, sizeof(short) * result.drawNumTrans, 4, &ibuf);
 				renderManager->DrawIndexed(ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1, VK_INDEX_TYPE_UINT16);
 			} else {
 				VkBuffer vbuf;
