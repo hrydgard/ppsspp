@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Debugger/WebSocket/ClientConfigSubscriber.h"
+#include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Common/StringUtils.h"
 
 DebuggerSubscriber *WebSocketClientConfigInit(DebuggerEventHandlerMap & map) {
