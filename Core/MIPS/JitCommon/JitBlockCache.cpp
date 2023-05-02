@@ -76,7 +76,7 @@ static uint64_t HashJitBlock(const JitBlock &b) {
 }
 
 JitBlockCache::JitBlockCache(MIPSState *mipsState, CodeBlockCommon *codeBlock) :
-	codeBlock_(codeBlock), blocks_(nullptr), num_blocks_(0) {
+	codeBlock_(codeBlock) {
 }
 
 JitBlockCache::~JitBlockCache() {
@@ -90,7 +90,8 @@ bool JitBlock::ContainsAddress(u32 em_address) {
 }
 
 bool JitBlockCache::IsFull() const {
-	return num_blocks_ >= MAX_NUM_BLOCKS - 1;
+	// -10 to safely leave space for some proxy blocks, which we don't check before we allocate (not ideal, but should work).
+	return num_blocks_ >= MAX_NUM_BLOCKS - 10;
 }
 
 void JitBlockCache::Init() {
