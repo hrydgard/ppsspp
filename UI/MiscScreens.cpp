@@ -133,12 +133,14 @@ public:
 		dc.Flush();
 		dc.BeginNoTex();
 
-		// Be sure to not overflow our vertex buffer
-		const float step = ceilf(24*bounds.w/ g_display.pixel_in_dps_x) > MAX_VERTS ? 24*bounds.w/(MAX_VERTS-48) : g_display.pixel_in_dps_x;
-
+		// 500 is enough for any resolution really. 24 * 500 = 12000 which fits handily in our UI vertex buffer (max 65536 per flush).
+		const int steps = std::max(20, std::min((int)g_display.dp_xres, 500));
+		float step = (float)g_display.dp_xres / (float)steps;
 		t *= speed;
-		for (float x = 0; x < bounds.w; x += step) {
-			float i = x * 1280/bounds.w;
+
+		for (int n = 0; n < steps; n++) {
+			float x = (float)n * step;
+			float i = x * 1280 / bounds.w;
 
 			float wave0 = sin(i*0.005+t*0.8)*0.05 + sin(i*0.002+t*0.25)*0.02 + sin(i*0.001+t*0.3)*0.03 + 0.625;
 			float wave1 = sin(i*0.0044+t*0.4)*0.07 + sin(i*0.003+t*0.1)*0.02 + sin(i*0.001+t*0.3)*0.01 + 0.625;
