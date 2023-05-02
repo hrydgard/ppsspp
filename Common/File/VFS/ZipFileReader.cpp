@@ -119,7 +119,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = true;
-		INFO_LOG(SYSTEM, "Found file: %s (%s)", info.name.c_str(), info.fullName.c_str());
+		// INFO_LOG(SYSTEM, "Found file: %s (%s)", info.name.c_str(), info.fullName.c_str());
 		listing->push_back(info);
 	}
 
@@ -138,7 +138,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 				continue;
 			}
 		}
-		INFO_LOG(SYSTEM, "Found dir: %s (%s)", info.name.c_str(), info.fullName.c_str());
+		// INFO_LOG(SYSTEM, "Found dir: %s (%s)", info.name.c_str(), info.fullName.c_str());
 		listing->push_back(info);
 	}
 
