@@ -347,6 +347,7 @@ public:
 		SUBPASS_FEEDBACK_BROKEN = 10,
 		GEOMETRY_SHADERS_SLOW_OR_BROKEN = 11,
 		ADRENO_RESOURCE_DEADLOCK = 12,
+		UNIFORM_INDEXING_BROKEN = 13,  // not a properly diagnosed issue, a workaround attempt: #17386
 		MAX_BUG,
 	};
 
