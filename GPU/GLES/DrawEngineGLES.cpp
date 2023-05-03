@@ -249,9 +249,20 @@ void DrawEngineGLES::Invalidate(InvalidationCallbackFlags flags) {
 void DrawEngineGLES::DoFlush() {
 	PROFILE_THIS_SCOPE("flush");
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
-	
-	// Attempt to gather some information (asserts now upload the game name).
-	_assert_(render_->IsInRenderPass());
+	VShaderID vsid;
+
+	if (!render_->IsInRenderPass()) {
+		// Something went badly wrong. Try to survive by simply skipping the draw, though.
+		_dbg_assert_msg_(false, "Trying to DoFlush while not in a render pass. This is bad.");
+		// can't goto bail here, skips too many variable initializations. So let's wipe the most important stuff.
+		indexGen.Reset();
+		decodedVerts_ = 0;
+		numDrawCalls = 0;
+		vertexCountInDrawCalls_ = 0;
+		decodeCounter_ = 0;
+		dcid_ = 0;
+		return;
+	}
 
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
@@ -265,7 +276,6 @@ void DrawEngineGLES::DoFlush() {
 
 	GEPrimitiveType prim = prevPrim_;
 
-	VShaderID vsid;
 	Shader *vshader = shaderManager_->ApplyVertexShader(CanUseHardwareTransform(prim), useHWTessellation_, dec_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode || !CanUseHardwareTransform(prim), &vsid);
 
 	GLRBuffer *vertexBuffer = nullptr;
