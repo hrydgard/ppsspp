@@ -554,6 +554,11 @@ void GLPushBuffer::Flush() {
 	// Must be called from the render thread.
 	_dbg_assert_(OnRenderThread());
 
+	if (buf_ >= buffers_.size()) {
+		_dbg_assert_msg_(false, "buf_ somehow got out of sync: %d vs %d", (int)buf_, (int)buffers_.size());
+		return;
+	}
+
 	buffers_[buf_].flushOffset = offset_;
 	if (!buffers_[buf_].deviceMemory && writePtr_) {
 		auto &info = buffers_[buf_];
