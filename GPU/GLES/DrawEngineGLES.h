@@ -97,7 +97,11 @@ public:
 		DoFlush();
 	}
 
-	void DispatchFlush() override { Flush(); }
+	void DispatchFlush() override {
+		if (!numDrawCalls)
+			return;
+		Flush();
+	}
 
 	GLPushBuffer *GetPushVertexBuffer() {
 		return frameData_[render_->GetCurFrame()].pushVertex;

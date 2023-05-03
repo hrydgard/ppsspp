@@ -177,7 +177,11 @@ public:
 		DoFlush();
 	}
 
-	void DispatchFlush() override { Flush(); }
+	void DispatchFlush() override {
+		if (!numDrawCalls)
+			return;
+		Flush();
+	}
 
 	VkPipelineLayout GetPipelineLayout() const {
 		return pipelineLayout_;
