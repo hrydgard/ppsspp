@@ -27,6 +27,7 @@
 #define HALF_CEIL(x) (x + 1) / 2 // Integer ceil = (int)ceil((float)x / 2.0f)
 
 // PSP compatible format so we can use the end of the pipeline in beziers etc
+// 8 + 4 + 12 + 12 = 36 bytes
 struct SimpleVertex {
 	float uv[2];
 	union {
