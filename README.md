@@ -25,6 +25,12 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.15.1
+====================
+- Assorted minor crash fixes ([#17374], [#17370], [#17392], [#17394])
+- Fix for non-png texture replacements when not listed in textures.ini ([#17380])
+- Fix for broken tilt d-pad controls ([#17393])
+
 What's new in 1.15
 ==================
 * Stutter caused by shader compilation has been reduced drastically ([#16873])
@@ -572,3 +578,9 @@ Credit goes to:
 [#16795]: https://github.com/hrydgard/ppsspp/issues/16795 "Improve the use of space on the main screen in vertical mode."
 [#16785]: https://github.com/hrydgard/ppsspp/issues/16785 "UI: Make vertical scrollbars directly draggable"
 [#16699]: https://github.com/hrydgard/ppsspp/issues/16699 "Fix smooth touchpad scrolling on Windows"
+[#17374]: https://github.com/hrydgard/ppsspp/issues/17374 "Assorted crash fixes and asserts"
+[#17370]: https://github.com/hrydgard/ppsspp/issues/17370 "Fix ScrollView crash (though the root cause is a race condition most likely)"
+[#17392]: https://github.com/hrydgard/ppsspp/issues/17392 "Misc crash fixes from mystery thread"
+[#17394]: https://github.com/hrydgard/ppsspp/issues/17394 "Bump the index/vertex cpu-side buffer sizes a little."
+[#17380]: https://github.com/hrydgard/ppsspp/issues/17380 "Pre-scan the root of texture packs for hash-named files."
+[#17393]: https://github.com/hrydgard/ppsspp/issues/17393 "Prevent tilt-controlled left/right dpad butons from getting stuck"
