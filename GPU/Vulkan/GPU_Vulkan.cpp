@@ -199,7 +199,7 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	uint32_t features = GPUCommonHW::CheckGPUFeatures();
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-	
+
 	// Could simplify this, but it's good as documentation.
 	switch (vulkan->GetPhysicalDeviceProperties().properties.vendorID) {
 	case VULKAN_VENDOR_AMD:
@@ -215,6 +215,8 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		// This check is probably not exactly accurate. But old drivers had problems with reverse-Z, just like AMD and Qualcomm.
 
 		// NOTE: Galaxy S8 has version 16 but still seems to have some problems with accurate depth.
+
+		// TODO: Move this check to thin3d_vulkan.
 
 		bool driverTooOld = IsHashMaliDriverVersion(vulkan->GetPhysicalDeviceProperties().properties)
 			|| VK_VERSION_MAJOR(vulkan->GetPhysicalDeviceProperties().properties.driverVersion) < 14;
@@ -292,6 +294,11 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	// if (msaaLevel_ != 0) {
 	features &= ~GPU_USE_FRAMEBUFFER_FETCH;
 	// }
+
+	// Attempt to workaround #17386
+	if (draw_->GetBugs().Has(Draw::Bugs::UNIFORM_INDEXING_BROKEN)) {
+		features &= ~GPU_USE_LIGHT_UBERSHADER;
+	}
 
 	return CheckGPUFeaturesLate(features);
 }
