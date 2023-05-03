@@ -48,10 +48,6 @@
 #include "UI/MainScreen.h"
 #include "UI/MiscScreens.h"
 
-#if PPSSPP_PLATFORM(UWP)
-#include "UWP/UWPHelpers/StorageManager.h"
-#endif
-
 static bool FolderSeemsToBeUsed(Path newMemstickFolder) {
 	// Inspect the potential new folder, quickly.
 	if (File::Exists(newMemstickFolder / "PSP/SAVEDATA") || File::Exists(newMemstickFolder / "SAVEDATA")) {

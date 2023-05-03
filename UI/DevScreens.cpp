@@ -67,10 +67,6 @@
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 
-#if PPSSPP_PLATFORM(UWP)
-#include "UWP/UWPHelpers/StorageManager.h"
-#endif
-
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 // Want to avoid including the full header here as it includes d3dx.h
