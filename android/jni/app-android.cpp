@@ -487,7 +487,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_BACK_BUTTON:
 		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
-		return true;
+		return deviceType != DEVICE_TYPE_VR;
 	case SYSPROP_HAS_FILE_BROWSER:
 		// It's only really needed with scoped storage, but why not make it available
 		// as far back as possible - works just fine.
@@ -496,7 +496,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		// Uses OPEN_DOCUMENT_TREE to let you select a folder.
 		// Doesn't actually mean it's usable though, in many early versions of Android
 		// this dialog is complete garbage and only lets you select subfolders of the Downloads folder.
-		return androidVersion >= 21;  // when ACTION_OPEN_DOCUMENT_TREE was added
+		return (androidVersion >= 21) && (deviceType != DEVICE_TYPE_VR);  // when ACTION_OPEN_DOCUMENT_TREE was added
 	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return false;  // Update if we add support in FileUtil.cpp: OpenFileInEditor
 	case SYSPROP_APP_GOLD:
@@ -527,7 +527,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 			return false;
 		}
 	case SYSPROP_HAS_KEYBOARD:
-		return true;
+		return deviceType != DEVICE_TYPE_VR;
 	default:
 		return false;
 	}
