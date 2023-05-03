@@ -30,6 +30,7 @@ What's new in 1.15.1
 - Assorted minor crash fixes ([#17374], [#17370], [#17392], [#17394])
 - Fix for non-png texture replacements when not listed in textures.ini ([#17380])
 - Fix for broken tilt d-pad controls ([#17393])
+- Workaround for Vulkan driver bugs on Mali-T8x0 series GPUs ([#17396])
 
 What's new in 1.15
 ==================
@@ -583,4 +584,4 @@ Credit goes to:
 [#17392]: https://github.com/hrydgard/ppsspp/issues/17392 "Misc crash fixes from mystery thread"
 [#17394]: https://github.com/hrydgard/ppsspp/issues/17394 "Bump the index/vertex cpu-side buffer sizes a little."
 [#17380]: https://github.com/hrydgard/ppsspp/issues/17380 "Pre-scan the root of texture packs for hash-named files."
-[#17393]: https://github.com/hrydgard/ppsspp/issues/17393 "Prevent tilt-controlled left/right dpad butons from getting stuck"
+[#17393]: https://github.com/hrydgard/ppsspp/issues/17393 "Prevent tilt-controlled left/right dpad butons from getting stuck"[#17396]: https://github.com/hrydgard/ppsspp/issues/17396 "Vulkan: Turn off the ubershader on Mali T880, T860 and T830 on old driver versions"
