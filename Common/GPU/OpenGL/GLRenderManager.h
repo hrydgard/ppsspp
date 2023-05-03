@@ -242,6 +242,7 @@ public:
 		uint8_t *localMemory = nullptr;
 		uint8_t *deviceMemory = nullptr;
 		size_t flushOffset = 0;
+		size_t size;
 	};
 
 	GLPushBuffer(GLRenderManager *render, GLuint target, size_t size);
