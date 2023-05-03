@@ -30,10 +30,6 @@
 
 class VertexDecoder;
 
-// int maxVerts = DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize; =~ 54000
-// 65536 * 6 * 2
-
-
 enum {
 	VERTEX_BUFFER_MAX = 65536,
 	DECODED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 2 * 36,  // 36 == sizeof(SimpleVertex)
