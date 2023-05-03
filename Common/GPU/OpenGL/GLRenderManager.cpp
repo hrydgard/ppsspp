@@ -640,7 +640,7 @@ void GLPushBuffer::Defragment() {
 	_dbg_assert_msg_(!OnRenderThread(), "Defragment must not run on the render thread");
 
 	if (buffers_.size() <= 1) {
-		// Let's take this chance to jetison localMemory we don't need.
+		// Let's take this opportunity to jettison any localMemory we don't need.
 		for (auto &info : buffers_) {
 			if (info.deviceMemory) {
 				FreeAlignedMemory(info.localMemory);
