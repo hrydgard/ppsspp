@@ -160,6 +160,8 @@ public:
 class FloatingSymbolsAnimation : public Animation {
 public:
 	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
+		dc.Flush();
+		dc.Begin();
 		float xres = dc.GetBounds().w;
 		float yres = dc.GetBounds().h;
 		if (last_xres != xres || last_yres != yres) {

@@ -153,6 +153,19 @@ void ControlMapper::UpdateAnalogOutput(int stick) {
 	setPSPAnalog_(stick, x, y);
 }
 
+void ControlMapper::ForceReleaseVKey(int vkey) {
+	std::vector<KeyMap::MultiInputMapping> multiMappings;
+	if (KeyMap::InputMappingsFromPspButton(vkey, &multiMappings, true)) {
+		for (const auto &entry : multiMappings) {
+			for (const auto &mapping : entry.mappings) {
+				curInput_[mapping] = 0.0f;
+				// Different logic for signed axes?
+				UpdatePSPState(mapping);
+			}
+		}
+	}
+}
+
 static int RotatePSPKeyCode(int x) {
 	switch (x) {
 	case CTRL_UP: return CTRL_RIGHT;
